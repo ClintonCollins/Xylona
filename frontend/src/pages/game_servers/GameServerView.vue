@@ -71,9 +71,13 @@
         <div v-if="readinessVisible" class="sidebar-section">
           <div class="sidebar-section-label">Readiness</div>
           <div class="readiness-list">
-            <div v-for="item in blockingReadinessItems" :key="item.kind" class="readiness-item">
+            <div
+              v-for="item in visibleReadinessItems"
+              :key="item.kind"
+              :class="{ 'readiness-item--complete': item.complete }"
+              class="readiness-item">
               <div class="readiness-item-icon">
-                <q-icon name="report_problem" />
+                <q-icon :name="item.complete ? 'verified' : 'report_problem'" />
               </div>
               <div class="readiness-item-body">
                 <div class="readiness-item-title">{{ readinessLabel(item.kind) }}</div>
@@ -87,6 +91,36 @@
                   label="Accept EULA"
                   unelevated
                   @click="acceptMinecraftEula" />
+                <div
+                  v-if="item.kind === 'steam_gslt' && hasPermission('game_server.settings')"
+                  class="readiness-secret-form">
+                  <q-input
+                    v-model="steamGSLT"
+                    autocomplete="off"
+                    class="readiness-secret-input"
+                    dense
+                    label="Steam GSLT"
+                    outlined
+                    type="password" />
+                  <div class="readiness-secret-actions">
+                    <q-btn
+                      :disable="steamGSLT.trim() === ''"
+                      :loading="savingSteamGSLT"
+                      color="primary"
+                      dense
+                      label="Save Token"
+                      unelevated
+                      @click="saveSteamGSLT" />
+                    <q-btn
+                      v-if="item.complete"
+                      :loading="clearingSteamGSLT"
+                      color="negative"
+                      dense
+                      flat
+                      label="Clear"
+                      @click="clearSteamGSLT" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -437,10 +471,12 @@ import {
 import type { GameServerReadinessItem, UpdateProgress } from '@/proto/xylona_pb'
 import {
   AcceptMinecraftEulaRequestSchema,
+  ClearSteamGSLTRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
   GetGameServerReadinessRequestSchema,
   GetUpdateTargetsRequestSchema,
+  SetSteamGSLTRequestSchema,
   StepStatus,
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema,
@@ -525,6 +561,9 @@ const softwareOperationContextFacts = ref<OperationContextFact[]>([])
 const readinessItems = ref<GameServerReadinessItem[]>([])
 const readinessLoading = ref(false)
 const acceptingMinecraftEula = ref(false)
+const steamGSLT = ref('')
+const savingSteamGSLT = ref(false)
+const clearingSteamGSLT = ref(false)
 const maxOperationOutputLines = 80
 
 const {
@@ -569,11 +608,16 @@ const showConsolePlaceholder = computed(
     !updateInProgress.value &&
     !softwareOperationInProgress.value,
 )
-const blockingReadinessItems = computed(() =>
-  readinessItems.value.filter((item) => item.required && item.blocking && !item.complete),
+const visibleReadinessItems = computed(() =>
+  readinessItems.value.filter(
+    (item) =>
+      item.required &&
+      (item.blocking ||
+        (item.kind === 'steam_gslt' && item.complete && hasPermission('game_server.settings'))),
+  ),
 )
 const readinessVisible = computed(
-  () => readinessLoading.value || blockingReadinessItems.value.length > 0,
+  () => readinessLoading.value || visibleReadinessItems.value.length > 0,
 )
 
 const connectionAddress = computed(() => {
@@ -757,12 +801,69 @@ async function acceptMinecraftEula() {
   }
 }
 
+async function saveSteamGSLT() {
+  savingSteamGSLT.value = true
+  try {
+    const request = create(SetSteamGSLTRequestSchema, {
+      serverId: gameServerId.value,
+      token: steamGSLT.value,
+    })
+    const response = await GetXylonaClient().setSteamGSLT(request)
+    readinessItems.value = response.items
+    steamGSLT.value = ''
+    $q.notify({
+      type: 'positive',
+      position: 'top-right',
+      caption: 'Steam GSLT saved.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption: 'Failed to save Steam GSLT: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    savingSteamGSLT.value = false
+  }
+}
+
+async function clearSteamGSLT() {
+  clearingSteamGSLT.value = true
+  try {
+    const request = create(ClearSteamGSLTRequestSchema, {
+      serverId: gameServerId.value,
+    })
+    const response = await GetXylonaClient().clearSteamGSLT(request)
+    readinessItems.value = response.items
+    steamGSLT.value = ''
+    $q.notify({
+      type: 'positive',
+      position: 'top-right',
+      caption: 'Steam GSLT cleared.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption: 'Failed to clear Steam GSLT: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    clearingSteamGSLT.value = false
+  }
+}
+
 function readinessLabel(kind: string): string {
   if (kind === 'minecraft_eula') {
     return 'Minecraft EULA'
   }
   if (kind === 'steam_gslt') {
-    return 'Steam token'
+    return 'Steam GSLT'
   }
   if (kind === 'hytale_account') {
     return 'Hytale account'
@@ -1278,12 +1379,21 @@ async function sendGameServerInput() {
   background: color-mix(in srgb, var(--xy-warning) 9%, var(--xy-surface-1));
 }
 
+.readiness-item--complete {
+  border-color: color-mix(in srgb, var(--xy-success) 35%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-success) 8%, var(--xy-surface-1));
+}
+
 .readiness-item-icon {
   color: var(--xy-warning);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 2px;
+}
+
+.readiness-item--complete .readiness-item-icon {
+  color: var(--xy-success);
 }
 
 .readiness-item-body {
@@ -1305,6 +1415,22 @@ async function sendGameServerInput() {
 
 .readiness-action {
   margin-top: var(--xy-space-sm);
+}
+
+.readiness-secret-form {
+  display: grid;
+  gap: var(--xy-space-xs);
+  margin-top: var(--xy-space-sm);
+}
+
+.readiness-secret-input {
+  min-width: 0;
+}
+
+.readiness-secret-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs);
 }
 
 /* ===== Software Card ===== */

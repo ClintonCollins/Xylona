@@ -39,7 +39,6 @@ type GameServer struct {
 	Directory                  string           `db:"directory" `
 	MaxMemoryMB                int64            `db:"max_memory_mb" `
 	BackupsEnabled             bool             `db:"backups_enabled" `
-	SteamGameServerLoginToken  string           `db:"steam_game_server_login_token" `
 	BackupDirectory            string           `db:"backup_directory" `
 	MaxBackups                 int64            `db:"max_backups" `
 	Version                    string           `db:"version" `
@@ -86,7 +85,7 @@ type gameServerR struct {
 func buildGameServerColumns(alias string) gameServerColumns {
 	return gameServerColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "steam_game_server_login_token", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars",
+			"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars",
 		).WithParent("game_server"),
 		tableAlias:                 alias,
 		ID:                         sqlite.Quote(alias, "id"),
@@ -103,7 +102,6 @@ func buildGameServerColumns(alias string) gameServerColumns {
 		Directory:                  sqlite.Quote(alias, "directory"),
 		MaxMemoryMB:                sqlite.Quote(alias, "max_memory_mb"),
 		BackupsEnabled:             sqlite.Quote(alias, "backups_enabled"),
-		SteamGameServerLoginToken:  sqlite.Quote(alias, "steam_game_server_login_token"),
 		BackupDirectory:            sqlite.Quote(alias, "backup_directory"),
 		MaxBackups:                 sqlite.Quote(alias, "max_backups"),
 		Version:                    sqlite.Quote(alias, "version"),
@@ -139,7 +137,6 @@ type gameServerColumns struct {
 	Directory                  sqlite.Expression
 	MaxMemoryMB                sqlite.Expression
 	BackupsEnabled             sqlite.Expression
-	SteamGameServerLoginToken  sqlite.Expression
 	BackupDirectory            sqlite.Expression
 	MaxBackups                 sqlite.Expression
 	Version                    sqlite.Expression
@@ -183,7 +180,6 @@ type GameServerSetter struct {
 	Directory                  omit.Val[string]     `db:"directory" `
 	MaxMemoryMB                omit.Val[int64]      `db:"max_memory_mb" `
 	BackupsEnabled             omit.Val[bool]       `db:"backups_enabled" `
-	SteamGameServerLoginToken  omit.Val[string]     `db:"steam_game_server_login_token" `
 	BackupDirectory            omit.Val[string]     `db:"backup_directory" `
 	MaxBackups                 omit.Val[int64]      `db:"max_backups" `
 	Version                    omit.Val[string]     `db:"version" `
@@ -202,7 +198,7 @@ type GameServerSetter struct {
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 30)
+	vals := make([]string, 0, 29)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -244,9 +240,6 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if s.BackupsEnabled.IsValue() {
 		vals = append(vals, "backups_enabled")
-	}
-	if s.SteamGameServerLoginToken.IsValue() {
-		vals = append(vals, "steam_game_server_login_token")
 	}
 	if s.BackupDirectory.IsValue() {
 		vals = append(vals, "backup_directory")
@@ -339,9 +332,6 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	if s.BackupsEnabled.IsValue() {
 		t.BackupsEnabled = s.BackupsEnabled.MustGet()
 	}
-	if s.SteamGameServerLoginToken.IsValue() {
-		t.SteamGameServerLoginToken = s.SteamGameServerLoginToken.MustGet()
-	}
 	if s.BackupDirectory.IsValue() {
 		t.BackupDirectory = s.BackupDirectory.MustGet()
 	}
@@ -403,7 +393,7 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 30)
+		vals := make([]bob.Expression, 0, 29)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -458,10 +448,6 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 
 		if s.BackupsEnabled.IsValue() {
 			vals = append(vals, sqlite.Arg(s.BackupsEnabled.MustGet()))
-		}
-
-		if s.SteamGameServerLoginToken.IsValue() {
-			vals = append(vals, sqlite.Arg(s.SteamGameServerLoginToken.MustGet()))
 		}
 
 		if s.BackupDirectory.IsValue() {
@@ -537,7 +523,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 30)
+	exprs := make([]bob.Expression, 0, 29)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -634,13 +620,6 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "backups_enabled")...),
 			sqlite.Arg(s.BackupsEnabled),
-		}})
-	}
-
-	if s.SteamGameServerLoginToken.IsValue() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "steam_game_server_login_token")...),
-			sqlite.Arg(s.SteamGameServerLoginToken),
 		}})
 	}
 
@@ -1781,7 +1760,6 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	Directory                  sqlite.WhereMod[Q, string]
 	MaxMemoryMB                sqlite.WhereMod[Q, int64]
 	BackupsEnabled             sqlite.WhereMod[Q, bool]
-	SteamGameServerLoginToken  sqlite.WhereMod[Q, string]
 	BackupDirectory            sqlite.WhereMod[Q, string]
 	MaxBackups                 sqlite.WhereMod[Q, int64]
 	Version                    sqlite.WhereMod[Q, string]
@@ -1819,7 +1797,6 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		Directory:                  sqlite.Where[Q, string](cols.Directory),
 		MaxMemoryMB:                sqlite.Where[Q, int64](cols.MaxMemoryMB),
 		BackupsEnabled:             sqlite.Where[Q, bool](cols.BackupsEnabled),
-		SteamGameServerLoginToken:  sqlite.Where[Q, string](cols.SteamGameServerLoginToken),
 		BackupDirectory:            sqlite.Where[Q, string](cols.BackupDirectory),
 		MaxBackups:                 sqlite.Where[Q, int64](cols.MaxBackups),
 		Version:                    sqlite.Where[Q, string](cols.Version),

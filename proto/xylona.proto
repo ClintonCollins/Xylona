@@ -63,6 +63,8 @@ service Xylona {
   rpc ClearGameServerSecretEnv (ClearGameServerSecretEnvRequest) returns (ClearGameServerSecretEnvResponse) {}
   rpc GetGameServerReadiness (GetGameServerReadinessRequest) returns (GetGameServerReadinessResponse) {}
   rpc AcceptMinecraftEula (AcceptMinecraftEulaRequest) returns (AcceptMinecraftEulaResponse) {}
+  rpc SetSteamGSLT (SetSteamGSLTRequest) returns (SetSteamGSLTResponse) {}
+  rpc ClearSteamGSLT (ClearSteamGSLTRequest) returns (ClearSteamGSLTResponse) {}
   //  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
@@ -522,6 +524,23 @@ message AcceptMinecraftEulaRequest {
 }
 
 message AcceptMinecraftEulaResponse {
+  repeated GameServerReadinessItem items = 1;
+}
+
+message SetSteamGSLTRequest {
+  string server_id = 1;
+  string token = 2;
+}
+
+message SetSteamGSLTResponse {
+  repeated GameServerReadinessItem items = 1;
+}
+
+message ClearSteamGSLTRequest {
+  string server_id = 1;
+}
+
+message ClearSteamGSLTResponse {
   repeated GameServerReadinessItem items = 1;
 }
 

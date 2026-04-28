@@ -145,6 +145,10 @@ const (
 	// XylonaAcceptMinecraftEulaProcedure is the fully-qualified name of the Xylona's
 	// AcceptMinecraftEula RPC.
 	XylonaAcceptMinecraftEulaProcedure = "/xylona.Xylona/AcceptMinecraftEula"
+	// XylonaSetSteamGSLTProcedure is the fully-qualified name of the Xylona's SetSteamGSLT RPC.
+	XylonaSetSteamGSLTProcedure = "/xylona.Xylona/SetSteamGSLT"
+	// XylonaClearSteamGSLTProcedure is the fully-qualified name of the Xylona's ClearSteamGSLT RPC.
+	XylonaClearSteamGSLTProcedure = "/xylona.Xylona/ClearSteamGSLT"
 	// XylonaListGameServersProcedure is the fully-qualified name of the Xylona's ListGameServers RPC.
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
 	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
@@ -406,6 +410,8 @@ type XylonaClient interface {
 	ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error)
 	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
+	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
+	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -795,6 +801,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaAcceptMinecraftEulaProcedure,
 			connect.WithSchema(xylonaMethods.ByName("AcceptMinecraftEula")),
+			connect.WithClientOptions(opts...),
+		),
+		setSteamGSLT: connect.NewClient[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse](
+			httpClient,
+			baseURL+XylonaSetSteamGSLTProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetSteamGSLT")),
+			connect.WithClientOptions(opts...),
+		),
+		clearSteamGSLT: connect.NewClient[xylona.ClearSteamGSLTRequest, xylona.ClearSteamGSLTResponse](
+			httpClient,
+			baseURL+XylonaClearSteamGSLTProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ClearSteamGSLT")),
 			connect.WithClientOptions(opts...),
 		),
 		listGameServers: connect.NewClient[xylona.ListGameServersRequest, xylona.ListGameServersResponse](
@@ -1311,6 +1329,8 @@ type xylonaClient struct {
 	clearGameServerSecretEnv         *connect.Client[xylona.ClearGameServerSecretEnvRequest, xylona.ClearGameServerSecretEnvResponse]
 	getGameServerReadiness           *connect.Client[xylona.GetGameServerReadinessRequest, xylona.GetGameServerReadinessResponse]
 	acceptMinecraftEula              *connect.Client[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse]
+	setSteamGSLT                     *connect.Client[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse]
+	clearSteamGSLT                   *connect.Client[xylona.ClearSteamGSLTRequest, xylona.ClearSteamGSLTResponse]
 	listGameServers                  *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
 	queryGameServer                  *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
 	getUpdateTargets                 *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
@@ -1623,6 +1643,16 @@ func (c *xylonaClient) GetGameServerReadiness(ctx context.Context, req *connect.
 // AcceptMinecraftEula calls xylona.Xylona.AcceptMinecraftEula.
 func (c *xylonaClient) AcceptMinecraftEula(ctx context.Context, req *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error) {
 	return c.acceptMinecraftEula.CallUnary(ctx, req)
+}
+
+// SetSteamGSLT calls xylona.Xylona.SetSteamGSLT.
+func (c *xylonaClient) SetSteamGSLT(ctx context.Context, req *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error) {
+	return c.setSteamGSLT.CallUnary(ctx, req)
+}
+
+// ClearSteamGSLT calls xylona.Xylona.ClearSteamGSLT.
+func (c *xylonaClient) ClearSteamGSLT(ctx context.Context, req *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error) {
+	return c.clearSteamGSLT.CallUnary(ctx, req)
 }
 
 // ListGameServers calls xylona.Xylona.ListGameServers.
@@ -2064,6 +2094,8 @@ type XylonaHandler interface {
 	ClearGameServerSecretEnv(context.Context, *connect.Request[xylona.ClearGameServerSecretEnvRequest]) (*connect.Response[xylona.ClearGameServerSecretEnvResponse], error)
 	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
+	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
+	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -2449,6 +2481,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaAcceptMinecraftEulaProcedure,
 		svc.AcceptMinecraftEula,
 		connect.WithSchema(xylonaMethods.ByName("AcceptMinecraftEula")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetSteamGSLTHandler := connect.NewUnaryHandler(
+		XylonaSetSteamGSLTProcedure,
+		svc.SetSteamGSLT,
+		connect.WithSchema(xylonaMethods.ByName("SetSteamGSLT")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaClearSteamGSLTHandler := connect.NewUnaryHandler(
+		XylonaClearSteamGSLTProcedure,
+		svc.ClearSteamGSLT,
+		connect.WithSchema(xylonaMethods.ByName("ClearSteamGSLT")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListGameServersHandler := connect.NewUnaryHandler(
@@ -3009,6 +3053,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetGameServerReadinessHandler.ServeHTTP(w, r)
 		case XylonaAcceptMinecraftEulaProcedure:
 			xylonaAcceptMinecraftEulaHandler.ServeHTTP(w, r)
+		case XylonaSetSteamGSLTProcedure:
+			xylonaSetSteamGSLTHandler.ServeHTTP(w, r)
+		case XylonaClearSteamGSLTProcedure:
+			xylonaClearSteamGSLTHandler.ServeHTTP(w, r)
 		case XylonaListGameServersProcedure:
 			xylonaListGameServersHandler.ServeHTTP(w, r)
 		case XylonaQueryGameServerProcedure:
@@ -3358,6 +3406,14 @@ func (UnimplementedXylonaHandler) GetGameServerReadiness(context.Context, *conne
 
 func (UnimplementedXylonaHandler) AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AcceptMinecraftEula is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetSteamGSLT is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ClearSteamGSLT is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {

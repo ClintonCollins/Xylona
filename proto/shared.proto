@@ -204,7 +204,8 @@ message GameServer {
   int64 max_backups = 17;
   google.protobuf.Timestamp created_at = 18;
   google.protobuf.Timestamp updated_at = 19;
-  string steam_game_server_login_token = 20;
+  reserved 20;
+  reserved "steam_game_server_login_token";
   string user_name = 21;
   string game_name = 22;
   int64 cpu_percent = 23;

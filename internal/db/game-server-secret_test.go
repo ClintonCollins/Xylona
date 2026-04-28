@@ -170,6 +170,73 @@ func TestGameServerSecretEnvCascadeDelete(t *testing.T) {
 	}
 }
 
+func TestGameServerSecretSteamGSLTRoundTrip(t *testing.T) {
+	conn := newEncryptedConnection(t, "game-server-secret-steam.sqlite")
+	seedRBACFixture(t, conn)
+
+	errSet := conn.SetGameServerSecret(
+		"server-local-1",
+		GameServerSecretKindSteamGSLT,
+		GameServerSecretNameSteamGSLT,
+		"steam-token",
+		"user-admin",
+	)
+	if errSet != nil {
+		t.Fatalf("SetGameServerSecret(steam_gslt) error = %v", errSet)
+	}
+
+	configured, errConfigured := conn.HasGameServerSecret(
+		"server-local-1",
+		GameServerSecretKindSteamGSLT,
+		"TOKEN",
+	)
+	if errConfigured != nil {
+		t.Fatalf("HasGameServerSecret(steam_gslt) error = %v", errConfigured)
+	}
+	if !configured {
+		t.Fatal("HasGameServerSecret(steam_gslt) = false, want true")
+	}
+
+	value, ok, errDecrypt := conn.DecryptGameServerSecret(
+		"server-local-1",
+		GameServerSecretKindSteamGSLT,
+		"token",
+	)
+	if errDecrypt != nil {
+		t.Fatalf("DecryptGameServerSecret(steam_gslt) error = %v", errDecrypt)
+	}
+	if !ok {
+		t.Fatal("DecryptGameServerSecret(steam_gslt) ok = false, want true")
+	}
+	if value != "steam-token" {
+		t.Fatalf("DecryptGameServerSecret(steam_gslt) = %q, want %q", value, "steam-token")
+	}
+
+	envStates, errEnvStates := conn.ListGameServerSecretEnvStates("server-local-1")
+	if errEnvStates != nil {
+		t.Fatalf("ListGameServerSecretEnvStates() error = %v", errEnvStates)
+	}
+	if len(envStates) != 0 {
+		t.Fatalf("ListGameServerSecretEnvStates() length = %d, want Steam secret excluded", len(envStates))
+	}
+
+	errClear := conn.ClearGameServerSecret("server-local-1", GameServerSecretKindSteamGSLT, "TOKEN")
+	if errClear != nil {
+		t.Fatalf("ClearGameServerSecret(steam_gslt) error = %v", errClear)
+	}
+	configuredAfterClear, errConfiguredAfterClear := conn.HasGameServerSecret(
+		"server-local-1",
+		GameServerSecretKindSteamGSLT,
+		"token",
+	)
+	if errConfiguredAfterClear != nil {
+		t.Fatalf("HasGameServerSecret(steam_gslt after clear) error = %v", errConfiguredAfterClear)
+	}
+	if configuredAfterClear {
+		t.Fatal("HasGameServerSecret(steam_gslt after clear) = true, want false")
+	}
+}
+
 func TestGameServerSecretEnvCaseDuplicateMigrationKeepsNewest(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "secret-duplicate-migration.sqlite")
 	conn, errNew := NewConnection(context.Background(), dbPath)

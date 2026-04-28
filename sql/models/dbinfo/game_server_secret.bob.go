@@ -80,6 +80,30 @@ var GameServerSecrets = Table[
 		},
 	},
 	Indexes: gameServerSecretIndexes{
+		IdxGameServerSecretServerKindLowerName: index{
+			Type: "c",
+			Name: "idx_game_server_secret_server_kind_lower_name",
+			Columns: []indexColumn{
+				{
+					Name:         "game_server_id",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+				{
+					Name:         "kind",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+				{
+					Name:         "lower(name)",
+					Desc:         null.FromCond(false, true),
+					IsExpression: true,
+				},
+			},
+			Unique:  true,
+			Comment: "",
+			Partial: false,
+		},
 		IdxGameServerSecretServerKind: index{
 			Type: "c",
 			Name: "idx_game_server_secret_server_kind",
@@ -170,13 +194,14 @@ func (c gameServerSecretColumns) AsSlice() []column {
 }
 
 type gameServerSecretIndexes struct {
-	IdxGameServerSecretServerKind    index
-	SqliteAutoindexGameServerSecret1 index
+	IdxGameServerSecretServerKindLowerName index
+	IdxGameServerSecretServerKind          index
+	SqliteAutoindexGameServerSecret1       index
 }
 
 func (i gameServerSecretIndexes) AsSlice() []index {
 	return []index{
-		i.IdxGameServerSecretServerKind, i.SqliteAutoindexGameServerSecret1,
+		i.IdxGameServerSecretServerKindLowerName, i.IdxGameServerSecretServerKind, i.SqliteAutoindexGameServerSecret1,
 	}
 }
 

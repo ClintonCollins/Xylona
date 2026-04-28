@@ -141,15 +141,6 @@ var GameServers = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		SteamGameServerLoginToken: column{
-			Name:      "steam_game_server_login_token",
-			DBType:    "TEXT",
-			Default:   "''",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		BackupDirectory: column{
 			Name:      "backup_directory",
 			DBType:    "TEXT",
@@ -383,7 +374,6 @@ type gameServerColumns struct {
 	Directory                  column
 	MaxMemoryMB                column
 	BackupsEnabled             column
-	SteamGameServerLoginToken  column
 	BackupDirectory            column
 	MaxBackups                 column
 	Version                    column
@@ -403,7 +393,7 @@ type gameServerColumns struct {
 
 func (c gameServerColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.SteamGameServerLoginToken, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches, c.AutoRestartEnabled, c.AutoRestartMaxRetries, c.AutoRestartCooldownSeconds, c.EnvVars,
+		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches, c.AutoRestartEnabled, c.AutoRestartMaxRetries, c.AutoRestartCooldownSeconds, c.EnvVars,
 	}
 }
 

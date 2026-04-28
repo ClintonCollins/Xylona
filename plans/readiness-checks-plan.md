@@ -12,7 +12,7 @@
 ## Progress
 
 - [x] Phase 1: Readiness storage + Minecraft EULA
-- [ ] Phase 2: Encrypted Steam GSLT
+- [x] Phase 2: Encrypted Steam GSLT
 - [ ] Phase 3: Hytale account link
 - [ ] Frontend readiness UI
 - [ ] Final validation
@@ -49,36 +49,36 @@
 - [x] Add authenticated readiness RPCs:
   - `GetGameServerReadiness(server_id)` requires existing server view permission.
   - `AcceptMinecraftEula(server_id)` requires existing server settings permission.
-- [ ] Keep `GetGameServerReadiness` responses small: `kind`, `required`, `complete`, `blocking`, `message`, and minimal public metadata.
+- [x] Keep `GetGameServerReadiness` responses small: `kind`, `required`, `complete`, `blocking`, `message`, and minimal public metadata.
 
 ## Phase 2: Encrypted Steam GSLT
 
-- [ ] Reuse existing `game_server_secret` typed helpers; add a narrow secret kind for Steam GSLT.
+- [x] Reuse existing `game_server_secret` typed helpers; add a narrow secret kind for Steam GSLT.
 - [ ] Reuse existing `LaunchEnv` capability/merge only if future Steam work needs launch-only env.
 - [ ] Do not add duplicate node capability, proto, supervisor, or process env plumbing in this plan.
 
-- [ ] Extend readiness kind helpers to include `steam_gslt`.
-- [ ] Remove old Steam plaintext storage:
-  - remove `steam_game_server_login_token` from `GameServer` proto
-  - reserve field `20` and the old field name
-  - add a migration that drops `game_server.steam_game_server_login_token`
-  - regenerate protobuf and SQL models
-  - remove all Go/TS references to the old field
-  - do not add fallback, migration, or write-only compatibility behavior
-  - existing plaintext tokens are intentionally discarded; admins re-enter tokens through the new secret UI
+- [x] Extend readiness kind helpers to include `steam_gslt`.
+- [x] Remove old Steam plaintext storage:
+  - [x] remove `steam_game_server_login_token` from `GameServer` proto
+  - [x] reserve field `20` and the old field name
+  - [x] add a migration that drops `game_server.steam_game_server_login_token`
+  - [x] regenerate protobuf and SQL models
+  - [x] remove all Go/TS references to the old field
+  - [x] do not add fallback, migration, or write-only compatibility behavior
+  - [x] existing plaintext tokens are intentionally discarded; admins re-enter tokens through the new secret UI
 
-- [ ] Steam GSLT v1 scope:
-  - store
-  - clear
-  - migrate
-  - report configured/missing
-- [ ] Do not add generic `{{STEAM_GSLT}}` secret args in this plan.
-- [ ] If a specific game later needs command-line GSLT delivery, create a separate game-specific plan with explicit secret-arg redaction/capability work.
+- [x] Steam GSLT v1 scope:
+  - [x] store
+  - [x] clear
+  - [x] migrate
+  - [x] report configured/missing
+- [x] Do not add generic `{{STEAM_GSLT}}` secret args in this plan.
+- [x] If a specific game later needs command-line GSLT delivery, create a separate game-specific plan with explicit secret-arg redaction/capability work.
 
-- [ ] Add Steam readiness RPCs:
-  - `SetSteamGSLT(server_id, token)` requires server settings permission.
-  - `ClearSteamGSLT(server_id)` requires server settings permission.
-  - `GetGameServerReadiness` reports configured/missing state and never returns the token.
+- [x] Add Steam readiness RPCs:
+  - [x] `SetSteamGSLT(server_id, token)` requires server settings permission.
+  - [x] `ClearSteamGSLT(server_id)` requires server settings permission.
+  - [x] `GetGameServerReadiness` reports configured/missing state and never returns the token.
 
 ## Phase 3: Hytale Account Link
 
@@ -125,10 +125,10 @@
 ## Frontend
 
 - [ ] Add one compact Readiness panel on the game-server detail page near start controls.
-- [ ] Add a Minecraft EULA checkbox/control to the create flow before install.
+- [x] Add a Minecraft EULA checkbox/control to the create flow before install.
 - [ ] Show only missing/blocking items and direct actions:
-  - accept Minecraft EULA
-  - set Steam token
+  - [x] accept Minecraft EULA
+  - [x] set Steam token
   - link Hytale account
 - [ ] Do not duplicate full readiness logic in list/bulk actions; rely on backend failed-precondition errors there.
 - [ ] Never display stored secrets back to the UI; token inputs are set/clear only.
@@ -143,9 +143,9 @@
   - install auto-start behavior
   - readiness table validation
   - nullable `updated_by_user_id` paths
-  - Steam plaintext column removal
-  - old Steam proto field reservation
-  - Steam secret storage through `game_server_secret`
+  - [x] Steam plaintext column removal
+  - [x] old Steam proto field reservation
+  - [x] Steam secret storage through `game_server_secret`
   - LaunchEnv capability fail-closed behavior for readiness-auth launch-only env
   - Hytale flow binding
   - in-memory profile selection
@@ -158,7 +158,7 @@
   - create-flow EULA control
   - readiness panel state/actions for each check
   - start button handles backend failed-precondition errors
-  - token fields are set/clear only and never echo saved secrets
+  - [x] token fields are set/clear only and never echo saved secrets
 
 - [ ] Validation:
   - focused `go test -race -count=1` packages after each phase

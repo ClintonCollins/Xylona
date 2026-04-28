@@ -2,6 +2,8 @@ no_factory: true
 wipe: true
 sqlite:
   dsn: "../data.sqlite"
+  except:
+    game_server_readiness:
 plugins_preset: 'none' # Valid values are "default", "all" or "none".
 plugins:
   dbinfo:

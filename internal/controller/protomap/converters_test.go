@@ -54,30 +54,29 @@ func TestGameServerModelStatusToProtoStatusCases(t *testing.T) {
 func TestGameServerProtoToModel(t *testing.T) {
 	now := time.Now().Truncate(time.Second)
 	input := &xylona.GameServer{
-		Id:                        "gs-1",
-		UserId:                    "user-1",
-		Name:                      "My Server",
-		GameId:                    "game-1",
-		StartArgsPatches:          `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
-		Status:                    xylona.Status_ONLINE,
-		SetMaxPlayers:             32,
-		MaxPlayers:                64,
-		Map:                       "de_dust2",
-		Ip:                        &xylona.IP{Address: "192.168.1.1"},
-		Port:                      27015,
-		QueryPort:                 27016,
-		Directory:                 "/srv/game",
-		MaxMemoryMb:               4096,
-		BackupsEnabled:            true,
-		SteamGameServerLoginToken: "token-abc",
-		BackupDirectory:           "/backups",
-		MaxBackups:                5,
-		NodeId:                    "node-1",
-		SelectedTarget:            "1.21.4",
-		SelectedTargetPinned:      true,
-		SelectedVariantId:         "vanilla",
-		CreatedAt:                 timestamppb.New(now),
-		UpdatedAt:                 timestamppb.New(now),
+		Id:                   "gs-1",
+		UserId:               "user-1",
+		Name:                 "My Server",
+		GameId:               "game-1",
+		StartArgsPatches:     `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
+		Status:               xylona.Status_ONLINE,
+		SetMaxPlayers:        32,
+		MaxPlayers:           64,
+		Map:                  "de_dust2",
+		Ip:                   &xylona.IP{Address: "192.168.1.1"},
+		Port:                 27015,
+		QueryPort:            27016,
+		Directory:            "/srv/game",
+		MaxMemoryMb:          4096,
+		BackupsEnabled:       true,
+		BackupDirectory:      "/backups",
+		MaxBackups:           5,
+		NodeId:               "node-1",
+		SelectedTarget:       "1.21.4",
+		SelectedTargetPinned: true,
+		SelectedVariantId:    "vanilla",
+		CreatedAt:            timestamppb.New(now),
+		UpdatedAt:            timestamppb.New(now),
 	}
 
 	got := GameServerProtoToModel(input)
@@ -115,9 +114,6 @@ func TestGameServerProtoToModel(t *testing.T) {
 	if !got.BackupsEnabled {
 		t.Errorf("BackupsEnabled = %v, want true", got.BackupsEnabled)
 	}
-	if got.SteamGameServerLoginToken != "token-abc" {
-		t.Errorf("SteamGameServerLoginToken = %q, want %q", got.SteamGameServerLoginToken, "token-abc")
-	}
 	if got.NodeID != "node-1" {
 		t.Errorf("NodeID = %q, want %q", got.NodeID, "node-1")
 	}
@@ -143,30 +139,29 @@ func TestGameServerModelToProto(t *testing.T) {
 
 	t.Run("fully populated with relations", func(t *testing.T) {
 		input := &models.GameServer{
-			ID:                        "gs-1",
-			UserID:                    "user-1",
-			Name:                      "My Server",
-			GameID:                    "game-1",
-			StartArgsPatches:          `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
-			Status:                    "ONLINE",
-			SetPlayers:                32,
-			MaxPlayers:                64,
-			Map:                       "de_dust2",
-			IP:                        "192.168.1.1",
-			Port:                      27015,
-			QueryPort:                 27016,
-			Directory:                 "/srv/game",
-			MaxMemoryMB:               4096,
-			BackupsEnabled:            true,
-			SteamGameServerLoginToken: "token-abc",
-			BackupDirectory:           "/backups",
-			MaxBackups:                5,
-			Version:                   "1.0.0",
-			NodeID:                    "node-1",
-			Branch:                    "1.21.4",
-			TargetPinned:              true,
-			CreatedAt:                 now,
-			UpdatedAt:                 now,
+			ID:               "gs-1",
+			UserID:           "user-1",
+			Name:             "My Server",
+			GameID:           "game-1",
+			StartArgsPatches: `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
+			Status:           "ONLINE",
+			SetPlayers:       32,
+			MaxPlayers:       64,
+			Map:              "de_dust2",
+			IP:               "192.168.1.1",
+			Port:             27015,
+			QueryPort:        27016,
+			Directory:        "/srv/game",
+			MaxMemoryMB:      4096,
+			BackupsEnabled:   true,
+			BackupDirectory:  "/backups",
+			MaxBackups:       5,
+			Version:          "1.0.0",
+			NodeID:           "node-1",
+			Branch:           "1.21.4",
+			TargetPinned:     true,
+			CreatedAt:        now,
+			UpdatedAt:        now,
 		}
 		input.R.Game = &models.Game{Name: "Counter-Strike"}
 		input.R.User = &models.User{UserName: "admin"}
