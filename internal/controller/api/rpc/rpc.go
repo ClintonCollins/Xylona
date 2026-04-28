@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/securecookie"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/mailer"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
@@ -63,6 +64,7 @@ type XylonaService struct {
 	taskScheduler                  *scheduler.Scheduler
 	remoteVersionRefreshMu         sync.Mutex
 	remoteVersionRefreshCalls      map[string]*remoteVersionRefreshCall
+	hytaleAuth                     *readiness.HytaleDeviceAuthManager
 }
 
 type remoteVersionRefreshCall struct {
@@ -118,7 +120,15 @@ func NewXylonaService(
 		installTracker:   tracker,
 		versionState:     versionState,
 		userService:      usermgmt.NewService(database),
+		hytaleAuth:       readiness.NewHytaleDeviceAuthManager(nil),
 	}, nil
+}
+
+func (xs *XylonaService) hytaleAuthManager() *readiness.HytaleDeviceAuthManager {
+	if xs.hytaleAuth == nil {
+		xs.hytaleAuth = readiness.NewHytaleDeviceAuthManager(nil)
+	}
+	return xs.hytaleAuth
 }
 
 func (xs *XylonaService) getNotificationChannelTestLimiter() *notificationChannelTestRateLimiter {

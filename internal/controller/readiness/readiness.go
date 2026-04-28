@@ -74,6 +74,19 @@ func List(ctx context.Context, database *db.Connection, gameServer *models.GameS
 		}
 		items = append(items, item)
 	}
+	if RequiresHytaleAccount(gameServer) {
+		item, errItem := HytaleAccountItem(ctx, database, gameServer, client, false)
+		if errItem != nil {
+			item = Item{
+				Kind:     KindHytaleAccount,
+				Required: true,
+				Complete: false,
+				Blocking: true,
+				Message:  "Hytale account status could not be read: " + errItem.Error(),
+			}
+		}
+		items = append(items, item)
+	}
 	return items, nil
 }
 
@@ -94,6 +107,16 @@ func CheckStart(ctx context.Context, database *db.Connection, gameServer *models
 
 	if requiresSteamGSLT(gameServer) {
 		item, errItem := steamGSLTItem(database, gameServer)
+		if errItem != nil {
+			return errItem
+		}
+		if item.Blocking {
+			return errors.New(item.Message)
+		}
+	}
+
+	if RequiresHytaleAccount(gameServer) {
+		item, errItem := HytaleAccountItem(ctx, database, gameServer, client, true)
 		if errItem != nil {
 			return errItem
 		}
@@ -129,7 +152,11 @@ func PersistMinecraftEULAAccepted(database *db.Connection, gameServerID string, 
 	if errData != nil {
 		return errData
 	}
-	return database.UpsertGameServerReadiness(gameServerID, KindMinecraftEULA, data, userID)
+	errPersist := database.UpsertGameServerReadiness(gameServerID, KindMinecraftEULA, data, userID)
+	if errPersist != nil {
+		return fmt.Errorf("persist minecraft EULA readiness: %w", errPersist)
+	}
+	return nil
 }
 
 // SetSteamGSLT stores a Steam Game Server Login Token as an encrypted readiness secret.
@@ -141,13 +168,17 @@ func SetSteamGSLT(database *db.Connection, gameServerID string, token string, us
 	if trimmedToken == "" {
 		return errors.New("steam GSLT is required")
 	}
-	return database.SetGameServerSecret(
+	errPersist := database.SetGameServerSecret(
 		gameServerID,
 		db.GameServerSecretKindSteamGSLT,
 		db.GameServerSecretNameSteamGSLT,
 		trimmedToken,
 		userID,
 	)
+	if errPersist != nil {
+		return fmt.Errorf("store steam GSLT: %w", errPersist)
+	}
+	return nil
 }
 
 // ClearSteamGSLT removes a configured Steam Game Server Login Token.
@@ -155,11 +186,15 @@ func ClearSteamGSLT(database *db.Connection, gameServerID string) error {
 	if database == nil {
 		return errors.New("database is missing")
 	}
-	return database.ClearGameServerSecret(
+	errClear := database.ClearGameServerSecret(
 		gameServerID,
 		db.GameServerSecretKindSteamGSLT,
 		db.GameServerSecretNameSteamGSLT,
 	)
+	if errClear != nil {
+		return fmt.Errorf("clear steam GSLT: %w", errClear)
+	}
+	return nil
 }
 
 func minecraftEULAItem(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client nodeclient.NodeClient, repairFile bool) (Item, error) {
@@ -243,7 +278,7 @@ func steamGSLTItem(database *db.Connection, gameServer *models.GameServer) (Item
 		db.GameServerSecretNameSteamGSLT,
 	)
 	if errConfigured != nil {
-		return item, errConfigured
+		return item, fmt.Errorf("check steam GSLT: %w", errConfigured)
 	}
 	if configured {
 		item.Complete = true
@@ -272,7 +307,7 @@ func minecraftEULAAcceptedFromDB(database *db.Connection, gameServerID string) (
 		if errors.Is(errGet, sql.ErrNoRows) {
 			return false, false, nil
 		}
-		return false, false, errGet
+		return false, false, fmt.Errorf("load minecraft EULA readiness: %w", errGet)
 	}
 
 	var data minecraftEULAPublicData
@@ -290,11 +325,10 @@ func readMinecraftEULA(ctx context.Context, gameServer *models.GameServer, clien
 
 	data, errRead := client.ReadFile(ctx, gameServer.Directory, minecraftEULAFileName)
 	if errRead != nil {
-		return false, errRead
+		return false, fmt.Errorf("read minecraft EULA file: %w", errRead)
 	}
 
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.EqualFold(trimmed, "eula=true") {
 			return true, nil

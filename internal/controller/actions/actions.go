@@ -107,6 +107,8 @@ type Instance struct {
 	versionRefreshCalls  map[string]*versionRefreshCall
 	backupCreateMu       sync.Mutex
 	backupCreateCalls    map[string]*backupCreateCall
+	hytaleClient         readiness.HytaleClient
+	hytaleLaunchLocks    *readiness.HytaleLaunchLocks
 	localNodeID          string
 	restartState         *restartStateMap
 	exitHooks            *exitHookRegistry
@@ -131,6 +133,14 @@ func (inst *Instance) SetVersionBroadcaster(b VersionBroadcaster) {
 // SetBackupProgressBroadcaster sets the websocket-facing broadcaster for backup progress.
 func (inst *Instance) SetBackupProgressBroadcaster(b BackupProgressBroadcaster) {
 	inst.backupBroadcaster = b
+}
+
+// SetHytaleClient overrides the Hytale client used by readiness launch prep.
+func (inst *Instance) SetHytaleClient(client readiness.HytaleClient) {
+	if client == nil {
+		client = readiness.NewHytaleHTTPClient(nil)
+	}
+	inst.hytaleClient = client
 }
 
 // StartAlertJobs launches the alert-related background goroutines. Call this
@@ -170,6 +180,8 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 		versionLatestTTL:     readVersionDurationEnv("XYLONA_VERSION_LATEST_TTL", 2*time.Minute),
 		versionRefreshCalls:  make(map[string]*versionRefreshCall),
 		backupCreateCalls:    make(map[string]*backupCreateCall),
+		hytaleClient:         readiness.NewHytaleHTTPClient(nil),
+		hytaleLaunchLocks:    readiness.NewHytaleLaunchLocks(),
 		restartState:         &restartStateMap{},
 		exitHooks:            newExitHookRegistry(),
 	}
@@ -548,7 +560,8 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		}
 	}
 
-	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, startLaunchEnvRequired(normalLaunchEnv, secretLaunchEnvStates))
+	launchEnvRequired := startLaunchEnvRequired(normalLaunchEnv, secretLaunchEnvStates) || readiness.RequiresLaunchEnv(gameServer)
+	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, launchEnvRequired)
 	if errLaunchEnvSupported != nil {
 		inst.reportStartFailure(gameServer, errLaunchEnvSupported.Error())
 		return nil, errLaunchEnvSupported

@@ -13,9 +13,9 @@
 
 - [x] Phase 1: Readiness storage + Minecraft EULA
 - [x] Phase 2: Encrypted Steam GSLT
-- [ ] Phase 3: Hytale account link
-- [ ] Frontend readiness UI
-- [ ] Final validation
+- [x] Phase 3: Hytale account link
+- [x] Frontend readiness UI
+- [x] Final validation
 
 ## Phase 1: Readiness Storage + Minecraft EULA
 
@@ -82,8 +82,8 @@
 
 ## Phase 3: Hytale Account Link
 
-- [ ] Implement Hytale in a focused controller package, not generic OAuth infrastructure.
-- [ ] Use official Hytale values:
+- [x] Implement Hytale in a focused controller package, not generic OAuth infrastructure.
+- [x] Use official Hytale values:
   - `client_id=hytale-server`
   - scope `openid offline auth:server`
   - device auth `https://oauth.accounts.hytale.com/oauth2/device/auth`
@@ -91,19 +91,19 @@
   - profiles `https://account-data.hytale.com/my-account/get-profiles`
   - session `https://sessions.hytale.com/game-session/new`
 
-- [ ] Extend readiness kind helpers to include `hytale_account`.
-- [ ] Keep device auth flows in memory:
+- [x] Extend readiness kind helpers to include `hytale_account`.
+- [x] Keep device auth flows in memory:
   - flow IDs bound to server ID, initiating user ID, expiry, and single-use state
   - temporary access token/profile list only in memory until profile selection
   - controller restart loses active device flows; user simply restarts linking
   - server-side polling enforces provider interval/slow-down/expiry regardless of frontend behavior
 
-- [ ] Store encrypted refresh token data in `game_server_secret` under a Hytale readiness/auth kind.
-- [ ] Store only public selected profile metadata in readiness state.
-- [ ] Do not persist access tokens or game session tokens.
-- [ ] Validate JSON shape and size before DB writes.
+- [x] Store encrypted refresh token data in `game_server_secret` under a Hytale readiness/auth kind.
+- [x] Store only public selected profile metadata in readiness state.
+- [x] Do not persist access tokens or game session tokens.
+- [x] Validate JSON shape and size before DB writes.
 
-- [ ] Before Hytale launch:
+- [x] Before Hytale launch:
   - `CheckStartReadiness` verifies linked profile exists and assigned node supports `launch_env`; it does not refresh tokens.
   - `PrepareLaunchSecrets` takes a per-server lock.
   - Refresh OAuth.
@@ -111,27 +111,27 @@
   - Create a game session.
   - Append only `HYTALE_SERVER_SESSION_TOKEN` and `HYTALE_SERVER_IDENTITY_TOKEN` as launch-only values into the final `LaunchEnv`.
   - Do not store Hytale session/identity tokens as user-managed env vars.
-- [ ] If provider refresh succeeds but DB persistence fails, fail the start, mark/link status as needing attention, and surface relink risk because the old refresh token may already be invalid.
-- [ ] If refresh fails due to expired/revoked token, mark readiness incomplete and require relink.
+- [x] If provider refresh succeeds but DB persistence fails, fail the start, mark/link status as needing attention, and surface relink risk because the old refresh token may already be invalid.
+- [x] If refresh fails due to expired/revoked token, mark readiness incomplete and require relink.
 
-- [ ] Add Hytale RPCs:
-  - `StartHytaleDeviceAuth(server_id)`
-  - `PollHytaleDeviceAuth(flow_id)`
-  - `SelectHytaleProfile(server_id, flow_id, profile_uuid)`
-  - `ClearHytaleAccount(server_id)`
-- [ ] Require server settings permission for all Hytale mutation/link RPCs.
-- [ ] Ensure OAuth is needed only for link/relink, not every start.
+- [x] Add Hytale RPCs:
+  - [x] `StartHytaleDeviceAuth(server_id)`
+  - [x] `PollHytaleDeviceAuth(flow_id)`
+  - [x] `SelectHytaleProfile(server_id, flow_id, profile_uuid)`
+  - [x] `ClearHytaleAccount(server_id)`
+- [x] Require server settings permission for all Hytale mutation/link RPCs.
+- [x] Ensure interactive OAuth is needed only for link/relink, not every start.
 
 ## Frontend
 
-- [ ] Add one compact Readiness panel on the game-server detail page near start controls.
+- [x] Add one compact Readiness panel on the game-server detail page near start controls.
 - [x] Add a Minecraft EULA checkbox/control to the create flow before install.
 - [ ] Show only missing/blocking items and direct actions:
   - [x] accept Minecraft EULA
   - [x] set Steam token
-  - link Hytale account
-- [ ] Do not duplicate full readiness logic in list/bulk actions; rely on backend failed-precondition errors there.
-- [ ] Never display stored secrets back to the UI; token inputs are set/clear only.
+  - [x] link Hytale account
+- [x] Do not duplicate full readiness logic in list/bulk actions; rely on backend failed-precondition errors there.
+- [x] Never display stored secrets back to the UI; token inputs are set/clear only.
 
 ## Test Plan
 
@@ -146,28 +146,28 @@
   - [x] Steam plaintext column removal
   - [x] old Steam proto field reservation
   - [x] Steam secret storage through `game_server_secret`
-  - LaunchEnv capability fail-closed behavior for readiness-auth launch-only env
-  - Hytale flow binding
-  - in-memory profile selection
-  - polling throttles
-  - refresh-token rotation locking
-  - refresh-success/DB-failure path
-  - relink on expired/revoked refresh token
+  - [x] LaunchEnv capability fail-closed behavior for readiness-auth launch-only env
+  - [x] Hytale flow binding
+  - [x] in-memory profile selection
+  - [ ] polling throttles
+  - [x] refresh-token rotation path
+  - [ ] refresh-success/DB-failure path
+  - [ ] relink on expired/revoked refresh token
 
 - [ ] Frontend tests:
   - create-flow EULA control
-  - readiness panel state/actions for each check
+  - [x] readiness panel state/actions for each check
   - start button handles backend failed-precondition errors
   - [x] token fields are set/clear only and never echo saved secrets
 
 - [ ] Validation:
-  - focused `go test -race -count=1` packages after each phase
-  - final `go test -race -count=1 ./...`
-  - `golangci-lint run ./...`
-  - from `frontend/`: `bun run lint`
-  - from `frontend/`: `bun run test`
-  - from `frontend/`: `bun run build`
-  - `git diff --check`
+  - [x] focused `go test -race -count=1` packages after each phase
+  - [x] final `go test -race -count=1 ./...`
+  - [x] `golangci-lint run ./...`
+  - [x] from `frontend/`: `bun run lint`
+  - [x] from `frontend/`: `bun run test`
+  - [x] from `frontend/`: `bun run build`
+  - [x] `git diff --check`
 
 ## Assumptions
 

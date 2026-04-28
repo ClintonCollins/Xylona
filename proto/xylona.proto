@@ -65,6 +65,10 @@ service Xylona {
   rpc AcceptMinecraftEula (AcceptMinecraftEulaRequest) returns (AcceptMinecraftEulaResponse) {}
   rpc SetSteamGSLT (SetSteamGSLTRequest) returns (SetSteamGSLTResponse) {}
   rpc ClearSteamGSLT (ClearSteamGSLTRequest) returns (ClearSteamGSLTResponse) {}
+  rpc StartHytaleDeviceAuth (StartHytaleDeviceAuthRequest) returns (StartHytaleDeviceAuthResponse) {}
+  rpc PollHytaleDeviceAuth (PollHytaleDeviceAuthRequest) returns (PollHytaleDeviceAuthResponse) {}
+  rpc SelectHytaleProfile (SelectHytaleProfileRequest) returns (SelectHytaleProfileResponse) {}
+  rpc ClearHytaleAccount (ClearHytaleAccountRequest) returns (ClearHytaleAccountResponse) {}
   //  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
@@ -541,6 +545,53 @@ message ClearSteamGSLTRequest {
 }
 
 message ClearSteamGSLTResponse {
+  repeated GameServerReadinessItem items = 1;
+}
+
+message HytaleProfile {
+  string uuid = 1;
+  string username = 2;
+}
+
+message StartHytaleDeviceAuthRequest {
+  string server_id = 1;
+}
+
+message StartHytaleDeviceAuthResponse {
+  string flow_id = 1;
+  string user_code = 2;
+  string verification_uri = 3;
+  string verification_uri_complete = 4;
+  int64 expires_at_unix = 5;
+  int64 poll_after_seconds = 6;
+}
+
+message PollHytaleDeviceAuthRequest {
+  string flow_id = 1;
+}
+
+message PollHytaleDeviceAuthResponse {
+  string status = 1;
+  string message = 2;
+  repeated HytaleProfile profiles = 3;
+  int64 poll_after_seconds = 4;
+}
+
+message SelectHytaleProfileRequest {
+  string server_id = 1;
+  string flow_id = 2;
+  string profile_uuid = 3;
+}
+
+message SelectHytaleProfileResponse {
+  repeated GameServerReadinessItem items = 1;
+}
+
+message ClearHytaleAccountRequest {
+  string server_id = 1;
+}
+
+message ClearHytaleAccountResponse {
   repeated GameServerReadinessItem items = 1;
 }
 

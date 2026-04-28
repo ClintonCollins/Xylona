@@ -149,6 +149,18 @@ const (
 	XylonaSetSteamGSLTProcedure = "/xylona.Xylona/SetSteamGSLT"
 	// XylonaClearSteamGSLTProcedure is the fully-qualified name of the Xylona's ClearSteamGSLT RPC.
 	XylonaClearSteamGSLTProcedure = "/xylona.Xylona/ClearSteamGSLT"
+	// XylonaStartHytaleDeviceAuthProcedure is the fully-qualified name of the Xylona's
+	// StartHytaleDeviceAuth RPC.
+	XylonaStartHytaleDeviceAuthProcedure = "/xylona.Xylona/StartHytaleDeviceAuth"
+	// XylonaPollHytaleDeviceAuthProcedure is the fully-qualified name of the Xylona's
+	// PollHytaleDeviceAuth RPC.
+	XylonaPollHytaleDeviceAuthProcedure = "/xylona.Xylona/PollHytaleDeviceAuth"
+	// XylonaSelectHytaleProfileProcedure is the fully-qualified name of the Xylona's
+	// SelectHytaleProfile RPC.
+	XylonaSelectHytaleProfileProcedure = "/xylona.Xylona/SelectHytaleProfile"
+	// XylonaClearHytaleAccountProcedure is the fully-qualified name of the Xylona's ClearHytaleAccount
+	// RPC.
+	XylonaClearHytaleAccountProcedure = "/xylona.Xylona/ClearHytaleAccount"
 	// XylonaListGameServersProcedure is the fully-qualified name of the Xylona's ListGameServers RPC.
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
 	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
@@ -412,6 +424,10 @@ type XylonaClient interface {
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
 	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
 	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
+	StartHytaleDeviceAuth(context.Context, *connect.Request[xylona.StartHytaleDeviceAuthRequest]) (*connect.Response[xylona.StartHytaleDeviceAuthResponse], error)
+	PollHytaleDeviceAuth(context.Context, *connect.Request[xylona.PollHytaleDeviceAuthRequest]) (*connect.Response[xylona.PollHytaleDeviceAuthResponse], error)
+	SelectHytaleProfile(context.Context, *connect.Request[xylona.SelectHytaleProfileRequest]) (*connect.Response[xylona.SelectHytaleProfileResponse], error)
+	ClearHytaleAccount(context.Context, *connect.Request[xylona.ClearHytaleAccountRequest]) (*connect.Response[xylona.ClearHytaleAccountResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -813,6 +829,30 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaClearSteamGSLTProcedure,
 			connect.WithSchema(xylonaMethods.ByName("ClearSteamGSLT")),
+			connect.WithClientOptions(opts...),
+		),
+		startHytaleDeviceAuth: connect.NewClient[xylona.StartHytaleDeviceAuthRequest, xylona.StartHytaleDeviceAuthResponse](
+			httpClient,
+			baseURL+XylonaStartHytaleDeviceAuthProcedure,
+			connect.WithSchema(xylonaMethods.ByName("StartHytaleDeviceAuth")),
+			connect.WithClientOptions(opts...),
+		),
+		pollHytaleDeviceAuth: connect.NewClient[xylona.PollHytaleDeviceAuthRequest, xylona.PollHytaleDeviceAuthResponse](
+			httpClient,
+			baseURL+XylonaPollHytaleDeviceAuthProcedure,
+			connect.WithSchema(xylonaMethods.ByName("PollHytaleDeviceAuth")),
+			connect.WithClientOptions(opts...),
+		),
+		selectHytaleProfile: connect.NewClient[xylona.SelectHytaleProfileRequest, xylona.SelectHytaleProfileResponse](
+			httpClient,
+			baseURL+XylonaSelectHytaleProfileProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SelectHytaleProfile")),
+			connect.WithClientOptions(opts...),
+		),
+		clearHytaleAccount: connect.NewClient[xylona.ClearHytaleAccountRequest, xylona.ClearHytaleAccountResponse](
+			httpClient,
+			baseURL+XylonaClearHytaleAccountProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ClearHytaleAccount")),
 			connect.WithClientOptions(opts...),
 		),
 		listGameServers: connect.NewClient[xylona.ListGameServersRequest, xylona.ListGameServersResponse](
@@ -1331,6 +1371,10 @@ type xylonaClient struct {
 	acceptMinecraftEula              *connect.Client[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse]
 	setSteamGSLT                     *connect.Client[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse]
 	clearSteamGSLT                   *connect.Client[xylona.ClearSteamGSLTRequest, xylona.ClearSteamGSLTResponse]
+	startHytaleDeviceAuth            *connect.Client[xylona.StartHytaleDeviceAuthRequest, xylona.StartHytaleDeviceAuthResponse]
+	pollHytaleDeviceAuth             *connect.Client[xylona.PollHytaleDeviceAuthRequest, xylona.PollHytaleDeviceAuthResponse]
+	selectHytaleProfile              *connect.Client[xylona.SelectHytaleProfileRequest, xylona.SelectHytaleProfileResponse]
+	clearHytaleAccount               *connect.Client[xylona.ClearHytaleAccountRequest, xylona.ClearHytaleAccountResponse]
 	listGameServers                  *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
 	queryGameServer                  *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
 	getUpdateTargets                 *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
@@ -1653,6 +1697,26 @@ func (c *xylonaClient) SetSteamGSLT(ctx context.Context, req *connect.Request[xy
 // ClearSteamGSLT calls xylona.Xylona.ClearSteamGSLT.
 func (c *xylonaClient) ClearSteamGSLT(ctx context.Context, req *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error) {
 	return c.clearSteamGSLT.CallUnary(ctx, req)
+}
+
+// StartHytaleDeviceAuth calls xylona.Xylona.StartHytaleDeviceAuth.
+func (c *xylonaClient) StartHytaleDeviceAuth(ctx context.Context, req *connect.Request[xylona.StartHytaleDeviceAuthRequest]) (*connect.Response[xylona.StartHytaleDeviceAuthResponse], error) {
+	return c.startHytaleDeviceAuth.CallUnary(ctx, req)
+}
+
+// PollHytaleDeviceAuth calls xylona.Xylona.PollHytaleDeviceAuth.
+func (c *xylonaClient) PollHytaleDeviceAuth(ctx context.Context, req *connect.Request[xylona.PollHytaleDeviceAuthRequest]) (*connect.Response[xylona.PollHytaleDeviceAuthResponse], error) {
+	return c.pollHytaleDeviceAuth.CallUnary(ctx, req)
+}
+
+// SelectHytaleProfile calls xylona.Xylona.SelectHytaleProfile.
+func (c *xylonaClient) SelectHytaleProfile(ctx context.Context, req *connect.Request[xylona.SelectHytaleProfileRequest]) (*connect.Response[xylona.SelectHytaleProfileResponse], error) {
+	return c.selectHytaleProfile.CallUnary(ctx, req)
+}
+
+// ClearHytaleAccount calls xylona.Xylona.ClearHytaleAccount.
+func (c *xylonaClient) ClearHytaleAccount(ctx context.Context, req *connect.Request[xylona.ClearHytaleAccountRequest]) (*connect.Response[xylona.ClearHytaleAccountResponse], error) {
+	return c.clearHytaleAccount.CallUnary(ctx, req)
 }
 
 // ListGameServers calls xylona.Xylona.ListGameServers.
@@ -2096,6 +2160,10 @@ type XylonaHandler interface {
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
 	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
 	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
+	StartHytaleDeviceAuth(context.Context, *connect.Request[xylona.StartHytaleDeviceAuthRequest]) (*connect.Response[xylona.StartHytaleDeviceAuthResponse], error)
+	PollHytaleDeviceAuth(context.Context, *connect.Request[xylona.PollHytaleDeviceAuthRequest]) (*connect.Response[xylona.PollHytaleDeviceAuthResponse], error)
+	SelectHytaleProfile(context.Context, *connect.Request[xylona.SelectHytaleProfileRequest]) (*connect.Response[xylona.SelectHytaleProfileResponse], error)
+	ClearHytaleAccount(context.Context, *connect.Request[xylona.ClearHytaleAccountRequest]) (*connect.Response[xylona.ClearHytaleAccountResponse], error)
 	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
@@ -2493,6 +2561,30 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaClearSteamGSLTProcedure,
 		svc.ClearSteamGSLT,
 		connect.WithSchema(xylonaMethods.ByName("ClearSteamGSLT")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaStartHytaleDeviceAuthHandler := connect.NewUnaryHandler(
+		XylonaStartHytaleDeviceAuthProcedure,
+		svc.StartHytaleDeviceAuth,
+		connect.WithSchema(xylonaMethods.ByName("StartHytaleDeviceAuth")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaPollHytaleDeviceAuthHandler := connect.NewUnaryHandler(
+		XylonaPollHytaleDeviceAuthProcedure,
+		svc.PollHytaleDeviceAuth,
+		connect.WithSchema(xylonaMethods.ByName("PollHytaleDeviceAuth")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSelectHytaleProfileHandler := connect.NewUnaryHandler(
+		XylonaSelectHytaleProfileProcedure,
+		svc.SelectHytaleProfile,
+		connect.WithSchema(xylonaMethods.ByName("SelectHytaleProfile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaClearHytaleAccountHandler := connect.NewUnaryHandler(
+		XylonaClearHytaleAccountProcedure,
+		svc.ClearHytaleAccount,
+		connect.WithSchema(xylonaMethods.ByName("ClearHytaleAccount")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListGameServersHandler := connect.NewUnaryHandler(
@@ -3057,6 +3149,14 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSetSteamGSLTHandler.ServeHTTP(w, r)
 		case XylonaClearSteamGSLTProcedure:
 			xylonaClearSteamGSLTHandler.ServeHTTP(w, r)
+		case XylonaStartHytaleDeviceAuthProcedure:
+			xylonaStartHytaleDeviceAuthHandler.ServeHTTP(w, r)
+		case XylonaPollHytaleDeviceAuthProcedure:
+			xylonaPollHytaleDeviceAuthHandler.ServeHTTP(w, r)
+		case XylonaSelectHytaleProfileProcedure:
+			xylonaSelectHytaleProfileHandler.ServeHTTP(w, r)
+		case XylonaClearHytaleAccountProcedure:
+			xylonaClearHytaleAccountHandler.ServeHTTP(w, r)
 		case XylonaListGameServersProcedure:
 			xylonaListGameServersHandler.ServeHTTP(w, r)
 		case XylonaQueryGameServerProcedure:
@@ -3414,6 +3514,22 @@ func (UnimplementedXylonaHandler) SetSteamGSLT(context.Context, *connect.Request
 
 func (UnimplementedXylonaHandler) ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ClearSteamGSLT is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) StartHytaleDeviceAuth(context.Context, *connect.Request[xylona.StartHytaleDeviceAuthRequest]) (*connect.Response[xylona.StartHytaleDeviceAuthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.StartHytaleDeviceAuth is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) PollHytaleDeviceAuth(context.Context, *connect.Request[xylona.PollHytaleDeviceAuthRequest]) (*connect.Response[xylona.PollHytaleDeviceAuthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.PollHytaleDeviceAuth is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SelectHytaleProfile(context.Context, *connect.Request[xylona.SelectHytaleProfileRequest]) (*connect.Response[xylona.SelectHytaleProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SelectHytaleProfile is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ClearHytaleAccount(context.Context, *connect.Request[xylona.ClearHytaleAccountRequest]) (*connect.Response[xylona.ClearHytaleAccountResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ClearHytaleAccount is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {

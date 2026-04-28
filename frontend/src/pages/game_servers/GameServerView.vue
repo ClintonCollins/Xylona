@@ -121,6 +121,67 @@
                       @click="clearSteamGSLT" />
                   </div>
                 </div>
+                <div
+                  v-if="item.kind === 'hytale_account' && hasPermission('game_server.settings')"
+                  class="readiness-secret-form">
+                  <q-btn
+                    v-if="!item.complete && hytaleFlowId === '' && hytaleProfiles.length === 0"
+                    :loading="startingHytaleAuth"
+                    color="primary"
+                    dense
+                    label="Link Account"
+                    unelevated
+                    @click="startHytaleDeviceAuth" />
+                  <div
+                    v-if="hytaleFlowId !== '' && hytaleProfiles.length === 0"
+                    class="readiness-device-flow">
+                    <div v-if="hytaleUserCode !== ''" class="readiness-device-code">
+                      {{ hytaleUserCode }}
+                    </div>
+                    <a
+                      v-if="hytaleVerificationLink !== ''"
+                      :href="hytaleVerificationLink"
+                      class="readiness-link"
+                      rel="noopener noreferrer"
+                      target="_blank">
+                      Open Hytale authorization
+                    </a>
+                    <q-btn
+                      :loading="pollingHytaleAuth"
+                      color="primary"
+                      dense
+                      label="Check Status"
+                      outline
+                      @click="pollHytaleDeviceAuth" />
+                  </div>
+                  <div v-if="hytaleProfiles.length > 0" class="readiness-device-flow">
+                    <q-select
+                      v-model="selectedHytaleProfile"
+                      :options="hytaleProfileOptions"
+                      class="readiness-profile-select"
+                      dense
+                      emit-value
+                      label="Profile"
+                      map-options
+                      outlined />
+                    <q-btn
+                      :disable="selectedHytaleProfile === ''"
+                      :loading="selectingHytaleProfile"
+                      color="primary"
+                      dense
+                      label="Use Profile"
+                      unelevated
+                      @click="selectHytaleProfile" />
+                  </div>
+                  <q-btn
+                    v-if="item.complete"
+                    :loading="clearingHytaleAccount"
+                    color="negative"
+                    dense
+                    flat
+                    label="Clear Link"
+                    @click="clearHytaleAccount" />
+                </div>
               </div>
             </div>
           </div>
@@ -468,15 +529,19 @@ import {
   StopGameServerRequest,
   StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
-import type { GameServerReadinessItem, UpdateProgress } from '@/proto/xylona_pb'
+import type { GameServerReadinessItem, HytaleProfile, UpdateProgress } from '@/proto/xylona_pb'
 import {
   AcceptMinecraftEulaRequestSchema,
+  ClearHytaleAccountRequestSchema,
   ClearSteamGSLTRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
   GetGameServerReadinessRequestSchema,
   GetUpdateTargetsRequestSchema,
+  PollHytaleDeviceAuthRequestSchema,
+  SelectHytaleProfileRequestSchema,
   SetSteamGSLTRequestSchema,
+  StartHytaleDeviceAuthRequestSchema,
   StepStatus,
   UpdateGameServerRequest,
   UpdateGameServerRequestSchema,
@@ -564,6 +629,16 @@ const acceptingMinecraftEula = ref(false)
 const steamGSLT = ref('')
 const savingSteamGSLT = ref(false)
 const clearingSteamGSLT = ref(false)
+const hytaleFlowId = ref('')
+const hytaleUserCode = ref('')
+const hytaleVerificationUri = ref('')
+const hytaleVerificationUriComplete = ref('')
+const hytaleProfiles = ref<HytaleProfile[]>([])
+const selectedHytaleProfile = ref('')
+const startingHytaleAuth = ref(false)
+const pollingHytaleAuth = ref(false)
+const selectingHytaleProfile = ref(false)
+const clearingHytaleAccount = ref(false)
 const maxOperationOutputLines = 80
 
 const {
@@ -613,11 +688,22 @@ const visibleReadinessItems = computed(() =>
     (item) =>
       item.required &&
       (item.blocking ||
-        (item.kind === 'steam_gslt' && item.complete && hasPermission('game_server.settings'))),
+        ((item.kind === 'steam_gslt' || item.kind === 'hytale_account') &&
+          item.complete &&
+          hasPermission('game_server.settings'))),
   ),
 )
 const readinessVisible = computed(
   () => readinessLoading.value || visibleReadinessItems.value.length > 0,
+)
+const hytaleVerificationLink = computed(
+  () => hytaleVerificationUriComplete.value || hytaleVerificationUri.value,
+)
+const hytaleProfileOptions = computed(() =>
+  hytaleProfiles.value.map((profile) => ({
+    label: profile.username || profile.uuid,
+    value: profile.uuid,
+  })),
 )
 
 const connectionAddress = computed(() => {
@@ -855,6 +941,138 @@ async function clearSteamGSLT() {
     })
   } finally {
     clearingSteamGSLT.value = false
+  }
+}
+
+function resetHytaleFlow() {
+  hytaleFlowId.value = ''
+  hytaleUserCode.value = ''
+  hytaleVerificationUri.value = ''
+  hytaleVerificationUriComplete.value = ''
+  hytaleProfiles.value = []
+  selectedHytaleProfile.value = ''
+}
+
+async function startHytaleDeviceAuth() {
+  startingHytaleAuth.value = true
+  try {
+    const request = create(StartHytaleDeviceAuthRequestSchema, {
+      serverId: gameServerId.value,
+    })
+    const response = await GetXylonaClient().startHytaleDeviceAuth(request)
+    hytaleFlowId.value = response.flowId
+    hytaleUserCode.value = response.userCode
+    hytaleVerificationUri.value = response.verificationUri
+    hytaleVerificationUriComplete.value = response.verificationUriComplete
+    hytaleProfiles.value = []
+    selectedHytaleProfile.value = ''
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption:
+        'Failed to start Hytale authorization: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    startingHytaleAuth.value = false
+  }
+}
+
+async function pollHytaleDeviceAuth() {
+  if (hytaleFlowId.value === '') {
+    return
+  }
+  pollingHytaleAuth.value = true
+  try {
+    const request = create(PollHytaleDeviceAuthRequestSchema, {
+      flowId: hytaleFlowId.value,
+    })
+    const response = await GetXylonaClient().pollHytaleDeviceAuth(request)
+    if (response.status === 'ready') {
+      hytaleProfiles.value = response.profiles
+      selectedHytaleProfile.value = response.profiles[0]?.uuid ?? ''
+      return
+    }
+    if (response.status === 'denied' || response.status === 'expired') {
+      resetHytaleFlow()
+      $q.notify({
+        type: 'xylona-error',
+        position: 'top-right',
+        caption: response.message || 'Hytale authorization was not completed.',
+        icon: 'report_problem',
+      })
+    }
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption:
+        'Failed to check Hytale authorization: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    pollingHytaleAuth.value = false
+  }
+}
+
+async function selectHytaleProfile() {
+  selectingHytaleProfile.value = true
+  try {
+    const request = create(SelectHytaleProfileRequestSchema, {
+      serverId: gameServerId.value,
+      flowId: hytaleFlowId.value,
+      profileUuid: selectedHytaleProfile.value,
+    })
+    const response = await GetXylonaClient().selectHytaleProfile(request)
+    readinessItems.value = response.items
+    resetHytaleFlow()
+    $q.notify({
+      type: 'positive',
+      position: 'top-right',
+      caption: 'Hytale account linked.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption: 'Failed to link Hytale account: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    selectingHytaleProfile.value = false
+  }
+}
+
+async function clearHytaleAccount() {
+  clearingHytaleAccount.value = true
+  try {
+    const request = create(ClearHytaleAccountRequestSchema, {
+      serverId: gameServerId.value,
+    })
+    const response = await GetXylonaClient().clearHytaleAccount(request)
+    readinessItems.value = response.items
+    resetHytaleFlow()
+    $q.notify({
+      type: 'positive',
+      position: 'top-right',
+      caption: 'Hytale account link cleared.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    console.error(e)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption: 'Failed to clear Hytale account: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    clearingHytaleAccount.value = false
   }
 }
 
@@ -1431,6 +1649,40 @@ async function sendGameServerInput() {
   display: flex;
   flex-wrap: wrap;
   gap: var(--xy-space-xs);
+}
+
+.readiness-device-flow {
+  display: grid;
+  gap: var(--xy-space-xs);
+}
+
+.readiness-device-code {
+  display: inline-flex;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--xy-border);
+  border-radius: 4px;
+  background: var(--xy-surface-2);
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.readiness-link {
+  color: var(--xy-accent);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.readiness-link:hover {
+  text-decoration: underline;
+}
+
+.readiness-profile-select {
+  min-width: 0;
 }
 
 /* ===== Software Card ===== */

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
+	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -98,9 +99,22 @@ func (inst *Instance) decryptStartLaunchEnv(gameServer *models.GameServer, norma
 	return launchEnv, nil
 }
 
-func (inst *Instance) prepareLaunchSecrets(_ *models.GameServer, _ nodeclient.NodeClient, launchEnv map[string]string) (map[string]string, error) {
-	if launchEnv == nil {
-		return map[string]string{}, nil
+func (inst *Instance) prepareLaunchSecrets(gameServer *models.GameServer, _ nodeclient.NodeClient, launchEnv map[string]string) (map[string]string, error) {
+	if !readiness.RequiresHytaleAccount(gameServer) {
+		if launchEnv == nil {
+			return map[string]string{}, nil
+		}
+		return launchEnv, nil
 	}
-	return launchEnv, nil
+
+	if inst.hytaleLaunchLocks == nil {
+		inst.hytaleLaunchLocks = readiness.NewHytaleLaunchLocks()
+	}
+	unlock := inst.hytaleLaunchLocks.Lock(gameServer.ID)
+	defer unlock()
+	prepared, errPrepare := readiness.PrepareHytaleLaunchSecrets(inst.ctx, inst.db, gameServer, inst.hytaleClient, launchEnv)
+	if errPrepare != nil {
+		return nil, fmt.Errorf("prepare hytale launch secrets: %w", errPrepare)
+	}
+	return prepared, nil
 }

@@ -14,13 +14,17 @@ const (
 	// GameServerSecretKindEnv stores per-server secret process environment values.
 	GameServerSecretKindEnv = "env"
 	// GameServerSecretKindSteamGSLT stores Steam Game Server Login Tokens.
+	// #nosec G101 -- This is a database kind label, not a secret value.
 	GameServerSecretKindSteamGSLT = "steam_gslt"
 	// GameServerSecretKindHytaleRefreshToken stores Hytale OAuth refresh tokens.
+	// #nosec G101 -- This is a database kind label, not a secret value.
 	GameServerSecretKindHytaleRefreshToken = "hytale_refresh_token"
 
 	// GameServerSecretNameSteamGSLT is the single secret name used for Steam GSLT values.
+	// #nosec G101 -- This is a database name label, not a secret value.
 	GameServerSecretNameSteamGSLT = "token"
 	// GameServerSecretNameHytaleRefreshToken is the single secret name used for Hytale refresh tokens.
+	// #nosec G101 -- This is a database name label, not a secret value.
 	GameServerSecretNameHytaleRefreshToken = "refresh_token"
 )
 
