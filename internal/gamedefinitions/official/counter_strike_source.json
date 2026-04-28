@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3ba6561d33f67a4dd8e15b7fdc442a41773e95310256c9f79c1775fa77d6a607",
+  "content_hash": "sha256:e12c053f9146ec5b56ce43b740249adff9c9d7ec409432958bf983a323eafeae",
   "game": {
     "id": "counter_strike_source",
     "name": "Counter-Strike: Source",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 232330 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

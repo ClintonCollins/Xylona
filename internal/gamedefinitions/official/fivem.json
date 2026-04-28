@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:0b3227163612979177042c7a90fb5bfa2ec23ef2f6d38fc521b298bc30b5b49b",
+  "content_hash": "sha256:305894e17cb8534fd6608220ea7078620094d86e93a2daa3289f1708539a73a5",
   "game": {
     "id": "fivem",
     "name": "FiveM",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

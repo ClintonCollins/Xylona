@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:109e537609447f67d769ce70f60aae60dc24bf602cbbc1373b5d0de88e15a436",
+  "content_hash": "sha256:6cbac7eb1128168cbaafbd80ab72c752d0fba1087b75bfdbced37e1627355669",
   "game": {
     "id": "counter_strike_2",
     "name": "Counter-Strike 2",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 730 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

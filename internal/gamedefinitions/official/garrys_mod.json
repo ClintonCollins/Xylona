@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:92cb630a4074f68be58f5c98e6e6b6c9b29ef0d84b78a7f80569fd8fdd60378f",
+  "content_hash": "sha256:77fd5a882aee15a2db553e7dfc6e7c3bdf17a85452b2fbab6a593150557872e2",
   "game": {
     "id": "garrys_mod",
     "name": "Garry's Mod",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4020 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

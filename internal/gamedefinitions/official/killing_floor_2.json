@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:0adb5f55c8aaf79b6f3dfc79541572a890269cccff949492d0bf4a3b4ee31981",
+  "content_hash": "sha256:f91779b86cccca94f72e1ee019132d8723bdbfecf04a242b748998c60c39c846",
   "game": {
     "id": "killing_floor_2",
     "name": "Killing Floor 2",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 232130 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

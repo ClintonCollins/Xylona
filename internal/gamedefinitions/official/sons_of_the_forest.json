@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:a74309f3af015c02a73e504dd992cb7f4393db9a5927ece813cee7b3f6c58d39",
+  "content_hash": "sha256:d82666fbc0f65482aef538c3ff6363526f6c9504c3b86fe7efed0322ac75200f",
   "game": {
     "id": "sons_of_the_forest",
     "name": "Sons Of The Forest",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

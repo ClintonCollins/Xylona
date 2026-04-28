@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:59633f283c3036ef1ce697f6aa666112379b93618a1636e2c28d0202f2f4ad1f",
+  "content_hash": "sha256:30f076a3e0cfe9dfb92ba286f832e1edcd063ee01a289cb42b0bdc92bfa6b451",
   "game": {
     "id": "terraria",
     "name": "Terraria",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 105600 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

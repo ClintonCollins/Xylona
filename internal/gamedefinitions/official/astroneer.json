@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6747aea51b43ddeb8a98abbbe820fda1d6a94cd5694c8a15ab76e3e9e3aaa566",
+  "content_hash": "sha256:3a4b8b4738138d96b82729f33aea3d7d08214daf7f6c945ec0c85f055266739f",
   "game": {
     "id": "astroneer",
     "name": "Astroneer",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

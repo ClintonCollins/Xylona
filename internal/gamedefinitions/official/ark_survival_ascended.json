@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6fd8a5ef0b826477bc71c148b01f81f29a9b224b131510b656835f2a5e03c59e",
+  "content_hash": "sha256:1967e709038beb1c8ce72534ff1443317e7b09ca0d6891e0081728dd50c8d18e",
   "game": {
     "id": "ark_survival_ascended",
     "name": "ARK: Survival Ascended",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

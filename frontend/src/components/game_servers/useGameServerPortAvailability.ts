@@ -45,30 +45,35 @@ export function evaluateGameServerPortAvailability(options: PortAvailabilityEval
     }
   }
 
-  const matchingServers = options.existingServers
-    .filter(
-      (server) =>
-        server.id !== options.excludeServerId && server.ip?.address?.trim() === normalizedIP,
-    )
-    .filter((server) => (server.nodeId?.trim() ?? '') === normalizedNodeID)
+  const nodeServers = options.existingServers.filter(
+    (server) =>
+      server.id !== options.excludeServerId && (server.nodeId?.trim() ?? '') === normalizedNodeID,
+  )
+  const sameIPServers = nodeServers.filter((server) => server.ip?.address?.trim() === normalizedIP)
+  const samePortNodeServer = nodeServers.find((server) => {
+    const serverPort = Number(server.port ?? 0n)
+    return isValidPort(serverPort) && serverPort === options.port
+  })
 
-  if (options.selectedGame?.requireDedicatedIp && matchingServers.length > 0) {
-    const conflictingServer = matchingServers[0]
+  if (options.selectedGame?.bindsToAllIps && samePortNodeServer) {
     return {
       state: 'conflict',
-      message: `${options.selectedGame.name || 'This game'} requires a dedicated IP, but ${normalizedIP} is already assigned to ${conflictingServer?.name || 'another server'}.`,
+      message: `${options.selectedGame.name || 'This game'} binds to all IPs, but port ${options.port} is already in use by ${samePortNodeServer.name || 'another server'} on this node.`,
     }
   }
 
-  const dedicatedServer = matchingServers.find((server) => server.game?.requireDedicatedIp)
-  if (dedicatedServer) {
+  const bindAllServer = nodeServers.find((server) => {
+    const serverPort = Number(server.port ?? 0n)
+    return server.game?.bindsToAllIps && isValidPort(serverPort) && serverPort === options.port
+  })
+  if (bindAllServer) {
     return {
       state: 'conflict',
-      message: `${normalizedIP} is reserved for ${dedicatedServer.name || 'another server'} because that game requires a dedicated IP.`,
+      message: `Port ${options.port} is already reserved by ${bindAllServer.name || 'another server'} because that game binds to all IPs on this node.`,
     }
   }
 
-  for (const server of matchingServers) {
+  for (const server of sameIPServers) {
     const serverPort = Number(server.port ?? 0n)
     if (isValidPort(serverPort) && serverPort === options.port) {
       return {
@@ -188,6 +193,7 @@ export function useGameServerPortAvailability(options: {
     () => [
       options.enabled.value,
       currentRequest.value.selectedGame?.id ?? '',
+      currentRequest.value.selectedGame?.bindsToAllIps ?? false,
       currentRequest.value.nodeId,
       currentRequest.value.ipAddress,
       currentRequest.value.port,

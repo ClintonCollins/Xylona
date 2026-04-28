@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:d37d3b12ca190c4d6e20cfb6f4b4930bf25f3ed1d4a9b76761d010fe28fabdf0",
+  "content_hash": "sha256:e18d408f6d86b794bd827adf0b3c8262dd2e182a2b31342ebae53ecdbf81b148",
   "game": {
     "id": "sunkenland",
     "name": "Sunkenland",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

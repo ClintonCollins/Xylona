@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:ff8332fe1561673c6e4a99d9c7abe80d914ad02e2e9a235a5d6fea1af907aa85",
+  "content_hash": "sha256:995399c474c12d5bda54617d37e000246c8f411541029aa454902d56af49d5e7",
   "game": {
     "id": "starbound",
     "name": "Starbound",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 211820 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

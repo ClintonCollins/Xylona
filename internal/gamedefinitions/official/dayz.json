@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:da03cb8b30104d4556878b1c9a5cf2328d0f62c229b84031ff3dc3e0342095cb",
+  "content_hash": "sha256:93762e43b3faef2da257b04baba7b6fa4181c6188b7c97d7b9dc91c3eeb61b2d",
   "game": {
     "id": "dayz",
     "name": "DayZ",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 223350 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

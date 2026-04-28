@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:d375871eae15f04a5f837de03446064a47e4a53f1c5840512d0e5b2b876879d0",
+  "content_hash": "sha256:3f76eb221618723c499d044a29e167dc91371d76696dcb1b071db6a5e7ea4596",
   "game": {
     "id": "stationeers",
     "name": "Stationeers",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

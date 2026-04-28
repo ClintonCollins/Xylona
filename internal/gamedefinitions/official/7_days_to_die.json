@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:dffe723059163940eb99586f2d34632ff65279bfbd31b3c5d1304cee3699df76",
+  "content_hash": "sha256:8aa480ae4102d60c8c9ceedc2e1190a593e72040c7d492ec335322aaba5cf79d",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:76512cfde5fbe40c2a04b0ceb86d753e636a466fd809c994c8a9ec4137e27a4c",
+  "content_hash": "sha256:7c3b2e678e51db04b4186f3df6c1fab566ab394f366b3a907d7c44c86014c180",
   "game": {
     "id": "rust",
     "name": "Rust",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

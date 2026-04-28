@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:2de36a87facff9daa5066a8a5d2e6c9d415abcacf5e28476b42a7c8c069821e7",
+  "content_hash": "sha256:639aec7d4c36971d4bc52666155baa4da921d7c74593c28e4e272a4d44c9bb06",
   "game": {
     "id": "core_keeper",
     "name": "Core Keeper",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

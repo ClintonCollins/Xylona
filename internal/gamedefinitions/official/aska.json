@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:43a9b6a6ab2cc98d1982eaf05d9ab38bac22a4b4fc1d57d4126b96846c39bfb4",
+  "content_hash": "sha256:403a7edc3909d5deed00aca09213a6ee603b350fcee6be8e385c1bb86a549c96",
   "game": {
     "id": "aska",
     "name": "Aska",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

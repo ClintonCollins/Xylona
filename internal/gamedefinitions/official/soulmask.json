@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:f6da5fa1c6ac18a4160ff80d3180190dce9e1568f64d7843ceae28f9c9fd4ba5",
+  "content_hash": "sha256:de46ae218f7556607e71aef289201b389ba81643bad303555af8801a5e4dedc4",
   "game": {
     "id": "soulmask",
     "name": "Soulmask",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

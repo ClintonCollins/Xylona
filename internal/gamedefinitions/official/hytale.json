@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:666ad35dbe73e29a7043d1815d3125bde208f0a8c2e7ec94b25962e5fce2a26e",
+  "content_hash": "sha256:e067e971d524309496b3b14baa8dbf6363e460377e6577355a5610542787c061",
   "game": {
     "id": "hytale",
     "name": "Hytale",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

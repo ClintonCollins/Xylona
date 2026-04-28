@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:9bebe4e7372b44277f908374a91c678b22ee0cf73fc05da9319459b5433ebc19",
+  "content_hash": "sha256:3d0a4d4601c22742feb1f26044b8a32d80a7931abc2767c72b487a2d12bfb423",
   "game": {
     "id": "survive_the_nights",
     "name": "Survive The Nights",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

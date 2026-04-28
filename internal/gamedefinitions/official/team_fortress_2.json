@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:280065ef1dcea0be3d94e25210be702508b88ec8198f275075fa81274ad7e120",
+  "content_hash": "sha256:2b57d1f0b6109bfcae1f4375bcaa218b0e5bc402a6a53613a6bb856dbc09ac83",
   "game": {
     "id": "team_fortress_2",
     "name": "Team Fortress 2",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 232250 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

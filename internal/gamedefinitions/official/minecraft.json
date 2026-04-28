@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:97005390f4dacf71ef5a950bd180467f9af80acea14da370f7aa677124a4b617",
+  "content_hash": "sha256:c45a994f36e2b279ce179a4cb00a703bf26bdbe99e6843a3f4dc36f1a2c2a82c",
   "game": {
     "id": "minecraft",
     "name": "Minecraft",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

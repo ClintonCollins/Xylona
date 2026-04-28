@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:00b466431b1fbb93c8fb36860120499e951d96641331c441bef093d5f071981c",
+  "content_hash": "sha256:43f59d0991b0ca556566725cce705773d46492f062cf1e45230ab2406ca8ced8",
   "game": {
     "id": "arma_reforger",
     "name": "Arma Reforger",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

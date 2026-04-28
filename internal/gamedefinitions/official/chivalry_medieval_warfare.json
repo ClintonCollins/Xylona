@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:eef58beb3ac94b66774049bf1bfa82ad74f12409e1ce3164fcc98d845d568d43",
+  "content_hash": "sha256:8b913eb69731e3555c03a79a9f049ef57f8c8bdd2079135dd8acb999e705ea0e",
   "game": {
     "id": "chivalry_medieval_warfare",
     "name": "Chivalry: Medieval Warfare",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

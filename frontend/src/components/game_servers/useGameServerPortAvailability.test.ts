@@ -130,31 +130,82 @@ describe('evaluateGameServerPortAvailability', () => {
     expect(result.message).toContain('available')
   })
 
-  it('blocks an IP when the selected game needs a dedicated address', () => {
+  it('allows the same port on a different IP when neither game binds to all IPs', () => {
+    const result = evaluateGameServerPortAvailability({
+      existingServers: [
+        create(GameServerSchema, {
+          id: 'server-1',
+          name: 'Other IP Server',
+          nodeId: 'node-local',
+          ip: create(IPSchema, { address: '216.177.177.229' }),
+          port: 25565n,
+          queryPort: 25566n,
+        }),
+      ],
+      nodeId: 'node-local',
+      ipAddress: '216.177.177.228',
+      port: 25565,
+      queryPort: 25567,
+      selectedGame: create(GameSchema, { id: 'minecraft', name: 'Minecraft' }),
+    })
+
+    expect(result.state).toBe('available')
+    expect(result.message).toContain('available')
+  })
+
+  it('blocks a node port when the selected game binds to all IPs', () => {
     const result = evaluateGameServerPortAvailability({
       existingServers: [
         create(GameServerSchema, {
           id: 'server-1',
           name: 'Occupied Server',
           nodeId: 'node-local',
-          ip: create(IPSchema, { address: '216.177.177.228' }),
+          ip: create(IPSchema, { address: '216.177.177.229' }),
           port: 27015n,
           queryPort: 27016n,
         }),
       ],
       nodeId: 'node-local',
       ipAddress: '216.177.177.228',
-      port: 27017,
-      queryPort: 27018,
+      port: 27015,
+      queryPort: 27016,
       selectedGame: create(GameSchema, {
         id: 'source',
         name: 'Source Dedicated Server',
-        requireDedicatedIp: true,
+        bindsToAllIps: true,
       }),
     })
 
     expect(result.state).toBe('conflict')
-    expect(result.message).toContain('requires a dedicated IP')
+    expect(result.message).toContain('binds to all IPs')
+  })
+
+  it('blocks a node port when an existing game binds to all IPs', () => {
+    const result = evaluateGameServerPortAvailability({
+      existingServers: [
+        create(GameServerSchema, {
+          id: 'server-1',
+          name: 'Bind All Server',
+          nodeId: 'node-local',
+          ip: create(IPSchema, { address: '216.177.177.229' }),
+          port: 27015n,
+          queryPort: 27016n,
+          game: create(GameSchema, {
+            id: 'source',
+            name: 'Source Dedicated Server',
+            bindsToAllIps: true,
+          }),
+        }),
+      ],
+      nodeId: 'node-local',
+      ipAddress: '216.177.177.228',
+      port: 27015,
+      queryPort: 27016,
+      selectedGame: create(GameSchema, { id: 'minecraft', name: 'Minecraft' }),
+    })
+
+    expect(result.state).toBe('conflict')
+    expect(result.message).toContain('binds to all IPs')
   })
 
   it('marks a free port pair as available', () => {

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:505167f1beb2651e47f01c6298e45903c8e5d3d513e6979c3674c089081b652e",
+  "content_hash": "sha256:bb8b126147ad74b1514efe874d804efc87a0223350bd29eef4bace802e355938",
   "game": {
     "id": "eco",
     "name": "Eco",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 739590 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

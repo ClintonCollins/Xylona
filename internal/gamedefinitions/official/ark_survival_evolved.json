@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:9948e6f7e1f366962d06322508e76d3be7d39596f555af0a5a1852f4e7f63d1e",
+  "content_hash": "sha256:6d6da388c0d2e00aba8cc47772341838675f114d48fa9bf6b8cd2103eeb71faf",
   "game": {
     "id": "ark_survival_evolved",
     "name": "ARK: Survival Evolved",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 376030 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

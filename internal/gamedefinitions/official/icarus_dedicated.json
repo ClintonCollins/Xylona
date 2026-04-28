@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:03fbda3ef1c7bdda4bfa660433727efe0c950873dfbbd1e5053ee7c6e50d5bd9",
+  "content_hash": "sha256:4a2cafa34b0b56a322d998245aec324057449d0bc7cfb6caa00e76043886252b",
   "game": {
     "id": "icarus_dedicated",
     "name": "Icarus-Dedicated",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

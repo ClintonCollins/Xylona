@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:02f49b4283fc2b9ea4d2f9ed0427253480d936fcd9991c01f308e5556eefde25",
+  "content_hash": "sha256:df8f7dca876828c03ddefd954a1eae29b70666f0dd3f58352b2d96622a8efbd4",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2394010 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

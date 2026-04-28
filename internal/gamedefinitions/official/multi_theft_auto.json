@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:fd795f98c0de2d60da55f4775fc1996ae54dbc5924e40a616387ae6115826cfd",
+  "content_hash": "sha256:0d3f1c6ed093cc8a73740962cf60b1f0977df39793e99f856be1241926bd4f9b",
   "game": {
     "id": "multi_theft_auto",
     "name": "Multi Theft Auto",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:b8df3be0cf5a53f0bde30a48fe99f1af01e0766a646cbde31f8fbbe8864439d2",
+  "content_hash": "sha256:7efb84d767e41af37af9dc0de7b3735da7db82e47991915d7559570c49a862da",
   "game": {
     "id": "conan_exiles",
     "name": "Conan Exiles",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 443030 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

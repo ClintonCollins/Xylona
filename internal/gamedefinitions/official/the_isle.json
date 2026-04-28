@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:063c2cf92e4fae0f9776a9c4f23ea8e364097f18075dc8b70c7fac89b270d235",
+  "content_hash": "sha256:6c2399dea5f4af85194d0712f3eb2c8fe12aea2e9ec0aeeb95468f880db95eda",
   "game": {
     "id": "the_isle",
     "name": "The Isle",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

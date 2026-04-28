@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:422ef7eed16c3d89b1506f148b41922a3009a2f4ba09f2201298927e5c906b28",
+  "content_hash": "sha256:b36854b96731a5a9bd2f37ce90090c1da0d7067cae767cda95c09da111e43123",
   "game": {
     "id": "space_engineers",
     "name": "Space Engineers",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 298740 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:c806ffde56e8b1c59815009326b313ce5cabbf9711477c80447ffb71e7b689cf",
+  "content_hash": "sha256:df0fbabcea15b629ab60b428fffc626dcc3e123c7481324401782972f935baee",
   "game": {
     "id": "left_4_dead_2",
     "name": "Left 4 Dead 2",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 222860 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

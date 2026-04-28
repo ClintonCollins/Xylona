@@ -164,38 +164,25 @@ func (xs *XylonaService) ensureNodeScopedIP(ctx context.Context, nodeID string, 
 	return invalidArg("invalid IP")
 }
 
-// findAvailablePort checks for port conflicts on the given IP and returns the next available port.
-// If the game requires a dedicated IP, no other game server should use the same IP at all.
+// findAvailablePort checks for service-port conflicts and returns the next available port.
+// Games that bind to all IPs occupy that service port across every IP on the node.
 // excludeServerID can be set to skip a specific server (useful when editing an existing server).
 func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
-	existingServers, errGetServers := xs.db.GetGameServersByNodeIDAndIP(nodeID, ip)
+	existingServers, errGetServers := xs.db.GetGameServersByNodeID(nodeID)
 	if errGetServers != nil {
-		return 0, 0, fmt.Errorf("rpc: list game servers by node and IP: %w", errGetServers)
+		return 0, 0, fmt.Errorf("rpc: list game servers by node: %w", errGetServers)
 	}
 
-	// If the game requires a dedicated IP, no other server should use this IP.
-	if game.RequireDedicatedIP {
-		for _, s := range existingServers {
-			if s.ID != excludeServerID {
-				return 0, 0, fmt.Errorf("game %s requires a dedicated IP, but IP %s is already in use by server %s", game.Name, ip, s.Name)
-			}
-		}
-	}
-
-	// Check if any existing server on this IP requires a dedicated IP (and thus blocks all ports).
+	selectedIP := strings.TrimSpace(ip)
+	selectedBindsToAllIPs := game != nil && game.BindsToAllIps
+	usedPorts := make(map[int64]bool)
 	for _, s := range existingServers {
 		if s.ID == excludeServerID {
 			continue
 		}
-		if s.R.Game != nil && s.R.Game.RequireDedicatedIP {
-			return 0, 0, fmt.Errorf("IP %s is dedicated to server %s and cannot be shared", ip, s.Name)
-		}
-	}
-
-	// Collect all used service ports on this IP (excluding the server being edited).
-	usedPorts := make(map[int64]bool)
-	for _, s := range existingServers {
-		if s.ID == excludeServerID {
+		existingBindsToAllIPs := s.R.Game != nil && s.R.Game.BindsToAllIps
+		sameIP := strings.TrimSpace(s.IP) == selectedIP
+		if !sameIP && !selectedBindsToAllIPs && !existingBindsToAllIPs {
 			continue
 		}
 		usedPorts[s.Port] = true
@@ -206,7 +193,7 @@ func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64,
 		port++
 		queryPort++
 		if port > 65535 || queryPort > 65535 {
-			return 0, 0, fmt.Errorf("no available ports on IP %s", ip)
+			return 0, 0, fmt.Errorf("no available service ports on node %s", nodeID)
 		}
 	}
 

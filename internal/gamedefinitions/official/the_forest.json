@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:29097924980ee7f5fa01b54a4f51f78f9ee0da51e0be16824c9dd411997cef21",
+  "content_hash": "sha256:8d9db60f7a7442a52324841cbd8d6911bee7c31ecaae148b5c5e6ef3eb2e872b",
   "game": {
     "id": "the_forest",
     "name": "The Forest",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 556450 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:df0ce9a48a1da109900e4487c042ea2f3de3799d891f8c724bb40d1b843a082f",
+  "content_hash": "sha256:7cd874aeea7a743b0d56bb2636a234373117b6cf74c1a169394477950b252e16",
   "game": {
     "id": "abiotic_factor",
     "name": "Abiotic Factor",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

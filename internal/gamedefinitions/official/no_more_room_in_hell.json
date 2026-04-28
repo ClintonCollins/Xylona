@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:7c6ae6ae35e86b0eee880d34c51696e6fc2b97a3a245ca2d6cb451956a871adb",
+  "content_hash": "sha256:7ccf0f5ae9de75bf46412a976095e2f43bad85a84d0c6d557d41d670c5d35f09",
   "game": {
     "id": "no_more_room_in_hell",
     "name": "No More Room in Hell",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 317670 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3a61e22020237952305cfc672fa84e1ee80fa9ab3b8658028cc5e695adbebb80",
+  "content_hash": "sha256:a2dd310d3cc57ae90a0f4cc85f0b290e06cb303730810b474e59f69a46627196",
   "game": {
     "id": "satisfactory",
     "name": "Satisfactory",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

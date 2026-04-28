@@ -57,7 +57,6 @@ func importGameChanges(existing *models.Game, imported *models.Game) ([]*xylona.
 	builder.addInt("General", "Default port", "game.defaultPort", existing.DefaultPort, imported.DefaultPort)
 	builder.addInt("General", "Default query port", "game.defaultQueryPort", existing.DefaultQueryPort, imported.DefaultQueryPort)
 	builder.addInt("General", "Default max players", "game.defaultMaxPlayers", existing.DefaultMaxPlayers, imported.DefaultMaxPlayers)
-	builder.addBool("General", "Require dedicated IP", "game.requireDedicatedIp", existing.RequireDedicatedIP, imported.RequireDedicatedIP)
 	builder.addBool("General", "Bind to all IPs", "game.bindsToAllIps", existing.BindsToAllIps, imported.BindsToAllIps)
 	builder.addBool("General", "Uses Source query", "game.usesSourceQuery", existing.UsesSourceQuery, imported.UsesSourceQuery)
 	builder.addBool("General", "Uses SteamCMD", "game.usesSteamcmd", existing.UsesSteamcmd, imported.UsesSteamcmd)

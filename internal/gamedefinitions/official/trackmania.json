@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:b878fb357629c8568d20716018e7ad0d67982d960f753ac5fa7556d89f217e62",
+  "content_hash": "sha256:b2ed81f7407840b455259504026195d8683e3a5e7003fd14c9d62379f522c557",
   "game": {
     "id": "trackmania",
     "name": "Trackmania",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4ef1f5b1b25df2bd677393a27cdd1492897abece433e500f1ffd443aea863daa",
+  "content_hash": "sha256:1880e2ba62f77869649f96364e4f1e2f1612f14055c55d075a396945d64e467d",
   "game": {
     "id": "redm",
     "name": "RedM",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

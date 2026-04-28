@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:43f04d7258487c1e5f5c14731dab08bef3dc57c80dcda40d2ffc3e5aa4f21dfa",
+  "content_hash": "sha256:d685ace6fc659ba00c25658396bfa2401742e4775150362dfef3fccc9b28da39",
   "game": {
     "id": "valheim",
     "name": "Valheim",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 896660 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

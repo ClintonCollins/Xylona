@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:47d52789b3231cc3897802c9cea4660be5e8b6348f24607fc3798fc19d6c8415",
+  "content_hash": "sha256:bd8dd4eaaac4be9ec897bd14a5b52a36186895640f4bf4ce27fe0cbd2bb89690",
   "game": {
     "id": "empyrion_galactic_survival",
     "name": "Empyrion: Galactic Survival",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 530870 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

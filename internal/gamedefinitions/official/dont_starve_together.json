@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6a52d0ffb70cbac932b54e2e90520c20e7c2b80bc593abd80048a5827bc96ab8",
+  "content_hash": "sha256:8ff759ccb94bc3118441ec59c153d20c7972b22297e7ecf9392366dd3c74221c",
   "game": {
     "id": "dont_starve_together",
     "name": "Don't Starve Together",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

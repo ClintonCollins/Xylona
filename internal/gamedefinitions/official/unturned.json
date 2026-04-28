@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:f9ee760a2351276fe6ef05843c31c636ef370c4477ba4eed74e115b3efa9aa5d",
+  "content_hash": "sha256:cae26026f989801372da8f56ba67e2cfcb8b02d8b7b913763266ed217460d5a1",
   "game": {
     "id": "unturned",
     "name": "Unturned",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1110390 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

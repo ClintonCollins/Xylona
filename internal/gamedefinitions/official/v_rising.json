@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:f432f709ebb4d4e17be847c4fe80b7e27b2bf7c2cb6c94e1dbb518212f1cbcfe",
+  "content_hash": "sha256:529618e40dce56dab97fe3edbabbc3561cc1f970ab0aea7cb12ac1d0544247a7",
   "game": {
     "id": "v_rising",
     "name": "V Rising",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1829350 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,

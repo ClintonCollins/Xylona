@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:17537833aafcc5e433a430878f755f5d4dd889b19e17d3bfe01e1c0ea25253eb",
+  "content_hash": "sha256:bc539e16af7bb4670296d5cd144eb989b41e8d10a8be402c7952a8dac0355cbc",
   "game": {
     "id": "project_zomboid",
     "name": "Project Zomboid",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

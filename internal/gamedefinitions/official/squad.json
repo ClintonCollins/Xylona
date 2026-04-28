@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:5036ec7ad3a00ec7cbc0da43f524550c91561e7d7d8f264996116744b5d77e06",
+  "content_hash": "sha256:86d4704cbb3e2499b927364a2b9f7dfb52b6ea57d3f5b9ab1538c8954e5b5b2a",
   "game": {
     "id": "squad",
     "name": "Squad",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 403240 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,

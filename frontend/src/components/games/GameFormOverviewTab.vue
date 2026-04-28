@@ -132,13 +132,13 @@
         <span class="feature-group-label text-xy-muted font-display">Network</span>
         <div class="feature-chips">
           <button
-            :aria-pressed="game.requireDedicatedIp"
-            :class="{ 'feature-chip--active': game.requireDedicatedIp }"
+            :aria-pressed="game.bindsToAllIps"
+            :class="{ 'feature-chip--active': game.bindsToAllIps }"
             class="feature-chip"
             type="button"
-            @click="game.requireDedicatedIp = !game.requireDedicatedIp">
+            @click="game.bindsToAllIps = !game.bindsToAllIps">
             <span class="feature-dot"></span>
-            <span class="feature-label">Requires Dedicated IP</span>
+            <span class="feature-label">Binds to All IPs</span>
           </button>
           <button
             :aria-pressed="game.usesSourceQuery"

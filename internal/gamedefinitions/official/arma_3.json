@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:d0244f15e94ebf2f6754a602f7313d15d212376834e99f4987a4553e83076883",
+  "content_hash": "sha256:edf83504e35ee76f49f97b3b997995e05346e2dc34cd4e05a08c7b639be8a3db",
   "game": {
     "id": "arma_3",
     "name": "Arma 3",
@@ -20,8 +20,8 @@
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 233780 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
-    "requireDedicatedIp": true,
-    "bindsToAllIps": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,
