@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 const WEB_PORT = process.env['E2E_WEB_PORT'] ?? '9002'
 const HTTP_PORT = process.env['E2E_HTTP_PORT'] ?? '9091'
-const BASE_URL = `https://localhost:${WEB_PORT}`
+const BASE_URL = `http://localhost:${WEB_PORT}`
 
 export default defineConfig({
   testDir: './e2e',

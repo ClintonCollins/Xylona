@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 const WEB_PORT = process.env['E2E_WEB_PORT'] ?? '9003'
 const HTTP_PORT = process.env['E2E_HTTP_PORT'] ?? '19092'
 const NODE_PORT = process.env['E2E_NODE_PORT'] ?? '19502'
-const BASE_URL = `https://localhost:${WEB_PORT}`
+const BASE_URL = `http://localhost:${WEB_PORT}`
 
 process.env['E2E_MODE'] = 'remote-node'
 process.env['E2E_HTTP_PORT'] = HTTP_PORT
