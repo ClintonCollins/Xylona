@@ -1,12 +1,12 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:cae26026f989801372da8f56ba67e2cfcb8b02d8b7b913763266ed217460d5a1",
+  "content_hash": "sha256:883513e4f9f75e9d6538defcfa6056319b4028ec73da7517e494ca499724beb2",
   "game": {
     "id": "unturned",
     "name": "Unturned",
     "defaultPort": "27015",
-    "defaultQueryPort": "27015",
+    "defaultQueryPort": "27016",
     "defaultMaxPlayers": "24",
     "linuxSupport": true,
     "windowsSupport": true,
@@ -43,7 +43,7 @@
     "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
-    "linuxBaseCommand": "./Unturned_Headless.x86_64",
+    "linuxBaseCommand": "./ServerHelper.sh",
     "windowsBaseCommand": "ServerHelper.bat",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "Servers/unturned/Server/Commands.dat",
+      "path": "Servers/Server/Server/Commands.dat",
       "format": "commandcfg",
       "category": "Server",
       "managed_fields": {
@@ -114,55 +114,6 @@
       "order": 1,
       "ownership": "editable",
       "tokens": [
-        "-batchmode"
-      ],
-      "label": "Batch mode"
-    },
-    {
-      "id": "runtime_unturned_linux_02",
-      "order": 2,
-      "ownership": "editable",
-      "tokens": [
-        "-nographics"
-      ],
-      "label": "No graphics"
-    },
-    {
-      "id": "runtime_unturned_linux_03",
-      "order": 3,
-      "ownership": "editable",
-      "tokens": [
-        "-bind",
-        "0.0.0.0"
-      ],
-      "label": "Bind"
-    },
-    {
-      "id": "runtime_unturned_linux_04",
-      "order": 4,
-      "ownership": "system",
-      "tokens": [
-        "-port",
-        "{{PORT}}"
-      ],
-      "label": "Game port",
-      "managed_source": "game_server.port"
-    },
-    {
-      "id": "runtime_unturned_linux_05",
-      "order": 5,
-      "ownership": "editable",
-      "tokens": [
-        "-Name",
-        "{{SERVER_NAME}}"
-      ],
-      "label": "Name"
-    },
-    {
-      "id": "runtime_unturned_linux_06",
-      "order": 6,
-      "ownership": "editable",
-      "tokens": [
         "+InternetServer/Server"
       ],
       "label": "Internet Server Server"
@@ -184,9 +135,9 @@
       "order": 2,
       "ownership": "editable",
       "tokens": [
-        "+secureserver/Server"
+        "+InternetServer/Server"
       ],
-      "label": "Secureserver Server"
+      "label": "Internet Server Server"
     }
   ],
   "start_arg_blocklist": [],

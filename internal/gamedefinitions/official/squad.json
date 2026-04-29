@@ -1,13 +1,13 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:86d4704cbb3e2499b927364a2b9f7dfb52b6ea57d3f5b9ab1538c8954e5b5b2a",
+  "content_hash": "sha256:c5e57f08a7a8f2b3fb175780f72fb33683a63ed9a1e0509caf0e3e1b4456514d",
   "game": {
     "id": "squad",
     "name": "Squad",
-    "defaultPort": "27015",
-    "defaultQueryPort": "27015",
-    "defaultMaxPlayers": "16",
+    "defaultPort": "7787",
+    "defaultQueryPort": "27165",
+    "defaultMaxPlayers": "80",
     "linuxSupport": true,
     "windowsSupport": true,
     "linuxStopCommand": "",
@@ -89,10 +89,36 @@
       "order": 4,
       "ownership": "system",
       "tokens": [
-        "-beaconport={{QUERY_PORT}}"
+        "beaconport=15000"
       ],
-      "label": "Query port",
-      "managed_source": "game_server.query_port"
+      "label": "Beacon port"
+    },
+    {
+      "id": "runtime_squad_linux_05",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "FIXEDMAXPLAYERS={{MAX_PLAYERS}}"
+      ],
+      "label": "Fixedmaxplayers"
+    },
+    {
+      "id": "runtime_squad_linux_06",
+      "order": 6,
+      "ownership": "editable",
+      "tokens": [
+        "RANDOM=NONE"
+      ],
+      "label": "Random"
+    },
+    {
+      "id": "runtime_squad_linux_07",
+      "order": 7,
+      "ownership": "editable",
+      "tokens": [
+        "-log"
+      ],
+      "label": "Log output"
     }
   ],
   "windows_start_args_template": [
@@ -149,7 +175,7 @@
       "order": 6,
       "ownership": "editable",
       "tokens": [
-        "RANDOM="
+        "RANDOM=NONE"
       ],
       "label": "Random"
     },

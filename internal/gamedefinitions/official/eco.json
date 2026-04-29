@@ -1,12 +1,12 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:bb8b126147ad74b1514efe874d804efc87a0223350bd29eef4bace802e355938",
+  "content_hash": "sha256:a0d3c42be8c8a65e047358a9ff007dd0894b5eef0c07fb5d88eb4b41a7b67ce4",
   "game": {
     "id": "eco",
     "name": "Eco",
-    "defaultPort": "27015",
-    "defaultQueryPort": "27015",
+    "defaultPort": "3000",
+    "defaultQueryPort": "3001",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
     "windowsSupport": true,
@@ -54,26 +54,7 @@
     "officialDefinitionDiverged": false
   },
   "config_schemas": [],
-  "linux_start_args_template": [
-    {
-      "id": "runtime_eco_linux_01",
-      "order": 1,
-      "ownership": "editable",
-      "tokens": [
-        "--username="
-      ],
-      "label": "Username"
-    },
-    {
-      "id": "runtime_eco_linux_02",
-      "order": 2,
-      "ownership": "editable",
-      "tokens": [
-        "--password="
-      ],
-      "label": "Password"
-    }
-  ],
+  "linux_start_args_template": [],
   "windows_start_args_template": [],
   "start_arg_blocklist": [],
   "update_config": {

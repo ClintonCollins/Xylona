@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:93762e43b3faef2da257b04baba7b6fa4181c6188b7c97d7b9dc91c3eeb61b2d",
+  "content_hash": "sha256:e4b33d28b63370ecb94392a9367d935886e1d4b9980c35672d6855b472a10a17",
   "game": {
     "id": "dayz",
     "name": "DayZ",
@@ -145,7 +145,7 @@
       "order": 3,
       "ownership": "editable",
       "tokens": [
-        "-profiles="
+        "-profiles=profiles"
       ],
       "label": "Profiles"
     },
@@ -193,15 +193,6 @@
         "-noFilePatching"
       ],
       "label": "No file patching"
-    },
-    {
-      "id": "runtime_dayz_windows_09",
-      "order": 9,
-      "ownership": "editable",
-      "tokens": [
-        "-cpuCount=1"
-      ],
-      "label": "Cpu Count"
     }
   ],
   "start_arg_blocklist": [],

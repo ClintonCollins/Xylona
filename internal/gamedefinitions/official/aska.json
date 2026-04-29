@@ -1,23 +1,23 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:403a7edc3909d5deed00aca09213a6ee603b350fcee6be8e385c1bb86a549c96",
+  "content_hash": "sha256:4e5a3615f37aeafffb4a58d0fc7bc2e2878057ef0961b0367fdbfc5d09d19b22",
   "game": {
     "id": "aska",
     "name": "Aska",
-    "defaultPort": "27015",
+    "defaultPort": "7777",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
     "linuxSupport": false,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 3246670 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 3246670 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
     "requireDedicatedIp": false,
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "NONE",
     "linuxUpdateType": "NONE",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "AskaServer.bat",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -53,7 +53,93 @@
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false
   },
-  "config_schemas": [],
+  "config_schemas": [
+    {
+      "path": "server properties.txt",
+      "format": "ini",
+      "category": "Server",
+      "managed_fields": {
+        "steam game port": "game_server.port",
+        "steam query port": "game_server.query_port"
+      },
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Identity",
+          "Access",
+          "Networking"
+        ],
+        "properties": {
+          "display name": {
+            "type": "string",
+            "title": "Display name",
+            "default": "My ASKA Server",
+            "x-group": "Identity",
+            "x-order": 0
+          },
+          "server name": {
+            "type": "string",
+            "title": "Server name",
+            "default": "MyASKAServer",
+            "x-group": "Identity",
+            "x-order": 1
+          },
+          "save id": {
+            "type": "string",
+            "title": "Save ID",
+            "default": "MyServer",
+            "x-group": "Identity",
+            "x-order": 2
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": "",
+            "x-group": "Access",
+            "x-order": 0
+          },
+          "authentication token": {
+            "type": "string",
+            "title": "Steam authentication token",
+            "default": "",
+            "x-group": "Access",
+            "x-order": 1
+          },
+          "steam game port": {
+            "type": "integer",
+            "title": "Game port",
+            "default": 7777,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.port"
+            }
+          },
+          "steam query port": {
+            "type": "integer",
+            "title": "Query port",
+            "default": 27015,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.query_port"
+            }
+          },
+          "region": {
+            "type": "string",
+            "title": "Region",
+            "default": "US",
+            "x-group": "Networking",
+            "x-order": 2
+          }
+        }
+      }
+    }
+  ],
   "linux_start_args_template": [],
   "windows_start_args_template": [],
   "start_arg_blocklist": [],

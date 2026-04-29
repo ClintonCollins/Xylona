@@ -1,11 +1,11 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e360c0d6dddf24d86250afbcc8786a669e93697ff037d34e3828d957444f6210",
+  "content_hash": "sha256:7ee87756cb1b1f4f378e7c52f19f54f2b2166f6c7142edc0c315a10799918613",
   "game": {
     "id": "mordhau",
     "name": "Mordhau",
-    "defaultPort": "27015",
+    "defaultPort": "7777",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
     "linuxSupport": false,

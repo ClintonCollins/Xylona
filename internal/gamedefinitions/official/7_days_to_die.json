@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:8aa480ae4102d60c8c9ceedc2e1190a593e72040c7d492ec335322aaba5cf79d",
+  "content_hash": "sha256:6aa0c4f13b281de95672fe4a192a9592f3eac04451dec8a654da4d0ea0acd7bd",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -30,17 +30,17 @@
     "linuxUpdateCommandProcessor": "DIRECT",
     "windowsInstallCommandProcessor": "DIRECT",
     "windowsUpdateCommandProcessor": "DIRECT",
-    "usesSteamcmd": false,
-    "steamAppid": "",
+    "usesSteamcmd": true,
+    "steamAppid": "294420",
     "configSchemas": "",
     "updateProvider": null,
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "COMMAND",
-    "linuxUpdateType": "COMMAND",
-    "windowsInstallType": "COMMAND",
-    "windowsUpdateType": "COMMAND",
+    "linuxInstallType": "STEAMCMD",
+    "linuxUpdateType": "STEAMCMD",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "./7DaysToDieServer",
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "settings.xml",
+      "path": "serverconfig.xml",
       "format": "xml",
       "category": "Server",
       "xml_key_mode": {
@@ -164,8 +164,7 @@
       "order": 5,
       "ownership": "editable",
       "tokens": [
-        "-configfile",
-        "settings.xml"
+        "-configfile=serverconfig.xml"
       ],
       "label": "Config file"
     },
@@ -222,8 +221,7 @@
       "order": 5,
       "ownership": "editable",
       "tokens": [
-        "-configfile",
-        "settings.xml"
+        "-configfile=serverconfig.xml"
       ],
       "label": "Config file"
     },
@@ -240,7 +238,8 @@
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {
-      "kind": "command"
-    }
+      "kind": "steamcmd"
+    },
+    "default_target": "public"
   }
 }

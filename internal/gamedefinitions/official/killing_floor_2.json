@@ -1,11 +1,11 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:f91779b86cccca94f72e1ee019132d8723bdbfecf04a242b748998c60c39c846",
+  "content_hash": "sha256:da7ee03cfa74c99f5dbec52185232867bc911228956d2c22364012bc74d184e5",
   "game": {
     "id": "killing_floor_2",
     "name": "Killing Floor 2",
-    "defaultPort": "27015",
+    "defaultPort": "7777",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
@@ -80,7 +80,7 @@
       "order": 1,
       "ownership": "editable",
       "tokens": [
-        "?Game=?Difficulty=?GameLength=?MaxPlayers={{MAX_PLAYERS}}"
+        "KF-BioticsLab?MaxPlayers={{MAX_PLAYERS}}"
       ],
       "label": "Startup options"
     },
@@ -109,7 +109,7 @@
       "order": 4,
       "ownership": "editable",
       "tokens": [
-        "-WebAdminPort=10"
+        "-WebAdminPort=8080"
       ],
       "label": "Web Admin Port"
     },

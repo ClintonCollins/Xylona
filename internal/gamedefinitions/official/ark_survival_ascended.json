@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:1967e709038beb1c8ce72534ff1443317e7b09ca0d6891e0081728dd50c8d18e",
+  "content_hash": "sha256:499d283b419677d41c710145334ab65b7d9838a6fa000b387fd22069c1acded3",
   "game": {
     "id": "ark_survival_ascended",
     "name": "ARK: Survival Ascended",
@@ -9,15 +9,15 @@
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "70",
     "linuxSupport": false,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2430930 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2430930 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
     "requireDedicatedIp": false,
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "NONE",
     "linuxUpdateType": "NONE",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "ShooterGame\\Binaries\\Win64\\ArkAscendedServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -55,7 +55,35 @@
   },
   "config_schemas": [],
   "linux_start_args_template": [],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_ark_survival_ascended_windows_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "TheIsland_WP?listen?SessionName={{SERVER_NAME}}?Port={{PORT}}?QueryPort={{QUERY_PORT}}?MaxPlayers={{MAX_PLAYERS}}?RCONEnabled=True"
+      ],
+      "label": "Startup options"
+    },
+    {
+      "id": "runtime_ark_survival_ascended_windows_02",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "-server"
+      ],
+      "label": "Server mode"
+    },
+    {
+      "id": "runtime_ark_survival_ascended_windows_03",
+      "order": 3,
+      "ownership": "editable",
+      "tokens": [
+        "-log"
+      ],
+      "label": "Log output"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

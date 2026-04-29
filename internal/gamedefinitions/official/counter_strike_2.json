@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6cbac7eb1128168cbaafbd80ab72c752d0fba1087b75bfdbced37e1627355669",
+  "content_hash": "sha256:54a9b01fbb5a9e99a212325fc4c6fab1287851d1121030da8545d23e7847d007",
   "game": {
     "id": "counter_strike_2",
     "name": "Counter-Strike 2",
@@ -25,7 +25,7 @@
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,
-    "requiresSteamGameServerLoginToken": false,
+    "requiresSteamGameServerLoginToken": true,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
     "windowsInstallCommandProcessor": "DIRECT",
@@ -43,7 +43,7 @@
     "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
-    "linuxBaseCommand": "game/bin/linuxsteamrt64/cs2",
+    "linuxBaseCommand": "game/cs2.sh",
     "windowsBaseCommand": "game\\bin\\win64\\cs2.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "cfg/server.cfg",
+      "path": "game/csgo/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
       "schema": {
@@ -159,6 +159,17 @@
         "{{SERVER_NAME}}"
       ],
       "label": "Server name"
+    },
+    {
+      "id": "runtime_counter_strike_2_linux_07",
+      "order": 7,
+      "ownership": "system",
+      "tokens": [
+        "+sv_setsteamaccount",
+        "{{STEAM_GSLT}}"
+      ],
+      "label": "Steam GSLT",
+      "managed_source": "steam_gslt"
     }
   ],
   "windows_start_args_template": [
@@ -246,7 +257,8 @@
       "order": 9,
       "ownership": "editable",
       "tokens": [
-        "+game_type"
+        "+game_type",
+        "0"
       ],
       "label": "Game Type"
     },
@@ -255,7 +267,8 @@
       "order": 10,
       "ownership": "editable",
       "tokens": [
-        "+game_mode"
+        "+game_mode",
+        "1"
       ],
       "label": "Game Mode"
     },
@@ -268,6 +281,17 @@
         "{{SERVER_NAME}}"
       ],
       "label": "Server name"
+    },
+    {
+      "id": "runtime_counter_strike_2_windows_12",
+      "order": 12,
+      "ownership": "system",
+      "tokens": [
+        "+sv_setsteamaccount",
+        "{{STEAM_GSLT}}"
+      ],
+      "label": "Steam GSLT",
+      "managed_source": "steam_gslt"
     }
   ],
   "start_arg_blocklist": [],

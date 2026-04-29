@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:82322cbc49cc21e97e5dea547a53e50311c346d41a4d6ecde437454b5bbc9100",
+  "content_hash": "sha256:4aa7deb77ea96b3ea70f567d6a4861140e457291615723962cb18f5fe556ba54",
   "game": {
     "id": "enshrouded",
     "name": "Enshrouded",
@@ -53,31 +53,85 @@
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false
   },
-  "config_schemas": [],
-  "linux_start_args_template": [],
-  "windows_start_args_template": [
+  "config_schemas": [
     {
-      "id": "01JQSH00000000000000000001",
-      "order": 1,
-      "ownership": "system",
-      "tokens": [
-        "-port",
-        "{{PORT}}"
-      ],
-      "label": "Game port",
-      "managed_source": "game_server.port"
-    },
-    {
-      "id": "01JQSH00000000000000000002",
-      "order": 2,
-      "ownership": "editable",
-      "tokens": [
-        "-maxplayers",
-        "16"
-      ],
-      "label": "Max players"
+      "path": "enshrouded_server.json",
+      "format": "json",
+      "category": "Server",
+      "managed_fields": {
+        "queryPort": "game_server.query_port"
+      },
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Identity",
+          "Access",
+          "Networking",
+          "Storage"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Server name",
+            "default": "Enshrouded Server",
+            "x-group": "Identity",
+            "x-order": 0
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": "",
+            "x-group": "Access",
+            "x-order": 0
+          },
+          "slotCount": {
+            "type": "integer",
+            "title": "Player slots",
+            "default": 16,
+            "minimum": 1,
+            "maximum": 16,
+            "x-group": "Access",
+            "x-order": 1
+          },
+          "ip": {
+            "type": "string",
+            "title": "Bind IP",
+            "default": "0.0.0.0",
+            "x-group": "Networking",
+            "x-order": 0
+          },
+          "queryPort": {
+            "type": "integer",
+            "title": "Query port",
+            "default": 15637,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.query_port"
+            }
+          },
+          "saveDirectory": {
+            "type": "string",
+            "title": "Save directory",
+            "default": "./savegame",
+            "x-group": "Storage",
+            "x-order": 0
+          },
+          "logDirectory": {
+            "type": "string",
+            "title": "Log directory",
+            "default": "./logs",
+            "x-group": "Storage",
+            "x-order": 1
+          }
+        }
+      }
     }
   ],
+  "linux_start_args_template": [],
+  "windows_start_args_template": [],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

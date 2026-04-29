@@ -1,13 +1,13 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:30f076a3e0cfe9dfb92ba286f832e1edcd063ee01a289cb42b0bdc92bfa6b451",
+  "content_hash": "sha256:c9ad81ee3235472d0e4d3d69cf98ee6b5bf462b074a08ce70b860f3acbf2a528",
   "game": {
     "id": "terraria",
     "name": "Terraria",
     "defaultPort": "7777",
     "defaultQueryPort": "7777",
-    "defaultMaxPlayers": "8",
+    "defaultMaxPlayers": "16",
     "linuxSupport": true,
     "windowsSupport": true,
     "linuxStopCommand": "",
@@ -87,7 +87,7 @@
           "maxplayers": {
             "type": "integer",
             "title": "Max players",
-            "default": 8,
+            "default": 16,
             "minimum": 1,
             "maximum": 255,
             "x-group": "Access",

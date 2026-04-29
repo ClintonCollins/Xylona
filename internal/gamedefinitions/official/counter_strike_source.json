@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e12c053f9146ec5b56ce43b740249adff9c9d7ec409432958bf983a323eafeae",
+  "content_hash": "sha256:12336b2c7889658614bb7800173e0526d7b19b79e6de710a09ce3a2b7be14f4e",
   "game": {
     "id": "counter_strike_source",
     "name": "Counter-Strike: Source",
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "cfg/server.cfg",
+      "path": "cstrike/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
       "schema": {
@@ -136,7 +136,7 @@
       "ownership": "editable",
       "tokens": [
         "+map",
-        "dm_lockdown"
+        "de_dust2"
       ],
       "label": "Map"
     },
@@ -167,6 +167,16 @@
         "-norestart"
       ],
       "label": "No restart"
+    },
+    {
+      "id": "runtime_counter_strike_source_linux_08",
+      "order": 8,
+      "ownership": "editable",
+      "tokens": [
+        "+maxplayers",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Maxplayers"
     }
   ],
   "windows_start_args_template": [

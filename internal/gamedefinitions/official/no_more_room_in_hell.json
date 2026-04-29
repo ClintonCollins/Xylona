@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:7ccf0f5ae9de75bf46412a976095e2f43bad85a84d0c6d557d41d670c5d35f09",
+  "content_hash": "sha256:814d2bd168ea25f15a11f11fdb917433eef21a56204daaf2ee2e4c8b88cf7adb",
   "game": {
     "id": "no_more_room_in_hell",
     "name": "No More Room in Hell",
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "cfg/server.cfg",
+      "path": "nmrih/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
       "schema": {
@@ -167,7 +167,7 @@
       "ownership": "editable",
       "tokens": [
         "+map",
-        "nmo_brooklyn"
+        "nmo_broadway"
       ],
       "label": "Map"
     },
@@ -209,7 +209,7 @@
       "ownership": "editable",
       "tokens": [
         "+map",
-        "nmo_brooklyn"
+        "nmo_broadway"
       ],
       "label": "Map"
     },

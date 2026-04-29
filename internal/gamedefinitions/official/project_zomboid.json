@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:bc539e16af7bb4670296d5cd144eb989b41e8d10a8be402c7952a8dac0355cbc",
+  "content_hash": "sha256:fe738569e90160f1d8c9fcbcdb7c57fd3e2b52afec3a63f213d141f1bf28567e",
   "game": {
     "id": "project_zomboid",
     "name": "Project Zomboid",
@@ -9,15 +9,15 @@
     "defaultQueryPort": "16261",
     "defaultMaxPlayers": "32",
     "linuxSupport": true,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 380870 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 380870 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 380870 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 380870 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
     "requireDedicatedIp": false,
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "STEAMCMD",
     "linuxUpdateType": "STEAMCMD",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
-    "linuxBaseCommand": "./ProjectZomboid64",
-    "windowsBaseCommand": "",
+    "linuxBaseCommand": "./start-server.sh",
+    "windowsBaseCommand": "StartServer64.bat",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -58,12 +58,16 @@
       "path": "Zomboid/Server/server.ini",
       "format": "ini",
       "category": "Server",
+      "managed_fields": {
+        "DefaultPort": "game_server.port"
+      },
       "schema": {
         "type": "object",
         "x-groups": [
           "Identity",
           "Access",
-          "Gameplay"
+          "Gameplay",
+          "Networking"
         ],
         "properties": {
           "PublicName": {
@@ -102,6 +106,18 @@
             "default": true,
             "x-group": "Gameplay",
             "x-order": 0
+          },
+          "DefaultPort": {
+            "type": "integer",
+            "title": "Server port",
+            "default": 16261,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.port"
+            }
           }
         }
       }
@@ -109,19 +125,8 @@
   ],
   "linux_start_args_template": [
     {
-      "id": "runtime_project_zomboid_linux_01",
-      "order": 1,
-      "ownership": "system",
-      "tokens": [
-        "-port",
-        "{{PORT}}"
-      ],
-      "label": "Game port",
-      "managed_source": "game_server.port"
-    },
-    {
       "id": "runtime_project_zomboid_linux_02",
-      "order": 2,
+      "order": 1,
       "ownership": "editable",
       "tokens": [
         "-cachedir",
@@ -131,7 +136,7 @@
     },
     {
       "id": "runtime_project_zomboid_linux_03",
-      "order": 3,
+      "order": 2,
       "ownership": "editable",
       "tokens": [
         "-servername",
@@ -140,7 +145,18 @@
       "label": "Servername"
     }
   ],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_project_zomboid_windows_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "-servername",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Servername"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

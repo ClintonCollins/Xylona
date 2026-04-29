@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:529618e40dce56dab97fe3edbabbc3561cc1f970ab0aea7cb12ac1d0544247a7",
+  "content_hash": "sha256:3e0f717677f7c0f6148e3a0f20effd503e4e7f31ba49b766d8ce4b8fbae31447",
   "game": {
     "id": "v_rising",
     "name": "V Rising",
@@ -71,7 +71,7 @@
       "order": 2,
       "ownership": "system",
       "tokens": [
-        "-serverPort",
+        "-gamePort",
         "{{PORT}}"
       ],
       "label": "Game port",
@@ -87,15 +87,6 @@
       ],
       "label": "Query port",
       "managed_source": "game_server.query_port"
-    },
-    {
-      "id": "01JQSC00000000000000000004",
-      "order": 4,
-      "ownership": "editable",
-      "tokens": [
-        "-lan"
-      ],
-      "label": "LAN mode"
     }
   ],
   "start_arg_blocklist": [],

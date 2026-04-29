@@ -1,11 +1,11 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6c2399dea5f4af85194d0712f3eb2c8fe12aea2e9ec0aeeb95468f880db95eda",
+  "content_hash": "sha256:eff503b02f9da1b332852e4b1ec652729597997f7c7566a0078647901628b172",
   "game": {
     "id": "the_isle",
     "name": "The Isle",
-    "defaultPort": "27015",
+    "defaultPort": "7777",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
@@ -90,6 +90,6 @@
     "update_provider": {
       "kind": "steamcmd"
     },
-    "default_target": "public"
+    "default_target": "evrima"
   }
 }

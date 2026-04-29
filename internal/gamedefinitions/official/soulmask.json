@@ -1,11 +1,11 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:de46ae218f7556607e71aef289201b389ba81643bad303555af8801a5e4dedc4",
+  "content_hash": "sha256:dc14d88661c1235c0541ca0c29f1107409f4029204f60a34277405ae49f3ffb8",
   "game": {
     "id": "soulmask",
     "name": "Soulmask",
-    "defaultPort": "27015",
+    "defaultPort": "8777",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
@@ -125,10 +125,9 @@
       "order": 8,
       "ownership": "system",
       "tokens": [
-        "-EchoPort={{QUERY_PORT}}"
+        "-EchoPort=18888"
       ],
-      "label": "Query port",
-      "managed_source": "game_server.query_port"
+      "label": "Echo port"
     },
     {
       "id": "runtime_soulmask_linux_09",
@@ -180,7 +179,7 @@
       "order": 14,
       "ownership": "editable",
       "tokens": [
-        "-backup=30"
+        "-backup=900"
       ],
       "label": "Backup"
     },

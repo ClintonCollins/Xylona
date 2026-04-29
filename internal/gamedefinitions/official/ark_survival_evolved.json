@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6d6da388c0d2e00aba8cc47772341838675f114d48fa9bf6b8cd2103eeb71faf",
+  "content_hash": "sha256:f9b6d7138646300c6357e1ead1081f0c27f71dc7743c0bb484e646ab01bb2b3f",
   "game": {
     "id": "ark_survival_evolved",
     "name": "ARK: Survival Evolved",
@@ -89,7 +89,7 @@
       "order": 1,
       "ownership": "editable",
       "tokens": [
-        "?Multihome={{IP}}?Port={{PORT}}?QueryPort={{QUERY_PORT}}?MaxPlayers={{MAX_PLAYERS}}?bRawSockets?RCONEnabled=?ServerAdminPassword=?PreventDownloadSurvivors=?PreventDownloadItems=?PreventDownloadDinos=?PreventUploadSurvivors=?PreventUploadItems=?PreventUploadDinos=?AltSaveDirectoryName=?PreventOfflinePvP=?PreventOfflinePvPInterval=900?PreventTribeAlliances=?listen"
+        "TheIsland?listen?Multihome={{IP}}?Port={{PORT}}?QueryPort={{QUERY_PORT}}?MaxPlayers={{MAX_PLAYERS}}?RCONEnabled=True"
       ],
       "label": "Startup options"
     },

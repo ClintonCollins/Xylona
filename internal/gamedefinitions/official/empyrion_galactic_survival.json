@@ -1,12 +1,12 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:bd8dd4eaaac4be9ec897bd14a5b52a36186895640f4bf4ce27fe0cbd2bb89690",
+  "content_hash": "sha256:377c72968a4b5280453249e485307e26a166c77e6948c11ece4814775bad465b",
   "game": {
     "id": "empyrion_galactic_survival",
     "name": "Empyrion: Galactic Survival",
-    "defaultPort": "27015",
-    "defaultQueryPort": "27015",
+    "defaultPort": "30000",
+    "defaultQueryPort": "30004",
     "defaultMaxPlayers": "16",
     "linuxSupport": false,
     "windowsSupport": true,
@@ -44,7 +44,7 @@
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "DedicatedServer\\EmpyrionDedicated.exe",
+    "windowsBaseCommand": "EmpyrionLauncher.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -57,36 +57,17 @@
   "linux_start_args_template": [],
   "windows_start_args_template": [
     {
-      "id": "runtime_empyrion_galactic_survival_windows_01",
+      "id": "runtime_empyrion_galactic_survival_windows_04",
       "order": 1,
       "ownership": "editable",
       "tokens": [
-        "-batchmode"
+        "-startDedi"
       ],
-      "label": "Batch mode"
+      "label": "Start dedicated server"
     },
     {
-      "id": "runtime_empyrion_galactic_survival_windows_02",
+      "id": "runtime_empyrion_galactic_survival_windows_05",
       "order": 2,
-      "ownership": "editable",
-      "tokens": [
-        "-nographics"
-      ],
-      "label": "No graphics"
-    },
-    {
-      "id": "runtime_empyrion_galactic_survival_windows_03",
-      "order": 3,
-      "ownership": "editable",
-      "tokens": [
-        "-logFile",
-        "Logs/Dedicated.log"
-      ],
-      "label": "Log File"
-    },
-    {
-      "id": "runtime_empyrion_galactic_survival_windows_04",
-      "order": 4,
       "ownership": "editable",
       "tokens": [
         "-dedicated",

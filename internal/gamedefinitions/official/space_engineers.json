@@ -1,12 +1,12 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:b36854b96731a5a9bd2f37ce90090c1da0d7067cae767cda95c09da111e43123",
+  "content_hash": "sha256:cb2fd5308daf492a3e4ee21db05c1fd8852b3ef1429430f47828101b216a63c6",
   "game": {
     "id": "space_engineers",
     "name": "Space Engineers",
-    "defaultPort": "27015",
-    "defaultQueryPort": "27015",
+    "defaultPort": "27016",
+    "defaultQueryPort": "27016",
     "defaultMaxPlayers": "16",
     "linuxSupport": false,
     "windowsSupport": true,
@@ -70,7 +70,8 @@
       "order": 2,
       "ownership": "editable",
       "tokens": [
-        "-path"
+        "-path",
+        "Instance"
       ],
       "label": "Path"
     },

@@ -1,18 +1,18 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:8b913eb69731e3555c03a79a9f049ef57f8c8bdd2079135dd8acb999e705ea0e",
+  "content_hash": "sha256:8a110143817f5c659888c04d1d1c4d9f2d8ddb09d005da4face2b58eed3de122",
   "game": {
     "id": "chivalry_medieval_warfare",
     "name": "Chivalry: Medieval Warfare",
-    "defaultPort": "27015",
-    "defaultQueryPort": "27015",
+    "defaultPort": "7777",
+    "defaultQueryPort": "7779",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
     "windowsSupport": false,
     "linuxStopCommand": "",
-    "linuxInstallCommand": "",
-    "linuxUpdateCommand": "",
+    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 220070 validate +quit",
+    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 220070 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
@@ -30,15 +30,15 @@
     "linuxUpdateCommandProcessor": "DIRECT",
     "windowsInstallCommandProcessor": "DIRECT",
     "windowsUpdateCommandProcessor": "DIRECT",
-    "usesSteamcmd": false,
-    "steamAppid": "",
+    "usesSteamcmd": true,
+    "steamAppid": "220070",
     "configSchemas": "",
     "updateProvider": null,
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "NONE",
-    "linuxUpdateType": "NONE",
+    "linuxInstallType": "STEAMCMD",
+    "linuxUpdateType": "STEAMCMD",
     "windowsInstallType": "NONE",
     "windowsUpdateType": "NONE",
     "linuxStartArgsTemplate": "",
@@ -60,9 +60,9 @@
       "order": 1,
       "ownership": "editable",
       "tokens": [
-        "?steamsockets"
+        "AOCTO-Hillside_P?steamsockets"
       ],
-      "label": "Startup options"
+      "label": "Map"
     },
     {
       "id": "runtime_chivalry_medieval_warfare_linux_02",
@@ -108,7 +108,7 @@
       "order": 6,
       "ownership": "editable",
       "tokens": [
-        "-configsubdir={{SERVER_NAME}}"
+        "-configsubdir=Xylona"
       ],
       "label": "Configsubdir"
     },
@@ -117,7 +117,7 @@
       "order": 7,
       "ownership": "editable",
       "tokens": [
-        "-log=./Saved/Logs/{{SERVER_NAME}}-game.log"
+        "-log=Xylona/server.log"
       ],
       "label": "Log"
     }
@@ -126,7 +126,8 @@
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {
-      "kind": "none"
-    }
+      "kind": "steamcmd"
+    },
+    "default_target": "public"
   }
 }

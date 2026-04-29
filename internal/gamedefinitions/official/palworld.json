@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:df8f7dca876828c03ddefd954a1eae29b70666f0dd3f58352b2d96622a8efbd4",
+  "content_hash": "sha256:f351915d8d3c298aae0dd62e6c788b351a9a51a3592f2b6b0093a82fa14c2639",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -43,7 +43,7 @@
     "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
-    "linuxBaseCommand": "PalServer-Linux-Shipping",
+    "linuxBaseCommand": "./PalServer.sh",
     "windowsBaseCommand": "PalServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
@@ -83,6 +83,24 @@
         "-useperfthreads"
       ],
       "label": "Use perf threads"
+    },
+    {
+      "id": "01JQSF00000000000000000004",
+      "order": 4,
+      "ownership": "editable",
+      "tokens": [
+        "-NoAsyncLoadingThread"
+      ],
+      "label": "No async loading thread"
+    },
+    {
+      "id": "01JQSF00000000000000000005",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "-UseMultithreadForDS"
+      ],
+      "label": "Use multithread for dedicated server"
     }
   ],
   "windows_start_args_template": [
@@ -114,6 +132,24 @@
         "-useperfthreads"
       ],
       "label": "Use perf threads"
+    },
+    {
+      "id": "01JQSF00000000000000000004",
+      "order": 4,
+      "ownership": "editable",
+      "tokens": [
+        "-NoAsyncLoadingThread"
+      ],
+      "label": "No async loading thread"
+    },
+    {
+      "id": "01JQSF00000000000000000005",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "-UseMultithreadForDS"
+      ],
+      "label": "Use multithread for dedicated server"
     }
   ],
   "start_arg_blocklist": [],

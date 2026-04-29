@@ -1,25 +1,25 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e067e971d524309496b3b14baa8dbf6363e460377e6577355a5610542787c061",
+  "content_hash": "sha256:f07272d1056e143c600271ccb87ffd11cf393d530fcdb3ab71d1b2169bfb5d37",
   "game": {
     "id": "hytale",
     "name": "Hytale",
     "defaultPort": "5520",
-    "defaultQueryPort": "5521",
+    "defaultQueryPort": "5520",
     "defaultMaxPlayers": "20",
     "linuxSupport": true,
     "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
-    "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxWorkingDirectory": "Server",
+    "linuxAllowBackups": true,
     "windowsStopCommand": "",
     "windowsInstallCommand": "",
     "windowsUpdateCommand": "",
-    "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsWorkingDirectory": "Server",
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -37,10 +37,10 @@
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "COMMAND",
-    "linuxUpdateType": "COMMAND",
-    "windowsInstallType": "COMMAND",
-    "windowsUpdateType": "COMMAND",
+    "linuxInstallType": "HYTALE",
+    "linuxUpdateType": "HYTALE",
+    "windowsInstallType": "HYTALE",
+    "windowsUpdateType": "HYTALE",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "java",
@@ -69,20 +69,48 @@
       "order": 2,
       "ownership": "editable",
       "tokens": [
-        "-Xmx4G"
+        "-Xmx{{MAX_MEMORY_MB}}M"
       ],
       "label": "Max heap size"
     },
     {
       "id": "01JQSG00000000000000000003",
       "order": 3,
-      "ownership": "system",
+      "ownership": "editable",
+      "tokens": [
+        "-XX:AOTCache=HytaleServer.aot"
+      ],
+      "label": "AOT cache"
+    },
+    {
+      "id": "01JQSG00000000000000000004",
+      "order": 4,
+      "ownership": "editable",
       "tokens": [
         "-jar",
-        "{{SERVER_EXECUTABLE}}"
+        "HytaleServer.jar"
       ],
-      "label": "Server executable",
-      "managed_source": "server_executable"
+      "label": "Server executable"
+    },
+    {
+      "id": "01JQSG00000000000000000005",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "--assets",
+        "../Assets.zip"
+      ],
+      "label": "Assets archive"
+    },
+    {
+      "id": "01JQSG00000000000000000006",
+      "order": 6,
+      "ownership": "editable",
+      "tokens": [
+        "--bind",
+        "0.0.0.0:{{PORT}}"
+      ],
+      "label": "Bind address"
     }
   ],
   "windows_start_args_template": [
@@ -100,26 +128,55 @@
       "order": 2,
       "ownership": "editable",
       "tokens": [
-        "-Xmx4G"
+        "-Xmx{{MAX_MEMORY_MB}}M"
       ],
       "label": "Max heap size"
     },
     {
       "id": "01JQSG00000000000000000003",
       "order": 3,
-      "ownership": "system",
+      "ownership": "editable",
+      "tokens": [
+        "-XX:AOTCache=HytaleServer.aot"
+      ],
+      "label": "AOT cache"
+    },
+    {
+      "id": "01JQSG00000000000000000004",
+      "order": 4,
+      "ownership": "editable",
       "tokens": [
         "-jar",
-        "{{SERVER_EXECUTABLE}}"
+        "HytaleServer.jar"
       ],
-      "label": "Server executable",
-      "managed_source": "server_executable"
+      "label": "Server executable"
+    },
+    {
+      "id": "01JQSG00000000000000000005",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "--assets",
+        "../Assets.zip"
+      ],
+      "label": "Assets archive"
+    },
+    {
+      "id": "01JQSG00000000000000000006",
+      "order": 6,
+      "ownership": "editable",
+      "tokens": [
+        "--bind",
+        "0.0.0.0:{{PORT}}"
+      ],
+      "label": "Bind address"
     }
   ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {
-      "kind": "none"
-    }
+      "kind": "hytale"
+    },
+    "default_target": "release"
   }
 }

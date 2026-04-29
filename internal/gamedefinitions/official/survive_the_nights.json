@@ -1,18 +1,18 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3d0a4d4601c22742feb1f26044b8a32d80a7931abc2767c72b487a2d12bfb423",
+  "content_hash": "sha256:634cc46bfb7b50f7bd571341e7b55cdd65c16e4665b12f10efbc9928cdfee9c6",
   "game": {
     "id": "survive_the_nights",
     "name": "Survive The Nights",
-    "defaultPort": "27015",
-    "defaultQueryPort": "27015",
+    "defaultPort": "7950",
+    "defaultQueryPort": "7951",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
     "windowsSupport": false,
     "linuxStopCommand": "",
-    "linuxInstallCommand": "",
-    "linuxUpdateCommand": "",
+    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1502300 validate +quit",
+    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1502300 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
@@ -30,15 +30,15 @@
     "linuxUpdateCommandProcessor": "DIRECT",
     "windowsInstallCommandProcessor": "DIRECT",
     "windowsUpdateCommandProcessor": "DIRECT",
-    "usesSteamcmd": false,
-    "steamAppid": "",
+    "usesSteamcmd": true,
+    "steamAppid": "1502300",
     "configSchemas": "",
     "updateProvider": null,
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "NONE",
-    "linuxUpdateType": "NONE",
+    "linuxInstallType": "STEAMCMD",
+    "linuxUpdateType": "STEAMCMD",
     "windowsInstallType": "NONE",
     "windowsUpdateType": "NONE",
     "linuxStartArgsTemplate": "",
@@ -53,7 +53,59 @@
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false
   },
-  "config_schemas": [],
+  "config_schemas": [
+    {
+      "path": "ServerConfig.txt",
+      "format": "commandcfg",
+      "category": "Server",
+      "managed_fields": {
+        "ServerPort": "game_server.port"
+      },
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Identity",
+          "Access",
+          "Networking"
+        ],
+        "properties": {
+          "ServerName": {
+            "type": "string",
+            "title": "Server name",
+            "default": "New Private Server",
+            "x-group": "Identity",
+            "x-order": 0
+          },
+          "serverPassword": {
+            "type": "string",
+            "title": "Password",
+            "default": "",
+            "x-group": "Access",
+            "x-order": 0
+          },
+          "ServerPort": {
+            "type": "integer",
+            "title": "Server port",
+            "default": 7950,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.port"
+            }
+          },
+          "ShowInPublicLobby": {
+            "type": "boolean",
+            "title": "Show in public lobby",
+            "default": true,
+            "x-group": "Networking",
+            "x-order": 1
+          }
+        }
+      }
+    }
+  ],
   "linux_start_args_template": [
     {
       "id": "runtime_survive_the_nights_linux_01",
@@ -80,7 +132,8 @@
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {
-      "kind": "none"
-    }
+      "kind": "steamcmd"
+    },
+    "default_target": "public"
   }
 }

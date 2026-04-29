@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:df0fbabcea15b629ab60b428fffc626dcc3e123c7481324401782972f935baee",
+  "content_hash": "sha256:b2f693d2e9dd3be2af8eb430ad6b70a51f0d4ba934d4e2198129cebb512d193b",
   "game": {
     "id": "left_4_dead_2",
     "name": "Left 4 Dead 2",
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "cfg/server.cfg",
+      "path": "left4dead2/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
       "schema": {
@@ -105,13 +105,23 @@
       "order": 1,
       "ownership": "editable",
       "tokens": [
+        "-game",
+        "left4dead2"
+      ],
+      "label": "Game"
+    },
+    {
+      "id": "runtime_left_4_dead_2_linux_02",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
         "-console"
       ],
       "label": "Console mode"
     },
     {
-      "id": "runtime_left_4_dead_2_linux_02",
-      "order": 2,
+      "id": "runtime_left_4_dead_2_linux_03",
+      "order": 3,
       "ownership": "system",
       "tokens": [
         "-port",
@@ -121,18 +131,18 @@
       "managed_source": "game_server.port"
     },
     {
-      "id": "runtime_left_4_dead_2_linux_03",
-      "order": 3,
+      "id": "runtime_left_4_dead_2_linux_04",
+      "order": 4,
       "ownership": "editable",
       "tokens": [
         "+map",
-        "dm_lockdown"
+        "c1m1_hotel"
       ],
       "label": "Map"
     },
     {
-      "id": "runtime_left_4_dead_2_linux_04",
-      "order": 4,
+      "id": "runtime_left_4_dead_2_linux_05",
+      "order": 5,
       "ownership": "editable",
       "tokens": [
         "+ip",
@@ -141,8 +151,8 @@
       "label": "IP"
     },
     {
-      "id": "runtime_left_4_dead_2_linux_05",
-      "order": 5,
+      "id": "runtime_left_4_dead_2_linux_06",
+      "order": 6,
       "ownership": "editable",
       "tokens": [
         "-strictportbind"
@@ -150,13 +160,23 @@
       "label": "Strict port bind"
     },
     {
-      "id": "runtime_left_4_dead_2_linux_06",
-      "order": 6,
+      "id": "runtime_left_4_dead_2_linux_07",
+      "order": 7,
       "ownership": "editable",
       "tokens": [
         "-norestart"
       ],
       "label": "No restart"
+    },
+    {
+      "id": "runtime_left_4_dead_2_linux_08",
+      "order": 8,
+      "ownership": "editable",
+      "tokens": [
+        "-maxplayers",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Maxplayers"
     }
   ],
   "windows_start_args_template": [
@@ -205,7 +225,7 @@
       "order": 5,
       "ownership": "system",
       "tokens": [
-        "+hostport",
+        "-port",
         "{{PORT}}"
       ],
       "label": "Game port",

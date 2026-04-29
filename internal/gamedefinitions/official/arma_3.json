@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:edf83504e35ee76f49f97b3b997995e05346e2dc34cd4e05a08c7b639be8a3db",
+  "content_hash": "sha256:0b3770e59e3dd727a2db51adf26a793f9e715c8965e4e0ed7cc8d050de5796c2",
   "game": {
     "id": "arma_3",
     "name": "Arma 3",
@@ -75,17 +75,8 @@
       "managed_source": "game_server.port"
     },
     {
-      "id": "runtime_arma_3_linux_03",
-      "order": 3,
-      "ownership": "editable",
-      "tokens": [
-        "-profiles=./serverprofile"
-      ],
-      "label": "Profiles"
-    },
-    {
       "id": "runtime_arma_3_linux_04",
-      "order": 4,
+      "order": 3,
       "ownership": "editable",
       "tokens": [
         "-bepath=./"
@@ -94,7 +85,7 @@
     },
     {
       "id": "runtime_arma_3_linux_05",
-      "order": 5,
+      "order": 4,
       "ownership": "editable",
       "tokens": [
         "-cfg=basic.cfg"
@@ -103,7 +94,7 @@
     },
     {
       "id": "runtime_arma_3_linux_06",
-      "order": 6,
+      "order": 5,
       "ownership": "editable",
       "tokens": [
         "-config=server.cfg"
@@ -112,7 +103,7 @@
     },
     {
       "id": "runtime_arma_3_linux_07",
-      "order": 7,
+      "order": 6,
       "ownership": "editable",
       "tokens": [
         "-name=server"
@@ -149,17 +140,8 @@
       "label": "Profiles"
     },
     {
-      "id": "runtime_arma_3_windows_04",
-      "order": 4,
-      "ownership": "editable",
-      "tokens": [
-        "-maxMem=1024"
-      ],
-      "label": "Max Mem"
-    },
-    {
       "id": "runtime_arma_3_windows_05",
-      "order": 5,
+      "order": 4,
       "ownership": "system",
       "tokens": [
         "-port={{PORT}}"
@@ -169,7 +151,7 @@
     },
     {
       "id": "runtime_arma_3_windows_06",
-      "order": 6,
+      "order": 5,
       "ownership": "editable",
       "tokens": [
         "-maxplayers={{MAX_PLAYERS}}"

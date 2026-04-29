@@ -1,23 +1,23 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4a2cafa34b0b56a322d998245aec324057449d0bc7cfb6caa00e76043886252b",
+  "content_hash": "sha256:57cd7f4762bc90aa4b6249489abd4c0c6cebe8600e9cc12696ee999dd260c7ad",
   "game": {
     "id": "icarus_dedicated",
     "name": "Icarus-Dedicated",
-    "defaultPort": "27015",
+    "defaultPort": "17777",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
     "linuxSupport": false,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2089300 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2089300 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
     "requireDedicatedIp": false,
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "NONE",
     "linuxUpdateType": "NONE",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "IcarusServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -55,7 +55,37 @@
   },
   "config_schemas": [],
   "linux_start_args_template": [],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_icarus_dedicated_windows_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "-Log"
+      ],
+      "label": "Log output"
+    },
+    {
+      "id": "runtime_icarus_dedicated_windows_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-PORT={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_icarus_dedicated_windows_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-QueryPort={{QUERY_PORT}}"
+      ],
+      "label": "Query port",
+      "managed_source": "game_server.query_port"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

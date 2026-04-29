@@ -1,23 +1,23 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3f76eb221618723c499d044a29e167dc91371d76696dcb1b071db6a5e7ea4596",
+  "content_hash": "sha256:6c78b3998d8306676b075c716518351f4f6cc778c989b4c2b563e395b9ea5e4e",
   "game": {
     "id": "stationeers",
     "name": "Stationeers",
-    "defaultPort": "27015",
+    "defaultPort": "27016",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 600760 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 600760 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 600760 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 600760 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
     "requireDedicatedIp": false,
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "STEAMCMD",
     "linuxUpdateType": "STEAMCMD",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "./rocketstation_DedicatedServer.x86_64",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "rocketstation_DedicatedServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -60,11 +60,12 @@
       "order": 1,
       "ownership": "editable",
       "tokens": [
-        "-loadlatest",
+        "-file",
+        "start",
         "default",
         "Moon"
       ],
-      "label": "Loadlatest"
+      "label": "Start world"
     },
     {
       "id": "runtime_stationeers_linux_02",
@@ -119,6 +120,27 @@
     {
       "id": "runtime_stationeers_linux_07",
       "order": 7,
+      "ownership": "system",
+      "tokens": [
+        "UpdatePort",
+        "{{QUERY_PORT}}"
+      ],
+      "label": "Update port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_stationeers_linux_08",
+      "order": 8,
+      "ownership": "editable",
+      "tokens": [
+        "LocalIpAddress",
+        "0.0.0.0"
+      ],
+      "label": "Local IP address"
+    },
+    {
+      "id": "runtime_stationeers_linux_09",
+      "order": 9,
       "ownership": "editable",
       "tokens": [
         "ServerMaxPlayers",
@@ -127,7 +149,91 @@
       "label": "Server Max Players"
     }
   ],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_stationeers_windows_01",
+      "order": 1,
+      "ownership": "editable",
+      "tokens": [
+        "-file",
+        "start",
+        "default",
+        "Moon"
+      ],
+      "label": "Start world"
+    },
+    {
+      "id": "runtime_stationeers_windows_02",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "-settings"
+      ],
+      "label": "Settings"
+    },
+    {
+      "id": "runtime_stationeers_windows_03",
+      "order": 3,
+      "ownership": "editable",
+      "tokens": [
+        "ServerName",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Server Name"
+    },
+    {
+      "id": "runtime_stationeers_windows_04",
+      "order": 4,
+      "ownership": "editable",
+      "tokens": [
+        "StartLocalHost",
+        "true"
+      ],
+      "label": "Start Local Host"
+    },
+    {
+      "id": "runtime_stationeers_windows_05",
+      "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "ServerVisible",
+        "true"
+      ],
+      "label": "Server Visible"
+    },
+    {
+      "id": "runtime_stationeers_windows_06",
+      "order": 6,
+      "ownership": "system",
+      "tokens": [
+        "GamePort",
+        "{{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_stationeers_windows_07",
+      "order": 7,
+      "ownership": "system",
+      "tokens": [
+        "UpdatePort",
+        "{{QUERY_PORT}}"
+      ],
+      "label": "Update port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_stationeers_windows_08",
+      "order": 8,
+      "ownership": "editable",
+      "tokens": [
+        "ServerMaxPlayers",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Server Max Players"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

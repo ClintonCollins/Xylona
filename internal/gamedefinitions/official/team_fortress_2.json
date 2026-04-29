@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:2b57d1f0b6109bfcae1f4375bcaa218b0e5bc402a6a53613a6bb856dbc09ac83",
+  "content_hash": "sha256:4054702fc69e4f9b1e756da444b7ddc93c3efe76d065e0cea9085db2c1a57a6e",
   "game": {
     "id": "team_fortress_2",
     "name": "Team Fortress 2",
@@ -25,7 +25,7 @@
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,
-    "requiresSteamGameServerLoginToken": false,
+    "requiresSteamGameServerLoginToken": true,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
     "windowsInstallCommandProcessor": "DIRECT",
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "cfg/server.cfg",
+      "path": "tf/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
       "schema": {
@@ -190,6 +190,17 @@
         "{{MAX_PLAYERS}}"
       ],
       "label": "Maxplayers"
+    },
+    {
+      "id": "runtime_team_fortress_2_linux_10",
+      "order": 10,
+      "ownership": "system",
+      "tokens": [
+        "+sv_setsteamaccount",
+        "{{STEAM_GSLT}}"
+      ],
+      "label": "Steam GSLT",
+      "managed_source": "steam_gslt"
     }
   ],
   "windows_start_args_template": [
@@ -227,7 +238,7 @@
       "order": 4,
       "ownership": "system",
       "tokens": [
-        "+ip",
+        "-ip",
         "{{IP}}"
       ],
       "label": "Bind IP",
@@ -262,6 +273,17 @@
         "-condebug"
       ],
       "label": "Console debug"
+    },
+    {
+      "id": "runtime_team_fortress_2_windows_08",
+      "order": 8,
+      "ownership": "system",
+      "tokens": [
+        "+sv_setsteamaccount",
+        "{{STEAM_GSLT}}"
+      ],
+      "label": "Steam GSLT",
+      "managed_source": "steam_gslt"
     }
   ],
   "start_arg_blocklist": [],

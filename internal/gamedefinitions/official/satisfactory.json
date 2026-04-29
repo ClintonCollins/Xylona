@@ -1,23 +1,23 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:a2dd310d3cc57ae90a0f4cc85f0b290e06cb303730810b474e59f69a46627196",
+  "content_hash": "sha256:e818437a1328ca71e3a0820f3ea65b0f3f7c4009c855f1a7bde2d9e7ea925b55",
   "game": {
     "id": "satisfactory",
     "name": "Satisfactory",
-    "defaultPort": "27015",
-    "defaultQueryPort": "27015",
+    "defaultPort": "7777",
+    "defaultQueryPort": "8888",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
     "windowsWorkingDirectory": "",
     "windowsAllowBackups": false,
     "requireDedicatedIp": false,
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "STEAMCMD",
     "linuxUpdateType": "STEAMCMD",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "./FactoryServer.sh",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "FactoryServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -72,11 +72,50 @@
       "tokens": [
         "-ReliablePort={{QUERY_PORT}}"
       ],
-      "label": "Query port",
+      "label": "Reliable port",
       "managed_source": "game_server.query_port"
     }
   ],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_satisfactory_windows_01",
+      "order": 1,
+      "ownership": "system",
+      "tokens": [
+        "-Port={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_satisfactory_windows_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-ReliablePort={{QUERY_PORT}}"
+      ],
+      "label": "Reliable port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_satisfactory_windows_03",
+      "order": 3,
+      "ownership": "editable",
+      "tokens": [
+        "-log"
+      ],
+      "label": "Log"
+    },
+    {
+      "id": "runtime_satisfactory_windows_04",
+      "order": 4,
+      "ownership": "editable",
+      "tokens": [
+        "-unattended"
+      ],
+      "label": "Unattended"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

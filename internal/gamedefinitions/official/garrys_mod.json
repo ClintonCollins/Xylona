@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:77fd5a882aee15a2db553e7dfc6e7c3bdf17a85452b2fbab6a593150557872e2",
+  "content_hash": "sha256:ca6e7d069dd8f9a5b4b1959740d8c1e6c7006508a7fae5fe009af63a48ea92ad",
   "game": {
     "id": "garrys_mod",
     "name": "Garry's Mod",
@@ -25,7 +25,7 @@
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": true,
-    "requiresSteamGameServerLoginToken": false,
+    "requiresSteamGameServerLoginToken": true,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
     "windowsInstallCommandProcessor": "DIRECT",
@@ -55,7 +55,7 @@
   },
   "config_schemas": [
     {
-      "path": "cfg/server.cfg",
+      "path": "garrysmod/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
       "schema": {
@@ -155,13 +155,23 @@
       "order": 6,
       "ownership": "editable",
       "tokens": [
+        "+gamemode",
+        "sandbox"
+      ],
+      "label": "Gamemode"
+    },
+    {
+      "id": "runtime_garrys_mod_linux_07",
+      "order": 7,
+      "ownership": "editable",
+      "tokens": [
         "-strictportbind"
       ],
       "label": "Strict port bind"
     },
     {
-      "id": "runtime_garrys_mod_linux_07",
-      "order": 7,
+      "id": "runtime_garrys_mod_linux_08",
+      "order": 8,
       "ownership": "editable",
       "tokens": [
         "-norestart"
@@ -169,14 +179,25 @@
       "label": "No restart"
     },
     {
-      "id": "runtime_garrys_mod_linux_08",
-      "order": 8,
+      "id": "runtime_garrys_mod_linux_09",
+      "order": 9,
       "ownership": "editable",
       "tokens": [
         "+maxplayers",
         "{{MAX_PLAYERS}}"
       ],
       "label": "Maxplayers"
+    },
+    {
+      "id": "runtime_garrys_mod_linux_10",
+      "order": 10,
+      "ownership": "system",
+      "tokens": [
+        "+sv_setsteamaccount",
+        "{{STEAM_GSLT}}"
+      ],
+      "label": "Steam GSLT",
+      "managed_source": "steam_gslt"
     }
   ],
   "windows_start_args_template": [
@@ -222,6 +243,16 @@
     {
       "id": "runtime_garrys_mod_windows_05",
       "order": 5,
+      "ownership": "editable",
+      "tokens": [
+        "+gamemode",
+        "sandbox"
+      ],
+      "label": "Gamemode"
+    },
+    {
+      "id": "runtime_garrys_mod_windows_06",
+      "order": 6,
       "ownership": "system",
       "tokens": [
         "-ip",
@@ -231,8 +262,8 @@
       "managed_source": "game_server.ip"
     },
     {
-      "id": "runtime_garrys_mod_windows_06",
-      "order": 6,
+      "id": "runtime_garrys_mod_windows_07",
+      "order": 7,
       "ownership": "system",
       "tokens": [
         "-port",
@@ -242,8 +273,8 @@
       "managed_source": "game_server.port"
     },
     {
-      "id": "runtime_garrys_mod_windows_07",
-      "order": 7,
+      "id": "runtime_garrys_mod_windows_08",
+      "order": 8,
       "ownership": "editable",
       "tokens": [
         "+maxplayers",
@@ -252,13 +283,24 @@
       "label": "Maxplayers"
     },
     {
-      "id": "runtime_garrys_mod_windows_08",
-      "order": 8,
+      "id": "runtime_garrys_mod_windows_09",
+      "order": 9,
       "ownership": "editable",
       "tokens": [
         "-condebug"
       ],
       "label": "Console debug"
+    },
+    {
+      "id": "runtime_garrys_mod_windows_10",
+      "order": 10,
+      "ownership": "system",
+      "tokens": [
+        "+sv_setsteamaccount",
+        "{{STEAM_GSLT}}"
+      ],
+      "label": "Steam GSLT",
+      "managed_source": "steam_gslt"
     }
   ],
   "start_arg_blocklist": [],
