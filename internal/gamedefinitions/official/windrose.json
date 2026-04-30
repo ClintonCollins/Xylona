@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3aeb2fe6b92ea294c537a233a835df60a49b146f908269a7c2e4d46b1d5e641f",
+  "content_hash": "sha256:1759b7204e67b978eaad3a2a865557531c3312a4b4411e1fcf7c8c518c1d9e24",
   "game": {
     "id": "windrose",
     "name": "Windrose",

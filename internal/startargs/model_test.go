@@ -13,6 +13,7 @@ func TestIsValidManagedSource(t *testing.T) {
 		{name: "game server ip", key: "game_server.ip", want: true},
 		{name: "game server memory", key: "game_server.max_memory_mb", want: true},
 		{name: "server executable", key: "server_executable", want: true},
+		{name: "Steam GSLT", key: "steam_gslt", want: true},
 		{name: "empty key", key: "", want: false},
 		{name: "unsupported key", key: "game_server.max_players", want: false},
 	}

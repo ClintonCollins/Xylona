@@ -150,8 +150,8 @@ func TestLoadBundledDefinitions(t *testing.T) {
 	if errLoad != nil {
 		t.Fatalf("LoadBundled() error = %v", errLoad)
 	}
-	if len(definitions) != 52 {
-		t.Fatalf("LoadBundled() = %d definitions, want 52", len(definitions))
+	if len(definitions) != 53 {
+		t.Fatalf("LoadBundled() = %d definitions, want 53", len(definitions))
 	}
 	for _, definition := range definitions {
 		validationErrors := gamedefinitions.ValidateModel(definition.Model)

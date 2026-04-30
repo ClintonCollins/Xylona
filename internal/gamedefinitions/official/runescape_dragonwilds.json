@@ -1,0 +1,271 @@
+{
+  "document_type": "xylona.game_definition",
+  "schema_version": 1,
+  "content_hash": "sha256:bf56e6948a7bbb42c6866236c9b4d1bc612e6c7f3cc2ee5dbca0c203792f1185",
+  "game": {
+    "id": "runescape_dragonwilds",
+    "name": "RuneScape: Dragonwilds",
+    "defaultPort": "7777",
+    "defaultQueryPort": "7777",
+    "defaultMaxPlayers": "6",
+    "linuxSupport": true,
+    "windowsSupport": true,
+    "linuxStopCommand": "",
+    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4019830 validate +quit",
+    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4019830 validate +quit",
+    "linuxWorkingDirectory": "",
+    "linuxAllowBackups": false,
+    "windowsStopCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4019830 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4019830 validate +quit",
+    "windowsWorkingDirectory": "",
+    "windowsAllowBackups": false,
+    "requireDedicatedIp": false,
+    "bindsToAllIps": true,
+    "createdAt": null,
+    "updatedAt": null,
+    "usesSourceQuery": false,
+    "requiresSteamGameServerLoginToken": false,
+    "linuxInstallCommandProcessor": "DIRECT",
+    "linuxUpdateCommandProcessor": "DIRECT",
+    "windowsInstallCommandProcessor": "DIRECT",
+    "windowsUpdateCommandProcessor": "DIRECT",
+    "usesSteamcmd": true,
+    "steamAppid": "4019830",
+    "configSchemas": "",
+    "updateProvider": null,
+    "defaultTarget": "",
+    "modProfile": null,
+    "variants": [],
+    "linuxInstallType": "STEAMCMD",
+    "linuxUpdateType": "STEAMCMD",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
+    "linuxStartArgsTemplate": "",
+    "windowsStartArgsTemplate": "",
+    "linuxBaseCommand": "RSDragonwilds/Binaries/Linux/RSDragonwildsServer-Linux-Shipping",
+    "windowsBaseCommand": "RSDragonwilds\\Binaries\\Win64\\RSDragonwildsServer-Win64-Shipping.exe",
+    "startArgBlocklist": "",
+    "allowStartArgEditing": true,
+    "xylonaOfficial": true,
+    "officialDefinitionHash": "",
+    "officialDefinitionSource": "",
+    "officialDefinitionSchemaVersion": "0",
+    "officialDefinitionDiverged": false
+  },
+  "config_schemas": [
+    {
+      "path": "RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini",
+      "format": "ini",
+      "category": "Linux Server",
+      "generate_before_start": true,
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Identity",
+          "Access"
+        ],
+        "properties": {
+          "OwnerId": {
+            "type": "string",
+            "title": "Owner ID",
+            "description": "RuneScape: Dragonwilds Player ID from the in-game settings menu.",
+            "default": "",
+            "required": true,
+            "x-group": "Identity",
+            "x-order": 0
+          },
+          "ServerName": {
+            "type": "string",
+            "title": "Server name",
+            "default": "My Dragonwilds Server",
+            "required": true,
+            "x-group": "Identity",
+            "x-order": 1
+          },
+          "DefaultWorldName": {
+            "type": "string",
+            "title": "Default world name",
+            "default": "MyWorld",
+            "required": true,
+            "x-group": "Identity",
+            "x-order": 2
+          },
+          "AdminPassword": {
+            "type": "string",
+            "title": "Admin password",
+            "default": "",
+            "required": true,
+            "x-group": "Access",
+            "x-order": 0
+          },
+          "WorldPassword": {
+            "type": "string",
+            "title": "World password",
+            "default": "",
+            "x-group": "Access",
+            "x-order": 1
+          }
+        }
+      }
+    },
+    {
+      "path": "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini",
+      "format": "ini",
+      "category": "Windows Server",
+      "generate_before_start": true,
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Identity",
+          "Access"
+        ],
+        "properties": {
+          "OwnerId": {
+            "type": "string",
+            "title": "Owner ID",
+            "description": "RuneScape: Dragonwilds Player ID from the in-game settings menu.",
+            "default": "",
+            "required": true,
+            "x-group": "Identity",
+            "x-order": 0
+          },
+          "ServerName": {
+            "type": "string",
+            "title": "Server name",
+            "default": "My Dragonwilds Server",
+            "required": true,
+            "x-group": "Identity",
+            "x-order": 1
+          },
+          "DefaultWorldName": {
+            "type": "string",
+            "title": "Default world name",
+            "default": "MyWorld",
+            "required": true,
+            "x-group": "Identity",
+            "x-order": 2
+          },
+          "AdminPassword": {
+            "type": "string",
+            "title": "Admin password",
+            "default": "",
+            "required": true,
+            "x-group": "Access",
+            "x-order": 0
+          },
+          "WorldPassword": {
+            "type": "string",
+            "title": "World password",
+            "default": "",
+            "x-group": "Access",
+            "x-order": 1
+          }
+        }
+      }
+    }
+  ],
+  "linux_start_args_template": [
+    {
+      "id": "runtime_runescape_dragonwilds_01",
+      "order": 1,
+      "ownership": "system",
+      "tokens": [
+        "RSDragonwilds"
+      ],
+      "label": "Project"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-log"
+      ],
+      "label": "Logging"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-NewConsole"
+      ],
+      "label": "Console output"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_04",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "-Port={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_05",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-ini:Game:[/Script/Engine.GameSession]:MaxPlayers={{MAX_PLAYERS}}"
+      ],
+      "label": "Max players"
+    }
+  ],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_runescape_dragonwilds_01",
+      "order": 1,
+      "ownership": "system",
+      "tokens": [
+        "RSDragonwilds"
+      ],
+      "label": "Project"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-log"
+      ],
+      "label": "Logging"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-NewConsole"
+      ],
+      "label": "Console output"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_04",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "-Port={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_runescape_dragonwilds_05",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-ini:Game:[/Script/Engine.GameSession]:MaxPlayers={{MAX_PLAYERS}}"
+      ],
+      "label": "Max players"
+    }
+  ],
+  "start_arg_blocklist": [],
+  "update_config": {
+    "update_provider": {
+      "kind": "steamcmd"
+    },
+    "default_target": "public"
+  }
+}

@@ -68,6 +68,7 @@ var ValidManagedSources = map[string]struct{}{
 	"game_server.ip":            {},
 	"game_server.max_memory_mb": {},
 	"server_executable":         {},
+	"steam_gslt":                {},
 }
 
 // IsValidManagedSource reports whether the key is supported for managed substitution.

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:f07272d1056e143c600271ccb87ffd11cf393d530fcdb3ab71d1b2169bfb5d37",
+  "content_hash": "sha256:e334dffa9242689b808ccdb6e1f6822e967f8f2c503b3b5cc929c450a93d4e4f",
   "game": {
     "id": "hytale",
     "name": "Hytale",
@@ -14,12 +14,12 @@
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "Server",
-    "linuxAllowBackups": true,
+    "linuxAllowBackups": false,
     "windowsStopCommand": "",
     "windowsInstallCommand": "",
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "Server",
-    "windowsAllowBackups": true,
+    "windowsAllowBackups": false,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -37,10 +37,10 @@
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "HYTALE",
-    "linuxUpdateType": "HYTALE",
-    "windowsInstallType": "HYTALE",
-    "windowsUpdateType": "HYTALE",
+    "linuxInstallType": "COMMAND",
+    "linuxUpdateType": "COMMAND",
+    "windowsInstallType": "COMMAND",
+    "windowsUpdateType": "COMMAND",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "java",
@@ -175,8 +175,7 @@
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {
-      "kind": "hytale"
-    },
-    "default_target": "release"
+      "kind": "none"
+    }
   }
 }
