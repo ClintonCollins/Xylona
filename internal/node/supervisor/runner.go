@@ -359,10 +359,23 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 // Finally, it assigns the dialed telnet connection to the command's telnetConn field and uses it as the standard input writer for the command.
 func connectTelnetAndSetAsStdinWriter(command *Command) {
 	log.Debug().Str("Command ID", command.ID).Msg("Setting up telnet")
+	inputMethod := command.inputMethod
+	if inputMethod.Type != InputTypeTelnet {
+		log.Debug().Str("Command ID", command.ID).Msg("Skipping telnet setup for non-telnet input method")
+		return
+	}
+
+	errValidateTelnet := validateTelnetInputMethod(inputMethod)
+	if errValidateTelnet != nil {
+		log.Error().Err(errValidateTelnet).Str("Command ID", command.ID).Msg("Invalid telnet input method")
+		command.stdInWriter = io.Discard
+		return
+	}
+	telnetCredentials := inputMethod.TelnetCredentials
 
 	telnetConnect := func() (*telnet.Conn, error) {
 		log.Debug().Str("Command ID", command.ID).Msg("Dialing telnet")
-		telnetConn, errDial := telnet.DialTimeout("tcp", net.JoinHostPort("localhost", strconv.Itoa(command.inputMethod.TelnetCredentials.Port)), time.Second*5)
+		telnetConn, errDial := telnet.DialTimeout("tcp", net.JoinHostPort("localhost", strconv.Itoa(telnetCredentials.Port)), time.Second*5)
 		if errDial != nil {
 			log.Error().Err(errDial).Msg("Error dialing telnet")
 			command.stdInWriter = io.Discard
@@ -370,8 +383,8 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 		}
 		log.Debug().Msg("Telnet connection successful")
 		log.Debug().Msg("Writing password to telnet")
-		if command.inputMethod.TelnetCredentials.Password != "" {
-			b, errAuth := telnetConn.Write([]byte(command.inputMethod.TelnetCredentials.Password))
+		if telnetCredentials.Password != "" {
+			b, errAuth := telnetConn.Write([]byte(telnetCredentials.Password))
 			if errAuth != nil {
 				log.Error().Err(errAuth).Msg("Error authenticating telnet")
 				command.stdInWriter = io.Discard

@@ -36,6 +36,11 @@ var (
 	ErrCommandAlreadyRunning = errors.New("command is already running")
 	// ErrNoCommandProvided is returned when a start request has no executable.
 	ErrNoCommandProvided = errors.New("no command provided")
+	// ErrTelnetCredentialsRequired is returned when telnet input is selected
+	// without connection settings.
+	ErrTelnetCredentialsRequired = errors.New("telnet credentials required")
+	// ErrTelnetPortRequired is returned when telnet input has no usable port.
+	ErrTelnetPortRequired = errors.New("telnet port required")
 )
 
 var (

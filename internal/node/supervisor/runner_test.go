@@ -2,6 +2,8 @@ package supervisor
 
 import (
 	"context"
+	"errors"
+	"io"
 	"runtime"
 	"strings"
 	"sync"
@@ -157,6 +159,168 @@ func TestLaunchEnvReachesChildAndIsClearedAfterStart(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("exec.Cmd.Env was not cleared while process was still tracked")
+}
+
+func TestStartCommandRejectsInvalidTelnetInput(t *testing.T) {
+	baseCommand, args := echoCommandArgs("not-started")
+	tests := []struct {
+		name        string
+		inputMethod InputMethod
+		wantErr     error
+	}{
+		{
+			name: "missing credentials",
+			inputMethod: InputMethod{
+				Type: InputTypeTelnet,
+			},
+			wantErr: ErrTelnetCredentialsRequired,
+		},
+		{
+			name: "missing port",
+			inputMethod: InputMethod{
+				Type: InputTypeTelnet,
+				TelnetCredentials: &TelnetCredentials{
+					Port: 0,
+				},
+			},
+			wantErr: ErrTelnetPortRequired,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			inst, errNew := New(t.Context())
+			if errNew != nil {
+				t.Fatalf("failed to create supervisor: %v", errNew)
+			}
+
+			_, errStart := inst.StartCommand(PreparedCommand{
+				ID:          "invalid-telnet-input",
+				BaseCommand: baseCommand,
+				Args:        args,
+				Status:      xylona.Status_ONLINE,
+				InputMethod: tc.inputMethod,
+			})
+			if !errors.Is(errStart, tc.wantErr) {
+				t.Fatalf("StartCommand() error = %v, want %v", errStart, tc.wantErr)
+			}
+
+			_, errGet := inst.GetCommandByID("invalid-telnet-input")
+			if !errors.Is(errGet, ErrCommandDoesNotExist) {
+				t.Fatalf("GetCommandByID() error = %v, want %v", errGet, ErrCommandDoesNotExist)
+			}
+		})
+	}
+}
+
+func TestSetupCmdClearsStaleTelnetStartupHookOnReuse(t *testing.T) {
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor: %v", errNew)
+	}
+
+	baseCommand, args := echoCommandArgs("stdin-reuse")
+	persistentCommand := inst.initNewCommand(PreparedCommand{
+		ID:          "reused-input-method",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
+		InputMethod: InputMethod{
+			Type: InputTypeTelnet,
+			TelnetCredentials: &TelnetCredentials{
+				Port: 1,
+			},
+		},
+	}, nil)
+	persistentCommand.runAfterStartup = connectTelnetAndSetAsStdinWriter
+
+	preparedCommand := PreparedCommand{
+		ID:          "reused-input-method",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
+	}
+	reusedCommand := inst.initNewCommand(preparedCommand, persistentCommand)
+
+	_, errSetup := inst.setupCmd(reusedCommand, preparedCommand)
+	if errSetup != nil {
+		t.Fatalf("setupCmd() error = %v", errSetup)
+	}
+
+	closer, ok := reusedCommand.stdInWriter.(io.Closer)
+	if ok {
+		t.Cleanup(func() {
+			errClose := closer.Close()
+			if errClose != nil {
+				t.Errorf("close stdin pipe: %v", errClose)
+			}
+		})
+	}
+
+	if reusedCommand.runAfterStartup != nil {
+		t.Fatal("expected stale telnet startup hook to be cleared for stdin reuse")
+	}
+}
+
+func TestConnectTelnetAndSetAsStdinWriterSkipsNonTelnetInput(t *testing.T) {
+	stdInWriter := &strings.Builder{}
+	cmd := &Command{
+		ID:               "non-telnet-connect",
+		stdInWriter:      stdInWriter,
+		instanceCtx:      t.Context(),
+		processCtx:       t.Context(),
+		RWMutex:          &sync.RWMutex{},
+		toggleOutputType: make(chan struct{}),
+	}
+
+	connectTelnetAndSetAsStdinWriter(cmd)
+
+	if cmd.stdInWriter != stdInWriter {
+		t.Fatalf("stdInWriter = %T, want original writer", cmd.stdInWriter)
+	}
+}
+
+func TestConnectTelnetAndSetAsStdinWriterDiscardsInvalidTelnetInput(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputMethod InputMethod
+	}{
+		{
+			name: "missing credentials",
+			inputMethod: InputMethod{
+				Type: InputTypeTelnet,
+			},
+		},
+		{
+			name: "missing port",
+			inputMethod: InputMethod{
+				Type: InputTypeTelnet,
+				TelnetCredentials: &TelnetCredentials{
+					Port: 0,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := &Command{
+				ID:               "invalid-telnet-connect",
+				inputMethod:      tc.inputMethod,
+				stdInWriter:      &strings.Builder{},
+				instanceCtx:      t.Context(),
+				processCtx:       t.Context(),
+				RWMutex:          &sync.RWMutex{},
+				toggleOutputType: make(chan struct{}),
+			}
+
+			connectTelnetAndSetAsStdinWriter(cmd)
+
+			if cmd.stdInWriter != io.Discard {
+				t.Fatalf("stdInWriter = %T, want io.Discard", cmd.stdInWriter)
+			}
+		})
+	}
 }
 
 func TestInitNewCommandPreservesInjectedOutputOnFirstReuse(t *testing.T) {

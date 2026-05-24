@@ -89,6 +89,12 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		return nil, ErrNoCommandProvided
 	}
 
+	errValidateTelnet := validateTelnetInputMethod(newCommand.inputMethod)
+	if errValidateTelnet != nil {
+		log.Error().Err(errValidateTelnet).Str("Command ID", preparedCommand.ID).Msg("Invalid telnet input method")
+		return nil, errValidateTelnet
+	}
+
 	cmd := exec.CommandContext( //nolint:gosec // Supervisor intentionally launches configured game server commands.
 		newCommand.processCtx,
 		resolveServerLocalBaseCommand(baseCommand, preparedCommand.WorkingDirectory),
@@ -104,6 +110,7 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 
 	newCommand.stdout = stdOutPipe
 	newCommand.stderr = stdErrPipe
+	newCommand.runAfterStartup = nil
 
 	switch newCommand.inputMethod.Type {
 	case InputTypeTelnet:
@@ -119,6 +126,19 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		newCommand.stdInWriter = stdInPipe
 	}
 	return cmd, nil
+}
+
+func validateTelnetInputMethod(inputMethod InputMethod) error {
+	if inputMethod.Type != InputTypeTelnet {
+		return nil
+	}
+	if inputMethod.TelnetCredentials == nil {
+		return ErrTelnetCredentialsRequired
+	}
+	if inputMethod.TelnetCredentials.Port <= 0 {
+		return ErrTelnetPortRequired
+	}
+	return nil
 }
 
 func resolveServerLocalBaseCommand(baseCommand string, workingDir string) string {
