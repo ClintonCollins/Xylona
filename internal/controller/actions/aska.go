@@ -13,7 +13,7 @@ import (
 
 const (
 	askaGameID         = "aska"
-	askaPropertiesPath = "server properties.txt"
+	askaPropertiesPath = "config/server properties.txt"
 	askaGSLTSetting    = "authentication token"
 )
 

@@ -301,3 +301,49 @@ func TestOnStatusChangedSkipsAutoRestartAfterRemoteIntentionalStopRequest(t *tes
 		t.Fatalf("SendConsoleOutput calls = %+v, want none for intentional stop", remoteClient.SendConsoleOutputCalls)
 	}
 }
+
+func TestOnStatusChangedRestartsOnlyOnlineProcesses(t *testing.T) {
+	tests := []struct {
+		name         string
+		oldStatus    string
+		wantAttempts int
+	}{
+		{
+			name:         "online server",
+			oldStatus:    "ONLINE",
+			wantAttempts: 1,
+		},
+		{
+			name:      "installer",
+			oldStatus: "INSTALLING",
+		},
+		{
+			name:      "updater",
+			oldStatus: "UPDATING",
+		},
+		{
+			name: "missing old status",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newAutoRestartTestFixture(t, 3)
+			defer fixture.cancel()
+
+			fixture.inst.onStatusChanged(eventbus.StatusChangedEvent{
+				ServerID:  fixture.gameServer.ID,
+				OldStatus: tt.oldStatus,
+				NewStatus: "OFFLINE",
+			})
+
+			entry := fixture.inst.restartState.entry(fixture.gameServer.ID)
+			entry.mu.Lock()
+			attemptCount := entry.attemptCount
+			entry.mu.Unlock()
+			if attemptCount != tt.wantAttempts {
+				t.Fatalf("retry count = %d, want %d", attemptCount, tt.wantAttempts)
+			}
+		})
+	}
+}

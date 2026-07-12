@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3bec440e82e70f44208e94644d693ed9feca5bf1901423bbf0c30ee5b9aaf0c2",
+  "content_hash": "sha256:fda708c411485e6ff6d045543518751fa82584eefe3b030f155f01010e4bfa95",
   "game": {
     "id": "enshrouded",
     "name": "Enshrouded",
@@ -19,12 +19,12 @@
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2278520 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2278520 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -58,9 +58,11 @@
       "path": "enshrouded_server.json",
       "format": "json",
       "category": "Server",
+      "generate_before_start": true,
       "managed_fields": {
         "name": "game_server.server_name",
         "slotCount": "game_server.max_players",
+        "ip": "game_server.ip",
         "queryPort": "game_server.query_port"
       },
       "schema": {
@@ -82,13 +84,6 @@
               "source": "game_server.server_name"
             }
           },
-          "password": {
-            "type": "string",
-            "title": "Password",
-            "default": "",
-            "x-group": "Access",
-            "x-order": 0
-          },
           "slotCount": {
             "type": "integer",
             "title": "Player slots",
@@ -106,7 +101,10 @@
             "title": "Bind IP",
             "default": "0.0.0.0",
             "x-group": "Networking",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.ip"
+            }
           },
           "queryPort": {
             "type": "integer",

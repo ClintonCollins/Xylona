@@ -15,6 +15,7 @@ import (
 	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
@@ -27,6 +28,65 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func TestWaitForUpdateProcessExit(t *testing.T) {
+	t.Run("returns matching updater exit", func(t *testing.T) {
+		events := make(chan any, 5)
+		events <- "not a status event"
+		events <- eventbus.StatusChangedEvent{
+			ServerID:  "other-server",
+			OldStatus: "UPDATING",
+			NewStatus: "OFFLINE",
+		}
+		events <- eventbus.StatusChangedEvent{
+			ServerID:  "server-1",
+			OldStatus: "ONLINE",
+			NewStatus: "OFFLINE",
+		}
+		want := eventbus.StatusChangedEvent{
+			ServerID:  "server-1",
+			OldStatus: "updating",
+			NewStatus: "offline",
+			ExitCode:  23,
+		}
+		events <- want
+
+		got, errWait := waitForUpdateProcessExit(
+			context.Background(),
+			events,
+			"server-1",
+			time.Second,
+		)
+		if errWait != nil {
+			t.Fatalf("waitForUpdateProcessExit() error = %v", errWait)
+		}
+		if got != want {
+			t.Fatalf("waitForUpdateProcessExit() = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("returns canceled context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, errWait := waitForUpdateProcessExit(ctx, make(chan any), "server-1", time.Second)
+		if !errors.Is(errWait, context.Canceled) {
+			t.Fatalf("waitForUpdateProcessExit() error = %v, want context.Canceled", errWait)
+		}
+	})
+
+	t.Run("returns timeout", func(t *testing.T) {
+		_, errWait := waitForUpdateProcessExit(
+			context.Background(),
+			make(chan any),
+			"server-1",
+			10*time.Millisecond,
+		)
+		if errWait == nil || !strings.Contains(errWait.Error(), "timed out") {
+			t.Fatalf("waitForUpdateProcessExit() error = %v, want timeout", errWait)
+		}
+	})
+}
 
 func TestWaitForServerOnlineReturnsFalseWhenContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

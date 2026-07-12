@@ -530,14 +530,14 @@ func TestImportGamePreviewReportsStartArgGranularChanges(t *testing.T) {
 		{
 			name:         "ownership",
 			path:         "linux_start_args_template.01JQSD00000000000000000001.ownership",
-			wantPrevious: "editable",
-			wantImported: "system",
+			wantPrevious: "system",
+			wantImported: "editable",
 			mutate: func(t *testing.T, document map[string]any) {
 				t.Helper()
 				linuxBlock := linuxStartArgBlockForTest(t, document, 0)
-				linuxBlock["ownership"] = "system"
+				linuxBlock["ownership"] = "editable"
 				windowsBlock := windowsStartArgBlockForTest(t, document, 0)
-				windowsBlock["ownership"] = "system"
+				windowsBlock["ownership"] = "editable"
 			},
 		},
 		{

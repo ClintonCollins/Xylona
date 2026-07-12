@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:634cc46bfb7b50f7bd571341e7b55cdd65c16e4665b12f10efbc9928cdfee9c6",
+  "content_hash": "sha256:08087b77f4007f3b4d48ff984cd05d53164aa8be0ef6f011cbf4c92c956734b1",
   "game": {
     "id": "survive_the_nights",
     "name": "Survive The Nights",
@@ -9,22 +9,22 @@
     "defaultQueryPort": "7951",
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1502300 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1502300 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxAllowBackups": true,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1502300 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1502300 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "STEAMCMD",
     "linuxUpdateType": "STEAMCMD",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "./Server_Linux_x64",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "STN_Dedicated_Server.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -55,11 +55,13 @@
   },
   "config_schemas": [
     {
-      "path": "ServerConfig.txt",
+      "path": "Config/ServerConfig.txt",
       "format": "commandcfg",
       "category": "Server",
       "managed_fields": {
-        "ServerPort": "game_server.port"
+        "ServerName": "game_server.server_name",
+        "ServerPort": "game_server.port",
+        "QueryPort": "game_server.query_port"
       },
       "schema": {
         "type": "object",
@@ -74,7 +76,10 @@
             "title": "Server name",
             "default": "New Private Server",
             "x-group": "Identity",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
           },
           "serverPassword": {
             "type": "string",
@@ -95,12 +100,24 @@
               "source": "game_server.port"
             }
           },
+          "QueryPort": {
+            "type": "integer",
+            "title": "Query port",
+            "default": 7951,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.query_port"
+            }
+          },
           "ShowInPublicLobby": {
             "type": "boolean",
             "title": "Show in public lobby",
             "default": true,
             "x-group": "Networking",
-            "x-order": 1
+            "x-order": 2
           }
         }
       }
@@ -110,25 +127,57 @@
     {
       "id": "runtime_survive_the_nights_linux_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-mc",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Mc"
+      "label": "Maximum players",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_survive_the_nights_linux_02",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-r",
         "0"
       ],
-      "label": "R"
+      "label": "Runtime mode"
     }
   ],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_survive_the_nights_windows_01",
+      "order": 1,
+      "ownership": "locked",
+      "tokens": [
+        "-steamclientlaunch"
+      ],
+      "label": "Dedicated server mode"
+    },
+    {
+      "id": "runtime_survive_the_nights_windows_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-mc",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Maximum players",
+      "managed_source": "game_server.max_players"
+    },
+    {
+      "id": "runtime_survive_the_nights_windows_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-r",
+        "0"
+      ],
+      "label": "Runtime mode"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

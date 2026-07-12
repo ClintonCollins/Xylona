@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:a2e3fac8dbd1cdbe7cc973d9b06687c0e56e00c5571833b87fb8e5574c56cceb",
+  "content_hash": "sha256:296ed6da67cbccb86e6ade6d381187778ddab6b513178dc9581b67ee7e13f766",
   "game": {
     "id": "terraria",
     "name": "Terraria",
@@ -10,37 +10,37 @@
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
-    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 105600 validate +quit",
-    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 105600 validate +quit",
+    "linuxStopCommand": "exit",
+    "linuxInstallCommand": "",
+    "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
-    "windowsStopCommand": "",
-    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 105600 validate +quit",
-    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 105600 validate +quit",
+    "linuxAllowBackups": true,
+    "windowsStopCommand": "exit",
+    "windowsInstallCommand": "",
+    "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,
     "requiresSteamGameServerLoginToken": false,
-    "linuxInstallCommandProcessor": "DIRECT",
-    "linuxUpdateCommandProcessor": "DIRECT",
-    "windowsInstallCommandProcessor": "DIRECT",
-    "windowsUpdateCommandProcessor": "DIRECT",
-    "usesSteamcmd": true,
-    "steamAppid": "105600",
+    "linuxInstallCommandProcessor": "XYLONA_INTERNAL",
+    "linuxUpdateCommandProcessor": "XYLONA_INTERNAL",
+    "windowsInstallCommandProcessor": "XYLONA_INTERNAL",
+    "windowsUpdateCommandProcessor": "XYLONA_INTERNAL",
+    "usesSteamcmd": false,
+    "steamAppid": "",
     "configSchemas": "",
     "updateProvider": null,
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "STEAMCMD",
-    "linuxUpdateType": "STEAMCMD",
-    "windowsInstallType": "STEAMCMD",
-    "windowsUpdateType": "STEAMCMD",
+    "linuxInstallType": "COMMAND",
+    "linuxUpdateType": "COMMAND",
+    "windowsInstallType": "COMMAND",
+    "windowsUpdateType": "COMMAND",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "./TerrariaServer.bin.x86_64",
@@ -58,9 +58,11 @@
       "path": "serverconfig.txt",
       "format": "commandcfg",
       "category": "Server",
+      "generate_before_start": true,
       "managed_fields": {
         "maxplayers": "game_server.max_players",
-        "port": "game_server.port"
+        "port": "game_server.port",
+        "worldname": "game_server.server_name"
       },
       "schema": {
         "type": "object",
@@ -100,9 +102,48 @@
           "world": {
             "type": "string",
             "title": "World file",
-            "default": "world.wld",
+            "default": "worlds/default.wld",
             "x-group": "World",
             "x-order": 0
+          },
+          "worldname": {
+            "type": "string",
+            "title": "World name",
+            "default": "Xylona Terraria Server",
+            "x-group": "World",
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
+          },
+          "autocreate": {
+            "type": "integer",
+            "title": "Create world size",
+            "description": "Creates the configured world when it does not exist: 1 small, 2 medium, 3 large.",
+            "default": 2,
+            "minimum": 1,
+            "maximum": 3,
+            "x-group": "World",
+            "x-order": 2
+          },
+          "difficulty": {
+            "type": "integer",
+            "title": "World difficulty",
+            "description": "0 classic, 1 expert, 2 master, 3 journey.",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "x-group": "World",
+            "x-order": 3
+          },
+          "worldrollbackstokeep": {
+            "type": "integer",
+            "title": "World rollback copies",
+            "default": 2,
+            "minimum": 0,
+            "maximum": 100,
+            "x-group": "World",
+            "x-order": 4
           },
           "port": {
             "type": "integer",
@@ -115,6 +156,25 @@
             "x-managed": {
               "source": "game_server.port"
             }
+          },
+          "secure": {
+            "type": "integer",
+            "title": "Cheat protection",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 1,
+            "x-group": "Networking",
+            "x-order": 1
+          },
+          "upnp": {
+            "type": "integer",
+            "title": "Automatic UPnP forwarding",
+            "description": "Disabled by default so multiple managed servers do not compete for router mappings.",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1,
+            "x-group": "Networking",
+            "x-order": 2
           }
         }
       }
@@ -124,7 +184,7 @@
     {
       "id": "runtime_terraria_linux",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-config",
         "serverconfig.txt"
@@ -136,7 +196,7 @@
     {
       "id": "runtime_terraria_windows",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-config",
         "serverconfig.txt"
@@ -147,8 +207,7 @@
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {
-      "kind": "steamcmd"
-    },
-    "default_target": "public"
+      "kind": "command"
+    }
   }
 }

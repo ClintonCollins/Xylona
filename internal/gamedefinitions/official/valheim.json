@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6da520d53c600749840216d0c907995b3cae8f4dc695d2e605dec58559938121",
+  "content_hash": "sha256:01f3f6d6da1c7c8272b966a8ec50856ab89f51c4e4a0434c787d9390cee93f34",
   "game": {
     "id": "valheim",
     "name": "Valheim",
@@ -14,17 +14,17 @@
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 896660 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 896660 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxAllowBackups": true,
     "windowsStopCommand": "",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 896660 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 896660 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -58,12 +58,13 @@
     {
       "id": "01JQSD00000000000000000001",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-name",
         "{{SERVER_NAME}}"
       ],
-      "label": "Server name"
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
     },
     {
       "id": "01JQSD00000000000000000002",
@@ -125,18 +126,29 @@
         "data"
       ],
       "label": "Per-server data directory"
+    },
+    {
+      "id": "01JQSD00000000000000000008",
+      "order": 8,
+      "ownership": "locked",
+      "tokens": [
+        "-instanceid",
+        "{{SERVER_ID}}"
+      ],
+      "label": "Unique server instance"
     }
   ],
   "windows_start_args_template": [
     {
       "id": "01JQSD00000000000000000001",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-name",
         "{{SERVER_NAME}}"
       ],
-      "label": "Server name"
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
     },
     {
       "id": "01JQSD00000000000000000002",
@@ -198,6 +210,16 @@
         "data"
       ],
       "label": "Per-server data directory"
+    },
+    {
+      "id": "01JQSD00000000000000000008",
+      "order": 8,
+      "ownership": "locked",
+      "tokens": [
+        "-instanceid",
+        "{{SERVER_ID}}"
+      ],
+      "label": "Unique server instance"
     }
   ],
   "start_arg_blocklist": [],

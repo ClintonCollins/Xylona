@@ -7,10 +7,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
@@ -19,6 +21,8 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+const updateProcessTimeout = 6 * time.Hour
 
 // UpdateProgressBroadcaster receives update progress events.
 // Implemented by the WebSocket layer.
@@ -264,6 +268,13 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 
 	// If the dummy tracker has failure simulation enabled, treat this as a failed update.
 	updateFailed := inst.dummyTracker != nil && inst.dummyTracker.SimulateFailure()
+	asyncUpdate := gameServer.GameID != "minecraft"
+	var updateEvents chan any
+	if !updateFailed && asyncUpdate {
+		eb := eventbus.Get()
+		updateEvents = eb.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
+		defer eb.Unsubscribe(eventbus.TopicGameServerStatusChanged, updateEvents)
+	}
 
 	if !updateFailed {
 		errUpdate := inst.UpdateGameServer(gameServer)
@@ -284,21 +295,23 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 			installStartMessage(gameServer, updatePlan),
 		)
 	}
-	// UpdateGameServer is async (starts a supervised process). Wait for it
-	// to complete. Uses NodeClient snapshot so remote-node updates are
-	// observed identically.
-	for range 120 {
-		s := inst.currentProcessStatus(gameServer)
-		if s == xylona.Status_OFFLINE || s == xylona.Status_UNKNOWN {
-			break
+	if !updateFailed && asyncUpdate {
+		exitEvent, errWait := waitForUpdateProcessExit(
+			inst.ctx,
+			updateEvents,
+			serverID,
+			updateProcessTimeout,
+		)
+		if errWait != nil {
+			log.Error().Err(errWait).Str("game_server_id", serverID).Msg("Failed waiting for game update")
+			updateFailed = true
+		} else if exitEvent.ExitCode != 0 {
+			log.Error().
+				Int("exit_code", exitEvent.ExitCode).
+				Str("game_server_id", serverID).
+				Msg("Game update exited with non-zero status")
+			updateFailed = true
 		}
-		if s == xylona.Status_ONLINE || s == xylona.Status_UPDATING || s == xylona.Status_INSTALLING {
-			time.Sleep(time.Second)
-			continue
-		}
-		// Unknown terminal state.
-		updateFailed = true
-		break
 	}
 
 	if updateFailed {
@@ -360,6 +373,39 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	// Trigger a version re-check so the UI reflects the new installed version.
 	if inst.db != nil {
 		inst.CheckServerVersionByID(inst.ctx, serverID)
+	}
+}
+
+func waitForUpdateProcessExit(
+	ctx context.Context,
+	events <-chan any,
+	serverID string,
+	timeout time.Duration,
+) (eventbus.StatusChangedEvent, error) {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return eventbus.StatusChangedEvent{}, fmt.Errorf("wait for update process: %w", ctx.Err())
+		case <-timer.C:
+			return eventbus.StatusChangedEvent{}, fmt.Errorf("wait for update process: timed out after %s", timeout)
+		case rawEvent, open := <-events:
+			if !open {
+				return eventbus.StatusChangedEvent{}, errors.New("wait for update process: status event stream closed")
+			}
+			event, ok := rawEvent.(eventbus.StatusChangedEvent)
+			if !ok || event.ServerID != serverID {
+				continue
+			}
+			oldStatus := strings.ToUpper(strings.TrimSpace(event.OldStatus))
+			newStatus := strings.ToUpper(strings.TrimSpace(event.NewStatus))
+			if oldStatus != xylona.Status_UPDATING.String() || newStatus != xylona.Status_OFFLINE.String() {
+				continue
+			}
+			return event, nil
+		}
 	}
 }
 

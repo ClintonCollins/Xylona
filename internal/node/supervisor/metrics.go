@@ -3,6 +3,7 @@ package supervisor
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -18,10 +19,15 @@ import (
 // Results are stored under write lock.
 func (c *Command) collectProcessMetrics() {
 	c.RLock()
-	cmd := c.currentCMD
+	var managedProcess *os.Process
+	if c.currentPTYCMD != nil {
+		managedProcess = c.currentPTYCMD.Process
+	} else if c.currentCMD != nil {
+		managedProcess = c.currentCMD.Process
+	}
 	c.RUnlock()
 
-	if cmd == nil || cmd.Process == nil {
+	if managedProcess == nil {
 		c.Lock()
 		c.cpuPercent = 0
 		c.memoryRSS = 0
@@ -35,7 +41,7 @@ func (c *Command) collectProcessMetrics() {
 		return
 	}
 
-	pid := helpers.ClampInt32FromInt(cmd.Process.Pid)
+	pid := helpers.ClampInt32FromInt(managedProcess.Pid)
 	proc, errNewProcess := process.NewProcess(pid)
 	if errNewProcess != nil {
 		log.Debug().Err(errNewProcess).Int32("pid", pid).Msg("Failed to create process handle for metrics")

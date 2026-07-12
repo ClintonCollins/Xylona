@@ -152,6 +152,7 @@ type ManagedFieldResolver func(source string) (string, bool)
 // GameServerSettings contains server values that can own generated config fields.
 type GameServerSettings struct {
 	Name       string
+	Directory  string
 	IP         string
 	Port       int64
 	QueryPort  int64
@@ -161,11 +162,15 @@ type GameServerSettings struct {
 // GameServerSettingsResolver creates a ManagedFieldResolver from all supported server settings.
 func GameServerSettingsResolver(settings GameServerSettings) ManagedFieldResolver {
 	sources := map[string]string{
-		"game_server.ip":          settings.IP,
-		"game_server.port":        strconv.FormatInt(settings.Port, 10),
-		"game_server.query_port":  strconv.FormatInt(settings.QueryPort, 10),
-		"game_server.max_players": strconv.FormatInt(settings.MaxPlayers, 10),
-		"game_server.server_name": settings.Name,
+		"game_server.ip":                settings.IP,
+		"game_server.port":              strconv.FormatInt(settings.Port, 10),
+		"game_server.port_plus_1":       strconv.FormatInt(settings.Port+1, 10),
+		"game_server.port_plus_2":       strconv.FormatInt(settings.Port+2, 10),
+		"game_server.query_port":        strconv.FormatInt(settings.QueryPort, 10),
+		"game_server.query_port_plus_1": strconv.FormatInt(settings.QueryPort+1, 10),
+		"game_server.max_players":       strconv.FormatInt(settings.MaxPlayers, 10),
+		"game_server.server_name":       settings.Name,
+		"game_server.directory":         settings.Directory,
 	}
 	return func(source string) (string, bool) {
 		v, ok := sources[normalizeManagedSource(source)]

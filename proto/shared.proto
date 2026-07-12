@@ -316,6 +316,7 @@ message CreateGameServerRequest {
   reserved "accept_minecraft_eula";
 
   GameServer game_server = 1;
+  repeated EnvironmentVariable env_vars = 3;
 }
 message CreateGameServerResponse {
   GameServer game_server = 1;

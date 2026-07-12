@@ -1,9 +1,13 @@
 package supervisor
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -11,8 +15,40 @@ import (
 	"time"
 
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+const pseudoTerminalTestRoleEnv = "XYLONA_PSEUDO_TERMINAL_TEST_ROLE"
+
+type internalGameStub struct {
+	installErr error
+	updateErr  error
+}
+
+func (g *internalGameStub) Install(_ *models.GameServer, _, _ io.Writer) error {
+	return g.installErr
+}
+
+func (g *internalGameStub) Update(_ *models.GameServer, _, _ io.Writer) error {
+	return g.updateErr
+}
+
+type blockingInternalGameStub struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (g *blockingInternalGameStub) Install(_ *models.GameServer, _, _ io.Writer) error {
+	return nil
+}
+
+func (g *blockingInternalGameStub) Update(_ *models.GameServer, _, _ io.Writer) error {
+	close(g.started)
+	<-g.release
+	return nil
+}
 
 func echoCommandArgs(output string) (string, []string) {
 	if runtime.GOOS == "windows" {
@@ -75,6 +111,106 @@ func TestStartCommand(t *testing.T) {
 	if cmd.Status() != xylona.Status_OFFLINE {
 		t.Errorf("Expected status OFFLINE after stop, got %v", cmd.Status())
 	}
+}
+
+func TestStartCommandReturnsProcessStartFailurePromptly(t *testing.T) {
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("New() error = %v", errNew)
+	}
+	startedAt := time.Now()
+	_, errStart := inst.StartCommand(PreparedCommand{
+		ID:          "missing-executable",
+		BaseCommand: filepath.Join(t.TempDir(), "missing-executable"),
+		Status:      xylona.Status_ONLINE,
+	})
+	duration := time.Since(startedAt)
+	if errStart == nil {
+		t.Fatal("StartCommand() error = nil, want process start failure")
+	}
+	if duration >= 2*time.Second {
+		t.Fatalf("StartCommand() took %v, want failure before output drain timeout", duration)
+	}
+}
+
+func TestPseudoTerminalConsole(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping pseudo-terminal process integration test in short mode")
+	}
+	executable, errExecutable := os.Executable()
+	if errExecutable != nil {
+		t.Fatalf("os.Executable() error = %v", errExecutable)
+	}
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("New() error = %v", errNew)
+	}
+	command, errStart := inst.StartCommand(PreparedCommand{
+		ID:          "pseudo-terminal-console",
+		BaseCommand: executable,
+		Args:        []string{"-test.run=^TestPseudoTerminalConsoleChild$"},
+		ServiceID:   "terraria",
+		Status:      xylona.Status_ONLINE,
+		StopTimeout: 10 * time.Second,
+		LaunchEnv: map[string]string{
+			pseudoTerminalTestRoleEnv: "child",
+		},
+	})
+	if errStart != nil {
+		t.Fatalf("StartCommand() error = %v", errStart)
+	}
+
+	waitForCommandOutput(t, command, "pty-ready", 5*time.Second)
+	stopStarted := time.Now()
+	command.Stop("exit")
+	stopDuration := time.Since(stopStarted)
+	if stopDuration >= 5*time.Second {
+		t.Fatalf("Stop() took %v, want graceful return under 5s", stopDuration)
+	}
+	if command.Status() != xylona.Status_OFFLINE {
+		t.Fatalf("command status = %s, want OFFLINE", command.Status())
+	}
+	output := command.GetOutputBuffer()
+	if !strings.Contains(output, "pty-input:exit") {
+		t.Fatalf("output buffer = %q, want console input acknowledgement", output)
+	}
+	if !strings.Contains(output, "pty-final") {
+		t.Fatalf("output buffer = %q, want final drained output", output)
+	}
+}
+
+func TestPseudoTerminalConsoleChild(t *testing.T) {
+	if os.Getenv(pseudoTerminalTestRoleEnv) != "child" {
+		return
+	}
+	_, errReady := fmt.Fprintln(os.Stdout, "pty-ready")
+	if errReady != nil {
+		t.Fatalf("write ready output: %v", errReady)
+	}
+	line, errRead := bufio.NewReader(os.Stdin).ReadString('\n')
+	if errRead != nil {
+		t.Fatalf("read pseudo-terminal input: %v", errRead)
+	}
+	_, errInput := fmt.Fprintf(os.Stdout, "pty-input:%s\n", strings.TrimSpace(line))
+	if errInput != nil {
+		t.Fatalf("write input acknowledgement: %v", errInput)
+	}
+	_, errFinal := fmt.Fprintln(os.Stdout, "pty-final")
+	if errFinal != nil {
+		t.Fatalf("write final output: %v", errFinal)
+	}
+}
+
+func waitForCommandOutput(t *testing.T, command *Command, expected string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if strings.Contains(command.GetOutputBuffer(), expected) {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("command output did not contain %q within %v; output = %q", expected, timeout, command.GetOutputBuffer())
 }
 
 func TestCommandOutputListener(t *testing.T) {
@@ -632,6 +768,197 @@ done:
 	lastEvt := events[len(events)-1]
 	if lastEvt.NewStatus != xylona.Status_OFFLINE.String() {
 		t.Errorf("expected last event NewStatus %q, got %q", xylona.Status_OFFLINE.String(), lastEvt.NewStatus)
+	}
+}
+
+func TestInternalCommandExitStatus(t *testing.T) {
+	tests := []struct {
+		name          string
+		status        xylona.Status
+		game          *internalGameStub
+		includeServer bool
+		includeGameID bool
+		wantExitCode  int
+	}{
+		{
+			name:          "successful install",
+			status:        xylona.Status_INSTALLING,
+			game:          &internalGameStub{},
+			includeServer: true,
+			includeGameID: true,
+			wantExitCode:  0,
+		},
+		{
+			name:          "failed install",
+			status:        xylona.Status_INSTALLING,
+			game:          &internalGameStub{installErr: errors.New("install failed")},
+			includeServer: true,
+			includeGameID: true,
+			wantExitCode:  1,
+		},
+		{
+			name:          "failed update",
+			status:        xylona.Status_UPDATING,
+			game:          &internalGameStub{updateErr: errors.New("update failed")},
+			includeServer: true,
+			includeGameID: true,
+			wantExitCode:  1,
+		},
+		{
+			name:          "missing game server",
+			status:        xylona.Status_INSTALLING,
+			game:          &internalGameStub{},
+			includeServer: false,
+			includeGameID: true,
+			wantExitCode:  1,
+		},
+		{
+			name:          "missing game ID",
+			status:        xylona.Status_INSTALLING,
+			game:          &internalGameStub{},
+			includeServer: true,
+			includeGameID: false,
+			wantExitCode:  1,
+		},
+		{
+			name:          "unregistered game",
+			status:        xylona.Status_INSTALLING,
+			includeServer: true,
+			includeGameID: true,
+			wantExitCode:  1,
+		},
+	}
+
+	for index, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			inst, errNew := New(t.Context())
+			if errNew != nil {
+				t.Fatalf("failed to create supervisor: %v", errNew)
+			}
+
+			serverID := fmt.Sprintf("internal-status-test-%d", index)
+			gameID := serverID + "-game"
+			if test.game != nil {
+				gameintegrations.RegisterGame(gameID, test.game)
+				t.Cleanup(func() {
+					gameintegrations.UnregisterGameForTest(gameID)
+				})
+			}
+
+			var gameServer *models.GameServer
+			if test.includeServer {
+				gameServer = &models.GameServer{ID: serverID, Name: test.name}
+			}
+			var internalGameID *string
+			if test.includeGameID {
+				internalGameID = &gameID
+			}
+
+			eb := eventbus.Get()
+			statusCh := eb.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
+			defer eb.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusCh)
+
+			done := make(chan struct{})
+			command, errStart := inst.StartCommand(PreparedCommand{
+				ID:                 serverID,
+				GameServerName:     test.name,
+				InternalCommand:    true,
+				InternalGameServer: gameServer,
+				GameID:             internalGameID,
+				Status:             test.status,
+				CallbackFunction: func(_ *Command) {
+					close(done)
+				},
+			})
+			if errStart != nil {
+				t.Fatalf("failed to start internal command: %v", errStart)
+			}
+
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("timed out waiting for internal command completion")
+			}
+
+			var finalEvent eventbus.StatusChangedEvent
+			foundFinalEvent := false
+			deadline := time.After(2 * time.Second)
+			for !foundFinalEvent {
+				select {
+				case rawEvent := <-statusCh:
+					statusEvent, ok := rawEvent.(eventbus.StatusChangedEvent)
+					if !ok || statusEvent.ServerID != serverID {
+						continue
+					}
+					if statusEvent.NewStatus == xylona.Status_OFFLINE.String() {
+						finalEvent = statusEvent
+						foundFinalEvent = true
+					}
+				case <-deadline:
+					t.Fatal("timed out waiting for final internal command status event")
+				}
+			}
+
+			if finalEvent.ExitCode != test.wantExitCode {
+				t.Errorf("exit code = %d, want %d", finalEvent.ExitCode, test.wantExitCode)
+			}
+			if command.Status() != xylona.Status_OFFLINE {
+				t.Errorf("command status = %s, want %s", command.Status(), xylona.Status_OFFLINE)
+			}
+		})
+	}
+}
+
+func TestStartCommandRejectsOverlappingInternalCommand(t *testing.T) {
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor: %v", errNew)
+	}
+
+	gameID := "blocking-internal-update"
+	game := &blockingInternalGameStub{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	gameintegrations.RegisterGame(gameID, game)
+	t.Cleanup(func() {
+		gameintegrations.UnregisterGameForTest(gameID)
+	})
+
+	server := &models.GameServer{ID: "blocking-server", Name: "Blocking Server"}
+	prepared := PreparedCommand{
+		ID:                 server.ID,
+		InternalCommand:    true,
+		InternalGameServer: server,
+		GameID:             &gameID,
+		Status:             xylona.Status_UPDATING,
+	}
+	done := make(chan struct{})
+	prepared.CallbackFunction = func(_ *Command) {
+		close(done)
+	}
+
+	_, errStart := inst.StartCommand(prepared)
+	if errStart != nil {
+		t.Fatalf("first StartCommand() error = %v", errStart)
+	}
+
+	select {
+	case <-game.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for internal update to start")
+	}
+
+	_, errSecondStart := inst.StartCommand(prepared)
+	if !errors.Is(errSecondStart, ErrCommandAlreadyRunning) {
+		t.Fatalf("second StartCommand() error = %v, want %v", errSecondStart, ErrCommandAlreadyRunning)
+	}
+
+	close(game.release)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for internal update to finish")
 	}
 }
 

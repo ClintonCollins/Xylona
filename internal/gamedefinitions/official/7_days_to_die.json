@@ -1,30 +1,30 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:827e644449e0e5dfb01a326c00446c0fdfafb7fae66cb30f2cbd67f639b55591",
+  "content_hash": "sha256:a498f449c350e54f67cc5b05852ba59c5e152ed105a129fd52e3d12a3a5da69b",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
     "defaultPort": "26900",
-    "defaultQueryPort": "26900",
-    "defaultMaxPlayers": "32",
+    "defaultQueryPort": "26904",
+    "defaultMaxPlayers": "8",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "shutdown",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
-    "windowsStopCommand": "",
+    "linuxAllowBackups": true,
+    "windowsStopCommand": "shutdown",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -67,7 +67,9 @@
       "managed_fields": {
         "ServerName": "game_server.server_name",
         "ServerMaxPlayerCount": "game_server.max_players",
-        "ServerPort": "game_server.port"
+        "ServerPort": "game_server.port",
+        "TelnetPort": "game_server.query_port",
+        "UserDataFolder": "game_server.directory"
       },
       "schema": {
         "type": "object",
@@ -124,6 +126,42 @@
             "x-managed": {
               "source": "game_server.port"
             }
+          },
+          "TelnetEnabled": {
+            "type": "boolean",
+            "title": "Enable local management console",
+            "default": true,
+            "x-group": "Networking",
+            "x-order": 1
+          },
+          "TelnetPort": {
+            "type": "integer",
+            "title": "Management console port",
+            "default": 26904,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 2,
+            "x-managed": {
+              "source": "game_server.query_port"
+            }
+          },
+          "TelnetPassword": {
+            "type": "string",
+            "title": "Management console password",
+            "default": "",
+            "x-group": "Networking",
+            "x-order": 3
+          },
+          "UserDataFolder": {
+            "type": "string",
+            "title": "Isolated server data directory",
+            "default": "",
+            "x-group": "Networking",
+            "x-order": 4,
+            "x-managed": {
+              "source": "game_server.directory"
+            }
           }
         }
       }
@@ -133,7 +171,7 @@
     {
       "id": "01JQSB00000000000000000001",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-logfile",
         "-"
@@ -143,7 +181,7 @@
     {
       "id": "01JQSB00000000000000000002",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-quit"
       ],
@@ -152,7 +190,7 @@
     {
       "id": "01JQSB00000000000000000003",
       "order": 3,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-batchmode"
       ],
@@ -161,7 +199,7 @@
     {
       "id": "01JQSB00000000000000000004",
       "order": 4,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-nographics"
       ],
@@ -170,7 +208,7 @@
     {
       "id": "01JQSB00000000000000000005",
       "order": 5,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-configfile=serverconfig.xml"
       ],
@@ -179,7 +217,7 @@
     {
       "id": "01JQSB00000000000000000006",
       "order": 6,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-dedicated"
       ],
@@ -190,7 +228,7 @@
     {
       "id": "01JQSB00000000000000000001",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-logfile",
         "-"
@@ -200,7 +238,7 @@
     {
       "id": "01JQSB00000000000000000002",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-quit"
       ],
@@ -209,7 +247,7 @@
     {
       "id": "01JQSB00000000000000000003",
       "order": 3,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-batchmode"
       ],
@@ -218,7 +256,7 @@
     {
       "id": "01JQSB00000000000000000004",
       "order": 4,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-nographics"
       ],
@@ -227,7 +265,7 @@
     {
       "id": "01JQSB00000000000000000005",
       "order": 5,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-configfile=serverconfig.xml"
       ],
@@ -236,7 +274,7 @@
     {
       "id": "01JQSB00000000000000000006",
       "order": 6,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-dedicated"
       ],

@@ -106,16 +106,19 @@ func TestBuildVarsFromGameServer(t *testing.T) {
 	vars := BuildVarsFromGameServer(gs)
 
 	expected := map[string]string{
-		"IP":            "192.168.1.100",
-		"PORT":          "27015",
-		"QUERY_PORT":    "27016",
-		"MAX_PLAYERS":   "32",
-		"SERVER_NAME":   "My Server",
-		"INSTALL_DIR":   "/opt/gameservers/test",
-		"SERVER_ID":     "test-server-1",
-		"BACKUP_DIR":    "/opt/backups/test",
-		"MAX_MEMORY_MB": "4096",
-		"SET_PLAYERS":   "24",
+		"IP":                "192.168.1.100",
+		"PORT":              "27015",
+		"PORT_PLUS_1":       "27016",
+		"PORT_PLUS_2":       "27017",
+		"QUERY_PORT":        "27016",
+		"QUERY_PORT_PLUS_1": "27017",
+		"MAX_PLAYERS":       "32",
+		"SERVER_NAME":       "My Server",
+		"INSTALL_DIR":       "/opt/gameservers/test",
+		"SERVER_ID":         "test-server-1",
+		"BACKUP_DIR":        "/opt/backups/test",
+		"MAX_MEMORY_MB":     "4096",
+		"SET_PLAYERS":       "24",
 	}
 
 	for key, want := range expected {

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:2162bfc52faf32c4d57123fea7ee8707fb9f3ee5951ac8f4b672297f99712e6d",
+  "content_hash": "sha256:34f01ba5a2c12992c0728c01aec814efcf2fe0656696aaec2d014e4a8b72b659",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -14,12 +14,12 @@
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2394010 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2394010 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxAllowBackups": true,
     "windowsStopCommand": "",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2394010 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2394010 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -44,7 +44,7 @@
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "./PalServer.sh",
-    "windowsBaseCommand": "PalServer.exe",
+    "windowsBaseCommand": "Pal/Binaries/Win64/PalServer-Win64-Shipping-Cmd.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -64,43 +64,6 @@
       ],
       "label": "Game port",
       "managed_source": "game_server.port"
-    },
-    {
-      "id": "01JQSF00000000000000000002",
-      "order": 2,
-      "ownership": "system",
-      "tokens": [
-        "-publicip={{IP}}"
-      ],
-      "label": "Bind IP",
-      "managed_source": "game_server.ip"
-    },
-    {
-      "id": "01JQSF00000000000000000003",
-      "order": 3,
-      "ownership": "editable",
-      "tokens": [
-        "-useperfthreads"
-      ],
-      "label": "Use perf threads"
-    },
-    {
-      "id": "01JQSF00000000000000000004",
-      "order": 4,
-      "ownership": "editable",
-      "tokens": [
-        "-NoAsyncLoadingThread"
-      ],
-      "label": "No async loading thread"
-    },
-    {
-      "id": "01JQSF00000000000000000005",
-      "order": 5,
-      "ownership": "editable",
-      "tokens": [
-        "-UseMultithreadForDS"
-      ],
-      "label": "Use multithread for dedicated server"
     }
   ],
   "windows_start_args_template": [
@@ -113,43 +76,6 @@
       ],
       "label": "Game port",
       "managed_source": "game_server.port"
-    },
-    {
-      "id": "01JQSF00000000000000000002",
-      "order": 2,
-      "ownership": "system",
-      "tokens": [
-        "-publicip={{IP}}"
-      ],
-      "label": "Bind IP",
-      "managed_source": "game_server.ip"
-    },
-    {
-      "id": "01JQSF00000000000000000003",
-      "order": 3,
-      "ownership": "editable",
-      "tokens": [
-        "-useperfthreads"
-      ],
-      "label": "Use perf threads"
-    },
-    {
-      "id": "01JQSF00000000000000000004",
-      "order": 4,
-      "ownership": "editable",
-      "tokens": [
-        "-NoAsyncLoadingThread"
-      ],
-      "label": "No async loading thread"
-    },
-    {
-      "id": "01JQSF00000000000000000005",
-      "order": 5,
-      "ownership": "editable",
-      "tokens": [
-        "-UseMultithreadForDS"
-      ],
-      "label": "Use multithread for dedicated server"
     }
   ],
   "start_arg_blocklist": [],

@@ -1,12 +1,12 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:1759b7204e67b978eaad3a2a865557531c3312a4b4411e1fcf7c8c518c1d9e24",
+  "content_hash": "sha256:4c39bd2b1e2ab1f17b2a2062c0730a05d295dee97d4878866ca34ba8297b1271",
   "game": {
     "id": "windrose",
     "name": "Windrose",
     "defaultPort": "7777",
-    "defaultQueryPort": "7778",
+    "defaultQueryPort": "7777",
     "defaultMaxPlayers": "8",
     "linuxSupport": false,
     "windowsSupport": true,
@@ -19,9 +19,9 @@
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4129620 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4129620 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
-    "bindsToAllIps": false,
+    "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,
@@ -44,7 +44,7 @@
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "R5\\Binaries\\Win64\\WindroseServer-Win64-Shipping.exe",
+    "windowsBaseCommand": "WindroseServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -58,7 +58,10 @@
       "path": "R5/ServerDescription.json",
       "format": "json",
       "category": "Server",
+      "generate_before_start": true,
       "managed_fields": {
+        "ServerDescription_Persistent.ServerName": "game_server.server_name",
+        "ServerDescription_Persistent.MaxPlayerCount": "game_server.max_players",
         "ServerDescription_Persistent.DirectConnectionServerPort": "game_server.port"
       },
       "schema": {
@@ -75,7 +78,10 @@
             "description": "Name shown when identifying the server.",
             "default": "My Windrose Server",
             "x-group": "Identity",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
           },
           "ServerDescription_Persistent.IsPasswordProtected": {
             "type": "boolean",
@@ -101,7 +107,10 @@
             "minimum": 1,
             "maximum": 10,
             "x-group": "Access",
-            "x-order": 2
+            "x-order": 2,
+            "x-managed": {
+              "source": "game_server.max_players"
+            }
           },
           "ServerDescription_Persistent.P2pProxyAddress": {
             "type": "string",
@@ -157,7 +166,7 @@
     {
       "id": "01K8WR00000000000000000001",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-log"
       ],

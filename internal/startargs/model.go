@@ -63,12 +63,17 @@ type ResolvedBlock struct {
 
 // ValidManagedSources lists managed-source keys supported by the start-args editor.
 var ValidManagedSources = map[string]struct{}{
-	"game_server.port":          {},
-	"game_server.query_port":    {},
-	"game_server.ip":            {},
-	"game_server.max_memory_mb": {},
-	"server_executable":         {},
-	"steam_gslt":                {},
+	"game_server.port":              {},
+	"game_server.port_plus_1":       {},
+	"game_server.port_plus_2":       {},
+	"game_server.query_port":        {},
+	"game_server.query_port_plus_1": {},
+	"game_server.ip":                {},
+	"game_server.max_memory_mb":     {},
+	"game_server.max_players":       {},
+	"game_server.server_name":       {},
+	"server_executable":             {},
+	"steam_gslt":                    {},
 }
 
 // IsValidManagedSource reports whether the key is supported for managed substitution.

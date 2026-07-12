@@ -8,10 +8,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -88,7 +86,11 @@ func (imt inputType) String() string {
 	}
 }
 
-const defaultStopTimeout = 15 * time.Second
+const (
+	defaultStopTimeout    = 15 * time.Second
+	outputDrainTimeout    = 5 * time.Second
+	pseudoTerminalNewline = "\r"
+)
 
 func (c *Command) effectiveStopTimeout() time.Duration {
 	if c.stopTimeout > 0 {
@@ -103,14 +105,6 @@ func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, e
 	if err != nil {
 		return nil, err
 	}
-	if !preparedCommand.InternalCommand {
-		cmd.RLock()
-		currentCMDNil := cmd.currentCMD == nil
-		cmd.RUnlock()
-		if currentCMDNil {
-			return nil, fmt.Errorf("%s", cmd.GetOutputBuffer())
-		}
-	}
 	return cmd, nil
 }
 
@@ -119,8 +113,10 @@ func (c *Command) Stop(stopInputCommand string) {
 	c.intentionalStop.Store(true)
 	c.RLock()
 	currentCMD := c.currentCMD
+	currentPTYCMD := c.currentPTYCMD
+	currentPTY := c.currentPTY
 	c.RUnlock()
-	if currentCMD == nil {
+	if currentCMD == nil && currentPTYCMD == nil {
 		return
 	}
 	c.sendJobNotification(MessageStoppingServer)
@@ -130,14 +126,15 @@ func (c *Command) Stop(stopInputCommand string) {
 		if errSend != nil {
 			log.Error().Err(errSend).Msg("Error sending stop command")
 		}
-	} else if runtime.GOOS != "windows" {
-		errInterrupt := currentCMD.Process.Signal(os.Interrupt)
+	} else {
+		var errInterrupt error
+		if currentPTY != nil {
+			_, errInterrupt = currentPTY.Write([]byte{3})
+		} else {
+			errInterrupt = interruptProcessTree(currentCMD.Process)
+		}
 		if errInterrupt != nil {
-			log.Error().Err(errInterrupt).Msg("Error interrupting process")
-			errTerm := currentCMD.Process.Signal(syscall.SIGTERM)
-			if errTerm != nil {
-				log.Error().Err(errTerm).Msg("Error terminating process")
-			}
+			log.Error().Err(errInterrupt).Msg("Error sending graceful interrupt to process tree")
 		}
 	}
 	select {
@@ -166,112 +163,231 @@ func (inst *Instance) ListCommands() []*Command {
 	return commands
 }
 
-func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(command *Command)) {
+func (inst *Instance) startAndWaitForJob(
+	command *Command,
+	commandEndFunc func(command *Command),
+	startupResult chan<- error,
+	outputDone <-chan struct{},
+) {
+	processCtxCancel := command.processCtxCancel
 	defer func(command *Command) {
 		if command.inputMethod.Type == InputTypeTelnet {
 			log.Debug().Str("Game Server ID", command.ID).Msg("Closing telnet connection")
-			if command.telnetConn != nil {
-				errCloseTelnetConn := command.telnetConn.Close()
+			command.Lock()
+			telnetConn := command.telnetConn
+			command.telnetConn = nil
+			command.Unlock()
+			if telnetConn != nil {
+				errCloseTelnetConn := telnetConn.Close()
 				if errCloseTelnetConn != nil {
 					log.Error().Err(errCloseTelnetConn).Msg("Error closing telnet connection")
 				}
 			}
 		}
 	}(command)
+	defer processCtxCancel()
 	log.Debug().Str("Game Server ID", command.ID).Msg("Starting job")
 	// If it's an internal command, we need to run the internal command.
 	if command.InternalCommand && (command.status == xylona.Status_INSTALLING || command.status == xylona.Status_UPDATING) {
-		if command.internalGameServer == nil {
-			log.Error().Str("Game Server ID", command.ID).Msg("Internal game server is nil")
-			return
-		}
-		if command.gameID == nil {
-			log.Error().Str("Game Server ID", command.ID).Msg("Game ID is nil")
-			return
-		}
-		internalGame, exists := gameintegrations.GetGame(*command.gameID)
-		if !exists {
-			log.Error().Str("Game ID", *command.gameID).Str("Game Server ID", command.ID).Msg("Internal game does not exist")
-			return
-		}
+		startupResult <- nil
+		exitCode := 0
 		command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)
 		defer func() {
-			if pipeWriter, ok := command.internalCommandStdOut.(*io.PipeWriter); ok {
-				_ = pipeWriter.Close()
+			stdoutPipeWriter, stdoutIsPipe := command.internalCommandStdOut.(*io.PipeWriter)
+			if stdoutIsPipe {
+				errCloseStdout := stdoutPipeWriter.Close()
+				if errCloseStdout != nil {
+					log.Error().Err(errCloseStdout).Str("Game Server ID", command.ID).
+						Msg("Error closing internal command stdout")
+				}
 			}
-			if pipeWriter, ok := command.internalCommandStdErr.(*io.PipeWriter); ok {
-				_ = pipeWriter.Close()
+			stderrPipeWriter, stderrIsPipe := command.internalCommandStdErr.(*io.PipeWriter)
+			if stderrIsPipe {
+				errCloseStderr := stderrPipeWriter.Close()
+				if errCloseStderr != nil {
+					log.Error().Err(errCloseStderr).Str("Game Server ID", command.ID).
+						Msg("Error closing internal command stderr")
+				}
 			}
+			waitForJobOutput(command.ID, outputDone)
 			oldStatus := command.Status()
-			command.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 			command.Lock()
 			command.currentCMD = nil
+			command.currentPTYCMD = nil
+			command.currentPTY = nil
 			command.status = xylona.Status_OFFLINE
+			for name := range command.launchEnv {
+				command.launchEnv[name] = ""
+				delete(command.launchEnv, name)
+			}
 			command.Unlock()
+			command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, exitCode)
 			if commandEndFunc != nil {
 				commandEndFunc(command)
 			}
 		}()
+
+		reportInternalFailure := func(message string, err error) {
+			exitCode = 1
+			log.Error().Err(err).Str("Game Server ID", command.ID).Msg(message)
+			_, errWrite := fmt.Fprintf(command.internalCommandStdErr, "%s: %v\n", message, err)
+			if errWrite != nil {
+				log.Error().Err(errWrite).Str("Game Server ID", command.ID).
+					Msg("Error writing internal command failure to stderr")
+			}
+		}
+
+		if command.internalGameServer == nil {
+			reportInternalFailure("Internal game server is unavailable", errors.New("internal game server is nil"))
+			return
+		}
+		if command.gameID == nil {
+			reportInternalFailure("Internal game ID is unavailable", errors.New("game ID is nil"))
+			return
+		}
+		internalGame, exists := gameintegrations.GetGame(*command.gameID)
+		if !exists {
+			reportInternalFailure("Internal game integration is unavailable", fmt.Errorf("game %q is not registered", *command.gameID))
+			return
+		}
 		switch command.status {
 		case xylona.Status_INSTALLING:
 			err := internalGame.Install(command.internalGameServer, command.internalCommandStdOut, command.internalCommandStdErr)
 			if err != nil {
-				log.Error().Err(err).Msg("Error installing internal game")
+				reportInternalFailure("Error installing internal game", err)
 				return
 			}
 			return
 		case xylona.Status_UPDATING:
-			err := internalGame.Update(command.internalGameServer, command.internalCommandStdOut, command.internalCommandStdErr)
+			environmentUpdater, supportsEnvironment := internalGame.(gameintegrations.EnvironmentUpdater)
+			var err error
+			if supportsEnvironment {
+				err = environmentUpdater.UpdateWithEnvironment(
+					command.internalGameServer,
+					command.internalCommandStdOut,
+					command.internalCommandStdErr,
+					command.launchEnv,
+				)
+			} else {
+				err = internalGame.Update(command.internalGameServer, command.internalCommandStdOut, command.internalCommandStdErr)
+			}
 			if err != nil {
-				log.Error().Err(err).Msg("Error updating internal game")
+				reportInternalFailure("Error updating internal game", err)
 				return
 			}
 			return
 		}
-		log.Error().Str("Game Server ID", command.ID).Msg("Unable to find internal command to run.")
-		command.sendJobNotification("Unable to find internal command to run.")
+		reportInternalFailure("Unable to find internal command to run", fmt.Errorf("unsupported status %s", command.status.String()))
 		return
 	}
 
 	// If it's not an internal command, we need to run the command.
 	command.RLock()
 	currentCMD := command.currentCMD
+	currentPTYCMD := command.currentPTYCMD
+	currentPTY := command.currentPTY
 	command.RUnlock()
-	if currentCMD == nil {
-		return
-	}
-	err := currentCMD.Start()
-	if err != nil {
-		log.Error().Err(err).Msg("Unable to start command.")
-		command.sendJobNotification(err.Error())
+	if currentCMD == nil && currentPTYCMD == nil {
+		errUnavailable := errors.New("start command: prepared process is unavailable")
+		startupResult <- errUnavailable
 		oldStatus := command.Status()
-		command.sendJobStatusNotification(oldStatus, xylona.Status_OFFLINE)
 		command.Lock()
-		command.currentCMD = nil
 		command.status = xylona.Status_OFFLINE
 		command.Unlock()
+		waitForJobOutput(command.ID, outputDone)
+		command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, 1)
+		return
+	}
+	command.Lock()
+	var errStartProcess error
+	if currentPTYCMD != nil {
+		errStartProcess = currentPTYCMD.Start()
+	} else {
+		errStartProcess = currentCMD.Start()
+	}
+	command.Unlock()
+	if errStartProcess != nil {
+		errStart := fmt.Errorf("start command: %w", errStartProcess)
+		startupResult <- errStart
+		log.Error().Err(errStartProcess).Msg("Unable to start command.")
+		command.sendJobNotification(errStartProcess.Error())
+		oldStatus := command.Status()
+		command.Lock()
+		command.currentCMD = nil
+		command.currentPTYCMD = nil
+		command.currentPTY = nil
+		command.status = xylona.Status_OFFLINE
+		command.Unlock()
+		if currentPTY != nil {
+			errClosePTY := currentPTY.Close()
+			if errClosePTY != nil {
+				log.Error().Err(errClosePTY).Str("Game Server ID", command.ID).
+					Msg("Error closing pseudo-terminal after failed start")
+			}
+		} else {
+			errClosePipes := closePreparedCommandPipes(command)
+			if errClosePipes != nil {
+				log.Debug().Err(errClosePipes).Str("Game Server ID", command.ID).
+					Msg("Error closing command pipes after failed start")
+			}
+		}
+		waitForJobOutput(command.ID, outputDone)
+		command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, 1)
 		if commandEndFunc != nil {
 			commandEndFunc(command)
 		}
 		return
 	}
+	startupResult <- nil
 	command.Lock()
-	if command.currentCMD == currentCMD {
+	if currentCMD != nil && command.currentCMD == currentCMD {
 		command.currentCMD.Env = nil
+	}
+	if currentPTYCMD != nil && command.currentPTYCMD == currentPTYCMD {
+		command.currentPTYCMD.Env = nil
 	}
 	command.Unlock()
 
-	log.Debug().Str("Command ID", command.ID).Str("executable", currentCMD.Path).
-		Int("argument_count", len(currentCMD.Args)).Msg("Command started")
+	var executable string
+	var argumentCount int
+	if currentPTYCMD != nil {
+		executable = currentPTYCMD.Path
+		argumentCount = len(currentPTYCMD.Args)
+	} else {
+		executable = currentCMD.Path
+		argumentCount = len(currentCMD.Args)
+	}
+	log.Debug().Str("Command ID", command.ID).Str("executable", executable).
+		Int("argument_count", argumentCount).Msg("Command started")
 	command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)
 
 	// Run after startup function if it exists.
 	if command.runAfterStartup != nil {
-		command.runAfterStartup(command)
+		go command.runAfterStartup(command)
 	}
 
-	errWait := currentCMD.Wait()
-	exitCode := extractExitCode(currentCMD, errWait)
+	var errWait error
+	var exitCode int
+	if currentPTYCMD != nil {
+		stopCancellationWatch := watchPseudoTerminalCancellation(command.processCtx, currentPTYCMD)
+		errWait = currentPTYCMD.Wait()
+		stopCancellationWatch()
+		exitCode = extractProcessExitCode(currentPTYCMD.ProcessState, errWait)
+	} else {
+		errWait = currentCMD.Wait()
+		exitCode = extractExitCode(currentCMD, errWait)
+	}
+	if currentPTY != nil {
+		if drainPseudoTerminalBeforeClose() {
+			waitForJobOutput(command.ID, outputDone)
+		}
+		errClosePTY := currentPTY.Close()
+		if errClosePTY != nil {
+			log.Debug().Err(errClosePTY).Str("Game Server ID", command.ID).
+				Msg("Error closing completed pseudo-terminal")
+		}
+	}
+	waitForJobOutput(command.ID, outputDone)
 	if errWait != nil {
 		checkErrorAccessDenied(errWait, command)
 		log.Debug().Err(errWait).Msg("Error waiting for command.")
@@ -291,21 +407,28 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
 	oldStatus := command.Status()
-	command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, exitCode)
 	command.Lock()
 	command.currentCMD = nil
+	command.currentPTYCMD = nil
+	command.currentPTY = nil
 	command.status = xylona.Status_OFFLINE
 	command.Unlock()
+	command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, exitCode)
 	if commandEndFunc != nil {
 		commandEndFunc(command)
 	}
 }
 
 func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*Command, error) {
+	inst.Lock()
+	defer inst.Unlock()
+
 	persistentCommand, exists := inst.runningCommands[preparedCommand.ID]
 	if exists {
 		persistentCommand.RLock()
-		commandAlreadyRunning := persistentCommand.currentCMD != nil
+		commandAlreadyRunning := persistentCommand.currentCMD != nil ||
+			persistentCommand.currentPTYCMD != nil ||
+			persistentCommand.status != xylona.Status_OFFLINE
 		persistentCommand.RUnlock()
 		if commandAlreadyRunning {
 			return nil, ErrCommandAlreadyRunning
@@ -315,14 +438,32 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 	newCommand := inst.initNewCommand(preparedCommand, persistentCommand)
 
 	if !preparedCommand.InternalCommand {
-		// Extracted Command setup logic to a private function.
-		cmd, err := inst.setupCmd(newCommand, preparedCommand)
+		newCommand.InternalCommand = false
+		newCommand.internalGameServer = nil
+		newCommand.gameID = nil
+		newCommand.internalCommandStdOut = nil
+		newCommand.internalCommandStdErr = nil
+		var err error
+		if requiresPseudoTerminal(preparedCommand.ServiceID) {
+			newCommand.currentPTYCMD, newCommand.currentPTY, err = inst.setupPseudoTerminal(newCommand, preparedCommand)
+			newCommand.currentCMD = nil
+		} else {
+			newCommand.currentCMD, err = inst.setupCmd(newCommand, preparedCommand)
+			newCommand.currentPTYCMD = nil
+			newCommand.currentPTY = nil
+		}
 		if err != nil {
+			newCommand.Lock()
+			newCommand.currentCMD = nil
+			newCommand.currentPTYCMD = nil
+			newCommand.currentPTY = nil
+			newCommand.status = xylona.Status_OFFLINE
+			newCommand.Unlock()
+			newCommand.processCtxCancel()
 			return nil, err
 		}
 
 		log.Debug().Str("Command ID", preparedCommand.ID).Msg("Starting command")
-		newCommand.currentCMD = cmd
 	} else {
 		// Internal command
 		newCommand.InternalCommand = preparedCommand.InternalCommand
@@ -335,17 +476,28 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 		newCommand.stdout = stdOutPipeReader
 		newCommand.stderr = stdErrPipeReader
 		newCommand.currentCMD = nil
+		newCommand.currentPTYCMD = nil
+		newCommand.currentPTY = nil
 	}
 
 	if persistentCommand == nil {
 		inst.runningCommands[preparedCommand.ID] = newCommand
 	}
 
-	go newCommand.readJobOut()
+	outputDone := make(chan struct{})
+	go func() {
+		defer close(outputDone)
+		newCommand.readJobOut()
+	}()
 	if newCommand.status == xylona.Status_ONLINE {
 		newCommand.sendJobNotification(MessageStartingServer)
 	}
-	go inst.startAndWaitForJob(newCommand, preparedCommand.CallbackFunction)
+	startupResult := make(chan error, 1)
+	go inst.startAndWaitForJob(newCommand, preparedCommand.CallbackFunction, startupResult, outputDone)
+	errStart := <-startupResult
+	if errStart != nil {
+		return nil, errStart
+	}
 	return newCommand, nil
 }
 
@@ -367,7 +519,9 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 	errValidateTelnet := validateTelnetInputMethod(inputMethod)
 	if errValidateTelnet != nil {
 		log.Error().Err(errValidateTelnet).Str("Command ID", command.ID).Msg("Invalid telnet input method")
+		command.Lock()
 		command.stdInWriter = io.Discard
+		command.Unlock()
 		return
 	}
 	telnetCredentials := inputMethod.TelnetCredentials
@@ -377,7 +531,6 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 		telnetConn, errDial := telnet.DialTimeout("tcp", net.JoinHostPort("localhost", strconv.Itoa(telnetCredentials.Port)), time.Second*5)
 		if errDial != nil {
 			log.Error().Err(errDial).Msg("Error dialing telnet")
-			command.stdInWriter = io.Discard
 			return nil, fmt.Errorf("dial telnet: %w", errDial)
 		}
 		log.Debug().Msg("Telnet connection successful")
@@ -386,7 +539,10 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 			b, errAuth := telnetConn.Write([]byte(telnetCredentials.Password))
 			if errAuth != nil {
 				log.Error().Err(errAuth).Msg("Error authenticating telnet")
-				command.stdInWriter = io.Discard
+				errClose := telnetConn.Close()
+				if errClose != nil {
+					log.Error().Err(errClose).Msg("Error closing unauthenticated telnet connection")
+				}
 				return nil, fmt.Errorf("authenticate telnet: %w", errAuth)
 			}
 			log.Debug().Int("bytes written", b).Msg("Wrote password to telnet")
@@ -396,9 +552,7 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 
 	telnetConnection, errConnect := telnetConnect()
 	if errConnect == nil {
-		command.telnetConn = telnetConnection
-		command.stdInWriter = telnetConnection
-		go command.readTelnetOutput()
+		attachTelnetConnection(command, telnetConnection)
 		return
 	}
 
@@ -415,14 +569,32 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 			log.Debug().Str("Command ID", command.ID).Msg("Retrying telnet connection")
 			telnetConnection, errConnect = telnetConnect()
 			if errConnect == nil {
-				command.telnetConn = telnetConnection
-				command.stdInWriter = telnetConnection
-				go command.readTelnetOutput()
+				attachTelnetConnection(command, telnetConnection)
 				return
 			}
 		}
 	}
+	command.Lock()
 	command.stdInWriter = io.Discard
+	command.Unlock()
+}
+
+func attachTelnetConnection(command *Command, telnetConnection *telnet.Conn) {
+	command.Lock()
+	if command.processCtx.Err() != nil {
+		command.Unlock()
+		errClose := telnetConnection.Close()
+		if errClose != nil {
+			log.Debug().Err(errClose).Str("Command ID", command.ID).
+				Msg("Error closing late telnet connection")
+		}
+		return
+	}
+	command.telnetConn = telnetConnection
+	command.stdInWriter = telnetConnection
+	processDone := command.processCtx.Done()
+	command.Unlock()
+	go command.readTelnetOutput(telnetConnection, processDone)
 }
 
 // GetCommandByID returns a tracked command by ID.
@@ -469,19 +641,75 @@ func (inst *Instance) SendConsoleOutput(commandID string, message string) {
 
 // SendInput sends input to the command's StdIn.
 func (c *Command) SendInput(input string) error {
-	// TODO Implement sending to telnet if the game uses it for input.... (7 Days to Die)
 	c.RLock()
-	if c.currentCMD == nil {
+	currentCMD := c.currentCMD
+	currentPTYCMD := c.currentPTYCMD
+	inputWriter := c.stdInWriter
+	inputMethod := c.inputMethod.Type
+	if currentCMD == nil && currentPTYCMD == nil {
+		c.RUnlock()
 		return errors.New("command is not running")
 	}
 	c.RUnlock()
-	log.Debug().Str("Command ID", c.ID).Str("Input", input).Msg("Sending input")
-	b, wErr := fmt.Fprintf(c.stdInWriter, "%s\n", input)
+	log.Debug().Str("Command ID", c.ID).Int("input_bytes", len(input)).Msg("Sending console input")
+	inputTerminator := "\n"
+	if currentPTYCMD != nil {
+		inputTerminator = pseudoTerminalNewline
+	}
+	b, wErr := fmt.Fprintf(inputWriter, "%s%s", input, inputTerminator)
+	var errConsoleInput error
+	if currentPTYCMD == nil && inputMethod == InputTypeStdIn {
+		errConsoleInput = mirrorProcessConsoleInput(currentCMD, input)
+	}
+	if wErr != nil && errConsoleInput != nil {
+		return errors.Join(
+			fmt.Errorf("write command input: %w", wErr),
+			fmt.Errorf("mirror command input to console: %w", errConsoleInput),
+		)
+	}
 	if wErr != nil {
-		return fmt.Errorf("write command input: %w", wErr)
+		log.Debug().Err(wErr).Str("Command ID", c.ID).
+			Msg("Standard input pipe rejected command; console input succeeded")
+	}
+	if errConsoleInput != nil {
+		log.Debug().Err(errConsoleInput).Str("Command ID", c.ID).
+			Msg("Console input unavailable; standard input pipe accepted command")
 	}
 	log.Debug().Str("Command ID", c.ID).Int("bytes written", b).Msg("Wrote input")
 	return nil
+}
+
+func closePreparedCommandPipes(command *Command) error {
+	command.RLock()
+	readersAndWriters := []any{command.stdout, command.stderr, command.stdInWriter}
+	command.RUnlock()
+
+	errorsToJoin := make([]error, 0, len(readersAndWriters))
+	for _, stream := range readersAndWriters {
+		closer, canClose := stream.(io.Closer)
+		if !canClose || closer == nil {
+			continue
+		}
+		errClose := closer.Close()
+		if errClose != nil && !errors.Is(errClose, os.ErrClosed) {
+			errorsToJoin = append(errorsToJoin, errClose)
+		}
+	}
+	return errors.Join(errorsToJoin...)
+}
+
+func waitForJobOutput(commandID string, outputDone <-chan struct{}) {
+	if outputDone == nil {
+		return
+	}
+	timer := time.NewTimer(outputDrainTimeout)
+	defer timer.Stop()
+	select {
+	case <-outputDone:
+	case <-timer.C:
+		log.Warn().Str("Game Server ID", commandID).Dur("timeout", outputDrainTimeout).
+			Msg("Timed out draining final game server console output")
+	}
 }
 
 // extractExitCode returns the exit code from a completed command. It checks
@@ -490,13 +718,19 @@ func (c *Command) SendInput(input string) error {
 // Returns 0 if err is nil or the process exited with code 0, the actual exit
 // code if it can be determined, or -1 if the error is not an exit error.
 func extractExitCode(cmd *exec.Cmd, err error) int {
+	var processState *os.ProcessState
+	if cmd != nil {
+		processState = cmd.ProcessState
+	}
+	return extractProcessExitCode(processState, err)
+}
+
+func extractProcessExitCode(processState *os.ProcessState, err error) int {
 	if err == nil {
 		return 0
 	}
-	// ProcessState is populated after Wait completes, even when the error
-	// is a context cancellation wrapping a TerminateProcess failure (Windows).
-	if cmd != nil && cmd.ProcessState != nil {
-		return cmd.ProcessState.ExitCode()
+	if processState != nil {
+		return processState.ExitCode()
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {

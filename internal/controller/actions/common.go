@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/defaultpaths"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -191,6 +192,18 @@ func commandLineToProcessArgs(command string) (string, []string, error) {
 	if errFields != nil {
 		return "", nil, errFields
 	}
+	if len(fields) == 0 {
+		return "", nil, nil
+	}
+	return fields[0], fields[1:], nil
+}
+
+func resolveCommandLineToProcessArgs(command string, variables map[string]string) (string, []string, error) {
+	fields, errFields := commandLineFields(command)
+	if errFields != nil {
+		return "", nil, errFields
+	}
+	fields = placeholder.ResolveTokens(fields, variables)
 	if len(fields) == 0 {
 		return "", nil, nil
 	}

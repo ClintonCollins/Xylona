@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:5c5406b4c40f6103c64d03d51b0dc151568f57594c91180272e5cb2cbbbc9537",
+  "content_hash": "sha256:3d390f8c1a72bb6431af1747324db79ac944a11f50c7a3157886b31385cc677b",
   "game": {
     "id": "minecraft",
     "name": "Minecraft",
@@ -10,16 +10,16 @@
     "defaultMaxPlayers": "32",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "/stop",
+    "linuxStopCommand": "stop",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
-    "windowsStopCommand": "/stop",
+    "linuxAllowBackups": true,
+    "windowsStopCommand": "stop",
     "windowsInstallCommand": "",
     "windowsUpdateCommand": "",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -295,7 +295,7 @@
     {
       "id": "01JQSA0000000000000000000D",
       "order": 13,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "nogui"
       ],
@@ -418,7 +418,7 @@
     {
       "id": "01JQSA0000000000000000000D",
       "order": 13,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "nogui"
       ],

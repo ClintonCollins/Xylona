@@ -113,6 +113,15 @@ func (inst *Instance) onStatusChanged(event eventbus.StatusChangedEvent) {
 			Msg("Auto-restart: stop was intentionally requested, skipping")
 		return
 	}
+
+	oldStatus := strings.ToUpper(strings.TrimSpace(event.OldStatus))
+	if oldStatus != xylona.Status_ONLINE.String() {
+		log.Debug().
+			Str("game_server_id", event.ServerID).
+			Str("old_status", oldStatus).
+			Msg("Auto-restart: exited process was not an online game server, skipping")
+		return
+	}
 	inst.handleServerExit(event.ServerID)
 }
 

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:0f70e2ae54f4ad4b94263eb5df178d82978ccfe94764e3b243b39ec595b6b0f1",
+  "content_hash": "sha256:0429e65c7ef1ca3975190fab0ba6cf7645bd1d287dcb2cce7845a27aedda3620",
   "game": {
     "id": "core_keeper",
     "name": "Core Keeper",
@@ -14,12 +14,12 @@
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxAllowBackups": true,
     "windowsStopCommand": "q",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -69,12 +69,13 @@
     {
       "id": "01JQSE00000000000000000002",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Max players"
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "01JQSE00000000000000000003",
@@ -129,12 +130,13 @@
     {
       "id": "01JQSE00000000000000000008",
       "order": 8,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-worldname",
         "{{SERVER_NAME}}"
       ],
-      "label": "World name"
+      "label": "World name",
+      "managed_source": "game_server.server_name"
     }
   ],
   "windows_start_args_template": [
@@ -152,12 +154,13 @@
     {
       "id": "01JQSE00000000000000000002",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Max players"
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "01JQSE00000000000000000003",
@@ -212,12 +215,13 @@
     {
       "id": "01JQSE00000000000000000008",
       "order": 8,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-worldname",
         "{{SERVER_NAME}}"
       ],
-      "label": "World name"
+      "label": "World name",
+      "managed_source": "game_server.server_name"
     }
   ],
   "start_arg_blocklist": [],

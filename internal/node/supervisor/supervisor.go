@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	pty "github.com/aymanbagabas/go-pty"
 	"github.com/ziutek/telnet"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -81,10 +82,13 @@ type Command struct {
 	internalCommandStdErr         io.Writer
 	internalGameServer            *models.GameServer
 	gameID                        *string
+	launchEnv                     map[string]string
 	unixStartedAt                 int64
 	status                        xylona.Status
 	serviceID                     string
 	currentCMD                    *exec.Cmd
+	currentPTYCMD                 *pty.Cmd
+	currentPTY                    pty.Pty
 	outputListeners               map[string]chan *xylona.Message
 	outputListenersLock           *sync.RWMutex
 	statusListeners               map[string]chan *xylona.GameServerStatusUpdate

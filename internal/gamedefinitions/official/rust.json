@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:7c3b2e678e51db04b4186f3df6c1fab566ab394f366b3a907d7c44c86014c180",
+  "content_hash": "sha256:185cb959596caf7963fe6154249e00d8fd282a8082082793b7daeafe7c718d22",
   "game": {
     "id": "rust",
     "name": "Rust",
@@ -10,16 +10,16 @@
     "defaultMaxPlayers": "100",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "quit",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
-    "windowsStopCommand": "",
+    "linuxAllowBackups": true,
+    "windowsStopCommand": "quit",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 258550 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -58,7 +58,7 @@
     {
       "id": "runtime_rust_linux_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-batchmode"
       ],
@@ -89,7 +89,7 @@
     {
       "id": "runtime_rust_linux_04",
       "order": 4,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+server.identity",
         "rust"
@@ -99,29 +99,31 @@
     {
       "id": "runtime_rust_linux_05",
       "order": 5,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+server.hostname",
         "{{SERVER_NAME}}"
       ],
-      "label": "Server Hostname"
+      "label": "Server Hostname",
+      "managed_source": "game_server.server_name"
     },
     {
       "id": "runtime_rust_linux_06",
       "order": 6,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+server.maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Server Maxplayers"
+      "label": "Server Maxplayers",
+      "managed_source": "game_server.max_players"
     }
   ],
   "windows_start_args_template": [
     {
       "id": "runtime_rust_windows_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-batchmode"
       ],
@@ -163,7 +165,7 @@
     {
       "id": "runtime_rust_windows_05",
       "order": 5,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+server.identity",
         "rust"
@@ -173,22 +175,24 @@
     {
       "id": "runtime_rust_windows_06",
       "order": 6,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+server.hostname",
         "{{SERVER_NAME}}"
       ],
-      "label": "Server Hostname"
+      "label": "Server Hostname",
+      "managed_source": "game_server.server_name"
     },
     {
       "id": "runtime_rust_windows_07",
       "order": 7,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+server.maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Server Maxplayers"
+      "label": "Server Maxplayers",
+      "managed_source": "game_server.max_players"
     }
   ],
   "start_arg_blocklist": [],

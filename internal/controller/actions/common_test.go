@@ -322,3 +322,20 @@ func TestCommandLineToProcessArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveCommandLineToProcessArgsPreservesPlaceholderBoundaries(t *testing.T) {
+	baseCommand, args, errResolve := resolveCommandLineToProcessArgs(
+		`steamcmd +login "{{STEAM_USERNAME}}" +app_update 211820 +quit`,
+		map[string]string{"STEAM_USERNAME": `owner name" +quit`},
+	)
+	if errResolve != nil {
+		t.Fatalf("resolveCommandLineToProcessArgs() error = %v", errResolve)
+	}
+	if baseCommand != "steamcmd" {
+		t.Fatalf("base command = %q, want steamcmd", baseCommand)
+	}
+	wantArgs := []string{"+login", `owner name" +quit`, "+app_update", "211820", "+quit"}
+	if !slices.Equal(args, wantArgs) {
+		t.Fatalf("args = %#v, want %#v", args, wantArgs)
+	}
+}

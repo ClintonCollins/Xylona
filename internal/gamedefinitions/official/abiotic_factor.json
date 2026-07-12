@@ -1,30 +1,30 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:7cd874aeea7a743b0d56bb2636a234373117b6cf74c1a169394477950b252e16",
+  "content_hash": "sha256:d6eec3dd349c875b7f2d87107e853c2720993e443b5f3dd452a471fd9e474820",
   "game": {
     "id": "abiotic_factor",
     "name": "Abiotic Factor",
-    "defaultPort": "27015",
+    "defaultPort": "7777",
     "defaultQueryPort": "27015",
-    "defaultMaxPlayers": "16",
+    "defaultMaxPlayers": "6",
     "linuxSupport": false,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2857200 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2857200 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "NONE",
     "linuxUpdateType": "NONE",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "AbioticFactorServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -55,7 +55,68 @@
   },
   "config_schemas": [],
   "linux_start_args_template": [],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_abiotic_factor_windows_01",
+      "order": 1,
+      "ownership": "locked",
+      "tokens": [
+        "-log",
+        "-newconsole",
+        "-useperfthreads"
+      ],
+      "label": "Dedicated server console"
+    },
+    {
+      "id": "runtime_abiotic_factor_windows_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-PORT={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_abiotic_factor_windows_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-QUERYPORT={{QUERY_PORT}}"
+      ],
+      "label": "Query port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_abiotic_factor_windows_04",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "-MaxServerPlayers={{MAX_PLAYERS}}"
+      ],
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
+    },
+    {
+      "id": "runtime_abiotic_factor_windows_05",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-SteamServerName={{SERVER_NAME}}"
+      ],
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
+    },
+    {
+      "id": "runtime_abiotic_factor_windows_06",
+      "order": 6,
+      "ownership": "editable",
+      "tokens": [
+        "-WorldSaveName={{SERVER_ID}}"
+      ],
+      "label": "World save name"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

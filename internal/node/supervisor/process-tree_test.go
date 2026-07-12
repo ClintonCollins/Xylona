@@ -31,7 +31,7 @@ func TestProcessTreeCancellation(t *testing.T) {
 	cmd.Env = append(os.Environ(), processTreeHelperEnv+"=parent", processTreePIDFileEnv+"="+pidFile)
 	configureProcessTree(cmd)
 	cmd.Cancel = func() error {
-		return terminateProcessTree(cmd)
+		return terminateProcessTree(cmd.Process)
 	}
 	errStart := cmd.Start()
 	if errStart != nil {

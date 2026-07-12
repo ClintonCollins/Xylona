@@ -199,6 +199,27 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 
 // InstallGameServer creates the server record, schedules install, and starts post-install startup.
 func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.GameServer, owner *models.User) (*models.GameServer, error) {
+	normalInstallEnv, errNormalInstallEnv := mergeNormalLaunchEnvironment(game, gameServer.EnvVars)
+	if errNormalInstallEnv != nil {
+		return nil, fmt.Errorf("actions: prepare install environment: %w", errNormalInstallEnv)
+	}
+	installLaunchEnv, errInstallLaunchEnv := buildNormalLaunchEnvironment(normalInstallEnv)
+	if errInstallLaunchEnv != nil {
+		return nil, fmt.Errorf("actions: prepare install environment: %w", errInstallLaunchEnv)
+	}
+	starboundSteamUsername := ""
+	if game.ID == gameintegrations.StarboundGameID {
+		var errSteamUsername error
+		starboundSteamUsername, errSteamUsername = gameintegrations.StarboundSteamUsername(installLaunchEnv)
+		if errSteamUsername != nil {
+			return nil, fmt.Errorf("actions: validate Starbound Steam account: %w", errSteamUsername)
+		}
+	}
+	storedServerEnv := strings.TrimSpace(gameServer.EnvVars)
+	if storedServerEnv == "" {
+		storedServerEnv = "[]"
+	}
+
 	gameServerDir, errCreateGameServerDir := inst.createGameServerDirectory(gameServer, owner)
 	if errCreateGameServerDir != nil {
 		log.Error().Err(errCreateGameServerDir).Msg("Failed to create game server directory")
@@ -219,7 +240,10 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	tx := bob.NewTx(t)
 
 	defer func() {
-		_ = tx.Rollback(inst.ctx)
+		errRollback := tx.Rollback(inst.ctx)
+		if errRollback != nil && !errors.Is(errRollback, sql.ErrTxDone) {
+			log.Error().Err(errRollback).Msg("Failed to roll back game server install transaction")
+		}
 	}()
 
 	nodeRow, errGetNode := inst.db.GetNodeByID(gameServer.NodeID)
@@ -249,7 +273,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		Directory:        omit.From(gameServer.Directory),
 		MaxMemoryMB:      omit.From(gameServer.MaxMemoryMB),
 		BackupsEnabled:   omit.From(gameServer.BackupsEnabled),
-		EnvVars:          omit.From("[]"),
+		EnvVars:          omit.From(storedServerEnv),
 		BackupDirectory:  omit.From(gameServer.BackupDirectory),
 		MaxBackups:       omit.From(gameServer.MaxBackups),
 		NodeID:           omit.From(gameServer.NodeID),
@@ -264,6 +288,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		return nil, errInstall
 	}
 	newGameServer.R.Node = nodeRow
+	newGameServer.R.Game = game
 
 	errCommit := tx.Commit(inst.ctx)
 	if errCommit != nil {
@@ -278,8 +303,14 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 
 	nodeOS := inst.resolveNodeOS(inst.ctx, newGameServer.NodeID)
 	installVars := placeholder.BuildVarsFromGameServer(newGameServer)
-	installCommand := placeholder.Resolve(gameInstallCommand(game, nodeOS), installVars)
-	baseCommand, args, errCommandArgs := commandLineToProcessArgs(installCommand)
+	addNormalEnvironmentPlaceholders(normalInstallEnv, installVars)
+	if game.ID == gameintegrations.StarboundGameID {
+		installVars[gameintegrations.StarboundSteamUsernameEnv] = starboundSteamUsername
+	}
+	baseCommand, args, errCommandArgs := resolveCommandLineToProcessArgs(
+		gameInstallCommand(game, nodeOS),
+		installVars,
+	)
 	if errCommandArgs != nil {
 		errInstall := fmt.Errorf("actions: parse install command: %w", errCommandArgs)
 		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory, newGameServer.NodeID)
@@ -298,6 +329,14 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		}
 		return nil, errInstall
 	}
+	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, len(installLaunchEnv) > 0)
+	if errLaunchEnvSupported != nil {
+		errCleanup := inst.cleanupFailedInstall(newGameServer.ID, newGameServer.Directory, newGameServer.NodeID)
+		if errCleanup != nil {
+			return nil, errors.Join(errLaunchEnvSupported, errCleanup)
+		}
+		return nil, errLaunchEnvSupported
+	}
 
 	installCfg := node.ProcessConfig{
 		ID:               newGameServer.ID,
@@ -308,6 +347,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 		User:             newGameServer.UserID,
 		NodeID:           newGameServer.NodeID,
 		ServiceID:        newGameServer.GameID,
+		LaunchEnv:        installLaunchEnv,
 	}
 	if gameInstallCommandType(game, nodeOS) == CommandTypeInternal {
 		installCfg.InternalCommand = true
@@ -472,6 +512,8 @@ func (inst *Instance) postInstallStep(gameServer *models.GameServer) error {
 		return nil
 	case "7_days_to_die":
 		return inst.post7DaysToDieInstall(gameServer)
+	case "sunkenland":
+		return inst.postSunkenlandInstall(gameServer)
 	default:
 		log.Debug().Str("Game ID", gameServer.GameID).Msg("No post install step")
 		return nil
@@ -513,6 +555,9 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, "Palworld query configuration failed: "+errPalworldQuery.Error())
 		return nil, startConfigurationError("Palworld query configuration failed", errPalworldQuery)
 	}
+	// Generate and enforce managed config before readiness checks so games
+	// with required first-run values can present an editable file immediately.
+	inst.runConfigPreStart(gameServer)
 
 	errReadiness := readiness.CheckStart(inst.ctx, inst.db, gameServer, client)
 	if errReadiness != nil {
@@ -525,8 +570,6 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		return nil, startConfigurationError("server launch secret is unavailable", errSecretStartVars)
 	}
 
-	// Run pre-start config enforcement before launching the process.
-	inst.runConfigPreStart(gameServer)
 	errGameLaunchSecrets := inst.writeGameLaunchSecrets(gameServer, client, secretStartVars)
 	if errGameLaunchSecrets != nil {
 		inst.reportStartFailure(gameServer, "Failed to prepare server launch secret: "+errGameLaunchSecrets.Error())
@@ -555,7 +598,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	if gameServer.GameID == "7_days_to_die" {
 		log.Debug().Msg("Found 7 Days to Die. Setting input method to telnet")
 		cfg.InputTelnet = &node.TelnetInput{
-			Port:     int(gameServer.Port + 1),
+			Port:     int(gameServer.QueryPort),
 			Password: "",
 		}
 	}
@@ -644,6 +687,7 @@ func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
 
 	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
 		Name:       gameServer.Name,
+		Directory:  gameServer.Directory,
 		IP:         gameServer.IP,
 		Port:       gameServer.Port,
 		QueryPort:  gameServer.QueryPort,
@@ -830,12 +874,44 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 		NodeID:           gameServer.NodeID,
 		ServiceID:        gameServer.GameID,
 	}
+	if internalUpdate && readiness.RequiresLaunchEnv(gameServer) {
+		errReadiness := readiness.CheckStart(inst.ctx, inst.db, gameServer, client)
+		if errReadiness != nil {
+			return startConfigurationError("server setup is incomplete", errReadiness)
+		}
+	}
+	normalLaunchEnv, secretLaunchEnvStates, errLaunchEnvMetadata := inst.loadStartLaunchEnvMetadata(gameServer)
+	if errLaunchEnvMetadata != nil {
+		return startConfigurationError("update launch environment is invalid", errLaunchEnvMetadata)
+	}
+	launchEnvRequired := startLaunchEnvRequired(normalLaunchEnv, secretLaunchEnvStates) || readiness.RequiresLaunchEnv(gameServer)
+	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, launchEnvRequired)
+	if errLaunchEnvSupported != nil {
+		return errLaunchEnvSupported
+	}
+	if launchEnvRequired {
+		launchEnv, errLaunchEnv := inst.decryptStartLaunchEnv(gameServer, normalLaunchEnv)
+		if errLaunchEnv != nil {
+			return startConfigurationError("update launch environment could not be loaded", errLaunchEnv)
+		}
+		launchEnv, errLaunchEnv = inst.prepareLaunchSecrets(gameServer, client, launchEnv)
+		if errLaunchEnv != nil {
+			return startConfigurationError("update launch secrets could not be prepared", errLaunchEnv)
+		}
+		updateCfg.LaunchEnv = launchEnv
+	}
 	if !internalUpdate {
-		updateCommand := appendSteamBranchToUpdateCommand(
-			placeholder.Resolve(updateCmd, placeholder.BuildVarsFromGameServer(gameServer)),
-			gameServer.Branch,
-		)
-		baseCommand, args, errCommandArgs := commandLineToProcessArgs(updateCommand)
+		updateVars := placeholder.BuildVarsFromGameServer(gameServer)
+		addNormalEnvironmentPlaceholders(normalLaunchEnv, updateVars)
+		if gameServer.GameID == gameintegrations.StarboundGameID {
+			steamUsername, errSteamUsername := gameintegrations.StarboundSteamUsername(updateCfg.LaunchEnv)
+			if errSteamUsername != nil {
+				return fmt.Errorf("actions: validate Starbound Steam account: %w", errSteamUsername)
+			}
+			updateVars[gameintegrations.StarboundSteamUsernameEnv] = steamUsername
+		}
+		updateCommand := appendSteamBranchToUpdateCommand(updateCmd, gameServer.Branch)
+		baseCommand, args, errCommandArgs := resolveCommandLineToProcessArgs(updateCommand, updateVars)
 		if errCommandArgs != nil {
 			return fmt.Errorf("actions: parse update command: %w", errCommandArgs)
 		}

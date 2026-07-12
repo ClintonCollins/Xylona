@@ -20,6 +20,18 @@ type Game interface {
 	Update(gameServer *models.GameServer, stdOutWriter, stdErrWriter io.Writer) error
 }
 
+// EnvironmentUpdater is implemented by internal updaters that need ephemeral
+// launch credentials. Values are provided only for the duration of Update and
+// must not be persisted or logged.
+type EnvironmentUpdater interface {
+	UpdateWithEnvironment(
+		gameServer *models.GameServer,
+		stdOutWriter io.Writer,
+		stdErrWriter io.Writer,
+		environment map[string]string,
+	) error
+}
+
 // RegisterGame registers an internal game integration by ID.
 func RegisterGame(id string, game Game) {
 	gamesLock.Lock()

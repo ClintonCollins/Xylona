@@ -343,6 +343,8 @@ func TestGameModelToProto(t *testing.T) {
 		DefaultMaxPlayers:                 20,
 		LinuxSupport:                      true,
 		WindowsSupport:                    true,
+		LinuxAllowBackups:                 true,
+		WindowsAllowBackups:               true,
 		LinuxInstallCommandType:           "bash",
 		LinuxUpdateCommandType:            "direct",
 		WindowsInstallCommandType:         "powershell",
@@ -395,6 +397,9 @@ func TestGameModelToProto(t *testing.T) {
 	if !got.GetRequireDedicatedIp() {
 		t.Errorf("RequireDedicatedIp = %v, want true", got.GetRequireDedicatedIp())
 	}
+	if !got.GetLinuxAllowBackups() || !got.GetWindowsAllowBackups() {
+		t.Errorf("backup support = linux:%v windows:%v, want both true", got.GetLinuxAllowBackups(), got.GetWindowsAllowBackups())
+	}
 	if !got.GetUsesSourceQuery() {
 		t.Errorf("UsesSourceQuery = %v, want true", got.GetUsesSourceQuery())
 	}
@@ -427,6 +432,8 @@ func TestGameProtoToModel(t *testing.T) {
 		WindowsUpdateType:                 xylona.CommandType_COMMAND,
 		WindowsUpdateCommandProcessor:     xylona.CommandProcessor_CMD,
 		RequireDedicatedIp:                true,
+		LinuxAllowBackups:                 true,
+		WindowsAllowBackups:               true,
 		CreatedAt:                         timestamppb.New(now),
 		UpdatedAt:                         timestamppb.New(now),
 		UsesSourceQuery:                   true,
@@ -454,6 +461,9 @@ func TestGameProtoToModel(t *testing.T) {
 	}
 	if !got.RequireDedicatedIP {
 		t.Errorf("RequireDedicatedIP = %v, want true", got.RequireDedicatedIP)
+	}
+	if !got.LinuxAllowBackups || !got.WindowsAllowBackups {
+		t.Errorf("backup support = linux:%v windows:%v, want both true", got.LinuxAllowBackups, got.WindowsAllowBackups)
 	}
 	if !got.UsesSourceQuery {
 		t.Errorf("UsesSourceQuery = %v, want true", got.UsesSourceQuery)
@@ -642,6 +652,51 @@ func TestGameProtoToModelMapsInstallAndUpdateTypes(t *testing.T) {
 			got := GameProtoToModel(gameProto)
 			if got.LinuxInstallCommandType != tt.wantCommandType {
 				t.Fatalf("LinuxInstallCommandType = %q, want %q", got.LinuxInstallCommandType, tt.wantCommandType)
+			}
+		})
+	}
+}
+
+func TestCommandValueForType(t *testing.T) {
+	tests := []struct {
+		name            string
+		commandType     xylona.CommandType
+		existingCommand string
+		steamAppID      string
+		want            string
+	}{
+		{
+			name:        "steamcmd builds anonymous command when empty",
+			commandType: xylona.CommandType_STEAMCMD,
+			steamAppID:  "2394010",
+			want:        "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2394010 validate +quit",
+		},
+		{
+			name:            "steamcmd preserves authenticated command",
+			commandType:     xylona.CommandType_STEAMCMD,
+			existingCommand: `steamcmd +force_install_dir "%GAMESERVER_DIRECTORY%" +login "{{STEAM_USERNAME}}" +app_update 211820 validate +quit`,
+			steamAppID:      "211820",
+			want:            `steamcmd +force_install_dir "%GAMESERVER_DIRECTORY%" +login "{{STEAM_USERNAME}}" +app_update 211820 validate +quit`,
+		},
+		{
+			name:            "command preserves existing value",
+			commandType:     xylona.CommandType_COMMAND,
+			existingCommand: "./install.sh",
+			want:            "./install.sh",
+		},
+		{
+			name:            "none clears existing value",
+			commandType:     xylona.CommandType_NONE,
+			existingCommand: "stale",
+			want:            "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := commandValueForType(test.commandType, test.existingCommand, test.steamAppID)
+			if got != test.want {
+				t.Fatalf("commandValueForType() = %q, want %q", got, test.want)
 			}
 		})
 	}

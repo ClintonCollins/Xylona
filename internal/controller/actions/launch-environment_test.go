@@ -7,9 +7,27 @@ import (
 
 	"github.com/aarondl/opt/omit"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func TestAddNormalEnvironmentPlaceholdersPreservesBuiltIns(t *testing.T) {
+	variables := []launchenv.Variable{
+		{Name: "steam_username", Value: "owner"},
+		{Name: "PORT", Value: "malicious-override"},
+	}
+	placeholders := map[string]string{"PORT": "7777"}
+
+	addNormalEnvironmentPlaceholders(variables, placeholders)
+
+	if placeholders["STEAM_USERNAME"] != "owner" {
+		t.Fatalf("STEAM_USERNAME placeholder = %q, want owner", placeholders["STEAM_USERNAME"])
+	}
+	if placeholders["PORT"] != "7777" {
+		t.Fatalf("PORT placeholder = %q, want built-in value", placeholders["PORT"])
+	}
+}
 
 func TestLoadStartLaunchEnvMetadataMergesGameDefaults(t *testing.T) {
 	inst := newTestInstance(t)

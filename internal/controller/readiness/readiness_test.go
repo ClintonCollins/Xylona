@@ -120,6 +120,81 @@ func TestHytaleReadinessBlocksUntilLinkedAndLaunchEnvSupported(t *testing.T) {
 	}
 }
 
+func TestCheckStartSunkenlandWorld(t *testing.T) {
+	const validWorldFolder = "Xylona World~11223344-5566-7788-99AA-BBCCDDEEFF00"
+	tests := []struct {
+		name        string
+		entries     []node.FileEntry
+		listError   error
+		wantError   bool
+		wantMessage string
+	}{
+		{
+			name:        "worlds directory missing",
+			listError:   os.ErrNotExist,
+			wantError:   true,
+			wantMessage: "client-created world",
+		},
+		{
+			name: "invalid folder name",
+			entries: []node.FileEntry{
+				{Name: "Not A Sunkenland World", IsDirectory: true},
+			},
+			wantError:   true,
+			wantMessage: "client-created world",
+		},
+		{
+			name: "multiple worlds",
+			entries: []node.FileEntry{
+				{Name: validWorldFolder, IsDirectory: true},
+				{Name: "Second~00112233-4455-6677-8899-AABBCCDDEEFF", IsDirectory: true},
+			},
+			wantError:   true,
+			wantMessage: "multiple valid world folders",
+		},
+		{
+			name: "single imported world",
+			entries: []node.FileEntry{
+				{Name: validWorldFolder, IsDirectory: true},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gameServer := &models.GameServer{
+				ID:        "sunkenland-server",
+				GameID:    "sunkenland",
+				Directory: "C:/servers/sunkenland",
+			}
+			client := &nodeclient.FakeNodeClient{
+				ListFilesResult: test.entries,
+				ListFilesErr:    test.listError,
+			}
+
+			errStart := CheckStart(context.Background(), nil, gameServer, client)
+			if test.wantError {
+				if errStart == nil {
+					t.Fatal("CheckStart() error = nil")
+				}
+				if !strings.Contains(errStart.Error(), test.wantMessage) {
+					t.Errorf("CheckStart() error = %q, want %q", errStart, test.wantMessage)
+				}
+				return
+			}
+			if errStart != nil {
+				t.Fatalf("CheckStart() error = %v", errStart)
+			}
+			if len(client.ListFilesCalls) != 2 {
+				t.Fatalf("ListFiles call count = %d, want 2", len(client.ListFilesCalls))
+			}
+			if client.ListFilesCalls[1].RelativePath != "worlds/"+validWorldFolder {
+				t.Errorf("world inspection path = %q", client.ListFilesCalls[1].RelativePath)
+			}
+		})
+	}
+}
+
 func TestPrepareHytaleLaunchSecretsRefreshesAndAppendsEnv(t *testing.T) {
 	conn := newReadinessSecretConnection(t)
 	gameServer := &models.GameServer{ID: "server-1", GameID: "hytale"}

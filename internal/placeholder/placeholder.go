@@ -23,7 +23,10 @@ type Placeholder struct {
 var Registry = []Placeholder{
 	{Key: "IP", Label: "IP Address", Description: "The game server's bound IP address"},
 	{Key: "PORT", Label: "Server Port", Description: "The game server's port"},
+	{Key: "PORT_PLUS_1", Label: "Server Port + 1", Description: "The port immediately after the game server's port"},
+	{Key: "PORT_PLUS_2", Label: "Server Port + 2", Description: "The second port after the game server's port"},
 	{Key: "QUERY_PORT", Label: "Query Port", Description: "The query port"},
+	{Key: "QUERY_PORT_PLUS_1", Label: "Query Port + 1", Description: "The port immediately after the query port"},
 	{Key: "MAX_MEMORY_MB", Label: "Game Server Memory (MB)", Description: "The game server's configured memory limit in megabytes"},
 	{Key: "MAX_PLAYERS", Label: "Max Players", Description: "Maximum player count"},
 	{Key: "SERVER_NAME", Label: "Server Name", Description: "The game server's display name"},
@@ -37,25 +40,32 @@ var Registry = []Placeholder{
 // ManagedSourceMapping maps managed source keys (used in config schemas frontend)
 // to placeholder keys.
 var ManagedSourceMapping = map[string]string{
-	"ip":            "IP",
-	"server_port":   "PORT",
-	"query_port":    "QUERY_PORT",
-	"max_memory_mb": "MAX_MEMORY_MB",
-	"max_players":   "MAX_PLAYERS",
-	"server_name":   "SERVER_NAME",
-	"rcon_port":     "RCON_PORT",
-	"rcon_password": "RCON_PASSWORD",
+	"ip":                 "IP",
+	"server_port":        "PORT",
+	"server_port_plus_1": "PORT_PLUS_1",
+	"server_port_plus_2": "PORT_PLUS_2",
+	"query_port":         "QUERY_PORT",
+	"query_port_plus_1":  "QUERY_PORT_PLUS_1",
+	"max_memory_mb":      "MAX_MEMORY_MB",
+	"max_players":        "MAX_PLAYERS",
+	"server_name":        "SERVER_NAME",
+	"rcon_port":          "RCON_PORT",
+	"rcon_password":      "RCON_PASSWORD",
 }
 
 // BackendManagedSourceMapping maps the backend managed source keys
 // (game_server.* format used in cfgschema) to placeholder keys.
 var BackendManagedSourceMapping = map[string]string{
-	"game_server.ip":            "IP",
-	"game_server.port":          "PORT",
-	"game_server.query_port":    "QUERY_PORT",
-	"game_server.max_memory_mb": "MAX_MEMORY_MB",
-	"game_server.max_players":   "MAX_PLAYERS",
-	"game_server.server_name":   "SERVER_NAME",
+	"game_server.ip":                "IP",
+	"game_server.port":              "PORT",
+	"game_server.port_plus_1":       "PORT_PLUS_1",
+	"game_server.port_plus_2":       "PORT_PLUS_2",
+	"game_server.query_port":        "QUERY_PORT",
+	"game_server.query_port_plus_1": "QUERY_PORT_PLUS_1",
+	"game_server.max_memory_mb":     "MAX_MEMORY_MB",
+	"game_server.max_players":       "MAX_PLAYERS",
+	"game_server.server_name":       "SERVER_NAME",
+	"game_server.directory":         "INSTALL_DIR",
 }
 
 // legacyMapping maps old %GAMESERVER_*% format to new placeholder keys.
@@ -150,7 +160,10 @@ func BuildVarsFromGameServer(gs *models.GameServer) map[string]string {
 	return map[string]string{
 		"IP":                gs.IP,
 		"PORT":              strconv.FormatInt(gs.Port, 10),
+		"PORT_PLUS_1":       strconv.FormatInt(gs.Port+1, 10),
+		"PORT_PLUS_2":       strconv.FormatInt(gs.Port+2, 10),
 		"QUERY_PORT":        strconv.FormatInt(gs.QueryPort, 10),
+		"QUERY_PORT_PLUS_1": strconv.FormatInt(gs.QueryPort+1, 10),
 		"MAX_PLAYERS":       fmt.Sprintf("%d", gs.MaxPlayers),
 		"SERVER_NAME":       gs.Name,
 		"INSTALL_DIR":       gs.Directory,

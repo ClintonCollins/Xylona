@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:ca6e7d069dd8f9a5b4b1959740d8c1e6c7006508a7fae5fe009af63a48ea92ad",
+  "content_hash": "sha256:c7037a1895d1f36ebf29b32c033372da5653858421dc5df8fd2f9aa2f3326bf7",
   "game": {
     "id": "garrys_mod",
     "name": "Garry's Mod",
@@ -10,16 +10,16 @@
     "defaultMaxPlayers": "32",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "quit",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4020 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4020 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
-    "windowsStopCommand": "",
+    "linuxAllowBackups": true,
+    "windowsStopCommand": "quit",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4020 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 4020 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -103,7 +103,7 @@
     {
       "id": "runtime_garrys_mod_linux_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-game",
         "garrysmod"
@@ -113,7 +113,7 @@
     {
       "id": "runtime_garrys_mod_linux_02",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-console"
       ],
@@ -133,7 +133,7 @@
     {
       "id": "runtime_garrys_mod_linux_04",
       "order": 4,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "+ip",
         "0.0.0.0"
@@ -163,7 +163,7 @@
     {
       "id": "runtime_garrys_mod_linux_07",
       "order": 7,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-strictportbind"
       ],
@@ -172,7 +172,7 @@
     {
       "id": "runtime_garrys_mod_linux_08",
       "order": 8,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-norestart"
       ],
@@ -181,16 +181,28 @@
     {
       "id": "runtime_garrys_mod_linux_09",
       "order": 9,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Maxplayers"
+      "label": "Maxplayers",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_garrys_mod_linux_10",
       "order": 10,
+      "ownership": "system",
+      "tokens": [
+        "+hostname",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
+    },
+    {
+      "id": "runtime_garrys_mod_linux_11",
+      "order": 11,
       "ownership": "system",
       "tokens": [
         "+sv_setsteamaccount",
@@ -198,13 +210,35 @@
       ],
       "label": "Steam GSLT",
       "managed_source": "steam_gslt"
+    },
+    {
+      "id": "runtime_garrys_mod_linux_12",
+      "order": 12,
+      "ownership": "system",
+      "tokens": [
+        "+clientport",
+        "{{PORT_PLUS_1}}"
+      ],
+      "label": "Client port",
+      "managed_source": "game_server.port_plus_1"
+    },
+    {
+      "id": "runtime_garrys_mod_linux_13",
+      "order": 13,
+      "ownership": "system",
+      "tokens": [
+        "+tv_port",
+        "{{PORT_PLUS_2}}"
+      ],
+      "label": "TV port",
+      "managed_source": "game_server.port_plus_2"
     }
   ],
   "windows_start_args_template": [
     {
       "id": "runtime_garrys_mod_windows_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-console"
       ],
@@ -213,7 +247,7 @@
     {
       "id": "runtime_garrys_mod_windows_02",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-game",
         "garrysmod"
@@ -223,12 +257,13 @@
     {
       "id": "runtime_garrys_mod_windows_03",
       "order": 3,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+hostname",
         "{{SERVER_NAME}}"
       ],
-      "label": "Server name"
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
     },
     {
       "id": "runtime_garrys_mod_windows_04",
@@ -275,12 +310,13 @@
     {
       "id": "runtime_garrys_mod_windows_08",
       "order": 8,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Maxplayers"
+      "label": "Maxplayers",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_garrys_mod_windows_09",
@@ -301,6 +337,37 @@
       ],
       "label": "Steam GSLT",
       "managed_source": "steam_gslt"
+    },
+    {
+      "id": "runtime_garrys_mod_windows_11",
+      "order": 11,
+      "ownership": "locked",
+      "tokens": [
+        "-strictportbind"
+      ],
+      "label": "Strict port bind"
+    },
+    {
+      "id": "runtime_garrys_mod_windows_12",
+      "order": 12,
+      "ownership": "system",
+      "tokens": [
+        "+clientport",
+        "{{PORT_PLUS_1}}"
+      ],
+      "label": "Client port",
+      "managed_source": "game_server.port_plus_1"
+    },
+    {
+      "id": "runtime_garrys_mod_windows_13",
+      "order": 13,
+      "ownership": "system",
+      "tokens": [
+        "+tv_port",
+        "{{PORT_PLUS_2}}"
+      ],
+      "label": "TV port",
+      "managed_source": "game_server.port_plus_2"
     }
   ],
   "start_arg_blocklist": [],

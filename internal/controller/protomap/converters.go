@@ -266,12 +266,14 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		LinuxUpdateCommand:                gameModel.LinuxUpdateCommand,
 		LinuxUpdateCommandProcessor:       commandTypeToCommandProcessor(gameModel.LinuxUpdateCommandType),
 		LinuxWorkingDirectory:             gameModel.LinuxWorkingDirectory,
+		LinuxAllowBackups:                 gameModel.LinuxAllowBackups,
 		WindowsStopCommand:                gameModel.WindowsStopCommand,
 		WindowsInstallCommand:             gameModel.WindowsInstallCommand,
 		WindowsInstallCommandProcessor:    commandTypeToCommandProcessor(gameModel.WindowsInstallCommandType),
 		WindowsUpdateCommand:              gameModel.WindowsUpdateCommand,
 		WindowsUpdateCommandProcessor:     commandTypeToCommandProcessor(gameModel.WindowsUpdateCommandType),
 		WindowsWorkingDirectory:           gameModel.WindowsWorkingDirectory,
+		WindowsAllowBackups:               gameModel.WindowsAllowBackups,
 		RequireDedicatedIp:                gameModel.RequireDedicatedIP,
 		BindsToAllIps:                     gameModel.BindsToAllIps,
 		CreatedAt:                         timestamppb.New(gameModel.CreatedAt),
@@ -340,12 +342,14 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		LinuxUpdateCommand:                linuxUpdateCommand,
 		LinuxUpdateCommandType:            protoCommandTypeToModelCommandType(gameProto.GetLinuxUpdateType(), gameProto.GetLinuxUpdateCommandProcessor()),
 		LinuxWorkingDirectory:             gameProto.GetLinuxWorkingDirectory(),
+		LinuxAllowBackups:                 gameProto.GetLinuxAllowBackups(),
 		WindowsStopCommand:                gameProto.GetWindowsStopCommand(),
 		WindowsInstallCommand:             windowsInstallCommand,
 		WindowsInstallCommandType:         protoCommandTypeToModelCommandType(gameProto.GetWindowsInstallType(), gameProto.GetWindowsInstallCommandProcessor()),
 		WindowsUpdateCommand:              windowsUpdateCommand,
 		WindowsUpdateCommandType:          protoCommandTypeToModelCommandType(gameProto.GetWindowsUpdateType(), gameProto.GetWindowsUpdateCommandProcessor()),
 		WindowsWorkingDirectory:           gameProto.GetWindowsWorkingDirectory(),
+		WindowsAllowBackups:               gameProto.GetWindowsAllowBackups(),
 		RequireDedicatedIP:                gameProto.GetRequireDedicatedIp(),
 		BindsToAllIps:                     gameProto.GetBindsToAllIps(),
 		CreatedAt:                         gameProto.GetCreatedAt().AsTime(),
@@ -416,6 +420,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		LinuxUpdateCommand:                omit.From(gameModel.LinuxUpdateCommand),
 		LinuxUpdateCommandType:            omit.From(gameModel.LinuxUpdateCommandType),
 		LinuxWorkingDirectory:             omit.From(gameModel.LinuxWorkingDirectory),
+		LinuxAllowBackups:                 omit.From(gameModel.LinuxAllowBackups),
 		WindowsSupport:                    omit.From(gameModel.WindowsSupport),
 		WindowsStopCommand:                omit.From(gameModel.WindowsStopCommand),
 		WindowsInstallCommand:             omit.From(gameModel.WindowsInstallCommand),
@@ -423,6 +428,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		WindowsUpdateCommand:              omit.From(gameModel.WindowsUpdateCommand),
 		WindowsUpdateCommandType:          omit.From(gameModel.WindowsUpdateCommandType),
 		WindowsWorkingDirectory:           omit.From(gameModel.WindowsWorkingDirectory),
+		WindowsAllowBackups:               omit.From(gameModel.WindowsAllowBackups),
 		ConfigSchemas:                     omitnull.FromNull(gameModel.ConfigSchemas),
 		ServerSoftware:                    omitnull.FromNull(configModel.ServerSoftware),
 		LinuxStartArgsTemplate:            omitnull.FromNull(gameModel.LinuxStartArgsTemplate),
@@ -579,11 +585,11 @@ func commandValueForType(commandType xylona.CommandType, existingCommand string,
 	case xylona.CommandType_NONE:
 		return ""
 	case xylona.CommandType_STEAMCMD:
-		generatedCommand := steamCMDCommand(steamAppID)
-		if generatedCommand != "" {
-			return generatedCommand
+		if strings.TrimSpace(existingCommand) != "" {
+			return existingCommand
 		}
-		return strings.TrimSpace(existingCommand)
+		generatedCommand := steamCMDCommand(steamAppID)
+		return generatedCommand
 	default:
 		return existingCommand
 	}

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3e0f717677f7c0f6148e3a0f20effd503e4e7f31ba49b766d8ce4b8fbae31447",
+  "content_hash": "sha256:532958871b98563274731c192d0913db667fbd17d0f71fef87029b841f8f9538",
   "game": {
     "id": "v_rising",
     "name": "V Rising",
@@ -19,12 +19,12 @@
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1829350 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1829350 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -87,6 +87,38 @@
       ],
       "label": "Query port",
       "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "01JQSC00000000000000000004",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "-maxUsers",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
+    },
+    {
+      "id": "01JQSC00000000000000000005",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-serverName",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
+    },
+    {
+      "id": "01JQSC00000000000000000006",
+      "order": 6,
+      "ownership": "editable",
+      "tokens": [
+        "-saveName",
+        "{{SERVER_ID}}"
+      ],
+      "label": "Save name"
     }
   ],
   "start_arg_blocklist": [],

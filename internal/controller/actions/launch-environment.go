@@ -30,24 +30,9 @@ func (inst *Instance) reloadGameServerForStart(gameServer *models.GameServer) (*
 }
 
 func (inst *Instance) loadStartLaunchEnvMetadata(gameServer *models.GameServer) ([]launchenv.Variable, []launchenv.SecretState, error) {
-	gameDefaultEnv := []launchenv.Variable{}
-	if gameServer.R.Game != nil {
-		var errDefaultEnv error
-		gameDefaultEnv, errDefaultEnv = launchenv.ParseStored(gameServer.R.Game.DefaultEnvVars)
-		if errDefaultEnv != nil {
-			return nil, nil, fmt.Errorf("parse game default launch environment: %w", errDefaultEnv)
-		}
-	}
-
-	serverEnv, errParse := launchenv.ParseStored(gameServer.EnvVars)
-	if errParse != nil {
-		return nil, nil, fmt.Errorf("parse server launch environment: %w", errParse)
-	}
-
-	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
-	if len(issues) > 0 {
-		errValidation := launchenv.NewValidationError(issues)
-		return nil, nil, fmt.Errorf("validate normal launch environment: %w", errValidation)
+	effectiveEnv, errNormalEnv := mergeNormalLaunchEnvironment(gameServer.R.Game, gameServer.EnvVars)
+	if errNormalEnv != nil {
+		return nil, nil, errNormalEnv
 	}
 	if inst.db == nil {
 		return effectiveEnv, nil, nil
@@ -57,12 +42,55 @@ func (inst *Instance) loadStartLaunchEnvMetadata(gameServer *models.GameServer) 
 	if errSecrets != nil {
 		return nil, nil, errSecrets
 	}
-	issues = launchenv.ValidateSecretStates(secretStates, effectiveEnv)
+	issues := launchenv.ValidateSecretStates(secretStates, effectiveEnv)
 	if len(issues) > 0 {
 		errValidation := launchenv.NewValidationError(issues)
 		return nil, nil, fmt.Errorf("validate secret launch environment: %w", errValidation)
 	}
 	return effectiveEnv, secretStates, nil
+}
+
+func mergeNormalLaunchEnvironment(game *models.Game, storedServerEnvironment string) ([]launchenv.Variable, error) {
+	gameDefaultEnv := []launchenv.Variable{}
+	if game != nil {
+		var errDefaultEnv error
+		gameDefaultEnv, errDefaultEnv = launchenv.ParseStored(game.DefaultEnvVars)
+		if errDefaultEnv != nil {
+			return nil, fmt.Errorf("parse game default launch environment: %w", errDefaultEnv)
+		}
+	}
+
+	serverEnv, errParse := launchenv.ParseStored(storedServerEnvironment)
+	if errParse != nil {
+		return nil, fmt.Errorf("parse server launch environment: %w", errParse)
+	}
+
+	effectiveEnv, issues := launchenv.MergeNormal(gameDefaultEnv, serverEnv)
+	if len(issues) > 0 {
+		errValidation := launchenv.NewValidationError(issues)
+		return nil, fmt.Errorf("validate normal launch environment: %w", errValidation)
+	}
+	return effectiveEnv, nil
+}
+
+func buildNormalLaunchEnvironment(variables []launchenv.Variable) (map[string]string, error) {
+	environment, issues := launchenv.BuildLaunchEnv(variables, nil)
+	if len(issues) > 0 {
+		errValidation := launchenv.NewValidationError(issues)
+		return nil, fmt.Errorf("build normal launch environment: %w", errValidation)
+	}
+	return environment, nil
+}
+
+func addNormalEnvironmentPlaceholders(variables []launchenv.Variable, placeholders map[string]string) {
+	for _, variable := range variables {
+		name := strings.ToUpper(variable.Name)
+		_, builtIn := placeholders[name]
+		if builtIn {
+			continue
+		}
+		placeholders[name] = variable.Value
+	}
 }
 
 func (inst *Instance) listStartLaunchSecretStates(gameServerID string) ([]launchenv.SecretState, error) {

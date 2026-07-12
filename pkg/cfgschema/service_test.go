@@ -239,6 +239,7 @@ func TestMatchFields_ManagedFieldAliasesResolved(t *testing.T) {
 func TestGameServerSettingsResolver(t *testing.T) {
 	resolver := GameServerSettingsResolver(GameServerSettings{
 		Name:       "Example Server",
+		Directory:  "/srv/example",
 		IP:         "127.0.0.1",
 		Port:       25565,
 		QueryPort:  25566,
@@ -253,9 +254,17 @@ func TestGameServerSettingsResolver(t *testing.T) {
 	}{
 		{name: "name", source: "game_server.server_name", want: "Example Server", wantExists: true},
 		{name: "name alias", source: "server_name", want: "Example Server", wantExists: true},
+		{name: "directory", source: "game_server.directory", want: "/srv/example", wantExists: true},
+		{name: "directory alias", source: "directory", want: "/srv/example", wantExists: true},
 		{name: "IP", source: "game_server.ip", want: "127.0.0.1", wantExists: true},
 		{name: "port", source: "game_server.port", want: "25565", wantExists: true},
+		{name: "port plus one", source: "game_server.port_plus_1", want: "25566", wantExists: true},
+		{name: "port plus one alias", source: "server_port_plus_1", want: "25566", wantExists: true},
+		{name: "port plus two", source: "game_server.port_plus_2", want: "25567", wantExists: true},
+		{name: "port plus two alias", source: "server_port_plus_2", want: "25567", wantExists: true},
 		{name: "query port", source: "game_server.query_port", want: "25566", wantExists: true},
+		{name: "query port plus one", source: "game_server.query_port_plus_1", want: "25567", wantExists: true},
+		{name: "query port plus one alias", source: "query_port_plus_1", want: "25567", wantExists: true},
 		{name: "max players", source: "game_server.max_players", want: "24", wantExists: true},
 		{name: "max players alias", source: "max_players", want: "24", wantExists: true},
 		{name: "unknown", source: "game_server.unknown", wantExists: false},

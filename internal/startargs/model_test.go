@@ -9,13 +9,18 @@ func TestIsValidManagedSource(t *testing.T) {
 		want bool
 	}{
 		{name: "game server port", key: "game_server.port", want: true},
+		{name: "game server port plus one", key: "game_server.port_plus_1", want: true},
+		{name: "game server port plus two", key: "game_server.port_plus_2", want: true},
+		{name: "game server query port plus one", key: "game_server.query_port_plus_1", want: true},
 		{name: "game server query port", key: "game_server.query_port", want: true},
 		{name: "game server ip", key: "game_server.ip", want: true},
 		{name: "game server memory", key: "game_server.max_memory_mb", want: true},
+		{name: "game server max players", key: "game_server.max_players", want: true},
+		{name: "game server name", key: "game_server.server_name", want: true},
 		{name: "server executable", key: "server_executable", want: true},
 		{name: "Steam GSLT", key: "steam_gslt", want: true},
 		{name: "empty key", key: "", want: false},
-		{name: "unsupported key", key: "game_server.max_players", want: false},
+		{name: "unsupported key", key: "game_server.server_id", want: false},
 	}
 
 	for _, tt := range tests {

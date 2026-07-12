@@ -2,21 +2,29 @@
 package cfgschema
 
 var managedSourceAliases = map[string]string{
-	"ip":          "game_server.ip",
-	"server_port": "game_server.port",
-	"query_port":  "game_server.query_port",
-	"max_players": "game_server.max_players",
-	"server_name": "game_server.server_name",
+	"ip":                 "game_server.ip",
+	"server_port":        "game_server.port",
+	"server_port_plus_1": "game_server.port_plus_1",
+	"server_port_plus_2": "game_server.port_plus_2",
+	"query_port":         "game_server.query_port",
+	"query_port_plus_1":  "game_server.query_port_plus_1",
+	"max_players":        "game_server.max_players",
+	"server_name":        "game_server.server_name",
+	"directory":          "game_server.directory",
 }
 
 // knownManagedSources lists the recognized canonical managed field source paths.
 var knownManagedSources = map[string]bool{
-	"game_server.ip":          true,
-	"game_server.port":        true,
-	"game_server.query_port":  true,
-	"game_server.max_players": true,
-	"game_server.server_name": true,
-	"steam_gslt":              true,
+	"game_server.ip":                true,
+	"game_server.port":              true,
+	"game_server.port_plus_1":       true,
+	"game_server.port_plus_2":       true,
+	"game_server.query_port":        true,
+	"game_server.query_port_plus_1": true,
+	"game_server.max_players":       true,
+	"game_server.server_name":       true,
+	"game_server.directory":         true,
+	"steam_gslt":                    true,
 }
 
 func normalizeManagedSource(source string) string {

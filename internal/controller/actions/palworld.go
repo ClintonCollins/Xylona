@@ -51,6 +51,7 @@ func (inst *Instance) ensurePalworldQueryConfig(gameServer *models.GameServer, c
 	}
 	patchedSettings, errPatch := patchPalworldSettings(
 		settingsData,
+		gameServer.Name,
 		password,
 		gameServer.QueryPort,
 		gameServer.MaxPlayers,
@@ -162,9 +163,19 @@ func palworldSettingsPath(nodeOS OSType) string {
 	return path.Join("Pal", "Saved", "Config", serverDirectory, "PalWorldSettings.ini")
 }
 
-func patchPalworldSettings(data []byte, password string, queryPort int64, maxPlayers int64) ([]byte, error) {
+func patchPalworldSettings(
+	data []byte,
+	serverName string,
+	password string,
+	queryPort int64,
+	maxPlayers int64,
+) ([]byte, error) {
 	if strings.ContainsAny(password, "\"\\\r\n,()") {
 		return nil, errors.New("palworld REST password contains unsupported characters")
+	}
+	quotedServerName, errServerName := quotePalworldSettingString(serverName)
+	if errServerName != nil {
+		return nil, errServerName
 	}
 	text := string(data)
 	lowerText := strings.ToLower(text)
@@ -193,6 +204,7 @@ func patchPalworldSettings(data []byte, password string, queryPort int64, maxPla
 		return nil, errFields
 	}
 	updates := []palworldSettingUpdate{
+		{key: "ServerName", value: quotedServerName},
 		{key: "AdminPassword", value: "\"" + password + "\""},
 		{key: "RESTAPIEnabled", value: "True"},
 		{key: "RESTAPIPort", value: strconv.FormatInt(queryPort, 10)},
@@ -204,6 +216,14 @@ func patchPalworldSettings(data []byte, password string, queryPort int64, maxPla
 
 	patched := text[:openIndex+1] + strings.Join(fields, ",") + text[closeIndex:]
 	return []byte(patched), nil
+}
+
+func quotePalworldSettingString(value string) (string, error) {
+	if strings.ContainsAny(value, "\x00\r\n") {
+		return "", errors.New("palworld server name contains unsupported characters")
+	}
+	escaped := strings.NewReplacer("\\", "\\\\", "\"", "\\\"").Replace(value)
+	return "\"" + escaped + "\"", nil
 }
 
 func findPalworldClosingParenthesis(text string, openIndex int) int {

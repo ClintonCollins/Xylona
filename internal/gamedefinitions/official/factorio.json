@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:8c14e681b5f879129e29967f4532d28d55f7fe1b1f87c597e2da0c612114336a",
+  "content_hash": "sha256:e38ff1ecb1e1a5461622c6303d0ec1c9a435833e04d9880015b94eb6fc2d8e9e",
   "game": {
     "id": "factorio",
     "name": "Factorio",
@@ -14,7 +14,7 @@
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxAllowBackups": true,
     "windowsStopCommand": "",
     "windowsInstallCommand": "",
     "windowsUpdateCommand": "",
@@ -133,7 +133,7 @@
     {
       "id": "runtime_factorio_linux_02",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "--server-settings",
         "data/server-settings.json"
@@ -143,7 +143,7 @@
     {
       "id": "runtime_factorio_linux_03",
       "order": 3,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "--start-server",
         "saves/default.zip"

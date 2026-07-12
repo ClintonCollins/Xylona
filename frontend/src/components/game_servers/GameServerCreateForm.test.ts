@@ -24,6 +24,10 @@ const portAvailabilityState = vi.hoisted(() => ({
   visible: { value: false },
 }))
 
+const formState = vi.hoisted(() => ({
+  gameServer: { name: 'Minecraft Server', gameId: 'minecraft' },
+}))
+
 vi.mock('@/utils/shared', async () => {
   const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
   return {
@@ -66,7 +70,7 @@ vi.mock('./useGameServerFormState', () => ({
     formRef: ref(null),
     formSubmitting: ref(false),
     gameRules: [],
-    gameServer: ref({ name: 'Minecraft Server', gameId: 'minecraft' }),
+    gameServer: ref(formState.gameServer),
     initialize: mocks.initialize,
     ipRules: [],
     isMinecraftGame: ref(true),
@@ -159,6 +163,8 @@ describe('GameServerCreateForm submit flow', () => {
     mocks.validateBeforeSave.mockResolvedValue(true)
     mocks.ensurePortAvailabilityBeforeSave.mockResolvedValue(true)
     mocks.createGameServer.mockResolvedValue({ gameServer: { id: 'server-created-1' } })
+    formState.gameServer.gameId = 'minecraft'
+    formState.gameServer.name = 'Minecraft Server'
   })
 
   it('redirects to the new server console after create', async () => {
@@ -290,5 +296,42 @@ describe('GameServerCreateForm submit flow', () => {
     })
 
     expect(wrapper.find('.q-input-stub[data-label="Server Executable"]').exists()).toBe(true)
+  })
+
+  it('sends the Starbound Steam account name without collecting a password', async () => {
+    formState.gameServer.gameId = 'starbound'
+    formState.gameServer.name = 'Starbound Server'
+    const wrapper = shallowMount(GameServerCreateForm, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          GameServerFormShell: GameServerFormShellStub,
+          QInput: QInputStub,
+          'q-input': QInputStub,
+          QSelect: QSelectStub,
+          'q-select': QSelectStub,
+        },
+      },
+    })
+
+    expect(wrapper.find('.q-input-stub[data-label="Steam Account Name *"]').exists()).toBe(true)
+    wrapper.vm.steamAccountName = 'starbound-owner'
+    await wrapper.get('[data-testid="save"]').trigger('click')
+    await flushPromises()
+
+    const request = mocks.createGameServer.mock.calls[0]?.[0]
+    expect(request?.envVars).toEqual([
+      expect.objectContaining({
+        name: 'STEAM_USERNAME',
+        value: 'starbound-owner',
+      }),
+    ])
+    expect(request).not.toHaveProperty('password')
+    expect(mocks.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'positive',
+        caption: 'Server created. Complete Steam sign-in in the install console.',
+      }),
+    )
   })
 })

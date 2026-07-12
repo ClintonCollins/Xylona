@@ -142,6 +142,19 @@
             label="Server Executable"
             outlined
             type="text" />
+          <q-input
+            v-if="isStarboundGame"
+            v-model="steamAccountName"
+            :rules="steamAccountNameRules"
+            autocomplete="off"
+            class="col-12 col-lg-6"
+            hint="Use an account that owns Starbound. Enter its password and any Steam Guard code only in the install console after deploy; Xylona does not store them."
+            label="Steam Account Name *"
+            lazy-rules
+            maxlength="128"
+            outlined
+            reactive-rules
+            type="text" />
         </div>
       </section>
 
@@ -193,7 +206,7 @@
             </div>
             <div class="deployment-ready-content">
               <span class="deployment-ready-label font-display">Ready to Deploy</span>
-              <span class="deployment-ready-value">{{ deploymentReadyText }}</span>
+              <span class="deployment-ready-value">{{ createDeploymentReadyText }}</span>
             </div>
           </div>
 
@@ -238,17 +251,22 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerFormShell from './GameServerFormShell.vue'
 import { useGameServerPortAvailability } from './useGameServerPortAvailability'
 import { useGameServerFormState } from './useGameServerFormState'
-import { CreateGameServerRequest, CreateGameServerRequestSchema } from '@/proto/shared_pb'
+import {
+  CreateGameServerRequest,
+  CreateGameServerRequestSchema,
+  EnvironmentVariableSchema,
+} from '@/proto/shared_pb'
 
 const router = useRouter()
 const $q = useQuasar()
+const steamAccountName = ref('')
 
 const {
   availableGames,
@@ -301,8 +319,26 @@ const {
   selectedGame,
 })
 
+const isStarboundGame = computed(() => gameServer.value.gameId === 'starbound')
+const steamAccountReady = computed(
+  () => !isStarboundGame.value || steamAccountName.value.trim().length > 0,
+)
+const steamAccountNameRules = [
+  (value: string) =>
+    !isStarboundGame.value || value.trim().length > 0 || 'Steam account name is required.',
+]
+const createDeploymentReadyText = computed(() => {
+  if (!isStarboundGame.value) {
+    return deploymentReadyText.value
+  }
+  return `${deploymentReadyText.value} SteamCMD authentication will continue in the install console.`
+})
 const createDeploymentReady = computed(
-  () => deploymentReady.value && !portAvailabilityBlocking.value && !portAvailabilityChecking.value,
+  () =>
+    deploymentReady.value &&
+    steamAccountReady.value &&
+    !portAvailabilityBlocking.value &&
+    !portAvailabilityChecking.value,
 )
 const showPortAvailabilityError = computed(() => portAvailabilityBlocking.value)
 const portAvailabilityErrorMessage = computed(() =>
@@ -310,12 +346,21 @@ const portAvailabilityErrorMessage = computed(() =>
 )
 
 const createDeploymentWarningItems = computed(() => {
+  const warnings = [...deploymentWarningItems.value]
+  if (!steamAccountReady.value) {
+    warnings.push({
+      label: 'Steam ownership',
+      value: 'Enter the account name of a Steam account that owns Starbound.',
+      icon: 'key',
+    })
+  }
+
   if (
     !portAvailabilityVisible.value ||
     portAvailabilityState.value === 'available' ||
     portAvailabilityState.value === 'unavailable'
   ) {
-    return deploymentWarningItems.value
+    return warnings
   }
 
   const networkWarningValue =
@@ -324,7 +369,7 @@ const createDeploymentWarningItems = computed(() => {
       : portAvailabilityMessage.value
 
   return [
-    ...deploymentWarningItems.value.filter((item) => item.label !== 'Network'),
+    ...warnings.filter((item) => item.label !== 'Network'),
     {
       label: 'Network',
       value: networkWarningValue,
@@ -369,13 +414,23 @@ async function submitGameServer() {
   try {
     const request: CreateGameServerRequest = create(CreateGameServerRequestSchema, {})
     request.gameServer = gameServer.value
+    if (isStarboundGame.value) {
+      request.envVars.push(
+        create(EnvironmentVariableSchema, {
+          name: 'STEAM_USERNAME',
+          value: steamAccountName.value.trim(),
+        }),
+      )
+    }
 
     const response = await GetXylonaClient().createGameServer(request)
     await router.push(`/game-servers/${response.gameServer?.id}/console`)
     $q.notify({
       type: 'positive',
       position: 'top',
-      caption: 'Game server created successfully.',
+      caption: isStarboundGame.value
+        ? 'Server created. Complete Steam sign-in in the install console.'
+        : 'Game server created successfully.',
       icon: 'task_alt',
     })
   } catch (e) {

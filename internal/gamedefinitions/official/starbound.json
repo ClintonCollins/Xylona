@@ -1,30 +1,30 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:d4877cdd2d73e909f1db4965d9dc33ac1a6f9b5db096e4ff22404020d1e60d78",
+  "content_hash": "sha256:ca5dfe7c3eda542e2dd506b0ffc4975add79e8401c4b2b5cca57323635e4c7ab",
   "game": {
     "id": "starbound",
     "name": "Starbound",
     "defaultPort": "21025",
-    "defaultQueryPort": "21026",
-    "defaultMaxPlayers": "16",
+    "defaultQueryPort": "21025",
+    "defaultMaxPlayers": "8",
     "linuxSupport": true,
     "windowsSupport": true,
     "linuxStopCommand": "",
-    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 211820 validate +quit",
-    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 211820 validate +quit",
+    "linuxInstallCommand": "steamcmd +force_install_dir \"%GAMESERVER_DIRECTORY%\" +login \"{{STEAM_USERNAME}}\" +app_update 211820 validate +quit",
+    "linuxUpdateCommand": "steamcmd +force_install_dir \"%GAMESERVER_DIRECTORY%\" +login \"{{STEAM_USERNAME}}\" +app_update 211820 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxAllowBackups": true,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 211820 validate +quit",
-    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 211820 validate +quit",
+    "windowsInstallCommand": "steamcmd +force_install_dir \"%GAMESERVER_DIRECTORY%\" +login \"{{STEAM_USERNAME}}\" +app_update 211820 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir \"%GAMESERVER_DIRECTORY%\" +login \"{{STEAM_USERNAME}}\" +app_update 211820 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -53,7 +53,84 @@
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false
   },
-  "config_schemas": [],
+  "config_schemas": [
+    {
+      "path": "storage/starbound_server.config",
+      "format": "json",
+      "category": "Server",
+      "generate_before_start": true,
+      "managed_fields": {
+        "serverName": "game_server.server_name",
+        "gameServerPort": "game_server.port",
+        "maxPlayers": "game_server.max_players"
+      },
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Identity",
+          "Access",
+          "Networking"
+        ],
+        "properties": {
+          "serverName": {
+            "type": "string",
+            "title": "Server name",
+            "default": "A Starbound Server",
+            "x-group": "Identity",
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
+          },
+          "maxPlayers": {
+            "type": "integer",
+            "title": "Max players",
+            "default": 8,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Access",
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.max_players"
+            }
+          },
+          "allowAnonymousConnections": {
+            "type": "boolean",
+            "title": "Allow anonymous connections",
+            "default": true,
+            "x-group": "Access",
+            "x-order": 1
+          },
+          "gameServerBind": {
+            "type": "string",
+            "title": "Bind address",
+            "default": "::",
+            "x-group": "Networking",
+            "x-order": 0
+          },
+          "gameServerPort": {
+            "type": "integer",
+            "title": "Game port",
+            "default": 21025,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.port"
+            }
+          },
+          "runQueryServer": {
+            "type": "boolean",
+            "title": "Run query server",
+            "default": true,
+            "x-group": "Networking",
+            "x-order": 2
+          }
+        }
+      }
+    }
+  ],
   "linux_start_args_template": [],
   "windows_start_args_template": [],
   "start_arg_blocklist": [],

@@ -8,11 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -23,9 +27,15 @@ const (
 	KindSteamGSLT = "steam_gslt"
 	// KindHytaleAccount tracks whether a Hytale account/profile is linked.
 	KindHytaleAccount = "hytale_account"
+	// KindSunkenlandWorld tracks whether a client-created Sunkenland world was imported.
+	KindSunkenlandWorld = "sunkenland_world"
+	// KindDragonwildsConfig tracks the mandatory owner/admin configuration.
+	KindDragonwildsConfig = "dragonwilds_config"
 )
 
 const minecraftEULAFileName = "eula.txt"
+
+var sunkenlandWorldNamePattern = regexp.MustCompile(`(?i)^.+~([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`)
 
 // Item is the public readiness state returned to the UI.
 type Item struct {
@@ -87,6 +97,32 @@ func List(ctx context.Context, database *db.Connection, gameServer *models.GameS
 		}
 		items = append(items, item)
 	}
+	if gameServer.GameID == "sunkenland" {
+		item, errItem := sunkenlandWorldItem(ctx, gameServer, client)
+		if errItem != nil {
+			item = Item{
+				Kind:     KindSunkenlandWorld,
+				Required: true,
+				Complete: false,
+				Blocking: true,
+				Message:  "Sunkenland world status could not be read: " + errItem.Error(),
+			}
+		}
+		items = append(items, item)
+	}
+	if gameServer.GameID == "runescape_dragonwilds" {
+		item, errItem := dragonwildsConfigItem(ctx, gameServer, client)
+		if errItem != nil {
+			item = Item{
+				Kind:     KindDragonwildsConfig,
+				Required: true,
+				Complete: false,
+				Blocking: true,
+				Message:  "Dragonwilds configuration could not be read: " + errItem.Error(),
+			}
+		}
+		items = append(items, item)
+	}
 	return items, nil
 }
 
@@ -124,7 +160,169 @@ func CheckStart(ctx context.Context, database *db.Connection, gameServer *models
 			return errors.New(item.Message)
 		}
 	}
+
+	if gameServer.GameID == "sunkenland" {
+		item, errItem := sunkenlandWorldItem(ctx, gameServer, client)
+		if errItem != nil {
+			return errItem
+		}
+		if item.Blocking {
+			return errors.New(item.Message)
+		}
+	}
+	if gameServer.GameID == "runescape_dragonwilds" {
+		item, errItem := dragonwildsConfigItem(ctx, gameServer, client)
+		if errItem != nil {
+			return errItem
+		}
+		if item.Blocking {
+			return errors.New(item.Message)
+		}
+	}
 	return nil
+}
+
+func dragonwildsConfigItem(ctx context.Context, gameServer *models.GameServer, client nodeclient.NodeClient) (Item, error) {
+	item := Item{
+		Kind:     KindDragonwildsConfig,
+		Required: true,
+		Complete: false,
+		Blocking: true,
+		Message: "Configure the Dragonwilds Owner ID and Admin Password in the server's " +
+			"DedicatedServer.ini before starting it.",
+	}
+	if client == nil {
+		return item, errors.New("dragonwilds node client is unavailable")
+	}
+
+	snapshot, errSnapshot := client.GetNodeSnapshot(ctx)
+	if errSnapshot != nil {
+		return item, fmt.Errorf("get Dragonwilds node platform: %w", errSnapshot)
+	}
+	if snapshot == nil {
+		return item, errors.New("get Dragonwilds node platform: snapshot is missing")
+	}
+	var configPath string
+	switch strings.ToLower(strings.TrimSpace(snapshot.OS)) {
+	case "windows":
+		configPath = "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini"
+	case "linux":
+		configPath = "RSDragonwilds/Saved/Config/Linux/DedicatedServer.ini"
+	default:
+		return item, fmt.Errorf("dragonwilds node operating system %q is unsupported", snapshot.OS)
+	}
+
+	contents, errRead := client.ReadFile(ctx, gameServer.Directory, configPath)
+	if errors.Is(errRead, os.ErrNotExist) {
+		return item, nil
+	}
+	if errRead != nil {
+		return item, fmt.Errorf("read Dragonwilds configuration: %w", errRead)
+	}
+	entries, errParse := (&cfgparse.INIParser{}).Parse(contents)
+	if errParse != nil {
+		return item, fmt.Errorf("parse Dragonwilds configuration: %w", errParse)
+	}
+	values := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		values[strings.ToLower(strings.TrimSpace(entry.Key))] = strings.TrimSpace(entry.Value)
+	}
+	missing := make([]string, 0, 4)
+	for key, label := range map[string]string{
+		"ownerid":          "Owner ID",
+		"servername":       "Server Name",
+		"defaultworldname": "Default World Name",
+		"adminpassword":    "Admin Password",
+	} {
+		if values[key] == "" {
+			missing = append(missing, label)
+		}
+	}
+	if len(missing) > 0 {
+		slices.Sort(missing)
+		item.Message = "Dragonwilds requires these DedicatedServer.ini values before start: " + strings.Join(missing, ", ") + "."
+		return item, nil
+	}
+
+	publicData, errPublicData := json.Marshal(struct {
+		Path string `json:"path"`
+	}{Path: configPath})
+	if errPublicData != nil {
+		return item, fmt.Errorf("encode Dragonwilds readiness: %w", errPublicData)
+	}
+	item.Complete = true
+	item.Blocking = false
+	item.Message = "Dragonwilds dedicated-server configuration is ready."
+	item.PublicData = string(publicData)
+	return item, nil
+}
+
+func sunkenlandWorldItem(ctx context.Context, gameServer *models.GameServer, client nodeclient.NodeClient) (Item, error) {
+	item := Item{
+		Kind:     KindSunkenlandWorld,
+		Required: true,
+		Complete: false,
+		Blocking: true,
+		Message: "Sunkenland requires a client-created world. Upload its complete " +
+			"WorldName~GUID folder to the server's worlds directory and extract it there.",
+	}
+	if client == nil {
+		return item, errors.New("sunkenland node client is unavailable")
+	}
+
+	entries, errList := client.ListFiles(ctx, gameServer.Directory, "worlds")
+	if errors.Is(errList, os.ErrNotExist) {
+		return item, nil
+	}
+	if errList != nil {
+		return item, fmt.Errorf("list Sunkenland worlds: %w", errList)
+	}
+
+	type worldCandidate struct {
+		folder string
+		guid   string
+	}
+	candidates := make([]worldCandidate, 0)
+	for _, entry := range entries {
+		if !entry.IsDirectory {
+			continue
+		}
+		matches := sunkenlandWorldNamePattern.FindStringSubmatch(strings.TrimSpace(entry.Name))
+		if len(matches) != 2 {
+			continue
+		}
+		candidates = append(candidates, worldCandidate{folder: entry.Name, guid: strings.ToLower(matches[1])})
+	}
+	if len(candidates) == 0 {
+		return item, nil
+	}
+	if len(candidates) > 1 {
+		item.Message = "Sunkenland found multiple valid world folders under worlds. Keep exactly one world in this server directory."
+		return item, nil
+	}
+
+	candidate := candidates[0]
+	worldEntries, errWorld := client.ListFiles(ctx, gameServer.Directory, filepath.ToSlash(filepath.Join("worlds", candidate.folder)))
+	if errWorld != nil {
+		return item, fmt.Errorf("inspect Sunkenland world %q: %w", candidate.folder, errWorld)
+	}
+	if len(worldEntries) == 0 {
+		item.Message = "Sunkenland world folder " + candidate.folder + " is empty. Upload the complete client-created world."
+		return item, nil
+	}
+
+	publicData, errPublicData := json.Marshal(struct {
+		Folder string `json:"folder"`
+		GUID   string `json:"guid"`
+	}{Folder: candidate.folder, GUID: candidate.guid})
+	if errPublicData != nil {
+		return item, fmt.Errorf("encode Sunkenland world readiness: %w", errPublicData)
+	}
+	item.Complete = true
+	item.Blocking = false
+	item.Message = "Sunkenland world ready: " + candidate.folder
+	item.PublicData = string(publicData)
+	return item, nil
 }
 
 // AcceptMinecraftEULA records EULA acceptance and writes eula.txt when possible.

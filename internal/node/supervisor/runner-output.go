@@ -2,29 +2,33 @@ package supervisor
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/ziutek/telnet"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-func (c *Command) jobOutputReaders() (io.Reader, io.Reader, bool) {
+func (c *Command) jobOutputReaders() (io.Reader, io.Reader, <-chan struct{}, bool, bool) {
 	c.RLock()
 	defer c.RUnlock()
 
-	if c.currentCMD == nil && !c.InternalCommand {
-		return nil, nil, false
+	if c.currentCMD == nil && c.currentPTYCMD == nil && !c.InternalCommand {
+		return nil, nil, nil, false, false
 	}
 	if c.stdout == nil || c.stderr == nil {
-		return nil, nil, false
+		return nil, nil, nil, false, false
 	}
-	return c.stdout, c.stderr, true
+	return c.stdout, c.stderr, c.processCtx.Done(), c.currentPTY != nil, true
 }
 
 // readJobOut reads the output of the current command execution.
@@ -35,7 +39,7 @@ func (c *Command) jobOutputReaders() (io.Reader, io.Reader, bool) {
 // It closes the job notification after reading all the output.
 func (c *Command) readJobOut() {
 	log.Debug().Str("Game Server ID", c.ID).Msg("Reading job output")
-	stdoutReader, stderrReader, ok := c.jobOutputReaders()
+	stdoutReader, stderrReader, processDone, pseudoTerminal, ok := c.jobOutputReaders()
 	if !ok {
 		return
 	}
@@ -55,7 +59,7 @@ func (c *Command) readJobOut() {
 			select {
 			case <-c.instanceCtx.Done():
 				return
-			case <-c.processCtx.Done():
+			case <-processDone:
 				return
 			case <-scannerDone:
 				scannersFinished++
@@ -65,16 +69,23 @@ func (c *Command) readJobOut() {
 		}
 	}()
 
-	go c.scanJobOutput(stdoutReader, "stdout", &disableOutput, scannerDone, wg)
-	go c.scanJobOutput(stderrReader, "stderr", &disableOutput, scannerDone, wg)
+	go c.scanJobOutput(stdoutReader, "stdout", processDone, pseudoTerminal, &disableOutput, scannerDone, wg)
+	go c.scanJobOutput(stderrReader, "stderr", processDone, pseudoTerminal, &disableOutput, scannerDone, wg)
 
 	wg.Wait()
 	log.Debug().Str("Game Server ID", c.ID).Msg("Job output listener stopped")
-	c.processCtxCancel()
 	c.closeJobNotification()
 }
 
-func (c *Command) scanJobOutput(reader io.Reader, logField string, disableOutput *atomic.Bool, scannerDone chan<- struct{}, wg *sync.WaitGroup) {
+func (c *Command) scanJobOutput(
+	reader io.Reader,
+	logField string,
+	processDone <-chan struct{},
+	pseudoTerminal bool,
+	disableOutput *atomic.Bool,
+	scannerDone chan<- struct{},
+	wg *sync.WaitGroup,
+) {
 	defer wg.Done()
 	defer func() {
 		scannerDone <- struct{}{}
@@ -87,7 +98,7 @@ func (c *Command) scanJobOutput(reader io.Reader, logField string, disableOutput
 		case <-c.instanceCtx.Done():
 			log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job output reader.")
 			return
-		case <-c.processCtx.Done():
+		case <-processDone:
 			log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job output reader.")
 			return
 		default:
@@ -102,41 +113,26 @@ func (c *Command) scanJobOutput(reader io.Reader, logField string, disableOutput
 
 	errScan := scanner.Err()
 	if errScan != nil {
-		log.Error().Err(errScan).Msg("Error scanning output")
+		if pseudoTerminal && (errors.Is(errScan, syscall.EIO) || errors.Is(errScan, os.ErrClosed)) {
+			log.Debug().Err(errScan).Msg("Pseudo-terminal output stream closed")
+		} else {
+			log.Error().Err(errScan).Msg("Error scanning output")
+		}
 	}
 }
 
 // readTelnetOutput reads the output of the telnet connection.
-func (c *Command) readTelnetOutput() {
-	retries := 60
-	ticker := time.NewTicker(time.Second * 1)
-	defer ticker.Stop()
-
-	// Wait for telnet to start.
-	for {
-		select {
-		case <-c.instanceCtx.Done():
-			log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal. Closing job telnet reader.")
-			return
-		case <-c.processCtx.Done():
-			log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing job telnet reader.")
-			return
-		case <-ticker.C:
-			log.Debug().Str("Game Server ID", c.ID).Msg("Checking if telnet is running")
-		}
-		if c.telnetConn != nil {
-			log.Debug().Str("Game Server ID", c.ID).Msg("Telnet is running")
-			c.toggleOutputType <- struct{}{}
-			break
-		}
-		retries--
-		if retries <= 0 {
-			log.Debug().Str("Game Server ID", c.ID).Msg("Telnet did not start")
-			return
-		}
+func (c *Command) readTelnetOutput(telnetConnection *telnet.Conn, processDone <-chan struct{}) {
+	log.Debug().Str("Game Server ID", c.ID).Msg("Telnet is running")
+	select {
+	case c.toggleOutputType <- struct{}{}:
+	case <-c.instanceCtx.Done():
+		return
+	case <-processDone:
+		return
 	}
 
-	scanner := bufio.NewScanner(c.telnetConn)
+	scanner := bufio.NewScanner(telnetConnection)
 	// scanner.Buffer(make([]byte, 16), 65536)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
@@ -148,7 +144,7 @@ func (c *Command) readTelnetOutput() {
 		case <-c.instanceCtx.Done():
 			log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal.  Closing telnet reader.")
 			return
-		case <-c.processCtx.Done():
+		case <-processDone:
 			log.Debug().Str("Game Server ID", c.ID).Msg("Received job process context shutdown signal. Closing telnet reader.")
 			return
 		default:
@@ -175,7 +171,7 @@ func (c *Command) handleOutputListeners(payload *xylona.Message) {
 				log.Debug().Str("Game Server ID", id).Msg("Received error group context shutdown signal. Closing output listener.")
 				return nil
 			case listener <- payload:
-				// Give the channel receiver 500 milliseconds to handle the output, otherwise we discard the message.
+				// Give the channel receiver one second to handle the output, otherwise discard the message.
 			case <-time.After(time.Second * 1):
 				removeLock.Lock()
 				listenerIDsToRemove = append(listenerIDsToRemove, id)
@@ -186,7 +182,10 @@ func (c *Command) handleOutputListeners(payload *xylona.Message) {
 		})
 	}
 	c.outputListenersLock.RUnlock()
-	_ = errGroup.Wait()
+	errWait := errGroup.Wait()
+	if errWait != nil {
+		log.Debug().Err(errWait).Str("Game Server ID", c.ID).Msg("Output listener delivery stopped")
+	}
 
 	for _, id := range listenerIDsToRemove {
 		log.Debug().Str("ID", id).Msg("Removing output listener")
@@ -211,7 +210,7 @@ func (c *Command) sendJobNotification(message string) {
 // messages in the game server console without routing through stdin.
 func (c *Command) SendOutput(message string) {
 	c.Lock()
-	if c.currentCMD == nil && c.status == xylona.Status_OFFLINE {
+	if c.currentCMD == nil && c.currentPTYCMD == nil && c.status == xylona.Status_OFFLINE {
 		c.preserveBufferedOutputOnReuse = true
 	}
 	c.Unlock()

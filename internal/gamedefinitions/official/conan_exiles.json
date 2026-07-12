@@ -1,30 +1,30 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4b904f4d47e8536fa14d3011c67cbf4de2c523f49f92b14873679f5ae1935ccc",
+  "content_hash": "sha256:4ab688d124bd381e5225e03c0a7ecd627de5cf7e080a928144d2b88a71e0f517",
   "game": {
     "id": "conan_exiles",
     "name": "Conan Exiles",
     "defaultPort": "7777",
     "defaultQueryPort": "27015",
     "defaultMaxPlayers": "16",
-    "linuxSupport": false,
+    "linuxSupport": true,
     "windowsSupport": true,
     "linuxStopCommand": "",
-    "linuxInstallCommand": "",
-    "linuxUpdateCommand": "",
+    "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 443030 validate +quit",
+    "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 443030 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
+    "linuxAllowBackups": true,
     "windowsStopCommand": "",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 443030 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 443030 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -37,13 +37,13 @@
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "NONE",
-    "linuxUpdateType": "NONE",
+    "linuxInstallType": "STEAMCMD",
+    "linuxUpdateType": "STEAMCMD",
     "windowsInstallType": "STEAMCMD",
     "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
-    "linuxBaseCommand": "",
+    "linuxBaseCommand": "ConanSandbox/Binaries/Linux/ConanSandboxServer",
     "windowsBaseCommand": "ConanSandboxServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
@@ -54,7 +54,57 @@
     "officialDefinitionDiverged": false
   },
   "config_schemas": [],
-  "linux_start_args_template": [],
+  "linux_start_args_template": [
+    {
+      "id": "runtime_conan_exiles_linux_01",
+      "order": 1,
+      "ownership": "system",
+      "tokens": [
+        "-MULTIHOME={{IP}}"
+      ],
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
+    },
+    {
+      "id": "runtime_conan_exiles_linux_02",
+      "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "-Port={{PORT}}"
+      ],
+      "label": "Game port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_conan_exiles_linux_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-QueryPort={{QUERY_PORT}}"
+      ],
+      "label": "Query port",
+      "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_conan_exiles_linux_04",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "-MaxPlayers={{MAX_PLAYERS}}"
+      ],
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
+    },
+    {
+      "id": "runtime_conan_exiles_linux_05",
+      "order": 5,
+      "ownership": "locked",
+      "tokens": [
+        "-log"
+      ],
+      "label": "Log output"
+    }
+  ],
   "windows_start_args_template": [
     {
       "id": "runtime_conan_exiles_windows_01",
@@ -89,16 +139,17 @@
     {
       "id": "runtime_conan_exiles_windows_04",
       "order": 4,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-MaxPlayers={{MAX_PLAYERS}}"
       ],
-      "label": "Max Players"
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_conan_exiles_windows_05",
       "order": 5,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-log"
       ],

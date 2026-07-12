@@ -1,13 +1,13 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e818437a1328ca71e3a0820f3ea65b0f3f7c4009c855f1a7bde2d9e7ea925b55",
+  "content_hash": "sha256:4c11c354f14781f0ca211ed22930cb3768c6cb17b0b125332d85826083ddfdd3",
   "game": {
     "id": "satisfactory",
     "name": "Satisfactory",
     "defaultPort": "7777",
     "defaultQueryPort": "8888",
-    "defaultMaxPlayers": "16",
+    "defaultMaxPlayers": "4",
     "linuxSupport": true,
     "windowsSupport": true,
     "linuxStopCommand": "",
@@ -74,6 +74,16 @@
       ],
       "label": "Reliable port",
       "managed_source": "game_server.query_port"
+    },
+    {
+      "id": "runtime_satisfactory_linux_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-ini:Game:[/Script/Engine.GameSession]:MaxPlayers={{MAX_PLAYERS}}"
+      ],
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
     }
   ],
   "windows_start_args_template": [
@@ -114,6 +124,16 @@
         "-unattended"
       ],
       "label": "Unattended"
+    },
+    {
+      "id": "runtime_satisfactory_windows_05",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-ini:Game:[/Script/Engine.GameSession]:MaxPlayers={{MAX_PLAYERS}}"
+      ],
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
     }
   ],
   "start_arg_blocklist": [],

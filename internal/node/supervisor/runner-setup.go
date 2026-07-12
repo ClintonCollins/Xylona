@@ -3,8 +3,10 @@ package supervisor
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	pty "github.com/aymanbagabas/go-pty"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -19,6 +22,10 @@ import (
 
 func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistentCommand *Command) *Command {
 	var newCommand *Command
+	var internalLaunchEnv map[string]string
+	if preparedCommand.InternalCommand {
+		internalLaunchEnv = maps.Clone(preparedCommand.LaunchEnv)
+	}
 	processCtx, processCtxCancel := context.WithCancel(inst.ctx)
 	gameServerName := preparedCommand.GameServerName
 	if gameServerName == "" && preparedCommand.InternalGameServer != nil {
@@ -49,6 +56,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.processCtxCancel = processCtxCancel
 		newCommand.inputMethod = preparedCommand.InputMethod
 		newCommand.workingDir = preparedCommand.WorkingDirectory
+		newCommand.launchEnv = internalLaunchEnv
 		defer newCommand.Unlock()
 	} else {
 		log.Debug().Str("Command ID", preparedCommand.ID).Msg("Creating new command")
@@ -76,6 +84,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			inputMethod:         preparedCommand.InputMethod,
 			toggleOutputType:    make(chan struct{}),
 			workingDir:          preparedCommand.WorkingDirectory,
+			launchEnv:           internalLaunchEnv,
 		}
 	}
 	return newCommand
@@ -95,14 +104,19 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		return nil, errValidateTelnet
 	}
 
-	cmd := exec.CommandContext( //nolint:gosec // Supervisor intentionally launches configured game server commands.
+	resolvedBaseCommand := resolveServerLocalBaseCommand(baseCommand, preparedCommand.WorkingDirectory)
+	processBaseCommand, processArgs, errInvocation := prepareProcessInvocation(resolvedBaseCommand, preparedCommand.Args)
+	if errInvocation != nil {
+		return nil, errInvocation
+	}
+	cmd := exec.CommandContext(
 		newCommand.processCtx,
-		resolveServerLocalBaseCommand(baseCommand, preparedCommand.WorkingDirectory),
-		preparedCommand.Args...,
+		processBaseCommand,
+		processArgs...,
 	)
 	configureProcessTree(cmd)
 	cmd.Cancel = func() error {
-		return terminateProcessTree(cmd)
+		return terminateProcessTree(cmd.Process)
 	}
 	cmd.Dir = preparedCommand.WorkingDirectory
 	cmd.Env = appendLaunchEnvironment(buildChildEnvironment(CurrentRuntime, os.Environ()), preparedCommand.LaunchEnv)
@@ -119,6 +133,8 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 	switch newCommand.inputMethod.Type {
 	case InputTypeTelnet:
 		log.Debug().Str("Command ID", newCommand.ID).Msg("Setting up telnet to run after startup")
+		newCommand.telnetConn = nil
+		newCommand.stdInWriter = &bytes.Buffer{}
 		newCommand.runAfterStartup = connectTelnetAndSetAsStdinWriter
 	default:
 		log.Debug().Str("Command ID", newCommand.ID).Msg("Setting up StdInPipe")
@@ -130,6 +146,57 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		newCommand.stdInWriter = stdInPipe
 	}
 	return cmd, nil
+}
+
+func (inst *Instance) setupPseudoTerminal(
+	newCommand *Command,
+	preparedCommand PreparedCommand,
+) (*pty.Cmd, pty.Pty, error) {
+	baseCommand := strings.TrimSpace(preparedCommand.BaseCommand)
+	if baseCommand == "" {
+		return nil, nil, ErrNoCommandProvided
+	}
+	terminal, errNewPTY := pty.New()
+	if errNewPTY != nil {
+		return nil, nil, fmt.Errorf("create pseudo-terminal: %w", errNewPTY)
+	}
+	errResize := terminal.Resize(160, 50)
+	if errResize != nil {
+		errClose := terminal.Close()
+		return nil, nil, errors.Join(
+			fmt.Errorf("resize pseudo-terminal: %w", errResize),
+			wrapSupervisorError("close pseudo-terminal", errClose),
+		)
+	}
+	resolvedBaseCommand := resolveServerLocalBaseCommand(baseCommand, preparedCommand.WorkingDirectory)
+	processBaseCommand, processArgs, errInvocation := prepareProcessInvocation(resolvedBaseCommand, preparedCommand.Args)
+	if errInvocation != nil {
+		errClose := terminal.Close()
+		return nil, nil, errors.Join(errInvocation, wrapSupervisorError("close pseudo-terminal", errClose))
+	}
+	command := preparePseudoTerminalCommand(
+		newCommand.processCtx,
+		terminal,
+		processBaseCommand,
+		processArgs,
+	)
+	command.Dir = preparedCommand.WorkingDirectory
+	command.Env = appendLaunchEnvironment(buildChildEnvironment(CurrentRuntime, os.Environ()), preparedCommand.LaunchEnv)
+	command.Cancel = func() error {
+		return terminateProcessTree(command.Process)
+	}
+	newCommand.stdout = terminal
+	newCommand.stderr = strings.NewReader("")
+	newCommand.stdInWriter = terminal
+	newCommand.runAfterStartup = nil
+	return command, terminal, nil
+}
+
+func wrapSupervisorError(message string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", message, err)
 }
 
 func validateTelnetInputMethod(inputMethod InputMethod) error {

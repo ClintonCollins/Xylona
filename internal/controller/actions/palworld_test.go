@@ -12,6 +12,7 @@ func TestPatchPalworldSettings(t *testing.T) {
 	cases := []struct {
 		name     string
 		input    string
+		server   string
 		password string
 		port     int64
 		players  int64
@@ -21,11 +22,12 @@ func TestPatchPalworldSettings(t *testing.T) {
 		{
 			name:     "updates existing values and preserves nested lists",
 			input:    "[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(ServerName=\"Pal, World\",CrossplayPlatforms=(Steam,Xbox),AdminPassword=\"old\",RESTAPIEnabled=False,RESTAPIPort=8212,ServerPlayerMaxNum=32)\n",
+			server:   "Xylona Palworld",
 			password: "generated-secret",
 			port:     27015,
 			players:  48,
 			want: []string{
-				`ServerName="Pal, World"`,
+				`ServerName="Xylona Palworld"`,
 				`CrossplayPlatforms=(Steam,Xbox)`,
 				`AdminPassword="generated-secret"`,
 				`RESTAPIEnabled=True`,
@@ -36,11 +38,13 @@ func TestPatchPalworldSettings(t *testing.T) {
 		{
 			name:     "adds missing managed values",
 			input:    "[/Script/Pal.PalGameWorldSettings]\nOptionSettings=(Difficulty=None)\n",
+			server:   `Xylona "Palworld"`,
 			password: "generated-secret",
 			port:     8212,
 			players:  32,
 			want: []string{
 				`Difficulty=None`,
+				`ServerName="Xylona \"Palworld\""`,
 				`AdminPassword="generated-secret"`,
 				`RESTAPIEnabled=True`,
 				`RESTAPIPort=8212`,
@@ -50,6 +54,7 @@ func TestPatchPalworldSettings(t *testing.T) {
 		{
 			name:     "rejects missing option settings",
 			input:    "[/Script/Pal.PalGameWorldSettings]\n",
+			server:   "Xylona Palworld",
 			password: "generated-secret",
 			port:     8212,
 			players:  32,
@@ -58,7 +63,17 @@ func TestPatchPalworldSettings(t *testing.T) {
 		{
 			name:     "rejects unsafe password",
 			input:    "OptionSettings=(Difficulty=None)",
+			server:   "Xylona Palworld",
 			password: `bad"password`,
+			port:     8212,
+			players:  32,
+			wantErr:  errors.New("unsupported characters"),
+		},
+		{
+			name:     "rejects unsafe server name",
+			input:    "OptionSettings=(Difficulty=None)",
+			server:   "Xylona\nPalworld",
+			password: "generated-secret",
 			port:     8212,
 			players:  32,
 			wantErr:  errors.New("unsupported characters"),
@@ -68,7 +83,13 @@ func TestPatchPalworldSettings(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result, errPatch := patchPalworldSettings([]byte(tc.input), tc.password, tc.port, tc.players)
+			result, errPatch := patchPalworldSettings(
+				[]byte(tc.input),
+				tc.server,
+				tc.password,
+				tc.port,
+				tc.players,
+			)
 			if tc.wantErr != nil {
 				if errPatch == nil {
 					t.Fatalf("patchPalworldSettings() error = nil, want %v", tc.wantErr)

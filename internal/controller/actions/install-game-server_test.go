@@ -10,10 +10,28 @@ import (
 
 	"github.com/aarondl/opt/omit"
 
+	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func TestInstallGameServerRequiresStarboundOwnerAccountBeforeCreatingFiles(t *testing.T) {
+	inst := &Instance{}
+	game := &models.Game{
+		ID:             gameintegrations.StarboundGameID,
+		DefaultEnvVars: "[]",
+	}
+	gameServer := &models.GameServer{EnvVars: "[]"}
+
+	installed, errInstall := inst.InstallGameServer(game, gameServer, &models.User{})
+	if !errors.Is(errInstall, gameintegrations.ErrStarboundSteamUsernameRequired) {
+		t.Fatalf("InstallGameServer() error = %v, want %v", errInstall, gameintegrations.ErrStarboundSteamUsernameRequired)
+	}
+	if installed != nil {
+		t.Fatalf("InstallGameServer() returned server on validation failure: %+v", installed)
+	}
+}
 
 func TestInstallGameServerRemovesArtifactsWhenCommandStartFails(t *testing.T) {
 	t.Setenv(`USERPROFILE`, t.TempDir())

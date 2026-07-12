@@ -1,25 +1,25 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e18d408f6d86b794bd827adf0b3c8262dd2e182a2b31342ebae53ecdbf81b148",
+  "content_hash": "sha256:c3dc312778bff33806b5b739ce70fff80248021619a64243a614c52ff437261d",
   "game": {
     "id": "sunkenland",
     "name": "Sunkenland",
     "defaultPort": "27015",
     "defaultQueryPort": "27015",
-    "defaultMaxPlayers": "16",
+    "defaultMaxPlayers": "3",
     "linuxSupport": false,
-    "windowsSupport": false,
+    "windowsSupport": true,
     "linuxStopCommand": "",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
     "windowsStopCommand": "",
-    "windowsInstallCommand": "",
-    "windowsUpdateCommand": "",
+    "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2667530 validate +quit",
+    "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 2667530 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -39,12 +39,12 @@
     "variants": [],
     "linuxInstallType": "NONE",
     "linuxUpdateType": "NONE",
-    "windowsInstallType": "NONE",
-    "windowsUpdateType": "NONE",
+    "windowsInstallType": "STEAMCMD",
+    "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "",
+    "windowsBaseCommand": "powershell.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -55,7 +55,65 @@
   },
   "config_schemas": [],
   "linux_start_args_template": [],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_sunkenland_windows_01",
+      "order": 1,
+      "ownership": "locked",
+      "tokens": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "xylona-sunkenland-launch.ps1"
+      ],
+      "label": "Xylona Sunkenland launcher"
+    },
+    {
+      "id": "runtime_sunkenland_windows_02",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "-region",
+        "us"
+      ],
+      "label": "Matchmaking region"
+    },
+    {
+      "id": "runtime_sunkenland_windows_03",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "-maxPlayerCapacity",
+        "{{MAX_PLAYERS}}"
+      ],
+      "label": "Max players",
+      "managed_source": "game_server.max_players"
+    },
+    {
+      "id": "runtime_sunkenland_windows_04",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "-port",
+        "{{PORT}}"
+      ],
+      "label": "Server port",
+      "managed_source": "game_server.port"
+    },
+    {
+      "id": "runtime_sunkenland_windows_05",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-ip",
+        "{{IP}}"
+      ],
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
+    }
+  ],
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {

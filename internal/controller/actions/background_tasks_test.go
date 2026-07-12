@@ -14,6 +14,35 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+func TestGameServerQueryPort(t *testing.T) {
+	tests := []struct {
+		name       string
+		gameServer *models.GameServer
+		want       int64
+	}{
+		{name: "missing server", want: 0},
+		{
+			name:       "ordinary query port",
+			gameServer: &models.GameServer{GameID: "valheim", Port: 2456, QueryPort: 2457},
+			want:       2457,
+		},
+		{
+			name:       "7 Days to Die A2S uses game port",
+			gameServer: &models.GameServer{GameID: "7_days_to_die", Port: 26900, QueryPort: 26904},
+			want:       26900,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := gameServerQueryPort(test.gameServer)
+			if got != test.want {
+				t.Fatalf("gameServerQueryPort() = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
+
 func TestCheckServerVersionSetsResolvedTrackerType(t *testing.T) {
 	t.Parallel()
 

@@ -164,8 +164,9 @@ func (xs *XylonaService) ensureNodeScopedIP(ctx context.Context, nodeID string, 
 	return invalidArg("invalid IP")
 }
 
-// findAvailablePort checks for service-port conflicts and returns the next available port.
-// Games that bind to all IPs occupy that service port across every IP on the node.
+// findAvailablePort checks each game's complete runtime port footprint and
+// returns the next available configured game/query pair. Games that bind to
+// all IPs occupy that footprint across every IP on the node.
 // excludeServerID can be set to skip a specific server (useful when editing an existing server).
 func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
 	existingServers, errGetServers := xs.db.GetGameServersByNodeID(nodeID)
@@ -185,19 +186,62 @@ func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64,
 		if !sameIP && !selectedBindsToAllIPs && !existingBindsToAllIPs {
 			continue
 		}
-		usedPorts[s.Port] = true
-	}
-
-	// Auto-increment the service port if it conflicts and keep the query port offset.
-	for usedPorts[port] {
-		port++
-		queryPort++
-		if port > 65535 || queryPort > 65535 {
-			return 0, 0, fmt.Errorf("no available service ports on node %s", nodeID)
+		for _, usedPort := range gameServerPortFootprint(s.GameID, s.Port, s.QueryPort) {
+			usedPorts[usedPort] = true
 		}
 	}
 
-	return port, queryPort, nil
+	gameID := ""
+	if game != nil {
+		gameID = game.ID
+	}
+	// Auto-increment both ports on any conflict so their configured offset is preserved.
+	for {
+		candidatePorts := gameServerPortFootprint(gameID, port, queryPort)
+		conflict := false
+		for _, candidatePort := range candidatePorts {
+			if candidatePort < 1 || candidatePort > 65535 {
+				return 0, 0, fmt.Errorf("no available game/query port pair on node %s", nodeID)
+			}
+			if usedPorts[candidatePort] {
+				conflict = true
+				break
+			}
+		}
+		if !conflict {
+			return port, queryPort, nil
+		}
+		port++
+		queryPort++
+	}
+}
+
+func gameServerPortFootprint(gameID string, port int64, queryPort int64) []int64 {
+	ports := []int64{port}
+	if queryPort != port {
+		ports = append(ports, queryPort)
+	}
+	switch gameID {
+	case "7_days_to_die":
+		for offset := int64(1); offset <= 3; offset++ {
+			candidate := port + offset
+			if candidate == queryPort {
+				continue
+			}
+			ports = append(ports, candidate)
+		}
+	case "project_zomboid":
+		ports = append(ports, port+1)
+	case "conan_exiles":
+		ports = append(ports, port+1, port+2)
+	case "sons_of_the_forest":
+		ports = append(ports, queryPort+1)
+	case "rust":
+		ports = append(ports, port+67)
+	case "garrys_mod", "team_fortress_2":
+		ports = append(ports, port+1, port+2)
+	}
+	return ports
 }
 
 // CreateGameServer creates a new local game server.
@@ -222,6 +266,11 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 	}
 
 	newGameServerModel := protomap.GameServerProtoToModel(request.Msg.GetGameServer())
+	encodedEnvironment, errEnvironment := prepareCreateGameServerEnvironment(game, request.Msg.GetEnvVars())
+	if errEnvironment != nil {
+		return nil, invalidArg(errEnvironment.Error())
+	}
+	newGameServerModel.EnvVars = encodedEnvironment
 	if strings.TrimSpace(newGameServerModel.NodeID) == "" {
 		localSettings, errSettings := xs.db.GetLocalSettings()
 		if errSettings != nil {
@@ -334,7 +383,12 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 		return nil, errEnsureIP
 	}
 
-	if gameServerModel.IP != existingGameServer.IP || gameServerModel.Port != existingGameServer.Port || gameServerModel.QueryPort != existingGameServer.QueryPort {
+	portScopeChanged := gameServerModel.NodeID != existingGameServer.NodeID ||
+		gameServerModel.GameID != existingGameServer.GameID ||
+		gameServerModel.IP != existingGameServer.IP ||
+		gameServerModel.Port != existingGameServer.Port ||
+		gameServerModel.QueryPort != existingGameServer.QueryPort
+	if portScopeChanged {
 		availablePort, availableQueryPort, errPortCheck := xs.findAvailablePort(
 			gameServerModel.NodeID, gameServerModel.IP, gameServerModel.Port, gameServerModel.QueryPort, game, existingGameServer.ID,
 		)

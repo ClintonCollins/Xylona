@@ -51,6 +51,16 @@ func getQueryInfoType(game *models.Game) xylona.ServerQuery_Type {
 	return xylona.ServerQuery_Unknown
 }
 
+func gameServerQueryPort(gameServer *models.GameServer) int64 {
+	if gameServer != nil && gameServer.GameID == "7_days_to_die" {
+		return gameServer.Port
+	}
+	if gameServer == nil {
+		return 0
+	}
+	return gameServer.QueryPort
+}
+
 func defaultServerQuery(gs *models.GameServer, queryType xylona.ServerQuery_Type) *xylona.ServerQuery {
 	out := &xylona.ServerQuery{
 		ServerId:   gs.ID,
@@ -175,7 +185,7 @@ func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.Game
 	queryRequest := node.GameServerQueryRequest{
 		Kind:       nodeQueryKind(queryType),
 		IP:         gs.IP,
-		QueryPort:  gs.QueryPort,
+		QueryPort:  gameServerQueryPort(gs),
 		MaxPlayers: gs.MaxPlayers,
 	}
 	if queryType == xylona.ServerQuery_Palworld {
@@ -244,7 +254,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 						inst.storeServerQuery(inst.queryRemoteGameServer(ctx, gs, queryType))
 						return
 					}
-					info, err := query.Source(gs.IP, int(gs.QueryPort))
+					info, err := query.Source(gs.IP, int(gameServerQueryPort(gs)))
 					if err != nil {
 						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query source server")
 						info = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}

@@ -1,13 +1,13 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:7450c40f2cb722bfb1332d115077fdd8f4f4123fecf664744268693e3b57b313",
+  "content_hash": "sha256:e7285c47a1c231320a2ffb0d49167ddc72813c8fc3a954547875ba9a46a85911",
   "game": {
     "id": "aska",
     "name": "Aska",
-    "defaultPort": "7777",
-    "defaultQueryPort": "27015",
-    "defaultMaxPlayers": "16",
+    "defaultPort": "27015",
+    "defaultQueryPort": "27016",
+    "defaultMaxPlayers": "4",
     "linuxSupport": false,
     "windowsSupport": true,
     "linuxStopCommand": "",
@@ -19,12 +19,12 @@
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 3246670 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 3246670 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": true,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -44,7 +44,7 @@
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
     "linuxBaseCommand": "",
-    "windowsBaseCommand": "AskaServer.bat",
+    "windowsBaseCommand": "AskaServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,
     "xylonaOfficial": true,
@@ -55,9 +55,10 @@
   },
   "config_schemas": [
     {
-      "path": "server properties.txt",
+      "path": "config/server properties.txt",
       "format": "ini",
       "category": "Server",
+      "generate_before_start": true,
       "managed_fields": {
         "display name": "game_server.server_name",
         "authentication token": "steam_gslt",
@@ -116,7 +117,7 @@
           "steam game port": {
             "type": "integer",
             "title": "Game port",
-            "default": 7777,
+            "default": 27015,
             "minimum": 1,
             "maximum": 65535,
             "x-group": "Networking",
@@ -128,7 +129,7 @@
           "steam query port": {
             "type": "integer",
             "title": "Query port",
-            "default": 27015,
+            "default": 27016,
             "minimum": 1,
             "maximum": 65535,
             "x-group": "Networking",
@@ -149,8 +150,45 @@
     }
   ],
   "linux_start_args_template": [],
-  "windows_start_args_template": [],
+  "windows_start_args_template": [
+    {
+      "id": "runtime_aska_windows_01",
+      "order": 1,
+      "ownership": "locked",
+      "tokens": [
+        "-propertiesPath",
+        "config/server properties.txt"
+      ],
+      "label": "Per-server properties file"
+    },
+    {
+      "id": "runtime_aska_windows_02",
+      "order": 2,
+      "ownership": "locked",
+      "tokens": [
+        "-batchmode",
+        "-nographics"
+      ],
+      "label": "Headless server mode"
+    },
+    {
+      "id": "runtime_aska_windows_03",
+      "order": 3,
+      "ownership": "locked",
+      "tokens": [
+        "-logFile",
+        "-"
+      ],
+      "label": "Console logging"
+    }
+  ],
   "start_arg_blocklist": [],
+  "default_env_vars": [
+    {
+      "name": "SteamAppId",
+      "value": "1898300"
+    }
+  ],
   "update_config": {
     "update_provider": {
       "kind": "steamcmd"

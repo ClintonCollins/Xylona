@@ -66,6 +66,8 @@ type Game struct {
 	OfficialDefinitionSchemaVersion   int64            `db:"official_definition_schema_version" `
 	OfficialDefinitionDiverged        bool             `db:"official_definition_diverged" `
 	DefaultEnvVars                    string           `db:"default_env_vars" `
+	LinuxAllowBackups                 bool             `db:"linux_allow_backups" `
+	WindowsAllowBackups               bool             `db:"windows_allow_backups" `
 
 	R gameR `db:"-" `
 }
@@ -88,7 +90,7 @@ type gameR struct {
 func buildGameColumns(alias string) gameColumns {
 	return gameColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing", "official_definition_hash", "official_definition_source", "official_definition_schema_version", "official_definition_diverged", "default_env_vars",
+			"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing", "official_definition_hash", "official_definition_source", "official_definition_schema_version", "official_definition_diverged", "default_env_vars", "linux_allow_backups", "windows_allow_backups",
 		).WithParent("game"),
 		tableAlias:                        alias,
 		ID:                                sqlite.Quote(alias, "id"),
@@ -132,6 +134,8 @@ func buildGameColumns(alias string) gameColumns {
 		OfficialDefinitionSchemaVersion:   sqlite.Quote(alias, "official_definition_schema_version"),
 		OfficialDefinitionDiverged:        sqlite.Quote(alias, "official_definition_diverged"),
 		DefaultEnvVars:                    sqlite.Quote(alias, "default_env_vars"),
+		LinuxAllowBackups:                 sqlite.Quote(alias, "linux_allow_backups"),
+		WindowsAllowBackups:               sqlite.Quote(alias, "windows_allow_backups"),
 	}
 }
 
@@ -179,6 +183,8 @@ type gameColumns struct {
 	OfficialDefinitionSchemaVersion   sqlite.Expression
 	OfficialDefinitionDiverged        sqlite.Expression
 	DefaultEnvVars                    sqlite.Expression
+	LinuxAllowBackups                 sqlite.Expression
+	WindowsAllowBackups               sqlite.Expression
 }
 
 func (c gameColumns) Alias() string {
@@ -234,10 +240,12 @@ type GameSetter struct {
 	OfficialDefinitionSchemaVersion   omit.Val[int64]      `db:"official_definition_schema_version" `
 	OfficialDefinitionDiverged        omit.Val[bool]       `db:"official_definition_diverged" `
 	DefaultEnvVars                    omit.Val[string]     `db:"default_env_vars" `
+	LinuxAllowBackups                 omit.Val[bool]       `db:"linux_allow_backups" `
+	WindowsAllowBackups               omit.Val[bool]       `db:"windows_allow_backups" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 41)
+	vals := make([]string, 0, 43)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -360,6 +368,12 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.DefaultEnvVars.IsValue() {
 		vals = append(vals, "default_env_vars")
+	}
+	if s.LinuxAllowBackups.IsValue() {
+		vals = append(vals, "linux_allow_backups")
+	}
+	if s.WindowsAllowBackups.IsValue() {
+		vals = append(vals, "windows_allow_backups")
 	}
 	return vals
 }
@@ -488,6 +502,12 @@ func (s GameSetter) Overwrite(t *Game) {
 	if s.DefaultEnvVars.IsValue() {
 		t.DefaultEnvVars = s.DefaultEnvVars.MustGet()
 	}
+	if s.LinuxAllowBackups.IsValue() {
+		t.LinuxAllowBackups = s.LinuxAllowBackups.MustGet()
+	}
+	if s.WindowsAllowBackups.IsValue() {
+		t.WindowsAllowBackups = s.WindowsAllowBackups.MustGet()
+	}
 }
 
 func (s *GameSetter) Apply(q *dialect.InsertQuery) {
@@ -504,7 +524,7 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 	}
 
 	q.AppendValues(bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
-		vals := make([]bob.Expression, 0, 41)
+		vals := make([]bob.Expression, 0, 43)
 		if s.ID.IsValue() {
 			vals = append(vals, sqlite.Arg(s.ID.MustGet()))
 		}
@@ -669,6 +689,14 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.DefaultEnvVars.MustGet()))
 		}
 
+		if s.LinuxAllowBackups.IsValue() {
+			vals = append(vals, sqlite.Arg(s.LinuxAllowBackups.MustGet()))
+		}
+
+		if s.WindowsAllowBackups.IsValue() {
+			vals = append(vals, sqlite.Arg(s.WindowsAllowBackups.MustGet()))
+		}
+
 		if len(vals) == 0 {
 			vals = append(vals, sqlite.Arg(nil))
 		}
@@ -682,7 +710,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 41)
+	exprs := make([]bob.Expression, 0, 43)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -968,6 +996,20 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "default_env_vars")...),
 			sqlite.Arg(s.DefaultEnvVars),
+		}})
+	}
+
+	if s.LinuxAllowBackups.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "linux_allow_backups")...),
+			sqlite.Arg(s.LinuxAllowBackups),
+		}})
+	}
+
+	if s.WindowsAllowBackups.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "windows_allow_backups")...),
+			sqlite.Arg(s.WindowsAllowBackups),
 		}})
 	}
 
@@ -1326,6 +1368,8 @@ type gameWhere[Q sqlite.Filterable] struct {
 	OfficialDefinitionSchemaVersion   sqlite.WhereMod[Q, int64]
 	OfficialDefinitionDiverged        sqlite.WhereMod[Q, bool]
 	DefaultEnvVars                    sqlite.WhereMod[Q, string]
+	LinuxAllowBackups                 sqlite.WhereMod[Q, bool]
+	WindowsAllowBackups               sqlite.WhereMod[Q, bool]
 }
 
 func (gameWhere[Q]) AliasedAs(alias string) gameWhere[Q] {
@@ -1375,6 +1419,8 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		OfficialDefinitionSchemaVersion:   sqlite.Where[Q, int64](cols.OfficialDefinitionSchemaVersion),
 		OfficialDefinitionDiverged:        sqlite.Where[Q, bool](cols.OfficialDefinitionDiverged),
 		DefaultEnvVars:                    sqlite.Where[Q, string](cols.DefaultEnvVars),
+		LinuxAllowBackups:                 sqlite.Where[Q, bool](cols.LinuxAllowBackups),
+		WindowsAllowBackups:               sqlite.Where[Q, bool](cols.WindowsAllowBackups),
 	}
 }
 

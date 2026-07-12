@@ -1086,6 +1086,12 @@ function readinessLabel(kind: string): string {
   if (kind === 'hytale_account') {
     return 'Hytale account'
   }
+  if (kind === 'sunkenland_world') {
+    return 'Sunkenland world'
+  }
+  if (kind === 'dragonwilds_config') {
+    return 'Dragonwilds configuration'
+  }
   return 'Setup'
 }
 

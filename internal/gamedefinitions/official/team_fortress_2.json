@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4054702fc69e4f9b1e756da444b7ddc93c3efe76d065e0cea9085db2c1a57a6e",
+  "content_hash": "sha256:2b49d866da113ac1c97d770aecef42ae3b55f8ca1cabcfec8cb80cf528d3f106",
   "game": {
     "id": "team_fortress_2",
     "name": "Team Fortress 2",
@@ -10,16 +10,16 @@
     "defaultMaxPlayers": "24",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "quit",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 232250 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 232250 validate +quit",
     "linuxWorkingDirectory": "",
-    "linuxAllowBackups": false,
-    "windowsStopCommand": "",
+    "linuxAllowBackups": true,
+    "windowsStopCommand": "quit",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 232250 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 232250 validate +quit",
     "windowsWorkingDirectory": "",
-    "windowsAllowBackups": false,
+    "windowsAllowBackups": true,
     "requireDedicatedIp": false,
     "bindsToAllIps": true,
     "createdAt": null,
@@ -103,7 +103,7 @@
     {
       "id": "runtime_team_fortress_2_linux_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-game",
         "tf"
@@ -113,7 +113,7 @@
     {
       "id": "runtime_team_fortress_2_linux_02",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-strictportbind"
       ],
@@ -144,22 +144,24 @@
     {
       "id": "runtime_team_fortress_2_linux_05",
       "order": 5,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+clientport",
-        "27005"
+        "{{PORT_PLUS_1}}"
       ],
-      "label": "Client port"
+      "label": "Client port",
+      "managed_source": "game_server.port_plus_1"
     },
     {
       "id": "runtime_team_fortress_2_linux_06",
       "order": 6,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+tv_port",
-        "27020"
+        "{{PORT_PLUS_2}}"
       ],
-      "label": "TV port"
+      "label": "TV port",
+      "managed_source": "game_server.port_plus_2"
     },
     {
       "id": "runtime_team_fortress_2_linux_07",
@@ -174,7 +176,7 @@
     {
       "id": "runtime_team_fortress_2_linux_08",
       "order": 8,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "+servercfgfile",
         "server.cfg"
@@ -184,12 +186,13 @@
     {
       "id": "runtime_team_fortress_2_linux_09",
       "order": 9,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Maxplayers"
+      "label": "Maxplayers",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_team_fortress_2_linux_10",
@@ -201,13 +204,33 @@
       ],
       "label": "Steam GSLT",
       "managed_source": "steam_gslt"
+    },
+    {
+      "id": "runtime_team_fortress_2_linux_11",
+      "order": 11,
+      "ownership": "locked",
+      "tokens": [
+        "-norestart"
+      ],
+      "label": "No restart"
+    },
+    {
+      "id": "runtime_team_fortress_2_linux_12",
+      "order": 12,
+      "ownership": "system",
+      "tokens": [
+        "+hostname",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
     }
   ],
   "windows_start_args_template": [
     {
       "id": "runtime_team_fortress_2_windows_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-console"
       ],
@@ -216,7 +239,7 @@
     {
       "id": "runtime_team_fortress_2_windows_02",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-game",
         "tf"
@@ -258,12 +281,13 @@
     {
       "id": "runtime_team_fortress_2_windows_06",
       "order": 6,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Maxplayers"
+      "label": "Maxplayers",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_team_fortress_2_windows_07",
@@ -284,6 +308,48 @@
       ],
       "label": "Steam GSLT",
       "managed_source": "steam_gslt"
+    },
+    {
+      "id": "runtime_team_fortress_2_windows_09",
+      "order": 9,
+      "ownership": "locked",
+      "tokens": [
+        "-strictportbind"
+      ],
+      "label": "Strict port bind"
+    },
+    {
+      "id": "runtime_team_fortress_2_windows_10",
+      "order": 10,
+      "ownership": "system",
+      "tokens": [
+        "+clientport",
+        "{{PORT_PLUS_1}}"
+      ],
+      "label": "Client port",
+      "managed_source": "game_server.port_plus_1"
+    },
+    {
+      "id": "runtime_team_fortress_2_windows_11",
+      "order": 11,
+      "ownership": "system",
+      "tokens": [
+        "+tv_port",
+        "{{PORT_PLUS_2}}"
+      ],
+      "label": "TV port",
+      "managed_source": "game_server.port_plus_2"
+    },
+    {
+      "id": "runtime_team_fortress_2_windows_12",
+      "order": 12,
+      "ownership": "system",
+      "tokens": [
+        "+hostname",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
     }
   ],
   "start_arg_blocklist": [],

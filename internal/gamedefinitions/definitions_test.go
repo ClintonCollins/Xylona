@@ -2,6 +2,7 @@ package gamedefinitions_test
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -10,8 +11,11 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
 	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
+	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
+	internalgames "github.com/ClintonCollins/Xylona/internal/gameintegrations/games"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -41,6 +45,11 @@ var officialGameDefinitionIDs = []string{
 	"v_rising",
 	"valheim",
 	"windrose",
+}
+
+var officialFixedMaxPlayers = map[string]int64{
+	"aska":    4,
+	"valheim": 10,
 }
 
 func TestExportParseRoundTripPreservesStructuredSections(t *testing.T) {
@@ -195,6 +204,220 @@ func TestLoadBundledDefinitions(t *testing.T) {
 			t.Fatalf("ValidateModel(%s) errors = %v", definition.Model.ID, validationErrors)
 		}
 	}
+}
+
+func TestOfficialDefinitionsHaveTurnkeyRuntimeContracts(t *testing.T) {
+	internalgames.RegisterInternalGames()
+
+	definitions, errLoad := gamedefinitions.LoadBundled()
+	if errLoad != nil {
+		t.Fatalf("LoadBundled() error = %v", errLoad)
+	}
+	for _, definition := range definitions {
+		t.Run(definition.Model.ID, func(t *testing.T) {
+			game := definition.Game
+			model := definition.Model
+			wantSource := model.ID + ".json"
+			if model.OfficialDefinitionSource != wantSource {
+				t.Errorf("OfficialDefinitionSource = %q, want %q", model.OfficialDefinitionSource, wantSource)
+			}
+			if !game.GetLinuxSupport() && !game.GetWindowsSupport() {
+				t.Error("definition does not support any operating system")
+			}
+			validateOfficialDefinitionRange(t, "default port", game.GetDefaultPort(), 1, 65535)
+			validateOfficialDefinitionRange(t, "default query port", game.GetDefaultQueryPort(), 1, 65535)
+			validateOfficialDefinitionRange(t, "default max players", game.GetDefaultMaxPlayers(), 1, 65535)
+			fixedMaxPlayers, hasFixedMaxPlayers := officialFixedMaxPlayers[game.GetId()]
+			if hasFixedMaxPlayers && game.GetDefaultMaxPlayers() != fixedMaxPlayers {
+				t.Errorf("default max players = %d, want fixed game capacity %d", game.GetDefaultMaxPlayers(), fixedMaxPlayers)
+			}
+
+			gameConfig, errConfig := updateconfig.LoadGameConfigFromModel(model)
+			if errConfig != nil {
+				t.Fatalf("LoadGameConfigFromModel() error = %v", errConfig)
+			}
+			validateOfficialPlatform(t, officialPlatform{
+				name:             "linux",
+				supported:        game.GetLinuxSupport(),
+				installType:      game.GetLinuxInstallType(),
+				updateType:       game.GetLinuxUpdateType(),
+				installProcessor: game.GetLinuxInstallCommandProcessor(),
+				updateProcessor:  game.GetLinuxUpdateCommandProcessor(),
+				installCommand:   game.GetLinuxInstallCommand(),
+				updateCommand:    game.GetLinuxUpdateCommand(),
+				workingDirectory: game.GetLinuxWorkingDirectory(),
+				baseCommand:      game.GetLinuxBaseCommand(),
+				startArgs:        model.LinuxStartArgsTemplate.GetOr(""),
+			}, game, model, gameConfig)
+			validateOfficialPlatform(t, officialPlatform{
+				name:             "windows",
+				supported:        game.GetWindowsSupport(),
+				installType:      game.GetWindowsInstallType(),
+				updateType:       game.GetWindowsUpdateType(),
+				installProcessor: game.GetWindowsInstallCommandProcessor(),
+				updateProcessor:  game.GetWindowsUpdateCommandProcessor(),
+				installCommand:   game.GetWindowsInstallCommand(),
+				updateCommand:    game.GetWindowsUpdateCommand(),
+				workingDirectory: game.GetWindowsWorkingDirectory(),
+				baseCommand:      game.GetWindowsBaseCommand(),
+				startArgs:        model.WindowsStartArgsTemplate.GetOr(""),
+			}, game, model, gameConfig)
+		})
+	}
+}
+
+type officialPlatform struct {
+	name             string
+	supported        bool
+	installType      xylona.CommandType
+	updateType       xylona.CommandType
+	installProcessor xylona.CommandProcessor
+	updateProcessor  xylona.CommandProcessor
+	installCommand   string
+	updateCommand    string
+	workingDirectory string
+	baseCommand      string
+	startArgs        string
+}
+
+func validateOfficialPlatform(
+	t *testing.T,
+	platform officialPlatform,
+	game *xylona.Game,
+	model *models.Game,
+	gameConfig updateproviders.GameConfig,
+) {
+	t.Helper()
+	if !platform.supported {
+		return
+	}
+
+	if platform.installType == xylona.CommandType_NONE {
+		t.Errorf("%s install type is NONE", platform.name)
+	}
+	if strings.TrimSpace(platform.baseCommand) == "" {
+		t.Errorf("%s base command is empty", platform.name)
+	}
+	validateOfficialCommand(t, platform.name+" install", platform.installType, platform.installProcessor, platform.installCommand, game)
+
+	if platform.updateType == xylona.CommandType_NONE && gameConfig.UpdateProvider.Kind == updateproviders.ProviderKindNone {
+		t.Errorf("%s update mechanism is not configured", platform.name)
+	} else {
+		validateOfficialCommand(t, platform.name+" update", platform.updateType, platform.updateProcessor, platform.updateCommand, game)
+	}
+
+	workingDirectory := strings.TrimSpace(platform.workingDirectory)
+	if workingDirectory == ".." || strings.HasPrefix(workingDirectory, "../") || strings.HasPrefix(workingDirectory, `..\`) {
+		t.Errorf("%s working directory escapes the server root: %q", platform.name, platform.workingDirectory)
+	}
+
+	runtimeConfig := platform.startArgs + "\n" + model.ConfigSchemas.GetOr("")
+	hasGamePort := containsAny(runtimeConfig, "{{PORT}}", "%GAMESERVER_PORT%", "game_server.port")
+	hasQueryPort := containsAny(runtimeConfig, "{{QUERY_PORT}}", "%GAMESERVER_QUERY_PORT%", "game_server.query_port")
+	if game.GetDefaultPort() == game.GetDefaultQueryPort() {
+		if !hasGamePort && !hasQueryPort {
+			t.Errorf("%s runtime does not consume the configured shared game/query port", platform.name)
+		}
+	} else if !hasGamePort {
+		t.Errorf("%s runtime does not consume the configured game port", platform.name)
+	}
+
+	queryPortIsDerived := game.GetDefaultQueryPort() == game.GetDefaultPort()+1
+	queryPortHandledOutsideDefinition := game.GetId() == "palworld"
+	if game.GetDefaultQueryPort() != game.GetDefaultPort() &&
+		!queryPortIsDerived && !queryPortHandledOutsideDefinition && !hasQueryPort {
+		t.Errorf("%s runtime does not consume the configured query port", platform.name)
+	}
+
+	_, maxPlayersFixedByGame := officialFixedMaxPlayers[game.GetId()]
+	maxPlayersHandledOutsideDefinition := game.GetId() == "palworld" || maxPlayersFixedByGame
+	if !maxPlayersHandledOutsideDefinition &&
+		!containsAny(runtimeConfig, "{{MAX_PLAYERS}}", "%GAMESERVER_MAX_PLAYERS%", "game_server.max_players") {
+		t.Errorf("%s runtime does not consume the configured max players", platform.name)
+	}
+}
+
+func validateOfficialCommand(
+	t *testing.T,
+	label string,
+	commandType xylona.CommandType,
+	processor xylona.CommandProcessor,
+	command string,
+	game *xylona.Game,
+) {
+	t.Helper()
+	trimmedCommand := strings.TrimSpace(command)
+	switch commandType {
+	case xylona.CommandType_NONE:
+		return
+	case xylona.CommandType_STEAMCMD:
+		appID := strings.TrimSpace(game.GetSteamAppid())
+		parsedAppID, errAppID := strconv.ParseUint(appID, 10, 64)
+		if errAppID != nil || parsedAppID == 0 {
+			t.Errorf("%s Steam app ID = %q, want a positive integer", label, appID)
+		}
+		if !game.GetUsesSteamcmd() {
+			t.Errorf("%s uses STEAMCMD but usesSteamcmd is false", label)
+		}
+		loginFragment := "+login anonymous"
+		if game.GetId() == gameintegrations.StarboundGameID {
+			loginFragment = `+login "{{STEAM_USERNAME}}"`
+		}
+		for _, fragment := range []string{
+			"steamcmd",
+			loginFragment,
+			"+app_update " + appID,
+			"validate",
+			"+quit",
+		} {
+			if !strings.Contains(strings.ToLower(trimmedCommand), strings.ToLower(fragment)) {
+				t.Errorf("%s command does not contain %q", label, fragment)
+			}
+		}
+		forceInstallDirectory := "+force_install_dir %GAMESERVER_DIRECTORY%"
+		quotedForceInstallDirectory := `+force_install_dir "%GAMESERVER_DIRECTORY%"`
+		if !strings.Contains(strings.ToLower(trimmedCommand), strings.ToLower(forceInstallDirectory)) &&
+			!strings.Contains(strings.ToLower(trimmedCommand), strings.ToLower(quotedForceInstallDirectory)) {
+			t.Errorf("%s command does not contain a force-install directory", label)
+		}
+	case xylona.CommandType_COMMAND:
+		if processor == xylona.CommandProcessor_XYLONA_INTERNAL {
+			_, registered := gameintegrations.GetGame(game.GetId())
+			if !registered {
+				t.Errorf("%s uses XYLONA_INTERNAL but game integration %q is not registered", label, game.GetId())
+			}
+			return
+		}
+		if trimmedCommand == "" {
+			t.Errorf("%s command is empty", label)
+		}
+	case xylona.CommandType_PAPERMC, xylona.CommandType_MOJANG:
+		if processor != xylona.CommandProcessor_XYLONA_INTERNAL {
+			t.Errorf("%s type %s must use XYLONA_INTERNAL", label, commandType)
+		}
+		_, registered := gameintegrations.GetGame(game.GetId())
+		if !registered {
+			t.Errorf("%s internal game integration %q is not registered", label, game.GetId())
+		}
+	default:
+		t.Errorf("%s command type %s is unsupported", label, commandType)
+	}
+}
+
+func validateOfficialDefinitionRange(t *testing.T, label string, value int64, minimum int64, maximum int64) {
+	t.Helper()
+	if value < minimum || value > maximum {
+		t.Errorf("%s = %d, want %d..%d", label, value, minimum, maximum)
+	}
+}
+
+func containsAny(value string, candidates ...string) bool {
+	for _, candidate := range candidates {
+		if strings.Contains(value, candidate) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestSyncOfficialDefinitionsInsertsDefinitionsForEmptyDatabase(t *testing.T) {

@@ -255,6 +255,7 @@ func getGameServerConfigFile(
 	// Create resolver for managed fields.
 	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
 		Name:       gameServer.Name,
+		Directory:  gameServer.Directory,
 		IP:         gameServer.IP,
 		Port:       gameServer.Port,
 		QueryPort:  gameServer.QueryPort,
@@ -601,6 +602,7 @@ func generateGameServerConfigFile(
 	// Get resolver.
 	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
 		Name:       gameServer.Name,
+		Directory:  gameServer.Directory,
 		IP:         gameServer.IP,
 		Port:       gameServer.Port,
 		QueryPort:  gameServer.QueryPort,

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:54a9b01fbb5a9e99a212325fc4c6fab1287851d1121030da8545d23e7847d007",
+  "content_hash": "sha256:3349cd6158c782686c90523baae7c3f190086480a57e82e3017ee79a83590bfa",
   "game": {
     "id": "counter_strike_2",
     "name": "Counter-Strike 2",
@@ -10,12 +10,12 @@
     "defaultMaxPlayers": "10",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "quit",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 730 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 730 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
-    "windowsStopCommand": "",
+    "windowsStopCommand": "quit",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 730 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 730 validate +quit",
     "windowsWorkingDirectory": "",
@@ -103,7 +103,7 @@
     {
       "id": "runtime_counter_strike_2_linux_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-dedicated"
       ],
@@ -112,7 +112,7 @@
     {
       "id": "runtime_counter_strike_2_linux_02",
       "order": 2,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-ip",
         "0.0.0.0"
@@ -133,12 +133,13 @@
     {
       "id": "runtime_counter_strike_2_linux_04",
       "order": 4,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Maxplayers"
+      "label": "Maxplayers",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_counter_strike_2_linux_05",
@@ -153,12 +154,13 @@
     {
       "id": "runtime_counter_strike_2_linux_06",
       "order": 6,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+hostname",
         "{{SERVER_NAME}}"
       ],
-      "label": "Server name"
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
     },
     {
       "id": "runtime_counter_strike_2_linux_07",
@@ -176,7 +178,7 @@
     {
       "id": "runtime_counter_strike_2_windows_01",
       "order": 1,
-      "ownership": "editable",
+      "ownership": "locked",
       "tokens": [
         "-dedicated"
       ],
@@ -245,12 +247,13 @@
     {
       "id": "runtime_counter_strike_2_windows_08",
       "order": 8,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "-maxplayers",
         "{{MAX_PLAYERS}}"
       ],
-      "label": "Maxplayers"
+      "label": "Maxplayers",
+      "managed_source": "game_server.max_players"
     },
     {
       "id": "runtime_counter_strike_2_windows_09",
@@ -275,12 +278,13 @@
     {
       "id": "runtime_counter_strike_2_windows_11",
       "order": 11,
-      "ownership": "editable",
+      "ownership": "system",
       "tokens": [
         "+hostname",
         "{{SERVER_NAME}}"
       ],
-      "label": "Server name"
+      "label": "Server name",
+      "managed_source": "game_server.server_name"
     },
     {
       "id": "runtime_counter_strike_2_windows_12",
