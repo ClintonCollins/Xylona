@@ -149,17 +149,37 @@ type MatchFieldsResult struct {
 // ManagedFieldResolver resolves managed field source paths to values.
 type ManagedFieldResolver func(source string) (string, bool)
 
-// ServerSettingsResolver creates a ManagedFieldResolver from server settings.
-func ServerSettingsResolver(ip string, port int64, queryPort int64) ManagedFieldResolver {
+// GameServerSettings contains server values that can own generated config fields.
+type GameServerSettings struct {
+	Name       string
+	IP         string
+	Port       int64
+	QueryPort  int64
+	MaxPlayers int64
+}
+
+// GameServerSettingsResolver creates a ManagedFieldResolver from all supported server settings.
+func GameServerSettingsResolver(settings GameServerSettings) ManagedFieldResolver {
 	sources := map[string]string{
-		"game_server.ip":         ip,
-		"game_server.port":       strconv.FormatInt(port, 10),
-		"game_server.query_port": strconv.FormatInt(queryPort, 10),
+		"game_server.ip":          settings.IP,
+		"game_server.port":        strconv.FormatInt(settings.Port, 10),
+		"game_server.query_port":  strconv.FormatInt(settings.QueryPort, 10),
+		"game_server.max_players": strconv.FormatInt(settings.MaxPlayers, 10),
+		"game_server.server_name": settings.Name,
 	}
 	return func(source string) (string, bool) {
 		v, ok := sources[normalizeManagedSource(source)]
 		return v, ok
 	}
+}
+
+// ServerSettingsResolver creates a ManagedFieldResolver from server settings.
+func ServerSettingsResolver(ip string, port int64, queryPort int64) ManagedFieldResolver {
+	return GameServerSettingsResolver(GameServerSettings{
+		IP:        ip,
+		Port:      port,
+		QueryPort: queryPort,
+	})
 }
 
 // MatchFields matches parsed config entries against a JSON Schema and returns

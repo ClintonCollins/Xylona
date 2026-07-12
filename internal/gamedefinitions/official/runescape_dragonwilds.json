@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:bf56e6948a7bbb42c6866236c9b4d1bc612e6c7f3cc2ee5dbca0c203792f1185",
+  "content_hash": "sha256:4cd1d945e9fc5075b1fb72a1e328d9f0ec2584d2d01ead8179d6a596e56d20df",
   "game": {
     "id": "runescape_dragonwilds",
     "name": "RuneScape: Dragonwilds",

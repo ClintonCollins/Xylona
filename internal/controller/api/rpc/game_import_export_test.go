@@ -251,11 +251,11 @@ func TestImportGamePreviewReportsSameSummaryComplexChanges(t *testing.T) {
 			name:         "start arg token",
 			gameID:       "valheim",
 			path:         "linux_start_args_template.01JQSD00000000000000000001.tokens",
-			wantPrevious: `-name "My Valheim Server"`,
+			wantPrevious: `-name {{SERVER_NAME}}`,
 			wantImported: `-name "Imported Valheim Server"`,
 			mutate: func(t *testing.T, definitionJSON string) string {
 				t.Helper()
-				return replaceOnce(t, definitionJSON, `"My Valheim Server"`, `"Imported Valheim Server"`)
+				return replaceOnce(t, definitionJSON, `"{{SERVER_NAME}}"`, `"Imported Valheim Server"`)
 			},
 		},
 		{
@@ -495,7 +495,7 @@ func TestImportGamePreviewReportsStartArgGranularChanges(t *testing.T) {
 		{
 			name:         "tokens",
 			path:         "linux_start_args_template.01JQSD00000000000000000001.tokens",
-			wantPrevious: `-name "My Valheim Server"`,
+			wantPrevious: `-name {{SERVER_NAME}}`,
 			wantImported: `-name "Imported Valheim Server"`,
 			mutate: func(t *testing.T, document map[string]any) {
 				t.Helper()
@@ -573,7 +573,7 @@ func TestImportGamePreviewReportsStartArgGranularChanges(t *testing.T) {
 		{
 			name:                 "block removed",
 			path:                 "linux_start_args_template.01JQSD00000000000000000001",
-			wantPreviousContains: `-name "My Valheim Server"`,
+			wantPreviousContains: `-name {{SERVER_NAME}}`,
 			wantImported:         "Missing",
 			mutate: func(t *testing.T, document map[string]any) {
 				t.Helper()

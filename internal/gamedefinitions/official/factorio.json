@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:fc8c0aec2cfe1643a62de25f29c1f7277dff65f4681318d98735d9fcf31e5fbe",
+  "content_hash": "sha256:8c14e681b5f879129e29967f4532d28d55f7fe1b1f87c597e2da0c612114336a",
   "game": {
     "id": "factorio",
     "name": "Factorio",
@@ -10,7 +10,7 @@
     "defaultMaxPlayers": "16",
     "linuxSupport": true,
     "windowsSupport": false,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "/quit",
     "linuxInstallCommand": "",
     "linuxUpdateCommand": "",
     "linuxWorkingDirectory": "",
@@ -26,8 +26,8 @@
     "updatedAt": null,
     "usesSourceQuery": false,
     "requiresSteamGameServerLoginToken": false,
-    "linuxInstallCommandProcessor": "DIRECT",
-    "linuxUpdateCommandProcessor": "DIRECT",
+    "linuxInstallCommandProcessor": "XYLONA_INTERNAL",
+    "linuxUpdateCommandProcessor": "XYLONA_INTERNAL",
     "windowsInstallCommandProcessor": "DIRECT",
     "windowsUpdateCommandProcessor": "DIRECT",
     "usesSteamcmd": false,
@@ -37,8 +37,8 @@
     "defaultTarget": "",
     "modProfile": null,
     "variants": [],
-    "linuxInstallType": "NONE",
-    "linuxUpdateType": "NONE",
+    "linuxInstallType": "COMMAND",
+    "linuxUpdateType": "COMMAND",
     "windowsInstallType": "NONE",
     "windowsUpdateType": "NONE",
     "linuxStartArgsTemplate": "",
@@ -58,6 +58,11 @@
       "path": "data/server-settings.json",
       "format": "json",
       "category": "Server",
+      "generate_before_start": true,
+      "managed_fields": {
+        "name": "game_server.server_name",
+        "max_players": "game_server.max_players"
+      },
       "schema": {
         "type": "object",
         "x-groups": [
@@ -71,7 +76,10 @@
             "title": "Server name",
             "default": "Factorio Server",
             "x-group": "Identity",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
           },
           "description": {
             "type": "string",
@@ -87,7 +95,10 @@
             "minimum": 0,
             "maximum": 65535,
             "x-group": "Access",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.max_players"
+            }
           },
           "game_password": {
             "type": "string",
@@ -99,7 +110,7 @@
           "visibility.public": {
             "type": "boolean",
             "title": "Public listing",
-            "default": true,
+            "default": false,
             "x-group": "Networking",
             "x-order": 0
           }
@@ -144,7 +155,7 @@
   "start_arg_blocklist": [],
   "update_config": {
     "update_provider": {
-      "kind": "none"
+      "kind": "command"
     }
   }
 }

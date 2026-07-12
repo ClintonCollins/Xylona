@@ -1,13 +1,18 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+const steamGSLTPlaceholder = "STEAM_GSLT"
 
 func (inst *Instance) reloadGameServerForStart(gameServer *models.GameServer) (*models.GameServer, error) {
 	if inst.db == nil {
@@ -79,6 +84,29 @@ func (inst *Instance) listStartLaunchSecretStates(gameServerID string) ([]launch
 
 func startLaunchEnvRequired(normalEnv []launchenv.Variable, secretStates []launchenv.SecretState) bool {
 	return len(normalEnv) > 0 || len(secretStates) > 0
+}
+
+func (inst *Instance) secretStartPlaceholderVars(gameServer *models.GameServer) (map[string]string, error) {
+	if gameServer == nil || gameServer.R.Game == nil || !gameServer.R.Game.RequiresSteamGameServerLoginToken {
+		return map[string]string{}, nil
+	}
+	if inst.db == nil {
+		return nil, errors.New("load Steam GSLT: database is missing")
+	}
+
+	token, configured, errToken := inst.db.DecryptGameServerSecret(
+		gameServer.ID,
+		db.GameServerSecretKindSteamGSLT,
+		db.GameServerSecretNameSteamGSLT,
+	)
+	if errToken != nil {
+		return nil, fmt.Errorf("load Steam GSLT: %w", errToken)
+	}
+	if !configured || strings.TrimSpace(token) == "" {
+		return nil, errors.New("load Steam GSLT: token is not configured")
+	}
+
+	return map[string]string{steamGSLTPlaceholder: token}, nil
 }
 
 func (inst *Instance) decryptStartLaunchEnv(gameServer *models.GameServer, normalEnv []launchenv.Variable) (map[string]string, error) {

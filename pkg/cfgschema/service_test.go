@@ -236,6 +236,43 @@ func TestMatchFields_ManagedFieldAliasesResolved(t *testing.T) {
 	}
 }
 
+func TestGameServerSettingsResolver(t *testing.T) {
+	resolver := GameServerSettingsResolver(GameServerSettings{
+		Name:       "Example Server",
+		IP:         "127.0.0.1",
+		Port:       25565,
+		QueryPort:  25566,
+		MaxPlayers: 24,
+	})
+
+	testCases := []struct {
+		name       string
+		source     string
+		want       string
+		wantExists bool
+	}{
+		{name: "name", source: "game_server.server_name", want: "Example Server", wantExists: true},
+		{name: "name alias", source: "server_name", want: "Example Server", wantExists: true},
+		{name: "IP", source: "game_server.ip", want: "127.0.0.1", wantExists: true},
+		{name: "port", source: "game_server.port", want: "25565", wantExists: true},
+		{name: "query port", source: "game_server.query_port", want: "25566", wantExists: true},
+		{name: "max players", source: "game_server.max_players", want: "24", wantExists: true},
+		{name: "max players alias", source: "max_players", want: "24", wantExists: true},
+		{name: "unknown", source: "game_server.unknown", wantExists: false},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got, exists := resolver(testCase.source)
+			if exists != testCase.wantExists {
+				t.Fatalf("resolver(%q) exists = %t, want %t", testCase.source, exists, testCase.wantExists)
+			}
+			if got != testCase.want {
+				t.Errorf("resolver(%q) = %q, want %q", testCase.source, got, testCase.want)
+			}
+		})
+	}
+}
+
 func TestParseConfigSchemas_DerivesManagedFieldsFromSchemaProperties(t *testing.T) {
 	input := `[{
 		"path": "server.properties",

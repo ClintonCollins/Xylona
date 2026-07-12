@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/stephenafamo/bob"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
@@ -26,11 +28,9 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/internal/placeholder"
+	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
-
-	"github.com/ClintonCollins/Xylona/internal/db"
-	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -397,6 +397,13 @@ func (inst *Instance) reportStartFailure(gameServer *models.GameServer, message 
 }
 
 func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServer) (string, []string, error) {
+	return inst.resolveStructuredStartCommandWithVars(gameServer, nil)
+}
+
+func (inst *Instance) resolveStructuredStartCommandWithVars(
+	gameServer *models.GameServer,
+	extraVars map[string]string,
+) (string, []string, error) {
 	if gameServer.R.Game == nil {
 		return "", nil, errGameRelationNotLoaded
 	}
@@ -423,6 +430,7 @@ func (inst *Instance) resolveStructuredStartCommand(gameServer *models.GameServe
 	}
 
 	startVars := placeholder.BuildVarsFromGameServer(gameServer)
+	maps.Copy(startVars, extraVars)
 	if gameServer.GameID == "minecraft" {
 		serverExecutable := strings.TrimSpace(gameServer.ServerExecutable.GetOr(""))
 		if serverExecutable == "" {
@@ -511,13 +519,23 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, errReadiness.Error())
 		return nil, startConfigurationError("server setup is incomplete", errReadiness)
 	}
+	secretStartVars, errSecretStartVars := inst.secretStartPlaceholderVars(gameServer)
+	if errSecretStartVars != nil {
+		inst.reportStartFailure(gameServer, "Failed to load server launch secret: "+errSecretStartVars.Error())
+		return nil, startConfigurationError("server launch secret is unavailable", errSecretStartVars)
+	}
 
 	// Run pre-start config enforcement before launching the process.
 	inst.runConfigPreStart(gameServer)
+	errGameLaunchSecrets := inst.writeGameLaunchSecrets(gameServer, client, secretStartVars)
+	if errGameLaunchSecrets != nil {
+		inst.reportStartFailure(gameServer, "Failed to prepare server launch secret: "+errGameLaunchSecrets.Error())
+		return nil, startConfigurationError("server launch secret could not be prepared", errGameLaunchSecrets)
+	}
 	// Run mod auto-updates before launching the process.
 	inst.runModAutoUpdates(gameServer)
 
-	baseCommand, args, errResolve := inst.resolveStructuredStartCommand(gameServer)
+	baseCommand, args, errResolve := inst.resolveStructuredStartCommandWithVars(gameServer, secretStartVars)
 	if errResolve != nil {
 		inst.reportStartFailure(gameServer, errResolve.Error())
 		return nil, startConfigurationError("start configuration is incomplete", errResolve)
@@ -624,7 +642,13 @@ func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
 		return
 	}
 
-	resolver := cfgschema.ServerSettingsResolver(gameServer.IP, gameServer.Port, gameServer.QueryPort)
+	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
+		Name:       gameServer.Name,
+		IP:         gameServer.IP,
+		Port:       gameServer.Port,
+		QueryPort:  gameServer.QueryPort,
+		MaxPlayers: gameServer.MaxPlayers,
+	})
 	if inst.isRemoteGameServer(gameServer) {
 		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 		if errClient != nil {

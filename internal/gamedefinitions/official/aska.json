@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4e5a3615f37aeafffb4a58d0fc7bc2e2878057ef0961b0367fdbfc5d09d19b22",
+  "content_hash": "sha256:7450c40f2cb722bfb1332d115077fdd8f4f4123fecf664744268693e3b57b313",
   "game": {
     "id": "aska",
     "name": "Aska",
@@ -25,7 +25,7 @@
     "createdAt": null,
     "updatedAt": null,
     "usesSourceQuery": false,
-    "requiresSteamGameServerLoginToken": false,
+    "requiresSteamGameServerLoginToken": true,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
     "windowsInstallCommandProcessor": "DIRECT",
@@ -59,6 +59,8 @@
       "format": "ini",
       "category": "Server",
       "managed_fields": {
+        "display name": "game_server.server_name",
+        "authentication token": "steam_gslt",
         "steam game port": "game_server.port",
         "steam query port": "game_server.query_port"
       },
@@ -75,7 +77,10 @@
             "title": "Display name",
             "default": "My ASKA Server",
             "x-group": "Identity",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
           },
           "server name": {
             "type": "string",
@@ -103,7 +108,10 @@
             "title": "Steam authentication token",
             "default": "",
             "x-group": "Access",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "steam_gslt"
+            }
           },
           "steam game port": {
             "type": "integer",

@@ -54,6 +54,8 @@ var BackendManagedSourceMapping = map[string]string{
 	"game_server.port":          "PORT",
 	"game_server.query_port":    "QUERY_PORT",
 	"game_server.max_memory_mb": "MAX_MEMORY_MB",
+	"game_server.max_players":   "MAX_PLAYERS",
+	"game_server.server_name":   "SERVER_NAME",
 }
 
 // legacyMapping maps old %GAMESERVER_*% format to new placeholder keys.

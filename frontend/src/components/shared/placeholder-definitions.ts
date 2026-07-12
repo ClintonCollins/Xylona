@@ -79,6 +79,7 @@ export const managedSourceLabels: Record<string, string> = {
   'game_server.rcon_port': 'RCON Port',
   'game_server.rcon_password': 'RCON Password',
   server_executable: 'Server Executable',
+  steam_gslt: 'Steam GSLT',
 }
 
 /** Returns a human-readable label for a managed source key, or the raw key if unknown */

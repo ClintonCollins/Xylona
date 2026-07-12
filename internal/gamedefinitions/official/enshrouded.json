@@ -1,11 +1,11 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4aa7deb77ea96b3ea70f567d6a4861140e457291615723962cb18f5fe556ba54",
+  "content_hash": "sha256:3bec440e82e70f44208e94644d693ed9feca5bf1901423bbf0c30ee5b9aaf0c2",
   "game": {
     "id": "enshrouded",
     "name": "Enshrouded",
-    "defaultPort": "15636",
+    "defaultPort": "15637",
     "defaultQueryPort": "15637",
     "defaultMaxPlayers": "16",
     "linuxSupport": false,
@@ -59,6 +59,8 @@
       "format": "json",
       "category": "Server",
       "managed_fields": {
+        "name": "game_server.server_name",
+        "slotCount": "game_server.max_players",
         "queryPort": "game_server.query_port"
       },
       "schema": {
@@ -75,7 +77,10 @@
             "title": "Server name",
             "default": "Enshrouded Server",
             "x-group": "Identity",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
           },
           "password": {
             "type": "string",
@@ -91,7 +96,10 @@
             "minimum": 1,
             "maximum": 16,
             "x-group": "Access",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.max_players"
+            }
           },
           "ip": {
             "type": "string",

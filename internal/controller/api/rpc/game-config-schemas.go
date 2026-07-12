@@ -253,7 +253,13 @@ func getGameServerConfigFile(
 	}
 
 	// Create resolver for managed fields.
-	resolver := cfgschema.ServerSettingsResolver(gameServer.IP, gameServer.Port, gameServer.QueryPort)
+	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
+		Name:       gameServer.Name,
+		IP:         gameServer.IP,
+		Port:       gameServer.Port,
+		QueryPort:  gameServer.QueryPort,
+		MaxPlayers: gameServer.MaxPlayers,
+	})
 
 	// Match fields.
 	result := cfgschema.MatchFields(parsed, schemaEntry.Schema, schemaEntry.ManagedFields, resolver)
@@ -593,7 +599,13 @@ func generateGameServerConfigFile(
 	}
 
 	// Get resolver.
-	resolver := cfgschema.ServerSettingsResolver(gameServer.IP, gameServer.Port, gameServer.QueryPort)
+	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
+		Name:       gameServer.Name,
+		IP:         gameServer.IP,
+		Port:       gameServer.Port,
+		QueryPort:  gameServer.QueryPort,
+		MaxPlayers: gameServer.MaxPlayers,
+	})
 
 	stagingDir, errMkdirTemp := os.MkdirTemp("", "xylona-config-generate-*")
 	if errMkdirTemp != nil {

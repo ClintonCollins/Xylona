@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:d685ace6fc659ba00c25658396bfa2401742e4775150362dfef3fccc9b28da39",
+  "content_hash": "sha256:6da520d53c600749840216d0c907995b3cae8f4dc695d2e605dec58559938121",
   "game": {
     "id": "valheim",
     "name": "Valheim",
@@ -61,7 +61,7 @@
       "ownership": "editable",
       "tokens": [
         "-name",
-        "My Valheim Server"
+        "{{SERVER_NAME}}"
       ],
       "label": "Server name"
     },
@@ -71,7 +71,7 @@
       "ownership": "editable",
       "tokens": [
         "-world",
-        "Dedicated"
+        "{{SERVER_ID}}"
       ],
       "label": "World name"
     },
@@ -95,6 +95,36 @@
       ],
       "label": "Game port",
       "managed_source": "game_server.port"
+    },
+    {
+      "id": "01JQSD00000000000000000005",
+      "order": 5,
+      "ownership": "locked",
+      "tokens": [
+        "-nographics",
+        "-batchmode"
+      ],
+      "label": "Headless server mode"
+    },
+    {
+      "id": "01JQSD00000000000000000006",
+      "order": 6,
+      "ownership": "locked",
+      "tokens": [
+        "-logFile",
+        "-"
+      ],
+      "label": "Console logging"
+    },
+    {
+      "id": "01JQSD00000000000000000007",
+      "order": 7,
+      "ownership": "locked",
+      "tokens": [
+        "-savedir",
+        "data"
+      ],
+      "label": "Per-server data directory"
     }
   ],
   "windows_start_args_template": [
@@ -104,7 +134,7 @@
       "ownership": "editable",
       "tokens": [
         "-name",
-        "My Valheim Server"
+        "{{SERVER_NAME}}"
       ],
       "label": "Server name"
     },
@@ -114,7 +144,7 @@
       "ownership": "editable",
       "tokens": [
         "-world",
-        "Dedicated"
+        "{{SERVER_ID}}"
       ],
       "label": "World name"
     },
@@ -138,6 +168,36 @@
       ],
       "label": "Game port",
       "managed_source": "game_server.port"
+    },
+    {
+      "id": "01JQSD00000000000000000005",
+      "order": 5,
+      "ownership": "locked",
+      "tokens": [
+        "-nographics",
+        "-batchmode"
+      ],
+      "label": "Headless server mode"
+    },
+    {
+      "id": "01JQSD00000000000000000006",
+      "order": 6,
+      "ownership": "locked",
+      "tokens": [
+        "-logFile",
+        "-"
+      ],
+      "label": "Console logging"
+    },
+    {
+      "id": "01JQSD00000000000000000007",
+      "order": 7,
+      "ownership": "locked",
+      "tokens": [
+        "-savedir",
+        "data"
+      ],
+      "label": "Per-server data directory"
     }
   ],
   "start_arg_blocklist": [],

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6aa0c4f13b281de95672fe4a192a9592f3eac04451dec8a654da4d0ea0acd7bd",
+  "content_hash": "sha256:827e644449e0e5dfb01a326c00446c0fdfafb7fae66cb30f2cbd67f639b55591",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -65,6 +65,8 @@
         "value_attr": "value"
       },
       "managed_fields": {
+        "ServerName": "game_server.server_name",
+        "ServerMaxPlayerCount": "game_server.max_players",
         "ServerPort": "game_server.port"
       },
       "schema": {
@@ -80,7 +82,10 @@
             "title": "Server name",
             "default": "My 7 Days to Die Server",
             "x-group": "Identity",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
           },
           "ServerDescription": {
             "type": "string",
@@ -103,7 +108,10 @@
             "minimum": 1,
             "maximum": 64,
             "x-group": "Access",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.max_players"
+            }
           },
           "ServerPort": {
             "type": "integer",

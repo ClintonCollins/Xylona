@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -241,7 +240,6 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	if currentCMD == nil {
 		return
 	}
-	fullCommandStr := fmt.Sprintf("%s %s", currentCMD.Path, strings.Join(currentCMD.Args, " "))
 	err := currentCMD.Start()
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to start command.")
@@ -263,7 +261,8 @@ func (inst *Instance) startAndWaitForJob(command *Command, commandEndFunc func(c
 	}
 	command.Unlock()
 
-	log.Debug().Str("Command ID", command.ID).Str("Exec", fullCommandStr).Msg("Command started")
+	log.Debug().Str("Command ID", command.ID).Str("executable", currentCMD.Path).
+		Int("argument_count", len(currentCMD.Args)).Msg("Command started")
 	command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)
 
 	// Run after startup function if it exists.

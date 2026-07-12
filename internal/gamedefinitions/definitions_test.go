@@ -1,6 +1,7 @@
 package gamedefinitions_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,34 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+var officialGameDefinitionIDs = []string{
+	"7_days_to_die",
+	"abiotic_factor",
+	"aska",
+	"conan_exiles",
+	"core_keeper",
+	"counter_strike_2",
+	"enshrouded",
+	"factorio",
+	"garrys_mod",
+	"hytale",
+	"minecraft",
+	"palworld",
+	"project_zomboid",
+	"runescape_dragonwilds",
+	"rust",
+	"satisfactory",
+	"sons_of_the_forest",
+	"starbound",
+	"sunkenland",
+	"survive_the_nights",
+	"team_fortress_2",
+	"terraria",
+	"v_rising",
+	"valheim",
+	"windrose",
+}
 
 func TestExportParseRoundTripPreservesStructuredSections(t *testing.T) {
 	conn := dbtest.NewMigratedConnection(t, "definition-roundtrip.sqlite")
@@ -150,10 +179,17 @@ func TestLoadBundledDefinitions(t *testing.T) {
 	if errLoad != nil {
 		t.Fatalf("LoadBundled() error = %v", errLoad)
 	}
-	if len(definitions) != 53 {
-		t.Fatalf("LoadBundled() = %d definitions, want 53", len(definitions))
+	definitionIDs := make([]string, 0, len(definitions))
+	for _, definition := range definitions {
+		definitionIDs = append(definitionIDs, definition.Model.ID)
+	}
+	if !slices.Equal(definitionIDs, officialGameDefinitionIDs) {
+		t.Fatalf("LoadBundled() IDs = %v, want %v", definitionIDs, officialGameDefinitionIDs)
 	}
 	for _, definition := range definitions {
+		if len(definition.Warnings) > 0 {
+			t.Errorf("definition %q warnings = %v", definition.Model.ID, definition.Warnings)
+		}
 		validationErrors := gamedefinitions.ValidateModel(definition.Model)
 		if len(validationErrors) > 0 {
 			t.Fatalf("ValidateModel(%s) errors = %v", definition.Model.ID, validationErrors)

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:639aec7d4c36971d4bc52666155baa4da921d7c74593c28e4e272a4d44c9bb06",
+  "content_hash": "sha256:0f70e2ae54f4ad4b94263eb5df178d82978ccfe94764e3b243b39ec595b6b0f1",
   "game": {
     "id": "core_keeper",
     "name": "Core Keeper",
@@ -10,12 +10,12 @@
     "defaultMaxPlayers": "8",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "q",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
-    "windowsStopCommand": "",
+    "windowsStopCommand": "q",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1963720 validate +quit",
     "windowsWorkingDirectory": "",
@@ -24,7 +24,7 @@
     "bindsToAllIps": true,
     "createdAt": null,
     "updatedAt": null,
-    "usesSourceQuery": false,
+    "usesSourceQuery": true,
     "requiresSteamGameServerLoginToken": false,
     "linuxInstallCommandProcessor": "DIRECT",
     "linuxUpdateCommandProcessor": "DIRECT",
@@ -60,7 +60,7 @@
       "order": 1,
       "ownership": "system",
       "tokens": [
-        "-worldport",
+        "-port",
         "{{PORT}}"
       ],
       "label": "Game port",
@@ -72,9 +72,69 @@
       "ownership": "editable",
       "tokens": [
         "-maxplayers",
-        "8"
+        "{{MAX_PLAYERS}}"
       ],
       "label": "Max players"
+    },
+    {
+      "id": "01JQSE00000000000000000003",
+      "order": 3,
+      "ownership": "locked",
+      "tokens": [
+        "-batchmode"
+      ],
+      "label": "Headless server mode"
+    },
+    {
+      "id": "01JQSE00000000000000000004",
+      "order": 4,
+      "ownership": "locked",
+      "tokens": [
+        "-logfile",
+        "-"
+      ],
+      "label": "Console logging"
+    },
+    {
+      "id": "01JQSE00000000000000000005",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-ip",
+        "{{IP}}"
+      ],
+      "label": "Bind address",
+      "managed_source": "game_server.ip"
+    },
+    {
+      "id": "01JQSE00000000000000000006",
+      "order": 6,
+      "ownership": "locked",
+      "tokens": [
+        "-datapath",
+        "data"
+      ],
+      "label": "Per-server data directory"
+    },
+    {
+      "id": "01JQSE00000000000000000007",
+      "order": 7,
+      "ownership": "editable",
+      "tokens": [
+        "-world",
+        "0"
+      ],
+      "label": "World slot"
+    },
+    {
+      "id": "01JQSE00000000000000000008",
+      "order": 8,
+      "ownership": "editable",
+      "tokens": [
+        "-worldname",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "World name"
     }
   ],
   "windows_start_args_template": [
@@ -83,7 +143,7 @@
       "order": 1,
       "ownership": "system",
       "tokens": [
-        "-worldport",
+        "-port",
         "{{PORT}}"
       ],
       "label": "Game port",
@@ -95,9 +155,69 @@
       "ownership": "editable",
       "tokens": [
         "-maxplayers",
-        "8"
+        "{{MAX_PLAYERS}}"
       ],
       "label": "Max players"
+    },
+    {
+      "id": "01JQSE00000000000000000003",
+      "order": 3,
+      "ownership": "locked",
+      "tokens": [
+        "-batchmode"
+      ],
+      "label": "Headless server mode"
+    },
+    {
+      "id": "01JQSE00000000000000000004",
+      "order": 4,
+      "ownership": "locked",
+      "tokens": [
+        "-logfile",
+        "-"
+      ],
+      "label": "Console logging"
+    },
+    {
+      "id": "01JQSE00000000000000000005",
+      "order": 5,
+      "ownership": "system",
+      "tokens": [
+        "-ip",
+        "{{IP}}"
+      ],
+      "label": "Bind address",
+      "managed_source": "game_server.ip"
+    },
+    {
+      "id": "01JQSE00000000000000000006",
+      "order": 6,
+      "ownership": "locked",
+      "tokens": [
+        "-datapath",
+        "data"
+      ],
+      "label": "Per-server data directory"
+    },
+    {
+      "id": "01JQSE00000000000000000007",
+      "order": 7,
+      "ownership": "editable",
+      "tokens": [
+        "-world",
+        "0"
+      ],
+      "label": "World slot"
+    },
+    {
+      "id": "01JQSE00000000000000000008",
+      "order": 8,
+      "ownership": "editable",
+      "tokens": [
+        "-worldname",
+        "{{SERVER_NAME}}"
+      ],
+      "label": "World name"
     }
   ],
   "start_arg_blocklist": [],

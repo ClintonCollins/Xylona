@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:c9ad81ee3235472d0e4d3d69cf98ee6b5bf462b074a08ce70b860f3acbf2a528",
+  "content_hash": "sha256:a2e3fac8dbd1cdbe7cc973d9b06687c0e56e00c5571833b87fb8e5574c56cceb",
   "game": {
     "id": "terraria",
     "name": "Terraria",
@@ -59,6 +59,7 @@
       "format": "commandcfg",
       "category": "Server",
       "managed_fields": {
+        "maxplayers": "game_server.max_players",
         "port": "game_server.port"
       },
       "schema": {
@@ -91,7 +92,10 @@
             "minimum": 1,
             "maximum": 255,
             "x-group": "Access",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.max_players"
+            }
           },
           "world": {
             "type": "string",

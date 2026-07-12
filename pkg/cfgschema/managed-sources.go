@@ -5,13 +5,18 @@ var managedSourceAliases = map[string]string{
 	"ip":          "game_server.ip",
 	"server_port": "game_server.port",
 	"query_port":  "game_server.query_port",
+	"max_players": "game_server.max_players",
+	"server_name": "game_server.server_name",
 }
 
 // knownManagedSources lists the recognized canonical managed field source paths.
 var knownManagedSources = map[string]bool{
-	"game_server.ip":         true,
-	"game_server.port":       true,
-	"game_server.query_port": true,
+	"game_server.ip":          true,
+	"game_server.port":        true,
+	"game_server.query_port":  true,
+	"game_server.max_players": true,
+	"game_server.server_name": true,
+	"steam_gslt":              true,
 }
 
 func normalizeManagedSource(source string) string {

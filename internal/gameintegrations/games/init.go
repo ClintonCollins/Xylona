@@ -4,12 +4,18 @@ package games
 import "github.com/ClintonCollins/Xylona/internal/gameintegrations"
 
 func init() {
+	registerFactorio()
 	registerMinecraft()
 }
 
 // RegisterInternalGames registers all built-in internal game implementations.
 func RegisterInternalGames() {
+	registerFactorio()
 	registerMinecraft()
+}
+
+func registerFactorio() {
+	gameintegrations.RegisterGame("factorio", &Factorio{})
 }
 
 func registerMinecraft() {
