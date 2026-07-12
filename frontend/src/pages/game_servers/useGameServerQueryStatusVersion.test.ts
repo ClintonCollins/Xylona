@@ -71,6 +71,19 @@ function makeSourceQueryResponse(currentPlayers: number, maxPlayers: number) {
   })
 }
 
+function makePalworldQueryResponse(currentPlayers: number, maxPlayers: number) {
+  return create(QueryGameServerResponseSchema, {
+    queryInfo: {
+      type: ServerQuery_Type.Palworld,
+      palworld: {
+        players: currentPlayers,
+        maxPlayers,
+        responded: true,
+      },
+    },
+  })
+}
+
 function makeQueryInfoEvent(
   serverId: string,
   type: ServerQuery_Type,
@@ -87,6 +100,23 @@ function makeQueryInfoEvent(
           minecraft: {
             numberOfPlayers: currentPlayers,
             maxPlayers,
+          },
+        },
+      },
+    })
+  }
+
+  if (type === ServerQuery_Type.Palworld) {
+    return create(AllServersQueryInfoSchema, {
+      servers: {
+        [serverId]: {
+          serverId,
+          serverName: serverId,
+          type,
+          palworld: {
+            players: currentPlayers,
+            maxPlayers,
+            responded: true,
           },
         },
       },
@@ -200,6 +230,12 @@ describe('useGameServerQueryStatusVersion', () => {
       response: makeSourceQueryResponse(11, 24),
       expectedCurrent: 11,
       expectedMax: 24,
+    },
+    {
+      label: 'Palworld',
+      response: makePalworldQueryResponse(3, 32),
+      expectedCurrent: 3,
+      expectedMax: 32,
     },
   ])(
     'queryGameServer applies $label player counts from the initial RPC query',

@@ -1,12 +1,12 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:f351915d8d3c298aae0dd62e6c788b351a9a51a3592f2b6b0093a82fa14c2639",
+  "content_hash": "sha256:2162bfc52faf32c4d57123fea7ee8707fb9f3ee5951ac8f4b672297f99712e6d",
   "game": {
     "id": "palworld",
     "name": "Palworld",
     "defaultPort": "8211",
-    "defaultQueryPort": "27015",
+    "defaultQueryPort": "8212",
     "defaultMaxPlayers": "32",
     "linuxSupport": true,
     "windowsSupport": true,

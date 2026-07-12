@@ -42,6 +42,9 @@ func getQueryInfoType(game *models.Game) xylona.ServerQuery_Type {
 	if game.ID == "minecraft" {
 		return xylona.ServerQuery_Minecraft
 	}
+	if game.ID == palworldGameID {
+		return xylona.ServerQuery_Palworld
+	}
 	if game.UsesSourceQuery {
 		return xylona.ServerQuery_Source
 	}
@@ -59,6 +62,8 @@ func defaultServerQuery(gs *models.GameServer, queryType xylona.ServerQuery_Type
 		out.Minecraft = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
 	case xylona.ServerQuery_Source:
 		out.Source = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+	case xylona.ServerQuery_Palworld:
+		out.Palworld = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
 	}
 	return out
 }
@@ -69,6 +74,8 @@ func nodeQueryKind(queryType xylona.ServerQuery_Type) node.GameServerQueryKind {
 		return node.GameServerQueryKindMinecraft
 	case xylona.ServerQuery_Source:
 		return node.GameServerQueryKindSource
+	case xylona.ServerQuery_Palworld:
+		return node.GameServerQueryKindPalworld
 	default:
 		return node.GameServerQueryKindUnknown
 	}
@@ -83,6 +90,8 @@ func queryResultComplete(result *xylona.ServerQuery) bool {
 		return result.GetMinecraft() != nil
 	case xylona.ServerQuery_Source:
 		return result.GetSource() != nil
+	case xylona.ServerQuery_Palworld:
+		return result.GetPalworld() != nil
 	default:
 		return false
 	}
@@ -129,6 +138,24 @@ func serverQueryFromNodeResult(gs *models.GameServer, result node.GameServerQuer
 				Protocol:   result.Source.Protocol,
 			}
 		}
+	case node.GameServerQueryKindPalworld:
+		out.Type = xylona.ServerQuery_Palworld
+		if result.Palworld != nil {
+			out.Palworld = &xylona.PalworldQueryInfo{
+				Name:              result.Palworld.Name,
+				Description:       result.Palworld.Description,
+				Version:           result.Palworld.Version,
+				WorldGuid:         result.Palworld.WorldGUID,
+				Players:           result.Palworld.Players,
+				MaxPlayers:        result.Palworld.MaxPlayers,
+				PlayerList:        append([]string(nil), result.Palworld.PlayerList...),
+				UptimeSeconds:     result.Palworld.UptimeSeconds,
+				ServerFps:         result.Palworld.ServerFPS,
+				ServerFrameTimeMs: result.Palworld.ServerFrameTimeMS,
+				Days:              result.Palworld.Days,
+				Responded:         result.Palworld.Responded,
+			}
+		}
 	}
 	return out
 }
@@ -145,12 +172,22 @@ func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.Game
 		log.Debug().Err(errClient).Str("server", gs.Name).Str("node_id", gs.NodeID).Msg("Failed to resolve node client for game server query")
 		return defaultServerQuery(gs, queryType)
 	}
-	result, errQuery := client.QueryGameServer(ctx, node.GameServerQueryRequest{
+	queryRequest := node.GameServerQueryRequest{
 		Kind:       nodeQueryKind(queryType),
 		IP:         gs.IP,
 		QueryPort:  gs.QueryPort,
 		MaxPlayers: gs.MaxPlayers,
-	})
+	}
+	if queryType == xylona.ServerQuery_Palworld {
+		username, password, errCredentials := inst.palworldQueryCredentials(gs)
+		if errCredentials != nil {
+			log.Debug().Err(errCredentials).Str("server", gs.Name).Msg("Failed to load Palworld query credentials")
+			return defaultServerQuery(gs, queryType)
+		}
+		queryRequest.Username = username
+		queryRequest.Password = password
+	}
+	result, errQuery := client.QueryGameServer(ctx, queryRequest)
 	if errQuery != nil {
 		log.Debug().Err(errQuery).Str("server", gs.Name).Str("node_id", gs.NodeID).Msg("Failed to query game server through node")
 		return defaultServerQuery(gs, queryType)
@@ -217,6 +254,33 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 						ServerName: gs.Name,
 						Type:       xylona.ServerQuery_Source,
 						Source:     info,
+					})
+					return
+				case xylona.ServerQuery_Palworld:
+					if gs.Status != xylona.Status_ONLINE.String() {
+						inst.storeServerQuery(defaultServerQuery(gs, queryType))
+						return
+					}
+					if inst.isRemoteGameServer(gs) {
+						inst.storeServerQuery(inst.queryRemoteGameServer(ctx, gs, queryType))
+						return
+					}
+					username, password, errCredentials := inst.palworldQueryCredentials(gs)
+					if errCredentials != nil {
+						log.Debug().Err(errCredentials).Str("server", gs.Name).Msg("Failed to load Palworld query credentials")
+						inst.storeServerQuery(defaultServerQuery(gs, queryType))
+						return
+					}
+					info, errQuery := query.Palworld(ctx, gs.IP, int(gs.QueryPort), username, password)
+					if errQuery != nil {
+						log.Debug().Err(errQuery).Str("server", gs.Name).Msg("Failed to query Palworld server")
+						info = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+					}
+					inst.storeServerQuery(&xylona.ServerQuery{
+						ServerId:   gs.ID,
+						ServerName: gs.Name,
+						Type:       xylona.ServerQuery_Palworld,
+						Palworld:   info,
 					})
 					return
 				}

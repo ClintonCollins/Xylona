@@ -355,10 +355,12 @@ message ServerQuery {
     Unknown = 0;
     Minecraft = 1;
     Source = 2;
+    Palworld = 3;
   }
   Type type = 3;
   optional MinecraftQueryInfo minecraft = 4;
   optional SourceQueryInfo source = 5;
+  optional PalworldQueryInfo palworld = 6;
 }
 
 message MinecraftQueryInfo {
@@ -387,6 +389,21 @@ message SourceQueryInfo {
   bool vac = 12;
   string version = 13;
   uint32 protocol = 14;
+}
+
+message PalworldQueryInfo {
+  string name = 1;
+  string description = 2;
+  string version = 3;
+  string world_guid = 4;
+  uint32 players = 5;
+  uint32 max_players = 6;
+  repeated string player_list = 7;
+  uint64 uptime_seconds = 8;
+  double server_fps = 9;
+  double server_frame_time_ms = 10;
+  uint32 days = 11;
+  bool responded = 12;
 }
 
 message Node {

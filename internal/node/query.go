@@ -26,8 +26,21 @@ func (n *Node) QueryGameServer(ctx context.Context, req GameServerQueryRequest) 
 		return queryMinecraft(req), nil
 	case GameServerQueryKindSource:
 		return querySource(req), nil
+	case GameServerQueryKindPalworld:
+		return queryPalworld(ctx, req), nil
 	default:
 		return GameServerQueryResult{Kind: GameServerQueryKindUnknown}, nil
+	}
+}
+
+func queryPalworld(ctx context.Context, req GameServerQueryRequest) GameServerQueryResult {
+	info, errQuery := query.Palworld(ctx, req.IP, int(req.QueryPort), req.Username, req.Password)
+	if errQuery != nil {
+		info = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(req.MaxPlayers)}
+	}
+	return GameServerQueryResult{
+		Kind:     GameServerQueryKindPalworld,
+		Palworld: palworldQueryFromXylona(info),
 	}
 }
 
@@ -88,5 +101,25 @@ func sourceQueryFromXylona(info *xylona.SourceQueryInfo) *SourceQueryInfo {
 		VAC:        info.GetVac(),
 		Version:    info.GetVersion(),
 		Protocol:   info.GetProtocol(),
+	}
+}
+
+func palworldQueryFromXylona(info *xylona.PalworldQueryInfo) *PalworldQueryInfo {
+	if info == nil {
+		return nil
+	}
+	return &PalworldQueryInfo{
+		Name:              info.GetName(),
+		Description:       info.GetDescription(),
+		Version:           info.GetVersion(),
+		WorldGUID:         info.GetWorldGuid(),
+		Players:           info.GetPlayers(),
+		MaxPlayers:        info.GetMaxPlayers(),
+		PlayerList:        append([]string(nil), info.GetPlayerList()...),
+		UptimeSeconds:     info.GetUptimeSeconds(),
+		ServerFPS:         info.GetServerFps(),
+		ServerFrameTimeMS: info.GetServerFrameTimeMs(),
+		Days:              info.GetDays(),
+		Responded:         info.GetResponded(),
 	}
 }

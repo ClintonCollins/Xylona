@@ -43,6 +43,23 @@ func TestQueryGameServerReturnsDefaultMaxPlayersOnProbeError(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:       "palworld",
+			kind:       GameServerQueryKindPalworld,
+			maxPlayers: 64,
+			assert: func(t *testing.T, result GameServerQueryResult) {
+				t.Helper()
+				if result.Palworld == nil {
+					t.Fatal("Palworld result is nil")
+				}
+				if result.Palworld.MaxPlayers != 64 {
+					t.Fatalf("Palworld max players = %d, want 64", result.Palworld.MaxPlayers)
+				}
+				if result.Palworld.Responded {
+					t.Fatal("Palworld responded = true, want false for probe error")
+				}
+			},
+		},
 	}
 
 	for _, tc := range cases {

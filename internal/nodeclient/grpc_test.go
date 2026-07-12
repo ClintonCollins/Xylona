@@ -518,11 +518,14 @@ func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{
 		queryResp: &nodeprotov1.QueryGameServerResponse{
-			Kind: nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT,
-			Minecraft: &nodeprotov1.GameServerMinecraftQueryInfo{
-				NumberOfPlayers: 3,
-				MaxPlayers:      20,
-				ServerVersion:   "1.21.5",
+			Kind: nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD,
+			Palworld: &nodeprotov1.GameServerPalworldQueryInfo{
+				Name:          "Remote Palworld",
+				Version:       "v1.2.3",
+				Players:       3,
+				MaxPlayers:    20,
+				UptimeSeconds: 120,
+				Responded:     true,
 			},
 		},
 	}
@@ -530,28 +533,33 @@ func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
 	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
 
 	result, errQuery := client.QueryGameServer(t.Context(), node.GameServerQueryRequest{
-		Kind:       node.GameServerQueryKindMinecraft,
+		Kind:       node.GameServerQueryKindPalworld,
 		IP:         "203.0.113.10",
-		QueryPort:  25565,
+		QueryPort:  8212,
 		MaxPlayers: 20,
+		Username:   "admin",
+		Password:   "query-secret",
 	})
 	if errQuery != nil {
 		t.Fatalf("QueryGameServer: %v", errQuery)
 	}
-	if result.Kind != node.GameServerQueryKindMinecraft {
-		t.Fatalf("kind = %v, want Minecraft", result.Kind)
+	if result.Kind != node.GameServerQueryKindPalworld {
+		t.Fatalf("kind = %v, want Palworld", result.Kind)
 	}
-	if result.Minecraft.NumberOfPlayers != 3 || result.Minecraft.ServerVersion != "1.21.5" {
-		t.Fatalf("Minecraft result = %+v, want configured response", result.Minecraft)
+	if result.Palworld.Players != 3 || result.Palworld.Version != "v1.2.3" || !result.Palworld.Responded {
+		t.Fatalf("Palworld result = %+v, want configured response", result.Palworld)
 	}
 
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
-	if rec.queryReq.GetKind() != nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT {
-		t.Fatalf("query kind = %v, want Minecraft", rec.queryReq.GetKind())
+	if rec.queryReq.GetKind() != nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD {
+		t.Fatalf("query kind = %v, want Palworld", rec.queryReq.GetKind())
 	}
-	if rec.queryReq.GetIp() != "203.0.113.10" || rec.queryReq.GetQueryPort() != 25565 || rec.queryReq.GetMaxPlayers() != 20 {
+	if rec.queryReq.GetIp() != "203.0.113.10" || rec.queryReq.GetQueryPort() != 8212 || rec.queryReq.GetMaxPlayers() != 20 {
 		t.Fatalf("query request = %+v, want address and defaults", rec.queryReq)
+	}
+	if rec.queryReq.GetUsername() != "admin" || rec.queryReq.GetPassword() != "query-secret" {
+		t.Fatal("query request did not preserve Palworld credentials")
 	}
 }
 func TestGRPCClientReadFileReturnsBytes(t *testing.T) {

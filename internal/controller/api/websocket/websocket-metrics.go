@@ -145,6 +145,21 @@ func queryEqual(x, y *xylona.ServerQuery) bool {
 			xs.GetVac() == ys.GetVac() &&
 			xs.GetVersion() == ys.GetVersion() &&
 			xs.GetProtocol() == ys.GetProtocol()
+	case xylona.ServerQuery_Palworld:
+		xp := x.GetPalworld()
+		yp := y.GetPalworld()
+		return xp.GetName() == yp.GetName() &&
+			xp.GetDescription() == yp.GetDescription() &&
+			xp.GetVersion() == yp.GetVersion() &&
+			xp.GetWorldGuid() == yp.GetWorldGuid() &&
+			xp.GetPlayers() == yp.GetPlayers() &&
+			xp.GetMaxPlayers() == yp.GetMaxPlayers() &&
+			slices.Equal(xp.GetPlayerList(), yp.GetPlayerList()) &&
+			xp.GetUptimeSeconds() == yp.GetUptimeSeconds() &&
+			xp.GetServerFps() == yp.GetServerFps() &&
+			xp.GetServerFrameTimeMs() == yp.GetServerFrameTimeMs() &&
+			xp.GetDays() == yp.GetDays() &&
+			xp.GetResponded() == yp.GetResponded()
 	}
 	return false
 }

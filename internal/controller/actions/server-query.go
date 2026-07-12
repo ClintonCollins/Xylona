@@ -30,5 +30,8 @@ func (inst *Instance) GetPlayerCount(gameServerID string) int {
 	if sq.GetSource() != nil {
 		return int(sq.GetSource().GetPlayers())
 	}
+	if sq.GetPalworld() != nil {
+		return int(sq.GetPalworld().GetPlayers())
+	}
 	return 0
 }

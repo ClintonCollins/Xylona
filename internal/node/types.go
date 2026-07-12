@@ -236,6 +236,8 @@ const (
 	GameServerQueryKindMinecraft
 	// GameServerQueryKindSource probes Source-engine A2S info.
 	GameServerQueryKindSource
+	// GameServerQueryKindPalworld probes the authenticated Palworld REST API.
+	GameServerQueryKindPalworld
 )
 
 // GameServerQueryRequest asks a node to probe a game server from the node host.
@@ -244,6 +246,8 @@ type GameServerQueryRequest struct {
 	IP         string
 	QueryPort  int64
 	MaxPlayers int64
+	Username   string
+	Password   string
 }
 
 // MinecraftQueryInfo is the transport-agnostic result of a Minecraft query.
@@ -276,12 +280,29 @@ type SourceQueryInfo struct {
 	Protocol   uint32
 }
 
+// PalworldQueryInfo is the transport-agnostic result of a Palworld REST query.
+type PalworldQueryInfo struct {
+	Name              string
+	Description       string
+	Version           string
+	WorldGUID         string
+	Players           uint32
+	MaxPlayers        uint32
+	PlayerList        []string
+	UptimeSeconds     uint64
+	ServerFPS         float64
+	ServerFrameTimeMS float64
+	Days              uint32
+	Responded         bool
+}
+
 // GameServerQueryResult is the transport-agnostic result of a node-side
 // network probe.
 type GameServerQueryResult struct {
 	Kind      GameServerQueryKind
 	Minecraft *MinecraftQueryInfo
 	Source    *SourceQueryInfo
+	Palworld  *PalworldQueryInfo
 }
 
 // IsConfigured reports whether the policy has any fields worth checking. If

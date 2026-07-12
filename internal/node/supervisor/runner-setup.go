@@ -100,6 +100,10 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		resolveServerLocalBaseCommand(baseCommand, preparedCommand.WorkingDirectory),
 		preparedCommand.Args...,
 	)
+	configureProcessTree(cmd)
+	cmd.Cancel = func() error {
+		return terminateProcessTree(cmd)
+	}
 	cmd.Dir = preparedCommand.WorkingDirectory
 	cmd.Env = appendLaunchEnvironment(buildChildEnvironment(CurrentRuntime, os.Environ()), preparedCommand.LaunchEnv)
 

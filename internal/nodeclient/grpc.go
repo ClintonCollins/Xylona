@@ -634,6 +634,8 @@ func (c *GRPCNodeClient) QueryGameServer(ctx context.Context, queryReq node.Game
 		Ip:         queryReq.IP,
 		QueryPort:  queryReq.QueryPort,
 		MaxPlayers: queryReq.MaxPlayers,
+		Username:   queryReq.Username,
+		Password:   queryReq.Password,
 	})
 	resp, errRPC := c.connectClient.QueryGameServer(ctx, req)
 	if errRPC != nil {
@@ -643,6 +645,7 @@ func (c *GRPCNodeClient) QueryGameServer(ctx context.Context, queryReq node.Game
 		Kind:      gameServerQueryKindFromProto(resp.Msg.GetKind()),
 		Minecraft: minecraftQueryFromProto(resp.Msg.GetMinecraft()),
 		Source:    sourceQueryFromProto(resp.Msg.GetSource()),
+		Palworld:  palworldQueryFromProto(resp.Msg.GetPalworld()),
 	}, nil
 }
 
@@ -739,6 +742,8 @@ func gameServerQueryKindToProto(kind node.GameServerQueryKind) nodeprotov1.GameS
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT
 	case node.GameServerQueryKindSource:
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE
+	case node.GameServerQueryKindPalworld:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD
 	default:
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_UNSPECIFIED
 	}
@@ -750,6 +755,8 @@ func gameServerQueryKindFromProto(kind nodeprotov1.GameServerQueryKind) node.Gam
 		return node.GameServerQueryKindMinecraft
 	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE:
 		return node.GameServerQueryKindSource
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD:
+		return node.GameServerQueryKindPalworld
 	default:
 		return node.GameServerQueryKindUnknown
 	}
@@ -790,6 +797,26 @@ func sourceQueryFromProto(info *nodeprotov1.GameServerSourceQueryInfo) *node.Sou
 		VAC:        info.GetVac(),
 		Version:    info.GetVersion(),
 		Protocol:   info.GetProtocol(),
+	}
+}
+
+func palworldQueryFromProto(info *nodeprotov1.GameServerPalworldQueryInfo) *node.PalworldQueryInfo {
+	if info == nil {
+		return nil
+	}
+	return &node.PalworldQueryInfo{
+		Name:              info.GetName(),
+		Description:       info.GetDescription(),
+		Version:           info.GetVersion(),
+		WorldGUID:         info.GetWorldGuid(),
+		Players:           info.GetPlayers(),
+		MaxPlayers:        info.GetMaxPlayers(),
+		PlayerList:        append([]string(nil), info.GetPlayerList()...),
+		UptimeSeconds:     info.GetUptimeSeconds(),
+		ServerFPS:         info.GetServerFps(),
+		ServerFrameTimeMS: info.GetServerFrameTimeMs(),
+		Days:              info.GetDays(),
+		Responded:         info.GetResponded(),
 	}
 }
 

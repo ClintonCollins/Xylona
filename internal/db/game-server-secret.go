@@ -19,6 +19,9 @@ const (
 	// GameServerSecretKindHytaleRefreshToken stores Hytale OAuth refresh tokens.
 	// #nosec G101 -- This is a database kind label, not a secret value.
 	GameServerSecretKindHytaleRefreshToken = "hytale_refresh_token"
+	// GameServerSecretKindPalworldREST stores Palworld REST API credentials.
+	// #nosec G101 -- This is a database kind label, not a secret value.
+	GameServerSecretKindPalworldREST = "palworld_rest"
 
 	// GameServerSecretNameSteamGSLT is the single secret name used for Steam GSLT values.
 	// #nosec G101 -- This is a database name label, not a secret value.
@@ -26,6 +29,9 @@ const (
 	// GameServerSecretNameHytaleRefreshToken is the single secret name used for Hytale refresh tokens.
 	// #nosec G101 -- This is a database name label, not a secret value.
 	GameServerSecretNameHytaleRefreshToken = "refresh_token"
+	// GameServerSecretNamePalworldRESTPassword stores the generated REST admin password.
+	// #nosec G101 -- This is a database name label, not a secret value.
+	GameServerSecretNamePalworldRESTPassword = "admin_password"
 )
 
 // GameServerSecretState is the safe public state for a configured server secret.
@@ -313,7 +319,10 @@ func (c *Connection) DecryptGameServerSecret(gameServerID string, kind string, n
 
 func validateGameServerSecretKind(kind string) error {
 	switch kind {
-	case GameServerSecretKindEnv, GameServerSecretKindSteamGSLT, GameServerSecretKindHytaleRefreshToken:
+	case GameServerSecretKindEnv,
+		GameServerSecretKindSteamGSLT,
+		GameServerSecretKindHytaleRefreshToken,
+		GameServerSecretKindPalworldREST:
 		return nil
 	default:
 		return fmt.Errorf("unsupported game server secret kind %q", kind)

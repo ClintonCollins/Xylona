@@ -54,6 +54,16 @@ export function useGameServerQueryStatusVersion({
         maxPlayerCount.value = sourceQuery.maxPlayers
         break
       }
+      case ServerQuery_Type.Palworld: {
+        const palworldQuery = queryInfo.palworld
+        if (palworldQuery === undefined) {
+          return
+        }
+
+        currentPlayerCount.value = palworldQuery.players
+        maxPlayerCount.value = palworldQuery.maxPlayers
+        break
+      }
     }
   }
 

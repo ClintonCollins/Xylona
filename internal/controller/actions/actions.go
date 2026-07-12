@@ -500,6 +500,12 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		return nil, startUnavailableError("target node is unavailable", errClient)
 	}
 
+	errPalworldQuery := inst.ensurePalworldQueryConfig(gameServer, client)
+	if errPalworldQuery != nil {
+		inst.reportStartFailure(gameServer, "Palworld query configuration failed: "+errPalworldQuery.Error())
+		return nil, startConfigurationError("Palworld query configuration failed", errPalworldQuery)
+	}
+
 	errReadiness := readiness.CheckStart(inst.ctx, inst.db, gameServer, client)
 	if errReadiness != nil {
 		inst.reportStartFailure(gameServer, errReadiness.Error())

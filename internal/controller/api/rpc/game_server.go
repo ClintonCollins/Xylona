@@ -688,9 +688,12 @@ func (xs *XylonaService) QueryGameServer(_ context.Context, request *connect.Req
 	queryInfo, exists := allServerQueries.GetServers()[gameServer.ID]
 	if !exists {
 		var queryType xylona.ServerQuery_Type
-		if gameServer.GameID == "minecraft" {
+		switch gameServer.GameID {
+		case "minecraft":
 			queryType = xylona.ServerQuery_Minecraft
-		} else {
+		case "palworld":
+			queryType = xylona.ServerQuery_Palworld
+		default:
 			queryType = xylona.ServerQuery_Source
 		}
 		resp := &xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{
@@ -699,6 +702,10 @@ func (xs *XylonaService) QueryGameServer(_ context.Context, request *connect.Req
 			Type:       queryType,
 			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers)},
 			Source: &xylona.SourceQueryInfo{
+				Players:    0,
+				MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers),
+			},
+			Palworld: &xylona.PalworldQueryInfo{
 				Players:    0,
 				MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers),
 			},
