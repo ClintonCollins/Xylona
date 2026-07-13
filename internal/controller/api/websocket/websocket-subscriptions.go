@@ -155,6 +155,7 @@ func (ws *WebSocket) cancelConsoleStreams(conn *connection) {
 	for serverID, cancel := range conn.consoleStreamCancels {
 		cancel()
 		delete(conn.consoleStreamCancels, serverID)
+		delete(conn.consoleStreamTokens, serverID)
 	}
 }
 
@@ -163,6 +164,7 @@ func (ws *WebSocket) cancelConsoleStream(conn *connection, serverID string) {
 	cancel, exists := conn.consoleStreamCancels[serverID]
 	if exists {
 		delete(conn.consoleStreamCancels, serverID)
+		delete(conn.consoleStreamTokens, serverID)
 	}
 	conn.Unlock()
 
@@ -195,47 +197,111 @@ func (ws *WebSocket) startConsoleStream(conn *connection, gameServer *models.Gam
 	if ws.isLocalNode(nodeID) {
 		nodeID = ws.nodeRegistry.SelfID()
 	}
-	client, errClient := ws.nodeRegistry.Get(nodeID)
-	if errClient != nil {
-		return fmt.Errorf("resolve node client %q: %w", nodeID, errClient)
-	}
 
 	baseCtx := ws.ctx
 	if baseCtx == nil {
 		baseCtx = context.Background()
 	}
-	streamCtx, cancel := context.WithCancel(baseCtx)
+	streamCtx, cancel := context.WithCancel(baseCtx) //nolint:gosec // cancel is retained in conn.consoleStreamCancels and called on unsubscribe/disconnect.
+	token := &struct{}{}
 
 	conn.Lock()
 	existingCancel, exists := conn.consoleStreamCancels[gameServer.ID]
 	if exists {
 		existingCancel()
 	}
+	if conn.consoleStreamTokens == nil {
+		conn.consoleStreamTokens = make(map[string]*struct{})
+	}
 	conn.consoleStreamCancels[gameServer.ID] = cancel
+	conn.consoleStreamTokens[gameServer.ID] = token
 	conn.Unlock()
 
-	stream, errStream := client.StreamConsoleOutput(streamCtx, gameServer.ID)
-	if errStream != nil {
-		cancel()
-		conn.Lock()
-		delete(conn.consoleStreamCancels, gameServer.ID)
-		conn.Unlock()
-		return fmt.Errorf("stream console output for %q: %w", gameServer.ID, errStream)
-	}
+	go ws.runConsoleStream(streamCtx, conn, gameServer.ID, nodeID, token)
+	return nil
+}
 
-	go func() {
+func (ws *WebSocket) runConsoleStream(
+	streamCtx context.Context,
+	conn *connection,
+	gameServerID string,
+	nodeID string,
+	token *struct{},
+) {
+	defer func() {
+		conn.Lock()
+		if conn.consoleStreamTokens[gameServerID] == token {
+			delete(conn.consoleStreamCancels, gameServerID)
+			delete(conn.consoleStreamTokens, gameServerID)
+		}
+		conn.Unlock()
+	}()
+
+	backoff := 250 * time.Millisecond
+	const maxBackoff = 5 * time.Second
+	disconnectedNoticeSent := false
+	for {
+		if streamCtx.Err() != nil {
+			return
+		}
+
+		client, errClient := ws.nodeRegistry.Get(nodeID)
+		if errClient != nil {
+			log.Warn().Err(errClient).Str("node_id", nodeID).Str("game_server_id", gameServerID).
+				Dur("retry_in", backoff).Msg("Console node client is unavailable; will re-resolve")
+			if !disconnectedNoticeSent {
+				disconnectedNoticeSent = ws.forwardConsoleConnectionState(streamCtx, conn, gameServerID, true)
+			}
+			if waitForConsoleRetry(streamCtx, backoff) {
+				return
+			}
+			backoff = min(backoff*2, maxBackoff)
+			continue
+		}
+
+		attemptCtx, attemptCancel := context.WithCancel(streamCtx)
+		stream, errStream := client.StreamConsoleOutput(attemptCtx, gameServerID)
+		if errStream != nil {
+			attemptCancel()
+			log.Warn().Err(errStream).Str("node_id", nodeID).Str("game_server_id", gameServerID).
+				Dur("retry_in", backoff).Msg("Console stream failed; will retry")
+			if !disconnectedNoticeSent {
+				disconnectedNoticeSent = ws.forwardConsoleConnectionState(streamCtx, conn, gameServerID, true)
+			}
+			if waitForConsoleRetry(streamCtx, backoff) {
+				return
+			}
+			backoff = min(backoff*2, maxBackoff)
+			continue
+		}
+		if !ws.forwardConsoleConnectionState(streamCtx, conn, gameServerID, false) {
+			attemptCancel()
+			log.Warn().Str("node_id", nodeID).Str("game_server_id", gameServerID).
+				Dur("retry_in", backoff).Msg("Console connection-state update was backpressured; will retry")
+			if waitForConsoleRetry(streamCtx, backoff) {
+				return
+			}
+			backoff = min(backoff*2, maxBackoff)
+			continue
+		}
+		disconnectedNoticeSent = false
+		backoff = 250 * time.Millisecond
+
+		receivedOutput := false
 		for {
 			select {
 			case <-streamCtx.Done():
+				attemptCancel()
 				return
 			case chunk, ok := <-stream:
 				if !ok {
-					return
+					attemptCancel()
+					goto retry
 				}
 
 				processID := chunk.ProcessID
 				if processID == "" {
-					processID = gameServer.ID
+					processID = gameServerID
 				}
 
 				payload := &xylona.Message{
@@ -243,19 +309,82 @@ func (ws *WebSocket) startConsoleStream(conn *connection, gameServer *models.Gam
 					GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
 						GameServerId: processID,
 						Output:       chunk.Data,
+						Sequence:     chunk.Sequence,
+						ResetBuffer:  chunk.ResetBuffer,
 					},
 				}
 
 				select {
 				case <-streamCtx.Done():
+					attemptCancel()
 					return
 				case conn.outputStreamChannel <- payload:
+					receivedOutput = true
+					disconnectedNoticeSent = false
+					backoff = 250 * time.Millisecond
 				case <-time.After(time.Second):
-					log.Warn().Str("game_server_id", gameServer.ID).Msg("Dropping slow console message")
+					log.Warn().Str("game_server_id", gameServerID).
+						Msg("Console websocket consumer is slow; restarting stream for a reset replay")
+					attemptCancel()
+					goto retry
 				}
 			}
 		}
-	}()
 
-	return nil
+	retry:
+		if !disconnectedNoticeSent {
+			disconnectedNoticeSent = ws.forwardConsoleConnectionState(streamCtx, conn, gameServerID, true)
+		}
+		if !receivedOutput {
+			backoff = min(backoff*2, maxBackoff)
+		}
+		if waitForConsoleRetry(streamCtx, backoff) {
+			return
+		}
+	}
+}
+
+func (ws *WebSocket) forwardConsoleConnectionState(
+	ctx context.Context,
+	conn *connection,
+	gameServerID string,
+	reconnecting bool,
+) bool {
+	output := ""
+	if reconnecting {
+		output = fmt.Sprintf(
+			"[%s] [Xylona]: Console connection lost; reconnecting...\n",
+			time.Now().Format("2006-01-02 15:04:05"),
+		)
+	}
+	reconnectingState := reconnecting
+	payload := &xylona.Message{
+		Type: xylona.Message_GameServerConsole,
+		GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
+			GameServerId: gameServerID,
+			Output:       output,
+			Reconnecting: &reconnectingState,
+		},
+	}
+	select {
+	case <-ctx.Done():
+		return false
+	case conn.outputStreamChannel <- payload:
+		return true
+	case <-time.After(time.Second):
+		log.Warn().Str("game_server_id", gameServerID).Bool("reconnecting", reconnecting).
+			Msg("Unable to deliver console connection state")
+		return false
+	}
+}
+
+func waitForConsoleRetry(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return true
+	case <-timer.C:
+		return false
+	}
 }

@@ -229,6 +229,19 @@ func (b *RemoteEventBridge) republish(
 			ExitCodeKnown:      ev.ExitCodeKnown,
 			Replayed:           ev.Replayed,
 		})
+		if oldStatus == xylona.Status_ONLINE.String() && newStatus == xylona.Status_OFFLINE.String() &&
+			ev.ExitCodeKnown && ev.ExitCode != 0 && !ev.IntentionalStop {
+			crashedAt := ev.Timestamp
+			if crashedAt.IsZero() {
+				crashedAt = time.Now()
+			}
+			b.bus.Publish(eventbus.TopicGameServerCrashed, eventbus.ServerCrashedEvent{
+				ServerID:     ev.ProcessID,
+				ServerNodeID: nodeID,
+				ExitCode:     ev.ExitCode,
+				Timestamp:    crashedAt,
+			})
+		}
 
 	case node.EventTypeConsoleOutput:
 		// Console output is consumed directly by the websocket console

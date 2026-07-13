@@ -3,7 +3,7 @@ const ANSI_ESCAPE_RE = new RegExp(
   'g',
 )
 
-export type OperationOutputRoute = 'console' | 'update' | 'software' | 'discard'
+export type OperationOutputRoute = 'console' | 'update' | 'software'
 
 export function normalizeOperationOutputChunk(output: string): string[] {
   return output
@@ -39,9 +39,5 @@ export function resolveOperationOutputRoute(params: {
     return 'update'
   }
 
-  if (!params.isServerOffline) {
-    return 'console'
-  }
-
-  return 'discard'
+  return 'console'
 }

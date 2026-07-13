@@ -22,8 +22,18 @@
         </div>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn color="neutral" flat label="Cancel" @click="showDialog = false" />
-        <q-btn class="bg-error" label="Delete" @click="deleteGameServers" />
+        <q-btn
+          :disable="deleting"
+          color="neutral"
+          flat
+          label="Cancel"
+          @click="showDialog = false" />
+        <q-btn
+          :disable="deleting || gameServers.length === 0"
+          :loading="deleting"
+          class="bg-error"
+          label="Delete"
+          @click="deleteGameServers" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -33,7 +43,7 @@
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GetXylonaClient } from '@/utils/shared'
-import { PropType } from 'vue'
+import { PropType, ref } from 'vue'
 import {
   GameServer,
   RemoveGameServerRequest,
@@ -48,8 +58,20 @@ const props = defineProps({
 })
 
 const $q = useQuasar()
+
+interface DeleteFailure {
+  id: string
+  name: string
+  error: string
+}
+
+interface DeleteResult {
+  succeeded: Array<{ id: string; name: string }>
+  failed: DeleteFailure[]
+}
+
 const emit = defineEmits<{
-  submit: [error: boolean]
+  submit: [result: DeleteResult]
 }>()
 
 const showDialog = defineModel('showDialog', {
@@ -57,31 +79,65 @@ const showDialog = defineModel('showDialog', {
   default: false,
 })
 
+const deleting = ref(false)
+
 async function deleteGameServers() {
+  if (deleting.value) {
+    return
+  }
+
+  deleting.value = true
+  const result: DeleteResult = {
+    succeeded: [],
+    failed: [],
+  }
+
   for (const gameServer of props.gameServers) {
     const request: RemoveGameServerRequest = create(RemoveGameServerRequestSchema, {})
-    request.serverId = gameServer?.id
+    request.serverId = gameServer.id
     try {
       await GetXylonaClient().removeGameServer(request)
-      $q.notify({
-        caption: `${gameServer?.name} deleted successfully`,
-        type: 'xylona-success',
-        position: 'top',
-        timeout: 5000,
-      })
-      emit('submit', false)
-      return
+      result.succeeded.push({ id: gameServer.id, name: gameServer.name })
     } catch (unknownError: unknown) {
-      const err = unknownError as Error
-      $q.notify({
-        caption: `Error deleting ${gameServer.name} ${err.message}`,
-        type: 'xylona-error',
-        position: 'top',
-        timeout: 5000,
+      result.failed.push({
+        id: gameServer.id,
+        name: gameServer.name,
+        error: deleteFailureMessage(unknownError),
       })
-      emit('submit', true)
     }
   }
+
+  const summary = [
+    ...result.succeeded.map((server) => `Deleted: ${server.name}`),
+    ...result.failed.map((failure) => `Failed: ${failure.name} — ${failure.error}`),
+  ].join('\n')
+
+  $q.notify({
+    message:
+      result.failed.length === 0
+        ? `Deleted ${result.succeeded.length} game server${result.succeeded.length === 1 ? '' : 's'}.`
+        : `Deleted ${result.succeeded.length}; ${result.failed.length} failed.`,
+    caption: summary,
+    type: result.failed.length === 0 ? 'xylona-success' : 'xylona-error',
+    position: 'top',
+    timeout: result.failed.length === 0 ? 5000 : 0,
+    multiLine: true,
+    actions: result.failed.length === 0 ? undefined : [{ icon: 'close' }],
+  })
+
+  deleting.value = false
+  showDialog.value = false
+  emit('submit', result)
+}
+
+function deleteFailureMessage(error: unknown): string {
+  if (error instanceof Error && error.message !== '') {
+    return error.message
+  }
+  if (typeof error === 'string' && error !== '') {
+    return error
+  }
+  return 'Unknown error'
 }
 </script>
 

@@ -3,11 +3,11 @@
     <file-uploader-drop
       v-model:file-uploader-dialog="fileUploaderDialog"
       :game-server-id="gameServerId"
-      :path="path"
+      :path="loadedPath"
       :path-separator="pathSeparator"
-      :target-element="fileListContainer"
+      :target-element="directoryActionsEnabled ? fileListContainer : null"
       :upload-u-r-l="uploadURL"
-      @uploaded-files="listDirectoryFiles(path)">
+      @uploaded-files="listDirectoryFiles(loadedPath)">
       <div
         ref="fileListContainer"
         class="col-xs-12 file-list-container bg-xy-surface-2 q-pa-sm"
@@ -22,15 +22,18 @@
               @click="createFilesDialog = true" />
             <q-btn
               color="positive"
+              :disable="!directoryActionsEnabled"
               icon="upload"
               label="Upload"
               @click="fileUploaderDialog = true" />
             <q-btn
               v-if="downloadButtonEnabled"
               :disable="!downloadButtonEnabled"
+              :loading="downloadingSelected"
               flat
               icon="download"
-              label="Download" />
+              label="Download"
+              @click="downloadSelectedFiles" />
           </div>
           <div v-if="selectedFiles.length > 0" class="file-toolbar-selection">
             <span class="text-caption text-xy-secondary">
@@ -76,6 +79,7 @@
           <q-space />
           <q-btn
             class="gt-xs"
+            :disable="!directoryActionsEnabled"
             dense
             flat
             icon="link"
@@ -89,27 +93,56 @@
               :prefix="gameServer.directory + pathSeparator"
               aria-label="File path"
               dense
+              :loading="directoryLoading"
               outlined
+              @update:model-value="clearSelection"
               @keydown.prevent.enter="updatePathFromInput"></q-input>
           </div>
         </div>
         <div class="row file-list-header q-px-sm">
           <div class="col-xs-2 col-md-2 col-lg-1">
-            <q-checkbox v-model="selectAllFiles" label="All"></q-checkbox>
+            <q-checkbox
+              v-model="selectAllFiles"
+              :disable="!directoryActionsEnabled"
+              label="All"></q-checkbox>
           </div>
           <div class="col-xs-5 col-sm-4">Name</div>
           <div class="col-xs-5 col-sm-3">Size</div>
           <div class="col-xs-3 gt-sm">Modified</div>
         </div>
         <q-separator class="q-my-sm"></q-separator>
-        <div v-if="directories.length === 0 && files.length === 0" class="file-empty-state">
+        <div v-if="directoryLoading" aria-live="polite" class="file-directory-state" role="status">
+          <q-spinner color="primary" size="2rem" />
+          <div class="text-subtitle1 text-xy-secondary">Loading directory…</div>
+        </div>
+        <div
+          v-else-if="directoryError"
+          aria-live="assertive"
+          class="file-directory-state"
+          role="alert">
+          <q-icon class="text-error" name="folder_off" size="2.5rem" />
+          <div class="text-subtitle1 text-xy-primary">Could not load this directory</div>
+          <div class="file-directory-error text-caption text-xy-secondary">
+            {{ directoryError }}
+          </div>
+          <div class="row q-gutter-sm q-mt-sm">
+            <q-btn color="primary" icon="refresh" label="Retry" @click="retryDirectoryLoad" />
+            <q-btn
+              v-if="path !== loadedPath"
+              flat
+              icon="undo"
+              label="Return to loaded directory"
+              @click="returnToLoadedDirectory" />
+          </div>
+        </div>
+        <div v-else-if="directories.length === 0 && files.length === 0" class="file-empty-state">
           <q-icon class="text-xy-muted q-mb-sm" name="folder_open" size="3rem" />
           <div class="text-subtitle1 text-xy-secondary">This directory is empty</div>
           <div class="text-caption text-xy-muted q-mt-xs">
             Upload files or create new ones using the toolbar above.
           </div>
         </div>
-        <div id="file-list" ref="filesList">
+        <div v-if="!directoryLoading && !directoryError" id="file-list" ref="filesList">
           <div
             v-for="directory in directories"
             :key="directory.name"
@@ -119,6 +152,7 @@
               <q-checkbox
                 v-if="directory.name !== '..'"
                 v-model="selectedFiles"
+                :disable="!directoryActionsEnabled"
                 :val="directory"></q-checkbox>
             </div>
             <div
@@ -146,7 +180,10 @@
             class="row file-list-body-row q-px-sm"
             draggable="false">
             <div class="col-xs-2 col-md-2 col-lg-1 file-list-cell">
-              <q-checkbox v-model="selectedFiles" :val="file"></q-checkbox>
+              <q-checkbox
+                v-model="selectedFiles"
+                :disable="!directoryActionsEnabled"
+                :val="file"></q-checkbox>
             </div>
             <div
               class="col-xs-5 col-sm-4 file-div file-list-cell"
@@ -168,10 +205,18 @@
         </div>
         <q-menu ref="contextMenu" context-menu touch-position>
           <q-list>
-            <q-item v-ripple clickable @click="selectAllFiles = true">
+            <q-item
+              v-ripple
+              clickable
+              :disable="!directoryActionsEnabled"
+              @click="selectAllFiles = true">
               <q-item-section> Select All</q-item-section>
             </q-item>
-            <q-item v-ripple clickable @click="selectAllFiles = false">
+            <q-item
+              v-ripple
+              clickable
+              :disable="!directoryActionsEnabled"
+              @click="selectAllFiles = false">
               <q-item-section> Deselect All</q-item-section>
             </q-item>
           </q-list>
@@ -185,13 +230,13 @@
       :file-name="editorFilename"
       :full-file-path="editorFilePath"
       :game-server-id="gameServerId"
-      @submit="refreshFileList"></editor>
+      @submit="editorSaved"></editor>
   </q-dialog>
   <archive-files
     v-model:archive-name="archiveName"
     v-model:show-dialog="archiveFilesDialog"
     :game-server-id="gameServerId"
-    :path="path"
+    :path="loadedPath"
     :path-separator="pathSeparator"
     :selected-files="selectedFiles"
     @cancel="archiveFilesDialog = false"
@@ -199,10 +244,12 @@
   </archive-files>
   <extract-files
     v-model:show-dialog="extractFilesDialog"
-    :full-archive-path="GetRelativeFilePath(gameServer.directory, path, selectedFiles[0]?.name)"
+    :full-archive-path="
+      GetRelativeFilePath(gameServer.directory, loadedPath, selectedFiles[0]?.name)
+    "
     :game-server-id="gameServerId"
     :game-server-path="gameServer.directory"
-    :path="path"
+    :path="loadedPath"
     @cancel="extractFilesDialog = false"
     @submit="refreshFileList">
   </extract-files>
@@ -210,7 +257,7 @@
     v-model:show-dialog="createFilesDialog"
     :game-server-id="gameServerId"
     :game-server-path="gameServer.directory"
-    :path="path"
+    :path="loadedPath"
     @submit="createFilesDialogSubmitted">
   </create>
   <rename-file
@@ -218,7 +265,7 @@
     :game-server-id="gameServerId"
     :game-server-path="gameServer.directory"
     :old-file-name="selectedFiles[0]?.name"
-    :path="path"
+    :path="loadedPath"
     @submit="refreshFileList">
   </rename-file>
   <move-files
@@ -226,13 +273,13 @@
     :game-server-id="gameServerId"
     :game-server-path="gameServer.directory"
     :neighboring-directories-in-path="directories.map((f) => f.name)"
-    :path="path"
+    :path="loadedPath"
     :selected-files="selectedFiles"
     @submit="refreshFileList">
   </move-files>
   <delete-game-server-files-dialog
     v-model:show-dialog="deleteFilesDialog"
-    :current-path="path"
+    :current-path="loadedPath"
     :files-to-delete="selectedFiles"
     :game-server-i-d="gameServerId"
     :path-separator="pathSeparator"
@@ -243,7 +290,7 @@
 <script lang="ts" setup>
 import { create, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { computed, defineAsyncComponent, onMounted, ref, Ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, Ref, watch } from 'vue'
 import ArchiveFiles from '@/components/game_servers/ArchiveFiles.vue'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in template as <create>
 import Create from '@/components/game_servers/Create.vue'
@@ -291,6 +338,10 @@ const directories: Ref<Array<xylonaFile>> = ref([])
 const selectedFiles: Ref<Array<xylonaFile>> = ref([])
 const selectAllFiles: Ref<boolean> = ref(false)
 const path: Ref<string> = ref('')
+const loadedPath: Ref<string> = ref('')
+const directoryLoading: Ref<boolean> = ref(true)
+const directoryError: Ref<string> = ref('')
+const downloadingSelected: Ref<boolean> = ref(false)
 const editorModal: Ref<boolean> = ref(false)
 const editorFilename: Ref<string> = ref('')
 const editorFilePath: Ref<string> = ref('')
@@ -299,6 +350,8 @@ const contextMenu: Ref<QMenu | null> = ref(null)
 const fileListContainer: Ref<HTMLElement | null> = ref(null)
 const fileUploaderDialog: Ref<boolean> = ref(false)
 const createFileName: Ref<string> = ref('')
+let directoryRequestSequence = 0
+let componentUnmounted = false
 
 // Archive
 const archiveFilesDialog: Ref<boolean> = ref(false)
@@ -339,8 +392,12 @@ const allowedFileEditExtensions: string[] = [
 ]
 
 async function refreshFileList() {
-  selectedFiles.value = []
-  void listDirectoryFiles(path.value)
+  await listDirectoryFiles(loadedPath.value)
+}
+
+async function editorSaved() {
+  editorModal.value = false
+  await refreshFileList()
 }
 
 async function createFilesDialogSubmitted(
@@ -351,7 +408,7 @@ async function createFilesDialogSubmitted(
     isDir: boolean
   } | null,
 ) {
-  void listDirectoryFiles(path.value)
+  await listDirectoryFiles(loadedPath.value)
   createFilesDialog.value = false
 
   if (!success) {
@@ -375,10 +432,13 @@ function fileIsSelectedClass(file: xylonaFile) {
 
 const deleteButtonEnabled = computed(() => {
   const selected = sanitizeSelectedFiles()
-  return selected.length > 0
+  return directoryActionsEnabled.value && selected.length > 0
 })
 
 const downloadButtonEnabled = computed(() => {
+  if (!directoryActionsEnabled.value) {
+    return false
+  }
   const selected = sanitizeSelectedFiles()
   if (selected.length <= 0) {
     return false
@@ -393,24 +453,27 @@ const downloadButtonEnabled = computed(() => {
 
 const zipButtonEnabled = computed(() => {
   const selected = sanitizeSelectedFiles()
-  return selected.length > 0
+  return directoryActionsEnabled.value && selected.length > 0
 })
 
 const createButtonEnabled = computed(() => {
-  return selectedFiles.value.length === 0
+  return directoryActionsEnabled.value && selectedFiles.value.length === 0
 })
 
 const renameButtonEnabled = computed(() => {
   const selected = sanitizeSelectedFiles()
-  return selected.length === 1
+  return directoryActionsEnabled.value && selected.length === 1
 })
 
 const moveButtonEnabled = computed(() => {
   const selected = sanitizeSelectedFiles()
-  return selected.length > 0
+  return directoryActionsEnabled.value && selected.length > 0
 })
 
 const extractButtonEnabled = computed(() => {
+  if (!directoryActionsEnabled.value) {
+    return false
+  }
   const selected = sanitizeSelectedFiles()
   if (selected.length != 1) {
     return false
@@ -429,6 +492,15 @@ const extractButtonEnabled = computed(() => {
   return match
 })
 
+const directoryActionsEnabled = computed(
+  () => !directoryLoading.value && directoryError.value === '' && path.value === loadedPath.value,
+)
+
+function clearSelection() {
+  selectAllFiles.value = false
+  selectedFiles.value = []
+}
+
 function sanitizeSelectedFiles(): xylonaFile[] {
   const sanitizedFiles: xylonaFile[] = []
   selectedFiles.value.forEach((file) => {
@@ -441,18 +513,40 @@ function sanitizeSelectedFiles(): xylonaFile[] {
 }
 
 onMounted(async () => {
+  await getGameServerDetails()
+  if (componentUnmounted) {
+    return
+  }
+  window.addEventListener('hashchange', handleHashNavigation)
   const hashedPath = window.location.hash
   if (hashedPath.length > 0) {
     const deHashed = hashedPath.substring(1)
     path.value = deHashed.replaceAll('/', pathSeparator.value)
   }
-  void listDirectoryFiles(path.value)
-  void getGameServerDetails()
+  await listDirectoryFiles(path.value)
   const draggableElements = document.querySelectorAll('div[draggable="true"]')
   for (let i = 0; i < draggableElements.length; i++) {
     attachDragStartEvent(draggableElements[i] as HTMLElement)
   }
 })
+
+onBeforeUnmount(() => {
+  componentUnmounted = true
+  window.removeEventListener('hashchange', handleHashNavigation)
+})
+
+function handleHashNavigation() {
+  const hashPath = normalizeDirectoryPath(
+    window.location.hash.substring(1).replaceAll('/', pathSeparator.value),
+  )
+  if (hashPath === path.value && hashPath === loadedPath.value) {
+    return
+  }
+
+  clearSelection()
+  path.value = hashPath
+  void listDirectoryFiles(hashPath)
+}
 
 function attachDragStartEvent(draggableElement: HTMLElement) {
   draggableElement.addEventListener('dragstart', (event: DragEvent) => {
@@ -491,26 +585,30 @@ const pathSeparator = computed(() => {
 })
 
 async function clickDirectory(directory: xylonaFile) {
+  if (!directoryActionsEnabled.value) {
+    return
+  }
+
+  let nextPath = loadedPath.value
   if (directory.name === '..') {
-    const pathSplit =
-      path.value.lastIndexOf('/') !== -1 ? path.value.split('/') : path.value.split('\\')
+    const pathSplit = nextPath.lastIndexOf('/') !== -1 ? nextPath.split('/') : nextPath.split('\\')
     pathSplit.pop()
-    path.value = pathSplit.join(pathSeparator.value)
+    nextPath = pathSplit.join(pathSeparator.value)
   } else {
-    path.value = path.value + pathSeparator.value + directory.name
+    nextPath = GetRelativeFilePath(gameServer.value.directory, nextPath, directory.name)
   }
-  if (path.value.length >= 1) {
-    if (path.value[0] === pathSeparator.value) {
-      path.value = path.value.substring(1)
-    }
-  }
-  window.location.hash = path.value
+
+  clearSelection()
+  path.value = normalizeDirectoryPath(nextPath)
   await listDirectoryFiles(path.value)
 }
 
 async function clickFile(file: xylonaFile) {
+  if (!directoryActionsEnabled.value) {
+    return
+  }
   // If file is an allowed file type for editing, open the editor.
-  const fileExtension = file.name.substring(file.name.lastIndexOf('.'))
+  const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
   if (allowedFileEditExtensions.includes(fileExtension)) {
     await readFileOctetStream(file.name)
     return
@@ -520,28 +618,38 @@ async function clickFile(file: xylonaFile) {
 }
 
 function updatePathFromInput() {
-  if (path.value.length >= 1) {
-    if (path.value[0] === pathSeparator.value) {
-      path.value = path.value.substring(1)
-    }
-  }
+  clearSelection()
+  path.value = normalizeDirectoryPath(path.value)
   void listDirectoryFiles(path.value)
 }
 
 async function listDirectoryFiles(directoryPath: string) {
+  const normalizedPath = normalizeDirectoryPath(directoryPath)
+  const requestSequence = ++directoryRequestSequence
+  clearSelection()
+  fileUploaderDialog.value = false
+  directoryLoading.value = true
+  directoryError.value = ''
+
   const request: ListDirectoryFilesRequest = create(ListDirectoryFilesRequestSchema, {})
   try {
     request.gameServerId = gameServerId.value
-    request.path = directoryPath
+    request.path = normalizedPath
     const response: ListDirectoryFilesResponse = await GetXylonaClient().listDirectoryFiles(request)
+    if (requestSequence !== directoryRequestSequence) {
+      return
+    }
+
     directories.value = []
     files.value = []
-    const upDirectory: xylonaFile = create(FileSchema)
-    upDirectory.name = '..'
-    upDirectory.size = BigInt(0)
-    upDirectory.isDirectory = true
-    upDirectory.lastModified = create(TimestampSchema, {})
-    directories.value.push(upDirectory)
+    if (normalizedPath !== '') {
+      const upDirectory: xylonaFile = create(FileSchema)
+      upDirectory.name = '..'
+      upDirectory.size = BigInt(0)
+      upDirectory.isDirectory = true
+      upDirectory.lastModified = create(TimestampSchema, {})
+      directories.value.push(upDirectory)
+    }
     response.files.forEach((file) => {
       if (file.isDirectory) {
         directories.value.push(file)
@@ -549,29 +657,60 @@ async function listDirectoryFiles(directoryPath: string) {
         files.value.push(file)
       }
     })
+    loadedPath.value = normalizedPath
+    path.value = normalizedPath
+    window.location.hash = normalizedPath.replaceAll(pathSeparator.value, '/')
   } catch (err) {
+    if (requestSequence !== directoryRequestSequence) {
+      return
+    }
+
     if (err instanceof ConnectError) {
       if (err.code === Code.NotFound) {
-        path.value = ''
-        setTimeout(() => {
-          window.location.hash = ''
-          void listDirectoryFiles(path.value)
-        }, 100)
-        $q.notify({
-          caption: `Directory not found.`,
-          type: 'xylona-error',
-          position: 'top',
-          timeout: 5000,
-        })
+        directoryError.value = 'The requested directory was not found.'
         return
       }
       console.error(`Error listing directory files: ${err.code} ${err.message}`)
+      directoryError.value = err.message || 'The directory listing request failed.'
       return
     }
     console.error(err)
+    directoryError.value = err instanceof Error ? err.message : 'The directory listing failed.'
   } finally {
-    // Ensure loading state is always cleared
+    if (requestSequence === directoryRequestSequence) {
+      directoryLoading.value = false
+    }
   }
+}
+
+function normalizeDirectoryPath(directoryPath: string): string {
+  const segments = directoryPath.split(/[\\/]+/)
+  const normalizedSegments: string[] = []
+
+  for (const segment of segments) {
+    if (segment === '' || segment === '.') {
+      continue
+    }
+    if (segment === '..') {
+      normalizedSegments.pop()
+      continue
+    }
+    normalizedSegments.push(segment)
+  }
+
+  return normalizedSegments.join(pathSeparator.value)
+}
+
+function retryDirectoryLoad() {
+  void listDirectoryFiles(path.value)
+}
+
+function returnToLoadedDirectory() {
+  clearSelection()
+  path.value = loadedPath.value
+  directoryError.value = ''
+  directoryLoading.value = false
+  window.location.hash = loadedPath.value.replaceAll(pathSeparator.value, '/')
 }
 
 async function readFileOctetStream(fileName: string) {
@@ -579,7 +718,8 @@ async function readFileOctetStream(fileName: string) {
     message: 'Reading file...',
     delay: 100,
   })
-  const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
+  const operationPath = loadedPath.value
+  const fullFilePath = GetRelativeFilePath(gameServer.value.directory, operationPath, fileName)
   const fileRequest: DownloadFileRequest = create(DownloadFileRequestSchema, {})
   fileRequest.gameServerId = gameServerId.value
   fileRequest.path = fullFilePath
@@ -591,7 +731,13 @@ async function readFileOctetStream(fileName: string) {
       },
       body: toJsonString(DownloadFileRequestSchema, fileRequest),
     })
+    if (!response.ok) {
+      throw new Error(response.statusText || `File request failed with status ${response.status}`)
+    }
     const data = await response.text()
+    if (loadedPath.value !== operationPath || path.value !== operationPath) {
+      return
+    }
     editorFilename.value = fileName
     editorFileContent.value = data
     editorFilePath.value = fullFilePath
@@ -609,8 +755,25 @@ async function readFileOctetStream(fileName: string) {
   }
 }
 
-async function downloadGameServerFile(fileName: string) {
-  const fullFilePath = GetRelativeFilePath(gameServer.value.directory, path.value, fileName)
+async function downloadSelectedFiles() {
+  if (downloadingSelected.value || !downloadButtonEnabled.value) {
+    return
+  }
+
+  const operationPath = loadedPath.value
+  const filesToDownload = sanitizeSelectedFiles()
+  downloadingSelected.value = true
+  try {
+    for (const file of filesToDownload) {
+      await downloadGameServerFile(file.name, operationPath)
+    }
+  } finally {
+    downloadingSelected.value = false
+  }
+}
+
+async function downloadGameServerFile(fileName: string, operationPath = loadedPath.value) {
+  const fullFilePath = GetRelativeFilePath(gameServer.value.directory, operationPath, fileName)
   const encodedGameServerID = encodeURIComponent(gameServerId.value)
   const encodedFilePath = encodeURIComponent(fullFilePath)
   const rawURL = `${window.location.protocol}//${window.location.host}/api/file/download/${encodedGameServerID}/${encodedFilePath}`
@@ -652,7 +815,7 @@ async function downloadGameServerFile(fileName: string) {
   } catch (e) {
     console.error(e)
     $q.notify({
-      caption: `Error reading file ${fileName}.`,
+      caption: `Error downloading file ${fileName}.`,
       type: 'xylona-error',
       position: 'top',
       timeout: 5000,
@@ -691,6 +854,22 @@ async function getGameServerDetails() {
   justify-content: center;
   padding: var(--xy-space-3xl) var(--xy-space-md);
   text-align: center;
+}
+
+.file-directory-state {
+  display: flex;
+  min-height: 16rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-xl) var(--xy-space-md);
+  text-align: center;
+}
+
+.file-directory-error {
+  max-width: 65ch;
+  overflow-wrap: anywhere;
 }
 
 .file-toolbar {

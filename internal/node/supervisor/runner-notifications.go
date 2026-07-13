@@ -23,6 +23,10 @@ func (c *Command) sendJobStatusNotificationWithExit(oldStatus xylona.Status, exi
 	c.sendJobStatusNotificationDetails(oldStatus, xylona.Status_OFFLINE, exitCode, true)
 }
 
+func (c *Command) sendJobStatusNotificationWithExitDetails(oldStatus xylona.Status, exitCode int, exitCodeKnown bool) {
+	c.sendJobStatusNotificationDetails(oldStatus, xylona.Status_OFFLINE, exitCode, exitCodeKnown)
+}
+
 func (c *Command) sendJobStatusNotificationDetails(
 	oldStatus xylona.Status,
 	newStatus xylona.Status,

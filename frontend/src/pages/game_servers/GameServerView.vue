@@ -42,6 +42,9 @@
               <q-tooltip v-if="!hasPermission('game_server.start')">
                 Requires start permission
               </q-tooltip>
+              <q-tooltip v-else-if="!serverStateAuthoritative">
+                Waiting for authoritative server status
+              </q-tooltip>
             </q-btn>
             <q-btn
               :disable="disableStopButton || !hasPermission('game_server.stop')"
@@ -51,6 +54,9 @@
               @click="stopGameServer">
               <q-tooltip v-if="!hasPermission('game_server.stop')">
                 Requires stop permission
+              </q-tooltip>
+              <q-tooltip v-else-if="!serverStateAuthoritative">
+                Waiting for authoritative server status
               </q-tooltip>
             </q-btn>
             <q-btn
@@ -63,6 +69,9 @@
               @click="updateGameServer">
               <q-tooltip v-if="!hasPermission('game_server.settings')">
                 Requires settings permission
+              </q-tooltip>
+              <q-tooltip v-else-if="!serverStateAuthoritative">
+                Waiting for authoritative server status
               </q-tooltip>
             </q-btn>
           </div>
@@ -395,24 +404,63 @@
           @click="consoleExpanded = !consoleExpanded" />
       </div>
 
+      <div
+        v-if="consoleStreamState !== 'ready' || consoleLoadError"
+        :class="{
+          'console-stream-state--error': consoleStreamState === 'error' || consoleLoadError,
+        }"
+        class="console-stream-state"
+        :role="consoleStreamState === 'error' || consoleLoadError ? 'alert' : 'status'"
+        aria-live="assertive">
+        <q-spinner
+          v-if="consoleStreamState === 'loading' || consoleStreamState === 'reconnecting'"
+          color="info"
+          size="1rem" />
+        <q-icon v-else name="sync_problem" size="sm" />
+        <span v-if="consoleStreamState === 'loading'">Loading console output…</span>
+        <span v-else-if="consoleStreamState === 'reconnecting'">
+          Console connection interrupted. Reconnecting…
+        </span>
+        <span v-else>{{ consoleLoadError || 'Console output is unavailable.' }}</span>
+        <q-btn
+          v-if="consoleStreamState === 'error' || consoleLoadError"
+          dense
+          flat
+          icon="refresh"
+          label="Retry"
+          @click="retryConsoleOutput" />
+      </div>
+
       <!-- Console output -->
       <template v-if="showConsolePlaceholder">
         <div class="console-output console-output-offline">
           <div class="offline-placeholder">
             <div class="offline-icon">
-              <q-icon name="power_settings_new" />
+              <q-icon :name="isServerStatusUnknown ? 'sync_problem' : 'power_settings_new'" />
             </div>
-            <div class="offline-text">Server is offline</div>
-            <div class="offline-hint">Press Start to launch the server</div>
+            <div class="offline-text">
+              {{ isServerStatusUnknown ? 'Server status unavailable' : 'Server is offline' }}
+            </div>
+            <div class="offline-hint">
+              {{
+                isServerStatusUnknown
+                  ? 'Lifecycle controls are paused until status is confirmed'
+                  : 'Press Start to launch the server'
+              }}
+            </div>
           </div>
         </div>
       </template>
       <template v-else>
         <q-scroll-area id="consoleContainer" ref="consoleScrollArea" class="console-scroll-area">
           <div
-            v-if="isServerOffline && !updateInProgress && !softwareOperationInProgress"
+            v-if="
+              (isServerOffline || isServerStatusUnknown) &&
+              !updateInProgress &&
+              !softwareOperationInProgress
+            "
             class="console-status-banner">
-            Server offline.
+            {{ isServerStatusUnknown ? 'Server status unavailable.' : 'Server offline.' }}
           </div>
           <div v-if="consoleTruncated" class="console-truncated-notice">
             Earlier output truncated
@@ -431,12 +479,14 @@
       </template>
 
       <!-- Console input -->
-      <div :class="{ 'console-input-disabled': isServerOffline }" class="console-input-wrapper">
+      <div
+        :class="{ 'console-input-disabled': consoleInputDisabled }"
+        class="console-input-wrapper">
         <span class="console-prompt">&gt;</span>
         <q-input
           id="consoleInput"
           v-model="serverInput"
-          :disable="!hasPermission('game_server.console') || isServerOffline"
+          :disable="consoleInputDisabled"
           autofocus
           borderless
           class="console-input-field"
@@ -449,7 +499,8 @@
           @keyup.down="navigateConsoleInputHistory('down')">
           <template #append>
             <q-btn
-              :disable="!hasPermission('game_server.console') || isServerOffline"
+              :disable="consoleInputDisabled"
+              :loading="sendingConsoleInput"
               aria-label="Send command"
               color="primary"
               flat
@@ -575,6 +626,8 @@ import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch
 import { useGameServerConsoleState } from './useGameServerConsoleState'
 import { useGameServerMetricsPreview } from './useGameServerMetricsPreview'
 import { useGameServerQueryStatusVersion } from './useGameServerQueryStatusVersion'
+import { websocketStateAuthoritative } from '@/utils/websocket-connection'
+import { resolveConsoleStreamChunk } from './console-stream-sequence'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -603,6 +656,7 @@ const {
   consoleTruncated,
   navigateConsoleInputHistory,
   recordConsoleInput,
+  replaceConsoleOutput,
   serverInput,
   toggleConsoleAutoScroll: toggleAutoScroll,
 } = useGameServerConsoleState({
@@ -612,6 +666,12 @@ const {
 
 const startingServer = ref(false)
 const stoppingServer = ref(false)
+const serverStatusFresh = ref(false)
+const sendingConsoleInput = ref(false)
+const consoleStreamState = ref<'loading' | 'ready' | 'reconnecting' | 'error'>('loading')
+const consoleLoadError = ref('')
+const lastConsoleSequence = ref(0n)
+const receivedConsoleReset = ref(false)
 const updatingServer = ref(false)
 const updateInProgress = ref(false)
 const updateDialogOpen = ref(false)
@@ -640,6 +700,8 @@ const pollingHytaleAuth = ref(false)
 const selectingHytaleProfile = ref(false)
 const clearingHytaleAccount = ref(false)
 const maxOperationOutputLines = 80
+let gameServerDetailsRequestSequence = 0
+let liveStatusSequence = 0
 
 const {
   cpuBarClass,
@@ -669,8 +731,18 @@ const { currentPlayerCount, maxPlayerCount, queryGameServer, startQueryStatusVer
   })
 
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
-const isServerOffline = computed(
-  () => gameServer.value.status === Status.OFFLINE || gameServer.value.status === Status.UNKNOWN,
+const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
+const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)
+const serverStateAuthoritative = computed(
+  () =>
+    websocketStateAuthoritative.value && serverStatusFresh.value && !isServerStatusUnknown.value,
+)
+const consoleInputDisabled = computed(
+  () =>
+    !hasPermission('game_server.console') ||
+    !isServerOnline.value ||
+    !serverStateAuthoritative.value ||
+    sendingConsoleInput.value,
 )
 const hasConsoleOutput = computed(() => consoleLines.value.length > 0)
 const softwareOperationInProgress = computed(() =>
@@ -678,7 +750,7 @@ const softwareOperationInProgress = computed(() =>
 )
 const showConsolePlaceholder = computed(
   () =>
-    isServerOffline.value &&
+    (isServerOffline.value || isServerStatusUnknown.value) &&
     !hasConsoleOutput.value &&
     !updateInProgress.value &&
     !softwareOperationInProgress.value,
@@ -720,15 +792,16 @@ function onEscapeKey(e: KeyboardEvent) {
 }
 
 const disableStartButton = computed(() => {
-  return gameServer.value.status !== Status.OFFLINE && gameServer.value.status !== Status.UNKNOWN
+  return !serverStateAuthoritative.value || gameServer.value.status !== Status.OFFLINE
 })
 
 const disableStopButton = computed(() => {
-  return gameServer.value.status !== Status.ONLINE
+  return !serverStateAuthoritative.value || gameServer.value.status !== Status.ONLINE
 })
 
 const disableUpdateButton = computed(() => {
   return (
+    !serverStateAuthoritative.value ||
     gameServer.value.status === Status.INSTALLING ||
     gameServer.value.status === Status.UPDATING ||
     updateInProgress.value
@@ -789,12 +862,12 @@ function handleMobileSidebar() {
 onMounted(async () => {
   document.addEventListener('keydown', onEscapeKey)
   handleMobileSidebar()
+  streamGameServerOutput()
 
   void getGameServerDetails()
     .then(() => {
       void loadReadiness()
-      void getGameServerOutput()
-      streamGameServerOutput()
+      void retryConsoleOutput()
       startQueryStatusVersionLifecycle()
       startMetricsPreviewLifecycle()
     })
@@ -808,7 +881,9 @@ onBeforeUnmount(() => {
 
   XylonaEventBus.off('gameServerUpdateProgress', onUpdateProgress)
   XylonaEventBus.off('websocketConnected', onWebsocketReconnect)
+  XylonaEventBus.off('websocketDisconnected', onWebsocketDisconnect)
   XylonaEventBus.off('gameServerConsoleOutput', onServerConsoleOutput)
+  XylonaEventBus.off('gameServerStatus', onServerStatus)
 })
 
 function unsubscribeConsoleOutputStream() {
@@ -826,15 +901,41 @@ async function requestConsoleOutputStream() {
 }
 
 async function getGameServerDetails() {
+  const requestSequence = ++gameServerDetailsRequestSequence
+  const statusSequenceAtStart = liveStatusSequence
   const request: GetGameServerRequest = create(GetGameServerRequestSchema, {})
   try {
     request.id = gameServerId.value
     const response = await GetXylonaClient().getGameServer(request)
-    if (response.gameServer === undefined) {
-      return
+    if (requestSequence !== gameServerDetailsRequestSequence) {
+      return false
     }
-    gameServer.value = response.gameServer
+    if (response.gameServer === undefined) {
+      serverStatusFresh.value = false
+      gameServer.value = create(GameServerSchema, {
+        ...gameServer.value,
+        status: Status.UNKNOWN,
+      })
+      return false
+    }
+    gameServer.value =
+      statusSequenceAtStart === liveStatusSequence
+        ? response.gameServer
+        : create(GameServerSchema, {
+            ...response.gameServer,
+            status: gameServer.value.status,
+          })
+    serverStatusFresh.value = websocketStateAuthoritative.value
+    return true
   } catch (e) {
+    if (requestSequence !== gameServerDetailsRequestSequence) {
+      return false
+    }
+    serverStatusFresh.value = false
+    gameServer.value = create(GameServerSchema, {
+      ...gameServer.value,
+      status: Status.UNKNOWN,
+    })
     console.error(e)
     $q.notify({
       type: 'xylona-error',
@@ -842,6 +943,7 @@ async function getGameServerDetails() {
       caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
+    return false
   }
 }
 
@@ -1096,6 +1198,9 @@ function readinessLabel(kind: string): string {
 }
 
 async function startGameServer() {
+  if (!serverStateAuthoritative.value) {
+    return
+  }
   const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
   startingServer.value = true
   try {
@@ -1116,6 +1221,9 @@ async function startGameServer() {
 }
 
 async function stopGameServer() {
+  if (!serverStateAuthoritative.value) {
+    return
+  }
   const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
   stoppingServer.value = true
   try {
@@ -1273,10 +1381,6 @@ function captureOperationOutput(output: string): boolean {
     return true
   }
 
-  if (route === 'discard') {
-    return true
-  }
-
   return false
 }
 
@@ -1299,6 +1403,10 @@ function onUpdateProgress(progress: UpdateProgress) {
 }
 
 async function updateGameServer() {
+  if (!serverStateAuthoritative.value) {
+    return
+  }
+
   if (gameServer.value.status === Status.ONLINE) {
     const confirmed = await new Promise<boolean>((resolve) => {
       let settled = false
@@ -1401,40 +1509,119 @@ async function updateGameServer() {
   }
 }
 
-async function getGameServerOutput() {
+async function getGameServerOutput(fallbackOnly = false) {
   const request: ReadGameServerOutputRequest = create(ReadGameServerOutputRequestSchema, {})
   try {
     request.serverId = gameServerId.value
     const response: ReadGameServerOutputResponse =
       await GetXylonaClient().readGameServerOutput(request)
+    if (fallbackOnly && receivedConsoleReset.value) {
+      return
+    }
     if (captureOperationOutput(response.output)) {
       return
     }
     appendConsoleOutput(response.output)
+    consoleLoadError.value = ''
   } catch (e) {
     console.error(e)
+    consoleLoadError.value =
+      'Earlier console output could not be loaded. Live output may still appear.'
+    if (consoleStreamState.value !== 'ready') {
+      consoleStreamState.value = 'error'
+    }
   }
 }
 
-function onWebsocketReconnect() {
-  void requestConsoleOutputStream().catch((error) => {
+async function onWebsocketReconnect() {
+  serverStatusFresh.value = false
+  receivedConsoleReset.value = false
+  lastConsoleSequence.value = 0n
+  consoleStreamState.value = 'reconnecting'
+  const detailsLoaded = await getGameServerDetails()
+  if (!detailsLoaded) {
+    console.error('Failed to refresh game server status after websocket reconnect')
+  }
+  try {
+    await requestConsoleOutputStream()
+  } catch (error) {
     console.error('Failed to resubscribe to game server console output', error)
-  })
+    consoleLoadError.value = 'Console reconnection failed.'
+    consoleStreamState.value = 'error'
+  }
 }
 
-function onServerConsoleOutput(serverID: string, output: string) {
+function onWebsocketDisconnect() {
+  serverStatusFresh.value = false
+  consoleStreamState.value = 'reconnecting'
+}
+
+function onServerStatus(serverID: string, _serverName: string, status: Status) {
   if (serverID !== gameServerId.value) {
     return
   }
+
+  liveStatusSequence++
+  if (status === Status.OFFLINE) {
+    lastConsoleSequence.value = 0n
+    receivedConsoleReset.value = false
+  }
+  gameServer.value = create(GameServerSchema, {
+    ...gameServer.value,
+    status,
+  })
+  serverStatusFresh.value = websocketStateAuthoritative.value
+}
+
+function onServerConsoleOutput(
+  serverID: string,
+  output: string,
+  sequence: bigint = 0n,
+  resetBuffer: boolean = false,
+  reconnecting: boolean | undefined = undefined,
+) {
+  if (serverID !== gameServerId.value) {
+    return
+  }
+
+  if (reconnecting !== undefined) {
+    consoleLoadError.value = ''
+    consoleStreamState.value = reconnecting ? 'reconnecting' : 'ready'
+    if (reconnecting && output !== '') {
+      appendConsoleOutput(output)
+    }
+    return
+  }
+
+  const decision = resolveConsoleStreamChunk(lastConsoleSequence.value, {
+    sequence,
+    reset: resetBuffer,
+  })
+  if (decision.action === 'ignore') {
+    return
+  }
+  lastConsoleSequence.value = decision.nextSequence
+
+  if (decision.action === 'replace') {
+    receivedConsoleReset.value = true
+    consoleLoadError.value = ''
+    consoleStreamState.value = 'ready'
+    replaceConsoleOutput(output)
+    return
+  }
+
   if (captureOperationOutput(output)) {
+    consoleStreamState.value = 'ready'
     return
   }
   appendConsoleOutput(output)
+  consoleStreamState.value = 'ready'
 }
 
 function streamGameServerOutput() {
   // Stream game server output.
   XylonaEventBus.on('gameServerConsoleOutput', onServerConsoleOutput)
+  XylonaEventBus.on('gameServerStatus', onServerStatus)
 
   // Listen for update progress events before any initial websocket request so
   // an early send failure cannot skip the listener registration.
@@ -1442,19 +1629,35 @@ function streamGameServerOutput() {
 
   // Handle socket reconnection.
   XylonaEventBus.on('websocketConnected', onWebsocketReconnect)
+  XylonaEventBus.on('websocketDisconnected', onWebsocketDisconnect)
+}
 
-  // Request the game server to start streaming output.
-  void requestConsoleOutputStream().catch((error) => {
+async function retryConsoleOutput() {
+  receivedConsoleReset.value = false
+  consoleStreamState.value = 'loading'
+  consoleLoadError.value = ''
+  try {
+    await requestConsoleOutputStream()
+  } catch (error) {
     console.error('Failed to subscribe to game server console output', error)
-  })
+    consoleLoadError.value = 'Could not connect to live console output.'
+    consoleStreamState.value = 'error'
+  }
+  await getGameServerOutput(true)
 }
 
 async function sendGameServerInput() {
+  if (consoleInputDisabled.value || serverInput.value === '') {
+    return
+  }
+
   const request: SendGameServerInputRequest = create(SendGameServerInputRequestSchema, {})
+  sendingConsoleInput.value = true
   try {
     request.serverId = gameServerId.value
     request.input = serverInput.value
     await GetXylonaClient().sendGameServerInput(request)
+    recordConsoleInput()
   } catch (e) {
     console.error(e)
     $q.notify({
@@ -1463,8 +1666,9 @@ async function sendGameServerInput() {
       caption: 'Failed to send command: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
+  } finally {
+    sendingConsoleInput.value = false
   }
-  recordConsoleInput()
 }
 </script>
 
@@ -1998,6 +2202,27 @@ async function sendGameServerInput() {
 .console-toolbar-btn-off {
   opacity: 0.3;
   color: var(--xy-text-muted);
+}
+
+.console-stream-state {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  min-height: 2.5rem;
+  padding: var(--xy-space-xs) 10rem var(--xy-space-xs) var(--xy-space-md);
+  color: var(--xy-text-primary);
+  background: var(--xy-warning-bg-faint);
+  border-bottom: 1px solid var(--xy-warning-border);
+  font-family: var(--xy-font-body);
+}
+
+.console-stream-state--error {
+  background: var(--xy-danger-bg-faint);
+  border-color: var(--xy-danger-border);
+}
+
+.console-stream-state .q-btn {
+  margin-inline-start: auto;
 }
 
 /* Console output scroll area */

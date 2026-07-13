@@ -19,7 +19,7 @@ describe('operation-output', () => {
     expect(next).toEqual(['line 2', 'line 3', 'line 4'])
   })
 
-  it('routes offline output away from the console and into the active dialog', () => {
+  it('routes output to active operations and preserves ordinary offline output in console', () => {
     expect(
       resolveOperationOutputRoute({
         isServerOffline: false,
@@ -54,6 +54,6 @@ describe('operation-output', () => {
         updateRequested: false,
         softwareOperationInProgress: false,
       }),
-    ).toBe('discard')
+    ).toBe('console')
   })
 })

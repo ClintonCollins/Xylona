@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -106,7 +107,7 @@ func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[
 }
 
 // EditNode updates a configured node.
-func (xs *XylonaService) EditNode(_ context.Context, request *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
+func (xs *XylonaService) EditNode(ctx context.Context, request *connect.Request[xylona.EditNodeRequest]) (*connect.Response[xylona.EditNodeResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
@@ -114,31 +115,27 @@ func (xs *XylonaService) EditNode(_ context.Context, request *connect.Request[xy
 	if !user.SuperUser {
 		return nil, permissionDenied("superuser required")
 	}
+	errContext := ctx.Err()
+	if errContext != nil {
+		return nil, connect.NewError(contextConnectCode(errContext), fmt.Errorf("edit node: %w", errContext))
+	}
 	nodeModel := protomap.NodeProtoToModel(request.Msg.GetNode())
 	node, err := xs.db.UpdateNode(nodeModel, protomap.NodeModelToSetter(nodeModel))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&xylona.EditNodeResponse{Node: xs.nodeProtoWithRuntime(context.Background(), node)}), nil
+	nodeProto := xs.nodeProtoWithRuntime(ctx, node)
+	errContext = ctx.Err()
+	if errContext != nil {
+		return nil, connect.NewError(contextConnectCode(errContext), fmt.Errorf("edit node: %w", errContext))
+	}
+	return connect.NewResponse(&xylona.EditNodeResponse{Node: nodeProto}), nil
 }
 
-func (xs *XylonaService) aggregatedServerStatus(ctx context.Context, gameServer *models.GameServer) xylona.Status {
-	if gameServer == nil {
-		return xylona.Status_UNKNOWN
-	}
-
-	snapCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-
-	status, _, errSnapshot := xs.resolveGameServerRuntimeState(snapCtx, gameServer)
-	if errSnapshot != nil {
-		log.Debug().Err(errSnapshot).Str("game_server_id", gameServer.ID).
-			Msg("ListAggregatedGameServers: snapshot unavailable; using offline status")
-	}
-	return status
-}
-
-func (xs *XylonaService) remoteSummaryFromGameServer(ctx context.Context, gameServer *models.GameServer) *xylona.RemoteServerSummary {
+func (xs *XylonaService) remoteSummaryFromGameServer(
+	gameServer *models.GameServer,
+	state gameServerNodeSnapshotState,
+) *xylona.RemoteServerSummary {
 	if gameServer == nil {
 		return &xylona.RemoteServerSummary{}
 	}
@@ -150,8 +147,16 @@ func (xs *XylonaService) remoteSummaryFromGameServer(ctx context.Context, gameSe
 			lastSeenAt = &nodeLastSeen
 		}
 	}
+	if state.err == nil && !state.observedAt.IsZero() {
+		observedAt := state.observedAt
+		lastSeenAt = &observedAt
+	}
 
-	protoStatus := xs.aggregatedServerStatus(ctx, gameServer)
+	protoStatus, _, errStatus := processStateFromNodeSnapshot(gameServer.ID, state)
+	if errStatus != nil {
+		log.Debug().Err(errStatus).Str("game_server_id", gameServer.ID).
+			Msg("ListAggregatedGameServers: node snapshot unavailable; using unknown status")
+	}
 	out := &xylona.RemoteServerSummary{
 		Id:             gameServer.ID,
 		SourceNodeId:   gameServer.NodeID,
@@ -167,7 +172,7 @@ func (xs *XylonaService) remoteSummaryFromGameServer(ctx context.Context, gameSe
 		CurrentPlayers: gameServer.SetPlayers,
 		MapName:        gameServer.Map,
 		Version:        gameServer.Version,
-		IsStale:        false,
+		IsStale:        state.err != nil,
 	}
 	if gameServer.R.Game != nil {
 		out.GameName = gameServer.R.Game.Name
@@ -224,17 +229,28 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 	}
 
 	selfNodeID := xs.selfNodeID()
+	nodeStates := xs.collectGameServerNodeSnapshots(ctx, localServers)
+	if ctx.Err() != nil {
+		return nil, connect.NewError(contextConnectCode(ctx.Err()), fmt.Errorf("list aggregated game servers: %w", ctx.Err()))
+	}
 	for _, gs := range localServers {
+		nodeState := xs.gameServerNodeSnapshotState(gs, nodeStates)
 		if strings.TrimSpace(gs.NodeID) != "" && gs.NodeID != selfNodeID {
 			resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
 				IsLocal:      false,
-				RemoteServer: xs.remoteSummaryFromGameServer(ctx, gs),
+				RemoteServer: xs.remoteSummaryFromGameServer(gs, nodeState),
 			})
 			continue
 		}
 
+		status, processSnapshot, errSnapshot := processStateFromNodeSnapshot(gs.ID, nodeState)
+		if errSnapshot != nil {
+			log.Debug().Err(errSnapshot).Str("game_server_id", gs.ID).
+				Msg("ListAggregatedGameServers: local node snapshot unavailable; using unknown status")
+		}
 		gsProto := protomap.GameServerModelToProto(gs, xs.versionState)
-		gsProto.Status = xs.getLocalGameServerStatus(gs)
+		gsProto.Status = status
+		applyProcessMetricsToProto(gsProto, processSnapshot)
 		if user.SuperUser || gs.UserID == user.ID {
 			gsProto.EffectivePermissions = xs.allPermissionIDs
 		} else {

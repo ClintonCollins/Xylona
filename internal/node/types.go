@@ -22,6 +22,9 @@ var (
 	// ErrProcessNotFound is returned when a process command is not currently
 	// tracked by the node.
 	ErrProcessNotFound = errors.New("node: process not found")
+	// ErrConsoleInputUnavailable is returned while a process input transport
+	// is starting or reconnecting. Callers may retry the command.
+	ErrConsoleInputUnavailable = errors.New("node: console input temporarily unavailable")
 	// ErrUnexpectedHTTPStatus is returned when a node download receives a
 	// non-success HTTP status.
 	ErrUnexpectedHTTPStatus = errors.New("node: unexpected download HTTP status")
@@ -390,8 +393,10 @@ type NodeSnapshot struct {
 
 // ConsoleChunk is a slice of buffered console output for a process.
 type ConsoleChunk struct {
-	ProcessID string
-	Data      string
+	ProcessID   string
+	Data        string
+	Sequence    uint64
+	ResetBuffer bool
 }
 
 // EventType identifies the kind of node event.

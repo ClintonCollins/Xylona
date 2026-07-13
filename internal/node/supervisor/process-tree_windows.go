@@ -178,16 +178,16 @@ func interruptProcessTree(process *os.Process) error {
 	return nil
 }
 
-func mirrorProcessConsoleInput(cmd *exec.Cmd, input string) error {
+func mirrorProcessConsoleInput(cmd *exec.Cmd, input string) (bool, error) {
 	if input == "" {
-		return nil
+		return true, nil
 	}
 	if cmd == nil || cmd.Process == nil {
-		return os.ErrProcessDone
+		return true, os.ErrProcessDone
 	}
 	pid := cmd.Process.Pid
 	if pid <= 0 || int64(pid) > int64(^uint32(0)) {
-		return fmt.Errorf("invalid process ID %d", pid)
+		return true, fmt.Errorf("invalid process ID %d", pid)
 	}
 	output, errRun := runWindowsConsoleHelper(pid, "input", strings.NewReader(input+"\r"))
 	if errRun != nil {
@@ -195,9 +195,9 @@ func mirrorProcessConsoleInput(cmd *exec.Cmd, input string) error {
 		if message == "" {
 			message = errRun.Error()
 		}
-		return fmt.Errorf("write command to process console %d: %s", pid, message)
+		return true, fmt.Errorf("write command to process console %d: %s", pid, message)
 	}
-	return nil
+	return true, nil
 }
 
 func runWindowsConsoleHelper(pid int, mode string, input io.Reader) ([]byte, error) {

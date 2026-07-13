@@ -36,6 +36,23 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     scheduleConsoleFlush()
   }
 
+  function replaceConsoleOutput(rawOutput: string) {
+    cancelPendingConsoleFlush()
+
+    const parsed = parseConsole(options.gameID.value, rawOutput)
+    const replacementLines = splitConsoleChunk(parsed).map((lineHtml) => ({
+      id: consoleLineIdCounter++,
+      html: lineHtml,
+    }))
+    const trimmedConsole = trimConsoleLines(replacementLines, maxConsoleCharacters)
+    consoleLines.value = trimmedConsole.lines
+    consoleTruncated.value = trimmedConsole.truncated
+
+    if (consoleAutoScroll.value) {
+      void nextTick(options.scrollToBottom)
+    }
+  }
+
   function scheduleConsoleFlush() {
     if (consoleRafId !== null) return
 
@@ -121,6 +138,7 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     consoleTruncated,
     navigateConsoleInputHistory,
     recordConsoleInput,
+    replaceConsoleOutput,
     serverInput,
     toggleConsoleAutoScroll,
   }

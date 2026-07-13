@@ -188,13 +188,23 @@ func (xs *XylonaService) ListScheduledTasks(
 		log.Error().Err(errGet).Str("game_server_id", serverID).Msg("Failed to list scheduled tasks")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list scheduled tasks"))
 	}
+	latestLogs, errLogs := xs.db.GetLatestScheduledTaskLogsByGameServerID(serverID)
+	if errLogs != nil {
+		log.Error().Err(errLogs).Str("game_server_id", serverID).Msg("Failed to list latest scheduled task logs")
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to list scheduled tasks"))
+	}
 
 	resp := &xylona.ListScheduledTasksResponse{
-		Tasks: make([]*xylona.ScheduledTask, 0, len(tasks)),
+		Tasks:      make([]*xylona.ScheduledTask, 0, len(tasks)),
+		LatestLogs: make([]*xylona.ScheduledTaskLog, 0, len(latestLogs)),
 	}
 	for _, t := range tasks {
 		includeConsoleCommand := t.TaskType != "console_command" || canReadConsoleDetails
 		resp.Tasks = append(resp.Tasks, scheduledTaskToProto(t, includeConsoleCommand))
+	}
+	for _, entry := range latestLogs {
+		includeMessage := entry.TaskType != "console_command" || canReadConsoleDetails
+		resp.LatestLogs = append(resp.LatestLogs, scheduledTaskLogToProto(entry, includeMessage))
 	}
 
 	return connect.NewResponse(resp), nil

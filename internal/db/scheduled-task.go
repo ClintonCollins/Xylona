@@ -210,6 +210,78 @@ func (c *Connection) GetScheduledTaskLogs(scheduledTaskID string, limit, offset 
 	return logs, nil
 }
 
+// GetLatestScheduledTaskLogsByGameServerID returns the most recent execution
+// log for each scheduled task belonging to a game server.
+func (c *Connection) GetLatestScheduledTaskLogsByGameServerID(gameServerID string) ([]*models.ScheduledTaskLog, error) {
+	rows, errQuery := c.SQLDb.QueryContext(
+		c.ctx,
+		`select logs.id,
+			logs.scheduled_task_id,
+			logs.game_server_id,
+			logs.task_type,
+			logs.status,
+			logs.message,
+			logs.started_at,
+			logs.finished_at,
+			logs.created_at
+		 from scheduled_task_log as logs
+		 where logs.game_server_id = ?
+			and logs.id = (
+				select latest.id
+				from scheduled_task_log as latest
+				where latest.scheduled_task_id = logs.scheduled_task_id
+				order by latest.created_at desc, latest.id desc
+				limit 1
+			)
+		 order by logs.created_at desc, logs.id desc`,
+		gameServerID,
+	)
+	if errQuery != nil {
+		return nil, fmt.Errorf("get latest scheduled task logs by game server ID: %w", errQuery)
+	}
+	defer func() {
+		errClose := rows.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("Failed to close rows in GetLatestScheduledTaskLogsByGameServerID")
+		}
+	}()
+
+	logs := make([]*models.ScheduledTaskLog, 0)
+	for rows.Next() {
+		entry := &models.ScheduledTaskLog{}
+		var message sql.NullString
+		var finishedAt sql.NullTime
+		errScan := rows.Scan(
+			&entry.ID,
+			&entry.ScheduledTaskID,
+			&entry.GameServerID,
+			&entry.TaskType,
+			&entry.Status,
+			&message,
+			&entry.StartedAt,
+			&finishedAt,
+			&entry.CreatedAt,
+		)
+		if errScan != nil {
+			return nil, fmt.Errorf("scan latest scheduled task log: %w", errScan)
+		}
+		if message.Valid {
+			entry.Message = null.From(message.String)
+		}
+		if finishedAt.Valid {
+			entry.FinishedAt = null.From(finishedAt.Time)
+		}
+		logs = append(logs, entry)
+	}
+
+	errRows := rows.Err()
+	if errRows != nil {
+		return nil, fmt.Errorf("iterate latest scheduled task logs: %w", errRows)
+	}
+
+	return logs, nil
+}
+
 // PruneScheduledTaskLogs deletes log entries older than the given threshold and
 // trims per-task logs to the given maximum count.
 func (c *Connection) PruneScheduledTaskLogs(olderThan time.Time, maxPerTask int) (int64, error) {

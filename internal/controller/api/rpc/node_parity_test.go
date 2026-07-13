@@ -28,6 +28,34 @@ type blockingSnapshotNodeClient struct {
 	release <-chan struct{}
 }
 
+type cancellationAwareConsoleNodeClient struct {
+	*nodeclient.FakeNodeClient
+}
+
+type blockingProcessSnapshotNodeClient struct {
+	*nodeclient.FakeNodeClient
+	entered chan<- string
+}
+
+func (c *blockingProcessSnapshotNodeClient) GetProcessSnapshot(
+	ctx context.Context,
+	processID string,
+) (*node.ProcessSnapshot, bool, error) {
+	c.entered <- processID
+	<-ctx.Done()
+	return nil, false, fmt.Errorf("blocking process snapshot wait: %w", ctx.Err())
+}
+
+func (c *cancellationAwareConsoleNodeClient) ReadConsoleBuffer(ctx context.Context, processID string) (node.ConsoleChunk, error) {
+	<-ctx.Done()
+	return node.ConsoleChunk{ProcessID: processID}, fmt.Errorf("read console buffer wait: %w", ctx.Err())
+}
+
+func (c *cancellationAwareConsoleNodeClient) SendConsoleInput(ctx context.Context, _ string, _ string) error {
+	<-ctx.Done()
+	return fmt.Errorf("send console input wait: %w", ctx.Err())
+}
+
 func (c *blockingSnapshotNodeClient) GetNodeSnapshot(ctx context.Context) (*node.NodeSnapshot, error) {
 	c.entered <- c.NodeID
 
@@ -141,14 +169,54 @@ func insertNodeScopedIPForParityTests(t *testing.T, fixture *rbacRPCFixture, nod
 
 func insertRemoteServerForParityTests(t *testing.T, fixture *rbacRPCFixture, serverID string) {
 	t.Helper()
+	insertServerOnNodeWithDetailsForParityTests(
+		t,
+		fixture,
+		serverID,
+		"Remote Server",
+		"node-remote",
+		"/srv/remote-server",
+		25575,
+	)
+}
+
+func insertServerOnNodeForParityTests(
+	t *testing.T,
+	fixture *rbacRPCFixture,
+	serverID string,
+	nodeID string,
+	port int64,
+) {
+	t.Helper()
+	insertServerOnNodeWithDetailsForParityTests(
+		t,
+		fixture,
+		serverID,
+		"Remote Server "+serverID,
+		nodeID,
+		"/srv/"+serverID,
+		port,
+	)
+}
+
+func insertServerOnNodeWithDetailsForParityTests(
+	t *testing.T,
+	fixture *rbacRPCFixture,
+	serverID string,
+	serverName string,
+	nodeID string,
+	directory string,
+	port int64,
+) {
+	t.Helper()
 
 	_, errInsert := fixture.conn.SQLDb.ExecContext(
 		context.Background(),
 		`insert into game_server
 		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
 		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		serverID, "user-owner", "Remote Server", "minecraft", "OFFLINE",
-		12, 20, "world_remote", "127.0.0.1", 25575, 25576, "/srv/remote-server", "node-remote", "[]",
+		serverID, "user-owner", serverName, "minecraft", "OFFLINE",
+		12, 20, "world_remote", "127.0.0.1", port, port+1, directory, nodeID, "[]",
 	)
 	if errInsert != nil {
 		t.Fatalf("insert remote game server error = %v", errInsert)
@@ -235,6 +303,27 @@ func testParityRegistry(self nodeclient.NodeClient, remote nodeclient.NodeClient
 	return registry
 }
 
+func configureLifecycleActionsForParityTests(
+	t *testing.T,
+	fixture *rbacRPCFixture,
+	registry *noderegistry.Registry,
+) {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	fixture.service.nodeRegistry = registry
+	fixture.service.actionsInst = actions.NewInstance(
+		ctx,
+		fixture.conn,
+		nil,
+		registry,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+}
+
 func TestRemoveNodeRejectsEmbeddedSelfNode(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, nil)
@@ -256,21 +345,256 @@ func TestRemoveNodeRejectsEmbeddedSelfNode(t *testing.T) {
 	}
 }
 
-func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
+func TestEditNodeCancelsRuntimeSnapshotWithRequest(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+
+	entered := make(chan string, 1)
+	release := make(chan struct{})
+	remoteClient := &blockingSnapshotNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{NodeID: "node-remote"},
+		entered:        entered,
+		release:        release,
+	}
+	fixture.service.nodeRegistry = testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local"},
+		remoteClient,
+	)
+
+	request := connect.NewRequest(&xylona.EditNodeRequest{Node: &xylona.Node{
+		Id:      "node-remote",
+		Name:    "Renamed Remote Node",
+		BaseUrl: "https://node-remote.example.com",
+		Enabled: true,
+	}})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	ctx, cancel := context.WithCancel(t.Context())
+	result := make(chan error, 1)
+	go func() {
+		_, errEdit := fixture.service.EditNode(ctx, request)
+		result <- errEdit
+	}()
+
+	select {
+	case nodeID := <-entered:
+		if nodeID != "node-remote" {
+			t.Fatalf("runtime snapshot node ID = %q, want %q", nodeID, "node-remote")
+		}
+		cancel()
+	case <-time.After(time.Second):
+		cancel()
+		t.Fatal("timed out waiting for EditNode runtime snapshot")
+	}
+
+	select {
+	case errEdit := <-result:
+		if connect.CodeOf(errEdit) != connect.CodeCanceled {
+			t.Fatalf("EditNode() code = %v, want %v (error %v)", connect.CodeOf(errEdit), connect.CodeCanceled, errEdit)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("EditNode() did not return after request cancellation")
+	}
+}
+
+func TestSetServerVariantCancellationPreventsMutation(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-variant-cancel")
+	before, errBefore := fixture.conn.GetGameServerByID("server-remote-variant-cancel")
+	if errBefore != nil {
+		t.Fatalf("GetGameServerByID(before) error = %v", errBefore)
+	}
+
+	entered := make(chan string, 1)
+	remoteClient := &blockingProcessSnapshotNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{NodeID: "node-remote"},
+		entered:        entered,
+	}
+	fixture.service.nodeRegistry = testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local"},
+		remoteClient,
+	)
+
+	request := connect.NewRequest(&xylona.SetServerVariantRequest{
+		GameServerId: "server-remote-variant-cancel",
+		VariantId:    "paper",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+	ctx, cancel := context.WithCancel(t.Context())
+	result := make(chan error, 1)
+	go func() {
+		_, errSet := fixture.service.SetServerVariant(ctx, request)
+		result <- errSet
+	}()
+
+	select {
+	case processID := <-entered:
+		if processID != "server-remote-variant-cancel" {
+			t.Fatalf("process snapshot ID = %q, want %q", processID, "server-remote-variant-cancel")
+		}
+		cancel()
+	case <-time.After(time.Second):
+		cancel()
+		t.Fatal("timed out waiting for SetServerVariant process snapshot")
+	}
+
+	select {
+	case errSet := <-result:
+		if connect.CodeOf(errSet) != connect.CodeCanceled {
+			t.Fatalf("SetServerVariant() code = %v, want %v (error %v)", connect.CodeOf(errSet), connect.CodeCanceled, errSet)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("SetServerVariant() did not return after request cancellation")
+	}
+
+	after, errAfter := fixture.conn.GetGameServerByID("server-remote-variant-cancel")
+	if errAfter != nil {
+		t.Fatalf("GetGameServerByID(after) error = %v", errAfter)
+	}
+	if after.ServerSoftware != before.ServerSoftware || after.Branch != before.Branch || after.TargetPinned != before.TargetPinned {
+		t.Fatalf(
+			"variant selection changed after cancellation: before=(%v,%q,%v) after=(%v,%q,%v)",
+			before.ServerSoftware,
+			before.Branch,
+			before.TargetPinned,
+			after.ServerSoftware,
+			after.Branch,
+			after.TargetPinned,
+		)
+	}
+}
+
+func TestStopGameServerReportsRemoteStopFailure(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
 	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
 
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		SnapshotResult: &node.NodeSnapshot{OS: "linux"},
+		StopProcessErr: errors.New("node connection lost"),
+	}
+	registry := testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local", SnapshotResult: &node.NodeSnapshot{OS: "linux"}},
+		remoteClient,
+	)
+	configureLifecycleActionsForParityTests(t, fixture, registry)
+
+	request := connect.NewRequest(&xylona.StopGameServerRequest{ServerId: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	_, errStop := fixture.service.StopGameServer(context.Background(), request)
+	if connect.CodeOf(errStop) != connect.CodeUnavailable {
+		t.Fatalf("StopGameServer() code = %v, want %v (error %v)", connect.CodeOf(errStop), connect.CodeUnavailable, errStop)
+	}
+	if len(remoteClient.StopProcessCalls) != 1 {
+		t.Fatalf("StopProcess call count = %d, want 1", len(remoteClient.StopProcessCalls))
+	}
+}
+
+func TestRemoveGameServerPreservesRecordWhenShutdownOrCleanupFails(t *testing.T) {
+	cases := []struct {
+		name                 string
+		stopErr              error
+		deleteErr            error
+		processSnapshot      *node.ProcessSnapshot
+		processSnapshotFound bool
+		requestTimeout       time.Duration
+		wantCode             connect.Code
+		wantDeleteFilesCalls int
+	}{
+		{
+			name:     "remote stop fails",
+			stopErr:  errors.New("node connection lost"),
+			wantCode: connect.CodeUnavailable,
+		},
+		{
+			name:                 "file cleanup fails",
+			deleteErr:            errors.New("remote directory unavailable"),
+			wantCode:             connect.CodeInternal,
+			wantDeleteFilesCalls: 1,
+		},
+		{
+			name: "shutdown cannot be confirmed",
+			processSnapshot: &node.ProcessSnapshot{
+				ID:     "server-remote-1",
+				Status: xylona.Status_ONLINE.String(),
+			},
+			processSnapshotFound: true,
+			requestTimeout:       50 * time.Millisecond,
+			wantCode:             connect.CodeDeadlineExceeded,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			insertRemoteNodeForParityTests(t, fixture, "node-remote")
+			insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+			remoteClient := &nodeclient.FakeNodeClient{
+				NodeID:                   "node-remote",
+				SnapshotResult:           &node.NodeSnapshot{OS: "linux"},
+				StopProcessErr:           tc.stopErr,
+				DeleteFilesErr:           tc.deleteErr,
+				GetProcessSnapshotResult: tc.processSnapshot,
+				GetProcessSnapshotFound:  tc.processSnapshotFound,
+			}
+			registry := testParityRegistry(
+				&nodeclient.FakeNodeClient{NodeID: "node-local", SnapshotResult: &node.NodeSnapshot{OS: "linux"}},
+				remoteClient,
+			)
+			configureLifecycleActionsForParityTests(t, fixture, registry)
+
+			request := connect.NewRequest(&xylona.RemoveGameServerRequest{ServerId: "server-remote-1"})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+			requestCtx := context.Background()
+			var cancel context.CancelFunc
+			if tc.requestTimeout > 0 {
+				requestCtx, cancel = context.WithTimeout(requestCtx, tc.requestTimeout)
+				defer cancel()
+			}
+
+			_, errRemove := fixture.service.RemoveGameServer(requestCtx, request)
+			if connect.CodeOf(errRemove) != tc.wantCode {
+				t.Fatalf("RemoveGameServer() code = %v, want %v (error %v)", connect.CodeOf(errRemove), tc.wantCode, errRemove)
+			}
+			_, errGet := fixture.conn.GetGameServerByID("server-remote-1")
+			if errGet != nil {
+				t.Fatalf("GetGameServerByID() after failed remove error = %v; database row should remain", errGet)
+			}
+			if len(remoteClient.DeleteFilesCalls) != tc.wantDeleteFilesCalls {
+				t.Fatalf("DeleteFiles call count = %d, want %d", len(remoteClient.DeleteFilesCalls), tc.wantDeleteFilesCalls)
+			}
+		})
+	}
+}
+
+func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+	insertServerOnNodeForParityTests(t, fixture, "server-remote-2", "node-remote", 25585)
+
 	selfClient := &nodeclient.FakeNodeClient{
 		NodeID: "node-local",
 	}
+	collectedAt := time.Now().UTC().Truncate(time.Second)
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID:                  "node-remote",
-		GetProcessSnapshotFound: true,
-		GetProcessSnapshotResult: &node.ProcessSnapshot{
-			ID:     "server-remote-1",
-			Name:   "Remote Server",
-			Status: xylona.Status_ONLINE.String(),
+		NodeID: "node-remote",
+		SnapshotResult: &node.NodeSnapshot{
+			Collected: collectedAt,
+			Processes: []node.ProcessSnapshot{
+				{
+					ID:     "server-remote-1",
+					Name:   "Remote Server",
+					Status: xylona.Status_ONLINE.String(),
+				},
+				{
+					ID:     "server-remote-2",
+					Name:   "Remote Server 2",
+					Status: xylona.Status_OFFLINE.String(),
+				},
+			},
 		},
 	}
 	fixture.service.nodeRegistry = testParityRegistry(selfClient, remoteClient)
@@ -302,25 +626,43 @@ func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
 	if remoteSummary.GetNodeName() != "Remote Node" {
 		t.Fatalf("remote summary node_name = %q, want %q", remoteSummary.GetNodeName(), "Remote Node")
 	}
+	if remoteSummary.GetIsStale() {
+		t.Fatal("remote summary is_stale = true, want false for fresh node snapshot")
+	}
+	if !remoteSummary.GetLastRemoteUpdate().AsTime().Equal(collectedAt) {
+		t.Fatalf("remote summary last_remote_update = %v, want %v", remoteSummary.GetLastRemoteUpdate().AsTime(), collectedAt)
+	}
+	if remoteClient.SnapshotCalls != 1 {
+		t.Fatalf("remote node snapshot call count = %d, want 1 for two servers", remoteClient.SnapshotCalls)
+	}
+	if len(remoteClient.GetProcessSnapshotCalls) != 0 {
+		t.Fatalf("per-process snapshot calls = %v, want none", remoteClient.GetProcessSnapshotCalls)
+	}
 }
 
-func TestListAggregatedGameServersReportsRemoteOfflineWhenSnapshotUnavailable(t *testing.T) {
+func TestListAggregatedGameServersDistinguishesOfflineFromUnavailable(t *testing.T) {
 	cases := []struct {
-		name   string
-		client *nodeclient.FakeNodeClient
+		name       string
+		client     *nodeclient.FakeNodeClient
+		wantStatus xylona.Status
+		wantStale  bool
 	}{
 		{
-			name: "snapshot not found",
+			name: "successful snapshot without process is offline",
 			client: &nodeclient.FakeNodeClient{
-				NodeID: "node-remote",
+				NodeID:         "node-remote",
+				SnapshotResult: &node.NodeSnapshot{},
 			},
+			wantStatus: xylona.Status_OFFLINE,
 		},
 		{
-			name: "snapshot fails",
+			name: "snapshot failure is unknown and stale",
 			client: &nodeclient.FakeNodeClient{
-				NodeID:                "node-remote",
-				GetProcessSnapshotErr: errors.New("snapshot unavailable"),
+				NodeID:      "node-remote",
+				SnapshotErr: errors.New("snapshot unavailable"),
 			},
+			wantStatus: xylona.Status_UNKNOWN,
+			wantStale:  true,
 		},
 	}
 
@@ -358,10 +700,70 @@ func TestListAggregatedGameServersReportsRemoteOfflineWhenSnapshotUnavailable(t 
 			if remoteSummary == nil {
 				t.Fatal("ListAggregatedGameServers() missing remote server summary for server-remote-1")
 			}
-			if remoteSummary.GetStatus() != xylona.Status_OFFLINE {
-				t.Fatalf("remote summary status = %v, want %v", remoteSummary.GetStatus(), xylona.Status_OFFLINE)
+			if remoteSummary.GetStatus() != tc.wantStatus {
+				t.Fatalf("remote summary status = %v, want %v", remoteSummary.GetStatus(), tc.wantStatus)
+			}
+			if remoteSummary.GetIsStale() != tc.wantStale {
+				t.Fatalf("remote summary is_stale = %v, want %v", remoteSummary.GetIsStale(), tc.wantStale)
 			}
 		})
+	}
+}
+
+func TestListAggregatedGameServersFetchesOwningNodesConcurrently(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote-a")
+	insertRemoteNodeForParityTests(t, fixture, "node-remote-b")
+	insertServerOnNodeForParityTests(t, fixture, "server-remote-a", "node-remote-a", 25585)
+	insertServerOnNodeForParityTests(t, fixture, "server-remote-b", "node-remote-b", 25595)
+
+	entered := make(chan string, 2)
+	release := make(chan struct{})
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{
+		NodeID:         "node-local",
+		SnapshotResult: &node.NodeSnapshot{},
+	})
+	for _, nodeID := range []string{"node-remote-a", "node-remote-b"} {
+		registry.Register(&blockingSnapshotNodeClient{
+			FakeNodeClient: &nodeclient.FakeNodeClient{
+				NodeID:         nodeID,
+				SnapshotResult: &node.NodeSnapshot{},
+			},
+			entered: entered,
+			release: release,
+		})
+	}
+	fixture.service.nodeRegistry = registry
+
+	request := connect.NewRequest(&xylona.ListAggregatedGameServersRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	result := make(chan error, 1)
+	go func() {
+		_, errList := fixture.service.ListAggregatedGameServers(context.Background(), request)
+		result <- errList
+	}()
+
+	seen := make(map[string]bool, 2)
+	for range 2 {
+		select {
+		case nodeID := <-entered:
+			seen[nodeID] = true
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for concurrent node snapshots")
+		}
+	}
+	if !seen["node-remote-a"] || !seen["node-remote-b"] {
+		t.Fatalf("concurrent snapshot nodes = %v, want both remote nodes", seen)
+	}
+	close(release)
+
+	select {
+	case errList := <-result:
+		if errList != nil {
+			t.Fatalf("ListAggregatedGameServers() error = %v", errList)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ListAggregatedGameServers() did not finish after node snapshots were released")
 	}
 }
 
@@ -408,6 +810,135 @@ func TestListAggregatedGameServersRedactsLocalRowsForNonSuperuser(t *testing.T) 
 	}
 }
 
+func TestListGameServersUsesOneSnapshotPerOwningNode(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+	insertServerOnNodeForParityTests(t, fixture, "server-remote-2", "node-remote", 25585)
+
+	selfClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-local",
+		SnapshotResult: &node.NodeSnapshot{},
+	}
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		SnapshotResult: &node.NodeSnapshot{
+			Processes: []node.ProcessSnapshot{
+				{ID: "server-remote-1", Status: xylona.Status_ONLINE.String()},
+				{ID: "server-remote-2", Status: xylona.Status_UPDATING.String()},
+			},
+		},
+	}
+	fixture.service.nodeRegistry = testParityRegistry(selfClient, remoteClient)
+
+	request := connect.NewRequest(&xylona.ListGameServersRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	response, errList := fixture.service.ListGameServers(context.Background(), request)
+	if errList != nil {
+		t.Fatalf("ListGameServers() error = %v", errList)
+	}
+
+	statuses := make(map[string]xylona.Status, len(response.Msg.GetGameServers()))
+	for _, gameServer := range response.Msg.GetGameServers() {
+		statuses[gameServer.GetId()] = gameServer.GetStatus()
+	}
+	if statuses["server-remote-1"] != xylona.Status_ONLINE {
+		t.Fatalf("server-remote-1 status = %v, want %v", statuses["server-remote-1"], xylona.Status_ONLINE)
+	}
+	if statuses["server-remote-2"] != xylona.Status_UPDATING {
+		t.Fatalf("server-remote-2 status = %v, want %v", statuses["server-remote-2"], xylona.Status_UPDATING)
+	}
+	if remoteClient.SnapshotCalls != 1 {
+		t.Fatalf("remote snapshot call count = %d, want 1", remoteClient.SnapshotCalls)
+	}
+	if len(remoteClient.GetProcessSnapshotCalls) != 0 {
+		t.Fatalf("remote per-process snapshot calls = %v, want none", remoteClient.GetProcessSnapshotCalls)
+	}
+}
+
+func TestListGameServersReportsUnknownWhenNodeSnapshotUnavailable(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+	_, errUpdate := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:     omit.From("server-remote-1"),
+		Status: omit.From(xylona.Status_ONLINE.String()),
+	})
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:      "node-remote",
+		SnapshotErr: errors.New("node unavailable"),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local", SnapshotResult: &node.NodeSnapshot{}},
+		remoteClient,
+	)
+
+	request := connect.NewRequest(&xylona.ListGameServersRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	response, errList := fixture.service.ListGameServers(context.Background(), request)
+	if errList != nil {
+		t.Fatalf("ListGameServers() error = %v", errList)
+	}
+	for _, gameServer := range response.Msg.GetGameServers() {
+		if gameServer.GetId() != "server-remote-1" {
+			continue
+		}
+		if gameServer.GetStatus() != xylona.Status_UNKNOWN {
+			t.Fatalf("remote status = %v, want %v", gameServer.GetStatus(), xylona.Status_UNKNOWN)
+		}
+		return
+	}
+	t.Fatal("ListGameServers() missing server-remote-1")
+}
+
+func TestListGameServersCancelsInFlightNodeSnapshots(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	entered := make(chan string, 1)
+	release := make(chan struct{})
+	remoteClient := &blockingSnapshotNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{NodeID: "node-remote"},
+		entered:        entered,
+		release:        release,
+	}
+	fixture.service.nodeRegistry = testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local", SnapshotResult: &node.NodeSnapshot{}},
+		remoteClient,
+	)
+
+	request := connect.NewRequest(&xylona.ListGameServersRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		_, errList := fixture.service.ListGameServers(ctx, request)
+		result <- errList
+	}()
+
+	select {
+	case <-entered:
+		cancel()
+	case <-time.After(time.Second):
+		cancel()
+		t.Fatal("timed out waiting for remote snapshot request")
+	}
+
+	select {
+	case errList := <-result:
+		if connect.CodeOf(errList) != connect.CodeCanceled {
+			t.Fatalf("ListGameServers() code = %v, want %v (error %v)", connect.CodeOf(errList), connect.CodeCanceled, errList)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ListGameServers() did not return after request cancellation")
+	}
+}
+
 func TestReadGameServerOutputReadsRemoteNodeBuffer(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
@@ -447,6 +978,52 @@ func TestReadGameServerOutputReadsRemoteNodeBuffer(t *testing.T) {
 	}
 }
 
+func TestReadGameServerOutputPreservesRequestCancellation(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	remoteClient := &cancellationAwareConsoleNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{NodeID: "node-remote"},
+	}
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	configureLifecycleActionsForParityTests(t, fixture, registry)
+
+	request := connect.NewRequest(&xylona.ReadGameServerOutputRequest{ServerId: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, errRead := fixture.service.ReadGameServerOutput(ctx, request)
+	if connect.CodeOf(errRead) != connect.CodeCanceled {
+		t.Fatalf("ReadGameServerOutput() code = %v, want %v (error %v)", connect.CodeOf(errRead), connect.CodeCanceled, errRead)
+	}
+}
+
+func TestSendGameServerInputPreservesRequestCancellation(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	remoteClient := &cancellationAwareConsoleNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{NodeID: "node-remote"},
+	}
+	fixture.service.nodeRegistry = testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local"},
+		remoteClient,
+	)
+
+	request := connect.NewRequest(&xylona.SendGameServerInputRequest{ServerId: "server-remote-1", Input: "status"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, errSend := fixture.service.SendGameServerInput(ctx, request)
+	if connect.CodeOf(errSend) != connect.CodeCanceled {
+		t.Fatalf("SendGameServerInput() code = %v, want %v (error %v)", connect.CodeOf(errSend), connect.CodeCanceled, errSend)
+	}
+}
+
 func TestGetGameServerReportsOfflineWhenRemoteProcessSnapshotMissing(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
@@ -480,7 +1057,7 @@ func TestGetGameServerReportsOfflineWhenRemoteProcessSnapshotMissing(t *testing.
 	}
 }
 
-func TestGetGameServerReportsOfflineWhenRemoteProcessSnapshotFails(t *testing.T) {
+func TestGetGameServerReportsUnknownWhenRemoteProcessSnapshotFails(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
 	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
@@ -495,7 +1072,7 @@ func TestGetGameServerReportsOfflineWhenRemoteProcessSnapshotFails(t *testing.T)
 
 	remoteClient := &nodeclient.FakeNodeClient{
 		NodeID:                "node-remote",
-		GetProcessSnapshotErr: errors.New("remote snapshot should not be called"),
+		GetProcessSnapshotErr: errors.New("remote snapshot unavailable"),
 	}
 	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
 
@@ -506,8 +1083,8 @@ func TestGetGameServerReportsOfflineWhenRemoteProcessSnapshotFails(t *testing.T)
 	if errGet != nil {
 		t.Fatalf("GetGameServer() error = %v", errGet)
 	}
-	if response.Msg.GetGameServer().GetStatus() != xylona.Status_OFFLINE {
-		t.Fatalf("GetGameServer().Status = %v, want %v", response.Msg.GetGameServer().GetStatus(), xylona.Status_OFFLINE)
+	if response.Msg.GetGameServer().GetStatus() != xylona.Status_UNKNOWN {
+		t.Fatalf("GetGameServer().Status = %v, want %v", response.Msg.GetGameServer().GetStatus(), xylona.Status_UNKNOWN)
 	}
 	if len(remoteClient.GetProcessSnapshotCalls) != 1 || remoteClient.GetProcessSnapshotCalls[0] != "server-remote-1" {
 		t.Fatalf("GetProcessSnapshot calls = %+v, want [server-remote-1]", remoteClient.GetProcessSnapshotCalls)

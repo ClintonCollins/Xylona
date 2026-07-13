@@ -121,6 +121,9 @@ func (n *Node) SendConsoleInput(processID, input string) error {
 	}
 	errSend := cmd.SendInput(input)
 	if errSend != nil {
+		if errors.Is(errSend, supervisor.ErrConsoleInputUnavailable) {
+			return fmt.Errorf("%w: %w", ErrConsoleInputUnavailable, errSend)
+		}
 		return fmt.Errorf("node: send console input: %w", errSend)
 	}
 	return nil
@@ -138,9 +141,11 @@ func (n *Node) ReadConsoleBuffer(processID string) ConsoleChunk {
 	if errGet != nil {
 		return ConsoleChunk{ProcessID: processID}
 	}
+	buffer, sequence := cmd.GetOutputSnapshot()
 	return ConsoleChunk{
 		ProcessID: processID,
-		Data:      cmd.GetOutputBuffer(),
+		Data:      buffer,
+		Sequence:  sequence,
 	}
 }
 
@@ -198,7 +203,7 @@ func (n *Node) GetProcessSnapshot(processID string) (*ProcessSnapshot, bool, err
 }
 
 // StreamConsoleOutput streams live console output chunks for one process.
-func (n *Node) StreamConsoleOutput(ctx context.Context, processID string) (<-chan ConsoleChunk, error) {
+func (n *Node) StreamConsoleOutput(ctx context.Context, processID string, replayBuffer bool) (<-chan ConsoleChunk, error) {
 	if n.supervisor == nil {
 		return nil, errors.New("node: supervisor not configured")
 	}
@@ -206,12 +211,28 @@ func (n *Node) StreamConsoleOutput(ctx context.Context, processID string) (<-cha
 	command := n.supervisor.GetCommandByIDOrCreateShell(processID)
 	listenerID := fmt.Sprintf("node-console-%s-%d", processID, time.Now().UnixNano())
 	listener := make(chan *xylona.Message, 256)
-	command.AddOutputListener(listenerID, listener)
+	var replay *xylona.Message
+	if replayBuffer {
+		replay = command.AddOutputListenerWithReplay(listenerID, listener)
+	} else {
+		command.AddOutputListener(listenerID, listener)
+	}
 
 	out := make(chan ConsoleChunk, 64)
 	go func() {
 		defer close(out)
 		defer command.RemoveOutputListener(listenerID)
+
+		if replay != nil {
+			replayChunk, ok := consoleChunkFromMessage(replay)
+			if ok {
+				select {
+				case <-ctx.Done():
+					return
+				case out <- replayChunk:
+				}
+			}
+		}
 
 		for {
 			select {
@@ -225,14 +246,9 @@ func (n *Node) StreamConsoleOutput(ctx context.Context, processID string) (<-cha
 					continue
 				}
 
-				consoleOutput := msg.GetGameServerConsoleOutput()
-				if consoleOutput == nil {
+				chunk, valid := consoleChunkFromMessage(msg)
+				if !valid {
 					continue
-				}
-
-				chunk := ConsoleChunk{
-					ProcessID: consoleOutput.GetGameServerId(),
-					Data:      consoleOutput.GetOutput(),
 				}
 
 				select {
@@ -245,4 +261,20 @@ func (n *Node) StreamConsoleOutput(ctx context.Context, processID string) (<-cha
 	}()
 
 	return out, nil
+}
+
+func consoleChunkFromMessage(msg *xylona.Message) (ConsoleChunk, bool) {
+	if msg == nil || msg.GetType() != xylona.Message_GameServerConsole {
+		return ConsoleChunk{}, false
+	}
+	consoleOutput := msg.GetGameServerConsoleOutput()
+	if consoleOutput == nil {
+		return ConsoleChunk{}, false
+	}
+	return ConsoleChunk{
+		ProcessID:   consoleOutput.GetGameServerId(),
+		Data:        consoleOutput.GetOutput(),
+		Sequence:    consoleOutput.GetSequence(),
+		ResetBuffer: consoleOutput.GetResetBuffer(),
+	}, true
 }

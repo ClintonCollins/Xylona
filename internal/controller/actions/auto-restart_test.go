@@ -281,7 +281,10 @@ func TestOnStatusChangedSkipsAutoRestartAfterRemoteIntentionalStopRequest(t *tes
 	entry.lastStartTime = time.Now()
 	entry.mu.Unlock()
 
-	fixture.inst.StopGameServer(fixture.gameServer)
+	errStop := fixture.inst.StopGameServer(t.Context(), fixture.gameServer)
+	if errStop != nil {
+		t.Fatalf("StopGameServer() error = %v", errStop)
+	}
 	fixture.inst.onStatusChanged(eventbus.StatusChangedEvent{
 		ServerID:     fixture.gameServer.ID,
 		ServerNodeID: fixture.gameServer.NodeID,

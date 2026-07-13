@@ -13,6 +13,8 @@ func TestRemoteEventBridgeRepublishReliableLifecycle(t *testing.T) {
 	bus := eventbus.Get()
 	statusEvents := bus.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
 	defer bus.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusEvents)
+	crashEvents := bus.SubscribeReliable(eventbus.TopicGameServerCrashed)
+	defer bus.Unsubscribe(eventbus.TopicGameServerCrashed, crashEvents)
 
 	bridge := &RemoteEventBridge{bus: bus}
 	previous := make(map[string]string)
@@ -41,11 +43,85 @@ func TestRemoteEventBridgeRepublishReliableLifecycle(t *testing.T) {
 	if got.ExecutionID != "execution-1" || got.TransitionSequence != 2 || !got.ExitCodeKnown || got.ExitCode != 17 || !got.Replayed {
 		t.Fatalf("lifecycle metadata = %+v", got)
 	}
+	rawCrash := <-crashEvents
+	crash, ok := rawCrash.(eventbus.ServerCrashedEvent)
+	if !ok {
+		t.Fatalf("crash event type = %T", rawCrash)
+	}
+	if crash.ServerID != "server-1" || crash.ServerNodeID != "node-1" || crash.ExitCode != 17 {
+		t.Fatalf("crash event = %+v", crash)
+	}
 
 	bridge.republish("node-1", event, previous, cursors)
 	select {
 	case duplicate := <-statusEvents:
 		t.Fatalf("duplicate replay was republished: %+v", duplicate)
+	case <-time.After(50 * time.Millisecond):
+	}
+	select {
+	case duplicate := <-crashEvents:
+		t.Fatalf("duplicate crash was republished: %+v", duplicate)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestRemoteEventBridgeRepublishesUnknownExitCrashOnce(t *testing.T) {
+	bus := eventbus.Get()
+	crashEvents := bus.SubscribeReliable(eventbus.TopicGameServerCrashed)
+	defer bus.Unsubscribe(eventbus.TopicGameServerCrashed, crashEvents)
+	statusEvents := bus.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
+	defer bus.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusEvents)
+	bridge := &RemoteEventBridge{bus: bus}
+	previous := make(map[string]string)
+	cursors := make(map[string]processLifecycleCursor)
+	event := node.Event{
+		Type:               node.EventTypeProcessStatus,
+		ProcessID:          "server-signal-exit",
+		OldStatus:          xylona.Status_ONLINE.String(),
+		Status:             xylona.Status_OFFLINE.String(),
+		ExecutionID:        "execution-signal-exit",
+		TransitionSequence: 2,
+		ExitCode:           -1,
+		ExitCodeKnown:      true,
+	}
+
+	bridge.republish("node-remote", event, previous, cursors)
+	<-statusEvents
+	rawCrash := <-crashEvents
+	crash, ok := rawCrash.(eventbus.ServerCrashedEvent)
+	if !ok || crash.ServerID != event.ProcessID || crash.ServerNodeID != "node-remote" || crash.ExitCode != -1 {
+		t.Fatalf("unknown-exit crash = %+v", rawCrash)
+	}
+
+	bridge.republish("node-remote", event, previous, cursors)
+	select {
+	case duplicate := <-crashEvents:
+		t.Fatalf("duplicate unknown-exit crash was republished: %+v", duplicate)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestRemoteEventBridgeDoesNotTreatOperationFailureAsGameServerCrash(t *testing.T) {
+	bus := eventbus.Get()
+	crashEvents := bus.SubscribeReliable(eventbus.TopicGameServerCrashed)
+	defer bus.Unsubscribe(eventbus.TopicGameServerCrashed, crashEvents)
+	statusEvents := bus.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
+	defer bus.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusEvents)
+	bridge := &RemoteEventBridge{bus: bus}
+	bridge.republish("node-remote", node.Event{
+		Type:               node.EventTypeProcessStatus,
+		ProcessID:          "server-update-failure",
+		OldStatus:          xylona.Status_UPDATING.String(),
+		Status:             xylona.Status_OFFLINE.String(),
+		ExecutionID:        "execution-update-failure",
+		TransitionSequence: 2,
+		ExitCode:           1,
+		ExitCodeKnown:      true,
+	}, make(map[string]string), make(map[string]processLifecycleCursor))
+	<-statusEvents
+	select {
+	case crash := <-crashEvents:
+		t.Fatalf("operation failure was republished as a crash: %+v", crash)
 	case <-time.After(50 * time.Millisecond):
 	}
 }
@@ -54,6 +130,8 @@ func TestRemoteEventBridgeRetainsLegacyPreviousStatus(t *testing.T) {
 	bus := eventbus.Get()
 	statusEvents := bus.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
 	defer bus.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusEvents)
+	crashEvents := bus.SubscribeReliable(eventbus.TopicGameServerCrashed)
+	defer bus.Unsubscribe(eventbus.TopicGameServerCrashed, crashEvents)
 
 	bridge := &RemoteEventBridge{bus: bus}
 	previous := make(map[string]string)
@@ -66,11 +144,14 @@ func TestRemoteEventBridgeRetainsLegacyPreviousStatus(t *testing.T) {
 	}, previous, cursors)
 	<-statusEvents
 
-	bridge.republish("node-1", node.Event{
-		Type:      node.EventTypeProcessStatus,
-		ProcessID: "server-legacy",
-		Status:    xylona.Status_OFFLINE.String(),
-	}, previous, cursors)
+	offlineEvent := node.Event{
+		Type:          node.EventTypeProcessStatus,
+		ProcessID:     "server-legacy",
+		Status:        xylona.Status_OFFLINE.String(),
+		ExitCode:      9,
+		ExitCodeKnown: true,
+	}
+	bridge.republish("node-1", offlineEvent, previous, cursors)
 	raw := <-statusEvents
 	got, ok := raw.(eventbus.StatusChangedEvent)
 	if !ok {
@@ -78,5 +159,18 @@ func TestRemoteEventBridgeRetainsLegacyPreviousStatus(t *testing.T) {
 	}
 	if got.OldStatus != xylona.Status_ONLINE.String() {
 		t.Fatalf("OldStatus = %q, want ONLINE", got.OldStatus)
+	}
+	rawCrash := <-crashEvents
+	crash, ok := rawCrash.(eventbus.ServerCrashedEvent)
+	if !ok || crash.ServerID != "server-legacy" || crash.ExitCode != 9 {
+		t.Fatalf("legacy crash event = %+v", rawCrash)
+	}
+
+	bridge.republish("node-1", offlineEvent, previous, cursors)
+	<-statusEvents
+	select {
+	case duplicate := <-crashEvents:
+		t.Fatalf("duplicate legacy crash was republished: %+v", duplicate)
+	case <-time.After(50 * time.Millisecond):
 	}
 }

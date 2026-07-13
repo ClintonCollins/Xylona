@@ -442,7 +442,10 @@ func (xs *XylonaService) drainNodeForSystemUpdate(ctx context.Context, input sys
 		return fmt.Errorf("list target node game servers: %w", errServers)
 	}
 	for _, gameServer := range servers {
-		xs.actionsInst.StopGameServer(gameServer)
+		errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
+		if errStop != nil {
+			return fmt.Errorf("stop game server %q before system update: %w", gameServer.ID, errStop)
+		}
 	}
 	if len(servers) == 0 {
 		return nil

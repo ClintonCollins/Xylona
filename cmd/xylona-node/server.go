@@ -95,6 +95,9 @@ func translate(err error) error {
 	if errors.Is(err, node.ErrProcessNotFound) {
 		return connect.NewError(connect.CodeNotFound, err)
 	}
+	if errors.Is(err, node.ErrConsoleInputUnavailable) {
+		return connect.NewError(connect.CodeFailedPrecondition, err)
+	}
 	if errors.Is(err, node.ErrProtectedPath) {
 		return connect.NewError(connect.CodePermissionDenied, err)
 	}
@@ -281,6 +284,8 @@ func (s *nodeServiceServer) ReadConsoleBuffer(_ context.Context, req *connect.Re
 			GameServerId: chunk.ProcessID,
 			Text:         chunk.Data,
 			Timestamp:    timestamppb.Now(),
+			Sequence:     chunk.Sequence,
+			ResetBuffer:  chunk.ResetBuffer,
 		},
 	}), nil
 }
@@ -1060,7 +1065,7 @@ func (s *nodeServiceServer) StreamConsoleOutput(ctx context.Context, req *connec
 		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
 	}
 
-	chunks, errStream := s.n.StreamConsoleOutput(ctx, req.Msg.GetProcessId())
+	chunks, errStream := s.n.StreamConsoleOutput(ctx, req.Msg.GetProcessId(), req.Msg.GetReplayBuffer())
 	if errStream != nil {
 		return connect.NewError(connect.CodeFailedPrecondition, errStream)
 	}
@@ -1077,6 +1082,8 @@ func (s *nodeServiceServer) StreamConsoleOutput(ctx context.Context, req *connec
 				GameServerId: chunk.ProcessID,
 				Text:         chunk.Data,
 				Timestamp:    timestamppb.Now(),
+				Sequence:     chunk.Sequence,
+				ResetBuffer:  chunk.ResetBuffer,
 			})
 			if errSend != nil {
 				return fmt.Errorf("stream console output send: %w", errSend)

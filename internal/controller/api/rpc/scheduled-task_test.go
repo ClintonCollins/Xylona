@@ -31,7 +31,7 @@ func TestListScheduledTasksRedactsConsoleCommandWithoutConsolePermission(t *test
 		permissionConsole,
 	)
 
-	_, errInsert := fixture.conn.InsertScheduledTask(
+	task, errInsert := fixture.conn.InsertScheduledTask(
 		"server-local-1",
 		"user-owner",
 		"Nightly Console Command",
@@ -43,6 +43,20 @@ func TestListScheduledTasksRedactsConsoleCommandWithoutConsolePermission(t *test
 	)
 	if errInsert != nil {
 		t.Fatalf("InsertScheduledTask() error = %v", errInsert)
+	}
+
+	finishedAt := time.Now().UTC()
+	_, errLog := fixture.conn.InsertScheduledTaskLog(
+		task.ID,
+		task.GameServerID,
+		task.TaskType,
+		"success",
+		"sent command: say secret",
+		finishedAt,
+		&finishedAt,
+	)
+	if errLog != nil {
+		t.Fatalf("InsertScheduledTaskLog() error = %v", errLog)
 	}
 
 	limitedRequest := connect.NewRequest(&xylona.ListScheduledTasksRequest{
@@ -59,6 +73,12 @@ func TestListScheduledTasksRedactsConsoleCommandWithoutConsolePermission(t *test
 	}
 	if limitedResponse.Msg.GetTasks()[0].ConsoleCommand != nil {
 		t.Fatalf("ListScheduledTasks(limited) exposed console command = %q", limitedResponse.Msg.GetTasks()[0].GetConsoleCommand())
+	}
+	if len(limitedResponse.Msg.GetLatestLogs()) != 1 {
+		t.Fatalf("ListScheduledTasks(limited) latest log count = %d, want %d", len(limitedResponse.Msg.GetLatestLogs()), 1)
+	}
+	if limitedResponse.Msg.GetLatestLogs()[0].Message != nil {
+		t.Fatalf("ListScheduledTasks(limited) exposed latest log message = %q", limitedResponse.Msg.GetLatestLogs()[0].GetMessage())
 	}
 
 	consoleRequest := connect.NewRequest(&xylona.ListScheduledTasksRequest{
@@ -78,6 +98,12 @@ func TestListScheduledTasksRedactsConsoleCommandWithoutConsolePermission(t *test
 	}
 	if consoleResponse.Msg.GetTasks()[0].GetConsoleCommand() != "say secret" {
 		t.Fatalf("ListScheduledTasks(console) console command = %q, want %q", consoleResponse.Msg.GetTasks()[0].GetConsoleCommand(), "say secret")
+	}
+	if len(consoleResponse.Msg.GetLatestLogs()) != 1 {
+		t.Fatalf("ListScheduledTasks(console) latest log count = %d, want %d", len(consoleResponse.Msg.GetLatestLogs()), 1)
+	}
+	if consoleResponse.Msg.GetLatestLogs()[0].GetMessage() != "sent command: say secret" {
+		t.Fatalf("ListScheduledTasks(console) latest log message = %q, want %q", consoleResponse.Msg.GetLatestLogs()[0].GetMessage(), "sent command: say secret")
 	}
 }
 

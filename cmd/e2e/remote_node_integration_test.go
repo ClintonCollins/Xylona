@@ -62,6 +62,7 @@ func TestRemoteNodeControllerBoundary(t *testing.T) {
 	assertOutputContains(t, ctx, client, state.GameServerID, "parent-pid="+strconv.Itoa(state.RemoteNodePID))
 	createRemoteFile(t, ctx, client, state.GameServerID, "remote-node-proof.txt", "created through controller RPC\n")
 	assertFileExists(t, filepath.Join(state.GameServerDir, "remote-node-proof.txt"))
+	assertBackupsSupported(t, ctx, client, state.GameServerID)
 
 	backupResp, errBackup := client.rpc.CreateGameServerBackup(ctx, connect.NewRequest(&xylona.CreateGameServerBackupRequest{
 		GameServerId: state.GameServerID,
@@ -83,6 +84,24 @@ func TestRemoteNodeControllerBoundary(t *testing.T) {
 	}
 	createRemoteFile(t, ctx, restartedClient, state.GameServerID, "after-restart-proof.txt", "remote node still reachable\n")
 	assertFileExists(t, filepath.Join(state.GameServerDir, "after-restart-proof.txt"))
+}
+
+func assertBackupsSupported(t *testing.T, ctx context.Context, client *e2eClient, serverID string) {
+	t.Helper()
+
+	response, errSettings := client.rpc.GetBackupSettings(ctx, connect.NewRequest(&xylona.GetBackupSettingsRequest{
+		GameServerId: serverID,
+	}))
+	if errSettings != nil {
+		t.Fatalf("GetBackupSettings() error = %v", errSettings)
+	}
+	settings := response.Msg.GetSettings()
+	if settings == nil {
+		t.Fatal("GetBackupSettings() returned no settings")
+	}
+	if !settings.GetBackupsSupported() {
+		t.Fatalf("GetBackupSettings().BackupsSupported = false: %s", settings.GetDisabledReason())
+	}
 }
 
 func assertOutputContains(t *testing.T, ctx context.Context, client *e2eClient, serverID string, needle string) {

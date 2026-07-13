@@ -35,7 +35,7 @@ type DB interface {
 // embedded and remote nodes execute identically.
 type ActionsExecutor interface {
 	StartGameServer(gameServer *models.GameServer) (*controlleractions.StartGameServerResult, error)
-	StopGameServer(gameServer *models.GameServer)
+	StopGameServer(ctx context.Context, gameServer *models.GameServer) error
 	CurrentStatus(gameServer *models.GameServer) xylona.Status
 	SendConsoleInput(gameServer *models.GameServer, input string) error
 }

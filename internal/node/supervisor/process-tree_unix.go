@@ -46,8 +46,8 @@ func RunConsoleSignalHelper() (bool, int) {
 	return false, 0
 }
 
-func mirrorProcessConsoleInput(_ *exec.Cmd, _ string) error {
-	return nil
+func mirrorProcessConsoleInput(_ *exec.Cmd, _ string) (bool, error) {
+	return false, nil
 }
 
 func interruptProcessTree(process *os.Process) error {

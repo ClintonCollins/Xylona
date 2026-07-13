@@ -114,6 +114,12 @@ message ConsoleChunk {
   string game_server_id = 1;
   string text = 2;
   google.protobuf.Timestamp timestamp = 3;
+  // sequence monotonically identifies console writes for the tracked process.
+  // A reset chunk carries the latest sequence represented by its full buffer.
+  uint64 sequence = 4;
+  // reset_buffer tells consumers to replace their local console buffer with text.
+  // It is used for atomic initial replay and reconnect recovery.
+  bool reset_buffer = 5;
 }
 
 // ProcessStatusEvent fires when a supervised process changes lifecycle state.
@@ -221,6 +227,9 @@ message ReadConsoleBufferResponse {
 
 message StreamConsoleOutputRequest {
   string process_id = 1;
+  // replay_buffer atomically subscribes to live output and sends the retained
+  // console buffer first as a reset chunk, eliminating snapshot/live gaps.
+  bool replay_buffer = 2;
 }
 
 // --- File RPCs --------------------------------------------------------------

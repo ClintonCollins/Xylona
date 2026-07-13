@@ -128,7 +128,10 @@ func (s *Scheduler) executeRestart(task *models.ScheduledTask) (string, string) 
 	}
 
 	// Phase 1: Stop the server.
-	s.actions.StopGameServer(gameServer)
+	errStop := s.actions.StopGameServer(s.ctx, gameServer)
+	if errStop != nil {
+		return statusFailed, fmt.Sprintf("failed to stop server: %s", errStop)
+	}
 
 	// Phase 2: Wait for OFFLINE status.
 	deadline := time.After(restartStopTimeout)

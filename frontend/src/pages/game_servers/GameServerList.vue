@@ -5,22 +5,38 @@
       <div class="xy-page-actions">
         <q-btn
           v-if="selectedGameServers.length >= 1"
-          :disable="loading || selectedGameServersForStart.length < 1"
+          :disable="
+            !lifecycleStateAuthoritative || loading || selectedGameServersForStart.length < 1
+          "
           color="positive"
           label="Start selected"
-          @click="startSelectedGameServers" />
+          @click="startSelectedGameServers">
+          <q-tooltip v-if="!lifecycleStateAuthoritative">
+            Waiting for authoritative server status
+          </q-tooltip>
+        </q-btn>
         <q-btn
           v-if="selectedGameServers.length >= 1"
-          :disable="loading || selectedGameServersForStop.length < 1"
+          :disable="
+            !lifecycleStateAuthoritative || loading || selectedGameServersForStop.length < 1
+          "
           color="warning"
           label="Stop selected"
-          @click="stopSelectedGameServers" />
+          @click="stopSelectedGameServers">
+          <q-tooltip v-if="!lifecycleStateAuthoritative">
+            Waiting for authoritative server status
+          </q-tooltip>
+        </q-btn>
         <q-btn
           v-if="selectedGameServers.length >= 1"
-          :disable="loading"
+          :disable="!lifecycleStateAuthoritative || loading"
           color="negative"
           label="Remove game server"
-          @click="deleteGameServerAction(null)" />
+          @click="deleteGameServerAction(null)">
+          <q-tooltip v-if="!lifecycleStateAuthoritative">
+            Waiting for authoritative server status
+          </q-tooltip>
+        </q-btn>
         <q-input
           v-model="search"
           aria-label="Search game servers"
@@ -41,6 +57,14 @@
           label="Create Game Server"
           to="/game-servers/create" />
       </div>
+    </div>
+    <div v-if="serverListError" class="server-list-error" role="alert" aria-live="assertive">
+      <q-icon name="sync_problem" size="sm" />
+      <div>
+        <strong>Server status could not be refreshed.</strong>
+        <span>{{ serverListError }} Lifecycle actions remain disabled.</span>
+      </div>
+      <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="getGameServers" />
     </div>
     <div>
       <q-table
@@ -115,11 +139,18 @@
               <span>
                 <q-btn
                   :icon="tabTrash"
+                  :disable="!lifecycleStateAuthoritative"
                   aria-label="Delete game server"
                   class="text-error-brighter"
                   flat
                   @click="deleteGameServerAction(props.row)">
-                  <q-tooltip>Delete game server</q-tooltip>
+                  <q-tooltip>
+                    {{
+                      lifecycleStateAuthoritative
+                        ? 'Delete game server'
+                        : 'Waiting for authoritative server status'
+                    }}
+                  </q-tooltip>
                 </q-btn>
               </span>
             </div>
@@ -175,9 +206,15 @@ import {
 import { getStartableServers, getStoppableServers } from './server-list-actions'
 import { useUserAuthStore } from '@/stores/xylona'
 import { resolveCanonicalVersionDisplay } from './version-display'
+import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 const aggregatedServers = ref<AggregatedGameServer[] | null>(null)
 const nodesByID = ref(new Map<string, Node>())
+const serverStatusSnapshotFresh = ref(false)
+const serverListError = ref('')
+const lifecycleStateAuthoritative = computed(
+  () => websocketStateAuthoritative.value && serverStatusSnapshotFresh.value,
+)
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
@@ -326,10 +363,12 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('gameServerStatus', handleServerStatusUpdate)
   XylonaEventBus.off('gameServerVersion', handleServerVersionUpdate)
   XylonaEventBus.off('websocketConnected', handleWebsocketReconnect)
+  XylonaEventBus.off('websocketDisconnected', handleWebsocketDisconnect)
 })
 
 async function getGameServers() {
   const loadID = ++loadSequence
+  serverStatusSnapshotFresh.value = false
   aggregatedServers.value = null
   bufferedLiveServerStateByID.clear()
   loading.value = true
@@ -345,6 +384,8 @@ async function getGameServers() {
       const servers = applyBufferedLiveServerStateToServers(response.servers)
       aggregatedServers.value = servers
       cacheAggregatedRows(servers)
+      serverStatusSnapshotFresh.value = websocketStateAuthoritative.value
+      serverListError.value = ''
     })
     .catch((reason: unknown) => {
       if (loadID !== loadSequence) {
@@ -352,6 +393,7 @@ async function getGameServers() {
       }
 
       console.error(reason)
+      serverListError.value = ConnectErrorToString(ConnectError.from(reason))
       $q.notify({
         type: 'xylona-error',
         position: 'top-right',
@@ -404,6 +446,11 @@ function watchServerVersionChanges() {
 
 function watchWebsocketReconnects() {
   XylonaEventBus.on('websocketConnected', handleWebsocketReconnect)
+  XylonaEventBus.on('websocketDisconnected', handleWebsocketDisconnect)
+}
+
+function handleWebsocketDisconnect() {
+  serverStatusSnapshotFresh.value = false
 }
 
 function handleWebsocketReconnect() {
@@ -415,18 +462,25 @@ function handleWebsocketReconnect() {
 }
 
 async function deleteGameServerAction(row: DisplayRow | null) {
+  if (!lifecycleStateAuthoritative.value) {
+    return
+  }
   if (row !== null) {
     selectedGameServers.value = [row]
   }
   showDeleteGameServerDialog.value = true
 }
 
-async function deleteGameServerSubmitted(error: unknown | boolean) {
+async function deleteGameServerSubmitted(result: {
+  succeeded: Array<{ id: string; name: string }>
+  failed: Array<{ id: string; name: string; error: string }>
+}) {
   showDeleteGameServerDialog.value = false
-  selectedGameServers.value = []
-  if (!error) {
-    void getGameServers()
+  if (result.succeeded.length > 0) {
+    await getGameServers()
   }
+  const failedIDs = new Set(result.failed.map((failure) => failure.id))
+  selectedGameServers.value = displayRows.value.filter((row) => failedIDs.has(row.id))
 }
 
 function setServerStatus(serverID: string, serverStatus: Status) {
@@ -509,7 +563,11 @@ function getDisplayVersion(row: DisplayRow): string {
 }
 
 async function startSelectedGameServers() {
-  if (selectedGameServersForStart.value.length < 1 || loading.value) {
+  if (
+    !lifecycleStateAuthoritative.value ||
+    selectedGameServersForStart.value.length < 1 ||
+    loading.value
+  ) {
     return
   }
 
@@ -546,7 +604,11 @@ async function startSelectedGameServers() {
 }
 
 async function stopSelectedGameServers() {
-  if (selectedGameServersForStop.value.length < 1 || loading.value) {
+  if (
+    !lifecycleStateAuthoritative.value ||
+    selectedGameServersForStop.value.length < 1 ||
+    loading.value
+  ) {
     return
   }
 
@@ -649,6 +711,30 @@ const columns = ref([
 </script>
 
 <style scoped>
+.server-list-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-primary);
+  background: var(--xy-danger-bg);
+  border: 1px solid var(--xy-danger-border);
+  border-radius: 6px;
+}
+
+.server-list-error > div {
+  display: grid;
+  flex: 1;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+}
+
+.server-list-error span {
+  color: var(--xy-text-secondary);
+  overflow-wrap: anywhere;
+}
+
 .badge-remote {
   background-color: var(--xy-surface-4);
   color: var(--xy-text-secondary);

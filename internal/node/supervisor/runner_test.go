@@ -160,7 +160,7 @@ func TestPseudoTerminalConsole(t *testing.T) {
 		t.Fatalf("StartCommand() error = %v", errStart)
 	}
 
-	waitForCommandOutput(t, command, "pty-ready", 5*time.Second)
+	waitForCommandOutput(t, command, "pty-ready")
 	stopStarted := time.Now()
 	command.Stop("exit")
 	stopDuration := time.Since(stopStarted)
@@ -201,16 +201,18 @@ func TestPseudoTerminalConsoleChild(t *testing.T) {
 	}
 }
 
-func waitForCommandOutput(t *testing.T, command *Command, expected string, timeout time.Duration) {
+func waitForCommandOutput(t *testing.T, command *Command, expected string) {
 	t.Helper()
-	deadline := time.Now().Add(timeout)
+	const waitTimeout = 5 * time.Second
+
+	deadline := time.Now().Add(waitTimeout)
 	for time.Now().Before(deadline) {
 		if strings.Contains(command.GetOutputBuffer(), expected) {
 			return
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	t.Fatalf("command output did not contain %q within %v; output = %q", expected, timeout, command.GetOutputBuffer())
+	t.Fatalf("command output did not contain %q within %v; output = %q", expected, waitTimeout, command.GetOutputBuffer())
 }
 
 func TestCommandOutputListener(t *testing.T) {
@@ -416,7 +418,7 @@ func TestConnectTelnetAndSetAsStdinWriterSkipsNonTelnetInput(t *testing.T) {
 	}
 }
 
-func TestConnectTelnetAndSetAsStdinWriterDiscardsInvalidTelnetInput(t *testing.T) {
+func TestConnectTelnetAndSetAsStdinWriterRejectsInvalidTelnetInput(t *testing.T) {
 	tests := []struct {
 		name        string
 		inputMethod InputMethod
@@ -441,19 +443,20 @@ func TestConnectTelnetAndSetAsStdinWriterDiscardsInvalidTelnetInput(t *testing.T
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := &Command{
-				ID:               "invalid-telnet-connect",
-				inputMethod:      tc.inputMethod,
-				stdInWriter:      &strings.Builder{},
-				instanceCtx:      t.Context(),
-				processCtx:       t.Context(),
-				RWMutex:          &sync.RWMutex{},
-				toggleOutputType: make(chan struct{}),
+				ID:                  "invalid-telnet-connect",
+				inputMethod:         tc.inputMethod,
+				stdInWriter:         &strings.Builder{},
+				instanceCtx:         t.Context(),
+				processCtx:          t.Context(),
+				RWMutex:             &sync.RWMutex{},
+				outputListeners:     make(map[string]chan *xylona.Message),
+				outputListenersLock: &sync.RWMutex{},
 			}
 
 			connectTelnetAndSetAsStdinWriter(cmd)
 
-			if cmd.stdInWriter != io.Discard {
-				t.Fatalf("stdInWriter = %T, want io.Discard", cmd.stdInWriter)
+			if cmd.stdInWriter != nil {
+				t.Fatalf("stdInWriter = %T, want nil", cmd.stdInWriter)
 			}
 		})
 	}
@@ -583,7 +586,7 @@ func TestCrashEventPublished(t *testing.T) {
 		},
 	}
 
-	_, errStart := inst.prepareCommandProcess(pc)
+	command, errStart := inst.prepareCommandProcess(pc)
 	if errStart != nil {
 		t.Fatalf("failed to start command: %v", errStart)
 	}
@@ -610,10 +613,102 @@ func TestCrashEventPublished(t *testing.T) {
 			if crashEvt.Timestamp.IsZero() {
 				t.Error("expected non-zero timestamp")
 			}
+			if output := command.GetOutputBuffer(); !strings.Contains(output, "exited unexpectedly with code 42") {
+				t.Fatalf("console output = %q, want non-zero exit explanation", output)
+			}
 			return
 		case <-deadline:
 			t.Fatal("timed out waiting for crash event")
 		}
+	}
+}
+
+func TestCommandFinalizationSerializesPersistentReuse(t *testing.T) {
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor: %v", errNew)
+	}
+	baseCommand, args := shellCommandArgs("echo first")
+	callbackEntered := make(chan struct{})
+	callbackRestartResult := make(chan error, 1)
+	first := PreparedCommand{
+		ID:          "finalization-reuse",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
+		CallbackFunction: func(_ *Command) {
+			close(callbackEntered)
+			secondBase, secondArgs := shellCommandArgs("echo callback restart")
+			_, errRestart := inst.StartCommand(PreparedCommand{
+				ID:          "finalization-reuse",
+				BaseCommand: secondBase,
+				Args:        secondArgs,
+				Status:      xylona.Status_ONLINE,
+			})
+			callbackRestartResult <- errRestart
+		},
+	}
+	_, errStartFirst := inst.StartCommand(first)
+	if errStartFirst != nil {
+		t.Fatalf("first StartCommand() error = %v", errStartFirst)
+	}
+	select {
+	case <-callbackEntered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for first execution finalization")
+	}
+	select {
+	case errRestart := <-callbackRestartResult:
+		if errRestart != nil {
+			t.Fatalf("callback restart error = %v", errRestart)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("callback restart deadlocked during finalization")
+	}
+}
+
+func TestCommandFinalizationAllowsImmediateEventDrivenReuse(t *testing.T) {
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("failed to create supervisor: %v", errNew)
+	}
+	restartBase, restartArgs := shellCommandArgs("echo event restart")
+	restartResult := make(chan error, 1)
+	var restartOnce sync.Once
+	inst.SetStatusEventHook(func(event eventbus.StatusChangedEvent) {
+		if event.NewStatus != xylona.Status_OFFLINE.String() || event.OldStatus != xylona.Status_ONLINE.String() {
+			return
+		}
+		restartOnce.Do(func() {
+			go func() {
+				_, errRestart := inst.StartCommand(PreparedCommand{
+					ID:          "event-finalization-reuse",
+					BaseCommand: restartBase,
+					Args:        restartArgs,
+					Status:      xylona.Status_ONLINE,
+				})
+				restartResult <- errRestart
+			}()
+		})
+	})
+
+	baseCommand, args := shellCommandArgs("echo first")
+	_, errStart := inst.StartCommand(PreparedCommand{
+		ID:          "event-finalization-reuse",
+		BaseCommand: baseCommand,
+		Args:        args,
+		Status:      xylona.Status_ONLINE,
+	})
+	if errStart != nil {
+		t.Fatalf("first StartCommand() error = %v", errStart)
+	}
+	select {
+	case errRestart := <-restartResult:
+		if errRestart != nil {
+			t.Fatalf("event-driven restart error = %v", errRestart)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("event-driven restart did not continue after status publication")
 	}
 }
 

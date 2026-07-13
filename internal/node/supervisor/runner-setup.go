@@ -35,12 +35,12 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		log.Debug().Str("Command ID", persistentCommand.ID).Msg("Reusing persistent command")
 		newCommand = persistentCommand
 		newCommand.Lock()
+		newCommand.processGeneration++
 		preserveBufferedOutputOnReuse := newCommand.preserveBufferedOutputOnReuse
 		newCommand.User = preparedCommand.User
 		newCommand.executionID = preparedCommand.ExecutionID
 		newCommand.nodeID = preparedCommand.NodeID
 		newCommand.stopTimeout = preparedCommand.StopTimeout
-		newCommand.outputListeners = persistentCommand.outputListeners
 		newCommand.BaseCommand = preparedCommand.BaseCommand
 		newCommand.Args = append([]string(nil), preparedCommand.Args...)
 		newCommand.gameServerName = gameServerName
@@ -48,7 +48,9 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.status = preparedCommand.Status
 		newCommand.serviceID = preparedCommand.ServiceID
 		if !preserveBufferedOutputOnReuse {
+			newCommand.outputListenersLock.Lock()
 			newCommand.outBuffer = ""
+			newCommand.outputListenersLock.Unlock()
 		}
 		newCommand.preserveBufferedOutputOnReuse = false
 		newCommand.intentionalStop.Store(false)
@@ -84,6 +86,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			instanceCtx:         inst.ctx,
 			processCtx:          processCtx,
 			processCtxCancel:    processCtxCancel,
+			processGeneration:   1,
+			executionMutex:      &sync.Mutex{},
 			outputListeners:     make(map[string]chan *xylona.Message),
 			outputListenersLock: &sync.RWMutex{},
 			statusListeners:     make(map[string]chan *xylona.GameServerStatusUpdate),
@@ -142,8 +146,12 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 	case InputTypeTelnet:
 		log.Debug().Str("Command ID", newCommand.ID).Msg("Setting up telnet to run after startup")
 		newCommand.telnetConn = nil
-		newCommand.stdInWriter = &bytes.Buffer{}
-		newCommand.runAfterStartup = connectTelnetAndSetAsStdinWriter
+		newCommand.stdInWriter = nil
+		newCommand.telnetOutputActive.Store(false)
+		telnetExecution := captureTelnetExecution(newCommand)
+		newCommand.runAfterStartup = func(command *Command) {
+			connectTelnetForExecution(command, telnetExecution)
+		}
 	default:
 		log.Debug().Str("Command ID", newCommand.ID).Msg("Setting up StdInPipe")
 		stdInPipe, errStdInPipe := cmd.StdinPipe()

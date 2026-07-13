@@ -2,8 +2,10 @@ package websocket
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/olahol/melody"
@@ -83,30 +85,70 @@ func fetchNodeSnapshot(ctx context.Context, client nodeclient.NodeClient) (*node
 	if errSnap != nil {
 		return nil, fmt.Errorf("websocket: fetch node snapshot: %w", errSnap)
 	}
+	if snap == nil {
+		return nil, errors.New("websocket: fetch node snapshot: node returned an empty snapshot")
+	}
 	return snap, nil
+}
+
+type nodeSnapshotResult struct {
+	snapshot *node.NodeSnapshot
+	err      error
+}
+
+// fetchNodeSnapshots fetches each distinct node concurrently so one or more
+// unavailable nodes cost at most one bounded timeout per collection tick.
+func fetchNodeSnapshots(
+	ctx context.Context,
+	clients map[string]nodeclient.NodeClient,
+) map[string]nodeSnapshotResult {
+	results := make(map[string]nodeSnapshotResult, len(clients))
+	var resultsMutex sync.Mutex
+	var waitGroup sync.WaitGroup
+
+	for nodeID, client := range clients {
+		waitGroup.Add(1)
+		go func(nodeID string, client nodeclient.NodeClient) {
+			defer waitGroup.Done()
+
+			snapshot, errSnapshot := fetchNodeSnapshot(ctx, client)
+			resultsMutex.Lock()
+			results[nodeID] = nodeSnapshotResult{
+				snapshot: snapshot,
+				err:      errSnapshot,
+			}
+			resultsMutex.Unlock()
+		}(nodeID, client)
+	}
+
+	waitGroup.Wait()
+	return results
 }
 
 // resolveGameServerStatus returns the current xylona.Status for a game server,
 // routing through the node registry so embedded and remote nodes behave the
-// same. Falls back to OFFLINE when the node is unreachable or the process is
-// not currently tracked.
+// same. Only a successful lookup with no tracked process is authoritative
+// OFFLINE; unavailable and malformed snapshots remain UNKNOWN.
 func (ws *WebSocket) resolveGameServerStatus(gameServer *models.GameServer) xylona.Status {
 	if ws.nodeRegistry == nil || gameServer == nil {
-		return xylona.Status_OFFLINE
+		return xylona.Status_UNKNOWN
 	}
 	client, errClient := ws.nodeRegistry.Get(gameServer.NodeID)
 	if errClient != nil {
-		return xylona.Status_OFFLINE
+		return xylona.Status_UNKNOWN
 	}
 	ctx, cancel := context.WithTimeout(ws.ctx, processSnapshotFetchTimeout)
 	defer cancel()
 	snap, found, errSnap := client.GetProcessSnapshot(ctx, gameServer.ID)
-	if errSnap != nil || !found || snap == nil {
+	if errSnap != nil {
+		return xylona.Status_UNKNOWN
+	}
+	if !found || snap == nil {
 		return xylona.Status_OFFLINE
 	}
 	statusValue, ok := xylona.Status_value[snap.Status]
 	if !ok {
-		return xylona.Status_OFFLINE
+		return xylona.Status_UNKNOWN
 	}
 	return xylona.Status(statusValue)
 }
@@ -227,10 +269,10 @@ func (ws *WebSocket) gameServerConnectionsWithAccess(serverID string) []*connect
 	return connections
 }
 
-// collectAllNodeSnapshots iterates the node registry, calls GetNodeSnapshot
-// on each client (each request bounded by nodeSnapshotFetchTimeout), and
-// returns a map of nodeID -> proto snapshot suitable for websocket broadcast.
-// Errors are logged per-node; unreachable nodes are simply omitted.
+// collectAllNodeSnapshots fetches every registered node concurrently (with
+// each request bounded by nodeSnapshotFetchTimeout) and returns a map of
+// nodeID -> proto snapshot suitable for websocket broadcast. Errors are
+// logged per-node; unreachable nodes are simply omitted.
 func (ws *WebSocket) collectAllNodeSnapshots(ctx context.Context) map[string]*xylona.NodeResourceSnapshot {
 	if ws.nodeRegistry == nil {
 		return map[string]*xylona.NodeResourceSnapshot{}
@@ -255,15 +297,17 @@ func (ws *WebSocket) collectAllNodeSnapshots(ctx context.Context) map[string]*xy
 		}
 	}
 
+	clientsByNode := make(map[string]nodeclient.NodeClient, len(clients))
 	for _, client := range clients {
-		nodeID := client.ID()
-		snap, errSnap := fetchNodeSnapshot(ctx, client)
-		if errSnap != nil {
-			log.Debug().Err(errSnap).Str("node_id", nodeID).
+		clientsByNode[client.ID()] = client
+	}
+	for nodeID, result := range fetchNodeSnapshots(ctx, clientsByNode) {
+		if result.err != nil {
+			log.Debug().Err(result.err).Str("node_id", nodeID).
 				Msg("websocket: GetNodeSnapshot failed")
 			continue
 		}
-		out[nodeID] = buildNodeResourceSnapshot(snap, gsCountsByNode[nodeID], userCount)
+		out[nodeID] = buildNodeResourceSnapshot(result.snapshot, gsCountsByNode[nodeID], userCount)
 	}
 	return out
 }
@@ -350,24 +394,28 @@ func (ws *WebSocket) collectOwnedServerMetrics(ctx context.Context, gameServers 
 		serversByNode[gs.NodeID] = append(serversByNode[gs.NodeID], gs)
 	}
 
-	out := make(map[string]*xylona.GameServerMetrics, len(gameServers))
-	for nodeID, nodeServers := range serversByNode {
+	clientsByNode := make(map[string]nodeclient.NodeClient, len(serversByNode))
+	for nodeID := range serversByNode {
 		client, errClient := ws.nodeRegistry.Get(nodeID)
 		if errClient != nil {
 			// Node not currently reachable; leave these servers out of this tick.
 			continue
 		}
-		snap, errSnap := fetchNodeSnapshot(ctx, client)
-		if errSnap != nil {
-			log.Debug().Err(errSnap).Str("node_id", nodeID).
+		clientsByNode[nodeID] = client
+	}
+
+	out := make(map[string]*xylona.GameServerMetrics, len(gameServers))
+	for nodeID, result := range fetchNodeSnapshots(ctx, clientsByNode) {
+		if result.err != nil {
+			log.Debug().Err(result.err).Str("node_id", nodeID).
 				Msg("websocket: GetNodeSnapshot for owned-server metrics failed")
 			continue
 		}
-		processByID := make(map[string]*node.ProcessSnapshot, len(snap.Processes))
-		for i := range snap.Processes {
-			processByID[snap.Processes[i].ID] = &snap.Processes[i]
+		processByID := make(map[string]*node.ProcessSnapshot, len(result.snapshot.Processes))
+		for i := range result.snapshot.Processes {
+			processByID[result.snapshot.Processes[i].ID] = &result.snapshot.Processes[i]
 		}
-		for _, gs := range nodeServers {
+		for _, gs := range serversByNode[nodeID] {
 			ps, exists := processByID[gs.ID]
 			if !exists {
 				continue

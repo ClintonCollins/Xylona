@@ -100,16 +100,21 @@ func (db *executeTaskDBFake) GetNodeByID(_ string) (*models.Node, error) {
 	return db.node, nil
 }
 
-type executeTaskActionsFake struct{}
+type executeTaskActionsFake struct {
+	stopErr       error
+	currentStatus xylona.Status
+}
 
 func (a *executeTaskActionsFake) StartGameServer(*models.GameServer) (*controlleractions.StartGameServerResult, error) {
 	return &controlleractions.StartGameServerResult{Started: true}, nil
 }
 
-func (a *executeTaskActionsFake) StopGameServer(*models.GameServer) {}
+func (a *executeTaskActionsFake) StopGameServer(context.Context, *models.GameServer) error {
+	return a.stopErr
+}
 
 func (a *executeTaskActionsFake) CurrentStatus(*models.GameServer) xylona.Status {
-	return xylona.Status_OFFLINE
+	return a.currentStatus
 }
 
 func (a *executeTaskActionsFake) SendConsoleInput(*models.GameServer, string) error {
@@ -252,6 +257,28 @@ func TestExecuteBackupReportsCapabilityFailures(t *testing.T) {
 				t.Fatalf("executeBackup() status = %q, want %q", status, test.wantStatus)
 			}
 		})
+	}
+}
+
+func TestExecuteRestartFailsWhenStopFails(t *testing.T) {
+	gameServer := &models.GameServer{ID: "server-1"}
+	scheduler := &Scheduler{
+		ctx: context.Background(),
+		db: &executeTaskDBFake{
+			gameServer: gameServer,
+		},
+		actions: &executeTaskActionsFake{
+			currentStatus: xylona.Status_ONLINE,
+			stopErr:       errors.New("remote node unavailable"),
+		},
+	}
+
+	status, message := scheduler.executeRestart(&models.ScheduledTask{GameServerID: gameServer.ID})
+	if status != statusFailed {
+		t.Fatalf("executeRestart() status = %q, want %q", status, statusFailed)
+	}
+	if message != "failed to stop server: remote node unavailable" {
+		t.Fatalf("executeRestart() message = %q, want stop failure", message)
 	}
 }
 

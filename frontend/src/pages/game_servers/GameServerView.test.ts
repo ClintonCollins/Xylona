@@ -10,6 +10,7 @@ import {
 } from '@/proto/shared_pb'
 import { GetGameServerResponseSchema } from '@/proto/xylona_pb'
 import GameServerView from './GameServerView.vue'
+import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
 
 const mocks = vi.hoisted(() => {
   type EventHandler = (...args: unknown[]) => void
@@ -54,7 +55,9 @@ const mocks = vi.hoisted(() => {
     },
     notify: vi.fn(),
     getGameServer: vi.fn(),
+    getGameServerReadiness: vi.fn(),
     readGameServerOutput: vi.fn(),
+    sendGameServerInput: vi.fn(),
     waitForOpen: vi.fn(),
     isOpen: vi.fn(),
     queryGameServer: vi.fn(),
@@ -91,7 +94,9 @@ vi.mock('@/utils/shared', () => ({
   }),
   GetXylonaClient: () => ({
     getGameServer: mocks.getGameServer,
+    getGameServerReadiness: mocks.getGameServerReadiness,
     readGameServerOutput: mocks.readGameServerOutput,
+    sendGameServerInput: mocks.sendGameServerInput,
   }),
   XylonaEventBus: mocks.eventBus,
 }))
@@ -225,19 +230,25 @@ describe('GameServerView', () => {
         gameServer: buildGameServer(),
       }),
     )
+    mocks.getGameServerReadiness.mockResolvedValue({ items: [] })
     mocks.readGameServerOutput.mockReset()
     mocks.queryGameServer.mockReset()
     mocks.startQueryStatusVersionLifecycle.mockReset()
     mocks.startMetricsPreviewLifecycle.mockReset()
+    mocks.sendGameServerInput.mockReset()
+    setWebsocketConnectionStatus('connected')
   })
 
   afterEach(() => {
     mocks.eventBus.reset()
     mocks.notify.mockReset()
     mocks.getGameServer.mockReset()
+    mocks.getGameServerReadiness.mockReset()
     mocks.readGameServerOutput.mockReset()
     mocks.waitForOpen.mockReset()
     mocks.isOpen.mockReset()
+    mocks.sendGameServerInput.mockReset()
+    setWebsocketConnectionStatus('connecting')
   })
 
   it('backfills console output after install completion when the live console is still empty', async () => {
@@ -313,5 +324,141 @@ describe('GameServerView', () => {
 
     expect(mocks.getGameServer).toHaveBeenCalledTimes(2)
     expect(mocks.readGameServerOutput).toHaveBeenCalledTimes(1)
+  })
+
+  it('replaces the visible console from reset snapshots during software operations', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: buildOnlineGameServer(),
+      }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    mocks.eventBus.emit('gameServerConsoleOutput', 'server-remote-1', 'Stale output\n', 1n)
+    const selector = wrapper.findComponent({ name: 'ServerSoftwareSelector' })
+    selector.vm.$emit('software-operation-state', {
+      status: 'installing',
+      softwareId: 'paper',
+      softwareName: 'Paper',
+    })
+    await flushPromises()
+
+    mocks.eventBus.emit(
+      'gameServerConsoleOutput',
+      'server-remote-1',
+      'Retained server output\n',
+      2n,
+      true,
+    )
+
+    const viewModel = wrapper.vm as unknown as {
+      consoleLines: Array<{ html: string }>
+      softwareOperationOutputLines: string[]
+    }
+    expect(
+      viewModel.consoleLines.some((line) => line.html.includes('Retained server output')),
+    ).toBe(true)
+    expect(viewModel.consoleLines.some((line) => line.html.includes('Stale output'))).toBe(false)
+    expect(viewModel.softwareOperationOutputLines).toEqual([])
+  })
+
+  it('preserves typed command text when sending fails', async () => {
+    mocks.getGameServer.mockImplementation(() =>
+      Promise.resolve(
+        create(GetGameServerResponseSchema, {
+          gameServer: buildOnlineGameServer(),
+        }),
+      ),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+    mocks.sendGameServerInput.mockRejectedValueOnce(new Error('node unavailable'))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as {
+      sendGameServerInput: () => Promise<void>
+      serverInput: string
+    }
+    viewModel.serverInput = 'say Server restart in 5 minutes'
+    await viewModel.sendGameServerInput()
+
+    expect(mocks.sendGameServerInput).toHaveBeenCalledTimes(1)
+    expect(viewModel.serverInput).toBe('say Server restart in 5 minutes')
+    expect(mocks.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ caption: expect.stringContaining('Failed to send command') }),
+    )
+  })
+
+  it('keeps console recovery visible until an explicit connected control arrives', async () => {
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      consoleLines: Array<{ html: string }>
+      consoleStreamState: string
+    }
+
+    mocks.eventBus.emit(
+      'gameServerConsoleOutput',
+      'server-remote-1',
+      '[Xylona]: Console connection lost; reconnecting...\n',
+      0n,
+      false,
+      true,
+    )
+
+    expect(viewModel.consoleStreamState).toBe('reconnecting')
+    expect(viewModel.consoleLines.some((line) => line.html.includes('connection lost'))).toBe(true)
+
+    mocks.eventBus.emit('gameServerConsoleOutput', 'server-remote-1', '', 0n, false, false)
+
+    expect(viewModel.consoleStreamState).toBe('ready')
+  })
+
+  it('marks status stale on disconnect and refreshes it before re-enabling controls', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: buildOnlineGameServer(),
+      }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      gameServer: { status: Status }
+      serverStateAuthoritative: boolean
+    }
+    expect(mocks.getGameServer).toHaveBeenCalledTimes(1)
+    expect(viewModel.serverStateAuthoritative).toBe(true)
+
+    setWebsocketConnectionStatus('reconnecting')
+    mocks.eventBus.emit('websocketDisconnected')
+    expect(viewModel.gameServer.status).toBe(Status.ONLINE)
+    expect(viewModel.serverStateAuthoritative).toBe(false)
+
+    setWebsocketConnectionStatus('connected')
+    mocks.eventBus.emit('websocketConnected')
+    expect(viewModel.serverStateAuthoritative).toBe(false)
+    await flushPromises()
+
+    expect(mocks.getGameServer).toHaveBeenCalledTimes(2)
+    const reconnectResponse = await mocks.getGameServer.mock.results[1]?.value
+    expect(reconnectResponse.gameServer?.status).toBe(Status.ONLINE)
+    expect(viewModel.gameServer.status).toBe(Status.ONLINE)
+    expect(viewModel.serverStateAuthoritative).toBe(true)
   })
 })

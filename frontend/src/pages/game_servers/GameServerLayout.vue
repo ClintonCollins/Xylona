@@ -20,7 +20,7 @@
       </q-tabs>
       <q-separator v-if="navQTabsStore.tabs.length > 0" />
       <div class="game-server-content">
-        <router-view></router-view>
+        <router-view :key="gameServerRouteKey"></router-view>
       </div>
     </q-card>
   </q-page>
@@ -34,44 +34,53 @@ import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
 import { useServerSoftwareInstall } from '@/composables/useServerSoftwareInstall'
-import { onMounted, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = WindowWidth()
+const gameServerRouteKey = computed(() => getServerID())
 
 let currentPermissions: string[] = []
 let currentIsOwnerOrSuper = false
 let currentHasModSupport = false
 let currentAllowStartArgEditing = true
 let currentIsSuperUser = false
+let tabConfigurationSequence = 0
 
 onMounted(async () => {
-  await configureTabs()
-  await enforceRouteAccess()
+  const configured = await configureTabs()
+  if (configured) {
+    await enforceRouteAccess()
+  }
 })
 
 watch(
-  () => route.path,
-  () => {
-    void enforceRouteAccess()
-  },
-)
-
-watch(
-  () => route.params.id,
-  () => {
-    void configureTabs().then(enforceRouteAccess)
+  () => ({ path: route.path, serverID: getServerID() }),
+  (nextRoute, previousRoute) => {
+    if (nextRoute.serverID === previousRoute.serverID) {
+      void enforceRouteAccess()
+      return
+    }
+    void configureTabs().then((configured) => {
+      if (configured) {
+        return enforceRouteAccess()
+      }
+    })
   },
 )
 
 useServerSoftwareInstall((gameServerId, status) => {
-  const currentId = route.params.id as string
+  const currentId = getServerID()
   if (gameServerId !== currentId) return
   if (status === 'complete' || status === 'failed') {
-    void configureTabs().then(enforceRouteAccess)
+    void configureTabs().then((configured) => {
+      if (configured) {
+        return enforceRouteAccess()
+      }
+    })
   }
 })
 
@@ -80,10 +89,13 @@ function getServerID(): string {
 }
 
 async function configureTabs() {
+  const configurationSequence = ++tabConfigurationSequence
   const serverID = getServerID()
   if (serverID === '') {
-    navQTabsStore.changeTabs([])
-    return
+    if (configurationSequence === tabConfigurationSequence) {
+      navQTabsStore.changeTabs([])
+    }
+    return configurationSequence === tabConfigurationSequence
   }
 
   const authStore = useUserAuthStore()
@@ -126,6 +138,10 @@ async function configureTabs() {
     }
   }
 
+  if (configurationSequence !== tabConfigurationSequence || serverID !== getServerID()) {
+    return false
+  }
+
   currentPermissions = permissions
   currentIsOwnerOrSuper = isOwnerOrSuper
   currentHasModSupport = hasModSupport
@@ -142,6 +158,7 @@ async function configureTabs() {
       isSuperUser,
     ),
   )
+  return true
 }
 
 async function enforceRouteAccess() {

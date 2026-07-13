@@ -121,7 +121,7 @@ func (xs *XylonaService) GetVariantOperationStatus(
 
 // SetServerVariant changes the selected server software variant for a server.
 func (xs *XylonaService) SetServerVariant(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.SetServerVariantRequest],
 ) (*connect.Response[xylona.SetServerVariantResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -139,7 +139,12 @@ func (xs *XylonaService) SetServerVariant(
 		return nil, errPerm
 	}
 
-	if xs.getLocalGameServerStatus(gameServer) != xylona.Status_OFFLINE {
+	runtimeStatus := xs.getLocalGameServerStatus(ctx, gameServer)
+	errContext := ctx.Err()
+	if errContext != nil {
+		return nil, connect.NewError(contextConnectCode(errContext), fmt.Errorf("set server variant: %w", errContext))
+	}
+	if runtimeStatus != xylona.Status_OFFLINE {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("server must be stopped before changing variant"))
 	}
 
@@ -187,6 +192,10 @@ func (xs *XylonaService) SetServerVariant(
 	modCount := helpers.ClampInt32FromInt(len(installedMods))
 
 	if !variantRequiresDownload(resolved.Provider.Kind) {
+		errContext = ctx.Err()
+		if errContext != nil {
+			return nil, connect.NewError(contextConnectCode(errContext), fmt.Errorf("set server variant: %w", errContext))
+		}
 		updated, errUpdate := xs.persistVariantSelection(
 			gameServer,
 			variantID,
@@ -216,15 +225,19 @@ func (xs *XylonaService) SetServerVariant(
 				Msg("SetServerVariant: node client unavailable for console output")
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		consoleCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		errSend := client.SendConsoleOutput(ctx, gameServer.ID, message)
+		errSend := client.SendConsoleOutput(consoleCtx, gameServer.ID, message)
 		if errSend != nil {
 			log.Debug().Err(errSend).Str("game_server_id", gameServer.ID).
 				Msg("SetServerVariant: failed to send console output")
 		}
 	}
 
+	errContext = ctx.Err()
+	if errContext != nil {
+		return nil, connect.NewError(contextConnectCode(errContext), fmt.Errorf("set server variant: %w", errContext))
+	}
 	xs.installTracker.SetInstalling(gameServer.ID, variantID)
 	logConsoleOutput(fmt.Sprintf("Starting variant change to %s", variantDisplayName(resolved)))
 

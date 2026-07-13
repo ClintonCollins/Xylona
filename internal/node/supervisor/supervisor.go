@@ -43,6 +43,9 @@ var (
 	ErrTelnetCredentialsRequired = errors.New("telnet credentials required")
 	// ErrTelnetPortRequired is returned when telnet input has no usable port.
 	ErrTelnetPortRequired = errors.New("telnet port required")
+	// ErrConsoleInputUnavailable is returned while a configured console input
+	// transport has not attached or has disconnected. Callers may retry it.
+	ErrConsoleInputUnavailable = errors.New("console input is temporarily unavailable")
 )
 
 var (
@@ -103,11 +106,15 @@ type Command struct {
 	stderr                        io.Reader
 	telnetConn                    *telnet.Conn
 	outBuffer                     string
+	outputSequence                uint64
 	preserveBufferedOutputOnReuse bool
 	instanceCtx                   context.Context
 	processCtx                    context.Context
 	processCtxCancel              context.CancelFunc
+	processGeneration             uint64
+	executionMutex                *sync.Mutex
 	toggleOutputType              chan struct{}
+	telnetOutputActive            atomic.Bool
 	stopTimeout                   time.Duration
 	runAfterStartup               func(job *Command)
 	intentionalStop               atomic.Bool
@@ -272,14 +279,45 @@ func (c *Command) WorkingDir() string {
 func (c *Command) AddOutputListener(id string, outChan chan *xylona.Message) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
+	existing, exists := c.outputListeners[id]
+	if exists && existing != outChan {
+		close(existing)
+	}
 	c.outputListeners[id] = outChan
+}
+
+// AddOutputListenerWithReplay atomically registers an output listener and
+// returns the retained console buffer represented by the latest sequence.
+// Output emitted after the snapshot is guaranteed to arrive on outChan.
+func (c *Command) AddOutputListenerWithReplay(id string, outChan chan *xylona.Message) *xylona.Message {
+	c.outputListenersLock.Lock()
+	defer c.outputListenersLock.Unlock()
+	existing, exists := c.outputListeners[id]
+	if exists && existing != outChan {
+		close(existing)
+	}
+	c.outputListeners[id] = outChan
+	return &xylona.Message{
+		Type: xylona.Message_GameServerConsole,
+		GameServerConsoleOutput: &xylona.GameServerConsoleOutput{
+			GameServerId: c.ID,
+			Output:       c.outBuffer,
+			Sequence:     c.outputSequence,
+			ResetBuffer:  true,
+		},
+	}
 }
 
 // RemoveOutputListener removes an output listener by ID.
 func (c *Command) RemoveOutputListener(id string) {
 	c.outputListenersLock.Lock()
 	defer c.outputListenersLock.Unlock()
+	listener, exists := c.outputListeners[id]
+	if !exists {
+		return
+	}
 	delete(c.outputListeners, id)
+	close(listener)
 }
 
 // AddStatusListener registers a listener for command status updates.

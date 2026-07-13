@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
@@ -17,6 +18,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	xylonadb "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -425,8 +427,9 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 	return connect.NewResponse(&xylona.EditGameServerResponse{Game_Server: gameServerProto}), nil
 }
 
-// RemoveGameServer deletes a game server managed by the controller's embedded node.
-func (xs *XylonaService) RemoveGameServer(_ context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
+// RemoveGameServer stops a game server, confirms it is offline, removes its
+// files, and only then deletes its database row.
+func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
@@ -440,12 +443,90 @@ func (xs *XylonaService) RemoveGameServer(_ context.Context, request *connect.Re
 		return nil, errPermission
 	}
 
-	xs.actionsInst.StopGameServer(gameServer)
-	errRemove := xs.actionsInst.RemoveGameServer(gameServer, true)
+	errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
+	if errStop != nil {
+		return nil, stopGameServerConnectError(errStop)
+	}
+	errConfirm := xs.waitForGameServerOffline(ctx, gameServer, 10*time.Second)
+	if errConfirm != nil {
+		return nil, errConfirm
+	}
+	errRemove := xs.actionsInst.RemoveGameServer(ctx, gameServer)
 	if errRemove != nil {
-		return nil, internalErr()
+		return nil, removeGameServerConnectError(errRemove)
 	}
 	return connect.NewResponse(&xylona.RemoveGameServerResponse{}), nil
+}
+
+func (xs *XylonaService) waitForGameServerOffline(ctx context.Context, gameServer *models.GameServer, timeout time.Duration) error {
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		errWait := waitCtx.Err()
+		if errWait != nil {
+			return gameServerOfflineWaitError(ctx)
+		}
+		status, _, errStatus := xs.resolveGameServerRuntimeState(waitCtx, gameServer)
+		if errStatus != nil {
+			if ctx.Err() != nil || waitCtx.Err() != nil {
+				return gameServerOfflineWaitError(ctx)
+			}
+			return connect.NewError(
+				connect.CodeUnavailable,
+				fmt.Errorf("could not confirm game server shutdown: %w", errStatus),
+			)
+		}
+		switch status {
+		case xylona.Status_OFFLINE:
+			return nil
+		case xylona.Status_UNKNOWN:
+			return connect.NewError(
+				connect.CodeUnavailable,
+				errors.New("could not confirm game server shutdown because its status is unavailable"),
+			)
+		default:
+		}
+
+		select {
+		case <-waitCtx.Done():
+			return gameServerOfflineWaitError(ctx)
+		case <-ticker.C:
+		}
+	}
+}
+
+func gameServerOfflineWaitError(ctx context.Context) error {
+	errContext := ctx.Err()
+	if errContext != nil {
+		return connect.NewError(contextConnectCode(errContext), fmt.Errorf("confirm game server shutdown: %w", errContext))
+	}
+	return connect.NewError(
+		connect.CodeFailedPrecondition,
+		errors.New("game server did not reach offline status; files and database record were not removed"),
+	)
+}
+
+func removeGameServerConnectError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return connect.NewError(contextConnectCode(err), fmt.Errorf("remove game server: %w", err))
+	}
+	if errors.Is(err, noderegistry.ErrNodeNotRegistered) {
+		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("remove game server: %w", err))
+	}
+	code := connect.CodeOf(err)
+	switch code {
+	case connect.CodeCanceled, connect.CodeDeadlineExceeded, connect.CodeUnavailable:
+		return connect.NewError(code, fmt.Errorf("remove game server: %w", err))
+	default:
+		return connect.NewError(connect.CodeInternal, fmt.Errorf("remove game server: %w", err))
+	}
 }
 
 // StartGameServer starts a game server managed by the controller's embedded node.
@@ -486,7 +567,7 @@ func startGameServerConnectError(err error) error {
 }
 
 // StopGameServer stops a game server managed by the controller's embedded node.
-func (xs *XylonaService) StopGameServer(_ context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
+func (xs *XylonaService) StopGameServer(ctx context.Context, request *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
@@ -500,12 +581,31 @@ func (xs *XylonaService) StopGameServer(_ context.Context, request *connect.Requ
 		return nil, errPermission
 	}
 
-	xs.actionsInst.StopGameServer(gameServer)
+	errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
+	if errStop != nil {
+		return nil, stopGameServerConnectError(errStop)
+	}
 	return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
 }
 
+func stopGameServerConnectError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return connect.NewError(contextConnectCode(err), fmt.Errorf("stop game server: %w", err))
+	}
+	code := connect.CodeOf(err)
+	switch code {
+	case connect.CodeCanceled, connect.CodeDeadlineExceeded, connect.CodeUnavailable:
+		return connect.NewError(code, fmt.Errorf("stop game server: %w", err))
+	default:
+		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("stop game server: %w", err))
+	}
+}
+
 // ReadGameServerOutput returns buffered console output.
-func (xs *XylonaService) ReadGameServerOutput(_ context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
+func (xs *XylonaService) ReadGameServerOutput(ctx context.Context, request *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
@@ -519,7 +619,19 @@ func (xs *XylonaService) ReadGameServerOutput(_ context.Context, request *connec
 		return nil, errPermission
 	}
 
-	output := xs.actionsInst.ReadGameServerBuffer(gameServer)
+	output, errRead := xs.actionsInst.ReadGameServerBuffer(ctx, gameServer)
+	if errRead != nil {
+		if errors.Is(errRead, context.Canceled) || errors.Is(errRead, context.DeadlineExceeded) {
+			return nil, connect.NewError(contextConnectCode(errRead), fmt.Errorf("read game server console: %w", errRead))
+		}
+		code := connect.CodeOf(errRead)
+		if code == connect.CodeCanceled || code == connect.CodeDeadlineExceeded {
+			return nil, connect.NewError(code, fmt.Errorf("read game server console: %w", errRead))
+		}
+		log.Warn().Err(errRead).Str("game_server_id", gameServer.ID).
+			Msg("Failed to read game server console buffer")
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("game server console is unavailable"))
+	}
 	return connect.NewResponse(&xylona.ReadGameServerOutputResponse{Output: output}), nil
 }
 
@@ -545,7 +657,18 @@ func (xs *XylonaService) SendGameServerInput(ctx context.Context, request *conne
 	errSend := client.SendConsoleInput(ctx, gameServer.ID, request.Msg.GetInput())
 	if errSend != nil {
 		if errors.Is(errSend, node.ErrProcessNotFound) || errors.Is(errSend, os.ErrNotExist) {
-			return connect.NewResponse(&xylona.SendGameServerInputResponse{}), nil
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server process is not running"))
+		}
+		if errors.Is(errSend, node.ErrConsoleInputUnavailable) {
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("game server console input is reconnecting; retry shortly"))
+		}
+		if errors.Is(errSend, context.Canceled) || errors.Is(errSend, context.DeadlineExceeded) {
+			return nil, connect.NewError(contextConnectCode(errSend), fmt.Errorf("send game server console input: %w", errSend))
+		}
+		code := connect.CodeOf(errSend)
+		switch code {
+		case connect.CodeCanceled, connect.CodeDeadlineExceeded, connect.CodeUnavailable:
+			return nil, connect.NewError(code, fmt.Errorf("send game server console input: %w", errSend))
 		}
 		log.Error().Err(errSend).Msg("Failed to send input to game server")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
@@ -614,7 +737,7 @@ func (xs *XylonaService) GetGameServer(ctx context.Context, request *connect.Req
 	runtimeStatus, snap, errSnap := xs.resolveGameServerRuntimeState(ctx, gameServer)
 	if errSnap != nil {
 		log.Debug().Err(errSnap).Str("game_server_id", gameServer.ID).
-			Msg("GetGameServer: snapshot unavailable; using offline status")
+			Msg("GetGameServer: snapshot unavailable; using unknown status")
 	}
 	gameServer.Status = runtimeStatus.String()
 
@@ -664,7 +787,7 @@ func (xs *XylonaService) UpdateGameServer(_ context.Context, request *connect.Re
 }
 
 // ListGameServers lists all game servers visible to the caller.
-func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
+func (xs *XylonaService) ListGameServers(ctx context.Context, request *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error) {
 	user, err := xs.getUserFromHeader(request.Header())
 	if err != nil {
 		return nil, err
@@ -703,19 +826,21 @@ func (xs *XylonaService) ListGameServers(_ context.Context, request *connect.Req
 		}
 	}
 
+	nodeStates := xs.collectGameServerNodeSnapshots(ctx, gameServers)
+	if ctx.Err() != nil {
+		return nil, connect.NewError(contextConnectCode(ctx.Err()), fmt.Errorf("list game servers: %w", ctx.Err()))
+	}
+
 	gameServersProto := make([]*xylona.GameServer, len(gameServers))
 	for i, gameServer := range gameServers {
-		snap, errSnap := xs.resolveProcessSnapshot(context.Background(), gameServer)
-		if errSnap != nil {
-			log.Debug().Err(errSnap).Str("game_server_id", gameServer.ID).
-				Msg("ListGameServers: snapshot unavailable; using DB status")
-		}
-		if snap != nil {
-			gameServer.Status = snap.Status
-		} else {
-			gameServer.Status = xylona.Status_OFFLINE.String()
+		nodeState := xs.gameServerNodeSnapshotState(gameServer, nodeStates)
+		status, snap, errSnapshot := processStateFromNodeSnapshot(gameServer.ID, nodeState)
+		if errSnapshot != nil {
+			log.Debug().Err(errSnapshot).Str("game_server_id", gameServer.ID).
+				Msg("ListGameServers: node snapshot unavailable; using unknown status")
 		}
 		gameServerProto := protomap.GameServerModelToProto(gameServer, xs.versionState)
+		gameServerProto.Status = status
 		applyProcessMetricsToProto(gameServerProto, snap)
 		if user.SuperUser || gameServer.UserID == user.ID {
 			gameServerProto.EffectivePermissions = xs.allPermissionIDs

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodetls"
@@ -176,7 +177,7 @@ func (c *GRPCNodeClient) SendConsoleInput(ctx context.Context, processID string,
 	})
 	_, errRPC := c.connectClient.SendConsoleInput(ctx, req)
 	if errRPC != nil {
-		return translateProcessError("send console input", errRPC)
+		return translateConsoleInputError("send console input", errRPC)
 	}
 	return nil
 }
@@ -190,17 +191,22 @@ func (c *GRPCNodeClient) ReadConsoleBuffer(ctx context.Context, processID string
 	}
 	chunk := resp.Msg.GetChunk()
 	if chunk == nil {
-		return node.ConsoleChunk{ProcessID: processID}, nil
+		return node.ConsoleChunk{ProcessID: processID}, errors.New("nodeclient: read console buffer: response chunk is missing")
 	}
 	return node.ConsoleChunk{
-		ProcessID: chunk.GetGameServerId(),
-		Data:      chunk.GetText(),
+		ProcessID:   chunk.GetGameServerId(),
+		Data:        chunk.GetText(),
+		Sequence:    chunk.GetSequence(),
+		ResetBuffer: chunk.GetResetBuffer(),
 	}, nil
 }
 
 // StreamConsoleOutput subscribes to live console chunks for one process.
 func (c *GRPCNodeClient) StreamConsoleOutput(ctx context.Context, processID string) (<-chan node.ConsoleChunk, error) {
-	req := newReq(c, &nodeprotov1.StreamConsoleOutputRequest{ProcessId: processID})
+	req := newReq(c, &nodeprotov1.StreamConsoleOutputRequest{
+		ProcessId:    processID,
+		ReplayBuffer: true,
+	})
 	stream, errOpen := c.streamConnectClient().StreamConsoleOutput(ctx, req)
 	if errOpen != nil {
 		return nil, translateError("stream console output", errOpen)
@@ -209,13 +215,21 @@ func (c *GRPCNodeClient) StreamConsoleOutput(ctx context.Context, processID stri
 	out := make(chan node.ConsoleChunk, 64)
 	go func() {
 		defer close(out)
-		defer func() { _ = stream.Close() }()
+		defer func() {
+			errClose := stream.Close()
+			if errClose != nil && ctx.Err() == nil {
+				log.Debug().Err(errClose).Str("process_id", processID).
+					Msg("Failed to close remote console stream")
+			}
+		}()
 
 		for stream.Receive() {
 			msg := stream.Msg()
 			chunk := node.ConsoleChunk{
-				ProcessID: msg.GetGameServerId(),
-				Data:      msg.GetText(),
+				ProcessID:   msg.GetGameServerId(),
+				Data:        msg.GetText(),
+				Sequence:    msg.GetSequence(),
+				ResetBuffer: msg.GetResetBuffer(),
 			}
 
 			select {
@@ -223,6 +237,11 @@ func (c *GRPCNodeClient) StreamConsoleOutput(ctx context.Context, processID stri
 				return
 			case out <- chunk:
 			}
+		}
+		errReceive := stream.Err()
+		if errReceive != nil && ctx.Err() == nil {
+			log.Warn().Err(errReceive).Str("process_id", processID).
+				Msg("Remote console stream ended with an error; controller will resubscribe")
 		}
 	}()
 
@@ -1147,8 +1166,10 @@ func nodeEventFromProto(ev *nodeprotov1.Event) node.Event {
 		out.Type = node.EventTypeConsoleOutput
 		out.ProcessID = payload.ConsoleOutput.GetGameServerId()
 		out.Payload = node.ConsoleChunk{
-			ProcessID: payload.ConsoleOutput.GetGameServerId(),
-			Data:      payload.ConsoleOutput.GetText(),
+			ProcessID:   payload.ConsoleOutput.GetGameServerId(),
+			Data:        payload.ConsoleOutput.GetText(),
+			Sequence:    payload.ConsoleOutput.GetSequence(),
+			ResetBuffer: payload.ConsoleOutput.GetResetBuffer(),
 		}
 	case *nodeprotov1.Event_MetricsUpdate:
 		out.Type = node.EventTypeMetrics
@@ -1192,6 +1213,18 @@ func translateProcessError(call string, err error) error {
 		return fmt.Errorf("nodeclient: %s: %w", call, node.ErrProcessNotFound)
 	}
 	return translateError(call, err)
+}
+
+func translateConsoleInputError(call string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	connectErr := new(connect.Error)
+	if errors.As(err, &connectErr) && connectErr.Code() == connect.CodeFailedPrecondition {
+		return fmt.Errorf("nodeclient: %s: %w", call, node.ErrConsoleInputUnavailable)
+	}
+	return translateProcessError(call, err)
 }
 
 // mapNodeErrorCode looks at the connect error's metadata for a typed

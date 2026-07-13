@@ -1220,6 +1220,83 @@ assertDetailedOutput:
 	}
 }
 
+func TestRunUpdateWithBackupFailsClosedWhenRuntimeStatusUnavailable(t *testing.T) {
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                "node-remote",
+		GetProcessSnapshotErr: errors.New("snapshot unavailable"),
+	}
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	registry.Register(remoteClient)
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:     "server-remote-1",
+		Name:   "Remote Server",
+		NodeID: "node-remote",
+	}
+	broadcaster := &recordingUpdateProgressBroadcaster{}
+
+	inst.runUpdateWithBackup(gameServer, broadcaster)
+
+	if len(broadcaster.events) != 1 {
+		t.Fatalf("update progress event count = %d, want 1", len(broadcaster.events))
+	}
+	event := broadcaster.events[0]
+	if event.step != xylona.UpdateStep_UPDATE_STEP_STOPPING || event.stepStatus != xylona.StepStatus_STEP_STATUS_FAILED {
+		t.Fatalf("update progress = (%v, %v), want stopping failed", event.step, event.stepStatus)
+	}
+	if len(remoteClient.StopProcessCalls) != 0 {
+		t.Fatalf("StopProcess call count = %d, want 0 while runtime status is unavailable", len(remoteClient.StopProcessCalls))
+	}
+	if len(remoteClient.StartProcessCalls) != 0 {
+		t.Fatalf("StartProcess call count = %d, want 0 while runtime status is unavailable", len(remoteClient.StartProcessCalls))
+	}
+}
+
+func TestRunUpdateWithBackupStopsBeforeBackupWhenStopFails(t *testing.T) {
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                  "node-remote",
+		SnapshotResult:          &node.NodeSnapshot{OS: "linux"},
+		GetProcessSnapshotFound: true,
+		GetProcessSnapshotResult: &node.ProcessSnapshot{
+			ID:     "server-remote-1",
+			Status: xylona.Status_ONLINE.String(),
+		},
+		StopProcessErr: errors.New("remote stop failed"),
+	}
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	registry.Register(remoteClient)
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:     "server-remote-1",
+		Name:   "Remote Server",
+		NodeID: "node-remote",
+	}
+	gameServer.R.Game = &models.Game{}
+	broadcaster := &recordingUpdateProgressBroadcaster{}
+
+	inst.runUpdateWithBackup(gameServer, broadcaster)
+
+	if len(broadcaster.events) != 2 {
+		t.Fatalf("update progress event count = %d, want 2", len(broadcaster.events))
+	}
+	failedEvent := broadcaster.events[1]
+	if failedEvent.step != xylona.UpdateStep_UPDATE_STEP_STOPPING || failedEvent.stepStatus != xylona.StepStatus_STEP_STATUS_FAILED {
+		t.Fatalf("final update progress = (%v, %v), want stopping failed", failedEvent.step, failedEvent.stepStatus)
+	}
+	if len(remoteClient.CreateBackupArchiveCalls) != 0 {
+		t.Fatalf("CreateBackupArchive call count = %d, want 0 after stop failure", len(remoteClient.CreateBackupArchiveCalls))
+	}
+	if len(remoteClient.StartProcessCalls) != 0 {
+		t.Fatalf("StartProcess call count = %d, want 0 after stop failure", len(remoteClient.StartProcessCalls))
+	}
+}
+
 func TestSteamCMDUpdateMessagesUseSteamCMDSpecificWording(t *testing.T) {
 	gameServer := &models.GameServer{
 		Branch: "latest_experimental",

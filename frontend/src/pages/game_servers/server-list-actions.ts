@@ -2,7 +2,7 @@ import { Status } from '@/proto/shared_pb'
 import type { DisplayRow } from './server-list-cache'
 
 export function canStartServer(status: Status): boolean {
-  return status === Status.OFFLINE || status === Status.UNKNOWN
+  return status === Status.OFFLINE
 }
 
 export function canStopServer(status: Status): boolean {

@@ -1389,6 +1389,7 @@ message ListScheduledTasksRequest {
 }
 message ListScheduledTasksResponse {
   repeated ScheduledTask tasks = 1;
+  repeated ScheduledTaskLog latest_logs = 2;
 }
 
 message CreateScheduledTaskRequest {

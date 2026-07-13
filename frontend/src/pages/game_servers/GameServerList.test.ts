@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { create as createProto } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   GameServerSchema,
@@ -19,6 +19,7 @@ import {
 import { useUserAuthStore } from '@/stores/xylona'
 import GameServerList from './GameServerList.vue'
 import type { DisplayRow } from './server-list-cache'
+import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
 
 const mocks = vi.hoisted(() => ({
   listAggregatedGameServers: vi.fn(),
@@ -214,6 +215,7 @@ function buildRemoteAggregatedServer(name = 'Remote Server') {
 
 describe('GameServerList', () => {
   beforeEach(() => {
+    setWebsocketConnectionStatus('connected')
     setActivePinia(createPinia())
     storageState.values.clear()
     mocks.listAggregatedGameServers.mockReset()
@@ -229,6 +231,10 @@ describe('GameServerList', () => {
     mocks.listNodes.mockResolvedValue({
       nodes: [buildLocalNode()],
     })
+  })
+
+  afterEach(() => {
+    setWebsocketConnectionStatus('connecting')
   })
 
   function seedStoredDisplayRows(rows: DisplayRow[]) {
@@ -672,6 +678,33 @@ describe('GameServerList', () => {
         }),
       ]),
     )
+  })
+
+  it('keeps lifecycle actions stale and shows retry when reconnect refresh fails', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValueOnce({
+      servers: [buildLocalAggregatedServer()],
+    })
+    const wrapper = mountList(true)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      lifecycleStateAuthoritative: boolean
+      serverListError: string
+    }
+    expect(viewModel.lifecycleStateAuthoritative).toBe(true)
+
+    setWebsocketConnectionStatus('reconnecting')
+    mocks.eventBus.emit('websocketDisconnected')
+    expect(viewModel.lifecycleStateAuthoritative).toBe(false)
+
+    mocks.listAggregatedGameServers.mockRejectedValueOnce(new Error('node snapshot timed out'))
+    setWebsocketConnectionStatus('connected')
+    mocks.eventBus.emit('websocketConnected')
+    await flushPromises()
+
+    expect(viewModel.lifecycleStateAuthoritative).toBe(false)
+    expect(viewModel.serverListError).toContain('node snapshot timed out')
+    expect(wrapper.text()).toContain('Lifecycle actions remain disabled')
+    expect(wrapper.text()).toContain('Retry')
   })
 
   it('prefers fresher reloaded data over stale buffered websocket state after reconnect', async () => {

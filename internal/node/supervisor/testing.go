@@ -47,6 +47,7 @@ func NewCommandWithMetrics(
 		outputListenersLock: &sync.RWMutex{},
 		statusListeners:     make(map[string]chan *xylona.GameServerStatusUpdate),
 		statusListenersLock: &sync.RWMutex{},
+		executionMutex:      &sync.Mutex{},
 	}
 	inst.Lock()
 	inst.runningCommands[serverID] = cmd

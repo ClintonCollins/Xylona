@@ -91,14 +91,9 @@ const (
 	defaultStopTimeout    = 15 * time.Second
 	outputDrainTimeout    = 5 * time.Second
 	pseudoTerminalNewline = "\r"
+	telnetInitialBackoff  = time.Second
+	telnetMaximumBackoff  = 10 * time.Second
 )
-
-func (c *Command) effectiveStopTimeout() time.Duration {
-	if c.stopTimeout > 0 {
-		return c.stopTimeout
-	}
-	return defaultStopTimeout
-}
 
 // StartCommand prepares, launches, and tracks a command execution.
 func (inst *Instance) StartCommand(preparedCommand PreparedCommand) (*Command, error) {
@@ -116,14 +111,24 @@ func (c *Command) Stop(stopInputCommand string) {
 	currentCMD := c.currentCMD
 	currentPTYCMD := c.currentPTYCMD
 	currentPTY := c.currentPTY
+	processDone := c.processCtx.Done()
+	instanceDone := c.instanceCtx.Done()
+	processCtxCancel := c.processCtxCancel
+	processGeneration := c.processGeneration
+	stopTimeout := c.stopTimeout
+	commandID := c.ID
+	user := c.User
 	c.RUnlock()
 	if currentCMD == nil && currentPTYCMD == nil {
 		return
 	}
+	if stopTimeout <= 0 {
+		stopTimeout = defaultStopTimeout
+	}
 	c.sendJobNotification(MessageStoppingServer)
 	if stopInputCommand != "" {
 		log.Debug().Str("Game Server ID", c.ID).Str("Stop Input Command", stopInputCommand).Msg("Sending stop command")
-		errSend := c.SendInput(stopInputCommand)
+		errSend := c.sendInputForExecution(stopInputCommand, &processGeneration)
 		if errSend != nil {
 			log.Error().Err(errSend).Msg("Error sending stop command")
 		}
@@ -139,17 +144,15 @@ func (c *Command) Stop(stopInputCommand string) {
 		}
 	}
 	select {
-	case <-c.processCtx.Done():
+	case <-processDone:
 		log.Debug().Str("Game Server ID", c.ID).Msg("Job process context done.")
 		return
-	case <-c.instanceCtx.Done():
+	case <-instanceDone:
 		log.Debug().Str("Game Server ID", c.ID).Msg("Xylona shutdown signal received. Closing job.")
 		return
-	case <-time.After(c.effectiveStopTimeout()):
-		c.RLock()
-		log.Warn().Str("ID", c.ID).Str("User", c.User).Msg("Timeout waiting for command to stop")
-		c.RUnlock()
-		c.processCtxCancel()
+	case <-time.After(stopTimeout):
+		log.Warn().Str("ID", commandID).Str("User", user).Msg("Timeout waiting for command to stop")
+		processCtxCancel()
 	}
 }
 
@@ -170,22 +173,12 @@ func (inst *Instance) startAndWaitForJob(
 	startupResult chan<- error,
 	outputDone <-chan struct{},
 ) {
+	command.RLock()
 	processCtxCancel := command.processCtxCancel
-	defer func(command *Command) {
-		if command.inputMethod.Type == InputTypeTelnet {
-			log.Debug().Str("Game Server ID", command.ID).Msg("Closing telnet connection")
-			command.Lock()
-			telnetConn := command.telnetConn
-			command.telnetConn = nil
-			command.Unlock()
-			if telnetConn != nil {
-				errCloseTelnetConn := telnetConn.Close()
-				if errCloseTelnetConn != nil {
-					log.Error().Err(errCloseTelnetConn).Msg("Error closing telnet connection")
-				}
-			}
-		}
-	}(command)
+	processGeneration := command.processGeneration
+	inputMethodType := command.inputMethod.Type
+	command.RUnlock()
+	defer closeTelnetConnectionForGeneration(command, processGeneration, inputMethodType)
 	defer processCtxCancel()
 	log.Debug().Str("Game Server ID", command.ID).Msg("Starting job")
 	// If it's an internal command, we need to run the internal command.
@@ -211,21 +204,7 @@ func (inst *Instance) startAndWaitForJob(
 				}
 			}
 			waitForJobOutput(command.ID, outputDone)
-			oldStatus := command.Status()
-			command.Lock()
-			command.currentCMD = nil
-			command.currentPTYCMD = nil
-			command.currentPTY = nil
-			command.status = xylona.Status_OFFLINE
-			for name := range command.launchEnv {
-				command.launchEnv[name] = ""
-				delete(command.launchEnv, name)
-			}
-			command.Unlock()
-			command.sendJobStatusNotificationWithExit(oldStatus, exitCode)
-			if commandEndFunc != nil {
-				commandEndFunc(command)
-			}
+			command.finalizeExecution(processGeneration, exitCode, true, true, commandEndFunc)
 		}()
 
 		reportInternalFailure := func(message string, err error) {
@@ -291,12 +270,8 @@ func (inst *Instance) startAndWaitForJob(
 	if currentCMD == nil && currentPTYCMD == nil {
 		errUnavailable := errors.New("start command: prepared process is unavailable")
 		startupResult <- errUnavailable
-		oldStatus := command.Status()
-		command.Lock()
-		command.status = xylona.Status_OFFLINE
-		command.Unlock()
 		waitForJobOutput(command.ID, outputDone)
-		command.sendJobStatusNotificationWithExit(oldStatus, 1)
+		command.finalizeExecution(processGeneration, 1, true, false, commandEndFunc)
 		return
 	}
 	command.Lock()
@@ -312,13 +287,6 @@ func (inst *Instance) startAndWaitForJob(
 		startupResult <- errStart
 		log.Error().Err(errStartProcess).Msg("Unable to start command.")
 		command.sendJobNotification(errStartProcess.Error())
-		oldStatus := command.Status()
-		command.Lock()
-		command.currentCMD = nil
-		command.currentPTYCMD = nil
-		command.currentPTY = nil
-		command.status = xylona.Status_OFFLINE
-		command.Unlock()
 		if currentPTY != nil {
 			errClosePTY := currentPTY.Close()
 			if errClosePTY != nil {
@@ -333,10 +301,7 @@ func (inst *Instance) startAndWaitForJob(
 			}
 		}
 		waitForJobOutput(command.ID, outputDone)
-		command.sendJobStatusNotificationWithExit(oldStatus, 1)
-		if commandEndFunc != nil {
-			commandEndFunc(command)
-		}
+		command.finalizeExecution(processGeneration, 1, true, false, commandEndFunc)
 		return
 	}
 	startupResult <- nil
@@ -369,6 +334,7 @@ func (inst *Instance) startAndWaitForJob(
 
 	var errWait error
 	var exitCode int
+	var exitCodeKnown bool
 	if currentPTYCMD != nil {
 		stopCancellationWatch := watchPseudoTerminalCancellation(command.processCtx, currentPTYCMD)
 		errWait = currentPTYCMD.Wait()
@@ -378,6 +344,8 @@ func (inst *Instance) startAndWaitForJob(
 		errWait = currentCMD.Wait()
 		exitCode = extractExitCode(currentCMD, errWait)
 	}
+	exitCodeKnown = errWait == nil || exitCode >= 0
+	lifecycleExitCode, lifecycleExitCodeKnown := lifecycleExitDetails(command, errWait, exitCode, exitCodeKnown)
 	if currentPTY != nil {
 		if drainPseudoTerminalBeforeClose() {
 			waitForJobOutput(command.ID, outputDone)
@@ -389,42 +357,111 @@ func (inst *Instance) startAndWaitForJob(
 		}
 	}
 	waitForJobOutput(command.ID, outputDone)
+	processCtxCancel()
+	closeTelnetConnectionForGeneration(command, processGeneration, inputMethodType)
 	if errWait != nil {
 		checkErrorAccessDenied(errWait, command)
 		log.Debug().Err(errWait).Msg("Error waiting for command.")
 	}
 
-	// Publish crash event if the process exited with a non-zero exit code.
-	if exitCode != 0 {
-		log.Warn().Str("Game Server ID", command.ID).Int("exit_code", exitCode).Msg("Game server process crashed")
-		eb := eventbus.Get()
-		eb.Publish(eventbus.TopicGameServerCrashed, eventbus.ServerCrashedEvent{
-			ServerID:     command.ID,
-			ServerNodeID: command.nodeID,
-			ExitCode:     exitCode,
-			Timestamp:    time.Now(),
-		})
-	}
+	reportUnexpectedProcessExit(command, errWait, lifecycleExitCode, exitCodeKnown)
 
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
-	oldStatus := command.Status()
-	command.Lock()
-	command.currentCMD = nil
-	command.currentPTYCMD = nil
-	command.currentPTY = nil
-	command.status = xylona.Status_OFFLINE
-	command.Unlock()
-	command.sendJobStatusNotificationWithExit(oldStatus, exitCode)
-	if commandEndFunc != nil {
-		commandEndFunc(command)
+	command.finalizeExecution(processGeneration, lifecycleExitCode, lifecycleExitCodeKnown, false, commandEndFunc)
+}
+
+func lifecycleExitDetails(command *Command, errWait error, exitCode int, exitCodeKnown bool) (int, bool) {
+	// ProcessState reports -1 for signal termination on Unix. Preserve that
+	// sentinel on unintentional failures so remote controllers can distinguish
+	// a real crash from absent terminal metadata.
+	if errWait != nil && !exitCodeKnown && !command.IntentionalStop() {
+		return -1, true
 	}
+	return exitCode, exitCodeKnown
+}
+
+func (c *Command) finalizeExecution(
+	processGeneration uint64,
+	exitCode int,
+	exitCodeKnown bool,
+	clearLaunchEnvironment bool,
+	commandEndFunc func(*Command),
+) {
+	c.executionMutex.Lock()
+
+	c.Lock()
+	if c.processGeneration != processGeneration {
+		c.Unlock()
+		c.executionMutex.Unlock()
+		return
+	}
+	oldStatus := c.status
+	c.currentCMD = nil
+	c.currentPTYCMD = nil
+	c.currentPTY = nil
+	c.status = xylona.Status_OFFLINE
+	if clearLaunchEnvironment {
+		for name := range c.launchEnv {
+			c.launchEnv[name] = ""
+			delete(c.launchEnv, name)
+		}
+	}
+	c.Unlock()
+
+	c.sendJobStatusNotificationWithExitDetails(oldStatus, exitCode, exitCodeKnown)
+	c.executionMutex.Unlock()
+	if commandEndFunc != nil {
+		commandEndFunc(c)
+	}
+}
+
+func reportUnexpectedProcessExit(command *Command, errWait error, exitCode int, exitCodeKnown bool) {
+	if command.IntentionalStop() {
+		return
+	}
+	if exitCodeKnown && exitCode != 0 {
+		log.Warn().Str("Game Server ID", command.ID).Int("exit_code", exitCode).Msg("Game server process crashed")
+		command.sendJobNotification(formatXylonaMessage(
+			fmt.Sprintf("Game server process exited unexpectedly with code %d.", exitCode),
+		))
+		publishProcessCrash(command, exitCode)
+		return
+	}
+	if errWait != nil && !exitCodeKnown {
+		log.Warn().Err(errWait).Str("Game Server ID", command.ID).
+			Msg("Game server process ended unexpectedly without an exit code")
+		command.sendJobNotification(formatXylonaMessage(
+			"Game server process ended unexpectedly; exit code unavailable.",
+		))
+		publishProcessCrash(command, -1)
+	}
+}
+
+func publishProcessCrash(command *Command, exitCode int) {
+	if command.Status() != xylona.Status_ONLINE {
+		return
+	}
+	eb := eventbus.Get()
+	eb.Publish(eventbus.TopicGameServerCrashed, eventbus.ServerCrashedEvent{
+		ServerID:     command.ID,
+		ServerNodeID: command.nodeID,
+		ExitCode:     exitCode,
+		Timestamp:    time.Now(),
+	})
 }
 
 func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*Command, error) {
 	inst.Lock()
+	persistentCommand, exists := inst.runningCommands[preparedCommand.ID]
+	if exists {
+		executionMutex := persistentCommand.executionMutex
+		inst.Unlock()
+		executionMutex.Lock()
+		defer executionMutex.Unlock()
+		inst.Lock()
+	}
 	defer inst.Unlock()
 
-	persistentCommand, exists := inst.runningCommands[preparedCommand.ID]
 	if exists {
 		persistentCommand.RLock()
 		commandAlreadyRunning := persistentCommand.currentCMD != nil ||
@@ -502,16 +539,39 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 	return newCommand, nil
 }
 
-// connectTelnetAndSetAsStdinWriter is a function that sets up a telnet connection and assigns it as the standard input writer for a command.
-// It takes a Command pointer as an argument.
-// The function performs the following steps:
-// Dials a telnet connection to the localhost at the port specified in the command's telnet credentials.
-// If there is an error in dialing the telnet connection, it logs the error and assigns the standard input writer of the command to io.Discard, effectively ignoring any input.
-// If there is an error in writing the password (If one is provided), it logs the error and assigns the standard input writer of the command to io.Discard.
-// Finally, it assigns the dialed telnet connection to the command's telnetConn field and uses it as the standard input writer for the command.
+type telnetExecution struct {
+	inputMethod       InputMethod
+	processGeneration uint64
+	instanceDone      <-chan struct{}
+	processDone       <-chan struct{}
+}
+
+func captureTelnetExecution(command *Command) telnetExecution {
+	command.RLock()
+	defer command.RUnlock()
+	return telnetExecution{
+		inputMethod:       command.inputMethod,
+		processGeneration: command.processGeneration,
+		instanceDone:      command.instanceCtx.Done(),
+		processDone:       command.processCtx.Done(),
+	}
+}
+
+// connectTelnetAndSetAsStdinWriter owns the telnet connection for the current
+// process execution. Production setup wraps connectTelnetForExecution in a
+// closure so these values are captured before the goroutine is scheduled.
 func connectTelnetAndSetAsStdinWriter(command *Command) {
+	connectTelnetForExecution(command, captureTelnetExecution(command))
+}
+
+// connectTelnetForExecution keeps retrying with bounded backoff while one
+// process execution lives and reads exactly one connection at a time.
+func connectTelnetForExecution(command *Command, execution telnetExecution) {
 	log.Debug().Str("Command ID", command.ID).Msg("Setting up telnet")
-	inputMethod := command.inputMethod
+	inputMethod := execution.inputMethod
+	processDone := execution.processDone
+	instanceDone := execution.instanceDone
+	processGeneration := execution.processGeneration
 	if inputMethod.Type != InputTypeTelnet {
 		log.Debug().Str("Command ID", command.ID).Msg("Skipping telnet setup for non-telnet input method")
 		return
@@ -521,81 +581,174 @@ func connectTelnetAndSetAsStdinWriter(command *Command) {
 	if errValidateTelnet != nil {
 		log.Error().Err(errValidateTelnet).Str("Command ID", command.ID).Msg("Invalid telnet input method")
 		command.Lock()
-		command.stdInWriter = io.Discard
+		command.stdInWriter = nil
+		command.telnetConn = nil
+		command.telnetOutputActive.Store(false)
 		command.Unlock()
+		command.sendJobNotification(formatXylonaMessage("Telnet console configuration is invalid; console input is unavailable."))
 		return
 	}
 	telnetCredentials := inputMethod.TelnetCredentials
+	backoff := telnetInitialBackoff
+	connectionUnavailable := false
 
-	telnetConnect := func() (*telnet.Conn, error) {
-		log.Debug().Str("Command ID", command.ID).Msg("Dialing telnet")
-		telnetConn, errDial := telnet.DialTimeout("tcp", net.JoinHostPort("localhost", strconv.Itoa(telnetCredentials.Port)), time.Second*5)
-		if errDial != nil {
-			log.Error().Err(errDial).Msg("Error dialing telnet")
-			return nil, fmt.Errorf("dial telnet: %w", errDial)
+	for {
+		if commandExecutionDone(instanceDone, processDone) {
+			return
 		}
-		log.Debug().Msg("Telnet connection successful")
-		log.Debug().Msg("Writing password to telnet")
-		if telnetCredentials.Password != "" {
-			b, errAuth := telnetConn.Write([]byte(telnetCredentials.Password))
-			if errAuth != nil {
-				log.Error().Err(errAuth).Msg("Error authenticating telnet")
-				errClose := telnetConn.Close()
-				if errClose != nil {
-					log.Error().Err(errClose).Msg("Error closing unauthenticated telnet connection")
-				}
-				return nil, fmt.Errorf("authenticate telnet: %w", errAuth)
+
+		telnetConnection, errConnect := connectTelnet(telnetCredentials)
+		if errConnect != nil {
+			log.Warn().Err(errConnect).Str("Command ID", command.ID).Dur("retry_in", backoff).
+				Msg("Telnet console is unavailable; will retry")
+			if !connectionUnavailable {
+				command.sendJobNotification(formatXylonaMessage("Telnet console is not ready; console input is unavailable while Xylona retries."))
+				connectionUnavailable = true
 			}
-			log.Debug().Int("bytes written", b).Msg("Wrote password to telnet")
-		}
-		return telnetConn, nil
-	}
-
-	telnetConnection, errConnect := telnetConnect()
-	if errConnect == nil {
-		attachTelnetConnection(command, telnetConnection)
-		return
-	}
-
-	retries := 5
-	ticker := time.NewTicker(time.Second * 5)
-	defer ticker.Stop()
-	for range retries {
-		select {
-		case <-command.instanceCtx.Done():
-			return
-		case <-command.processCtx.Done():
-			return
-		case <-ticker.C:
-			log.Debug().Str("Command ID", command.ID).Msg("Retrying telnet connection")
-			telnetConnection, errConnect = telnetConnect()
-			if errConnect == nil {
-				attachTelnetConnection(command, telnetConnection)
+			if waitForTelnetRetry(instanceDone, processDone, backoff) {
 				return
 			}
+			backoff *= 2
+			if backoff > telnetMaximumBackoff {
+				backoff = telnetMaximumBackoff
+			}
+			continue
+		}
+
+		if !attachTelnetConnection(command, telnetConnection, processGeneration, instanceDone, processDone) {
+			return
+		}
+		if connectionUnavailable {
+			command.sendJobNotification(formatXylonaMessage("Telnet console connected; console input is available."))
+		}
+		backoff = telnetInitialBackoff
+
+		errRead := command.readTelnetOutput(telnetConnection, processDone)
+		detachTelnetConnection(command, telnetConnection, processGeneration)
+		if commandExecutionDone(instanceDone, processDone) {
+			return
+		}
+		log.Warn().Err(errRead).Str("Command ID", command.ID).Dur("retry_in", backoff).
+			Msg("Telnet console disconnected; will reconnect")
+		command.sendJobNotification(formatXylonaMessage("Telnet console disconnected; console input is unavailable while Xylona reconnects."))
+		connectionUnavailable = true
+		if waitForTelnetRetry(instanceDone, processDone, backoff) {
+			return
 		}
 	}
-	command.Lock()
-	command.stdInWriter = io.Discard
-	command.Unlock()
 }
 
-func attachTelnetConnection(command *Command, telnetConnection *telnet.Conn) {
+func connectTelnet(credentials *TelnetCredentials) (*telnet.Conn, error) {
+	log.Debug().Msg("Dialing telnet")
+	telnetConnection, errDial := telnet.DialTimeout(
+		"tcp",
+		net.JoinHostPort("localhost", strconv.Itoa(credentials.Port)),
+		5*time.Second,
+	)
+	if errDial != nil {
+		return nil, fmt.Errorf("dial telnet: %w", errDial)
+	}
+	if credentials.Password == "" {
+		return telnetConnection, nil
+	}
+
+	bytesWritten, errAuth := telnetConnection.Write([]byte(credentials.Password))
+	if errAuth == nil {
+		log.Debug().Int("bytes written", bytesWritten).Msg("Wrote password to telnet")
+		return telnetConnection, nil
+	}
+	errClose := telnetConnection.Close()
+	if errClose != nil {
+		log.Error().Err(errClose).Msg("Error closing unauthenticated telnet connection")
+	}
+	return nil, fmt.Errorf("authenticate telnet: %w", errAuth)
+}
+
+func attachTelnetConnection(
+	command *Command,
+	telnetConnection *telnet.Conn,
+	processGeneration uint64,
+	instanceDone <-chan struct{},
+	processDone <-chan struct{},
+) bool {
 	command.Lock()
-	if command.processCtx.Err() != nil {
-		command.Unlock()
+	defer command.Unlock()
+	if command.processGeneration != processGeneration || commandExecutionDone(instanceDone, processDone) {
 		errClose := telnetConnection.Close()
 		if errClose != nil {
 			log.Debug().Err(errClose).Str("Command ID", command.ID).
 				Msg("Error closing late telnet connection")
 		}
-		return
+		return false
 	}
 	command.telnetConn = telnetConnection
 	command.stdInWriter = telnetConnection
-	processDone := command.processCtx.Done()
+	command.telnetOutputActive.Store(true)
+	return true
+}
+
+func detachTelnetConnection(command *Command, telnetConnection *telnet.Conn, processGeneration uint64) {
+	command.Lock()
+	if command.processGeneration == processGeneration && command.telnetConn == telnetConnection {
+		command.telnetConn = nil
+		command.stdInWriter = nil
+		command.telnetOutputActive.Store(false)
+	}
 	command.Unlock()
-	go command.readTelnetOutput(telnetConnection, processDone)
+	errClose := telnetConnection.Close()
+	if errClose != nil {
+		log.Debug().Err(errClose).Str("Command ID", command.ID).Msg("Error closing detached telnet connection")
+	}
+}
+
+func commandExecutionDone(instanceDone <-chan struct{}, processDone <-chan struct{}) bool {
+	select {
+	case <-instanceDone:
+		return true
+	case <-processDone:
+		return true
+	default:
+		return false
+	}
+}
+
+func waitForTelnetRetry(instanceDone <-chan struct{}, processDone <-chan struct{}, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-instanceDone:
+		return true
+	case <-processDone:
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+func closeTelnetConnectionForGeneration(command *Command, processGeneration uint64, inputMethodType inputType) {
+	if inputMethodType != InputTypeTelnet {
+		return
+	}
+
+	command.Lock()
+	if command.processGeneration != processGeneration {
+		command.Unlock()
+		return
+	}
+	telnetConnection := command.telnetConn
+	command.telnetConn = nil
+	command.stdInWriter = nil
+	command.telnetOutputActive.Store(false)
+	command.Unlock()
+	if telnetConnection == nil {
+		return
+	}
+
+	log.Debug().Str("Game Server ID", command.ID).Msg("Closing telnet connection")
+	errClose := telnetConnection.Close()
+	if errClose != nil && !errors.Is(errClose, net.ErrClosed) {
+		log.Error().Err(errClose).Str("Game Server ID", command.ID).Msg("Error closing telnet connection")
+	}
 }
 
 // GetCommandByID returns a tracked command by ID.
@@ -625,6 +778,7 @@ func (inst *Instance) GetCommandByIDOrCreateShell(commandID string) *Command {
 			outputListenersLock: &sync.RWMutex{},
 			statusListeners:     make(map[string]chan *xylona.GameServerStatusUpdate),
 			statusListenersLock: &sync.RWMutex{},
+			executionMutex:      &sync.Mutex{},
 			RWMutex:             &sync.RWMutex{},
 			status:              xylona.Status_OFFLINE,
 			toggleOutputType:    make(chan struct{}),
@@ -642,16 +796,26 @@ func (inst *Instance) SendConsoleOutput(commandID string, message string) {
 
 // SendInput sends input to the command's StdIn.
 func (c *Command) SendInput(input string) error {
+	return c.sendInputForExecution(input, nil)
+}
+
+func (c *Command) sendInputForExecution(input string, expectedProcessGeneration *uint64) error {
 	c.RLock()
 	currentCMD := c.currentCMD
 	currentPTYCMD := c.currentPTYCMD
 	inputWriter := c.stdInWriter
 	inputMethod := c.inputMethod.Type
-	if currentCMD == nil && currentPTYCMD == nil {
-		c.RUnlock()
-		return errors.New("command is not running")
-	}
+	processGeneration := c.processGeneration
 	c.RUnlock()
+	if expectedProcessGeneration != nil && processGeneration != *expectedProcessGeneration {
+		return fmt.Errorf("%w: command execution has changed", ErrConsoleInputUnavailable)
+	}
+	if currentCMD == nil && currentPTYCMD == nil {
+		return fmt.Errorf("%w: command is not running", ErrConsoleInputUnavailable)
+	}
+	if inputWriter == nil {
+		return fmt.Errorf("%w: %s input is not attached", ErrConsoleInputUnavailable, inputMethod.String())
+	}
 	log.Debug().Str("Command ID", c.ID).Int("input_bytes", len(input)).Msg("Sending console input")
 	inputTerminator := "\n"
 	if currentPTYCMD != nil {
@@ -659,18 +823,34 @@ func (c *Command) SendInput(input string) error {
 	}
 	b, wErr := fmt.Fprintf(inputWriter, "%s%s", input, inputTerminator)
 	var errConsoleInput error
+	consoleInputMirrored := false
 	if currentPTYCMD == nil && inputMethod == InputTypeStdIn {
-		errConsoleInput = mirrorProcessConsoleInput(currentCMD, input)
+		consoleInputMirrored, errConsoleInput = mirrorProcessConsoleInput(currentCMD, input)
+	}
+	if inputMethod == InputTypeTelnet && wErr != nil {
+		detachFailedTelnetWriter(c, inputWriter)
+		return errors.Join(
+			ErrConsoleInputUnavailable,
+			fmt.Errorf("write telnet command input: %w", wErr),
+		)
 	}
 	if wErr != nil && errConsoleInput != nil {
 		return errors.Join(
+			ErrConsoleInputUnavailable,
 			fmt.Errorf("write command input: %w", wErr),
 			fmt.Errorf("mirror command input to console: %w", errConsoleInput),
 		)
 	}
 	if wErr != nil {
-		log.Debug().Err(wErr).Str("Command ID", c.ID).
-			Msg("Standard input pipe rejected command; console input succeeded")
+		if consoleInputMirrored {
+			log.Debug().Err(wErr).Str("Command ID", c.ID).
+				Msg("Standard input pipe rejected command; console input succeeded")
+			return nil
+		}
+		return errors.Join(
+			ErrConsoleInputUnavailable,
+			fmt.Errorf("write command input: %w", wErr),
+		)
 	}
 	if errConsoleInput != nil {
 		log.Debug().Err(errConsoleInput).Str("Command ID", c.ID).
@@ -678,6 +858,25 @@ func (c *Command) SendInput(input string) error {
 	}
 	log.Debug().Str("Command ID", c.ID).Int("bytes written", b).Msg("Wrote input")
 	return nil
+}
+
+func detachFailedTelnetWriter(command *Command, inputWriter io.Writer) {
+	telnetConnection, ok := inputWriter.(*telnet.Conn)
+	if !ok {
+		return
+	}
+	command.Lock()
+	if command.telnetConn == telnetConnection {
+		command.telnetConn = nil
+		command.stdInWriter = nil
+		command.telnetOutputActive.Store(false)
+	}
+	command.Unlock()
+	errClose := telnetConnection.Close()
+	if errClose != nil {
+		log.Debug().Err(errClose).Str("Command ID", command.ID).
+			Msg("Error closing failed telnet input connection")
+	}
 }
 
 func closePreparedCommandPipes(command *Command) error {

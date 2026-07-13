@@ -332,7 +332,21 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	// Determine pre-update running state via NodeClient so both embedded
 	// and remote game servers report a consistent status.
 	preStatus := inst.currentProcessStatus(gameServer)
-	wasRunning := preStatus != xylona.Status_OFFLINE && preStatus != xylona.Status_UNKNOWN
+	if preStatus == xylona.Status_UNKNOWN {
+		message := "Game server status is unavailable; update was not started"
+		inst.sendConsoleLine(gameServer, message)
+		if broadcaster != nil {
+			broadcaster.BroadcastUpdateProgress(
+				serverID,
+				gameServer.Name,
+				xylona.UpdateStep_UPDATE_STEP_STOPPING,
+				xylona.StepStatus_STEP_STATUS_FAILED,
+				message,
+			)
+		}
+		return
+	}
+	wasRunning := preStatus != xylona.Status_OFFLINE
 
 	updatePlan, errPlan := inst.resolveMinecraftUpdatePlan(gameServer)
 	if errPlan != nil && gameServer.GameID == "minecraft" {
@@ -354,20 +368,35 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	// Step 1: Stop if running.
 	if wasRunning {
 		broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Stopping server")
-		inst.StopGameServer(gameServer)
+		errStop := inst.StopGameServer(inst.actionContext(), gameServer)
+		if errStop != nil {
+			log.Error().Err(errStop).Str("game_server_id", serverID).Msg("Failed to stop server before update")
+			broadcast(
+				xylona.UpdateStep_UPDATE_STEP_STOPPING,
+				xylona.StepStatus_STEP_STATUS_FAILED,
+				"Failed to stop server; update was not started: "+errStop.Error(),
+			)
+			return
+		}
 		// Wait for server to fully stop (poll up to 30s). Uses NodeClient
 		// snapshots so remote-node stops are observed identically.
 		stopped := false
 		for range 30 {
 			s := inst.currentProcessStatus(gameServer)
-			if s == xylona.Status_OFFLINE || s == xylona.Status_UNKNOWN {
+			if s == xylona.Status_OFFLINE {
 				stopped = true
 				break
 			}
 			time.Sleep(time.Second)
 		}
 		if !stopped {
-			log.Warn().Str("game_server_id", serverID).Msg("Server did not stop cleanly before update")
+			log.Error().Str("game_server_id", serverID).Msg("Could not confirm server shutdown before update")
+			broadcast(
+				xylona.UpdateStep_UPDATE_STEP_STOPPING,
+				xylona.StepStatus_STEP_STATUS_FAILED,
+				"Could not confirm server shutdown; update was not started",
+			)
+			return
 		}
 		broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_COMPLETED, "Server stopped")
 	}

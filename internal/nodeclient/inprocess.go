@@ -72,7 +72,11 @@ func (c *inProcessNodeClient) SendConsoleInput(_ context.Context, processID, inp
 	return nil
 }
 
-func (c *inProcessNodeClient) ReadConsoleBuffer(_ context.Context, processID string) (node.ConsoleChunk, error) {
+func (c *inProcessNodeClient) ReadConsoleBuffer(ctx context.Context, processID string) (node.ConsoleChunk, error) {
+	errContext := ctx.Err()
+	if errContext != nil {
+		return node.ConsoleChunk{ProcessID: processID}, fmt.Errorf("nodeclient: read console buffer: %w", errContext)
+	}
 	if c.node == nil {
 		return node.ConsoleChunk{ProcessID: processID}, ErrNodeNil
 	}
@@ -84,7 +88,7 @@ func (c *inProcessNodeClient) StreamConsoleOutput(ctx context.Context, processID
 		return nil, ErrNodeNil
 	}
 
-	stream, errStream := c.node.StreamConsoleOutput(ctx, processID)
+	stream, errStream := c.node.StreamConsoleOutput(ctx, processID, true)
 	if errStream != nil {
 		return nil, fmt.Errorf("nodeclient: stream console output: %w", errStream)
 	}

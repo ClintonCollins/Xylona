@@ -2,6 +2,8 @@ package actions
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,10 +11,25 @@ import (
 
 	"github.com/aarondl/opt/null"
 
+	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+type cancellationAwareDeleteClient struct {
+	*nodeclient.FakeNodeClient
+}
+
+func (c *cancellationAwareDeleteClient) DeleteFiles(
+	ctx context.Context,
+	_ string,
+	_ []string,
+	_ node.ProtectionPolicy,
+) ([]string, error) {
+	<-ctx.Done()
+	return nil, fmt.Errorf("delete files wait: %w", ctx.Err())
+}
 
 type fileActionTestFixture struct {
 	inst       *Instance
@@ -107,7 +124,7 @@ func TestPurgeAllGameServerFilesRoutesRemoteDeletesThroughNodeClient(t *testing.
 		Directory: serverDir,
 	}
 
-	errPurge := inst.PurgeAllGameServerFiles(gameServer)
+	errPurge := inst.PurgeAllGameServerFiles(t.Context(), gameServer)
 	if errPurge != nil {
 		t.Fatalf("PurgeAllGameServerFiles() error = %v", errPurge)
 	}
@@ -142,7 +159,7 @@ func TestPurgeAllGameServerFilesRoutesLocalDeletesThroughNodeClient(t *testing.T
 		Directory: serverDir,
 	}
 
-	errPurge := inst.PurgeAllGameServerFiles(gameServer)
+	errPurge := inst.PurgeAllGameServerFiles(t.Context(), gameServer)
 	if errPurge != nil {
 		t.Fatalf("PurgeAllGameServerFiles() error = %v", errPurge)
 	}
@@ -156,6 +173,30 @@ func TestPurgeAllGameServerFilesRoutesLocalDeletesThroughNodeClient(t *testing.T
 	}
 	if len(deleteCall.Files) != 1 || deleteCall.Files[0] != "" {
 		t.Fatalf("DeleteFilesCalls[0].Files = %v, want [\"\"]", deleteCall.Files)
+	}
+}
+
+func TestPurgeAllGameServerFilesPropagatesCallerCancellation(t *testing.T) {
+	remoteClient := &cancellationAwareDeleteClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{NodeID: "node-remote"},
+	}
+	registry := noderegistry.New("node-local", nil)
+	registry.Register(remoteClient)
+	inst := &Instance{
+		ctx:          context.Background(),
+		nodeRegistry: registry,
+	}
+	gameServer := &models.GameServer{
+		ID:        "server-remote-files",
+		NodeID:    "node-remote",
+		Directory: "/srv/server-remote-files",
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	errPurge := inst.PurgeAllGameServerFiles(ctx, gameServer)
+	if !errors.Is(errPurge, context.Canceled) {
+		t.Fatalf("PurgeAllGameServerFiles() error = %v, want %v", errPurge, context.Canceled)
 	}
 }
 

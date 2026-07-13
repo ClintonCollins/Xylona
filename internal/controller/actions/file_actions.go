@@ -547,8 +547,8 @@ func joinForNodeOS(nodeOS OSType, parts ...string) string {
 }
 
 // PurgeAllGameServerFiles deletes the server's working directory.
-func (inst *Instance) PurgeAllGameServerFiles(gameServer *models.GameServer) error {
-	err := inst.deleteGameServerDirectory(gameServer.NodeID, gameServer.Directory)
+func (inst *Instance) PurgeAllGameServerFiles(ctx context.Context, gameServer *models.GameServer) error {
+	err := inst.deleteGameServerDirectory(ctx, gameServer.NodeID, gameServer.Directory)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to delete game server files")
 		return fmt.Errorf("actions: delete game server files: %w", err)
@@ -556,16 +556,15 @@ func (inst *Instance) PurgeAllGameServerFiles(gameServer *models.GameServer) err
 	return nil
 }
 
-func (inst *Instance) deleteGameServerDirectory(nodeID string, directory string) error {
+func (inst *Instance) deleteGameServerDirectory(ctx context.Context, nodeID string, directory string) error {
 	if directory == "" {
 		return nil
 	}
-	ctx := context.Background()
-	if inst != nil && inst.ctx != nil {
-		ctx = inst.ctx
-	}
 	if inst == nil {
 		return errors.New("actions: instance is not configured")
+	}
+	if ctx == nil {
+		ctx = inst.actionContext()
 	}
 
 	client, errClient := inst.resolveNodeClient(nodeID)

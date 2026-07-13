@@ -49,6 +49,7 @@ type connection struct {
 	requestedGameServerOutputIDs map[string]struct{}
 	subscribedMetricsServerIDs   map[string]struct{}
 	consoleStreamCancels         map[string]context.CancelFunc
+	consoleStreamTokens          map[string]*struct{}
 	isSuperUser                  bool
 	lastSuperUserCheck           time.Time
 	*sync.RWMutex
@@ -201,6 +202,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
 		consoleStreamCancels:         make(map[string]context.CancelFunc),
+		consoleStreamTokens:          make(map[string]*struct{}),
 		isSuperUser:                  user.SuperUser,
 		lastSuperUserCheck:           time.Now(),
 		RWMutex:                      &sync.RWMutex{},

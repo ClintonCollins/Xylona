@@ -15,6 +15,22 @@
         round
         @click="logoutUser" />
     </q-toolbar>
+    <div
+      v-if="connectionNotice"
+      :class="`live-connection-banner--${websocketConnectionStatus}`"
+      class="live-connection-banner"
+      role="status"
+      aria-live="assertive">
+      <q-icon :name="connectionNotice.icon" size="sm" />
+      <div class="live-connection-banner__copy">
+        <strong>{{ connectionNotice.title }}</strong>
+        <span>{{ connectionNotice.detail }}</span>
+      </div>
+      <q-spinner
+        v-if="websocketConnectionStatus !== 'disconnected'"
+        aria-label="Reconnecting"
+        size="1.1rem" />
+    </div>
   </q-header>
 
   <q-drawer v-model="leftDrawerOpen" bordered class="bg-xy-surface-2" show-if-above>
@@ -81,6 +97,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { User } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canViewAlerts } from '@/utils/alert-permissions'
+import { websocketConnectionStatus } from '@/utils/websocket-connection'
 
 const store = useUserAuthStore()
 const user = computed(() => store.user as User | null)
@@ -198,6 +215,31 @@ const navLinks = computed((): NavItem[] => {
 
 const leftDrawerOpen = ref(false)
 
+const connectionNotice = computed(() => {
+  switch (websocketConnectionStatus.value) {
+    case 'connecting':
+      return {
+        icon: 'sync',
+        title: 'Connecting to live updates',
+        detail: 'Server status and lifecycle controls are temporarily unavailable.',
+      }
+    case 'reconnecting':
+      return {
+        icon: 'sync_problem',
+        title: 'Live updates interrupted',
+        detail: 'Displayed server status may be stale. Reconnecting…',
+      }
+    case 'disconnected':
+      return {
+        icon: 'cloud_off',
+        title: 'Live updates unavailable',
+        detail: 'Check your connection. Displayed server status may be stale.',
+      }
+    default:
+      return null
+  }
+})
+
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
@@ -238,5 +280,41 @@ function toggleLeftDrawer() {
 
 .nav-list {
   padding-top: 0;
+}
+
+.live-connection-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-primary);
+  background: var(--xy-warning-bg);
+  border-top: 1px solid var(--xy-warning-border);
+  border-bottom: 1px solid var(--xy-warning-border);
+  font-family: var(--xy-font-body);
+}
+
+.live-connection-banner--disconnected {
+  background: var(--xy-danger-bg);
+  border-color: var(--xy-danger-border);
+}
+
+.live-connection-banner__copy {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs) var(--xy-space-sm);
+  min-width: 0;
+}
+
+.live-connection-banner__copy span {
+  color: var(--xy-text-secondary);
+}
+
+@media (max-width: 599px) {
+  .live-connection-banner__copy {
+    flex-direction: column;
+    gap: 0;
+  }
 }
 </style>

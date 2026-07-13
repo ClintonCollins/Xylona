@@ -17,13 +17,19 @@
           label="Reset All"
           @click="resetAll" />
         <q-btn
-          :disable="saving || restarting || !isDirty || !canEditStartArgs"
+          :disable="
+            saving || restarting || !isDirty || !canEditStartArgs || !restartStateAuthoritative
+          "
           :loading="restarting"
           color="warning"
           flat
           icon="replay"
           label="Save & Restart"
-          @click="saveAndRestart" />
+          @click="saveAndRestart">
+          <q-tooltip v-if="restartUnavailableReason">
+            {{ restartUnavailableReason }}
+          </q-tooltip>
+        </q-btn>
         <q-btn
           :disable="saving || restarting || !isDirty || !canEditStartArgs"
           :loading="saving"
@@ -108,7 +114,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import StartArgsEditor from '@/components/game_servers/StartArgsEditor.vue'
@@ -122,7 +128,12 @@ import {
   serializeStartArgsPatches,
   type StartArgPatch,
 } from '@/components/game_servers/start-args'
-import { RestartGameServerRequestSchema } from '@/proto/shared_pb'
+import {
+  StartGameServerRequestSchema,
+  GameServerSchema,
+  Status,
+  StopGameServerRequestSchema,
+} from '@/proto/shared_pb'
 import {
   GetGameServerRequestSchema,
   type GetGameServerResponse,
@@ -131,8 +142,9 @@ import {
   UpdateGameServerStartArgsRequestSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { resolveStartArgsPlatform } from './start-args-platform'
+import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -143,11 +155,14 @@ const gameServerId = ref(String(route.params.id ?? ''))
 const loading = ref(true)
 const saving = ref(false)
 const restarting = ref(false)
+const serverStatusFresh = ref(false)
 const isSuperUser = ref(false)
 const gameServer = ref<GetGameServerResponse['gameServer']>()
 const nodeOsById = ref<Record<string, string>>({})
 const draftPatches = ref<StartArgPatch[]>([])
 const savedPatchesJson = ref('')
+let liveStatusSequence = 0
+let statusRefreshRequestSequence = 0
 
 const selectedPlatform = computed<'linux' | 'windows' | null>(() =>
   resolveStartArgsPlatform(
@@ -190,6 +205,40 @@ const effectiveAllowEditing = computed(
 const canEditStartArgs = computed(
   () => effectiveAllowEditing.value && selectedPlatform.value !== null,
 )
+
+const hasRestartPermissions = computed(() => {
+  const permissions = gameServer.value?.effectivePermissions ?? []
+  return (
+    permissions.length === 0 ||
+    (permissions.includes('game_server.start') && permissions.includes('game_server.stop'))
+  )
+})
+
+const restartStateAuthoritative = computed(
+  () =>
+    websocketStateAuthoritative.value &&
+    serverStatusFresh.value &&
+    gameServer.value !== undefined &&
+    gameServer.value.status === Status.ONLINE &&
+    hasRestartPermissions.value,
+)
+
+const restartUnavailableReason = computed(() => {
+  if (
+    !websocketStateAuthoritative.value ||
+    !serverStatusFresh.value ||
+    gameServer.value?.status === Status.UNKNOWN
+  ) {
+    return 'Waiting for authoritative server status'
+  }
+  if (!hasRestartPermissions.value) {
+    return 'Requires start and stop permissions'
+  }
+  if (gameServer.value?.status !== Status.ONLINE) {
+    return 'The server must be online to restart'
+  }
+  return ''
+})
 
 const resolvedPreview = computed(() =>
   selectedPlatform.value === null
@@ -250,7 +299,16 @@ const platformWarning = computed(() => {
 })
 
 onMounted(async () => {
+  XylonaEventBus.on('gameServerStatus', onServerStatus)
+  XylonaEventBus.on('websocketConnected', onWebsocketReconnect)
+  XylonaEventBus.on('websocketDisconnected', onWebsocketDisconnect)
   await initialize()
+})
+
+onBeforeUnmount(() => {
+  XylonaEventBus.off('gameServerStatus', onServerStatus)
+  XylonaEventBus.off('websocketConnected', onWebsocketReconnect)
+  XylonaEventBus.off('websocketDisconnected', onWebsocketDisconnect)
 })
 
 async function initialize() {
@@ -278,8 +336,70 @@ async function loadGameServer() {
     }),
   )
   gameServer.value = response.gameServer
+  serverStatusFresh.value = websocketStateAuthoritative.value
   savedPatchesJson.value = gameServer.value?.startArgsPatches ?? ''
   draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
+}
+
+function onServerStatus(serverID: string, _serverName: string, status: Status) {
+  if (serverID !== gameServerId.value || !gameServer.value) {
+    return
+  }
+
+  liveStatusSequence++
+  gameServer.value = create(GameServerSchema, {
+    ...gameServer.value,
+    status,
+  })
+  serverStatusFresh.value = websocketStateAuthoritative.value
+}
+
+function onWebsocketDisconnect() {
+  serverStatusFresh.value = false
+}
+
+async function onWebsocketReconnect() {
+  const requestSequence = ++statusRefreshRequestSequence
+  const statusSequenceAtStart = liveStatusSequence
+  serverStatusFresh.value = false
+  try {
+    const response = await GetXylonaClient().getGameServer(
+      create(GetGameServerRequestSchema, { id: gameServerId.value }),
+    )
+    if (
+      requestSequence !== statusRefreshRequestSequence ||
+      !response.gameServer ||
+      !gameServer.value
+    ) {
+      return
+    }
+    gameServer.value = create(GameServerSchema, {
+      ...gameServer.value,
+      effectivePermissions: response.gameServer.effectivePermissions,
+      status:
+        statusSequenceAtStart === liveStatusSequence
+          ? response.gameServer.status
+          : gameServer.value.status,
+    })
+    serverStatusFresh.value = websocketStateAuthoritative.value
+  } catch (unknownError: unknown) {
+    if (requestSequence !== statusRefreshRequestSequence) {
+      return
+    }
+    if (gameServer.value) {
+      gameServer.value = create(GameServerSchema, {
+        ...gameServer.value,
+        status: Status.UNKNOWN,
+      })
+    }
+    const err = ConnectError.from(unknownError)
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: `Failed to refresh server status: ${ConnectErrorToString(err)}`,
+      icon: 'report_problem',
+    })
+  }
 }
 
 async function loadNodes() {
@@ -298,6 +418,9 @@ async function saveOnly() {
 }
 
 async function saveAndRestart() {
+  if (!restartStateAuthoritative.value) {
+    return
+  }
   await savePatches(true)
 }
 
@@ -316,6 +439,7 @@ async function savePatches(restartAfterSave: boolean) {
     saving.value = true
   }
 
+  let startArgsSaved = false
   try {
     const response = await GetXylonaClient().updateGameServerStartArgs(
       create(UpdateGameServerStartArgsRequestSchema, {
@@ -323,20 +447,30 @@ async function savePatches(restartAfterSave: boolean) {
         startArgsPatches: serializeStartArgsPatches(draftPatches.value),
       }),
     )
+    const runtimeStatus = gameServer.value.status
     gameServer.value = response.gameServer
+      ? create(GameServerSchema, {
+          ...response.gameServer,
+          status: runtimeStatus,
+        })
+      : response.gameServer
     savedPatchesJson.value = response.gameServer?.startArgsPatches ?? ''
     draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
+    startArgsSaved = true
 
     if (restartAfterSave) {
-      await GetXylonaClient().restartGameServer(
-        create(RestartGameServerRequestSchema, {
-          serverId: gameServerId.value,
-        }),
+      const client = GetXylonaClient()
+      await client.stopGameServer(
+        create(StopGameServerRequestSchema, { serverId: gameServerId.value }),
+      )
+      await waitForServerOffline()
+      await client.startGameServer(
+        create(StartGameServerRequestSchema, { serverId: gameServerId.value }),
       )
       $q.notify({
         type: 'positive',
         position: 'top',
-        caption: 'Start arguments saved and server restart requested.',
+        caption: 'Start arguments saved and server restarted.',
         icon: 'task_alt',
       })
       return
@@ -353,13 +487,39 @@ async function savePatches(restartAfterSave: boolean) {
     $q.notify({
       type: 'xylona-error',
       position: 'top',
-      caption: `Failed to save start arguments: ${ConnectErrorToString(err)}`,
+      caption: startArgsSaved
+        ? `Start arguments were saved, but the server could not restart: ${ConnectErrorToString(err)}`
+        : `Failed to save start arguments: ${ConnectErrorToString(err)}`,
       icon: 'report_problem',
     })
   } finally {
     saving.value = false
     restarting.value = false
   }
+}
+
+async function waitForServerOffline() {
+  const timeoutAt = Date.now() + 30_000
+  while (Date.now() < timeoutAt) {
+    const response = await GetXylonaClient().getGameServer(
+      create(GetGameServerRequestSchema, { id: gameServerId.value }),
+    )
+    if (!response.gameServer) {
+      throw new Error('Game server details were unavailable while waiting for shutdown')
+    }
+
+    gameServer.value = response.gameServer
+    if (response.gameServer.status === Status.OFFLINE) {
+      return
+    }
+    if (response.gameServer.status === Status.UNKNOWN) {
+      throw new Error('Game server status became unavailable while waiting for shutdown')
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+
+  throw new Error('Timed out waiting for the game server to stop')
 }
 
 function resetAll() {

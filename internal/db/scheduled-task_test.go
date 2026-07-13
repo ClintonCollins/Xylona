@@ -195,6 +195,81 @@ func TestInsertScheduledTaskLog(t *testing.T) {
 	}
 }
 
+func TestGetLatestScheduledTaskLogsByGameServerID(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "st-latest-logs.sqlite")
+	seedRBACFixture(t, conn)
+
+	firstTask, errFirstTask := conn.InsertScheduledTask(
+		"server-local-1", "user-owner", "Restart", "restart", "0 3 * * *", "UTC", "", true,
+	)
+	if errFirstTask != nil {
+		t.Fatalf("InsertScheduledTask(first) error = %v", errFirstTask)
+	}
+	secondTask, errSecondTask := conn.InsertScheduledTask(
+		"server-local-1", "user-owner", "Backup", "backup", "0 4 * * *", "UTC", "", true,
+	)
+	if errSecondTask != nil {
+		t.Fatalf("InsertScheduledTask(second) error = %v", errSecondTask)
+	}
+
+	oldTime := time.Date(2026, time.July, 13, 1, 0, 0, 0, time.UTC)
+	newTime := oldTime.Add(time.Hour)
+	oldLog, errOldLog := conn.InsertScheduledTaskLog(
+		firstTask.ID, firstTask.GameServerID, firstTask.TaskType, "failed", "old", oldTime, &oldTime,
+	)
+	if errOldLog != nil {
+		t.Fatalf("InsertScheduledTaskLog(old) error = %v", errOldLog)
+	}
+	newLog, errNewLog := conn.InsertScheduledTaskLog(
+		firstTask.ID, firstTask.GameServerID, firstTask.TaskType, "success", "new", newTime, &newTime,
+	)
+	if errNewLog != nil {
+		t.Fatalf("InsertScheduledTaskLog(new) error = %v", errNewLog)
+	}
+	secondLog, errSecondLog := conn.InsertScheduledTaskLog(
+		secondTask.ID, secondTask.GameServerID, secondTask.TaskType, "skipped", "offline", newTime, &newTime,
+	)
+	if errSecondLog != nil {
+		t.Fatalf("InsertScheduledTaskLog(second task) error = %v", errSecondLog)
+	}
+
+	createdAtByID := map[string]time.Time{
+		oldLog.ID:    oldTime,
+		newLog.ID:    newTime,
+		secondLog.ID: newTime,
+	}
+	for logID, createdAt := range createdAtByID {
+		_, errUpdate := conn.SQLDb.ExecContext(
+			conn.ctx,
+			"update scheduled_task_log set created_at = ? where id = ?",
+			createdAt,
+			logID,
+		)
+		if errUpdate != nil {
+			t.Fatalf("update log %q created_at: %v", logID, errUpdate)
+		}
+	}
+
+	logs, errGet := conn.GetLatestScheduledTaskLogsByGameServerID("server-local-1")
+	if errGet != nil {
+		t.Fatalf("GetLatestScheduledTaskLogsByGameServerID() error = %v", errGet)
+	}
+	if len(logs) != 2 {
+		t.Fatalf("GetLatestScheduledTaskLogsByGameServerID() count = %d, want %d", len(logs), 2)
+	}
+
+	logsByTaskID := make(map[string]string, len(logs))
+	for _, entry := range logs {
+		logsByTaskID[entry.ScheduledTaskID] = entry.Status
+	}
+	if logsByTaskID[firstTask.ID] != "success" {
+		t.Fatalf("latest first task status = %v, want %q", logsByTaskID[firstTask.ID], "success")
+	}
+	if logsByTaskID[secondTask.ID] != "skipped" {
+		t.Fatalf("latest second task status = %v, want %q", logsByTaskID[secondTask.ID], "skipped")
+	}
+}
+
 func TestUpdateScheduledTaskLastRun(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "st-lastrun.sqlite")
 	seedRBACFixture(t, conn)

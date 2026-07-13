@@ -257,6 +257,42 @@ func TestSystemUpdateDrainRequiresConfirmedOffline(t *testing.T) {
 	}
 }
 
+func TestSystemUpdateDrainStopsOnGameServerStopFailure(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		SnapshotResult: &node.NodeSnapshot{OS: "linux"},
+		StopProcessErr: errors.New("remote stop failed"),
+	}
+	registry := testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local", SnapshotResult: &node.NodeSnapshot{OS: "linux"}},
+		remoteClient,
+	)
+	configureLifecycleActionsForParityTests(t, fixture, registry)
+	job := createSystemUpdateJobForTest(
+		t,
+		fixture.conn,
+		updater.ComponentNode,
+		"node-remote",
+		systemUpdateStatusPending,
+		"1.2.0",
+	)
+
+	errDrain := fixture.service.drainNodeForSystemUpdate(context.Background(), systemUpdateRunInput{
+		jobID:     job.ID,
+		component: updater.ComponentNode,
+		nodeID:    "node-remote",
+	})
+	if errDrain == nil {
+		t.Fatal("drainNodeForSystemUpdate() error = nil, want stop failure")
+	}
+	if !strings.Contains(errDrain.Error(), "stop game server \"server-remote-1\"") {
+		t.Fatalf("drainNodeForSystemUpdate() error = %v, want server-specific stop failure", errDrain)
+	}
+}
+
 func TestRunSystemUpdateJobFailsTerminalWhenRemoteStageTimesOut(t *testing.T) {
 	oldStageTimeout := systemUpdateRemoteStageTimeout
 	systemUpdateRemoteStageTimeout = 50 * time.Millisecond

@@ -422,7 +422,7 @@ func (inst *Instance) cleanupFailedInstall(gameServerID string, gameServerDir st
 	}
 
 	if gameServerDir != "" {
-		errDeleteGameServerFiles := inst.deleteGameServerDirectory(resolvedNodeID, gameServerDir)
+		errDeleteGameServerFiles := inst.deleteGameServerDirectory(inst.actionContext(), resolvedNodeID, gameServerDir)
 		if errDeleteGameServerFiles != nil {
 			log.Error().Err(errDeleteGameServerFiles).Str("game_server_dir", gameServerDir).Msg("Failed to remove game server directory after install failure")
 			errCleanup = errors.Join(errCleanup, fmt.Errorf("actions: delete failed install directory: %w", errDeleteGameServerFiles))
@@ -855,28 +855,35 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 
 // StopGameServer stops a running game server using its configured stop
 // command. Routes through the NodeClient for the server's owning node so
-// embedded and remote servers stop on the same code path.
-func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
-	nodeOS := inst.resolveNodeOS(inst.ctx, gameServer.NodeID)
+// embedded and remote servers stop on the same code path. A missing process
+// is treated as already stopped; node resolution and transport failures are
+// returned so callers never continue under a false assumption of shutdown.
+func (inst *Instance) StopGameServer(ctx context.Context, gameServer *models.GameServer) error {
+	if gameServer == nil {
+		return errors.New("actions: stop game server: game server is nil")
+	}
+	if ctx == nil {
+		ctx = inst.actionContext()
+	}
+
+	nodeOS := inst.resolveNodeOS(ctx, gameServer.NodeID)
 	inst.intentionalStops.mark(gameServer.ID)
 	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 	if errClient != nil {
 		inst.intentionalStops.clear(gameServer.ID)
-		log.Warn().Err(errClient).Str("node_id", gameServer.NodeID).
-			Msg("StopGameServer: node client unavailable")
-		return
+		return fmt.Errorf("actions: stop game server: resolve node client: %w", errClient)
 	}
 
-	errStop := client.StopProcess(inst.ctx, gameServer.ID, gameStopCommand(gameServer.R.Game, nodeOS))
+	errStop := client.StopProcess(ctx, gameServer.ID, gameStopCommand(gameServer.R.Game, nodeOS))
 	if errStop != nil {
 		if errors.Is(errStop, node.ErrProcessNotFound) || errors.Is(errStop, os.ErrNotExist) {
-			return
+			inst.intentionalStops.clear(gameServer.ID)
+			return nil
 		}
 		inst.intentionalStops.clear(gameServer.ID)
-		log.Error().Err(errStop).Str("node_id", gameServer.NodeID).
-			Msg("Failed to stop game server command")
-		return
+		return fmt.Errorf("actions: stop game server process on node %q: %w", gameServer.NodeID, errStop)
 	}
+	return nil
 }
 
 // UpdateGameServer starts the configured update flow for a game server.
@@ -898,9 +905,15 @@ func (inst *Instance) updateGameServerWithExecutionID(gameServer *models.GameSer
 	// Stop if currently running. Use snapshot status rather than direct
 	// supervisor lookup so remote-node servers are handled uniformly.
 	currentStatus := inst.currentProcessStatus(gameServer)
-	if currentStatus != xylona.Status_OFFLINE && currentStatus != xylona.Status_UNKNOWN {
+	if currentStatus == xylona.Status_UNKNOWN {
+		return errors.New("actions: cannot update game server while runtime status is unavailable")
+	}
+	if currentStatus != xylona.Status_OFFLINE {
 		log.Info().Str("Game Server ID", gameServer.ID).Msg("Stopping game server before update")
-		inst.StopGameServer(gameServer)
+		errStop := inst.StopGameServer(inst.actionContext(), gameServer)
+		if errStop != nil {
+			return fmt.Errorf("actions: stop game server before update: %w", errStop)
+		}
 	}
 
 	handled, errMinecraft := inst.tryUpdateMinecraftServerSoftware(gameServer)
@@ -1031,24 +1044,21 @@ func (inst *Instance) SendConsoleInput(gameServer *models.GameServer, input stri
 // determined.
 func (inst *Instance) currentProcessStatus(gameServer *models.GameServer) xylona.Status {
 	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
-	if errClient == nil {
-		snap, found, errSnap := client.GetProcessSnapshot(inst.ctx, gameServer.ID)
-		if errSnap == nil && found && snap != nil {
-			status, ok := xylona.Status_value[snap.Status]
-			if ok {
-				return xylona.Status(status)
-			}
-			return xylona.Status_UNKNOWN
-		}
-		if errSnap == nil && !found {
-			return xylona.Status_OFFLINE
-		}
+	if errClient != nil {
+		return xylona.Status_UNKNOWN
 	}
-	status, ok := xylona.Status_value[gameServer.Status]
-	if ok {
-		return xylona.Status(status)
+	snap, found, errSnap := client.GetProcessSnapshot(inst.ctx, gameServer.ID)
+	if errSnap != nil {
+		return xylona.Status_UNKNOWN
 	}
-	return xylona.Status_UNKNOWN
+	if !found || snap == nil {
+		return xylona.Status_OFFLINE
+	}
+	status, ok := xylona.Status_value[snap.Status]
+	if !ok {
+		return xylona.Status_UNKNOWN
+	}
+	return xylona.Status(status)
 }
 
 func normalizeSteamBranch(branch string) string {
@@ -1100,29 +1110,34 @@ func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer,
 // ReadGameServerBuffer returns the buffered console output for a running
 // server, routing through NodeClient for the server's owning node so remote
 // and embedded paths are identical.
-func (inst *Instance) ReadGameServerBuffer(gameServer *models.GameServer) string {
+func (inst *Instance) ReadGameServerBuffer(ctx context.Context, gameServer *models.GameServer) (string, error) {
 	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 	if errClient != nil {
-		return ""
+		return "", fmt.Errorf("actions: read game server buffer: %w", errClient)
 	}
-	chunk, errRead := client.ReadConsoleBuffer(inst.ctx, gameServer.ID)
+	chunk, errRead := client.ReadConsoleBuffer(ctx, gameServer.ID)
 	if errRead != nil {
-		return ""
+		return "", fmt.Errorf("actions: read game server buffer: %w", errRead)
 	}
-	return chunk.Data
+	return chunk.Data, nil
 }
 
-// RemoveGameServer deletes a server and optionally tolerates file cleanup failures.
-func (inst *Instance) RemoveGameServer(gameServer *models.GameServer, force bool) error {
-	err := inst.PurgeAllGameServerFiles(gameServer)
-	if err != nil {
-		if !force {
-			log.Error().Err(err).Msg("Failed to remove game server files")
-			return err
-		}
-		log.Warn().Err(err).Msg("Failed to remove game server files")
+// RemoveGameServer deletes a server's files before deleting its database row.
+// File cleanup is mandatory so a node outage cannot orphan unmanaged server
+// files while the controller reports successful removal.
+func (inst *Instance) RemoveGameServer(ctx context.Context, gameServer *models.GameServer) error {
+	if gameServer == nil {
+		return errors.New("actions: remove game server: game server is nil")
 	}
-	err = inst.db.DeleteGameServer(gameServer.ID)
+	if ctx == nil {
+		ctx = inst.actionContext()
+	}
+
+	errPurge := inst.PurgeAllGameServerFiles(ctx, gameServer)
+	if errPurge != nil {
+		return fmt.Errorf("actions: remove game server files: %w", errPurge)
+	}
+	err := inst.db.DeleteGameServer(gameServer.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to remove game server from database")
 		return fmt.Errorf("actions: delete game server: %w", err)

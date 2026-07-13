@@ -284,6 +284,18 @@ func TestInProcessClientStreamConsoleOutputDeliversInjectedConsoleLines(t *testi
 	if errStream != nil {
 		t.Fatalf("StreamConsoleOutput: %v", errStream)
 	}
+	replay := <-stream
+	if !replay.ResetBuffer || replay.ProcessID != "srv-console" {
+		t.Fatalf("initial console chunk = %+v, want reset replay for srv-console", replay)
+	}
+	select {
+	case chunk, open := <-stream:
+		if !open {
+			t.Fatal("healthy offline console stream closed after its reset replay")
+		}
+		t.Fatalf("unexpected offline console chunk = %+v", chunk)
+	case <-time.After(50 * time.Millisecond):
+	}
 
 	errSend := n.SendConsoleOutput("srv-console", "hello remote console")
 	if errSend != nil {

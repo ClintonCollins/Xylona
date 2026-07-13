@@ -28,11 +28,20 @@
         </div>
       </div>
       <div id="editor" ref="editorContainer" class="editor-container"></div>
+      <div v-if="saveError" class="editor-save-error" role="alert" aria-live="assertive">
+        <q-icon name="error" size="sm" />
+        <span>{{ saveError }}</span>
+      </div>
     </q-card-section>
 
     <q-card-actions align="right">
-      <q-btn v-close-popup color="neutral" flat label="Cancel" />
-      <q-btn v-close-popup class="q-btn bg-main" label="Save" @click="saveFile" />
+      <q-btn v-close-popup :disable="saving" color="neutral" flat label="Cancel" />
+      <q-btn
+        :disable="saving"
+        :loading="saving"
+        class="q-btn bg-main"
+        label="Save"
+        @click="saveFile" />
     </q-card-actions>
   </q-card>
 </template>
@@ -76,6 +85,8 @@ const props = defineProps({
 })
 
 const editorTheme = ref('vs-dark')
+const saving = ref(false)
+const saveError = ref('')
 const editorOptions = ref([
   { label: 'Visual Studio', value: 'vs' },
   { label: 'Visual Studio Dark', value: 'vs-dark' },
@@ -185,6 +196,12 @@ async function initializeEditor() {
 }
 
 async function saveFile() {
+  if (saving.value) {
+    return
+  }
+
+  saving.value = true
+  saveError.value = ''
   try {
     const request: GameServersFileEditRequest = create(GameServersFileEditRequestSchema, {})
     request.content = codeInput.value
@@ -192,14 +209,18 @@ async function saveFile() {
     request.gameServerId = props.gameServerId
     await GetXylonaClient().gameServersFileEdit(request)
     $q.notify({
-      caption: `File <span class="text-bold">${props.fileName}</span> saved successfully.`,
+      caption: `File ${props.fileName} saved successfully.`,
       type: 'xylona-success',
-      html: true,
       position: 'top',
       timeout: 3000,
     })
+    emit('submit')
   } catch (err) {
     console.error(err)
+    saveError.value =
+      err instanceof Error
+        ? `The file was not saved. ${err.message}`
+        : 'The file was not saved. Try again.'
     $q.notify({
       caption: `Error saving file ${props.fileName}.`,
       type: 'xylona-error',
@@ -207,7 +228,7 @@ async function saveFile() {
       timeout: 5000,
     })
   } finally {
-    emit('submit')
+    saving.value = false
   }
 }
 </script>
@@ -221,6 +242,19 @@ async function saveFile() {
 
 .editor-select {
   width: 15rem;
+}
+
+.editor-save-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
+  margin-top: var(--xy-space-sm);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-primary);
+  background: var(--xy-danger-bg);
+  border: 1px solid var(--xy-danger-border);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
 }
 
 .xylona-editor {

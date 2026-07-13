@@ -9,6 +9,14 @@ option go_package = 'github.com/ClintonCollins/Xylona/proto/go/xylona';
 message GameServerConsoleOutput {
   string game_server_id = 1;
   string output = 2;
+  // sequence monotonically identifies output from current nodes.
+  uint64 sequence = 3;
+  // reset_buffer instructs clients to replace, rather than append to, the buffer.
+  bool reset_buffer = 4;
+  // reconnecting is present only on controller connection-state messages:
+  // true means retrying, false means the stream has reopened, and absent means
+  // this payload contains ordinary node console data.
+  optional bool reconnecting = 5;
 }
 
 message GameServerStatusUpdate {

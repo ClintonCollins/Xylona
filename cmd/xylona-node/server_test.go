@@ -314,8 +314,26 @@ func TestNodeServiceServerStreamConsoleOutput(t *testing.T) {
 		if chunk.ProcessID != processID {
 			t.Fatalf("chunk.ProcessID = %q, want %q", chunk.ProcessID, processID)
 		}
-		if !strings.Contains(chunk.Data, line) {
-			t.Fatalf("chunk.Data = %q, want it to contain %q", chunk.Data, line)
+		if !chunk.ResetBuffer {
+			t.Fatalf("initial chunk = %+v, want reset replay", chunk)
+		}
+		if strings.Contains(chunk.Data, line) {
+			return
+		}
+		errSend := client.SendConsoleOutput(ctx, processID, line)
+		if errSend != nil {
+			t.Fatalf("SendConsoleOutput after replay: %v", errSend)
+		}
+		select {
+		case live, open := <-chunks:
+			if !open {
+				t.Fatal("console stream closed before live chunk arrived")
+			}
+			if live.ResetBuffer || live.Sequence <= chunk.Sequence || !strings.Contains(live.Data, line) {
+				t.Fatalf("live chunk = %+v, want sequenced console line %q", live, line)
+			}
+		case <-ctx.Done():
+			t.Fatalf("timed out waiting for live console chunk: %v", ctx.Err())
 		}
 	case <-ctx.Done():
 		t.Fatalf("timed out waiting for console chunk: %v", ctx.Err())

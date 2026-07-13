@@ -25,10 +25,10 @@ function buildRow(id: string, status: Status): DisplayRow {
 }
 
 describe('server-list-actions', () => {
-  it('canStartServer returns true for offline and unknown statuses', () => {
+  it('canStartServer returns true only for confirmed offline status', () => {
     const tests = [
       { name: 'offline', status: Status.OFFLINE, want: true },
-      { name: 'unknown', status: Status.UNKNOWN, want: true },
+      { name: 'unknown', status: Status.UNKNOWN, want: false },
       { name: 'online', status: Status.ONLINE, want: false },
       { name: 'installing', status: Status.INSTALLING, want: false },
       { name: 'updating', status: Status.UPDATING, want: false },
@@ -66,7 +66,7 @@ describe('server-list-actions', () => {
     const startableServerIDs = getStartableServers(servers).map((server) => server.id)
     const stoppableServerIDs = getStoppableServers(servers).map((server) => server.id)
 
-    expect(startableServerIDs).toEqual(['a', 'b'])
+    expect(startableServerIDs).toEqual(['b'])
     expect(stoppableServerIDs).toEqual(['c'])
   })
 })

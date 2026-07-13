@@ -31,6 +31,7 @@ import { EventBus } from 'quasar'
 import { getXylonaClient, getXylonaClientCallback } from '@/api/connect-client'
 import { connectErrorToString } from '@/api/connect-errors'
 import { ReconnectingWebSocket } from './websocket'
+import { setWebsocketConnectionStatus, websocketHasConnected } from './websocket-connection'
 
 export const LocalXylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/websocket`
 
@@ -46,7 +47,13 @@ type XylonaEventBusEvents = {
     version: string,
     versionInfo: VersionInfo | undefined,
   ) => void
-  gameServerConsoleOutput: (gameServerId: string, consoleOutput: string) => void
+  gameServerConsoleOutput: (
+    gameServerId: string,
+    consoleOutput: string,
+    sequence: bigint,
+    resetBuffer: boolean,
+    reconnecting: boolean | undefined,
+  ) => void
   gameServerConsoleOutputRequest: (gameServerId: string) => void
   gameServerConsoleOutputRemoveRequest: (gameServerId: string) => void
   gameServersQueryInfo: (queryInfo: AllServersQueryInfo) => void
@@ -102,7 +109,7 @@ export function GetOrCreateXylonaWebsocketClient(
   if (!websocketInitialized) {
     apiWebsocket = new ReconnectingWebSocket(baseURL, [], 10000, 30000)
     allAPIWebsockets.set(baseURL, apiWebsocket)
-    setupWebsocket(apiWebsocket)
+    setupWebsocket(apiWebsocket, baseURL === LocalXylonaWebsocketBaseURL)
   }
   if (!apiWebsocket) {
     throw new Error(`WebSocket client was not initialized for ${baseURL}`)
@@ -110,13 +117,33 @@ export function GetOrCreateXylonaWebsocketClient(
   return apiWebsocket
 }
 
-function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
+function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket: boolean) {
   window.addEventListener('pagehide', () => {
     console.debug('Page hide event. Closing websocket...')
     apiWebsocket.close()
   })
+
+  if (isControllerSocket) {
+    if (!navigator.onLine) {
+      setWebsocketConnectionStatus('disconnected')
+    }
+    window.addEventListener('offline', () => {
+      setWebsocketConnectionStatus('disconnected')
+    })
+    window.addEventListener('online', () => {
+      if (apiWebsocket.isOpen()) {
+        setWebsocketConnectionStatus('connected')
+        return
+      }
+      setWebsocketConnectionStatus(websocketHasConnected.value ? 'reconnecting' : 'connecting')
+    })
+  }
+
   apiWebsocket.onopen = (_event) => {
-    XylonaEventBus.emit('websocketConnected')
+    if (isControllerSocket) {
+      setWebsocketConnectionStatus('connected')
+      XylonaEventBus.emit('websocketConnected')
+    }
     console.debug('Websocket opened')
   }
   apiWebsocket.onmessage = (event) => {
@@ -129,7 +156,16 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket) {
     }
   }
   apiWebsocket.onclose = (_event) => {
-    XylonaEventBus.emit('websocketDisconnected')
+    if (isControllerSocket) {
+      setWebsocketConnectionStatus(
+        navigator.onLine
+          ? websocketHasConnected.value
+            ? 'reconnecting'
+            : 'connecting'
+          : 'disconnected',
+      )
+      XylonaEventBus.emit('websocketDisconnected')
+    }
     console.debug('Websocket closed')
     // Let the ReconnectingWebSocket handle the rest.
   }
@@ -190,6 +226,9 @@ export function dispatchWebsocketMessage(out: Message): boolean {
           'gameServerConsoleOutput',
           consoleOutput.gameServerId,
           consoleOutput.output,
+          consoleOutput.sequence,
+          consoleOutput.resetBuffer,
+          consoleOutput.reconnecting,
         )
       }
       return true

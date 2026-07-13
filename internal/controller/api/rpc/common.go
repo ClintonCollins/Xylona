@@ -38,6 +38,16 @@ func isSQLiteForeignKeyError(err error) bool {
 	return strings.Contains(errLower, "foreign key constraint failed")
 }
 
+func contextConnectCode(err error) connect.Code {
+	if errors.Is(err, context.Canceled) {
+		return connect.CodeCanceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return connect.CodeDeadlineExceeded
+	}
+	return connect.CodeUnknown
+}
+
 func (xs *XylonaService) getUserFromHeader(header http.Header) (*models.User, error) {
 	sessionCookies, errGetSession := gatekeeper.GetSessionFromHeader(header)
 	if errGetSession != nil {
@@ -160,6 +170,12 @@ type nodeRuntimeState struct {
 	updateCapabilities *node.UpdateCapabilities
 }
 
+type gameServerNodeSnapshotState struct {
+	processes  map[string]*node.ProcessSnapshot
+	err        error
+	observedAt time.Time
+}
+
 func (xs *XylonaService) nodeSnapshotBaseContext(ctx context.Context) context.Context {
 	if ctx != nil {
 		return ctx
@@ -168,6 +184,125 @@ func (xs *XylonaService) nodeSnapshotBaseContext(ctx context.Context) context.Co
 		return xs.ctx
 	}
 	return context.Background()
+}
+
+// collectGameServerNodeSnapshots obtains one bounded snapshot per owning node
+// concurrently. Callers can then fan process state out to every server on the
+// node without turning one unavailable node into a per-server timeout.
+func (xs *XylonaService) collectGameServerNodeSnapshots(
+	ctx context.Context,
+	gameServers []*models.GameServer,
+) map[string]gameServerNodeSnapshotState {
+	states := make(map[string]gameServerNodeSnapshotState)
+	nodeClients := make(map[string]nodeclient.NodeClient)
+	selfNodeID := xs.selfNodeID()
+
+	for _, gameServer := range gameServers {
+		if gameServer == nil {
+			continue
+		}
+		nodeID := strings.TrimSpace(gameServer.NodeID)
+		if nodeID == "" {
+			nodeID = selfNodeID
+		}
+		if nodeID == "" {
+			continue
+		}
+		_, exists := states[nodeID]
+		if exists {
+			continue
+		}
+		if xs == nil || xs.nodeRegistry == nil {
+			states[nodeID] = gameServerNodeSnapshotState{
+				err: errors.New("node registry unavailable"),
+			}
+			continue
+		}
+		client, errClient := xs.nodeRegistry.Get(nodeID)
+		if errClient != nil {
+			states[nodeID] = gameServerNodeSnapshotState{
+				err: fmt.Errorf("resolve node %q: %w", nodeID, errClient),
+			}
+			continue
+		}
+		states[nodeID] = gameServerNodeSnapshotState{}
+		nodeClients[nodeID] = client
+	}
+
+	baseCtx := xs.nodeSnapshotBaseContext(ctx)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for nodeID, client := range nodeClients {
+		wg.Add(1)
+		go func(nodeID string, client nodeclient.NodeClient) {
+			defer wg.Done()
+
+			snapshotCtx, cancel := context.WithTimeout(baseCtx, 2*time.Second)
+			defer cancel()
+			snapshot, errSnapshot := client.GetNodeSnapshot(snapshotCtx)
+			state := gameServerNodeSnapshotState{}
+			switch {
+			case errSnapshot != nil:
+				state.err = fmt.Errorf("get node %q snapshot: %w", nodeID, errSnapshot)
+			case snapshot == nil:
+				state.err = fmt.Errorf("get node %q snapshot: empty response", nodeID)
+			default:
+				state.observedAt = snapshot.Collected
+				if state.observedAt.IsZero() {
+					state.observedAt = time.Now().UTC()
+				}
+				state.processes = make(map[string]*node.ProcessSnapshot, len(snapshot.Processes))
+				for i := range snapshot.Processes {
+					processSnapshot := &snapshot.Processes[i]
+					state.processes[processSnapshot.ID] = processSnapshot
+				}
+			}
+
+			mu.Lock()
+			states[nodeID] = state
+			mu.Unlock()
+		}(nodeID, client)
+	}
+	wg.Wait()
+	return states
+}
+
+func (xs *XylonaService) gameServerNodeSnapshotState(
+	gameServer *models.GameServer,
+	states map[string]gameServerNodeSnapshotState,
+) gameServerNodeSnapshotState {
+	if gameServer == nil {
+		return gameServerNodeSnapshotState{err: errors.New("game server is nil")}
+	}
+	nodeID := strings.TrimSpace(gameServer.NodeID)
+	if nodeID == "" {
+		nodeID = xs.selfNodeID()
+	}
+	state, ok := states[nodeID]
+	if !ok {
+		return gameServerNodeSnapshotState{
+			err: fmt.Errorf("node %q snapshot unavailable", nodeID),
+		}
+	}
+	return state
+}
+
+func processStateFromNodeSnapshot(
+	gameServerID string,
+	state gameServerNodeSnapshotState,
+) (xylona.Status, *node.ProcessSnapshot, error) {
+	if state.err != nil {
+		return xylona.Status_UNKNOWN, nil, state.err
+	}
+	processSnapshot, found := state.processes[gameServerID]
+	if !found || processSnapshot == nil {
+		return xylona.Status_OFFLINE, nil, nil
+	}
+	statusValue, ok := xylona.Status_value[processSnapshot.Status]
+	if !ok {
+		return xylona.Status_UNKNOWN, processSnapshot, nil
+	}
+	return xylona.Status(statusValue), processSnapshot, nil
 }
 
 func (xs *XylonaService) collectNodeRuntimeState(ctx context.Context, nodeRows []*models.Node) map[string]nodeRuntimeState {
@@ -295,35 +430,32 @@ func (xs *XylonaService) nodeProtoWithRuntime(ctx context.Context, nodeRow *mode
 	return xs.nodeProtoWithRuntimeState(nodeRow, selfNodeID, runtimeState)
 }
 
-func (xs *XylonaService) getLocalGameServerStatus(gameServer *models.GameServer) xylona.Status {
+func (xs *XylonaService) getLocalGameServerStatus(ctx context.Context, gameServer *models.GameServer) xylona.Status {
 	// Route through the owning node's NodeClient so embedded and remote
-	// servers both surface status uniformly. Falls back to the DB's
-	// stored status when the node isn't reachable.
-	if xs.nodeRegistry != nil {
-		client, errGet := xs.nodeRegistry.Get(gameServer.NodeID)
-		if errGet == nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			snap, found, errSnap := client.GetProcessSnapshot(ctx, gameServer.ID)
-			if errSnap == nil {
-				if !found {
-					return xylona.Status_OFFLINE
-				}
-				statusVal, ok := xylona.Status_value[snap.Status]
-				if ok {
-					return xylona.Status(statusVal)
-				}
-				return xylona.Status_UNKNOWN
-			}
-		}
+	// servers both surface status uniformly. Only a successful lookup with no
+	// tracked process is authoritative OFFLINE.
+	if xs.nodeRegistry == nil || gameServer == nil {
+		return xylona.Status_UNKNOWN
 	}
-
-	status, ok := xylona.Status_value[gameServer.Status]
+	client, errGet := xs.nodeRegistry.Get(gameServer.NodeID)
+	if errGet != nil {
+		return xylona.Status_UNKNOWN
+	}
+	baseCtx := xs.nodeSnapshotBaseContext(ctx)
+	snapshotCtx, cancel := context.WithTimeout(baseCtx, 2*time.Second)
+	defer cancel()
+	snap, found, errSnap := client.GetProcessSnapshot(snapshotCtx, gameServer.ID)
+	if errSnap != nil {
+		return xylona.Status_UNKNOWN
+	}
+	if !found || snap == nil {
+		return xylona.Status_OFFLINE
+	}
+	statusVal, ok := xylona.Status_value[snap.Status]
 	if !ok {
 		return xylona.Status_UNKNOWN
 	}
-
-	return xylona.Status(status)
+	return xylona.Status(statusVal)
 }
 
 // applyProcessMetricsToProto fills the per-process metric fields on a
@@ -370,8 +502,9 @@ func (xs *XylonaService) resolveProcessSnapshot(ctx context.Context, gameServer 
 }
 
 // resolveGameServerRuntimeState returns the live runtime status for a game
-// server. The process snapshot is authoritative: missing or unreachable
-// snapshots mean the server is not currently tracked as running.
+// server. A successful lookup with no tracked process is authoritative
+// OFFLINE. Transport and node-resolution failures remain UNKNOWN so callers
+// cannot mistake an unavailable node for a stopped server.
 func (xs *XylonaService) resolveGameServerRuntimeState(ctx context.Context, gameServer *models.GameServer) (xylona.Status, *node.ProcessSnapshot, error) {
 	if gameServer == nil {
 		return xylona.Status_UNKNOWN, nil, nil
@@ -379,7 +512,7 @@ func (xs *XylonaService) resolveGameServerRuntimeState(ctx context.Context, game
 
 	snap, errSnap := xs.resolveProcessSnapshot(ctx, gameServer)
 	if errSnap != nil {
-		return xylona.Status_OFFLINE, nil, errSnap
+		return xylona.Status_UNKNOWN, nil, errSnap
 	}
 	if snap == nil {
 		return xylona.Status_OFFLINE, nil, nil
