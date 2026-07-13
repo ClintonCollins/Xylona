@@ -14,6 +14,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
@@ -82,6 +83,10 @@ func translate(err error) error {
 		return nil
 	}
 	if errors.Is(err, node.ErrInvalidPath) {
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	validationError := &launchenv.ValidationError{}
+	if errors.As(err, &validationError) {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	if errors.Is(err, os.ErrNotExist) {
@@ -182,6 +187,7 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 	msg := req.Msg
 	cfg := node.ProcessConfig{
 		ID:               msg.GetId(),
+		ExecutionID:      msg.GetExecutionId(),
 		Name:             msg.GetName(),
 		BaseCommand:      msg.GetBaseCommand(),
 		Args:             append([]string(nil), msg.GetArgs()...),
@@ -191,6 +197,13 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 		ServiceID:        msg.GetServiceId(),
 		StopTimeout:      time.Duration(msg.GetStopTimeoutSeconds()) * time.Second,
 		LaunchEnv:        cloneStringMap(msg.GetLaunchEnv()),
+	}
+	telnetInput := msg.GetTelnetInput()
+	if telnetInput != nil {
+		cfg.InputTelnet = &node.TelnetInput{
+			Port:     int(telnetInput.GetPort()),
+			Password: telnetInput.GetPassword(),
+		}
 	}
 	if msg.GetInternalCommand() {
 		// Internal commands dispatch to a registered Game implementation
@@ -960,23 +973,32 @@ func processSnapshotToProto(p *node.ProcessSnapshot) *nodeprotov1.ProcessSnapsho
 	if p == nil {
 		return &nodeprotov1.ProcessSnapshot{}
 	}
-	return &nodeprotov1.ProcessSnapshot{
-		Id:              p.ID,
-		Name:            p.Name,
-		Status:          p.Status,
-		UnixStartedAt:   p.UnixStartedAt,
-		CpuPercent:      p.CPUPercent,
-		CpuCores:        p.CPUCores,
-		MemoryRss:       p.MemoryRSS,
-		MemoryVms:       p.MemoryVMS,
-		MemoryPercent:   p.MemoryPercent,
-		NumThreads:      p.NumThreads,
-		DiskUsageBytes:  p.DiskUsageBytes,
-		IoReadRate:      p.IOReadRate,
-		IoWriteRate:     p.IOWriteRate,
-		ConnectionCount: p.ConnectionCount,
-		WorkingDir:      p.WorkingDir,
+	out := &nodeprotov1.ProcessSnapshot{
+		Id:                 p.ID,
+		ExecutionId:        p.ExecutionID,
+		Name:               p.Name,
+		Status:             p.Status,
+		PreviousStatus:     p.PreviousStatus,
+		TransitionSequence: p.TransitionSequence,
+		IntentionalStop:    p.IntentionalStop,
+		UnixStartedAt:      p.UnixStartedAt,
+		CpuPercent:         p.CPUPercent,
+		CpuCores:           p.CPUCores,
+		MemoryRss:          p.MemoryRSS,
+		MemoryVms:          p.MemoryVMS,
+		MemoryPercent:      p.MemoryPercent,
+		NumThreads:         p.NumThreads,
+		DiskUsageBytes:     p.DiskUsageBytes,
+		IoReadRate:         p.IOReadRate,
+		IoWriteRate:        p.IOWriteRate,
+		ConnectionCount:    p.ConnectionCount,
+		WorkingDir:         p.WorkingDir,
 	}
+	if p.ExitCodeKnown {
+		exitCode := clampToInt32(p.ExitCode)
+		out.ExitCode = &exitCode
+	}
+	return out
 }
 
 func (s *nodeServiceServer) GetNodeSnapshot(ctx context.Context, req *connect.Request[nodeprotov1.GetNodeSnapshotRequest]) (*connect.Response[nodeprotov1.NodeSnapshot], error) {
@@ -1008,7 +1030,7 @@ func (s *nodeServiceServer) StreamEvents(ctx context.Context, req *connect.Reque
 		return connect.NewError(connect.CodeFailedPrecondition, errors.New("node has no event emitter"))
 	}
 
-	subscription := emitter.Subscribe()
+	subscription := emitter.SubscribeWithReplay(req.Msg.GetReplayProcessStatus())
 	defer emitter.Unsubscribe(subscription)
 
 	for {
@@ -1081,8 +1103,10 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 	}
 	caps := s.n.RuntimeCapabilities()
 	return connect.NewResponse(&nodeprotov1.GetRuntimeCapabilitiesResponse{
-		ProtocolVersion: caps.ProtocolVersion,
-		LaunchEnv:       caps.LaunchEnv,
+		ProtocolVersion:          caps.ProtocolVersion,
+		LaunchEnv:                caps.LaunchEnv,
+		ReliableProcessLifecycle: caps.ReliableProcessLifecycle,
+		TelnetInput:              caps.TelnetInput,
 	}), nil
 }
 
@@ -1210,11 +1234,21 @@ func nodeEventToProto(ev node.Event) *nodeprotov1.Event {
 	}
 	switch ev.Type {
 	case node.EventTypeProcessStatus:
+		status := &nodeprotov1.ProcessStatusEvent{
+			ProcessId:          ev.ProcessID,
+			Status:             ev.Status,
+			OldStatus:          ev.OldStatus,
+			IntentionalStop:    ev.IntentionalStop,
+			ExecutionId:        ev.ExecutionID,
+			TransitionSequence: ev.TransitionSequence,
+			Replayed:           ev.Replayed,
+		}
+		if ev.ExitCodeKnown {
+			exitCode := clampToInt32(ev.ExitCode)
+			status.ExitCode = &exitCode
+		}
 		out.Payload = &nodeprotov1.Event_ProcessStatus{
-			ProcessStatus: &nodeprotov1.ProcessStatusEvent{
-				ProcessId: ev.ProcessID,
-				Status:    ev.Status,
-			},
+			ProcessStatus: status,
 		}
 	case node.EventTypeConsoleOutput:
 		chunk, _ := ev.Payload.(node.ConsoleChunk)

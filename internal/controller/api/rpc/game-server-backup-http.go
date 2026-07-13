@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -230,7 +231,7 @@ func (xs *XylonaService) uploadGameServerBackupArchiveWithMaxBytes(w http.Respon
 				return
 			}
 
-			gameServer, errPrepareUpload := xs.prepareBackupUpload(user, gameServerID)
+			gameServer, errPrepareUpload := xs.prepareBackupUpload(r.Context(), user, gameServerID)
 			if errPrepareUpload != nil {
 				writeBackupConnectError(w, errPrepareUpload)
 				return
@@ -358,7 +359,7 @@ func (xs *XylonaService) importUploadedBackupPart(
 	return nil
 }
 
-func (xs *XylonaService) prepareBackupUpload(user *models.User, gameServerID string) (*models.GameServer, error) {
+func (xs *XylonaService) prepareBackupUpload(ctx context.Context, user *models.User, gameServerID string) (*models.GameServer, error) {
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
@@ -369,7 +370,7 @@ func (xs *XylonaService) prepareBackupUpload(user *models.User, gameServerID str
 		return nil, errPermission
 	}
 
-	operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
+	operationsAllowed, disabledReason := xs.backupOperationsAllowed(ctx, gameServer)
 	if !operationsAllowed {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 	}

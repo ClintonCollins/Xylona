@@ -2,9 +2,12 @@ package gatekeeper
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func TestAuthRateLimiter(t *testing.T) {
@@ -95,6 +98,24 @@ func TestAuthRateLimiter(t *testing.T) {
 		if lastStatus != http.StatusTooManyRequests {
 			t.Fatalf("expected status %d after exceeding rate limit on /VerifyNode, got %d",
 				http.StatusTooManyRequests, lastStatus)
+		}
+	})
+
+	t.Run("does not trust forwarded client IP headers", func(t *testing.T) {
+		handler := middleware.ClientIPFromRemoteAddr(AuthRateLimiter()(okHandler))
+
+		var lastStatus int
+		for i := range 15 {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/Login", nil)
+			req.RemoteAddr = "192.0.2.5:12345"
+			req.Header.Set("X-Forwarded-For", fmt.Sprintf("198.51.100.%d", i+1))
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			lastStatus = rec.Code
+		}
+
+		if lastStatus != http.StatusTooManyRequests {
+			t.Fatalf("expected spoofed forwarded addresses to share the connection IP rate limit, got %d", lastStatus)
 		}
 	})
 

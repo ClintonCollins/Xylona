@@ -10,10 +10,12 @@ import cronstrue from 'cronstrue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
   DeleteScheduledTaskRequestSchema,
+  GetGameServerBackupOverviewRequestSchema,
   ListScheduledTasksRequestSchema,
   UpdateScheduledTaskRequestSchema,
 } from '@/proto/xylona_pb'
-import type { ScheduledTask } from '@/proto/shared_pb'
+import type { GameServerBackupOverview, ScheduledTask } from '@/proto/shared_pb'
+import { GameServerBackupOverviewSchema } from '@/proto/shared_pb'
 import ScheduledTaskForm from '@/components/game_servers/ScheduledTaskForm.vue'
 
 const $q = useQuasar()
@@ -23,6 +25,7 @@ const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 
 const loading = ref(true)
 const tasks = ref<ScheduledTask[]>([])
+const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
 
 // Dialog state
 const showFormDialog = ref(false)
@@ -118,8 +121,20 @@ async function loadTasks(): Promise<void> {
     const request = create(ListScheduledTasksRequestSchema, {
       gameServerId: gameServerId.value,
     })
-    const response = await GetXylonaClient().listScheduledTasks(request)
-    tasks.value = response.tasks
+    const [tasksResponse, overviewResponse] = await Promise.all([
+      GetXylonaClient().listScheduledTasks(request),
+      GetXylonaClient()
+        .getGameServerBackupOverview(
+          create(GetGameServerBackupOverviewRequestSchema, {
+            gameServerId: gameServerId.value,
+          }),
+        )
+        .catch(() => undefined),
+    ])
+    tasks.value = tasksResponse.tasks
+    backupOverview.value = overviewResponse?.overview
+      ? create(GameServerBackupOverviewSchema, overviewResponse.overview)
+      : create(GameServerBackupOverviewSchema)
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
     $q.notify({
@@ -155,6 +170,16 @@ async function onFormSubmit(): Promise<void> {
 }
 
 async function toggleEnabled(task: ScheduledTask): Promise<void> {
+  if (task.taskType === 'backup' && !task.enabled && !backupOverview.value.operationsAllowed) {
+    $q.notify({
+      type: 'xylona-error',
+      caption: backupOverview.value.disabledReason || 'New backup schedules are unavailable.',
+      position: 'top',
+      timeout: 5000,
+    })
+    return
+  }
+
   try {
     const request = create(UpdateScheduledTaskRequestSchema, {
       id: task.id,
@@ -247,6 +272,11 @@ function confirmDelete(task: ScheduledTask): void {
               </div>
             </div>
             <q-toggle
+              :disable="
+                props.row.taskType === 'backup' &&
+                !props.row.enabled &&
+                !backupOverview.operationsAllowed
+              "
               :model-value="props.row.enabled"
               color="positive"
               dense
@@ -299,6 +329,11 @@ function confirmDelete(task: ScheduledTask): void {
       <template #body-cell-enabled="props">
         <q-td :props="props">
           <q-toggle
+            :disable="
+              props.row.taskType === 'backup' &&
+              !props.row.enabled &&
+              !backupOverview.operationsAllowed
+            "
             :model-value="props.row.enabled"
             color="positive"
             @update:model-value="toggleEnabled(props.row)" />
@@ -331,6 +366,8 @@ function confirmDelete(task: ScheduledTask): void {
     </q-table>
 
     <scheduled-task-form
+      :backup-disabled-reason="backupOverview.disabledReason"
+      :backup-operations-allowed="backupOverview.operationsAllowed"
       :existing-task="editingTask"
       :game-server-id="gameServerId"
       :show-dialog="showFormDialog"

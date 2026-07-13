@@ -1,11 +1,13 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	controlleractions "github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -200,6 +202,12 @@ func (s *Scheduler) executeBackup(task *models.ScheduledTask) (string, string) {
 
 	backup, errCreateBackup := s.backup.CreateScheduledBackup(gameServer)
 	if errCreateBackup != nil {
+		if errors.Is(errCreateBackup, controlleractions.ErrBackupsUnsupported) {
+			return statusSkipped, "scheduled backup skipped because this game does not support backups on the node platform"
+		}
+		if errors.Is(errCreateBackup, controlleractions.ErrBackupCapabilityUnavailable) {
+			return statusFailed, "failed to determine backup support for the game server node"
+		}
 		if backup != nil {
 			backupID := backup.ID
 			if backupID == "" {

@@ -46,24 +46,40 @@ func backupDirectoryConfigured(gameServer *models.GameServer) bool {
 	return strings.TrimSpace(gameServer.BackupDirectory) != ""
 }
 
-func (xs *XylonaService) backupOperationsAllowed(gameServer *models.GameServer) (bool, string) {
+func (xs *XylonaService) resolveBackupCapability(ctx context.Context, gameServer *models.GameServer) actions.BackupCapability {
+	capability, errCapability := actions.ResolveBackupCapability(ctx, xs.db, xs.nodeRegistry, gameServer, nil)
+	if errCapability != nil {
+		log.Warn().
+			Err(errCapability).
+			Str("game_server_id", gameServer.ID).
+			Msg("Failed to resolve game server backup capability")
+	}
+
+	return capability
+}
+
+func (xs *XylonaService) backupOperationsAllowed(ctx context.Context, gameServer *models.GameServer) (bool, string) {
+	capability := xs.resolveBackupCapability(ctx, gameServer)
+	return backupOperationsAllowedForCapability(gameServer, capability, xs.validateGameServerBackupDirectory)
+}
+
+func backupOperationsAllowedForCapability(
+	gameServer *models.GameServer,
+	capability actions.BackupCapability,
+	validateDirectory func(gameServer *models.GameServer) error,
+) (bool, string) {
+	if !capability.Supported {
+		return false, capability.DisabledReason
+	}
 	if !gameServer.BackupsEnabled {
 		return false, backupDisabledReasonBackupsDisabled
 	}
 	if !backupDirectoryConfigured(gameServer) {
 		return false, backupDisabledReasonNotConfigured
 	}
-	errValidateDirectory := xs.validateGameServerBackupDirectory(gameServer)
+	errValidateDirectory := validateDirectory(gameServer)
 	if errValidateDirectory != nil {
 		return false, backupDisabledReasonInvalidDirectory
-	}
-
-	return true, ""
-}
-
-func (xs *XylonaService) backupRestoreAllowed(gameServer *models.GameServer) (bool, string) {
-	if !gameServer.BackupsEnabled {
-		return false, backupDisabledReasonBackupsDisabled
 	}
 
 	return true, ""
@@ -144,10 +160,16 @@ func gameServerBackupToProto(backup *models.GameServerBackup) *xylona.GameServer
 	return protoBackup
 }
 
-func backupSettingsToProto(gameServer *models.GameServer, includeDirectory bool) *xylona.BackupSettings {
+func backupSettingsToProto(
+	gameServer *models.GameServer,
+	includeDirectory bool,
+	capability actions.BackupCapability,
+) *xylona.BackupSettings {
 	settings := &xylona.BackupSettings{
-		BackupsEnabled: gameServer.BackupsEnabled,
-		MaxBackups:     normalizeBackupRetention(gameServer.MaxBackups),
+		BackupsEnabled:   gameServer.BackupsEnabled,
+		MaxBackups:       normalizeBackupRetention(gameServer.MaxBackups),
+		BackupsSupported: capability.Supported,
+		DisabledReason:   capability.DisabledReason,
 	}
 	if includeDirectory {
 		backupDirectory := strings.TrimSpace(gameServer.BackupDirectory)
@@ -211,7 +233,7 @@ func (xs *XylonaService) getBackupByIDForGameServer(gameServerID string, backupI
 
 // GetGameServerBackupOverview returns backup capability state for a game server.
 func (xs *XylonaService) GetGameServerBackupOverview(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.GetGameServerBackupOverviewRequest],
 ) (*connect.Response[xylona.GetGameServerBackupOverviewResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -239,7 +261,12 @@ func (xs *XylonaService) GetGameServerBackupOverview(
 		return nil, internalErrf("failed to load scheduled tasks")
 	}
 
-	operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
+	capability := xs.resolveBackupCapability(ctx, gameServer)
+	operationsAllowed, disabledReason := backupOperationsAllowedForCapability(
+		gameServer,
+		capability,
+		xs.validateGameServerBackupDirectory,
+	)
 	overview := &xylona.GameServerBackupOverview{
 		Enabled:                   gameServer.BackupsEnabled,
 		CanManageSettings:         user.SuperUser,
@@ -248,6 +275,7 @@ func (xs *XylonaService) GetGameServerBackupOverview(
 		ScheduledBackupCount:      countScheduledBackups(scheduledTasks),
 		OperationsAllowed:         operationsAllowed,
 		DisabledReason:            disabledReason,
+		BackupsSupported:          capability.Supported,
 	}
 
 	return connect.NewResponse(&xylona.GetGameServerBackupOverviewResponse{
@@ -257,7 +285,7 @@ func (xs *XylonaService) GetGameServerBackupOverview(
 
 // GetBackupSettings returns the current backup settings for a game server.
 func (xs *XylonaService) GetBackupSettings(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.GetBackupSettingsRequest],
 ) (*connect.Response[xylona.GetBackupSettingsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -281,13 +309,13 @@ func (xs *XylonaService) GetBackupSettings(
 	}
 
 	return connect.NewResponse(&xylona.GetBackupSettingsResponse{
-		Settings: backupSettingsToProto(gameServer, user.SuperUser),
+		Settings: backupSettingsToProto(gameServer, user.SuperUser, xs.resolveBackupCapability(ctx, gameServer)),
 	}), nil
 }
 
 // UpdateBackupSettings updates the dedicated backup settings for a game server.
 func (xs *XylonaService) UpdateBackupSettings(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.UpdateBackupSettingsRequest],
 ) (*connect.Response[xylona.UpdateBackupSettingsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -305,6 +333,10 @@ func (xs *XylonaService) UpdateBackupSettings(
 	gameServer, errGetGameServer := xs.getGameServerForBackupRPC(gameServerID)
 	if errGetGameServer != nil {
 		return nil, errGetGameServer
+	}
+	capability := xs.resolveBackupCapability(ctx, gameServer)
+	if request.Msg.GetBackupsEnabled() && !capability.Supported {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(capability.DisabledReason))
 	}
 
 	updatedGameServer := *gameServer
@@ -344,7 +376,7 @@ func (xs *XylonaService) UpdateBackupSettings(
 	}
 
 	return connect.NewResponse(&xylona.UpdateBackupSettingsResponse{
-		Settings: backupSettingsToProto(updated, true),
+		Settings: backupSettingsToProto(updated, true, capability),
 	}), nil
 }
 
@@ -390,7 +422,7 @@ func (xs *XylonaService) ListGameServerBackups(
 
 // CreateGameServerBackup creates a manual backup for a game server.
 func (xs *XylonaService) CreateGameServerBackup(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.CreateGameServerBackupRequest],
 ) (*connect.Response[xylona.CreateGameServerBackupResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -418,7 +450,7 @@ func (xs *XylonaService) CreateGameServerBackup(
 		return nil, errPermission
 	}
 
-	operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
+	operationsAllowed, disabledReason := xs.backupOperationsAllowed(ctx, gameServer)
 	if !operationsAllowed {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 	}
@@ -519,10 +551,6 @@ func (xs *XylonaService) RestoreGameServerBackup(
 		return nil, errPermission
 	}
 
-	operationsAllowed, disabledReason := xs.backupRestoreAllowed(gameServer)
-	if !operationsAllowed {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
-	}
 	if xs.actionsInst == nil {
 		return nil, internalErrf("backup service unavailable")
 	}

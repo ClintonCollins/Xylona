@@ -37,6 +37,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.Lock()
 		preserveBufferedOutputOnReuse := newCommand.preserveBufferedOutputOnReuse
 		newCommand.User = preparedCommand.User
+		newCommand.executionID = preparedCommand.ExecutionID
 		newCommand.nodeID = preparedCommand.NodeID
 		newCommand.stopTimeout = preparedCommand.StopTimeout
 		newCommand.outputListeners = persistentCommand.outputListeners
@@ -51,17 +52,23 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		}
 		newCommand.preserveBufferedOutputOnReuse = false
 		newCommand.intentionalStop.Store(false)
+		newCommand.previousStatus = xylona.Status_UNKNOWN
+		newCommand.transitionSequence = 0
+		newCommand.lastExitCode = 0
+		newCommand.exitCodeKnown = false
 		newCommand.instanceCtx = inst.ctx
 		newCommand.processCtx = processCtx
 		newCommand.processCtxCancel = processCtxCancel
 		newCommand.inputMethod = preparedCommand.InputMethod
 		newCommand.workingDir = preparedCommand.WorkingDirectory
 		newCommand.launchEnv = internalLaunchEnv
+		newCommand.statusEventHook = inst.statusEventHook
 		defer newCommand.Unlock()
 	} else {
 		log.Debug().Str("Command ID", preparedCommand.ID).Msg("Creating new command")
 		newCommand = &Command{
 			ID:                  preparedCommand.ID,
+			executionID:         preparedCommand.ExecutionID,
 			User:                preparedCommand.User,
 			BaseCommand:         preparedCommand.BaseCommand,
 			Args:                append([]string(nil), preparedCommand.Args...),
@@ -85,6 +92,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			toggleOutputType:    make(chan struct{}),
 			workingDir:          preparedCommand.WorkingDirectory,
 			launchEnv:           internalLaunchEnv,
+			statusEventHook:     inst.statusEventHook,
 		}
 	}
 	return newCommand

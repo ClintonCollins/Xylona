@@ -15,6 +15,8 @@ const props = defineProps<{
   showDialog: boolean
   gameServerId: string
   existingTask?: ScheduledTask
+  backupOperationsAllowed?: boolean
+  backupDisabledReason?: string
 }>()
 
 const emit = defineEmits<{
@@ -124,6 +126,9 @@ const dialogTitle = computed(() =>
 )
 
 const showConsoleCommand = computed(() => form.value.taskType === 'console_command')
+const backupEnableBlocked = computed(
+  () => form.value.taskType === 'backup' && props.backupOperationsAllowed === false,
+)
 
 const cronFromBuilder = computed((): string => {
   const b = builder.value
@@ -159,6 +164,7 @@ const isFormValid = computed(() => {
   if (!form.value.name.trim()) return false
   if (!form.value.timezone) return false
   if (showConsoleCommand.value && !form.value.consoleCommand.trim()) return false
+  if (backupEnableBlocked.value && form.value.enabled) return false
 
   if (useAdvancedCron.value) {
     if (!form.value.cronExpression.trim()) return false
@@ -287,6 +293,14 @@ function toggleWeekday(day: number): void {
 
 function isWeekdayActive(day: number): boolean {
   return builder.value.weekdays.includes(day)
+}
+
+function updateEnabled(enabled: boolean): void {
+  if (enabled && backupEnableBlocked.value) {
+    return
+  }
+
+  form.value.enabled = enabled
 }
 
 // ── Dialog lifecycle ─────────────────────────────────────────────────
@@ -419,6 +433,16 @@ async function handleSubmit(): Promise<void> {
           label="Task Type"
           map-options
           outlined />
+
+        <q-banner
+          v-if="backupEnableBlocked"
+          class="bg-warning text-dark q-mb-md"
+          data-testid="backup-schedule-unsupported"
+          dense
+          rounded>
+          {{ backupDisabledReason || 'New backup schedules are unavailable for this server.' }}
+          Disable this task or choose another task type before saving.
+        </q-banner>
 
         <q-input
           v-if="showConsoleCommand"
@@ -583,7 +607,12 @@ async function handleSubmit(): Promise<void> {
             }
           " />
 
-        <q-toggle v-model="form.enabled" color="positive" label="Enabled" />
+        <q-toggle
+          :disable="backupEnableBlocked && !form.enabled"
+          :model-value="form.enabled"
+          color="positive"
+          label="Enabled"
+          @update:model-value="updateEnabled" />
       </q-card-section>
 
       <q-card-actions align="right">

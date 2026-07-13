@@ -39,7 +39,6 @@ var (
 	// an archive filename that already exists for the server.
 	ErrManualBackupNameAlreadyExists = errors.New("backup name already exists")
 	backupRestoreUserFacingErrors    = []error{
-		errBackupsDisabled,
 		errBackupRestoreRequiresOffline,
 		errBackupNodeMismatch,
 		errBackupNotCompleted,

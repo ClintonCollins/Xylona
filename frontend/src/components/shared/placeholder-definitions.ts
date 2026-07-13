@@ -97,6 +97,8 @@ export const managedSourceLabels: Record<string, string> = {
   'game_server.port_plus_2': 'Server Port + 2',
   'game_server.query_port': 'Query Port',
   'game_server.query_port_plus_1': 'Query Port + 1',
+  'xylona.local_console_enabled': 'Local Management Console',
+  'xylona.local_console_password': 'Local-only Console Password',
   'game_server.max_memory_mb': 'Game Server Memory (MB)',
   'game_server.max_players': 'Max Players',
   'game_server.server_name': 'Server Name',

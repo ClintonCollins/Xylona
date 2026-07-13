@@ -84,14 +84,16 @@ func seedTestGame(t *testing.T, fixture *rbacRPCFixture) {
 
 	now := time.Now().UTC()
 	_, errInsert := fixture.conn.InsertGame(fixture.conn.DB, &models.GameSetter{
-		ID:                omit.From(testGameID),
-		Name:              omit.From("Test Game"),
-		DefaultPort:       omit.From(int64(28000)),
-		DefaultQueryPort:  omit.From(int64(28001)),
-		DefaultMaxPlayers: omit.From(int64(48)),
-		WindowsSupport:    omit.From(true),
-		CreatedAt:         omit.From(now),
-		UpdatedAt:         omit.From(now),
+		ID:                  omit.From(testGameID),
+		Name:                omit.From("Test Game"),
+		DefaultPort:         omit.From(int64(28000)),
+		DefaultQueryPort:    omit.From(int64(28001)),
+		DefaultMaxPlayers:   omit.From(int64(48)),
+		WindowsSupport:      omit.From(true),
+		LinuxAllowBackups:   omit.From(true),
+		WindowsAllowBackups: omit.From(true),
+		CreatedAt:           omit.From(now),
+		UpdatedAt:           omit.From(now),
 	})
 	if errInsert != nil {
 		t.Fatalf("InsertGame() error = %v", errInsert)

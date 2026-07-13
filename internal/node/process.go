@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -24,8 +27,17 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 	}
 
 	normalized := config.normalize()
+	launchEnvironmentIssues := launchenv.ValidateMap(normalized.LaunchEnv)
+	errLaunchEnvironment := launchenv.NewValidationError(launchEnvironmentIssues)
+	if errLaunchEnvironment != nil {
+		return nil, fmt.Errorf("node: validate launch environment: %w", errLaunchEnvironment)
+	}
+	if normalized.ExecutionID == "" {
+		normalized.ExecutionID = uuid.NewString()
+	}
 	prepared := supervisor.PreparedCommand{
 		ID:               normalized.ID,
+		ExecutionID:      normalized.ExecutionID,
 		GameServerName:   normalized.Name,
 		BaseCommand:      normalized.BaseCommand,
 		Args:             normalized.Args,
@@ -52,8 +64,9 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		prepared.InternalCommand = true
 		// Prefer the caller-supplied model; fall back to a DB lookup by
 		// InternalGameServerID.
-		if suppliedGS, ok := normalized.InternalGameServer.(*models.GameServer); ok && suppliedGS != nil {
-			prepared.InternalGameServer = suppliedGS
+		suppliedGameServer, supplied := normalized.InternalGameServer.(*models.GameServer)
+		if supplied && suppliedGameServer != nil {
+			prepared.InternalGameServer = suppliedGameServer
 		} else if normalized.InternalGameServerID != "" && n.db != nil {
 			lookedUpGS, errGet := n.db.GetGameServerByID(normalized.InternalGameServerID)
 			if errGet == nil {
@@ -158,22 +171,29 @@ func (n *Node) GetProcessSnapshot(processID string) (*ProcessSnapshot, bool, err
 		return nil, false, nil //nolint:nilerr // intentional not-found signal
 	}
 	cpuPercent, memoryRSS, memoryVMS, memoryPercent, cpuCores, numThreads, diskUsageBytes, ioReadRate, ioWriteRate, connectionCount := cmd.Metrics()
+	lifecycle := cmd.Lifecycle()
 	return &ProcessSnapshot{
-		ID:              cmd.ID,
-		Name:            cmd.GameServerName(),
-		Status:          cmd.Status().String(),
-		UnixStartedAt:   cmd.UnixStartedAt(),
-		CPUPercent:      cpuPercent,
-		CPUCores:        cpuCores,
-		MemoryRSS:       memoryRSS,
-		MemoryVMS:       memoryVMS,
-		MemoryPercent:   memoryPercent,
-		NumThreads:      numThreads,
-		DiskUsageBytes:  diskUsageBytes,
-		IOReadRate:      ioReadRate,
-		IOWriteRate:     ioWriteRate,
-		ConnectionCount: connectionCount,
-		WorkingDir:      cmd.WorkingDir(),
+		ID:                 cmd.ID,
+		ExecutionID:        lifecycle.ExecutionID,
+		Name:               cmd.GameServerName(),
+		Status:             cmd.Status().String(),
+		PreviousStatus:     lifecycle.PreviousStatus.String(),
+		TransitionSequence: lifecycle.TransitionSequence,
+		IntentionalStop:    lifecycle.IntentionalStop,
+		ExitCode:           lifecycle.ExitCode,
+		ExitCodeKnown:      lifecycle.ExitCodeKnown,
+		UnixStartedAt:      cmd.UnixStartedAt(),
+		CPUPercent:         cpuPercent,
+		CPUCores:           cpuCores,
+		MemoryRSS:          memoryRSS,
+		MemoryVMS:          memoryVMS,
+		MemoryPercent:      memoryPercent,
+		NumThreads:         numThreads,
+		DiskUsageBytes:     diskUsageBytes,
+		IOReadRate:         ioReadRate,
+		IOWriteRate:        ioWriteRate,
+		ConnectionCount:    connectionCount,
+		WorkingDir:         cmd.WorkingDir(),
 	}, true, nil
 }
 

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
+	"github.com/ClintonCollins/Xylona/internal/processenv"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -109,7 +110,7 @@ func (h *Hytale) UpdateWithEnvironment(
 	stdOutWriter io.Writer,
 	stdErrWriter io.Writer,
 	environment map[string]string,
-) error {
+) (errResult error) {
 	errCredentials := validateHytaleUpdateEnvironment(environment)
 	if errCredentials != nil {
 		return errCredentials
@@ -118,16 +119,22 @@ func (h *Hytale) UpdateWithEnvironment(
 	if errDirectory != nil {
 		return errDirectory
 	}
-	errLauncher := writeHytaleLauncher(directory)
-	if errLauncher != nil {
-		return errLauncher
+	bootstrapDirectory, errBootstrapDirectory := os.MkdirTemp(directory, ".xylona-hytale-bootstrap-")
+	if errBootstrapDirectory != nil {
+		return fmt.Errorf("update Hytale: create bootstrap workspace: %w", errBootstrapDirectory)
 	}
+	defer func() {
+		errResult = errors.Join(
+			errResult,
+			wrapError("update Hytale: clean bootstrap workspace", removeStagedUpdateTree(directory, bootstrapDirectory)),
+		)
+	}()
 
 	_, errMessage := fmt.Fprintln(stdOutWriter, "Downloading the latest Hytale bootstrap before updating...")
 	if errMessage != nil {
 		return fmt.Errorf("update Hytale: write download status: %w", errMessage)
 	}
-	version, errDownload := h.downloadSeedJAR(directory)
+	version, errDownload := h.downloadSeedJAR(bootstrapDirectory)
 	if errDownload != nil {
 		return errDownload
 	}
@@ -136,7 +143,8 @@ func (h *Hytale) UpdateWithEnvironment(
 	if errBootstrapMessage != nil {
 		return fmt.Errorf("update Hytale: write bootstrap status: %w", errBootstrapMessage)
 	}
-	errBootstrap := h.runBootstrap(directory, environment, stdOutWriter, stdErrWriter)
+	bootstrapJARPath := filepath.Join(bootstrapDirectory, hytaleSeedJARName)
+	errBootstrap := h.runBootstrap(directory, bootstrapJARPath, environment, stdOutWriter, stdErrWriter)
 	if errBootstrap != nil {
 		return errBootstrap
 	}
@@ -277,7 +285,13 @@ func (h *Hytale) latestVersion() (string, error) {
 	return version, nil
 }
 
-func (h *Hytale) runBootstrap(directory string, environment map[string]string, stdOutWriter, stdErrWriter io.Writer) error {
+func (h *Hytale) runBootstrap(
+	directory string,
+	bootstrapJARPath string,
+	environment map[string]string,
+	stdOutWriter io.Writer,
+	stdErrWriter io.Writer,
+) error {
 	errBootstrapConfig := prepareHytaleBootstrapConfig(directory)
 	if errBootstrapConfig != nil {
 		return errBootstrapConfig
@@ -291,13 +305,13 @@ func (h *Hytale) runBootstrap(directory string, environment map[string]string, s
 		"-Xms512M",
 		"-Xmx1G",
 		"-jar",
-		hytaleSeedJARName,
+		bootstrapJARPath,
 		"--bootstrap",
 		"--boot-command",
 		"update download --force",
 	)
 	command.Dir = directory
-	command.Env = appendHytaleEnvironment(os.Environ(), environment)
+	command.Env = hytaleBootstrapEnvironment(os.Environ(), environment)
 	command.Stdout = stdOutWriter
 	command.Stderr = stdErrWriter
 	errRun := command.Run()
@@ -314,7 +328,7 @@ func (h *Hytale) runBootstrap(directory string, environment map[string]string, s
 		return fmt.Errorf("update Hytale: run authenticated bootstrap: %w", errRun)
 	}
 
-	errApply := applyHytaleStagedUpdate(directory)
+	errApply := applyHytaleStagedUpdate(directory, bootstrapJARPath)
 	if errApply != nil {
 		return errApply
 	}
@@ -414,34 +428,12 @@ func validateHytaleUpdateEnvironment(environment map[string]string) error {
 	return nil
 }
 
-func appendHytaleEnvironment(base []string, environment map[string]string) []string {
-	overriddenNames := make(map[string]struct{}, len(environment))
-	for name := range environment {
-		overriddenNames[normalizeHytaleEnvironmentName(name)] = struct{}{}
+func hytaleBootstrapEnvironment(hostEnvironment []string, environment map[string]string) []string {
+	credentials := map[string]string{
+		hytaleSessionTokenEnv:  environment[hytaleSessionTokenEnv],
+		hytaleIdentityTokenEnv: environment[hytaleIdentityTokenEnv],
 	}
-
-	result := make([]string, 0, len(base)+len(environment))
-	for _, entry := range base {
-		name, _, found := strings.Cut(entry, "=")
-		if found {
-			_, overridden := overriddenNames[normalizeHytaleEnvironmentName(name)]
-			if overridden {
-				continue
-			}
-		}
-		result = append(result, entry)
-	}
-	for name, value := range environment {
-		result = append(result, name+"="+value)
-	}
-	return result
-}
-
-func normalizeHytaleEnvironmentName(name string) string {
-	if runtime.GOOS == "windows" {
-		return strings.ToUpper(name)
-	}
-	return name
+	return processenv.Append(processenv.Build(runtime.GOOS, hostEnvironment), credentials)
 }
 
 func validateHytalePayload(directory string) error {
@@ -458,49 +450,95 @@ func validateHytalePayload(directory string) error {
 	return nil
 }
 
-func applyHytaleStagedUpdate(directory string) error {
+func applyHytaleStagedUpdate(directory string, bootstrapJARPaths ...string) (errResult error) {
 	stagingDirectory := filepath.Join(directory, "updater", "staging")
 	stagedServerJAR := filepath.Join(stagingDirectory, "Server", hytaleSeedJARName)
-	_, errStagedJAR := os.Stat(stagedServerJAR)
+	stagedJARInfo, errStagedJAR := os.Lstat(stagedServerJAR)
 	if errors.Is(errStagedJAR, os.ErrNotExist) {
 		return nil
 	}
 	if errStagedJAR != nil {
 		return fmt.Errorf("update Hytale: inspect staged server JAR: %w", errStagedJAR)
 	}
-
-	errCopyJAR := copyHytaleFile(stagedServerJAR, filepath.Join(directory, "Server", hytaleSeedJARName), 0o640)
-	if errCopyJAR != nil {
-		return errCopyJAR
+	if !stagedJARInfo.Mode().IsRegular() || stagedJARInfo.Size() == 0 {
+		return errors.New("update Hytale: staged server JAR is not a non-empty regular file")
 	}
-	for _, relativePath := range []string{"Assets.zip", "start.sh", "start.bat"} {
-		source := filepath.Join(stagingDirectory, relativePath)
-		_, errSource := os.Stat(source)
-		if errors.Is(errSource, os.ErrNotExist) {
+	stagedAssets := filepath.Join(stagingDirectory, hytaleAssetsPath)
+	assetsInfo, errAssets := os.Lstat(stagedAssets)
+	if errAssets != nil {
+		return fmt.Errorf("update Hytale: inspect staged assets: %w", errAssets)
+	}
+	if !assetsInfo.Mode().IsRegular() || assetsInfo.Size() == 0 {
+		return errors.New("update Hytale: staged assets are not a non-empty regular file")
+	}
+
+	update, errUpdate := newStagedUpdate(directory, "hytale", stagedUpdateRetainRollback)
+	if errUpdate != nil {
+		return fmt.Errorf("update Hytale: prepare staged update: %w", errUpdate)
+	}
+	defer func() {
+		errResult = errors.Join(errResult, wrapError("update Hytale: clean staged update", update.CleanupTransient()))
+	}()
+	errLauncher := writeHytaleLauncher(update.PayloadDirectory())
+	if errLauncher != nil {
+		return errLauncher
+	}
+	if len(bootstrapJARPaths) > 1 {
+		return errors.New("update Hytale: multiple bootstrap JAR candidates were provided")
+	}
+	if len(bootstrapJARPaths) == 1 {
+		bootstrapJARPath := bootstrapJARPaths[0]
+		errBootstrapJAR := validateHytaleJAR(bootstrapJARPath)
+		if errBootstrapJAR != nil {
+			return errBootstrapJAR
+		}
+		errCopyBootstrap := copyHytaleFile(
+			bootstrapJARPath,
+			filepath.Join(update.PayloadDirectory(), hytaleSeedJARName),
+			0o640,
+		)
+		if errCopyBootstrap != nil {
+			return errCopyBootstrap
+		}
+	}
+
+	for _, relativePath := range []string{hytaleServerJARPath, hytaleAssetsPath, "start.sh", "start.bat"} {
+		sourceRelativePath := relativePath
+		if relativePath == hytaleServerJARPath {
+			sourceRelativePath = filepath.ToSlash(filepath.Join("Server", hytaleSeedJARName))
+		}
+		source := filepath.Join(stagingDirectory, filepath.FromSlash(sourceRelativePath))
+		info, errSource := os.Lstat(source)
+		if errors.Is(errSource, os.ErrNotExist) && relativePath != hytaleServerJARPath && relativePath != hytaleAssetsPath {
 			continue
 		}
 		if errSource != nil {
 			return fmt.Errorf("update Hytale: inspect staged %s: %w", relativePath, errSource)
 		}
-		mode := os.FileMode(0o640)
-		if relativePath == "start.sh" {
-			mode = 0o750
+		if !info.Mode().IsRegular() || info.Size() == 0 {
+			return fmt.Errorf("update Hytale: staged %s is not a non-empty regular file", relativePath)
 		}
-		errCopy := copyHytaleFile(source, filepath.Join(directory, relativePath), mode)
+		mode := info.Mode().Perm()
+		if mode == 0 {
+			mode = 0o640
+		}
+		if relativePath == "start.sh" {
+			mode |= 0o110
+		}
+		target := filepath.Join(update.PayloadDirectory(), filepath.FromSlash(relativePath))
+		errCopy := copyHytaleFile(source, target, mode)
 		if errCopy != nil {
 			return errCopy
 		}
 	}
 
 	stagedLicenses := filepath.Join(stagingDirectory, "Server", "Licenses")
-	_, errLicenses := os.Stat(stagedLicenses)
+	licenseInfo, errLicenses := os.Lstat(stagedLicenses)
 	if errLicenses == nil {
-		targetLicenses := filepath.Join(directory, "Server", "Licenses")
-		errRemove := os.RemoveAll(targetLicenses)
-		if errRemove != nil {
-			return fmt.Errorf("update Hytale: remove old licenses: %w", errRemove)
+		if !licenseInfo.IsDir() || licenseInfo.Mode()&os.ModeSymlink != 0 {
+			return errors.New("update Hytale: staged licenses are not a directory")
 		}
-		errCopyLicenses := copyHytaleTree(stagedLicenses, targetLicenses)
+		errCopyLicenses := copyHytaleTree(stagedLicenses, filepath.Join(update.PayloadDirectory(), "Server", "Licenses"))
 		if errCopyLicenses != nil {
 			return errCopyLicenses
 		}
@@ -508,7 +546,15 @@ func applyHytaleStagedUpdate(directory string) error {
 		return fmt.Errorf("update Hytale: inspect staged licenses: %w", errLicenses)
 	}
 
-	errRemoveStaging := os.RemoveAll(stagingDirectory)
+	errValidate := validateHytalePayload(update.PayloadDirectory())
+	if errValidate != nil {
+		return errValidate
+	}
+	errApply := update.Apply(nil, []string{"Server/Licenses"})
+	if errApply != nil {
+		return fmt.Errorf("update Hytale: commit staged update: %w", errApply)
+	}
+	errRemoveStaging := removeStagedUpdateTree(directory, stagingDirectory)
 	if errRemoveStaging != nil {
 		return fmt.Errorf("update Hytale: remove applied staging directory: %w", errRemoveStaging)
 	}
@@ -639,11 +685,16 @@ func replaceHytaleFile(temporaryPath string, targetPath string) error {
 
 const hytaleLauncherSource = `import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -651,6 +702,40 @@ import java.util.List;
 
 public final class XylonaHytaleLauncher {
     private static final int UPDATE_RESTART_EXIT_CODE = 8;
+    private static final int UPDATE_MANIFEST_VERSION = 1;
+    private static final String UPDATE_GAME_ID = "hytale";
+    private static final String UPDATE_BACKUP_DIRECTORY = ".update-backup";
+    private static final String INTERNAL_UPDATE_DIRECTORY = ".internal-update";
+    private static final String UPDATE_MANIFEST_NAME = "manifest.json";
+    private static final String UPDATE_COMMITTED_NAME = "committed";
+    private static final String UPDATE_FILES_DIRECTORY = "files";
+
+    private static final class UpdateEntry {
+        private final String relativePath;
+        private final Path staged;
+        private final Path live;
+        private final Path backup;
+        private final boolean existed;
+        private final boolean directory;
+        private boolean backupMoved;
+        private boolean stagedMoved;
+
+        private UpdateEntry(
+                String relativePath,
+                Path staged,
+                Path live,
+                Path backup,
+                boolean existed,
+                boolean directory
+        ) {
+            this.relativePath = relativePath;
+            this.staged = staged;
+            this.live = live;
+            this.backup = backup;
+            this.existed = existed;
+            this.directory = directory;
+        }
+    }
 
     public static void main(String[] serverArguments) throws Exception {
         Path root = Path.of("").toAbsolutePath().normalize();
@@ -691,10 +776,20 @@ public final class XylonaHytaleLauncher {
                     .directory(serverDirectory.toFile())
                     .inheritIO()
                     .start();
+            Thread.sleep(10_000L);
+            if (server.isAlive()) {
+                try {
+                    cleanupCommittedUpdate(root);
+                } catch (IOException cleanupError) {
+                    System.err.println("[Xylona] Unable to clean committed Hytale update recovery data: "
+                            + cleanupError.getMessage());
+                }
+            }
             int exitCode = server.waitFor();
             if (exitCode != UPDATE_RESTART_EXIT_CODE) {
                 System.exit(exitCode);
             }
+            cleanupCommittedUpdate(root);
             System.out.println("[Xylona] Applying staged Hytale update before restart...");
         }
     }
@@ -712,7 +807,7 @@ public final class XylonaHytaleLauncher {
 
         Path managedConfig = serverDirectory.resolve("config.json");
         if (Files.isRegularFile(managedConfig)) {
-            Files.copy(managedConfig, root.resolve("config.json"), StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(managedConfig, root.resolve("config.json"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
 
         List<String> command = new ArrayList<>();
@@ -736,50 +831,382 @@ public final class XylonaHytaleLauncher {
     }
 
     private static void applyStagedUpdate(Path root, Path serverDirectory) throws IOException {
+        Path updateBackup = root.resolve(UPDATE_BACKUP_DIRECTORY);
+        Path transaction = updateBackup.resolve(INTERNAL_UPDATE_DIRECTORY);
+        if (existsNoFollow(transaction)) {
+            Path committed = transaction.resolve(UPDATE_COMMITTED_NAME);
+            if (Files.isRegularFile(committed, LinkOption.NOFOLLOW_LINKS)) {
+                return;
+            }
+            throw new IOException("An unresolved Hytale update transaction requires recovery before another update can start");
+        }
+
         Path staging = root.resolve("updater").resolve("staging");
         Path stagedServerJar = staging.resolve("Server").resolve("HytaleServer.jar");
-        if (!Files.isRegularFile(stagedServerJar)) {
+        if (!existsNoFollow(stagedServerJar)) {
             return;
         }
 
-        Files.createDirectories(serverDirectory);
-        Files.copy(stagedServerJar, serverDirectory.resolve("HytaleServer.jar"), StandardCopyOption.REPLACE_EXISTING);
-        copyIfPresent(staging.resolve("Assets.zip"), root.resolve("Assets.zip"));
-        copyIfPresent(staging.resolve("start.sh"), root.resolve("start.sh"));
-        copyIfPresent(staging.resolve("start.bat"), root.resolve("start.bat"));
+        validateStagingTree(staging);
+        Path stagedAssets = staging.resolve("Assets.zip");
+        validateRequiredFile(stagedServerJar, "Server/HytaleServer.jar");
+        validateRequiredFile(stagedAssets, "Assets.zip");
 
+        List<UpdateEntry> entries = new ArrayList<>();
+        addFileEntry(entries, root, transaction, staging, "Assets.zip", true);
+        addFileEntry(entries, root, transaction, staging, "Server/HytaleServer.jar", true);
+        addFileEntry(entries, root, transaction, staging, "start.bat", false);
+        addFileEntry(entries, root, transaction, staging, "start.sh", false);
         Path stagedLicenses = staging.resolve("Server").resolve("Licenses");
-        if (Files.isDirectory(stagedLicenses)) {
-            Path targetLicenses = serverDirectory.resolve("Licenses");
-            deleteTree(targetLicenses);
-            copyTree(stagedLicenses, targetLicenses);
+        if (existsNoFollow(stagedLicenses)) {
+            validateDirectoryTree(stagedLicenses, "Server/Licenses");
+            addDirectoryEntry(entries, root, transaction, staging, "Server/Licenses");
         }
+
+        entries.sort((left, right) -> left.relativePath.compareTo(right.relativePath));
+        preflightLiveEntries(root, entries);
+        createTransaction(transaction, entries);
+
+        try {
+            applyEntries(entries);
+            writeDurableFile(transaction.resolve(UPDATE_COMMITTED_NAME), "committed\n");
+        } catch (IOException | RuntimeException applyError) {
+            IOException rollbackError = rollbackEntries(transaction, entries);
+            if (rollbackError != null) {
+                applyError.addSuppressed(rollbackError);
+            }
+            throw applyError;
+        }
+
         deleteTree(staging);
     }
 
-    private static void copyIfPresent(Path source, Path target) throws IOException {
-        if (Files.isRegularFile(source)) {
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
-    private static void copyTree(Path source, Path target) throws IOException {
-        Files.walkFileTree(source, new SimpleFileVisitor<>() {
+    private static void validateStagingTree(Path staging) throws IOException {
+        Files.walkFileTree(staging, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
-                Files.createDirectories(target.resolve(source.relativize(directory)));
+                if (!attributes.isDirectory() || attributes.isSymbolicLink()) {
+                    throw new IOException("Unsupported non-directory entry in staged Hytale update");
+                }
                 return FileVisitResult.CONTINUE;
             }
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
-                if (!attributes.isRegularFile()) {
-                    throw new IOException("Unsupported file in staged Hytale licenses: " + file);
+                if (!attributes.isRegularFile() || attributes.isSymbolicLink()) {
+                    throw new IOException("Unsupported non-regular entry in staged Hytale update");
                 }
-                Files.copy(file, target.resolve(source.relativize(file)), StandardCopyOption.REPLACE_EXISTING);
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    private static void validateRequiredFile(Path candidate, String relativePath) throws IOException {
+        BasicFileAttributes attributes = Files.readAttributes(
+                candidate,
+                BasicFileAttributes.class,
+                LinkOption.NOFOLLOW_LINKS
+        );
+        if (!attributes.isRegularFile() || attributes.isSymbolicLink() || attributes.size() <= 0L) {
+            throw new IOException("Staged Hytale update requires a non-empty regular " + relativePath);
+        }
+    }
+
+    private static void validateDirectoryTree(Path directory, String relativePath) throws IOException {
+        BasicFileAttributes rootAttributes = Files.readAttributes(
+                directory,
+                BasicFileAttributes.class,
+                LinkOption.NOFOLLOW_LINKS
+        );
+        if (!rootAttributes.isDirectory() || rootAttributes.isSymbolicLink()) {
+            throw new IOException("Staged Hytale update requires a regular directory at " + relativePath);
+        }
+        validateStagingTree(directory);
+    }
+
+    private static void addFileEntry(
+            List<UpdateEntry> entries,
+            Path root,
+            Path transaction,
+            Path staging,
+            String relativePath,
+            boolean required
+    ) throws IOException {
+        Path staged = staging.resolve(relativePath).normalize();
+        if (!existsNoFollow(staged)) {
+            if (required) {
+                throw new IOException("Staged Hytale update is missing " + relativePath);
+            }
+            return;
+        }
+        BasicFileAttributes attributes = Files.readAttributes(
+                staged,
+                BasicFileAttributes.class,
+                LinkOption.NOFOLLOW_LINKS
+        );
+        if (!attributes.isRegularFile() || attributes.isSymbolicLink()) {
+            throw new IOException("Staged Hytale update contains a non-regular " + relativePath);
+        }
+        entries.add(newEntry(root, transaction, staged, relativePath, false));
+    }
+
+    private static void addDirectoryEntry(
+            List<UpdateEntry> entries,
+            Path root,
+            Path transaction,
+            Path staging,
+            String relativePath
+    ) throws IOException {
+        Path staged = staging.resolve(relativePath).normalize();
+        entries.add(newEntry(root, transaction, staged, relativePath, true));
+    }
+
+    private static UpdateEntry newEntry(
+            Path root,
+            Path transaction,
+            Path staged,
+            String relativePath,
+            boolean directory
+    ) throws IOException {
+        Path live = root.resolve(relativePath).normalize();
+        Path backup = transaction.resolve(UPDATE_FILES_DIRECTORY).resolve(relativePath).normalize();
+        requireWithin(root, live, "live update path");
+        requireWithin(transaction, backup, "rollback update path");
+        boolean existed = existsNoFollow(live);
+        return new UpdateEntry(relativePath, staged, live, backup, existed, directory);
+    }
+
+    private static void preflightLiveEntries(Path root, List<UpdateEntry> entries) throws IOException {
+        for (UpdateEntry entry : entries) {
+            validateSafeParents(root, entry.live.getParent());
+            if (!entry.existed) {
+                continue;
+            }
+            BasicFileAttributes attributes = Files.readAttributes(
+                    entry.live,
+                    BasicFileAttributes.class,
+                    LinkOption.NOFOLLOW_LINKS
+            );
+            if (attributes.isSymbolicLink()) {
+                throw new IOException("Live Hytale update target is a symbolic link: " + entry.relativePath);
+            }
+            if (entry.directory) {
+                if (!attributes.isDirectory()) {
+                    throw new IOException("Live Hytale update target is not a directory: " + entry.relativePath);
+                }
+                validateDirectoryTree(entry.live, entry.relativePath);
+            } else if (!attributes.isRegularFile()) {
+                throw new IOException("Live Hytale update target is not a regular file: " + entry.relativePath);
+            }
+        }
+    }
+
+    private static void validateSafeParents(Path root, Path parent) throws IOException {
+        if (parent == null) {
+            throw new IOException("Hytale update target has no parent directory");
+        }
+        requireWithin(root, parent, "update target parent");
+        Path relativeParent = root.relativize(parent);
+        Path current = root;
+        for (Path part : relativeParent) {
+            current = current.resolve(part);
+            if (!existsNoFollow(current)) {
+                continue;
+            }
+            BasicFileAttributes attributes = Files.readAttributes(
+                    current,
+                    BasicFileAttributes.class,
+                    LinkOption.NOFOLLOW_LINKS
+            );
+            if (!attributes.isDirectory() || attributes.isSymbolicLink()) {
+                throw new IOException("Unsafe Hytale update target parent");
+            }
+        }
+    }
+
+    private static void requireWithin(Path root, Path candidate, String description) throws IOException {
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        Path normalizedCandidate = candidate.toAbsolutePath().normalize();
+        if (normalizedCandidate.equals(normalizedRoot) || !normalizedCandidate.startsWith(normalizedRoot)) {
+            throw new IOException("Unsafe " + description);
+        }
+    }
+
+    private static void createTransaction(Path transaction, List<UpdateEntry> entries) throws IOException {
+        if (existsNoFollow(transaction)) {
+            throw new IOException("An unresolved Hytale update transaction requires recovery before another update can start");
+        }
+        try {
+            Files.createDirectories(transaction.resolve(UPDATE_FILES_DIRECTORY));
+            writeDurableFile(transaction.resolve(UPDATE_MANIFEST_NAME), serializeManifest(entries));
+        } catch (IOException createError) {
+            try {
+                deleteTree(transaction);
+            } catch (IOException cleanupError) {
+                createError.addSuppressed(cleanupError);
+            }
+            throw createError;
+        }
+    }
+
+    private static String serializeManifest(List<UpdateEntry> entries) {
+        StringBuilder manifest = new StringBuilder();
+        manifest.append("{\"version\":").append(UPDATE_MANIFEST_VERSION)
+                .append(",\"game_id\":\"").append(UPDATE_GAME_ID)
+                .append("\",\"entries\":[");
+        for (int index = 0; index < entries.size(); index++) {
+            if (index > 0) {
+                manifest.append(',');
+            }
+            UpdateEntry entry = entries.get(index);
+            manifest.append("{\"path\":\"")
+                    .append(escapeJson(entry.relativePath))
+                    .append("\",\"existed\":")
+                    .append(entry.existed);
+            if (entry.directory) {
+                manifest.append(",\"directory\":true");
+            }
+            manifest.append('}');
+        }
+        return manifest.append("]}\n").toString();
+    }
+
+    private static String escapeJson(String value) {
+        StringBuilder escaped = new StringBuilder(value.length());
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            switch (character) {
+                case '\"' -> escaped.append("\\\"");
+                case '\\' -> escaped.append("\\\\");
+                case '\b' -> escaped.append("\\b");
+                case '\f' -> escaped.append("\\f");
+                case '\n' -> escaped.append("\\n");
+                case '\r' -> escaped.append("\\r");
+                case '\t' -> escaped.append("\\t");
+                default -> {
+                    if (character < 0x20) {
+                        escaped.append(String.format("\\u%04x", (int) character));
+                    } else {
+                        escaped.append(character);
+                    }
+                }
+            }
+        }
+        return escaped.toString();
+    }
+
+    private static void applyEntries(List<UpdateEntry> entries) throws IOException {
+        for (UpdateEntry entry : entries) {
+            Files.createDirectories(entry.live.getParent());
+            Files.createDirectories(entry.backup.getParent());
+            if (entry.existed) {
+                movePath(entry.live, entry.backup);
+                entry.backupMoved = true;
+            }
+            movePath(entry.staged, entry.live);
+            entry.stagedMoved = true;
+        }
+    }
+
+    private static IOException rollbackEntries(Path transaction, List<UpdateEntry> entries) {
+        IOException rollbackFailure = null;
+        for (int index = entries.size() - 1; index >= 0; index--) {
+            UpdateEntry entry = entries.get(index);
+            try {
+                if (entry.stagedMoved) {
+                    Files.createDirectories(entry.staged.getParent());
+                    movePath(entry.live, entry.staged);
+                    entry.stagedMoved = false;
+                }
+                if (entry.backupMoved) {
+                    Files.createDirectories(entry.live.getParent());
+                    movePath(entry.backup, entry.live);
+                    entry.backupMoved = false;
+                }
+            } catch (IOException entryError) {
+                rollbackFailure = appendFailure(rollbackFailure, entryError);
+            }
+        }
+        if (rollbackFailure == null) {
+            try {
+                deleteTree(transaction);
+            } catch (IOException cleanupError) {
+                rollbackFailure = cleanupError;
+            }
+        }
+        if (rollbackFailure != null) {
+            return new IOException(
+                    "Hytale update rollback was incomplete; recovery data was retained",
+                    rollbackFailure
+            );
+        }
+        return null;
+    }
+
+    private static IOException appendFailure(IOException current, IOException next) {
+        if (current == null) {
+            return next;
+        }
+        current.addSuppressed(next);
+        return current;
+    }
+
+    private static void movePath(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(source, target);
+        }
+    }
+
+    private static void writeDurableFile(Path target, String contents) throws IOException {
+        Files.createDirectories(target.getParent());
+        Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
+        try {
+            try (FileChannel channel = FileChannel.open(
+                    temporary,
+                    StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE
+            )) {
+                byte[] encoded = contents.getBytes(StandardCharsets.UTF_8);
+                java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(encoded);
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                channel.force(true);
+            }
+            try {
+                Files.move(temporary, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException unsupported) {
+                Files.move(temporary, target);
+            }
+        } catch (IOException writeError) {
+            try {
+                Files.deleteIfExists(temporary);
+            } catch (IOException cleanupError) {
+                writeError.addSuppressed(cleanupError);
+            }
+            throw writeError;
+        }
+    }
+
+    private static boolean existsNoFollow(Path path) {
+        return Files.exists(path, LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private static void cleanupCommittedUpdate(Path root) throws IOException {
+        Path updateBackup = root.resolve(UPDATE_BACKUP_DIRECTORY);
+        Path transaction = updateBackup.resolve(INTERNAL_UPDATE_DIRECTORY);
+        Path committed = transaction.resolve(UPDATE_COMMITTED_NAME);
+        if (!Files.isRegularFile(committed, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        deleteTree(transaction);
+        try {
+            Files.delete(updateBackup);
+        } catch (DirectoryNotEmptyException ignored) {
+            // The controller may retain other update recovery data here.
+        }
     }
 
     private static void deleteTree(Path root) throws IOException {

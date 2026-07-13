@@ -55,7 +55,10 @@ func TestGetGameServerBackupOverviewAllowsRemoteServerOperations(t *testing.T) {
 	configureRemoteBackupServer(t, fixture, "node-remote")
 	fixture.service.nodeRegistry = testParityRegistry(
 		&nodeclient.FakeNodeClient{NodeID: "node-local"},
-		&nodeclient.FakeNodeClient{NodeID: "node-remote"},
+		&nodeclient.FakeNodeClient{
+			NodeID:         "node-remote",
+			SnapshotResult: &node.NodeSnapshot{OS: "linux"},
+		},
 	)
 
 	request := connect.NewRequest(&xylona.GetGameServerBackupOverviewRequest{
@@ -244,7 +247,10 @@ func TestUploadGameServerBackupArchiveWritesRemoteUploadWithoutControllerBackupR
 		t.Fatalf("UpdateGameServer() error = %v", errUpdate)
 	}
 
-	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		SnapshotResult: &node.NodeSnapshot{OS: "linux"},
+	}
 	fixture.service.nodeRegistry = testParityRegistry(
 		&nodeclient.FakeNodeClient{NodeID: "node-local"},
 		remoteClient,

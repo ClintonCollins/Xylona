@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +31,10 @@ import (
 )
 
 func TestWaitForUpdateProcessExit(t *testing.T) {
+	snapshotUnavailable := func(context.Context, string) (*node.ProcessSnapshot, bool, error) {
+		return nil, false, errors.New("snapshot temporarily unavailable")
+	}
+
 	t.Run("returns matching updater exit", func(t *testing.T) {
 		events := make(chan any, 5)
 		events <- "not a status event"
@@ -43,11 +48,18 @@ func TestWaitForUpdateProcessExit(t *testing.T) {
 			OldStatus: "ONLINE",
 			NewStatus: "OFFLINE",
 		}
+		events <- eventbus.StatusChangedEvent{
+			ServerID:    "server-1",
+			ExecutionID: "stale-execution",
+			OldStatus:   "UPDATING",
+			NewStatus:   "OFFLINE",
+		}
 		want := eventbus.StatusChangedEvent{
-			ServerID:  "server-1",
-			OldStatus: "updating",
-			NewStatus: "offline",
-			ExitCode:  23,
+			ServerID:    "server-1",
+			ExecutionID: "execution-1",
+			OldStatus:   "updating",
+			NewStatus:   "offline",
+			ExitCode:    23,
 		}
 		events <- want
 
@@ -55,7 +67,10 @@ func TestWaitForUpdateProcessExit(t *testing.T) {
 			context.Background(),
 			events,
 			"server-1",
+			"execution-1",
+			snapshotUnavailable,
 			time.Second,
+			time.Millisecond,
 		)
 		if errWait != nil {
 			t.Fatalf("waitForUpdateProcessExit() error = %v", errWait)
@@ -69,7 +84,15 @@ func TestWaitForUpdateProcessExit(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		_, errWait := waitForUpdateProcessExit(ctx, make(chan any), "server-1", time.Second)
+		_, errWait := waitForUpdateProcessExit(
+			ctx,
+			make(chan any),
+			"server-1",
+			"execution-1",
+			snapshotUnavailable,
+			time.Second,
+			time.Millisecond,
+		)
 		if !errors.Is(errWait, context.Canceled) {
 			t.Fatalf("waitForUpdateProcessExit() error = %v, want context.Canceled", errWait)
 		}
@@ -80,10 +103,81 @@ func TestWaitForUpdateProcessExit(t *testing.T) {
 			context.Background(),
 			make(chan any),
 			"server-1",
+			"execution-1",
+			snapshotUnavailable,
 			10*time.Millisecond,
+			time.Millisecond,
 		)
 		if errWait == nil || !strings.Contains(errWait.Error(), "timed out") {
 			t.Fatalf("waitForUpdateProcessExit() error = %v, want timeout", errWait)
+		}
+	})
+
+	t.Run("recovers missed exit from retained snapshot", func(t *testing.T) {
+		events := make(chan any)
+		close(events)
+		getSnapshot := func(context.Context, string) (*node.ProcessSnapshot, bool, error) {
+			return &node.ProcessSnapshot{
+				ID:                 "server-1",
+				ExecutionID:        "execution-1",
+				Status:             "OFFLINE",
+				PreviousStatus:     "UPDATING",
+				TransitionSequence: 2,
+				ExitCode:           7,
+				ExitCodeKnown:      true,
+			}, true, nil
+		}
+
+		got, errWait := waitForUpdateProcessExit(
+			context.Background(),
+			events,
+			"server-1",
+			"execution-1",
+			getSnapshot,
+			time.Second,
+			time.Millisecond,
+		)
+		if errWait != nil {
+			t.Fatalf("waitForUpdateProcessExit() error = %v", errWait)
+		}
+		if got.ExecutionID != "execution-1" || got.ExitCode != 7 || !got.ExitCodeKnown {
+			t.Fatalf("waitForUpdateProcessExit() = %+v", got)
+		}
+	})
+
+	t.Run("rejects replacement execution", func(t *testing.T) {
+		getSnapshot := func(context.Context, string) (*node.ProcessSnapshot, bool, error) {
+			return &node.ProcessSnapshot{ExecutionID: "execution-2", Status: "UPDATING"}, true, nil
+		}
+		_, errWait := waitForUpdateProcessExit(
+			context.Background(),
+			make(chan any),
+			"server-1",
+			"execution-1",
+			getSnapshot,
+			time.Second,
+			time.Millisecond,
+		)
+		if !errors.Is(errWait, errUpdateExecutionReplaced) {
+			t.Fatalf("waitForUpdateProcessExit() error = %v, want replacement", errWait)
+		}
+	})
+
+	t.Run("fails fast for indeterminate legacy offline state", func(t *testing.T) {
+		getSnapshot := func(context.Context, string) (*node.ProcessSnapshot, bool, error) {
+			return &node.ProcessSnapshot{Status: "OFFLINE"}, true, nil
+		}
+		_, errWait := waitForUpdateProcessExit(
+			context.Background(),
+			make(chan any),
+			"server-1",
+			"execution-1",
+			getSnapshot,
+			time.Second,
+			time.Millisecond,
+		)
+		if !errors.Is(errWait, errUpdateCompletionIndeterminate) {
+			t.Fatalf("waitForUpdateProcessExit() error = %v, want indeterminate", errWait)
 		}
 	})
 }
@@ -246,13 +340,16 @@ func TestBackupServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T) 
 	localBackupPath := filepath.Join(controllerDir, ".update-backup")
 
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID: "node-remote",
+		NodeID:      "node-remote",
+		StatFileErr: os.ErrNotExist,
 		ListFilesResult: []node.FileEntry{
 			node.NewFileEntry("server.properties", 12, false, time.Now()),
 			node.NewFileEntry("paper.jar", 34, false, time.Now(), true),
 			node.NewFileEntry("notes.txt", 34, false, time.Now()),
 			node.NewFileEntry("world", 56, true, time.Now()),
 		},
+		CopyFilesResult:  []string{"pending/server.properties", "pending/paper.jar"},
+		RenameFileResult: ".update-backup",
 	}
 	registry := noderegistry.New("node-local", nil)
 	registry.Register(remoteClient)
@@ -276,8 +373,9 @@ func TestBackupServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T) 
 	if len(remoteClient.CreateFileOrDirectoryCalls) != 1 {
 		t.Fatalf("CreateFileOrDirectory call count = %d, want 1", len(remoteClient.CreateFileOrDirectoryCalls))
 	}
-	if remoteClient.CreateFileOrDirectoryCalls[0].RelativePath != ".update-backup" {
-		t.Fatalf("CreateFileOrDirectory relative path = %q, want %q", remoteClient.CreateFileOrDirectoryCalls[0].RelativePath, ".update-backup")
+	pendingDirectory := remoteClient.CreateFileOrDirectoryCalls[0].RelativePath
+	if !strings.HasPrefix(pendingDirectory, ".update-backup.pending-") {
+		t.Fatalf("CreateFileOrDirectory relative path = %q, want pending backup path", pendingDirectory)
 	}
 	if len(remoteClient.CopyFilesCalls) != 1 {
 		t.Fatalf("CopyFiles call count = %d, want 1", len(remoteClient.CopyFilesCalls))
@@ -286,11 +384,18 @@ func TestBackupServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T) 
 	if len(operations) != 2 {
 		t.Fatalf("CopyFiles operations length = %d, want 2", len(operations))
 	}
-	if operations[0].SourceRelativePath != "server.properties" || operations[0].DestinationRelativePath != ".update-backup/server.properties" {
+	if operations[0].SourceRelativePath != "server.properties" || operations[0].DestinationRelativePath != pendingDirectory+"/server.properties" {
 		t.Fatalf("first CopyFiles operation = %+v, want server.properties backup", operations[0])
 	}
-	if operations[1].SourceRelativePath != "paper.jar" || operations[1].DestinationRelativePath != ".update-backup/paper.jar" {
+	if operations[1].SourceRelativePath != "paper.jar" || operations[1].DestinationRelativePath != pendingDirectory+"/paper.jar" {
 		t.Fatalf("second CopyFiles operation = %+v, want executable jar backup", operations[1])
+	}
+	if len(remoteClient.RenameFileCalls) != 1 {
+		t.Fatalf("RenameFile call count = %d, want 1", len(remoteClient.RenameFileCalls))
+	}
+	renameCall := remoteClient.RenameFileCalls[0]
+	if renameCall.OldRelativePath != pendingDirectory || renameCall.NewRelativePath != ".update-backup" {
+		t.Fatalf("RenameFile call = %+v, want pending backup promotion", renameCall)
 	}
 	if len(remoteClient.ReadFileCalls) != 0 {
 		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
@@ -304,6 +409,116 @@ func TestBackupServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T) 
 	}
 }
 
+func TestBackupNodeServerFilesAtomicFailureAndRecoveryGuard(t *testing.T) {
+	gameServer := &models.GameServer{
+		ID:        "server-atomic-backup",
+		Directory: t.TempDir(),
+	}
+	inst := &Instance{ctx: context.Background()}
+
+	t.Run("copy failure removes only pending directory", func(t *testing.T) {
+		client := &nodeclient.FakeNodeClient{
+			StatFileErr: os.ErrNotExist,
+			ListFilesResult: []node.FileEntry{
+				node.NewFileEntry("server.properties", 12, false, time.Now()),
+			},
+			CopyFilesErr:      errors.New("injected copy failure"),
+			DeleteFilesResult: []string{"pending"},
+		}
+
+		errBackup := inst.backupNodeServerFiles(gameServer, client)
+		if errBackup == nil || !strings.Contains(errBackup.Error(), "injected copy failure") {
+			t.Fatalf("backupNodeServerFiles() error = %v, want copy failure", errBackup)
+		}
+		if len(client.CreateFileOrDirectoryCalls) != 1 || len(client.DeleteFilesCalls) != 1 {
+			t.Fatalf(
+				"pending create/delete calls = %d/%d, want 1/1",
+				len(client.CreateFileOrDirectoryCalls),
+				len(client.DeleteFilesCalls),
+			)
+		}
+		pendingDirectory := client.CreateFileOrDirectoryCalls[0].RelativePath
+		if client.DeleteFilesCalls[0].Files[0] != pendingDirectory {
+			t.Fatalf("deleted path = %q, want pending path %q", client.DeleteFilesCalls[0].Files[0], pendingDirectory)
+		}
+		if len(client.RenameFileCalls) != 0 {
+			t.Fatalf("RenameFile call count = %d, want 0", len(client.RenameFileCalls))
+		}
+	})
+
+	t.Run("canonical recovery directory blocks a new backup", func(t *testing.T) {
+		client := &nodeclient.FakeNodeClient{}
+
+		errBackup := inst.backupNodeServerFiles(gameServer, client)
+		if errBackup == nil || !strings.Contains(errBackup.Error(), "recovery is pending") {
+			t.Fatalf("backupNodeServerFiles() error = %v, want recovery pending", errBackup)
+		}
+		if len(client.CreateFileOrDirectoryCalls) != 0 {
+			t.Fatalf("CreateFileOrDirectory call count = %d, want 0", len(client.CreateFileOrDirectoryCalls))
+		}
+	})
+}
+
+func TestRestoreInternalUpdateTransaction(t *testing.T) {
+	manifest := gameintegrations.NewUpdateTransactionManifest("factorio", []gameintegrations.UpdateTransactionEntry{
+		{Path: "bin/server", Existed: true},
+		{Path: "data/new-file", Existed: false},
+	})
+	manifestBytes, errManifest := json.Marshal(manifest)
+	if errManifest != nil {
+		t.Fatalf("json.Marshal() error = %v", errManifest)
+	}
+	gameServer := &models.GameServer{Directory: t.TempDir()}
+
+	t.Run("restores nested originals and removes introduced files in reverse order", func(t *testing.T) {
+		client := &nodeclient.FakeNodeClient{
+			ReadFileResult:    manifestBytes,
+			DeleteFilesResult: []string{"deleted"},
+			CopyFilesResult:   []string{"bin/server"},
+		}
+
+		found, errRestore := restoreInternalUpdateTransaction(t.Context(), gameServer, client)
+		if errRestore != nil {
+			t.Fatalf("restoreInternalUpdateTransaction() error = %v", errRestore)
+		}
+		if !found {
+			t.Fatal("restoreInternalUpdateTransaction() found = false, want true")
+		}
+		if len(client.DeleteFilesCalls) != 2 {
+			t.Fatalf("DeleteFiles call count = %d, want 2", len(client.DeleteFilesCalls))
+		}
+		if client.DeleteFilesCalls[0].Files[0] != "data/new-file" || client.DeleteFilesCalls[1].Files[0] != "bin/server" {
+			t.Fatalf("DeleteFiles order = %v then %v, want reverse manifest order", client.DeleteFilesCalls[0].Files, client.DeleteFilesCalls[1].Files)
+		}
+		if len(client.CopyFilesCalls) != 1 {
+			t.Fatalf("CopyFiles call count = %d, want 1", len(client.CopyFilesCalls))
+		}
+		operation := client.CopyFilesCalls[0].Operations[0]
+		if operation.SourceRelativePath != gameintegrations.InternalUpdateFilesDirectory+"/bin/server" ||
+			operation.DestinationRelativePath != "bin/server" {
+			t.Fatalf("CopyFiles operation = %+v, want nested original restore", operation)
+		}
+	})
+
+	t.Run("copy failure retains canonical recovery data", func(t *testing.T) {
+		client := &nodeclient.FakeNodeClient{
+			ReadFileResult:    manifestBytes,
+			DeleteFilesResult: []string{"deleted"},
+			CopyFilesErr:      errors.New("injected restore failure"),
+		}
+
+		found, errRestore := restoreInternalUpdateTransaction(t.Context(), gameServer, client)
+		if !found || errRestore == nil || !strings.Contains(errRestore.Error(), "injected restore failure") {
+			t.Fatalf("restoreInternalUpdateTransaction() = (%v, %v), want retained restore failure", found, errRestore)
+		}
+		for _, call := range client.DeleteFilesCalls {
+			if len(call.Files) == 1 && call.Files[0] == ".update-backup" {
+				t.Fatal("restore failure deleted canonical recovery directory")
+			}
+		}
+	})
+}
+
 func TestRestoreServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T) {
 	controllerDir := t.TempDir()
 	localSettingsPath := filepath.Join(controllerDir, "server.properties")
@@ -313,10 +528,12 @@ func TestRestoreServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T)
 	}
 
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID: "node-remote",
+		NodeID:      "node-remote",
+		ReadFileErr: os.ErrNotExist,
 		ListFilesResult: []node.FileEntry{
 			node.NewFileEntry("server.properties", 12, false, time.Now()),
 		},
+		CopyFilesResult:   []string{"server.properties"},
 		DeleteFilesResult: []string{".update-backup"},
 	}
 	registry := noderegistry.New("node-local", nil)
@@ -353,8 +570,11 @@ func TestRestoreServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T)
 	if operations[0].SourceRelativePath != ".update-backup/server.properties" || operations[0].DestinationRelativePath != "server.properties" {
 		t.Fatalf("CopyFiles operation = %+v, want restore server.properties", operations[0])
 	}
-	if len(remoteClient.ReadFileCalls) != 0 {
-		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	if len(remoteClient.ReadFileCalls) != 1 {
+		t.Fatalf("ReadFile call count = %d, want 1", len(remoteClient.ReadFileCalls))
+	}
+	if remoteClient.ReadFileCalls[0].RelativePath != gameintegrations.InternalUpdateManifestPath {
+		t.Fatalf("ReadFile relative path = %q, want internal update manifest", remoteClient.ReadFileCalls[0].RelativePath)
 	}
 	if len(remoteClient.WriteFileCalls) != 0 {
 		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
@@ -377,10 +597,13 @@ func TestRestoreServerFilesRoutesRemoteFilesystemThroughNodeClient(t *testing.T)
 func TestBackupAndRestoreServerFilesRoutesEmbeddedNodeThroughCopyFiles(t *testing.T) {
 	controllerDir := t.TempDir()
 	selfClient := &nodeclient.FakeNodeClient{
-		NodeID: "node-local",
+		NodeID:      "node-local",
+		StatFileErr: os.ErrNotExist,
 		ListFilesResult: []node.FileEntry{
 			node.NewFileEntry("server.properties", 12, false, time.Now()),
 		},
+		CopyFilesResult:   []string{"pending/server.properties"},
+		RenameFileResult:  ".update-backup",
 		DeleteFilesResult: []string{".update-backup"},
 	}
 	registry := noderegistry.New("node-local", selfClient)
@@ -402,12 +625,15 @@ func TestBackupAndRestoreServerFilesRoutesEmbeddedNodeThroughCopyFiles(t *testin
 	if len(selfClient.CopyFilesCalls) != 1 {
 		t.Fatalf("backup CopyFiles call count = %d, want 1", len(selfClient.CopyFilesCalls))
 	}
-	if selfClient.CopyFilesCalls[0].Operations[0].DestinationRelativePath != ".update-backup/server.properties" {
+	pendingDirectory := selfClient.CreateFileOrDirectoryCalls[0].RelativePath
+	if selfClient.CopyFilesCalls[0].Operations[0].DestinationRelativePath != pendingDirectory+"/server.properties" {
 		t.Fatalf("backup CopyFiles operation = %+v, want backup destination", selfClient.CopyFilesCalls[0].Operations[0])
 	}
 
 	selfClient.CopyFilesCalls = nil
 	selfClient.ListFilesCalls = nil
+	selfClient.ReadFileErr = os.ErrNotExist
+	selfClient.CopyFilesResult = []string{"server.properties"}
 	selfClient.ListFilesResult = []node.FileEntry{
 		node.NewFileEntry("server.properties", 12, false, time.Now()),
 	}

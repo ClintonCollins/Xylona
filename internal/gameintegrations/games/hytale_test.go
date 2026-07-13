@@ -220,38 +220,42 @@ func TestValidateHytaleUpdateEnvironment(t *testing.T) {
 	}
 }
 
-func TestAppendHytaleEnvironmentReplacesExistingValues(t *testing.T) {
+func TestHytaleBootstrapEnvironmentIsolatesHostAndLaunchVariables(t *testing.T) {
 	base := []string{
-		"KEEP=present",
+		"PATH=/usr/bin",
+		"LANG=en_US.UTF-8",
+		"JWT_SECRET_KEY_BASE64=controller-secret",
 		hytaleSessionTokenEnv + "=old-session",
 		hytaleIdentityTokenEnv + "=old-identity",
 	}
-	got := appendHytaleEnvironment(base, map[string]string{
-		hytaleSessionTokenEnv:  "new-session",
-		hytaleIdentityTokenEnv: "new-identity",
+	got := hytaleBootstrapEnvironment(base, map[string]string{
+		hytaleSessionTokenEnv:    "new-session",
+		hytaleIdentityTokenEnv:   "new-identity",
+		"UNRELATED_GAME_SETTING": "must-not-leak",
 	})
 
-	values := make(map[string][]string)
+	values := make(map[string]string)
 	for _, entry := range got {
 		name, value, found := strings.Cut(entry, "=")
 		if !found {
 			continue
 		}
-		values[normalizeHytaleEnvironmentName(name)] = append(
-			values[normalizeHytaleEnvironmentName(name)],
-			value,
-		)
+		values[name] = value
 	}
-	if len(values[normalizeHytaleEnvironmentName(hytaleSessionTokenEnv)]) != 1 ||
-		values[normalizeHytaleEnvironmentName(hytaleSessionTokenEnv)][0] != "new-session" {
+	if values[hytaleSessionTokenEnv] != "new-session" {
 		t.Fatalf("session token environment = %v, want one new value", values[hytaleSessionTokenEnv])
 	}
-	if len(values[normalizeHytaleEnvironmentName(hytaleIdentityTokenEnv)]) != 1 ||
-		values[normalizeHytaleEnvironmentName(hytaleIdentityTokenEnv)][0] != "new-identity" {
+	if values[hytaleIdentityTokenEnv] != "new-identity" {
 		t.Fatalf("identity token environment = %v, want one new value", values[hytaleIdentityTokenEnv])
 	}
-	if values[normalizeHytaleEnvironmentName("KEEP")][0] != "present" {
-		t.Fatalf("unrelated environment = %v, want preserved", values[normalizeHytaleEnvironmentName("KEEP")])
+	if values["PATH"] != "/usr/bin" || values["LANG"] != "en_US.UTF-8" {
+		t.Fatalf("safe host environment = %v, want PATH and LANG preserved", values)
+	}
+	for _, key := range []string{"JWT_SECRET_KEY_BASE64", "UNRELATED_GAME_SETTING"} {
+		_, exists := values[key]
+		if exists {
+			t.Fatalf("bootstrap environment unexpectedly contains %s", key)
+		}
 	}
 }
 

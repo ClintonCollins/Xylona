@@ -134,7 +134,6 @@ const totalBackupSize = computed(() =>
 )
 const totalBackupSizeSummary = computed(() => `${formatBackupSize(totalBackupSize.value)} total`)
 const createAllowed = computed(() => overview.value.operationsAllowed)
-const restoreAllowed = computed(() => overview.value.enabled)
 const deleteAllowed = computed(() => true)
 const uploadAllowed = computed(() => overview.value.operationsAllowed)
 const uploadReady = computed(() => uploadFile.value !== null)
@@ -148,6 +147,10 @@ const showStateAlert = computed(() => {
 })
 
 const stateAlertColor = computed(() => {
+  if (!overview.value.backupsSupported) {
+    return 'warning'
+  }
+
   if (!overview.value.enabled) {
     return 'negative'
   }
@@ -156,6 +159,10 @@ const stateAlertColor = computed(() => {
 })
 
 const stateAlertIcon = computed(() => {
+  if (!overview.value.backupsSupported) {
+    return 'warning'
+  }
+
   if (!overview.value.enabled) {
     return 'block'
   }
@@ -164,6 +171,10 @@ const stateAlertIcon = computed(() => {
 })
 
 const stateAlertTitle = computed(() => {
+  if (!overview.value.backupsSupported) {
+    return 'New backups are unavailable'
+  }
+
   if (!overview.value.enabled) {
     return 'Backups are disabled for this server'
   }
@@ -179,7 +190,7 @@ const stateAlertMessage = computed(() => {
     return 'Configure a backup directory before creating new backups.'
   }
   if (!overview.value.enabled) {
-    return 'A superuser must re-enable backups before new backup or restore operations can run.'
+    return 'A superuser must re-enable backups before new backups can be created or uploaded.'
   }
 
   return 'Backup operations are currently unavailable.'
@@ -915,7 +926,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
                 <q-btn flat icon="download" label="Download" no-caps />
               </a>
               <q-btn
-                :disable="!restoreAllowed || props.row.status !== GameServerBackupStatus.COMPLETED"
+                :disable="props.row.status !== GameServerBackupStatus.COMPLETED"
                 :loading="restoringBackupId === props.row.id"
                 flat
                 icon="settings_backup_restore"
@@ -1006,7 +1017,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               </q-btn>
             </a>
             <q-btn
-              :disable="!restoreAllowed || props.row.status !== GameServerBackupStatus.COMPLETED"
+              :disable="props.row.status !== GameServerBackupStatus.COMPLETED"
               :loading="restoringBackupId === props.row.id"
               aria-label="Restore backup"
               dense

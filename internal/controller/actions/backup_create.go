@@ -233,6 +233,13 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 }
 
 func (inst *Instance) validateBackupCreateSettings(gameServer *models.GameServer) (string, error) {
+	capability, errCapability := inst.resolveBackupCapability(inst.ctx, gameServer)
+	if errCapability != nil {
+		return "", errCapability
+	}
+	if !capability.Supported {
+		return "", ErrBackupsUnsupported
+	}
 	if !gameServer.BackupsEnabled {
 		return "", errBackupsDisabled
 	}

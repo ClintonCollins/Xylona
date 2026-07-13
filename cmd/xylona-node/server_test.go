@@ -17,6 +17,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
@@ -160,8 +161,29 @@ func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
 	if errCaps != nil {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
-	if caps.ProtocolVersion != node.RuntimeProtocolVersion || !caps.LaunchEnv {
+	if caps.ProtocolVersion != node.RuntimeProtocolVersion || !caps.LaunchEnv ||
+		!caps.ReliableProcessLifecycle || !caps.TelnetInput {
 		t.Fatalf("runtime capabilities = %+v", caps)
+	}
+}
+
+func TestNodeServiceServerReceivesTelnetInput(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	errStart := client.StartProcess(t.Context(), node.ProcessConfig{
+		ID:          "remote-telnet-input",
+		BaseCommand: "unused",
+		InputTelnet: &node.TelnetInput{Port: 0},
+	}, xylona.Status_ONLINE)
+	if errStart == nil || !strings.Contains(errStart.Error(), supervisor.ErrTelnetPortRequired.Error()) {
+		t.Fatalf("StartProcess error = %v, want node-side telnet validation", errStart)
 	}
 }
 
@@ -215,6 +237,17 @@ func TestNodeServiceServerLaunchEnvReachesChild(t *testing.T) {
 		t.Fatalf("ReadConsoleBuffer after timeout: %v", errRead)
 	}
 	t.Fatalf("console output = %q, want launch env value", chunk.Data)
+}
+
+func TestTranslateLaunchEnvironmentValidationError(t *testing.T) {
+	errValidation := launchenv.NewValidationError([]launchenv.ValidationIssue{{
+		Name:    "JDK_JAVA_OPTIONS",
+		Message: "environment variable is reserved",
+	}})
+	errTranslated := translate(errValidation)
+	if connect.CodeOf(errTranslated) != connect.CodeInvalidArgument {
+		t.Fatalf("translate() code = %v, want %v", connect.CodeOf(errTranslated), connect.CodeInvalidArgument)
+	}
 }
 
 func launchEnvEchoCommand(key string) (string, []string) {

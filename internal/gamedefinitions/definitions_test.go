@@ -14,6 +14,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	internalgames "github.com/ClintonCollins/Xylona/internal/gameintegrations/games"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
+	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -50,6 +51,39 @@ var officialGameDefinitionIDs = []string{
 var officialFixedMaxPlayers = map[string]int64{
 	"aska":    4,
 	"valheim": 10,
+}
+
+func TestSevenDaysToDieDefinitionManagesLocalConsole(t *testing.T) {
+	definitions, errLoad := gamedefinitions.LoadBundled()
+	if errLoad != nil {
+		t.Fatalf("LoadBundled() error = %v", errLoad)
+	}
+
+	var schemaJSON string
+	for _, definition := range definitions {
+		if definition.Model.ID == "7_days_to_die" {
+			schemaJSON = definition.Model.ConfigSchemas.GetOr("")
+			break
+		}
+	}
+	if schemaJSON == "" {
+		t.Fatal("7 Days to Die config schema is unavailable")
+	}
+
+	entries, errParse := cfgschema.ParseConfigSchemas(schemaJSON)
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("config schema count = %d, want 1", len(entries))
+	}
+	entry := entries[0]
+	if entry.ManagedFields["TelnetEnabled"] != "xylona.local_console_enabled" {
+		t.Fatalf("TelnetEnabled source = %q", entry.ManagedFields["TelnetEnabled"])
+	}
+	if entry.ManagedFields["TelnetPassword"] != "xylona.local_console_password" {
+		t.Fatalf("TelnetPassword source = %q", entry.ManagedFields["TelnetPassword"])
+	}
 }
 
 func TestExportParseRoundTripPreservesStructuredSections(t *testing.T) {

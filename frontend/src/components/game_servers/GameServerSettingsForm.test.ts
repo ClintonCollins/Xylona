@@ -109,8 +109,8 @@ function mountSettingsForm(canEditProvisioning: boolean) {
         'q-input': QInputStub,
         'q-select': QSelectStub,
         'q-btn': {
-          template: '<button v-bind="$attrs"><slot />{{ label }}</button>',
-          props: ['label'],
+          template: '<button v-bind="$attrs" :disabled="disable"><slot />{{ label }}</button>',
+          props: ['label', 'disable'],
         },
         'q-icon': true,
         'q-spinner-dots': true,
@@ -174,6 +174,7 @@ describe('GameServerSettingsForm', () => {
       overview: create(GameServerBackupOverviewSchema, {
         enabled: true,
         operationsAllowed: true,
+        backupsSupported: true,
         canManageSettings: true,
         localServer: true,
         backupDirectoryConfigured: true,
@@ -183,6 +184,7 @@ describe('GameServerSettingsForm', () => {
     mocks.getBackupSettings.mockResolvedValue({
       settings: create(BackupSettingsSchema, {
         backupsEnabled: true,
+        backupsSupported: true,
         backupDirectory: 'C:\\\\backups',
         maxBackups: 10n,
         defaultBackupDirectory: 'C:\\\\default-backups',
@@ -246,11 +248,52 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(true)
   })
 
+  it('requires unsupported enabled backups to be disabled before saving', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-local-1',
+        name: 'Local One',
+        userId: 'user-owner',
+        gameId: 'minecraft',
+        nodeId: 'node-local',
+        ip: create(IPSchema, { address: '127.0.0.1' }),
+      }),
+    )
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: create(GameServerBackupOverviewSchema, {
+        enabled: true,
+        operationsAllowed: false,
+        backupsSupported: false,
+        canManageSettings: true,
+        disabledReason: 'Backups are not supported on this platform.',
+      }),
+    })
+    mocks.getBackupSettings.mockResolvedValueOnce({
+      settings: create(BackupSettingsSchema, {
+        backupsEnabled: true,
+        backupsSupported: false,
+        disabledReason: 'Backups are not supported on this platform.',
+        maxBackups: 5n,
+      }),
+    })
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="backup-settings-unsupported"]').text()).toContain(
+      'Backups are not supported on this platform.',
+    )
+    expect(
+      (wrapper.get('[data-testid="save-backup-settings"]').element as HTMLButtonElement).disabled,
+    ).toBe(true)
+  })
+
   it('shows read-only provisioning context and only editable operational fields for non-superusers', async () => {
     mocks.getGameServerBackupOverview.mockResolvedValueOnce({
       overview: create(GameServerBackupOverviewSchema, {
         enabled: true,
         operationsAllowed: true,
+        backupsSupported: true,
         canManageSettings: false,
         localServer: true,
         backupDirectoryConfigured: true,

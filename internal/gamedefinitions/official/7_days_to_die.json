@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:a498f449c350e54f67cc5b05852ba59c5e152ed105a129fd52e3d12a3a5da69b",
+  "content_hash": "sha256:b9f3d4c9bccdf23e25d5eacd86f054cb327ca896ea6d4452383e90ab50d72ded",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -68,7 +68,9 @@
         "ServerName": "game_server.server_name",
         "ServerMaxPlayerCount": "game_server.max_players",
         "ServerPort": "game_server.port",
+        "TelnetEnabled": "xylona.local_console_enabled",
         "TelnetPort": "game_server.query_port",
+        "TelnetPassword": "xylona.local_console_password",
         "UserDataFolder": "game_server.directory"
       },
       "schema": {
@@ -132,7 +134,10 @@
             "title": "Enable local management console",
             "default": true,
             "x-group": "Networking",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "xylona.local_console_enabled"
+            }
           },
           "TelnetPort": {
             "type": "integer",
@@ -151,7 +156,10 @@
             "title": "Management console password",
             "default": "",
             "x-group": "Networking",
-            "x-order": 3
+            "x-order": 3,
+            "x-managed": {
+              "source": "xylona.local_console_password"
+            }
           },
           "UserDataFolder": {
             "type": "string",

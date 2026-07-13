@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -82,5 +83,39 @@ func TestRemoveStatusListener_StopsDelivery(t *testing.T) {
 		t.Fatal("removed listener should not receive updates")
 	case <-time.After(200 * time.Millisecond):
 		// Expected — no message received
+	}
+}
+
+func TestStatusNotificationRetainsAuthoritativeLifecycleMetadata(t *testing.T) {
+	cmd := newTestCommand(t)
+	cmd.executionID = "execution-1"
+	cmd.intentionalStop.Store(true)
+	hookEvents := make(chan eventbus.StatusChangedEvent, 2)
+	cmd.statusEventHook = func(event eventbus.StatusChangedEvent) {
+		hookEvents <- event
+	}
+
+	cmd.sendJobStatusNotification(xylona.Status_OFFLINE, xylona.Status_ONLINE)
+	started := cmd.Lifecycle()
+	if started.ExecutionID != "execution-1" || started.PreviousStatus != xylona.Status_OFFLINE || started.TransitionSequence != 1 {
+		t.Fatalf("started lifecycle = %+v", started)
+	}
+	if started.ExitCodeKnown {
+		t.Fatal("start transition unexpectedly retained an exit code")
+	}
+
+	cmd.sendJobStatusNotificationWithExit(xylona.Status_ONLINE, 23)
+	stopped := cmd.Lifecycle()
+	if stopped.PreviousStatus != xylona.Status_ONLINE || stopped.TransitionSequence != 2 {
+		t.Fatalf("stopped lifecycle = %+v", stopped)
+	}
+	if !stopped.IntentionalStop || !stopped.ExitCodeKnown || stopped.ExitCode != 23 {
+		t.Fatalf("stopped terminal metadata = %+v", stopped)
+	}
+	<-hookEvents
+	terminalEvent := <-hookEvents
+	if terminalEvent.ExecutionID != "execution-1" || terminalEvent.TransitionSequence != 2 ||
+		!terminalEvent.ExitCodeKnown || terminalEvent.ExitCode != 23 {
+		t.Fatalf("direct lifecycle hook event = %+v", terminalEvent)
 	}
 }

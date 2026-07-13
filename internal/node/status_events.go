@@ -1,10 +1,7 @@
 package node
 
 import (
-	"context"
 	"time"
-
-	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 )
@@ -14,39 +11,21 @@ func (n *Node) startStatusEventBridge() {
 		return
 	}
 
-	baseCtx := n.ctx
-	if baseCtx == nil {
-		baseCtx = context.Background()
+	if n.supervisor == nil {
+		return
 	}
-
-	eb := eventbus.Get()
-	statusChanged := eb.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
-
-	go func() {
-		defer eb.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusChanged)
-
-		for {
-			select {
-			case <-baseCtx.Done():
-				return
-			case data, ok := <-statusChanged:
-				if !ok {
-					return
-				}
-
-				statusEvent, ok := data.(eventbus.StatusChangedEvent)
-				if !ok {
-					log.Error().Msg("node: failed to cast status event")
-					continue
-				}
-
-				n.events.Publish(Event{
-					Type:      EventTypeProcessStatus,
-					ProcessID: statusEvent.ServerID,
-					Status:    statusEvent.NewStatus,
-					Timestamp: time.Now(),
-				})
-			}
-		}
-	}()
+	n.supervisor.SetStatusEventHook(func(statusEvent eventbus.StatusChangedEvent) {
+		n.events.Publish(Event{
+			Type:               EventTypeProcessStatus,
+			ProcessID:          statusEvent.ServerID,
+			Status:             statusEvent.NewStatus,
+			OldStatus:          statusEvent.OldStatus,
+			ExecutionID:        statusEvent.ExecutionID,
+			TransitionSequence: statusEvent.TransitionSequence,
+			IntentionalStop:    statusEvent.IntentionalStop,
+			ExitCode:           statusEvent.ExitCode,
+			ExitCodeKnown:      statusEvent.ExitCodeKnown,
+			Timestamp:          time.Now(),
+		})
+	})
 }

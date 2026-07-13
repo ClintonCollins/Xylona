@@ -26,82 +26,118 @@ type localPreStartFileStore struct {
 }
 
 // RunPreStart enforces managed field values and generates missing config files
-// before a game server process starts. It does not block the start on errors —
-// parse failures are logged as warnings and skipped.
+// before a game server process starts. It does not block the start on errors.
 func RunPreStart(serverDir string, schemasJSON string, resolver ManagedFieldResolver) {
-	store := localPreStartFileStore{serverDir: serverDir}
-	RunPreStartWithStore(schemasJSON, resolver, store)
+	errRun := RunPreStartStrict(serverDir, schemasJSON, resolver)
+	if errRun != nil {
+		log.Warn().Err(errRun).Msg("Pre-start: one or more config files could not be processed")
+	}
 }
 
 // RunPreStartWithStore enforces managed field values using the provided store.
 func RunPreStartWithStore(schemasJSON string, resolver ManagedFieldResolver, store PreStartFileStore) {
+	errRun := RunPreStartWithStoreStrict(schemasJSON, resolver, store)
+	if errRun != nil {
+		log.Warn().Err(errRun).Msg("Pre-start: one or more config files could not be processed")
+	}
+}
+
+// RunPreStartStrict enforces managed fields and reports every processing
+// failure to the caller.
+func RunPreStartStrict(serverDir string, schemasJSON string, resolver ManagedFieldResolver) error {
+	store := localPreStartFileStore{serverDir: serverDir}
+	return RunPreStartWithStoreStrict(schemasJSON, resolver, store)
+}
+
+// RunPreStartWithStoreStrict is the error-returning store-backed pre-start
+// path used when a game cannot safely launch with stale managed values.
+func RunPreStartWithStoreStrict(schemasJSON string, resolver ManagedFieldResolver, store PreStartFileStore) error {
 	if store == nil {
-		return
+		return errors.New("cfgschema: pre-start file store is required")
 	}
 
 	entries, errParse := ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
-		log.Warn().Err(errParse).Msg("Pre-start: failed to parse config schemas")
-		return
+		return fmt.Errorf("cfgschema: parse pre-start config schemas: %w", errParse)
 	}
 
+	var result error
 	for _, entry := range entries {
-		processPreStartEntry(store, entry, resolver)
+		errProcess := processPreStartEntry(store, entry, resolver)
+		if errProcess != nil {
+			result = errors.Join(result, errProcess)
+		}
 	}
+	return result
 }
 
-func processPreStartEntry(store PreStartFileStore, entry ConfigSchemaEntry, resolver ManagedFieldResolver) {
+func processPreStartEntry(store PreStartFileStore, entry ConfigSchemaEntry, resolver ManagedFieldResolver) error {
 	if len(entry.ManagedFields) == 0 && !entry.GenerateBeforeStart {
-		return
+		return nil
 	}
 
 	relativePath, errPath := normalizePreStartRelativePath(entry.Path)
 	if errPath != nil {
-		log.Warn().Str("path", entry.Path).Msg("Pre-start: invalid config path, skipping")
-		return
+		return fmt.Errorf("cfgschema: invalid pre-start config path %q: %w", entry.Path, errPath)
 	}
 
 	fileData, errRead := store.ReadFile(relativePath)
 	fileExists := errRead == nil
 	if errRead != nil && !errors.Is(errRead, os.ErrNotExist) {
-		log.Warn().Err(errRead).Str("path", entry.Path).
-			Msg("Pre-start: failed to read config file, skipping")
-		return
+		return fmt.Errorf("cfgschema: read pre-start config %q: %w", entry.Path, errRead)
 	}
 
 	if !fileExists && !entry.GenerateBeforeStart {
-		return
+		return fmt.Errorf("cfgschema: required pre-start config %q does not exist: %w", entry.Path, os.ErrNotExist)
 	}
 
-	p, errGetParser := cfgparse.GetParser(entry.Format)
+	p, errGetParser := preStartParser(entry)
 	if errGetParser != nil {
-		log.Warn().Err(errGetParser).Str("format", entry.Format).Str("path", entry.Path).
-			Msg("Pre-start: unknown format, skipping")
-		return
+		return fmt.Errorf("cfgschema: get parser for pre-start config %q: %w", entry.Path, errGetParser)
 	}
 
-	output, ok := preStartOutput(p, entry, fileData, fileExists, resolver)
-	if !ok {
-		return
+	errManagedSources := validatePreStartManagedSources(entry, resolver)
+	if errManagedSources != nil {
+		return errManagedSources
+	}
+
+	output, errOutput := preStartOutput(p, entry, fileData, fileExists, resolver)
+	if errOutput != nil {
+		return errOutput
 	}
 
 	// Ensure parent directory exists.
 	dir := path.Dir(relativePath)
 	errMkdir := store.EnsureDir(dir)
 	if errMkdir != nil {
-		log.Warn().Err(errMkdir).Str("path", dir).
-			Msg("Pre-start: failed to create directory")
-		return
+		return fmt.Errorf("cfgschema: create pre-start config directory %q: %w", dir, errMkdir)
 	}
 
 	errWriteFile := store.WriteFile(relativePath, output)
 	if errWriteFile != nil {
-		log.Warn().Err(errWriteFile).Str("path", entry.Path).
-			Msg("Pre-start: failed to write config file")
-		return
+		return fmt.Errorf("cfgschema: write pre-start config %q: %w", entry.Path, errWriteFile)
 	}
 
 	log.Debug().Str("path", entry.Path).Msg("Pre-start: processed config file")
+	return nil
+}
+
+func preStartParser(entry ConfigSchemaEntry) (*cfgparse.Parser, error) {
+	if entry.Format != "xml" || entry.XMLKeyMode == nil {
+		parser, errGet := cfgparse.GetParser(entry.Format)
+		if errGet != nil {
+			return nil, fmt.Errorf("cfgschema: get pre-start parser: %w", errGet)
+		}
+		return parser, nil
+	}
+
+	xmlParser := cfgparse.NewXMLParser(cfgparse.XMLKeyMode{
+		Mode:      entry.XMLKeyMode.Mode,
+		Element:   entry.XMLKeyMode.Element,
+		KeyAttr:   entry.XMLKeyMode.KeyAttr,
+		ValueAttr: entry.XMLKeyMode.ValueAttr,
+	})
+	return &cfgparse.Parser{Structured: xmlParser}, nil
 }
 
 func preStartOutput(
@@ -110,14 +146,12 @@ func preStartOutput(
 	fileData []byte,
 	fileExists bool,
 	resolver ManagedFieldResolver,
-) ([]byte, bool) {
+) ([]byte, error) {
 	if p.IsFlat() {
-		output, ok := preStartFlatOutput(p, entry, fileData, fileExists, resolver)
-		return output, ok
+		return preStartFlatOutput(p, entry, fileData, fileExists, resolver)
 	}
 
-	output, ok := preStartStructuredOutput(p, entry, fileData, fileExists, resolver)
-	return output, ok
+	return preStartStructuredOutput(p, entry, fileData, fileExists, resolver)
 }
 
 func preStartFlatOutput(
@@ -126,16 +160,14 @@ func preStartFlatOutput(
 	fileData []byte,
 	fileExists bool,
 	resolver ManagedFieldResolver,
-) ([]byte, bool) {
+) ([]byte, error) {
 	var parsed []cfgparse.ConfigEntry
 
 	if fileExists {
 		var errParseFile error
 		parsed, errParseFile = p.Flat.Parse(fileData)
 		if errParseFile != nil {
-			log.Warn().Err(errParseFile).Str("path", entry.Path).
-				Msg("Pre-start: failed to parse config file, skipping")
-			return nil, false
+			return nil, fmt.Errorf("cfgschema: parse pre-start config %q: %w", entry.Path, errParseFile)
 		}
 	}
 
@@ -147,12 +179,10 @@ func preStartFlatOutput(
 
 	output, errWrite := p.Flat.Write(parsed)
 	if errWrite != nil {
-		log.Warn().Err(errWrite).Str("path", entry.Path).
-			Msg("Pre-start: failed to write config file")
-		return nil, false
+		return nil, fmt.Errorf("cfgschema: render pre-start config %q: %w", entry.Path, errWrite)
 	}
 
-	return output, true
+	return output, nil
 }
 
 func preStartStructuredOutput(
@@ -161,16 +191,14 @@ func preStartStructuredOutput(
 	fileData []byte,
 	fileExists bool,
 	resolver ManagedFieldResolver,
-) ([]byte, bool) {
+) ([]byte, error) {
 	var root *cfgparse.ConfigNode
 
 	if fileExists {
 		var errParseFile error
 		root, errParseFile = p.Structured.Parse(fileData)
 		if errParseFile != nil {
-			log.Warn().Err(errParseFile).Str("path", entry.Path).
-				Msg("Pre-start: failed to parse config file, skipping")
-			return nil, false
+			return nil, fmt.Errorf("cfgschema: parse pre-start config %q: %w", entry.Path, errParseFile)
 		}
 	} else {
 		root = structuredDefaultRoot(entry)
@@ -180,12 +208,20 @@ func preStartStructuredOutput(
 
 	output, errWrite := p.Structured.Write(root)
 	if errWrite != nil {
-		log.Warn().Err(errWrite).Str("path", entry.Path).
-			Msg("Pre-start: failed to write config file")
-		return nil, false
+		return nil, fmt.Errorf("cfgschema: render pre-start config %q: %w", entry.Path, errWrite)
 	}
 
-	return output, true
+	return output, nil
+}
+
+func validatePreStartManagedSources(entry ConfigSchemaEntry, resolver ManagedFieldResolver) error {
+	for key, source := range entry.ManagedFields {
+		_, ok := resolver(source)
+		if !ok {
+			return fmt.Errorf("cfgschema: pre-start config %q field %q has unknown managed source %q", entry.Path, key, source)
+		}
+	}
+	return nil
 }
 
 func normalizePreStartRelativePath(entryPath string) (string, error) {

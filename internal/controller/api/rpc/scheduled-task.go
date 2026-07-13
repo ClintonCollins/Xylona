@@ -202,7 +202,7 @@ func (xs *XylonaService) ListScheduledTasks(
 
 // CreateScheduledTask creates a new scheduled task for a game server.
 func (xs *XylonaService) CreateScheduledTask(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.CreateScheduledTaskRequest],
 ) (*connect.Response[xylona.CreateScheduledTaskResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -242,8 +242,8 @@ func (xs *XylonaService) CreateScheduledTask(
 		}
 	}
 
-	if taskType == "backup" {
-		operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
+	if taskType == "backup" && request.Msg.GetEnabled() {
+		operationsAllowed, disabledReason := xs.backupOperationsAllowed(ctx, gameServer)
 		if !operationsAllowed {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 		}
@@ -296,7 +296,7 @@ func (xs *XylonaService) CreateScheduledTask(
 
 // UpdateScheduledTask updates an existing scheduled task.
 func (xs *XylonaService) UpdateScheduledTask(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.UpdateScheduledTaskRequest],
 ) (*connect.Response[xylona.UpdateScheduledTaskResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -340,8 +340,8 @@ func (xs *XylonaService) UpdateScheduledTask(
 		}
 	}
 
-	if taskType == "backup" {
-		operationsAllowed, disabledReason := xs.backupOperationsAllowed(gameServer)
+	if taskType == "backup" && request.Msg.GetEnabled() {
+		operationsAllowed, disabledReason := xs.backupOperationsAllowed(ctx, gameServer)
 		if !operationsAllowed {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New(disabledReason))
 		}

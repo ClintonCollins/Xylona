@@ -1,8 +1,10 @@
+import { create } from '@bufbuild/protobuf'
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import ScheduledTaskForm from './ScheduledTaskForm.vue'
+import { ScheduledTaskSchema } from '@/proto/shared_pb'
 
 vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
@@ -67,5 +69,45 @@ describe('ScheduledTaskForm', () => {
     })
 
     expect(wrapper.find('.task-type-options').text()).toContain('Backup Server')
+  })
+
+  it('requires an unsupported existing backup schedule to be disabled or converted', async () => {
+    const wrapper = mount(ScheduledTaskForm, {
+      props: {
+        showDialog: false,
+        gameServerId: 'server-1',
+        backupOperationsAllowed: false,
+        backupDisabledReason: 'Backups are not supported on this platform.',
+        existingTask: create(ScheduledTaskSchema, {
+          id: 'task-1',
+          gameServerId: 'server-1',
+          name: 'Nightly backup',
+          taskType: 'backup',
+          cronExpression: '0 2 * * *',
+          timezone: 'UTC',
+          enabled: true,
+        }),
+      },
+      global: {
+        stubs: {
+          'q-banner': { template: '<div v-bind="$attrs"><slot /></div>' },
+          'q-btn': { template: '<button><slot /></button>' },
+          'q-card': { template: '<div><slot /></div>' },
+          'q-card-actions': { template: '<div><slot /></div>' },
+          'q-card-section': { template: '<div><slot /></div>' },
+          'q-dialog': { template: '<div><slot /></div>' },
+          'q-icon': { template: '<i />' },
+          'q-input': { template: '<input />' },
+          'q-select': QSelectStub,
+          'q-toggle': { template: '<input type="checkbox" />' },
+        },
+      },
+    })
+
+    await wrapper.setProps({ showDialog: true })
+
+    expect(wrapper.get('[data-testid="backup-schedule-unsupported"]').text()).toContain(
+      'Backups are not supported on this platform.',
+    )
   })
 })

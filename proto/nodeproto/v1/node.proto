@@ -64,6 +64,15 @@ message ProcessSnapshot {
   double io_write_rate = 13;
   int32 connection_count = 14;
   string working_dir = 15;
+  // execution_id identifies the current or most recently completed process
+  // execution. It changes every time the process ID is started again.
+  string execution_id = 16;
+  // previous_status and transition_sequence describe the latest authoritative
+  // lifecycle transition retained by the node.
+  string previous_status = 17;
+  uint64 transition_sequence = 18;
+  bool intentional_stop = 19;
+  optional int32 exit_code = 20;
 }
 
 // NodeSnapshot mirrors internal/node.NodeSnapshot.
@@ -111,6 +120,12 @@ message ConsoleChunk {
 message ProcessStatusEvent {
   string process_id = 1;
   string status = 2;
+  string old_status = 3;
+  bool intentional_stop = 4;
+  optional int32 exit_code = 5;
+  string execution_id = 6;
+  uint64 transition_sequence = 7;
+  bool replayed = 8;
 }
 
 // MetricsUpdateEvent fires when the node pushes a fresh metrics snapshot.
@@ -165,6 +180,17 @@ message StartProcessRequest {
   // Xylona avoids its own env leaks, but node host admins, process inspectors,
   // crash dumps, and the launched game/plugin can still read these values.
   map<string, string> launch_env = 13;
+  // execution_id correlates lifecycle events and snapshots to this exact
+  // invocation. Nodes generate one when older controllers omit it.
+  string execution_id = 14;
+  // telnet_input configures node-local telnet console input. The node always
+  // dials localhost; no remote host is accepted over the wire.
+  TelnetInput telnet_input = 15;
+}
+
+message TelnetInput {
+  int32 port = 1;
+  string password = 2;
 }
 
 message StartProcessResponse {
@@ -543,7 +569,11 @@ message ListBindableIPsResponse {
   repeated BindableIP ips = 1;
 }
 
-message StreamEventsRequest {}
+message StreamEventsRequest {
+  // replay_process_status asks the node to atomically replay the retained
+  // latest lifecycle transition for every process before live delivery.
+  bool replay_process_status = 1;
+}
 
 message PingRequest {}
 
@@ -556,6 +586,8 @@ message GetRuntimeCapabilitiesRequest {}
 message GetRuntimeCapabilitiesResponse {
   int64 protocol_version = 1;
   bool launch_env = 2;
+  bool reliable_process_lifecycle = 3;
+  bool telnet_input = 4;
 }
 
 // --- Self-update RPCs -------------------------------------------------------

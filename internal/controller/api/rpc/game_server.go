@@ -291,7 +291,20 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 		return nil, errEnsureIP
 	}
 
-	newGameServerModel.BackupsEnabled = true
+	backupCapability, errBackupCapability := actions.ResolveBackupCapability(
+		ctx,
+		xs.db,
+		xs.nodeRegistry,
+		newGameServerModel,
+		game,
+	)
+	if errBackupCapability != nil {
+		return nil, connect.NewError(
+			connect.CodeFailedPrecondition,
+			errors.New(backupCapability.DisabledReason),
+		)
+	}
+	newGameServerModel.BackupsEnabled = backupCapability.Supported
 	newGameServerModel.MaxBackups = normalizeBackupRetention(newGameServerModel.MaxBackups)
 
 	backupDirectory := strings.TrimSpace(newGameServerModel.BackupDirectory)

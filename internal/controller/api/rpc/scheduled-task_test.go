@@ -226,6 +226,86 @@ func TestCreateScheduledTaskBackupRejectsDisabledBackups(t *testing.T) {
 	}
 }
 
+func TestCreateScheduledTaskAllowsDisabledBackupScheduleWhenBackupsAreUnavailable(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	_, errDisableCapability := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		"update game set linux_allow_backups = false, windows_allow_backups = false where id = ?",
+		"minecraft",
+	)
+	if errDisableCapability != nil {
+		t.Fatalf("disable game backup capability: %v", errDisableCapability)
+	}
+
+	request := connect.NewRequest(&xylona.CreateScheduledTaskRequest{
+		GameServerId:   "server-local-1",
+		Name:           "Paused Backup",
+		TaskType:       "backup",
+		CronExpression: "0 3 * * *",
+		Timezone:       "UTC",
+		Enabled:        false,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errCreate := fixture.service.CreateScheduledTask(context.Background(), request)
+	if errCreate != nil {
+		t.Fatalf("CreateScheduledTask(disabled backup) error = %v", errCreate)
+	}
+	if response.Msg.GetTask().GetEnabled() {
+		t.Fatal("CreateScheduledTask(disabled backup).Enabled = true, want false")
+	}
+}
+
+func TestUpdateScheduledTaskAllowsUnsupportedBackupScheduleToBeDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	task, errInsert := fixture.conn.InsertScheduledTask(
+		"server-local-1",
+		"user-owner",
+		"Nightly Backup",
+		"backup",
+		"0 3 * * *",
+		"UTC",
+		"",
+		true,
+	)
+	if errInsert != nil {
+		t.Fatalf("InsertScheduledTask() error = %v", errInsert)
+	}
+
+	_, errDisableCapability := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		"update game set linux_allow_backups = false, windows_allow_backups = false where id = ?",
+		"minecraft",
+	)
+	if errDisableCapability != nil {
+		t.Fatalf("disable game backup capability: %v", errDisableCapability)
+	}
+
+	request := connect.NewRequest(&xylona.UpdateScheduledTaskRequest{
+		Id:             task.ID,
+		Name:           task.Name,
+		TaskType:       task.TaskType,
+		CronExpression: task.CronExpression,
+		Timezone:       task.Timezone,
+		Enabled:        false,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errUpdate := fixture.service.UpdateScheduledTask(context.Background(), request)
+	if errUpdate != nil {
+		t.Fatalf("UpdateScheduledTask(disable unsupported backup) error = %v", errUpdate)
+	}
+	if response.Msg.GetTask().GetEnabled() {
+		t.Fatal("UpdateScheduledTask(disable unsupported backup).Enabled = true, want false")
+	}
+}
+
 func TestCreateScheduledTaskBackupRejectsInvalidBackupDirectory(t *testing.T) {
 	t.Parallel()
 

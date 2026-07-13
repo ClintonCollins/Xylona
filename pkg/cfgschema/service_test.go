@@ -267,6 +267,8 @@ func TestGameServerSettingsResolver(t *testing.T) {
 		{name: "query port plus one alias", source: "query_port_plus_1", want: "25567", wantExists: true},
 		{name: "max players", source: "game_server.max_players", want: "24", wantExists: true},
 		{name: "max players alias", source: "max_players", want: "24", wantExists: true},
+		{name: "local console enabled", source: "xylona.local_console_enabled", want: "true", wantExists: true},
+		{name: "local console password", source: "xylona.local_console_password", want: "", wantExists: true},
 		{name: "unknown", source: "game_server.unknown", wantExists: false},
 	}
 	for _, testCase := range testCases {

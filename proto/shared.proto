@@ -730,6 +730,7 @@ message GameServerBackupOverview {
   bool backup_directory_configured = 5;
   int32 scheduled_backup_count = 6;
   string disabled_reason = 7;
+  bool backups_supported = 8;
 }
 
 message BackupSettings {
@@ -737,6 +738,8 @@ message BackupSettings {
   string backup_directory = 2;
   int64 max_backups = 3;
   string default_backup_directory = 4;
+  bool backups_supported = 5;
+  string disabled_reason = 6;
 }
 
 message BackupProgress {

@@ -340,6 +340,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 
 	installCfg := node.ProcessConfig{
 		ID:               newGameServer.ID,
+		ExecutionID:      uuid.NewString(),
 		Name:             newGameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
@@ -361,7 +362,7 @@ func (inst *Instance) InstallGameServer(game *models.Game, gameServer *models.Ga
 	// supervisor's own status event; for remote nodes it fires via the
 	// event bridge. Either way, the post-install code path is identical.
 	installedGS := newGameServer
-	inst.exitHooks.set(newGameServer.ID, func(event eventbus.StatusChangedEvent) {
+	inst.exitHooks.set(newGameServer.ID, installCfg.ExecutionID, func(event eventbus.StatusChangedEvent) {
 		if event.ExitCode != 0 {
 			log.Warn().Int("exit_code", event.ExitCode).Str("game_server_id", installedGS.ID).
 				Msg("Install command exited with non-zero; skipping post-install")
@@ -557,7 +558,15 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	}
 	// Generate and enforce managed config before readiness checks so games
 	// with required first-run values can present an editable file immediately.
-	inst.runConfigPreStart(gameServer)
+	if gameServer.GameID == "7_days_to_die" {
+		errConfigPreStart := inst.runConfigPreStartStrict(gameServer)
+		if errConfigPreStart != nil {
+			inst.reportStartFailure(gameServer, "Local management console configuration failed: "+errConfigPreStart.Error())
+			return nil, startConfigurationError("local management console configuration failed", errConfigPreStart)
+		}
+	} else {
+		inst.runConfigPreStart(gameServer)
+	}
 
 	errReadiness := readiness.CheckStart(inst.ctx, inst.db, gameServer, client)
 	if errReadiness != nil {
@@ -586,6 +595,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 
 	cfg := node.ProcessConfig{
 		ID:               gameServer.ID,
+		ExecutionID:      uuid.NewString(),
 		Name:             gameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
@@ -600,6 +610,11 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		cfg.InputTelnet = &node.TelnetInput{
 			Port:     int(gameServer.QueryPort),
 			Password: "",
+		}
+		errTelnetSupported := inst.ensureTelnetInputSupported(client)
+		if errTelnetSupported != nil {
+			inst.reportStartFailure(gameServer, errTelnetSupported.Error())
+			return nil, errTelnetSupported
 		}
 	}
 
@@ -648,6 +663,17 @@ func (inst *Instance) ensureLaunchEnvSupported(client nodeclient.NodeClient, req
 	return nil
 }
 
+func (inst *Instance) ensureTelnetInputSupported(client nodeclient.NodeClient) error {
+	caps, errCaps := client.GetRuntimeCapabilities(inst.ctx)
+	if errCaps != nil {
+		return startUnavailableError("target node runtime capabilities unavailable", errCaps)
+	}
+	if !caps.TelnetInput {
+		return startConfigurationError("target node does not support the required local management console; upgrade the node before starting this server", nil)
+	}
+	return nil
+}
+
 // resolveNodeClient looks up the NodeClient for a node ID. When the
 // registry is not configured (tests, migrations), falls back to the embedded
 // node client supplied at construction. With a configured registry, non-self
@@ -675,14 +701,27 @@ func (inst *Instance) resolveNodeClient(nodeID string) (nodeclient.NodeClient, e
 }
 
 func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
+	errRun := inst.runConfigPreStartMode(gameServer, false)
+	if errRun != nil {
+		log.Warn().Err(errRun).Str("game_server_id", gameServer.ID).
+			Msg("Pre-start: config processing failed; continuing startup")
+	}
+}
+
+func (inst *Instance) runConfigPreStartStrict(gameServer *models.GameServer) error {
+	return inst.runConfigPreStartMode(gameServer, true)
+}
+
+func (inst *Instance) runConfigPreStartMode(gameServer *models.GameServer, strict bool) error {
 	schemasJSON, errGet := inst.db.GetGameConfigSchemas(gameServer.GameID)
 	if errGet != nil {
-		log.Debug().Err(errGet).Str("game_id", gameServer.GameID).
-			Msg("Pre-start: could not get config schemas, skipping")
-		return
+		return fmt.Errorf("actions: get pre-start config schemas: %w", errGet)
 	}
 	if schemasJSON == "" {
-		return
+		if strict {
+			return errors.New("actions: required pre-start config schema is unavailable")
+		}
+		return nil
 	}
 
 	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
@@ -696,19 +735,32 @@ func (inst *Instance) runConfigPreStart(gameServer *models.GameServer) {
 	if inst.isRemoteGameServer(gameServer) {
 		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 		if errClient != nil {
-			log.Warn().Err(errClient).Str("game_server_id", gameServer.ID).
-				Msg("Pre-start: failed to resolve node client, skipping")
-			return
+			return fmt.Errorf("actions: resolve pre-start node client: %w", errClient)
 		}
 		store := remotePreStartFileStore{
 			ctx:       inst.ctx,
 			client:    client,
 			directory: gameServer.Directory,
 		}
+		if strict {
+			errRun := cfgschema.RunPreStartWithStoreStrict(schemasJSON, resolver, store)
+			if errRun != nil {
+				return fmt.Errorf("actions: run strict remote pre-start config: %w", errRun)
+			}
+			return nil
+		}
 		cfgschema.RunPreStartWithStore(schemasJSON, resolver, store)
-		return
+		return nil
+	}
+	if strict {
+		errRun := cfgschema.RunPreStartStrict(gameServer.Directory, schemasJSON, resolver)
+		if errRun != nil {
+			return fmt.Errorf("actions: run strict local pre-start config: %w", errRun)
+		}
+		return nil
 	}
 	cfgschema.RunPreStart(gameServer.Directory, schemasJSON, resolver)
+	return nil
 }
 
 type remotePreStartFileStore struct {
@@ -830,6 +882,19 @@ func (inst *Instance) StopGameServer(gameServer *models.GameServer) {
 // UpdateGameServer starts the configured update flow for a game server.
 // Routes through NodeClient for both embedded and remote nodes.
 func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
+	_, errUpdate := inst.startGameServerUpdate(gameServer)
+	return errUpdate
+}
+
+// startGameServerUpdate starts an update with a fresh execution ID and returns
+// that ID so callers can correlate the exact terminal lifecycle transition.
+func (inst *Instance) startGameServerUpdate(gameServer *models.GameServer) (string, error) {
+	executionID := uuid.NewString()
+	errUpdate := inst.updateGameServerWithExecutionID(gameServer, executionID)
+	return executionID, errUpdate
+}
+
+func (inst *Instance) updateGameServerWithExecutionID(gameServer *models.GameServer, executionID string) error {
 	// Stop if currently running. Use snapshot status rather than direct
 	// supervisor lookup so remote-node servers are handled uniformly.
 	currentStatus := inst.currentProcessStatus(gameServer)
@@ -868,6 +933,7 @@ func (inst *Instance) UpdateGameServer(gameServer *models.GameServer) error {
 
 	updateCfg := node.ProcessConfig{
 		ID:               gameServer.ID,
+		ExecutionID:      executionID,
 		Name:             gameServer.Name,
 		WorkingDirectory: gameServer.Directory,
 		User:             gameServer.UserID,

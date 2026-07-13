@@ -38,6 +38,7 @@ const defaultStopTimeout = 15 * time.Second
 // supervisor.PreparedCommand internally.
 type ProcessConfig struct {
 	ID               string
+	ExecutionID      string
 	Name             string
 	BaseCommand      string
 	Args             []string
@@ -50,8 +51,8 @@ type ProcessConfig struct {
 
 	// InputTelnet, when non-zero, configures the process to receive console
 	// input over telnet (used by games like 7 Days to Die that don't accept
-	// stdin). Ignored for remote nodes until the node-side supervisor gains
-	// telnet support — the current default is stdin.
+	// stdin). Remote controllers must verify the node's TelnetInput runtime
+	// capability before sending it. The default remains stdin.
 	InputTelnet *TelnetInput
 
 	// InternalCommand marks the process as an "internal" supervisor command
@@ -329,21 +330,27 @@ func NewFileEntry(name string, size int64, isDirectory bool, modTime time.Time, 
 
 // ProcessSnapshot is a point-in-time view of a single supervised process.
 type ProcessSnapshot struct {
-	ID              string
-	Name            string
-	Status          string
-	UnixStartedAt   int64
-	CPUPercent      float64
-	CPUCores        int32
-	MemoryRSS       uint64
-	MemoryVMS       uint64
-	MemoryPercent   float32
-	NumThreads      int32
-	DiskUsageBytes  uint64
-	IOReadRate      float64
-	IOWriteRate     float64
-	ConnectionCount int32
-	WorkingDir      string
+	ID                 string
+	ExecutionID        string
+	Name               string
+	Status             string
+	PreviousStatus     string
+	TransitionSequence uint64
+	IntentionalStop    bool
+	ExitCode           int
+	ExitCodeKnown      bool
+	UnixStartedAt      int64
+	CPUPercent         float64
+	CPUCores           int32
+	MemoryRSS          uint64
+	MemoryVMS          uint64
+	MemoryPercent      float32
+	NumThreads         int32
+	DiskUsageBytes     uint64
+	IOReadRate         float64
+	IOWriteRate        float64
+	ConnectionCount    int32
+	WorkingDir         string
 }
 
 // NodeSnapshot bundles host info, point-in-time host resource usage, and the
@@ -390,8 +397,7 @@ type ConsoleChunk struct {
 // EventType identifies the kind of node event.
 type EventType string
 
-// Known node event types. The list is intentionally small for Step 1; it will
-// grow when StreamEvents is wired up in Step 9.
+// Known node event types.
 const (
 	EventTypeProcessStatus EventType = "process_status"
 	EventTypeConsoleOutput EventType = "console_output"
@@ -400,9 +406,16 @@ const (
 
 // Event is a typed event emitted by the node and consumed by the controller.
 type Event struct {
-	Type      EventType
-	ProcessID string
-	Status    string
-	Payload   any
-	Timestamp time.Time
+	Type               EventType
+	ProcessID          string
+	Status             string
+	OldStatus          string
+	ExecutionID        string
+	TransitionSequence uint64
+	IntentionalStop    bool
+	ExitCode           int
+	ExitCodeKnown      bool
+	Replayed           bool
+	Payload            any
+	Timestamp          time.Time
 }

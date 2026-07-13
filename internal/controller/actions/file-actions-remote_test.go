@@ -3,6 +3,7 @@ package actions
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -195,6 +196,33 @@ func TestRunConfigPreStartWritesRemoteConfigThroughNodeClient(t *testing.T) {
 	}
 	if !strings.Contains(content, "query.port=25565\n") {
 		t.Fatalf("WriteFile content = %q, want managed query.port", content)
+	}
+}
+
+func TestRunConfigPreStartStrictReturnsRemoteWriteFailure(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	schemasJSON := `[{"path":"serverconfig.xml","format":"xml","generate_before_start":true,"schema":{"type":"object","properties":{"TelnetEnabled":{"type":"boolean","default":true},"TelnetPassword":{"type":"string","default":""}}},"managed_fields":{"TelnetEnabled":"xylona.local_console_enabled","TelnetPassword":"xylona.local_console_password"}}]`
+	errUpdateSchemas := inst.db.UpdateGameConfigSchemas(fixture.gameID, schemasJSON)
+	if errUpdateSchemas != nil {
+		t.Fatalf("UpdateGameConfigSchemas() error = %v", errUpdateSchemas)
+	}
+
+	writeFailure := errors.New("remote write failed")
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:       fixture.nodeID,
+		ReadFileErr:  os.ErrNotExist,
+		WriteFileErr: writeFailure,
+	}
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+	fixture.gameServer.Directory = "/srv/xylona/remote-server"
+
+	errRun := inst.runConfigPreStartStrict(fixture.gameServer)
+	if !errors.Is(errRun, writeFailure) {
+		t.Fatalf("runConfigPreStartStrict() error = %v, want remote write failure", errRun)
 	}
 }
 

@@ -139,6 +139,7 @@ function makeOverview(overrides: MessageOverrides<GameServerBackupOverview> = {}
   return create(GameServerBackupOverviewSchema, {
     enabled: true,
     operationsAllowed: true,
+    backupsSupported: true,
     canManageSettings: false,
     localServer: true,
     backupDirectoryConfigured: true,
@@ -151,6 +152,7 @@ function makeOverview(overrides: MessageOverrides<GameServerBackupOverview> = {}
 function makeBackupSettings(overrides: MessageOverrides<BackupSettings> = {}) {
   return create(BackupSettingsSchema, {
     backupsEnabled: true,
+    backupsSupported: true,
     backupDirectory: 'C:\\backups',
     maxBackups: 5n,
     defaultBackupDirectory: 'C:\\backups',
@@ -308,6 +310,36 @@ describe('GameServerBackups', () => {
 
     const deleteButton = wrapper.get('button[aria-label="Delete backup"]')
     expect((deleteButton.element as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('blocks new artifacts but preserves historical restore and delete when unsupported', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({
+      overview: makeOverview({
+        operationsAllowed: false,
+        backupsSupported: false,
+        disabledReason: 'Backups are not supported on this platform.',
+      }),
+    })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [makeBackup()] })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Backups are not supported on this platform.')
+    expect(
+      (wrapper.get('[data-testid="open-create-backup-dialog"]').element as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+    expect(
+      (wrapper.get('[data-testid="open-upload-backup-dialog"]').element as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+    expect(
+      (wrapper.get('button[aria-label="Restore backup"]').element as HTMLButtonElement).disabled,
+    ).toBe(false)
+    expect(
+      (wrapper.get('button[aria-label="Delete backup"]').element as HTMLButtonElement).disabled,
+    ).toBe(false)
   })
 
   it('creates a manual backup from the page action', async () => {

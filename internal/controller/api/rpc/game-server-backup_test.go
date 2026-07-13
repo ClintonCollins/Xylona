@@ -211,6 +211,43 @@ func TestGetGameServerBackupOverviewReturnsDisabledState(t *testing.T) {
 	}
 }
 
+func TestGetGameServerBackupOverviewReturnsUnsupportedPlatformState(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errDisableCapability := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		"update game set linux_allow_backups = false, windows_allow_backups = false where id = ?",
+		"minecraft",
+	)
+	if errDisableCapability != nil {
+		t.Fatalf("disable game backup capability: %v", errDisableCapability)
+	}
+
+	request := connect.NewRequest(&xylona.GetGameServerBackupOverviewRequest{
+		GameServerId: "server-local-1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServerBackupOverview(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServerBackupOverview() error = %v", errGet)
+	}
+
+	overview := response.Msg.GetOverview()
+	if overview == nil {
+		t.Fatal("GetGameServerBackupOverview() returned nil overview")
+	}
+	if overview.GetBackupsSupported() {
+		t.Fatal("GetGameServerBackupOverview().BackupsSupported = true, want false")
+	}
+	if overview.GetOperationsAllowed() {
+		t.Fatal("GetGameServerBackupOverview().OperationsAllowed = true, want false")
+	}
+	if overview.GetDisabledReason() == "" {
+		t.Fatal("GetGameServerBackupOverview().DisabledReason = empty, want unsupported reason")
+	}
+}
+
 func TestCreateGameServerBackupRequiresBackupPermission(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 
@@ -462,7 +499,7 @@ func TestRestoreGameServerBackupAllowsHistoricalArchiveWithBlankCurrentBackupDir
 	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
 		ID:              omit.From("server-local-1"),
 		Directory:       omit.From(serverDir),
-		BackupsEnabled:  omit.From(true),
+		BackupsEnabled:  omit.From(false),
 		BackupDirectory: omit.From(""),
 		MaxBackups:      omit.From(int64(5)),
 	})
@@ -685,6 +722,49 @@ func TestUpdateBackupSettingsDefaultsBackupDirectoryWhenEnablingLegacyServer(t *
 			updatedGameServer.MaxBackups,
 			actions.DefaultScheduledBackupRetention,
 		)
+	}
+}
+
+func TestUpdateBackupSettingsRejectsEnablingUnsupportedBackupsButAllowsDisabling(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errDisableCapability := fixture.conn.SQLDb.ExecContext(
+		context.Background(),
+		"update game set linux_allow_backups = false, windows_allow_backups = false where id = ?",
+		"minecraft",
+	)
+	if errDisableCapability != nil {
+		t.Fatalf("disable game backup capability: %v", errDisableCapability)
+	}
+
+	enableRequest := connect.NewRequest(&xylona.UpdateBackupSettingsRequest{
+		GameServerId:   "server-local-1",
+		BackupsEnabled: true,
+		MaxBackups:     5,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, enableRequest, "user-admin")
+
+	_, errEnable := fixture.service.UpdateBackupSettings(context.Background(), enableRequest)
+	if errEnable == nil {
+		t.Fatal("UpdateBackupSettings(enable unsupported) error = nil, want failed precondition")
+	}
+	if connect.CodeOf(errEnable) != connect.CodeFailedPrecondition {
+		t.Fatalf("UpdateBackupSettings(enable unsupported) code = %v, want %v", connect.CodeOf(errEnable), connect.CodeFailedPrecondition)
+	}
+
+	disableRequest := connect.NewRequest(&xylona.UpdateBackupSettingsRequest{
+		GameServerId:   "server-local-1",
+		BackupsEnabled: false,
+		MaxBackups:     5,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, disableRequest, "user-admin")
+
+	response, errDisable := fixture.service.UpdateBackupSettings(context.Background(), disableRequest)
+	if errDisable != nil {
+		t.Fatalf("UpdateBackupSettings(disable unsupported) error = %v", errDisable)
+	}
+	if response.Msg.GetSettings().GetBackupsEnabled() {
+		t.Fatal("UpdateBackupSettings(disable unsupported).BackupsEnabled = true, want false")
 	}
 }
 

@@ -120,7 +120,7 @@ func GenerateProto() {
 }
 
 func GenerateModels() {
-	cmdGenModels := exec.Command("go", "run", "github.com/stephenafamo/bob/gen/bobgen-sqlite@v0.42.0", "-c", "./bobgen.yaml")
+	cmdGenModels := exec.Command("go", "run", "github.com/stephenafamo/bob/gen/bobgen-sqlite@v0.48.0", "-c", "./bobgen.yaml")
 	cmdGenModels.Dir = "sql"
 	cmdGenModels.Stdout = os.Stdout
 	cmdGenModels.Stderr = os.Stderr

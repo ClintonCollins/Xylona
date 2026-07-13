@@ -11,9 +11,9 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/google/uuid"
 
-	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
+	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/pkg/version"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"

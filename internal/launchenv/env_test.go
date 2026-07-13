@@ -1,6 +1,7 @@
 package launchenv
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -66,6 +67,74 @@ func TestValidateVariables(t *testing.T) {
 			}
 			if !hasIssueContaining(issues, test.wantIssue) {
 				t.Fatalf("ValidateVariables() issues = %+v, want issue containing %q", issues, test.wantIssue)
+			}
+		})
+	}
+}
+
+func TestValidateNameRejectsLauncherControlVariables(t *testing.T) {
+	deniedNames := []string{
+		"JDK_JAVA_OPTIONS",
+		"MONO_PATH",
+		"DOTNET_STARTUP_HOOKS",
+		"DOTNET_ADDITIONAL_DEPS",
+		"BASH_ENV",
+		"ENV",
+		"GCONV_PATH",
+		"PERL5OPT",
+		"PERL5LIB",
+		"RUBYOPT",
+		"PYTHONSTARTUP",
+		"PYTHONHOME",
+	}
+
+	for _, deniedName := range deniedNames {
+		t.Run(deniedName, func(t *testing.T) {
+			issues := ValidateName(strings.ToLower(deniedName))
+			if !hasIssueContaining(issues, "is reserved") {
+				t.Fatalf("ValidateName(%q) issues = %+v, want reserved issue", deniedName, issues)
+			}
+		})
+	}
+}
+
+func TestValidateMap(t *testing.T) {
+	tests := []struct {
+		name        string
+		environment map[string]string
+		wantIssue   string
+	}{
+		{name: "valid", environment: map[string]string{"VISIBLE": "value"}},
+		{name: "case duplicate", environment: map[string]string{"TOKEN": "one", "token": "two"}, wantIssue: "duplicates"},
+		{name: "reserved", environment: map[string]string{"JDK_JAVA_OPTIONS": "-javaagent:bad.jar"}, wantIssue: "is reserved"},
+		{name: "oversized value", environment: map[string]string{"TOKEN": strings.Repeat("x", MaxValueBytes+1)}, wantIssue: "value exceeds"},
+		{name: "oversized payload", environment: map[string]string{
+			"ONE":   strings.Repeat("a", MaxValueBytes),
+			"TWO":   strings.Repeat("b", MaxValueBytes),
+			"THREE": strings.Repeat("c", MaxValueBytes),
+			"FOUR":  strings.Repeat("d", MaxValueBytes),
+			"FIVE":  strings.Repeat("e", MaxValueBytes),
+		}, wantIssue: "custom environment exceeds"},
+	}
+
+	tooMany := make(map[string]string, MaxMergedVariables+1)
+	for i := range MaxMergedVariables + 1 {
+		tooMany[fmt.Sprintf("VALUE_%d", i)] = "value"
+	}
+	tests = append(tests, struct {
+		name        string
+		environment map[string]string
+		wantIssue   string
+	}{name: "too many", environment: tooMany, wantIssue: "count exceeds"})
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			issues := ValidateMap(test.environment)
+			if test.wantIssue == "" && len(issues) != 0 {
+				t.Fatalf("ValidateMap() issues = %+v, want none", issues)
+			}
+			if test.wantIssue != "" && !hasIssueContaining(issues, test.wantIssue) {
+				t.Fatalf("ValidateMap() issues = %+v, want issue containing %q", issues, test.wantIssue)
 			}
 		})
 	}

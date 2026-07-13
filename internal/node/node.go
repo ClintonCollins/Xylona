@@ -35,8 +35,7 @@ func New(ctx context.Context, supervisorInst *supervisor.Instance, database *db.
 	return nodeInst
 }
 
-// Events returns the node's EventEmitter. Step 9 will wire this up; for now
-// the existing internal/eventbus continues to drive event delivery.
+// Events returns the node's replayable event emitter.
 func (n *Node) Events() *EventEmitter {
 	return n.events
 }

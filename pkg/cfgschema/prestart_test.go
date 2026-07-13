@@ -179,6 +179,118 @@ func TestRunPreStart_EmptySchemas(t *testing.T) {
 	RunPreStart(dir, "[]", nil)
 }
 
+func TestRunPreStartStrictReportsManagedFieldFailure(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "server.properties")
+	errWrite := os.WriteFile(configPath, []byte("telnet-password=keep-me\n"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write config: %v", errWrite)
+	}
+
+	schemasJSON := `[{
+		"path": "server.properties",
+		"format": "properties",
+		"managed_fields": {"telnet-password": "unknown.local_console_password"},
+		"schema": {"type": "object", "properties": {}}
+	}]`
+	errRun := RunPreStartStrict(dir, schemasJSON, GameServerSettingsResolver(GameServerSettings{}))
+	if errRun == nil {
+		t.Fatal("RunPreStartStrict() error = nil, want unknown source error")
+	}
+
+	data, errRead := os.ReadFile(configPath)
+	if errRead != nil {
+		t.Fatalf("read config: %v", errRead)
+	}
+	if string(data) != "telnet-password=keep-me\n" {
+		t.Fatalf("config changed after strict failure: %q", data)
+	}
+}
+
+func TestRunPreStartStrictEnforcesLocalConsoleSources(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "server.properties")
+	errWrite := os.WriteFile(configPath, []byte("telnet-enabled=false\ntelnet-password=remote-secret\n"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write config: %v", errWrite)
+	}
+
+	schemasJSON := `[{
+		"path": "server.properties",
+		"format": "properties",
+		"managed_fields": {
+			"telnet-enabled": "xylona.local_console_enabled",
+			"telnet-password": "xylona.local_console_password"
+		},
+		"schema": {"type": "object", "properties": {}}
+	}]`
+	errRun := RunPreStartStrict(dir, schemasJSON, GameServerSettingsResolver(GameServerSettings{}))
+	if errRun != nil {
+		t.Fatalf("RunPreStartStrict() error = %v", errRun)
+	}
+
+	data, errRead := os.ReadFile(configPath)
+	if errRead != nil {
+		t.Fatalf("read config: %v", errRead)
+	}
+	output := string(data)
+	if !strings.Contains(output, "telnet-enabled=true") {
+		t.Fatalf("managed config = %q, want enabled local console", output)
+	}
+	if !strings.Contains(output, "telnet-password=\n") {
+		t.Fatalf("managed config = %q, want empty local console password", output)
+	}
+}
+
+func TestRunPreStartStrictEnforcesAttributeKeyedXML(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "serverconfig.xml")
+	input := `<ServerSettings>
+  <property name="TelnetEnabled" value="false"></property>
+  <property name="TelnetPassword" value="remote-secret"></property>
+  <property name="Unmanaged" value="preserved"></property>
+</ServerSettings>`
+	errWrite := os.WriteFile(configPath, []byte(input), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write config: %v", errWrite)
+	}
+
+	schemasJSON := `[{
+		"path": "serverconfig.xml",
+		"format": "xml",
+		"xml_key_mode": {
+			"mode": "attributes",
+			"element": "property",
+			"key_attr": "name",
+			"value_attr": "value"
+		},
+		"managed_fields": {
+			"TelnetEnabled": "xylona.local_console_enabled",
+			"TelnetPassword": "xylona.local_console_password"
+		},
+		"schema": {"type": "object", "properties": {}}
+	}]`
+	errRun := RunPreStartStrict(dir, schemasJSON, GameServerSettingsResolver(GameServerSettings{}))
+	if errRun != nil {
+		t.Fatalf("RunPreStartStrict() error = %v", errRun)
+	}
+
+	data, errRead := os.ReadFile(configPath)
+	if errRead != nil {
+		t.Fatalf("read config: %v", errRead)
+	}
+	output := string(data)
+	for _, expected := range []string{
+		`<property name="TelnetEnabled" value="true"/>`,
+		`<property name="TelnetPassword" value=""/>`,
+		`<property name="Unmanaged" value="preserved"/>`,
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("managed XML = %q, want %q", output, expected)
+		}
+	}
+}
+
 func TestRunPreStart_GenerateStructuredJSONWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 

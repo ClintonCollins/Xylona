@@ -38,6 +38,11 @@ type RemoteEventBridge struct {
 	active map[string]context.CancelFunc
 }
 
+type processLifecycleCursor struct {
+	executionID string
+	sequence    uint64
+}
+
 // NewRemoteEventBridge constructs a bridge. It does NOT start any goroutines
 // until Start is called. Pass the controller's long-lived context as parent;
 // every per-node goroutine is tied to a child context derived from it.
@@ -110,6 +115,10 @@ func (b *RemoteEventBridge) startForClient(client nodeclient.NodeClient) {
 func (b *RemoteEventBridge) runForClient(ctx context.Context, client nodeclient.NodeClient) {
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
+	// These maps intentionally survive stream reconnects. Legacy nodes need the
+	// previous-status cache, while v2 nodes use the cursor to deduplicate replay.
+	previousStatus := make(map[string]string)
+	lifecycleCursors := make(map[string]processLifecycleCursor)
 
 	for {
 		if ctx.Err() != nil {
@@ -135,9 +144,6 @@ func (b *RemoteEventBridge) runForClient(ctx context.Context, client nodeclient.
 		// Reset backoff on a successful subscribe.
 		backoff = time.Second
 
-		// Track per-server previous status so we can publish StatusChanged
-		// with the correct OldStatus field.
-		previousStatus := make(map[string]string)
 		for {
 			select {
 			case <-ctx.Done():
@@ -148,7 +154,7 @@ func (b *RemoteEventBridge) runForClient(ctx context.Context, client nodeclient.
 					log.Debug().Str("node_id", client.ID()).Msg("remote-event-bridge: event stream closed, re-subscribing")
 					goto restream
 				}
-				b.republish(client.ID(), ev, previousStatus)
+				b.republish(client.ID(), ev, previousStatus, lifecycleCursors)
 			}
 		}
 	restream:
@@ -168,41 +174,61 @@ func waitOrCancel(ctx context.Context, d time.Duration) bool {
 }
 
 // republish translates a node.Event into the controller's eventbus topics.
-// For EventTypeProcessStatus: publishes StatusChangedEvent (with IntentionalStop
-// inferred from the event's status text — remote nodes don't have a direct
-// supervisor handle to query, so "OFFLINE with non-empty status" is treated
-// as a process exit signal; auto-restart's own DB lookup disambiguates).
-func (b *RemoteEventBridge) republish(nodeID string, ev node.Event, previousStatus map[string]string) {
+// For EventTypeProcessStatus, v2 events carry authoritative lifecycle metadata
+// and are deduplicated across replay. Legacy events retain the previous-status
+// reconstruction used by v1 nodes, with the cache surviving reconnects.
+func (b *RemoteEventBridge) republish(
+	nodeID string,
+	ev node.Event,
+	previousStatus map[string]string,
+	lifecycleCursors map[string]processLifecycleCursor,
+) {
 	switch ev.Type {
 	case node.EventTypeProcessStatus:
 		newStatus := strings.ToUpper(strings.TrimSpace(ev.Status))
 		if newStatus == "" {
 			return
 		}
-		oldStatus, hasOld := previousStatus[ev.ProcessID]
-		if !hasOld {
-			oldStatus = xylona.Status_UNKNOWN.String()
+
+		var oldStatus string
+		reliableLifecycle := strings.TrimSpace(ev.ExecutionID) != "" && ev.TransitionSequence > 0
+		if reliableLifecycle {
+			cursor, hasCursor := lifecycleCursors[ev.ProcessID]
+			if hasCursor && cursor.executionID == ev.ExecutionID && ev.TransitionSequence <= cursor.sequence {
+				return
+			}
+			lifecycleCursors[ev.ProcessID] = processLifecycleCursor{
+				executionID: ev.ExecutionID,
+				sequence:    ev.TransitionSequence,
+			}
+			oldStatus = strings.ToUpper(strings.TrimSpace(ev.OldStatus))
+			if oldStatus == "" {
+				oldStatus = xylona.Status_UNKNOWN.String()
+			}
+		} else {
+			var hasOld bool
+			oldStatus, hasOld = previousStatus[ev.ProcessID]
+			if !hasOld {
+				oldStatus = xylona.Status_UNKNOWN.String()
+			}
 		}
 		previousStatus[ev.ProcessID] = newStatus
 
 		serverName := b.resolveServerName(ev.ProcessID)
 
 		b.bus.Publish(eventbus.TopicGameServerStatusChanged, eventbus.StatusChangedEvent{
-			ServerID:     ev.ProcessID,
-			ServerName:   serverName,
-			ServerNodeID: nodeID,
-			OldStatus:    oldStatus,
-			NewStatus:    newStatus,
-			// IntentionalStop cannot be inferred from the wire alone; the
-			// auto-restart subscriber re-reads the DB to determine whether
-			// a stop was intentional or an unexpected exit. ExitCode is
-			// left zero because the node doesn't surface it in the status
-			// event; crash events handle the non-zero case below.
+			ServerID:           ev.ProcessID,
+			ServerName:         serverName,
+			ServerNodeID:       nodeID,
+			OldStatus:          oldStatus,
+			NewStatus:          newStatus,
+			ExecutionID:        ev.ExecutionID,
+			TransitionSequence: ev.TransitionSequence,
+			IntentionalStop:    ev.IntentionalStop,
+			ExitCode:           ev.ExitCode,
+			ExitCodeKnown:      ev.ExitCodeKnown,
+			Replayed:           ev.Replayed,
 		})
-
-		// Status==crashed is a synthetic marker we add on the node side when
-		// the process exits with a non-zero code (see ProcessCrashEvent); no
-		// additional publish is needed here.
 
 	case node.EventTypeConsoleOutput:
 		// Console output is consumed directly by the websocket console

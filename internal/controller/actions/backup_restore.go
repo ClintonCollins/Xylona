@@ -152,9 +152,6 @@ func BackupRestoreUserFacingMessage(err error) (string, bool) {
 }
 
 func validateBackupRestoreSettings(inst *Instance, gameServer *models.GameServer) error {
-	if !gameServer.BackupsEnabled {
-		return errBackupsDisabled
-	}
 	if !isGameServerOffline(inst, gameServer) {
 		return errBackupRestoreRequiresOffline
 	}

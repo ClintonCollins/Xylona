@@ -171,6 +171,8 @@ func GameServerSettingsResolver(settings GameServerSettings) ManagedFieldResolve
 		"game_server.max_players":       strconv.FormatInt(settings.MaxPlayers, 10),
 		"game_server.server_name":       settings.Name,
 		"game_server.directory":         settings.Directory,
+		"xylona.local_console_enabled":  "true",
+		"xylona.local_console_password": "",
 	}
 	return func(source string) (string, bool) {
 		v, ok := sources[normalizeManagedSource(source)]

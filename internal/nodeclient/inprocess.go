@@ -399,7 +399,7 @@ func (c *inProcessNodeClient) StreamEvents(ctx context.Context) (<-chan node.Eve
 		return nil, errors.New("nodeclient: node has no event emitter")
 	}
 
-	subscription := emitter.Subscribe()
+	subscription := emitter.SubscribeWithReplay(true)
 	out := make(chan node.Event, cap(subscription))
 
 	go func() {

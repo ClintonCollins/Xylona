@@ -720,6 +720,7 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 
 	cfg := node.ProcessConfig{
 		ID:               "gs-1",
+		ExecutionID:      "execution-1",
 		Name:             "server",
 		BaseCommand:      "./run.sh",
 		Args:             []string{"-p", "27015"},
@@ -731,6 +732,7 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 		LaunchEnv: map[string]string{
 			"XYLONA_TEST_TOKEN": "secret-value",
 		},
+		InputTelnet: &node.TelnetInput{Port: 8081, Password: t.Name()},
 	}
 	errStart := client.StartProcess(t.Context(), cfg, xylona.Status_ONLINE)
 	if errStart != nil {
@@ -752,14 +754,22 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 	if got.GetLaunchEnv()["XYLONA_TEST_TOKEN"] != "secret-value" {
 		t.Fatalf("launch env was not sent: %+v", got.GetLaunchEnv())
 	}
+	if got.GetExecutionId() != "execution-1" {
+		t.Fatalf("execution ID = %q, want execution-1", got.GetExecutionId())
+	}
+	if got.GetTelnetInput().GetPort() != 8081 || got.GetTelnetInput().GetPassword() != t.Name() {
+		t.Fatalf("telnet input = %+v", got.GetTelnetInput())
+	}
 }
 
 func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{
 		runtimeCapsResp: &nodeprotov1.GetRuntimeCapabilitiesResponse{
-			ProtocolVersion: 7,
-			LaunchEnv:       true,
+			ProtocolVersion:          7,
+			LaunchEnv:                true,
+			ReliableProcessLifecycle: true,
+			TelnetInput:              true,
 		},
 	}
 	url, fingerprint := newPinnedTestServer(t, rec)
@@ -769,8 +779,8 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	if errCaps != nil {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
-	if caps.ProtocolVersion != 7 || !caps.LaunchEnv {
-		t.Fatalf("runtime capabilities = %+v, want protocol 7 and launch env", caps)
+	if caps.ProtocolVersion != 7 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle || !caps.TelnetInput {
+		t.Fatalf("runtime capabilities = %+v, want all optional features", caps)
 	}
 }
 
@@ -818,13 +828,22 @@ func TestGRPCClientInvalidArgumentMapsToInvalidPath(t *testing.T) {
 }
 func TestGRPCClientGetNodeSnapshotRoundTripsFields(t *testing.T) {
 	t.Parallel()
+	exitCode := int32(9)
 	rec := &callRecorder{
 		nodeSnapshot: &nodeprotov1.NodeSnapshot{
 			CpuModel:    "stub-cpu",
 			CpuCores:    8,
 			TotalMemory: 16 * 1024 * 1024,
 			Processes: []*nodeprotov1.ProcessSnapshot{
-				{Id: "p1", Name: "proc-1", Status: "ONLINE"},
+				{
+					Id:                 "p1",
+					ExecutionId:        "execution-1",
+					Name:               "proc-1",
+					Status:             "OFFLINE",
+					PreviousStatus:     "UPDATING",
+					TransitionSequence: 2,
+					ExitCode:           &exitCode,
+				},
 			},
 			Collected: timestamppb.Now(),
 		},
@@ -841,6 +860,11 @@ func TestGRPCClientGetNodeSnapshotRoundTripsFields(t *testing.T) {
 	}
 	if len(snap.Processes) != 1 || snap.Processes[0].ID != "p1" {
 		t.Fatalf("processes mismatch: %+v", snap.Processes)
+	}
+	process := snap.Processes[0]
+	if process.ExecutionID != "execution-1" || process.PreviousStatus != "UPDATING" ||
+		process.TransitionSequence != 2 || !process.ExitCodeKnown || process.ExitCode != 9 {
+		t.Fatalf("process lifecycle mismatch: %+v", process)
 	}
 }
 func TestGRPCClientListBindableIPsRoundTripsFields(t *testing.T) {
@@ -872,12 +896,22 @@ func TestGRPCClientListBindableIPsRoundTripsFields(t *testing.T) {
 }
 func TestGRPCClientStreamEventsDeliversPayloadAndClosesOnCtx(t *testing.T) {
 	t.Parallel()
+	exitCode := int32(17)
 	rec := &callRecorder{
 		streamEvents: []*nodeprotov1.Event{
 			{
 				Timestamp: timestamppb.Now(),
 				Payload: &nodeprotov1.Event_ProcessStatus{
-					ProcessStatus: &nodeprotov1.ProcessStatusEvent{ProcessId: "p1", Status: "ONLINE"},
+					ProcessStatus: &nodeprotov1.ProcessStatusEvent{
+						ProcessId:          "p1",
+						Status:             "OFFLINE",
+						OldStatus:          "ONLINE",
+						IntentionalStop:    false,
+						ExitCode:           &exitCode,
+						ExecutionId:        "execution-1",
+						TransitionSequence: 2,
+						Replayed:           true,
+					},
 				},
 			},
 			{
@@ -908,6 +942,10 @@ func TestGRPCClientStreamEventsDeliversPayloadAndClosesOnCtx(t *testing.T) {
 	}
 	if seen[0].Type != node.EventTypeProcessStatus || seen[0].ProcessID != "p1" {
 		t.Fatalf("first event: %+v", seen[0])
+	}
+	if seen[0].OldStatus != "ONLINE" || seen[0].ExecutionID != "execution-1" ||
+		seen[0].TransitionSequence != 2 || !seen[0].ExitCodeKnown || seen[0].ExitCode != 17 || !seen[0].Replayed {
+		t.Fatalf("first lifecycle event: %+v", seen[0])
 	}
 	if seen[1].Type != node.EventTypeConsoleOutput {
 		t.Fatalf("second event type: %v", seen[1].Type)

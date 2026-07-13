@@ -19,6 +19,8 @@ const (
 	MaxValueBytes = 4096
 	// MaxVariables is the maximum count for normal env vars or secret env vars.
 	MaxVariables = 64
+	// MaxMergedVariables is the maximum count in the final map passed to a node.
+	MaxMergedVariables = MaxVariables * 2
 	// MaxMergedEnvBytes is the maximum custom env payload size passed to a node.
 	MaxMergedEnvBytes = 16 * 1024
 )
@@ -28,15 +30,27 @@ const emptyStoredEnv = "[]"
 var envNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 var deniedExactNames = map[string]struct{}{
-	"PATH":              {},
-	"COMSPEC":           {},
-	"SYSTEMROOT":        {},
-	"WINDIR":            {},
-	"PATHEXT":           {},
-	"JAVA_TOOL_OPTIONS": {},
-	"_JAVA_OPTIONS":     {},
-	"NODE_OPTIONS":      {},
-	"PYTHONPATH":        {},
+	"PATH":                   {},
+	"COMSPEC":                {},
+	"SYSTEMROOT":             {},
+	"WINDIR":                 {},
+	"PATHEXT":                {},
+	"JAVA_TOOL_OPTIONS":      {},
+	"_JAVA_OPTIONS":          {},
+	"JDK_JAVA_OPTIONS":       {},
+	"NODE_OPTIONS":           {},
+	"PYTHONPATH":             {},
+	"MONO_PATH":              {},
+	"DOTNET_STARTUP_HOOKS":   {},
+	"DOTNET_ADDITIONAL_DEPS": {},
+	"BASH_ENV":               {},
+	"ENV":                    {},
+	"GCONV_PATH":             {},
+	"PERL5OPT":               {},
+	"PERL5LIB":               {},
+	"RUBYOPT":                {},
+	"PYTHONSTARTUP":          {},
+	"PYTHONHOME":             {},
 }
 
 var deniedPrefixes = []string{"LD_", "DYLD_"}
@@ -274,12 +288,43 @@ func BuildLaunchEnv(normal []Variable, secrets map[string]string) (map[string]st
 		env[variable.Name] = variable.Value
 	}
 	maps.Copy(env, secrets)
-
-	size := mergedEnvSize(env)
-	if size > MaxMergedEnvBytes {
-		return nil, []ValidationIssue{{Message: fmt.Sprintf("custom environment exceeds %d bytes", MaxMergedEnvBytes)}}
+	mapIssues := ValidateMap(env)
+	if len(mapIssues) > 0 {
+		return nil, mapIssues
 	}
 	return env, nil
+}
+
+// ValidateMap validates the final launch environment received by a node. This
+// is intentionally independent of how controller-side normal and secret
+// variables were stored or merged.
+func ValidateMap(environment map[string]string) []ValidationIssue {
+	var issues []ValidationIssue
+	if len(environment) > MaxMergedVariables {
+		issues = append(issues, ValidationIssue{Message: fmt.Sprintf("environment variable count exceeds %d", MaxMergedVariables)})
+	}
+
+	seen := make(map[string]string, len(environment))
+	for name, value := range environment {
+		issues = append(issues, ValidateName(name)...)
+		issues = append(issues, ValidateValue(name, value)...)
+
+		key := strings.ToUpper(name)
+		previous, exists := seen[key]
+		if exists {
+			issues = append(issues, ValidationIssue{
+				Name:    name,
+				Message: fmt.Sprintf("environment variable %q duplicates %q", name, previous),
+			})
+			continue
+		}
+		seen[key] = name
+	}
+
+	if mergedEnvSize(environment) > MaxMergedEnvBytes {
+		issues = append(issues, ValidationIssue{Message: fmt.Sprintf("custom environment exceeds %d bytes", MaxMergedEnvBytes)})
+	}
+	return issues
 }
 
 func hasControlOrNUL(value string) bool {

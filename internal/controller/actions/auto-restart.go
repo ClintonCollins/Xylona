@@ -93,7 +93,7 @@ func (inst *Instance) onStatusChanged(event eventbus.StatusChangedEvent) {
 	// Fire one-shot exit hook first; install/update flows set these to run
 	// post-install or chain a restart.
 	if inst.exitHooks != nil {
-		hook, ok := inst.exitHooks.take(event.ServerID)
+		hook, ok := inst.exitHooks.take(event.ServerID, event.ExecutionID)
 		if ok {
 			// Run in a goroutine so a slow hook doesn't block the event
 			// subscriber from processing subsequent events.

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ClintonCollins/Xylona/internal/controller/launchenv"
+	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"

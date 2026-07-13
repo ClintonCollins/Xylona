@@ -217,6 +217,44 @@ func TestExecuteTaskRunsBackupExecutor(t *testing.T) {
 	}
 }
 
+func TestExecuteBackupReportsCapabilityFailures(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus string
+	}{
+		{
+			name:       "unsupported platform is skipped",
+			err:        controlleractions.ErrBackupsUnsupported,
+			wantStatus: statusSkipped,
+		},
+		{
+			name:       "unavailable node is failed",
+			err:        controlleractions.ErrBackupCapabilityUnavailable,
+			wantStatus: statusFailed,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			task := &models.ScheduledTask{GameServerID: "server-1"}
+			database := &executeTaskDBFake{
+				gameServer: &models.GameServer{ID: "server-1", NodeID: "node-1"},
+				node:       &models.Node{ID: "node-1", Enabled: true},
+			}
+			scheduler := &Scheduler{
+				db:     database,
+				backup: &executeTaskBackupFake{err: test.err},
+			}
+
+			status, _ := scheduler.executeBackup(task)
+			if status != test.wantStatus {
+				t.Fatalf("executeBackup() status = %q, want %q", status, test.wantStatus)
+			}
+		})
+	}
+}
+
 func TestExecuteTaskBackupWithoutExecutorFailsClearly(t *testing.T) {
 	now := time.Now().UTC()
 	task := &models.ScheduledTask{

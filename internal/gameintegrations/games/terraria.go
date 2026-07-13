@@ -41,20 +41,32 @@ type Terraria struct {
 // Install downloads and extracts the current official package for this node's
 // operating system.
 func (t *Terraria) Install(gameServer *models.GameServer, stdOutWriter, _ io.Writer) error {
-	return t.installOrUpdate(gameServer, stdOutWriter, "Installing")
+	return t.installOrUpdate(gameServer, stdOutWriter, "Installing", stagedUpdateInstall)
 }
 
 // Update refreshes shipped binaries while preserving server configuration and
 // worlds created inside the managed server directory.
 func (t *Terraria) Update(gameServer *models.GameServer, stdOutWriter, _ io.Writer) error {
-	return t.installOrUpdate(gameServer, stdOutWriter, "Updating")
+	return t.installOrUpdate(gameServer, stdOutWriter, "Updating", stagedUpdateRetainRollback)
 }
 
-func (t *Terraria) installOrUpdate(gameServer *models.GameServer, stdOutWriter io.Writer, action string) error {
+func (t *Terraria) installOrUpdate(
+	gameServer *models.GameServer,
+	stdOutWriter io.Writer,
+	action string,
+	mode stagedUpdateMode,
+) (errResult error) {
 	directory, errDirectory := prepareTerrariaDirectory(gameServer)
 	if errDirectory != nil {
 		return errDirectory
 	}
+	update, errUpdate := newStagedUpdate(directory, "terraria", mode)
+	if errUpdate != nil {
+		return fmt.Errorf("install Terraria: prepare staged update: %w", errUpdate)
+	}
+	defer func() {
+		errResult = errors.Join(errResult, wrapError("install Terraria: clean staged update", update.CleanupTransient()))
+	}()
 
 	archiveName, errArchiveName := t.latestArchiveName()
 	if errArchiveName != nil {
@@ -65,17 +77,31 @@ func (t *Terraria) installOrUpdate(gameServer *models.GameServer, stdOutWriter i
 		return fmt.Errorf("install Terraria: write download status: %w", errMessage)
 	}
 
-	archivePath, errDownload := t.downloadArchive(directory, archiveName)
+	archivePath, errDownload := t.downloadArchive(update.workspace, archiveName)
 	if errDownload != nil {
 		return errDownload
 	}
-	errExtract := extractTerrariaArchive(archivePath, directory, t.operatingSystem())
+	errExtract := extractTerrariaArchive(archivePath, update.PayloadDirectory(), t.operatingSystem())
 	errRemove := os.Remove(archivePath)
 	if errExtract != nil || (errRemove != nil && !errors.Is(errRemove, os.ErrNotExist)) {
 		return errors.Join(
 			wrapError("install Terraria: extract archive", errExtract),
 			wrapError("install Terraria: remove temporary archive", errRemove),
 		)
+	}
+	errValidate := validateTerrariaPayload(update.PayloadDirectory(), t.operatingSystem())
+	if errValidate != nil {
+		return errValidate
+	}
+	errApply := update.Apply(func(relativePath string) bool {
+		if !terrariaPreservedPath(relativePath) {
+			return false
+		}
+		_, errExisting := os.Lstat(filepath.Join(directory, filepath.FromSlash(relativePath)))
+		return errExisting == nil
+	}, nil)
+	if errApply != nil {
+		return fmt.Errorf("install Terraria: commit staged update: %w", errApply)
 	}
 
 	_, errCompleteMessage := fmt.Fprintln(stdOutWriter, "Terraria dedicated server files are ready.")
@@ -179,9 +205,10 @@ func (t *Terraria) downloadArchive(directory string, archiveName string) (string
 	}
 	archivePath := archive.Name()
 	written, errCopy := io.Copy(archive, io.LimitReader(response.Body, terrariaArchiveMaxBytes+1))
+	errArchiveSync := archive.Sync()
 	errArchiveClose := archive.Close()
 	errResponseClose := response.Body.Close()
-	if errCopy != nil || errArchiveClose != nil || errResponseClose != nil || written > terrariaArchiveMaxBytes {
+	if errCopy != nil || errArchiveSync != nil || errArchiveClose != nil || errResponseClose != nil || written > terrariaArchiveMaxBytes {
 		errRemove := os.Remove(archivePath)
 		var errSize error
 		if written > terrariaArchiveMaxBytes {
@@ -189,6 +216,7 @@ func (t *Terraria) downloadArchive(directory string, archiveName string) (string
 		}
 		return "", errors.Join(
 			wrapError("install Terraria: write temporary archive", errCopy),
+			wrapError("install Terraria: sync temporary archive", errArchiveSync),
 			wrapError("install Terraria: close temporary archive", errArchiveClose),
 			wrapError("install Terraria: close package response", errResponseClose),
 			errSize,
@@ -217,6 +245,7 @@ func extractTerrariaArchive(archivePath string, directory string, operatingSyste
 	}
 
 	matchedFiles := 0
+	seenPaths := make(map[string]bool)
 	var errExtract error
 	for _, archiveFile := range archive.File {
 		relativePath, selected, errPath := terrariaArchiveRelativePath(archiveFile.Name, platform)
@@ -224,22 +253,22 @@ func extractTerrariaArchive(archivePath string, directory string, operatingSyste
 			errExtract = errPath
 			break
 		}
-		if !selected || relativePath == "" || archiveFile.FileInfo().IsDir() {
+		if !selected || relativePath == "" {
+			continue
+		}
+		isDirectory := archiveFile.FileInfo().IsDir()
+		errCollision := validateTerrariaArchivePath(seenPaths, relativePath, isDirectory)
+		if errCollision != nil {
+			errExtract = errCollision
+			break
+		}
+		seenPaths[relativePath] = isDirectory
+		if isDirectory {
 			continue
 		}
 		if archiveFile.Mode()&os.ModeType != 0 {
 			errExtract = fmt.Errorf("Terraria archive entry %q is not a regular file", archiveFile.Name)
 			break
-		}
-		if relativePath == "serverconfig.txt" {
-			_, errStat := root.Stat(relativePath)
-			if errStat == nil {
-				continue
-			}
-			if !errors.Is(errStat, os.ErrNotExist) {
-				errExtract = fmt.Errorf("inspect existing Terraria config: %w", errStat)
-				break
-			}
 		}
 		errWrite := extractTerrariaFile(root, archiveFile, relativePath)
 		if errWrite != nil {
@@ -340,6 +369,64 @@ func extractTerrariaFile(root *os.Root, archiveFile *zip.File, relativePath stri
 		)
 	}
 	return nil
+}
+
+func validateTerrariaArchivePath(seen map[string]bool, relativePath string, directory bool) error {
+	if _, duplicate := seen[relativePath]; duplicate {
+		return fmt.Errorf("Terraria archive contains duplicate normalized path %q", relativePath)
+	}
+	parent := path.Dir(relativePath)
+	for parent != "." {
+		parentDirectory, exists := seen[parent]
+		if exists && !parentDirectory {
+			return fmt.Errorf("Terraria archive path %q collides with file %q", relativePath, parent)
+		}
+		parent = path.Dir(parent)
+	}
+	if directory {
+		return nil
+	}
+	prefix := relativePath + "/"
+	for existing := range seen {
+		if strings.HasPrefix(existing, prefix) {
+			return fmt.Errorf("Terraria archive file %q collides with child path %q", relativePath, existing)
+		}
+	}
+	return nil
+}
+
+func validateTerrariaPayload(directory string, operatingSystem string) error {
+	platform, errPlatform := terrariaArchivePlatform(operatingSystem)
+	if errPlatform != nil {
+		return errPlatform
+	}
+	executable := "TerrariaServer.bin.x86_64"
+	if platform == "Windows" {
+		executable = "TerrariaServer.exe"
+	}
+	executablePath := filepath.Join(directory, executable)
+	info, errStat := os.Lstat(executablePath)
+	if errStat != nil {
+		return fmt.Errorf("install Terraria: required %s executable is unavailable: %w", platform, errStat)
+	}
+	if !info.Mode().IsRegular() || info.Size() == 0 {
+		return fmt.Errorf("install Terraria: required %s executable is not a non-empty regular file", platform)
+	}
+	if platform != "Windows" && runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		return errors.New("install Terraria: required Linux executable is not executable")
+	}
+	return nil
+}
+
+func terrariaPreservedPath(relativePath string) bool {
+	normalized := strings.ToLower(filepath.ToSlash(relativePath))
+	if normalized == "serverconfig.txt" {
+		return true
+	}
+	if normalized == "banlist.txt" || normalized == "whitelist.txt" || normalized == "allowlist.txt" {
+		return true
+	}
+	return strings.HasPrefix(normalized, "worlds/")
 }
 
 func (t *Terraria) namesURL() string {

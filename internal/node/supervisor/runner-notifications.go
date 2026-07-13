@@ -12,14 +12,23 @@ func (c *Command) closeJobNotification() {
 }
 
 func (c *Command) sendJobStatusNotification(oldStatus, newStatus xylona.Status) {
-	c.sendJobStatusNotificationWithExit(oldStatus, newStatus, 0)
+	c.sendJobStatusNotificationDetails(oldStatus, newStatus, 0, false)
 }
 
 // sendJobStatusNotificationWithExit is like sendJobStatusNotification but lets
 // the supervisor runner propagate the process exit code when the transition
 // is a shutdown (NewStatus=OFFLINE). Auto-restart uses this to tell a clean
 // stop from a crash.
-func (c *Command) sendJobStatusNotificationWithExit(oldStatus, newStatus xylona.Status, exitCode int) {
+func (c *Command) sendJobStatusNotificationWithExit(oldStatus xylona.Status, exitCode int) {
+	c.sendJobStatusNotificationDetails(oldStatus, xylona.Status_OFFLINE, exitCode, true)
+}
+
+func (c *Command) sendJobStatusNotificationDetails(
+	oldStatus xylona.Status,
+	newStatus xylona.Status,
+	exitCode int,
+	exitCodeKnown bool,
+) {
 	gameServerName := c.GameServerName()
 	nodeID := c.NodeID()
 
@@ -34,16 +43,34 @@ func (c *Command) sendJobStatusNotificationWithExit(oldStatus, newStatus xylona.
 	// Publish status change to the event bus for alert evaluation.
 	// Skip no-op transitions (e.g., OFFLINE→OFFLINE from concurrent shutdown paths).
 	if oldStatus != newStatus {
+		c.Lock()
+		c.previousStatus = oldStatus
+		c.transitionSequence++
+		sequence := c.transitionSequence
+		executionID := c.executionID
+		c.lastExitCode = exitCode
+		c.exitCodeKnown = exitCodeKnown
+		c.Unlock()
+		statusEvent := eventbus.StatusChangedEvent{
+			ServerID:           c.ID,
+			ServerName:         gameServerName,
+			ServerNodeID:       nodeID,
+			OldStatus:          oldStatus.String(),
+			NewStatus:          newStatus.String(),
+			ExecutionID:        executionID,
+			TransitionSequence: sequence,
+			IntentionalStop:    c.IntentionalStop(),
+			ExitCode:           exitCode,
+			ExitCodeKnown:      exitCodeKnown,
+		}
 		eb := eventbus.Get()
-		eb.Publish(eventbus.TopicGameServerStatusChanged, eventbus.StatusChangedEvent{
-			ServerID:        c.ID,
-			ServerName:      gameServerName,
-			ServerNodeID:    nodeID,
-			OldStatus:       oldStatus.String(),
-			NewStatus:       newStatus.String(),
-			IntentionalStop: c.IntentionalStop(),
-			ExitCode:        exitCode,
-		})
+		eb.Publish(eventbus.TopicGameServerStatusChanged, statusEvent)
+		c.RLock()
+		statusEventHook := c.statusEventHook
+		c.RUnlock()
+		if statusEventHook != nil {
+			statusEventHook(statusEvent)
+		}
 	}
 }
 

@@ -55,6 +55,7 @@ type InputMethod struct {
 // PreparedCommand contains all inputs needed to launch or reuse a command.
 type PreparedCommand struct {
 	ID                 string
+	ExecutionID        string
 	GameServerName     string
 	InternalCommand    bool
 	InternalGameServer *models.GameServer
@@ -221,7 +222,7 @@ func (inst *Instance) startAndWaitForJob(
 				delete(command.launchEnv, name)
 			}
 			command.Unlock()
-			command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, exitCode)
+			command.sendJobStatusNotificationWithExit(oldStatus, exitCode)
 			if commandEndFunc != nil {
 				commandEndFunc(command)
 			}
@@ -295,7 +296,7 @@ func (inst *Instance) startAndWaitForJob(
 		command.status = xylona.Status_OFFLINE
 		command.Unlock()
 		waitForJobOutput(command.ID, outputDone)
-		command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, 1)
+		command.sendJobStatusNotificationWithExit(oldStatus, 1)
 		return
 	}
 	command.Lock()
@@ -332,7 +333,7 @@ func (inst *Instance) startAndWaitForJob(
 			}
 		}
 		waitForJobOutput(command.ID, outputDone)
-		command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, 1)
+		command.sendJobStatusNotificationWithExit(oldStatus, 1)
 		if commandEndFunc != nil {
 			commandEndFunc(command)
 		}
@@ -413,7 +414,7 @@ func (inst *Instance) startAndWaitForJob(
 	command.currentPTY = nil
 	command.status = xylona.Status_OFFLINE
 	command.Unlock()
-	command.sendJobStatusNotificationWithExit(oldStatus, xylona.Status_OFFLINE, exitCode)
+	command.sendJobStatusNotificationWithExit(oldStatus, exitCode)
 	if commandEndFunc != nil {
 		commandEndFunc(command)
 	}

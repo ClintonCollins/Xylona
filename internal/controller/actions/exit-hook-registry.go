@@ -20,21 +20,26 @@ type exitHookFunc func(event eventbus.StatusChangedEvent)
 // embedded and remote nodes drive post-exit work via the same bus subscriber.
 type exitHookRegistry struct {
 	mu    sync.Mutex
-	hooks map[string]exitHookFunc
+	hooks map[string]exitHookRegistration
+}
+
+type exitHookRegistration struct {
+	executionID string
+	fn          exitHookFunc
 }
 
 func newExitHookRegistry() *exitHookRegistry {
-	return &exitHookRegistry{hooks: make(map[string]exitHookFunc)}
+	return &exitHookRegistry{hooks: make(map[string]exitHookRegistration)}
 }
 
 // set installs a one-shot hook for serverID. If a hook is already registered
 // for that server it is silently replaced — the most recent caller wins.
-func (r *exitHookRegistry) set(serverID string, fn exitHookFunc) {
+func (r *exitHookRegistry) set(serverID, executionID string, fn exitHookFunc) {
 	if serverID == "" || fn == nil {
 		return
 	}
 	r.mu.Lock()
-	r.hooks[serverID] = fn
+	r.hooks[serverID] = exitHookRegistration{executionID: executionID, fn: fn}
 	r.mu.Unlock()
 }
 
@@ -49,12 +54,19 @@ func (r *exitHookRegistry) clear(serverID string) {
 // take atomically removes and returns the hook registered for serverID, or
 // (nil, false) if there is none. Used by the status-change subscriber so a
 // hook fires at most once.
-func (r *exitHookRegistry) take(serverID string) (exitHookFunc, bool) {
+func (r *exitHookRegistry) take(serverID, executionID string) (exitHookFunc, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fn, ok := r.hooks[serverID]
-	if ok {
-		delete(r.hooks, serverID)
+	registration, ok := r.hooks[serverID]
+	if !ok {
+		return nil, false
 	}
-	return fn, ok
+	// Legacy v1 nodes do not report execution IDs, so retain their historical
+	// best-effort behavior. Reliable v2 events must match exactly; a replay from
+	// an earlier execution must not consume the new execution's hook.
+	if registration.executionID != "" && executionID != "" && registration.executionID != executionID {
+		return nil, false
+	}
+	delete(r.hooks, serverID)
+	return registration.fn, true
 }

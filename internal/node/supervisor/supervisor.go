@@ -15,6 +15,7 @@ import (
 	pty "github.com/aymanbagabas/go-pty"
 	"github.com/ziutek/telnet"
 
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -66,12 +67,14 @@ func setRuntime() Runtime {
 type Instance struct {
 	ctx             context.Context
 	runningCommands map[string]*Command
+	statusEventHook func(eventbus.StatusChangedEvent)
 	RWMutex         *sync.RWMutex
 }
 
 // Command represents a managed process or internal task execution.
 type Command struct {
 	ID                            string
+	executionID                   string
 	User                          string
 	BaseCommand                   string
 	Args                          []string
@@ -108,6 +111,11 @@ type Command struct {
 	stopTimeout                   time.Duration
 	runAfterStartup               func(job *Command)
 	intentionalStop               atomic.Bool
+	previousStatus                xylona.Status
+	transitionSequence            uint64
+	lastExitCode                  int
+	exitCodeKnown                 bool
+	statusEventHook               func(eventbus.StatusChangedEvent)
 	// Metrics fields (transient, not persisted to DB)
 	cpuPercent      float64
 	cpuCores        int32
@@ -124,6 +132,30 @@ type Command struct {
 	lastIOPollTime  time.Time
 	connectionCount int32 // active TCP/UDP connections
 	RWMutex         *sync.RWMutex
+}
+
+// SetStatusEventHook installs the direct lifecycle sink used by the owning
+// node's replayable event emitter. Existing tracked commands are updated too.
+func (i *Instance) SetStatusEventHook(hook func(eventbus.StatusChangedEvent)) {
+	i.Lock()
+	defer i.Unlock()
+	i.statusEventHook = hook
+	for _, command := range i.runningCommands {
+		command.Lock()
+		command.statusEventHook = hook
+		command.Unlock()
+	}
+}
+
+// LifecycleSnapshot is the authoritative lifecycle metadata retained for a
+// command's current or most recently completed execution.
+type LifecycleSnapshot struct {
+	ExecutionID        string
+	PreviousStatus     xylona.Status
+	TransitionSequence uint64
+	IntentionalStop    bool
+	ExitCode           int
+	ExitCodeKnown      bool
 }
 
 // Lock acquires the instance mutex.
@@ -204,6 +236,21 @@ func (c *Command) UnixStartedAt() int64 {
 // IntentionalStop reports whether Stop was explicitly called on this command.
 func (c *Command) IntentionalStop() bool {
 	return c.intentionalStop.Load()
+}
+
+// Lifecycle returns a consistent copy of the command's retained lifecycle
+// metadata. Terminal metadata remains available after the process is offline.
+func (c *Command) Lifecycle() LifecycleSnapshot {
+	c.RLock()
+	defer c.RUnlock()
+	return LifecycleSnapshot{
+		ExecutionID:        c.executionID,
+		PreviousStatus:     c.previousStatus,
+		TransitionSequence: c.transitionSequence,
+		IntentionalStop:    c.intentionalStop.Load(),
+		ExitCode:           c.lastExitCode,
+		ExitCodeKnown:      c.exitCodeKnown,
+	}
 }
 
 // Metrics returns the core metrics snapshot for the command's process tree.

@@ -62,22 +62,29 @@ func (n *Node) GetNodeSnapshot(_ context.Context) (*NodeSnapshot, error) {
 		snapshot.Processes = make([]ProcessSnapshot, 0, len(commands))
 		for _, cmd := range commands {
 			cpuPercent, memoryRSS, memoryVMS, memoryPercent, cpuCores, numThreads, diskUsageBytes, ioReadRate, ioWriteRate, connectionCount := cmd.Metrics()
+			lifecycle := cmd.Lifecycle()
 			snapshot.Processes = append(snapshot.Processes, ProcessSnapshot{
-				ID:              cmd.ID,
-				Name:            cmd.GameServerName(),
-				Status:          cmd.Status().String(),
-				UnixStartedAt:   cmd.UnixStartedAt(),
-				CPUPercent:      cpuPercent,
-				CPUCores:        cpuCores,
-				MemoryRSS:       memoryRSS,
-				MemoryVMS:       memoryVMS,
-				MemoryPercent:   memoryPercent,
-				NumThreads:      numThreads,
-				DiskUsageBytes:  diskUsageBytes,
-				IOReadRate:      ioReadRate,
-				IOWriteRate:     ioWriteRate,
-				ConnectionCount: connectionCount,
-				WorkingDir:      cmd.WorkingDir(),
+				ID:                 cmd.ID,
+				ExecutionID:        lifecycle.ExecutionID,
+				Name:               cmd.GameServerName(),
+				Status:             cmd.Status().String(),
+				PreviousStatus:     lifecycle.PreviousStatus.String(),
+				TransitionSequence: lifecycle.TransitionSequence,
+				IntentionalStop:    lifecycle.IntentionalStop,
+				ExitCode:           lifecycle.ExitCode,
+				ExitCodeKnown:      lifecycle.ExitCodeKnown,
+				UnixStartedAt:      cmd.UnixStartedAt(),
+				CPUPercent:         cpuPercent,
+				CPUCores:           cpuCores,
+				MemoryRSS:          memoryRSS,
+				MemoryVMS:          memoryVMS,
+				MemoryPercent:      memoryPercent,
+				NumThreads:         numThreads,
+				DiskUsageBytes:     diskUsageBytes,
+				IOReadRate:         ioReadRate,
+				IOWriteRate:        ioWriteRate,
+				ConnectionCount:    connectionCount,
+				WorkingDir:         cmd.WorkingDir(),
 			})
 		}
 	}

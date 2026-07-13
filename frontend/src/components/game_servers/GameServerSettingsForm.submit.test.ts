@@ -137,6 +137,7 @@ describe('GameServerSettingsForm submit flow', () => {
       overview: {
         enabled: true,
         operationsAllowed: true,
+        backupsSupported: true,
         canManageSettings: false,
         localServer: true,
         backupDirectoryConfigured: true,
@@ -146,6 +147,7 @@ describe('GameServerSettingsForm submit flow', () => {
     mocks.getBackupSettings.mockResolvedValue({
       settings: {
         backupsEnabled: true,
+        backupsSupported: true,
         backupDirectory: 'C:\\\\backups',
         maxBackups: 10n,
         defaultBackupDirectory: 'C:\\\\default-backups',
@@ -172,6 +174,7 @@ describe('GameServerSettingsForm submit flow', () => {
     mocks.updateBackupSettings.mockResolvedValue({
       settings: {
         backupsEnabled: true,
+        backupsSupported: true,
         backupDirectory: 'C:\\\\backups',
         maxBackups: 10n,
       },

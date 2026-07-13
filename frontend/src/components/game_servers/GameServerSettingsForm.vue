@@ -427,6 +427,16 @@
         </div>
 
         <template v-else>
+          <q-banner
+            v-if="!backupSettings.backupsSupported"
+            class="col-12 bg-warning text-dark q-mb-md"
+            data-testid="backup-settings-unsupported"
+            dense
+            rounded>
+            {{ backupSettings.disabledReason || 'New backups are unavailable for this server.' }}
+            Existing backups remain available from the Backups page.
+          </q-banner>
+
           <div
             v-if="backupOverview.canManageSettings"
             class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -436,7 +446,8 @@
                 color="primary"
                 data-testid="backup-settings-enabled"
                 label="Enable Backups"
-                @update:model-value="backupSettings.backupsEnabled = $event" />
+                :disable="backupEnableBlocked && !backupSettings.backupsEnabled"
+                @update:model-value="updateBackupsEnabled" />
             </div>
 
             <q-input
@@ -468,6 +479,7 @@
 
             <div class="col-12 row justify-end">
               <q-btn
+                :disable="backupSettingsSaveBlocked"
                 :loading="backupSettingsSaving"
                 color="primary"
                 data-testid="save-backup-settings"
@@ -561,6 +573,10 @@ const environmentDirty = computed(() => {
 
   return serializeEnvironmentRows(environmentRows.value) !== environmentSnapshot.value
 })
+const backupEnableBlocked = computed(() => !backupSettings.value.backupsSupported)
+const backupSettingsSaveBlocked = computed(
+  () => backupEnableBlocked.value && backupSettings.value.backupsEnabled,
+)
 
 const {
   autoRestartCooldownModel,
@@ -833,6 +849,14 @@ function updateBackupMaxBackups(value: string | number | null): void {
 
 function formatBackupEnabled(enabled: boolean): string {
   return enabled ? 'Enabled' : 'Disabled'
+}
+
+function updateBackupsEnabled(enabled: boolean): void {
+  if (enabled && backupEnableBlocked.value) {
+    return
+  }
+
+  backupSettings.value.backupsEnabled = enabled
 }
 
 async function saveBackupSettings() {

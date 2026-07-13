@@ -10,33 +10,51 @@ import (
 // emitter. Mirrors internal/eventbus' reliable buffer.
 const eventBufferSize = 1024
 
-// EventEmitter is a minimal in-process event publisher that the controller
-// will subscribe to in Step 9. Until then it stays empty; the existing
-// internal/eventbus continues to carry events.
+// EventEmitter is the replayable in-process event publisher used by node event
+// streams. Process lifecycle events are retained by process ID.
 type EventEmitter struct {
-	mu          sync.RWMutex
-	subscribers map[chan Event]struct{}
-	closed      bool
+	mu                  sync.Mutex
+	subscribers         map[chan Event]struct{}
+	latestProcessStatus map[string]Event
+	closed              bool
 }
 
 // NewEventEmitter creates a ready-to-use emitter. Callers should Close it when
 // done to release subscriber channels.
 func NewEventEmitter() *EventEmitter {
 	return &EventEmitter{
-		subscribers: make(map[chan Event]struct{}),
+		subscribers:         make(map[chan Event]struct{}),
+		latestProcessStatus: make(map[string]Event),
 	}
 }
 
 // Subscribe returns a buffered channel that receives subsequent published
 // events. The returned channel is closed by Unsubscribe or Close.
 func (e *EventEmitter) Subscribe() chan Event {
+	return e.SubscribeWithReplay(false)
+}
+
+// SubscribeWithReplay atomically registers a subscriber and, when requested,
+// queues the retained latest process-status event for every process before any
+// subsequently published live event.
+func (e *EventEmitter) SubscribeWithReplay(replayProcessStatus bool) chan Event {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	ch := make(chan Event, eventBufferSize)
+	bufferSize := eventBufferSize
+	if replayProcessStatus {
+		bufferSize += len(e.latestProcessStatus)
+	}
+	ch := make(chan Event, bufferSize)
 	if e.closed {
 		close(ch)
 		return ch
+	}
+	if replayProcessStatus {
+		for _, retained := range e.latestProcessStatus {
+			retained.Replayed = true
+			ch <- retained
+		}
 	}
 	e.subscribers[ch] = struct{}{}
 	return ch
@@ -56,16 +74,33 @@ func (e *EventEmitter) Unsubscribe(ch chan Event) {
 	close(ch)
 }
 
-// Publish delivers an event to all current subscribers. Slow subscribers whose
-// buffers are full will drop the event; a warning is logged for visibility.
+// Publish delivers an event to all current subscribers. Process lifecycle
+// events are retained for future replay. A slow subscriber is disconnected
+// instead of silently losing a lifecycle transition; it can reconnect and
+// receive the retained state. Non-lifecycle events remain best-effort.
 func (e *EventEmitter) Publish(event Event) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.closed {
+		return
+	}
+	if event.Type == EventTypeProcessStatus && event.ProcessID != "" {
+		event.Replayed = false
+		e.latestProcessStatus[event.ProcessID] = event
+	}
 
 	for ch := range e.subscribers {
 		select {
 		case ch <- event:
 		default:
+			if event.Type == EventTypeProcessStatus {
+				delete(e.subscribers, ch)
+				close(ch)
+				log.Warn().Str("event_type", string(event.Type)).Str("process_id", event.ProcessID).
+					Msg("node event subscriber buffer full, lifecycle stream closed for replay")
+				continue
+			}
 			log.Warn().Str("event_type", string(event.Type)).Str("process_id", event.ProcessID).
 				Msg("node event subscriber buffer full, event dropped")
 		}

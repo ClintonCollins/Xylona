@@ -603,7 +603,7 @@ func runService() int {
 		return startupFailure(cleanup, ctxCancel, errLoadFrontend, "Failed to load frontend")
 	}
 
-	router.Use(middleware.RealIP)
+	router.Use(middleware.ClientIPFromRemoteAddr)
 	router.Use(routerLogger)
 	router.Use(securityHeaders)
 	router.Use(gatekeeper.AuthRateLimiter())

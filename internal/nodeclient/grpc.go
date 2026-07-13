@@ -121,8 +121,9 @@ func cloneStringMap(values map[string]string) map[string]string {
 // StartProcess sends the StartProcess RPC. Callers should rely on StreamEvents,
 // StreamConsoleOutput, and snapshots for lifecycle observation.
 func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) error {
-	req := newReq(c, &nodeprotov1.StartProcessRequest{
+	msg := &nodeprotov1.StartProcessRequest{
 		Id:                 cfg.ID,
+		ExecutionId:        cfg.ExecutionID,
 		Name:               cfg.Name,
 		BaseCommand:        cfg.BaseCommand,
 		Args:               append([]string(nil), cfg.Args...),
@@ -135,7 +136,17 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 		InternalCommand:    cfg.InternalCommand,
 		InternalGameId:     cfg.InternalGameID,
 		LaunchEnv:          cloneStringMap(cfg.LaunchEnv),
-	})
+	}
+	if cfg.InputTelnet != nil {
+		if cfg.InputTelnet.Port < 0 || cfg.InputTelnet.Port > 65535 {
+			return errors.New("nodeclient: start process: telnet port is outside the valid range")
+		}
+		msg.TelnetInput = &nodeprotov1.TelnetInput{
+			Port:     int32(cfg.InputTelnet.Port),
+			Password: cfg.InputTelnet.Password,
+		}
+	}
+	req := newReq(c, msg)
 
 	_, errRPC := c.connectClient.StartProcess(ctx, req)
 	if errRPC != nil {
@@ -845,23 +856,32 @@ func processSnapshotFromProto(p *nodeprotov1.ProcessSnapshot) *node.ProcessSnaps
 	if p == nil {
 		return nil
 	}
-	return &node.ProcessSnapshot{
-		ID:              p.GetId(),
-		Name:            p.GetName(),
-		Status:          p.GetStatus(),
-		UnixStartedAt:   p.GetUnixStartedAt(),
-		CPUPercent:      p.GetCpuPercent(),
-		CPUCores:        p.GetCpuCores(),
-		MemoryRSS:       p.GetMemoryRss(),
-		MemoryVMS:       p.GetMemoryVms(),
-		MemoryPercent:   p.GetMemoryPercent(),
-		NumThreads:      p.GetNumThreads(),
-		DiskUsageBytes:  p.GetDiskUsageBytes(),
-		IOReadRate:      p.GetIoReadRate(),
-		IOWriteRate:     p.GetIoWriteRate(),
-		ConnectionCount: p.GetConnectionCount(),
-		WorkingDir:      p.GetWorkingDir(),
+	out := &node.ProcessSnapshot{
+		ID:                 p.GetId(),
+		ExecutionID:        p.GetExecutionId(),
+		Name:               p.GetName(),
+		Status:             p.GetStatus(),
+		PreviousStatus:     p.GetPreviousStatus(),
+		TransitionSequence: p.GetTransitionSequence(),
+		IntentionalStop:    p.GetIntentionalStop(),
+		UnixStartedAt:      p.GetUnixStartedAt(),
+		CPUPercent:         p.GetCpuPercent(),
+		CPUCores:           p.GetCpuCores(),
+		MemoryRSS:          p.GetMemoryRss(),
+		MemoryVMS:          p.GetMemoryVms(),
+		MemoryPercent:      p.GetMemoryPercent(),
+		NumThreads:         p.GetNumThreads(),
+		DiskUsageBytes:     p.GetDiskUsageBytes(),
+		IOReadRate:         p.GetIoReadRate(),
+		IOWriteRate:        p.GetIoWriteRate(),
+		ConnectionCount:    p.GetConnectionCount(),
+		WorkingDir:         p.GetWorkingDir(),
 	}
+	if p.ExitCode != nil {
+		out.ExitCode = int(p.GetExitCode())
+		out.ExitCodeKnown = true
+	}
+	return out
 }
 
 // GetNodeSnapshot invokes the GetNodeSnapshot RPC.
@@ -929,8 +949,10 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 	}
 	msg := resp.Msg
 	return node.RuntimeCapabilities{
-		ProtocolVersion: msg.GetProtocolVersion(),
-		LaunchEnv:       msg.GetLaunchEnv(),
+		ProtocolVersion:          msg.GetProtocolVersion(),
+		LaunchEnv:                msg.GetLaunchEnv(),
+		ReliableProcessLifecycle: msg.GetReliableProcessLifecycle(),
+		TelnetInput:              msg.GetTelnetInput(),
 	}, nil
 }
 
@@ -1006,7 +1028,7 @@ func (c *GRPCNodeClient) ApplySelfUpdate(ctx context.Context, req node.ApplySelf
 // to open the stream is reported synchronously via the error return; failures
 // during streaming are logged via the closed channel.
 func (c *GRPCNodeClient) StreamEvents(ctx context.Context) (<-chan node.Event, error) {
-	req := newReq(c, &nodeprotov1.StreamEventsRequest{})
+	req := newReq(c, &nodeprotov1.StreamEventsRequest{ReplayProcessStatus: true})
 	stream, errOpen := c.streamConnectClient().StreamEvents(ctx, req)
 	if errOpen != nil {
 		return nil, translateError("stream events", errOpen)
@@ -1105,9 +1127,22 @@ func nodeEventFromProto(ev *nodeprotov1.Event) node.Event {
 	}
 	switch payload := ev.GetPayload().(type) {
 	case *nodeprotov1.Event_ProcessStatus:
+		status := payload.ProcessStatus
+		if status == nil {
+			break
+		}
 		out.Type = node.EventTypeProcessStatus
-		out.ProcessID = payload.ProcessStatus.GetProcessId()
-		out.Status = payload.ProcessStatus.GetStatus()
+		out.ProcessID = status.GetProcessId()
+		out.Status = status.GetStatus()
+		out.OldStatus = status.GetOldStatus()
+		out.ExecutionID = status.GetExecutionId()
+		out.TransitionSequence = status.GetTransitionSequence()
+		out.IntentionalStop = status.GetIntentionalStop()
+		out.Replayed = status.GetReplayed()
+		if status.ExitCode != nil {
+			out.ExitCode = int(status.GetExitCode())
+			out.ExitCodeKnown = true
+		}
 	case *nodeprotov1.Event_ConsoleOutput:
 		out.Type = node.EventTypeConsoleOutput
 		out.ProcessID = payload.ConsoleOutput.GetGameServerId()

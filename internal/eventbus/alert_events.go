@@ -53,13 +53,17 @@ type ServerCrashedEvent struct {
 // NewStatus is OFFLINE and the process exited with a known code; zero
 // otherwise (including graceful stops).
 type StatusChangedEvent struct {
-	ServerID        string
-	ServerName      string
-	ServerNodeID    string
-	OldStatus       string
-	NewStatus       string
-	IntentionalStop bool
-	ExitCode        int
+	ServerID           string
+	ServerName         string
+	ServerNodeID       string
+	OldStatus          string
+	NewStatus          string
+	ExecutionID        string
+	TransitionSequence uint64
+	IntentionalStop    bool
+	ExitCode           int
+	ExitCodeKnown      bool
+	Replayed           bool
 }
 
 // VersionChangedEvent is published when a game server's detected version state changes.

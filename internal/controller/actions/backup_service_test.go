@@ -42,6 +42,32 @@ func TestCreateManualBackupRejectsBackupDirectoryInsideServerTree(t *testing.T) 
 	}
 }
 
+func TestCreateManualBackupRejectsUnsupportedPlatformBeforeCreatingRow(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	game, errGetGame := inst.db.GetGameByID(fixture.gameID)
+	if errGetGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGetGame)
+	}
+	game.LinuxAllowBackups = false
+	game.WindowsAllowBackups = false
+	fixture.gameServer.R.Game = game
+
+	_, errCreate := inst.CreateManualBackup(fixture.gameServer, fixture.userID, "")
+	if !errors.Is(errCreate, ErrBackupsUnsupported) {
+		t.Fatalf("CreateManualBackup() error = %v, want %v", errCreate, ErrBackupsUnsupported)
+	}
+
+	backups, errList := inst.db.ListGameServerBackupsByGameServerID(fixture.gameServer.ID)
+	if errList != nil {
+		t.Fatalf("ListGameServerBackupsByGameServerID() error = %v", errList)
+	}
+	if len(backups) != 0 {
+		t.Fatalf("backup row count = %d, want 0", len(backups))
+	}
+}
+
 func TestCreateManualBackupRejectsPerServerArchivePathInsideServerTree(t *testing.T) {
 	t.Parallel()
 
@@ -199,7 +225,10 @@ func TestPrepareBackupForRemoteServerIgnoresControllerFilesystemCollisions(t *te
 	fixture := newBackupServiceFixture(t, inst)
 
 	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
-	registry.Register(&nodeclient.FakeNodeClient{NodeID: fixture.nodeID})
+	registry.Register(&nodeclient.FakeNodeClient{
+		NodeID:         fixture.nodeID,
+		SnapshotResult: &node.NodeSnapshot{OS: "windows"},
+	})
 	inst.nodeRegistry = registry
 
 	fixture.gameServer.BackupDirectory = filepath.Join(t.TempDir(), "remote-backups")
@@ -827,7 +856,10 @@ func TestImportUploadedBackupCreatesCompletedCatalogRow(t *testing.T) {
 func TestImportUploadedBackupWritesRemoteArchiveToOwningNode(t *testing.T) {
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
-	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		SnapshotResult: &node.NodeSnapshot{OS: "windows"},
+	}
 	registry := noderegistry.New(fixture.nodeID, nil)
 	registry.Register(remoteClient)
 	inst.nodeRegistry = registry
@@ -924,7 +956,8 @@ func TestImportUploadedBackupRejectsRemoteArchiveCollision(t *testing.T) {
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)
 	remoteClient := &nodeclient.FakeNodeClient{
-		NodeID: "node-remote",
+		NodeID:         "node-remote",
+		SnapshotResult: &node.NodeSnapshot{OS: "windows"},
 		ListFilesResult: []node.FileEntry{
 			{Name: "Friday-Night-Save.zip"},
 		},
@@ -972,6 +1005,7 @@ func TestImportUploadedBackupCleansPartialRemoteArchiveWhenWriteFails(t *testing
 	writeErr := errors.New("forced remote write failure")
 	remoteClient := &nodeclient.FakeNodeClient{
 		NodeID:             "node-remote",
+		SnapshotResult:     &node.NodeSnapshot{OS: "windows"},
 		StreamWriteFileErr: writeErr,
 		DeleteFilesResult:  []string{"Friday-Night-Save.zip"},
 	}
@@ -1688,6 +1722,48 @@ func TestRestoreGameServerBackupAllowsHistoricalArchiveAfterBackupRootChange(t *
 	}
 	if string(contents) != "after" {
 		t.Fatalf("keep.txt = %q, want %q", string(contents), "after")
+	}
+}
+
+func TestRestoreGameServerBackupAllowsHistoricalArchiveWhenBackupsAreDisabled(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	archivePath := filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "disabled-restore.zip")
+	createTestZipArchive(t, archivePath, map[string]string{
+		"world.txt": "restored",
+	})
+	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
+		GameServerID:    fixture.gameServer.ID,
+		NodeID:          fixture.nodeID,
+		CreatedBy:       fixture.userID,
+		TriggerSource:   "manual",
+		ArchivePath:     archivePath,
+		ArchiveFormat:   "zip",
+		Status:          "completed",
+		SizeBytes:       8,
+		RetentionExempt: true,
+		CreatedAt:       time.Date(2026, 4, 1, 12, 30, 0, 0, time.UTC),
+	})
+	fixture.gameServer.BackupsEnabled = false
+
+	errRestore := inst.RestoreGameServerBackup(
+		fixture.gameServer,
+		backup.ID,
+		xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
+	)
+	if errRestore != nil {
+		t.Fatalf("RestoreGameServerBackup() error = %v", errRestore)
+	}
+
+	contents, errRead := os.ReadFile(filepath.Join(fixture.gameServer.Directory, "world.txt"))
+	if errRead != nil {
+		t.Fatalf("ReadFile(world.txt) error = %v", errRead)
+	}
+	if string(contents) != "restored" {
+		t.Fatalf("world.txt = %q, want %q", string(contents), "restored")
 	}
 }
 
@@ -2624,11 +2700,13 @@ func newBackupServiceFixture(t *testing.T, inst *Instance) backupServiceFixture 
 	}
 
 	_, errInsertGame := inst.db.InsertGame(inst.db.DB, &models.GameSetter{
-		ID:                omit.From(gameID),
-		Name:              omit.From("Backup Test Game"),
-		DefaultPort:       omit.From(int64(25565)),
-		DefaultQueryPort:  omit.From(int64(25565)),
-		DefaultMaxPlayers: omit.From(int64(20)),
+		ID:                  omit.From(gameID),
+		Name:                omit.From("Backup Test Game"),
+		DefaultPort:         omit.From(int64(25565)),
+		DefaultQueryPort:    omit.From(int64(25565)),
+		DefaultMaxPlayers:   omit.From(int64(20)),
+		LinuxAllowBackups:   omit.From(true),
+		WindowsAllowBackups: omit.From(true),
 	})
 	if errInsertGame != nil {
 		t.Fatalf("InsertGame() error = %v", errInsertGame)

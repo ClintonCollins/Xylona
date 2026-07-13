@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,9 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
@@ -22,7 +25,15 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-const updateProcessTimeout = 6 * time.Hour
+const (
+	updateProcessTimeout      = 6 * time.Hour
+	updateProcessPollInterval = time.Second
+)
+
+var (
+	errUpdateExecutionReplaced       = errors.New("update process execution was replaced")
+	errUpdateCompletionIndeterminate = errors.New("update process completion is indeterminate")
+)
 
 // UpdateProgressBroadcaster receives update progress events.
 // Implemented by the WebSocket layer.
@@ -56,14 +67,36 @@ func (inst *Instance) backupServerFiles(gs *models.GameServer) error {
 
 func (inst *Instance) backupNodeServerFiles(gs *models.GameServer, client nodeclient.NodeClient) error {
 	ctx := inst.actionContext()
-	errCreate := client.CreateFileOrDirectory(ctx, gs.Directory, ".update-backup", "", true, node.ProtectionPolicy{})
+	_, errExisting := client.StatFile(ctx, gs.Directory, ".update-backup")
+	if errExisting == nil {
+		return errors.New("actions: update recovery is pending; resolve .update-backup before starting another update")
+	}
+	if !errors.Is(errExisting, os.ErrNotExist) {
+		return fmt.Errorf("actions: inspect node update recovery directory: %w", errExisting)
+	}
+
+	pendingDirectory := ".update-backup.pending-" + uuid.NewString()
+	errCreate := client.CreateFileOrDirectory(ctx, gs.Directory, pendingDirectory, "", true, node.ProtectionPolicy{})
 	if errCreate != nil {
-		return fmt.Errorf("actions: create node backup directory: %w", errCreate)
+		return fmt.Errorf("actions: create pending node backup directory: %w", errCreate)
+	}
+	cleanupPending := func() error {
+		deleted, errDelete := client.DeleteFiles(ctx, gs.Directory, []string{pendingDirectory}, node.ProtectionPolicy{})
+		if errDelete != nil {
+			return fmt.Errorf("remove pending node backup directory: %w", errDelete)
+		}
+		if len(deleted) != 1 {
+			return errors.New("remove pending node backup directory: node did not confirm deletion")
+		}
+		return nil
 	}
 
 	entries, errList := client.ListFiles(ctx, gs.Directory, "")
 	if errList != nil {
-		return fmt.Errorf("actions: list node server directory: %w", errList)
+		return errors.Join(
+			fmt.Errorf("actions: list node server directory: %w", errList),
+			cleanupPending(),
+		)
 	}
 
 	namedExecutable := ""
@@ -89,24 +122,44 @@ func (inst *Instance) backupNodeServerFiles(gs *models.GameServer, client nodecl
 
 		operations = append(operations, node.CopyFileOperation{
 			SourceRelativePath:      name,
-			DestinationRelativePath: path.Join(".update-backup", name),
+			DestinationRelativePath: path.Join(pendingDirectory, name),
 		})
 	}
 
-	if len(operations) == 0 {
-		return nil
+	if len(operations) > 0 {
+		copied, errCopy := client.CopyFiles(ctx, gs.Directory, operations, node.ProtectionPolicy{})
+		if errCopy != nil {
+			return errors.Join(
+				fmt.Errorf("actions: copy node update backup files: %w", errCopy),
+				cleanupPending(),
+			)
+		}
+		if len(copied) != len(operations) {
+			return errors.Join(
+				fmt.Errorf("actions: copy node update backup files: node confirmed %d of %d copies", len(copied), len(operations)),
+				cleanupPending(),
+			)
+		}
 	}
 
-	_, errCopy := client.CopyFiles(ctx, gs.Directory, operations, node.ProtectionPolicy{})
-	if errCopy != nil {
-		return fmt.Errorf("actions: copy node update backup files: %w", errCopy)
+	_, errPromote := client.RenameFile(
+		ctx,
+		gs.Directory,
+		pendingDirectory,
+		".update-backup",
+		node.ProtectionPolicy{},
+	)
+	if errPromote != nil {
+		return errors.Join(
+			fmt.Errorf("actions: promote pending node update backup: %w", errPromote),
+			cleanupPending(),
+		)
 	}
-
 	return nil
 }
 
 func shouldBackupUpdateFile(name string, namedExecutable string, executable bool) bool {
-	ext := filepath.Ext(name)
+	ext := strings.ToLower(filepath.Ext(name))
 	if configExtensions[ext] {
 		return true
 	}
@@ -130,8 +183,15 @@ func (inst *Instance) restoreServerFiles(gs *models.GameServer) error {
 
 func (inst *Instance) restoreNodeServerFiles(gs *models.GameServer, client nodeclient.NodeClient) error {
 	ctx := inst.actionContext()
+	foundInternal, errInternal := restoreInternalUpdateTransaction(ctx, gs, client)
+	if errInternal != nil {
+		return errInternal
+	}
 	entries, errList := client.ListFiles(ctx, gs.Directory, ".update-backup")
 	if errors.Is(errList, os.ErrNotExist) {
+		if foundInternal {
+			return errors.New("actions: internal update recovery disappeared before legacy restore")
+		}
 		return nil
 	}
 	if errList != nil {
@@ -164,6 +224,69 @@ func (inst *Instance) restoreNodeServerFiles(gs *models.GameServer, client nodec
 	}
 
 	return nil
+}
+
+func restoreInternalUpdateTransaction(
+	ctx context.Context,
+	gs *models.GameServer,
+	client nodeclient.NodeClient,
+) (bool, error) {
+	manifestBytes, errRead := client.ReadFile(ctx, gs.Directory, gameintegrations.InternalUpdateManifestPath)
+	if errors.Is(errRead, os.ErrNotExist) {
+		return false, nil
+	}
+	if errRead != nil {
+		return false, fmt.Errorf("actions: read internal update manifest: %w", errRead)
+	}
+	var manifest gameintegrations.UpdateTransactionManifest
+	errDecode := json.Unmarshal(manifestBytes, &manifest)
+	if errDecode != nil {
+		return true, fmt.Errorf("actions: decode internal update manifest: %w", errDecode)
+	}
+	errValidate := gameintegrations.ValidateUpdateTransactionManifest(manifest)
+	if errValidate != nil {
+		return true, fmt.Errorf("actions: validate internal update manifest: %w", errValidate)
+	}
+
+	for index := len(manifest.Entries) - 1; index >= 0; index-- {
+		entry := manifest.Entries[index]
+		backupPath := path.Join(gameintegrations.InternalUpdateFilesDirectory, entry.Path)
+		if entry.Existed {
+			_, errBackup := client.StatFile(ctx, gs.Directory, backupPath)
+			if errors.Is(errBackup, os.ErrNotExist) {
+				_, errLive := client.StatFile(ctx, gs.Directory, entry.Path)
+				if errLive == nil {
+					continue
+				}
+				return true, fmt.Errorf("actions: rollback original %q and live path are both unavailable: %w", entry.Path, errLive)
+			}
+			if errBackup != nil {
+				return true, fmt.Errorf("actions: inspect rollback original %q: %w", entry.Path, errBackup)
+			}
+		}
+
+		deleted, errDelete := client.DeleteFiles(ctx, gs.Directory, []string{entry.Path}, node.ProtectionPolicy{})
+		if errDelete != nil {
+			return true, fmt.Errorf("actions: remove updated path %q: %w", entry.Path, errDelete)
+		}
+		if len(deleted) != 1 {
+			return true, fmt.Errorf("actions: remove updated path %q: node did not confirm deletion", entry.Path)
+		}
+		if !entry.Existed {
+			continue
+		}
+		copied, errCopy := client.CopyFiles(ctx, gs.Directory, []node.CopyFileOperation{{
+			SourceRelativePath:      backupPath,
+			DestinationRelativePath: entry.Path,
+		}}, node.ProtectionPolicy{})
+		if errCopy != nil {
+			return true, fmt.Errorf("actions: restore internal update original %q: %w", entry.Path, errCopy)
+		}
+		if len(copied) != 1 {
+			return true, fmt.Errorf("actions: restore internal update original %q: node did not confirm copy", entry.Path)
+		}
+	}
+	return true, nil
 }
 
 // cleanupBackup removes the .update-backup/ directory. Errors are logged but
@@ -254,7 +377,45 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	errBackup := inst.backupServerFiles(gameServer)
 	if errBackup != nil {
 		log.Error().Err(errBackup).Str("game_server_id", serverID).Msg("Backup failed")
-		broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_FAILED, "Backup failed")
+		broadcast(
+			xylona.UpdateStep_UPDATE_STEP_BACKING_UP,
+			xylona.StepStatus_STEP_STATUS_FAILED,
+			"Backup failed; update was not started",
+		)
+		if wasRunning {
+			broadcast(
+				xylona.UpdateStep_UPDATE_STEP_RESTARTING,
+				xylona.StepStatus_STEP_STATUS_IN_PROGRESS,
+				"Restarting server after backup failure",
+			)
+			_, errRestart := inst.StartGameServer(gameServer)
+			if errRestart != nil {
+				log.Error().Err(errRestart).Str("game_server_id", serverID).Msg("Failed to restart server after backup failure")
+				broadcast(
+					xylona.UpdateStep_UPDATE_STEP_RESTARTING,
+					xylona.StepStatus_STEP_STATUS_FAILED,
+					"Server failed to restart after backup failure",
+				)
+				return
+			}
+			restarted := waitForServerOnline(inst.ctx, func() (xylona.Status, bool) {
+				status := inst.currentProcessStatus(gameServer)
+				return status, status != xylona.Status_UNKNOWN
+			}, 60, time.Second)
+			if !restarted {
+				broadcast(
+					xylona.UpdateStep_UPDATE_STEP_RESTARTING,
+					xylona.StepStatus_STEP_STATUS_FAILED,
+					"Server failed to return online after backup failure",
+				)
+				return
+			}
+			broadcast(
+				xylona.UpdateStep_UPDATE_STEP_RESTARTING,
+				xylona.StepStatus_STEP_STATUS_COMPLETED,
+				"Server restarted after backup failure",
+			)
+		}
 		return
 	}
 	broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_COMPLETED, "Backup complete")
@@ -269,6 +430,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	// If the dummy tracker has failure simulation enabled, treat this as a failed update.
 	updateFailed := inst.dummyTracker != nil && inst.dummyTracker.SimulateFailure()
 	asyncUpdate := gameServer.GameID != "minecraft"
+	updateExecutionID := ""
 	var updateEvents chan any
 	if !updateFailed && asyncUpdate {
 		eb := eventbus.Get()
@@ -277,7 +439,8 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	}
 
 	if !updateFailed {
-		errUpdate := inst.UpdateGameServer(gameServer)
+		var errUpdate error
+		updateExecutionID, errUpdate = inst.startGameServerUpdate(gameServer)
 		if errUpdate != nil {
 			log.Error().Err(errUpdate).Str("game_server_id", serverID).Msg("Failed to start game update")
 			updateFailed = true
@@ -296,12 +459,24 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 		)
 	}
 	if !updateFailed && asyncUpdate {
-		exitEvent, errWait := waitForUpdateProcessExit(
-			inst.ctx,
-			updateEvents,
-			serverID,
-			updateProcessTimeout,
-		)
+		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+		if errClient != nil {
+			log.Error().Err(errClient).Str("game_server_id", serverID).Msg("Failed resolving node client while waiting for game update")
+			updateFailed = true
+		}
+		var exitEvent eventbus.StatusChangedEvent
+		var errWait error
+		if !updateFailed {
+			exitEvent, errWait = waitForUpdateProcessExit(
+				inst.ctx,
+				updateEvents,
+				serverID,
+				updateExecutionID,
+				client.GetProcessSnapshot,
+				updateProcessTimeout,
+				updateProcessPollInterval,
+			)
+		}
 		if errWait != nil {
 			log.Error().Err(errWait).Str("game_server_id", serverID).Msg("Failed waiting for game update")
 			updateFailed = true
@@ -380,10 +555,15 @@ func waitForUpdateProcessExit(
 	ctx context.Context,
 	events <-chan any,
 	serverID string,
+	executionID string,
+	getSnapshot func(context.Context, string) (*node.ProcessSnapshot, bool, error),
 	timeout time.Duration,
+	pollInterval time.Duration,
 ) (eventbus.StatusChangedEvent, error) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
+	poll := time.NewTicker(pollInterval)
+	defer poll.Stop()
 
 	for {
 		select {
@@ -393,10 +573,14 @@ func waitForUpdateProcessExit(
 			return eventbus.StatusChangedEvent{}, fmt.Errorf("wait for update process: timed out after %s", timeout)
 		case rawEvent, open := <-events:
 			if !open {
-				return eventbus.StatusChangedEvent{}, errors.New("wait for update process: status event stream closed")
+				events = nil
+				continue
 			}
 			event, ok := rawEvent.(eventbus.StatusChangedEvent)
 			if !ok || event.ServerID != serverID {
+				continue
+			}
+			if event.ExecutionID != "" && event.ExecutionID != executionID {
 				continue
 			}
 			oldStatus := strings.ToUpper(strings.TrimSpace(event.OldStatus))
@@ -405,6 +589,50 @@ func waitForUpdateProcessExit(
 				continue
 			}
 			return event, nil
+		case <-poll.C:
+			snapshot, found, errSnapshot := getSnapshot(ctx, serverID)
+			if errSnapshot != nil {
+				continue
+			}
+			if !found || snapshot == nil {
+				return eventbus.StatusChangedEvent{}, fmt.Errorf("wait for update process: %w: process snapshot unavailable", errUpdateCompletionIndeterminate)
+			}
+
+			if snapshot.ExecutionID == "" {
+				status := strings.ToUpper(strings.TrimSpace(snapshot.Status))
+				if status == xylona.Status_OFFLINE.String() {
+					return eventbus.StatusChangedEvent{}, fmt.Errorf("wait for update process: %w: legacy node reported offline without a terminal event", errUpdateCompletionIndeterminate)
+				}
+				continue
+			}
+			if snapshot.ExecutionID != executionID {
+				return eventbus.StatusChangedEvent{}, fmt.Errorf(
+					"wait for update process: %w: expected %s, got %s",
+					errUpdateExecutionReplaced,
+					executionID,
+					snapshot.ExecutionID,
+				)
+			}
+
+			status := strings.ToUpper(strings.TrimSpace(snapshot.Status))
+			if status != xylona.Status_OFFLINE.String() {
+				continue
+			}
+			previousStatus := strings.ToUpper(strings.TrimSpace(snapshot.PreviousStatus))
+			if previousStatus != xylona.Status_UPDATING.String() ||
+				snapshot.TransitionSequence == 0 || !snapshot.ExitCodeKnown {
+				return eventbus.StatusChangedEvent{}, fmt.Errorf("wait for update process: %w: terminal snapshot lacks correlated update metadata", errUpdateCompletionIndeterminate)
+			}
+			return eventbus.StatusChangedEvent{
+				ServerID:           serverID,
+				OldStatus:          previousStatus,
+				NewStatus:          status,
+				ExecutionID:        snapshot.ExecutionID,
+				TransitionSequence: snapshot.TransitionSequence,
+				IntentionalStop:    snapshot.IntentionalStop,
+				ExitCode:           snapshot.ExitCode,
+				ExitCodeKnown:      true,
+			}, nil
 		}
 	}
 }
@@ -541,26 +769,53 @@ func waitForServerOnline(
 
 func (inst *Instance) rollbackUpdate(gameServer *models.GameServer, wasRunning bool, broadcaster UpdateProgressBroadcaster) {
 	serverID := gameServer.ID
-	broadcast := func(step xylona.UpdateStep, status xylona.StepStatus, msg string) {
+	broadcast := func(status xylona.StepStatus, msg string) {
 		if msg != "" {
 			inst.sendConsoleLine(gameServer, msg)
 		}
 		if broadcaster != nil {
-			broadcaster.BroadcastUpdateProgress(serverID, gameServer.Name, step, status, msg)
+			broadcaster.BroadcastUpdateProgress(
+				serverID,
+				gameServer.Name,
+				xylona.UpdateStep_UPDATE_STEP_ROLLING_BACK,
+				status,
+				msg,
+			)
 		}
 	}
 
-	broadcast(xylona.UpdateStep_UPDATE_STEP_ROLLING_BACK, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Rolling back")
+	broadcast(xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Rolling back")
 	errRestore := inst.restoreServerFiles(gameServer)
 	if errRestore != nil {
 		log.Error().Err(errRestore).Str("game_server_id", serverID).Msg("Rollback restore failed")
+		broadcast(
+			xylona.StepStatus_STEP_STATUS_FAILED,
+			"Rollback failed; recovery data was retained",
+		)
+		return
 	}
 	if wasRunning {
 		_, errStart := inst.StartGameServer(gameServer)
 		if errStart != nil {
 			log.Error().Err(errStart).Str("game_server_id", serverID).Msg("Failed to restart server after rollback")
+			broadcast(
+				xylona.StepStatus_STEP_STATUS_FAILED,
+				"Files were restored, but the server failed to restart",
+			)
+			return
+		}
+		restarted := waitForServerOnline(inst.ctx, func() (xylona.Status, bool) {
+			status := inst.currentProcessStatus(gameServer)
+			return status, status != xylona.Status_UNKNOWN
+		}, 60, time.Second)
+		if !restarted {
+			broadcast(
+				xylona.StepStatus_STEP_STATUS_FAILED,
+				"Files were restored, but the server did not return online",
+			)
+			return
 		}
 	}
-	broadcast(xylona.UpdateStep_UPDATE_STEP_ROLLING_BACK, xylona.StepStatus_STEP_STATUS_COMPLETED, "Rollback complete")
+	broadcast(xylona.StepStatus_STEP_STATUS_COMPLETED, "Rollback complete")
 	log.Warn().Str("game_server_id", serverID).Msg("Update rolled back")
 }

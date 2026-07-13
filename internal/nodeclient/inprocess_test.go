@@ -11,10 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
-	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 // newTestClient constructs an in-process client backed by a Node with no
@@ -238,8 +236,16 @@ func TestInProcessClientStreamEventsClosesOnContextCancel(t *testing.T) {
 	}
 }
 
-func TestInProcessClientStreamEventsMirrorsStatusEventBusUpdates(t *testing.T) {
-	client, _ := newTestClient(t)
+func TestInProcessClientStreamEventsReplaysRetainedStatus(t *testing.T) {
+	client, nodeInst := newTestClient(t)
+	nodeInst.Events().Publish(node.Event{
+		Type:               node.EventTypeProcessStatus,
+		ProcessID:          "srv-replay",
+		OldStatus:          "OFFLINE",
+		Status:             "ONLINE",
+		ExecutionID:        "execution-1",
+		TransitionSequence: 1,
+	})
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -249,11 +255,6 @@ func TestInProcessClientStreamEventsMirrorsStatusEventBusUpdates(t *testing.T) {
 		t.Fatalf("StreamEvents: %v", errStream)
 	}
 
-	eventbus.Get().Publish(eventbus.TopicGameServerStatusChanged, eventbus.StatusChangedEvent{
-		ServerID:  "srv-bridge",
-		NewStatus: xylona.Status_ONLINE.String(),
-	})
-
 	select {
 	case got, ok := <-stream:
 		if !ok {
@@ -262,14 +263,14 @@ func TestInProcessClientStreamEventsMirrorsStatusEventBusUpdates(t *testing.T) {
 		if got.Type != node.EventTypeProcessStatus {
 			t.Fatalf("got.Type = %v, want %v", got.Type, node.EventTypeProcessStatus)
 		}
-		if got.ProcessID != "srv-bridge" {
-			t.Fatalf("got.ProcessID = %q, want %q", got.ProcessID, "srv-bridge")
+		if got.ProcessID != "srv-replay" {
+			t.Fatalf("got.ProcessID = %q, want %q", got.ProcessID, "srv-replay")
 		}
-		if got.Status != xylona.Status_ONLINE.String() {
-			t.Fatalf("got.Status = %q, want %q", got.Status, xylona.Status_ONLINE.String())
+		if got.Status != "ONLINE" || !got.Replayed || got.ExecutionID != "execution-1" {
+			t.Fatalf("replayed status event = %+v", got)
 		}
 	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for bridged status event")
+		t.Fatal("timed out waiting for replayed status event")
 	}
 }
 
