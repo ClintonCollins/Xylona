@@ -31,13 +31,17 @@ type minecraftVersionJSON struct {
 // version provider API responses (10 MiB).
 const maxVersionAPIResponseBytes = 10 << 20
 
+const paperMCUserAgent = "Xylona/1.0 (github.com/ClintonCollins/Xylona)"
+
 var rePaperBuildVersion = regexp.MustCompile(`(?i)(\d+\.\d+(?:\.\d+)?)-(\d+)`)
 
-// paperMCProjectsResponse is the response from the PaperMC /v2/projects/{project} endpoint.
+// paperMCProjectsResponse accepts both PaperMC's current grouped version response
+// and the legacy flat version response still used by compatible providers.
 type paperMCProjectsResponse struct {
 	ProjectID   string   `json:"project_id"`
 	ProjectName string   `json:"project_name"`
 	Versions    []string `json:"versions"`
+	NewestFirst bool     `json:"-"`
 }
 
 type mojangManifestResponse struct {
@@ -84,7 +88,7 @@ func NewMinecraftTracker() *MinecraftTracker {
 func NewConfiguredMinecraftTracker(providerKind string, providerSourceID string, target string) *MinecraftTracker {
 	return &MinecraftTracker{
 		httpClient:        &http.Client{Timeout: 15 * time.Second},
-		paperMCURL:        "https://api.papermc.io/v2",
+		paperMCURL:        "https://fill.papermc.io/v3",
 		mojangManifestURL: "https://launchermeta.mojang.com/mc/game/version_manifest.json",
 		providerKind:      strings.ToLower(strings.TrimSpace(providerKind)),
 		providerSourceID:  strings.ToLower(strings.TrimSpace(providerSourceID)),
@@ -451,7 +455,7 @@ func (m *MinecraftTracker) GetLatestVersion(ctx context.Context, gs *models.Game
 	project := paperMCProject(gs)
 	url := fmt.Sprintf("%s/projects/%s", m.paperMCURL, project)
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, errReq := newPaperMCRequest(ctx, url)
 	if errReq != nil {
 		return "", fmt.Errorf("build papermc request: %w", errReq)
 	}
@@ -487,6 +491,9 @@ func (m *MinecraftTracker) GetLatestVersion(ctx context.Context, gs *models.Game
 
 	if len(parsed.Versions) == 0 {
 		return "", nil
+	}
+	if parsed.NewestFirst {
+		return parsed.Versions[0], nil
 	}
 	return parsed.Versions[len(parsed.Versions)-1], nil
 }
@@ -574,7 +581,7 @@ func (m *MinecraftTracker) resolvePaperTarget(ctx context.Context, project strin
 func (m *MinecraftTracker) getPaperTargets(ctx context.Context, project string) ([]string, error) {
 	url := fmt.Sprintf("%s/projects/%s", m.paperMCURL, project)
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, errReq := newPaperMCRequest(ctx, url)
 	if errReq != nil {
 		return nil, fmt.Errorf("build papermc request: %w", errReq)
 	}
@@ -608,19 +615,22 @@ func (m *MinecraftTracker) getPaperTargets(ctx context.Context, project string) 
 		return nil, fmt.Errorf("parse papermc response: %w", errJSON)
 	}
 
+	if parsed.NewestFirst {
+		for left, right := 0, len(parsed.Versions)-1; left < right; left, right = left+1, right-1 {
+			parsed.Versions[left], parsed.Versions[right] = parsed.Versions[right], parsed.Versions[left]
+		}
+	}
 	return parsed.Versions, nil
 }
 
 type paperMCBuildsResponse struct {
-	Builds []struct {
-		Build int `json:"build"`
-	} `json:"builds"`
+	Builds []int
 }
 
 func (m *MinecraftTracker) getLatestPaperBuildVersion(ctx context.Context, project string, target string) (string, error) {
 	url := fmt.Sprintf("%s/projects/%s/versions/%s/builds", m.paperMCURL, project, target)
 
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, errReq := newPaperMCRequest(ctx, url)
 	if errReq != nil {
 		return "", fmt.Errorf("build papermc build request: %w", errReq)
 	}
@@ -656,8 +666,131 @@ func (m *MinecraftTracker) getLatestPaperBuildVersion(ctx context.Context, proje
 	if len(parsed.Builds) == 0 {
 		return "", nil
 	}
-	build := parsed.Builds[len(parsed.Builds)-1].Build
+	build := parsed.Builds[0]
+	for _, candidate := range parsed.Builds[1:] {
+		if candidate > build {
+			build = candidate
+		}
+	}
 	return fmt.Sprintf("%s-%d", target, build), nil
+}
+
+func newPaperMCRequest(ctx context.Context, endpoint string) (*http.Request, error) {
+	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if errReq != nil {
+		return nil, fmt.Errorf("build PaperMC request: %w", errReq)
+	}
+	req.Header.Set("User-Agent", paperMCUserAgent)
+	return req, nil
+}
+
+func (r *paperMCProjectsResponse) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ProjectID   string `json:"project_id"`
+		ProjectName string `json:"project_name"`
+		Project     struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"project"`
+		Versions json.RawMessage `json:"versions"`
+	}
+	errDecode := json.Unmarshal(data, &raw)
+	if errDecode != nil {
+		return fmt.Errorf("decode papermc project response: %w", errDecode)
+	}
+
+	r.ProjectID = raw.ProjectID
+	r.ProjectName = raw.ProjectName
+	if raw.Project.ID != "" {
+		r.ProjectID = raw.Project.ID
+		r.ProjectName = raw.Project.Name
+	}
+
+	versions, newestFirst, errVersions := decodePaperMCVersions(raw.Versions)
+	if errVersions != nil {
+		return errVersions
+	}
+	r.Versions = versions
+	r.NewestFirst = newestFirst
+	return nil
+}
+
+func (r *paperMCBuildsResponse) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return errors.New("decode papermc builds response: empty response")
+	}
+	if trimmed[0] == '[' {
+		var current []struct {
+			ID int `json:"id"`
+		}
+		errDecode := json.Unmarshal(trimmed, &current)
+		if errDecode != nil {
+			return fmt.Errorf("decode current papermc builds response: %w", errDecode)
+		}
+		r.Builds = make([]int, 0, len(current))
+		for _, build := range current {
+			r.Builds = append(r.Builds, build.ID)
+		}
+		return nil
+	}
+
+	var legacy struct {
+		Builds []struct {
+			Build int `json:"build"`
+		} `json:"builds"`
+	}
+	errDecode := json.Unmarshal(trimmed, &legacy)
+	if errDecode != nil {
+		return fmt.Errorf("decode legacy papermc builds response: %w", errDecode)
+	}
+	r.Builds = make([]int, 0, len(legacy.Builds))
+	for _, build := range legacy.Builds {
+		r.Builds = append(r.Builds, build.Build)
+	}
+	return nil
+}
+
+func decodePaperMCVersions(raw json.RawMessage) ([]string, bool, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return []string{}, false, nil
+	}
+	if trimmed[0] == '[' {
+		var versions []string
+		errDecode := json.Unmarshal(trimmed, &versions)
+		if errDecode != nil {
+			return nil, false, fmt.Errorf("decode legacy papermc versions: %w", errDecode)
+		}
+		return versions, false, nil
+	}
+	if trimmed[0] != '{' {
+		return nil, false, errors.New("decode papermc versions: expected array or object")
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	_, errToken := decoder.Token()
+	if errToken != nil {
+		return nil, false, fmt.Errorf("decode papermc version groups: %w", errToken)
+	}
+	versions := make([]string, 0)
+	for decoder.More() {
+		_, errKey := decoder.Token()
+		if errKey != nil {
+			return nil, false, fmt.Errorf("decode papermc version group name: %w", errKey)
+		}
+		var groupedVersions []string
+		errGroup := decoder.Decode(&groupedVersions)
+		if errGroup != nil {
+			return nil, false, fmt.Errorf("decode papermc version group: %w", errGroup)
+		}
+		versions = append(versions, groupedVersions...)
+	}
+	_, errToken = decoder.Token()
+	if errToken != nil {
+		return nil, false, fmt.Errorf("finish papermc version groups: %w", errToken)
+	}
+	return versions, true, nil
 }
 
 // CheckForUpdate compares the installed version against the latest available version.

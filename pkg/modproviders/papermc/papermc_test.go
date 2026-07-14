@@ -464,6 +464,91 @@ func TestDownload_SHA256Mismatch(t *testing.T) {
 	}
 }
 
+func TestCurrentAPIResponses(t *testing.T) {
+	var serverURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/projects":
+			_, errWrite := w.Write([]byte(`{
+				"projects":[
+					{"project":{"id":"paper","name":"Paper"},"versions":{"1.21":["1.21.4"]}},
+					{"project":{"id":"velocity","name":"Velocity"},"versions":{"3.4":["3.4.0"]}}
+				]
+			}`))
+			if errWrite != nil {
+				t.Errorf("write projects response: %v", errWrite)
+			}
+		case "/projects/paper":
+			_, errWrite := w.Write([]byte(`{
+				"project":{"id":"paper","name":"Paper"},
+				"versions":{"1.21":["1.21.4","1.21.1"],"1.20":["1.20.6"]}
+			}`))
+			if errWrite != nil {
+				t.Errorf("write project response: %v", errWrite)
+			}
+		case "/projects/paper/versions/1.21.4/builds":
+			_, errWrite := fmt.Fprintf(w, `[
+				{
+					"id":101,
+					"time":"2025-01-02T00:00:00Z",
+					"channel":"STABLE",
+					"commits":[{"message":"Latest fix"}],
+					"downloads":{"server:default":{
+						"name":"paper-1.21.4-101.jar",
+						"checksums":{"sha256":"abc123"},
+						"size":12345,
+						"url":%q
+					}}
+				},
+				{"id":100,"commits":[],"downloads":{}}
+			]`, serverURL+"/download/paper.jar")
+			if errWrite != nil {
+				t.Errorf("write builds response: %v", errWrite)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	serverURL = srv.URL
+
+	provider := newTestProvider(srv)
+	searchResult, errSearch := provider.Search(context.Background(), "", nil)
+	if errSearch != nil {
+		t.Fatalf("Search() error = %v", errSearch)
+	}
+	if len(searchResult.Results) != 2 || searchResult.Results[0].SourceID != "paper" {
+		t.Errorf("Search() results = %+v, want current project envelopes", searchResult.Results)
+	}
+
+	details, errDetails := provider.GetModDetails(context.Background(), "paper", nil)
+	if errDetails != nil {
+		t.Fatalf("GetModDetails() error = %v", errDetails)
+	}
+	if len(details.Versions) != 3 || details.Versions[0].VersionID != "1.21.4" {
+		t.Errorf("GetModDetails().Versions = %+v, want grouped versions newest first", details.Versions)
+	}
+
+	versions, errVersions := provider.GetVersions(context.Background(), "paper", "1.21.4", nil)
+	if errVersions != nil {
+		t.Fatalf("GetVersions() error = %v", errVersions)
+	}
+	if len(versions) != 2 {
+		t.Fatalf("GetVersions() len = %d, want 2", len(versions))
+	}
+	first := versions[0]
+	if first.VersionID != "1.21.4-101" || first.FileSize != 12345 {
+		t.Errorf("GetVersions()[0] = %+v, want current build metadata", first)
+	}
+	if first.DownloadURL != serverURL+"/download/paper.jar" || first.FileHashSHA256 != "abc123" {
+		t.Errorf("GetVersions()[0] download metadata = %+v, want API-provided URL and hash", first)
+	}
+	if first.Changelog != "Latest fix" {
+		t.Errorf("GetVersions()[0].Changelog = %q, want Latest fix", first.Changelog)
+	}
+}
+
 // --------------------------------------------------------------------------
 // parseVersionID
 // --------------------------------------------------------------------------

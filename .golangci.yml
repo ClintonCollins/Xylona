@@ -90,6 +90,8 @@ linters:
           strict: true
   exclusions:
     generated: strict
+    paths:
+      - frontend/node_modules/
     presets:
       - common-false-positives
       - std-error-handling

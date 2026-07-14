@@ -10,8 +10,8 @@ import (
 )
 
 // knownWorkshopID is a well-known, stable Steam Workshop item ID used for integration tests.
-// 2128699613 = Project Zomboid "Expanded Helicopter Events"
-const knownWorkshopID = "2128699613"
+// 2169435993 = Project Zomboid "Mod Options (Build 41)"
+const knownWorkshopID = "2169435993"
 
 func TestIntegration_GetPublishedFileDetails(t *testing.T) {
 	if testing.Short() {

@@ -2,7 +2,10 @@
 package papermc
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -14,9 +17,10 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://api.papermc.io/v2"
+	defaultBaseURL = "https://fill.papermc.io/v3"
 	userAgent      = "Xylona/1.0 (github.com/ClintonCollins/Xylona)"
 	providerID     = "papermc"
+	serverDownload = "server:default"
 )
 
 // alternateBaseURLs maps project IDs that use the PaperMC API format but are
@@ -29,7 +33,7 @@ func init() {
 	modproviders.RegisterProvider(New())
 }
 
-// Provider implements modproviders.ModProvider for PaperMC (api.papermc.io/v2).
+// Provider implements modproviders.ModProvider for PaperMC's downloads service.
 // It covers Paper, Folia, Velocity, and Waterfall server software.
 type Provider struct {
 	httpClient *http.Client
@@ -68,32 +72,35 @@ func (p *Provider) RequiresAPIKey() bool {
 // API response types
 // --------------------------------------------------------------------------
 
+type projectIdentity struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type projectsListResponse struct {
-	Projects []string `json:"projects"`
+	Projects []projectIdentity
 }
 
 type projectVersionsResponse struct {
-	ProjectID string   `json:"project_id"`
-	Versions  []string `json:"versions"`
+	ProjectID   string
+	ProjectName string
+	Versions    []string
+	NewestFirst bool
 }
 
 type buildsResponse struct {
-	Builds []buildEntry `json:"builds"`
+	Builds []buildEntry
 }
 
 type buildEntry struct {
-	Build   int    `json:"build"`
-	Time    string `json:"time"`
-	Channel string `json:"channel"`
-	Changes []struct {
-		Summary string `json:"summary"`
-	} `json:"changes"`
-	Downloads struct {
-		Application struct {
-			Name   string `json:"name"`
-			SHA256 string `json:"sha256"`
-		} `json:"application"`
-	} `json:"downloads"`
+	Build       int
+	Time        string
+	Channel     string
+	Changes     []string
+	FileName    string
+	SHA256      string
+	FileSize    int64
+	DownloadURL string
 }
 
 // --------------------------------------------------------------------------
@@ -114,11 +121,15 @@ func (p *Provider) Search(ctx context.Context, _ string, _ modproviders.SearchPa
 
 	results := make([]modproviders.ModSearchResult, 0, len(resp.Projects))
 	for _, project := range resp.Projects {
+		name := project.Name
+		if name == "" {
+			name = titleCase(project.ID)
+		}
 		results = append(results, modproviders.ModSearchResult{
 			Source:      providerID,
-			SourceID:    project,
-			Name:        titleCase(project),
-			Description: fmt.Sprintf("PaperMC project: %s", project),
+			SourceID:    project.ID,
+			Name:        name,
+			Description: fmt.Sprintf("PaperMC project: %s", project.ID),
 		})
 	}
 	return modproviders.SearchResult{
@@ -144,10 +155,13 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, _ modprov
 
 	// Build ModVersion entries for each game version (not individual builds).
 	// This lets callers like GetServerSoftwareVersions list available game versions.
-	// Reverse the order so newest versions appear first (API returns oldest first).
 	gameVersionEntries := make([]modproviders.ModVersion, 0, len(projectResp.Versions))
-	for i := len(projectResp.Versions) - 1; i >= 0; i-- {
-		gv := projectResp.Versions[i]
+	for i := range projectResp.Versions {
+		versionIndex := i
+		if !projectResp.NewestFirst {
+			versionIndex = len(projectResp.Versions) - 1 - i
+		}
+		gv := projectResp.Versions[versionIndex]
 		gameVersionEntries = append(gameVersionEntries, modproviders.ModVersion{
 			VersionID:     gv,
 			VersionString: gv,
@@ -184,28 +198,25 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 	versions := make([]modproviders.ModVersion, 0, len(resp.Builds))
 	for _, b := range resp.Builds {
 		versionID := fmt.Sprintf("%s-%d", gameVersion, b.Build)
-		fileName := b.Downloads.Application.Name
+		fileName := b.FileName
 		if fileName == "" {
 			fileName = fmt.Sprintf("%s-%s-%d.jar", sourceID, gameVersion, b.Build)
 		}
-		downloadURL := fmt.Sprintf("%s/projects/%s/versions/%s/builds/%d/downloads/%s",
-			p.baseURLFor(sourceID), sourceID, gameVersion, b.Build, fileName)
-
-		var changelog string
-		if len(b.Changes) > 0 {
-			summaries := make([]string, 0, len(b.Changes))
-			for _, c := range b.Changes {
-				summaries = append(summaries, c.Summary)
-			}
-			changelog = strings.Join(summaries, "\n")
+		downloadURL := b.DownloadURL
+		if downloadURL == "" {
+			downloadURL = fmt.Sprintf("%s/projects/%s/versions/%s/builds/%d/downloads/%s",
+				p.baseURLFor(sourceID), sourceID, gameVersion, b.Build, fileName)
 		}
+
+		changelog := strings.Join(b.Changes, "\n")
 
 		versions = append(versions, modproviders.ModVersion{
 			VersionID:      versionID,
 			VersionString:  fmt.Sprintf("Build %d", b.Build),
 			GameVersions:   []string{gameVersion},
 			DownloadURL:    downloadURL,
-			FileHashSHA256: b.Downloads.Application.SHA256,
+			FileSize:       b.FileSize,
+			FileHashSHA256: b.SHA256,
 			Changelog:      changelog,
 		})
 	}
@@ -244,14 +255,17 @@ func (p *Provider) Download(ctx context.Context, sourceID string, versionID stri
 		return nil, fmt.Errorf("papermc download: build %d not found for %s %s", buildNum, sourceID, version)
 	}
 
-	fileName := targetBuild.Downloads.Application.Name
+	fileName := targetBuild.FileName
 	if fileName == "" {
 		fileName = fmt.Sprintf("%s-%s-%d.jar", sourceID, version, buildNum)
 	}
-	expectedSHA256 := targetBuild.Downloads.Application.SHA256
+	expectedSHA256 := targetBuild.SHA256
 
-	downloadURL := fmt.Sprintf("%s/projects/%s/versions/%s/builds/%d/downloads/%s",
-		p.baseURLFor(sourceID), sourceID, version, buildNum, fileName)
+	downloadURL := targetBuild.DownloadURL
+	if downloadURL == "" {
+		downloadURL = fmt.Sprintf("%s/projects/%s/versions/%s/builds/%d/downloads/%s",
+			p.baseURLFor(sourceID), sourceID, version, buildNum, fileName)
+	}
 
 	destPath := filepath.Join(targetDir, fileName)
 	written, hash, errDownload := providerhttp.DownloadToFile(ctx, p.httpClient, downloadURL, destPath, providerID)
@@ -289,8 +303,16 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, gameVers
 	if len(versions) == 0 {
 		return nil, modproviders.ErrNoUpdateAvailable
 	}
-	// Builds are returned in ascending order; the last one is the latest.
-	v := versions[len(versions)-1]
+	latestIndex := 0
+	latestBuild := -1
+	for i := range versions {
+		_, build, errParse := parseVersionID(versions[i].VersionID)
+		if errParse == nil && build > latestBuild {
+			latestBuild = build
+			latestIndex = i
+		}
+	}
+	v := versions[latestIndex]
 	return &v, nil
 }
 
@@ -305,6 +327,191 @@ func (p *Provider) getJSON(ctx context.Context, endpoint string, dest any) error
 		return fmt.Errorf("papermc get JSON: %w", errGet)
 	}
 	return nil
+}
+
+func (r *projectsListResponse) UnmarshalJSON(data []byte) error {
+	var legacy struct {
+		Projects []string `json:"projects"`
+	}
+	errLegacy := json.Unmarshal(data, &legacy)
+	if errLegacy == nil && legacy.Projects != nil {
+		r.Projects = make([]projectIdentity, 0, len(legacy.Projects))
+		for _, projectID := range legacy.Projects {
+			r.Projects = append(r.Projects, projectIdentity{ID: projectID})
+		}
+		return nil
+	}
+
+	var current struct {
+		Projects []struct {
+			Project projectIdentity `json:"project"`
+		} `json:"projects"`
+	}
+	errCurrent := json.Unmarshal(data, &current)
+	if errCurrent != nil {
+		return fmt.Errorf("decode projects response: %w", errCurrent)
+	}
+	r.Projects = make([]projectIdentity, 0, len(current.Projects))
+	for _, project := range current.Projects {
+		r.Projects = append(r.Projects, project.Project)
+	}
+	return nil
+}
+
+func (r *projectVersionsResponse) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ProjectID   string          `json:"project_id"`
+		ProjectName string          `json:"project_name"`
+		Project     projectIdentity `json:"project"`
+		Versions    json.RawMessage `json:"versions"`
+	}
+	errDecode := json.Unmarshal(data, &raw)
+	if errDecode != nil {
+		return fmt.Errorf("decode project response: %w", errDecode)
+	}
+
+	r.ProjectID = raw.ProjectID
+	r.ProjectName = raw.ProjectName
+	if raw.Project.ID != "" {
+		r.ProjectID = raw.Project.ID
+		r.ProjectName = raw.Project.Name
+	}
+
+	versions, newestFirst, errVersions := decodeVersions(raw.Versions)
+	if errVersions != nil {
+		return errVersions
+	}
+	r.Versions = versions
+	r.NewestFirst = newestFirst
+	return nil
+}
+
+func (r *buildsResponse) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return errors.New("decode builds response: empty response")
+	}
+
+	if trimmed[0] == '[' {
+		var current []struct {
+			ID      int    `json:"id"`
+			Time    string `json:"time"`
+			Channel string `json:"channel"`
+			Commits []struct {
+				Message string `json:"message"`
+			} `json:"commits"`
+			Downloads map[string]struct {
+				Name      string `json:"name"`
+				Checksums struct {
+					SHA256 string `json:"sha256"`
+				} `json:"checksums"`
+				Size int64  `json:"size"`
+				URL  string `json:"url"`
+			} `json:"downloads"`
+		}
+		errDecode := json.Unmarshal(trimmed, &current)
+		if errDecode != nil {
+			return fmt.Errorf("decode current builds response: %w", errDecode)
+		}
+		r.Builds = make([]buildEntry, 0, len(current))
+		for _, build := range current {
+			download := build.Downloads[serverDownload]
+			changes := make([]string, 0, len(build.Commits))
+			for _, commit := range build.Commits {
+				changes = append(changes, commit.Message)
+			}
+			r.Builds = append(r.Builds, buildEntry{
+				Build:       build.ID,
+				Time:        build.Time,
+				Channel:     build.Channel,
+				Changes:     changes,
+				FileName:    download.Name,
+				SHA256:      download.Checksums.SHA256,
+				FileSize:    download.Size,
+				DownloadURL: download.URL,
+			})
+		}
+		return nil
+	}
+
+	var legacy struct {
+		Builds []struct {
+			Build   int    `json:"build"`
+			Time    string `json:"time"`
+			Channel string `json:"channel"`
+			Changes []struct {
+				Summary string `json:"summary"`
+			} `json:"changes"`
+			Downloads struct {
+				Application struct {
+					Name   string `json:"name"`
+					SHA256 string `json:"sha256"`
+				} `json:"application"`
+			} `json:"downloads"`
+		} `json:"builds"`
+	}
+	errDecode := json.Unmarshal(trimmed, &legacy)
+	if errDecode != nil {
+		return fmt.Errorf("decode legacy builds response: %w", errDecode)
+	}
+	r.Builds = make([]buildEntry, 0, len(legacy.Builds))
+	for _, build := range legacy.Builds {
+		changes := make([]string, 0, len(build.Changes))
+		for _, change := range build.Changes {
+			changes = append(changes, change.Summary)
+		}
+		r.Builds = append(r.Builds, buildEntry{
+			Build:    build.Build,
+			Time:     build.Time,
+			Channel:  build.Channel,
+			Changes:  changes,
+			FileName: build.Downloads.Application.Name,
+			SHA256:   build.Downloads.Application.SHA256,
+		})
+	}
+	return nil
+}
+
+func decodeVersions(raw json.RawMessage) ([]string, bool, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return []string{}, false, nil
+	}
+	if trimmed[0] == '[' {
+		var versions []string
+		errDecode := json.Unmarshal(trimmed, &versions)
+		if errDecode != nil {
+			return nil, false, fmt.Errorf("decode legacy project versions: %w", errDecode)
+		}
+		return versions, false, nil
+	}
+	if trimmed[0] != '{' {
+		return nil, false, errors.New("decode project versions: expected array or object")
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	_, errToken := decoder.Token()
+	if errToken != nil {
+		return nil, false, fmt.Errorf("decode project version groups: %w", errToken)
+	}
+	versions := make([]string, 0)
+	for decoder.More() {
+		_, errKey := decoder.Token()
+		if errKey != nil {
+			return nil, false, fmt.Errorf("decode project version group name: %w", errKey)
+		}
+		var groupedVersions []string
+		errGroup := decoder.Decode(&groupedVersions)
+		if errGroup != nil {
+			return nil, false, fmt.Errorf("decode project version group: %w", errGroup)
+		}
+		versions = append(versions, groupedVersions...)
+	}
+	_, errToken = decoder.Token()
+	if errToken != nil {
+		return nil, false, fmt.Errorf("finish project version groups: %w", errToken)
+	}
+	return versions, true, nil
 }
 
 // titleCase returns the string with its first letter uppercased. It is used for

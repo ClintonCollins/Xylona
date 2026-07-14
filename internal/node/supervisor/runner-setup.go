@@ -61,6 +61,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.instanceCtx = inst.ctx
 		newCommand.processCtx = processCtx
 		newCommand.processCtxCancel = processCtxCancel
+		newCommand.finalizationDone = make(chan struct{})
 		newCommand.inputMethod = preparedCommand.InputMethod
 		newCommand.workingDir = preparedCommand.WorkingDirectory
 		newCommand.launchEnv = internalLaunchEnv
@@ -87,6 +88,7 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			processCtx:          processCtx,
 			processCtxCancel:    processCtxCancel,
 			processGeneration:   1,
+			finalizationDone:    make(chan struct{}),
 			executionMutex:      &sync.Mutex{},
 			outputListeners:     make(map[string]chan *xylona.Message),
 			outputListenersLock: &sync.RWMutex{},

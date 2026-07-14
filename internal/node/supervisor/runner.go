@@ -111,7 +111,7 @@ func (c *Command) Stop(stopInputCommand string) {
 	currentCMD := c.currentCMD
 	currentPTYCMD := c.currentPTYCMD
 	currentPTY := c.currentPTY
-	processDone := c.processCtx.Done()
+	finalizationDone := c.finalizationDone
 	instanceDone := c.instanceCtx.Done()
 	processCtxCancel := c.processCtxCancel
 	processGeneration := c.processGeneration
@@ -144,8 +144,8 @@ func (c *Command) Stop(stopInputCommand string) {
 		}
 	}
 	select {
-	case <-processDone:
-		log.Debug().Str("Game Server ID", c.ID).Msg("Job process context done.")
+	case <-finalizationDone:
+		log.Debug().Str("Game Server ID", c.ID).Msg("Job execution finalized.")
 		return
 	case <-instanceDone:
 		log.Debug().Str("Game Server ID", c.ID).Msg("Xylona shutdown signal received. Closing job.")
@@ -400,6 +400,8 @@ func (c *Command) finalizeExecution(
 	c.currentPTYCMD = nil
 	c.currentPTY = nil
 	c.status = xylona.Status_OFFLINE
+	finalizationDone := c.finalizationDone
+	c.finalizationDone = nil
 	if clearLaunchEnvironment {
 		for name := range c.launchEnv {
 			c.launchEnv[name] = ""
@@ -410,6 +412,9 @@ func (c *Command) finalizeExecution(
 
 	c.sendJobStatusNotificationWithExitDetails(oldStatus, exitCode, exitCodeKnown)
 	c.executionMutex.Unlock()
+	if finalizationDone != nil {
+		close(finalizationDone)
+	}
 	if commandEndFunc != nil {
 		commandEndFunc(c)
 	}

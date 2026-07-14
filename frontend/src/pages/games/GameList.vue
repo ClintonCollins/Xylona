@@ -109,6 +109,7 @@
       </q-table>
     </div>
     <game-delete-dialog
+      v-if="selectedActionGame"
       v-model:show-dialog="showGameDeleteDialog"
       :game="selectedActionGame"
       @submit="deleteGameSubmitted"></game-delete-dialog>

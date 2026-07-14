@@ -54,12 +54,30 @@ func newTestPaperMCServer(t *testing.T, project string, versions []string, reque
 		if requestPath != nil {
 			*requestPath = r.URL.Path
 		}
-		resp := paperMCProjectsResponse{
-			ProjectID:   project,
-			ProjectName: project,
-			Versions:    versions,
-		}
 		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/builds") {
+			_, errWrite := w.Write([]byte(`[]`))
+			if errWrite != nil {
+				t.Errorf("test server write builds error: %v", errWrite)
+			}
+			return
+		}
+
+		newestFirst := make([]string, len(versions))
+		for index := range versions {
+			newestFirst[index] = versions[len(versions)-1-index]
+		}
+		resp := struct {
+			Project struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"project"`
+			Versions map[string][]string `json:"versions"`
+		}{
+			Versions: map[string][]string{"test": newestFirst},
+		}
+		resp.Project.ID = project
+		resp.Project.Name = project
 		errEncode := json.NewEncoder(w).Encode(resp)
 		if errEncode != nil {
 			t.Errorf("test server encode error: %v", errEncode)

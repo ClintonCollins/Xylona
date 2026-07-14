@@ -112,6 +112,7 @@ type Command struct {
 	processCtx                    context.Context
 	processCtxCancel              context.CancelFunc
 	processGeneration             uint64
+	finalizationDone              chan struct{}
 	executionMutex                *sync.Mutex
 	toggleOutputType              chan struct{}
 	telnetOutputActive            atomic.Bool
