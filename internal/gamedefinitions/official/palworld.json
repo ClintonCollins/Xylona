@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:34f01ba5a2c12992c0728c01aec814efcf2fe0656696aaec2d014e4a8b72b659",
+  "content_hash": "",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -53,7 +53,973 @@
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false
   },
-  "config_schemas": [],
+  "config_schemas": [
+    {
+      "path": "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+      "platform_paths": {
+        "windows": "Pal/Saved/Config/WindowsServer/PalWorldSettings.ini"
+      },
+      "format": "palworld",
+      "category": "Server",
+      "generate_before_start": true,
+      "managed_fields": {
+        "ServerName": "game_server.server_name",
+        "ServerPlayerMaxNum": "game_server.max_players",
+        "RESTAPIPort": "game_server.query_port"
+      },
+      "schema": {
+        "type": "object",
+        "x-groups": [
+          "Server",
+          "Access",
+          "Networking",
+          "World",
+          "Player",
+          "Pals",
+          "Items and Structures",
+          "Guilds and Bases",
+          "PvP",
+          "Performance",
+          "Advanced"
+        ],
+        "properties": {
+          "ServerName": {
+            "type": "string",
+            "title": "Server name",
+            "default": "Default Palworld Server",
+            "description": "Name displayed for the dedicated server.",
+            "x-group": "Server",
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.server_name"
+            }
+          },
+          "ServerDescription": {
+            "type": "string",
+            "title": "Server description",
+            "default": "",
+            "x-group": "Server",
+            "x-order": 1
+          },
+          "ServerPlayerMaxNum": {
+            "type": "integer",
+            "title": "Maximum players",
+            "default": 32,
+            "minimum": 1,
+            "maximum": 512,
+            "x-group": "Server",
+            "x-order": 2,
+            "x-managed": {
+              "source": "game_server.max_players"
+            }
+          },
+          "AutoSaveSpan": {
+            "type": "number",
+            "title": "Auto-save interval (seconds)",
+            "default": 30,
+            "description": "Interval between automatic world saves.",
+            "x-group": "Server",
+            "x-order": 3
+          },
+          "bIsUseBackupSaveData": {
+            "type": "boolean",
+            "title": "Enable world backups",
+            "default": true,
+            "description": "Create rotating world backups. This increases disk activity.",
+            "x-group": "Server",
+            "x-order": 4
+          },
+          "LogFormatType": {
+            "type": "string",
+            "title": "Log format",
+            "default": "Text",
+            "enum": [
+              "Text",
+              "Json"
+            ],
+            "x-enum-labels": [
+              "Text",
+              "JSON"
+            ],
+            "x-group": "Server",
+            "x-order": 5
+          },
+          "bIsShowJoinLeftMessage": {
+            "type": "boolean",
+            "title": "Show join and leave messages",
+            "default": true,
+            "x-group": "Server",
+            "x-order": 6
+          },
+          "bShowPlayerList": {
+            "type": "boolean",
+            "title": "Show player list",
+            "default": false,
+            "description": "Show the online player list in the ESC menu.",
+            "x-group": "Server",
+            "x-order": 7
+          },
+          "ChatPostLimitPerMinute": {
+            "type": "integer",
+            "title": "Chat messages per minute",
+            "default": 10,
+            "minimum": 0,
+            "maximum": 100,
+            "x-group": "Server",
+            "x-order": 8
+          },
+          "AdminPassword": {
+            "type": "string",
+            "title": "Administrator password",
+            "default": "",
+            "description": "Xylona replaces this with its generated REST query credential before each start.",
+            "x-group": "Access",
+            "x-order": 0
+          },
+          "ServerPassword": {
+            "type": "string",
+            "title": "Server password",
+            "default": "",
+            "description": "Password players must provide to join.",
+            "x-group": "Access",
+            "x-order": 1
+          },
+          "bUseAuth": {
+            "type": "boolean",
+            "title": "Use platform authentication",
+            "default": true,
+            "x-group": "Access",
+            "x-order": 2
+          },
+          "BanListURL": {
+            "type": "string",
+            "title": "Ban list URL",
+            "default": "https://b.palworldgame.com/api/banlist.txt",
+            "x-group": "Access",
+            "x-order": 3
+          },
+          "bAllowClientMod": {
+            "type": "boolean",
+            "title": "Allow modded clients",
+            "default": true,
+            "x-group": "Access",
+            "x-order": 4
+          },
+          "PublicIP": {
+            "type": "string",
+            "title": "Public IP",
+            "default": "",
+            "description": "Optional external IP advertised for a community server. This does not change the bind address.",
+            "x-group": "Networking",
+            "x-order": 0
+          },
+          "PublicPort": {
+            "type": "integer",
+            "title": "Public port",
+            "default": 8211,
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "Optional external port advertised for a community server. This does not change the listening port.",
+            "x-group": "Networking",
+            "x-order": 1
+          },
+          "CrossplayPlatforms": {
+            "type": "string",
+            "title": "Crossplay platforms",
+            "default": "Steam,Xbox,PS5,Mac",
+            "description": "Comma-separated platforms allowed to connect.",
+            "x-group": "Networking",
+            "x-order": 2
+          },
+          "Region": {
+            "type": "string",
+            "title": "Region",
+            "default": "",
+            "x-group": "Networking",
+            "x-order": 3
+          },
+          "RCONEnabled": {
+            "type": "boolean",
+            "title": "Enable RCON",
+            "default": false,
+            "x-group": "Networking",
+            "x-order": 4
+          },
+          "RCONPort": {
+            "type": "integer",
+            "title": "RCON port",
+            "default": 25575,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 5
+          },
+          "RESTAPIEnabled": {
+            "type": "boolean",
+            "title": "Enable REST API",
+            "default": false,
+            "description": "Xylona enables this before each start for server queries.",
+            "x-group": "Networking",
+            "x-order": 6
+          },
+          "RESTAPIPort": {
+            "type": "integer",
+            "title": "REST API port",
+            "default": 8212,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 7,
+            "x-managed": {
+              "source": "game_server.query_port"
+            }
+          },
+          "Difficulty": {
+            "type": "string",
+            "title": "Difficulty preset",
+            "default": "None",
+            "enum": [
+              "None"
+            ],
+            "x-group": "World",
+            "x-order": 0
+          },
+          "DayTimeSpeedRate": {
+            "type": "number",
+            "title": "Daytime speed multiplier",
+            "default": 1,
+            "x-group": "World",
+            "x-order": 1
+          },
+          "NightTimeSpeedRate": {
+            "type": "number",
+            "title": "Nighttime speed multiplier",
+            "default": 1,
+            "x-group": "World",
+            "x-order": 2
+          },
+          "RandomizerType": {
+            "type": "string",
+            "title": "Pal randomizer mode",
+            "default": "None",
+            "enum": [
+              "None",
+              "Region",
+              "All"
+            ],
+            "x-enum-labels": [
+              "Disabled",
+              "Randomize within each region",
+              "Fully random"
+            ],
+            "x-group": "World",
+            "x-order": 3
+          },
+          "RandomizerSeed": {
+            "type": "string",
+            "title": "Randomizer seed",
+            "default": "",
+            "x-group": "World",
+            "x-order": 4
+          },
+          "bIsRandomizerPalLevelRandom": {
+            "type": "boolean",
+            "title": "Fully randomize Pal levels",
+            "default": false,
+            "description": "When disabled, randomized levels remain within each area's intended range.",
+            "x-group": "World",
+            "x-order": 5
+          },
+          "SupplyDropSpan": {
+            "type": "integer",
+            "title": "Supply drop interval (minutes)",
+            "default": 180,
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Interval between meteorites and supply drops.",
+            "x-group": "World",
+            "x-order": 6
+          },
+          "DenyTechnologyList": {
+            "type": "string",
+            "title": "Denied technology IDs",
+            "default": "",
+            "description": "Comma-separated technology IDs that players cannot unlock.",
+            "x-group": "World",
+            "x-order": 7
+          },
+          "ExpRate": {
+            "type": "number",
+            "title": "Experience gain multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 0
+          },
+          "PlayerDamageRateAttack": {
+            "type": "number",
+            "title": "Player damage dealt multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 1
+          },
+          "PlayerDamageRateDefense": {
+            "type": "number",
+            "title": "Player damage taken multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 2
+          },
+          "PlayerStomachDecreaceRate": {
+            "type": "number",
+            "title": "Player hunger depletion multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 3
+          },
+          "PlayerStaminaDecreaceRate": {
+            "type": "number",
+            "title": "Player stamina depletion multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 4
+          },
+          "PlayerAutoHPRegeneRate": {
+            "type": "number",
+            "title": "Player HP regeneration multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 5
+          },
+          "PlayerAutoHpRegeneRateInSleep": {
+            "type": "number",
+            "title": "Sleeping player HP regeneration multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 6
+          },
+          "ItemWeightRate": {
+            "type": "number",
+            "title": "Item weight multiplier",
+            "default": 1,
+            "x-group": "Player",
+            "x-order": 7
+          },
+          "DeathPenalty": {
+            "type": "string",
+            "title": "Death penalty",
+            "default": "All",
+            "enum": [
+              "None",
+              "Item",
+              "ItemAndEquipment",
+              "All"
+            ],
+            "x-enum-labels": [
+              "No drops",
+              "Drop items except equipment",
+              "Drop items and equipment",
+              "Drop items, equipment, and team Pals"
+            ],
+            "x-group": "Player",
+            "x-order": 8
+          },
+          "bAllowEnhanceStat_Health": {
+            "type": "boolean",
+            "title": "Allow Health stat allocation",
+            "default": true,
+            "x-group": "Player",
+            "x-order": 9
+          },
+          "bAllowEnhanceStat_Attack": {
+            "type": "boolean",
+            "title": "Allow Attack stat allocation",
+            "default": true,
+            "x-group": "Player",
+            "x-order": 10
+          },
+          "bAllowEnhanceStat_Stamina": {
+            "type": "boolean",
+            "title": "Allow Stamina stat allocation",
+            "default": true,
+            "x-group": "Player",
+            "x-order": 11
+          },
+          "bAllowEnhanceStat_Weight": {
+            "type": "boolean",
+            "title": "Allow Carry Weight stat allocation",
+            "default": true,
+            "x-group": "Player",
+            "x-order": 12
+          },
+          "bAllowEnhanceStat_WorkSpeed": {
+            "type": "boolean",
+            "title": "Allow Work Speed stat allocation",
+            "default": true,
+            "x-group": "Player",
+            "x-order": 13
+          },
+          "bEnableFastTravel": {
+            "type": "boolean",
+            "title": "Enable fast travel",
+            "default": true,
+            "x-group": "Player",
+            "x-order": 14
+          },
+          "bEnableFastTravelOnlyBaseCamp": {
+            "type": "boolean",
+            "title": "Restrict fast travel to bases",
+            "default": false,
+            "description": "Disable Great Eagle Statue travel and allow travel only between bases.",
+            "x-group": "Player",
+            "x-order": 15
+          },
+          "bIsStartLocationSelectByMap": {
+            "type": "boolean",
+            "title": "Allow map start-location selection",
+            "default": true,
+            "x-group": "Player",
+            "x-order": 16
+          },
+          "PalCaptureRate": {
+            "type": "number",
+            "title": "Pal capture multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 0
+          },
+          "PalSpawnNumRate": {
+            "type": "number",
+            "title": "Pal spawn multiplier",
+            "default": 1,
+            "description": "Higher values increase server processing load.",
+            "x-group": "Pals",
+            "x-order": 1
+          },
+          "PalDamageRateAttack": {
+            "type": "number",
+            "title": "Pal damage dealt multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 2
+          },
+          "PalDamageRateDefense": {
+            "type": "number",
+            "title": "Pal damage taken multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 3
+          },
+          "PalStomachDecreaceRate": {
+            "type": "number",
+            "title": "Pal hunger depletion multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 4
+          },
+          "PalStaminaDecreaceRate": {
+            "type": "number",
+            "title": "Pal stamina depletion multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 5
+          },
+          "PalAutoHPRegeneRate": {
+            "type": "number",
+            "title": "Pal HP regeneration multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 6
+          },
+          "PalAutoHpRegeneRateInSleep": {
+            "type": "number",
+            "title": "Palbox HP regeneration multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 7
+          },
+          "PalEggDefaultHatchingTime": {
+            "type": "number",
+            "title": "Huge egg hatch time (hours)",
+            "default": 72,
+            "x-group": "Pals",
+            "x-order": 8
+          },
+          "MonsterFarmActionSpeedRate": {
+            "type": "number",
+            "title": "Grazing production speed multiplier",
+            "default": 1,
+            "x-group": "Pals",
+            "x-order": 9
+          },
+          "bAllowGlobalPalboxExport": {
+            "type": "boolean",
+            "title": "Allow Global Palbox export",
+            "default": true,
+            "x-group": "Pals",
+            "x-order": 10
+          },
+          "bAllowGlobalPalboxImport": {
+            "type": "boolean",
+            "title": "Allow Global Palbox import",
+            "default": false,
+            "x-group": "Pals",
+            "x-order": 11
+          },
+          "EnemyDropItemRate": {
+            "type": "number",
+            "title": "Enemy drop quantity multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 0
+          },
+          "CollectionDropRate": {
+            "type": "number",
+            "title": "Gatherable item multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 1
+          },
+          "CollectionObjectHpRate": {
+            "type": "number",
+            "title": "Gatherable object HP multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 2
+          },
+          "CollectionObjectRespawnSpeedRate": {
+            "type": "number",
+            "title": "Gatherable respawn interval multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 3
+          },
+          "BuildObjectHpRate": {
+            "type": "number",
+            "title": "Building HP multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 4
+          },
+          "BuildObjectDamageRate": {
+            "type": "number",
+            "title": "Building damage multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 5
+          },
+          "BuildObjectDeteriorationDamageRate": {
+            "type": "number",
+            "title": "Building decay multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 6
+          },
+          "EquipmentDurabilityDamageRate": {
+            "type": "number",
+            "title": "Equipment durability loss multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 7
+          },
+          "ItemCorruptionMultiplier": {
+            "type": "number",
+            "title": "Item corruption speed multiplier",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 8
+          },
+          "ItemContainerForceMarkDirtyInterval": {
+            "type": "number",
+            "title": "Open-container resync interval (seconds)",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 9
+          },
+          "DropItemMaxNum": {
+            "type": "integer",
+            "title": "Maximum dropped items",
+            "default": 3000,
+            "minimum": 0,
+            "maximum": 10000,
+            "x-group": "Items and Structures",
+            "x-order": 10
+          },
+          "DropItemMaxNum_UNKO": {
+            "type": "integer",
+            "title": "Maximum dropped feces",
+            "default": 100,
+            "minimum": 0,
+            "maximum": 5000,
+            "x-group": "Items and Structures",
+            "x-order": 11
+          },
+          "DropItemAliveMaxHours": {
+            "type": "number",
+            "title": "Dropped item lifetime (hours)",
+            "default": 1,
+            "x-group": "Items and Structures",
+            "x-order": 12
+          },
+          "MaxBuildingLimitNum": {
+            "type": "integer",
+            "title": "Buildings per player",
+            "default": 0,
+            "minimum": 0,
+            "description": "Maximum buildings per player. Use 0 for unlimited.",
+            "x-group": "Items and Structures",
+            "x-order": 13
+          },
+          "BaseCampMaxNum": {
+            "type": "integer",
+            "title": "Maximum bases across the server",
+            "default": 128,
+            "minimum": 0,
+            "x-group": "Guilds and Bases",
+            "x-order": 0
+          },
+          "BaseCampMaxNumInGuild": {
+            "type": "integer",
+            "title": "Maximum bases per guild",
+            "default": 4,
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Higher values increase server processing load.",
+            "x-group": "Guilds and Bases",
+            "x-order": 1
+          },
+          "BaseCampWorkerMaxNum": {
+            "type": "integer",
+            "title": "Maximum Pals per base",
+            "default": 15,
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Higher values increase server processing load. Some versions may ignore this INI setting.",
+            "x-group": "Guilds and Bases",
+            "x-order": 2
+          },
+          "GuildPlayerMaxNum": {
+            "type": "integer",
+            "title": "Maximum players per guild",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 100,
+            "x-group": "Guilds and Bases",
+            "x-order": 3
+          },
+          "bAutoResetGuildNoOnlinePlayers": {
+            "type": "boolean",
+            "title": "Delete long-inactive guild bases",
+            "default": false,
+            "x-group": "Guilds and Bases",
+            "x-order": 4
+          },
+          "AutoResetGuildTimeNoOnlinePlayers": {
+            "type": "number",
+            "title": "Inactive guild reset delay (hours)",
+            "default": 72,
+            "x-group": "Guilds and Bases",
+            "x-order": 5
+          },
+          "GuildRejoinCooldownMinutes": {
+            "type": "integer",
+            "title": "Guild rejoin cooldown (minutes)",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1440,
+            "x-group": "Guilds and Bases",
+            "x-order": 6
+          },
+          "AutoTransferMasterCheckIntervalSeconds": {
+            "type": "number",
+            "title": "Guild master transfer check interval (seconds)",
+            "default": 3600,
+            "x-group": "Guilds and Bases",
+            "x-order": 7
+          },
+          "AutoTransferMasterThresholdDays": {
+            "type": "integer",
+            "title": "Guild master transfer threshold (days)",
+            "default": 14,
+            "minimum": 1,
+            "maximum": 365,
+            "x-group": "Guilds and Bases",
+            "x-order": 8
+          },
+          "MaxGuildsPerFrame": {
+            "type": "integer",
+            "title": "Guilds processed per frame",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 100,
+            "x-group": "Guilds and Bases",
+            "x-order": 9
+          },
+          "WorkSpeedRate": {
+            "type": "number",
+            "title": "Work speed multiplier",
+            "default": 1,
+            "x-group": "Guilds and Bases",
+            "x-order": 10
+          },
+          "bBuildAreaLimit": {
+            "type": "boolean",
+            "title": "Prevent building near protected structures",
+            "default": false,
+            "x-group": "Guilds and Bases",
+            "x-order": 11
+          },
+          "bEnableBuildingPlayerUIdDisplay": {
+            "type": "boolean",
+            "title": "Show structure creator IDs",
+            "default": false,
+            "x-group": "Guilds and Bases",
+            "x-order": 12
+          },
+          "BuildingNameDisplayCacheTTLSeconds": {
+            "type": "integer",
+            "title": "Building name cache lifetime (seconds)",
+            "default": 60,
+            "minimum": 1,
+            "maximum": 3600,
+            "x-group": "Guilds and Bases",
+            "x-order": 13
+          },
+          "bIsPvP": {
+            "type": "boolean",
+            "title": "Enable PvP",
+            "default": false,
+            "x-group": "PvP",
+            "x-order": 0
+          },
+          "bEnablePlayerToPlayerDamage": {
+            "type": "boolean",
+            "title": "Enable player-to-player damage",
+            "default": false,
+            "x-group": "PvP",
+            "x-order": 1
+          },
+          "bEnableFriendlyFire": {
+            "type": "boolean",
+            "title": "Enable friendly fire",
+            "default": false,
+            "x-group": "PvP",
+            "x-order": 2
+          },
+          "bCanPickupOtherGuildDeathPenaltyDrop": {
+            "type": "boolean",
+            "title": "Allow looting other guild death drops",
+            "default": false,
+            "x-group": "PvP",
+            "x-order": 3
+          },
+          "BlockRespawnTime": {
+            "type": "number",
+            "title": "Respawn cooldown (seconds)",
+            "default": 5,
+            "x-group": "PvP",
+            "x-order": 4
+          },
+          "RespawnPenaltyDurationThreshold": {
+            "type": "number",
+            "title": "Respawn penalty survival threshold (seconds)",
+            "default": 0,
+            "x-group": "PvP",
+            "x-order": 5
+          },
+          "RespawnPenaltyTimeScale": {
+            "type": "number",
+            "title": "Respawn cooldown multiplier",
+            "default": 2,
+            "x-group": "PvP",
+            "x-order": 6
+          },
+          "bDisplayPvPItemNumOnWorldMap_BaseCamp": {
+            "type": "boolean",
+            "title": "Show base PvP item counts on map",
+            "default": false,
+            "x-group": "PvP",
+            "x-order": 7
+          },
+          "bDisplayPvPItemNumOnWorldMap_Player": {
+            "type": "boolean",
+            "title": "Show player PvP item counts on map",
+            "default": false,
+            "x-group": "PvP",
+            "x-order": 8
+          },
+          "bAdditionalDropItemWhenPlayerKillingInPvPMode": {
+            "type": "boolean",
+            "title": "Drop a special item on PvP death",
+            "default": false,
+            "x-group": "PvP",
+            "x-order": 9
+          },
+          "AdditionalDropItemWhenPlayerKillingInPvPMode": {
+            "type": "string",
+            "title": "PvP special drop item ID",
+            "default": "PlayerDropItem",
+            "x-group": "PvP",
+            "x-order": 10
+          },
+          "AdditionalDropItemNumWhenPlayerKillingInPvPMode": {
+            "type": "integer",
+            "title": "PvP special drop quantity",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 100,
+            "x-group": "PvP",
+            "x-order": 11
+          },
+          "PhysicsActiveDropItemMaxNum": {
+            "type": "integer",
+            "title": "Maximum physics-enabled dropped items",
+            "default": -1,
+            "minimum": -1,
+            "maximum": 10000,
+            "x-group": "Performance",
+            "x-order": 0
+          },
+          "ServerReplicatePawnCullDistance": {
+            "type": "number",
+            "title": "Pal synchronization distance (cm)",
+            "default": 15000,
+            "description": "Pocketpair documents a supported range of 5000 to 15000 cm.",
+            "x-group": "Performance",
+            "x-order": 1
+          },
+          "PlayerDataPalStorageUpdateCheckTickInterval": {
+            "type": "number",
+            "title": "Pal storage update check interval",
+            "default": 1,
+            "x-group": "Performance",
+            "x-order": 2
+          },
+          "bEnableInvaderEnemy": {
+            "type": "boolean",
+            "title": "Enable invaders",
+            "default": true,
+            "x-group": "Advanced",
+            "x-order": 0
+          },
+          "EnablePredatorBossPal": {
+            "type": "boolean",
+            "title": "Enable predator boss Pals",
+            "default": true,
+            "x-group": "Advanced",
+            "x-order": 1
+          },
+          "bActiveUNKO": {
+            "type": "boolean",
+            "title": "Enable Pal feces",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 2
+          },
+          "bEnableAimAssistPad": {
+            "type": "boolean",
+            "title": "Enable controller aim assist",
+            "default": true,
+            "x-group": "Advanced",
+            "x-order": 3
+          },
+          "bEnableAimAssistKeyboard": {
+            "type": "boolean",
+            "title": "Enable keyboard aim assist",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 4
+          },
+          "bIsMultiplay": {
+            "type": "boolean",
+            "title": "Enable multiplayer flag",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 5
+          },
+          "CoopPlayerMaxNum": {
+            "type": "integer",
+            "title": "Co-op player limit",
+            "default": 4,
+            "minimum": 1,
+            "maximum": 4,
+            "x-group": "Advanced",
+            "x-order": 6
+          },
+          "bHardcore": {
+            "type": "boolean",
+            "title": "Enable Hardcore mode",
+            "default": false,
+            "description": "Characters cannot respawn after death.",
+            "x-group": "Advanced",
+            "x-order": 7
+          },
+          "bPalLost": {
+            "type": "boolean",
+            "title": "Permanently lose Pals on death",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 8
+          },
+          "bCharacterRecreateInHardcore": {
+            "type": "boolean",
+            "title": "Allow character recreation in Hardcore",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 9
+          },
+          "bEnableNonLoginPenalty": {
+            "type": "boolean",
+            "title": "Enable offline penalties",
+            "default": true,
+            "x-group": "Advanced",
+            "x-order": 10
+          },
+          "bExistPlayerAfterLogout": {
+            "type": "boolean",
+            "title": "Keep sleeping players after logout",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 11
+          },
+          "bEnableDefenseOtherGuildPlayer": {
+            "type": "boolean",
+            "title": "Enable defense against other guild players",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 12
+          },
+          "bInvisibleOtherGuildBaseCampAreaFX": {
+            "type": "boolean",
+            "title": "Hide other guild base boundaries",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 13
+          },
+          "bEnableVoiceChat": {
+            "type": "boolean",
+            "title": "Enable voice chat",
+            "default": false,
+            "x-group": "Advanced",
+            "x-order": 14
+          },
+          "VoiceChatMaxVolumeDistance": {
+            "type": "number",
+            "title": "Voice chat full-volume distance",
+            "default": 3000,
+            "x-group": "Advanced",
+            "x-order": 15
+          },
+          "VoiceChatZeroVolumeDistance": {
+            "type": "number",
+            "title": "Voice chat zero-volume distance",
+            "default": 15000,
+            "x-group": "Advanced",
+            "x-order": 16
+          }
+        }
+      }
+    }
+  ],
   "linux_start_args_template": [
     {
       "id": "01JQSF00000000000000000001",

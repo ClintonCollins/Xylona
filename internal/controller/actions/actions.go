@@ -723,6 +723,23 @@ func (inst *Instance) runConfigPreStartMode(gameServer *models.GameServer, stric
 		}
 		return nil
 	}
+	entries, errParseSchemas := cfgschema.ParseConfigSchemas(schemasJSON)
+	if errParseSchemas != nil {
+		return fmt.Errorf("actions: parse pre-start config schemas: %w", errParseSchemas)
+	}
+	nodeOS := OperatingSystem
+	if cfgschema.HasPlatformPaths(entries) {
+		var errNodeOS error
+		nodeOS, errNodeOS = inst.resolveNodeOSRequired(inst.ctx, gameServer.NodeID)
+		if errNodeOS != nil {
+			return fmt.Errorf("actions: resolve pre-start config schema platform: %w", errNodeOS)
+		}
+	}
+	resolvedSchemasJSON, errResolveSchemas := cfgschema.ResolvePlatformConfigSchemas(schemasJSON, string(nodeOS))
+	if errResolveSchemas != nil {
+		return fmt.Errorf("actions: resolve pre-start config schema paths: %w", errResolveSchemas)
+	}
+	schemasJSON = resolvedSchemasJSON
 
 	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
 		Name:       gameServer.Name,

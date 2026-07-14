@@ -69,6 +69,92 @@ func TestGetGameServerConfigFileReadsRemoteNodeFile(t *testing.T) {
 	}
 }
 
+func TestGetGameServerConfigFilesResolvesRemotePlatformPath(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	updateGameConfigSchemasForRemoteParity(t, fixture, `[{
+		"path":"Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+		"platform_paths":{"windows":"Pal/Saved/Config/WindowsServer/PalWorldSettings.ini"},
+		"format":"palworld",
+		"category":"Server",
+		"schema":{"type":"object","properties":{"ServerName":{"type":"string","default":"Palworld"}}}
+	}]`)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-config")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		ReadFileResult: []byte("OptionSettings=(ServerName=\"Palworld\")"),
+		SnapshotResult: &node.NodeSnapshot{OS: "windows"},
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.GetGameServerConfigFilesRequest{
+		GameServerId: "server-remote-config",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServerConfigFiles(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServerConfigFiles() error = %v", errGet)
+	}
+	if len(response.Msg.GetConfigFiles()) != 1 {
+		t.Fatalf("config file count = %d, want 1", len(response.Msg.GetConfigFiles()))
+	}
+	wantPath := "Pal/Saved/Config/WindowsServer/PalWorldSettings.ini"
+	if response.Msg.GetConfigFiles()[0].GetPath() != wantPath {
+		t.Fatalf("config path = %q, want %q", response.Msg.GetConfigFiles()[0].GetPath(), wantPath)
+	}
+	if len(remoteClient.ReadFileCalls) != 1 || remoteClient.ReadFileCalls[0].RelativePath != wantPath {
+		t.Fatalf("ReadFile calls = %#v, want path %q", remoteClient.ReadFileCalls, wantPath)
+	}
+}
+
+func TestUpdateGameServerConfigFileRejectsUnknownRemotePlatform(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	updateGameConfigSchemasForRemoteParity(t, fixture, `[{
+		"path":"Pal/Saved/Config/LinuxServer/PalWorldSettings.ini",
+		"platform_paths":{"windows":"Pal/Saved/Config/WindowsServer/PalWorldSettings.ini"},
+		"format":"palworld",
+		"category":"Server",
+		"schema":{"type":"object","properties":{"ServerName":{"type":"string","default":"Palworld"}}}
+	}]`)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-config")
+
+	snapshotFailure := errors.New("remote snapshot failed")
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:      "node-remote",
+		SnapshotErr: snapshotFailure,
+		ReadFileResult: []byte(
+			"OptionSettings=(ServerName=\"Palworld\")",
+		),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+		GameServerId: "server-remote-config",
+		FilePath:     "Pal/Saved/Config/WindowsServer/PalWorldSettings.ini",
+		Fields: []*xylona.ConfigFieldData{
+			{Key: "ServerName", Value: "Updated Palworld"},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errUpdate := fixture.service.UpdateGameServerConfigFile(context.Background(), request)
+	if connect.CodeOf(errUpdate) != connect.CodeUnavailable {
+		t.Fatalf("UpdateGameServerConfigFile() code = %v, want %v (error %v)", connect.CodeOf(errUpdate), connect.CodeUnavailable, errUpdate)
+	}
+	if !errors.Is(errUpdate, snapshotFailure) {
+		t.Fatalf("UpdateGameServerConfigFile() error = %v, want snapshot failure", errUpdate)
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+	}
+}
+
 func TestUpdateGameServerConfigFileWritesRemoteNodeFile(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	updateGameConfigSchemasForRemoteParity(t, fixture, `[{"path":"nested/server.properties","format":"properties","category":"Core","schema":{"type":"object","properties":{"motd":{"type":"string","default":"Hello world"}}}}]`)

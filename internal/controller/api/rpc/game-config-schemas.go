@@ -116,14 +116,20 @@ func (xs *XylonaService) GetGameServerConfigFiles(
 		return nil, errClient
 	}
 
-	return getGameServerConfigFiles(ctx, xs.db, gameServer, client)
+	resolvePlatform := func() (string, error) {
+		return xs.resolveNodeGOOSRequired(gameServer.NodeID)
+	}
+	return getGameServerConfigFiles(ctx, xs.db, gameServer, client, resolvePlatform)
 }
+
+type configPlatformResolver func() (string, error)
 
 func getGameServerConfigFiles(
 	ctx context.Context,
 	dbInst *db.Connection,
 	gameServer *models.GameServer,
 	client nodeclient.NodeClient,
+	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
 	if errGame != nil {
@@ -134,6 +140,10 @@ func getGameServerConfigFiles(
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
 		return nil, internalErrf("failed to parse config schemas")
+	}
+	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
+	if errResolvePaths != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
 	}
 
 	var configFiles []*xylona.ConfigFileInfo
@@ -190,7 +200,17 @@ func (xs *XylonaService) GetGameServerConfigFile(
 		return nil, errClient
 	}
 
-	return getGameServerConfigFile(ctx, xs.db, gameServer, client, request.Msg.GetFilePath())
+	resolvePlatform := func() (string, error) {
+		return xs.resolveNodeGOOSRequired(gameServer.NodeID)
+	}
+	return getGameServerConfigFile(
+		ctx,
+		xs.db,
+		gameServer,
+		client,
+		request.Msg.GetFilePath(),
+		resolvePlatform,
+	)
 }
 
 func getGameServerConfigFile(
@@ -199,6 +219,7 @@ func getGameServerConfigFile(
 	gameServer *models.GameServer,
 	client nodeclient.NodeClient,
 	requestedPath string,
+	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
 	if errGame != nil {
@@ -209,6 +230,10 @@ func getGameServerConfigFile(
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
 		return nil, internalErrf("failed to parse config schemas")
+	}
+	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
+	if errResolvePaths != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
 	}
 
 	// Find the matching schema entry.
@@ -228,7 +253,7 @@ func getGameServerConfigFile(
 	}
 
 	// Get parser.
-	p, errGetParser := cfgparse.GetParser(schemaEntry.Format)
+	p, errGetParser := cfgschema.ParserForEntry(*schemaEntry)
 	if errGetParser != nil {
 		return nil, internalErrf("unsupported format")
 	}
@@ -344,7 +369,17 @@ func (xs *XylonaService) UpdateGameServerConfigFile(
 		return nil, errClient
 	}
 
-	return updateGameServerConfigFile(ctx, xs.db, gameServer, client, request.Msg)
+	resolvePlatform := func() (string, error) {
+		return xs.resolveNodeGOOSRequired(gameServer.NodeID)
+	}
+	return updateGameServerConfigFile(
+		ctx,
+		xs.db,
+		gameServer,
+		client,
+		request.Msg,
+		resolvePlatform,
+	)
 }
 
 func updateGameServerConfigFile(
@@ -353,6 +388,7 @@ func updateGameServerConfigFile(
 	gameServer *models.GameServer,
 	client nodeclient.NodeClient,
 	msg *xylona.UpdateGameServerConfigFileRequest,
+	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
 	if errGame != nil {
@@ -363,6 +399,10 @@ func updateGameServerConfigFile(
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
 		return nil, internalErrf("failed to parse config schemas")
+	}
+	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
+	if errResolvePaths != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
 	}
 
 	// Find the matching schema entry.
@@ -421,7 +461,7 @@ func updateGameServerConfigFile(
 	}
 
 	// Get parser.
-	p, errGetParser := cfgparse.GetParser(schemaEntry.Format)
+	p, errGetParser := cfgschema.ParserForEntry(*schemaEntry)
 	if errGetParser != nil {
 		return nil, internalErrf("unsupported format")
 	}
@@ -563,7 +603,17 @@ func (xs *XylonaService) GenerateGameServerConfigFile(
 		return nil, errClient
 	}
 
-	return generateGameServerConfigFile(ctx, xs.db, gameServer, client, request.Msg.GetFilePath())
+	resolvePlatform := func() (string, error) {
+		return xs.resolveNodeGOOSRequired(gameServer.NodeID)
+	}
+	return generateGameServerConfigFile(
+		ctx,
+		xs.db,
+		gameServer,
+		client,
+		request.Msg.GetFilePath(),
+		resolvePlatform,
+	)
 }
 
 func generateGameServerConfigFile(
@@ -572,6 +622,7 @@ func generateGameServerConfigFile(
 	gameServer *models.GameServer,
 	client nodeclient.NodeClient,
 	requestedPath string,
+	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
 	game, errGame := dbInst.GetGameByID(gameServer.GameID)
 	if errGame != nil {
@@ -582,6 +633,10 @@ func generateGameServerConfigFile(
 	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
 	if errParse != nil {
 		return nil, internalErrf("failed to parse config schemas")
+	}
+	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
+	if errResolvePaths != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
 	}
 
 	var schemaEntry *cfgschema.ConfigSchemaEntry
@@ -660,6 +715,27 @@ func configSchemasJSONForGeneration(schemaEntry *cfgschema.ConfigSchemaEntry) (s
 	}
 
 	return string(data), nil
+}
+
+func resolveConfigSchemaPaths(
+	entries []cfgschema.ConfigSchemaEntry,
+	resolvePlatform configPlatformResolver,
+) error {
+	if !cfgschema.HasPlatformPaths(entries) {
+		return nil
+	}
+	if resolvePlatform == nil {
+		return errors.New("config schema platform resolver is unavailable")
+	}
+
+	platform, errResolve := resolvePlatform()
+	if errResolve != nil {
+		return fmt.Errorf("resolve target node platform: %w", errResolve)
+	}
+	for index := range entries {
+		entries[index].Path = cfgschema.ResolvePlatformPath(entries[index], platform)
+	}
+	return nil
 }
 
 func sanitizeConfigRelativePath(relativePath string) (string, error) {

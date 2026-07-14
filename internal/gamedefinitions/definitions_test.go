@@ -1,6 +1,7 @@
 package gamedefinitions_test
 
 import (
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -53,7 +54,7 @@ var officialFixedMaxPlayers = map[string]int64{
 	"valheim": 10,
 }
 
-func TestSevenDaysToDieDefinitionManagesLocalConsole(t *testing.T) {
+func TestSevenDaysToDieDefinitionConfigSchema(t *testing.T) {
 	definitions, errLoad := gamedefinitions.LoadBundled()
 	if errLoad != nil {
 		t.Fatalf("LoadBundled() error = %v", errLoad)
@@ -83,6 +84,153 @@ func TestSevenDaysToDieDefinitionManagesLocalConsole(t *testing.T) {
 	}
 	if entry.ManagedFields["TelnetPassword"] != "xylona.local_console_password" {
 		t.Fatalf("TelnetPassword source = %q", entry.ManagedFields["TelnetPassword"])
+	}
+
+	wantProperties := []string{
+		"AdminFileName",
+		"AllowSpawnNearFriend",
+		"BedrollDeadZoneSize",
+		"BedrollExpiryTime",
+		"BuildCreate",
+		"CameraRestrictionMode",
+		"DynamicMeshEnabled",
+		"DynamicMeshLandClaimBuffer",
+		"DynamicMeshLandClaimOnly",
+		"DynamicMeshMaxItemCache",
+		"EACEnabled",
+		"EnableMapRendering",
+		"GameMode",
+		"GameName",
+		"GameWorld",
+		"HideCommandExecutionLog",
+		"IgnoreEOSSanctions",
+		"LandClaimCount",
+		"LandClaimDeadZone",
+		"LandClaimDecayMode",
+		"LandClaimExpiryTime",
+		"LandClaimOfflineDelay",
+		"LandClaimOfflineDurabilityModifier",
+		"LandClaimOnlineDurabilityModifier",
+		"LandClaimSize",
+		"Language",
+		"MaxChunkAge",
+		"MaxQueuedMeshLayers",
+		"MaxSpawnedAnimals",
+		"MaxSpawnedZombies",
+		"MaxUncoveredMapChunksPerPlayer",
+		"PartySharedKillRange",
+		"PersistentPlayerProfiles",
+		"PlayerKillingMode",
+		"PlayerSafeZoneHours",
+		"PlayerSafeZoneLevel",
+		"Region",
+		"SandboxCode",
+		"SaveDataLimit",
+		"ServerAdminSlots",
+		"ServerAdminSlotsPermission",
+		"ServerAllowCrossplay",
+		"ServerDescription",
+		"ServerDisabledNetworkProtocols",
+		"ServerLoginConfirmationText",
+		"ServerMaxAllowedViewDistance",
+		"ServerMaxPlayerCount",
+		"ServerMaxWorldTransferSpeedKiBs",
+		"ServerName",
+		"ServerPassword",
+		"ServerPort",
+		"ServerReservedSlots",
+		"ServerReservedSlotsPermission",
+		"ServerVisibility",
+		"ServerWebsiteURL",
+		"TelnetEnabled",
+		"TelnetFailedLoginLimit",
+		"TelnetFailedLoginsBlocktime",
+		"TelnetPassword",
+		"TelnetPort",
+		"TerminalWindowEnabled",
+		"TwitchBloodMoonAllowed",
+		"TwitchServerPermission",
+		"UserDataFolder",
+		"WebDashboardEnabled",
+		"WebDashboardPort",
+		"WebDashboardUrl",
+		"WorldGenSeed",
+		"WorldGenSize",
+	}
+	gotProperties := slices.Sorted(maps.Keys(entry.Schema.Properties))
+	if !slices.Equal(gotProperties, wantProperties) {
+		t.Fatalf("config schema properties = %v, want %v", gotProperties, wantProperties)
+	}
+}
+
+func TestPalworldDefinitionConfigSchema(t *testing.T) {
+	definitions, errLoad := gamedefinitions.LoadBundled()
+	if errLoad != nil {
+		t.Fatalf("LoadBundled() error = %v", errLoad)
+	}
+
+	var schemaJSON string
+	for _, definition := range definitions {
+		if definition.Model.ID == "palworld" {
+			schemaJSON = definition.Model.ConfigSchemas.GetOr("")
+			break
+		}
+	}
+	if schemaJSON == "" {
+		t.Fatal("Palworld config schema is unavailable")
+	}
+
+	entries, errParse := cfgschema.ParseConfigSchemas(schemaJSON)
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("config schema count = %d, want 1", len(entries))
+	}
+	entry := entries[0]
+	if entry.Format != "palworld" {
+		t.Fatalf("format = %q, want palworld", entry.Format)
+	}
+	if !entry.GenerateBeforeStart {
+		t.Fatal("GenerateBeforeStart = false, want true")
+	}
+	if entry.Path != "Pal/Saved/Config/LinuxServer/PalWorldSettings.ini" {
+		t.Fatalf("default path = %q", entry.Path)
+	}
+	windowsPath := cfgschema.ResolvePlatformPath(entry, "windows")
+	if windowsPath != "Pal/Saved/Config/WindowsServer/PalWorldSettings.ini" {
+		t.Fatalf("windows path = %q", windowsPath)
+	}
+	for field, wantSource := range map[string]string{
+		"ServerName":         "game_server.server_name",
+		"ServerPlayerMaxNum": "game_server.max_players",
+		"RESTAPIPort":        "game_server.query_port",
+	} {
+		if entry.ManagedFields[field] != wantSource {
+			t.Errorf("managed source for %s = %q, want %q", field, entry.ManagedFields[field], wantSource)
+		}
+	}
+	if len(entry.Schema.Properties) != 119 {
+		t.Fatalf("config property count = %d, want 119", len(entry.Schema.Properties))
+	}
+	for _, property := range []string{
+		"AdminPassword",
+		"BaseCampMaxNumInGuild",
+		"CrossplayPlatforms",
+		"DeathPenalty",
+		"DenyTechnologyList",
+		"ItemContainerForceMarkDirtyInterval",
+		"RandomizerType",
+		"ServerReplicatePawnCullDistance",
+		"VoiceChatZeroVolumeDistance",
+	} {
+		if _, exists := entry.Schema.Properties[property]; !exists {
+			t.Errorf("config property %q is missing", property)
+		}
+	}
+	baseCampLimit := entry.Schema.Properties["BaseCampMaxNumInGuild"]
+	if baseCampLimit.Default != float64(4) || baseCampLimit.Maximum == nil || *baseCampLimit.Maximum != 10 {
+		t.Fatalf("BaseCampMaxNumInGuild schema = %#v, want current official default 4 and maximum 10", baseCampLimit)
 	}
 }
 

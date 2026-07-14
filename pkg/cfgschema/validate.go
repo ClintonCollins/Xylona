@@ -3,6 +3,7 @@ package cfgschema
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"strings"
 )
 
@@ -15,11 +16,13 @@ var validFormats = map[string]bool{
 	"toml":       true,
 	"xml":        true,
 	"commandcfg": true,
+	"palworld":   true,
 }
 
 // configSchemaEntry represents a single entry in the config_schemas JSON array.
 type configSchemaEntry struct {
 	Path                string            `json:"path"`
+	PlatformPaths       map[string]string `json:"platform_paths"`
 	Format              string            `json:"format"`
 	Category            string            `json:"category"`
 	GenerateBeforeStart bool              `json:"generate_before_start"`
@@ -52,13 +55,91 @@ func ValidateConfigSchemas(schemasJSON string) []string {
 		prefix := fmt.Sprintf("entry[%d]", i)
 
 		errs = append(errs, validateEntryBasics(prefix, entry, seenPaths)...)
+		errs = append(errs, validatePlatformPaths(prefix, entry.PlatformPaths)...)
 		errs = append(errs, validateManagedFields(prefix, entry.ManagedFields)...)
 		errs = append(errs, validateXMLKeyMode(prefix, entry)...)
 		errs = append(errs, validateSchemaProperties(prefix, entry.Schema)...)
 		errs = append(errs, validateSchemaGroups(prefix, entry.Schema)...)
 		errs = append(errs, validateSchemaOrder(prefix, entry.Schema)...)
 	}
+	errs = append(errs, validateEffectivePlatformPaths(entries)...)
 
+	return errs
+}
+
+type effectiveConfigPath struct {
+	entryIndex int
+	path       string
+	override   bool
+}
+
+func validateEffectivePlatformPaths(entries []configSchemaEntry) []string {
+	var errs []string
+	platforms := []string{"linux", "windows", "darwin"}
+	for _, platform := range platforms {
+		seen := make(map[string]effectiveConfigPath)
+		for index, entry := range entries {
+			effectivePath := strings.TrimSpace(entry.PlatformPaths[platform])
+			hasOverride := effectivePath != ""
+			if !hasOverride {
+				effectivePath = strings.TrimSpace(entry.Path)
+			}
+			if effectivePath == "" {
+				continue
+			}
+
+			normalizedPath := normalizeEffectiveConfigPath(effectivePath, platform)
+			previous, exists := seen[normalizedPath]
+			if !exists {
+				seen[normalizedPath] = effectiveConfigPath{
+					entryIndex: index,
+					path:       effectivePath,
+					override:   hasOverride,
+				}
+				continue
+			}
+			if previous.path == effectivePath && !previous.override && !hasOverride {
+				continue
+			}
+
+			errs = append(errs, fmt.Sprintf(
+				"entry[%d]: effective %s path %q duplicates entry[%d] path %q",
+				index,
+				platform,
+				effectivePath,
+				previous.entryIndex,
+				previous.path,
+			))
+		}
+	}
+	return errs
+}
+
+func normalizeEffectiveConfigPath(configPath string, platform string) string {
+	normalizedPath := strings.ReplaceAll(strings.TrimSpace(configPath), `\`, "/")
+	normalizedPath = strings.TrimPrefix(path.Clean(normalizedPath), "/")
+	if platform == "windows" {
+		normalizedPath = strings.ToLower(normalizedPath)
+	}
+	return normalizedPath
+}
+
+func validatePlatformPaths(prefix string, platformPaths map[string]string) []string {
+	var errs []string
+	for platform, platformPath := range platformPaths {
+		switch platform {
+		case "linux", "windows", "darwin":
+		default:
+			errs = append(errs, fmt.Sprintf("%s: unsupported platform path %q", prefix, platform))
+		}
+		if strings.TrimSpace(platformPath) == "" {
+			errs = append(errs, fmt.Sprintf("%s: platform path %q must not be empty", prefix, platform))
+			continue
+		}
+		if strings.Contains(platformPath, "..") {
+			errs = append(errs, fmt.Sprintf("%s: platform path %q must not contain '..' traversal", prefix, platform))
+		}
+	}
 	return errs
 }
 

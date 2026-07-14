@@ -115,13 +115,29 @@ func (xs *XylonaService) buildProtectionPolicy(gameServer *models.GameServer) no
 }
 
 func (xs *XylonaService) resolveNodeGOOS(nodeID string) string {
-	if xs == nil || xs.nodeRegistry == nil {
+	nodeOS, errResolve := xs.resolveNodeGOOSRequired(nodeID)
+	if errResolve != nil {
 		return runtime.GOOS
+	}
+	return nodeOS
+}
+
+func (xs *XylonaService) resolveNodeGOOSRequired(nodeID string) (string, error) {
+	if xs == nil {
+		return "", errors.New("rpc: service is nil")
+	}
+	if xs.nodeRegistry == nil {
+		return runtime.GOOS, nil
+	}
+	targetID := strings.TrimSpace(nodeID)
+	selfID := strings.TrimSpace(xs.nodeRegistry.SelfID())
+	if targetID == "" || targetID == selfID {
+		return runtime.GOOS, nil
 	}
 
 	client, errGetClient := xs.nodeRegistry.Get(nodeID)
 	if errGetClient != nil {
-		return runtime.GOOS
+		return "", fmt.Errorf("rpc: get node %q for operating system: %w", nodeID, errGetClient)
 	}
 
 	baseCtx := context.Background()
@@ -132,16 +148,19 @@ func (xs *XylonaService) resolveNodeGOOS(nodeID string) string {
 	defer cancel()
 
 	snapshot, errSnapshot := client.GetNodeSnapshot(snapCtx)
-	if errSnapshot != nil || snapshot == nil {
-		return runtime.GOOS
+	if errSnapshot != nil {
+		return "", fmt.Errorf("rpc: get node %q operating system: %w", nodeID, errSnapshot)
+	}
+	if snapshot == nil {
+		return "", fmt.Errorf("rpc: get node %q operating system: empty snapshot", nodeID)
 	}
 
 	nodeOS := strings.ToLower(strings.TrimSpace(snapshot.OS))
 	switch nodeOS {
 	case "windows", "linux", "darwin":
-		return nodeOS
+		return nodeOS, nil
 	default:
-		return runtime.GOOS
+		return "", fmt.Errorf("rpc: node %q reported unsupported operating system %q", nodeID, snapshot.OS)
 	}
 }
 

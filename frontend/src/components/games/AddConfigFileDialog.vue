@@ -151,6 +151,7 @@ const formatOptions = [
   { label: 'YAML', value: 'yaml' },
   { label: 'TOML', value: 'toml' },
   { label: 'XML', value: 'xml' },
+  { label: 'Palworld settings', value: 'palworld' },
 ]
 
 const xmlModeOptions = [

@@ -8,6 +8,7 @@ export interface SchemaProperty {
 
 export interface ConfigSchemaEntry {
   path: string
+  platform_paths?: Partial<Record<'linux' | 'windows' | 'darwin', string>>
   format: string
   category: string
   generate_before_start: boolean

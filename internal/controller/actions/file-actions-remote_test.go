@@ -186,6 +186,9 @@ func TestRunConfigPreStartWritesRemoteConfigThroughNodeClient(t *testing.T) {
 	if len(remoteClient.WriteFileCalls) != 1 {
 		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
 	}
+	if remoteClient.SnapshotCalls != 0 {
+		t.Fatalf("GetNodeSnapshot call count = %d, want 0 for a platform-independent schema", remoteClient.SnapshotCalls)
+	}
 	call := remoteClient.WriteFileCalls[0]
 	if call.RelativePath != "config/server.properties" {
 		t.Fatalf("WriteFile relative path = %q, want %q", call.RelativePath, "config/server.properties")
@@ -196,6 +199,45 @@ func TestRunConfigPreStartWritesRemoteConfigThroughNodeClient(t *testing.T) {
 	}
 	if !strings.Contains(content, "query.port=25565\n") {
 		t.Fatalf("WriteFile content = %q, want managed query.port", content)
+	}
+}
+
+func TestRunConfigPreStartStrictRejectsUnknownRemotePlatform(t *testing.T) {
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	schemasJSON := `[{
+		"path":"config/linux/server.ini",
+		"platform_paths":{"windows":"config/windows/server.ini"},
+		"format":"ini",
+		"generate_before_start":true,
+		"schema":{"type":"object","properties":{"Name":{"type":"string","default":"Generated"}}}
+	}]`
+	errUpdateSchemas := inst.db.UpdateGameConfigSchemas(fixture.gameID, schemasJSON)
+	if errUpdateSchemas != nil {
+		t.Fatalf("UpdateGameConfigSchemas() error = %v", errUpdateSchemas)
+	}
+
+	snapshotFailure := errors.New("remote snapshot failed")
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:      fixture.nodeID,
+		SnapshotErr: snapshotFailure,
+		ReadFileErr: os.ErrNotExist,
+	}
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+	fixture.gameServer.Directory = "/srv/xylona/remote-server"
+
+	errRun := inst.runConfigPreStartStrict(fixture.gameServer)
+	if !errors.Is(errRun, snapshotFailure) {
+		t.Fatalf("runConfigPreStartStrict() error = %v, want snapshot failure", errRun)
+	}
+	if len(remoteClient.ReadFileCalls) != 0 {
+		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
 	}
 }
 

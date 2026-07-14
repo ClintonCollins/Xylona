@@ -17,8 +17,10 @@ func Flatten(root *ConfigNode) []ConfigEntry {
 	var entries []ConfigEntry
 	flattenNode(root, "", &entries)
 
+	keyCounts := make(map[string]int)
 	for i := range entries {
-		entries[i].Index = i
+		entries[i].Index = keyCounts[entries[i].Key]
+		keyCounts[entries[i].Key]++
 	}
 
 	return entries

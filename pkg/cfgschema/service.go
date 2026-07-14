@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -40,12 +41,52 @@ type SchemaProperty struct {
 // used by the schema service for processing.
 type ConfigSchemaEntry struct {
 	Path                string            `json:"path"`
+	PlatformPaths       map[string]string `json:"platform_paths,omitempty"`
 	Format              string            `json:"format"`
 	Category            string            `json:"category"`
 	GenerateBeforeStart bool              `json:"generate_before_start"`
 	ManagedFields       map[string]string `json:"managed_fields"`
 	XMLKeyMode          *xmlKeyModeEntry  `json:"xml_key_mode"`
 	Schema              SchemaDefinition  `json:"schema"`
+}
+
+// ResolvePlatformPath returns the platform-specific path for an entry when one
+// is configured, otherwise it returns the entry's default path.
+func ResolvePlatformPath(entry ConfigSchemaEntry, platform string) string {
+	platform = strings.ToLower(strings.TrimSpace(platform))
+	platformPath := strings.TrimSpace(entry.PlatformPaths[platform])
+	if platformPath != "" {
+		return platformPath
+	}
+	return entry.Path
+}
+
+// HasPlatformPaths reports whether any entry requires target-platform path
+// resolution.
+func HasPlatformPaths(entries []ConfigSchemaEntry) bool {
+	for _, entry := range entries {
+		if len(entry.PlatformPaths) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolvePlatformConfigSchemas rewrites config schema paths for a target node
+// platform without changing the stored game definition.
+func ResolvePlatformConfigSchemas(schemasJSON string, platform string) (string, error) {
+	entries, errParse := ParseConfigSchemas(schemasJSON)
+	if errParse != nil {
+		return "", errParse
+	}
+	for index := range entries {
+		entries[index].Path = ResolvePlatformPath(entries[index], platform)
+	}
+	data, errMarshal := json.Marshal(entries)
+	if errMarshal != nil {
+		return "", fmt.Errorf("marshal platform config schemas: %w", errMarshal)
+	}
+	return string(data), nil
 }
 
 type managedFieldEntry struct {

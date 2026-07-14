@@ -91,7 +91,7 @@ func processPreStartEntry(store PreStartFileStore, entry ConfigSchemaEntry, reso
 		return fmt.Errorf("cfgschema: required pre-start config %q does not exist: %w", entry.Path, os.ErrNotExist)
 	}
 
-	p, errGetParser := preStartParser(entry)
+	p, errGetParser := ParserForEntry(entry)
 	if errGetParser != nil {
 		return fmt.Errorf("cfgschema: get parser for pre-start config %q: %w", entry.Path, errGetParser)
 	}
@@ -122,11 +122,12 @@ func processPreStartEntry(store PreStartFileStore, entry ConfigSchemaEntry, reso
 	return nil
 }
 
-func preStartParser(entry ConfigSchemaEntry) (*cfgparse.Parser, error) {
+// ParserForEntry returns the parser configured for a config schema entry.
+func ParserForEntry(entry ConfigSchemaEntry) (*cfgparse.Parser, error) {
 	if entry.Format != "xml" || entry.XMLKeyMode == nil {
 		parser, errGet := cfgparse.GetParser(entry.Format)
 		if errGet != nil {
-			return nil, fmt.Errorf("cfgschema: get pre-start parser: %w", errGet)
+			return nil, fmt.Errorf("cfgschema: get parser: %w", errGet)
 		}
 		return parser, nil
 	}

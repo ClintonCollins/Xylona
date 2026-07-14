@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -12,6 +13,8 @@ import (
 )
 
 const windroseConfigPath = "R5/ServerDescription.json"
+
+const sevenDaysConfigPath = "serverconfig.xml"
 
 func TestGetGameServerConfigFileReadsStructuredJSON(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
@@ -65,6 +68,55 @@ func TestGetGameServerConfigFileReadsStructuredJSON(t *testing.T) {
 	}
 	if !fields["ServerDescription_Persistent.DirectConnectionServerPort"].GetIsManaged() {
 		t.Fatal("DirectConnectionServerPort IsManaged = false, want true")
+	}
+}
+
+func TestGetGameServerConfigFileReadsAttributeKeyedXML(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	updateGameConfigSchemasForRemoteParity(t, fixture, sevenDaysLikeXMLSchema())
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-xml-config")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		ReadFileResult: []byte(`<?xml version="1.0"?>
+<ServerSettings>
+  <property name="ServerName" value="Existing Seven Days"/>
+  <property name="ServerDescription" value="Existing description"/>
+  <property name="UnknownSetting" value="kept"/>
+</ServerSettings>
+`),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.GetGameServerConfigFileRequest{
+		GameServerId: "server-remote-xml-config",
+		FilePath:     sevenDaysConfigPath,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errGet := fixture.service.GetGameServerConfigFile(context.Background(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServerConfigFile() error = %v", errGet)
+	}
+
+	fields := configFieldsByKey(response.Msg.GetFields())
+	if fields["ServerName"].GetValue() != "Existing Seven Days" {
+		t.Fatalf("ServerName = %q, want %q", fields["ServerName"].GetValue(), "Existing Seven Days")
+	}
+	if fields["ServerDescription"].GetValue() != "Existing description" {
+		t.Fatalf("ServerDescription = %q, want %q", fields["ServerDescription"].GetValue(), "Existing description")
+	}
+
+	advancedFields := response.Msg.GetAdvancedFields()
+	if len(advancedFields) != 1 {
+		t.Fatalf("AdvancedFields length = %d, want 1", len(advancedFields))
+	}
+	if advancedFields[0].GetKey() != "UnknownSetting" {
+		t.Fatalf("AdvancedFields[0].Key = %q, want %q", advancedFields[0].GetKey(), "UnknownSetting")
+	}
+	if advancedFields[0].GetValue() != "kept" {
+		t.Fatalf("AdvancedFields[0].Value = %q, want %q", advancedFields[0].GetValue(), "kept")
 	}
 }
 
@@ -142,6 +194,60 @@ func TestUpdateGameServerConfigFileWritesStructuredJSON(t *testing.T) {
 	}
 }
 
+func TestUpdateGameServerConfigFileWritesAttributeKeyedXML(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	updateGameConfigSchemasForRemoteParity(t, fixture, sevenDaysLikeXMLSchema())
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-xml-config")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		ReadFileResult: []byte(`<?xml version="1.0"?>
+<ServerSettings>
+  <property name="ServerName" value="Old Seven Days"/>
+  <property name="ServerDescription" value="Old description"/>
+  <property name="UnknownSetting" value="kept"/>
+</ServerSettings>
+`),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+		GameServerId: "server-remote-xml-config",
+		FilePath:     sevenDaysConfigPath,
+		Fields: []*xylona.ConfigFieldData{
+			{Key: "ServerName", Value: "New Seven Days"},
+			{Key: "ServerDescription", Value: "New description"},
+		},
+		AdvancedFields: []*xylona.AdvancedField{
+			{Key: "UnknownSetting", Value: "kept"},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errUpdate := fixture.service.UpdateGameServerConfigFile(context.Background(), request)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServerConfigFile() error = %v", errUpdate)
+	}
+	if !response.Msg.GetSuccess() {
+		t.Fatal("UpdateGameServerConfigFile().Success = false, want true")
+	}
+	if len(remoteClient.WriteFileCalls) != 1 {
+		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	}
+
+	properties := xmlPropertiesByName(t, remoteClient.WriteFileCalls[0].Content)
+	if properties["ServerName"] != "New Seven Days" {
+		t.Errorf("ServerName = %q, want %q", properties["ServerName"], "New Seven Days")
+	}
+	if properties["ServerDescription"] != "New description" {
+		t.Errorf("ServerDescription = %q, want %q", properties["ServerDescription"], "New description")
+	}
+	if properties["UnknownSetting"] != "kept" {
+		t.Errorf("UnknownSetting = %q, want %q", properties["UnknownSetting"], "kept")
+	}
+}
+
 func TestGenerateGameServerConfigFileWritesStructuredJSONDefaults(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	updateGameConfigSchemasForRemoteParity(t, fixture, windroseLikeJSONSchema())
@@ -205,6 +311,32 @@ func configFieldsByKey(fields []*xylona.ConfigFieldData) map[string]*xylona.Conf
 	return result
 }
 
+func xmlPropertiesByName(t *testing.T, data []byte) map[string]string {
+	t.Helper()
+
+	var document struct {
+		Properties []struct {
+			Name  string `xml:"name,attr"`
+			Value string `xml:"value,attr"`
+		} `xml:"property"`
+	}
+	errUnmarshal := xml.Unmarshal(data, &document)
+	if errUnmarshal != nil {
+		t.Fatalf("xml.Unmarshal() error = %v", errUnmarshal)
+	}
+
+	properties := make(map[string]string, len(document.Properties))
+	for _, property := range document.Properties {
+		properties[property.Name] = property.Value
+	}
+
+	return properties
+}
+
 func windroseLikeJSONSchema() string {
 	return `[{"managed_fields":{"ServerDescription_Persistent.DirectConnectionServerPort":"game_server.port"},"path":"R5/ServerDescription.json","format":"json","category":"Server","generate_before_start":false,"schema":{"type":"object","properties":{"ServerDescription_Persistent.ServerName":{"type":"string","default":"My Windrose Server"},"ServerDescription_Persistent.MaxPlayerCount":{"type":"integer","default":8},"ServerDescription_Persistent.UseDirectConnection":{"type":"boolean","default":false},"ServerDescription_Persistent.DirectConnectionServerPort":{"type":"integer","default":7777}}}}]`
+}
+
+func sevenDaysLikeXMLSchema() string {
+	return `[{"path":"serverconfig.xml","format":"xml","category":"Server","xml_key_mode":{"mode":"attributes","element":"property","key_attr":"name","value_attr":"value"},"schema":{"type":"object","properties":{"ServerName":{"type":"string","default":"My Seven Days Server"},"ServerDescription":{"type":"string","default":""}}}}]`
 }

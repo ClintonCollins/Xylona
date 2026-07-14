@@ -71,24 +71,53 @@ func initOperatingSystem(goos string) error {
 // detected. Uses a short timeout so callers that hold a hot-path context
 // do not block indefinitely on a misbehaving node.
 func (inst *Instance) resolveNodeOS(ctx context.Context, nodeID string) OSType {
-	if inst == nil || inst.nodeRegistry == nil {
-		return OperatingSystem
-	}
-	client, errGet := inst.nodeRegistry.Get(nodeID)
-	if errGet != nil {
-		return OperatingSystem
-	}
-	snapCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	snap, errSnap := client.GetNodeSnapshot(snapCtx)
-	if errSnap != nil || snap == nil {
-		return OperatingSystem
-	}
-	osType, ok := detectOperatingSystem(strings.ToLower(strings.TrimSpace(snap.OS)))
-	if !ok {
+	osType, errResolve := inst.resolveNodeOSRequired(ctx, nodeID)
+	if errResolve != nil {
 		return OperatingSystem
 	}
 	return osType
+}
+
+// resolveNodeOSRequired returns the target node's operating system without
+// substituting the controller OS for an unreachable or invalid remote node.
+func (inst *Instance) resolveNodeOSRequired(ctx context.Context, nodeID string) (OSType, error) {
+	if inst == nil {
+		return "", errors.New("actions: instance is nil")
+	}
+	if inst.nodeRegistry == nil {
+		return OperatingSystem, nil
+	}
+	targetID := strings.TrimSpace(nodeID)
+	selfID := strings.TrimSpace(inst.nodeRegistry.SelfID())
+	if targetID == "" || targetID == selfID {
+		return OperatingSystem, nil
+	}
+
+	client, errGet := inst.nodeRegistry.Get(nodeID)
+	if errGet != nil {
+		return "", fmt.Errorf("actions: get node %q for operating system: %w", nodeID, errGet)
+	}
+
+	baseCtx := ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	snapCtx, cancel := context.WithTimeout(baseCtx, 2*time.Second)
+	defer cancel()
+
+	snap, errSnap := client.GetNodeSnapshot(snapCtx)
+	if errSnap != nil {
+		return "", fmt.Errorf("actions: get node %q operating system: %w", nodeID, errSnap)
+	}
+	if snap == nil {
+		return "", fmt.Errorf("actions: get node %q operating system: empty snapshot", nodeID)
+	}
+
+	osType, ok := detectOperatingSystem(strings.ToLower(strings.TrimSpace(snap.OS)))
+	if !ok {
+		return "", fmt.Errorf("actions: node %q reported unsupported operating system %q", nodeID, snap.OS)
+	}
+	return osType, nil
 }
 
 func joinManagedPath(parts ...string) string {

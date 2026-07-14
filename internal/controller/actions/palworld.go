@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -22,12 +22,7 @@ const (
 	palworldDefaultFile  = "DefaultPalWorldSettings.ini"
 )
 
-var errPalworldOptionSettingsMissing = errors.New("palworld OptionSettings entry is missing")
-
-type palworldSettingUpdate struct {
-	key   string
-	value string
-}
+var errPalworldOptionSettingsMissing = cfgparse.ErrPalworldOptionSettingsMissing
 
 func (inst *Instance) ensurePalworldQueryConfig(gameServer *models.GameServer, client nodeclient.NodeClient) error {
 	if gameServer == nil || gameServer.GameID != palworldGameID {
@@ -173,154 +168,38 @@ func patchPalworldSettings(
 	if strings.ContainsAny(password, "\"\\\r\n,()") {
 		return nil, errors.New("palworld REST password contains unsupported characters")
 	}
-	quotedServerName, errServerName := quotePalworldSettingString(serverName)
-	if errServerName != nil {
-		return nil, errServerName
-	}
-	text := string(data)
-	lowerText := strings.ToLower(text)
-	settingsIndex := strings.Index(lowerText, "optionsettings")
-	if settingsIndex < 0 {
-		return nil, errPalworldOptionSettingsMissing
-	}
-	equalsOffset := strings.Index(text[settingsIndex:], "=")
-	if equalsOffset < 0 {
-		return nil, errPalworldOptionSettingsMissing
-	}
-	openIndex := settingsIndex + equalsOffset + 1
-	for openIndex < len(text) && (text[openIndex] == ' ' || text[openIndex] == '\t') {
-		openIndex++
-	}
-	if openIndex >= len(text) || text[openIndex] != '(' {
-		return nil, errPalworldOptionSettingsMissing
-	}
-	closeIndex := findPalworldClosingParenthesis(text, openIndex)
-	if closeIndex < 0 {
-		return nil, errors.New("palworld OptionSettings entry has no closing parenthesis")
+	if strings.ContainsAny(serverName, "\x00\r\n") {
+		return nil, errors.New("palworld server name contains unsupported characters")
 	}
 
-	fields, errFields := splitPalworldSettings(text[openIndex+1 : closeIndex])
-	if errFields != nil {
-		return nil, errFields
+	parser := &cfgparse.PalworldParser{}
+	entries, errParse := parser.Parse(data)
+	if errParse != nil {
+		return nil, fmt.Errorf("parse Palworld settings: %w", errParse)
 	}
-	updates := []palworldSettingUpdate{
-		{key: "ServerName", value: quotedServerName},
-		{key: "AdminPassword", value: "\"" + password + "\""},
-		{key: "RESTAPIEnabled", value: "True"},
-		{key: "RESTAPIPort", value: strconv.FormatInt(queryPort, 10)},
-		{key: "ServerPlayerMaxNum", value: strconv.FormatInt(maxPlayers, 10)},
+	updates := []cfgparse.ConfigEntry{
+		{Key: "ServerName", Value: serverName},
+		{Key: "AdminPassword", Value: password},
+		{Key: "RESTAPIEnabled", Value: "true"},
+		{Key: "RESTAPIPort", Value: fmt.Sprintf("%d", queryPort)},
+		{Key: "ServerPlayerMaxNum", Value: fmt.Sprintf("%d", maxPlayers)},
 	}
 	for _, update := range updates {
-		fields = setPalworldSetting(fields, update)
+		entries = setPalworldConfigEntry(entries, update)
 	}
-
-	patched := text[:openIndex+1] + strings.Join(fields, ",") + text[closeIndex:]
-	return []byte(patched), nil
+	output, errWrite := parser.Write(entries)
+	if errWrite != nil {
+		return nil, fmt.Errorf("write Palworld settings: %w", errWrite)
+	}
+	return output, nil
 }
 
-func quotePalworldSettingString(value string) (string, error) {
-	if strings.ContainsAny(value, "\x00\r\n") {
-		return "", errors.New("palworld server name contains unsupported characters")
-	}
-	escaped := strings.NewReplacer("\\", "\\\\", "\"", "\\\"").Replace(value)
-	return "\"" + escaped + "\"", nil
-}
-
-func findPalworldClosingParenthesis(text string, openIndex int) int {
-	depth := 0
-	inQuote := false
-	escaped := false
-	for index := openIndex; index < len(text); index++ {
-		character := text[index]
-		if inQuote {
-			if escaped {
-				escaped = false
-				continue
-			}
-			if character == '\\' {
-				escaped = true
-				continue
-			}
-			if character == '"' {
-				inQuote = false
-			}
-			continue
-		}
-		switch character {
-		case '"':
-			inQuote = true
-		case '(':
-			depth++
-		case ')':
-			depth--
-			if depth == 0 {
-				return index
-			}
+func setPalworldConfigEntry(entries []cfgparse.ConfigEntry, update cfgparse.ConfigEntry) []cfgparse.ConfigEntry {
+	for index := range entries {
+		if strings.EqualFold(entries[index].Key, update.Key) {
+			entries[index].Value = update.Value
+			return entries
 		}
 	}
-	return -1
-}
-
-func splitPalworldSettings(settings string) ([]string, error) {
-	fields := make([]string, 0, 64)
-	start := 0
-	depth := 0
-	inQuote := false
-	escaped := false
-	for index := 0; index < len(settings); index++ {
-		character := settings[index]
-		if inQuote {
-			if escaped {
-				escaped = false
-				continue
-			}
-			if character == '\\' {
-				escaped = true
-				continue
-			}
-			if character == '"' {
-				inQuote = false
-			}
-			continue
-		}
-		switch character {
-		case '"':
-			inQuote = true
-		case '(':
-			depth++
-		case ')':
-			if depth == 0 {
-				return nil, errors.New("palworld OptionSettings contains an unexpected closing parenthesis")
-			}
-			depth--
-		case ',':
-			if depth == 0 {
-				fields = append(fields, strings.TrimSpace(settings[start:index]))
-				start = index + 1
-			}
-		}
-	}
-	if inQuote || depth != 0 {
-		return nil, errors.New("palworld OptionSettings contains an unterminated value")
-	}
-	lastField := strings.TrimSpace(settings[start:])
-	if lastField != "" {
-		fields = append(fields, lastField)
-	}
-	return fields, nil
-}
-
-func setPalworldSetting(fields []string, update palworldSettingUpdate) []string {
-	for index, field := range fields {
-		keyPart, _, found := strings.Cut(field, "=")
-		if !found {
-			continue
-		}
-		key := strings.TrimSpace(keyPart)
-		if strings.EqualFold(key, update.key) {
-			fields[index] = key + "=" + update.value
-			return fields
-		}
-	}
-	return append(fields, update.key+"="+update.value)
+	return append(entries, update)
 }

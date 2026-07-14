@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:b9f3d4c9bccdf23e25d5eacd86f054cb327ca896ea6d4452383e90ab50d72ded",
+  "content_hash": "sha256:24a439de005183a36eae741f71a80605395a4a301348f28350f691753f6a07d6",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -78,7 +78,17 @@
         "x-groups": [
           "Identity",
           "Access",
-          "Networking"
+          "Networking",
+          "Slots",
+          "Administration",
+          "Technical",
+          "World",
+          "Game Rules",
+          "Performance",
+          "Multiplayer",
+          "Land Claims",
+          "Dynamic Mesh",
+          "Twitch"
         ],
         "properties": {
           "ServerName": {
@@ -95,8 +105,64 @@
             "type": "string",
             "title": "Description",
             "default": "",
+            "description": "Description shown in the server browser.",
             "x-group": "Identity",
             "x-order": 1
+          },
+          "ServerWebsiteURL": {
+            "type": "string",
+            "title": "Website URL",
+            "default": "",
+            "description": "Clickable website URL shown in the server browser.",
+            "x-group": "Identity",
+            "x-order": 2
+          },
+          "ServerLoginConfirmationText": {
+            "type": "string",
+            "title": "Login confirmation text",
+            "default": "",
+            "description": "Message players must confirm while joining the server.",
+            "x-group": "Identity",
+            "x-order": 3
+          },
+          "Region": {
+            "type": "string",
+            "title": "Region",
+            "default": "NorthAmericaEast",
+            "enum": [
+              "NorthAmericaEast",
+              "NorthAmericaWest",
+              "CentralAmerica",
+              "SouthAmerica",
+              "Europe",
+              "Russia",
+              "Asia",
+              "MiddleEast",
+              "Africa",
+              "Oceania"
+            ],
+            "x-enum-labels": [
+              "North America East",
+              "North America West",
+              "Central America",
+              "South America",
+              "Europe",
+              "Russia",
+              "Asia",
+              "Middle East",
+              "Africa",
+              "Oceania"
+            ],
+            "x-group": "Identity",
+            "x-order": 4
+          },
+          "Language": {
+            "type": "string",
+            "title": "Language",
+            "default": "English",
+            "description": "Primary language players should use when searching for the server, written in English.",
+            "x-group": "Identity",
+            "x-order": 5
           },
           "ServerPassword": {
             "type": "string",
@@ -108,14 +174,54 @@
           "ServerMaxPlayerCount": {
             "type": "integer",
             "title": "Max players",
-            "default": 32,
+            "default": 8,
             "minimum": 1,
             "maximum": 64,
-            "x-group": "Access",
-            "x-order": 1,
+            "x-group": "Slots",
+            "x-order": 0,
             "x-managed": {
               "source": "game_server.max_players"
             }
+          },
+          "ServerReservedSlots": {
+            "type": "integer",
+            "title": "Reserved slots",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 64,
+            "description": "Player slots reserved for users at or above the configured permission level.",
+            "x-group": "Slots",
+            "x-order": 1
+          },
+          "ServerReservedSlotsPermission": {
+            "type": "integer",
+            "title": "Reserved slot permission",
+            "default": 100,
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Maximum permission level allowed to use reserved slots. Lower values grant more access.",
+            "x-group": "Slots",
+            "x-order": 2
+          },
+          "ServerAdminSlots": {
+            "type": "integer",
+            "title": "Admin slots",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 64,
+            "description": "Additional administrator slots available when the server is full.",
+            "x-group": "Slots",
+            "x-order": 3
+          },
+          "ServerAdminSlotsPermission": {
+            "type": "integer",
+            "title": "Admin slot permission",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Maximum permission level allowed to use admin slots. Lower values grant more access.",
+            "x-group": "Slots",
+            "x-order": 4
           },
           "ServerPort": {
             "type": "integer",
@@ -129,12 +235,99 @@
               "source": "game_server.port"
             }
           },
+          "ServerVisibility": {
+            "type": "integer",
+            "title": "Server visibility",
+            "default": 2,
+            "enum": [
+              "0",
+              "1",
+              "2"
+            ],
+            "x-enum-labels": [
+              "Not listed",
+              "Friends only",
+              "Public"
+            ],
+            "x-group": "Networking",
+            "x-order": 1
+          },
+          "ServerDisabledNetworkProtocols": {
+            "type": "string",
+            "title": "Disabled network protocols",
+            "default": "SteamNetworking",
+            "enum": [
+              "",
+              "LiteNetLib",
+              "SteamNetworking",
+              "LiteNetLib,SteamNetworking"
+            ],
+            "x-enum-labels": [
+              "None",
+              "LiteNetLib",
+              "Steam Networking",
+              "LiteNetLib and Steam Networking"
+            ],
+            "description": "Comma-separated networking protocols the server must not use.",
+            "x-group": "Networking",
+            "x-order": 2
+          },
+          "ServerMaxWorldTransferSpeedKiBs": {
+            "type": "integer",
+            "title": "Max world transfer speed (KiB/s)",
+            "default": 512,
+            "minimum": 1,
+            "maximum": 1300,
+            "description": "Maximum speed used to transfer a world to a connecting client.",
+            "x-group": "Networking",
+            "x-order": 3
+          },
+          "ServerAllowCrossplay": {
+            "type": "boolean",
+            "title": "Allow crossplay",
+            "default": false,
+            "description": "Allow supported console and PC players to join the same server.",
+            "x-group": "Networking",
+            "x-order": 4
+          },
+          "WebDashboardEnabled": {
+            "type": "boolean",
+            "title": "Enable web dashboard",
+            "default": false,
+            "x-group": "Administration",
+            "x-order": 0
+          },
+          "WebDashboardPort": {
+            "type": "integer",
+            "title": "Web dashboard port",
+            "default": 8080,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Administration",
+            "x-order": 1
+          },
+          "WebDashboardUrl": {
+            "type": "string",
+            "title": "Web dashboard public URL",
+            "default": "",
+            "description": "Full external dashboard URL when it is exposed through a reverse proxy.",
+            "x-group": "Administration",
+            "x-order": 2
+          },
+          "EnableMapRendering": {
+            "type": "boolean",
+            "title": "Enable map rendering",
+            "default": false,
+            "description": "Render explored map areas to tiles for the web dashboard and similar tools.",
+            "x-group": "Administration",
+            "x-order": 3
+          },
           "TelnetEnabled": {
             "type": "boolean",
             "title": "Enable local management console",
             "default": true,
-            "x-group": "Networking",
-            "x-order": 1,
+            "x-group": "Administration",
+            "x-order": 4,
             "x-managed": {
               "source": "xylona.local_console_enabled"
             }
@@ -145,8 +338,8 @@
             "default": 26904,
             "minimum": 1,
             "maximum": 65535,
-            "x-group": "Networking",
-            "x-order": 2,
+            "x-group": "Administration",
+            "x-order": 5,
             "x-managed": {
               "source": "game_server.query_port"
             }
@@ -155,21 +348,457 @@
             "type": "string",
             "title": "Management console password",
             "default": "",
-            "x-group": "Networking",
-            "x-order": 3,
+            "x-group": "Administration",
+            "x-order": 6,
             "x-managed": {
               "source": "xylona.local_console_password"
             }
+          },
+          "TelnetFailedLoginLimit": {
+            "type": "integer",
+            "title": "Telnet failed login limit",
+            "default": 10,
+            "minimum": 0,
+            "description": "Failed password attempts allowed from one client before it is blocked.",
+            "x-group": "Administration",
+            "x-order": 7
+          },
+          "TelnetFailedLoginsBlocktime": {
+            "type": "integer",
+            "title": "Telnet block time (seconds)",
+            "default": 10,
+            "minimum": 0,
+            "description": "How long a client remains blocked after exceeding the failed-login limit.",
+            "x-group": "Administration",
+            "x-order": 8
+          },
+          "TerminalWindowEnabled": {
+            "type": "boolean",
+            "title": "Enable terminal window",
+            "default": true,
+            "description": "Show the Windows terminal used for log output and command input.",
+            "x-group": "Administration",
+            "x-order": 9
+          },
+          "AdminFileName": {
+            "type": "string",
+            "title": "Admin file name",
+            "default": "serveradmin.xml",
+            "description": "Admin configuration path relative to the Saves directory.",
+            "x-group": "Administration",
+            "x-order": 10
           },
           "UserDataFolder": {
             "type": "string",
             "title": "Isolated server data directory",
             "default": "",
-            "x-group": "Networking",
-            "x-order": 4,
+            "description": "Directory used for generated worlds, saves, logs, and other server data.",
+            "x-group": "Technical",
+            "x-order": 0,
             "x-managed": {
               "source": "game_server.directory"
             }
+          },
+          "EACEnabled": {
+            "type": "boolean",
+            "title": "Enable Easy Anti-Cheat",
+            "default": true,
+            "x-group": "Technical",
+            "x-order": 1
+          },
+          "IgnoreEOSSanctions": {
+            "type": "boolean",
+            "title": "Ignore EOS sanctions",
+            "default": false,
+            "description": "Allow sanctioned Epic Online Services accounts to join.",
+            "x-group": "Technical",
+            "x-order": 2
+          },
+          "HideCommandExecutionLog": {
+            "type": "integer",
+            "title": "Command log visibility",
+            "default": 0,
+            "enum": [
+              "0",
+              "1",
+              "2",
+              "3"
+            ],
+            "x-enum-labels": [
+              "Show all command execution",
+              "Hide from Telnet and dashboard",
+              "Also hide from remote game clients",
+              "Hide all command execution"
+            ],
+            "x-group": "Technical",
+            "x-order": 3
+          },
+          "MaxUncoveredMapChunksPerPlayer": {
+            "type": "integer",
+            "title": "Max uncovered map chunks per player",
+            "default": 131072,
+            "minimum": 0,
+            "description": "Maximum number of chunks retained in each player's uncovered in-game map.",
+            "x-group": "Technical",
+            "x-order": 4
+          },
+          "PersistentPlayerProfiles": {
+            "type": "boolean",
+            "title": "Persistent player profiles",
+            "default": false,
+            "description": "Require players to rejoin with the last profile they used on the server.",
+            "x-group": "Technical",
+            "x-order": 5
+          },
+          "MaxChunkAge": {
+            "type": "integer",
+            "title": "Max chunk age (game days)",
+            "default": -1,
+            "minimum": -1,
+            "description": "Reset eligible unvisited chunks after this many in-game days. Use -1 to disable age-based resets.",
+            "x-group": "Technical",
+            "x-order": 6
+          },
+          "SaveDataLimit": {
+            "type": "integer",
+            "title": "Save data limit (MB)",
+            "default": -1,
+            "minimum": -1,
+            "description": "Per-save disk allowance before eligible chunks are reset. Use -1 to disable the limit.",
+            "x-group": "Technical",
+            "x-order": 7
+          },
+          "GameWorld": {
+            "type": "string",
+            "title": "World",
+            "default": "Navezgane",
+            "description": "Use Navezgane, RWG, a bundled pregenerated world, or an existing world directory name.",
+            "x-group": "World",
+            "x-order": 0
+          },
+          "WorldGenSeed": {
+            "type": "string",
+            "title": "World generation seed",
+            "default": "MyGame",
+            "description": "Seed used when World is set to RWG.",
+            "x-group": "World",
+            "x-order": 1
+          },
+          "WorldGenSize": {
+            "type": "integer",
+            "title": "World generation size",
+            "default": 6144,
+            "enum": [
+              "6144",
+              "8192",
+              "10240"
+            ],
+            "x-enum-labels": [
+              "6144 x 6144",
+              "8192 x 8192",
+              "10240 x 10240"
+            ],
+            "description": "Width and height used when World is set to RWG.",
+            "x-group": "World",
+            "x-order": 2
+          },
+          "GameName": {
+            "type": "string",
+            "title": "Game name",
+            "default": "MyGame",
+            "description": "Save name and decoration seed. Use letters, digits, spaces, underscores, hyphens, and periods.",
+            "x-group": "World",
+            "x-order": 3
+          },
+          "GameMode": {
+            "type": "string",
+            "title": "Game mode",
+            "default": "GameModeSurvival",
+            "enum": [
+              "GameModeSurvival"
+            ],
+            "x-enum-labels": [
+              "Survival"
+            ],
+            "x-group": "World",
+            "x-order": 4
+          },
+          "SandboxCode": {
+            "type": "string",
+            "title": "Sandbox code",
+            "default": "AAAJABJACJADJARFBNC",
+            "description": "7 Days to Die 3.0 code containing the server's sandbox gameplay options.",
+            "x-group": "Game Rules",
+            "x-order": 0
+          },
+          "PlayerSafeZoneLevel": {
+            "type": "integer",
+            "title": "New player safe-zone level",
+            "default": 5,
+            "minimum": 0,
+            "description": "Players at or below this level create an enemy-free zone when spawning.",
+            "x-group": "Game Rules",
+            "x-order": 1
+          },
+          "PlayerSafeZoneHours": {
+            "type": "integer",
+            "title": "New player safe-zone hours",
+            "default": 5,
+            "minimum": 0,
+            "description": "In-world hours that a new player's safe zone remains active.",
+            "x-group": "Game Rules",
+            "x-order": 2
+          },
+          "BuildCreate": {
+            "type": "boolean",
+            "title": "Enable cheat mode",
+            "default": false,
+            "x-group": "Game Rules",
+            "x-order": 3
+          },
+          "BedrollDeadZoneSize": {
+            "type": "integer",
+            "title": "Bedroll dead-zone radius",
+            "default": 15,
+            "minimum": 0,
+            "description": "Radius around an active bedroll where zombies and cleared sleeper volumes do not respawn.",
+            "x-group": "Game Rules",
+            "x-order": 4
+          },
+          "BedrollExpiryTime": {
+            "type": "integer",
+            "title": "Bedroll expiry (real days)",
+            "default": 45,
+            "minimum": 0,
+            "description": "Real-world days a bedroll remains active after its owner was last online.",
+            "x-group": "Game Rules",
+            "x-order": 5
+          },
+          "AllowSpawnNearFriend": {
+            "type": "integer",
+            "title": "Spawn near friend",
+            "default": 2,
+            "enum": [
+              "0",
+              "1",
+              "2"
+            ],
+            "x-enum-labels": [
+              "Disabled",
+              "Always allowed",
+              "Forest biome only"
+            ],
+            "x-group": "Game Rules",
+            "x-order": 6
+          },
+          "CameraRestrictionMode": {
+            "type": "integer",
+            "title": "Camera restriction",
+            "default": 0,
+            "enum": [
+              "0",
+              "1",
+              "2"
+            ],
+            "x-enum-labels": [
+              "Allow first and third person",
+              "First person only",
+              "Third person only"
+            ],
+            "x-group": "Game Rules",
+            "x-order": 7
+          },
+          "MaxSpawnedZombies": {
+            "type": "integer",
+            "title": "Max spawned zombies",
+            "default": 64,
+            "minimum": 0,
+            "description": "World-wide zombie limit. Increasing it can significantly affect performance.",
+            "x-group": "Performance",
+            "x-order": 0
+          },
+          "MaxSpawnedAnimals": {
+            "type": "integer",
+            "title": "Max spawned animals",
+            "default": 50,
+            "minimum": 0,
+            "x-group": "Performance",
+            "x-order": 1
+          },
+          "ServerMaxAllowedViewDistance": {
+            "type": "integer",
+            "title": "Max client view distance",
+            "default": 12,
+            "minimum": 6,
+            "maximum": 12,
+            "description": "Maximum view distance a client may request. Higher values use more memory and processing time.",
+            "x-group": "Performance",
+            "x-order": 2
+          },
+          "MaxQueuedMeshLayers": {
+            "type": "integer",
+            "title": "Max queued mesh layers",
+            "default": 1000,
+            "minimum": 1,
+            "description": "Maximum chunk mesh layers queued during generation. Lower values reduce memory use but may slow generation.",
+            "x-group": "Performance",
+            "x-order": 3
+          },
+          "PartySharedKillRange": {
+            "type": "integer",
+            "title": "Party shared kill range",
+            "default": 100,
+            "minimum": 0,
+            "description": "Maximum distance for shared kill XP and party kill objective credit.",
+            "x-group": "Multiplayer",
+            "x-order": 0
+          },
+          "PlayerKillingMode": {
+            "type": "integer",
+            "title": "Player killing mode",
+            "default": 3,
+            "enum": [
+              "0",
+              "1",
+              "2",
+              "3"
+            ],
+            "x-enum-labels": [
+              "No player killing",
+              "Kill allies only",
+              "Kill strangers only",
+              "Kill everyone"
+            ],
+            "x-group": "Multiplayer",
+            "x-order": 1
+          },
+          "LandClaimCount": {
+            "type": "integer",
+            "title": "Land claims per player",
+            "default": 5,
+            "minimum": 0,
+            "x-group": "Land Claims",
+            "x-order": 0
+          },
+          "LandClaimSize": {
+            "type": "integer",
+            "title": "Land claim size",
+            "default": 41,
+            "minimum": 1,
+            "description": "Width and length in blocks protected by a land claim block.",
+            "x-group": "Land Claims",
+            "x-order": 1
+          },
+          "LandClaimDeadZone": {
+            "type": "integer",
+            "title": "Land claim dead zone",
+            "default": 30,
+            "minimum": 0,
+            "description": "Minimum separation between land claims owned by players who are not friends.",
+            "x-group": "Land Claims",
+            "x-order": 2
+          },
+          "LandClaimExpiryTime": {
+            "type": "integer",
+            "title": "Land claim expiry (real days)",
+            "default": 7,
+            "minimum": 0,
+            "x-group": "Land Claims",
+            "x-order": 3
+          },
+          "LandClaimDecayMode": {
+            "type": "integer",
+            "title": "Land claim decay mode",
+            "default": 0,
+            "enum": [
+              "0",
+              "1",
+              "2"
+            ],
+            "x-enum-labels": [
+              "Slow linear decay",
+              "Fast exponential decay",
+              "No decay until expiry"
+            ],
+            "x-group": "Land Claims",
+            "x-order": 4
+          },
+          "LandClaimOnlineDurabilityModifier": {
+            "type": "integer",
+            "title": "Online claim durability multiplier",
+            "default": 4,
+            "minimum": 0,
+            "description": "Claimed block hardness multiplier while the owner is online. Use 0 for indestructible blocks.",
+            "x-group": "Land Claims",
+            "x-order": 5
+          },
+          "LandClaimOfflineDurabilityModifier": {
+            "type": "integer",
+            "title": "Offline claim durability multiplier",
+            "default": 4,
+            "minimum": 0,
+            "description": "Claimed block hardness multiplier while the owner is offline. Use 0 for indestructible blocks.",
+            "x-group": "Land Claims",
+            "x-order": 6
+          },
+          "LandClaimOfflineDelay": {
+            "type": "integer",
+            "title": "Offline claim delay (minutes)",
+            "default": 0,
+            "minimum": 0,
+            "description": "Delay after logout before claim protection changes from online to offline.",
+            "x-group": "Land Claims",
+            "x-order": 7
+          },
+          "DynamicMeshEnabled": {
+            "type": "boolean",
+            "title": "Enable dynamic mesh",
+            "default": true,
+            "x-group": "Dynamic Mesh",
+            "x-order": 0
+          },
+          "DynamicMeshLandClaimOnly": {
+            "type": "boolean",
+            "title": "Limit dynamic mesh to claims",
+            "default": true,
+            "x-group": "Dynamic Mesh",
+            "x-order": 1
+          },
+          "DynamicMeshLandClaimBuffer": {
+            "type": "integer",
+            "title": "Dynamic mesh claim buffer",
+            "default": 3,
+            "minimum": 0,
+            "description": "Chunk radius around land claims included in dynamic mesh processing.",
+            "x-group": "Dynamic Mesh",
+            "x-order": 2
+          },
+          "DynamicMeshMaxItemCache": {
+            "type": "integer",
+            "title": "Dynamic mesh item cache",
+            "default": 3,
+            "minimum": 1,
+            "description": "Items processed concurrently by dynamic mesh. Higher values use more memory.",
+            "x-group": "Dynamic Mesh",
+            "x-order": 3
+          },
+          "TwitchServerPermission": {
+            "type": "integer",
+            "title": "Twitch permission level",
+            "default": 90,
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Maximum permission level allowed to use Twitch integration. Lower values grant more access.",
+            "x-group": "Twitch",
+            "x-order": 0
+          },
+          "TwitchBloodMoonAllowed": {
+            "type": "boolean",
+            "title": "Allow Twitch during blood moons",
+            "default": false,
+            "description": "Allow Twitch actions during a blood moon. Extra spawns can affect performance.",
+            "x-group": "Twitch",
+            "x-order": 1
           }
         }
       }

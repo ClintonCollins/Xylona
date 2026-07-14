@@ -24,8 +24,8 @@ func TestFlatten_SimpleObject(t *testing.T) {
 	if entries[1].Key != "port" || entries[1].Value != "25565" {
 		t.Errorf("entry[1] = %q:%q, want port:25565", entries[1].Key, entries[1].Value)
 	}
-	if entries[0].Index != 0 || entries[1].Index != 1 {
-		t.Errorf("indexes = %d,%d, want 0,1", entries[0].Index, entries[1].Index)
+	if entries[0].Index != 0 || entries[1].Index != 0 {
+		t.Errorf("indexes = %d,%d, want 0,0", entries[0].Index, entries[1].Index)
 	}
 }
 
