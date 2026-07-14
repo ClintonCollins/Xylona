@@ -189,7 +189,7 @@ async function enforceRouteAccess() {
   /* Override Quasar's inline min-height (full viewport) so max-height
      can constrain the page to the available space below the header. */
   min-height: 0 !important;
-  max-height: calc(100dvh - 50px);
+  max-height: calc(100dvh - var(--xy-header-stack-height, 50px));
   overflow: hidden;
 }
 

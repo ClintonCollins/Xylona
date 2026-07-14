@@ -175,12 +175,16 @@
         class="platform-tabs"
         role="tablist">
         <button
+          id="game-platform-tab-windows"
+          aria-controls="game-platform-panel-windows"
           :aria-selected="activePlatform === 'windows'"
           :class="{ 'platform-tab--active': activePlatform === 'windows' }"
+          :tabindex="activePlatform === 'windows' ? 0 : -1"
           class="platform-tab"
           role="tab"
           type="button"
-          @click="activePlatform = 'windows'">
+          @click="activePlatform = 'windows'"
+          @keydown="onPlatformTabKeydown($event, 'windows')">
           <q-icon
             :class="
               activePlatform === 'windows'
@@ -192,12 +196,16 @@
           <span class="font-display">Windows</span>
         </button>
         <button
+          id="game-platform-tab-linux"
+          aria-controls="game-platform-panel-linux"
           :aria-selected="activePlatform === 'linux'"
           :class="{ 'platform-tab--active': activePlatform === 'linux' }"
+          :tabindex="activePlatform === 'linux' ? 0 : -1"
           class="platform-tab"
           role="tab"
           type="button"
-          @click="activePlatform = 'linux'">
+          @click="activePlatform = 'linux'"
+          @keydown="onPlatformTabKeydown($event, 'linux')">
           <q-icon
             :class="
               activePlatform === 'linux' ? 'platform-icon-linux-active' : 'platform-icon-inactive'
@@ -209,7 +217,13 @@
       </div>
 
       <!-- Windows Commands -->
-      <div v-if="activePlatformResolved === 'windows'" class="platform-commands">
+      <div
+        v-if="activePlatformResolved === 'windows'"
+        id="game-platform-panel-windows"
+        aria-labelledby="game-platform-tab-windows"
+        class="platform-commands"
+        role="tabpanel"
+        tabindex="0">
         <!-- Stop Command -->
         <div class="cmd-block cmd-block--windows">
           <div class="cmd-header">
@@ -371,7 +385,13 @@
       </div>
 
       <!-- Linux Commands -->
-      <div v-if="activePlatformResolved === 'linux'" class="platform-commands">
+      <div
+        v-if="activePlatformResolved === 'linux'"
+        id="game-platform-panel-linux"
+        aria-labelledby="game-platform-tab-linux"
+        class="platform-commands"
+        role="tabpanel"
+        tabindex="0">
         <!-- Stop Command -->
         <div class="cmd-block cmd-block--linux">
           <div class="cmd-header">
@@ -560,4 +580,26 @@ const {
   commandTypeSummary,
   highlightCommand,
 } = ctx
+
+function onPlatformTabKeydown(event: KeyboardEvent, platform: 'windows' | 'linux') {
+  let nextPlatform: 'windows' | 'linux'
+  switch (event.key) {
+    case 'ArrowLeft':
+    case 'ArrowRight':
+      nextPlatform = platform === 'windows' ? 'linux' : 'windows'
+      break
+    case 'Home':
+      nextPlatform = 'windows'
+      break
+    case 'End':
+      nextPlatform = 'linux'
+      break
+    default:
+      return
+  }
+
+  event.preventDefault()
+  activePlatform.value = nextPlatform
+  document.getElementById(`game-platform-tab-${nextPlatform}`)?.focus()
+}
 </script>

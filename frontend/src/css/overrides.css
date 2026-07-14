@@ -6,12 +6,12 @@
 
 /* ---- Navigation Items ---- */
 a.q-item {
-  font-weight: 400;
-  font-size: 1.1rem;
-  font-family: var(--xy-font-display);
-  height: 100%;
-  padding-top: 12px;
-  padding-bottom: 12px;
+  min-height: 44px;
+  padding-top: var(--xy-space-base);
+  padding-bottom: var(--xy-space-base);
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-sm);
+  font-weight: 600;
   border: 1px solid transparent;
   transition:
     border-color var(--xy-transition-fast),
@@ -62,20 +62,54 @@ a.q-item:hover {
 
 /* ---- Buttons ---- */
 .q-btn {
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-control);
+  font-weight: 600;
   text-transform: none;
 }
 
-.q-btn.bg-success:hover:not(.disabled) {
-  background-color: var(--xy-success-hover);
+.q-btn.bg-primary,
+.q-btn.bg-accent,
+.q-btn.bg-positive,
+.q-btn.bg-negative,
+.q-btn.bg-warning,
+.q-btn.bg-info,
+.q-btn.bg-success,
+.q-btn.bg-error,
+.q-badge.bg-primary,
+.q-badge.bg-accent,
+.q-badge.bg-positive,
+.q-badge.bg-negative,
+.q-badge.bg-warning,
+.q-badge.bg-info,
+.q-badge.bg-success,
+.q-badge.bg-error {
+  color: var(--xy-text-on-bright) !important;
 }
 
-.q-btn.bg-error:hover:not(.disabled) {
-  background-color: var(--xy-danger-hover);
+.q-btn.bg-secondary,
+.q-badge.bg-secondary {
+  color: var(--xy-text-on-secondary) !important;
+}
+
+.q-btn.bg-primary:hover:not(.disabled) {
+  background-color: var(--xy-primary-hover) !important;
+}
+
+.q-btn.bg-accent:hover:not(.disabled) {
+  background-color: var(--xy-accent-hover) !important;
+}
+
+.q-btn.bg-success:hover:not(.disabled) {
+  background-color: var(--xy-success-hover) !important;
 }
 
 .q-btn.bg-positive:hover:not(.disabled) {
-  background-color: var(--xy-primary-hover);
+  background-color: var(--xy-success-hover) !important;
+}
+
+.q-btn.bg-error:hover:not(.disabled),
+.q-btn.bg-negative:hover:not(.disabled) {
+  background-color: var(--xy-danger-hover) !important;
 }
 
 .q-btn.disabled {
@@ -107,7 +141,7 @@ a.q-item:hover {
 .q-card.q-dark {
   background-color: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   box-shadow: var(--xy-shadow-md);
 }
 
@@ -124,7 +158,7 @@ a.q-item:hover {
 .q-table--flat.xy-standalone-table {
   background-color: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   overflow: hidden;
 }
 
@@ -158,25 +192,18 @@ a.q-item:hover {
 
 /* ---- Focus Visible ---- */
 :focus-visible {
-  outline: 2px solid var(--xy-primary);
-  outline-offset: 2px;
+  outline: 3px solid var(--xy-focus-ring);
+  outline-offset: 3px;
 }
 
-/* Quasar buttons/items handle their own focus ring via .q-focus-helper;
-   suppress the generic outline so it doesn't double up. */
-.q-btn:focus-visible,
-.q-item:focus-visible,
-.q-tab:focus-visible,
-.q-field__control:focus-visible {
+/* Keep field focus on the visible shell instead of the nested native input. */
+.q-field__native:focus-visible,
+.q-field__input:focus-visible {
   outline: none;
 }
 
-/* Show ring on Quasar's internal focus helper instead */
-.q-btn:focus-visible > .q-focus-helper,
-.q-item:focus-visible > .q-focus-helper,
-.q-tab:focus-visible > .q-focus-helper {
-  opacity: 0.25;
-  background: var(--xy-primary);
+.q-field:has(:focus-visible) .q-field__control {
+  box-shadow: 0 0 0 2px var(--xy-focus-ring);
 }
 
 /* ---- Focus Helper ---- */
@@ -184,36 +211,29 @@ a.q-item:hover {
   color: var(--xy-surface-2);
 }
 
-/* ---- Scrollbar Styling ---- */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--xy-surface-0);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--xy-surface-4);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--xy-text-muted);
-}
-
 /* ---- Rounded Input Helper ---- */
 .rounded-input > .q-field--outlined,
 .rounded-input > .q-field__control,
 .rounded-input > .q-field__inner,
 .rounded-input > .q-field__control-container {
-  border-radius: 12px;
+  border-radius: var(--xy-radius-xl);
 }
 
 .rounded-input > .q-field--outlined::before,
 .rounded-input > .q-field__control::before,
 .rounded-input > .q-field__inner::before,
 .rounded-input > .q-field__control-container::before {
-  border-radius: 12px;
+  border-radius: var(--xy-radius-xl);
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .q-btn,
+  .q-tab,
+  .q-item,
+  .q-checkbox,
+  .q-radio,
+  .q-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }

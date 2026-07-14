@@ -70,7 +70,7 @@
               v-show="uploader.files.size <= maxNumberOfFilesToDisplay"
               :key="file.key">
               <q-item-section v-if="file.status === FileStatus.Queued" avatar>
-                <q-icon :name="tabDots" class="text-primary-brighter" size="lg" />
+                <q-icon :name="tabDots" class="text-primary" size="lg" />
               </q-item-section>
               <q-item-section v-else-if="file.status === FileStatus.Error" avatar>
                 <q-icon :name="tabAlertTriangle" class="text-error-brighter" size="lg" />

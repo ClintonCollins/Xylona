@@ -1,7 +1,8 @@
 <template>
   <q-layout view="hHh Lpr lFf">
+    <a class="xy-skip-link" href="#main-content">Skip to main content</a>
     <navigation></navigation>
-    <q-page-container>
+    <q-page-container id="main-content" role="main" tabindex="-1">
       <router-view />
     </q-page-container>
   </q-layout>

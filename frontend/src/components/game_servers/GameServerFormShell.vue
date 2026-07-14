@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--xy-border);
   border-radius: 10px 10px 0 0;
   position: sticky;
-  top: 50px;
+  top: var(--xy-header-stack-height, 50px);
   z-index: 10;
   transition:
     border-color var(--xy-transition-fast),
@@ -250,7 +250,7 @@ onBeforeUnmount(() => {
   padding-top: clamp(1.5rem, 1.15rem + 0.9vw, 2rem);
 }
 
-.server-form-shell--compact .form-section:first-child {
+.server-form-shell.server-form-shell--compact .form-section:first-child {
   padding-top: var(--xy-space-md);
 }
 
@@ -265,21 +265,21 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-.form-section {
+.server-form-shell .form-section {
   padding: var(--xy-space-lg) 0;
   border-bottom: 1px solid var(--xy-border);
 }
 
-.form-section:first-child {
+.server-form-shell .form-section:first-child {
   padding-top: var(--xy-space-sm);
 }
 
-.form-section--last {
+.server-form-shell .form-section--last {
   border-bottom: none;
   padding-bottom: 0;
 }
 
-.form-section--summary {
+.server-form-shell .form-section--summary {
   padding-top: clamp(1.5rem, 1.1rem + 1vw, 2rem);
   border-top: 1px solid var(--xy-border);
   border-bottom: none;
@@ -287,14 +287,14 @@ onBeforeUnmount(() => {
   padding-bottom: 0;
 }
 
-.section-header {
+.server-form-shell .section-header {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
   margin-bottom: var(--xy-space-sm);
 }
 
-.section-title {
+.server-form-shell .section-title {
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--xy-text-emphasis-soft);
@@ -304,7 +304,7 @@ onBeforeUnmount(() => {
   line-height: 1.1;
 }
 
-.section-line {
+.server-form-shell .section-line {
   flex: 1;
   height: 1px;
   background: var(--xy-border);
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
   opacity: 0.8;
 }
 
-.section-icon {
+.server-form-shell .section-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -323,23 +323,23 @@ onBeforeUnmount(() => {
   background: var(--xy-surface-0);
 }
 
-.section-icon--accent {
+.server-form-shell .section-icon--accent {
   color: var(--xy-accent);
 }
 
-.section-icon--primary {
+.server-form-shell .section-icon--primary {
   color: var(--xy-primary);
 }
 
-.section-icon--success {
+.server-form-shell .section-icon--success {
   color: var(--xy-success);
 }
 
-.section-icon--warning {
+.server-form-shell .section-icon--warning {
   color: var(--xy-warning);
 }
 
-.section-icon--muted {
+.server-form-shell .section-icon--muted {
   color: var(--xy-text-muted);
 }
 

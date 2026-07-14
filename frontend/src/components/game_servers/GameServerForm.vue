@@ -841,7 +841,7 @@ async function submitGameServer() {
   border-bottom: 1px solid var(--xy-border);
   border-radius: 10px 10px 0 0;
   position: sticky;
-  top: 50px;
+  top: var(--xy-header-stack-height, 50px);
   z-index: 10;
   transition:
     border-color var(--xy-transition-fast),
@@ -1372,7 +1372,7 @@ async function submitGameServer() {
 
 @media (max-width: 520px) {
   .server-form-header {
-    top: 50px;
+    top: var(--xy-header-stack-height, 50px);
   }
 
   .server-form-breadcrumbs {

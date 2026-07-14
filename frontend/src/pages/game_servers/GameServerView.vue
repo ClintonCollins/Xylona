@@ -287,7 +287,9 @@
                 <div class="metric-bar">
                   <div
                     :class="cpuBarClass"
-                    :style="{ width: isServerOnline ? metricsCpu + '%' : '0%' }"
+                    :style="{
+                      transform: `scaleX(${isServerOnline ? Math.min(Math.max(metricsCpu / 100, 0), 1) : 0})`,
+                    }"
                     class="metric-bar-fill"></div>
                 </div>
               </div>
@@ -317,7 +319,7 @@
                   <div
                     :class="memoryBarClass"
                     :style="{
-                      width: isServerOnline ? metricsMemoryRatio * 100 + '%' : '0%',
+                      transform: `scaleX(${isServerOnline ? Math.min(Math.max(metricsMemoryRatio, 0), 1) : 0})`,
                     }"
                     class="metric-bar-fill"></div>
                 </div>
@@ -2114,7 +2116,7 @@ async function sendGameServerInput() {
 }
 
 .metrics-offline .metric-bar-fill {
-  width: 0 !important;
+  transform: scaleX(0) !important;
 }
 
 .metric-row {
@@ -2151,9 +2153,12 @@ async function sendGameServerInput() {
 }
 
 .metric-bar-fill {
+  width: 100%;
   height: 100%;
   border-radius: 2px;
-  transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-origin: left center;
+  transition: transform 0.8s var(--xy-ease-standard);
+  will-change: transform;
 }
 
 .fill-low {
@@ -2388,7 +2393,7 @@ async function sendGameServerInput() {
 .console-wrapper.expanded {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--xy-z-fullscreen);
   width: 100%;
   height: 100dvh;
   background-color: var(--xy-base);

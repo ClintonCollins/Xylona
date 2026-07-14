@@ -117,52 +117,58 @@
     <!-- Results grid -->
     <div v-else-if="results.length > 0" class="browse-grid-scroll">
       <div class="browse-grid">
-        <button
+        <article
           v-for="mod in results"
           :key="`${mod.source}-${mod.sourceId}`"
-          :aria-label="`View details for ${mod.name}`"
           class="mod-card"
-          type="button"
           @click="emit('view-details', mod.source, mod.sourceId)">
-          <!-- Icon -->
-          <div class="mod-card-icon-wrapper">
-            <img
-              v-if="mod.iconUrl"
-              :alt="`${mod.name} icon`"
-              :src="mod.iconUrl"
-              class="mod-card-icon-img"
-              loading="lazy"
-              @error="($event.target as HTMLImageElement).style.display = 'none'" />
-            <div
-              v-if="!mod.iconUrl"
-              :style="{ background: iconGradient(mod.name) }"
-              aria-hidden="true"
-              class="mod-card-icon-fallback">
-              {{ mod.name.charAt(0).toUpperCase() }}
+          <button
+            :aria-label="`View details for ${mod.name}`"
+            class="mod-card-details"
+            type="button">
+            <!-- Icon -->
+            <div class="mod-card-icon-wrapper">
+              <img
+                v-if="mod.iconUrl"
+                :alt="`${mod.name} icon`"
+                :src="mod.iconUrl"
+                class="mod-card-icon-img"
+                loading="lazy"
+                @error="($event.target as HTMLImageElement).style.display = 'none'" />
+              <div
+                v-if="!mod.iconUrl"
+                :style="{ background: iconGradient(mod.name) }"
+                aria-hidden="true"
+                class="mod-card-icon-fallback">
+                {{ mod.name.charAt(0).toUpperCase() }}
+              </div>
             </div>
-          </div>
 
-          <!-- Content -->
-          <div class="mod-card-content">
-            <div class="mod-card-header">
-              <span class="mod-card-name">{{ mod.name }}</span>
-              <span
-                :style="sourceBadgeStyle(mod.source)"
-                :title="sourceDisplayName(mod.source)"
-                class="source-badge">
-                {{ sourceLabel(mod.source) }}
-              </span>
-            </div>
-            <div class="mod-card-author text-xy-muted">by {{ mod.author }}</div>
-            <div class="mod-card-desc text-xy-secondary">{{ mod.description }}</div>
+            <!-- Content -->
+            <div class="mod-card-content">
+              <div class="mod-card-header">
+                <span class="mod-card-name">{{ mod.name }}</span>
+                <span
+                  :style="sourceBadgeStyle(mod.source)"
+                  :title="sourceDisplayName(mod.source)"
+                  class="source-badge">
+                  {{ sourceLabel(mod.source) }}
+                </span>
+              </div>
+              <div class="mod-card-author text-xy-muted">by {{ mod.author }}</div>
+              <div class="mod-card-desc text-xy-secondary">{{ mod.description }}</div>
 
-            <!-- Categories -->
-            <div v-if="mod.categories.length > 0" class="mod-card-categories">
-              <span v-for="cat in mod.categories.slice(0, 3)" :key="cat" class="mod-card-category">
-                {{ cat }}
-              </span>
+              <!-- Categories -->
+              <div v-if="mod.categories.length > 0" class="mod-card-categories">
+                <span
+                  v-for="cat in mod.categories.slice(0, 3)"
+                  :key="cat"
+                  class="mod-card-category">
+                  {{ cat }}
+                </span>
+              </div>
             </div>
-          </div>
+          </button>
 
           <!-- Footer -->
           <div class="mod-card-footer">
@@ -191,7 +197,7 @@
               size="sm"
               @click="onInstallClick($event, mod.source, mod.sourceId)" />
           </div>
-        </button>
+        </article>
       </div>
 
       <!-- Pagination footer -->
@@ -751,25 +757,38 @@ function formatRelativeDate(dateStr: string): string {
   border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-md);
   padding: var(--xy-space-md);
-  cursor: pointer;
   transition:
     background-color var(--xy-transition-fast),
     border-color var(--xy-transition-fast);
-  text-align: left;
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
   width: 100%;
 }
 
-.mod-card:hover {
+.mod-card:has(.mod-card-details:hover) {
   background-color: var(--xy-surface-2);
   border-color: var(--xy-primary);
 }
 
-.mod-card:focus-visible {
+.mod-card:has(.mod-card-details:focus-visible) {
   outline: 2px solid var(--xy-primary);
   outline-offset: 2px;
+}
+
+.mod-card-details {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.mod-card-details:focus-visible {
+  outline: none;
 }
 
 /* ---- Card icon ---- */

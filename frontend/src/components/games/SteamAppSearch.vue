@@ -109,7 +109,7 @@ function clearResult(): void {
         type="number"
         @keydown.enter="lookupAppId">
         <template #prepend>
-          <q-icon name="mdi-steam" />
+          <q-icon name="cloud_download" />
         </template>
       </q-input>
 
@@ -126,22 +126,22 @@ function clearResult(): void {
     <q-card v-if="lookupResult" bordered class="q-mt-md lookup-result-card" flat>
       <q-card-section>
         <div class="row items-center q-gutter-sm q-mb-sm">
-          <q-icon color="positive" name="mdi-check-circle" size="sm" />
+          <q-icon color="positive" name="check_circle" size="sm" />
           <span class="text-subtitle1 text-weight-medium">{{ lookupResult.name }}</span>
           <q-badge :label="'AppID: ' + lookupResult.appId" color="grey-8" />
         </div>
 
         <div class="row q-gutter-md text-body2" style="color: var(--xy-text-secondary)">
           <div v-if="lookupResult.windowsSupport" class="row items-center q-gutter-xs">
-            <q-icon name="mdi-microsoft-windows" size="xs" />
+            <q-icon name="desktop_windows" size="xs" />
             <span>Windows</span>
           </div>
           <div v-if="lookupResult.linuxSupport" class="row items-center q-gutter-xs">
-            <q-icon name="mdi-linux" size="xs" />
+            <q-icon name="terminal" size="xs" />
             <span>Linux</span>
           </div>
           <div v-if="lookupResult.installDirectory" class="row items-center q-gutter-xs">
-            <q-icon name="mdi-folder" size="xs" />
+            <q-icon name="folder" size="xs" />
             <span>{{ lookupResult.installDirectory }}</span>
           </div>
         </div>

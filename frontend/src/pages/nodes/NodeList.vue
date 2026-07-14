@@ -26,13 +26,21 @@
             debounce="300"
             dense
             outlined
-            placeholder="Search...">
+            placeholder="Search nodes">
             <template #append>
               <q-icon name="search" />
             </template>
           </q-input>
-          <q-btn color="primary" label="Add Node" to="/nodes/add" />
+          <q-btn color="primary" label="Add node" to="/nodes/add" />
         </div>
+      </div>
+      <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
+        <q-icon name="sync_problem" size="sm" />
+        <div>
+          <strong>Nodes could not be loaded.</strong>
+          <span>{{ loadError }}</span>
+        </div>
+        <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="fetchAll" />
       </div>
       <div>
         <q-table
@@ -46,6 +54,86 @@
           flat
           hide-header-in-grid
           row-key="id">
+          <template #item="props">
+            <div class="node-grid-item col-12 col-sm-6">
+              <q-card class="node-mobile-card" flat>
+                <q-card-section class="node-mobile-header">
+                  <button class="node-mobile-name" type="button" @click="openDetail(props.row)">
+                    {{ props.row.name || 'Unnamed node' }}
+                  </button>
+                  <q-badge
+                    :color="healthBadgeFor(props.row).color"
+                    :label="healthBadgeFor(props.row).label" />
+                </q-card-section>
+
+                <q-card-section class="node-mobile-metrics">
+                  <div>
+                    <span>CPU</span>
+                    <strong>{{ formatMetric(getSnapshot(props.row.id)?.cpuPercent) }}</strong>
+                  </div>
+                  <div>
+                    <span>Memory</span>
+                    <strong>{{ formatMetric(getSnapshot(props.row.id)?.memoryPercent) }}</strong>
+                  </div>
+                  <div>
+                    <span>Disk</span>
+                    <strong>{{ formatMetric(getSnapshot(props.row.id)?.diskPercent) }}</strong>
+                  </div>
+                  <div>
+                    <span>Servers</span>
+                    <strong>
+                      {{ getSnapshot(props.row.id)?.runningGameServerCount ?? '—' }} /
+                      {{ getSnapshot(props.row.id)?.gameServerCount ?? '—' }}
+                    </strong>
+                  </div>
+                </q-card-section>
+
+                <q-card-section class="node-mobile-meta">
+                  <span>Version {{ getNodeVersion(props.row.id) || 'not reported' }}</span>
+                  <span>
+                    Last seen
+                    {{
+                      props.row.lastSeenAt?.seconds
+                        ? formatTimestamp(props.row.lastSeenAt)
+                        : 'never'
+                    }}
+                  </span>
+                </q-card-section>
+
+                <q-card-actions class="node-mobile-actions">
+                  <q-btn
+                    flat
+                    icon="monitor_heart"
+                    label="Details"
+                    no-caps
+                    @click="openDetail(props.row)" />
+                  <q-space />
+                  <q-btn
+                    :to="`/nodes/${props.row.id}/edit`"
+                    :aria-label="`Edit ${props.row.name || 'node'}`"
+                    flat
+                    icon="settings">
+                    <q-tooltip>Edit node</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    :to="{ path: '/admin/updates', query: { nodeId: props.row.id } }"
+                    :aria-label="`Update ${props.row.name || 'node'}`"
+                    flat
+                    icon="system_update_alt">
+                    <q-tooltip>Update node</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    :aria-label="`Remove ${props.row.name || 'node'}`"
+                    class="text-error-brighter"
+                    flat
+                    icon="delete"
+                    @click="deleteNodeAction(props.row)">
+                    <q-tooltip>Remove node</q-tooltip>
+                  </q-btn>
+                </q-card-actions>
+              </q-card>
+            </div>
+          </template>
           <template #body-cell-name="props">
             <q-td :props="props">
               <button class="table-link" type="button" @click="openDetail(props.row)">
@@ -138,7 +226,10 @@
                 class="node-list__metric-skeleton"
                 type="text"
                 width="4rem" />
-              <span v-else-if="getNodeVersion(props.row.id)">
+              <span
+                v-else-if="getNodeVersion(props.row.id)"
+                :title="getNodeVersion(props.row.id)"
+                class="node-version">
                 {{ getNodeVersion(props.row.id) }}
               </span>
               <span v-else class="text-xy-muted">&mdash;</span>
@@ -188,10 +279,20 @@
           <template #no-data>
             <div class="full-width column items-center q-pa-lg text-xy-secondary">
               <q-icon class="q-mb-sm text-xy-muted" name="dns" size="3rem" />
-              <div class="text-subtitle1">No nodes found</div>
+              <div class="text-subtitle1">{{ search ? 'No matching nodes' : 'No nodes yet' }}</div>
               <div class="text-caption text-xy-muted">
-                Add a remote node to start managing another host.
+                {{
+                  search
+                    ? 'Try a different search.'
+                    : 'Add a remote node to start managing another host.'
+                }}
               </div>
+              <q-btn
+                v-if="!search"
+                class="q-mt-md"
+                color="primary"
+                label="Add node"
+                to="/nodes/add" />
             </div>
           </template>
         </q-table>
@@ -285,6 +386,7 @@ import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
 const $q = useQuasar()
 const rows = ref([] as Node[])
 const loading: Ref<boolean> = ref(false)
+const loadError = ref('')
 const metricsLoading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteDialog = ref(false)
@@ -368,6 +470,7 @@ onBeforeUnmount(() => {
 async function fetchAll() {
   const fetchID = ++fetchSequence
   loading.value = true
+  loadError.value = ''
   if (dashboardSummaries.value.length === 0 && liveSnapshots.value.size === 0) {
     metricsLoading.value = true
   }
@@ -397,6 +500,7 @@ async function fetchAll() {
       return
     }
     const err = ConnectError.from(unknownError)
+    loadError.value = ConnectErrorToString(err)
     Notify.create({
       type: 'xylona-error',
       position: 'top',
@@ -413,6 +517,10 @@ async function fetchAll() {
   }
 
   void dashboardPromise
+}
+
+function formatMetric(value?: number): string {
+  return value === undefined ? '—' : `${Math.round(value)}%`
 }
 
 function formatTimestamp(ts: { seconds: bigint }): string {
@@ -540,5 +648,133 @@ const columns = ref([
 
 .node-list__metric-skeleton :deep(.q-skeleton) {
   background: color-mix(in srgb, var(--xy-text-muted) 18%, transparent);
+}
+
+.node-version {
+  display: inline-block;
+  overflow: hidden;
+  max-width: 14rem;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.list-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-primary);
+  background: var(--xy-danger-bg);
+  border: 1px solid var(--xy-danger-border);
+  border-radius: var(--xy-radius-md);
+}
+
+.list-error > div {
+  display: grid;
+  flex: 1;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+}
+
+.list-error span {
+  color: var(--xy-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.node-grid-item {
+  padding: var(--xy-space-xs);
+}
+
+.node-mobile-card {
+  height: 100%;
+  overflow: hidden;
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-lg);
+}
+
+.node-mobile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-md);
+}
+
+.node-mobile-name {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-lg);
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.node-mobile-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-md);
+  border-top: 1px solid var(--xy-border);
+}
+
+.node-mobile-metrics > div {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  text-align: center;
+}
+
+.node-mobile-metrics span,
+.node-mobile-meta {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+}
+
+.node-mobile-metrics strong {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
+  font-weight: 500;
+}
+
+.node-mobile-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+  padding: 0 var(--xy-space-md) var(--xy-space-md);
+}
+
+.node-mobile-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-mobile-actions {
+  min-height: 3.5rem;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  background: var(--xy-surface-3);
+}
+
+@media (max-width: 599px) {
+  .node-grid-item {
+    padding-inline: 0;
+  }
+
+  .node-mobile-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .node-mobile-meta {
+    display: grid;
+  }
 }
 </style>

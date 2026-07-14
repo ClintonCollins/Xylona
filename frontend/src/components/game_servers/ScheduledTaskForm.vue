@@ -408,10 +408,14 @@ async function handleSubmit(): Promise<void> {
 </script>
 
 <template>
-  <q-dialog :model-value="showDialog" persistent @update:model-value="emit('close')">
+  <q-dialog
+    :model-value="showDialog"
+    aria-labelledby="scheduled-task-dialog-title"
+    persistent
+    @update:model-value="emit('close')">
     <q-card class="scheduled-task-form-card">
       <q-card-section>
-        <div class="text-h6 font-display">{{ dialogTitle }}</div>
+        <div id="scheduled-task-dialog-title" class="text-h6 font-display">{{ dialogTitle }}</div>
       </q-card-section>
 
       <q-card-section class="q-pt-none">

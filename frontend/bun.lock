@@ -8,6 +8,10 @@
         "@bufbuild/protobuf": "^2.11.0",
         "@connectrpc/connect": "^2.1.1",
         "@connectrpc/connect-web": "^2.1.1",
+        "@fontsource/exo-2": "^5.2.8",
+        "@fontsource/goldman": "^5.2.8",
+        "@fontsource/jetbrains-mono": "^5.2.8",
+        "@fontsource/zen-dots": "^5.2.8",
         "@quasar/extras": "^1.18.0",
         "@typescript/native-preview": "7.0.0-dev.20260323.1",
         "@vueuse/core": "^14.2.1",
@@ -180,6 +184,14 @@
     "@eslint/object-schema": ["@eslint/object-schema@3.0.3", "", {}, "sha512-iM869Pugn9Nsxbh/YHRqYiqd23AmIbxJOcpUMOuWCVNdoQJ5ZtwL6h3t0bcZzJUlC3Dq9jCFCESBZnX0GTv7iQ=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.6.1", "", { "dependencies": { "@eslint/core": "1.1.1", "levn": "0.4.1" } }, "sha512-iH1B076HoAshH1mLpHMgwdGeTs0CYwL0SPMkGuSebZrwBp16v415e9NZXg2jtrqPVQjf6IANe2Vtlr5KswtcZQ=="],
+
+    "@fontsource/exo-2": ["@fontsource/exo-2@5.2.8", "", {}, "sha512-cOZuiqW+gKg2SJAjymCicup0A8qto4M/lpyGahal3twMeLCRma8x/okFCdLYlTvYeQesF7d3WLKi+N04iPb40A=="],
+
+    "@fontsource/goldman": ["@fontsource/goldman@5.2.8", "", {}, "sha512-mhKP7C9ABdI3hkba3TqaAHjsvJD9mYp6V0pOVJAqUAeobj+Qf0f5BVlqrmujZJQBFYMuAZcWLm9S90AwqziYhw=="],
+
+    "@fontsource/jetbrains-mono": ["@fontsource/jetbrains-mono@5.2.8", "", {}, "sha512-6w8/SG4kqvIMu7xd7wt6x3idn1Qux3p9N62s6G3rfldOUYHpWcc2FKrqf+Vo44jRvqWj2oAtTHrZXEP23oSKwQ=="],
+
+    "@fontsource/zen-dots": ["@fontsource/zen-dots@5.2.8", "", {}, "sha512-UxMn/kKdA0vPFnaYC9FYpCVqrrVFXU2S9ga0m+d+VTFTPBfOZT4WI47Ws4EMIkp9KUr9jk9YEiL7hIHpk3PSow=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.1", "", {}, "sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA=="],
 

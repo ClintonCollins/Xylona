@@ -1,8 +1,8 @@
 <template>
-  <q-dialog v-model="dialogOpen" persistent>
+  <q-dialog v-model="dialogOpen" aria-labelledby="add-config-file-dialog-title" persistent>
     <q-card class="add-config-dialog">
       <q-card-section class="dialog-header">
-        <div class="text-h6 font-display">Add Config File</div>
+        <div id="add-config-file-dialog-title" class="text-h6 font-display">Add Config File</div>
       </q-card-section>
 
       <q-separator />

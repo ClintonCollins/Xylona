@@ -16,7 +16,11 @@
   /* ---- Text ---- */
   --xy-text-primary: #e0e4e6;
   --xy-text-secondary: #979b9e;
-  --xy-text-muted: #9a9fa1;
+  --xy-text-muted: #858a8c;
+  --xy-text-on-bright: var(--xy-base);
+  --xy-text-on-secondary: #000000;
+  --xy-text-on-dark: #ffffff;
+  --xy-focus-ring: var(--xy-accent-hover);
 
   /* ---- Borders ---- */
   --xy-border: rgba(255, 255, 255, 0.1);
@@ -109,6 +113,25 @@
 
   /* ---- Layout ---- */
   --xy-toolbar-height: 50px;
+  --xy-header-stack-height: var(--xy-toolbar-height);
+
+  /* ---- Corner Radius ---- */
+  --xy-radius-sm: 4px;
+  --xy-radius-md: 6px;
+  --xy-radius-lg: 8px;
+  --xy-radius-xl: 12px;
+  --xy-radius-pill: 999px;
+
+  /* ---- Type Scale ---- */
+  --xy-font-size-xs: 0.75rem;
+  --xy-font-size-sm: 0.875rem;
+  --xy-font-size-base: 1rem;
+  --xy-font-size-lg: 1.125rem;
+  --xy-font-size-xl: 1.5rem;
+  --xy-font-size-2xl: 2rem;
+  --xy-line-height-tight: 1.2;
+  --xy-line-height-base: 1.5;
+  --xy-line-height-relaxed: 1.65;
 
   /* ---- Surface Gradients ---- */
   --xy-surface-gradient-subtle: linear-gradient(
@@ -132,7 +155,7 @@
   --xy-syntax-green-border: rgba(34, 197, 94, 0.3);
 
   /* ---- Text on Color ---- */
-  --xy-text-on-color: #ffffff;
+  --xy-text-on-color: var(--xy-text-on-dark);
 
   /* ---- Semantic Tint Variants (faint / soft) ---- */
   --xy-warning-bg-faint: rgba(245, 158, 11, 0.08);
@@ -146,6 +169,7 @@
   --xy-space-2xs: 0.125rem; /* 2px  */
   --xy-space-xs: 0.25rem; /* 4px  */
   --xy-space-sm: 0.5rem; /* 8px  */
+  --xy-space-base: 0.75rem; /* 12px */
   --xy-space-md: 1rem; /* 16px */
   --xy-space-lg: 1.5rem; /* 24px */
   --xy-space-xl: 2rem; /* 32px */
@@ -160,8 +184,17 @@
   --xy-shadow-2xl: 0 16px 34px rgba(0, 0, 0, 0.5);
 
   /* ---- Transitions ---- */
-  --xy-transition-fast: 0.15s ease;
-  --xy-transition-base: 0.25s ease;
+  --xy-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --xy-ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --xy-transition-fast: 0.15s var(--xy-ease-standard);
+  --xy-transition-base: 0.25s var(--xy-ease-standard);
+
+  /* ---- Layering ---- */
+  --xy-z-sticky: 10;
+  --xy-z-drawer: 1000;
+  --xy-z-overlay: 8000;
+  --xy-z-fullscreen: 9000;
+  --xy-z-notification: 9500;
 
   /* ---- Animation Durations (used by keyframe animations) ---- */
   --xy-animation-duration: 1;
@@ -179,7 +212,9 @@
 
   /* ---- Fonts ---- */
   --xy-font-body: 'Exo 2', '-apple-system', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --xy-font-control: var(--xy-font-body);
   --xy-font-display: 'Goldman', sans-serif;
+  --xy-font-heading: var(--xy-font-display);
   --xy-font-brand: 'Zen Dots', sans-serif;
   --xy-font-mono: 'JetBrains Mono', 'Oxygen Mono', monospace;
 }
@@ -335,10 +370,11 @@
 }
 
 .xy-page-header .xy-page-title {
-  font-family: var(--xy-font-display);
-  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-2xl);
   font-weight: 700;
   color: var(--xy-text-primary);
+  line-height: var(--xy-line-height-tight);
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -352,7 +388,7 @@
 
 /* Section divider with overline label */
 .xy-section-overline {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;

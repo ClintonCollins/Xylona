@@ -201,10 +201,10 @@
       </section>
     </div>
 
-    <q-dialog v-model="confirmOpen">
+    <q-dialog v-model="confirmOpen" aria-labelledby="system-update-dialog-title">
       <q-card class="system-updates__dialog">
         <q-card-section>
-          <div class="text-h6">Confirm Update</div>
+          <div id="system-update-dialog-title" class="text-h6">Confirm Update</div>
         </q-card-section>
         <q-card-section>
           <div class="q-mb-sm">

@@ -171,7 +171,6 @@ function getAbbreviation(path: string): string {
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
-  transition: width 300ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .config-sidebar.collapsed {

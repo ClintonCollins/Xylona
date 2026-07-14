@@ -45,10 +45,16 @@ function getArchiveName(archivePath: string): string {
 </script>
 
 <template>
-  <q-dialog :model-value="modelValue" persistent @hide="closeDialog">
+  <q-dialog
+    :model-value="modelValue"
+    aria-labelledby="backup-restore-dialog-title"
+    persistent
+    @hide="closeDialog">
     <q-card class="backup-restore-dialog">
       <q-card-section class="backup-restore-dialog__header">
-        <div class="backup-restore-dialog__title">Restore Backup</div>
+        <div id="backup-restore-dialog-title" class="backup-restore-dialog__title">
+          Restore Backup
+        </div>
         <div class="backup-restore-dialog__subtitle">
           Choose how {{ getArchiveName(backup?.archivePath ?? '') }} should be applied to the
           current server directory.

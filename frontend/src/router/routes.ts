@@ -56,7 +56,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '',
-        component: () => import('pages/IndexPage.vue'),
+        redirect: '/game-servers',
       },
       {
         path: '/game-servers',

@@ -1,3 +1,14 @@
+@import '@fontsource/exo-2/latin-300.css';
+@import '@fontsource/exo-2/latin-400.css';
+@import '@fontsource/exo-2/latin-500.css';
+@import '@fontsource/exo-2/latin-600.css';
+@import '@fontsource/exo-2/latin-700.css';
+@import '@fontsource/goldman/latin-400.css';
+@import '@fontsource/goldman/latin-700.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
+@import '@fontsource/zen-dots/latin-400.css';
 @import 'design-tokens.css';
 
 .selected-option {
@@ -11,7 +22,58 @@
 }
 
 a {
+  color: var(--xy-accent);
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: var(--xy-accent-hover);
+}
+
+a.q-item,
+a.q-btn,
+.q-toolbar a,
+.q-card__actions a,
+a.table-link {
   text-decoration: none;
+}
+
+.xy-skip-link {
+  position: fixed;
+  top: var(--xy-space-sm);
+  left: var(--xy-space-sm);
+  z-index: var(--xy-z-overlay);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-on-bright);
+  font-weight: 700;
+  background-color: var(--xy-accent);
+  border-radius: var(--xy-radius-md);
+  box-shadow: var(--xy-shadow-lg);
+  transform: translateY(calc(-100% - var(--xy-space-lg)));
+  transition: transform var(--xy-transition-fast);
+}
+
+.xy-skip-link:focus-visible {
+  color: var(--xy-text-on-bright);
+  transform: translateY(0);
+}
+
+#main-content:focus {
+  outline: none;
+}
+
+.xy-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 .table-link {
@@ -49,9 +111,9 @@ a {
 }
 
 .xylona-notification {
-  font-size: 1.1rem;
+  font-size: var(--xy-font-size-lg);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   padding-top: var(--xy-space-sm);
   padding-bottom: var(--xy-space-sm);
   background-color: var(--xy-surface-2);
@@ -63,7 +125,7 @@ a {
 
 .xylona-notification .q-notification__caption {
   color: var(--xy-text-primary);
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   font-weight: 400;
   opacity: 1;
 }

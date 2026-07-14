@@ -176,7 +176,7 @@ function platformText(): string {
               type="button"
               @click="selectSteamCMD">
               <div class="selection-card__icon">
-                <q-icon name="mdi-steam" size="3rem" />
+                <q-icon name="cloud_download" size="3rem" />
               </div>
               <div class="selection-card__title">SteamCMD</div>
               <div class="selection-card__description">
@@ -190,7 +190,7 @@ function platformText(): string {
               type="button"
               @click="selectCustom">
               <div class="selection-card__icon">
-                <q-icon name="mdi-cog" size="3rem" />
+                <q-icon name="settings" size="3rem" />
               </div>
               <div class="selection-card__title">Custom</div>
               <div class="selection-card__description">Manual setup for any game server</div>
@@ -213,7 +213,7 @@ function platformText(): string {
               aria-label="Back to selection"
               color="grey-5"
               flat
-              icon="mdi-arrow-left"
+              icon="arrow_back"
               round
               @click="goBackToSelect" />
             <h2 class="wizard-step-title">Search Steam Apps</h2>
@@ -232,7 +232,7 @@ function platformText(): string {
               aria-label="Back to search"
               color="grey-5"
               flat
-              icon="mdi-arrow-left"
+              icon="arrow_back"
               round
               @click="goBackToSearch" />
             <h2 class="wizard-step-title">Review Details</h2>
@@ -249,7 +249,7 @@ function platformText(): string {
             v-if="detailsError && !detailsLoading"
             class="q-mb-md bg-warning text-dark rounded-borders">
             <template #avatar>
-              <q-icon color="dark" name="mdi-alert-circle-outline" />
+              <q-icon color="dark" name="warning_amber" />
             </template>
             {{ detailsError }}
           </q-banner>
@@ -258,7 +258,7 @@ function platformText(): string {
           <div v-if="!detailsLoading" class="preview-content">
             <div class="preview-card">
               <div class="preview-card__header">
-                <q-icon class="text-accent" name="mdi-steam" size="1.5rem" />
+                <q-icon class="text-accent" name="cloud_download" size="1.5rem" />
                 <span class="preview-card__app-id">App ID: {{ selectedApp?.appId }}</span>
               </div>
 
@@ -274,12 +274,12 @@ function platformText(): string {
                     <q-icon
                       v-if="details.windowsSupport"
                       class="q-mr-xs"
-                      name="mdi-microsoft-windows"
+                      name="desktop_windows"
                       size="1.2rem" />
                     <q-icon
                       v-if="details.linuxSupport"
                       class="q-mr-xs"
-                      name="mdi-linux"
+                      name="terminal"
                       size="1.2rem" />
                     {{ platformText() }}
                   </template>
@@ -303,7 +303,7 @@ function platformText(): string {
             </div>
 
             <div class="preview-info">
-              <q-icon class="text-accent q-mr-xs" name="mdi-information-outline" size="1rem" />
+              <q-icon class="text-accent q-mr-xs" name="info_outline" size="1rem" />
               <span class="text-xy-secondary text-caption">
                 These details will be used to pre-fill the game creation form. You can edit
                 everything on the next page.
@@ -313,7 +313,7 @@ function platformText(): string {
             <div class="preview-actions">
               <q-btn
                 color="primary"
-                icon-right="mdi-arrow-right"
+                icon-right="arrow_forward"
                 label="Continue"
                 no-caps
                 unelevated

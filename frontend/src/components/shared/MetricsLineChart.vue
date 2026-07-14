@@ -12,12 +12,23 @@
         no-caps
         toggle-color="primary" />
     </div>
-    <line-chart :data="chartData" :options="chartOptions" style="max-height: 180px" />
+    <div
+      :aria-describedby="chartSummaryId"
+      :aria-label="`${title} metrics chart`"
+      class="metrics-chart__visual"
+      role="img">
+      <line-chart
+        aria-hidden="true"
+        :data="chartData"
+        :options="chartOptions"
+        style="max-height: 180px" />
+    </div>
+    <p :id="chartSummaryId" class="metrics-chart__sr-only">{{ chartSummary }}</p>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import {
   CategoryScale,
   Chart as ChartJS,
@@ -73,6 +84,28 @@ const rangeOptions = [
 ]
 
 const selectedRange = ref('1h')
+const chartSummaryId = `metrics-chart-summary-${useId()}`
+const prefersReducedMotion = ref(false)
+
+let reducedMotionQuery: MediaQueryList | null = null
+
+function updateReducedMotionPreference(event?: MediaQueryListEvent): void {
+  prefersReducedMotion.value = event?.matches ?? reducedMotionQuery?.matches ?? false
+}
+
+onMounted(() => {
+  if (typeof window.matchMedia !== 'function') {
+    return
+  }
+
+  reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  updateReducedMotionPreference()
+  reducedMotionQuery.addEventListener('change', updateReducedMotionPreference)
+})
+
+onBeforeUnmount(() => {
+  reducedMotionQuery?.removeEventListener('change', updateReducedMotionPreference)
+})
 
 watch(selectedRange, (val) => {
   emit('rangeChange', val)
@@ -110,9 +143,28 @@ const chartData = computed(() => ({
   }),
 }))
 
+const chartSummary = computed(() => {
+  const latestLabel = props.labels[props.labels.length - 1]
+  const latestValues = props.datasets.map((dataset) => {
+    const latestValue = dataset.data[dataset.data.length - 1]
+    if (latestValue === undefined || !Number.isFinite(latestValue)) {
+      return `${dataset.label}: no data`
+    }
+    return `${dataset.label}: ${latestValue.toFixed(1)}${props.yAxisSuffix ?? ''}`
+  })
+
+  if (latestValues.length === 0) {
+    return `${props.title}. No metric data is available for the selected ${selectedRange.value} range.`
+  }
+
+  const sampleDescription = latestLabel ? `Latest sample ${latestLabel}.` : 'Latest sample.'
+  return `${props.title}. Selected range ${selectedRange.value}. ${sampleDescription} ${latestValues.join(', ')}.`
+})
+
 const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  animation: prefersReducedMotion.value ? false : { duration: 1000 },
   interaction: {
     mode: 'index' as const,
     intersect: false,
@@ -166,3 +218,17 @@ const chartOptions = computed(() => ({
   },
 }))
 </script>
+
+<style scoped>
+.metrics-chart__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>

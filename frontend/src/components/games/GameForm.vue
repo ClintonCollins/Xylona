@@ -619,7 +619,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 <style>
 .game-form-wrapper {
   width: 100%;
-  --game-form-sticky-stack-offset: calc(50px + 4rem);
+  --game-form-sticky-stack-offset: calc(var(--xy-header-stack-height, 50px) + 4rem);
 }
 
 /* ---- Header ---- */
@@ -1121,22 +1121,22 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 /* ---- Sections ---- */
 
-.form-section {
+.game-form-wrapper .form-section {
   padding-top: var(--xy-space-lg);
   border-bottom: 1px solid var(--xy-border);
   padding-bottom: var(--xy-space-lg);
 }
 
-.form-section:first-child {
+.game-form-wrapper .form-section:first-child {
   padding-top: var(--xy-space-sm);
 }
 
-.form-section--compact {
+.game-form-wrapper .form-section--compact {
   padding-top: var(--xy-space-sm);
   padding-bottom: var(--xy-space-md);
 }
 
-.form-section--last {
+.game-form-wrapper .form-section--last {
   border-bottom: none;
   padding-bottom: 0;
 }
@@ -1156,21 +1156,21 @@ async function saveDefaultEnvironment(): Promise<void> {
   }
 }
 
-.section-header {
+.game-form-wrapper .section-header {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
   margin-bottom: var(--xy-space-md);
 }
 
-.section-bar {
+.game-form-wrapper .section-bar {
   width: 3px;
   height: 16px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 
-.section-title {
+.game-form-wrapper .section-title {
   margin: 0;
   font-size: 0.8rem;
   font-weight: 600;
@@ -1180,7 +1180,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   white-space: nowrap;
 }
 
-.section-line {
+.game-form-wrapper .section-line {
   flex: 1;
   height: 1px;
   background: var(--xy-border);

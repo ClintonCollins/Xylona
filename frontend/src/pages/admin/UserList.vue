@@ -11,13 +11,21 @@
           debounce="300"
           dense
           outlined
-          placeholder="Search...">
+          placeholder="Search users">
           <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
-        <q-btn color="primary" label="Add User" to="/admin/users/create" />
+        <q-btn color="primary" label="Add user" to="/admin/users/create" />
       </div>
+    </div>
+    <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
+      <q-icon name="sync_problem" size="sm" />
+      <div>
+        <strong>Users could not be loaded.</strong>
+        <span>{{ loadError }}</span>
+      </div>
+      <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="getUsers" />
     </div>
     <div>
       <q-table
@@ -33,6 +41,59 @@
         hide-header-in-grid
         row-key="id"
         selection="multiple">
+        <template #item="props">
+          <div class="user-grid-item col-12 col-sm-6">
+            <q-card class="user-mobile-card" flat>
+              <q-card-section class="user-mobile-header">
+                <q-checkbox
+                  v-model="props.selected"
+                  :aria-label="`Select ${props.row.userName}`"
+                  dense />
+                <div class="user-mobile-identity">
+                  <router-link :to="`/admin/users/${props.row.id}/edit`" class="user-mobile-name">
+                    {{ props.row.userName }}
+                  </router-link>
+                  <span>{{
+                    [props.row.firstName, props.row.lastName].filter(Boolean).join(' ')
+                  }}</span>
+                </div>
+                <q-badge
+                  :color="props.row.superUser ? 'warning' : 'grey-8'"
+                  :label="props.row.superUser ? 'Administrator' : 'User'" />
+              </q-card-section>
+
+              <q-card-section class="user-mobile-details">
+                <div>
+                  <span>Email</span>
+                  <strong>{{ props.row.email || 'Not provided' }}</strong>
+                </div>
+                <div>
+                  <span>Created</span>
+                  <strong>{{ formatCreatedAt(props.row.createdAt) || 'Not available' }}</strong>
+                </div>
+              </q-card-section>
+
+              <q-card-actions class="user-mobile-actions">
+                <q-btn
+                  :to="`/admin/users/${props.row.id}/edit`"
+                  color="primary"
+                  flat
+                  icon="edit"
+                  label="Edit"
+                  no-caps />
+                <q-space />
+                <q-btn
+                  :aria-label="`Delete ${props.row.userName}`"
+                  class="text-error-brighter"
+                  flat
+                  icon="delete"
+                  @click="deleteUserAction(props.row)">
+                  <q-tooltip>Delete user</q-tooltip>
+                </q-btn>
+              </q-card-actions>
+            </q-card>
+          </div>
+        </template>
         <template #body-cell-userName="props">
           <q-td :props="props">
             <router-link :to="'/admin/users/' + props.row.id + '/edit'" class="table-link">
@@ -70,8 +131,16 @@
         <template #no-data>
           <div class="full-width column items-center q-pa-lg text-xy-secondary">
             <q-icon class="q-mb-sm text-xy-muted" name="people" size="3rem" />
-            <div class="text-subtitle1">No users found</div>
-            <div class="text-caption text-xy-muted">Create a user to get started.</div>
+            <div class="text-subtitle1">{{ search ? 'No matching users' : 'No users yet' }}</div>
+            <div class="text-caption text-xy-muted">
+              {{ search ? 'Try a different search.' : 'Create a user to get started.' }}
+            </div>
+            <q-btn
+              v-if="!search"
+              class="q-mt-md"
+              color="primary"
+              label="Add user"
+              to="/admin/users/create" />
           </div>
         </template>
       </q-table>
@@ -104,6 +173,7 @@ import {
 const $q = useQuasar()
 const rows = ref([] as User[])
 const loading: Ref<boolean> = ref(false)
+const loadError = ref('')
 const search: Ref<string> = ref('')
 const showUserDeleteDialog = ref(false)
 const selectedActionUser = ref<User | null>(null)
@@ -119,15 +189,14 @@ onMounted(async () => {
 
 async function getUsers() {
   loading.value = true
+  loadError.value = ''
   const request: ListUsersRequest = create(ListUsersRequestSchema, {})
   try {
     const response: ListUsersResponse = await GetXylonaClient().listUsers(request)
-    rows.value = []
-    response.users.forEach((user) => {
-      rows.value.push(user)
-    })
+    rows.value = [...response.users]
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
+    loadError.value = ConnectErrorToString(err)
     Notify.create({
       type: 'xylona-error',
       position: 'top',
@@ -140,6 +209,10 @@ async function getUsers() {
   } finally {
     loading.value = false
   }
+}
+
+function formatCreatedAt(createdAt?: Timestamp): string {
+  return createdAt ? dayjs(timestampDate(createdAt)).format('MMM D, YYYY') : ''
 }
 
 async function deleteUserAction(user: User) {
@@ -195,8 +268,7 @@ const columns = ref([
     name: 'createdAt',
     label: 'Created At',
     align: 'left',
-    field: (row: { createdAt?: Timestamp }) =>
-      row.createdAt ? dayjs(timestampDate(row.createdAt)).format('MM/DD/YYYY HH:mm:ss A') : '',
+    field: (row: { createdAt?: Timestamp }) => formatCreatedAt(row.createdAt),
     sortable: true,
   },
   {
@@ -208,4 +280,112 @@ const columns = ref([
 ])
 </script>
 
-<style scoped></style>
+<style scoped>
+.list-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-primary);
+  background: var(--xy-danger-bg);
+  border: 1px solid var(--xy-danger-border);
+  border-radius: var(--xy-radius-md);
+}
+
+.list-error > div {
+  display: grid;
+  flex: 1;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+}
+
+.list-error span {
+  color: var(--xy-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.user-grid-item {
+  padding: var(--xy-space-xs);
+}
+
+.user-mobile-card {
+  height: 100%;
+  overflow: hidden;
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-lg);
+}
+
+.user-mobile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-md);
+}
+
+.user-mobile-identity {
+  display: grid;
+  flex: 1;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+}
+
+.user-mobile-identity > span {
+  overflow: hidden;
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-mobile-name {
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-lg);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-mobile-details {
+  display: grid;
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-md);
+  border-top: 1px solid var(--xy-border);
+}
+
+.user-mobile-details > div {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+}
+
+.user-mobile-details span {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+}
+
+.user-mobile-details strong {
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-size: var(--xy-font-size-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-mobile-actions {
+  min-height: 3.5rem;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  background: var(--xy-surface-3);
+}
+
+@media (max-width: 599px) {
+  .user-grid-item {
+    padding-inline: 0;
+  }
+}
+</style>

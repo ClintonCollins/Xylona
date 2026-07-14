@@ -19,15 +19,15 @@ const props = defineProps({
 const label = computed(() => {
   switch (props.status) {
     case Status.ONLINE:
-      return 'ONLINE'
+      return 'Online'
     case Status.OFFLINE:
-      return 'OFFLINE'
+      return 'Offline'
     case Status.UPDATING:
-      return 'UPDATING'
+      return 'Updating'
     case Status.INSTALLING:
-      return 'INSTALLING'
+      return 'Installing'
     default:
-      return 'UNKNOWN'
+      return 'Unknown'
   }
 })
 
@@ -65,12 +65,12 @@ const dotClass = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: var(--xy-space-xs);
-  font-family: var(--xy-font-display);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-family: var(--xy-font-control);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
   padding: var(--xy-space-xs) var(--xy-space-sm);
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid;
 }
 

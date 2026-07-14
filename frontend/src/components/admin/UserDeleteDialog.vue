@@ -1,8 +1,12 @@
 <template>
-  <q-dialog v-model="showDialog" backdrop-filter="brightness(15%)" persistent>
+  <q-dialog
+    v-model="showDialog"
+    aria-labelledby="user-delete-dialog-title"
+    backdrop-filter="brightness(15%)"
+    persistent>
     <q-card>
       <q-card-section>
-        <div class="text-h6 text-error">Delete User</div>
+        <div id="user-delete-dialog-title" class="text-h6 text-error">Delete User</div>
       </q-card-section>
       <q-card-section>
         <div class="row wrap q-col-gutter-md justify-between">

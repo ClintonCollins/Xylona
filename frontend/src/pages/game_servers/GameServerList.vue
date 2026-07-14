@@ -66,6 +66,13 @@
       </div>
       <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="getGameServers" />
     </div>
+    <div
+      v-else-if="!lifecycleStateAuthoritative && !loading"
+      class="server-list-notice"
+      role="status">
+      <q-icon name="sync" size="sm" />
+      <span>Connecting to live server status. Lifecycle actions will be available shortly.</span>
+    </div>
     <div>
       <q-table
         v-model:pagination="initialPagination"
@@ -80,6 +87,82 @@
         hide-header-in-grid
         row-key="compositeId"
         selection="multiple">
+        <template #item="props">
+          <div class="server-grid-item col-12 col-sm-6">
+            <q-card class="server-mobile-card" flat>
+              <q-card-section class="server-mobile-header">
+                <q-checkbox
+                  v-model="props.selected"
+                  :aria-label="`Select ${props.row.displayName}`"
+                  class="server-mobile-select"
+                  dense />
+                <div class="server-mobile-identity">
+                  <router-link
+                    :to="`/game-servers/${props.row.id}/console`"
+                    class="server-mobile-name">
+                    {{ props.row.displayName }}
+                  </router-link>
+                  <span>{{ props.row.gameName }}</span>
+                </div>
+                <status-badge :status="props.row.statusEnum" />
+              </q-card-section>
+
+              <q-separator />
+
+              <q-card-section class="server-mobile-details">
+                <div>
+                  <span class="server-mobile-label">Node</span>
+                  <strong>{{ props.row.nodeName }}</strong>
+                </div>
+                <div>
+                  <span class="server-mobile-label">Version</span>
+                  <strong>{{ getDisplayVersion(props.row) || 'Not reported' }}</strong>
+                </div>
+                <div v-if="props.row.userName">
+                  <span class="server-mobile-label">Owner</span>
+                  <strong>{{ props.row.userName }}</strong>
+                </div>
+                <div>
+                  <span class="server-mobile-label">Runtime</span>
+                  <strong>{{ props.row.isLocal ? 'Local' : 'Remote' }}</strong>
+                </div>
+              </q-card-section>
+
+              <q-card-actions class="server-mobile-actions">
+                <q-btn
+                  :to="`/game-servers/${props.row.id}/console`"
+                  color="primary"
+                  flat
+                  icon="terminal"
+                  label="Console"
+                  no-caps />
+                <q-space />
+                <q-btn
+                  :to="`/game-servers/${props.row.id}/configuration`"
+                  aria-label="Edit game server"
+                  flat
+                  icon="settings">
+                  <q-tooltip>Edit game server</q-tooltip>
+                </q-btn>
+                <q-btn
+                  :aria-label="`Delete ${props.row.displayName}`"
+                  :disable="!lifecycleStateAuthoritative"
+                  class="text-error-brighter"
+                  flat
+                  icon="delete"
+                  @click="deleteGameServerAction(props.row)">
+                  <q-tooltip>
+                    {{
+                      lifecycleStateAuthoritative
+                        ? `Delete ${props.row.displayName}`
+                        : 'Waiting for authoritative server status'
+                    }}
+                  </q-tooltip>
+                </q-btn>
+              </q-card-actions>
+            </q-card>
+          </div>
+        </template>
         <template #body-cell-name="props">
           <q-td :props="props">
             <router-link :to="'/game-servers/' + props.row.id + '/console'" class="table-link">
@@ -161,6 +244,12 @@
             <q-icon class="q-mb-sm text-xy-muted" name="dns" size="3rem" />
             <div class="text-subtitle1">No game servers</div>
             <div class="text-caption text-xy-muted">Create a game server to get started.</div>
+            <q-btn
+              v-if="showCreateButton"
+              class="q-mt-md"
+              color="primary"
+              label="Create Game Server"
+              to="/game-servers/create" />
           </div>
         </template>
       </q-table>
@@ -720,7 +809,19 @@ const columns = ref([
   color: var(--xy-text-primary);
   background: var(--xy-danger-bg);
   border: 1px solid var(--xy-danger-border);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
+}
+
+.server-list-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-secondary);
+  background: var(--xy-info-bg);
+  border: 1px solid var(--xy-info-border);
+  border-radius: var(--xy-radius-md);
 }
 
 .server-list-error > div {
@@ -762,5 +863,102 @@ const columns = ref([
 .version-na {
   color: var(--xy-text-muted);
   font-style: italic;
+}
+
+.server-grid-item {
+  padding: var(--xy-space-xs);
+}
+
+.server-mobile-card {
+  height: 100%;
+  overflow: hidden;
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-lg);
+}
+
+.server-mobile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-md);
+}
+
+.server-mobile-select {
+  margin-top: -0.25rem;
+  margin-left: -0.5rem;
+}
+
+.server-mobile-identity {
+  display: grid;
+  flex: 1;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+}
+
+.server-mobile-identity > span {
+  overflow: hidden;
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-mobile-name {
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-lg);
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-mobile-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-md);
+}
+
+.server-mobile-details > div {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+}
+
+.server-mobile-details strong {
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-mobile-label {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.server-mobile-actions {
+  min-height: 3.5rem;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  background: var(--xy-surface-3);
+}
+
+@media (max-width: 599px) {
+  .server-grid-item {
+    padding-inline: 0;
+  }
+
+  .server-mobile-details {
+    gap: var(--xy-space-sm) var(--xy-space-md);
+  }
 }
 </style>

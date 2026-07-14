@@ -14,13 +14,17 @@
         role="tablist">
         <button
           v-for="platform in availablePlatforms"
+          :id="platformTabId(platform)"
           :key="platform"
+          :aria-controls="platformPanelId(platform)"
           :aria-selected="selectedPlatform === platform"
           :class="{ 'platform-tab--active': selectedPlatform === platform }"
+          :tabindex="selectedPlatform === platform ? 0 : -1"
           class="platform-tab"
           role="tab"
           type="button"
-          @click="selectedPlatform = platform">
+          @click="selectedPlatform = platform"
+          @keydown="onPlatformTabKeydown($event, platform)">
           <q-icon
             :class="
               platform === 'windows'
@@ -37,195 +41,205 @@
         </button>
       </div>
 
-      <section
-        v-if="showPreviewSection"
-        class="template-editor__card template-editor__card--preview">
-        <div class="template-editor__toolbar">
-          <div class="template-editor__toolbar-copy">
-            <p class="template-editor__eyebrow">Launch Sequence</p>
-            <span class="template-editor__toolbar-meta">
-              {{ platformLabel(selectedPlatform) }} ·
-              {{ argumentCountLabel(currentTemplate.length) }}
-            </span>
-          </div>
-          <div class="template-editor__toolbar-actions">
-            <q-btn
-              color="primary"
-              data-testid="start-args-add-block"
-              dense
-              icon="add"
-              label="Add argument"
-              no-caps
-              @click="openAddDialog" />
-          </div>
-        </div>
-
-        <section class="template-editor__command-shell" data-testid="start-args-preview-shell">
-          <div
-            class="template-editor__command-line"
-            @dragover.prevent="activatePreviewEnd"
-            @drop.prevent="dropAtPreviewEnd">
-            <span aria-hidden="true" class="template-editor__prompt">{{
-              selectedPlatform === 'windows' ? '>' : '$'
-            }}</span>
-            <label class="template-editor__base-command">
-              <span class="template-editor__sr-only">Base command</span>
-              <input
-                :value="currentBaseCommand"
-                aria-label="Base command"
-                class="template-editor__base-command-input font-mono"
-                data-testid="start-args-base-command"
-                placeholder="Base command"
-                type="text"
-                @input="updateBaseCommand(($event.target as HTMLInputElement).value)" />
-            </label>
-
-            <template v-if="currentTemplate.length > 0">
-              <template v-for="(block, index) in currentTemplate" :key="block.id">
-                <span
-                  v-if="dragInsertionIndex === index"
-                  aria-hidden="true"
-                  class="template-editor__drop-marker"></span>
-
-                <button
-                  :aria-label="previewSegmentAriaLabel(block, index)"
-                  :class="previewChipClass(block, index)"
-                  :data-testid="`preview-chip-${block.id}`"
-                  :style="viewTransitionStyleForChip(block.id)"
-                  :title="previewChipTitle(block)"
-                  class="template-editor__arg-chip"
-                  draggable="true"
-                  type="button"
-                  @click="openEditDialog(block.id, 'preview')"
-                  @dragend="onDragEnd"
-                  @dragstart="onPreviewDragStart(index, $event)"
-                  @dragover.prevent.stop="activatePreviewInsertion(index, $event)"
-                  @drop.prevent.stop="dropOnPreview(index, $event)">
-                  <q-icon
-                    aria-hidden="true"
-                    class="template-editor__arg-chip-handle"
-                    name="drag_indicator"
-                    size="16px" />
-                  <span class="template-editor__arg-chip-text font-mono">{{
-                    previewChipText(block)
-                  }}</span>
-                </button>
-              </template>
-
-              <span
-                v-if="dragInsertionIndex === currentTemplate.length"
-                aria-hidden="true"
-                class="template-editor__drop-marker"></span>
-            </template>
-
-            <button
-              v-else
-              class="template-editor__empty-chip"
-              data-testid="preview-empty-add"
-              type="button"
-              @click="openAddDialog">
-              Add first runtime argument
-            </button>
-          </div>
-
-          <div class="template-editor__command-footer">
-            <span class="template-editor__command-hint">
-              Click an argument to edit it. Drag to reorder.
-            </span>
-            <div class="template-editor__command-tools">
-              <button
-                :disabled="!canResetOrder"
-                class="template-editor__button template-editor__button--quiet"
-                data-testid="start-args-reset-order"
-                type="button"
-                @click="resetCurrentPlatformOrder">
-                Reset order
-              </button>
-              <button
-                :disabled="!canResetPlatform"
-                class="template-editor__button template-editor__button--quiet"
-                data-testid="start-args-reset-platform"
-                type="button"
-                @click="resetCurrentPlatform">
-                Reset all
-              </button>
+      <div
+        :id="platformPanelId(selectedPlatform)"
+        :aria-labelledby="
+          showPlatformTabs && availablePlatforms.length > 1
+            ? platformTabId(selectedPlatform)
+            : undefined
+        "
+        :role="showPlatformTabs && availablePlatforms.length > 1 ? 'tabpanel' : undefined"
+        tabindex="0">
+        <section
+          v-if="showPreviewSection"
+          class="template-editor__card template-editor__card--preview">
+          <div class="template-editor__toolbar">
+            <div class="template-editor__toolbar-copy">
+              <p class="template-editor__eyebrow">Launch Sequence</p>
+              <span class="template-editor__toolbar-meta">
+                {{ platformLabel(selectedPlatform) }} ·
+                {{ argumentCountLabel(currentTemplate.length) }}
+              </span>
+            </div>
+            <div class="template-editor__toolbar-actions">
+              <q-btn
+                color="primary"
+                data-testid="start-args-add-block"
+                dense
+                icon="add"
+                label="Add argument"
+                no-caps
+                @click="openAddDialog" />
             </div>
           </div>
-        </section>
-      </section>
 
-      <section
-        v-if="showAdvancedSection"
-        class="template-editor__card template-editor__card--advanced">
-        <button
-          :aria-expanded="String(isAdvancedExpanded)"
-          class="template-editor__advanced-toggle"
-          data-testid="start-args-advanced-panel-toggle"
-          type="button"
-          @click="toggleAdvanced">
-          <span class="template-editor__advanced-copy">
-            <span class="template-editor__eyebrow">Advanced Sequence</span>
-            <span class="template-editor__advanced-meta">
-              {{ argumentCountLabel(currentTemplate.length) }} · fallback ordering
-            </span>
-          </span>
-          <span class="template-editor__toggle-indicator font-display">
-            {{ isAdvancedExpanded ? 'Hide details' : 'Order details' }}
-            <q-icon :name="isAdvancedExpanded ? 'expand_less' : 'expand_more'" size="18px" />
-          </span>
-        </button>
+          <section class="template-editor__command-shell" data-testid="start-args-preview-shell">
+            <div
+              class="template-editor__command-line"
+              @dragover.prevent="activatePreviewEnd"
+              @drop.prevent="dropAtPreviewEnd">
+              <span aria-hidden="true" class="template-editor__prompt">{{
+                selectedPlatform === 'windows' ? '>' : '$'
+              }}</span>
+              <label class="template-editor__base-command">
+                <span class="template-editor__sr-only">Base command</span>
+                <input
+                  :value="currentBaseCommand"
+                  aria-label="Base command"
+                  class="template-editor__base-command-input font-mono"
+                  data-testid="start-args-base-command"
+                  placeholder="Base command"
+                  type="text"
+                  @input="updateBaseCommand(($event.target as HTMLInputElement).value)" />
+              </label>
 
-        <div
-          v-if="isAdvancedExpanded"
-          aria-label="Advanced launch sequence inspector"
-          class="template-editor__sequence-list"
-          role="list">
-          <article
-            v-for="(block, index) in currentTemplate"
-            :key="block.id"
-            :class="{ 'template-editor__sequence-row--selected': selectedBlockID === block.id }"
-            :data-testid="`advanced-row-${block.id}`"
-            class="template-editor__sequence-row">
-            <button
-              :aria-label="inventorySelectAriaLabel(block, index)"
-              :aria-pressed="String(selectedBlockID === block.id)"
-              class="template-editor__sequence-item"
-              type="button"
-              @click="openEditDialog(block.id, 'advanced')">
-              <span class="template-editor__order">{{ index + 1 }}</span>
-              <code class="template-editor__sequence-preview font-mono">
-                {{ inventoryPreview(block) }}
-              </code>
-            </button>
-            <span :class="ownershipPillClass(block.ownership)" class="template-editor__state">
-              {{ ownershipLabel(block.ownership) }}
-            </span>
-            <div class="template-editor__sequence-actions">
-              <div
-                :aria-label="`Reorder argument ${index + 1}`"
-                class="template-editor__stepper"
-                role="group">
+              <template v-if="currentTemplate.length > 0">
+                <template v-for="(block, index) in currentTemplate" :key="block.id">
+                  <span
+                    v-if="dragInsertionIndex === index"
+                    aria-hidden="true"
+                    class="template-editor__drop-marker"></span>
+
+                  <button
+                    :aria-label="previewSegmentAriaLabel(block, index)"
+                    :class="previewChipClass(block, index)"
+                    :data-testid="`preview-chip-${block.id}`"
+                    :style="viewTransitionStyleForChip(block.id)"
+                    :title="previewChipTitle(block)"
+                    class="template-editor__arg-chip"
+                    draggable="true"
+                    type="button"
+                    @click="openEditDialog(block.id, 'preview')"
+                    @dragend="onDragEnd"
+                    @dragstart="onPreviewDragStart(index, $event)"
+                    @dragover.prevent.stop="activatePreviewInsertion(index, $event)"
+                    @drop.prevent.stop="dropOnPreview(index, $event)">
+                    <q-icon
+                      aria-hidden="true"
+                      class="template-editor__arg-chip-handle"
+                      name="drag_indicator"
+                      size="16px" />
+                    <span class="template-editor__arg-chip-text font-mono">{{
+                      previewChipText(block)
+                    }}</span>
+                  </button>
+                </template>
+
+                <span
+                  v-if="dragInsertionIndex === currentTemplate.length"
+                  aria-hidden="true"
+                  class="template-editor__drop-marker"></span>
+              </template>
+
+              <button
+                v-else
+                class="template-editor__empty-chip"
+                data-testid="preview-empty-add"
+                type="button"
+                @click="openAddDialog">
+                Add first runtime argument
+              </button>
+            </div>
+
+            <div class="template-editor__command-footer">
+              <span class="template-editor__command-hint">
+                Click an argument to edit it. Drag to reorder.
+              </span>
+              <div class="template-editor__command-tools">
                 <button
-                  :disabled="index <= 0"
-                  aria-label="Move argument up"
-                  class="template-editor__icon template-editor__icon--step"
+                  :disabled="!canResetOrder"
+                  class="template-editor__button template-editor__button--quiet"
+                  data-testid="start-args-reset-order"
                   type="button"
-                  @click="moveBlock(index, -1)">
-                  ↑
+                  @click="resetCurrentPlatformOrder">
+                  Reset order
                 </button>
                 <button
-                  :disabled="index >= currentTemplate.length - 1"
-                  aria-label="Move argument down"
-                  class="template-editor__icon template-editor__icon--step"
+                  :disabled="!canResetPlatform"
+                  class="template-editor__button template-editor__button--quiet"
+                  data-testid="start-args-reset-platform"
                   type="button"
-                  @click="moveBlock(index, 1)">
-                  ↓
+                  @click="resetCurrentPlatform">
+                  Reset all
                 </button>
               </div>
             </div>
-          </article>
-        </div>
-      </section>
+          </section>
+        </section>
+
+        <section
+          v-if="showAdvancedSection"
+          class="template-editor__card template-editor__card--advanced">
+          <button
+            :aria-expanded="String(isAdvancedExpanded)"
+            class="template-editor__advanced-toggle"
+            data-testid="start-args-advanced-panel-toggle"
+            type="button"
+            @click="toggleAdvanced">
+            <span class="template-editor__advanced-copy">
+              <span class="template-editor__eyebrow">Advanced Sequence</span>
+              <span class="template-editor__advanced-meta">
+                {{ argumentCountLabel(currentTemplate.length) }} · fallback ordering
+              </span>
+            </span>
+            <span class="template-editor__toggle-indicator font-display">
+              {{ isAdvancedExpanded ? 'Hide details' : 'Order details' }}
+              <q-icon :name="isAdvancedExpanded ? 'expand_less' : 'expand_more'" size="18px" />
+            </span>
+          </button>
+
+          <div
+            v-if="isAdvancedExpanded"
+            aria-label="Advanced launch sequence inspector"
+            class="template-editor__sequence-list"
+            role="list">
+            <article
+              v-for="(block, index) in currentTemplate"
+              :key="block.id"
+              :class="{ 'template-editor__sequence-row--selected': selectedBlockID === block.id }"
+              :data-testid="`advanced-row-${block.id}`"
+              class="template-editor__sequence-row">
+              <button
+                :aria-label="inventorySelectAriaLabel(block, index)"
+                :aria-pressed="String(selectedBlockID === block.id)"
+                class="template-editor__sequence-item"
+                type="button"
+                @click="openEditDialog(block.id, 'advanced')">
+                <span class="template-editor__order">{{ index + 1 }}</span>
+                <code class="template-editor__sequence-preview font-mono">
+                  {{ inventoryPreview(block) }}
+                </code>
+              </button>
+              <span :class="ownershipPillClass(block.ownership)" class="template-editor__state">
+                {{ ownershipLabel(block.ownership) }}
+              </span>
+              <div class="template-editor__sequence-actions">
+                <div
+                  :aria-label="`Reorder argument ${index + 1}`"
+                  class="template-editor__stepper"
+                  role="group">
+                  <button
+                    :disabled="index <= 0"
+                    aria-label="Move argument up"
+                    class="template-editor__icon template-editor__icon--step"
+                    type="button"
+                    @click="moveBlock(index, -1)">
+                    ↑
+                  </button>
+                  <button
+                    :disabled="index >= currentTemplate.length - 1"
+                    aria-label="Move argument down"
+                    class="template-editor__icon template-editor__icon--step"
+                    type="button"
+                    @click="moveBlock(index, 1)">
+                    ↓
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
 
       <q-dialog
         :model-value="dialogOpen"
@@ -477,6 +491,43 @@ const showPlatformTabs = computed(() => props.mode !== 'advanced')
 const showPreviewSection = computed(() => props.mode !== 'advanced')
 const showAdvancedSection = computed(() => props.mode !== 'preview')
 const rootTestId = computed(() => `start-args-template-editor-${props.mode}`)
+
+function platformTabId(platform: Platform): string {
+  return `${rootTestId.value}-${platform}-tab`
+}
+
+function platformPanelId(platform: Platform): string {
+  return `${rootTestId.value}-${platform}-panel`
+}
+
+async function onPlatformTabKeydown(event: KeyboardEvent, platform: Platform) {
+  const platforms = availablePlatforms.value
+  const currentIndex = platforms.indexOf(platform)
+  let nextIndex: number
+
+  switch (event.key) {
+    case 'ArrowRight':
+      nextIndex = (currentIndex + 1) % platforms.length
+      break
+    case 'ArrowLeft':
+      nextIndex = (currentIndex - 1 + platforms.length) % platforms.length
+      break
+    case 'Home':
+      nextIndex = 0
+      break
+    case 'End':
+      nextIndex = platforms.length - 1
+      break
+    default:
+      return
+  }
+
+  event.preventDefault()
+  const nextPlatform = platforms[nextIndex]
+  selectedPlatform.value = nextPlatform
+  await nextTick()
+  document.getElementById(platformTabId(nextPlatform))?.focus()
+}
 const canResetPlatform = computed(
   () =>
     currentBaseCommand.value !== baselineBaseCommand.value ||

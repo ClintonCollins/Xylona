@@ -41,6 +41,73 @@
           flat
           hide-header-in-grid
           row-key="id">
+          <template #item="props">
+            <q-card
+              :aria-label="`${props.row.name} notification channel`"
+              bordered
+              class="notification-mobile-card"
+              flat
+              role="article">
+              <q-card-section class="notification-mobile-card__header">
+                <div>
+                  <div class="notification-mobile-card__title">{{ props.row.name }}</div>
+                  <q-badge
+                    :color="channelTypeBadgeColor(props.row.channelType)"
+                    :label="channelTypeLabel(props.row.channelType)" />
+                </div>
+                <q-toggle
+                  v-if="hasAlertsManage"
+                  :aria-label="`Toggle ${props.row.name} channel enabled`"
+                  :model-value="props.row.enabled"
+                  color="positive"
+                  dense
+                  @update:model-value="toggleChannelEnabled(props.row)" />
+                <q-badge
+                  v-else
+                  :color="props.row.enabled ? 'positive' : 'negative'"
+                  :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
+              </q-card-section>
+
+              <q-card-section class="notification-mobile-card__fields q-pt-none">
+                <div>
+                  <span>Created</span>
+                  <strong>
+                    {{
+                      props.row.createdAt
+                        ? dayjs(timestampDate(props.row.createdAt)).format('MM/DD/YYYY HH:mm A')
+                        : 'Unknown'
+                    }}
+                  </strong>
+                </div>
+              </q-card-section>
+
+              <q-card-actions v-if="hasAlertsManage" align="right">
+                <q-btn
+                  v-if="props.row.channelType === NotificationChannelType.EMAIL"
+                  :aria-label="`Test ${props.row.name} channel`"
+                  flat
+                  icon="send"
+                  label="Test"
+                  no-caps
+                  @click="testChannel(props.row)" />
+                <q-btn
+                  :aria-label="`Edit ${props.row.name} channel`"
+                  flat
+                  icon="edit"
+                  label="Edit"
+                  no-caps
+                  @click="openChannelDialog(props.row)" />
+                <q-btn
+                  :aria-label="`Delete ${props.row.name} channel`"
+                  class="text-error-brighter"
+                  flat
+                  icon="delete"
+                  label="Delete"
+                  no-caps
+                  @click="confirmDeleteChannel(props.row)" />
+              </q-card-actions>
+            </q-card>
+          </template>
           <template #body-cell-channelType="props">
             <q-td :props="props">
               <q-badge
@@ -52,8 +119,8 @@
             <q-td :props="props">
               <q-toggle
                 v-if="hasAlertsManage"
+                :aria-label="`Toggle ${props.row.name} channel enabled`"
                 :model-value="props.row.enabled"
-                aria-label="Toggle channel enabled"
                 color="positive"
                 @update:model-value="toggleChannelEnabled(props.row)" />
               <q-badge
@@ -67,7 +134,7 @@
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
                   v-if="props.row.channelType === NotificationChannelType.EMAIL"
-                  aria-label="Test channel"
+                  :aria-label="`Test ${props.row.name} channel`"
                   dense
                   flat
                   icon="send"
@@ -75,7 +142,7 @@
                   <q-tooltip>Test</q-tooltip>
                 </q-btn>
                 <q-btn
-                  aria-label="Edit channel"
+                  :aria-label="`Edit ${props.row.name} channel`"
                   dense
                   flat
                   icon="edit"
@@ -83,7 +150,7 @@
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
                 <q-btn
-                  aria-label="Delete channel"
+                  :aria-label="`Delete ${props.row.name} channel`"
                   class="text-error-brighter"
                   dense
                   flat
@@ -135,6 +202,65 @@
           flat
           hide-header-in-grid
           row-key="id">
+          <template #item="props">
+            <q-card
+              :aria-label="`${eventTypeLabel(props.row.eventType)} alert rule`"
+              bordered
+              class="notification-mobile-card"
+              flat
+              role="article">
+              <q-card-section class="notification-mobile-card__header">
+                <div>
+                  <div class="notification-mobile-card__title">
+                    {{ eventTypeLabel(props.row.eventType) }}
+                  </div>
+                  <div class="text-caption text-xy-muted">
+                    {{ formatCondition(props.row.eventType, props.row.condition) }}
+                  </div>
+                </div>
+                <q-toggle
+                  v-if="hasAlertsManage"
+                  :aria-label="`Toggle ${eventTypeLabel(props.row.eventType)} rule enabled`"
+                  :model-value="props.row.enabled"
+                  color="positive"
+                  dense
+                  @update:model-value="toggleRuleEnabled(props.row)" />
+                <q-badge
+                  v-else
+                  :color="props.row.enabled ? 'positive' : 'negative'"
+                  :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
+              </q-card-section>
+
+              <q-card-section class="notification-mobile-card__fields q-pt-none">
+                <div>
+                  <span>Server</span>
+                  <strong>{{ resolveServerName(props.row.serverId) }}</strong>
+                </div>
+                <div>
+                  <span>Channel</span>
+                  <strong>{{ resolveChannelName(props.row.notificationChannelId) }}</strong>
+                </div>
+              </q-card-section>
+
+              <q-card-actions v-if="hasAlertsManage" align="right">
+                <q-btn
+                  :aria-label="`Edit ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  flat
+                  icon="edit"
+                  label="Edit"
+                  no-caps
+                  @click="openRuleEditDialog(props.row)" />
+                <q-btn
+                  :aria-label="`Delete ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  class="text-error-brighter"
+                  flat
+                  icon="delete"
+                  label="Delete"
+                  no-caps
+                  @click="confirmDeleteRule(props.row)" />
+              </q-card-actions>
+            </q-card>
+          </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
               <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
@@ -154,8 +280,8 @@
             <q-td :props="props">
               <q-toggle
                 v-if="hasAlertsManage"
+                :aria-label="`Toggle ${eventTypeLabel(props.row.eventType)} rule enabled`"
                 :model-value="props.row.enabled"
-                aria-label="Toggle rule enabled"
                 color="positive"
                 @update:model-value="toggleRuleEnabled(props.row)" />
               <q-badge
@@ -168,7 +294,7 @@
             <q-td :props="props">
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
-                  aria-label="Edit rule"
+                  :aria-label="`Edit ${eventTypeLabel(props.row.eventType)} alert rule`"
                   dense
                   flat
                   icon="edit"
@@ -176,7 +302,7 @@
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
                 <q-btn
-                  aria-label="Delete alert rule"
+                  :aria-label="`Delete ${eventTypeLabel(props.row.eventType)} alert rule`"
                   class="text-error-brighter"
                   dense
                   flat
@@ -224,6 +350,51 @@
           flat
           hide-header-in-grid
           row-key="id">
+          <template #item="props">
+            <q-card
+              :aria-label="`${eventTypeLabel(props.row.eventType)} alert history entry`"
+              bordered
+              class="notification-mobile-card"
+              flat
+              role="article">
+              <q-card-section class="notification-mobile-card__header">
+                <div>
+                  <div class="notification-mobile-card__title">
+                    {{ eventTypeLabel(props.row.eventType) }}
+                  </div>
+                  <div class="text-caption text-xy-muted">
+                    {{
+                      props.row.createdAt
+                        ? dayjs(timestampDate(props.row.createdAt)).format('MM/DD/YYYY HH:mm:ss A')
+                        : 'Unknown time'
+                    }}
+                  </div>
+                </div>
+                <q-badge
+                  :color="deliveryStatusColor(props.row.deliveryStatus)"
+                  :label="deliveryStatusLabel(props.row.deliveryStatus)" />
+              </q-card-section>
+
+              <q-card-section class="notification-mobile-card__fields q-pt-none">
+                <div>
+                  <span>Server</span>
+                  <strong>{{ resolveServerName(props.row.serverId) }}</strong>
+                </div>
+                <div>
+                  <span>Channel</span>
+                  <strong>{{ channelTypeLabel(props.row.channelType) }}</strong>
+                </div>
+                <div>
+                  <span>Details</span>
+                  <strong>{{ props.row.eventData || '-' }}</strong>
+                </div>
+                <div v-if="props.row.deliveryError">
+                  <span>Delivery Error</span>
+                  <strong class="text-negative">{{ props.row.deliveryError }}</strong>
+                </div>
+              </q-card-section>
+            </q-card>
+          </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
               <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
@@ -274,10 +445,16 @@
     </q-tab-panels>
 
     <!-- Channel Create/Edit Dialog -->
-    <q-dialog v-if="hasAlertsManage" v-model="showChannelDialog" persistent>
+    <q-dialog
+      v-if="hasAlertsManage"
+      v-model="showChannelDialog"
+      aria-labelledby="notification-channel-dialog-title"
+      persistent>
       <q-card class="channel-dialog-card">
         <q-card-section>
-          <div class="text-h6">{{ editingChannel ? 'Edit Channel' : 'Add Channel' }}</div>
+          <div id="notification-channel-dialog-title" class="text-h6">
+            {{ editingChannel ? 'Edit Channel' : 'Add Channel' }}
+          </div>
         </q-card-section>
 
         <q-card-section class="q-pt-none">
@@ -406,10 +583,14 @@
     </q-dialog>
 
     <!-- Rule Edit Dialog -->
-    <q-dialog v-if="hasAlertsManage" v-model="showRuleDialog" persistent>
+    <q-dialog
+      v-if="hasAlertsManage"
+      v-model="showRuleDialog"
+      aria-labelledby="notification-rule-dialog-title"
+      persistent>
       <q-card class="channel-dialog-card">
         <q-card-section>
-          <div class="text-h6">Edit Alert Rule</div>
+          <div id="notification-rule-dialog-title" class="text-h6">Edit Alert Rule</div>
         </q-card-section>
 
         <q-card-section class="q-pt-none">
@@ -1452,7 +1633,7 @@ onMounted(async () => {
 <style scoped>
 .notifications-tabs {
   background-color: var(--xy-surface-1);
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--xy-radius-lg) var(--xy-radius-lg) 0 0;
 }
 
 .notifications-panels {
@@ -1481,7 +1662,66 @@ onMounted(async () => {
   width: 100%;
 }
 
+.notification-mobile-card {
+  width: 100%;
+  background: var(--xy-surface-1);
+  border-color: var(--xy-border);
+}
+
+.notification-mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+}
+
+.notification-mobile-card__title {
+  margin-bottom: var(--xy-space-xs);
+  color: var(--xy-text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.notification-mobile-card__fields {
+  display: grid;
+  gap: var(--xy-space-sm);
+}
+
+.notification-mobile-card__fields > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.notification-mobile-card__fields span {
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.notification-mobile-card__fields strong {
+  color: var(--xy-text-primary);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 480px) {
+  .notifications-tabs :deep(.q-tab) {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--xy-space-xs);
+  }
+
+  .notifications-tabs :deep(.q-tab__label) {
+    font-size: var(--xy-font-size-xs);
+    letter-spacing: 0;
+  }
+
+  .notifications-tabs :deep(.q-tabs__arrow) {
+    display: none;
+  }
+
   .channel-dialog-card {
     min-width: unset;
   }
