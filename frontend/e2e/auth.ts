@@ -6,7 +6,7 @@ import { AUTH_DIR, type TestUser } from './fixtures'
 export async function loginAsUser(page: Page, username: string, password: string): Promise<void> {
   await page.goto('/login')
   await page.getByLabel('Username').fill(username)
-  await page.getByLabel('Password').fill(password)
+  await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
 }
