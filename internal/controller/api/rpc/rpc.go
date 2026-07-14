@@ -16,6 +16,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/internal/scheduler"
+	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/internal/steamcache"
 	"github.com/ClintonCollins/Xylona/internal/usermgmt"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
@@ -55,6 +56,8 @@ type XylonaService struct {
 	installBroadcast               ServerSoftwareInstallBroadcaster
 	updateBroadcast                UpdateProgressBroadcaster
 	systemUpdateBroadcast          SystemUpdateBroadcaster
+	systemUpdateShutdown           func()
+	systemUpdateManager            *selfupdate.Manager
 	versionState                   *versiontracker.VersionStateMap
 	dummyTracker                   *versiontracker.DummyTracker
 	userService                    *usermgmt.Service
@@ -162,6 +165,18 @@ func (xs *XylonaService) SetUpdateBroadcaster(b UpdateProgressBroadcaster) {
 // SetSystemUpdateBroadcaster sets the broadcaster used to push system update events over WebSocket.
 func (xs *XylonaService) SetSystemUpdateBroadcaster(b SystemUpdateBroadcaster) {
 	xs.systemUpdateBroadcast = b
+}
+
+// SetSystemUpdateShutdown sets the graceful shutdown callback used after a
+// controller update has been handed to the replacement helper.
+func (xs *XylonaService) SetSystemUpdateShutdown(shutdown func()) {
+	xs.systemUpdateShutdown = shutdown
+}
+
+// SetSystemUpdateManager sets the long-lived controller update manager used
+// for startup reconciliation, staging, and apply serialization.
+func (xs *XylonaService) SetSystemUpdateManager(manager *selfupdate.Manager) {
+	xs.systemUpdateManager = manager
 }
 
 // SetDummyTracker sets the dummy tracker used for testing update failure simulation.

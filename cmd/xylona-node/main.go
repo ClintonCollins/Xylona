@@ -41,6 +41,13 @@ type cliConfig struct {
 	skipInsecureTLS bool
 }
 
+func (cfg *cliConfig) restartArgs(absDataDir string) []string {
+	return []string{
+		"--listen", cfg.listen,
+		"--data-dir", absDataDir,
+	}
+}
+
 // parseFlags parses CLI flags from args (excluding program name).
 func parseFlags(args []string) (*cliConfig, error) {
 	fs := flag.NewFlagSet("xylona-node", flag.ContinueOnError)
@@ -96,6 +103,9 @@ func main() {
 // run executes the node binary logic. Split out so tests can exercise flag
 // handling and identity loading without spawning a real process.
 func run(ctx context.Context, cfg *cliConfig) error {
+	nodeCtx, shutdownNode := context.WithCancel(ctx)
+	defer shutdownNode()
+
 	absDataDir, errAbs := filepath.Abs(cfg.dataDir)
 	if errAbs != nil {
 		return fmt.Errorf("resolve data dir: %w", errAbs)
@@ -112,7 +122,7 @@ func run(ctx context.Context, cfg *cliConfig) error {
 			return fmt.Errorf("no persisted identity at %s and no --join-token provided: %w", absDataDir, errIdentityMissing)
 		}
 
-		bootstrapped, errBootstrap := performBootstrap(ctx, cfg, absDataDir)
+		bootstrapped, errBootstrap := performBootstrap(nodeCtx, cfg, absDataDir)
 		if errBootstrap != nil {
 			return fmt.Errorf("bootstrap node: %w", errBootstrap)
 		}
@@ -121,11 +131,11 @@ func run(ctx context.Context, cfg *cliConfig) error {
 
 	log.Info().Str("node_id", identity.NodeID).Str("fingerprint", identity.Fingerprint).Msg("loaded node identity")
 
-	supInst, errSup := supervisor.New(ctx)
+	supInst, errSup := supervisor.New(nodeCtx)
 	if errSup != nil {
 		return fmt.Errorf("create supervisor: %w", errSup)
 	}
-	supInst.StartMetricsPoller(ctx)
+	supInst.StartMetricsPoller(nodeCtx)
 	// Register built-in internal game installers (e.g. Minecraft) so remote
 	// StartProcess requests with internal_command=true resolve locally. The
 	// controller also registers these for the embedded node path.
@@ -133,14 +143,20 @@ func run(ctx context.Context, cfg *cliConfig) error {
 	// node.New tolerates a nil *db.Connection for the node binary — the
 	// node does not persist any game-server data. Controller is the single
 	// source of truth.
-	n := node.New(ctx, supInst, nil)
+	n := node.New(nodeCtx, supInst, nil)
 
-	updateManager, errUpdateManager := selfupdate.NewDefaultManager("node", filepath.Join(absDataDir, "updates"))
+	updateManager, errUpdateManager := selfupdate.NewManager(selfupdate.Config{
+		Component:    "node",
+		StageDir:     filepath.Join(absDataDir, "updates"),
+		RestartArgs:  cfg.restartArgs(absDataDir),
+		RestartMode:  selfupdate.RestartMode(os.Getenv(selfupdate.RestartModeEnvironment)),
+		ShutdownFunc: shutdownNode,
+	})
 	if errUpdateManager != nil {
 		return fmt.Errorf("create self-update manager: %w", errUpdateManager)
 	}
 
-	return serveNodeService(ctx, cfg.listen, identity, n, updateManager)
+	return serveNodeService(nodeCtx, cfg.listen, identity, n, updateManager)
 }
 
 // serveNodeService mounts the NodeService handler on an HTTPS listener and

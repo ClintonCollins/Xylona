@@ -53,6 +53,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/scheduler"
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/internal/steamcache"
+	"github.com/ClintonCollins/Xylona/internal/updater"
 	"github.com/ClintonCollins/Xylona/internal/usermgmt"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/internal/webhooks"
@@ -70,6 +71,8 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/migrations"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+const controllerUpdateShutdownTimeout = 14 * time.Minute
 
 type Configuration struct {
 	CookieHashKey  string `env:"COOKIE_HASH_KEY_BASE64"`
@@ -482,6 +485,7 @@ func runService() int {
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
+	updateShutdownChannel := make(chan struct{}, 1)
 
 	runtimeDBLock, errRuntimeDBLock := dbpkg.AcquireRuntimeDBLock(config.DBFilePath)
 	if errRuntimeDBLock != nil {
@@ -585,6 +589,24 @@ func runService() int {
 	xylonaService.SetInstallBroadcaster(wsInst)
 	xylonaService.SetUpdateBroadcaster(wsInst)
 	xylonaService.SetSystemUpdateBroadcaster(wsInst)
+	updateShutdown := func() {
+		select {
+		case updateShutdownChannel <- struct{}{}:
+		default:
+		}
+	}
+	xylonaService.SetSystemUpdateShutdown(updateShutdown)
+	controllerUpdateManager, errUpdateManager := selfupdate.NewManager(selfupdate.Config{
+		Component:    updater.ComponentController,
+		StageDir:     strings.TrimSpace(os.Getenv("XYLONA_UPDATE_STAGE_DIR")),
+		RestartMode:  selfupdate.RestartMode(os.Getenv(selfupdate.RestartModeEnvironment)),
+		ShutdownFunc: updateShutdown,
+	})
+	if errUpdateManager != nil {
+		log.Warn().Err(errUpdateManager).Msg("Controller self-update manager is unavailable")
+	} else {
+		xylonaService.SetSystemUpdateManager(controllerUpdateManager)
+	}
 	xylonaService.ResumeSystemUpdateJobs(ctx)
 	if dummyTracker != nil {
 		xylonaService.SetDummyTracker(dummyTracker)
@@ -662,6 +684,7 @@ func runService() int {
 	shutdownSignalChannel := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
 	var startupFailed bool
+	var updateShutdownWatchdog *time.Timer
 	select {
 	case errStartup := <-startupErrCh:
 		shutdownLocalAdminServer(localAdminServer)
@@ -671,12 +694,23 @@ func runService() int {
 	case shutdownSignalType := <-shutdownSignalChannel:
 		shutdownLocalAdminServer(localAdminServer)
 		gracefulShutdown(ctxCancel, shutdownSignalType, httpServer)
+	case <-updateShutdownChannel:
+		log.Info().Msg("Controller update requested graceful shutdown")
+		updateShutdownWatchdog = time.AfterFunc(controllerUpdateShutdownTimeout, func() {
+			log.Error().Dur("timeout", controllerUpdateShutdownTimeout).Msg("Controller update shutdown timed out; forcing helper handoff")
+			os.Exit(0)
+		})
+		shutdownLocalAdminServer(localAdminServer)
+		shutdownServers(ctxCancel, httpServer)
 	}
 	alertDeliveryPool.Wait()
 	log.Info().Msg("Alert delivery pool drained")
 	errStopScheduler := taskScheduler.Stop()
 	if errStopScheduler != nil {
 		log.Error().Err(errStopScheduler).Msg("Error stopping task scheduler")
+	}
+	if updateShutdownWatchdog != nil {
+		updateShutdownWatchdog.Stop()
 	}
 	if startupFailed {
 		return 1

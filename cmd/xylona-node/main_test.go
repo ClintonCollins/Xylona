@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"slices"
 	"testing"
 )
 
@@ -66,6 +67,25 @@ func TestParseFlags(t *testing.T) {
 			t.Fatal("expected error for empty data-dir")
 		}
 	})
+}
+
+func TestCLIConfigRestartArgs(t *testing.T) {
+	t.Parallel()
+
+	cfg := &cliConfig{
+		controllerURL:   "https://controller.test",
+		joinToken:       "secret-bootstrap-token",
+		listen:          ":9800",
+		advertiseURL:    "https://node.test",
+		nodeName:        "node-one",
+		dataDir:         "relative-node-data",
+		skipInsecureTLS: true,
+	}
+	want := []string{"--listen", ":9800", "--data-dir", "C:\\node-data"}
+	got := cfg.restartArgs("C:\\node-data")
+	if !slices.Equal(got, want) {
+		t.Fatalf("restartArgs() = %q, want %q", got, want)
+	}
 }
 
 // TestRunWithoutIdentity exercises the Step 4 behavior: calling run() against

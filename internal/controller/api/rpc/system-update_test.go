@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -182,6 +184,7 @@ func TestDownloadSystemUpdateArtifactTimesOut(t *testing.T) {
 		artifact: updater.Artifact{
 			Name:        "xylona-node-test",
 			DownloadURL: blockedDownload.URL,
+			Size:        1,
 		},
 	})
 	if errDownload == nil {
@@ -189,6 +192,110 @@ func TestDownloadSystemUpdateArtifactTimesOut(t *testing.T) {
 	}
 	if !strings.Contains(errDownload.Error(), "context deadline exceeded") {
 		t.Fatalf("downloadSystemUpdateArtifact() error = %v, want context deadline exceeded", errDownload)
+	}
+}
+
+func TestValidateSystemUpdateStageResult(t *testing.T) {
+	input := systemUpdateRunInput{
+		artifact: updater.Artifact{
+			Size:   42,
+			SHA256: strings.Repeat("a", 64),
+		},
+	}
+	tests := []struct {
+		name    string
+		result  node.StageSelfUpdateResult
+		wantErr string
+	}{
+		{
+			name: "valid result",
+			result: node.StageSelfUpdateResult{
+				StageID:      "stage-1",
+				BytesWritten: 42,
+				SHA256:       strings.Repeat("a", 64),
+			},
+		},
+		{
+			name: "missing stage ID",
+			result: node.StageSelfUpdateResult{
+				BytesWritten: 42,
+				SHA256:       strings.Repeat("a", 64),
+			},
+			wantErr: "stage ID",
+		},
+		{
+			name: "size mismatch",
+			result: node.StageSelfUpdateResult{
+				StageID:      "stage-1",
+				BytesWritten: 41,
+				SHA256:       strings.Repeat("a", 64),
+			},
+			wantErr: "size",
+		},
+		{
+			name: "checksum mismatch",
+			result: node.StageSelfUpdateResult{
+				StageID:      "stage-1",
+				BytesWritten: 42,
+				SHA256:       strings.Repeat("b", 64),
+			},
+			wantErr: "checksum",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errValidate := validateSystemUpdateStageResult(input, tt.result)
+			if tt.wantErr == "" && errValidate != nil {
+				t.Fatalf("validateSystemUpdateStageResult() error = %v, want nil", errValidate)
+			}
+			if tt.wantErr != "" && (errValidate == nil || !strings.Contains(errValidate.Error(), tt.wantErr)) {
+				t.Fatalf("validateSystemUpdateStageResult() error = %v, want error containing %q", errValidate, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestReconcileSystemUpdateTempArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	now := time.Date(2026, time.July, 14, 12, 0, 0, 0, time.UTC)
+	stalePath := filepath.Join(tempDir, "xylona-update-stale")
+	recentPath := filepath.Join(tempDir, "xylona-update-recent")
+	unrelatedPath := filepath.Join(tempDir, "unrelated-stale")
+	for _, pathValue := range []string{stalePath, recentPath, unrelatedPath} {
+		errWrite := os.WriteFile(pathValue, []byte("artifact"), 0o600)
+		if errWrite != nil {
+			t.Fatalf("write temp artifact %q: %v", pathValue, errWrite)
+		}
+	}
+	errStaleTime := os.Chtimes(stalePath, now.Add(-systemUpdateTempArtifactMaxAge-time.Minute), now.Add(-systemUpdateTempArtifactMaxAge-time.Minute))
+	if errStaleTime != nil {
+		t.Fatalf("set stale update artifact time: %v", errStaleTime)
+	}
+	errRecentTime := os.Chtimes(recentPath, now.Add(-time.Minute), now.Add(-time.Minute))
+	if errRecentTime != nil {
+		t.Fatalf("set recent update artifact time: %v", errRecentTime)
+	}
+	errUnrelatedTime := os.Chtimes(unrelatedPath, now.Add(-systemUpdateTempArtifactMaxAge-time.Minute), now.Add(-systemUpdateTempArtifactMaxAge-time.Minute))
+	if errUnrelatedTime != nil {
+		t.Fatalf("set unrelated artifact time: %v", errUnrelatedTime)
+	}
+
+	errReconcile := reconcileSystemUpdateTempArtifacts(tempDir, now)
+	if errReconcile != nil {
+		t.Fatalf("reconcileSystemUpdateTempArtifacts() error = %v", errReconcile)
+	}
+	_, errStaleStat := os.Stat(stalePath)
+	if !errors.Is(errStaleStat, os.ErrNotExist) {
+		t.Fatalf("stale update artifact remains, stat error = %v", errStaleStat)
+	}
+	for _, pathValue := range []string{recentPath, unrelatedPath} {
+		_, errStat := os.Stat(pathValue)
+		if errStat != nil {
+			t.Fatalf("retained temp artifact %q stat error = %v", pathValue, errStat)
+		}
 	}
 }
 
@@ -313,6 +420,7 @@ func TestRunSystemUpdateJobFailsTerminalWhenRemoteStageTimesOut(t *testing.T) {
 
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
 	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
 	stageStarted := make(chan struct{})
 	remoteClient.StageSelfUpdateFunc = func(ctx context.Context, _ node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error) {
@@ -323,7 +431,8 @@ func TestRunSystemUpdateJobFailsTerminalWhenRemoteStageTimesOut(t *testing.T) {
 	remoteClient.ApplySelfUpdateFunc = func(context.Context, node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error) {
 		return node.ApplySelfUpdateResult{}, errors.New("apply should not be called after stage timeout")
 	}
-	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	configureLifecycleActionsForParityTests(t, fixture, registry)
 
 	job := createSystemUpdateJobForTest(t, fixture.conn, updater.ComponentNode, "node-remote", systemUpdateStatusPending, "1.2.0")
 	fixture.service.runSystemUpdateJob(systemUpdateRunInput{
@@ -345,6 +454,9 @@ func TestRunSystemUpdateJobFailsTerminalWhenRemoteStageTimesOut(t *testing.T) {
 	case <-stageStarted:
 	default:
 		t.Fatal("StageSelfUpdate was not called")
+	}
+	if len(remoteClient.StopProcessCalls) != 0 {
+		t.Fatalf("StopProcess calls = %d, want 0 when staging fails", len(remoteClient.StopProcessCalls))
 	}
 	got := getSystemUpdateJobForTest(t, fixture.conn, job.ID)
 	if got.Status != systemUpdateStatusFailed {
@@ -492,7 +604,8 @@ func TestSystemUpdateAvailabilityBlocksChecksumResolutionFailures(t *testing.T) 
 			{Name: fmt.Sprintf("xylona_%s_%s", runtime.GOOS, runtime.GOARCH), BrowserDownloadURL: "https://example.invalid/xylona"},
 		},
 	}
-	controllerAvailability := (&XylonaService{}).controllerUpdateAvailability(context.Background(), controllerRelease)
+	controllerService := &XylonaService{systemUpdateShutdown: func() {}}
+	controllerAvailability := controllerService.controllerUpdateAvailability(context.Background(), controllerRelease)
 	if !controllerAvailability.GetUpdateAvailable() {
 		t.Fatal("controller updateAvailable = false, want true")
 	}

@@ -57,6 +57,8 @@ const (
 	defaultSystemUpdateNodePollTimeout    = 2 * time.Minute
 	defaultSystemUpdateNodePollInterval   = 3 * time.Second
 	defaultSystemUpdateAvailabilityProbes = 8
+	defaultSystemUpdateSpaceReserve       = 16 * 1024 * 1024
+	systemUpdateTempArtifactMaxAge        = 24 * time.Hour
 )
 
 var (
@@ -405,34 +407,52 @@ func (xs *XylonaService) runSystemUpdateJob(input systemUpdateRunInput) {
 }
 
 func (xs *XylonaService) runSystemUpdateJobInner(ctx context.Context, input systemUpdateRunInput) error {
-	errDrain := xs.drainNodeForSystemUpdate(ctx, input)
-	if errDrain != nil {
-		return fmt.Errorf("drain target node for system update: %w", errDrain)
-	}
-
 	artifactPath, errDownload := xs.downloadSystemUpdateArtifact(ctx, input)
 	if errDownload != nil {
 		return fmt.Errorf("download system update artifact: %w", errDownload)
 	}
 	defer func() {
-		errRemove := os.Remove(artifactPath)
-		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+		if artifactPath == "" {
+			return
+		}
+		errRemove := removeSystemUpdateTempArtifact(artifactPath)
+		if errRemove != nil {
 			log.Debug().Err(errRemove).Str("path", artifactPath).Msg("system update: failed to remove temp artifact")
 		}
 	}()
 
+	stageResult, errStage := xs.stageSystemUpdateArtifact(ctx, input, artifactPath)
+	if errStage != nil {
+		return errStage
+	}
+	errValidateStage := validateSystemUpdateStageResult(input, stageResult)
+	if errValidateStage != nil {
+		return errValidateStage
+	}
+	errRemoveArtifact := removeSystemUpdateTempArtifact(artifactPath)
+	if errRemoveArtifact != nil {
+		log.Debug().Err(errRemoveArtifact).Str("path", artifactPath).Msg("system update: failed to remove temp artifact after staging")
+	} else {
+		artifactPath = ""
+	}
+
+	errDrain := xs.drainNodeForSystemUpdate(ctx, input)
+	if errDrain != nil {
+		return fmt.Errorf("drain target node for system update: %w", errDrain)
+	}
+
 	switch input.component {
 	case updater.ComponentController:
-		return xs.applyControllerSystemUpdate(ctx, input, artifactPath)
+		return xs.applyControllerSystemUpdate(ctx, input, stageResult)
 	case updater.ComponentNode:
-		return xs.applyRemoteNodeSystemUpdate(ctx, input, artifactPath)
+		return xs.applyRemoteNodeSystemUpdate(ctx, input, stageResult)
 	default:
 		return errors.New("unknown update component")
 	}
 }
 
 func (xs *XylonaService) drainNodeForSystemUpdate(ctx context.Context, input systemUpdateRunInput) error {
-	errProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDraining, systemUpdatePhaseDrain, 10, "stopping game servers on target node", "", false)
+	errProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDraining, systemUpdatePhaseDrain, 65, "stopping game servers on target node", "", false)
 	if errProgress != nil {
 		return errProgress
 	}
@@ -448,7 +468,7 @@ func (xs *XylonaService) drainNodeForSystemUpdate(ctx context.Context, input sys
 		}
 	}
 	if len(servers) == 0 {
-		return nil
+		return xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDraining, systemUpdatePhaseDrain, 75, "target node has no running game servers to drain", "", false)
 	}
 
 	deadline := time.Now().Add(90 * time.Second)
@@ -467,7 +487,7 @@ func (xs *XylonaService) drainNodeForSystemUpdate(ctx context.Context, input sys
 			}
 		}
 		if allOffline {
-			errDrained := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDraining, systemUpdatePhaseDrain, 25, "target node drained; game servers will remain offline", "", false)
+			errDrained := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDraining, systemUpdatePhaseDrain, 75, "target node drained; game servers will remain offline", "", false)
 			return errDrained
 		}
 		select {
@@ -495,9 +515,20 @@ func (xs *XylonaService) gameServerConfirmedOfflineForSystemUpdate(ctx context.C
 }
 
 func (xs *XylonaService) downloadSystemUpdateArtifact(ctx context.Context, input systemUpdateRunInput) (string, error) {
-	errProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDownloading, systemUpdatePhaseDownload, 30, "downloading release artifact", "", false)
+	errProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDownloading, systemUpdatePhaseDownload, 10, "downloading release artifact", "", false)
 	if errProgress != nil {
 		return "", errProgress
+	}
+	if input.artifact.Size <= 0 {
+		return "", errors.New("release artifact size must be positive")
+	}
+	errTempCleanup := reconcileSystemUpdateTempArtifacts(os.TempDir(), time.Now())
+	if errTempCleanup != nil {
+		log.Warn().Err(errTempCleanup).Msg("system update: stale temporary artifact reconciliation was incomplete")
+	}
+	errSpace := updater.EnsureFreeSpace(os.TempDir(), input.artifact.Size, defaultSystemUpdateSpaceReserve)
+	if errSpace != nil {
+		return "", fmt.Errorf("download capacity preflight: %w", errSpace)
 	}
 
 	tempFile, errTemp := os.CreateTemp("", "xylona-update-*")
@@ -507,17 +538,18 @@ func (xs *XylonaService) downloadSystemUpdateArtifact(ctx context.Context, input
 	tempPath := tempFile.Name()
 	errClose := tempFile.Close()
 	if errClose != nil {
-		return "", fmt.Errorf("close temp artifact: %w", errClose)
+		errRemove := removeSystemUpdateTempArtifact(tempPath)
+		return "", errors.Join(fmt.Errorf("close temp artifact: %w", errClose), errRemove)
 	}
 
-	var lastPercent int32 = 30
+	var lastPercent int32 = 10
 	progress := func(downloaded int64, total int64) {
 		if total <= 0 {
 			return
 		}
-		progressValue := int64(30) + (downloaded * 25 / total)
-		progressValue = min(progressValue, 55)
-		// #nosec G115 -- progressValue is clamped to the int32-safe range 30..55.
+		progressValue := int64(10) + (downloaded * 25 / total)
+		progressValue = min(progressValue, 35)
+		// #nosec G115 -- progressValue is clamped to the int32-safe range 10..35.
 		percent := int32(progressValue)
 		if percent <= lastPercent+4 {
 			return
@@ -538,33 +570,89 @@ func (xs *XylonaService) downloadSystemUpdateArtifact(ctx context.Context, input
 
 	_, _, errDownload := updater.DownloadToFile(downloadCtx, http.DefaultClient, input.artifact.DownloadURL, tempPath, input.artifact.SHA256, input.artifact.Size, progress)
 	if errDownload != nil {
-		_ = os.Remove(tempPath)
-		return "", fmt.Errorf("download system update artifact: %w", errDownload)
+		errRemove := removeSystemUpdateTempArtifact(tempPath)
+		return "", errors.Join(fmt.Errorf("download system update artifact: %w", errDownload), errRemove)
 	}
-	errVerify := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDownloading, systemUpdatePhaseVerify, 58, "artifact checksum verified", "", false)
+	errVerify := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusDownloading, systemUpdatePhaseVerify, 40, "artifact checksum verified", "", false)
 	if errVerify != nil {
-		_ = os.Remove(tempPath)
-		return "", errVerify
+		errRemove := removeSystemUpdateTempArtifact(tempPath)
+		return "", errors.Join(errVerify, errRemove)
 	}
 	return tempPath, nil
 }
 
-func (xs *XylonaService) applyControllerSystemUpdate(ctx context.Context, input systemUpdateRunInput, artifactPath string) error {
+func removeSystemUpdateTempArtifact(pathValue string) error {
+	errRemove := os.Remove(pathValue)
+	if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+		return fmt.Errorf("remove temporary system update artifact %q: %w", pathValue, errRemove)
+	}
+	return nil
+}
+
+func reconcileSystemUpdateTempArtifacts(tempDir string, now time.Time) error {
+	entries, errReadDir := os.ReadDir(tempDir)
+	if errReadDir != nil {
+		return fmt.Errorf("read system temporary directory: %w", errReadDir)
+	}
+	var resultErr error
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), "xylona-update-") {
+			continue
+		}
+		info, errInfo := entry.Info()
+		if errInfo != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("inspect temporary update artifact %q: %w", entry.Name(), errInfo))
+			continue
+		}
+		if !info.Mode().IsRegular() || now.Sub(info.ModTime()) <= systemUpdateTempArtifactMaxAge {
+			continue
+		}
+		errRemove := removeSystemUpdateTempArtifact(filepath.Join(tempDir, entry.Name()))
+		resultErr = errors.Join(resultErr, errRemove)
+	}
+	return resultErr
+}
+
+func validateSystemUpdateStageResult(input systemUpdateRunInput, result node.StageSelfUpdateResult) error {
+	if strings.TrimSpace(result.StageID) == "" {
+		return errors.New("staged update did not return a stage ID")
+	}
+	if result.BytesWritten != input.artifact.Size {
+		return fmt.Errorf("staged update size %d does not match artifact size %d", result.BytesWritten, input.artifact.Size)
+	}
+	expectedSHA := normalizeSHA256(input.artifact.SHA256)
+	actualSHA := normalizeSHA256(result.SHA256)
+	if actualSHA == "" || actualSHA != expectedSHA {
+		return fmt.Errorf("staged update checksum %q does not match artifact checksum %q", actualSHA, expectedSHA)
+	}
+	return nil
+}
+
+func (xs *XylonaService) stageSystemUpdateArtifact(ctx context.Context, input systemUpdateRunInput, artifactPath string) (node.StageSelfUpdateResult, error) {
+	switch input.component {
+	case updater.ComponentController:
+		return xs.stageControllerSystemUpdate(ctx, input, artifactPath)
+	case updater.ComponentNode:
+		return xs.stageRemoteNodeSystemUpdate(ctx, input, artifactPath)
+	default:
+		return node.StageSelfUpdateResult{}, errors.New("unknown update component")
+	}
+}
+
+func (xs *XylonaService) stageControllerSystemUpdate(ctx context.Context, input systemUpdateRunInput, artifactPath string) (node.StageSelfUpdateResult, error) {
 	manager, errManager := xs.controllerSelfUpdateManager()
 	if errManager != nil {
-		return errManager
+		return node.StageSelfUpdateResult{}, errManager
 	}
 	file, errOpen := os.Open(artifactPath)
 	if errOpen != nil {
-		return fmt.Errorf("open controller artifact: %w", errOpen)
+		return node.StageSelfUpdateResult{}, fmt.Errorf("open controller artifact: %w", errOpen)
 	}
-	defer func() {
-		_ = file.Close()
-	}()
 
-	errStageProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusStaging, systemUpdatePhaseStage, 65, "staging controller update", "", false)
+	errStageProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusStaging, systemUpdatePhaseStage, 50, "staging controller update", "", false)
 	if errStageProgress != nil {
-		return errStageProgress
+		errClose := file.Close()
+		return node.StageSelfUpdateResult{}, errors.Join(errStageProgress, errClose)
 	}
 	stageResult, errStage := manager.Stage(ctx, node.StageSelfUpdateRequest{
 		Component:      updater.ComponentController,
@@ -575,10 +663,21 @@ func (xs *XylonaService) applyControllerSystemUpdate(ctx context.Context, input 
 		ExpectedSHA256: input.artifact.SHA256,
 		Reader:         file,
 	})
+	errClose := file.Close()
 	if errStage != nil {
-		return fmt.Errorf("stage controller update: %w", errStage)
+		return node.StageSelfUpdateResult{}, errors.Join(fmt.Errorf("stage controller update: %w", errStage), errClose)
 	}
+	if errClose != nil {
+		return node.StageSelfUpdateResult{}, fmt.Errorf("close controller artifact after staging: %w", errClose)
+	}
+	return stageResult, nil
+}
 
+func (xs *XylonaService) applyControllerSystemUpdate(ctx context.Context, input systemUpdateRunInput, stageResult node.StageSelfUpdateResult) error {
+	manager, errManager := xs.controllerSelfUpdateManager()
+	if errManager != nil {
+		return errManager
+	}
 	errApplyProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusApplying, systemUpdatePhaseApply, 80, "starting controller update helper", "", false)
 	if errApplyProgress != nil {
 		return errApplyProgress
@@ -598,22 +697,20 @@ func (xs *XylonaService) applyControllerSystemUpdate(ctx context.Context, input 
 	return nil
 }
 
-func (xs *XylonaService) applyRemoteNodeSystemUpdate(ctx context.Context, input systemUpdateRunInput, artifactPath string) error {
+func (xs *XylonaService) stageRemoteNodeSystemUpdate(ctx context.Context, input systemUpdateRunInput, artifactPath string) (node.StageSelfUpdateResult, error) {
 	client, errClient := xs.resolveNodeClientByID(input.nodeID)
 	if errClient != nil {
-		return errClient
+		return node.StageSelfUpdateResult{}, errClient
 	}
 	file, errOpen := os.Open(artifactPath)
 	if errOpen != nil {
-		return fmt.Errorf("open node artifact: %w", errOpen)
+		return node.StageSelfUpdateResult{}, fmt.Errorf("open node artifact: %w", errOpen)
 	}
-	defer func() {
-		_ = file.Close()
-	}()
 
-	errStageProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusStaging, systemUpdatePhaseStage, 65, "streaming artifact to node", "", false)
+	errStageProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusStaging, systemUpdatePhaseStage, 50, "streaming artifact to node", "", false)
 	if errStageProgress != nil {
-		return errStageProgress
+		errClose := file.Close()
+		return node.StageSelfUpdateResult{}, errors.Join(errStageProgress, errClose)
 	}
 	stageTimeout := systemUpdateRemoteStageTimeout
 	if stageTimeout <= 0 {
@@ -630,10 +727,21 @@ func (xs *XylonaService) applyRemoteNodeSystemUpdate(ctx context.Context, input 
 		Reader:         file,
 	})
 	cancelStage()
+	errClose := file.Close()
 	if errStage != nil {
-		return fmt.Errorf("stage remote node update: %w", errStage)
+		return node.StageSelfUpdateResult{}, errors.Join(fmt.Errorf("stage remote node update: %w", errStage), errClose)
 	}
+	if errClose != nil {
+		return node.StageSelfUpdateResult{}, fmt.Errorf("close node artifact after staging: %w", errClose)
+	}
+	return stageResult, nil
+}
 
+func (xs *XylonaService) applyRemoteNodeSystemUpdate(ctx context.Context, input systemUpdateRunInput, stageResult node.StageSelfUpdateResult) error {
+	client, errClient := xs.resolveNodeClientByID(input.nodeID)
+	if errClient != nil {
+		return errClient
+	}
 	errApplyProgress := xs.recordSystemUpdateProgress(ctx, input.jobID, input.component, input.nodeID, systemUpdateStatusApplying, systemUpdatePhaseApply, 80, "asking node to apply staged update", "", false)
 	if errApplyProgress != nil {
 		return errApplyProgress
@@ -767,8 +875,16 @@ func (xs *XylonaService) recordSystemUpdateProgress(ctx context.Context, jobID s
 }
 
 func (xs *XylonaService) controllerSelfUpdateManager() (*selfupdate.Manager, error) {
+	if xs.systemUpdateManager != nil {
+		return xs.systemUpdateManager, nil
+	}
 	stageDir := strings.TrimSpace(os.Getenv("XYLONA_UPDATE_STAGE_DIR"))
-	manager, errManager := selfupdate.NewDefaultManager(updater.ComponentController, stageDir)
+	manager, errManager := selfupdate.NewManager(selfupdate.Config{
+		Component:    updater.ComponentController,
+		StageDir:     stageDir,
+		RestartMode:  selfupdate.RestartMode(os.Getenv(selfupdate.RestartModeEnvironment)),
+		ShutdownFunc: xs.systemUpdateShutdown,
+	})
 	if errManager != nil {
 		return nil, fmt.Errorf("create controller self-update manager: %w", errManager)
 	}
