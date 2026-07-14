@@ -5,6 +5,7 @@ package supervisor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
@@ -76,8 +77,11 @@ func terminateProcessTree(process *os.Process) error {
 		return os.ErrProcessDone
 	}
 	errKill := syscall.Kill(-process.Pid, syscall.SIGKILL)
+	if errKill == nil {
+		return nil
+	}
 	if errors.Is(errKill, syscall.ESRCH) {
 		return os.ErrProcessDone
 	}
-	return errKill
+	return fmt.Errorf("terminate process group for PID %d: %w", process.Pid, errKill)
 }
