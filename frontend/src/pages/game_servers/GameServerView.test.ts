@@ -58,6 +58,7 @@ const mocks = vi.hoisted(() => {
     getGameServerReadiness: vi.fn(),
     readGameServerOutput: vi.fn(),
     sendGameServerInput: vi.fn(),
+    updateGameServer: vi.fn(),
     waitForOpen: vi.fn(),
     isOpen: vi.fn(),
     queryGameServer: vi.fn(),
@@ -97,6 +98,7 @@ vi.mock('@/utils/shared', () => ({
     getGameServerReadiness: mocks.getGameServerReadiness,
     readGameServerOutput: mocks.readGameServerOutput,
     sendGameServerInput: mocks.sendGameServerInput,
+    updateGameServer: mocks.updateGameServer,
   }),
   XylonaEventBus: mocks.eventBus,
 }))
@@ -236,6 +238,7 @@ describe('GameServerView', () => {
     mocks.startQueryStatusVersionLifecycle.mockReset()
     mocks.startMetricsPreviewLifecycle.mockReset()
     mocks.sendGameServerInput.mockReset()
+    mocks.updateGameServer.mockReset()
     setWebsocketConnectionStatus('connected')
   })
 
@@ -248,7 +251,36 @@ describe('GameServerView', () => {
     mocks.waitForOpen.mockReset()
     mocks.isOpen.mockReset()
     mocks.sendGameServerInput.mockReset()
+    mocks.updateGameServer.mockReset()
     setWebsocketConnectionStatus('connecting')
+  })
+
+  it('shows game server update output in the console without an update progress dialog', async () => {
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+    mocks.updateGameServer.mockResolvedValue({})
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as {
+      consoleLines: Array<{ html: string }>
+      updateGameServer: () => Promise<void>
+    }
+    await viewModel.updateGameServer()
+
+    mocks.eventBus.emit(
+      'gameServerConsoleOutput',
+      'server-remote-1',
+      '[Xylona]: Downloading game server update\n',
+    )
+    await flushPromises()
+
+    expect(
+      viewModel.consoleLines.some((line) => line.html.includes('Downloading game server update')),
+    ).toBe(true)
+    expect(wrapper.findAll('.operation-progress-dialog-stub')).toHaveLength(1)
   })
 
   it('backfills console output after install completion when the live console is still empty', async () => {

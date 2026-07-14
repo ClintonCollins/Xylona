@@ -536,15 +536,6 @@
     @software-operation-state="onSoftwareOperationState" />
 
   <operation-progress-dialog
-    v-model="updateDialogOpen"
-    :complete="updateDialogComplete"
-    :output-lines="updateOutputLines"
-    :show-output-area="true"
-    :steps="updateSteps"
-    subtitle="Xylona will apply the update and only restart the server if it was already running."
-    title="Updating Server" />
-
-  <operation-progress-dialog
     v-model="softwareOperationOpen"
     :complete="softwareOperationComplete"
     :context-facts="softwareOperationContextFacts"
@@ -676,10 +667,7 @@ const lastConsoleSequence = ref(0n)
 const receivedConsoleReset = ref(false)
 const updatingServer = ref(false)
 const updateInProgress = ref(false)
-const updateDialogOpen = ref(false)
-const updateDialogComplete = ref(false)
 const updateSteps = ref<StepState[]>([])
-const updateOutputLines = ref<string[]>([])
 const softwareOperationOpen = ref(false)
 const softwareOperationComplete = ref(false)
 const softwareOperationSteps = ref<StepState[]>([])
@@ -1245,14 +1233,12 @@ async function stopGameServer() {
 }
 
 function resetUpdateSteps() {
-  updateDialogComplete.value = false
   updateSteps.value = buildUpdateSteps(
     gameServer.value.status,
     buildUpdateStepLabels({
       usesSteamcmd: Boolean(gameServer.value.game?.usesSteamcmd),
     }),
   )
-  updateOutputLines.value = []
 }
 
 function buildSoftwareOperationLabel(event: ServerSoftwareOperationEvent): string {
@@ -1355,7 +1341,7 @@ async function handleSoftwareChanged() {
   await getGameServerOutput()
 }
 
-function appendOutputLines(target: typeof updateOutputLines, output: string) {
+function appendOutputLines(target: Ref<string[]>, output: string) {
   target.value = appendOperationOutputLines(target.value, output, maxOperationOutputLines)
 }
 
@@ -1378,8 +1364,7 @@ function captureOperationOutput(output: string): boolean {
   }
 
   if (route === 'update') {
-    appendOutputLines(updateOutputLines, output)
-    updateDialogOpen.value = true
+    appendConsoleOutput(output)
     return true
   }
 
@@ -1393,8 +1378,6 @@ function onUpdateProgress(progress: UpdateProgress) {
 
   if (isUpdateProgressTerminal(progress, updateSteps.value)) {
     updateInProgress.value = false
-    updateDialogComplete.value = true
-    updateDialogOpen.value = true
     if (
       progress.step === UpdateStep.RESTARTING ||
       (progress.step === UpdateStep.INSTALLING && progress.stepStatus === StepStatus.COMPLETED)
@@ -1490,7 +1473,6 @@ async function updateGameServer() {
   updatingServer.value = true
   resetUpdateSteps()
   updateInProgress.value = true
-  updateDialogOpen.value = true
   try {
     request.serverId = gameServerId.value
     request.target = steamBranchSelection.steamBranch
@@ -1498,7 +1480,6 @@ async function updateGameServer() {
     recordLifecycleIntent(gameServerId.value, 'update')
   } catch (e) {
     updateInProgress.value = false
-    updateDialogOpen.value = false
     console.error(e)
     $q.notify({
       type: 'xylona-error',
