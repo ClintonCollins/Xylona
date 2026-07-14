@@ -25,8 +25,37 @@ func requiresPseudoTerminal(serviceID string) bool {
 	return serviceID == "terraria"
 }
 
-func drainPseudoTerminalBeforeClose() bool {
-	return true
+func preparePseudoTerminalDrain(terminal pty.Pty) (bool, error) {
+	unixTerminal, isUnixTerminal := terminal.(pty.UnixPty)
+	if !isUnixTerminal {
+		return false, errors.New("pseudo-terminal does not expose Unix handles")
+	}
+	// The child retains its inherited slave descriptor after Start. Release the
+	// parent's duplicate so master reads can finish after the child exits.
+	errCloseSlave := unixTerminal.Slave().Close()
+	if errCloseSlave != nil && !errors.Is(errCloseSlave, os.ErrClosed) {
+		return false, fmt.Errorf("close parent pseudo-terminal slave: %w", errCloseSlave)
+	}
+	return true, nil
+}
+
+func closePseudoTerminal(terminal pty.Pty, slaveReleased bool) error {
+	if !slaveReleased {
+		errClose := terminal.Close()
+		if errClose != nil {
+			return fmt.Errorf("close pseudo-terminal: %w", errClose)
+		}
+		return nil
+	}
+	unixTerminal, isUnixTerminal := terminal.(pty.UnixPty)
+	if !isUnixTerminal {
+		return errors.New("pseudo-terminal does not expose Unix handles")
+	}
+	errCloseMaster := unixTerminal.Master().Close()
+	if errCloseMaster != nil && !errors.Is(errCloseMaster, os.ErrClosed) {
+		return fmt.Errorf("close pseudo-terminal master: %w", errCloseMaster)
+	}
+	return nil
 }
 
 func preparePseudoTerminalCommand(

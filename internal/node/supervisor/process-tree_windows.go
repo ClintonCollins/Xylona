@@ -129,8 +129,16 @@ func requiresPseudoTerminal(serviceID string) bool {
 	return serviceID == "terraria"
 }
 
-func drainPseudoTerminalBeforeClose() bool {
-	return false
+func preparePseudoTerminalDrain(_ pty.Pty) (bool, error) {
+	return false, nil
+}
+
+func closePseudoTerminal(terminal pty.Pty, _ bool) error {
+	errClose := terminal.Close()
+	if errClose != nil {
+		return fmt.Errorf("close pseudo-terminal: %w", errClose)
+	}
+	return nil
 }
 
 func preparePseudoTerminalCommand(

@@ -20,7 +20,10 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-const pseudoTerminalTestRoleEnv = "XYLONA_PSEUDO_TERMINAL_TEST_ROLE"
+const (
+	pseudoTerminalTestRoleEnv = "XYLONA_PSEUDO_TERMINAL_TEST_ROLE"
+	outputListenerTestRoleEnv = "XYLONA_OUTPUT_LISTENER_TEST_ROLE"
+)
 
 type internalGameStub struct {
 	installErr error
@@ -216,36 +219,64 @@ func waitForCommandOutput(t *testing.T, command *Command, expected string) {
 }
 
 func TestCommandOutputListener(t *testing.T) {
-	ctx := t.Context()
-
-	inst, _ := New(ctx)
-
-	baseCommand, args := echoCommandArgs("test-output")
-
-	pc := PreparedCommand{
-		ID:          "test-listener",
-		BaseCommand: baseCommand,
-		Args:        args,
-		Status:      xylona.Status_ONLINE,
+	executable, errExecutable := os.Executable()
+	if errExecutable != nil {
+		t.Fatalf("os.Executable() error = %v", errExecutable)
 	}
-
-	cmd, _ := inst.StartCommand(pc)
+	inst, errNew := New(t.Context())
+	if errNew != nil {
+		t.Fatalf("New() error = %v", errNew)
+	}
+	command, errStart := inst.StartCommand(PreparedCommand{
+		ID:          "test-listener",
+		BaseCommand: executable,
+		Args:        []string{"-test.run=^TestCommandOutputListenerChild$"},
+		Status:      xylona.Status_ONLINE,
+		LaunchEnv: map[string]string{
+			outputListenerTestRoleEnv: "child",
+		},
+	})
+	if errStart != nil {
+		t.Fatalf("StartCommand() error = %v", errStart)
+	}
+	t.Cleanup(func() {
+		command.Stop("")
+	})
 
 	outChan := make(chan *xylona.Message, 10)
-	cmd.AddOutputListener("test-l", outChan)
-	defer cmd.RemoveOutputListener("test-l")
+	command.AddOutputListener("test-l", outChan)
+	defer command.RemoveOutputListener("test-l")
+	errSend := command.SendInput("test-output")
+	if errSend != nil {
+		t.Fatalf("SendInput() error = %v", errSend)
+	}
 
-	timeout := time.After(5 * time.Second)
-	found := false
-	for !found {
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+	for {
 		select {
 		case msg := <-outChan:
-			if msg.GetGameServerConsoleOutput() != nil && strings.Contains(msg.GetGameServerConsoleOutput().GetOutput(), "test-output") {
-				found = true
+			consoleOutput := msg.GetGameServerConsoleOutput()
+			if consoleOutput != nil && strings.Contains(consoleOutput.GetOutput(), "test-output") {
+				return
 			}
-		case <-timeout:
+		case <-timeout.C:
 			t.Fatal("Timed out waiting for listener message")
 		}
+	}
+}
+
+func TestCommandOutputListenerChild(t *testing.T) {
+	if os.Getenv(outputListenerTestRoleEnv) != "child" {
+		return
+	}
+	line, errRead := bufio.NewReader(os.Stdin).ReadString('\n')
+	if errRead != nil {
+		t.Fatalf("read output listener input: %v", errRead)
+	}
+	_, errOutput := fmt.Fprintln(os.Stdout, strings.TrimSpace(line))
+	if errOutput != nil {
+		t.Fatalf("write output listener response: %v", errOutput)
 	}
 }
 

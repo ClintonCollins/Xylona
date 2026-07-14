@@ -282,6 +282,15 @@ func (inst *Instance) startAndWaitForJob(
 		errStartProcess = currentCMD.Start()
 	}
 	command.Unlock()
+	drainBeforeClose := false
+	if errStartProcess == nil && currentPTY != nil {
+		var errPrepareDrain error
+		drainBeforeClose, errPrepareDrain = preparePseudoTerminalDrain(currentPTY)
+		if errPrepareDrain != nil {
+			log.Debug().Err(errPrepareDrain).Str("Game Server ID", command.ID).
+				Msg("Error preparing pseudo-terminal output drain")
+		}
+	}
 	if errStartProcess != nil {
 		errStart := fmt.Errorf("start command: %w", errStartProcess)
 		startupResult <- errStart
@@ -347,10 +356,10 @@ func (inst *Instance) startAndWaitForJob(
 	exitCodeKnown = errWait == nil || exitCode >= 0
 	lifecycleExitCode, lifecycleExitCodeKnown := lifecycleExitDetails(command, errWait, exitCode, exitCodeKnown)
 	if currentPTY != nil {
-		if drainPseudoTerminalBeforeClose() {
+		if drainBeforeClose {
 			waitForJobOutput(command.ID, outputDone)
 		}
-		errClosePTY := currentPTY.Close()
+		errClosePTY := closePseudoTerminal(currentPTY, drainBeforeClose)
 		if errClosePTY != nil {
 			log.Debug().Err(errClosePTY).Str("Game Server ID", command.ID).
 				Msg("Error closing completed pseudo-terminal")
