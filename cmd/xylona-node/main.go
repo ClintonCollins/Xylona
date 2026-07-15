@@ -11,6 +11,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -157,15 +158,20 @@ func run(ctx context.Context, cfg *cliConfig) error {
 	}
 
 	errServe := serveNodeService(nodeCtx, cfg.listen, identity, n, updateManager)
-	if errServe != nil {
-		return errServe
-	}
 	shutdownNode()
-	errComplete := updateManager.CompleteSelfUpdate()
+	return completeNodeSelfUpdate(updateManager, errServe)
+}
+
+type selfUpdateCompleter interface {
+	CompleteSelfUpdate() error
+}
+
+func completeNodeSelfUpdate(completer selfUpdateCompleter, errServe error) error {
+	errComplete := completer.CompleteSelfUpdate()
 	if errComplete != nil {
-		return fmt.Errorf("complete self-update: %w", errComplete)
+		errComplete = fmt.Errorf("complete self-update: %w", errComplete)
 	}
-	return nil
+	return errors.Join(errServe, errComplete)
 }
 
 // serveNodeService mounts the NodeService handler on an HTTPS listener and
@@ -182,12 +188,8 @@ func serveNodeService(ctx context.Context, listen string, identity *nodeIdentity
 	path, handler := nodeprotoconnect.NewNodeServiceHandler(svc)
 	mux.Handle(path, handler)
 
-	server := &http.Server{
-		Addr:              listen,
-		Handler:           mux,
-		TLSConfig:         tlsConfig,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	server := newNodeHTTPServer(ctx, listen, mux)
+	server.TLSConfig = tlsConfig
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -212,5 +214,16 @@ func serveNodeService(ctx context.Context, listen string, identity *nodeIdentity
 		return nil
 	case errServe := <-errCh:
 		return errServe
+	}
+}
+
+func newNodeHTTPServer(ctx context.Context, listen string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              listen,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
 	}
 }

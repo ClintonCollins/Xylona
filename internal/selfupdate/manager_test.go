@@ -530,47 +530,64 @@ func TestManagerApplyCompletesInProcessRestartAfterShutdown(t *testing.T) {
 	}
 }
 
-func TestManagerReconcilesAbandonedInProcessRestart(t *testing.T) {
-	manager := newArtifactTestManager(t)
-	manager.inProcessRestart = true
-	manager.shutdownDelay = time.Hour
-	t.Cleanup(func() {
-		applyingExecutables.Delete(manager.executablePath)
-	})
+func TestManagerReconcilesInProcessRestartOwnership(t *testing.T) {
+	tests := []struct {
+		name          string
+		forgetHandoff bool
+		wantPending   bool
+	}{
+		{name: "retains handoff owned by current manager", wantPending: true},
+		{name: "cleans handoff after same PID process restart", forgetHandoff: true},
+	}
 
-	stage := stageManagerTestArtifact(t, manager, "1.2.3", []byte("new xylona binary"))
-	_, errApply := manager.Apply(t.Context(), node.ApplySelfUpdateRequest{
-		StageID:        stage.StageID,
-		TargetVersion:  "1.2.3",
-		ExpectedSHA256: stage.SHA256,
-	})
-	if errApply != nil {
-		t.Fatalf("Apply() error = %v", errApply)
-	}
-	pendingPath := manager.pendingRestart
-	pending, errPending := readPendingUpdate(pendingPath)
-	if errPending != nil {
-		t.Fatalf("readPendingUpdate() error = %v", errPending)
-	}
-	pending.ParentPID = os.Getpid() + 1
-	errWrite := writeJSON(pendingPath, pending)
-	if errWrite != nil {
-		t.Fatalf("rewrite pending handoff: %v", errWrite)
-	}
-	applyingExecutables.Delete(manager.executablePath)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manager := newArtifactTestManager(t)
+			manager.inProcessRestart = true
+			manager.shutdownDelay = time.Hour
+			t.Cleanup(func() {
+				applyingExecutables.Delete(manager.executablePath)
+			})
 
-	handoffPending, errReconcile := manager.reconcileArtifacts(maxRetainedStagedUpdates)
-	if errReconcile != nil {
-		t.Fatalf("reconcileArtifacts() error = %v", errReconcile)
-	}
-	if handoffPending {
-		t.Fatal("reconcileArtifacts() retained an abandoned in-process handoff")
-	}
-	for _, pathValue := range []string{pendingPath, pending.StagedPath} {
-		_, errStat := os.Stat(pathValue)
-		if !errors.Is(errStat, os.ErrNotExist) {
-			t.Fatalf("abandoned handoff artifact %q remains, stat error = %v", pathValue, errStat)
-		}
+			stage := stageManagerTestArtifact(t, manager, "1.2.3", []byte("new xylona binary"))
+			_, errApply := manager.Apply(t.Context(), node.ApplySelfUpdateRequest{
+				StageID:        stage.StageID,
+				TargetVersion:  "1.2.3",
+				ExpectedSHA256: stage.SHA256,
+			})
+			if errApply != nil {
+				t.Fatalf("Apply() error = %v", errApply)
+			}
+			pendingPath := manager.pendingRestart
+			pending, errPending := readPendingUpdate(pendingPath)
+			if errPending != nil {
+				t.Fatalf("readPendingUpdate() error = %v", errPending)
+			}
+			if pending.ParentPID != os.Getpid() {
+				t.Fatalf("pending parent PID = %d, want reused PID %d", pending.ParentPID, os.Getpid())
+			}
+			if test.forgetHandoff {
+				manager.pendingRestart = ""
+				applyingExecutables.Delete(manager.executablePath)
+			}
+
+			handoffPending, errReconcile := manager.reconcileArtifacts(maxRetainedStagedUpdates)
+			if errReconcile != nil {
+				t.Fatalf("reconcileArtifacts() error = %v", errReconcile)
+			}
+			if handoffPending != test.wantPending {
+				t.Fatalf("reconcileArtifacts() pending = %t, want %t", handoffPending, test.wantPending)
+			}
+			for _, pathValue := range []string{pendingPath, pending.StagedPath} {
+				_, errStat := os.Stat(pathValue)
+				if test.wantPending && errStat != nil {
+					t.Fatalf("active handoff artifact %q is missing: %v", pathValue, errStat)
+				}
+				if !test.wantPending && !errors.Is(errStat, os.ErrNotExist) {
+					t.Fatalf("abandoned handoff artifact %q remains, stat error = %v", pathValue, errStat)
+				}
+			}
+		})
 	}
 }
 

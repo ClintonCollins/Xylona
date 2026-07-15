@@ -1,10 +1,24 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"net"
+	"net/http"
 	"slices"
 	"testing"
+	"time"
 )
+
+type fakeSelfUpdateCompleter struct {
+	calls int
+	err   error
+}
+
+func (c *fakeSelfUpdateCompleter) CompleteSelfUpdate() error {
+	c.calls++
+	return c.err
+}
 
 // TestParseFlags covers the CLI surface. Individual field defaults and
 // required-field rejection are important because --listen / --data-dir are
@@ -119,4 +133,111 @@ func TestRunWithoutIdentity(t *testing.T) {
 			t.Fatalf("expected bootstrap to fail without --controller-url, got nil")
 		}
 	})
+}
+
+func TestCompleteNodeSelfUpdate(t *testing.T) {
+	t.Parallel()
+
+	errServe := errors.New("serve failed")
+	errComplete := errors.New("completion failed")
+	tests := []struct {
+		name        string
+		serveErr    error
+		completeErr error
+	}{
+		{name: "successful shutdown and completion"},
+		{name: "serve failure still completes update", serveErr: errServe},
+		{name: "completion failure is returned", completeErr: errComplete},
+		{name: "serve and completion failures are joined", serveErr: errServe, completeErr: errComplete},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			completer := &fakeSelfUpdateCompleter{err: test.completeErr}
+			errResult := completeNodeSelfUpdate(completer, test.serveErr)
+			if completer.calls != 1 {
+				t.Fatalf("CompleteSelfUpdate() calls = %d, want 1", completer.calls)
+			}
+			if test.serveErr != nil && !errors.Is(errResult, test.serveErr) {
+				t.Fatalf("completeNodeSelfUpdate() error = %v, want serve error", errResult)
+			}
+			if test.completeErr != nil && !errors.Is(errResult, test.completeErr) {
+				t.Fatalf("completeNodeSelfUpdate() error = %v, want completion error", errResult)
+			}
+			if test.serveErr == nil && test.completeErr == nil && errResult != nil {
+				t.Fatalf("completeNodeSelfUpdate() error = %v, want nil", errResult)
+			}
+		})
+	}
+}
+
+func TestNodeHTTPServerCancelsActiveRequests(t *testing.T) {
+	t.Parallel()
+
+	serverCtx, cancelServer := context.WithCancel(t.Context())
+	requestStarted := make(chan struct{})
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		close(requestStarted)
+		<-request.Context().Done()
+	})
+	listenConfig := net.ListenConfig{}
+	listener, errListen := listenConfig.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if errListen != nil {
+		t.Fatalf("listen: %v", errListen)
+	}
+	server := newNodeHTTPServer(serverCtx, listener.Addr().String(), handler)
+	t.Cleanup(func() {
+		errClose := server.Close()
+		if errClose != nil && !errors.Is(errClose, http.ErrServerClosed) && !errors.Is(errClose, net.ErrClosed) {
+			t.Errorf("close server: %v", errClose)
+		}
+	})
+
+	serveResult := make(chan error, 1)
+	go func() {
+		serveResult <- server.Serve(listener)
+	}()
+	request, errRequest := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+listener.Addr().String(), nil)
+	if errRequest != nil {
+		t.Fatalf("create request: %v", errRequest)
+	}
+	requestResult := make(chan error, 1)
+	go func() {
+		client := &http.Client{Timeout: 2 * time.Second}
+		response, errGet := client.Do(request)
+		if errGet != nil {
+			requestResult <- errGet
+			return
+		}
+		requestResult <- response.Body.Close()
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(time.Second):
+		t.Fatal("request did not reach node HTTP server")
+	}
+	cancelServer()
+	shutdownCtx, cancelShutdown := context.WithTimeout(t.Context(), time.Second)
+	errShutdown := server.Shutdown(shutdownCtx)
+	cancelShutdown()
+	if errShutdown != nil {
+		t.Fatalf("Shutdown() error = %v", errShutdown)
+	}
+
+	select {
+	case errServe := <-serveResult:
+		if !errors.Is(errServe, http.ErrServerClosed) {
+			t.Fatalf("Serve() error = %v, want http.ErrServerClosed", errServe)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server did not stop after lifecycle cancellation")
+	}
+	select {
+	case <-requestResult:
+	case <-time.After(time.Second):
+		t.Fatal("active request did not exit after lifecycle cancellation")
+	}
 }
