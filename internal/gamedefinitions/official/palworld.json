@@ -682,7 +682,7 @@
             "title": "Maximum bases per guild",
             "default": 4,
             "minimum": 1,
-            "maximum": 10,
+            "maximum": 50,
             "description": "Higher values increase server processing load.",
             "x-group": "Guilds and Bases",
             "x-order": 1
@@ -692,7 +692,7 @@
             "title": "Maximum Pals per base",
             "default": 15,
             "minimum": 1,
-            "maximum": 50,
+            "maximum": 100,
             "description": "Higher values increase server processing load. Some versions may ignore this INI setting.",
             "x-group": "Guilds and Bases",
             "x-order": 2
