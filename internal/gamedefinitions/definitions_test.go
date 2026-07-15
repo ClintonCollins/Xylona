@@ -229,8 +229,8 @@ func TestPalworldDefinitionConfigSchema(t *testing.T) {
 		}
 	}
 	baseCampLimit := entry.Schema.Properties["BaseCampMaxNumInGuild"]
-	if baseCampLimit.Default != float64(4) || baseCampLimit.Maximum == nil || *baseCampLimit.Maximum != 10 {
-		t.Fatalf("BaseCampMaxNumInGuild schema = %#v, want current official default 4 and maximum 10", baseCampLimit)
+	if baseCampLimit.Default != float64(4) || baseCampLimit.Maximum == nil || *baseCampLimit.Maximum != 50 {
+		t.Fatalf("BaseCampMaxNumInGuild schema = %#v, want default 4 and maximum 50", baseCampLimit)
 	}
 }
 
