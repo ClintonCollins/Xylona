@@ -72,7 +72,7 @@ XYLONA_UPDATE_RESTART_MODE=self
 
 Metrics are disabled by default. Enable them explicitly when you intend to expose a Prometheus scrape target.
 
-Controller and node binary updates restart themselves by default. `XYLONA_UPDATE_RESTART_MODE=service-manager` retains the external-restart handoff for specially configured supervisors, but it is not auto-detected or advertised as supported. The supervisor must let the helper survive the service exit and delay its restart until replacement finishes. For default cgroup, job-object, or container supervision that may kill or race the helper, update the deployed binary externally instead.
+Controller and node binary updates restart themselves by default. On Unix, Xylona replaces and executes the updated binary in the existing process after graceful shutdown, preserving systemd and container supervision. Windows uses a helper process because a running executable cannot be replaced. `XYLONA_UPDATE_RESTART_MODE=service-manager` retains the external-restart handoff for specially configured supervisors, but it is not auto-detected or advertised as supported; the supervisor must let the helper survive the service exit and delay its restart until replacement finishes.
 
 System updates are downloaded, checksum-verified, capacity-checked, and staged before Xylona stops game servers on the target node. Update storage keeps the newest rollback executable and at most two unapplied staged updates; confirmed, superseded, expired, and orphaned handoff artifacts are reconciled automatically at startup and before the next update.
 

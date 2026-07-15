@@ -96,6 +96,9 @@ type Manager struct {
 	helperReadyWait  time.Duration
 	ensureFreeSpace  freeSpaceChecker
 	now              func() time.Time
+	inProcessRestart bool
+	pendingRestart   string
+	restartProcess   restartProcessFunc
 }
 
 // NewManager creates a Manager.
@@ -174,6 +177,8 @@ func NewManager(cfg Config) (*Manager, error) {
 		helperReadyWait:  helperReadyTimeout,
 		ensureFreeSpace:  updater.EnsureFreeSpace,
 		now:              time.Now,
+		inProcessRestart: platformUsesInProcessRestart(),
+		restartProcess:   restartCurrentProcess,
 	}
 	_, errReconcile := manager.reconcileArtifacts(maxRetainedStagedUpdates)
 	if errReconcile != nil {
@@ -324,7 +329,7 @@ func (m *Manager) Stage(ctx context.Context, req node.StageSelfUpdateRequest) (n
 	}, nil
 }
 
-// Apply starts the helper handoff for a staged artifact.
+// Apply starts the restart handoff for a staged artifact.
 func (m *Manager) Apply(_ context.Context, req node.ApplySelfUpdateRequest) (node.ApplySelfUpdateResult, error) {
 	if m == nil {
 		return node.ApplySelfUpdateResult{}, errors.New("selfupdate: manager is nil")
@@ -406,6 +411,18 @@ func (m *Manager) Apply(_ context.Context, req node.ApplySelfUpdateRequest) (nod
 			errPending,
 		)
 	}
+	if m.inProcessRestart && m.restartMode == RestartModeSelf {
+		m.pendingRestart = pendingPath
+		handoffStarted = true
+		go func() {
+			time.Sleep(m.shutdownDelay)
+			m.shutdownFunc()
+		}()
+		return node.ApplySelfUpdateResult{
+			Accepted: true,
+			Message:  "update staged; process will replace itself after graceful shutdown",
+		}, nil
+	}
 
 	helperPath, errHelper := m.prepareHelperExecutable(stageID)
 	if errHelper != nil {
@@ -459,6 +476,43 @@ func (m *Manager) Apply(_ context.Context, req node.ApplySelfUpdateRequest) (nod
 		Accepted: true,
 		Message:  message,
 	}, nil
+}
+
+// CompleteSelfUpdate replaces and restarts the current process after its
+// service cleanup has completed. It is a no-op when Apply did not select the
+// in-process restart path.
+func (m *Manager) CompleteSelfUpdate() error {
+	if m == nil {
+		return nil
+	}
+	m.artifactMu.Lock()
+	defer m.artifactMu.Unlock()
+
+	pendingPath := m.pendingRestart
+	if pendingPath == "" {
+		return nil
+	}
+	pending, errPending := readPendingUpdate(pendingPath)
+	if errPending != nil {
+		return fmt.Errorf("selfupdate: read pending in-process restart: %w", errPending)
+	}
+	stageID, validPendingPath := pendingStageID(filepath.Base(pendingPath))
+	if !validPendingPath {
+		return errors.New("selfupdate: pending in-process restart path is invalid")
+	}
+	errValidate := m.validatePendingUpdate(pending, stageID)
+	if errValidate != nil {
+		return fmt.Errorf("selfupdate: validate pending in-process restart: %w", errValidate)
+	}
+	restartProcess := m.restartProcess
+	if restartProcess == nil {
+		restartProcess = restartCurrentProcess
+	}
+	errRestart := restartProcess(pendingPath, pending)
+	if errRestart != nil {
+		return fmt.Errorf("selfupdate: complete in-process restart: %w", errRestart)
+	}
+	return nil
 }
 
 func startHelperProcess(helperPath string, pendingPath string) (helperProcess, error) {

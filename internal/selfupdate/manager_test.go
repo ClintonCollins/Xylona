@@ -139,6 +139,7 @@ func TestManagerApplyStartsHelperAfterRequestContextCanceled(t *testing.T) {
 		applyingExecutables.Delete(manager.executablePath)
 	})
 	manager.shutdownDelay = 0
+	manager.inProcessRestart = false
 	manager.waitHelperReady = func(string, time.Duration) error {
 		return nil
 	}
@@ -229,6 +230,7 @@ func TestManagerApplyPreparesInstallCandidateNextToExecutable(t *testing.T) {
 		applyingExecutables.Delete(manager.executablePath)
 	})
 	restartArgs[0] = "mutated"
+	manager.inProcessRestart = false
 	manager.waitHelperReady = func(string, time.Duration) error {
 		return nil
 	}
@@ -345,6 +347,7 @@ func TestManagerApplyCanRetryAfterHelperStartFailure(t *testing.T) {
 	}
 
 	startCalls := 0
+	manager.inProcessRestart = false
 	var firstHelperPath string
 	var firstPendingPath string
 	var firstCandidatePath string
@@ -422,6 +425,7 @@ func TestManagerApplyDoesNotShutdownBeforeHelperReady(t *testing.T) {
 		applyingExecutables.Delete(manager.executablePath)
 	})
 	manager.shutdownDelay = 0
+	manager.inProcessRestart = false
 
 	result, errStage := manager.Stage(t.Context(), node.StageSelfUpdateRequest{
 		Component:      "node",
@@ -458,6 +462,115 @@ func TestManagerApplyDoesNotShutdownBeforeHelperReady(t *testing.T) {
 	case <-shutdownCalls:
 		t.Fatal("application shutdown was requested before helper readiness")
 	default:
+	}
+}
+
+func TestManagerApplyCompletesInProcessRestartAfterShutdown(t *testing.T) {
+	content := []byte("new xylona binary")
+	shutdownCalls := make(chan struct{}, 1)
+	manager, errManager := NewManager(Config{
+		Component:      "node",
+		StageDir:       t.TempDir(),
+		ExecutablePath: filepath.Join(t.TempDir(), "xylona"),
+		ShutdownFunc: func() {
+			shutdownCalls <- struct{}{}
+		},
+	})
+	if errManager != nil {
+		t.Fatalf("NewManager() error = %v", errManager)
+	}
+	writeManagerExecutable(t, manager)
+	t.Cleanup(func() {
+		applyingExecutables.Delete(manager.executablePath)
+	})
+	manager.inProcessRestart = true
+	manager.shutdownDelay = 0
+	manager.startHelper = func(string, string) (helperProcess, error) {
+		t.Fatal("in-process restart started a helper")
+		return nil, errors.New("unexpected helper start")
+	}
+	restarted := false
+	manager.restartProcess = func(markerPath string, pending pendingUpdate) error {
+		restarted = true
+		if markerPath != manager.pendingRestart {
+			t.Fatalf("restart marker = %q, want %q", markerPath, manager.pendingRestart)
+		}
+		assertFileContent(t, manager.executablePath, []byte("current xylona executable"))
+		assertFileContent(t, pending.StagedPath, content)
+		return nil
+	}
+
+	stage := stageManagerTestArtifact(t, manager, "1.2.3", content)
+	result, errApply := manager.Apply(t.Context(), node.ApplySelfUpdateRequest{
+		StageID:        stage.StageID,
+		TargetVersion:  "1.2.3",
+		ExpectedSHA256: stage.SHA256,
+	})
+	if errApply != nil {
+		t.Fatalf("Apply() error = %v", errApply)
+	}
+	if !result.Accepted {
+		t.Fatal("Apply().Accepted = false, want true")
+	}
+	if restarted {
+		t.Fatal("Apply() restarted before service cleanup")
+	}
+	select {
+	case <-shutdownCalls:
+	case <-time.After(time.Second):
+		t.Fatal("Apply() did not request shutdown")
+	}
+
+	errComplete := manager.CompleteSelfUpdate()
+	if errComplete != nil {
+		t.Fatalf("CompleteSelfUpdate() error = %v", errComplete)
+	}
+	if !restarted {
+		t.Fatal("CompleteSelfUpdate() did not restart the process")
+	}
+}
+
+func TestManagerReconcilesAbandonedInProcessRestart(t *testing.T) {
+	manager := newArtifactTestManager(t)
+	manager.inProcessRestart = true
+	manager.shutdownDelay = time.Hour
+	t.Cleanup(func() {
+		applyingExecutables.Delete(manager.executablePath)
+	})
+
+	stage := stageManagerTestArtifact(t, manager, "1.2.3", []byte("new xylona binary"))
+	_, errApply := manager.Apply(t.Context(), node.ApplySelfUpdateRequest{
+		StageID:        stage.StageID,
+		TargetVersion:  "1.2.3",
+		ExpectedSHA256: stage.SHA256,
+	})
+	if errApply != nil {
+		t.Fatalf("Apply() error = %v", errApply)
+	}
+	pendingPath := manager.pendingRestart
+	pending, errPending := readPendingUpdate(pendingPath)
+	if errPending != nil {
+		t.Fatalf("readPendingUpdate() error = %v", errPending)
+	}
+	pending.ParentPID = os.Getpid() + 1
+	errWrite := writeJSON(pendingPath, pending)
+	if errWrite != nil {
+		t.Fatalf("rewrite pending handoff: %v", errWrite)
+	}
+	applyingExecutables.Delete(manager.executablePath)
+
+	handoffPending, errReconcile := manager.reconcileArtifacts(maxRetainedStagedUpdates)
+	if errReconcile != nil {
+		t.Fatalf("reconcileArtifacts() error = %v", errReconcile)
+	}
+	if handoffPending {
+		t.Fatal("reconcileArtifacts() retained an abandoned in-process handoff")
+	}
+	for _, pathValue := range []string{pendingPath, pending.StagedPath} {
+		_, errStat := os.Stat(pathValue)
+		if !errors.Is(errStat, os.ErrNotExist) {
+			t.Fatalf("abandoned handoff artifact %q remains, stat error = %v", pathValue, errStat)
+		}
 	}
 }
 

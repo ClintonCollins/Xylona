@@ -91,6 +91,18 @@ func (m *Manager) reconcileArtifactsPreserving(retainStages int, preserveStageID
 				continue
 			}
 			if !confirmed {
+				abandonedInProcessRestart := m.inProcessRestart &&
+					pendingUpdateValue.RestartMode == RestartModeSelf &&
+					pendingUpdateValue.ParentPID > 0 &&
+					pendingUpdateValue.ParentPID != os.Getpid()
+				if abandonedInProcessRestart {
+					errPending := m.reconcileOrphanedPending(pendingPath, stageID)
+					if errPending != nil {
+						pendingStages[stageID] = struct{}{}
+						resultErr = errors.Join(resultErr, errPending)
+					}
+					continue
+				}
 				pendingStages[stageID] = struct{}{}
 				continue
 			}

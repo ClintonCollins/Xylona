@@ -442,7 +442,7 @@ func run(args []string) int {
 	return serviceExitCode
 }
 
-func runService() int {
+func runService() (exitCode int) {
 	var cleanupOnce sync.Once
 	cleanupLogger := func() {}
 	cleanup := func() {
@@ -451,6 +451,18 @@ func runService() int {
 		})
 	}
 	defer cleanup()
+	var controllerUpdateManager *selfupdate.Manager
+	var controllerUpdateRequested bool
+	defer func() {
+		if !controllerUpdateRequested || controllerUpdateManager == nil {
+			return
+		}
+		errComplete := controllerUpdateManager.CompleteSelfUpdate()
+		if errComplete != nil {
+			log.Error().Err(errComplete).Msg("Controller update restart failed")
+			exitCode = 1
+		}
+	}()
 
 	config := Configuration{}
 	_ = godotenv.Load()
@@ -596,7 +608,8 @@ func runService() int {
 		}
 	}
 	xylonaService.SetSystemUpdateShutdown(updateShutdown)
-	controllerUpdateManager, errUpdateManager := selfupdate.NewManager(selfupdate.Config{
+	var errUpdateManager error
+	controllerUpdateManager, errUpdateManager = selfupdate.NewManager(selfupdate.Config{
 		Component:    updater.ComponentController,
 		StageDir:     strings.TrimSpace(os.Getenv("XYLONA_UPDATE_STAGE_DIR")),
 		RestartMode:  selfupdate.RestartMode(os.Getenv(selfupdate.RestartModeEnvironment)),
@@ -695,9 +708,17 @@ func runService() int {
 		shutdownLocalAdminServer(localAdminServer)
 		gracefulShutdown(ctxCancel, shutdownSignalType, httpServer)
 	case <-updateShutdownChannel:
+		controllerUpdateRequested = true
 		log.Info().Msg("Controller update requested graceful shutdown")
 		updateShutdownWatchdog = time.AfterFunc(controllerUpdateShutdownTimeout, func() {
-			log.Error().Dur("timeout", controllerUpdateShutdownTimeout).Msg("Controller update shutdown timed out; forcing helper handoff")
+			log.Error().Dur("timeout", controllerUpdateShutdownTimeout).Msg("Controller update shutdown timed out; forcing restart handoff")
+			if controllerUpdateManager != nil {
+				errComplete := controllerUpdateManager.CompleteSelfUpdate()
+				if errComplete != nil {
+					log.Error().Err(errComplete).Msg("Forced controller update restart failed")
+					os.Exit(1)
+				}
+			}
 			os.Exit(0)
 		})
 		shutdownLocalAdminServer(localAdminServer)

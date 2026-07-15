@@ -156,7 +156,16 @@ func run(ctx context.Context, cfg *cliConfig) error {
 		return fmt.Errorf("create self-update manager: %w", errUpdateManager)
 	}
 
-	return serveNodeService(nodeCtx, cfg.listen, identity, n, updateManager)
+	errServe := serveNodeService(nodeCtx, cfg.listen, identity, n, updateManager)
+	if errServe != nil {
+		return errServe
+	}
+	shutdownNode()
+	errComplete := updateManager.CompleteSelfUpdate()
+	if errComplete != nil {
+		return fmt.Errorf("complete self-update: %w", errComplete)
+	}
+	return nil
 }
 
 // serveNodeService mounts the NodeService handler on an HTTPS listener and
