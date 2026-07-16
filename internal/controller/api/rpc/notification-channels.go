@@ -194,7 +194,7 @@ func normalizeNotificationChannelConfig(
 			}
 		}
 
-		if emailConfig.SMTPSource == alerts.SMTPSourceNode {
+		if emailConfig.SMTPSource == alerts.SMTPSourceController {
 			emailConfig.SMTPHost = ""
 			emailConfig.SMTPPort = 0
 			emailConfig.SMTPUser = ""
@@ -468,7 +468,7 @@ func (xs *XylonaService) TestNotificationChannel(
 	}
 
 	var smtpCfg *mailer.SMTPConfig
-	if emailConfig.SMTPSource == alerts.SMTPSourceNode {
+	if emailConfig.SMTPSource == alerts.SMTPSourceController {
 		systemConfig, configured, errSystem := xs.readStoredSystemSMTPConfig()
 		if errSystem != nil {
 			log.Error().Err(errSystem).Msg("failed to resolve local SMTP config for notification channel test")

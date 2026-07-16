@@ -11,10 +11,13 @@ import (
 )
 
 const (
-	// SMTPSourceNode uses the node-level SMTP configuration.
-	SMTPSourceNode = "node"
+	// SMTPSourceController uses the controller-level email configuration.
+	SMTPSourceController = "controller"
 	// SMTPSourceCustom uses SMTP settings stored on the notification channel itself.
 	SMTPSourceCustom = "custom"
+	// legacySMTPSourceNode is accepted so existing notification channels keep
+	// working after the hub-spoke terminology change.
+	legacySMTPSourceNode = "node"
 )
 
 // EmailChannelConfig stores email channel delivery settings.
@@ -40,6 +43,9 @@ func ParseEmailChannelConfig(raw string) (EmailChannelConfig, error) {
 
 	config.To = strings.TrimSpace(config.To)
 	config.SMTPSource = strings.TrimSpace(strings.ToLower(config.SMTPSource))
+	if config.SMTPSource == legacySMTPSourceNode {
+		config.SMTPSource = SMTPSourceController
+	}
 	config.SMTPHost = strings.TrimSpace(config.SMTPHost)
 	config.SMTPUser = strings.TrimSpace(config.SMTPUser)
 	config.SMTPFrom = strings.TrimSpace(config.SMTPFrom)
@@ -59,7 +65,7 @@ func (c EmailChannelConfig) Validate(requirePassword bool) error {
 	}
 
 	switch c.SMTPSource {
-	case SMTPSourceNode:
+	case SMTPSourceController:
 		return nil
 	case SMTPSourceCustom:
 		if c.SMTPHost == "" {
@@ -83,7 +89,7 @@ func (c EmailChannelConfig) Validate(requirePassword bool) error {
 		}
 		return nil
 	default:
-		return errors.New(`email notification channels require smtp_source to be "node" or "custom"`)
+		return errors.New(`email notification channels require smtp_source to be "controller" or "custom"`)
 	}
 }
 

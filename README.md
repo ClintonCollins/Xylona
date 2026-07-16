@@ -72,7 +72,26 @@ XYLONA_UPDATE_RESTART_MODE=self
 
 Metrics are disabled by default. Enable them explicitly when you intend to expose a Prometheus scrape target.
 
-Controller and node binary updates restart themselves by default. On Unix, Xylona replaces and executes the updated binary in the existing process after graceful shutdown, preserving systemd and container supervision. Windows uses a helper process because a running executable cannot be replaced. `XYLONA_UPDATE_RESTART_MODE=service-manager` retains the external-restart handoff for specially configured supervisors, but it is not auto-detected or advertised as supported; the supervisor must let the helper survive the service exit and delay its restart until replacement finishes.
+### Windows Service
+
+From an elevated PowerShell window, install the controller binary as an automatic Windows service and optionally start it immediately:
+
+```powershell
+.\xylona.exe service install --start
+```
+
+The installed service uses the directory containing `xylona.exe` as its working directory, so an existing `.env`, relative `DB_FILE_PATH`, and `data.sqlite` continue to resolve beside the binary. Windows runs the service as `LocalSystem`; keep the executable, configuration, database, and managed server directories writable only by trusted administrators. Service-mode logs are written to the Windows Application event log under the `Xylona` source.
+
+```powershell
+.\xylona.exe service status
+.\xylona.exe service stop
+.\xylona.exe service start
+.\xylona.exe service uninstall
+```
+
+Uninstalling removes only the Windows service registration. It does not delete the executable, configuration, database, game servers, or backups.
+
+Controller and node binary updates restart themselves by default. On Unix, Xylona replaces and executes the updated binary in the existing process after graceful shutdown, preserving systemd and container supervision. Windows uses a helper process because a running executable cannot be replaced. The built-in Windows service automatically selects `XYLONA_UPDATE_RESTART_MODE=service-manager` and configures delayed recovery restarts so the helper can replace the stopped binary before Windows starts it again. Other external supervisors can use the same mode, but must independently let the helper survive the service exit and delay restart until replacement finishes.
 
 System updates are downloaded, checksum-verified, capacity-checked, and staged before Xylona stops game servers on the target node. Update storage keeps the newest rollback executable and at most two unapplied staged updates; confirmed, superseded, expired, and orphaned handoff artifacts are reconciled automatically at startup and before the next update.
 

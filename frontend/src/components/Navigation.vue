@@ -190,7 +190,7 @@ const navLinks = computed((): NavItem[] => {
         groupItems: [],
       },
       {
-        title: 'Node Settings',
+        title: 'Controller Settings',
         icon: 'settings',
         link: '/admin/settings',
         expanded: true,

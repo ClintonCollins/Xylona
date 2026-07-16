@@ -1064,8 +1064,8 @@ func TestTestNotificationChannel_EmailCustomSendSuccess(t *testing.T) {
 		if to != "alerts@example.com" {
 			t.Errorf("to = %q, want %q", to, "alerts@example.com")
 		}
-		if subject != "Xylona SMTP Test" {
-			t.Errorf("subject = %q, want %q", subject, "Xylona SMTP Test")
+		if subject != "Xylona Email Delivery Test" {
+			t.Errorf("subject = %q, want %q", subject, "Xylona Email Delivery Test")
 		}
 		return nil
 	}
@@ -1105,7 +1105,7 @@ func TestTestNotificationChannel_EmailNodeSMTPSendSuccess(t *testing.T) {
 
 	fixture.service.testEmailSendFunc = func(_ context.Context, cfg *mailer.SMTPConfig, to string, _ string, _ string) error {
 		if cfg == nil {
-			t.Fatal("cfg = nil, want node SMTP config")
+			t.Fatal("cfg = nil, want controller SMTP config")
 		}
 		if cfg.Host != "smtp.example.com" {
 			t.Errorf("cfg.Host = %q, want %q", cfg.Host, "smtp.example.com")

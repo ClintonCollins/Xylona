@@ -130,6 +130,9 @@ func setupLogger(logLevel string) (func(), error) {
 
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr}
 	writer := io.Writer(consoleWriter)
+	if runtimeLogWriterOverride != nil {
+		writer = runtimeLogWriterOverride
+	}
 	cleanup := func() {}
 
 	logFile := os.Getenv("E2E_LOG_FILE")
@@ -265,8 +268,8 @@ func startupFailure(cleanupLogger func(), ctxCancel context.CancelFunc, err erro
 }
 
 // dbSMTPConfigResolver implements mailer.SystemConfigResolver by reading the
-// system SMTP config from the database at send time. This ensures the mailer
-// always uses the most recently saved configuration.
+// controller email config from the database at send time. This ensures the
+// mailer always uses the most recently saved configuration.
 type dbSMTPConfigResolver struct {
 	db *dbpkg.Connection
 }
@@ -274,22 +277,44 @@ type dbSMTPConfigResolver struct {
 func (r *dbSMTPConfigResolver) ResolveSystemSMTPConfig() (*mailer.SMTPConfig, error) {
 	jsonStr, errGet := r.db.GetSystemConfig("smtp_config")
 	if errGet != nil {
+		if errors.Is(errGet, sql.ErrNoRows) {
+			return nil, mailer.ErrNoSMTPConfig
+		}
 		return nil, fmt.Errorf("main: load SMTP config: %w", errGet)
 	}
 
 	config := &xylona.SystemSMTPConfig{}
 	errUnmarshal := protojson.Unmarshal([]byte(jsonStr), config)
 	if errUnmarshal != nil {
-		return nil, fmt.Errorf("failed to unmarshal system SMTP config: %w", errUnmarshal)
+		return nil, fmt.Errorf("failed to unmarshal controller email config: %w", errUnmarshal)
+	}
+	method := mailer.DeliveryMethodSMTP
+	if config.GetProvider() == xylona.SystemEmailProvider_SYSTEM_EMAIL_PROVIDER_GOOGLE {
+		if strings.TrimSpace(config.GetGoogleClientId()) == "" ||
+			strings.TrimSpace(config.GetGoogleClientSecret()) == "" ||
+			strings.TrimSpace(config.GetGoogleRefreshToken()) == "" ||
+			strings.TrimSpace(config.GetGoogleEmail()) == "" {
+			return nil, mailer.ErrNoSMTPConfig
+		}
+		method = mailer.DeliveryMethodGoogle
+	} else if strings.TrimSpace(config.GetHost()) == "" {
+		return nil, mailer.ErrNoSMTPConfig
 	}
 
 	return &mailer.SMTPConfig{
+		Method:     method,
 		Host:       config.GetHost(),
 		Port:       int(config.GetPort()),
 		User:       config.GetUser(),
 		Password:   config.GetPassword(),
 		From:       config.GetFromAddress(),
 		TLSEnabled: config.GetTlsEnabled(),
+		Google: &mailer.GoogleOAuthConfig{
+			ClientID:     config.GetGoogleClientId(),
+			ClientSecret: config.GetGoogleClientSecret(),
+			RefreshToken: config.GetGoogleRefreshToken(),
+			Email:        config.GetGoogleEmail(),
+		},
 	}, nil
 }
 
@@ -411,10 +436,11 @@ func main() {
 }
 
 var (
-	rootCLIStdout           = io.Writer(os.Stdout)
-	rootCLIStderr           = io.Writer(os.Stderr)
-	runServiceFunc          = runService
-	resolveCLIExecutableDir = os.Executable
+	rootCLIStdout            = io.Writer(os.Stdout)
+	rootCLIStderr            = io.Writer(os.Stderr)
+	runtimeLogWriterOverride io.Writer
+	runServiceFunc           = runService
+	resolveCLIExecutableDir  = os.Executable
 )
 
 func run(args []string) int {
@@ -443,6 +469,14 @@ func run(args []string) int {
 }
 
 func runService() (exitCode int) {
+	shutdownSignalChannel := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(shutdownSignalChannel)
+
+	return runServiceUntil(shutdownSignalChannel)
+}
+
+func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	var cleanupOnce sync.Once
 	cleanupLogger := func() {}
 	cleanup := func() {
@@ -649,6 +683,10 @@ func runService() (exitCode int) {
 	// Node bootstrap endpoint — auth is by the one-shot join token in the
 	// JSON body; does not require a session cookie.
 	router.Post("/api/node/bootstrap", rpc.NodeBootstrapHandler(dbInst, nodeRegistry))
+	// Google redirects from another site, so SameSite=Strict session cookies are
+	// intentionally unavailable here. The handler authenticates the short-lived,
+	// single-use state created by the superuser-only begin RPC.
+	router.Get(rpc.GoogleMailOAuthCallbackPath, xylonaService.GoogleMailOAuthCallback)
 
 	errDialRemotes := dialRegisteredRemoteNodes(ctx, dbInst, settings.NodeID, nodeRegistry)
 	if errDialRemotes != nil {
@@ -693,9 +731,6 @@ func runService() (exitCode int) {
 
 	games.RegisterInternalGames()
 
-	// Handle SIGINT and SIGTERM
-	shutdownSignalChannel := make(chan os.Signal, 1)
-	signal.Notify(shutdownSignalChannel, os.Interrupt, syscall.SIGTERM)
 	var startupFailed bool
 	var updateShutdownWatchdog *time.Timer
 	select {
@@ -741,6 +776,16 @@ func runService() (exitCode int) {
 }
 
 func newRootCommand(serviceAction func() int) *cli.Command {
+	commands := []*cli.Command{
+		usercmd.NewCommand(usercmd.Options{
+			Migrate: func(sqlDB *sql.DB) error {
+				return dbpkg.RunMigrations(sqlDB, migrations.FS, migrations.Root)
+			},
+			ResolveDefaultDBPath: resolveDefaultCLIUserDBPath,
+		}),
+	}
+	commands = append(commands, platformCommands()...)
+
 	return &cli.Command{
 		Name:      `xylona`,
 		Usage:     `Run the Xylona service or a management subcommand`,
@@ -751,14 +796,7 @@ func newRootCommand(serviceAction func() int) *cli.Command {
 			serviceAction()
 			return nil
 		},
-		Commands: []*cli.Command{
-			usercmd.NewCommand(usercmd.Options{
-				Migrate: func(sqlDB *sql.DB) error {
-					return dbpkg.RunMigrations(sqlDB, migrations.FS, migrations.Root)
-				},
-				ResolveDefaultDBPath: resolveDefaultCLIUserDBPath,
-			}),
-		},
+		Commands: commands,
 	}
 }
 

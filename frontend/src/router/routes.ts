@@ -186,7 +186,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: '/admin/settings',
-        component: () => import('pages/admin/NodeSettings.vue'),
+        component: () => import('pages/admin/ControllerSettings.vue'),
         beforeEnter: requireSuperUser,
       },
       {

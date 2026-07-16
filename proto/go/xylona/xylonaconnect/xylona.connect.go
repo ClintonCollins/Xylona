@@ -330,6 +330,12 @@ const (
 	XylonaSetSystemSMTPConfigProcedure = "/xylona.Xylona/SetSystemSMTPConfig"
 	// XylonaTestSystemSMTPProcedure is the fully-qualified name of the Xylona's TestSystemSMTP RPC.
 	XylonaTestSystemSMTPProcedure = "/xylona.Xylona/TestSystemSMTP"
+	// XylonaBeginGoogleMailOAuthProcedure is the fully-qualified name of the Xylona's
+	// BeginGoogleMailOAuth RPC.
+	XylonaBeginGoogleMailOAuthProcedure = "/xylona.Xylona/BeginGoogleMailOAuth"
+	// XylonaDisconnectGoogleMailProcedure is the fully-qualified name of the Xylona's
+	// DisconnectGoogleMail RPC.
+	XylonaDisconnectGoogleMailProcedure = "/xylona.Xylona/DisconnectGoogleMail"
 	// XylonaListScheduledTasksProcedure is the fully-qualified name of the Xylona's ListScheduledTasks
 	// RPC.
 	XylonaListScheduledTasksProcedure = "/xylona.Xylona/ListScheduledTasks"
@@ -510,6 +516,8 @@ type XylonaClient interface {
 	GetSystemSMTPConfig(context.Context, *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error)
 	SetSystemSMTPConfig(context.Context, *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error)
 	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
+	BeginGoogleMailOAuth(context.Context, *connect.Request[xylona.BeginGoogleMailOAuthRequest]) (*connect.Response[xylona.BeginGoogleMailOAuthResponse], error)
+	DisconnectGoogleMail(context.Context, *connect.Request[xylona.DisconnectGoogleMailRequest]) (*connect.Response[xylona.DisconnectGoogleMailResponse], error)
 	// Scheduled Tasks
 	ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error)
 	CreateScheduledTask(context.Context, *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error)
@@ -1245,6 +1253,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("TestSystemSMTP")),
 			connect.WithClientOptions(opts...),
 		),
+		beginGoogleMailOAuth: connect.NewClient[xylona.BeginGoogleMailOAuthRequest, xylona.BeginGoogleMailOAuthResponse](
+			httpClient,
+			baseURL+XylonaBeginGoogleMailOAuthProcedure,
+			connect.WithSchema(xylonaMethods.ByName("BeginGoogleMailOAuth")),
+			connect.WithClientOptions(opts...),
+		),
+		disconnectGoogleMail: connect.NewClient[xylona.DisconnectGoogleMailRequest, xylona.DisconnectGoogleMailResponse](
+			httpClient,
+			baseURL+XylonaDisconnectGoogleMailProcedure,
+			connect.WithSchema(xylonaMethods.ByName("DisconnectGoogleMail")),
+			connect.WithClientOptions(opts...),
+		),
 		listScheduledTasks: connect.NewClient[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse](
 			httpClient,
 			baseURL+XylonaListScheduledTasksProcedure,
@@ -1440,6 +1460,8 @@ type xylonaClient struct {
 	getSystemSMTPConfig              *connect.Client[xylona.GetSystemSMTPConfigRequest, xylona.GetSystemSMTPConfigResponse]
 	setSystemSMTPConfig              *connect.Client[xylona.SetSystemSMTPConfigRequest, xylona.SetSystemSMTPConfigResponse]
 	testSystemSMTP                   *connect.Client[xylona.TestSystemSMTPRequest, xylona.TestSystemSMTPResponse]
+	beginGoogleMailOAuth             *connect.Client[xylona.BeginGoogleMailOAuthRequest, xylona.BeginGoogleMailOAuthResponse]
+	disconnectGoogleMail             *connect.Client[xylona.DisconnectGoogleMailRequest, xylona.DisconnectGoogleMailResponse]
 	listScheduledTasks               *connect.Client[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse]
 	createScheduledTask              *connect.Client[xylona.CreateScheduledTaskRequest, xylona.CreateScheduledTaskResponse]
 	updateScheduledTask              *connect.Client[xylona.UpdateScheduledTaskRequest, xylona.UpdateScheduledTaskResponse]
@@ -2044,6 +2066,16 @@ func (c *xylonaClient) TestSystemSMTP(ctx context.Context, req *connect.Request[
 	return c.testSystemSMTP.CallUnary(ctx, req)
 }
 
+// BeginGoogleMailOAuth calls xylona.Xylona.BeginGoogleMailOAuth.
+func (c *xylonaClient) BeginGoogleMailOAuth(ctx context.Context, req *connect.Request[xylona.BeginGoogleMailOAuthRequest]) (*connect.Response[xylona.BeginGoogleMailOAuthResponse], error) {
+	return c.beginGoogleMailOAuth.CallUnary(ctx, req)
+}
+
+// DisconnectGoogleMail calls xylona.Xylona.DisconnectGoogleMail.
+func (c *xylonaClient) DisconnectGoogleMail(ctx context.Context, req *connect.Request[xylona.DisconnectGoogleMailRequest]) (*connect.Response[xylona.DisconnectGoogleMailResponse], error) {
+	return c.disconnectGoogleMail.CallUnary(ctx, req)
+}
+
 // ListScheduledTasks calls xylona.Xylona.ListScheduledTasks.
 func (c *xylonaClient) ListScheduledTasks(ctx context.Context, req *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error) {
 	return c.listScheduledTasks.CallUnary(ctx, req)
@@ -2246,6 +2278,8 @@ type XylonaHandler interface {
 	GetSystemSMTPConfig(context.Context, *connect.Request[xylona.GetSystemSMTPConfigRequest]) (*connect.Response[xylona.GetSystemSMTPConfigResponse], error)
 	SetSystemSMTPConfig(context.Context, *connect.Request[xylona.SetSystemSMTPConfigRequest]) (*connect.Response[xylona.SetSystemSMTPConfigResponse], error)
 	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
+	BeginGoogleMailOAuth(context.Context, *connect.Request[xylona.BeginGoogleMailOAuthRequest]) (*connect.Response[xylona.BeginGoogleMailOAuthResponse], error)
+	DisconnectGoogleMail(context.Context, *connect.Request[xylona.DisconnectGoogleMailRequest]) (*connect.Response[xylona.DisconnectGoogleMailResponse], error)
 	// Scheduled Tasks
 	ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error)
 	CreateScheduledTask(context.Context, *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error)
@@ -2977,6 +3011,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("TestSystemSMTP")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaBeginGoogleMailOAuthHandler := connect.NewUnaryHandler(
+		XylonaBeginGoogleMailOAuthProcedure,
+		svc.BeginGoogleMailOAuth,
+		connect.WithSchema(xylonaMethods.ByName("BeginGoogleMailOAuth")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaDisconnectGoogleMailHandler := connect.NewUnaryHandler(
+		XylonaDisconnectGoogleMailProcedure,
+		svc.DisconnectGoogleMail,
+		connect.WithSchema(xylonaMethods.ByName("DisconnectGoogleMail")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaListScheduledTasksHandler := connect.NewUnaryHandler(
 		XylonaListScheduledTasksProcedure,
 		svc.ListScheduledTasks,
@@ -3287,6 +3333,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSetSystemSMTPConfigHandler.ServeHTTP(w, r)
 		case XylonaTestSystemSMTPProcedure:
 			xylonaTestSystemSMTPHandler.ServeHTTP(w, r)
+		case XylonaBeginGoogleMailOAuthProcedure:
+			xylonaBeginGoogleMailOAuthHandler.ServeHTTP(w, r)
+		case XylonaDisconnectGoogleMailProcedure:
+			xylonaDisconnectGoogleMailHandler.ServeHTTP(w, r)
 		case XylonaListScheduledTasksProcedure:
 			xylonaListScheduledTasksHandler.ServeHTTP(w, r)
 		case XylonaCreateScheduledTaskProcedure:
@@ -3790,6 +3840,14 @@ func (UnimplementedXylonaHandler) SetSystemSMTPConfig(context.Context, *connect.
 
 func (UnimplementedXylonaHandler) TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.TestSystemSMTP is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) BeginGoogleMailOAuth(context.Context, *connect.Request[xylona.BeginGoogleMailOAuthRequest]) (*connect.Response[xylona.BeginGoogleMailOAuthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.BeginGoogleMailOAuth is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) DisconnectGoogleMail(context.Context, *connect.Request[xylona.DisconnectGoogleMailRequest]) (*connect.Response[xylona.DisconnectGoogleMailResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DisconnectGoogleMail is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error) {

@@ -165,6 +165,8 @@ service Xylona {
   rpc GetSystemSMTPConfig (GetSystemSMTPConfigRequest) returns (GetSystemSMTPConfigResponse) {}
   rpc SetSystemSMTPConfig (SetSystemSMTPConfigRequest) returns (SetSystemSMTPConfigResponse) {}
   rpc TestSystemSMTP (TestSystemSMTPRequest) returns (TestSystemSMTPResponse) {}
+  rpc BeginGoogleMailOAuth (BeginGoogleMailOAuthRequest) returns (BeginGoogleMailOAuthResponse) {}
+  rpc DisconnectGoogleMail (DisconnectGoogleMailRequest) returns (DisconnectGoogleMailResponse) {}
 
   // Scheduled Tasks
   rpc ListScheduledTasks (ListScheduledTasksRequest) returns (ListScheduledTasksResponse) {}
@@ -1367,6 +1369,8 @@ message GetSystemSMTPConfigResponse {
   SystemSMTPConfig config = 1;
   bool configured = 2;
   bool password_configured = 3;
+  bool google_client_secret_configured = 4;
+  bool google_connected = 5;
 }
 
 message SetSystemSMTPConfigRequest {
@@ -1381,6 +1385,18 @@ message TestSystemSMTPResponse {
   bool success = 1;
   string error = 2;
 }
+
+message BeginGoogleMailOAuthRequest {
+  string client_id = 1;
+  string client_secret = 2;
+  string redirect_uri = 3;
+}
+message BeginGoogleMailOAuthResponse {
+  string authorization_url = 1;
+}
+
+message DisconnectGoogleMailRequest {}
+message DisconnectGoogleMailResponse {}
 
 // --- Scheduled Tasks ---
 

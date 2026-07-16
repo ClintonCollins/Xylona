@@ -62,6 +62,10 @@ type XylonaService struct {
 	dummyTracker                   *versiontracker.DummyTracker
 	userService                    *usermgmt.Service
 	testEmailSendFunc              func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
+	googleMailOAuthMu              sync.Mutex
+	googleMailOAuthStates          map[string]googleMailOAuthState
+	googleMailExchangeFunc         googleMailExchangeFunc
+	googleMailRevokeFunc           googleMailRevokeFunc
 	notificationChannelTestOnce    sync.Once
 	notificationChannelTestLimiter *notificationChannelTestRateLimiter
 	taskScheduler                  *scheduler.Scheduler
@@ -144,8 +148,8 @@ func (xs *XylonaService) getNotificationChannelTestLimiter() *notificationChanne
 func (xs *XylonaService) resolvedSendTestEmailFunc() func(ctx context.Context, cfg *mailer.SMTPConfig, to string) error {
 	if xs.testEmailSendFunc != nil {
 		return func(ctx context.Context, cfg *mailer.SMTPConfig, to string) error {
-			return xs.testEmailSendFunc(ctx, cfg, to, "Xylona SMTP Test",
-				"This is a test email from Xylona to verify your SMTP configuration.")
+			return xs.testEmailSendFunc(ctx, cfg, to, "Xylona Email Delivery Test",
+				"This is a test email from Xylona to verify your email delivery configuration.")
 		}
 	}
 	return mailer.SendTestEmail

@@ -1,4 +1,5 @@
-// Package mailer delivers email notifications through SMTP.
+// Package mailer delivers email notifications through controller and
+// per-channel transports.
 package mailer
 
 import (
@@ -18,17 +19,42 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/webhooks"
 )
 
-// ErrNoSMTPConfig is returned when no SMTP configuration is available.
-var ErrNoSMTPConfig = errors.New("mailer: no SMTP configuration available")
+// ErrNoSMTPConfig is returned when no email delivery configuration is available.
+// The historic name is retained for compatibility with callers.
+var ErrNoSMTPConfig = errors.New("mailer: no email delivery configuration available")
 
-// SMTPConfig holds the SMTP server connection details.
+// DeliveryMethod identifies the active controller-level email transport.
+type DeliveryMethod string
+
+const (
+	// DeliveryMethodSMTP sends mail through a manually configured SMTP server.
+	DeliveryMethodSMTP DeliveryMethod = "smtp"
+	// DeliveryMethodGoogle sends mail through the Gmail API using OAuth 2.0.
+	DeliveryMethodGoogle DeliveryMethod = "google"
+)
+
+// GoogleOAuthConfig holds the credentials needed to refresh Google access and
+// send mail as the connected account. Values are stored encrypted by the
+// controller's system configuration persistence.
+type GoogleOAuthConfig struct {
+	ClientID     string
+	ClientSecret string
+	RefreshToken string
+	Email        string
+}
+
+// SMTPConfig holds the active controller-level email delivery details. The
+// historic name is retained because notification channels can still override
+// the controller transport with their own SMTP configuration.
 type SMTPConfig struct {
+	Method     DeliveryMethod
 	Host       string
 	Port       int
 	User       string
 	Password   string
 	From       string
 	TLSEnabled bool
+	Google     *GoogleOAuthConfig
 }
 
 // Addr returns the host:port address string for the SMTP server.
@@ -51,17 +77,17 @@ var defaultRetryConfig = retryConfig{
 // dialTimeout is the connection timeout for SMTP dial operations.
 const dialTimeout = 10 * time.Second
 
-// SystemConfigResolver provides the current system SMTP configuration at send
-// time. This allows the mailer to pick up configuration changes without restart.
+// SystemConfigResolver provides the current controller email configuration at
+// send time. This allows the mailer to pick up changes without restart.
 type SystemConfigResolver interface {
 	ResolveSystemSMTPConfig() (*SMTPConfig, error)
 }
 
-// sendFunc is the function signature for sending an email via SMTP.
+// sendFunc is the function signature for sending an email.
 // This allows injection of test doubles.
 type sendFunc func(ctx context.Context, config *SMTPConfig, to string, subject string, body string) error
 
-// Mailer delivers email notifications using SMTP.
+// Mailer delivers email notifications through manual SMTP or the Gmail API.
 type Mailer struct {
 	systemResolver SystemConfigResolver
 	retry          retryConfig
@@ -69,13 +95,14 @@ type Mailer struct {
 }
 
 // New creates a Mailer with the given system config resolver. The resolver is
-// called at send time to get the current system SMTP config from the DB. Pass
-// nil if no system-level SMTP is available (per-channel config is still usable).
+// called at send time to get the current controller email config from the DB.
+// Pass nil if no controller-level transport is available (per-channel SMTP is
+// still usable).
 func New(systemResolver SystemConfigResolver) *Mailer {
 	return &Mailer{
 		systemResolver: systemResolver,
 		retry:          defaultRetryConfig,
-		sendFunc:       sendSMTP,
+		sendFunc:       sendEmail,
 	}
 }
 
@@ -197,15 +224,15 @@ func FormatBody(event webhooks.AlertEvent) string {
 }
 
 // testEmailSubject is the subject line used by SendTestEmail.
-const testEmailSubject = "Xylona SMTP Test"
+const testEmailSubject = "Xylona Email Delivery Test"
 
 // testEmailBody is the body text used by SendTestEmail.
-const testEmailBody = "This is a test email from Xylona to verify your SMTP configuration."
+const testEmailBody = "This is a test email from Xylona to verify your email delivery configuration."
 
-// SendTestEmail sends a one-shot test email using the provided SMTP config.
-// It uses the production sendSMTP path so the test exercises real SMTP delivery.
+// SendTestEmail sends a one-shot test email using the configured transport.
+// It uses the production delivery path so the test exercises the real provider.
 func SendTestEmail(ctx context.Context, cfg *SMTPConfig, toAddress string) error {
-	return sendTestEmailWithSender(ctx, cfg, toAddress, sendSMTP)
+	return sendTestEmailWithSender(ctx, cfg, toAddress, sendEmail)
 }
 
 // sendTestEmailWithSender is the internal implementation that accepts an injectable send
@@ -257,7 +284,10 @@ func (m *Mailer) resolveSystemConfig() *SMTPConfig {
 	}
 	config, errResolve := m.systemResolver.ResolveSystemSMTPConfig()
 	if errResolve != nil {
-		log.Warn().Err(errResolve).Msg("Failed to resolve system SMTP config")
+		if errors.Is(errResolve, ErrNoSMTPConfig) {
+			return nil
+		}
+		log.Warn().Err(errResolve).Msg("Failed to resolve controller email config")
 		return nil
 	}
 	return config
@@ -271,6 +301,21 @@ func resolveConfig(systemConfig *SMTPConfig, perChannelConfig *SMTPConfig) *SMTP
 		return perChannelConfig
 	}
 	return systemConfig
+}
+
+func sendEmail(ctx context.Context, config *SMTPConfig, to string, subject string, body string) error {
+	if config == nil {
+		return ErrNoSMTPConfig
+	}
+
+	switch config.Method {
+	case "", DeliveryMethodSMTP:
+		return sendSMTP(ctx, config, to, subject, body)
+	case DeliveryMethodGoogle:
+		return sendGoogleAPI(ctx, config, to, subject, body)
+	default:
+		return fmt.Errorf("mailer: unsupported email delivery method %q", config.Method)
+	}
 }
 
 // sendSMTP is the production implementation that sends an email via SMTP.

@@ -503,19 +503,23 @@
             <q-select
               v-model="channelForm.smtpSource"
               :options="smtpSourceOptions"
-              aria-label="SMTP source"
+              aria-label="Email delivery source"
               class="q-mb-md"
               dense
               emit-value
-              label="SMTP Source"
+              label="Email Delivery"
               map-options
               outlined />
-            <div v-if="channelForm.smtpSource === 'node'" class="q-mb-md">
+            <div v-if="channelForm.smtpSource === 'controller'" class="q-mb-md">
               <q-badge
-                :color="nodeSMTPConfigured ? 'positive' : 'warning'"
-                :label="nodeSMTPConfigured ? 'Node SMTP configured' : 'Node SMTP not configured'" />
+                :color="controllerEmailConfigured ? 'positive' : 'warning'"
+                :label="
+                  controllerEmailConfigured
+                    ? 'Controller email configured'
+                    : 'Controller email not configured'
+                " />
               <div class="text-caption text-xy-secondary q-mt-sm">
-                Transport and from address come from Admin -> Node Settings.
+                Delivery provider and sender come from Admin -> Controller Settings.
               </div>
             </div>
             <template v-else>
@@ -845,9 +849,9 @@ function confirmDeleteChannel(channel: NotificationChannel): void {
 const showChannelDialog = ref(false)
 const channelSaving = ref(false)
 const editingChannel = ref<NotificationChannel | null>(null)
-const nodeSMTPConfigured = ref(false)
+const controllerEmailConfigured = ref(false)
 
-type SMTPSource = 'node' | 'custom'
+type SMTPSource = 'controller' | 'custom'
 
 interface ChannelForm {
   name: string
@@ -871,7 +875,7 @@ function defaultChannelForm(): ChannelForm {
     channelType: NotificationChannelType.WEBHOOK_DISCORD,
     webhookUrl: '',
     emailTo: '',
-    smtpSource: 'node',
+    smtpSource: 'controller',
     smtpHost: '',
     smtpPort: 587,
     smtpUser: '',
@@ -886,7 +890,7 @@ function defaultChannelForm(): ChannelForm {
 const channelForm = ref<ChannelForm>(defaultChannelForm())
 
 const smtpSourceOptions = [
-  { label: 'Use Node Settings SMTP', value: 'node' },
+  { label: 'Use Controller Settings', value: 'controller' },
   { label: 'Use Custom SMTP', value: 'custom' },
 ]
 
@@ -895,9 +899,9 @@ async function loadLocalSMTPStatus(): Promise<void> {
     const response = await GetXylonaClient().getLocalSMTPStatus(
       create(GetLocalSMTPStatusRequestSchema, {}),
     )
-    nodeSMTPConfigured.value = response.configured
+    controllerEmailConfigured.value = response.configured
   } catch {
-    nodeSMTPConfigured.value = false
+    controllerEmailConfigured.value = false
   }
 }
 
@@ -926,7 +930,7 @@ function openChannelDialog(channel: NotificationChannel | null): void {
         channelForm.value.webhookUrl = (config.url as string) || ''
       } else if (channel.channelType === NotificationChannelType.EMAIL) {
         channelForm.value.emailTo = (config.to as string) || ''
-        channelForm.value.smtpSource = ((config.smtp_source as SMTPSource) || 'node') as SMTPSource
+        channelForm.value.smtpSource = config.smtp_source === 'custom' ? 'custom' : 'controller'
         channelForm.value.smtpHost = (config.smtp_host as string) || ''
         channelForm.value.smtpPort = (config.smtp_port as number) || 587
         channelForm.value.smtpUser = (config.smtp_user as string) || ''
@@ -960,10 +964,10 @@ function buildConfigJson(): string {
     return JSON.stringify({ url: channelForm.value.webhookUrl })
   }
   if (channelForm.value.channelType === NotificationChannelType.EMAIL) {
-    if (channelForm.value.smtpSource === 'node') {
+    if (channelForm.value.smtpSource === 'controller') {
       return JSON.stringify({
         to: channelForm.value.emailTo,
-        smtp_source: 'node',
+        smtp_source: 'controller',
       })
     }
 
@@ -996,12 +1000,12 @@ async function saveChannel(): Promise<void> {
 
   if (
     channelForm.value.channelType === NotificationChannelType.EMAIL &&
-    channelForm.value.smtpSource === 'node' &&
-    !nodeSMTPConfigured.value
+    channelForm.value.smtpSource === 'controller' &&
+    !controllerEmailConfigured.value
   ) {
     $q.notify({
       type: 'xylona-error',
-      caption: 'Node SMTP is not configured in Admin -> Node Settings',
+      caption: 'Controller email is not configured in Admin -> Controller Settings',
       position: 'top',
       timeout: 3000,
     })

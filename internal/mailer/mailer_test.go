@@ -743,10 +743,10 @@ func TestSendTestEmail_CallsSendFuncWithTestContent(t *testing.T) {
 	if capturedTo != "recipient@example.com" {
 		t.Errorf("to = %q, want %q", capturedTo, "recipient@example.com")
 	}
-	if capturedSubject != "Xylona SMTP Test" {
-		t.Errorf("subject = %q, want %q", capturedSubject, "Xylona SMTP Test")
+	if capturedSubject != "Xylona Email Delivery Test" {
+		t.Errorf("subject = %q, want %q", capturedSubject, "Xylona Email Delivery Test")
 	}
-	wantBody := "This is a test email from Xylona to verify your SMTP configuration."
+	wantBody := "This is a test email from Xylona to verify your email delivery configuration."
 	if capturedBody != wantBody {
 		t.Errorf("body = %q, want %q", capturedBody, wantBody)
 	}

@@ -630,6 +630,12 @@ message AlertHistoryEntry {
   google.protobuf.Timestamp created_at = 12;
 }
 
+enum SystemEmailProvider {
+  SYSTEM_EMAIL_PROVIDER_UNSPECIFIED = 0;
+  SYSTEM_EMAIL_PROVIDER_SMTP = 1;
+  SYSTEM_EMAIL_PROVIDER_GOOGLE = 2;
+}
+
 message SystemSMTPConfig {
   string host = 1;
   int32 port = 2;
@@ -637,6 +643,11 @@ message SystemSMTPConfig {
   string password = 4;
   string from_address = 5;
   bool tls_enabled = 6;
+  SystemEmailProvider provider = 7;
+  string google_client_id = 8;
+  string google_client_secret = 9;
+  string google_refresh_token = 10;
+  string google_email = 11;
 }
 
 // --- Scheduled Tasks ---
