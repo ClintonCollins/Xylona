@@ -1,6 +1,7 @@
 package query
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -39,9 +40,49 @@ type palworldMetricsResponse struct {
 
 type palworldPlayersResponse struct {
 	Players []struct {
-		Name string `json:"name"`
+		Name   string `json:"name"`
+		UserID string `json:"userId"`
 	} `json:"players"`
 }
+
+// PalworldPlayer is a player identity returned by Palworld's administrative
+// REST API. UserID is the stable identifier accepted by kick and ban APIs.
+type PalworldPlayer struct {
+	Name   string
+	UserID string
+}
+
+// PalworldInfo is the complete Palworld REST query result, including stable
+// player identifiers that are intentionally excluded from the broad public
+// server-query feed.
+type PalworldInfo struct {
+	Name              string
+	Description       string
+	Version           string
+	WorldGUID         string
+	Players           uint32
+	MaxPlayers        uint32
+	PlayerDetails     []PalworldPlayer
+	UptimeSeconds     uint64
+	ServerFPS         float64
+	ServerFrameTimeMS float64
+	Days              uint32
+	Responded         bool
+}
+
+// PalworldPlayerAction is a typed Palworld administrative REST action.
+type PalworldPlayerAction int
+
+const (
+	// PalworldPlayerActionUnknown is invalid and sends no request.
+	PalworldPlayerActionUnknown PalworldPlayerAction = iota
+	// PalworldPlayerActionKick disconnects an online player.
+	PalworldPlayerActionKick
+	// PalworldPlayerActionBan blocks a player from joining.
+	PalworldPlayerActionBan
+	// PalworldPlayerActionUnban removes a player ban.
+	PalworldPlayerActionUnban
+)
 
 // Palworld queries the authenticated Palworld REST API exposed on the node
 // host. The API is intentionally queried from the node because Palworld warns
@@ -53,36 +94,44 @@ func Palworld(
 	username string,
 	password string,
 ) (*xylona.PalworldQueryInfo, error) {
-	client := &http.Client{Timeout: palworldQueryTimeout}
-	return palworldWithClient(ctx, client, host, port, username, password)
+	info, errQuery := PalworldDetailed(ctx, host, port, username, password)
+	if errQuery != nil {
+		return nil, errQuery
+	}
+	return palworldInfoToProto(info), nil
 }
 
-func palworldWithClient(
+// PalworldDetailed queries Palworld and retains the stable user IDs required
+// for typed administrative actions.
+func PalworldDetailed(
+	ctx context.Context,
+	host string,
+	port int,
+	username string,
+	password string,
+) (*PalworldInfo, error) {
+	client := &http.Client{Timeout: palworldQueryTimeout}
+	return palworldDetailedWithClient(ctx, client, host, port, username, password)
+}
+
+func palworldDetailedWithClient(
 	ctx context.Context,
 	client *http.Client,
 	host string,
 	port int,
 	username string,
 	password string,
-) (*xylona.PalworldQueryInfo, error) {
+) (*PalworldInfo, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if client == nil {
 		return nil, errors.New("palworld query HTTP client is nil")
 	}
-	if port < 1 || port > 65535 {
-		return nil, fmt.Errorf("palworld query port %d is invalid", port)
+	baseURL, errBaseURL := palworldBaseURL(host, port, username, password)
+	if errBaseURL != nil {
+		return nil, errBaseURL
 	}
-	queryHost := normalizePalworldQueryHost(host)
-	if queryHost == "" {
-		return nil, errors.New("palworld query host is required")
-	}
-	if strings.TrimSpace(username) == "" || password == "" {
-		return nil, errors.New("palworld query credentials are required")
-	}
-
-	baseURL := "http://" + net.JoinHostPort(queryHost, strconv.Itoa(port)) + "/v1/api"
 	var serverInfo palworldServerInfoResponse
 	errInfo := getPalworldJSON(ctx, client, baseURL+"/info", username, password, &serverInfo)
 	if errInfo != nil {
@@ -101,29 +150,169 @@ func palworldWithClient(
 		return nil, fmt.Errorf("query palworld players: %w", errPlayers)
 	}
 
-	playerNames := make([]string, 0, len(players.Players))
+	playerDetails := make([]PalworldPlayer, 0, len(players.Players))
 	for _, player := range players.Players {
 		name := strings.TrimSpace(player.Name)
-		if name == "" {
+		userID := strings.TrimSpace(player.UserID)
+		if name == "" && userID == "" {
 			continue
 		}
-		playerNames = append(playerNames, name)
+		if name == "" {
+			name = userID
+		}
+		playerDetails = append(playerDetails, PalworldPlayer{Name: name, UserID: userID})
 	}
 
-	return &xylona.PalworldQueryInfo{
+	return &PalworldInfo{
 		Name:              serverInfo.ServerName,
 		Description:       serverInfo.Description,
 		Version:           serverInfo.Version,
-		WorldGuid:         serverInfo.WorldGUID,
+		WorldGUID:         serverInfo.WorldGUID,
 		Players:           helpers.ClampUint32FromInt64(metrics.CurrentPlayers),
 		MaxPlayers:        helpers.ClampUint32FromInt64(metrics.MaxPlayers),
-		PlayerList:        playerNames,
+		PlayerDetails:     playerDetails,
 		UptimeSeconds:     clampUint64(metrics.UptimeSeconds),
-		ServerFps:         metrics.ServerFPS,
-		ServerFrameTimeMs: metrics.ServerFrameTimeMS,
+		ServerFPS:         metrics.ServerFPS,
+		ServerFrameTimeMS: metrics.ServerFrameTimeMS,
 		Days:              helpers.ClampUint32FromInt64(metrics.Days),
 		Responded:         true,
 	}, nil
+}
+
+// PerformPalworldPlayerAction sends a typed kick, ban, or unban request to the
+// official Palworld administrative REST API.
+func PerformPalworldPlayerAction(
+	ctx context.Context,
+	host string,
+	port int,
+	username string,
+	password string,
+	action PalworldPlayerAction,
+	userID string,
+	message string,
+) error {
+	client := &http.Client{Timeout: palworldQueryTimeout}
+	return performPalworldPlayerActionWithClient(
+		ctx,
+		client,
+		host,
+		port,
+		username,
+		password,
+		action,
+		userID,
+		message,
+	)
+}
+
+func performPalworldPlayerActionWithClient(
+	ctx context.Context,
+	client *http.Client,
+	host string,
+	port int,
+	username string,
+	password string,
+	action PalworldPlayerAction,
+	userID string,
+	message string,
+) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if client == nil {
+		return errors.New("palworld action HTTP client is nil")
+	}
+	baseURL, errBaseURL := palworldBaseURL(host, port, username, password)
+	if errBaseURL != nil {
+		return errBaseURL
+	}
+
+	var endpoint string
+	switch action {
+	case PalworldPlayerActionKick:
+		endpoint = "/kick"
+	case PalworldPlayerActionBan:
+		endpoint = "/ban"
+	case PalworldPlayerActionUnban:
+		endpoint = "/unban"
+		message = ""
+	default:
+		return errors.New("palworld player action is unsupported")
+	}
+
+	payload := struct {
+		UserID  string `json:"userid"`
+		Message string `json:"message,omitempty"`
+	}{
+		UserID:  userID,
+		Message: message,
+	}
+	body, errMarshal := json.Marshal(payload)
+	if errMarshal != nil {
+		return fmt.Errorf("marshal palworld player action: %w", errMarshal)
+	}
+	request, errRequest := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+endpoint, bytes.NewReader(body))
+	if errRequest != nil {
+		return fmt.Errorf("create palworld player action request: %w", errRequest)
+	}
+	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Content-Type", "application/json")
+	request.SetBasicAuth(username, password)
+
+	response, errDo := client.Do(request)
+	if errDo != nil {
+		return fmt.Errorf("send palworld player action: %w", errDo)
+	}
+	responseBody, errRead := io.ReadAll(io.LimitReader(response.Body, palworldMaxResponseBodyLen+1))
+	errClose := response.Body.Close()
+	if errRead != nil || errClose != nil {
+		return fmt.Errorf("read palworld player action response: %w", errors.Join(errRead, errClose))
+	}
+	if len(responseBody) > palworldMaxResponseBodyLen {
+		return fmt.Errorf("palworld player action response exceeds %d bytes", palworldMaxResponseBodyLen)
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("palworld player action returned unexpected HTTP status %s", response.Status)
+	}
+	return nil
+}
+
+func palworldInfoToProto(info *PalworldInfo) *xylona.PalworldQueryInfo {
+	if info == nil {
+		return nil
+	}
+	playerNames := make([]string, 0, len(info.PlayerDetails))
+	for _, player := range info.PlayerDetails {
+		playerNames = append(playerNames, player.Name)
+	}
+	return &xylona.PalworldQueryInfo{
+		Name:              info.Name,
+		Description:       info.Description,
+		Version:           info.Version,
+		WorldGuid:         info.WorldGUID,
+		Players:           info.Players,
+		MaxPlayers:        info.MaxPlayers,
+		PlayerList:        playerNames,
+		UptimeSeconds:     info.UptimeSeconds,
+		ServerFps:         info.ServerFPS,
+		ServerFrameTimeMs: info.ServerFrameTimeMS,
+		Days:              info.Days,
+		Responded:         info.Responded,
+	}
+}
+
+func palworldBaseURL(host string, port int, username string, password string) (string, error) {
+	if port < 1 || port > 65535 {
+		return "", fmt.Errorf("palworld query port %d is invalid", port)
+	}
+	queryHost := normalizePalworldQueryHost(host)
+	if queryHost == "" {
+		return "", errors.New("palworld query host is required")
+	}
+	if strings.TrimSpace(username) == "" || password == "" {
+		return "", errors.New("palworld query credentials are required")
+	}
+	return "http://" + net.JoinHostPort(queryHost, strconv.Itoa(port)) + "/v1/api", nil
 }
 
 func normalizePalworldQueryHost(host string) string {

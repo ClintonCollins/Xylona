@@ -51,6 +51,8 @@ type callRecorder struct {
 	probeResp        *nodeprotov1.ProbeInstalledVersionResponse
 	queryReq         *nodeprotov1.QueryGameServerRequest
 	queryResp        *nodeprotov1.QueryGameServerResponse
+	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
+	playerActionErr  error
 	fileArchiveReq   *nodeprotov1.CreateFileArchiveRequest
 	fileArchiveResp  []*nodeprotov1.CreateFileArchiveResponse
 	fileExtractReq   *nodeprotov1.ExtractFileArchiveRequest
@@ -175,6 +177,18 @@ func (s *stubHandler) QueryGameServer(_ context.Context, req *connect.Request[no
 		resp = &nodeprotov1.QueryGameServerResponse{}
 	}
 	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) PerformGameServerPlayerAction(_ context.Context, req *connect.Request[nodeprotov1.PerformGameServerPlayerActionRequest]) (*connect.Response[nodeprotov1.PerformGameServerPlayerActionResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.playerActionReq = req.Msg
+	errAction := s.rec.playerActionErr
+	s.rec.mu.Unlock()
+	if errAction != nil {
+		return nil, errAction
+	}
+	return connect.NewResponse(&nodeprotov1.PerformGameServerPlayerActionResponse{}), nil
 }
 
 func (s *stubHandler) StreamCreateFileArchive(_ context.Context, req *connect.Request[nodeprotov1.CreateFileArchiveRequest], stream *connect.ServerStream[nodeprotov1.CreateFileArchiveResponse]) error {
@@ -527,6 +541,7 @@ func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
 				MaxPlayers:    20,
 				UptimeSeconds: 120,
 				Responded:     true,
+				PlayerDetails: []*nodeprotov1.GameServerPlayer{{Name: "Alex", Id: "steam_1"}},
 			},
 		},
 	}
@@ -550,6 +565,9 @@ func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
 	if result.Palworld.Players != 3 || result.Palworld.Version != "v1.2.3" || !result.Palworld.Responded {
 		t.Fatalf("Palworld result = %+v, want configured response", result.Palworld)
 	}
+	if len(result.Palworld.PlayerDetails) != 1 || result.Palworld.PlayerDetails[0] != (node.GameServerPlayer{Name: "Alex", ID: "steam_1"}) {
+		t.Fatalf("Palworld player details = %+v", result.Palworld.PlayerDetails)
+	}
 
 	rec.mu.Lock()
 	defer rec.mu.Unlock()
@@ -561,6 +579,57 @@ func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
 	}
 	if rec.queryReq.GetUsername() != "admin" || rec.queryReq.GetPassword() != "query-secret" {
 		t.Fatal("query request did not preserve Palworld credentials")
+	}
+}
+
+func TestGRPCClientPerformGameServerPlayerActionRoundTrips(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	errAction := client.PerformGameServerPlayerAction(t.Context(), node.GameServerPlayerActionRequest{
+		Kind:      node.GameServerQueryKindPalworld,
+		Action:    node.GameServerPlayerActionBan,
+		ProcessID: "server-1",
+		IP:        "203.0.113.10",
+		QueryPort: 8212,
+		Username:  "admin",
+		Password:  "secret",
+		PlayerID:  "steam_1",
+		Reason:    "Abuse",
+	})
+	if errAction != nil {
+		t.Fatalf("PerformGameServerPlayerAction: %v", errAction)
+	}
+
+	rec.mu.Lock()
+	request := rec.playerActionReq
+	rec.mu.Unlock()
+	if request.GetKind() != nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD ||
+		request.GetAction() != nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_BAN ||
+		request.GetPlayerId() != "steam_1" || request.GetReason() != "Abuse" {
+		t.Fatalf("player action request = %+v", request)
+	}
+}
+
+func TestGRPCClientPerformGameServerPlayerActionTranslatesValidationErrors(t *testing.T) {
+	t.Parallel()
+	rec := &callRecorder{
+		playerActionErr: connect.NewError(connect.CodeInvalidArgument, errors.New("invalid player")),
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	errAction := client.PerformGameServerPlayerAction(t.Context(), node.GameServerPlayerActionRequest{})
+	if !errors.Is(errAction, node.ErrInvalidPlayerAction) {
+		t.Fatalf("PerformGameServerPlayerAction error = %v, want invalid player action", errAction)
 	}
 }
 
@@ -810,6 +879,7 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 			LaunchEnv:                true,
 			ReliableProcessLifecycle: true,
 			TelnetInput:              true,
+			PlayerActions:            true,
 		},
 	}
 	url, fingerprint := newPinnedTestServer(t, rec)
@@ -819,7 +889,7 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	if errCaps != nil {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
-	if caps.ProtocolVersion != 7 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle || !caps.TelnetInput {
+	if caps.ProtocolVersion != 7 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle || !caps.TelnetInput || !caps.PlayerActions {
 		t.Fatalf("runtime capabilities = %+v, want all optional features", caps)
 	}
 }

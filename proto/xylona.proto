@@ -73,6 +73,8 @@ service Xylona {
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
   rpc QueryGameServer (QueryGameServerRequest) returns (QueryGameServerResponse) {}
+  rpc GetGameServerPlayerManagement (GetGameServerPlayerManagementRequest) returns (GetGameServerPlayerManagementResponse) {}
+  rpc PerformGameServerPlayerAction (PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse) {}
 
   rpc GetUpdateTargets (GetUpdateTargetsRequest) returns (GetUpdateTargetsResponse) {}
   rpc SetServerVariant (SetServerVariantRequest) returns (SetServerVariantResponse) {}
@@ -1506,3 +1508,38 @@ message RestoreGameServerBackupRequest {
 }
 
 message RestoreGameServerBackupResponse {}
+
+enum GameServerPlayerAction {
+  GAME_SERVER_PLAYER_ACTION_UNSPECIFIED = 0;
+  GAME_SERVER_PLAYER_ACTION_KICK = 1;
+  GAME_SERVER_PLAYER_ACTION_BAN = 2;
+  GAME_SERVER_PLAYER_ACTION_UNBAN = 3;
+  GAME_SERVER_PLAYER_ACTION_ALLOWLIST_ADD = 4;
+  GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE = 5;
+}
+
+message GameServerPlayerManagementCapabilities {
+  bool actions_supported = 1;
+  string unavailable_reason = 2;
+  string identifier_label = 3;
+  repeated GameServerPlayerAction supported_actions = 4;
+}
+
+message GetGameServerPlayerManagementRequest {
+  string game_server_id = 1;
+}
+
+message GetGameServerPlayerManagementResponse {
+  GameServerPlayerManagementCapabilities capabilities = 1;
+  repeated GameServerPlayer players = 2;
+  Status status = 3;
+}
+
+message PerformGameServerPlayerActionRequest {
+  string game_server_id = 1;
+  GameServerPlayerAction action = 2;
+  string player_id = 3;
+  optional string reason = 4;
+}
+
+message PerformGameServerPlayerActionResponse {}

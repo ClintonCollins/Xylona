@@ -116,6 +116,9 @@ type FakeNodeClient struct {
 	QueryGameServerErr    error
 	QueryGameServerCalls  []node.GameServerQueryRequest
 
+	PerformGameServerPlayerActionErr   error
+	PerformGameServerPlayerActionCalls []node.GameServerPlayerActionRequest
+
 	SendConsoleOutputErr   error
 	SendConsoleOutputCalls []SendConsoleOutputCall
 
@@ -552,6 +555,14 @@ func (f *FakeNodeClient) QueryGameServer(_ context.Context, req node.GameServerQ
 	f.QueryGameServerCalls = append(f.QueryGameServerCalls, req)
 	f.mu.Unlock()
 	return f.QueryGameServerResult, f.QueryGameServerErr
+}
+
+// PerformGameServerPlayerAction records the call and returns the configured error.
+func (f *FakeNodeClient) PerformGameServerPlayerAction(_ context.Context, req node.GameServerPlayerActionRequest) error {
+	f.mu.Lock()
+	f.PerformGameServerPlayerActionCalls = append(f.PerformGameServerPlayerActionCalls, req)
+	f.mu.Unlock()
+	return f.PerformGameServerPlayerActionErr
 }
 
 // SendConsoleOutput records the call and returns the configured error.

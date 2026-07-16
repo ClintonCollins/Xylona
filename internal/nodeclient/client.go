@@ -141,6 +141,10 @@ type NodeClient interface {
 	// scheduling and storing the returned result.
 	QueryGameServer(ctx context.Context, req node.GameServerQueryRequest) (node.GameServerQueryResult, error)
 
+	// PerformGameServerPlayerAction executes one typed game-specific player
+	// administration action on the node that owns the game server.
+	PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error
+
 	// SendConsoleOutput writes a controller-generated line into the process's
 	// console buffer on the node side. Used for pre-start messages, mod
 	// auto-update progress, and other controller chatter that should appear

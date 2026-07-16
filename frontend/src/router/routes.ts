@@ -103,6 +103,10 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/game_servers/GameServerView.vue'),
           },
           {
+            path: 'players',
+            component: () => import('pages/game_servers/GameServerPlayers.vue'),
+          },
+          {
             path: 'files',
             component: () => import('pages/game_servers/GameServerFiles.vue'),
           },

@@ -85,6 +85,15 @@ func translate(err error) error {
 	if errors.Is(err, node.ErrInvalidPath) {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	if errors.Is(err, node.ErrInvalidPlayerAction) {
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if errors.Is(err, node.ErrPlayerActionUnsupported) {
+		return connect.NewError(connect.CodeUnimplemented, err)
+	}
+	if errors.Is(err, node.ErrPlayerActionUnavailable) {
+		return connect.NewError(connect.CodeUnavailable, err)
+	}
 	validationError := &launchenv.ValidationError{}
 	if errors.As(err, &validationError) {
 		return connect.NewError(connect.CodeInvalidArgument, err)
@@ -801,6 +810,31 @@ func (s *nodeServiceServer) QueryGameServer(ctx context.Context, req *connect.Re
 	}), nil
 }
 
+func (s *nodeServiceServer) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[nodeprotov1.PerformGameServerPlayerActionRequest]) (*connect.Response[nodeprotov1.PerformGameServerPlayerActionResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	errAction := s.n.PerformGameServerPlayerAction(ctx, node.GameServerPlayerActionRequest{
+		Kind:      nodeGameServerQueryKindFromProto(req.Msg.GetKind()),
+		Action:    nodeGameServerPlayerActionFromProto(req.Msg.GetAction()),
+		ProcessID: req.Msg.GetProcessId(),
+		IP:        req.Msg.GetIp(),
+		QueryPort: req.Msg.GetQueryPort(),
+		Username:  req.Msg.GetUsername(),
+		Password:  req.Msg.GetPassword(),
+		PlayerID:  req.Msg.GetPlayerId(),
+		Reason:    req.Msg.GetReason(),
+	})
+	if errAction != nil {
+		return nil, translate(errAction)
+	}
+	return connect.NewResponse(&nodeprotov1.PerformGameServerPlayerActionResponse{}), nil
+}
+
 func (s *nodeServiceServer) SendConsoleOutput(_ context.Context, req *connect.Request[nodeprotov1.SendConsoleOutputRequest]) (*connect.Response[nodeprotov1.SendConsoleOutputResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -916,6 +950,23 @@ func gameServerQueryKindToProto(kind node.GameServerQueryKind) nodeprotov1.GameS
 	}
 }
 
+func nodeGameServerPlayerActionFromProto(action nodeprotov1.GameServerPlayerAction) node.GameServerPlayerAction {
+	switch action {
+	case nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_KICK:
+		return node.GameServerPlayerActionKick
+	case nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_BAN:
+		return node.GameServerPlayerActionBan
+	case nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_UNBAN:
+		return node.GameServerPlayerActionUnban
+	case nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_ALLOWLIST_ADD:
+		return node.GameServerPlayerActionAllowlistAdd
+	case nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE:
+		return node.GameServerPlayerActionAllowlistRemove
+	default:
+		return node.GameServerPlayerActionUnknown
+	}
+}
+
 func minecraftQueryToProto(info *node.MinecraftQueryInfo) *nodeprotov1.GameServerMinecraftQueryInfo {
 	if info == nil {
 		return nil
@@ -929,6 +980,7 @@ func minecraftQueryToProto(info *node.MinecraftQueryInfo) *nodeprotov1.GameServe
 		PlayerList:      append([]string(nil), info.PlayerList...),
 		ProtocolVersion: info.ProtocolVersion,
 		ServerVersion:   info.ServerVersion,
+		PlayerDetails:   gameServerPlayersToProto(info.PlayerDetails),
 	}
 }
 
@@ -973,7 +1025,19 @@ func palworldQueryToProto(info *node.PalworldQueryInfo) *nodeprotov1.GameServerP
 		ServerFrameTimeMs: info.ServerFrameTimeMS,
 		Days:              info.Days,
 		Responded:         info.Responded,
+		PlayerDetails:     gameServerPlayersToProto(info.PlayerDetails),
 	}
+}
+
+func gameServerPlayersToProto(players []node.GameServerPlayer) []*nodeprotov1.GameServerPlayer {
+	result := make([]*nodeprotov1.GameServerPlayer, 0, len(players))
+	for _, player := range players {
+		result = append(result, &nodeprotov1.GameServerPlayer{
+			Name: player.Name,
+			Id:   player.ID,
+		})
+	}
+	return result
 }
 
 func processSnapshotToProto(p *node.ProcessSnapshot) *nodeprotov1.ProcessSnapshot {
@@ -1116,6 +1180,7 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		LaunchEnv:                caps.LaunchEnv,
 		ReliableProcessLifecycle: caps.ReliableProcessLifecycle,
 		TelnetInput:              caps.TelnetInput,
+		PlayerActions:            caps.PlayerActions,
 	}), nil
 }
 

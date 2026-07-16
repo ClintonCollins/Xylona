@@ -31,6 +31,15 @@ var (
 	// ErrDownloadIntegrityMismatch is returned when a node download does not
 	// match the expected size or hash supplied by the controller.
 	ErrDownloadIntegrityMismatch = errors.New("node: download integrity verification failed")
+	// ErrInvalidPlayerAction is returned when an action, identifier, or reason
+	// cannot be represented safely by the target game's management protocol.
+	ErrInvalidPlayerAction = errors.New("node: invalid player action")
+	// ErrPlayerActionUnsupported is returned when a game does not expose a safe
+	// player-management protocol for the requested action.
+	ErrPlayerActionUnsupported = errors.New("node: player action is unsupported")
+	// ErrPlayerActionUnavailable is returned when a supported action cannot be
+	// completed because the game server or its management API is unavailable.
+	ErrPlayerActionUnavailable = errors.New("node: player action is unavailable")
 )
 
 // defaultStopTimeout mirrors supervisor's default graceful stop window.
@@ -244,6 +253,48 @@ const (
 	GameServerQueryKindPalworld
 )
 
+// GameServerPlayerAction identifies a typed administrative action. The node
+// translates these values into game-specific commands or API calls; callers
+// never provide raw command text or endpoint paths.
+type GameServerPlayerAction int
+
+const (
+	// GameServerPlayerActionUnknown is invalid and performs no action.
+	GameServerPlayerActionUnknown GameServerPlayerAction = iota
+	// GameServerPlayerActionKick disconnects an online player.
+	GameServerPlayerActionKick
+	// GameServerPlayerActionBan blocks a player from joining.
+	GameServerPlayerActionBan
+	// GameServerPlayerActionUnban removes a player ban.
+	GameServerPlayerActionUnban
+	// GameServerPlayerActionAllowlistAdd adds a player to the allowlist.
+	GameServerPlayerActionAllowlistAdd
+	// GameServerPlayerActionAllowlistRemove removes a player from the allowlist.
+	GameServerPlayerActionAllowlistRemove
+)
+
+// GameServerPlayer is a player identity returned by a game-server query. ID is
+// populated only when the target protocol provides a stable, action-safe
+// identifier.
+type GameServerPlayer struct {
+	Name string
+	ID   string
+}
+
+// GameServerPlayerActionRequest asks a node to execute one typed action using
+// the target game's native management protocol.
+type GameServerPlayerActionRequest struct {
+	Kind      GameServerQueryKind
+	Action    GameServerPlayerAction
+	ProcessID string
+	IP        string
+	QueryPort int64
+	Username  string
+	Password  string
+	PlayerID  string
+	Reason    string
+}
+
 // GameServerQueryRequest asks a node to probe a game server from the node host.
 type GameServerQueryRequest struct {
 	Kind       GameServerQueryKind
@@ -264,6 +315,7 @@ type MinecraftQueryInfo struct {
 	PlayerList      []string
 	ProtocolVersion uint32
 	ServerVersion   string
+	PlayerDetails   []GameServerPlayer
 }
 
 // SourceQueryInfo is the transport-agnostic result of a Source query.
@@ -300,6 +352,7 @@ type PalworldQueryInfo struct {
 	ServerFrameTimeMS float64
 	Days              uint32
 	Responded         bool
+	PlayerDetails     []GameServerPlayer
 }
 
 // GameServerQueryResult is the transport-agnostic result of a node-side

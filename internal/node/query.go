@@ -34,13 +34,13 @@ func (n *Node) QueryGameServer(ctx context.Context, req GameServerQueryRequest) 
 }
 
 func queryPalworld(ctx context.Context, req GameServerQueryRequest) GameServerQueryResult {
-	info, errQuery := query.Palworld(ctx, req.IP, int(req.QueryPort), req.Username, req.Password)
+	info, errQuery := query.PalworldDetailed(ctx, req.IP, int(req.QueryPort), req.Username, req.Password)
 	if errQuery != nil {
-		info = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(req.MaxPlayers)}
+		info = &query.PalworldInfo{MaxPlayers: helpers.ClampUint32FromInt64(req.MaxPlayers)}
 	}
 	return GameServerQueryResult{
 		Kind:     GameServerQueryKindPalworld,
-		Palworld: palworldQueryFromXylona(info),
+		Palworld: palworldQueryFromDetailed(info),
 	}
 }
 
@@ -70,6 +70,10 @@ func minecraftQueryFromXylona(info *xylona.MinecraftQueryInfo) *MinecraftQueryIn
 	if info == nil {
 		return nil
 	}
+	playerDetails := make([]GameServerPlayer, 0, len(info.GetPlayerList()))
+	for _, playerName := range info.GetPlayerList() {
+		playerDetails = append(playerDetails, GameServerPlayer{Name: playerName, ID: playerName})
+	}
 	return &MinecraftQueryInfo{
 		MOTD:            info.GetMotd(),
 		GameType:        info.GetGameType(),
@@ -79,6 +83,7 @@ func minecraftQueryFromXylona(info *xylona.MinecraftQueryInfo) *MinecraftQueryIn
 		PlayerList:      append([]string(nil), info.GetPlayerList()...),
 		ProtocolVersion: info.GetProtocolVersion(),
 		ServerVersion:   info.GetServerVersion(),
+		PlayerDetails:   playerDetails,
 	}
 }
 
@@ -106,22 +111,29 @@ func sourceQueryFromXylona(info *xylona.SourceQueryInfo) *SourceQueryInfo {
 	}
 }
 
-func palworldQueryFromXylona(info *xylona.PalworldQueryInfo) *PalworldQueryInfo {
+func palworldQueryFromDetailed(info *query.PalworldInfo) *PalworldQueryInfo {
 	if info == nil {
 		return nil
 	}
+	playerList := make([]string, 0, len(info.PlayerDetails))
+	playerDetails := make([]GameServerPlayer, 0, len(info.PlayerDetails))
+	for _, player := range info.PlayerDetails {
+		playerList = append(playerList, player.Name)
+		playerDetails = append(playerDetails, GameServerPlayer{Name: player.Name, ID: player.UserID})
+	}
 	return &PalworldQueryInfo{
-		Name:              info.GetName(),
-		Description:       info.GetDescription(),
-		Version:           info.GetVersion(),
-		WorldGUID:         info.GetWorldGuid(),
-		Players:           info.GetPlayers(),
-		MaxPlayers:        info.GetMaxPlayers(),
-		PlayerList:        append([]string(nil), info.GetPlayerList()...),
-		UptimeSeconds:     info.GetUptimeSeconds(),
-		ServerFPS:         info.GetServerFps(),
-		ServerFrameTimeMS: info.GetServerFrameTimeMs(),
-		Days:              info.GetDays(),
-		Responded:         info.GetResponded(),
+		Name:              info.Name,
+		Description:       info.Description,
+		Version:           info.Version,
+		WorldGUID:         info.WorldGUID,
+		Players:           info.Players,
+		MaxPlayers:        info.MaxPlayers,
+		PlayerList:        playerList,
+		UptimeSeconds:     info.UptimeSeconds,
+		ServerFPS:         info.ServerFPS,
+		ServerFrameTimeMS: info.ServerFrameTimeMS,
+		Days:              info.Days,
+		Responded:         info.Responded,
+		PlayerDetails:     playerDetails,
 	}
 }

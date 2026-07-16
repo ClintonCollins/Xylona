@@ -9,16 +9,17 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
-  it('shows Console tab for operator (no files/metrics/config)', () => {
+  it('shows Players for an operator with the player-management permission', () => {
     const perms = [
       'game_server.view',
       'game_server.start',
       'game_server.stop',
       'game_server.restart',
       'game_server.console',
+      'game_server.players.manage',
     ]
     const tabs = buildGameServerTabs(serverID, perms, false)
-    expect(tabs.map((t) => t.name)).toEqual(['Console'])
+    expect(tabs.map((t) => t.name)).toEqual(['Console', 'Players'])
   })
 
   it('shows all tabs for admin role', () => {
@@ -28,6 +29,7 @@ describe('buildGameServerTabs', () => {
       'game_server.stop',
       'game_server.restart',
       'game_server.console',
+      'game_server.players.manage',
       'game_server.files.view',
       'game_server.files.edit',
       'game_server.settings',
@@ -38,6 +40,7 @@ describe('buildGameServerTabs', () => {
     const tabs = buildGameServerTabs(serverID, perms, false)
     expect(tabs.map((t) => t.name)).toEqual([
       'Console',
+      'Players',
       'Files',
       'Metrics',
       'Start Command',
@@ -121,6 +124,26 @@ describe('getUnauthorizedRedirect', () => {
       `/game-servers/${serverID}/files`,
       serverID,
       ['game_server.files.view'],
+      false,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('redirects /players when missing player-management permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/players`,
+      serverID,
+      ['game_server.view'],
+      false,
+    )
+    expect(result).toBe(consolePath)
+  })
+
+  it('returns null for /players with player-management permission', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/players`,
+      serverID,
+      ['game_server.players.manage'],
       false,
     )
     expect(result).toBeNull()

@@ -103,6 +103,9 @@ const (
 	// NodeServiceQueryGameServerProcedure is the fully-qualified name of the NodeService's
 	// QueryGameServer RPC.
 	NodeServiceQueryGameServerProcedure = "/xylona.node.v1.NodeService/QueryGameServer"
+	// NodeServicePerformGameServerPlayerActionProcedure is the fully-qualified name of the
+	// NodeService's PerformGameServerPlayerAction RPC.
+	NodeServicePerformGameServerPlayerActionProcedure = "/xylona.node.v1.NodeService/PerformGameServerPlayerAction"
 	// NodeServiceSendConsoleOutputProcedure is the fully-qualified name of the NodeService's
 	// SendConsoleOutput RPC.
 	NodeServiceSendConsoleOutputProcedure = "/xylona.node.v1.NodeService/SendConsoleOutput"
@@ -164,6 +167,7 @@ type NodeServiceClient interface {
 	ExtractBackupArchive(context.Context, *connect.Request[v1.ExtractBackupArchiveRequest]) (*connect.Response[v1.ExtractBackupArchiveResponse], error)
 	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
 	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
+	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
 	// Process introspection
@@ -341,6 +345,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("QueryGameServer")),
 			connect.WithClientOptions(opts...),
 		),
+		performGameServerPlayerAction: connect.NewClient[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse](
+			httpClient,
+			baseURL+NodeServicePerformGameServerPlayerActionProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("PerformGameServerPlayerAction")),
+			connect.WithClientOptions(opts...),
+		),
 		sendConsoleOutput: connect.NewClient[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse](
 			httpClient,
 			baseURL+NodeServiceSendConsoleOutputProcedure,
@@ -406,41 +416,42 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // nodeServiceClient implements NodeServiceClient.
 type nodeServiceClient struct {
-	startProcess             *connect.Client[v1.StartProcessRequest, v1.StartProcessResponse]
-	stopProcess              *connect.Client[v1.StopProcessRequest, v1.StopProcessResponse]
-	sendConsoleInput         *connect.Client[v1.SendConsoleInputRequest, v1.SendConsoleInputResponse]
-	readConsoleBuffer        *connect.Client[v1.ReadConsoleBufferRequest, v1.ReadConsoleBufferResponse]
-	streamConsoleOutput      *connect.Client[v1.StreamConsoleOutputRequest, v1.ConsoleChunk]
-	listFiles                *connect.Client[v1.ListFilesRequest, v1.ListFilesResponse]
-	readFile                 *connect.Client[v1.ReadFileRequest, v1.ReadFileResponse]
-	statFile                 *connect.Client[v1.StatFileRequest, v1.StatFileResponse]
-	streamFile               *connect.Client[v1.StreamFileRequest, v1.StreamFileResponse]
-	writeFile                *connect.Client[v1.WriteFileRequest, v1.WriteFileResponse]
-	streamWriteFile          *connect.Client[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse]
-	createFileOrDirectory    *connect.Client[v1.CreateFileOrDirectoryRequest, v1.CreateFileOrDirectoryResponse]
-	deleteFiles              *connect.Client[v1.DeleteFilesRequest, v1.DeleteFilesResponse]
-	renameFile               *connect.Client[v1.RenameFileRequest, v1.RenameFileResponse]
-	moveFiles                *connect.Client[v1.MoveFilesRequest, v1.MoveFilesResponse]
-	copyFiles                *connect.Client[v1.CopyFilesRequest, v1.CopyFilesResponse]
-	downloadFileFromURL      *connect.Client[v1.DownloadFileFromURLRequest, v1.DownloadFileFromURLResponse]
-	createFileArchive        *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
-	streamCreateFileArchive  *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
-	extractFileArchive       *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
-	streamExtractFileArchive *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
-	createBackupArchive      *connect.Client[v1.CreateBackupArchiveRequest, v1.CreateBackupArchiveResponse]
-	extractBackupArchive     *connect.Client[v1.ExtractBackupArchiveRequest, v1.ExtractBackupArchiveResponse]
-	probeInstalledVersion    *connect.Client[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse]
-	queryGameServer          *connect.Client[v1.QueryGameServerRequest, v1.QueryGameServerResponse]
-	sendConsoleOutput        *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
-	getProcessSnapshot       *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
-	listBindableIPs          *connect.Client[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse]
-	getNodeSnapshot          *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
-	getRuntimeCapabilities   *connect.Client[v1.GetRuntimeCapabilitiesRequest, v1.GetRuntimeCapabilitiesResponse]
-	streamEvents             *connect.Client[v1.StreamEventsRequest, v1.Event]
-	ping                     *connect.Client[v1.PingRequest, v1.PingResponse]
-	getUpdateCapabilities    *connect.Client[v1.GetUpdateCapabilitiesRequest, v1.GetUpdateCapabilitiesResponse]
-	stageSelfUpdate          *connect.Client[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse]
-	applySelfUpdate          *connect.Client[v1.ApplySelfUpdateRequest, v1.ApplySelfUpdateResponse]
+	startProcess                  *connect.Client[v1.StartProcessRequest, v1.StartProcessResponse]
+	stopProcess                   *connect.Client[v1.StopProcessRequest, v1.StopProcessResponse]
+	sendConsoleInput              *connect.Client[v1.SendConsoleInputRequest, v1.SendConsoleInputResponse]
+	readConsoleBuffer             *connect.Client[v1.ReadConsoleBufferRequest, v1.ReadConsoleBufferResponse]
+	streamConsoleOutput           *connect.Client[v1.StreamConsoleOutputRequest, v1.ConsoleChunk]
+	listFiles                     *connect.Client[v1.ListFilesRequest, v1.ListFilesResponse]
+	readFile                      *connect.Client[v1.ReadFileRequest, v1.ReadFileResponse]
+	statFile                      *connect.Client[v1.StatFileRequest, v1.StatFileResponse]
+	streamFile                    *connect.Client[v1.StreamFileRequest, v1.StreamFileResponse]
+	writeFile                     *connect.Client[v1.WriteFileRequest, v1.WriteFileResponse]
+	streamWriteFile               *connect.Client[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse]
+	createFileOrDirectory         *connect.Client[v1.CreateFileOrDirectoryRequest, v1.CreateFileOrDirectoryResponse]
+	deleteFiles                   *connect.Client[v1.DeleteFilesRequest, v1.DeleteFilesResponse]
+	renameFile                    *connect.Client[v1.RenameFileRequest, v1.RenameFileResponse]
+	moveFiles                     *connect.Client[v1.MoveFilesRequest, v1.MoveFilesResponse]
+	copyFiles                     *connect.Client[v1.CopyFilesRequest, v1.CopyFilesResponse]
+	downloadFileFromURL           *connect.Client[v1.DownloadFileFromURLRequest, v1.DownloadFileFromURLResponse]
+	createFileArchive             *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
+	streamCreateFileArchive       *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
+	extractFileArchive            *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
+	streamExtractFileArchive      *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
+	createBackupArchive           *connect.Client[v1.CreateBackupArchiveRequest, v1.CreateBackupArchiveResponse]
+	extractBackupArchive          *connect.Client[v1.ExtractBackupArchiveRequest, v1.ExtractBackupArchiveResponse]
+	probeInstalledVersion         *connect.Client[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse]
+	queryGameServer               *connect.Client[v1.QueryGameServerRequest, v1.QueryGameServerResponse]
+	performGameServerPlayerAction *connect.Client[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse]
+	sendConsoleOutput             *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
+	getProcessSnapshot            *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
+	listBindableIPs               *connect.Client[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse]
+	getNodeSnapshot               *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
+	getRuntimeCapabilities        *connect.Client[v1.GetRuntimeCapabilitiesRequest, v1.GetRuntimeCapabilitiesResponse]
+	streamEvents                  *connect.Client[v1.StreamEventsRequest, v1.Event]
+	ping                          *connect.Client[v1.PingRequest, v1.PingResponse]
+	getUpdateCapabilities         *connect.Client[v1.GetUpdateCapabilitiesRequest, v1.GetUpdateCapabilitiesResponse]
+	stageSelfUpdate               *connect.Client[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse]
+	applySelfUpdate               *connect.Client[v1.ApplySelfUpdateRequest, v1.ApplySelfUpdateResponse]
 }
 
 // StartProcess calls xylona.node.v1.NodeService.StartProcess.
@@ -568,6 +579,11 @@ func (c *nodeServiceClient) QueryGameServer(ctx context.Context, req *connect.Re
 	return c.queryGameServer.CallUnary(ctx, req)
 }
 
+// PerformGameServerPlayerAction calls xylona.node.v1.NodeService.PerformGameServerPlayerAction.
+func (c *nodeServiceClient) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {
+	return c.performGameServerPlayerAction.CallUnary(ctx, req)
+}
+
 // SendConsoleOutput calls xylona.node.v1.NodeService.SendConsoleOutput.
 func (c *nodeServiceClient) SendConsoleOutput(ctx context.Context, req *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error) {
 	return c.sendConsoleOutput.CallUnary(ctx, req)
@@ -648,6 +664,7 @@ type NodeServiceHandler interface {
 	ExtractBackupArchive(context.Context, *connect.Request[v1.ExtractBackupArchiveRequest]) (*connect.Response[v1.ExtractBackupArchiveResponse], error)
 	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
 	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
+	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
 	// Process introspection
@@ -821,6 +838,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("QueryGameServer")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServicePerformGameServerPlayerActionHandler := connect.NewUnaryHandler(
+		NodeServicePerformGameServerPlayerActionProcedure,
+		svc.PerformGameServerPlayerAction,
+		connect.WithSchema(nodeServiceMethods.ByName("PerformGameServerPlayerAction")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceSendConsoleOutputHandler := connect.NewUnaryHandler(
 		NodeServiceSendConsoleOutputProcedure,
 		svc.SendConsoleOutput,
@@ -933,6 +956,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceProbeInstalledVersionHandler.ServeHTTP(w, r)
 		case NodeServiceQueryGameServerProcedure:
 			nodeServiceQueryGameServerHandler.ServeHTTP(w, r)
+		case NodeServicePerformGameServerPlayerActionProcedure:
+			nodeServicePerformGameServerPlayerActionHandler.ServeHTTP(w, r)
 		case NodeServiceSendConsoleOutputProcedure:
 			nodeServiceSendConsoleOutputHandler.ServeHTTP(w, r)
 		case NodeServiceGetProcessSnapshotProcedure:
@@ -1060,6 +1085,10 @@ func (UnimplementedNodeServiceHandler) ProbeInstalledVersion(context.Context, *c
 
 func (UnimplementedNodeServiceHandler) QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QueryGameServer is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.PerformGameServerPlayerAction is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error) {

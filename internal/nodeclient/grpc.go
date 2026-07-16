@@ -679,6 +679,26 @@ func (c *GRPCNodeClient) QueryGameServer(ctx context.Context, queryReq node.Game
 	}, nil
 }
 
+// PerformGameServerPlayerAction invokes the typed player-administration RPC.
+func (c *GRPCNodeClient) PerformGameServerPlayerAction(ctx context.Context, actionReq node.GameServerPlayerActionRequest) error {
+	req := newReq(c, &nodeprotov1.PerformGameServerPlayerActionRequest{
+		Kind:      gameServerQueryKindToProto(actionReq.Kind),
+		Action:    gameServerPlayerActionToProto(actionReq.Action),
+		ProcessId: actionReq.ProcessID,
+		Ip:        actionReq.IP,
+		QueryPort: actionReq.QueryPort,
+		Username:  actionReq.Username,
+		Password:  actionReq.Password,
+		PlayerId:  actionReq.PlayerID,
+		Reason:    actionReq.Reason,
+	})
+	_, errRPC := c.connectClient.PerformGameServerPlayerAction(ctx, req)
+	if errRPC != nil {
+		return translatePlayerActionError("perform game server player action", errRPC)
+	}
+	return nil
+}
+
 // SendConsoleOutput invokes the SendConsoleOutput RPC.
 func (c *GRPCNodeClient) SendConsoleOutput(ctx context.Context, processID, line string) error {
 	req := newReq(c, &nodeprotov1.SendConsoleOutputRequest{
@@ -792,6 +812,23 @@ func gameServerQueryKindFromProto(kind nodeprotov1.GameServerQueryKind) node.Gam
 	}
 }
 
+func gameServerPlayerActionToProto(action node.GameServerPlayerAction) nodeprotov1.GameServerPlayerAction {
+	switch action {
+	case node.GameServerPlayerActionKick:
+		return nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_KICK
+	case node.GameServerPlayerActionBan:
+		return nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_BAN
+	case node.GameServerPlayerActionUnban:
+		return nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_UNBAN
+	case node.GameServerPlayerActionAllowlistAdd:
+		return nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_ALLOWLIST_ADD
+	case node.GameServerPlayerActionAllowlistRemove:
+		return nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE
+	default:
+		return nodeprotov1.GameServerPlayerAction_GAME_SERVER_PLAYER_ACTION_UNSPECIFIED
+	}
+}
+
 func minecraftQueryFromProto(info *nodeprotov1.GameServerMinecraftQueryInfo) *node.MinecraftQueryInfo {
 	if info == nil {
 		return nil
@@ -805,6 +842,7 @@ func minecraftQueryFromProto(info *nodeprotov1.GameServerMinecraftQueryInfo) *no
 		PlayerList:      append([]string(nil), info.GetPlayerList()...),
 		ProtocolVersion: info.GetProtocolVersion(),
 		ServerVersion:   info.GetServerVersion(),
+		PlayerDetails:   gameServerPlayersFromProto(info.GetPlayerDetails()),
 	}
 }
 
@@ -849,7 +887,22 @@ func palworldQueryFromProto(info *nodeprotov1.GameServerPalworldQueryInfo) *node
 		ServerFrameTimeMS: info.GetServerFrameTimeMs(),
 		Days:              info.GetDays(),
 		Responded:         info.GetResponded(),
+		PlayerDetails:     gameServerPlayersFromProto(info.GetPlayerDetails()),
 	}
+}
+
+func gameServerPlayersFromProto(players []*nodeprotov1.GameServerPlayer) []node.GameServerPlayer {
+	result := make([]node.GameServerPlayer, 0, len(players))
+	for _, player := range players {
+		if player == nil {
+			continue
+		}
+		result = append(result, node.GameServerPlayer{
+			Name: player.GetName(),
+			ID:   player.GetId(),
+		})
+	}
+	return result
 }
 
 func fileEntryFromProto(entry *nodeprotov1.FileEntry) node.FileEntry {
@@ -974,6 +1027,7 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		LaunchEnv:                msg.GetLaunchEnv(),
 		ReliableProcessLifecycle: msg.GetReliableProcessLifecycle(),
 		TelnetInput:              msg.GetTelnetInput(),
+		PlayerActions:            msg.GetPlayerActions(),
 	}, nil
 }
 
@@ -1227,6 +1281,33 @@ func translateConsoleInputError(call string, err error) error {
 		return fmt.Errorf("nodeclient: %s: %w", call, node.ErrConsoleInputUnavailable)
 	}
 	return translateProcessError(call, err)
+}
+
+func translatePlayerActionError(call string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	connectErr := new(connect.Error)
+	if errors.As(err, &connectErr) {
+		var mapped error
+		switch connectErr.Code() {
+		case connect.CodeInvalidArgument:
+			mapped = node.ErrInvalidPlayerAction
+		case connect.CodeNotFound:
+			mapped = node.ErrProcessNotFound
+		case connect.CodeFailedPrecondition:
+			mapped = node.ErrConsoleInputUnavailable
+		case connect.CodeUnimplemented:
+			mapped = node.ErrPlayerActionUnsupported
+		case connect.CodeUnavailable:
+			mapped = node.ErrPlayerActionUnavailable
+		}
+		if mapped != nil {
+			return fmt.Errorf("nodeclient: %s: %w", call, mapped)
+		}
+	}
+	return fmt.Errorf("nodeclient: %s: %w", call, err)
 }
 
 // mapNodeErrorCode looks at the connect error's metadata for a typed

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 	"testing"
 )
 
@@ -269,7 +270,7 @@ func TestGetUserPermissionIDsForServer(t *testing.T) {
 		}
 	})
 
-	t.Run("operator role returns 5 permissions", func(t *testing.T) {
+	t.Run("operator role includes player management", func(t *testing.T) {
 		errCreateAssignment := conn.CreateUserRoleAssignment(
 			"assignment-perm-1",
 			"user-other",
@@ -285,8 +286,11 @@ func TestGetUserPermissionIDsForServer(t *testing.T) {
 		if errPerms != nil {
 			t.Fatalf("GetUserPermissionIDsForServer() error = %v", errPerms)
 		}
-		if len(perms) != 6 {
-			t.Errorf("GetUserPermissionIDsForServer() len = %d, want 6; got %v", len(perms), perms)
+		if len(perms) != 7 {
+			t.Errorf("GetUserPermissionIDsForServer() len = %d, want 7; got %v", len(perms), perms)
+		}
+		if !slices.Contains(perms, "game_server.players.manage") {
+			t.Errorf("GetUserPermissionIDsForServer() missing game_server.players.manage; got %v", perms)
 		}
 	})
 }
@@ -326,8 +330,11 @@ func TestGetUserPermissionIDsForServers(t *testing.T) {
 		if !ok {
 			t.Fatalf("GetUserPermissionIDsForServers() missing key server-local-1; got %v", result)
 		}
-		if len(perms) != 6 {
-			t.Errorf("GetUserPermissionIDsForServers()[server-local-1] len = %d, want 6; got %v", len(perms), perms)
+		if len(perms) != 7 {
+			t.Errorf("GetUserPermissionIDsForServers()[server-local-1] len = %d, want 7; got %v", len(perms), perms)
+		}
+		if !slices.Contains(perms, "game_server.players.manage") {
+			t.Errorf("GetUserPermissionIDsForServers()[server-local-1] missing game_server.players.manage; got %v", perms)
 		}
 
 		if _, exists := result["nonexistent-server"]; exists {

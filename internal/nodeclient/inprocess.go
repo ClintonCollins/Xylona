@@ -301,6 +301,17 @@ func (c *inProcessNodeClient) QueryGameServer(ctx context.Context, req node.Game
 	return result, nil
 }
 
+func (c *inProcessNodeClient) PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error {
+	if c.node == nil {
+		return ErrNodeNil
+	}
+	errAction := c.node.PerformGameServerPlayerAction(ctx, req)
+	if errAction != nil {
+		return fmt.Errorf("nodeclient: perform game server player action: %w", errAction)
+	}
+	return nil
+}
+
 func (c *inProcessNodeClient) SendConsoleOutput(_ context.Context, processID, line string) error {
 	if c.node == nil {
 		return ErrNodeNil

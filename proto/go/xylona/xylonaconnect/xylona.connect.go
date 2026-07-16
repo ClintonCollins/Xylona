@@ -165,6 +165,12 @@ const (
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
 	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
 	XylonaQueryGameServerProcedure = "/xylona.Xylona/QueryGameServer"
+	// XylonaGetGameServerPlayerManagementProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerPlayerManagement RPC.
+	XylonaGetGameServerPlayerManagementProcedure = "/xylona.Xylona/GetGameServerPlayerManagement"
+	// XylonaPerformGameServerPlayerActionProcedure is the fully-qualified name of the Xylona's
+	// PerformGameServerPlayerAction RPC.
+	XylonaPerformGameServerPlayerActionProcedure = "/xylona.Xylona/PerformGameServerPlayerAction"
 	// XylonaGetUpdateTargetsProcedure is the fully-qualified name of the Xylona's GetUpdateTargets RPC.
 	XylonaGetUpdateTargetsProcedure = "/xylona.Xylona/GetUpdateTargets"
 	// XylonaSetServerVariantProcedure is the fully-qualified name of the Xylona's SetServerVariant RPC.
@@ -438,6 +444,8 @@ type XylonaClient interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
+	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
+	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -873,6 +881,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaQueryGameServerProcedure,
 			connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameServerPlayerManagement: connect.NewClient[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerPlayerManagementProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerPlayerManagement")),
+			connect.WithClientOptions(opts...),
+		),
+		performGameServerPlayerAction: connect.NewClient[xylona.PerformGameServerPlayerActionRequest, xylona.PerformGameServerPlayerActionResponse](
+			httpClient,
+			baseURL+XylonaPerformGameServerPlayerActionProcedure,
+			connect.WithSchema(xylonaMethods.ByName("PerformGameServerPlayerAction")),
 			connect.WithClientOptions(opts...),
 		),
 		getUpdateTargets: connect.NewClient[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse](
@@ -1397,6 +1417,8 @@ type xylonaClient struct {
 	clearHytaleAccount               *connect.Client[xylona.ClearHytaleAccountRequest, xylona.ClearHytaleAccountResponse]
 	listGameServers                  *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
 	queryGameServer                  *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
+	getGameServerPlayerManagement    *connect.Client[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse]
+	performGameServerPlayerAction    *connect.Client[xylona.PerformGameServerPlayerActionRequest, xylona.PerformGameServerPlayerActionResponse]
 	getUpdateTargets                 *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
 	setServerVariant                 *connect.Client[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse]
 	getVariantOperationStatus        *connect.Client[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse]
@@ -1749,6 +1771,16 @@ func (c *xylonaClient) ListGameServers(ctx context.Context, req *connect.Request
 // QueryGameServer calls xylona.Xylona.QueryGameServer.
 func (c *xylonaClient) QueryGameServer(ctx context.Context, req *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	return c.queryGameServer.CallUnary(ctx, req)
+}
+
+// GetGameServerPlayerManagement calls xylona.Xylona.GetGameServerPlayerManagement.
+func (c *xylonaClient) GetGameServerPlayerManagement(ctx context.Context, req *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error) {
+	return c.getGameServerPlayerManagement.CallUnary(ctx, req)
+}
+
+// PerformGameServerPlayerAction calls xylona.Xylona.PerformGameServerPlayerAction.
+func (c *xylonaClient) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error) {
+	return c.performGameServerPlayerAction.CallUnary(ctx, req)
 }
 
 // GetUpdateTargets calls xylona.Xylona.GetUpdateTargets.
@@ -2200,6 +2232,8 @@ type XylonaHandler interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
+	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
+	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -2631,6 +2665,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaQueryGameServerProcedure,
 		svc.QueryGameServer,
 		connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameServerPlayerManagementHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerPlayerManagementProcedure,
+		svc.GetGameServerPlayerManagement,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerPlayerManagement")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaPerformGameServerPlayerActionHandler := connect.NewUnaryHandler(
+		XylonaPerformGameServerPlayerActionProcedure,
+		svc.PerformGameServerPlayerAction,
+		connect.WithSchema(xylonaMethods.ByName("PerformGameServerPlayerAction")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetUpdateTargetsHandler := connect.NewUnaryHandler(
@@ -3207,6 +3253,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaListGameServersHandler.ServeHTTP(w, r)
 		case XylonaQueryGameServerProcedure:
 			xylonaQueryGameServerHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerPlayerManagementProcedure:
+			xylonaGetGameServerPlayerManagementHandler.ServeHTTP(w, r)
+		case XylonaPerformGameServerPlayerActionProcedure:
+			xylonaPerformGameServerPlayerActionHandler.ServeHTTP(w, r)
 		case XylonaGetUpdateTargetsProcedure:
 			xylonaGetUpdateTargetsHandler.ServeHTTP(w, r)
 		case XylonaSetServerVariantProcedure:
@@ -3588,6 +3638,14 @@ func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect.Requ
 
 func (UnimplementedXylonaHandler) QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.QueryGameServer is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerPlayerManagement is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.PerformGameServerPlayerAction is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {

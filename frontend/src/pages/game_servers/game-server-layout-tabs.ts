@@ -21,6 +21,15 @@ export function buildGameServerTabs(
     { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true },
   ]
 
+  if (has('game_server.players.manage')) {
+    tabs.push({
+      name: 'Players',
+      to: `${basePath}/players`,
+      icon: 'groups',
+      exact: true,
+      requiredPermission: 'game_server.players.manage',
+    })
+  }
   if (has('game_server.config')) {
     tabs.push({
       name: 'Configuration',
@@ -127,6 +136,9 @@ export function getUnauthorizedRedirect(
   const has = (perm: string) => permissions.includes(perm)
 
   if (currentPath === `${basePath}/files` && !has('game_server.files.view')) {
+    return consolePath
+  }
+  if (currentPath === `${basePath}/players` && !has('game_server.players.manage')) {
     return consolePath
   }
   if (currentPath === `${basePath}/metrics` && !has('game_server.metrics')) {
