@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dreamscached/minequery/v2"
@@ -88,6 +89,22 @@ func Source(host string, port int) (*xylona.SourceQueryInfo, error) {
 	if info.ExtendedServerInfo != nil {
 		sourceInfo.SteamId = info.ExtendedServerInfo.SteamID
 		sourceInfo.GameId = info.ExtendedServerInfo.GameID
+	}
+
+	playerInfo, errQueryPlayers := conn.QueryPlayer()
+	if errQueryPlayers != nil {
+		log.Debug().Err(errQueryPlayers).Str("host", host).Int("port", port).
+			Msg("Source player query unavailable")
+		return sourceInfo, nil
+	}
+
+	sourceInfo.PlayerListSupported = true
+	sourceInfo.PlayerList = make([]string, 0, len(playerInfo.Players))
+	for _, player := range playerInfo.Players {
+		if player == nil || strings.TrimSpace(player.Name) == "" {
+			continue
+		}
+		sourceInfo.PlayerList = append(sourceInfo.PlayerList, player.Name)
 	}
 
 	return sourceInfo, nil

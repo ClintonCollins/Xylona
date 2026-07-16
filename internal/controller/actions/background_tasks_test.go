@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 
@@ -40,6 +41,28 @@ func TestGameServerQueryPort(t *testing.T) {
 				t.Fatalf("gameServerQueryPort() = %d, want %d", got, test.want)
 			}
 		})
+	}
+}
+
+func TestServerQueryFromNodeResultPreservesSourcePlayerList(t *testing.T) {
+	t.Parallel()
+
+	gameServer := &models.GameServer{ID: "server-1", Name: "Remote Source"}
+	result := serverQueryFromNodeResult(gameServer, node.GameServerQueryResult{
+		Kind: node.GameServerQueryKindSource,
+		Source: &node.SourceQueryInfo{
+			Players:             2,
+			MaxPlayers:          24,
+			PlayerList:          []string{"Alyx", "Gordon"},
+			PlayerListSupported: true,
+		},
+	})
+
+	if result.GetType() != xylona.ServerQuery_Source || result.GetSource() == nil {
+		t.Fatalf("server query = %+v, want Source payload", result)
+	}
+	if !result.GetSource().GetPlayerListSupported() || !slices.Equal(result.GetSource().GetPlayerList(), []string{"Alyx", "Gordon"}) {
+		t.Fatalf("Source player data = %+v, want supported [Alyx Gordon]", result.GetSource())
 	}
 }
 

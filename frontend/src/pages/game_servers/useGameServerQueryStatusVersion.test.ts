@@ -62,7 +62,12 @@ function makeMinecraftQueryResponse(
   })
 }
 
-function makeSourceQueryResponse(currentPlayers: number, maxPlayers: number) {
+function makeSourceQueryResponse(
+  currentPlayers: number,
+  maxPlayers: number,
+  playerList: string[] = [],
+  playerListSupported = false,
+) {
   return create(QueryGameServerResponseSchema, {
     queryInfo: {
       serverId: 'server-1',
@@ -71,6 +76,8 @@ function makeSourceQueryResponse(currentPlayers: number, maxPlayers: number) {
       source: {
         players: currentPlayers,
         maxPlayers,
+        playerList,
+        playerListSupported,
       },
     },
   })
@@ -145,6 +152,8 @@ function makeQueryInfoEvent(
         source: {
           players: currentPlayers,
           maxPlayers,
+          playerList,
+          playerListSupported: playerList.length > 0,
         },
       },
     },
@@ -244,11 +253,11 @@ describe('useGameServerQueryStatusVersion', () => {
     },
     {
       label: 'Source',
-      response: makeSourceQueryResponse(11, 24),
+      response: makeSourceQueryResponse(11, 24, ['Alyx', 'Gordon'], true),
       expectedCurrent: 11,
       expectedMax: 24,
-      expectedPlayers: [],
-      expectedPlayerListSupported: false,
+      expectedPlayers: ['Alyx', 'Gordon'],
+      expectedPlayerListSupported: true,
     },
     {
       label: 'Palworld',

@@ -186,7 +186,9 @@ func queryEqual(x, y *xylona.ServerQuery) bool {
 			xs.GetVisibility() == ys.GetVisibility() &&
 			xs.GetVac() == ys.GetVac() &&
 			xs.GetVersion() == ys.GetVersion() &&
-			xs.GetProtocol() == ys.GetProtocol()
+			xs.GetProtocol() == ys.GetProtocol() &&
+			slices.Equal(xs.GetPlayerList(), ys.GetPlayerList()) &&
+			xs.GetPlayerListSupported() == ys.GetPlayerListSupported()
 	case xylona.ServerQuery_Palworld:
 		xp := x.GetPalworld()
 		yp := y.GetPalworld()

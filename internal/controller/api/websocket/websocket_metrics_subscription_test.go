@@ -28,6 +28,63 @@ func newTestConnection() *connection {
 	}
 }
 
+func TestQueryEqualIncludesSourcePlayerList(t *testing.T) {
+	t.Parallel()
+
+	base := &xylona.ServerQuery{
+		ServerId: "server-1",
+		Type:     xylona.ServerQuery_Source,
+		Source: &xylona.SourceQueryInfo{
+			Players:             2,
+			PlayerList:          []string{"Alyx", "Gordon"},
+			PlayerListSupported: true,
+		},
+	}
+	tests := []struct {
+		name   string
+		source *xylona.SourceQueryInfo
+		want   bool
+	}{
+		{
+			name: "matching player data",
+			source: &xylona.SourceQueryInfo{
+				Players:             2,
+				PlayerList:          []string{"Alyx", "Gordon"},
+				PlayerListSupported: true,
+			},
+			want: true,
+		},
+		{
+			name: "different player list",
+			source: &xylona.SourceQueryInfo{
+				Players:             2,
+				PlayerList:          []string{"Alyx", "Barney"},
+				PlayerListSupported: true,
+			},
+			want: false,
+		},
+		{
+			name: "different player list support",
+			source: &xylona.SourceQueryInfo{
+				Players:    2,
+				PlayerList: []string{"Alyx", "Gordon"},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			other := &xylona.ServerQuery{ServerId: "server-1", Type: xylona.ServerQuery_Source, Source: tt.source}
+			got := queryEqual(base, other)
+			if got != tt.want {
+				t.Fatalf("queryEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestConnection_ShouldReceiveMetrics(t *testing.T) {
 	tests := []struct {
 		name        string

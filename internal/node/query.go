@@ -87,20 +87,22 @@ func sourceQueryFromXylona(info *xylona.SourceQueryInfo) *SourceQueryInfo {
 		return nil
 	}
 	return &SourceQueryInfo{
-		Name:       info.GetName(),
-		Map:        info.GetMap(),
-		Game:       info.GetGame(),
-		AppID:      info.GetAppId(),
-		SteamID:    info.GetSteamId(),
-		GameID:     info.GetGameId(),
-		Players:    info.GetPlayers(),
-		MaxPlayers: info.GetMaxPlayers(),
-		Bots:       info.GetBots(),
-		ServerOS:   info.GetServerOs(),
-		Visibility: info.GetVisibility(),
-		VAC:        info.GetVac(),
-		Version:    info.GetVersion(),
-		Protocol:   info.GetProtocol(),
+		Name:                info.GetName(),
+		Map:                 info.GetMap(),
+		Game:                info.GetGame(),
+		AppID:               info.GetAppId(),
+		SteamID:             info.GetSteamId(),
+		GameID:              info.GetGameId(),
+		Players:             info.GetPlayers(),
+		MaxPlayers:          info.GetMaxPlayers(),
+		Bots:                info.GetBots(),
+		ServerOS:            info.GetServerOs(),
+		Visibility:          info.GetVisibility(),
+		VAC:                 info.GetVac(),
+		Version:             info.GetVersion(),
+		Protocol:            info.GetProtocol(),
+		PlayerList:          append([]string(nil), info.GetPlayerList()...),
+		PlayerListSupported: info.GetPlayerListSupported(),
 	}
 }
 

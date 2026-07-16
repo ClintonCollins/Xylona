@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -460,6 +461,21 @@ func TestNodeServiceServerQueryGameServer(t *testing.T) {
 	}
 	if result.Minecraft.MaxPlayers != 24 {
 		t.Fatalf("max players = %d, want 24", result.Minecraft.MaxPlayers)
+	}
+}
+
+func TestSourceQueryToProtoPreservesPlayerList(t *testing.T) {
+	t.Parallel()
+
+	result := sourceQueryToProto(&node.SourceQueryInfo{
+		Players:             2,
+		MaxPlayers:          24,
+		PlayerList:          []string{"Alyx", "Gordon"},
+		PlayerListSupported: true,
+	})
+
+	if result == nil || !result.GetPlayerListSupported() || !slices.Equal(result.GetPlayerList(), []string{"Alyx", "Gordon"}) {
+		t.Fatalf("Source proto player data = %+v, want supported [Alyx Gordon]", result)
 	}
 }
 

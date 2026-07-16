@@ -2,8 +2,26 @@ package node
 
 import (
 	"context"
+	"slices"
 	"testing"
+
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
+
+func TestSourceQueryFromXylonaPreservesPlayerList(t *testing.T) {
+	t.Parallel()
+
+	result := sourceQueryFromXylona(&xylona.SourceQueryInfo{
+		Players:             2,
+		MaxPlayers:          24,
+		PlayerList:          []string{"Alyx", "Gordon"},
+		PlayerListSupported: true,
+	})
+
+	if result == nil || !result.PlayerListSupported || !slices.Equal(result.PlayerList, []string{"Alyx", "Gordon"}) {
+		t.Fatalf("Source player data = %+v, want supported [Alyx Gordon]", result)
+	}
+}
 
 func TestQueryGameServerReturnsDefaultMaxPlayersOnProbeError(t *testing.T) {
 	t.Parallel()

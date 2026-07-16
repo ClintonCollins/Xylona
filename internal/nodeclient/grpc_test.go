@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -562,6 +563,45 @@ func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
 		t.Fatal("query request did not preserve Palworld credentials")
 	}
 }
+
+func TestGRPCClientQueryGameServerPreservesSourcePlayerList(t *testing.T) {
+	t.Parallel()
+
+	rec := &callRecorder{
+		queryResp: &nodeprotov1.QueryGameServerResponse{
+			Kind: nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE,
+			Source: &nodeprotov1.GameServerSourceQueryInfo{
+				Name:                "Remote Source",
+				Players:             2,
+				MaxPlayers:          24,
+				PlayerList:          []string{"Alyx", "Gordon"},
+				PlayerListSupported: true,
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	result, errQuery := client.QueryGameServer(t.Context(), node.GameServerQueryRequest{
+		Kind:       node.GameServerQueryKindSource,
+		IP:         "203.0.113.11",
+		QueryPort:  27015,
+		MaxPlayers: 24,
+	})
+	if errQuery != nil {
+		t.Fatalf("QueryGameServer: %v", errQuery)
+	}
+	if result.Kind != node.GameServerQueryKindSource || result.Source == nil {
+		t.Fatalf("Source query result = %+v, want Source payload", result)
+	}
+	if !result.Source.PlayerListSupported || !slices.Equal(result.Source.PlayerList, []string{"Alyx", "Gordon"}) {
+		t.Fatalf("Source player data = %+v, want supported [Alyx Gordon]", result.Source)
+	}
+}
+
 func TestGRPCClientReadFileReturnsBytes(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{readFileResponse: []byte("hello world")}

@@ -390,6 +390,8 @@ message SourceQueryInfo {
   bool vac = 12;
   string version = 13;
   uint32 protocol = 14;
+  repeated string player_list = 15;
+  bool player_list_supported = 16;
 }
 
 message PalworldQueryInfo {

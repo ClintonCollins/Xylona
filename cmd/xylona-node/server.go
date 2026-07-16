@@ -937,20 +937,22 @@ func sourceQueryToProto(info *node.SourceQueryInfo) *nodeprotov1.GameServerSourc
 		return nil
 	}
 	return &nodeprotov1.GameServerSourceQueryInfo{
-		Name:       info.Name,
-		Map:        info.Map,
-		Game:       info.Game,
-		AppId:      info.AppID,
-		SteamId:    info.SteamID,
-		GameId:     info.GameID,
-		Players:    info.Players,
-		MaxPlayers: info.MaxPlayers,
-		Bots:       info.Bots,
-		ServerOs:   info.ServerOS,
-		Visibility: info.Visibility,
-		Vac:        info.VAC,
-		Version:    info.Version,
-		Protocol:   info.Protocol,
+		Name:                info.Name,
+		Map:                 info.Map,
+		Game:                info.Game,
+		AppId:               info.AppID,
+		SteamId:             info.SteamID,
+		GameId:              info.GameID,
+		Players:             info.Players,
+		MaxPlayers:          info.MaxPlayers,
+		Bots:                info.Bots,
+		ServerOs:            info.ServerOS,
+		Visibility:          info.Visibility,
+		Vac:                 info.VAC,
+		Version:             info.Version,
+		Protocol:            info.Protocol,
+		PlayerList:          append([]string(nil), info.PlayerList...),
+		PlayerListSupported: info.PlayerListSupported,
 	}
 }
 

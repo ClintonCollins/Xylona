@@ -132,20 +132,22 @@ func serverQueryFromNodeResult(gs *models.GameServer, result node.GameServerQuer
 		out.Type = xylona.ServerQuery_Source
 		if result.Source != nil {
 			out.Source = &xylona.SourceQueryInfo{
-				Name:       result.Source.Name,
-				Map:        result.Source.Map,
-				Game:       result.Source.Game,
-				AppId:      result.Source.AppID,
-				SteamId:    result.Source.SteamID,
-				GameId:     result.Source.GameID,
-				Players:    result.Source.Players,
-				MaxPlayers: result.Source.MaxPlayers,
-				Bots:       result.Source.Bots,
-				ServerOs:   result.Source.ServerOS,
-				Visibility: result.Source.Visibility,
-				Vac:        result.Source.VAC,
-				Version:    result.Source.Version,
-				Protocol:   result.Source.Protocol,
+				Name:                result.Source.Name,
+				Map:                 result.Source.Map,
+				Game:                result.Source.Game,
+				AppId:               result.Source.AppID,
+				SteamId:             result.Source.SteamID,
+				GameId:              result.Source.GameID,
+				Players:             result.Source.Players,
+				MaxPlayers:          result.Source.MaxPlayers,
+				Bots:                result.Source.Bots,
+				ServerOs:            result.Source.ServerOS,
+				Visibility:          result.Source.Visibility,
+				Vac:                 result.Source.VAC,
+				Version:             result.Source.Version,
+				Protocol:            result.Source.Protocol,
+				PlayerList:          append([]string(nil), result.Source.PlayerList...),
+				PlayerListSupported: result.Source.PlayerListSupported,
 			}
 		}
 	case node.GameServerQueryKindPalworld:

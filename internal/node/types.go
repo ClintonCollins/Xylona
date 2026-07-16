@@ -268,20 +268,22 @@ type MinecraftQueryInfo struct {
 
 // SourceQueryInfo is the transport-agnostic result of a Source query.
 type SourceQueryInfo struct {
-	Name       string
-	Map        string
-	Game       string
-	AppID      uint32
-	SteamID    uint64
-	GameID     uint64
-	Players    uint32
-	MaxPlayers uint32
-	Bots       uint32
-	ServerOS   string
-	Visibility bool
-	VAC        bool
-	Version    string
-	Protocol   uint32
+	Name                string
+	Map                 string
+	Game                string
+	AppID               uint32
+	SteamID             uint64
+	GameID              uint64
+	Players             uint32
+	MaxPlayers          uint32
+	Bots                uint32
+	ServerOS            string
+	Visibility          bool
+	VAC                 bool
+	Version             string
+	Protocol            uint32
+	PlayerList          []string
+	PlayerListSupported bool
 }
 
 // PalworldQueryInfo is the transport-agnostic result of a Palworld REST query.

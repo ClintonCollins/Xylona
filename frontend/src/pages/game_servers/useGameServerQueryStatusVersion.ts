@@ -56,8 +56,8 @@ export function useGameServerQueryStatusVersion({
 
         currentPlayerCount.value = sourceQuery.players
         maxPlayerCount.value = sourceQuery.maxPlayers
-        onlinePlayers.value = []
-        playerListSupported.value = false
+        onlinePlayers.value = [...sourceQuery.playerList]
+        playerListSupported.value = sourceQuery.playerListSupported
         break
       }
       case ServerQuery_Type.Palworld: {
