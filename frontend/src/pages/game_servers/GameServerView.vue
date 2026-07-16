@@ -264,6 +264,26 @@
                 {{ currentPlayerCount }} / {{ maxPlayerCount }}
               </span>
             </div>
+            <div v-if="isServerOnline && playerListSupported" class="player-list-panel">
+              <ul v-if="onlinePlayers.length > 0" aria-label="Online players" class="player-list">
+                <li
+                  v-for="(player, index) in onlinePlayers"
+                  :key="`${player}-${index}`"
+                  class="player-list-item">
+                  <q-icon aria-hidden="true" class="player-list-icon" name="person" size="1rem" />
+                  <span :title="player" class="player-list-name">{{ player }}</span>
+                </li>
+              </ul>
+              <div v-else class="player-list-empty">
+                {{ currentPlayerCount > 0 ? 'Player names unavailable' : 'No players online' }}
+              </div>
+              <div
+                v-if="onlinePlayers.length > 0 && unlistedPlayerCount > 0"
+                class="player-list-note">
+                {{ unlistedPlayerCount }} more
+                {{ unlistedPlayerCount === 1 ? 'player' : 'players' }} not reported
+              </div>
+            </div>
           </div>
         </div>
 
@@ -714,15 +734,24 @@ const {
   gameServer,
   gameServerId,
 })
-const { currentPlayerCount, maxPlayerCount, queryGameServer, startQueryStatusVersionLifecycle } =
-  useGameServerQueryStatusVersion({
-    gameServer,
-    gameServerId,
-  })
+const {
+  currentPlayerCount,
+  maxPlayerCount,
+  onlinePlayers,
+  playerListSupported,
+  queryGameServer,
+  startQueryStatusVersionLifecycle,
+} = useGameServerQueryStatusVersion({
+  gameServer,
+  gameServerId,
+})
 
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
 const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)
+const unlistedPlayerCount = computed(() =>
+  Math.max(currentPlayerCount.value - onlinePlayers.value.length, 0),
+)
 const serverStateAuthoritative = computed(
   () =>
     websocketStateAuthoritative.value && serverStatusFresh.value && !isServerStatusUnknown.value,
@@ -2061,6 +2090,57 @@ async function sendGameServerInput() {
   font-family: var(--xy-font-mono);
   font-size: 0.78rem;
   color: var(--xy-text-secondary);
+}
+
+.player-list-panel {
+  background: var(--xy-surface-1);
+}
+
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 9rem;
+  margin: 0;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.player-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  min-height: 1.7rem;
+  padding: 0 var(--xy-space-xs);
+  color: var(--xy-text-secondary);
+  font-family: var(--xy-font-mono);
+  font-size: 0.75rem;
+}
+
+.player-list-icon {
+  flex-shrink: 0;
+  color: var(--xy-accent);
+  opacity: 0.8;
+}
+
+.player-list-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-list-empty,
+.player-list-note {
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-muted);
+  font-size: 0.72rem;
+}
+
+.player-list-note {
+  padding-top: var(--xy-space-xs);
+  border-top: 1px solid var(--xy-border);
 }
 
 /* ===== Metrics Preview ===== */

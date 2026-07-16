@@ -43,7 +43,11 @@ function makeGameServer(status: Status = Status.ONLINE) {
   })
 }
 
-function makeMinecraftQueryResponse(currentPlayers: number, maxPlayers: number) {
+function makeMinecraftQueryResponse(
+  currentPlayers: number,
+  maxPlayers: number,
+  playerList: string[] = [],
+) {
   return create(QueryGameServerResponseSchema, {
     queryInfo: {
       serverId: 'server-1',
@@ -52,6 +56,7 @@ function makeMinecraftQueryResponse(currentPlayers: number, maxPlayers: number) 
       minecraft: {
         numberOfPlayers: currentPlayers,
         maxPlayers,
+        playerList,
       },
     },
   })
@@ -71,13 +76,18 @@ function makeSourceQueryResponse(currentPlayers: number, maxPlayers: number) {
   })
 }
 
-function makePalworldQueryResponse(currentPlayers: number, maxPlayers: number) {
+function makePalworldQueryResponse(
+  currentPlayers: number,
+  maxPlayers: number,
+  playerList: string[] = [],
+) {
   return create(QueryGameServerResponseSchema, {
     queryInfo: {
       type: ServerQuery_Type.Palworld,
       palworld: {
         players: currentPlayers,
         maxPlayers,
+        playerList,
         responded: true,
       },
     },
@@ -89,6 +99,7 @@ function makeQueryInfoEvent(
   type: ServerQuery_Type,
   currentPlayers: number,
   maxPlayers: number,
+  playerList: string[] = [],
 ) {
   if (type === ServerQuery_Type.Minecraft) {
     return create(AllServersQueryInfoSchema, {
@@ -100,6 +111,7 @@ function makeQueryInfoEvent(
           minecraft: {
             numberOfPlayers: currentPlayers,
             maxPlayers,
+            playerList,
           },
         },
       },
@@ -116,6 +128,7 @@ function makeQueryInfoEvent(
           palworld: {
             players: currentPlayers,
             maxPlayers,
+            playerList,
             responded: true,
           },
         },
@@ -147,6 +160,8 @@ type HarnessVm = ComponentPublicInstance & {
   currentPlayerCount: number
   gameServer: ReturnType<typeof makeGameServer>
   maxPlayerCount: number
+  onlinePlayers: string[]
+  playerListSupported: boolean
   queryGameServer: () => Promise<void>
   startQueryStatusVersionLifecycle: () => void
 }
@@ -221,25 +236,37 @@ describe('useGameServerQueryStatusVersion', () => {
   it.each([
     {
       label: 'Minecraft',
-      response: makeMinecraftQueryResponse(7, 30),
+      response: makeMinecraftQueryResponse(7, 30, ['Alex', 'Steve']),
       expectedCurrent: 7,
       expectedMax: 30,
+      expectedPlayers: ['Alex', 'Steve'],
+      expectedPlayerListSupported: true,
     },
     {
       label: 'Source',
       response: makeSourceQueryResponse(11, 24),
       expectedCurrent: 11,
       expectedMax: 24,
+      expectedPlayers: [],
+      expectedPlayerListSupported: false,
     },
     {
       label: 'Palworld',
-      response: makePalworldQueryResponse(3, 32),
+      response: makePalworldQueryResponse(3, 32, ['Cattiva', 'Lamball']),
       expectedCurrent: 3,
       expectedMax: 32,
+      expectedPlayers: ['Cattiva', 'Lamball'],
+      expectedPlayerListSupported: true,
     },
   ])(
-    'queryGameServer applies $label player counts from the initial RPC query',
-    async ({ response, expectedCurrent, expectedMax }) => {
+    'queryGameServer applies $label player data from the initial RPC query',
+    async ({
+      response,
+      expectedCurrent,
+      expectedMax,
+      expectedPlayers,
+      expectedPlayerListSupported,
+    }) => {
       mocks.queryGameServer.mockResolvedValue(response)
       const wrapper = await mountHarness()
       const vm = getHarnessVm(wrapper)
@@ -254,6 +281,8 @@ describe('useGameServerQueryStatusVersion', () => {
       )
       expect(vm.currentPlayerCount).toBe(expectedCurrent)
       expect(vm.maxPlayerCount).toBe(expectedMax)
+      expect(vm.onlinePlayers).toEqual(expectedPlayers)
+      expect(vm.playerListSupported).toBe(expectedPlayerListSupported)
     },
   )
 
@@ -339,21 +368,36 @@ describe('useGameServerQueryStatusVersion', () => {
 
     XylonaEventBus.emit(
       'gameServersQueryInfo',
-      makeQueryInfoEvent('server-99', ServerQuery_Type.Minecraft, 99, 100),
+      makeQueryInfoEvent('server-99', ServerQuery_Type.Minecraft, 99, 100, ['Other Player']),
     )
     await nextTick()
 
     expect(vm.currentPlayerCount).toBe(0)
     expect(vm.maxPlayerCount).toBe(0)
+    expect(vm.onlinePlayers).toEqual([])
+    expect(vm.playerListSupported).toBe(false)
 
     XylonaEventBus.emit(
       'gameServersQueryInfo',
-      makeQueryInfoEvent('server-1', ServerQuery_Type.Source, 12, 64),
+      makeQueryInfoEvent('server-1', ServerQuery_Type.Minecraft, 12, 64, ['Alex', 'Steve']),
     )
     await nextTick()
 
     expect(vm.currentPlayerCount).toBe(12)
     expect(vm.maxPlayerCount).toBe(64)
+    expect(vm.onlinePlayers).toEqual(['Alex', 'Steve'])
+    expect(vm.playerListSupported).toBe(true)
+
+    XylonaEventBus.emit(
+      'gameServersQueryInfo',
+      makeQueryInfoEvent('server-1', ServerQuery_Type.Source, 8, 24),
+    )
+    await nextTick()
+
+    expect(vm.currentPlayerCount).toBe(8)
+    expect(vm.maxPlayerCount).toBe(24)
+    expect(vm.onlinePlayers).toEqual([])
+    expect(vm.playerListSupported).toBe(false)
   })
 
   it('preserves player counts when a live status update marks the active server offline', async () => {
@@ -370,6 +414,8 @@ describe('useGameServerQueryStatusVersion', () => {
     expect(vm.gameServer.status).toBe(Status.OFFLINE)
     expect(vm.currentPlayerCount).toBe(5)
     expect(vm.maxPlayerCount).toBe(20)
+    expect(vm.onlinePlayers).toEqual([])
+    expect(vm.playerListSupported).toBe(true)
   })
 
   it('ignores late lifecycle starts after unmount so query, status, and version listeners do not leak', async () => {
@@ -418,6 +464,8 @@ describe('useGameServerQueryStatusVersion', () => {
     expect(sharedVersionListener).toHaveBeenCalledTimes(1)
     expect(vm.currentPlayerCount).toBe(0)
     expect(vm.maxPlayerCount).toBe(0)
+    expect(vm.onlinePlayers).toEqual([])
+    expect(vm.playerListSupported).toBe(false)
     expect(vm.gameServer.status).toBe(Status.ONLINE)
     expect(vm.gameServer.version).toBe('1.20.1')
     expect(vm.gameServer.versionInfo).toBeUndefined()

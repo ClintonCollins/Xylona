@@ -61,6 +61,12 @@ const mocks = vi.hoisted(() => {
     updateGameServer: vi.fn(),
     waitForOpen: vi.fn(),
     isOpen: vi.fn(),
+    queryState: {
+      currentPlayerCount: 0,
+      maxPlayerCount: 0,
+      onlinePlayers: [] as string[],
+      playerListSupported: false,
+    },
     queryGameServer: vi.fn(),
     startQueryStatusVersionLifecycle: vi.fn(),
     startMetricsPreviewLifecycle: vi.fn(),
@@ -131,8 +137,10 @@ vi.mock('./useGameServerQueryStatusVersion', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
   return {
     useGameServerQueryStatusVersion: () => ({
-      currentPlayerCount: ref(0),
-      maxPlayerCount: ref(0),
+      currentPlayerCount: ref(mocks.queryState.currentPlayerCount),
+      maxPlayerCount: ref(mocks.queryState.maxPlayerCount),
+      onlinePlayers: ref([...mocks.queryState.onlinePlayers]),
+      playerListSupported: ref(mocks.queryState.playerListSupported),
       queryGameServer: mocks.queryGameServer,
       startQueryStatusVersionLifecycle: mocks.startQueryStatusVersionLifecycle,
     }),
@@ -234,6 +242,10 @@ describe('GameServerView', () => {
     )
     mocks.getGameServerReadiness.mockResolvedValue({ items: [] })
     mocks.readGameServerOutput.mockReset()
+    mocks.queryState.currentPlayerCount = 0
+    mocks.queryState.maxPlayerCount = 0
+    mocks.queryState.onlinePlayers = []
+    mocks.queryState.playerListSupported = false
     mocks.queryGameServer.mockReset()
     mocks.startQueryStatusVersionLifecycle.mockReset()
     mocks.startMetricsPreviewLifecycle.mockReset()
@@ -254,6 +266,78 @@ describe('GameServerView', () => {
     mocks.updateGameServer.mockReset()
     setWebsocketConnectionStatus('connecting')
   })
+
+  it.each([
+    {
+      label: 'supported roster with all names',
+      currentPlayerCount: 2,
+      onlinePlayers: ['Alex', 'Steve'],
+      playerListSupported: true,
+      expectedNames: ['Alex', 'Steve'],
+      expectedMessage: '',
+    },
+    {
+      label: 'supported roster with a partial sample',
+      currentPlayerCount: 3,
+      onlinePlayers: ['Alex'],
+      playerListSupported: true,
+      expectedNames: ['Alex'],
+      expectedMessage: '2 more players not reported',
+    },
+    {
+      label: 'supported empty roster',
+      currentPlayerCount: 0,
+      onlinePlayers: [],
+      playerListSupported: true,
+      expectedNames: [],
+      expectedMessage: 'No players online',
+    },
+    {
+      label: 'unsupported roster',
+      currentPlayerCount: 4,
+      onlinePlayers: [],
+      playerListSupported: false,
+      expectedNames: [],
+      expectedMessage: '',
+    },
+  ])(
+    'renders player names only for an online server with a $label',
+    async ({
+      currentPlayerCount,
+      onlinePlayers,
+      playerListSupported,
+      expectedNames,
+      expectedMessage,
+    }) => {
+      mocks.queryState.currentPlayerCount = currentPlayerCount
+      mocks.queryState.maxPlayerCount = 20
+      mocks.queryState.onlinePlayers = onlinePlayers
+      mocks.queryState.playerListSupported = playerListSupported
+      mocks.getGameServer.mockResolvedValue(
+        create(GetGameServerResponseSchema, {
+          gameServer: buildOnlineGameServer(),
+        }),
+      )
+      mocks.readGameServerOutput.mockResolvedValue(
+        create(ReadGameServerOutputResponseSchema, { output: '' }),
+      )
+
+      const wrapper = mountView()
+      await flushPromises()
+
+      const playerListPanel = wrapper.find('.player-list-panel')
+      expect(playerListPanel.exists()).toBe(playerListSupported)
+      expect(wrapper.findAll('.player-list-name').map((player) => player.text())).toEqual(
+        expectedNames,
+      )
+      if (expectedMessage === '') {
+        expect(wrapper.find('.player-list-empty').exists()).toBe(false)
+        expect(wrapper.find('.player-list-note').exists()).toBe(false)
+      } else {
+        expect(playerListPanel.text()).toContain(expectedMessage)
+      }
+    },
+  )
 
   it('shows game server update output in the console without an update progress dialog', async () => {
     mocks.readGameServerOutput.mockResolvedValue(

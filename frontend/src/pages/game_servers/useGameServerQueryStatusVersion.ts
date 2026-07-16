@@ -29,6 +29,8 @@ export function useGameServerQueryStatusVersion({
   const $q = useQuasar()
   const currentPlayerCount = ref(0)
   const maxPlayerCount = ref(0)
+  const onlinePlayers = ref<string[]>([])
+  const playerListSupported = ref(false)
   let lifecycleStarted = false
   let lifecycleUnmounted = false
 
@@ -42,6 +44,8 @@ export function useGameServerQueryStatusVersion({
 
         currentPlayerCount.value = minecraftQuery.numberOfPlayers
         maxPlayerCount.value = minecraftQuery.maxPlayers
+        onlinePlayers.value = [...minecraftQuery.playerList]
+        playerListSupported.value = true
         break
       }
       case ServerQuery_Type.Source: {
@@ -52,6 +56,8 @@ export function useGameServerQueryStatusVersion({
 
         currentPlayerCount.value = sourceQuery.players
         maxPlayerCount.value = sourceQuery.maxPlayers
+        onlinePlayers.value = []
+        playerListSupported.value = false
         break
       }
       case ServerQuery_Type.Palworld: {
@@ -62,6 +68,8 @@ export function useGameServerQueryStatusVersion({
 
         currentPlayerCount.value = palworldQuery.players
         maxPlayerCount.value = palworldQuery.maxPlayers
+        onlinePlayers.value = [...palworldQuery.playerList]
+        playerListSupported.value = true
         break
       }
     }
@@ -142,9 +150,11 @@ export function useGameServerQueryStatusVersion({
   return {
     currentPlayerCount,
     maxPlayerCount,
+    onlinePlayers,
     onServerQueryInfo,
     onServerStatusUpdate,
     onServerVersionUpdate,
+    playerListSupported,
     queryGameServer,
     startQueryStatusVersionLifecycle,
     stopQueryStatusVersionLifecycle,
