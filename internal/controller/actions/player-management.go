@@ -13,7 +13,19 @@ import (
 )
 
 const (
-	minecraftGameID = "minecraft"
+	minecraftGameID        = "minecraft"
+	sevenDaysToDieGameID   = "7_days_to_die"
+	factorioGameID         = "factorio"
+	hytaleGameID           = "hytale"
+	projectZomboidGameID   = "project_zomboid"
+	terrariaGameID         = "terraria"
+	counterStrikeTwoGameID = "counter_strike_2"
+	garrysModGameID        = "garrys_mod"
+	teamFortressTwoGameID  = "team_fortress_2"
+	rustGameID             = "rust"
+
+	expandedPlayerActionsProtocolVersion int64 = 4
+	managedAdminInputUnavailableReason         = "This game definition does not configure the managed admin console required for player actions."
 )
 
 // PlayerManagement describes the roster, runtime state, and typed actions
@@ -28,7 +40,8 @@ type PlayerManagement struct {
 }
 
 type playerManagementProfile struct {
-	kind              node.GameServerQueryKind
+	queryKind         node.GameServerQueryKind
+	actionKind        node.GameServerQueryKind
 	identifierLabel   string
 	supportedActions  []node.GameServerPlayerAction
 	unavailableReason string
@@ -57,28 +70,34 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 	management.Status = currentPlayerManagementStatus(ctx, client, gameServer)
 
 	if len(profile.supportedActions) > 0 {
-		caps, errCaps := client.GetRuntimeCapabilities(ctx)
-		switch {
-		case errCaps != nil:
-			management.UnavailableReason = "The target node's player-action capabilities are unavailable."
-		case !caps.PlayerActions:
-			management.UnavailableReason = "The target node does not support player actions. Upgrade the node to enable management."
-		default:
-			management.ActionsSupported = true
-			management.UnavailableReason = ""
+		if !gameServerDefinitionSupportsPlayerActionProfile(gameServer, profile) {
+			management.UnavailableReason = managedAdminInputUnavailableReason
+		} else {
+			caps, errCaps := client.GetRuntimeCapabilities(ctx)
+			switch {
+			case errCaps != nil:
+				management.UnavailableReason = "The target node's player-action capabilities are unavailable."
+			case !caps.PlayerActions:
+				management.UnavailableReason = "The target node does not support player actions. Upgrade the node to enable management."
+			case !runtimeSupportsPlayerActionProfile(caps, profile):
+				management.UnavailableReason = "The target node does not support this game's player actions. Upgrade the node to enable management."
+			default:
+				management.ActionsSupported = true
+				management.UnavailableReason = ""
+			}
 		}
 	}
 
 	queryRequest := node.GameServerQueryRequest{
-		Kind:       profile.kind,
+		Kind:       profile.queryKind,
 		IP:         gameServer.IP,
 		QueryPort:  gameServerQueryPort(gameServer),
 		MaxPlayers: gameServer.MaxPlayers,
 	}
-	if profile.kind == node.GameServerQueryKindUnknown || management.Status != xylona.Status_ONLINE {
+	if profile.queryKind == node.GameServerQueryKindUnknown || management.Status != xylona.Status_ONLINE {
 		return management, nil
 	}
-	if profile.kind == node.GameServerQueryKindPalworld {
+	if profile.queryKind == node.GameServerQueryKindPalworld {
 		username, password, errCredentials := inst.palworldQueryCredentials(gameServer)
 		if errCredentials != nil {
 			management.ActionsSupported = false
@@ -116,6 +135,9 @@ func (inst *Instance) PerformPlayerAction(
 	if !profileSupportsAction(profile, action) {
 		return node.ErrPlayerActionUnsupported
 	}
+	if !gameServerDefinitionSupportsPlayerActionProfile(gameServer, profile) {
+		return node.ErrPlayerActionUnsupported
+	}
 
 	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 	if errClient != nil {
@@ -131,9 +153,12 @@ func (inst *Instance) PerformPlayerAction(
 	if !caps.PlayerActions {
 		return node.ErrPlayerActionUnsupported
 	}
+	if !runtimeSupportsPlayerActionProfile(caps, profile) {
+		return node.ErrPlayerActionUnsupported
+	}
 
 	actionRequest := node.GameServerPlayerActionRequest{
-		Kind:      profile.kind,
+		Kind:      profile.actionKind,
 		Action:    action,
 		ProcessID: gameServer.ID,
 		IP:        gameServer.IP,
@@ -141,7 +166,7 @@ func (inst *Instance) PerformPlayerAction(
 		PlayerID:  strings.TrimSpace(playerID),
 		Reason:    strings.TrimSpace(reason),
 	}
-	if profile.kind == node.GameServerQueryKindPalworld {
+	if profile.actionKind == node.GameServerQueryKindPalworld {
 		username, password, errCredentials := inst.palworldQueryCredentials(gameServer)
 		if errCredentials != nil {
 			return errors.Join(node.ErrPlayerActionUnavailable, errCredentials)
@@ -157,6 +182,30 @@ func (inst *Instance) PerformPlayerAction(
 	return nil
 }
 
+func runtimeSupportsPlayerActionProfile(
+	caps node.RuntimeCapabilities,
+	profile playerManagementProfile,
+) bool {
+	switch profile.actionKind {
+	case node.GameServerQueryKindMinecraft, node.GameServerQueryKindPalworld:
+		return true
+	default:
+		return caps.ProtocolVersion >= expandedPlayerActionsProtocolVersion
+	}
+}
+
+func gameServerDefinitionSupportsPlayerActionProfile(
+	gameServer *models.GameServer,
+	profile playerManagementProfile,
+) bool {
+	switch profile.actionKind {
+	case node.GameServerQueryKindFactorio, node.GameServerQueryKindSourceRCON, node.GameServerQueryKindRust:
+		return GameServerDefinitionSupportsAdminInput(gameServer)
+	default:
+		return true
+	}
+}
+
 func playerManagementProfileForServer(gameServer *models.GameServer) playerManagementProfile {
 	if gameServer == nil {
 		return playerManagementProfile{unavailableReason: "Player management is not supported for this game."}
@@ -164,7 +213,8 @@ func playerManagementProfileForServer(gameServer *models.GameServer) playerManag
 	switch gameServer.GameID {
 	case minecraftGameID:
 		return playerManagementProfile{
-			kind:            node.GameServerQueryKindMinecraft,
+			queryKind:       node.GameServerQueryKindMinecraft,
+			actionKind:      node.GameServerQueryKindMinecraft,
 			identifierLabel: "Player name",
 			supportedActions: []node.GameServerPlayerAction{
 				node.GameServerPlayerActionKick,
@@ -176,8 +226,89 @@ func playerManagementProfileForServer(gameServer *models.GameServer) playerManag
 		}
 	case palworldGameID:
 		return playerManagementProfile{
-			kind:            node.GameServerQueryKindPalworld,
+			queryKind:       node.GameServerQueryKindPalworld,
+			actionKind:      node.GameServerQueryKindPalworld,
 			identifierLabel: "User ID",
+			supportedActions: []node.GameServerPlayerAction{
+				node.GameServerPlayerActionKick,
+				node.GameServerPlayerActionBan,
+				node.GameServerPlayerActionUnban,
+			},
+		}
+	case sevenDaysToDieGameID:
+		return playerManagementProfile{
+			queryKind:       node.GameServerQueryKindSource,
+			actionKind:      node.GameServerQueryKindSevenDaysToDie,
+			identifierLabel: "Player name, entity ID, or platform ID",
+			supportedActions: []node.GameServerPlayerAction{
+				node.GameServerPlayerActionKick,
+				node.GameServerPlayerActionBan,
+				node.GameServerPlayerActionUnban,
+				node.GameServerPlayerActionAllowlistAdd,
+				node.GameServerPlayerActionAllowlistRemove,
+			},
+		}
+	case factorioGameID:
+		return playerManagementProfile{
+			actionKind:      node.GameServerQueryKindFactorio,
+			identifierLabel: "Factorio player name",
+			supportedActions: []node.GameServerPlayerAction{
+				node.GameServerPlayerActionKick,
+				node.GameServerPlayerActionBan,
+				node.GameServerPlayerActionUnban,
+				node.GameServerPlayerActionAllowlistAdd,
+				node.GameServerPlayerActionAllowlistRemove,
+			},
+		}
+	case hytaleGameID:
+		return playerManagementProfile{
+			actionKind:      node.GameServerQueryKindHytale,
+			identifierLabel: "Player name",
+			supportedActions: []node.GameServerPlayerAction{
+				node.GameServerPlayerActionKick,
+				node.GameServerPlayerActionBan,
+				node.GameServerPlayerActionUnban,
+				node.GameServerPlayerActionAllowlistAdd,
+				node.GameServerPlayerActionAllowlistRemove,
+			},
+		}
+	case projectZomboidGameID:
+		return playerManagementProfile{
+			queryKind:       node.GameServerQueryKindSource,
+			actionKind:      node.GameServerQueryKindProjectZomboid,
+			identifierLabel: "Project Zomboid username",
+			supportedActions: []node.GameServerPlayerAction{
+				node.GameServerPlayerActionKick,
+				node.GameServerPlayerActionBan,
+				node.GameServerPlayerActionUnban,
+				node.GameServerPlayerActionAllowlistRemove,
+			},
+		}
+	case terrariaGameID:
+		return playerManagementProfile{
+			actionKind:      node.GameServerQueryKindTerraria,
+			identifierLabel: "Player name",
+			supportedActions: []node.GameServerPlayerAction{
+				node.GameServerPlayerActionKick,
+				node.GameServerPlayerActionBan,
+			},
+		}
+	case counterStrikeTwoGameID, garrysModGameID, teamFortressTwoGameID:
+		return playerManagementProfile{
+			queryKind:       node.GameServerQueryKindSource,
+			actionKind:      node.GameServerQueryKindSourceRCON,
+			identifierLabel: "Steam ID or server user ID",
+			supportedActions: []node.GameServerPlayerAction{
+				node.GameServerPlayerActionKick,
+				node.GameServerPlayerActionBan,
+				node.GameServerPlayerActionUnban,
+			},
+		}
+	case rustGameID:
+		return playerManagementProfile{
+			queryKind:       node.GameServerQueryKindSource,
+			actionKind:      node.GameServerQueryKindRust,
+			identifierLabel: "Steam64 ID",
 			supportedActions: []node.GameServerPlayerAction{
 				node.GameServerPlayerActionKick,
 				node.GameServerPlayerActionBan,
@@ -187,7 +318,7 @@ func playerManagementProfileForServer(gameServer *models.GameServer) playerManag
 	}
 	if gameServer.R.Game != nil && gameServer.R.Game.UsesSourceQuery {
 		return playerManagementProfile{
-			kind:              node.GameServerQueryKindSource,
+			queryKind:         node.GameServerQueryKindSource,
 			unavailableReason: "This game exposes a read-only player roster, but not a stable identifier for safe player actions.",
 		}
 	}

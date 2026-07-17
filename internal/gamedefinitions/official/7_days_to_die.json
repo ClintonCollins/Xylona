@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:24a439de005183a36eae741f71a80605395a4a301348f28350f691753f6a07d6",
+  "content_hash": "sha256:7375cd690ed3e2f0a1b5df25c504ae6207394eea588afd12f07dd47a6be47690",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -324,8 +324,9 @@
           },
           "TelnetEnabled": {
             "type": "boolean",
-            "title": "Enable local management console",
+            "title": "Enable management console",
             "default": true,
+            "description": "Xylona enables Telnet for console and player management. A configured password also permits remote Telnet clients.",
             "x-group": "Administration",
             "x-order": 4,
             "x-managed": {
@@ -348,6 +349,7 @@
             "type": "string",
             "title": "Management console password",
             "default": "",
+            "description": "Managed through Server Settings. Telnet sends passwords and commands without encryption.",
             "x-group": "Administration",
             "x-order": 6,
             "x-managed": {

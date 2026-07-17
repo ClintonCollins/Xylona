@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -145,6 +146,37 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 		msg.TelnetInput = &nodeprotov1.TelnetInput{
 			Port:     int32(cfg.InputTelnet.Port),
 			Password: cfg.InputTelnet.Password,
+		}
+	}
+	if cfg.InputRCON != nil {
+		if cfg.InputRCON.Port <= 0 || cfg.InputRCON.Port > 65535 {
+			return errors.New("nodeclient: start process: RCON port is outside the valid range")
+		}
+		protocol, errProtocol := rconProtocolToProto(cfg.InputRCON.Protocol)
+		if errProtocol != nil {
+			return errProtocol
+		}
+		msg.RconInput = &nodeprotov1.RCONInput{
+			Host:     cfg.InputRCON.Host,
+			Port:     int32(cfg.InputRCON.Port),
+			Password: cfg.InputRCON.Password,
+			Protocol: protocol,
+		}
+	}
+	if cfg.InputREST != nil {
+		if cfg.InputREST.Port <= 0 || cfg.InputREST.Port > 65535 {
+			return errors.New("nodeclient: start process: REST port is outside the valid range")
+		}
+		kind, errKind := restInputKindToProto(cfg.InputREST.Kind)
+		if errKind != nil {
+			return errKind
+		}
+		msg.RestInput = &nodeprotov1.RESTInput{
+			Host:              cfg.InputREST.Host,
+			Port:              int32(cfg.InputREST.Port),
+			Kind:              kind,
+			Password:          cfg.InputREST.Password,
+			PreviousPasswords: slices.Clone(cfg.InputREST.PreviousPasswords),
 		}
 	}
 	req := newReq(c, msg)
@@ -794,6 +826,20 @@ func gameServerQueryKindToProto(kind node.GameServerQueryKind) nodeprotov1.GameS
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE
 	case node.GameServerQueryKindPalworld:
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD
+	case node.GameServerQueryKindSevenDaysToDie:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SEVEN_DAYS_TO_DIE
+	case node.GameServerQueryKindFactorio:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_FACTORIO
+	case node.GameServerQueryKindHytale:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_HYTALE
+	case node.GameServerQueryKindProjectZomboid:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PROJECT_ZOMBOID
+	case node.GameServerQueryKindTerraria:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_TERRARIA
+	case node.GameServerQueryKindSourceRCON:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE_RCON
+	case node.GameServerQueryKindRust:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_RUST
 	default:
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_UNSPECIFIED
 	}
@@ -807,6 +853,20 @@ func gameServerQueryKindFromProto(kind nodeprotov1.GameServerQueryKind) node.Gam
 		return node.GameServerQueryKindSource
 	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD:
 		return node.GameServerQueryKindPalworld
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SEVEN_DAYS_TO_DIE:
+		return node.GameServerQueryKindSevenDaysToDie
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_FACTORIO:
+		return node.GameServerQueryKindFactorio
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_HYTALE:
+		return node.GameServerQueryKindHytale
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PROJECT_ZOMBOID:
+		return node.GameServerQueryKindProjectZomboid
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_TERRARIA:
+		return node.GameServerQueryKindTerraria
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE_RCON:
+		return node.GameServerQueryKindSourceRCON
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_RUST:
+		return node.GameServerQueryKindRust
 	default:
 		return node.GameServerQueryKindUnknown
 	}
@@ -1027,8 +1087,32 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		LaunchEnv:                msg.GetLaunchEnv(),
 		ReliableProcessLifecycle: msg.GetReliableProcessLifecycle(),
 		TelnetInput:              msg.GetTelnetInput(),
+		RCONInput:                msg.GetRconInput(),
+		RESTInput:                msg.GetRestInput(),
 		PlayerActions:            msg.GetPlayerActions(),
 	}, nil
+}
+
+func rconProtocolToProto(protocol node.RCONProtocol) (nodeprotov1.RCONProtocol, error) {
+	switch protocol {
+	case node.RCONProtocolSource:
+		return nodeprotov1.RCONProtocol_RCON_PROTOCOL_SOURCE, nil
+	case node.RCONProtocolMinecraft:
+		return nodeprotov1.RCONProtocol_RCON_PROTOCOL_MINECRAFT, nil
+	case node.RCONProtocolRustWeb:
+		return nodeprotov1.RCONProtocol_RCON_PROTOCOL_RUST_WEB, nil
+	default:
+		return nodeprotov1.RCONProtocol_RCON_PROTOCOL_UNSPECIFIED, errors.New("nodeclient: unsupported RCON protocol")
+	}
+}
+
+func restInputKindToProto(kind node.RESTInputKind) (nodeprotov1.RESTInputKind, error) {
+	switch kind {
+	case node.RESTInputKindSatisfactory:
+		return nodeprotov1.RESTInputKind_REST_INPUT_KIND_SATISFACTORY, nil
+	default:
+		return nodeprotov1.RESTInputKind_REST_INPUT_KIND_UNSPECIFIED, errors.New("nodeclient: unsupported REST input kind")
+	}
 }
 
 const stageSelfUpdateChunkBytes = 256 * 1024

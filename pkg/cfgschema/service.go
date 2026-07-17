@@ -192,12 +192,13 @@ type ManagedFieldResolver func(source string) (string, bool)
 
 // GameServerSettings contains server values that can own generated config fields.
 type GameServerSettings struct {
-	Name       string
-	Directory  string
-	IP         string
-	Port       int64
-	QueryPort  int64
-	MaxPlayers int64
+	Name                 string
+	Directory            string
+	IP                   string
+	Port                 int64
+	QueryPort            int64
+	MaxPlayers           int64
+	LocalConsolePassword string
 }
 
 // GameServerSettingsResolver creates a ManagedFieldResolver from all supported server settings.
@@ -213,7 +214,7 @@ func GameServerSettingsResolver(settings GameServerSettings) ManagedFieldResolve
 		"game_server.server_name":       settings.Name,
 		"game_server.directory":         settings.Directory,
 		"xylona.local_console_enabled":  "true",
-		"xylona.local_console_password": "",
+		"xylona.local_console_password": settings.LocalConsolePassword,
 	}
 	return func(source string) (string, bool) {
 		v, ok := sources[normalizeManagedSource(source)]

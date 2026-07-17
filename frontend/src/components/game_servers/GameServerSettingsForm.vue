@@ -163,6 +163,83 @@
         </div>
       </section>
 
+      <section
+        v-if="adminInterfaceLoading || adminInterface.supported"
+        class="form-section"
+        data-testid="admin-interface-settings-section">
+        <div class="section-header">
+          <span class="section-icon section-icon--warning">
+            <q-icon name="admin_panel_settings" size="14px" />
+          </span>
+          <span class="section-title font-display">Remote Administration</span>
+          <span class="section-line"></span>
+        </div>
+
+        <div
+          v-if="adminInterfaceLoading"
+          class="text-caption text-muted"
+          data-testid="admin-interface-settings-loading">
+          Loading admin interface...
+        </div>
+
+        <template v-else>
+          <div class="admin-interface-summary">
+            <div>
+              <div class="text-caption text-muted">Interface</div>
+              <div class="text-body2 text-primary">{{ adminInterface.transport }}</div>
+            </div>
+            <div>
+              <div class="text-caption text-muted">Endpoint</div>
+              <div class="text-body2 text-primary font-mono" data-testid="admin-interface-endpoint">
+                {{ adminInterfaceEndpoint }}
+              </div>
+            </div>
+            <div v-if="adminInterface.username">
+              <div class="text-caption text-muted">Username</div>
+              <div class="text-body2 text-primary font-mono">{{ adminInterface.username }}</div>
+            </div>
+            <div>
+              <div class="text-caption text-muted">Password</div>
+              <div class="text-body2 text-primary" data-testid="admin-interface-password-status">
+                {{ adminInterface.passwordConfigured ? 'Configured' : 'Generated on first start' }}
+              </div>
+            </div>
+          </div>
+
+          <q-banner class="q-mt-md" data-testid="admin-interface-access-note" dense rounded>
+            {{ adminInterface.remoteAccessNote }}
+            Changes take effect the next time the game server starts.
+          </q-banner>
+          <q-banner
+            v-if="adminInterface.transportSecurityNote"
+            class="q-mt-sm"
+            data-testid="admin-interface-security-note"
+            dense
+            rounded>
+            {{ adminInterface.transportSecurityNote }}
+          </q-banner>
+
+          <div class="admin-interface-password-editor q-mt-md">
+            <q-input
+              v-model="adminInterfacePassword"
+              autocomplete="new-password"
+              data-testid="admin-interface-password"
+              hint="8–128 printable characters; spaces, double quotes, and backslashes are not supported."
+              label="New Admin Interface Password"
+              outlined
+              type="password" />
+            <q-btn
+              :disable="adminInterfacePassword.length === 0"
+              :loading="adminInterfaceSaving"
+              color="primary"
+              data-testid="save-admin-interface-password"
+              label="Update Password"
+              no-caps
+              @click="saveAdminInterfacePassword" />
+          </div>
+        </template>
+      </section>
+
       <section class="form-section" data-testid="environment-settings-section">
         <div class="section-header">
           <span class="section-icon section-icon--accent">
@@ -529,6 +606,7 @@ import type {
   GameServerBackupOverview,
   SecretEnvironmentVariableState,
 } from '@/proto/shared_pb'
+import type { GameServerAdminInterface } from '@/proto/xylona_pb'
 import {
   BackupSettingsSchema,
   EditGameServerRequest,
@@ -538,10 +616,13 @@ import {
 } from '@/proto/shared_pb'
 import {
   ClearGameServerSecretEnvRequestSchema,
+  GameServerAdminInterfaceSchema,
+  GetGameServerAdminInterfaceRequestSchema,
   GetBackupSettingsRequestSchema,
   GetGameServerEnvironmentRequestSchema,
   GetGameServerBackupOverviewRequestSchema,
   SetGameServerSecretEnvRequestSchema,
+  SetGameServerAdminInterfacePasswordRequestSchema,
   UpdateGameServerEnvironmentRequestSchema,
   UpdateBackupSettingsRequestSchema,
 } from '@/proto/xylona_pb'
@@ -562,6 +643,10 @@ const environmentSnapshot = ref('')
 const environmentIssues = ref<EnvironmentValidationIssue[]>([])
 const environmentLoading = ref(true)
 const environmentSaving = ref(false)
+const adminInterface = ref<GameServerAdminInterface>(create(GameServerAdminInterfaceSchema))
+const adminInterfaceLoading = ref(true)
+const adminInterfacePassword = ref('')
+const adminInterfaceSaving = ref(false)
 const secretEnvironmentStates = ref<SecretEnvironmentVariableState[]>([])
 const secretEnvironmentName = ref('')
 const secretEnvironmentValue = ref('')
@@ -577,6 +662,12 @@ const backupEnableBlocked = computed(() => !backupSettings.value.backupsSupporte
 const backupSettingsSaveBlocked = computed(
   () => backupEnableBlocked.value && backupSettings.value.backupsEnabled,
 )
+const adminInterfaceEndpoint = computed(() => {
+  const address = adminInterface.value.bindAddress
+  const displayAddress =
+    address.includes(':') && !address.startsWith('[') ? `[${address}]` : address
+  return `${displayAddress}:${adminInterface.value.port.toString()}`
+})
 
 const {
   autoRestartCooldownModel,
@@ -627,11 +718,72 @@ const {
 
 onMounted(async () => {
   await initialize()
-  await Promise.all([initializeBackupSettings(), initializeEnvironmentSettings()])
+  await Promise.all([
+    initializeAdminInterface(),
+    initializeBackupSettings(),
+    initializeEnvironmentSettings(),
+  ])
 })
 
 async function cancel() {
   router.back()
+}
+
+async function initializeAdminInterface() {
+  adminInterfaceLoading.value = true
+
+  try {
+    const response = await GetXylonaClient().getGameServerAdminInterface(
+      create(GetGameServerAdminInterfaceRequestSchema, {
+        serverId: props.gameServerId,
+      }),
+    )
+    adminInterface.value = response.adminInterface
+      ? create(GameServerAdminInterfaceSchema, response.adminInterface)
+      : create(GameServerAdminInterfaceSchema)
+  } catch (e) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption: 'Failed to load admin interface: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    adminInterfaceLoading.value = false
+  }
+}
+
+async function saveAdminInterfacePassword() {
+  adminInterfaceSaving.value = true
+
+  try {
+    const response = await GetXylonaClient().setGameServerAdminInterfacePassword(
+      create(SetGameServerAdminInterfacePasswordRequestSchema, {
+        serverId: props.gameServerId,
+        password: adminInterfacePassword.value,
+      }),
+    )
+    if (response.adminInterface) {
+      adminInterface.value = create(GameServerAdminInterfaceSchema, response.adminInterface)
+    }
+    adminInterfacePassword.value = ''
+    $q.notify({
+      type: 'positive',
+      position: 'top',
+      caption: 'Admin interface password updated. Restart the game server to apply it.',
+      icon: 'task_alt',
+    })
+  } catch (e) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption:
+        'Failed to save admin interface password: ' + ConnectErrorToString(ConnectError.from(e)),
+      icon: 'report_problem',
+    })
+  } finally {
+    adminInterfaceSaving.value = false
+  }
 }
 
 async function initializeBackupSettings() {
@@ -910,6 +1062,7 @@ async function submitGameServer() {
     request.gameServer = gameServer.value
 
     await GetXylonaClient().editGameServer(request)
+    await initializeAdminInterface()
     $q.notify({
       type: 'positive',
       position: 'top',
@@ -931,6 +1084,19 @@ async function submitGameServer() {
 </script>
 
 <style scoped>
+.admin-interface-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--xy-space-md);
+}
+
+.admin-interface-password-editor {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: var(--xy-space-sm);
+  align-items: start;
+}
+
 .environment-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
@@ -1007,11 +1173,13 @@ async function submitGameServer() {
 }
 
 @media (max-width: 720px) {
+  .admin-interface-password-editor,
   .environment-row,
   .secret-environment-editor {
     grid-template-columns: 1fr;
   }
 
+  .admin-interface-password-editor :deep(.q-btn),
   .environment-row :deep(.q-btn),
   .secret-environment-editor :deep(.q-btn) {
     justify-self: flex-start;

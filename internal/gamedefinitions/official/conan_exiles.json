@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4ab688d124bd381e5225e03c0a7ecd627de5cf7e080a928144d2b88a71e0f517",
+  "content_hash": "sha256:9c4fd4fc4371947a10b8649631ee28bf8907d012ce67fd2bf16b5ebd40cd9162",
   "game": {
     "id": "conan_exiles",
     "name": "Conan Exiles",
@@ -103,6 +103,17 @@
         "-log"
       ],
       "label": "Log output"
+    },
+    {
+      "id": "runtime_conan_exiles_linux_06",
+      "order": 6,
+      "ownership": "system",
+      "tokens": [
+        "-RconEnabled=1",
+        "-RconPort={{RCON_PORT}}",
+        "-RconPassword={{RCON_PASSWORD}}"
+      ],
+      "label": "RCON"
     }
   ],
   "windows_start_args_template": [
@@ -154,6 +165,17 @@
         "-log"
       ],
       "label": "Log output"
+    },
+    {
+      "id": "runtime_conan_exiles_windows_06",
+      "order": 6,
+      "ownership": "system",
+      "tokens": [
+        "-RconEnabled=1",
+        "-RconPort={{RCON_PORT}}",
+        "-RconPassword={{RCON_PASSWORD}}"
+      ],
+      "label": "RCON"
     }
   ],
   "start_arg_blocklist": [],

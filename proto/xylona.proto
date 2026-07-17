@@ -61,6 +61,8 @@ service Xylona {
   rpc UpdateGameServerEnvironment (UpdateGameServerEnvironmentRequest) returns (UpdateGameServerEnvironmentResponse) {}
   rpc SetGameServerSecretEnv (SetGameServerSecretEnvRequest) returns (SetGameServerSecretEnvResponse) {}
   rpc ClearGameServerSecretEnv (ClearGameServerSecretEnvRequest) returns (ClearGameServerSecretEnvResponse) {}
+  rpc GetGameServerAdminInterface (GetGameServerAdminInterfaceRequest) returns (GetGameServerAdminInterfaceResponse) {}
+  rpc SetGameServerAdminInterfacePassword (SetGameServerAdminInterfacePasswordRequest) returns (SetGameServerAdminInterfacePasswordResponse) {}
   rpc GetGameServerReadiness (GetGameServerReadinessRequest) returns (GetGameServerReadinessResponse) {}
   rpc AcceptMinecraftEula (AcceptMinecraftEulaRequest) returns (AcceptMinecraftEulaResponse) {}
   rpc SetSteamGSLT (SetSteamGSLTRequest) returns (SetSteamGSLTResponse) {}
@@ -508,6 +510,35 @@ message ClearGameServerSecretEnvRequest {
 message ClearGameServerSecretEnvResponse {
   repeated SecretEnvironmentVariableState secret_env = 1;
   repeated EnvironmentValidationIssue validation_issues = 2;
+}
+
+message GameServerAdminInterface {
+  bool supported = 1;
+  string transport = 2;
+  string bind_address = 3;
+  int64 port = 4;
+  string username = 5;
+  bool password_configured = 6;
+  bool remote_access = 7;
+  string remote_access_note = 8;
+  string transport_security_note = 9;
+}
+
+message GetGameServerAdminInterfaceRequest {
+  string server_id = 1;
+}
+
+message GetGameServerAdminInterfaceResponse {
+  GameServerAdminInterface admin_interface = 1;
+}
+
+message SetGameServerAdminInterfacePasswordRequest {
+  string server_id = 1;
+  string password = 2;
+}
+
+message SetGameServerAdminInterfacePasswordResponse {
+  GameServerAdminInterface admin_interface = 1;
 }
 
 message GameServerReadinessItem {

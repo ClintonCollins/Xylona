@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,8 @@ const maxOutputBufferBytes = 1024 << 10
 const (
 	InputTypeStdIn inputType = iota
 	InputTypeTelnet
+	InputTypeRCON
+	InputTypeREST
 )
 
 var (
@@ -46,10 +49,53 @@ type TelnetCredentials struct {
 	Password string
 }
 
+// RCONProtocol identifies the response framing spoken by an RCON server.
+type RCONProtocol int
+
+const (
+	// RCONProtocolUnknown is invalid.
+	RCONProtocolUnknown RCONProtocol = iota
+	// RCONProtocolSource uses the Source-compatible packet protocol.
+	RCONProtocolSource
+	// RCONProtocolMinecraft uses the Minecraft-compatible packet protocol.
+	RCONProtocolMinecraft
+	// RCONProtocolRustWeb uses Rust's WebSocket RCON protocol.
+	RCONProtocolRustWeb
+)
+
+// RCONCredentials contains authenticated RCON connection settings.
+type RCONCredentials struct {
+	Host     string
+	Port     int
+	Password string
+	Protocol RCONProtocol
+}
+
+// RESTInputKind identifies an explicitly supported REST command API.
+type RESTInputKind int
+
+const (
+	// RESTInputKindUnknown is invalid.
+	RESTInputKindUnknown RESTInputKind = iota
+	// RESTInputKindSatisfactory uses the Satisfactory dedicated-server API.
+	RESTInputKindSatisfactory
+)
+
+// RESTCredentials contains game-specific REST command settings.
+type RESTCredentials struct {
+	Host              string
+	Port              int
+	Kind              RESTInputKind
+	Password          string
+	PreviousPasswords []string
+}
+
 // InputMethod describes how input is sent to a managed command.
 type InputMethod struct {
 	Type              inputType
 	TelnetCredentials *TelnetCredentials
+	RCONCredentials   *RCONCredentials
+	RESTCredentials   *RESTCredentials
 }
 
 // PreparedCommand contains all inputs needed to launch or reuse a command.
@@ -82,6 +128,10 @@ func (imt inputType) String() string {
 		return "StdIn"
 	case InputTypeTelnet:
 		return "Telnet"
+	case InputTypeRCON:
+		return "RCON"
+	case InputTypeREST:
+		return "REST"
 	default:
 		return "Unknown"
 	}
@@ -93,6 +143,10 @@ const (
 	pseudoTerminalNewline = "\r"
 	telnetInitialBackoff  = time.Second
 	telnetMaximumBackoff  = 10 * time.Second
+	telnetAuthTimeout     = 5 * time.Second
+	telnetLoginPrompt     = "Please enter password:"
+	telnetLogonSuccessful = "Logon successful."
+	telnetLogonFailed     = "Logon failed"
 )
 
 // StartCommand prepares, launches, and tracks a command execution.
@@ -666,16 +720,38 @@ func connectTelnet(credentials *TelnetCredentials) (*telnet.Conn, error) {
 		return telnetConnection, nil
 	}
 
-	bytesWritten, errAuth := telnetConnection.Write([]byte(credentials.Password))
-	if errAuth == nil {
-		log.Debug().Int("bytes written", bytesWritten).Msg("Wrote password to telnet")
-		return telnetConnection, nil
+	errDeadline := telnetConnection.SetDeadline(time.Now().Add(telnetAuthTimeout))
+	if errDeadline != nil {
+		return nil, closeUnauthenticatedTelnetConnection(telnetConnection, fmt.Errorf("set telnet authentication deadline: %w", errDeadline))
 	}
+	_, errPrompt := telnetConnection.ReadUntil(telnetLoginPrompt)
+	if errPrompt != nil {
+		return nil, closeUnauthenticatedTelnetConnection(telnetConnection, fmt.Errorf("read telnet password prompt: %w", errPrompt))
+	}
+	_, errPassword := fmt.Fprintf(telnetConnection, "%s\n", credentials.Password)
+	if errPassword != nil {
+		return nil, closeUnauthenticatedTelnetConnection(telnetConnection, fmt.Errorf("write telnet password: %w", errPassword))
+	}
+	_, resultIndex, errResult := telnetConnection.ReadUntilIndex(telnetLogonSuccessful, telnetLogonFailed)
+	if errResult != nil {
+		return nil, closeUnauthenticatedTelnetConnection(telnetConnection, fmt.Errorf("read telnet authentication result: %w", errResult))
+	}
+	if resultIndex != 0 {
+		return nil, closeUnauthenticatedTelnetConnection(telnetConnection, errors.New("telnet authentication rejected"))
+	}
+	errClearDeadline := telnetConnection.SetDeadline(time.Time{})
+	if errClearDeadline != nil {
+		return nil, closeUnauthenticatedTelnetConnection(telnetConnection, fmt.Errorf("clear telnet authentication deadline: %w", errClearDeadline))
+	}
+	return telnetConnection, nil
+}
+
+func closeUnauthenticatedTelnetConnection(telnetConnection *telnet.Conn, authError error) error {
 	errClose := telnetConnection.Close()
 	if errClose != nil {
 		log.Error().Err(errClose).Msg("Error closing unauthenticated telnet connection")
 	}
-	return nil, fmt.Errorf("authenticate telnet: %w", errAuth)
+	return authError
 }
 
 func attachTelnetConnection(
@@ -808,27 +884,53 @@ func (inst *Instance) SendConsoleOutput(commandID string, message string) {
 	inst.GetCommandByIDOrCreateShell(commandID).SendOutput(formatXylonaMessage(message))
 }
 
-// SendInput sends input to the command's StdIn.
+// SendInput sends input through the command's configured console transport.
 func (c *Command) SendInput(input string) error {
-	return c.sendInputForExecution(input, nil)
+	_, errExecute := c.executeInputForExecution(context.Background(), input, nil)
+	return errExecute
 }
 
 func (c *Command) sendInputForExecution(input string, expectedProcessGeneration *uint64) error {
+	_, errExecute := c.executeInputForExecution(context.Background(), input, expectedProcessGeneration)
+	return errExecute
+}
+
+// ExecuteInput sends input through the configured transport and returns a
+// synchronous response when the transport provides one.
+func (c *Command) ExecuteInput(ctx context.Context, input string) (string, error) {
+	return c.executeInputForExecution(ctx, input, nil)
+}
+
+func (c *Command) executeInputForExecution(
+	ctx context.Context,
+	input string,
+	expectedProcessGeneration *uint64,
+) (string, error) {
 	c.RLock()
 	currentCMD := c.currentCMD
 	currentPTYCMD := c.currentPTYCMD
 	inputWriter := c.stdInWriter
-	inputMethod := c.inputMethod.Type
+	inputMethod := c.inputMethod
 	processGeneration := c.processGeneration
 	c.RUnlock()
 	if expectedProcessGeneration != nil && processGeneration != *expectedProcessGeneration {
-		return fmt.Errorf("%w: command execution has changed", ErrConsoleInputUnavailable)
+		return "", fmt.Errorf("%w: command execution has changed", ErrConsoleInputUnavailable)
 	}
 	if currentCMD == nil && currentPTYCMD == nil {
-		return fmt.Errorf("%w: command is not running", ErrConsoleInputUnavailable)
+		return "", fmt.Errorf("%w: command is not running", ErrConsoleInputUnavailable)
+	}
+	if inputMethod.Type == InputTypeRCON || inputMethod.Type == InputTypeREST {
+		response, errExecute := executeRemoteInput(ctx, inputMethod, input)
+		if errExecute != nil {
+			return "", errors.Join(ErrConsoleInputUnavailable, errExecute)
+		}
+		if response != "" {
+			c.SendOutput(response)
+		}
+		return response, nil
 	}
 	if inputWriter == nil {
-		return fmt.Errorf("%w: %s input is not attached", ErrConsoleInputUnavailable, inputMethod.String())
+		return "", fmt.Errorf("%w: %s input is not attached", ErrConsoleInputUnavailable, inputMethod.Type.String())
 	}
 	log.Debug().Str("Command ID", c.ID).Int("input_bytes", len(input)).Msg("Sending console input")
 	inputTerminator := "\n"
@@ -838,18 +940,18 @@ func (c *Command) sendInputForExecution(input string, expectedProcessGeneration 
 	b, wErr := fmt.Fprintf(inputWriter, "%s%s", input, inputTerminator)
 	var errConsoleInput error
 	consoleInputMirrored := false
-	if currentPTYCMD == nil && inputMethod == InputTypeStdIn {
+	if currentPTYCMD == nil && inputMethod.Type == InputTypeStdIn {
 		consoleInputMirrored, errConsoleInput = mirrorProcessConsoleInput(currentCMD, input)
 	}
-	if inputMethod == InputTypeTelnet && wErr != nil {
+	if inputMethod.Type == InputTypeTelnet && wErr != nil {
 		detachFailedTelnetWriter(c, inputWriter)
-		return errors.Join(
+		return "", errors.Join(
 			ErrConsoleInputUnavailable,
 			fmt.Errorf("write telnet command input: %w", wErr),
 		)
 	}
 	if wErr != nil && errConsoleInput != nil {
-		return errors.Join(
+		return "", errors.Join(
 			ErrConsoleInputUnavailable,
 			fmt.Errorf("write command input: %w", wErr),
 			fmt.Errorf("mirror command input to console: %w", errConsoleInput),
@@ -859,9 +961,9 @@ func (c *Command) sendInputForExecution(input string, expectedProcessGeneration 
 		if consoleInputMirrored {
 			log.Debug().Err(wErr).Str("Command ID", c.ID).
 				Msg("Standard input pipe rejected command; console input succeeded")
-			return nil
+			return "", nil
 		}
-		return errors.Join(
+		return "", errors.Join(
 			ErrConsoleInputUnavailable,
 			fmt.Errorf("write command input: %w", wErr),
 		)
@@ -871,7 +973,7 @@ func (c *Command) sendInputForExecution(input string, expectedProcessGeneration 
 			Msg("Console input unavailable; standard input pipe accepted command")
 	}
 	log.Debug().Str("Command ID", c.ID).Int("bytes written", b).Msg("Wrote input")
-	return nil
+	return "", nil
 }
 
 func detachFailedTelnetWriter(command *Command, inputWriter io.Writer) {

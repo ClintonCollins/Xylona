@@ -67,6 +67,14 @@ type ProcessConfig struct {
 	// capability before sending it. The default remains stdin.
 	InputTelnet *TelnetInput
 
+	// InputRCON configures authenticated RCON console input. The credentials
+	// stay in node memory and are never exposed through process snapshots.
+	InputRCON *RCONInput
+
+	// InputREST configures a game-specific REST command transport. Only
+	// explicitly supported local APIs may be selected.
+	InputREST *RESTInput
+
 	// InternalCommand marks the process as an "internal" supervisor command
 	// (a Go function that runs as part of install/update rather than a
 	// shell process). Only meaningful for the embedded in-process path;
@@ -92,6 +100,50 @@ type ProcessConfig struct {
 type TelnetInput struct {
 	Port     int
 	Password string
+}
+
+// RCONProtocol identifies the packet protocol spoken by an RCON server.
+type RCONProtocol int
+
+const (
+	// RCONProtocolUnknown is invalid.
+	RCONProtocolUnknown RCONProtocol = iota
+	// RCONProtocolSource is used by Source-engine servers, Factorio, and
+	// V Rising.
+	RCONProtocolSource
+	// RCONProtocolMinecraft is used by Minecraft-compatible RCON servers such
+	// as Conan Exiles.
+	RCONProtocolMinecraft
+	// RCONProtocolRustWeb is Rust's WebSocket-based RCON protocol.
+	RCONProtocolRustWeb
+)
+
+// RCONInput configures authenticated RCON console input for a process.
+type RCONInput struct {
+	Host     string
+	Port     int
+	Password string
+	Protocol RCONProtocol
+}
+
+// RESTInputKind identifies a supported game-specific REST command API.
+type RESTInputKind int
+
+const (
+	// RESTInputKindUnknown is invalid.
+	RESTInputKindUnknown RESTInputKind = iota
+	// RESTInputKindSatisfactory sends commands through the dedicated server
+	// HTTPS API's RunCommand function.
+	RESTInputKindSatisfactory
+)
+
+// RESTInput configures game-specific REST console input for a process.
+type RESTInput struct {
+	Host              string
+	Port              int
+	Kind              RESTInputKind
+	Password          string
+	PreviousPasswords []string
 }
 
 // normalize returns a copy of the config with whitespace trimmed from the base
@@ -251,6 +303,22 @@ const (
 	GameServerQueryKindSource
 	// GameServerQueryKindPalworld probes the authenticated Palworld REST API.
 	GameServerQueryKindPalworld
+	// GameServerQueryKindSevenDaysToDie identifies 7 Days to Die console
+	// player-management commands.
+	GameServerQueryKindSevenDaysToDie
+	// GameServerQueryKindFactorio identifies Factorio console commands.
+	GameServerQueryKindFactorio
+	// GameServerQueryKindHytale identifies Hytale console commands.
+	GameServerQueryKindHytale
+	// GameServerQueryKindProjectZomboid identifies Project Zomboid console
+	// commands.
+	GameServerQueryKindProjectZomboid
+	// GameServerQueryKindTerraria identifies Terraria console commands.
+	GameServerQueryKindTerraria
+	// GameServerQueryKindSourceRCON identifies Source-engine RCON commands.
+	GameServerQueryKindSourceRCON
+	// GameServerQueryKindRust identifies Rust console commands.
+	GameServerQueryKindRust
 )
 
 // GameServerPlayerAction identifies a typed administrative action. The node

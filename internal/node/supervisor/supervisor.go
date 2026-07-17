@@ -43,6 +43,9 @@ var (
 	ErrTelnetCredentialsRequired = errors.New("telnet credentials required")
 	// ErrTelnetPortRequired is returned when telnet input has no usable port.
 	ErrTelnetPortRequired = errors.New("telnet port required")
+	// ErrRemoteInputConfiguration is returned when RCON or REST input is
+	// selected without a complete, supported local transport configuration.
+	ErrRemoteInputConfiguration = errors.New("remote console input configuration is invalid")
 	// ErrConsoleInputUnavailable is returned while a configured console input
 	// transport has not attached or has disconnected. Callers may retry it.
 	ErrConsoleInputUnavailable = errors.New("console input is temporarily unavailable")

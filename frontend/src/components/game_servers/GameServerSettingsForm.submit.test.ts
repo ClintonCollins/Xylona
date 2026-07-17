@@ -7,12 +7,14 @@ import GameServerSettingsForm from './GameServerSettingsForm.vue'
 const mocks = vi.hoisted(() => ({
   back: vi.fn(),
   editGameServer: vi.fn(),
+  getGameServerAdminInterface: vi.fn(),
   getGameServerEnvironment: vi.fn(),
   getGameServerBackupOverview: vi.fn(),
   getBackupSettings: vi.fn(),
   updateGameServerEnvironment: vi.fn(),
   setGameServerSecretEnv: vi.fn(),
   clearGameServerSecretEnv: vi.fn(),
+  setGameServerAdminInterfacePassword: vi.fn(),
   updateBackupSettings: vi.fn(),
   initialize: vi.fn(),
   notify: vi.fn(),
@@ -28,12 +30,14 @@ vi.mock('@/utils/shared', async () => {
     ...actual,
     GetXylonaClient: () => ({
       editGameServer: mocks.editGameServer,
+      getGameServerAdminInterface: mocks.getGameServerAdminInterface,
       getGameServerEnvironment: mocks.getGameServerEnvironment,
       getGameServerBackupOverview: mocks.getGameServerBackupOverview,
       getBackupSettings: mocks.getBackupSettings,
       updateGameServerEnvironment: mocks.updateGameServerEnvironment,
       setGameServerSecretEnv: mocks.setGameServerSecretEnv,
       clearGameServerSecretEnv: mocks.clearGameServerSecretEnv,
+      setGameServerAdminInterfacePassword: mocks.setGameServerAdminInterfacePassword,
       updateBackupSettings: mocks.updateBackupSettings,
     }),
   }
@@ -118,12 +122,14 @@ describe('GameServerSettingsForm submit flow', () => {
   beforeEach(() => {
     mocks.back.mockReset()
     mocks.editGameServer.mockReset()
+    mocks.getGameServerAdminInterface.mockReset()
     mocks.getGameServerEnvironment.mockReset()
     mocks.getGameServerBackupOverview.mockReset()
     mocks.getBackupSettings.mockReset()
     mocks.updateGameServerEnvironment.mockReset()
     mocks.setGameServerSecretEnv.mockReset()
     mocks.clearGameServerSecretEnv.mockReset()
+    mocks.setGameServerAdminInterfacePassword.mockReset()
     mocks.updateBackupSettings.mockReset()
     mocks.initialize.mockReset()
     mocks.notify.mockReset()
@@ -157,6 +163,9 @@ describe('GameServerSettingsForm submit flow', () => {
       serverEnv: [],
       secretEnv: [],
       validationIssues: [],
+    })
+    mocks.getGameServerAdminInterface.mockResolvedValue({
+      adminInterface: { supported: false },
     })
     mocks.updateGameServerEnvironment.mockResolvedValue({
       serverEnv: [],

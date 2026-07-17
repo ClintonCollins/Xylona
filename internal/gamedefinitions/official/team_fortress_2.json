@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:2b49d866da113ac1c97d770aecef42ae3b55f8ca1cabcfec8cb80cf528d3f106",
+  "content_hash": "sha256:087746099ed7bd72455f921eb768ed0efc29806989a772c3000096e7284100c2",
   "game": {
     "id": "team_fortress_2",
     "name": "Team Fortress 2",
@@ -58,6 +58,10 @@
       "path": "tf/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
+      "generate_before_start": true,
+      "managed_fields": {
+        "rcon_password": "xylona.local_console_password"
+      },
       "schema": {
         "type": "object",
         "x-groups": [
@@ -84,7 +88,10 @@
             "title": "RCON password",
             "default": "",
             "x-group": "Access",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "xylona.local_console_password"
+            }
           },
           "sv_visiblemaxplayers": {
             "type": "integer",

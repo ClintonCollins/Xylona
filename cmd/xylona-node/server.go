@@ -8,6 +8,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -217,6 +218,33 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 			Password: telnetInput.GetPassword(),
 		}
 	}
+	rconInput := msg.GetRconInput()
+	if rconInput != nil {
+		protocol, errProtocol := nodeRCONProtocolFromProto(rconInput.GetProtocol())
+		if errProtocol != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errProtocol)
+		}
+		cfg.InputRCON = &node.RCONInput{
+			Host:     rconInput.GetHost(),
+			Port:     int(rconInput.GetPort()),
+			Password: rconInput.GetPassword(),
+			Protocol: protocol,
+		}
+	}
+	restInput := msg.GetRestInput()
+	if restInput != nil {
+		kind, errKind := nodeRESTInputKindFromProto(restInput.GetKind())
+		if errKind != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errKind)
+		}
+		cfg.InputREST = &node.RESTInput{
+			Host:              restInput.GetHost(),
+			Port:              int(restInput.GetPort()),
+			Kind:              kind,
+			Password:          restInput.GetPassword(),
+			PreviousPasswords: slices.Clone(restInput.GetPreviousPasswords()),
+		}
+	}
 	if msg.GetInternalCommand() {
 		// Internal commands dispatch to a registered Game implementation
 		// (see internal/gameintegrations). The supervisor needs a *models.GameServer
@@ -264,7 +292,7 @@ func (s *nodeServiceServer) StopProcess(_ context.Context, req *connect.Request[
 	return connect.NewResponse(&nodeprotov1.StopProcessResponse{}), nil
 }
 
-func (s *nodeServiceServer) SendConsoleInput(_ context.Context, req *connect.Request[nodeprotov1.SendConsoleInputRequest]) (*connect.Response[nodeprotov1.SendConsoleInputResponse], error) {
+func (s *nodeServiceServer) SendConsoleInput(ctx context.Context, req *connect.Request[nodeprotov1.SendConsoleInputRequest]) (*connect.Response[nodeprotov1.SendConsoleInputResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
 		return nil, errAuth
@@ -272,7 +300,7 @@ func (s *nodeServiceServer) SendConsoleInput(_ context.Context, req *connect.Req
 	if s.n == nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
 	}
-	errSend := s.n.SendConsoleInput(req.Msg.GetProcessId(), req.Msg.GetInput())
+	errSend := s.n.SendConsoleInputContext(ctx, req.Msg.GetProcessId(), req.Msg.GetInput())
 	if errSend != nil {
 		return nil, translate(errSend)
 	}
@@ -932,6 +960,20 @@ func nodeGameServerQueryKindFromProto(kind nodeprotov1.GameServerQueryKind) node
 		return node.GameServerQueryKindSource
 	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD:
 		return node.GameServerQueryKindPalworld
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SEVEN_DAYS_TO_DIE:
+		return node.GameServerQueryKindSevenDaysToDie
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_FACTORIO:
+		return node.GameServerQueryKindFactorio
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_HYTALE:
+		return node.GameServerQueryKindHytale
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PROJECT_ZOMBOID:
+		return node.GameServerQueryKindProjectZomboid
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_TERRARIA:
+		return node.GameServerQueryKindTerraria
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE_RCON:
+		return node.GameServerQueryKindSourceRCON
+	case nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_RUST:
+		return node.GameServerQueryKindRust
 	default:
 		return node.GameServerQueryKindUnknown
 	}
@@ -945,6 +987,20 @@ func gameServerQueryKindToProto(kind node.GameServerQueryKind) nodeprotov1.GameS
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE
 	case node.GameServerQueryKindPalworld:
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PALWORLD
+	case node.GameServerQueryKindSevenDaysToDie:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SEVEN_DAYS_TO_DIE
+	case node.GameServerQueryKindFactorio:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_FACTORIO
+	case node.GameServerQueryKindHytale:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_HYTALE
+	case node.GameServerQueryKindProjectZomboid:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_PROJECT_ZOMBOID
+	case node.GameServerQueryKindTerraria:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_TERRARIA
+	case node.GameServerQueryKindSourceRCON:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE_RCON
+	case node.GameServerQueryKindRust:
+		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_RUST
 	default:
 		return nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_UNSPECIFIED
 	}
@@ -1180,8 +1236,32 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		LaunchEnv:                caps.LaunchEnv,
 		ReliableProcessLifecycle: caps.ReliableProcessLifecycle,
 		TelnetInput:              caps.TelnetInput,
+		RconInput:                caps.RCONInput,
+		RestInput:                caps.RESTInput,
 		PlayerActions:            caps.PlayerActions,
 	}), nil
+}
+
+func nodeRCONProtocolFromProto(protocol nodeprotov1.RCONProtocol) (node.RCONProtocol, error) {
+	switch protocol {
+	case nodeprotov1.RCONProtocol_RCON_PROTOCOL_SOURCE:
+		return node.RCONProtocolSource, nil
+	case nodeprotov1.RCONProtocol_RCON_PROTOCOL_MINECRAFT:
+		return node.RCONProtocolMinecraft, nil
+	case nodeprotov1.RCONProtocol_RCON_PROTOCOL_RUST_WEB:
+		return node.RCONProtocolRustWeb, nil
+	default:
+		return node.RCONProtocolUnknown, errors.New("unsupported RCON protocol")
+	}
+}
+
+func nodeRESTInputKindFromProto(kind nodeprotov1.RESTInputKind) (node.RESTInputKind, error) {
+	switch kind {
+	case nodeprotov1.RESTInputKind_REST_INPUT_KIND_SATISFACTORY:
+		return node.RESTInputKindSatisfactory, nil
+	default:
+		return node.RESTInputKindUnknown, errors.New("unsupported REST input kind")
+	}
 }
 
 func (s *nodeServiceServer) GetUpdateCapabilities(_ context.Context, req *connect.Request[nodeprotov1.GetUpdateCapabilitiesRequest]) (*connect.Response[nodeprotov1.GetUpdateCapabilitiesResponse], error) {

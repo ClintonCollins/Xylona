@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:c7037a1895d1f36ebf29b32c033372da5653858421dc5df8fd2f9aa2f3326bf7",
+  "content_hash": "sha256:63833778a4e6c873cc92424b887e0fb288180a5b9a8f7e70bcbb816a38c99f2b",
   "game": {
     "id": "garrys_mod",
     "name": "Garry's Mod",
@@ -58,6 +58,10 @@
       "path": "garrysmod/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
+      "generate_before_start": true,
+      "managed_fields": {
+        "rcon_password": "xylona.local_console_password"
+      },
       "schema": {
         "type": "object",
         "x-groups": [
@@ -84,7 +88,10 @@
             "title": "RCON password",
             "default": "",
             "x-group": "Access",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "xylona.local_console_password"
+            }
           },
           "sv_visiblemaxplayers": {
             "type": "integer",
@@ -133,12 +140,13 @@
     {
       "id": "runtime_garrys_mod_linux_04",
       "order": 4,
-      "ownership": "locked",
+      "ownership": "system",
       "tokens": [
         "+ip",
-        "0.0.0.0"
+        "{{IP}}"
       ],
-      "label": "IP"
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
     },
     {
       "id": "runtime_garrys_mod_linux_05",

@@ -112,10 +112,10 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		return nil, ErrNoCommandProvided
 	}
 
-	errValidateTelnet := validateTelnetInputMethod(newCommand.inputMethod)
-	if errValidateTelnet != nil {
-		log.Error().Err(errValidateTelnet).Str("Command ID", preparedCommand.ID).Msg("Invalid telnet input method")
-		return nil, errValidateTelnet
+	errValidateInput := validateInputMethod(newCommand.inputMethod)
+	if errValidateInput != nil {
+		log.Error().Err(errValidateInput).Str("Command ID", preparedCommand.ID).Msg("Invalid console input method")
+		return nil, errValidateInput
 	}
 
 	resolvedBaseCommand := resolveServerLocalBaseCommand(baseCommand, preparedCommand.WorkingDirectory)
@@ -153,6 +153,23 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		telnetExecution := captureTelnetExecution(newCommand)
 		newCommand.runAfterStartup = func(command *Command) {
 			connectTelnetForExecution(command, telnetExecution)
+		}
+	case InputTypeRCON:
+		newCommand.stdInWriter = nil
+		newCommand.runAfterStartup = nil
+	case InputTypeREST:
+		newCommand.stdInWriter = nil
+		restCredentials := *newCommand.inputMethod.RESTCredentials
+		commandID := newCommand.ID
+		gameServerName := newCommand.gameServerName
+		processCtx := newCommand.processCtx
+		newCommand.runAfterStartup = func(_ *Command) {
+			configureSatisfactoryAdminPasswordAfterStartup(
+				processCtx,
+				commandID,
+				gameServerName,
+				restCredentials,
+			)
 		}
 	default:
 		log.Debug().Str("Command ID", newCommand.ID).Msg("Setting up StdInPipe")
@@ -226,6 +243,34 @@ func validateTelnetInputMethod(inputMethod InputMethod) error {
 	}
 	if inputMethod.TelnetCredentials.Port <= 0 {
 		return ErrTelnetPortRequired
+	}
+	return nil
+}
+
+func validateInputMethod(inputMethod InputMethod) error {
+	errTelnet := validateTelnetInputMethod(inputMethod)
+	if errTelnet != nil {
+		return errTelnet
+	}
+	switch inputMethod.Type {
+	case InputTypeRCON:
+		credentials := inputMethod.RCONCredentials
+		if credentials == nil || strings.TrimSpace(credentials.Host) == "" ||
+			credentials.Port <= 0 || credentials.Port > 65535 || strings.TrimSpace(credentials.Password) == "" {
+			return ErrRemoteInputConfiguration
+		}
+		if credentials.Protocol != RCONProtocolSource &&
+			credentials.Protocol != RCONProtocolMinecraft &&
+			credentials.Protocol != RCONProtocolRustWeb {
+			return ErrRemoteInputConfiguration
+		}
+	case InputTypeREST:
+		credentials := inputMethod.RESTCredentials
+		if credentials == nil || strings.TrimSpace(credentials.Host) == "" ||
+			credentials.Port <= 0 || credentials.Port > 65535 || credentials.Kind != RESTInputKindSatisfactory ||
+			strings.TrimSpace(credentials.Password) == "" {
+			return ErrRemoteInputConfiguration
+		}
 	}
 	return nil
 }

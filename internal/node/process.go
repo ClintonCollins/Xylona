@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,7 +51,9 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		LaunchEnv:        normalized.LaunchEnv,
 	}
 
+	configuredInputs := 0
 	if normalized.InputTelnet != nil {
+		configuredInputs++
 		prepared.InputMethod = supervisor.InputMethod{
 			Type: supervisor.InputTypeTelnet,
 			TelnetCredentials: &supervisor.TelnetCredentials{
@@ -58,6 +61,42 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 				Password: normalized.InputTelnet.Password,
 			},
 		}
+	}
+	if normalized.InputRCON != nil {
+		configuredInputs++
+		protocol, errProtocol := supervisorRCONProtocol(normalized.InputRCON.Protocol)
+		if errProtocol != nil {
+			return nil, errProtocol
+		}
+		prepared.InputMethod = supervisor.InputMethod{
+			Type: supervisor.InputTypeRCON,
+			RCONCredentials: &supervisor.RCONCredentials{
+				Host:     normalized.InputRCON.Host,
+				Port:     normalized.InputRCON.Port,
+				Password: normalized.InputRCON.Password,
+				Protocol: protocol,
+			},
+		}
+	}
+	if normalized.InputREST != nil {
+		configuredInputs++
+		kind, errKind := supervisorRESTInputKind(normalized.InputREST.Kind)
+		if errKind != nil {
+			return nil, errKind
+		}
+		prepared.InputMethod = supervisor.InputMethod{
+			Type: supervisor.InputTypeREST,
+			RESTCredentials: &supervisor.RESTCredentials{
+				Host:              normalized.InputREST.Host,
+				Port:              normalized.InputREST.Port,
+				Kind:              kind,
+				Password:          normalized.InputREST.Password,
+				PreviousPasswords: slices.Clone(normalized.InputREST.PreviousPasswords),
+			},
+		}
+	}
+	if configuredInputs > 1 {
+		return nil, errors.New("node: only one console input transport may be configured")
 	}
 
 	if normalized.InternalCommand {
@@ -86,6 +125,28 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 	return cmd, nil
 }
 
+func supervisorRCONProtocol(protocol RCONProtocol) (supervisor.RCONProtocol, error) {
+	switch protocol {
+	case RCONProtocolSource:
+		return supervisor.RCONProtocolSource, nil
+	case RCONProtocolMinecraft:
+		return supervisor.RCONProtocolMinecraft, nil
+	case RCONProtocolRustWeb:
+		return supervisor.RCONProtocolRustWeb, nil
+	default:
+		return supervisor.RCONProtocolUnknown, errors.New("node: unsupported RCON protocol")
+	}
+}
+
+func supervisorRESTInputKind(kind RESTInputKind) (supervisor.RESTInputKind, error) {
+	switch kind {
+	case RESTInputKindSatisfactory:
+		return supervisor.RESTInputKindSatisfactory, nil
+	default:
+		return supervisor.RESTInputKindUnknown, errors.New("node: unsupported REST input kind")
+	}
+}
+
 // StopProcess requests a graceful stop of the supervised command identified by
 // processID. The optional stopInputCommand is sent on stdin before the
 // supervisor falls back to signal-based termination.
@@ -108,6 +169,12 @@ func (n *Node) StopProcess(processID, stopInputCommand string) error {
 // SendConsoleInput writes a single line of input to the running process's
 // configured input writer (stdin or telnet, depending on InputMethod).
 func (n *Node) SendConsoleInput(processID, input string) error {
+	return n.SendConsoleInputContext(context.Background(), processID, input)
+}
+
+// SendConsoleInputContext writes a single line through the running process's
+// configured input transport and honors cancellation for network transports.
+func (n *Node) SendConsoleInputContext(ctx context.Context, processID, input string) error {
 	if n.supervisor == nil {
 		return errors.New("node: supervisor not configured")
 	}
@@ -119,7 +186,7 @@ func (n *Node) SendConsoleInput(processID, input string) error {
 		}
 		return fmt.Errorf("node: send console input: %w", errGet)
 	}
-	errSend := cmd.SendInput(input)
+	_, errSend := cmd.ExecuteInput(ctx, input)
 	if errSend != nil {
 		if errors.Is(errSend, supervisor.ErrConsoleInputUnavailable) {
 			return fmt.Errorf("%w: %w", ErrConsoleInputUnavailable, errSend)

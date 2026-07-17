@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e38ff1ecb1e1a5461622c6303d0ec1c9a435833e04d9880015b94eb6fc2d8e9e",
+  "content_hash": "sha256:db1fff18dcb9af92806516b8a2b541345bc10da4f5b8a4b38046937a21d7e834",
   "game": {
     "id": "factorio",
     "name": "Factorio",
@@ -131,8 +131,31 @@
       "managed_source": "game_server.port"
     },
     {
-      "id": "runtime_factorio_linux_02",
+      "id": "runtime_factorio_linux_05",
       "order": 2,
+      "ownership": "system",
+      "tokens": [
+        "--bind",
+        "{{IP}}"
+      ],
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
+    },
+    {
+      "id": "runtime_factorio_linux_02",
+      "order": 3,
+      "ownership": "system",
+      "tokens": [
+        "--rcon-bind",
+        "{{RCON_BIND}}",
+        "--rcon-password",
+        "{{RCON_PASSWORD}}"
+      ],
+      "label": "RCON"
+    },
+    {
+      "id": "runtime_factorio_linux_03",
+      "order": 4,
       "ownership": "locked",
       "tokens": [
         "--server-settings",
@@ -141,8 +164,8 @@
       "label": "Server Settings"
     },
     {
-      "id": "runtime_factorio_linux_03",
-      "order": 3,
+      "id": "runtime_factorio_linux_04",
+      "order": 5,
       "ownership": "locked",
       "tokens": [
         "--start-server",

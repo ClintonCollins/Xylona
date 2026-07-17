@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:532958871b98563274731c192d0913db667fbd17d0f71fef87029b841f8f9538",
+  "content_hash": "sha256:efbc7e8b890a4232212e1104d50c6933a6e6c3b0c7fce8ee99196f999c1642fe",
   "game": {
     "id": "v_rising",
     "name": "V Rising",
@@ -111,14 +111,41 @@
       "managed_source": "game_server.server_name"
     },
     {
-      "id": "01JQSC00000000000000000006",
+      "id": "01JQSC00000000000000000008",
       "order": 6,
+      "ownership": "system",
+      "tokens": [
+        "-address",
+        "{{IP}}"
+      ],
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
+    },
+    {
+      "id": "01JQSC00000000000000000006",
+      "order": 7,
       "ownership": "editable",
       "tokens": [
         "-saveName",
         "{{SERVER_ID}}"
       ],
       "label": "Save name"
+    },
+    {
+      "id": "01JQSC00000000000000000007",
+      "order": 8,
+      "ownership": "system",
+      "tokens": [
+        "-rconEnabled",
+        "true",
+        "-rconPort",
+        "{{RCON_PORT}}",
+        "-rconPassword",
+        "{{RCON_PASSWORD}}",
+        "-rconBindAddress",
+        "{{IP}}"
+      ],
+      "label": "RCON"
     }
   ],
   "start_arg_blocklist": [],

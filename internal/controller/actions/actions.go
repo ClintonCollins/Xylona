@@ -550,22 +550,51 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, "Failed to reach target node: "+errClient.Error())
 		return nil, startUnavailableError("target node is unavailable", errClient)
 	}
+	adminInterfacePassword, errAdminInterfacePassword := inst.loadOrCreateAdminInterfacePassword(gameServer)
+	if errAdminInterfacePassword != nil {
+		inst.reportStartFailure(gameServer, "Admin interface password setup failed: "+errAdminInterfacePassword.Error())
+		return nil, startConfigurationError("admin interface password setup failed", errAdminInterfacePassword)
+	}
+	previousAdminPasswords, errPasswordHistory := inst.loadAdminInterfacePasswordHistory(gameServer)
+	if errPasswordHistory != nil {
+		inst.reportStartFailure(gameServer, "Admin interface password history failed: "+errPasswordHistory.Error())
+		return nil, startConfigurationError("admin interface password history failed", errPasswordHistory)
+	}
+	adminInput, errAdminInput := newGameServerAdminInput(
+		gameServer,
+		adminInterfacePassword,
+		previousAdminPasswords,
+	)
+	if errAdminInput != nil {
+		inst.reportStartFailure(gameServer, "Admin console configuration failed: "+errAdminInput.Error())
+		return nil, startConfigurationError("admin console configuration failed", errAdminInput)
+	}
+	errAdminInputSupported := inst.ensureAdminInputSupported(client, adminInput)
+	if errAdminInputSupported != nil {
+		inst.reportStartFailure(gameServer, errAdminInputSupported.Error())
+		return nil, errAdminInputSupported
+	}
 
-	errPalworldQuery := inst.ensurePalworldQueryConfig(gameServer, client)
+	errPalworldQuery := inst.ensurePalworldQueryConfig(gameServer, client, adminInterfacePassword)
 	if errPalworldQuery != nil {
 		inst.reportStartFailure(gameServer, "Palworld query configuration failed: "+errPalworldQuery.Error())
 		return nil, startConfigurationError("Palworld query configuration failed", errPalworldQuery)
 	}
 	// Generate and enforce managed config before readiness checks so games
 	// with required first-run values can present an editable file immediately.
-	if gameServer.GameID == "7_days_to_die" {
-		errConfigPreStart := inst.runConfigPreStartStrict(gameServer)
+	switch {
+	case adminInput.managedConfigRequired:
+		errConfigPreStart := inst.runConfigPreStartWithConsolePassword(gameServer, adminInput.localConsolePassword, true)
 		if errConfigPreStart != nil {
-			inst.reportStartFailure(gameServer, "Local management console configuration failed: "+errConfigPreStart.Error())
-			return nil, startConfigurationError("local management console configuration failed", errConfigPreStart)
+			inst.reportStartFailure(gameServer, "Admin console configuration failed: "+errConfigPreStart.Error())
+			return nil, startConfigurationError("admin console configuration failed", errConfigPreStart)
 		}
-	} else {
-		inst.runConfigPreStart(gameServer)
+	default:
+		errConfigPreStart := inst.runConfigPreStartWithConsolePassword(gameServer, adminInput.localConsolePassword, false)
+		if errConfigPreStart != nil {
+			log.Warn().Err(errConfigPreStart).Str("game_server_id", gameServer.ID).
+				Msg("Pre-start: config processing failed; continuing startup")
+		}
 	}
 
 	errReadiness := readiness.CheckStart(inst.ctx, inst.db, gameServer, client)
@@ -578,6 +607,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, "Failed to load server launch secret: "+errSecretStartVars.Error())
 		return nil, startConfigurationError("server launch secret is unavailable", errSecretStartVars)
 	}
+	adminInput.mergePlaceholderVars(secretStartVars)
 
 	errGameLaunchSecrets := inst.writeGameLaunchSecrets(gameServer, client, secretStartVars)
 	if errGameLaunchSecrets != nil {
@@ -604,19 +634,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		NodeID:           gameServer.NodeID,
 		ServiceID:        gameServer.GameID,
 	}
-
-	if gameServer.GameID == "7_days_to_die" {
-		log.Debug().Msg("Found 7 Days to Die. Setting input method to telnet")
-		cfg.InputTelnet = &node.TelnetInput{
-			Port:     int(gameServer.QueryPort),
-			Password: "",
-		}
-		errTelnetSupported := inst.ensureTelnetInputSupported(client)
-		if errTelnetSupported != nil {
-			inst.reportStartFailure(gameServer, errTelnetSupported.Error())
-			return nil, errTelnetSupported
-		}
-	}
+	adminInput.apply(&cfg)
 
 	launchEnvRequired := startLaunchEnvRequired(normalLaunchEnv, secretLaunchEnvStates) || readiness.RequiresLaunchEnv(gameServer)
 	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, launchEnvRequired)
@@ -713,6 +731,14 @@ func (inst *Instance) runConfigPreStartStrict(gameServer *models.GameServer) err
 }
 
 func (inst *Instance) runConfigPreStartMode(gameServer *models.GameServer, strict bool) error {
+	return inst.runConfigPreStartWithConsolePassword(gameServer, "", strict)
+}
+
+func (inst *Instance) runConfigPreStartWithConsolePassword(
+	gameServer *models.GameServer,
+	localConsolePassword string,
+	strict bool,
+) error {
 	schemasJSON, errGet := inst.db.GetGameConfigSchemas(gameServer.GameID)
 	if errGet != nil {
 		return fmt.Errorf("actions: get pre-start config schemas: %w", errGet)
@@ -742,12 +768,13 @@ func (inst *Instance) runConfigPreStartMode(gameServer *models.GameServer, stric
 	schemasJSON = resolvedSchemasJSON
 
 	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
-		Name:       gameServer.Name,
-		Directory:  gameServer.Directory,
-		IP:         gameServer.IP,
-		Port:       gameServer.Port,
-		QueryPort:  gameServer.QueryPort,
-		MaxPlayers: gameServer.MaxPlayers,
+		Name:                 gameServer.Name,
+		Directory:            gameServer.Directory,
+		IP:                   gameServer.IP,
+		Port:                 gameServer.Port,
+		QueryPort:            gameServer.QueryPort,
+		MaxPlayers:           gameServer.MaxPlayers,
+		LocalConsolePassword: localConsolePassword,
 	})
 	if inst.isRemoteGameServer(gameServer) {
 		client, errClient := inst.resolveNodeClient(gameServer.NodeID)

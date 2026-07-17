@@ -879,6 +879,8 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 			LaunchEnv:                true,
 			ReliableProcessLifecycle: true,
 			TelnetInput:              true,
+			RconInput:                true,
+			RestInput:                true,
 			PlayerActions:            true,
 		},
 	}
@@ -889,8 +891,83 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	if errCaps != nil {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
-	if caps.ProtocolVersion != 7 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle || !caps.TelnetInput || !caps.PlayerActions {
+	if caps.ProtocolVersion != 7 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle ||
+		!caps.TelnetInput || !caps.RCONInput || !caps.RESTInput || !caps.PlayerActions {
 		t.Fatalf("runtime capabilities = %+v, want all optional features", caps)
+	}
+}
+
+func TestGRPCClientRemoteConsoleInput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		config node.ProcessConfig
+		check  func(*testing.T, *nodeprotov1.StartProcessRequest)
+	}{
+		{
+			name: "RCON",
+			config: node.ProcessConfig{
+				InputRCON: &node.RCONInput{
+					Host:     "127.0.0.1",
+					Port:     27015,
+					Password: "secret",
+					Protocol: node.RCONProtocolSource,
+				},
+			},
+			check: func(t *testing.T, request *nodeprotov1.StartProcessRequest) {
+				t.Helper()
+				input := request.GetRconInput()
+				if input.GetHost() != "127.0.0.1" || input.GetPort() != 27015 ||
+					input.GetPassword() != "secret" ||
+					input.GetProtocol() != nodeprotov1.RCONProtocol_RCON_PROTOCOL_SOURCE {
+					t.Fatalf("RCON input = %+v", input)
+				}
+			},
+		},
+		{
+			name: "REST",
+			config: node.ProcessConfig{
+				InputREST: &node.RESTInput{
+					Host:              "127.0.0.1",
+					Port:              7777,
+					Kind:              node.RESTInputKindSatisfactory,
+					Password:          "admin-password",
+					PreviousPasswords: []string{"older-password", "previous-password"},
+				},
+			},
+			check: func(t *testing.T, request *nodeprotov1.StartProcessRequest) {
+				t.Helper()
+				input := request.GetRestInput()
+				if input.GetHost() != "127.0.0.1" || input.GetPort() != 7777 ||
+					input.GetKind() != nodeprotov1.RESTInputKind_REST_INPUT_KIND_SATISFACTORY ||
+					input.GetPassword() != "admin-password" ||
+					!slices.Equal(input.GetPreviousPasswords(), []string{"older-password", "previous-password"}) {
+					t.Fatalf("REST input = %+v", input)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			recorder := &callRecorder{}
+			url, fingerprint := newPinnedTestServer(t, recorder)
+			client, errClient := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+			if errClient != nil {
+				t.Fatalf("NewGRPCClient() error = %v", errClient)
+			}
+			tc.config.ID = "server-1"
+			tc.config.BaseCommand = "server"
+			errStart := client.StartProcess(t.Context(), tc.config, xylona.Status_ONLINE)
+			if errStart != nil {
+				t.Fatalf("StartProcess() error = %v", errStart)
+			}
+			recorder.mu.Lock()
+			defer recorder.mu.Unlock()
+			tc.check(t, recorder.startProcessReq)
+		})
 	}
 }
 

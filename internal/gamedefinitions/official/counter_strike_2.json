@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:3349cd6158c782686c90523baae7c3f190086480a57e82e3017ee79a83590bfa",
+  "content_hash": "sha256:e80ea3e273271010eab225cccb9008b7107de99201a2142cd2ef8925a6c82c30",
   "game": {
     "id": "counter_strike_2",
     "name": "Counter-Strike 2",
@@ -58,6 +58,10 @@
       "path": "game/csgo/cfg/server.cfg",
       "format": "commandcfg",
       "category": "Server",
+      "generate_before_start": true,
+      "managed_fields": {
+        "rcon_password": "xylona.local_console_password"
+      },
       "schema": {
         "type": "object",
         "x-groups": [
@@ -84,7 +88,10 @@
             "title": "RCON password",
             "default": "",
             "x-group": "Access",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "xylona.local_console_password"
+            }
           },
           "sv_visiblemaxplayers": {
             "type": "integer",
@@ -112,12 +119,13 @@
     {
       "id": "runtime_counter_strike_2_linux_02",
       "order": 2,
-      "ownership": "locked",
+      "ownership": "system",
       "tokens": [
         "-ip",
-        "0.0.0.0"
+        "{{IP}}"
       ],
-      "label": "IP"
+      "label": "Bind IP",
+      "managed_source": "game_server.ip"
     },
     {
       "id": "runtime_counter_strike_2_linux_03",

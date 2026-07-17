@@ -1,8 +1,6 @@
 package actions
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -24,7 +22,11 @@ const (
 
 var errPalworldOptionSettingsMissing = cfgparse.ErrPalworldOptionSettingsMissing
 
-func (inst *Instance) ensurePalworldQueryConfig(gameServer *models.GameServer, client nodeclient.NodeClient) error {
+func (inst *Instance) ensurePalworldQueryConfig(
+	gameServer *models.GameServer,
+	client nodeclient.NodeClient,
+	password string,
+) error {
 	if gameServer == nil || gameServer.GameID != palworldGameID {
 		return nil
 	}
@@ -35,9 +37,8 @@ func (inst *Instance) ensurePalworldQueryConfig(gameServer *models.GameServer, c
 		return fmt.Errorf("query port %d is invalid", gameServer.QueryPort)
 	}
 
-	password, errPassword := inst.loadOrCreatePalworldRESTPassword(gameServer)
-	if errPassword != nil {
-		return errPassword
+	if password == "" {
+		return errors.New("palworld REST password is empty")
 	}
 	settingsPath := palworldSettingsPath(inst.resolveNodeOS(inst.ctx, gameServer.NodeID))
 	settingsData, errSettings := inst.readPalworldSettingsSource(client, gameServer, settingsPath)
@@ -78,38 +79,6 @@ func (inst *Instance) ensurePalworldQueryConfig(gameServer *models.GameServer, c
 		return fmt.Errorf("write Palworld settings: %w", errWrite)
 	}
 	return nil
-}
-
-func (inst *Instance) loadOrCreatePalworldRESTPassword(gameServer *models.GameServer) (string, error) {
-	password, configured, errDecrypt := inst.db.DecryptGameServerSecret(
-		gameServer.ID,
-		db.GameServerSecretKindPalworldREST,
-		db.GameServerSecretNamePalworldRESTPassword,
-	)
-	if errDecrypt != nil {
-		return "", fmt.Errorf("load Palworld REST password: %w", errDecrypt)
-	}
-	if configured && password != "" {
-		return password, nil
-	}
-
-	passwordBytes := make([]byte, 32)
-	_, errRandom := rand.Read(passwordBytes)
-	if errRandom != nil {
-		return "", fmt.Errorf("generate Palworld REST password: %w", errRandom)
-	}
-	password = base64.RawURLEncoding.EncodeToString(passwordBytes)
-	errStore := inst.db.SetGameServerSecret(
-		gameServer.ID,
-		db.GameServerSecretKindPalworldREST,
-		db.GameServerSecretNamePalworldRESTPassword,
-		password,
-		gameServer.UserID,
-	)
-	if errStore != nil {
-		return "", fmt.Errorf("store Palworld REST password: %w", errStore)
-	}
-	return password, nil
 }
 
 func (inst *Instance) palworldQueryCredentials(gameServer *models.GameServer) (string, string, error) {

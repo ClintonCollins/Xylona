@@ -22,6 +22,9 @@ const (
 	// GameServerSecretKindPalworldREST stores Palworld REST API credentials.
 	// #nosec G101 -- This is a database kind label, not a secret value.
 	GameServerSecretKindPalworldREST = "palworld_rest"
+	// GameServerSecretKindAdminInterface stores per-server administration interface credentials.
+	// #nosec G101 -- This is a database kind label, not a secret value.
+	GameServerSecretKindAdminInterface = "admin_interface"
 
 	// GameServerSecretNameSteamGSLT is the single secret name used for Steam GSLT values.
 	// #nosec G101 -- This is a database name label, not a secret value.
@@ -32,6 +35,13 @@ const (
 	// GameServerSecretNamePalworldRESTPassword stores the generated REST admin password.
 	// #nosec G101 -- This is a database name label, not a secret value.
 	GameServerSecretNamePalworldRESTPassword = "admin_password"
+	// GameServerSecretNameAdminInterfacePassword stores the managed interface password.
+	// #nosec G101 -- This is a database name label, not a secret value.
+	GameServerSecretNameAdminInterfacePassword = "password"
+	// GameServerSecretNameAdminInterfacePasswordHistory stores a bounded,
+	// encrypted history used to apply Satisfactory changes made while offline.
+	// #nosec G101 -- This is a database name label, not a secret value.
+	GameServerSecretNameAdminInterfacePasswordHistory = "password_history"
 )
 
 // GameServerSecretState is the safe public state for a configured server secret.
@@ -322,7 +332,8 @@ func validateGameServerSecretKind(kind string) error {
 	case GameServerSecretKindEnv,
 		GameServerSecretKindSteamGSLT,
 		GameServerSecretKindHytaleRefreshToken,
-		GameServerSecretKindPalworldREST:
+		GameServerSecretKindPalworldREST,
+		GameServerSecretKindAdminInterface:
 		return nil
 	default:
 		return fmt.Errorf("unsupported game server secret kind %q", kind)

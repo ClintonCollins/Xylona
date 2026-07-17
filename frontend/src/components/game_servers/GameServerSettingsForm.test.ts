@@ -11,16 +11,19 @@ import {
   IPSchema,
   NodeSchema,
 } from '@/proto/shared_pb'
+import { GameServerAdminInterfaceSchema } from '@/proto/xylona_pb'
 import GameServerSettingsForm from './GameServerSettingsForm.vue'
 
 const mocks = vi.hoisted(() => ({
   getGameServer: vi.fn(),
   getGameServerEnvironment: vi.fn(),
+  getGameServerAdminInterface: vi.fn(),
   getGameServerBackupOverview: vi.fn(),
   getBackupSettings: vi.fn(),
   updateGameServerEnvironment: vi.fn(),
   setGameServerSecretEnv: vi.fn(),
   clearGameServerSecretEnv: vi.fn(),
+  setGameServerAdminInterfacePassword: vi.fn(),
   updateBackupSettings: vi.fn(),
   listGames: vi.fn(),
   listNodes: vi.fn(),
@@ -42,11 +45,13 @@ vi.mock('@/utils/shared', async () => {
     ...actual,
     GetXylonaClient: () => ({
       getGameServerEnvironment: mocks.getGameServerEnvironment,
+      getGameServerAdminInterface: mocks.getGameServerAdminInterface,
       getGameServerBackupOverview: mocks.getGameServerBackupOverview,
       getBackupSettings: mocks.getBackupSettings,
       updateGameServerEnvironment: mocks.updateGameServerEnvironment,
       setGameServerSecretEnv: mocks.setGameServerSecretEnv,
       clearGameServerSecretEnv: mocks.clearGameServerSecretEnv,
+      setGameServerAdminInterfacePassword: mocks.setGameServerAdminInterfacePassword,
       updateBackupSettings: mocks.updateBackupSettings,
       editGameServer: vi.fn(),
     }),
@@ -134,11 +139,13 @@ describe('GameServerSettingsForm', () => {
 
     mocks.getGameServer.mockReset()
     mocks.getGameServerEnvironment.mockReset()
+    mocks.getGameServerAdminInterface.mockReset()
     mocks.getGameServerBackupOverview.mockReset()
     mocks.getBackupSettings.mockReset()
     mocks.updateGameServerEnvironment.mockReset()
     mocks.setGameServerSecretEnv.mockReset()
     mocks.clearGameServerSecretEnv.mockReset()
+    mocks.setGameServerAdminInterfacePassword.mockReset()
     mocks.updateBackupSettings.mockReset()
     mocks.listGames.mockReset()
     mocks.listNodes.mockReset()
@@ -194,6 +201,9 @@ describe('GameServerSettingsForm', () => {
       serverEnv: [],
       secretEnv: [],
       validationIssues: [],
+    })
+    mocks.getGameServerAdminInterface.mockResolvedValue({
+      adminInterface: create(GameServerAdminInterfaceSchema),
     })
     mocks.updateGameServerEnvironment.mockResolvedValue({
       serverEnv: [],
@@ -403,5 +413,53 @@ describe('GameServerSettingsForm', () => {
 
     expect(wrapper.find('[data-testid="readonly-max-memory"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-max-memory"]').exists()).toBe(false)
+  })
+
+  it('shows password state and endpoint for a supported admin interface', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-local-1',
+        name: '7DTD Server',
+        userId: 'user-owner',
+        userName: 'owner',
+        gameId: '7_days_to_die',
+        gameName: '7 Days to Die',
+        nodeId: 'node-local',
+        nodeName: 'Local Node',
+        ip: create(IPSchema, { address: '192.0.2.10' }),
+        port: 26900n,
+        queryPort: 26904n,
+        setMaxPlayers: 8n,
+        maxPlayers: 8n,
+      }),
+    )
+    mocks.getGameServerAdminInterface.mockResolvedValueOnce({
+      adminInterface: create(GameServerAdminInterfaceSchema, {
+        supported: true,
+        transport: 'Telnet',
+        bindAddress: '192.0.2.10',
+        port: 26904n,
+        passwordConfigured: true,
+        remoteAccess: true,
+        remoteAccessNote: 'Remote Telnet is enabled.',
+        transportSecurityNote: 'Telnet is not encrypted.',
+      }),
+    })
+
+    const wrapper = mountSettingsForm(false)
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="admin-interface-settings-section"]').text()).toContain(
+      'Telnet',
+    )
+    expect(wrapper.get('[data-testid="admin-interface-endpoint"]').text()).toContain(
+      '192.0.2.10:26904',
+    )
+    expect(wrapper.get('[data-testid="admin-interface-password-status"]').text()).toContain(
+      'Configured',
+    )
+    expect(wrapper.get('[data-testid="admin-interface-security-note"]').text()).toContain(
+      'not encrypted',
+    )
   })
 })

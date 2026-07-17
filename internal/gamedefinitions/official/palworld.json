@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "",
+  "content_hash": "sha256:15ba5895b72f3889a84a9903b132b8626d5f90cd763044d4a6986e3c676c8fb7",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -172,7 +172,7 @@
             "type": "string",
             "title": "Administrator password",
             "default": "",
-            "description": "Xylona replaces this with its generated REST query credential before each start.",
+            "description": "Managed securely through Server Settings and applied before each start.",
             "x-group": "Access",
             "x-order": 0
           },

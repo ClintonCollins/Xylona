@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4c11c354f14781f0ca211ed22930cb3768c6cb17b0b125332d85826083ddfdd3",
+  "content_hash": "sha256:19ca7a01df0243477bb82e27d02a3c50710256d096741d67f08091d8e0ee7a19",
   "game": {
     "id": "satisfactory",
     "name": "Satisfactory",
@@ -10,12 +10,12 @@
     "defaultMaxPlayers": "4",
     "linuxSupport": true,
     "windowsSupport": true,
-    "linuxStopCommand": "",
+    "linuxStopCommand": "quit",
     "linuxInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
     "linuxUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
     "linuxWorkingDirectory": "",
     "linuxAllowBackups": false,
-    "windowsStopCommand": "",
+    "windowsStopCommand": "quit",
     "windowsInstallCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
     "windowsUpdateCommand": "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 1690800 validate +quit",
     "windowsWorkingDirectory": "",
@@ -59,9 +59,7 @@
       "id": "runtime_satisfactory_linux_01",
       "order": 1,
       "ownership": "system",
-      "tokens": [
-        "-Port={{PORT}}"
-      ],
+      "tokens": ["-Port={{PORT}}"],
       "label": "Game port",
       "managed_source": "game_server.port"
     },
@@ -69,9 +67,7 @@
       "id": "runtime_satisfactory_linux_02",
       "order": 2,
       "ownership": "system",
-      "tokens": [
-        "-ReliablePort={{QUERY_PORT}}"
-      ],
+      "tokens": ["-ReliablePort={{QUERY_PORT}}"],
       "label": "Reliable port",
       "managed_source": "game_server.query_port"
     },
@@ -84,6 +80,17 @@
       ],
       "label": "Max players",
       "managed_source": "game_server.max_players"
+    },
+    {
+      "id": "runtime_satisfactory_linux_04",
+      "order": 4,
+      "ownership": "system",
+      "tokens": [
+        "-multihome={{IP}}",
+        "-ini:Engine:[HTTPServer.Listeners]:DefaultBindAddress={{IP}}"
+      ],
+      "label": "Game and HTTPS API bind IP",
+      "managed_source": "game_server.ip"
     }
   ],
   "windows_start_args_template": [
@@ -91,9 +98,7 @@
       "id": "runtime_satisfactory_windows_01",
       "order": 1,
       "ownership": "system",
-      "tokens": [
-        "-Port={{PORT}}"
-      ],
+      "tokens": ["-Port={{PORT}}"],
       "label": "Game port",
       "managed_source": "game_server.port"
     },
@@ -101,9 +106,7 @@
       "id": "runtime_satisfactory_windows_02",
       "order": 2,
       "ownership": "system",
-      "tokens": [
-        "-ReliablePort={{QUERY_PORT}}"
-      ],
+      "tokens": ["-ReliablePort={{QUERY_PORT}}"],
       "label": "Reliable port",
       "managed_source": "game_server.query_port"
     },
@@ -111,18 +114,14 @@
       "id": "runtime_satisfactory_windows_03",
       "order": 3,
       "ownership": "editable",
-      "tokens": [
-        "-log"
-      ],
+      "tokens": ["-log"],
       "label": "Log"
     },
     {
       "id": "runtime_satisfactory_windows_04",
       "order": 4,
       "ownership": "editable",
-      "tokens": [
-        "-unattended"
-      ],
+      "tokens": ["-unattended"],
       "label": "Unattended"
     },
     {
@@ -134,6 +133,17 @@
       ],
       "label": "Max players",
       "managed_source": "game_server.max_players"
+    },
+    {
+      "id": "runtime_satisfactory_windows_06",
+      "order": 6,
+      "ownership": "system",
+      "tokens": [
+        "-multihome={{IP}}",
+        "-ini:Engine:[HTTPServer.Listeners]:DefaultBindAddress={{IP}}"
+      ],
+      "label": "Game and HTTPS API bind IP",
+      "managed_source": "game_server.ip"
     }
   ],
   "start_arg_blocklist": [],

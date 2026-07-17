@@ -61,11 +61,11 @@ func (c *inProcessNodeClient) StopProcess(_ context.Context, processID, stopInpu
 	return nil
 }
 
-func (c *inProcessNodeClient) SendConsoleInput(_ context.Context, processID, input string) error {
+func (c *inProcessNodeClient) SendConsoleInput(ctx context.Context, processID, input string) error {
 	if c.node == nil {
 		return ErrNodeNil
 	}
-	errSend := c.node.SendConsoleInput(processID, input)
+	errSend := c.node.SendConsoleInputContext(ctx, processID, input)
 	if errSend != nil {
 		return fmt.Errorf("nodeclient: send console input: %w", errSend)
 	}

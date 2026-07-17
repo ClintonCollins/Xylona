@@ -192,11 +192,40 @@ message StartProcessRequest {
   // telnet_input configures node-local telnet console input. The node always
   // dials localhost; no remote host is accepted over the wire.
   TelnetInput telnet_input = 15;
+  RCONInput rcon_input = 16;
+  RESTInput rest_input = 17;
 }
 
 message TelnetInput {
   int32 port = 1;
   string password = 2;
+}
+
+enum RCONProtocol {
+  RCON_PROTOCOL_UNSPECIFIED = 0;
+  RCON_PROTOCOL_SOURCE = 1;
+  RCON_PROTOCOL_MINECRAFT = 2;
+  RCON_PROTOCOL_RUST_WEB = 3;
+}
+
+message RCONInput {
+  string host = 1;
+  int32 port = 2;
+  string password = 3;
+  RCONProtocol protocol = 4;
+}
+
+enum RESTInputKind {
+  REST_INPUT_KIND_UNSPECIFIED = 0;
+  REST_INPUT_KIND_SATISFACTORY = 1;
+}
+
+message RESTInput {
+  string host = 1;
+  int32 port = 2;
+  RESTInputKind kind = 3;
+  string password = 4;
+  repeated string previous_passwords = 5;
 }
 
 message StartProcessResponse {
@@ -481,6 +510,13 @@ enum GameServerQueryKind {
   GAME_SERVER_QUERY_KIND_MINECRAFT = 1;
   GAME_SERVER_QUERY_KIND_SOURCE = 2;
   GAME_SERVER_QUERY_KIND_PALWORLD = 3;
+  GAME_SERVER_QUERY_KIND_SEVEN_DAYS_TO_DIE = 4;
+  GAME_SERVER_QUERY_KIND_FACTORIO = 5;
+  GAME_SERVER_QUERY_KIND_HYTALE = 6;
+  GAME_SERVER_QUERY_KIND_PROJECT_ZOMBOID = 7;
+  GAME_SERVER_QUERY_KIND_TERRARIA = 8;
+  GAME_SERVER_QUERY_KIND_SOURCE_RCON = 9;
+  GAME_SERVER_QUERY_KIND_RUST = 10;
 }
 
 message QueryGameServerRequest {
@@ -602,6 +638,8 @@ message GetRuntimeCapabilitiesResponse {
   bool reliable_process_lifecycle = 3;
   bool telnet_input = 4;
   bool player_actions = 5;
+  bool rcon_input = 6;
+  bool rest_input = 7;
 }
 
 // --- Self-update RPCs -------------------------------------------------------
