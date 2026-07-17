@@ -243,6 +243,8 @@ message GameServer {
   bool auto_restart_enabled = 54;
   int64 auto_restart_max_retries = 55;
   int64 auto_restart_cooldown_seconds = 56;
+  bool io_valid = 57;
+  bool connection_count_valid = 58;
 }
 
 message EnvironmentVariable {
@@ -470,14 +472,123 @@ message MetricsHistoryPoint {
   int64 disk_used_bytes = 6;
 }
 
-// GameServerMetricsHistoryPoint is a single data point in a game server metrics time series.
+enum GameServerMetricsCollectionStatus {
+  GAME_SERVER_METRICS_COLLECTION_STATUS_UNSPECIFIED = 0;
+  GAME_SERVER_METRICS_COLLECTION_STATUS_AVAILABLE = 1;
+  GAME_SERVER_METRICS_COLLECTION_STATUS_WARMING_UP = 2;
+  GAME_SERVER_METRICS_COLLECTION_STATUS_SERVER_OFFLINE = 3;
+  GAME_SERVER_METRICS_COLLECTION_STATUS_NODE_UNAVAILABLE = 4;
+  GAME_SERVER_METRICS_COLLECTION_STATUS_COLLECTOR_ERROR = 5;
+}
+
+enum GameServerMetricsResolution {
+  GAME_SERVER_METRICS_RESOLUTION_UNSPECIFIED = 0;
+  GAME_SERVER_METRICS_RESOLUTION_RAW = 1;
+  GAME_SERVER_METRICS_RESOLUTION_HOURLY = 2;
+  GAME_SERVER_METRICS_RESOLUTION_DOWNSAMPLED = 3;
+  GAME_SERVER_METRICS_RESOLUTION_MIXED = 4;
+}
+
+// GameServerMetricsHistoryPoint is a single raw or aggregated point in a game server metrics time series.
+// Existing value fields contain the sample value for raw points and the average for aggregated points.
 message GameServerMetricsHistoryPoint {
   google.protobuf.Timestamp timestamp = 1;
   double cpu_percent = 2;
+  // Deprecated: use memory_rss_bytes. This field is retained for API compatibility.
   int64 memory_bytes = 3;
   double memory_percent = 4;
   int64 disk_usage_bytes = 5;
   int32 player_count = 6;
+  double io_read_rate = 7;
+  double io_write_rate = 8;
+  int32 connection_count = 9;
+  int64 memory_rss_bytes = 10;
+  bool cpu_valid = 11;
+  optional double cpu_percent_min = 12;
+  optional double cpu_percent_max = 13;
+  optional int32 node_cpu_cores = 14;
+  optional int64 memory_rss_bytes_min = 15;
+  optional int64 memory_rss_bytes_max = 16;
+  optional double memory_percent_min = 17;
+  optional double memory_percent_max = 18;
+  optional int64 node_memory_used_bytes = 19;
+  optional int64 node_memory_total_bytes = 20;
+  optional int64 configured_memory_bytes = 21;
+  optional int64 disk_usage_bytes_min = 22;
+  optional int64 disk_usage_bytes_max = 23;
+  optional int64 volume_total_bytes = 24;
+  optional int64 volume_free_bytes = 25;
+  optional double volume_percent = 26;
+  bool volume_valid = 27;
+  google.protobuf.Timestamp disk_measured_at = 28;
+  optional double io_read_rate_min = 29;
+  optional double io_read_rate_max = 30;
+  optional double io_write_rate_min = 31;
+  optional double io_write_rate_max = 32;
+  optional int32 connection_count_min = 33;
+  optional int32 connection_count_max = 34;
+  bool player_count_valid = 35;
+  optional int32 player_count_min = 36;
+  optional int32 player_count_max = 37;
+  optional int32 player_capacity = 38;
+  optional bool query_supported = 39;
+  optional bool query_success = 40;
+  optional double query_duration_ms = 41;
+  optional double query_duration_ms_min = 42;
+  optional double query_duration_ms_max = 43;
+  google.protobuf.Timestamp query_checked_at = 44;
+  optional double server_fps = 45;
+  optional double server_fps_min = 46;
+  optional double server_fps_max = 47;
+  optional double server_frame_time_ms = 48;
+  optional double server_frame_time_ms_min = 49;
+  optional double server_frame_time_ms_max = 50;
+  optional int64 server_uptime_seconds = 51;
+  string process_status = 52;
+  string execution_id = 53;
+  GameServerMetricsCollectionStatus collection_status = 54;
+  google.protobuf.Timestamp process_collected_at = 55;
+  int32 granularity_seconds = 56;
+  int32 sample_count = 57;
+  int32 available_sample_count = 58;
+  double availability_ratio = 59;
+  string node_id = 60;
+  int32 cpu_valid_sample_count = 61;
+  int32 query_successful_sample_count = 62;
+  int32 volume_valid_sample_count = 63;
+  int32 io_valid_sample_count = 64;
+  int32 connection_valid_sample_count = 65;
+  bool io_valid = 66;
+  bool connection_count_valid = 67;
+  int32 query_duration_valid_sample_count = 68;
+  int32 server_fps_valid_sample_count = 69;
+  int32 server_frame_time_valid_sample_count = 70;
+}
+
+message GameServerLifecycleHistoryEvent {
+  string id = 1;
+  string game_server_id = 2;
+  string node_id = 3;
+  string execution_id = 4;
+  uint64 transition_sequence = 5;
+  string previous_status = 6;
+  string status = 7;
+  bool intentional_stop = 8;
+  optional int32 exit_code = 9;
+  google.protobuf.Timestamp observed_at = 10;
+}
+
+message GameServerOperationHistoryEvent {
+  string id = 1;
+  string game_server_id = 2;
+  string operation = 3;
+  optional string phase = 4;
+  string outcome = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  optional int64 duration_ms = 8;
+  optional int64 bytes_processed = 9;
+  string source = 10;
 }
 
 message InstalledMod {

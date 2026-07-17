@@ -494,7 +494,9 @@ func applyProcessMetricsToProto(dst *xylona.GameServer, snap *node.ProcessSnapsh
 	dst.DiskUsageBytes = helpers.ClampInt64FromUint64(snap.DiskUsageBytes)
 	dst.IoReadRate = snap.IOReadRate
 	dst.IoWriteRate = snap.IOWriteRate
+	dst.IoValid = snap.IOValid
 	dst.ConnectionCount = snap.ConnectionCount
+	dst.ConnectionCountValid = snap.ConnectionCountValid
 	if snap.UnixStartedAt > 0 {
 		dst.UptimeSeconds = time.Now().Unix() - snap.UnixStartedAt
 	}

@@ -3,8 +3,13 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { NotificationChannel } from '@/proto/shared_pb'
-import { NotificationChannelSchema, NotificationChannelType } from '@/proto/shared_pb'
+import type { AlertRule, NotificationChannel } from '@/proto/shared_pb'
+import {
+  AlertEventType,
+  AlertRuleSchema,
+  NotificationChannelSchema,
+  NotificationChannelType,
+} from '@/proto/shared_pb'
 import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import Notifications from './Notifications.vue'
@@ -64,6 +69,22 @@ function makeChannel(overrides: Partial<NotificationChannel> = {}): Notification
     ...overrides,
   })
   return channel
+}
+
+function makeRule(overrides: Partial<AlertRule> = {}): AlertRule {
+  const rule = create(AlertRuleSchema)
+  Object.assign(rule, {
+    id: 'rule-1',
+    userId: 'user-1',
+    serverId: 'server-1',
+    serverNodeId: 'node-1',
+    eventType: AlertEventType.CPU_THRESHOLD,
+    condition: JSON.stringify({ operator: '>=', value: 80 }),
+    notificationChannelId: 'chan-1',
+    enabled: true,
+    ...overrides,
+  })
+  return rule
 }
 
 const QTableStub = defineComponent({
@@ -169,6 +190,10 @@ function mountNotifications(permissionIds: string[] = ['alerts.manage']) {
         'q-card': { template: '<div><slot /></div>' },
         'q-card-section': { template: '<div><slot /></div>' },
         'q-card-actions': { template: '<div><slot /></div>' },
+        'q-expansion-item': {
+          props: ['label'],
+          template: '<section><span>{{ label }}</span><slot /></section>',
+        },
         'q-input': { template: '<input />' },
         'q-checkbox': true,
         'router-link': { template: '<a><slot /></a>' },
@@ -256,5 +281,95 @@ describe('Notifications', () => {
     expect(wrapper.text()).not.toContain('send')
     expect(wrapper.text()).not.toContain('edit')
     expect(wrapper.text()).not.toContain('delete')
+  })
+
+  it('parses and preserves extended threshold behavior when editing a rule', async () => {
+    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
+    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [makeChannel()] })
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
+    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
+    mocks.updateAlertRule.mockResolvedValueOnce({})
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
+
+    const wrapper = mountNotifications()
+    await flushPromises()
+
+    type NotificationsVM = {
+      openRuleEditDialog: (rule: AlertRule) => void
+      saveRule: () => Promise<void>
+      ruleForm: {
+        thresholdForSeconds: number
+        thresholdRecoveryValue: number | null
+        thresholdCooldownSeconds: number
+        thresholdRepeatSeconds: number
+        thresholdNoDataSeconds: number
+      }
+    }
+    const vm = wrapper.vm as unknown as NotificationsVM
+    vm.openRuleEditDialog(
+      makeRule({
+        eventType: AlertEventType.MEMORY_THRESHOLD,
+        condition: JSON.stringify({
+          operator: '>=',
+          value: 85,
+          for_seconds: 120,
+          recovery_value: 75,
+          cooldown_seconds: 300,
+          repeat_seconds: 900,
+          no_data_seconds: 180,
+        }),
+      }),
+    )
+
+    expect(vm.ruleForm).toMatchObject({
+      thresholdForSeconds: 120,
+      thresholdRecoveryValue: 75,
+      thresholdCooldownSeconds: 300,
+      thresholdRepeatSeconds: 900,
+      thresholdNoDataSeconds: 180,
+    })
+
+    await vm.saveRule()
+    await flushPromises()
+
+    const request = mocks.updateAlertRule.mock.calls[0]?.[0] as { condition: string }
+    expect(JSON.parse(request.condition)).toEqual({
+      operator: '>=',
+      value: 85,
+      for_seconds: 120,
+      recovery_value: 75,
+      cooldown_seconds: 300,
+      repeat_seconds: 900,
+      no_data_seconds: 180,
+    })
+  })
+
+  it('blocks invalid threshold timing and recovery values', async () => {
+    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
+    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [makeChannel()] })
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
+    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
+
+    const wrapper = mountNotifications()
+    await flushPromises()
+
+    type NotificationsVM = {
+      openRuleEditDialog: (rule: AlertRule) => void
+      saveRule: () => Promise<void>
+      ruleForm: {
+        thresholdForSeconds: number
+        thresholdRecoveryValue: number | null
+      }
+      canSaveRule: boolean
+    }
+    const vm = wrapper.vm as unknown as NotificationsVM
+    vm.openRuleEditDialog(makeRule())
+    vm.ruleForm.thresholdForSeconds = -1
+    vm.ruleForm.thresholdRecoveryValue = 90
+
+    expect(vm.canSaveRule).toBe(false)
+    await vm.saveRule()
+
+    expect(mocks.updateAlertRule).not.toHaveBeenCalled()
   })
 })

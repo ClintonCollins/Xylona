@@ -28,6 +28,36 @@ func newTestConnection() *connection {
 	}
 }
 
+func TestProcessSnapshotToGameServerMetricsPreservesMetricValidity(t *testing.T) {
+	t.Parallel()
+
+	metrics := processSnapshotToGameServerMetrics(&node.ProcessSnapshot{
+		IOValid:              true,
+		ConnectionCountValid: true,
+	}, time.Now())
+	if metrics == nil {
+		t.Fatal("processSnapshotToGameServerMetrics() returned nil")
+	}
+	if !metrics.GetIoValid() || !metrics.GetConnectionCountValid() {
+		t.Fatalf("metric validity = (IO %t, connections %t), want both true", metrics.GetIoValid(), metrics.GetConnectionCountValid())
+	}
+}
+
+func TestMetricsEqualDetectsMetricValidityChanges(t *testing.T) {
+	t.Parallel()
+
+	timestamp := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	base := processSnapshotToGameServerMetrics(&node.ProcessSnapshot{}, timestamp)
+	ioChanged := processSnapshotToGameServerMetrics(&node.ProcessSnapshot{IOValid: true}, timestamp)
+	connectionsChanged := processSnapshotToGameServerMetrics(&node.ProcessSnapshot{ConnectionCountValid: true}, timestamp)
+	if metricsEqual(base, ioChanged) {
+		t.Fatal("metricsEqual() ignored IO validity change")
+	}
+	if metricsEqual(base, connectionsChanged) {
+		t.Fatal("metricsEqual() ignored connection validity change")
+	}
+}
+
 func TestQueryEqualIncludesSourcePlayerList(t *testing.T) {
 	t.Parallel()
 
@@ -89,36 +119,49 @@ func TestConnection_ShouldReceiveMetrics(t *testing.T) {
 	tests := []struct {
 		name        string
 		subscribed  []string
+		accessible  []string
 		queryServer string
 		want        bool
 	}{
 		{
 			name:        "subscribed server returns true",
 			subscribed:  []string{"server-1"},
+			accessible:  []string{"server-1"},
 			queryServer: "server-1",
 			want:        true,
 		},
 		{
 			name:        "unsubscribed server returns false",
 			subscribed:  []string{"server-1"},
+			accessible:  []string{"server-1", "server-2"},
 			queryServer: "server-2",
 			want:        false,
 		},
 		{
 			name:        "no subscriptions returns false",
 			subscribed:  nil,
+			accessible:  []string{"server-1"},
 			queryServer: "server-1",
 			want:        false,
 		},
 		{
 			name:        "multiple subscriptions returns true for subscribed",
 			subscribed:  []string{"server-1", "server-2", "server-3"},
+			accessible:  []string{"server-1", "server-2", "server-3"},
 			queryServer: "server-2",
 			want:        true,
 		},
 		{
+			name:        "unauthorized subscription returns false",
+			subscribed:  []string{"server-1"},
+			accessible:  []string{"server-2"},
+			queryServer: "server-1",
+			want:        false,
+		},
+		{
 			name:        "empty server ID returns false when not subscribed",
 			subscribed:  []string{"server-1"},
+			accessible:  []string{"server-1"},
 			queryServer: "",
 			want:        false,
 		},
@@ -127,6 +170,7 @@ func TestConnection_ShouldReceiveMetrics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := newTestConnection()
+			c.allGameServerIDs = tt.accessible
 			for _, id := range tt.subscribed {
 				c.subscribedMetricsServerIDs[id] = struct{}{}
 			}
@@ -141,6 +185,7 @@ func TestConnection_ShouldReceiveMetrics(t *testing.T) {
 
 func TestConnection_ShouldReceiveMetrics_AfterUnsubscribe(t *testing.T) {
 	c := newTestConnection()
+	c.allGameServerIDs = []string{"server-1"}
 
 	// Subscribe to server-1
 	c.subscribedMetricsServerIDs["server-1"] = struct{}{}
@@ -154,6 +199,98 @@ func TestConnection_ShouldReceiveMetrics_AfterUnsubscribe(t *testing.T) {
 
 	if c.shouldReceiveMetrics("server-1") {
 		t.Fatal("expected shouldReceiveMetrics to return false after unsubscribing")
+	}
+}
+
+func TestWebSocket_CollectSubscribedServerMetrics(t *testing.T) {
+	gameServers := []*models.GameServer{
+		{ID: "server-1", NodeID: "node-1"},
+		{ID: "server-2", NodeID: "node-1"},
+	}
+	tests := []struct {
+		name          string
+		subscribed    []string
+		accessible    []string
+		wantServerIDs []string
+		wantCalls     int
+	}{
+		{
+			name:       "no subscriptions skip snapshot collection",
+			accessible: []string{"server-1", "server-2"},
+		},
+		{
+			name:          "one subscription bounds collection and payload",
+			subscribed:    []string{"server-1"},
+			accessible:    []string{"server-1", "server-2"},
+			wantServerIDs: []string{"server-1"},
+			wantCalls:     1,
+		},
+		{
+			name:          "multiple subscriptions bound collection and payload",
+			subscribed:    []string{"server-1", "server-2"},
+			accessible:    []string{"server-1", "server-2"},
+			wantServerIDs: []string{"server-1", "server-2"},
+			wantCalls:     1,
+		},
+		{
+			name:       "unauthorized subscription cannot trigger collection",
+			subscribed: []string{"server-2"},
+			accessible: []string{"server-1"},
+		},
+		{
+			name:          "unauthorized subscription is excluded from mixed payload",
+			subscribed:    []string{"server-1", "server-2"},
+			accessible:    []string{"server-1"},
+			wantServerIDs: []string{"server-1"},
+			wantCalls:     1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &nodeclient.FakeNodeClient{
+				NodeID: "node-1",
+				SnapshotResult: &node.NodeSnapshot{
+					Collected: time.Now(),
+					Processes: []node.ProcessSnapshot{
+						{ID: "server-1", MetricsValid: true},
+						{ID: "server-2", MetricsValid: true},
+					},
+				},
+			}
+			conn := newTestConnection()
+			conn.allGameServerIDs = tt.accessible
+			for _, serverID := range tt.subscribed {
+				conn.subscribedMetricsServerIDs[serverID] = struct{}{}
+			}
+			ws := &WebSocket{
+				nodeRegistry: noderegistry.New("node-1", client),
+			}
+
+			metrics := ws.collectSubscribedServerMetrics(t.Context(), conn, gameServers)
+
+			if client.SnapshotCalls != tt.wantCalls {
+				t.Fatalf("GetNodeSnapshot calls = %d, want %d", client.SnapshotCalls, tt.wantCalls)
+			}
+			if len(tt.wantServerIDs) == 0 {
+				if metrics != nil {
+					t.Fatalf("metrics = %+v, want nil", metrics)
+				}
+				return
+			}
+			if metrics == nil {
+				t.Fatal("metrics = nil, want payload")
+			}
+			if len(metrics.GetServers()) != len(tt.wantServerIDs) {
+				t.Fatalf("payload server count = %d, want %d", len(metrics.GetServers()), len(tt.wantServerIDs))
+			}
+			for _, serverID := range tt.wantServerIDs {
+				_, exists := metrics.GetServers()[serverID]
+				if !exists {
+					t.Errorf("payload missing subscribed server %q", serverID)
+				}
+			}
+		})
 	}
 }
 

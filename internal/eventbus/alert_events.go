@@ -64,6 +64,9 @@ type StatusChangedEvent struct {
 	ExitCode           int
 	ExitCodeKnown      bool
 	Replayed           bool
+	// OccurredAt is authoritative for remote/replayed events. Local publishers
+	// may leave it zero, in which case immediate consumers use observation time.
+	OccurredAt time.Time
 }
 
 // VersionChangedEvent is published when a game server's detected version state changes.

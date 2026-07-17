@@ -1015,10 +1015,16 @@ message GetGameServerMetricsHistoryRequest {
   string game_server_id = 1;
   google.protobuf.Timestamp since = 2;
   google.protobuf.Timestamp until = 3;
+  int32 max_points = 4;
 }
 
 message GetGameServerMetricsHistoryResponse {
   repeated GameServerMetricsHistoryPoint points = 1;
+  repeated GameServerLifecycleHistoryEvent lifecycle_events = 2;
+  repeated GameServerOperationHistoryEvent operation_events = 3;
+  GameServerMetricsResolution resolution = 4;
+  int32 sample_interval_seconds = 5;
+  bool has_mixed_resolution = 6;
 }
 
 // Config Schema Messages

@@ -128,21 +128,43 @@ type Command struct {
 	exitCodeKnown                 bool
 	statusEventHook               func(eventbus.StatusChangedEvent)
 	// Metrics fields (transient, not persisted to DB)
-	cpuPercent      float64
-	cpuCores        int32
-	memoryRSS       uint64  // working set (WorkingSetSize on Windows)
-	memoryVMS       uint64  // private committed memory (PagefileUsage on Windows)
-	memoryPercent   float32 // % of total system RAM
-	numThreads      int32
-	diskUsageBytes  uint64
-	workingDir      string
-	ioReadRate      float64 // I/O read bytes/sec (disk + network)
-	ioWriteRate     float64 // I/O write bytes/sec (disk + network)
-	lastIORead      uint64  // previous cumulative read bytes
-	lastIOWrite     uint64  // previous cumulative write bytes
-	lastIOPollTime  time.Time
-	connectionCount int32 // active TCP/UDP connections
-	RWMutex         *sync.RWMutex
+	cpuPercent           float64
+	cpuCores             int32
+	memoryRSS            uint64  // working set (WorkingSetSize on Windows)
+	memoryVMS            uint64  // private committed memory (PagefileUsage on Windows)
+	memoryPercent        float32 // % of total system RAM
+	numThreads           int32
+	diskUsageBytes       uint64
+	workingDir           string
+	ioReadRate           float64                     // I/O read bytes/sec (disk + network)
+	ioWriteRate          float64                     // I/O write bytes/sec (disk + network)
+	lastIOByPID          map[int32]processIOCounters // previous cumulative I/O for each observed process
+	lastIOPollTime       time.Time
+	lastCPUSecondsByPID  map[int32]float64 // previous cumulative CPU time for each observed process
+	lastCPUPollTime      time.Time
+	cpuValid             bool
+	metricsValid         bool
+	ioValid              bool
+	connectionCount      int32 // active sockets reported for the process tree
+	connectionCountValid bool
+	diskTotalBytes       uint64
+	diskFreeBytes        uint64
+	diskPercent          float64
+	diskMeasuredAt       time.Time
+	diskValid            bool
+	RWMutex              *sync.RWMutex
+}
+
+// DiskMetrics describes the latest best-effort working-directory usage scan.
+// It is intentionally internal to the supervisor until the node protocol grows
+// matching fields for remote-node transport.
+type DiskMetrics struct {
+	UsageBytes uint64
+	TotalBytes uint64
+	FreeBytes  uint64
+	Percent    float64
+	MeasuredAt time.Time
+	Valid      bool
 }
 
 // SetStatusEventHook installs the direct lifecycle sink used by the owning
@@ -266,10 +288,24 @@ func (c *Command) Lifecycle() LifecycleSnapshot {
 
 // Metrics returns the core metrics snapshot for the command's process tree.
 // memoryRSS is the total working set; memoryVMS is private committed memory.
-func (c *Command) Metrics() (cpuPercent float64, memoryRSS uint64, memoryVMS uint64, memoryPercent float32, cpuCores int32, numThreads int32, diskUsageBytes uint64, ioReadRate float64, ioWriteRate float64, connectionCount int32) {
+func (c *Command) Metrics() (cpuPercent float64, cpuValid bool, metricsValid bool, memoryRSS uint64, memoryVMS uint64, memoryPercent float32, cpuCores int32, numThreads int32, diskUsageBytes uint64, diskTotalBytes uint64, diskFreeBytes uint64, diskPercent float64, diskMeasuredAt time.Time, diskValid bool, ioValid bool, ioReadRate float64, ioWriteRate float64, connectionCount int32, connectionCountValid bool) {
 	c.RLock()
 	defer c.RUnlock()
-	return c.cpuPercent, c.memoryRSS, c.memoryVMS, c.memoryPercent, c.cpuCores, c.numThreads, c.diskUsageBytes, c.ioReadRate, c.ioWriteRate, c.connectionCount
+	return c.cpuPercent, c.cpuValid, c.metricsValid, c.memoryRSS, c.memoryVMS, c.memoryPercent, c.cpuCores, c.numThreads, c.diskUsageBytes, c.diskTotalBytes, c.diskFreeBytes, c.diskPercent, c.diskMeasuredAt, c.diskValid, c.ioValid, c.ioReadRate, c.ioWriteRate, c.connectionCount, c.connectionCountValid
+}
+
+// DiskMetrics returns the latest working-directory scan and its freshness.
+func (c *Command) DiskMetrics() DiskMetrics {
+	c.RLock()
+	defer c.RUnlock()
+	return DiskMetrics{
+		UsageBytes: c.diskUsageBytes,
+		TotalBytes: c.diskTotalBytes,
+		FreeBytes:  c.diskFreeBytes,
+		Percent:    c.diskPercent,
+		MeasuredAt: c.diskMeasuredAt,
+		Valid:      c.diskValid,
+	}
 }
 
 // WorkingDir returns the command's working directory.

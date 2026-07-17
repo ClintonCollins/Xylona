@@ -54,7 +54,7 @@ func buildNodeResourceSnapshot(snap *node.NodeSnapshot, gsCount, userCount int) 
 
 // processSnapshotToGameServerMetrics converts a node.ProcessSnapshot to the
 // on-the-wire GameServerMetrics shape. Returns nil if snap is nil.
-func processSnapshotToGameServerMetrics(snap *node.ProcessSnapshot) *xylona.GameServerMetrics {
+func processSnapshotToGameServerMetrics(snap *node.ProcessSnapshot, collectedAt time.Time) *xylona.GameServerMetrics {
 	if snap == nil {
 		return nil
 	}
@@ -64,17 +64,41 @@ func processSnapshotToGameServerMetrics(snap *node.ProcessSnapshot) *xylona.Game
 	}
 	return &xylona.GameServerMetrics{
 		CpuPercent:            snap.CPUPercent,
+		CpuValid:              snap.CPUValid,
+		MetricsValid:          snap.MetricsValid,
 		MemoryBytes:           helpers.ClampInt64FromUint64(snap.MemoryVMS),
 		MemoryWorkingSetBytes: helpers.ClampInt64FromUint64(snap.MemoryRSS),
 		MemoryPercent:         float64(snap.MemoryPercent),
 		CpuCores:              snap.CPUCores,
 		NumberOfThreads:       snap.NumThreads,
 		DiskUsageBytes:        helpers.ClampInt64FromUint64(snap.DiskUsageBytes),
+		DiskTotalBytes:        helpers.ClampInt64FromUint64(snap.DiskTotalBytes),
+		DiskFreeBytes:         helpers.ClampInt64FromUint64(snap.DiskFreeBytes),
+		DiskPercent:           snap.DiskPercent,
+		DiskValid:             snap.DiskValid,
+		IoValid:               snap.IOValid,
 		IoReadRate:            snap.IOReadRate,
 		IoWriteRate:           snap.IOWriteRate,
 		ConnectionCount:       snap.ConnectionCount,
+		ConnectionCountValid:  snap.ConnectionCountValid,
+		ProcessStatus:         snap.Status,
+		CollectionStatus:      processMetricsCollectionStatus(snap),
 		UptimeSeconds:         uptimeSeconds,
+		CollectedAt:           timestamppb.New(collectedAt),
 	}
+}
+
+func processMetricsCollectionStatus(snap *node.ProcessSnapshot) xylona.GameServerMetricsCollectionStatus {
+	if snap == nil {
+		return xylona.GameServerMetricsCollectionStatus_GAME_SERVER_METRICS_COLLECTION_STATUS_UNSPECIFIED
+	}
+	if snap.Status == xylona.Status_OFFLINE.String() {
+		return xylona.GameServerMetricsCollectionStatus_GAME_SERVER_METRICS_COLLECTION_STATUS_SERVER_OFFLINE
+	}
+	if snap.MetricsValid {
+		return xylona.GameServerMetricsCollectionStatus_GAME_SERVER_METRICS_COLLECTION_STATUS_AVAILABLE
+	}
+	return xylona.GameServerMetricsCollectionStatus_GAME_SERVER_METRICS_COLLECTION_STATUS_WARMING_UP
 }
 
 // fetchNodeSnapshot wraps NodeClient.GetNodeSnapshot with a bounded timeout.
@@ -214,14 +238,31 @@ func metricsEqual(a, b *xylona.GameServerMetrics) bool {
 		return a == b
 	}
 	return int64(a.GetCpuPercent()) == int64(b.GetCpuPercent()) &&
+		a.GetCpuValid() == b.GetCpuValid() &&
+		a.GetMetricsValid() == b.GetMetricsValid() &&
 		a.GetMemoryBytes() == b.GetMemoryBytes() &&
 		a.GetMemoryWorkingSetBytes() == b.GetMemoryWorkingSetBytes() &&
 		a.GetNumberOfThreads() == b.GetNumberOfThreads() &&
 		a.GetDiskUsageBytes() == b.GetDiskUsageBytes() &&
+		a.GetDiskValid() == b.GetDiskValid() &&
+		a.GetDiskTotalBytes() == b.GetDiskTotalBytes() &&
+		a.GetDiskFreeBytes() == b.GetDiskFreeBytes() &&
 		a.GetUptimeSeconds() == b.GetUptimeSeconds() &&
 		int64(a.GetIoReadRate()) == int64(b.GetIoReadRate()) &&
 		int64(a.GetIoWriteRate()) == int64(b.GetIoWriteRate()) &&
-		a.GetConnectionCount() == b.GetConnectionCount()
+		a.GetIoValid() == b.GetIoValid() &&
+		a.GetConnectionCount() == b.GetConnectionCount() &&
+		a.GetConnectionCountValid() == b.GetConnectionCountValid() &&
+		a.GetProcessStatus() == b.GetProcessStatus() &&
+		a.GetCollectionStatus() == b.GetCollectionStatus() &&
+		timestampsEqual(a.GetCollectedAt(), b.GetCollectedAt())
+}
+
+func timestampsEqual(left, right *timestamppb.Timestamp) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.AsTime().Equal(right.AsTime())
 }
 
 // nodeSnapshotEqual checks if two NodeResourceSnapshot values are equal enough to skip sending.
@@ -422,10 +463,37 @@ func (ws *WebSocket) collectOwnedServerMetrics(ctx context.Context, gameServers 
 			if !exists {
 				continue
 			}
-			out[gs.ID] = processSnapshotToGameServerMetrics(ps)
+			metrics := processSnapshotToGameServerMetrics(ps, result.snapshot.Collected)
+			if !ps.DiskMeasuredAt.IsZero() {
+				metrics.DiskMeasuredAt = timestamppb.New(ps.DiskMeasuredAt)
+			}
+			out[gs.ID] = metrics
 		}
 	}
 	return out
+}
+
+// collectSubscribedServerMetrics limits both node snapshot work and the
+// outbound payload to servers this connection subscribed to and can access.
+// A nil result means the connection has no eligible subscriptions.
+func (ws *WebSocket) collectSubscribedServerMetrics(
+	ctx context.Context,
+	conn *connection,
+	gameServers []*models.GameServer,
+) *xylona.AllServersMetrics {
+	subscribedServers := make([]*models.GameServer, 0, len(gameServers))
+	for _, gameServer := range gameServers {
+		if gameServer == nil || !conn.shouldReceiveMetrics(gameServer.ID) {
+			continue
+		}
+		subscribedServers = append(subscribedServers, gameServer)
+	}
+	if len(subscribedServers) == 0 {
+		return nil
+	}
+
+	collected := ws.collectOwnedServerMetrics(ctx, subscribedServers)
+	return &xylona.AllServersMetrics{Servers: collected}
 }
 
 func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
@@ -442,25 +510,27 @@ func (ws *WebSocket) sendOwnedServersMetrics(s *melody.Session) {
 			if s.IsClosed() {
 				return
 			}
+			conn, errConnection := ws.getSessionConnection(s)
+			if errConnection != nil {
+				log.Error().Err(errConnection).Msg("Failed to get websocket connection for metrics")
+				return
+			}
 			gameServers, errGetServers := ws.getSessionGameServers(s)
 			if errGetServers != nil {
 				log.Error().Err(errGetServers).Msg("Failed to get game servers from session for metrics")
 				return
 			}
-			collected := ws.collectOwnedServerMetrics(ws.ctx, gameServers)
-			allMetrics := &xylona.AllServersMetrics{Servers: make(map[string]*xylona.GameServerMetrics, len(collected))}
+			allMetrics := ws.collectSubscribedServerMetrics(ws.ctx, conn, gameServers)
+			if allMetrics == nil {
+				continue
+			}
 			metricsChanged := false
-			for _, gameServer := range gameServers {
-				current, exists := collected[gameServer.ID]
-				if !exists {
-					continue
-				}
-				previous, seen := previousMetricsMap[gameServer.ID]
+			for serverID, current := range allMetrics.GetServers() {
+				previous, seen := previousMetricsMap[serverID]
 				if !seen || !metricsEqual(previous, current) {
-					previousMetricsMap[gameServer.ID] = current
+					previousMetricsMap[serverID] = current
 					metricsChanged = true
 				}
-				allMetrics.Servers[gameServer.ID] = current
 			}
 
 			if !metricsChanged {

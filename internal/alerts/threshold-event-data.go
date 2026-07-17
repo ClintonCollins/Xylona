@@ -21,10 +21,17 @@ func thresholdValuesEqual(left, right float64) bool {
 	return math.Abs(left-right) <= thresholdFloatEqualityEpsilon
 }
 
-// conditionPayload is the JSON structure stored in rule condition fields.
-type conditionPayload struct {
-	Operator string  `json:"operator"`
-	Value    float64 `json:"value"`
+// ThresholdCondition is the versioned behavior encoded in a threshold rule's
+// condition JSON. Zero-valued timing fields preserve the legacy immediate,
+// transition-only behavior.
+type ThresholdCondition struct {
+	Operator        string   `json:"operator"`
+	Value           float64  `json:"value"`
+	ForSeconds      int64    `json:"for_seconds,omitempty"`
+	RecoveryValue   *float64 `json:"recovery_value,omitempty"`
+	CooldownSeconds int64    `json:"cooldown_seconds,omitempty"`
+	RepeatSeconds   int64    `json:"repeat_seconds,omitempty"`
+	NoDataSeconds   int64    `json:"no_data_seconds,omitempty"`
 }
 
 // EvaluateThresholdOp compares actual against threshold using the given
@@ -50,16 +57,53 @@ func EvaluateThresholdOp(op string, threshold, actual float64) (bool, error) {
 // JSON condition string. Returns an error if the JSON is empty, malformed, or
 // missing the operator field.
 func ParseConditionJSON(conditionJSON string) (operator string, threshold float64, err error) {
-	if conditionJSON == "" {
-		return "", 0, errors.New("condition JSON is empty")
+	condition, errParse := ParseThresholdConditionJSON(conditionJSON)
+	if errParse != nil {
+		return "", 0, errParse
 	}
-	var cond conditionPayload
+	return condition.Operator, condition.Value, nil
+}
+
+// ParseThresholdConditionJSON parses and validates all threshold behavior
+// fields while remaining backward-compatible with operator/value-only rules.
+func ParseThresholdConditionJSON(conditionJSON string) (ThresholdCondition, error) {
+	if conditionJSON == "" {
+		return ThresholdCondition{}, errors.New("condition JSON is empty")
+	}
+	var cond ThresholdCondition
 	errUnmarshal := json.Unmarshal([]byte(conditionJSON), &cond)
 	if errUnmarshal != nil {
-		return "", 0, fmt.Errorf("invalid condition JSON: %w", errUnmarshal)
+		return ThresholdCondition{}, fmt.Errorf("invalid condition JSON: %w", errUnmarshal)
 	}
 	if cond.Operator == "" {
-		return "", 0, errors.New("condition has no operator")
+		return ThresholdCondition{}, errors.New("condition has no operator")
 	}
-	return cond.Operator, cond.Value, nil
+	_, errOperator := EvaluateThresholdOp(cond.Operator, cond.Value, cond.Value)
+	if errOperator != nil {
+		return ThresholdCondition{}, errOperator
+	}
+	if math.IsNaN(cond.Value) || math.IsInf(cond.Value, 0) {
+		return ThresholdCondition{}, errors.New("condition value must be finite")
+	}
+	if cond.RecoveryValue != nil && (math.IsNaN(*cond.RecoveryValue) || math.IsInf(*cond.RecoveryValue, 0)) {
+		return ThresholdCondition{}, errors.New("condition recovery value must be finite")
+	}
+	if cond.RecoveryValue != nil {
+		switch cond.Operator {
+		case ">=", ">":
+			if *cond.RecoveryValue >= cond.Value {
+				return ThresholdCondition{}, errors.New("condition recovery value must be below the trigger value")
+			}
+		case "<=", "<":
+			if *cond.RecoveryValue <= cond.Value {
+				return ThresholdCondition{}, errors.New("condition recovery value must be above the trigger value")
+			}
+		case "==", "=":
+			return ThresholdCondition{}, errors.New("equality conditions cannot use a recovery value")
+		}
+	}
+	if cond.ForSeconds < 0 || cond.CooldownSeconds < 0 || cond.RepeatSeconds < 0 || cond.NoDataSeconds < 0 {
+		return ThresholdCondition{}, errors.New("condition durations cannot be negative")
+	}
+	return cond, nil
 }

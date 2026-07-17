@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -11,6 +12,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/alerts"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -42,8 +44,12 @@ type serverMetricsSnapshot struct {
 	serverID      string
 	nodeID        string
 	cpuPercent    float64
+	cpuValid      bool
 	memoryPercent float64
-	diskBytes     uint64
+	memoryValid   bool
+	diskPercent   float64
+	diskValid     bool
+	online        bool
 }
 
 // nodeMetricsSnapshot holds a single node's current metrics.
@@ -98,12 +104,20 @@ func (r *registryServerMetricsProvider) ListServerMetrics() []serverMetricsSnaps
 			continue
 		}
 		for _, ps := range snap.Processes {
+			processStatusCanHaveMetrics := ps.Status == xylona.Status_ONLINE.String() ||
+				ps.Status == xylona.Status_INSTALLING.String() ||
+				ps.Status == xylona.Status_UPDATING.String()
+			metricsValid := processStatusCanHaveMetrics && ps.MetricsValid
 			out = append(out, serverMetricsSnapshot{
 				serverID:      ps.ID,
 				nodeID:        client.ID(),
 				cpuPercent:    ps.CPUPercent,
+				cpuValid:      metricsValid && ps.CPUValid,
 				memoryPercent: float64(ps.MemoryPercent),
-				diskBytes:     ps.DiskUsageBytes,
+				memoryValid:   metricsValid,
+				diskPercent:   ps.DiskPercent,
+				diskValid:     metricsValid && ps.DiskValid && ps.DiskTotalBytes > 0,
+				online:        ps.Status == "ONLINE",
 			})
 		}
 	}
@@ -163,15 +177,19 @@ type cachedRules struct {
 // cachedAlertState holds an in-memory copy of an alert state row, avoiding
 // repeated DB round-trips for unchanged states.
 type cachedAlertState struct {
-	id        string
-	triggered bool
+	id              string
+	ruleID          string
+	ruleFingerprint string
+	triggered       bool
+	pendingSince    time.Time
+	cooldownUntil   time.Time
+	lastPublishedAt time.Time
 }
 
-// cachedCondition holds a pre-parsed rule condition so parseCondition does not
-// need to deserialize JSON on every tick.
+// cachedCondition holds a pre-parsed rule condition so JSON does not need to
+// be deserialized on every tick.
 type cachedCondition struct {
-	operator  string
-	threshold float64
+	condition alerts.ThresholdCondition
 	err       error
 }
 
@@ -183,19 +201,22 @@ type thresholdPoller struct {
 	serverProv   serverMetricsProvider
 	nodeProv     nodeMetricsProvider
 	playerCounts PlayerCountProvider
+	queryMetrics GameServerQueryTelemetryProvider
 	bus          *eventbus.EventBus
+	now          func() time.Time
 
 	// Rule cache — refreshed every rulesCacheTTL.
 	ruleCache     map[string]cachedRules // keyed by eventType
 	rulesCachedAt time.Time
 
 	// State cache — keyed by "ruleID|entityType|entityID|entityNodeID".
-	// Loaded from DB on cache miss, updated on state transitions.
-	// Invalidated when rules are refreshed.
+	// Loaded from DB on cache miss, updated on state transitions. Runtime timing
+	// survives routine refreshes only while the rule definition is unchanged.
 	stateCache map[string]*cachedAlertState
 
 	// Condition cache — keyed by rule ID. Invalidated when rules are refreshed.
-	conditionCache map[string]*cachedCondition
+	conditionCache         map[string]*cachedCondition
+	unsupportedNoDataRules map[string]struct{}
 }
 
 func newThresholdPoller(
@@ -206,17 +227,24 @@ func newThresholdPoller(
 	playerCounts PlayerCountProvider,
 	bus *eventbus.EventBus,
 ) *thresholdPoller {
-	return &thresholdPoller{
-		ruleStore:      ruleStore,
-		stateStore:     stateStore,
-		serverProv:     serverProv,
-		nodeProv:       nodeProv,
-		playerCounts:   playerCounts,
-		bus:            bus,
-		ruleCache:      make(map[string]cachedRules),
-		stateCache:     make(map[string]*cachedAlertState),
-		conditionCache: make(map[string]*cachedCondition),
+	poller := &thresholdPoller{
+		ruleStore:              ruleStore,
+		stateStore:             stateStore,
+		serverProv:             serverProv,
+		nodeProv:               nodeProv,
+		playerCounts:           playerCounts,
+		bus:                    bus,
+		now:                    time.Now,
+		ruleCache:              make(map[string]cachedRules),
+		stateCache:             make(map[string]*cachedAlertState),
+		conditionCache:         make(map[string]*cachedCondition),
+		unsupportedNoDataRules: make(map[string]struct{}),
 	}
+	queryMetrics, ok := playerCounts.(GameServerQueryTelemetryProvider)
+	if ok {
+		poller.queryMetrics = queryMetrics
+	}
+	return poller
 }
 
 // stateKey builds the cache key for alert state lookups.
@@ -238,7 +266,11 @@ func (p *thresholdPoller) getOrCreateStateCached(ruleID, entityType, entityID, e
 	}
 	entry := &cachedAlertState{
 		id:        state.ID,
+		ruleID:    ruleID,
 		triggered: state.Triggered != 0,
+	}
+	if entry.triggered {
+		entry.lastPublishedAt = p.now()
 	}
 	p.stateCache[k] = entry
 	return entry, nil
@@ -246,18 +278,43 @@ func (p *thresholdPoller) getOrCreateStateCached(ruleID, entityType, entityID, e
 
 // getConditionCached returns the cached parsed condition for the given rule, or
 // parses and caches it on first access.
-func (p *thresholdPoller) getConditionCached(rule *models.AlertRule) (operator string, threshold float64, err error) {
+func (p *thresholdPoller) getConditionCached(rule *models.AlertRule) (alerts.ThresholdCondition, error) {
 	cached, ok := p.conditionCache[rule.ID]
 	if ok {
-		return cached.operator, cached.threshold, cached.err
+		return cached.condition, cached.err
 	}
-	threshold, operator, errParse := parseCondition(rule.Condition)
-	p.conditionCache[rule.ID] = &cachedCondition{
-		operator:  operator,
-		threshold: threshold,
+	condition, errParse := parseThresholdCondition(rule.Condition)
+	cached = &cachedCondition{
+		condition: condition,
 		err:       errParse,
 	}
-	return operator, threshold, errParse
+	p.conditionCache[rule.ID] = cached
+	_, noDataAlreadyLogged := p.unsupportedNoDataRules[rule.ID]
+	if errParse == nil && condition.NoDataSeconds > 0 && !noDataAlreadyLogged {
+		log.Warn().Str("rule_id", rule.ID).Int64("no_data_seconds", condition.NoDataSeconds).
+			Msg("Threshold poller: no-data alert delivery is not supported; invalid samples will not change triggered state")
+		p.unsupportedNoDataRules[rule.ID] = struct{}{}
+	}
+	return condition, errParse
+}
+
+func alertRuleRuntimeFingerprint(rule *models.AlertRule) string {
+	condition, conditionSet := rule.Condition.Get()
+	serverID, serverIDSet := rule.ServerID.Get()
+	serverNodeID, serverNodeIDSet := rule.ServerNodeID.Get()
+	nodeID, nodeIDSet := rule.NodeID.Get()
+	return fmt.Sprintf(
+		"%q|%t:%q|%t:%q|%t:%q|%t:%q",
+		rule.EventType,
+		conditionSet,
+		condition,
+		serverIDSet,
+		serverID,
+		serverNodeIDSet,
+		serverNodeID,
+		nodeIDSet,
+		nodeID,
+	)
 }
 
 // thresholdEventTypes lists all DB event type strings for threshold rules,
@@ -278,8 +335,9 @@ var thresholdEventTypes = []struct {
 
 // getRules returns rules for the given eventType, using the cache when fresh.
 func (p *thresholdPoller) getRules(eventType string) ([]*models.AlertRule, error) {
-	if cached, ok := p.ruleCache[eventType]; ok {
-		if time.Since(cached.fetchedAt) < rulesCacheTTL {
+	cached, ok := p.ruleCache[eventType]
+	if ok {
+		if p.now().Sub(cached.fetchedAt) < rulesCacheTTL {
 			return cached.rules, nil
 		}
 	}
@@ -287,35 +345,50 @@ func (p *thresholdPoller) getRules(eventType string) ([]*models.AlertRule, error
 	if errGet != nil {
 		return nil, fmt.Errorf("failed to fetch rules for %s: %w", eventType, errGet)
 	}
-	p.ruleCache[eventType] = cachedRules{rules: rules, fetchedAt: time.Now()}
+	p.ruleCache[eventType] = cachedRules{rules: rules, fetchedAt: p.now()}
 	return rules, nil
 }
 
 // refreshRuleCache forces a re-fetch of all event types and resets the cache
-// timestamp. It also invalidates the state and condition caches since rule
-// changes may affect which states and conditions are relevant.
+// timestamp. It invalidates parsed conditions while preserving runtime timing
+// only for enabled rules whose evaluated definition is unchanged.
 func (p *thresholdPoller) refreshRuleCache() {
+	enabledRuleFingerprints := make(map[string]string)
+	refreshComplete := true
 	for _, et := range thresholdEventTypes {
 		rules, errGet := p.ruleStore.GetEnabledAlertRulesByEventType(et.eventType)
 		if errGet != nil {
 			log.Error().Err(errGet).Str("event_type", et.eventType).Msg("Threshold poller: failed to refresh rule cache")
+			refreshComplete = false
 			continue
 		}
-		p.ruleCache[et.eventType] = cachedRules{rules: rules, fetchedAt: time.Now()}
+		p.ruleCache[et.eventType] = cachedRules{rules: rules, fetchedAt: p.now()}
+		for _, rule := range rules {
+			if rule.Enabled == 0 {
+				continue
+			}
+			enabledRuleFingerprints[rule.ID] = alertRuleRuntimeFingerprint(rule)
+		}
 	}
-	p.rulesCachedAt = time.Now()
+	p.rulesCachedAt = p.now()
 
-	// Invalidate dependent caches — rules may have changed conditions or been
-	// removed, so stale state entries could cause incorrect suppression.
-	p.stateCache = make(map[string]*cachedAlertState)
 	p.conditionCache = make(map[string]*cachedCondition)
+	if !refreshComplete {
+		return
+	}
+	for key, state := range p.stateCache {
+		fingerprint, enabled := enabledRuleFingerprints[state.ruleID]
+		if !enabled || (state.ruleFingerprint != "" && state.ruleFingerprint != fingerprint) {
+			delete(p.stateCache, key)
+		}
+	}
 }
 
 // runOnce executes a single evaluation cycle: fetches metrics, evaluates rules,
 // manages state, and publishes events on transitions.
 func (p *thresholdPoller) runOnce() {
 	// Refresh rule cache if stale.
-	if time.Since(p.rulesCachedAt) >= rulesCacheTTL {
+	if p.now().Sub(p.rulesCachedAt) >= rulesCacheTTL {
 		p.refreshRuleCache()
 	}
 
@@ -332,37 +405,37 @@ func (p *thresholdPoller) evaluateServerRules(snapshots []serverMetricsSnapshot)
 	serverEventTypes := []struct {
 		eventType string
 		topic     string
-		getValue  func(snap serverMetricsSnapshot, pc PlayerCountProvider) float64
+		getValue  func(snap serverMetricsSnapshot) (float64, bool)
 	}{
 		{
 			"ALERT_EVENT_TYPE_CPU_THRESHOLD",
 			eventbus.TopicGameServerCPUThreshold,
-			func(snap serverMetricsSnapshot, _ PlayerCountProvider) float64 {
-				return snap.cpuPercent
+			func(snap serverMetricsSnapshot) (float64, bool) {
+				return snap.cpuPercent, snap.cpuValid
 			},
 		},
 		{
 			"ALERT_EVENT_TYPE_MEMORY_THRESHOLD",
 			eventbus.TopicGameServerMemoryThreshold,
-			func(snap serverMetricsSnapshot, _ PlayerCountProvider) float64 {
-				return snap.memoryPercent
+			func(snap serverMetricsSnapshot) (float64, bool) {
+				return snap.memoryPercent, snap.memoryValid
 			},
 		},
 		{
 			"ALERT_EVENT_TYPE_DISK_THRESHOLD",
 			eventbus.TopicGameServerDiskThreshold,
-			func(snap serverMetricsSnapshot, _ PlayerCountProvider) float64 {
-				return float64(snap.diskBytes)
+			func(snap serverMetricsSnapshot) (float64, bool) {
+				return snap.diskPercent, snap.diskValid
 			},
 		},
 		{
 			"ALERT_EVENT_TYPE_PLAYER_COUNT_THRESHOLD",
 			eventbus.TopicGameServerPlayerThreshold,
-			func(snap serverMetricsSnapshot, pc PlayerCountProvider) float64 {
-				if pc == nil {
-					return 0
+			func(snap serverMetricsSnapshot) (float64, bool) {
+				if !snap.online {
+					return 0, false
 				}
-				return float64(pc.GetPlayerCount(snap.serverID))
+				return p.playerCountMetric(snap.serverID)
 			},
 		},
 	}
@@ -396,60 +469,141 @@ func (p *thresholdPoller) evaluateServerRules(snapshots []serverMetricsSnapshot)
 			}
 
 			for _, snap := range targets {
-				currentValue := et.getValue(snap, p.playerCounts)
-				op, threshold, errParse := p.getConditionCached(rule)
+				currentValue, valid := et.getValue(snap)
+				condition, errParse := p.getConditionCached(rule)
 				if errParse != nil {
 					log.Warn().Err(errParse).Str("rule_id", rule.ID).Msg("Threshold poller: failed to parse condition")
 					continue
 				}
-
-				breached, errEval := alerts.EvaluateThresholdOp(op, threshold, currentValue)
-				if errEval != nil {
-					log.Warn().Err(errEval).Str("rule_id", rule.ID).Msg("Threshold poller: failed to evaluate threshold")
-					continue
-				}
-
-				cached, errState := p.getOrCreateStateCached(rule.ID, "server", snap.serverID, snap.nodeID)
-				if errState != nil {
-					log.Error().Err(errState).Str("rule_id", rule.ID).Str("server_id", snap.serverID).Msg("Threshold poller: failed to get/create alert state")
-					continue
-				}
-
-				if breached && !cached.triggered {
-					// Transition: OK → triggered.
-					errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, true)
-					if errUpdate != nil {
-						log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update state to triggered")
-						continue
-					}
-					cached.triggered = true
+				p.evaluateThreshold(rule, "server", snap.serverID, snap.nodeID, currentValue, valid, condition, func(direction eventbus.ThresholdDirection) {
 					p.bus.Publish(et.topic, eventbus.ThresholdEvent{
 						ServerID:     snap.serverID,
 						ServerNodeID: snap.nodeID,
 						CurrentValue: currentValue,
-						Threshold:    threshold,
-						Direction:    eventbus.ThresholdEntered,
+						Threshold:    condition.Value,
+						Direction:    direction,
 					})
-				} else if !breached && cached.triggered {
-					// Transition: triggered → OK.
-					errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, false)
-					if errUpdate != nil {
-						log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update state to resolved")
-						continue
-					}
-					cached.triggered = false
-					p.bus.Publish(et.topic, eventbus.ThresholdEvent{
-						ServerID:     snap.serverID,
-						ServerNodeID: snap.nodeID,
-						CurrentValue: currentValue,
-						Threshold:    threshold,
-						Direction:    eventbus.ThresholdResolved,
-					})
-				}
-				// No state change: no event published.
+				})
 			}
 		}
 	}
+}
+
+func (p *thresholdPoller) playerCountMetric(serverID string) (float64, bool) {
+	if p.queryMetrics != nil {
+		telemetry := p.queryMetrics.GetGameServerQueryTelemetry(serverID)
+		valid := telemetry.Status == GameServerQueryTelemetryStatusSuccess && telemetry.PlayerCountValid
+		return float64(telemetry.PlayerCount), valid
+	}
+	if p.playerCounts == nil {
+		return 0, false
+	}
+	return float64(p.playerCounts.GetPlayerCount(serverID)), true
+}
+
+func (p *thresholdPoller) evaluateThreshold(
+	rule *models.AlertRule,
+	entityType string,
+	entityID string,
+	entityNodeID string,
+	currentValue float64,
+	valid bool,
+	condition alerts.ThresholdCondition,
+	publish func(direction eventbus.ThresholdDirection),
+) {
+	key := stateKey(rule.ID, entityType, entityID, entityNodeID)
+	if !valid || math.IsNaN(currentValue) || math.IsInf(currentValue, 0) {
+		cached, ok := p.stateCache[key]
+		if ok {
+			cached.pendingSince = time.Time{}
+		}
+		return
+	}
+
+	breached, errEval := alerts.EvaluateThresholdOp(condition.Operator, condition.Value, currentValue)
+	if errEval != nil {
+		log.Warn().Err(errEval).Str("rule_id", rule.ID).Msg("Threshold poller: failed to evaluate threshold")
+		return
+	}
+
+	cached, errState := p.getOrCreateStateCached(rule.ID, entityType, entityID, entityNodeID)
+	if errState != nil {
+		log.Error().Err(errState).Str("rule_id", rule.ID).Str("entity_type", entityType).
+			Str("entity_id", entityID).Msg("Threshold poller: failed to get/create alert state")
+		return
+	}
+	now := p.now()
+	fingerprint := alertRuleRuntimeFingerprint(rule)
+	if cached.ruleFingerprint != fingerprint {
+		cached.ruleFingerprint = fingerprint
+		cached.pendingSince = time.Time{}
+		cached.cooldownUntil = time.Time{}
+		cached.lastPublishedAt = time.Time{}
+		if cached.triggered {
+			cached.lastPublishedAt = now
+		}
+	}
+
+	if cached.triggered {
+		recoveryThreshold := condition.Value
+		if condition.RecoveryValue != nil {
+			recoveryThreshold = *condition.RecoveryValue
+		}
+		stillTriggered, errRecovery := alerts.EvaluateThresholdOp(condition.Operator, recoveryThreshold, currentValue)
+		if errRecovery != nil {
+			log.Warn().Err(errRecovery).Str("rule_id", rule.ID).Msg("Threshold poller: failed to evaluate recovery threshold")
+			return
+		}
+		if !stillTriggered {
+			errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, false)
+			if errUpdate != nil {
+				log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update state to resolved")
+				return
+			}
+			cached.triggered = false
+			cached.pendingSince = time.Time{}
+			cached.lastPublishedAt = time.Time{}
+			cached.cooldownUntil = now.Add(time.Duration(condition.CooldownSeconds) * time.Second)
+			publish(eventbus.ThresholdResolved)
+			return
+		}
+		if condition.RepeatSeconds <= 0 {
+			return
+		}
+		repeatAfter := time.Duration(condition.RepeatSeconds) * time.Second
+		if now.Sub(cached.lastPublishedAt) < repeatAfter {
+			return
+		}
+		cached.lastPublishedAt = now
+		publish(eventbus.ThresholdEntered)
+		return
+	}
+
+	if now.Before(cached.cooldownUntil) {
+		cached.pendingSince = time.Time{}
+		return
+	}
+	if !breached {
+		cached.pendingSince = time.Time{}
+		return
+	}
+	if cached.pendingSince.IsZero() {
+		cached.pendingSince = now
+	}
+	forDuration := time.Duration(condition.ForSeconds) * time.Second
+	if now.Sub(cached.pendingSince) < forDuration {
+		return
+	}
+
+	errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, true)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update state to triggered")
+		return
+	}
+	cached.triggered = true
+	cached.pendingSince = time.Time{}
+	cached.lastPublishedAt = now
+	publish(eventbus.ThresholdEntered)
 }
 
 // evaluateNodeRules evaluates all node-level threshold event types.
@@ -462,27 +616,27 @@ func (p *thresholdPoller) evaluateNodeRules() {
 	nodeEventTypes := []struct {
 		eventType string
 		topic     string
-		getValue  func(nodeMetricsSnapshot) float64
+		getValue  func(nodeMetricsSnapshot) (float64, bool)
 	}{
 		{
 			"ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD",
 			eventbus.TopicNodeCPUThreshold,
-			func(snap nodeMetricsSnapshot) float64 {
-				return snap.cpuPercent
+			func(snap nodeMetricsSnapshot) (float64, bool) {
+				return snap.cpuPercent, true
 			},
 		},
 		{
 			"ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD",
 			eventbus.TopicNodeMemoryThreshold,
-			func(snap nodeMetricsSnapshot) float64 {
-				return snap.memoryPercent
+			func(snap nodeMetricsSnapshot) (float64, bool) {
+				return snap.memoryPercent, true
 			},
 		},
 		{
 			"ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD",
 			eventbus.TopicNodeDiskThreshold,
-			func(snap nodeMetricsSnapshot) float64 {
-				return snap.diskPercent
+			func(snap nodeMetricsSnapshot) (float64, bool) {
+				return snap.diskPercent, true
 			},
 		},
 	}
@@ -505,69 +659,35 @@ func (p *thresholdPoller) evaluateNodeRules() {
 					continue
 				}
 
-				currentValue := et.getValue(snap)
-				op, threshold, errParse := p.getConditionCached(rule)
+				currentValue, valid := et.getValue(snap)
+				condition, errParse := p.getConditionCached(rule)
 				if errParse != nil {
 					log.Warn().Err(errParse).Str("rule_id", rule.ID).Msg("Threshold poller: failed to parse node rule condition")
 					continue
 				}
-
-				breached, errEval := alerts.EvaluateThresholdOp(op, threshold, currentValue)
-				if errEval != nil {
-					log.Warn().Err(errEval).Str("rule_id", rule.ID).Msg("Threshold poller: failed to evaluate node threshold")
-					continue
-				}
-
-				cached, errState := p.getOrCreateStateCached(rule.ID, "node", snap.nodeID, "")
-				if errState != nil {
-					log.Error().Err(errState).Str("rule_id", rule.ID).Str("node_id", snap.nodeID).Msg("Threshold poller: failed to get/create node alert state")
-					continue
-				}
-
-				if breached && !cached.triggered {
-					errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, true)
-					if errUpdate != nil {
-						log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update node state to triggered")
-						continue
-					}
-					cached.triggered = true
+				p.evaluateThreshold(rule, "node", snap.nodeID, "", currentValue, valid, condition, func(direction eventbus.ThresholdDirection) {
 					p.bus.Publish(et.topic, eventbus.NodeThresholdEvent{
 						NodeID:       snap.nodeID,
 						CurrentValue: currentValue,
-						Threshold:    threshold,
-						Direction:    eventbus.ThresholdEntered,
+						Threshold:    condition.Value,
+						Direction:    direction,
 					})
-				} else if !breached && cached.triggered {
-					errUpdate := p.stateStore.UpdateAlertStateTriggered(cached.id, false)
-					if errUpdate != nil {
-						log.Error().Err(errUpdate).Str("state_id", cached.id).Msg("Threshold poller: failed to update node state to resolved")
-						continue
-					}
-					cached.triggered = false
-					p.bus.Publish(et.topic, eventbus.NodeThresholdEvent{
-						NodeID:       snap.nodeID,
-						CurrentValue: currentValue,
-						Threshold:    threshold,
-						Direction:    eventbus.ThresholdResolved,
-					})
-				}
+				})
 			}
 		}
 	}
 }
 
-// parseCondition extracts the operator and threshold value from a rule's
-// condition field. Returns an error if the condition is missing or malformed.
-func parseCondition(condition interface{ Get() (string, bool) }) (threshold float64, operator string, err error) {
+func parseThresholdCondition(condition interface{ Get() (string, bool) }) (alerts.ThresholdCondition, error) {
 	condStr, isSet := condition.Get()
 	if !isSet || condStr == "" {
-		return 0, "", errRuleConditionMissing
+		return alerts.ThresholdCondition{}, errRuleConditionMissing
 	}
-	op, thresh, errParse := alerts.ParseConditionJSON(condStr)
+	parsed, errParse := alerts.ParseThresholdConditionJSON(condStr)
 	if errParse != nil {
-		return 0, "", fmt.Errorf("actions: parse alert rule condition: %w", errParse)
+		return alerts.ThresholdCondition{}, fmt.Errorf("actions: parse alert rule condition: %w", errParse)
 	}
-	return thresh, op, nil
+	return parsed, nil
 }
 
 // backgroundJobThresholdPoller is the long-running background goroutine that

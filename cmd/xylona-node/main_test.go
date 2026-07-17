@@ -8,11 +8,25 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/ClintonCollins/Xylona/internal/node"
 )
 
 type fakeSelfUpdateCompleter struct {
 	calls int
 	err   error
+}
+
+func TestProcessSnapshotToProtoPreservesMetricValidity(t *testing.T) {
+	t.Parallel()
+
+	result := processSnapshotToProto(&node.ProcessSnapshot{
+		IOValid:              true,
+		ConnectionCountValid: true,
+	})
+	if !result.GetIoValid() || !result.GetConnectionCountValid() {
+		t.Fatalf("metric validity = (IO %t, connections %t), want both true", result.GetIoValid(), result.GetConnectionCountValid())
+	}
 }
 
 func (c *fakeSelfUpdateCompleter) CompleteSelfUpdate() error {
@@ -38,6 +52,9 @@ func TestParseFlags(t *testing.T) {
 		if cfg.dataDir == "" {
 			t.Fatalf("expected default data dir, got empty")
 		}
+		if cfg.processMetricsInterval != 3*time.Second || cfg.diskMetricsInterval != 30*time.Second || cfg.diskMetricsScans != 2 {
+			t.Fatalf("unexpected metrics defaults: process=%v disk=%v scans=%d", cfg.processMetricsInterval, cfg.diskMetricsInterval, cfg.diskMetricsScans)
+		}
 	})
 
 	t.Run("all flags are captured", func(t *testing.T) {
@@ -47,6 +64,9 @@ func TestParseFlags(t *testing.T) {
 			"--join-token", "tok-123",
 			"--listen", ":9800",
 			"--data-dir", "/var/lib/xylona-node",
+			"--process-metrics-interval", "4s",
+			"--disk-metrics-interval", "15s",
+			"--disk-metrics-scans-per-tick", "3",
 		}
 		cfg, errParse := parseFlags(args)
 		if errParse != nil {
@@ -63,6 +83,9 @@ func TestParseFlags(t *testing.T) {
 		}
 		if cfg.dataDir != "/var/lib/xylona-node" {
 			t.Fatalf("dataDir: %q", cfg.dataDir)
+		}
+		if cfg.processMetricsInterval != 4*time.Second || cfg.diskMetricsInterval != 15*time.Second || cfg.diskMetricsScans != 3 {
+			t.Fatalf("metrics flags: process=%v disk=%v scans=%d", cfg.processMetricsInterval, cfg.diskMetricsInterval, cfg.diskMetricsScans)
 		}
 	})
 
@@ -87,15 +110,24 @@ func TestCLIConfigRestartArgs(t *testing.T) {
 	t.Parallel()
 
 	cfg := &cliConfig{
-		controllerURL:   "https://controller.test",
-		joinToken:       "secret-bootstrap-token",
-		listen:          ":9800",
-		advertiseURL:    "https://node.test",
-		nodeName:        "node-one",
-		dataDir:         "relative-node-data",
-		skipInsecureTLS: true,
+		controllerURL:          "https://controller.test",
+		joinToken:              "secret-bootstrap-token",
+		listen:                 ":9800",
+		advertiseURL:           "https://node.test",
+		nodeName:               "node-one",
+		dataDir:                "relative-node-data",
+		processMetricsInterval: 4 * time.Second,
+		diskMetricsInterval:    15 * time.Second,
+		diskMetricsScans:       3,
+		skipInsecureTLS:        true,
 	}
-	want := []string{"--listen", ":9800", "--data-dir", "C:\\node-data"}
+	want := []string{
+		"--listen", ":9800",
+		"--data-dir", "C:\\node-data",
+		"--process-metrics-interval", "4s",
+		"--disk-metrics-interval", "15s",
+		"--disk-metrics-scans-per-tick", "3",
+	}
 	got := cfg.restartArgs("C:\\node-data")
 	if !slices.Equal(got, want) {
 		t.Fatalf("restartArgs() = %q, want %q", got, want)

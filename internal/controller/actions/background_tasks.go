@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -178,11 +179,11 @@ func (inst *Instance) storeServerQuery(result *xylona.ServerQuery) {
 	inst.serverQueriesMutex.Unlock()
 }
 
-func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.GameServer, queryType xylona.ServerQuery_Type) *xylona.ServerQuery {
+func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.GameServer, queryType xylona.ServerQuery_Type) (*xylona.ServerQuery, error) {
 	client, errClient := inst.resolveNodeClient(gs.NodeID)
 	if errClient != nil {
 		log.Debug().Err(errClient).Str("server", gs.Name).Str("node_id", gs.NodeID).Msg("Failed to resolve node client for game server query")
-		return defaultServerQuery(gs, queryType)
+		return nil, fmt.Errorf("resolve game server query node client: %w", errClient)
 	}
 	queryRequest := node.GameServerQueryRequest{
 		Kind:       nodeQueryKind(queryType),
@@ -194,7 +195,7 @@ func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.Game
 		username, password, errCredentials := inst.palworldQueryCredentials(gs)
 		if errCredentials != nil {
 			log.Debug().Err(errCredentials).Str("server", gs.Name).Msg("Failed to load Palworld query credentials")
-			return defaultServerQuery(gs, queryType)
+			return nil, fmt.Errorf("load Palworld query credentials: %w", errCredentials)
 		}
 		queryRequest.Username = username
 		queryRequest.Password = password
@@ -202,13 +203,13 @@ func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.Game
 	result, errQuery := client.QueryGameServer(ctx, queryRequest)
 	if errQuery != nil {
 		log.Debug().Err(errQuery).Str("server", gs.Name).Str("node_id", gs.NodeID).Msg("Failed to query game server through node")
-		return defaultServerQuery(gs, queryType)
+		return nil, fmt.Errorf("query game server through node: %w", errQuery)
 	}
 	serverQuery := serverQueryFromNodeResult(gs, result)
 	if !queryResultComplete(serverQuery) {
-		return defaultServerQuery(gs, queryType)
+		return nil, fmt.Errorf("remote game server returned incomplete %s query", queryType.String())
 	}
-	return serverQuery
+	return serverQuery, nil
 }
 
 func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*models.GameServer) {
@@ -226,19 +227,34 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 				}
 				queryType := getQueryInfoType(gs.R.Game)
 				switch queryType {
+				case xylona.ServerQuery_Unknown:
+					inst.recordUnsupportedGameServerQuery(gs.ID)
+					return
 				case xylona.ServerQuery_Minecraft:
 					if gs.Status != xylona.Status_ONLINE.String() {
+						inst.recordUnavailableGameServerQuery(gs.ID, queryType)
 						inst.storeServerQuery(defaultServerQuery(gs, queryType))
 						return
 					}
+					startedAt := time.Now()
 					if inst.isRemoteGameServer(gs) {
-						inst.storeServerQuery(inst.queryRemoteGameServer(ctx, gs, queryType))
+						serverQuery, errQuery := inst.queryRemoteGameServer(ctx, gs, queryType)
+						if errQuery != nil {
+							inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
+							inst.storeServerQuery(defaultServerQuery(gs, queryType))
+							return
+						}
+						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, serverQuery)
+						inst.storeServerQuery(serverQuery)
 						return
 					}
 					info, err := query.Minecraft(gs.IP, int(gs.QueryPort))
 					if err != nil {
 						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query minecraft server")
+						inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
 						info = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+					} else {
+						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, &xylona.ServerQuery{Type: queryType, Minecraft: info})
 					}
 					inst.storeServerQuery(&xylona.ServerQuery{
 						ServerId:   gs.ID,
@@ -249,17 +265,29 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 					return
 				case xylona.ServerQuery_Source:
 					if gs.Status != xylona.Status_ONLINE.String() {
+						inst.recordUnavailableGameServerQuery(gs.ID, queryType)
 						inst.storeServerQuery(defaultServerQuery(gs, queryType))
 						return
 					}
+					startedAt := time.Now()
 					if inst.isRemoteGameServer(gs) {
-						inst.storeServerQuery(inst.queryRemoteGameServer(ctx, gs, queryType))
+						serverQuery, errQuery := inst.queryRemoteGameServer(ctx, gs, queryType)
+						if errQuery != nil {
+							inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
+							inst.storeServerQuery(defaultServerQuery(gs, queryType))
+							return
+						}
+						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, serverQuery)
+						inst.storeServerQuery(serverQuery)
 						return
 					}
 					info, err := query.Source(gs.IP, int(gameServerQueryPort(gs)))
 					if err != nil {
 						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query source server")
+						inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
 						info = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+					} else {
+						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, &xylona.ServerQuery{Type: queryType, Source: info})
 					}
 					inst.storeServerQuery(&xylona.ServerQuery{
 						ServerId:   gs.ID,
@@ -270,23 +298,36 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 					return
 				case xylona.ServerQuery_Palworld:
 					if gs.Status != xylona.Status_ONLINE.String() {
+						inst.recordUnavailableGameServerQuery(gs.ID, queryType)
 						inst.storeServerQuery(defaultServerQuery(gs, queryType))
 						return
 					}
+					startedAt := time.Now()
 					if inst.isRemoteGameServer(gs) {
-						inst.storeServerQuery(inst.queryRemoteGameServer(ctx, gs, queryType))
+						serverQuery, errQuery := inst.queryRemoteGameServer(ctx, gs, queryType)
+						if errQuery != nil {
+							inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
+							inst.storeServerQuery(defaultServerQuery(gs, queryType))
+							return
+						}
+						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, serverQuery)
+						inst.storeServerQuery(serverQuery)
 						return
 					}
 					username, password, errCredentials := inst.palworldQueryCredentials(gs)
 					if errCredentials != nil {
 						log.Debug().Err(errCredentials).Str("server", gs.Name).Msg("Failed to load Palworld query credentials")
+						inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
 						inst.storeServerQuery(defaultServerQuery(gs, queryType))
 						return
 					}
 					info, errQuery := query.Palworld(ctx, gs.IP, int(gs.QueryPort), username, password)
 					if errQuery != nil {
 						log.Debug().Err(errQuery).Str("server", gs.Name).Msg("Failed to query Palworld server")
+						inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
 						info = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+					} else {
+						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, &xylona.ServerQuery{Type: queryType, Palworld: info})
 					}
 					inst.storeServerQuery(&xylona.ServerQuery{
 						ServerId:   gs.ID,

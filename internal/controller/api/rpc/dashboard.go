@@ -253,17 +253,19 @@ func (xs *XylonaService) GetNodeMetricsHistory(_ context.Context, request *conne
 	}), nil
 }
 
-// GetGameServerMetricsHistory returns historical metrics for a game server
-// owned by the controller's embedded node.
-func (xs *XylonaService) GetGameServerMetricsHistory(_ context.Context, request *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+// GetGameServerMetricsHistory returns controller-recorded historical metrics
+// and events for an authorized game server.
+func (xs *XylonaService) GetGameServerMetricsHistory(ctx context.Context, request *connect.Request[xylona.GetGameServerMetricsHistoryRequest]) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
 	}
 
 	gameServerID := request.Msg.GetGameServerId()
-	since := request.Msg.GetSince().AsTime()
-	until := request.Msg.GetUntil().AsTime()
+	since, until, maxPoints, errRange := validateGameServerMetricsHistoryRequest(request.Msg)
+	if errRange != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errRange)
+	}
 
 	gameServer, errLookup := xs.db.GetGameServerByID(gameServerID)
 	if errLookup != nil {
@@ -280,28 +282,31 @@ func (xs *XylonaService) GetGameServerMetricsHistory(_ context.Context, request 
 		}
 	}
 
-	return xs.queryLocalGameServerMetricsHistory(gameServerID, since, until)
+	return xs.queryLocalGameServerMetricsHistory(ctx, gameServerID, since, until, maxPoints)
 }
 
-func (xs *XylonaService) queryLocalGameServerMetricsHistory(gameServerID string, since, until time.Time) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
+func (xs *XylonaService) queryLocalGameServerMetricsHistory(ctx context.Context, gameServerID string, since, until time.Time, maxPoints int) (*connect.Response[xylona.GetGameServerMetricsHistoryResponse], error) {
 	rows, errQuery := xs.db.GetGameServerMetricsHistory(gameServerID, since, until)
 	if errQuery != nil {
 		return nil, internalErrf("failed to query game server metrics history")
 	}
 
-	var points []*xylona.GameServerMetricsHistoryPoint
-	for _, row := range rows {
-		points = append(points, &xylona.GameServerMetricsHistoryPoint{
-			Timestamp:      timestamppb.New(row.RecordedAt),
-			CpuPercent:     row.CPUPercent,
-			MemoryBytes:    row.MemoryBytes,
-			MemoryPercent:  row.MemoryPercent,
-			DiskUsageBytes: row.DiskUsageBytes,
-			PlayerCount:    helpers.ClampInt32FromInt(row.PlayerCount),
-		})
+	series := buildGameServerMetricsHistory(rows, since, until, maxPoints)
+	lifecycleRows, errLifecycle := xs.db.GetGameServerLifecycleEvents(ctx, gameServerID, since, until)
+	if errLifecycle != nil {
+		return nil, internalErrf("failed to query game server lifecycle history")
+	}
+	operationRows, errOperations := xs.db.GetGameServerOperationEvents(ctx, gameServerID, since, until)
+	if errOperations != nil {
+		return nil, internalErrf("failed to query game server operation history")
 	}
 
 	return connect.NewResponse(&xylona.GetGameServerMetricsHistoryResponse{
-		Points: points,
+		Points:                series.points,
+		LifecycleEvents:       mapGameServerLifecycleEvents(lifecycleRows),
+		OperationEvents:       mapGameServerOperationEvents(operationRows),
+		Resolution:            series.resolution,
+		SampleIntervalSeconds: series.sampleIntervalSeconds,
+		HasMixedResolution:    series.hasMixedResolution,
 	}), nil
 }

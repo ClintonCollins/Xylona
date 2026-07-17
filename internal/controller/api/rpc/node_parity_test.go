@@ -1100,19 +1100,21 @@ func TestGetGameServerHydratesRemoteSnapshotAndTiming(t *testing.T) {
 		NodeID:                  "node-remote",
 		GetProcessSnapshotFound: true,
 		GetProcessSnapshotResult: &node.ProcessSnapshot{
-			ID:              "server-remote-1",
-			Status:          xylona.Status_ONLINE.String(),
-			CPUPercent:      37.5,
-			CPUCores:        2,
-			MemoryVMS:       256 * 1024 * 1024,
-			MemoryRSS:       128 * 1024 * 1024,
-			MemoryPercent:   42.5,
-			NumThreads:      17,
-			DiskUsageBytes:  999,
-			IOReadRate:      11,
-			IOWriteRate:     22,
-			ConnectionCount: 5,
-			UnixStartedAt:   time.Now().Add(-2 * time.Minute).Unix(),
+			ID:                   "server-remote-1",
+			Status:               xylona.Status_ONLINE.String(),
+			CPUPercent:           37.5,
+			CPUCores:             2,
+			MemoryVMS:            256 * 1024 * 1024,
+			MemoryRSS:            128 * 1024 * 1024,
+			MemoryPercent:        42.5,
+			NumThreads:           17,
+			DiskUsageBytes:       999,
+			IOReadRate:           11,
+			IOWriteRate:          22,
+			IOValid:              true,
+			ConnectionCount:      5,
+			ConnectionCountValid: true,
+			UnixStartedAt:        time.Now().Add(-2 * time.Minute).Unix(),
 		},
 	}
 	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
@@ -1137,6 +1139,9 @@ func TestGetGameServerHydratesRemoteSnapshotAndTiming(t *testing.T) {
 	}
 	if gameServer.GetConnectionCount() != 5 {
 		t.Fatalf("GetGameServer().ConnectionCount = %d, want %d", gameServer.GetConnectionCount(), 5)
+	}
+	if !gameServer.GetIoValid() || !gameServer.GetConnectionCountValid() {
+		t.Fatalf("GetGameServer() metric validity = (IO %t, connections %t), want both true", gameServer.GetIoValid(), gameServer.GetConnectionCountValid())
 	}
 }
 

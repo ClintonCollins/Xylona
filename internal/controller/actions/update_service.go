@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/node"
@@ -328,6 +329,21 @@ func (inst *Instance) UpdateGameServerWithBackup(
 
 func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadcaster UpdateProgressBroadcaster) {
 	serverID := gameServer.ID
+	operationStartedAt := time.Now()
+	operationPhase := db.GameServerOperationPhasePreparing
+	operationOutcome := db.GameServerOperationOutcomeFailed
+	defer func() {
+		inst.recordGameServerOperation(
+			serverID,
+			db.GameServerOperationUpdate,
+			operationPhase,
+			operationOutcome,
+			operationStartedAt,
+			time.Now(),
+			nil,
+			db.GameServerOperationSourceController,
+		)
+	}()
 
 	// Determine pre-update running state via NodeClient so both embedded
 	// and remote game servers report a consistent status.
@@ -367,6 +383,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 
 	// Step 1: Stop if running.
 	if wasRunning {
+		operationPhase = db.GameServerOperationPhaseStopping
 		broadcast(xylona.UpdateStep_UPDATE_STEP_STOPPING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Stopping server")
 		errStop := inst.StopGameServer(inst.actionContext(), gameServer)
 		if errStop != nil {
@@ -402,6 +419,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	}
 
 	// Step 2: Backup.
+	operationPhase = db.GameServerOperationPhaseBackingUp
 	broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Backing up files")
 	errBackup := inst.backupServerFiles(gameServer)
 	if errBackup != nil {
@@ -450,6 +468,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	broadcast(xylona.UpdateStep_UPDATE_STEP_BACKING_UP, xylona.StepStatus_STEP_STATUS_COMPLETED, "Backup complete")
 
 	// Step 3: Update (download + install).
+	operationPhase = db.GameServerOperationPhaseUpdating
 	broadcast(
 		xylona.UpdateStep_UPDATE_STEP_DOWNLOADING,
 		xylona.StepStatus_STEP_STATUS_IN_PROGRESS,
@@ -539,6 +558,7 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 
 	// Step 4: Restart if the server was running before the update.
 	if wasRunning {
+		operationPhase = db.GameServerOperationPhaseRestarting
 		broadcast(xylona.UpdateStep_UPDATE_STEP_RESTARTING, xylona.StepStatus_STEP_STATUS_IN_PROGRESS, "Restarting server")
 		_, errStart := inst.StartGameServer(gameServer)
 		if errStart != nil {
@@ -578,6 +598,8 @@ func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadca
 	if inst.db != nil {
 		inst.CheckServerVersionByID(inst.ctx, serverID)
 	}
+	operationPhase = db.GameServerOperationPhaseComplete
+	operationOutcome = db.GameServerOperationOutcomeSucceeded
 }
 
 func waitForUpdateProcessExit(

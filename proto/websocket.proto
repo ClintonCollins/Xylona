@@ -57,6 +57,18 @@ message GameServerMetrics {
   double io_read_rate = 9;
   double io_write_rate = 10;
   int32 connection_count = 11;
+  bool cpu_valid = 12;
+  bool metrics_valid = 13;
+  int64 disk_total_bytes = 14;
+  int64 disk_free_bytes = 15;
+  double disk_percent = 16;
+  bool disk_valid = 17;
+  google.protobuf.Timestamp disk_measured_at = 18;
+  google.protobuf.Timestamp collected_at = 19;
+  bool io_valid = 20;
+  bool connection_count_valid = 21;
+  string process_status = 22;
+  GameServerMetricsCollectionStatus collection_status = 23;
 }
 
 message AllServersMetrics {

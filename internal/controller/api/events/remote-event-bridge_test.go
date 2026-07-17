@@ -19,6 +19,7 @@ func TestRemoteEventBridgeRepublishReliableLifecycle(t *testing.T) {
 	bridge := &RemoteEventBridge{bus: bus}
 	previous := make(map[string]string)
 	cursors := make(map[string]processLifecycleCursor)
+	occurredAt := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
 	event := node.Event{
 		Type:               node.EventTypeProcessStatus,
 		ProcessID:          "server-1",
@@ -29,6 +30,7 @@ func TestRemoteEventBridgeRepublishReliableLifecycle(t *testing.T) {
 		ExitCode:           17,
 		ExitCodeKnown:      true,
 		Replayed:           true,
+		Timestamp:          occurredAt,
 	}
 
 	bridge.republish("node-1", event, previous, cursors)
@@ -42,6 +44,9 @@ func TestRemoteEventBridgeRepublishReliableLifecycle(t *testing.T) {
 	}
 	if got.ExecutionID != "execution-1" || got.TransitionSequence != 2 || !got.ExitCodeKnown || got.ExitCode != 17 || !got.Replayed {
 		t.Fatalf("lifecycle metadata = %+v", got)
+	}
+	if !got.OccurredAt.Equal(occurredAt) {
+		t.Fatalf("lifecycle occurrence time = %v, want %v", got.OccurredAt, occurredAt)
 	}
 	rawCrash := <-crashEvents
 	crash, ok := rawCrash.(eventbus.ServerCrashedEvent)

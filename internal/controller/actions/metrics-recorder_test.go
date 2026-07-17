@@ -9,7 +9,81 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
+	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func TestNormalizeMetricsRecorderConfig(t *testing.T) {
+	t.Parallel()
+
+	defaults := DefaultMetricsRecorderConfig()
+	tests := []struct {
+		name  string
+		input MetricsRecorderConfig
+		want  MetricsRecorderConfig
+	}{
+		{
+			name: "zero values use defaults",
+			want: defaults,
+		},
+		{
+			name: "custom values are preserved",
+			input: MetricsRecorderConfig{
+				SnapshotInterval: 30 * time.Second,
+				CleanupInterval:  2 * time.Minute,
+				HistoryRetention: 7 * 24 * time.Hour,
+				RollupAfter:      6 * time.Hour,
+			},
+			want: MetricsRecorderConfig{
+				SnapshotInterval: 30 * time.Second,
+				CleanupInterval:  2 * time.Minute,
+				HistoryRetention: 7 * 24 * time.Hour,
+				RollupAfter:      6 * time.Hour,
+			},
+		},
+		{
+			name: "collection and retention costs are bounded",
+			input: MetricsRecorderConfig{
+				SnapshotInterval: time.Second,
+				CleanupInterval:  48 * time.Hour,
+				HistoryRetention: time.Hour,
+				RollupAfter:      time.Minute,
+			},
+			want: MetricsRecorderConfig{
+				SnapshotInterval: minMetricsSnapshotInterval,
+				CleanupInterval:  maxMetricsCleanupInterval,
+				HistoryRetention: minMetricsHistoryRetention,
+				RollupAfter:      minMetricsRollupAfter,
+			},
+		},
+		{
+			name: "rollup remains inside retention window",
+			input: MetricsRecorderConfig{
+				SnapshotInterval: defaults.SnapshotInterval,
+				CleanupInterval:  defaults.CleanupInterval,
+				HistoryRetention: minMetricsHistoryRetention,
+				RollupAfter:      48 * time.Hour,
+			},
+			want: MetricsRecorderConfig{
+				SnapshotInterval: defaults.SnapshotInterval,
+				CleanupInterval:  defaults.CleanupInterval,
+				HistoryRetention: minMetricsHistoryRetention,
+				RollupAfter:      minMetricsHistoryRetention / 2,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := normalizeMetricsRecorderConfig(test.input)
+			if got != test.want {
+				t.Errorf("normalizeMetricsRecorderConfig() = %#v, want %#v", got, test.want)
+			}
+		})
+	}
+}
 
 func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T) {
 	ctx := context.Background()
@@ -132,6 +206,231 @@ func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T)
 	if gotByHour[aggregatedHour].cpuPercent != 20 {
 		t.Fatalf("rolled-up hourly CPUPercent = %v, want 20", gotByHour[aggregatedHour].cpuPercent)
 	}
+}
+
+func TestMetricsRecorderCleanupAndRollupWaitsForCompleteHours(t *testing.T) {
+	t.Parallel()
+
+	conn := dbtest.NewMigratedConnection(t, "metrics-recorder-complete-hours.sqlite")
+	seedMetricsRecorderNodeFixture(t, conn)
+	now := time.Date(2026, time.July, 17, 12, 35, 0, 0, time.UTC)
+	completeHourSample := now.Add(-2 * time.Hour).Add(5 * time.Minute)
+	boundaryHourSample := now.Add(-time.Hour).Add(5 * time.Minute)
+	for id, recordedAt := range map[string]time.Time{
+		"complete-hour": completeHourSample,
+		"boundary-hour": boundaryHourSample,
+	} {
+		errInsert := conn.InsertNodeMetricsHistory(&db.NodeMetricsRow{
+			ID:               id,
+			NodeID:           "node-local",
+			CPUPercent:       25,
+			MemoryPercent:    30,
+			MemoryUsedBytes:  1000,
+			MemoryTotalBytes: 2000,
+			RecordedAt:       recordedAt,
+		})
+		if errInsert != nil {
+			t.Fatalf("InsertNodeMetricsHistory(%s) error = %v", id, errInsert)
+		}
+	}
+
+	recorder := &MetricsRecorder{
+		ctx: context.Background(),
+		db:  conn,
+		config: MetricsRecorderConfig{
+			RollupAfter:      time.Hour,
+			HistoryRetention: 24 * time.Hour,
+		},
+	}
+	recorder.cleanupAndRollupAt(now)
+
+	rows := loadNodeMetricSnapshots(t, conn)
+	if len(rows) != 2 {
+		t.Fatalf("loadNodeMetricSnapshots() len = %d, want 2", len(rows))
+	}
+	recordedAt := map[string]struct{}{}
+	for _, row := range rows {
+		recordedAt[row.recordedAt] = struct{}{}
+	}
+	wantRolledUp := completeHourSample.Truncate(time.Hour).Format("2006-01-02 15:04:05")
+	wantBoundaryRaw := boundaryHourSample.Format("2006-01-02 15:04:05")
+	_, rolledUp := recordedAt[wantRolledUp]
+	if !rolledUp {
+		t.Fatalf("missing complete-hour rollup at %s; rows = %#v", wantRolledUp, rows)
+	}
+	_, boundaryRaw := recordedAt[wantBoundaryRaw]
+	if !boundaryRaw {
+		t.Fatalf("boundary-hour raw sample at %s was rolled up too early; rows = %#v", wantBoundaryRaw, rows)
+	}
+}
+
+func TestMetricsRecorderDoesNotAttachStaleQueryDataToUnavailableSamples(t *testing.T) {
+	t.Parallel()
+
+	telemetry := &Instance{}
+	telemetry.recordSuccessfulGameServerQuery("server-1", xylona.ServerQuery_Palworld, time.Now().Add(-time.Millisecond), &xylona.ServerQuery{
+		Type: xylona.ServerQuery_Palworld,
+		Palworld: &xylona.PalworldQueryInfo{
+			Players:           4,
+			MaxPlayers:        16,
+			ServerFps:         60,
+			ServerFrameTimeMs: 16.7,
+		},
+	})
+	recorder := &MetricsRecorder{
+		config:         DefaultMetricsRecorderConfig(),
+		queryTelemetry: telemetry,
+	}
+	gameServer := &models.GameServer{ID: "server-1", NodeID: "node-1"}
+	now := time.Now().UTC()
+
+	unavailable := recorder.unavailableGameServerMetricsRow(gameServer, "node-1", now, "node_unavailable")
+	assertQueryMetricsUnavailable(t, unavailable)
+
+	offline := recorder.gameServerMetricsRow(gameServer, "node-1", &node.NodeSnapshot{Collected: now}, &node.ProcessSnapshot{
+		ID:           "server-1",
+		Status:       xylona.Status_OFFLINE.String(),
+		MetricsValid: true,
+	}, now)
+	assertQueryMetricsUnavailable(t, offline)
+	if offline.CollectionStatus != "server_offline" || offline.AvailableSampleCount != 0 || offline.AvailabilityRatio != 0 {
+		t.Fatalf("offline collection state = (%q, %d, %v), want server_offline, 0, 0", offline.CollectionStatus, offline.AvailableSampleCount, offline.AvailabilityRatio)
+	}
+}
+
+func TestMetricsRecorderOnlyAttachesSuccessfulQueryPerformanceTelemetry(t *testing.T) {
+	t.Parallel()
+
+	checkedAt := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name        string
+		status      GameServerQueryTelemetryStatus
+		wantSamples bool
+	}{
+		{
+			name:   "failed query omits performance samples",
+			status: GameServerQueryTelemetryStatusFailure,
+		},
+		{
+			name:        "successful query includes valid performance samples",
+			status:      GameServerQueryTelemetryStatusSuccess,
+			wantSamples: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			provider := staticGameServerQueryTelemetryProvider{snapshot: GameServerQueryTelemetrySnapshot{
+				Status:                   test.status,
+				CheckedAt:                checkedAt,
+				Duration:                 25 * time.Millisecond,
+				DurationValid:            true,
+				PalworldServerFPS:        60,
+				PalworldServerFPSValid:   true,
+				PalworldFrameTimeMS:      16.7,
+				PalworldFrameTimeMSValid: true,
+			}}
+			recorder := &MetricsRecorder{queryTelemetry: provider}
+			row := &db.GameServerMetricsRow{}
+			recorder.applyQueryTelemetry(row, "server-1")
+
+			if row.QueryCheckedAt == nil || !row.QueryCheckedAt.Equal(checkedAt) {
+				t.Fatalf("query checked at = %v, want %v", row.QueryCheckedAt, checkedAt)
+			}
+			if row.QueryDurationMS.Valid != test.wantSamples || row.ServerFPS.Valid != test.wantSamples || row.ServerFrameTimeMS.Valid != test.wantSamples {
+				t.Fatalf(
+					"performance sample validity = (duration %t, FPS %t, frame time %t), want %t",
+					row.QueryDurationMS.Valid,
+					row.ServerFPS.Valid,
+					row.ServerFrameTimeMS.Valid,
+					test.wantSamples,
+				)
+			}
+		})
+	}
+}
+
+func TestMetricsRecorderPreservesMetricSpecificValidity(t *testing.T) {
+	t.Parallel()
+
+	recorder := &MetricsRecorder{config: DefaultMetricsRecorderConfig()}
+	gameServer := &models.GameServer{ID: "server-1", NodeID: "node-1"}
+	now := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name                       string
+		process                    *node.ProcessSnapshot
+		wantIOValidCount           int64
+		wantConnectionValidCount   int64
+		wantIOExtrema              bool
+		wantConnectionCountExtrema bool
+	}{
+		{
+			name: "valid zero IO is distinct from unavailable connections",
+			process: &node.ProcessSnapshot{
+				ID:                   "server-1",
+				Status:               xylona.Status_ONLINE.String(),
+				MetricsValid:         true,
+				IOValid:              true,
+				ConnectionCountValid: false,
+			},
+			wantIOValidCount: 1,
+			wantIOExtrema:    true,
+		},
+		{
+			name: "valid zero connections are distinct from unavailable IO",
+			process: &node.ProcessSnapshot{
+				ID:                   "server-1",
+				Status:               xylona.Status_ONLINE.String(),
+				MetricsValid:         true,
+				IOValid:              false,
+				ConnectionCountValid: true,
+			},
+			wantConnectionValidCount:   1,
+			wantConnectionCountExtrema: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			row := recorder.gameServerMetricsRow(
+				gameServer,
+				"node-1",
+				&node.NodeSnapshot{Collected: now},
+				tt.process,
+				now,
+			)
+			if !row.IOValidSampleCountSet || !row.ConnectionValidSampleCountSet {
+				t.Fatal("metric-specific validity counts must be explicitly set")
+			}
+			if row.IOValidSampleCount != tt.wantIOValidCount {
+				t.Errorf("IO valid sample count = %d, want %d", row.IOValidSampleCount, tt.wantIOValidCount)
+			}
+			if row.ConnectionValidSampleCount != tt.wantConnectionValidCount {
+				t.Errorf("connection valid sample count = %d, want %d", row.ConnectionValidSampleCount, tt.wantConnectionValidCount)
+			}
+			if row.IOReadRateMin.Valid != tt.wantIOExtrema || row.IOWriteRateMax.Valid != tt.wantIOExtrema {
+				t.Errorf("IO extrema validity = (%t, %t), want %t", row.IOReadRateMin.Valid, row.IOWriteRateMax.Valid, tt.wantIOExtrema)
+			}
+			if row.ConnectionCountMin.Valid != tt.wantConnectionCountExtrema || row.ConnectionCountMax.Valid != tt.wantConnectionCountExtrema {
+				t.Errorf("connection extrema validity = (%t, %t), want %t", row.ConnectionCountMin.Valid, row.ConnectionCountMax.Valid, tt.wantConnectionCountExtrema)
+			}
+		})
+	}
+}
+
+func assertQueryMetricsUnavailable(t *testing.T, row *db.GameServerMetricsRow) {
+	t.Helper()
+	if row.QuerySuccess.Valid || row.PlayerCountMin.Valid || row.ServerFPS.Valid || row.ServerFrameTimeMS.Valid {
+		t.Fatalf("unavailable row contains query telemetry: success=%v players=%v fps=%v frame_time=%v", row.QuerySuccess, row.PlayerCountMin, row.ServerFPS, row.ServerFrameTimeMS)
+	}
+}
+
+type staticGameServerQueryTelemetryProvider struct {
+	snapshot GameServerQueryTelemetrySnapshot
+}
+
+func (provider staticGameServerQueryTelemetryProvider) GetGameServerQueryTelemetry(string) GameServerQueryTelemetrySnapshot {
+	return provider.snapshot
 }
 
 func seedMetricsRecorderNodeFixture(t *testing.T, conn *db.Connection) {

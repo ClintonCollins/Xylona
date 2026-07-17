@@ -184,6 +184,22 @@ func (inst *Instance) completeManualBackup(backupCtx context.Context, backupDone
 }
 
 func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer *models.GameServer, backup *models.GameServerBackup) (*models.GameServerBackup, error) {
+	operationStartedAt := time.Now()
+	operationOutcome := db.GameServerOperationOutcomeFailed
+	var operationBytes *int64
+	defer func() {
+		inst.recordGameServerOperation(
+			gameServer.ID,
+			db.GameServerOperationBackup,
+			db.GameServerOperationPhaseArchiving,
+			operationOutcome,
+			operationStartedAt,
+			time.Now(),
+			operationBytes,
+			db.GameServerOperationSource(backup.TriggerSource),
+		)
+	}()
+
 	inst.broadcastBackupProgress(
 		gameServer.ID,
 		gameServer.Name,
@@ -212,11 +228,13 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 	if errArchive != nil {
 		progressReporter.Abort()
 		if errors.Is(errArchive, errBackupCreateCancelled) {
+			operationOutcome = db.GameServerOperationOutcomeCancelled
 			return nil, errBackupCreateCancelled
 		}
 		return nil, inst.failBackupCreate(gameServer, backup, gameServer.ID, gameServer.Name, errArchive)
 	}
 	progressReporter.Close(sizeBytes)
+	operationBytes = &sizeBytes
 
 	completedAt := time.Now().UTC()
 	updatedBackup, errUpdate := updateGameServerBackupResult(inst.db, backup.ID, db.UpdateGameServerBackupResultParams{
@@ -229,6 +247,7 @@ func (inst *Instance) executeBackupCreate(backupCtx context.Context, gameServer 
 		return nil, inst.handleBackupFinalizationFailure(gameServer, backup, gameServer.ID, gameServer.Name, errUpdate)
 	}
 
+	operationOutcome = db.GameServerOperationOutcomeSucceeded
 	return updatedBackup, nil
 }
 

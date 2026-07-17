@@ -116,3 +116,73 @@ func TestParseConditionJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestParseThresholdConditionJSON(t *testing.T) {
+	tests := []struct {
+		name          string
+		conditionJSON string
+		want          ThresholdCondition
+		wantErr       bool
+	}{
+		{
+			name:          "extended timing and recovery policy",
+			conditionJSON: `{"operator":">=","value":80,"for_seconds":30,"recovery_value":70,"cooldown_seconds":60,"repeat_seconds":300,"no_data_seconds":120}`,
+			want: ThresholdCondition{
+				Operator:        ">=",
+				Value:           80,
+				ForSeconds:      30,
+				CooldownSeconds: 60,
+				RepeatSeconds:   300,
+				NoDataSeconds:   120,
+			},
+		},
+		{
+			name:          "negative duration rejected",
+			conditionJSON: `{"operator":">=","value":80,"for_seconds":-1}`,
+			wantErr:       true,
+		},
+		{
+			name:          "unknown operator rejected",
+			conditionJSON: `{"operator":"!=","value":80}`,
+			wantErr:       true,
+		},
+		{
+			name:          "high threshold recovery must be lower",
+			conditionJSON: `{"operator":">=","value":80,"recovery_value":80}`,
+			wantErr:       true,
+		},
+		{
+			name:          "low threshold recovery must be higher",
+			conditionJSON: `{"operator":"<=","value":20,"recovery_value":10}`,
+			wantErr:       true,
+		},
+		{
+			name:          "equality threshold rejects recovery value",
+			conditionJSON: `{"operator":"==","value":20,"recovery_value":10}`,
+			wantErr:       true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, errParse := ParseThresholdConditionJSON(tc.conditionJSON)
+			if tc.wantErr {
+				if errParse == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if errParse != nil {
+				t.Fatalf("unexpected error: %v", errParse)
+			}
+			if got.Operator != tc.want.Operator || got.Value != tc.want.Value || got.ForSeconds != tc.want.ForSeconds ||
+				got.CooldownSeconds != tc.want.CooldownSeconds || got.RepeatSeconds != tc.want.RepeatSeconds ||
+				got.NoDataSeconds != tc.want.NoDataSeconds {
+				t.Fatalf("condition = %+v, want %+v", got, tc.want)
+			}
+			if got.RecoveryValue == nil || *got.RecoveryValue != 70 {
+				t.Fatalf("recovery value = %v, want 70", got.RecoveryValue)
+			}
+		})
+	}
+}

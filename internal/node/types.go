@@ -456,27 +456,36 @@ func NewFileEntry(name string, size int64, isDirectory bool, modTime time.Time, 
 
 // ProcessSnapshot is a point-in-time view of a single supervised process.
 type ProcessSnapshot struct {
-	ID                 string
-	ExecutionID        string
-	Name               string
-	Status             string
-	PreviousStatus     string
-	TransitionSequence uint64
-	IntentionalStop    bool
-	ExitCode           int
-	ExitCodeKnown      bool
-	UnixStartedAt      int64
-	CPUPercent         float64
-	CPUCores           int32
-	MemoryRSS          uint64
-	MemoryVMS          uint64
-	MemoryPercent      float32
-	NumThreads         int32
-	DiskUsageBytes     uint64
-	IOReadRate         float64
-	IOWriteRate        float64
-	ConnectionCount    int32
-	WorkingDir         string
+	ID                   string
+	ExecutionID          string
+	Name                 string
+	Status               string
+	PreviousStatus       string
+	TransitionSequence   uint64
+	IntentionalStop      bool
+	ExitCode             int
+	ExitCodeKnown        bool
+	UnixStartedAt        int64
+	CPUPercent           float64
+	CPUValid             bool
+	MetricsValid         bool
+	CPUCores             int32
+	MemoryRSS            uint64
+	MemoryVMS            uint64
+	MemoryPercent        float32
+	NumThreads           int32
+	DiskUsageBytes       uint64
+	DiskTotalBytes       uint64
+	DiskFreeBytes        uint64
+	DiskPercent          float64
+	DiskMeasuredAt       time.Time
+	DiskValid            bool
+	IOValid              bool
+	IOReadRate           float64
+	IOWriteRate          float64
+	ConnectionCount      int32
+	ConnectionCountValid bool
+	WorkingDir           string
 }
 
 // NodeSnapshot bundles host info, point-in-time host resource usage, and the

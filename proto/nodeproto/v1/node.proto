@@ -73,6 +73,15 @@ message ProcessSnapshot {
   uint64 transition_sequence = 18;
   bool intentional_stop = 19;
   optional int32 exit_code = 20;
+  uint64 disk_total_bytes = 21;
+  uint64 disk_free_bytes = 22;
+  double disk_percent = 23;
+  google.protobuf.Timestamp disk_measured_at = 24;
+  optional bool disk_valid = 25;
+  optional bool cpu_valid = 26;
+  optional bool metrics_valid = 27;
+  optional bool io_valid = 28;
+  optional bool connection_count_valid = 29;
 }
 
 // NodeSnapshot mirrors internal/node.NodeSnapshot.

@@ -60,6 +60,11 @@ const ruleForm = ref({
 // Condition sub-fields for threshold types
 const thresholdOperator = ref('>=')
 const thresholdValue = ref(80)
+const thresholdForSeconds = ref(0)
+const thresholdRecoveryValue = ref<number | null>(null)
+const thresholdCooldownSeconds = ref(0)
+const thresholdRepeatSeconds = ref(0)
+const thresholdNoDataSeconds = ref(0)
 
 // Condition sub-fields for status change
 const statusCheckboxes = ref({
@@ -139,6 +144,44 @@ const thresholdUnit = computed(() => {
       return ''
   }
 })
+
+const thresholdHelp = computed(() => {
+  switch (ruleForm.value.eventType) {
+    case AlertEventType.CPU_THRESHOLD:
+      return 'Process CPU normalized to the node host. Valid samples are evaluated; unavailable samples do not trigger alerts.'
+    case AlertEventType.MEMORY_THRESHOLD:
+      return 'Process RSS as a percentage of total node memory. Valid samples are evaluated; unavailable samples do not trigger alerts.'
+    case AlertEventType.DISK_THRESHOLD:
+      return 'Usage of the volume containing the server working directory. Valid samples are evaluated; unavailable samples do not trigger alerts.'
+    case AlertEventType.PLAYER_COUNT_THRESHOLD:
+      return 'Player count from the game query source. Unavailable or unsupported query samples do not trigger alerts.'
+    default:
+      return ''
+  }
+})
+
+const thresholdConditionValid = computed(() => {
+  return (
+    isFiniteNonNegativeNumber(thresholdValue.value) &&
+    isNonNegativeInteger(thresholdForSeconds.value) &&
+    isNonNegativeInteger(thresholdCooldownSeconds.value) &&
+    isNonNegativeInteger(thresholdRepeatSeconds.value) &&
+    recoveryValidationMessage(thresholdRecoveryValue.value) === ''
+  )
+})
+
+const canSaveRule = computed(() => {
+  return (
+    ruleForm.value.notificationChannelId !== '' &&
+    (!isThresholdType.value || thresholdConditionValid.value)
+  )
+})
+
+const durationRules = [
+  (value: unknown) => isNonNegativeInteger(value) || 'Use a whole number of seconds, 0 or greater',
+]
+
+const recoveryRules = computed(() => [(value: unknown) => recoveryValidationMessage(value) || true])
 
 const dialogTitle = computed(() => {
   return editingRule.value ? 'Edit Alert Rule' : 'Create Alert Rule'
@@ -246,7 +289,19 @@ function formatCondition(eventType: AlertEventType, condition: string): string {
       ].includes(eventType)
         ? '%'
         : ''
-      return `${String(parsed.operator)} ${String(parsed.value)}${unit}`
+      const parts = [`${String(parsed.operator)} ${String(parsed.value)}${unit}`]
+      const forSeconds = readPositiveInteger(parsed.for_seconds)
+      const cooldownSeconds = readPositiveInteger(parsed.cooldown_seconds)
+      const repeatSeconds = readPositiveInteger(parsed.repeat_seconds)
+
+      if (forSeconds > 0) parts.push(`for ${formatDuration(forSeconds)}`)
+      if (typeof parsed.recovery_value === 'number' && Number.isFinite(parsed.recovery_value)) {
+        parts.push(`recover at ${parsed.recovery_value}${unit}`)
+      }
+      if (cooldownSeconds > 0) parts.push(`${formatDuration(cooldownSeconds)} cooldown`)
+      if (repeatSeconds > 0) parts.push(`repeat ${formatDuration(repeatSeconds)}`)
+
+      return parts.join(' · ')
     }
 
     if ('statuses' in parsed && Array.isArray(parsed.statuses)) {
@@ -259,15 +314,75 @@ function formatCondition(eventType: AlertEventType, condition: string): string {
   return condition
 }
 
-function parseConditionForEdit(eventType: AlertEventType, condition: string): void {
+function formatDuration(seconds: number): string {
+  if (seconds % 3600 === 0) return `${seconds / 3600}h`
+  if (seconds % 60 === 0) return `${seconds / 60}m`
+  return `${seconds}s`
+}
+
+function isFiniteNonNegativeNumber(value: unknown): boolean {
+  if (value === null || value === undefined || value === '') return false
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) && numericValue >= 0
+}
+
+function isNonNegativeInteger(value: unknown): boolean {
+  if (value === null || value === undefined || value === '') return false
+  const numericValue = Number(value)
+  return Number.isInteger(numericValue) && numericValue >= 0
+}
+
+function readPositiveInteger(value: unknown): number {
+  return isNonNegativeInteger(value) && Number(value) > 0 ? Number(value) : 0
+}
+
+function recoveryValidationMessage(value: unknown): string {
+  if (value === null || value === undefined || value === '') return ''
+  if (!isFiniteNonNegativeNumber(value)) return 'Use a number that is 0 or greater'
+
+  const recoveryValue = Number(value)
+  if (['>=', '>'].includes(thresholdOperator.value) && recoveryValue >= thresholdValue.value) {
+    return 'Recovery must be below the trigger value'
+  }
+  if (['<=', '<'].includes(thresholdOperator.value) && recoveryValue <= thresholdValue.value) {
+    return 'Recovery must be above the trigger value'
+  }
+  if (['==', '='].includes(thresholdOperator.value)) {
+    return 'Equality alerts cannot use a recovery threshold'
+  }
+  return ''
+}
+
+function resetThresholdBehavior(): void {
+  thresholdForSeconds.value = 0
+  thresholdRecoveryValue.value = null
+  thresholdCooldownSeconds.value = 0
+  thresholdRepeatSeconds.value = 0
+  thresholdNoDataSeconds.value = 0
+}
+
+function parseConditionForEdit(condition: string): void {
   if (!condition) return
 
   try {
     const parsed = JSON.parse(condition) as Record<string, unknown>
 
     if ('operator' in parsed && 'value' in parsed) {
-      thresholdOperator.value = String(parsed.operator)
+      const parsedOperator = String(parsed.operator)
+      thresholdOperator.value = parsedOperator === '=' ? '==' : parsedOperator
       thresholdValue.value = Number(parsed.value)
+      thresholdForSeconds.value = readPositiveInteger(parsed.for_seconds)
+      thresholdCooldownSeconds.value = readPositiveInteger(parsed.cooldown_seconds)
+      thresholdRepeatSeconds.value = readPositiveInteger(parsed.repeat_seconds)
+      thresholdNoDataSeconds.value = readPositiveInteger(parsed.no_data_seconds)
+
+      if (
+        typeof parsed.recovery_value === 'number' &&
+        Number.isFinite(parsed.recovery_value) &&
+        parsed.recovery_value >= 0
+      ) {
+        thresholdRecoveryValue.value = parsed.recovery_value
+      }
     }
 
     if ('statuses' in parsed && Array.isArray(parsed.statuses)) {
@@ -284,7 +399,22 @@ function parseConditionForEdit(eventType: AlertEventType, condition: string): vo
 
 function buildConditionJson(): string {
   if (isThresholdType.value) {
-    return JSON.stringify({ operator: thresholdOperator.value, value: thresholdValue.value })
+    const condition: Record<string, number | string> = {
+      operator: thresholdOperator.value,
+      value: thresholdValue.value,
+    }
+
+    if (thresholdForSeconds.value > 0) condition.for_seconds = thresholdForSeconds.value
+    if (thresholdRecoveryValue.value !== null) {
+      condition.recovery_value = thresholdRecoveryValue.value
+    }
+    if (thresholdCooldownSeconds.value > 0) {
+      condition.cooldown_seconds = thresholdCooldownSeconds.value
+    }
+    if (thresholdRepeatSeconds.value > 0) condition.repeat_seconds = thresholdRepeatSeconds.value
+    if (thresholdNoDataSeconds.value > 0) condition.no_data_seconds = thresholdNoDataSeconds.value
+
+    return JSON.stringify(condition)
   }
 
   if (isStatusChangeType.value) {
@@ -394,6 +524,7 @@ function openCreateDialog(): void {
   }
   thresholdOperator.value = '>='
   thresholdValue.value = 80
+  resetThresholdBehavior()
   statusCheckboxes.value = { ONLINE: true, OFFLINE: true }
   showRuleDialog.value = true
 }
@@ -411,13 +542,15 @@ function openEditDialog(rule: AlertRule): void {
   // Reset sub-fields to defaults before parsing
   thresholdOperator.value = '>='
   thresholdValue.value = 80
+  resetThresholdBehavior()
   statusCheckboxes.value = { ONLINE: true, OFFLINE: true }
-  parseConditionForEdit(rule.eventType, rule.condition)
+  parseConditionForEdit(rule.condition)
   showRuleDialog.value = true
 }
 
 async function saveRule(): Promise<void> {
   if (!hasAlertsManage.value) return
+  if (!canSaveRule.value) return
 
   const condition = buildConditionJson()
 
@@ -783,6 +916,10 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               outlined />
             <q-input
               v-model.number="thresholdValue"
+              :rules="[
+                (value: unknown) =>
+                  isFiniteNonNegativeNumber(value) || 'Use a number that is 0 or greater',
+              ]"
               :suffix="thresholdUnit"
               class="col"
               dense
@@ -790,6 +927,69 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               outlined
               type="number" />
           </div>
+
+          <div v-if="isThresholdType" class="threshold-help q-mb-md" role="note">
+            {{ thresholdHelp }}
+          </div>
+
+          <q-expansion-item
+            v-if="isThresholdType"
+            class="threshold-advanced q-mb-md"
+            dense
+            expand-separator
+            icon="tune"
+            label="Advanced behavior">
+            <div class="threshold-advanced__grid q-pt-sm">
+              <q-input
+                v-model.number="thresholdForSeconds"
+                :rules="durationRules"
+                aria-label="Sustained duration in seconds"
+                dense
+                hint="0 triggers immediately"
+                label="Sustain for"
+                min="0"
+                outlined
+                step="1"
+                suffix="seconds"
+                type="number" />
+              <q-input
+                v-model.number="thresholdRecoveryValue"
+                :rules="recoveryRules"
+                :suffix="thresholdUnit"
+                aria-label="Recovery threshold"
+                clearable
+                dense
+                hint="Optional hysteresis threshold"
+                label="Recovery threshold"
+                min="0"
+                outlined
+                type="number" />
+              <q-input
+                v-model.number="thresholdCooldownSeconds"
+                :rules="durationRules"
+                aria-label="Cooldown duration in seconds"
+                dense
+                hint="0 allows the next alert immediately"
+                label="Cooldown"
+                min="0"
+                outlined
+                step="1"
+                suffix="seconds"
+                type="number" />
+              <q-input
+                v-model.number="thresholdRepeatSeconds"
+                :rules="durationRules"
+                aria-label="Repeat interval in seconds"
+                dense
+                hint="0 disables repeat notifications"
+                label="Repeat every"
+                min="0"
+                outlined
+                step="1"
+                suffix="seconds"
+                type="number" />
+            </div>
+          </q-expansion-item>
 
           <!-- Status change condition fields -->
           <div v-if="isStatusChangeType" class="q-mb-md">
@@ -814,7 +1014,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
         <q-card-actions align="right">
           <q-btn flat label="Cancel" no-caps @click="showRuleDialog = false" />
           <q-btn
-            :disable="!ruleForm.notificationChannelId"
+            :disable="!canSaveRule"
             :label="editingRule ? 'Save' : 'Create'"
             color="primary"
             no-caps
@@ -847,8 +1047,32 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 }
 
 .alert-rule-dialog {
-  width: min(450px, calc(100vw - 2rem));
+  width: min(560px, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
+}
+
+.threshold-help {
+  max-width: 65ch;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+  line-height: 1.5;
+}
+
+.threshold-advanced {
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-md);
+}
+
+.threshold-advanced :deep(.q-expansion-item__container > .q-item) {
+  min-height: 2.5rem;
+}
+
+.threshold-advanced__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xy-space-md);
+  padding-inline: var(--xy-space-md);
+  padding-bottom: var(--xy-space-md);
 }
 
 .alerts-mobile-card {
@@ -906,6 +1130,10 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
   .alert-rule-dialog :deep(.q-card__actions .q-btn) {
     flex: 1 1 8rem;
+  }
+
+  .threshold-advanced__grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

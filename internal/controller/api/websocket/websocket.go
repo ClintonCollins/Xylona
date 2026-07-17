@@ -444,6 +444,11 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			return
 		}
 		serverID := websocketRequest.GetGameServerId()
+		if !sessionConnection.hasGameServerAccess(serverID) {
+			log.Warn().Str("User", username).Str("server_id", serverID).
+				Msg("Rejected metrics subscription: user does not have access to server")
+			return
+		}
 		sessionConnection.Lock()
 		sessionConnection.subscribedMetricsServerIDs[serverID] = struct{}{}
 		sessionConnection.Unlock()

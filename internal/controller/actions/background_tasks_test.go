@@ -2,9 +2,11 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
@@ -220,6 +222,16 @@ func TestQueryGameServersUsesNodeClientForRemoteOnlineServer(t *testing.T) {
 	if result.GetMinecraft().GetNumberOfPlayers() != 7 {
 		t.Fatalf("players = %d, want 7", result.GetMinecraft().GetNumberOfPlayers())
 	}
+	telemetry := inst.GetGameServerQueryTelemetry("server-1")
+	if telemetry.Status != GameServerQueryTelemetryStatusSuccess {
+		t.Fatalf("telemetry status = %q, want success", telemetry.Status)
+	}
+	if !telemetry.PlayerCountValid || telemetry.PlayerCount != 7 {
+		t.Fatalf("telemetry player count = (%d, %t), want (7, true)", telemetry.PlayerCount, telemetry.PlayerCountValid)
+	}
+	if !telemetry.PlayerCapacityValid || telemetry.PlayerCapacity != 20 {
+		t.Fatalf("telemetry player capacity = (%d, %t), want (20, true)", telemetry.PlayerCapacity, telemetry.PlayerCapacityValid)
+	}
 }
 
 func TestQueryGameServersKeepsOfflineDefaultForRemoteServer(t *testing.T) {
@@ -257,5 +269,181 @@ func TestQueryGameServersKeepsOfflineDefaultForRemoteServer(t *testing.T) {
 	}
 	if result.GetSource().GetMaxPlayers() != 16 {
 		t.Fatalf("max players = %d, want 16", result.GetSource().GetMaxPlayers())
+	}
+	telemetry := inst.GetGameServerQueryTelemetry("server-1")
+	if telemetry.Status != GameServerQueryTelemetryStatusUnavailable {
+		t.Fatalf("telemetry status = %q, want unavailable", telemetry.Status)
+	}
+}
+
+func TestQueryGameServersRecordsRemoteQueryFailureBeforeFallback(t *testing.T) {
+	t.Parallel()
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "remote-node",
+		GetProcessSnapshotResult: &node.ProcessSnapshot{
+			ID:     "server-1",
+			Status: xylona.Status_ONLINE.String(),
+		},
+		GetProcessSnapshotFound: true,
+		QueryGameServerErr:      errors.New("query unavailable"),
+	}
+	registry := noderegistry.New("local-node", &nodeclient.FakeNodeClient{NodeID: "local-node"})
+	registry.Register(remoteClient)
+	inst := &Instance{
+		ctx:                  context.Background(),
+		nodeRegistry:         registry,
+		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
+		serverQueriesMutex:   &sync.RWMutex{},
+	}
+	gs := &models.GameServer{
+		ID:         "server-1",
+		Name:       "Remote Minecraft",
+		NodeID:     "remote-node",
+		IP:         "10.0.0.5",
+		QueryPort:  25565,
+		MaxPlayers: 20,
+	}
+	gs.R.Game = &models.Game{ID: "minecraft"}
+
+	inst.queryGameServers(context.Background(), []*models.GameServer{gs})
+
+	telemetry := inst.GetGameServerQueryTelemetry("server-1")
+	if telemetry.Status != GameServerQueryTelemetryStatusFailure {
+		t.Fatalf("telemetry status = %q, want failure", telemetry.Status)
+	}
+	if telemetry.CheckedAt.IsZero() {
+		t.Fatal("failure telemetry checked_at is zero")
+	}
+	if telemetry.DurationValid {
+		t.Fatal("failed query must not produce a valid duration sample")
+	}
+	if telemetry.PlayerCountValid || telemetry.PlayerCapacityValid {
+		t.Fatalf("failure player valid flags = (%t, %t), want false false", telemetry.PlayerCountValid, telemetry.PlayerCapacityValid)
+	}
+
+	inst.serverQueriesMutex.RLock()
+	result := inst.serverQueriesInfoMap["server-1"]
+	inst.serverQueriesMutex.RUnlock()
+	if result.GetMinecraft().GetMaxPlayers() != 20 {
+		t.Fatalf("fallback max players = %d, want 20", result.GetMinecraft().GetMaxPlayers())
+	}
+}
+
+func TestGameServerQueryTelemetrySnapshots(t *testing.T) {
+	tests := []struct {
+		name     string
+		record   func(*Instance, time.Time)
+		want     GameServerQueryTelemetryStatus
+		wantType xylona.ServerQuery_Type
+		valid    bool
+		players  uint32
+		capacity uint32
+		palworld bool
+		duration bool
+	}{
+		{
+			name:   "not yet queried is explicit",
+			record: func(_ *Instance, _ time.Time) {},
+			want:   GameServerQueryTelemetryStatusNotYetQueried,
+		},
+		{
+			name: "unsupported is explicit",
+			record: func(inst *Instance, _ time.Time) {
+				inst.recordUnsupportedGameServerQuery("server-1")
+			},
+			want: GameServerQueryTelemetryStatusUnsupported,
+		},
+		{
+			name: "minecraft success preserves zero players as known",
+			record: func(inst *Instance, startedAt time.Time) {
+				inst.recordSuccessfulGameServerQuery("server-1", xylona.ServerQuery_Minecraft, startedAt, &xylona.ServerQuery{
+					Type:      xylona.ServerQuery_Minecraft,
+					Minecraft: &xylona.MinecraftQueryInfo{MaxPlayers: 20},
+				})
+			},
+			want:     GameServerQueryTelemetryStatusSuccess,
+			wantType: xylona.ServerQuery_Minecraft,
+			valid:    true,
+			capacity: 20,
+			duration: true,
+		},
+		{
+			name: "palworld success includes typed performance values",
+			record: func(inst *Instance, startedAt time.Time) {
+				inst.recordSuccessfulGameServerQuery("server-1", xylona.ServerQuery_Palworld, startedAt, &xylona.ServerQuery{
+					Type: xylona.ServerQuery_Palworld,
+					Palworld: &xylona.PalworldQueryInfo{
+						Players:           5,
+						MaxPlayers:        32,
+						ServerFps:         59.5,
+						ServerFrameTimeMs: 16.8,
+						UptimeSeconds:     7200,
+					},
+				})
+			},
+			want:     GameServerQueryTelemetryStatusSuccess,
+			wantType: xylona.ServerQuery_Palworld,
+			valid:    true,
+			players:  5,
+			capacity: 32,
+			palworld: true,
+			duration: true,
+		},
+		{
+			name: "failure preserves last success but marks values unknown",
+			record: func(inst *Instance, startedAt time.Time) {
+				inst.recordSuccessfulGameServerQuery("server-1", xylona.ServerQuery_Source, startedAt, &xylona.ServerQuery{
+					Type:   xylona.ServerQuery_Source,
+					Source: &xylona.SourceQueryInfo{Players: 3, MaxPlayers: 12},
+				})
+				inst.recordFailedGameServerQuery("server-1", xylona.ServerQuery_Source, startedAt)
+			},
+			want:     GameServerQueryTelemetryStatusFailure,
+			wantType: xylona.ServerQuery_Source,
+		},
+		{
+			name: "offline query becomes unavailable without a synthetic duration",
+			record: func(inst *Instance, startedAt time.Time) {
+				inst.recordSuccessfulGameServerQuery("server-1", xylona.ServerQuery_Source, startedAt, &xylona.ServerQuery{
+					Type:   xylona.ServerQuery_Source,
+					Source: &xylona.SourceQueryInfo{Players: 3, MaxPlayers: 12},
+				})
+				inst.recordUnavailableGameServerQuery("server-1", xylona.ServerQuery_Source)
+			},
+			want:     GameServerQueryTelemetryStatusUnavailable,
+			wantType: xylona.ServerQuery_Source,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			inst := &Instance{}
+			startedAt := time.Now().Add(-time.Millisecond)
+			test.record(inst, startedAt)
+
+			snapshot := inst.GetGameServerQueryTelemetry("server-1")
+			if snapshot.Status != test.want {
+				t.Fatalf("status = %q, want %q", snapshot.Status, test.want)
+			}
+			if snapshot.QueryType != test.wantType {
+				t.Fatalf("query type = %v, want %v", snapshot.QueryType, test.wantType)
+			}
+			if snapshot.PlayerCountValid != test.valid || snapshot.PlayerCapacityValid != test.valid {
+				t.Fatalf("player valid flags = (%t, %t), want (%t, %t)", snapshot.PlayerCountValid, snapshot.PlayerCapacityValid, test.valid, test.valid)
+			}
+			if test.valid && (snapshot.PlayerCount != test.players || snapshot.PlayerCapacity != test.capacity) {
+				t.Fatalf("player values = (%d, %d), want (%d, %d)", snapshot.PlayerCount, snapshot.PlayerCapacity, test.players, test.capacity)
+			}
+			if test.palworld && (!snapshot.PalworldServerFPSValid || !snapshot.PalworldFrameTimeMSValid || !snapshot.PalworldUptimeSecondsValid) {
+				t.Fatalf("Palworld valid flags = (%t, %t, %t), want all true", snapshot.PalworldServerFPSValid, snapshot.PalworldFrameTimeMSValid, snapshot.PalworldUptimeSecondsValid)
+			}
+			if snapshot.DurationValid != test.duration {
+				t.Fatalf("duration valid = %t, want %t", snapshot.DurationValid, test.duration)
+			}
+			if (test.want == GameServerQueryTelemetryStatusFailure || test.want == GameServerQueryTelemetryStatusUnavailable) && snapshot.LastSuccessAt.IsZero() {
+				t.Fatal("unavailable snapshot did not preserve last success timestamp")
+			}
+		})
 	}
 }

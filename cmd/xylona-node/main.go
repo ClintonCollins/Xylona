@@ -33,19 +33,25 @@ import (
 
 // cliConfig holds parsed command-line flags.
 type cliConfig struct {
-	controllerURL   string
-	joinToken       string
-	listen          string
-	advertiseURL    string
-	nodeName        string
-	dataDir         string
-	skipInsecureTLS bool
+	controllerURL          string
+	joinToken              string
+	listen                 string
+	advertiseURL           string
+	nodeName               string
+	dataDir                string
+	processMetricsInterval time.Duration
+	diskMetricsInterval    time.Duration
+	diskMetricsScans       int
+	skipInsecureTLS        bool
 }
 
 func (cfg *cliConfig) restartArgs(absDataDir string) []string {
 	return []string{
 		"--listen", cfg.listen,
 		"--data-dir", absDataDir,
+		"--process-metrics-interval", cfg.processMetricsInterval.String(),
+		"--disk-metrics-interval", cfg.diskMetricsInterval.String(),
+		"--disk-metrics-scans-per-tick", fmt.Sprintf("%d", cfg.diskMetricsScans),
 	}
 }
 
@@ -59,6 +65,9 @@ func parseFlags(args []string) (*cliConfig, error) {
 	fs.StringVar(&cfg.advertiseURL, "advertise-url", "", "URL the controller should use to reach this node (defaults to the local address routed to the controller plus the --listen port, then hostname)")
 	fs.StringVar(&cfg.nodeName, "node-name", "", "display name to register with the controller (defaults to OS hostname)")
 	fs.StringVar(&cfg.dataDir, "data-dir", "./xylona-node-data", "directory to store persistent node identity")
+	fs.DurationVar(&cfg.processMetricsInterval, "process-metrics-interval", 3*time.Second, "interval between process resource samples")
+	fs.DurationVar(&cfg.diskMetricsInterval, "disk-metrics-interval", 30*time.Second, "interval between bounded server-directory scan batches")
+	fs.IntVar(&cfg.diskMetricsScans, "disk-metrics-scans-per-tick", 2, "maximum server directories scanned per disk metrics interval")
 	fs.BoolVar(&cfg.skipInsecureTLS, "skip-insecure-tls", false, "skip TLS certificate verification when sending the bootstrap request (one-shot; only affects --join-token pairing)")
 
 	errParse := fs.Parse(args)
@@ -136,7 +145,11 @@ func run(ctx context.Context, cfg *cliConfig) error {
 	if errSup != nil {
 		return fmt.Errorf("create supervisor: %w", errSup)
 	}
-	supInst.StartMetricsPoller(nodeCtx)
+	supInst.StartMetricsPollerWithOptions(nodeCtx, supervisor.MetricsPollerOptions{
+		ProcessInterval:  cfg.processMetricsInterval,
+		DiskInterval:     cfg.diskMetricsInterval,
+		DiskScansPerTick: cfg.diskMetricsScans,
+	})
 	// Register built-in internal game installers (e.g. Minecraft) so remote
 	// StartProcess requests with internal_command=true resolve locally. The
 	// controller also registers these for the embedded node path.

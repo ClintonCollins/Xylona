@@ -228,6 +228,7 @@ func (b *RemoteEventBridge) republish(
 			ExitCode:           ev.ExitCode,
 			ExitCodeKnown:      ev.ExitCodeKnown,
 			Replayed:           ev.Replayed,
+			OccurredAt:         ev.Timestamp,
 		})
 		if oldStatus == xylona.Status_ONLINE.String() && newStatus == xylona.Status_OFFLINE.String() &&
 			ev.ExitCodeKnown && ev.ExitCode != 0 && !ev.IntentionalStop {

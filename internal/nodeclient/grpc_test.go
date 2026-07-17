@@ -1023,13 +1023,26 @@ func TestGRPCClientGetNodeSnapshotRoundTripsFields(t *testing.T) {
 			TotalMemory: 16 * 1024 * 1024,
 			Processes: []*nodeprotov1.ProcessSnapshot{
 				{
-					Id:                 "p1",
-					ExecutionId:        "execution-1",
-					Name:               "proc-1",
-					Status:             "OFFLINE",
-					PreviousStatus:     "UPDATING",
-					TransitionSequence: 2,
-					ExitCode:           &exitCode,
+					Id:                   "p1",
+					ExecutionId:          "execution-1",
+					Name:                 "proc-1",
+					Status:               "OFFLINE",
+					PreviousStatus:       "UPDATING",
+					TransitionSequence:   2,
+					ExitCode:             &exitCode,
+					DiskValid:            new(true),
+					CpuValid:             new(true),
+					MetricsValid:         new(true),
+					IoValid:              new(true),
+					ConnectionCountValid: new(true),
+				},
+				{
+					Id:     "legacy-process",
+					Status: "ONLINE",
+				},
+				{
+					Id:     "legacy-offline-process",
+					Status: "OFFLINE",
 				},
 			},
 			Collected: timestamppb.Now(),
@@ -1045,13 +1058,27 @@ func TestGRPCClientGetNodeSnapshotRoundTripsFields(t *testing.T) {
 	if snap.CPUModel != "stub-cpu" || snap.CPUCores != 8 {
 		t.Fatalf("snapshot mismatch: %+v", snap)
 	}
-	if len(snap.Processes) != 1 || snap.Processes[0].ID != "p1" {
+	if len(snap.Processes) != 3 || snap.Processes[0].ID != "p1" {
 		t.Fatalf("processes mismatch: %+v", snap.Processes)
 	}
 	process := snap.Processes[0]
 	if process.ExecutionID != "execution-1" || process.PreviousStatus != "UPDATING" ||
 		process.TransitionSequence != 2 || !process.ExitCodeKnown || process.ExitCode != 9 {
 		t.Fatalf("process lifecycle mismatch: %+v", process)
+	}
+	if !process.DiskValid || !process.CPUValid || !process.MetricsValid ||
+		!process.IOValid || !process.ConnectionCountValid {
+		t.Fatalf("process metric validity mismatch: %+v", process)
+	}
+	legacyProcess := snap.Processes[1]
+	if !legacyProcess.DiskValid || !legacyProcess.CPUValid || !legacyProcess.MetricsValid ||
+		!legacyProcess.IOValid || !legacyProcess.ConnectionCountValid {
+		t.Fatalf("legacy process metric validity should default to available: %+v", legacyProcess)
+	}
+	legacyOfflineProcess := snap.Processes[2]
+	if legacyOfflineProcess.DiskValid || legacyOfflineProcess.CPUValid || legacyOfflineProcess.MetricsValid ||
+		legacyOfflineProcess.IOValid || legacyOfflineProcess.ConnectionCountValid {
+		t.Fatalf("legacy offline process metric validity should default to unavailable: %+v", legacyOfflineProcess)
 	}
 }
 func TestGRPCClientListBindableIPsRoundTripsFields(t *testing.T) {

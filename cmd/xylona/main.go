@@ -80,16 +80,22 @@ type Configuration struct {
 	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
 	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
 	// fields (notification channel configs).
-	EncryptionKey    string        `env:"ENCRYPTION_KEY_BASE64"`
-	DBFilePath       string        `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel         string        `env:"LOG_LEVEL" envDefault:"info"`
-	SecureCookies    bool          `env:"SECURE_COOKIES" envDefault:"false"`
-	MetricsEnabled   bool          `env:"METRICS_ENABLED" envDefault:"false"`
-	Host             string        `env:"HOST" envDefault:""`
-	HTTPPort         int           `env:"HTTP_PORT" envDefault:"8080"`
-	HTTPReadTimeout  time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"6h"`
-	HTTPWriteTimeout time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"6h"`
-	HTTPIdleTimeout  time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"24h"`
+	EncryptionKey           string        `env:"ENCRYPTION_KEY_BASE64"`
+	DBFilePath              string        `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel                string        `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies           bool          `env:"SECURE_COOKIES" envDefault:"false"`
+	MetricsEnabled          bool          `env:"METRICS_ENABLED" envDefault:"false"`
+	MetricsSnapshotInterval time.Duration `env:"METRICS_SNAPSHOT_INTERVAL" envDefault:"1m"`
+	MetricsHistoryRetention time.Duration `env:"METRICS_HISTORY_RETENTION" envDefault:"2160h"`
+	MetricsRollupAfter      time.Duration `env:"METRICS_ROLLUP_AFTER" envDefault:"24h"`
+	ProcessMetricsInterval  time.Duration `env:"PROCESS_METRICS_INTERVAL" envDefault:"3s"`
+	DiskMetricsInterval     time.Duration `env:"DISK_METRICS_INTERVAL" envDefault:"30s"`
+	DiskMetricsScansPerTick int           `env:"DISK_METRICS_SCANS_PER_TICK" envDefault:"2"`
+	Host                    string        `env:"HOST" envDefault:""`
+	HTTPPort                int           `env:"HTTP_PORT" envDefault:"8080"`
+	HTTPReadTimeout         time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"6h"`
+	HTTPWriteTimeout        time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"6h"`
+	HTTPIdleTimeout         time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"24h"`
 	// DummyGameID enables the DummyTracker for E2E testing. When set, the game
 	// with this ID is treated as a trackable server returning a simulated 1.0.0→2.0.0
 	// update. Leave empty in production.
@@ -589,8 +595,16 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	if dummyTracker != nil {
 		actionsInst.SetDummyTracker(dummyTracker)
 	}
-	superInst.StartMetricsPoller(ctx)
-	_ = actions.NewMetricsRecorder(ctx, dbInst, nodeRegistry, actionsInst)
+	superInst.StartMetricsPollerWithOptions(ctx, supervisor.MetricsPollerOptions{
+		ProcessInterval:  config.ProcessMetricsInterval,
+		DiskInterval:     config.DiskMetricsInterval,
+		DiskScansPerTick: config.DiskMetricsScansPerTick,
+	})
+	_ = actions.NewMetricsRecorderWithConfig(ctx, dbInst, nodeRegistry, actionsInst, actions.MetricsRecorderConfig{
+		SnapshotInterval: config.MetricsSnapshotInterval,
+		HistoryRetention: config.MetricsHistoryRetention,
+		RollupAfter:      config.MetricsRollupAfter,
+	})
 
 	alertDeliveryPool := setupAlertSystem(ctx, dbInst, actionsInst, settings.NodeID)
 

@@ -210,6 +210,10 @@ function mountAlerts(permissionIds: string[] = ['alerts.manage']) {
         'q-card': { template: '<div><slot /></div>' },
         'q-card-section': { template: '<div><slot /></div>' },
         'q-card-actions': { template: '<div><slot /></div>' },
+        'q-expansion-item': {
+          props: ['label'],
+          template: '<section><span>{{ label }}</span><slot /></section>',
+        },
         'q-input': { template: '<input />' },
         'q-checkbox': true,
         'router-link': { template: '<a><slot /></a>' },
@@ -472,5 +476,110 @@ describe('GameServerAlerts', () => {
     const vm = wrapper.vm as unknown as AlertsVM
     const equalityOperator = vm.thresholdOperators.find((operator) => operator.label === '=')
     expect(equalityOperator?.value).toBe('==')
+  })
+
+  it('serializes meaningful advanced threshold behavior fields', async () => {
+    setupDefaultMocks({ channels: [makeChannel()] })
+    mocks.createAlertRule.mockResolvedValueOnce({})
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
+
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    type AlertsVM = {
+      openCreateDialog: () => void
+      saveRule: () => Promise<void>
+      ruleForm: { eventType: AlertEventType }
+      thresholdOperator: string
+      thresholdValue: number
+      thresholdForSeconds: number
+      thresholdRecoveryValue: number | null
+      thresholdCooldownSeconds: number
+      thresholdRepeatSeconds: number
+    }
+    const vm = wrapper.vm as unknown as AlertsVM
+    vm.openCreateDialog()
+    vm.ruleForm.eventType = AlertEventType.MEMORY_THRESHOLD
+    vm.thresholdOperator = '>='
+    vm.thresholdValue = 85
+    vm.thresholdForSeconds = 120
+    vm.thresholdRecoveryValue = 75
+    vm.thresholdCooldownSeconds = 300
+    vm.thresholdRepeatSeconds = 900
+
+    await vm.saveRule()
+    await flushPromises()
+
+    const request = mocks.createAlertRule.mock.calls[0]?.[0] as { condition: string }
+    expect(JSON.parse(request.condition)).toEqual({
+      operator: '>=',
+      value: 85,
+      for_seconds: 120,
+      recovery_value: 75,
+      cooldown_seconds: 300,
+      repeat_seconds: 900,
+    })
+  })
+
+  it('keeps legacy threshold rules operator/value-only when edited', async () => {
+    setupDefaultMocks({ channels: [makeChannel()] })
+    mocks.updateAlertRule.mockResolvedValueOnce({})
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
+
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    type AlertsVM = {
+      openEditDialog: (rule: AlertRule) => void
+      saveRule: () => Promise<void>
+      thresholdForSeconds: number
+      thresholdRecoveryValue: number | null
+      thresholdCooldownSeconds: number
+      thresholdRepeatSeconds: number
+    }
+    const vm = wrapper.vm as unknown as AlertsVM
+    vm.openEditDialog(
+      makeRule({
+        eventType: AlertEventType.CPU_THRESHOLD,
+        condition: JSON.stringify({ operator: '>=', value: 90 }),
+      }),
+    )
+
+    expect(vm.thresholdForSeconds).toBe(0)
+    expect(vm.thresholdRecoveryValue).toBeNull()
+    expect(vm.thresholdCooldownSeconds).toBe(0)
+    expect(vm.thresholdRepeatSeconds).toBe(0)
+
+    await vm.saveRule()
+    await flushPromises()
+
+    const request = mocks.updateAlertRule.mock.calls[0]?.[0] as { condition: string }
+    expect(JSON.parse(request.condition)).toEqual({ operator: '>=', value: 90 })
+  })
+
+  it('does not save a recovery threshold on the wrong side of the trigger', async () => {
+    setupDefaultMocks({ channels: [makeChannel()] })
+
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    type AlertsVM = {
+      openCreateDialog: () => void
+      saveRule: () => Promise<void>
+      ruleForm: { eventType: AlertEventType }
+      thresholdValue: number
+      thresholdRecoveryValue: number | null
+      canSaveRule: boolean
+    }
+    const vm = wrapper.vm as unknown as AlertsVM
+    vm.openCreateDialog()
+    vm.ruleForm.eventType = AlertEventType.CPU_THRESHOLD
+    vm.thresholdValue = 80
+    vm.thresholdRecoveryValue = 85
+
+    expect(vm.canSaveRule).toBe(false)
+    await vm.saveRule()
+
+    expect(mocks.createAlertRule).not.toHaveBeenCalled()
   })
 })

@@ -54,8 +54,13 @@ func hasSessionConnectionState(s *melody.Session) bool {
 	return connectionIDExists
 }
 
-// shouldReceiveMetrics returns true if the connection is subscribed to metrics for the given server ID.
+// shouldReceiveMetrics returns true if the connection is subscribed to metrics
+// for the given server ID and still has access to it.
 func (c *connection) shouldReceiveMetrics(serverID string) bool {
+	if !c.hasGameServerAccess(serverID) {
+		return false
+	}
+
 	c.RLock()
 	defer c.RUnlock()
 	_, ok := c.subscribedMetricsServerIDs[serverID]

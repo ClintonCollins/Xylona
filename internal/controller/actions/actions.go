@@ -94,6 +94,7 @@ type Instance struct {
 	nodeRegistry         *noderegistry.Registry
 	serverQueriesInfoMap map[string]*xylona.ServerQuery
 	serverQueriesMutex   *sync.RWMutex
+	queryTelemetry       gameServerQueryTelemetryStore
 	db                   *db.Connection
 	modManager           *modmanager.ModManager
 	versionState         *versiontracker.VersionStateMap
@@ -193,6 +194,7 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 	// remote nodes publish status-change events; this one subscriber drives
 	// restart decisions uniformly.
 	inst.startAutoRestartSubscriber(ctx)
+	inst.startMetricsEventRecorder(ctx)
 
 	return inst
 }

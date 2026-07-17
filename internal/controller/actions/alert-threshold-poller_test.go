@@ -10,10 +10,12 @@ import (
 
 	"github.com/aarondl/opt/null"
 
+	"github.com/ClintonCollins/Xylona/internal/alerts"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -82,7 +84,8 @@ func (f *fakeAlertStateStore) GetOrCreateAlertState(ruleID, entityType, entityID
 	defer f.mu.Unlock()
 	f.getOrCreateCalls++
 	k := f.key(ruleID, entityType, entityID, entityNodeID)
-	if s, ok := f.states[k]; ok {
+	s, ok := f.states[k]
+	if ok {
 		return s, nil
 	}
 	state := &models.AlertState{
@@ -125,8 +128,12 @@ type fakeCommandMetrics struct {
 	id            string
 	nodeID        string
 	cpuPercent    float64
+	cpuInvalid    bool
 	memoryPercent float32
-	diskBytes     uint64
+	memoryInvalid bool
+	diskPercent   float64
+	diskInvalid   bool
+	offline       bool
 }
 
 func (f *fakeServerMetricsProvider) ListServerMetrics() []serverMetricsSnapshot {
@@ -138,8 +145,12 @@ func (f *fakeServerMetricsProvider) ListServerMetrics() []serverMetricsSnapshot 
 			serverID:      cmd.id,
 			nodeID:        cmd.nodeID,
 			cpuPercent:    cmd.cpuPercent,
+			cpuValid:      !cmd.cpuInvalid,
 			memoryPercent: float64(cmd.memoryPercent),
-			diskBytes:     cmd.diskBytes,
+			memoryValid:   !cmd.memoryInvalid,
+			diskPercent:   cmd.diskPercent,
+			diskValid:     !cmd.diskInvalid,
+			online:        !cmd.offline,
 		})
 	}
 	return out
@@ -182,6 +193,19 @@ func (f *fakeNodeMetricsProvider) ListNodeMetrics() []nodeMetricsSnapshot {
 type fakePlayerCountProvider struct {
 	mu     sync.Mutex
 	counts map[string]int
+}
+
+type fakeQueryTelemetryProvider struct {
+	telemetry map[string]GameServerQueryTelemetrySnapshot
+}
+
+func (f *fakeQueryTelemetryProvider) GetPlayerCount(gameServerID string) int {
+	snapshot := f.telemetry[gameServerID]
+	return int(snapshot.PlayerCount)
+}
+
+func (f *fakeQueryTelemetryProvider) GetGameServerQueryTelemetry(gameServerID string) GameServerQueryTelemetrySnapshot {
+	return f.telemetry[gameServerID]
 }
 
 func (f *fakePlayerCountProvider) GetPlayerCount(gameServerID string) int {
@@ -669,6 +693,77 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 	}
 }
 
+func TestRegistryServerMetricsProviderPreservesValidityAndDiskPercent(t *testing.T) {
+	registry := noderegistry.New("node-a", &nodeclient.FakeNodeClient{
+		NodeID: "node-a",
+		SnapshotResult: &node.NodeSnapshot{
+			Processes: []node.ProcessSnapshot{
+				{
+					ID:             "server-a",
+					Status:         xylona.Status_ONLINE.String(),
+					CPUPercent:     65,
+					CPUValid:       true,
+					MetricsValid:   true,
+					MemoryPercent:  45,
+					DiskPercent:    75,
+					DiskTotalBytes: 100,
+					DiskValid:      true,
+				},
+			},
+		},
+	})
+	provider := &registryServerMetricsProvider{
+		ctx:      context.Background(),
+		registry: registry,
+	}
+
+	snapshots := provider.ListServerMetrics()
+	if len(snapshots) != 1 {
+		t.Fatalf("ListServerMetrics() len = %d, want 1", len(snapshots))
+	}
+	snapshot := snapshots[0]
+	if !snapshot.cpuValid || !snapshot.memoryValid || !snapshot.diskValid {
+		t.Fatalf("validity = cpu:%t memory:%t disk:%t, want all true", snapshot.cpuValid, snapshot.memoryValid, snapshot.diskValid)
+	}
+	if snapshot.diskPercent != 75 {
+		t.Fatalf("disk percent = %v, want 75", snapshot.diskPercent)
+	}
+}
+
+func TestRegistryServerMetricsProviderRejectsOfflineMetricValidity(t *testing.T) {
+	registry := noderegistry.New("node-a", &nodeclient.FakeNodeClient{
+		NodeID: "node-a",
+		SnapshotResult: &node.NodeSnapshot{
+			Processes: []node.ProcessSnapshot{
+				{
+					ID:             "server-offline",
+					Status:         xylona.Status_OFFLINE.String(),
+					CPUPercent:     95,
+					CPUValid:       true,
+					MetricsValid:   true,
+					MemoryPercent:  95,
+					DiskPercent:    95,
+					DiskTotalBytes: 100,
+					DiskValid:      true,
+				},
+			},
+		},
+	})
+	provider := &registryServerMetricsProvider{
+		ctx:      context.Background(),
+		registry: registry,
+	}
+
+	snapshots := provider.ListServerMetrics()
+	if len(snapshots) != 1 {
+		t.Fatalf("ListServerMetrics() len = %d, want 1", len(snapshots))
+	}
+	snapshot := snapshots[0]
+	if snapshot.cpuValid || snapshot.memoryValid || snapshot.diskValid || snapshot.online {
+		t.Fatalf("offline metric eligibility = cpu:%t memory:%t disk:%t online:%t, want all false", snapshot.cpuValid, snapshot.memoryValid, snapshot.diskValid, snapshot.online)
+	}
+}
+
 // TestThresholdPollerRuleCacheRefresh verifies that rules are refreshed from the
 // DB when the cache is stale (older than the refresh interval).
 func TestThresholdPollerRuleCacheRefresh(t *testing.T) {
@@ -779,6 +874,210 @@ func TestThresholdPollerPlayerCountRule(t *testing.T) {
 	}
 }
 
+func TestThresholdPollerRuntimePolicy(t *testing.T) {
+	recoveryValue := 70.0
+	tests := []struct {
+		name      string
+		condition alerts.ThresholdCondition
+		steps     []struct {
+			at             time.Duration
+			value          float64
+			valid          bool
+			wantUpdates    int
+			wantDirections []eventbus.ThresholdDirection
+		}
+	}{
+		{
+			name: "sustained breach resets across invalid sample",
+			condition: alerts.ThresholdCondition{
+				Operator:   ">=",
+				Value:      80,
+				ForSeconds: 10,
+			},
+			steps: []struct {
+				at             time.Duration
+				value          float64
+				valid          bool
+				wantUpdates    int
+				wantDirections []eventbus.ThresholdDirection
+			}{
+				{at: 0, value: 90, valid: true, wantUpdates: 0},
+				{at: 9 * time.Second, value: 0, valid: false, wantUpdates: 0},
+				{at: 10 * time.Second, value: 90, valid: true, wantUpdates: 0},
+				{at: 19 * time.Second, value: 90, valid: true, wantUpdates: 0},
+				{at: 20 * time.Second, value: 90, valid: true, wantUpdates: 1, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered}},
+			},
+		},
+		{
+			name: "recovery hysteresis and cooldown",
+			condition: alerts.ThresholdCondition{
+				Operator:        ">=",
+				Value:           80,
+				RecoveryValue:   &recoveryValue,
+				CooldownSeconds: 30,
+			},
+			steps: []struct {
+				at             time.Duration
+				value          float64
+				valid          bool
+				wantUpdates    int
+				wantDirections []eventbus.ThresholdDirection
+			}{
+				{at: 0, value: 90, valid: true, wantUpdates: 1, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered}},
+				{at: time.Second, value: 75, valid: true, wantUpdates: 1, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered}},
+				{at: 2 * time.Second, value: 69, valid: true, wantUpdates: 2, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered, eventbus.ThresholdResolved}},
+				{at: 31 * time.Second, value: 90, valid: true, wantUpdates: 2, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered, eventbus.ThresholdResolved}},
+				{at: 32 * time.Second, value: 90, valid: true, wantUpdates: 3, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered, eventbus.ThresholdResolved, eventbus.ThresholdEntered}},
+			},
+		},
+		{
+			name: "repeat while triggered",
+			condition: alerts.ThresholdCondition{
+				Operator:      ">=",
+				Value:         80,
+				RepeatSeconds: 10,
+			},
+			steps: []struct {
+				at             time.Duration
+				value          float64
+				valid          bool
+				wantUpdates    int
+				wantDirections []eventbus.ThresholdDirection
+			}{
+				{at: 0, value: 90, valid: true, wantUpdates: 1, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered}},
+				{at: 9 * time.Second, value: 90, valid: true, wantUpdates: 1, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered}},
+				{at: 10 * time.Second, value: 90, valid: true, wantUpdates: 1, wantDirections: []eventbus.ThresholdDirection{eventbus.ThresholdEntered, eventbus.ThresholdEntered}},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ruleStore := newFakeAlertRuleStore()
+			stateStore := newFakeAlertStateStore()
+			poller := newThresholdPoller(ruleStore, stateStore, &fakeServerMetricsProvider{}, nil, nil, eventbus.Get())
+			baseTime := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+			currentTime := baseTime
+			poller.now = func() time.Time {
+				return currentTime
+			}
+			rule := makeRule("rule-policy", "ALERT_EVENT_TYPE_CPU_THRESHOLD", makeCondition(tc.condition.Value), null.From("server-policy"))
+			var directions []eventbus.ThresholdDirection
+
+			for stepIndex, step := range tc.steps {
+				currentTime = baseTime.Add(step.at)
+				poller.evaluateThreshold(rule, "server", "server-policy", "node-policy", step.value, step.valid, tc.condition, func(direction eventbus.ThresholdDirection) {
+					directions = append(directions, direction)
+				})
+
+				stateStore.mu.Lock()
+				updateCount := len(stateStore.updateCalls)
+				stateStore.mu.Unlock()
+				if updateCount != step.wantUpdates {
+					t.Fatalf("step %d update count = %d, want %d", stepIndex, updateCount, step.wantUpdates)
+				}
+				if len(directions) != len(step.wantDirections) {
+					t.Fatalf("step %d directions = %v, want %v", stepIndex, directions, step.wantDirections)
+				}
+				for directionIndex, wantDirection := range step.wantDirections {
+					if directions[directionIndex] != wantDirection {
+						t.Fatalf("step %d direction %d = %q, want %q", stepIndex, directionIndex, directions[directionIndex], wantDirection)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestThresholdPollerServerMetricValidityAndUnits(t *testing.T) {
+	tests := []struct {
+		name        string
+		eventType   string
+		threshold   float64
+		metrics     fakeCommandMetrics
+		playerProv  PlayerCountProvider
+		wantTrigger bool
+	}{
+		{
+			name:      "invalid cpu is unknown",
+			eventType: "ALERT_EVENT_TYPE_CPU_THRESHOLD",
+			threshold: 80,
+			metrics:   fakeCommandMetrics{id: "server-validity", nodeID: "node-1", cpuPercent: 90, cpuInvalid: true},
+		},
+		{
+			name:      "invalid memory is unknown",
+			eventType: "ALERT_EVENT_TYPE_MEMORY_THRESHOLD",
+			threshold: 80,
+			metrics:   fakeCommandMetrics{id: "server-validity", nodeID: "node-1", memoryPercent: 90, memoryInvalid: true},
+		},
+		{
+			name:      "invalid disk is unknown",
+			eventType: "ALERT_EVENT_TYPE_DISK_THRESHOLD",
+			threshold: 80,
+			metrics:   fakeCommandMetrics{id: "server-validity", nodeID: "node-1", diskPercent: 90, diskInvalid: true},
+		},
+		{
+			name:        "disk threshold uses volume percent",
+			eventType:   "ALERT_EVENT_TYPE_DISK_THRESHOLD",
+			threshold:   80,
+			metrics:     fakeCommandMetrics{id: "server-validity", nodeID: "node-1", diskPercent: 90},
+			wantTrigger: true,
+		},
+		{
+			name:      "failed typed query is unknown",
+			eventType: "ALERT_EVENT_TYPE_PLAYER_COUNT_THRESHOLD",
+			threshold: 10,
+			metrics:   fakeCommandMetrics{id: "server-validity", nodeID: "node-1"},
+			playerProv: &fakeQueryTelemetryProvider{telemetry: map[string]GameServerQueryTelemetrySnapshot{
+				"server-validity": {Status: GameServerQueryTelemetryStatusFailure, PlayerCount: 15, PlayerCountValid: false},
+			}},
+		},
+		{
+			name:      "offline server query data is stale",
+			eventType: "ALERT_EVENT_TYPE_PLAYER_COUNT_THRESHOLD",
+			threshold: 10,
+			metrics:   fakeCommandMetrics{id: "server-validity", nodeID: "node-1", offline: true},
+			playerProv: &fakeQueryTelemetryProvider{telemetry: map[string]GameServerQueryTelemetrySnapshot{
+				"server-validity": {Status: GameServerQueryTelemetryStatusSuccess, PlayerCount: 15, PlayerCountValid: true},
+			}},
+		},
+		{
+			name:      "successful typed query is authoritative",
+			eventType: "ALERT_EVENT_TYPE_PLAYER_COUNT_THRESHOLD",
+			threshold: 10,
+			metrics:   fakeCommandMetrics{id: "server-validity", nodeID: "node-1"},
+			playerProv: &fakeQueryTelemetryProvider{telemetry: map[string]GameServerQueryTelemetrySnapshot{
+				"server-validity": {Status: GameServerQueryTelemetryStatusSuccess, PlayerCount: 15, PlayerCountValid: true},
+			}},
+			wantTrigger: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ruleStore := newFakeAlertRuleStore()
+			stateStore := newFakeAlertStateStore()
+			ruleStore.addRule(makeRule("rule-validity", tc.eventType, makeCondition(tc.threshold), null.From("server-validity")))
+			serverProv := &fakeServerMetricsProvider{commands: []fakeCommandMetrics{tc.metrics}}
+			poller := newThresholdPoller(ruleStore, stateStore, serverProv, nil, tc.playerProv, eventbus.Get())
+			poller.runOnce()
+
+			stateStore.mu.Lock()
+			updates := append([]fakeStateUpdate(nil), stateStore.updateCalls...)
+			stateStore.mu.Unlock()
+			if tc.wantTrigger {
+				if len(updates) != 1 || !updates[0].triggered {
+					t.Fatalf("updates = %+v, want one triggered transition", updates)
+				}
+				return
+			}
+			if len(updates) != 0 {
+				t.Fatalf("updates = %+v, want no transition for unknown metric", updates)
+			}
+		})
+	}
+}
+
 // TestThresholdPollerDisabledRuleSkipped verifies that disabled rules are not
 // evaluated.
 func TestThresholdPollerDisabledRuleSkipped(t *testing.T) {
@@ -883,9 +1182,9 @@ func TestThresholdPollerStateCaching(t *testing.T) {
 	}
 }
 
-// TestThresholdPollerStateCacheInvalidatedOnRuleRefresh verifies that the
-// state cache is cleared when rules are refreshed (cache TTL expiry).
-func TestThresholdPollerStateCacheInvalidatedOnRuleRefresh(t *testing.T) {
+// TestThresholdPollerStateCachePreservedOnRuleRefresh verifies that runtime
+// alert timing and DB state are retained across the rule-cache TTL boundary.
+func TestThresholdPollerStateCachePreservedOnRuleRefresh(t *testing.T) {
 	ruleStore := newFakeAlertRuleStore()
 	stateStore := newFakeAlertStateStore()
 
@@ -923,15 +1222,96 @@ func TestThresholdPollerStateCacheInvalidatedOnRuleRefresh(t *testing.T) {
 	stateStore.getOrCreateCalls = 0
 	stateStore.mu.Unlock()
 
-	// This tick should refresh rules and invalidate the state cache, causing
-	// a fresh DB lookup for state.
+	// This tick refreshes rule conditions without discarding runtime state.
 	poller.runOnce()
 
 	stateStore.mu.Lock()
 	callsAfterRefresh := stateStore.getOrCreateCalls
 	stateStore.mu.Unlock()
 
-	if callsAfterRefresh == 0 {
-		t.Error("expected DB state call after rule cache refresh, got 0")
+	if callsAfterRefresh != 0 {
+		t.Errorf("DB state calls after rule cache refresh = %d, want 0", callsAfterRefresh)
+	}
+}
+
+func TestThresholdPollerRuleEditResetsSustainTiming(t *testing.T) {
+	stateStore := newFakeAlertStateStore()
+	poller := newThresholdPoller(newFakeAlertRuleStore(), stateStore, &fakeServerMetricsProvider{}, nil, nil, eventbus.Get())
+	baseTime := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	currentTime := baseTime
+	poller.now = func() time.Time {
+		return currentTime
+	}
+	rule := makeRule("rule-edit", "ALERT_EVENT_TYPE_CPU_THRESHOLD", makeCondition(80), null.From("server-edit"))
+	condition := alerts.ThresholdCondition{Operator: ">=", Value: 80, ForSeconds: 10}
+
+	poller.evaluateThreshold(rule, "server", "server-edit", "node-edit", 90, true, condition, func(eventbus.ThresholdDirection) {})
+
+	currentTime = baseTime.Add(9 * time.Second)
+	rule.Condition = makeCondition(95)
+	condition.Value = 95
+	poller.evaluateThreshold(rule, "server", "server-edit", "node-edit", 99, true, condition, func(eventbus.ThresholdDirection) {})
+
+	currentTime = baseTime.Add(18 * time.Second)
+	poller.evaluateThreshold(rule, "server", "server-edit", "node-edit", 99, true, condition, func(eventbus.ThresholdDirection) {})
+	stateStore.mu.Lock()
+	updatesBeforeNewSustainPeriod := len(stateStore.updateCalls)
+	stateStore.mu.Unlock()
+	if updatesBeforeNewSustainPeriod != 0 {
+		t.Fatalf("state updates before edited rule's sustain period = %d, want 0", updatesBeforeNewSustainPeriod)
+	}
+
+	currentTime = baseTime.Add(19 * time.Second)
+	poller.evaluateThreshold(rule, "server", "server-edit", "node-edit", 99, true, condition, func(eventbus.ThresholdDirection) {})
+	stateStore.mu.Lock()
+	updatesAfterNewSustainPeriod := len(stateStore.updateCalls)
+	stateStore.mu.Unlock()
+	if updatesAfterNewSustainPeriod != 1 {
+		t.Fatalf("state updates after edited rule's sustain period = %d, want 1", updatesAfterNewSustainPeriod)
+	}
+}
+
+func TestThresholdPollerDisabledRuleDoesNotReuseRuntimeTiming(t *testing.T) {
+	ruleStore := newFakeAlertRuleStore()
+	stateStore := newFakeAlertStateStore()
+	poller := newThresholdPoller(ruleStore, stateStore, &fakeServerMetricsProvider{}, nil, nil, eventbus.Get())
+	baseTime := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	currentTime := baseTime
+	poller.now = func() time.Time {
+		return currentTime
+	}
+	rule := makeRule("rule-disable-timing", "ALERT_EVENT_TYPE_CPU_THRESHOLD", makeCondition(80), null.From("server-disable"))
+	ruleStore.addRule(rule)
+	condition := alerts.ThresholdCondition{Operator: ">=", Value: 80, ForSeconds: 10}
+
+	poller.evaluateThreshold(rule, "server", "server-disable", "node-disable", 90, true, condition, func(eventbus.ThresholdDirection) {})
+	if len(poller.stateCache) != 1 {
+		t.Fatalf("state cache entries before disable = %d, want 1", len(poller.stateCache))
+	}
+
+	rule.Enabled = 0
+	poller.refreshRuleCache()
+	if len(poller.stateCache) != 0 {
+		t.Fatalf("state cache entries after disable = %d, want 0", len(poller.stateCache))
+	}
+
+	rule.Enabled = 1
+	poller.refreshRuleCache()
+	currentTime = baseTime.Add(10 * time.Second)
+	poller.evaluateThreshold(rule, "server", "server-disable", "node-disable", 90, true, condition, func(eventbus.ThresholdDirection) {})
+	stateStore.mu.Lock()
+	updatesImmediatelyAfterReenable := len(stateStore.updateCalls)
+	stateStore.mu.Unlock()
+	if updatesImmediatelyAfterReenable != 0 {
+		t.Fatalf("state updates immediately after re-enable = %d, want 0", updatesImmediatelyAfterReenable)
+	}
+
+	currentTime = baseTime.Add(20 * time.Second)
+	poller.evaluateThreshold(rule, "server", "server-disable", "node-disable", 90, true, condition, func(eventbus.ThresholdDirection) {})
+	stateStore.mu.Lock()
+	updatesAfterNewSustainPeriod := len(stateStore.updateCalls)
+	stateStore.mu.Unlock()
+	if updatesAfterNewSustainPeriod != 1 {
+		t.Fatalf("state updates after re-enabled rule's sustain period = %d, want 1", updatesAfterNewSustainPeriod)
 	}
 }

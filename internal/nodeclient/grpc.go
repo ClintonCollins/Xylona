@@ -990,32 +990,62 @@ func processSnapshotFromProto(p *nodeprotov1.ProcessSnapshot) *node.ProcessSnaps
 	if p == nil {
 		return nil
 	}
+	status := p.GetStatus()
+	legacyMetricsValid := legacyProcessMetricsValid(status)
 	out := &node.ProcessSnapshot{
-		ID:                 p.GetId(),
-		ExecutionID:        p.GetExecutionId(),
-		Name:               p.GetName(),
-		Status:             p.GetStatus(),
-		PreviousStatus:     p.GetPreviousStatus(),
-		TransitionSequence: p.GetTransitionSequence(),
-		IntentionalStop:    p.GetIntentionalStop(),
-		UnixStartedAt:      p.GetUnixStartedAt(),
-		CPUPercent:         p.GetCpuPercent(),
-		CPUCores:           p.GetCpuCores(),
-		MemoryRSS:          p.GetMemoryRss(),
-		MemoryVMS:          p.GetMemoryVms(),
-		MemoryPercent:      p.GetMemoryPercent(),
-		NumThreads:         p.GetNumThreads(),
-		DiskUsageBytes:     p.GetDiskUsageBytes(),
-		IOReadRate:         p.GetIoReadRate(),
-		IOWriteRate:        p.GetIoWriteRate(),
-		ConnectionCount:    p.GetConnectionCount(),
-		WorkingDir:         p.GetWorkingDir(),
+		ID:                   p.GetId(),
+		ExecutionID:          p.GetExecutionId(),
+		Name:                 p.GetName(),
+		Status:               status,
+		PreviousStatus:       p.GetPreviousStatus(),
+		TransitionSequence:   p.GetTransitionSequence(),
+		IntentionalStop:      p.GetIntentionalStop(),
+		UnixStartedAt:        p.GetUnixStartedAt(),
+		CPUPercent:           p.GetCpuPercent(),
+		CPUValid:             optionalBoolOrDefault(p.CpuValid, legacyMetricsValid),
+		MetricsValid:         optionalBoolOrDefault(p.MetricsValid, legacyMetricsValid),
+		CPUCores:             p.GetCpuCores(),
+		MemoryRSS:            p.GetMemoryRss(),
+		MemoryVMS:            p.GetMemoryVms(),
+		MemoryPercent:        p.GetMemoryPercent(),
+		NumThreads:           p.GetNumThreads(),
+		DiskUsageBytes:       p.GetDiskUsageBytes(),
+		DiskTotalBytes:       p.GetDiskTotalBytes(),
+		DiskFreeBytes:        p.GetDiskFreeBytes(),
+		DiskPercent:          p.GetDiskPercent(),
+		DiskValid:            optionalBoolOrDefault(p.DiskValid, legacyMetricsValid),
+		IOValid:              optionalBoolOrDefault(p.IoValid, legacyMetricsValid),
+		IOReadRate:           p.GetIoReadRate(),
+		IOWriteRate:          p.GetIoWriteRate(),
+		ConnectionCount:      p.GetConnectionCount(),
+		ConnectionCountValid: optionalBoolOrDefault(p.ConnectionCountValid, legacyMetricsValid),
+		WorkingDir:           p.GetWorkingDir(),
+	}
+	diskMeasuredAt := p.GetDiskMeasuredAt()
+	if diskMeasuredAt != nil {
+		out.DiskMeasuredAt = diskMeasuredAt.AsTime()
 	}
 	if p.ExitCode != nil {
 		out.ExitCode = int(p.GetExitCode())
 		out.ExitCodeKnown = true
 	}
 	return out
+}
+
+func optionalBoolOrDefault(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
+func legacyProcessMetricsValid(status string) bool {
+	switch status {
+	case xylona.Status_ONLINE.String(), xylona.Status_INSTALLING.String(), xylona.Status_UPDATING.String():
+		return true
+	default:
+		return false
+	}
 }
 
 // GetNodeSnapshot invokes the GetNodeSnapshot RPC.
