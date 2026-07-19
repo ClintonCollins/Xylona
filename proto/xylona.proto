@@ -79,6 +79,7 @@ service Xylona {
   rpc PerformGameServerPlayerAction (PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse) {}
   rpc GetPalworldMap (GetPalworldMapRequest) returns (GetPalworldMapResponse) {}
   rpc UpdatePalworldMapConfig (UpdatePalworldMapConfigRequest) returns (UpdatePalworldMapConfigResponse) {}
+  rpc InstallPalworldMapTiles (InstallPalworldMapTilesRequest) returns (InstallPalworldMapTilesResponse) {}
   rpc RegeneratePalworldMapShare (RegeneratePalworldMapShareRequest) returns (RegeneratePalworldMapShareResponse) {}
   rpc RevokePalworldMapShare (RevokePalworldMapShareRequest) returns (RevokePalworldMapShareResponse) {}
   rpc GetPublicPalworldMap (GetPublicPalworldMapRequest) returns (GetPublicPalworldMapResponse) {}
@@ -1665,6 +1666,14 @@ message UpdatePalworldMapConfigRequest {
 }
 
 message UpdatePalworldMapConfigResponse {
+  repeated PalworldMapLayer layers = 1;
+}
+
+message InstallPalworldMapTilesRequest {
+  string game_server_id = 1;
+}
+
+message InstallPalworldMapTilesResponse {
   repeated PalworldMapLayer layers = 1;
 }
 

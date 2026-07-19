@@ -15,6 +15,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/mailer"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/palworldmap"
 	"github.com/ClintonCollins/Xylona/internal/scheduler"
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/internal/steamcache"
@@ -37,6 +38,13 @@ type UpdateProgressBroadcaster interface {
 // SystemUpdateBroadcaster broadcasts controller/node update progress.
 type SystemUpdateBroadcaster interface {
 	BroadcastSystemUpdateProgress(progress *xylona.SystemUpdateProgress)
+}
+
+// PalworldMapTileInstaller installs optional map imagery into controller-local
+// storage and exposes the fixed layer definitions for persisted map settings.
+type PalworldMapTileInstaller interface {
+	Install(ctx context.Context) error
+	Layers() []palworldmap.Layer
 }
 
 // XylonaService implements the primary ConnectRPC service for the panel API.
@@ -72,6 +80,7 @@ type XylonaService struct {
 	remoteVersionRefreshMu         sync.Mutex
 	remoteVersionRefreshCalls      map[string]*remoteVersionRefreshCall
 	hytaleAuth                     *readiness.HytaleDeviceAuthManager
+	palworldMapTiles               PalworldMapTileInstaller
 }
 
 type remoteVersionRefreshCall struct {
@@ -181,6 +190,12 @@ func (xs *XylonaService) SetSystemUpdateShutdown(shutdown func()) {
 // for startup reconciliation, staging, and apply serialization.
 func (xs *XylonaService) SetSystemUpdateManager(manager *selfupdate.Manager) {
 	xs.systemUpdateManager = manager
+}
+
+// SetPalworldMapTileInstaller sets the controller-local map tile store used by
+// the administrator-triggered tile installation RPC.
+func (xs *XylonaService) SetPalworldMapTileInstaller(installer PalworldMapTileInstaller) {
+	xs.palworldMapTiles = installer
 }
 
 // SetDummyTracker sets the dummy tracker used for testing update failure simulation.

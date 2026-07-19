@@ -136,6 +136,12 @@ Xylona exposes separate probes for process liveness and application readiness:
 
 `/metrics` is served from the main HTTP listener, so enable it only when your scrape target and network exposure are intentional.
 
+### Palworld Map Tiles
+
+Palworld map imagery is optional and is not embedded in Xylona releases. A server administrator can open **Map imagery** on a Palworld live map and select **Install / repair**. Xylona then downloads the Palpagos and World Tree tile pyramids into `palworld-map-tiles` beside the resolved `data.sqlite` path and serves them from `/palworld-map-tiles/` on the controller's existing HTTP listener.
+
+Existing valid tiles are reused, so running the action again repairs missing or invalid files without downloading the complete dataset again. Public map links use the same controller-hosted tiles and do not make visitors request imagery from the upstream tile host.
+
 ### Backend Workflow
 
 Xylona uses SQLite locally and applies embedded SQL migrations automatically on startup. You do not need `sql/dbconfig.yml`, and you do not need a manual migration step just to boot the app.

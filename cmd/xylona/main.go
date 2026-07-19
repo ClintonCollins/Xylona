@@ -50,6 +50,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/palworldmap"
 	"github.com/ClintonCollins/Xylona/internal/scheduler"
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/internal/steamcache"
@@ -649,6 +650,12 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	if errLocalAdminServer != nil {
 		return startupFailure(cleanup, ctxCancel, errLocalAdminServer, "Failed to create local admin server")
 	}
+	palworldMapTileDirectory := filepath.Join(filepath.Dir(config.DBFilePath), "palworld-map-tiles")
+	palworldMapTileStore, errPalworldMapTileStore := palworldmap.NewStore(palworldMapTileDirectory)
+	if errPalworldMapTileStore != nil {
+		return startupFailure(cleanup, ctxCancel, errPalworldMapTileStore, "Failed to configure Palworld map tile storage")
+	}
+	log.Info().Str("directory", palworldMapTileStore.Root()).Msg("Palworld map tile storage configured")
 	// Wire the already-constructed services together here so the startup
 	// sequence makes the dependency order explicit without pushing that
 	// cross-component wiring into the constructors.
@@ -675,6 +682,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	} else {
 		xylonaService.SetSystemUpdateManager(controllerUpdateManager)
 	}
+	xylonaService.SetPalworldMapTileInstaller(palworldMapTileStore)
 	xylonaService.ResumeSystemUpdateJobs(ctx)
 	if dummyTracker != nil {
 		xylonaService.SetDummyTracker(dummyTracker)
@@ -699,6 +707,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	router.Use(gatekeeper.AuthRateLimiter())
 	registerOperationalRoutes(router, dbInst.SQLDb)
 	registerMetricsRoute(router, config)
+	router.Mount(palworldmap.TilePathPrefix, palworldMapTileStore.Handler())
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
 	// Node bootstrap endpoint — auth is by the one-shot join token in the

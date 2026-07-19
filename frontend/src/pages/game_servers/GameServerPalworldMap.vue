@@ -8,6 +8,7 @@ import { useRoute } from 'vue-router'
 import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import {
   GetPalworldMapRequestSchema,
+  InstallPalworldMapTilesRequestSchema,
   PalworldMapLayerSchema,
   RegeneratePalworldMapShareRequestSchema,
   RevokePalworldMapShareRequestSchema,
@@ -43,6 +44,7 @@ const loadError = ref(false)
 const settingsOpen = ref(false)
 const shareOpen = ref(false)
 const savingSettings = ref(false)
+const installingTiles = ref(false)
 const changingShare = ref(false)
 const generatedShareURL = ref('')
 const layerForm = ref<PalworldMapLayer>(defaultLayer())
@@ -100,6 +102,34 @@ async function saveSettings(): Promise<void> {
     })
   } finally {
     savingSettings.value = false
+  }
+}
+
+async function installLocalTiles(): Promise<void> {
+  installingTiles.value = true
+  try {
+    const response = await GetXylonaClient().installPalworldMapTiles(
+      create(InstallPalworldMapTilesRequestSchema, { gameServerId: gameServerID.value }),
+    )
+    if (mapView.value !== null) {
+      mapView.value.layers = response.layers
+    }
+    const configured = response.layers[0]
+    if (configured !== undefined) {
+      layerForm.value = create(PalworldMapLayerSchema, configured)
+    }
+    settingsOpen.value = false
+    quasar.notify({
+      type: 'positive',
+      message: 'Palpagos and World Tree tiles are installed and served by Xylona.',
+    })
+  } catch (unknownError: unknown) {
+    quasar.notify({
+      type: 'negative',
+      message: ConnectErrorToString(ConnectError.from(unknownError)),
+    })
+  } finally {
+    installingTiles.value = false
   }
 }
 
@@ -225,14 +255,37 @@ onBeforeUnmount(() => {
           <div>
             <div class="text-h6">Map imagery</div>
             <div class="text-caption text-xy-secondary">
-              Use your own or a permitted XYZ tile source. Xylona does not bundle third-party map
-              art.
+              Download optional imagery into Xylona's data directory or use your own permitted XYZ
+              source. Map art is not bundled with Xylona.
             </div>
           </div>
           <q-btn v-close-popup aria-label="Close map imagery settings" flat icon="close" round />
         </q-card-section>
 
         <q-card-section class="palworld-map-dialog__fields">
+          <section class="palworld-map-dialog__local-tiles">
+            <q-icon color="accent" name="download_for_offline" size="32px" />
+            <div>
+              <strong>Palworld 1.0 local tiles</strong>
+              <span>
+                Install or repair the Palpagos and World Tree layers. Xylona downloads them once,
+                stores them beside the controller database, and hosts them for private and public
+                maps.
+              </span>
+            </div>
+            <q-btn
+              :loading="installingTiles"
+              color="primary"
+              label="Install / repair"
+              no-caps
+              @click="installLocalTiles" />
+          </section>
+
+          <div class="palworld-map-dialog__custom-heading">
+            <q-separator />
+            <span>Custom tile source</span>
+          </div>
+
           <q-input v-model="layerForm.label" dense label="Map label" outlined />
           <q-input
             v-model="layerForm.tileUrlTemplate"
@@ -453,6 +506,40 @@ onBeforeUnmount(() => {
   overflow: auto;
 }
 
+.palworld-map-dialog__local-tiles {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-md);
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-lg);
+}
+
+.palworld-map-dialog__local-tiles div {
+  display: grid;
+  gap: var(--xy-space-xs);
+}
+
+.palworld-map-dialog__local-tiles strong {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-heading);
+}
+
+.palworld-map-dialog__local-tiles span,
+.palworld-map-dialog__custom-heading span {
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+}
+
+.palworld-map-dialog__custom-heading {
+  display: grid;
+  grid-template-columns: minmax(var(--xy-space-xl), 1fr) auto minmax(var(--xy-space-xl), 1fr);
+  align-items: center;
+  gap: var(--xy-space-sm);
+}
+
 .palworld-map-dialog__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -489,6 +576,14 @@ onBeforeUnmount(() => {
 @media (max-width: 700px) {
   .palworld-map-page {
     padding: var(--xy-space-sm);
+  }
+
+  .palworld-map-dialog__local-tiles {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .palworld-map-dialog__local-tiles .q-btn {
+    grid-column: 1 / -1;
   }
 
   .palworld-map-page__header {

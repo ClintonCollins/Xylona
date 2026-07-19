@@ -19,16 +19,18 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/controller/authz"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/palworldmap"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 const (
-	permissionGameServerView     = "game_server.view"
-	permissionGameServerSettings = "game_server.settings"
-	palworldGameID               = "palworld"
-	palworldMapMaxLayers         = 4
-	palworldMapStaleAfter        = 2 * 15 * time.Second
+	permissionGameServerView      = "game_server.view"
+	permissionGameServerSettings  = "game_server.settings"
+	palworldGameID                = "palworld"
+	palworldMapMaxLayers          = 4
+	palworldMapStaleAfter         = 2 * 15 * time.Second
+	palworldMapTileInstallTimeout = 10 * time.Minute
 )
 
 var palworldMapLayerIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -109,8 +111,7 @@ func (xs *XylonaService) GetPalworldMap(
 	return connect.NewResponse(&xylona.GetPalworldMapResponse{Map: view}), nil
 }
 
-// UpdatePalworldMapConfig stores external tile definitions. Xylona never
-// downloads, proxies, or bundles the configured imagery.
+// UpdatePalworldMapConfig stores administrator-supplied tile definitions.
 func (xs *XylonaService) UpdatePalworldMapConfig(
 	_ context.Context,
 	request *connect.Request[xylona.UpdatePalworldMapConfigRequest],
@@ -143,6 +144,55 @@ func (xs *XylonaService) UpdatePalworldMapConfig(
 		return nil, internalErr()
 	}
 	return connect.NewResponse(&xylona.UpdatePalworldMapConfigResponse{
+		Layers: publicPalworldMapLayers(layers),
+	}), nil
+}
+
+// InstallPalworldMapTiles downloads the supported Palworld 1.0 tile layers to
+// controller-local storage and selects those same-origin layers for the server.
+func (xs *XylonaService) InstallPalworldMapTiles(
+	_ context.Context,
+	request *connect.Request[xylona.InstallPalworldMapTilesRequest],
+) (*connect.Response[xylona.InstallPalworldMapTilesResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	gameServer, errServer := xs.palworldMapServer(request.Msg.GetGameServerId())
+	if errServer != nil {
+		return nil, errServer
+	}
+	errSettings := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
+	if errSettings != nil {
+		return nil, errSettings
+	}
+	if xs.palworldMapTiles == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("local Palworld map tile storage is unavailable"))
+	}
+
+	// Use the controller lifecycle rather than the default unary deadline so a
+	// slow first-time install can finish, while shutdown still cancels it.
+	downloadContext, cancelDownload := context.WithTimeout(xs.ctx, palworldMapTileInstallTimeout)
+	defer cancelDownload()
+	errInstall := xs.palworldMapTiles.Install(downloadContext)
+	if errInstall != nil {
+		log.Error().Err(errInstall).Str("game_server_id", gameServer.ID).Msg("Failed to install Palworld map tiles")
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("palworld map tiles could not be installed; check the controller logs and retry"))
+	}
+
+	layers := localPalworldMapLayerConfigs(xs.palworldMapTiles.Layers())
+	layersJSON, errMarshal := json.Marshal(layers)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Str("game_server_id", gameServer.ID).Msg("Failed to encode installed Palworld map layers")
+		return nil, internalErr()
+	}
+	errUpdate := xs.db.UpdateGameServerPalworldMapLayers(gameServer.ID, string(layersJSON), user.ID)
+	if errUpdate != nil {
+		log.Error().Err(errUpdate).Str("game_server_id", gameServer.ID).Msg("Failed to select installed Palworld map layers")
+		return nil, internalErr()
+	}
+
+	return connect.NewResponse(&xylona.InstallPalworldMapTilesResponse{
 		Layers: publicPalworldMapLayers(layers),
 	}), nil
 }
@@ -384,9 +434,12 @@ func validatePalworldMapLayer(layer palworldMapLayerConfig, seenIDs map[string]s
 	if len(layer.TileURLTemplate) > 2048 || !strings.Contains(layer.TileURLTemplate, "{z}") || !strings.Contains(layer.TileURLTemplate, "{x}") || !strings.Contains(layer.TileURLTemplate, "{y}") {
 		return errors.New("tile URL must contain {z}, {x}, and {y}")
 	}
-	parsedURL, errURL := url.Parse(strings.NewReplacer("{z}", "0", "{x}", "0", "{y}", "0").Replace(layer.TileURLTemplate))
-	if errURL != nil || parsedURL.Host == "" || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
-		return errors.New("tile URL must be an absolute HTTP or HTTPS URL")
+	resolvedTileURL := strings.NewReplacer("{z}", "0", "{x}", "0", "{y}", "0").Replace(layer.TileURLTemplate)
+	parsedURL, errURL := url.Parse(resolvedTileURL)
+	validAbsoluteURL := errURL == nil && parsedURL.Host != "" && (parsedURL.Scheme == "http" || parsedURL.Scheme == "https")
+	validSameOriginURL := errURL == nil && parsedURL.Scheme == "" && parsedURL.Host == "" && strings.HasPrefix(resolvedTileURL, "/") && !strings.HasPrefix(resolvedTileURL, "//")
+	if !validAbsoluteURL && !validSameOriginURL {
+		return errors.New("tile URL must be a same-origin path or an absolute HTTP or HTTPS URL")
 	}
 	if layer.Attribution == "" || len(layer.Attribution) > 300 {
 		return errors.New("attribution must contain 1-300 characters")
@@ -419,6 +472,30 @@ func validatePalworldMapLayer(layer palworldMapLayerConfig, seenIDs map[string]s
 		return errors.New("maximum bounds must be greater than minimum bounds")
 	}
 	return nil
+}
+
+func localPalworldMapLayerConfigs(layers []palworldmap.Layer) []palworldMapLayerConfig {
+	configs := make([]palworldMapLayerConfig, 0, len(layers))
+	for _, layer := range layers {
+		configs = append(configs, palworldMapLayerConfig{
+			ID:              layer.ID,
+			Label:           layer.Label,
+			TileURLTemplate: palworldmap.TileURLTemplate(layer.ID),
+			Attribution:     layer.Attribution,
+			MinZoom:         layer.MinZoom,
+			MaxZoom:         layer.MaxZoom,
+			TileSize:        layer.TileSize,
+			TransformA:      layer.TransformA,
+			TransformB:      layer.TransformB,
+			TransformC:      layer.TransformC,
+			TransformD:      layer.TransformD,
+			MinX:            layer.MinX,
+			MinY:            layer.MinY,
+			MaxX:            layer.MaxX,
+			MaxY:            layer.MaxY,
+		})
+	}
+	return configs
 }
 
 func decodePalworldMapLayers(raw string) ([]palworldMapLayerConfig, error) {

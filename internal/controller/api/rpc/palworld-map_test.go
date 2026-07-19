@@ -11,6 +11,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/palworldmap"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
@@ -64,6 +65,12 @@ func TestPalworldMapAuthorizationAndSharing(t *testing.T) {
 	if connect.CodeOf(errViewerSettings) != connect.CodePermissionDenied {
 		t.Fatalf("UpdatePalworldMapConfig(viewer) code = %v, want %v", connect.CodeOf(errViewerSettings), connect.CodePermissionDenied)
 	}
+	viewerInstallRequest := connect.NewRequest(&xylona.InstallPalworldMapTilesRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, viewerInstallRequest, "user-other")
+	_, errViewerInstall := fixture.service.InstallPalworldMapTiles(t.Context(), viewerInstallRequest)
+	if connect.CodeOf(errViewerInstall) != connect.CodePermissionDenied {
+		t.Fatalf("InstallPalworldMapTiles(viewer) code = %v, want %v", connect.CodeOf(errViewerInstall), connect.CodePermissionDenied)
+	}
 
 	shareRequest := connect.NewRequest(&xylona.RegeneratePalworldMapShareRequest{GameServerId: "server-local-1"})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, shareRequest, "user-owner")
@@ -86,6 +93,60 @@ func TestPalworldMapAuthorizationAndSharing(t *testing.T) {
 	_, errRevoked := fixture.service.GetPublicPalworldMap(t.Context(), publicRequest)
 	if connect.CodeOf(errRevoked) != connect.CodeNotFound {
 		t.Fatalf("GetPublicPalworldMap(revoked) code = %v, want %v", connect.CodeOf(errRevoked), connect.CodeNotFound)
+	}
+}
+
+func TestInstallPalworldMapTiles(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	_, errPalworld := fixture.conn.SQLDb.ExecContext(
+		t.Context(),
+		"update game_server set game_id = 'palworld' where id = 'server-local-1'",
+	)
+	if errPalworld != nil {
+		t.Fatalf("set Palworld game: %v", errPalworld)
+	}
+	installer := &fakePalworldMapTileInstaller{
+		layers: []palworldmap.Layer{
+			{
+				ID:          "default",
+				Label:       "Palpagos",
+				Attribution: "Palworld © Pocketpair",
+				MinZoom:     0,
+				MaxZoom:     4,
+				TileSize:    512,
+				TransformA:  1,
+				TransformC:  -1,
+				MinX:        -100,
+				MinY:        -100,
+				MaxX:        100,
+				MaxY:        100,
+			},
+		},
+	}
+	fixture.service.SetPalworldMapTileInstaller(installer)
+
+	request := connect.NewRequest(&xylona.InstallPalworldMapTilesRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+	response, errInstall := fixture.service.InstallPalworldMapTiles(t.Context(), request)
+	if errInstall != nil {
+		t.Fatalf("InstallPalworldMapTiles() error = %v", errInstall)
+	}
+	if installer.calls != 1 {
+		t.Fatalf("tile installer calls = %d, want 1", installer.calls)
+	}
+	if len(response.Msg.GetLayers()) != 1 || response.Msg.GetLayers()[0].GetTileUrlTemplate() != "/palworld-map-tiles/default/{z}/{x}/{y}.webp" {
+		t.Fatalf("InstallPalworldMapTiles() layers = %+v", response.Msg.GetLayers())
+	}
+	settings, errSettings := fixture.conn.GetGameServerPalworldMap("server-local-1")
+	if errSettings != nil {
+		t.Fatalf("GetGameServerPalworldMap() error = %v", errSettings)
+	}
+	layers, errDecode := decodePalworldMapLayers(settings.LayersJSON)
+	if errDecode != nil {
+		t.Fatalf("decodePalworldMapLayers() error = %v", errDecode)
+	}
+	if len(layers) != 1 || layers[0].TileURLTemplate != "/palworld-map-tiles/default/{z}/{x}/{y}.webp" {
+		t.Fatalf("stored layers = %+v", layers)
 	}
 }
 
@@ -155,6 +216,17 @@ func TestValidatePalworldMapLayers(t *testing.T) {
 		{name: "empty coordinate grid", wantLen: 0},
 		{name: "valid HTTPS tiles", layers: []*xylona.PalworldMapLayer{validLayer("world")}, wantLen: 1},
 		{
+			name: "valid same-origin tiles",
+			layers: []*xylona.PalworldMapLayer{
+				func() *xylona.PalworldMapLayer {
+					layer := validLayer("world")
+					layer.TileUrlTemplate = "/palworld-map-tiles/world/{z}/{x}/{y}.webp"
+					return layer
+				}(),
+			},
+			wantLen: 1,
+		},
+		{
 			name: "duplicate IDs",
 			layers: []*xylona.PalworldMapLayer{
 				validLayer("world"),
@@ -171,7 +243,7 @@ func TestValidatePalworldMapLayers(t *testing.T) {
 					return layer
 				}(),
 			},
-			wantErr: "absolute HTTP or HTTPS URL",
+			wantErr: "same-origin path or an absolute HTTP or HTTPS URL",
 		},
 		{
 			name: "missing coordinate placeholder",
@@ -216,4 +288,19 @@ func TestValidatePalworldMapLayers(t *testing.T) {
 			}
 		})
 	}
+}
+
+type fakePalworldMapTileInstaller struct {
+	layers []palworldmap.Layer
+	err    error
+	calls  int
+}
+
+func (f *fakePalworldMapTileInstaller) Install(_ context.Context) error {
+	f.calls++
+	return f.err
+}
+
+func (f *fakePalworldMapTileInstaller) Layers() []palworldmap.Layer {
+	return f.layers
 }
