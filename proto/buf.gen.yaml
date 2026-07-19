@@ -1,15 +1,15 @@
 version: v2
 clean: true
 plugins:
-  - remote: buf.build/connectrpc/go:v1.18.1
+  - local: protoc-gen-connect-go
     out: go/xylona
     opt:
       - paths=source_relative
-  - remote: buf.build/protocolbuffers/go:v1.36.3
+  - local: protoc-gen-go
     out: go/xylona
     opt:
       - paths=source_relative
-  - remote: buf.build/bufbuild/es:v2.11.0
+  - local: ../frontend/node_modules/.bin/protoc-gen-es
     out: ../frontend/src/proto
     include_imports: true
     opt:

@@ -423,6 +423,60 @@ type PalworldQueryInfo struct {
 	PlayerDetails     []GameServerPlayer
 }
 
+// PalworldMapActorKind identifies one sanitized live-map actor category.
+type PalworldMapActorKind int
+
+// PalworldMapActorKind values classify sanitized world actors.
+const (
+	PalworldMapActorKindUnknown PalworldMapActorKind = iota
+	PalworldMapActorKindPlayer
+	PalworldMapActorKindBase
+	PalworldMapActorKindBaseWorker
+	PalworldMapActorKindCompanionPal
+	PalworldMapActorKindWildPal
+	PalworldMapActorKindNPC
+	PalworldMapActorKindOther
+)
+
+// PalworldMapActor contains the display-safe actor fields transported from a
+// node to the controller. Administrative identifiers never enter this type.
+type PalworldMapActor struct {
+	Key         string
+	Kind        PalworldMapActorKind
+	Name        string
+	GuildName   string
+	TrainerName string
+	ClassName   string
+	LocationX   float64
+	LocationY   float64
+	LocationZ   float64
+	RotationZ   float64
+	Level       uint32
+	HP          uint32
+	MaxHP       uint32
+	Action      string
+	AIAction    string
+	Active      bool
+}
+
+// PalworldMapSnapshot is a sanitized point-in-time world snapshot.
+type PalworldMapSnapshot struct {
+	SourceTime  string
+	CollectedAt time.Time
+	Source      string
+	Partial     bool
+	Truncated   bool
+	Actors      []PalworldMapActor
+}
+
+// PalworldMapQueryRequest contains the node-local Palworld REST connection.
+type PalworldMapQueryRequest struct {
+	IP        string
+	QueryPort int64
+	Username  string
+	Password  string
+}
+
 // GameServerQueryResult is the transport-agnostic result of a node-side
 // network probe.
 type GameServerQueryResult struct {

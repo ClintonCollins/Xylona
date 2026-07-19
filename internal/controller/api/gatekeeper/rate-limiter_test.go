@@ -101,6 +101,23 @@ func TestAuthRateLimiter(t *testing.T) {
 		}
 	})
 
+	t.Run("rate limits public Palworld map polling", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+
+		var lastStatus int
+		for range 125 {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/GetPublicPalworldMap", nil)
+			req.RemoteAddr = "192.0.2.6:12345"
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			lastStatus = rec.Code
+		}
+
+		if lastStatus != http.StatusTooManyRequests {
+			t.Fatalf("expected status %d after exceeding public map limit, got %d", http.StatusTooManyRequests, lastStatus)
+		}
+	})
+
 	t.Run("does not trust forwarded client IP headers", func(t *testing.T) {
 		handler := middleware.ClientIPFromRemoteAddr(AuthRateLimiter()(okHandler))
 

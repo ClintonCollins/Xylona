@@ -711,6 +711,21 @@ func (c *GRPCNodeClient) QueryGameServer(ctx context.Context, queryReq node.Game
 	}, nil
 }
 
+// QueryPalworldMap invokes the dedicated sanitized live-map RPC.
+func (c *GRPCNodeClient) QueryPalworldMap(ctx context.Context, mapReq node.PalworldMapQueryRequest) (*node.PalworldMapSnapshot, error) {
+	req := newReq(c, &nodeprotov1.QueryPalworldMapRequest{
+		Ip:        mapReq.IP,
+		QueryPort: mapReq.QueryPort,
+		Username:  mapReq.Username,
+		Password:  mapReq.Password,
+	})
+	resp, errRPC := c.connectClient.QueryPalworldMap(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("query palworld map", errRPC)
+	}
+	return palworldMapSnapshotFromProto(resp.Msg.GetSnapshot()), nil
+}
+
 // PerformGameServerPlayerAction invokes the typed player-administration RPC.
 func (c *GRPCNodeClient) PerformGameServerPlayerAction(ctx context.Context, actionReq node.GameServerPlayerActionRequest) error {
 	req := newReq(c, &nodeprotov1.PerformGameServerPlayerActionRequest{
@@ -1120,7 +1135,71 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		RCONInput:                msg.GetRconInput(),
 		RESTInput:                msg.GetRestInput(),
 		PlayerActions:            msg.GetPlayerActions(),
+		PalworldMap:              msg.GetPalworldMap(),
 	}, nil
+}
+
+func palworldMapSnapshotFromProto(snapshot *nodeprotov1.PalworldMapSnapshot) *node.PalworldMapSnapshot {
+	if snapshot == nil {
+		return nil
+	}
+	actors := make([]node.PalworldMapActor, 0, len(snapshot.GetActors()))
+	for _, actor := range snapshot.GetActors() {
+		if actor == nil {
+			continue
+		}
+		actors = append(actors, node.PalworldMapActor{
+			Key:         actor.GetKey(),
+			Kind:        palworldMapActorKindFromProto(actor.GetKind()),
+			Name:        actor.GetName(),
+			GuildName:   actor.GetGuildName(),
+			TrainerName: actor.GetTrainerName(),
+			ClassName:   actor.GetClassName(),
+			LocationX:   actor.GetLocationX(),
+			LocationY:   actor.GetLocationY(),
+			LocationZ:   actor.GetLocationZ(),
+			RotationZ:   actor.GetRotationZ(),
+			Level:       actor.GetLevel(),
+			HP:          actor.GetHp(),
+			MaxHP:       actor.GetMaxHp(),
+			Action:      actor.GetAction(),
+			AIAction:    actor.GetAiAction(),
+			Active:      actor.GetActive(),
+		})
+	}
+	collectedAt := time.Time{}
+	if snapshot.GetCollectedAt() != nil {
+		collectedAt = snapshot.GetCollectedAt().AsTime()
+	}
+	return &node.PalworldMapSnapshot{
+		SourceTime:  snapshot.GetSourceTime(),
+		CollectedAt: collectedAt,
+		Source:      snapshot.GetSource(),
+		Partial:     snapshot.GetPartial(),
+		Truncated:   snapshot.GetTruncated(),
+		Actors:      actors,
+	}
+}
+
+func palworldMapActorKindFromProto(kind nodeprotov1.PalworldMapActorKind) node.PalworldMapActorKind {
+	switch kind {
+	case nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_PLAYER:
+		return node.PalworldMapActorKindPlayer
+	case nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_BASE:
+		return node.PalworldMapActorKindBase
+	case nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_BASE_WORKER:
+		return node.PalworldMapActorKindBaseWorker
+	case nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_COMPANION_PAL:
+		return node.PalworldMapActorKindCompanionPal
+	case nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_WILD_PAL:
+		return node.PalworldMapActorKindWildPal
+	case nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_NPC:
+		return node.PalworldMapActorKindNPC
+	case nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_OTHER:
+		return node.PalworldMapActorKindOther
+	default:
+		return node.PalworldMapActorKindUnknown
+	}
 }
 
 func rconProtocolToProto(protocol node.RCONProtocol) (nodeprotov1.RCONProtocol, error) {

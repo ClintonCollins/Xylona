@@ -9,6 +9,34 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
+  it('shows the exact live map to Palworld viewers', () => {
+    const tabs = buildGameServerTabs(
+      serverID,
+      ['game_server.view'],
+      false,
+      false,
+      true,
+      false,
+      true,
+    )
+
+    expect(tabs.map((tab) => tab.name)).toEqual(['Console', 'Map'])
+  })
+
+  it('does not show the map tab for non-Palworld servers', () => {
+    const tabs = buildGameServerTabs(
+      serverID,
+      ['game_server.view'],
+      false,
+      false,
+      true,
+      false,
+      false,
+    )
+
+    expect(tabs.map((tab) => tab.name)).toEqual(['Console'])
+  })
+
   it('shows Players for an operator with the player-management permission', () => {
     const perms = [
       'game_server.view',
@@ -116,6 +144,36 @@ describe('getUnauthorizedRedirect', () => {
       ['game_server.view'],
       false,
     )
+    expect(result).toBe(consolePath)
+  })
+
+  it('allows the map for a Palworld viewer', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/map`,
+      serverID,
+      ['game_server.view'],
+      false,
+      false,
+      true,
+      false,
+      true,
+    )
+
+    expect(result).toBeNull()
+  })
+
+  it('redirects the map when the server is not Palworld', () => {
+    const result = getUnauthorizedRedirect(
+      `/game-servers/${serverID}/map`,
+      serverID,
+      ['game_server.view'],
+      false,
+      false,
+      true,
+      false,
+      false,
+    )
+
     expect(result).toBe(consolePath)
   })
 

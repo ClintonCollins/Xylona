@@ -177,6 +177,20 @@ const (
 	// XylonaPerformGameServerPlayerActionProcedure is the fully-qualified name of the Xylona's
 	// PerformGameServerPlayerAction RPC.
 	XylonaPerformGameServerPlayerActionProcedure = "/xylona.Xylona/PerformGameServerPlayerAction"
+	// XylonaGetPalworldMapProcedure is the fully-qualified name of the Xylona's GetPalworldMap RPC.
+	XylonaGetPalworldMapProcedure = "/xylona.Xylona/GetPalworldMap"
+	// XylonaUpdatePalworldMapConfigProcedure is the fully-qualified name of the Xylona's
+	// UpdatePalworldMapConfig RPC.
+	XylonaUpdatePalworldMapConfigProcedure = "/xylona.Xylona/UpdatePalworldMapConfig"
+	// XylonaRegeneratePalworldMapShareProcedure is the fully-qualified name of the Xylona's
+	// RegeneratePalworldMapShare RPC.
+	XylonaRegeneratePalworldMapShareProcedure = "/xylona.Xylona/RegeneratePalworldMapShare"
+	// XylonaRevokePalworldMapShareProcedure is the fully-qualified name of the Xylona's
+	// RevokePalworldMapShare RPC.
+	XylonaRevokePalworldMapShareProcedure = "/xylona.Xylona/RevokePalworldMapShare"
+	// XylonaGetPublicPalworldMapProcedure is the fully-qualified name of the Xylona's
+	// GetPublicPalworldMap RPC.
+	XylonaGetPublicPalworldMapProcedure = "/xylona.Xylona/GetPublicPalworldMap"
 	// XylonaGetUpdateTargetsProcedure is the fully-qualified name of the Xylona's GetUpdateTargets RPC.
 	XylonaGetUpdateTargetsProcedure = "/xylona.Xylona/GetUpdateTargets"
 	// XylonaSetServerVariantProcedure is the fully-qualified name of the Xylona's SetServerVariant RPC.
@@ -454,6 +468,11 @@ type XylonaClient interface {
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
+	GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error)
+	UpdatePalworldMapConfig(context.Context, *connect.Request[xylona.UpdatePalworldMapConfigRequest]) (*connect.Response[xylona.UpdatePalworldMapConfigResponse], error)
+	RegeneratePalworldMapShare(context.Context, *connect.Request[xylona.RegeneratePalworldMapShareRequest]) (*connect.Response[xylona.RegeneratePalworldMapShareResponse], error)
+	RevokePalworldMapShare(context.Context, *connect.Request[xylona.RevokePalworldMapShareRequest]) (*connect.Response[xylona.RevokePalworldMapShareResponse], error)
+	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -913,6 +932,36 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaPerformGameServerPlayerActionProcedure,
 			connect.WithSchema(xylonaMethods.ByName("PerformGameServerPlayerAction")),
+			connect.WithClientOptions(opts...),
+		),
+		getPalworldMap: connect.NewClient[xylona.GetPalworldMapRequest, xylona.GetPalworldMapResponse](
+			httpClient,
+			baseURL+XylonaGetPalworldMapProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetPalworldMap")),
+			connect.WithClientOptions(opts...),
+		),
+		updatePalworldMapConfig: connect.NewClient[xylona.UpdatePalworldMapConfigRequest, xylona.UpdatePalworldMapConfigResponse](
+			httpClient,
+			baseURL+XylonaUpdatePalworldMapConfigProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdatePalworldMapConfig")),
+			connect.WithClientOptions(opts...),
+		),
+		regeneratePalworldMapShare: connect.NewClient[xylona.RegeneratePalworldMapShareRequest, xylona.RegeneratePalworldMapShareResponse](
+			httpClient,
+			baseURL+XylonaRegeneratePalworldMapShareProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RegeneratePalworldMapShare")),
+			connect.WithClientOptions(opts...),
+		),
+		revokePalworldMapShare: connect.NewClient[xylona.RevokePalworldMapShareRequest, xylona.RevokePalworldMapShareResponse](
+			httpClient,
+			baseURL+XylonaRevokePalworldMapShareProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RevokePalworldMapShare")),
+			connect.WithClientOptions(opts...),
+		),
+		getPublicPalworldMap: connect.NewClient[xylona.GetPublicPalworldMapRequest, xylona.GetPublicPalworldMapResponse](
+			httpClient,
+			baseURL+XylonaGetPublicPalworldMapProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetPublicPalworldMap")),
 			connect.WithClientOptions(opts...),
 		),
 		getUpdateTargets: connect.NewClient[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse](
@@ -1441,6 +1490,11 @@ type xylonaClient struct {
 	queryGameServer                     *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
 	getGameServerPlayerManagement       *connect.Client[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse]
 	performGameServerPlayerAction       *connect.Client[xylona.PerformGameServerPlayerActionRequest, xylona.PerformGameServerPlayerActionResponse]
+	getPalworldMap                      *connect.Client[xylona.GetPalworldMapRequest, xylona.GetPalworldMapResponse]
+	updatePalworldMapConfig             *connect.Client[xylona.UpdatePalworldMapConfigRequest, xylona.UpdatePalworldMapConfigResponse]
+	regeneratePalworldMapShare          *connect.Client[xylona.RegeneratePalworldMapShareRequest, xylona.RegeneratePalworldMapShareResponse]
+	revokePalworldMapShare              *connect.Client[xylona.RevokePalworldMapShareRequest, xylona.RevokePalworldMapShareResponse]
+	getPublicPalworldMap                *connect.Client[xylona.GetPublicPalworldMapRequest, xylona.GetPublicPalworldMapResponse]
 	getUpdateTargets                    *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
 	setServerVariant                    *connect.Client[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse]
 	getVariantOperationStatus           *connect.Client[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse]
@@ -1813,6 +1867,31 @@ func (c *xylonaClient) GetGameServerPlayerManagement(ctx context.Context, req *c
 // PerformGameServerPlayerAction calls xylona.Xylona.PerformGameServerPlayerAction.
 func (c *xylonaClient) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error) {
 	return c.performGameServerPlayerAction.CallUnary(ctx, req)
+}
+
+// GetPalworldMap calls xylona.Xylona.GetPalworldMap.
+func (c *xylonaClient) GetPalworldMap(ctx context.Context, req *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error) {
+	return c.getPalworldMap.CallUnary(ctx, req)
+}
+
+// UpdatePalworldMapConfig calls xylona.Xylona.UpdatePalworldMapConfig.
+func (c *xylonaClient) UpdatePalworldMapConfig(ctx context.Context, req *connect.Request[xylona.UpdatePalworldMapConfigRequest]) (*connect.Response[xylona.UpdatePalworldMapConfigResponse], error) {
+	return c.updatePalworldMapConfig.CallUnary(ctx, req)
+}
+
+// RegeneratePalworldMapShare calls xylona.Xylona.RegeneratePalworldMapShare.
+func (c *xylonaClient) RegeneratePalworldMapShare(ctx context.Context, req *connect.Request[xylona.RegeneratePalworldMapShareRequest]) (*connect.Response[xylona.RegeneratePalworldMapShareResponse], error) {
+	return c.regeneratePalworldMapShare.CallUnary(ctx, req)
+}
+
+// RevokePalworldMapShare calls xylona.Xylona.RevokePalworldMapShare.
+func (c *xylonaClient) RevokePalworldMapShare(ctx context.Context, req *connect.Request[xylona.RevokePalworldMapShareRequest]) (*connect.Response[xylona.RevokePalworldMapShareResponse], error) {
+	return c.revokePalworldMapShare.CallUnary(ctx, req)
+}
+
+// GetPublicPalworldMap calls xylona.Xylona.GetPublicPalworldMap.
+func (c *xylonaClient) GetPublicPalworldMap(ctx context.Context, req *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error) {
+	return c.getPublicPalworldMap.CallUnary(ctx, req)
 }
 
 // GetUpdateTargets calls xylona.Xylona.GetUpdateTargets.
@@ -2268,6 +2347,11 @@ type XylonaHandler interface {
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
+	GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error)
+	UpdatePalworldMapConfig(context.Context, *connect.Request[xylona.UpdatePalworldMapConfigRequest]) (*connect.Response[xylona.UpdatePalworldMapConfigResponse], error)
+	RegeneratePalworldMapShare(context.Context, *connect.Request[xylona.RegeneratePalworldMapShareRequest]) (*connect.Response[xylona.RegeneratePalworldMapShareResponse], error)
+	RevokePalworldMapShare(context.Context, *connect.Request[xylona.RevokePalworldMapShareRequest]) (*connect.Response[xylona.RevokePalworldMapShareResponse], error)
+	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -2723,6 +2807,36 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaPerformGameServerPlayerActionProcedure,
 		svc.PerformGameServerPlayerAction,
 		connect.WithSchema(xylonaMethods.ByName("PerformGameServerPlayerAction")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetPalworldMapHandler := connect.NewUnaryHandler(
+		XylonaGetPalworldMapProcedure,
+		svc.GetPalworldMap,
+		connect.WithSchema(xylonaMethods.ByName("GetPalworldMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdatePalworldMapConfigHandler := connect.NewUnaryHandler(
+		XylonaUpdatePalworldMapConfigProcedure,
+		svc.UpdatePalworldMapConfig,
+		connect.WithSchema(xylonaMethods.ByName("UpdatePalworldMapConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRegeneratePalworldMapShareHandler := connect.NewUnaryHandler(
+		XylonaRegeneratePalworldMapShareProcedure,
+		svc.RegeneratePalworldMapShare,
+		connect.WithSchema(xylonaMethods.ByName("RegeneratePalworldMapShare")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRevokePalworldMapShareHandler := connect.NewUnaryHandler(
+		XylonaRevokePalworldMapShareProcedure,
+		svc.RevokePalworldMapShare,
+		connect.WithSchema(xylonaMethods.ByName("RevokePalworldMapShare")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetPublicPalworldMapHandler := connect.NewUnaryHandler(
+		XylonaGetPublicPalworldMapProcedure,
+		svc.GetPublicPalworldMap,
+		connect.WithSchema(xylonaMethods.ByName("GetPublicPalworldMap")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetUpdateTargetsHandler := connect.NewUnaryHandler(
@@ -3307,6 +3421,16 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetGameServerPlayerManagementHandler.ServeHTTP(w, r)
 		case XylonaPerformGameServerPlayerActionProcedure:
 			xylonaPerformGameServerPlayerActionHandler.ServeHTTP(w, r)
+		case XylonaGetPalworldMapProcedure:
+			xylonaGetPalworldMapHandler.ServeHTTP(w, r)
+		case XylonaUpdatePalworldMapConfigProcedure:
+			xylonaUpdatePalworldMapConfigHandler.ServeHTTP(w, r)
+		case XylonaRegeneratePalworldMapShareProcedure:
+			xylonaRegeneratePalworldMapShareHandler.ServeHTTP(w, r)
+		case XylonaRevokePalworldMapShareProcedure:
+			xylonaRevokePalworldMapShareHandler.ServeHTTP(w, r)
+		case XylonaGetPublicPalworldMapProcedure:
+			xylonaGetPublicPalworldMapHandler.ServeHTTP(w, r)
 		case XylonaGetUpdateTargetsProcedure:
 			xylonaGetUpdateTargetsHandler.ServeHTTP(w, r)
 		case XylonaSetServerVariantProcedure:
@@ -3704,6 +3828,26 @@ func (UnimplementedXylonaHandler) GetGameServerPlayerManagement(context.Context,
 
 func (UnimplementedXylonaHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.PerformGameServerPlayerAction is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPalworldMap is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdatePalworldMapConfig(context.Context, *connect.Request[xylona.UpdatePalworldMapConfigRequest]) (*connect.Response[xylona.UpdatePalworldMapConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdatePalworldMapConfig is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RegeneratePalworldMapShare(context.Context, *connect.Request[xylona.RegeneratePalworldMapShareRequest]) (*connect.Response[xylona.RegeneratePalworldMapShareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RegeneratePalworldMapShare is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RevokePalworldMapShare(context.Context, *connect.Request[xylona.RevokePalworldMapShareRequest]) (*connect.Response[xylona.RevokePalworldMapShareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RevokePalworldMapShare is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPublicPalworldMap is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {

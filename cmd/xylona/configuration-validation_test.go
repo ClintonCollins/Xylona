@@ -148,6 +148,59 @@ func TestSecurityHeadersAllowGoogleFonts(t *testing.T) {
 	}
 }
 
+func TestSecurityHeadersSupportExternalMapTiles(t *testing.T) {
+	testCases := []struct {
+		name           string
+		requestURL     string
+		forwardedProto string
+		wantImageSrc   string
+		wantReferrer   string
+	}{
+		{
+			name:         "HTTP controller permits HTTP and HTTPS tiles",
+			requestURL:   "/game-servers/server-1/map",
+			wantImageSrc: `img-src 'self' data: blob: http: https:`,
+			wantReferrer: "strict-origin-when-cross-origin",
+		},
+		{
+			name:           "HTTPS controller permits only HTTPS tiles",
+			requestURL:     "/game-servers/server-1/map",
+			forwardedProto: "https",
+			wantImageSrc:   `img-src 'self' data: blob: https:`,
+			wantReferrer:   "strict-origin-when-cross-origin",
+		},
+		{
+			name:         "public map does not send referrers",
+			requestURL:   "/shared/palworld-map",
+			wantImageSrc: `img-src 'self' data: blob: http: https:`,
+			wantReferrer: "no-referrer",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, testCase.requestURL, nil)
+			if testCase.forwardedProto != "" {
+				request.Header.Set("X-Forwarded-Proto", testCase.forwardedProto)
+			}
+			response := httptest.NewRecorder()
+
+			handler.ServeHTTP(response, request)
+
+			csp := response.Header().Get("Content-Security-Policy")
+			if !strings.Contains(csp, testCase.wantImageSrc) {
+				t.Fatalf("Content-Security-Policy = %q, want image source %q", csp, testCase.wantImageSrc)
+			}
+			if gotReferrer := response.Header().Get("Referrer-Policy"); gotReferrer != testCase.wantReferrer {
+				t.Fatalf("Referrer-Policy = %q, want %q", gotReferrer, testCase.wantReferrer)
+			}
+		})
+	}
+}
+
 func TestStartupFailureReturnsNonZeroAndCleansUp(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cleanupCalled := false

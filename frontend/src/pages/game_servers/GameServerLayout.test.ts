@@ -119,6 +119,7 @@ function buildGameServerResponse(serverID: string) {
     gameServer: create(GameServerSchema, {
       id: serverID,
       userId: 'user-1',
+      gameId: 'palworld',
       effectivePermissions: ['game_server.console'],
       game: create(GameSchema, { allowStartArgEditing: true }),
     }),

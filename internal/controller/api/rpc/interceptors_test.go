@@ -83,6 +83,11 @@ func TestSessionAuthInterceptorWrapUnary(t *testing.T) {
 			wantNextCalled: true,
 		},
 		{
+			name:           "public Palworld map is allowed without session",
+			procedure:      xylonaconnect.XylonaGetPublicPalworldMapProcedure,
+			wantNextCalled: true,
+		},
+		{
 			name:           "protected endpoint is allowed with a valid session",
 			procedure:      xylonaconnect.XylonaListRolesProcedure,
 			withSession:    true,

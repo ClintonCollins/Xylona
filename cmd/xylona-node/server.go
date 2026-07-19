@@ -838,6 +838,28 @@ func (s *nodeServiceServer) QueryGameServer(ctx context.Context, req *connect.Re
 	}), nil
 }
 
+func (s *nodeServiceServer) QueryPalworldMap(ctx context.Context, req *connect.Request[nodeprotov1.QueryPalworldMapRequest]) (*connect.Response[nodeprotov1.QueryPalworldMapResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	snapshot, errQuery := s.n.QueryPalworldMap(ctx, node.PalworldMapQueryRequest{
+		IP:        req.Msg.GetIp(),
+		QueryPort: req.Msg.GetQueryPort(),
+		Username:  req.Msg.GetUsername(),
+		Password:  req.Msg.GetPassword(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QueryPalworldMapResponse{
+		Snapshot: palworldMapSnapshotToProto(snapshot),
+	}), nil
+}
+
 func (s *nodeServiceServer) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[nodeprotov1.PerformGameServerPlayerActionRequest]) (*connect.Response[nodeprotov1.PerformGameServerPlayerActionResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1085,6 +1107,62 @@ func palworldQueryToProto(info *node.PalworldQueryInfo) *nodeprotov1.GameServerP
 	}
 }
 
+func palworldMapSnapshotToProto(snapshot *node.PalworldMapSnapshot) *nodeprotov1.PalworldMapSnapshot {
+	if snapshot == nil {
+		return nil
+	}
+	actors := make([]*nodeprotov1.PalworldMapActor, 0, len(snapshot.Actors))
+	for _, actor := range snapshot.Actors {
+		actors = append(actors, &nodeprotov1.PalworldMapActor{
+			Key:         actor.Key,
+			Kind:        palworldMapActorKindToProto(actor.Kind),
+			Name:        actor.Name,
+			GuildName:   actor.GuildName,
+			TrainerName: actor.TrainerName,
+			ClassName:   actor.ClassName,
+			LocationX:   actor.LocationX,
+			LocationY:   actor.LocationY,
+			LocationZ:   actor.LocationZ,
+			RotationZ:   actor.RotationZ,
+			Level:       actor.Level,
+			Hp:          actor.HP,
+			MaxHp:       actor.MaxHP,
+			Action:      actor.Action,
+			AiAction:    actor.AIAction,
+			Active:      actor.Active,
+		})
+	}
+	return &nodeprotov1.PalworldMapSnapshot{
+		SourceTime:  snapshot.SourceTime,
+		CollectedAt: timestamppb.New(snapshot.CollectedAt),
+		Source:      snapshot.Source,
+		Partial:     snapshot.Partial,
+		Truncated:   snapshot.Truncated,
+		Actors:      actors,
+	}
+}
+
+func palworldMapActorKindToProto(kind node.PalworldMapActorKind) nodeprotov1.PalworldMapActorKind {
+	switch kind {
+	case node.PalworldMapActorKindPlayer:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_PLAYER
+	case node.PalworldMapActorKindBase:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_BASE
+	case node.PalworldMapActorKindBaseWorker:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_BASE_WORKER
+	case node.PalworldMapActorKindCompanionPal:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_COMPANION_PAL
+	case node.PalworldMapActorKindWildPal:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_WILD_PAL
+	case node.PalworldMapActorKindNPC:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_NPC
+	case node.PalworldMapActorKindOther:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_OTHER
+	default:
+		return nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_UNSPECIFIED
+	}
+}
+
 func gameServerPlayersToProto(players []node.GameServerPlayer) []*nodeprotov1.GameServerPlayer {
 	result := make([]*nodeprotov1.GameServerPlayer, 0, len(players))
 	for _, player := range players {
@@ -1250,6 +1328,7 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		RconInput:                caps.RCONInput,
 		RestInput:                caps.RESTInput,
 		PlayerActions:            caps.PlayerActions,
+		PalworldMap:              caps.PalworldMap,
 	}), nil
 }
 

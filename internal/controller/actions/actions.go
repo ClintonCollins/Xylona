@@ -94,6 +94,8 @@ type Instance struct {
 	nodeRegistry         *noderegistry.Registry
 	serverQueriesInfoMap map[string]*xylona.ServerQuery
 	serverQueriesMutex   *sync.RWMutex
+	palworldMaps         map[string]PalworldMapState
+	palworldMapsMutex    sync.RWMutex
 	queryTelemetry       gameServerQueryTelemetryStore
 	db                   *db.Connection
 	modManager           *modmanager.ModManager
@@ -173,6 +175,7 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 		nodeRegistry:         nodeRegistry,
 		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
 		serverQueriesMutex:   &sync.RWMutex{},
+		palworldMaps:         make(map[string]PalworldMapState),
 		db:                   database,
 		modManager:           modMgr,
 		versionState:         versionState,
@@ -187,6 +190,7 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 		exitHooks:            newExitHookRegistry(),
 	}
 	go inst.backgroundJobQueryAllGameServers()
+	go inst.backgroundJobQueryPalworldMaps()
 	go inst.backgroundJobCheckModUpdates()
 	go inst.backgroundJobCheckVersionUpdates()
 

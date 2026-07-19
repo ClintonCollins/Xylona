@@ -33,6 +33,31 @@ func (n *Node) QueryGameServer(ctx context.Context, req GameServerQueryRequest) 
 	}
 }
 
+// QueryPalworldMap returns a sanitized live-world snapshot. It is separate
+// from QueryGameServer so the controller can poll the larger actor payload at
+// a lower cadence than the lightweight server-status feed.
+func (n *Node) QueryPalworldMap(ctx context.Context, req PalworldMapQueryRequest) (*PalworldMapSnapshot, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	errCtx := ctx.Err()
+	if errCtx != nil {
+		return nil, fmt.Errorf("node: query palworld map canceled: %w", errCtx)
+	}
+
+	snapshot, errQuery := query.PalworldMap(
+		ctx,
+		req.IP,
+		int(req.QueryPort),
+		req.Username,
+		req.Password,
+	)
+	if errQuery != nil {
+		return nil, fmt.Errorf("node: query palworld map: %w", errQuery)
+	}
+	return palworldMapSnapshotFromQuery(snapshot), nil
+}
+
 func queryPalworld(ctx context.Context, req GameServerQueryRequest) GameServerQueryResult {
 	info, errQuery := query.PalworldDetailed(ctx, req.IP, int(req.QueryPort), req.Username, req.Password)
 	if errQuery != nil {
@@ -135,5 +160,61 @@ func palworldQueryFromDetailed(info *query.PalworldInfo) *PalworldQueryInfo {
 		Days:              info.Days,
 		Responded:         info.Responded,
 		PlayerDetails:     playerDetails,
+	}
+}
+
+func palworldMapSnapshotFromQuery(snapshot *query.PalworldMapSnapshot) *PalworldMapSnapshot {
+	if snapshot == nil {
+		return nil
+	}
+	actors := make([]PalworldMapActor, 0, len(snapshot.Actors))
+	for _, actor := range snapshot.Actors {
+		actors = append(actors, PalworldMapActor{
+			Key:         actor.Key,
+			Kind:        palworldMapActorKindFromQuery(actor.Kind),
+			Name:        actor.Name,
+			GuildName:   actor.GuildName,
+			TrainerName: actor.TrainerName,
+			ClassName:   actor.ClassName,
+			LocationX:   actor.LocationX,
+			LocationY:   actor.LocationY,
+			LocationZ:   actor.LocationZ,
+			RotationZ:   actor.RotationZ,
+			Level:       actor.Level,
+			HP:          actor.HP,
+			MaxHP:       actor.MaxHP,
+			Action:      actor.Action,
+			AIAction:    actor.AIAction,
+			Active:      actor.Active,
+		})
+	}
+	return &PalworldMapSnapshot{
+		SourceTime:  snapshot.SourceTime,
+		CollectedAt: snapshot.CollectedAt,
+		Source:      snapshot.Source,
+		Partial:     snapshot.Partial,
+		Truncated:   snapshot.Truncated,
+		Actors:      actors,
+	}
+}
+
+func palworldMapActorKindFromQuery(kind query.PalworldMapActorKind) PalworldMapActorKind {
+	switch kind {
+	case query.PalworldMapActorKindPlayer:
+		return PalworldMapActorKindPlayer
+	case query.PalworldMapActorKindBase:
+		return PalworldMapActorKindBase
+	case query.PalworldMapActorKindBaseWorker:
+		return PalworldMapActorKindBaseWorker
+	case query.PalworldMapActorKindCompanionPal:
+		return PalworldMapActorKindCompanionPal
+	case query.PalworldMapActorKindWildPal:
+		return PalworldMapActorKindWildPal
+	case query.PalworldMapActorKindNPC:
+		return PalworldMapActorKindNPC
+	case query.PalworldMapActorKindOther:
+		return PalworldMapActorKindOther
+	default:
+		return PalworldMapActorKindUnknown
 	}
 }

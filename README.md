@@ -216,6 +216,15 @@ mage Build
 mage GenerateProto
 ```
 
+Protocol Buffer generation runs locally and never uploads source schemas to
+Buf. Install the pinned Go plugins once, and run `bun install` in `frontend/`
+before generating:
+
+```bash
+go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.18.1
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.3
+```
+
 ```bash
 mage GenerateModels
 ```

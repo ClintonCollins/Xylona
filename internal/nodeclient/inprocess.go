@@ -301,6 +301,17 @@ func (c *inProcessNodeClient) QueryGameServer(ctx context.Context, req node.Game
 	return result, nil
 }
 
+func (c *inProcessNodeClient) QueryPalworldMap(ctx context.Context, req node.PalworldMapQueryRequest) (*node.PalworldMapSnapshot, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+	snapshot, errQuery := c.node.QueryPalworldMap(ctx, req)
+	if errQuery != nil {
+		return nil, fmt.Errorf("nodeclient: query palworld map: %w", errQuery)
+	}
+	return snapshot, nil
+}
+
 func (c *inProcessNodeClient) PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error {
 	if c.node == nil {
 		return ErrNodeNil

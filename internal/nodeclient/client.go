@@ -141,6 +141,10 @@ type NodeClient interface {
 	// scheduling and storing the returned result.
 	QueryGameServer(ctx context.Context, req node.GameServerQueryRequest) (node.GameServerQueryResult, error)
 
+	// QueryPalworldMap asks the owning node for a sanitized live-world
+	// snapshot at its independent, lower polling cadence.
+	QueryPalworldMap(ctx context.Context, req node.PalworldMapQueryRequest) (*node.PalworldMapSnapshot, error)
+
 	// PerformGameServerPlayerAction executes one typed game-specific player
 	// administration action on the node that owns the game server.
 	PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error

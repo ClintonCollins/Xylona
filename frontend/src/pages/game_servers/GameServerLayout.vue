@@ -48,6 +48,7 @@ let currentIsOwnerOrSuper = false
 let currentHasModSupport = false
 let currentAllowStartArgEditing = true
 let currentIsSuperUser = false
+let currentIsPalworld = false
 let tabConfigurationSequence = 0
 
 onMounted(async () => {
@@ -107,6 +108,7 @@ async function configureTabs() {
   let hasModSupport = false
   let allowStartArgEditing = true
   let isSuperUser = false
+  let isPalworld = false
 
   if (currentUser) {
     try {
@@ -132,6 +134,7 @@ async function configureTabs() {
       isOwnerOrSuper = currentUser.superUser || isOwner
       hasModSupport = Boolean(gameServerResp.gameServer?.resolvedHasModSupport)
       allowStartArgEditing = gameServerResp.gameServer?.game?.allowStartArgEditing ?? true
+      isPalworld = gameServerResp.gameServer?.gameId === 'palworld'
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       console.error(err)
@@ -147,6 +150,7 @@ async function configureTabs() {
   currentHasModSupport = hasModSupport
   currentAllowStartArgEditing = allowStartArgEditing
   currentIsSuperUser = isSuperUser
+  currentIsPalworld = isPalworld
 
   navQTabsStore.changeTabs(
     buildGameServerTabs(
@@ -156,6 +160,7 @@ async function configureTabs() {
       hasModSupport,
       allowStartArgEditing,
       isSuperUser,
+      isPalworld,
     ),
   )
   return true
@@ -175,6 +180,7 @@ async function enforceRouteAccess() {
     currentHasModSupport,
     currentAllowStartArgEditing,
     currentIsSuperUser,
+    currentIsPalworld,
   )
   if (redirectPath !== null && route.path !== redirectPath) {
     await router.replace(redirectPath)

@@ -19,6 +19,7 @@ var publicSessionOptionalProcedures = map[string]struct{}{
 	xylonaconnect.XylonaLoginProcedure:                  {},
 	xylonaconnect.XylonaLogoutProcedure:                 {},
 	xylonaconnect.XylonaRemoveNodeProcedure:             {},
+	xylonaconnect.XylonaGetPublicPalworldMapProcedure:   {},
 }
 
 type sessionAuthInterceptor struct {

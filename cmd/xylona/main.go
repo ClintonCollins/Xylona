@@ -209,19 +209,26 @@ func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		referrerPolicy := "strict-origin-when-cross-origin"
+		if r.URL.Path == "/shared/palworld-map" {
+			referrerPolicy = "no-referrer"
+		}
+		w.Header().Set("Referrer-Policy", referrerPolicy)
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		connectSrc := `connect-src 'self' http: ws:`
-		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		imageSrc := `img-src 'self' data: blob: http: https:`
+		isHTTPS := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+		if isHTTPS {
 			connectSrc = `connect-src 'self' https: wss:`
+			imageSrc = `img-src 'self' data: blob: https:`
 		}
 		w.Header().Set("Content-Security-Policy",
 			`default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; `+
-				`img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; `+
+				imageSrc+`; font-src 'self' data: https://fonts.gstatic.com; `+
 				`style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; `+
 				`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; `+
 				connectSrc)
-		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		if isHTTPS {
 			w.Header().Set("Strict-Transport-Security", `max-age=31536000; includeSubDomains`)
 		}
 		next.ServeHTTP(w, r)

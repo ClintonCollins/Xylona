@@ -116,6 +116,11 @@ type FakeNodeClient struct {
 	QueryGameServerErr    error
 	QueryGameServerCalls  []node.GameServerQueryRequest
 
+	QueryPalworldMapResult *node.PalworldMapSnapshot
+	QueryPalworldMapErr    error
+	QueryPalworldMapCalls  []node.PalworldMapQueryRequest
+	QueryPalworldMapFunc   func(context.Context, node.PalworldMapQueryRequest) (*node.PalworldMapSnapshot, error)
+
 	PerformGameServerPlayerActionErr   error
 	PerformGameServerPlayerActionCalls []node.GameServerPlayerActionRequest
 
@@ -555,6 +560,17 @@ func (f *FakeNodeClient) QueryGameServer(_ context.Context, req node.GameServerQ
 	f.QueryGameServerCalls = append(f.QueryGameServerCalls, req)
 	f.mu.Unlock()
 	return f.QueryGameServerResult, f.QueryGameServerErr
+}
+
+// QueryPalworldMap records the call and returns the configured snapshot.
+func (f *FakeNodeClient) QueryPalworldMap(ctx context.Context, req node.PalworldMapQueryRequest) (*node.PalworldMapSnapshot, error) {
+	f.mu.Lock()
+	f.QueryPalworldMapCalls = append(f.QueryPalworldMapCalls, req)
+	f.mu.Unlock()
+	if f.QueryPalworldMapFunc != nil {
+		return f.QueryPalworldMapFunc(ctx, req)
+	}
+	return f.QueryPalworldMapResult, f.QueryPalworldMapErr
 }
 
 // PerformGameServerPlayerAction records the call and returns the configured error.

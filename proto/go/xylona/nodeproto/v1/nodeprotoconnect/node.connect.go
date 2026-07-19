@@ -103,6 +103,9 @@ const (
 	// NodeServiceQueryGameServerProcedure is the fully-qualified name of the NodeService's
 	// QueryGameServer RPC.
 	NodeServiceQueryGameServerProcedure = "/xylona.node.v1.NodeService/QueryGameServer"
+	// NodeServiceQueryPalworldMapProcedure is the fully-qualified name of the NodeService's
+	// QueryPalworldMap RPC.
+	NodeServiceQueryPalworldMapProcedure = "/xylona.node.v1.NodeService/QueryPalworldMap"
 	// NodeServicePerformGameServerPlayerActionProcedure is the fully-qualified name of the
 	// NodeService's PerformGameServerPlayerAction RPC.
 	NodeServicePerformGameServerPlayerActionProcedure = "/xylona.node.v1.NodeService/PerformGameServerPlayerAction"
@@ -167,6 +170,7 @@ type NodeServiceClient interface {
 	ExtractBackupArchive(context.Context, *connect.Request[v1.ExtractBackupArchiveRequest]) (*connect.Response[v1.ExtractBackupArchiveResponse], error)
 	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
 	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
+	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
@@ -345,6 +349,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("QueryGameServer")),
 			connect.WithClientOptions(opts...),
 		),
+		queryPalworldMap: connect.NewClient[v1.QueryPalworldMapRequest, v1.QueryPalworldMapResponse](
+			httpClient,
+			baseURL+NodeServiceQueryPalworldMapProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("QueryPalworldMap")),
+			connect.WithClientOptions(opts...),
+		),
 		performGameServerPlayerAction: connect.NewClient[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse](
 			httpClient,
 			baseURL+NodeServicePerformGameServerPlayerActionProcedure,
@@ -441,6 +451,7 @@ type nodeServiceClient struct {
 	extractBackupArchive          *connect.Client[v1.ExtractBackupArchiveRequest, v1.ExtractBackupArchiveResponse]
 	probeInstalledVersion         *connect.Client[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse]
 	queryGameServer               *connect.Client[v1.QueryGameServerRequest, v1.QueryGameServerResponse]
+	queryPalworldMap              *connect.Client[v1.QueryPalworldMapRequest, v1.QueryPalworldMapResponse]
 	performGameServerPlayerAction *connect.Client[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse]
 	sendConsoleOutput             *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
 	getProcessSnapshot            *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
@@ -579,6 +590,11 @@ func (c *nodeServiceClient) QueryGameServer(ctx context.Context, req *connect.Re
 	return c.queryGameServer.CallUnary(ctx, req)
 }
 
+// QueryPalworldMap calls xylona.node.v1.NodeService.QueryPalworldMap.
+func (c *nodeServiceClient) QueryPalworldMap(ctx context.Context, req *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error) {
+	return c.queryPalworldMap.CallUnary(ctx, req)
+}
+
 // PerformGameServerPlayerAction calls xylona.node.v1.NodeService.PerformGameServerPlayerAction.
 func (c *nodeServiceClient) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {
 	return c.performGameServerPlayerAction.CallUnary(ctx, req)
@@ -664,6 +680,7 @@ type NodeServiceHandler interface {
 	ExtractBackupArchive(context.Context, *connect.Request[v1.ExtractBackupArchiveRequest]) (*connect.Response[v1.ExtractBackupArchiveResponse], error)
 	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
 	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
+	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
@@ -838,6 +855,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("QueryGameServer")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceQueryPalworldMapHandler := connect.NewUnaryHandler(
+		NodeServiceQueryPalworldMapProcedure,
+		svc.QueryPalworldMap,
+		connect.WithSchema(nodeServiceMethods.ByName("QueryPalworldMap")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServicePerformGameServerPlayerActionHandler := connect.NewUnaryHandler(
 		NodeServicePerformGameServerPlayerActionProcedure,
 		svc.PerformGameServerPlayerAction,
@@ -956,6 +979,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceProbeInstalledVersionHandler.ServeHTTP(w, r)
 		case NodeServiceQueryGameServerProcedure:
 			nodeServiceQueryGameServerHandler.ServeHTTP(w, r)
+		case NodeServiceQueryPalworldMapProcedure:
+			nodeServiceQueryPalworldMapHandler.ServeHTTP(w, r)
 		case NodeServicePerformGameServerPlayerActionProcedure:
 			nodeServicePerformGameServerPlayerActionHandler.ServeHTTP(w, r)
 		case NodeServiceSendConsoleOutputProcedure:
@@ -1085,6 +1110,10 @@ func (UnimplementedNodeServiceHandler) ProbeInstalledVersion(context.Context, *c
 
 func (UnimplementedNodeServiceHandler) QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QueryGameServer is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QueryPalworldMap is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {

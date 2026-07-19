@@ -51,6 +51,8 @@ type callRecorder struct {
 	probeResp        *nodeprotov1.ProbeInstalledVersionResponse
 	queryReq         *nodeprotov1.QueryGameServerRequest
 	queryResp        *nodeprotov1.QueryGameServerResponse
+	palworldMapReq   *nodeprotov1.QueryPalworldMapRequest
+	palworldMapResp  *nodeprotov1.QueryPalworldMapResponse
 	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
 	playerActionErr  error
 	fileArchiveReq   *nodeprotov1.CreateFileArchiveRequest
@@ -175,6 +177,18 @@ func (s *stubHandler) QueryGameServer(_ context.Context, req *connect.Request[no
 	s.rec.mu.Unlock()
 	if resp == nil {
 		resp = &nodeprotov1.QueryGameServerResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) QueryPalworldMap(_ context.Context, req *connect.Request[nodeprotov1.QueryPalworldMapRequest]) (*connect.Response[nodeprotov1.QueryPalworldMapResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.palworldMapReq = req.Msg
+	resp := s.rec.palworldMapResp
+	s.rec.mu.Unlock()
+	if resp == nil {
+		resp = &nodeprotov1.QueryPalworldMapResponse{}
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -882,6 +896,7 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 			RconInput:                true,
 			RestInput:                true,
 			PlayerActions:            true,
+			PalworldMap:              true,
 		},
 	}
 	url, fingerprint := newPinnedTestServer(t, rec)
@@ -892,7 +907,7 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
 	if caps.ProtocolVersion != 7 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle ||
-		!caps.TelnetInput || !caps.RCONInput || !caps.RESTInput || !caps.PlayerActions {
+		!caps.TelnetInput || !caps.RCONInput || !caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap {
 		t.Fatalf("runtime capabilities = %+v, want all optional features", caps)
 	}
 }
@@ -985,6 +1000,58 @@ func TestGRPCClientRuntimeCapabilitiesUnimplementedMeansNoOptionalFeatures(t *te
 		t.Fatalf("runtime capabilities = %+v, want empty capabilities", caps)
 	}
 }
+
+func TestGRPCClientQueryPalworldMapRoundTripsExactActors(t *testing.T) {
+	t.Parallel()
+	collectedAt := time.Now().UTC().Truncate(time.Second)
+	recorder := &callRecorder{
+		palworldMapResp: &nodeprotov1.QueryPalworldMapResponse{
+			Snapshot: &nodeprotov1.PalworldMapSnapshot{
+				Source:      "game-data",
+				CollectedAt: timestamppb.New(collectedAt),
+				Actors: []*nodeprotov1.PalworldMapActor{
+					{
+						Key:       "player-1",
+						Kind:      nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_PLAYER,
+						Name:      "Alex",
+						LocationX: 123.456,
+						LocationY: -987.654,
+						LocationZ: 42.25,
+					},
+				},
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, recorder)
+	client, errClient := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+	if errClient != nil {
+		t.Fatalf("NewGRPCClient() error = %v", errClient)
+	}
+
+	snapshot, errQuery := client.QueryPalworldMap(t.Context(), node.PalworldMapQueryRequest{
+		IP:        "127.0.0.1",
+		QueryPort: 8212,
+		Username:  "admin",
+		Password:  "secret",
+	})
+	if errQuery != nil {
+		t.Fatalf("QueryPalworldMap() error = %v", errQuery)
+	}
+	if snapshot == nil || !snapshot.CollectedAt.Equal(collectedAt) || len(snapshot.Actors) != 1 {
+		t.Fatalf("QueryPalworldMap() = %+v", snapshot)
+	}
+	actor := snapshot.Actors[0]
+	if actor.Name != "Alex" || actor.LocationX != 123.456 || actor.LocationY != -987.654 || actor.LocationZ != 42.25 {
+		t.Fatalf("QueryPalworldMap() actor = %+v", actor)
+	}
+	recorder.mu.Lock()
+	recordedRequest := recorder.palworldMapReq
+	recorder.mu.Unlock()
+	if recordedRequest.GetQueryPort() != 8212 || recordedRequest.GetUsername() != "admin" || recordedRequest.GetPassword() != "secret" {
+		t.Fatalf("QueryPalworldMap() request = %+v", recordedRequest)
+	}
+}
+
 func TestGRPCClientStartProcessPropagatesServerError(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{errOverride: connect.NewError(connect.CodeNotFound, errors.New("missing"))}

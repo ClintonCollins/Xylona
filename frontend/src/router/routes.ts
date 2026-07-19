@@ -29,6 +29,10 @@ const requireAlertAccess = async () => {
 const routes: RouteRecordRaw[] = [
   // Unauthenticated routes
   {
+    path: '/shared/palworld-map',
+    component: () => import('pages/PublicPalworldMap.vue'),
+  },
+  {
     path: '/login',
     component: () => import('pages/Login.vue'),
     beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
@@ -105,6 +109,10 @@ const routes: RouteRecordRaw[] = [
           {
             path: 'players',
             component: () => import('pages/game_servers/GameServerPlayers.vue'),
+          },
+          {
+            path: 'map',
+            component: () => import('pages/game_servers/GameServerPalworldMap.vue'),
           },
           {
             path: 'files',
