@@ -130,6 +130,7 @@ func TestStoreHandler(t *testing.T) {
 		wantContent bool
 	}{
 		{name: "serves installed tile", method: http.MethodGet, path: "/test/1/1/0.webp", wantStatus: http.StatusOK, wantContent: true},
+		{name: "serves installed tile from mounted path", method: http.MethodGet, path: TilePathPrefix + "/test/1/1/0.webp", wantStatus: http.StatusOK, wantContent: true},
 		{name: "supports head", method: http.MethodHead, path: "/test/1/1/0.webp", wantStatus: http.StatusOK},
 		{name: "rejects out of range coordinate", method: http.MethodGet, path: "/test/1/2/0.webp", wantStatus: http.StatusNotFound},
 		{name: "rejects unknown layer", method: http.MethodGet, path: "/unknown/0/0/0.webp", wantStatus: http.StatusNotFound},

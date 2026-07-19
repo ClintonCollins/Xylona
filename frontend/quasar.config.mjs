@@ -124,6 +124,11 @@ export default configure(function (/* ctx */) {
           secure: false,
           ws: true,
         },
+        '/palworld-map-tiles': {
+          target: backendProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
 

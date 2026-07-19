@@ -1,6 +1,7 @@
 .env
 .idea
 data.sqlite
+/palworld-map-tiles/
 /Xylona.exe
 *.exe
 /cmd/minecraft_version_hasher/test_jars/

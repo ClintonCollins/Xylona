@@ -227,15 +227,18 @@ onBeforeUnmount(() => {
 <template>
   <div class="palworld-map-page">
     <header class="palworld-map-page__header">
-      <div>
-        <div class="palworld-map-page__eyebrow">Palworld</div>
-        <h1>Live world map</h1>
-        <p>Exact positions for players, bases, Pals, NPCs, and other world actors.</p>
+      <div class="palworld-map-page__heading">
+        <span class="palworld-map-page__heading-icon"><q-icon name="public" /></span>
+        <div>
+          <h1>Live world map</h1>
+          <p>Palworld · players, bases, Pals, NPCs, and world actors</p>
+        </div>
       </div>
       <div v-if="canManage" class="palworld-map-page__actions">
-        <q-btn flat icon="map" label="Map imagery" no-caps @click="openSettings" />
+        <q-btn dense flat icon="map" label="Map imagery" no-caps @click="openSettings" />
         <q-btn
           color="primary"
+          dense
           icon="ios_share"
           label="Public link"
           no-caps
@@ -451,8 +454,8 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  gap: var(--xy-space-md);
-  padding: var(--xy-space-lg);
+  gap: var(--xy-space-base);
+  padding: var(--xy-space-base) var(--xy-space-md) var(--xy-space-md);
   overflow: hidden;
 }
 
@@ -464,6 +467,31 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: var(--xy-space-md);
+}
+
+.palworld-map-page__header {
+  flex: 0 0 auto;
+  min-height: 52px;
+}
+
+.palworld-map-page__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-base);
+  min-width: 0;
+}
+
+.palworld-map-page__heading-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  color: var(--xy-accent);
+  background: var(--xy-accent-muted);
+  border-radius: var(--xy-radius-lg);
+  font-size: 21px;
 }
 
 .palworld-map-page__header h1 {
@@ -478,14 +506,6 @@ onBeforeUnmount(() => {
   margin: var(--xy-space-xs) 0 0;
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-sm);
-}
-
-.palworld-map-page__eyebrow {
-  color: var(--xy-accent);
-  font-size: var(--xy-font-size-xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .palworld-map-page__actions {
@@ -589,6 +609,10 @@ onBeforeUnmount(() => {
   .palworld-map-page__header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .palworld-map-page__actions {
+    width: 100%;
   }
 
   .palworld-map-dialog__grid {

@@ -327,7 +327,8 @@ func (s *Store) Handler() http.Handler {
 			return
 		}
 
-		layer, zoom, tileX, tileY, valid := s.parseTilePath(request.URL.Path)
+		requestPath := strings.TrimPrefix(request.URL.Path, TilePathPrefix)
+		layer, zoom, tileX, tileY, valid := s.parseTilePath(requestPath)
 		if !valid {
 			http.NotFound(responseWriter, request)
 			return
