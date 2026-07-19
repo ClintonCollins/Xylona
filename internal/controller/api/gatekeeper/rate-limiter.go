@@ -15,7 +15,10 @@ var authRateLimitedRPCPaths = []string{
 	"/VerifyNode",
 }
 
-const publicPalworldMapRPCPath = "/GetPublicPalworldMap"
+var publicMapRPCPaths = []string{
+	"/GetPublicPalworldMap",
+	"/GetPublicSevenDaysToDieMap",
+}
 
 // AuthRateLimiter applies a strict IP limit to authentication RPCs and a
 // separate higher limit to public map polling. All other requests pass through
@@ -39,13 +42,22 @@ func AuthRateLimiter() func(http.Handler) http.Handler {
 				authLimited.ServeHTTP(w, r)
 				return
 			}
-			if strings.Contains(r.URL.Path, publicPalworldMapRPCPath) {
+			if shouldRateLimitPublicMapPath(r.URL.Path) {
 				publicMapLimited.ServeHTTP(w, r)
 				return
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func shouldRateLimitPublicMapPath(path string) bool {
+	for _, publicMapPath := range publicMapRPCPaths {
+		if strings.Contains(path, publicMapPath) {
+			return true
+		}
+	}
+	return false
 }
 
 func shouldRateLimitPath(path string) bool {

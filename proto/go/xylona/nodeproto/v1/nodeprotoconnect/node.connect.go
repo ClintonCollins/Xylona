@@ -106,6 +106,12 @@ const (
 	// NodeServiceQueryPalworldMapProcedure is the fully-qualified name of the NodeService's
 	// QueryPalworldMap RPC.
 	NodeServiceQueryPalworldMapProcedure = "/xylona.node.v1.NodeService/QueryPalworldMap"
+	// NodeServiceQuerySevenDaysToDieMapProcedure is the fully-qualified name of the NodeService's
+	// QuerySevenDaysToDieMap RPC.
+	NodeServiceQuerySevenDaysToDieMapProcedure = "/xylona.node.v1.NodeService/QuerySevenDaysToDieMap"
+	// NodeServiceGetSevenDaysToDieMapTileProcedure is the fully-qualified name of the NodeService's
+	// GetSevenDaysToDieMapTile RPC.
+	NodeServiceGetSevenDaysToDieMapTileProcedure = "/xylona.node.v1.NodeService/GetSevenDaysToDieMapTile"
 	// NodeServicePerformGameServerPlayerActionProcedure is the fully-qualified name of the
 	// NodeService's PerformGameServerPlayerAction RPC.
 	NodeServicePerformGameServerPlayerActionProcedure = "/xylona.node.v1.NodeService/PerformGameServerPlayerAction"
@@ -171,6 +177,8 @@ type NodeServiceClient interface {
 	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
 	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
+	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
+	GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
@@ -355,6 +363,18 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("QueryPalworldMap")),
 			connect.WithClientOptions(opts...),
 		),
+		querySevenDaysToDieMap: connect.NewClient[v1.QuerySevenDaysToDieMapRequest, v1.QuerySevenDaysToDieMapResponse](
+			httpClient,
+			baseURL+NodeServiceQuerySevenDaysToDieMapProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieMap")),
+			connect.WithClientOptions(opts...),
+		),
+		getSevenDaysToDieMapTile: connect.NewClient[v1.GetSevenDaysToDieMapTileRequest, v1.GetSevenDaysToDieMapTileResponse](
+			httpClient,
+			baseURL+NodeServiceGetSevenDaysToDieMapTileProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("GetSevenDaysToDieMapTile")),
+			connect.WithClientOptions(opts...),
+		),
 		performGameServerPlayerAction: connect.NewClient[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse](
 			httpClient,
 			baseURL+NodeServicePerformGameServerPlayerActionProcedure,
@@ -452,6 +472,8 @@ type nodeServiceClient struct {
 	probeInstalledVersion         *connect.Client[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse]
 	queryGameServer               *connect.Client[v1.QueryGameServerRequest, v1.QueryGameServerResponse]
 	queryPalworldMap              *connect.Client[v1.QueryPalworldMapRequest, v1.QueryPalworldMapResponse]
+	querySevenDaysToDieMap        *connect.Client[v1.QuerySevenDaysToDieMapRequest, v1.QuerySevenDaysToDieMapResponse]
+	getSevenDaysToDieMapTile      *connect.Client[v1.GetSevenDaysToDieMapTileRequest, v1.GetSevenDaysToDieMapTileResponse]
 	performGameServerPlayerAction *connect.Client[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse]
 	sendConsoleOutput             *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
 	getProcessSnapshot            *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
@@ -595,6 +617,16 @@ func (c *nodeServiceClient) QueryPalworldMap(ctx context.Context, req *connect.R
 	return c.queryPalworldMap.CallUnary(ctx, req)
 }
 
+// QuerySevenDaysToDieMap calls xylona.node.v1.NodeService.QuerySevenDaysToDieMap.
+func (c *nodeServiceClient) QuerySevenDaysToDieMap(ctx context.Context, req *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error) {
+	return c.querySevenDaysToDieMap.CallUnary(ctx, req)
+}
+
+// GetSevenDaysToDieMapTile calls xylona.node.v1.NodeService.GetSevenDaysToDieMapTile.
+func (c *nodeServiceClient) GetSevenDaysToDieMapTile(ctx context.Context, req *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error) {
+	return c.getSevenDaysToDieMapTile.CallUnary(ctx, req)
+}
+
 // PerformGameServerPlayerAction calls xylona.node.v1.NodeService.PerformGameServerPlayerAction.
 func (c *nodeServiceClient) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {
 	return c.performGameServerPlayerAction.CallUnary(ctx, req)
@@ -681,6 +713,8 @@ type NodeServiceHandler interface {
 	ProbeInstalledVersion(context.Context, *connect.Request[v1.ProbeInstalledVersionRequest]) (*connect.Response[v1.ProbeInstalledVersionResponse], error)
 	QueryGameServer(context.Context, *connect.Request[v1.QueryGameServerRequest]) (*connect.Response[v1.QueryGameServerResponse], error)
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
+	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
+	GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
@@ -861,6 +895,18 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("QueryPalworldMap")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceQuerySevenDaysToDieMapHandler := connect.NewUnaryHandler(
+		NodeServiceQuerySevenDaysToDieMapProcedure,
+		svc.QuerySevenDaysToDieMap,
+		connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceGetSevenDaysToDieMapTileHandler := connect.NewUnaryHandler(
+		NodeServiceGetSevenDaysToDieMapTileProcedure,
+		svc.GetSevenDaysToDieMapTile,
+		connect.WithSchema(nodeServiceMethods.ByName("GetSevenDaysToDieMapTile")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServicePerformGameServerPlayerActionHandler := connect.NewUnaryHandler(
 		NodeServicePerformGameServerPlayerActionProcedure,
 		svc.PerformGameServerPlayerAction,
@@ -981,6 +1027,10 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceQueryGameServerHandler.ServeHTTP(w, r)
 		case NodeServiceQueryPalworldMapProcedure:
 			nodeServiceQueryPalworldMapHandler.ServeHTTP(w, r)
+		case NodeServiceQuerySevenDaysToDieMapProcedure:
+			nodeServiceQuerySevenDaysToDieMapHandler.ServeHTTP(w, r)
+		case NodeServiceGetSevenDaysToDieMapTileProcedure:
+			nodeServiceGetSevenDaysToDieMapTileHandler.ServeHTTP(w, r)
 		case NodeServicePerformGameServerPlayerActionProcedure:
 			nodeServicePerformGameServerPlayerActionHandler.ServeHTTP(w, r)
 		case NodeServiceSendConsoleOutputProcedure:
@@ -1114,6 +1164,14 @@ func (UnimplementedNodeServiceHandler) QueryGameServer(context.Context, *connect
 
 func (UnimplementedNodeServiceHandler) QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QueryPalworldMap is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QuerySevenDaysToDieMap is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.GetSevenDaysToDieMapTile is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {

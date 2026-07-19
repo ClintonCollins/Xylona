@@ -9,7 +9,7 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
-  it('shows the exact live map to Palworld viewers', () => {
+  it('shows the exact live map to viewers of supported map games', () => {
     const tabs = buildGameServerTabs(
       serverID,
       ['game_server.view'],
@@ -23,7 +23,7 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((tab) => tab.name)).toEqual(['Console', 'Map'])
   })
 
-  it('does not show the map tab for non-Palworld servers', () => {
+  it('does not show the map tab for games without live map support', () => {
     const tabs = buildGameServerTabs(
       serverID,
       ['game_server.view'],
@@ -147,7 +147,7 @@ describe('getUnauthorizedRedirect', () => {
     expect(result).toBe(consolePath)
   })
 
-  it('allows the map for a Palworld viewer', () => {
+  it('allows the map for a viewer of a supported map game', () => {
     const result = getUnauthorizedRedirect(
       `/game-servers/${serverID}/map`,
       serverID,
@@ -162,7 +162,7 @@ describe('getUnauthorizedRedirect', () => {
     expect(result).toBeNull()
   })
 
-  it('redirects the map when the server is not Palworld', () => {
+  it('redirects the map when the game has no live map support', () => {
     const result = getUnauthorizedRedirect(
       `/game-servers/${serverID}/map`,
       serverID,

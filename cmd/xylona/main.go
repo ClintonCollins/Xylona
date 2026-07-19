@@ -211,7 +211,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		referrerPolicy := "strict-origin-when-cross-origin"
-		if r.URL.Path == "/shared/palworld-map" {
+		if r.URL.Path == "/shared/palworld-map" || r.URL.Path == "/shared/7-days-to-die-map" {
 			referrerPolicy = "no-referrer"
 		}
 		w.Header().Set("Referrer-Policy", referrerPolicy)
@@ -708,6 +708,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	registerOperationalRoutes(router, dbInst.SQLDb)
 	registerMetricsRoute(router, config)
 	router.Mount(palworldmap.TilePathPrefix, palworldMapTileStore.Handler())
+	router.Get(rpc.SevenDaysToDieMapTilePathPrefix+"/{gameServerId}/{zoom}/{x}/{y}", xylonaService.SevenDaysToDieMapTile)
 	router.Mount(xylonaAPIPath, handler)
 	router.Mount("/api/websocket", websocketHandler)
 	// Node bootstrap endpoint — auth is by the one-shot join token in the

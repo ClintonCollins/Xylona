@@ -13,7 +13,7 @@ export function buildGameServerTabs(
   hasModSupport = false,
   allowStartArgEditing = true,
   isSuperUser = false,
-  isPalworld = false,
+  hasLiveMap = false,
 ): GameServerLayoutTab[] {
   const basePath = `/game-servers/${serverID}`
   const has = (perm: string) => permissions.includes(perm)
@@ -22,7 +22,7 @@ export function buildGameServerTabs(
     { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true },
   ]
 
-  if (isPalworld && has('game_server.view')) {
+  if (hasLiveMap && has('game_server.view')) {
     tabs.push({
       name: 'Map',
       to: `${basePath}/map`,
@@ -141,13 +141,13 @@ export function getUnauthorizedRedirect(
   hasModSupport = false,
   allowStartArgEditing = true,
   isSuperUser = false,
-  isPalworld = false,
+  hasLiveMap = false,
 ): string | null {
   const basePath = `/game-servers/${serverID}`
   const consolePath = `${basePath}/console`
   const has = (perm: string) => permissions.includes(perm)
 
-  if (currentPath === `${basePath}/map` && (!isPalworld || !has('game_server.view'))) {
+  if (currentPath === `${basePath}/map` && (!hasLiveMap || !has('game_server.view'))) {
     return consolePath
   }
 

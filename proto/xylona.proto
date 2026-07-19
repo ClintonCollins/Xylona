@@ -83,6 +83,11 @@ service Xylona {
   rpc RegeneratePalworldMapShare (RegeneratePalworldMapShareRequest) returns (RegeneratePalworldMapShareResponse) {}
   rpc RevokePalworldMapShare (RevokePalworldMapShareRequest) returns (RevokePalworldMapShareResponse) {}
   rpc GetPublicPalworldMap (GetPublicPalworldMapRequest) returns (GetPublicPalworldMapResponse) {}
+  rpc GetSevenDaysToDieMap (GetSevenDaysToDieMapRequest) returns (GetSevenDaysToDieMapResponse) {}
+  rpc UpdateSevenDaysToDieMapNotes (UpdateSevenDaysToDieMapNotesRequest) returns (UpdateSevenDaysToDieMapNotesResponse) {}
+  rpc RegenerateSevenDaysToDieMapShare (RegenerateSevenDaysToDieMapShareRequest) returns (RegenerateSevenDaysToDieMapShareResponse) {}
+  rpc RevokeSevenDaysToDieMapShare (RevokeSevenDaysToDieMapShareRequest) returns (RevokeSevenDaysToDieMapShareResponse) {}
+  rpc GetPublicSevenDaysToDieMap (GetPublicSevenDaysToDieMapRequest) returns (GetPublicSevenDaysToDieMapResponse) {}
 
   rpc GetUpdateTargets (GetUpdateTargetsRequest) returns (GetUpdateTargetsResponse) {}
   rpc SetServerVariant (SetServerVariantRequest) returns (SetServerVariantResponse) {}
@@ -1697,4 +1702,94 @@ message GetPublicPalworldMapRequest {
 
 message GetPublicPalworldMapResponse {
   PalworldMapView map = 1;
+}
+
+message SevenDaysToDieMapVector {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message SevenDaysToDieMapPlayer {
+  string id = 1;
+  string name = 2;
+  bool online = 3;
+  SevenDaysToDieMapVector position = 4;
+  google.protobuf.Timestamp last_seen_at = 5;
+}
+
+message SevenDaysToDieMapMarker {
+  string id = 1;
+  string name = 2;
+  string note = 3;
+  string icon = 4;
+  double x = 5;
+  double z = 6;
+  bool native = 7;
+}
+
+message SevenDaysToDieLandClaim {
+  string owner_id = 1;
+  string owner_name = 2;
+  bool active = 3;
+  SevenDaysToDieMapVector position = 4;
+  int32 size = 5;
+}
+
+message SevenDaysToDieMapView {
+  string game_server_id = 1;
+  string game_server_name = 2;
+  bool enabled = 3;
+  int32 tile_size = 4;
+  int32 max_zoom = 5;
+  SevenDaysToDieMapVector map_size = 6;
+  repeated SevenDaysToDieMapPlayer players = 7;
+  repeated SevenDaysToDieMapMarker markers = 8;
+  repeated SevenDaysToDieLandClaim claims = 9;
+  bool claims_supported = 10;
+  google.protobuf.Timestamp collected_at = 11;
+  string source_time = 12;
+  bool stale = 13;
+  string status_message = 14;
+  bool share_enabled = 15;
+  string tile_url_template = 16;
+}
+
+message GetSevenDaysToDieMapRequest {
+  string game_server_id = 1;
+}
+
+message GetSevenDaysToDieMapResponse {
+  SevenDaysToDieMapView map = 1;
+}
+
+message UpdateSevenDaysToDieMapNotesRequest {
+  string game_server_id = 1;
+  repeated SevenDaysToDieMapMarker markers = 2;
+}
+
+message UpdateSevenDaysToDieMapNotesResponse {
+  repeated SevenDaysToDieMapMarker markers = 1;
+}
+
+message RegenerateSevenDaysToDieMapShareRequest {
+  string game_server_id = 1;
+}
+
+message RegenerateSevenDaysToDieMapShareResponse {
+  string share_token = 1;
+}
+
+message RevokeSevenDaysToDieMapShareRequest {
+  string game_server_id = 1;
+}
+
+message RevokeSevenDaysToDieMapShareResponse {}
+
+message GetPublicSevenDaysToDieMapRequest {
+  string share_token = 1;
+}
+
+message GetPublicSevenDaysToDieMapResponse {
+  SevenDaysToDieMapView map = 1;
 }

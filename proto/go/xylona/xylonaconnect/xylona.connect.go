@@ -194,6 +194,21 @@ const (
 	// XylonaGetPublicPalworldMapProcedure is the fully-qualified name of the Xylona's
 	// GetPublicPalworldMap RPC.
 	XylonaGetPublicPalworldMapProcedure = "/xylona.Xylona/GetPublicPalworldMap"
+	// XylonaGetSevenDaysToDieMapProcedure is the fully-qualified name of the Xylona's
+	// GetSevenDaysToDieMap RPC.
+	XylonaGetSevenDaysToDieMapProcedure = "/xylona.Xylona/GetSevenDaysToDieMap"
+	// XylonaUpdateSevenDaysToDieMapNotesProcedure is the fully-qualified name of the Xylona's
+	// UpdateSevenDaysToDieMapNotes RPC.
+	XylonaUpdateSevenDaysToDieMapNotesProcedure = "/xylona.Xylona/UpdateSevenDaysToDieMapNotes"
+	// XylonaRegenerateSevenDaysToDieMapShareProcedure is the fully-qualified name of the Xylona's
+	// RegenerateSevenDaysToDieMapShare RPC.
+	XylonaRegenerateSevenDaysToDieMapShareProcedure = "/xylona.Xylona/RegenerateSevenDaysToDieMapShare"
+	// XylonaRevokeSevenDaysToDieMapShareProcedure is the fully-qualified name of the Xylona's
+	// RevokeSevenDaysToDieMapShare RPC.
+	XylonaRevokeSevenDaysToDieMapShareProcedure = "/xylona.Xylona/RevokeSevenDaysToDieMapShare"
+	// XylonaGetPublicSevenDaysToDieMapProcedure is the fully-qualified name of the Xylona's
+	// GetPublicSevenDaysToDieMap RPC.
+	XylonaGetPublicSevenDaysToDieMapProcedure = "/xylona.Xylona/GetPublicSevenDaysToDieMap"
 	// XylonaGetUpdateTargetsProcedure is the fully-qualified name of the Xylona's GetUpdateTargets RPC.
 	XylonaGetUpdateTargetsProcedure = "/xylona.Xylona/GetUpdateTargets"
 	// XylonaSetServerVariantProcedure is the fully-qualified name of the Xylona's SetServerVariant RPC.
@@ -477,6 +492,11 @@ type XylonaClient interface {
 	RegeneratePalworldMapShare(context.Context, *connect.Request[xylona.RegeneratePalworldMapShareRequest]) (*connect.Response[xylona.RegeneratePalworldMapShareResponse], error)
 	RevokePalworldMapShare(context.Context, *connect.Request[xylona.RevokePalworldMapShareRequest]) (*connect.Response[xylona.RevokePalworldMapShareResponse], error)
 	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
+	GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error)
+	UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error)
+	RegenerateSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RegenerateSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RegenerateSevenDaysToDieMapShareResponse], error)
+	RevokeSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RevokeSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RevokeSevenDaysToDieMapShareResponse], error)
+	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -972,6 +992,36 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaGetPublicPalworldMapProcedure,
 			connect.WithSchema(xylonaMethods.ByName("GetPublicPalworldMap")),
+			connect.WithClientOptions(opts...),
+		),
+		getSevenDaysToDieMap: connect.NewClient[xylona.GetSevenDaysToDieMapRequest, xylona.GetSevenDaysToDieMapResponse](
+			httpClient,
+			baseURL+XylonaGetSevenDaysToDieMapProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieMap")),
+			connect.WithClientOptions(opts...),
+		),
+		updateSevenDaysToDieMapNotes: connect.NewClient[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse](
+			httpClient,
+			baseURL+XylonaUpdateSevenDaysToDieMapNotesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateSevenDaysToDieMapNotes")),
+			connect.WithClientOptions(opts...),
+		),
+		regenerateSevenDaysToDieMapShare: connect.NewClient[xylona.RegenerateSevenDaysToDieMapShareRequest, xylona.RegenerateSevenDaysToDieMapShareResponse](
+			httpClient,
+			baseURL+XylonaRegenerateSevenDaysToDieMapShareProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RegenerateSevenDaysToDieMapShare")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeSevenDaysToDieMapShare: connect.NewClient[xylona.RevokeSevenDaysToDieMapShareRequest, xylona.RevokeSevenDaysToDieMapShareResponse](
+			httpClient,
+			baseURL+XylonaRevokeSevenDaysToDieMapShareProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RevokeSevenDaysToDieMapShare")),
+			connect.WithClientOptions(opts...),
+		),
+		getPublicSevenDaysToDieMap: connect.NewClient[xylona.GetPublicSevenDaysToDieMapRequest, xylona.GetPublicSevenDaysToDieMapResponse](
+			httpClient,
+			baseURL+XylonaGetPublicSevenDaysToDieMapProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetPublicSevenDaysToDieMap")),
 			connect.WithClientOptions(opts...),
 		),
 		getUpdateTargets: connect.NewClient[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse](
@@ -1506,6 +1556,11 @@ type xylonaClient struct {
 	regeneratePalworldMapShare          *connect.Client[xylona.RegeneratePalworldMapShareRequest, xylona.RegeneratePalworldMapShareResponse]
 	revokePalworldMapShare              *connect.Client[xylona.RevokePalworldMapShareRequest, xylona.RevokePalworldMapShareResponse]
 	getPublicPalworldMap                *connect.Client[xylona.GetPublicPalworldMapRequest, xylona.GetPublicPalworldMapResponse]
+	getSevenDaysToDieMap                *connect.Client[xylona.GetSevenDaysToDieMapRequest, xylona.GetSevenDaysToDieMapResponse]
+	updateSevenDaysToDieMapNotes        *connect.Client[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse]
+	regenerateSevenDaysToDieMapShare    *connect.Client[xylona.RegenerateSevenDaysToDieMapShareRequest, xylona.RegenerateSevenDaysToDieMapShareResponse]
+	revokeSevenDaysToDieMapShare        *connect.Client[xylona.RevokeSevenDaysToDieMapShareRequest, xylona.RevokeSevenDaysToDieMapShareResponse]
+	getPublicSevenDaysToDieMap          *connect.Client[xylona.GetPublicSevenDaysToDieMapRequest, xylona.GetPublicSevenDaysToDieMapResponse]
 	getUpdateTargets                    *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
 	setServerVariant                    *connect.Client[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse]
 	getVariantOperationStatus           *connect.Client[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse]
@@ -1908,6 +1963,31 @@ func (c *xylonaClient) RevokePalworldMapShare(ctx context.Context, req *connect.
 // GetPublicPalworldMap calls xylona.Xylona.GetPublicPalworldMap.
 func (c *xylonaClient) GetPublicPalworldMap(ctx context.Context, req *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error) {
 	return c.getPublicPalworldMap.CallUnary(ctx, req)
+}
+
+// GetSevenDaysToDieMap calls xylona.Xylona.GetSevenDaysToDieMap.
+func (c *xylonaClient) GetSevenDaysToDieMap(ctx context.Context, req *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error) {
+	return c.getSevenDaysToDieMap.CallUnary(ctx, req)
+}
+
+// UpdateSevenDaysToDieMapNotes calls xylona.Xylona.UpdateSevenDaysToDieMapNotes.
+func (c *xylonaClient) UpdateSevenDaysToDieMapNotes(ctx context.Context, req *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error) {
+	return c.updateSevenDaysToDieMapNotes.CallUnary(ctx, req)
+}
+
+// RegenerateSevenDaysToDieMapShare calls xylona.Xylona.RegenerateSevenDaysToDieMapShare.
+func (c *xylonaClient) RegenerateSevenDaysToDieMapShare(ctx context.Context, req *connect.Request[xylona.RegenerateSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RegenerateSevenDaysToDieMapShareResponse], error) {
+	return c.regenerateSevenDaysToDieMapShare.CallUnary(ctx, req)
+}
+
+// RevokeSevenDaysToDieMapShare calls xylona.Xylona.RevokeSevenDaysToDieMapShare.
+func (c *xylonaClient) RevokeSevenDaysToDieMapShare(ctx context.Context, req *connect.Request[xylona.RevokeSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RevokeSevenDaysToDieMapShareResponse], error) {
+	return c.revokeSevenDaysToDieMapShare.CallUnary(ctx, req)
+}
+
+// GetPublicSevenDaysToDieMap calls xylona.Xylona.GetPublicSevenDaysToDieMap.
+func (c *xylonaClient) GetPublicSevenDaysToDieMap(ctx context.Context, req *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error) {
+	return c.getPublicSevenDaysToDieMap.CallUnary(ctx, req)
 }
 
 // GetUpdateTargets calls xylona.Xylona.GetUpdateTargets.
@@ -2369,6 +2449,11 @@ type XylonaHandler interface {
 	RegeneratePalworldMapShare(context.Context, *connect.Request[xylona.RegeneratePalworldMapShareRequest]) (*connect.Response[xylona.RegeneratePalworldMapShareResponse], error)
 	RevokePalworldMapShare(context.Context, *connect.Request[xylona.RevokePalworldMapShareRequest]) (*connect.Response[xylona.RevokePalworldMapShareResponse], error)
 	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
+	GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error)
+	UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error)
+	RegenerateSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RegenerateSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RegenerateSevenDaysToDieMapShareResponse], error)
+	RevokeSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RevokeSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RevokeSevenDaysToDieMapShareResponse], error)
+	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -2860,6 +2945,36 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaGetPublicPalworldMapProcedure,
 		svc.GetPublicPalworldMap,
 		connect.WithSchema(xylonaMethods.ByName("GetPublicPalworldMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetSevenDaysToDieMapHandler := connect.NewUnaryHandler(
+		XylonaGetSevenDaysToDieMapProcedure,
+		svc.GetSevenDaysToDieMap,
+		connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateSevenDaysToDieMapNotesHandler := connect.NewUnaryHandler(
+		XylonaUpdateSevenDaysToDieMapNotesProcedure,
+		svc.UpdateSevenDaysToDieMapNotes,
+		connect.WithSchema(xylonaMethods.ByName("UpdateSevenDaysToDieMapNotes")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRegenerateSevenDaysToDieMapShareHandler := connect.NewUnaryHandler(
+		XylonaRegenerateSevenDaysToDieMapShareProcedure,
+		svc.RegenerateSevenDaysToDieMapShare,
+		connect.WithSchema(xylonaMethods.ByName("RegenerateSevenDaysToDieMapShare")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRevokeSevenDaysToDieMapShareHandler := connect.NewUnaryHandler(
+		XylonaRevokeSevenDaysToDieMapShareProcedure,
+		svc.RevokeSevenDaysToDieMapShare,
+		connect.WithSchema(xylonaMethods.ByName("RevokeSevenDaysToDieMapShare")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetPublicSevenDaysToDieMapHandler := connect.NewUnaryHandler(
+		XylonaGetPublicSevenDaysToDieMapProcedure,
+		svc.GetPublicSevenDaysToDieMap,
+		connect.WithSchema(xylonaMethods.ByName("GetPublicSevenDaysToDieMap")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetUpdateTargetsHandler := connect.NewUnaryHandler(
@@ -3456,6 +3571,16 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaRevokePalworldMapShareHandler.ServeHTTP(w, r)
 		case XylonaGetPublicPalworldMapProcedure:
 			xylonaGetPublicPalworldMapHandler.ServeHTTP(w, r)
+		case XylonaGetSevenDaysToDieMapProcedure:
+			xylonaGetSevenDaysToDieMapHandler.ServeHTTP(w, r)
+		case XylonaUpdateSevenDaysToDieMapNotesProcedure:
+			xylonaUpdateSevenDaysToDieMapNotesHandler.ServeHTTP(w, r)
+		case XylonaRegenerateSevenDaysToDieMapShareProcedure:
+			xylonaRegenerateSevenDaysToDieMapShareHandler.ServeHTTP(w, r)
+		case XylonaRevokeSevenDaysToDieMapShareProcedure:
+			xylonaRevokeSevenDaysToDieMapShareHandler.ServeHTTP(w, r)
+		case XylonaGetPublicSevenDaysToDieMapProcedure:
+			xylonaGetPublicSevenDaysToDieMapHandler.ServeHTTP(w, r)
 		case XylonaGetUpdateTargetsProcedure:
 			xylonaGetUpdateTargetsHandler.ServeHTTP(w, r)
 		case XylonaSetServerVariantProcedure:
@@ -3877,6 +4002,26 @@ func (UnimplementedXylonaHandler) RevokePalworldMapShare(context.Context, *conne
 
 func (UnimplementedXylonaHandler) GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPublicPalworldMap is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSevenDaysToDieMap is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateSevenDaysToDieMapNotes is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RegenerateSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RegenerateSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RegenerateSevenDaysToDieMapShareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RegenerateSevenDaysToDieMapShare is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RevokeSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RevokeSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RevokeSevenDaysToDieMapShareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RevokeSevenDaysToDieMapShare is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPublicSevenDaysToDieMap is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {

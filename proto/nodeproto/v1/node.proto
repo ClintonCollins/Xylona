@@ -641,6 +641,70 @@ message QueryPalworldMapResponse {
   PalworldMapSnapshot snapshot = 1;
 }
 
+message SevenDaysToDieMapVector {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message SevenDaysToDieMapPlayer {
+  string id = 1;
+  string name = 2;
+  bool online = 3;
+  SevenDaysToDieMapVector position = 4;
+}
+
+message SevenDaysToDieMapMarker {
+  string id = 1;
+  double x = 2;
+  double z = 3;
+  string name = 4;
+  string icon = 5;
+}
+
+message SevenDaysToDieLandClaim {
+  string owner_id = 1;
+  string owner_name = 2;
+  bool active = 3;
+  SevenDaysToDieMapVector position = 4;
+  int32 size = 5;
+}
+
+message SevenDaysToDieMapSnapshot {
+  bool enabled = 1;
+  int32 tile_size = 2;
+  int32 max_zoom = 3;
+  SevenDaysToDieMapVector map_size = 4;
+  string source_time = 5;
+  repeated SevenDaysToDieMapPlayer players = 6;
+  repeated SevenDaysToDieMapMarker markers = 7;
+  repeated SevenDaysToDieLandClaim claims = 8;
+  bool claims_supported = 9;
+}
+
+message QuerySevenDaysToDieMapRequest {
+  string working_directory = 1;
+  string token_name = 2;
+  string token_secret = 3;
+}
+
+message QuerySevenDaysToDieMapResponse {
+  SevenDaysToDieMapSnapshot snapshot = 1;
+}
+
+message GetSevenDaysToDieMapTileRequest {
+  string working_directory = 1;
+  string token_name = 2;
+  string token_secret = 3;
+  int32 zoom = 4;
+  int32 x = 5;
+  int32 y = 6;
+}
+
+message GetSevenDaysToDieMapTileResponse {
+  bytes content = 1;
+}
+
 // --- Process console output (controller-generated lines) --------------------
 
 // SendConsoleOutput writes a controller-generated line into the process's
@@ -700,6 +764,7 @@ message GetRuntimeCapabilitiesResponse {
   bool rcon_input = 6;
   bool rest_input = 7;
   bool palworld_map = 8;
+  bool seven_days_to_die_map = 9;
 }
 
 // --- Self-update RPCs -------------------------------------------------------
@@ -781,6 +846,8 @@ service NodeService {
   rpc ProbeInstalledVersion(ProbeInstalledVersionRequest) returns (ProbeInstalledVersionResponse);
   rpc QueryGameServer(QueryGameServerRequest) returns (QueryGameServerResponse);
   rpc QueryPalworldMap(QueryPalworldMapRequest) returns (QueryPalworldMapResponse);
+  rpc QuerySevenDaysToDieMap(QuerySevenDaysToDieMapRequest) returns (QuerySevenDaysToDieMapResponse);
+  rpc GetSevenDaysToDieMapTile(GetSevenDaysToDieMapTileRequest) returns (GetSevenDaysToDieMapTileResponse);
   rpc PerformGameServerPlayerAction(PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse);
 
   // Console output (controller-generated lines pushed into the process buffer)

@@ -145,6 +145,13 @@ type NodeClient interface {
 	// snapshot at its independent, lower polling cadence.
 	QueryPalworldMap(ctx context.Context, req node.PalworldMapQueryRequest) (*node.PalworldMapSnapshot, error)
 
+	// QuerySevenDaysToDieMap reads the native map's bounded data endpoints on
+	// the owning node.
+	QuerySevenDaysToDieMap(ctx context.Context, req node.SevenDaysToDieMapQueryRequest) (*node.SevenDaysToDieMapSnapshot, error)
+
+	// GetSevenDaysToDieMapTile reads one native PNG tile on the owning node.
+	GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error)
+
 	// PerformGameServerPlayerAction executes one typed game-specific player
 	// administration action on the node that owns the game server.
 	PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error

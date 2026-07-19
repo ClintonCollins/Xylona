@@ -477,6 +477,71 @@ type PalworldMapQueryRequest struct {
 	Password  string
 }
 
+// SevenDaysToDieMapVector is a world-space coordinate returned by the native
+// 7 Days to Die WebAPI.
+type SevenDaysToDieMapVector struct {
+	X float64
+	Y float64
+	Z float64
+}
+
+// SevenDaysToDieMapPlayer is a privacy-filtered player location.
+type SevenDaysToDieMapPlayer struct {
+	ID       string
+	Name     string
+	Online   bool
+	Position SevenDaysToDieMapVector
+}
+
+// SevenDaysToDieMapMarker is a native operator-defined WebAPI marker.
+type SevenDaysToDieMapMarker struct {
+	ID   string
+	X    float64
+	Z    float64
+	Name string
+	Icon string
+}
+
+// SevenDaysToDieLandClaim is a legacy WebAPI land-claim square.
+type SevenDaysToDieLandClaim struct {
+	OwnerID   string
+	OwnerName string
+	Active    bool
+	Position  SevenDaysToDieMapVector
+	Size      int32
+}
+
+// SevenDaysToDieMapSnapshot is the dedicated sanitized native-map payload.
+type SevenDaysToDieMapSnapshot struct {
+	Enabled         bool
+	TileSize        int32
+	MaxZoom         int32
+	MapSize         SevenDaysToDieMapVector
+	SourceTime      string
+	Players         []SevenDaysToDieMapPlayer
+	Markers         []SevenDaysToDieMapMarker
+	Claims          []SevenDaysToDieLandClaim
+	ClaimsSupported bool
+}
+
+// SevenDaysToDieMapQueryRequest contains only node-local map access details.
+type SevenDaysToDieMapQueryRequest struct {
+	WorkingDirectory string
+	TokenName        string
+	TokenSecret      string
+}
+
+// SevenDaysToDieMapTileRequest identifies one native tile. Coordinates are
+// integers by construction, so callers cannot turn this into an open proxy.
+type SevenDaysToDieMapTileRequest struct {
+	WorkingDirectory string
+	TokenName        string
+	TokenSecret      string
+	Zoom             int32
+	X                int32
+	Y                int32
+}
+
 // GameServerQueryResult is the transport-agnostic result of a node-side
 // network probe.
 type GameServerQueryResult struct {

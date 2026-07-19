@@ -860,6 +860,49 @@ func (s *nodeServiceServer) QueryPalworldMap(ctx context.Context, req *connect.R
 	}), nil
 }
 
+func (s *nodeServiceServer) QuerySevenDaysToDieMap(ctx context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieMapRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieMapResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	snapshot, errQuery := s.n.QuerySevenDaysToDieMap(ctx, node.SevenDaysToDieMapQueryRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		TokenName:        req.Msg.GetTokenName(),
+		TokenSecret:      req.Msg.GetTokenSecret(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QuerySevenDaysToDieMapResponse{
+		Snapshot: sevenDaysToDieMapSnapshotToProto(snapshot),
+	}), nil
+}
+
+func (s *nodeServiceServer) GetSevenDaysToDieMapTile(ctx context.Context, req *connect.Request[nodeprotov1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[nodeprotov1.GetSevenDaysToDieMapTileResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	content, errTile := s.n.GetSevenDaysToDieMapTile(ctx, node.SevenDaysToDieMapTileRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		TokenName:        req.Msg.GetTokenName(),
+		TokenSecret:      req.Msg.GetTokenSecret(),
+		Zoom:             req.Msg.GetZoom(),
+		X:                req.Msg.GetX(),
+		Y:                req.Msg.GetY(),
+	})
+	if errTile != nil {
+		return nil, translate(errTile)
+	}
+	return connect.NewResponse(&nodeprotov1.GetSevenDaysToDieMapTileResponse{Content: content}), nil
+}
+
 func (s *nodeServiceServer) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[nodeprotov1.PerformGameServerPlayerActionRequest]) (*connect.Response[nodeprotov1.PerformGameServerPlayerActionResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1142,6 +1185,41 @@ func palworldMapSnapshotToProto(snapshot *node.PalworldMapSnapshot) *nodeprotov1
 	}
 }
 
+func sevenDaysToDieMapSnapshotToProto(snapshot *node.SevenDaysToDieMapSnapshot) *nodeprotov1.SevenDaysToDieMapSnapshot {
+	if snapshot == nil {
+		return nil
+	}
+	players := make([]*nodeprotov1.SevenDaysToDieMapPlayer, 0, len(snapshot.Players))
+	for _, player := range snapshot.Players {
+		players = append(players, &nodeprotov1.SevenDaysToDieMapPlayer{
+			Id: player.ID, Name: player.Name, Online: player.Online,
+			Position: sevenDaysToDieMapVectorToProto(player.Position),
+		})
+	}
+	markers := make([]*nodeprotov1.SevenDaysToDieMapMarker, 0, len(snapshot.Markers))
+	for _, marker := range snapshot.Markers {
+		markers = append(markers, &nodeprotov1.SevenDaysToDieMapMarker{
+			Id: marker.ID, X: marker.X, Z: marker.Z, Name: marker.Name, Icon: marker.Icon,
+		})
+	}
+	claims := make([]*nodeprotov1.SevenDaysToDieLandClaim, 0, len(snapshot.Claims))
+	for _, claim := range snapshot.Claims {
+		claims = append(claims, &nodeprotov1.SevenDaysToDieLandClaim{
+			OwnerId: claim.OwnerID, OwnerName: claim.OwnerName, Active: claim.Active,
+			Position: sevenDaysToDieMapVectorToProto(claim.Position), Size: claim.Size,
+		})
+	}
+	return &nodeprotov1.SevenDaysToDieMapSnapshot{
+		Enabled: snapshot.Enabled, TileSize: snapshot.TileSize, MaxZoom: snapshot.MaxZoom,
+		MapSize: sevenDaysToDieMapVectorToProto(snapshot.MapSize), SourceTime: snapshot.SourceTime,
+		Players: players, Markers: markers, Claims: claims, ClaimsSupported: snapshot.ClaimsSupported,
+	}
+}
+
+func sevenDaysToDieMapVectorToProto(vector node.SevenDaysToDieMapVector) *nodeprotov1.SevenDaysToDieMapVector {
+	return &nodeprotov1.SevenDaysToDieMapVector{X: vector.X, Y: vector.Y, Z: vector.Z}
+}
+
 func palworldMapActorKindToProto(kind node.PalworldMapActorKind) nodeprotov1.PalworldMapActorKind {
 	switch kind {
 	case node.PalworldMapActorKindPlayer:
@@ -1329,6 +1407,7 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		RestInput:                caps.RESTInput,
 		PlayerActions:            caps.PlayerActions,
 		PalworldMap:              caps.PalworldMap,
+		SevenDaysToDieMap:        caps.SevenDaysToDieMap,
 	}), nil
 }
 

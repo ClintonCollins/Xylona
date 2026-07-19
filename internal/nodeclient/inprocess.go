@@ -312,6 +312,28 @@ func (c *inProcessNodeClient) QueryPalworldMap(ctx context.Context, req node.Pal
 	return snapshot, nil
 }
 
+func (c *inProcessNodeClient) QuerySevenDaysToDieMap(ctx context.Context, req node.SevenDaysToDieMapQueryRequest) (*node.SevenDaysToDieMapSnapshot, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+	snapshot, errQuery := c.node.QuerySevenDaysToDieMap(ctx, req)
+	if errQuery != nil {
+		return nil, fmt.Errorf("nodeclient: query 7 Days to Die map: %w", errQuery)
+	}
+	return snapshot, nil
+}
+
+func (c *inProcessNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+	content, errTile := c.node.GetSevenDaysToDieMapTile(ctx, req)
+	if errTile != nil {
+		return nil, fmt.Errorf("nodeclient: get 7 Days to Die map tile: %w", errTile)
+	}
+	return content, nil
+}
+
 func (c *inProcessNodeClient) PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error {
 	if c.node == nil {
 		return ErrNodeNil

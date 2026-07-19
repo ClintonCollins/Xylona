@@ -726,6 +726,37 @@ func (c *GRPCNodeClient) QueryPalworldMap(ctx context.Context, mapReq node.Palwo
 	return palworldMapSnapshotFromProto(resp.Msg.GetSnapshot()), nil
 }
 
+// QuerySevenDaysToDieMap invokes the dedicated native-map RPC.
+func (c *GRPCNodeClient) QuerySevenDaysToDieMap(ctx context.Context, mapReq node.SevenDaysToDieMapQueryRequest) (*node.SevenDaysToDieMapSnapshot, error) {
+	req := newReq(c, &nodeprotov1.QuerySevenDaysToDieMapRequest{
+		WorkingDirectory: mapReq.WorkingDirectory,
+		TokenName:        mapReq.TokenName,
+		TokenSecret:      mapReq.TokenSecret,
+	})
+	resp, errRPC := c.connectClient.QuerySevenDaysToDieMap(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("query 7 Days to Die map", errRPC)
+	}
+	return sevenDaysToDieMapSnapshotFromProto(resp.Msg.GetSnapshot()), nil
+}
+
+// GetSevenDaysToDieMapTile invokes the bounded native-tile RPC.
+func (c *GRPCNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, tileReq node.SevenDaysToDieMapTileRequest) ([]byte, error) {
+	req := newReq(c, &nodeprotov1.GetSevenDaysToDieMapTileRequest{
+		WorkingDirectory: tileReq.WorkingDirectory,
+		TokenName:        tileReq.TokenName,
+		TokenSecret:      tileReq.TokenSecret,
+		Zoom:             tileReq.Zoom,
+		X:                tileReq.X,
+		Y:                tileReq.Y,
+	})
+	resp, errRPC := c.connectClient.GetSevenDaysToDieMapTile(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("get 7 Days to Die map tile", errRPC)
+	}
+	return append([]byte(nil), resp.Msg.GetContent()...), nil
+}
+
 // PerformGameServerPlayerAction invokes the typed player-administration RPC.
 func (c *GRPCNodeClient) PerformGameServerPlayerAction(ctx context.Context, actionReq node.GameServerPlayerActionRequest) error {
 	req := newReq(c, &nodeprotov1.PerformGameServerPlayerActionRequest{
@@ -1136,7 +1167,57 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		RESTInput:                msg.GetRestInput(),
 		PlayerActions:            msg.GetPlayerActions(),
 		PalworldMap:              msg.GetPalworldMap(),
+		SevenDaysToDieMap:        msg.GetSevenDaysToDieMap(),
 	}, nil
+}
+
+func sevenDaysToDieMapSnapshotFromProto(snapshot *nodeprotov1.SevenDaysToDieMapSnapshot) *node.SevenDaysToDieMapSnapshot {
+	if snapshot == nil {
+		return nil
+	}
+	players := make([]node.SevenDaysToDieMapPlayer, 0, len(snapshot.GetPlayers()))
+	for _, player := range snapshot.GetPlayers() {
+		if player == nil {
+			continue
+		}
+		players = append(players, node.SevenDaysToDieMapPlayer{
+			ID:       player.GetId(),
+			Name:     player.GetName(),
+			Online:   player.GetOnline(),
+			Position: sevenDaysToDieMapVectorFromProto(player.GetPosition()),
+		})
+	}
+	markers := make([]node.SevenDaysToDieMapMarker, 0, len(snapshot.GetMarkers()))
+	for _, marker := range snapshot.GetMarkers() {
+		if marker == nil {
+			continue
+		}
+		markers = append(markers, node.SevenDaysToDieMapMarker{
+			ID: marker.GetId(), X: marker.GetX(), Z: marker.GetZ(), Name: marker.GetName(), Icon: marker.GetIcon(),
+		})
+	}
+	claims := make([]node.SevenDaysToDieLandClaim, 0, len(snapshot.GetClaims()))
+	for _, claim := range snapshot.GetClaims() {
+		if claim == nil {
+			continue
+		}
+		claims = append(claims, node.SevenDaysToDieLandClaim{
+			OwnerID: claim.GetOwnerId(), OwnerName: claim.GetOwnerName(), Active: claim.GetActive(),
+			Position: sevenDaysToDieMapVectorFromProto(claim.GetPosition()), Size: claim.GetSize(),
+		})
+	}
+	return &node.SevenDaysToDieMapSnapshot{
+		Enabled: snapshot.GetEnabled(), TileSize: snapshot.GetTileSize(), MaxZoom: snapshot.GetMaxZoom(),
+		MapSize: sevenDaysToDieMapVectorFromProto(snapshot.GetMapSize()), SourceTime: snapshot.GetSourceTime(),
+		Players: players, Markers: markers, Claims: claims, ClaimsSupported: snapshot.GetClaimsSupported(),
+	}
+}
+
+func sevenDaysToDieMapVectorFromProto(vector *nodeprotov1.SevenDaysToDieMapVector) node.SevenDaysToDieMapVector {
+	if vector == nil {
+		return node.SevenDaysToDieMapVector{}
+	}
+	return node.SevenDaysToDieMapVector{X: vector.GetX(), Y: vector.GetY(), Z: vector.GetZ()}
 }
 
 func palworldMapSnapshotFromProto(snapshot *nodeprotov1.PalworldMapSnapshot) *node.PalworldMapSnapshot {

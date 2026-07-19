@@ -33,6 +33,10 @@ const routes: RouteRecordRaw[] = [
     component: () => import('pages/PublicPalworldMap.vue'),
   },
   {
+    path: '/shared/7-days-to-die-map',
+    component: () => import('pages/PublicSevenDaysToDieMap.vue'),
+  },
+  {
     path: '/login',
     component: () => import('pages/Login.vue'),
     beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
@@ -112,7 +116,7 @@ const routes: RouteRecordRaw[] = [
           },
           {
             path: 'map',
-            component: () => import('pages/game_servers/GameServerPalworldMap.vue'),
+            component: () => import('pages/game_servers/GameServerMap.vue'),
           },
           {
             path: 'files',

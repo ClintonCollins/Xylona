@@ -44,6 +44,7 @@ func TestGameServerAdminInput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			gameServer := &models.GameServer{
+				ID:        "server-admin-input",
 				GameID:    tc.gameID,
 				IP:        "0.0.0.0",
 				Port:      27015,
@@ -72,6 +73,11 @@ func TestGameServerAdminInput(t *testing.T) {
 				if input.telnet.Port != tc.wantPort || input.telnet.Password != "custom-admin-password" ||
 					input.localConsolePassword != input.telnet.Password {
 					t.Fatalf("Telnet input = %+v", input.telnet)
+				}
+				if tc.gameID == sevenDaysToDieGameID &&
+					(input.placeholderVars[sevenDaysToDieWebAPITokenNamePlaceholder] != sevenDaysToDieWebAPITokenName ||
+						input.placeholderVars[sevenDaysToDieWebAPITokenSecretPlaceholder] == "") {
+					t.Fatalf("7 Days to Die WebAPI vars = %+v", input.placeholderVars)
 				}
 			}
 			if input.rcon != nil {

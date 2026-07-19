@@ -1,8 +1,11 @@
 package actions
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
@@ -18,6 +21,13 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/sql/models"
+)
+
+const (
+	sevenDaysToDieWebAPITokenNamePlaceholder   = "SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_NAME"   //nolint:gosec // Placeholder identifier, not a credential.
+	sevenDaysToDieWebAPITokenSecretPlaceholder = "SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_SECRET" //nolint:gosec // Placeholder identifier, not a credential.
+	sevenDaysToDieWebAPITokenName              = "xylona"
+	sevenDaysToDieWebAPITokenDomain            = "xylona:7dtd-map:v1" //nolint:gosec // Public domain-separation label, not a credential.
 )
 
 type gameServerAdminInput struct {
@@ -49,10 +59,18 @@ func newGameServerAdminInput(
 		if gameServer.QueryPort <= 0 || gameServer.QueryPort > 65535 {
 			return gameServerAdminInput{}, errors.New("actions: Telnet port is invalid")
 		}
+		webAPITokenSecret, errWebAPITokenSecret := deriveSevenDaysToDieWebAPITokenSecret(password, gameServer.ID)
+		if errWebAPITokenSecret != nil {
+			return gameServerAdminInput{}, errWebAPITokenSecret
+		}
 		return gameServerAdminInput{
 			telnet: &node.TelnetInput{
 				Port:     int(gameServer.QueryPort),
 				Password: password,
+			},
+			placeholderVars: map[string]string{
+				sevenDaysToDieWebAPITokenNamePlaceholder:   sevenDaysToDieWebAPITokenName,
+				sevenDaysToDieWebAPITokenSecretPlaceholder: webAPITokenSecret,
 			},
 			localConsolePassword:  password,
 			managedConfigRequired: true,
@@ -81,6 +99,48 @@ func newGameServerAdminInput(
 	default:
 		return gameServerAdminInput{}, nil
 	}
+}
+
+func deriveSevenDaysToDieWebAPITokenSecret(adminSecret string, gameServerID string) (string, error) {
+	if adminSecret == "" {
+		return "", errors.New("actions: 7 Days to Die admin secret is empty")
+	}
+	trimmedGameServerID := strings.TrimSpace(gameServerID)
+	if trimmedGameServerID == "" {
+		return "", errors.New("actions: game server ID is empty")
+	}
+
+	mac := hmac.New(sha256.New, []byte(adminSecret))
+	_, errDomain := mac.Write([]byte(sevenDaysToDieWebAPITokenDomain))
+	if errDomain != nil {
+		return "", fmt.Errorf("actions: derive 7 Days to Die WebAPI token domain: %w", errDomain)
+	}
+	_, errSeparator := mac.Write([]byte{0})
+	if errSeparator != nil {
+		return "", fmt.Errorf("actions: derive 7 Days to Die WebAPI token separator: %w", errSeparator)
+	}
+	_, errGameServerID := mac.Write([]byte(trimmedGameServerID))
+	if errGameServerID != nil {
+		return "", fmt.Errorf("actions: derive 7 Days to Die WebAPI token server ID: %w", errGameServerID)
+	}
+	return hex.EncodeToString(mac.Sum(nil)), nil
+}
+
+// SevenDaysToDieMapCredentials returns the deterministic native WebAPI token
+// injected into the server's locked launch arguments.
+func (inst *Instance) SevenDaysToDieMapCredentials(gameServer *models.GameServer) (string, string, error) {
+	if gameServer == nil || gameServer.GameID != sevenDaysToDieGameID {
+		return "", "", errors.New("actions: game server is not 7 Days to Die")
+	}
+	adminSecret, errSecret := inst.loadOrCreateAdminInterfacePassword(gameServer)
+	if errSecret != nil {
+		return "", "", errSecret
+	}
+	tokenSecret, errToken := deriveSevenDaysToDieWebAPITokenSecret(adminSecret, gameServer.ID)
+	if errToken != nil {
+		return "", "", errToken
+	}
+	return sevenDaysToDieWebAPITokenName, tokenSecret, nil
 }
 
 // GameServerDefinitionSupportsAdminInput reports whether the effective game

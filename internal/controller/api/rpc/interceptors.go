@@ -15,11 +15,12 @@ import (
 )
 
 var publicSessionOptionalProcedures = map[string]struct{}{
-	xylonaconnect.XylonaCheckUserAuthenticatedProcedure: {},
-	xylonaconnect.XylonaLoginProcedure:                  {},
-	xylonaconnect.XylonaLogoutProcedure:                 {},
-	xylonaconnect.XylonaRemoveNodeProcedure:             {},
-	xylonaconnect.XylonaGetPublicPalworldMapProcedure:   {},
+	xylonaconnect.XylonaCheckUserAuthenticatedProcedure:     {},
+	xylonaconnect.XylonaLoginProcedure:                      {},
+	xylonaconnect.XylonaLogoutProcedure:                     {},
+	xylonaconnect.XylonaRemoveNodeProcedure:                 {},
+	xylonaconnect.XylonaGetPublicPalworldMapProcedure:       {},
+	xylonaconnect.XylonaGetPublicSevenDaysToDieMapProcedure: {},
 }
 
 type sessionAuthInterceptor struct {

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:7375cd690ed3e2f0a1b5df25c504ae6207394eea588afd12f07dd47a6be47690",
+  "content_hash": "sha256:83907ca5f7ef8a1033737ef83ce53bab3e283a5062e7fc2c6ffd75040f3a2f01",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -861,6 +861,16 @@
         "-dedicated"
       ],
       "label": "Dedicated mode"
+    },
+    {
+      "id": "01JQSB00000000000000000007",
+      "order": 7,
+      "ownership": "locked",
+      "tokens": [
+        "-webapitokenname={{SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_NAME}}",
+        "-webapitokensecret={{SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_SECRET}}"
+      ],
+      "label": "Xylona map access"
     }
   ],
   "windows_start_args_template": [
@@ -918,6 +928,16 @@
         "-dedicated"
       ],
       "label": "Dedicated mode"
+    },
+    {
+      "id": "01JQSB00000000000000000007",
+      "order": 7,
+      "ownership": "locked",
+      "tokens": [
+        "-webapitokenname={{SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_NAME}}",
+        "-webapitokensecret={{SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_SECRET}}"
+      ],
+      "label": "Xylona map access"
     }
   ],
   "start_arg_blocklist": [],

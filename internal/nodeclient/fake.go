@@ -121,6 +121,15 @@ type FakeNodeClient struct {
 	QueryPalworldMapCalls  []node.PalworldMapQueryRequest
 	QueryPalworldMapFunc   func(context.Context, node.PalworldMapQueryRequest) (*node.PalworldMapSnapshot, error)
 
+	QuerySevenDaysToDieMapResult *node.SevenDaysToDieMapSnapshot
+	QuerySevenDaysToDieMapErr    error
+	QuerySevenDaysToDieMapCalls  []node.SevenDaysToDieMapQueryRequest
+	QuerySevenDaysToDieMapFunc   func(context.Context, node.SevenDaysToDieMapQueryRequest) (*node.SevenDaysToDieMapSnapshot, error)
+
+	SevenDaysToDieMapTileResult []byte
+	SevenDaysToDieMapTileErr    error
+	SevenDaysToDieMapTileCalls  []node.SevenDaysToDieMapTileRequest
+
 	PerformGameServerPlayerActionErr   error
 	PerformGameServerPlayerActionCalls []node.GameServerPlayerActionRequest
 
@@ -571,6 +580,25 @@ func (f *FakeNodeClient) QueryPalworldMap(ctx context.Context, req node.Palworld
 		return f.QueryPalworldMapFunc(ctx, req)
 	}
 	return f.QueryPalworldMapResult, f.QueryPalworldMapErr
+}
+
+// QuerySevenDaysToDieMap records the call and returns the configured snapshot.
+func (f *FakeNodeClient) QuerySevenDaysToDieMap(ctx context.Context, req node.SevenDaysToDieMapQueryRequest) (*node.SevenDaysToDieMapSnapshot, error) {
+	f.mu.Lock()
+	f.QuerySevenDaysToDieMapCalls = append(f.QuerySevenDaysToDieMapCalls, req)
+	f.mu.Unlock()
+	if f.QuerySevenDaysToDieMapFunc != nil {
+		return f.QuerySevenDaysToDieMapFunc(ctx, req)
+	}
+	return f.QuerySevenDaysToDieMapResult, f.QuerySevenDaysToDieMapErr
+}
+
+// GetSevenDaysToDieMapTile records the call and returns configured PNG bytes.
+func (f *FakeNodeClient) GetSevenDaysToDieMapTile(_ context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error) {
+	f.mu.Lock()
+	f.SevenDaysToDieMapTileCalls = append(f.SevenDaysToDieMapTileCalls, req)
+	f.mu.Unlock()
+	return append([]byte(nil), f.SevenDaysToDieMapTileResult...), f.SevenDaysToDieMapTileErr
 }
 
 // PerformGameServerPlayerAction records the call and returns the configured error.
