@@ -6,7 +6,7 @@ import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import { GetPublicPalworldMapRequestSchema, type PalworldMapView } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
 
-const pollIntervalMs = 15_000
+const pollIntervalMs = 5_000
 const mapView = ref<PalworldMapView | null>(null)
 const loading = ref(false)
 const invalidLink = ref(false)

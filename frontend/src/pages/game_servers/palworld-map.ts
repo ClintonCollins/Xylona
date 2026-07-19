@@ -53,7 +53,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     singular: 'Wild Pal',
     icon: 'cruelty_free',
     colorToken: '--xy-purple',
-    defaultVisible: false,
+    defaultVisible: true,
     labeledMarker: false,
   },
   {
@@ -62,7 +62,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     singular: 'NPC',
     icon: 'record_voice_over',
     colorToken: '--xy-info',
-    defaultVisible: false,
+    defaultVisible: true,
     labeledMarker: false,
   },
   {
@@ -71,7 +71,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     singular: 'Actor',
     icon: 'adjust',
     colorToken: '--xy-text-secondary',
-    defaultVisible: false,
+    defaultVisible: true,
     labeledMarker: false,
   },
 ]

@@ -18,7 +18,7 @@ import {
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
-const pollIntervalMs = 15_000
+const pollIntervalMs = 5_000
 const defaultLayer = (): PalworldMapLayer =>
   create(PalworldMapLayerSchema, {
     id: 'world',
@@ -55,6 +55,15 @@ const gameServerID = computed(() => {
   return Array.isArray(id) ? (id[0] ?? '') : String(id ?? '')
 })
 const canManage = computed(() => mapView.value?.canManageShare ?? false)
+const mapDescription = computed(() => {
+  if (!mapView.value?.available) {
+    return 'Palworld · live position tracking'
+  }
+  if (mapView.value?.partial) {
+    return 'Palworld · live player positions'
+  }
+  return 'Palworld · players, bases, Pals, NPCs, and world actors'
+})
 
 async function loadMap(): Promise<void> {
   if (loading.value || gameServerID.value === '') {
@@ -231,7 +240,7 @@ onBeforeUnmount(() => {
         <span class="palworld-map-page__heading-icon"><q-icon name="public" /></span>
         <div>
           <h1>Live world map</h1>
-          <p>Palworld · players, bases, Pals, NPCs, and world actors</p>
+          <p>{{ mapDescription }}</p>
         </div>
       </div>
       <div v-if="canManage" class="palworld-map-page__actions">

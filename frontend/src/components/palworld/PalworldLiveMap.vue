@@ -55,9 +55,6 @@ const fallbackLayer: PalworldMapLayer = {
   maxY: 900_000,
 }
 
-const primaryActorCategories = palworldMapCategories.slice(0, 4)
-const secondaryActorCategories = palworldMapCategories.slice(4)
-
 const mapRoot = ref<HTMLElement | null>(null)
 const mapElement = ref<HTMLElement | null>(null)
 const railOpen = ref(false)
@@ -75,8 +72,27 @@ let currentLayerKey = ''
 let fittedOnce = false
 let railInitialized = false
 const actorMarkers = new Map<string, Marker | CircleMarker>()
+const actorMarkerRenderKeys = new Map<string, string>()
 
-const actors = computed(() => props.view?.actors ?? [])
+const actors = computed(() => {
+  const reportedActors = props.view?.actors ?? []
+  if (!props.view?.partial) {
+    return reportedActors
+  }
+  return reportedActors.filter((actor) => actor.kind === PalworldMapActorKind.PLAYER)
+})
+const availableActorCategories = computed(() => {
+  if (!props.view?.available) {
+    return []
+  }
+  return props.view.partial
+    ? palworldMapCategories.filter((category) => category.kind === PalworldMapActorKind.PLAYER)
+    : palworldMapCategories
+})
+const primaryActorCategories = computed(() => availableActorCategories.value.slice(0, 4))
+const secondaryActorCategories = computed(() => availableActorCategories.value.slice(4))
+const actorPanelLabel = computed(() => (props.view?.partial ? 'players' : 'world actors'))
+const actorPanelTitle = computed(() => (props.view?.partial ? 'Players' : 'World actors'))
 const configuredLayers = computed(() => props.view?.layers ?? [])
 const activeLayer = computed(() => {
   const configured = configuredLayers.value.find((layer) => layer.id === activeLayerID.value)
@@ -97,7 +113,7 @@ const actorCounts = computed(() => {
   return counts
 })
 const secondaryActorCount = computed(() =>
-  secondaryActorCategories.reduce(
+  secondaryActorCategories.value.reduce(
     (count, category) => count + (actorCounts.value.get(category.kind) ?? 0),
     0,
   ),
@@ -188,6 +204,7 @@ function layerRenderKey(layer: PalworldMapLayer): string {
 
 function destroyMap(): void {
   actorMarkers.clear()
+  actorMarkerRenderKeys.clear()
   actorLayer = null
   if (map !== null) {
     map.remove()
@@ -250,7 +267,6 @@ function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
     })
   } else {
     marker = L.circleMarker(location, {
-      renderer: L.canvas({ padding: 0.35 }),
       radius: selected ? 7 : actor.active ? 5 : 4,
       color,
       fillColor: color,
@@ -267,21 +283,46 @@ function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
   return marker
 }
 
+function actorMarkerRenderKey(actor: PalworldMapActor): string {
+  return [actor.kind, actor.name, actor.active].join('|')
+}
+
 function renderActors(): void {
   if (map === null || actorLayer === null) {
     return
   }
-  actorLayer.clearLayers()
-  actorMarkers.clear()
   const activeBounds = layerBounds(activeLayer.value)
+  const visibleActorKeys = new Set<string>()
   for (const actor of filteredActors.value) {
     const location = worldLocation(actor.locationX, actor.locationY)
     if (!activeBounds.contains(location)) {
       continue
     }
+    visibleActorKeys.add(actor.key)
+    const renderKey = actorMarkerRenderKey(actor)
+    const existingMarker = actorMarkers.get(actor.key)
+    if (existingMarker !== undefined && actorMarkerRenderKeys.get(actor.key) === renderKey) {
+      existingMarker.setLatLng(location)
+      if (!palworldMapCategory(actor.kind).labeledMarker) {
+        existingMarker.setTooltipContent(markerTooltip(actor))
+      }
+      continue
+    }
+    if (existingMarker !== undefined) {
+      actorLayer.removeLayer(existingMarker)
+    }
     const marker = createActorMarker(actor)
     marker.addTo(actorLayer)
     actorMarkers.set(actor.key, marker)
+    actorMarkerRenderKeys.set(actor.key, renderKey)
+  }
+  for (const [actorKey, marker] of actorMarkers) {
+    if (visibleActorKeys.has(actorKey)) {
+      continue
+    }
+    actorLayer.removeLayer(marker)
+    actorMarkers.delete(actorKey)
+    actorMarkerRenderKeys.delete(actorKey)
   }
 }
 
@@ -473,7 +514,7 @@ onBeforeUnmount(() => {
 
       <div class="palworld-live-map__toolbar" role="toolbar" aria-label="Map controls">
         <q-btn
-          :aria-label="railOpen ? 'Close world actors' : 'Open world actors'"
+          :aria-label="`${railOpen ? 'Close' : 'Open'} ${actorPanelLabel}`"
           class="palworld-live-map__toolbar-action palworld-live-map__actors-toggle"
           :class="{ 'palworld-live-map__toolbar-action--active': railOpen }"
           flat
@@ -483,7 +524,7 @@ onBeforeUnmount(() => {
           <q-badge v-if="actors.length > 0" color="primary" floating rounded>
             {{ actors.length > 999 ? '999+' : actors.length }}
           </q-badge>
-          <q-tooltip>{{ railOpen ? 'Close world actors' : 'Open world actors' }}</q-tooltip>
+          <q-tooltip>{{ railOpen ? 'Close' : 'Open' }} {{ actorPanelLabel }}</q-tooltip>
         </q-btn>
 
         <div
@@ -547,14 +588,15 @@ onBeforeUnmount(() => {
           <div class="palworld-live-map__rail-heading">
             <span class="palworld-live-map__rail-heading-icon"><q-icon name="radar" /></span>
             <div>
-              <div class="palworld-live-map__rail-title">World actors</div>
+              <div class="palworld-live-map__rail-title">{{ actorPanelTitle }}</div>
               <div class="palworld-live-map__rail-copy">
-                {{ actors.length.toLocaleString() }} reported
+                {{ actors.length.toLocaleString() }}
+                {{ view?.partial ? 'live' : 'reported' }}
               </div>
             </div>
           </div>
           <q-btn
-            aria-label="Close world actors"
+            :aria-label="`Close ${actorPanelLabel}`"
             flat
             icon="close"
             round
@@ -603,18 +645,18 @@ onBeforeUnmount(() => {
         <q-input
           v-if="actors.length > 0"
           v-model="search"
-          aria-label="Search world actors"
+          :aria-label="`Search ${actorPanelLabel}`"
           class="palworld-live-map__search"
           clearable
           dense
           outlined
-          placeholder="Search actors">
+          :placeholder="view?.partial ? 'Search players' : 'Search actors'">
           <template #prepend><q-icon name="search" /></template>
         </q-input>
 
         <div class="palworld-live-map__layers" aria-label="Actor layers">
           <button
-            v-for="category in moreKindsOpen ? palworldMapCategories : primaryActorCategories"
+            v-for="category in moreKindsOpen ? availableActorCategories : primaryActorCategories"
             :key="category.kind"
             class="palworld-live-map__layer"
             :class="{ 'palworld-live-map__layer--active': visibleKinds[category.kind] }"
@@ -635,6 +677,7 @@ onBeforeUnmount(() => {
               size="17px" />
           </button>
           <button
+            v-if="secondaryActorCategories.length > 0"
             class="palworld-live-map__more-layers"
             type="button"
             @click="moreKindsOpen = !moreKindsOpen">
@@ -687,9 +730,13 @@ onBeforeUnmount(() => {
         </template>
         <div v-else class="palworld-live-map__roster-empty palworld-live-map__roster-empty--world">
           <q-icon name="sensors_off" size="28px" />
-          <strong>No world actors reported</strong>
+          <strong>{{ view?.partial ? 'No players reported' : 'No world actors reported' }}</strong>
           <span>
-            Map imagery remains available. Actors will appear when the server provides a snapshot.
+            {{
+              view?.partial
+                ? 'Player positions will appear while players are online.'
+                : 'Map imagery remains available. Actors will appear when the server provides a snapshot.'
+            }}
           </span>
         </div>
       </aside>

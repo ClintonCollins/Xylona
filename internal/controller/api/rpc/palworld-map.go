@@ -29,7 +29,7 @@ const (
 	permissionGameServerSettings  = "game_server.settings"
 	palworldGameID                = "palworld"
 	palworldMapMaxLayers          = 4
-	palworldMapStaleAfter         = 2 * 15 * time.Second
+	palworldMapStaleAfter         = 10 * time.Second
 	palworldMapTileInstallTimeout = 10 * time.Minute
 )
 

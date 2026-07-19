@@ -12,7 +12,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-const palworldMapPollInterval = 15 * time.Second
+const palworldMapPollInterval = 5 * time.Second
 
 // PalworldMapState is the latest controller-cached map state for one server.
 // A failed or offline poll preserves the last snapshot and marks it stale at

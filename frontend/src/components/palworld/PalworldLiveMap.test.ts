@@ -14,6 +14,7 @@ import PalworldLiveMap from './PalworldLiveMap.vue'
 interface MarkerRecord {
   click: (() => void) | null
   element: HTMLElement
+  setLatLng: ReturnType<typeof vi.fn>
   title: string
 }
 
@@ -49,7 +50,15 @@ vi.mock('leaflet', () => {
       return this
     }
 
+    setLatLng(): this {
+      return this
+    }
+
     setStyle(): this {
+      return this
+    }
+
+    setTooltipContent(): this {
       return this
     }
   }
@@ -66,6 +75,7 @@ vi.mock('leaflet', () => {
   const layerGroupInstance = {
     addTo: vi.fn(() => layerGroupInstance),
     clearLayers: leafletMocks.clearLayers,
+    removeLayer: vi.fn(),
   }
 
   const leaflet = {
@@ -98,6 +108,7 @@ vi.mock('leaflet', () => {
       const record: MarkerRecord = {
         click: null,
         element,
+        setLatLng: vi.fn(),
         title: options.title,
       }
       const marker = {
@@ -110,6 +121,8 @@ vi.mock('leaflet', () => {
           return marker
         }),
         openTooltip: vi.fn(() => marker),
+        setLatLng: record.setLatLng,
+        setTooltipContent: vi.fn(() => marker),
       }
       leafletMocks.markerRecords.push(record)
       return marker
@@ -122,23 +135,30 @@ vi.mock('leaflet', () => {
 
 const mountedWrappers: VueWrapper[] = []
 
-function actor(key: string, name: string): PalworldMapActor {
+function actor(
+  key: string,
+  name: string,
+  locationX = 100,
+  locationY = 200,
+  kind = PalworldMapActorKind.PLAYER,
+): PalworldMapActor {
   return create(PalworldMapActorSchema, {
     key,
-    kind: PalworldMapActorKind.PLAYER,
+    kind,
     name,
-    locationX: 100,
-    locationY: 200,
+    locationX,
+    locationY,
     active: true,
   })
 }
 
-function mountMap(actors: PalworldMapActor[]): VueWrapper {
+function mountMap(actors: PalworldMapActor[], partial = false, available = true): VueWrapper {
   const wrapper = shallowMount(PalworldLiveMap, {
     props: {
       view: create(PalworldMapViewSchema, {
         actors,
-        available: true,
+        available,
+        partial,
         serverOnline: true,
       }),
     },
@@ -215,5 +235,57 @@ describe('PalworldLiveMap', () => {
         .querySelector('.palworld-map-marker')
         ?.classList.contains('palworld-map-marker--selected'),
     ).toBe(true)
+  })
+
+  it('moves an existing marker when a refreshed snapshot changes its position', async () => {
+    const wrapper = mountMap([actor('player-1', 'Alex')])
+    await flushPromises()
+
+    const alex = latestMarker('Alex')
+    await wrapper.setProps({
+      view: create(PalworldMapViewSchema, {
+        actors: [actor('player-1', 'Alex', 350, 450)],
+        available: true,
+        serverOnline: true,
+      }),
+    })
+    await flushPromises()
+
+    expect(alex.setLatLng).toHaveBeenLastCalledWith({ latitude: 350, longitude: 450 })
+    expect(leafletMocks.markerRecords.filter((marker) => marker.title === 'Alex')).toHaveLength(1)
+  })
+
+  it('shows only player controls for a players-only snapshot', async () => {
+    const wrapper = mountMap(
+      [actor('player-1', 'Alex'), actor('base-1', 'Skyforge', 300, 400, PalworldMapActorKind.BASE)],
+      true,
+    )
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Players')
+    expect(wrapper.text()).not.toContain('World actors')
+    expect(wrapper.text()).not.toContain('Bases')
+    expect(wrapper.text()).not.toContain('More actors')
+  })
+
+  it('does not advertise actor layers before a snapshot is available', async () => {
+    const wrapper = mountMap([], false, false)
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Players')
+    expect(wrapper.text()).not.toContain('Bases')
+    expect(wrapper.text()).not.toContain('More actors')
+  })
+
+  it('retains full actor controls for a world snapshot', async () => {
+    const wrapper = mountMap([
+      actor('player-1', 'Alex'),
+      actor('base-1', 'Skyforge', 300, 400, PalworldMapActorKind.BASE),
+    ])
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('World actors')
+    expect(wrapper.text()).toContain('Bases')
+    expect(wrapper.text()).toContain('More actors')
   })
 })

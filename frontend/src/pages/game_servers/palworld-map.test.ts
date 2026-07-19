@@ -4,6 +4,7 @@ import {
   filterPalworldMapActors,
   formatPalworldCoordinate,
   initialPalworldMapVisibility,
+  palworldMapCategories,
 } from './palworld-map'
 
 const actors: PalworldMapActor[] = [
@@ -50,6 +51,10 @@ const actors: PalworldMapActor[] = [
 describe('Palworld map actor helpers', () => {
   it('filters by enabled layers and exact actor metadata', () => {
     const visibility = initialPalworldMapVisibility()
+    expect(palworldMapCategories.every((category) => visibility[category.kind])).toBe(true)
+    expect(filterPalworldMapActors(actors, visibility, '')).toEqual(actors)
+
+    visibility[PalworldMapActorKind.WILD_PAL] = false
     expect(filterPalworldMapActors(actors, visibility, '')).toEqual([actors[0]])
 
     visibility[PalworldMapActorKind.WILD_PAL] = true
