@@ -40,6 +40,9 @@ type gameServerAdminInput struct {
 }
 
 func (inst *Instance) shouldConfigureAdminInput(gameServer *models.GameServer) (bool, bool, error) {
+	if gameServer != nil && gameServer.GameID == palworldGameID {
+		return true, false, nil
+	}
 	if !GameServerDefinitionSupportsAdminInput(gameServer) {
 		return false, false, nil
 	}

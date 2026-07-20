@@ -114,6 +114,24 @@ func TestGameServerAdminInput(t *testing.T) {
 	}
 }
 
+func TestShouldConfigureAdminInputPreservesPalworldRESTSetup(t *testing.T) {
+	t.Parallel()
+
+	configure, disableManagedConsole, errConfigure := (&Instance{}).shouldConfigureAdminInput(&models.GameServer{
+		GameID: palworldGameID,
+	})
+	if errConfigure != nil {
+		t.Fatalf("shouldConfigureAdminInput() error = %v", errConfigure)
+	}
+	if !configure || disableManagedConsole {
+		t.Fatalf(
+			"shouldConfigureAdminInput() = (%t, %t), want (true, false)",
+			configure,
+			disableManagedConsole,
+		)
+	}
+}
+
 func adminInputTestGameDefinition(gameID string) *models.Game {
 	game := &models.Game{ID: gameID}
 	switch gameID {
