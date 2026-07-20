@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   GameServerSchema,
   NodeSchema,
+  ServerQuery_Type,
   Status,
   VersionInfoSchema,
   VersionStatus,
@@ -14,6 +15,9 @@ import {
 import {
   AggregatedGameServerSchema,
   RemoteServerSummarySchema,
+  StepStatus,
+  UpdateProgressSchema,
+  UpdateStep,
   UserSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
@@ -25,6 +29,14 @@ const mocks = vi.hoisted(() => ({
   listAggregatedGameServers: vi.fn(),
   listGameServers: vi.fn(),
   listNodes: vi.fn(),
+  startGameServer: vi.fn(),
+  stopGameServer: vi.fn(),
+  restartGameServer: vi.fn(),
+  updateGameServer: vi.fn(),
+  websocketClient: {
+    isOpen: vi.fn(() => true),
+    send: vi.fn(),
+  },
   eventBus: (() => {
     const listeners = new Map<string, Set<(...args: unknown[]) => void>>()
 
@@ -79,9 +91,12 @@ vi.mock('@/utils/shared', async () => {
       listAggregatedGameServers: mocks.listAggregatedGameServers,
       listGameServers: mocks.listGameServers,
       listNodes: mocks.listNodes,
-      startGameServer: vi.fn(),
-      stopGameServer: vi.fn(),
+      startGameServer: mocks.startGameServer,
+      stopGameServer: mocks.stopGameServer,
+      restartGameServer: mocks.restartGameServer,
+      updateGameServer: mocks.updateGameServer,
     }),
+    GetOrCreateXylonaWebsocketClient: () => mocks.websocketClient,
     XylonaEventBus: mocks.eventBus,
   }
 })
@@ -90,10 +105,22 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
-    useQuasar: () => ({
-      notify: vi.fn(),
-      screen: { lt: { md: false } },
-    }),
+    useQuasar: () => {
+      const dialogResult = {
+        onOk(callback: () => void) {
+          callback()
+          return dialogResult
+        },
+        onDismiss() {
+          return dialogResult
+        },
+      }
+      return {
+        dialog: vi.fn(() => dialogResult),
+        notify: vi.fn(),
+        screen: { lt: { md: false } },
+      }
+    },
   }
 })
 
@@ -221,6 +248,13 @@ describe('GameServerList', () => {
     mocks.listAggregatedGameServers.mockReset()
     mocks.listGameServers.mockReset()
     mocks.listNodes.mockReset()
+    mocks.startGameServer.mockReset()
+    mocks.stopGameServer.mockReset()
+    mocks.restartGameServer.mockReset()
+    mocks.updateGameServer.mockReset()
+    mocks.websocketClient.isOpen.mockReset()
+    mocks.websocketClient.isOpen.mockReturnValue(true)
+    mocks.websocketClient.send.mockReset()
     mocks.eventBus.reset()
     mocks.eventBus.on.mockClear()
     mocks.eventBus.off.mockClear()
@@ -231,6 +265,10 @@ describe('GameServerList', () => {
     mocks.listNodes.mockResolvedValue({
       nodes: [buildLocalNode()],
     })
+    mocks.startGameServer.mockResolvedValue({})
+    mocks.stopGameServer.mockResolvedValue({})
+    mocks.restartGameServer.mockResolvedValue({})
+    mocks.updateGameServer.mockResolvedValue({})
   })
 
   afterEach(() => {
@@ -266,6 +304,7 @@ describe('GameServerList', () => {
           'q-tooltip': true,
           'q-spinner': true,
           'q-skeleton': true,
+          'q-separator': { template: '<span />' },
           'q-table': defineComponent({
             name: 'QTableStub',
             props: {
@@ -309,6 +348,257 @@ describe('GameServerList', () => {
 
     expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(1)
     expect(mocks.listGameServers).not.toHaveBeenCalled()
+  })
+
+  it('starts selected servers concurrently', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ id: 'server-a', name: 'Server A' }),
+        }),
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ id: 'server-b', name: 'Server B' }),
+        }),
+      ],
+    })
+    const firstStart = createDeferred<Record<string, never>>()
+    const secondStart = createDeferred<Record<string, never>>()
+    mocks.startGameServer.mockImplementation((request: { serverId: string }) => {
+      return request.serverId === 'server-a' ? firstStart.promise : secondStart.promise
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      selectedGameServers: DisplayRow[]
+      startSelectedGameServers: () => Promise<void>
+    }
+    vm.selectedGameServers = [...vm.displayRows]
+
+    const action = vm.startSelectedGameServers()
+    await vi.waitFor(() => {
+      expect(mocks.startGameServer).toHaveBeenCalledTimes(2)
+    })
+    expect(
+      mocks.startGameServer.mock.calls.map(
+        ([request]) => (request as { serverId: string }).serverId,
+      ),
+    ).toEqual(['server-a', 'server-b'])
+
+    firstStart.resolve({})
+    secondStart.resolve({})
+    await action
+  })
+
+  it('uses the atomic restart endpoint', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ status: Status.ONLINE }),
+        }),
+      ],
+    })
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      runServerAction: (action: 'restart', server: DisplayRow) => Promise<void>
+    }
+    const server = vm.displayRows[0]
+    if (!server) throw new Error('expected online server')
+
+    await vm.runServerAction('restart', server)
+
+    expect(mocks.restartGameServer).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'server-local' }),
+    )
+    expect(mocks.stopGameServer).not.toHaveBeenCalled()
+    expect(mocks.startGameServer).not.toHaveBeenCalled()
+  })
+
+  it('keeps an update pending until terminal progress arrives', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ resolvedHasUpdate: true }),
+        }),
+      ],
+    })
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      isServerActionPending: (server: DisplayRow, action: 'update') => boolean
+      runServerAction: (action: 'update', server: DisplayRow) => Promise<void>
+    }
+    const server = vm.displayRows[0]
+    if (!server) throw new Error('expected updateable server')
+
+    await vm.runServerAction('update', server)
+    expect(vm.isServerActionPending(server, 'update')).toBe(true)
+
+    mocks.eventBus.emit(
+      'gameServerUpdateProgress',
+      createProto(UpdateProgressSchema, {
+        gameServerId: server.id,
+        step: UpdateStep.INSTALLING,
+        stepStatus: StepStatus.COMPLETED,
+      }),
+    )
+    await flushPromises()
+    expect(vm.isServerActionPending(server, 'update')).toBe(false)
+  })
+
+  it('updates player counts and resource usage from live server feeds', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            status: Status.ONLINE,
+            maxPlayers: 20n,
+            currentPlayerCount: 1n,
+          }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      formatCpuUsage: (row: DisplayRow) => string
+      formatMemoryUsage: (row: DisplayRow) => string
+      getPlayerCountLabel: (row: DisplayRow) => string
+    }
+    const row = vm.displayRows[0]
+    if (!row) {
+      throw new Error('expected the live server row')
+    }
+    expect(mocks.websocketClient.send).toHaveBeenCalledTimes(1)
+
+    mocks.eventBus.emit('gameServersQueryInfo', {
+      servers: {
+        'server-local': {
+          type: ServerQuery_Type.Minecraft,
+          minecraft: { numberOfPlayers: 4, maxPlayers: 20 },
+        },
+      },
+    })
+    mocks.eventBus.emit('gameServerMetrics', {
+      servers: {
+        'server-local': {
+          cpuPercent: 12.5,
+          cpuValid: true,
+          memoryWorkingSetBytes: 512n * 1024n * 1024n,
+          memoryBytes: 0n,
+          memoryPercent: 25,
+          metricsValid: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(vm.getPlayerCountLabel(row)).toBe('4 / 20')
+    expect(vm.formatCpuUsage(row)).toBe('12.5%')
+    expect(vm.formatMemoryUsage(row)).toBe('512.0 MB · 25.0%')
+
+    mocks.eventBus.emit('websocketDisconnected')
+    await flushPromises()
+
+    expect(vm.getPlayerCountLabel(row)).toBe('0 / 20')
+    expect(vm.formatCpuUsage(row)).toBe('—')
+    expect(vm.formatMemoryUsage(row)).toBe('—')
+  })
+
+  it('does not reuse telemetry from a previous server process', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            status: Status.ONLINE,
+            setMaxPlayers: 20n,
+            maxPlayers: 100n,
+          }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      formatCpuUsage: (row: DisplayRow) => string
+      formatMemoryUsage: (row: DisplayRow) => string
+      getPlayerCountLabel: (row: DisplayRow) => string
+      setServerStatus: (serverID: string, status: Status) => void
+    }
+
+    mocks.eventBus.emit('gameServersQueryInfo', {
+      servers: {
+        'server-local': {
+          type: ServerQuery_Type.Minecraft,
+          minecraft: { numberOfPlayers: 4, maxPlayers: 20 },
+        },
+      },
+    })
+    mocks.eventBus.emit('gameServerMetrics', {
+      servers: {
+        'server-local': {
+          cpuPercent: 12.5,
+          cpuValid: true,
+          memoryWorkingSetBytes: 512n * 1024n * 1024n,
+          memoryPercent: 25,
+          metricsValid: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    vm.setServerStatus('server-local', Status.OFFLINE)
+    vm.setServerStatus('server-local', Status.ONLINE)
+    await flushPromises()
+
+    const restartedRow = vm.displayRows[0]
+    if (!restartedRow) {
+      throw new Error('expected the restarted server row')
+    }
+    expect(vm.getPlayerCountLabel(restartedRow)).toBe('0 / 20')
+    expect(vm.formatCpuUsage(restartedRow)).toBe('—')
+    expect(vm.formatMemoryUsage(restartedRow)).toBe('—')
+  })
+
+  it('does not subscribe to resource metrics without the metrics permission', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ status: Status.ONLINE }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(false)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      formatCpuUsage: (row: DisplayRow) => string
+      formatMemoryUsage: (row: DisplayRow) => string
+    }
+    const row = vm.displayRows[0]
+    if (!row) {
+      throw new Error('expected the live server row')
+    }
+
+    expect(mocks.websocketClient.send).not.toHaveBeenCalled()
+    expect(vm.formatCpuUsage(row)).toBe('—')
+    expect(vm.formatMemoryUsage(row)).toBe('—')
   })
 
   it('shows cached rows before aggregated data finishes loading', async () => {

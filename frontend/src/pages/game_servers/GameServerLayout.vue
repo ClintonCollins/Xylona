@@ -134,7 +134,9 @@ async function configureTabs() {
       isOwnerOrSuper = currentUser.superUser || isOwner
       hasModSupport = Boolean(gameServerResp.gameServer?.resolvedHasModSupport)
       allowStartArgEditing = gameServerResp.gameServer?.game?.allowStartArgEditing ?? true
-      hasLiveMap = ['palworld', '7_days_to_die'].includes(gameServerResp.gameServer?.gameId ?? '')
+      hasLiveMap = ['minecraft', 'palworld', '7_days_to_die'].includes(
+        gameServerResp.gameServer?.gameId ?? '',
+      )
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       console.error(err)

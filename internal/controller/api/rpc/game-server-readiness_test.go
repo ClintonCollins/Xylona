@@ -19,7 +19,9 @@ import (
 
 func TestAcceptMinecraftEulaAutoStartsWhenReadinessComplete(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
 	ctx := context.Background()
+	serverDirectory := t.TempDir()
 
 	_, errGame := fixture.conn.SQLDb.ExecContext(
 		ctx,
@@ -45,7 +47,7 @@ func TestAcceptMinecraftEulaAutoStartsWhenReadinessComplete(t *testing.T) {
 		 set directory = ?,
 		     server_executable = ?
 		 where id = ?`,
-		"/srv/server-local-1",
+		serverDirectory,
 		"server.jar",
 		"server-local-1",
 	)
@@ -58,7 +60,7 @@ func TestAcceptMinecraftEulaAutoStartsWhenReadinessComplete(t *testing.T) {
 		SnapshotResult: &node.NodeSnapshot{
 			OS: "linux",
 		},
-		RuntimeCapabilitiesResult: node.RuntimeCapabilities{LaunchEnv: true},
+		RuntimeCapabilitiesResult: node.RuntimeCapabilities{LaunchEnv: true, RCONInput: true},
 	}
 	registry := noderegistry.New("node-local", fakeNode)
 	fixture.service.nodeRegistry = registry

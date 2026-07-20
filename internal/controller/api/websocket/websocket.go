@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
+	"github.com/ClintonCollins/Xylona/internal/controller/authz"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -45,6 +47,7 @@ type connection struct {
 	outputStreamChannel          chan *xylona.Message
 	userID                       string
 	userLookup                   func(string) (*models.User, error)
+	metricsPermissionLookup      func(string) (bool, error)
 	allGameServerIDs             []string
 	requestedGameServerOutputIDs map[string]struct{}
 	subscribedMetricsServerIDs   map[string]struct{}
@@ -193,11 +196,28 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 
 	log.Debug().Str("User", user.UserName).Msg("Websocket connected")
 	wsConnection := &connection{
-		id:                           uuid.New(),
-		melodySession:                s,
-		outputStreamChannel:          make(chan *xylona.Message, 256),
-		userID:                       user.ID,
-		userLookup:                   ws.db.GetUserByID,
+		id:                  uuid.New(),
+		melodySession:       s,
+		outputStreamChannel: make(chan *xylona.Message, 256),
+		userID:              user.ID,
+		userLookup:          ws.db.GetUserByID,
+		metricsPermissionLookup: func(serverID string) (bool, error) {
+			currentUser, errUser := ws.db.GetUserByID(user.ID)
+			if errUser != nil {
+				return false, fmt.Errorf("load websocket user for metrics authorization: %w", errUser)
+			}
+			gameServer, errGameServer := ws.db.GetGameServerByID(serverID)
+			if errGameServer != nil {
+				return false, fmt.Errorf("load game server for metrics authorization: %w", errGameServer)
+			}
+			return authz.HasPermission(
+				ws.db,
+				currentUser,
+				gameServer.ID,
+				gameServer.UserID,
+				"game_server.metrics",
+			)
+		},
 		allGameServerIDs:             []string{},
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
@@ -444,9 +464,9 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			return
 		}
 		serverID := websocketRequest.GetGameServerId()
-		if !sessionConnection.hasGameServerAccess(serverID) {
+		if !sessionConnection.canSubscribeToServerMetrics(serverID) {
 			log.Warn().Str("User", username).Str("server_id", serverID).
-				Msg("Rejected metrics subscription: user does not have access to server")
+				Msg("Rejected metrics subscription: user does not have metrics permission")
 			return
 		}
 		sessionConnection.Lock()

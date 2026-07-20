@@ -37,6 +37,10 @@ const routes: RouteRecordRaw[] = [
     component: () => import('pages/PublicSevenDaysToDieMap.vue'),
   },
   {
+    path: '/shared/minecraft-map',
+    component: () => import('pages/PublicMinecraftMap.vue'),
+  },
+  {
     path: '/login',
     component: () => import('pages/Login.vue'),
     beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {

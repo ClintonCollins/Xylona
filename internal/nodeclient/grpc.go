@@ -68,7 +68,11 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		return nil, fmt.Errorf("nodeclient: build pinned client: %w", errClient)
 	}
 
-	connectClient := nodeprotoconnect.NewNodeServiceClient(httpClient, listenURL)
+	connectClient := nodeprotoconnect.NewNodeServiceClient(
+		httpClient,
+		listenURL,
+		connect.WithReadMaxBytes(32<<20),
+	)
 
 	return &GRPCNodeClient{
 		nodeID:        nodeID,
@@ -110,7 +114,11 @@ func newReq[T any](c *GRPCNodeClient, msg *T) *connect.Request[T] {
 func (c *GRPCNodeClient) streamConnectClient() nodeprotoconnect.NodeServiceClient {
 	streamHTTPClient := *c.httpClient
 	streamHTTPClient.Timeout = 0
-	return nodeprotoconnect.NewNodeServiceClient(&streamHTTPClient, c.listenURL)
+	return nodeprotoconnect.NewNodeServiceClient(
+		&streamHTTPClient,
+		c.listenURL,
+		connect.WithReadMaxBytes(32<<20),
+	)
 }
 
 func cloneStringMap(values map[string]string) map[string]string {
@@ -757,6 +765,61 @@ func (c *GRPCNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, tileReq n
 	return append([]byte(nil), resp.Msg.GetContent()...), nil
 }
 
+// EnsureMinecraftMap invokes the node-local BlueMap lifecycle RPC.
+func (c *GRPCNodeClient) EnsureMinecraftMap(ctx context.Context, mapReq node.MinecraftMapEnsureRequest) (node.MinecraftMapStatus, error) {
+	req := newReq(c, &nodeprotov1.EnsureMinecraftMapRequest{
+		ProcessId:        mapReq.ProcessID,
+		WorkingDirectory: mapReq.WorkingDirectory,
+		WorldName:        mapReq.WorldName,
+		JavaExecutable:   mapReq.JavaExecutable,
+		MinecraftVersion: mapReq.MinecraftVersion,
+	})
+	resp, errRPC := c.connectClient.EnsureMinecraftMap(ctx, req)
+	if errRPC != nil {
+		return node.MinecraftMapStatus{}, translateError("ensure Minecraft map", errRPC)
+	}
+	message := resp.Msg
+	return node.MinecraftMapStatus{
+		Installed:            message.GetInstalled(),
+		Running:              message.GetRunning(),
+		Ready:                message.GetReady(),
+		Provider:             message.GetProvider(),
+		Status:               message.GetStatus(),
+		StatusMessage:        message.GetStatusMessage(),
+		BlueMapVersion:       message.GetBluemapVersion(),
+		LivePlayersAvailable: message.GetLivePlayersAvailable(),
+	}, nil
+}
+
+// StopMinecraftMap invokes the node-local BlueMap stop RPC.
+func (c *GRPCNodeClient) StopMinecraftMap(ctx context.Context, processID string) error {
+	req := newReq(c, &nodeprotov1.StopMinecraftMapRequest{ProcessId: processID})
+	_, errRPC := c.connectClient.StopMinecraftMap(ctx, req)
+	if errRPC != nil {
+		return translateProcessError("stop Minecraft map", errRPC)
+	}
+	return nil
+}
+
+// GetMinecraftMapAsset reads one bounded BlueMap web asset over Connect-RPC.
+func (c *GRPCNodeClient) GetMinecraftMapAsset(ctx context.Context, mapReq node.MinecraftMapAssetRequest) (node.MinecraftMapAsset, error) {
+	req := newReq(c, &nodeprotov1.GetMinecraftMapAssetRequest{
+		ProcessId:        mapReq.ProcessID,
+		WorkingDirectory: mapReq.WorkingDirectory,
+		AssetPath:        mapReq.AssetPath,
+	})
+	resp, errRPC := c.connectClient.GetMinecraftMapAsset(ctx, req)
+	if errRPC != nil {
+		return node.MinecraftMapAsset{}, translateError("get Minecraft map asset", errRPC)
+	}
+	return node.MinecraftMapAsset{
+		Content:         append([]byte(nil), resp.Msg.GetContent()...),
+		ContentType:     resp.Msg.GetContentType(),
+		ContentEncoding: resp.Msg.GetContentEncoding(),
+		CacheControl:    resp.Msg.GetCacheControl(),
+	}, nil
+}
+
 // PerformGameServerPlayerAction invokes the typed player-administration RPC.
 func (c *GRPCNodeClient) PerformGameServerPlayerAction(ctx context.Context, actionReq node.GameServerPlayerActionRequest) error {
 	req := newReq(c, &nodeprotov1.PerformGameServerPlayerActionRequest{
@@ -1168,6 +1231,7 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		PlayerActions:            msg.GetPlayerActions(),
 		PalworldMap:              msg.GetPalworldMap(),
 		SevenDaysToDieMap:        msg.GetSevenDaysToDieMap(),
+		MinecraftMap:             msg.GetMinecraftMap(),
 	}, nil
 }
 

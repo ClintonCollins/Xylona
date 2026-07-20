@@ -39,6 +39,20 @@ type gameServerAdminInput struct {
 	managedConfigRequired bool
 }
 
+func (inst *Instance) shouldConfigureAdminInput(gameServer *models.GameServer) (bool, bool, error) {
+	if !GameServerDefinitionSupportsAdminInput(gameServer) {
+		return false, false, nil
+	}
+	if gameServer.GameID != minecraftGameID {
+		return true, false, nil
+	}
+	settings, errSettings := inst.db.GetGameServerMinecraftMap(gameServer.ID)
+	if errSettings != nil {
+		return false, false, fmt.Errorf("actions: get Minecraft map settings for local console: %w", errSettings)
+	}
+	return settings.Enabled, !settings.Enabled && settings.AcceptedAt.Valid, nil
+}
+
 func newGameServerAdminInput(
 	gameServer *models.GameServer,
 	password string,
@@ -55,6 +69,8 @@ func newGameServerAdminInput(
 	}
 
 	switch gameServer.GameID {
+	case minecraftGameID:
+		return newRCONAdminInput(gameServer, gameServer.QueryPort+1, password, node.RCONProtocolMinecraft, true)
 	case sevenDaysToDieGameID:
 		if gameServer.QueryPort <= 0 || gameServer.QueryPort > 65535 {
 			return gameServerAdminInput{}, errors.New("actions: Telnet port is invalid")
@@ -152,7 +168,7 @@ func GameServerDefinitionSupportsAdminInput(gameServer *models.GameServer) bool 
 	game := gameServer.R.Game
 
 	switch gameServer.GameID {
-	case sevenDaysToDieGameID, counterStrikeTwoGameID, garrysModGameID, teamFortressTwoGameID:
+	case minecraftGameID, sevenDaysToDieGameID, counterStrikeTwoGameID, garrysModGameID, teamFortressTwoGameID:
 		return gameDefinitionHasManagedConsolePassword(game)
 	case factorioGameID:
 		return gameDefinitionTemplatesContainNonEditableBlock(

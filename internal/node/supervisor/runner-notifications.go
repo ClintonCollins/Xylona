@@ -33,6 +33,13 @@ func (c *Command) sendJobStatusNotificationDetails(
 	exitCode int,
 	exitCodeKnown bool,
 ) {
+	c.RLock()
+	suppressStatusEvents := c.suppressStatusEvents
+	c.RUnlock()
+	if suppressStatusEvents {
+		return
+	}
+
 	gameServerName := c.GameServerName()
 	nodeID := c.NodeID()
 

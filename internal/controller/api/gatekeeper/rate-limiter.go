@@ -18,6 +18,7 @@ var authRateLimitedRPCPaths = []string{
 var publicMapRPCPaths = []string{
 	"/GetPublicPalworldMap",
 	"/GetPublicSevenDaysToDieMap",
+	"/GetPublicMinecraftMap",
 }
 
 // AuthRateLimiter applies a strict IP limit to authentication RPCs and a

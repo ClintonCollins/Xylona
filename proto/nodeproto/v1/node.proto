@@ -705,6 +705,44 @@ message GetSevenDaysToDieMapTileResponse {
   bytes content = 1;
 }
 
+message EnsureMinecraftMapRequest {
+  string process_id = 1;
+  string working_directory = 2;
+  string world_name = 3;
+  string java_executable = 4;
+  string minecraft_version = 5;
+}
+
+message EnsureMinecraftMapResponse {
+  bool installed = 1;
+  bool running = 2;
+  bool ready = 3;
+  string provider = 4;
+  string status = 5;
+  string status_message = 6;
+  string bluemap_version = 7;
+  bool live_players_available = 8;
+}
+
+message StopMinecraftMapRequest {
+  string process_id = 1;
+}
+
+message StopMinecraftMapResponse {}
+
+message GetMinecraftMapAssetRequest {
+  string process_id = 1;
+  string working_directory = 2;
+  string asset_path = 3;
+}
+
+message GetMinecraftMapAssetResponse {
+  bytes content = 1;
+  string content_type = 2;
+  string content_encoding = 3;
+  string cache_control = 4;
+}
+
 // --- Process console output (controller-generated lines) --------------------
 
 // SendConsoleOutput writes a controller-generated line into the process's
@@ -765,6 +803,7 @@ message GetRuntimeCapabilitiesResponse {
   bool rest_input = 7;
   bool palworld_map = 8;
   bool seven_days_to_die_map = 9;
+  bool minecraft_map = 10;
 }
 
 // --- Self-update RPCs -------------------------------------------------------
@@ -848,6 +887,9 @@ service NodeService {
   rpc QueryPalworldMap(QueryPalworldMapRequest) returns (QueryPalworldMapResponse);
   rpc QuerySevenDaysToDieMap(QuerySevenDaysToDieMapRequest) returns (QuerySevenDaysToDieMapResponse);
   rpc GetSevenDaysToDieMapTile(GetSevenDaysToDieMapTileRequest) returns (GetSevenDaysToDieMapTileResponse);
+  rpc EnsureMinecraftMap(EnsureMinecraftMapRequest) returns (EnsureMinecraftMapResponse);
+  rpc StopMinecraftMap(StopMinecraftMapRequest) returns (StopMinecraftMapResponse);
+  rpc GetMinecraftMapAsset(GetMinecraftMapAssetRequest) returns (GetMinecraftMapAssetResponse);
   rpc PerformGameServerPlayerAction(PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse);
 
   // Console output (controller-generated lines pushed into the process buffer)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -168,12 +169,15 @@ func (xs *XylonaService) remoteSummaryFromGameServer(
 		IpAddress:      gameServer.IP,
 		Port:           gameServer.Port,
 		QueryPort:      gameServer.QueryPort,
-		MaxPlayers:     gameServer.MaxPlayers,
-		CurrentPlayers: gameServer.SetPlayers,
+		MaxPlayers:     gameServer.SetPlayers,
+		CurrentPlayers: 0,
 		MapName:        gameServer.Map,
 		Version:        gameServer.Version,
 		IsStale:        state.err != nil,
 	}
+	gameServerProto := protomap.GameServerModelToProto(gameServer, xs.versionState)
+	out.VersionInfo = gameServerProto.GetVersionInfo()
+	out.ResolvedHasUpdate = gameServerProto.GetResolvedHasUpdate()
 	if gameServer.R.Game != nil {
 		out.GameName = gameServer.R.Game.Name
 	}
@@ -235,10 +239,21 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 	}
 	for _, gs := range localServers {
 		nodeState := xs.gameServerNodeSnapshotState(gs, nodeStates)
+		effectivePermissions := []string{}
+		if user.SuperUser || gs.UserID == user.ID {
+			effectivePermissions = xs.allPermissionIDs
+		} else {
+			perms, ok := bulkPerms[gs.ID]
+			if ok {
+				effectivePermissions = perms
+			}
+		}
 		if strings.TrimSpace(gs.NodeID) != "" && gs.NodeID != selfNodeID {
+			remoteServer := xs.remoteSummaryFromGameServer(gs, nodeState)
+			remoteServer.EffectivePermissions = effectivePermissions
 			resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
 				IsLocal:      false,
-				RemoteServer: xs.remoteSummaryFromGameServer(gs, nodeState),
+				RemoteServer: remoteServer,
 			})
 			continue
 		}
@@ -250,15 +265,10 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 		}
 		gsProto := protomap.GameServerModelToProto(gs, xs.versionState)
 		gsProto.Status = status
-		applyProcessMetricsToProto(gsProto, processSnapshot)
-		if user.SuperUser || gs.UserID == user.ID {
-			gsProto.EffectivePermissions = xs.allPermissionIDs
-		} else {
-			perms, ok := bulkPerms[gs.ID]
-			if ok {
-				gsProto.EffectivePermissions = perms
-			}
+		if slices.Contains(effectivePermissions, "game_server.metrics") {
+			applyProcessMetricsToProto(gsProto, processSnapshot)
 		}
+		gsProto.EffectivePermissions = effectivePermissions
 		if !user.SuperUser {
 			redactGameServerForNonSuperuser(gsProto)
 		}

@@ -14,6 +14,13 @@ export interface DisplayRow {
   sourceNodeId: string
   version: string
   versionInfo?: VersionInfo
+  effectivePermissions?: string[]
+  canUpdate?: boolean
+  currentPlayers?: number
+  maxPlayers?: number
+  cpuPercent?: number | null
+  memoryBytes?: number | null
+  memoryPercent?: number | null
 }
 
 export function buildDisplayRows(
@@ -44,6 +51,13 @@ export function buildDisplayRows(
         sourceNodeId: '',
         version: localServer.version,
         versionInfo: localServer.versionInfo,
+        effectivePermissions: [...(localServer.effectivePermissions ?? [])],
+        canUpdate: localServer.resolvedHasUpdate,
+        currentPlayers: Number(localServer.currentPlayerCount),
+        maxPlayers: Number(localServer.setMaxPlayers || localServer.maxPlayers),
+        cpuPercent: null,
+        memoryBytes: null,
+        memoryPercent: null,
       }
 
       if (!seenCompositeIDs.has(row.compositeId)) {
@@ -77,6 +91,13 @@ export function buildDisplayRows(
       sourceNodeId: sourceNodeID,
       version: remoteServer.version,
       versionInfo: remoteServer.versionInfo,
+      effectivePermissions: [...(remoteServer.effectivePermissions ?? [])],
+      canUpdate: remoteServer.resolvedHasUpdate,
+      currentPlayers: Number(remoteServer.currentPlayers),
+      maxPlayers: Number(remoteServer.maxPlayers),
+      cpuPercent: null,
+      memoryBytes: null,
+      memoryPercent: null,
     }
 
     if (!seenCompositeIDs.has(row.compositeId)) {
@@ -120,13 +141,16 @@ export function filterRowsByRemoteNodeIDs(
 
 export function sanitizeBootstrapCachedRows(rows: DisplayRow[]): DisplayRow[] {
   return rows.map((row) => {
-    if (row.statusEnum !== Status.ONLINE) {
-      return row
-    }
-
     return {
       ...row,
-      statusEnum: Status.OFFLINE,
+      statusEnum: row.statusEnum === Status.ONLINE ? Status.OFFLINE : row.statusEnum,
+      effectivePermissions: row.effectivePermissions ?? [],
+      canUpdate: row.canUpdate ?? false,
+      currentPlayers: 0,
+      maxPlayers: row.maxPlayers ?? 0,
+      cpuPercent: null,
+      memoryBytes: null,
+      memoryPercent: null,
     }
   })
 }

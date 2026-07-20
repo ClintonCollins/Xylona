@@ -130,6 +130,18 @@ type FakeNodeClient struct {
 	SevenDaysToDieMapTileErr    error
 	SevenDaysToDieMapTileCalls  []node.SevenDaysToDieMapTileRequest
 
+	EnsureMinecraftMapResult node.MinecraftMapStatus
+	EnsureMinecraftMapErr    error
+	EnsureMinecraftMapCalls  []node.MinecraftMapEnsureRequest
+	EnsureMinecraftMapFunc   func(context.Context, node.MinecraftMapEnsureRequest) (node.MinecraftMapStatus, error)
+
+	StopMinecraftMapErr   error
+	StopMinecraftMapCalls []string
+
+	MinecraftMapAssetResult node.MinecraftMapAsset
+	MinecraftMapAssetErr    error
+	MinecraftMapAssetCalls  []node.MinecraftMapAssetRequest
+
 	PerformGameServerPlayerActionErr   error
 	PerformGameServerPlayerActionCalls []node.GameServerPlayerActionRequest
 
@@ -599,6 +611,35 @@ func (f *FakeNodeClient) GetSevenDaysToDieMapTile(_ context.Context, req node.Se
 	f.SevenDaysToDieMapTileCalls = append(f.SevenDaysToDieMapTileCalls, req)
 	f.mu.Unlock()
 	return append([]byte(nil), f.SevenDaysToDieMapTileResult...), f.SevenDaysToDieMapTileErr
+}
+
+// EnsureMinecraftMap records the call and returns the configured map status.
+func (f *FakeNodeClient) EnsureMinecraftMap(ctx context.Context, req node.MinecraftMapEnsureRequest) (node.MinecraftMapStatus, error) {
+	f.mu.Lock()
+	f.EnsureMinecraftMapCalls = append(f.EnsureMinecraftMapCalls, req)
+	f.mu.Unlock()
+	if f.EnsureMinecraftMapFunc != nil {
+		return f.EnsureMinecraftMapFunc(ctx, req)
+	}
+	return f.EnsureMinecraftMapResult, f.EnsureMinecraftMapErr
+}
+
+// StopMinecraftMap records the process whose managed companion was stopped.
+func (f *FakeNodeClient) StopMinecraftMap(_ context.Context, processID string) error {
+	f.mu.Lock()
+	f.StopMinecraftMapCalls = append(f.StopMinecraftMapCalls, processID)
+	f.mu.Unlock()
+	return f.StopMinecraftMapErr
+}
+
+// GetMinecraftMapAsset records the request and returns the configured asset.
+func (f *FakeNodeClient) GetMinecraftMapAsset(_ context.Context, req node.MinecraftMapAssetRequest) (node.MinecraftMapAsset, error) {
+	f.mu.Lock()
+	f.MinecraftMapAssetCalls = append(f.MinecraftMapAssetCalls, req)
+	f.mu.Unlock()
+	asset := f.MinecraftMapAssetResult
+	asset.Content = append([]byte(nil), asset.Content...)
+	return asset, f.MinecraftMapAssetErr
 }
 
 // PerformGameServerPlayerAction records the call and returns the configured error.

@@ -30,6 +30,34 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
+func TestUpdateGameServerWithBackupRejectsConcurrentOperation(t *testing.T) {
+	inst := &Instance{activeGameServerOps: map[string]struct{}{"server-1": {}}}
+	errUpdate := inst.UpdateGameServerWithBackup(&models.GameServer{ID: "server-1"}, nil)
+	if !errors.Is(errUpdate, ErrGameServerOperationInProgress) {
+		t.Fatalf("UpdateGameServerWithBackup() error = %v, want %v", errUpdate, ErrGameServerOperationInProgress)
+	}
+}
+
+func TestTryBeginGameServerLifecycleOperationCoordinatesRestartAndUpdate(t *testing.T) {
+	inst := &Instance{}
+	releaseRestart, errRestart := inst.TryBeginGameServerLifecycleOperation("server-1")
+	if errRestart != nil {
+		t.Fatalf("TryBeginGameServerLifecycleOperation(restart) error = %v", errRestart)
+	}
+
+	errUpdate := inst.UpdateGameServerWithBackup(&models.GameServer{ID: "server-1"}, nil)
+	if !errors.Is(errUpdate, ErrGameServerOperationInProgress) {
+		t.Fatalf("UpdateGameServerWithBackup() during restart error = %v, want %v", errUpdate, ErrGameServerOperationInProgress)
+	}
+
+	releaseRestart()
+	releaseUpdate, errUpdateOperation := inst.TryBeginGameServerLifecycleOperation("server-1")
+	if errUpdateOperation != nil {
+		t.Fatalf("TryBeginGameServerLifecycleOperation(update) after release error = %v", errUpdateOperation)
+	}
+	releaseUpdate()
+}
+
 func TestWaitForUpdateProcessExit(t *testing.T) {
 	snapshotUnavailable := func(context.Context, string) (*node.ProcessSnapshot, bool, error) {
 		return nil, false, errors.New("snapshot temporarily unavailable")

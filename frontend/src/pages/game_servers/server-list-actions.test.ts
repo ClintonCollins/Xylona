@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { Status } from '@/proto/shared_pb'
 import type { DisplayRow } from './server-list-cache'
 import {
+  canRestartServer,
   canStartServer,
   canStopServer,
+  canUpdateServer,
+  getRestartableServers,
   getStartableServers,
   getStoppableServers,
+  getUpdateableServers,
 } from './server-list-actions'
 
 function buildRow(id: string, status: Status): DisplayRow {
@@ -21,6 +25,7 @@ function buildRow(id: string, status: Status): DisplayRow {
     isStale: false,
     sourceNodeId: '',
     version: '1.0.0',
+    canUpdate: true,
   }
 }
 
@@ -68,5 +73,48 @@ describe('server-list-actions', () => {
 
     expect(startableServerIDs).toEqual(['b'])
     expect(stoppableServerIDs).toEqual(['c'])
+  })
+
+  it('classifies restart and update eligibility from lifecycle state and capability', () => {
+    const tests = [
+      {
+        name: 'online update-capable server',
+        server: buildRow('online', Status.ONLINE),
+        wantRestart: true,
+        wantUpdate: true,
+      },
+      {
+        name: 'offline update-capable server',
+        server: buildRow('offline', Status.OFFLINE),
+        wantRestart: false,
+        wantUpdate: true,
+      },
+      {
+        name: 'busy update-capable server',
+        server: buildRow('busy', Status.UPDATING),
+        wantRestart: false,
+        wantUpdate: false,
+      },
+      {
+        name: 'online server without update provider',
+        server: { ...buildRow('unsupported', Status.ONLINE), canUpdate: false },
+        wantRestart: true,
+        wantUpdate: false,
+      },
+    ]
+
+    for (const tt of tests) {
+      expect(canRestartServer(tt.server.statusEnum), tt.name).toBe(tt.wantRestart)
+      expect(canUpdateServer(tt.server), tt.name).toBe(tt.wantUpdate)
+    }
+
+    expect(getRestartableServers(tests.map((tt) => tt.server)).map((server) => server.id)).toEqual([
+      'online',
+      'unsupported',
+    ])
+    expect(getUpdateableServers(tests.map((tt) => tt.server)).map((server) => server.id)).toEqual([
+      'online',
+      'offline',
+    ])
   })
 })

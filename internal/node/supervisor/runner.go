@@ -120,6 +120,9 @@ type PreparedCommand struct {
 	// When zero the default is used.
 	StopTimeout time.Duration
 	LaunchEnv   map[string]string
+	// SuppressStatusEvents keeps companion tasks out of game-server status
+	// listeners, broadcasts, and alert evaluation.
+	SuppressStatusEvents bool
 }
 
 func (imt inputType) String() string {

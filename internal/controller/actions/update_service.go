@@ -319,12 +319,25 @@ func (inst *Instance) resolveUpdateFileClient(gs *models.GameServer, operation s
 // UpdateGameServerWithBackup stops the server (if running), backs up config
 // and executable files, runs the update, then restarts. On failure the backup
 // is restored and the server is restarted if it was running before. The whole
-// sequence runs in a goroutine so it does not block the caller.
+// sequence runs in a goroutine so it does not block the caller. A server can
+// have only one active update operation.
 func (inst *Instance) UpdateGameServerWithBackup(
 	gameServer *models.GameServer,
 	broadcaster UpdateProgressBroadcaster,
-) {
-	go inst.runUpdateWithBackup(gameServer, broadcaster)
+) error {
+	if gameServer == nil || strings.TrimSpace(gameServer.ID) == "" {
+		return errors.New("actions: game server is required for update")
+	}
+	releaseOperation, errOperation := inst.TryBeginGameServerLifecycleOperation(gameServer.ID)
+	if errOperation != nil {
+		return errOperation
+	}
+
+	go func() {
+		defer releaseOperation()
+		inst.runUpdateWithBackup(gameServer, broadcaster)
+	}()
+	return nil
 }
 
 func (inst *Instance) runUpdateWithBackup(gameServer *models.GameServer, broadcaster UpdateProgressBroadcaster) {

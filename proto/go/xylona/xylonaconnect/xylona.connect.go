@@ -114,6 +114,9 @@ const (
 	XylonaStartGameServerProcedure = "/xylona.Xylona/StartGameServer"
 	// XylonaStopGameServerProcedure is the fully-qualified name of the Xylona's StopGameServer RPC.
 	XylonaStopGameServerProcedure = "/xylona.Xylona/StopGameServer"
+	// XylonaRestartGameServerProcedure is the fully-qualified name of the Xylona's RestartGameServer
+	// RPC.
+	XylonaRestartGameServerProcedure = "/xylona.Xylona/RestartGameServer"
 	// XylonaReadGameServerOutputProcedure is the fully-qualified name of the Xylona's
 	// ReadGameServerOutput RPC.
 	XylonaReadGameServerOutputProcedure = "/xylona.Xylona/ReadGameServerOutput"
@@ -209,6 +212,20 @@ const (
 	// XylonaGetPublicSevenDaysToDieMapProcedure is the fully-qualified name of the Xylona's
 	// GetPublicSevenDaysToDieMap RPC.
 	XylonaGetPublicSevenDaysToDieMapProcedure = "/xylona.Xylona/GetPublicSevenDaysToDieMap"
+	// XylonaGetMinecraftMapProcedure is the fully-qualified name of the Xylona's GetMinecraftMap RPC.
+	XylonaGetMinecraftMapProcedure = "/xylona.Xylona/GetMinecraftMap"
+	// XylonaUpdateMinecraftMapConfigProcedure is the fully-qualified name of the Xylona's
+	// UpdateMinecraftMapConfig RPC.
+	XylonaUpdateMinecraftMapConfigProcedure = "/xylona.Xylona/UpdateMinecraftMapConfig"
+	// XylonaRegenerateMinecraftMapShareProcedure is the fully-qualified name of the Xylona's
+	// RegenerateMinecraftMapShare RPC.
+	XylonaRegenerateMinecraftMapShareProcedure = "/xylona.Xylona/RegenerateMinecraftMapShare"
+	// XylonaRevokeMinecraftMapShareProcedure is the fully-qualified name of the Xylona's
+	// RevokeMinecraftMapShare RPC.
+	XylonaRevokeMinecraftMapShareProcedure = "/xylona.Xylona/RevokeMinecraftMapShare"
+	// XylonaGetPublicMinecraftMapProcedure is the fully-qualified name of the Xylona's
+	// GetPublicMinecraftMap RPC.
+	XylonaGetPublicMinecraftMapProcedure = "/xylona.Xylona/GetPublicMinecraftMap"
 	// XylonaGetUpdateTargetsProcedure is the fully-qualified name of the Xylona's GetUpdateTargets RPC.
 	XylonaGetUpdateTargetsProcedure = "/xylona.Xylona/GetUpdateTargets"
 	// XylonaSetServerVariantProcedure is the fully-qualified name of the Xylona's SetServerVariant RPC.
@@ -460,7 +477,7 @@ type XylonaClient interface {
 	RemoveGameServer(context.Context, *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error)
 	StartGameServer(context.Context, *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error)
 	StopGameServer(context.Context, *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error)
-	// rpc RestartGameServer (RestartGameServerRequest) returns (RestartGameServerResponse) {}
+	RestartGameServer(context.Context, *connect.Request[xylona.RestartGameServerRequest]) (*connect.Response[xylona.RestartGameServerResponse], error)
 	ReadGameServerOutput(context.Context, *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error)
 	SendGameServerInput(context.Context, *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error)
 	GetGameServer(context.Context, *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error)
@@ -497,6 +514,11 @@ type XylonaClient interface {
 	RegenerateSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RegenerateSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RegenerateSevenDaysToDieMapShareResponse], error)
 	RevokeSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RevokeSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RevokeSevenDaysToDieMapShareResponse], error)
 	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
+	GetMinecraftMap(context.Context, *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error)
+	UpdateMinecraftMapConfig(context.Context, *connect.Request[xylona.UpdateMinecraftMapConfigRequest]) (*connect.Response[xylona.UpdateMinecraftMapConfigResponse], error)
+	RegenerateMinecraftMapShare(context.Context, *connect.Request[xylona.RegenerateMinecraftMapShareRequest]) (*connect.Response[xylona.RegenerateMinecraftMapShareResponse], error)
+	RevokeMinecraftMapShare(context.Context, *connect.Request[xylona.RevokeMinecraftMapShareRequest]) (*connect.Response[xylona.RevokeMinecraftMapShareResponse], error)
+	GetPublicMinecraftMap(context.Context, *connect.Request[xylona.GetPublicMinecraftMapRequest]) (*connect.Response[xylona.GetPublicMinecraftMapResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -820,6 +842,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("StopGameServer")),
 			connect.WithClientOptions(opts...),
 		),
+		restartGameServer: connect.NewClient[xylona.RestartGameServerRequest, xylona.RestartGameServerResponse](
+			httpClient,
+			baseURL+XylonaRestartGameServerProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RestartGameServer")),
+			connect.WithClientOptions(opts...),
+		),
 		readGameServerOutput: connect.NewClient[xylona.ReadGameServerOutputRequest, xylona.ReadGameServerOutputResponse](
 			httpClient,
 			baseURL+XylonaReadGameServerOutputProcedure,
@@ -1022,6 +1050,36 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaGetPublicSevenDaysToDieMapProcedure,
 			connect.WithSchema(xylonaMethods.ByName("GetPublicSevenDaysToDieMap")),
+			connect.WithClientOptions(opts...),
+		),
+		getMinecraftMap: connect.NewClient[xylona.GetMinecraftMapRequest, xylona.GetMinecraftMapResponse](
+			httpClient,
+			baseURL+XylonaGetMinecraftMapProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetMinecraftMap")),
+			connect.WithClientOptions(opts...),
+		),
+		updateMinecraftMapConfig: connect.NewClient[xylona.UpdateMinecraftMapConfigRequest, xylona.UpdateMinecraftMapConfigResponse](
+			httpClient,
+			baseURL+XylonaUpdateMinecraftMapConfigProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateMinecraftMapConfig")),
+			connect.WithClientOptions(opts...),
+		),
+		regenerateMinecraftMapShare: connect.NewClient[xylona.RegenerateMinecraftMapShareRequest, xylona.RegenerateMinecraftMapShareResponse](
+			httpClient,
+			baseURL+XylonaRegenerateMinecraftMapShareProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RegenerateMinecraftMapShare")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeMinecraftMapShare: connect.NewClient[xylona.RevokeMinecraftMapShareRequest, xylona.RevokeMinecraftMapShareResponse](
+			httpClient,
+			baseURL+XylonaRevokeMinecraftMapShareProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RevokeMinecraftMapShare")),
+			connect.WithClientOptions(opts...),
+		),
+		getPublicMinecraftMap: connect.NewClient[xylona.GetPublicMinecraftMapRequest, xylona.GetPublicMinecraftMapResponse](
+			httpClient,
+			baseURL+XylonaGetPublicMinecraftMapProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetPublicMinecraftMap")),
 			connect.WithClientOptions(opts...),
 		),
 		getUpdateTargets: connect.NewClient[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse](
@@ -1527,6 +1585,7 @@ type xylonaClient struct {
 	removeGameServer                    *connect.Client[xylona.RemoveGameServerRequest, xylona.RemoveGameServerResponse]
 	startGameServer                     *connect.Client[xylona.StartGameServerRequest, xylona.StartGameServerResponse]
 	stopGameServer                      *connect.Client[xylona.StopGameServerRequest, xylona.StopGameServerResponse]
+	restartGameServer                   *connect.Client[xylona.RestartGameServerRequest, xylona.RestartGameServerResponse]
 	readGameServerOutput                *connect.Client[xylona.ReadGameServerOutputRequest, xylona.ReadGameServerOutputResponse]
 	sendGameServerInput                 *connect.Client[xylona.SendGameServerInputRequest, xylona.SendGameServerInputResponse]
 	getGameServer                       *connect.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
@@ -1561,6 +1620,11 @@ type xylonaClient struct {
 	regenerateSevenDaysToDieMapShare    *connect.Client[xylona.RegenerateSevenDaysToDieMapShareRequest, xylona.RegenerateSevenDaysToDieMapShareResponse]
 	revokeSevenDaysToDieMapShare        *connect.Client[xylona.RevokeSevenDaysToDieMapShareRequest, xylona.RevokeSevenDaysToDieMapShareResponse]
 	getPublicSevenDaysToDieMap          *connect.Client[xylona.GetPublicSevenDaysToDieMapRequest, xylona.GetPublicSevenDaysToDieMapResponse]
+	getMinecraftMap                     *connect.Client[xylona.GetMinecraftMapRequest, xylona.GetMinecraftMapResponse]
+	updateMinecraftMapConfig            *connect.Client[xylona.UpdateMinecraftMapConfigRequest, xylona.UpdateMinecraftMapConfigResponse]
+	regenerateMinecraftMapShare         *connect.Client[xylona.RegenerateMinecraftMapShareRequest, xylona.RegenerateMinecraftMapShareResponse]
+	revokeMinecraftMapShare             *connect.Client[xylona.RevokeMinecraftMapShareRequest, xylona.RevokeMinecraftMapShareResponse]
+	getPublicMinecraftMap               *connect.Client[xylona.GetPublicMinecraftMapRequest, xylona.GetPublicMinecraftMapResponse]
 	getUpdateTargets                    *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
 	setServerVariant                    *connect.Client[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse]
 	getVariantOperationStatus           *connect.Client[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse]
@@ -1820,6 +1884,11 @@ func (c *xylonaClient) StopGameServer(ctx context.Context, req *connect.Request[
 	return c.stopGameServer.CallUnary(ctx, req)
 }
 
+// RestartGameServer calls xylona.Xylona.RestartGameServer.
+func (c *xylonaClient) RestartGameServer(ctx context.Context, req *connect.Request[xylona.RestartGameServerRequest]) (*connect.Response[xylona.RestartGameServerResponse], error) {
+	return c.restartGameServer.CallUnary(ctx, req)
+}
+
 // ReadGameServerOutput calls xylona.Xylona.ReadGameServerOutput.
 func (c *xylonaClient) ReadGameServerOutput(ctx context.Context, req *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	return c.readGameServerOutput.CallUnary(ctx, req)
@@ -1988,6 +2057,31 @@ func (c *xylonaClient) RevokeSevenDaysToDieMapShare(ctx context.Context, req *co
 // GetPublicSevenDaysToDieMap calls xylona.Xylona.GetPublicSevenDaysToDieMap.
 func (c *xylonaClient) GetPublicSevenDaysToDieMap(ctx context.Context, req *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error) {
 	return c.getPublicSevenDaysToDieMap.CallUnary(ctx, req)
+}
+
+// GetMinecraftMap calls xylona.Xylona.GetMinecraftMap.
+func (c *xylonaClient) GetMinecraftMap(ctx context.Context, req *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error) {
+	return c.getMinecraftMap.CallUnary(ctx, req)
+}
+
+// UpdateMinecraftMapConfig calls xylona.Xylona.UpdateMinecraftMapConfig.
+func (c *xylonaClient) UpdateMinecraftMapConfig(ctx context.Context, req *connect.Request[xylona.UpdateMinecraftMapConfigRequest]) (*connect.Response[xylona.UpdateMinecraftMapConfigResponse], error) {
+	return c.updateMinecraftMapConfig.CallUnary(ctx, req)
+}
+
+// RegenerateMinecraftMapShare calls xylona.Xylona.RegenerateMinecraftMapShare.
+func (c *xylonaClient) RegenerateMinecraftMapShare(ctx context.Context, req *connect.Request[xylona.RegenerateMinecraftMapShareRequest]) (*connect.Response[xylona.RegenerateMinecraftMapShareResponse], error) {
+	return c.regenerateMinecraftMapShare.CallUnary(ctx, req)
+}
+
+// RevokeMinecraftMapShare calls xylona.Xylona.RevokeMinecraftMapShare.
+func (c *xylonaClient) RevokeMinecraftMapShare(ctx context.Context, req *connect.Request[xylona.RevokeMinecraftMapShareRequest]) (*connect.Response[xylona.RevokeMinecraftMapShareResponse], error) {
+	return c.revokeMinecraftMapShare.CallUnary(ctx, req)
+}
+
+// GetPublicMinecraftMap calls xylona.Xylona.GetPublicMinecraftMap.
+func (c *xylonaClient) GetPublicMinecraftMap(ctx context.Context, req *connect.Request[xylona.GetPublicMinecraftMapRequest]) (*connect.Response[xylona.GetPublicMinecraftMapResponse], error) {
+	return c.getPublicMinecraftMap.CallUnary(ctx, req)
 }
 
 // GetUpdateTargets calls xylona.Xylona.GetUpdateTargets.
@@ -2417,7 +2511,7 @@ type XylonaHandler interface {
 	RemoveGameServer(context.Context, *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error)
 	StartGameServer(context.Context, *connect.Request[xylona.StartGameServerRequest]) (*connect.Response[xylona.StartGameServerResponse], error)
 	StopGameServer(context.Context, *connect.Request[xylona.StopGameServerRequest]) (*connect.Response[xylona.StopGameServerResponse], error)
-	// rpc RestartGameServer (RestartGameServerRequest) returns (RestartGameServerResponse) {}
+	RestartGameServer(context.Context, *connect.Request[xylona.RestartGameServerRequest]) (*connect.Response[xylona.RestartGameServerResponse], error)
 	ReadGameServerOutput(context.Context, *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error)
 	SendGameServerInput(context.Context, *connect.Request[xylona.SendGameServerInputRequest]) (*connect.Response[xylona.SendGameServerInputResponse], error)
 	GetGameServer(context.Context, *connect.Request[xylona.GetGameServerRequest]) (*connect.Response[xylona.GetGameServerResponse], error)
@@ -2454,6 +2548,11 @@ type XylonaHandler interface {
 	RegenerateSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RegenerateSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RegenerateSevenDaysToDieMapShareResponse], error)
 	RevokeSevenDaysToDieMapShare(context.Context, *connect.Request[xylona.RevokeSevenDaysToDieMapShareRequest]) (*connect.Response[xylona.RevokeSevenDaysToDieMapShareResponse], error)
 	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
+	GetMinecraftMap(context.Context, *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error)
+	UpdateMinecraftMapConfig(context.Context, *connect.Request[xylona.UpdateMinecraftMapConfigRequest]) (*connect.Response[xylona.UpdateMinecraftMapConfigResponse], error)
+	RegenerateMinecraftMapShare(context.Context, *connect.Request[xylona.RegenerateMinecraftMapShareRequest]) (*connect.Response[xylona.RegenerateMinecraftMapShareResponse], error)
+	RevokeMinecraftMapShare(context.Context, *connect.Request[xylona.RevokeMinecraftMapShareRequest]) (*connect.Response[xylona.RevokeMinecraftMapShareResponse], error)
+	GetPublicMinecraftMap(context.Context, *connect.Request[xylona.GetPublicMinecraftMapRequest]) (*connect.Response[xylona.GetPublicMinecraftMapResponse], error)
 	GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error)
 	SetServerVariant(context.Context, *connect.Request[xylona.SetServerVariantRequest]) (*connect.Response[xylona.SetServerVariantResponse], error)
 	GetVariantOperationStatus(context.Context, *connect.Request[xylona.GetVariantOperationStatusRequest]) (*connect.Response[xylona.GetVariantOperationStatusResponse], error)
@@ -2773,6 +2872,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("StopGameServer")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaRestartGameServerHandler := connect.NewUnaryHandler(
+		XylonaRestartGameServerProcedure,
+		svc.RestartGameServer,
+		connect.WithSchema(xylonaMethods.ByName("RestartGameServer")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaReadGameServerOutputHandler := connect.NewUnaryHandler(
 		XylonaReadGameServerOutputProcedure,
 		svc.ReadGameServerOutput,
@@ -2975,6 +3080,36 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaGetPublicSevenDaysToDieMapProcedure,
 		svc.GetPublicSevenDaysToDieMap,
 		connect.WithSchema(xylonaMethods.ByName("GetPublicSevenDaysToDieMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetMinecraftMapHandler := connect.NewUnaryHandler(
+		XylonaGetMinecraftMapProcedure,
+		svc.GetMinecraftMap,
+		connect.WithSchema(xylonaMethods.ByName("GetMinecraftMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateMinecraftMapConfigHandler := connect.NewUnaryHandler(
+		XylonaUpdateMinecraftMapConfigProcedure,
+		svc.UpdateMinecraftMapConfig,
+		connect.WithSchema(xylonaMethods.ByName("UpdateMinecraftMapConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRegenerateMinecraftMapShareHandler := connect.NewUnaryHandler(
+		XylonaRegenerateMinecraftMapShareProcedure,
+		svc.RegenerateMinecraftMapShare,
+		connect.WithSchema(xylonaMethods.ByName("RegenerateMinecraftMapShare")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRevokeMinecraftMapShareHandler := connect.NewUnaryHandler(
+		XylonaRevokeMinecraftMapShareProcedure,
+		svc.RevokeMinecraftMapShare,
+		connect.WithSchema(xylonaMethods.ByName("RevokeMinecraftMapShare")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetPublicMinecraftMapHandler := connect.NewUnaryHandler(
+		XylonaGetPublicMinecraftMapProcedure,
+		svc.GetPublicMinecraftMap,
+		connect.WithSchema(xylonaMethods.ByName("GetPublicMinecraftMap")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetUpdateTargetsHandler := connect.NewUnaryHandler(
@@ -3513,6 +3648,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaStartGameServerHandler.ServeHTTP(w, r)
 		case XylonaStopGameServerProcedure:
 			xylonaStopGameServerHandler.ServeHTTP(w, r)
+		case XylonaRestartGameServerProcedure:
+			xylonaRestartGameServerHandler.ServeHTTP(w, r)
 		case XylonaReadGameServerOutputProcedure:
 			xylonaReadGameServerOutputHandler.ServeHTTP(w, r)
 		case XylonaSendGameServerInputProcedure:
@@ -3581,6 +3718,16 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaRevokeSevenDaysToDieMapShareHandler.ServeHTTP(w, r)
 		case XylonaGetPublicSevenDaysToDieMapProcedure:
 			xylonaGetPublicSevenDaysToDieMapHandler.ServeHTTP(w, r)
+		case XylonaGetMinecraftMapProcedure:
+			xylonaGetMinecraftMapHandler.ServeHTTP(w, r)
+		case XylonaUpdateMinecraftMapConfigProcedure:
+			xylonaUpdateMinecraftMapConfigHandler.ServeHTTP(w, r)
+		case XylonaRegenerateMinecraftMapShareProcedure:
+			xylonaRegenerateMinecraftMapShareHandler.ServeHTTP(w, r)
+		case XylonaRevokeMinecraftMapShareProcedure:
+			xylonaRevokeMinecraftMapShareHandler.ServeHTTP(w, r)
+		case XylonaGetPublicMinecraftMapProcedure:
+			xylonaGetPublicMinecraftMapHandler.ServeHTTP(w, r)
 		case XylonaGetUpdateTargetsProcedure:
 			xylonaGetUpdateTargetsHandler.ServeHTTP(w, r)
 		case XylonaSetServerVariantProcedure:
@@ -3888,6 +4035,10 @@ func (UnimplementedXylonaHandler) StopGameServer(context.Context, *connect.Reque
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.StopGameServer is not implemented"))
 }
 
+func (UnimplementedXylonaHandler) RestartGameServer(context.Context, *connect.Request[xylona.RestartGameServerRequest]) (*connect.Response[xylona.RestartGameServerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RestartGameServer is not implemented"))
+}
+
 func (UnimplementedXylonaHandler) ReadGameServerOutput(context.Context, *connect.Request[xylona.ReadGameServerOutputRequest]) (*connect.Response[xylona.ReadGameServerOutputResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ReadGameServerOutput is not implemented"))
 }
@@ -4022,6 +4173,26 @@ func (UnimplementedXylonaHandler) RevokeSevenDaysToDieMapShare(context.Context, 
 
 func (UnimplementedXylonaHandler) GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPublicSevenDaysToDieMap is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetMinecraftMap(context.Context, *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetMinecraftMap is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateMinecraftMapConfig(context.Context, *connect.Request[xylona.UpdateMinecraftMapConfigRequest]) (*connect.Response[xylona.UpdateMinecraftMapConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateMinecraftMapConfig is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RegenerateMinecraftMapShare(context.Context, *connect.Request[xylona.RegenerateMinecraftMapShareRequest]) (*connect.Response[xylona.RegenerateMinecraftMapShareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RegenerateMinecraftMapShare is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RevokeMinecraftMapShare(context.Context, *connect.Request[xylona.RevokeMinecraftMapShareRequest]) (*connect.Response[xylona.RevokeMinecraftMapShareResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RevokeMinecraftMapShare is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetPublicMinecraftMap(context.Context, *connect.Request[xylona.GetPublicMinecraftMapRequest]) (*connect.Response[xylona.GetPublicMinecraftMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPublicMinecraftMap is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetUpdateTargets(context.Context, *connect.Request[xylona.GetUpdateTargetsRequest]) (*connect.Response[xylona.GetUpdateTargetsResponse], error) {

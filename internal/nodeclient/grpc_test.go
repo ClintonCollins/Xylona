@@ -889,7 +889,7 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{
 		runtimeCapsResp: &nodeprotov1.GetRuntimeCapabilitiesResponse{
-			ProtocolVersion:          7,
+			ProtocolVersion:          8,
 			LaunchEnv:                true,
 			ReliableProcessLifecycle: true,
 			TelnetInput:              true,
@@ -897,6 +897,8 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 			RestInput:                true,
 			PlayerActions:            true,
 			PalworldMap:              true,
+			SevenDaysToDieMap:        true,
+			MinecraftMap:             true,
 		},
 	}
 	url, fingerprint := newPinnedTestServer(t, rec)
@@ -906,8 +908,9 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	if errCaps != nil {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
-	if caps.ProtocolVersion != 7 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle ||
-		!caps.TelnetInput || !caps.RCONInput || !caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap {
+	if caps.ProtocolVersion != 8 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle ||
+		!caps.TelnetInput || !caps.RCONInput || !caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap ||
+		!caps.SevenDaysToDieMap || !caps.MinecraftMap {
 		t.Fatalf("runtime capabilities = %+v, want all optional features", caps)
 	}
 }

@@ -12,6 +12,42 @@ import {
 } from './server-list-cache'
 
 describe('buildDisplayRows', () => {
+  it('uses configured capacity instead of the game player limit as fallback', () => {
+    const aggregatedServers = [
+      {
+        isLocal: true,
+        localServer: {
+          id: 'local-1',
+          name: 'Local One',
+          status: Status.ONLINE,
+          setMaxPlayers: 24n,
+          maxPlayers: 100n,
+          currentPlayerCount: 0n,
+        },
+      },
+      {
+        isLocal: false,
+        remoteServer: {
+          sourceNodeId: 'node-remote',
+          remoteServerId: 'remote-1',
+          displayName: 'Remote One',
+          status: Status.ONLINE,
+          currentPlayers: 0n,
+          maxPlayers: 24n,
+        },
+      },
+    ] as unknown as AggregatedGameServer[]
+
+    const rows = buildDisplayRows(aggregatedServers, new Map())
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'local-1', currentPlayers: 0, maxPlayers: 24 }),
+        expect.objectContaining({ id: 'remote-1', currentPlayers: 0, maxPlayers: 24 }),
+      ]),
+    )
+  })
+
   it('builds deduplicated local and remote rows', () => {
     const aggregatedServers = [
       {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -491,6 +492,35 @@ func TestStopGameServerReportsRemoteStopFailure(t *testing.T) {
 	}
 }
 
+func TestRestartGameServerRejectsActiveUpdateOperation(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	configureLifecycleActionsForParityTests(t, fixture, registry)
+	releaseUpdate, errOperation := fixture.service.actionsInst.TryBeginGameServerLifecycleOperation("server-remote-1")
+	if errOperation != nil {
+		t.Fatalf("TryBeginGameServerLifecycleOperation() error = %v", errOperation)
+	}
+	defer releaseUpdate()
+
+	request := connect.NewRequest(&xylona.RestartGameServerRequest{ServerId: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	_, errRestart := fixture.service.RestartGameServer(t.Context(), request)
+	if connect.CodeOf(errRestart) != connect.CodeAlreadyExists {
+		t.Fatalf("RestartGameServer() code = %v, want %v (error %v)", connect.CodeOf(errRestart), connect.CodeAlreadyExists, errRestart)
+	}
+	if len(remoteClient.StopProcessCalls) != 0 || len(remoteClient.StartProcessCalls) != 0 {
+		t.Fatalf(
+			"restart process calls = (stop %d, start %d), want none while update operation is active",
+			len(remoteClient.StopProcessCalls),
+			len(remoteClient.StartProcessCalls),
+		)
+	}
+}
+
 func TestRemoveGameServerPreservesRecordWhenShutdownOrCleanupFails(t *testing.T) {
 	cases := []struct {
 		name                 string
@@ -571,6 +601,7 @@ func TestRemoveGameServerPreservesRecordWhenShutdownOrCleanupFails(t *testing.T)
 
 func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
+	fixture.service.allPermissionIDs = []string{"game_server.start", "game_server.stop", "game_server.settings"}
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")
 	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
 	insertServerOnNodeForParityTests(t, fixture, "server-remote-2", "node-remote", 25585)
@@ -628,6 +659,18 @@ func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
 	}
 	if remoteSummary.GetIsStale() {
 		t.Fatal("remote summary is_stale = true, want false for fresh node snapshot")
+	}
+	if !remoteSummary.GetResolvedHasUpdate() {
+		t.Fatal("remote summary resolved_has_update = false, want true")
+	}
+	if !slices.Contains(remoteSummary.GetEffectivePermissions(), "game_server.start") {
+		t.Fatalf("remote summary effective_permissions = %v, want game_server.start", remoteSummary.GetEffectivePermissions())
+	}
+	if remoteSummary.GetCurrentPlayers() != 0 {
+		t.Fatalf("remote summary current_players = %d, want 0 without live query telemetry", remoteSummary.GetCurrentPlayers())
+	}
+	if remoteSummary.GetMaxPlayers() != 12 {
+		t.Fatalf("remote summary max_players = %d, want configured capacity 12", remoteSummary.GetMaxPlayers())
 	}
 	if !remoteSummary.GetLastRemoteUpdate().AsTime().Equal(collectedAt) {
 		t.Fatalf("remote summary last_remote_update = %v, want %v", remoteSummary.GetLastRemoteUpdate().AsTime(), collectedAt)
@@ -807,6 +850,82 @@ func TestListAggregatedGameServersRedactsLocalRowsForNonSuperuser(t *testing.T) 
 	}
 	if localServer.GetMaxBackups() != 5 {
 		t.Fatalf("local server MaxBackups = %d, want 5", localServer.GetMaxBackups())
+	}
+}
+
+func TestListAggregatedGameServersRequiresMetricsPermissionForProcessMetrics(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.service.allPermissionIDs = []string{"game_server.view", "game_server.metrics"}
+	localClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-local",
+		SnapshotResult: &node.NodeSnapshot{Processes: []node.ProcessSnapshot{
+			{
+				ID:            "server-local-1",
+				Status:        xylona.Status_ONLINE.String(),
+				CPUPercent:    37.5,
+				MemoryRSS:     128 * 1024 * 1024,
+				MemoryPercent: 42.5,
+				MetricsValid:  true,
+				CPUValid:      true,
+			},
+		}},
+	}
+	fixture.service.nodeRegistry = testParityRegistry(localClient, nil)
+
+	grantRequest := connect.NewRequest(&xylona.GrantGameServerAccessRequest{
+		GameServerId: "server-local-1",
+		UserId:       "user-other",
+		RoleId:       "viewer",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, grantRequest, "user-owner")
+	_, errGrant := fixture.service.GrantGameServerAccess(t.Context(), grantRequest)
+	if errGrant != nil {
+		t.Fatalf("GrantGameServerAccess() error = %v", errGrant)
+	}
+
+	tests := []struct {
+		name        string
+		userID      string
+		wantMetrics bool
+	}{
+		{name: "owner receives process metrics", userID: "user-owner", wantMetrics: true},
+		{name: "viewer does not receive process metrics", userID: "user-other"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := connect.NewRequest(&xylona.ListAggregatedGameServersRequest{})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, tt.userID)
+			response, errList := fixture.service.ListAggregatedGameServers(t.Context(), request)
+			if errList != nil {
+				t.Fatalf("ListAggregatedGameServers() error = %v", errList)
+			}
+
+			var localServer *xylona.GameServer
+			for _, server := range response.Msg.GetServers() {
+				if server.GetIsLocal() && server.GetLocalServer().GetId() == "server-local-1" {
+					localServer = server.GetLocalServer()
+					break
+				}
+			}
+			if localServer == nil {
+				t.Fatal("ListAggregatedGameServers() missing server-local-1")
+			}
+			if tt.wantMetrics && (localServer.GetCpuPercent() == 0 || localServer.GetMemoryWorkingSetBytes() == 0) {
+				t.Fatalf(
+					"owner metrics = (CPU %d, memory %d), want non-zero values",
+					localServer.GetCpuPercent(),
+					localServer.GetMemoryWorkingSetBytes(),
+				)
+			}
+			if !tt.wantMetrics && (localServer.GetCpuPercent() != 0 || localServer.GetMemoryWorkingSetBytes() != 0) {
+				t.Fatalf(
+					"redacted metrics = (CPU %d, memory %d), want zero values",
+					localServer.GetCpuPercent(),
+					localServer.GetMemoryWorkingSetBytes(),
+				)
+			}
+		})
 	}
 }
 

@@ -334,6 +334,39 @@ func (c *inProcessNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, req 
 	return content, nil
 }
 
+func (c *inProcessNodeClient) EnsureMinecraftMap(ctx context.Context, req node.MinecraftMapEnsureRequest) (node.MinecraftMapStatus, error) {
+	if c.node == nil {
+		return node.MinecraftMapStatus{}, ErrNodeNil
+	}
+	status, errEnsure := c.node.EnsureMinecraftMap(ctx, req)
+	if errEnsure != nil {
+		return node.MinecraftMapStatus{}, fmt.Errorf("nodeclient: ensure Minecraft map: %w", errEnsure)
+	}
+	return status, nil
+}
+
+func (c *inProcessNodeClient) StopMinecraftMap(ctx context.Context, processID string) error {
+	if c.node == nil {
+		return ErrNodeNil
+	}
+	errStop := c.node.StopMinecraftMap(ctx, processID)
+	if errStop != nil {
+		return fmt.Errorf("nodeclient: stop Minecraft map: %w", errStop)
+	}
+	return nil
+}
+
+func (c *inProcessNodeClient) GetMinecraftMapAsset(ctx context.Context, req node.MinecraftMapAssetRequest) (node.MinecraftMapAsset, error) {
+	if c.node == nil {
+		return node.MinecraftMapAsset{}, ErrNodeNil
+	}
+	asset, errAsset := c.node.GetMinecraftMapAsset(ctx, req)
+	if errAsset != nil {
+		return node.MinecraftMapAsset{}, fmt.Errorf("nodeclient: get Minecraft map asset: %w", errAsset)
+	}
+	return asset, nil
+}
+
 func (c *inProcessNodeClient) PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error {
 	if c.node == nil {
 		return ErrNodeNil

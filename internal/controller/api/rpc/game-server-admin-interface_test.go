@@ -121,7 +121,16 @@ func TestSetGameServerAdminInterfacePasswordValidation(t *testing.T) {
 			t.Parallel()
 			fixture := newRBACRPCFixture(t)
 			fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
-			if tc.gameID != "minecraft" {
+			if tc.name == "unsupported game" {
+				_, errDefinition := fixture.conn.SQLDb.ExecContext(
+					context.Background(),
+					"update game set config_schemas = '[]' where id = ?",
+					tc.gameID,
+				)
+				if errDefinition != nil {
+					t.Fatalf("remove admin interface contract error = %v", errDefinition)
+				}
+			} else {
 				seedAdminInterfaceGameServer(t, fixture, tc.gameID, "127.0.0.1", 27015, 27016)
 			}
 

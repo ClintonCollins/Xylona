@@ -60,6 +60,9 @@ type ProcessConfig struct {
 	ServiceID        string
 	StopTimeout      time.Duration
 	LaunchEnv        map[string]string
+	// SuppressStatusEvents keeps companion processes out of game-server
+	// lifecycle broadcasts and alert evaluation while retaining supervision.
+	SuppressStatusEvents bool
 
 	// InputTelnet, when non-zero, configures the process to receive console
 	// input over telnet (used by games like 7 Days to Die that don't accept
@@ -540,6 +543,44 @@ type SevenDaysToDieMapTileRequest struct {
 	Zoom             int32
 	X                int32
 	Y                int32
+}
+
+// MinecraftMapEnsureRequest describes the managed BlueMap companion for one
+// Minecraft server. All paths and executable selection are resolved on-node.
+type MinecraftMapEnsureRequest struct {
+	ProcessID        string
+	WorkingDirectory string
+	WorldName        string
+	JavaExecutable   string
+	MinecraftVersion string
+}
+
+// MinecraftMapStatus reports the current BlueMap provider and render state.
+type MinecraftMapStatus struct {
+	Installed            bool
+	Running              bool
+	Ready                bool
+	Provider             string
+	Status               string
+	StatusMessage        string
+	BlueMapVersion       string
+	LivePlayersAvailable bool
+}
+
+// MinecraftMapAssetRequest identifies one BlueMap web asset. AssetPath must
+// stay relative to the provider's web root.
+type MinecraftMapAssetRequest struct {
+	ProcessID        string
+	WorkingDirectory string
+	AssetPath        string
+}
+
+// MinecraftMapAsset is a bounded, display-safe BlueMap web response.
+type MinecraftMapAsset struct {
+	Content         []byte
+	ContentType     string
+	ContentEncoding string
+	CacheControl    string
 }
 
 // GameServerQueryResult is the transport-agnostic result of a node-side

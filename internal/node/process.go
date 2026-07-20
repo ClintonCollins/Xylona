@@ -37,18 +37,19 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		normalized.ExecutionID = uuid.NewString()
 	}
 	prepared := supervisor.PreparedCommand{
-		ID:               normalized.ID,
-		ExecutionID:      normalized.ExecutionID,
-		GameServerName:   normalized.Name,
-		BaseCommand:      normalized.BaseCommand,
-		Args:             normalized.Args,
-		WorkingDirectory: normalized.WorkingDirectory,
-		User:             normalized.User,
-		NodeID:           normalized.NodeID,
-		ServiceID:        normalized.ServiceID,
-		Status:           status,
-		StopTimeout:      normalized.StopTimeout,
-		LaunchEnv:        normalized.LaunchEnv,
+		ID:                   normalized.ID,
+		ExecutionID:          normalized.ExecutionID,
+		GameServerName:       normalized.Name,
+		BaseCommand:          normalized.BaseCommand,
+		Args:                 normalized.Args,
+		WorkingDirectory:     normalized.WorkingDirectory,
+		User:                 normalized.User,
+		NodeID:               normalized.NodeID,
+		ServiceID:            normalized.ServiceID,
+		Status:               status,
+		StopTimeout:          normalized.StopTimeout,
+		LaunchEnv:            normalized.LaunchEnv,
+		SuppressStatusEvents: normalized.SuppressStatusEvents,
 	}
 
 	configuredInputs := 0

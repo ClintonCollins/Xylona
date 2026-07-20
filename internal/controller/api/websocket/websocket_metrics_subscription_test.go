@@ -21,6 +21,7 @@ import (
 func newTestConnection() *connection {
 	return &connection{
 		id:                           uuid.New(),
+		metricsPermissionLookup:      func(string) (bool, error) { return true, nil },
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
 		consoleStreamCancels:         make(map[string]context.CancelFunc),
@@ -202,6 +203,97 @@ func TestConnection_ShouldReceiveMetrics_AfterUnsubscribe(t *testing.T) {
 	}
 }
 
+func TestConnection_ShouldReceiveMetrics_AfterPermissionRevocation(t *testing.T) {
+	c := newTestConnection()
+	c.allGameServerIDs = []string{"server-1"}
+	c.subscribedMetricsServerIDs["server-1"] = struct{}{}
+	permissionAllowed := true
+	c.metricsPermissionLookup = func(string) (bool, error) {
+		return permissionAllowed, nil
+	}
+
+	if !c.shouldReceiveMetrics("server-1") {
+		t.Fatal("shouldReceiveMetrics() = false before permission revocation, want true")
+	}
+	permissionAllowed = false
+	if c.shouldReceiveMetrics("server-1") {
+		t.Fatal("shouldReceiveMetrics() = true after permission revocation, want false")
+	}
+}
+
+func TestConnection_CanSubscribeToServerMetrics(t *testing.T) {
+	tests := []struct {
+		name             string
+		hasAccess        bool
+		hasLookup        bool
+		permission       bool
+		permissionErr    error
+		want             bool
+		wantLookupCalled bool
+	}{
+		{
+			name:             "accessible server with metrics permission",
+			hasAccess:        true,
+			hasLookup:        true,
+			permission:       true,
+			want:             true,
+			wantLookupCalled: true,
+		},
+		{
+			name:             "accessible server without metrics permission",
+			hasAccess:        true,
+			hasLookup:        true,
+			wantLookupCalled: true,
+		},
+		{
+			name:      "accessible server without permission lookup fails closed",
+			hasAccess: true,
+		},
+		{
+			name:             "inaccessible server fails before permission lookup",
+			hasLookup:        true,
+			permission:       true,
+			permissionErr:    errors.New("lookup should not run"),
+			wantLookupCalled: false,
+		},
+		{
+			name:             "permission lookup failure fails closed",
+			hasAccess:        true,
+			hasLookup:        true,
+			permissionErr:    errors.New("permission lookup failed"),
+			wantLookupCalled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newTestConnection()
+			c.metricsPermissionLookup = nil
+			if tt.hasAccess {
+				c.allGameServerIDs = []string{"server-1"}
+			}
+			lookupCalled := false
+			if tt.hasLookup {
+				c.metricsPermissionLookup = func(serverID string) (bool, error) {
+					lookupCalled = true
+					if serverID != "server-1" {
+						t.Fatalf("metrics permission server ID = %q, want server-1", serverID)
+					}
+					return tt.permission, tt.permissionErr
+				}
+			}
+
+			got := c.canSubscribeToServerMetrics("server-1")
+			if got != tt.want {
+				t.Errorf("canSubscribeToServerMetrics() = %t, want %t", got, tt.want)
+			}
+			if lookupCalled != tt.wantLookupCalled {
+				t.Errorf("metrics permission lookup called = %t, want %t", lookupCalled, tt.wantLookupCalled)
+			}
+		})
+	}
+}
+
 func TestWebSocket_CollectSubscribedServerMetrics(t *testing.T) {
 	gameServers := []*models.GameServer{
 		{ID: "server-1", NodeID: "node-1"},
@@ -291,6 +383,61 @@ func TestWebSocket_CollectSubscribedServerMetrics(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestWebSocket_CollectSubscribedServerMetricsStopsAfterPermissionRevocation(t *testing.T) {
+	client := &nodeclient.FakeNodeClient{
+		NodeID: "node-1",
+		SnapshotResult: &node.NodeSnapshot{
+			Collected: time.Now(),
+			Processes: []node.ProcessSnapshot{{ID: "server-1", MetricsValid: true}},
+		},
+	}
+	conn := newTestConnection()
+	conn.allGameServerIDs = []string{"server-1"}
+	conn.subscribedMetricsServerIDs["server-1"] = struct{}{}
+	permissionAllowed := true
+	conn.metricsPermissionLookup = func(string) (bool, error) {
+		return permissionAllowed, nil
+	}
+	ws := &WebSocket{nodeRegistry: noderegistry.New("node-1", client)}
+	servers := []*models.GameServer{{ID: "server-1", NodeID: "node-1"}}
+
+	if metrics := ws.collectSubscribedServerMetrics(t.Context(), conn, servers); metrics == nil {
+		t.Fatal("collectSubscribedServerMetrics() = nil before permission revocation")
+	}
+	permissionAllowed = false
+	if metrics := ws.collectSubscribedServerMetrics(t.Context(), conn, servers); metrics != nil {
+		t.Fatalf("collectSubscribedServerMetrics() = %+v after permission revocation, want nil", metrics)
+	}
+	if client.SnapshotCalls != 1 {
+		t.Fatalf("GetNodeSnapshot calls = %d, want 1 because revoked delivery must not collect", client.SnapshotCalls)
+	}
+}
+
+func TestWebSocket_MetricsConnectionsForServerStopsAfterPermissionRevocation(t *testing.T) {
+	permissionAllowed := true
+	conn := newTestConnection()
+	conn.userID = "user-1"
+	conn.allGameServerIDs = []string{"server-1"}
+	conn.subscribedMetricsServerIDs["server-1"] = struct{}{}
+	conn.metricsPermissionLookup = func(string) (bool, error) {
+		return permissionAllowed, nil
+	}
+	ws := &WebSocket{
+		userWebsocketConnections: map[string]map[uuid.UUID]*connection{
+			conn.userID: {conn.id: conn},
+		},
+		userWebsocketConnectionsLock: &sync.RWMutex{},
+	}
+
+	if connections := ws.metricsConnectionsForServer("server-1"); len(connections) != 1 {
+		t.Fatalf("metricsConnectionsForServer() len = %d before permission revocation, want 1", len(connections))
+	}
+	permissionAllowed = false
+	if connections := ws.metricsConnectionsForServer("server-1"); len(connections) != 0 {
+		t.Fatalf("metricsConnectionsForServer() len = %d after permission revocation, want 0", len(connections))
 	}
 }
 

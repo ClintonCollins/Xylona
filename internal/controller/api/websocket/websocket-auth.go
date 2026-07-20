@@ -55,16 +55,16 @@ func hasSessionConnectionState(s *melody.Session) bool {
 }
 
 // shouldReceiveMetrics returns true if the connection is subscribed to metrics
-// for the given server ID and still has access to it.
+// for the given server ID and still has the required permission.
 func (c *connection) shouldReceiveMetrics(serverID string) bool {
-	if !c.hasGameServerAccess(serverID) {
+	c.RLock()
+	_, subscribed := c.subscribedMetricsServerIDs[serverID]
+	c.RUnlock()
+	if !subscribed {
 		return false
 	}
 
-	c.RLock()
-	defer c.RUnlock()
-	_, ok := c.subscribedMetricsServerIDs[serverID]
-	return ok
+	return c.canSubscribeToServerMetrics(serverID)
 }
 
 // hasGameServerAccess returns true if the connection has access to the given game server ID.
@@ -79,6 +79,27 @@ func (c *connection) hasGameServerAccess(serverID string) bool {
 	c.RLock()
 	defer c.RUnlock()
 	return slices.Contains(c.allGameServerIDs, serverID)
+}
+
+func (c *connection) canSubscribeToServerMetrics(serverID string) bool {
+	if !c.hasGameServerAccess(serverID) {
+		return false
+	}
+
+	c.RLock()
+	permissionLookup := c.metricsPermissionLookup
+	c.RUnlock()
+	if permissionLookup == nil {
+		return false
+	}
+
+	allowed, errPermission := permissionLookup(serverID)
+	if errPermission != nil {
+		log.Warn().Err(errPermission).Str("server_id", serverID).
+			Msg("Failed to authorize server metrics access")
+		return false
+	}
+	return allowed
 }
 
 // addGameServerAccess adds a server ID to the connection's accessible server set.

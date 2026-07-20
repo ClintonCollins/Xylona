@@ -81,6 +81,7 @@ type XylonaService struct {
 	remoteVersionRefreshCalls      map[string]*remoteVersionRefreshCall
 	hytaleAuth                     *readiness.HytaleDeviceAuthManager
 	palworldMapTiles               PalworldMapTileInstaller
+	minecraftMapAssetSlots         chan struct{}
 }
 
 type remoteVersionRefreshCall struct {
@@ -124,19 +125,20 @@ func NewXylonaService(
 	}()
 
 	return &XylonaService{
-		ctx:              ctx,
-		db:               database,
-		actionsInst:      actionsInst,
-		secureCookie:     secureCookie,
-		secureCookies:    secureCookies,
-		nodeRegistry:     nodeRegistry,
-		modManager:       modMgr,
-		steamCache:       steamCache,
-		allPermissionIDs: permIDs,
-		installTracker:   tracker,
-		versionState:     versionState,
-		userService:      usermgmt.NewService(database),
-		hytaleAuth:       readiness.NewHytaleDeviceAuthManager(nil),
+		ctx:                    ctx,
+		db:                     database,
+		actionsInst:            actionsInst,
+		secureCookie:           secureCookie,
+		secureCookies:          secureCookies,
+		nodeRegistry:           nodeRegistry,
+		modManager:             modMgr,
+		steamCache:             steamCache,
+		allPermissionIDs:       permIDs,
+		installTracker:         tracker,
+		versionState:           versionState,
+		userService:            usermgmt.NewService(database),
+		hytaleAuth:             readiness.NewHytaleDeviceAuthManager(nil),
+		minecraftMapAssetSlots: make(chan struct{}, 32),
 	}, nil
 }
 

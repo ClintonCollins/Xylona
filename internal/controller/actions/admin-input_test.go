@@ -37,7 +37,8 @@ func TestGameServerAdminInput(t *testing.T) {
 		{name: "Rust uses WebRCON", gameID: rustGameID, wantRCON: true, wantPort: 27016, wantProtocol: node.RCONProtocolRustWeb, wantCapability: "rcon", managedContract: true},
 		{name: "Conan uses Minecraft RCON", gameID: "conan_exiles", wantRCON: true, wantPort: 27016, wantProtocol: node.RCONProtocolMinecraft, wantCapability: "rcon", managedContract: true},
 		{name: "Satisfactory uses authenticated REST", gameID: "satisfactory", wantREST: true, wantPort: 27015, wantCapability: "rest", managedContract: true},
-		{name: "stdin game has no remote input", gameID: minecraftGameID},
+		{name: "Minecraft uses managed RCON", gameID: minecraftGameID, wantRCON: true, wantPort: 27017, wantProtocol: node.RCONProtocolMinecraft, wantManaged: true, wantCapability: "rcon", managedContract: true},
+		{name: "legacy Minecraft definition preserves stdin", gameID: minecraftGameID},
 	}
 
 	for _, tc := range tests {
@@ -53,7 +54,7 @@ func TestGameServerAdminInput(t *testing.T) {
 			if tc.managedContract {
 				gameServer.R.Game = adminInputTestGameDefinition(tc.gameID)
 				gameServer.R.Game.OfficialDefinitionDiverged = tc.diverged
-			} else if tc.gameID != minecraftGameID {
+			} else {
 				gameServer.R.Game = &models.Game{ID: tc.gameID, LinuxSupport: true}
 			}
 			input, errInput := newGameServerAdminInput(
@@ -116,7 +117,7 @@ func TestGameServerAdminInput(t *testing.T) {
 func adminInputTestGameDefinition(gameID string) *models.Game {
 	game := &models.Game{ID: gameID}
 	switch gameID {
-	case sevenDaysToDieGameID, counterStrikeTwoGameID, garrysModGameID, teamFortressTwoGameID:
+	case minecraftGameID, sevenDaysToDieGameID, counterStrikeTwoGameID, garrysModGameID, teamFortressTwoGameID:
 		game.ConfigSchemas = null.From(`[{"managed_fields":{"rcon_password":"xylona.local_console_password"}}]`)
 	case factorioGameID:
 		game.LinuxSupport = true

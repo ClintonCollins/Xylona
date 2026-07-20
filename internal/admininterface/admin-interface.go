@@ -39,6 +39,12 @@ func Lookup(gameID string, port int64, queryPort int64) (Profile, bool) {
 	}
 
 	switch strings.TrimSpace(gameID) {
+	case "minecraft":
+		profile.Transport = TransportRCON
+		profile.Port = queryPort + 1
+		profile.BindToGameServerIP = true
+		profile.RemoteAccessNote = "Minecraft RCON uses the port immediately after the configured query port."
+		profile.TransportSecurityNote = "Minecraft RCON traffic is not encrypted; protect the port with a firewall or private network."
 	case "7_days_to_die":
 		profile.Transport = TransportTelnet
 		profile.Port = queryPort

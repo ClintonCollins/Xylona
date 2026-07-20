@@ -688,23 +688,31 @@ func (ws *WebSocket) BroadcastRemoteServerMetrics(serverID string, metrics *xylo
 		return
 	}
 
-	ws.userWebsocketConnectionsLock.RLock()
-	defer ws.userWebsocketConnectionsLock.RUnlock()
-
-	for _, userConnections := range ws.userWebsocketConnections {
-		for _, conn := range userConnections {
-			if conn.melodySession.IsClosed() {
-				continue
-			}
-			if !conn.shouldReceiveMetrics(serverID) {
-				continue
-			}
-			errWrite := conn.melodySession.Write(byteOut)
-			if errWrite != nil {
-				log.Debug().Err(errWrite).Msg("Failed to write remote metrics update to WebSocket")
-			}
+	for _, conn := range ws.metricsConnectionsForServer(serverID) {
+		if conn.melodySession.IsClosed() {
+			continue
+		}
+		errWrite := conn.melodySession.Write(byteOut)
+		if errWrite != nil {
+			log.Debug().Err(errWrite).Msg("Failed to write remote metrics update to WebSocket")
 		}
 	}
+}
+
+func (ws *WebSocket) metricsConnectionsForServer(serverID string) []*connection {
+	ws.userWebsocketConnectionsLock.RLock()
+	connections := make([]*connection, 0)
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			connections = append(connections, conn)
+		}
+	}
+	ws.userWebsocketConnectionsLock.RUnlock()
+
+	connections = slices.DeleteFunc(connections, func(conn *connection) bool {
+		return conn == nil || !conn.shouldReceiveMetrics(serverID)
+	})
+	return connections
 }
 
 // BroadcastGameServerVersion sends refreshed version data to all connected WebSocket clients

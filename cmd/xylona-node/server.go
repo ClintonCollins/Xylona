@@ -903,6 +903,67 @@ func (s *nodeServiceServer) GetSevenDaysToDieMapTile(ctx context.Context, req *c
 	return connect.NewResponse(&nodeprotov1.GetSevenDaysToDieMapTileResponse{Content: content}), nil
 }
 
+func (s *nodeServiceServer) EnsureMinecraftMap(ctx context.Context, req *connect.Request[nodeprotov1.EnsureMinecraftMapRequest]) (*connect.Response[nodeprotov1.EnsureMinecraftMapResponse], error) {
+	errAuthorize := s.authorize(req.Header())
+	if errAuthorize != nil {
+		return nil, errAuthorize
+	}
+	message := req.Msg
+	status, errEnsure := s.n.EnsureMinecraftMap(ctx, node.MinecraftMapEnsureRequest{
+		ProcessID:        message.GetProcessId(),
+		WorkingDirectory: message.GetWorkingDirectory(),
+		WorldName:        message.GetWorldName(),
+		JavaExecutable:   message.GetJavaExecutable(),
+		MinecraftVersion: message.GetMinecraftVersion(),
+	})
+	if errEnsure != nil {
+		return nil, translate(errEnsure)
+	}
+	return connect.NewResponse(&nodeprotov1.EnsureMinecraftMapResponse{
+		Installed:            status.Installed,
+		Running:              status.Running,
+		Ready:                status.Ready,
+		Provider:             status.Provider,
+		Status:               status.Status,
+		StatusMessage:        status.StatusMessage,
+		BluemapVersion:       status.BlueMapVersion,
+		LivePlayersAvailable: status.LivePlayersAvailable,
+	}), nil
+}
+
+func (s *nodeServiceServer) StopMinecraftMap(ctx context.Context, req *connect.Request[nodeprotov1.StopMinecraftMapRequest]) (*connect.Response[nodeprotov1.StopMinecraftMapResponse], error) {
+	errAuthorize := s.authorize(req.Header())
+	if errAuthorize != nil {
+		return nil, errAuthorize
+	}
+	errStop := s.n.StopMinecraftMap(ctx, req.Msg.GetProcessId())
+	if errStop != nil {
+		return nil, translate(errStop)
+	}
+	return connect.NewResponse(&nodeprotov1.StopMinecraftMapResponse{}), nil
+}
+
+func (s *nodeServiceServer) GetMinecraftMapAsset(ctx context.Context, req *connect.Request[nodeprotov1.GetMinecraftMapAssetRequest]) (*connect.Response[nodeprotov1.GetMinecraftMapAssetResponse], error) {
+	errAuthorize := s.authorize(req.Header())
+	if errAuthorize != nil {
+		return nil, errAuthorize
+	}
+	asset, errAsset := s.n.GetMinecraftMapAsset(ctx, node.MinecraftMapAssetRequest{
+		ProcessID:        req.Msg.GetProcessId(),
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		AssetPath:        req.Msg.GetAssetPath(),
+	})
+	if errAsset != nil {
+		return nil, translate(errAsset)
+	}
+	return connect.NewResponse(&nodeprotov1.GetMinecraftMapAssetResponse{
+		Content:         asset.Content,
+		ContentType:     asset.ContentType,
+		ContentEncoding: asset.ContentEncoding,
+		CacheControl:    asset.CacheControl,
+	}), nil
+}
+
 func (s *nodeServiceServer) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[nodeprotov1.PerformGameServerPlayerActionRequest]) (*connect.Response[nodeprotov1.PerformGameServerPlayerActionResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1408,6 +1469,7 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		PlayerActions:            caps.PlayerActions,
 		PalworldMap:              caps.PalworldMap,
 		SevenDaysToDieMap:        caps.SevenDaysToDieMap,
+		MinecraftMap:             caps.MinecraftMap,
 	}), nil
 }
 

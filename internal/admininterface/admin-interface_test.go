@@ -17,7 +17,8 @@ func TestLookup(t *testing.T) {
 		{name: "Source RCON uses game port", gameID: "counter_strike_2", wantTransport: TransportRCON, wantPort: 27015, wantSupported: true},
 		{name: "Palworld REST", gameID: "palworld", wantTransport: TransportREST, wantPort: 27016, wantUsername: "admin", wantSupported: true},
 		{name: "Satisfactory REST uses main port", gameID: "satisfactory", wantTransport: TransportREST, wantPort: 27015, wantSupported: true},
-		{name: "stdin only game", gameID: "minecraft"},
+		{name: "Minecraft RCON uses query port plus one", gameID: "minecraft", wantTransport: TransportRCON, wantPort: 27017, wantSupported: true},
+		{name: "unsupported game", gameID: "other"},
 	}
 
 	for _, tc := range tests {

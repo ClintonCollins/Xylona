@@ -127,6 +127,7 @@ type Command struct {
 	lastExitCode                  int
 	exitCodeKnown                 bool
 	statusEventHook               func(eventbus.StatusChangedEvent)
+	suppressStatusEvents          bool
 	// Metrics fields (transient, not persisted to DB)
 	cpuPercent           float64
 	cpuCores             int32

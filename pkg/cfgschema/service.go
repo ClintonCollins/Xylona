@@ -192,17 +192,24 @@ type ManagedFieldResolver func(source string) (string, bool)
 
 // GameServerSettings contains server values that can own generated config fields.
 type GameServerSettings struct {
-	Name                 string
-	Directory            string
-	IP                   string
-	Port                 int64
-	QueryPort            int64
-	MaxPlayers           int64
-	LocalConsolePassword string
+	Name                   string
+	Directory              string
+	IP                     string
+	Port                   int64
+	QueryPort              int64
+	MaxPlayers             int64
+	LocalConsoleConfigured bool
+	LocalConsoleEnabled    bool
+	LocalConsolePort       int64
+	LocalConsolePassword   string
 }
 
 // GameServerSettingsResolver creates a ManagedFieldResolver from all supported server settings.
 func GameServerSettingsResolver(settings GameServerSettings) ManagedFieldResolver {
+	localConsoleEnabled := true
+	if settings.LocalConsoleConfigured {
+		localConsoleEnabled = settings.LocalConsoleEnabled
+	}
 	sources := map[string]string{
 		"game_server.ip":                settings.IP,
 		"game_server.port":              strconv.FormatInt(settings.Port, 10),
@@ -213,7 +220,8 @@ func GameServerSettingsResolver(settings GameServerSettings) ManagedFieldResolve
 		"game_server.max_players":       strconv.FormatInt(settings.MaxPlayers, 10),
 		"game_server.server_name":       settings.Name,
 		"game_server.directory":         settings.Directory,
-		"xylona.local_console_enabled":  "true",
+		"xylona.local_console_enabled":  strconv.FormatBool(localConsoleEnabled),
+		"xylona.local_console_port":     strconv.FormatInt(settings.LocalConsolePort, 10),
 		"xylona.local_console_password": settings.LocalConsolePassword,
 	}
 	return func(source string) (string, bool) {
@@ -222,12 +230,54 @@ func GameServerSettingsResolver(settings GameServerSettings) ManagedFieldResolve
 	}
 }
 
+// WithoutManagedSources removes selected managed ownership rules from a schema
+// copy. It is used when a capability is disabled and existing user-owned
+// configuration must remain untouched during pre-start processing.
+func WithoutManagedSources(schemasJSON string, sources ...string) (string, error) {
+	entries, errParse := ParseConfigSchemas(schemasJSON)
+	if errParse != nil {
+		return "", errParse
+	}
+	removed := make(map[string]struct{}, len(sources))
+	for _, source := range sources {
+		removed[normalizeManagedSource(source)] = struct{}{}
+	}
+	for entryIndex := range entries {
+		entry := &entries[entryIndex]
+		for key, source := range entry.ManagedFields {
+			_, shouldRemove := removed[normalizeManagedSource(source)]
+			if shouldRemove {
+				delete(entry.ManagedFields, key)
+			}
+		}
+		for key, property := range entry.Schema.Properties {
+			if property.Managed == nil {
+				continue
+			}
+			_, shouldRemove := removed[normalizeManagedSource(property.Managed.Source)]
+			if !shouldRemove {
+				continue
+			}
+			property.Managed = nil
+			entry.Schema.Properties[key] = property
+		}
+	}
+	encoded, errMarshal := json.Marshal(entries)
+	if errMarshal != nil {
+		return "", fmt.Errorf("marshal config schemas without managed sources: %w", errMarshal)
+	}
+	return string(encoded), nil
+}
+
 // ServerSettingsResolver creates a ManagedFieldResolver from server settings.
 func ServerSettingsResolver(ip string, port int64, queryPort int64) ManagedFieldResolver {
 	return GameServerSettingsResolver(GameServerSettings{
-		IP:        ip,
-		Port:      port,
-		QueryPort: queryPort,
+		IP:                     ip,
+		Port:                   port,
+		QueryPort:              queryPort,
+		LocalConsoleConfigured: true,
+		LocalConsoleEnabled:    true,
+		LocalConsolePort:       queryPort + 1,
 	})
 }
 

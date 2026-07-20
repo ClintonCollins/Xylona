@@ -44,6 +44,8 @@ var (
 	ErrInternalGameUpdateMissing = errors.New("internal game updater is not registered")
 	// ErrMinecraftVariantUpdateNotSupported is returned when a Minecraft variant cannot be updated automatically.
 	ErrMinecraftVariantUpdateNotSupported = errors.New("updates are not supported for this Minecraft server software")
+	// ErrGameServerOperationInProgress is returned when the same server already has an active lifecycle operation.
+	ErrGameServerOperationInProgress = errors.New("game server lifecycle operation is already in progress")
 	// ErrNotMinecraftServer is returned when a non-Minecraft server is used with Minecraft-only flows.
 	ErrNotMinecraftServer             = errors.New("game server is not a minecraft server")
 	errGameRelationNotLoaded          = errors.New("game relation not loaded")
@@ -89,33 +91,35 @@ type VersionResolveOptions struct {
 
 // Instance coordinates game server lifecycle, files, remote nodes, and background jobs.
 type Instance struct {
-	ctx                  context.Context
-	embeddedNodeClient   nodeclient.NodeClient
-	nodeRegistry         *noderegistry.Registry
-	serverQueriesInfoMap map[string]*xylona.ServerQuery
-	serverQueriesMutex   *sync.RWMutex
-	palworldMaps         map[string]PalworldMapState
-	palworldMapsMutex    sync.RWMutex
-	queryTelemetry       gameServerQueryTelemetryStore
-	db                   *db.Connection
-	modManager           *modmanager.ModManager
-	versionState         *versiontracker.VersionStateMap
-	resolverConfig       versiontracker.ResolverConfig
-	dummyTracker         *versiontracker.DummyTracker
-	versionBroadcaster   VersionBroadcaster
-	backupBroadcaster    BackupProgressBroadcaster
-	versionInstalledTTL  time.Duration
-	versionLatestTTL     time.Duration
-	versionRefreshMu     sync.Mutex
-	versionRefreshCalls  map[string]*versionRefreshCall
-	backupCreateMu       sync.Mutex
-	backupCreateCalls    map[string]*backupCreateCall
-	hytaleClient         readiness.HytaleClient
-	hytaleLaunchLocks    *readiness.HytaleLaunchLocks
-	localNodeID          string
-	restartState         *restartStateMap
-	exitHooks            *exitHookRegistry
-	intentionalStops     intentionalStopRegistry
+	ctx                   context.Context
+	embeddedNodeClient    nodeclient.NodeClient
+	nodeRegistry          *noderegistry.Registry
+	serverQueriesInfoMap  map[string]*xylona.ServerQuery
+	serverQueriesMutex    *sync.RWMutex
+	palworldMaps          map[string]PalworldMapState
+	palworldMapsMutex     sync.RWMutex
+	queryTelemetry        gameServerQueryTelemetryStore
+	db                    *db.Connection
+	modManager            *modmanager.ModManager
+	versionState          *versiontracker.VersionStateMap
+	resolverConfig        versiontracker.ResolverConfig
+	dummyTracker          *versiontracker.DummyTracker
+	versionBroadcaster    VersionBroadcaster
+	backupBroadcaster     BackupProgressBroadcaster
+	versionInstalledTTL   time.Duration
+	versionLatestTTL      time.Duration
+	versionRefreshMu      sync.Mutex
+	versionRefreshCalls   map[string]*versionRefreshCall
+	backupCreateMu        sync.Mutex
+	backupCreateCalls     map[string]*backupCreateCall
+	gameServerOperationMu sync.Mutex
+	activeGameServerOps   map[string]struct{}
+	hytaleClient          readiness.HytaleClient
+	hytaleLaunchLocks     *readiness.HytaleLaunchLocks
+	localNodeID           string
+	restartState          *restartStateMap
+	exitHooks             *exitHookRegistry
+	intentionalStops      intentionalStopRegistry
 }
 
 // VersionState returns the version state map used to track game server versions.
@@ -184,6 +188,7 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 		versionLatestTTL:     readVersionDurationEnv("XYLONA_VERSION_LATEST_TTL", 2*time.Minute),
 		versionRefreshCalls:  make(map[string]*versionRefreshCall),
 		backupCreateCalls:    make(map[string]*backupCreateCall),
+		activeGameServerOps:  make(map[string]struct{}),
 		hytaleClient:         readiness.NewHytaleHTTPClient(nil),
 		hytaleLaunchLocks:    readiness.NewHytaleLaunchLocks(),
 		restartState:         &restartStateMap{},
@@ -201,6 +206,36 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 	inst.startMetricsEventRecorder(ctx)
 
 	return inst
+}
+
+// TryBeginGameServerLifecycleOperation reserves a server for an update or
+// restart. The returned release function must be called when the operation
+// finishes.
+func (inst *Instance) TryBeginGameServerLifecycleOperation(gameServerID string) (func(), error) {
+	gameServerID = strings.TrimSpace(gameServerID)
+	if gameServerID == "" {
+		return nil, errors.New("actions: game server ID is required for lifecycle operation")
+	}
+
+	inst.gameServerOperationMu.Lock()
+	defer inst.gameServerOperationMu.Unlock()
+	if inst.activeGameServerOps == nil {
+		inst.activeGameServerOps = make(map[string]struct{})
+	}
+	_, active := inst.activeGameServerOps[gameServerID]
+	if active {
+		return nil, ErrGameServerOperationInProgress
+	}
+	inst.activeGameServerOps[gameServerID] = struct{}{}
+
+	var releaseOnce sync.Once
+	return func() {
+		releaseOnce.Do(func() {
+			inst.gameServerOperationMu.Lock()
+			delete(inst.activeGameServerOps, gameServerID)
+			inst.gameServerOperationMu.Unlock()
+		})
+	}, nil
 }
 
 // InstallGameServer creates the server record, schedules install, and starts post-install startup.
@@ -556,24 +591,35 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, "Failed to reach target node: "+errClient.Error())
 		return nil, startUnavailableError("target node is unavailable", errClient)
 	}
-	adminInterfacePassword, errAdminInterfacePassword := inst.loadOrCreateAdminInterfacePassword(gameServer)
-	if errAdminInterfacePassword != nil {
-		inst.reportStartFailure(gameServer, "Admin interface password setup failed: "+errAdminInterfacePassword.Error())
-		return nil, startConfigurationError("admin interface password setup failed", errAdminInterfacePassword)
+	adminInput := gameServerAdminInput{}
+	adminInterfacePassword := ""
+	configureAdminInput, disableManagedConsole, errConfigureAdminInput := inst.shouldConfigureAdminInput(gameServer)
+	if errConfigureAdminInput != nil {
+		inst.reportStartFailure(gameServer, "Admin console configuration failed: "+errConfigureAdminInput.Error())
+		return nil, startConfigurationError("admin console configuration failed", errConfigureAdminInput)
 	}
-	previousAdminPasswords, errPasswordHistory := inst.loadAdminInterfacePasswordHistory(gameServer)
-	if errPasswordHistory != nil {
-		inst.reportStartFailure(gameServer, "Admin interface password history failed: "+errPasswordHistory.Error())
-		return nil, startConfigurationError("admin interface password history failed", errPasswordHistory)
-	}
-	adminInput, errAdminInput := newGameServerAdminInput(
-		gameServer,
-		adminInterfacePassword,
-		previousAdminPasswords,
-	)
-	if errAdminInput != nil {
-		inst.reportStartFailure(gameServer, "Admin console configuration failed: "+errAdminInput.Error())
-		return nil, startConfigurationError("admin console configuration failed", errAdminInput)
+	if configureAdminInput {
+		var errAdminInterfacePassword error
+		adminInterfacePassword, errAdminInterfacePassword = inst.loadOrCreateAdminInterfacePassword(gameServer)
+		if errAdminInterfacePassword != nil {
+			inst.reportStartFailure(gameServer, "Admin interface password setup failed: "+errAdminInterfacePassword.Error())
+			return nil, startConfigurationError("admin interface password setup failed", errAdminInterfacePassword)
+		}
+		previousAdminPasswords, errPasswordHistory := inst.loadAdminInterfacePasswordHistory(gameServer)
+		if errPasswordHistory != nil {
+			inst.reportStartFailure(gameServer, "Admin interface password history failed: "+errPasswordHistory.Error())
+			return nil, startConfigurationError("admin interface password history failed", errPasswordHistory)
+		}
+		var errAdminInput error
+		adminInput, errAdminInput = newGameServerAdminInput(
+			gameServer,
+			adminInterfacePassword,
+			previousAdminPasswords,
+		)
+		if errAdminInput != nil {
+			inst.reportStartFailure(gameServer, "Admin console configuration failed: "+errAdminInput.Error())
+			return nil, startConfigurationError("admin console configuration failed", errAdminInput)
+		}
 	}
 	errAdminInputSupported := inst.ensureAdminInputSupported(client, adminInput)
 	if errAdminInputSupported != nil {
@@ -590,13 +636,13 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	// with required first-run values can present an editable file immediately.
 	switch {
 	case adminInput.managedConfigRequired:
-		errConfigPreStart := inst.runConfigPreStartWithConsolePassword(gameServer, adminInput.localConsolePassword, true)
+		errConfigPreStart := inst.runConfigPreStartWithConsolePassword(gameServer, adminInput.localConsolePassword, disableManagedConsole, true)
 		if errConfigPreStart != nil {
 			inst.reportStartFailure(gameServer, "Admin console configuration failed: "+errConfigPreStart.Error())
 			return nil, startConfigurationError("admin console configuration failed", errConfigPreStart)
 		}
 	default:
-		errConfigPreStart := inst.runConfigPreStartWithConsolePassword(gameServer, adminInput.localConsolePassword, false)
+		errConfigPreStart := inst.runConfigPreStartWithConsolePassword(gameServer, adminInput.localConsolePassword, disableManagedConsole, false)
 		if errConfigPreStart != nil {
 			log.Warn().Err(errConfigPreStart).Str("game_server_id", gameServer.ID).
 				Msg("Pre-start: config processing failed; continuing startup")
@@ -737,12 +783,13 @@ func (inst *Instance) runConfigPreStartStrict(gameServer *models.GameServer) err
 }
 
 func (inst *Instance) runConfigPreStartMode(gameServer *models.GameServer, strict bool) error {
-	return inst.runConfigPreStartWithConsolePassword(gameServer, "", strict)
+	return inst.runConfigPreStartWithConsolePassword(gameServer, "", false, strict)
 }
 
 func (inst *Instance) runConfigPreStartWithConsolePassword(
 	gameServer *models.GameServer,
 	localConsolePassword string,
+	disableManagedConsole bool,
 	strict bool,
 ) error {
 	schemasJSON, errGet := inst.db.GetGameConfigSchemas(gameServer.GameID)
@@ -759,6 +806,28 @@ func (inst *Instance) runConfigPreStartWithConsolePassword(
 	if errParseSchemas != nil {
 		return fmt.Errorf("actions: parse pre-start config schemas: %w", errParseSchemas)
 	}
+	localConsoleEnabled := strings.TrimSpace(localConsolePassword) != ""
+	if !localConsoleEnabled {
+		managedSourcesToRemove := []string{
+			"xylona.local_console_port",
+			"xylona.local_console_password",
+		}
+		if !disableManagedConsole {
+			managedSourcesToRemove = append(managedSourcesToRemove, "xylona.local_console_enabled")
+		}
+		var errWithoutConsole error
+		schemasJSON, errWithoutConsole = cfgschema.WithoutManagedSources(
+			schemasJSON,
+			managedSourcesToRemove...,
+		)
+		if errWithoutConsole != nil {
+			return fmt.Errorf("actions: preserve disabled local console config: %w", errWithoutConsole)
+		}
+		entries, errParseSchemas = cfgschema.ParseConfigSchemas(schemasJSON)
+		if errParseSchemas != nil {
+			return fmt.Errorf("actions: parse filtered pre-start config schemas: %w", errParseSchemas)
+		}
+	}
 	nodeOS := OperatingSystem
 	if cfgschema.HasPlatformPaths(entries) {
 		var errNodeOS error
@@ -774,13 +843,16 @@ func (inst *Instance) runConfigPreStartWithConsolePassword(
 	schemasJSON = resolvedSchemasJSON
 
 	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
-		Name:                 gameServer.Name,
-		Directory:            gameServer.Directory,
-		IP:                   gameServer.IP,
-		Port:                 gameServer.Port,
-		QueryPort:            gameServer.QueryPort,
-		MaxPlayers:           gameServer.MaxPlayers,
-		LocalConsolePassword: localConsolePassword,
+		Name:                   gameServer.Name,
+		Directory:              gameServer.Directory,
+		IP:                     gameServer.IP,
+		Port:                   gameServer.Port,
+		QueryPort:              gameServer.QueryPort,
+		MaxPlayers:             gameServer.MaxPlayers,
+		LocalConsoleConfigured: true,
+		LocalConsoleEnabled:    localConsoleEnabled,
+		LocalConsolePort:       gameServer.QueryPort + 1,
+		LocalConsolePassword:   localConsolePassword,
 	})
 	if inst.isRemoteGameServer(gameServer) {
 		client, errClient := inst.resolveNodeClient(gameServer.NodeID)

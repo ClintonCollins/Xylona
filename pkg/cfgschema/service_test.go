@@ -238,12 +238,14 @@ func TestMatchFields_ManagedFieldAliasesResolved(t *testing.T) {
 
 func TestGameServerSettingsResolver(t *testing.T) {
 	resolver := GameServerSettingsResolver(GameServerSettings{
-		Name:       "Example Server",
-		Directory:  "/srv/example",
-		IP:         "127.0.0.1",
-		Port:       25565,
-		QueryPort:  25566,
-		MaxPlayers: 24,
+		Name:                "Example Server",
+		Directory:           "/srv/example",
+		IP:                  "127.0.0.1",
+		Port:                25565,
+		QueryPort:           25566,
+		MaxPlayers:          24,
+		LocalConsoleEnabled: true,
+		LocalConsolePort:    25567,
 	})
 
 	testCases := []struct {
@@ -268,6 +270,7 @@ func TestGameServerSettingsResolver(t *testing.T) {
 		{name: "max players", source: "game_server.max_players", want: "24", wantExists: true},
 		{name: "max players alias", source: "max_players", want: "24", wantExists: true},
 		{name: "local console enabled", source: "xylona.local_console_enabled", want: "true", wantExists: true},
+		{name: "local console port", source: "xylona.local_console_port", want: "25567", wantExists: true},
 		{name: "local console password", source: "xylona.local_console_password", want: "", wantExists: true},
 		{name: "unknown", source: "game_server.unknown", wantExists: false},
 	}
@@ -281,6 +284,56 @@ func TestGameServerSettingsResolver(t *testing.T) {
 				t.Errorf("resolver(%q) = %q, want %q", testCase.source, got, testCase.want)
 			}
 		})
+	}
+
+	disabledResolver := GameServerSettingsResolver(GameServerSettings{
+		LocalConsoleConfigured: true,
+		LocalConsoleEnabled:    false,
+	})
+	disabled, exists := disabledResolver("xylona.local_console_enabled")
+	if !exists || disabled != "false" {
+		t.Fatalf("explicitly disabled local console = %q, %t, want false, true", disabled, exists)
+	}
+}
+
+func TestWithoutManagedSourcesRemovesExplicitAndSchemaOwnership(t *testing.T) {
+	input := `[{
+		"path":"server.properties",
+		"format":"properties",
+		"managed_fields":{
+			"enable-rcon":"xylona.local_console_enabled",
+			"rcon.password":"xylona.local_console_password"
+		},
+		"schema":{"type":"object","properties":{
+			"enable-rcon":{"type":"boolean","x-managed":{"source":"xylona.local_console_enabled"}},
+			"rcon.password":{"type":"string","x-managed":{"source":"xylona.local_console_password"}},
+			"server-port":{"type":"integer","x-managed":{"source":"game_server.port"}}
+		}}
+	}]`
+	filtered, errFilter := WithoutManagedSources(
+		input,
+		"xylona.local_console_enabled",
+		"xylona.local_console_password",
+	)
+	if errFilter != nil {
+		t.Fatalf("WithoutManagedSources() error = %v", errFilter)
+	}
+	entries, errParse := ParseConfigSchemas(filtered)
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("ParseConfigSchemas() entries = %d, want 1", len(entries))
+	}
+	managed := entries[0].ManagedFields
+	if _, exists := managed["enable-rcon"]; exists {
+		t.Fatal("enable-rcon remained managed")
+	}
+	if _, exists := managed["rcon.password"]; exists {
+		t.Fatal("rcon.password remained managed")
+	}
+	if managed["server-port"] != "game_server.port" {
+		t.Fatalf("server-port managed source = %q", managed["server-port"])
 	}
 }
 

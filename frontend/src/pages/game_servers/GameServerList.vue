@@ -1,42 +1,21 @@
 <template>
   <q-page class="xy-page-content">
     <div class="xy-page-header">
-      <h1 class="xy-page-title">Game Servers</h1>
+      <div>
+        <h1 class="xy-page-title">Game Servers</h1>
+        <div class="server-list-summary">
+          <span
+            >{{ displayRows.length }} {{ displayRows.length === 1 ? 'server' : 'servers' }}</span
+          >
+          <span aria-hidden="true">·</span>
+          <span class="server-list-summary__online">{{ onlineServerCount }} online</span>
+          <template v-if="totalPlayerCounts.max > 0">
+            <span aria-hidden="true">·</span>
+            <span> {{ totalPlayerCounts.current }} / {{ totalPlayerCounts.max }} players </span>
+          </template>
+        </div>
+      </div>
       <div class="xy-page-actions">
-        <q-btn
-          v-if="selectedGameServers.length >= 1"
-          :disable="
-            !lifecycleStateAuthoritative || loading || selectedGameServersForStart.length < 1
-          "
-          color="positive"
-          label="Start selected"
-          @click="startSelectedGameServers">
-          <q-tooltip v-if="!lifecycleStateAuthoritative">
-            Waiting for authoritative server status
-          </q-tooltip>
-        </q-btn>
-        <q-btn
-          v-if="selectedGameServers.length >= 1"
-          :disable="
-            !lifecycleStateAuthoritative || loading || selectedGameServersForStop.length < 1
-          "
-          color="warning"
-          label="Stop selected"
-          @click="stopSelectedGameServers">
-          <q-tooltip v-if="!lifecycleStateAuthoritative">
-            Waiting for authoritative server status
-          </q-tooltip>
-        </q-btn>
-        <q-btn
-          v-if="selectedGameServers.length >= 1"
-          :disable="!lifecycleStateAuthoritative || loading"
-          color="negative"
-          label="Remove game server"
-          @click="deleteGameServerAction(null)">
-          <q-tooltip v-if="!lifecycleStateAuthoritative">
-            Waiting for authoritative server status
-          </q-tooltip>
-        </q-btn>
         <q-input
           v-model="search"
           aria-label="Search game servers"
@@ -57,6 +36,77 @@
           label="Create Game Server"
           to="/game-servers/create" />
       </div>
+    </div>
+    <div v-if="selectedGameServers.length > 0" class="server-selection-bar" role="region">
+      <div class="server-selection-bar__count">
+        <q-icon name="checklist" size="sm" />
+        <strong>{{ selectedGameServers.length }} selected</strong>
+      </div>
+      <div class="server-selection-bar__actions">
+        <q-btn
+          :disable="
+            !lifecycleStateAuthoritative || loading || selectedGameServersForStart.length < 1
+          "
+          color="positive"
+          dense
+          icon="play_arrow"
+          :label="`Start ${selectedGameServersForStart.length}`"
+          no-caps
+          outline
+          @click="startSelectedGameServers" />
+        <q-btn
+          :disable="
+            !lifecycleStateAuthoritative || loading || selectedGameServersForRestart.length < 1
+          "
+          color="primary"
+          dense
+          icon="restart_alt"
+          :label="`Restart ${selectedGameServersForRestart.length}`"
+          no-caps
+          outline
+          @click="restartSelectedGameServers" />
+        <q-btn
+          :disable="
+            !lifecycleStateAuthoritative || loading || selectedGameServersForStop.length < 1
+          "
+          color="warning"
+          dense
+          icon="stop"
+          :label="`Stop ${selectedGameServersForStop.length}`"
+          no-caps
+          outline
+          @click="stopSelectedGameServers" />
+        <q-btn
+          :disable="
+            !lifecycleStateAuthoritative || loading || selectedGameServersForUpdate.length < 1
+          "
+          color="accent"
+          dense
+          icon="system_update_alt"
+          :label="`Update ${selectedGameServersForUpdate.length}`"
+          no-caps
+          outline
+          @click="updateSelectedGameServers" />
+        <q-separator class="server-selection-bar__separator" vertical />
+        <q-btn
+          :disable="!lifecycleStateAuthoritative || loading"
+          color="negative"
+          dense
+          flat
+          icon="delete_outline"
+          label="Remove"
+          no-caps
+          @click="deleteGameServerAction(null)" />
+      </div>
+      <q-btn
+        aria-label="Clear server selection"
+        dense
+        flat
+        icon="close"
+        round
+        @click="selectedGameServers = []">
+        <q-tooltip>Clear selection</q-tooltip>
+      </q-btn>
     </div>
     <div v-if="serverListError" class="server-list-error" role="alert" aria-live="assertive">
       <q-icon name="sync_problem" size="sm" />
@@ -111,6 +161,18 @@
 
               <q-card-section class="server-mobile-details">
                 <div>
+                  <span class="server-mobile-label">Players</span>
+                  <strong>{{ getPlayerCountLabel(props.row) }}</strong>
+                </div>
+                <div>
+                  <span class="server-mobile-label">CPU</span>
+                  <strong>{{ formatCpuUsage(props.row) }}</strong>
+                </div>
+                <div class="server-mobile-memory">
+                  <span class="server-mobile-label">Memory</span>
+                  <strong>{{ formatMemoryUsage(props.row) }}</strong>
+                </div>
+                <div>
                   <span class="server-mobile-label">Node</span>
                   <strong>{{ props.row.nodeName }}</strong>
                 </div>
@@ -137,6 +199,56 @@
                   label="Console"
                   no-caps />
                 <q-space />
+                <div class="server-lifecycle-actions">
+                  <q-btn
+                    :aria-label="`Start ${props.row.displayName}`"
+                    :disable="!canRunServerAction(props.row, 'start')"
+                    :loading="isServerActionPending(props.row, 'start')"
+                    color="positive"
+                    dense
+                    flat
+                    icon="play_arrow"
+                    round
+                    @click="runServerAction('start', props.row)">
+                    <q-tooltip>{{ getServerActionTooltip(props.row, 'start') }}</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    :aria-label="`Restart ${props.row.displayName}`"
+                    :disable="!canRunServerAction(props.row, 'restart')"
+                    :loading="isServerActionPending(props.row, 'restart')"
+                    color="primary"
+                    dense
+                    flat
+                    icon="restart_alt"
+                    round
+                    @click="runServerAction('restart', props.row)">
+                    <q-tooltip>{{ getServerActionTooltip(props.row, 'restart') }}</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    :aria-label="`Stop ${props.row.displayName}`"
+                    :disable="!canRunServerAction(props.row, 'stop')"
+                    :loading="isServerActionPending(props.row, 'stop')"
+                    color="warning"
+                    dense
+                    flat
+                    icon="stop"
+                    round
+                    @click="runServerAction('stop', props.row)">
+                    <q-tooltip>{{ getServerActionTooltip(props.row, 'stop') }}</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    :aria-label="`Update ${props.row.displayName}`"
+                    :disable="!canRunServerAction(props.row, 'update')"
+                    :loading="isServerActionPending(props.row, 'update')"
+                    color="accent"
+                    dense
+                    flat
+                    icon="system_update_alt"
+                    round
+                    @click="runServerAction('update', props.row)">
+                    <q-tooltip>{{ getServerActionTooltip(props.row, 'update') }}</q-tooltip>
+                  </q-btn>
+                </div>
                 <q-btn
                   :to="`/game-servers/${props.row.id}/configuration`"
                   aria-label="Edit game server"
@@ -176,6 +288,22 @@
             <status-badge :status="props.row.statusEnum" style="margin-left: -1em"></status-badge>
           </q-td>
         </template>
+        <template #body-cell-players="props">
+          <q-td :props="props">
+            <span class="server-player-count">
+              <q-icon name="group" size="1rem" />
+              {{ getPlayerCountLabel(props.row) }}
+            </span>
+          </q-td>
+        </template>
+        <template #body-cell-resources="props">
+          <q-td :props="props">
+            <div class="server-resource-usage">
+              <span><q-icon name="memory" /> CPU {{ formatCpuUsage(props.row) }}</span>
+              <span><q-icon name="developer_board" /> RAM {{ formatMemoryUsage(props.row) }}</span>
+            </div>
+          </q-td>
+        </template>
         <template #body-cell-version="props">
           <q-td :props="props">
             <template v-if="getVersionDisplay(props.row).checked">
@@ -199,23 +327,75 @@
         <template #body-cell-node="props">
           <q-td :props="props">
             <span>{{ props.row.nodeName }}</span>
-          </q-td>
-        </template>
-        <template #body-cell-type="props">
-          <q-td :props="props">
-            <q-badge v-if="props.row.isLocal" color="positive" label="local" />
-            <q-badge v-else class="badge-remote" label="remote" />
+            <q-badge
+              :class="{ 'badge-remote': !props.row.isLocal }"
+              class="q-ml-xs"
+              :color="props.row.isLocal ? 'positive' : undefined"
+              :label="props.row.isLocal ? 'local' : 'remote'" />
           </q-td>
         </template>
         <template #body-cell-actions="props">
           <q-td :props="props">
-            <div class="q-gutter-xs">
+            <div class="server-table-actions">
+              <div class="server-lifecycle-actions">
+                <q-btn
+                  :aria-label="`Start ${props.row.displayName}`"
+                  :disable="!canRunServerAction(props.row, 'start')"
+                  :loading="isServerActionPending(props.row, 'start')"
+                  color="positive"
+                  dense
+                  flat
+                  icon="play_arrow"
+                  round
+                  @click="runServerAction('start', props.row)">
+                  <q-tooltip>{{ getServerActionTooltip(props.row, 'start') }}</q-tooltip>
+                </q-btn>
+                <q-btn
+                  :aria-label="`Restart ${props.row.displayName}`"
+                  :disable="!canRunServerAction(props.row, 'restart')"
+                  :loading="isServerActionPending(props.row, 'restart')"
+                  color="primary"
+                  dense
+                  flat
+                  icon="restart_alt"
+                  round
+                  @click="runServerAction('restart', props.row)">
+                  <q-tooltip>{{ getServerActionTooltip(props.row, 'restart') }}</q-tooltip>
+                </q-btn>
+                <q-btn
+                  :aria-label="`Stop ${props.row.displayName}`"
+                  :disable="!canRunServerAction(props.row, 'stop')"
+                  :loading="isServerActionPending(props.row, 'stop')"
+                  color="warning"
+                  dense
+                  flat
+                  icon="stop"
+                  round
+                  @click="runServerAction('stop', props.row)">
+                  <q-tooltip>{{ getServerActionTooltip(props.row, 'stop') }}</q-tooltip>
+                </q-btn>
+                <q-btn
+                  :aria-label="`Update ${props.row.displayName}`"
+                  :disable="!canRunServerAction(props.row, 'update')"
+                  :loading="isServerActionPending(props.row, 'update')"
+                  color="accent"
+                  dense
+                  flat
+                  icon="system_update_alt"
+                  round
+                  @click="runServerAction('update', props.row)">
+                  <q-tooltip>{{ getServerActionTooltip(props.row, 'update') }}</q-tooltip>
+                </q-btn>
+              </div>
+              <q-separator vertical />
               <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
                 <q-btn
                   :icon="tabSettings"
                   aria-label="Edit game server"
                   class="text-main-brighter"
-                  flat>
+                  dense
+                  flat
+                  round>
                   <q-tooltip>Edit game server</q-tooltip>
                 </q-btn>
               </router-link>
@@ -225,7 +405,9 @@
                   :disable="!lifecycleStateAuthoritative"
                   aria-label="Delete game server"
                   class="text-error-brighter"
+                  dense
                   flat
+                  round
                   @click="deleteGameServerAction(props.row)">
                   <q-tooltip>
                     {{
@@ -262,19 +444,29 @@
 </template>
 
 <script lang="ts" setup>
-import { create } from '@bufbuild/protobuf'
+import { create, toJsonString } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
-import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import {
+  ConnectErrorToString,
+  GetOrCreateXylonaWebsocketClient,
+  GetXylonaClient,
+  XylonaEventBus,
+} from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
+import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {
+  type AllServersQueryInfo,
   Node,
+  ServerQuery_Type,
   StartGameServerRequest,
   StartGameServerRequestSchema,
   Status,
+  RestartGameServerRequest,
+  RestartGameServerRequestSchema,
   StopGameServerRequest,
   StopGameServerRequestSchema,
   type VersionInfo,
@@ -284,7 +476,11 @@ import {
   AggregatedGameServer,
   ListAggregatedGameServersRequestSchema,
   ListNodesRequestSchema,
+  UpdateGameServerRequest,
+  UpdateGameServerRequestSchema,
+  type UpdateProgress,
 } from '@/proto/xylona_pb'
+import { type AllServersMetrics, Request, Request_Type, RequestSchema } from '@/proto/websocket_pb'
 import {
   buildDisplayRows,
   type DisplayRow,
@@ -292,10 +488,22 @@ import {
   filterRowsByRemoteNodeIDs,
   sanitizeBootstrapCachedRows,
 } from './server-list-cache'
-import { getStartableServers, getStoppableServers } from './server-list-actions'
+import {
+  canRestartServer,
+  canStartServer,
+  canStopServer,
+  canUpdateServer,
+  getRestartableServers,
+  getStartableServers,
+  getStoppableServers,
+  getUpdateableServers,
+} from './server-list-actions'
 import { useUserAuthStore } from '@/stores/xylona'
 import { resolveCanonicalVersionDisplay } from './version-display'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
+import { formatMetricBytes } from './metrics-format'
+import { recordLifecycleIntent } from '@/utils/game-server-notifications'
+import { applyUpdateProgress, buildUpdateSteps, isUpdateProgressTerminal } from './update-progress'
 
 const aggregatedServers = ref<AggregatedGameServer[] | null>(null)
 const nodesByID = ref(new Map<string, Node>())
@@ -308,12 +516,24 @@ const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
 const selectedGameServers = ref([] as DisplayRow[])
+type ServerAction = 'start' | 'stop' | 'restart' | 'update'
+type ServerPlayerCounts = { current: number; max: number }
+type ServerResourceUsage = {
+  cpuPercent: number | null
+  memoryBytes: number | null
+  memoryPercent: number | null
+}
+const pendingActionByServerID = ref(new Map<string, ServerAction>())
+const updateStepsByServerID = new Map<string, StepState[]>()
+const playerCountsByServerID = ref(new Map<string, ServerPlayerCounts>())
+const resourceUsageByServerID = ref(new Map<string, ServerResourceUsage>())
 const cachedDisplayRows = useStorage<DisplayRow[]>('game-server-display-rows-cache', [])
 const cachedRemoteNodeIDs = useStorage<string[]>('game-server-remote-node-ids-cache', [])
 const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
 const $q = useQuasar()
 let loadSequence = 0
 let initialLoadComplete = false
+const subscribedMetricsServerIDs = new Set<string>()
 type BufferedLiveServerState = {
   status?: Status
   version?: string
@@ -349,17 +569,287 @@ const displayRows = computed((): DisplayRow[] => {
   )
 })
 
+const onlineServerCount = computed(
+  () => displayRows.value.filter((server) => server.statusEnum === Status.ONLINE).length,
+)
+
+const totalPlayerCounts = computed(() => {
+  return displayRows.value.reduce(
+    (total, server) => {
+      const counts = getPlayerCounts(server)
+      total.current += counts.current
+      total.max += counts.max
+      return total
+    },
+    { current: 0, max: 0 },
+  )
+})
+
 const selectedServersForDelete = computed(() => {
   return selectedGameServers.value.map((s) => ({ id: s.id, name: s.displayName }))
 })
 
 const selectedGameServersForStart = computed(() => {
-  return getStartableServers(selectedGameServers.value)
+  return getStartableServers(selectedGameServers.value).filter(
+    (server) => hasPermission(server, 'game_server.start') && !isServerActionPending(server),
+  )
 })
 
 const selectedGameServersForStop = computed(() => {
-  return getStoppableServers(selectedGameServers.value)
+  return getStoppableServers(selectedGameServers.value).filter(
+    (server) => hasPermission(server, 'game_server.stop') && !isServerActionPending(server),
+  )
 })
+
+const selectedGameServersForRestart = computed(() => {
+  return getRestartableServers(selectedGameServers.value).filter(
+    (server) => hasPermission(server, 'game_server.restart') && !isServerActionPending(server),
+  )
+})
+
+const selectedGameServersForUpdate = computed(() => {
+  return getUpdateableServers(selectedGameServers.value).filter(
+    (server) => hasPermission(server, 'game_server.settings') && !isServerActionPending(server),
+  )
+})
+
+function hasPermission(server: DisplayRow, permission: string): boolean {
+  return (
+    authStore.user?.superUser === true || (server.effectivePermissions ?? []).includes(permission)
+  )
+}
+
+function isServerActionPending(server: DisplayRow, action?: ServerAction): boolean {
+  const pendingAction = pendingActionByServerID.value.get(server.id)
+  return action === undefined ? pendingAction !== undefined : pendingAction === action
+}
+
+function canRunServerAction(server: DisplayRow, action: ServerAction): boolean {
+  if (!lifecycleStateAuthoritative.value || loading.value || isServerActionPending(server)) {
+    return false
+  }
+
+  switch (action) {
+    case 'start':
+      return canStartServer(server.statusEnum) && hasPermission(server, 'game_server.start')
+    case 'stop':
+      return canStopServer(server.statusEnum) && hasPermission(server, 'game_server.stop')
+    case 'restart':
+      return canRestartServer(server.statusEnum) && hasPermission(server, 'game_server.restart')
+    case 'update':
+      return canUpdateServer(server) && hasPermission(server, 'game_server.settings')
+  }
+}
+
+function getServerActionTooltip(server: DisplayRow, action: ServerAction): string {
+  if (!lifecycleStateAuthoritative.value) {
+    return 'Waiting for authoritative server status'
+  }
+  const pendingAction = pendingActionByServerID.value.get(server.id)
+  if (pendingAction !== undefined) {
+    return `${pendingAction[0]?.toUpperCase()}${pendingAction.slice(1)} is in progress`
+  }
+
+  const requiredPermissions: Record<ServerAction, string[]> = {
+    start: ['game_server.start'],
+    stop: ['game_server.stop'],
+    restart: ['game_server.restart'],
+    update: ['game_server.settings'],
+  }
+  if (requiredPermissions[action].some((permission) => !hasPermission(server, permission))) {
+    return `You do not have permission to ${action} this server`
+  }
+
+  if (action === 'update' && !server.canUpdate) {
+    return 'This server does not have an update provider'
+  }
+  if (action === 'start' && server.statusEnum !== Status.OFFLINE) {
+    return 'Start is available when the server is offline'
+  }
+  if ((action === 'stop' || action === 'restart') && server.statusEnum !== Status.ONLINE) {
+    return `${action === 'stop' ? 'Stop' : 'Restart'} is available when the server is online`
+  }
+  if (
+    action === 'update' &&
+    server.statusEnum !== Status.ONLINE &&
+    server.statusEnum !== Status.OFFLINE
+  ) {
+    return 'Update is unavailable while another operation is running'
+  }
+
+  return `${action[0]?.toUpperCase()}${action.slice(1)} ${server.displayName}`
+}
+
+function getPlayerCounts(server: DisplayRow): ServerPlayerCounts {
+  const liveCounts = lifecycleStateAuthoritative.value
+    ? playerCountsByServerID.value.get(server.id)
+    : undefined
+  return {
+    current:
+      server.statusEnum === Status.ONLINE && lifecycleStateAuthoritative.value
+        ? (liveCounts?.current ?? server.currentPlayers ?? 0)
+        : 0,
+    max: liveCounts?.max || server.maxPlayers || 0,
+  }
+}
+
+function getPlayerCountLabel(server: DisplayRow): string {
+  const counts = getPlayerCounts(server)
+  return counts.max > 0 ? `${counts.current} / ${counts.max}` : `${counts.current}`
+}
+
+function getResourceUsage(server: DisplayRow): ServerResourceUsage {
+  if (
+    !lifecycleStateAuthoritative.value ||
+    !hasPermission(server, 'game_server.metrics') ||
+    server.statusEnum !== Status.ONLINE
+  ) {
+    return { cpuPercent: null, memoryBytes: null, memoryPercent: null }
+  }
+
+  return (
+    resourceUsageByServerID.value.get(server.id) ?? {
+      cpuPercent: server.cpuPercent ?? null,
+      memoryBytes: server.memoryBytes ?? null,
+      memoryPercent: server.memoryPercent ?? null,
+    }
+  )
+}
+
+function formatCpuUsage(server: DisplayRow): string {
+  const cpuPercent = getResourceUsage(server).cpuPercent
+  return cpuPercent === null ? '—' : `${cpuPercent.toFixed(1)}%`
+}
+
+function formatMemoryUsage(server: DisplayRow): string {
+  const usage = getResourceUsage(server)
+  if (usage.memoryBytes === null) {
+    return '—'
+  }
+
+  const bytes = formatMetricBytes(usage.memoryBytes)
+  return usage.memoryPercent === null ? bytes : `${bytes} · ${usage.memoryPercent.toFixed(1)}%`
+}
+
+function applyServerQueryInfo(queryInfo: AllServersQueryInfo) {
+  const nextCounts = new Map(playerCountsByServerID.value)
+  for (const [serverID, serverQuery] of Object.entries(queryInfo.servers)) {
+    const server = liveDisplayRows.value.find((row) => row.id === serverID)
+    if (!server || server.statusEnum !== Status.ONLINE) {
+      nextCounts.delete(serverID)
+      continue
+    }
+    switch (serverQuery.type) {
+      case ServerQuery_Type.Minecraft:
+        if (serverQuery.minecraft) {
+          nextCounts.set(serverID, {
+            current: serverQuery.minecraft.numberOfPlayers,
+            max: serverQuery.minecraft.maxPlayers,
+          })
+        }
+        break
+      case ServerQuery_Type.Source:
+        if (serverQuery.source) {
+          nextCounts.set(serverID, {
+            current: serverQuery.source.players,
+            max: serverQuery.source.maxPlayers,
+          })
+        }
+        break
+      case ServerQuery_Type.Palworld:
+        if (serverQuery.palworld) {
+          nextCounts.set(serverID, {
+            current: serverQuery.palworld.players,
+            max: serverQuery.palworld.maxPlayers,
+          })
+        }
+        break
+    }
+  }
+  playerCountsByServerID.value = nextCounts
+}
+
+function applyServerMetrics(metrics: AllServersMetrics) {
+  const nextUsage = new Map(resourceUsageByServerID.value)
+  for (const [serverID, serverMetrics] of Object.entries(metrics.servers)) {
+    const server = liveDisplayRows.value.find((row) => row.id === serverID)
+    if (!server || server.statusEnum !== Status.ONLINE) {
+      nextUsage.delete(serverID)
+      continue
+    }
+    if (!serverMetrics.metricsValid) {
+      nextUsage.set(serverID, {
+        cpuPercent: null,
+        memoryBytes: null,
+        memoryPercent: null,
+      })
+      continue
+    }
+
+    const workingSetBytes = Number(serverMetrics.memoryWorkingSetBytes)
+    nextUsage.set(serverID, {
+      cpuPercent: serverMetrics.cpuValid ? serverMetrics.cpuPercent : null,
+      memoryBytes: workingSetBytes > 0 ? workingSetBytes : Number(serverMetrics.memoryBytes),
+      memoryPercent: Number.isFinite(serverMetrics.memoryPercent)
+        ? serverMetrics.memoryPercent
+        : null,
+    })
+  }
+  resourceUsageByServerID.value = nextUsage
+}
+
+function sendMetricsSubscription(serverID: string, type: Request_Type): boolean {
+  const websocket = GetOrCreateXylonaWebsocketClient()
+  if (!websocket.isOpen()) {
+    return false
+  }
+
+  const request: Request = create(RequestSchema, {
+    gameServerId: serverID,
+    type,
+  })
+  websocket.send(toJsonString(RequestSchema, request))
+  return true
+}
+
+function syncMetricsSubscriptions(serverIDs: string[]) {
+  const desiredServerIDs = new Set(serverIDs)
+  for (const serverID of subscribedMetricsServerIDs) {
+    if (desiredServerIDs.has(serverID)) {
+      continue
+    }
+    try {
+      sendMetricsSubscription(serverID, Request_Type.UnsubscribeServerMetrics)
+    } catch (error) {
+      console.error('Failed to unsubscribe from server metrics', error)
+    }
+    subscribedMetricsServerIDs.delete(serverID)
+  }
+
+  for (const serverID of desiredServerIDs) {
+    if (subscribedMetricsServerIDs.has(serverID)) {
+      continue
+    }
+    try {
+      if (sendMetricsSubscription(serverID, Request_Type.SubscribeServerMetrics)) {
+        subscribedMetricsServerIDs.add(serverID)
+      }
+    } catch (error) {
+      console.error('Failed to subscribe to server metrics', error)
+    }
+  }
+}
+
+function clearMetricsSubscriptions() {
+  for (const serverID of subscribedMetricsServerIDs) {
+    try {
+      sendMetricsSubscription(serverID, Request_Type.UnsubscribeServerMetrics)
+    } catch (error) {
+      console.error('Failed to unsubscribe from server metrics', error)
+    }
+  }
+  subscribedMetricsServerIDs.clear()
+}
 
 function applyNodesResponse(nodes: Node[]) {
   nodesByID.value = new Map(nodes.map((node) => [node.id, node]))
@@ -444,6 +934,9 @@ onMounted(async () => {
   watchServerStatusChanges()
   watchServerVersionChanges()
   watchWebsocketReconnects()
+  XylonaEventBus.on('gameServersQueryInfo', applyServerQueryInfo)
+  XylonaEventBus.on('gameServerMetrics', applyServerMetrics)
+  XylonaEventBus.on('gameServerUpdateProgress', handleGameServerUpdateProgress)
   await getGameServers()
   initialLoadComplete = true
 })
@@ -453,6 +946,10 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('gameServerVersion', handleServerVersionUpdate)
   XylonaEventBus.off('websocketConnected', handleWebsocketReconnect)
   XylonaEventBus.off('websocketDisconnected', handleWebsocketDisconnect)
+  XylonaEventBus.off('gameServersQueryInfo', applyServerQueryInfo)
+  XylonaEventBus.off('gameServerMetrics', applyServerMetrics)
+  XylonaEventBus.off('gameServerUpdateProgress', handleGameServerUpdateProgress)
+  clearMetricsSubscriptions()
 })
 
 async function getGameServers() {
@@ -473,6 +970,11 @@ async function getGameServers() {
       const servers = applyBufferedLiveServerStateToServers(response.servers)
       aggregatedServers.value = servers
       cacheAggregatedRows(servers)
+      syncMetricsSubscriptions(
+        buildDisplayRows(servers, nodesByID.value)
+          .filter((server) => hasPermission(server, 'game_server.metrics'))
+          .map((server) => server.id),
+      )
       serverStatusSnapshotFresh.value = websocketStateAuthoritative.value
       serverListError.value = ''
     })
@@ -540,6 +1042,18 @@ function watchWebsocketReconnects() {
 
 function handleWebsocketDisconnect() {
   serverStatusSnapshotFresh.value = false
+  subscribedMetricsServerIDs.clear()
+  playerCountsByServerID.value = new Map()
+  resourceUsageByServerID.value = new Map()
+  updateStepsByServerID.clear()
+
+  const nextPendingActions = new Map(pendingActionByServerID.value)
+  for (const [serverID, action] of nextPendingActions) {
+    if (action === 'update') {
+      nextPendingActions.delete(serverID)
+    }
+  }
+  pendingActionByServerID.value = nextPendingActions
 }
 
 function handleWebsocketReconnect() {
@@ -547,6 +1061,24 @@ function handleWebsocketReconnect() {
     return
   }
 
+  void getGameServers()
+}
+
+function handleGameServerUpdateProgress(progress: UpdateProgress) {
+  const currentSteps =
+    updateStepsByServerID.get(progress.gameServerId) ?? buildUpdateSteps(Status.UNKNOWN)
+  const nextSteps = applyUpdateProgress(currentSteps, progress)
+  updateStepsByServerID.set(progress.gameServerId, nextSteps)
+  if (!isUpdateProgressTerminal(progress, nextSteps)) {
+    return
+  }
+
+  updateStepsByServerID.delete(progress.gameServerId)
+  const nextPendingActions = new Map(pendingActionByServerID.value)
+  if (nextPendingActions.get(progress.gameServerId) === 'update') {
+    nextPendingActions.delete(progress.gameServerId)
+    pendingActionByServerID.value = nextPendingActions
+  }
   void getGameServers()
 }
 
@@ -575,19 +1107,41 @@ async function deleteGameServerSubmitted(result: {
 function setServerStatus(serverID: string, serverStatus: Status) {
   recordBufferedLiveServerState(serverID, { status: serverStatus })
 
+  if (serverStatus !== Status.ONLINE) {
+    const nextPlayerCounts = new Map(playerCountsByServerID.value)
+    nextPlayerCounts.delete(serverID)
+    playerCountsByServerID.value = nextPlayerCounts
+
+    const nextResourceUsage = new Map(resourceUsageByServerID.value)
+    nextResourceUsage.delete(serverID)
+    resourceUsageByServerID.value = nextResourceUsage
+  }
+
   for (const row of cachedDisplayRows.value) {
     if (row.id === serverID) {
       row.statusEnum = serverStatus
+      if (serverStatus !== Status.ONLINE) {
+        row.currentPlayers = 0
+        row.cpuPercent = null
+        row.memoryBytes = null
+        row.memoryPercent = null
+      }
     }
   }
 
   updateLiveServerData((server) => {
     if (server.isLocal && server.localServer && server.localServer.id === serverID) {
       server.localServer.status = serverStatus
+      if (serverStatus !== Status.ONLINE) {
+        server.localServer.currentPlayerCount = 0n
+      }
       return true
     }
     if (!server.isLocal && server.remoteServer && server.remoteServer.remoteServerId === serverID) {
       server.remoteServer.status = serverStatus
+      if (serverStatus !== Status.ONLINE) {
+        server.remoteServer.currentPlayers = 0n
+      }
       return true
     }
     return false
@@ -651,86 +1205,186 @@ function getDisplayVersion(row: DisplayRow): string {
   return getVersionDisplay(row).installedVersion
 }
 
-async function startSelectedGameServers() {
-  if (
-    !lifecycleStateAuthoritative.value ||
-    selectedGameServersForStart.value.length < 1 ||
-    loading.value
-  ) {
+function getEligibleServers(action: ServerAction, servers: DisplayRow[]): DisplayRow[] {
+  switch (action) {
+    case 'start':
+      return getStartableServers(servers).filter((server) => canRunServerAction(server, action))
+    case 'stop':
+      return getStoppableServers(servers).filter((server) => canRunServerAction(server, action))
+    case 'restart':
+      return getRestartableServers(servers).filter((server) => canRunServerAction(server, action))
+    case 'update':
+      return getUpdateableServers(servers).filter((server) => canRunServerAction(server, action))
+  }
+}
+
+async function confirmUpdateServers(servers: DisplayRow[]): Promise<boolean> {
+  const runningCount = servers.filter((server) => server.statusEnum === Status.ONLINE).length
+  if (runningCount === 0) {
+    return true
+  }
+
+  return new Promise((resolve) => {
+    let settled = false
+    $q.dialog({
+      title: `Update ${servers.length === 1 ? 'server' : `${servers.length} servers`}?`,
+      message:
+        servers.length === 1
+          ? 'Xylona will stop the server, install the update, and start it again.'
+          : `Xylona will update all selected servers in parallel. ${runningCount} running ${runningCount === 1 ? 'server' : 'servers'} will be stopped and started again.`,
+      cancel: true,
+      persistent: true,
+      ok: {
+        label: servers.length === 1 ? 'Update server' : 'Update servers',
+        color: 'primary',
+        unelevated: true,
+      },
+    })
+      .onOk(() => {
+        settled = true
+        resolve(true)
+      })
+      .onDismiss(() => {
+        if (!settled) {
+          resolve(false)
+        }
+      })
+  })
+}
+
+function setPendingActions(servers: DisplayRow[], action?: ServerAction) {
+  const nextPendingActions = new Map(pendingActionByServerID.value)
+  for (const server of servers) {
+    if (action === undefined) {
+      nextPendingActions.delete(server.id)
+    } else {
+      nextPendingActions.set(server.id, action)
+    }
+  }
+  pendingActionByServerID.value = nextPendingActions
+}
+
+async function executeServerAction(action: ServerAction, server: DisplayRow) {
+  const client = GetXylonaClient()
+  switch (action) {
+    case 'start': {
+      const request: StartGameServerRequest = create(StartGameServerRequestSchema, {
+        serverId: server.id,
+      })
+      await client.startGameServer(request)
+      return
+    }
+    case 'stop': {
+      const request: StopGameServerRequest = create(StopGameServerRequestSchema, {
+        serverId: server.id,
+      })
+      await client.stopGameServer(request)
+      return
+    }
+    case 'restart': {
+      const request: RestartGameServerRequest = create(RestartGameServerRequestSchema, {
+        serverId: server.id,
+      })
+      await client.restartGameServer(request)
+      return
+    }
+    case 'update': {
+      updateStepsByServerID.set(server.id, buildUpdateSteps(server.statusEnum))
+      const request: UpdateGameServerRequest = create(UpdateGameServerRequestSchema, {
+        serverId: server.id,
+      })
+      await client.updateGameServer(request)
+      recordLifecycleIntent(server.id, 'update')
+    }
+  }
+}
+
+async function runServerActions(
+  action: ServerAction,
+  requestedServers: DisplayRow[],
+  updateSelection = false,
+) {
+  const servers = getEligibleServers(action, requestedServers)
+  if (servers.length === 0) {
+    return
+  }
+  if (action === 'update' && !(await confirmUpdateServers(servers))) {
     return
   }
 
-  loading.value = true
-  const failedServerNames: string[] = []
-
-  try {
-    for (const selectedServer of selectedGameServersForStart.value) {
-      const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
-      request.serverId = selectedServer.id
+  setPendingActions(servers, action)
+  const results = await Promise.all(
+    servers.map(async (server) => {
       try {
-        await GetXylonaClient().startGameServer(request)
-      } catch (errStart) {
-        failedServerNames.push(selectedServer.displayName)
-        console.error(errStart)
+        await executeServerAction(action, server)
+        return { server, error: '' }
+      } catch (error) {
+        console.error(error)
+        return {
+          server,
+          error: ConnectErrorToString(ConnectError.from(error)),
+        }
       }
-    }
-  } finally {
-    loading.value = false
+    }),
+  )
+  const failedResults = results.filter((result) => result.error !== '')
+  if (action === 'update') {
+    const failedServers = failedResults.map((result) => result.server)
+    setPendingActions(failedServers)
+    for (const server of failedServers) updateStepsByServerID.delete(server.id)
+  } else {
+    setPendingActions(servers)
+  }
+  if (updateSelection) {
+    const failedServerIDs = new Set(failedResults.map((result) => result.server.id))
+    selectedGameServers.value = selectedGameServers.value.filter((server) =>
+      failedServerIDs.has(server.id),
+    )
   }
 
-  selectedGameServers.value = []
-
-  if (failedServerNames.length > 0) {
+  if (failedResults.length > 0) {
+    const details = failedResults
+      .map((result) => `${result.server.displayName}: ${result.error}`)
+      .join('; ')
     $q.notify({
-      caption: `Failed to start: ${failedServerNames.join(', ')}`,
+      caption: `Could not ${action} ${failedResults.length === 1 ? 'server' : 'servers'}: ${details}`,
       type: 'xylona-error',
       position: 'top-right',
-      timeout: 5000,
+      timeout: 7000,
+    })
+  } else if (servers.length > 1 || action === 'update') {
+    $q.notify({
+      caption:
+        action === 'update'
+          ? `Update started for ${servers.length === 1 ? servers[0]?.displayName : `${servers.length} servers`}.`
+          : `${action[0]?.toUpperCase()}${action.slice(1)} requested for ${servers.length} servers.`,
+      type: 'positive',
+      position: 'top-right',
+      timeout: 3500,
     })
   }
 
   void getGameServers()
 }
 
+async function runServerAction(action: ServerAction, server: DisplayRow) {
+  await runServerActions(action, [server])
+}
+
+async function startSelectedGameServers() {
+  await runServerActions('start', selectedGameServersForStart.value, true)
+}
+
 async function stopSelectedGameServers() {
-  if (
-    !lifecycleStateAuthoritative.value ||
-    selectedGameServersForStop.value.length < 1 ||
-    loading.value
-  ) {
-    return
-  }
+  await runServerActions('stop', selectedGameServersForStop.value, true)
+}
 
-  loading.value = true
-  const failedServerNames: string[] = []
+async function restartSelectedGameServers() {
+  await runServerActions('restart', selectedGameServersForRestart.value, true)
+}
 
-  try {
-    for (const selectedServer of selectedGameServersForStop.value) {
-      const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
-      request.serverId = selectedServer.id
-      try {
-        await GetXylonaClient().stopGameServer(request)
-      } catch (errStop) {
-        failedServerNames.push(selectedServer.displayName)
-        console.error(errStop)
-      }
-    }
-  } finally {
-    loading.value = false
-  }
-
-  selectedGameServers.value = []
-
-  if (failedServerNames.length > 0) {
-    $q.notify({
-      caption: `Failed to stop: ${failedServerNames.join(', ')}`,
-      type: 'xylona-error',
-      position: 'top-right',
-      timeout: 5000,
-    })
-  }
-
-  void getGameServers()
+async function updateSelectedGameServers() {
+  await runServerActions('update', selectedGameServersForUpdate.value, true)
 }
 
 const columns = ref([
@@ -743,11 +1397,27 @@ const columns = ref([
     sortable: true,
   },
   {
-    name: 'version',
-    label: 'Version',
+    name: 'status',
+    label: 'Status',
     required: true,
     align: 'left' as const,
-    field: (row: DisplayRow) => getDisplayVersion(row),
+    field: (row: DisplayRow) => row.statusEnum,
+    sortable: true,
+  },
+  {
+    name: 'players',
+    label: 'Players',
+    required: true,
+    align: 'left' as const,
+    field: (row: DisplayRow) => getPlayerCounts(row).current,
+    sortable: true,
+  },
+  {
+    name: 'resources',
+    label: 'Resources',
+    required: true,
+    align: 'left' as const,
+    field: (row: DisplayRow) => getResourceUsage(row).cpuPercent ?? -1,
     sortable: false,
   },
   {
@@ -759,22 +1429,6 @@ const columns = ref([
     sortable: true,
   },
   {
-    name: 'owner',
-    label: 'Owner',
-    required: true,
-    align: 'left' as const,
-    field: (row: DisplayRow) => row.userName,
-    sortable: true,
-  },
-  {
-    name: 'status',
-    label: 'Status',
-    required: true,
-    align: 'left' as const,
-    field: (row: DisplayRow) => row.statusEnum,
-    sortable: true,
-  },
-  {
     name: 'node',
     label: 'Node',
     required: true,
@@ -783,11 +1437,19 @@ const columns = ref([
     sortable: true,
   },
   {
-    name: 'type',
-    label: 'Type',
+    name: 'version',
+    label: 'Version',
     required: true,
     align: 'left' as const,
-    field: (row: DisplayRow) => (row.isLocal ? 'local' : 'remote'),
+    field: (row: DisplayRow) => getDisplayVersion(row),
+    sortable: false,
+  },
+  {
+    name: 'owner',
+    label: 'Owner',
+    required: true,
+    align: 'left' as const,
+    field: (row: DisplayRow) => row.userName,
     sortable: true,
   },
   {
@@ -800,6 +1462,62 @@ const columns = ref([
 </script>
 
 <style scoped>
+.server-list-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  margin-top: var(--xy-space-2xs);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+}
+
+.server-list-summary__online {
+  color: var(--xy-success-text-soft);
+}
+
+.server-selection-bar {
+  position: sticky;
+  z-index: var(--xy-z-sticky);
+  top: calc(var(--xy-header-stack-height) + var(--xy-space-sm));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border-active);
+  border-radius: var(--xy-radius-md);
+  box-shadow: var(--xy-shadow-sm);
+}
+
+.server-selection-bar__count,
+.server-selection-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+}
+
+.server-selection-bar__count {
+  min-width: 7rem;
+  color: var(--xy-text-primary);
+}
+
+.server-selection-bar__count .q-icon {
+  color: var(--xy-accent);
+}
+
+.server-selection-bar__actions {
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.server-selection-bar__separator {
+  height: 1.75rem;
+  margin-inline: var(--xy-space-xs);
+}
+
 .server-list-error {
   display: flex;
   align-items: flex-start;
@@ -839,6 +1557,55 @@ const columns = ref([
 .badge-remote {
   background-color: var(--xy-surface-4);
   color: var(--xy-text-secondary);
+}
+
+.server-player-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
+  white-space: nowrap;
+}
+
+.server-player-count .q-icon {
+  color: var(--xy-accent);
+}
+
+.server-resource-usage {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  min-width: 9.5rem;
+  color: var(--xy-text-secondary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-xs);
+  line-height: 1.35;
+}
+
+.server-resource-usage span {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  white-space: nowrap;
+}
+
+.server-resource-usage .q-icon {
+  color: var(--xy-text-muted);
+  font-size: 0.9rem;
+}
+
+.server-table-actions,
+.server-lifecycle-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-2xs);
+  white-space: nowrap;
+}
+
+.server-table-actions > .q-separator {
+  height: 1.75rem;
+  margin-inline: var(--xy-space-xs);
 }
 
 .version-text {
@@ -947,18 +1714,46 @@ const columns = ref([
 }
 
 .server-mobile-actions {
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs);
   min-height: 3.5rem;
   padding: var(--xy-space-xs) var(--xy-space-sm);
   background: var(--xy-surface-3);
 }
 
 @media (max-width: 599px) {
+  .server-selection-bar {
+    position: static;
+    align-items: flex-start;
+  }
+
+  .server-selection-bar__actions {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .server-selection-bar__separator {
+    display: none;
+  }
+
   .server-grid-item {
     padding-inline: 0;
   }
 
   .server-mobile-details {
     gap: var(--xy-space-sm) var(--xy-space-md);
+  }
+
+  .server-mobile-memory {
+    grid-column: 1 / -1;
+  }
+
+  .server-mobile-actions > .q-space {
+    display: none;
+  }
+
+  .server-lifecycle-actions {
+    margin-left: auto;
   }
 }
 </style>

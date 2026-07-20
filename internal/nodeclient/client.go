@@ -152,6 +152,15 @@ type NodeClient interface {
 	// GetSevenDaysToDieMapTile reads one native PNG tile on the owning node.
 	GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error)
 
+	// EnsureMinecraftMap reuses or starts the owning node's BlueMap renderer.
+	EnsureMinecraftMap(ctx context.Context, req node.MinecraftMapEnsureRequest) (node.MinecraftMapStatus, error)
+
+	// StopMinecraftMap stops the Xylona-managed BlueMap companion, if any.
+	StopMinecraftMap(ctx context.Context, processID string) error
+
+	// GetMinecraftMapAsset reads one bounded BlueMap web asset from the node.
+	GetMinecraftMapAsset(ctx context.Context, req node.MinecraftMapAssetRequest) (node.MinecraftMapAsset, error)
+
 	// PerformGameServerPlayerAction executes one typed game-specific player
 	// administration action on the node that owns the game server.
 	PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error

@@ -1,7 +1,7 @@
 package node
 
 // RuntimeProtocolVersion is the node process-runtime capability protocol version.
-const RuntimeProtocolVersion int64 = 7
+const RuntimeProtocolVersion int64 = 8
 
 // RuntimeCapabilities describes process-runtime features exposed by a node.
 type RuntimeCapabilities struct {
@@ -14,6 +14,7 @@ type RuntimeCapabilities struct {
 	PlayerActions            bool
 	PalworldMap              bool
 	SevenDaysToDieMap        bool
+	MinecraftMap             bool
 }
 
 // RuntimeCapabilities reports the runtime behavior supported by this node.
@@ -28,5 +29,6 @@ func (n *Node) RuntimeCapabilities() RuntimeCapabilities {
 		PlayerActions:            true,
 		PalworldMap:              true,
 		SevenDaysToDieMap:        true,
+		MinecraftMap:             true,
 	}
 }

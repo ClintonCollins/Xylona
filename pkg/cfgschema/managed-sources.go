@@ -25,6 +25,7 @@ var knownManagedSources = map[string]bool{
 	"game_server.server_name":       true,
 	"game_server.directory":         true,
 	"xylona.local_console_enabled":  true,
+	"xylona.local_console_port":     true,
 	"xylona.local_console_password": true,
 	"steam_gslt":                    true,
 }

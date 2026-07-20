@@ -112,6 +112,15 @@ const (
 	// NodeServiceGetSevenDaysToDieMapTileProcedure is the fully-qualified name of the NodeService's
 	// GetSevenDaysToDieMapTile RPC.
 	NodeServiceGetSevenDaysToDieMapTileProcedure = "/xylona.node.v1.NodeService/GetSevenDaysToDieMapTile"
+	// NodeServiceEnsureMinecraftMapProcedure is the fully-qualified name of the NodeService's
+	// EnsureMinecraftMap RPC.
+	NodeServiceEnsureMinecraftMapProcedure = "/xylona.node.v1.NodeService/EnsureMinecraftMap"
+	// NodeServiceStopMinecraftMapProcedure is the fully-qualified name of the NodeService's
+	// StopMinecraftMap RPC.
+	NodeServiceStopMinecraftMapProcedure = "/xylona.node.v1.NodeService/StopMinecraftMap"
+	// NodeServiceGetMinecraftMapAssetProcedure is the fully-qualified name of the NodeService's
+	// GetMinecraftMapAsset RPC.
+	NodeServiceGetMinecraftMapAssetProcedure = "/xylona.node.v1.NodeService/GetMinecraftMapAsset"
 	// NodeServicePerformGameServerPlayerActionProcedure is the fully-qualified name of the
 	// NodeService's PerformGameServerPlayerAction RPC.
 	NodeServicePerformGameServerPlayerActionProcedure = "/xylona.node.v1.NodeService/PerformGameServerPlayerAction"
@@ -179,6 +188,9 @@ type NodeServiceClient interface {
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
 	GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error)
+	EnsureMinecraftMap(context.Context, *connect.Request[v1.EnsureMinecraftMapRequest]) (*connect.Response[v1.EnsureMinecraftMapResponse], error)
+	StopMinecraftMap(context.Context, *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error)
+	GetMinecraftMapAsset(context.Context, *connect.Request[v1.GetMinecraftMapAssetRequest]) (*connect.Response[v1.GetMinecraftMapAssetResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
@@ -375,6 +387,24 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("GetSevenDaysToDieMapTile")),
 			connect.WithClientOptions(opts...),
 		),
+		ensureMinecraftMap: connect.NewClient[v1.EnsureMinecraftMapRequest, v1.EnsureMinecraftMapResponse](
+			httpClient,
+			baseURL+NodeServiceEnsureMinecraftMapProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("EnsureMinecraftMap")),
+			connect.WithClientOptions(opts...),
+		),
+		stopMinecraftMap: connect.NewClient[v1.StopMinecraftMapRequest, v1.StopMinecraftMapResponse](
+			httpClient,
+			baseURL+NodeServiceStopMinecraftMapProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("StopMinecraftMap")),
+			connect.WithClientOptions(opts...),
+		),
+		getMinecraftMapAsset: connect.NewClient[v1.GetMinecraftMapAssetRequest, v1.GetMinecraftMapAssetResponse](
+			httpClient,
+			baseURL+NodeServiceGetMinecraftMapAssetProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("GetMinecraftMapAsset")),
+			connect.WithClientOptions(opts...),
+		),
 		performGameServerPlayerAction: connect.NewClient[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse](
 			httpClient,
 			baseURL+NodeServicePerformGameServerPlayerActionProcedure,
@@ -474,6 +504,9 @@ type nodeServiceClient struct {
 	queryPalworldMap              *connect.Client[v1.QueryPalworldMapRequest, v1.QueryPalworldMapResponse]
 	querySevenDaysToDieMap        *connect.Client[v1.QuerySevenDaysToDieMapRequest, v1.QuerySevenDaysToDieMapResponse]
 	getSevenDaysToDieMapTile      *connect.Client[v1.GetSevenDaysToDieMapTileRequest, v1.GetSevenDaysToDieMapTileResponse]
+	ensureMinecraftMap            *connect.Client[v1.EnsureMinecraftMapRequest, v1.EnsureMinecraftMapResponse]
+	stopMinecraftMap              *connect.Client[v1.StopMinecraftMapRequest, v1.StopMinecraftMapResponse]
+	getMinecraftMapAsset          *connect.Client[v1.GetMinecraftMapAssetRequest, v1.GetMinecraftMapAssetResponse]
 	performGameServerPlayerAction *connect.Client[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse]
 	sendConsoleOutput             *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
 	getProcessSnapshot            *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
@@ -627,6 +660,21 @@ func (c *nodeServiceClient) GetSevenDaysToDieMapTile(ctx context.Context, req *c
 	return c.getSevenDaysToDieMapTile.CallUnary(ctx, req)
 }
 
+// EnsureMinecraftMap calls xylona.node.v1.NodeService.EnsureMinecraftMap.
+func (c *nodeServiceClient) EnsureMinecraftMap(ctx context.Context, req *connect.Request[v1.EnsureMinecraftMapRequest]) (*connect.Response[v1.EnsureMinecraftMapResponse], error) {
+	return c.ensureMinecraftMap.CallUnary(ctx, req)
+}
+
+// StopMinecraftMap calls xylona.node.v1.NodeService.StopMinecraftMap.
+func (c *nodeServiceClient) StopMinecraftMap(ctx context.Context, req *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error) {
+	return c.stopMinecraftMap.CallUnary(ctx, req)
+}
+
+// GetMinecraftMapAsset calls xylona.node.v1.NodeService.GetMinecraftMapAsset.
+func (c *nodeServiceClient) GetMinecraftMapAsset(ctx context.Context, req *connect.Request[v1.GetMinecraftMapAssetRequest]) (*connect.Response[v1.GetMinecraftMapAssetResponse], error) {
+	return c.getMinecraftMapAsset.CallUnary(ctx, req)
+}
+
 // PerformGameServerPlayerAction calls xylona.node.v1.NodeService.PerformGameServerPlayerAction.
 func (c *nodeServiceClient) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {
 	return c.performGameServerPlayerAction.CallUnary(ctx, req)
@@ -715,6 +763,9 @@ type NodeServiceHandler interface {
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
 	GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error)
+	EnsureMinecraftMap(context.Context, *connect.Request[v1.EnsureMinecraftMapRequest]) (*connect.Response[v1.EnsureMinecraftMapResponse], error)
+	StopMinecraftMap(context.Context, *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error)
+	GetMinecraftMapAsset(context.Context, *connect.Request[v1.GetMinecraftMapAssetRequest]) (*connect.Response[v1.GetMinecraftMapAssetResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
@@ -907,6 +958,24 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("GetSevenDaysToDieMapTile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceEnsureMinecraftMapHandler := connect.NewUnaryHandler(
+		NodeServiceEnsureMinecraftMapProcedure,
+		svc.EnsureMinecraftMap,
+		connect.WithSchema(nodeServiceMethods.ByName("EnsureMinecraftMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceStopMinecraftMapHandler := connect.NewUnaryHandler(
+		NodeServiceStopMinecraftMapProcedure,
+		svc.StopMinecraftMap,
+		connect.WithSchema(nodeServiceMethods.ByName("StopMinecraftMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	nodeServiceGetMinecraftMapAssetHandler := connect.NewUnaryHandler(
+		NodeServiceGetMinecraftMapAssetProcedure,
+		svc.GetMinecraftMapAsset,
+		connect.WithSchema(nodeServiceMethods.ByName("GetMinecraftMapAsset")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServicePerformGameServerPlayerActionHandler := connect.NewUnaryHandler(
 		NodeServicePerformGameServerPlayerActionProcedure,
 		svc.PerformGameServerPlayerAction,
@@ -1031,6 +1100,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceQuerySevenDaysToDieMapHandler.ServeHTTP(w, r)
 		case NodeServiceGetSevenDaysToDieMapTileProcedure:
 			nodeServiceGetSevenDaysToDieMapTileHandler.ServeHTTP(w, r)
+		case NodeServiceEnsureMinecraftMapProcedure:
+			nodeServiceEnsureMinecraftMapHandler.ServeHTTP(w, r)
+		case NodeServiceStopMinecraftMapProcedure:
+			nodeServiceStopMinecraftMapHandler.ServeHTTP(w, r)
+		case NodeServiceGetMinecraftMapAssetProcedure:
+			nodeServiceGetMinecraftMapAssetHandler.ServeHTTP(w, r)
 		case NodeServicePerformGameServerPlayerActionProcedure:
 			nodeServicePerformGameServerPlayerActionHandler.ServeHTTP(w, r)
 		case NodeServiceSendConsoleOutputProcedure:
@@ -1172,6 +1247,18 @@ func (UnimplementedNodeServiceHandler) QuerySevenDaysToDieMap(context.Context, *
 
 func (UnimplementedNodeServiceHandler) GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.GetSevenDaysToDieMapTile is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) EnsureMinecraftMap(context.Context, *connect.Request[v1.EnsureMinecraftMapRequest]) (*connect.Response[v1.EnsureMinecraftMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.EnsureMinecraftMap is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) StopMinecraftMap(context.Context, *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.StopMinecraftMap is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) GetMinecraftMapAsset(context.Context, *connect.Request[v1.GetMinecraftMapAssetRequest]) (*connect.Response[v1.GetMinecraftMapAssetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.GetMinecraftMapAsset is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {

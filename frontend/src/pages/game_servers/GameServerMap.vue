@@ -7,6 +7,7 @@ import { useRoute } from 'vue-router'
 import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerPalworldMap from './GameServerPalworldMap.vue'
+import GameServerMinecraftMap from './GameServerMinecraftMap.vue'
 import GameServerSevenDaysToDieMap from './GameServerSevenDaysToDieMap.vue'
 
 const route = useRoute()
@@ -32,6 +33,7 @@ onMounted(async () => {
 
 <template>
   <game-server-palworld-map v-if="gameID === 'palworld'" />
+  <game-server-minecraft-map v-else-if="gameID === 'minecraft'" />
   <game-server-seven-days-to-die-map v-else-if="gameID === '7_days_to_die'" />
   <div v-else-if="loadError" class="map-route-state">
     <q-icon name="error_outline" size="40px" />

@@ -188,7 +188,11 @@ func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64,
 		if !sameIP && !selectedBindsToAllIPs && !existingBindsToAllIPs {
 			continue
 		}
-		for _, usedPort := range gameServerPortFootprint(s.GameID, s.Port, s.QueryPort) {
+		serverPorts, errServerPorts := xs.gameServerPortFootprint(s)
+		if errServerPorts != nil {
+			return 0, 0, errServerPorts
+		}
+		for _, usedPort := range serverPorts {
 			usedPorts[usedPort] = true
 		}
 	}
@@ -200,6 +204,15 @@ func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64,
 	// Auto-increment both ports on any conflict so their configured offset is preserved.
 	for {
 		candidatePorts := gameServerPortFootprint(gameID, port, queryPort)
+		if gameID == minecraftGameID && excludeServerID != "" {
+			mapSettings, errMapSettings := xs.db.GetGameServerMinecraftMap(excludeServerID)
+			if errMapSettings != nil {
+				return 0, 0, fmt.Errorf("load Minecraft map port footprint: %w", errMapSettings)
+			}
+			if mapSettings.Enabled {
+				candidatePorts = append(candidatePorts, queryPort+1)
+			}
+		}
 		conflict := false
 		for _, candidatePort := range candidatePorts {
 			if candidatePort < 1 || candidatePort > 65535 {
@@ -244,6 +257,24 @@ func gameServerPortFootprint(gameID string, port int64, queryPort int64) []int64
 		ports = append(ports, port+1, port+2)
 	}
 	return ports
+}
+
+func (xs *XylonaService) gameServerPortFootprint(gameServer *models.GameServer) ([]int64, error) {
+	if gameServer == nil {
+		return nil, errors.New("game server is required")
+	}
+	ports := gameServerPortFootprint(gameServer.GameID, gameServer.Port, gameServer.QueryPort)
+	if gameServer.GameID != minecraftGameID {
+		return ports, nil
+	}
+	settings, errSettings := xs.db.GetGameServerMinecraftMap(gameServer.ID)
+	if errSettings != nil {
+		return nil, fmt.Errorf("get Minecraft map port footprint: %w", errSettings)
+	}
+	if settings.Enabled {
+		ports = append(ports, gameServer.QueryPort+1)
+	}
+	return ports, nil
 }
 
 // CreateGameServer creates a new local game server.
@@ -442,6 +473,30 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 	if errPermission != nil {
 		return nil, errPermission
 	}
+	if gameServer.GameID == minecraftGameID {
+		mapSettings, errMapSettings := xs.db.GetGameServerMinecraftMap(gameServer.ID)
+		if errMapSettings != nil {
+			return nil, internalErrf("failed to load Minecraft map settings")
+		}
+		errDisableMap := xs.db.UpdateGameServerMinecraftMapConfig(
+			gameServer.ID,
+			false,
+			mapSettings.WorldName,
+			false,
+			user.ID,
+		)
+		if errDisableMap != nil {
+			return nil, internalErrf("failed to disable Minecraft map before server removal")
+		}
+		client, errClient := xs.resolveNodeClient(gameServer)
+		if errClient != nil {
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("minecraft map node is unavailable; the server was not removed"))
+		}
+		errStopMap := client.StopMinecraftMap(ctx, gameServer.ID)
+		if errStopMap != nil {
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("stop Minecraft map before server removal: %w", errStopMap))
+		}
+	}
 
 	errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
 	if errStop != nil {
@@ -506,7 +561,7 @@ func gameServerOfflineWaitError(ctx context.Context) error {
 	}
 	return connect.NewError(
 		connect.CodeFailedPrecondition,
-		errors.New("game server did not reach offline status; files and database record were not removed"),
+		errors.New("game server did not reach offline status before the operation timed out"),
 	)
 }
 
@@ -586,6 +641,52 @@ func (xs *XylonaService) StopGameServer(ctx context.Context, request *connect.Re
 		return nil, stopGameServerConnectError(errStop)
 	}
 	return connect.NewResponse(&xylona.StopGameServerResponse{}), nil
+}
+
+// RestartGameServer performs one permission-checked stop, waits for the
+// authoritative offline state, and starts the server again.
+func (xs *XylonaService) RestartGameServer(ctx context.Context, request *connect.Request[xylona.RestartGameServerRequest]) (*connect.Response[xylona.RestartGameServerResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	gameServer, errLookup := xs.db.GetGameServerByID(request.Msg.GetServerId())
+	if errLookup != nil {
+		return nil, dbLookup(errLookup)
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.restart")
+	if errPermission != nil {
+		return nil, errPermission
+	}
+	releaseOperation, errOperation := xs.actionsInst.TryBeginGameServerLifecycleOperation(gameServer.ID)
+	if errors.Is(errOperation, actions.ErrGameServerOperationInProgress) {
+		return nil, connect.NewError(connect.CodeAlreadyExists, errOperation)
+	}
+	if errOperation != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("reserve game server restart: %w", errOperation))
+	}
+	defer releaseOperation()
+
+	status, _, errStatus := xs.resolveGameServerRuntimeState(ctx, gameServer)
+	if errStatus != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("confirm game server status before restart: %w", errStatus))
+	}
+	if status != xylona.Status_ONLINE {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server must be online to restart"))
+	}
+	errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
+	if errStop != nil {
+		return nil, stopGameServerConnectError(errStop)
+	}
+	errWait := xs.waitForGameServerOffline(ctx, gameServer, 30*time.Second)
+	if errWait != nil {
+		return nil, errWait
+	}
+	_, errStart := xs.actionsInst.StartGameServer(gameServer)
+	if errStart != nil {
+		return nil, startGameServerConnectError(errStart)
+	}
+	return connect.NewResponse(&xylona.RestartGameServerResponse{}), nil
 }
 
 func stopGameServerConnectError(err error) error {
@@ -782,7 +883,13 @@ func (xs *XylonaService) UpdateGameServer(_ context.Context, request *connect.Re
 		gameServer.Branch = selectedTarget
 	}
 
-	xs.actionsInst.UpdateGameServerWithBackup(gameServer, xs.updateBroadcast)
+	errUpdate := xs.actionsInst.UpdateGameServerWithBackup(gameServer, xs.updateBroadcast)
+	if errors.Is(errUpdate, actions.ErrGameServerOperationInProgress) {
+		return nil, connect.NewError(connect.CodeAlreadyExists, errUpdate)
+	}
+	if errUpdate != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("start game server update: %w", errUpdate))
+	}
 	return connect.NewResponse(&xylona.UpdateGameServerResponse{}), nil
 }
 

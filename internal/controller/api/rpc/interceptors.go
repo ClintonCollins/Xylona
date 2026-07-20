@@ -21,6 +21,7 @@ var publicSessionOptionalProcedures = map[string]struct{}{
 	xylonaconnect.XylonaRemoveNodeProcedure:                 {},
 	xylonaconnect.XylonaGetPublicPalworldMapProcedure:       {},
 	xylonaconnect.XylonaGetPublicSevenDaysToDieMapProcedure: {},
+	xylonaconnect.XylonaGetPublicMinecraftMapProcedure:      {},
 }
 
 type sessionAuthInterceptor struct {

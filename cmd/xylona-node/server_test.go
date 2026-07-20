@@ -164,7 +164,8 @@ func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
 	}
 	if caps.ProtocolVersion != node.RuntimeProtocolVersion || !caps.LaunchEnv ||
 		!caps.ReliableProcessLifecycle || !caps.TelnetInput || !caps.RCONInput ||
-		!caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap {
+		!caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap ||
+		!caps.SevenDaysToDieMap || !caps.MinecraftMap {
 		t.Fatalf("runtime capabilities = %+v", caps)
 	}
 }

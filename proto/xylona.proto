@@ -51,7 +51,7 @@ service Xylona {
   rpc RemoveGameServer (RemoveGameServerRequest) returns (RemoveGameServerResponse) {}
   rpc StartGameServer (StartGameServerRequest) returns (StartGameServerResponse) {}
   rpc StopGameServer (StopGameServerRequest) returns (StopGameServerResponse) {}
-  //  rpc RestartGameServer (RestartGameServerRequest) returns (RestartGameServerResponse) {}
+  rpc RestartGameServer (RestartGameServerRequest) returns (RestartGameServerResponse) {}
   rpc ReadGameServerOutput (ReadGameServerOutputRequest) returns (ReadGameServerOutputResponse) {}
   rpc SendGameServerInput (SendGameServerInputRequest) returns (SendGameServerInputResponse) {}
   rpc GetGameServer (GetGameServerRequest) returns (GetGameServerResponse) {}
@@ -88,6 +88,11 @@ service Xylona {
   rpc RegenerateSevenDaysToDieMapShare (RegenerateSevenDaysToDieMapShareRequest) returns (RegenerateSevenDaysToDieMapShareResponse) {}
   rpc RevokeSevenDaysToDieMapShare (RevokeSevenDaysToDieMapShareRequest) returns (RevokeSevenDaysToDieMapShareResponse) {}
   rpc GetPublicSevenDaysToDieMap (GetPublicSevenDaysToDieMapRequest) returns (GetPublicSevenDaysToDieMapResponse) {}
+  rpc GetMinecraftMap (GetMinecraftMapRequest) returns (GetMinecraftMapResponse) {}
+  rpc UpdateMinecraftMapConfig (UpdateMinecraftMapConfigRequest) returns (UpdateMinecraftMapConfigResponse) {}
+  rpc RegenerateMinecraftMapShare (RegenerateMinecraftMapShareRequest) returns (RegenerateMinecraftMapShareResponse) {}
+  rpc RevokeMinecraftMapShare (RevokeMinecraftMapShareRequest) returns (RevokeMinecraftMapShareResponse) {}
+  rpc GetPublicMinecraftMap (GetPublicMinecraftMapRequest) returns (GetPublicMinecraftMapResponse) {}
 
   rpc GetUpdateTargets (GetUpdateTargetsRequest) returns (GetUpdateTargetsResponse) {}
   rpc SetServerVariant (SetServerVariantRequest) returns (SetServerVariantResponse) {}
@@ -885,6 +890,8 @@ message RemoteServerSummary {
   google.protobuf.Timestamp last_synced_at = 19;
   bool is_stale = 20;
   VersionInfo version_info = 21;
+  repeated string effective_permissions = 22;
+  bool resolved_has_update = 23;
 }
 
 // AggregatedGameServer represents either a local or remote server in the unified view.
@@ -1792,4 +1799,62 @@ message GetPublicSevenDaysToDieMapRequest {
 
 message GetPublicSevenDaysToDieMapResponse {
   SevenDaysToDieMapView map = 1;
+}
+
+message MinecraftMapView {
+  string game_server_id = 1;
+  string game_server_name = 2;
+  bool enabled = 3;
+  bool available = 4;
+  string provider = 5;
+  string status = 6;
+  string status_message = 7;
+  bool can_manage = 8;
+  bool share_enabled = 9;
+  string viewer_url = 10;
+  string world_name = 11;
+  string bluemap_version = 12;
+  bool live_players_available = 13;
+  bool bluemap_download_accepted = 14;
+}
+
+message GetMinecraftMapRequest {
+  string game_server_id = 1;
+}
+
+message GetMinecraftMapResponse {
+  MinecraftMapView map = 1;
+}
+
+message UpdateMinecraftMapConfigRequest {
+  string game_server_id = 1;
+  bool enabled = 2;
+  string world_name = 3;
+  bool accept_bluemap_download = 4;
+}
+
+message UpdateMinecraftMapConfigResponse {
+  MinecraftMapView map = 1;
+}
+
+message RegenerateMinecraftMapShareRequest {
+  string game_server_id = 1;
+}
+
+message RegenerateMinecraftMapShareResponse {
+  string share_token = 1;
+}
+
+message RevokeMinecraftMapShareRequest {
+  string game_server_id = 1;
+}
+
+message RevokeMinecraftMapShareResponse {}
+
+message GetPublicMinecraftMapRequest {
+  string share_token = 1;
+}
+
+message GetPublicMinecraftMapResponse {
+  MinecraftMapView map = 1;
 }

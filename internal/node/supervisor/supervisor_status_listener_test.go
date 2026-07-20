@@ -119,3 +119,28 @@ func TestStatusNotificationRetainsAuthoritativeLifecycleMetadata(t *testing.T) {
 		t.Fatalf("direct lifecycle hook event = %+v", terminalEvent)
 	}
 }
+
+func TestStatusNotificationCanBeSuppressedForCompanionProcesses(t *testing.T) {
+	cmd := newTestCommand(t)
+	cmd.suppressStatusEvents = true
+	listener := make(chan *xylona.GameServerStatusUpdate, 1)
+	cmd.AddStatusListener("test-listener", listener)
+	hookCalled := false
+	cmd.statusEventHook = func(eventbus.StatusChangedEvent) {
+		hookCalled = true
+	}
+
+	cmd.sendJobStatusNotification(xylona.Status_OFFLINE, xylona.Status_ONLINE)
+
+	select {
+	case update := <-listener:
+		t.Fatalf("suppressed companion emitted listener update %+v", update)
+	default:
+	}
+	if hookCalled {
+		t.Fatal("suppressed companion emitted lifecycle hook event")
+	}
+	if lifecycle := cmd.Lifecycle(); lifecycle.TransitionSequence != 0 {
+		t.Fatalf("suppressed companion lifecycle sequence = %d, want 0", lifecycle.TransitionSequence)
+	}
+}
