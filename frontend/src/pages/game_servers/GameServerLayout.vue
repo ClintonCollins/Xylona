@@ -3,11 +3,13 @@
     <q-card class="full-width game-server-card">
       <q-tabs
         v-if="navQTabsStore.tabs.length > 0"
+        :dense="windowWidth <= 767"
+        :inline-label="windowWidth <= 767"
         active-color="primary"
         align="left"
+        aria-label="Game server sections"
         class="game-server-tabs"
         indicator-color="primary"
-        mobile-arrows
         narrow-indicator
         no-caps>
         <q-route-tab
@@ -194,9 +196,10 @@ async function enforceRouteAccess() {
 .game-server-page {
   display: flex;
   flex-direction: column;
-  /* Override Quasar's inline min-height (full viewport) so max-height
-     can constrain the page to the available space below the header. */
+  /* Override Quasar's inline min-height and explicitly occupy the space
+     below the header so flex children can size the console correctly. */
   min-height: 0 !important;
+  height: calc(100dvh - var(--xy-header-stack-height, 50px));
   max-height: calc(100dvh - var(--xy-header-stack-height, 50px));
   overflow: hidden;
 }
@@ -217,5 +220,48 @@ async function enforceRouteAccess() {
 }
 .game-server-tabs {
   background-color: var(--xy-surface-2);
+}
+
+@media (max-width: 767px) {
+  .game-server-card {
+    border-radius: 0;
+  }
+
+  .game-server-tabs {
+    min-height: 3rem;
+    border-bottom: 1px solid var(--xy-border);
+  }
+
+  .game-server-tabs :deep(.q-tabs__content) {
+    justify-content: flex-start;
+    scroll-padding-inline: var(--xy-space-sm);
+  }
+
+  .game-server-tabs :deep(.q-tab) {
+    flex: 0 0 auto;
+    min-width: 5.75rem;
+    min-height: 3rem;
+    padding-inline: var(--xy-space-base);
+  }
+
+  .game-server-tabs :deep(.q-tab__content) {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: var(--xy-space-xs);
+    min-width: max-content;
+  }
+
+  .game-server-tabs :deep(.q-tab__icon) {
+    font-size: 1.2rem;
+  }
+
+  .game-server-tabs :deep(.q-tab__label) {
+    font-size: var(--xy-font-size-xs);
+    white-space: nowrap;
+  }
+
+  .game-server-tabs :deep(.q-tabs__arrow) {
+    display: none;
+  }
 }
 </style>

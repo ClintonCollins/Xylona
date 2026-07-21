@@ -26,8 +26,29 @@
   </div>
 
   <div :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
+    <div
+      :class="{ 'sidebar-backdrop-visible': !sidebarCollapsed }"
+      aria-hidden="true"
+      class="sidebar-backdrop"
+      @click="sidebarCollapsed = true"></div>
+
     <!-- Sidebar -->
-    <aside :class="{ collapsed: sidebarCollapsed }" class="sidebar">
+    <aside
+      :aria-hidden="sidebarCollapsed"
+      :class="{ collapsed: sidebarCollapsed }"
+      :inert="sidebarCollapsed"
+      class="sidebar">
+      <div class="sidebar-mobile-header">
+        <span>Server details</span>
+        <q-btn
+          aria-label="Hide server details"
+          class="sidebar-mobile-close"
+          dense
+          flat
+          icon="close"
+          round
+          @click="sidebarCollapsed = true" />
+      </div>
       <div class="sidebar-content">
         <!-- Controls -->
         <div class="sidebar-section">
@@ -389,15 +410,19 @@
       <!-- Console toolbar buttons -->
       <div class="console-toolbar-btns">
         <q-btn
-          :aria-label="sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'"
-          :icon="sidebarCollapsed ? 'chevron_right' : 'chevron_left'"
+          :aria-label="sidebarCollapsed ? 'Show server details' : 'Hide server details'"
+          :icon="
+            $q.screen.lt.md ? 'info_outline' : sidebarCollapsed ? 'chevron_right' : 'chevron_left'
+          "
           class="console-toolbar-btn"
           dense
           flat
           padding="xs"
           square
           @click="sidebarCollapsed = !sidebarCollapsed">
-          <q-tooltip>{{ sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar' }}</q-tooltip>
+          <q-tooltip>
+            {{ sidebarCollapsed ? 'Show server details' : 'Hide server details' }}
+          </q-tooltip>
         </q-btn>
         <q-btn
           :aria-label="consoleAutoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'"
@@ -655,7 +680,7 @@ const gameServerId: Ref<string> = ref(
 const consoleScrollArea = ref<QScrollArea | null>(null)
 const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>(null)
 const consoleExpanded = ref(false)
-const sidebarCollapsed = ref(false)
+const sidebarCollapsed = ref(window.innerWidth < 1024)
 
 function scrollConsoleToBottom() {
   const el = consoleScrollArea.value?.$el as HTMLElement | undefined
@@ -876,15 +901,8 @@ function hasPermission(perm: string): boolean {
   return perms.length === 0 || perms.includes(perm)
 }
 
-function handleMobileSidebar() {
-  if (window.innerWidth < 1024) {
-    sidebarCollapsed.value = true
-  }
-}
-
 onMounted(async () => {
   document.addEventListener('keydown', onEscapeKey)
-  handleMobileSidebar()
   streamGameServerOutput()
 
   void getGameServerDetails()
@@ -1756,6 +1774,7 @@ async function sendGameServerInput() {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
   border: 1px solid var(--xy-border);
   border-top: none;
   border-radius: 0 0 6px 6px;
@@ -1763,6 +1782,11 @@ async function sendGameServerInput() {
 }
 
 /* ===== Sidebar ===== */
+.sidebar-backdrop,
+.sidebar-mobile-header {
+  display: none;
+}
+
 .sidebar {
   width: 290px;
   display: flex;
@@ -2551,6 +2575,115 @@ async function sendGameServerInput() {
 
   .identity-bar-name {
     font-size: 1rem;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: calc(var(--xy-z-sticky) + 1);
+    background: color-mix(in srgb, var(--xy-base) 72%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--xy-transition-base);
+  }
+
+  .sidebar-backdrop-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: var(--xy-z-drawer);
+    width: min(20rem, calc(100% - 3rem));
+    max-width: 100%;
+    border-right: 1px solid var(--xy-border-active);
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      transform var(--xy-transition-base),
+      opacity var(--xy-transition-fast);
+  }
+
+  .sidebar.collapsed {
+    width: min(20rem, calc(100% - 3rem));
+    border-right: 1px solid var(--xy-border-active);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-100%);
+  }
+
+  .sidebar-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 3rem;
+    padding: 0 var(--xy-space-sm) 0 var(--xy-space-md);
+    border-bottom: 1px solid var(--xy-border);
+    color: var(--xy-text-primary);
+    font-family: var(--xy-font-display);
+    font-size: var(--xy-font-size-sm);
+    font-weight: 600;
+  }
+
+  .sidebar-mobile-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .sidebar-content {
+    width: 100%;
+    min-width: 0;
+    padding: var(--xy-space-base);
+    gap: var(--xy-space-md);
+  }
+}
+
+@media (max-width: 767px) {
+  .identity-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--xy-space-sm);
+    padding: var(--xy-space-sm) var(--xy-space-base);
+  }
+
+  .identity-bar-spacer {
+    display: none;
+  }
+
+  .identity-bar-detail {
+    gap: var(--xy-space-xs);
+  }
+
+  .console-toolbar-btns {
+    position: static;
+    justify-content: flex-end;
+    min-height: 3rem;
+    padding-inline: var(--xy-space-sm);
+    border-bottom: 1px solid var(--xy-border);
+    background: var(--xy-surface-1);
+  }
+
+  .console-toolbar-btn {
+    min-width: 44px;
+    min-height: 44px;
+    opacity: 0.8;
+  }
+
+  .console-stream-state {
+    flex-wrap: wrap;
+    padding: var(--xy-space-sm) var(--xy-space-base);
+  }
+
+  .console-scroll-area {
+    padding-inline: var(--xy-space-base) var(--xy-space-sm);
+    font-size: 0.8rem;
+  }
+
+  .console-input-wrapper {
+    padding: var(--xy-space-sm);
   }
 }
 </style>
