@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
 import { type GameServer, Status } from '@/proto/shared_pb'
 import { Request, Request_Type, RequestSchema, type AllServersMetrics } from '@/proto/websocket_pb'
 import { GetOrCreateXylonaWebsocketClient, XylonaEventBus } from '@/utils/shared'
+import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 interface UseGameServerMetricsPreviewOptions {
   gameServer: Ref<GameServer>
@@ -159,7 +160,11 @@ export function useGameServerMetricsPreview({
   onMounted(() => {
     XylonaEventBus.on('gameServerMetrics', onMetrics)
     uptimeTicker = setInterval(() => {
-      if (gameServer.value.status === Status.ONLINE && metricsUptimeSeconds.value > 0) {
+      if (
+        websocketStateAuthoritative.value &&
+        gameServer.value.status === Status.ONLINE &&
+        metricsUptimeSeconds.value > 0
+      ) {
         metricsUptimeSeconds.value++
       }
     }, 1000)

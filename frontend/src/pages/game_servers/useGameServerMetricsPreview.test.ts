@@ -15,6 +15,10 @@ import {
   formatMetricsUptime,
   useGameServerMetricsPreview,
 } from './useGameServerMetricsPreview'
+import {
+  setWebsocketConnectionStatus,
+  type WebsocketConnectionStatus,
+} from '@/utils/websocket-connection'
 
 const mocks = vi.hoisted(() => {
   const websocketClient = {
@@ -128,6 +132,7 @@ function expectLatestRequest(type: Request_Type) {
 describe('useGameServerMetricsPreview', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    setWebsocketConnectionStatus('connected')
     mocks.websocketClient.isOpen.mockReset()
     mocks.websocketClient.isOpen.mockReturnValue(true)
     mocks.websocketClient.send.mockReset()
@@ -316,6 +321,34 @@ describe('useGameServerMetricsPreview', () => {
     expect(wrapper.vm.metricsUptimeSeconds).toBe(120)
     expect(wrapper.vm.formattedUptime).toBe('2m')
   })
+
+  it.each<WebsocketConnectionStatus>(['reconnecting', 'disconnected'])(
+    'freezes synthetic uptime while the live connection is %s',
+    async (connectionStatus) => {
+      const wrapper = mountHarness()
+
+      XylonaEventBus.emit(
+        'gameServerMetrics',
+        makeAllMetrics('server-1', {
+          uptimeSeconds: 60n,
+        }),
+      )
+      await nextTick()
+
+      setWebsocketConnectionStatus(connectionStatus)
+      vi.advanceTimersByTime(60000)
+      await nextTick()
+
+      expect(wrapper.vm.metricsUptimeSeconds).toBe(60)
+      expect(wrapper.vm.formattedUptime).toBe('1m')
+
+      setWebsocketConnectionStatus('connected')
+      vi.advanceTimersByTime(1000)
+      await nextTick()
+
+      expect(wrapper.vm.metricsUptimeSeconds).toBe(61)
+    },
+  )
 
   it('stops reacting to metrics events and timer ticks after unmount', async () => {
     const wrapper = mountHarness()

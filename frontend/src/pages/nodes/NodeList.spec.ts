@@ -3,13 +3,52 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { NodeSchema } from '@/proto/shared_pb'
+import { NodeResourceSnapshotSchema, NodeSchema } from '@/proto/shared_pb'
+import { AllNodeMetricsSchema } from '@/proto/websocket_pb'
+import { DashboardNodeSummarySchema } from '@/proto/xylona_pb'
+import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
 import NodeList from './NodeList.vue'
 
-const mocks = vi.hoisted(() => ({
-  listNodes: vi.fn(),
-  getDashboardOverview: vi.fn().mockResolvedValue({ nodes: [] }),
-}))
+const mocks = vi.hoisted(() => {
+  const listeners = new Map<string, Set<(...args: unknown[]) => void>>()
+
+  return {
+    listNodes: vi.fn(),
+    getDashboardOverview: vi.fn().mockResolvedValue({ nodes: [] }),
+    getOrCreateWebsocketClient: vi.fn(),
+    eventBus: {
+      on: vi.fn((eventName: string, handler: (...args: unknown[]) => void) => {
+        const handlers = listeners.get(eventName) ?? new Set<(...args: unknown[]) => void>()
+        handlers.add(handler)
+        listeners.set(eventName, handlers)
+      }),
+      off: vi.fn((eventName: string, handler: (...args: unknown[]) => void) => {
+        const handlers = listeners.get(eventName)
+        if (!handlers) {
+          return
+        }
+
+        handlers.delete(handler)
+        if (handlers.size === 0) {
+          listeners.delete(eventName)
+        }
+      }),
+      emit: (eventName: string, ...args: unknown[]) => {
+        const handlers = listeners.get(eventName)
+        if (!handlers) {
+          return
+        }
+
+        for (const handler of handlers) {
+          handler(...args)
+        }
+      },
+      reset: () => {
+        listeners.clear()
+      },
+    },
+  }
+})
 
 vi.mock('@/utils/shared', async () => {
   const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
@@ -19,6 +58,8 @@ vi.mock('@/utils/shared', async () => {
       listNodes: mocks.listNodes,
       getDashboardOverview: mocks.getDashboardOverview,
     }),
+    GetOrCreateXylonaWebsocketClient: mocks.getOrCreateWebsocketClient,
+    XylonaEventBus: mocks.eventBus,
   }
 })
 
@@ -86,9 +127,12 @@ function createDeferred<T>() {
 
 describe('NodeList', () => {
   beforeEach(() => {
+    setWebsocketConnectionStatus('connected')
     mocks.listNodes.mockReset()
     mocks.getDashboardOverview.mockReset()
     mocks.getDashboardOverview.mockResolvedValue({ nodes: [] })
+    mocks.getOrCreateWebsocketClient.mockReset()
+    mocks.eventBus.reset()
   })
 
   it('renders table with nodes from API', async () => {
@@ -260,6 +304,149 @@ describe('NodeList', () => {
         wrapper.vm as unknown as { getNodeVersion: (nodeId: string) => string | undefined }
       ).getNodeVersion('node-stale'),
     ).toBeUndefined()
+  })
+
+  it('invalidates live snapshots on disconnect and reloads them once after reconnect', async () => {
+    const node = create(NodeSchema, {
+      id: 'node-1',
+      name: 'Local Node',
+      local: true,
+    })
+    const initialSnapshot = create(NodeResourceSnapshotSchema, {
+      cpuPercent: 10,
+      gameServerCount: 2,
+    })
+    const reloadedSnapshot = create(NodeResourceSnapshotSchema, {
+      cpuPercent: 55,
+      gameServerCount: 3,
+    })
+
+    mocks.listNodes.mockResolvedValue({ nodes: [node] })
+    mocks.getDashboardOverview
+      .mockResolvedValueOnce({
+        nodes: [
+          create(DashboardNodeSummarySchema, {
+            node,
+            snapshot: initialSnapshot,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        nodes: [
+          create(DashboardNodeSummarySchema, {
+            node,
+            snapshot: reloadedSnapshot,
+          }),
+        ],
+      })
+
+    const wrapper = mount(NodeList, { global: globalStubs })
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      dashboardSnapshotsFresh: boolean
+      getSnapshot: (nodeId: string) => { cpuPercent: number } | undefined
+      liveSnapshots: Map<string, unknown>
+    }
+
+    expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(10)
+
+    mocks.eventBus.emit(
+      'nodeMetrics',
+      create(AllNodeMetricsSchema, {
+        nodes: {
+          'node-1': create(NodeResourceSnapshotSchema, {
+            cpuPercent: 80,
+            gameServerCount: 4,
+          }),
+        },
+      }),
+    )
+
+    expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(80)
+
+    setWebsocketConnectionStatus('reconnecting')
+    mocks.eventBus.emit('websocketDisconnected')
+
+    expect(viewModel.dashboardSnapshotsFresh).toBe(false)
+    expect(viewModel.liveSnapshots.size).toBe(0)
+    expect(viewModel.getSnapshot('node-1')).toBeUndefined()
+
+    mocks.eventBus.emit(
+      'nodeMetrics',
+      create(AllNodeMetricsSchema, {
+        nodes: {
+          'node-1': create(NodeResourceSnapshotSchema, {
+            cpuPercent: 99,
+          }),
+        },
+      }),
+    )
+    expect(viewModel.getSnapshot('node-1')).toBeUndefined()
+
+    setWebsocketConnectionStatus('connected')
+    mocks.eventBus.emit('websocketConnected')
+    await flushPromises()
+
+    expect(mocks.listNodes).toHaveBeenCalledTimes(2)
+    expect(mocks.getDashboardOverview).toHaveBeenCalledTimes(2)
+    expect(viewModel.dashboardSnapshotsFresh).toBe(true)
+    expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(55)
+
+    wrapper.unmount()
+  })
+
+  it('supersedes a pending pre-disconnect dashboard request on reconnect', async () => {
+    const node = create(NodeSchema, {
+      id: 'node-1',
+      name: 'Local Node',
+      local: true,
+    })
+    const staleDashboard = createDeferred<{ nodes: unknown[] }>()
+    const recoveredSnapshot = create(NodeResourceSnapshotSchema, {
+      cpuPercent: 42,
+    })
+
+    mocks.listNodes.mockResolvedValue({ nodes: [node] })
+    mocks.getDashboardOverview.mockReturnValueOnce(staleDashboard.promise).mockResolvedValueOnce({
+      nodes: [
+        create(DashboardNodeSummarySchema, {
+          node,
+          snapshot: recoveredSnapshot,
+        }),
+      ],
+    })
+
+    const wrapper = mount(NodeList, { global: globalStubs })
+
+    await vi.waitFor(() => {
+      expect(mocks.listNodes).toHaveBeenCalledTimes(1)
+      expect(mocks.getDashboardOverview).toHaveBeenCalledTimes(1)
+    })
+
+    setWebsocketConnectionStatus('reconnecting')
+    mocks.eventBus.emit('websocketDisconnected')
+    setWebsocketConnectionStatus('connected')
+    mocks.eventBus.emit('websocketConnected')
+
+    await vi.waitFor(() => {
+      expect(mocks.listNodes).toHaveBeenCalledTimes(2)
+      expect(mocks.getDashboardOverview).toHaveBeenCalledTimes(2)
+    })
+
+    const viewModel = wrapper.vm as unknown as {
+      dashboardSnapshotsFresh: boolean
+      getSnapshot: (nodeId: string) => { cpuPercent: number } | undefined
+    }
+    await vi.waitFor(() => {
+      expect(viewModel.dashboardSnapshotsFresh).toBe(true)
+      expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(42)
+    })
+
+    staleDashboard.resolve({ nodes: [] })
+    await flushPromises()
+
+    expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(42)
+    wrapper.unmount()
   })
 
   it('maps node health status to badge labels and colors', async () => {

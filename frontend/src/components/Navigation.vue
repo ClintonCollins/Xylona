@@ -27,16 +27,25 @@
       :class="`live-connection-banner--${websocketConnectionStatus}`"
       class="live-connection-banner"
       role="status"
-      aria-live="assertive">
-      <q-icon :name="connectionNotice.icon" size="sm" />
+      aria-atomic="true"
+      aria-live="polite">
+      <q-icon :name="connectionNotice.icon" aria-hidden="true" size="sm" />
       <div class="live-connection-banner__copy">
         <strong>{{ connectionNotice.title }}</strong>
         <span>{{ connectionNotice.detail }}</span>
       </div>
       <q-spinner
-        v-if="websocketConnectionStatus !== 'disconnected'"
+        v-if="websocketBrowserOnline && websocketConnectionStatus !== 'disconnected'"
         aria-label="Reconnecting"
         size="1.1rem" />
+      <q-btn
+        v-if="websocketBrowserOnline"
+        class="live-connection-banner__retry"
+        dense
+        flat
+        icon="refresh"
+        label="Retry now"
+        @click="reconnectControllerWebsocket" />
     </div>
   </q-header>
 
@@ -95,7 +104,8 @@ import { useRoute, useRouter } from 'vue-router'
 import type { User } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canViewAlerts } from '@/utils/alert-permissions'
-import { websocketConnectionStatus } from '@/utils/websocket-connection'
+import { reconnectControllerWebsocket } from '@/utils/shared'
+import { websocketBrowserOnline, websocketConnectionStatus } from '@/utils/websocket-connection'
 
 const store = useUserAuthStore()
 const user = computed(() => store.user as User | null)
@@ -206,24 +216,33 @@ const navLinks = computed((): NavItem[] => {
 const leftDrawerOpen = ref(false)
 
 const connectionNotice = computed(() => {
+  if (!websocketBrowserOnline.value) {
+    return {
+      icon: 'cloud_off',
+      title: "You're offline",
+      detail: 'Live server state is paused and may be stale. Reconnection resumes when online.',
+    }
+  }
+
   switch (websocketConnectionStatus.value) {
     case 'connecting':
       return {
         icon: 'sync',
         title: 'Connecting to live updates',
-        detail: 'Server status and lifecycle controls are temporarily unavailable.',
+        detail: 'Live server state remains unavailable until the controller responds.',
       }
     case 'reconnecting':
       return {
         icon: 'sync_problem',
         title: 'Live updates interrupted',
-        detail: 'Displayed server status may be stale. Reconnecting…',
+        detail:
+          'Displayed server state may be stale. Saved data remains available while reconnecting.',
       }
     case 'disconnected':
       return {
         icon: 'cloud_off',
-        title: 'Live updates unavailable',
-        detail: 'Check your connection. Displayed server status may be stale.',
+        title: 'Controller connection unavailable',
+        detail: 'Displayed server state may be stale. Retry the live connection.',
       }
     default:
       return null
@@ -335,6 +354,12 @@ onBeforeUnmount(() => {
   color: var(--xy-text-secondary);
 }
 
+.live-connection-banner__retry {
+  flex: 0 0 auto;
+  color: var(--xy-text-primary);
+  background: var(--xy-surface-3);
+}
+
 @media (max-width: 599px) {
   .toolbar-user span {
     display: none;
@@ -343,6 +368,14 @@ onBeforeUnmount(() => {
   .live-connection-banner__copy {
     flex-direction: column;
     gap: 0;
+  }
+
+  .live-connection-banner {
+    align-items: flex-start;
+  }
+
+  .live-connection-banner__retry {
+    align-self: center;
   }
 }
 </style>

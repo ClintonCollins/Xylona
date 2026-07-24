@@ -1154,6 +1154,43 @@ describe('GameServerList', () => {
     )
   })
 
+  it('queues one follow-up reload when reconnect occurs during an active load', async () => {
+    const initialAggregatedRequest = createDeferred<{ servers: unknown[] }>()
+    mocks.listAggregatedGameServers.mockReturnValueOnce(initialAggregatedRequest.promise)
+    mocks.listNodes.mockResolvedValue({
+      nodes: [buildLocalNode()],
+    })
+
+    const wrapper = mountList(true)
+
+    await vi.waitFor(() => {
+      expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(1)
+    })
+
+    mocks.listAggregatedGameServers.mockResolvedValueOnce({
+      servers: [buildLocalAggregatedServer('Reloaded Server')],
+    })
+
+    mocks.eventBus.emit('websocketConnected')
+    mocks.eventBus.emit('websocketConnected')
+
+    expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(1)
+
+    initialAggregatedRequest.resolve({
+      servers: [buildLocalAggregatedServer('Initial Server')],
+    })
+
+    await vi.waitFor(() => {
+      expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(2)
+    })
+    await flushPromises()
+
+    expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(2)
+    expect(
+      (wrapper.vm as unknown as { displayRows: Array<{ displayName: string }> }).displayRows,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ displayName: 'Reloaded Server' })]))
+  })
+
   it('keeps lifecycle actions stale and shows retry when reconnect refresh fails', async () => {
     mocks.listAggregatedGameServers.mockResolvedValueOnce({
       servers: [buildLocalAggregatedServer()],

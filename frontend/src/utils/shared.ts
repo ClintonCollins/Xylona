@@ -31,7 +31,13 @@ import { EventBus } from 'quasar'
 import { getXylonaClient, getXylonaClientCallback } from '@/api/connect-client'
 import { connectErrorToString } from '@/api/connect-errors'
 import { ReconnectingWebSocket } from './websocket'
-import { setWebsocketConnectionStatus, websocketHasConnected } from './websocket-connection'
+import {
+  setWebsocketBrowserOnline,
+  setWebsocketConnectionStatus,
+  websocketBrowserOnline,
+  websocketConnectionStatus,
+  websocketHasConnected,
+} from './websocket-connection'
 
 export const LocalXylonaWebsocketBaseURL: string = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/websocket`
 
@@ -39,6 +45,14 @@ const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<
   string,
   ReconnectingWebSocket
 >()
+// How long a refocused socket may stay authoritative while its probe is outstanding.
+// Comfortably above a healthy round trip and well under the websocket's own pong timeout.
+const LIVENESS_GRACE_MS = 1_500
+
+let browserLifecycleInitialized = false
+let pageLifecyclePaused = false
+let controllerFrameCount = 0
+let livenessGraceTimer: ReturnType<typeof setTimeout> | null = null
 
 type XylonaEventBusEvents = {
   gameServerStatus: (gameServerId: string, gameServerName: string, status: Status) => void
@@ -107,9 +121,12 @@ export function GetOrCreateXylonaWebsocketClient(
   let apiWebsocket: ReconnectingWebSocket | undefined = allAPIWebsockets.get(baseURL)
   const websocketInitialized = allAPIWebsockets.has(baseURL)
   if (!websocketInitialized) {
-    apiWebsocket = new ReconnectingWebSocket(baseURL, [], 10000, 30000)
+    apiWebsocket = new ReconnectingWebSocket(baseURL, [], {
+      startPaused: pageLifecyclePaused || !navigator.onLine,
+    })
     allAPIWebsockets.set(baseURL, apiWebsocket)
     setupWebsocket(apiWebsocket, baseURL === LocalXylonaWebsocketBaseURL)
+    setupBrowserWebsocketLifecycle()
   }
   if (!apiWebsocket) {
     throw new Error(`WebSocket client was not initialized for ${baseURL}`)
@@ -117,36 +134,36 @@ export function GetOrCreateXylonaWebsocketClient(
   return apiWebsocket
 }
 
-function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket: boolean) {
-  window.addEventListener('pagehide', () => {
-    console.debug('Page hide event. Closing websocket...')
-    apiWebsocket.close()
-  })
+export function reconnectControllerWebsocket(): void {
+  if (!websocketBrowserOnline.value) {
+    return
+  }
 
+  const controllerWebsocket = GetOrCreateXylonaWebsocketClient()
+  transitionControllerConnection(websocketHasConnected.value ? 'reconnecting' : 'connecting')
+  controllerWebsocket.reconnectNow()
+}
+
+function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket: boolean) {
   if (isControllerSocket) {
     if (!navigator.onLine) {
-      setWebsocketConnectionStatus('disconnected')
+      transitionControllerConnection('disconnected')
     }
-    window.addEventListener('offline', () => {
-      setWebsocketConnectionStatus('disconnected')
-    })
-    window.addEventListener('online', () => {
-      if (apiWebsocket.isOpen()) {
-        setWebsocketConnectionStatus('connected')
-        return
-      }
-      setWebsocketConnectionStatus(websocketHasConnected.value ? 'reconnecting' : 'connecting')
-    })
   }
 
   apiWebsocket.onopen = (_event) => {
     if (isControllerSocket) {
-      setWebsocketConnectionStatus('connected')
-      XylonaEventBus.emit('websocketConnected')
+      transitionControllerConnection('connected')
     }
     console.debug('Websocket opened')
   }
   apiWebsocket.onmessage = (event) => {
+    if (isControllerSocket) {
+      controllerFrameCount++
+      if (websocketBrowserOnline.value && websocketConnectionStatus.value !== 'connected') {
+        transitionControllerConnection('connected')
+      }
+    }
     if (typeof event.data === 'string' && event.data === 'pong') {
       return
     }
@@ -157,14 +174,8 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket:
   }
   apiWebsocket.onclose = (_event) => {
     if (isControllerSocket) {
-      setWebsocketConnectionStatus(
-        navigator.onLine
-          ? websocketHasConnected.value
-            ? 'reconnecting'
-            : 'connecting'
-          : 'disconnected',
-      )
-      XylonaEventBus.emit('websocketDisconnected')
+      clearLivenessGrace()
+      demoteControllerConnection()
     }
     console.debug('Websocket closed')
     // Let the ReconnectingWebSocket handle the rest.
@@ -191,6 +202,141 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket:
 
     apiWebsocket?.send(toJsonString(RequestSchema, consoleOutputRequest))
   })
+}
+
+function transitionControllerConnection(status: typeof websocketConnectionStatus.value): void {
+  const previousStatus = websocketConnectionStatus.value
+  if (!setWebsocketConnectionStatus(status)) {
+    return
+  }
+
+  if (status === 'connected') {
+    XylonaEventBus.emit('websocketConnected')
+    return
+  }
+  if (previousStatus === 'connected') {
+    XylonaEventBus.emit('websocketDisconnected')
+  }
+}
+
+function setupBrowserWebsocketLifecycle(): void {
+  if (browserLifecycleInitialized) {
+    return
+  }
+  browserLifecycleInitialized = true
+  setWebsocketBrowserOnline(navigator.onLine)
+
+  window.addEventListener('offline', handleBrowserOffline)
+  window.addEventListener('online', handleBrowserOnline)
+  window.addEventListener('pagehide', handlePageHide)
+  window.addEventListener('pageshow', handlePageShow)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+}
+
+function handleBrowserOffline(): void {
+  clearLivenessGrace()
+  setWebsocketBrowserOnline(false)
+  transitionControllerConnection('disconnected')
+  for (const websocket of allAPIWebsockets.values()) {
+    websocket.pause()
+  }
+}
+
+function handleBrowserOnline(): void {
+  setWebsocketBrowserOnline(true)
+  if (pageLifecyclePaused) {
+    return
+  }
+  restoreOrProbeWebsockets()
+}
+
+function handlePageHide(): void {
+  pageLifecyclePaused = true
+  clearLivenessGrace()
+  demoteControllerConnection()
+  for (const websocket of allAPIWebsockets.values()) {
+    websocket.pause()
+  }
+}
+
+function handlePageShow(): void {
+  pageLifecyclePaused = false
+  setWebsocketBrowserOnline(navigator.onLine)
+  if (!websocketBrowserOnline.value) {
+    handleBrowserOffline()
+    return
+  }
+  restoreOrProbeWebsockets()
+}
+
+function handleVisibilityChange(): void {
+  if (document.visibilityState !== 'visible' || pageLifecyclePaused) {
+    return
+  }
+
+  setWebsocketBrowserOnline(navigator.onLine)
+  if (!websocketBrowserOnline.value) {
+    handleBrowserOffline()
+    return
+  }
+  restoreOrProbeWebsockets()
+}
+
+function restoreOrProbeWebsockets(): void {
+  for (const websocket of allAPIWebsockets.values()) {
+    websocket.probe()
+  }
+
+  const controllerWebsocket = allAPIWebsockets.get(LocalXylonaWebsocketBaseURL)
+  if (controllerWebsocket === undefined) {
+    return
+  }
+  if (controllerWebsocket.isOpen()) {
+    startLivenessGrace()
+    return
+  }
+  clearLivenessGrace()
+  demoteControllerConnection()
+}
+
+/**
+ * A socket that survived a hidden tab may still be a zombie, so the probe sent above
+ * has to answer before we believe it. Authority is withdrawn only if nothing arrives,
+ * which keeps a quick tab switch from cycling every consumer through
+ * disconnect/reconnect. An unanswered probe still leaves the websocket's own pong
+ * timeout to perform the actual teardown.
+ */
+function startLivenessGrace(): void {
+  clearLivenessGrace()
+  const probedFrameCount = controllerFrameCount
+  livenessGraceTimer = setTimeout(() => {
+    livenessGraceTimer = null
+    if (controllerFrameCount !== probedFrameCount) {
+      return
+    }
+    if (pageLifecyclePaused || !websocketBrowserOnline.value) {
+      return
+    }
+    demoteControllerConnection()
+  }, LIVENESS_GRACE_MS)
+}
+
+function clearLivenessGrace(): void {
+  if (livenessGraceTimer === null) {
+    return
+  }
+  clearTimeout(livenessGraceTimer)
+  livenessGraceTimer = null
+}
+
+function demoteControllerConnection(): void {
+  transitionControllerConnection(
+    websocketBrowserOnline.value
+      ? websocketHasConnected.value
+        ? 'reconnecting'
+        : 'connecting'
+      : 'disconnected',
+  )
 }
 
 export function dispatchWebsocketMessage(out: Message): boolean {

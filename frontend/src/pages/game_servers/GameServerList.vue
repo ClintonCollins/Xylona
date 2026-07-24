@@ -531,6 +531,8 @@ const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
 const $q = useQuasar()
 let loadSequence = 0
 let initialLoadComplete = false
+let reconnectRefreshQueued = false
+let serverListUnmounted = false
 const subscribedMetricsServerIDs = new Set<string>()
 type BufferedLiveServerState = {
   status?: Status
@@ -936,10 +938,16 @@ onMounted(async () => {
   XylonaEventBus.on('gameServerMetrics', applyServerMetrics)
   XylonaEventBus.on('gameServerUpdateProgress', handleGameServerUpdateProgress)
   await getGameServers()
+  if (serverListUnmounted) {
+    return
+  }
   initialLoadComplete = true
+  runQueuedReconnectRefresh()
 })
 
 onBeforeUnmount(() => {
+  serverListUnmounted = true
+  reconnectRefreshQueued = false
   XylonaEventBus.off('gameServerStatus', handleServerStatusUpdate)
   XylonaEventBus.off('gameServerVersion', handleServerVersionUpdate)
   XylonaEventBus.off('websocketConnected', handleWebsocketReconnect)
@@ -995,6 +1003,7 @@ async function getGameServers() {
         return
       }
       loading.value = false
+      runQueuedReconnectRefresh()
     })
   const nodesRequest = xylonaClient
     .listNodes(create(ListNodesRequestSchema, {}))
@@ -1056,9 +1065,19 @@ function handleWebsocketDisconnect() {
 
 function handleWebsocketReconnect() {
   if (!initialLoadComplete || loading.value) {
+    reconnectRefreshQueued = true
     return
   }
 
+  void getGameServers()
+}
+
+function runQueuedReconnectRefresh() {
+  if (serverListUnmounted || !initialLoadComplete || loading.value || !reconnectRefreshQueued) {
+    return
+  }
+
+  reconnectRefreshQueued = false
   void getGameServers()
 }
 

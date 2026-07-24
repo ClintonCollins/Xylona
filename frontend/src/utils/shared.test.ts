@@ -9,10 +9,63 @@ import {
   ArchiveTypeToString,
   bytesToSize,
   dispatchWebsocketMessage,
+  GetOrCreateXylonaWebsocketClient,
   GetPathSeparator,
   GetRelativeFilePath,
   XylonaEventBus,
 } from './shared'
+import {
+  setWebsocketBrowserOnline,
+  setWebsocketConnectionStatus,
+  websocketBrowserOnline,
+  websocketConnectionEpoch,
+  websocketConnectionStatus,
+} from './websocket-connection'
+
+class FakeLifecycleWebSocket {
+  static readonly CONNECTING = 0
+  static readonly OPEN = 1
+  static readonly CLOSING = 2
+  static readonly CLOSED = 3
+  static instances: FakeLifecycleWebSocket[] = []
+
+  readonly sent: string[] = []
+  readyState = FakeLifecycleWebSocket.CONNECTING
+  onopen: ((event: Event) => void) | null = null
+  onmessage: ((event: MessageEvent) => void) | null = null
+  onerror: ((event: Event) => void) | null = null
+  onclose: ((event: CloseEvent) => void) | null = null
+
+  constructor() {
+    FakeLifecycleWebSocket.instances.push(this)
+  }
+
+  send(data: string): void {
+    this.sent.push(data)
+  }
+
+  close(code?: number, reason?: string): void {
+    this.readyState = FakeLifecycleWebSocket.CLOSED
+    this.onclose?.(new CloseEvent('close', { code, reason }))
+  }
+
+  triggerOpen(): void {
+    this.readyState = FakeLifecycleWebSocket.OPEN
+    this.onopen?.(new Event('open'))
+  }
+
+  triggerMessage(data: unknown): void {
+    this.onmessage?.(new MessageEvent('message', { data }))
+  }
+}
+
+function getLifecycleSocket(index: number): FakeLifecycleWebSocket {
+  const socket = FakeLifecycleWebSocket.instances[index]
+  if (socket === undefined) {
+    throw new Error(`expected lifecycle websocket ${index} to exist`)
+  }
+  return socket
+}
 
 describe('GetRelativeFilePath', () => {
   it.each([
@@ -180,6 +233,117 @@ describe('XylonaEventBus remoteServerMetrics', () => {
     XylonaEventBus.emit('gameServerMetrics', emptyMetrics as unknown as AllServersMetrics)
 
     expect(perServerHandler).not.toHaveBeenCalled()
+  })
+})
+
+describe('controller websocket browser lifecycle', () => {
+  it('pauses offline and for BFCache, and only withdraws authority when a probe goes unanswered', () => {
+    const originalWebSocket = globalThis.WebSocket
+    const originalOnline = Object.getOwnPropertyDescriptor(navigator, 'onLine')
+    const originalVisibility = Object.getOwnPropertyDescriptor(document, 'visibilityState')
+    const connected = vi.fn()
+    const disconnected = vi.fn()
+
+    vi.useFakeTimers()
+    globalThis.WebSocket = FakeLifecycleWebSocket as unknown as typeof WebSocket
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    })
+    setWebsocketBrowserOnline(true)
+    setWebsocketConnectionStatus('connecting')
+    XylonaEventBus.on('websocketConnected', connected)
+    XylonaEventBus.on('websocketDisconnected', disconnected)
+
+    try {
+      const client = GetOrCreateXylonaWebsocketClient()
+      const initialEpoch = websocketConnectionEpoch.value
+      getLifecycleSocket(0).triggerOpen()
+      expect(websocketConnectionStatus.value).toBe('connected')
+      expect(websocketConnectionEpoch.value).toBe(initialEpoch + 1)
+      expect(connected).toHaveBeenCalledOnce()
+
+      window.dispatchEvent(new Event('offline'))
+      window.dispatchEvent(new Event('offline'))
+      expect(websocketBrowserOnline.value).toBe(false)
+      expect(websocketConnectionStatus.value).toBe('disconnected')
+      expect(disconnected).toHaveBeenCalledOnce()
+      vi.advanceTimersByTime(60_000)
+      expect(FakeLifecycleWebSocket.instances).toHaveLength(1)
+
+      window.dispatchEvent(new Event('online'))
+      expect(websocketBrowserOnline.value).toBe(true)
+      expect(websocketConnectionStatus.value).toBe('reconnecting')
+      expect(FakeLifecycleWebSocket.instances).toHaveLength(2)
+      getLifecycleSocket(1).triggerOpen()
+      expect(websocketConnectionStatus.value).toBe('connected')
+      expect(websocketConnectionEpoch.value).toBe(initialEpoch + 2)
+
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }))
+      expect(websocketConnectionStatus.value).toBe('reconnecting')
+      expect(disconnected).toHaveBeenCalledTimes(2)
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+      expect(websocketConnectionStatus.value).toBe('reconnecting')
+      expect(FakeLifecycleWebSocket.instances).toHaveLength(3)
+      getLifecycleSocket(2).triggerOpen()
+      expect(websocketConnectionStatus.value).toBe('connected')
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      })
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(getLifecycleSocket(2).sent).toEqual([])
+
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'visible',
+      })
+      // Refocus probes the surviving socket but keeps authority during the grace window.
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(getLifecycleSocket(2).sent).toEqual(['ping'])
+      expect(websocketConnectionStatus.value).toBe('connected')
+      expect(disconnected).toHaveBeenCalledTimes(2)
+
+      // A frame inside the window proves liveness, so the tab switch costs nothing.
+      getLifecycleSocket(2).triggerMessage('pong')
+      vi.advanceTimersByTime(5_000)
+      expect(websocketConnectionStatus.value).toBe('connected')
+      expect(websocketConnectionEpoch.value).toBe(initialEpoch + 3)
+      expect(disconnected).toHaveBeenCalledTimes(2)
+
+      // A socket that answers nothing loses authority once the window expires.
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(getLifecycleSocket(2).sent).toEqual(['ping', 'ping'])
+      expect(websocketConnectionStatus.value).toBe('connected')
+      vi.advanceTimersByTime(1_500)
+      expect(websocketConnectionStatus.value).toBe('reconnecting')
+      expect(disconnected).toHaveBeenCalledTimes(3)
+
+      XylonaEventBus.off('websocketConnected', connected)
+      XylonaEventBus.off('websocketDisconnected', disconnected)
+      client.dispose()
+    } finally {
+      XylonaEventBus.off('websocketConnected', connected)
+      XylonaEventBus.off('websocketDisconnected', disconnected)
+      setWebsocketConnectionStatus('connecting')
+      setWebsocketBrowserOnline(true)
+      globalThis.WebSocket = originalWebSocket
+      FakeLifecycleWebSocket.instances = []
+      vi.clearAllTimers()
+      vi.useRealTimers()
+      if (originalOnline === undefined) {
+        Reflect.deleteProperty(navigator, 'onLine')
+      } else {
+        Object.defineProperty(navigator, 'onLine', originalOnline)
+      }
+      if (originalVisibility === undefined) {
+        Reflect.deleteProperty(document, 'visibilityState')
+      } else {
+        Object.defineProperty(document, 'visibilityState', originalVisibility)
+      }
+    }
   })
 })
 

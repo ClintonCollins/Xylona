@@ -382,6 +382,7 @@ import {
   RemoveNodeRequestSchema,
 } from '@/proto/xylona_pb'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
+import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 const $q = useQuasar()
 const rows = ref([] as Node[])
@@ -394,7 +395,11 @@ const selectedNodeForDelete = ref<Node | null>(null)
 const detailNode = ref<Node | null>(null)
 const dashboardSummaries = ref<DashboardNodeSummary[]>([])
 const liveSnapshots = ref<Map<string, NodeResourceSnapshot>>(new Map())
+const dashboardSnapshotsFresh = ref(false)
 let fetchSequence = 0
+let reconnectRefreshQueued = false
+let nodeListUnmounted = false
+let snapshotAuthorityGeneration = 0
 
 const initialPagination = useStorage('node-pagination', {
   rowsPerPage: 25,
@@ -416,7 +421,14 @@ function getNodeSummary(nodeId: string): DashboardNodeSummary | undefined {
 }
 
 function getSnapshot(nodeId: string): NodeResourceSnapshot | undefined {
-  return liveSnapshots.value.get(nodeId) ?? getNodeSummary(nodeId)?.snapshot
+  const liveSnapshot = liveSnapshots.value.get(nodeId)
+  if (liveSnapshot) {
+    return liveSnapshot
+  }
+  if (!dashboardSnapshotsFresh.value) {
+    return undefined
+  }
+  return getNodeSummary(nodeId)?.snapshot
 }
 
 function getNodeVersion(nodeId: string): string | undefined {
@@ -451,27 +463,59 @@ function shouldShowVersionSkeleton(nodeId: string): boolean {
 }
 
 function onNodeMetrics(metrics: AllNodeMetrics | undefined) {
-  if (!metrics?.nodes) return
+  if (!websocketStateAuthoritative.value || !metrics?.nodes) return
+
+  const nextSnapshots = new Map(liveSnapshots.value)
   for (const [nodeId, snapshot] of Object.entries(metrics.nodes)) {
-    liveSnapshots.value.set(nodeId, snapshot)
+    nextSnapshots.set(nodeId, snapshot)
   }
+  liveSnapshots.value = nextSnapshots
+}
+
+function handleWebsocketDisconnect() {
+  snapshotAuthorityGeneration++
+  reconnectRefreshQueued = false
+  dashboardSnapshotsFresh.value = false
+  liveSnapshots.value = new Map()
+  metricsLoading.value = false
+}
+
+function handleWebsocketReconnect() {
+  reconnectRefreshQueued = true
+  runQueuedReconnectRefresh()
+}
+
+function runQueuedReconnectRefresh() {
+  if (nodeListUnmounted || !reconnectRefreshQueued || !websocketStateAuthoritative.value) {
+    return
+  }
+
+  reconnectRefreshQueued = false
+  void fetchAll()
 }
 
 onMounted(async () => {
   GetOrCreateXylonaWebsocketClient()
   XylonaEventBus.on('nodeMetrics', onNodeMetrics)
+  XylonaEventBus.on('websocketConnected', handleWebsocketReconnect)
+  XylonaEventBus.on('websocketDisconnected', handleWebsocketDisconnect)
   await fetchAll()
 })
 
 onBeforeUnmount(() => {
+  nodeListUnmounted = true
+  reconnectRefreshQueued = false
   XylonaEventBus.off('nodeMetrics', onNodeMetrics)
+  XylonaEventBus.off('websocketConnected', handleWebsocketReconnect)
+  XylonaEventBus.off('websocketDisconnected', handleWebsocketDisconnect)
 })
 
 async function fetchAll() {
   const fetchID = ++fetchSequence
+  const snapshotGeneration = snapshotAuthorityGeneration
   loading.value = true
   loadError.value = ''
-  if (dashboardSummaries.value.length === 0 && liveSnapshots.value.size === 0) {
+  if (!dashboardSnapshotsFresh.value && liveSnapshots.value.size === 0) {
     metricsLoading.value = true
   }
   const dashboardPromise = GetXylonaClient()
@@ -481,6 +525,8 @@ async function fetchAll() {
         return
       }
       dashboardSummaries.value = dashResp.nodes
+      dashboardSnapshotsFresh.value =
+        snapshotGeneration === snapshotAuthorityGeneration && websocketStateAuthoritative.value
     })
     .catch(() => null)
     .finally(() => {
@@ -516,7 +562,10 @@ async function fetchAll() {
     }
   }
 
-  void dashboardPromise
+  await dashboardPromise
+  if (fetchID === fetchSequence) {
+    runQueuedReconnectRefresh()
+  }
 }
 
 function formatMetric(value?: number): string {
