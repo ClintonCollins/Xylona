@@ -231,52 +231,41 @@
           </div>
         </div>
 
-        <!-- Variant -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-label">Variant</div>
-          <div class="software-card">
-            <template v-if="hasSoftwareOptions">
-              <div class="software-card-body">
-                <div class="software-icon">
-                  <q-icon name="settings" />
-                </div>
-                <div class="software-info">
-                  <div class="software-name-row">
-                    <span class="software-name">
-                      {{ softwareNameRedundant ? gameServer.gameName : softwareDisplayName }}
-                    </span>
-                    <span v-if="displayVersion" class="software-version">
-                      {{ displayVersion }}
-                    </span>
-                  </div>
-                  <div v-if="!softwareNameRedundant" class="software-game">
-                    {{ gameServer.gameName }}
-                  </div>
-                  <div v-if="variantTrackingLabel" class="software-track-state">
-                    {{ variantTrackingLabel }}
-                  </div>
-                </div>
-              </div>
-              <div v-if="versionDisplay.updateAvailable" class="update-hint">
-                <span class="update-dot"></span>
-                {{ displayVersion }} &rarr; {{ versionDisplay.latestVersion }}
-              </div>
-              <div v-if="showChangeButton" class="software-card-footer">
-                <button class="change-btn" @click="softwareSelector?.openChangeDialog()">
+        <!-- Version -->
+        <div v-if="showVersionSection || hasSoftwareOptions" class="sidebar-section">
+          <div class="sidebar-section-label">Version</div>
+          <div class="version-list">
+            <div v-if="hasSoftwareOptions" class="version-item">
+              <span class="cl-label">Software</span>
+              <span class="version-software">
+                <span class="cl-value-plain">{{ softwareDisplayName }}</span>
+                <button
+                  v-if="showChangeButton"
+                  class="change-btn"
+                  @click="softwareSelector?.openChangeDialog()">
                   Change
                   <span class="change-arrow">&rsaquo;</span>
                 </button>
-              </div>
-            </template>
-            <div v-else class="software-card-body">
-              <div class="software-icon">
-                <q-icon name="sports_esports" />
-              </div>
-              <div class="software-info">
-                <div class="software-name-row">
-                  <span class="software-name">{{ gameServer.gameName }}</span>
-                </div>
-              </div>
+              </span>
+            </div>
+            <div class="version-item">
+              <span class="cl-label">Installed</span>
+              <span class="cl-value-plain">{{ versionSection.installedVersion || '—' }}</span>
+            </div>
+            <div v-if="versionSection.latestVersion" class="version-item">
+              <span class="cl-label">Latest</span>
+              <span class="cl-value-plain">{{ versionSection.latestVersion }}</span>
+            </div>
+            <div v-if="versionStatusBadge || versionMetaText" class="version-item version-footer">
+              <span
+                v-if="versionStatusBadge"
+                :class="versionStatusBadge.cssClass"
+                class="version-status">
+                <span v-if="versionSection.state === 'update-available'" class="update-dot"></span>
+                <q-icon v-else :name="versionStatusBadge.icon" size="13px" />
+                {{ versionStatusBadge.label }}
+              </span>
+              <span v-if="versionMetaText" class="version-meta">{{ versionMetaText }}</span>
             </div>
           </div>
         </div>
@@ -766,7 +755,11 @@ import {
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
 import { computed, onBeforeUnmount, onMounted, Ref, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
+import {
+  resolveCanonicalVersionDisplay,
+  resolveVariantTrackingLabel,
+  resolveVersionSection,
+} from './version-display'
 import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch-update'
 import {
   consoleLineMatchesFilter,
@@ -1105,6 +1098,52 @@ const variantTrackingLabel = computed(() => {
   )
 })
 
+const versionClockMs = ref(Date.now())
+let versionClockTimer: ReturnType<typeof setInterval> | undefined
+
+const versionSection = computed(() => {
+  return resolveVersionSection({
+    version: gameServer.value.version,
+    versionInfo: gameServer.value.versionInfo,
+    providerKind: gameServer.value.resolvedUpdateProvider?.kind,
+    selectedTarget: gameServer.value.selectedTarget,
+    selectedTargetPinned: gameServer.value.selectedTargetPinned,
+    nowMs: versionClockMs.value,
+  })
+})
+
+const showVersionSection = computed(() => {
+  return versionSection.value.installedVersion !== '' || versionSection.value.state !== 'unknown'
+})
+
+const versionStatusBadge = computed(() => {
+  switch (versionSection.value.state) {
+    case 'up-to-date':
+      return { icon: 'check_circle', label: 'Up to date', cssClass: 'version-status--ok' }
+    case 'update-available':
+      return {
+        icon: 'arrow_circle_up',
+        label: 'Update available',
+        cssClass: 'version-status--update',
+      }
+    case 'checking':
+      return { icon: 'sync', label: 'Checking…', cssClass: 'version-status--muted' }
+    default:
+      return null
+  }
+})
+
+const versionMetaText = computed(() => {
+  const parts: string[] = []
+  if (variantTrackingLabel.value !== '') {
+    parts.push(variantTrackingLabel.value)
+  }
+  if (versionSection.value.lastCheckedLabel !== '') {
+    parts.push(`checked ${versionSection.value.lastCheckedLabel}`)
+  }
+  return parts.join(' · ')
+})
+
 function hasPermission(perm: string): boolean {
   const perms = gameServer.value?.effectivePermissions ?? []
   // Empty permissions = unknown (cache fallback) — allow everything, backend enforces.
@@ -1113,6 +1152,9 @@ function hasPermission(perm: string): boolean {
 
 onMounted(async () => {
   document.addEventListener('keydown', onEscapeKey)
+  versionClockTimer = setInterval(() => {
+    versionClockMs.value = Date.now()
+  }, 60_000)
   streamGameServerOutput()
 
   void getGameServerDetails()
@@ -1128,6 +1170,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   cancelPendingConsoleFlush()
   document.removeEventListener('keydown', onEscapeKey)
+  if (versionClockTimer !== undefined) {
+    clearInterval(versionClockTimer)
+  }
   unsubscribeConsoleOutputStream()
 
   XylonaEventBus.off('gameServerUpdateProgress', onUpdateProgress)
@@ -2180,88 +2225,48 @@ async function sendGameServerInput() {
   min-width: 0;
 }
 
-/* ===== Software Card ===== */
-.software-card {
-  background: var(--xy-surface-1);
-  border: 1px solid var(--xy-border);
-  border-radius: 6px;
+/* Version section */
+.version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--xy-border);
+  border-radius: 5px;
   overflow: hidden;
 }
 
-.software-card-body {
+.version-item {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: var(--xy-space-sm);
+  gap: 0.5rem;
   padding: var(--xy-space-sm) var(--xy-space-md);
+  background: var(--xy-surface-1);
 }
 
-.software-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  background: var(--xy-surface-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  flex-shrink: 0;
-  color: var(--xy-accent);
-}
-
-.software-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.software-name-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-}
-
-.software-name {
-  font-family: var(--xy-font-display);
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--xy-text-primary);
-  line-height: 1.2;
-}
-
-.software-version {
-  font-family: var(--xy-font-mono);
-  font-size: 0.72rem;
-  color: var(--xy-text-muted);
-}
-
-.software-game {
-  font-size: 0.7rem;
-  color: var(--xy-text-muted);
-  margin-top: 1px;
-}
-
-.software-track-state {
-  margin-top: 0.2rem;
-  font-size: 0.68rem;
-  color: var(--xy-info);
-  letter-spacing: 0.01em;
-}
-
-.software-none {
-  font-size: 0.78rem;
-  color: var(--xy-text-muted);
-  font-style: italic;
-  padding: var(--xy-space-sm) var(--xy-space-md);
-}
-
-/* Update hint */
-.update-hint {
-  display: flex;
+.version-status {
+  display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0 var(--xy-space-md) var(--xy-space-sm);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+}
+
+.version-status--ok {
+  color: var(--xy-success);
+}
+
+.version-status--update {
   color: var(--xy-warning);
-  cursor: help;
+}
+
+.version-status--muted {
+  color: var(--xy-text-muted);
+}
+
+.version-meta {
+  font-size: 0.68rem;
+  color: var(--xy-text-muted);
+  text-align: right;
 }
 
 .update-dot {
@@ -2285,11 +2290,13 @@ async function sendGameServerInput() {
   }
 }
 
-/* Change button */
-.software-card-footer {
-  padding: var(--xy-space-xs) var(--xy-space-md) var(--xy-space-sm);
+.version-software {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
+/* Change button */
 .change-btn {
   display: inline-flex;
   align-items: center;
