@@ -49,6 +49,20 @@
           round
           @click="sidebarCollapsed = true" />
       </div>
+      <div class="sidebar-header">
+        <span class="sidebar-header__label">Server details</span>
+        <q-btn
+          aria-label="Collapse server details"
+          class="console-toolbar-btn"
+          dense
+          flat
+          icon="first_page"
+          padding="xs"
+          square
+          @click="setSidebarCollapsed(true)">
+          <q-tooltip>Collapse server details</q-tooltip>
+        </q-btn>
+      </div>
       <div class="sidebar-content">
         <!-- Controls -->
         <div class="sidebar-section">
@@ -379,50 +393,94 @@
       </div>
     </aside>
 
+    <!-- Collapsed sidebar strip (desktop) -->
+    <div v-if="sidebarCollapsed" class="sidebar-mini">
+      <q-btn
+        aria-label="Expand server details"
+        class="console-toolbar-btn"
+        dense
+        flat
+        icon="last_page"
+        padding="xs"
+        square
+        @click="setSidebarCollapsed(false)">
+        <q-tooltip>Expand server details</q-tooltip>
+      </q-btn>
+      <span class="sidebar-mini__label">Details</span>
+    </div>
+
     <!-- Console wrapper -->
     <div :class="{ expanded: consoleExpanded }" class="console-wrapper">
-      <!-- Console toolbar buttons -->
-      <div class="console-toolbar-btns">
+      <!-- Console toolbar -->
+      <div class="console-topbar">
+        <div
+          v-if="consoleFeedFilterOptions.length > 1 && !showConsolePlaceholder"
+          aria-label="Console output filter"
+          class="console-feed-filters"
+          role="group">
+          <span class="console-feed-filters__label">Filter</span>
+          <button
+            v-for="option in consoleFeedFilterOptions"
+            :key="option.value"
+            :aria-pressed="consoleFeedFilter === option.value"
+            :class="{ 'console-feed-filter--active': consoleFeedFilter === option.value }"
+            class="console-feed-filter"
+            type="button"
+            @click="consoleFeedFilter = option.value">
+            {{ option.label }}
+          </button>
+          <span v-if="consoleFeedFilter !== 'all'" class="console-feed-filters__note">
+            {{ visibleConsoleLines.length }} of {{ consoleLines.length }} lines
+          </span>
+        </div>
+        <span v-else class="console-topbar__label">Console</span>
+        <span class="console-topbar__spacer"></span>
         <q-btn
-          :aria-label="sidebarCollapsed ? 'Show server details' : 'Hide server details'"
-          :icon="
-            $q.screen.lt.md ? 'info_outline' : sidebarCollapsed ? 'chevron_right' : 'chevron_left'
-          "
+          v-if="$q.screen.lt.md"
+          aria-label="Show server details"
           class="console-toolbar-btn"
           dense
           flat
+          icon="info_outline"
           padding="xs"
           square
           @click="sidebarCollapsed = !sidebarCollapsed">
-          <q-tooltip>
-            {{ sidebarCollapsed ? 'Show server details' : 'Hide server details' }}
-          </q-tooltip>
+          <q-tooltip>Server details</q-tooltip>
         </q-btn>
         <q-btn
-          :aria-label="consoleAutoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'"
+          :aria-label="consoleAutoScroll ? 'Disable auto scroll' : 'Enable auto scroll'"
+          :aria-pressed="consoleAutoScroll ? 'true' : 'false'"
           :class="{ 'console-toolbar-btn-off': !consoleAutoScroll }"
           :text-color="consoleAutoScroll ? 'info' : undefined"
           class="console-toolbar-btn"
           dense
           flat
           icon="vertical_align_bottom"
-          padding="xs"
+          label="Auto Scroll"
+          no-caps
+          padding="xs sm"
           square
           @click="toggleAutoScroll">
-          <q-tooltip>{{
-            consoleAutoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'
-          }}</q-tooltip>
+          <q-tooltip>
+            {{
+              consoleAutoScroll
+                ? 'Auto scroll is on — click to stop sticking to new output'
+                : 'Auto scroll is off — click to stick to the latest output'
+            }}
+          </q-tooltip>
         </q-btn>
         <q-btn
+          :aria-label="consoleExpanded ? 'Exit fullscreen console' : 'Fullscreen console'"
           :icon="tabMaximize"
-          aria-label="Toggle fullscreen console"
           class="console-toolbar-btn"
           dense
           flat
           padding="xs"
           square
           text-color="info"
-          @click="consoleExpanded = !consoleExpanded" />
+          @click="consoleExpanded = !consoleExpanded">
+          <q-tooltip>{{ consoleExpanded ? 'Exit fullscreen' : 'Fullscreen console' }}</q-tooltip>
+        </q-btn>
       </div>
 
       <div
@@ -473,26 +531,6 @@
         </div>
       </template>
       <template v-else>
-        <div
-          v-if="consoleFeedFilterOptions.length > 1"
-          aria-label="Console feed filter"
-          class="console-feed-filters"
-          role="group">
-          <span class="console-feed-filters__label">Feed</span>
-          <button
-            v-for="option in consoleFeedFilterOptions"
-            :key="option.value"
-            :aria-pressed="consoleFeedFilter === option.value"
-            :class="{ 'console-feed-filter--active': consoleFeedFilter === option.value }"
-            class="console-feed-filter"
-            type="button"
-            @click="consoleFeedFilter = option.value">
-            {{ option.label }}
-          </button>
-          <span v-if="consoleFeedFilter !== 'all'" class="console-feed-filters__note">
-            {{ visibleConsoleLines.length }} of {{ consoleLines.length }} lines
-          </span>
-        </div>
         <q-scroll-area id="consoleContainer" ref="consoleScrollArea" class="console-scroll-area">
           <div
             v-if="
@@ -752,7 +790,27 @@ const gameServerId: Ref<string> = ref(
 const consoleScrollArea = ref<QScrollArea | null>(null)
 const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>(null)
 const consoleExpanded = ref(false)
-const sidebarCollapsed = ref(window.innerWidth < 1024)
+
+const sidebarStorageKey = 'xylona_console_sidebar'
+const sidebarCollapsed = ref(readSidebarCollapsed())
+
+function readSidebarCollapsed(): boolean {
+  if (window.innerWidth < 1024) return true
+  try {
+    return window.localStorage.getItem(sidebarStorageKey) === 'collapsed'
+  } catch {
+    return false
+  }
+}
+
+function setSidebarCollapsed(collapsed: boolean): void {
+  sidebarCollapsed.value = collapsed
+  try {
+    window.localStorage.setItem(sidebarStorageKey, collapsed ? 'collapsed' : 'open')
+  } catch {
+    // Persisting the preference is best-effort.
+  }
+}
 
 const playerRailStorageKey = 'xylona_console_player_rail'
 const playerRailCollapsed = ref(readPlayerRailCollapsed())
@@ -2307,15 +2365,13 @@ async function sendGameServerInput() {
   color: var(--xy-text-secondary);
 }
 
-/* ===== Console feed filters ===== */
+/* ===== Console feed filters (inside the topbar) ===== */
 .console-feed-filters {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--xy-space-xs);
-  padding: var(--xy-space-xs) var(--xy-space-md);
-  padding-right: 8rem;
-  background: var(--xy-surface-1);
-  border-bottom: 1px solid var(--xy-border);
+  min-width: 0;
 }
 
 .console-feed-filters__label {
@@ -2484,18 +2540,32 @@ async function sendGameServerInput() {
   position: relative;
 }
 
-/* Console toolbar buttons */
-.console-toolbar-btns {
-  position: absolute;
-  top: var(--xy-space-xs);
-  right: var(--xy-space-sm);
-  z-index: 10;
+/* Console toolbar */
+.console-topbar {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--xy-space-xs);
+  min-height: 36px;
+  padding: var(--xy-space-2xs) var(--xy-space-xs) var(--xy-space-2xs) var(--xy-space-md);
+  background: var(--xy-surface-1);
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.console-topbar__label {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.console-topbar__spacer {
+  flex: 1;
 }
 
 .console-toolbar-btn {
-  opacity: 0.6;
+  opacity: 0.8;
   transition: opacity var(--xy-transition-fast);
 }
 
@@ -2513,7 +2583,7 @@ async function sendGameServerInput() {
   align-items: center;
   gap: var(--xy-space-sm);
   min-height: 2.5rem;
-  padding: var(--xy-space-xs) 10rem var(--xy-space-xs) var(--xy-space-md);
+  padding: var(--xy-space-xs) var(--xy-space-md);
   color: var(--xy-text-primary);
   background: var(--xy-warning-bg-faint);
   border-bottom: 1px solid var(--xy-warning-border);
@@ -2770,6 +2840,56 @@ async function sendGameServerInput() {
   display: none;
 }
 
+/* ===== Sidebar header + collapsed strip ===== */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: var(--xy-space-xs) var(--xy-space-xs) var(--xy-space-xs) var(--xy-space-md);
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.sidebar-header__label {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sidebar-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--xy-space-sm);
+  width: 44px;
+  padding-top: var(--xy-space-xs);
+  background: var(--xy-surface-0);
+  border-right: 1px solid var(--xy-border);
+}
+
+.sidebar-mini__label {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+}
+
+.main-area-expanded .sidebar-mini {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .sidebar-header,
+  .sidebar-mini {
+    display: none;
+  }
+}
+
 /* ===== Player rail ===== */
 .player-rail {
   display: flex;
@@ -2931,13 +3051,8 @@ async function sendGameServerInput() {
     gap: var(--xy-space-xs);
   }
 
-  .console-toolbar-btns {
-    position: static;
-    justify-content: flex-end;
+  .console-topbar {
     min-height: 3rem;
-    padding-inline: var(--xy-space-sm);
-    border-bottom: 1px solid var(--xy-border);
-    background: var(--xy-surface-1);
   }
 
   .console-toolbar-btn {
