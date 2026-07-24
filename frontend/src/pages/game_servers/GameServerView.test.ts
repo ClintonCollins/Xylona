@@ -211,10 +211,6 @@ function mountView() {
         GameServerPlayerRoster: false,
         ClipBoardCopy: { template: '<div><slot /></div>' },
         StatusBadge: { template: '<div><slot /></div>' },
-        OperationProgressDialog: {
-          props: ['modelValue', 'outputLines', 'steps', 'complete'],
-          template: '<div class="operation-progress-dialog-stub"><slot /></div>',
-        },
         ServerSoftwareSelector: {
           name: 'ServerSoftwareSelector',
           emits: ['software-changed', 'software-operation-state'],
@@ -355,9 +351,7 @@ describe('GameServerView', () => {
       expect(roster.find('.roster__list').exists()).toBe(
         playerListSupported && expectedNames.length > 0,
       )
-      expect(wrapper.findAll('.roster__name').map((player) => player.text())).toEqual(
-        expectedNames,
-      )
+      expect(wrapper.findAll('.roster__name').map((player) => player.text())).toEqual(expectedNames)
       if (expectedMessage === '') {
         expect(wrapper.find('.roster__empty').exists()).toBe(false)
         expect(wrapper.find('.roster__note').exists()).toBe(false)
@@ -450,7 +444,6 @@ describe('GameServerView', () => {
     expect(
       viewModel.consoleLines.some((line) => line.html.includes('Downloading game server update')),
     ).toBe(true)
-    expect(wrapper.findAll('.operation-progress-dialog-stub')).toHaveLength(1)
   })
 
   it('backfills console output after install completion when the live console is still empty', async () => {
@@ -482,9 +475,6 @@ describe('GameServerView', () => {
       softwareId: 'paper',
       softwareName: 'Paper',
     })
-    await flushPromises()
-
-    mocks.eventBus.emit('gameServerConsoleOutput', 'server-remote-1', 'Downloading latest server\n')
     await flushPromises()
 
     selector.vm.$emit('software-operation-state', {
@@ -560,13 +550,71 @@ describe('GameServerView', () => {
 
     const viewModel = wrapper.vm as unknown as {
       consoleLines: Array<{ html: string }>
-      softwareOperationOutputLines: string[]
     }
     expect(
       viewModel.consoleLines.some((line) => line.html.includes('Retained server output')),
     ).toBe(true)
     expect(viewModel.consoleLines.some((line) => line.html.includes('Stale output'))).toBe(false)
-    expect(viewModel.softwareOperationOutputLines).toEqual([])
+  })
+
+  it('streams variant change output into the console during software operations', async () => {
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const selector = wrapper.findComponent({ name: 'ServerSoftwareSelector' })
+    selector.vm.$emit('software-operation-state', {
+      status: 'installing',
+      softwareId: 'paper',
+      softwareName: 'Paper',
+    })
+    await flushPromises()
+
+    mocks.eventBus.emit(
+      'gameServerConsoleOutput',
+      'server-remote-1',
+      'Starting variant change to Paper\n',
+      1n,
+    )
+
+    const viewModel = wrapper.vm as unknown as {
+      consoleLines: Array<{ html: string }>
+      showConsolePlaceholder: boolean
+    }
+    expect(
+      viewModel.consoleLines.some((line) => line.html.includes('Starting variant change to Paper')),
+    ).toBe(true)
+    expect(viewModel.showConsolePlaceholder).toBe(false)
+  })
+
+  it('notifies when a variant change fails instead of opening a dialog', async () => {
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const selector = wrapper.findComponent({ name: 'ServerSoftwareSelector' })
+    selector.vm.$emit('software-operation-state', {
+      status: 'installing',
+      softwareId: 'paper',
+      softwareName: 'Paper',
+    })
+    selector.vm.$emit('software-operation-state', {
+      status: 'failed',
+      softwareId: 'paper',
+      softwareName: 'Paper',
+      error: 'download failed',
+    })
+    await flushPromises()
+
+    expect(mocks.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ caption: expect.stringContaining('download failed') }),
+    )
   })
 
   it('preserves typed command text when sending fails', async () => {

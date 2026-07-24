@@ -672,16 +672,6 @@
     :variants="gameServer.game?.variants ?? []"
     @software-changed="handleSoftwareChanged"
     @software-operation-state="onSoftwareOperationState" />
-
-  <operation-progress-dialog
-    v-model="softwareOperationOpen"
-    :complete="softwareOperationComplete"
-    :context-facts="softwareOperationContextFacts"
-    :output-lines="softwareOperationOutputLines"
-    :show-output-area="true"
-    :steps="softwareOperationSteps"
-    subtitle="Xylona will apply the selected variant and refresh the detected version when it finishes."
-    title="Changing Variant" />
 </template>
 
 <script lang="ts" setup>
@@ -690,12 +680,8 @@ import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GameServerPlayerManagementDialog from '@/components/game_servers/GameServerPlayerManagementDialog.vue'
 import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRoster.vue'
-import OperationProgressDialog from '@/components/game_servers/OperationProgressDialog.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
-import type {
-  OperationContextFact,
-  StepState,
-} from '@/components/game_servers/UpdateProgressPanel.types'
+import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -734,11 +720,6 @@ import {
 import { ConnectError } from '@connectrpc/connect'
 import { canShowUpdateButton } from './game-server-update-capability'
 import { buildLifecycleConfirmation, type LifecycleConfirmation } from './server-list-actions'
-import {
-  appendOperationOutputLines,
-  normalizeOperationOutputChunk,
-  resolveOperationOutputRoute,
-} from './operation-output'
 import {
   applyUpdateProgress,
   buildUpdateStepLabels,
@@ -862,11 +843,7 @@ const receivedConsoleReset = ref(false)
 const updatingServer = ref(false)
 const updateInProgress = ref(false)
 const updateSteps = ref<StepState[]>([])
-const softwareOperationOpen = ref(false)
-const softwareOperationComplete = ref(false)
-const softwareOperationSteps = ref<StepState[]>([])
-const softwareOperationOutputLines = ref<string[]>([])
-const softwareOperationContextFacts = ref<OperationContextFact[]>([])
+const softwareOperationInProgress = ref(false)
 const readinessItems = ref<GameServerReadinessItem[]>([])
 const readinessLoading = ref(false)
 const acceptingMinecraftEula = ref(false)
@@ -883,7 +860,6 @@ const startingHytaleAuth = ref(false)
 const pollingHytaleAuth = ref(false)
 const selectingHytaleProfile = ref(false)
 const clearingHytaleAccount = ref(false)
-const maxOperationOutputLines = 80
 let gameServerDetailsRequestSequence = 0
 let liveStatusSequence = 0
 
@@ -996,9 +972,6 @@ watch(onlinePlayers, (next) => {
 watch(isServerOnline, (online) => {
   if (!online) rosterBaseline = null
 })
-const softwareOperationInProgress = computed(() =>
-  softwareOperationSteps.value.some((step) => step.status === StepStatus.IN_PROGRESS),
-)
 const showConsolePlaceholder = computed(
   () =>
     (isServerOffline.value || isServerStatusUnknown.value) &&
@@ -1589,89 +1562,21 @@ function buildSoftwareOperationLabel(event: ServerSoftwareOperationEvent): strin
   return event.softwareName
 }
 
-function currentSoftwareOperationLabel(): string {
-  const softwareName = softwareDisplayName.value || gameServer.value.gameName
-  if (gameServer.value.version) {
-    return `${softwareName} ${gameServer.value.version}`
-  }
-  return softwareName
-}
-
-function buildSoftwareOperationContextFacts(targetLabel: string): OperationContextFact[] {
-  return [
-    { label: 'Current', value: currentSoftwareOperationLabel() },
-    { label: 'Target', value: targetLabel },
-    { label: 'Restart policy', value: 'No restart required' },
-  ]
-}
-
-function baseSoftwareOperationSteps(targetLabel: string): StepState[] {
-  return [
-    {
-      step: 'software-selection',
-      label: `Selected ${targetLabel}`,
-      status: StepStatus.COMPLETED,
-    },
-    {
-      step: 'software-download',
-      label: `Applying ${targetLabel}`,
-      status: StepStatus.IN_PROGRESS,
-    },
-    {
-      step: 'software-apply',
-      label: 'Refreshing variant state',
-      status: StepStatus.PENDING,
-    },
-  ]
-}
-
-function setSoftwareOperationStep(stepId: string, status: StepStatus, message?: string) {
-  const stepIndex = softwareOperationSteps.value.findIndex((step) => step.step === stepId)
-  if (stepIndex < 0) {
-    return
-  }
-  softwareOperationSteps.value[stepIndex] = {
-    ...softwareOperationSteps.value[stepIndex],
-    status,
-    message,
-  }
-}
-
 function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
-  const targetLabel = buildSoftwareOperationLabel(event)
-
   if (event.status === 'installing') {
-    softwareOperationSteps.value = baseSoftwareOperationSteps(targetLabel)
-    softwareOperationContextFacts.value = buildSoftwareOperationContextFacts(targetLabel)
-    softwareOperationOutputLines.value = []
-    softwareOperationComplete.value = false
-    softwareOperationOpen.value = true
+    softwareOperationInProgress.value = true
     return
   }
 
-  if (softwareOperationSteps.value.length === 0) {
-    softwareOperationSteps.value = baseSoftwareOperationSteps(targetLabel)
+  softwareOperationInProgress.value = false
+  if (event.status === 'failed') {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top-right',
+      caption: `Variant change to ${buildSoftwareOperationLabel(event)} failed: ${event.error || 'unknown error'}`,
+      icon: 'report_problem',
+    })
   }
-  if (softwareOperationContextFacts.value.length === 0) {
-    softwareOperationContextFacts.value = buildSoftwareOperationContextFacts(targetLabel)
-  }
-
-  if (event.status === 'complete') {
-    setSoftwareOperationStep('software-download', StepStatus.COMPLETED)
-    setSoftwareOperationStep('software-apply', StepStatus.COMPLETED, 'Variant changed')
-    softwareOperationComplete.value = true
-    softwareOperationOpen.value = true
-    return
-  }
-
-  setSoftwareOperationStep('software-download', StepStatus.COMPLETED)
-  setSoftwareOperationStep(
-    'software-apply',
-    StepStatus.FAILED,
-    event.error || 'Variant change failed',
-  )
-  softwareOperationComplete.value = true
-  softwareOperationOpen.value = true
 }
 
 async function handleSoftwareChanged() {
@@ -1680,36 +1585,6 @@ async function handleSoftwareChanged() {
     return
   }
   await getGameServerOutput()
-}
-
-function appendOutputLines(target: Ref<string[]>, output: string) {
-  target.value = appendOperationOutputLines(target.value, output, maxOperationOutputLines)
-}
-
-function captureOperationOutput(output: string): boolean {
-  if (normalizeOperationOutputChunk(output).length === 0) {
-    return false
-  }
-
-  const route = resolveOperationOutputRoute({
-    isServerOffline: isServerOffline.value,
-    updateRequested: updatingServer.value,
-    updateInProgress: updateInProgress.value,
-    softwareOperationInProgress: softwareOperationInProgress.value,
-  })
-
-  if (route === 'software') {
-    appendOutputLines(softwareOperationOutputLines, output)
-    softwareOperationOpen.value = true
-    return true
-  }
-
-  if (route === 'update') {
-    appendConsoleOutput(output)
-    return true
-  }
-
-  return false
 }
 
 function onUpdateProgress(progress: UpdateProgress) {
@@ -1842,9 +1717,6 @@ async function getGameServerOutput(fallbackOnly = false) {
     if (fallbackOnly && receivedConsoleReset.value) {
       return
     }
-    if (captureOperationOutput(response.output)) {
-      return
-    }
     appendConsoleOutput(response.output)
     consoleLoadError.value = ''
   } catch (e) {
@@ -1934,10 +1806,6 @@ function onServerConsoleOutput(
     return
   }
 
-  if (captureOperationOutput(output)) {
-    consoleStreamState.value = 'ready'
-    return
-  }
   appendConsoleOutput(output)
   consoleStreamState.value = 'ready'
 }
