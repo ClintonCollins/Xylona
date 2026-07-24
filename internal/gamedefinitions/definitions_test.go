@@ -365,6 +365,77 @@ func TestParsePreservesExplicitUpdateConfig(t *testing.T) {
 	}
 }
 
+func TestMinecraftDefinitionOffersServerSoftwareVariants(t *testing.T) {
+	definitions, errLoad := gamedefinitions.LoadBundled()
+	if errLoad != nil {
+		t.Fatalf("LoadBundled() error = %v", errLoad)
+	}
+
+	var minecraft *models.Game
+	for _, definition := range definitions {
+		if definition.Model.ID == "minecraft" {
+			minecraft = definition.Model
+			break
+		}
+	}
+	if minecraft == nil {
+		t.Fatal("bundled minecraft definition not found")
+	}
+
+	gameConfig, errConfig := updateconfig.LoadGameConfigFromModel(minecraft)
+	if errConfig != nil {
+		t.Fatalf("LoadGameConfigFromModel() error = %v", errConfig)
+	}
+
+	if gameConfig.UpdateProvider.Kind != updateproviders.ProviderKindMojang {
+		t.Errorf("game UpdateProvider.Kind = %q, want %q", gameConfig.UpdateProvider.Kind, updateproviders.ProviderKindMojang)
+	}
+
+	wantVariants := []struct {
+		id           string
+		providerKind updateproviders.ProviderKind
+		sourceID     string
+		modInstall   string
+	}{
+		{id: "vanilla", providerKind: updateproviders.ProviderKindMojang, sourceID: "vanilla"},
+		{id: "paper", providerKind: updateproviders.ProviderKindPaperMC, sourceID: "paper", modInstall: "plugins/"},
+		{id: "purpur", providerKind: updateproviders.ProviderKindPaperMC, sourceID: "purpur", modInstall: "plugins/"},
+		{id: "fabric", providerKind: updateproviders.ProviderKindCommand, modInstall: "mods/"},
+		{id: "folia", providerKind: updateproviders.ProviderKindPaperMC, sourceID: "folia", modInstall: "plugins/"},
+	}
+
+	if len(gameConfig.Variants) != len(wantVariants) {
+		t.Fatalf("len(Variants) = %d, want %d", len(gameConfig.Variants), len(wantVariants))
+	}
+	for index, want := range wantVariants {
+		variant := gameConfig.Variants[index]
+		if variant.ID != want.id {
+			t.Errorf("Variants[%d].ID = %q, want %q", index, variant.ID, want.id)
+			continue
+		}
+		if variant.UpdateProvider == nil {
+			t.Errorf("Variants[%d] (%s) UpdateProvider = nil, want %q", index, want.id, want.providerKind)
+			continue
+		}
+		if variant.UpdateProvider.Kind != want.providerKind {
+			t.Errorf("Variants[%d] (%s) UpdateProvider.Kind = %q, want %q", index, want.id, variant.UpdateProvider.Kind, want.providerKind)
+		}
+		if variant.UpdateProvider.SourceID != want.sourceID {
+			t.Errorf("Variants[%d] (%s) UpdateProvider.SourceID = %q, want %q", index, want.id, variant.UpdateProvider.SourceID, want.sourceID)
+		}
+		if want.modInstall == "" {
+			continue
+		}
+		if variant.ModProfile == nil {
+			t.Errorf("Variants[%d] (%s) ModProfile = nil, want install path %q", index, want.id, want.modInstall)
+			continue
+		}
+		if variant.ModProfile.InstallPath != want.modInstall {
+			t.Errorf("Variants[%d] (%s) ModProfile.InstallPath = %q, want %q", index, want.id, variant.ModProfile.InstallPath, want.modInstall)
+		}
+	}
+}
+
 func TestLoadBundledDefinitions(t *testing.T) {
 	definitions, errLoad := gamedefinitions.LoadBundled()
 	if errLoad != nil {

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e3601bed17d8f1ac6e96f4eac78ff74441c86c592d612dc04baf4654a6346fd8",
+  "content_hash": "sha256:8767b0e55a031781afc7f8c0605a362c4ef0e867ded0d58908f8a50bfe601103",
   "game": {
     "id": "minecraft",
     "name": "Minecraft",
@@ -479,6 +479,95 @@
     "update_provider": {
       "kind": "mojang",
       "source_id": "vanilla"
-    }
+    },
+    "variants": [
+      {
+        "id": "vanilla",
+        "name": "Vanilla",
+        "update_provider": {
+          "kind": "mojang",
+          "source_id": "vanilla"
+        }
+      },
+      {
+        "id": "paper",
+        "name": "Paper",
+        "update_provider": {
+          "kind": "papermc",
+          "source_id": "paper"
+        },
+        "mod_profile": {
+          "install_path": "plugins/",
+          "sources": [
+            {
+              "id": "modrinth",
+              "search_params_json": "{\"facets\":{\"project_type\":\"plugin\",\"categories\":[\"paper\",\"spigot\",\"bukkit\"]}}"
+            },
+            {
+              "id": "hangar",
+              "search_params_json": "{\"platform\":\"PAPER\"}"
+            }
+          ]
+        }
+      },
+      {
+        "id": "purpur",
+        "name": "Purpur",
+        "update_provider": {
+          "kind": "papermc",
+          "source_id": "purpur"
+        },
+        "mod_profile": {
+          "install_path": "plugins/",
+          "sources": [
+            {
+              "id": "modrinth",
+              "search_params_json": "{\"facets\":{\"project_type\":\"plugin\",\"categories\":[\"purpur\",\"paper\",\"spigot\",\"bukkit\"]}}"
+            },
+            {
+              "id": "hangar",
+              "search_params_json": "{\"platform\":\"PAPER\"}"
+            }
+          ]
+        }
+      },
+      {
+        "id": "fabric",
+        "name": "Fabric",
+        "update_provider": {
+          "kind": "command"
+        },
+        "mod_profile": {
+          "install_path": "mods/",
+          "sources": [
+            {
+              "id": "modrinth",
+              "search_params_json": "{\"facets\":{\"project_type\":\"mod\",\"categories\":[\"fabric\"]}}"
+            }
+          ]
+        }
+      },
+      {
+        "id": "folia",
+        "name": "Folia",
+        "update_provider": {
+          "kind": "papermc",
+          "source_id": "folia"
+        },
+        "mod_profile": {
+          "install_path": "plugins/",
+          "sources": [
+            {
+              "id": "modrinth",
+              "search_params_json": "{\"facets\":{\"project_type\":\"plugin\",\"categories\":[\"folia\"]}}"
+            },
+            {
+              "id": "hangar",
+              "search_params_json": "{\"platform\":\"PAPER\"}"
+            }
+          ]
+        }
+      }
+    ]
   }
 }
