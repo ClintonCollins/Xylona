@@ -1,0 +1,419 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-24T00:00:00Z",
+  "title": "Design System: Xylona",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Command Blue",
+        "canonical": "#3B82F6",
+        "tonalRamp": [
+          "#0f1f3d",
+          "#152d5c",
+          "#1d3f80",
+          "#2563EB",
+          "#3B82F6",
+          "#60A5FA",
+          "#93C5FD",
+          "#DBEAFE"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Cyan",
+        "canonical": "#1CB7CF",
+        "tonalRamp": [
+          "#062026",
+          "#0a333d",
+          "#0f4c5a",
+          "#158a9c",
+          "#1CB7CF",
+          "#3DCDE3",
+          "#7CDDEC",
+          "#D2F3F9"
+        ]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Deep Indigo",
+        "canonical": "#6366F1",
+        "tonalRamp": [
+          "#14153a",
+          "#1e2058",
+          "#2d2f80",
+          "#4649c9",
+          "#6366F1",
+          "#8B8DF5",
+          "#B4B5F9",
+          "#E4E4FD"
+        ]
+      },
+      "purple": {
+        "role": "secondary",
+        "displayName": "Telemetry Violet",
+        "canonical": "#8B5CF6",
+        "tonalRamp": [
+          "#1d1240",
+          "#2b1a60",
+          "#3f2688",
+          "#6d3ee0",
+          "#8B5CF6",
+          "#A783F8",
+          "#C4AEFB",
+          "#EDE4FE"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Running Green",
+        "canonical": "#22C55E",
+        "tonalRamp": [
+          "#05230f",
+          "#083a19",
+          "#0d5626",
+          "#16A34A",
+          "#22C55E",
+          "#2AE569",
+          "#7CE9A2",
+          "#D6F9E2"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Fault Red",
+        "canonical": "#EF4444",
+        "tonalRamp": [
+          "#2b0a0a",
+          "#450f0f",
+          "#661717",
+          "#DC2626",
+          "#EF4444",
+          "#F87171",
+          "#FCA5A5",
+          "#FEE2E2"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#F59E0B",
+        "tonalRamp": [
+          "#2a1c02",
+          "#432c04",
+          "#654007",
+          "#D97706",
+          "#F59E0B",
+          "#FBBF24",
+          "#FCD980",
+          "#FEF3C7"
+        ]
+      },
+      "info": {
+        "role": "tertiary",
+        "displayName": "Cool Info Cyan",
+        "canonical": "#06B6D4",
+        "tonalRamp": [
+          "#04222a",
+          "#063843",
+          "#095260",
+          "#0891B2",
+          "#06B6D4",
+          "#38CFE8",
+          "#7DDFF0",
+          "#D3F5FB"
+        ]
+      },
+      "base": {
+        "role": "neutral",
+        "displayName": "Hull Black",
+        "canonical": "#0D0E0F",
+        "note": "The project ships a real six-step surface scale; this ramp is that scale, not a synthesized one.",
+        "tonalRamp": [
+          "#0D0E0F",
+          "#141516",
+          "#1A1C1D",
+          "#222425",
+          "#2B2E2F",
+          "#383B3D",
+          "#858A8C",
+          "#E0E4E6"
+        ]
+      },
+      "textPrimary": {
+        "role": "neutral",
+        "displayName": "Readout White",
+        "canonical": "#E0E4E6"
+      },
+      "textSecondary": {
+        "role": "neutral",
+        "displayName": "Supporting Gray",
+        "canonical": "#979B9E"
+      },
+      "textMuted": {
+        "role": "neutral",
+        "displayName": "Muted Gray",
+        "canonical": "#858A8C"
+      }
+    },
+    "typographyMeta": {
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "Identity moments and notification titles only. Zen Dots is never used for running copy."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Page titles and section headings in Goldman."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Buttons, toolbar actions, and status badges. Resolves to Exo 2 at weight 600 via --xy-font-control, not to Goldman."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "General product content, capped around 65-75 characters where prose appears."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "Dense UI copy and helper text at dashboard density."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Timestamps, helper text, and table metadata."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "Dense metric labels, overlines, and fine print. The smallest step in the system."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Console output, paths, IDs, ports, versions, and metrics; anything compared character by character."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sm",
+        "value": "0 1px 2px rgba(0, 0, 0, 0.3)",
+        "purpose": "Hairline separation for inline controls."
+      },
+      {
+        "name": "md",
+        "value": "0 2px 8px rgba(0, 0, 0, 0.4)",
+        "purpose": "Raised panels and menus."
+      },
+      {
+        "name": "lg",
+        "value": "0 4px 16px rgba(0, 0, 0, 0.5)",
+        "purpose": "Dialogs and popovers."
+      },
+      {
+        "name": "xl",
+        "value": "0 10px 24px rgba(0, 0, 0, 0.45)",
+        "purpose": "Overlays above page content."
+      },
+      {
+        "name": "2xl",
+        "value": "0 16px 34px rgba(0, 0, 0, 0.5)",
+        "purpose": "Fullscreen and modal layers."
+      },
+      {
+        "name": "sticky-lg",
+        "value": "0 12px 30px rgba(0, 0, 0, 0.28)",
+        "purpose": "Sticky headers separating from scrolled content."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Default easing for state transitions."
+      },
+      {
+        "name": "ease-emphasized",
+        "value": "cubic-bezier(0.05, 0.7, 0.1, 1)",
+        "purpose": "Entrances and expressive transitions that need a longer settle."
+      },
+      {
+        "name": "transition-fast",
+        "value": "0.15s var(--xy-ease-standard)",
+        "purpose": "Hover and focus feedback on controls."
+      },
+      {
+        "name": "transition-base",
+        "value": "0.25s var(--xy-ease-standard)",
+        "purpose": "Panel, drawer, and surface state changes."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce zeroes --xy-transition-fast, --xy-transition-base, and --xy-animation-duration globally",
+        "purpose": "Global reduced-motion contract implemented in design-tokens.css. Preserve it in every new surface."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The next most important action on a screen. One per screen.",
+      "html": "<button class=\"ds-btn-primary\">Start server</button>",
+      "css": ".ds-btn-primary { background: var(--xy-primary); color: var(--xy-text-on-dark); font-family: var(--xy-font-control); font-size: var(--xy-font-size-base); font-weight: 600; padding: 4px 12px; min-height: 32px; border: none; border-radius: var(--xy-radius-md); cursor: pointer; transition: background var(--xy-transition-fast); } .ds-btn-primary:hover { background: var(--xy-primary-hover); } .ds-btn-primary:focus-visible { outline: 2px solid var(--xy-focus-ring); outline-offset: 2px; } .ds-btn-primary:active { background: var(--xy-primary-darker); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions that sit beside a primary without competing with it.",
+      "html": "<button class=\"ds-btn-secondary\">Restart</button>",
+      "css": ".ds-btn-secondary { background: var(--xy-surface-2); color: var(--xy-text-primary); font-family: var(--xy-font-control); font-size: var(--xy-font-size-base); font-weight: 600; padding: 4px 12px; min-height: 32px; border: 1px solid var(--xy-border); border-radius: var(--xy-radius-md); cursor: pointer; transition: background var(--xy-transition-fast), border-color var(--xy-transition-fast); } .ds-btn-secondary:hover { background: var(--xy-surface-3); border-color: var(--xy-border-hover); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--xy-focus-ring); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Compact field with an explicit label and consequence-bearing helper text.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Server name</span><input class=\"ds-input\" type=\"text\" value=\"survival-01\" /><span class=\"ds-field-helper\">Used in backup filenames and console output.</span></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: var(--xy-space-xs); } .ds-field-label { font-family: var(--xy-font-body); font-size: var(--xy-font-size-xs); font-weight: 600; letter-spacing: 0.02em; color: var(--xy-field-label-color); } .ds-input { background: var(--xy-surface-0); color: var(--xy-text-primary); font-family: var(--xy-font-body); font-size: var(--xy-font-size-sm); padding: 8px 12px; border: 1px solid var(--xy-border); border-radius: var(--xy-radius-md); transition: border-color var(--xy-transition-fast); } .ds-input:hover { border-color: var(--xy-border-hover); } .ds-input:focus { outline: none; border-color: var(--xy-border-active); } .ds-field-helper { font-family: var(--xy-font-body); font-size: var(--xy-font-size-xs); color: var(--xy-field-helper-color); }"
+    },
+    {
+      "name": "Surface Card",
+      "kind": "card",
+      "refersTo": "surface-card",
+      "description": "For repeated items, modals, and genuinely framed tools. Never nested.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Palworld — survival-01</div><div class=\"ds-card-meta\">Node: edge-02 · Port: 8211</div></div>",
+      "css": ".ds-card { background: var(--xy-surface-1); color: var(--xy-text-primary); border: 1px solid var(--xy-border); border-radius: var(--xy-radius-lg); padding: var(--xy-space-md); transition: border-color var(--xy-transition-fast); } .ds-card:hover { border-color: var(--xy-border-hover); } .ds-card-title { font-family: var(--xy-font-heading); font-size: var(--xy-font-size-lg); font-weight: 700; letter-spacing: 0.02em; margin-bottom: var(--xy-space-xs); } .ds-card-meta { font-family: var(--xy-font-mono); font-size: var(--xy-font-size-xs); color: var(--xy-text-secondary); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Signature component. Server lifecycle state as a pill: colored dot plus text label, so status never depends on color alone. The online dot pulses; the animation is suppressed under prefers-reduced-motion.",
+      "html": "<span class=\"ds-badge ds-badge-success\"><span class=\"ds-dot ds-dot-success\"></span>Online</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: var(--xy-space-xs); font-family: var(--xy-font-control); font-size: var(--xy-font-size-xs); font-weight: 600; letter-spacing: 0.02em; padding: var(--xy-space-xs) var(--xy-space-sm); border-radius: var(--xy-radius-pill); border: 1px solid; } .ds-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0; } .ds-badge-success { background-color: var(--xy-success-bg); border-color: var(--xy-success-border); color: var(--xy-success); } .ds-dot-success { background-color: var(--xy-success); box-shadow: 0 0 6px var(--xy-success); animation: ds-pulse-success 2s ease-in-out infinite; } @keyframes ds-pulse-success { 0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--xy-success); } 50% { opacity: 0.7; box-shadow: 0 0 2px var(--xy-success); } } @media (prefers-reduced-motion: reduce) { .ds-dot-success { animation: none; } }"
+    },
+    {
+      "name": "Toolbar",
+      "kind": "nav",
+      "refersTo": "toolbar",
+      "description": "Fixed 50px command band. Active navigation carries Signal Cyan.",
+      "html": "<div class=\"ds-toolbar\"><span class=\"ds-toolbar-brand\">XYLONA</span><nav class=\"ds-toolbar-nav\"><a class=\"ds-toolbar-link ds-toolbar-link-active\" href=\"#\">Console</a><a class=\"ds-toolbar-link\" href=\"#\">Files</a><a class=\"ds-toolbar-link\" href=\"#\">Backups</a></nav></div>",
+      "css": ".ds-toolbar { display: flex; align-items: center; gap: var(--xy-space-lg); height: 50px; padding: 0 var(--xy-space-md); background: var(--xy-surface-2); border-bottom: 1px solid var(--xy-border); } .ds-toolbar-brand { font-family: var(--xy-font-brand); font-size: var(--xy-font-size-base); color: var(--xy-text-primary); } .ds-toolbar-nav { display: flex; gap: var(--xy-space-md); } .ds-toolbar-link { font-family: var(--xy-font-heading); font-size: var(--xy-font-size-sm); color: var(--xy-text-secondary); text-decoration: none; transition: color var(--xy-transition-fast); } .ds-toolbar-link:hover { color: var(--xy-text-primary); } .ds-toolbar-link-active { color: var(--xy-accent); }"
+    },
+    {
+      "name": "Console",
+      "kind": "custom",
+      "refersTo": "console",
+      "description": "Signature surface. Sits at the system's darkest level so output reads as a distinct plane from the app chrome. Monospaced, stable dimensions, no layout shift.",
+      "html": "<div class=\"ds-console\"><div class=\"ds-console-line\"><span class=\"ds-console-ts\">12:04:11</span> Server started on port 8211</div><div class=\"ds-console-line\"><span class=\"ds-console-ts\">12:04:12</span> <span class=\"ds-console-warn\">World autosave disabled</span></div></div>",
+      "css": ".ds-console { background: var(--xy-base); color: var(--xy-text-primary); font-family: var(--xy-font-mono); font-size: var(--xy-font-size-sm); line-height: 1.45; padding: var(--xy-space-md); border: 1px solid var(--xy-border); border-radius: var(--xy-radius-md); overflow-x: auto; } .ds-console-line { white-space: pre-wrap; } .ds-console-ts { color: var(--xy-text-muted); } .ds-console-warn { color: var(--xy-syntax-amber); }"
+    },
+    {
+      "name": "Section Overline",
+      "kind": "custom",
+      "refersTo": "section-overline",
+      "description": "Uppercase micro label that separates layout bands without turning them into cards.",
+      "html": "<div class=\"ds-overline\">Resource usage</div>",
+      "css": ".ds-overline { font-family: var(--xy-font-body); font-size: var(--xy-font-size-xs); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--xy-text-muted); }"
+    }
+  ],
+  "narrative": {
+    "overview": "Xylona is a dark-only product UI with a futuristic command-center feel. It should communicate operational control, server health, and technical confidence while staying approachable for self-hosters.\n\nThe visual language is layered, cool-tinted, and precise: near-black foundations, stacked surfaces, cyan and blue accents, readable status colors, and restrained sci-fi typography. The product should feel immersive without sacrificing speed, scanability, or workflow clarity.\n\nThe personality is powerful, sleek, and futuristic — a high-tech command center that is confident, technical, and in control. The tone can be gaming-native and energetic, but it must never become chaotic, toy-like, or cute. Xylona should feel at home beside Discord and Steam for audience familiarity, while matching the polish and clarity users expect from tools like Linear and Vercel.",
+    "keyCharacteristics": [
+      "Dark-only, cool-tinted, never pure black.",
+      "Depth by stacked surfaces first, borders second, shadows last.",
+      "Cyan and blue reserved for interactive and stateful meaning.",
+      "Dense but legible; built for scanning and comparison.",
+      "Display typefaces for identity and command, never for dense operational content."
+    ],
+    "rules": [
+      {
+        "name": "The Signal Reserve Rule",
+        "body": "Cyan and blue carry interactive or stateful meaning. A surface that spends accent color on decoration has spent the signal, and the next genuinely stateful element has nothing left to say.",
+        "section": "colors"
+      },
+      {
+        "name": "The Never-Pure-Black Rule",
+        "body": "The floor is --xy-base (#0D0E0F), never #000. Neutrals stay cool-tinted; a warm or fully desaturated gray reads as a different product.",
+        "section": "colors"
+      },
+      {
+        "name": "The Series-Is-Not-Status Rule",
+        "body": "Time-series data uses --xy-series-*, not --xy-chart-3 / --xy-chart-4. Red and amber are reserved for real state — threshold breaches and configured-limit lines — so an ordinary series like storage growth never plots in alarm colors.",
+        "section": "colors"
+      },
+      {
+        "name": "The Display Ceiling Rule",
+        "body": "Zen Dots and Goldman lose legibility below roughly 0.95rem. Caption and micro text is always Exo 2 or JetBrains Mono — never a display face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Two-Steps-Below Rule",
+        "body": "Below body-sm (0.875rem) there are exactly two steps: caption (--xy-font-size-xs, 0.75rem) and micro (--xy-font-size-2xs, 0.6875rem). Do not freelance a size in between.",
+        "section": "typography"
+      },
+      {
+        "name": "The Comparable-Data Rule",
+        "body": "Anything an operator may need to compare character by character — ports, IDs, hashes, versions, paths, metric values — is JetBrains Mono. Proportional digits in a column of numbers are a defect, not a style choice.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Hero Rule",
+        "body": "Landing-page composition does not belong inside the app. Dashboards lead with state, not with a decorative hero band.",
+        "section": "layout"
+      },
+      {
+        "name": "The Functional Shadow Rule",
+        "body": "Shadows communicate layering, never gloss. If a shadow is not separating one plane from another, remove it.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No-Glass Rule",
+        "body": "Glassmorphism and heavy backdrop blur are not a default treatment in this system.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Token Radius Rule",
+        "body": "Always use --xy-radius-*. A literal 1rem or 999px in a component is a defect.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Pill-Means-Badge Rule",
+        "body": "Pill radius is semantic, not stylistic. If the element is not a badge, chip, status dot, or segmented control, it does not get a pill.",
+        "section": "shapes"
+      },
+      {
+        "name": "The No-Nested-Cards Rule",
+        "body": "Cards do not nest. A card inside a card means the outer container should have been an unframed layout band.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Single Primary Rule",
+        "body": "One primary button per screen. If two actions both look primary, neither is.",
+        "section": "components"
+      },
+      {
+        "name": "The Status-Never-Color-Alone Rule",
+        "body": "Every status pairs color with text, icon, shape, or position. A green dot alone is not a running state.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do use existing --xy-* tokens before adding new values.",
+      "Do extend design-tokens.css for utilities and overrides.css for Quasar component styling.",
+      "Do keep the app dark-only, layered, and cool-tinted.",
+      "Do make status, feedback, and available actions obvious.",
+      "Do use cyan and blue accents for interactive or stateful meaning.",
+      "Do preserve the global reduced-motion block in design-tokens.css, and animate transform and opacity rather than layout properties.",
+      "Do use --xy-ease-standard (cubic-bezier(0.2, 0, 0, 1)) and the --xy-transition-fast / --xy-transition-base tokens for state changes."
+    ],
+    "donts": [
+      "Don't hardcode colors, radii, or type sizes in components.",
+      "Don't create generic admin-template screens or cPanel-style clutter.",
+      "Don't use decorative side-stripe borders, gradient text, default glassmorphism, or repeated icon-heading-text card grids.",
+      "Don't hide server lifecycle actions, health, or errors behind vague menus.",
+      "Don't set display faces (Zen Dots, Goldman) below roughly 0.95rem.",
+      "Don't replace accepted v-html console and tooltip rendering unless the trust model changes.",
+      "Don't add durable project documentation under the repo-root /docs/, which is intentionally local scratch space."
+    ]
+  }
+}

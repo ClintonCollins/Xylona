@@ -28,6 +28,8 @@ data.sqlite
 /frontend/e2e/.e2e-*.lock
 /frontend/e2e/playwright-report/
 /frontend/e2e/test-results/
+# Impeccable live-mode runtime journal (session state, annotations); not project source.
+/frontend/.impeccable/live/sessions/
 /coverage
 .mockups/
 /refactor.md
