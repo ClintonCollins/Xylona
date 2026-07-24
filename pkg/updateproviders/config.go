@@ -81,6 +81,12 @@ func ResolveConfig(game GameConfig, server ServerConfig) (ResolvedConfig, error)
 	if selectedVariantID == "" && len(game.Variants) == 1 {
 		selectedVariantID = game.Variants[0].ID
 	}
+	// Update flows persist a software ID (e.g. "vanilla") even for games that
+	// define no variants; treat it as "no variant" instead of failing so the
+	// game-level provider config still resolves.
+	if len(game.Variants) == 0 {
+		selectedVariantID = ""
+	}
 
 	if selectedVariantID != "" {
 		variant, ok := findVariant(game.Variants, selectedVariantID)

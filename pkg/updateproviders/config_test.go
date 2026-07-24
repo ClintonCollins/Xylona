@@ -217,6 +217,30 @@ func TestResolveConfigReturnsErrorForUnknownVariant(t *testing.T) {
 	}
 }
 
+func TestResolveConfigIgnoresStoredVariantWhenGameHasNoVariants(t *testing.T) {
+	game := GameConfig{
+		UpdateProvider: ProviderConfig{
+			Kind:     ProviderKindMojang,
+			SourceID: "vanilla",
+		},
+	}
+
+	resolved, errResolve := ResolveConfig(game, ServerConfig{VariantID: "vanilla"})
+	if errResolve != nil {
+		t.Fatalf("ResolveConfig() error = %v", errResolve)
+	}
+
+	if resolved.Provider.Kind != ProviderKindMojang {
+		t.Errorf("resolved.Provider.Kind = %q, want %q", resolved.Provider.Kind, ProviderKindMojang)
+	}
+	if resolved.Provider.SourceID != "vanilla" {
+		t.Errorf("resolved.Provider.SourceID = %q, want %q", resolved.Provider.SourceID, "vanilla")
+	}
+	if resolved.VariantID != "" {
+		t.Errorf("resolved.VariantID = %q, want empty", resolved.VariantID)
+	}
+}
+
 func TestResetTargetForVariant(t *testing.T) {
 	tests := []struct {
 		name string
