@@ -231,6 +231,45 @@ describe('GameForm', () => {
     expect(wrapper.text()).toContain('Platform')
   })
 
+  it('summarizes per-variant mod support instead of claiming mods are off', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        updateProvider: create(UpdateProviderConfigSchema, {
+          kind: UpdateProviderKind.MOJANG,
+          sourceId: 'vanilla',
+        }),
+        variants: [
+          create(VariantSchema, { id: 'vanilla', name: 'Vanilla' }),
+          create(VariantSchema, {
+            id: 'paper',
+            name: 'Paper',
+            modProfile: create(ModProfileSchema, {
+              installPath: 'plugins/',
+              sources: [
+                create(ModSourceSchema, { id: 'modrinth', searchParamsJson: '{}' }),
+                create(ModSourceSchema, { id: 'hangar', searchParamsJson: '{"platform":"PAPER"}' }),
+              ],
+            }),
+          }),
+        ],
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Variant Mod Support')
+    expect(wrapper.text()).toContain('Paper')
+    expect(wrapper.text()).toContain('plugins/')
+    expect(wrapper.text()).toContain('No mod support')
+    expect(wrapper.text()).not.toContain(
+      'Mod support is off. Enable it to configure a download provider for this game.',
+    )
+  })
+
   it.each([
     { name: 'diverged official game shows banner', diverged: true, official: true, want: true },
     { name: 'clean official game hides banner', diverged: false, official: true, want: false },

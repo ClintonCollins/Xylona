@@ -25,10 +25,34 @@ function createEmptyModProfile() {
   })
 }
 
+export interface VariantModSummary {
+  id: string
+  name: string
+  installPath: string
+  sourceLabels: string[]
+  hasModSupport: boolean
+}
+
 export function useGameFormModProfile(game: Ref<Game>) {
   const modSourceOptions = getModSourceOptions()
 
   const managedModConfig = computed(() => isManagedModConfig(game.value))
+
+  const variantModSummaries = computed<VariantModSummary[]>(() =>
+    (game.value.variants ?? []).map((variant) => {
+      const profile = variant.modProfile
+      return {
+        id: variant.id,
+        name: variant.name || variant.id,
+        installPath: profile?.installPath ?? '',
+        sourceLabels: (profile?.sources ?? []).map(
+          (source) =>
+            modSourceOptions.find((option) => option.value === source.id)?.label ?? source.id,
+        ),
+        hasModSupport: profile !== undefined,
+      }
+    }),
+  )
 
   const activeModSourceLabel = computed(() => {
     const sourceID = game.value.modProfile?.sources[0]?.id
@@ -72,6 +96,7 @@ export function useGameFormModProfile(game: Ref<Game>) {
 
   return {
     managedModConfig,
+    variantModSummaries,
     modSourceOptions,
     activeModSourceLabel,
     ensureModProfileSources,

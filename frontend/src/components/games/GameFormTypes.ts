@@ -8,6 +8,7 @@ import type {
 } from '@/proto/shared_pb'
 import type { StartArgBlock, StartArgBlocklistEntry } from '@/components/game_servers/start-args'
 import type { ConfigSchemaEntry } from './config-schema-types'
+import type { VariantModSummary } from './useGameFormModProfile'
 
 export type Platform = 'windows' | 'linux'
 export type GameFormTabID = 'overview' | 'runtime' | 'mods' | 'config'
@@ -60,6 +61,7 @@ export interface GameFormContext {
 
   modSourceOptions: Array<{ label: string; value: string }>
   managedModConfig: ComputedRef<boolean>
+  variantModSummaries: ComputedRef<VariantModSummary[]>
   activeModSourceLabel: ComputedRef<string>
   addGameModProfile: () => void
   clearGameModProfile: () => void

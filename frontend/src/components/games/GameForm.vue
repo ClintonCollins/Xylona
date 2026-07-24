@@ -307,6 +307,7 @@ const { isDirty, commitSnapshot, commitFormSnapshot, commitDefaultEnvSnapshot } 
 const managedTypedConfig = computed(() => isManagedGameConfig(game.value))
 const {
   managedModConfig,
+  variantModSummaries,
   modSourceOptions,
   activeModSourceLabel,
   ensureModProfileSources,
@@ -457,6 +458,7 @@ provide(gameFormContextKey, {
   saveDefaultEnvironment,
   modSourceOptions,
   managedModConfig,
+  variantModSummaries,
   activeModSourceLabel,
   addGameModProfile,
   clearGameModProfile,
@@ -1723,6 +1725,34 @@ async function saveDefaultEnvironment(): Promise<void> {
   color: var(--xy-text-secondary);
   font-size: 0.72rem;
   line-height: 1;
+}
+
+.variant-mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.variant-mod-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--xy-border);
+}
+
+.variant-mod-name {
+  min-width: 6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--xy-text-primary);
+}
+
+.variant-mod-none {
+  font-size: 0.72rem;
+  font-style: italic;
 }
 
 .mods-status-chip--active {
