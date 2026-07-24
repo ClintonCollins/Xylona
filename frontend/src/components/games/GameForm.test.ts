@@ -231,6 +231,31 @@ describe('GameForm', () => {
     expect(wrapper.text()).toContain('Platform')
   })
 
+  it.each([
+    { name: 'diverged official game shows banner', diverged: true, official: true, want: true },
+    { name: 'clean official game hides banner', diverged: false, official: true, want: false },
+    { name: 'diverged custom game hides banner', diverged: true, official: false, want: false },
+  ])('$name', async ({ diverged, official, want }) => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        xylonaOfficial: official,
+        officialDefinitionDiverged: diverged,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="game-form-diverged-banner"]').exists()).toBe(want)
+    if (want) {
+      expect(wrapper.text()).toContain('Modified from official definition')
+      expect(wrapper.text()).toContain('Restore official definition')
+    }
+  })
+
   it('persists structured start args through editGame without follow-up RPCs', async () => {
     mocks.getGame.mockResolvedValue({
       game: create(GameSchema, {

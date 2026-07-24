@@ -1,6 +1,7 @@
 package gamedefinitions_test
 
 import (
+	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
 
 	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
 	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
@@ -759,6 +761,86 @@ func TestSyncOfficialDefinitionsPreservesLocallyEditedOfficialRows(t *testing.T)
 	}
 	if !updated.OfficialDefinitionDiverged {
 		t.Fatal("OfficialDefinitionDiverged = false, want true")
+	}
+}
+
+func TestResetGameToOfficialDefinitionRestoresDivergedRow(t *testing.T) {
+	conn := dbtest.NewMigratedConnection(t, "definition-reset-diverged.sqlite")
+
+	_, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
+	if errSync != nil {
+		t.Fatalf("SyncOfficialDefinitions() setup error = %v", errSync)
+	}
+	game, errGame := conn.GetGameByID("minecraft")
+	if errGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGame)
+	}
+	bundledHash := game.OfficialDefinitionHash
+	_, errEdit := conn.UpdateGame(conn.DB, game, &models.GameSetter{
+		ID:                         omit.From(game.ID),
+		Name:                       omit.From("Minecraft Local Edit"),
+		ServerSoftware:             omitnull.From(`{"update_provider":{"kind":"mojang","source_id":"vanilla"}}`),
+		OfficialDefinitionHash:     omit.From(""),
+		OfficialDefinitionDiverged: omit.From(true),
+	})
+	if errEdit != nil {
+		t.Fatalf("UpdateGame() setup error = %v", errEdit)
+	}
+
+	reset, errReset := gamedefinitions.ResetGameToOfficialDefinition(conn, "minecraft")
+	if errReset != nil {
+		t.Fatalf("ResetGameToOfficialDefinition() error = %v", errReset)
+	}
+
+	if reset.Name != "Minecraft" {
+		t.Errorf("Name = %q, want %q", reset.Name, "Minecraft")
+	}
+	if reset.OfficialDefinitionDiverged {
+		t.Error("OfficialDefinitionDiverged = true, want false")
+	}
+	if reset.OfficialDefinitionHash != bundledHash {
+		t.Errorf("OfficialDefinitionHash = %q, want %q", reset.OfficialDefinitionHash, bundledHash)
+	}
+	if !strings.Contains(reset.ServerSoftware.GetOr(""), `"variants"`) {
+		t.Error("ServerSoftware missing variants after reset")
+	}
+
+	result, errResync := gamedefinitions.SyncOfficialDefinitions(conn)
+	if errResync != nil {
+		t.Fatalf("SyncOfficialDefinitions() after reset error = %v", errResync)
+	}
+	if result.Diverged != 0 || result.Updated != 0 {
+		t.Errorf("post-reset sync = %+v, want clean no-op", result)
+	}
+}
+
+func TestResetGameToOfficialDefinitionRejectsInvalidTargets(t *testing.T) {
+	conn := dbtest.NewMigratedConnection(t, "definition-reset-invalid.sqlite")
+
+	_, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
+	if errSync != nil {
+		t.Fatalf("SyncOfficialDefinitions() setup error = %v", errSync)
+	}
+	_, errInsert := conn.InsertGame(conn.DB, &models.GameSetter{
+		ID:                omit.From("custom-game"),
+		Name:              omit.From("Custom Game"),
+		DefaultPort:       omit.From(int64(1000)),
+		DefaultQueryPort:  omit.From(int64(1000)),
+		DefaultMaxPlayers: omit.From(int64(8)),
+		XylonaOfficial:    omit.From(false),
+	})
+	if errInsert != nil {
+		t.Fatalf("InsertGame() setup error = %v", errInsert)
+	}
+
+	_, errUnknown := gamedefinitions.ResetGameToOfficialDefinition(conn, "does-not-exist")
+	if errUnknown == nil {
+		t.Error("ResetGameToOfficialDefinition(unknown) error = nil, want error")
+	}
+
+	_, errCustom := gamedefinitions.ResetGameToOfficialDefinition(conn, "custom-game")
+	if !errors.Is(errCustom, gamedefinitions.ErrGameNotOfficial) {
+		t.Errorf("ResetGameToOfficialDefinition(custom) error = %v, want ErrGameNotOfficial", errCustom)
 	}
 }
 

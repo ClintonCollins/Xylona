@@ -308,6 +308,34 @@ func (xs *XylonaService) ExportGame(_ context.Context, request *connect.Request[
 	}), nil
 }
 
+// ResetGameToOfficialDefinition discards local edits on an official game and
+// re-applies the bundled definition, restamping sync metadata.
+func (xs *XylonaService) ResetGameToOfficialDefinition(_ context.Context, request *connect.Request[xylona.ResetGameToOfficialDefinitionRequest]) (*connect.Response[xylona.ResetGameToOfficialDefinitionResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	if !user.SuperUser {
+		return nil, permissionDenied("superuser required")
+	}
+
+	updated, errReset := gamedefinitions.ResetGameToOfficialDefinition(xs.db, request.Msg.GetGameId())
+	if errReset != nil {
+		if errors.Is(errReset, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("game not found"))
+		}
+		if errors.Is(errReset, gamedefinitions.ErrGameNotOfficial) ||
+			errors.Is(errReset, gamedefinitions.ErrNoBundledDefinition) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errReset)
+		}
+		return nil, connect.NewError(connect.CodeInternal, errReset)
+	}
+
+	return connect.NewResponse(&xylona.ResetGameToOfficialDefinitionResponse{
+		Game: protomap.GameModelToProto(updated),
+	}), nil
+}
+
 func (xs *XylonaService) lookupImportGameConflict(gameID string) (*models.Game, bool, error) {
 	existingGame, errExisting := xs.db.GetGameByID(gameID)
 	if errExisting != nil {

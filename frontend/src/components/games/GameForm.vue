@@ -44,6 +44,29 @@
       </div>
     </div>
 
+    <!-- Diverged official definition banner -->
+    <div
+      v-if="showDivergedBanner"
+      class="game-form-diverged-banner"
+      data-testid="game-form-diverged-banner">
+      <q-icon class="diverged-banner-icon" name="difference" size="20px" />
+      <div class="diverged-banner-text">
+        <div class="diverged-banner-title">Modified from official definition</div>
+        <div class="diverged-banner-caption">
+          This game has local edits, so it no longer receives official definition updates.
+        </div>
+      </div>
+      <q-btn
+        :loading="restoringOfficial"
+        class="diverged-banner-btn"
+        color="primary"
+        dense
+        label="Restore official definition"
+        no-caps
+        outline
+        @click="confirmRestoreOfficial" />
+    </div>
+
     <!-- Loading state -->
     <div v-if="loading" class="game-form-loading">
       <q-spinner-dots color="primary" size="40px" />
@@ -147,6 +170,7 @@ import {
 } from '@/proto/shared_pb'
 import {
   GetGameEnvironmentRequestSchema,
+  ResetGameToOfficialDefinitionRequestSchema,
   UpdateGameEnvironmentRequestSchema,
 } from '@/proto/xylona_pb'
 import type { ConfigSchemaEntry } from './config-schema-types'
@@ -323,6 +347,58 @@ const { loading, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
     syncActivePlatformFromGame,
     commitFormSnapshot,
   })
+const restoringOfficial = ref(false)
+
+const showDivergedBanner = computed(() => {
+  return (
+    existingGame.value &&
+    !copyGame.value &&
+    game.value.xylonaOfficial &&
+    game.value.officialDefinitionDiverged
+  )
+})
+
+function confirmRestoreOfficial() {
+  $q.dialog({
+    title: 'Restore official definition?',
+    message:
+      'Local edits to this game will be replaced with the bundled official definition. Existing game servers keep their own settings.',
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { color: 'primary', label: 'Restore' },
+    persistent: true,
+  }).onOk(() => {
+    void restoreOfficialDefinition()
+  })
+}
+
+async function restoreOfficialDefinition() {
+  restoringOfficial.value = true
+  try {
+    const request = create(ResetGameToOfficialDefinitionRequestSchema, {
+      gameId: gameID.value,
+    })
+    await GetXylonaClient().resetGameToOfficialDefinition(request)
+    await loadGameDetails()
+    $q.notify({
+      type: 'xylona-success',
+      position: 'top',
+      caption: 'Official definition restored.',
+      icon: 'check_circle',
+    })
+  } catch (unknownError: unknown) {
+    $q.notify({
+      type: 'xylona-error',
+      position: 'top',
+      caption:
+        'Failed to restore official definition: ' +
+        ConnectErrorToString(ConnectError.from(unknownError)),
+      icon: 'report_problem',
+    })
+  } finally {
+    restoringOfficial.value = false
+  }
+}
+
 const runtimePolicySummary = computed(() => {
   const summary = [
     game.value.allowStartArgEditing ? 'Owners on' : 'Owners off',
@@ -1043,6 +1119,50 @@ async function saveDefaultEnvironment(): Promise<void> {
   align-items: center;
   justify-content: center;
   min-height: 200px;
+}
+
+/* ---- Diverged official definition banner ---- */
+
+.game-form-diverged-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--xy-warning);
+  border-radius: 6px;
+  background: var(--xy-surface-1);
+}
+
+.diverged-banner-icon {
+  color: var(--xy-warning);
+  flex-shrink: 0;
+}
+
+.diverged-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.diverged-banner-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--xy-text-primary);
+}
+
+.diverged-banner-caption {
+  font-size: 0.72rem;
+  color: var(--xy-text-muted);
+}
+
+.diverged-banner-btn {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .game-form-diverged-banner {
+    flex-wrap: wrap;
+  }
 }
 
 /* ---- Body ---- */

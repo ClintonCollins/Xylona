@@ -57,6 +57,9 @@ const (
 	XylonaImportGameProcedure = "/xylona.Xylona/ImportGame"
 	// XylonaExportGameProcedure is the fully-qualified name of the Xylona's ExportGame RPC.
 	XylonaExportGameProcedure = "/xylona.Xylona/ExportGame"
+	// XylonaResetGameToOfficialDefinitionProcedure is the fully-qualified name of the Xylona's
+	// ResetGameToOfficialDefinition RPC.
+	XylonaResetGameToOfficialDefinitionProcedure = "/xylona.Xylona/ResetGameToOfficialDefinition"
 	// XylonaListGamesProcedure is the fully-qualified name of the Xylona's ListGames RPC.
 	XylonaListGamesProcedure = "/xylona.Xylona/ListGames"
 	// XylonaSearchSteamAppsProcedure is the fully-qualified name of the Xylona's SearchSteamApps RPC.
@@ -448,6 +451,7 @@ type XylonaClient interface {
 	RemoveGame(context.Context, *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error)
 	ImportGame(context.Context, *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error)
 	ExportGame(context.Context, *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error)
+	ResetGameToOfficialDefinition(context.Context, *connect.Request[xylona.ResetGameToOfficialDefinitionRequest]) (*connect.Response[xylona.ResetGameToOfficialDefinitionResponse], error)
 	ListGames(context.Context, *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error)
 	// Steam App Lookup
 	SearchSteamApps(context.Context, *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error)
@@ -684,6 +688,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaExportGameProcedure,
 			connect.WithSchema(xylonaMethods.ByName("ExportGame")),
+			connect.WithClientOptions(opts...),
+		),
+		resetGameToOfficialDefinition: connect.NewClient[xylona.ResetGameToOfficialDefinitionRequest, xylona.ResetGameToOfficialDefinitionResponse](
+			httpClient,
+			baseURL+XylonaResetGameToOfficialDefinitionProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ResetGameToOfficialDefinition")),
 			connect.WithClientOptions(opts...),
 		),
 		listGames: connect.NewClient[xylona.ListGamesRequest, xylona.ListGamesResponse](
@@ -1559,6 +1569,7 @@ type xylonaClient struct {
 	removeGame                          *connect.Client[xylona.RemoveGameRequest, xylona.RemoveGameResponse]
 	importGame                          *connect.Client[xylona.ImportGameRequest, xylona.ImportGameResponse]
 	exportGame                          *connect.Client[xylona.ExportGameRequest, xylona.ExportGameResponse]
+	resetGameToOfficialDefinition       *connect.Client[xylona.ResetGameToOfficialDefinitionRequest, xylona.ResetGameToOfficialDefinitionResponse]
 	listGames                           *connect.Client[xylona.ListGamesRequest, xylona.ListGamesResponse]
 	searchSteamApps                     *connect.Client[xylona.SearchSteamAppsRequest, xylona.SearchSteamAppsResponse]
 	getSteamAppDetails                  *connect.Client[xylona.GetSteamAppDetailsRequest, xylona.GetSteamAppDetailsResponse]
@@ -1752,6 +1763,11 @@ func (c *xylonaClient) ImportGame(ctx context.Context, req *connect.Request[xylo
 // ExportGame calls xylona.Xylona.ExportGame.
 func (c *xylonaClient) ExportGame(ctx context.Context, req *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
 	return c.exportGame.CallUnary(ctx, req)
+}
+
+// ResetGameToOfficialDefinition calls xylona.Xylona.ResetGameToOfficialDefinition.
+func (c *xylonaClient) ResetGameToOfficialDefinition(ctx context.Context, req *connect.Request[xylona.ResetGameToOfficialDefinitionRequest]) (*connect.Response[xylona.ResetGameToOfficialDefinitionResponse], error) {
+	return c.resetGameToOfficialDefinition.CallUnary(ctx, req)
 }
 
 // ListGames calls xylona.Xylona.ListGames.
@@ -2482,6 +2498,7 @@ type XylonaHandler interface {
 	RemoveGame(context.Context, *connect.Request[xylona.RemoveGameRequest]) (*connect.Response[xylona.RemoveGameResponse], error)
 	ImportGame(context.Context, *connect.Request[xylona.ImportGameRequest]) (*connect.Response[xylona.ImportGameResponse], error)
 	ExportGame(context.Context, *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error)
+	ResetGameToOfficialDefinition(context.Context, *connect.Request[xylona.ResetGameToOfficialDefinitionRequest]) (*connect.Response[xylona.ResetGameToOfficialDefinitionResponse], error)
 	ListGames(context.Context, *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error)
 	// Steam App Lookup
 	SearchSteamApps(context.Context, *connect.Request[xylona.SearchSteamAppsRequest]) (*connect.Response[xylona.SearchSteamAppsResponse], error)
@@ -2714,6 +2731,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaExportGameProcedure,
 		svc.ExportGame,
 		connect.WithSchema(xylonaMethods.ByName("ExportGame")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaResetGameToOfficialDefinitionHandler := connect.NewUnaryHandler(
+		XylonaResetGameToOfficialDefinitionProcedure,
+		svc.ResetGameToOfficialDefinition,
+		connect.WithSchema(xylonaMethods.ByName("ResetGameToOfficialDefinition")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListGamesHandler := connect.NewUnaryHandler(
@@ -3596,6 +3619,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaImportGameHandler.ServeHTTP(w, r)
 		case XylonaExportGameProcedure:
 			xylonaExportGameHandler.ServeHTTP(w, r)
+		case XylonaResetGameToOfficialDefinitionProcedure:
+			xylonaResetGameToOfficialDefinitionHandler.ServeHTTP(w, r)
 		case XylonaListGamesProcedure:
 			xylonaListGamesHandler.ServeHTTP(w, r)
 		case XylonaSearchSteamAppsProcedure:
@@ -3929,6 +3954,10 @@ func (UnimplementedXylonaHandler) ImportGame(context.Context, *connect.Request[x
 
 func (UnimplementedXylonaHandler) ExportGame(context.Context, *connect.Request[xylona.ExportGameRequest]) (*connect.Response[xylona.ExportGameResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ExportGame is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ResetGameToOfficialDefinition(context.Context, *connect.Request[xylona.ResetGameToOfficialDefinitionRequest]) (*connect.Response[xylona.ResetGameToOfficialDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ResetGameToOfficialDefinition is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListGames(context.Context, *connect.Request[xylona.ListGamesRequest]) (*connect.Response[xylona.ListGamesResponse], error) {

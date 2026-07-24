@@ -51,6 +51,101 @@ func TestExportGameReturnsDefinitionJSON(t *testing.T) {
 	}
 }
 
+func TestResetGameToOfficialDefinitionRequiresSuperUser(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	req := connect.NewRequest(&xylona.ResetGameToOfficialDefinitionRequest{
+		GameId: "minecraft",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-owner")
+
+	_, errReset := fixture.service.ResetGameToOfficialDefinition(context.Background(), req)
+	if errReset == nil {
+		t.Fatal("ResetGameToOfficialDefinition(non-superuser) error = nil, want permission denied")
+	}
+	if connect.CodeOf(errReset) != connect.CodePermissionDenied {
+		t.Fatalf("code = %v, want %v", connect.CodeOf(errReset), connect.CodePermissionDenied)
+	}
+}
+
+func TestResetGameToOfficialDefinitionRestoresBundledDefinition(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	game, errGame := fixture.conn.GetGameByID("minecraft")
+	if errGame != nil {
+		t.Fatalf("GetGameByID() setup error = %v", errGame)
+	}
+	_, errDiverge := fixture.conn.UpdateGame(fixture.conn.DB, game, &models.GameSetter{
+		ID:                         omit.From(game.ID),
+		Name:                       omit.From("Minecraft Local Edit"),
+		ServerSoftware:             omitnull.From(`{"update_provider":{"kind":"mojang","source_id":"vanilla"}}`),
+		OfficialDefinitionDiverged: omit.From(true),
+	})
+	if errDiverge != nil {
+		t.Fatalf("UpdateGame() setup error = %v", errDiverge)
+	}
+
+	req := connect.NewRequest(&xylona.ResetGameToOfficialDefinitionRequest{
+		GameId: "minecraft",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+	resp, errReset := fixture.service.ResetGameToOfficialDefinition(context.Background(), req)
+	if errReset != nil {
+		t.Fatalf("ResetGameToOfficialDefinition() error = %v", errReset)
+	}
+
+	restored := resp.Msg.GetGame()
+	if restored.GetName() != "Minecraft" {
+		t.Errorf("Name = %q, want %q", restored.GetName(), "Minecraft")
+	}
+	if restored.GetOfficialDefinitionDiverged() {
+		t.Error("OfficialDefinitionDiverged = true, want false")
+	}
+	if len(restored.GetVariants()) == 0 {
+		t.Error("Variants is empty, want bundled variants restored")
+	}
+}
+
+func TestResetGameToOfficialDefinitionErrorCodes(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	_, errInsert := fixture.conn.InsertGame(fixture.conn.DB, &models.GameSetter{
+		ID:                omit.From("custom-game"),
+		Name:              omit.From("Custom Game"),
+		DefaultPort:       omit.From(int64(1000)),
+		DefaultQueryPort:  omit.From(int64(1000)),
+		DefaultMaxPlayers: omit.From(int64(8)),
+		XylonaOfficial:    omit.From(false),
+	})
+	if errInsert != nil {
+		t.Fatalf("InsertGame() setup error = %v", errInsert)
+	}
+
+	tests := []struct {
+		name     string
+		gameID   string
+		wantCode connect.Code
+	}{
+		{name: "unknown game", gameID: "does-not-exist", wantCode: connect.CodeNotFound},
+		{name: "non-official game", gameID: "custom-game", wantCode: connect.CodeFailedPrecondition},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := connect.NewRequest(&xylona.ResetGameToOfficialDefinitionRequest{
+				GameId: tc.gameID,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-admin")
+
+			_, errReset := fixture.service.ResetGameToOfficialDefinition(context.Background(), req)
+			if errReset == nil {
+				t.Fatal("error = nil, want error")
+			}
+			if connect.CodeOf(errReset) != tc.wantCode {
+				t.Fatalf("code = %v, want %v", connect.CodeOf(errReset), tc.wantCode)
+			}
+		})
+	}
+}
+
 func TestImportGamePreviewReportsConflictAndImpact(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	exportResp := exportGameForTest(t, fixture, "minecraft")

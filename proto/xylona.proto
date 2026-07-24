@@ -19,6 +19,7 @@ service Xylona {
   rpc RemoveGame (RemoveGameRequest) returns (RemoveGameResponse) {}
   rpc ImportGame (ImportGameRequest) returns (ImportGameResponse) {}
   rpc ExportGame (ExportGameRequest) returns (ExportGameResponse) {}
+  rpc ResetGameToOfficialDefinition (ResetGameToOfficialDefinitionRequest) returns (ResetGameToOfficialDefinitionResponse) {}
   rpc ListGames (ListGamesRequest) returns (ListGamesResponse) {}
 
   // Steam App Lookup
@@ -439,6 +440,14 @@ message ImportGameResponse {
   repeated string validation_errors = 9;
   string imported_game_id = 10;
   repeated GameImportChange changes = 11;
+}
+
+message ResetGameToOfficialDefinitionRequest {
+  string game_id = 1;
+}
+
+message ResetGameToOfficialDefinitionResponse {
+  Game game = 1;
 }
 
 message ExportGameRequest {

@@ -47,8 +47,13 @@ var (
 	FS embed.FS
 
 	errMissingGameDefinition = errors.New("game definition is required")
-	importIDSuffixPattern    = regexp.MustCompile(`[^a-z0-9_]+`)
-	validGameIDPattern       = regexp.MustCompile(`^[a-z0-9_-]+$`)
+
+	// ErrGameNotOfficial reports a reset attempt on a game that is not an official definition.
+	ErrGameNotOfficial = errors.New("game is not an official definition")
+	// ErrNoBundledDefinition reports a reset attempt for a game without a bundled definition.
+	ErrNoBundledDefinition = errors.New("no bundled definition for game")
+	importIDSuffixPattern  = regexp.MustCompile(`[^a-z0-9_]+`)
+	validGameIDPattern     = regexp.MustCompile(`^[a-z0-9_-]+$`)
 )
 
 // Document is the stable, human-editable game definition envelope.
@@ -325,6 +330,41 @@ func SyncOfficialDefinitions(conn *db.Connection) (SyncResult, error) {
 	}
 
 	return result, nil
+}
+
+// ResetGameToOfficialDefinition force-applies the bundled official definition
+// to an official game row, discarding local edits and restamping sync metadata
+// so future startup syncs track the row again.
+func ResetGameToOfficialDefinition(conn *db.Connection, gameID string) (*models.Game, error) {
+	existing, errGet := conn.GetGameByID(gameID)
+	if errGet != nil {
+		return nil, fmt.Errorf("load game %q: %w", gameID, errGet)
+	}
+	if !existing.XylonaOfficial {
+		return nil, fmt.Errorf("reset game %q: %w", gameID, ErrGameNotOfficial)
+	}
+
+	definitions, errLoad := LoadBundled()
+	if errLoad != nil {
+		return nil, errLoad
+	}
+
+	var definition *ParsedDefinition
+	for _, candidate := range definitions {
+		if candidate.Model.ID == existing.ID {
+			definition = candidate
+			break
+		}
+	}
+	if definition == nil {
+		return nil, fmt.Errorf("reset game %q: %w", gameID, ErrNoBundledDefinition)
+	}
+
+	updated, errUpdate := conn.UpdateGame(conn.DB, existing, GameSetterForModel(definition.Model))
+	if errUpdate != nil {
+		return nil, fmt.Errorf("apply bundled definition to game %q: %w", gameID, errUpdate)
+	}
+	return updated, nil
 }
 
 // MarkOfficialDiverged records that an official game has local edits.
