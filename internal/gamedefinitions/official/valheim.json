@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:01f3f6d6da1c7c8272b966a8ec50856ab89f51c4e4a0434c787d9390cee93f34",
+  "content_hash": "sha256:01d9333ff9afad95acb56feba75efcb41a8e8b26dadecdee370e68a8e1c8ff23",
   "game": {
     "id": "valheim",
     "name": "Valheim",
@@ -51,7 +51,13 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": [
+      {"command":"kick","syntax":"kick <playername>","summary":"Kick a player from the server.","description":"Disconnects the named player from the Valheim dedicated server.","category":"Moderation","aliases":[],"keywords":["player","disconnect","moderation"],"arguments":[{"name":"playername","description":"Name of the player to kick.","required":true,"repeatable":false,"valueType":"player-name","suggestedValues":[],"defaultValue":""}],"examples":[{"command":"kick ExamplePlayer","description":"Disconnect ExamplePlayer."}],"notes":["The dedicated-server manual lists this as an admin console command."],"documentationUrl":"https://steamcommunity.com/app/892970/discussions/0/3103511914702452041/","availability":"Valheim dedicated-server console","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"ban","syntax":"ban <playername>","summary":"Ban a player from the server.","description":"Bans the named player from the Valheim dedicated server.","category":"Moderation","aliases":[],"keywords":["player","ban","moderation"],"arguments":[{"name":"playername","description":"Name of the player to ban.","required":true,"repeatable":false,"valueType":"player-name","suggestedValues":[],"defaultValue":""}],"examples":[{"command":"ban ExamplePlayer","description":"Ban ExamplePlayer."}],"notes":["The dedicated-server manual lists this as an admin console command."],"documentationUrl":"https://steamcommunity.com/app/892970/discussions/0/3103511914702452041/","availability":"Valheim dedicated-server console","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"},
+      {"command":"unban","syntax":"unban <playername>","summary":"Remove a player ban.","description":"Unbans the named player.","category":"Moderation","aliases":[],"keywords":["player","unban","moderation"],"arguments":[{"name":"playername","description":"Name of the player to unban.","required":true,"repeatable":false,"valueType":"player-name","suggestedValues":[],"defaultValue":""}],"examples":[{"command":"unban ExamplePlayer","description":"Remove ExamplePlayer's ban."}],"notes":["The dedicated-server manual lists this as an admin console command."],"documentationUrl":"https://steamcommunity.com/app/892970/discussions/0/3103511914702452041/","availability":"Valheim dedicated-server console","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"banned","syntax":"banned","summary":"List banned players.","description":"Prints the dedicated server's banned-player list.","category":"Moderation","aliases":[],"keywords":["players","ban","list"],"arguments":[],"examples":[{"command":"banned","description":"Review the current ban list."}],"notes":["The dedicated-server manual lists this as an admin console command."],"documentationUrl":"https://steamcommunity.com/app/892970/discussions/0/3103511914702452041/","availability":"Valheim dedicated-server console","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"}
+    ]
   },
   "config_schemas": [],
   "linux_start_args_template": [

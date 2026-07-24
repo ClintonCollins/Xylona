@@ -11,12 +11,13 @@ import type { ConfigSchemaEntry } from './config-schema-types'
 import type { VariantModSummary } from './useGameFormModProfile'
 
 export type Platform = 'windows' | 'linux'
-export type GameFormTabID = 'overview' | 'runtime' | 'mods' | 'config'
+export type GameFormTabID = 'overview' | 'runtime' | 'mods' | 'console-commands' | 'config'
 
 export interface GameFormContext {
   game: Ref<Game>
   existingGame: Ref<boolean>
   copyGame: Ref<boolean>
+  activeFormTab: Ref<GameFormTabID>
 
   defaultPort: Ref<number | null>
   defaultQueryPort: Ref<number | null>

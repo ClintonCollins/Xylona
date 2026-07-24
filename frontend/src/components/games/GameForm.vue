@@ -138,6 +138,18 @@
         </div>
 
         <div
+          v-show="activeFormTab === 'console-commands'"
+          :id="formTabPanelID('console-commands')"
+          :aria-hidden="activeFormTab !== 'console-commands'"
+          :aria-labelledby="formTabID('console-commands')"
+          :inert="activeFormTab !== 'console-commands'"
+          class="game-form-tab-panel"
+          data-testid="game-form-tab-panel-console-commands"
+          role="tabpanel">
+          <game-form-console-commands-tab />
+        </div>
+
+        <div
           v-show="activeFormTab === 'config'"
           :id="formTabPanelID('config')"
           :aria-hidden="activeFormTab !== 'config'"
@@ -177,6 +189,7 @@ import type { ConfigSchemaEntry } from './config-schema-types'
 import GameFormOverviewTab from './GameFormOverviewTab.vue'
 import GameFormRuntimeTab from './GameFormRuntimeTab.vue'
 import GameFormModsTab from './GameFormModsTab.vue'
+import GameFormConsoleCommandsTab from './GameFormConsoleCommandsTab.vue'
 import GameFormConfigTab from './GameFormConfigTab.vue'
 import { type GameFormContext, gameFormContextKey } from './GameFormTypes'
 import {
@@ -422,6 +435,7 @@ provide(gameFormContextKey, {
   game,
   existingGame,
   copyGame,
+  activeFormTab,
   defaultPort,
   defaultQueryPort,
   activePlatform,

@@ -546,47 +546,15 @@
         </q-scroll-area>
       </template>
 
-      <!-- Console input -->
-      <div
-        :class="{ 'console-input-disabled': consoleInputDisabled }"
-        class="console-input-wrapper">
-        <q-input
-          id="consoleInput"
-          v-model="serverInput"
-          :disable="consoleInputDisabled"
-          autofocus
-          borderless
-          class="console-input-field"
-          dense
-          name="consoleInput"
-          placeholder="Enter command..."
-          square
-          @keyup.enter="sendGameServerInput"
-          @keyup.up="navigateConsoleInputHistory('up')"
-          @keyup.down="navigateConsoleInputHistory('down')">
-          <template #prepend>
-            <span aria-hidden="true" class="console-prompt">&gt;</span>
-          </template>
-          <template #append>
-            <q-btn
-              :disable="consoleInputDisabled"
-              :loading="sendingConsoleInput"
-              aria-label="Send command"
-              class="console-send-button"
-              color="primary"
-              dense
-              flat
-              icon="send"
-              name="send"
-              type="submit"
-              @click="sendGameServerInput">
-              <q-tooltip v-if="!hasPermission('game_server.console')">
-                Requires console permission
-              </q-tooltip>
-            </q-btn>
-          </template>
-        </q-input>
-      </div>
+      <console-command-input
+        v-model="serverInput"
+        :commands="gameServer.game?.consoleCommands ?? []"
+        :disabled="consoleInputDisabled"
+        :game-name="gameServer.gameName"
+        :loading="sendingConsoleInput"
+        :permission-denied="!hasPermission('game_server.console')"
+        @history="navigateConsoleInputHistory"
+        @submit="sendGameServerInput" />
     </div>
 
     <!-- Player rail -->
@@ -678,6 +646,7 @@
 import { create } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import ConsoleCommandInput from '@/components/game_servers/ConsoleCommandInput.vue'
 import GameServerPlayerManagementDialog from '@/components/game_servers/GameServerPlayerManagementDialog.vue'
 import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRoster.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
@@ -2593,97 +2562,6 @@ async function sendGameServerInput() {
   opacity: 0.6;
 }
 
-/* ===== Console Input ===== */
-.console-input-wrapper {
-  background: var(--xy-surface-1);
-  border-top: 1px solid var(--xy-border);
-  flex-shrink: 0;
-  padding: var(--xy-space-xs) var(--xy-space-sm);
-  transition:
-    background-color var(--xy-transition-fast),
-    border-color var(--xy-transition-fast),
-    box-shadow var(--xy-transition-fast);
-}
-
-.console-input-wrapper:focus-within {
-  border-top-color: var(--xy-accent-border);
-  background: color-mix(in srgb, var(--xy-surface-1) 98%, var(--xy-accent) 2%);
-  box-shadow: inset 0 0 0 1px var(--xy-accent-border-soft);
-}
-
-.console-input-disabled {
-  background: var(--xy-surface-0);
-}
-
-.console-prompt {
-  font-family: var(--xy-font-mono);
-  font-size: var(--xy-font-size-sm);
-  font-weight: 600;
-  color: var(--xy-accent);
-  user-select: none;
-  opacity: 0.9;
-}
-
-.console-input-wrapper:focus-within .console-prompt {
-  opacity: 1;
-}
-
-.console-input-field {
-  width: 100%;
-}
-
-.console-input-field :deep(.q-field__control) {
-  min-height: 2.5rem;
-  height: 2.5rem;
-  padding: 0 var(--xy-space-xs) 0 var(--xy-space-sm);
-  font-family: var(--xy-font-mono);
-}
-
-.console-input-field :deep(.q-field__inner) {
-  background: transparent;
-}
-
-.console-input-field :deep(.q-field__prepend) {
-  height: 100%;
-  padding-right: var(--xy-space-sm);
-}
-
-.console-input-field :deep(.q-field__append) {
-  height: 100%;
-  padding-left: var(--xy-space-sm);
-}
-
-.console-input-field :deep(.q-field__native) {
-  color: var(--xy-text-primary);
-  font-size: var(--xy-font-size-sm);
-  line-height: 1.4;
-}
-
-.console-input-field :deep(.q-field__native::placeholder) {
-  color: var(--xy-text-secondary);
-  opacity: 1;
-}
-
-.console-input-field:has(:focus-visible) :deep(.q-field__control) {
-  box-shadow: none;
-}
-
-.console-send-button {
-  min-width: 2rem;
-  min-height: 2rem;
-  padding: 0;
-  border-radius: var(--xy-radius-sm);
-  background: var(--xy-primary-muted);
-}
-
-.console-send-button :deep(.q-icon) {
-  font-size: 1.1rem;
-}
-
-.console-input-disabled .console-prompt {
-  color: var(--xy-text-muted);
-}
-
 /* ===== Fullscreen Console ===== */
 .console-wrapper.expanded {
   position: fixed;
@@ -2944,10 +2822,6 @@ async function sendGameServerInput() {
   .console-scroll-area {
     padding-inline: var(--xy-space-base) var(--xy-space-sm);
     font-size: 0.8rem;
-  }
-
-  .console-input-wrapper {
-    padding: var(--xy-space-sm);
   }
 }
 </style>

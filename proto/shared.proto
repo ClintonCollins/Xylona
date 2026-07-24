@@ -144,6 +144,7 @@ message Game {
   string official_definition_source = 88;
   int64 official_definition_schema_version = 89;
   bool official_definition_diverged = 90;
+  repeated GameConsoleCommand console_commands = 91;
 }
 
 message SteamApp {
@@ -875,4 +876,42 @@ message BackupProgress {
   string message = 6;
   int64 size_bytes = 7;
   string game_server_name = 8;
+}
+
+enum GameConsoleCommandRisk {
+  GAME_CONSOLE_COMMAND_RISK_UNSPECIFIED = 0;
+  GAME_CONSOLE_COMMAND_RISK_NONE = 1;
+  GAME_CONSOLE_COMMAND_RISK_CAUTION = 2;
+  GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE = 3;
+}
+
+message GameConsoleCommandArgument {
+  string name = 1;
+  string description = 2;
+  bool required = 3;
+  bool repeatable = 4;
+  string value_type = 5;
+  repeated string suggested_values = 6;
+  string default_value = 7;
+}
+
+message GameConsoleCommandExample {
+  string command = 1;
+  string description = 2;
+}
+
+message GameConsoleCommand {
+  string command = 1;
+  string syntax = 2;
+  string summary = 3;
+  string description = 4;
+  string category = 5;
+  repeated string aliases = 6;
+  repeated string keywords = 7;
+  repeated GameConsoleCommandArgument arguments = 8;
+  repeated GameConsoleCommandExample examples = 9;
+  repeated string notes = 10;
+  string documentation_url = 11;
+  string availability = 12;
+  GameConsoleCommandRisk risk = 13;
 }

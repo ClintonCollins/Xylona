@@ -371,7 +371,7 @@ describe('GameForm', () => {
     expect(mocks.push).toHaveBeenCalledWith({ path: '/games/minecraft/edit' })
   })
 
-  it('organizes the editor into tabs and switches to runtime details on demand', async () => {
+  it('organizes the editor into tabs and switches sections on demand', async () => {
     mocks.getGame.mockResolvedValue({
       game: create(GameSchema, {
         id: 'minecraft',
@@ -392,14 +392,21 @@ describe('GameForm', () => {
 
     const overviewPanel = wrapper.get('[data-testid="game-form-tab-panel-overview"]')
     const runtimePanel = wrapper.get('[data-testid="game-form-tab-panel-runtime"]')
+    const consoleCommandsPanel = wrapper.get('[data-testid="game-form-tab-panel-console-commands"]')
 
     expect(overviewPanel.attributes('style') ?? '').not.toContain('display: none')
     expect(runtimePanel.attributes('style') ?? '').toContain('display: none')
+    expect(consoleCommandsPanel.attributes('style') ?? '').toContain('display: none')
 
     await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
 
     expect(overviewPanel.attributes('style') ?? '').toContain('display: none')
     expect(runtimePanel.attributes('style') ?? '').not.toContain('display: none')
+
+    await wrapper.get('[data-testid="game-form-tab-console-commands"]').trigger('click')
+
+    expect(runtimePanel.attributes('style') ?? '').toContain('display: none')
+    expect(consoleCommandsPanel.attributes('style') ?? '').not.toContain('display: none')
   })
 
   it('restores the last active tab from history state on reload', async () => {

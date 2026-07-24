@@ -226,6 +226,14 @@ func TestEditGameValidData(t *testing.T) {
 
 	updatedGame := newTestGame(game.GetId(), "Edit Game Updated")
 	updatedGame.DefaultPort = 27015
+	updatedGame.ConsoleCommands = []*xylona.GameConsoleCommand{
+		{
+			Command: "status",
+			Syntax:  "status",
+			Summary: "Shows the current server status.",
+			Risk:    xylona.GameConsoleCommandRisk_GAME_CONSOLE_COMMAND_RISK_NONE,
+		},
+	}
 
 	req := connect.NewRequest(&xylona.EditGameRequest{
 		GameId: game.GetId(),
@@ -245,6 +253,13 @@ func TestEditGameValidData(t *testing.T) {
 	}
 	if resp.Msg.GetGame().GetDefaultPort() != 27015 {
 		t.Errorf("EditGame().Game.DefaultPort = %d, want %d", resp.Msg.GetGame().GetDefaultPort(), 27015)
+	}
+	consoleCommands := resp.Msg.GetGame().GetConsoleCommands()
+	if len(consoleCommands) != 1 {
+		t.Fatalf("EditGame().Game.ConsoleCommands length = %d, want 1", len(consoleCommands))
+	}
+	if consoleCommands[0].GetCommand() != "status" {
+		t.Errorf("EditGame().Game.ConsoleCommands[0].Command = %q, want %q", consoleCommands[0].GetCommand(), "status")
 	}
 }
 

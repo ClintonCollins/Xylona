@@ -1,6 +1,7 @@
 package gamedefinitions_test
 
 import (
+	"encoding/json"
 	"errors"
 	"maps"
 	"slices"
@@ -300,6 +301,124 @@ func TestExportParseRoundTripPreservesDefaultEnvVars(t *testing.T) {
 	}
 	if parsed.Model.DefaultEnvVars != game.DefaultEnvVars {
 		t.Fatalf("Parse().Model.DefaultEnvVars = %q, want %q", parsed.Model.DefaultEnvVars, game.DefaultEnvVars)
+	}
+}
+
+func TestExportParseRoundTripPreservesConsoleCommands(t *testing.T) {
+	conn := dbtest.NewMigratedConnection(t, "definition-console-commands-roundtrip.sqlite")
+	game, errGame := conn.GetGameByID("minecraft")
+	if errGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGame)
+	}
+	game.ConsoleCommands = `[{"command":"say","syntax":"say <message>","summary":"Broadcasts a message.","arguments":[{"name":"message","required":true,"repeatable":true,"valueType":"text"}],"examples":[{"command":"say Welcome","description":"Sends a welcome message."}],"risk":"GAME_CONSOLE_COMMAND_RISK_NONE"}]`
+
+	definitionJSON, hash, errExport := gamedefinitions.ExportModel(game, "test", fixedZeroTime())
+	if errExport != nil {
+		t.Fatalf("ExportModel() error = %v", errExport)
+	}
+	if !strings.Contains(definitionJSON, `"consoleCommands": [`) {
+		t.Fatal("ExportModel() did not expose consoleCommands in the game payload")
+	}
+
+	parsed, errParse := gamedefinitions.Parse([]byte(definitionJSON))
+	if errParse != nil {
+		t.Fatalf("Parse() error = %v", errParse)
+	}
+	if parsed.Hash != hash {
+		t.Fatalf("Parse().Hash = %q, want %q", parsed.Hash, hash)
+	}
+	if !strings.Contains(parsed.Model.ConsoleCommands, `"command":"say"`) {
+		t.Fatalf("Parse().Model.ConsoleCommands = %q, want say command", parsed.Model.ConsoleCommands)
+	}
+	validationErrors := gamedefinitions.ValidateModel(parsed.Model)
+	if len(validationErrors) != 0 {
+		t.Fatalf("ValidateModel() errors = %v", validationErrors)
+	}
+}
+
+func TestValidateModelRejectsInvalidConsoleCommands(t *testing.T) {
+	game := &models.Game{
+		ID:              "minecraft",
+		Name:            "Minecraft",
+		DefaultEnvVars:  "[]",
+		ConsoleCommands: `[{"command":""},{"command":"say"},{"command":"SAY"}]`,
+	}
+
+	validationErrors := gamedefinitions.ValidateModel(game)
+	if !slices.ContainsFunc(validationErrors, func(validationError string) bool {
+		return strings.Contains(validationError, "console_commands[0]: command is required")
+	}) {
+		t.Fatalf("ValidateModel() errors = %v, want missing command error", validationErrors)
+	}
+	if !slices.ContainsFunc(validationErrors, func(validationError string) bool {
+		return strings.Contains(validationError, "command \"SAY\" is duplicated")
+	}) {
+		t.Fatalf("ValidateModel() errors = %v, want duplicate command error", validationErrors)
+	}
+}
+
+func TestConsoleCommandHashTreatsOmittedDefaultsAsEquivalent(t *testing.T) {
+	conn := dbtest.NewMigratedConnection(t, "definition-console-command-default-hash.sqlite")
+	game, errGame := conn.GetGameByID("minecraft")
+	if errGame != nil {
+		t.Fatalf("GetGameByID() error = %v", errGame)
+	}
+	game.ConsoleCommands = `[{"command":"say","arguments":[{"name":"message","required":true}]}]`
+
+	definitionJSON, fullHash, errExport := gamedefinitions.ExportModel(game, "test", fixedZeroTime())
+	if errExport != nil {
+		t.Fatalf("ExportModel() error = %v", errExport)
+	}
+
+	var document gamedefinitions.Document
+	errDocument := json.Unmarshal([]byte(definitionJSON), &document)
+	if errDocument != nil {
+		t.Fatalf("unmarshal definition document: %v", errDocument)
+	}
+
+	var gameBody map[string]any
+	errGameBody := json.Unmarshal(document.Game, &gameBody)
+	if errGameBody != nil {
+		t.Fatalf("unmarshal game body: %v", errGameBody)
+	}
+	commandValues, commandsOK := gameBody["consoleCommands"].([]any)
+	if !commandsOK || len(commandValues) != 1 {
+		t.Fatalf("consoleCommands = %#v, want one command", gameBody["consoleCommands"])
+	}
+	command, commandOK := commandValues[0].(map[string]any)
+	if !commandOK {
+		t.Fatalf("consoleCommands[0] = %#v, want object", commandValues[0])
+	}
+	delete(command, "aliases")
+	delete(command, "description")
+	delete(command, "examples")
+	delete(command, "keywords")
+	delete(command, "notes")
+
+	argumentValues, argumentsOK := command["arguments"].([]any)
+	if !argumentsOK || len(argumentValues) != 1 {
+		t.Fatalf("arguments = %#v, want one argument", command["arguments"])
+	}
+	argument, argumentOK := argumentValues[0].(map[string]any)
+	if !argumentOK {
+		t.Fatalf("arguments[0] = %#v, want object", argumentValues[0])
+	}
+	delete(argument, "defaultValue")
+	delete(argument, "repeatable")
+	delete(argument, "suggestedValues")
+
+	sparseGameBody, errMarshal := json.Marshal(gameBody)
+	if errMarshal != nil {
+		t.Fatalf("marshal sparse game body: %v", errMarshal)
+	}
+	document.Game = sparseGameBody
+
+	sparseHash, errHash := gamedefinitions.HashDocument(document)
+	if errHash != nil {
+		t.Fatalf("HashDocument() error = %v", errHash)
+	}
+	if sparseHash != fullHash {
+		t.Fatalf("HashDocument() = %q, want %q", sparseHash, fullHash)
 	}
 }
 
@@ -721,6 +840,79 @@ func TestSyncOfficialDefinitionsSkipsUnchangedOfficialRows(t *testing.T) {
 	}
 	if result.Diverged != 0 {
 		t.Fatalf("SyncOfficialDefinitions().Diverged = %d, want 0", result.Diverged)
+	}
+}
+
+func TestSyncOfficialDefinitionsUpgradesPreConsoleCommandRows(t *testing.T) {
+	conn := dbtest.NewMigratedSchemaConnection(t, "definition-sync-pre-console-commands.sqlite")
+
+	definitions, errLoad := gamedefinitions.LoadBundled()
+	if errLoad != nil {
+		t.Fatalf("LoadBundled() error = %v", errLoad)
+	}
+	var minecraftDefinition *gamedefinitions.ParsedDefinition
+	for _, definition := range definitions {
+		if definition.Model.ID == "minecraft" {
+			minecraftDefinition = definition
+			break
+		}
+	}
+	if minecraftDefinition == nil {
+		t.Fatal("Minecraft bundled definition was not loaded")
+	}
+
+	preFeatureDocument := minecraftDefinition.Document
+	var preFeatureGame map[string]any
+	errGame := json.Unmarshal(preFeatureDocument.Game, &preFeatureGame)
+	if errGame != nil {
+		t.Fatalf("unmarshal Minecraft game definition: %v", errGame)
+	}
+	delete(preFeatureGame, "consoleCommands")
+	preFeatureGameJSON, errMarshal := json.Marshal(preFeatureGame)
+	if errMarshal != nil {
+		t.Fatalf("marshal pre-feature Minecraft game definition: %v", errMarshal)
+	}
+	preFeatureDocument.Game = preFeatureGameJSON
+	preFeatureHash, errHash := gamedefinitions.HashDocument(preFeatureDocument)
+	if errHash != nil {
+		t.Fatalf("HashDocument() error = %v", errHash)
+	}
+	if preFeatureHash == minecraftDefinition.Hash {
+		t.Fatal("pre-feature Minecraft hash equals populated command catalog hash")
+	}
+
+	preFeatureModel := *minecraftDefinition.Model
+	preFeatureModel.ConsoleCommands = "[]"
+	preFeatureModel.OfficialDefinitionHash = preFeatureHash
+	preFeatureModel.OfficialDefinitionDiverged = false
+	_, errInsert := conn.InsertGame(conn.DB, gamedefinitions.GameSetterForModel(&preFeatureModel))
+	if errInsert != nil {
+		t.Fatalf("InsertGame() error = %v", errInsert)
+	}
+
+	result, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
+	if errSync != nil {
+		t.Fatalf("SyncOfficialDefinitions() error = %v", errSync)
+	}
+	if result.Updated != 1 {
+		t.Fatalf("SyncOfficialDefinitions().Updated = %d, want 1", result.Updated)
+	}
+	if result.Diverged != 0 {
+		t.Fatalf("SyncOfficialDefinitions().Diverged = %d, want 0", result.Diverged)
+	}
+
+	updated, errUpdated := conn.GetGameByID("minecraft")
+	if errUpdated != nil {
+		t.Fatalf("GetGameByID() after sync error = %v", errUpdated)
+	}
+	if updated.ConsoleCommands == "[]" {
+		t.Fatal("ConsoleCommands were not populated during official definition sync")
+	}
+	if updated.OfficialDefinitionHash != minecraftDefinition.Hash {
+		t.Fatalf("OfficialDefinitionHash = %q, want %q", updated.OfficialDefinitionHash, minecraftDefinition.Hash)
+	}
+	if updated.OfficialDefinitionDiverged {
+		t.Fatal("OfficialDefinitionDiverged = true, want false")
 	}
 }
 

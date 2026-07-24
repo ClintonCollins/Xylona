@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:e80ea3e273271010eab225cccb9008b7107de99201a2142cd2ef8925a6c82c30",
+  "content_hash": "sha256:90530e3abf7ff2b51b8440ec84645f318908da46fddf08b1c2aad38e850e1aad",
   "game": {
     "id": "counter_strike_2",
     "name": "Counter-Strike 2",
@@ -51,7 +51,15 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": [
+      {"command":"status","syntax":"status","summary":"Lists server and connected-player status.","category":"Players","keywords":["players","status"],"documentationUrl":"https://developer.valvesoftware.com/wiki/Console_Command_List","availability":"Counter-Strike dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"say","syntax":"say <message>","summary":"Broadcasts a chat message.","category":"Messaging","keywords":["broadcast","message"],"arguments":[{"name":"message","description":"Message to broadcast.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://developer.valvesoftware.com/wiki/Console_Command_List","availability":"Counter-Strike dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"kick","syntax":"kick <name|userid>","summary":"Kicks a player by name or user ID.","category":"Moderation","keywords":["kick","player"],"arguments":[{"name":"target","description":"Player name or user ID from status.","required":true,"valueType":"player"}],"documentationUrl":"https://developer.valvesoftware.com/wiki/Console_Command_List/K","availability":"Counter-Strike dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"changelevel","syntax":"changelevel <mapname>","summary":"Changes to a map.","category":"Server","aliases":["map"],"keywords":["map","level"],"arguments":[{"name":"mapname","description":"Installed map name.","required":true,"valueType":"map"}],"documentationUrl":"https://developer.valvesoftware.com/wiki/Counter-Strike:_Global_Offensive/Game_Modes","availability":"Counter-Strike dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"mp_restartgame","syntax":"mp_restartgame <seconds>","summary":"Restarts the match after a delay.","category":"Match","keywords":["restart","match"],"arguments":[{"name":"seconds","description":"Restart delay in seconds.","required":true,"valueType":"integer"}],"documentationUrl":"https://developer.valvesoftware.com/wiki/Console_Command_List","availability":"Counter-Strike dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"exec","syntax":"exec <filename>","summary":"Executes a configuration file.","category":"Configuration","keywords":["config","cfg"],"arguments":[{"name":"filename","description":"Configuration filename.","required":true,"valueType":"filename"}],"documentationUrl":"https://developer.valvesoftware.com/wiki/Console_Command_List","availability":"Counter-Strike dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"}
+    ]
   },
   "config_schemas": [
     {

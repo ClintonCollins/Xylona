@@ -51,7 +51,8 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": []
   },
   "config_schemas": [],
   "linux_start_args_template": [

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:db1fff18dcb9af92806516b8a2b541345bc10da4f5b8a4b38046937a21d7e834",
+  "content_hash": "sha256:4bcb2568c0135eb052fbdffd5191c8f8b9f586d95a0758a3441b6d699a61cdfb",
   "game": {
     "id": "factorio",
     "name": "Factorio",
@@ -51,7 +51,16 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": [
+      {"command":"/help","syntax":"/help [command]","summary":"Shows command help.","category":"Discovery","aliases":["/h"],"keywords":["commands","documentation"],"arguments":[{"name":"command","description":"Command to describe.","valueType":"command"}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Factorio multiplayer console; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"/players","syntax":"/players [online|count]","summary":"Lists players or player counts.","category":"Players","aliases":["/p"],"keywords":["players","online"],"arguments":[{"name":"mode","description":"Optional listing mode.","valueType":"enum","suggestedValues":["online","count"]}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Factorio multiplayer console; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"/shout","syntax":"/shout <message>","summary":"Sends a message to every force.","category":"Messaging","aliases":["/s"],"keywords":["broadcast","message"],"arguments":[{"name":"message","description":"Message to broadcast.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Factorio multiplayer console; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"/ban","syntax":"/ban <player> <reason>","summary":"Bans a player.","category":"Moderation","keywords":["ban","player"],"arguments":[{"name":"player","description":"Player name.","required":true,"valueType":"player"},{"name":"reason","description":"Ban reason.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Admin command in the Factorio multiplayer console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"/unban","syntax":"/unban <player>","summary":"Removes a player ban.","category":"Moderation","keywords":["unban","player"],"arguments":[{"name":"player","description":"Player name.","required":true,"valueType":"player"}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Admin command in the Factorio multiplayer console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"/whitelist","syntax":"/whitelist <add|remove|get|clear> [player]","summary":"Manages the multiplayer allowlist.","category":"Access","keywords":["whitelist","allowlist"],"arguments":[{"name":"action","description":"Allowlist operation.","required":true,"valueType":"enum","suggestedValues":["add","remove","get","clear"]},{"name":"player","description":"Player for add or remove.","valueType":"player"}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Factorio multiplayer console; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"/server-save","syntax":"/server-save","summary":"Saves the multiplayer game on the server.","category":"Server","keywords":["save","backup"],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Admin command in the Factorio multiplayer console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"}
+    ]
   },
   "config_schemas": [
     {

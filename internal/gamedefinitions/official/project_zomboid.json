@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:f7d347178d83642c6f4b61876ab6511e7e204ad0271337cffdee1d67d019bfbb",
+  "content_hash": "sha256:e450c6fe41cb9063818f4990d656e5754ee341785d9962f0a5c1c1797ebf958e",
   "game": {
     "id": "project_zomboid",
     "name": "Project Zomboid",
@@ -51,7 +51,16 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": [
+      {"command":"help","syntax":"help [command]","summary":"Lists admin commands or command help.","category":"Discovery","keywords":["commands","documentation"],"arguments":[{"name":"command","description":"Command to describe.","valueType":"command"}],"documentationUrl":"https://pzwiki.net/wiki/Server_Commands","availability":"Project Zomboid dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"players","syntax":"players","summary":"Lists connected players.","category":"Players","keywords":["players","online"],"documentationUrl":"https://pzwiki.net/wiki/Server_Commands","availability":"Project Zomboid dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"servermsg","syntax":"servermsg <message>","summary":"Broadcasts a server message.","category":"Messaging","keywords":["broadcast","message"],"arguments":[{"name":"message","description":"Message to send.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://pzwiki.net/wiki/Server_Commands","availability":"Project Zomboid dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"kickuser","syntax":"kickuser <username> [reason]","summary":"Disconnects a user.","category":"Moderation","keywords":["kick","user"],"arguments":[{"name":"username","description":"Account username.","required":true,"valueType":"username"},{"name":"reason","description":"Optional reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://pzwiki.net/wiki/Server_Commands","availability":"Project Zomboid dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"banuser","syntax":"banuser <username> [reason]","summary":"Bans a user account.","category":"Moderation","keywords":["ban","user"],"arguments":[{"name":"username","description":"Account username.","required":true,"valueType":"username"},{"name":"reason","description":"Optional reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://pzwiki.net/wiki/Server_Commands","availability":"Project Zomboid dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"save","syntax":"save","summary":"Saves the world.","category":"Server","keywords":["save","backup"],"documentationUrl":"https://pzwiki.net/wiki/Server_Commands","availability":"Project Zomboid dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"quit","syntax":"quit","summary":"Stops the server.","category":"Server","keywords":["shutdown","stop"],"documentationUrl":"https://pzwiki.net/wiki/Server_Commands","availability":"Project Zomboid dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"}
+    ]
   },
   "config_schemas": [
     {

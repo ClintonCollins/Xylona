@@ -69,6 +69,7 @@ type Game struct {
 	DefaultEnvVars                    string           `db:"default_env_vars" `
 	LinuxAllowBackups                 bool             `db:"linux_allow_backups" `
 	WindowsAllowBackups               bool             `db:"windows_allow_backups" `
+	ConsoleCommands                   string           `db:"console_commands" `
 
 	R gameR `db:"-" `
 
@@ -101,7 +102,7 @@ type gameRLoaded struct {
 
 func buildGameColumns(tableName string) gameColumns {
 	columnsExpr := expr.NewColumnsExpr(
-		"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing", "official_definition_hash", "official_definition_source", "official_definition_schema_version", "official_definition_diverged", "default_env_vars", "linux_allow_backups", "windows_allow_backups",
+		"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing", "official_definition_hash", "official_definition_source", "official_definition_schema_version", "official_definition_diverged", "default_env_vars", "linux_allow_backups", "windows_allow_backups", "console_commands",
 	)
 
 	if tableName != "" {
@@ -154,6 +155,7 @@ func buildGameColumns(tableName string) gameColumns {
 		DefaultEnvVars:                    buildGameColumn(tableName, "default_env_vars"),
 		LinuxAllowBackups:                 buildGameColumn(tableName, "linux_allow_backups"),
 		WindowsAllowBackups:               buildGameColumn(tableName, "windows_allow_backups"),
+		ConsoleCommands:                   buildGameColumn(tableName, "console_commands"),
 	}
 }
 
@@ -203,6 +205,7 @@ type gameColumns struct {
 	DefaultEnvVars                    gameColumn
 	LinuxAllowBackups                 gameColumn
 	WindowsAllowBackups               gameColumn
+	ConsoleCommands                   gameColumn
 }
 
 // Alias returns the current table alias for the columns set.
@@ -291,10 +294,11 @@ type GameSetter struct {
 	DefaultEnvVars                    omit.Val[string]     `db:"default_env_vars" `
 	LinuxAllowBackups                 omit.Val[bool]       `db:"linux_allow_backups" `
 	WindowsAllowBackups               omit.Val[bool]       `db:"windows_allow_backups" `
+	ConsoleCommands                   omit.Val[string]     `db:"console_commands" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 43)
+	vals := make([]string, 0, 44)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -423,6 +427,9 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.WindowsAllowBackups.IsValue() {
 		vals = append(vals, "windows_allow_backups")
+	}
+	if s.ConsoleCommands.IsValue() {
+		vals = append(vals, "console_commands")
 	}
 	return vals
 }
@@ -556,6 +563,9 @@ func (s GameSetter) Overwrite(t *Game) {
 	}
 	if s.WindowsAllowBackups.IsValue() {
 		t.WindowsAllowBackups = s.WindowsAllowBackups.MustGet()
+	}
+	if s.ConsoleCommands.IsValue() {
+		t.ConsoleCommands = s.ConsoleCommands.MustGet()
 	}
 }
 
@@ -876,6 +886,13 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 				}
 				return sqlite.Arg(s.WindowsAllowBackups.MustGet()).WriteSQL(ctx, w, d, start)
 			}))
+		case "console_commands":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ConsoleCommands.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ConsoleCommands.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
 		}
 	}
 
@@ -887,7 +904,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 43)
+	exprs := make([]bob.Expression, 0, 44)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -1187,6 +1204,13 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "windows_allow_backups")...),
 			sqlite.Arg(s.WindowsAllowBackups),
+		}})
+	}
+
+	if s.ConsoleCommands.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "console_commands")...),
+			sqlite.Arg(s.ConsoleCommands),
 		}})
 	}
 
@@ -1551,6 +1575,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	DefaultEnvVars                    sqlite.WhereMod[Q, string]
 	LinuxAllowBackups                 sqlite.WhereMod[Q, bool]
 	WindowsAllowBackups               sqlite.WhereMod[Q, bool]
+	ConsoleCommands                   sqlite.WhereMod[Q, string]
 }
 
 func (gameWhere[Q]) AliasedAs(alias string) gameWhere[Q] {
@@ -1602,6 +1627,7 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		DefaultEnvVars:                    sqlite.Where[Q, string](cols.DefaultEnvVars.Expression),
 		LinuxAllowBackups:                 sqlite.Where[Q, bool](cols.LinuxAllowBackups.Expression),
 		WindowsAllowBackups:               sqlite.Where[Q, bool](cols.WindowsAllowBackups.Expression),
+		ConsoleCommands:                   sqlite.Where[Q, string](cols.ConsoleCommands.Expression),
 	}
 }
 

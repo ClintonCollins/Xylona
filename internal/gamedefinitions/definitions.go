@@ -212,6 +212,12 @@ func ValidateModel(game *models.Game) []string {
 			validationErrors = append(validationErrors, "default_env_vars: "+issue.Message)
 		}
 	}
+	consoleCommands, errConsoleCommands := protomap.GameConsoleCommandsFromStored(game.ConsoleCommands)
+	if errConsoleCommands != nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("console_commands: %v", errConsoleCommands))
+	} else {
+		validationErrors = append(validationErrors, validateConsoleCommands(consoleCommands)...)
+	}
 
 	_, errConfig := updateconfig.LoadGameConfigFromModel(game)
 	if errConfig != nil {
@@ -615,7 +621,7 @@ func emptyToBlank(value string) string {
 }
 
 func canonicalPayload(doc Document) ([]byte, error) {
-	gameBody, errGame := canonicalJSONValue(doc.Game)
+	gameBody, errGame := canonicalGameJSONValue(doc.Game)
 	if errGame != nil {
 		return nil, fmt.Errorf("canonicalize game: %w", errGame)
 	}
@@ -665,6 +671,58 @@ func canonicalPayload(doc Document) ([]byte, error) {
 	return out, nil
 }
 
+func canonicalGameJSONValue(raw json.RawMessage) (any, error) {
+	gameBody, errGameBody := canonicalJSONValue(raw)
+	if errGameBody != nil {
+		return nil, errGameBody
+	}
+
+	gameObject, ok := gameBody.(map[string]any)
+	if !ok {
+		return nil, errors.New("game must be a JSON object")
+	}
+
+	consoleCommandsValue, hasConsoleCommands := gameObject["consoleCommands"]
+	if !hasConsoleCommands {
+		return gameBody, nil
+	}
+	consoleCommands, ok := consoleCommandsValue.([]any)
+	if !ok {
+		return nil, errors.New("game.consoleCommands must be a JSON array")
+	}
+	if len(consoleCommands) == 0 {
+		delete(gameObject, "consoleCommands")
+		return gameBody, nil
+	}
+
+	normalizedCommands := make([]any, 0, len(consoleCommands))
+	for commandIndex, commandValue := range consoleCommands {
+		rawCommand, errRawCommand := json.Marshal(commandValue)
+		if errRawCommand != nil {
+			return nil, fmt.Errorf("marshal game.consoleCommands[%d]: %w", commandIndex, errRawCommand)
+		}
+
+		command := &xylona.GameConsoleCommand{}
+		errCommand := protojson.Unmarshal(rawCommand, command)
+		if errCommand != nil {
+			return nil, fmt.Errorf("unmarshal game.consoleCommands[%d]: %w", commandIndex, errCommand)
+		}
+		normalizedCommand, errNormalizedCommand := protojson.MarshalOptions{
+			EmitUnpopulated: true,
+		}.Marshal(command)
+		if errNormalizedCommand != nil {
+			return nil, fmt.Errorf("normalize game.consoleCommands[%d]: %w", commandIndex, errNormalizedCommand)
+		}
+		canonicalCommand, errCanonicalCommand := canonicalJSONValue(normalizedCommand)
+		if errCanonicalCommand != nil {
+			return nil, fmt.Errorf("canonicalize game.consoleCommands[%d]: %w", commandIndex, errCanonicalCommand)
+		}
+		normalizedCommands = append(normalizedCommands, canonicalCommand)
+	}
+	gameObject["consoleCommands"] = normalizedCommands
+	return gameBody, nil
+}
+
 func defaultEnvRawForHash(raw json.RawMessage) (json.RawMessage, error) {
 	defaultEnv, errParse := launchenv.ParseStored(string(raw))
 	if errParse != nil {
@@ -696,6 +754,51 @@ func canonicalJSONValue(raw json.RawMessage) (any, error) {
 		return nil, fmt.Errorf("decode JSON value: %w", errDecode)
 	}
 	return value, nil
+}
+
+func validateConsoleCommands(commands []*xylona.GameConsoleCommand) []string {
+	validationErrors := []string{}
+	commandNames := make(map[string]struct{}, len(commands))
+	for commandIndex, command := range commands {
+		if command == nil {
+			validationErrors = append(validationErrors, fmt.Sprintf("console_commands[%d]: command is required", commandIndex))
+			continue
+		}
+
+		canonicalCommand := strings.TrimSpace(command.GetCommand())
+		if canonicalCommand == "" {
+			validationErrors = append(validationErrors, fmt.Sprintf("console_commands[%d]: command is required", commandIndex))
+		} else {
+			commandKey := strings.ToLower(canonicalCommand)
+			if _, exists := commandNames[commandKey]; exists {
+				validationErrors = append(validationErrors, fmt.Sprintf("console_commands[%d]: command %q is duplicated", commandIndex, canonicalCommand))
+			} else {
+				commandNames[commandKey] = struct{}{}
+			}
+		}
+
+		for argumentIndex, argument := range command.GetArguments() {
+			if strings.TrimSpace(argument.GetName()) == "" {
+				validationErrors = append(validationErrors, fmt.Sprintf("console_commands[%d].arguments[%d]: name is required", commandIndex, argumentIndex))
+			}
+		}
+		for exampleIndex, example := range command.GetExamples() {
+			if strings.TrimSpace(example.GetCommand()) == "" {
+				validationErrors = append(validationErrors, fmt.Sprintf("console_commands[%d].examples[%d]: command is required", commandIndex, exampleIndex))
+			}
+		}
+
+		risk := command.GetRisk()
+		switch risk {
+		case xylona.GameConsoleCommandRisk_GAME_CONSOLE_COMMAND_RISK_UNSPECIFIED,
+			xylona.GameConsoleCommandRisk_GAME_CONSOLE_COMMAND_RISK_NONE,
+			xylona.GameConsoleCommandRisk_GAME_CONSOLE_COMMAND_RISK_CAUTION,
+			xylona.GameConsoleCommandRisk_GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE:
+		default:
+			validationErrors = append(validationErrors, fmt.Sprintf("console_commands[%d]: risk is invalid", commandIndex))
+		}
+	}
+	return validationErrors
 }
 
 func validateStructuredStartArgsGameConfig(game *models.Game) error {

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
@@ -101,6 +102,10 @@ func importGameChanges(existing *models.Game, imported *models.Game) ([]*xylona.
 	errDefaultEnv := builder.addDefaultEnv(existing.DefaultEnvVars, imported.DefaultEnvVars)
 	if errDefaultEnv != nil {
 		return nil, errDefaultEnv
+	}
+	errConsoleCommands := builder.addConsoleCommands(existing.ConsoleCommands, imported.ConsoleCommands)
+	if errConsoleCommands != nil {
+		return nil, errConsoleCommands
 	}
 
 	builder.addString("Updates", "Update provider", "update_config.update_provider", providerConfigSummary(existingConfig.UpdateProvider), providerConfigSummary(importedConfig.UpdateProvider))
@@ -344,6 +349,46 @@ func (builder *importGameChangeBuilder) addDefaultEnv(previous string, imported 
 
 	builder.addDetected("Runtime", "Default environment variables", "default_env_vars", envVarsSummary(previousVars), envVarsSummary(importedVars))
 	return nil
+}
+
+func (builder *importGameChangeBuilder) addConsoleCommands(previous string, imported string) error {
+	previousCommands, errPreviousCommands := protomap.GameConsoleCommandsFromStored(previous)
+	if errPreviousCommands != nil {
+		return fmt.Errorf("parse existing console_commands: %w", errPreviousCommands)
+	}
+	importedCommands, errImportedCommands := protomap.GameConsoleCommandsFromStored(imported)
+	if errImportedCommands != nil {
+		return fmt.Errorf("parse imported console_commands: %w", errImportedCommands)
+	}
+	if reflect.DeepEqual(previousCommands, importedCommands) {
+		return nil
+	}
+
+	builder.addDetected(
+		"Console",
+		"Known console commands",
+		"console_commands",
+		consoleCommandsSummary(previousCommands),
+		consoleCommandsSummary(importedCommands),
+	)
+	return nil
+}
+
+func consoleCommandsSummary(commands []*xylona.GameConsoleCommand) string {
+	if len(commands) == 0 {
+		return "None"
+	}
+	names := make([]string, 0, len(commands))
+	for _, command := range commands {
+		if command == nil {
+			continue
+		}
+		names = append(names, command.GetCommand())
+	}
+	if len(names) == 0 {
+		return "None"
+	}
+	return strings.Join(names, ", ")
 }
 
 func (builder *importGameChangeBuilder) addModProfile(previous *updateproviders.ModProfile, imported *updateproviders.ModProfile) {

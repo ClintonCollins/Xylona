@@ -479,6 +479,49 @@ func TestGameProtoToModel(t *testing.T) {
 	}
 }
 
+func TestGameConsoleCommandsRoundTrip(t *testing.T) {
+	input := []*xylona.GameConsoleCommand{
+		{
+			Command:          "whitelist",
+			Syntax:           "whitelist add <player>",
+			Summary:          "Adds a player to the allowlist.",
+			Category:         "Administration",
+			Aliases:          []string{"allowlist"},
+			Keywords:         []string{"access", "players"},
+			Arguments:        []*xylona.GameConsoleCommandArgument{{Name: "player", Required: true, ValueType: "player"}},
+			Examples:         []*xylona.GameConsoleCommandExample{{Command: "whitelist add Alex", Description: "Allows Alex to join."}},
+			Notes:            []string{"Requires operator permission."},
+			DocumentationUrl: "https://minecraft.wiki/w/Commands/whitelist",
+			Availability:     "Java Edition",
+			Risk:             xylona.GameConsoleCommandRisk_GAME_CONSOLE_COMMAND_RISK_CAUTION,
+		},
+	}
+
+	stored, errStore := GameConsoleCommandsToStored(input)
+	if errStore != nil {
+		t.Fatalf("GameConsoleCommandsToStored() error = %v", errStore)
+	}
+	got, errParse := GameConsoleCommandsFromStored(stored)
+	if errParse != nil {
+		t.Fatalf("GameConsoleCommandsFromStored() error = %v", errParse)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(commands) = %d, want 1", len(got))
+	}
+	if got[0].GetCommand() != input[0].GetCommand() || got[0].GetRisk() != input[0].GetRisk() {
+		t.Fatalf("command = %+v, want %+v", got[0], input[0])
+	}
+	if got[0].GetArguments()[0].GetValueType() != "player" {
+		t.Fatalf("argument value type = %q, want player", got[0].GetArguments()[0].GetValueType())
+	}
+
+	model := GameProtoToModel(&xylona.Game{ConsoleCommands: input})
+	game := GameModelToProto(model)
+	if len(game.GetConsoleCommands()) != 1 || game.GetConsoleCommands()[0].GetCommand() != "whitelist" {
+		t.Fatalf("Game model/proto console commands = %+v, want whitelist command", game.GetConsoleCommands())
+	}
+}
+
 func TestCommandTypeRoundtrip(t *testing.T) {
 	tests := []struct {
 		name          string

@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:83907ca5f7ef8a1033737ef83ce53bab3e283a5062e7fc2c6ffd75040f3a2f01",
+  "content_hash": "sha256:16ef0221cba7313a76bb67acb74b61bfd9234a05ee8f58c86317725f63a7bf90",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -51,7 +51,16 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": [
+      {"command":"help","syntax":"help [command]","summary":"Lists console commands or detailed help.","category":"Discovery","keywords":["commands","documentation"],"arguments":[{"name":"command","description":"Command to describe.","valueType":"command"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console; requires the relevant serveradmin.xml permission level.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"listplayers","syntax":"listplayers","summary":"Lists connected players.","category":"Players","aliases":["lp"],"keywords":["players","online"],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"say","syntax":"say <message>","summary":"Broadcasts a message.","category":"Messaging","keywords":["broadcast","message"],"arguments":[{"name":"message","description":"Message to send.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"kick","syntax":"kick <player entity id> [reason]","summary":"Disconnects a player.","category":"Moderation","keywords":["kick","player"],"arguments":[{"name":"player entity id","description":"Entity ID from listplayers.","required":true,"valueType":"player ID"},{"name":"reason","description":"Optional reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"ban add","syntax":"ban add <player entity id> [duration] [reason]","summary":"Bans a player.","category":"Moderation","keywords":["ban","player"],"arguments":[{"name":"player entity id","description":"Entity ID from listplayers.","required":true,"valueType":"player ID"},{"name":"duration","description":"Optional ban duration.","valueType":"duration"},{"name":"reason","description":"Optional ban reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"saveworld","syntax":"saveworld","summary":"Saves the current world.","category":"Server","keywords":["save","backup"],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"shutdown","syntax":"shutdown [seconds] [message]","summary":"Stops the server, optionally after a delay.","category":"Server","keywords":["shutdown","stop"],"arguments":[{"name":"seconds","description":"Optional delay.","valueType":"integer"},{"name":"message","description":"Optional shutdown notice.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"}
+    ]
   },
   "config_schemas": [
     {

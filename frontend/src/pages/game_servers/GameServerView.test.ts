@@ -647,6 +647,37 @@ describe('GameServerView', () => {
     )
   })
 
+  it('sends input that does not match the game command catalog unchanged', async () => {
+    mocks.getGameServer.mockImplementation(() =>
+      Promise.resolve(
+        create(GetGameServerResponseSchema, {
+          gameServer: buildOnlineGameServer(),
+        }),
+      ),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+    mocks.sendGameServerInput.mockResolvedValue({})
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as {
+      sendGameServerInput: () => Promise<void>
+      serverInput: string
+    }
+    viewModel.serverInput = 'custom-plugin-command --raw value'
+    await viewModel.sendGameServerInput()
+
+    expect(mocks.sendGameServerInput).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: 'custom-plugin-command --raw value',
+      }),
+    )
+    expect(viewModel.serverInput).toBe('')
+  })
+
   it('keeps console recovery visible until an explicit connected control arrives', async () => {
     mocks.readGameServerOutput.mockResolvedValue(
       create(ReadGameServerOutputResponseSchema, { output: '' }),

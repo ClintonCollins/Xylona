@@ -251,6 +251,10 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		gameModel.WindowsUpdateCommand,
 		gameConfig.UpdateProvider.Kind,
 	)
+	consoleCommands, errConsoleCommands := GameConsoleCommandsFromStored(gameModel.ConsoleCommands)
+	if errConsoleCommands != nil {
+		log.Warn().Err(errConsoleCommands).Str("game_id", gameModel.ID).Msg("failed to load game console commands")
+	}
 
 	return &xylona.Game{
 		Id:                                gameModel.ID,
@@ -302,6 +306,7 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		LinuxUpdateType:                   linuxUpdateType,
 		WindowsInstallType:                windowsInstallType,
 		WindowsUpdateType:                 windowsUpdateType,
+		ConsoleCommands:                   consoleCommands,
 	}
 }
 
@@ -327,6 +332,11 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		gameProto.GetWindowsUpdateCommand(),
 		gameProto.GetSteamAppid(),
 	)
+	consoleCommands, errConsoleCommands := GameConsoleCommandsToStored(gameProto.GetConsoleCommands())
+	if errConsoleCommands != nil {
+		log.Warn().Err(errConsoleCommands).Str("game_id", gameProto.GetId()).Msg("failed to save game console commands")
+		consoleCommands = emptyConsoleCommands
+	}
 
 	gameModel := &models.Game{
 		ID:                                gameProto.GetId(),
@@ -371,6 +381,7 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		OfficialDefinitionSchemaVersion:   gameProto.GetOfficialDefinitionSchemaVersion(),
 		OfficialDefinitionDiverged:        gameProto.GetOfficialDefinitionDiverged(),
 		DefaultEnvVars:                    "[]",
+		ConsoleCommands:                   consoleCommands,
 	}
 
 	gameConfig := updateproviders.GameConfig{
@@ -443,6 +454,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		OfficialDefinitionSchemaVersion:   omit.From(gameModel.OfficialDefinitionSchemaVersion),
 		OfficialDefinitionDiverged:        omit.From(gameModel.OfficialDefinitionDiverged),
 		DefaultEnvVars:                    omit.From(gameModel.DefaultEnvVars),
+		ConsoleCommands:                   omit.From(gameModel.ConsoleCommands),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}

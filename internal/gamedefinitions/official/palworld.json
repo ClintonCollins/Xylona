@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:15ba5895b72f3889a84a9903b132b8626d5f90cd763044d4a6986e3c676c8fb7",
+  "content_hash": "sha256:9d8f932f6cd20cc123815f429a1ff5987ab8dfb06be47a0f791e5e959c1c0be6",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -51,7 +51,17 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": [
+      {"command":"/Info","syntax":"/Info","summary":"Shows server information.","category":"Server","keywords":["information","status"],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"/ShowPlayers","syntax":"/ShowPlayers","summary":"Lists connected players and identifiers.","category":"Players","keywords":["players","online","uid"],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"/Broadcast","syntax":"/Broadcast <message>","summary":"Broadcasts a message to all players.","category":"Messaging","keywords":["broadcast","message"],"arguments":[{"name":"message","description":"Message to send.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"/KickPlayer","syntax":"/KickPlayer <player UID>","summary":"Disconnects a player by UID.","category":"Moderation","keywords":["kick","player","uid"],"arguments":[{"name":"player UID","description":"UID reported by /ShowPlayers.","required":true,"valueType":"player UID"}],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"/BanPlayer","syntax":"/BanPlayer <player UID>","summary":"Bans a player by UID.","category":"Moderation","keywords":["ban","player","uid"],"arguments":[{"name":"player UID","description":"UID reported by /ShowPlayers.","required":true,"valueType":"player UID"}],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"/Save","syntax":"/Save","summary":"Saves world data.","category":"Server","keywords":["save","backup"],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"/Shutdown","syntax":"/Shutdown <seconds> <message>","summary":"Schedules a server shutdown.","category":"Server","keywords":["shutdown","restart"],"arguments":[{"name":"seconds","description":"Shutdown delay in seconds.","required":true,"valueType":"integer"},{"name":"message","description":"Notice displayed to players.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"},
+      {"command":"/DoExit","syntax":"/DoExit","summary":"Immediately stops the server.","category":"Server","keywords":["shutdown","exit"],"documentationUrl":"https://docs.palworldgame.com/settings-and-operation/commands/","availability":"Palworld RCON/admin command; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"}
+    ]
   },
   "config_schemas": [
     {

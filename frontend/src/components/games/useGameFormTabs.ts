@@ -21,6 +21,11 @@ const formTabs: Array<{ id: GameFormTabID; label: string; copy: string }> = [
     copy: 'Optional mod source wiring for custom game definitions.',
   },
   {
+    id: 'console-commands',
+    label: 'Console Commands',
+    copy: 'Command reference entries, arguments, examples, availability, and risk.',
+  },
+  {
     id: 'config',
     label: 'Config Files',
     copy: 'Managed configuration files and schema definitions for game servers.',
@@ -28,7 +33,13 @@ const formTabs: Array<{ id: GameFormTabID; label: string; copy: string }> = [
 ]
 
 function isGameFormTabID(value: unknown): value is GameFormTabID {
-  return value === 'overview' || value === 'runtime' || value === 'mods' || value === 'config'
+  return (
+    value === 'overview' ||
+    value === 'runtime' ||
+    value === 'mods' ||
+    value === 'console-commands' ||
+    value === 'config'
+  )
 }
 
 function readActiveFormTabFromHistory(): GameFormTabID {

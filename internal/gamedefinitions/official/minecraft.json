@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:8767b0e55a031781afc7f8c0605a362c4ef0e867ded0d58908f8a50bfe601103",
+  "content_hash": "sha256:58eec8693f5bf03fb384d29ab6796215917642a7d996613fe2cff916b9967412",
   "game": {
     "id": "minecraft",
     "name": "Minecraft",
@@ -51,7 +51,17 @@
     "officialDefinitionHash": "",
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
-    "officialDefinitionDiverged": false
+    "officialDefinitionDiverged": false,
+    "consoleCommands": [
+      {"command":"help","syntax":"help [page|command]","summary":"Lists available commands or command help.","category":"Discovery","aliases":["?"],"keywords":["commands","documentation"],"arguments":[{"name":"page or command","description":"Help page number or command name.","valueType":"number or command"}],"examples":[{"command":"help stop","description":"Show help for stop."}],"documentationUrl":"https://minecraft.wiki/w/Commands/help","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"list","syntax":"list [uuids]","summary":"Lists connected players.","category":"Players","keywords":["players","online"],"documentationUrl":"https://minecraft.wiki/w/Commands/list","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"say","syntax":"say <message>","summary":"Broadcasts a server message.","category":"Messaging","keywords":["broadcast","message"],"arguments":[{"name":"message","description":"Message to broadcast.","required":true,"repeatable":true,"valueType":"text"}],"examples":[{"command":"say Server restarts in five minutes.","description":"Broadcast a restart notice."}],"documentationUrl":"https://minecraft.wiki/w/Commands/say","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"kick","syntax":"kick <targets> [reason]","summary":"Disconnects one or more players.","category":"Moderation","keywords":["remove","player"],"arguments":[{"name":"targets","description":"Player selector or player name.","required":true,"valueType":"target"},{"name":"reason","description":"Disconnect reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://minecraft.wiki/w/Commands/kick","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"ban","syntax":"ban <targets> [reason]","summary":"Adds players to the ban list.","category":"Moderation","keywords":["ban","player"],"arguments":[{"name":"targets","description":"Player selector or player name.","required":true,"valueType":"target"},{"name":"reason","description":"Ban reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://minecraft.wiki/w/Commands/ban","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"whitelist","syntax":"whitelist <on|off|list|add|remove|reload> [player]","summary":"Manages the server allowlist.","category":"Access","aliases":["allowlist"],"keywords":["whitelist","allowlist"],"arguments":[{"name":"action","description":"Allowlist operation.","required":true,"valueType":"enum","suggestedValues":["on","off","list","add","remove","reload"]},{"name":"player","description":"Player name for add or remove.","valueType":"player"}],"documentationUrl":"https://minecraft.wiki/w/Commands/whitelist","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"save-all","syntax":"save-all [flush]","summary":"Saves all loaded chunks and player data.","category":"Server","keywords":["save","backup"],"arguments":[{"name":"flush","description":"Flush file writes before returning.","valueType":"literal","suggestedValues":["flush"]}],"documentationUrl":"https://minecraft.wiki/w/Commands/save-all","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
+      {"command":"stop","syntax":"stop","summary":"Saves and stops the server.","category":"Server","keywords":["shutdown","quit"],"notes":["Disconnects all players after saving."],"documentationUrl":"https://minecraft.wiki/w/Commands/stop","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"}
+    ]
   },
   "config_schemas": [
     {
