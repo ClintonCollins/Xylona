@@ -447,6 +447,7 @@ type PalworldMapActor struct {
 	Key         string
 	Kind        PalworldMapActorKind
 	Name        string
+	GuildKey    string
 	GuildName   string
 	TrainerName string
 	ClassName   string
@@ -462,6 +463,17 @@ type PalworldMapActor struct {
 	Active      bool
 }
 
+// PalworldMapHealth contains display-safe operational telemetry.
+type PalworldMapHealth struct {
+	ServerFPS         float64
+	ServerFrameTimeMS float64
+	CurrentPlayers    uint32
+	MaxPlayers        uint32
+	UptimeSeconds     uint64
+	BaseCampCount     uint32
+	Days              uint32
+}
+
 // PalworldMapSnapshot is a sanitized point-in-time world snapshot.
 type PalworldMapSnapshot struct {
 	SourceTime  string
@@ -470,6 +482,7 @@ type PalworldMapSnapshot struct {
 	Partial     bool
 	Truncated   bool
 	Actors      []PalworldMapActor
+	Health      *PalworldMapHealth
 }
 
 // PalworldMapQueryRequest contains the node-local Palworld REST connection.

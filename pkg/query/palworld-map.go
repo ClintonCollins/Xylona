@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -43,6 +44,7 @@ type PalworldMapActor struct {
 	Key         string
 	Kind        PalworldMapActorKind
 	Name        string
+	GuildKey    string
 	GuildName   string
 	TrainerName string
 	ClassName   string
@@ -58,6 +60,18 @@ type PalworldMapActor struct {
 	Active      bool
 }
 
+// PalworldMapHealth contains display-safe operational telemetry from the
+// official Palworld metrics endpoint.
+type PalworldMapHealth struct {
+	ServerFPS         float64
+	ServerFrameTimeMS float64
+	CurrentPlayers    uint32
+	MaxPlayers        uint32
+	UptimeSeconds     uint64
+	BaseCampCount     uint32
+	Days              uint32
+}
+
 // PalworldMapSnapshot is one sanitized live-world snapshot.
 type PalworldMapSnapshot struct {
 	SourceTime  string
@@ -66,6 +80,7 @@ type PalworldMapSnapshot struct {
 	Partial     bool
 	Truncated   bool
 	Actors      []PalworldMapActor
+	Health      *PalworldMapHealth
 }
 
 type palworldGameDataResponse struct {
@@ -138,6 +153,25 @@ func palworldMapWithClient(
 		return nil, errBaseURL
 	}
 
+	type palworldMapMetricsResult struct {
+		metrics palworldMetricsResponse
+		err     error
+	}
+	metricsResultChannel := make(chan palworldMapMetricsResult, 1)
+	go func() {
+		var metrics palworldMetricsResponse
+		errMetrics := getPalworldJSON(
+			ctx,
+			client,
+			baseURL+"/metrics",
+			username,
+			password,
+			&metrics,
+		)
+		metricsResultChannel <- palworldMapMetricsResult{metrics: metrics, err: errMetrics}
+	}()
+
+	var snapshot *PalworldMapSnapshot
 	var gameData palworldGameDataResponse
 	errGameData := getPalworldJSONWithLimit(
 		ctx,
@@ -149,25 +183,32 @@ func palworldMapWithClient(
 		palworldMapMaxResponseBodyLen,
 	)
 	if errGameData == nil {
-		return sanitizePalworldGameData(gameData, time.Now().UTC()), nil
+		snapshot = sanitizePalworldGameData(gameData, time.Now().UTC())
+	} else {
+		var players palworldMapPlayersResponse
+		errPlayers := getPalworldJSON(
+			ctx,
+			client,
+			baseURL+"/players",
+			username,
+			password,
+			&players,
+		)
+		if errPlayers != nil {
+			<-metricsResultChannel
+			return nil, fmt.Errorf(
+				"query palworld world actors: %w",
+				errors.Join(errGameData, fmt.Errorf("player fallback: %w", errPlayers)),
+			)
+		}
+		snapshot = sanitizePalworldPlayers(players, time.Now().UTC())
 	}
 
-	var players palworldMapPlayersResponse
-	errPlayers := getPalworldJSON(
-		ctx,
-		client,
-		baseURL+"/players",
-		username,
-		password,
-		&players,
-	)
-	if errPlayers != nil {
-		return nil, fmt.Errorf(
-			"query palworld world actors: %w",
-			errors.Join(errGameData, fmt.Errorf("player fallback: %w", errPlayers)),
-		)
+	metricsOutcome := <-metricsResultChannel
+	if metricsOutcome.err == nil {
+		snapshot.Health = sanitizePalworldMapHealth(metricsOutcome.metrics)
 	}
-	return sanitizePalworldPlayers(players, time.Now().UTC()), nil
+	return snapshot, nil
 }
 
 func sanitizePalworldGameData(response palworldGameDataResponse, collectedAt time.Time) *PalworldMapSnapshot {
@@ -217,6 +258,19 @@ func sanitizePalworldGameDataActor(rawActor palworldGameDataActorResponse) (Palw
 	}
 
 	identity := strings.TrimSpace(rawActor.InstanceID)
+	if kind == PalworldMapActorKindBase {
+		// PalBox actors have no instance ID, and one guild may own multiple
+		// bases. Include the fixed world location so every palbox gets its own
+		// stable marker key instead of collapsing to the shared guild ID.
+		identity = strings.Join([]string{
+			actorType,
+			strings.TrimSpace(rawActor.GuildID),
+			strings.TrimSpace(rawActor.Class),
+			strconv.FormatFloat(rawActor.LocationX, 'f', 3, 64),
+			strconv.FormatFloat(rawActor.LocationY, 'f', 3, 64),
+			strconv.FormatFloat(rawActor.LocationZ, 'f', 3, 64),
+		}, "|")
+	}
 	if identity == "" {
 		identity = strings.TrimSpace(rawActor.GuildID)
 	}
@@ -234,6 +288,7 @@ func sanitizePalworldGameDataActor(rawActor palworldGameDataActorResponse) (Palw
 		Key:         hashPalworldMapActorKey(identity),
 		Kind:        kind,
 		Name:        name,
+		GuildKey:    hashPalworldMapGuildKey(rawActor.GuildID),
 		GuildName:   strings.TrimSpace(rawActor.GuildName),
 		TrainerName: strings.TrimSpace(rawActor.TrainerNickName),
 		ClassName:   strings.TrimSpace(rawActor.Class),
@@ -248,6 +303,18 @@ func sanitizePalworldGameDataActor(rawActor palworldGameDataActorResponse) (Palw
 		AIAction:    strings.TrimSpace(rawActor.AIAction),
 		Active:      palworldMapActorActive(rawActor.IsActive),
 	}, true
+}
+
+func sanitizePalworldMapHealth(metrics palworldMetricsResponse) *PalworldMapHealth {
+	return &PalworldMapHealth{
+		ServerFPS:         clampPalworldMapMetric(metrics.ServerFPS),
+		ServerFrameTimeMS: clampPalworldMapMetric(metrics.ServerFrameTimeMS),
+		CurrentPlayers:    helpers.ClampUint32FromInt64(metrics.CurrentPlayers),
+		MaxPlayers:        helpers.ClampUint32FromInt64(metrics.MaxPlayers),
+		UptimeSeconds:     clampUint64(metrics.UptimeSeconds),
+		BaseCampCount:     helpers.ClampUint32FromInt64(metrics.BaseCampCount),
+		Days:              helpers.ClampUint32FromInt64(metrics.Days),
+	}
 }
 
 func sanitizePalworldPlayers(response palworldMapPlayersResponse, collectedAt time.Time) *PalworldMapSnapshot {
@@ -350,6 +417,21 @@ func palworldMapActorActive(raw json.RawMessage) bool {
 func hashPalworldMapActorKey(identity string) string {
 	hash := sha256.Sum256([]byte(identity))
 	return hex.EncodeToString(hash[:16])
+}
+
+func hashPalworldMapGuildKey(guildID string) string {
+	guildID = strings.TrimSpace(guildID)
+	if guildID == "" {
+		return ""
+	}
+	return hashPalworldMapActorKey("palworld-map-guild\x00" + guildID)
+}
+
+func clampPalworldMapMetric(value float64) float64 {
+	if value < 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0
+	}
+	return value
 }
 
 func sortPalworldMapActors(actors []PalworldMapActor) {

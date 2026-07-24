@@ -1221,6 +1221,7 @@ func palworldMapSnapshotToProto(snapshot *node.PalworldMapSnapshot) *nodeprotov1
 			Key:         actor.Key,
 			Kind:        palworldMapActorKindToProto(actor.Kind),
 			Name:        actor.Name,
+			GuildKey:    actor.GuildKey,
 			GuildName:   actor.GuildName,
 			TrainerName: actor.TrainerName,
 			ClassName:   actor.ClassName,
@@ -1243,6 +1244,22 @@ func palworldMapSnapshotToProto(snapshot *node.PalworldMapSnapshot) *nodeprotov1
 		Partial:     snapshot.Partial,
 		Truncated:   snapshot.Truncated,
 		Actors:      actors,
+		Health:      palworldMapHealthToProto(snapshot.Health),
+	}
+}
+
+func palworldMapHealthToProto(health *node.PalworldMapHealth) *nodeprotov1.PalworldMapHealth {
+	if health == nil {
+		return nil
+	}
+	return &nodeprotov1.PalworldMapHealth{
+		ServerFps:         health.ServerFPS,
+		ServerFrameTimeMs: health.ServerFrameTimeMS,
+		CurrentPlayers:    health.CurrentPlayers,
+		MaxPlayers:        health.MaxPlayers,
+		UptimeSeconds:     health.UptimeSeconds,
+		BaseCampCount:     health.BaseCampCount,
+		Days:              health.Days,
 	}
 }
 

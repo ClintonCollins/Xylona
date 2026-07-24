@@ -150,39 +150,75 @@ func TestInstallPalworldMapTiles(t *testing.T) {
 	}
 }
 
-func TestPalworldMapViewKeepsExactActorDataForViewers(t *testing.T) {
+func TestPalworldMapViewForwardsSafeIntelligenceDataForPrivateAndPublicViewers(t *testing.T) {
 	now := time.Now().UTC()
-	view := palworldMapView(
-		actions.PalworldMapState{
-			ServerID:     "palworld-1",
-			ServerName:   "Palpagos",
-			ServerOnline: true,
-			Snapshot: &node.PalworldMapSnapshot{
-				CollectedAt: now,
-				Actors: []node.PalworldMapActor{
-					{
-						Key:       "player-1",
-						Kind:      node.PalworldMapActorKindPlayer,
-						Name:      "Alex",
-						LocationX: 123.456,
-						LocationY: -987.654,
-						LocationZ: 42.25,
-					},
+	state := actions.PalworldMapState{
+		ServerID:     "palworld-1",
+		ServerName:   "Palpagos",
+		ServerOnline: true,
+		Snapshot: &node.PalworldMapSnapshot{
+			CollectedAt: now,
+			Health: &node.PalworldMapHealth{
+				ServerFPS:         60,
+				ServerFrameTimeMS: 16.67,
+				CurrentPlayers:    4,
+				MaxPlayers:        32,
+				UptimeSeconds:     3600,
+				BaseCampCount:     3,
+				Days:              99,
+			},
+			Actors: []node.PalworldMapActor{
+				{
+					Key:       "player-1",
+					Kind:      node.PalworldMapActorKindPlayer,
+					Name:      "Alex",
+					GuildKey:  "guild-key",
+					LocationX: 123.456,
+					LocationY: -987.654,
+					LocationZ: 42.25,
 				},
 			},
 		},
-		nil,
-		false,
-		false,
-		now,
-	)
-
-	if len(view.GetActors()) != 1 {
-		t.Fatalf("PalworldMapView actors = %+v", view.GetActors())
 	}
-	actor := view.GetActors()[0]
-	if actor.GetName() != "Alex" || actor.GetLocationX() != 123.456 || actor.GetLocationY() != -987.654 || actor.GetLocationZ() != 42.25 {
-		t.Fatalf("PalworldMapView actor = %+v", actor)
+	tests := []struct {
+		name      string
+		canManage bool
+	}{
+		{name: "private", canManage: true},
+		{name: "public"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			view := palworldMapView(
+				state,
+				nil,
+				tc.canManage,
+				false,
+				now,
+			)
+
+			if len(view.GetActors()) != 1 {
+				t.Fatalf("PalworldMapView actors = %+v", view.GetActors())
+			}
+			actor := view.GetActors()[0]
+			if actor.GetName() != "Alex" || actor.GetGuildKey() != "guild-key" || actor.GetLocationX() != 123.456 || actor.GetLocationY() != -987.654 || actor.GetLocationZ() != 42.25 {
+				t.Fatalf("PalworldMapView actor = %+v", actor)
+			}
+			health := view.GetHealth()
+			if health == nil ||
+				health.GetServerFps() != 60 ||
+				health.GetServerFrameTimeMs() != 16.67 ||
+				health.GetCurrentPlayers() != 4 ||
+				health.GetMaxPlayers() != 32 ||
+				health.GetUptimeSeconds() != 3600 ||
+				health.GetBaseCampCount() != 3 ||
+				health.GetDays() != 99 {
+				t.Fatalf("PalworldMapView health = %+v", health)
+			}
+			if view.GetCanManageShare() != tc.canManage {
+				t.Fatalf("PalworldMapView can_manage_share = %t, want %t", view.GetCanManageShare(), tc.canManage)
+			}
+		})
 	}
 }
 

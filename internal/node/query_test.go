@@ -4,7 +4,9 @@ import (
 	"context"
 	"slices"
 	"testing"
+	"time"
 
+	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -110,5 +112,50 @@ func TestQueryGameServerHonorsCanceledContext(t *testing.T) {
 	_, errQuery := n.QueryGameServer(ctx, GameServerQueryRequest{Kind: GameServerQueryKindMinecraft})
 	if errQuery == nil {
 		t.Fatal("QueryGameServer error = nil, want canceled context error")
+	}
+}
+
+func TestPalworldMapSnapshotFromQueryPreservesSafeIntelligenceData(t *testing.T) {
+	t.Parallel()
+
+	collectedAt := time.Now().UTC()
+	snapshot := palworldMapSnapshotFromQuery(&query.PalworldMapSnapshot{
+		CollectedAt: collectedAt,
+		Actors: []query.PalworldMapActor{
+			{
+				Key:      "actor-key",
+				Kind:     query.PalworldMapActorKindBase,
+				Name:     "Skyforge",
+				GuildKey: "guild-key",
+			},
+		},
+		Health: &query.PalworldMapHealth{
+			ServerFPS:         60,
+			ServerFrameTimeMS: 16.67,
+			CurrentPlayers:    4,
+			MaxPlayers:        32,
+			UptimeSeconds:     3600,
+			BaseCampCount:     3,
+			Days:              99,
+		},
+	})
+
+	if snapshot == nil || !snapshot.CollectedAt.Equal(collectedAt) || len(snapshot.Actors) != 1 {
+		t.Fatalf("palworldMapSnapshotFromQuery() = %+v", snapshot)
+	}
+	if snapshot.Actors[0].GuildKey != "guild-key" {
+		t.Fatalf("actor = %+v, want guild key", snapshot.Actors[0])
+	}
+	wantHealth := PalworldMapHealth{
+		ServerFPS:         60,
+		ServerFrameTimeMS: 16.67,
+		CurrentPlayers:    4,
+		MaxPlayers:        32,
+		UptimeSeconds:     3600,
+		BaseCampCount:     3,
+		Days:              99,
+	}
+	if snapshot.Health == nil || *snapshot.Health != wantHealth {
+		t.Fatalf("health = %+v, want safe metrics", snapshot.Health)
 	}
 }

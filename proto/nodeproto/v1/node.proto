@@ -619,6 +619,7 @@ message PalworldMapActor {
   string action = 14;
   string ai_action = 15;
   bool active = 16;
+  string guild_key = 17;
 }
 
 message PalworldMapSnapshot {
@@ -628,6 +629,7 @@ message PalworldMapSnapshot {
   bool partial = 4;
   bool truncated = 5;
   repeated PalworldMapActor actors = 6;
+  PalworldMapHealth health = 7;
 }
 
 message QueryPalworldMapRequest {
@@ -938,3 +940,13 @@ message PerformGameServerPlayerActionRequest {
 }
 
 message PerformGameServerPlayerActionResponse {}
+
+message PalworldMapHealth {
+  double server_fps = 1;
+  double server_frame_time_ms = 2;
+  uint32 current_players = 3;
+  uint32 max_players = 4;
+  uint64 uptime_seconds = 5;
+  uint32 base_camp_count = 6;
+  uint32 days = 7;
+}

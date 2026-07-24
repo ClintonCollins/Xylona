@@ -335,6 +335,7 @@ func palworldMapView(
 		view.CollectedAt = timestamppb.New(snapshot.CollectedAt)
 	}
 	view.Actors = publicPalworldMapActors(snapshot.Actors)
+	view.Health = publicPalworldMapHealth(snapshot.Health)
 	return view
 }
 
@@ -345,6 +346,7 @@ func publicPalworldMapActors(actors []node.PalworldMapActor) []*xylona.PalworldM
 			Key:         actor.Key,
 			Kind:        publicPalworldMapActorKind(actor.Kind),
 			Name:        actor.Name,
+			GuildKey:    actor.GuildKey,
 			GuildName:   actor.GuildName,
 			TrainerName: actor.TrainerName,
 			ClassName:   actor.ClassName,
@@ -361,6 +363,21 @@ func publicPalworldMapActors(actors []node.PalworldMapActor) []*xylona.PalworldM
 		})
 	}
 	return result
+}
+
+func publicPalworldMapHealth(health *node.PalworldMapHealth) *xylona.PalworldMapHealth {
+	if health == nil {
+		return nil
+	}
+	return &xylona.PalworldMapHealth{
+		ServerFps:         health.ServerFPS,
+		ServerFrameTimeMs: health.ServerFrameTimeMS,
+		CurrentPlayers:    health.CurrentPlayers,
+		MaxPlayers:        health.MaxPlayers,
+		UptimeSeconds:     health.UptimeSeconds,
+		BaseCampCount:     health.BaseCampCount,
+		Days:              health.Days,
+	}
 }
 
 func publicPalworldMapActorKind(kind node.PalworldMapActorKind) xylona.PalworldMapActorKind {

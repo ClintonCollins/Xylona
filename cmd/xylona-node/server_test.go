@@ -528,3 +528,46 @@ func TestNodeServiceServerListBindableIPs(t *testing.T) {
 		t.Fatalf("expected at least one bindable IP")
 	}
 }
+
+func TestPalworldMapSnapshotToProtoPreservesSafeIntelligenceData(t *testing.T) {
+	t.Parallel()
+
+	snapshot := palworldMapSnapshotToProto(&node.PalworldMapSnapshot{
+		CollectedAt: time.Now().UTC(),
+		Actors: []node.PalworldMapActor{
+			{
+				Key:      "actor-key",
+				Kind:     node.PalworldMapActorKindBase,
+				Name:     "Skyforge",
+				GuildKey: "guild-key",
+			},
+		},
+		Health: &node.PalworldMapHealth{
+			ServerFPS:         60,
+			ServerFrameTimeMS: 16.67,
+			CurrentPlayers:    4,
+			MaxPlayers:        32,
+			UptimeSeconds:     3600,
+			BaseCampCount:     3,
+			Days:              99,
+		},
+	})
+
+	if snapshot == nil || len(snapshot.GetActors()) != 1 {
+		t.Fatalf("palworldMapSnapshotToProto() = %+v", snapshot)
+	}
+	if snapshot.GetActors()[0].GetGuildKey() != "guild-key" {
+		t.Fatalf("actor = %+v, want guild key", snapshot.GetActors()[0])
+	}
+	health := snapshot.GetHealth()
+	if health == nil ||
+		health.GetServerFps() != 60 ||
+		health.GetServerFrameTimeMs() != 16.67 ||
+		health.GetCurrentPlayers() != 4 ||
+		health.GetMaxPlayers() != 32 ||
+		health.GetUptimeSeconds() != 3600 ||
+		health.GetBaseCampCount() != 3 ||
+		health.GetDays() != 99 {
+		t.Fatalf("health = %+v, want safe metrics", health)
+	}
+}

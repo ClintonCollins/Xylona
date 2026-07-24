@@ -179,5 +179,9 @@ func clonePalworldMapSnapshot(snapshot *node.PalworldMapSnapshot) *node.Palworld
 	}
 	cloned := *snapshot
 	cloned.Actors = append([]node.PalworldMapActor(nil), snapshot.Actors...)
+	if snapshot.Health != nil {
+		health := *snapshot.Health
+		cloned.Health = &health
+	}
 	return &cloned
 }

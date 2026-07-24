@@ -1297,6 +1297,7 @@ func palworldMapSnapshotFromProto(snapshot *nodeprotov1.PalworldMapSnapshot) *no
 			Key:         actor.GetKey(),
 			Kind:        palworldMapActorKindFromProto(actor.GetKind()),
 			Name:        actor.GetName(),
+			GuildKey:    actor.GetGuildKey(),
 			GuildName:   actor.GetGuildName(),
 			TrainerName: actor.GetTrainerName(),
 			ClassName:   actor.GetClassName(),
@@ -1323,6 +1324,22 @@ func palworldMapSnapshotFromProto(snapshot *nodeprotov1.PalworldMapSnapshot) *no
 		Partial:     snapshot.GetPartial(),
 		Truncated:   snapshot.GetTruncated(),
 		Actors:      actors,
+		Health:      palworldMapHealthFromProto(snapshot.GetHealth()),
+	}
+}
+
+func palworldMapHealthFromProto(health *nodeprotov1.PalworldMapHealth) *node.PalworldMapHealth {
+	if health == nil {
+		return nil
+	}
+	return &node.PalworldMapHealth{
+		ServerFPS:         health.GetServerFps(),
+		ServerFrameTimeMS: health.GetServerFrameTimeMs(),
+		CurrentPlayers:    health.GetCurrentPlayers(),
+		MaxPlayers:        health.GetMaxPlayers(),
+		UptimeSeconds:     health.GetUptimeSeconds(),
+		BaseCampCount:     health.GetBaseCampCount(),
+		Days:              health.GetDays(),
 	}
 }
 

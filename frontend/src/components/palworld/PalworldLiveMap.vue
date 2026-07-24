@@ -1,3 +1,10 @@
+<!--
+THESIS: Turn the world map from an actor browser into an operational radar; refuse one-marker-per-actor noise at world scale.
+OWN-WORLD: Xylona’s layered dark command surface, cyan/blue state, semantic category colors, compact mono telemetry.
+STORY: Admin scans health, narrows population, inspects a guild or base, then focuses exact actors.
+FIRST VIEWPORT: Map remains dominant; status toolbar above, compact intelligence chips and health telemetry at edges, contextual rail on demand.
+FORM: Existing Operate surface extension; semantic zoom and progressive disclosure, no new visual world.
+-->
 <script lang="ts" setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
@@ -11,11 +18,16 @@ import {
   type PalworldMapView,
 } from '@/proto/xylona_pb'
 import {
+  buildPalworldMapRenderPlan,
   filterPalworldMapActors,
+  formatPalworldFacing,
   formatPalworldCoordinate,
+  formatPalworldUptime,
   initialPalworldMapVisibility,
   palworldMapCategories,
   palworldMapCategory,
+  palworldMapGuildKey,
+  type PalworldMapCluster,
 } from '@/pages/game_servers/palworld-map'
 
 const props = withDefaults(
@@ -64,15 +76,22 @@ const search = ref('')
 const visibleKinds = ref<Record<number, boolean>>(initialPalworldMapVisibility())
 const activeLayerID = ref('')
 const selectedActorKey = ref('')
+const focusedKind = ref<PalworldMapActorKind | null>(null)
+const focusedGuildKey = ref('')
+const aggregatedActorCount = ref(0)
 
 let map: LeafletMap | null = null
 let actorLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
+let renderFrame = 0
 let currentLayerKey = ''
 let fittedOnce = false
 let railInitialized = false
 const actorMarkers = new Map<string, Marker | CircleMarker>()
 const actorMarkerRenderKeys = new Map<string, string>()
+const clusterMarkers = new Map<string, Marker>()
+const clusterMarkerRenderKeys = new Map<string, string>()
+const maxIndividualActors = 1_500
 
 const actors = computed(() => {
   const reportedActors = props.view?.actors ?? []
@@ -99,12 +118,17 @@ const activeLayer = computed(() => {
   return configured ?? configuredLayers.value[0] ?? fallbackLayer
 })
 const hasImagery = computed(() => activeLayer.value.tileUrlTemplate !== '')
-const filteredActors = computed(() =>
-  filterPalworldMapActors(actors.value, visibleKinds.value, search.value),
-)
+const filteredActors = computed(() => {
+  const matchingActors = filterPalworldMapActors(actors.value, visibleKinds.value, search.value)
+  if (focusedGuildKey.value === '') {
+    return matchingActors
+  }
+  return matchingActors.filter((actor) => palworldMapGuildKey(actor) === focusedGuildKey.value)
+})
 const selectedActor = computed(
   () => actors.value.find((actor) => actor.key === selectedActorKey.value) ?? null,
 )
+const health = computed(() => props.view?.health ?? null)
 const actorCounts = computed(() => {
   const counts = new Map<PalworldMapActorKind, number>()
   for (const actor of actors.value) {
@@ -118,6 +142,78 @@ const secondaryActorCount = computed(() =>
     0,
   ),
 )
+const summaryCategories = computed(() =>
+  availableActorCategories.value.filter((category) => category.kind !== PalworldMapActorKind.OTHER),
+)
+const countQualifier = computed(() => (props.view?.truncated ? 'At least ' : ''))
+const selectedGuildActors = computed(() => {
+  const actor = selectedActor.value
+  if (actor === null || actor.kind !== PalworldMapActorKind.BASE) {
+    return []
+  }
+  const guildKey = palworldMapGuildKey(actor)
+  if (guildKey === '') {
+    return actors.value.filter((candidate) => candidate.key === actor.key)
+  }
+  return actors.value.filter((candidate) => palworldMapGuildKey(candidate) === guildKey)
+})
+const selectedGuildCounts = computed(() => {
+  const counts = new Map<PalworldMapActorKind, number>()
+  for (const actor of selectedGuildActors.value) {
+    counts.set(actor.kind, (counts.get(actor.kind) ?? 0) + 1)
+  }
+  return counts
+})
+const selectedGuildUsesNameEstimate = computed(() => {
+  const actor = selectedActor.value
+  return (
+    actor !== null &&
+    actor.kind === PalworldMapActorKind.BASE &&
+    actor.guildKey.trim() === '' &&
+    actor.guildName.trim() !== ''
+  )
+})
+const selectedGuildWorkerCondition = computed(() => {
+  let active = 0
+  let injured = 0
+  for (const actor of selectedGuildActors.value) {
+    if (actor.kind !== PalworldMapActorKind.BASE_WORKER) {
+      continue
+    }
+    if (actor.active) {
+      active += 1
+    }
+    if (actor.maxHp > 0 && actor.hp < actor.maxHp) {
+      injured += 1
+    }
+  }
+  return { active, injured }
+})
+const selectedBaseNearbyWorkers = computed(() => {
+  const base = selectedActor.value
+  if (base === null || base.kind !== PalworldMapActorKind.BASE) {
+    return []
+  }
+  const guildBases = selectedGuildActors.value.filter(
+    (actor) => actor.kind === PalworldMapActorKind.BASE,
+  )
+  return selectedGuildActors.value.filter((actor) => {
+    if (actor.kind !== PalworldMapActorKind.BASE_WORKER) {
+      return false
+    }
+    let nearestBase: PalworldMapActor | null = null
+    let nearestDistance = Number.POSITIVE_INFINITY
+    for (const candidate of guildBases) {
+      const distance =
+        (candidate.locationX - actor.locationX) ** 2 + (candidate.locationY - actor.locationY) ** 2
+      if (distance < nearestDistance) {
+        nearestBase = candidate
+        nearestDistance = distance
+      }
+    }
+    return nearestBase?.key === base.key
+  })
+})
 const mapStatus = computed(() => {
   if (props.loadError) {
     return { label: 'Connection lost', icon: 'cloud_off', tone: 'danger' }
@@ -145,7 +241,30 @@ const collectedLabel = computed(() => {
   if (collectedAt === undefined) {
     return 'No snapshot received yet'
   }
-  return `Updated ${timestampDate(collectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+  const ageSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - timestampDate(collectedAt).getTime()) / 1_000),
+  )
+  if (ageSeconds < 5) {
+    return 'Updated just now'
+  }
+  if (ageSeconds < 60) {
+    return `Updated ${ageSeconds}s ago`
+  }
+  if (ageSeconds < 3_600) {
+    return `Updated ${Math.floor(ageSeconds / 60)}m ago`
+  }
+  if (ageSeconds < 86_400) {
+    return `Updated ${Math.floor(ageSeconds / 3_600)}h ago`
+  }
+  return `Updated ${Math.floor(ageSeconds / 86_400)}d ago`
+})
+const collectedTitle = computed(() => {
+  const collectedAt = props.view?.collectedAt
+  if (collectedAt === undefined) {
+    return ''
+  }
+  return timestampDate(collectedAt).toLocaleString()
 })
 
 function cssColor(token: string): string {
@@ -203,8 +322,14 @@ function layerRenderKey(layer: PalworldMapLayer): string {
 }
 
 function destroyMap(): void {
+  if (renderFrame !== 0) {
+    cancelAnimationFrame(renderFrame)
+    renderFrame = 0
+  }
   actorMarkers.clear()
   actorMarkerRenderKeys.clear()
+  clusterMarkers.clear()
+  clusterMarkerRenderKeys.clear()
   actorLayer = null
   if (map !== null) {
     map.remove()
@@ -231,6 +356,7 @@ function createMap(layer: PalworldMapLayer): void {
     maxBoundsViscosity: 0.75,
   })
   actorLayer = L.layerGroup().addTo(map)
+  map.on('moveend zoomend', scheduleRenderActors)
   if (layer.tileUrlTemplate !== '') {
     L.tileLayer(layer.tileUrlTemplate, {
       tileSize: layer.tileSize,
@@ -287,13 +413,92 @@ function actorMarkerRenderKey(actor: PalworldMapActor): string {
   return [actor.kind, actor.name, actor.active].join('|')
 }
 
+function createClusterMarker(cluster: PalworldMapCluster): Marker {
+  const category = palworldMapCategory(cluster.kind)
+  const color = cssColor(category.colorToken)
+  const label = `${cluster.count.toLocaleString()} ${category.label.toLocaleLowerCase()}`
+  const marker = L.marker(worldLocation(cluster.locationX, cluster.locationY), {
+    icon: L.divIcon({
+      className: '',
+      html: `<span class="palworld-map-cluster" style="--actor-color:${escapeHTML(color)}"><span class="material-icons" aria-hidden="true">${escapeHTML(category.icon)}</span><strong>${cluster.count.toLocaleString()}</strong></span>`,
+      iconAnchor: [24, 24],
+    }),
+    keyboard: true,
+    title: label,
+  })
+  marker.on('click', () => {
+    if (map === null) {
+      return
+    }
+    map.fitBounds(
+      L.latLngBounds(
+        worldLocation(cluster.minX, cluster.minY),
+        worldLocation(cluster.maxX, cluster.maxY),
+      ),
+      {
+        animate: true,
+        maxZoom: Math.min(activeLayer.value.maxZoom, Math.max(4, map.getZoom() + 2)),
+        padding: [72, 72],
+      },
+    )
+  })
+  return marker
+}
+
+function visibleWorldBounds(): {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+} {
+  if (map === null) {
+    return {
+      minX: activeLayer.value.minX,
+      minY: activeLayer.value.minY,
+      maxX: activeLayer.value.maxX,
+      maxY: activeLayer.value.maxY,
+    }
+  }
+  const bounds = map.getBounds().pad(0.18)
+  return {
+    minX: bounds.getSouth(),
+    minY: bounds.getWest(),
+    maxX: bounds.getNorth(),
+    maxY: bounds.getEast(),
+  }
+}
+
 function renderActors(): void {
   if (map === null || actorLayer === null) {
     return
   }
   const activeBounds = layerBounds(activeLayer.value)
+  const protectedActorKeys = new Set<string>()
+  if (selectedActorKey.value !== '') {
+    protectedActorKeys.add(selectedActorKey.value)
+  }
+  if (
+    (search.value.trim() !== '' || focusedGuildKey.value !== '') &&
+    filteredActors.value.length <= maxIndividualActors
+  ) {
+    for (const actor of filteredActors.value) {
+      protectedActorKeys.add(actor.key)
+    }
+  }
+  const zoom = map.getZoom()
+  const renderPlan = buildPalworldMapRenderPlan(filteredActors.value, {
+    zoom,
+    bounds: visibleWorldBounds(),
+    maxIndividualActors,
+    protectedActorKeys,
+    project: (actor) => {
+      const projected = map?.project(worldLocation(actor.locationX, actor.locationY), zoom)
+      return projected ?? { x: actor.locationX, y: actor.locationY }
+    },
+  })
+  aggregatedActorCount.value = renderPlan.aggregatedActorCount
   const visibleActorKeys = new Set<string>()
-  for (const actor of filteredActors.value) {
+  for (const actor of renderPlan.actors) {
     const location = worldLocation(actor.locationX, actor.locationY)
     if (!activeBounds.contains(location)) {
       continue
@@ -324,6 +529,55 @@ function renderActors(): void {
     actorMarkers.delete(actorKey)
     actorMarkerRenderKeys.delete(actorKey)
   }
+
+  const visibleClusterKeys = new Set<string>()
+  for (const cluster of renderPlan.clusters) {
+    const location = worldLocation(cluster.locationX, cluster.locationY)
+    if (!activeBounds.contains(location)) {
+      continue
+    }
+    visibleClusterKeys.add(cluster.key)
+    const renderKey = [
+      cluster.kind,
+      cluster.count,
+      cluster.locationX,
+      cluster.locationY,
+      cluster.minX,
+      cluster.minY,
+      cluster.maxX,
+      cluster.maxY,
+    ].join('|')
+    const existingMarker = clusterMarkers.get(cluster.key)
+    if (existingMarker !== undefined && clusterMarkerRenderKeys.get(cluster.key) === renderKey) {
+      existingMarker.setLatLng(location)
+      continue
+    }
+    if (existingMarker !== undefined) {
+      actorLayer.removeLayer(existingMarker)
+    }
+    const marker = createClusterMarker(cluster)
+    marker.addTo(actorLayer)
+    clusterMarkers.set(cluster.key, marker)
+    clusterMarkerRenderKeys.set(cluster.key, renderKey)
+  }
+  for (const [clusterKey, marker] of clusterMarkers) {
+    if (visibleClusterKeys.has(clusterKey)) {
+      continue
+    }
+    actorLayer.removeLayer(marker)
+    clusterMarkers.delete(clusterKey)
+    clusterMarkerRenderKeys.delete(clusterKey)
+  }
+}
+
+function scheduleRenderActors(): void {
+  if (renderFrame !== 0) {
+    return
+  }
+  renderFrame = requestAnimationFrame(() => {
+    renderFrame = 0
+    renderActors()
+  })
 }
 
 function updateActorMarkerSelection(actorKey: string, selected: boolean): void {
@@ -385,11 +639,12 @@ function fitWorld(): void {
   fittedOnce = true
 }
 
-function fitVisibleActors(): void {
+function fitActors(actorSet: readonly PalworldMapActor[]): void {
   if (map === null) {
     return
   }
-  const positioned = filteredActors.value.filter((actor) =>
+  const wideCanvas = (mapElement.value?.clientWidth ?? 0) >= 900
+  const positioned = actorSet.filter((actor) =>
     layerBounds(activeLayer.value).contains(worldLocation(actor.locationX, actor.locationY)),
   )
   if (positioned.length === 0) {
@@ -400,11 +655,15 @@ function fitVisibleActors(): void {
     L.latLngBounds(positioned.map((actor) => worldLocation(actor.locationX, actor.locationY))),
     {
       maxZoom: Math.min(activeLayer.value.maxZoom, 4),
-      paddingTopLeft: [railOpen.value ? 320 : 48, 80],
+      paddingTopLeft: [railOpen.value && wideCanvas ? 320 : 48, 80],
       paddingBottomRight: [48, 80],
     },
   )
   fittedOnce = true
+}
+
+function fitVisibleActors(): void {
+  fitActors(filteredActors.value)
 }
 
 async function focusActor(actor: PalworldMapActor): Promise<void> {
@@ -415,6 +674,67 @@ async function focusActor(actor: PalworldMapActor): Promise<void> {
   const location = worldLocation(actor.locationX, actor.locationY)
   map?.setView(location, Math.min(activeLayer.value.maxZoom, 4), { animate: true })
   actorMarkers.get(actor.key)?.openTooltip()
+}
+
+async function toggleCategoryFocus(kind: PalworldMapActorKind | null): Promise<void> {
+  if (kind === null || focusedKind.value === kind) {
+    focusedKind.value = null
+    focusedGuildKey.value = ''
+    for (const category of availableActorCategories.value) {
+      visibleKinds.value[category.kind] = true
+    }
+    await nextTick()
+    fitVisibleActors()
+    scheduleRenderActors()
+    return
+  }
+  focusedKind.value = kind
+  focusedGuildKey.value = ''
+  for (const category of availableActorCategories.value) {
+    visibleKinds.value[category.kind] = category.kind === kind
+  }
+  await nextTick()
+  fitVisibleActors()
+  scheduleRenderActors()
+}
+
+async function focusSelectedGuild(): Promise<void> {
+  const base = selectedActor.value
+  if (base === null) {
+    return
+  }
+  const guildKey = palworldMapGuildKey(base)
+  if (guildKey === '') {
+    return
+  }
+  focusedGuildKey.value = guildKey
+  focusedKind.value = null
+  search.value = ''
+  for (const actor of selectedGuildActors.value) {
+    visibleKinds.value[actor.kind] = true
+  }
+  await nextTick()
+  fitActors(selectedGuildActors.value)
+  scheduleRenderActors()
+}
+
+async function clearGuildFocus(): Promise<void> {
+  focusedGuildKey.value = ''
+  await nextTick()
+  fitVisibleActors()
+  scheduleRenderActors()
+}
+
+function actorHealthPercent(actor: PalworldMapActor): number {
+  if (actor.maxHp <= 0) {
+    return 0
+  }
+  return Math.max(0, Math.min(100, (actor.hp / actor.maxHp) * 100))
+}
+
+function toggleActorVisibility(kind: PalworldMapActorKind): void {
+  focusedKind.value = null
+  visibleKinds.value[kind] = !visibleKinds.value[kind]
 }
 
 function selectLayer(layerID: string): void {
@@ -475,12 +795,14 @@ watch(
 )
 watch(
   () => JSON.stringify(visibleKinds.value),
-  () => renderActors(),
+  () => scheduleRenderActors(),
 )
-watch(search, () => renderActors())
+watch(search, () => scheduleRenderActors())
+watch(focusedGuildKey, () => scheduleRenderActors())
 watch(selectedActorKey, (actorKey, previousActorKey) => {
   updateActorMarkerSelection(previousActorKey, false)
   updateActorMarkerSelection(actorKey, true)
+  scheduleRenderActors()
 })
 
 onMounted(() => {
@@ -508,6 +830,7 @@ onBeforeUnmount(() => {
       'palworld-live-map--public': publicMode,
       'palworld-live-map--imagery': hasImagery,
       'palworld-live-map--fullscreen': fullscreen,
+      'palworld-live-map--multiple-layers': configuredLayers.length > 1,
     }">
     <div class="palworld-live-map__canvas-wrap">
       <div ref="mapElement" class="palworld-live-map__canvas" aria-label="Palworld live map" />
@@ -529,11 +852,13 @@ onBeforeUnmount(() => {
 
         <div
           class="palworld-live-map__status"
-          :class="`palworld-live-map__status--${mapStatus.tone}`">
+          :class="`palworld-live-map__status--${mapStatus.tone}`"
+          role="status"
+          :aria-label="`${mapStatus.label}. ${collectedLabel}`">
           <q-icon :name="mapStatus.icon" />
           <div>
             <strong>{{ mapStatus.label }}</strong>
-            <span>{{ collectedLabel }}</span>
+            <span :title="collectedTitle">{{ collectedLabel }}</span>
           </div>
         </div>
 
@@ -581,6 +906,58 @@ onBeforeUnmount(() => {
             <q-tooltip>Refresh live data</q-tooltip>
           </q-btn>
         </div>
+      </div>
+
+      <nav
+        v-if="view?.available"
+        class="palworld-live-map__summaries"
+        aria-label="Map population summaries">
+        <button
+          class="palworld-live-map__summary-chip"
+          :class="{
+            'palworld-live-map__summary-chip--active':
+              focusedKind === null && focusedGuildKey === '',
+          }"
+          type="button"
+          :aria-pressed="focusedKind === null && focusedGuildKey === ''"
+          @click="toggleCategoryFocus(null)">
+          <q-icon name="public" />
+          <span>All</span>
+          <strong>{{ countQualifier }}{{ actors.length.toLocaleString() }}</strong>
+        </button>
+        <button
+          v-for="category in summaryCategories"
+          :key="category.kind"
+          class="palworld-live-map__summary-chip"
+          :class="{ 'palworld-live-map__summary-chip--active': focusedKind === category.kind }"
+          type="button"
+          :aria-label="`Focus ${category.label.toLocaleLowerCase()}`"
+          :aria-pressed="focusedKind === category.kind"
+          :style="{ '--actor-color': `var(${category.colorToken})` }"
+          @click="toggleCategoryFocus(category.kind)">
+          <q-icon :name="category.icon" />
+          <span>{{ category.label }}</span>
+          <strong
+            >{{ countQualifier
+            }}{{ (actorCounts.get(category.kind) ?? 0).toLocaleString() }}</strong
+          >
+        </button>
+      </nav>
+
+      <div v-if="health !== null" class="palworld-live-map__health" aria-label="World health">
+        <span><small>Players</small>{{ health.currentPlayers }} / {{ health.maxPlayers }}</span>
+        <span
+          ><small>Server</small>{{ health.serverFps.toFixed(1) }} FPS ·
+          {{ health.serverFrameTimeMs.toFixed(1) }} ms</span
+        >
+        <span><small>Bases</small>{{ health.baseCampCount.toLocaleString() }}</span>
+        <span><small>World day</small>{{ health.days.toLocaleString() }}</span>
+        <span><small>Uptime</small>{{ formatPalworldUptime(health.uptimeSeconds) }}</span>
+      </div>
+
+      <div v-if="aggregatedActorCount > 0" class="palworld-live-map__aggregation" role="status">
+        <q-icon name="hub" />
+        {{ aggregatedActorCount.toLocaleString() }} actors grouped at this zoom
       </div>
 
       <aside class="palworld-live-map__rail" :aria-hidden="!railOpen" :inert="!railOpen">
@@ -632,113 +1009,234 @@ onBeforeUnmount(() => {
             <span v-if="selectedActor.level > 0"
               ><small>Level</small>{{ selectedActor.level }}</span
             >
+            <span><small>Facing</small>{{ formatPalworldFacing(selectedActor.rotationZ) }}</span>
+            <span>
+              <small>Status</small>
+              {{ selectedActor.active ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+          <div v-if="selectedActor.maxHp > 0" class="palworld-live-map__selected-health">
+            <div>
+              <span>Health</span>
+              <strong
+                >{{ selectedActor.hp.toLocaleString() }} /
+                {{ selectedActor.maxHp.toLocaleString() }}</strong
+              >
+            </div>
+            <span aria-hidden="true">
+              <i :style="{ width: `${actorHealthPercent(selectedActor)}%` }" />
+            </span>
           </div>
           <div
-            v-if="selectedActor.guildName || selectedActor.trainerName || selectedActor.action"
+            v-if="
+              selectedActor.guildName ||
+              selectedActor.trainerName ||
+              selectedActor.className ||
+              selectedActor.action ||
+              selectedActor.aiAction
+            "
             class="palworld-live-map__selected-meta">
             <span v-if="selectedActor.guildName">Guild · {{ selectedActor.guildName }}</span>
             <span v-if="selectedActor.trainerName">Trainer · {{ selectedActor.trainerName }}</span>
-            <span v-if="selectedActor.action">{{ selectedActor.action }}</span>
+            <span v-if="selectedActor.className">Class · {{ selectedActor.className }}</span>
+            <span v-if="selectedActor.action">Action · {{ selectedActor.action }}</span>
+            <span v-if="selectedActor.aiAction">AI action · {{ selectedActor.aiAction }}</span>
           </div>
-        </div>
 
-        <q-input
-          v-if="actors.length > 0"
-          v-model="search"
-          :aria-label="`Search ${actorPanelLabel}`"
-          class="palworld-live-map__search"
-          clearable
-          dense
-          outlined
-          :placeholder="view?.partial ? 'Search players' : 'Search actors'">
-          <template #prepend><q-icon name="search" /></template>
-        </q-input>
-
-        <div class="palworld-live-map__layers" aria-label="Actor layers">
-          <button
-            v-for="category in moreKindsOpen ? availableActorCategories : primaryActorCategories"
-            :key="category.kind"
-            class="palworld-live-map__layer"
-            :class="{ 'palworld-live-map__layer--active': visibleKinds[category.kind] }"
-            type="button"
-            @click="visibleKinds[category.kind] = !visibleKinds[category.kind]">
-            <span
-              class="palworld-live-map__layer-icon"
-              :style="{ '--actor-color': `var(${category.colorToken})` }">
-              <q-icon :name="category.icon" />
-            </span>
-            <span class="palworld-live-map__layer-label">{{ category.label }}</span>
-            <span class="palworld-live-map__layer-count">{{
-              actorCounts.get(category.kind) ?? 0
-            }}</span>
-            <q-icon
-              :aria-label="visibleKinds[category.kind] ? 'Visible' : 'Hidden'"
-              :name="visibleKinds[category.kind] ? 'visibility' : 'visibility_off'"
-              size="17px" />
-          </button>
-          <button
-            v-if="secondaryActorCategories.length > 0"
-            class="palworld-live-map__more-layers"
-            type="button"
-            @click="moreKindsOpen = !moreKindsOpen">
-            <span>More actors</span>
-            <span>{{ secondaryActorCount.toLocaleString() }}</span>
-            <q-icon :name="moreKindsOpen ? 'expand_less' : 'expand_more'" size="18px" />
-          </button>
-        </div>
-
-        <template v-if="actors.length > 0">
-          <div class="palworld-live-map__roster-heading">
-            <span>Visible actors</span>
-            <span>{{ filteredActors.length.toLocaleString() }}</span>
-          </div>
-          <q-virtual-scroll
-            v-if="filteredActors.length > 0"
-            class="palworld-live-map__roster"
-            :items="filteredActors"
-            :virtual-scroll-item-size="54">
-            <template #default="{ item: actor }">
+          <section
+            v-if="selectedActor.kind === PalworldMapActorKind.BASE"
+            class="palworld-live-map__guild-command"
+            aria-label="Guilds and bases">
+            <div class="palworld-live-map__guild-heading">
+              <div>
+                <strong>Guilds &amp; bases</strong>
+                <span>
+                  {{ selectedActor.guildName || 'Unclaimed base' }}
+                  <template v-if="selectedGuildUsesNameEstimate">· name-matched estimate</template>
+                </span>
+              </div>
               <button
-                :key="actor.key"
-                class="palworld-live-map__actor"
-                :class="{ 'palworld-live-map__actor--selected': selectedActorKey === actor.key }"
+                v-if="palworldMapGuildKey(selectedActor) !== ''"
                 type="button"
-                @click="focusActor(actor)">
-                <span
-                  class="palworld-live-map__actor-symbol"
-                  :style="{
-                    '--actor-color': `var(${palworldMapCategory(actor.kind).colorToken})`,
-                  }">
-                  <q-icon :name="palworldMapCategory(actor.kind).icon" />
-                </span>
-                <span class="palworld-live-map__actor-copy">
-                  <strong>{{ actor.name }}</strong>
-                  <span>
-                    {{ palworldMapCategory(actor.kind).singular }} · X
-                    {{ formatPalworldCoordinate(actor.locationX) }} · Y
-                    {{ formatPalworldCoordinate(actor.locationY) }}
-                  </span>
-                </span>
+                @click="
+                  focusedGuildKey === palworldMapGuildKey(selectedActor)
+                    ? clearGuildFocus()
+                    : focusSelectedGuild()
+                ">
+                {{
+                  focusedGuildKey === palworldMapGuildKey(selectedActor)
+                    ? 'Clear focus'
+                    : 'Focus guild'
+                }}
               </button>
-            </template>
-          </q-virtual-scroll>
-          <div v-else class="palworld-live-map__roster-empty">
-            <q-icon name="filter_alt_off" size="24px" />
-            <strong>No matching actors</strong>
-            <span>Change the search or enable another actor type.</span>
+            </div>
+            <dl>
+              <div>
+                <dt>Bases</dt>
+                <dd>
+                  {{ countQualifier }}{{ selectedGuildCounts.get(PalworldMapActorKind.BASE) ?? 0 }}
+                </dd>
+              </div>
+              <div>
+                <dt>Workers</dt>
+                <dd>
+                  {{ countQualifier
+                  }}{{ selectedGuildCounts.get(PalworldMapActorKind.BASE_WORKER) ?? 0 }}
+                </dd>
+              </div>
+              <div>
+                <dt>Players</dt>
+                <dd>
+                  {{ countQualifier
+                  }}{{ selectedGuildCounts.get(PalworldMapActorKind.PLAYER) ?? 0 }}
+                </dd>
+              </div>
+              <div>
+                <dt>Companions</dt>
+                <dd>
+                  {{ countQualifier
+                  }}{{ selectedGuildCounts.get(PalworldMapActorKind.COMPANION_PAL) ?? 0 }}
+                </dd>
+              </div>
+            </dl>
+            <div class="palworld-live-map__worker-condition">
+              <span>
+                <small>Active workers</small>
+                <strong
+                  >{{ countQualifier
+                  }}{{ selectedGuildWorkerCondition.active.toLocaleString() }}</strong
+                >
+              </span>
+              <span>
+                <small>Injured workers</small>
+                <strong
+                  >{{ countQualifier
+                  }}{{ selectedGuildWorkerCondition.injured.toLocaleString() }}</strong
+                >
+              </span>
+            </div>
+            <small v-if="selectedGuildUsesNameEstimate" class="palworld-live-map__guild-estimate">
+              Guild identity is unavailable in this snapshot, so related actors are matched by guild
+              name.
+            </small>
+            <div class="palworld-live-map__nearby-workers">
+              <span>Nearby worker estimate</span>
+              <strong
+                >{{ countQualifier }}{{ selectedBaseNearbyWorkers.length.toLocaleString() }}</strong
+              >
+              <small>
+                Nearest workers in this guild; the official API does not report per-base
+                assignments.
+              </small>
+            </div>
+          </section>
+        </div>
+
+        <template v-else>
+          <q-input
+            v-if="actors.length > 0"
+            v-model="search"
+            :aria-label="`Search ${actorPanelLabel}`"
+            class="palworld-live-map__search"
+            clearable
+            dense
+            outlined
+            :placeholder="view?.partial ? 'Search players' : 'Search actors'">
+            <template #prepend><q-icon name="search" /></template>
+          </q-input>
+
+          <div class="palworld-live-map__layers" aria-label="Actor layers">
+            <button
+              v-for="category in moreKindsOpen ? availableActorCategories : primaryActorCategories"
+              :key="category.kind"
+              class="palworld-live-map__layer"
+              :class="{ 'palworld-live-map__layer--active': visibleKinds[category.kind] }"
+              type="button"
+              :aria-pressed="Boolean(visibleKinds[category.kind])"
+              @click="toggleActorVisibility(category.kind)">
+              <span
+                class="palworld-live-map__layer-icon"
+                :style="{ '--actor-color': `var(${category.colorToken})` }">
+                <q-icon :name="category.icon" />
+              </span>
+              <span class="palworld-live-map__layer-label">{{ category.label }}</span>
+              <span class="palworld-live-map__layer-count">{{
+                actorCounts.get(category.kind) ?? 0
+              }}</span>
+              <q-icon
+                :aria-label="visibleKinds[category.kind] ? 'Visible' : 'Hidden'"
+                :name="visibleKinds[category.kind] ? 'visibility' : 'visibility_off'"
+                size="17px" />
+            </button>
+            <button
+              v-if="secondaryActorCategories.length > 0"
+              class="palworld-live-map__more-layers"
+              type="button"
+              :aria-expanded="moreKindsOpen"
+              @click="moreKindsOpen = !moreKindsOpen">
+              <span>More actors</span>
+              <span>{{ secondaryActorCount.toLocaleString() }}</span>
+              <q-icon :name="moreKindsOpen ? 'expand_less' : 'expand_more'" size="18px" />
+            </button>
+          </div>
+
+          <template v-if="actors.length > 0">
+            <div class="palworld-live-map__roster-heading">
+              <span>Visible actors</span>
+              <span>{{ filteredActors.length.toLocaleString() }}</span>
+            </div>
+            <q-virtual-scroll
+              v-if="filteredActors.length > 0"
+              class="palworld-live-map__roster"
+              :items="filteredActors"
+              :virtual-scroll-item-size="54">
+              <template #default="{ item: actor }">
+                <button
+                  :key="actor.key"
+                  class="palworld-live-map__actor"
+                  :class="{ 'palworld-live-map__actor--selected': selectedActorKey === actor.key }"
+                  type="button"
+                  @click="focusActor(actor)">
+                  <span
+                    class="palworld-live-map__actor-symbol"
+                    :style="{
+                      '--actor-color': `var(${palworldMapCategory(actor.kind).colorToken})`,
+                    }">
+                    <q-icon :name="palworldMapCategory(actor.kind).icon" />
+                  </span>
+                  <span class="palworld-live-map__actor-copy">
+                    <strong>{{ actor.name }}</strong>
+                    <span>
+                      {{ palworldMapCategory(actor.kind).singular }} · X
+                      {{ formatPalworldCoordinate(actor.locationX) }} · Y
+                      {{ formatPalworldCoordinate(actor.locationY) }}
+                    </span>
+                  </span>
+                </button>
+              </template>
+            </q-virtual-scroll>
+            <div v-else class="palworld-live-map__roster-empty">
+              <q-icon name="filter_alt_off" size="24px" />
+              <strong>No matching actors</strong>
+              <span>Change the search or enable another actor type.</span>
+            </div>
+          </template>
+          <div
+            v-else
+            class="palworld-live-map__roster-empty palworld-live-map__roster-empty--world">
+            <q-icon name="sensors_off" size="28px" />
+            <strong>{{
+              view?.partial ? 'No players reported' : 'No world actors reported'
+            }}</strong>
+            <span>
+              {{
+                view?.partial
+                  ? 'Player positions will appear while players are online.'
+                  : 'Map imagery remains available. Actors will appear when the server provides a snapshot.'
+              }}
+            </span>
           </div>
         </template>
-        <div v-else class="palworld-live-map__roster-empty palworld-live-map__roster-empty--world">
-          <q-icon name="sensors_off" size="28px" />
-          <strong>{{ view?.partial ? 'No players reported' : 'No world actors reported' }}</strong>
-          <span>
-            {{
-              view?.partial
-                ? 'Player positions will appear while players are online.'
-                : 'Map imagery remains available. Actors will appear when the server provides a snapshot.'
-            }}
-          </span>
-        </div>
       </aside>
 
       <div
@@ -784,8 +1282,8 @@ onBeforeUnmount(() => {
 .palworld-live-map__rail {
   position: absolute;
   z-index: var(--xy-z-drawer);
-  top: 76px;
-  bottom: 42px;
+  top: 132px;
+  bottom: 94px;
   left: var(--xy-space-base);
   display: flex;
   flex-direction: column;
@@ -970,9 +1468,13 @@ onBeforeUnmount(() => {
 
 .palworld-live-map__selected {
   display: grid;
+  flex: 1;
   gap: var(--xy-space-base);
-  margin: var(--xy-space-base) var(--xy-space-base) 0;
+  min-height: 0;
+  margin: var(--xy-space-base);
   padding: var(--xy-space-base);
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--xy-surface-2);
   border-radius: var(--xy-radius-lg);
 }
@@ -1035,6 +1537,165 @@ onBeforeUnmount(() => {
 .palworld-live-map__selected-meta {
   display: grid;
   gap: var(--xy-space-2xs);
+}
+
+.palworld-live-map__selected-health {
+  display: grid;
+  gap: var(--xy-space-xs);
+}
+
+.palworld-live-map__selected-health > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+}
+
+.palworld-live-map__selected-health strong {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+}
+
+.palworld-live-map__selected-health > span {
+  height: 5px;
+  overflow: hidden;
+  background: var(--xy-surface-4);
+  border-radius: var(--xy-radius-pill);
+}
+
+.palworld-live-map__selected-health i {
+  display: block;
+  height: 100%;
+  background: var(--xy-success);
+  border-radius: inherit;
+}
+
+.palworld-live-map__guild-command {
+  display: grid;
+  gap: var(--xy-space-sm);
+  padding-top: var(--xy-space-sm);
+  border-top: 1px solid var(--xy-border);
+}
+
+.palworld-live-map__guild-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+}
+
+.palworld-live-map__guild-heading > div {
+  display: grid;
+  min-width: 0;
+}
+
+.palworld-live-map__guild-heading strong {
+  color: var(--xy-text-primary);
+  font-size: var(--xy-font-size-sm);
+}
+
+.palworld-live-map__guild-heading span,
+.palworld-live-map__nearby-workers small {
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+}
+
+.palworld-live-map__guild-heading button {
+  min-height: 44px;
+  padding: 0 var(--xy-space-sm);
+  color: var(--xy-accent);
+  background: var(--xy-accent-muted);
+  border: 1px solid var(--xy-accent-border);
+  border-radius: var(--xy-radius-md);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--xy-font-size-xs);
+  font-weight: 700;
+}
+
+.palworld-live-map__guild-heading button:hover,
+.palworld-live-map__guild-heading button:focus-visible {
+  color: var(--xy-text-primary);
+  border-color: var(--xy-accent);
+  outline: none;
+}
+
+.palworld-live-map__guild-command dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xy-space-xs);
+  margin: 0;
+}
+
+.palworld-live-map__guild-command dl > div {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  padding: var(--xy-space-xs);
+  background: var(--xy-surface-1);
+  border-radius: var(--xy-radius-sm);
+  text-align: center;
+}
+
+.palworld-live-map__guild-command dt {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+}
+
+.palworld-live-map__guild-command dd {
+  margin: 0;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-xs);
+}
+
+.palworld-live-map__nearby-workers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--xy-space-2xs) var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+}
+
+.palworld-live-map__worker-condition {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xy-space-xs);
+}
+
+.palworld-live-map__worker-condition > span {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  background: var(--xy-surface-1);
+  border-radius: var(--xy-radius-sm);
+}
+
+.palworld-live-map__worker-condition small,
+.palworld-live-map__guild-estimate {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+}
+
+.palworld-live-map__worker-condition strong {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-xs);
+}
+
+.palworld-live-map__guild-estimate {
+  line-height: var(--xy-line-height-base);
+}
+
+.palworld-live-map__nearby-workers strong {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+}
+
+.palworld-live-map__nearby-workers small {
+  grid-column: 1 / -1;
 }
 
 .palworld-live-map__roster {
@@ -1144,6 +1805,111 @@ onBeforeUnmount(() => {
   border-radius: var(--xy-radius-xl);
   box-shadow: var(--xy-shadow-md);
   backdrop-filter: blur(10px);
+}
+
+.palworld-live-map__summaries,
+.palworld-live-map__health {
+  position: absolute;
+  z-index: var(--xy-z-drawer);
+  right: var(--xy-space-base);
+  left: var(--xy-space-base);
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.palworld-live-map__summaries::-webkit-scrollbar,
+.palworld-live-map__health::-webkit-scrollbar {
+  display: none;
+}
+
+.palworld-live-map__summaries {
+  top: 76px;
+}
+
+.palworld-live-map__summary-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  min-height: 44px;
+  padding: 0 var(--xy-space-base);
+  color: var(--xy-text-secondary);
+  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
+  border: 1px solid var(--xy-border-hover);
+  border-radius: var(--xy-radius-pill);
+  box-shadow: var(--xy-shadow-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--xy-font-size-xs);
+  backdrop-filter: blur(8px);
+}
+
+.palworld-live-map__summary-chip > .q-icon {
+  color: var(--actor-color, var(--xy-accent));
+  font-size: 18px;
+}
+
+.palworld-live-map__summary-chip strong {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+}
+
+.palworld-live-map__summary-chip:hover,
+.palworld-live-map__summary-chip:focus-visible,
+.palworld-live-map__summary-chip--active {
+  color: var(--xy-text-primary);
+  background: var(--xy-surface-3);
+  border-color: color-mix(in srgb, var(--actor-color, var(--xy-accent)) 58%, var(--xy-border) 42%);
+  outline: none;
+}
+
+.palworld-live-map__health {
+  bottom: 42px;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.palworld-live-map__health > span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: var(--xy-space-xs);
+  min-height: 36px;
+  padding: 0 var(--xy-space-sm);
+  color: var(--xy-text-primary);
+  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
+  border: 1px solid var(--xy-border-hover);
+  border-radius: var(--xy-radius-md);
+  box-shadow: var(--xy-shadow-sm);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-xs);
+  backdrop-filter: blur(8px);
+}
+
+.palworld-live-map__health small {
+  color: var(--xy-text-muted);
+  font-family: var(--xy-font-body);
+}
+
+.palworld-live-map__aggregation {
+  position: absolute;
+  z-index: var(--xy-z-drawer);
+  bottom: 86px;
+  left: var(--xy-space-base);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  min-height: 32px;
+  padding: 0 var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
+  border: 1px solid var(--xy-border-hover);
+  border-radius: var(--xy-radius-md);
+  box-shadow: var(--xy-shadow-sm);
+  font-size: var(--xy-font-size-xs);
 }
 
 .palworld-live-map__toolbar-action {
@@ -1309,13 +2075,23 @@ onBeforeUnmount(() => {
 
   .palworld-live-map__rail {
     z-index: var(--xy-z-drawer);
-    top: 72px;
-    bottom: 40px;
+    top: 132px;
+    bottom: 94px;
     width: min(86vw, 300px);
   }
 
   .palworld-live-map__status {
     min-width: 0;
+  }
+
+  .palworld-live-map__summaries,
+  .palworld-live-map__health {
+    padding-bottom: var(--xy-space-2xs);
+  }
+
+  .palworld-live-map__health {
+    justify-content: flex-start;
+    pointer-events: auto;
   }
 }
 
@@ -1347,7 +2123,31 @@ onBeforeUnmount(() => {
   }
 
   .palworld-live-map__rail {
-    top: 114px;
+    top: 210px;
+    bottom: var(--xy-space-sm);
+    left: var(--xy-space-sm);
+    width: min(300px, calc(100% - 2 * var(--xy-space-sm)));
+  }
+
+  .palworld-live-map__summaries {
+    top: 122px;
+    right: var(--xy-space-sm);
+    left: var(--xy-space-sm);
+  }
+
+  .palworld-live-map--multiple-layers .palworld-live-map__summaries {
+    top: 154px;
+  }
+
+  .palworld-live-map__health {
+    right: var(--xy-space-sm);
+    bottom: 38px;
+    left: var(--xy-space-sm);
+  }
+
+  .palworld-live-map__aggregation {
+    bottom: 88px;
+    left: var(--xy-space-sm);
   }
 
   .palworld-live-map__roster-empty--world {
@@ -1357,10 +2157,68 @@ onBeforeUnmount(() => {
   .palworld-live-map__roster-empty--world span {
     display: none;
   }
+
+  .palworld-live-map__layer,
+  .palworld-live-map__more-layers {
+    min-height: 44px;
+  }
+
+  .palworld-live-map__rail .q-btn {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 360px) {
+  .palworld-live-map__status {
+    display: block;
+    min-width: 0;
+    padding-inline: var(--xy-space-2xs);
+    overflow: hidden;
+  }
+
+  .palworld-live-map__status > .q-icon,
+  .palworld-live-map__status span {
+    display: none;
+  }
+
+  .palworld-live-map__status strong {
+    font-size: var(--xy-font-size-xs);
+    line-height: var(--xy-line-height-tight);
+  }
+
+  .palworld-live-map__toolbar-actions .q-btn {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 </style>
 
 <style>
+.palworld-map-cluster {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--xy-space-xs);
+  min-width: 48px;
+  height: 48px;
+  padding: 0 var(--xy-space-sm);
+  color: var(--xy-text-primary);
+  background: color-mix(in srgb, var(--xy-surface-1) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--actor-color) 72%, var(--xy-border) 28%);
+  border-radius: var(--xy-radius-pill);
+  box-shadow: var(--xy-shadow-lg);
+  font-family: var(--xy-font-mono);
+  backdrop-filter: blur(8px);
+}
+
+.palworld-map-cluster .material-icons {
+  color: var(--actor-color);
+  font-size: 18px;
+}
+
 .palworld-map-marker {
   position: relative;
   display: inline-flex;
@@ -1442,7 +2300,7 @@ onBeforeUnmount(() => {
 }
 
 .palworld-live-map .leaflet-top.leaflet-left {
-  top: 72px;
+  top: 128px;
   right: var(--xy-space-base);
   left: auto;
 }
@@ -1467,7 +2325,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 700px) {
   .palworld-live-map .leaflet-top.leaflet-left {
-    top: 116px;
+    top: 170px;
     right: var(--xy-space-sm);
   }
 }

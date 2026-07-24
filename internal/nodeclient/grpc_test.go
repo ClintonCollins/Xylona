@@ -1012,11 +1012,21 @@ func TestGRPCClientQueryPalworldMapRoundTripsExactActors(t *testing.T) {
 			Snapshot: &nodeprotov1.PalworldMapSnapshot{
 				Source:      "game-data",
 				CollectedAt: timestamppb.New(collectedAt),
+				Health: &nodeprotov1.PalworldMapHealth{
+					ServerFps:         60,
+					ServerFrameTimeMs: 16.67,
+					CurrentPlayers:    4,
+					MaxPlayers:        32,
+					UptimeSeconds:     3600,
+					BaseCampCount:     3,
+					Days:              99,
+				},
 				Actors: []*nodeprotov1.PalworldMapActor{
 					{
 						Key:       "player-1",
 						Kind:      nodeprotov1.PalworldMapActorKind_PALWORLD_MAP_ACTOR_KIND_PLAYER,
 						Name:      "Alex",
+						GuildKey:  "guild-key",
 						LocationX: 123.456,
 						LocationY: -987.654,
 						LocationZ: 42.25,
@@ -1044,8 +1054,20 @@ func TestGRPCClientQueryPalworldMapRoundTripsExactActors(t *testing.T) {
 		t.Fatalf("QueryPalworldMap() = %+v", snapshot)
 	}
 	actor := snapshot.Actors[0]
-	if actor.Name != "Alex" || actor.LocationX != 123.456 || actor.LocationY != -987.654 || actor.LocationZ != 42.25 {
+	if actor.Name != "Alex" || actor.GuildKey != "guild-key" || actor.LocationX != 123.456 || actor.LocationY != -987.654 || actor.LocationZ != 42.25 {
 		t.Fatalf("QueryPalworldMap() actor = %+v", actor)
+	}
+	wantHealth := node.PalworldMapHealth{
+		ServerFPS:         60,
+		ServerFrameTimeMS: 16.67,
+		CurrentPlayers:    4,
+		MaxPlayers:        32,
+		UptimeSeconds:     3600,
+		BaseCampCount:     3,
+		Days:              99,
+	}
+	if snapshot.Health == nil || *snapshot.Health != wantHealth {
+		t.Fatalf("QueryPalworldMap() health = %+v", snapshot.Health)
 	}
 	recorder.mu.Lock()
 	recordedRequest := recorder.palworldMapReq

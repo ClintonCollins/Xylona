@@ -35,6 +35,7 @@ type palworldMetricsResponse struct {
 	ServerFrameTimeMS float64 `json:"serverframetime"`
 	MaxPlayers        int64   `json:"maxplayernum"`
 	UptimeSeconds     int64   `json:"uptime"`
+	BaseCampCount     int64   `json:"basecampnum"`
 	Days              int64   `json:"days"`
 }
 

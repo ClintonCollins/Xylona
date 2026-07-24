@@ -173,6 +173,7 @@ func palworldMapSnapshotFromQuery(snapshot *query.PalworldMapSnapshot) *Palworld
 			Key:         actor.Key,
 			Kind:        palworldMapActorKindFromQuery(actor.Kind),
 			Name:        actor.Name,
+			GuildKey:    actor.GuildKey,
 			GuildName:   actor.GuildName,
 			TrainerName: actor.TrainerName,
 			ClassName:   actor.ClassName,
@@ -195,6 +196,22 @@ func palworldMapSnapshotFromQuery(snapshot *query.PalworldMapSnapshot) *Palworld
 		Partial:     snapshot.Partial,
 		Truncated:   snapshot.Truncated,
 		Actors:      actors,
+		Health:      palworldMapHealthFromQuery(snapshot.Health),
+	}
+}
+
+func palworldMapHealthFromQuery(health *query.PalworldMapHealth) *PalworldMapHealth {
+	if health == nil {
+		return nil
+	}
+	return &PalworldMapHealth{
+		ServerFPS:         health.ServerFPS,
+		ServerFrameTimeMS: health.ServerFrameTimeMS,
+		CurrentPlayers:    health.CurrentPlayers,
+		MaxPlayers:        health.MaxPlayers,
+		UptimeSeconds:     health.UptimeSeconds,
+		BaseCampCount:     health.BaseCampCount,
+		Days:              health.Days,
 	}
 }
 
