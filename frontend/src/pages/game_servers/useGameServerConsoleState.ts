@@ -3,6 +3,12 @@ import { nextTick, ref, type Ref } from 'vue'
 import { parseConsole } from '@/utils/console'
 
 import { splitConsoleChunk, trimConsoleLines, type ConsoleLine } from './console-buffer'
+import {
+  buildPlayerEventHtml,
+  classifyConsoleLine,
+  getConsoleFeedClassifier,
+  type PlayerFeedEvent,
+} from './console-feed'
 
 const autoScrollStorageKey = 'xylona_console_autoscroll'
 const defaultMaxConsoleCharacters = 100000
@@ -39,10 +45,12 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
   function replaceConsoleOutput(rawOutput: string) {
     cancelPendingConsoleFlush()
 
+    const classifier = getConsoleFeedClassifier(options.gameID.value)
     const parsed = parseConsole(options.gameID.value, rawOutput)
     const replacementLines = splitConsoleChunk(parsed).map((lineHtml) => ({
       id: consoleLineIdCounter++,
       html: lineHtml,
+      kind: classifyConsoleLine(lineHtml, classifier),
     }))
     const trimmedConsole = trimConsoleLines(replacementLines, maxConsoleCharacters)
     consoleLines.value = trimmedConsole.lines
@@ -68,10 +76,12 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     consoleRafId = null
     if (pendingConsoleChunks.length === 0) return
 
+    const classifier = getConsoleFeedClassifier(options.gameID.value)
     const newLines = pendingConsoleChunks.flatMap((html) =>
       splitConsoleChunk(html).map((lineHtml) => ({
         id: consoleLineIdCounter++,
         html: lineHtml,
+        kind: classifyConsoleLine(lineHtml, classifier),
       })),
     )
     pendingConsoleChunks = []
@@ -81,6 +91,26 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     }
 
     consoleLines.value.push(...newLines)
+
+    const trimmedConsole = trimConsoleLines(consoleLines.value, maxConsoleCharacters)
+    consoleLines.value = trimmedConsole.lines
+    if (trimmedConsole.truncated) {
+      consoleTruncated.value = true
+    }
+
+    if (consoleAutoScroll.value) {
+      void nextTick(options.scrollToBottom)
+    }
+  }
+
+  // Injects a panel-generated roster marker (from query snapshot diffing)
+  // directly into the stream; it never passes through parseConsole.
+  function appendPlayerEvent(event: PlayerFeedEvent) {
+    consoleLines.value.push({
+      id: consoleLineIdCounter++,
+      html: buildPlayerEventHtml(event),
+      kind: 'player',
+    })
 
     const trimmedConsole = trimConsoleLines(consoleLines.value, maxConsoleCharacters)
     consoleLines.value = trimmedConsole.lines
@@ -132,6 +162,7 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
 
   return {
     appendConsoleOutput,
+    appendPlayerEvent,
     cancelPendingConsoleFlush,
     consoleAutoScroll,
     consoleLines,

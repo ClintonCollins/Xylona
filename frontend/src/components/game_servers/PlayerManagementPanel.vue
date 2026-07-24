@@ -1,24 +1,24 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { notifyConnectError, notifySuccess } from '@/api/notifications'
-import PageHeader from '@/components/shared/PageHeader.vue'
 import type { GameServerPlayer } from '@/proto/shared_pb'
 import { Status } from '@/proto/shared_pb'
+import type { AllServersQueryInfo } from '@/proto/websocket_pb'
 import {
   GameServerPlayerAction,
   GetGameServerPlayerManagementRequestSchema,
   PerformGameServerPlayerActionRequestSchema,
   type GetGameServerPlayerManagementResponse,
 } from '@/proto/xylona_pb'
-import { GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import {
   getPlayerActionDefinition,
   getQuickPlayerActionDefinitions,
   getSupportedPlayerActionDefinitions,
   type PlayerActionDefinition,
-} from './player-management'
+} from '@/pages/game_servers/player-management'
+import { queryInfoPlayerSnapshot } from '@/pages/game_servers/useGameServerQueryStatusVersion'
 
 interface PendingPlayerAction {
   action: GameServerPlayerAction
@@ -26,8 +26,8 @@ interface PendingPlayerAction {
   playerName: string
 }
 
-const route = useRoute()
-const gameServerId = computed(() => String(route.params.id ?? ''))
+const props = defineProps<{ gameServerId: string }>()
+
 const loading = ref(true)
 const loadError = ref(false)
 const management = ref<GetGameServerPlayerManagementResponse | null>(null)
@@ -67,26 +67,83 @@ const pendingTarget = computed(
   () => pendingAction.value?.playerName || pendingAction.value?.playerId || 'this player',
 )
 
-async function loadPlayerManagement(): Promise<void> {
-  if (gameServerId.value === '') {
+async function loadPlayerManagement(options: { quiet?: boolean } = {}): Promise<void> {
+  if (props.gameServerId === '') {
     return
   }
-  loading.value = true
-  loadError.value = false
+  if (!options.quiet) {
+    loading.value = true
+    loadError.value = false
+  }
   try {
     management.value = await GetXylonaClient().getGameServerPlayerManagement(
       create(GetGameServerPlayerManagementRequestSchema, {
-        gameServerId: gameServerId.value,
+        gameServerId: props.gameServerId,
       }),
     )
+    loadError.value = false
   } catch (error) {
-    management.value = null
-    loadError.value = true
-    notifyConnectError(error, 'Unable to load player management')
+    // Background refreshes keep the last good data; only interactive loads
+    // surface the failure.
+    if (!options.quiet) {
+      management.value = null
+      loadError.value = true
+      notifyConnectError(error, 'Unable to load player management')
+    }
   } finally {
-    loading.value = false
+    if (!options.quiet) {
+      loading.value = false
+    }
   }
 }
+
+function refresh(): void {
+  void loadPlayerManagement()
+}
+
+// --- Live updates: the websocket already broadcasts roster and status
+// changes for every server; when they disagree with what this panel shows,
+// re-pull the management view (which carries identifiers and capabilities).
+let liveRefreshTimer: ReturnType<typeof setTimeout> | undefined
+
+function scheduleQuietRefresh(): void {
+  if (liveRefreshTimer !== undefined) return
+  liveRefreshTimer = setTimeout(() => {
+    liveRefreshTimer = undefined
+    if (!performing.value) void loadPlayerManagement({ quiet: true })
+  }, 1500)
+}
+
+function onServersQueryInfo(allServersQueryInfo: AllServersQueryInfo): void {
+  const queryInfo = allServersQueryInfo.servers[props.gameServerId]
+  if (queryInfo === undefined || management.value === null) return
+  const snapshot = queryInfoPlayerSnapshot(queryInfo)
+  if (snapshot === null || !snapshot.playerListSupported) return
+
+  const knownNames = new Set(players.value.map((player) => player.name))
+  const rosterChanged =
+    snapshot.players.length !== knownNames.size ||
+    snapshot.players.some((name) => !knownNames.has(name))
+  if (rosterChanged) scheduleQuietRefresh()
+}
+
+function onServerStatusUpdate(serverID: string, _serverName: string, serverStatus: Status): void {
+  if (serverID !== props.gameServerId) return
+  if (management.value !== null && management.value.status !== serverStatus) {
+    scheduleQuietRefresh()
+  }
+}
+
+onMounted(() => {
+  XylonaEventBus.on('gameServersQueryInfo', onServersQueryInfo)
+  XylonaEventBus.on('gameServerStatus', onServerStatusUpdate)
+})
+
+onBeforeUnmount(() => {
+  XylonaEventBus.off('gameServersQueryInfo', onServersQueryInfo)
+  XylonaEventBus.off('gameServerStatus', onServerStatusUpdate)
+  if (liveRefreshTimer !== undefined) clearTimeout(liveRefreshTimer)
+})
 
 function openPlayerAction(
   definition: PlayerActionDefinition,
@@ -133,7 +190,7 @@ async function performPlayerAction(): Promise<void> {
   try {
     await GetXylonaClient().performGameServerPlayerAction(
       create(PerformGameServerPlayerActionRequestSchema, {
-        gameServerId: gameServerId.value,
+        gameServerId: props.gameServerId,
         action: action.action,
         playerId: action.playerId,
         reason: definition.reasonAllowed ? actionReason.value.trim() || undefined : undefined,
@@ -163,37 +220,27 @@ function actionTextColor(definition: PlayerActionDefinition | null): string {
   return definition?.color === 'warning' || definition?.color === 'positive' ? 'dark' : 'white'
 }
 
-watch(gameServerId, loadPlayerManagement, { immediate: true })
+watch(
+  () => props.gameServerId,
+  () => void loadPlayerManagement(),
+  { immediate: true },
+)
+
+defineExpose({ loadPlayerManagement })
 </script>
 
 <template>
-  <div class="players-page xy-page-content">
-    <page-header
-      subtitle="Inspect the live roster and use the game server's native administration controls."
-      title="Players">
-      <template #actions>
-        <q-btn
-          :disable="loading || performing"
-          :loading="loading"
-          color="primary"
-          icon="refresh"
-          label="Refresh"
-          no-caps
-          outline
-          @click="loadPlayerManagement" />
-      </template>
-    </page-header>
-
-    <q-banner v-if="loadError" class="players-page__banner players-page__banner--danger" rounded>
+  <div class="players-panel">
+    <q-banner v-if="loadError" class="players-panel__banner players-panel__banner--danger" rounded>
       <template #avatar><q-icon color="negative" name="cloud_off" /></template>
       Player management could not be loaded from the server's node.
       <template #action>
-        <q-btn color="negative" flat label="Retry" no-caps @click="loadPlayerManagement" />
+        <q-btn color="negative" flat label="Retry" no-caps @click="refresh" />
       </template>
     </q-banner>
 
-    <template v-else-if="loading">
-      <q-card class="players-page__card">
+    <template v-else-if="loading && management === null">
+      <q-card class="players-panel__card">
         <q-card-section>
           <q-skeleton class="q-mb-md" height="28px" type="rect" width="180px" />
           <q-skeleton class="q-mb-sm" type="text" />
@@ -204,30 +251,43 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
     </template>
 
     <template v-else-if="management !== null">
-      <q-card class="players-page__card">
-        <q-card-section class="players-page__summary">
+      <q-card class="players-panel__card">
+        <q-card-section class="players-panel__summary">
           <div>
-            <div class="players-page__card-title">Live roster</div>
-            <div class="players-page__card-copy">
+            <div class="players-panel__card-title">Live roster</div>
+            <div class="players-panel__card-copy">
               {{ players.length }} {{ players.length === 1 ? 'player' : 'players' }} reported
             </div>
           </div>
-          <q-chip
-            :class="isOnline ? 'players-page__status--online' : 'players-page__status--offline'"
-            :icon="isOnline ? 'radio_button_checked' : 'power_off'"
-            :label="isOnline ? 'Online' : 'Offline'" />
+          <div class="players-panel__summary-side">
+            <q-chip
+              :class="isOnline ? 'players-panel__status--online' : 'players-panel__status--offline'"
+              :icon="isOnline ? 'radio_button_checked' : 'power_off'"
+              :label="isOnline ? 'Online' : 'Offline'" />
+            <q-btn
+              :disable="loading || performing"
+              :loading="loading"
+              aria-label="Refresh player management"
+              dense
+              flat
+              icon="refresh"
+              round
+              @click="refresh">
+              <q-tooltip>Refresh</q-tooltip>
+            </q-btn>
+          </div>
         </q-card-section>
 
         <q-separator />
 
         <q-card-section v-if="!isOnline">
-          <q-banner class="players-page__banner players-page__banner--warning" dense rounded>
+          <q-banner class="players-panel__banner players-panel__banner--warning" dense rounded>
             <template #avatar><q-icon color="warning" name="power_settings_new" /></template>
             Start the game server to query its roster or perform player actions.
           </q-banner>
         </q-card-section>
         <q-card-section v-else-if="!capabilities?.actionsSupported">
-          <q-banner class="players-page__banner players-page__banner--info" dense rounded>
+          <q-banner class="players-panel__banner players-panel__banner--info" dense rounded>
             <template #avatar><q-icon color="info" name="visibility" /></template>
             {{
               capabilities?.unavailableReason || 'Player actions are not available for this game.'
@@ -235,9 +295,9 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
           </q-banner>
         </q-card-section>
 
-        <q-card-section v-if="players.length === 0" class="players-page__empty">
+        <q-card-section v-if="players.length === 0" class="players-panel__empty">
           <q-icon name="group_off" size="42px" />
-          <div class="players-page__empty-title">No players reported</div>
+          <div class="players-panel__empty-title">No players reported</div>
           <div>
             {{
               isOnline
@@ -247,25 +307,25 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
           </div>
         </q-card-section>
 
-        <q-list v-else class="players-page__roster" separator>
+        <q-list v-else class="players-panel__roster" separator>
           <q-item
             v-for="player in players"
             :key="player.id || player.name"
-            class="players-page__player">
+            class="players-panel__player">
             <q-item-section avatar>
-              <q-avatar class="players-page__avatar" icon="person" />
+              <q-avatar class="players-panel__avatar" icon="person" />
             </q-item-section>
             <q-item-section>
-              <q-item-label class="players-page__player-name">{{ player.name }}</q-item-label>
+              <q-item-label class="players-panel__player-name">{{ player.name }}</q-item-label>
               <q-item-label
                 v-if="playerSecondaryText(player)"
                 caption
-                class="players-page__player-id">
+                class="players-panel__player-id">
                 {{ playerSecondaryText(player) }}
               </q-item-label>
             </q-item-section>
             <q-item-section v-if="player.id && quickActionDefinitions.length > 0" side>
-              <div class="players-page__quick-actions">
+              <div class="players-panel__quick-actions">
                 <q-btn
                   v-for="definition in quickActionDefinitions"
                   :key="definition.action"
@@ -284,15 +344,15 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
         </q-list>
       </q-card>
 
-      <q-card v-if="supportedActionDefinitions.length > 0" class="players-page__card">
+      <q-card v-if="supportedActionDefinitions.length > 0" class="players-panel__card">
         <q-card-section>
-          <div class="players-page__card-title">Manage by {{ identifierLabel.toLowerCase() }}</div>
-          <div class="players-page__card-copy">
+          <div class="players-panel__card-title">Manage by {{ identifierLabel.toLowerCase() }}</div>
+          <div class="players-panel__card-copy">
             Use this for offline players, unbans, and allowlist changes that are not represented in
             the live roster.
           </div>
         </q-card-section>
-        <q-card-section class="players-page__manual-form">
+        <q-card-section class="players-panel__manual-form">
           <q-select
             v-model="manualAction"
             :disable="!canPerformActions"
@@ -327,19 +387,19 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
     </template>
 
     <q-dialog v-model="confirmDialogOpen" persistent>
-      <q-card class="players-page__dialog">
-        <q-card-section class="players-page__dialog-heading">
+      <q-card class="players-panel__dialog">
+        <q-card-section class="players-panel__dialog-heading">
           <q-avatar
             :color="pendingDefinition?.color || 'primary'"
             :icon="pendingDefinition?.icon || 'admin_panel_settings'"
             :text-color="actionTextColor(pendingDefinition)" />
           <div>
-            <div class="players-page__dialog-title">
+            <div class="players-panel__dialog-title">
               {{ pendingDefinition?.label || 'Player action' }} {{ pendingTarget }}?
             </div>
           </div>
         </q-card-section>
-        <q-card-section class="players-page__dialog-copy">
+        <q-card-section class="players-panel__dialog-copy">
           {{ pendingDefinition?.description }} This action is sent immediately through the game
           server's native management protocol.
         </q-card-section>
@@ -371,73 +431,79 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
 </template>
 
 <style scoped>
-.players-page {
+.players-panel {
   display: grid;
   gap: var(--xy-space-lg);
 }
 
-.players-page__card-copy,
-.players-page__dialog-copy {
+.players-panel__card-copy,
+.players-panel__dialog-copy {
   max-width: 70ch;
   color: var(--xy-text-muted);
 }
 
-.players-page__status--online {
+.players-panel__status--online {
   background: var(--xy-success);
   color: var(--xy-text-on-bright);
 }
 
-.players-page__status--offline {
+.players-panel__status--offline {
   background: var(--xy-surface-4);
   color: var(--xy-text-primary);
 }
 
-.players-page__card {
+.players-panel__card {
   overflow: hidden;
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-1);
 }
 
-.players-page__summary,
-.players-page__dialog-heading {
+.players-panel__summary,
+.players-panel__dialog-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--xy-space-md);
 }
 
-.players-page__card-title,
-.players-page__dialog-title {
+.players-panel__summary-side {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+}
+
+.players-panel__card-title,
+.players-panel__dialog-title {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
   font-size: 1.1rem;
 }
 
-.players-page__card-copy {
+.players-panel__card-copy {
   margin-top: var(--xy-space-xs);
 }
 
-.players-page__banner {
+.players-panel__banner {
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-2);
 }
 
-.players-page__banner--danger {
+.players-panel__banner--danger {
   border-color: var(--xy-danger-border);
   background: var(--xy-danger-bg);
 }
 
-.players-page__banner--warning {
+.players-panel__banner--warning {
   border-color: var(--xy-warning-border);
   background: var(--xy-warning-bg);
 }
 
-.players-page__banner--info {
+.players-panel__banner--info {
   border-color: var(--xy-info-border);
   background: var(--xy-info-bg);
 }
 
-.players-page__empty {
+.players-panel__empty {
   display: grid;
   justify-items: center;
   gap: var(--xy-space-xs);
@@ -446,43 +512,43 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
   text-align: center;
 }
 
-.players-page__empty-title {
+.players-panel__empty-title {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
 }
 
-.players-page__roster {
+.players-panel__roster {
   border-top: 1px solid var(--xy-border);
 }
 
-.players-page__player {
+.players-panel__player {
   min-height: 72px;
   padding: var(--xy-space-sm) var(--xy-space-md);
 }
 
-.players-page__avatar {
+.players-panel__avatar {
   border: 1px solid var(--xy-accent-border-soft);
   background: var(--xy-accent-muted);
   color: var(--xy-accent-hover);
 }
 
-.players-page__player-name {
+.players-panel__player-name {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-heading);
 }
 
-.players-page__player-id {
+.players-panel__player-id {
   color: var(--xy-text-muted);
   font-family: var(--xy-font-mono);
   overflow-wrap: anywhere;
 }
 
-.players-page__quick-actions {
+.players-panel__quick-actions {
   display: flex;
   gap: var(--xy-space-xs);
 }
 
-.players-page__manual-form {
+.players-panel__manual-form {
   display: grid;
   grid-template-columns: minmax(190px, 0.8fr) minmax(240px, 1.4fr) auto;
   align-items: start;
@@ -490,38 +556,38 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
   border-top: 1px solid var(--xy-border);
 }
 
-.players-page__dialog {
+.players-panel__dialog {
   width: min(520px, calc(100vw - 32px));
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-1);
 }
 
-.players-page__dialog-heading {
+.players-panel__dialog-heading {
   justify-content: flex-start;
 }
 
 @media (max-width: 800px) {
-  .players-page__manual-form {
+  .players-panel__manual-form {
     grid-template-columns: 1fr;
   }
 
-  .players-page__player {
+  .players-panel__player {
     align-items: flex-start;
   }
 
-  .players-page__quick-actions {
+  .players-panel__quick-actions {
     flex-direction: column;
     align-items: stretch;
   }
 }
 
 @media (max-width: 520px) {
-  .players-page__summary {
+  .players-panel__summary {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .players-page__player :deep(.q-item__section--side) {
+  .players-panel__player :deep(.q-item__section--side) {
     padding-left: var(--xy-space-xs);
   }
 }

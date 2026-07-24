@@ -207,6 +207,8 @@ function mountView() {
         'q-input': {
           template: '<input />',
         },
+        // Render the real roster so the view's player wiring stays covered.
+        GameServerPlayerRoster: false,
         ClipBoardCopy: { template: '<div><slot /></div>' },
         StatusBadge: { template: '<div><slot /></div>' },
         OperationProgressDialog: {
@@ -321,7 +323,7 @@ describe('GameServerView', () => {
       onlinePlayers: [],
       playerListSupported: false,
       expectedNames: [],
-      expectedMessage: '',
+      expectedMessage: 'The roster is not available for this game.',
     },
   ])(
     'renders player names only for an online server with a $label',
@@ -348,16 +350,19 @@ describe('GameServerView', () => {
       const wrapper = mountView()
       await flushPromises()
 
-      const playerListPanel = wrapper.find('.player-list-panel')
-      expect(playerListPanel.exists()).toBe(playerListSupported)
-      expect(wrapper.findAll('.player-list-name').map((player) => player.text())).toEqual(
+      const roster = wrapper.find('.roster')
+      expect(roster.exists()).toBe(true)
+      expect(roster.find('.roster__list').exists()).toBe(
+        playerListSupported && expectedNames.length > 0,
+      )
+      expect(wrapper.findAll('.roster__name').map((player) => player.text())).toEqual(
         expectedNames,
       )
       if (expectedMessage === '') {
-        expect(wrapper.find('.player-list-empty').exists()).toBe(false)
-        expect(wrapper.find('.player-list-note').exists()).toBe(false)
+        expect(wrapper.find('.roster__empty').exists()).toBe(false)
+        expect(wrapper.find('.roster__note').exists()).toBe(false)
       } else {
-        expect(playerListPanel.text()).toContain(expectedMessage)
+        expect(roster.text()).toContain(expectedMessage)
       }
     },
   )

@@ -279,32 +279,6 @@
                   :display-text="connectionAddress" />
               </span>
             </div>
-            <div class="connection-item">
-              <span class="cl-label">Players</span>
-              <span class="cl-value cl-value-plain">
-                {{ currentPlayerCount }} / {{ maxPlayerCount }}
-              </span>
-            </div>
-            <div v-if="isServerOnline && playerListSupported" class="player-list-panel">
-              <ul v-if="onlinePlayers.length > 0" aria-label="Online players" class="player-list">
-                <li
-                  v-for="(player, index) in onlinePlayers"
-                  :key="`${player}-${index}`"
-                  class="player-list-item">
-                  <q-icon aria-hidden="true" class="player-list-icon" name="person" size="1rem" />
-                  <span :title="player" class="player-list-name">{{ player }}</span>
-                </li>
-              </ul>
-              <div v-else class="player-list-empty">
-                {{ currentPlayerCount > 0 ? 'Player names unavailable' : 'No players online' }}
-              </div>
-              <div
-                v-if="onlinePlayers.length > 0 && unlistedPlayerCount > 0"
-                class="player-list-note">
-                {{ unlistedPlayerCount }} more
-                {{ unlistedPlayerCount === 1 ? 'player' : 'players' }} not reported
-              </div>
-            </div>
           </div>
         </div>
 
@@ -499,6 +473,26 @@
         </div>
       </template>
       <template v-else>
+        <div
+          v-if="consoleFeedFilterOptions.length > 1"
+          aria-label="Console feed filter"
+          class="console-feed-filters"
+          role="group">
+          <span class="console-feed-filters__label">Feed</span>
+          <button
+            v-for="option in consoleFeedFilterOptions"
+            :key="option.value"
+            :aria-pressed="consoleFeedFilter === option.value"
+            :class="{ 'console-feed-filter--active': consoleFeedFilter === option.value }"
+            class="console-feed-filter"
+            type="button"
+            @click="consoleFeedFilter = option.value">
+            {{ option.label }}
+          </button>
+          <span v-if="consoleFeedFilter !== 'all'" class="console-feed-filters__note">
+            {{ visibleConsoleLines.length }} of {{ consoleLines.length }} lines
+          </span>
+        </div>
         <q-scroll-area id="consoleContainer" ref="consoleScrollArea" class="console-scroll-area">
           <div
             v-if="
@@ -519,7 +513,7 @@
             aria-live="polite"
             class="q-pb-md"
             role="log">
-            <span v-for="line in consoleLines" :key="line.id" v-html="line.html"></span>
+            <span v-for="line in visibleConsoleLines" :key="line.id" v-html="line.html"></span>
           </code>
           <!-- eslint-enable vue/no-v-html -->
         </q-scroll-area>
@@ -567,7 +561,75 @@
         </q-input>
       </div>
     </div>
+
+    <!-- Player rail -->
+    <aside
+      :class="{ collapsed: playerRailCollapsed }"
+      aria-label="Online players"
+      class="player-rail">
+      <template v-if="!playerRailCollapsed">
+        <div class="player-rail__head">
+          <span class="player-rail__title">Players</span>
+          <span class="player-rail__head-actions">
+            <q-btn
+              v-if="hasPermission('game_server.players.manage')"
+              aria-label="Open player management"
+              class="console-toolbar-btn"
+              dense
+              flat
+              icon="manage_accounts"
+              padding="xs"
+              square
+              @click="playerManagementOpen = true">
+              <q-tooltip>Player management</q-tooltip>
+            </q-btn>
+            <q-btn
+              aria-label="Collapse player panel"
+              class="console-toolbar-btn"
+              dense
+              flat
+              icon="last_page"
+              padding="xs"
+              square
+              @click="setPlayerRailCollapsed(true)">
+              <q-tooltip>Collapse player panel</q-tooltip>
+            </q-btn>
+          </span>
+        </div>
+        <div class="player-rail__body">
+          <game-server-player-roster
+            :can-manage-players="hasPermission('game_server.players.manage')"
+            :current-player-count="currentPlayerCount"
+            :game-server-id="gameServerId"
+            :is-online="isServerOnline"
+            :max-player-count="maxPlayerCount"
+            :player-list-supported="playerListSupported"
+            :player-names="onlinePlayers"
+            :unlisted-player-count="unlistedPlayerCount" />
+        </div>
+      </template>
+      <template v-else>
+        <q-btn
+          aria-label="Expand player panel"
+          class="console-toolbar-btn"
+          dense
+          flat
+          icon="first_page"
+          padding="xs"
+          square
+          @click="setPlayerRailCollapsed(false)">
+          <q-tooltip>Expand player panel</q-tooltip>
+        </q-btn>
+        <span class="player-rail__mini-count font-mono">
+          {{ currentPlayerCount }}/{{ maxPlayerCount }}
+        </span>
+      </template>
+    </aside>
   </div>
+
+  <game-server-player-management-dialog
+    v-model="playerManagementOpen"
+    :game-server-id="gameServerId" />
 
   <!-- ServerSoftwareSelector (renders its own dialog, kept mounted for ref access) -->
   <server-software-selector
@@ -599,6 +661,8 @@
 import { create } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import GameServerPlayerManagementDialog from '@/components/game_servers/GameServerPlayerManagementDialog.vue'
+import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRoster.vue'
 import OperationProgressDialog from '@/components/game_servers/OperationProgressDialog.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
 import type {
@@ -662,10 +726,17 @@ import {
   XylonaEventBus,
 } from '@/utils/shared'
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
-import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, Ref, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveCanonicalVersionDisplay, resolveVariantTrackingLabel } from './version-display'
 import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch-update'
+import {
+  consoleLineMatchesFilter,
+  diffRoster,
+  getConsoleFeedClassifier,
+  getConsoleFeedFilterOptions,
+  type ConsoleFeedFilter,
+} from './console-feed'
 import { useGameServerConsoleState } from './useGameServerConsoleState'
 import { useGameServerMetricsPreview } from './useGameServerMetricsPreview'
 import { useGameServerQueryStatusVersion } from './useGameServerQueryStatusVersion'
@@ -683,6 +754,27 @@ const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>
 const consoleExpanded = ref(false)
 const sidebarCollapsed = ref(window.innerWidth < 1024)
 
+const playerRailStorageKey = 'xylona_console_player_rail'
+const playerRailCollapsed = ref(readPlayerRailCollapsed())
+const playerManagementOpen = ref(false)
+
+function readPlayerRailCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(playerRailStorageKey) === 'collapsed'
+  } catch {
+    return false
+  }
+}
+
+function setPlayerRailCollapsed(collapsed: boolean): void {
+  playerRailCollapsed.value = collapsed
+  try {
+    window.localStorage.setItem(playerRailStorageKey, collapsed ? 'collapsed' : 'open')
+  } catch {
+    // Persisting the preference is best-effort.
+  }
+}
+
 function scrollConsoleToBottom() {
   const el = consoleScrollArea.value?.$el as HTMLElement | undefined
   const container = el?.querySelector('.q-scrollarea__container') as HTMLElement | null
@@ -693,6 +785,7 @@ function scrollConsoleToBottom() {
 
 const {
   appendConsoleOutput,
+  appendPlayerEvent,
   cancelPendingConsoleFlush,
   consoleAutoScroll,
   consoleLines,
@@ -794,6 +887,64 @@ const consoleInputDisabled = computed(
     sendingConsoleInput.value,
 )
 const hasConsoleOutput = computed(() => consoleLines.value.length > 0)
+
+// --- Console feed filters + panel-generated player events ---
+const consoleFeedFilter = ref<ConsoleFeedFilter>('all')
+const consoleFeedClassifier = computed(() => getConsoleFeedClassifier(gameServer.value.gameId))
+const consoleFeedFilterOptions = computed(() =>
+  getConsoleFeedFilterOptions({
+    classifier: consoleFeedClassifier.value,
+    playerEventsAvailable: playerListSupported.value,
+  }),
+)
+const visibleConsoleLines = computed(() => {
+  if (consoleFeedFilter.value === 'all') return consoleLines.value
+  return consoleLines.value.filter((line) =>
+    consoleLineMatchesFilter(line.kind, consoleFeedFilter.value),
+  )
+})
+
+watch(consoleFeedFilterOptions, (options) => {
+  if (!options.some((option) => option.value === consoleFeedFilter.value)) {
+    consoleFeedFilter.value = 'all'
+  }
+})
+
+// Roster snapshots are diffed into join/leave markers in the console stream.
+// The first snapshot after (re)connecting is the baseline, not a mass join.
+let rosterBaseline: string[] | null = null
+watch(onlinePlayers, (next) => {
+  if (!isServerOnline.value || !playerListSupported.value) {
+    rosterBaseline = null
+    return
+  }
+  if (rosterBaseline === null) {
+    rosterBaseline = [...next]
+    return
+  }
+  const rosterChanges = diffRoster(rosterBaseline, next)
+  for (const name of rosterChanges.joined) {
+    appendPlayerEvent({
+      type: 'join',
+      name,
+      playerCount: currentPlayerCount.value,
+      playerCapacity: maxPlayerCount.value,
+    })
+  }
+  for (const name of rosterChanges.left) {
+    appendPlayerEvent({
+      type: 'leave',
+      name,
+      playerCount: currentPlayerCount.value,
+      playerCapacity: maxPlayerCount.value,
+    })
+  }
+  rosterBaseline = [...next]
+})
+
+watch(isServerOnline, (online) => {
+  if (!online) rosterBaseline = null
+})
 const softwareOperationInProgress = computed(() =>
   softwareOperationSteps.value.some((step) => step.status === StepStatus.IN_PROGRESS),
 )
@@ -2156,55 +2307,78 @@ async function sendGameServerInput() {
   color: var(--xy-text-secondary);
 }
 
-.player-list-panel {
-  background: var(--xy-surface-1);
-}
-
-.player-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  max-height: 9rem;
-  margin: 0;
-  padding: var(--xy-space-xs) var(--xy-space-sm);
-  overflow-y: auto;
-  list-style: none;
-}
-
-.player-list-item {
+/* ===== Console feed filters ===== */
+.console-feed-filters {
   display: flex;
   align-items: center;
   gap: var(--xy-space-xs);
-  min-height: 1.7rem;
-  padding: 0 var(--xy-space-xs);
-  color: var(--xy-text-secondary);
-  font-family: var(--xy-font-mono);
-  font-size: 0.75rem;
+  padding: var(--xy-space-xs) var(--xy-space-md);
+  padding-right: 8rem;
+  background: var(--xy-surface-1);
+  border-bottom: 1px solid var(--xy-border);
 }
 
-.player-list-icon {
-  flex-shrink: 0;
-  color: var(--xy-accent);
-  opacity: 0.8;
-}
-
-.player-list-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.player-list-empty,
-.player-list-note {
-  padding: var(--xy-space-sm) var(--xy-space-md);
+.console-feed-filters__label {
+  margin-right: var(--xy-space-xs);
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.player-list-note {
-  padding-top: var(--xy-space-xs);
-  border-top: 1px solid var(--xy-border);
+.console-feed-filter {
+  padding: 1px var(--xy-space-base);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-pill);
+  background: transparent;
+  color: var(--xy-text-secondary);
+  cursor: pointer;
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+}
+
+.console-feed-filter:hover {
+  border-color: var(--xy-border-hover);
+  color: var(--xy-text-primary);
+}
+
+.console-feed-filter:focus-visible {
+  outline: 2px solid var(--xy-focus-ring);
+  outline-offset: 1px;
+}
+
+.console-feed-filter--active {
+  background: var(--xy-primary);
+  border-color: var(--xy-primary);
+  color: var(--xy-text-on-dark);
+}
+
+.console-feed-filters__note {
+  margin-left: var(--xy-space-sm);
+  color: var(--xy-text-muted);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-2xs);
+}
+
+/* Panel-generated roster markers injected into the console stream */
+.console-scroll-area :deep(.console-player-event) {
+  display: block;
+  padding: var(--xy-space-2xs) 0;
+  color: var(--xy-text-secondary);
+}
+
+.console-scroll-area :deep(.console-player-event b) {
+  font-weight: 600;
+}
+
+.console-scroll-area :deep(.console-player-event--join b) {
+  color: var(--xy-success-text-soft);
+}
+
+.console-scroll-area :deep(.console-player-event--leave b) {
+  color: var(--xy-danger-hover);
 }
 
 /* ===== Metrics Preview ===== */
@@ -2594,6 +2768,70 @@ async function sendGameServerInput() {
 /* Expanded state also hides sidebar when fullscreen is active */
 .main-area-expanded .sidebar {
   display: none;
+}
+
+/* ===== Player rail ===== */
+.player-rail {
+  display: flex;
+  flex-direction: column;
+  width: 264px;
+  flex-shrink: 0;
+  background: var(--xy-surface-0);
+  border-left: 1px solid var(--xy-border);
+  overflow: hidden;
+  transition: width 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.player-rail.collapsed {
+  align-items: center;
+  width: 44px;
+  padding-top: var(--xy-space-xs);
+  gap: var(--xy-space-sm);
+}
+
+.player-rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: var(--xy-space-xs) var(--xy-space-xs) var(--xy-space-xs) var(--xy-space-md);
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.player-rail__title {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.player-rail__head-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.player-rail__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  overflow-y: auto;
+}
+
+.player-rail__mini-count {
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+  writing-mode: vertical-rl;
+}
+
+.main-area-expanded .player-rail {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .player-rail {
+    display: none;
+  }
 }
 
 /* ===== Focus rings ===== */

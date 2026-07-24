@@ -1,6 +1,9 @@
+import type { ConsoleFeedKind } from './console-feed'
+
 export type ConsoleLine = {
   id: number
   html: string
+  kind?: ConsoleFeedKind
 }
 
 const consoleChunkPattern = /[^\n]*\n|[^\n]+/g

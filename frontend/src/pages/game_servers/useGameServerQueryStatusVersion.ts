@@ -22,6 +22,50 @@ interface UseGameServerQueryStatusVersionOptions {
   gameServerId: Ref<string>
 }
 
+export interface QueryPlayerSnapshot {
+  playerCount: number
+  playerCapacity: number
+  players: string[]
+  playerListSupported: boolean
+}
+
+export function queryInfoPlayerSnapshot(queryInfo: ServerQuery): QueryPlayerSnapshot | null {
+  switch (queryInfo.type) {
+    case ServerQuery_Type.Minecraft: {
+      const minecraftQuery = queryInfo.minecraft
+      if (minecraftQuery === undefined) return null
+      return {
+        playerCount: minecraftQuery.numberOfPlayers,
+        playerCapacity: minecraftQuery.maxPlayers,
+        players: [...minecraftQuery.playerList],
+        playerListSupported: true,
+      }
+    }
+    case ServerQuery_Type.Source: {
+      const sourceQuery = queryInfo.source
+      if (sourceQuery === undefined) return null
+      return {
+        playerCount: sourceQuery.players,
+        playerCapacity: sourceQuery.maxPlayers,
+        players: [...sourceQuery.playerList],
+        playerListSupported: sourceQuery.playerListSupported,
+      }
+    }
+    case ServerQuery_Type.Palworld: {
+      const palworldQuery = queryInfo.palworld
+      if (palworldQuery === undefined) return null
+      return {
+        playerCount: palworldQuery.players,
+        playerCapacity: palworldQuery.maxPlayers,
+        players: [...palworldQuery.playerList],
+        playerListSupported: true,
+      }
+    }
+    default:
+      return null
+  }
+}
+
 export function useGameServerQueryStatusVersion({
   gameServer,
   gameServerId,
@@ -35,44 +79,15 @@ export function useGameServerQueryStatusVersion({
   let lifecycleUnmounted = false
 
   function applyQueryInfo(queryInfo: ServerQuery) {
-    switch (queryInfo.type) {
-      case ServerQuery_Type.Minecraft: {
-        const minecraftQuery = queryInfo.minecraft
-        if (minecraftQuery === undefined) {
-          return
-        }
-
-        currentPlayerCount.value = minecraftQuery.numberOfPlayers
-        maxPlayerCount.value = minecraftQuery.maxPlayers
-        onlinePlayers.value = [...minecraftQuery.playerList]
-        playerListSupported.value = true
-        break
-      }
-      case ServerQuery_Type.Source: {
-        const sourceQuery = queryInfo.source
-        if (sourceQuery === undefined) {
-          return
-        }
-
-        currentPlayerCount.value = sourceQuery.players
-        maxPlayerCount.value = sourceQuery.maxPlayers
-        onlinePlayers.value = [...sourceQuery.playerList]
-        playerListSupported.value = sourceQuery.playerListSupported
-        break
-      }
-      case ServerQuery_Type.Palworld: {
-        const palworldQuery = queryInfo.palworld
-        if (palworldQuery === undefined) {
-          return
-        }
-
-        currentPlayerCount.value = palworldQuery.players
-        maxPlayerCount.value = palworldQuery.maxPlayers
-        onlinePlayers.value = [...palworldQuery.playerList]
-        playerListSupported.value = true
-        break
-      }
+    const snapshot = queryInfoPlayerSnapshot(queryInfo)
+    if (snapshot === null) {
+      return
     }
+
+    currentPlayerCount.value = snapshot.playerCount
+    maxPlayerCount.value = snapshot.playerCapacity
+    onlinePlayers.value = snapshot.players
+    playerListSupported.value = snapshot.playerListSupported
   }
 
   async function queryGameServer() {

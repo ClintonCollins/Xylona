@@ -41,17 +41,10 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((tab) => tab.name)).toEqual(['Console'])
   })
 
-  it('shows Players for an operator with the player-management permission', () => {
-    const perms = [
-      'game_server.view',
-      'game_server.start',
-      'game_server.stop',
-      'game_server.restart',
-      'game_server.console',
-      'game_server.players.manage',
-    ]
+  it('does not create a Players tab; player management lives on the console page', () => {
+    const perms = ['game_server.view', 'game_server.console', 'game_server.players.manage']
     const tabs = buildGameServerTabs(serverID, perms, false)
-    expect(tabs.map((t) => t.name)).toEqual(['Console', 'Players'])
+    expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
   it('shows all tabs for admin role', () => {
@@ -72,7 +65,6 @@ describe('buildGameServerTabs', () => {
     const tabs = buildGameServerTabs(serverID, perms, false)
     expect(tabs.map((t) => t.name)).toEqual([
       'Console',
-      'Players',
       'Metrics',
       'Files',
       'Start Command',
@@ -155,7 +147,7 @@ describe('buildGameServerTabs', () => {
 
     it('assigns every tab to exactly one known group', () => {
       const tabs = buildAllTabs()
-      expect(tabs).toHaveLength(13)
+      expect(tabs).toHaveLength(12)
       for (const tab of tabs) {
         expect(GAME_SERVER_TAB_GROUPS).toContain(tab.group)
       }
@@ -164,7 +156,6 @@ describe('buildGameServerTabs', () => {
     it.each([
       { name: 'Console', group: 'Operate' },
       { name: 'Map', group: 'Operate' },
-      { name: 'Players', group: 'Operate' },
       { name: 'Metrics', group: 'Operate' },
       { name: 'Configuration', group: 'Configure' },
       { name: 'Files', group: 'Configure' },
@@ -222,7 +213,6 @@ describe('buildGameServerTabs', () => {
       expect(tabs.map((tab) => tab.name)).toEqual([
         'Console',
         'Map',
-        'Players',
         'Metrics',
         'Configuration',
         'Files',
@@ -287,26 +277,6 @@ describe('getUnauthorizedRedirect', () => {
       `/game-servers/${serverID}/files`,
       serverID,
       ['game_server.files.view'],
-      false,
-    )
-    expect(result).toBeNull()
-  })
-
-  it('redirects /players when missing player-management permission', () => {
-    const result = getUnauthorizedRedirect(
-      `/game-servers/${serverID}/players`,
-      serverID,
-      ['game_server.view'],
-      false,
-    )
-    expect(result).toBe(consolePath)
-  })
-
-  it('returns null for /players with player-management permission', () => {
-    const result = getUnauthorizedRedirect(
-      `/game-servers/${serverID}/players`,
-      serverID,
-      ['game_server.players.manage'],
       false,
     )
     expect(result).toBeNull()
