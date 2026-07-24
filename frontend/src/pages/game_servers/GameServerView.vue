@@ -642,6 +642,7 @@ import {
 } from '@/proto/xylona_pb'
 import { ConnectError } from '@connectrpc/connect'
 import { canShowUpdateButton } from './game-server-update-capability'
+import { buildLifecycleConfirmation, type LifecycleConfirmation } from './server-list-actions'
 import {
   appendOperationOutputLines,
   normalizeOperationOutputChunk,
@@ -1261,9 +1262,44 @@ async function startGameServer() {
   }
 }
 
+function confirmLifecycleAction(confirmation: LifecycleConfirmation): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    $q.dialog({
+      title: confirmation.title,
+      message: confirmation.message,
+      cancel: true,
+      persistent: true,
+      ok: {
+        label: confirmation.confirmLabel,
+        color: confirmation.confirmColor,
+        unelevated: true,
+      },
+    })
+      .onOk(() => {
+        settled = true
+        resolve(true)
+      })
+      .onDismiss(() => {
+        if (!settled) {
+          resolve(false)
+        }
+      })
+  })
+}
+
 async function stopGameServer() {
   if (!serverStateAuthoritative.value) {
     return
+  }
+  const stopConfirmation = buildLifecycleConfirmation('stop', [
+    { displayName: gameServer.value.name, playerCount: currentPlayerCount.value },
+  ])
+  if (stopConfirmation !== null) {
+    const confirmed = await confirmLifecycleAction(stopConfirmation)
+    if (!confirmed) {
+      return
+    }
   }
   const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
   stoppingServer.value = true

@@ -1,21 +1,16 @@
 <template>
   <q-page class="xy-page-content">
-    <div class="xy-page-header">
-      <div>
-        <h1 class="xy-page-title">Game Servers</h1>
-        <div class="server-list-summary">
-          <span
-            >{{ displayRows.length }} {{ displayRows.length === 1 ? 'server' : 'servers' }}</span
-          >
+    <page-header title="Game Servers">
+      <div class="server-list-summary">
+        <span>{{ displayRows.length }} {{ displayRows.length === 1 ? 'server' : 'servers' }}</span>
+        <span aria-hidden="true">·</span>
+        <span class="server-list-summary__online">{{ onlineServerCount }} online</span>
+        <template v-if="totalPlayerCounts.max > 0">
           <span aria-hidden="true">·</span>
-          <span class="server-list-summary__online">{{ onlineServerCount }} online</span>
-          <template v-if="totalPlayerCounts.max > 0">
-            <span aria-hidden="true">·</span>
-            <span> {{ totalPlayerCounts.current }} / {{ totalPlayerCounts.max }} players </span>
-          </template>
-        </div>
+          <span> {{ totalPlayerCounts.current }} / {{ totalPlayerCounts.max }} players </span>
+        </template>
       </div>
-      <div class="xy-page-actions">
+      <template #actions>
         <q-input
           v-model="search"
           aria-label="Search game servers"
@@ -35,8 +30,8 @@
           color="primary"
           label="Create Game Server"
           to="/game-servers/create" />
-      </div>
-    </div>
+      </template>
+    </page-header>
     <div v-if="selectedGameServers.length > 0" class="server-selection-bar" role="region">
       <div class="server-selection-bar__count">
         <q-icon name="checklist" size="sm" />
@@ -58,7 +53,7 @@
           :disable="
             !lifecycleStateAuthoritative || loading || selectedGameServersForRestart.length < 1
           "
-          color="primary"
+          color="warning"
           dense
           icon="restart_alt"
           :label="`Restart ${selectedGameServersForRestart.length}`"
@@ -69,7 +64,7 @@
           :disable="
             !lifecycleStateAuthoritative || loading || selectedGameServersForStop.length < 1
           "
-          color="warning"
+          color="negative"
           dense
           icon="stop"
           :label="`Stop ${selectedGameServersForStop.length}`"
@@ -216,7 +211,7 @@
                     :aria-label="`Restart ${props.row.displayName}`"
                     :disable="!canRunServerAction(props.row, 'restart')"
                     :loading="isServerActionPending(props.row, 'restart')"
-                    color="primary"
+                    color="warning"
                     dense
                     flat
                     icon="restart_alt"
@@ -228,7 +223,7 @@
                     :aria-label="`Stop ${props.row.displayName}`"
                     :disable="!canRunServerAction(props.row, 'stop')"
                     :loading="isServerActionPending(props.row, 'stop')"
-                    color="warning"
+                    color="negative"
                     dense
                     flat
                     icon="stop"
@@ -354,7 +349,7 @@
                   :aria-label="`Restart ${props.row.displayName}`"
                   :disable="!canRunServerAction(props.row, 'restart')"
                   :loading="isServerActionPending(props.row, 'restart')"
-                  color="primary"
+                  color="warning"
                   dense
                   flat
                   icon="restart_alt"
@@ -366,7 +361,7 @@
                   :aria-label="`Stop ${props.row.displayName}`"
                   :disable="!canRunServerAction(props.row, 'stop')"
                   :loading="isServerActionPending(props.row, 'stop')"
-                  color="warning"
+                  color="negative"
                   dense
                   flat
                   icon="stop"
@@ -456,6 +451,7 @@ import {
   XylonaEventBus,
 } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {
@@ -489,6 +485,7 @@ import {
   sanitizeBootstrapCachedRows,
 } from './server-list-cache'
 import {
+  buildLifecycleConfirmation,
   canRestartServer,
   canStartServer,
   canStopServer,
@@ -497,6 +494,7 @@ import {
   getStartableServers,
   getStoppableServers,
   getUpdateableServers,
+  type LifecycleConfirmAction,
 } from './server-list-actions'
 import { useUserAuthStore } from '@/stores/xylona'
 import { resolveCanonicalVersionDisplay } from './version-display'
@@ -1252,6 +1250,46 @@ async function confirmUpdateServers(servers: DisplayRow[]): Promise<boolean> {
   })
 }
 
+async function confirmLifecycleServers(
+  action: LifecycleConfirmAction,
+  servers: DisplayRow[],
+): Promise<boolean> {
+  const confirmation = buildLifecycleConfirmation(
+    action,
+    servers.map((server) => ({
+      displayName: server.displayName,
+      playerCount: getPlayerCounts(server).current,
+    })),
+  )
+  if (confirmation === null) {
+    return true
+  }
+
+  return new Promise((resolve) => {
+    let settled = false
+    $q.dialog({
+      title: confirmation.title,
+      message: confirmation.message,
+      cancel: true,
+      persistent: true,
+      ok: {
+        label: confirmation.confirmLabel,
+        color: confirmation.confirmColor,
+        unelevated: true,
+      },
+    })
+      .onOk(() => {
+        settled = true
+        resolve(true)
+      })
+      .onDismiss(() => {
+        if (!settled) {
+          resolve(false)
+        }
+      })
+  })
+}
+
 function setPendingActions(servers: DisplayRow[], action?: ServerAction) {
   const nextPendingActions = new Map(pendingActionByServerID.value)
   for (const server of servers) {
@@ -1309,6 +1347,12 @@ async function runServerActions(
     return
   }
   if (action === 'update' && !(await confirmUpdateServers(servers))) {
+    return
+  }
+  if (
+    (action === 'stop' || action === 'restart') &&
+    !(await confirmLifecycleServers(action, servers))
+  ) {
     return
   }
 
@@ -1467,7 +1511,6 @@ const columns = ref([
   flex-wrap: wrap;
   align-items: center;
   gap: var(--xy-space-xs);
-  margin-top: var(--xy-space-2xs);
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-sm);
 }

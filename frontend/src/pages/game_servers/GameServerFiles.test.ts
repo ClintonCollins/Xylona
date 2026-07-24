@@ -8,6 +8,7 @@ import {
   ListDirectoryFilesResponseSchema,
   type File as XylonaFile,
 } from '@/proto/gameserver_files_operations_pb'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import { GameServerSchema } from '@/proto/shared_pb'
 import { GetGameServerResponseSchema } from '@/proto/xylona_pb'
 import GameServerFiles from './GameServerFiles.vue'
@@ -152,6 +153,24 @@ describe('GameServerFiles', () => {
     expect(mocks.notify).toHaveBeenCalledWith(
       expect.objectContaining({ caption: 'Error reading file server.cfg.' }),
     )
+    wrapper.unmount()
+  })
+
+  it('renders the Files page title', async () => {
+    mocks.listDirectoryFiles.mockResolvedValue(
+      create(ListDirectoryFilesResponseSchema, { files: [] }),
+    )
+
+    const wrapper = shallowMount(GameServerFiles, {
+      global: {
+        stubs: {
+          QCardSection: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.findComponent(PageHeader).props('title')).toBe('Files')
     wrapper.unmount()
   })
 

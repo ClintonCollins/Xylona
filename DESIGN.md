@@ -52,6 +52,18 @@ typography:
     fontWeight: 400
     lineHeight: "1.4"
     letterSpacing: "0"
+  caption:
+    fontFamily: "Exo 2"
+    fontSize: "0.75rem"
+    fontWeight: 400
+    lineHeight: "1.35"
+    letterSpacing: "0"
+  micro:
+    fontFamily: "Exo 2"
+    fontSize: "0.6875rem"
+    fontWeight: 600
+    lineHeight: "1.3"
+    letterSpacing: "0.04em"
   mono:
     fontFamily: "JetBrains Mono"
     fontSize: "0.875rem"
@@ -62,6 +74,8 @@ rounded:
   sm: "4px"
   md: "6px"
   lg: "8px"
+  xl: "12px"
+  pill: "999px"
 spacing:
   "2xs": "2px"
   xs: "4px"
@@ -141,6 +155,8 @@ Use the four-font hierarchy already present in the frontend:
 
 Display fonts are part of the identity, but overuse weakens the interface. Keep long-form and dense operational content in Exo 2 or JetBrains Mono. Body copy should remain readable at dashboard density, with line lengths capped around 65 to 75 characters where prose appears.
 
+Type sizes come from the `--xy-font-size-*` tokens rather than ad-hoc rem values. Below `body-sm` (0.875rem) there are exactly two steps: **caption** (`--xy-font-size-xs`, 0.75rem) for timestamps, helper text, and table metadata, and **micro** (`--xy-font-size-2xs`, 0.6875rem) for dense metric labels, overlines, and fine print. Do not freelance sizes in between. Caption and micro text is always Exo 2 or JetBrains Mono — never Zen Dots or Goldman, which lose legibility below roughly 0.95rem.
+
 ## Layout
 
 Design for repeated operational workflows: scanning server status, comparing values, controlling lifecycle, editing files, reading console output, managing backups, and navigating RBAC or settings.
@@ -167,8 +183,10 @@ The UI should feel technical and crisp. Use modest radii:
 - 4px for small controls and compact technical elements.
 - 6px for buttons and input controls.
 - 8px for cards, dialogs, repeated items, and larger panels.
+- 12px for hero panels, banners, and prominent framed sections.
+- Pill (`--xy-radius-pill`) for badges, chips, status dots, and other fully rounded elements.
 
-Avoid pill-heavy layouts unless the element is semantically a badge, chip, or segmented control. Do not nest cards inside cards.
+Always use the `--xy-radius-*` tokens; do not hardcode radii like `1rem` or `999px`. Avoid pill-heavy layouts unless the element is semantically a badge, chip, or segmented control. Do not nest cards inside cards.
 
 ## Components
 

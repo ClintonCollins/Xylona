@@ -5,9 +5,10 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
-import dayjs from 'dayjs'
 import cronstrue from 'cronstrue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { formatTimestamp as formatTimestampUtil } from '@/utils/format-timestamp'
 import {
   DeleteScheduledTaskRequestSchema,
   GetGameServerBackupOverviewRequestSchema,
@@ -118,8 +119,7 @@ function formatCron(expression: string): string {
 }
 
 function formatTimestamp(ts: Timestamp | undefined): string {
-  if (!ts) return '-'
-  return dayjs(timestampDate(ts)).format('MM/DD/YYYY HH:mm:ss A')
+  return formatTimestampUtil(ts, '-')
 }
 
 function latestLog(taskID: string): ScheduledTaskLog | undefined {
@@ -346,12 +346,11 @@ function confirmDelete(task: ScheduledTask): void {
 
 <template>
   <div class="schedules-page xy-page-content">
-    <div class="xy-page-header">
-      <h1 class="xy-page-title">Scheduled Tasks</h1>
-      <div class="xy-page-actions">
+    <page-header title="Scheduled Tasks">
+      <template #actions>
         <q-btn color="primary" icon="add" label="Add Schedule" no-caps @click="openCreateDialog" />
-      </div>
-    </div>
+      </template>
+    </page-header>
 
     <q-table
       :columns="columns"

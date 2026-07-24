@@ -7,9 +7,9 @@ import axios from 'axios'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
-import dayjs from 'dayjs'
 
 import BackupRestoreDialog from '@/components/game_servers/BackupRestoreDialog.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import type {
   BackupProgress,
   BackupSettings,
@@ -34,6 +34,7 @@ import {
   RestoreGameServerBackupRequestSchema,
 } from '@/proto/xylona_pb'
 import { bytesToSize, ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { formatTimestamp } from '@/utils/format-timestamp'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -570,14 +571,6 @@ function archiveFileName(archivePath: string): string {
   return fileName
 }
 
-function formatTimestamp(ts: Timestamp | undefined): string {
-  if (!ts) {
-    return '-'
-  }
-
-  return dayjs(timestampDate(ts)).format('MM/DD/YYYY HH:mm:ss A')
-}
-
 function timestampValue(ts: Timestamp | undefined): number {
   if (!ts) {
     return 0
@@ -666,7 +659,7 @@ function formatCompletedTimestamp(backup: GameServerBackup): string {
     return '-'
   }
 
-  return formatTimestamp(backup.completedAt)
+  return formatTimestamp(backup.completedAt, '-')
 }
 
 function formatSource(triggerSource: GameServerBackupTriggerSource): string {
@@ -775,14 +768,10 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 <template>
   <div class="backups-page xy-page-content">
-    <div class="xy-page-header">
-      <div>
-        <h1 class="xy-page-title">Backups</h1>
-        <div class="backups-page__subtitle">
-          Manual backups, restore history, and the shortcut into scheduled backup automation.
-        </div>
-      </div>
-      <div class="xy-page-actions">
+    <page-header
+      subtitle="Manual backups, restore history, and the shortcut into scheduled backup automation."
+      title="Backups">
+      <template #actions>
         <q-btn
           :disable="loading || !uploadAllowed"
           :loading="uploadingBackup"
@@ -801,8 +790,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
           label="Create Backup"
           no-caps
           @click="createBackup" />
-      </div>
-    </div>
+      </template>
+    </page-header>
 
     <q-banner
       v-if="showStateAlert"
@@ -1110,11 +1099,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   gap: 1rem;
 }
 
-.backups-page__subtitle {
-  margin-top: 0.25rem;
-  color: var(--xy-text-muted);
-}
-
 .backups-page__banner {
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-1);
@@ -1142,7 +1126,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 .backups-page__section {
   background: var(--xy-surface-1);
   border-color: var(--xy-border);
-  border-radius: 1rem;
+  border-radius: var(--xy-radius-xl);
 }
 
 .backups-page__section-header {
@@ -1179,7 +1163,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 .backups-page__summary-pill {
   padding: 0.35rem 0.65rem;
   border: 1px solid var(--xy-border);
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   background: color-mix(in srgb, var(--xy-surface-2) 78%, transparent);
   color: var(--xy-text-muted);
   font-size: 0.85rem;
@@ -1247,7 +1231,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   align-items: center;
   padding: 0.9rem 1rem;
   border: 1px solid color-mix(in srgb, var(--xy-accent) 16%, var(--xy-border));
-  border-radius: 0.9rem;
+  border-radius: var(--xy-radius-xl);
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--xy-accent) 7%, transparent), transparent 38%),
     color-mix(in srgb, var(--xy-surface-2) 75%, transparent);
@@ -1256,7 +1240,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 .backups-page__live-dot {
   width: 0.7rem;
   height: 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   background: var(--xy-accent);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--xy-accent) 34%, transparent);
   animation: backups-page-live-pulse 1.6s ease-out infinite;
@@ -1302,7 +1286,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   min-height: 1.55rem;
   padding: 0.1rem 0.5rem;
   border: 1px solid color-mix(in srgb, var(--xy-warning) 28%, var(--xy-border));
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
   color: color-mix(in srgb, var(--xy-warning) 78%, var(--xy-text-primary));
   font-size: 0.76rem;

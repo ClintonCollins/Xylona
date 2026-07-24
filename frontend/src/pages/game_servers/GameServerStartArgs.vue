@@ -1,15 +1,9 @@
 <template>
   <div class="start-args-page">
-    <div class="start-args-page__header">
-      <div class="start-args-page__header-main">
-        <div class="start-args-page__eyebrow">Runtime</div>
-        <h1 class="start-args-page__title font-display">Start Command</h1>
-        <p class="start-args-page__copy text-xy-secondary">
-          Edit the structured launch arguments for this server and preview the resolved argv before
-          saving.
-        </p>
-      </div>
-      <div class="start-args-page__actions">
+    <page-header
+      subtitle="Edit the structured launch arguments for this server and preview the resolved argv before saving."
+      title="Start Command">
+      <template #actions>
         <q-btn
           :disable="saving || restarting || !isDirty || !canEditStartArgs"
           flat
@@ -37,8 +31,8 @@
           icon="save"
           label="Save"
           @click="saveOnly" />
-      </div>
-    </div>
+      </template>
+    </page-header>
 
     <div v-if="loading" class="start-args-page__loading">
       <q-spinner-dots color="primary" size="40px" />
@@ -119,6 +113,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import StartArgsEditor from '@/components/game_servers/StartArgsEditor.vue'
 import ResolvedCommandPreview from '@/components/game_servers/ResolvedCommandPreview.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import {
   buildPlaceholderVars,
   parseStartArgBlocklist,
@@ -535,43 +530,8 @@ function resetAll() {
   padding: var(--xy-space-xl);
 }
 
-.start-args-page__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--xy-space-lg);
-}
-
-.start-args-page__header-main {
-  min-width: min(100%, 34rem);
-}
-
-.start-args-page__eyebrow {
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--xy-accent);
-}
-
-.start-args-page__title {
-  margin: 0;
-  font-size: 1.55rem;
-  line-height: 1.15;
-  color: var(--xy-text-primary);
-}
-
-.start-args-page__copy {
-  margin: 6px 0 0;
-  max-width: 66ch;
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
-
-.start-args-page__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--xy-space-sm);
+.start-args-page > .xy-page-header {
+  margin-bottom: 0;
 }
 
 .start-args-page__status-strip {
@@ -669,8 +629,8 @@ function resetAll() {
     padding: var(--xy-space-md);
   }
 
-  .start-args-page__actions,
-  .start-args-page__actions :deep(.q-btn) {
+  .start-args-page :deep(.xy-page-actions),
+  .start-args-page :deep(.xy-page-actions .q-btn) {
     width: 100%;
   }
 

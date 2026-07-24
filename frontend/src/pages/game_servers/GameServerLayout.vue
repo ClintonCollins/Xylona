@@ -2,9 +2,11 @@
   <q-page :padding="windowWidth > 1024" class="game-server-page">
     <q-card class="full-width game-server-card">
       <q-tabs
-        v-if="navQTabsStore.tabs.length > 0"
+        v-if="layoutTabs.length > 0"
         :dense="windowWidth <= 767"
         :inline-label="windowWidth <= 767"
+        :mobile-arrows="windowWidth <= 767"
+        :outside-arrows="windowWidth <= 767"
         active-color="primary"
         align="left"
         aria-label="Game server sections"
@@ -13,14 +15,15 @@
         narrow-indicator
         no-caps>
         <q-route-tab
-          v-for="tab in navQTabsStore.tabs"
+          v-for="(tab, index) in layoutTabs"
           :key="tab.name"
+          :class="{ 'game-server-tab--group-start': isGroupStart(index) }"
           :exact="tab.exact"
           :icon="tab.icon"
           :label="tab.name"
           :to="tab.to" />
       </q-tabs>
-      <q-separator v-if="navQTabsStore.tabs.length > 0" />
+      <q-separator v-if="layoutTabs.length > 0" />
       <div class="game-server-content">
         <router-view :key="gameServerRouteKey"></router-view>
       </div>
@@ -35,6 +38,7 @@ import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
 import { GetXylonaClient, WindowWidth } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
+import type { GameServerLayoutTab } from './game-server-layout-tabs'
 import { useServerSoftwareInstall } from '@/composables/useServerSoftwareInstall'
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -44,6 +48,16 @@ const router = useRouter()
 const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = WindowWidth()
 const gameServerRouteKey = computed(() => getServerID())
+// The toolbar store keeps a generic tab shape; this layout is its only writer
+// and always stores GameServerLayoutTab entries (which carry group metadata).
+const layoutTabs = computed(() => navQTabsStore.tabs as GameServerLayoutTab[])
+
+function isGroupStart(index: number): boolean {
+  if (index === 0) {
+    return false
+  }
+  return layoutTabs.value[index]?.group !== layoutTabs.value[index - 1]?.group
+}
 
 let currentPermissions: string[] = []
 let currentIsOwnerOrSuper = false
@@ -222,6 +236,26 @@ async function enforceRouteAccess() {
   background-color: var(--xy-surface-2);
 }
 
+/* Desktop-only visual clustering: a subtle vertical rule + breathing room
+   before the first tab of each group (Operate | Configure | Automate | Access).
+   Presentation only — routing and tab behavior are untouched. */
+@media (min-width: 768px) {
+  .game-server-tabs :deep(.q-tab.game-server-tab--group-start) {
+    margin-left: var(--xy-space-md);
+  }
+
+  .game-server-tabs :deep(.q-tab.game-server-tab--group-start)::before {
+    content: '';
+    position: absolute;
+    left: calc(-1 * var(--xy-space-sm));
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 1.25rem;
+    background-color: var(--xy-border);
+  }
+}
+
 @media (max-width: 767px) {
   .game-server-card {
     border-radius: 0;
@@ -258,10 +292,6 @@ async function enforceRouteAccess() {
   .game-server-tabs :deep(.q-tab__label) {
     font-size: var(--xy-font-size-xs);
     white-space: nowrap;
-  }
-
-  .game-server-tabs :deep(.q-tabs__arrow) {
-    display: none;
   }
 }
 </style>

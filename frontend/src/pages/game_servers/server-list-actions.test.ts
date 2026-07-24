@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Status } from '@/proto/shared_pb'
 import type { DisplayRow } from './server-list-cache'
 import {
+  buildLifecycleConfirmation,
   canRestartServer,
   canStartServer,
   canStopServer,
@@ -116,5 +117,99 @@ describe('server-list-actions', () => {
       'online',
       'offline',
     ])
+  })
+
+  it('buildLifecycleConfirmation requires a confirm only when players are online', () => {
+    const tests = [
+      {
+        name: 'stop single server with no players is instant',
+        action: 'stop' as const,
+        servers: [{ displayName: 'Alpha', playerCount: 0 }],
+        want: null,
+      },
+      {
+        name: 'restart across servers with no players is instant',
+        action: 'restart' as const,
+        servers: [
+          { displayName: 'Alpha', playerCount: 0 },
+          { displayName: 'Beta', playerCount: 0 },
+        ],
+        want: null,
+      },
+      {
+        name: 'no servers is instant',
+        action: 'stop' as const,
+        servers: [],
+        want: null,
+      },
+      {
+        name: 'stop single server with players names the count',
+        action: 'stop' as const,
+        servers: [{ displayName: 'Alpha', playerCount: 3 }],
+        want: {
+          title: 'Stop Alpha?',
+          message: '3 players are online and will be disconnected.',
+          confirmLabel: 'Stop server',
+          confirmColor: 'negative',
+        },
+      },
+      {
+        name: 'stop single server with one player uses singular copy',
+        action: 'stop' as const,
+        servers: [{ displayName: 'Alpha', playerCount: 1 }],
+        want: {
+          title: 'Stop Alpha?',
+          message: '1 player is online and will be disconnected.',
+          confirmLabel: 'Stop server',
+          confirmColor: 'negative',
+        },
+      },
+      {
+        name: 'restart single server with players warns about the restart window',
+        action: 'restart' as const,
+        servers: [{ displayName: 'Beta', playerCount: 2 }],
+        want: {
+          title: 'Restart Beta?',
+          message: '2 players are online and will be disconnected while the server restarts.',
+          confirmLabel: 'Restart server',
+          confirmColor: 'warning',
+        },
+      },
+      {
+        name: 'bulk stop names total players and server count',
+        action: 'stop' as const,
+        servers: [
+          { displayName: 'Alpha', playerCount: 2 },
+          { displayName: 'Beta', playerCount: 0 },
+          { displayName: 'Gamma', playerCount: 3 },
+        ],
+        want: {
+          title: 'Stop 3 servers?',
+          message: '5 players are online across 3 servers and will be disconnected.',
+          confirmLabel: 'Stop servers',
+          confirmColor: 'negative',
+        },
+      },
+      {
+        name: 'bulk restart names total players and server count',
+        action: 'restart' as const,
+        servers: [
+          { displayName: 'Alpha', playerCount: 1 },
+          { displayName: 'Beta', playerCount: 0 },
+        ],
+        want: {
+          title: 'Restart 2 servers?',
+          message:
+            '1 player is online across 2 servers and will be disconnected while the servers restart.',
+          confirmLabel: 'Restart servers',
+          confirmColor: 'warning',
+        },
+      },
+    ]
+
+    for (const tt of tests) {
+      const got = buildLifecycleConfirmation(tt.action, tt.servers)
+      expect(got, tt.name).toEqual(tt.want)
+    }
   })
 })

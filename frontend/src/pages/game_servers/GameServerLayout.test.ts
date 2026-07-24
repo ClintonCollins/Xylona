@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   getGameServer: vi.fn(),
   replace: vi.fn(),
   route: null as unknown as { path: string; params: { id: string } },
+  storeTabs: [] as Array<{ name: string; to: string; exact: boolean; icon: string; group: string }>,
 }))
 
 vi.mock('vue-router', async () => {
@@ -31,7 +32,7 @@ vi.mock('vue-router', async () => {
 })
 
 vi.mock('@/stores/xylona', () => ({
-  useToolbarNavQTabsStore: () => ({ tabs: [], changeTabs: mocks.changeTabs }),
+  useToolbarNavQTabsStore: () => ({ tabs: mocks.storeTabs, changeTabs: mocks.changeTabs }),
   useUserAuthStore: () => ({
     checkUserAuthenticated: mocks.checkUserAuthenticated,
     user: { id: 'user-1', superUser: false },
@@ -51,6 +52,7 @@ describe('GameServerLayout', () => {
   beforeEach(() => {
     mocks.route.params.id = 'server-a'
     mocks.route.path = '/game-servers/server-a/console'
+    mocks.storeTabs = []
     mocks.changeTabs.mockReset()
     mocks.getGameServer.mockReset()
     mocks.replace.mockReset()
@@ -111,6 +113,57 @@ describe('GameServerLayout', () => {
     const lastTabs = mocks.changeTabs.mock.calls.at(-1)?.[0] as Array<{ to: string }>
     expect(lastTabs.length).toBeGreaterThan(0)
     expect(lastTabs.every((tab) => tab.to.includes('/server-b/'))).toBe(true)
+  })
+
+  it('marks the first tab of each subsequent group as a group start', () => {
+    const basePath = '/game-servers/server-a'
+    mocks.storeTabs = [
+      {
+        name: 'Console',
+        to: `${basePath}/console`,
+        icon: 'terminal',
+        exact: true,
+        group: 'Operate',
+      },
+      { name: 'Map', to: `${basePath}/map`, icon: 'public', exact: true, group: 'Operate' },
+      { name: 'Files', to: `${basePath}/files`, icon: 'folder', exact: true, group: 'Configure' },
+      {
+        name: 'Settings',
+        to: `${basePath}/settings`,
+        icon: 'settings',
+        exact: true,
+        group: 'Configure',
+      },
+      {
+        name: 'Backups',
+        to: `${basePath}/backups`,
+        icon: 'archive',
+        exact: true,
+        group: 'Automate',
+      },
+      {
+        name: 'Access',
+        to: `${basePath}/access`,
+        icon: 'manage_accounts',
+        exact: true,
+        group: 'Access',
+      },
+    ]
+
+    const wrapper = shallowMount(GameServerLayout, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          'router-view': RouterViewStub,
+        },
+      },
+    })
+
+    const groupStartTabs = wrapper
+      .findAll('q-route-tab-stub')
+      .filter((tab) => tab.classes('game-server-tab--group-start'))
+      .map((tab) => tab.attributes('label'))
+    expect(groupStartTabs).toEqual(['Files', 'Backups', 'Access'])
   })
 })
 

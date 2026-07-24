@@ -1,5 +1,7 @@
 <template>
   <div class="config-page">
+    <page-header class="config-page-header" title="Configuration" />
+
     <!-- Loading state -->
     <div v-if="loading" class="config-loading">
       <q-spinner-dots color="primary" size="40px" />
@@ -74,6 +76,7 @@ import {
 } from '@/proto/xylona_pb'
 import ConfigFileSidebar from '@/components/game_servers/ConfigFileSidebar.vue'
 import ConfigFileEditor from '@/components/game_servers/ConfigFileEditor.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import {
   buildCategoryColorMap,
   CATEGORY_COLORS,
@@ -353,6 +356,11 @@ function handleUpdateAdvanced(fields: AdvancedField[]) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.config-page-header {
+  padding: var(--xy-space-md) var(--xy-space-md) 0;
+  margin-bottom: var(--xy-space-sm);
 }
 
 .config-loading {

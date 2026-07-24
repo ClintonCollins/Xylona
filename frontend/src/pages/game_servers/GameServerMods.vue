@@ -22,6 +22,7 @@ import InstalledModsTable from '@/components/game_servers/InstalledModsTable.vue
 import ModBrowse from '@/components/game_servers/ModBrowse.vue'
 import ModDetailDialog from '@/components/game_servers/ModDetailDialog.vue'
 import ModInstallDialog from '@/components/game_servers/ModInstallDialog.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -409,6 +410,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 
 <template>
   <div class="mods-page">
+    <page-header class="mods-page-header" title="Mods" />
     <q-tabs
       v-model="activeTab"
       active-color="primary"
@@ -475,6 +477,11 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.mods-page-header {
+  padding: var(--xy-space-md) var(--xy-space-md) 0;
+  margin-bottom: var(--xy-space-sm);
 }
 
 .mods-tabs {

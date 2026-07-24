@@ -10,7 +10,13 @@
 
     <ol v-if="events.length > 0" class="metrics-timeline__list">
       <li v-for="event in visibleEvents" :key="`${event.kind}-${event.id}`">
-        <span :class="`metrics-timeline__marker--${event.tone}`" class="metrics-timeline__marker" />
+        <q-icon
+          :class="`metrics-timeline__marker--${event.tone}`"
+          class="metrics-timeline__marker"
+          :name="toneIcons[event.tone]"
+          size="16px">
+          <span class="metrics-timeline__sr-only">{{ toneLabels[event.tone] }}</span>
+        </q-icon>
         <div>
           <div class="metrics-timeline__event-header">
             <strong>{{ event.title }}</strong>
@@ -18,7 +24,7 @@
               {{ formatMetricTimestamp(event.timestampMs) }}
             </time>
           </div>
-          <p>{{ event.detail || event.kind }}</p>
+          <p>{{ event.detail || kindLabels[event.kind] }}</p>
         </div>
       </li>
     </ol>
@@ -49,6 +55,25 @@ const expanded = ref(false)
 const visibleEvents = computed(() =>
   expanded.value ? props.events : props.events.slice(0, initialEventCount),
 )
+
+const toneIcons: Record<MetricsTimelineEvent['tone'], string> = {
+  positive: 'check_circle',
+  warning: 'warning',
+  negative: 'error',
+  neutral: 'radio_button_unchecked',
+}
+
+const toneLabels: Record<MetricsTimelineEvent['tone'], string> = {
+  positive: 'Success:',
+  warning: 'Warning:',
+  negative: 'Failure:',
+  neutral: 'Event:',
+}
+
+const kindLabels: Record<MetricsTimelineEvent['kind'], string> = {
+  lifecycle: 'Lifecycle event',
+  operation: 'Server operation',
+}
 </script>
 
 <style scoped>
@@ -105,23 +130,32 @@ const visibleEvents = computed(() =>
 }
 
 .metrics-timeline__marker {
-  width: 9px;
-  height: 9px;
-  margin-top: 5px;
-  background: var(--xy-text-muted);
-  border-radius: var(--xy-radius-pill);
+  margin-top: var(--xy-space-2xs);
+  color: var(--xy-text-muted);
 }
 
 .metrics-timeline__marker--positive {
-  background: var(--xy-success);
+  color: var(--xy-success);
 }
 
 .metrics-timeline__marker--warning {
-  background: var(--xy-warning);
+  color: var(--xy-warning);
 }
 
 .metrics-timeline__marker--negative {
-  background: var(--xy-danger);
+  color: var(--xy-danger);
+}
+
+.metrics-timeline__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .metrics-timeline__event-header strong {

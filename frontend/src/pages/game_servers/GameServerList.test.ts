@@ -25,59 +25,81 @@ import GameServerList from './GameServerList.vue'
 import type { DisplayRow } from './server-list-cache'
 import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
 
-const mocks = vi.hoisted(() => ({
-  listAggregatedGameServers: vi.fn(),
-  listGameServers: vi.fn(),
-  listNodes: vi.fn(),
-  startGameServer: vi.fn(),
-  stopGameServer: vi.fn(),
-  restartGameServer: vi.fn(),
-  updateGameServer: vi.fn(),
-  websocketClient: {
-    isOpen: vi.fn(() => true),
-    send: vi.fn(),
-  },
-  eventBus: (() => {
-    const listeners = new Map<string, Set<(...args: unknown[]) => void>>()
-
-    return {
-      on: vi.fn((eventName: string, handler: (...args: unknown[]) => void) => {
-        const handlers = listeners.get(eventName) ?? new Set<(...args: unknown[]) => void>()
-        handlers.add(handler)
-        listeners.set(eventName, handlers)
-      }),
-      off: vi.fn((eventName: string, handler?: (...args: unknown[]) => void) => {
-        if (handler === undefined) {
-          listeners.delete(eventName)
-          return
+const mocks = vi.hoisted(() => {
+  const dialogChoice = { value: 'ok' as 'ok' | 'dismiss' }
+  const dialog = vi.fn(() => {
+    const chain = {
+      onOk(callback: (value?: unknown) => void) {
+        if (dialogChoice.value === 'ok') {
+          callback()
         }
-
-        const handlers = listeners.get(eventName)
-        if (!handlers) {
-          return
-        }
-
-        handlers.delete(handler)
-        if (handlers.size === 0) {
-          listeners.delete(eventName)
-        }
-      }),
-      emit: (eventName: string, ...args: unknown[]) => {
-        const handlers = listeners.get(eventName)
-        if (!handlers) {
-          return
-        }
-
-        for (const handler of handlers) {
-          handler(...args)
-        }
+        return chain
       },
-      reset: () => {
-        listeners.clear()
+      onDismiss(callback: () => void) {
+        callback()
+        return chain
       },
     }
-  })(),
-}))
+    return chain
+  })
+
+  return {
+    dialog,
+    dialogChoice,
+    notify: vi.fn(),
+    listAggregatedGameServers: vi.fn(),
+    listGameServers: vi.fn(),
+    listNodes: vi.fn(),
+    startGameServer: vi.fn(),
+    stopGameServer: vi.fn(),
+    restartGameServer: vi.fn(),
+    updateGameServer: vi.fn(),
+    websocketClient: {
+      isOpen: vi.fn(() => true),
+      send: vi.fn(),
+    },
+    eventBus: (() => {
+      const listeners = new Map<string, Set<(...args: unknown[]) => void>>()
+
+      return {
+        on: vi.fn((eventName: string, handler: (...args: unknown[]) => void) => {
+          const handlers = listeners.get(eventName) ?? new Set<(...args: unknown[]) => void>()
+          handlers.add(handler)
+          listeners.set(eventName, handlers)
+        }),
+        off: vi.fn((eventName: string, handler?: (...args: unknown[]) => void) => {
+          if (handler === undefined) {
+            listeners.delete(eventName)
+            return
+          }
+
+          const handlers = listeners.get(eventName)
+          if (!handlers) {
+            return
+          }
+
+          handlers.delete(handler)
+          if (handlers.size === 0) {
+            listeners.delete(eventName)
+          }
+        }),
+        emit: (eventName: string, ...args: unknown[]) => {
+          const handlers = listeners.get(eventName)
+          if (!handlers) {
+            return
+          }
+
+          for (const handler of handlers) {
+            handler(...args)
+          }
+        },
+        reset: () => {
+          listeners.clear()
+        },
+      }
+    })(),
+  }
+})
 
 const storageState = vi.hoisted(() => ({
   values: new Map<string, unknown>(),
@@ -105,22 +127,11 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
-    useQuasar: () => {
-      const dialogResult = {
-        onOk(callback: () => void) {
-          callback()
-          return dialogResult
-        },
-        onDismiss() {
-          return dialogResult
-        },
-      }
-      return {
-        dialog: vi.fn(() => dialogResult),
-        notify: vi.fn(),
-        screen: { lt: { md: false } },
-      }
-    },
+    useQuasar: () => ({
+      dialog: mocks.dialog,
+      notify: mocks.notify,
+      screen: { lt: { md: false } },
+    }),
   }
 })
 
@@ -258,6 +269,9 @@ describe('GameServerList', () => {
     mocks.eventBus.reset()
     mocks.eventBus.on.mockClear()
     mocks.eventBus.off.mockClear()
+    mocks.dialog.mockClear()
+    mocks.dialogChoice.value = 'ok'
+    mocks.notify.mockClear()
     mocks.listAggregatedGameServers.mockResolvedValue({ servers: [] })
     mocks.listGameServers.mockResolvedValue({
       gameServers: [buildLocalServer()],
@@ -418,6 +432,176 @@ describe('GameServerList', () => {
     )
     expect(mocks.stopGameServer).not.toHaveBeenCalled()
     expect(mocks.startGameServer).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      label: 'confirms a row stop when players are online',
+      action: 'stop' as const,
+      playerCount: 3n,
+      dialogChoice: 'ok' as const,
+      wantDialog: {
+        title: 'Stop Server A?',
+        message: '3 players are online and will be disconnected.',
+        confirmColor: 'negative',
+      },
+      wantCalls: 1,
+    },
+    {
+      label: 'aborts a row stop when the player confirm is cancelled',
+      action: 'stop' as const,
+      playerCount: 3n,
+      dialogChoice: 'dismiss' as const,
+      wantDialog: {
+        title: 'Stop Server A?',
+        message: '3 players are online and will be disconnected.',
+        confirmColor: 'negative',
+      },
+      wantCalls: 0,
+    },
+    {
+      label: 'stops a row immediately when no players are online',
+      action: 'stop' as const,
+      playerCount: 0n,
+      dialogChoice: 'ok' as const,
+      wantDialog: null,
+      wantCalls: 1,
+    },
+    {
+      label: 'confirms a row restart when players are online',
+      action: 'restart' as const,
+      playerCount: 2n,
+      dialogChoice: 'ok' as const,
+      wantDialog: {
+        title: 'Restart Server A?',
+        message: '2 players are online and will be disconnected while the server restarts.',
+        confirmColor: 'warning',
+      },
+      wantCalls: 1,
+    },
+    {
+      label: 'restarts a row immediately when no players are online',
+      action: 'restart' as const,
+      playerCount: 0n,
+      dialogChoice: 'ok' as const,
+      wantDialog: null,
+      wantCalls: 1,
+    },
+  ])('$label', async ({ action, playerCount, dialogChoice, wantDialog, wantCalls }) => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-a',
+            name: 'Server A',
+            status: Status.ONLINE,
+            currentPlayerCount: playerCount,
+            maxPlayers: 10n,
+          }),
+        }),
+      ],
+    })
+    mocks.dialogChoice.value = dialogChoice
+
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      runServerAction: (action: 'stop' | 'restart', server: DisplayRow) => Promise<void>
+    }
+    const server = vm.displayRows[0]
+    if (!server) throw new Error('expected online server')
+
+    await vm.runServerAction(action, server)
+
+    if (wantDialog === null) {
+      expect(mocks.dialog).not.toHaveBeenCalled()
+    } else {
+      expect(mocks.dialog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: wantDialog.title,
+          message: wantDialog.message,
+          ok: expect.objectContaining({ color: wantDialog.confirmColor }),
+        }),
+      )
+    }
+    const actionMock = action === 'stop' ? mocks.stopGameServer : mocks.restartGameServer
+    expect(actionMock).toHaveBeenCalledTimes(wantCalls)
+  })
+
+  it('confirms a bulk stop once, naming total players and server count', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-a',
+            name: 'Server A',
+            status: Status.ONLINE,
+            currentPlayerCount: 2n,
+            maxPlayers: 10n,
+          }),
+        }),
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-b',
+            name: 'Server B',
+            status: Status.ONLINE,
+            currentPlayerCount: 3n,
+            maxPlayers: 10n,
+          }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      selectedGameServers: DisplayRow[]
+      stopSelectedGameServers: () => Promise<void>
+    }
+    vm.selectedGameServers = [...vm.displayRows]
+
+    await vm.stopSelectedGameServers()
+
+    expect(mocks.dialog).toHaveBeenCalledTimes(1)
+    expect(mocks.dialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Stop 2 servers?',
+        message: '5 players are online across 2 servers and will be disconnected.',
+        ok: expect.objectContaining({ color: 'negative' }),
+      }),
+    )
+    expect(mocks.stopGameServer).toHaveBeenCalledTimes(2)
+  })
+
+  it('uses negative for Stop and warning for Restart in the bulk selection bar', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ status: Status.ONLINE }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      selectedGameServers: DisplayRow[]
+    }
+    vm.selectedGameServers = [...vm.displayRows]
+    await flushPromises()
+
+    const buttons = wrapper.findAll('button')
+    const stopButton = buttons.find((button) => button.text().startsWith('Stop'))
+    const restartButton = buttons.find((button) => button.text().startsWith('Restart'))
+    expect(stopButton?.attributes('color')).toBe('negative')
+    expect(restartButton?.attributes('color')).toBe('warning')
   })
 
   it('keeps an update pending until terminal progress arrives', async () => {

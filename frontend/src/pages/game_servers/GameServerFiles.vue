@@ -1,5 +1,6 @@
 <template>
   <q-card-section>
+    <page-header class="files-page-header" title="Files" />
     <file-uploader-drop
       v-model:file-uploader-dialog="fileUploaderDialog"
       :game-server-id="gameServerId"
@@ -169,7 +170,7 @@
               {{ bytesToSize(Number(directory.size)) }}
             </div>
             <div class="col-xs-3 file-list-cell gt-sm">
-              {{ toTimestamp(directory.lastModified) }}
+              {{ formatTimestamp(directory.lastModified) }}
             </div>
           </div>
           <div
@@ -200,7 +201,9 @@
               <span class="file-name">{{ file.name }}</span>
             </div>
             <div class="col-xs-5 col-sm-3 file-list-cell">{{ bytesToSize(Number(file.size)) }}</div>
-            <div class="col-xs-3 file-list-cell gt-sm">{{ toTimestamp(file.lastModified) }}</div>
+            <div class="col-xs-3 file-list-cell gt-sm">
+              {{ formatTimestamp(file.lastModified) }}
+            </div>
           </div>
         </div>
         <q-menu ref="contextMenu" context-menu touch-position>
@@ -298,8 +301,8 @@ import DeleteGameServerFilesDialog from '@/components/game_servers/DeleteGameSer
 import ExtractFiles from '@/components/game_servers/ExtractFiles.vue'
 import FileUploaderDrop from '@/components/game_servers/FileUploaderDrop.vue'
 import MoveFiles from '@/components/game_servers/MoveFiles.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import RenameFile from '@/components/game_servers/RenameFile.vue'
-import dayjs from 'dayjs'
 import { QMenu, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { GameServer, GameServerSchema } from '@/proto/shared_pb'
@@ -319,8 +322,9 @@ import {
   GetRelativeFilePath,
   GetXylonaClient,
 } from '@/utils/shared'
+import { formatTimestamp } from '@/utils/format-timestamp'
 import { useRoute } from 'vue-router'
-import { Timestamp, timestampDate, TimestampSchema } from '@bufbuild/protobuf/wkt'
+import { TimestampSchema } from '@bufbuild/protobuf/wkt'
 import { GetGameServerRequest, GetGameServerRequestSchema } from '@/proto/xylona_pb'
 
 const Editor = defineAsyncComponent(() => import('@/components/Editor.vue'))
@@ -823,14 +827,6 @@ async function downloadGameServerFile(fileName: string, operationPath = loadedPa
   }
 }
 
-function toTimestamp(date: Timestamp | undefined) {
-  if (date === undefined) {
-    return ''
-  }
-  const JSDate: Date = timestampDate(date)
-  return dayjs(JSDate).format('MM/DD/YYYY HH:mm:ss A')
-}
-
 async function getGameServerDetails() {
   const request: GetGameServerRequest = create(GetGameServerRequestSchema, {})
   try {
@@ -847,6 +843,10 @@ async function getGameServerDetails() {
 </script>
 
 <style scoped>
+.files-page-header {
+  margin-bottom: var(--xy-space-md);
+}
+
 .file-empty-state {
   display: flex;
   flex-direction: column;

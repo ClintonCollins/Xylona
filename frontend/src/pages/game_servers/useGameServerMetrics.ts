@@ -51,6 +51,7 @@ export interface MetricsTimelineEvent {
 
 interface UseGameServerMetricsOptions {
   gameServerId: Ref<string>
+  initialRange?: MetricsRangeKey
 }
 
 function timestampToMs(timestamp: Timestamp | undefined): number | null {
@@ -350,8 +351,8 @@ export function normalizeLiveMetricPoint(
   }
 }
 
-export function useGameServerMetrics({ gameServerId }: UseGameServerMetricsOptions) {
-  const selectedRange = ref<MetricsRangeKey>('1h')
+export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServerMetricsOptions) {
+  const selectedRange = ref<MetricsRangeKey>(initialRange ?? '1h')
   const samples = ref<MetricSample[]>([])
   const timeline = ref<MetricsTimelineEvent[]>([])
   const gameServer = ref<GameServer>(create(GameServerSchema))

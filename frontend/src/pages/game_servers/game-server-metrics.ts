@@ -236,6 +236,110 @@ export function hasCompleteVolumeCapacity(
   )
 }
 
+export type MetricHealthLevel = 'ok' | 'warn' | 'danger' | 'unknown'
+
+export interface MetricHealth {
+  level: MetricHealthLevel
+  label: string
+}
+
+export interface ServerHealthAttentionItem {
+  key: 'cpu' | 'memory' | 'volume' | 'query'
+  level: 'warn' | 'danger'
+  label: string
+}
+
+export interface ServerHealth {
+  cpu: MetricHealth
+  memory: MetricHealth
+  volume: MetricHealth
+  query: MetricHealth
+  attention: ServerHealthAttentionItem[]
+  nominalCount: number
+}
+
+const cpuWarnPercent = 85
+const cpuDangerPercent = 95
+const memoryWarnRatio = 0.85
+const memoryDangerRatio = 0.95
+const volumeWarnPercent = 80
+const volumeDangerPercent = 92
+
+export function deriveServerHealth(input: {
+  latestSample: MetricSample | null
+  capacity: MetricCapacity
+}): ServerHealth {
+  const latest = input.latestSample
+
+  let cpu: MetricHealth = { level: 'unknown', label: 'Unknown' }
+  const cpuPercent = latest?.cpuAverage ?? null
+  if (cpuPercent !== null) {
+    if (cpuPercent >= cpuDangerPercent) cpu = { level: 'danger', label: 'Saturated' }
+    else if (cpuPercent >= cpuWarnPercent) cpu = { level: 'warn', label: 'High load' }
+    else cpu = { level: 'ok', label: 'Nominal' }
+  }
+
+  let memory: MetricHealth = { level: 'unknown', label: 'Unknown' }
+  const targetRatio = input.capacity.configuredTargetRatio
+  if (targetRatio !== null) {
+    const targetPercent = `${Math.round(targetRatio * 100)}% of target`
+    if (targetRatio >= memoryDangerRatio) memory = { level: 'danger', label: targetPercent }
+    else if (targetRatio >= memoryWarnRatio) memory = { level: 'warn', label: targetPercent }
+    else memory = { level: 'ok', label: 'Nominal' }
+  } else if (input.capacity.processRssBytes !== null) {
+    memory = { level: 'ok', label: 'No target set' }
+  }
+
+  let volume: MetricHealth = { level: 'unknown', label: 'Unavailable' }
+  if (hasCompleteVolumeCapacity(latest)) {
+    if (latest.volumePercent >= volumeDangerPercent)
+      volume = { level: 'danger', label: 'Low space' }
+    else if (latest.volumePercent >= volumeWarnPercent)
+      volume = { level: 'warn', label: 'Filling up' }
+    else volume = { level: 'ok', label: 'Nominal' }
+  }
+
+  let query: MetricHealth = { level: 'unknown', label: 'Unknown' }
+  if (latest?.querySupported === false) query = { level: 'unknown', label: 'Not supported' }
+  else if (latest?.querySuccess === false) query = { level: 'warn', label: 'Query failing' }
+  else if (latest?.querySuccess === true) query = { level: 'ok', label: 'Healthy' }
+
+  const attention: ServerHealthAttentionItem[] = []
+  if (cpu.level === 'warn' || cpu.level === 'danger') {
+    attention.push({
+      key: 'cpu',
+      level: cpu.level,
+      label:
+        `CPU ${cpuPercent === null ? '' : `${cpuPercent.toFixed(0)}% `}${cpu.label.toLowerCase()}`.trim(),
+    })
+  }
+  if (memory.level === 'warn' || memory.level === 'danger') {
+    attention.push({ key: 'memory', level: memory.level, label: `Memory ${memory.label}` })
+  }
+  if (volume.level === 'warn' || volume.level === 'danger') {
+    const usedPercent = hasCompleteVolumeCapacity(latest)
+      ? ` ${latest.volumePercent.toFixed(0)}% used`
+      : ''
+    attention.push({ key: 'volume', level: volume.level, label: `Volume${usedPercent}` })
+  }
+  if (query.level === 'warn' || query.level === 'danger') {
+    attention.push({ key: 'query', level: query.level, label: 'Game query failing' })
+  }
+  attention.sort((left, right) =>
+    left.level === right.level ? 0 : left.level === 'danger' ? -1 : 1,
+  )
+
+  const nominalCount = [cpu, memory, volume, query].filter((health) => health.level === 'ok').length
+
+  return { cpu, memory, volume, query, attention, nominalCount }
+}
+
+export function isMetricsRangeKey(value: unknown): value is MetricsRangeKey {
+  return (
+    typeof value === 'string' && metricsRangeOptions.some((candidate) => candidate.value === value)
+  )
+}
+
 export type MetricsViewStateKind =
   | 'loading'
   | 'error'

@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { notifyConnectError, notifySuccess } from '@/api/notifications'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import type { GameServerPlayer } from '@/proto/shared_pb'
 import { Status } from '@/proto/shared_pb'
 import {
@@ -167,14 +168,10 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
 
 <template>
   <div class="players-page xy-page-content">
-    <div class="xy-page-header">
-      <div>
-        <h1 class="xy-page-title">Players</h1>
-        <div class="players-page__subtitle">
-          Inspect the live roster and use the game server's native administration controls.
-        </div>
-      </div>
-      <div class="xy-page-actions">
+    <page-header
+      subtitle="Inspect the live roster and use the game server's native administration controls."
+      title="Players">
+      <template #actions>
         <q-btn
           :disable="loading || performing"
           :loading="loading"
@@ -184,8 +181,8 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
           no-caps
           outline
           @click="loadPlayerManagement" />
-      </div>
-    </div>
+      </template>
+    </page-header>
 
     <q-banner v-if="loadError" class="players-page__banner players-page__banner--danger" rounded>
       <template #avatar><q-icon color="negative" name="cloud_off" /></template>
@@ -379,7 +376,6 @@ watch(gameServerId, loadPlayerManagement, { immediate: true })
   gap: var(--xy-space-lg);
 }
 
-.players-page__subtitle,
 .players-page__card-copy,
 .players-page__dialog-copy {
   max-width: 70ch;

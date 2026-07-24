@@ -78,6 +78,13 @@ describe('GameServerConfig', () => {
     mocks.generateGameServerConfigFile.mockReset()
   })
 
+  it('renders the Configuration page title', async () => {
+    const wrapper = mountConfig()
+    await flushPromises()
+
+    expect(wrapper.find('h1.xy-page-title').text()).toBe('Configuration')
+  })
+
   it('does not crash or fetch config files when the route context is unavailable', async () => {
     const mountComponent = () => mountConfig()
 

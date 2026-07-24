@@ -123,7 +123,8 @@
   --xy-radius-pill: 999px;
 
   /* ---- Type Scale ---- */
-  --xy-font-size-xs: 0.75rem;
+  --xy-font-size-2xs: 0.6875rem; /* micro: dense metric labels, overlines, fine print */
+  --xy-font-size-xs: 0.75rem; /* caption: timestamps, helper text, table metadata */
   --xy-font-size-sm: 0.875rem;
   --xy-font-size-base: 1rem;
   --xy-font-size-lg: 1.125rem;
@@ -205,6 +206,16 @@
   --xy-chart-3: var(--xy-danger);
   --xy-chart-4: var(--xy-warning);
   --xy-chart-5: var(--xy-purple);
+
+  /* ---- Metric Series Palette ----
+     Neutral colors for time-series data. Red and amber are reserved for
+     real state (threshold breaches, configured-limit lines), never for
+     ordinary series like peaks or storage growth. */
+  --xy-series-1: var(--xy-primary);
+  --xy-series-2: var(--xy-accent);
+  --xy-series-3: var(--xy-purple);
+  --xy-series-neutral: #7d8a92;
+  --xy-series-limit: var(--xy-warning);
   --xy-chart-grid: rgba(255, 255, 255, 0.06);
   --xy-chart-tooltip-bg: var(--xy-surface-1);
   --xy-chart-tooltip-text: var(--xy-text-primary);

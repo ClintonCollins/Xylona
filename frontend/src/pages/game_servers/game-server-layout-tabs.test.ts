@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
+import {
+  GAME_SERVER_TAB_GROUPS,
+  buildGameServerTabs,
+  getUnauthorizedRedirect,
+} from './game-server-layout-tabs'
 
 describe('buildGameServerTabs', () => {
   const serverID = 'test-server'
@@ -69,8 +73,8 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((t) => t.name)).toEqual([
       'Console',
       'Players',
-      'Files',
       'Metrics',
+      'Files',
       'Start Command',
       'Settings',
       'Backups',
@@ -130,6 +134,107 @@ describe('buildGameServerTabs', () => {
   it('shows Alerts tab for superuser even without alert permissions', () => {
     const tabs = buildGameServerTabs(serverID, ['game_server.view'], true)
     expect(tabs.map((t) => t.name)).toContain('Alerts')
+  })
+
+  describe('tab groups', () => {
+    const allPerms = [
+      'game_server.view',
+      'game_server.players.manage',
+      'game_server.config',
+      'game_server.files.view',
+      'game_server.metrics',
+      'game_server.settings',
+      'game_server.mods',
+      'game_server.scheduled_tasks',
+      'game_server.backup',
+    ]
+
+    function buildAllTabs() {
+      return buildGameServerTabs(serverID, allPerms, true, true, true, false, true)
+    }
+
+    it('assigns every tab to exactly one known group', () => {
+      const tabs = buildAllTabs()
+      expect(tabs).toHaveLength(13)
+      for (const tab of tabs) {
+        expect(GAME_SERVER_TAB_GROUPS).toContain(tab.group)
+      }
+    })
+
+    it.each([
+      { name: 'Console', group: 'Operate' },
+      { name: 'Map', group: 'Operate' },
+      { name: 'Players', group: 'Operate' },
+      { name: 'Metrics', group: 'Operate' },
+      { name: 'Configuration', group: 'Configure' },
+      { name: 'Files', group: 'Configure' },
+      { name: 'Start Command', group: 'Configure' },
+      { name: 'Settings', group: 'Configure' },
+      { name: 'Mods', group: 'Configure' },
+      { name: 'Schedules', group: 'Automate' },
+      { name: 'Backups', group: 'Automate' },
+      { name: 'Alerts', group: 'Automate' },
+      { name: 'Access', group: 'Access' },
+    ])('places the $name tab in the $group group', ({ name, group }) => {
+      const tabs = buildAllTabs()
+      expect(tabs.find((tab) => tab.name === name)?.group).toBe(group)
+    })
+
+    it.each([
+      {
+        caseName: 'full owner tab set',
+        build: buildAllTabs,
+      },
+      {
+        caseName: 'admin without config or ownership',
+        build: () =>
+          buildGameServerTabs(
+            serverID,
+            [
+              'game_server.view',
+              'game_server.players.manage',
+              'game_server.files.view',
+              'game_server.settings',
+              'game_server.metrics',
+              'game_server.backup',
+            ],
+            false,
+          ),
+      },
+      {
+        caseName: 'viewer with live map',
+        build: () =>
+          buildGameServerTabs(serverID, ['game_server.view'], false, false, true, false, true),
+      },
+    ])('keeps groups contiguous and in stable order for $caseName', ({ build }) => {
+      const tabs = build()
+      const groupIndexes = tabs.map((tab) => GAME_SERVER_TAB_GROUPS.indexOf(tab.group))
+      const sortedIndexes = [...groupIndexes].sort((a, b) => a - b)
+      expect(groupIndexes).toEqual(sortedIndexes)
+    })
+
+    it('keeps group order as Operate, Configure, Automate, Access', () => {
+      expect(GAME_SERVER_TAB_GROUPS).toEqual(['Operate', 'Configure', 'Automate', 'Access'])
+    })
+
+    it('orders the full owner tab set by group cluster', () => {
+      const tabs = buildAllTabs()
+      expect(tabs.map((tab) => tab.name)).toEqual([
+        'Console',
+        'Map',
+        'Players',
+        'Metrics',
+        'Configuration',
+        'Files',
+        'Start Command',
+        'Settings',
+        'Mods',
+        'Schedules',
+        'Backups',
+        'Alerts',
+        'Access',
+      ])
+    })
   })
 })
 

@@ -1,8 +1,13 @@
+export const GAME_SERVER_TAB_GROUPS = ['Operate', 'Configure', 'Automate', 'Access'] as const
+
+export type GameServerTabGroup = (typeof GAME_SERVER_TAB_GROUPS)[number]
+
 export interface GameServerLayoutTab {
   name: string
   to: string
   icon: string
   exact: boolean
+  group: GameServerTabGroup
   requiredPermission?: string
 }
 
@@ -19,7 +24,7 @@ export function buildGameServerTabs(
   const has = (perm: string) => permissions.includes(perm)
 
   const tabs: GameServerLayoutTab[] = [
-    { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true },
+    { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true, group: 'Operate' },
   ]
 
   if (hasLiveMap && has('game_server.view')) {
@@ -28,6 +33,7 @@ export function buildGameServerTabs(
       to: `${basePath}/map`,
       icon: 'public',
       exact: true,
+      group: 'Operate',
       requiredPermission: 'game_server.view',
     })
   }
@@ -38,6 +44,7 @@ export function buildGameServerTabs(
       to: `${basePath}/players`,
       icon: 'groups',
       exact: true,
+      group: 'Operate',
       requiredPermission: 'game_server.players.manage',
     })
   }
@@ -47,6 +54,7 @@ export function buildGameServerTabs(
       to: `${basePath}/configuration`,
       icon: 'tune',
       exact: true,
+      group: 'Configure',
       requiredPermission: 'game_server.config',
     })
   }
@@ -56,6 +64,7 @@ export function buildGameServerTabs(
       to: `${basePath}/files`,
       icon: 'folder',
       exact: true,
+      group: 'Configure',
       requiredPermission: 'game_server.files.view',
     })
   }
@@ -65,6 +74,7 @@ export function buildGameServerTabs(
       to: `${basePath}/metrics`,
       icon: 'show_chart',
       exact: true,
+      group: 'Operate',
       requiredPermission: 'game_server.metrics',
     })
   }
@@ -75,6 +85,7 @@ export function buildGameServerTabs(
         to: `${basePath}/start-command`,
         icon: 'terminal',
         exact: true,
+        group: 'Configure',
         requiredPermission: 'game_server.settings',
       })
     }
@@ -83,6 +94,7 @@ export function buildGameServerTabs(
       to: `${basePath}/settings`,
       icon: 'settings',
       exact: true,
+      group: 'Configure',
       requiredPermission: 'game_server.settings',
     })
   }
@@ -92,6 +104,7 @@ export function buildGameServerTabs(
       to: `${basePath}/mods`,
       icon: 'extension',
       exact: true,
+      group: 'Configure',
       requiredPermission: 'game_server.mods',
     })
   }
@@ -101,6 +114,7 @@ export function buildGameServerTabs(
       to: `${basePath}/schedules`,
       icon: 'schedule',
       exact: true,
+      group: 'Automate',
       requiredPermission: 'game_server.scheduled_tasks',
     })
   }
@@ -110,6 +124,7 @@ export function buildGameServerTabs(
       to: `${basePath}/backups`,
       icon: 'archive',
       exact: true,
+      group: 'Automate',
       requiredPermission: 'game_server.backup',
     })
   }
@@ -119,6 +134,7 @@ export function buildGameServerTabs(
       to: `${basePath}/alerts`,
       icon: 'notifications',
       exact: true,
+      group: 'Automate',
     })
   }
   if (isOwnerOrSuper) {
@@ -127,10 +143,17 @@ export function buildGameServerTabs(
       to: `${basePath}/access`,
       icon: 'manage_accounts',
       exact: true,
+      group: 'Access',
     })
   }
 
+  // Presentation-only clustering: stable sort keeps within-group order while
+  // making each group contiguous in the declared group order.
   return tabs
+    .slice()
+    .sort(
+      (a, b) => GAME_SERVER_TAB_GROUPS.indexOf(a.group) - GAME_SERVER_TAB_GROUPS.indexOf(b.group),
+    )
 }
 
 export function getUnauthorizedRedirect(

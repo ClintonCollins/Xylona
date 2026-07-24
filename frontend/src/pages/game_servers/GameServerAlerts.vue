@@ -6,6 +6,7 @@ import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
 import dayjs from 'dayjs'
 import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canManageAlerts } from '@/utils/alert-permissions'
 import { GetXylonaClient } from '@/utils/shared'
@@ -640,6 +641,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
 <template>
   <div class="alerts-page">
+    <page-header class="alerts-page-header" title="Alerts" />
     <q-tabs
       v-model="activeTab"
       active-color="primary"
@@ -1032,6 +1034,11 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.alerts-page-header {
+  padding: var(--xy-space-md) var(--xy-space-md) 0;
+  margin-bottom: var(--xy-space-sm);
 }
 
 .alerts-tabs {

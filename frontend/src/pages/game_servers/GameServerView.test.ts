@@ -54,10 +54,27 @@ const mocks = vi.hoisted(() => {
       },
     },
     notify: vi.fn(),
+    dialogChoice: { value: 'ok' as 'ok' | 'dismiss' },
+    dialog: vi.fn(() => {
+      const chain = {
+        onOk(callback: (value?: unknown) => void) {
+          if (mocks.dialogChoice.value === 'ok') {
+            callback()
+          }
+          return chain
+        },
+        onDismiss(callback: () => void) {
+          callback()
+          return chain
+        },
+      }
+      return chain
+    }),
     getGameServer: vi.fn(),
     getGameServerReadiness: vi.fn(),
     readGameServerOutput: vi.fn(),
     sendGameServerInput: vi.fn(),
+    stopGameServer: vi.fn(),
     updateGameServer: vi.fn(),
     waitForOpen: vi.fn(),
     isOpen: vi.fn(),
@@ -79,6 +96,7 @@ vi.mock('quasar', async () => {
     ...actual,
     useQuasar: () => ({
       notify: mocks.notify,
+      dialog: mocks.dialog,
       screen: { lt: { md: false } },
     }),
   }
@@ -104,6 +122,7 @@ vi.mock('@/utils/shared', () => ({
     getGameServerReadiness: mocks.getGameServerReadiness,
     readGameServerOutput: mocks.readGameServerOutput,
     sendGameServerInput: mocks.sendGameServerInput,
+    stopGameServer: mocks.stopGameServer,
     updateGameServer: mocks.updateGameServer,
   }),
   XylonaEventBus: mocks.eventBus,
@@ -250,13 +269,17 @@ describe('GameServerView', () => {
     mocks.startQueryStatusVersionLifecycle.mockReset()
     mocks.startMetricsPreviewLifecycle.mockReset()
     mocks.sendGameServerInput.mockReset()
+    mocks.stopGameServer.mockReset()
     mocks.updateGameServer.mockReset()
+    mocks.dialog.mockClear()
+    mocks.dialogChoice.value = 'ok'
     setWebsocketConnectionStatus('connected')
   })
 
   afterEach(() => {
     mocks.eventBus.reset()
     mocks.notify.mockReset()
+    mocks.stopGameServer.mockReset()
     mocks.getGameServer.mockReset()
     mocks.getGameServerReadiness.mockReset()
     mocks.readGameServerOutput.mockReset()
@@ -338,6 +361,64 @@ describe('GameServerView', () => {
       }
     },
   )
+
+  it.each([
+    {
+      label: 'confirms before stopping when players are online',
+      currentPlayerCount: 3,
+      dialogChoice: 'ok' as const,
+      wantDialog: true,
+      wantStopped: true,
+    },
+    {
+      label: 'aborts the stop when the player confirm is cancelled',
+      currentPlayerCount: 3,
+      dialogChoice: 'dismiss' as const,
+      wantDialog: true,
+      wantStopped: false,
+    },
+    {
+      label: 'stops immediately when no players are online',
+      currentPlayerCount: 0,
+      dialogChoice: 'ok' as const,
+      wantDialog: false,
+      wantStopped: true,
+    },
+  ])('$label', async ({ currentPlayerCount, dialogChoice, wantDialog, wantStopped }) => {
+    mocks.queryState.currentPlayerCount = currentPlayerCount
+    mocks.queryState.maxPlayerCount = 20
+    mocks.dialogChoice.value = dialogChoice
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: buildOnlineGameServer(),
+      }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+    mocks.stopGameServer.mockResolvedValue({})
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as {
+      stopGameServer: () => Promise<void>
+    }
+    await viewModel.stopGameServer()
+
+    if (wantDialog) {
+      expect(mocks.dialog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Stop Remote Minecraft?',
+          message: '3 players are online and will be disconnected.',
+          ok: expect.objectContaining({ label: 'Stop server', color: 'negative' }),
+        }),
+      )
+    } else {
+      expect(mocks.dialog).not.toHaveBeenCalled()
+    }
+    expect(mocks.stopGameServer).toHaveBeenCalledTimes(wantStopped ? 1 : 0)
+  })
 
   it('shows game server update output in the console without an update progress dialog', async () => {
     mocks.readGameServerOutput.mockResolvedValue(
