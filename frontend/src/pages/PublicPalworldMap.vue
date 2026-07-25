@@ -1,17 +1,20 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useDocumentVisibility, useIntervalFn } from '@vueuse/core'
+import { ref, shallowRef, watch } from 'vue'
 
 import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import { GetPublicPalworldMapRequestSchema, type PalworldMapView } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
 
 const pollIntervalMs = 5_000
-const mapView = ref<PalworldMapView | null>(null)
+// Each poll replaces the view wholesale, so deep reactivity would only re-proxy
+// every actor in the snapshot for nothing.
+const mapView = shallowRef<PalworldMapView | null>(null)
 const loading = ref(false)
 const invalidLink = ref(false)
 const loadError = ref(false)
-let pollTimer: ReturnType<typeof setInterval> | undefined
+const documentVisibility = useDocumentVisibility()
 
 function shareToken(): string {
   return window.location.hash.slice(1).trim()
@@ -43,16 +46,22 @@ async function loadMap(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void loadMap()
-  pollTimer = setInterval(() => void loadMap(), pollIntervalMs)
-})
+const poll = useIntervalFn(() => void loadMap(), pollIntervalMs, { immediate: false })
 
-onBeforeUnmount(() => {
-  if (pollTimer !== undefined) {
-    clearInterval(pollTimer)
-  }
-})
+// A hidden tab cannot show the map, and its throttled timer returns as a burst
+// of catch-up work when the tab is focused again.
+watch(
+  documentVisibility,
+  (visibility) => {
+    if (visibility === 'hidden') {
+      poll.pause()
+      return
+    }
+    void loadMap()
+    poll.resume()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

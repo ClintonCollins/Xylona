@@ -10,12 +10,14 @@ import {
   PalworldMapHealthSchema,
   PalworldMapViewSchema,
   type PalworldMapActor,
+  type PalworldMapView,
 } from '@/proto/xylona_pb'
 import PalworldLiveMap from './PalworldLiveMap.vue'
 
 interface MarkerRecord {
   click: (() => void) | null
   element: HTMLElement
+  options: { zIndexOffset?: number }
   setLatLng: ReturnType<typeof vi.fn>
   title: string
 }
@@ -25,9 +27,11 @@ const leafletMocks = vi.hoisted(() => ({
     queueMicrotask(() => callback(0))
     return 1
   }),
+  circleMarker: vi.fn(),
   clearLayers: vi.fn(),
   fitBounds: vi.fn(),
   getZoom: vi.fn(() => 1),
+  invalidateSize: vi.fn(),
   mapEventHandlers: new Map<string, () => void>(),
   markerRecords: [] as MarkerRecord[],
   project: vi.fn((location: { latitude: number; longitude: number }) => ({
@@ -89,7 +93,7 @@ vi.mock('leaflet', () => {
       return bounds
     }),
     getZoom: leafletMocks.getZoom,
-    invalidateSize: vi.fn(),
+    invalidateSize: leafletMocks.invalidateSize,
     on: vi.fn((events: string, handler: () => void) => {
       for (const event of events.split(' ')) {
         leafletMocks.mapEventHandlers.set(event, handler)
@@ -120,7 +124,10 @@ vi.mock('leaflet', () => {
       ) {}
     },
     canvas: vi.fn(() => ({})),
-    circleMarker: vi.fn(() => new CircleMarker()),
+    circleMarker: vi.fn(() => {
+      leafletMocks.circleMarker()
+      return new CircleMarker()
+    }),
     divIcon: vi.fn((options: { html: string }) => options),
     latLng: vi.fn((latitude: number, longitude: number) => ({ latitude, longitude })),
     latLngBounds: vi.fn(() => {
@@ -132,31 +139,38 @@ vi.mock('leaflet', () => {
     }),
     layerGroup: vi.fn(() => layerGroupInstance),
     map: vi.fn(() => mapInstance),
-    marker: vi.fn((_location: unknown, options: { icon: { html: string }; title: string }) => {
-      const element = document.createElement('div')
-      element.innerHTML = options.icon.html
-      const record: MarkerRecord = {
-        click: null,
-        element,
-        setLatLng: vi.fn(),
-        title: options.title,
-      }
-      const marker = {
-        addTo: vi.fn(() => marker),
-        getElement: vi.fn(() => element),
-        on: vi.fn((event: string, handler: () => void) => {
-          if (event === 'click') {
-            record.click = handler
-          }
-          return marker
-        }),
-        openTooltip: vi.fn(() => marker),
-        setLatLng: record.setLatLng,
-        setTooltipContent: vi.fn(() => marker),
-      }
-      leafletMocks.markerRecords.push(record)
-      return marker
-    }),
+    marker: vi.fn(
+      (
+        _location: unknown,
+        options: { icon: { html: string }; title: string; zIndexOffset?: number },
+      ) => {
+        const element = document.createElement('div')
+        element.innerHTML = options.icon.html
+        const record: MarkerRecord = {
+          click: null,
+          element,
+          options,
+          setLatLng: vi.fn(),
+          title: options.title,
+        }
+        const marker = {
+          addTo: vi.fn(() => marker),
+          getElement: vi.fn(() => element),
+          on: vi.fn((event: string, handler: () => void) => {
+            if (event === 'click') {
+              record.click = handler
+            }
+            return marker
+          }),
+          openTooltip: vi.fn(() => marker),
+          setLatLng: record.setLatLng,
+          setTooltipContent: vi.fn(() => marker),
+          setZIndexOffset: vi.fn(() => marker),
+        }
+        leafletMocks.markerRecords.push(record)
+        return marker
+      },
+    ),
     tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
   }
 
@@ -454,7 +468,7 @@ describe('PalworldLiveMap', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Guilds & bases')
-    expect(wrapper.text()).toContain('Nearby worker estimate')
+    expect(wrapper.text()).toContain('Base Pals')
     expect(wrapper.text()).toContain('the official API does not report per-base assignments')
     expect(wrapper.text()).toContain('420 / 500')
     expect(wrapper.text()).toContain('FacingE 91°')
@@ -530,5 +544,135 @@ describe('PalworldLiveMap', () => {
     })
     await flushPromises()
     expect(wrapper.find('.palworld-live-map__health').exists()).toBe(false)
+  })
+
+  it('skips the render when a poll repeats the snapshot it already drew', async () => {
+    const collectedAt = new Date('2026-07-25T03:00:00.000Z')
+    const snapshot = (): PalworldMapView =>
+      create(PalworldMapViewSchema, {
+        actors: [actor('player-1', 'Alex')],
+        available: true,
+        serverOnline: true,
+        collectedAt: timestampFromDate(collectedAt),
+      })
+    const wrapper = shallowMount(PalworldLiveMap, { props: { view: snapshot() } })
+    mountedWrappers.push(wrapper)
+    await flushPromises()
+
+    const alex = latestMarker('Alex')
+    const movesAfterMount = alex.setLatLng.mock.calls.length
+
+    await wrapper.setProps({ view: snapshot() })
+    await flushPromises()
+
+    expect(alex.setLatLng.mock.calls.length).toBe(movesAfterMount)
+    expect(leafletMocks.markerRecords.filter((marker) => marker.title === 'Alex')).toHaveLength(1)
+  })
+
+  it('does not force a Leaflet resize when a new snapshot arrives', async () => {
+    const wrapper = mountMap([actor('player-1', 'Alex')])
+    await flushPromises()
+    const resizesAfterMount = leafletMocks.invalidateSize.mock.calls.length
+
+    await wrapper.setProps({
+      view: create(PalworldMapViewSchema, {
+        actors: [actor('player-1', 'Alex', 350, 450)],
+        available: true,
+        serverOnline: true,
+      }),
+    })
+    await flushPromises()
+
+    expect(leafletMocks.invalidateSize.mock.calls.length).toBe(resizesAfterMount)
+  })
+
+  it('mutates a marker in place when only its active state changes', async () => {
+    const wrapper = mountMap([actor('player-1', 'Alex')])
+    await flushPromises()
+
+    const alex = latestMarker('Alex')
+    const pill = (): DOMTokenList | undefined =>
+      alex.element.querySelector('.palworld-map-marker')?.classList
+    expect(pill()?.contains('palworld-map-marker--active')).toBe(true)
+
+    await wrapper.setProps({
+      view: create(PalworldMapViewSchema, {
+        actors: [
+          actor('player-1', 'Alex', 100, 200, PalworldMapActorKind.PLAYER, { active: false }),
+        ],
+        available: true,
+        serverOnline: true,
+      }),
+    })
+    await flushPromises()
+
+    expect(leafletMocks.markerRecords.filter((marker) => marker.title === 'Alex')).toHaveLength(1)
+    expect(pill()?.contains('palworld-map-marker--active')).toBe(false)
+  })
+
+  it('folds base workers into a count on their base instead of separate markers', async () => {
+    const guild = { guildKey: 'guild-1', guildName: 'Skyforge' }
+    mountMap([
+      actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE, guild),
+      actor('worker-1', 'Anubis', 110, 210, PalworldMapActorKind.BASE_WORKER, guild),
+      actor('worker-2', 'Chikipi', 120, 220, PalworldMapActorKind.BASE_WORKER, guild),
+    ])
+    await flushPromises()
+
+    expect(leafletMocks.circleMarker).not.toHaveBeenCalled()
+    expect(leafletMocks.markerRecords.some((marker) => marker.title.includes('base worker'))).toBe(
+      false,
+    )
+    expect(latestMarker('North Camp').element.textContent).toContain('2')
+  })
+
+  it('lists the pals working at the selected base', async () => {
+    const guild = { guildKey: 'guild-1', guildName: 'Skyforge' }
+    const wrapper = mountMap([
+      actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE, guild),
+      actor('worker-1', 'Anubis', 110, 210, PalworldMapActorKind.BASE_WORKER, guild),
+    ])
+    await flushPromises()
+
+    latestMarker('North Camp').click?.()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Base Pals')
+    expect(wrapper.text()).toContain('Anubis')
+  })
+
+  it('hides a colliding base label and restores it on selection without rebuilding', async () => {
+    mountMap([
+      actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE),
+      actor('base-2', 'South Camp', 100, 200, PalworldMapActorKind.BASE),
+    ])
+    await flushPromises()
+
+    const south = latestMarker('South Camp')
+    const pill = (): DOMTokenList | undefined =>
+      south.element.querySelector('.palworld-map-marker')?.classList
+    expect(pill()?.contains('palworld-map-marker--compact')).toBe(true)
+
+    south.click?.()
+    await flushPromises()
+
+    expect(pill()?.contains('palworld-map-marker--compact')).toBe(false)
+    expect(
+      leafletMocks.markerRecords.filter((marker) => marker.title === 'South Camp'),
+    ).toHaveLength(1)
+  })
+
+  it('stacks players above bases and keeps clusters beneath both', async () => {
+    mountMap([
+      actor('player-1', 'Alex'),
+      actor('base-1', 'North Camp', 300, 400, PalworldMapActorKind.BASE),
+      actor('wild-1', 'Lamball', 500, 600, PalworldMapActorKind.WILD_PAL),
+      actor('wild-2', 'Cattiva', 505, 605, PalworldMapActorKind.WILD_PAL),
+    ])
+    await flushPromises()
+
+    expect(latestMarker('Alex').options.zIndexOffset).toBe(2000)
+    expect(latestMarker('North Camp').options.zIndexOffset).toBe(1000)
+    expect(latestMarker('2 wild pals').options.zIndexOffset).toBe(-1000)
   })
 })

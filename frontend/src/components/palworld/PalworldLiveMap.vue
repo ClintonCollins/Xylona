@@ -18,6 +18,7 @@ import {
   type PalworldMapView,
 } from '@/proto/xylona_pb'
 import {
+  assignPalworldBaseWorkers,
   buildPalworldMapRenderPlan,
   filterPalworldMapActors,
   formatPalworldFacing,
@@ -85,6 +86,7 @@ let actorLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
 let renderFrame = 0
 let currentLayerKey = ''
+let lastSnapshotKey = ''
 let fittedOnce = false
 let railInitialized = false
 const actorMarkers = new Map<string, Marker | CircleMarker>()
@@ -92,6 +94,7 @@ const actorMarkerRenderKeys = new Map<string, string>()
 const clusterMarkers = new Map<string, Marker>()
 const clusterMarkerRenderKeys = new Map<string, string>()
 const maxIndividualActors = 1_500
+let compactActorKeys: ReadonlySet<string> = new Set<string>()
 
 const actors = computed(() => {
   const reportedActors = props.view?.actors ?? []
@@ -100,6 +103,9 @@ const actors = computed(() => {
   }
   return reportedActors.filter((actor) => actor.kind === PalworldMapActorKind.PLAYER)
 })
+const actorsByKey = computed(
+  () => new Map(actors.value.map((actor) => [actor.key, actor] as const)),
+)
 const availableActorCategories = computed(() => {
   if (!props.view?.available) {
     return []
@@ -125,9 +131,30 @@ const filteredActors = computed(() => {
   }
   return matchingActors.filter((actor) => palworldMapGuildKey(actor) === focusedGuildKey.value)
 })
-const selectedActor = computed(
-  () => actors.value.find((actor) => actor.key === selectedActorKey.value) ?? null,
-)
+const selectedActor = computed(() => actorsByKey.value.get(selectedActorKey.value) ?? null)
+// Base workers sit on top of their base, so drawing one marker each buried the
+// base name under a stack of dots. The count rides on the base pill instead and
+// the roster still lists every worker.
+const baseWorkerAssignment = computed(() => assignPalworldBaseWorkers(actors.value))
+const mappedActors = computed(() => {
+  if (!visibleKinds.value[PalworldMapActorKind.BASE_WORKER]) {
+    return filteredActors.value
+  }
+  const unassigned = new Set(baseWorkerAssignment.value.unassigned.map((actor) => actor.key))
+  return filteredActors.value.filter(
+    (actor) =>
+      actor.kind !== PalworldMapActorKind.BASE_WORKER ||
+      unassigned.has(actor.key) ||
+      actor.key === selectedActorKey.value,
+  )
+})
+const selectedBaseWorkers = computed(() => {
+  const base = selectedActor.value
+  if (base === null || base.kind !== PalworldMapActorKind.BASE) {
+    return []
+  }
+  return baseWorkerAssignment.value.byBase.get(base.key) ?? []
+})
 const health = computed(() => props.view?.health ?? null)
 const actorCounts = computed(() => {
   const counts = new Map<PalworldMapActorKind, number>()
@@ -188,31 +215,6 @@ const selectedGuildWorkerCondition = computed(() => {
     }
   }
   return { active, injured }
-})
-const selectedBaseNearbyWorkers = computed(() => {
-  const base = selectedActor.value
-  if (base === null || base.kind !== PalworldMapActorKind.BASE) {
-    return []
-  }
-  const guildBases = selectedGuildActors.value.filter(
-    (actor) => actor.kind === PalworldMapActorKind.BASE,
-  )
-  return selectedGuildActors.value.filter((actor) => {
-    if (actor.kind !== PalworldMapActorKind.BASE_WORKER) {
-      return false
-    }
-    let nearestBase: PalworldMapActor | null = null
-    let nearestDistance = Number.POSITIVE_INFINITY
-    for (const candidate of guildBases) {
-      const distance =
-        (candidate.locationX - actor.locationX) ** 2 + (candidate.locationY - actor.locationY) ** 2
-      if (distance < nearestDistance) {
-        nearestBase = candidate
-        nearestDistance = distance
-      }
-    }
-    return nearestBase?.key === base.key
-  })
 })
 const mapStatus = computed(() => {
   if (props.loadError) {
@@ -278,9 +280,20 @@ const collectedTitle = computed(() => {
   return timestampDate(collectedAt).toLocaleString()
 })
 
+// Resolving a token forces a style recalculation, and markers resolve one every
+// time they are built. The palette is static for the lifetime of the document,
+// so the seven category colors are read once each.
+const cssColorCache = new Map<string, string>()
+
 function cssColor(token: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-  return value || getComputedStyle(document.documentElement).color
+  const cached = cssColorCache.get(token)
+  if (cached !== undefined) {
+    return cached
+  }
+  const rootStyle = getComputedStyle(document.documentElement)
+  const value = rootStyle.getPropertyValue(token).trim() || rootStyle.color
+  cssColorCache.set(token, value)
+  return value
 }
 
 function escapeHTML(value: string): string {
@@ -341,6 +354,8 @@ function destroyMap(): void {
   actorMarkerRenderKeys.clear()
   clusterMarkers.clear()
   clusterMarkerRenderKeys.clear()
+  lastSnapshotKey = ''
+  compactActorKeys = new Set<string>()
   actorLayer = null
   if (map !== null) {
     map.remove()
@@ -386,6 +401,16 @@ function markerTooltip(actor: PalworldMapActor): HTMLElement {
   return element
 }
 
+function actorWorkerCount(actor: PalworldMapActor): number {
+  if (actor.kind !== PalworldMapActorKind.BASE) {
+    return 0
+  }
+  if (!visibleKinds.value[PalworldMapActorKind.BASE_WORKER]) {
+    return 0
+  }
+  return baseWorkerAssignment.value.byBase.get(actor.key)?.length ?? 0
+}
+
 function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
   const category = palworldMapCategory(actor.kind)
   const location = worldLocation(actor.locationX, actor.locationY)
@@ -393,14 +418,26 @@ function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
   const selected = actor.key === selectedActorKey.value
   let marker: Marker | CircleMarker
   if (category.labeledMarker) {
+    const workerCount = actorWorkerCount(actor)
+    const countChip =
+      workerCount > 0
+        ? `<span class="palworld-map-marker__count">${escapeHTML(workerCount.toLocaleString())}</span>`
+        : ''
+    const modifiers = [
+      selected ? ' palworld-map-marker--selected' : '',
+      actor.active ? ' palworld-map-marker--active' : '',
+      compactActorKeys.has(actor.key) ? ' palworld-map-marker--compact' : '',
+    ].join('')
     marker = L.marker(location, {
       icon: L.divIcon({
         className: '',
-        html: `<span class="palworld-map-marker palworld-map-marker--${actor.kind}${selected ? ' palworld-map-marker--selected' : ''}${actor.active ? ' palworld-map-marker--active' : ''}" style="--actor-color:${escapeHTML(color)}"><span class="palworld-map-marker__icon"><span class="material-icons" aria-hidden="true">${escapeHTML(category.icon)}</span></span><span class="palworld-map-marker__label">${escapeHTML(actor.name)}</span></span>`,
+        html: `<span class="palworld-map-marker palworld-map-marker--${actor.kind}${modifiers}" style="--actor-color:${escapeHTML(color)}"><span class="palworld-map-marker__icon"><span class="material-icons" aria-hidden="true">${escapeHTML(category.icon)}</span></span><span class="palworld-map-marker__label">${escapeHTML(actor.name)}</span>${countChip}</span>`,
         iconAnchor: [17, 17],
       }),
       keyboard: true,
+      riseOnHover: true,
       title: actor.name,
+      zIndexOffset: actorMarkerZIndex(actor, selected),
     })
   } else {
     marker = L.circleMarker(location, {
@@ -411,7 +448,13 @@ function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
       opacity: 0.95,
       weight: selected ? 3 : 1.5,
     })
-    marker.bindTooltip(markerTooltip(actor), { direction: 'top', offset: [0, -5] })
+    // Leaflet only invokes function content when the tooltip opens, so hover
+    // text costs nothing until it is read. The lookup keeps it current for a
+    // marker that has been reused across snapshots.
+    marker.bindTooltip(() => markerTooltip(actorsByKey.value.get(actor.key) ?? actor), {
+      direction: 'top',
+      offset: [0, -5],
+    })
   }
   marker.on('click', () => {
     selectedActorKey.value = actor.key
@@ -420,8 +463,19 @@ function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
   return marker
 }
 
+// Deliberately excludes `active` and the compact flag: both change constantly as
+// Pals work and as the viewport moves, and are applied in place instead.
 function actorMarkerRenderKey(actor: PalworldMapActor): string {
-  return [actor.kind, actor.name, actor.active].join('|')
+  return [actor.kind, actor.name, actorWorkerCount(actor)].join('|')
+}
+
+// Labeled markers are DOM overlays, so a large offset reliably wins over the
+// latitude ordering Leaflet applies by default.
+function actorMarkerZIndex(actor: PalworldMapActor, selected: boolean): number {
+  if (selected) {
+    return 3_000
+  }
+  return actor.kind === PalworldMapActorKind.PLAYER ? 2_000 : 1_000
 }
 
 function createClusterMarker(cluster: PalworldMapCluster): Marker {
@@ -436,6 +490,7 @@ function createClusterMarker(cluster: PalworldMapCluster): Marker {
     }),
     keyboard: true,
     title: label,
+    zIndexOffset: -1_000,
   })
   marker.on('click', () => {
     if (map === null) {
@@ -497,16 +552,19 @@ function renderActors(): void {
     }
   }
   const zoom = map.getZoom()
-  const renderPlan = buildPalworldMapRenderPlan(filteredActors.value, {
+  const renderPlan = buildPalworldMapRenderPlan(mappedActors.value, {
     zoom,
     bounds: visibleWorldBounds(),
     maxIndividualActors,
     protectedActorKeys,
+    selectedActorKey: selectedActorKey.value,
+    previousCompactActorKeys: compactActorKeys,
     project: (actor) => {
       const projected = map?.project(worldLocation(actor.locationX, actor.locationY), zoom)
       return projected ?? { x: actor.locationX, y: actor.locationY }
     },
   })
+  compactActorKeys = renderPlan.compactActorKeys
   aggregatedActorCount.value = renderPlan.aggregatedActorCount
   const visibleActorKeys = new Set<string>()
   for (const actor of renderPlan.actors) {
@@ -519,9 +577,7 @@ function renderActors(): void {
     const existingMarker = actorMarkers.get(actor.key)
     if (existingMarker !== undefined && actorMarkerRenderKeys.get(actor.key) === renderKey) {
       existingMarker.setLatLng(location)
-      if (!palworldMapCategory(actor.kind).labeledMarker) {
-        existingMarker.setTooltipContent(markerTooltip(actor))
-      }
+      applyActorMarkerState(actor, existingMarker)
       continue
     }
     if (existingMarker !== undefined) {
@@ -531,6 +587,7 @@ function renderActors(): void {
     marker.addTo(actorLayer)
     actorMarkers.set(actor.key, marker)
     actorMarkerRenderKeys.set(actor.key, renderKey)
+    applyActorMarkerState(actor, marker)
   }
   for (const [actorKey, marker] of actorMarkers) {
     if (visibleActorKeys.has(actorKey)) {
@@ -591,19 +648,19 @@ function scheduleRenderActors(): void {
   })
 }
 
-function updateActorMarkerSelection(actorKey: string, selected: boolean): void {
-  if (actorKey === '') {
-    return
-  }
-  const actor = actors.value.find((candidate) => candidate.key === actorKey)
-  const marker = actorMarkers.get(actorKey)
-  if (actor === undefined || marker === undefined) {
-    return
-  }
-  const category = palworldMapCategory(actor.kind)
-  if (category.labeledMarker) {
+function applyActorMarkerState(actor: PalworldMapActor, marker: Marker | CircleMarker): void {
+  const selected = actor.key === selectedActorKey.value
+  if (palworldMapCategory(actor.kind).labeledMarker) {
     const markerElement = marker.getElement()?.querySelector('.palworld-map-marker')
     markerElement?.classList.toggle('palworld-map-marker--selected', selected)
+    markerElement?.classList.toggle('palworld-map-marker--active', actor.active)
+    markerElement?.classList.toggle(
+      'palworld-map-marker--compact',
+      compactActorKeys.has(actor.key) && !selected,
+    )
+    if ('setZIndexOffset' in marker) {
+      marker.setZIndexOffset(actorMarkerZIndex(actor, selected))
+    }
     return
   }
   if (!(marker instanceof L.CircleMarker)) {
@@ -616,14 +673,50 @@ function updateActorMarkerSelection(actorKey: string, selected: boolean): void {
   })
 }
 
+function refreshActorMarkerState(actorKey: string): void {
+  if (actorKey === '') {
+    return
+  }
+  const actor = actorsByKey.value.get(actorKey)
+  const marker = actorMarkers.get(actorKey)
+  if (actor === undefined || marker === undefined) {
+    return
+  }
+  applyActorMarkerState(actor, marker)
+}
+
+// The controller caches snapshots on its own timer, so polling regularly returns
+// one that has already been drawn. Without a collection timestamp two snapshots
+// cannot be proven identical, so an empty key never matches and always renders.
+function snapshotRenderKey(view: PalworldMapView | null): string {
+  const collectedAt = view?.collectedAt
+  if (view === null || collectedAt === undefined) {
+    return ''
+  }
+  return [
+    collectedAt.seconds.toString(),
+    collectedAt.nanos,
+    view.available,
+    view.partial,
+    view.stale,
+    view.truncated,
+  ].join('|')
+}
+
 async function refreshMap(): Promise<void> {
   await nextTick()
   const layer = activeLayer.value
   if (map === null || currentLayerKey !== layerRenderKey(layer)) {
     createMap(layer)
+    lastSnapshotKey = ''
+    map?.invalidateSize({ animate: false })
   }
+  const snapshotKey = snapshotRenderKey(props.view)
+  if (snapshotKey !== '' && snapshotKey === lastSnapshotKey) {
+    return
+  }
+  lastSnapshotKey = snapshotKey
   renderActors()
-  map?.invalidateSize({ animate: false })
   if (!fittedOnce) {
     fitVisibleActors()
   }
@@ -804,15 +897,12 @@ watch(
   () => activeLayerID.value,
   () => void refreshMap(),
 )
-watch(
-  () => JSON.stringify(visibleKinds.value),
-  () => scheduleRenderActors(),
-)
+watch(visibleKinds, () => scheduleRenderActors(), { deep: true })
 watch(search, () => scheduleRenderActors())
 watch(focusedGuildKey, () => scheduleRenderActors())
 watch(selectedActorKey, (actorKey, previousActorKey) => {
-  updateActorMarkerSelection(previousActorKey, false)
-  updateActorMarkerSelection(actorKey, true)
+  refreshActorMarkerState(previousActorKey)
+  refreshActorMarkerState(actorKey)
   scheduleRenderActors()
 })
 
@@ -1136,15 +1226,32 @@ onBeforeUnmount(() => {
               name.
             </small>
             <div class="palworld-live-map__nearby-workers">
-              <span>Nearby worker estimate</span>
-              <strong
-                >{{ countQualifier }}{{ selectedBaseNearbyWorkers.length.toLocaleString() }}</strong
-              >
+              <span>Base Pals</span>
+              <strong>{{ countQualifier }}{{ selectedBaseWorkers.length.toLocaleString() }}</strong>
               <small>
                 Nearest workers in this guild; the official API does not report per-base
                 assignments.
               </small>
             </div>
+            <ul v-if="selectedBaseWorkers.length > 0" class="palworld-live-map__base-pals">
+              <li v-for="worker in selectedBaseWorkers" :key="worker.key">
+                <button type="button" @click="focusActor(worker)">
+                  <span
+                    class="palworld-live-map__base-pal-icon"
+                    :class="{
+                      'palworld-live-map__base-pal-icon--injured':
+                        worker.maxHp > 0 && worker.hp < worker.maxHp,
+                    }">
+                    <q-icon :name="palworldMapCategory(worker.kind).icon" />
+                  </span>
+                  <span class="palworld-live-map__base-pal-name">{{ worker.name }}</span>
+                  <span v-if="worker.maxHp > 0" class="palworld-live-map__base-pal-health">
+                    {{ Math.round(actorHealthPercent(worker)) }}%
+                  </span>
+                  <span v-if="!worker.active" class="palworld-live-map__base-pal-idle">Idle</span>
+                </button>
+              </li>
+            </ul>
           </section>
         </div>
 
@@ -1673,6 +1780,60 @@ onBeforeUnmount(() => {
   gap: var(--xy-space-2xs) var(--xy-space-sm);
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-xs);
+}
+
+.palworld-live-map__base-pals {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.palworld-live-map__base-pals button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  width: 100%;
+  padding: var(--xy-space-2xs) var(--xy-space-xs);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--xy-radius-sm);
+  cursor: pointer;
+}
+
+.palworld-live-map__base-pals button:hover {
+  color: var(--xy-text-primary);
+  background: var(--xy-surface-1);
+  border-color: var(--xy-border-hover);
+}
+
+.palworld-live-map__base-pal-icon {
+  display: inline-flex;
+  color: var(--xy-success);
+}
+
+.palworld-live-map__base-pal-icon--injured {
+  color: var(--xy-danger);
+}
+
+.palworld-live-map__base-pal-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palworld-live-map__base-pal-health,
+.palworld-live-map__base-pal-idle {
+  color: var(--xy-text-muted);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-2xs);
 }
 
 .palworld-live-map__worker-condition {
@@ -2254,12 +2415,11 @@ onBeforeUnmount(() => {
   height: 48px;
   padding: 0 var(--xy-space-sm);
   color: var(--xy-text-primary);
-  background: color-mix(in srgb, var(--xy-surface-1) 92%, transparent);
+  background: color-mix(in srgb, var(--xy-surface-1) 97%, transparent);
   border: 1px solid color-mix(in srgb, var(--actor-color) 72%, var(--xy-border) 28%);
   border-radius: var(--xy-radius-pill);
   box-shadow: var(--xy-shadow-lg);
   font-family: var(--xy-font-mono);
-  backdrop-filter: blur(8px);
 }
 
 .palworld-map-cluster .material-icons {
@@ -2275,7 +2435,7 @@ onBeforeUnmount(() => {
   min-height: 34px;
   padding: 4px 9px 4px 4px;
   color: var(--xy-text-primary);
-  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
+  background: color-mix(in srgb, var(--xy-surface-1) 97%, transparent);
   border: 1px solid color-mix(in srgb, var(--actor-color) 58%, var(--xy-border) 42%);
   border-radius: var(--xy-radius-pill);
   box-shadow: var(--xy-shadow-md);
@@ -2284,7 +2444,6 @@ onBeforeUnmount(() => {
   transition:
     transform var(--xy-transition-fast),
     border-color var(--xy-transition-fast);
-  backdrop-filter: blur(6px);
 }
 
 .palworld-map-marker__icon {
@@ -2314,8 +2473,14 @@ onBeforeUnmount(() => {
   border: 1px solid var(--actor-color);
   border-radius: var(--xy-radius-pill);
   content: '';
-  opacity: 0;
+  opacity: 0.4;
   pointer-events: none;
+  transform: scale(1.3);
+}
+
+/* Only the selected marker pulses. An infinite animation on every active marker
+   keeps the compositor rendering frames for as long as the map stays open. */
+.palworld-map-marker--active.palworld-map-marker--selected::after {
   animation: palworld-marker-signal calc(1.8s * var(--xy-animation-duration)) ease-out infinite;
 }
 
@@ -2339,6 +2504,51 @@ onBeforeUnmount(() => {
   font-size: var(--xy-font-size-xs);
   font-weight: 700;
   text-overflow: ellipsis;
+  transition:
+    max-width var(--xy-transition-fast),
+    opacity var(--xy-transition-fast);
+}
+
+.palworld-map-marker__count {
+  padding: 0 var(--xy-space-xs);
+  color: var(--actor-color);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--actor-color) 15%, transparent);
+  border-radius: var(--xy-radius-pill);
+}
+
+/* A stack of bases collapses to icons so one name stays readable; hovering or
+   selecting any of them brings its own name back. */
+.palworld-map-marker--compact {
+  gap: 0;
+  padding: 4px;
+}
+
+.palworld-map-marker--compact .palworld-map-marker__label,
+.palworld-map-marker--compact .palworld-map-marker__count {
+  max-width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.palworld-map-marker--compact:hover {
+  z-index: 1;
+  gap: var(--xy-space-xs);
+  padding: 4px 9px 4px 4px;
+}
+
+.palworld-map-marker--compact:hover .palworld-map-marker__label {
+  max-width: 180px;
+  opacity: 1;
+}
+
+.palworld-map-marker--compact:hover .palworld-map-marker__count {
+  max-width: 180px;
+  padding: 0 var(--xy-space-xs);
+  opacity: 1;
 }
 
 .palworld-live-map .leaflet-control-zoom a {

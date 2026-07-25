@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
+import { useDocumentVisibility, useIntervalFn } from '@vueuse/core'
 import { copyToClipboard, useQuasar } from 'quasar'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
@@ -38,7 +39,9 @@ const defaultLayer = (): PalworldMapLayer =>
 
 const route = useRoute()
 const quasar = useQuasar()
-const mapView = ref<PalworldMapView | null>(null)
+// Each poll replaces the view wholesale, so deep reactivity would only re-proxy
+// every actor in the snapshot for nothing.
+const mapView = shallowRef<PalworldMapView | null>(null)
 const loading = ref(false)
 const loadError = ref(false)
 const settingsOpen = ref(false)
@@ -48,7 +51,7 @@ const installingTiles = ref(false)
 const changingShare = ref(false)
 const generatedShareURL = ref('')
 const layerForm = ref<PalworldMapLayer>(defaultLayer())
-let pollTimer: ReturnType<typeof setInterval> | undefined
+const documentVisibility = useDocumentVisibility()
 
 const gameServerID = computed(() => {
   const id = route.params.id
@@ -221,16 +224,22 @@ async function revokeShare(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void loadMap()
-  pollTimer = setInterval(() => void loadMap(), pollIntervalMs)
-})
+const poll = useIntervalFn(() => void loadMap(), pollIntervalMs, { immediate: false })
 
-onBeforeUnmount(() => {
-  if (pollTimer !== undefined) {
-    clearInterval(pollTimer)
-  }
-})
+// A hidden tab cannot show the map, and its throttled timer returns as a burst
+// of catch-up work when the tab is focused again.
+watch(
+  documentVisibility,
+  (visibility) => {
+    if (visibility === 'hidden') {
+      poll.pause()
+      return
+    }
+    void loadMap()
+    poll.resume()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

@@ -28,6 +28,9 @@ export interface PalworldMapRenderPlan {
   actors: PalworldMapActor[]
   clusters: PalworldMapCluster[]
   aggregatedActorCount: number
+  // Labeled actors whose name would collide with a higher-priority label and so
+  // render as an icon only.
+  compactActorKeys: ReadonlySet<string>
 }
 
 export interface PalworldMapRenderOptions {
@@ -38,6 +41,39 @@ export interface PalworldMapRenderOptions {
   bounds?: PalworldMapBounds
   protectedActorKeys?: ReadonlySet<string>
   project?: (actor: PalworldMapActor) => PalworldMapPoint
+  selectedActorKey?: string
+  previousCompactActorKeys?: ReadonlySet<string>
+}
+
+// Mirrors the .palworld-map-marker CSS box. Label width is estimated rather than
+// measured because this module never touches the DOM; the estimate only has to
+// be close, since the label is ellipsised at maxLabelWidth either way.
+export const palworldLabelMetrics = {
+  anchor: 17,
+  pillHeight: 34,
+  iconSectionWidth: 34,
+  rightPadding: 9,
+  avgCharWidth: 7,
+  maxLabelWidth: 180,
+  collisionPadding: 4,
+  // A hidden label must clear its neighbour by more than it needed to be hidden,
+  // otherwise labels flicker on and off while the map is panned.
+  expandHysteresis: 8,
+  maxLabelCandidates: 400,
+} as const
+
+interface PalworldLabelRect {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+export function estimatePalworldLabelWidth(name: string): number {
+  return Math.min(
+    palworldLabelMetrics.maxLabelWidth,
+    Math.max(1, name.length) * palworldLabelMetrics.avgCharWidth,
+  )
 }
 
 export interface PalworldMapCategory {
@@ -212,6 +248,163 @@ function compareMapKeys(left: string, right: string): number {
   return 0
 }
 
+export function assignPalworldBaseWorkers(actors: readonly PalworldMapActor[]): {
+  byBase: ReadonlyMap<string, readonly PalworldMapActor[]>
+  unassigned: readonly PalworldMapActor[]
+} {
+  const basesByGuild = new Map<string, PalworldMapActor[]>()
+  const byBase = new Map<string, PalworldMapActor[]>()
+  for (const actor of actors) {
+    if (actor.kind !== PalworldMapActorKind.BASE) {
+      continue
+    }
+    byBase.set(actor.key, [])
+    const guildKey = palworldMapGuildKey(actor)
+    if (guildKey === '') {
+      continue
+    }
+    const guildBases = basesByGuild.get(guildKey)
+    if (guildBases === undefined) {
+      basesByGuild.set(guildKey, [actor])
+      continue
+    }
+    guildBases.push(actor)
+  }
+
+  const unassigned: PalworldMapActor[] = []
+  for (const actor of actors) {
+    if (actor.kind !== PalworldMapActorKind.BASE_WORKER) {
+      continue
+    }
+    const guildBases = basesByGuild.get(palworldMapGuildKey(actor)) ?? []
+    let nearestBase: PalworldMapActor | null = null
+    let nearestDistance = Number.POSITIVE_INFINITY
+    for (const candidate of guildBases) {
+      const distance =
+        (candidate.locationX - actor.locationX) ** 2 + (candidate.locationY - actor.locationY) ** 2
+      if (distance < nearestDistance) {
+        nearestBase = candidate
+        nearestDistance = distance
+      }
+    }
+    if (nearestBase === null) {
+      unassigned.push(actor)
+      continue
+    }
+    byBase.get(nearestBase.key)?.push(actor)
+  }
+
+  for (const workers of byBase.values()) {
+    workers.sort((left, right) => compareMapKeys(left.key, right.key))
+  }
+  unassigned.sort((left, right) => compareMapKeys(left.key, right.key))
+  return { byBase, unassigned }
+}
+
+function palworldLabelRect(
+  point: PalworldMapPoint,
+  width: number,
+  inflate: number,
+): PalworldLabelRect {
+  const left = point.x - palworldLabelMetrics.anchor
+  const top = point.y - palworldLabelMetrics.anchor
+  return {
+    minX: left - inflate,
+    minY: top - inflate,
+    maxX: left + width + inflate,
+    maxY: top + palworldLabelMetrics.pillHeight + inflate,
+  }
+}
+
+function palworldLabelRectsOverlap(left: PalworldLabelRect, right: PalworldLabelRect): boolean {
+  return (
+    left.minX < right.maxX &&
+    right.minX < left.maxX &&
+    left.minY < right.maxY &&
+    right.minY < left.maxY
+  )
+}
+
+function palworldLabelPriority(
+  actor: PalworldMapActor,
+  selectedActorKey: string,
+  protectedActorKeys: ReadonlySet<string>,
+): number {
+  if (actor.key === selectedActorKey) {
+    return 0
+  }
+  // A search hit or a focused guild is an explicit request to see that actor, so
+  // it outranks the category default.
+  if (protectedActorKeys.has(actor.key)) {
+    return 1
+  }
+  return actor.kind === PalworldMapActorKind.PLAYER ? 2 : 3
+}
+
+function resolvePalworldCompactLabelKeys(
+  actors: readonly PalworldMapActor[],
+  options: {
+    project: (actor: PalworldMapActor) => PalworldMapPoint
+    selectedActorKey: string
+    protectedActorKeys: ReadonlySet<string>
+    previousCompactActorKeys: ReadonlySet<string>
+  },
+): ReadonlySet<string> {
+  const compactActorKeys = new Set<string>()
+  const candidates = actors.filter((actor) => palworldMapCategory(actor.kind).labeledMarker)
+  if (candidates.length < 2) {
+    return compactActorKeys
+  }
+  if (candidates.length > palworldLabelMetrics.maxLabelCandidates) {
+    for (const actor of candidates) {
+      if (palworldLabelPriority(actor, options.selectedActorKey, options.protectedActorKeys) < 3) {
+        continue
+      }
+      compactActorKeys.add(actor.key)
+    }
+    return compactActorKeys
+  }
+
+  const ranked = candidates.toSorted((left, right) => {
+    const leftPriority = palworldLabelPriority(
+      left,
+      options.selectedActorKey,
+      options.protectedActorKeys,
+    )
+    const rightPriority = palworldLabelPriority(
+      right,
+      options.selectedActorKey,
+      options.protectedActorKeys,
+    )
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority
+    }
+    return compareMapKeys(left.key, right.key)
+  })
+
+  const placed: PalworldLabelRect[] = []
+  for (const actor of ranked) {
+    const point = options.project(actor)
+    const fullWidth =
+      palworldLabelMetrics.iconSectionWidth +
+      estimatePalworldLabelWidth(actor.name) +
+      palworldLabelMetrics.rightPadding
+    const inflate =
+      palworldLabelMetrics.collisionPadding +
+      (options.previousCompactActorKeys.has(actor.key) ? palworldLabelMetrics.expandHysteresis : 0)
+    const collides = placed.some((existing) =>
+      palworldLabelRectsOverlap(palworldLabelRect(point, fullWidth, inflate), existing),
+    )
+    if (collides && actor.key !== options.selectedActorKey) {
+      compactActorKeys.add(actor.key)
+      placed.push(palworldLabelRect(point, palworldLabelMetrics.pillHeight, 0))
+      continue
+    }
+    placed.push(palworldLabelRect(point, fullWidth, 0))
+  }
+  return compactActorKeys
+}
+
 export function buildPalworldMapRenderPlan(
   sourceActors: readonly PalworldMapActor[],
   options: PalworldMapRenderOptions,
@@ -226,15 +419,23 @@ export function buildPalworldMapRenderPlan(
       x: actor.locationX,
       y: actor.locationY,
     }))
-  const visibleActors = sourceActors
-    .filter((actor) => actorWithinBounds(actor, options.bounds))
-    .toSorted((left, right) => compareMapKeys(left.key, right.key))
+  const labelOptions = {
+    project,
+    selectedActorKey: options.selectedActorKey ?? '',
+    protectedActorKeys,
+    previousCompactActorKeys: options.previousCompactActorKeys ?? new Set<string>(),
+  }
+  // Only the returned collections need a deterministic order; bucketing below is
+  // order-independent because centroids are means and buckets are sorted by key.
+  const visibleActors = sourceActors.filter((actor) => actorWithinBounds(actor, options.bounds))
 
   if (options.zoom >= clusterBelowZoom && visibleActors.length <= maxIndividualActors) {
+    const planActors = visibleActors.toSorted((left, right) => compareMapKeys(left.key, right.key))
     return {
-      actors: visibleActors,
+      actors: planActors,
       clusters: [],
       aggregatedActorCount: 0,
+      compactActorKeys: resolvePalworldCompactLabelKeys(planActors, labelOptions),
     }
   }
 
@@ -316,10 +517,12 @@ export function buildPalworldMapRenderPlan(
     })
   }
 
+  const planActors = actors.toSorted((left, right) => compareMapKeys(left.key, right.key))
   return {
-    actors: actors.toSorted((left, right) => compareMapKeys(left.key, right.key)),
+    actors: planActors,
     clusters,
     aggregatedActorCount,
+    compactActorKeys: resolvePalworldCompactLabelKeys(planActors, labelOptions),
   }
 }
 
