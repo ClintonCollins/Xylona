@@ -46,7 +46,7 @@ func nodeServiceDefinition(arguments ...string) appservice.Definition {
 }
 
 func nodeServiceInstallFlags(includeUser bool) []cli.Flag {
-	flags := nodeFlags(true, false)
+	flags := nodeFlags(false)
 	flags = append(flags, &cli.BoolFlag{
 		Name:  "start",
 		Usage: "Start the service after installing it",

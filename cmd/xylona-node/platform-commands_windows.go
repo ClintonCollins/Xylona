@@ -135,7 +135,7 @@ func newWindowsNodeServiceCommand() *cli.Command {
 				Name:   "run",
 				Usage:  "Run the Xylona node under the Windows Service Control Manager",
 				Hidden: true,
-				Flags:  nodeFlags(false, false),
+				Flags:  nodeRuntimeFlags(false),
 				Action: func(_ context.Context, cmd *cli.Command) error {
 					cfg, errConfig := nodeConfigFromCommand(cmd)
 					if errConfig != nil {

@@ -85,8 +85,8 @@ func (cfg *cliConfig) restartArgs(absDataDir string) []string {
 	}
 }
 
-func nodeFlags(includeBootstrap bool, local bool) []cli.Flag {
-	flags := []cli.Flag{
+func nodeRuntimeFlags(local bool) []cli.Flag {
+	return []cli.Flag{
 		&cli.StringFlag{
 			Name:  "listen",
 			Value: defaultNodeListen,
@@ -118,10 +118,10 @@ func nodeFlags(includeBootstrap bool, local bool) []cli.Flag {
 			Local: local,
 		},
 	}
-	if !includeBootstrap {
-		return flags
-	}
-	return append(flags,
+}
+
+func nodeFlags(local bool) []cli.Flag {
+	return append(nodeRuntimeFlags(local),
 		&cli.StringFlag{
 			Name:  "controller-url",
 			Usage: "Base URL of the Xylona controller, e.g. https://xylona.example.com",
@@ -180,7 +180,7 @@ func parseFlags(args []string) (*cliConfig, error) {
 		Name:      "xylona-node",
 		Writer:    io.Discard,
 		ErrWriter: io.Discard,
-		Flags:     nodeFlags(true, true),
+		Flags:     nodeFlags(true),
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			cfg, errConfig := nodeConfigFromCommand(cmd)
 			if errConfig != nil {
@@ -235,7 +235,7 @@ func newNodeRootCommand() *cli.Command {
 		UsageText: "xylona-node [foreground options] | xylona-node service <command> [service options]",
 		Writer:    nodeCLIStdout,
 		ErrWriter: nodeCLIStderr,
-		Flags:     nodeFlags(true, true),
+		Flags:     nodeFlags(true),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg, errConfig := nodeConfigFromCommand(cmd)
 			if errConfig != nil {

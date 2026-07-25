@@ -93,7 +93,7 @@ func TestServiceCommandFlagPlacement(t *testing.T) {
 	newCommand := func() *cli.Command {
 		return &cli.Command{
 			Name:  "xylona-node",
-			Flags: nodeFlags(true, true),
+			Flags: nodeFlags(true),
 			Commands: []*cli.Command{
 				{
 					Name:   "service",
