@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -1140,6 +1141,60 @@ func TestSendGameServerInputPreservesRequestCancellation(t *testing.T) {
 	_, errSend := fixture.service.SendGameServerInput(ctx, request)
 	if connect.CodeOf(errSend) != connect.CodeCanceled {
 		t.Fatalf("SendGameServerInput() code = %v, want %v (error %v)", connect.CodeOf(errSend), connect.CodeCanceled, errSend)
+	}
+}
+
+func TestSendGameServerInputMapsConsoleErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		inputError  error
+		wantCode    connect.Code
+		wantMessage string
+	}{
+		{
+			name:        "returns sanitized command rejection",
+			inputError:  node.NewConsoleInputRejectedError("Palworld API returned 401 Unauthorized"),
+			wantCode:    connect.CodeInvalidArgument,
+			wantMessage: "Palworld API returned 401 Unauthorized",
+		},
+		{
+			name:        "returns reconnect message for unavailable transport",
+			inputError:  node.ErrConsoleInputUnavailable,
+			wantCode:    connect.CodeUnavailable,
+			wantMessage: "game server console input is reconnecting; retry shortly",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := newRBACRPCFixture(t)
+			insertRemoteNodeForParityTests(t, fixture, "node-remote")
+			insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+			remoteClient := &nodeclient.FakeNodeClient{
+				NodeID:              "node-remote",
+				SendConsoleInputErr: tc.inputError,
+			}
+			fixture.service.nodeRegistry = testParityRegistry(
+				&nodeclient.FakeNodeClient{NodeID: "node-local"},
+				remoteClient,
+			)
+
+			request := connect.NewRequest(&xylona.SendGameServerInputRequest{
+				ServerId: "server-remote-1",
+				Input:    "/Save",
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+			_, errSend := fixture.service.SendGameServerInput(t.Context(), request)
+			if connect.CodeOf(errSend) != tc.wantCode {
+				t.Fatalf("SendGameServerInput() code = %v, want %v (error %v)", connect.CodeOf(errSend), tc.wantCode, errSend)
+			}
+			if !strings.Contains(errSend.Error(), tc.wantMessage) {
+				t.Fatalf("SendGameServerInput() error = %v, want containing %q", errSend, tc.wantMessage)
+			}
+		})
 	}
 }
 

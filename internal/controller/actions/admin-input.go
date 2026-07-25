@@ -24,10 +24,11 @@ import (
 )
 
 const (
-	sevenDaysToDieWebAPITokenNamePlaceholder   = "SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_NAME"   //nolint:gosec // Placeholder identifier, not a credential.
-	sevenDaysToDieWebAPITokenSecretPlaceholder = "SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_SECRET" //nolint:gosec // Placeholder identifier, not a credential.
-	sevenDaysToDieWebAPITokenName              = "xylona"
-	sevenDaysToDieWebAPITokenDomain            = "xylona:7dtd-map:v1" //nolint:gosec // Public domain-separation label, not a credential.
+	sevenDaysToDieWebAPITokenNamePlaceholder         = "SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_NAME"   //nolint:gosec // Placeholder identifier, not a credential.
+	sevenDaysToDieWebAPITokenSecretPlaceholder       = "SEVEN_DAYS_TO_DIE_WEB_API_TOKEN_SECRET" //nolint:gosec // Placeholder identifier, not a credential.
+	sevenDaysToDieWebAPITokenName                    = "xylona"
+	sevenDaysToDieWebAPITokenDomain                  = "xylona:7dtd-map:v1" //nolint:gosec // Public domain-separation label, not a credential.
+	palworldRESTInputProtocolVersion           int64 = 9
 )
 
 type gameServerAdminInput struct {
@@ -64,7 +65,7 @@ func newGameServerAdminInput(
 	if gameServer == nil {
 		return gameServerAdminInput{}, errors.New("actions: game server is nil")
 	}
-	if !GameServerDefinitionSupportsAdminInput(gameServer) {
+	if gameServer.GameID != palworldGameID && !GameServerDefinitionSupportsAdminInput(gameServer) {
 		return gameServerAdminInput{}, nil
 	}
 	if password == "" {
@@ -72,6 +73,18 @@ func newGameServerAdminInput(
 	}
 
 	switch gameServer.GameID {
+	case palworldGameID:
+		if gameServer.QueryPort <= 0 || gameServer.QueryPort > 65535 {
+			return gameServerAdminInput{}, errors.New("actions: Palworld REST port is invalid")
+		}
+		return gameServerAdminInput{
+			rest: &node.RESTInput{
+				Host:     "127.0.0.1",
+				Port:     int(gameServer.QueryPort),
+				Kind:     node.RESTInputKindPalworld,
+				Password: password,
+			},
+		}, nil
 	case minecraftGameID:
 		return newRCONAdminInput(gameServer, gameServer.QueryPort+1, password, node.RCONProtocolMinecraft, true)
 	case sevenDaysToDieGameID:
@@ -357,6 +370,10 @@ func (inst *Instance) ensureAdminInputSupported(
 	}
 	if input.rest != nil && !caps.RESTInput {
 		return startConfigurationError("target node does not support the required REST input; upgrade the node before starting this server", nil)
+	}
+	if input.rest != nil && input.rest.Kind == node.RESTInputKindPalworld &&
+		caps.ProtocolVersion < palworldRESTInputProtocolVersion {
+		return startConfigurationError("target node does not support Palworld REST console input; upgrade the node before starting this server", nil)
 	}
 	return nil
 }

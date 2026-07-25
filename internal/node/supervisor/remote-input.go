@@ -43,17 +43,32 @@ func executeRemoteInput(ctx context.Context, inputMethod InputMethod, input stri
 		if credentials == nil {
 			return "", ErrRemoteInputConfiguration
 		}
-		if credentials.Kind != RESTInputKindSatisfactory {
+		var response string
+		var errExecute error
+		switch credentials.Kind {
+		case RESTInputKindSatisfactory:
+			response, errExecute = restinput.ExecuteSatisfactory(
+				ctx,
+				credentials.Host,
+				credentials.Port,
+				credentials.Password,
+				input,
+			)
+		case RESTInputKindPalworld:
+			response, errExecute = restinput.ExecutePalworld(
+				ctx,
+				credentials.Host,
+				credentials.Port,
+				credentials.Password,
+				input,
+			)
+		default:
 			return "", ErrRemoteInputConfiguration
 		}
-		response, errExecute := restinput.ExecuteSatisfactory(
-			ctx,
-			credentials.Host,
-			credentials.Port,
-			credentials.Password,
-			input,
-		)
 		if errExecute != nil {
+			if errors.Is(errExecute, restinput.ErrPalworldCommandRejected) {
+				return "", &ConsoleInputRejectedError{Detail: errExecute.Error()}
+			}
 			return "", fmt.Errorf("execute REST input: %w", errExecute)
 		}
 		return response, nil

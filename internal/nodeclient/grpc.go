@@ -1382,6 +1382,8 @@ func restInputKindToProto(kind node.RESTInputKind) (nodeprotov1.RESTInputKind, e
 	switch kind {
 	case node.RESTInputKindSatisfactory:
 		return nodeprotov1.RESTInputKind_REST_INPUT_KIND_SATISFACTORY, nil
+	case node.RESTInputKindPalworld:
+		return nodeprotov1.RESTInputKind_REST_INPUT_KIND_PALWORLD, nil
 	default:
 		return nodeprotov1.RESTInputKind_REST_INPUT_KIND_UNSPECIFIED, errors.New("nodeclient: unsupported REST input kind")
 	}
@@ -1633,8 +1635,17 @@ func translateConsoleInputError(call string, err error) error {
 	}
 
 	connectErr := new(connect.Error)
-	if errors.As(err, &connectErr) && connectErr.Code() == connect.CodeFailedPrecondition {
-		return fmt.Errorf("nodeclient: %s: %w", call, node.ErrConsoleInputUnavailable)
+	if errors.As(err, &connectErr) {
+		switch connectErr.Code() {
+		case connect.CodeInvalidArgument:
+			return fmt.Errorf(
+				"nodeclient: %s: %w",
+				call,
+				node.NewConsoleInputRejectedError(connectErr.Message()),
+			)
+		case connect.CodeFailedPrecondition:
+			return fmt.Errorf("nodeclient: %s: %w", call, node.ErrConsoleInputUnavailable)
+		}
 	}
 	return translateProcessError(call, err)
 }

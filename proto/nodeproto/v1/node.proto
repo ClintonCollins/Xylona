@@ -227,6 +227,7 @@ message RCONInput {
 enum RESTInputKind {
   REST_INPUT_KIND_UNSPECIFIED = 0;
   REST_INPUT_KIND_SATISFACTORY = 1;
+  REST_INPUT_KIND_PALWORLD = 2;
 }
 
 message RESTInput {

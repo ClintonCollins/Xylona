@@ -161,17 +161,20 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		newCommand.runAfterStartup = nil
 	case InputTypeREST:
 		newCommand.stdInWriter = nil
-		restCredentials := *newCommand.inputMethod.RESTCredentials
-		commandID := newCommand.ID
-		gameServerName := newCommand.gameServerName
-		processCtx := newCommand.processCtx
-		newCommand.runAfterStartup = func(_ *Command) {
-			configureSatisfactoryAdminPasswordAfterStartup(
-				processCtx,
-				commandID,
-				gameServerName,
-				restCredentials,
-			)
+		newCommand.runAfterStartup = nil
+		if newCommand.inputMethod.RESTCredentials.Kind == RESTInputKindSatisfactory {
+			restCredentials := *newCommand.inputMethod.RESTCredentials
+			commandID := newCommand.ID
+			gameServerName := newCommand.gameServerName
+			processCtx := newCommand.processCtx
+			newCommand.runAfterStartup = func(_ *Command) {
+				configureSatisfactoryAdminPasswordAfterStartup(
+					processCtx,
+					commandID,
+					gameServerName,
+					restCredentials,
+				)
+			}
 		}
 	default:
 		log.Debug().Str("Command ID", newCommand.ID).Msg("Setting up StdInPipe")
@@ -269,8 +272,11 @@ func validateInputMethod(inputMethod InputMethod) error {
 	case InputTypeREST:
 		credentials := inputMethod.RESTCredentials
 		if credentials == nil || strings.TrimSpace(credentials.Host) == "" ||
-			credentials.Port <= 0 || credentials.Port > 65535 || credentials.Kind != RESTInputKindSatisfactory ||
+			credentials.Port <= 0 || credentials.Port > 65535 ||
 			strings.TrimSpace(credentials.Password) == "" {
+			return ErrRemoteInputConfiguration
+		}
+		if credentials.Kind != RESTInputKindSatisfactory && credentials.Kind != RESTInputKindPalworld {
 			return ErrRemoteInputConfiguration
 		}
 	}

@@ -41,8 +41,8 @@ type NodeClient interface {
 	// console before the node falls back to signal-based termination.
 	StopProcess(ctx context.Context, processID, stopInputCommand string) error
 
-	// SendConsoleInput writes a single line of input to the running process's
-	// configured input writer (stdin or telnet, depending on InputMethod).
+	// SendConsoleInput sends one command through the running process's
+	// configured console transport.
 	SendConsoleInput(ctx context.Context, processID, input string) error
 
 	// ReadConsoleBuffer returns the node's buffered console output for the

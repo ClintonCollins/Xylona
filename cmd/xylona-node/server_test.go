@@ -170,6 +170,89 @@ func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
 	}
 }
 
+func TestNodeRESTInputKindFromProto(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   nodeprotov1.RESTInputKind
+		want    node.RESTInputKind
+		wantErr bool
+	}{
+		{
+			name:  "Satisfactory",
+			input: nodeprotov1.RESTInputKind_REST_INPUT_KIND_SATISFACTORY,
+			want:  node.RESTInputKindSatisfactory,
+		},
+		{
+			name:  "Palworld",
+			input: nodeprotov1.RESTInputKind_REST_INPUT_KIND_PALWORLD,
+			want:  node.RESTInputKindPalworld,
+		},
+		{
+			name:    "unspecified",
+			input:   nodeprotov1.RESTInputKind_REST_INPUT_KIND_UNSPECIFIED,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, errKind := nodeRESTInputKindFromProto(tc.input)
+			if tc.wantErr {
+				if errKind == nil {
+					t.Fatalf("nodeRESTInputKindFromProto(%v) error = nil", tc.input)
+				}
+				return
+			}
+			if errKind != nil {
+				t.Fatalf("nodeRESTInputKindFromProto(%v) error = %v", tc.input, errKind)
+			}
+			if got != tc.want {
+				t.Fatalf("nodeRESTInputKindFromProto(%v) = %v, want %v", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTranslateConsoleInputErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       error
+		wantCode    connect.Code
+		wantMessage string
+	}{
+		{
+			name:        "command rejection is invalid argument",
+			input:       node.NewConsoleInputRejectedError("Palworld API returned 401 Unauthorized"),
+			wantCode:    connect.CodeInvalidArgument,
+			wantMessage: "Palworld API returned 401 Unauthorized",
+		},
+		{
+			name:        "transport failure remains failed precondition",
+			input:       node.ErrConsoleInputUnavailable,
+			wantCode:    connect.CodeFailedPrecondition,
+			wantMessage: node.ErrConsoleInputUnavailable.Error(),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			errTranslated := translate(tc.input)
+			if connect.CodeOf(errTranslated) != tc.wantCode {
+				t.Fatalf("translate() code = %v, want %v", connect.CodeOf(errTranslated), tc.wantCode)
+			}
+			if !strings.Contains(errTranslated.Error(), tc.wantMessage) {
+				t.Fatalf("translate() error = %v, want containing %q", errTranslated, tc.wantMessage)
+			}
+		})
+	}
+}
+
 func TestNodeServiceServerReceivesTelnetInput(t *testing.T) {
 	t.Parallel()
 

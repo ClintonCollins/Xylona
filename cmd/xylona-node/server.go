@@ -105,6 +105,9 @@ func translate(err error) error {
 	if errors.Is(err, node.ErrProcessNotFound) {
 		return connect.NewError(connect.CodeNotFound, err)
 	}
+	if errors.Is(err, node.ErrConsoleInputRejected) {
+		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	if errors.Is(err, node.ErrConsoleInputUnavailable) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
@@ -1508,6 +1511,8 @@ func nodeRESTInputKindFromProto(kind nodeprotov1.RESTInputKind) (node.RESTInputK
 	switch kind {
 	case nodeprotov1.RESTInputKind_REST_INPUT_KIND_SATISFACTORY:
 		return node.RESTInputKindSatisfactory, nil
+	case nodeprotov1.RESTInputKind_REST_INPUT_KIND_PALWORLD:
+		return node.RESTInputKindPalworld, nil
 	default:
 		return node.RESTInputKindUnknown, errors.New("unsupported REST input kind")
 	}

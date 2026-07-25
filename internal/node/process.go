@@ -143,6 +143,8 @@ func supervisorRESTInputKind(kind RESTInputKind) (supervisor.RESTInputKind, erro
 	switch kind {
 	case RESTInputKindSatisfactory:
 		return supervisor.RESTInputKindSatisfactory, nil
+	case RESTInputKindPalworld:
+		return supervisor.RESTInputKindPalworld, nil
 	default:
 		return supervisor.RESTInputKindUnknown, errors.New("node: unsupported REST input kind")
 	}
@@ -167,8 +169,8 @@ func (n *Node) StopProcess(processID, stopInputCommand string) error {
 	return nil
 }
 
-// SendConsoleInput writes a single line of input to the running process's
-// configured input writer (stdin or telnet, depending on InputMethod).
+// SendConsoleInput sends one command through the running process's configured
+// console transport.
 func (n *Node) SendConsoleInput(processID, input string) error {
 	return n.SendConsoleInputContext(context.Background(), processID, input)
 }
@@ -189,12 +191,20 @@ func (n *Node) SendConsoleInputContext(ctx context.Context, processID, input str
 	}
 	_, errSend := cmd.ExecuteInput(ctx, input)
 	if errSend != nil {
-		if errors.Is(errSend, supervisor.ErrConsoleInputUnavailable) {
-			return fmt.Errorf("%w: %w", ErrConsoleInputUnavailable, errSend)
-		}
-		return fmt.Errorf("node: send console input: %w", errSend)
+		return translateSupervisorConsoleInputError(errSend)
 	}
 	return nil
+}
+
+func translateSupervisorConsoleInputError(errSend error) error {
+	var rejectedError *supervisor.ConsoleInputRejectedError
+	if errors.As(errSend, &rejectedError) {
+		return NewConsoleInputRejectedError(rejectedError.Detail)
+	}
+	if errors.Is(errSend, supervisor.ErrConsoleInputUnavailable) {
+		return fmt.Errorf("%w: %w", ErrConsoleInputUnavailable, errSend)
+	}
+	return fmt.Errorf("node: send console input: %w", errSend)
 }
 
 // ReadConsoleBuffer returns the supervisor's buffered console output for the

@@ -25,6 +25,9 @@ var (
 	// ErrConsoleInputUnavailable is returned while a process input transport
 	// is starting or reconnecting. Callers may retry the command.
 	ErrConsoleInputUnavailable = errors.New("node: console input temporarily unavailable")
+	// ErrConsoleInputRejected is returned when a connected remote console
+	// safely rejects a command.
+	ErrConsoleInputRejected = errors.New("node: console input was rejected")
 	// ErrUnexpectedHTTPStatus is returned when a node download receives a
 	// non-success HTTP status.
 	ErrUnexpectedHTTPStatus = errors.New("node: unexpected download HTTP status")
@@ -41,6 +44,46 @@ var (
 	// completed because the game server or its management API is unavailable.
 	ErrPlayerActionUnavailable = errors.New("node: player action is unavailable")
 )
+
+const maxConsoleInputRejectedDetailRunes = 512
+
+// ConsoleInputRejectedError carries a sanitized operator-visible command
+// rejection across embedded and remote-node boundaries.
+type ConsoleInputRejectedError struct {
+	detail string
+}
+
+// NewConsoleInputRejectedError creates a bounded single-line rejection.
+func NewConsoleInputRejectedError(detail string) *ConsoleInputRejectedError {
+	detail = strings.Join(strings.Fields(detail), " ")
+	if detail == "" {
+		detail = "console command was rejected"
+	}
+	runes := []rune(detail)
+	if len(runes) > maxConsoleInputRejectedDetailRunes {
+		detail = string(runes[:maxConsoleInputRejectedDetailRunes-3]) + "..."
+	}
+	return &ConsoleInputRejectedError{detail: detail}
+}
+
+func (e *ConsoleInputRejectedError) Error() string {
+	if e == nil || e.detail == "" {
+		return ErrConsoleInputRejected.Error()
+	}
+	return e.detail
+}
+
+func (e *ConsoleInputRejectedError) Unwrap() error {
+	return ErrConsoleInputRejected
+}
+
+// Detail returns the sanitized operator-visible rejection.
+func (e *ConsoleInputRejectedError) Detail() string {
+	if e == nil {
+		return ""
+	}
+	return e.detail
+}
 
 // defaultStopTimeout mirrors supervisor's default graceful stop window.
 const defaultStopTimeout = 15 * time.Second
@@ -138,6 +181,9 @@ const (
 	// RESTInputKindSatisfactory sends commands through the dedicated server
 	// HTTPS API's RunCommand function.
 	RESTInputKindSatisfactory
+	// RESTInputKindPalworld maps supported console commands to the dedicated
+	// server's authenticated REST administration API.
+	RESTInputKindPalworld
 )
 
 // RESTInput configures game-specific REST console input for a process.

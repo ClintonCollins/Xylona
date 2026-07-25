@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os/exec"
 	"strings"
 	"sync"
@@ -178,6 +180,180 @@ func TestCommandSendInputRejectsUnavailableWriters(t *testing.T) {
 				t.Fatalf("SendInput() error = %v, want errors.Is(%v)", errSend, test.wantError)
 			}
 		})
+	}
+}
+
+func TestCommandExecutePalworldRESTInputPublishesResponse(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost || request.URL.Path != "/v1/api/save" {
+			t.Errorf("request = %s %s, want POST /v1/api/save", request.Method, request.URL.Path)
+		}
+		username, password, ok := request.BasicAuth()
+		if !ok || username != "admin" || password != "palworld-password" {
+			t.Errorf("BasicAuth() = %q/%q/%t", username, password, ok)
+		}
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	address, ok := server.Listener.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("listener address = %T, want *net.TCPAddr", server.Listener.Addr())
+	}
+
+	command := palworldRESTCommandForTest(address.IP.String(), address.Port)
+	listener := make(chan *xylona.Message, 1)
+	command.AddOutputListener("test", listener)
+
+	response, errExecute := command.ExecuteInput(t.Context(), "/Save")
+	if errExecute != nil {
+		t.Fatalf("ExecuteInput() error = %v", errExecute)
+	}
+	if response != "World save requested." {
+		t.Fatalf("ExecuteInput() response = %q", response)
+	}
+	message := <-listener
+	output := message.GetGameServerConsoleOutput()
+	if output.GetOutput() != "World save requested.\n" || output.GetSequence() != 1 {
+		t.Fatalf("console output = %+v", output)
+	}
+	if command.GetOutputBuffer() != "World save requested.\n" {
+		t.Fatalf("console buffer = %q", command.GetOutputBuffer())
+	}
+}
+
+func TestCommandExecutePalworldRESTInputClassifiesFailures(t *testing.T) {
+	t.Parallel()
+
+	t.Run("command rejection is not reconnectable", func(t *testing.T) {
+		t.Parallel()
+		command := palworldRESTCommandForTest("127.0.0.1", 8212)
+		_, errExecute := command.ExecuteInput(t.Context(), "/Unsupported")
+		if !errors.Is(errExecute, ErrConsoleInputRejected) {
+			t.Fatalf("ExecuteInput() error = %v, want ErrConsoleInputRejected", errExecute)
+		}
+		if errors.Is(errExecute, ErrConsoleInputUnavailable) {
+			t.Fatalf("ExecuteInput() error = %v, must not be unavailable", errExecute)
+		}
+		var rejectedError *ConsoleInputRejectedError
+		if !errors.As(errExecute, &rejectedError) ||
+			!strings.Contains(rejectedError.Detail, "unsupported Palworld command") {
+			t.Fatalf("ExecuteInput() error = %v, want sanitized rejection detail", errExecute)
+		}
+	})
+
+	t.Run("HTTP rejection preserves redacted detail", func(t *testing.T) {
+		t.Parallel()
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			writer.WriteHeader(http.StatusUnauthorized)
+			_, errWrite := fmt.Fprint(writer, "invalid palworld-password")
+			if errWrite != nil {
+				t.Errorf("write response: %v", errWrite)
+			}
+		}))
+		t.Cleanup(server.Close)
+		address, ok := server.Listener.Addr().(*net.TCPAddr)
+		if !ok {
+			t.Fatalf("listener address = %T, want *net.TCPAddr", server.Listener.Addr())
+		}
+
+		command := palworldRESTCommandForTest(address.IP.String(), address.Port)
+		_, errExecute := command.ExecuteInput(t.Context(), "/Save")
+		var rejectedError *ConsoleInputRejectedError
+		if !errors.As(errExecute, &rejectedError) {
+			t.Fatalf("ExecuteInput() error = %v, want *ConsoleInputRejectedError", errExecute)
+		}
+		if !strings.Contains(rejectedError.Detail, "401 Unauthorized: invalid [redacted]") {
+			t.Fatalf("ExecuteInput() rejection detail = %q", rejectedError.Detail)
+		}
+		if strings.Contains(rejectedError.Detail, "palworld-password") {
+			t.Fatalf("ExecuteInput() rejection leaked password: %q", rejectedError.Detail)
+		}
+	})
+
+	t.Run("transport failure remains unavailable", func(t *testing.T) {
+		t.Parallel()
+		var listenConfig net.ListenConfig
+		listener, errListen := listenConfig.Listen(t.Context(), "tcp", "127.0.0.1:0")
+		if errListen != nil {
+			t.Fatalf("net.Listen() error = %v", errListen)
+		}
+		address, ok := listener.Addr().(*net.TCPAddr)
+		if !ok {
+			t.Fatalf("listener address = %T, want *net.TCPAddr", listener.Addr())
+		}
+		errClose := listener.Close()
+		if errClose != nil {
+			t.Fatalf("listener.Close() error = %v", errClose)
+		}
+
+		command := palworldRESTCommandForTest(address.IP.String(), address.Port)
+		_, errExecute := command.ExecuteInput(t.Context(), "/Save")
+		if !errors.Is(errExecute, ErrConsoleInputUnavailable) {
+			t.Fatalf("ExecuteInput() error = %v, want ErrConsoleInputUnavailable", errExecute)
+		}
+		if errors.Is(errExecute, ErrConsoleInputRejected) {
+			t.Fatalf("ExecuteInput() error = %v, must not be rejected", errExecute)
+		}
+	})
+
+	t.Run("caller cancellation remains cancellation", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		command := palworldRESTCommandForTest("127.0.0.1", 8212)
+		_, errExecute := command.ExecuteInput(ctx, "/Save")
+		if !errors.Is(errExecute, context.Canceled) {
+			t.Fatalf("ExecuteInput() error = %v, want context.Canceled", errExecute)
+		}
+		if errors.Is(errExecute, ErrConsoleInputUnavailable) ||
+			errors.Is(errExecute, ErrConsoleInputRejected) {
+			t.Fatalf("ExecuteInput() cancellation was misclassified: %v", errExecute)
+		}
+	})
+}
+
+func TestClassifyRemoteInputErrorDistinguishesCallerAndTransportTimeouts(t *testing.T) {
+	t.Parallel()
+
+	activeContext := t.Context()
+	internalTimeout := fmt.Errorf("REST client timeout: %w", context.DeadlineExceeded)
+	errInternalTimeout := classifyRemoteInputError(activeContext, internalTimeout)
+	if !errors.Is(errInternalTimeout, ErrConsoleInputUnavailable) {
+		t.Fatalf("internal timeout error = %v, want ErrConsoleInputUnavailable", errInternalTimeout)
+	}
+	if errors.Is(errInternalTimeout, ErrConsoleInputRejected) {
+		t.Fatalf("internal timeout error = %v, must not be rejected", errInternalTimeout)
+	}
+
+	canceledContext, cancel := context.WithCancel(t.Context())
+	cancel()
+	errCallerCanceled := classifyRemoteInputError(canceledContext, internalTimeout)
+	if !errors.Is(errCallerCanceled, context.Canceled) {
+		t.Fatalf("caller cancellation error = %v, want context.Canceled", errCallerCanceled)
+	}
+	if errors.Is(errCallerCanceled, ErrConsoleInputUnavailable) {
+		t.Fatalf("caller cancellation error = %v, must not be unavailable", errCallerCanceled)
+	}
+}
+
+func palworldRESTCommandForTest(host string, port int) *Command {
+	return &Command{
+		ID:         "palworld-rest-response",
+		currentCMD: &exec.Cmd{},
+		inputMethod: InputMethod{
+			Type: InputTypeREST,
+			RESTCredentials: &RESTCredentials{
+				Host:     host,
+				Port:     port,
+				Kind:     RESTInputKindPalworld,
+				Password: "palworld-password",
+			},
+		},
+		outputListeners:     make(map[string]chan *xylona.Message),
+		outputListenersLock: &sync.RWMutex{},
+		RWMutex:             &sync.RWMutex{},
 	}
 }
 

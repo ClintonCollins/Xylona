@@ -37,3 +37,79 @@ func TestStartProcessRejectsInvalidLaunchEnvironmentAtNodeBoundary(t *testing.T)
 		t.Fatalf("StartProcess() error leaked launch environment value: %v", errStart)
 	}
 }
+
+func TestTranslateSupervisorConsoleInputError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		input      error
+		want       error
+		wantDetail string
+		notWant    error
+	}{
+		{
+			name:       "preserves sanitized command rejection",
+			input:      &supervisor.ConsoleInputRejectedError{Detail: "Palworld API returned 401 Unauthorized"},
+			want:       ErrConsoleInputRejected,
+			wantDetail: "Palworld API returned 401 Unauthorized",
+			notWant:    ErrConsoleInputUnavailable,
+		},
+		{
+			name:    "maps reconnectable transport failure",
+			input:   errors.Join(supervisor.ErrConsoleInputUnavailable, errors.New("connection refused")),
+			want:    ErrConsoleInputUnavailable,
+			notWant: ErrConsoleInputRejected,
+		},
+		{
+			name:    "maps internal client timeout as unavailable",
+			input:   errors.Join(supervisor.ErrConsoleInputUnavailable, context.DeadlineExceeded),
+			want:    ErrConsoleInputUnavailable,
+			notWant: ErrConsoleInputRejected,
+		},
+		{
+			name:    "preserves caller cancellation",
+			input:   context.Canceled,
+			want:    context.Canceled,
+			notWant: ErrConsoleInputUnavailable,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			errTranslated := translateSupervisorConsoleInputError(tc.input)
+			if !errors.Is(errTranslated, tc.want) {
+				t.Fatalf("translateSupervisorConsoleInputError() error = %v, want %v", errTranslated, tc.want)
+			}
+			if tc.notWant != nil && errors.Is(errTranslated, tc.notWant) {
+				t.Fatalf("translateSupervisorConsoleInputError() error = %v, must not match %v", errTranslated, tc.notWant)
+			}
+			if tc.wantDetail != "" {
+				var rejectedError *ConsoleInputRejectedError
+				if !errors.As(errTranslated, &rejectedError) || rejectedError.Detail() != tc.wantDetail {
+					t.Fatalf("translateSupervisorConsoleInputError() error = %v, want detail %q", errTranslated, tc.wantDetail)
+				}
+			}
+		})
+	}
+}
+
+func TestConsoleInputRejectedErrorBoundsRemoteDetail(t *testing.T) {
+	t.Parallel()
+
+	rejectedError := NewConsoleInputRejectedError("first\nsecond " + strings.Repeat("x", 1024))
+	if strings.Contains(rejectedError.Detail(), "\n") {
+		t.Fatalf("Detail() = %q, want a single line", rejectedError.Detail())
+	}
+	if len([]rune(rejectedError.Detail())) > maxConsoleInputRejectedDetailRunes {
+		t.Fatalf(
+			"Detail() runes = %d, want at most %d",
+			len([]rune(rejectedError.Detail())),
+			maxConsoleInputRejectedDetailRunes,
+		)
+	}
+	if !errors.Is(rejectedError, ErrConsoleInputRejected) {
+		t.Fatalf("NewConsoleInputRejectedError() = %v, want ErrConsoleInputRejected", rejectedError)
+	}
+}

@@ -49,7 +49,26 @@ var (
 	// ErrConsoleInputUnavailable is returned while a configured console input
 	// transport has not attached or has disconnected. Callers may retry it.
 	ErrConsoleInputUnavailable = errors.New("console input is temporarily unavailable")
+	// ErrConsoleInputRejected is returned when a connected remote console
+	// safely rejects a command. Retrying the same command will not help.
+	ErrConsoleInputRejected = errors.New("console input was rejected")
 )
+
+// ConsoleInputRejectedError carries a sanitized operator-visible rejection.
+type ConsoleInputRejectedError struct {
+	Detail string
+}
+
+func (e *ConsoleInputRejectedError) Error() string {
+	if e == nil || e.Detail == "" {
+		return ErrConsoleInputRejected.Error()
+	}
+	return e.Detail
+}
+
+func (e *ConsoleInputRejectedError) Unwrap() error {
+	return ErrConsoleInputRejected
+}
 
 var (
 	// CurrentRuntime is the runtime detected from the current host OS.

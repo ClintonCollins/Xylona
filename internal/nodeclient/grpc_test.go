@@ -55,6 +55,7 @@ type callRecorder struct {
 	palworldMapResp  *nodeprotov1.QueryPalworldMapResponse
 	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
 	playerActionErr  error
+	consoleInputErr  error
 	fileArchiveReq   *nodeprotov1.CreateFileArchiveRequest
 	fileArchiveResp  []*nodeprotov1.CreateFileArchiveResponse
 	fileExtractReq   *nodeprotov1.ExtractFileArchiveRequest
@@ -203,6 +204,17 @@ func (s *stubHandler) PerformGameServerPlayerAction(_ context.Context, req *conn
 		return nil, errAction
 	}
 	return connect.NewResponse(&nodeprotov1.PerformGameServerPlayerActionResponse{}), nil
+}
+
+func (s *stubHandler) SendConsoleInput(_ context.Context, req *connect.Request[nodeprotov1.SendConsoleInputRequest]) (*connect.Response[nodeprotov1.SendConsoleInputResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	errInput := s.rec.consoleInputErr
+	s.rec.mu.Unlock()
+	if errInput != nil {
+		return nil, errInput
+	}
+	return connect.NewResponse(&nodeprotov1.SendConsoleInputResponse{}), nil
 }
 
 func (s *stubHandler) StreamCreateFileArchive(_ context.Context, req *connect.Request[nodeprotov1.CreateFileArchiveRequest], stream *connect.ServerStream[nodeprotov1.CreateFileArchiveResponse]) error {
@@ -889,7 +901,7 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{
 		runtimeCapsResp: &nodeprotov1.GetRuntimeCapabilitiesResponse{
-			ProtocolVersion:          8,
+			ProtocolVersion:          node.RuntimeProtocolVersion,
 			LaunchEnv:                true,
 			ReliableProcessLifecycle: true,
 			TelnetInput:              true,
@@ -908,7 +920,7 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	if errCaps != nil {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
-	if caps.ProtocolVersion != 8 || !caps.LaunchEnv || !caps.ReliableProcessLifecycle ||
+	if caps.ProtocolVersion != node.RuntimeProtocolVersion || !caps.LaunchEnv || !caps.ReliableProcessLifecycle ||
 		!caps.TelnetInput || !caps.RCONInput || !caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap ||
 		!caps.SevenDaysToDieMap || !caps.MinecraftMap {
 		t.Fatalf("runtime capabilities = %+v, want all optional features", caps)
@@ -944,7 +956,7 @@ func TestGRPCClientRemoteConsoleInput(t *testing.T) {
 			},
 		},
 		{
-			name: "REST",
+			name: "Satisfactory REST",
 			config: node.ProcessConfig{
 				InputREST: &node.RESTInput{
 					Host:              "127.0.0.1",
@@ -962,6 +974,27 @@ func TestGRPCClientRemoteConsoleInput(t *testing.T) {
 					input.GetPassword() != "admin-password" ||
 					!slices.Equal(input.GetPreviousPasswords(), []string{"older-password", "previous-password"}) {
 					t.Fatalf("REST input = %+v", input)
+				}
+			},
+		},
+		{
+			name: "Palworld REST",
+			config: node.ProcessConfig{
+				InputREST: &node.RESTInput{
+					Host:     "127.0.0.1",
+					Port:     8212,
+					Kind:     node.RESTInputKindPalworld,
+					Password: "palworld-admin-password",
+				},
+			},
+			check: func(t *testing.T, request *nodeprotov1.StartProcessRequest) {
+				t.Helper()
+				input := request.GetRestInput()
+				if input.GetHost() != "127.0.0.1" || input.GetPort() != 8212 ||
+					input.GetKind() != nodeprotov1.RESTInputKind_REST_INPUT_KIND_PALWORLD ||
+					input.GetPassword() != "palworld-admin-password" ||
+					len(input.GetPreviousPasswords()) != 0 {
+					t.Fatalf("Palworld REST input = %+v", input)
 				}
 			},
 		},
@@ -985,6 +1018,61 @@ func TestGRPCClientRemoteConsoleInput(t *testing.T) {
 			recorder.mu.Lock()
 			defer recorder.mu.Unlock()
 			tc.check(t, recorder.startProcessReq)
+		})
+	}
+}
+
+func TestGRPCClientConsoleInputErrorMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		remoteErr  error
+		want       error
+		wantDetail string
+		notWant    error
+	}{
+		{
+			name: "preserves rejected command detail",
+			remoteErr: connect.NewError(
+				connect.CodeInvalidArgument,
+				errors.New("Palworld API returned 401 Unauthorized"),
+			),
+			want:       node.ErrConsoleInputRejected,
+			wantDetail: "Palworld API returned 401 Unauthorized",
+			notWant:    node.ErrConsoleInputUnavailable,
+		},
+		{
+			name:      "maps reconnectable transport failure",
+			remoteErr: connect.NewError(connect.CodeFailedPrecondition, errors.New("input unavailable")),
+			want:      node.ErrConsoleInputUnavailable,
+			notWant:   node.ErrConsoleInputRejected,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			recorder := &callRecorder{consoleInputErr: tc.remoteErr}
+			url, fingerprint := newPinnedTestServer(t, recorder)
+			client, errNew := nodeclient.NewGRPCClient("node-1", url, fingerprint, "secret")
+			if errNew != nil {
+				t.Fatalf("NewGRPCClient() error = %v", errNew)
+			}
+
+			errSend := client.SendConsoleInput(t.Context(), "server-1", "/Save")
+			if !errors.Is(errSend, tc.want) {
+				t.Fatalf("SendConsoleInput() error = %v, want %v", errSend, tc.want)
+			}
+			if tc.notWant != nil && errors.Is(errSend, tc.notWant) {
+				t.Fatalf("SendConsoleInput() error = %v, must not match %v", errSend, tc.notWant)
+			}
+			if tc.wantDetail != "" {
+				var rejectedError *node.ConsoleInputRejectedError
+				if !errors.As(errSend, &rejectedError) || rejectedError.Detail() != tc.wantDetail {
+					t.Fatalf("SendConsoleInput() error = %v, want detail %q", errSend, tc.wantDetail)
+				}
+			}
 		})
 	}
 }

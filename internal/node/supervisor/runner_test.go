@@ -431,6 +431,67 @@ func TestSetupCmdClearsStaleTelnetStartupHookOnReuse(t *testing.T) {
 	}
 }
 
+func TestSetupCmdConfiguresRESTStartupHookByKind(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		kind     RESTInputKind
+		wantHook bool
+	}{
+		{name: "Satisfactory configures its admin password after startup", kind: RESTInputKindSatisfactory, wantHook: true},
+		{name: "Palworld uses its generated config without a startup hook", kind: RESTInputKindPalworld},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			inst, errNew := New(t.Context())
+			if errNew != nil {
+				t.Fatalf("New() error = %v", errNew)
+			}
+			baseCommand, args := echoCommandArgs("rest-setup")
+			preparedCommand := PreparedCommand{
+				ID:          "rest-setup",
+				BaseCommand: baseCommand,
+				Args:        args,
+				Status:      xylona.Status_ONLINE,
+				InputMethod: InputMethod{
+					Type: InputTypeREST,
+					RESTCredentials: &RESTCredentials{
+						Host:     "127.0.0.1",
+						Port:     7777,
+						Kind:     tc.kind,
+						Password: "admin-password",
+					},
+				},
+			}
+			command := inst.initNewCommand(preparedCommand, nil)
+			_, errSetup := inst.setupCmd(command, preparedCommand)
+			if errSetup != nil {
+				t.Fatalf("setupCmd() error = %v", errSetup)
+			}
+			for _, reader := range []io.Reader{command.stdout, command.stderr} {
+				closer, ok := reader.(io.Closer)
+				if ok {
+					t.Cleanup(func() {
+						errClose := closer.Close()
+						if errClose != nil {
+							t.Errorf("close command pipe: %v", errClose)
+						}
+					})
+				}
+			}
+			if (command.runAfterStartup != nil) != tc.wantHook {
+				t.Fatalf("runAfterStartup configured = %t, want %t", command.runAfterStartup != nil, tc.wantHook)
+			}
+			if command.stdInWriter != nil {
+				t.Fatalf("stdInWriter = %T, want nil for REST input", command.stdInWriter)
+			}
+		})
+	}
+}
+
 func TestConnectTelnetAndSetAsStdinWriterSkipsNonTelnetInput(t *testing.T) {
 	stdInWriter := &strings.Builder{}
 	cmd := &Command{

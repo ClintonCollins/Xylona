@@ -79,6 +79,8 @@ const (
 	RESTInputKindUnknown RESTInputKind = iota
 	// RESTInputKindSatisfactory uses the Satisfactory dedicated-server API.
 	RESTInputKindSatisfactory
+	// RESTInputKindPalworld uses the Palworld dedicated-server REST API.
+	RESTInputKindPalworld
 )
 
 // RESTCredentials contains game-specific REST command settings.
@@ -925,7 +927,7 @@ func (c *Command) executeInputForExecution(
 	if inputMethod.Type == InputTypeRCON || inputMethod.Type == InputTypeREST {
 		response, errExecute := executeRemoteInput(ctx, inputMethod, input)
 		if errExecute != nil {
-			return "", errors.Join(ErrConsoleInputUnavailable, errExecute)
+			return "", classifyRemoteInputError(ctx, errExecute)
 		}
 		if response != "" {
 			c.SendOutput(response)
@@ -977,6 +979,19 @@ func (c *Command) executeInputForExecution(
 	}
 	log.Debug().Str("Command ID", c.ID).Int("bytes written", b).Msg("Wrote input")
 	return "", nil
+}
+
+func classifyRemoteInputError(ctx context.Context, errExecute error) error {
+	if ctx != nil {
+		errContext := ctx.Err()
+		if errContext != nil {
+			return fmt.Errorf("console input context: %w", errContext)
+		}
+	}
+	if errors.Is(errExecute, ErrConsoleInputRejected) {
+		return errExecute
+	}
+	return errors.Join(ErrConsoleInputUnavailable, errExecute)
 }
 
 func detachFailedTelnetWriter(command *Command, inputWriter io.Writer) {

@@ -23,10 +23,13 @@ func TestGameServerAdminInput(t *testing.T) {
 		wantREST        bool
 		wantPort        int
 		wantProtocol    node.RCONProtocol
+		wantRESTKind    node.RESTInputKind
+		wantRESTHistory bool
 		wantManaged     bool
 		wantCapability  string
 		managedContract bool
 		diverged        bool
+		serverIP        string
 	}{
 		{name: "7 Days to Die uses password-protected Telnet", gameID: sevenDaysToDieGameID, wantTelnet: true, wantPort: 27016, wantManaged: true, wantCapability: "telnet", managedContract: true},
 		{name: "Source engine RCON uses game port", gameID: counterStrikeTwoGameID, wantRCON: true, wantPort: 27015, wantProtocol: node.RCONProtocolSource, wantManaged: true, wantCapability: "rcon", managedContract: true},
@@ -36,7 +39,8 @@ func TestGameServerAdminInput(t *testing.T) {
 		{name: "V Rising RCON uses query port", gameID: "v_rising", wantRCON: true, wantPort: 27016, wantProtocol: node.RCONProtocolSource, wantCapability: "rcon", managedContract: true},
 		{name: "Rust uses WebRCON", gameID: rustGameID, wantRCON: true, wantPort: 27016, wantProtocol: node.RCONProtocolRustWeb, wantCapability: "rcon", managedContract: true},
 		{name: "Conan uses Minecraft RCON", gameID: "conan_exiles", wantRCON: true, wantPort: 27016, wantProtocol: node.RCONProtocolMinecraft, wantCapability: "rcon", managedContract: true},
-		{name: "Satisfactory uses authenticated REST", gameID: "satisfactory", wantREST: true, wantPort: 27015, wantCapability: "rest", managedContract: true},
+		{name: "Palworld uses node-local authenticated REST", gameID: palworldGameID, serverIP: "192.0.2.20", wantREST: true, wantPort: 27016, wantRESTKind: node.RESTInputKindPalworld, wantCapability: "rest"},
+		{name: "Satisfactory uses authenticated REST", gameID: "satisfactory", wantREST: true, wantPort: 27015, wantRESTKind: node.RESTInputKindSatisfactory, wantRESTHistory: true, wantCapability: "rest", managedContract: true},
 		{name: "Minecraft uses managed RCON", gameID: minecraftGameID, wantRCON: true, wantPort: 27017, wantProtocol: node.RCONProtocolMinecraft, wantManaged: true, wantCapability: "rcon", managedContract: true},
 		{name: "legacy Minecraft definition preserves stdin", gameID: minecraftGameID},
 	}
@@ -44,10 +48,14 @@ func TestGameServerAdminInput(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			serverIP := tc.serverIP
+			if serverIP == "" {
+				serverIP = "0.0.0.0"
+			}
 			gameServer := &models.GameServer{
 				ID:        "server-admin-input",
 				GameID:    tc.gameID,
-				IP:        "0.0.0.0",
+				IP:        serverIP,
 				Port:      27015,
 				QueryPort: 27016,
 			}
@@ -91,10 +99,16 @@ func TestGameServerAdminInput(t *testing.T) {
 			}
 			if input.rest != nil {
 				if input.rest.Host != "127.0.0.1" || input.rest.Port != tc.wantPort ||
-					input.rest.Kind != node.RESTInputKindSatisfactory || input.rest.Password != "custom-admin-password" ||
-					len(input.rest.PreviousPasswords) != 1 ||
-					input.rest.PreviousPasswords[0] != "previous-admin-password" {
+					input.rest.Kind != tc.wantRESTKind || input.rest.Password != "custom-admin-password" {
 					t.Fatalf("REST input = %+v", input.rest)
+				}
+				if tc.wantRESTHistory {
+					if len(input.rest.PreviousPasswords) != 1 ||
+						input.rest.PreviousPasswords[0] != "previous-admin-password" {
+						t.Fatalf("REST password history = %+v", input.rest.PreviousPasswords)
+					}
+				} else if len(input.rest.PreviousPasswords) != 0 {
+					t.Fatalf("REST password history = %+v, want empty", input.rest.PreviousPasswords)
 				}
 			}
 
@@ -109,6 +123,52 @@ func TestGameServerAdminInput(t *testing.T) {
 			var startError *StartGameServerError
 			if !errors.As(errSupported, &startError) || startError.Kind != StartFailureConfiguration {
 				t.Fatalf("capability check error = %v, want start configuration error", errSupported)
+			}
+		})
+	}
+}
+
+func TestEnsureAdminInputSupportedRequiresPalworldRESTProtocol(t *testing.T) {
+	t.Parallel()
+
+	input := gameServerAdminInput{
+		rest: &node.RESTInput{Kind: node.RESTInputKindPalworld},
+	}
+	tests := []struct {
+		name            string
+		protocolVersion int64
+		wantError       bool
+	}{
+		{
+			name:            "legacy REST node is rejected",
+			protocolVersion: palworldRESTInputProtocolVersion - 1,
+			wantError:       true,
+		},
+		{
+			name:            "Palworld REST node is accepted",
+			protocolVersion: palworldRESTInputProtocolVersion,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			client := &nodeclient.FakeNodeClient{
+				RuntimeCapabilitiesResult: node.RuntimeCapabilities{
+					ProtocolVersion: tc.protocolVersion,
+					RESTInput:       true,
+				},
+			}
+			errSupported := (&Instance{}).ensureAdminInputSupported(client, input)
+			if !tc.wantError {
+				if errSupported != nil {
+					t.Fatalf("ensureAdminInputSupported() error = %v", errSupported)
+				}
+				return
+			}
+			var startError *StartGameServerError
+			if !errors.As(errSupported, &startError) || startError.Kind != StartFailureConfiguration {
+				t.Fatalf("ensureAdminInputSupported() error = %v, want start configuration error", errSupported)
 			}
 		})
 	}

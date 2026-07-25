@@ -760,6 +760,10 @@ func (xs *XylonaService) SendGameServerInput(ctx context.Context, request *conne
 		if errors.Is(errSend, node.ErrProcessNotFound) || errors.Is(errSend, os.ErrNotExist) {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server process is not running"))
 		}
+		var rejectedError *node.ConsoleInputRejectedError
+		if errors.As(errSend, &rejectedError) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(rejectedError.Detail()))
+		}
 		if errors.Is(errSend, node.ErrConsoleInputUnavailable) {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("game server console input is reconnecting; retry shortly"))
 		}
