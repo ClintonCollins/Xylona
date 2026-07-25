@@ -9,8 +9,8 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/urfave/cli/v3"
 
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations/games"
 	"github.com/ClintonCollins/Xylona/internal/node"
@@ -30,6 +31,35 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
 )
+
+const (
+	defaultNodeListen              = ":9500"
+	defaultNodeDataDir             = "./xylona-node-data"
+	defaultProcessMetricsInterval  = 3 * time.Second
+	defaultDiskMetricsInterval     = 30 * time.Second
+	defaultDiskMetricsScansPerTick = 2
+)
+
+var (
+	nodeCLIStdout = io.Writer(os.Stdout)
+	nodeCLIStderr = io.Writer(os.Stderr)
+)
+
+type cliErrorWriter struct {
+	writer io.Writer
+	wrote  bool
+}
+
+func (w *cliErrorWriter) Write(message []byte) (int, error) {
+	written, errWrite := w.writer.Write(message)
+	if written > 0 {
+		w.wrote = true
+	}
+	if errWrite != nil {
+		return written, fmt.Errorf("write CLI error output: %w", errWrite)
+	}
+	return written, nil
+}
 
 // cliConfig holds parsed command-line flags.
 type cliConfig struct {
@@ -55,26 +85,84 @@ func (cfg *cliConfig) restartArgs(absDataDir string) []string {
 	}
 }
 
-// parseFlags parses CLI flags from args (excluding program name).
-func parseFlags(args []string) (*cliConfig, error) {
-	fs := flag.NewFlagSet("xylona-node", flag.ContinueOnError)
-	cfg := &cliConfig{}
-	fs.StringVar(&cfg.controllerURL, "controller-url", "", "base URL of the Xylona controller, e.g. https://xylona.example.com")
-	fs.StringVar(&cfg.joinToken, "join-token", "", "one-time bootstrap pairing token issued by the controller")
-	fs.StringVar(&cfg.listen, "listen", ":9500", "HTTPS listen address for the node service")
-	fs.StringVar(&cfg.advertiseURL, "advertise-url", "", "URL the controller should use to reach this node (defaults to the local address routed to the controller plus the --listen port, then hostname)")
-	fs.StringVar(&cfg.nodeName, "node-name", "", "display name to register with the controller (defaults to OS hostname)")
-	fs.StringVar(&cfg.dataDir, "data-dir", "./xylona-node-data", "directory to store persistent node identity")
-	fs.DurationVar(&cfg.processMetricsInterval, "process-metrics-interval", 3*time.Second, "interval between process resource samples")
-	fs.DurationVar(&cfg.diskMetricsInterval, "disk-metrics-interval", 30*time.Second, "interval between bounded server-directory scan batches")
-	fs.IntVar(&cfg.diskMetricsScans, "disk-metrics-scans-per-tick", 2, "maximum server directories scanned per disk metrics interval")
-	fs.BoolVar(&cfg.skipInsecureTLS, "skip-insecure-tls", false, "skip TLS certificate verification when sending the bootstrap request (one-shot; only affects --join-token pairing)")
-
-	errParse := fs.Parse(args)
-	if errParse != nil {
-		return nil, fmt.Errorf("parse flags: %w", errParse)
+func nodeFlags(includeBootstrap bool, local bool) []cli.Flag {
+	flags := []cli.Flag{
+		&cli.StringFlag{
+			Name:  "listen",
+			Value: defaultNodeListen,
+			Usage: "HTTPS listen address for the node service",
+			Local: local,
+		},
+		&cli.StringFlag{
+			Name:  "data-dir",
+			Value: defaultNodeDataDir,
+			Usage: "Directory used to store the persistent node identity and update state",
+			Local: local,
+		},
+		&cli.DurationFlag{
+			Name:  "process-metrics-interval",
+			Value: defaultProcessMetricsInterval,
+			Usage: "Interval between process resource samples",
+			Local: local,
+		},
+		&cli.DurationFlag{
+			Name:  "disk-metrics-interval",
+			Value: defaultDiskMetricsInterval,
+			Usage: "Interval between bounded server-directory scan batches",
+			Local: local,
+		},
+		&cli.IntFlag{
+			Name:  "disk-metrics-scans-per-tick",
+			Value: defaultDiskMetricsScansPerTick,
+			Usage: "Maximum server directories scanned per disk metrics interval",
+			Local: local,
+		},
 	}
+	if !includeBootstrap {
+		return flags
+	}
+	return append(flags,
+		&cli.StringFlag{
+			Name:  "controller-url",
+			Usage: "Base URL of the Xylona controller, e.g. https://xylona.example.com",
+			Local: local,
+		},
+		&cli.StringFlag{
+			Name:  "join-token",
+			Usage: "One-time bootstrap pairing token issued by the controller",
+			Local: local,
+		},
+		&cli.StringFlag{
+			Name:  "advertise-url",
+			Usage: "URL the controller should use to reach this node",
+			Local: local,
+		},
+		&cli.StringFlag{
+			Name:  "node-name",
+			Usage: "Display name to register with the controller; defaults to the OS hostname",
+			Local: local,
+		},
+		&cli.BoolFlag{
+			Name:  "skip-insecure-tls",
+			Usage: "Skip controller TLS verification during one-time pairing only",
+			Local: local,
+		},
+	)
+}
 
+func nodeConfigFromCommand(cmd *cli.Command) (*cliConfig, error) {
+	cfg := &cliConfig{
+		controllerURL:          cmd.String("controller-url"),
+		joinToken:              cmd.String("join-token"),
+		listen:                 cmd.String("listen"),
+		advertiseURL:           cmd.String("advertise-url"),
+		nodeName:               cmd.String("node-name"),
+		dataDir:                cmd.String("data-dir"),
+		processMetricsInterval: cmd.Duration("process-metrics-interval"),
+		diskMetricsInterval:    cmd.Duration("disk-metrics-interval"),
+		diskMetricsScans:       cmd.Int("disk-metrics-scans-per-tick"),
+		skipInsecureTLS:        cmd.Bool("skip-insecure-tls"),
+	}
 	if strings.TrimSpace(cfg.listen) == "" {
 		return nil, errors.New("--listen is required")
 	}
@@ -84,30 +172,90 @@ func parseFlags(args []string) (*cliConfig, error) {
 	return cfg, nil
 }
 
-func main() {
-	zerolog.TimeFieldFormat = time.RFC3339Nano
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+// parseFlags parses the foreground CLI flags from args (excluding program
+// name). Production and tests use the same urfave/cli flag definitions.
+func parseFlags(args []string) (*cliConfig, error) {
+	var parsedConfig *cliConfig
+	command := &cli.Command{
+		Name:      "xylona-node",
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
+		Flags:     nodeFlags(true, true),
+		Action: func(_ context.Context, cmd *cli.Command) error {
+			cfg, errConfig := nodeConfigFromCommand(cmd)
+			if errConfig != nil {
+				return errConfig
+			}
+			parsedConfig = cfg
+			return nil
+		},
+	}
+	runArgs := append([]string{"xylona-node"}, args...)
+	errRun := command.Run(context.Background(), runArgs)
+	if errRun != nil {
+		return nil, fmt.Errorf("parse flags: %w", errRun)
+	}
+	return parsedConfig, nil
+}
 
-	handledHelper, errHelper := selfupdate.RunHelperFromArgs(os.Args)
+func main() {
+	os.Exit(runCLI(os.Args))
+}
+
+func runCLI(args []string) int {
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: nodeCLIStderr, TimeFormat: time.RFC3339})
+
+	handledHelper, errHelper := selfupdate.RunHelperFromArgs(args)
 	if handledHelper {
 		if errHelper != nil {
-			log.Fatal().Err(errHelper).Msg("xylona-node update helper failed")
+			_, _ = fmt.Fprintln(nodeCLIStderr, errHelper)
+			return 1
 		}
-		return
+		return 0
 	}
 
-	cfg, errFlags := parseFlags(os.Args[1:])
-	if errFlags != nil {
-		log.Fatal().Err(errFlags).Msg("invalid flags")
+	rootCommand := newNodeRootCommand()
+	cliErrors := &cliErrorWriter{writer: nodeCLIStderr}
+	rootCommand.ErrWriter = cliErrors
+	errRun := rootCommand.Run(context.Background(), args)
+	if errRun != nil {
+		if !cliErrors.wrote {
+			_, _ = fmt.Fprintln(nodeCLIStderr, errRun)
+		}
+		return 1
 	}
+	return 0
+}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+func newNodeRootCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "xylona-node",
+		Usage:     "Run the Xylona node or a service-management subcommand",
+		UsageText: "xylona-node [foreground options] | xylona-node service <command> [service options]",
+		Writer:    nodeCLIStdout,
+		ErrWriter: nodeCLIStderr,
+		Flags:     nodeFlags(true, true),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			cfg, errConfig := nodeConfigFromCommand(cmd)
+			if errConfig != nil {
+				return errConfig
+			}
+			return runNodeForeground(ctx, cfg)
+		},
+		Commands: platformCommands(),
+	}
+}
+
+func runNodeForeground(parentContext context.Context, cfg *cliConfig) error {
+	ctx, cancel := signal.NotifyContext(parentContext, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 	errRun := run(ctx, cfg)
-	cancel()
 	if errRun != nil {
 		log.Error().Err(errRun).Msg("xylona-node exited with error")
-		os.Exit(1)
+		return errRun
 	}
+	return nil
 }
 
 // run executes the node binary logic. Split out so tests can exercise flag

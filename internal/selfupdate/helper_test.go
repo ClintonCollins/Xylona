@@ -179,6 +179,144 @@ func TestRunHelperLeavesReplacementToServiceManager(t *testing.T) {
 	}
 }
 
+func TestRunHelperRestartsWindowsService(t *testing.T) {
+	t.Parallel()
+
+	t.Run("replacement service starts", func(t *testing.T) {
+		t.Parallel()
+
+		pending, markerPath, oldContent, newContent := prepareHelperTest(t, RestartModeWindowsService)
+		pending.ServiceName = "XylonaNode"
+		errMarker := writeJSON(markerPath, pending)
+		if errMarker != nil {
+			t.Fatalf("rewrite pending marker: %v", errMarker)
+		}
+		restartCalls := 0
+		deps := helperDependencies{
+			waitForParent: func(int, time.Duration) error {
+				return nil
+			},
+			startProcess: func(pendingUpdate) (bool, error) {
+				t.Fatal("Windows-service mode started a replacement process directly")
+				return false, nil
+			},
+			restartService: func(serviceName string) error {
+				restartCalls++
+				if serviceName != "XylonaNode" {
+					t.Fatalf("service name = %q, want XylonaNode", serviceName)
+				}
+				assertFileContent(t, pending.ExecutablePath, newContent)
+				return nil
+			},
+		}
+
+		errRun := runHelperWithDependencies(markerPath, deps)
+		if errRun != nil {
+			t.Fatalf("runHelperWithDependencies() error = %v", errRun)
+		}
+		if restartCalls != 1 {
+			t.Fatalf("restart calls = %d, want 1", restartCalls)
+		}
+		assertFileContent(t, pending.ExecutablePath, newContent)
+		assertFileContent(t, pending.BackupPath, oldContent)
+		_, errStat := os.Stat(markerPath)
+		if !errors.Is(errStat, os.ErrNotExist) {
+			t.Fatalf("marker still exists after Windows service restart, stat error = %v", errStat)
+		}
+	})
+
+	t.Run("restart failure restores previous executable and retries service", func(t *testing.T) {
+		t.Parallel()
+
+		pending, markerPath, oldContent, newContent := prepareHelperTest(t, RestartModeWindowsService)
+		pending.ServiceName = "Xylona"
+		errMarker := writeJSON(markerPath, pending)
+		if errMarker != nil {
+			t.Fatalf("rewrite pending marker: %v", errMarker)
+		}
+		restartCalls := 0
+		deps := helperDependencies{
+			waitForParent: func(int, time.Duration) error {
+				return nil
+			},
+			startProcess: func(pendingUpdate) (bool, error) {
+				t.Fatal("Windows-service mode started a replacement process directly")
+				return false, nil
+			},
+			restartService: func(serviceName string) error {
+				restartCalls++
+				if serviceName != "Xylona" {
+					t.Fatalf("service name = %q, want Xylona", serviceName)
+				}
+				if restartCalls == 1 {
+					assertFileContent(t, pending.ExecutablePath, newContent)
+					return errors.New("SCM start failed")
+				}
+				assertFileContent(t, pending.ExecutablePath, oldContent)
+				return nil
+			},
+		}
+
+		errRun := runHelperWithDependencies(markerPath, deps)
+		if errRun == nil || !strings.Contains(errRun.Error(), "SCM start failed") {
+			t.Fatalf("runHelperWithDependencies() error = %v, want SCM start failure", errRun)
+		}
+		if restartCalls != 2 {
+			t.Fatalf("restart calls = %d, want 2", restartCalls)
+		}
+		assertFileContent(t, pending.ExecutablePath, oldContent)
+		_, errStat := os.Stat(markerPath)
+		if !errors.Is(errStat, os.ErrNotExist) {
+			t.Fatalf("marker still exists after restored Windows service restart, stat error = %v", errStat)
+		}
+	})
+
+	t.Run("uncertain service state preserves replacement for safe recovery", func(t *testing.T) {
+		t.Parallel()
+
+		pending, markerPath, oldContent, newContent := prepareHelperTest(t, RestartModeWindowsService)
+		pending.ServiceName = "XylonaNode"
+		errMarker := writeJSON(markerPath, pending)
+		if errMarker != nil {
+			t.Fatalf("rewrite pending marker: %v", errMarker)
+		}
+		restartCalls := 0
+		deps := helperDependencies{
+			waitForParent: func(int, time.Duration) error {
+				return nil
+			},
+			startProcess: func(pendingUpdate) (bool, error) {
+				t.Fatal("Windows-service mode started a replacement process directly")
+				return false, nil
+			},
+			restartService: func(serviceName string) error {
+				restartCalls++
+				if serviceName != "XylonaNode" {
+					t.Fatalf("service name = %q, want XylonaNode", serviceName)
+				}
+				return errors.Join(
+					errServiceRestartRollbackUnsafe,
+					errors.New("service stop timed out"),
+				)
+			},
+		}
+
+		errRun := runHelperWithDependencies(markerPath, deps)
+		if !errors.Is(errRun, errServiceRestartRollbackUnsafe) {
+			t.Fatalf("runHelperWithDependencies() error = %v, want unsafe-rollback marker", errRun)
+		}
+		if restartCalls != 1 {
+			t.Fatalf("restart calls = %d, want 1", restartCalls)
+		}
+		assertFileContent(t, pending.ExecutablePath, newContent)
+		assertFileContent(t, pending.BackupPath, oldContent)
+		_, errStat := os.Stat(markerPath)
+		if errStat != nil {
+			t.Fatalf("pending marker was removed after uncertain service stop: %v", errStat)
+		}
+	})
+}
+
 func TestRunHelperDoesNotReplaceBeforeParentExits(t *testing.T) {
 	t.Parallel()
 

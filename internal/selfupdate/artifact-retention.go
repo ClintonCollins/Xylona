@@ -314,6 +314,9 @@ func (m *Manager) validatePendingUpdate(pending pendingUpdate, stageID string) e
 	if filepath.Clean(pending.StagedPath) != m.installCandidatePath(stageID) {
 		return fmt.Errorf("reconcile orphaned update handoff: candidate path mismatch for %q", stageID)
 	}
+	if pending.RestartMode == RestartModeWindowsService && pending.ServiceName != m.serviceName {
+		return fmt.Errorf("reconcile orphaned update handoff: Windows service name mismatch for %q", stageID)
+	}
 	readyDir := filepath.Dir(filepath.Clean(pending.HelperReadyPath))
 	readyName := filepath.Base(filepath.Clean(pending.HelperReadyPath))
 	if readyDir != m.stageDir || !strings.HasPrefix(readyName, stageID+"-") || !strings.HasSuffix(readyName, "-ready") {

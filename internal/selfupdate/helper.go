@@ -17,9 +17,12 @@ const (
 	helperOperationDelay    = 500 * time.Millisecond
 )
 
+var errServiceRestartRollbackUnsafe = errors.New("service state is not safe for executable rollback")
+
 type helperDependencies struct {
-	waitForParent func(pid int, timeout time.Duration) error
-	startProcess  func(pending pendingUpdate) (bool, error)
+	waitForParent  func(pid int, timeout time.Duration) error
+	startProcess   func(pending pendingUpdate) (bool, error)
+	restartService func(serviceName string) error
 }
 
 // RunHelperFromArgs executes the update helper mode when args contain the
@@ -38,8 +41,9 @@ func RunHelperFromArgs(args []string) (bool, error) {
 
 func runHelper(markerPath string) error {
 	return runHelperWithDependencies(markerPath, helperDependencies{
-		waitForParent: waitForProcessExit,
-		startProcess:  startReplacementProcess,
+		waitForParent:  waitForProcessExit,
+		startProcess:   startReplacementProcess,
+		restartService: restartWindowsService,
 	})
 }
 
@@ -101,6 +105,21 @@ func runHelperWithDependencies(markerPath string, deps helperDependencies) (resu
 	}
 
 	if pending.RestartMode == RestartModeServiceManager {
+		return removePendingMarker(markerPath)
+	}
+	if pending.RestartMode == RestartModeWindowsService {
+		if deps.restartService == nil {
+			errRestart := errors.New("selfupdate helper: Windows service restarter is required")
+			return recoverPreviousExecutable(markerPath, pending, deps, errRestart)
+		}
+		errRestart := deps.restartService(pending.ServiceName)
+		if errRestart != nil {
+			errRestart = fmt.Errorf("selfupdate helper: restart updated Windows service: %w", errRestart)
+			if errors.Is(errRestart, errServiceRestartRollbackUnsafe) {
+				return errRestart
+			}
+			return recoverPreviousExecutable(markerPath, pending, deps, errRestart)
+		}
 		return removePendingMarker(markerPath)
 	}
 	if pending.RestartMode != RestartModeSelf {
@@ -194,6 +213,18 @@ func recoverPreviousExecutable(markerPath string, pending pendingUpdate, deps he
 		return errors.Join(cause, fmt.Errorf("selfupdate helper: restore previous executable: %w", errRestore))
 	}
 	if pending.RestartMode == RestartModeServiceManager {
+		errRemoveMarker := removePendingMarker(markerPath)
+		return errors.Join(cause, errRemoveMarker)
+	}
+	if pending.RestartMode == RestartModeWindowsService {
+		if deps.restartService == nil {
+			return errors.Join(cause, errors.New("selfupdate helper: Windows service restarter is required after rollback"))
+		}
+		errRestart := deps.restartService(pending.ServiceName)
+		if errRestart != nil {
+			errRestart = fmt.Errorf("selfupdate helper: restart restored Windows service: %w", errRestart)
+			return errors.Join(cause, errRestart)
+		}
 		errRemoveMarker := removePendingMarker(markerPath)
 		return errors.Join(cause, errRemoveMarker)
 	}

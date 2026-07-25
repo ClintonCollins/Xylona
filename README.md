@@ -72,26 +72,86 @@ XYLONA_UPDATE_RESTART_MODE=self
 
 Metrics are disabled by default. Enable them explicitly when you intend to expose a Prometheus scrape target.
 
-### Windows Service
+### Operating System Services
 
-From an elevated PowerShell window, install the controller binary as an automatic Windows service and optionally start it immediately:
+The controller and remote node can register themselves as automatically starting services on Windows and systemd-based Linux distributions. Service installation registers the current binary in place: move or delete that binary only after uninstalling or reinstalling the service with its new path.
+
+`service install` enables startup after future reboots. Add `--start` to start immediately. The remaining lifecycle commands are the same for both binaries:
+
+```text
+service status
+service stop
+service start
+service uninstall
+```
+
+For `xylona-node`, place `--data-dir`, pairing, listen, and metrics options after `service install`, as shown below. Foreground options placed before the `service` subcommand are rejected so they cannot be silently ignored.
+
+Uninstalling removes only the operating-system service registration. It does not delete controller configuration, databases, node identities, game servers, backups, or the executable.
+
+#### Windows
+
+From an elevated PowerShell window, install the controller as `Xylona`:
 
 ```powershell
 .\xylona.exe service install --start
 ```
 
-The installed service uses the directory containing `xylona.exe` as its working directory, so an existing `.env`, relative `DB_FILE_PATH`, and `data.sqlite` continue to resolve beside the binary. Windows runs the service as `LocalSystem`; keep the executable, configuration, database, and managed server directories writable only by trusted administrators. Service-mode logs are written to the Windows Application event log under the `Xylona` source.
+Install an already-paired node as `Xylona Node`, using the same node data directory that contains `node-identity.json`:
 
 ```powershell
-.\xylona.exe service status
-.\xylona.exe service stop
-.\xylona.exe service start
-.\xylona.exe service uninstall
+.\xylona-node.exe service install --data-dir C:\Xylona\node-data --start
 ```
 
-Uninstalling removes only the Windows service registration. It does not delete the executable, configuration, database, game servers, or backups.
+For a new node, the install command can perform the one-time pairing before registering the service:
 
-Controller and node binary updates restart themselves by default. On Unix, Xylona replaces and executes the updated binary in the existing process after graceful shutdown, preserving systemd and container supervision. Windows uses a helper process because a running executable cannot be replaced. The built-in Windows service automatically selects `XYLONA_UPDATE_RESTART_MODE=service-manager` and configures delayed recovery restarts so the helper can replace the stopped binary before Windows starts it again. Other external supervisors can use the same mode, but must independently let the helper survive the service exit and delay restart until replacement finishes.
+```powershell
+.\xylona-node.exe service install `
+  --controller-url https://xylona.example.com `
+  --join-token <one-time-token> `
+  --data-dir C:\Xylona\node-data `
+  --start
+```
+
+The join token and other pairing-only options are never stored in the service command line. If pairing succeeds but service registration fails, retain the created identity and retry using only `--data-dir`.
+
+Both Windows services run as `LocalSystem`. Keep the executable, `.env`, database, node identity, and managed server directories writable only by trusted administrators. LocalSystem may not have the same network-share access as an interactive user. Controller and node logs are written to the Windows Application event log under the `Xylona` and `XylonaNode` sources.
+
+The installed service uses the executable directory as its working directory, so controller `.env`, relative `DB_FILE_PATH`, and `data.sqlite` paths continue to resolve beside `xylona.exe`. The node always records its data directory as an absolute service argument.
+
+#### Linux With systemd
+
+Run installation through `sudo`. When `--user` is omitted, Xylona uses the original sudo-invoking user rather than root:
+
+```bash
+sudo ./xylona service install --start
+sudo ./xylona-node service install --data-dir /srv/xylona-node-data --start
+```
+
+To pair a new node during installation:
+
+```bash
+sudo ./xylona-node service install \
+  --controller-url https://xylona.example.com \
+  --join-token <one-time-token> \
+  --data-dir /srv/xylona-node-data \
+  --start
+```
+
+Use `--user <existing-user>` to select a different account. Direct root installation without sudo defaults to root and prints a warning. The installer does not create accounts or recursively change existing data ownership; the selected account must already be able to read and write the controller/node data and all game-server paths it manages. For a new node data path, only missing directories created by the installer are reassigned; inaccessible existing ancestors are rejected before pairing.
+
+The CLI creates and enables `xylona.service` or `xylona-node.service` under `/etc/systemd/system`. Logs are available through:
+
+```bash
+journalctl -u xylona.service
+journalctl -u xylona-node.service
+```
+
+Only systemd is supported by the Linux service CLI. The installer does not alter UFW, firewalld, Windows Firewall, or other host firewall configuration; allow the configured controller and node ports separately.
+
+Controller and node binary updates restart themselves by default. On Unix, Xylona replaces and executes the updated binary in the existing process after graceful shutdown, preserving systemd supervision. The service user must be able to write the executable directory for in-application updates. Windows uses a helper because a running executable cannot be replaced; built-in services have the helper replace the binary and explicitly restart the same service through SCM, with delayed recovery actions retained as a crash fallback. Other external supervisors can use `XYLONA_UPDATE_RESTART_MODE=service-manager`, but must independently let the helper survive the service exit and restart the process after replacement.
+
+Native Windows MSI/MSIX packages are not part of the current release. The intended future native path is separate signed WiX MSI packages for the controller and node, with Windows Installer owning service registration and binary upgrades while mutable data remains outside the installation directory.
 
 System updates are downloaded, checksum-verified, capacity-checked, and staged before Xylona stops game servers on the target node. Update storage keeps the newest rollback executable and at most two unapplied staged updates; confirmed, superseded, expired, and orphaned handoff artifacts are reconciled automatically at startup and before the next update.
 

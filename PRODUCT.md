@@ -31,7 +31,7 @@ The differentiating claim is the **conjunction**, not any single element. A neig
 
 ## Operating Context
 
-Xylona runs on hardware the operator controls: a home machine, a VPS, or a small fleet. It installs as a Windows service (`xylona.exe service install`), or runs under systemd or a container supervisor. The default bind is `localhost:8080`.
+Xylona runs on hardware the operator controls: a home machine, a VPS, or a small fleet. Both the controller and remote node install themselves as Windows services or systemd units through their `service install` CLI, or run under a container supervisor. The default controller bind is `localhost:8080`.
 
 State lives in `data.sqlite` beside the binary, with embedded migrations applied automatically at startup. `data.sqlite` and `ENCRYPTION_KEY_BASE64` are a **matched recovery set**: neither alone can restore encrypted control-plane secrets. Built-in backups cover game-server data, not control-plane secrets.
 
@@ -42,7 +42,7 @@ Supporting operational facts:
 - `GET /api/health` is liveness only; `GET /api/ready` gates on a database ping; `/metrics` is Prometheus and is **disabled by default**.
 - Mod provider integrity is uneven and stated honestly: PaperMC, Hangar, and Modrinth are checksum-verified; Thunderstore and Steam Workshop are best-effort.
 - Palworld map imagery is optional, not shipped in releases, and downloaded on demand into `palworld-map-tiles`. Public map links are served from the controller's own listener, so visitors never hit the upstream tile host.
-- Controller and node updates restart themselves; Windows uses a helper process because a running executable cannot be replaced in place.
+- Controller and node updates restart themselves; Windows services use a helper process to replace the locked executable and restart through SCM.
 
 ## Capabilities and Constraints
 

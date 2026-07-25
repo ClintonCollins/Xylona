@@ -35,6 +35,9 @@ const (
 	// RestartModeEnvironment selects whether the update helper or an external
 	// service manager owns the restart after replacing the binary.
 	RestartModeEnvironment = "XYLONA_UPDATE_RESTART_MODE"
+	// ServiceNameEnvironment identifies the Windows service that owns the
+	// process when RestartModeWindowsService is selected.
+	ServiceNameEnvironment = "XYLONA_UPDATE_WINDOWS_SERVICE_NAME"
 	helperArg              = "--xylona-update-helper"
 )
 
@@ -46,6 +49,9 @@ const (
 	RestartModeSelf RestartMode = "self"
 	// RestartModeServiceManager leaves restart ownership to an external manager.
 	RestartModeServiceManager RestartMode = "service-manager"
+	// RestartModeWindowsService makes the update helper restart a built-in
+	// Xylona Windows service through the Service Control Manager.
+	RestartModeWindowsService RestartMode = "windows-service"
 )
 
 var (
@@ -64,6 +70,7 @@ type Config struct {
 	RestartArgs      []string
 	WorkingDirectory string
 	RestartMode      RestartMode
+	ServiceName      string
 	ShutdownFunc     func()
 }
 
@@ -89,6 +96,7 @@ type Manager struct {
 	restartArgs      []string
 	workingDirectory string
 	restartMode      RestartMode
+	serviceName      string
 	shutdownFunc     func()
 	shutdownDelay    time.Duration
 	startHelper      helperStarter
@@ -152,8 +160,16 @@ func NewManager(cfg Config) (*Manager, error) {
 	if restartMode == "" {
 		restartMode = RestartModeSelf
 	}
+	serviceName := strings.TrimSpace(cfg.ServiceName)
+	if serviceName == "" {
+		serviceName = strings.TrimSpace(os.Getenv(ServiceNameEnvironment))
+	}
 	switch restartMode {
 	case RestartModeSelf, RestartModeServiceManager:
+	case RestartModeWindowsService:
+		if serviceName == "" {
+			return nil, errors.New("selfupdate: Windows service name is required")
+		}
 	default:
 		return nil, fmt.Errorf("selfupdate: unsupported restart mode %q", restartMode)
 	}
@@ -170,6 +186,7 @@ func NewManager(cfg Config) (*Manager, error) {
 		restartArgs:      restartArgs,
 		workingDirectory: absWorkingDirectory,
 		restartMode:      restartMode,
+		serviceName:      serviceName,
 		shutdownFunc:     shutdownFunc,
 		shutdownDelay:    shutdownDelay,
 		startHelper:      startHelperProcess,
@@ -401,6 +418,7 @@ func (m *Manager) Apply(_ context.Context, req node.ApplySelfUpdateRequest) (nod
 		RestartArgs:      append([]string(nil), m.restartArgs...),
 		WorkingDirectory: m.workingDirectory,
 		RestartMode:      m.restartMode,
+		ServiceName:      m.serviceName,
 		HelperReadyPath:  helperReadyPath,
 		CreatedAt:        m.currentTime().UTC(),
 	}
@@ -468,6 +486,9 @@ func (m *Manager) Apply(_ context.Context, req node.ApplySelfUpdateRequest) (nod
 	message := "update helper started; process will restart itself"
 	if m.restartMode == RestartModeServiceManager {
 		message = "update helper started; service manager should restart this process"
+	}
+	if m.restartMode == RestartModeWindowsService {
+		message = "update helper started; Windows Service Control Manager restart will follow replacement"
 	}
 	if errRelease != nil {
 		message += "; helper process handle could not be released cleanly: " + errRelease.Error()
@@ -658,6 +679,7 @@ type pendingUpdate struct {
 	RestartArgs      []string    `json:"restart_args"`
 	WorkingDirectory string      `json:"working_directory"`
 	RestartMode      RestartMode `json:"restart_mode"`
+	ServiceName      string      `json:"service_name,omitempty"`
 	HelperReadyPath  string      `json:"helper_ready_path"`
 	CreatedAt        time.Time   `json:"created_at"`
 }

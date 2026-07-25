@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
 )
@@ -104,6 +110,57 @@ func TestParseFlags(t *testing.T) {
 			t.Fatal("expected error for empty data-dir")
 		}
 	})
+}
+
+func TestRunCLIReportsErrorsOnce(t *testing.T) {
+	originalStdout := nodeCLIStdout
+	originalStderr := nodeCLIStderr
+	originalLogger := log.Logger
+	originalTimeFieldFormat := zerolog.TimeFieldFormat
+	t.Cleanup(func() {
+		nodeCLIStdout = originalStdout
+		nodeCLIStderr = originalStderr
+		log.Logger = originalLogger
+		zerolog.TimeFieldFormat = originalTimeFieldFormat
+	})
+
+	tests := []struct {
+		name      string
+		arguments []string
+		message   string
+	}{
+		{
+			name:      "usage error",
+			arguments: []string{"xylona-node", "--definitely-invalid"},
+			message:   "flag provided but not defined: -definitely-invalid",
+		},
+		{
+			name:      "action error",
+			arguments: []string{"xylona-node", "--listen", " "},
+			message:   "--listen is required",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			nodeCLIStdout = io.Discard
+			nodeCLIStderr = &stderr
+
+			exitCode := runCLI(test.arguments)
+			if exitCode != 1 {
+				t.Fatalf("runCLI() exit code = %d, want 1", exitCode)
+			}
+			if occurrences := strings.Count(stderr.String(), test.message); occurrences != 1 {
+				t.Fatalf(
+					"runCLI() output contains %q %d times, want once:\n%s",
+					test.message,
+					occurrences,
+					stderr.String(),
+				)
+			}
+		})
+	}
 }
 
 func TestCLIConfigRestartArgs(t *testing.T) {

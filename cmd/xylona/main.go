@@ -34,6 +34,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/adminipc"
 	"github.com/ClintonCollins/Xylona/internal/alerts"
+	"github.com/ClintonCollins/Xylona/internal/appservice"
 	"github.com/ClintonCollins/Xylona/internal/cli/usercmd"
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/api/events"
@@ -805,6 +806,14 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 		return 1
 	}
 
+	restartMode := selfupdate.RestartMode(os.Getenv(selfupdate.RestartModeEnvironment))
+	return controllerServiceExitCode(controllerUpdateRequested, restartMode)
+}
+
+func controllerServiceExitCode(updateRequested bool, restartMode selfupdate.RestartMode) int {
+	if updateRequested && restartMode == selfupdate.RestartModeWindowsService {
+		return appservice.UpdateHandoffExitCode
+	}
 	return 0
 }
 

@@ -42,6 +42,38 @@ func (p *fakeHelperProcess) Stop() error {
 	return p.stopErr
 }
 
+func TestNewManagerWindowsServiceMode(t *testing.T) {
+	t.Run("requires service name", func(t *testing.T) {
+		_, errManager := NewManager(Config{
+			Component:      "node",
+			StageDir:       t.TempDir(),
+			ExecutablePath: filepath.Join(t.TempDir(), "xylona-node"),
+			RestartMode:    RestartModeWindowsService,
+			ShutdownFunc:   func() {},
+		})
+		if errManager == nil || !strings.Contains(errManager.Error(), "service name is required") {
+			t.Fatalf("NewManager() error = %v, want service-name validation", errManager)
+		}
+	})
+
+	t.Run("records fixed service name", func(t *testing.T) {
+		manager, errManager := NewManager(Config{
+			Component:      "node",
+			StageDir:       t.TempDir(),
+			ExecutablePath: filepath.Join(t.TempDir(), "xylona-node"),
+			RestartMode:    RestartModeWindowsService,
+			ServiceName:    "XylonaNode",
+			ShutdownFunc:   func() {},
+		})
+		if errManager != nil {
+			t.Fatalf("NewManager() error = %v", errManager)
+		}
+		if manager.serviceName != "XylonaNode" {
+			t.Fatalf("manager service name = %q, want XylonaNode", manager.serviceName)
+		}
+	})
+}
+
 func TestManagerStageSelfUpdate(t *testing.T) {
 	t.Parallel()
 

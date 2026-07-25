@@ -1,6 +1,6 @@
 //go:build windows
 
-package main
+package appservice
 
 import (
 	"os"
@@ -122,18 +122,61 @@ func TestWindowsServiceHandler(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("planned update handoff leaves restart ownership to helper", func(t *testing.T) {
+		handler := &windowsServiceHandler{
+			run: func(<-chan os.Signal) int {
+				return UpdateHandoffExitCode
+			},
+		}
+
+		requests := make(chan svc.ChangeRequest)
+		changes := make(chan svc.Status, 2)
+		result := make(chan windowsServiceExecutionResult, 1)
+		go func() {
+			serviceSpecificExitCode, exitCode := handler.Execute(nil, requests, changes)
+			result <- windowsServiceExecutionResult{
+				serviceSpecificExitCode: serviceSpecificExitCode,
+				exitCode:                exitCode,
+			}
+		}()
+
+		assertWindowsServiceStatus(t, changes, svc.StartPending, 0)
+		assertWindowsServiceStatus(t, changes, svc.Running, svc.AcceptStop|svc.AcceptShutdown)
+
+		select {
+		case executionResult := <-result:
+			if executionResult.serviceSpecificExitCode {
+				t.Fatal("planned update handoff triggered Windows service recovery")
+			}
+			if executionResult.exitCode != 0 {
+				t.Fatalf("planned update handoff exit code = %d, want 0", executionResult.exitCode)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for planned update handoff")
+		}
+	})
 }
 
-func assertWindowsServiceStatus(t *testing.T, changes <-chan svc.Status, wantState svc.State, wantAccepts svc.Accepted) {
+func assertWindowsServiceStatus(
+	t *testing.T,
+	changes <-chan svc.Status,
+	wantState svc.State,
+	wantAccepts svc.Accepted,
+) {
 	t.Helper()
 
 	select {
-	case status := <-changes:
-		if status.State != wantState {
-			t.Fatalf("service state = %s, want %s", windowsServiceStateName(status.State), windowsServiceStateName(wantState))
+	case serviceStatus := <-changes:
+		if serviceStatus.State != wantState {
+			t.Fatalf(
+				"service state = %s, want %s",
+				windowsServiceStateName(serviceStatus.State),
+				windowsServiceStateName(wantState),
+			)
 		}
-		if status.Accepts != wantAccepts {
-			t.Fatalf("service accepted controls = %d, want %d", status.Accepts, wantAccepts)
+		if serviceStatus.Accepts != wantAccepts {
+			t.Fatalf("service accepted controls = %d, want %d", serviceStatus.Accepts, wantAccepts)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out waiting for service state %s", windowsServiceStateName(wantState))
