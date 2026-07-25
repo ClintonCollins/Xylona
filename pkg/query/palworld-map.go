@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"sort"
@@ -20,6 +21,19 @@ import (
 const (
 	palworldMapMaxResponseBodyLen int64 = 16 << 20
 	palworldMapMaxActors                = 25_000
+
+	// palworldMapQueryTimeout is deliberately far larger than the timeout used
+	// for the small status endpoints. A populated world makes /game-data
+	// serialize every actor, which routinely takes several seconds.
+	palworldMapQueryTimeout = 15 * time.Second
+
+	// palworldGameDataErrorBodyLen bounds how much of a rejected /game-data
+	// response is read so the failure can be classified.
+	palworldGameDataErrorBodyLen int64 = 4 << 10
+
+	// palworldGameDataLaunchOption unlocks GET /v1/api/game-data. Palworld
+	// disables the endpoint unless the dedicated server is started with it.
+	palworldGameDataLaunchOption = "-enable-gamedata-api"
 )
 
 // PalworldMapActorKind is the sanitized category used by the live map.
@@ -79,8 +93,15 @@ type PalworldMapSnapshot struct {
 	Source      string
 	Partial     bool
 	Truncated   bool
-	Actors      []PalworldMapActor
-	Health      *PalworldMapHealth
+	// PartialReason explains, in operator-facing terms, why the world snapshot
+	// was unavailable and the map fell back to player positions. It never
+	// repeats server-supplied text because it also reaches public shared maps.
+	PartialReason string
+	// PartialDetail is the raw failure text for node-local logging only. It can
+	// name the game server's address, so it must not be transported or shown.
+	PartialDetail string
+	Actors        []PalworldMapActor
+	Health        *PalworldMapHealth
 }
 
 type palworldGameDataResponse struct {
@@ -130,7 +151,7 @@ func PalworldMap(
 	username string,
 	password string,
 ) (*PalworldMapSnapshot, error) {
-	client := &http.Client{Timeout: palworldQueryTimeout}
+	client := &http.Client{Timeout: palworldMapQueryTimeout}
 	return palworldMapWithClient(ctx, client, host, port, username, password)
 }
 
@@ -173,15 +194,7 @@ func palworldMapWithClient(
 
 	var snapshot *PalworldMapSnapshot
 	var gameData palworldGameDataResponse
-	errGameData := getPalworldJSONWithLimit(
-		ctx,
-		client,
-		baseURL+"/game-data",
-		username,
-		password,
-		&gameData,
-		palworldMapMaxResponseBodyLen,
-	)
+	errGameData := getPalworldGameData(ctx, client, baseURL+"/game-data", username, password, &gameData)
 	if errGameData == nil {
 		snapshot = sanitizePalworldGameData(gameData, time.Now().UTC())
 	} else {
@@ -202,6 +215,8 @@ func palworldMapWithClient(
 			)
 		}
 		snapshot = sanitizePalworldPlayers(players, time.Now().UTC())
+		snapshot.PartialReason = palworldMapPartialReason(errGameData)
+		snapshot.PartialDetail = errGameData.Error()
 	}
 
 	metricsOutcome := <-metricsResultChannel
@@ -209,6 +224,125 @@ func palworldMapWithClient(
 		snapshot.Health = sanitizePalworldMapHealth(metricsOutcome.metrics)
 	}
 	return snapshot, nil
+}
+
+// palworldGameDataFailure classifies why GET /game-data could not be used so
+// the caller can turn it into operator guidance without echoing server text.
+type palworldGameDataFailure struct {
+	// statusCode is the rejected HTTP status, or zero when the request never
+	// produced a response.
+	statusCode int
+	// disabled reports that Palworld answered with its GameData-API-disabled
+	// rejection rather than a transport or protocol failure.
+	disabled bool
+	// decodeFailed reports that the server answered 200 with a body this
+	// client could not parse.
+	decodeFailed bool
+	// oversize reports that the body reached the read cap, which truncates the
+	// JSON and would otherwise be indistinguishable from a malformed body.
+	oversize bool
+	err      error
+}
+
+func (failure *palworldGameDataFailure) Error() string {
+	if failure.statusCode != 0 {
+		return fmt.Sprintf("palworld game-data returned HTTP %d", failure.statusCode)
+	}
+	return fmt.Sprintf("palworld game-data request failed: %v", failure.err)
+}
+
+func (failure *palworldGameDataFailure) Unwrap() error {
+	return failure.err
+}
+
+// getPalworldGameData streams the world snapshot rather than buffering it. The
+// decoded actors are already the largest allocation on this path, so holding
+// the raw multi-megabyte body at the same time doubles peak memory for nothing.
+func getPalworldGameData(
+	ctx context.Context,
+	client *http.Client,
+	url string,
+	username string,
+	password string,
+	destination *palworldGameDataResponse,
+) error {
+	request, errRequest := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if errRequest != nil {
+		return &palworldGameDataFailure{err: fmt.Errorf("create request: %w", errRequest)}
+	}
+	request.Header.Set("Accept", "application/json")
+	request.SetBasicAuth(username, password)
+
+	response, errDo := client.Do(request)
+	if errDo != nil {
+		return &palworldGameDataFailure{err: fmt.Errorf("send request: %w", errDo)}
+	}
+	if response.StatusCode != http.StatusOK {
+		detail, errDetail := io.ReadAll(io.LimitReader(response.Body, palworldGameDataErrorBodyLen))
+		errClose := response.Body.Close()
+		return &palworldGameDataFailure{
+			statusCode: response.StatusCode,
+			disabled:   palworldGameDataDisabled(string(detail)),
+			err:        errors.Join(errDetail, errClose),
+		}
+	}
+
+	limited := &io.LimitedReader{R: response.Body, N: palworldMapMaxResponseBodyLen + 1}
+	errDecode := json.NewDecoder(limited).Decode(destination)
+	if errDecode != nil {
+		errClose := response.Body.Close()
+		return &palworldGameDataFailure{
+			decodeFailed: true,
+			oversize:     limited.N <= 0,
+			err:          errors.Join(fmt.Errorf("decode response: %w", errDecode), errClose),
+		}
+	}
+	// Drain the short remainder so the transport can reuse the connection for
+	// the next poll instead of reconnecting every five seconds.
+	_, errDrain := io.Copy(io.Discard, io.LimitReader(response.Body, palworldGameDataErrorBodyLen))
+	errClose := response.Body.Close()
+	if errClose != nil {
+		return &palworldGameDataFailure{err: errors.Join(errDrain, fmt.Errorf("close response: %w", errClose))}
+	}
+	return nil
+}
+
+func palworldGameDataDisabled(body string) bool {
+	return strings.Contains(strings.ToLower(body), "gamedata api is not enabled")
+}
+
+// palworldMapPartialReason renders operator guidance for a failed world
+// snapshot. It intentionally omits the server's own error text and address
+// because the same reason is served to anonymous public map viewers.
+func palworldMapPartialReason(errGameData error) string {
+	const playersOnly = "the map is showing player positions only"
+
+	var failure *palworldGameDataFailure
+	if !errors.As(errGameData, &failure) {
+		return "Palworld's world snapshot could not be read, so " + playersOnly + "."
+	}
+	switch {
+	case failure.disabled:
+		return "Palworld refused the world snapshot because its GameData API is disabled. Add " +
+			palworldGameDataLaunchOption + " to this server's start arguments and restart it to map bases, Pals, and NPCs."
+	case failure.statusCode == http.StatusNotFound:
+		return "This server has no /v1/api/game-data endpoint (HTTP 404). Bases, Pals, and NPCs need a Palworld 1.0 or newer server started with " +
+			palworldGameDataLaunchOption + "."
+	case failure.statusCode == http.StatusUnauthorized || failure.statusCode == http.StatusForbidden:
+		return fmt.Sprintf("Palworld rejected the world snapshot request (HTTP %d). Check this server's REST API credentials.", failure.statusCode)
+	case failure.statusCode != 0:
+		return fmt.Sprintf("Palworld returned HTTP %d for the world snapshot, so %s.", failure.statusCode, playersOnly)
+	case failure.oversize:
+		return fmt.Sprintf(
+			"Palworld's world snapshot exceeded the %d MB Xylona will read, so %s.",
+			palworldMapMaxResponseBodyLen>>20,
+			playersOnly,
+		)
+	case failure.decodeFailed:
+		return "Palworld's world snapshot could not be decoded, so " + playersOnly + "."
+	default:
+		return "Palworld's world snapshot request did not complete, so " + playersOnly + "."
+	}
 }
 
 func sanitizePalworldGameData(response palworldGameDataResponse, collectedAt time.Time) *PalworldMapSnapshot {

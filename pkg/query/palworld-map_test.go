@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,17 +14,19 @@ func TestPalworldMap(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		gameData     string
-		gameStatus   int
-		metrics      string
-		metricStatus int
-		players      string
-		wantSource   string
-		wantKinds    []PalworldMapActorKind
-		wantNames    []string
-		wantPartial  bool
-		wantHealth   *PalworldMapHealth
+		name          string
+		gameData      string
+		gameStatus    int
+		metrics       string
+		metricStatus  int
+		players       string
+		wantSource    string
+		wantKinds     []PalworldMapActorKind
+		wantNames     []string
+		wantPartial   bool
+		wantReasonHas []string
+		wantNoReason  bool
+		wantHealth    *PalworldMapHealth
 	}{
 		{
 			name:       "sanitizes all documented world actor types",
@@ -50,7 +53,8 @@ func TestPalworldMap(t *testing.T) {
 				PalworldMapActorKindWildPal,
 				PalworldMapActorKindNPC,
 			},
-			wantNames: []string{"Alex", "Skyforge", "Skyforge", "Anubis", "Lifmunk", "Pal_SheepBall", "Merchant"},
+			wantNames:    []string{"Alex", "Skyforge", "Skyforge", "Anubis", "Lifmunk", "Pal_SheepBall", "Merchant"},
+			wantNoReason: true,
 			wantHealth: &PalworldMapHealth{
 				ServerFPS:         60,
 				ServerFrameTimeMS: 16.67,
@@ -58,6 +62,48 @@ func TestPalworldMap(t *testing.T) {
 				BaseCampCount:     3,
 				Days:              99,
 			},
+		},
+		{
+			name:          "reports the launch option when Palworld disables the GameData API",
+			gameStatus:    http.StatusBadRequest,
+			gameData:      `{"error":"PalGameDataBridge GameData API is not enabled"}`,
+			metrics:       `{"serverfps":60}`,
+			metricStatus:  http.StatusOK,
+			players:       `{"players":[{"name":"Robin","userId":"steam-secret","location_x":1,"location_y":2,"level":20}]}`,
+			wantSource:    "players",
+			wantKinds:     []PalworldMapActorKind{PalworldMapActorKindPlayer},
+			wantNames:     []string{"Robin"},
+			wantPartial:   true,
+			wantReasonHas: []string{"-enable-gamedata-api", "start arguments"},
+			wantHealth:    &PalworldMapHealth{ServerFPS: 60},
+		},
+		{
+			name:          "reports an outdated server when game-data is missing",
+			gameStatus:    http.StatusNotFound,
+			gameData:      `{}`,
+			metrics:       `{"serverfps":60}`,
+			metricStatus:  http.StatusOK,
+			players:       `{"players":[{"name":"Robin","userId":"steam-secret","location_x":1,"location_y":2,"level":20}]}`,
+			wantSource:    "players",
+			wantKinds:     []PalworldMapActorKind{PalworldMapActorKindPlayer},
+			wantNames:     []string{"Robin"},
+			wantPartial:   true,
+			wantReasonHas: []string{"404", "-enable-gamedata-api"},
+			wantHealth:    &PalworldMapHealth{ServerFPS: 60},
+		},
+		{
+			name:          "reports refused credentials without suggesting the launch option",
+			gameStatus:    http.StatusUnauthorized,
+			gameData:      `{}`,
+			metrics:       `{"serverfps":60}`,
+			metricStatus:  http.StatusOK,
+			players:       `{"players":[{"name":"Robin","userId":"steam-secret","location_x":1,"location_y":2,"level":20}]}`,
+			wantSource:    "players",
+			wantKinds:     []PalworldMapActorKind{PalworldMapActorKindPlayer},
+			wantNames:     []string{"Robin"},
+			wantPartial:   true,
+			wantReasonHas: []string{"401", "credentials"},
+			wantHealth:    &PalworldMapHealth{ServerFPS: 60},
 		},
 		{
 			name:         "falls back to positioned players and retains metrics",
@@ -90,6 +136,7 @@ func TestPalworldMap(t *testing.T) {
 			wantSource:   "game-data",
 			wantKinds:    []PalworldMapActorKind{},
 			wantNames:    []string{},
+			wantNoReason: true,
 		},
 		{
 			name:         "ignores malformed metrics",
@@ -101,6 +148,7 @@ func TestPalworldMap(t *testing.T) {
 			wantSource:   "game-data",
 			wantKinds:    []PalworldMapActorKind{},
 			wantNames:    []string{},
+			wantNoReason: true,
 		},
 	}
 
@@ -132,6 +180,14 @@ func TestPalworldMap(t *testing.T) {
 			if snapshot.Source != tc.wantSource || snapshot.Partial != tc.wantPartial {
 				t.Fatalf("snapshot source/partial = %q/%t, want %q/%t", snapshot.Source, snapshot.Partial, tc.wantSource, tc.wantPartial)
 			}
+			if tc.wantNoReason && snapshot.PartialReason != "" {
+				t.Fatalf("partial reason = %q, want empty", snapshot.PartialReason)
+			}
+			for _, fragment := range tc.wantReasonHas {
+				if !strings.Contains(snapshot.PartialReason, fragment) {
+					t.Fatalf("partial reason = %q, want it to contain %q", snapshot.PartialReason, fragment)
+				}
+			}
 			if len(snapshot.Actors) != len(tc.wantKinds) {
 				t.Fatalf("actors = %+v, want %d", snapshot.Actors, len(tc.wantKinds))
 			}
@@ -159,6 +215,66 @@ func TestPalworldMap(t *testing.T) {
 				}
 				if snapshot.Actors[2].GuildKey != guildKey || snapshot.Actors[3].GuildKey != guildKey {
 					t.Fatalf("same guild produced different keys: %+v", snapshot.Actors[:4])
+				}
+			}
+		})
+	}
+}
+
+// TestPalworldMapPartialReason covers the failure classes that are impractical
+// to drive through a live handler, and pins the rule that operator guidance
+// never echoes the game server's own error text or address.
+func TestPalworldMapPartialReason(t *testing.T) {
+	t.Parallel()
+
+	secretDetail := errors.New(`Get "http://10.0.0.7:8212/v1/api/game-data": connection refused`)
+	tests := []struct {
+		name       string
+		failure    error
+		wantHas    []string
+		wantNotHas []string
+	}{
+		{
+			name:    "oversize body is not reported as malformed",
+			failure: &palworldGameDataFailure{decodeFailed: true, oversize: true},
+			wantHas: []string{"exceeded the 16 MB", "player positions only"},
+		},
+		{
+			name:    "malformed body is reported as undecodable",
+			failure: &palworldGameDataFailure{decodeFailed: true},
+			wantHas: []string{"could not be decoded"},
+		},
+		{
+			name:       "transport failure never leaks the server address",
+			failure:    &palworldGameDataFailure{err: secretDetail},
+			wantHas:    []string{"did not complete"},
+			wantNotHas: []string{"10.0.0.7", "8212", "connection refused"},
+		},
+		{
+			name:    "unexpected error types still explain the fallback",
+			failure: errors.New("something else"),
+			wantHas: []string{"player positions only"},
+		},
+		{
+			name:       "unmapped status reports the code without guessing a cause",
+			failure:    &palworldGameDataFailure{statusCode: http.StatusInternalServerError},
+			wantHas:    []string{"HTTP 500"},
+			wantNotHas: []string{palworldGameDataLaunchOption},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			reason := palworldMapPartialReason(tc.failure)
+			for _, fragment := range tc.wantHas {
+				if !strings.Contains(reason, fragment) {
+					t.Fatalf("reason = %q, want it to contain %q", reason, fragment)
+				}
+			}
+			for _, fragment := range tc.wantNotHas {
+				if strings.Contains(reason, fragment) {
+					t.Fatalf("reason = %q, want it to omit %q", reason, fragment)
 				}
 			}
 		})

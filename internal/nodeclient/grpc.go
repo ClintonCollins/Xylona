@@ -1318,13 +1318,14 @@ func palworldMapSnapshotFromProto(snapshot *nodeprotov1.PalworldMapSnapshot) *no
 		collectedAt = snapshot.GetCollectedAt().AsTime()
 	}
 	return &node.PalworldMapSnapshot{
-		SourceTime:  snapshot.GetSourceTime(),
-		CollectedAt: collectedAt,
-		Source:      snapshot.GetSource(),
-		Partial:     snapshot.GetPartial(),
-		Truncated:   snapshot.GetTruncated(),
-		Actors:      actors,
-		Health:      palworldMapHealthFromProto(snapshot.GetHealth()),
+		SourceTime:    snapshot.GetSourceTime(),
+		CollectedAt:   collectedAt,
+		Source:        snapshot.GetSource(),
+		Partial:       snapshot.GetPartial(),
+		Truncated:     snapshot.GetTruncated(),
+		PartialReason: snapshot.GetPartialReason(),
+		Actors:        actors,
+		Health:        palworldMapHealthFromProto(snapshot.GetHealth()),
 	}
 }
 

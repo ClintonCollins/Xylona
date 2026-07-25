@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:9d8f932f6cd20cc123815f429a1ff5987ab8dfb06be47a0f791e5e959c1c0be6",
+  "content_hash": "sha256:a6405992038a71b0082ee8a32bc1c148eccec96d648d41b512c6d7497e34cb56",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -1040,6 +1040,15 @@
       ],
       "label": "Game port",
       "managed_source": "game_server.port"
+    },
+    {
+      "id": "01JQSF00000000000000000002",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "-enable-gamedata-api"
+      ],
+      "label": "Live map world data"
     }
   ],
   "windows_start_args_template": [
@@ -1052,6 +1061,15 @@
       ],
       "label": "Game port",
       "managed_source": "game_server.port"
+    },
+    {
+      "id": "01JQSF00000000000000000002",
+      "order": 2,
+      "ownership": "editable",
+      "tokens": [
+        "-enable-gamedata-api"
+      ],
+      "label": "Live map world data"
     }
   ],
   "start_arg_blocklist": [],

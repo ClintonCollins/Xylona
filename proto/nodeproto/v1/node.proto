@@ -630,6 +630,7 @@ message PalworldMapSnapshot {
   bool truncated = 5;
   repeated PalworldMapActor actors = 6;
   PalworldMapHealth health = 7;
+  string partial_reason = 8;
 }
 
 message QueryPalworldMapRequest {

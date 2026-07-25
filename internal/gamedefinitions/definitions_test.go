@@ -17,6 +17,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	internalgames "github.com/ClintonCollins/Xylona/internal/gameintegrations/games"
+	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
@@ -163,6 +164,54 @@ func TestSevenDaysToDieDefinitionConfigSchema(t *testing.T) {
 	gotProperties := slices.Sorted(maps.Keys(entry.Schema.Properties))
 	if !slices.Equal(gotProperties, wantProperties) {
 		t.Fatalf("config schema properties = %v, want %v", gotProperties, wantProperties)
+	}
+}
+
+// TestPalworldDefinitionEnablesGameDataAPI pins the launch option that unlocks
+// GET /v1/api/game-data. Palworld disables that endpoint by default, and
+// without it the live map silently degrades to player positions with no bases,
+// Pals, or NPCs. The block stays editable so an operator can opt out.
+func TestPalworldDefinitionEnablesGameDataAPI(t *testing.T) {
+	definitions, errLoad := gamedefinitions.LoadBundled()
+	if errLoad != nil {
+		t.Fatalf("LoadBundled() error = %v", errLoad)
+	}
+
+	var palworld *models.Game
+	for _, definition := range definitions {
+		if definition.Model.ID == "palworld" {
+			palworld = definition.Model
+			break
+		}
+	}
+	if palworld == nil {
+		t.Fatal("bundled Palworld definition is unavailable")
+	}
+
+	platforms := map[string]string{
+		"linux":   palworld.LinuxStartArgsTemplate.GetOr(""),
+		"windows": palworld.WindowsStartArgsTemplate.GetOr(""),
+	}
+	for name, templateJSON := range platforms {
+		t.Run(name, func(t *testing.T) {
+			blocks, errTemplate := startargs.ParseTemplate(templateJSON)
+			if errTemplate != nil {
+				t.Fatalf("ParseTemplate() error = %v", errTemplate)
+			}
+			var found *startargs.ArgBlock
+			for i, block := range blocks {
+				if slices.Contains(block.Tokens, "-enable-gamedata-api") {
+					found = &blocks[i]
+					break
+				}
+			}
+			if found == nil {
+				t.Fatalf("start args template does not enable the GameData API: %s", templateJSON)
+			}
+			if found.Ownership != startargs.OwnershipEditable {
+				t.Errorf("ownership = %q, want %q so operators can opt out", found.Ownership, startargs.OwnershipEditable)
+			}
+		})
 	}
 }
 

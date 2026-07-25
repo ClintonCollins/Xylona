@@ -481,8 +481,11 @@ type PalworldMapSnapshot struct {
 	Source      string
 	Partial     bool
 	Truncated   bool
-	Actors      []PalworldMapActor
-	Health      *PalworldMapHealth
+	// PartialReason explains why the world snapshot was unavailable and the
+	// map fell back to player positions.
+	PartialReason string
+	Actors        []PalworldMapActor
+	Health        *PalworldMapHealth
 }
 
 // PalworldMapQueryRequest contains the node-local Palworld REST connection.

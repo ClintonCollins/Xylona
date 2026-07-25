@@ -236,6 +236,17 @@ const mapStatus = computed(() => {
   }
   return { label: 'Live world', icon: 'sensors', tone: 'success' }
 })
+// The map used to drop silently to player positions with no explanation, which
+// reads as "bases are broken" rather than "the server is not reporting them".
+const partialNotice = computed(() => {
+  if (props.view?.available !== true || !props.view.partial) {
+    return ''
+  }
+  if (props.view.partialReason !== '') {
+    return props.view.partialReason
+  }
+  return 'This server is reporting player positions only, so bases, Pals, and NPCs are unavailable.'
+})
 const collectedLabel = computed(() => {
   const collectedAt = props.view?.collectedAt
   if (collectedAt === undefined) {
@@ -953,6 +964,11 @@ onBeforeUnmount(() => {
         <span><small>Bases</small>{{ health.baseCampCount.toLocaleString() }}</span>
         <span><small>World day</small>{{ health.days.toLocaleString() }}</span>
         <span><small>Uptime</small>{{ formatPalworldUptime(health.uptimeSeconds) }}</span>
+      </div>
+
+      <div v-if="partialNotice !== ''" class="palworld-live-map__partial" role="status">
+        <q-icon name="info" />
+        <span>{{ partialNotice }}</span>
       </div>
 
       <div v-if="aggregatedActorCount > 0" class="palworld-live-map__aggregation" role="status">
@@ -1912,6 +1928,32 @@ onBeforeUnmount(() => {
   font-size: var(--xy-font-size-xs);
 }
 
+.palworld-live-map__partial {
+  position: absolute;
+  z-index: var(--xy-z-drawer);
+  bottom: 126px;
+  left: var(--xy-space-base);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--xy-space-xs);
+  max-width: min(420px, calc(100% - 2 * var(--xy-space-base)));
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  color: var(--xy-text-primary);
+  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
+  border: 1px solid var(--xy-warning);
+  border-radius: var(--xy-radius-md);
+  box-shadow: var(--xy-shadow-sm);
+  font-size: var(--xy-font-size-xs);
+  line-height: var(--xy-line-height-tight);
+}
+
+.palworld-live-map__partial > .q-icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--xy-warning);
+  font-size: 16px;
+}
+
 .palworld-live-map__toolbar-action {
   color: var(--xy-text-secondary);
   transition:
@@ -2148,6 +2190,12 @@ onBeforeUnmount(() => {
   .palworld-live-map__aggregation {
     bottom: 88px;
     left: var(--xy-space-sm);
+  }
+
+  .palworld-live-map__partial {
+    bottom: 128px;
+    left: var(--xy-space-sm);
+    max-width: calc(100% - 2 * var(--xy-space-sm));
   }
 
   .palworld-live-map__roster-empty--world {

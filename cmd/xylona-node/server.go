@@ -1238,13 +1238,14 @@ func palworldMapSnapshotToProto(snapshot *node.PalworldMapSnapshot) *nodeprotov1
 		})
 	}
 	return &nodeprotov1.PalworldMapSnapshot{
-		SourceTime:  snapshot.SourceTime,
-		CollectedAt: timestamppb.New(snapshot.CollectedAt),
-		Source:      snapshot.Source,
-		Partial:     snapshot.Partial,
-		Truncated:   snapshot.Truncated,
-		Actors:      actors,
-		Health:      palworldMapHealthToProto(snapshot.Health),
+		SourceTime:    snapshot.SourceTime,
+		CollectedAt:   timestamppb.New(snapshot.CollectedAt),
+		Source:        snapshot.Source,
+		Partial:       snapshot.Partial,
+		Truncated:     snapshot.Truncated,
+		PartialReason: snapshot.PartialReason,
+		Actors:        actors,
+		Health:        palworldMapHealthToProto(snapshot.Health),
 	}
 }
 

@@ -186,13 +186,19 @@ function actor(
   )
 }
 
-function mountMap(actors: PalworldMapActor[], partial = false, available = true): VueWrapper {
+function mountMap(
+  actors: PalworldMapActor[],
+  partial = false,
+  available = true,
+  partialReason = '',
+): VueWrapper {
   const wrapper = shallowMount(PalworldLiveMap, {
     props: {
       view: create(PalworldMapViewSchema, {
         actors,
         available,
         partial,
+        partialReason,
         serverOnline: true,
       }),
     },
@@ -231,6 +237,37 @@ describe('PalworldLiveMap', () => {
       wrapper.unmount()
     }
     vi.unstubAllGlobals()
+  })
+
+  it.each([
+    {
+      name: 'explains a players-only snapshot with the reported reason',
+      partial: true,
+      partialReason: 'Add -enable-gamedata-api to this server start arguments and restart it.',
+      expected: '-enable-gamedata-api',
+    },
+    {
+      name: 'explains a players-only snapshot even when no reason was reported',
+      partial: true,
+      partialReason: '',
+      expected: 'player positions only',
+    },
+    {
+      name: 'stays hidden on a complete world snapshot',
+      partial: false,
+      partialReason: '',
+      expected: '',
+    },
+  ])('$name', async ({ partial, partialReason, expected }) => {
+    const wrapper = mountMap([actor('player-1', 'Alex')], partial, true, partialReason)
+    await flushPromises()
+
+    const notice = wrapper.find('.palworld-live-map__partial')
+    if (expected === '') {
+      expect(notice.exists()).toBe(false)
+      return
+    }
+    expect(notice.text()).toContain(expected)
   })
 
   it('frames visible actors with viewport-safe padding on a narrow map', async () => {

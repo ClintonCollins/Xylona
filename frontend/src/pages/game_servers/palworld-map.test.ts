@@ -160,6 +160,15 @@ describe('Palworld map actor helpers', () => {
     expect(fixture.map((actor) => actor.key)).toEqual(sourceOrder)
   })
 
+  it('orders actors by code unit so the plan does not depend on the viewer locale', () => {
+    const localeSensitiveKeys = ['b-1', 'B-1', 'a_2', 'A_2']
+    const fixture = localeSensitiveKeys.map((key) => ({ ...playerActor, key }))
+
+    const plan = buildPalworldMapRenderPlan(fixture, { zoom: 6 })
+
+    expect(plan.actors.map((actor) => actor.key)).toEqual(['A_2', 'B-1', 'a_2', 'b-1'])
+  })
+
   it('keeps dense high-zoom views aggregated above the individual marker limit', () => {
     const fixture = Array.from(
       { length: 1_501 },

@@ -1673,6 +1673,7 @@ message PalworldMapView {
   bool can_manage_share = 13;
   bool share_enabled = 14;
   PalworldMapHealth health = 15;
+  string partial_reason = 16;
 }
 
 message GetPalworldMapRequest {

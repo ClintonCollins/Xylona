@@ -149,12 +149,33 @@ func (inst *Instance) queryOnePalworldMap(ctx context.Context, gameServer *model
 		return
 	}
 
+	inst.logPalworldMapPartial(gameServer.ID, snapshot)
 	inst.storePalworldMapState(PalworldMapState{
 		ServerID:     gameServer.ID,
 		ServerName:   gameServer.Name,
 		ServerOnline: true,
 		Snapshot:     snapshot,
 	})
+}
+
+// logPalworldMapPartial reports a world-snapshot fallback once per distinct
+// reason. Without the comparison the five-second poll would repeat the same
+// line forever, which is why the original silent fallback was never noticed.
+func (inst *Instance) logPalworldMapPartial(gameServerID string, snapshot *node.PalworldMapSnapshot) {
+	if snapshot == nil || !snapshot.Partial || snapshot.PartialReason == "" {
+		return
+	}
+	inst.palworldMapsMutex.RLock()
+	previous, exists := inst.palworldMaps[gameServerID]
+	inst.palworldMapsMutex.RUnlock()
+	if exists && previous.Snapshot != nil && previous.Snapshot.PartialReason == snapshot.PartialReason {
+		return
+	}
+	log.Warn().
+		Str("game_server_id", gameServerID).
+		Str("source", snapshot.Source).
+		Str("reason", snapshot.PartialReason).
+		Msg("Palworld live map fell back to player positions")
 }
 
 func (inst *Instance) storePalworldMapState(next PalworldMapState) {

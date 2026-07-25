@@ -333,26 +333,6 @@ func getPalworldJSON(
 	password string,
 	destination any,
 ) error {
-	return getPalworldJSONWithLimit(
-		ctx,
-		client,
-		url,
-		username,
-		password,
-		destination,
-		palworldMaxResponseBodyLen,
-	)
-}
-
-func getPalworldJSONWithLimit(
-	ctx context.Context,
-	client *http.Client,
-	url string,
-	username string,
-	password string,
-	destination any,
-	maxResponseBodyLen int64,
-) error {
 	request, errRequest := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if errRequest != nil {
 		return fmt.Errorf("create request: %w", errRequest)
@@ -364,13 +344,13 @@ func getPalworldJSONWithLimit(
 	if errDo != nil {
 		return fmt.Errorf("send request: %w", errDo)
 	}
-	body, errRead := io.ReadAll(io.LimitReader(response.Body, maxResponseBodyLen+1))
+	body, errRead := io.ReadAll(io.LimitReader(response.Body, palworldMaxResponseBodyLen+1))
 	errClose := response.Body.Close()
 	if errRead != nil || errClose != nil {
 		return fmt.Errorf("read response: %w", errors.Join(errRead, errClose))
 	}
-	if int64(len(body)) > maxResponseBodyLen {
-		return fmt.Errorf("response exceeds %d bytes", maxResponseBodyLen)
+	if int64(len(body)) > palworldMaxResponseBodyLen {
+		return fmt.Errorf("response exceeds %d bytes", palworldMaxResponseBodyLen)
 	}
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected HTTP status %s", response.Status)

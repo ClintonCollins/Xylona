@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/query"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -54,6 +56,13 @@ func (n *Node) QueryPalworldMap(ctx context.Context, req PalworldMapQueryRequest
 	)
 	if errQuery != nil {
 		return nil, fmt.Errorf("node: query palworld map: %w", errQuery)
+	}
+	// The raw failure text can name the game server's address, so it is logged
+	// here on the node and deliberately left out of the transported snapshot.
+	if snapshot != nil && snapshot.PartialDetail != "" {
+		log.Debug().
+			Str("detail", snapshot.PartialDetail).
+			Msg("Palworld world snapshot unavailable; falling back to player positions")
 	}
 	return palworldMapSnapshotFromQuery(snapshot), nil
 }
@@ -190,13 +199,14 @@ func palworldMapSnapshotFromQuery(snapshot *query.PalworldMapSnapshot) *Palworld
 		})
 	}
 	return &PalworldMapSnapshot{
-		SourceTime:  snapshot.SourceTime,
-		CollectedAt: snapshot.CollectedAt,
-		Source:      snapshot.Source,
-		Partial:     snapshot.Partial,
-		Truncated:   snapshot.Truncated,
-		Actors:      actors,
-		Health:      palworldMapHealthFromQuery(snapshot.Health),
+		SourceTime:    snapshot.SourceTime,
+		CollectedAt:   snapshot.CollectedAt,
+		Source:        snapshot.Source,
+		Partial:       snapshot.Partial,
+		Truncated:     snapshot.Truncated,
+		PartialReason: snapshot.PartialReason,
+		Actors:        actors,
+		Health:        palworldMapHealthFromQuery(snapshot.Health),
 	}
 }
 

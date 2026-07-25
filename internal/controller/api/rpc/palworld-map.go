@@ -25,11 +25,14 @@ import (
 )
 
 const (
-	permissionGameServerView      = "game_server.view"
-	permissionGameServerSettings  = "game_server.settings"
-	palworldGameID                = "palworld"
-	palworldMapMaxLayers          = 4
-	palworldMapStaleAfter         = 10 * time.Second
+	permissionGameServerView     = "game_server.view"
+	permissionGameServerSettings = "game_server.settings"
+	palworldGameID               = "palworld"
+	palworldMapMaxLayers         = 4
+	// palworldMapStaleAfter must clear the map query timeout plus a poll
+	// interval. A populated world can take several seconds to serialize, and a
+	// tighter window flagged those working-but-slow snapshots as stale.
+	palworldMapStaleAfter         = 30 * time.Second
 	palworldMapTileInstallTimeout = 10 * time.Minute
 )
 
@@ -328,6 +331,7 @@ func palworldMapView(
 	view.Available = true
 	view.Stale = !state.ServerOnline || state.UnavailableReason != "" || snapshot.CollectedAt.IsZero() || now.Sub(snapshot.CollectedAt) > palworldMapStaleAfter
 	view.Partial = snapshot.Partial
+	view.PartialReason = snapshot.PartialReason
 	view.Truncated = snapshot.Truncated
 	view.Source = snapshot.Source
 	view.SourceTime = snapshot.SourceTime

@@ -198,6 +198,20 @@ export function formatPalworldUptime(seconds: bigint | number): string {
   return `${minutes}m`
 }
 
+// compareMapKeys orders by UTF-16 code unit instead of Intl collation. The
+// keys are opaque hashes and bucket coordinates, so collation orders them by
+// the viewer's locale for no benefit; ordinal comparison is both stable across
+// locales and measurably cheaper on the pan and zoom render path.
+function compareMapKeys(left: string, right: string): number {
+  if (left < right) {
+    return -1
+  }
+  if (left > right) {
+    return 1
+  }
+  return 0
+}
+
 export function buildPalworldMapRenderPlan(
   sourceActors: readonly PalworldMapActor[],
   options: PalworldMapRenderOptions,
@@ -214,7 +228,7 @@ export function buildPalworldMapRenderPlan(
     }))
   const visibleActors = sourceActors
     .filter((actor) => actorWithinBounds(actor, options.bounds))
-    .toSorted((left, right) => left.key.localeCompare(right.key))
+    .toSorted((left, right) => compareMapKeys(left.key, right.key))
 
   if (options.zoom >= clusterBelowZoom && visibleActors.length <= maxIndividualActors) {
     return {
@@ -279,7 +293,7 @@ export function buildPalworldMapRenderPlan(
   const clusters: PalworldMapCluster[] = []
   let aggregatedActorCount = 0
   for (const [bucketKey, bucket] of [...buckets.entries()].sort(([left], [right]) =>
-    left.localeCompare(right),
+    compareMapKeys(left, right),
   )) {
     if (bucket.actors.length === 1) {
       const onlyActor = bucket.actors[0]
@@ -303,7 +317,7 @@ export function buildPalworldMapRenderPlan(
   }
 
   return {
-    actors: actors.toSorted((left, right) => left.key.localeCompare(right.key)),
+    actors: actors.toSorted((left, right) => compareMapKeys(left.key, right.key)),
     clusters,
     aggregatedActorCount,
   }
