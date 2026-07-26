@@ -46,6 +46,8 @@
   --xy-warning-darker: #d97706;
   --xy-primary-darker: #2563eb;
   --xy-purple: #8b5cf6;
+  /* Outlines live map actor dots so they read against any terrain tile. */
+  --xy-map-marker-halo: rgba(5, 8, 13, 0.88);
 
   /* ---- Semantic Tint Backgrounds ---- */
   --xy-success-bg: rgba(34, 197, 94, 0.15);

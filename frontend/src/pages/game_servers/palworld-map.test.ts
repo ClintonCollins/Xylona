@@ -9,9 +9,16 @@ import {
   formatPalworldCoordinate,
   formatPalworldUptime,
   initialPalworldMapVisibility,
+  palworldDotMetrics,
   palworldLabelMetrics,
   palworldMapCategories,
+  palworldMapCategory,
+  palworldMapDotRadius,
+  palworldMapFocusZoom,
   palworldMapGuildKey,
+  palworldMapIconSize,
+  palworldMapMaxZoom,
+  palworldMapUsesIconMarkers,
 } from './palworld-map'
 
 const playerActor: PalworldMapActor = {
@@ -165,7 +172,13 @@ describe('Palworld map actor helpers', () => {
 
   it('orders actors by code unit so the plan does not depend on the viewer locale', () => {
     const localeSensitiveKeys = ['b-1', 'B-1', 'a_2', 'A_2']
-    const fixture = localeSensitiveKeys.map((key) => ({ ...playerActor, key }))
+    // Spread apart so ordering is the only thing under test; co-located pills
+    // merge into a single chip and would leave nothing to order.
+    const fixture = localeSensitiveKeys.map((key, index) => ({
+      ...playerActor,
+      key,
+      locationX: index * 300,
+    }))
 
     const plan = buildPalworldMapRenderPlan(fixture, { zoom: 6 })
 
@@ -283,7 +296,16 @@ describe('Palworld map label decluttering', () => {
     expect([...result.compactActorKeys]).toEqual([])
   })
 
-  it('keeps one label per overlapping stack and picks the winner deterministically', () => {
+  it('collapses a label whose name collides but whose icon still has room', () => {
+    // 60px apart clears the 34px icon boxes but not the full 'Alpha' pill.
+    const result = plan([baseAt('base-1', 'Alpha', 0), baseAt('base-2', 'Beta', 60)])
+
+    expect([...result.compactActorKeys]).toEqual(['base-2'])
+    expect(result.clusters).toEqual([])
+    expect(result.actors.map((actor) => actor.key)).toEqual(['base-1', 'base-2'])
+  })
+
+  it('merges a stack whose icons also collide and picks the anchor deterministically', () => {
     const stack = [
       baseAt('base-3', 'Gamma', 0),
       baseAt('base-1', 'Alpha', 0),
@@ -293,8 +315,85 @@ describe('Palworld map label decluttering', () => {
     const result = plan(stack)
     const reversed = plan([...stack].reverse())
 
-    expect([...result.compactActorKeys].toSorted()).toEqual(['base-2', 'base-3'])
-    expect([...reversed.compactActorKeys].toSorted()).toEqual(['base-2', 'base-3'])
+    expect(result).toEqual(reversed)
+    expect(result.actors).toEqual([])
+    expect(result.clusters).toMatchObject([
+      {
+        key: 'merge:base-1',
+        kind: PalworldMapActorKind.BASE,
+        count: 3,
+        labelMerge: true,
+      },
+    ])
+    expect(result.aggregatedActorCount).toBe(3)
+  })
+
+  it('reports its members so a stack that cannot be zoomed apart stays reachable', () => {
+    const result = plan([
+      baseAt('base-2', 'Beta', 0),
+      baseAt('base-1', 'Alpha', 0),
+      baseAt('base-3', 'Gamma', 0),
+    ])
+
+    expect(result.clusters[0]?.actorKeys).toEqual(['base-1', 'base-2', 'base-3'])
+    expect(result.mergedActorKeys).toEqual(new Set(['base-1', 'base-2', 'base-3']))
+  })
+
+  it('requires extra clearance before a merged stack comes apart', () => {
+    // 44px apart clears the icon boxes but not the merge hysteresis margin.
+    const stack = [baseAt('base-1', 'Alpha', 0), baseAt('base-2', 'Beta', 44)]
+
+    const settled = plan(stack)
+    const recovering = plan(stack, { previousMergedActorKeys: new Set(['base-2']) })
+
+    expect(settled.clusters).toEqual([])
+    expect(recovering.clusters).toMatchObject([{ key: 'merge:base-1', count: 2 }])
+  })
+
+  // Players are what an operational map is watched for, so they collapse to an
+  // icon rather than disappearing into an anonymous count.
+  it('collapses co-located players instead of folding them into a chip', () => {
+    const result = plan([
+      { ...playerActor, key: 'player-a', name: 'Alex', locationX: 0, locationY: 0 },
+      { ...playerActor, key: 'player-b', name: 'Sam', locationX: 0, locationY: 0 },
+    ])
+
+    expect(result.clusters).toEqual([])
+    expect(result.actors.map((actor) => actor.key)).toEqual(['player-a', 'player-b'])
+    expect([...result.compactActorKeys]).toEqual(['player-b'])
+  })
+
+  it('never merges across kinds, so a base stacked on a player only collapses', () => {
+    const result = plan([{ ...playerActor, locationX: 0, locationY: 0 }, baseAt('base-1', 'A', 0)])
+
+    expect(result.clusters).toEqual([])
+    expect([...result.compactActorKeys]).toEqual(['base-1'])
+  })
+
+  it.each([
+    { name: 'the selected actor', options: { selectedActorKey: 'base-1' } },
+    { name: 'a protected actor', options: { protectedActorKeys: new Set(['base-1']) } },
+  ])('never merges $name away', ({ options }) => {
+    const stack = [baseAt('base-1', 'Alpha', 0), baseAt('base-2', 'Beta', 0)]
+
+    const result = plan(stack, options)
+
+    expect(result.clusters).toEqual([])
+    expect(result.actors.map((actor) => actor.key)).toEqual(['base-1', 'base-2'])
+    expect([...result.compactActorKeys]).toEqual(['base-2'])
+  })
+
+  it('merges by screen cell instead of pairwise once the candidate guard trips', () => {
+    const crowd = Array.from({ length: palworldLabelMetrics.maxLabelCandidates + 1 }, (_, index) =>
+      baseAt(`base-${index.toString().padStart(4, '0')}`, `Camp ${index}`, index % 2),
+    )
+
+    const result = plan(crowd)
+
+    expect(result.clusters.length).toBeGreaterThan(0)
+    expect(result.clusters.every((cluster) => cluster.labelMerge)).toBe(true)
+    expect(result.aggregatedActorCount).toBe(crowd.length)
+    expect(result.actors).toEqual([])
   })
 
   const playerAtOrigin: PalworldMapActor = { ...playerActor, locationX: 0, locationY: 0 }
@@ -339,5 +438,72 @@ describe('Palworld map label decluttering', () => {
     expect(estimatePalworldLabelWidth('')).toBe(palworldLabelMetrics.avgCharWidth)
     expect(estimatePalworldLabelWidth('Alpha')).toBe(5 * palworldLabelMetrics.avgCharWidth)
     expect(estimatePalworldLabelWidth('x'.repeat(200))).toBe(palworldLabelMetrics.maxLabelWidth)
+  })
+})
+
+describe('Palworld map zoom range', () => {
+  // The built-in tile layers stop at 4 and the coordinate grid at 6; both gain
+  // the same three upscaled levels so behaviour does not depend on the source.
+  it.each([
+    { name: 'the installed tile layers', nativeMaxZoom: 4, maxZoom: 7, focusZoom: 6 },
+    { name: 'the coordinate grid fallback', nativeMaxZoom: 6, maxZoom: 9, focusZoom: 8 },
+  ])('extends $name past its last real tile level', ({ nativeMaxZoom, maxZoom, focusZoom }) => {
+    expect(palworldMapMaxZoom(nativeMaxZoom)).toBe(maxZoom)
+    expect(palworldMapFocusZoom(nativeMaxZoom)).toBe(focusZoom)
+    expect(palworldMapFocusZoom(nativeMaxZoom)).toBeLessThan(palworldMapMaxZoom(nativeMaxZoom))
+  })
+
+  it.each([
+    { zoom: 3, expected: false },
+    { zoom: 4, expected: false },
+    { zoom: 5, expected: true },
+    { zoom: 7, expected: true },
+  ])('draws icon markers at zoom $zoom: $expected', ({ zoom, expected }) => {
+    expect(palworldMapUsesIconMarkers(zoom, 4)).toBe(expected)
+  })
+
+  it('grows the dot radius with zoom and clamps it at both ends', () => {
+    expect(palworldMapDotRadius(0, 4)).toBe(palworldDotMetrics.minRadius)
+    expect(palworldMapDotRadius(4, 4)).toBe(palworldDotMetrics.maxRadius)
+    expect(palworldMapDotRadius(9, 4)).toBe(palworldDotMetrics.maxRadius)
+    expect(palworldMapDotRadius(2, 4)).toBeGreaterThan(palworldMapDotRadius(1, 4))
+  })
+
+  it('adds a fixed bonus for active and selected dots on top of the zoom radius', () => {
+    const base = palworldMapDotRadius(2, 4)
+
+    expect(palworldMapDotRadius(2, 4, { active: true })).toBe(base + palworldDotMetrics.activeBonus)
+    expect(palworldMapDotRadius(2, 4, { selected: true })).toBe(
+      base + palworldDotMetrics.selectedBonus,
+    )
+    // Selection wins so the inspected actor never shrinks below an active peer.
+    expect(palworldMapDotRadius(2, 4, { active: true, selected: true })).toBe(
+      base + palworldDotMetrics.selectedBonus,
+    )
+  })
+
+  it('grows the icon chip with every level past the tile source and caps it', () => {
+    expect(palworldMapIconSize(5, 4)).toBeLessThan(palworldMapIconSize(6, 4))
+    expect(palworldMapIconSize(6, 4)).toBeLessThan(palworldMapIconSize(7, 4))
+    expect(palworldMapIconSize(7, 4)).toBe(palworldMapIconSize(12, 4))
+  })
+
+  // Shapes are reused across kinds on purpose: only three silhouettes exist, and
+  // the kinds that share one are far apart in hue. What must hold is that no two
+  // kinds are told apart by colour alone.
+  it('never leaves two dot kinds sharing both a silhouette and a colour', () => {
+    const dotKinds = palworldMapCategories.filter((category) => !category.labeledMarker)
+    const signatures = dotKinds.map((category) => `${category.shape}:${category.colorToken}`)
+
+    expect(new Set(signatures).size).toBe(dotKinds.length)
+  })
+
+  it('splits Companion Pals and NPCs, which used to share a near-identical cyan', () => {
+    const companion = palworldMapCategory(PalworldMapActorKind.COMPANION_PAL)
+    const npc = palworldMapCategory(PalworldMapActorKind.NPC)
+
+    expect(npc.colorToken).not.toBe(companion.colorToken)
+    expect(npc.shape).not.toBe(companion.shape)
+    expect(palworldMapCategory(PalworldMapActorKind.WILD_PAL).shape).toBe('diamond')
   })
 })

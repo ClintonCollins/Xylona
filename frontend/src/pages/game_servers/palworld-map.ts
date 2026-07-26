@@ -22,6 +22,13 @@ export interface PalworldMapCluster {
   minY: number
   maxX: number
   maxY: number
+  // A label merge replaces pills that would sit on top of each other, so it
+  // draws at pill height rather than beneath them like a density cluster.
+  labelMerge: boolean
+  // Populated for label merges only. A density cluster can hold thousands of
+  // actors and nothing needs their identities, but a merge has to be able to
+  // hand one back when zooming can no longer separate the stack.
+  actorKeys: readonly string[]
 }
 
 export interface PalworldMapRenderPlan {
@@ -31,6 +38,9 @@ export interface PalworldMapRenderPlan {
   // Labeled actors whose name would collide with a higher-priority label and so
   // render as an icon only.
   compactActorKeys: ReadonlySet<string>
+  // Actors folded into a label merge. Fed back on the next render so a stack
+  // needs more clearance to come apart than it needed to form.
+  mergedActorKeys: ReadonlySet<string>
 }
 
 export interface PalworldMapRenderOptions {
@@ -43,7 +53,17 @@ export interface PalworldMapRenderOptions {
   project?: (actor: PalworldMapActor) => PalworldMapPoint
   selectedActorKey?: string
   previousCompactActorKeys?: ReadonlySet<string>
+  previousMergedActorKeys?: ReadonlySet<string>
 }
+
+// Lower wins. Selection and search are explicit requests to see one actor, so
+// they outrank everything; players outrank the rest of the world.
+export const palworldLabelPriorities = {
+  selected: 0,
+  protected: 1,
+  player: 2,
+  ordinary: 3,
+} as const
 
 // Mirrors the .palworld-map-marker CSS box. Label width is estimated rather than
 // measured because this module never touches the DOM; the estimate only has to
@@ -60,7 +80,91 @@ export const palworldLabelMetrics = {
   // otherwise labels flicker on and off while the map is panned.
   expandHysteresis: 8,
   maxLabelCandidates: 400,
+  // Only ordinary world actors merge. Bases are static and gain the most from
+  // it, while a player folded into an anonymous chip is the opposite of what an
+  // operational map is for; players collapse to an icon instead, and a selected
+  // or searched-for actor keeps its full pill however tightly packed the spot.
+  minMergePriority: palworldLabelPriorities.ordinary,
+  // Merging and un-merging is a bigger visual jump than hiding a name, so it
+  // needs more clearance to come apart than it did to form. Without this,
+  // two Pals wandering around each other pop between pills and a chip on
+  // every snapshot.
+  mergeHysteresis: 10,
 } as const
+
+// The tile sources stop at their last downloaded level, so Leaflet upscales
+// beyond it. Imagery softens but markers stay sharp, which is the point: these
+// levels exist to pull crowded actors apart, not to reveal more terrain.
+export const palworldZoomMetrics = {
+  extraLevels: 3,
+  focusOffset: 2,
+  minIconSize: 19,
+  iconSizeStep: 5,
+  maxIconSize: 29,
+} as const
+
+export const palworldDotMetrics = {
+  minRadius: 4,
+  maxRadius: 6.5,
+  activeBonus: 1,
+  selectedBonus: 2.5,
+  // Inactive dots used to sit at 0.4 and disappeared into the terrain.
+  inactiveFillOpacity: 0.72,
+  activeFillOpacity: 0.88,
+  selectedFillOpacity: 1,
+} as const
+
+export function palworldMapMaxZoom(nativeMaxZoom: number): number {
+  return nativeMaxZoom + palworldZoomMetrics.extraLevels
+}
+
+export function palworldMapFocusZoom(nativeMaxZoom: number): number {
+  return nativeMaxZoom + palworldZoomMetrics.focusOffset
+}
+
+// Past the last real tile level the viewport holds few enough actors that DOM
+// icons are affordable, and they read far better than a coloured dot.
+export function palworldMapUsesIconMarkers(zoom: number, nativeMaxZoom: number): boolean {
+  return zoom > nativeMaxZoom
+}
+
+export function palworldMapIconSize(zoom: number, nativeMaxZoom: number): number {
+  const level = Math.min(
+    palworldZoomMetrics.extraLevels,
+    Math.max(1, Math.round(zoom) - nativeMaxZoom),
+  )
+  return Math.min(
+    palworldZoomMetrics.maxIconSize,
+    palworldZoomMetrics.minIconSize + (level - 1) * palworldZoomMetrics.iconSizeStep,
+  )
+}
+
+export function palworldMapDotRadius(
+  zoom: number,
+  nativeMaxZoom: number,
+  state: { active?: boolean; selected?: boolean } = {},
+): number {
+  const growth = Math.min(1, Math.max(0, zoom / Math.max(1, nativeMaxZoom)))
+  const radius =
+    palworldDotMetrics.minRadius +
+    growth * (palworldDotMetrics.maxRadius - palworldDotMetrics.minRadius)
+  if (state.selected === true) {
+    return radius + palworldDotMetrics.selectedBonus
+  }
+  if (state.active === true) {
+    return radius + palworldDotMetrics.activeBonus
+  }
+  return radius
+}
+
+export function palworldMapDotFillOpacity(state: { active?: boolean; selected?: boolean }): number {
+  if (state.selected === true) {
+    return palworldDotMetrics.selectedFillOpacity
+  }
+  return state.active === true
+    ? palworldDotMetrics.activeFillOpacity
+    : palworldDotMetrics.inactiveFillOpacity
+}
 
 interface PalworldLabelRect {
   minX: number
@@ -76,6 +180,11 @@ export function estimatePalworldLabelWidth(name: string): number {
   )
 }
 
+// Colour alone failed at dot size: Companion Pals and NPCs sat a few degrees of
+// hue apart, and every kind read as the same circle. Silhouette carries the
+// distinction where colour cannot.
+export type PalworldMapMarkerShape = 'circle' | 'diamond' | 'square'
+
 export interface PalworldMapCategory {
   kind: PalworldMapActorKind
   label: string
@@ -84,6 +193,7 @@ export interface PalworldMapCategory {
   colorToken: string
   defaultVisible: boolean
   labeledMarker: boolean
+  shape: PalworldMapMarkerShape
 }
 
 export const palworldMapCategories: PalworldMapCategory[] = [
@@ -95,6 +205,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     colorToken: '--xy-primary',
     defaultVisible: true,
     labeledMarker: true,
+    shape: 'circle',
   },
   {
     kind: PalworldMapActorKind.BASE,
@@ -104,6 +215,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     colorToken: '--xy-warning',
     defaultVisible: true,
     labeledMarker: true,
+    shape: 'circle',
   },
   {
     kind: PalworldMapActorKind.BASE_WORKER,
@@ -113,6 +225,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     colorToken: '--xy-success',
     defaultVisible: true,
     labeledMarker: false,
+    shape: 'circle',
   },
   {
     kind: PalworldMapActorKind.COMPANION_PAL,
@@ -122,6 +235,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     colorToken: '--xy-accent',
     defaultVisible: true,
     labeledMarker: false,
+    shape: 'circle',
   },
   {
     kind: PalworldMapActorKind.WILD_PAL,
@@ -131,15 +245,17 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     colorToken: '--xy-purple',
     defaultVisible: true,
     labeledMarker: false,
+    shape: 'diamond',
   },
   {
     kind: PalworldMapActorKind.NPC,
     label: 'NPCs',
     singular: 'NPC',
     icon: 'record_voice_over',
-    colorToken: '--xy-info',
+    colorToken: '--xy-category-7',
     defaultVisible: true,
     labeledMarker: false,
+    shape: 'square',
   },
   {
     kind: PalworldMapActorKind.OTHER,
@@ -149,6 +265,7 @@ export const palworldMapCategories: PalworldMapCategory[] = [
     colorToken: '--xy-text-secondary',
     defaultVisible: true,
     labeledMarker: false,
+    shape: 'square',
   },
 ]
 
@@ -164,6 +281,7 @@ export function palworldMapCategory(kind: PalworldMapActorKind): PalworldMapCate
       colorToken: '--xy-text-secondary',
       defaultVisible: false,
       labeledMarker: false,
+      shape: 'square',
     }
   )
 }
@@ -331,60 +449,190 @@ function palworldLabelPriority(
   protectedActorKeys: ReadonlySet<string>,
 ): number {
   if (actor.key === selectedActorKey) {
-    return 0
+    return palworldLabelPriorities.selected
   }
   // A search hit or a focused guild is an explicit request to see that actor, so
   // it outranks the category default.
   if (protectedActorKeys.has(actor.key)) {
-    return 1
+    return palworldLabelPriorities.protected
   }
-  return actor.kind === PalworldMapActorKind.PLAYER ? 2 : 3
+  return actor.kind === PalworldMapActorKind.PLAYER
+    ? palworldLabelPriorities.player
+    : palworldLabelPriorities.ordinary
 }
 
-function resolvePalworldCompactLabelKeys(
-  actors: readonly PalworldMapActor[],
-  options: {
-    project: (actor: PalworldMapActor) => PalworldMapPoint
-    selectedActorKey: string
-    protectedActorKeys: ReadonlySet<string>
-    previousCompactActorKeys: ReadonlySet<string>
-  },
-): ReadonlySet<string> {
+interface PalworldLabelOptions {
+  project: (actor: PalworldMapActor) => PalworldMapPoint
+  selectedActorKey: string
+  protectedActorKeys: ReadonlySet<string>
+  previousCompactActorKeys: ReadonlySet<string>
+  previousMergedActorKeys: ReadonlySet<string>
+}
+
+interface PalworldPlacedLabel {
+  actor: PalworldMapActor
+  priority: number
+  labelRect: PalworldLabelRect
+  iconRect: PalworldLabelRect
+  merged: PalworldMapActor[]
+}
+
+interface PalworldLabelPlan {
+  compactActorKeys: ReadonlySet<string>
+  merges: PalworldMapCluster[]
+  mergedActorKeys: ReadonlySet<string>
+}
+
+// Built fresh rather than shared: the returned sets escape into the render plan
+// and on to the component, so a single stray mutation of a module-level
+// singleton would poison every later render in a way that is near impossible to
+// trace. This path runs at most once per render, so the allocation is free.
+function emptyLabelPlan(): PalworldLabelPlan {
+  return {
+    compactActorKeys: new Set<string>(),
+    merges: [],
+    mergedActorKeys: new Set<string>(),
+  }
+}
+
+function palworldMergeCluster(
+  key: string,
+  members: readonly PalworldMapActor[],
+): PalworldMapCluster {
+  let totalX = 0
+  let totalY = 0
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  for (const member of members) {
+    totalX += member.locationX
+    totalY += member.locationY
+    minX = Math.min(minX, member.locationX)
+    minY = Math.min(minY, member.locationY)
+    maxX = Math.max(maxX, member.locationX)
+    maxY = Math.max(maxY, member.locationY)
+  }
+  return {
+    key,
+    kind: members[0]?.kind ?? PalworldMapActorKind.OTHER,
+    count: members.length,
+    locationX: totalX / members.length,
+    locationY: totalY / members.length,
+    minX,
+    minY,
+    maxX,
+    maxY,
+    labelMerge: true,
+    actorKeys: members.map((member) => member.key),
+  }
+}
+
+// The pairwise scan is quadratic, so a crowded viewport falls back to screen-cell
+// bucketing. It reaches the same three rungs in one pass rather than compacting
+// every pill wholesale and leaving them stacked.
+function resolvePalworldBucketedLabelPlan(
+  candidates: readonly PalworldMapActor[],
+  options: PalworldLabelOptions,
+): PalworldLabelPlan {
   const compactActorKeys = new Set<string>()
+  const mergedActorKeys = new Set<string>()
+  const buckets = new Map<string, PalworldMapActor[]>()
+  for (const actor of candidates) {
+    const priority = palworldLabelPriority(
+      actor,
+      options.selectedActorKey,
+      options.protectedActorKeys,
+    )
+    if (priority < palworldLabelMetrics.minMergePriority) {
+      continue
+    }
+    const point = options.project(actor)
+    const cellX = Math.floor(point.x / palworldLabelMetrics.pillHeight)
+    const cellY = Math.floor(point.y / palworldLabelMetrics.pillHeight)
+    const bucketKey = `${actor.kind}:${cellX}:${cellY}`
+    const bucket = buckets.get(bucketKey)
+    if (bucket === undefined) {
+      buckets.set(bucketKey, [actor])
+      continue
+    }
+    bucket.push(actor)
+  }
+
+  const merges: PalworldMapCluster[] = []
+  for (const [bucketKey, members] of [...buckets.entries()].sort(([left], [right]) =>
+    compareMapKeys(left, right),
+  )) {
+    if (members.length < 2) {
+      const only = members[0]
+      if (
+        only !== undefined &&
+        palworldLabelPriority(only, options.selectedActorKey, options.protectedActorKeys) >=
+          palworldLabelPriorities.ordinary
+      ) {
+        compactActorKeys.add(only.key)
+      }
+      continue
+    }
+    const ordered = members.toSorted((left, right) => compareMapKeys(left.key, right.key))
+    merges.push(palworldMergeCluster(`merge:${bucketKey}`, ordered))
+    for (const member of ordered) {
+      mergedActorKeys.add(member.key)
+    }
+  }
+  return { compactActorKeys, merges, mergedActorKeys }
+}
+
+function resolvePalworldLabelPlan(
+  actors: readonly PalworldMapActor[],
+  options: PalworldLabelOptions,
+): PalworldLabelPlan {
   const candidates = actors.filter((actor) => palworldMapCategory(actor.kind).labeledMarker)
   if (candidates.length < 2) {
-    return compactActorKeys
+    return emptyLabelPlan()
   }
   if (candidates.length > palworldLabelMetrics.maxLabelCandidates) {
-    for (const actor of candidates) {
-      if (palworldLabelPriority(actor, options.selectedActorKey, options.protectedActorKeys) < 3) {
-        continue
-      }
-      compactActorKeys.add(actor.key)
-    }
-    return compactActorKeys
+    return resolvePalworldBucketedLabelPlan(candidates, options)
   }
 
-  const ranked = candidates.toSorted((left, right) => {
-    const leftPriority = palworldLabelPriority(
-      left,
-      options.selectedActorKey,
-      options.protectedActorKeys,
-    )
-    const rightPriority = palworldLabelPriority(
-      right,
-      options.selectedActorKey,
-      options.protectedActorKeys,
-    )
-    if (leftPriority !== rightPriority) {
-      return leftPriority - rightPriority
-    }
-    return compareMapKeys(left.key, right.key)
-  })
+  const ranked = candidates
+    .map((actor) => ({
+      actor,
+      priority: palworldLabelPriority(actor, options.selectedActorKey, options.protectedActorKeys),
+    }))
+    .toSorted((left, right) => {
+      if (left.priority !== right.priority) {
+        return left.priority - right.priority
+      }
+      return compareMapKeys(left.actor.key, right.actor.key)
+    })
 
-  const placed: PalworldLabelRect[] = []
-  for (const actor of ranked) {
+  const compactActorKeys = new Set<string>()
+  const placed: PalworldPlacedLabel[] = []
+  for (const { actor, priority } of ranked) {
     const point = options.project(actor)
+    const iconRect = palworldLabelRect(
+      point,
+      palworldLabelMetrics.pillHeight,
+      palworldLabelMetrics.collisionPadding +
+        (options.previousMergedActorKeys.has(actor.key) ? palworldLabelMetrics.mergeHysteresis : 0),
+    )
+    // Merging is decided on icon boxes alone: two pills whose names collide can
+    // still both be read once collapsed, but two overlapping icons cannot.
+    // Kinds never mix, so the chip's count always describes one thing.
+    if (priority >= palworldLabelMetrics.minMergePriority) {
+      const anchor = placed.find(
+        (existing) =>
+          existing.actor.kind === actor.kind &&
+          existing.priority >= palworldLabelMetrics.minMergePriority &&
+          palworldLabelRectsOverlap(iconRect, existing.iconRect),
+      )
+      if (anchor !== undefined) {
+        anchor.merged.push(actor)
+        continue
+      }
+    }
+    const plainIconRect = palworldLabelRect(point, palworldLabelMetrics.pillHeight, 0)
     const fullWidth =
       palworldLabelMetrics.iconSectionWidth +
       estimatePalworldLabelWidth(actor.name) +
@@ -392,17 +640,48 @@ function resolvePalworldCompactLabelKeys(
     const inflate =
       palworldLabelMetrics.collisionPadding +
       (options.previousCompactActorKeys.has(actor.key) ? palworldLabelMetrics.expandHysteresis : 0)
+    // Hoisted out of the callback: this ran once per already-placed label, so a
+    // crowded viewport allocated tens of thousands of throwaway rects per frame.
+    const candidateLabelRect = palworldLabelRect(point, fullWidth, inflate)
     const collides = placed.some((existing) =>
-      palworldLabelRectsOverlap(palworldLabelRect(point, fullWidth, inflate), existing),
+      palworldLabelRectsOverlap(candidateLabelRect, existing.labelRect),
     )
     if (collides && actor.key !== options.selectedActorKey) {
       compactActorKeys.add(actor.key)
-      placed.push(palworldLabelRect(point, palworldLabelMetrics.pillHeight, 0))
+      placed.push({
+        actor,
+        priority,
+        labelRect: plainIconRect,
+        iconRect: plainIconRect,
+        merged: [],
+      })
       continue
     }
-    placed.push(palworldLabelRect(point, fullWidth, 0))
+    placed.push({
+      actor,
+      priority,
+      labelRect: palworldLabelRect(point, fullWidth, 0),
+      iconRect: plainIconRect,
+      merged: [],
+    })
   }
-  return compactActorKeys
+
+  const merges: PalworldMapCluster[] = []
+  const mergedActorKeys = new Set<string>()
+  for (const entry of placed) {
+    if (entry.merged.length === 0) {
+      continue
+    }
+    const members = [entry.actor, ...entry.merged].toSorted((left, right) =>
+      compareMapKeys(left.key, right.key),
+    )
+    merges.push(palworldMergeCluster(`merge:${entry.actor.key}`, members))
+    for (const member of members) {
+      mergedActorKeys.add(member.key)
+      compactActorKeys.delete(member.key)
+    }
+  }
+  return { compactActorKeys, merges, mergedActorKeys }
 }
 
 export function buildPalworldMapRenderPlan(
@@ -424,6 +703,7 @@ export function buildPalworldMapRenderPlan(
     selectedActorKey: options.selectedActorKey ?? '',
     protectedActorKeys,
     previousCompactActorKeys: options.previousCompactActorKeys ?? new Set<string>(),
+    previousMergedActorKeys: options.previousMergedActorKeys ?? new Set<string>(),
   }
   // Only the returned collections need a deterministic order; bucketing below is
   // order-independent because centroids are means and buckets are sorted by key.
@@ -431,12 +711,7 @@ export function buildPalworldMapRenderPlan(
 
   if (options.zoom >= clusterBelowZoom && visibleActors.length <= maxIndividualActors) {
     const planActors = visibleActors.toSorted((left, right) => compareMapKeys(left.key, right.key))
-    return {
-      actors: planActors,
-      clusters: [],
-      aggregatedActorCount: 0,
-      compactActorKeys: resolvePalworldCompactLabelKeys(planActors, labelOptions),
-    }
+    return finalizePalworldMapPlan(planActors, [], 0, labelOptions)
   }
 
   const actors: PalworldMapActor[] = []
@@ -514,15 +789,40 @@ export function buildPalworldMapRenderPlan(
       minY: bucket.minY,
       maxX: bucket.maxX,
       maxY: bucket.maxY,
+      labelMerge: false,
+      actorKeys: [],
     })
   }
 
   const planActors = actors.toSorted((left, right) => compareMapKeys(left.key, right.key))
+  return finalizePalworldMapPlan(planActors, clusters, aggregatedActorCount, labelOptions)
+}
+
+// Label merges are density groups too, so they ride the same cluster channel and
+// count toward the "grouped at this zoom" telemetry.
+function finalizePalworldMapPlan(
+  planActors: readonly PalworldMapActor[],
+  clusters: readonly PalworldMapCluster[],
+  aggregatedActorCount: number,
+  labelOptions: PalworldLabelOptions,
+): PalworldMapRenderPlan {
+  const labelPlan = resolvePalworldLabelPlan(planActors, labelOptions)
+  if (labelPlan.merges.length === 0) {
+    return {
+      actors: [...planActors],
+      clusters: [...clusters],
+      aggregatedActorCount,
+      compactActorKeys: labelPlan.compactActorKeys,
+      mergedActorKeys: labelPlan.mergedActorKeys,
+    }
+  }
+  const mergedActorCount = labelPlan.merges.reduce((total, merge) => total + merge.count, 0)
   return {
-    actors: planActors,
-    clusters,
-    aggregatedActorCount,
-    compactActorKeys: resolvePalworldCompactLabelKeys(planActors, labelOptions),
+    actors: planActors.filter((actor) => !labelPlan.mergedActorKeys.has(actor.key)),
+    clusters: [...clusters, ...labelPlan.merges],
+    aggregatedActorCount: aggregatedActorCount + mergedActorCount,
+    compactActorKeys: labelPlan.compactActorKeys,
+    mergedActorKeys: labelPlan.mergedActorKeys,
   }
 }
 

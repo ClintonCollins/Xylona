@@ -27,9 +27,16 @@ import {
   initialPalworldMapVisibility,
   palworldMapCategories,
   palworldMapCategory,
+  palworldMapDotFillOpacity,
+  palworldMapDotRadius,
+  palworldMapFocusZoom,
   palworldMapGuildKey,
+  palworldMapIconSize,
+  palworldMapMaxZoom,
+  palworldMapUsesIconMarkers,
   type PalworldMapCluster,
 } from '@/pages/game_servers/palworld-map'
+import { palworldShapeMarker } from './palworld-shape-marker'
 
 const props = withDefaults(
   defineProps<{
@@ -91,10 +98,16 @@ let fittedOnce = false
 let railInitialized = false
 const actorMarkers = new Map<string, Marker | CircleMarker>()
 const actorMarkerRenderKeys = new Map<string, string>()
+const actorMarkerStateKeys = new Map<string, string>()
+// A focus request outlives the marker it started on: zooming past the tile
+// source rebuilds that actor as an icon marker, so the tooltip is opened by
+// whichever render leaves the view settled.
+let pendingFocus: { actorKey: string; zoom: number } | null = null
 const clusterMarkers = new Map<string, Marker>()
 const clusterMarkerRenderKeys = new Map<string, string>()
 const maxIndividualActors = 1_500
 let compactActorKeys: ReadonlySet<string> = new Set<string>()
+let mergedActorKeys: ReadonlySet<string> = new Set<string>()
 
 const actors = computed(() => {
   const reportedActors = props.view?.actors ?? []
@@ -305,6 +318,14 @@ function escapeHTML(value: string): string {
   )
 }
 
+function nativeMaxZoom(): number {
+  return activeLayer.value.maxZoom
+}
+
+function currentZoom(): number {
+  return map?.getZoom() ?? activeLayer.value.minZoom
+}
+
 function buildCRS(layer: PalworldMapLayer): L.CRS {
   return Object.assign({}, L.CRS.Simple, {
     transformation: new L.Transformation(
@@ -352,10 +373,13 @@ function destroyMap(): void {
   }
   actorMarkers.clear()
   actorMarkerRenderKeys.clear()
+  actorMarkerStateKeys.clear()
   clusterMarkers.clear()
   clusterMarkerRenderKeys.clear()
+  pendingFocus = null
   lastSnapshotKey = ''
   compactActorKeys = new Set<string>()
+  mergedActorKeys = new Set<string>()
   actorLayer = null
   if (map !== null) {
     map.remove()
@@ -373,9 +397,11 @@ function createMap(layer: PalworldMapLayer): void {
   map = L.map(mapElement.value, {
     crs: buildCRS(layer),
     minZoom: layer.minZoom,
-    maxZoom: layer.maxZoom,
+    maxZoom: palworldMapMaxZoom(layer.maxZoom),
     zoomSnap: 0.25,
-    zoomDelta: 0.5,
+    // A full level per press, because the range is now three levels longer than
+    // the tile source and half-steps made the deep end tedious to reach.
+    zoomDelta: 1,
     attributionControl: false,
     preferCanvas: true,
     maxBounds: layerBounds(layer).pad(0.2),
@@ -387,7 +413,10 @@ function createMap(layer: PalworldMapLayer): void {
     L.tileLayer(layer.tileUrlTemplate, {
       tileSize: layer.tileSize,
       minZoom: layer.minZoom,
-      maxZoom: layer.maxZoom,
+      maxZoom: palworldMapMaxZoom(layer.maxZoom),
+      // Past this level there are no tiles to fetch, so Leaflet upscales the
+      // last real one. Terrain softens; the actors drawn over it stay sharp.
+      maxNativeZoom: layer.maxZoom,
       noWrap: true,
       bounds: layerBounds(layer),
     }).addTo(map)
@@ -439,18 +468,46 @@ function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
       title: actor.name,
       zIndexOffset: actorMarkerZIndex(actor, selected),
     })
-  } else {
-    marker = L.circleMarker(location, {
-      radius: selected ? 7 : actor.active ? 5 : 4,
-      color,
-      fillColor: color,
-      fillOpacity: selected ? 1 : actor.active ? 0.82 : 0.4,
-      opacity: 0.95,
-      weight: selected ? 3 : 1.5,
+  } else if (palworldMapUsesIconMarkers(currentZoom(), nativeMaxZoom())) {
+    const size = palworldMapIconSize(currentZoom(), nativeMaxZoom())
+    const modifiers = [
+      selected ? ' palworld-map-dot--selected' : '',
+      actor.active ? '' : ' palworld-map-dot--inactive',
+    ].join('')
+    marker = L.marker(location, {
+      icon: L.divIcon({
+        className: '',
+        html: `<span class="palworld-map-dot palworld-map-dot--icon palworld-map-dot--${category.shape}${modifiers}" style="--actor-color:${escapeHTML(color)};--dot-size:${size}px"><span class="material-icons" aria-hidden="true">${escapeHTML(category.icon)}</span></span>`,
+        iconAnchor: [size / 2, size / 2],
+      }),
+      keyboard: true,
+      riseOnHover: true,
+      title: actor.name,
+      zIndexOffset: actorMarkerZIndex(actor, selected),
     })
-    // Leaflet only invokes function content when the tooltip opens, so hover
-    // text costs nothing until it is read. The lookup keeps it current for a
-    // marker that has been reused across snapshots.
+  } else {
+    marker = palworldShapeMarker(location, {
+      shape: category.shape,
+      radius: palworldMapDotRadius(currentZoom(), nativeMaxZoom(), {
+        active: actor.active,
+        selected,
+      }),
+      // The stroke is a dark halo rather than the category colour: a 4px dot at
+      // 40% fill vanished into the terrain, and the colour now carries in the
+      // fill where it has the whole shape to work with.
+      color: cssColor('--xy-map-marker-halo'),
+      fillColor: color,
+      fill: true,
+      fillOpacity: palworldMapDotFillOpacity({ active: actor.active, selected }),
+      opacity: 0.95,
+      weight: selected ? 2.5 : 1.5,
+    })
+  }
+  if (!category.labeledMarker) {
+    // Both dot forms carry the coordinate readout, so crossing into icon markers
+    // does not silently drop hover detail. Leaflet only invokes function content
+    // when the tooltip opens, so this costs nothing until it is read, and the
+    // lookup keeps it current for a marker reused across snapshots.
     marker.bindTooltip(() => markerTooltip(actorsByKey.value.get(actor.key) ?? actor), {
       direction: 'top',
       offset: [0, -5],
@@ -464,9 +521,19 @@ function createActorMarker(actor: PalworldMapActor): Marker | CircleMarker {
 }
 
 // Deliberately excludes `active` and the compact flag: both change constantly as
-// Pals work and as the viewport moves, and are applied in place instead.
+// Pals work and as the viewport moves, and are applied in place instead. Dot
+// markers do carry their zoom-derived form, because a canvas shape and a DOM
+// icon chip are different objects and the chip bakes its size into its anchor.
 function actorMarkerRenderKey(actor: PalworldMapActor): string {
-  return [actor.kind, actor.name, actorWorkerCount(actor)].join('|')
+  if (palworldMapCategory(actor.kind).labeledMarker) {
+    return [actor.kind, actor.name, actorWorkerCount(actor)].join('|')
+  }
+  const zoom = currentZoom()
+  const native = nativeMaxZoom()
+  const iconMode = palworldMapUsesIconMarkers(zoom, native)
+  return [actor.kind, actor.name, iconMode, iconMode ? palworldMapIconSize(zoom, native) : 0].join(
+    '|',
+  )
 }
 
 // Labeled markers are DOM overlays, so a large offset reliably wins over the
@@ -482,18 +549,37 @@ function createClusterMarker(cluster: PalworldMapCluster): Marker {
   const category = palworldMapCategory(cluster.kind)
   const color = cssColor(category.colorToken)
   const label = `${cluster.count.toLocaleString()} ${category.label.toLocaleLowerCase()}`
+  const modifier = cluster.labelMerge ? ' palworld-map-cluster--merge' : ''
   const marker = L.marker(worldLocation(cluster.locationX, cluster.locationY), {
     icon: L.divIcon({
       className: '',
-      html: `<span class="palworld-map-cluster" style="--actor-color:${escapeHTML(color)}"><span class="material-icons" aria-hidden="true">${escapeHTML(category.icon)}</span><strong>${cluster.count.toLocaleString()}</strong></span>`,
-      iconAnchor: [24, 24],
+      html: `<span class="palworld-map-cluster${modifier}" style="--actor-color:${escapeHTML(color)}"><span class="material-icons" aria-hidden="true">${escapeHTML(category.icon)}</span><strong>${cluster.count.toLocaleString()}</strong></span>`,
+      // The merge chip is smaller than a density cluster, and its whole job is
+      // to mark the exact spot the pills stacked, so it needs its own centre.
+      iconAnchor: cluster.labelMerge ? [20, 20] : [24, 24],
     }),
     keyboard: true,
     title: label,
-    zIndexOffset: -1_000,
+    // A merge stands in for the pills it replaced, so it keeps their height in
+    // the stack; a density cluster stays beneath them as before.
+    zIndexOffset: cluster.labelMerge ? 1_000 : -1_000,
   })
   marker.on('click', () => {
     if (map === null) {
+      return
+    }
+    // Merged pills are near-coincident, so only the deep end separates them.
+    // A density cluster still lands at the level where actors draw singly.
+    const targetZoom = cluster.labelMerge
+      ? palworldMapMaxZoom(nativeMaxZoom())
+      : Math.min(palworldMapMaxZoom(nativeMaxZoom()), Math.max(4, map.getZoom() + 2))
+    const firstMember = cluster.actorKeys[0]
+    // Actors on the same spot never come apart, however far you zoom. Rather
+    // than leave a control that does nothing, the chip hands over to selection,
+    // which exempts that actor from merging and peels it out of the stack.
+    if (cluster.labelMerge && firstMember !== undefined && map.getZoom() >= targetZoom) {
+      selectedActorKey.value = firstMember
+      railOpen.value = true
       return
     }
     map.fitBounds(
@@ -503,7 +589,7 @@ function createClusterMarker(cluster: PalworldMapCluster): Marker {
       ),
       {
         animate: true,
-        maxZoom: Math.min(activeLayer.value.maxZoom, Math.max(4, map.getZoom() + 2)),
+        maxZoom: targetZoom,
         padding: [72, 72],
       },
     )
@@ -559,12 +645,14 @@ function renderActors(): void {
     protectedActorKeys,
     selectedActorKey: selectedActorKey.value,
     previousCompactActorKeys: compactActorKeys,
+    previousMergedActorKeys: mergedActorKeys,
     project: (actor) => {
       const projected = map?.project(worldLocation(actor.locationX, actor.locationY), zoom)
       return projected ?? { x: actor.locationX, y: actor.locationY }
     },
   })
   compactActorKeys = renderPlan.compactActorKeys
+  mergedActorKeys = renderPlan.mergedActorKeys
   aggregatedActorCount.value = renderPlan.aggregatedActorCount
   const visibleActorKeys = new Set<string>()
   for (const actor of renderPlan.actors) {
@@ -596,6 +684,7 @@ function renderActors(): void {
     actorLayer.removeLayer(marker)
     actorMarkers.delete(actorKey)
     actorMarkerRenderKeys.delete(actorKey)
+    actorMarkerStateKeys.delete(actorKey)
   }
 
   const visibleClusterKeys = new Set<string>()
@@ -636,6 +725,28 @@ function renderActors(): void {
     clusterMarkers.delete(clusterKey)
     clusterMarkerRenderKeys.delete(clusterKey)
   }
+
+  openPendingFocusTooltip()
+}
+
+function openPendingFocusTooltip(): void {
+  if (pendingFocus === null || map === null) {
+    return
+  }
+  if (pendingFocus.actorKey !== selectedActorKey.value) {
+    pendingFocus = null
+    return
+  }
+  const marker = actorMarkers.get(pendingFocus.actorKey)
+  if (marker === undefined) {
+    return
+  }
+  marker.openTooltip()
+  // Stay armed until the view settles, because a render part-way through the
+  // zoom animation still holds the marker form that is about to be replaced.
+  if (map.getZoom() >= pendingFocus.zoom) {
+    pendingFocus = null
+  }
 }
 
 function scheduleRenderActors(): void {
@@ -650,6 +761,17 @@ function scheduleRenderActors(): void {
 
 function applyActorMarkerState(actor: PalworldMapActor, marker: Marker | CircleMarker): void {
   const selected = actor.key === selectedActorKey.value
+  // Everything applied below derives from this signature, and position is
+  // written separately by the caller. Skipping when it is unchanged matters:
+  // Marker.setZIndexOffset re-runs a full projection and reposition, so applying
+  // it unconditionally doubled the per-frame layout work for every icon marker.
+  const stateKey = [selected, actor.active, compactActorKeys.has(actor.key), currentZoom()].join(
+    '|',
+  )
+  if (actorMarkerStateKeys.get(actor.key) === stateKey) {
+    return
+  }
+  actorMarkerStateKeys.set(actor.key, stateKey)
   if (palworldMapCategory(actor.kind).labeledMarker) {
     const markerElement = marker.getElement()?.querySelector('.palworld-map-marker')
     markerElement?.classList.toggle('palworld-map-marker--selected', selected)
@@ -664,12 +786,20 @@ function applyActorMarkerState(actor: PalworldMapActor, marker: Marker | CircleM
     return
   }
   if (!(marker instanceof L.CircleMarker)) {
+    const dotElement = marker.getElement()?.querySelector('.palworld-map-dot')
+    dotElement?.classList.toggle('palworld-map-dot--selected', selected)
+    dotElement?.classList.toggle('palworld-map-dot--inactive', !actor.active)
+    if ('setZIndexOffset' in marker) {
+      marker.setZIndexOffset(actorMarkerZIndex(actor, selected))
+    }
     return
   }
-  marker.setRadius(selected ? 7 : actor.active ? 5 : 4)
+  marker.setRadius(
+    palworldMapDotRadius(currentZoom(), nativeMaxZoom(), { active: actor.active, selected }),
+  )
   marker.setStyle({
-    fillOpacity: selected ? 1 : actor.active ? 0.82 : 0.4,
-    weight: selected ? 3 : 1.5,
+    fillOpacity: palworldMapDotFillOpacity({ active: actor.active, selected }),
+    weight: selected ? 2.5 : 1.5,
   })
 }
 
@@ -758,7 +888,10 @@ function fitActors(actorSet: readonly PalworldMapActor[]): void {
   map.fitBounds(
     L.latLngBounds(positioned.map((actor) => worldLocation(actor.locationX, actor.locationY))),
     {
-      maxZoom: Math.min(activeLayer.value.maxZoom, 4),
+      // Stops at the last real tile level. This frames the opening view and
+      // category focus, and the extra levels exist to pull crowded actors
+      // apart on request, not to be where a sparse world lands on first paint.
+      maxZoom: activeLayer.value.maxZoom,
       paddingTopLeft: [railOpen.value && wideCanvas ? 320 : 48, 80],
       paddingBottomRight: [48, 80],
     },
@@ -776,8 +909,12 @@ async function focusActor(actor: PalworldMapActor): Promise<void> {
   railOpen.value = true
   await nextTick()
   const location = worldLocation(actor.locationX, actor.locationY)
-  map?.setView(location, Math.min(activeLayer.value.maxZoom, 4), { animate: true })
-  actorMarkers.get(actor.key)?.openTooltip()
+  // One level short of the ceiling: close enough to read the actor and whatever
+  // is around it, without landing on the blurriest imagery.
+  const focusZoom = palworldMapFocusZoom(activeLayer.value.maxZoom)
+  pendingFocus = { actorKey: actor.key, zoom: focusZoom }
+  map?.setView(location, focusZoom, { animate: true })
+  openPendingFocusTooltip()
 }
 
 async function toggleCategoryFocus(kind: PalworldMapActorKind | null): Promise<void> {
@@ -2425,6 +2562,69 @@ onBeforeUnmount(() => {
 .palworld-map-cluster .material-icons {
   color: var(--actor-color);
   font-size: 18px;
+}
+
+/* A merge replaces pills that would have stacked, so it borrows their weight
+   rather than the quieter density-cluster treatment. */
+.palworld-map-cluster--merge {
+  min-width: 40px;
+  height: 40px;
+  border-color: var(--actor-color);
+}
+
+/* Past the tile source the viewport holds few enough actors to spend a DOM node
+   each, and the category icon says far more than a coloured dot can. */
+.palworld-map-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--dot-size);
+  height: var(--dot-size);
+  color: var(--actor-color);
+  background: color-mix(in srgb, var(--xy-surface-1) 92%, var(--actor-color) 8%);
+  border: 1px solid color-mix(in srgb, var(--actor-color) 68%, var(--xy-border) 32%);
+  border-radius: var(--xy-radius-pill);
+  box-shadow: 0 0 0 1px var(--xy-map-marker-halo);
+  transition:
+    transform var(--xy-transition-fast),
+    border-color var(--xy-transition-fast);
+}
+
+.palworld-map-dot .material-icons {
+  font-size: calc(var(--dot-size) * 0.62);
+}
+
+/* Silhouette carries the kind where colour alone failed at dot size. */
+.palworld-map-dot--diamond {
+  border-radius: var(--xy-radius-sm);
+  transform: rotate(45deg);
+}
+
+.palworld-map-dot--diamond .material-icons {
+  transform: rotate(-45deg);
+}
+
+.palworld-map-dot--square {
+  border-radius: var(--xy-radius-sm);
+}
+
+.palworld-map-dot--inactive {
+  opacity: 0.62;
+}
+
+.palworld-map-dot--selected {
+  border-color: var(--actor-color);
+  box-shadow:
+    0 0 0 1px var(--xy-map-marker-halo),
+    0 0 0 3px color-mix(in srgb, var(--actor-color) 45%, transparent);
+}
+
+.palworld-map-dot--selected.palworld-map-dot--diamond {
+  transform: rotate(45deg) scale(1.1);
+}
+
+.palworld-map-dot--selected:not(.palworld-map-dot--diamond) {
+  transform: scale(1.1);
 }
 
 .palworld-map-marker {

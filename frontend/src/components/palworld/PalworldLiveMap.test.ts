@@ -1,13 +1,14 @@
 import { create } from '@bufbuild/protobuf'
 import { timestampFromDate } from '@bufbuild/protobuf/wkt'
 import { flushPromises, shallowMount, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { nextTick } from 'vue'
 
 import {
   PalworldMapActorKind,
   PalworldMapActorSchema,
   PalworldMapHealthSchema,
+  PalworldMapLayerSchema,
   PalworldMapViewSchema,
   type PalworldMapActor,
   type PalworldMapView,
@@ -15,8 +16,10 @@ import {
 import PalworldLiveMap from './PalworldLiveMap.vue'
 
 interface MarkerRecord {
+  bindTooltip: Mock<(...args: unknown[]) => void>
   click: (() => void) | null
   element: HTMLElement
+  openTooltip: Mock<() => void>
   options: { zIndexOffset?: number }
   setLatLng: ReturnType<typeof vi.fn>
   title: string
@@ -29,20 +32,38 @@ const leafletMocks = vi.hoisted(() => ({
   }),
   circleMarker: vi.fn(),
   clearLayers: vi.fn(),
+  shapeMarker: vi.fn(),
   fitBounds: vi.fn(),
   getZoom: vi.fn(() => 1),
   invalidateSize: vi.fn(),
   mapEventHandlers: new Map<string, () => void>(),
+  mapOptions: [] as Record<string, unknown>[],
   markerRecords: [] as MarkerRecord[],
+  tileLayerOptions: [] as Record<string, unknown>[],
+  // Screen pixels per world unit, so fixture coordinates spaced further apart
+  // than a pill are genuinely separate to the label planner.
   project: vi.fn((location: { latitude: number; longitude: number }) => ({
-    x: location.latitude / 1_000,
-    y: location.longitude / 1_000,
+    x: location.latitude,
+    y: location.longitude,
   })),
   setView: vi.fn(),
 }))
 
 vi.mock('leaflet', () => {
   class CircleMarker {
+    // Mirrors Leaflet's own class factory so the canvas shape marker, which
+    // subclasses CircleMarker to draw diamonds and squares, can be built here.
+    static extend(properties: Record<string, unknown>): typeof CircleMarker {
+      const Subclass = class extends CircleMarker {
+        constructor(...args: unknown[]) {
+          super()
+          leafletMocks.shapeMarker(...args)
+        }
+      }
+      Object.assign(Subclass.prototype, properties)
+      return Subclass
+    }
+
     addTo(): this {
       return this
     }
@@ -138,7 +159,10 @@ vi.mock('leaflet', () => {
       return bounds
     }),
     layerGroup: vi.fn(() => layerGroupInstance),
-    map: vi.fn(() => mapInstance),
+    map: vi.fn((_element: unknown, options: Record<string, unknown>) => {
+      leafletMocks.mapOptions.push(options)
+      return mapInstance
+    }),
     marker: vi.fn(
       (
         _location: unknown,
@@ -147,14 +171,20 @@ vi.mock('leaflet', () => {
         const element = document.createElement('div')
         element.innerHTML = options.icon.html
         const record: MarkerRecord = {
+          bindTooltip: vi.fn<(...args: unknown[]) => void>(),
           click: null,
           element,
+          openTooltip: vi.fn<() => void>(),
           options,
           setLatLng: vi.fn(),
           title: options.title,
         }
         const marker = {
           addTo: vi.fn(() => marker),
+          bindTooltip: vi.fn((...args: unknown[]) => {
+            record.bindTooltip(...args)
+            return marker
+          }),
           getElement: vi.fn(() => element),
           on: vi.fn((event: string, handler: () => void) => {
             if (event === 'click') {
@@ -162,7 +192,10 @@ vi.mock('leaflet', () => {
             }
             return marker
           }),
-          openTooltip: vi.fn(() => marker),
+          openTooltip: vi.fn(() => {
+            record.openTooltip()
+            return marker
+          }),
           setLatLng: record.setLatLng,
           setTooltipContent: vi.fn(() => marker),
           setZIndexOffset: vi.fn(() => marker),
@@ -171,7 +204,10 @@ vi.mock('leaflet', () => {
         return marker
       },
     ),
-    tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
+    tileLayer: vi.fn((_url: string, options: Record<string, unknown>) => {
+      leafletMocks.tileLayerOptions.push(options)
+      return { addTo: vi.fn() }
+    }),
   }
 
   return { default: leaflet }
@@ -233,6 +269,9 @@ describe('PalworldLiveMap', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     leafletMocks.markerRecords.length = 0
+    leafletMocks.shapeMarker.mockClear()
+    leafletMocks.mapOptions.length = 0
+    leafletMocks.tileLayerOptions.length = 0
     leafletMocks.mapEventHandlers.clear()
     leafletMocks.getZoom.mockReturnValue(1)
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
@@ -290,8 +329,10 @@ describe('PalworldLiveMap', () => {
       mountMap([actor('player-1', 'Alex')])
       await flushPromises()
 
+      // 6 is the fallback grid's native ceiling: the opening fit never lands on
+      // the upscaled levels, which are reserved for explicit zoom and focus.
       const actorFit = leafletMocks.fitBounds.mock.calls.find(
-        ([, options]) => (options as { maxZoom?: number } | undefined)?.maxZoom === 4,
+        ([, options]) => (options as { maxZoom?: number } | undefined)?.maxZoom === 6,
       )
       expect(actorFit?.[1]).toMatchObject({
         paddingBottomRight: [48, 80],
@@ -303,7 +344,7 @@ describe('PalworldLiveMap', () => {
   })
 
   it('updates only the previous and current marker when selection changes', async () => {
-    mountMap([actor('player-1', 'Alex'), actor('player-2', 'Sam')])
+    mountMap([actor('player-1', 'Alex'), actor('player-2', 'Sam', 400, 500)])
     await flushPromises()
 
     const alex = latestMarker('Alex')
@@ -642,9 +683,11 @@ describe('PalworldLiveMap', () => {
   })
 
   it('hides a colliding base label and restores it on selection without rebuilding', async () => {
+    // 60px apart: the names collide but the icon boxes still clear each other,
+    // so this stays on the compact rung rather than merging.
     mountMap([
       actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE),
-      actor('base-2', 'South Camp', 100, 200, PalworldMapActorKind.BASE),
+      actor('base-2', 'South Camp', 160, 200, PalworldMapActorKind.BASE),
     ])
     await flushPromises()
 
@@ -662,12 +705,148 @@ describe('PalworldLiveMap', () => {
     ).toHaveLength(1)
   })
 
+  it('extends the map past the tile source and steps a whole level at a time', async () => {
+    mountMap([actor('player-1', 'Alex')])
+    await flushPromises()
+
+    // The coordinate-grid fallback declares maxZoom 6, so the map reaches 9.
+    expect(leafletMocks.mapOptions.at(-1)).toMatchObject({
+      maxZoom: 9,
+      minZoom: 0,
+      zoomDelta: 1,
+      zoomSnap: 0.25,
+    })
+  })
+
+  it('caps tile requests at the last real level while the map keeps zooming', async () => {
+    const wrapper = shallowMount(PalworldLiveMap, {
+      props: {
+        view: create(PalworldMapViewSchema, {
+          actors: [actor('player-1', 'Alex')],
+          available: true,
+          serverOnline: true,
+          layers: [
+            create(PalworldMapLayerSchema, {
+              id: 'default',
+              label: 'Palpagos',
+              tileUrlTemplate: '/api/palworld-map/default/{z}/{x}/{y}.webp',
+              attribution: 'Palworld © Pocketpair',
+              minZoom: 0,
+              maxZoom: 4,
+              tileSize: 512,
+              transformA: 0.00035,
+              transformB: 256,
+              transformC: -0.00035,
+              transformD: 256,
+              minX: -600_000,
+              minY: -600_000,
+              maxX: 600_000,
+              maxY: 600_000,
+            }),
+          ],
+        }),
+      },
+    })
+    mountedWrappers.push(wrapper)
+    await flushPromises()
+
+    expect(leafletMocks.mapOptions.at(-1)).toMatchObject({ maxZoom: 7 })
+    expect(leafletMocks.tileLayerOptions.at(-1)).toMatchObject({
+      maxNativeZoom: 4,
+      maxZoom: 7,
+    })
+  })
+
+  it('flies to the focus zoom when an actor is picked from the base roster', async () => {
+    const guild = { guildKey: 'guild-1', guildName: 'Skyforge' }
+    const wrapper = mountMap([
+      actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE, guild),
+      actor('worker-1', 'Anubis', 110, 210, PalworldMapActorKind.BASE_WORKER, guild),
+    ])
+    await flushPromises()
+
+    latestMarker('North Camp').click?.()
+    await flushPromises()
+    await wrapper.find('.palworld-live-map__base-pals button').trigger('click')
+    await flushPromises()
+
+    expect(leafletMocks.setView).toHaveBeenLastCalledWith(
+      { latitude: 110, longitude: 210 },
+      8,
+      expect.objectContaining({ animate: true }),
+    )
+  })
+
+  it('merges pills whose icons would stack and drills to the deepest zoom', async () => {
+    mountMap([
+      actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE),
+      actor('base-2', 'South Camp', 100, 200, PalworldMapActorKind.BASE),
+    ])
+    await flushPromises()
+
+    const merge = latestMarker('2 bases')
+    expect(merge.element.textContent).toContain('2')
+    expect(merge.options.zIndexOffset).toBe(1000)
+    expect(leafletMocks.markerRecords.some((record) => record.title === 'North Camp')).toBe(false)
+
+    merge.click?.()
+    expect(leafletMocks.fitBounds).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ animate: true, maxZoom: 9 }),
+    )
+  })
+
+  it('swaps dots for icon markers once the map is past the tile source', async () => {
+    leafletMocks.getZoom.mockReturnValue(7)
+    mountMap([actor('wild-1', 'Lamball', 100, 200, PalworldMapActorKind.WILD_PAL)])
+    await flushPromises()
+
+    expect(leafletMocks.shapeMarker).not.toHaveBeenCalled()
+    const dot = latestMarker('Lamball')
+    expect(dot.element.querySelector('.palworld-map-dot--icon')).not.toBeNull()
+    // Crossing into icon markers must not cost the coordinate readout on hover.
+    expect(dot.bindTooltip).toHaveBeenCalled()
+  })
+
+  it('opens the focused actor tooltip on the marker that survives the zoom', async () => {
+    const guild = { guildKey: 'guild-1', guildName: 'Skyforge' }
+    const wrapper = mountMap([
+      actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE, guild),
+      actor('worker-1', 'Anubis', 110, 210, PalworldMapActorKind.BASE_WORKER, guild),
+    ])
+    await flushPromises()
+
+    latestMarker('North Camp').click?.()
+    await flushPromises()
+    await wrapper.find('.palworld-live-map__base-pals button').trigger('click')
+    await flushPromises()
+
+    // The focus zoom of 8 is past the fallback grid's native 6, so the canvas dot
+    // is torn down and replaced. The tooltip must land on the replacement.
+    leafletMocks.getZoom.mockReturnValue(8)
+    leafletMocks.mapEventHandlers.get('zoomend')?.()
+    await flushPromises()
+
+    const icon = latestMarker('Anubis')
+    expect(icon.element.querySelector('.palworld-map-dot--icon')).not.toBeNull()
+    expect(icon.openTooltip).toHaveBeenCalled()
+  })
+
+  it('keeps dots on the canvas renderer at and below the tile source', async () => {
+    leafletMocks.getZoom.mockReturnValue(4)
+    mountMap([actor('wild-1', 'Lamball', 100, 200, PalworldMapActorKind.WILD_PAL)])
+    await flushPromises()
+
+    expect(leafletMocks.shapeMarker).toHaveBeenCalled()
+    expect(leafletMocks.markerRecords.some((record) => record.title === 'Lamball')).toBe(false)
+  })
+
   it('stacks players above bases and keeps clusters beneath both', async () => {
     mountMap([
       actor('player-1', 'Alex'),
       actor('base-1', 'North Camp', 300, 400, PalworldMapActorKind.BASE),
-      actor('wild-1', 'Lamball', 500, 600, PalworldMapActorKind.WILD_PAL),
-      actor('wild-2', 'Cattiva', 505, 605, PalworldMapActorKind.WILD_PAL),
+      actor('wild-1', 'Lamball', 505, 605, PalworldMapActorKind.WILD_PAL),
+      actor('wild-2', 'Cattiva', 510, 610, PalworldMapActorKind.WILD_PAL),
     ])
     await flushPromises()
 
