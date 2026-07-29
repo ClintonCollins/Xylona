@@ -10,6 +10,8 @@ export default defineConfig(
     ignores: [
       '**/dist/',
       '**/.quasar/',
+      '**/.ds-sync/',
+      '**/ds-bundle/',
       '**/node_modules/',
       '**/src-capacitor/',
       '**/src-cordova/',
@@ -151,6 +153,17 @@ export default defineConfig(
     languageOptions: {
       globals: {
         ...globals.node,
+      },
+    },
+  },
+
+  // Design-sync verification runs in Node and evaluates browser-side probes.
+  {
+    files: ['.design-sync/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
       },
     },
   },

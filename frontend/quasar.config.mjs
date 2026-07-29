@@ -110,6 +110,8 @@ export default configure(function (/* ctx */) {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       https: false,
+      // Honor an externally assigned port (e.g. preview tooling) before the default.
+      port: process.env.PORT ? Number(process.env.PORT) : 9000,
       open: false, // opens browser window automatically
       proxy: {
         '/xylona.Xylona': {
