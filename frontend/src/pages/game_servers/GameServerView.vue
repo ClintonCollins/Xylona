@@ -6,7 +6,7 @@
         <span>{{ gameServer.gameName }}</span>
         <template v-if="hasSoftwareOptions && !softwareNameRedundant">
           <span class="identity-bar-sep">&middot;</span>
-          <span class="identity-bar-running">running</span>
+          <span class="identity-bar-running">on</span>
           <span>{{ softwareDisplayName }}</span>
         </template>
         <template v-if="displayVersion && hasSoftwareOptions">
@@ -14,6 +14,9 @@
             :class="{ 'version-outdated': versionDisplay.updateAvailable }"
             class="identity-bar-version">
             {{ displayVersion }}
+            <span v-if="versionDisplay.updateAvailable" class="xy-visually-hidden">
+              — update available: {{ versionDisplay.latestVersion }}
+            </span>
             <q-tooltip v-if="versionDisplay.updateAvailable">
               Update available: {{ versionDisplay.latestVersion }}
             </q-tooltip>
@@ -57,7 +60,6 @@
           dense
           flat
           icon="first_page"
-          padding="xs"
           square
           @click="setSidebarCollapsed(true)">
           <q-tooltip>Collapse server details</q-tooltip>
@@ -109,6 +111,9 @@
                 Waiting for authoritative server status
               </q-tooltip>
             </q-btn>
+          </div>
+          <div v-if="!serverStateAuthoritative" class="controls-hint" role="status">
+            Waiting for server status — controls are paused until it is confirmed.
           </div>
         </div>
 
@@ -390,7 +395,6 @@
         dense
         flat
         icon="last_page"
-        padding="xs"
         square
         @click="setSidebarCollapsed(false)">
         <q-tooltip>Expand server details</q-tooltip>
@@ -431,7 +435,6 @@
           dense
           flat
           icon="info_outline"
-          padding="xs"
           square
           @click="sidebarCollapsed = !sidebarCollapsed">
           <q-tooltip>Server details</q-tooltip>
@@ -441,13 +444,12 @@
           :aria-pressed="consoleAutoScroll ? 'true' : 'false'"
           :class="{ 'console-toolbar-btn-off': !consoleAutoScroll }"
           :text-color="consoleAutoScroll ? 'info' : undefined"
-          class="console-toolbar-btn"
+          class="console-toolbar-btn console-autoscroll-btn"
           dense
           flat
           icon="vertical_align_bottom"
           label="Auto Scroll"
           no-caps
-          padding="xs sm"
           square
           @click="toggleAutoScroll">
           <q-tooltip>
@@ -464,7 +466,6 @@
           class="console-toolbar-btn"
           dense
           flat
-          padding="xs"
           square
           text-color="info"
           @click="consoleExpanded = !consoleExpanded">
@@ -533,11 +534,22 @@
           <div v-if="consoleTruncated" class="console-truncated-notice">
             Earlier output truncated
           </div>
+          <div v-if="filteredConsoleEmpty" class="console-filter-empty" role="status">
+            <span>
+              No {{ activeFilterLabel.toLowerCase() }} lines in the current buffer — showing 0 of
+              {{ consoleLines.length }}.
+            </span>
+            <button
+              class="console-filter-empty__reset"
+              type="button"
+              @click="consoleFeedFilter = 'all'">
+              Show all
+            </button>
+          </div>
           <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: game server console output -->
           <code
             id="consoleCodeEl"
             aria-label="Game server console output"
-            aria-live="polite"
             class="q-pb-md"
             role="log">
             <span v-for="line in visibleConsoleLines" :key="line.id" v-html="line.html"></span>
@@ -550,6 +562,7 @@
         v-model="serverInput"
         :commands="gameServer.game?.consoleCommands ?? []"
         :disabled="consoleInputDisabled"
+        :disabled-reason="consoleInputDisabledReason"
         :game-name="gameServer.gameName"
         :loading="sendingConsoleInput"
         :permission-denied="!hasPermission('game_server.console')"
@@ -573,7 +586,6 @@
               dense
               flat
               icon="manage_accounts"
-              padding="xs"
               square
               @click="playerManagementOpen = true">
               <q-tooltip>Player management</q-tooltip>
@@ -584,7 +596,6 @@
               dense
               flat
               icon="last_page"
-              padding="xs"
               square
               @click="setPlayerRailCollapsed(true)">
               <q-tooltip>Collapse player panel</q-tooltip>
@@ -610,7 +621,6 @@
           dense
           flat
           icon="first_page"
-          padding="xs"
           square
           @click="setPlayerRailCollapsed(false)">
           <q-tooltip>Expand player panel</q-tooltip>
@@ -882,6 +892,18 @@ const consoleInputDisabled = computed(
     !serverStateAuthoritative.value ||
     sendingConsoleInput.value,
 )
+const consoleInputDisabledReason = computed(() => {
+  if (!hasPermission('game_server.console')) {
+    return 'Sending commands requires console permission'
+  }
+  if (isServerOffline.value && serverStateAuthoritative.value) {
+    return 'Server offline — start it to send commands'
+  }
+  if (!serverStateAuthoritative.value || isServerStatusUnknown.value) {
+    return 'Waiting for server status — commands are paused'
+  }
+  return ''
+})
 const hasConsoleOutput = computed(() => consoleLines.value.length > 0)
 
 // --- Console feed filters + panel-generated player events ---
@@ -899,6 +921,17 @@ const visibleConsoleLines = computed(() => {
     consoleLineMatchesFilter(line.kind, consoleFeedFilter.value),
   )
 })
+const filteredConsoleEmpty = computed(
+  () =>
+    consoleFeedFilter.value !== 'all' &&
+    visibleConsoleLines.value.length === 0 &&
+    consoleLines.value.length > 0,
+)
+const activeFilterLabel = computed(
+  () =>
+    consoleFeedFilterOptions.value.find((option) => option.value === consoleFeedFilter.value)
+      ?.label ?? 'matching',
+)
 
 watch(consoleFeedFilterOptions, (options) => {
   if (!options.some((option) => option.value === consoleFeedFilter.value)) {
@@ -1854,7 +1887,7 @@ async function sendGameServerInput() {
 
 .identity-bar-name {
   font-family: var(--xy-font-display);
-  font-size: 1.15rem;
+  font-size: var(--xy-font-size-lg);
   font-weight: 700;
   color: var(--xy-text-primary);
   white-space: nowrap;
@@ -1866,7 +1899,7 @@ async function sendGameServerInput() {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-secondary);
   flex-wrap: wrap;
 }
@@ -1883,7 +1916,7 @@ async function sendGameServerInput() {
 
 .identity-bar-version {
   font-family: var(--xy-font-mono);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
 }
 
@@ -1904,7 +1937,7 @@ async function sendGameServerInput() {
   position: relative;
   border: 1px solid var(--xy-border);
   border-top: none;
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 var(--xy-radius-md) var(--xy-radius-md);
   overflow: hidden;
 }
 
@@ -1944,7 +1977,7 @@ async function sendGameServerInput() {
 }
 
 .sidebar-section-label {
-  font-size: 0.62rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1959,6 +1992,13 @@ async function sendGameServerInput() {
   gap: var(--xy-space-sm);
 }
 
+.controls-hint {
+  margin-top: var(--xy-space-sm);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+  line-height: 1.35;
+}
+
 .readiness-list {
   display: grid;
   gap: var(--xy-space-sm);
@@ -1970,7 +2010,7 @@ async function sendGameServerInput() {
   gap: var(--xy-space-sm);
   padding: var(--xy-space-sm);
   border: 1px solid color-mix(in srgb, var(--xy-warning) 35%, var(--xy-border));
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   background: color-mix(in srgb, var(--xy-warning) 9%, var(--xy-surface-1));
 }
 
@@ -1997,13 +2037,14 @@ async function sendGameServerInput() {
 
 .readiness-item-title {
   color: var(--xy-text-primary);
-  font-family: var(--xy-font-display);
-  font-size: 0.78rem;
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
 }
 
 .readiness-item-message {
   color: var(--xy-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1.35;
   margin-top: 2px;
 }
@@ -2040,17 +2081,17 @@ async function sendGameServerInput() {
   max-width: 100%;
   padding: 0.2rem 0.45rem;
   border: 1px solid var(--xy-border);
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
   background: var(--xy-surface-2);
   color: var(--xy-text-primary);
   font-family: var(--xy-font-mono);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   overflow-wrap: anywhere;
 }
 
 .readiness-link {
   color: var(--xy-accent);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   text-decoration: none;
 }
 
@@ -2068,7 +2109,7 @@ async function sendGameServerInput() {
   flex-direction: column;
   gap: 1px;
   background: var(--xy-border);
-  border-radius: 5px;
+  border-radius: var(--xy-radius-sm);
   overflow: hidden;
 }
 
@@ -2085,7 +2126,7 @@ async function sendGameServerInput() {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .version-status--ok {
@@ -2101,7 +2142,7 @@ async function sendGameServerInput() {
 }
 
 .version-meta {
-  font-size: 0.68rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
   text-align: right;
 }
@@ -2140,10 +2181,10 @@ async function sendGameServerInput() {
   gap: 0.3rem;
   background: var(--xy-surface-2);
   border: 1px solid var(--xy-border);
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
   color: var(--xy-text-secondary);
   font-family: var(--xy-font-body);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 500;
   cursor: pointer;
   padding: 0.25rem 0.6rem;
@@ -2157,7 +2198,7 @@ async function sendGameServerInput() {
 }
 
 .change-arrow {
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-2xs);
   transition: transform var(--xy-transition-fast);
 }
 
@@ -2171,7 +2212,7 @@ async function sendGameServerInput() {
   flex-direction: column;
   gap: 1px;
   background: var(--xy-border);
-  border-radius: 5px;
+  border-radius: var(--xy-radius-sm);
   overflow: hidden;
 }
 
@@ -2184,13 +2225,13 @@ async function sendGameServerInput() {
 }
 
 .cl-label {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
 }
 
 .cl-value {
   font-family: var(--xy-font-mono);
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-secondary);
 }
 
@@ -2205,7 +2246,7 @@ async function sendGameServerInput() {
 
 .cl-value-plain {
   font-family: var(--xy-font-mono);
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-secondary);
 }
 
@@ -2250,8 +2291,8 @@ async function sendGameServerInput() {
 }
 
 .console-feed-filter--active {
-  background: var(--xy-primary);
-  border-color: var(--xy-primary);
+  background: var(--xy-primary-darker);
+  border-color: var(--xy-primary-darker);
   color: var(--xy-text-on-dark);
 }
 
@@ -2302,7 +2343,7 @@ async function sendGameServerInput() {
 }
 
 .metrics-group-label {
-  font-size: 0.62rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2322,7 +2363,7 @@ async function sendGameServerInput() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .metric-row .ml {
@@ -2331,7 +2372,7 @@ async function sendGameServerInput() {
 }
 
 .metric-detail {
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
   opacity: 0.7;
 }
@@ -2339,14 +2380,14 @@ async function sendGameServerInput() {
 .metric-row .mv {
   color: var(--xy-text-secondary);
   font-family: var(--xy-font-mono);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .metric-bar {
   width: 100%;
   height: 3px;
   background: var(--xy-surface-3);
-  border-radius: 2px;
+  border-radius: var(--xy-radius-sm);
   margin-top: 3px;
   overflow: hidden;
 }
@@ -2354,7 +2395,7 @@ async function sendGameServerInput() {
 .metric-bar-fill {
   width: 100%;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--xy-radius-sm);
   transform-origin: left center;
   transition: transform 0.8s var(--xy-ease-standard);
   will-change: transform;
@@ -2362,17 +2403,14 @@ async function sendGameServerInput() {
 
 .fill-low {
   background: var(--xy-success);
-  box-shadow: 0 0 4px var(--xy-success-border);
 }
 
 .fill-mid {
   background: var(--xy-warning);
-  box-shadow: 0 0 4px var(--xy-warning-border);
 }
 
 .fill-high {
   background: var(--xy-danger);
-  box-shadow: 0 0 4px var(--xy-danger-border);
 }
 
 /* ===== Console Wrapper ===== */
@@ -2409,8 +2447,18 @@ async function sendGameServerInput() {
 }
 
 .console-toolbar-btn {
+  padding: var(--xy-space-xs);
   opacity: 0.8;
   transition: opacity var(--xy-transition-fast);
+}
+
+.console-autoscroll-btn {
+  padding-inline: var(--xy-space-sm);
+}
+
+.console-autoscroll-btn :deep(.q-btn__content) {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .console-toolbar-btn:hover {
@@ -2450,7 +2498,7 @@ async function sendGameServerInput() {
   padding-left: var(--xy-space-md);
   padding-right: var(--xy-space-sm);
   font-family: var(--xy-font-mono);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 400;
   font-style: normal;
   overflow-x: hidden;
@@ -2475,7 +2523,7 @@ async function sendGameServerInput() {
 
 .console-truncated-notice {
   font-family: var(--xy-font-mono);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
   text-align: center;
   padding: var(--xy-space-xs) 0;
@@ -2484,11 +2532,43 @@ async function sendGameServerInput() {
 
 .console-status-banner {
   font-family: var(--xy-font-mono);
-  font-size: 0.75rem;
-  color: var(--xy-accent);
+  font-size: var(--xy-font-size-xs);
+  color: var(--xy-text-muted);
   padding: var(--xy-space-xs) 0;
   border-bottom: 1px solid var(--xy-border);
   margin-bottom: var(--xy-space-xs);
+}
+
+.console-filter-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-md) 0;
+  color: var(--xy-text-muted);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-xs);
+}
+
+.console-filter-empty__reset {
+  padding: var(--xy-space-2xs) var(--xy-space-sm);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-sm);
+  background: transparent;
+  color: var(--xy-text-secondary);
+  cursor: pointer;
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+}
+
+.console-filter-empty__reset:hover {
+  border-color: var(--xy-border-hover);
+  color: var(--xy-text-primary);
+}
+
+.console-filter-empty__reset:focus-visible {
+  outline: 2px solid var(--xy-focus-ring);
+  outline-offset: 1px;
 }
 
 .console-scroll-area :deep(#consoleCodeEl) {
@@ -2525,7 +2605,7 @@ async function sendGameServerInput() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
+  font-size: var(--xy-font-size-xl);
   opacity: 0.5;
   position: relative;
 }
@@ -2552,13 +2632,13 @@ async function sendGameServerInput() {
 }
 
 .offline-text {
-  font-size: 0.88rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 500;
   margin-bottom: 0.25rem;
 }
 
 .offline-hint {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   opacity: 0.6;
 }
 
@@ -2721,7 +2801,7 @@ async function sendGameServerInput() {
   }
 
   .identity-bar-name {
-    font-size: 1rem;
+    font-size: var(--xy-font-size-base);
   }
 
   .sidebar-backdrop {
@@ -2814,6 +2894,12 @@ async function sendGameServerInput() {
     opacity: 0.8;
   }
 
+  /* Icon-only below tablet; the aria-label and tooltip still name the action.
+     !important counters Quasar's `.block { display: block !important }` utility. */
+  .console-autoscroll-btn :deep(.q-btn__content > span.block) {
+    display: none !important;
+  }
+
   .console-stream-state {
     flex-wrap: wrap;
     padding: var(--xy-space-sm) var(--xy-space-base);
@@ -2821,7 +2907,6 @@ async function sendGameServerInput() {
 
   .console-scroll-area {
     padding-inline: var(--xy-space-base) var(--xy-space-sm);
-    font-size: 0.8rem;
   }
 }
 </style>

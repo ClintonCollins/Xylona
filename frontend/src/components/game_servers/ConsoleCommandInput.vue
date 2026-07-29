@@ -25,8 +25,12 @@
           v-for="(match, index) in visibleMatches"
           :id="optionID(index)"
           :key="match.entry.command"
+          :aria-disabled="disabled"
           :aria-selected="activeIndex === index"
-          :class="{ 'console-command-option--active': activeIndex === index }"
+          :class="{
+            'console-command-option--active': activeIndex === index,
+            'console-command-option--readonly': disabled,
+          }"
           class="console-command-option"
           role="option"
           tabindex="-1"
@@ -74,11 +78,12 @@
       </div>
 
       <div class="console-command-menu__footer">
-        <span v-if="matches.length > visibleMatches.length">
+        <span v-if="disabled">Read-only — commands can be sent when the server is online</span>
+        <span v-else-if="matches.length > visibleMatches.length">
           Showing {{ visibleMatches.length }} of {{ matches.length }} matches
         </span>
         <span v-else>{{ matches.length }} {{ matches.length === 1 ? 'match' : 'matches' }}</span>
-        <span aria-hidden="true">↑↓ Browse · Esc close</span>
+        <span v-if="!disabled" aria-hidden="true">↑↓ Browse · Esc close</span>
       </div>
     </div>
 
@@ -87,14 +92,13 @@
       <q-btn
         v-if="commands.length > 0"
         :aria-label="`Browse ${commands.length} known ${gameName} commands`"
-        :disable="disabled"
         :class="{ 'console-command-input__browse--active': suggestionsOpen }"
         class="console-command-input__browse"
         dense
         flat
         icon="manage_search"
         square
-        @mousedown.prevent
+        @mousedown="onBrowseMousedown"
         @click="toggleCommandBrowser">
         <q-tooltip>Browse {{ commands.length }} known commands</q-tooltip>
       </q-btn>
@@ -108,12 +112,12 @@
         :aria-expanded="suggestionsOpen"
         aria-label="Game server console command"
         :disabled="disabled"
+        :placeholder="placeholderText"
         :value="modelValue"
         autocomplete="off"
         autofocus
         class="console-command-input__field"
         name="consoleInput"
-        placeholder="Enter command..."
         role="combobox"
         spellcheck="false"
         type="text"
@@ -121,7 +125,11 @@
         @input="onInput"
         @keydown="onInputKeydown" />
       <span id="console-command-input-help" class="console-command-input__assistive">
-        Enter sends exactly what you type. Tab completes a known command when suggestions are open.
+        <template v-if="disabled && disabledReason !== ''">{{ disabledReason }}.</template>
+        <template v-else>
+          Enter sends exactly what you type. Tab completes a known command when suggestions are
+          open.
+        </template>
       </span>
       <q-btn
         :disable="disabled"
@@ -155,6 +163,7 @@ const props = withDefaults(
   defineProps<{
     commands: GameConsoleCommand[]
     disabled?: boolean
+    disabledReason?: string
     gameName?: string
     loading?: boolean
     modelValue: string
@@ -162,6 +171,7 @@ const props = withDefaults(
   }>(),
   {
     disabled: false,
+    disabledReason: '',
     gameName: 'Game server',
     loading: false,
     permissionDenied: false,
@@ -185,12 +195,19 @@ const activeIndex = ref(0)
 
 const matches = computed(() => matchConsoleCommands(props.commands, props.modelValue))
 const visibleMatches = computed(() => matches.value.slice(0, maximumVisibleMatches))
+const placeholderText = computed(() => {
+  if (props.disabled && props.disabledReason !== '') {
+    return props.disabledReason
+  }
+  return 'Enter command...'
+})
+// The command browser stays open as read-only documentation while the input is
+// disabled; only typing-triggered suggestions require an enabled input.
 const suggestionsOpen = computed(
   () =>
     props.commands.length > 0 &&
-    !props.disabled &&
     !dismissed.value &&
-    (inputFocused.value || browserRequested.value),
+    ((inputFocused.value && !props.disabled) || browserRequested.value),
 )
 const activeDescendant = computed(() => {
   if (!suggestionsOpen.value || visibleMatches.value.length === 0) {
@@ -282,6 +299,9 @@ function moveActiveMatch(step: number): void {
 }
 
 function selectMatch(index: number): void {
+  if (props.disabled) {
+    return
+  }
   const match = visibleMatches.value[index]
   if (!match) {
     return
@@ -300,15 +320,23 @@ function submitCurrentInput(): void {
   emit('submit')
 }
 
+function onBrowseMousedown(event: MouseEvent): void {
+  // Keep focus on the input while it is usable; when the input is disabled the
+  // button takes focus itself so focusout can close the read-only browser.
+  if (!props.disabled) {
+    event.preventDefault()
+  }
+}
+
 function toggleCommandBrowser(): void {
-  if (props.disabled || props.commands.length === 0) {
+  if (props.commands.length === 0) {
     return
   }
 
   const shouldOpen = !suggestionsOpen.value
   browserRequested.value = shouldOpen
   dismissed.value = !shouldOpen
-  if (shouldOpen) {
+  if (shouldOpen && !props.disabled) {
     inputElement.value?.focus()
   }
 }
@@ -365,7 +393,7 @@ function onInputKeydown(event: KeyboardEvent): void {
 .console-command-input:focus-within {
   border-top-color: var(--xy-accent-border);
   background: color-mix(in srgb, var(--xy-surface-1) 98%, var(--xy-accent) 2%);
-  box-shadow: inset 0 0 0 1px var(--xy-accent-border-soft);
+  box-shadow: inset 0 0 0 2px var(--xy-focus-ring);
 }
 
 .console-input-disabled {
@@ -424,7 +452,7 @@ function onInputKeydown(event: KeyboardEvent): void {
 
 .console-command-input__browse :deep(.q-icon),
 .console-command-input__send :deep(.q-icon) {
-  font-size: 1.1rem;
+  font-size: var(--xy-font-size-lg);
 }
 
 .console-command-input__field {
@@ -541,6 +569,10 @@ function onInputKeydown(event: KeyboardEvent): void {
 .console-command-option:hover,
 .console-command-option--active {
   background: var(--xy-accent-muted);
+}
+
+.console-command-option--readonly {
+  cursor: default;
 }
 
 .console-command-option--active {

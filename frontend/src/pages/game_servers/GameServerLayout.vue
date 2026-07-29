@@ -286,7 +286,7 @@ async function enforceRouteAccess() {
   }
 
   .game-server-tabs :deep(.q-tab__icon) {
-    font-size: 1.2rem;
+    font-size: var(--xy-font-size-lg);
   }
 
   .game-server-tabs :deep(.q-tab__label) {
