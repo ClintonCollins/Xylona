@@ -267,7 +267,26 @@ describe('GameServerBackups', () => {
       }),
     })
     mocks.listGameServerBackups.mockResolvedValueOnce({
-      backups: [makeBackup()],
+      backups: [
+        makeBackup(),
+        makeBackup({
+          id: 'scheduled-completed',
+          triggerSource: GameServerBackupTriggerSource.SCHEDULED,
+          archivePath: 'C:\\\\backups\\\\scheduled-completed.zip',
+          sizeBytes: 2048n,
+          retentionExempt: false,
+        }),
+        makeBackup({
+          id: 'scheduled-failed',
+          triggerSource: GameServerBackupTriggerSource.SCHEDULED,
+          archivePath: 'C:\\\\backups\\\\scheduled-failed.zip',
+          status: GameServerBackupStatus.FAILED,
+          sizeBytes: 4096n,
+          retentionExempt: false,
+          errorMessage:
+            'node: stat backup source: lstat C:\\\\servers\\\\palworld\\\\backup\\\\world\\\\2026.07.29-16.59.13: no such file or directory',
+        }),
+      ],
     })
 
     const wrapper = mountBackups()
@@ -278,11 +297,18 @@ describe('GameServerBackups', () => {
     expect(wrapper.text()).toContain('Manual')
     expect(wrapper.text()).toContain('Completed')
     expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
-      '1 / 5 backups stored',
+      '2 backups stored',
     )
     expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
-      '1024 Bytes total',
+      '1 automated retained · 5 per node',
     )
+    expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
+      '1 failed attempt',
+    )
+    expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
+      '3072 Bytes total',
+    )
+    expect(wrapper.get('.backups-page__status-copy').text()).toContain('node: stat backup source')
   })
 
   it('allows restore and delete actions for reachable remote servers', async () => {

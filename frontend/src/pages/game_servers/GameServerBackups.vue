@@ -121,17 +121,37 @@ const scheduleShortcutLabel = computed(() => {
 })
 
 const scheduledBackupsLink = computed(() => `/game-servers/${gameServerId.value}/schedules`)
-const backupCount = computed(() => backups.value.length)
+const storedBackups = computed(() =>
+  backups.value.filter((backup) => backup.status === GameServerBackupStatus.COMPLETED),
+)
+const storedBackupCount = computed(() => storedBackups.value.length)
+const automatedBackupCount = computed(
+  () =>
+    storedBackups.value.filter(
+      (backup) =>
+        backup.triggerSource === GameServerBackupTriggerSource.SCHEDULED && !backup.retentionExempt,
+    ).length,
+)
+const failedBackupCount = computed(
+  () => backups.value.filter((backup) => backup.status === GameServerBackupStatus.FAILED).length,
+)
 const maxBackups = computed(() => Number(backupSettings.value.maxBackups))
-const backupUsageSummary = computed(() => {
+const backupStorageSummary = computed(
+  () => `${storedBackupCount.value} ${storedBackupCount.value === 1 ? 'backup' : 'backups'} stored`,
+)
+const backupRetentionSummary = computed(() => {
   if (Number.isFinite(maxBackups.value) && maxBackups.value > 0) {
-    return `${backupCount.value} / ${maxBackups.value} backups stored`
+    return `${automatedBackupCount.value} automated retained · ${maxBackups.value} per node`
   }
 
-  return `${backupCount.value} backups stored`
+  return `${automatedBackupCount.value} automated retained`
 })
+const failedBackupSummary = computed(
+  () =>
+    `${failedBackupCount.value} failed ${failedBackupCount.value === 1 ? 'attempt' : 'attempts'}`,
+)
 const totalBackupSize = computed(() =>
-  backups.value.reduce((totalSize, backup) => totalSize + backup.sizeBytes, 0n),
+  storedBackups.value.reduce((totalSize, backup) => totalSize + backup.sizeBytes, 0n),
 )
 const totalBackupSizeSummary = computed(() => `${formatBackupSize(totalBackupSize.value)} total`)
 const createAllowed = computed(() => overview.value.operationsAllowed)
@@ -846,7 +866,13 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
             Manual and scheduled backups appear here with restore and cleanup actions.
           </div>
           <div class="backups-page__summary-row" data-testid="backup-history-summary">
-            <div class="backups-page__summary-pill">{{ backupUsageSummary }}</div>
+            <div class="backups-page__summary-pill">{{ backupStorageSummary }}</div>
+            <div class="backups-page__summary-pill">{{ backupRetentionSummary }}</div>
+            <div
+              v-if="failedBackupCount > 0"
+              class="backups-page__summary-pill backups-page__summary-pill--failed">
+              {{ failedBackupSummary }}
+            </div>
             <div class="backups-page__summary-pill">{{ totalBackupSizeSummary }}</div>
           </div>
         </div>
@@ -1170,6 +1196,12 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   line-height: 1.2;
 }
 
+.backups-page__summary-pill--failed {
+  border-color: var(--xy-danger-border);
+  background: var(--xy-danger-bg-faint);
+  color: var(--xy-danger-hover);
+}
+
 .backups-page__download-link {
   display: inline-flex;
   text-decoration: none;
@@ -1343,10 +1375,14 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 .backups-page__status-cell {
   min-width: 15rem;
+  max-width: 24rem;
 }
 
 .backups-page__status-copy {
-  max-width: 18rem;
+  max-width: 24rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .backups-page__size-cell {

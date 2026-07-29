@@ -87,6 +87,19 @@ func (n *Node) CreateBackupArchive(ctx context.Context, directory string, includ
 }
 
 func walkBackupSources(ctx context.Context, root, archivePath string, includes []string, zipWriter *zip.Writer) error {
+	return walkBackupSourcesWith(ctx, root, archivePath, includes, zipWriter, filepath.WalkDir)
+}
+
+type backupWalkDirFunc func(root string, walkFn fs.WalkDirFunc) error
+
+func walkBackupSourcesWith(
+	ctx context.Context,
+	root string,
+	archivePath string,
+	includes []string,
+	zipWriter *zip.Writer,
+	walkDir backupWalkDirFunc,
+) error {
 	walkRoots := includes
 	if len(walkRoots) == 0 {
 		walkRoots = []string{root}
@@ -98,12 +111,15 @@ func walkBackupSources(ctx context.Context, root, archivePath string, includes [
 			return fmt.Errorf("node: backup canceled: %w", errOuterCtx)
 		}
 
-		errWalk := filepath.WalkDir(walkRoot, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+		errWalk := walkDir(walkRoot, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 			errInnerCtx := ctx.Err()
 			if errInnerCtx != nil {
 				return fmt.Errorf("node: backup canceled: %w", errInnerCtx)
 			}
 			if walkErr != nil {
+				if currentPath != walkRoot && errors.Is(walkErr, fs.ErrNotExist) {
+					return nil
+				}
 				return fmt.Errorf("node: walk backup source: %w", walkErr)
 			}
 			if currentPath == root {
@@ -123,6 +139,12 @@ func walkBackupSources(ctx context.Context, root, archivePath string, includes [
 
 			info, errInfo := entry.Info()
 			if errInfo != nil {
+				if currentPath != walkRoot && errors.Is(errInfo, fs.ErrNotExist) {
+					if entry.IsDir() {
+						return fs.SkipDir
+					}
+					return nil
+				}
 				return fmt.Errorf("node: stat backup source: %w", errInfo)
 			}
 			if entry.Type()&os.ModeSymlink != 0 {
@@ -134,7 +156,11 @@ func walkBackupSources(ctx context.Context, root, archivePath string, includes [
 			if !info.Mode().IsRegular() {
 				return nil
 			}
-			return addBackupFileEntry(zipWriter, cleanCurrent, archiveEntryPath, info)
+			errAddFile := addBackupFileEntry(zipWriter, cleanCurrent, archiveEntryPath, info)
+			if currentPath != walkRoot && errors.Is(errAddFile, fs.ErrNotExist) {
+				return nil
+			}
+			return errAddFile
 		})
 		if errWalk != nil {
 			return fmt.Errorf("node: walk backup source: %w", errWalk)
@@ -169,17 +195,6 @@ func addBackupDirectoryEntry(zipWriter *zip.Writer, archiveEntryPath string, inf
 }
 
 func addBackupFileEntry(zipWriter *zip.Writer, sourcePath, archiveEntryPath string, info fs.FileInfo) error {
-	header, errHeader := zip.FileInfoHeader(info)
-	if errHeader != nil {
-		return fmt.Errorf("node: zip file header: %w", errHeader)
-	}
-	header.Name = archiveEntryPath
-	header.Method = zip.Deflate
-
-	writer, errCreate := zipWriter.CreateHeader(header)
-	if errCreate != nil {
-		return fmt.Errorf("node: zip create file: %w", errCreate)
-	}
 	// #nosec G304 -- source path was produced by filepath.WalkDir under a
 	// controller-supplied root that internal/node's caller has already validated.
 	srcFile, errOpen := os.Open(sourcePath)
@@ -192,6 +207,18 @@ func addBackupFileEntry(zipWriter *zip.Writer, sourcePath, archiveEntryPath stri
 			log.Warn().Err(errClose).Str("path", sourcePath).Msg("node: close backup source")
 		}
 	}()
+
+	header, errHeader := zip.FileInfoHeader(info)
+	if errHeader != nil {
+		return fmt.Errorf("node: zip file header: %w", errHeader)
+	}
+	header.Name = archiveEntryPath
+	header.Method = zip.Deflate
+
+	writer, errCreate := zipWriter.CreateHeader(header)
+	if errCreate != nil {
+		return fmt.Errorf("node: zip create file: %w", errCreate)
+	}
 
 	_, errCopy := io.Copy(writer, srcFile)
 	if errCopy != nil {

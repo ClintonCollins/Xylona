@@ -2,7 +2,9 @@ package node
 
 import (
 	"archive/zip"
+	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -95,6 +97,154 @@ func TestCreateBackupArchiveRejectsSymlinkAndCleansPartial(t *testing.T) {
 	if _, errStat := os.Stat(archivePath); !errors.Is(errStat, os.ErrNotExist) {
 		t.Fatalf("Stat archive error = %v, want %v", errStat, os.ErrNotExist)
 	}
+}
+
+func TestWalkBackupSourcesHandlesSourceChanges(t *testing.T) {
+	tests := []struct {
+		name            string
+		walkErr         error
+		infoErr         error
+		removeAfterInfo bool
+		wantErr         error
+	}{
+		{
+			name:    "walk reports vanished descendant",
+			walkErr: fs.ErrNotExist,
+		},
+		{
+			name:    "descendant vanishes before stat",
+			infoErr: fs.ErrNotExist,
+		},
+		{
+			name:            "descendant vanishes before open",
+			removeAfterInfo: true,
+		},
+		{
+			name:    "walk permission failure remains fatal",
+			walkErr: fs.ErrPermission,
+			wantErr: fs.ErrPermission,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			stablePath := filepath.Join(root, "stable.txt")
+			errWriteStable := os.WriteFile(stablePath, []byte("stable"), 0o600)
+			if errWriteStable != nil {
+				t.Fatalf("WriteFile stable error = %v", errWriteStable)
+			}
+			vanishingPath := filepath.Join(root, "vanishing.txt")
+			errWriteVanishing := os.WriteFile(vanishingPath, []byte("vanishing"), 0o600)
+			if errWriteVanishing != nil {
+				t.Fatalf("WriteFile vanishing error = %v", errWriteVanishing)
+			}
+
+			rootInfo, errRootInfo := os.Stat(root)
+			if errRootInfo != nil {
+				t.Fatalf("Stat root error = %v", errRootInfo)
+			}
+			entries, errReadDir := os.ReadDir(root)
+			if errReadDir != nil {
+				t.Fatalf("ReadDir root error = %v", errReadDir)
+			}
+
+			var archiveBuffer bytes.Buffer
+			zipWriter := zip.NewWriter(&archiveBuffer)
+			walkDir := func(walkRoot string, walkFn fs.WalkDirFunc) error {
+				errWalkRoot := walkFn(walkRoot, fs.FileInfoToDirEntry(rootInfo), nil)
+				if errWalkRoot != nil {
+					return errWalkRoot
+				}
+
+				for _, entry := range entries {
+					currentPath := filepath.Join(walkRoot, entry.Name())
+					if entry.Name() == "vanishing.txt" {
+						if tt.walkErr != nil {
+							return walkFn(currentPath, entry, tt.walkErr)
+						}
+						if tt.infoErr != nil || tt.removeAfterInfo {
+							entry = backupTestDirEntry{
+								DirEntry:        entry,
+								infoErr:         tt.infoErr,
+								removeAfterInfo: tt.removeAfterInfo,
+								path:            currentPath,
+							}
+						}
+					}
+
+					errWalkEntry := walkFn(currentPath, entry, nil)
+					if errWalkEntry != nil {
+						return errWalkEntry
+					}
+				}
+				return nil
+			}
+
+			errWalk := walkBackupSourcesWith(
+				t.Context(),
+				root,
+				filepath.Join(t.TempDir(), "backup.zip"),
+				nil,
+				zipWriter,
+				walkDir,
+			)
+			errCloseZip := zipWriter.Close()
+			if errCloseZip != nil {
+				t.Fatalf("Close zip writer error = %v", errCloseZip)
+			}
+			if tt.wantErr != nil {
+				if !errors.Is(errWalk, tt.wantErr) {
+					t.Fatalf("walkBackupSourcesWith() error = %v, want %v", errWalk, tt.wantErr)
+				}
+				return
+			}
+			if errWalk != nil {
+				t.Fatalf("walkBackupSourcesWith() error = %v", errWalk)
+			}
+
+			reader, errOpenZip := zip.NewReader(bytes.NewReader(archiveBuffer.Bytes()), int64(archiveBuffer.Len()))
+			if errOpenZip != nil {
+				t.Fatalf("NewReader archive error = %v", errOpenZip)
+			}
+			archiveEntries := make(map[string]struct{}, len(reader.File))
+			for _, file := range reader.File {
+				archiveEntries[file.Name] = struct{}{}
+			}
+			if _, ok := archiveEntries["stable.txt"]; !ok {
+				t.Fatalf("backup entries = %v, want stable.txt", archiveEntries)
+			}
+			if _, ok := archiveEntries["vanishing.txt"]; ok {
+				t.Fatalf("backup entries = %v, do not want vanished entry", archiveEntries)
+			}
+		})
+	}
+}
+
+type backupTestDirEntry struct {
+	fs.DirEntry
+	infoErr         error
+	removeAfterInfo bool
+	path            string
+}
+
+func (e backupTestDirEntry) Info() (fs.FileInfo, error) {
+	if e.infoErr != nil {
+		return nil, e.infoErr
+	}
+
+	info, errInfo := e.DirEntry.Info()
+	if errInfo != nil {
+		return nil, errInfo
+	}
+	if e.removeAfterInfo {
+		errRemove := os.Remove(e.path)
+		if errRemove != nil {
+			return nil, errRemove
+		}
+	}
+
+	return info, nil
 }
 
 func TestExtractBackupArchiveCorruptArchiveLeavesLiveFileUnchanged(t *testing.T) {
