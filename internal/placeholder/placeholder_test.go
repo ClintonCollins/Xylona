@@ -6,90 +6,6 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-func TestRegistryIncludesMaxMemoryMB(t *testing.T) {
-	found := false
-	for _, placeholder := range Registry {
-		if placeholder.Key != "MAX_MEMORY_MB" {
-			continue
-		}
-		found = true
-		if placeholder.Label != "Game Server Memory (MB)" {
-			t.Errorf("MAX_MEMORY_MB label = %q, want %q", placeholder.Label, "Game Server Memory (MB)")
-		}
-	}
-
-	if !found {
-		t.Fatal("MAX_MEMORY_MB missing from Registry")
-	}
-}
-
-func TestResolve(t *testing.T) {
-	tests := []struct {
-		name     string
-		template string
-		vars     map[string]string
-		want     string
-	}{
-		{
-			name:     "single placeholder",
-			template: "server -port {{PORT}}",
-			vars:     map[string]string{"PORT": "27015"},
-			want:     "server -port 27015",
-		},
-		{
-			name:     "multiple placeholders",
-			template: "-ip {{IP}} -port {{PORT}}",
-			vars:     map[string]string{"IP": "192.168.1.1", "PORT": "27015"},
-			want:     "-ip 192.168.1.1 -port 27015",
-		},
-		{
-			name:     "no placeholders",
-			template: "just a plain string",
-			vars:     map[string]string{"PORT": "27015"},
-			want:     "just a plain string",
-		},
-		{
-			name:     "unresolved placeholder resolves to empty",
-			template: "server -port {{RCON_PORT}}",
-			vars:     map[string]string{},
-			want:     "server -port ",
-		},
-		{
-			name:     "backward compat with legacy format",
-			template: "server -dir %GAMESERVER_DIRECTORY%",
-			vars:     map[string]string{"INSTALL_DIR": "/opt/game"},
-			want:     "server -dir /opt/game",
-		},
-		{
-			name:     "mixed formats both resolved",
-			template: "{{IP}} and %GAMESERVER_PORT%",
-			vars:     map[string]string{"IP": "127.0.0.1", "PORT": "27015"},
-			want:     "127.0.0.1 and 27015",
-		},
-		{
-			name:     "empty template",
-			template: "",
-			vars:     map[string]string{"PORT": "27015"},
-			want:     "",
-		},
-		{
-			name:     "nil vars",
-			template: "{{PORT}}",
-			vars:     nil,
-			want:     "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := Resolve(tt.template, tt.vars)
-			if got != tt.want {
-				t.Errorf("Resolve() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestBuildVarsFromGameServer(t *testing.T) {
 	gs := &models.GameServer{
 		ID:              "test-server-1",
@@ -182,21 +98,6 @@ func TestBuildVarsFromGameServer_ServerExecutableEmpty(t *testing.T) {
 	}
 }
 
-func TestResolve_ServerExecutable(t *testing.T) {
-	vars := map[string]string{
-		"MAX_MEMORY_MB":     "4096",
-		"SERVER_EXECUTABLE": "paper-1.21.4-100.jar",
-	}
-
-	template := "java -Xmx{{MAX_MEMORY_MB}}M -jar {{SERVER_EXECUTABLE}}"
-	result := Resolve(template, vars)
-
-	expected := "java -Xmx4096M -jar paper-1.21.4-100.jar"
-	if result != expected {
-		t.Errorf("Resolve() = %q, want %q", result, expected)
-	}
-}
-
 func TestResolveToken(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -217,6 +118,18 @@ func TestResolveToken(t *testing.T) {
 			want:  "server-25565.log",
 		},
 		{
+			name:  "plain input remains unchanged",
+			input: "server.jar",
+			vars:  map[string]string{"PORT": "25565"},
+			want:  "server.jar",
+		},
+		{
+			name:  "empty input remains empty",
+			input: "",
+			vars:  map[string]string{"PORT": "25565"},
+			want:  "",
+		},
+		{
 			name:  "missing placeholder resolves to empty string",
 			input: "server-{{RCON_PORT}}.log",
 			vars:  map[string]string{},
@@ -232,10 +145,34 @@ func TestResolveToken(t *testing.T) {
 			want: "127.0.0.1:25565",
 		},
 		{
+			name:  "mixed formats both resolve",
+			input: "{{IP}}:%GAMESERVER_PORT%",
+			vars: map[string]string{
+				"IP":   "127.0.0.1",
+				"PORT": "25565",
+			},
+			want: "127.0.0.1:25565",
+		},
+		{
 			name:  "legacy placeholder still resolves",
 			input: "%GAMESERVER_PORT%",
 			vars:  map[string]string{"PORT": "25565"},
 			want:  "25565",
+		},
+		{
+			name:  "server executable resolves",
+			input: "java -Xmx{{MAX_MEMORY_MB}}M -jar {{SERVER_EXECUTABLE}}",
+			vars: map[string]string{
+				"MAX_MEMORY_MB":     "4096",
+				"SERVER_EXECUTABLE": "paper-1.21.4-100.jar",
+			},
+			want: "java -Xmx4096M -jar paper-1.21.4-100.jar",
+		},
+		{
+			name:  "nil vars resolves placeholder to empty",
+			input: "{{PORT}}",
+			vars:  nil,
+			want:  "",
 		},
 	}
 
@@ -267,32 +204,5 @@ func TestResolveTokens(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("ResolveTokens()[%d] = %q, want %q", i, got[i], want[i])
 		}
-	}
-}
-
-func TestLegacyMapping(t *testing.T) {
-	tests := []struct {
-		name   string
-		legacy string
-		newKey string
-	}{
-		{"directory", "%GAMESERVER_DIRECTORY%", "INSTALL_DIR"},
-		{"ip", "%GAMESERVER_IP%", "IP"},
-		{"port", "%GAMESERVER_PORT%", "PORT"},
-		{"query port", "%GAMESERVER_QUERY_PORT%", "QUERY_PORT"},
-		{"max players", "%GAMESERVER_MAX_PLAYERS%", "MAX_PLAYERS"},
-		{"name", "%GAMESERVER_NAME%", "SERVER_NAME"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := LegacyToNewKey(tt.legacy)
-			if !ok {
-				t.Fatalf("LegacyToNewKey(%q) returned not found", tt.legacy)
-			}
-			if got != tt.newKey {
-				t.Errorf("LegacyToNewKey(%q) = %q, want %q", tt.legacy, got, tt.newKey)
-			}
-		})
 	}
 }

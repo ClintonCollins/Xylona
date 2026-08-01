@@ -1908,25 +1908,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   letter-spacing: 0.08em;
 }
 
-/* ---- Preset Selector ---- */
-
-.preset-selector {
-  display: flex;
-  flex-direction: column;
-  gap: var(--xy-space-xs);
-  margin-bottom: var(--xy-space-md);
-}
-
-.preset-select {
-  max-width: 400px;
-}
-
-.preset-description {
-  font-size: 0.78rem;
-  line-height: 1.4;
-  padding-left: 2px;
-}
-
 @media (max-width: 700px) {
   .game-form-header {
     grid-template-columns: minmax(0, 1fr);

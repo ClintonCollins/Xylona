@@ -122,11 +122,6 @@ type Instance struct {
 	intentionalStops      intentionalStopRegistry
 }
 
-// VersionState returns the version state map used to track game server versions.
-func (inst *Instance) VersionState() *versiontracker.VersionStateMap {
-	return inst.versionState
-}
-
 // SetDummyTracker sets the dummy tracker used for E2E update failure simulation.
 func (inst *Instance) SetDummyTracker(dt *versiontracker.DummyTracker) {
 	inst.dummyTracker = dt

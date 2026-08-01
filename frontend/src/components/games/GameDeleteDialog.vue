@@ -26,9 +26,9 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { useApiCall } from '@/composables/useApiCall'
-import { RemoveGameRequest, RemoveGameRequestSchema } from '@/proto/xylona_pb'
+import { QBtn, QCard, QCardSection, QDialog } from 'quasar'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
+import { RemoveGameRequestSchema } from '@/proto/xylona_pb'
 import { GameSchema } from '@/proto/shared_pb'
 import { getXylonaClient } from '@/api/connect-client'
 
@@ -39,7 +39,6 @@ const props = defineProps({
   },
 })
 
-const $q = useQuasar()
 const emit = defineEmits<{
   submit: [error: boolean]
 }>()
@@ -49,27 +48,15 @@ const showDialog = defineModel('showDialog', {
   default: false,
 })
 
-const { execute: executeDelete } = useApiCall(
-  () => {
-    const request: RemoveGameRequest = create(RemoveGameRequestSchema, {})
-    request.gameId = props.game?.id
-    return getXylonaClient().removeGame(request)
-  },
-  { notify: $q.notify, errorPrefix: 'Error deleting game' },
-)
-
 async function deleteGame() {
-  const result = await executeDelete()
-  if (result !== undefined) {
-    $q.notify({
-      caption: `${props.game?.name} deleted successfully`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
+  try {
+    const request = create(RemoveGameRequestSchema, { gameId: props.game.id })
+    await getXylonaClient().removeGame(request)
+    notifySuccess(`${props.game.name} deleted successfully`, { timeout: 5000 })
     showDialog.value = false
     emit('submit', false)
-  } else {
+  } catch (error: unknown) {
+    notifyConnectError(error, 'Error deleting game')
     emit('submit', true)
   }
 }
