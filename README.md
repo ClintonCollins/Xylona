@@ -18,7 +18,7 @@ Xylona is still evolving quickly. Expect active iteration, and treat upgrades th
 
 ### Prerequisites
 
-- [Go 1.26.2](https://go.dev/doc/install)
+- [Go 1.26.6](https://go.dev/doc/install)
 - [Bun 1.3.12](https://bun.sh/docs/installation)
 - [golangci-lint](https://golangci-lint.run/welcome/install/)
 - [Mage](https://magefile.org/) for build, codegen, and E2E helpers
@@ -52,21 +52,21 @@ Set your signing and encryption secrets in the environment or `.env`:
 ```bash
 COOKIE_HASH_KEY_BASE64=<base64-encoded securecookie hash key; 32 or 64 bytes recommended>
 COOKIE_BLOCK_KEY_BASE64=<base64-encoded 32-byte securecookie block key>
-JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte signing key>
+JWT_SECRET_KEY_BASE64=<base64-encoded 32+ byte legacy database-decryption fallback; not used for session auth>
 ENCRYPTION_KEY_BASE64=<base64-encoded encryption key; 32 bytes recommended, first 32 bytes used>
 ```
 
-`ENCRYPTION_KEY_BASE64` is required. Xylona does not fall back to the JWT secret for new database encryption, and startup fails if the key is missing or does not decode to at least 32 bytes. For compatibility with older deployments, Xylona uses the first 32 decoded bytes as the AES-256 key and can use the first 32 decoded bytes of `JWT_SECRET_KEY_BASE64` only as a legacy decryption fallback while it re-encrypts older stored secrets under `ENCRYPTION_KEY_BASE64`.
+`ENCRYPTION_KEY_BASE64` is required. Startup validates it before opening or migrating `data.sqlite`, and fails if the key is missing or does not decode to at least 32 bytes. Xylona does not fall back to the JWT secret for new database encryption. Sessions use `COOKIE_*` securecookie keys, not JWT. For compatibility with older deployments, Xylona uses the first 32 decoded bytes of `ENCRYPTION_KEY_BASE64` as the AES-256 key and can use the first 32 decoded bytes of `JWT_SECRET_KEY_BASE64` only as a legacy decryption fallback for ciphertext that was encrypted with that older key.
 
-User passwords use Argon2id in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node API keys, and its Argon2id helpers are used for non-password secret tokens such as node join tokens.
+User passwords use Argon2id in the auth and user RPC paths. `pkg/xycrypt` provides AES-GCM encryption for stored secrets such as node shared secrets. Node join tokens are stored as SHA-256 hashes of 256-bit random values.
 
-Optional runtime controls:
+Optional runtime controls (defaults are `6h` / `6h` / `24h` to leave room for large file transfers):
 
 ```bash
 METRICS_ENABLED=false
-HTTP_READ_TIMEOUT=15m
-HTTP_WRITE_TIMEOUT=15m
-HTTP_IDLE_TIMEOUT=30m
+HTTP_READ_TIMEOUT=6h
+HTTP_WRITE_TIMEOUT=6h
+HTTP_IDLE_TIMEOUT=24h
 XYLONA_UPDATE_RESTART_MODE=self
 ```
 
@@ -164,13 +164,14 @@ Built-in game-server backups cover game-server data, not Xylona control-plane se
 | Secret class | Storage at rest | Included in built-in game-server backups | Notes |
 | --- | --- | --- | --- |
 | User passwords | Argon2id hash | No | Non-reversible password hashes stored in the database. |
-| Node join tokens | Argon2id hash | No | One-time bootstrap tokens; hashes only. |
+| Node join tokens | SHA-256 hash | No | One-time bootstrap tokens; hashes only. |
 | Remote node certificate fingerprints | Plaintext in `data.sqlite` | No | Public certificate pinning material, not secret. |
-| Remote node shared secrets | AES-GCM encrypted in `data.sqlite` | No | Encrypted with `ENCRYPTION_KEY_BASE64`; startup fails if existing ciphertext cannot be decrypted. |
+| Remote node shared secrets | AES-GCM encrypted in `data.sqlite` | No | Encrypted with `ENCRYPTION_KEY_BASE64`. If an enabled node's ciphertext cannot be decrypted, startup warns and skips that node instead of aborting. |
 | System config secrets | AES-GCM encrypted in `data.sqlite` | No | Includes values such as SMTP credentials. |
 | Notification channel configs | AES-GCM encrypted in `data.sqlite` | No | Includes webhook URLs and similar credentials. |
 | Node API keys | AES-GCM encrypted in `data.sqlite` | No | Provider/API tokens stored encrypted at rest. |
-| Cookie and JWT secrets | Environment / `.env` | No | Not stored in the database. |
+| Cookie secrets | Environment / `.env` | No | Session cookie HMAC/block keys. Not stored in the database. |
+| JWT secret | Environment / `.env` | No | Required at startup, but unused for authentication. Kept only as a legacy AES decryption fallback for older ciphertext. |
 
 If you suspect `data.sqlite` or a backup copy of it was exposed, treat remote node shared secrets as compromised. Xylona does not rotate those secrets automatically in that situation. Rotate them by removing affected remote nodes while Xylona is stopped, then re-pairing those nodes after restart.
 

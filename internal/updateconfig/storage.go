@@ -191,16 +191,10 @@ func normalizeProviderKind(kind updateproviders.ProviderKind) updateproviders.Pr
 }
 
 func normalizeTarget(kind updateproviders.ProviderKind, target string) string {
-	trimmed := strings.TrimSpace(target)
-	if kind == updateproviders.ProviderKindSteamCMD && trimmed == "" {
-		return "public"
+	if kind == updateproviders.ProviderKindSteamCMD {
+		return updateproviders.NormalizeSteamTarget(target)
 	}
-	return trimmed
-}
-
-// NormalizeSteamTarget normalizes Steam branch targets to the persisted form.
-func NormalizeSteamTarget(target string) string {
-	return normalizeTarget(updateproviders.ProviderKindSteamCMD, target)
+	return strings.TrimSpace(target)
 }
 
 func providerKindForVariant(game updateproviders.GameConfig, variant updateproviders.Variant) updateproviders.ProviderKind {

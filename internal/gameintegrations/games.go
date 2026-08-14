@@ -3,7 +3,6 @@ package gameintegrations
 
 import (
 	"io"
-	"maps"
 	"sync"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -52,13 +51,4 @@ func GetGame(id string) (Game, bool) {
 	defer gamesLock.RUnlock()
 	game, exists := games[id]
 	return game, exists
-}
-
-// GetGames returns the registered internal game integrations.
-func GetGames() map[string]Game {
-	gamesLock.RLock()
-	defer gamesLock.RUnlock()
-	result := make(map[string]Game, len(games))
-	maps.Copy(result, games)
-	return result
 }

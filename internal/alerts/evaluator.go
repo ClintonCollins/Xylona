@@ -463,11 +463,11 @@ func evaluateCondition(condition null.Val[string], data eventData) (bool, error)
 
 	// Threshold condition — delegate to the shared implementation.
 	if cond.Operator != "" {
-		op, threshold, errParse := ParseConditionJSON(condStr)
+		parsed, errParse := ParseThresholdConditionJSON(condStr)
 		if errParse != nil {
 			return false, errParse
 		}
-		return EvaluateThresholdOp(op, threshold, data.CurrentValue)
+		return EvaluateThresholdOp(parsed.Operator, parsed.Value, data.CurrentValue)
 	}
 
 	// No recognized condition fields — treat as unconditional match.

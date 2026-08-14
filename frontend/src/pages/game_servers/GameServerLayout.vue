@@ -36,7 +36,8 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
 import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
-import { GetXylonaClient, WindowWidth } from '@/utils/shared'
+import { useQuasar } from 'quasar'
+import { GetXylonaClient } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
 import type { GameServerLayoutTab } from './game-server-layout-tabs'
 import { useServerSoftwareInstall } from '@/composables/useServerSoftwareInstall'
@@ -45,8 +46,9 @@ import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+const $q = useQuasar()
 const navQTabsStore = useToolbarNavQTabsStore()
-const windowWidth = WindowWidth()
+const windowWidth = computed(() => $q.screen.width)
 const gameServerRouteKey = computed(() => getServerID())
 // The toolbar store keeps a generic tab shape; this layout is its only writer
 // and always stores GameServerLayoutTab entries (which carry group metadata).

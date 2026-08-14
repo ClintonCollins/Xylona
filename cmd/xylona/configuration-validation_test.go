@@ -57,6 +57,27 @@ func TestValidateConfiguration(t *testing.T) {
 			},
 			wantErrPart: `HTTP_READ_TIMEOUT must be greater than zero`,
 		},
+		{
+			name: `missing encryption key`,
+			mutate: func(config *Configuration) {
+				config.EncryptionKey = ``
+			},
+			wantErrPart: `missing required configuration: ENCRYPTION_KEY_BASE64`,
+		},
+		{
+			name: `malformed encryption key`,
+			mutate: func(config *Configuration) {
+				config.EncryptionKey = `%%%`
+			},
+			wantErrPart: `decode ENCRYPTION_KEY_BASE64`,
+		},
+		{
+			name: `encryption key too short`,
+			mutate: func(config *Configuration) {
+				config.EncryptionKey = encodeSecretForTest(16)
+			},
+			wantErrPart: `ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes, got 16`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -228,6 +249,7 @@ func validConfigurationForTest() Configuration {
 		CookieHashKey:    encodeSecretForTest(64),
 		CookieBlockKey:   encodeSecretForTest(32),
 		JWTSecretKey:     encodeSecretForTest(64),
+		EncryptionKey:    encodeSecretForTest(32),
 		HTTPReadTimeout:  15 * time.Minute,
 		HTTPWriteTimeout: 15 * time.Minute,
 		HTTPIdleTimeout:  30 * time.Minute,

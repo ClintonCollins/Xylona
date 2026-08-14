@@ -1,6 +1,7 @@
 package startargs
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -14,7 +15,7 @@ func FindSimilarArg(newTokens []string, existingBlocks []ArgBlock) *ArgBlock {
 	newPrefix := flagPrefix(newTokens[0])
 	if newPrefix == "" {
 		for i := range existingBlocks {
-			if equalTokens(newTokens, existingBlocks[i].Tokens) {
+			if slices.Equal(newTokens, existingBlocks[i].Tokens) {
 				return &existingBlocks[i]
 			}
 		}
@@ -53,18 +54,4 @@ func flagPrefix(token string) string {
 	}
 
 	return token
-}
-
-func equalTokens(a []string, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
 }

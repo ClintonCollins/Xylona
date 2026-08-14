@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -235,12 +236,12 @@ func (e backupTestDirEntry) Info() (fs.FileInfo, error) {
 
 	info, errInfo := e.DirEntry.Info()
 	if errInfo != nil {
-		return nil, errInfo
+		return nil, fmt.Errorf("backup test dir entry info: %w", errInfo)
 	}
 	if e.removeAfterInfo {
 		errRemove := os.Remove(e.path)
 		if errRemove != nil {
-			return nil, errRemove
+			return nil, fmt.Errorf("backup test remove after info: %w", errRemove)
 		}
 	}
 

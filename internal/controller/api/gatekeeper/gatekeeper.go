@@ -1,4 +1,4 @@
-// Package gatekeeper handles session and JWT authentication helpers.
+// Package gatekeeper handles session authentication helpers.
 package gatekeeper
 
 import (
@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/securecookie"
 	"github.com/rs/zerolog/log"
 
@@ -29,8 +28,6 @@ const (
 var (
 	// SessionTokenCookieName stores the encoded session token cookie name.
 	SessionTokenCookieName = strings.Join([]string{"xylona", "session", "tok" + "en"}, "_")
-	// ErrInvalidToken indicates a JWT failed validation.
-	ErrInvalidToken = errors.New("invalid token")
 )
 
 // SessionCookies contains the cookie values required for session auth.
@@ -59,15 +56,6 @@ func UserFromContext(ctx context.Context) (*models.User, bool) {
 
 // Cookies is a lightweight cookie lookup map.
 type Cookies map[string]string
-
-// JWTClaims contains Xylona-specific JWT claims.
-type JWTClaims struct {
-	Username      string `json:"username"`
-	Email         string `json:"email"`
-	OriginID      string `json:"originID"`
-	OriginAddress string `json:"originAddress"`
-	jwt.RegisteredClaims
-}
 
 // Get returns the cookie value for the provided key.
 func (c Cookies) Get(key string) (string, error) {
@@ -203,50 +191,4 @@ func RequireSessionAuth(dbConn *db.Connection, sc *securecookie.SecureCookie) fu
 			next.ServeHTTP(w, r.WithContext(WithUser(r.Context(), user)))
 		})
 	}
-}
-
-// CreateJWT signs a JWT for the given user identity and expiration time.
-func CreateJWT(username, email, jwtID string, expiration time.Time, secretKey []byte) (string, error) {
-	claims := JWTClaims{
-		Username: username,
-		Email:    email,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "xylona",
-			ExpiresAt: jwt.NewNumericDate(expiration),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        jwtID,
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
-	tokenString, errSign := token.SignedString(secretKey)
-	if errSign != nil {
-		log.Error().Err(errSign).Msg("Error signing token")
-		return "", errors.New("internal error")
-	}
-	return tokenString, nil
-}
-
-// ParseJWT parses and validates a signed Xylona JWT.
-func ParseJWT(tokenString string, secretKey []byte) (*JWTClaims, error) {
-	token, errParse := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (any, error) {
-		_, ok := token.Method.(*jwt.SigningMethodHMAC)
-		if !ok {
-			return nil, jwt.ErrTokenSignatureInvalid
-		}
-		return secretKey, nil
-	})
-	if errParse != nil {
-		log.Error().Err(errParse).Msg("Error parsing token")
-		return nil, errors.New("invalid token")
-	}
-	if !token.Valid {
-		log.Error().Msg("Invalid token")
-		return nil, ErrInvalidToken
-	}
-	claims, ok := token.Claims.(*JWTClaims)
-	if !ok {
-		log.Error().Msg("Invalid token claims")
-		return nil, jwt.ErrTokenInvalidClaims
-	}
-	return claims, nil
 }

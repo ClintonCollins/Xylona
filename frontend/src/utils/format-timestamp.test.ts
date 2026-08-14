@@ -1,7 +1,7 @@
 import { timestampFromDate } from '@bufbuild/protobuf/wkt'
 import { describe, expect, it } from 'vitest'
 
-import { formatTimestamp, TIMESTAMP_FORMAT } from './format-timestamp'
+import { formatDate, formatTimestamp, TIMESTAMP_FORMAT } from './format-timestamp'
 
 describe('formatTimestamp', () => {
   it.each([
@@ -53,5 +53,22 @@ describe('formatTimestamp', () => {
   it('never emits AM/PM markers in the canonical format', () => {
     expect(TIMESTAMP_FORMAT).not.toContain('A')
     expect(formatTimestamp(new Date(2026, 2, 5, 17, 32, 10))).not.toMatch(/AM|PM/)
+  })
+
+  it.each([
+    { name: 'formats a normal date', input: new Date(2026, 6, 21, 9, 8, 7), want: 'Jul 21, 2026' },
+    { name: 'returns empty string for undefined', input: undefined, want: '' },
+    {
+      name: 'returns the fallback for an invalid date',
+      input: new Date('not a date'),
+      fallback: '-',
+      want: '-',
+    },
+  ])('formatDate $name', ({ input, fallback, want }) => {
+    if (fallback === undefined) {
+      expect(formatDate(input)).toBe(want)
+    } else {
+      expect(formatDate(input, fallback)).toBe(want)
+    }
   })
 })

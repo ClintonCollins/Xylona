@@ -283,12 +283,6 @@ func (inst *Instance) publishVersionState(gs *models.GameServer, state versiontr
 	protoState := versionStateToProto(state)
 	rawVersion := versiontracker.ResolveCurrentVersion(gs)
 
-	eventbus.Get().Publish(eventbus.TopicGameServerVersionChanged, eventbus.VersionChangedEvent{
-		ServerID:    gs.ID,
-		Version:     rawVersion,
-		VersionInfo: protoState,
-	})
-
 	if inst.versionBroadcaster != nil {
 		inst.versionBroadcaster.BroadcastGameServerVersion(gs.ID, rawVersion, protoState)
 	}

@@ -46,7 +46,7 @@ Supporting operational facts:
 
 ## Capabilities and Constraints
 
-**Stack.** Go 1.26.2 backend; Bun 1.3.12 toolchain; Quasar 2 / Vue 3 SPA with Pinia and vue-router 5; Connect RPC over protobuf for the API; SQLite for storage. The production frontend bundle is embedded at `internal/webui/dist`, so the backend must be rebuilt after a frontend build.
+**Stack.** Go 1.26.6 backend; Bun 1.3.12 toolchain; Quasar 2 / Vue 3 SPA with Pinia and vue-router 5; Connect RPC over protobuf for the API; SQLite for storage. The production frontend bundle is embedded at `internal/webui/dist`, so the backend must be rebuilt after a frontend build.
 
 **Notable frontend dependencies** that constrain design: Monaco (file and config editing), Leaflet (live maps), Chart.js via vue-chartjs (metrics), and `@fontsource` packages for the four identity typefaces.
 

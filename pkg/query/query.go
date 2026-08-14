@@ -22,36 +22,6 @@ var (
 	ErrMinecraftServerUnreachable = errors.New("minecraft server unreachable")
 )
 
-// type MinecraftInfo struct {
-//	Host            string
-//	Port            int
-//	MOTD            string
-//	GameType        string
-//	Map             string
-//	NumberOfPlayers int
-//	MaxPlayers      int
-//	PlayerList      []string
-//	ProtocolVersion int
-//	ServerVersion   string
-// }
-
-// type SourceInfo struct {
-//	Protocol   uint8  `json:"Protocol"`
-//	Name       string `json:"Name"`
-//	Map        string `json:"Map"`
-//	Game       string `json:"Game"`
-//	AppID      uint16 `json:"AppID"`
-//	SteamID    uint64 `json:"SteamID"`
-//	GameID     uint64 `json:"GameID"`
-//	Players    uint8  `json:"Players"`
-//	MaxPlayers uint8  `json:"MaxPlayers"`
-//	Bots       uint8  `json:"Bots"`
-//	ServerOS   string `json:"ServerOS"`
-//	Visibility bool   `json:"Visibility"`
-//	VAC        bool   `json:"VAC"`
-//	Version    string `json:"Version"`
-// }
-
 // Source queries a Source-engine server and returns its info payload.
 func Source(host string, port int) (*xylona.SourceQueryInfo, error) {
 	conn, errNewClient := a2s.NewClient(net.JoinHostPort(host, strconv.Itoa(port)), a2s.TimeoutOption(time.Second*1))

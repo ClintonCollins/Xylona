@@ -154,14 +154,14 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
+import { Timestamp } from '@bufbuild/protobuf/wkt'
 import { useStorage } from '@vueuse/core'
-import dayjs from 'dayjs'
 import { ConnectError } from '@connectrpc/connect'
 import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
+import { formatDate } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
   ListUsersRequest,
@@ -212,7 +212,7 @@ async function getUsers() {
 }
 
 function formatCreatedAt(createdAt?: Timestamp): string {
-  return createdAt ? dayjs(timestampDate(createdAt)).format('MMM D, YYYY') : ''
+  return formatDate(createdAt)
 }
 
 async function deleteUserAction(user: User) {

@@ -15,7 +15,7 @@ Core stack:
 - Controller logic and API surface: `internal/controller/actions`, `internal/controller/api/{events,gatekeeper,rpc,websocket}`, `internal/gameintegrations`
 - Node runtime boundary: `cmd/xylona-node`, `internal/node`, `internal/nodeclient`, `internal/noderegistry`, `internal/nodetls`, `internal/node/supervisor`
 - App services: `internal/db`, `internal/modmanager`, `internal/scheduler`, `internal/alerts`, `internal/usermgmt`, `internal/mailer`, `internal/webhooks`, `internal/selfupdate`, `internal/updater`, `internal/steamcache`
-- Shared/domain packages: `pkg/cfgparse`, `pkg/cfgschema`, `pkg/gsutils`, `pkg/helpers`, `pkg/minecraft`, `pkg/query`, `pkg/xycrypt`, `pkg/modproviders`, `pkg/updateproviders`, `pkg/passwordhash`, `pkg/version`
+- Shared/domain packages: `pkg/cfgparse`, `pkg/cfgschema`, `pkg/helpers`, `pkg/minecraft`, `pkg/query`, `pkg/xycrypt`, `pkg/modproviders`, `pkg/updateproviders`, `pkg/passwordhash`, `pkg/version`
 - Generated and build assets: `proto`, `sql/migrations`, `sql/models`, `magefiles`, `cmd`
 - Frontend app: `frontend/src/pages`, `components`, `stores`, `router`, `layouts`, `boot`, `utils`, `proto`, `css`, `assets`
 

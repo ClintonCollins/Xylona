@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf'
-import { defineComponent, h, nextTick, ref } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -41,8 +41,15 @@ vi.mock('@/stores/xylona', () => ({
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({ getGameServer: mocks.getGameServer }),
-  WindowWidth: () => ref(1280),
 }))
+
+vi.mock('quasar', async () => {
+  const actual = await vi.importActual<typeof import('quasar')>('quasar')
+  return {
+    ...actual,
+    useQuasar: () => ({ screen: { width: 1280 } }),
+  }
+})
 
 vi.mock('@/composables/useServerSoftwareInstall', () => ({
   useServerSoftwareInstall: vi.fn(),

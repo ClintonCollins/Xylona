@@ -1,6 +1,7 @@
 package node
 
 import (
+	"archive/zip"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -12,8 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dsnet/compress/bzip2"
-	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archives"
 )
 
@@ -234,7 +233,7 @@ func archiveFormat(compression ArchiveCompression) archives.CompressedArchive {
 			Multithreaded:    true,
 		}
 	case ArchiveCompressionBZIP2:
-		format.Compression = &archives.Bz2{CompressionLevel: bzip2.DefaultCompression}
+		format.Compression = &archives.Bz2{}
 	case ArchiveCompressionZST:
 		format.Compression = &archives.Zstd{}
 	case ArchiveCompressionXZ:

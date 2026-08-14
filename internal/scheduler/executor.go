@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	controlleractions "github.com/ClintonCollins/Xylona/internal/controller/actions"
-	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -93,15 +92,6 @@ func (s *Scheduler) executeTask(taskID string) {
 		logger.Error().Err(errUpdate).Msg("Failed to update scheduled task last_run_at")
 	}
 
-	// Publish event for future alert integration.
-	eventbus.Get().Publish(eventbus.TopicScheduledTaskExecuted, eventbus.ScheduledTaskExecutedEvent{
-		TaskID:       task.ID,
-		GameServerID: task.GameServerID,
-		TaskType:     task.TaskType,
-		Status:       status,
-		Message:      message,
-		Timestamp:    finishedAt,
-	})
 }
 
 func (s *Scheduler) executeRestart(task *models.ScheduledTask) (string, string) {

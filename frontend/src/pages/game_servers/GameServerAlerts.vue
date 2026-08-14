@@ -2,13 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
-import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
+import { Timestamp } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
-import dayjs from 'dayjs'
 import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canManageAlerts } from '@/utils/alert-permissions'
+import { formatTimestamp as formatCanonicalTimestamp } from '@/utils/format-timestamp'
 import { GetXylonaClient } from '@/utils/shared'
 import {
   CreateAlertRuleRequestSchema,
@@ -267,8 +267,7 @@ const filteredHistory = computed(() => {
 })
 
 function formatTimestamp(ts: Timestamp | undefined): string {
-  if (!ts) return ''
-  return dayjs(timestampDate(ts)).format('MM/DD/YYYY HH:mm:ss A')
+  return formatCanonicalTimestamp(ts)
 }
 
 function formatCondition(eventType: AlertEventType, condition: string): string {

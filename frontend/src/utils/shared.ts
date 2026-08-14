@@ -1,7 +1,6 @@
 import { create, fromJsonString, toJsonString } from '@bufbuild/protobuf'
 import type { ConnectError } from '@connectrpc/connect'
 import { SystemUpdateProgress, UpdateProgress } from '@/proto/xylona_pb'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { BackupProgress, VersionInfo } from '@/proto/shared_pb'
 import { AllServersQueryInfo, Status } from '@/proto/shared_pb'
 import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
@@ -466,24 +465,6 @@ export function GetPathSeparator(path: string): string {
     return '\\'
   }
   return '/'
-}
-
-export function WindowWidth() {
-  const windowWidth = ref(window.innerWidth)
-
-  function updateWindowWidth() {
-    windowWidth.value = window.innerWidth
-  }
-
-  onMounted(() => {
-    window.addEventListener('resize', updateWindowWidth)
-  })
-
-  onBeforeUnmount(() => {
-    window.removeEventListener('resize', updateWindowWidth)
-  })
-
-  return windowWidth
 }
 
 export function ArchiveTypeToString(archiveType: GameServerFilesCompressionType): string {

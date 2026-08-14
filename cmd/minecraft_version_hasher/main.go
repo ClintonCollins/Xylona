@@ -10,8 +10,6 @@ import (
 	"sort"
 	"syscall"
 	"time"
-
-	"github.com/pterm/pterm"
 )
 
 type MinecraftVersionManifestJSON struct {
@@ -141,13 +139,13 @@ func main() {
 	// getVersions(shutdownSignalChannel)
 	serverInfo, errGetVersions := getAllServerVersionsInformation(shutdownSignalChannel)
 	if errGetVersions != nil {
-		pterm.Error.Println("Failed to get Minecraft versions")
+		fmt.Fprintln(os.Stderr, "Failed to get Minecraft versions")
 		os.Exit(1)
 	}
 
 	errSaveVersionToFile := saveServerVersionsToFile(serverInfo)
 	if errSaveVersionToFile != nil {
-		pterm.Error.Printf("Failed to save server versions to file: %s\n", errSaveVersionToFile.Error())
+		fmt.Fprintf(os.Stderr, "Failed to save server versions to file: %s\n", errSaveVersionToFile.Error())
 		os.Exit(1)
 	}
 
@@ -155,24 +153,24 @@ func main() {
 	//
 	// jars, errRead := os.ReadDir("test_jars")
 	// if errRead != nil {
-	//	pterm.Error.Println("Failed to read test_jars directory")
+	//	fmt.Fprintln(os.Stderr, "Failed to read test_jars directory")
 	//	os.Exit(1)
 	// }
 	// for _, jar := range jars {
 	//	if jar.IsDir() {
 	//		continue
 	//	}
-	//	pterm.Info.Printf("Checking %s for version based on sha1.\n", jar.Name())
+	//	fmt.Fprintf(os.Stderr, "Checking %s for version based on sha1.\n", jar.Name())
 	//	sha1Hash, errCalculate := calculateSha1OfFile(path.Join("test_jars", jar.Name()))
 	//	if errCalculate != nil {
-	//		pterm.Error.Println("Failed to calculate sha1 for " + jar.Name())
+	//		fmt.Fprintln(os.Stderr, "Failed to calculate sha1 for "+jar.Name())
 	//		continue
 	//	}
 	//	version, exists := sha1Map[sha1Hash]
 	//	if exists {
-	//		pterm.Info.Printf("Found version %s released on %s\n", version.ID, version.ReleaseTime)
+	//		fmt.Fprintf(os.Stderr, "Found version %s released on %s\n", version.ID, version.ReleaseTime)
 	//	} else {
-	//		pterm.Error.Printf("Version not found for %s\n", jar.Name())
+	//		fmt.Fprintf(os.Stderr, "Version not found for %s\n", jar.Name())
 	//	}
 	//
 	// }
@@ -209,14 +207,14 @@ func saveServerVersionsToFile(serverInfos []*MinecraftServerInfo) error {
 func getAllServerVersionsInformation(shutdownSignalChannel chan os.Signal) ([]*MinecraftServerInfo, error) {
 	files, errReadDir := os.ReadDir("versions")
 	if errReadDir != nil {
-		pterm.Error.Println("Failed to read versions directory")
+		fmt.Fprintln(os.Stderr, "Failed to read versions directory")
 		return nil, fmt.Errorf("read versions directory: %w", errReadDir)
 	}
 	var serverInfos []*MinecraftServerInfo
 	for _, file := range files {
 		select {
 		case <-shutdownSignalChannel:
-			pterm.Info.Println("Received shutdown signal. Exiting...")
+			fmt.Fprintln(os.Stderr, "Received shutdown signal. Exiting...")
 			os.Exit(0)
 		default:
 			if file.IsDir() {
@@ -224,7 +222,7 @@ func getAllServerVersionsInformation(shutdownSignalChannel chan os.Signal) ([]*M
 			}
 			serverInfo, errGetSha1 := getMinecraftServerInformation(file.Name())
 			if errGetSha1 != nil {
-				pterm.Error.Println("Failed to get server sha1 for " + file.Name())
+				fmt.Fprintln(os.Stderr, "Failed to get server sha1 for "+file.Name())
 				continue
 			}
 			serverInfos = append(serverInfos, serverInfo)

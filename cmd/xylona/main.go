@@ -79,7 +79,10 @@ const controllerUpdateShutdownTimeout = 14 * time.Minute
 type Configuration struct {
 	CookieHashKey  string `env:"COOKIE_HASH_KEY_BASE64"`
 	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
-	JWTSecretKey   string `env:"JWT_SECRET_KEY_BASE64"`
+	// JWTSecretKey is required at startup but is not used for session auth.
+	// The first 32 decoded bytes are only a legacy AES decryption fallback
+	// for ciphertext written before ENCRYPTION_KEY_BASE64 existed.
+	JWTSecretKey string `env:"JWT_SECRET_KEY_BASE64"`
 	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
 	// fields (notification channel configs).
 	EncryptionKey           string        `env:"ENCRYPTION_KEY_BASE64"`
@@ -337,6 +340,11 @@ func (r *dbSMTPConfigResolver) ResolveSystemSMTPConfig() (*mailer.SMTPConfig, er
 // the encryption key for sensitive fields. It returns the ready-to-use
 // connection or an error.
 func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, error) {
+	encryptionKey, errDecodeEnc := decodeDatabaseEncryptionKey(cfg.EncryptionKey)
+	if errDecodeEnc != nil {
+		return nil, fmt.Errorf("setupDatabase: %w", errDecodeEnc)
+	}
+
 	dbInst, errNewConnection := dbpkg.NewConnection(ctx, cfg.DBFilePath)
 	if errNewConnection != nil {
 		return nil, fmt.Errorf("setupDatabase: connect to database: %w", errNewConnection)
@@ -362,22 +370,7 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 			Msg("Synced official game definitions")
 	}
 
-	if cfg.EncryptionKey == "" {
-		_ = dbInst.SQLDb.Close()
-		return nil, errors.New("setupDatabase: ENCRYPTION_KEY_BASE64 must be set")
-	}
-	encKeyBytes, errDecodeEnc := base64.StdEncoding.DecodeString(cfg.EncryptionKey)
-	if errDecodeEnc != nil {
-		_ = dbInst.SQLDb.Close()
-		return nil, fmt.Errorf("setupDatabase: decode ENCRYPTION_KEY_BASE64: %w", errDecodeEnc)
-	}
-	if len(encKeyBytes) < xycrypt.EncryptionKeySize {
-		_ = dbInst.SQLDb.Close()
-		return nil, fmt.Errorf("setupDatabase: ENCRYPTION_KEY_BASE64 must decode to at least %d bytes", xycrypt.EncryptionKeySize)
-	}
-	// Preserve compatibility with older deployments that supplied longer
-	// secrets while still pinning AES-256 to a 32-byte key.
-	dbInst.SetEncryptionKey(encKeyBytes[:xycrypt.EncryptionKeySize])
+	dbInst.SetEncryptionKey(encryptionKey)
 
 	if cfg.JWTSecretKey != "" {
 		jwtFallbackBytes, errDecodeJWTFallback := base64.StdEncoding.DecodeString(cfg.JWTSecretKey)

@@ -53,17 +53,6 @@ func EvaluateThresholdOp(op string, threshold, actual float64) (bool, error) {
 	}
 }
 
-// ParseConditionJSON extracts the operator and threshold value from a rule's
-// JSON condition string. Returns an error if the JSON is empty, malformed, or
-// missing the operator field.
-func ParseConditionJSON(conditionJSON string) (operator string, threshold float64, err error) {
-	condition, errParse := ParseThresholdConditionJSON(conditionJSON)
-	if errParse != nil {
-		return "", 0, errParse
-	}
-	return condition.Operator, condition.Value, nil
-}
-
 // ParseThresholdConditionJSON parses and validates all threshold behavior
 // fields while remaining backward-compatible with operator/value-only rules.
 func ParseThresholdConditionJSON(conditionJSON string) (ThresholdCondition, error) {

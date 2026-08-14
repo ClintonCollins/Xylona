@@ -72,11 +72,7 @@
                 <div>
                   <span>Created</span>
                   <strong>
-                    {{
-                      props.row.createdAt
-                        ? dayjs(timestampDate(props.row.createdAt)).format('MM/DD/YYYY HH:mm A')
-                        : 'Unknown'
-                    }}
+                    {{ formatTimestamp(props.row.createdAt, 'Unknown') }}
                   </strong>
                 </div>
               </q-card-section>
@@ -363,11 +359,7 @@
                     {{ eventTypeLabel(props.row.eventType) }}
                   </div>
                   <div class="text-caption text-xy-muted">
-                    {{
-                      props.row.createdAt
-                        ? dayjs(timestampDate(props.row.createdAt)).format('MM/DD/YYYY HH:mm:ss A')
-                        : 'Unknown time'
-                    }}
+                    {{ formatTimestamp(props.row.createdAt, 'Unknown time') }}
                   </div>
                 </div>
                 <q-badge
@@ -737,9 +729,7 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { ConnectError } from '@connectrpc/connect'
-import dayjs from 'dayjs'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import type {
@@ -764,6 +754,7 @@ import {
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canManageAlerts } from '@/utils/alert-permissions'
+import { formatTimestamp } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 const $q = useQuasar()
@@ -823,8 +814,7 @@ const channelColumns = [
     name: 'createdAt',
     label: 'Created',
     align: 'left' as const,
-    field: (row: NotificationChannel) =>
-      row.createdAt ? dayjs(timestampDate(row.createdAt)).format('MM/DD/YYYY HH:mm A') : '',
+    field: (row: NotificationChannel) => formatTimestamp(row.createdAt),
     sortable: true,
   },
   {
@@ -1605,8 +1595,7 @@ const historyColumns = [
     name: 'createdAt',
     label: 'Time',
     align: 'left' as const,
-    field: (row: AlertHistoryEntry) =>
-      row.createdAt ? dayjs(timestampDate(row.createdAt)).format('MM/DD/YYYY HH:mm:ss A') : '',
+    field: (row: AlertHistoryEntry) => formatTimestamp(row.createdAt),
     sortable: true,
   },
   {

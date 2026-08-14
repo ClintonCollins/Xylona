@@ -42,17 +42,6 @@ type ResolverConfig struct {
 	CustomTrackerFactory func(info TrackerContext) VersionTracker
 }
 
-// ResolveTracker selects the appropriate VersionTracker for a game server based on
-// its game ID, update command, and server software configuration.
-// Returns nil if no suitable tracker can be determined.
-func ResolveTracker(cfg ResolverConfig, gameID string, updateCommand string, serverSoftware string) VersionTracker {
-	return ResolveTrackerWithContext(cfg, TrackerContext{
-		GameID:         gameID,
-		UpdateCommand:  updateCommand,
-		ServerSoftware: serverSoftware,
-	})
-}
-
 // ResolveTrackerWithContext selects the most appropriate tracker for the full context.
 func ResolveTrackerWithContext(cfg ResolverConfig, info TrackerContext) VersionTracker {
 	if cfg.CustomTrackerFactory != nil {

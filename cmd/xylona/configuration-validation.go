@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 )
 
 type validatedConfiguration struct {
@@ -17,7 +20,7 @@ type validatedConfiguration struct {
 }
 
 func validateConfiguration(config Configuration) (*validatedConfiguration, error) {
-	missingVars := make([]string, 0, 3)
+	missingVars := make([]string, 0, 4)
 
 	if config.CookieHashKey == `` {
 		missingVars = append(missingVars, `COOKIE_HASH_KEY_BASE64`)
@@ -27,6 +30,9 @@ func validateConfiguration(config Configuration) (*validatedConfiguration, error
 	}
 	if config.JWTSecretKey == `` {
 		missingVars = append(missingVars, `JWT_SECRET_KEY_BASE64`)
+	}
+	if config.EncryptionKey == `` {
+		missingVars = append(missingVars, `ENCRYPTION_KEY_BASE64`)
 	}
 
 	if len(missingVars) > 0 {
@@ -50,6 +56,11 @@ func validateConfiguration(config Configuration) (*validatedConfiguration, error
 		return nil, errDecodeJWTKey
 	}
 
+	_, errDecodeEncryptionKey := decodeDatabaseEncryptionKey(config.EncryptionKey)
+	if errDecodeEncryptionKey != nil {
+		return nil, errDecodeEncryptionKey
+	}
+
 	errValidateTimeouts := validateServerTimeoutConfiguration(config)
 	if errValidateTimeouts != nil {
 		return nil, errValidateTimeouts
@@ -67,6 +78,28 @@ func decodeBase64ConfigurationValue(name string, value string) ([]byte, error) {
 		return nil, fmt.Errorf(`decode %s: %w`, name, errDecode)
 	}
 	return decodedValue, nil
+}
+
+func decodeDatabaseEncryptionKey(encodedKey string) ([]byte, error) {
+	if encodedKey == `` {
+		return nil, errors.New(`ENCRYPTION_KEY_BASE64 must be set`)
+	}
+
+	decodedKey, errDecode := decodeBase64ConfigurationValue(`ENCRYPTION_KEY_BASE64`, encodedKey)
+	if errDecode != nil {
+		return nil, errDecode
+	}
+	if len(decodedKey) < xycrypt.EncryptionKeySize {
+		return nil, fmt.Errorf(
+			`ENCRYPTION_KEY_BASE64 must decode to at least %d bytes, got %d`,
+			xycrypt.EncryptionKeySize,
+			len(decodedKey),
+		)
+	}
+
+	// Preserve compatibility with older deployments that supplied longer
+	// secrets while still pinning AES-256 to a 32-byte key.
+	return decodedKey[:xycrypt.EncryptionKeySize], nil
 }
 
 func validateServerTimeoutConfiguration(config Configuration) error {

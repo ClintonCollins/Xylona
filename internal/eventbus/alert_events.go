@@ -2,15 +2,12 @@ package eventbus
 
 import (
 	"time"
-
-	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 // Alert event topics — server events.
 const (
 	TopicGameServerCrashed         = "game_server.crashed"
 	TopicGameServerStatusChanged   = "game_server.status_changed"
-	TopicGameServerVersionChanged  = "game_server.version_changed"
 	TopicGameServerCPUThreshold    = "game_server.cpu_threshold"
 	TopicGameServerMemoryThreshold = "game_server.memory_threshold"
 	TopicGameServerDiskThreshold   = "game_server.disk_threshold"
@@ -22,11 +19,6 @@ const (
 	TopicNodeCPUThreshold    = "node.cpu_threshold"
 	TopicNodeMemoryThreshold = "node.memory_threshold"
 	TopicNodeDiskThreshold   = "node.disk_threshold"
-)
-
-// Scheduled task events.
-const (
-	TopicScheduledTaskExecuted = "scheduled_task.executed"
 )
 
 // ThresholdDirection indicates whether a threshold was entered or resolved.
@@ -69,13 +61,6 @@ type StatusChangedEvent struct {
 	OccurredAt time.Time
 }
 
-// VersionChangedEvent is published when a game server's detected version state changes.
-type VersionChangedEvent struct {
-	ServerID    string
-	Version     string
-	VersionInfo *xylona.VersionInfo
-}
-
 // ThresholdEvent is published when a server metric crosses a threshold boundary.
 type ThresholdEvent struct {
 	ServerID     string
@@ -83,16 +68,6 @@ type ThresholdEvent struct {
 	CurrentValue float64
 	Threshold    float64
 	Direction    ThresholdDirection
-}
-
-// ScheduledTaskExecutedEvent is published after a scheduled task runs.
-type ScheduledTaskExecutedEvent struct {
-	TaskID       string
-	GameServerID string
-	TaskType     string
-	Status       string
-	Message      string
-	Timestamp    time.Time
 }
 
 // NodeThresholdEvent is published when a node-level metric crosses a threshold.

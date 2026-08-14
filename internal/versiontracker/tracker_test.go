@@ -36,16 +36,15 @@ func TestVersionsEqualDetectsDifferentVersions(t *testing.T) {
 }
 
 func TestResolveTracker_SteamCMDUsesAppUpdateID(t *testing.T) {
-	tracker := ResolveTracker(
-		ResolverConfig{},
-		"7_days_to_die",
-		"steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit",
-		"",
-	)
+	tracker := ResolveTrackerWithContext(ResolverConfig{}, TrackerContext{
+		GameID:         "7_days_to_die",
+		UpdateCommand:  "steamcmd +force_install_dir %GAMESERVER_DIRECTORY% +login anonymous +app_update 294420 validate +quit",
+		ServerSoftware: "",
+	})
 
 	steamTracker, ok := tracker.(*SteamTracker)
 	if !ok {
-		t.Fatalf("ResolveTracker() type = %T, want *SteamTracker", tracker)
+		t.Fatalf("ResolveTrackerWithContext() type = %T, want *SteamTracker", tracker)
 	}
 	if steamTracker.preferredAppID != "294420" {
 		t.Fatalf("preferredAppID = %q, want %q", steamTracker.preferredAppID, "294420")

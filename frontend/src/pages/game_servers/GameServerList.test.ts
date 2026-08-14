@@ -335,7 +335,6 @@ describe('GameServerList', () => {
           'router-link': { template: '<a><slot /></a>' },
           'delete-game-server-dialog': true,
           StatusBadge: true,
-          VersionBadge: true,
           'q-btn': QBtnStub,
         },
       },
