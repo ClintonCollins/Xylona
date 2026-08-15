@@ -66,11 +66,6 @@ func (p *Provider) ID() string {
 	return providerID
 }
 
-// RequiresAPIKey returns true — Steam Workshop search requires a Steam Web API key.
-func (p *Provider) RequiresAPIKey() bool {
-	return true
-}
-
 // --------------------------------------------------------------------------
 // Steam API response types
 // --------------------------------------------------------------------------

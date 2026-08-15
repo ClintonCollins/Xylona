@@ -24,9 +24,11 @@ func TestLogout(t *testing.T) {
 	req := connect.NewRequest(&xylona.LogoutRequest{})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
-	// Get session ID from header to verify deletion later
-	cookies := getCookiesFromHeader(req.Header().Get("Cookie"))
-	sessionID := cookies[gatekeeper.SessionIDCookieName]
+	sessionCookies, errSession := gatekeeper.GetSessionFromHeader(req.Header())
+	if errSession != nil {
+		t.Fatalf("GetSessionFromHeader() error = %v", errSession)
+	}
+	sessionID := sessionCookies.SessionID
 	if sessionID == "" {
 		t.Fatal("session ID not set in request")
 	}
@@ -70,18 +72,4 @@ func TestLogout(t *testing.T) {
 	if err == nil {
 		t.Error("Session still exists in DB after logout")
 	}
-}
-
-func getCookiesFromHeader(cookiesHeader string) map[string]string {
-	cookies := strings.Split(cookiesHeader, ";")
-	cookiesMap := make(map[string]string)
-	for _, cookie := range cookies {
-		cookie = strings.TrimSpace(cookie)
-		cookieParts := strings.Split(cookie, "=")
-		if len(cookieParts) != 2 {
-			continue
-		}
-		cookiesMap[cookieParts[0]] = cookieParts[1]
-	}
-	return cookiesMap
 }

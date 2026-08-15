@@ -94,15 +94,3 @@ func GetParser(format string) (*Parser, error) {
 	}
 	return nil, fmt.Errorf("%w: %s", ErrUnknownFormat, format)
 }
-
-// SupportedFormats returns all registered format names.
-func SupportedFormats() []string {
-	formats := make([]string, 0, len(flatParsers)+len(structuredParsers))
-	for k := range flatParsers {
-		formats = append(formats, k)
-	}
-	for k := range structuredParsers {
-		formats = append(formats, k)
-	}
-	return formats
-}

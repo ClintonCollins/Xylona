@@ -78,8 +78,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useClipboard } from '@vueuse/core'
-import { useQuasar } from 'quasar'
+import { copyToClipboard, useQuasar } from 'quasar'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NodeSchema } from '@/proto/shared_pb'
@@ -94,7 +93,6 @@ import { GetXylonaClient } from '@/utils/shared'
 
 const router = useRouter()
 const $q = useQuasar()
-const { copy } = useClipboard()
 
 const props = defineProps({
   existingNodeId: {
@@ -196,7 +194,7 @@ function getPanelURL() {
 
 async function copyCommand() {
   if (generatedJoinCommand.value === '') return
-  await copy(generatedJoinCommand.value)
+  await copyToClipboard(generatedJoinCommand.value)
   $q.notify({
     type: 'positive',
     message: 'Node join command copied to clipboard',

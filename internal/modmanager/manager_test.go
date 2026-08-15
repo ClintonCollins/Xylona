@@ -82,8 +82,6 @@ func (m *mockProvider) CheckForUpdate(_ context.Context, _ string, _ string) (*m
 	return m.updateVersion, m.checkForUpdateErr
 }
 
-func (m *mockProvider) RequiresAPIKey() bool { return false }
-
 // providerCounter ensures each test gets a unique provider ID.
 var providerCounter atomic.Int64
 

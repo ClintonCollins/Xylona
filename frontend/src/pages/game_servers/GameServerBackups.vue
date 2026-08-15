@@ -3,7 +3,7 @@ import { create } from '@bufbuild/protobuf'
 import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { ConnectError } from '@connectrpc/connect'
-import axios from 'axios'
+import { UploadError, uploadFormData } from '@/utils/upload'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
@@ -513,13 +513,9 @@ async function uploadBackup(): Promise<void> {
   formData.append('file', uploadFile.value)
 
   try {
-    await axios.post('/api/backups/upload', formData, {
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress: (progressEvent) => {
-        const totalBytes = progressEvent.total ?? uploadFile.value?.size ?? 0
+    await uploadFormData('/api/backups/upload', formData, {
+      onProgress: (progressEvent) => {
+        const totalBytes = progressEvent.total || uploadFile.value?.size || 0
         if (totalBytes <= 0) {
           return
         }
@@ -548,16 +544,8 @@ async function uploadBackup(): Promise<void> {
 }
 
 function formatUploadError(unknownErr: unknown): string {
-  const errWithResponse = unknownErr as { response?: { data?: unknown } } | null
-  const responseData = errWithResponse?.response?.data
-  if (typeof responseData === 'string' && responseData.trim() !== '') {
-    return responseData
-  }
-
-  if (axios.isAxiosError(unknownErr)) {
-    if (unknownErr.message) {
-      return unknownErr.message
-    }
+  if (unknownErr instanceof UploadError && unknownErr.body.trim() !== '') {
+    return unknownErr.body
   }
 
   if (unknownErr instanceof Error && unknownErr.message.trim() !== '') {

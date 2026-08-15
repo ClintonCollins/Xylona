@@ -19,7 +19,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
-	"github.com/ClintonCollins/Xylona/internal/controller/authz"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -210,7 +209,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 			if errGameServer != nil {
 				return false, fmt.Errorf("load game server for metrics authorization: %w", errGameServer)
 			}
-			return authz.HasPermission(
+			return db.HasPermission(
 				ws.db,
 				currentUser,
 				gameServer.ID,

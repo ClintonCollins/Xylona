@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
-	"github.com/ClintonCollins/Xylona/internal/controller/authz"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -22,7 +22,7 @@ func (inst *Instance) authorizeFileRequest(r *http.Request, gameServer *models.G
 		return http.StatusUnauthorized, errors.New("unauthenticated")
 	}
 
-	allowed, errPermission := authz.HasPermission(inst.db, user, gameServer.ID, gameServer.UserID, permissionID)
+	allowed, errPermission := db.HasPermission(inst.db, user, gameServer.ID, gameServer.UserID, permissionID)
 	if errPermission != nil {
 		log.Error().
 			Err(errPermission).

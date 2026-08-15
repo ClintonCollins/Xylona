@@ -210,7 +210,7 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { useStorage } from '@vueuse/core'
+import { usePersistedRef } from '@/utils/persisted-ref'
 import GameDeleteDialog from '@/components/games/GameDeleteDialog.vue'
 import GameImportDialog from '@/components/games/GameImportDialog.vue'
 import { exportGameDefinitionJSON } from '@/components/games/game-definition-json'
@@ -234,7 +234,7 @@ const showGameImportDialog = ref(false)
 const selectedActionGame = ref<Game | null>(null)
 
 // Use VueUse to store the pagination state automatically.
-const initialPagination = useStorage('game-pagination', {
+const initialPagination = usePersistedRef('game-pagination', {
   rowsPerPage: 25,
   page: 1,
 })

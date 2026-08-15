@@ -363,7 +363,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useStorage } from '@vueuse/core'
+import { usePersistedRef } from '@/utils/persisted-ref'
 import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
@@ -401,7 +401,7 @@ let reconnectRefreshQueued = false
 let nodeListUnmounted = false
 let snapshotAuthorityGeneration = 0
 
-const initialPagination = useStorage('node-pagination', {
+const initialPagination = usePersistedRef('node-pagination', {
   rowsPerPage: 25,
   page: 1,
 })

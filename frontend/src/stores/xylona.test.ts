@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
-import { useToolbarNavQTabsStore, useUserAuthStore } from './xylona'
+import { useUserAuthStore } from './xylona'
 
 const mocks = vi.hoisted(() => ({
   buildXylonaErrorNotification: vi.fn(),
@@ -12,9 +12,11 @@ const mocks = vi.hoisted(() => ({
   logout: vi.fn(),
 }))
 
-vi.mock('@/api/auth', () => ({
-  checkUserAuthenticated: mocks.checkUserAuthenticated,
-  logout: mocks.logout,
+vi.mock('@/api/connect-client', () => ({
+  getXylonaClient: () => ({
+    checkUserAuthenticated: mocks.checkUserAuthenticated,
+    logout: mocks.logout,
+  }),
 }))
 
 vi.mock('@/api/connect-errors', () => ({
@@ -220,32 +222,5 @@ describe('useUserAuthStore — state helpers', () => {
       email: 'admin@example.com',
       superUser: true,
     })
-  })
-})
-
-describe('useToolbarNavQTabsStore', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-  })
-
-  it('initializes with empty tabs', () => {
-    const store = useToolbarNavQTabsStore()
-
-    expect(store.selectedTab).toBe('')
-    expect(store.tabs).toEqual([])
-  })
-
-  it('replaces tabs with the provided configuration', () => {
-    const store = useToolbarNavQTabsStore()
-
-    store.changeTabs([
-      { name: 'Home', to: '/', exact: true, icon: 'home' },
-      { name: 'Servers', to: '/servers', exact: false, icon: 'dns' },
-    ])
-
-    expect(store.tabs).toEqual([
-      { name: 'Home', to: '/', exact: true, icon: 'home' },
-      { name: 'Servers', to: '/servers', exact: false, icon: 'dns' },
-    ])
   })
 })

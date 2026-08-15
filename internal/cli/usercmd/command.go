@@ -15,7 +15,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"charm.land/huh/v2"
 	"connectrpc.com/connect"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
@@ -210,97 +209,103 @@ func createInputFromCommand(cmd *cli.Command, password string) usermgmt.CreateIn
 
 func promptForCreateInput(cmd *cli.Command) (usermgmt.CreateInput, error) {
 	input := createInputFromCommand(cmd, ``)
-	password := ``
-	confirmPassword := ``
-	confirmed := false
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title(`Username`).
-				Placeholder(`admin`).
-				Value(&input.UserName).
-				Validate(func(value string) error {
-					if strings.TrimSpace(value) == `` {
-						return usermgmt.ErrUserNameRequired
-					}
-					return nil
-				}),
-			huh.NewInput().
-				Title(`Email`).
-				Placeholder(`admin@example.com`).
-				Value(&input.Email).
-				Validate(func(value string) error {
-					if strings.TrimSpace(value) == `` {
-						return usermgmt.ErrEmailRequired
-					}
-					return nil
-				}),
-			huh.NewConfirm().
-				Title(`Grant superuser access?`).
-				Affirmative(`Superuser`).
-				Negative(`Standard user`).
-				Value(&input.SuperUser),
-		),
-		huh.NewGroup(
-			huh.NewInput().
-				Title(`First name`).
-				Placeholder(`Optional`).
-				Value(&input.FirstName),
-			huh.NewInput().
-				Title(`Last name`).
-				Placeholder(`Optional`).
-				Value(&input.LastName),
-		),
-		huh.NewGroup(
-			huh.NewInput().
-				Title(`Password`).
-				EchoMode(huh.EchoModePassword).
-				Value(&password).
-				Validate(func(value string) error {
-					if strings.TrimSpace(value) == `` {
-						return usermgmt.ErrPasswordRequired
-					}
-					return nil
-				}),
-			huh.NewInput().
-				Title(`Confirm password`).
-				EchoMode(huh.EchoModePassword).
-				Value(&confirmPassword).
-				Validate(func(value string) error {
-					if strings.TrimSpace(value) == `` {
-						return usermgmt.ErrPasswordEmpty
-					}
-					if password != value {
-						return errors.New(`passwords do not match`)
-					}
-					return nil
-				}),
-		),
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title(`Create this user now?`).
-				Affirmative(`Create user`).
-				Negative(`Cancel`).
-				Value(&confirmed),
-		),
-	).WithAccessible(os.Getenv(`ACCESSIBLE`) != ``)
-
-	errRun := form.Run()
-	if errRun != nil {
-		return usermgmt.CreateInput{}, fmt.Errorf(`run interactive user create prompt: %w`, errRun)
+	userName, errUserName := promptRequiredLine(`Username`, input.UserName)
+	if errUserName != nil {
+		return usermgmt.CreateInput{}, errUserName
+	}
+	email, errEmail := promptRequiredLine(`Email`, input.Email)
+	if errEmail != nil {
+		return usermgmt.CreateInput{}, errEmail
+	}
+	superUser, errSuperUser := promptYesNo(`Grant superuser access?`, input.SuperUser)
+	if errSuperUser != nil {
+		return usermgmt.CreateInput{}, errSuperUser
+	}
+	firstName, errFirstName := promptOptionalLine(`First name`, input.FirstName)
+	if errFirstName != nil {
+		return usermgmt.CreateInput{}, errFirstName
+	}
+	lastName, errLastName := promptOptionalLine(`Last name`, input.LastName)
+	if errLastName != nil {
+		return usermgmt.CreateInput{}, errLastName
+	}
+	password, errPassword := promptForPassword(true)
+	if errPassword != nil {
+		return usermgmt.CreateInput{}, errPassword
+	}
+	confirmed, errConfirm := promptYesNo(`Create this user now?`, true)
+	if errConfirm != nil {
+		return usermgmt.CreateInput{}, errConfirm
 	}
 	if !confirmed {
 		return usermgmt.CreateInput{}, errors.New(`user creation cancelled`)
 	}
 
-	input.UserName = strings.TrimSpace(input.UserName)
-	input.Email = strings.TrimSpace(input.Email)
-	input.FirstName = strings.TrimSpace(input.FirstName)
-	input.LastName = strings.TrimSpace(input.LastName)
-	input.Password = password
+	return usermgmt.CreateInput{
+		UserName:  userName,
+		Email:     email,
+		FirstName: firstName,
+		LastName:  lastName,
+		Password:  password,
+		SuperUser: superUser,
+	}, nil
+}
 
-	return input, nil
+func promptRequiredLine(label string, current string) (string, error) {
+	value, errPrompt := promptOptionalLine(label, current)
+	if errPrompt != nil {
+		return ``, errPrompt
+	}
+	if value == `` {
+		if label == `Username` {
+			return ``, usermgmt.ErrUserNameRequired
+		}
+		return ``, usermgmt.ErrEmailRequired
+	}
+	return value, nil
+}
+
+func promptOptionalLine(label string, current string) (string, error) {
+	prompt := label
+	if current != `` {
+		prompt = fmt.Sprintf(`%s [%s]`, label, current)
+	}
+	_, errWrite := fmt.Fprintf(commandStdout, `%s: `, prompt)
+	if errWrite != nil {
+		return ``, fmt.Errorf(`write %s prompt: %w`, label, errWrite)
+	}
+	reader := bufio.NewReader(commandStdin)
+	line, errRead := reader.ReadString('\n')
+	if errRead != nil && !errors.Is(errRead, io.EOF) {
+		return ``, fmt.Errorf(`read %s: %w`, label, errRead)
+	}
+	value := strings.TrimSpace(line)
+	if value == `` {
+		return strings.TrimSpace(current), nil
+	}
+	return value, nil
+}
+
+func promptYesNo(label string, defaultYes bool) (bool, error) {
+	hint := `y/N`
+	if defaultYes {
+		hint = `Y/n`
+	}
+	_, errWrite := fmt.Fprintf(commandStdout, `%s [%s]: `, label, hint)
+	if errWrite != nil {
+		return false, fmt.Errorf(`write confirm prompt: %w`, errWrite)
+	}
+	reader := bufio.NewReader(commandStdin)
+	line, errRead := reader.ReadString('\n')
+	if errRead != nil && !errors.Is(errRead, io.EOF) {
+		return false, fmt.Errorf(`read confirm: %w`, errRead)
+	}
+	value := strings.ToLower(strings.TrimSpace(line))
+	if value == `` {
+		return defaultYes, nil
+	}
+	return value == `y` || value == `yes`, nil
 }
 
 func runUpdate(ctx context.Context, cmd *cli.Command, options Options) error {

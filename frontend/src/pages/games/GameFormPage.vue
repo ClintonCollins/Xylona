@@ -1,21 +1,30 @@
 <template>
   <q-page>
     <div class="row justify-center q-pa-md">
-      <game-form ref="formRef" :existing-game-id="gameID"></game-form>
+      <game-form
+        ref="formRef"
+        :copy-game-id="copyGameId"
+        :existing-game-id="existingGameId"></game-form>
     </div>
   </q-page>
 </template>
 
 <script lang="ts" setup>
 import GameForm from '@/components/games/GameForm.vue'
-import { ref } from 'vue'
-import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
+import { computed, ref } from 'vue'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
+
+const props = defineProps<{
+  mode?: 'create' | 'edit' | 'copy'
+}>()
 
 const $q = useQuasar()
 const route = useRoute()
-const gameID = ref(route.params.id)
 const formRef = ref<InstanceType<typeof GameForm> | null>(null)
+const gameID = computed(() => String(route.params['id'] ?? ''))
+const existingGameId = computed(() => (props.mode === 'edit' ? gameID.value : ''))
+const copyGameId = computed(() => (props.mode === 'copy' ? gameID.value : ''))
 
 onBeforeRouteLeave(() => {
   if (!formRef.value?.isDirty) {
@@ -35,5 +44,3 @@ onBeforeRouteLeave(() => {
   })
 })
 </script>
-
-<style scoped></style>

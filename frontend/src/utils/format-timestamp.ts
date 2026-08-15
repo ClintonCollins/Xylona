@@ -1,9 +1,6 @@
 import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 
-/** Canonical 24-hour timestamp format used across the UI. */
-export const TIMESTAMP_FORMAT = 'MMM D, YYYY HH:mm:ss'
-
 const timestampFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',

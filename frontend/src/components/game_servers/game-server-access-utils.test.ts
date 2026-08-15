@@ -1,20 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatProtoTimestamp, hostFromBaseURL } from './game-server-access-utils'
-
-describe('hostFromBaseURL', () => {
-  it('returns host for full https URL', () => {
-    expect(hostFromBaseURL('https://example.com:8443')).toBe('example.com:8443')
-  })
-
-  it('returns original host when scheme is missing', () => {
-    expect(hostFromBaseURL('example.com:8080')).toBe('example.com:8080')
-  })
-
-  it('returns empty string for empty input', () => {
-    expect(hostFromBaseURL('')).toBe('')
-  })
-})
+import { formatProtoTimestamp } from './game-server-access-utils'
 
 describe('formatProtoTimestamp', () => {
   it('formats a valid timestamp', () => {

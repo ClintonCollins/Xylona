@@ -153,7 +153,7 @@
 <script lang="ts" setup>
 import { ref, Ref } from 'vue'
 import { bytesToSize } from '@/utils/shared'
-import axios, { AxiosProgressEvent, AxiosRequestConfig } from 'axios'
+import { uploadFormData } from '@/utils/upload'
 import {
   tabBarrierBlock,
   tabCheck,
@@ -215,6 +215,7 @@ type uploaderFile = {
   uploadedSizeSoFarLabel: string
   sizeLabel: string
   progressLabel: string
+  lastLoaded?: number
 }
 
 enum FileStatus {
@@ -340,26 +341,20 @@ class FileUploader {
     if (this.abortController === null) {
       return
     }
-    const axiosConfig: AxiosRequestConfig = {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    await uploadFormData(props.uploadURL, formData, {
       signal: this.abortController.signal,
-      onUploadProgress: (progressEvent) => {
-        this.setFileProgressDetails.bind(this)(file, progressEvent)
+      onProgress: (progressEvent) => {
+        this.setFileProgressDetails(file, progressEvent)
         this.calculateLabels()
       },
-    }
-
-    await axios
-      .post(props.uploadURL, formData, axiosConfig)
+    })
       .then(() => {
         this.changeFileStatus(file, FileStatus.Uploaded)
         this.uploadedFilesCount++
         this.queuedFilesCount--
       })
       .catch((error: Error) => {
-        if (axios.isCancel(error)) {
+        if (error.name === 'AbortError') {
           this.changeFileStatus(file, FileStatus.Aborted)
           return
         }
@@ -395,14 +390,16 @@ class FileUploader {
     emits('uploadedFiles', this.uploadedFilesCount)
   }
 
-  setFileProgressDetails(file: uploaderFile, progressEvent: AxiosProgressEvent) {
-    if (progressEvent.total === undefined) {
+  setFileProgressDetails(file: uploaderFile, progressEvent: { loaded: number; total: number }) {
+    if (progressEvent.total <= 0) {
       return
     }
     const progress = progressEvent.loaded / progressEvent.total
     file.progressLabel = (progress * 100).toFixed(2) + '%'
     file.uploadedSizeSoFarLabel = bytesToSize(progressEvent.loaded)
-    this.uploadedBytes += progressEvent.bytes
+    const previousLoaded = file.lastLoaded ?? 0
+    this.uploadedBytes += Math.max(0, progressEvent.loaded - previousLoaded)
+    file.lastLoaded = progressEvent.loaded
   }
 
   async addFiles(files: FileSystemFileEntry[]) {

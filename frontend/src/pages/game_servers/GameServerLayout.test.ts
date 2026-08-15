@@ -14,12 +14,10 @@ const RouterViewStub = defineComponent({
 })
 
 const mocks = vi.hoisted(() => ({
-  changeTabs: vi.fn(),
   checkUserAuthenticated: vi.fn(),
   getGameServer: vi.fn(),
   replace: vi.fn(),
   route: null as unknown as { path: string; params: { id: string } },
-  storeTabs: [] as Array<{ name: string; to: string; exact: boolean; icon: string; group: string }>,
 }))
 
 vi.mock('vue-router', async () => {
@@ -32,7 +30,6 @@ vi.mock('vue-router', async () => {
 })
 
 vi.mock('@/stores/xylona', () => ({
-  useToolbarNavQTabsStore: () => ({ tabs: mocks.storeTabs, changeTabs: mocks.changeTabs }),
   useUserAuthStore: () => ({
     checkUserAuthenticated: mocks.checkUserAuthenticated,
     user: { id: 'user-1', superUser: false },
@@ -41,6 +38,10 @@ vi.mock('@/stores/xylona', () => ({
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({ getGameServer: mocks.getGameServer }),
+  XylonaEventBus: {
+    on: vi.fn(),
+    off: vi.fn(),
+  },
 }))
 
 vi.mock('quasar', async () => {
@@ -51,16 +52,10 @@ vi.mock('quasar', async () => {
   }
 })
 
-vi.mock('@/composables/useServerSoftwareInstall', () => ({
-  useServerSoftwareInstall: vi.fn(),
-}))
-
 describe('GameServerLayout', () => {
   beforeEach(() => {
     mocks.route.params.id = 'server-a'
     mocks.route.path = '/game-servers/server-a/console'
-    mocks.storeTabs = []
-    mocks.changeTabs.mockReset()
     mocks.getGameServer.mockReset()
     mocks.replace.mockReset()
     mocks.checkUserAuthenticated.mockResolvedValue({
@@ -97,7 +92,6 @@ describe('GameServerLayout', () => {
   it('does not let a slower prior server request overwrite the active server tabs', async () => {
     const wrapper = shallowMount(GameServerLayout)
     await flushPromises()
-    mocks.changeTabs.mockClear()
 
     const serverARequest = createDeferred<ReturnType<typeof buildGameServerResponse>>()
     const serverBRequest = createDeferred<ReturnType<typeof buildGameServerResponse>>()
@@ -117,14 +111,14 @@ describe('GameServerLayout', () => {
     await configureA
     await flushPromises()
 
-    const lastTabs = mocks.changeTabs.mock.calls.at(-1)?.[0] as Array<{ to: string }>
+    const lastTabs = (wrapper.vm as unknown as { layoutTabs: Array<{ to: string }> }).layoutTabs
     expect(lastTabs.length).toBeGreaterThan(0)
     expect(lastTabs.every((tab) => tab.to.includes('/server-b/'))).toBe(true)
   })
 
-  it('marks the first tab of each subsequent group as a group start', () => {
+  it('marks the first tab of each subsequent group as a group start', async () => {
     const basePath = '/game-servers/server-a'
-    mocks.storeTabs = [
+    const tabs = [
       {
         name: 'Console',
         to: `${basePath}/console`,
@@ -165,6 +159,8 @@ describe('GameServerLayout', () => {
         },
       },
     })
+    ;(wrapper.vm as unknown as { layoutTabs: typeof tabs }).layoutTabs = tabs
+    await nextTick()
 
     const groupStartTabs = wrapper
       .findAll('q-route-tab-stub')

@@ -40,7 +40,7 @@ func CollectSystemInfo() (*SystemInfo, error) {
 	info := &SystemInfo{
 		OS:            runtime.GOOS,
 		Architecture:  runtime.GOARCH,
-		XylonaVersion: version.SystemVersion,
+		XylonaVersion: version.SoftwareVersion,
 	}
 
 	hostInfo, errHost := host.Info()

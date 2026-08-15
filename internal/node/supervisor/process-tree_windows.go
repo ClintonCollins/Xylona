@@ -26,17 +26,18 @@ import (
 )
 
 const (
-	windowsProcessStillActive   = 259
-	windowsConsoleSignalPIDEnv  = "XYLONA_WINDOWS_CONSOLE_SIGNAL_PID"
-	windowsConsoleHelperModeEnv = "XYLONA_WINDOWS_CONSOLE_HELPER_MODE"
-	windowsConsoleSignalTimeout = 5 * time.Second
-	windowsConsoleInputMaxBytes = 64 << 10
-	windowsConsoleKeyEvent      = 0x0001
-	windowsVirtualKeyReturn     = 0x0D
-	windowsMapVirtualKeyToScan  = 0
-	windowsLeftAltPressed       = 0x0002
-	windowsLeftCtrlPressed      = 0x0008
-	windowsShiftPressed         = 0x0010
+	windowsProcessStillActive     = 259
+	windowsConsoleSignalPIDEnv    = "XYLONA_WINDOWS_CONSOLE_SIGNAL_PID"
+	windowsConsoleHelperModeEnv   = "XYLONA_WINDOWS_CONSOLE_HELPER_MODE"
+	windowsConsoleSignalTimeout   = 5 * time.Second
+	windowsConsoleHelperKillAfter = 750 * time.Millisecond
+	windowsConsoleInputMaxBytes   = 64 << 10
+	windowsConsoleKeyEvent        = 0x0001
+	windowsVirtualKeyReturn       = 0x0D
+	windowsMapVirtualKeyToScan    = 0
+	windowsLeftAltPressed         = 0x0002
+	windowsLeftCtrlPressed        = 0x0008
+	windowsShiftPressed           = 0x0010
 )
 
 var (
@@ -46,8 +47,16 @@ var (
 	freeConsoleProc           = kernel32DLL.NewProc("FreeConsole")
 	setConsoleCtrlHandlerProc = kernel32DLL.NewProc("SetConsoleCtrlHandler")
 	writeConsoleInputProc     = kernel32DLL.NewProc("WriteConsoleInputW")
+	createTimerQueueTimerProc = kernel32DLL.NewProc("CreateTimerQueueTimer")
+	exitProcessProc           = kernel32DLL.NewProc("ExitProcess")
 	vkKeyScanProc             = user32DLL.NewProc("VkKeyScanW")
 	mapVirtualKeyProc         = user32DLL.NewProc("MapVirtualKeyW")
+	// Per-process handler so the helper ignores the CTRL event it generates.
+	// SetConsoleCtrlHandler(NULL, TRUE) can suppress CTRL+C for the whole
+	// attached console, which prevents the target process from receiving it.
+	ignoreWindowsConsoleCtrlHandler = syscall.NewCallback(func(_ uint32) uintptr {
+		return 1
+	})
 )
 
 func init() {
@@ -175,13 +184,12 @@ func interruptProcessTree(process *os.Process) error {
 	if pid <= 0 || int64(pid) > int64(^uint32(0)) {
 		return fmt.Errorf("invalid process ID %d", pid)
 	}
-	output, errRun := runWindowsConsoleHelper(pid, "signal", nil)
-	if errRun != nil {
-		message := strings.TrimSpace(string(output))
-		if message == "" {
-			message = errRun.Error()
-		}
-		return fmt.Errorf("send CTRL+C to process console %d: %s", pid, message)
+	// CTRL+BREAK delivery can block the helper until Windows finishes every
+	// console handler. Do not wait for the helper; Stop() waits for the
+	// target process to exit instead.
+	errStart := startWindowsConsoleHelper(pid, "signal")
+	if errStart != nil {
+		return fmt.Errorf("send CTRL+C to process console %d: %w", pid, errStart)
 	}
 	return nil
 }
@@ -208,13 +216,12 @@ func mirrorProcessConsoleInput(cmd *exec.Cmd, input string) (bool, error) {
 	return true, nil
 }
 
-func runWindowsConsoleHelper(pid int, mode string, input io.Reader) ([]byte, error) {
+func newWindowsConsoleHelper(pid int, mode string, input io.Reader) (*exec.Cmd, context.CancelFunc, error) {
 	executable, errExecutable := os.Executable()
 	if errExecutable != nil {
-		return nil, fmt.Errorf("resolve console helper executable: %w", errExecutable)
+		return nil, nil, fmt.Errorf("resolve console helper executable: %w", errExecutable)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), windowsConsoleSignalTimeout)
-	defer cancel()
 	helper := exec.CommandContext(ctx, executable)
 	helper.Env = append(
 		os.Environ(),
@@ -226,6 +233,52 @@ func runWindowsConsoleHelper(pid int, mode string, input io.Reader) ([]byte, err
 		CreationFlags: windows.CREATE_NO_WINDOW,
 		HideWindow:    true,
 	}
+	return helper, cancel, nil
+}
+
+func startWindowsConsoleHelper(pid int, mode string) error {
+	helper, cancel, errHelper := newWindowsConsoleHelper(pid, mode, nil)
+	if errHelper != nil {
+		return errHelper
+	}
+	errStart := helper.Start()
+	if errStart != nil {
+		cancel()
+		return fmt.Errorf("start Windows console helper: %w", errStart)
+	}
+	go func() {
+		defer cancel()
+		timer := time.NewTimer(windowsConsoleHelperKillAfter)
+		defer timer.Stop()
+		waitDone := make(chan error, 1)
+		go func() {
+			waitDone <- helper.Wait()
+		}()
+		select {
+		case errWait := <-waitDone:
+			if errWait != nil {
+				log.Debug().Err(errWait).Int("pid", pid).Str("mode", mode).Msg("Windows console helper exited")
+			}
+		case <-timer.C:
+			errKill := helper.Process.Kill()
+			errWait := <-waitDone
+			if errKill != nil && !errors.Is(errKill, os.ErrProcessDone) {
+				log.Debug().Err(errKill).Int("pid", pid).Msg("Failed to stop hung Windows console helper")
+			}
+			if errWait != nil {
+				log.Debug().Err(errWait).Int("pid", pid).Str("mode", mode).Msg("Windows console helper exited")
+			}
+		}
+	}()
+	return nil
+}
+
+func runWindowsConsoleHelper(pid int, mode string, input io.Reader) ([]byte, error) {
+	helper, cancel, errHelper := newWindowsConsoleHelper(pid, mode, input)
+	if errHelper != nil {
+		return nil, errHelper
+	}
+	defer cancel()
 	output, errRun := helper.CombinedOutput()
 	if errRun != nil {
 		return output, fmt.Errorf("run Windows console helper: %w", errRun)
@@ -425,14 +478,33 @@ func sendWindowsConsoleInterrupt(processID uint32) error {
 	if errAttach != nil {
 		return errAttach
 	}
-	errSignal := windows.GenerateConsoleCtrlEvent(windows.CTRL_C_EVENT, 0)
+	// CTRL+C often returns success without reaching a Go process. CTRL+BREAK
+	// is delivered, but GenerateConsoleCtrlEvent can block this helper until
+	// every console handler returns. Arm a process exit so we cannot hang.
+	armWindowsHelperForcedExit(250)
+	_ = windows.GenerateConsoleCtrlEvent(windows.CTRL_C_EVENT, 0)
+	errSignal := windows.GenerateConsoleCtrlEvent(windows.CTRL_BREAK_EVENT, 0)
 	if errSignal == nil {
 		time.Sleep(250 * time.Millisecond)
 	}
 	errFree := callWindowsConsoleProc(freeConsoleProc)
 	return errors.Join(
-		wrapWindowsConsoleError("generate CTRL+C event", errSignal),
+		wrapWindowsConsoleError("generate CTRL+BREAK event", errSignal),
 		wrapWindowsConsoleError("free target process console", errFree),
+	)
+}
+
+func armWindowsHelperForcedExit(delayMilliseconds uint32) {
+	var timer windows.Handle
+	const executeOnceInTimerThread = 0x00000028
+	_, _, _ = createTimerQueueTimerProc.Call(
+		uintptr(unsafe.Pointer(&timer)),
+		0,
+		exitProcessProc.Addr(),
+		0,
+		uintptr(delayMilliseconds),
+		0,
+		executeOnceInTimerThread,
 	)
 }
 
@@ -447,7 +519,7 @@ func attachWindowsConsole(processID uint32) error {
 	if errAttach != nil {
 		return fmt.Errorf("attach to process console %d: %w", processID, errAttach)
 	}
-	errIgnore := callWindowsConsoleProc(setConsoleCtrlHandlerProc, 0, 1)
+	errIgnore := callWindowsConsoleProc(setConsoleCtrlHandlerProc, ignoreWindowsConsoleCtrlHandler, 1)
 	if errIgnore != nil {
 		errFree := callWindowsConsoleProc(freeConsoleProc)
 		return errors.Join(

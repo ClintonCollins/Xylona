@@ -287,8 +287,11 @@ func TestLogoutWithValidSession(t *testing.T) {
 	req := connect.NewRequest(&xylona.LogoutRequest{})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, user.GetId())
 
-	cookies := getCookiesFromHeader(req.Header().Get("Cookie"))
-	sessionID := cookies[gatekeeper.SessionIDCookieName]
+	sessionCookies, errSession := gatekeeper.GetSessionFromHeader(req.Header())
+	if errSession != nil {
+		t.Fatalf("GetSessionFromHeader() error = %v", errSession)
+	}
+	sessionID := sessionCookies.SessionID
 	if sessionID == "" {
 		t.Fatal("session ID not set in request")
 	}

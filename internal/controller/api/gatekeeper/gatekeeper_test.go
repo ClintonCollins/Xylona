@@ -86,14 +86,19 @@ func cookieHeader(sessionID string, sessionToken string) string {
 	return SessionIDCookieName + "=" + sessionID + "; " + SessionTokenCookieName + "=" + sessionToken
 }
 
-func TestGetCookiesFromHeaderIgnoresMalformedFragments(t *testing.T) {
-	cookies := getCookiesFromHeader(`xylona_session_id=session-123; malformed-cookie; xylona_session_token=encoded-token`)
+func TestGetSessionFromHeaderIgnoresMalformedFragments(t *testing.T) {
+	header := http.Header{}
+	header.Set("Cookie", `xylona_session_id=session-123; malformed-cookie; xylona_session_token=encoded-token`)
 
-	if got := cookies[SessionIDCookieName]; got != "session-123" {
-		t.Fatalf("session ID cookie = %q, want %q", got, "session-123")
+	cookies, errGetSession := GetSessionFromHeader(header)
+	if errGetSession != nil {
+		t.Fatalf("GetSessionFromHeader() error = %v", errGetSession)
 	}
-	if got := cookies[SessionTokenCookieName]; got != "encoded-token" {
-		t.Fatalf("session token cookie = %q, want %q", got, "encoded-token")
+	if cookies.SessionID != "session-123" {
+		t.Fatalf("GetSessionFromHeader().SessionID = %q, want %q", cookies.SessionID, "session-123")
+	}
+	if cookies.SessionToken != "encoded-token" {
+		t.Fatalf("GetSessionFromHeader().SessionToken = %q, want %q", cookies.SessionToken, "encoded-token")
 	}
 }
 

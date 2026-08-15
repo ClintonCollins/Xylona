@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/internal/controller/authz"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/scheduler"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -81,7 +81,7 @@ func scheduledTaskLogToProto(entry *models.ScheduledTaskLog, includeMessage bool
 }
 
 func (xs *XylonaService) canReadConsoleTaskDetails(user *models.User, gameServer *models.GameServer) (bool, error) {
-	allowed, errPermission := authz.HasPermission(xs.db, user, gameServer.ID, gameServer.UserID, permissionConsole)
+	allowed, errPermission := db.HasPermission(xs.db, user, gameServer.ID, gameServer.UserID, permissionConsole)
 	if errPermission != nil {
 		log.Error().
 			Err(errPermission).

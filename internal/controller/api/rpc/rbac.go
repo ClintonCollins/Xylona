@@ -83,13 +83,8 @@ func (xs *XylonaService) CreateRole(_ context.Context, request *connect.Request[
 		return nil, invalidArg("name is required")
 	}
 
-	newID, errID := helpers.GenerateUniqueID()
-	if errID != nil {
-		log.Error().Err(errID).Msg("failed to generate role id")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create role"))
-	}
-
-	errCreateRole := xs.db.CreateRoleWithPermissions(newID.String(), name, request.Msg.GetDescription(), request.Msg.GetPermissionIds())
+	roleID := helpers.GenerateUniqueID()
+	errCreateRole := xs.db.CreateRoleWithPermissions(roleID, name, request.Msg.GetDescription(), request.Msg.GetPermissionIds())
 	if errCreateRole != nil {
 		if isSQLiteUniqueConstraintError(errCreateRole) {
 			return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("role already exists"))
@@ -101,9 +96,9 @@ func (xs *XylonaService) CreateRole(_ context.Context, request *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create role"))
 	}
 
-	role, errGetRole := xs.db.GetRoleByID(newID.String())
+	role, errGetRole := xs.db.GetRoleByID(roleID)
 	if errGetRole != nil {
-		log.Error().Err(errGetRole).Str("role_id", newID.String()).Msg("failed to fetch created role")
+		log.Error().Err(errGetRole).Str("role_id", roleID).Msg("failed to fetch created role")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create role"))
 	}
 
@@ -238,14 +233,9 @@ func (xs *XylonaService) GrantGameServerAccess(_ context.Context, request *conne
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to grant access"))
 	}
 
-	newID, errID := helpers.GenerateUniqueID()
-	if errID != nil {
-		log.Error().Err(errID).Msg("failed to generate access grant id")
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to grant access"))
-	}
-
+	grantID := helpers.GenerateUniqueID()
 	errCreateGrant := xs.db.CreateUserRoleAssignment(
-		newID.String(),
+		grantID,
 		userID,
 		roleID,
 		gameServer.ID,
@@ -263,9 +253,9 @@ func (xs *XylonaService) GrantGameServerAccess(_ context.Context, request *conne
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to grant access"))
 	}
 
-	assignment, errGetAssignment := xs.db.GetUserRoleAssignmentByID(newID.String())
+	assignment, errGetAssignment := xs.db.GetUserRoleAssignmentByID(grantID)
 	if errGetAssignment != nil {
-		log.Error().Err(errGetAssignment).Str("grant_id", newID.String()).Msg("failed to fetch created grant")
+		log.Error().Err(errGetAssignment).Str("grant_id", grantID).Msg("failed to fetch created grant")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to grant access"))
 	}
 

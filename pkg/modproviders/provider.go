@@ -127,9 +127,6 @@ type ModProvider interface {
 
 	// CheckForUpdate returns the newest compatible version or ErrNoUpdateAvailable.
 	CheckForUpdate(ctx context.Context, sourceID string, gameVersion string) (*ModVersion, error)
-
-	// RequiresAPIKey reports whether this provider needs an API key to function.
-	RequiresAPIKey() bool
 }
 
 // registry holds all registered providers.

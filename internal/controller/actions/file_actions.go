@@ -13,9 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/go-chi/chi/v5"
-	"github.com/gosimple/slug"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -380,11 +378,13 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativeP
 			return errors.New("writer is not an http.ResponseWriter")
 		}
 
-		mimeType, errDetect := mimetype.DetectFile(fullPath)
-		if errDetect != nil {
+		sniffBuf := make([]byte, 512)
+		sniffed, errSniff := file.Read(sniffBuf)
+		_, errSeek := file.Seek(0, io.SeekStart)
+		if (errSniff != nil && !errors.Is(errSniff, io.EOF)) || errSeek != nil {
 			w.Header().Set("Content-Type", "application/octet-stream")
 		} else {
-			w.Header().Set("Content-Type", mimeType.String())
+			w.Header().Set("Content-Type", http.DetectContentType(sniffBuf[:sniffed]))
 		}
 
 		w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
@@ -467,8 +467,27 @@ func sanitizeDownloadFileName(fileName string) string {
 	}, fileName)
 }
 
+func slugifyName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var builder strings.Builder
+	prevHyphen := false
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			builder.WriteRune(r)
+			prevHyphen = false
+		case r == ' ' || r == '_' || r == '-':
+			if !prevHyphen && builder.Len() > 0 {
+				builder.WriteByte('-')
+				prevHyphen = true
+			}
+		}
+	}
+	return strings.Trim(builder.String(), "-")
+}
+
 func (inst *Instance) createGameServerDirectory(gameServer *models.GameServer, owner *models.User) (string, error) {
-	gsNameSlug := slug.Make(gameServer.Name)
+	gsNameSlug := slugifyName(gameServer.Name)
 
 	// In a hub-spoke deployment the target node may run a different OS and
 	// different env from the controller, so the install root and path

@@ -141,14 +141,8 @@ func (s *Service) Create(input CreateInput) (*User, error) {
 		return nil, errors.New(`internal error`)
 	}
 
-	newID, errID := helpers.GenerateUniqueID()
-	if errID != nil {
-		log.Error().Err(errID).Str(`user_name`, userName).Msg(`failed to generate user id`)
-		return nil, errors.New(`internal error`)
-	}
-
 	createdUser, errCreateUser := s.db.CreateUser(&models.UserSetter{
-		ID:           omit.From(newID.String()),
+		ID:           omit.From(helpers.GenerateUniqueID()),
 		UserName:     omit.From(userName),
 		Email:        omit.From(email),
 		FirstName:    omit.From(firstName),

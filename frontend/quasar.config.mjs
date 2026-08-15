@@ -89,7 +89,6 @@ export default configure(function (/* ctx */) {
           ...viteConf.optimizeDeps,
           include: [
             ...(viteConf.optimizeDeps?.include ?? []),
-            'axios',
             'chart.js',
             'dayjs',
             'ini',

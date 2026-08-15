@@ -27,7 +27,7 @@ func TestValidateConfiguration(t *testing.T) {
 				config.CookieBlockKey = ``
 				config.JWTSecretKey = ``
 			},
-			wantErrPart: `missing required configuration: COOKIE_HASH_KEY_BASE64, COOKIE_BLOCK_KEY_BASE64, JWT_SECRET_KEY_BASE64`,
+			wantErrPart: `missing required configuration: COOKIE_HASH_KEY_BASE64, COOKIE_BLOCK_KEY_BASE64`,
 		},
 		{
 			name: `malformed cookie hash key`,
@@ -93,6 +93,16 @@ func TestValidateConfiguration(t *testing.T) {
 				t.Fatalf(`validateConfiguration() error = %q, want substring %q`, errValidate.Error(), tt.wantErrPart)
 			}
 		})
+	}
+}
+
+func TestValidateConfigurationAllowsEmptyJWTSecret(t *testing.T) {
+	config := validConfigurationForTest()
+	config.JWTSecretKey = ``
+
+	_, errValidate := validateConfiguration(config)
+	if errValidate != nil {
+		t.Fatalf(`validateConfiguration() error = %v, want nil when JWT secret is empty`, errValidate)
 	}
 }
 

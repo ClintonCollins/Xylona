@@ -46,11 +46,6 @@ func (p *Provider) ID() string {
 	return providerID
 }
 
-// RequiresAPIKey returns false — Modrinth read API is public.
-func (p *Provider) RequiresAPIKey() bool {
-	return false
-}
-
 // --------------------------------------------------------------------------
 // Search
 // --------------------------------------------------------------------------

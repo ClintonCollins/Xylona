@@ -53,14 +53,11 @@ func Run(dbPath string, username string, password string, migrationsDir string) 
 		return fmt.Errorf("hash seed password: %w", errHash)
 	}
 
-	userID, errID := helpers.GenerateUniqueID()
-	if errID != nil {
-		return fmt.Errorf("generate seed user ID: %w", errID)
-	}
+	userID := helpers.GenerateUniqueID()
 
 	now := time.Now()
 	_, errCreate := conn.CreateUser(&models.UserSetter{
-		ID:           omit.From(userID.String()),
+		ID:           omit.From(userID),
 		UserName:     omit.From(username),
 		Email:        omit.From(username + "@localhost"),
 		FirstName:    omit.From("Admin"),
@@ -74,23 +71,18 @@ func Run(dbPath string, username string, password string, migrationsDir string) 
 		return fmt.Errorf("create seed user: %w", errCreate)
 	}
 
-	log.Info().Str("username", username).Str("id", userID.String()).Msg("Created admin superuser")
-
-	nodeID, errNodeID := helpers.GenerateUniqueID()
-	if errNodeID != nil {
-		return fmt.Errorf("generate node ID: %w", errNodeID)
-	}
+	log.Info().Str("username", username).Str("id", userID).Msg("Created admin superuser")
 
 	settings := &models.LocalSetting{
 		ID:     1,
-		NodeID: nodeID.String(),
+		NodeID: helpers.GenerateUniqueID(),
 	}
 	errSettings := conn.UpdateLocalSettings(settings)
 	if errSettings != nil {
 		return fmt.Errorf("update local settings: %w", errSettings)
 	}
 
-	log.Info().Str("node_id", nodeID.String()).Msg("Created local settings with node ID")
+	log.Info().Str("node_id", settings.NodeID).Msg("Created local settings with node ID")
 	log.Info().Msg("Database seeded successfully")
 	return nil
 }

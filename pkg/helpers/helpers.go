@@ -2,13 +2,12 @@
 package helpers
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"net/http"
 	"time"
 
-	"github.com/oklog/ulid/v2"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -68,11 +67,7 @@ func GetXylonaHTTPClient() *http.Client {
 	return httpClient
 }
 
-// GenerateUniqueID returns a ULID using cryptographically secure entropy.
-func GenerateUniqueID() (ulid.ULID, error) {
-	id, errGenerate := ulid.New(ulid.Timestamp(time.Now()), rand.Reader)
-	if errGenerate != nil {
-		return ulid.ULID{}, fmt.Errorf("generate unique ID: %w", errGenerate)
-	}
-	return id, nil
+// GenerateUniqueID returns a UUID string.
+func GenerateUniqueID() string {
+	return uuid.NewString()
 }

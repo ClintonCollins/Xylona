@@ -1,12 +1,15 @@
+import { create } from '@bufbuild/protobuf'
 import { defineStore } from 'pinia'
 import { Notify } from 'quasar'
 
-import {
-  checkUserAuthenticated as checkUserAuthenticatedApi,
-  logout as logoutApi,
-} from '@/api/auth'
+import { getXylonaClient } from '@/api/connect-client'
 import { buildXylonaErrorNotification, connectErrorMessage } from '@/api/connect-errors'
-import { CheckUserAuthenticatedResponse, User } from '@/proto/xylona_pb'
+import {
+  CheckUserAuthenticatedRequestSchema,
+  CheckUserAuthenticatedResponse,
+  LogoutRequestSchema,
+  User,
+} from '@/proto/xylona_pb'
 
 interface userAuthState {
   user: User | null
@@ -30,7 +33,10 @@ export const useUserAuthStore = defineStore('userAuth', {
       }
       this.initialFetch = true
       try {
-        const response: CheckUserAuthenticatedResponse = await checkUserAuthenticatedApi()
+        const response: CheckUserAuthenticatedResponse =
+          await getXylonaClient().checkUserAuthenticated(
+            create(CheckUserAuthenticatedRequestSchema, {}),
+          )
         this.initialResponse = response
         if (response.user) {
           this.user = response.user
@@ -52,28 +58,13 @@ export const useUserAuthStore = defineStore('userAuth', {
     },
     async logout(): Promise<void> {
       try {
-        await logoutApi()
+        await getXylonaClient().logout(create(LogoutRequestSchema, {}))
         this.user = null
         this.initialFetch = false
         this.initialResponse = null
       } catch (unknownError: unknown) {
         console.error('Logout error:', connectErrorMessage(unknownError))
       }
-    },
-  },
-})
-
-export const useToolbarNavQTabsStore = defineStore('toolbarNavQTabs', {
-  state: (): {
-    selectedTab: string
-    tabs: { name: string; to: string; exact: boolean; icon: string }[]
-  } => ({
-    selectedTab: '',
-    tabs: [],
-  }),
-  actions: {
-    changeTabs(newTabs: { name: string; to: string; exact: boolean; icon: string }[]) {
-      this.tabs = newTabs
     },
   },
 })

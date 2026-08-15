@@ -46,10 +46,6 @@ func (p *rpcMockModProvider) CheckForUpdate(_ context.Context, _ string, _ strin
 	return nil, modproviders.ErrNoUpdateAvailable
 }
 
-func (p *rpcMockModProvider) RequiresAPIKey() bool {
-	return false
-}
-
 var rpcModProviderCounter atomic.Int64
 
 func newRPCModProvider() *rpcMockModProvider {

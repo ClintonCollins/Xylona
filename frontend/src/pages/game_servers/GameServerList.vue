@@ -467,7 +467,7 @@ import {
   StopGameServerRequestSchema,
   type VersionInfo,
 } from '@/proto/shared_pb'
-import { useStorage } from '@vueuse/core'
+import { usePersistedRef } from '@/utils/persisted-ref'
 import {
   AggregatedGameServer,
   ListAggregatedGameServersRequestSchema,
@@ -525,8 +525,8 @@ const pendingActionByServerID = ref(new Map<string, ServerAction>())
 const updateStepsByServerID = new Map<string, StepState[]>()
 const playerCountsByServerID = ref(new Map<string, ServerPlayerCounts>())
 const resourceUsageByServerID = ref(new Map<string, ServerResourceUsage>())
-const cachedDisplayRows = useStorage<DisplayRow[]>('game-server-display-rows-cache', [])
-const cachedRemoteNodeIDs = useStorage<string[]>('game-server-remote-node-ids-cache', [])
+const cachedDisplayRows = usePersistedRef<DisplayRow[]>('game-server-display-rows-cache', [])
+const cachedRemoteNodeIDs = usePersistedRef<string[]>('game-server-remote-node-ids-cache', [])
 const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
 const $q = useQuasar()
 let loadSequence = 0
@@ -546,7 +546,7 @@ if (sanitizedCachedDisplayRows.some((row, index) => row !== cachedDisplayRows.va
   cachedDisplayRows.value = sanitizedCachedDisplayRows
 }
 
-const initialPagination = useStorage('game-server-pagination', {
+const initialPagination = usePersistedRef('game-server-pagination', {
   rowsPerPage: 25,
   page: 1,
 })

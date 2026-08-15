@@ -1,8 +1,9 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
-import axios from 'axios'
 import { defineComponent } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { UploadError } from '@/utils/upload'
 
 import {
   type BackupProgress,
@@ -31,11 +32,16 @@ const mocks = vi.hoisted(() => ({
   restoreGameServerBackup: vi.fn(),
   eventOn: vi.fn(),
   eventOff: vi.fn(),
+  uploadFormData: vi.fn(),
 }))
 
-vi.mock('axios')
-
-const mockedAxios = vi.mocked(axios, true)
+vi.mock('@/utils/upload', async () => {
+  const actual = await vi.importActual<typeof import('@/utils/upload')>('@/utils/upload')
+  return {
+    ...actual,
+    uploadFormData: mocks.uploadFormData,
+  }
+})
 
 vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
@@ -233,7 +239,7 @@ describe('GameServerBackups', () => {
     mocks.getBackupSettings.mockResolvedValue({
       settings: makeBackupSettings(),
     })
-    mockedAxios.post.mockReset()
+    mocks.uploadFormData.mockReset()
   })
 
   afterEach(() => {
@@ -423,7 +429,7 @@ describe('GameServerBackups', () => {
       overview: makeOverview(),
     })
     mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
-    mockedAxios.post.mockResolvedValueOnce({ status: 201, data: '' } as never)
+    mocks.uploadFormData.mockResolvedValueOnce(undefined)
     mocks.listGameServerBackups.mockResolvedValueOnce({
       backups: [makeBackup()],
     })
@@ -442,7 +448,7 @@ describe('GameServerBackups', () => {
     await wrapper.get('[data-testid="confirm-upload-backup"]').trigger('click')
     await flushPromises()
 
-    expect(mockedAxios.post).toHaveBeenCalledTimes(1)
+    expect(mocks.uploadFormData).toHaveBeenCalledTimes(1)
     expect(mocks.listGameServerBackups).toHaveBeenCalledTimes(2)
   })
 
@@ -596,11 +602,7 @@ describe('GameServerBackups', () => {
       overview: makeOverview(),
     })
     mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
-    mockedAxios.post.mockRejectedValueOnce({
-      response: {
-        data: 'invalid zip archive',
-      },
-    })
+    mocks.uploadFormData.mockRejectedValueOnce(new UploadError(400, 'invalid zip archive'))
 
     const wrapper = mountBackups()
     await flushPromises()

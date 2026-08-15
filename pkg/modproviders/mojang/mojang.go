@@ -180,11 +180,6 @@ func (p *Provider) CheckForUpdate(ctx context.Context, sourceID string, _ string
 	return &latest, nil
 }
 
-// RequiresAPIKey reports whether this provider needs an API key.
-func (p *Provider) RequiresAPIKey() bool {
-	return false
-}
-
 func (p *Provider) getManifest(ctx context.Context) (*globalManifest, error) {
 	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, p.manifestURL, nil)
 	if errReq != nil {

@@ -46,11 +46,6 @@ func (p *Provider) ID() string {
 	return providerID
 }
 
-// RequiresAPIKey returns false — Hangar read API is public.
-func (p *Provider) RequiresAPIKey() bool {
-	return false
-}
-
 // --------------------------------------------------------------------------
 // JSON types
 // --------------------------------------------------------------------------

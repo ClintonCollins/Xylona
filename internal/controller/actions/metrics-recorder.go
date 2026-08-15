@@ -67,11 +67,6 @@ type MetricsRecorder struct {
 	config         MetricsRecorderConfig
 }
 
-// NewMetricsRecorder creates and starts a new metrics recorder.
-func NewMetricsRecorder(ctx context.Context, dbInst *db.Connection, registry *noderegistry.Registry, playerCounts PlayerCountProvider) *MetricsRecorder {
-	return NewMetricsRecorderWithConfig(ctx, dbInst, registry, playerCounts, DefaultMetricsRecorderConfig())
-}
-
 // NewMetricsRecorderWithConfig creates and starts a metrics recorder with
 // validated collection and retention settings.
 func NewMetricsRecorderWithConfig(ctx context.Context, dbInst *db.Connection, registry *noderegistry.Registry, playerCounts PlayerCountProvider, config MetricsRecorderConfig) *MetricsRecorder {

@@ -6,12 +6,12 @@ import (
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/internal/controller/authz"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func (xs *XylonaService) ensureLocalServerPermission(user *models.User, gameServer *models.GameServer, permissionID string) error {
-	allowed, errPermission := authz.HasPermission(xs.db, user, gameServer.ID, gameServer.UserID, permissionID)
+	allowed, errPermission := db.HasPermission(xs.db, user, gameServer.ID, gameServer.UserID, permissionID)
 	if errPermission != nil {
 		log.Error().
 			Err(errPermission).

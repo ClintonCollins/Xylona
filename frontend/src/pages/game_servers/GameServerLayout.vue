@@ -35,24 +35,20 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { GetGameServerRequestSchema } from '@/proto/xylona_pb'
-import { useToolbarNavQTabsStore, useUserAuthStore } from '@/stores/xylona'
+import { useUserAuthStore } from '@/stores/xylona'
 import { useQuasar } from 'quasar'
-import { GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { buildGameServerTabs, getUnauthorizedRedirect } from './game-server-layout-tabs'
 import type { GameServerLayoutTab } from './game-server-layout-tabs'
-import { useServerSoftwareInstall } from '@/composables/useServerSoftwareInstall'
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 const $q = useQuasar()
-const navQTabsStore = useToolbarNavQTabsStore()
 const windowWidth = computed(() => $q.screen.width)
 const gameServerRouteKey = computed(() => getServerID())
-// The toolbar store keeps a generic tab shape; this layout is its only writer
-// and always stores GameServerLayoutTab entries (which carry group metadata).
-const layoutTabs = computed(() => navQTabsStore.tabs as GameServerLayoutTab[])
+const layoutTabs = ref<GameServerLayoutTab[]>([])
 
 function isGroupStart(index: number): boolean {
   if (index === 0) {
@@ -70,6 +66,7 @@ let currentHasLiveMap = false
 let tabConfigurationSequence = 0
 
 onMounted(async () => {
+  XylonaEventBus.on('serverSoftwareInstall', handleServerSoftwareInstall)
   const configured = await configureTabs()
   if (configured) {
     await enforceRouteAccess()
@@ -91,9 +88,14 @@ watch(
   },
 )
 
-useServerSoftwareInstall((gameServerId, status) => {
-  const currentId = getServerID()
-  if (gameServerId !== currentId) return
+function handleServerSoftwareInstall(
+  gameServerId: string,
+  _gameServerName: string,
+  status: string,
+) {
+  if (gameServerId !== getServerID()) {
+    return
+  }
   if (status === 'complete' || status === 'failed') {
     void configureTabs().then((configured) => {
       if (configured) {
@@ -101,6 +103,10 @@ useServerSoftwareInstall((gameServerId, status) => {
       }
     })
   }
+}
+
+onUnmounted(() => {
+  XylonaEventBus.off('serverSoftwareInstall', handleServerSoftwareInstall)
 })
 
 function getServerID(): string {
@@ -112,7 +118,7 @@ async function configureTabs() {
   const serverID = getServerID()
   if (serverID === '') {
     if (configurationSequence === tabConfigurationSequence) {
-      navQTabsStore.changeTabs([])
+      layoutTabs.value = []
     }
     return configurationSequence === tabConfigurationSequence
   }
@@ -172,16 +178,14 @@ async function configureTabs() {
   currentIsSuperUser = isSuperUser
   currentHasLiveMap = hasLiveMap
 
-  navQTabsStore.changeTabs(
-    buildGameServerTabs(
-      serverID,
-      permissions,
-      isOwnerOrSuper,
-      hasModSupport,
-      allowStartArgEditing,
-      isSuperUser,
-      hasLiveMap,
-    ),
+  layoutTabs.value = buildGameServerTabs(
+    serverID,
+    permissions,
+    isOwnerOrSuper,
+    hasModSupport,
+    allowStartArgEditing,
+    isSuperUser,
+    hasLiveMap,
   )
   return true
 }

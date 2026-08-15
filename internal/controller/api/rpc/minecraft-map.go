@@ -17,7 +17,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/internal/controller/authz"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -63,7 +62,7 @@ func (xs *XylonaService) GetMinecraftMap(
 	if errView != nil {
 		return nil, errView
 	}
-	canManage, errManage := authz.HasPermission(xs.db, user, gameServer.ID, gameServer.UserID, permissionGameServerSettings)
+	canManage, errManage := db.HasPermission(xs.db, user, gameServer.ID, gameServer.UserID, permissionGameServerSettings)
 	if errManage != nil {
 		log.Error().Err(errManage).Str("game_server_id", gameServer.ID).Msg("Failed to check Minecraft map settings permission")
 		return nil, internalErr()

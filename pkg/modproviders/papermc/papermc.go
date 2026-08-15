@@ -63,11 +63,6 @@ func (p *Provider) baseURLFor(sourceID string) string {
 	return p.baseURL
 }
 
-// RequiresAPIKey returns false — the PaperMC API is public.
-func (p *Provider) RequiresAPIKey() bool {
-	return false
-}
-
 // --------------------------------------------------------------------------
 // API response types
 // --------------------------------------------------------------------------

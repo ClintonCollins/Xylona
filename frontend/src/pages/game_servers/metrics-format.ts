@@ -22,17 +22,6 @@ export function formatMetricNumber(value: number | null, fractionDigits = 1): st
   return value === null || !Number.isFinite(value) ? 'Unknown' : value.toFixed(fractionDigits)
 }
 
-export function formatMetricDuration(seconds: number | null): string {
-  if (seconds === null || !Number.isFinite(seconds)) return 'Unknown'
-  if (seconds < 60) return `${Math.max(Math.floor(seconds), 0)}s`
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  return [days > 0 ? `${days}d` : '', hours > 0 ? `${hours}h` : '', `${minutes}m`]
-    .filter(Boolean)
-    .join(' ')
-}
-
 export function formatMetricTimestamp(timestampMs: number | null): string {
   if (timestampMs === null || !Number.isFinite(timestampMs)) return 'Unknown'
   return new Intl.DateTimeFormat(undefined, {

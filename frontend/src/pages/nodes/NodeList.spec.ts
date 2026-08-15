@@ -77,13 +77,9 @@ vi.mock('quasar', async () => {
   }
 })
 
-vi.mock('@vueuse/core', async () => {
-  const actual = await vi.importActual<typeof import('@vueuse/core')>('@vueuse/core')
-  return {
-    ...actual,
-    useStorage: <T>(_: string, initialValue: T) => ref(initialValue),
-  }
-})
+vi.mock('@/utils/persisted-ref', () => ({
+  usePersistedRef: <T>(_: string, initialValue: T) => ref(initialValue),
+}))
 
 const globalStubs = {
   stubs: {

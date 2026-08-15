@@ -28,9 +28,6 @@ func validateConfiguration(config Configuration) (*validatedConfiguration, error
 	if config.CookieBlockKey == `` {
 		missingVars = append(missingVars, `COOKIE_BLOCK_KEY_BASE64`)
 	}
-	if config.JWTSecretKey == `` {
-		missingVars = append(missingVars, `JWT_SECRET_KEY_BASE64`)
-	}
 	if config.EncryptionKey == `` {
 		missingVars = append(missingVars, `ENCRYPTION_KEY_BASE64`)
 	}
@@ -51,9 +48,11 @@ func validateConfiguration(config Configuration) (*validatedConfiguration, error
 		return nil, fmt.Errorf(`COOKIE_BLOCK_KEY_BASE64 must decode to 16, 24, or 32 bytes, got %d`, len(cookieBlockKey))
 	}
 
-	_, errDecodeJWTKey := decodeBase64ConfigurationValue(`JWT_SECRET_KEY_BASE64`, config.JWTSecretKey)
-	if errDecodeJWTKey != nil {
-		return nil, errDecodeJWTKey
+	if config.JWTSecretKey != `` {
+		_, errDecodeJWTKey := decodeBase64ConfigurationValue(`JWT_SECRET_KEY_BASE64`, config.JWTSecretKey)
+		if errDecodeJWTKey != nil {
+			return nil, errDecodeJWTKey
+		}
 	}
 
 	_, errDecodeEncryptionKey := decodeDatabaseEncryptionKey(config.EncryptionKey)

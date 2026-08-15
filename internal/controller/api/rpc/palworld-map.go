@@ -16,7 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
-	"github.com/ClintonCollins/Xylona/internal/controller/authz"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/palworldmap"
@@ -88,7 +87,7 @@ func (xs *XylonaService) GetPalworldMap(
 		log.Error().Err(errLayers).Str("game_server_id", gameServer.ID).Msg("Stored Palworld map layer configuration is invalid")
 		return nil, internalErr()
 	}
-	canManage, errManage := authz.HasPermission(
+	canManage, errManage := db.HasPermission(
 		xs.db,
 		user,
 		gameServer.ID,

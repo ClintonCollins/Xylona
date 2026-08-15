@@ -1,5 +1,4 @@
-// Package authz contains controller authorization helpers.
-package authz
+package db
 
 import (
 	"fmt"
@@ -7,14 +6,13 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// PermissionLookup defines the permission checks needed by HasPermission.
-type PermissionLookup interface {
+type permissionLookup interface {
 	UserHasPermissionOnServer(userID string, gameServerID string, permissionID string) (bool, error)
 }
 
 // HasPermission checks local authorization for a user on a local game server.
 // Check order: super user -> owner -> explicit role assignment.
-func HasPermission(permissionLookup PermissionLookup, user *models.User, gameServerID string, gameServerOwnerUserID string, permissionID string) (bool, error) {
+func HasPermission(lookup permissionLookup, user *models.User, gameServerID string, gameServerOwnerUserID string, permissionID string) (bool, error) {
 	if user == nil {
 		return false, nil
 	}
@@ -24,7 +22,7 @@ func HasPermission(permissionLookup PermissionLookup, user *models.User, gameSer
 	if user.ID == gameServerOwnerUserID {
 		return true, nil
 	}
-	allowed, errPermission := permissionLookup.UserHasPermissionOnServer(user.ID, gameServerID, permissionID)
+	allowed, errPermission := lookup.UserHasPermissionOnServer(user.ID, gameServerID, permissionID)
 	if errPermission != nil {
 		return false, fmt.Errorf("check permission %s for user %s on server %s: %w", permissionID, user.ID, gameServerID, errPermission)
 	}

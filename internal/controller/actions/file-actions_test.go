@@ -239,3 +239,24 @@ func TestCleanupFailedInstallRoutesRemoteDeletesThroughNodeClient(t *testing.T) 
 		t.Fatalf("Stat(%q) error = %v, want file to remain on controller", sentinelPath, errStat)
 	}
 }
+
+func TestSlugifyName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "spaces become hyphens", input: "My Server", want: "my-server"},
+		{name: "collapses punctuation", input: "Hello_World!!", want: "hello-world"},
+		{name: "trims leftover hyphens", input: "  --Cool--  ", want: "cool"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slugifyName(tt.input)
+			if got != tt.want {
+				t.Fatalf("slugifyName(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}

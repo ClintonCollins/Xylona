@@ -1,7 +1,6 @@
 package cfgparse
 
 import (
-	"slices"
 	"strconv"
 	"testing"
 
@@ -209,9 +208,12 @@ func TestTOML_RegisteredInRegistry(t *testing.T) {
 		t.Error("expected Flat to be nil for TOML parser")
 	}
 
-	formats := SupportedFormats()
-	if !slices.Contains(formats, "toml") {
-		t.Errorf("SupportedFormats() = %v, missing 'toml'", formats)
+	tomlParser, errGet := GetParser("toml")
+	if errGet != nil {
+		t.Fatalf("GetParser(toml) error = %v", errGet)
+	}
+	if tomlParser.Structured == nil {
+		t.Fatal("GetParser(toml) returned no structured parser")
 	}
 }
 

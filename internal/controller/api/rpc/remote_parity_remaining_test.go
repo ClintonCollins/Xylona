@@ -595,10 +595,6 @@ func (p *remoteVariantProvider) CheckForUpdate(_ context.Context, _ string, _ st
 	return &modproviders.ModVersion{VersionID: "1.21.5", VersionString: "1.21.5"}, nil
 }
 
-func (p *remoteVariantProvider) RequiresAPIKey() bool {
-	return false
-}
-
 func setMinecraftRemoteVariantConfig(t *testing.T, game *models.Game) {
 	t.Helper()
 

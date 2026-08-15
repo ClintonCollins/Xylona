@@ -11,16 +11,11 @@ const mocks = vi.hoisted(() => ({
   generateNodePairingObject: vi.fn(),
 }))
 
-vi.mock('@vueuse/core', () => ({
-  useClipboard: () => ({
-    copy: mocks.copy,
-  }),
-}))
-
 vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
+    copyToClipboard: mocks.copy,
     useQuasar: () => ({
       notify: mocks.notify,
     }),

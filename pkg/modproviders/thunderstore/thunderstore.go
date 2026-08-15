@@ -50,11 +50,6 @@ func (p *Provider) ID() string {
 	return providerID
 }
 
-// RequiresAPIKey returns false because the Thunderstore read API is public.
-func (p *Provider) RequiresAPIKey() bool {
-	return false
-}
-
 type categoryInfo struct {
 	Name string `json:"name"`
 	Slug string `json:"slug"`

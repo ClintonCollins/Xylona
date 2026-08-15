@@ -135,18 +135,14 @@ vi.mock('quasar', async () => {
   }
 })
 
-vi.mock('@vueuse/core', async () => {
-  const actual = await vi.importActual<typeof import('@vueuse/core')>('@vueuse/core')
-  return {
-    ...actual,
-    useStorage: <T>(key: string, initialValue: T) => {
-      if (!storageState.values.has(key)) {
-        storageState.values.set(key, ref(initialValue))
-      }
-      return storageState.values.get(key) as { value: T }
-    },
-  }
-})
+vi.mock('@/utils/persisted-ref', () => ({
+  usePersistedRef: <T>(key: string, initialValue: T) => {
+    if (!storageState.values.has(key)) {
+      storageState.values.set(key, ref(initialValue))
+    }
+    return storageState.values.get(key) as { value: T }
+  },
+}))
 
 const QBtnStub = defineComponent({
   name: 'QBtnStub',

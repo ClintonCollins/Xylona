@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -54,50 +55,27 @@ func UserFromContext(ctx context.Context) (*models.User, bool) {
 	return user, true
 }
 
-// Cookies is a lightweight cookie lookup map.
-type Cookies map[string]string
-
-// Get returns the cookie value for the provided key.
-func (c Cookies) Get(key string) (string, error) {
-	cookie, exists := c[key]
-	if !exists {
-		return "", errors.New("cookie not found")
-	}
-	return cookie, nil
-}
-
-func getCookiesFromHeader(cookiesHeader string) Cookies {
-	cookies := strings.Split(cookiesHeader, ";")
-	cookiesMap := make(map[string]string)
-	for _, cookie := range cookies {
-		cookie = strings.TrimSpace(cookie)
-		if cookie == "" {
-			continue
-		}
-		cookieParts := strings.SplitN(cookie, "=", 2)
-		if len(cookieParts) != 2 {
-			continue
-		}
-		cookiesMap[cookieParts[0]] = cookieParts[1]
-	}
-	return cookiesMap
-}
-
 // GetSessionFromHeader extracts session cookies from an HTTP header map.
 func GetSessionFromHeader(header http.Header) (*SessionCookies, error) {
-	cookies := getCookiesFromHeader(header.Get("Cookie"))
-	sessionID, errGetSessionID := cookies.Get(SessionIDCookieName)
-	if errGetSessionID != nil {
-		return nil, errGetSessionID
+	cookieHeader := dropNamelessCookieFragments(header.Get("Cookie"))
+	cookies, errParse := http.ParseCookie(cookieHeader)
+	if errParse != nil && len(cookies) == 0 {
+		return nil, fmt.Errorf("parse cookie header: %w", errParse)
 	}
-	sessionTokenEncoded, errGetSessionToken := cookies.Get(SessionTokenCookieName)
-	if errGetSessionToken != nil {
-		return nil, errGetSessionToken
+	return GetSessionFromCookies(cookies)
+}
+
+func dropNamelessCookieFragments(cookieHeader string) string {
+	parts := strings.Split(cookieHeader, ";")
+	kept := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" || !strings.Contains(trimmed, "=") {
+			continue
+		}
+		kept = append(kept, trimmed)
 	}
-	return &SessionCookies{
-		SessionID:    sessionID,
-		SessionToken: sessionTokenEncoded,
-	}, nil
+	return strings.Join(kept, "; ")
 }
 
 // GetSessionFromCookies extracts session cookies from parsed HTTP cookies.

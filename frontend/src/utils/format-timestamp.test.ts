@@ -1,7 +1,7 @@
 import { timestampFromDate } from '@bufbuild/protobuf/wkt'
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatTimestamp, TIMESTAMP_FORMAT } from './format-timestamp'
+import { formatDate, formatTimestamp } from './format-timestamp'
 
 describe('formatTimestamp', () => {
   it.each([
@@ -51,7 +51,6 @@ describe('formatTimestamp', () => {
   })
 
   it('never emits AM/PM markers in the canonical format', () => {
-    expect(TIMESTAMP_FORMAT).not.toContain('A')
     expect(formatTimestamp(new Date(2026, 2, 5, 17, 32, 10))).not.toMatch(/AM|PM/)
   })
 

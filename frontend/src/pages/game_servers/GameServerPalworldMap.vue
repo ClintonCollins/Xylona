@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useDocumentVisibility, useIntervalFn } from '@vueuse/core'
 import { copyToClipboard, useQuasar } from 'quasar'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
 import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
@@ -51,7 +50,7 @@ const installingTiles = ref(false)
 const changingShare = ref(false)
 const generatedShareURL = ref('')
 const layerForm = ref<PalworldMapLayer>(defaultLayer())
-const documentVisibility = useDocumentVisibility()
+let pollTimer: ReturnType<typeof setInterval> | undefined
 
 const gameServerID = computed(() => {
   const id = route.params.id
@@ -224,22 +223,38 @@ async function revokeShare(): Promise<void> {
   }
 }
 
-const poll = useIntervalFn(() => void loadMap(), pollIntervalMs, { immediate: false })
+function stopPolling() {
+  if (pollTimer !== undefined) {
+    clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
 
-// A hidden tab cannot show the map, and its throttled timer returns as a burst
-// of catch-up work when the tab is focused again.
-watch(
-  documentVisibility,
-  (visibility) => {
-    if (visibility === 'hidden') {
-      poll.pause()
-      return
-    }
+function startPolling() {
+  stopPolling()
+  void loadMap()
+  pollTimer = setInterval(() => {
     void loadMap()
-    poll.resume()
-  },
-  { immediate: true },
-)
+  }, pollIntervalMs)
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    stopPolling()
+    return
+  }
+  startPolling()
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  handleVisibilityChange()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopPolling()
+})
 </script>
 
 <template>

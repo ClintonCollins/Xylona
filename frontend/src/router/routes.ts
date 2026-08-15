@@ -84,15 +84,17 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'games/create',
-        component: () => import('pages/games/GameCreate.vue'),
+        component: () => import('pages/games/GameFormPage.vue'),
       },
       {
         path: 'games/:id/edit',
-        component: () => import('pages/games/GameEdit.vue'),
+        component: () => import('pages/games/GameFormPage.vue'),
+        props: { mode: 'edit' },
       },
       {
         path: 'games/:id/copy',
-        component: () => import('pages/games/GameCopy.vue'),
+        component: () => import('pages/games/GameFormPage.vue'),
+        props: { mode: 'copy' },
       },
       {
         path: 'games/:id/config-schema/:fileIndex',

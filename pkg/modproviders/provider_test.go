@@ -7,8 +7,7 @@ import (
 
 // mockProvider is a minimal ModProvider implementation for use in tests.
 type mockProvider struct {
-	id             string
-	requiresAPIKey bool
+	id string
 }
 
 func (m *mockProvider) ID() string {
@@ -44,10 +43,6 @@ func (m *mockProvider) Download(_ context.Context, _ string, _ string, _ string)
 
 func (m *mockProvider) CheckForUpdate(_ context.Context, _ string, _ string) (*ModVersion, error) {
 	return &ModVersion{VersionID: "v1.1.0", VersionString: "1.1.0"}, nil
-}
-
-func (m *mockProvider) RequiresAPIKey() bool {
-	return m.requiresAPIKey
 }
 
 func TestRegisterAndGetProvider(t *testing.T) {

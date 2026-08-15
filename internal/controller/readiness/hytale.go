@@ -448,18 +448,15 @@ func (m *HytaleDeviceAuthManager) Start(ctx context.Context, serverID string, us
 		return "", HytaleDeviceAuthorization{}, time.Time{}, fmt.Errorf("start hytale device authorization: %w", errStart)
 	}
 
-	id, errID := helpers.GenerateUniqueID()
-	if errID != nil {
-		return "", HytaleDeviceAuthorization{}, time.Time{}, fmt.Errorf("generate hytale device flow ID: %w", errID)
-	}
+	id := helpers.GenerateUniqueID()
 	now := m.now().UTC()
 	expiresAt := now.Add(time.Duration(auth.ExpiresIn) * time.Second)
 	interval := time.Duration(auth.Interval) * time.Second
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.flows[id.String()] = &hytaleDeviceFlow{
-		ID:         id.String(),
+	m.flows[id] = &hytaleDeviceFlow{
+		ID:         id,
 		ServerID:   serverID,
 		UserID:     userID,
 		DeviceCode: auth.DeviceCode,
@@ -471,7 +468,7 @@ func (m *HytaleDeviceAuthManager) Start(ctx context.Context, serverID string, us
 		NextPollAt: now.Add(interval),
 		Status:     HytaleDevicePollPending,
 	}
-	return id.String(), auth, expiresAt, nil
+	return id, auth, expiresAt, nil
 }
 
 // Poll advances a device-code flow and returns profile options once authorization succeeds.

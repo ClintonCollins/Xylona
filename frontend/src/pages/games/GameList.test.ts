@@ -25,12 +25,10 @@ vi.mock('@/utils/shared', async () => {
   }
 })
 
-vi.mock('@vueuse/core', async () => {
-  const actual = await vi.importActual<typeof import('@vueuse/core')>('@vueuse/core')
+vi.mock('@/utils/persisted-ref', async () => {
   const vue = await vi.importActual<typeof import('vue')>('vue')
   return {
-    ...actual,
-    useStorage: (_key: string, initialValue: unknown) => vue.ref(initialValue),
+    usePersistedRef: (_key: string, initialValue: unknown) => vue.ref(initialValue),
   }
 })
 

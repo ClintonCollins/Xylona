@@ -2,16 +2,13 @@ package games
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
-	"github.com/ClintonCollins/Xylona/pkg/minecraft"
+	"github.com/ClintonCollins/Xylona/pkg/modproviders/mojang"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -30,47 +27,21 @@ func (m *Minecraft) Update(gameServer *models.GameServer, stdOutWriter, _ io.Wri
 }
 
 func downloadLatestMinecraftServerJar(gameServer *models.GameServer, stdOutWriter io.Writer) error {
-	latestServerURL, errGetURL := minecraft.GetLatestServerDownloadURL()
-	if errGetURL != nil {
-		log.Error().Err(errGetURL).Msg("Failed to get latest server URL")
-		return fmt.Errorf("get latest minecraft server URL: %w", errGetURL)
+	provider := mojang.New()
+	ctx := context.Background()
+	latest, errLatest := provider.CheckForUpdate(ctx, "", "")
+	if errLatest != nil {
+		log.Error().Err(errLatest).Msg("Failed to get latest server URL")
+		return fmt.Errorf("get latest minecraft server URL: %w", errLatest)
 	}
-	httpClient := helpers.GetXylonaHTTPClient()
-	req, errReq := http.NewRequestWithContext(context.Background(), http.MethodGet, latestServerURL, nil)
-	if errReq != nil {
-		log.Error().Err(errReq).Msg("Failed to create latest server request")
-		return fmt.Errorf("create minecraft server download request: %w", errReq)
+	if latest == nil {
+		return errors.New("get latest minecraft server URL: no release available")
 	}
-	response, errGet := httpClient.Do(req)
-	if errGet != nil {
-		log.Error().Err(errGet).Msg("Failed to get latest server")
-		return fmt.Errorf("download latest minecraft server: %w", errGet)
-	}
-	defer func() {
-		errClose := response.Body.Close()
-		if errClose != nil {
-			log.Warn().Err(errClose).Msg("Failed to close Minecraft server download response body")
-		}
-	}()
 	_, _ = stdOutWriter.Write([]byte("Downloading latest server\n"))
-
-	f, errCreate := os.Create(filepath.Join(gameServer.Directory, "minecraft_server.jar"))
-	if errCreate != nil {
-		log.Error().Err(errCreate).Msg("Failed to create server file")
-		return fmt.Errorf("create minecraft server jar: %w", errCreate)
+	_, errDownload := provider.Download(ctx, "", latest.VersionID, gameServer.Directory)
+	if errDownload != nil {
+		log.Error().Err(errDownload).Msg("Failed to get latest server")
+		return fmt.Errorf("download latest minecraft server: %w", errDownload)
 	}
-	defer func() {
-		errClose := f.Close()
-		if errClose != nil {
-			log.Warn().Err(errClose).Msg("Failed to close Minecraft server jar file")
-		}
-	}()
-
-	_, errCopy := io.Copy(f, response.Body)
-	if errCopy != nil {
-		log.Error().Err(errCopy).Msg("Failed to copy server file")
-		return fmt.Errorf("write minecraft server jar: %w", errCopy)
-	}
-
 	return nil
 }

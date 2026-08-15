@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { useDocumentVisibility, useIntervalFn } from '@vueuse/core'
-import { ref, shallowRef, watch } from 'vue'
+import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
 
 import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import { GetPublicPalworldMapRequestSchema, type PalworldMapView } from '@/proto/xylona_pb'
@@ -14,7 +13,7 @@ const mapView = shallowRef<PalworldMapView | null>(null)
 const loading = ref(false)
 const invalidLink = ref(false)
 const loadError = ref(false)
-const documentVisibility = useDocumentVisibility()
+let pollTimer: ReturnType<typeof setInterval> | undefined
 
 function shareToken(): string {
   return window.location.hash.slice(1).trim()
@@ -46,22 +45,38 @@ async function loadMap(): Promise<void> {
   }
 }
 
-const poll = useIntervalFn(() => void loadMap(), pollIntervalMs, { immediate: false })
+function stopPolling() {
+  if (pollTimer !== undefined) {
+    clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
 
-// A hidden tab cannot show the map, and its throttled timer returns as a burst
-// of catch-up work when the tab is focused again.
-watch(
-  documentVisibility,
-  (visibility) => {
-    if (visibility === 'hidden') {
-      poll.pause()
-      return
-    }
+function startPolling() {
+  stopPolling()
+  void loadMap()
+  pollTimer = setInterval(() => {
     void loadMap()
-    poll.resume()
-  },
-  { immediate: true },
-)
+  }, pollIntervalMs)
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    stopPolling()
+    return
+  }
+  startPolling()
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  handleVisibilityChange()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopPolling()
+})
 </script>
 
 <template>

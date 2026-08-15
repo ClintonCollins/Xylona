@@ -79,9 +79,8 @@ const controllerUpdateShutdownTimeout = 14 * time.Minute
 type Configuration struct {
 	CookieHashKey  string `env:"COOKIE_HASH_KEY_BASE64"`
 	CookieBlockKey string `env:"COOKIE_BLOCK_KEY_BASE64"`
-	// JWTSecretKey is required at startup but is not used for session auth.
-	// The first 32 decoded bytes are only a legacy AES decryption fallback
-	// for ciphertext written before ENCRYPTION_KEY_BASE64 existed.
+	// JWTSecretKey is an optional legacy AES decryption fallback for ciphertext
+	// written before ENCRYPTION_KEY_BASE64 existed. It is not used for session auth.
 	JWTSecretKey string `env:"JWT_SECRET_KEY_BASE64"`
 	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
 	// fields (notification channel configs).
@@ -393,13 +392,9 @@ func setupSelfNodeIdentity(dbInst *dbpkg.Connection) (*models.LocalSetting, erro
 			return nil, fmt.Errorf("setupSelfNodeIdentity: get local settings: %w", errSettings)
 		}
 		log.Warn().Msg("No settings found. Generating a node ID and default settings.")
-		newID, errID := helpers.GenerateUniqueID()
-		if errID != nil {
-			return nil, fmt.Errorf("setupSelfNodeIdentity: generate unique ID: %w", errID)
-		}
 		settings = &models.LocalSetting{
 			ID:     1,
-			NodeID: newID.String(),
+			NodeID: helpers.GenerateUniqueID(),
 		}
 		errInsert := dbInst.UpdateLocalSettings(settings)
 		if errInsert != nil {

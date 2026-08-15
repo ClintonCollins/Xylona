@@ -155,7 +155,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { Timestamp } from '@bufbuild/protobuf/wkt'
-import { useStorage } from '@vueuse/core'
+import { usePersistedRef } from '@/utils/persisted-ref'
 import { ConnectError } from '@connectrpc/connect'
 import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
@@ -178,7 +178,7 @@ const search: Ref<string> = ref('')
 const showUserDeleteDialog = ref(false)
 const selectedActionUser = ref<User | null>(null)
 
-const initialPagination = useStorage('user-pagination', {
+const initialPagination = usePersistedRef('user-pagination', {
   rowsPerPage: 25,
   page: 1,
 })
