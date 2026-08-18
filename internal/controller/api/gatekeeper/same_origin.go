@@ -13,13 +13,19 @@ const sameOriginRequestDeniedMessage = "cross-origin request rejected"
 // an explicit Origin or Referer for a different origin than the current host.
 // Requests without either header are allowed for compatibility.
 func RequireSameOriginFormRequests() func(http.Handler) http.Handler {
+	return RequireSameOriginFormRequestsForProxies(nil)
+}
+
+// RequireSameOriginFormRequestsForProxies is RequireSameOriginFormRequests
+// with a trusted-proxy list for forwarded proto/host headers.
+func RequireSameOriginFormRequestsForProxies(trust *ProxyTrust) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if errOrigin := validateSameOriginHeader(r, r.Header.Get("Origin")); errOrigin != nil {
+			if errOrigin := validateSameOriginHeader(r, r.Header.Get("Origin"), trust); errOrigin != nil {
 				http.Error(w, sameOriginRequestDeniedMessage, http.StatusForbidden)
 				return
 			}
-			if errReferer := validateSameOriginHeader(r, r.Header.Get("Referer")); errReferer != nil {
+			if errReferer := validateSameOriginHeader(r, r.Header.Get("Referer"), trust); errReferer != nil {
 				http.Error(w, sameOriginRequestDeniedMessage, http.StatusForbidden)
 				return
 			}
@@ -29,7 +35,7 @@ func RequireSameOriginFormRequests() func(http.Handler) http.Handler {
 	}
 }
 
-func validateSameOriginHeader(r *http.Request, rawHeader string) error {
+func validateSameOriginHeader(r *http.Request, rawHeader string, trust *ProxyTrust) error {
 	rawHeader = strings.TrimSpace(rawHeader)
 	if rawHeader == "" {
 		return nil
@@ -43,8 +49,8 @@ func validateSameOriginHeader(r *http.Request, rawHeader string) error {
 		return errors.New("invalid origin header")
 	}
 
-	requestScheme := requestSchemeForSameOrigin(r)
-	requestHost := requestHostForSameOrigin(r)
+	requestScheme := requestSchemeForSameOrigin(r, trust)
+	requestHost := requestHostForSameOrigin(r, trust)
 	if !strings.EqualFold(headerURL.Scheme, requestScheme) {
 		return errors.New("origin does not match request scheme")
 	}
@@ -55,19 +61,19 @@ func validateSameOriginHeader(r *http.Request, rawHeader string) error {
 	return nil
 }
 
-func requestSchemeForSameOrigin(r *http.Request) string {
-	if r != nil && (r.TLS != nil || strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")) {
+func requestSchemeForSameOrigin(r *http.Request, trust *ProxyTrust) string {
+	if trust.RequestIsHTTPS(r) {
 		return "https"
 	}
 	return "http"
 }
 
-func requestHostForSameOrigin(r *http.Request) string {
+func requestHostForSameOrigin(r *http.Request, trust *ProxyTrust) string {
 	if r == nil {
 		return ""
 	}
 
-	requestHost := requestForwardedHostForSameOrigin(r)
+	requestHost := trust.ForwardedHost(r)
 	if requestHost != "" {
 		return requestHost
 	}

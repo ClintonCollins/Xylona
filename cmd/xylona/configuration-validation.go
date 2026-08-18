@@ -11,12 +11,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/pkg/xycrypt"
 )
 
 type validatedConfiguration struct {
 	cookieHashKey  []byte
 	cookieBlockKey []byte
+	trustedProxies *gatekeeper.ProxyTrust
 }
 
 func validateConfiguration(config Configuration) (*validatedConfiguration, error) {
@@ -65,9 +67,15 @@ func validateConfiguration(config Configuration) (*validatedConfiguration, error
 		return nil, errValidateTimeouts
 	}
 
+	trustedProxies, errTrustedProxies := gatekeeper.ParseTrustedProxies(config.TrustedProxies)
+	if errTrustedProxies != nil {
+		return nil, fmt.Errorf("TRUSTED_PROXIES: %w", errTrustedProxies)
+	}
+
 	return &validatedConfiguration{
 		cookieHashKey:  cookieHashKey,
 		cookieBlockKey: cookieBlockKey,
+		trustedProxies: trustedProxies,
 	}, nil
 }
 

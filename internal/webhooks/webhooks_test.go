@@ -581,6 +581,10 @@ func TestIsPrivateOrReservedIP(t *testing.T) {
 		{"public IPv4 other", "1.1.1.1", false},
 		{"non-private 172", "172.15.0.1", false},
 		{"non-private 172 upper", "172.32.0.1", false},
+		{"CGNAT shared address", "100.64.0.1", true},
+		{"CGNAT upper", "100.127.255.255", true},
+		{"non-CGNAT 100.63", "100.63.255.255", false},
+		{"non-CGNAT 100.128", "100.128.0.1", false},
 	}
 
 	for _, tc := range tests {
@@ -639,6 +643,33 @@ func TestValidateWebhookTarget_AllowsPublic(t *testing.T) {
 	errValidate := ValidateWebhookTarget("https://8.8.8.8/webhook")
 	if errValidate != nil {
 		t.Fatalf("ValidateWebhookTarget(public IP) error = %v", errValidate)
+	}
+}
+
+func TestRejectRedirects(t *testing.T) {
+	t.Parallel()
+
+	errRedirect := rejectRedirects(nil, nil)
+	if !errors.Is(errRedirect, errRedirectsDisabled) {
+		t.Fatalf("rejectRedirects() error = %v, want %v", errRedirect, errRedirectsDisabled)
+	}
+}
+
+func TestDialValidatedBlocksPrivateResolvedIP(t *testing.T) {
+	t.Parallel()
+
+	originalLookup := lookupIPAddr
+	lookupIPAddr = func(_ context.Context, _ string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("169.254.169.254")}}, nil
+	}
+	t.Cleanup(func() {
+		lookupIPAddr = originalLookup
+	})
+
+	dialer := &net.Dialer{Timeout: 50 * time.Millisecond}
+	_, errDial := dialValidated(context.Background(), "tcp", "metadata.example:80", dialer)
+	if !errors.Is(errDial, ErrSSRFBlocked) {
+		t.Fatalf("dialValidated() error = %v, want ErrSSRFBlocked", errDial)
 	}
 }
 

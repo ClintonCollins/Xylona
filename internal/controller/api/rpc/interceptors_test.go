@@ -78,9 +78,10 @@ func TestSessionAuthInterceptorWrapUnary(t *testing.T) {
 			wantNextCalled: true,
 		},
 		{
-			name:           "remove node procedure is allowed without session for pairing rollback",
-			procedure:      xylonaconnect.XylonaRemoveNodeProcedure,
-			wantNextCalled: true,
+			name:      "remove node procedure requires a session",
+			procedure: xylonaconnect.XylonaRemoveNodeProcedure,
+			wantErr:   true,
+			wantCode:  connect.CodeUnauthenticated,
 		},
 		{
 			name:           "public Palworld map is allowed without session",

@@ -12,7 +12,6 @@ import (
 
 var authRateLimitedRPCPaths = []string{
 	"/Login",
-	"/VerifyNode",
 }
 
 var publicMapRPCPaths = []string{
@@ -23,19 +22,26 @@ var publicMapRPCPaths = []string{
 
 // AuthRateLimiter applies a strict IP limit to authentication RPCs and a
 // separate higher limit to public map polling. All other requests pass through
-// without throttling. Localhost addresses remain exempt for E2E suites.
+// without throttling. Localhost addresses remain exempt for E2E suites unless
+// the request arrived through a trusted proxy with a non-loopback client IP.
 func AuthRateLimiter() func(http.Handler) http.Handler {
+	return AuthRateLimiterForProxies(nil)
+}
+
+// AuthRateLimiterForProxies is AuthRateLimiter with a trusted-proxy list used
+// to derive the client IP from X-Forwarded-For.
+func AuthRateLimiterForProxies(trust *ProxyTrust) func(http.Handler) http.Handler {
 	authLimiter := httprate.LimitBy(10, time.Minute, func(r *http.Request) (string, error) {
-		return httprate.CanonicalizeIP(requestClientIP(r)), nil
+		return httprate.CanonicalizeIP(requestClientIP(r, trust)), nil
 	})
 	publicMapLimiter := httprate.LimitBy(120, time.Minute, func(r *http.Request) (string, error) {
-		return httprate.CanonicalizeIP(requestClientIP(r)), nil
+		return httprate.CanonicalizeIP(requestClientIP(r, trust)), nil
 	})
 	return func(next http.Handler) http.Handler {
 		authLimited := authLimiter(next)
 		publicMapLimited := publicMapLimiter(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if isLocalhost(requestClientIP(r)) {
+			if isLocalhost(requestClientIP(r, trust)) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -71,7 +77,10 @@ func shouldRateLimitPath(path string) bool {
 	return false
 }
 
-func requestClientIP(r *http.Request) string {
+func requestClientIP(r *http.Request, trust *ProxyTrust) string {
+	if trust != nil {
+		return trust.ClientIP(r)
+	}
 	clientIP := middleware.GetClientIP(r.Context())
 	if clientIP != "" {
 		return clientIP

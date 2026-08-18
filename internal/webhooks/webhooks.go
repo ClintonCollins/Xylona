@@ -79,6 +79,14 @@ var ErrInvalidWebhookURL = errors.New("webhooks: invalid webhook url")
 // ErrSSRFBlocked is returned when a webhook URL resolves to a private or reserved IP address.
 var ErrSSRFBlocked = errors.New("webhooks: target resolves to a private or reserved IP address")
 
+// errRedirectsDisabled is returned when a webhook target attempts an HTTP redirect.
+var errRedirectsDisabled = errors.New("webhooks: HTTP redirects are not allowed")
+
+// lookupIPAddr resolves a hostname. Tests may replace this.
+var lookupIPAddr = func(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return net.DefaultResolver.LookupIPAddr(ctx, host)
+}
+
 // DeliveryError wraps delivery failures with status code and body details.
 type DeliveryError struct {
 	StatusCode int
@@ -123,11 +131,69 @@ type Sender struct {
 // NewSender creates a Sender with default production settings.
 func NewSender() *Sender {
 	return &Sender{
-		client:      &http.Client{Timeout: 10 * time.Second},
+		client:      newSafeHTTPClient(),
 		rateLimiter: newRateLimiter(10),
 		retry:       defaultRetryConfig,
 		ssrfCheckFn: ValidateWebhookTarget,
 	}
+}
+
+func newSafeHTTPClient() *http.Client {
+	baseTransport, ok := http.DefaultTransport.(*http.Transport)
+	var transport *http.Transport
+	if ok {
+		transport = baseTransport.Clone()
+	} else {
+		transport = &http.Transport{}
+	}
+	dialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return dialValidated(ctx, network, addr, dialer)
+	}
+
+	return &http.Client{
+		Timeout:       10 * time.Second,
+		CheckRedirect: rejectRedirects,
+		Transport:     transport,
+	}
+}
+
+func rejectRedirects(_ *http.Request, _ []*http.Request) error {
+	return errRedirectsDisabled
+}
+
+func dialValidated(ctx context.Context, network, addr string, dialer *net.Dialer) (net.Conn, error) {
+	host, port, errSplit := net.SplitHostPort(addr)
+	if errSplit != nil {
+		return nil, fmt.Errorf("webhooks: invalid dial address: %w", errSplit)
+	}
+
+	ips, errLookup := lookupIPAddr(ctx, host)
+	if errLookup != nil {
+		return nil, fmt.Errorf("webhooks: resolve host: %w", errLookup)
+	}
+
+	var lastErr error
+	for _, ipAddr := range ips {
+		if isPrivateOrReservedIP(ipAddr.IP) {
+			lastErr = fmt.Errorf("%w: %s", ErrSSRFBlocked, ipAddr.IP)
+			continue
+		}
+		target := net.JoinHostPort(ipAddr.IP.String(), port)
+		conn, errDial := dialer.DialContext(ctx, network, target)
+		if errDial != nil {
+			lastErr = errDial
+			continue
+		}
+		return conn, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("%w: no usable addresses", ErrSSRFBlocked)
+	}
+	return nil, lastErr
 }
 
 // Send delivers an alert event to the given webhook. channelType is the proto
@@ -270,6 +336,7 @@ func init() {
 		"172.16.0.0/12",  // RFC1918
 		"192.168.0.0/16", // RFC1918
 		"169.254.0.0/16", // Link-local
+		"100.64.0.0/10",  // CGNAT / shared address space
 		"::1/128",        // IPv6 loopback
 		"fe80::/10",      // IPv6 link-local
 		"fc00::/7",       // IPv6 unique-local

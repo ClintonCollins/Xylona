@@ -7,6 +7,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func TestVerifyDummyDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	VerifyDummy("any-password")
+}
+
 func TestHashAndVerifyRoundTrip(t *testing.T) {
 	t.Parallel()
 

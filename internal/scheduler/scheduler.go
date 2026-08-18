@@ -26,6 +26,7 @@ type DB interface {
 	InsertScheduledTaskLog(scheduledTaskID, gameServerID, taskType, status, message string, startedAt time.Time, finishedAt *time.Time) (*models.ScheduledTaskLog, error)
 	PruneScheduledTaskLogs(olderThan time.Time, maxPerTask int) (int64, error)
 	PruneExpiredUserSessions(olderThan time.Time) (int64, error)
+	DeleteExpiredJoinTokens(cutoff time.Time) (int64, error)
 	GetGameServerByID(gameServerID string) (*models.GameServer, error)
 	GetNodeByID(id string) (*models.Node, error)
 }
@@ -219,6 +220,15 @@ func (s *Scheduler) backgroundSessionPruner() {
 			}
 			if deleted > 0 {
 				log.Info().Int64("deleted", deleted).Msg("Pruned expired user sessions")
+			}
+
+			deletedTokens, errTokens := s.db.DeleteExpiredJoinTokens(cutoff)
+			if errTokens != nil {
+				log.Error().Err(errTokens).Msg("Failed to prune expired node join tokens")
+				continue
+			}
+			if deletedTokens > 0 {
+				log.Info().Int64("deleted", deletedTokens).Msg("Pruned expired node join tokens")
 			}
 		}
 	}

@@ -34,6 +34,9 @@ var (
 	// ErrDownloadIntegrityMismatch is returned when a node download does not
 	// match the expected size or hash supplied by the controller.
 	ErrDownloadIntegrityMismatch = errors.New("node: download integrity verification failed")
+	// ErrDownloadTooLarge is returned when a download exceeds the hard size cap
+	// or a caller-supplied expected size larger than that cap.
+	ErrDownloadTooLarge = errors.New("node: download exceeds maximum allowed size")
 	// ErrInvalidPlayerAction is returned when an action, identifier, or reason
 	// cannot be represented safely by the target game's management protocol.
 	ErrInvalidPlayerAction = errors.New("node: invalid player action")

@@ -1527,6 +1527,62 @@ func TestGetGameServerCoalescesAsyncRemoteVersionRefreshes(t *testing.T) {
 
 }
 
+func TestGetNodeRequiresSuperuser(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.GetNodeRequest{NodeId: "node-local"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errGet := fixture.service.GetNode(context.Background(), request)
+	if errGet == nil {
+		t.Fatal("GetNode(non-superuser) expected error, got nil")
+	}
+	if connect.CodeOf(errGet) != connect.CodePermissionDenied {
+		t.Fatalf("GetNode(non-superuser) code = %v, want %v", connect.CodeOf(errGet), connect.CodePermissionDenied)
+	}
+}
+
+func TestListNodesRedactsListenURLForNonSuperuser(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+
+	request := connect.NewRequest(&xylona.ListNodesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errList := fixture.service.ListNodes(context.Background(), request)
+	if errList != nil {
+		t.Fatalf("ListNodes() error = %v", errList)
+	}
+	if len(response.Msg.GetNodes()) == 0 {
+		t.Fatal("ListNodes() returned no nodes")
+	}
+	for _, entry := range response.Msg.GetNodes() {
+		if entry.GetBaseUrl() != "" {
+			t.Fatalf("ListNodes(non-superuser) leaked BaseUrl %q on node %q", entry.GetBaseUrl(), entry.GetId())
+		}
+		if entry.GetName() == "" {
+			t.Fatalf("ListNodes(non-superuser) missing name for node %q", entry.GetId())
+		}
+	}
+
+	adminRequest := connect.NewRequest(&xylona.ListNodesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, adminRequest, "user-admin")
+	adminResponse, errAdmin := fixture.service.ListNodes(context.Background(), adminRequest)
+	if errAdmin != nil {
+		t.Fatalf("ListNodes(admin) error = %v", errAdmin)
+	}
+	foundListenURL := false
+	for _, entry := range adminResponse.Msg.GetNodes() {
+		if entry.GetBaseUrl() != "" {
+			foundListenURL = true
+			break
+		}
+	}
+	if !foundListenURL {
+		t.Fatal("ListNodes(admin) expected at least one listen URL")
+	}
+}
+
 func TestListNodesIncludesLocalHealthAndOSMetadata(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")

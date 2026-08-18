@@ -16,6 +16,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/nodetls"
 )
 
 const testNodeBootstrapFingerprint = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -88,6 +89,16 @@ func TestNodeBootstrapHandler(t *testing.T) {
 				want: "listen_url is required",
 			},
 			{
+				name: "http listen URL",
+				payload: NodeBootstrapRequest{
+					JoinToken:       "token",
+					ListenURL:       "http://node.example:9500",
+					CertPEM:         "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+					CertFingerprint: testNodeBootstrapFingerprint,
+				},
+				want: "listen_url must be an https URL",
+			},
+			{
 				name: "missing cert PEM",
 				payload: NodeBootstrapRequest{
 					JoinToken:       "token",
@@ -104,6 +115,16 @@ func TestNodeBootstrapHandler(t *testing.T) {
 					CertPEM:   "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
 				},
 				want: "cert_fingerprint is required",
+			},
+			{
+				name: "invalid cert PEM",
+				payload: NodeBootstrapRequest{
+					JoinToken:       "token",
+					ListenURL:       "https://node.example:9500",
+					CertPEM:         "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
+					CertFingerprint: testNodeBootstrapFingerprint,
+				},
+				want: "cert_pem is invalid",
 			},
 		}
 
@@ -149,7 +170,7 @@ func TestNodeBootstrapHandler(t *testing.T) {
 		}
 
 		handler := NodeBootstrapHandler(conn, nil)
-		firstSuccess := serveNodeBootstrap(t, handler, validBootstrapRequest(validToken, "Paired Node"))
+		firstSuccess := serveNodeBootstrap(t, handler, validBootstrapRequest(t, validToken, "Paired Node"))
 		if firstSuccess.Code != http.StatusOK {
 			t.Fatalf("first consume status = %d, want %d body = %q", firstSuccess.Code, http.StatusOK, firstSuccess.Body.String())
 		}
@@ -165,7 +186,7 @@ func TestNodeBootstrapHandler(t *testing.T) {
 
 		for _, testCase := range testCases {
 			t.Run(testCase.name, func(t *testing.T) {
-				response := serveNodeBootstrap(t, handler, validBootstrapRequest(testCase.token, "Rejected Node"))
+				response := serveNodeBootstrap(t, handler, validBootstrapRequest(t, testCase.token, "Rejected Node"))
 				if response.Code != http.StatusUnauthorized {
 					t.Fatalf("status = %d, want %d body = %q", response.Code, http.StatusUnauthorized, response.Body.String())
 				}
@@ -187,8 +208,7 @@ func TestNodeBootstrapHandler(t *testing.T) {
 
 		registry := noderegistry.New("controller-self", &nodeclient.FakeNodeClient{NodeID: "controller-self"})
 		handler := NodeBootstrapHandler(conn, registry)
-		payload := validBootstrapRequest(token, "   ")
-		payload.CertPEM = "not-a-matching-certificate"
+		payload := validBootstrapRequest(t, token, "   ")
 		response := serveNodeBootstrap(t, handler, payload)
 
 		if response.Code != http.StatusOK {
@@ -220,8 +240,8 @@ func TestNodeBootstrapHandler(t *testing.T) {
 		if node.ListenURL != "https://node.example:9500" {
 			t.Fatalf("listen URL = %q", node.ListenURL)
 		}
-		if node.CertFingerprint != testNodeBootstrapFingerprint {
-			t.Fatalf("fingerprint = %q, want %q", node.CertFingerprint, testNodeBootstrapFingerprint)
+		if node.CertFingerprint != payload.CertFingerprint {
+			t.Fatalf("fingerprint = %q, want %q", node.CertFingerprint, payload.CertFingerprint)
 		}
 		if strings.TrimSpace(node.SharedSecretEncrypted) == "" {
 			t.Fatal("shared secret was not stored encrypted")
@@ -246,7 +266,7 @@ func TestNodeBootstrapHandler(t *testing.T) {
 			t.Fatalf("registered client ID = %q, want %q", registeredClient.ID(), bootstrapResponse.NodeID)
 		}
 
-		replay := serveNodeBootstrap(t, handler, validBootstrapRequest(token, "Replay Node"))
+		replay := serveNodeBootstrap(t, handler, validBootstrapRequest(t, token, "Replay Node"))
 		if replay.Code != http.StatusUnauthorized {
 			t.Fatalf("replay status = %d, want %d", replay.Code, http.StatusUnauthorized)
 		}
@@ -256,14 +276,17 @@ func TestNodeBootstrapHandler(t *testing.T) {
 func TestValidateBootstrapRequest(t *testing.T) {
 	t.Parallel()
 
-	errValidate := validateBootstrapRequest(&NodeBootstrapRequest{
-		JoinToken:       "token",
-		ListenURL:       "https://node.example:9500",
-		CertPEM:         "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
-		CertFingerprint: testNodeBootstrapFingerprint,
-	})
+	valid := validBootstrapRequest(t, "token", "node")
+	errValidate := validateBootstrapRequest(&valid)
 	if errValidate != nil {
 		t.Fatalf("validateBootstrapRequest() error = %v", errValidate)
+	}
+
+	mismatched := valid
+	mismatched.CertFingerprint = testNodeBootstrapFingerprint
+	errMismatch := validateBootstrapRequest(&mismatched)
+	if errMismatch == nil || !strings.Contains(errMismatch.Error(), "cert_fingerprint does not match cert_pem") {
+		t.Fatalf("validateBootstrapRequest(mismatch) error = %v", errMismatch)
 	}
 }
 
@@ -275,13 +298,20 @@ func newEncryptedRPCConnection(t *testing.T, sqliteFileName string) *db.Connecti
 	return conn
 }
 
-func validBootstrapRequest(token string, nodeName string) NodeBootstrapRequest {
+func validBootstrapRequest(t *testing.T, token string, nodeName string) NodeBootstrapRequest {
+	t.Helper()
+
+	certPEM, _, fingerprint, errGenerate := nodetls.GenerateSelfSigned(t.Context(), "bootstrap-test")
+	if errGenerate != nil {
+		t.Fatalf("GenerateSelfSigned() error = %v", errGenerate)
+	}
+
 	return NodeBootstrapRequest{
 		JoinToken:       token,
 		NodeName:        nodeName,
 		ListenURL:       "https://node.example:9500",
-		CertPEM:         "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----",
-		CertFingerprint: testNodeBootstrapFingerprint,
+		CertPEM:         string(certPEM),
+		CertFingerprint: fingerprint,
 	}
 }
 

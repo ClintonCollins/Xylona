@@ -37,6 +37,7 @@ func redactGameServerForNonSuperuser(gameServer *xylona.GameServer) {
 	}
 
 	gameServer.BackupDirectory = ""
+	gameServer.NodeHost = ""
 
 	redactGameForNonSuperuser(gameServer.GetGame())
 }

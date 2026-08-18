@@ -129,6 +129,69 @@ func TestListFilesRejectsTraversal(t *testing.T) {
 	}
 }
 
+func TestFileReadsRejectSymlinkEscape(t *testing.T) {
+	root := t.TempDir()
+	outsideDir := t.TempDir()
+	outsideFile := filepath.Join(outsideDir, "secret.txt")
+	errWrite := os.WriteFile(outsideFile, []byte("classified"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile outside error = %v", errWrite)
+	}
+
+	linkPath := filepath.Join(root, "escape-link")
+	errLink := os.Symlink(outsideFile, linkPath)
+	if errLink != nil {
+		t.Skipf("symlinks unavailable: %v", errLink)
+	}
+
+	insideFile := filepath.Join(root, "safe.txt")
+	errInside := os.WriteFile(insideFile, []byte("ok"), 0o600)
+	if errInside != nil {
+		t.Fatalf("WriteFile inside error = %v", errInside)
+	}
+	insideLink := filepath.Join(root, "inside-link")
+	errInsideLink := os.Symlink(insideFile, insideLink)
+	if errInsideLink != nil {
+		t.Skipf("symlinks unavailable: %v", errInsideLink)
+	}
+
+	outsideDirLink := filepath.Join(root, "escape-dir")
+	errDirLink := os.Symlink(outsideDir, outsideDirLink)
+	if errDirLink != nil {
+		t.Skipf("directory symlinks unavailable: %v", errDirLink)
+	}
+
+	n := &Node{}
+
+	_, errRead := n.ReadFile(root, "escape-link")
+	if !errors.Is(errRead, ErrInvalidPath) {
+		t.Fatalf("ReadFile(escape-link) error = %v, want %v", errRead, ErrInvalidPath)
+	}
+
+	_, errOpen := n.OpenFile(root, "escape-link")
+	if !errors.Is(errOpen, ErrInvalidPath) {
+		t.Fatalf("OpenFile(escape-link) error = %v, want %v", errOpen, ErrInvalidPath)
+	}
+
+	_, errStat := n.StatFile(root, "escape-link")
+	if !errors.Is(errStat, ErrInvalidPath) {
+		t.Fatalf("StatFile(escape-link) error = %v, want %v", errStat, ErrInvalidPath)
+	}
+
+	_, errList := n.ListFiles(root, "escape-dir")
+	if !errors.Is(errList, ErrInvalidPath) {
+		t.Fatalf("ListFiles(escape-dir) error = %v, want %v", errList, ErrInvalidPath)
+	}
+
+	got, errReadInside := n.ReadFile(root, "inside-link")
+	if errReadInside != nil {
+		t.Fatalf("ReadFile(inside-link) error = %v", errReadInside)
+	}
+	if string(got) != "ok" {
+		t.Fatalf("ReadFile(inside-link) = %q, want %q", got, "ok")
+	}
+}
+
 func TestCreateFileOrDirectoryAndDelete(t *testing.T) {
 	dir := t.TempDir()
 	n := &Node{}
@@ -403,6 +466,55 @@ func TestDownloadFileFromURLRemovesIntegrityMismatch(t *testing.T) {
 	_, errStat := os.Stat(filepath.Join(dir, "server.jar"))
 	if !errors.Is(errStat, os.ErrNotExist) {
 		t.Fatalf("downloaded file stat error = %v, want not exist", errStat)
+	}
+}
+
+func TestDownloadFileFromURLEnforcesHardSizeCap(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+
+	originalLimit := maxDownloadFromURLBytes
+	maxDownloadFromURLBytes = 16
+	t.Cleanup(func() {
+		maxDownloadFromURLBytes = originalLimit
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, errWrite := w.Write([]byte("0123456789abcdef!!!"))
+		if errWrite != nil {
+			t.Fatalf("Write response: %v", errWrite)
+		}
+	}))
+	defer server.Close()
+	withDownloadTestHTTPClient(t, server.Client())
+
+	_, errDownload := n.DownloadFileFromURL(
+		t.Context(),
+		dir,
+		server.URL+"/server.jar",
+		"",
+		DownloadIntegrity{},
+		ProtectionPolicy{},
+	)
+	if !errors.Is(errDownload, ErrDownloadTooLarge) {
+		t.Fatalf("DownloadFileFromURL() error = %v, want %v", errDownload, ErrDownloadTooLarge)
+	}
+	_, errStat := os.Stat(filepath.Join(dir, "server.jar"))
+	if !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("downloaded file stat error = %v, want not exist", errStat)
+	}
+}
+
+func TestDownloadSizeLimitRejectsOversizedExpectedSize(t *testing.T) {
+	originalLimit := maxDownloadFromURLBytes
+	maxDownloadFromURLBytes = 16
+	t.Cleanup(func() {
+		maxDownloadFromURLBytes = originalLimit
+	})
+
+	_, errLimit := downloadSizeLimit(DownloadIntegrity{ExpectedSize: 32})
+	if !errors.Is(errLimit, ErrDownloadTooLarge) {
+		t.Fatalf("downloadSizeLimit() error = %v, want %v", errLimit, ErrDownloadTooLarge)
 	}
 }
 

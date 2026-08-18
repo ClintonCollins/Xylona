@@ -372,7 +372,7 @@ func (xs *XylonaService) setMinecraftMapShareCookie(header http.Header, settings
 		Expires:  expiresAt,
 		MaxAge:   int(minecraftMapShareGrantTTL.Seconds()),
 		HttpOnly: true,
-		Secure:   xs.secureCookies,
+		Secure:   cookieSecure(xs.secureCookies, header),
 		SameSite: http.SameSiteStrictMode,
 	}
 	header.Add("Set-Cookie", cookie.String())

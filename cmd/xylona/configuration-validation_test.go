@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -77,6 +78,13 @@ func TestValidateConfiguration(t *testing.T) {
 				config.EncryptionKey = encodeSecretForTest(16)
 			},
 			wantErrPart: `ENCRYPTION_KEY_BASE64 must decode to at least 32 bytes, got 16`,
+		},
+		{
+			name: `invalid trusted proxies`,
+			mutate: func(config *Configuration) {
+				config.TrustedProxies = `not-an-ip`
+			},
+			wantErrPart: `TRUSTED_PROXIES`,
 		},
 	}
 
@@ -162,7 +170,7 @@ func TestRegisterMetricsRouteEnabled(t *testing.T) {
 }
 
 func TestSecurityHeadersAllowGoogleFonts(t *testing.T) {
-	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := securityHeaders(nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
@@ -184,6 +192,7 @@ func TestSecurityHeadersSupportExternalMapTiles(t *testing.T) {
 		name           string
 		requestURL     string
 		forwardedProto string
+		useTLS         bool
 		wantImageSrc   string
 		wantReferrer   string
 	}{
@@ -194,10 +203,17 @@ func TestSecurityHeadersSupportExternalMapTiles(t *testing.T) {
 			wantReferrer: "strict-origin-when-cross-origin",
 		},
 		{
-			name:           "HTTPS controller permits only HTTPS tiles",
+			name:         "HTTPS controller permits only HTTPS tiles",
+			requestURL:   "/game-servers/server-1/map",
+			useTLS:       true,
+			wantImageSrc: `img-src 'self' data: blob: https:`,
+			wantReferrer: "strict-origin-when-cross-origin",
+		},
+		{
+			name:           "spoofed forwarded proto is ignored without trusted proxies",
 			requestURL:     "/game-servers/server-1/map",
 			forwardedProto: "https",
-			wantImageSrc:   `img-src 'self' data: blob: https:`,
+			wantImageSrc:   `img-src 'self' data: blob: http: https:`,
 			wantReferrer:   "strict-origin-when-cross-origin",
 		},
 		{
@@ -210,12 +226,15 @@ func TestSecurityHeadersSupportExternalMapTiles(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			handler := securityHeaders(nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusNoContent)
 			}))
 			request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, testCase.requestURL, nil)
 			if testCase.forwardedProto != "" {
 				request.Header.Set("X-Forwarded-Proto", testCase.forwardedProto)
+			}
+			if testCase.useTLS {
+				request.TLS = &tls.ConnectionState{}
 			}
 			response := httptest.NewRecorder()
 

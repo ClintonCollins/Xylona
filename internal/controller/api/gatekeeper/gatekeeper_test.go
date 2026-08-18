@@ -2,6 +2,7 @@ package gatekeeper
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -211,6 +212,39 @@ func TestGetUserFromSession(t *testing.T) {
 	}
 }
 
+func TestGetUserFromSessionRejectsIdleTimeout(t *testing.T) {
+	conn, secureCookieInst := newGatekeeperTestConnection(t)
+	user := createGatekeeperTestUser(t, conn, "user-idle", "idle")
+	encodedToken := createGatekeeperTestSession(
+		t,
+		conn,
+		secureCookieInst,
+		user.ID,
+		"session-idle",
+		"token-idle",
+		time.Now().UTC().Add(30*24*time.Hour),
+	)
+
+	staleAt := time.Now().UTC().Add(-SessionIdleTimeout - time.Hour).Format("2006-01-02 15:04:05")
+	_, errStale := conn.SQLDb.ExecContext(
+		context.Background(),
+		`update user_session set updated_at = ? where id = ?`,
+		staleAt,
+		"session-idle",
+	)
+	if errStale != nil {
+		t.Fatalf("update stale session error = %v", errStale)
+	}
+
+	_, errGetUser := GetUserFromSession("session-idle", encodedToken, conn, secureCookieInst)
+	if errGetUser == nil {
+		t.Fatal("GetUserFromSession() error = nil, want idle timeout")
+	}
+	if errGetUser.Error() != "session expired" {
+		t.Fatalf("GetUserFromSession() error = %q, want %q", errGetUser.Error(), "session expired")
+	}
+}
+
 func TestRequireSessionAuth(t *testing.T) {
 	conn, secureCookieInst := newGatekeeperTestConnection(t)
 	user := createGatekeeperTestUser(t, conn, "user-session-middleware", "middleware")
@@ -321,11 +355,11 @@ func TestRequireSameOriginFormRequests(t *testing.T) {
 			requestProto: "https",
 		},
 		{
-			name:          "forwarded host is used behind a reverse proxy",
+			name:          "untrusted forwarded host is ignored",
 			origin:        "https://xylona.test",
 			forwardedHost: "xylona.test",
-			wantStatus:    http.StatusNoContent,
-			wantCalled:    true,
+			wantStatus:    http.StatusForbidden,
+			wantCalled:    false,
 			requestURL:    "http://internal.proxy.local/api/file/upload",
 			requestHost:   "internal.proxy.local",
 			requestProto:  "https",
@@ -351,8 +385,8 @@ func TestRequireSameOriginFormRequests(t *testing.T) {
 			if tt.forwardedHost != "" {
 				req.Header.Set("X-Forwarded-Host", tt.forwardedHost)
 			}
-			if tt.requestProto != "" {
-				req.Header.Set("X-Forwarded-Proto", tt.requestProto)
+			if tt.requestProto == "https" {
+				req.TLS = &tls.ConnectionState{}
 			}
 
 			rec := httptest.NewRecorder()
@@ -365,5 +399,37 @@ func TestRequireSameOriginFormRequests(t *testing.T) {
 				t.Fatalf("handler called = %t, want %t", handlerCalled, tt.wantCalled)
 			}
 		})
+	}
+}
+
+func TestRequireSameOriginFormRequestsTrustedProxy(t *testing.T) {
+	t.Parallel()
+
+	trust, errTrust := ParseTrustedProxies("127.0.0.1")
+	if errTrust != nil {
+		t.Fatalf("ParseTrustedProxies() error = %v", errTrust)
+	}
+
+	handlerCalled := false
+	handler := RequireSameOriginFormRequestsForProxies(trust)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://internal.proxy.local/api/file/upload", nil)
+	req.Host = "internal.proxy.local"
+	req.RemoteAddr = "127.0.0.1:443"
+	req.Header.Set("Origin", "https://xylona.test")
+	req.Header.Set("X-Forwarded-Host", "xylona.test")
+	req.Header.Set("X-Forwarded-Proto", "https")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if !handlerCalled {
+		t.Fatal("expected handler to be called behind a trusted proxy")
 	}
 }

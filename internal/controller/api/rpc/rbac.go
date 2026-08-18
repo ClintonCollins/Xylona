@@ -18,7 +18,7 @@ import (
 
 // ListRoles returns all defined RBAC roles.
 func (xs *XylonaService) ListRoles(_ context.Context, request *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
@@ -31,12 +31,16 @@ func (xs *XylonaService) ListRoles(_ context.Context, request *connect.Request[x
 
 	resp := &xylona.ListRolesResponse{}
 	for _, role := range roles {
+		permissionIDs := permissionsByRole[role.ID]
+		if !user.SuperUser {
+			permissionIDs = nil
+		}
 		resp.Roles = append(resp.Roles, &xylona.Role{
 			Id:            role.ID,
 			Name:          role.Name,
 			Description:   role.Description,
 			IsSystem:      role.IsSystem,
-			PermissionIds: permissionsByRole[role.ID],
+			PermissionIds: permissionIDs,
 		})
 	}
 
@@ -45,9 +49,12 @@ func (xs *XylonaService) ListRoles(_ context.Context, request *connect.Request[x
 
 // ListPermissions returns all available RBAC permissions.
 func (xs *XylonaService) ListPermissions(_ context.Context, request *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
+	}
+	if !user.SuperUser {
+		return nil, permissionDenied("superuser required")
 	}
 
 	permissions, errGetPermissions := xs.db.GetAllPermissions()

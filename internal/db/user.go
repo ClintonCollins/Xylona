@@ -92,6 +92,41 @@ func (c *Connection) DeleteUserSession(id string) error {
 	return nil
 }
 
+// DeleteUserSessionsByUserID deletes every session belonging to userID.
+func (c *Connection) DeleteUserSessionsByUserID(userID string) (int64, error) {
+	result, errExec := c.SQLDb.ExecContext(
+		c.ctx,
+		`DELETE FROM user_session WHERE user_id = ?`,
+		userID,
+	)
+	if errExec != nil {
+		log.Error().Err(errExec).Str("user_id", userID).Msg("Error deleting user sessions")
+		return 0, fmt.Errorf("delete user sessions by user ID: %w", errExec)
+	}
+
+	rowsAffected, errRowsAffected := result.RowsAffected()
+	if errRowsAffected != nil {
+		return 0, fmt.Errorf("delete user sessions by user ID rows affected: %w", errRowsAffected)
+	}
+
+	return rowsAffected, nil
+}
+
+// TouchUserSession records recent activity on a session.
+func (c *Connection) TouchUserSession(id string, at time.Time) error {
+	_, errExec := c.SQLDb.ExecContext(
+		c.ctx,
+		`UPDATE user_session SET updated_at = ? WHERE id = ?`,
+		at.UTC().Format("2006-01-02 15:04:05"),
+		id,
+	)
+	if errExec != nil {
+		log.Error().Err(errExec).Str("session_id", id).Msg("Error touching user session")
+		return fmt.Errorf("touch user session: %w", errExec)
+	}
+	return nil
+}
+
 // PruneExpiredUserSessions deletes user sessions that expired before the given time.
 func (c *Connection) PruneExpiredUserSessions(olderThan time.Time) (int64, error) {
 	result, errExec := c.SQLDb.ExecContext(

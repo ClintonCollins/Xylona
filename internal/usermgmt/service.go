@@ -247,12 +247,29 @@ func (s *Service) Update(input UpdateInput) (*User, error) {
 		return nil, fmt.Errorf(`usermgmt: update user: %w`, errUpdateUser)
 	}
 
+	if shouldRevokeSessions(targetUser.SuperUser, input) {
+		errRevoke := s.RevokeAllSessions(userID)
+		if errRevoke != nil {
+			return nil, fmt.Errorf("usermgmt: revoke sessions after user update: %w", errRevoke)
+		}
+	}
+
 	updatedUser, errGetUpdatedUser := s.db.GetUserByID(userID)
 	if errGetUpdatedUser != nil {
 		return nil, fmt.Errorf(`usermgmt: get updated user: %w`, errGetUpdatedUser)
 	}
 
 	return userModelToUser(updatedUser), nil
+}
+
+func shouldRevokeSessions(wasSuperUser bool, input UpdateInput) bool {
+	if input.Password != nil {
+		return true
+	}
+	if input.SuperUser != nil && wasSuperUser && !*input.SuperUser {
+		return true
+	}
+	return false
 }
 
 // Delete removes a local user while enforcing shared guardrails.
@@ -289,6 +306,20 @@ func (s *Service) Delete(input DeleteInput) error {
 		return fmt.Errorf(`usermgmt: delete user: %w`, errDeleteUser)
 	}
 
+	return nil
+}
+
+// RevokeAllSessions deletes every session for the user. Used after password
+// changes, superuser demotion, and explicit logout-all-devices requests.
+func (s *Service) RevokeAllSessions(userID string) error {
+	trimmedID := strings.TrimSpace(userID)
+	if trimmedID == "" {
+		return ErrUserIDRequired
+	}
+	_, errRevoke := s.db.DeleteUserSessionsByUserID(trimmedID)
+	if errRevoke != nil {
+		return fmt.Errorf("usermgmt: revoke all sessions: %w", errRevoke)
+	}
 	return nil
 }
 

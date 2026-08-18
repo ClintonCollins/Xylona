@@ -147,6 +147,39 @@ func TestLogoutCookieSecureAttribute(t *testing.T) {
 	}
 }
 
+func TestLoginCookieSecureFromTrustedHTTPSHeader(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+	xs := &XylonaService{
+		db:            fixture.conn,
+		secureCookie:  fixture.secureCookie,
+		secureCookies: false,
+	}
+	_ = createUserForRPCUserTests(t, fixture, "https-cookie-user", false)
+
+	req := connect.NewRequest(&xylona.LoginRequest{
+		UserName: "https-cookie-user",
+		Password: "password123",
+	})
+	req.Header().Set(gatekeeper.InternalHTTPSHeader, "1")
+
+	resp, errLogin := xs.Login(context.Background(), req)
+	if errLogin != nil {
+		t.Fatalf("Login() error = %v", errLogin)
+	}
+	for _, cookie := range resp.Header().Values("Set-Cookie") {
+		isToken := strings.Contains(cookie, gatekeeper.SessionTokenCookieName+"=")
+		isID := strings.Contains(cookie, gatekeeper.SessionIDCookieName+"=")
+		if !isToken && !isID {
+			continue
+		}
+		if !strings.Contains(cookie, "Secure") {
+			t.Fatalf("Cookie %q: expected Secure flag when internal HTTPS header is set", cookie)
+		}
+	}
+}
+
 func TestLoginValidCredentials(t *testing.T) {
 	t.Parallel()
 

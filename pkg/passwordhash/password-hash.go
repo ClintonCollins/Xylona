@@ -31,7 +31,23 @@ var (
 	ErrUnsupportedHashAlgorithm = errors.New("unsupported hash algorithm")
 	// ErrUnsupportedHashVersion indicates an Argon2 version this package does not support.
 	ErrUnsupportedHashVersion = errors.New("unsupported hash version")
+
+	dummyPasswordHash string
 )
+
+func init() {
+	hashed, errHash := Hash("xylona-unknown-user-timing-pad")
+	if errHash != nil {
+		panic("passwordhash: initialize dummy hash: " + errHash.Error())
+	}
+	dummyPasswordHash = hashed
+}
+
+// VerifyDummy spends the same Argon2 work as Verify so unknown-user logins
+// do not return faster than a password mismatch.
+func VerifyDummy(password string) {
+	_, _ = Verify(dummyPasswordHash, password)
+}
 
 // Hash hashes a password using Argon2id and returns a PHC-formatted string.
 func Hash(password string) (string, error) {

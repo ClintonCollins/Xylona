@@ -71,24 +71,103 @@ func validateLocalPath(relativePath string) (string, error) {
 func resolveWithinRoot(root, relative string) (string, error) {
 	cleanRoot := filepath.Clean(root)
 	full := filepath.Clean(filepath.Join(cleanRoot, relative))
-	prefix := cleanRoot + string(filepath.Separator)
-	if full != cleanRoot && !strings.HasPrefix(full, prefix) {
+	if !pathIsInsideRoot(cleanRoot, full) {
 		log.Error().Str("path", full).Msg("node: path escaped game server root")
 		return "", ErrInvalidPath
 	}
 	return full, nil
 }
 
+// ResolveExistingWithinRoot joins root and relative, then requires the
+// symlink-resolved path (or the longest existing prefix) to stay inside root.
+// Callers should use the returned path for read/stat/open so a final symlink
+// cannot be followed after the jail check.
+func ResolveExistingWithinRoot(root, relative string) (string, error) {
+	validated, errPath := validateLocalPath(relative)
+	if errPath != nil {
+		return "", errPath
+	}
+	return resolveExistingWithinRoot(root, validated)
+}
+
+func resolveExistingWithinRoot(root, relative string) (string, error) {
+	fullPath, errResolve := resolveWithinRoot(root, relative)
+	if errResolve != nil {
+		return "", errResolve
+	}
+
+	resolvedRoot, errRoot := filepath.EvalSymlinks(root)
+	if errRoot != nil {
+		return "", fmt.Errorf("node: resolve root: %w", errRoot)
+	}
+	resolvedRoot = filepath.Clean(resolvedRoot)
+
+	resolvedPath, exists, errEval := evalPathOrExistingPrefix(fullPath)
+	if errEval != nil {
+		return "", fmt.Errorf("node: resolve path: %w", errEval)
+	}
+	if !pathIsInsideRoot(resolvedRoot, resolvedPath) {
+		log.Error().Str("path", resolvedPath).Msg("node: symlink escaped game server root")
+		return "", ErrInvalidPath
+	}
+	if exists {
+		return resolvedPath, nil
+	}
+	return fullPath, nil
+}
+
+func evalPathOrExistingPrefix(path string) (string, bool, error) {
+	resolved, errEval := filepath.EvalSymlinks(path)
+	if errEval == nil {
+		return filepath.Clean(resolved), true, nil
+	}
+	if !isNotExistError(errEval) {
+		return "", false, errEval
+	}
+
+	current := filepath.Clean(path)
+	for {
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", false, errEval
+		}
+		parentResolved, errParent := filepath.EvalSymlinks(parent)
+		if errParent == nil {
+			return filepath.Clean(parentResolved), false, nil
+		}
+		if !isNotExistError(errParent) {
+			return "", false, errParent
+		}
+		current = parent
+	}
+}
+
+func isNotExistError(err error) bool {
+	return errors.Is(err, os.ErrNotExist)
+}
+
+func pathIsInsideRoot(root, candidate string) bool {
+	cleanRoot := filepath.Clean(root)
+	cleanCandidate := filepath.Clean(candidate)
+	if runtime.GOOS == "windows" {
+		cleanRoot = strings.ToLower(cleanRoot)
+		cleanCandidate = strings.ToLower(cleanCandidate)
+	}
+	if cleanCandidate == cleanRoot {
+		return true
+	}
+	prefix := cleanRoot + string(filepath.Separator)
+	return strings.HasPrefix(cleanCandidate, prefix)
+}
+
 // ListFiles enumerates the entries directly under directory/relativePath. For
 // directory entries, the returned size is the recursive total of contained
 // file sizes (mirrors the controller's existing ListGameServerFiles behavior).
 func (n *Node) ListFiles(directory, relativePath string) ([]FileEntry, error) {
-	if relativePath != "" && !filepath.IsLocal(relativePath) {
-		log.Error().Str("path", relativePath).Msg("node: list files invalid path")
-		return nil, ErrInvalidPath
+	fullPath, errResolve := ResolveExistingWithinRoot(directory, relativePath)
+	if errResolve != nil {
+		return nil, errResolve
 	}
-
-	fullPath := filepath.Join(directory, relativePath)
 	entries, errReadDir := os.ReadDir(fullPath)
 	if errReadDir != nil {
 		return nil, fmt.Errorf("node: read directory: %w", errReadDir)
@@ -158,12 +237,7 @@ func walkDirectorySize(root string) (int64, error) {
 // ReadFile returns the bytes of directory/relativePath, after verifying the
 // resolved path stays inside directory.
 func (n *Node) ReadFile(directory, relativePath string) ([]byte, error) {
-	validated, errPath := validateLocalPath(relativePath)
-	if errPath != nil {
-		return nil, errPath
-	}
-
-	fullPath, errResolve := resolveWithinRoot(directory, validated)
+	fullPath, errResolve := ResolveExistingWithinRoot(directory, relativePath)
 	if errResolve != nil {
 		return nil, errResolve
 	}
@@ -178,12 +252,7 @@ func (n *Node) ReadFile(directory, relativePath string) ([]byte, error) {
 // StatFile returns metadata for directory/relativePath after verifying the
 // resolved path stays inside directory.
 func (n *Node) StatFile(directory, relativePath string) (FileEntry, error) {
-	validated, errPath := validateLocalPath(relativePath)
-	if errPath != nil {
-		return FileEntry{}, errPath
-	}
-
-	fullPath, errResolve := resolveWithinRoot(directory, validated)
+	fullPath, errResolve := ResolveExistingWithinRoot(directory, relativePath)
 	if errResolve != nil {
 		return FileEntry{}, errResolve
 	}
@@ -198,12 +267,7 @@ func (n *Node) StatFile(directory, relativePath string) (FileEntry, error) {
 // OpenFile opens directory/relativePath for streaming without loading the
 // entire file into controller memory. The caller owns the returned closer.
 func (n *Node) OpenFile(directory, relativePath string) (io.ReadCloser, error) {
-	validated, errPath := validateLocalPath(relativePath)
-	if errPath != nil {
-		return nil, errPath
-	}
-
-	fullPath, errResolve := resolveWithinRoot(directory, validated)
+	fullPath, errResolve := ResolveExistingWithinRoot(directory, relativePath)
 	if errResolve != nil {
 		return nil, errResolve
 	}
@@ -696,6 +760,11 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 		return DownloadFileResult{}, fmt.Errorf("node: validate download URL: %w", errSSRF)
 	}
 
+	sizeLimit, errLimit := downloadSizeLimit(integrity)
+	if errLimit != nil {
+		return DownloadFileResult{}, errLimit
+	}
+
 	httpClientBase := downloadHTTPClient()
 	httpClientCopy := *httpClientBase
 	httpClient := &httpClientCopy
@@ -754,10 +823,7 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 	sha256Hasher := sha256.New()
 	sha1Hasher := sha1.New() // #nosec G401 -- used only for Mojang-published checksum verification.
 	writer := io.MultiWriter(tempFile, sha256Hasher, sha1Hasher)
-	reader := io.Reader(resp.Body)
-	if integrity.ExpectedSize > 0 {
-		reader = io.LimitReader(resp.Body, integrity.ExpectedSize+1)
-	}
+	reader := io.LimitReader(resp.Body, sizeLimit+1)
 	bytesWritten, errCopy := io.Copy(writer, reader)
 	if errCopy != nil {
 		errClose := tempFile.Close()
@@ -765,6 +831,13 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 			log.Warn().Err(errClose).Msg("node: close downloaded file after copy error")
 		}
 		return DownloadFileResult{}, fmt.Errorf("node: write downloaded file: %w", errCopy)
+	}
+	if integrity.ExpectedSize <= 0 && bytesWritten > sizeLimit {
+		errClose := tempFile.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("node: close downloaded file after size cap")
+		}
+		return DownloadFileResult{}, fmt.Errorf("%w: wrote %d bytes, limit %d", ErrDownloadTooLarge, bytesWritten, sizeLimit)
 	}
 
 	sha256Hex := hex.EncodeToString(sha256Hasher.Sum(nil))
@@ -815,6 +888,20 @@ func validateDownloadRedirectTarget(req *http.Request, via []*http.Request) erro
 		return fmt.Errorf("node: download redirect blocked: %w", errValidateRedirect)
 	}
 	return nil
+}
+
+const defaultMaxDownloadFromURLBytes int64 = 512 << 20
+
+var maxDownloadFromURLBytes = defaultMaxDownloadFromURLBytes
+
+func downloadSizeLimit(integrity DownloadIntegrity) (int64, error) {
+	if integrity.ExpectedSize > maxDownloadFromURLBytes {
+		return 0, fmt.Errorf("%w: expected size %d exceeds limit %d", ErrDownloadTooLarge, integrity.ExpectedSize, maxDownloadFromURLBytes)
+	}
+	if integrity.ExpectedSize > 0 {
+		return integrity.ExpectedSize, nil
+	}
+	return maxDownloadFromURLBytes, nil
 }
 
 func validateDownloadIntegrity(integrity DownloadIntegrity, bytesWritten int64, sha256Hex string, sha1Hex string) error {

@@ -81,6 +81,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 	user, errGetUser := xs.db.GetUser(userName)
 	if errGetUser != nil {
 		if errors.Is(errGetUser, sql.ErrNoRows) {
+			passwordhash.VerifyDummy(password)
 			return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
 		}
 		return nil, internalErr()
@@ -126,12 +127,13 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 		return nil, internalErr()
 	}
 
+	secureCookies := cookieSecure(xs.secureCookies, request.Header())
 	tokenCookie := &http.Cookie{
 		Name:     gatekeeper.SessionTokenCookieName,
 		Value:    encodedSession,
 		Path:     "/",
 		Expires:  time.Now().Add(defaultSessionDuration),
-		Secure:   xs.secureCookies,
+		Secure:   secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -140,7 +142,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 		Value:    newSession.ID,
 		Path:     "/",
 		Expires:  time.Now().Add(defaultSessionDuration),
-		Secure:   xs.secureCookies,
+		Secure:   secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -166,13 +168,14 @@ func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylo
 		Msg: &xylona.LogoutResponse{},
 	}
 
+	secureCookies := cookieSecure(xs.secureCookies, request.Header())
 	clearTokenCookie := &http.Cookie{
 		Name:     gatekeeper.SessionTokenCookieName,
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
-		Secure:   xs.secureCookies,
+		Secure:   secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -182,7 +185,7 @@ func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylo
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
-		Secure:   xs.secureCookies,
+		Secure:   secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
@@ -191,4 +194,14 @@ func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylo
 	resp.Header().Add("Set-Cookie", clearIDCookie.String())
 
 	return resp, nil
+}
+
+func cookieSecure(configuredSecure bool, header http.Header) bool {
+	if configuredSecure {
+		return true
+	}
+	if header == nil {
+		return false
+	}
+	return header.Get(gatekeeper.InternalHTTPSHeader) == "1"
 }

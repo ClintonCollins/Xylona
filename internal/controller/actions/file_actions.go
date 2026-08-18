@@ -27,7 +27,7 @@ import (
 // MaxRequestBodySize caps file action request bodies at 1 MiB.
 const (
 	MaxRequestBodySize          = 1024 * 1024 * 1 // 1 MB
-	maxMultipartUploadBodyBytes = 1 << 30
+	maxMultipartUploadBodyBytes = 100 << 30 // 100 GiB
 )
 
 // StreamFileToUser streams a server file to an HTTP response.
@@ -106,12 +106,13 @@ func (inst *Instance) UploadFileToUserPOST(w http.ResponseWriter, r *http.Reques
 
 // ListGameServerFiles lists files and directories for a relative server path.
 func (inst *Instance) ListGameServerFiles(gameServer *models.GameServer, relativePath string) ([]*xylona.File, error) {
-	// Check if path is empty or if it is a local path. If it is not a local path, return an error.
-	if relativePath != "" && !filepath.IsLocal(relativePath) {
-		log.Error().Err(errors.New("invalid path")).Msg("Path is not local")
-		return nil, ErrInvalidPath
+	fullPath, errResolve := node.ResolveExistingWithinRoot(gameServer.Directory, relativePath)
+	if errResolve != nil {
+		if errors.Is(errResolve, node.ErrInvalidPath) {
+			return nil, ErrInvalidPath
+		}
+		return nil, fmt.Errorf("actions: resolve list path: %w", errResolve)
 	}
-	fullPath := filepath.Join(gameServer.Directory, relativePath)
 	files, errReadDir := os.ReadDir(fullPath)
 	if errReadDir != nil {
 		if errors.Is(errReadDir, os.ErrNotExist) {
@@ -341,17 +342,12 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativeP
 		return inst.getRemoteGameServerFile(gameServer, relativePath, writer, setHeaders, setAsAttachment)
 	}
 
-	validatedPath, errPath := validateLocalServerPath(gameServer, relativePath)
-	if errPath != nil {
-		return errPath
-	}
-
-	cleanGameServerDir := filepath.Clean(gameServer.Directory)
-	fullPath := filepath.Clean(filepath.Join(cleanGameServerDir, validatedPath))
-	gameServerDirPrefix := cleanGameServerDir + string(filepath.Separator)
-	if fullPath != cleanGameServerDir && !strings.HasPrefix(fullPath, gameServerDirPrefix) {
-		log.Error().Str("path", fullPath).Msg("Read path escaped game server root")
-		return ErrInvalidPath
+	fullPath, errResolve := node.ResolveExistingWithinRoot(gameServer.Directory, relativePath)
+	if errResolve != nil {
+		if errors.Is(errResolve, node.ErrInvalidPath) {
+			return ErrInvalidPath
+		}
+		return fmt.Errorf("actions: resolve game server file: %w", errResolve)
 	}
 
 	file, errReadFile := os.Open(fullPath)

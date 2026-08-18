@@ -345,6 +345,128 @@ func TestUpdateUserAllowsDemotingSuperUserWhenAnotherSuperUserExists(t *testing.
 	}
 }
 
+func TestUpdateUserPasswordRevokesSessions(t *testing.T) {
+	t.Parallel()
+
+	conn := newUserMgmtTestConnection(t, "usermgmt-revoke-password.sqlite")
+	createdUser := seedUserMgmtUser(t, conn, userMgmtSeedUser{
+		id:        "user-revoke-password",
+		userName:  "revoke-password",
+		email:     "revoke-password@example.com",
+		firstName: "Revoke",
+		lastName:  "Password",
+		password:  "old-password-123",
+		superUser: false,
+	})
+	createUserMgmtSession(t, conn, "session-revoke-password", createdUser.ID)
+
+	service := NewService(conn)
+	password := "new-password-123"
+	errUpdateUser := mustNoUserResult(service.Update(UpdateInput{
+		ID:       createdUser.ID,
+		Password: &password,
+	}))
+	if errUpdateUser != nil {
+		t.Fatalf("Update() error = %v", errUpdateUser)
+	}
+
+	_, errGetSession := conn.GetUserSession("session-revoke-password")
+	if !errors.Is(errGetSession, sql.ErrNoRows) {
+		t.Fatalf("GetUserSession() error = %v, want revoked session", errGetSession)
+	}
+}
+
+func TestUpdateUserDemotionRevokesSessions(t *testing.T) {
+	t.Parallel()
+
+	conn := newUserMgmtTestConnection(t, "usermgmt-revoke-demote.sqlite")
+	adminUser := seedUserMgmtUser(t, conn, userMgmtSeedUser{
+		id:        "user-admin-revoke",
+		userName:  "admin-revoke",
+		email:     "admin-revoke@example.com",
+		firstName: "Admin",
+		lastName:  "Revoke",
+		password:  "password-123",
+		superUser: true,
+	})
+	_ = seedUserMgmtUser(t, conn, userMgmtSeedUser{
+		id:        "user-admin-keep",
+		userName:  "admin-keep",
+		email:     "admin-keep@example.com",
+		firstName: "Admin",
+		lastName:  "Keep",
+		password:  "password-123",
+		superUser: true,
+	})
+	createUserMgmtSession(t, conn, "session-admin-revoke", adminUser.ID)
+
+	service := NewService(conn)
+	demote := false
+	errUpdateUser := mustNoUserResult(service.Update(UpdateInput{
+		ID:        adminUser.ID,
+		SuperUser: &demote,
+	}))
+	if errUpdateUser != nil {
+		t.Fatalf("Update() error = %v", errUpdateUser)
+	}
+
+	_, errGetSession := conn.GetUserSession("session-admin-revoke")
+	if !errors.Is(errGetSession, sql.ErrNoRows) {
+		t.Fatalf("GetUserSession() error = %v, want revoked session", errGetSession)
+	}
+}
+
+func TestUpdateUserNameKeepsSessions(t *testing.T) {
+	t.Parallel()
+
+	conn := newUserMgmtTestConnection(t, "usermgmt-keep-sessions.sqlite")
+	createdUser := seedUserMgmtUser(t, conn, userMgmtSeedUser{
+		id:        "user-keep-sessions",
+		userName:  "keep-sessions",
+		email:     "keep-sessions@example.com",
+		firstName: "Keep",
+		lastName:  "Sessions",
+		password:  "password-123",
+		superUser: false,
+	})
+	createUserMgmtSession(t, conn, "session-keep", createdUser.ID)
+
+	service := NewService(conn)
+	firstName := "Updated"
+	errUpdateUser := mustNoUserResult(service.Update(UpdateInput{
+		ID:        createdUser.ID,
+		FirstName: &firstName,
+	}))
+	if errUpdateUser != nil {
+		t.Fatalf("Update() error = %v", errUpdateUser)
+	}
+
+	session, errGetSession := conn.GetUserSession("session-keep")
+	if errGetSession != nil {
+		t.Fatalf("GetUserSession() error = %v, want session to remain", errGetSession)
+	}
+	if session.ID != "session-keep" {
+		t.Fatalf("GetUserSession().ID = %q, want session-keep", session.ID)
+	}
+}
+
+func createUserMgmtSession(t *testing.T, conn *db.Connection, sessionID string, userID string) {
+	t.Helper()
+
+	now := time.Now().UTC()
+	_, errCreate := conn.CreateUserSession(&models.UserSessionSetter{
+		ID:        omit.From(sessionID),
+		UserID:    omit.From(userID),
+		Token:     omit.From(sessionID + "-token"),
+		CreatedAt: omit.From(now),
+		UpdatedAt: omit.From(now),
+		ExpiresAt: omit.From(now.Add(24 * time.Hour)),
+	})
+	if errCreate != nil {
+		t.Fatalf("CreateUserSession() error = %v", errCreate)
+	}
+}
+
 type userMgmtSeedUser struct {
 	id        string
 	userName  string

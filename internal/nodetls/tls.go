@@ -130,5 +130,9 @@ func FingerprintFromPEM(pemBytes []byte) (string, error) {
 	if block == nil || block.Type != "CERTIFICATE" {
 		return "", errors.New("nodetls: PEM does not contain a CERTIFICATE block")
 	}
-	return FingerprintFromDER(block.Bytes), nil
+	cert, errParse := x509.ParseCertificate(block.Bytes)
+	if errParse != nil {
+		return "", fmt.Errorf("nodetls: parse certificate: %w", errParse)
+	}
+	return FingerprintFromDER(cert.Raw), nil
 }

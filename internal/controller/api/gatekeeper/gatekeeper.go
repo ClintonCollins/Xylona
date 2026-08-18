@@ -24,6 +24,14 @@ const sessionUserKey sessionUserContextKey = "session-user"
 // Session cookie names used by Xylona authentication.
 const (
 	SessionIDCookieName = "xylona_session_id"
+	// SessionIdleTimeout is the maximum time a session may sit unused.
+	SessionIdleTimeout = 24 * time.Hour
+	// InternalHTTPSHeader is set by the controller after it has decided the
+	// request arrived over HTTPS (direct TLS or a configured trusted proxy).
+	// Incoming client values are stripped before this is set.
+	InternalHTTPSHeader = "X-Xylona-Internal-Https"
+
+	sessionActivityTouchInterval = time.Minute
 )
 
 var (
@@ -120,9 +128,18 @@ func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connec
 		return nil, errors.New("session ID does not match")
 	}
 
+	now := time.Now()
 	// Enforce server-side session expiration.
-	if session.ExpiresAt.Before(time.Now()) {
+	if session.ExpiresAt.Before(now) {
 		log.Debug().Msg("Session has expired")
+		return nil, errors.New("session expired")
+	}
+	lastActivity := session.UpdatedAt
+	if lastActivity.IsZero() {
+		lastActivity = session.CreatedAt
+	}
+	if !lastActivity.IsZero() && now.Sub(lastActivity) > SessionIdleTimeout {
+		log.Debug().Msg("Session idle timeout exceeded")
 		return nil, errors.New("session expired")
 	}
 
@@ -147,6 +164,14 @@ func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connec
 		log.Error().Err(errGetUser).Msg("Error getting user")
 		return nil, errors.New("internal error")
 	}
+
+	if now.Sub(lastActivity) >= sessionActivityTouchInterval {
+		errTouch := dbConn.TouchUserSession(session.ID, now.UTC())
+		if errTouch != nil {
+			log.Warn().Err(errTouch).Str("session_id", session.ID).Msg("Failed to record session activity")
+		}
+	}
+
 	return user, nil
 }
 

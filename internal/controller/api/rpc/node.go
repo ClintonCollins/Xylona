@@ -19,9 +19,12 @@ import (
 
 // GetNode returns a node by ID.
 func (xs *XylonaService) GetNode(ctx context.Context, request *connect.Request[xylona.GetNodeRequest]) (*connect.Response[xylona.GetNodeResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
+	}
+	if !user.SuperUser {
+		return nil, permissionDenied("superuser required")
 	}
 	nodeID := request.Msg.GetNodeId()
 	node, err := xs.db.GetNodeByID(nodeID)
@@ -33,7 +36,7 @@ func (xs *XylonaService) GetNode(ctx context.Context, request *connect.Request[x
 
 // ListNodes returns all configured nodes.
 func (xs *XylonaService) ListNodes(ctx context.Context, request *connect.Request[xylona.ListNodesRequest]) (*connect.Response[xylona.ListNodesResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
 	}
@@ -47,9 +50,20 @@ func (xs *XylonaService) ListNodes(ctx context.Context, request *connect.Request
 
 	resp := &xylona.ListNodesResponse{}
 	for _, node := range nodes {
-		resp.Nodes = append(resp.Nodes, xs.nodeProtoWithRuntimeState(node, selfNodeID, runtimeState))
+		nodeProto := xs.nodeProtoWithRuntimeState(node, selfNodeID, runtimeState)
+		if !user.SuperUser {
+			redactNodeForNonSuperuser(nodeProto)
+		}
+		resp.Nodes = append(resp.Nodes, nodeProto)
 	}
 	return connect.NewResponse(resp), nil
+}
+
+func redactNodeForNonSuperuser(nodeProto *xylona.Node) {
+	if nodeProto == nil {
+		return
+	}
+	nodeProto.BaseUrl = ""
 }
 
 // GenerateNodePairingObject issues a one-shot bootstrap token a remote node
@@ -251,6 +265,9 @@ func (xs *XylonaService) ListAggregatedGameServers(ctx context.Context, request 
 		if strings.TrimSpace(gs.NodeID) != "" && gs.NodeID != selfNodeID {
 			remoteServer := xs.remoteSummaryFromGameServer(gs, nodeState)
 			remoteServer.EffectivePermissions = effectivePermissions
+			if !user.SuperUser {
+				remoteServer.NodeHost = ""
+			}
 			resp.Servers = append(resp.Servers, &xylona.AggregatedGameServer{
 				IsLocal:      false,
 				RemoteServer: remoteServer,

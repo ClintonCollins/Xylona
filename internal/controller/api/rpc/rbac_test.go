@@ -354,11 +354,30 @@ func TestListRoles(t *testing.T) {
 	for _, role := range resp.Msg.GetRoles() {
 		if role.GetIsSystem() {
 			foundSystem = true
-			break
+		}
+		if len(role.GetPermissionIds()) != 0 {
+			t.Fatalf("ListRoles(non-superuser) leaked permission IDs on role %q: %v", role.GetName(), role.GetPermissionIds())
 		}
 	}
 	if !foundSystem {
 		t.Errorf("ListRoles() expected at least one system role")
+	}
+
+	adminReq := connect.NewRequest(&xylona.ListRolesRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, adminReq, "user-admin")
+	adminResp, errAdmin := fixture.service.ListRoles(context.Background(), adminReq)
+	if errAdmin != nil {
+		t.Fatalf("ListRoles(admin) error = %v", errAdmin)
+	}
+	foundPermissions := false
+	for _, role := range adminResp.Msg.GetRoles() {
+		if len(role.GetPermissionIds()) > 0 {
+			foundPermissions = true
+			break
+		}
+	}
+	if !foundPermissions {
+		t.Fatal("ListRoles(admin) expected at least one role with permission IDs")
 	}
 }
 
@@ -375,9 +394,19 @@ func TestListPermissions(t *testing.T) {
 		t.Errorf("ListPermissions(unauthenticated) code = %v, want %v", connect.CodeOf(errUnauthed), connect.CodeUnauthenticated)
 	}
 
-	// Authenticated → returns seeded permissions
+	nonSuperReq := connect.NewRequest(&xylona.ListPermissionsRequest{})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, nonSuperReq, "user-owner")
+	_, errNonSuper := fixture.service.ListPermissions(context.Background(), nonSuperReq)
+	if errNonSuper == nil {
+		t.Fatal("ListPermissions(non-superuser) expected error, got nil")
+	}
+	if connect.CodeOf(errNonSuper) != connect.CodePermissionDenied {
+		t.Fatalf("ListPermissions(non-superuser) code = %v, want %v", connect.CodeOf(errNonSuper), connect.CodePermissionDenied)
+	}
+
+	// Superuser → returns seeded permissions
 	authedReq := connect.NewRequest(&xylona.ListPermissionsRequest{})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, authedReq, "user-owner")
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, authedReq, "user-admin")
 
 	resp, errList := fixture.service.ListPermissions(context.Background(), authedReq)
 	if errList != nil {

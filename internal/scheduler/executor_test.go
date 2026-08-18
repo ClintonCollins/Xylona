@@ -86,6 +86,10 @@ func (db *executeTaskDBFake) PruneExpiredUserSessions(time.Time) (int64, error) 
 	return 0, nil
 }
 
+func (db *executeTaskDBFake) DeleteExpiredJoinTokens(time.Time) (int64, error) {
+	return 0, nil
+}
+
 func (db *executeTaskDBFake) GetGameServerByID(_ string) (*models.GameServer, error) {
 	if db.gameServer == nil {
 		return nil, errors.New("game server not configured")

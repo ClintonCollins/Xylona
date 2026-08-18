@@ -121,7 +121,7 @@ export default configure(function (/* ctx */) {
         },
         '/api': {
           target: backendProxyTarget,
-          changeOrigin: true,
+          changeOrigin: false,
           secure: false,
           ws: true,
         },

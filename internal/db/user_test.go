@@ -201,6 +201,67 @@ func TestPruneExpiredUserSessions(t *testing.T) {
 	}
 }
 
+func TestDeleteUserSessionsByUserID(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-session-revoke.sqlite")
+	seedRBACFixture(t, conn)
+
+	now := time.Now().UTC()
+	expiresAt := now.Add(24 * time.Hour)
+	_, errOwnerSession := conn.CreateUserSession(&models.UserSessionSetter{
+		ID:        omit.From("session-owner-1"),
+		UserID:    omit.From("user-owner"),
+		Token:     omit.From("token-owner-1"),
+		CreatedAt: omit.From(now),
+		UpdatedAt: omit.From(now),
+		ExpiresAt: omit.From(expiresAt),
+	})
+	if errOwnerSession != nil {
+		t.Fatalf("CreateUserSession(owner) error = %v", errOwnerSession)
+	}
+	_, errOwnerSessionTwo := conn.CreateUserSession(&models.UserSessionSetter{
+		ID:        omit.From("session-owner-2"),
+		UserID:    omit.From("user-owner"),
+		Token:     omit.From("token-owner-2"),
+		CreatedAt: omit.From(now),
+		UpdatedAt: omit.From(now),
+		ExpiresAt: omit.From(expiresAt),
+	})
+	if errOwnerSessionTwo != nil {
+		t.Fatalf("CreateUserSession(owner 2) error = %v", errOwnerSessionTwo)
+	}
+	_, errOtherSession := conn.CreateUserSession(&models.UserSessionSetter{
+		ID:        omit.From("session-other"),
+		UserID:    omit.From("user-other"),
+		Token:     omit.From("token-other"),
+		CreatedAt: omit.From(now),
+		UpdatedAt: omit.From(now),
+		ExpiresAt: omit.From(expiresAt),
+	})
+	if errOtherSession != nil {
+		t.Fatalf("CreateUserSession(other) error = %v", errOtherSession)
+	}
+
+	deleted, errDelete := conn.DeleteUserSessionsByUserID("user-owner")
+	if errDelete != nil {
+		t.Fatalf("DeleteUserSessionsByUserID() error = %v", errDelete)
+	}
+	if deleted != 2 {
+		t.Fatalf("DeleteUserSessionsByUserID() deleted = %d, want 2", deleted)
+	}
+
+	_, errGetOwner := conn.GetUserSession("session-owner-1")
+	if !errors.Is(errGetOwner, sql.ErrNoRows) {
+		t.Fatalf("GetUserSession(owner) error = %v, want %v", errGetOwner, sql.ErrNoRows)
+	}
+	otherSession, errGetOther := conn.GetUserSession("session-other")
+	if errGetOther != nil {
+		t.Fatalf("GetUserSession(other) error = %v", errGetOther)
+	}
+	if otherSession.ID != "session-other" {
+		t.Fatalf("GetUserSession(other).ID = %q, want session-other", otherSession.ID)
+	}
+}
+
 func TestGetUserByIDNotFound(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "user-not-found.sqlite")
 

@@ -84,10 +84,14 @@ type Configuration struct {
 	JWTSecretKey string `env:"JWT_SECRET_KEY_BASE64"`
 	// EncryptionKey is a dedicated base64-encoded key for encrypting sensitive DB
 	// fields (notification channel configs).
-	EncryptionKey           string        `env:"ENCRYPTION_KEY_BASE64"`
-	DBFilePath              string        `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
-	LogLevel                string        `env:"LOG_LEVEL" envDefault:"info"`
-	SecureCookies           bool          `env:"SECURE_COOKIES" envDefault:"false"`
+	EncryptionKey string `env:"ENCRYPTION_KEY_BASE64"`
+	DBFilePath    string `env:"DB_FILE_PATH" envDefault:"./data.sqlite"`
+	LogLevel      string `env:"LOG_LEVEL" envDefault:"info"`
+	SecureCookies bool   `env:"SECURE_COOKIES" envDefault:"false"`
+	// TrustedProxies is a comma-separated list of reverse-proxy IPs or CIDRs
+	// allowed to set X-Forwarded-For / X-Forwarded-Proto / X-Forwarded-Host.
+	// Leave empty to ignore forwarded headers.
+	TrustedProxies          string        `env:"TRUSTED_PROXIES" envDefault:""`
 	MetricsEnabled          bool          `env:"METRICS_ENABLED" envDefault:"false"`
 	MetricsSnapshotInterval time.Duration `env:"METRICS_SNAPSHOT_INTERVAL" envDefault:"1m"`
 	MetricsHistoryRetention time.Duration `env:"METRICS_HISTORY_RETENTION" envDefault:"2160h"`
@@ -209,34 +213,36 @@ func handleSPAFunc(frontendFS fs.FS) func(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func securityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		referrerPolicy := "strict-origin-when-cross-origin"
-		if r.URL.Path == "/shared/palworld-map" || r.URL.Path == "/shared/7-days-to-die-map" || r.URL.Path == "/shared/minecraft-map" {
-			referrerPolicy = "no-referrer"
-		}
-		w.Header().Set("Referrer-Policy", referrerPolicy)
-		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		connectSrc := `connect-src 'self' http: ws:`
-		imageSrc := `img-src 'self' data: blob: http: https:`
-		isHTTPS := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
-		if isHTTPS {
-			connectSrc = `connect-src 'self' https: wss:`
-			imageSrc = `img-src 'self' data: blob: https:`
-		}
-		w.Header().Set("Content-Security-Policy",
-			`default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; `+
-				imageSrc+`; font-src 'self' data: https://fonts.gstatic.com; `+
-				`style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; `+
-				`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; `+
-				connectSrc)
-		if isHTTPS {
-			w.Header().Set("Strict-Transport-Security", `max-age=31536000; includeSubDomains`)
-		}
-		next.ServeHTTP(w, r)
-	})
+func securityHeaders(trust *gatekeeper.ProxyTrust) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			referrerPolicy := "strict-origin-when-cross-origin"
+			if r.URL.Path == "/shared/palworld-map" || r.URL.Path == "/shared/7-days-to-die-map" || r.URL.Path == "/shared/minecraft-map" {
+				referrerPolicy = "no-referrer"
+			}
+			w.Header().Set("Referrer-Policy", referrerPolicy)
+			w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+			connectSrc := `connect-src 'self' http: ws:`
+			imageSrc := `img-src 'self' data: blob: http: https:`
+			isHTTPS := trust.RequestIsHTTPS(r)
+			if isHTTPS {
+				connectSrc = `connect-src 'self' https: wss:`
+				imageSrc = `img-src 'self' data: blob: https:`
+			}
+			w.Header().Set("Content-Security-Policy",
+				`default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; `+
+					imageSrc+`; font-src 'self' data: https://fonts.gstatic.com; `+
+					`style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; `+
+					`script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; `+
+					connectSrc)
+			if isHTTPS {
+				w.Header().Set("Strict-Transport-Security", `max-age=31536000; includeSubDomains`)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func routerLogger(next http.Handler) http.Handler {
@@ -691,9 +697,10 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	}
 
 	router.Use(middleware.ClientIPFromRemoteAddr)
+	router.Use(validatedConfig.trustedProxies.AnnotateRequest)
 	router.Use(routerLogger)
-	router.Use(securityHeaders)
-	router.Use(gatekeeper.AuthRateLimiter())
+	router.Use(securityHeaders(validatedConfig.trustedProxies))
+	router.Use(gatekeeper.AuthRateLimiterForProxies(validatedConfig.trustedProxies))
 	registerOperationalRoutes(router, dbInst.SQLDb)
 	registerMetricsRoute(router, config)
 	router.Mount(palworldmap.TilePathPrefix, palworldMapTileStore.Handler())
@@ -729,7 +736,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 		r.Post("/api/file/get", actionsInst.StreamFileToUser)
 		r.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
 		r.Group(func(r chi.Router) {
-			r.Use(gatekeeper.RequireSameOriginFormRequests())
+			r.Use(gatekeeper.RequireSameOriginFormRequestsForProxies(validatedConfig.trustedProxies))
 			r.Post("/api/backups/upload", xylonaService.UploadGameServerBackupArchive)
 			r.Post("/api/file/download", actionsInst.UploadFileToUserPOST)
 			r.Post("/api/file/upload", actionsInst.DownloadGameServerFile)

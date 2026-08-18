@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/nodetls"
 )
 
 // nodeBootstrapMaxBodyBytes bounds the request body so a misbehaving node
@@ -157,11 +159,33 @@ func validateBootstrapRequest(req *NodeBootstrapRequest) error {
 	if strings.TrimSpace(req.ListenURL) == "" {
 		return errors.New("listen_url is required")
 	}
+	errListenURL := validateNodeListenURL(req.ListenURL)
+	if errListenURL != nil {
+		return errListenURL
+	}
 	if strings.TrimSpace(req.CertPEM) == "" {
 		return errors.New("cert_pem is required")
 	}
 	if strings.TrimSpace(req.CertFingerprint) == "" {
 		return errors.New("cert_fingerprint is required")
+	}
+	fingerprint, errFingerprint := nodetls.FingerprintFromPEM([]byte(req.CertPEM))
+	if errFingerprint != nil {
+		return errors.New("cert_pem is invalid")
+	}
+	if !strings.EqualFold(fingerprint, strings.TrimSpace(req.CertFingerprint)) {
+		return errors.New("cert_fingerprint does not match cert_pem")
+	}
+	return nil
+}
+
+func validateNodeListenURL(rawURL string) error {
+	parsedURL, errParse := url.Parse(strings.TrimSpace(rawURL))
+	if errParse != nil {
+		return errors.New("listen_url must be an https URL")
+	}
+	if !strings.EqualFold(parsedURL.Scheme, "https") || parsedURL.Host == "" {
+		return errors.New("listen_url must be an https URL")
 	}
 	return nil
 }

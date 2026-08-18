@@ -240,6 +240,36 @@ func TestCleanupFailedInstallRoutesRemoteDeletesThroughNodeClient(t *testing.T) 
 	}
 }
 
+func TestGetGameServerFileRejectsSymlinkEscape(t *testing.T) {
+	fixture := newFileActionTestFixture(t)
+	outsideDir := t.TempDir()
+	outsideFile := filepath.Join(outsideDir, "secret.txt")
+	errWrite := os.WriteFile(outsideFile, []byte("classified"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile outside error = %v", errWrite)
+	}
+
+	linkPath := filepath.Join(fixture.serverDir, "escape-link")
+	errLink := os.Symlink(outsideFile, linkPath)
+	if errLink != nil {
+		t.Skipf("symlinks unavailable: %v", errLink)
+	}
+
+	var dest strings.Builder
+	errGet := fixture.inst.GetGameServerFile(fixture.gameServer, "escape-link", &dest, false, false)
+	if !errors.Is(errGet, ErrInvalidPath) && !errors.Is(errGet, node.ErrInvalidPath) {
+		t.Fatalf("GetGameServerFile(escape-link) error = %v, want invalid path", errGet)
+	}
+	if dest.Len() != 0 {
+		t.Fatalf("GetGameServerFile leaked %d bytes through symlink", dest.Len())
+	}
+
+	_, errList := fixture.inst.ListGameServerFiles(fixture.gameServer, "escape-link")
+	if errList == nil {
+		t.Fatal("ListGameServerFiles(escape-link) error = nil, want invalid path")
+	}
+}
+
 func TestSlugifyName(t *testing.T) {
 	tests := []struct {
 		name  string
