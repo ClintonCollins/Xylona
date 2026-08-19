@@ -220,17 +220,22 @@
             aria-label="Filter files"
             class="file-filter"
             clearable
-            debounce="0"
+            debounce="150"
             dense
             outlined
-            placeholder="Filter this folder">
+            placeholder="Filter this folder"
+            @clear="filterQuery = ''">
             <template #prepend>
               <q-icon name="search" />
             </template>
           </q-input>
         </div>
 
-        <div class="file-list-surface" @contextmenu.prevent="openBackgroundContextMenu">
+        <div
+          aria-label="Directory contents"
+          class="file-list-surface"
+          role="table"
+          @contextmenu.prevent="openBackgroundContextMenu">
           <div class="file-list-header" role="row">
             <div class="file-list-select-cell" role="columnheader">
               <q-checkbox
@@ -318,68 +323,83 @@
               label="Clear filter"
               @click="filterQuery = ''" />
           </div>
-          <div v-else id="file-list" class="file-list-scroll" role="grid">
-            <div
-              v-for="entry in displayedEntries"
-              :key="entry.name"
-              :aria-selected="isParentDirectory(entry) ? undefined : isFileSelected(entry)"
-              :class="fileIsSelectedClass(entry)"
-              class="file-list-body-row"
-              role="row"
-              tabindex="0"
-              @click="selectEntryFromPointer(entry, $event)"
-              @contextmenu.prevent.stop="openItemContextMenu($event, entry)"
-              @dblclick.prevent="openEntryFromDoubleClick(entry, $event)"
-              @keydown.enter.prevent="openEntry(entry)"
-              @keydown.space.prevent="toggleEntrySelection(entry)">
-              <div class="file-list-select-cell" role="gridcell">
-                <q-checkbox
-                  v-if="!isParentDirectory(entry)"
-                  :aria-label="`Select ${entry.name}`"
-                  :model-value="isFileSelected(entry)"
-                  size="sm"
-                  @click.stop
-                  @update:model-value="toggleEntrySelection(entry)" />
-              </div>
-              <div class="file-list-name-cell" role="gridcell">
-                <q-icon
-                  :class="entry.isDirectory ? 'text-warning' : undefined"
-                  :name="
-                    entry.isDirectory ? tabFolderFilled : getIconFromFilenameExtension(entry.name)
-                  "
-                  :style="
-                    entry.isDirectory
-                      ? undefined
-                      : `color:${getColorFromFilenameExtension(entry.name)}`
-                  "
-                  size="sm" />
-                <div class="file-entry-name-block">
-                  <span class="file-name">{{ entry.name }}</span>
-                  <span v-if="!isParentDirectory(entry)" class="file-entry-meta">
-                    {{ bytesToSize(Number(entry.size)) }} ·
-                    {{ formatTimestamp(entry.lastModified) }}
-                  </span>
+          <q-virtual-scroll
+            v-else
+            id="file-list"
+            ref="fileVirtualScroll"
+            class="file-list-scroll"
+            :items="displayedEntries"
+            role="rowgroup"
+            :virtual-scroll-item-size="$q.screen.lt.sm ? 52 : 32">
+            <template #default="{ item: entry, index: entryIndex }">
+              <div
+                :key="entry.name"
+                :aria-label="entryAriaLabel(entry)"
+                :class="fileIsSelectedClass(entry)"
+                class="file-list-body-row"
+                :data-file-index="entryIndex"
+                data-file-row
+                role="row"
+                :tabindex="entryTabIndex(entry, entryIndex)"
+                @click="selectEntryFromPointer(entry, $event)"
+                @contextmenu.prevent.stop="openItemContextMenu($event, entry)"
+                @dblclick.prevent="openEntryFromDoubleClick(entry, $event)"
+                @focus="focusedEntryName = entry.name"
+                @keydown.down.prevent="focusEntryRow(entryIndex + 1)"
+                @keydown.enter.prevent="openEntry(entry)"
+                @keydown.home.prevent="focusEntryRow(0)"
+                @keydown.end.prevent="focusEntryRow(displayedEntries.length - 1)"
+                @keydown.up.prevent="focusEntryRow(entryIndex - 1)"
+                @keydown.space.prevent="toggleEntrySelection(entry)">
+                <div class="file-list-select-cell" role="cell">
+                  <q-checkbox
+                    v-if="!isParentDirectory(entry)"
+                    :aria-label="`Select ${entry.name}`"
+                    :model-value="isFileSelected(entry)"
+                    size="sm"
+                    @click.stop
+                    @update:model-value="toggleEntrySelection(entry)" />
+                </div>
+                <div class="file-list-name-cell" role="cell">
+                  <q-icon
+                    :class="entry.isDirectory ? 'text-warning' : undefined"
+                    :name="
+                      entry.isDirectory ? tabFolderFilled : getIconFromFilenameExtension(entry.name)
+                    "
+                    :style="
+                      entry.isDirectory
+                        ? undefined
+                        : `color:${getColorFromFilenameExtension(entry.name)}`
+                    "
+                    size="sm" />
+                  <div class="file-entry-name-block">
+                    <span class="file-name">{{ entry.name }}</span>
+                    <span v-if="!isParentDirectory(entry)" class="file-entry-meta">
+                      {{ bytesToSize(Number(entry.size)) }} ·
+                      {{ formatTimestamp(entry.lastModified) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="file-list-size-cell" role="cell">
+                  {{ isParentDirectory(entry) ? '' : bytesToSize(Number(entry.size)) }}
+                </div>
+                <div class="file-list-modified-cell" role="cell">
+                  {{ isParentDirectory(entry) ? '' : formatTimestamp(entry.lastModified) }}
+                </div>
+                <div class="file-list-menu-cell" role="cell">
+                  <q-btn
+                    v-if="!isParentDirectory(entry)"
+                    :aria-label="`Actions for ${entry.name}`"
+                    class="file-row-menu"
+                    dense
+                    flat
+                    icon="more_vert"
+                    round
+                    @click.stop="openItemContextMenu($event, entry)" />
                 </div>
               </div>
-              <div class="file-list-size-cell" role="gridcell">
-                {{ isParentDirectory(entry) ? '' : bytesToSize(Number(entry.size)) }}
-              </div>
-              <div class="file-list-modified-cell" role="gridcell">
-                {{ isParentDirectory(entry) ? '' : formatTimestamp(entry.lastModified) }}
-              </div>
-              <div class="file-list-menu-cell" role="gridcell">
-                <q-btn
-                  v-if="!isParentDirectory(entry)"
-                  :aria-label="`Actions for ${entry.name}`"
-                  class="file-row-menu"
-                  dense
-                  flat
-                  icon="more_vert"
-                  round
-                  @click.stop="openItemContextMenu($event, entry)" />
-              </div>
-            </div>
-          </div>
+            </template>
+          </q-virtual-scroll>
         </div>
 
         <q-menu ref="contextMenu" no-parent-event touch-position>
@@ -394,15 +414,15 @@
                 <q-item-section avatar><q-icon color="primary" name="add" /></q-item-section>
                 <q-item-section>Create…</q-item-section>
               </q-item>
-              <q-item v-if="canMutateFiles" v-close-popup clickable @click="openURLUploadDialog">
-                <q-item-section avatar><q-icon color="positive" name="upload" /></q-item-section>
-                <q-item-section>Upload</q-item-section>
-              </q-item>
               <q-item
                 v-if="canMutateFiles"
                 v-close-popup
                 clickable
                 @click="fileUploaderDialog = true">
+                <q-item-section avatar><q-icon color="positive" name="upload" /></q-item-section>
+                <q-item-section>Upload</q-item-section>
+              </q-item>
+              <q-item v-if="canMutateFiles" v-close-popup clickable @click="openURLUploadDialog">
                 <q-item-section avatar><q-icon color="info" name="link" /></q-item-section>
                 <q-item-section>Upload from URL</q-item-section>
               </q-item>
@@ -641,7 +661,15 @@
 <script lang="ts" setup>
 import { create, toJsonString } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 import type { Ref } from 'vue'
 import ArchiveFiles from '@/components/game_servers/ArchiveFiles.vue'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in template as <create>
@@ -652,7 +680,7 @@ import FileUploaderDrop from '@/components/game_servers/FileUploaderDrop.vue'
 import MoveFiles from '@/components/game_servers/MoveFiles.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import RenameFile from '@/components/game_servers/RenameFile.vue'
-import { copyToClipboard, QMenu, useQuasar } from 'quasar'
+import { copyToClipboard, QMenu, QVirtualScroll, useQuasar } from 'quasar'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { GameServer, GameServerSchema } from '@/proto/shared_pb'
 import {
@@ -706,15 +734,16 @@ const editorFilename: Ref<string> = ref('')
 const editorFilePath: Ref<string> = ref('')
 const editorFileContent: Ref<string> = ref('')
 const contextMenu: Ref<QMenu | null> = ref(null)
+const fileVirtualScroll: Ref<QVirtualScroll | null> = ref(null)
 const fileListContainer: Ref<HTMLElement | null> = ref(null)
 const fileUploaderDialog: Ref<boolean> = ref(false)
 const urlUploadDialog: Ref<boolean> = ref(false)
 const urlUpload: Ref<string> = ref('')
 const urlUploadError: Ref<string> = ref('')
 const urlUploadLoading: Ref<boolean> = ref(false)
-const createFileName: Ref<string> = ref('')
 const pathEditing: Ref<boolean> = ref(false)
 const filterQuery: Ref<string> = ref('')
+const focusedEntryName: Ref<string> = ref('')
 const sortKey: Ref<SortKey> = ref('name')
 const sortDirection: Ref<SortDirection> = ref('ascending')
 const navigationHistory: Ref<string[]> = ref([])
@@ -903,7 +932,7 @@ async function createFilesDialogSubmitted(
   if (!data || data.isDir) {
     return
   }
-  editorFilename.value = createFileName.value
+  editorFilename.value = data.fileName
   editorFileContent.value = ''
   editorFilePath.value = data.fullFilePath
   editorModal.value = true
@@ -911,6 +940,45 @@ async function createFilesDialogSubmitted(
 
 function fileIsSelectedClass(file: xylonaFile) {
   return { 'file-list-body-row--selected': isFileSelected(file) }
+}
+
+function entryAriaLabel(entry: xylonaFile): string {
+  if (isParentDirectory(entry)) {
+    return 'Parent directory'
+  }
+  const entryType = entry.isDirectory ? 'folder' : 'file'
+  const selectedState = isFileSelected(entry) ? 'selected' : 'not selected'
+  if (entry.isDirectory) {
+    return `${entry.name}, ${entryType}, ${selectedState}`
+  }
+  return `${entry.name}, ${entryType}, ${bytesToSize(Number(entry.size))}, modified ${formatTimestamp(entry.lastModified)}, ${selectedState}`
+}
+
+function entryTabIndex(entry: xylonaFile, entryIndex: number): 0 | -1 {
+  const focusedEntryVisible = displayedEntries.value.some(
+    (visibleEntry) => visibleEntry.name === focusedEntryName.value,
+  )
+  return focusedEntryVisible
+    ? entry.name === focusedEntryName.value
+      ? 0
+      : -1
+    : entryIndex === 0
+      ? 0
+      : -1
+}
+
+async function focusEntryRow(targetIndex: number) {
+  const boundedIndex = Math.max(0, Math.min(targetIndex, displayedEntries.value.length - 1))
+  const targetEntry = displayedEntries.value[boundedIndex]
+  if (!targetEntry) {
+    return
+  }
+  focusedEntryName.value = targetEntry.name
+  fileVirtualScroll.value?.scrollTo(boundedIndex, 'center')
+  await nextTick()
+  fileListContainer.value
+    ?.querySelector<HTMLElement>(`[data-file-index="${boundedIndex}"]`)
+    ?.focus()
 }
 
 const deleteButtonEnabled = computed(() => {
@@ -1033,6 +1101,9 @@ watch(filterQuery, () => {
   selectedFiles.value = selectedFiles.value.filter((entry) => visibleNames.has(entry.name))
   if (!visibleNames.has(selectionAnchorName)) {
     selectionAnchorName = ''
+  }
+  if (!visibleNames.has(focusedEntryName.value)) {
+    focusedEntryName.value = ''
   }
 })
 
@@ -1668,8 +1739,8 @@ async function getGameServerDetails() {
 }
 
 .file-toolbar-selection {
-  padding-left: var(--xy-space-sm);
-  border-left: 1px solid var(--xy-border);
+  padding-inline-start: var(--xy-space-sm);
+  border-inline-start: 1px solid var(--xy-border);
 }
 
 .file-selection-count {
@@ -1926,10 +1997,16 @@ async function getGameServerDetails() {
 @media (max-width: 599px) {
   .file-toolbar-selection {
     flex: 1 1 100%;
+    flex-wrap: wrap;
     padding-top: var(--xy-space-xs);
-    padding-left: 0;
+    padding-inline-start: 0;
     border-top: 1px solid var(--xy-border);
-    border-left: 0;
+    border-inline-start: 0;
+  }
+
+  .file-selection-count {
+    flex: 1 0 100%;
+    padding-block: var(--xy-space-xs);
   }
 
   .file-navigation-buttons {

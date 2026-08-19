@@ -5,38 +5,46 @@
     backdrop-filter="brightness(25%)"
     persistent>
     <q-card class="full-width">
-      <q-card-section>
-        <div id="dialog-title" class="text-h6">Move files</div>
-      </q-card-section>
-      <q-card-section>
-        <q-form class="q-pa-lg">
-          <div class="row wrap q-col-gutter-md justify-between">
-            <q-select
-              v-model="destinationDirectory"
-              :options="moveOptions"
-              class="col-12"
-              clearable
-              emit-value
-              fill-input
-              hide-selected
-              hint="Press enter after typing a new directory name to create it and move files to it."
-              input-debounce="0"
-              label="Destination directory"
-              map-options
-              new-value-mode="add-unique"
-              outlined
-              use-input>
-              <template #prepend>
-                <q-icon name="folder" />
-              </template>
-            </q-select>
+      <q-form @submit.prevent="moveFiles">
+        <q-card-section>
+          <div id="dialog-title" class="text-h6">Move files</div>
+        </q-card-section>
+        <q-card-section>
+          <div class="q-pa-lg">
+            <div class="row wrap q-col-gutter-md justify-between">
+              <q-select
+                v-model="destinationDirectory"
+                :options="moveOptions"
+                class="col-12"
+                clearable
+                emit-value
+                fill-input
+                hide-selected
+                hint="Press enter after typing a new directory name to create it and move files to it."
+                input-debounce="0"
+                label="Destination directory"
+                map-options
+                new-value-mode="add-unique"
+                outlined
+                :rules="[validateDestination]"
+                use-input>
+                <template #prepend>
+                  <q-icon name="folder" />
+                </template>
+              </q-select>
+            </div>
           </div>
-        </q-form>
-      </q-card-section>
-      <q-card-actions align="right">
-        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
-        <q-btn color="primary" label="Submit" @click="moveFiles" />
-      </q-card-actions>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn
+            color="primary"
+            :disable="submitting"
+            flat
+            label="Cancel"
+            @click="showDialog = false" />
+          <q-btn color="primary" label="Move" :loading="submitting" type="submit" />
+        </q-card-actions>
+      </q-form>
     </q-card>
   </q-dialog>
 </template>
@@ -89,6 +97,7 @@ const moveOptions = computed(() => {
 })
 
 const destinationDirectory: Ref<string> = ref('')
+const submitting = ref(false)
 
 const $q = useQuasar()
 
@@ -98,6 +107,10 @@ const showDialog = defineModel('showDialog', {
 })
 
 const emit = defineEmits(['submit'])
+
+function validateDestination(value: string): true | string {
+  return value?.trim() ? true : 'Choose or enter a destination directory.'
+}
 
 function getDestinationDirectory() {
   if (destinationDirectory.value === '..') {
@@ -110,6 +123,10 @@ function getDestinationDirectory() {
 }
 
 async function moveFiles() {
+  if (submitting.value || validateDestination(destinationDirectory.value) !== true) {
+    return
+  }
+  submitting.value = true
   const request: GameServerFilesMoveRequest = create(GameServerFilesMoveRequestSchema, {})
   request.gameServerId = props.gameServerId
   request.destinationBasePath = getDestinationDirectory()
@@ -121,22 +138,25 @@ async function moveFiles() {
     emit('submit')
     $q.notify({
       caption: `Files moved to ${destinationDirectory.value} successfully.`,
-      type: 'positive',
+      type: 'xylona-success',
       position: 'top',
       timeout: 3000,
     })
-  } catch (err) {
+    showDialog.value = false
+    destinationDirectory.value = ''
+  } catch (err: unknown) {
     console.error(err)
-    emit('submit')
     $q.notify({
-      caption: `Error moving files ${err}`,
+      caption:
+        err instanceof Error
+          ? `Could not move the selected items. ${err.message}`
+          : 'Could not move the selected items. Try again.',
       type: 'xylona-error',
       position: 'top',
       timeout: 5000,
     })
   } finally {
-    showDialog.value = false
-    destinationDirectory.value = ''
+    submitting.value = false
   }
 }
 </script>

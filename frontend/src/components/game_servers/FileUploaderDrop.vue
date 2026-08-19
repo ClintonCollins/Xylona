@@ -129,9 +129,8 @@
 
               <q-item-section side top>
                 <q-btn
-                  :aria-label="file.status === FileStatus.Error ? 'Retry upload' : 'Remove file'"
+                  aria-label="Remove file"
                   :icon="file.status === FileStatus.Error ? tabX : tabTrash"
-                  class="gt-xs"
                   color="negative"
                   flat
                   round
@@ -287,7 +286,12 @@ class FileUploader {
   removeFile(file: uploaderFile) {
     this.files.delete(file.key)
     this.uploadSize -= file.file.size
-    this.queuedFilesCount--
+    if (file.status === FileStatus.Uploaded) {
+      this.uploadedBytes = Math.max(0, this.uploadedBytes - (file.lastLoaded ?? file.file.size))
+      this.uploadedFilesCount = Math.max(0, this.uploadedFilesCount - 1)
+    } else {
+      this.queuedFilesCount = Math.max(0, this.queuedFilesCount - 1)
+    }
     this.calculateLabels()
   }
 

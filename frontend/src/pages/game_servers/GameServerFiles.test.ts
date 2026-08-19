@@ -13,6 +13,12 @@ import { GameServerSchema, type GameServer } from '@/proto/shared_pb'
 import { GetGameServerResponseSchema } from '@/proto/xylona_pb'
 import GameServerFiles from './GameServerFiles.vue'
 
+const virtualScrollStub = {
+  props: ['items'],
+  template:
+    '<div><slot v-for="(item, index) in items" :key="item.name" :item="item" :index="index" /></div>',
+}
+
 const mocks = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
   gameServerFilesDownloadFromURL: vi.fn(),
@@ -30,7 +36,7 @@ vi.mock('quasar', async () => {
       loading: { hide: vi.fn(), show: vi.fn() },
       notify: mocks.notify,
       platform: { has: { touch: false }, is: { mobile: false } },
-      screen: { gt: { xs: true } },
+      screen: { gt: { xs: true }, lt: { sm: false } },
     }),
   }
 })
@@ -277,7 +283,12 @@ describe('GameServerFiles', () => {
       }),
     )
 
-    const wrapper = shallowMount(GameServerFiles)
+    const wrapper = shallowMount(GameServerFiles, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: { QVirtualScroll: virtualScrollStub },
+      },
+    })
     await flushPromises()
     const viewModel = wrapper.vm as unknown as {
       displayedEntries: XylonaFile[]
@@ -314,6 +325,47 @@ describe('GameServerFiles', () => {
     await flushPromises()
     expect(viewModel.displayedEntries.map((file) => file.name)).toEqual(['zeta.log'])
     expect(viewModel.selectedFiles.map((file) => file.name)).toEqual(['zeta.log'])
+
+    const filterInput = wrapper.findComponent({ name: 'QInput' })
+    expect(filterInput.attributes('aria-label')).toBe('Filter files')
+    filterInput.vm.$emit('update:modelValue', null)
+    filterInput.vm.$emit('clear')
+    await flushPromises()
+    expect(viewModel.filterQuery).toBe('')
+    expect(viewModel.displayedEntries.map((file) => file.name)).toEqual([
+      'config',
+      'worlds',
+      'alpha.cfg',
+      'zeta.log',
+    ])
+    wrapper.unmount()
+  })
+
+  it('delegates large directories to bounded virtual rows', async () => {
+    const files = Array.from({ length: 1000 }, (_, index) =>
+      create(FileSchema, { name: `server-${index}.log` }),
+    )
+    mocks.listDirectoryFiles.mockResolvedValue(create(ListDirectoryFilesResponseSchema, { files }))
+
+    const wrapper = shallowMount(GameServerFiles, {
+      global: {
+        stubs: {
+          FileUploaderDrop: { template: '<div><slot /></div>' },
+          QCardSection: { template: '<div><slot /></div>' },
+          QList: { template: '<div><slot /></div>' },
+          QVirtualScroll: {
+            props: ['items'],
+            template:
+              '<div><slot v-for="(item, index) in items.slice(0, 20)" :key="item.name" :item="item" :index="index" /></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+
+    const renderedRows = wrapper.findAll('[data-file-row]').length
+    expect(renderedRows).toBe(20)
+    expect(renderedRows).toBeLessThan(files.length)
     wrapper.unmount()
   })
 
@@ -408,7 +460,10 @@ describe('GameServerFiles', () => {
     mocks.gameServerFilesDownloadFromURL.mockResolvedValue({ filePath: 'mods/server.jar' })
 
     const wrapper = shallowMount(GameServerFiles, {
-      global: { renderStubDefaultSlot: true },
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: { QVirtualScroll: virtualScrollStub },
+      },
     })
     await flushPromises()
     const viewModel = wrapper.vm as unknown as {

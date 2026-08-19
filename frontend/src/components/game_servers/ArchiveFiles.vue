@@ -5,59 +5,64 @@
     backdrop-filter="brightness(25%)"
     persistent>
     <q-card class="full-width">
-      <q-card-section>
-        <div id="dialog-title" class="text-h6">{{ archiveTitle }}</div>
-      </q-card-section>
-      <q-card-section v-if="!archiveSubmitting">
-        <q-form class="q-pa-lg">
-          <div class="row wrap q-col-gutter-md justify-between">
-            <q-select
-              v-model="archiveType"
-              :options="archiveTypeOptions"
-              class="col-12"
-              emit-value
-              label="Archive Type"
-              map-options
-              outlined
-              @update:model-value="archiveSuffix = ArchiveTypeToExtension(archiveType)">
-              <template #prepend>
-                <q-icon name="event" />
-              </template>
-            </q-select>
-            <q-input
-              v-model="archiveName"
-              :suffix="archiveSuffix"
-              aria-autocomplete="none"
-              autofocus
-              class="col-12"
-              label="Archive name"
-              name="archive-name"
-              outlined
-              placeholder="example-archive" />
-          </div>
-        </q-form>
-      </q-card-section>
-      <q-card-section v-else>
+      <q-form @submit.prevent="archiveFiles">
         <q-card-section>
-          <div>
-            <div class="text-caption">
-              {{ bytesToSize(archiveCurrentBytes) }} out of
-              {{ bytesToSize(archiveTotalBytes) }} archived ( {{ submitPercent }}% )
+          <div id="dialog-title" class="text-h6">{{ archiveTitle }}</div>
+        </q-card-section>
+        <q-card-section v-if="!archiveSubmitting">
+          <div class="q-pa-lg">
+            <div class="row wrap q-col-gutter-md justify-between">
+              <q-select
+                v-model="archiveType"
+                :options="archiveTypeOptions"
+                class="col-12"
+                emit-value
+                label="Archive type"
+                map-options
+                outlined
+                @update:model-value="archiveSuffix = ArchiveTypeToExtension(archiveType)">
+                <template #prepend>
+                  <q-icon name="event" />
+                </template>
+              </q-select>
+              <q-input
+                v-model="archiveName"
+                :suffix="archiveSuffix"
+                aria-autocomplete="none"
+                autofocus
+                class="col-12"
+                label="Archive name"
+                name="archive-name"
+                outlined
+                placeholder="example-archive"
+                :rules="[validateArchiveName]" />
             </div>
-            <div class="text-caption"></div>
-            <div class="text-caption">{{ filesArchived }} / {{ totalFiles }} files archived</div>
-            <div class="text-caption">{{ currentArchiveFile }}</div>
-            <q-linear-progress :value="submitProgress" color="primary" size="lg" stripe />
           </div>
         </q-card-section>
-      </q-card-section>
-      <q-card-actions v-if="!archiveSubmitting" align="right">
-        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
-        <q-btn color="primary" label="Archive" @click="archiveFiles()" />
-      </q-card-actions>
-      <q-card-actions v-else align="right">
-        <q-btn color="negative" label="Cancel" @click="abortArchive" />
-      </q-card-actions>
+        <q-card-section v-else>
+          <div aria-live="polite" role="status">
+            <div class="text-caption">
+              {{ bytesToSize(archiveCurrentBytes) }} out of
+              {{ bytesToSize(archiveTotalBytes) }} archived ({{ submitPercent }}%)
+            </div>
+            <div class="text-caption">{{ filesArchived }} / {{ totalFiles }} files archived</div>
+            <div class="file-progress-name text-caption font-mono">{{ currentArchiveFile }}</div>
+            <q-linear-progress
+              aria-label="Archive progress"
+              :value="submitProgress"
+              color="primary"
+              size="lg"
+              stripe />
+          </div>
+        </q-card-section>
+        <q-card-actions v-if="!archiveSubmitting" align="right">
+          <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
+          <q-btn color="primary" label="Archive" type="submit" />
+        </q-card-actions>
+        <q-card-actions v-else align="right">
+          <q-btn color="negative" label="Stop archiving" @click="abortArchive" />
+        </q-card-actions>
+      </q-form>
     </q-card>
   </q-dialog>
 </template>
@@ -152,7 +157,14 @@ const archiveName = defineModel('archiveName', {
 
 const emit = defineEmits(['submit'])
 
+function validateArchiveName(value: string): true | string {
+  return value.trim() === '' ? 'Enter an archive name.' : true
+}
+
 async function archiveFiles() {
+  if (archiveSubmitting.value || validateArchiveName(archiveName.value) !== true) {
+    return
+  }
   archiveSubmitting.value = true
   abortedArchive.value = false
 
@@ -189,13 +201,21 @@ async function archiveFiles() {
       submitPercent.value = Math.round(submitProgress.value * 100)
     },
     (err?: ConnectError) => {
-      setTimeout(() => {
+      archiveSubmitting.value = false
+      if (abortedArchive.value) {
         resetArchiveStats()
-        archiveSubmitting.value = false
         showDialog.value = false
         emit('submit')
-      }, 100)
+        $q.notify({
+          caption: `Files archiving aborted.`,
+          type: 'xylona-alert',
+          position: 'top',
+          timeout: 3000,
+        })
+        return
+      }
       if (err) {
+        resetArchiveProgress()
         console.error(err)
         $q.notify({
           caption: `Error archiving files. ${err.message}`,
@@ -205,15 +225,9 @@ async function archiveFiles() {
         })
         return
       }
-      if (abortedArchive.value) {
-        $q.notify({
-          caption: `Files archiving aborted.`,
-          type: 'xylona-alert',
-          position: 'top',
-          timeout: 3000,
-        })
-        return
-      }
+      resetArchiveStats()
+      showDialog.value = false
+      emit('submit')
       $q.notify({
         caption: `Files archived successfully.`,
         type: 'xylona-success',
@@ -225,10 +239,7 @@ async function archiveFiles() {
   )
 }
 
-function resetArchiveStats() {
-  archiveType.value = DEFAULT_ARCHIVE_TYPE
-  archiveSuffix.value = DEFAULT_ARCHIVE_SUFFIX
-  archiveName.value = ''
+function resetArchiveProgress() {
   submitProgress.value = 0
   submitPercent.value = 0
   archiveCurrentBytes.value = 0
@@ -236,6 +247,13 @@ function resetArchiveStats() {
   currentArchiveFile.value = ''
   filesArchived.value = 0
   totalFiles.value = 0
+}
+
+function resetArchiveStats() {
+  archiveType.value = DEFAULT_ARCHIVE_TYPE
+  archiveSuffix.value = DEFAULT_ARCHIVE_SUFFIX
+  archiveName.value = ''
+  resetArchiveProgress()
 }
 
 function abortArchive() {
@@ -253,4 +271,8 @@ function getRelativeFilePath(...filePaths: string[]): string {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.file-progress-name {
+  overflow-wrap: anywhere;
+}
+</style>

@@ -5,43 +5,47 @@
     backdrop-filter="brightness(25%)"
     persistent>
     <q-card class="full-width">
-      <q-card-section>
-        <div id="dialog-title" class="text-h6">{{ extractTitle }}</div>
-      </q-card-section>
-      <q-card-section v-if="!extractSubmitting">
-        <q-form class="q-pa-lg">
-          <div class="row wrap q-col-gutter-md justify-between">
-            <q-input
-              v-model="fullDestinationPath"
-              :autofocus="true"
-              class="col-12"
-              hint="Leave this blank to extract to the current directory."
-              label="Folder to extract files to"
-              outlined />
-          </div>
-        </q-form>
-      </q-card-section>
-      <q-card-section v-else>
+      <q-form @submit.prevent="extractFiles">
         <q-card-section>
-          <div>
-            <div class="text-caption">
-              {{ bytesToSize(extractCurrentBytes) }} out of
-              {{ bytesToSize(extractTotalBytes) }} extracted ( {{ submitPercent }}% )
+          <div id="dialog-title" class="text-h6">{{ extractTitle }}</div>
+        </q-card-section>
+        <q-card-section v-if="!extractSubmitting">
+          <div class="q-pa-lg">
+            <div class="row wrap q-col-gutter-md justify-between">
+              <q-input
+                v-model="fullDestinationPath"
+                :autofocus="true"
+                class="col-12"
+                hint="Leave this blank to extract to the current directory."
+                label="Folder to extract files to"
+                outlined />
             </div>
-            <div class="text-caption"></div>
-            <div class="text-caption">{{ filesExtracted }} / {{ totalFiles }} files extracted</div>
-            <div class="text-caption">{{ currentExtractFile }}</div>
-            <q-linear-progress :value="submitProgress" color="primary" size="lg" stripe />
           </div>
         </q-card-section>
-      </q-card-section>
-      <q-card-actions v-if="!extractSubmitting" align="right">
-        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
-        <q-btn color="primary" label="Extract" @click="extractFiles()" />
-      </q-card-actions>
-      <q-card-actions v-else align="right">
-        <q-btn color="negative" label="Cancel" @click="abortExtract" />
-      </q-card-actions>
+        <q-card-section v-else>
+          <div aria-live="polite" role="status">
+            <div class="text-caption">
+              {{ bytesToSize(extractCurrentBytes) }} out of
+              {{ bytesToSize(extractTotalBytes) }} extracted ({{ submitPercent }}%)
+            </div>
+            <div class="text-caption">{{ filesExtracted }} / {{ totalFiles }} files extracted</div>
+            <div class="file-progress-name text-caption font-mono">{{ currentExtractFile }}</div>
+            <q-linear-progress
+              aria-label="Extraction progress"
+              :value="submitProgress"
+              color="primary"
+              size="lg"
+              stripe />
+          </div>
+        </q-card-section>
+        <q-card-actions v-if="!extractSubmitting" align="right">
+          <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
+          <q-btn color="primary" label="Extract" type="submit" />
+        </q-card-actions>
+        <q-card-actions v-else align="right">
+          <q-btn color="negative" label="Stop extracting" @click="abortExtract" />
+        </q-card-actions>
+      </q-form>
     </q-card>
   </q-dialog>
 </template>
@@ -100,6 +104,9 @@ const showDialog = defineModel('showDialog', {
 const emit = defineEmits(['submit'])
 
 async function extractFiles() {
+  if (extractSubmitting.value) {
+    return
+  }
   extractSubmitting.value = true
   abortedExtract.value = false
 
@@ -122,7 +129,7 @@ async function extractFiles() {
       const resp: GameServerFilesExtractProgress = response as GameServerFilesExtractProgress
       currentExtractFile.value =
         resp.filesExtracted === resp.totalFiles
-          ? 'All files Extracted!'
+          ? 'All files extracted!'
           : `Current file: ${resp.currentFile}`
       extractCurrentBytes.value =
         resp.filesExtracted === resp.totalFiles
@@ -138,13 +145,21 @@ async function extractFiles() {
       submitPercent.value = Math.round(submitProgress.value * 100)
     },
     (err?: ConnectError) => {
-      setTimeout(() => {
+      extractSubmitting.value = false
+      if (abortedExtract.value) {
         resetExtractStats()
-        extractSubmitting.value = false
         showDialog.value = false
         emit('submit')
-      }, 100)
+        $q.notify({
+          caption: `Files extraction aborted.`,
+          type: 'xylona-alert',
+          position: 'top',
+          timeout: 3000,
+        })
+        return
+      }
       if (err) {
+        resetExtractProgress()
         console.error(err)
         $q.notify({
           caption: `Error extracting files. ${err.message}`,
@@ -154,28 +169,21 @@ async function extractFiles() {
         })
         return
       }
-      if (abortedExtract.value) {
-        $q.notify({
-          caption: `Files extraction aborted.`,
-          type: 'xylona-alert',
-          position: 'top',
-          timeout: 3000,
-        })
-        return
-      }
       $q.notify({
         caption: `Extracted ${totalFiles.value} files successfully.`,
         type: 'xylona-success',
         position: 'top',
         timeout: 3000,
       })
+      resetExtractStats()
+      showDialog.value = false
+      emit('submit')
     },
     { signal: abortController.value.signal },
   )
 }
 
-function resetExtractStats() {
-  fullDestinationPath.value = ''
+function resetExtractProgress() {
   submitProgress.value = 0
   submitPercent.value = 0
   extractCurrentBytes.value = 0
@@ -183,6 +191,11 @@ function resetExtractStats() {
   currentExtractFile.value = ''
   filesExtracted.value = 0
   totalFiles.value = 0
+}
+
+function resetExtractStats() {
+  fullDestinationPath.value = ''
+  resetExtractProgress()
 }
 
 function abortExtract() {
@@ -193,4 +206,8 @@ function abortExtract() {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.file-progress-name {
+  overflow-wrap: anywhere;
+}
+</style>

@@ -5,27 +5,35 @@
     backdrop-filter="brightness(25%)"
     persistent>
     <q-card class="full-width">
-      <q-card-section>
-        <div id="dialog-title" class="text-h6">Rename {{ oldFileName }}</div>
-      </q-card-section>
-      <q-card-section>
-        <q-form class="q-pa-lg">
-          <div class="row wrap q-col-gutter-md justify-between">
-            <q-input
-              v-model="newFileName"
-              aria-autocomplete="none"
-              autofocus
-              class="col-12"
-              label="New name"
-              name="newFileName"
-              outlined />
+      <q-form @submit.prevent="renameFile">
+        <q-card-section>
+          <div id="dialog-title" class="text-h6">Rename {{ oldFileName }}</div>
+        </q-card-section>
+        <q-card-section>
+          <div class="q-pa-lg">
+            <div class="row wrap q-col-gutter-md justify-between">
+              <q-input
+                v-model="newFileName"
+                aria-autocomplete="none"
+                autofocus
+                class="col-12"
+                label="New name"
+                name="newFileName"
+                outlined
+                :rules="[validateName]" />
+            </div>
           </div>
-        </q-form>
-      </q-card-section>
-      <q-card-actions align="right">
-        <q-btn color="primary" flat label="Cancel" @click="showDialog = false" />
-        <q-btn color="primary" label="Submit" @click="renameFile" />
-      </q-card-actions>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn
+            color="primary"
+            :disable="submitting"
+            flat
+            label="Cancel"
+            @click="showDialog = false" />
+          <q-btn color="primary" label="Rename" :loading="submitting" type="submit" />
+        </q-card-actions>
+      </q-form>
     </q-card>
   </q-dialog>
 </template>
@@ -60,6 +68,7 @@ const props = defineProps({
 })
 
 const newFileName: Ref<string> = ref('')
+const submitting = ref(false)
 
 const $q = useQuasar()
 
@@ -76,7 +85,18 @@ watch([showDialog, () => props.oldFileName], ([visible]) => {
   }
 })
 
+function validateName(value: string): true | string {
+  if (value.trim() === '') {
+    return 'Enter a new name.'
+  }
+  return value === props.oldFileName ? 'Enter a different name.' : true
+}
+
 async function renameFile() {
+  if (submitting.value) {
+    return
+  }
+  submitting.value = true
   const request: GameServerFileRenameRequest = create(GameServerFileRenameRequestSchema, {})
   request.gameServerId = props.gameServerId
   request.oldPath = GetRelativeFilePath(props.gameServerPath, props.path, props.oldFileName)
@@ -90,18 +110,21 @@ async function renameFile() {
       position: 'top',
       timeout: 5000,
     })
-  } catch (err) {
+    showDialog.value = false
+    newFileName.value = ''
+  } catch (err: unknown) {
     console.error(err)
-    emit('submit')
     $q.notify({
-      caption: `Error renaming file or directory. ${err}`,
+      caption:
+        err instanceof Error
+          ? `Could not rename the file or directory. ${err.message}`
+          : 'Could not rename the file or directory. Try again.',
       type: 'xylona-error',
       position: 'top',
       timeout: 3000,
     })
   } finally {
-    showDialog.value = false
-    newFileName.value = ''
+    submitting.value = false
   }
 }
 </script>

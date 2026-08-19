@@ -4,7 +4,7 @@
     aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
     persistent>
-    <q-card>
+    <q-card class="delete-files-dialog">
       <q-card-section>
         <div id="dialog-title" class="text-h6 text-error">Delete Files</div>
       </q-card-section>
@@ -15,31 +15,31 @@
               Are you sure you want to delete the following files/directories?
               <span class="text-bold">This action cannot be undone.</span>
             </p>
-            <q-scroll-area style="height: 30dvh; width: 100%">
+            <q-scroll-area class="delete-files-list">
               <div
                 v-for="file in props.filesToDelete as XylonaFile[]"
                 :key="file.name"
-                class="q-pl-xl">
-                <span v-if="file.isDirectory">
-                  <q-icon :name="tabFolderFilled" color="amber" left size="xs"></q-icon>
-                  <span class="file-name">{{ file.name }}</span>
-                </span>
-                <span v-else>
-                  <q-icon
-                    :name="getIconFromFilenameExtension(file.name)"
-                    :style="'color:' + getColorFromFilenameExtension(file.name)"
-                    left
-                    size="xs"></q-icon>
-                  <span class="file-name">{{ file.name }}</span>
-                </span>
+                class="delete-file-entry">
+                <q-icon
+                  :class="file.isDirectory ? 'text-warning' : undefined"
+                  :name="
+                    file.isDirectory ? tabFolderFilled : getIconFromFilenameExtension(file.name)
+                  "
+                  :style="
+                    file.isDirectory
+                      ? undefined
+                      : `color:${getColorFromFilenameExtension(file.name)}`
+                  "
+                  size="xs" />
+                <span class="file-name">{{ file.name }}</span>
               </div>
             </q-scroll-area>
           </div>
         </q-form>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn color="neutral" flat label="Cancel" @click="showDialog = false" />
-        <q-btn class="bg-error" label="Delete" @click="deleteFiles" />
+        <q-btn color="neutral" :disable="loading" flat label="Cancel" @click="showDialog = false" />
+        <q-btn class="bg-error" label="Delete" :loading="loading" @click="deleteFiles" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -92,6 +92,9 @@ const loading: Ref<boolean> = ref(false)
 const emit = defineEmits(['filesDeleted'])
 
 async function deleteFiles() {
+  if (loading.value) {
+    return
+  }
   loading.value = true
   const request: GameServerFilesDeleteRequest = create(GameServerFilesDeleteRequestSchema, {})
   request.gameServerId = props.gameServerID
@@ -104,19 +107,18 @@ async function deleteFiles() {
   try {
     const response: GameServerFilesDeleteResponse =
       await GetXylonaClient().gameServerFilesDelete(request)
-    void deleteSuccess(response.fullFilePaths)
+    deleteSuccess(response.fullFilePaths)
     emit('filesDeleted', response.fullFilePaths)
-  } catch (e) {
+    showDialog.value = false
+  } catch (e: unknown) {
     console.error(e)
-    void deleteFailure(e)
-    emit('filesDeleted', [])
+    deleteFailure(e)
   } finally {
     loading.value = false
-    showDialog.value = false
   }
 }
 
-async function deleteSuccess(deletedFiles: string[]) {
+function deleteSuccess(deletedFiles: string[]) {
   $q.notify({
     caption: `Deleted ${deletedFiles.length} files/directories successfully.`,
     type: 'xylona-success',
@@ -125,9 +127,12 @@ async function deleteSuccess(deletedFiles: string[]) {
   })
 }
 
-async function deleteFailure(err: Error) {
+function deleteFailure(err: unknown) {
   $q.notify({
-    message: 'Failed to delete files/directories.\n' + err.message,
+    message:
+      err instanceof Error
+        ? `Could not delete the selected items. ${err.message}`
+        : 'Could not delete the selected items. Try again.',
     type: 'xylona-error',
     position: 'top',
     timeout: 3000,
@@ -136,7 +141,36 @@ async function deleteFailure(err: Error) {
 </script>
 
 <style scoped>
-.q-dialog__inner--minimized > div {
-  max-width: 80dvw;
+.delete-files-dialog {
+  width: min(44rem, calc(100dvw - var(--xy-space-xl)));
+}
+
+.delete-files-list {
+  width: 100%;
+  height: 30dvh;
+}
+
+.delete-file-entry {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
+  padding-inline: var(--xy-space-lg);
+  font-family: var(--xy-font-mono);
+}
+
+.file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 599px) {
+  .delete-files-dialog {
+    width: calc(100dvw - var(--xy-space-lg));
+  }
+
+  .delete-file-entry {
+    padding-inline: 0;
+  }
 }
 </style>

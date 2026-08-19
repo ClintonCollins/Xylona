@@ -91,6 +91,10 @@ a.q-item:hover {
   color: var(--xy-text-on-secondary) !important;
 }
 
+.q-btn.bg-error {
+  background-color: var(--xy-danger) !important;
+}
+
 .q-btn.bg-primary:hover:not(.disabled) {
   background-color: var(--xy-primary-hover) !important;
 }
