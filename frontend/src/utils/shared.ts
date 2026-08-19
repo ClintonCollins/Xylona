@@ -6,13 +6,29 @@ import { AllServersQueryInfo, Status } from '@/proto/shared_pb'
 import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
 import {
   tabArchive,
+  tabBinary,
+  tabBrandPowershell,
+  tabBrandWindows,
   tabFileFilled,
+  tabFileCode,
+  tabFileDescription,
   tabFileSettings,
+  tabFileTypeCss,
+  tabFileTypeHtml,
+  tabFileTypeJs,
+  tabFileTypeJpg,
+  tabFileTypePng,
+  tabFileTypeSql,
+  tabFileTypeTs,
   tabFileTypeTxt,
+  tabFileTypeXml,
   tabFileTypeZip,
   tabFileZip,
   tabFilterSearch,
+  tabIcons,
   tabJson,
+  tabMarkdown,
+  tabTerminal2,
 } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import {
   AllNodeMetrics,
@@ -512,59 +528,117 @@ export function ConnectErrorToString(err: ConnectError): string {
   return connectErrorToString(err)
 }
 
+const FILE_TYPE_ICONS: Record<string, string> = {
+  bat: tabTerminal2,
+  bin: tabBinary,
+  bz2: tabFileZip,
+  cfg: tabFileSettings,
+  cjs: tabFileTypeJs,
+  cmd: tabTerminal2,
+  conf: tabFileSettings,
+  config: tabFileSettings,
+  css: tabFileTypeCss,
+  dll: tabBinary,
+  dylib: tabBinary,
+  env: tabFileSettings,
+  exe: tabBrandWindows,
+  gz: tabFileZip,
+  html: tabFileTypeHtml,
+  htm: tabFileTypeHtml,
+  ico: tabIcons,
+  ini: tabFileSettings,
+  jar: tabArchive,
+  jpeg: tabFileTypeJpg,
+  js: tabFileTypeJs,
+  jpg: tabFileTypeJpg,
+  json: tabJson,
+  license: tabFileDescription,
+  log: tabFilterSearch,
+  markdown: tabMarkdown,
+  md: tabMarkdown,
+  mjs: tabFileTypeJs,
+  properties: tabFileSettings,
+  png: tabFileTypePng,
+  ps1: tabBrandPowershell,
+  py: tabFileCode,
+  readme: tabMarkdown,
+  sh: tabTerminal2,
+  so: tabBinary,
+  sql: tabFileTypeSql,
+  settings: tabFileSettings,
+  toml: tabFileCode,
+  ts: tabFileTypeTs,
+  txt: tabFileTypeTxt,
+  xml: tabFileTypeXml,
+  xz: tabFileZip,
+  yaml: tabFileCode,
+  yml: tabFileCode,
+  zip: tabFileTypeZip,
+  zst: tabFileZip,
+}
+
+function getFileTypeKey(fileName: string): string {
+  const normalizedName = fileName.toLocaleLowerCase()
+  const extensionIndex = normalizedName.lastIndexOf('.')
+  return extensionIndex < 0 ? normalizedName : normalizedName.slice(extensionIndex + 1)
+}
+
 export function getIconFromFilenameExtension(fileName: string): string {
-  const fileNameSplit = fileName.split('.')
-  if (fileNameSplit.length <= 1) {
-    return tabFileFilled
-  }
-  const extension = fileNameSplit[fileNameSplit.length - 1]
-  switch (extension) {
-    case 'json':
-      return tabJson
-    case 'txt':
-      return tabFileTypeTxt
-    case 'log':
-      return tabFilterSearch
-    case 'settings':
-      return tabFileSettings
-    case 'jar':
-      return tabArchive
-    case 'zip':
-      return tabFileTypeZip
-    case 'xz':
-      return tabFileZip
-    case 'gz':
-      return tabFileZip
-    case 'bz2':
-      return tabFileZip
-    case 'zst':
-      return tabFileZip
-    default:
-      return tabFileFilled
-  }
+  return FILE_TYPE_ICONS[getFileTypeKey(fileName)] ?? tabFileFilled
 }
 
 /** Maps file extensions to icon colors. */
 const FILE_TYPE_COLORS: Record<string, string> = {
-  json: '#74c639',
-  txt: '#94c2e6',
-  log: '#818181',
-  settings: '#f59e0b',
-  jar: '#f0db4f',
-  zip: '#f0db4f',
-  xz: '#3e9b00',
-  gz: '#674753',
-  bz2: '#757de7',
-  zst: '#f07f4f',
+  bat: 'var(--xy-success)',
+  bin: 'var(--xy-primary-hover)',
+  bz2: 'var(--xy-purple)',
+  cfg: 'var(--xy-warning)',
+  cjs: 'var(--xy-warning)',
+  cmd: 'var(--xy-success)',
+  conf: 'var(--xy-warning)',
+  config: 'var(--xy-warning)',
+  css: 'var(--xy-primary-hover)',
+  dll: 'var(--xy-primary-hover)',
+  dylib: 'var(--xy-primary-hover)',
+  env: 'var(--xy-warning)',
+  exe: 'var(--xy-primary-hover)',
+  gz: 'var(--xy-purple)',
+  html: 'var(--xy-accent)',
+  htm: 'var(--xy-accent)',
+  ico: 'var(--xy-purple)',
+  ini: 'var(--xy-warning)',
+  jar: 'var(--xy-purple)',
+  jpeg: 'var(--xy-purple)',
+  js: 'var(--xy-warning)',
+  jpg: 'var(--xy-purple)',
+  json: 'var(--xy-success)',
+  license: 'var(--xy-text-secondary)',
+  log: 'var(--xy-text-muted)',
+  markdown: 'var(--xy-info)',
+  md: 'var(--xy-info)',
+  mjs: 'var(--xy-warning)',
+  properties: 'var(--xy-warning)',
+  png: 'var(--xy-purple)',
+  ps1: 'var(--xy-primary-hover)',
+  py: 'var(--xy-accent)',
+  readme: 'var(--xy-info)',
+  settings: 'var(--xy-warning)',
+  sh: 'var(--xy-success)',
+  so: 'var(--xy-primary-hover)',
+  sql: 'var(--xy-accent)',
+  toml: 'var(--xy-accent)',
+  ts: 'var(--xy-primary-hover)',
+  txt: 'var(--xy-text-secondary)',
+  xml: 'var(--xy-accent)',
+  xz: 'var(--xy-purple)',
+  yaml: 'var(--xy-accent)',
+  yml: 'var(--xy-accent)',
+  zip: 'var(--xy-purple)',
+  zst: 'var(--xy-purple)',
 }
 
-const FILE_TYPE_COLOR_DEFAULT = '#f5f5f5'
+const FILE_TYPE_COLOR_DEFAULT = 'var(--xy-text-primary)'
 
 export function getColorFromFilenameExtension(fileName: string): string {
-  const fileNameSplit = fileName.split('.')
-  if (fileNameSplit.length <= 1) {
-    return FILE_TYPE_COLOR_DEFAULT
-  }
-  const extension = fileNameSplit[fileNameSplit.length - 1] ?? ''
-  return FILE_TYPE_COLORS[extension] ?? FILE_TYPE_COLOR_DEFAULT
+  return FILE_TYPE_COLORS[getFileTypeKey(fileName)] ?? FILE_TYPE_COLOR_DEFAULT
 }

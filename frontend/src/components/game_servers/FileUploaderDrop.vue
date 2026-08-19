@@ -1,6 +1,7 @@
 <template>
   <section
     ref="dragAndDropZone"
+    class="file-uploader-drop-zone"
     @dragenter="props.targetElement && dragEnterEvent($event, props.targetElement)"
     @dragleave="props.targetElement && dragLeaveEvent($event, props.targetElement)"
     @dragover="$event.preventDefault()"
@@ -20,7 +21,40 @@
       @dragover="$event.preventDefault()"
       @drop="dragDropEvent($event, 'fileUploaderCard')">
       <q-card-section>
-        <div id="dialog-title" class="text-h6">File Upload (You can drag and drop files below)</div>
+        <div id="dialog-title" class="text-h6">Upload files</div>
+        <div class="text-body2 text-xy-secondary q-mb-md">
+          Choose files or a folder from your computer, or drag and drop them here.
+        </div>
+        <div class="file-picker-actions q-mb-md">
+          <input
+            ref="filePicker"
+            class="file-picker-input"
+            data-testid="file-upload-picker"
+            multiple
+            type="file"
+            @change="handlePickerChange" />
+          <input
+            ref="folderPicker"
+            class="file-picker-input"
+            data-testid="folder-upload-picker"
+            multiple
+            type="file"
+            webkitdirectory
+            @change="handlePickerChange" />
+          <q-btn
+            color="primary"
+            icon="upload_file"
+            label="Choose files"
+            no-caps
+            outline
+            @click="filePicker?.click()" />
+          <q-btn
+            flat
+            icon="drive_folder_upload"
+            label="Choose folder"
+            no-caps
+            @click="folderPicker?.click()" />
+        </div>
         <q-toolbar class="bg-xy-surface-2 q-py-sm">
           <q-btn
             v-if="uploader.files.size > 0"
@@ -31,7 +65,7 @@
             <q-tooltip>Clear All</q-tooltip>
           </q-btn>
           <q-spinner v-if="uploader.isUploading" class="q-uploader__spinner q-ml-md" />
-          <div class="col q-ml-md">
+          <div class="file-upload-stats col q-ml-md">
             <div class="q-uploader__title">Upload your files</div>
             <div class="q-uploader__subtitle">
               {{ uploader.uploadedSizeSoFarLabel }} uploaded out of {{ uploader.uploadSizeLabel }} /
@@ -194,6 +228,8 @@ const maxNumberOfFilesToDisplay = 1000
 const addingFilesToUploaderViaFileContainerDrop: Ref<boolean> = ref(false) // This is for overriding the default uploader adding files. When this is false, we intercept the file add event and add files manually.
 const dragEventInTargetMap: Map<HTMLElement, boolean> = new Map<HTMLElement, boolean>()
 const addingFiles: Ref<boolean> = ref(false)
+const filePicker: Ref<HTMLInputElement | null> = ref(null)
+const folderPicker: Ref<HTMLInputElement | null> = ref(null)
 // const worker = new Worker()
 //
 // worker.onmessage = (event) => {
@@ -416,6 +452,15 @@ class FileUploader {
     )
   }
 
+  addNativeFiles(files: File[]) {
+    files.forEach((file) => {
+      const relativePath = file.webkitRelativePath || file.name
+      this.addPreparedFile(
+        new File([file], relativePath, { lastModified: file.lastModified, type: file.type }),
+      )
+    })
+  }
+
   addFile(file: File, fileEntry: FileSystemFileEntry) {
     if (!file) {
       console.error('File is null')
@@ -428,8 +473,13 @@ class FileUploader {
       this.abortController = new AbortController()
     }
     const updatedFile = new File([file], getUploaderFileRelativePath(fileEntry), {
+      lastModified: file.lastModified,
       type: file.type,
     })
+    this.addPreparedFile(updatedFile)
+  }
+
+  addPreparedFile(updatedFile: File) {
     if (this.files.has(updatedFile.name)) {
       this.removeOldFile(updatedFile.name)
     }
@@ -464,6 +514,17 @@ class FileUploader {
 }
 
 const uploader = ref(new FileUploader())
+
+function handlePickerChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const selectedFiles = Array.from(input.files ?? [])
+  if (selectedFiles.length === 0) {
+    return
+  }
+
+  uploader.value.addNativeFiles(selectedFiles)
+  input.value = ''
+}
 
 // TODO add directories as well. A user might upload an empty directory. We need to handle that.
 async function processDirectoryEntry(
@@ -668,16 +729,46 @@ function getUploaderFilePath(file: File): string {
 <style>
 .file-uploader {
   height: 50vh;
-  overflow: scroll;
+  overflow: auto;
+  font-family: var(--xy-font-mono);
+}
+
+.file-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+}
+
+.file-picker-input {
+  display: none;
+}
+
+.file-upload-stats {
+  font-family: var(--xy-font-mono);
 }
 
 .fileUploaderDialogCard {
   min-width: 40vw !important;
-  font-family: var(--xy-font-mono) !important;
-  border: 2px solid var(--xy-surface-1);
+  background-color: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-lg);
+  font-family: var(--xy-font-body);
 }
 
 .file-container-drag-over {
   border: 2px solid var(--q-primary) !important;
+}
+
+@media (max-width: 599px) {
+  .file-uploader {
+    height: 34vh;
+    min-height: 12rem;
+  }
+
+  .fileUploaderDialogCard {
+    width: calc(100vw - var(--xy-space-lg));
+    min-width: 0 !important;
+    padding-inline: var(--xy-space-base) !important;
+  }
 }
 </style>

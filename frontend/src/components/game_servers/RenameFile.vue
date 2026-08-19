@@ -38,7 +38,7 @@ import {
   GameServerFileRenameRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
-import { ref, Ref } from 'vue'
+import { ref, Ref, watch } from 'vue'
 
 const props = defineProps({
   gameServerId: {
@@ -69,6 +69,12 @@ const showDialog = defineModel('showDialog', {
 })
 
 const emit = defineEmits(['submit'])
+
+watch([showDialog, () => props.oldFileName], ([visible]) => {
+  if (visible) {
+    newFileName.value = props.oldFileName
+  }
+})
 
 async function renameFile() {
   const request: GameServerFileRenameRequest = create(GameServerFileRenameRequestSchema, {})

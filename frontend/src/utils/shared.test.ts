@@ -3,12 +3,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BackupProgressOperation, BackupProgressPhase, VersionStatus } from '@/proto/shared_pb'
 import { GameServerFilesCompressionType } from '@/proto/gameserver_files_operations_pb'
 import { AllServersMetrics, Message_Type, MessageSchema } from '@/proto/websocket_pb'
+import {
+  tabBinary,
+  tabBrandPowershell,
+  tabBrandWindows,
+  tabFileSettings,
+  tabFileTypeJpg,
+  tabFileTypePng,
+  tabIcons,
+  tabMarkdown,
+  tabTerminal2,
+} from 'quasar-extras-svg-icons/tabler-icons-v2'
 
 import {
   ArchiveTypeToExtension,
   ArchiveTypeToString,
   bytesToSize,
   dispatchWebsocketMessage,
+  getColorFromFilenameExtension,
+  getIconFromFilenameExtension,
   GetOrCreateXylonaWebsocketClient,
   GetPathSeparator,
   GetRelativeFilePath,
@@ -129,6 +142,26 @@ describe('bytesToSize', () => {
     [1073741824, '1 GB'],
   ])('formats %i bytes as %s', (bytes, want) => {
     expect(bytesToSize(bytes)).toBe(want)
+  })
+})
+
+describe('file type presentation', () => {
+  it.each([
+    ['server.EXE', tabBrandWindows, 'var(--xy-primary-hover)'],
+    ['library.dll', tabBinary, 'var(--xy-primary-hover)'],
+    ['server.ini', tabFileSettings, 'var(--xy-warning)'],
+    ['server.cfg', tabFileSettings, 'var(--xy-warning)'],
+    ['README.md', tabMarkdown, 'var(--xy-info)'],
+    ['start.sh', tabTerminal2, 'var(--xy-success)'],
+    ['start.bat', tabTerminal2, 'var(--xy-success)'],
+    ['setup.ps1', tabBrandPowershell, 'var(--xy-primary-hover)'],
+    ['preview.png', tabFileTypePng, 'var(--xy-purple)'],
+    ['screenshot.jpg', tabFileTypeJpg, 'var(--xy-purple)'],
+    ['photo.JPEG', tabFileTypeJpg, 'var(--xy-purple)'],
+    ['favicon.ico', tabIcons, 'var(--xy-purple)'],
+  ])('maps %s to a specific icon and token color', (fileName, icon, color) => {
+    expect(getIconFromFilenameExtension(fileName)).toBe(icon)
+    expect(getColorFromFilenameExtension(fileName)).toBe(color)
   })
 })
 
