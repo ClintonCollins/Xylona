@@ -29,11 +29,3 @@ export function sevenDaysToDieMarkerIcon(icon: string, native: boolean): string 
   }
   return native ? 'flag' : 'edit_location_alt'
 }
-
-export function sevenDaysToDieCoverage(loaded: number, failed: number): number | null {
-  const completed = loaded + failed
-  if (completed === 0) {
-    return null
-  }
-  return Math.round((loaded / completed) * 100)
-}

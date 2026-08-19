@@ -736,9 +736,8 @@ function handleSave() {
   savedScrollTop = tableScrollRef.value?.scrollTop ?? 0
 
   const fieldValues = new Map<string, string>()
-  for (const field of props.fields) {
-    if (field.isManaged) continue
-    fieldValues.set(field.key, getFieldValue(field))
+  for (const [key, value] of editedValues) {
+    fieldValues.set(key, value)
   }
   emit('save', fieldValues)
   editedValues.clear()

@@ -245,6 +245,7 @@ func gameServerPortFootprint(gameID string, port int64, queryPort int64) []int64
 			}
 			ports = append(ports, candidate)
 		}
+		ports = append(ports, queryPort+1)
 	case "project_zomboid":
 		ports = append(ports, port+1)
 	case "conan_exiles":
@@ -883,11 +884,7 @@ func (xs *XylonaService) UpdateGameServer(_ context.Context, request *connect.Re
 		return nil, errPermission
 	}
 
-	if selectedTarget != "" {
-		gameServer.Branch = selectedTarget
-	}
-
-	errUpdate := xs.actionsInst.UpdateGameServerWithBackup(gameServer, xs.updateBroadcast)
+	errUpdate := xs.actionsInst.UpdateGameServerWithBackup(gameServer, selectedTarget, xs.updateBroadcast)
 	if errors.Is(errUpdate, actions.ErrGameServerOperationInProgress) {
 		return nil, connect.NewError(connect.CodeAlreadyExists, errUpdate)
 	}

@@ -206,6 +206,7 @@ func TestUpdateGameServerConfigFileWritesAttributeKeyedXML(t *testing.T) {
 <ServerSettings>
   <property name="ServerName" value="Old Seven Days"/>
   <property name="ServerDescription" value="Old description"/>
+  <property name="EACEnabled" value="true"/>
   <property name="UnknownSetting" value="kept"/>
 </ServerSettings>
 `),
@@ -218,6 +219,7 @@ func TestUpdateGameServerConfigFileWritesAttributeKeyedXML(t *testing.T) {
 		Fields: []*xylona.ConfigFieldData{
 			{Key: "ServerName", Value: "New Seven Days"},
 			{Key: "ServerDescription", Value: "New description"},
+			{Key: "EACEnabled", Value: "false"},
 		},
 		AdvancedFields: []*xylona.AdvancedField{
 			{Key: "UnknownSetting", Value: "kept"},
@@ -242,6 +244,12 @@ func TestUpdateGameServerConfigFileWritesAttributeKeyedXML(t *testing.T) {
 	}
 	if properties["ServerDescription"] != "New description" {
 		t.Errorf("ServerDescription = %q, want %q", properties["ServerDescription"], "New description")
+	}
+	if properties["EACEnabled"] != "false" {
+		t.Errorf("EACEnabled = %q, want %q", properties["EACEnabled"], "false")
+	}
+	if _, exists := properties["SandboxCode"]; exists {
+		t.Error("SandboxCode was written without being included in the update")
 	}
 	if properties["UnknownSetting"] != "kept" {
 		t.Errorf("UnknownSetting = %q, want %q", properties["UnknownSetting"], "kept")
@@ -338,5 +346,5 @@ func windroseLikeJSONSchema() string {
 }
 
 func sevenDaysLikeXMLSchema() string {
-	return `[{"path":"serverconfig.xml","format":"xml","category":"Server","xml_key_mode":{"mode":"attributes","element":"property","key_attr":"name","value_attr":"value"},"schema":{"type":"object","properties":{"ServerName":{"type":"string","default":"My Seven Days Server"},"ServerDescription":{"type":"string","default":""}}}}]`
+	return `[{"path":"serverconfig.xml","format":"xml","category":"Server","xml_key_mode":{"mode":"attributes","element":"property","key_attr":"name","value_attr":"value"},"schema":{"type":"object","properties":{"ServerName":{"type":"string","default":"My Seven Days Server"},"ServerDescription":{"type":"string","default":""},"EACEnabled":{"type":"boolean","default":true},"SandboxCode":{"type":"string","default":"AAAJABJACJADJARFBNC"}}}}]`
 }

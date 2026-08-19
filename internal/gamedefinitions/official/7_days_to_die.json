@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:16ef0221cba7313a76bb67acb74b61bfd9234a05ee8f58c86317725f63a7bf90",
+  "content_hash": "sha256:5919907a9b9dd8a5b0e07c94363271830476253f7ab578ba46ce0f2264d8fcb1",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -74,13 +74,16 @@
         "value_attr": "value"
       },
       "managed_fields": {
+        "EnableMapRendering": "xylona.local_console_enabled",
         "ServerName": "game_server.server_name",
         "ServerMaxPlayerCount": "game_server.max_players",
         "ServerPort": "game_server.port",
         "TelnetEnabled": "xylona.local_console_enabled",
         "TelnetPort": "game_server.query_port",
         "TelnetPassword": "xylona.local_console_password",
-        "UserDataFolder": "game_server.directory"
+        "UserDataFolder": "game_server.directory",
+        "WebDashboardEnabled": "xylona.local_console_enabled",
+        "WebDashboardPort": "game_server.query_port_plus_1"
       },
       "schema": {
         "type": "object",
@@ -304,7 +307,10 @@
             "title": "Enable web dashboard",
             "default": false,
             "x-group": "Administration",
-            "x-order": 0
+            "x-order": 0,
+            "x-managed": {
+              "source": "xylona.local_console_enabled"
+            }
           },
           "WebDashboardPort": {
             "type": "integer",
@@ -313,7 +319,10 @@
             "minimum": 1,
             "maximum": 65535,
             "x-group": "Administration",
-            "x-order": 1
+            "x-order": 1,
+            "x-managed": {
+              "source": "game_server.query_port_plus_1"
+            }
           },
           "WebDashboardUrl": {
             "type": "string",
@@ -329,7 +338,10 @@
             "default": false,
             "description": "Render explored map areas to tiles for the web dashboard and similar tools.",
             "x-group": "Administration",
-            "x-order": 3
+            "x-order": 3,
+            "x-managed": {
+              "source": "xylona.local_console_enabled"
+            }
           },
           "TelnetEnabled": {
             "type": "boolean",

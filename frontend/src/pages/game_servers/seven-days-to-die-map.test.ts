@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   formatSevenDaysToDieCoordinate,
   initialSevenDaysToDieLayerVisibility,
-  sevenDaysToDieCoverage,
   sevenDaysToDieMarkerIcon,
   sevenDaysToDieTileURL,
 } from './seven-days-to-die-map'
@@ -25,14 +24,6 @@ describe('7 Days to Die map helpers', () => {
       markers: true,
       claims: true,
     })
-  })
-
-  it.each([
-    { name: 'all loaded', loaded: 8, failed: 0, expected: 100 },
-    { name: 'partial coverage', loaded: 3, failed: 1, expected: 75 },
-    { name: 'no completed tiles', loaded: 0, failed: 0, expected: null },
-  ])('reports $name', ({ loaded, failed, expected }) => {
-    expect(sevenDaysToDieCoverage(loaded, failed)).toBe(expected)
   })
 
   it('formats world coordinates without noisy precision', () => {

@@ -13,7 +13,6 @@ import type {
 import {
   formatSevenDaysToDieCoordinate,
   initialSevenDaysToDieLayerVisibility,
-  sevenDaysToDieCoverage,
   sevenDaysToDieMarkerIcon,
   sevenDaysToDieTileURL,
 } from '@/pages/game_servers/seven-days-to-die-map'
@@ -41,8 +40,6 @@ const emit = defineEmits<{
 const mapElement = ref<HTMLElement | null>(null)
 const railOpen = ref(true)
 const visibleLayers = ref(initialSevenDaysToDieLayerVisibility())
-const loadedTiles = ref(0)
-const failedTiles = ref(0)
 
 let map: LeafletMap | null = null
 let tileLayer: AuthorizedTileLayer | null = null
@@ -58,7 +55,6 @@ const claims = computed(() => props.view?.claims ?? [])
 const onlinePlayers = computed(() => players.value.filter((player) => player.online).length)
 const nativeMarkers = computed(() => markers.value.filter((marker) => marker.native).length)
 const localNotes = computed(() => markers.value.length - nativeMarkers.value)
-const coverage = computed(() => sevenDaysToDieCoverage(loadedTiles.value, failedTiles.value))
 const mapStatus = computed(() => {
   if (props.loadError) {
     return { label: 'Connection lost', icon: 'cloud_off', tone: 'danger' }
@@ -214,7 +210,7 @@ function createMarkerPopup(marker: SevenDaysToDieMapMarker): HTMLElement {
   const name = document.createElement('strong')
   name.textContent = marker.name
   const kind = document.createElement('span')
-  kind.textContent = marker.native ? 'Server marker' : 'Xylona note'
+  kind.textContent = marker.native ? '7DTD server marker' : 'Shared team note'
   popup.append(name, kind)
   if (marker.note !== '') {
     const note = document.createElement('span')
@@ -374,21 +370,11 @@ async function initializeMap(): Promise<void> {
     noWrap: true,
     updateWhenIdle: false,
   })
-  tileLayer.on('loading', () => {
-    loadedTiles.value = 0
-    failedTiles.value = 0
-  })
-  tileLayer.on('tileload', () => {
-    loadedTiles.value += 1
-  })
-  tileLayer.on('tileerror', () => {
-    failedTiles.value += 1
-  })
   tileLayer.addTo(map)
   claimLayer = L.layerGroup().addTo(map)
   markerLayer = L.layerGroup().addTo(map)
   playerLayer = L.layerGroup().addTo(map)
-  map.fitBounds(worldBounds, { animate: false, padding: [24, 24] })
+  map.setView([0, 0], Math.min(view.maxZoom, minimumZoom + 2), { animate: false })
   initializedKey = key
   syncOverlays()
 
@@ -489,8 +475,8 @@ onBeforeUnmount(teardownMap)
           <span class="seven-days-map__layer-label">
             <q-icon name="location_on" />
             <span
-              ><strong>Markers & notes</strong
-              ><small>{{ nativeMarkers }} server · {{ localNotes }} Xylona</small></span
+              ><strong>Server markers & team notes</strong
+              ><small>{{ nativeMarkers }} from 7DTD · {{ localNotes }} shared here</small></span
             >
           </span>
         </q-checkbox>
@@ -505,17 +491,6 @@ onBeforeUnmount(teardownMap)
             >
           </span>
         </q-checkbox>
-        <div class="seven-days-map__health">
-          <span>Visible tile coverage</span>
-          <strong>{{ coverage === null ? 'Waiting' : `${coverage}%` }}</strong>
-          <div class="seven-days-map__health-track">
-            <span :style="{ width: `${coverage ?? 0}%` }"></span>
-          </div>
-          <small v-if="failedTiles > 0"
-            >{{ failedTiles }} tile{{ failedTiles === 1 ? '' : 's' }} unavailable</small
-          >
-          <small v-else>Coverage updates as you pan and zoom.</small>
-        </div>
       </aside>
 
       <div v-if="loading && view === null" class="seven-days-map__overlay">
@@ -595,8 +570,7 @@ onBeforeUnmount(teardownMap)
   color: var(--xy-info);
 }
 
-.seven-days-map__updated,
-.seven-days-map__health small {
+.seven-days-map__updated {
   color: var(--xy-text-muted);
   font-size: var(--xy-font-size-xs);
 }
@@ -691,43 +665,6 @@ onBeforeUnmount(teardownMap)
 
 .seven-days-map__layer-label small {
   color: var(--xy-text-muted);
-}
-
-.seven-days-map__health {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--xy-space-xs) var(--xy-space-sm);
-  padding-top: var(--xy-space-sm);
-  border-top: 1px solid var(--xy-border);
-}
-
-.seven-days-map__health > span {
-  color: var(--xy-text-secondary);
-  font-size: var(--xy-font-size-sm);
-}
-
-.seven-days-map__health > strong {
-  color: var(--xy-accent);
-  font-family: var(--xy-font-mono);
-}
-
-.seven-days-map__health-track {
-  grid-column: 1 / -1;
-  height: 3px;
-  overflow: hidden;
-  background: var(--xy-surface-4);
-  border-radius: var(--xy-radius-pill);
-}
-
-.seven-days-map__health-track span {
-  display: block;
-  height: 100%;
-  background: var(--xy-accent);
-  transition: width var(--xy-transition-fast);
-}
-
-.seven-days-map__health small {
-  grid-column: 1 / -1;
 }
 
 .seven-days-map__overlay {
@@ -891,12 +828,6 @@ onBeforeUnmount(teardownMap)
     top: var(--xy-space-sm);
     right: var(--xy-space-sm);
     width: calc(100% - 16px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .seven-days-map__health-track span {
-    transition: none;
   }
 }
 </style>

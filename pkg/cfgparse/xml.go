@@ -174,7 +174,7 @@ func (p *XMLParser) writeNode(buf *bytes.Buffer, node *ConfigNode, indent int) e
 	}
 
 	// In attributes mode, write property elements for leaf nodes inside a container.
-	if p.KeyMode.Mode == "attributes" && node.Type == NodeString && !strings.HasPrefix(node.Key, "@") {
+	if p.KeyMode.Mode == "attributes" && isLeaf(node.Type) && !strings.HasPrefix(node.Key, "@") {
 		buf.WriteString(prefix)
 		buf.WriteString("<")
 		buf.WriteString(p.KeyMode.Element)

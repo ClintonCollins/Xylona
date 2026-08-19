@@ -323,6 +323,7 @@ func (inst *Instance) resolveUpdateFileClient(gs *models.GameServer, operation s
 // have only one active update operation.
 func (inst *Instance) UpdateGameServerWithBackup(
 	gameServer *models.GameServer,
+	selectedTarget string,
 	broadcaster UpdateProgressBroadcaster,
 ) error {
 	if gameServer == nil || strings.TrimSpace(gameServer.ID) == "" {
@@ -331,6 +332,19 @@ func (inst *Instance) UpdateGameServerWithBackup(
 	releaseOperation, errOperation := inst.TryBeginGameServerLifecycleOperation(gameServer.ID)
 	if errOperation != nil {
 		return errOperation
+	}
+
+	target := strings.TrimSpace(selectedTarget)
+	if target != "" {
+		if gameServer.R.Game != nil && gameServer.R.Game.UsesSteamcmd {
+			errPersist := inst.PersistSteamBranchSelection(gameServer, target)
+			if errPersist != nil {
+				releaseOperation()
+				return errPersist
+			}
+		} else {
+			gameServer.Branch = target
+		}
 	}
 
 	go func() {

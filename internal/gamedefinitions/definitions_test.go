@@ -83,11 +83,16 @@ func TestSevenDaysToDieDefinitionConfigSchema(t *testing.T) {
 		t.Fatalf("config schema count = %d, want 1", len(entries))
 	}
 	entry := entries[0]
-	if entry.ManagedFields["TelnetEnabled"] != "xylona.local_console_enabled" {
-		t.Fatalf("TelnetEnabled source = %q", entry.ManagedFields["TelnetEnabled"])
-	}
-	if entry.ManagedFields["TelnetPassword"] != "xylona.local_console_password" {
-		t.Fatalf("TelnetPassword source = %q", entry.ManagedFields["TelnetPassword"])
+	for field, wantSource := range map[string]string{
+		"EnableMapRendering":  "xylona.local_console_enabled",
+		"TelnetEnabled":       "xylona.local_console_enabled",
+		"TelnetPassword":      "xylona.local_console_password",
+		"WebDashboardEnabled": "xylona.local_console_enabled",
+		"WebDashboardPort":    "game_server.query_port_plus_1",
+	} {
+		if entry.ManagedFields[field] != wantSource {
+			t.Errorf("%s source = %q, want %q", field, entry.ManagedFields[field], wantSource)
+		}
 	}
 
 	wantProperties := []string{

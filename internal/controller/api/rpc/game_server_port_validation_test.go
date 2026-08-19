@@ -236,9 +236,9 @@ func TestFindAvailablePortReservesSevenDaysToDiePortRange(t *testing.T) {
 	if errFind != nil {
 		t.Fatalf("findAvailablePort() error = %v", errFind)
 	}
-	if availablePort != 26905 || availableQueryPort != 26909 {
+	if availablePort != 26906 || availableQueryPort != 26910 {
 		t.Fatalf(
-			"findAvailablePort() = (%d, %d), want (26905, 26909)",
+			"findAvailablePort() = (%d, %d), want (26906, 26910)",
 			availablePort,
 			availableQueryPort,
 		)
@@ -256,7 +256,7 @@ func TestGameServerPortFootprintIncludesDerivedPorts(t *testing.T) {
 		{name: "ordinary pair", gameID: "other", port: 7000, queryPort: 7001, want: []int64{7000, 7001}},
 		{name: "shared port", gameID: "other", port: 7000, queryPort: 7000, want: []int64{7000}},
 		{name: "Minecraft without map", gameID: "minecraft", port: 25565, queryPort: 25565, want: []int64{25565}},
-		{name: "7 Days to Die range", gameID: "7_days_to_die", port: 26900, queryPort: 26904, want: []int64{26900, 26904, 26901, 26902, 26903}},
+		{name: "7 Days to Die range", gameID: "7_days_to_die", port: 26900, queryPort: 26904, want: []int64{26900, 26904, 26901, 26902, 26903, 26905}},
 		{name: "Conan auxiliary ports", gameID: "conan_exiles", port: 7777, queryPort: 27015, want: []int64{7777, 27015, 7778, 7779}},
 		{name: "Project Zomboid direct connection", gameID: "project_zomboid", port: 16261, queryPort: 16261, want: []int64{16261, 16262}},
 		{name: "Palworld REST query", gameID: "palworld", port: 8211, queryPort: 8212, want: []int64{8211, 8212}},

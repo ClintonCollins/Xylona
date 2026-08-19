@@ -32,7 +32,7 @@ import (
 
 func TestUpdateGameServerWithBackupRejectsConcurrentOperation(t *testing.T) {
 	inst := &Instance{activeGameServerOps: map[string]struct{}{"server-1": {}}}
-	errUpdate := inst.UpdateGameServerWithBackup(&models.GameServer{ID: "server-1"}, nil)
+	errUpdate := inst.UpdateGameServerWithBackup(&models.GameServer{ID: "server-1"}, "", nil)
 	if !errors.Is(errUpdate, ErrGameServerOperationInProgress) {
 		t.Fatalf("UpdateGameServerWithBackup() error = %v, want %v", errUpdate, ErrGameServerOperationInProgress)
 	}
@@ -45,7 +45,7 @@ func TestTryBeginGameServerLifecycleOperationCoordinatesRestartAndUpdate(t *test
 		t.Fatalf("TryBeginGameServerLifecycleOperation(restart) error = %v", errRestart)
 	}
 
-	errUpdate := inst.UpdateGameServerWithBackup(&models.GameServer{ID: "server-1"}, nil)
+	errUpdate := inst.UpdateGameServerWithBackup(&models.GameServer{ID: "server-1"}, "", nil)
 	if !errors.Is(errUpdate, ErrGameServerOperationInProgress) {
 		t.Fatalf("UpdateGameServerWithBackup() during restart error = %v, want %v", errUpdate, ErrGameServerOperationInProgress)
 	}

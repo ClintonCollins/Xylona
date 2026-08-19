@@ -130,6 +130,11 @@ export default configure(function (/* ctx */) {
           changeOrigin: true,
           secure: false,
         },
+        '/seven-days-to-die-map-tiles': {
+          target: backendProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
 
