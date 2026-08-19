@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
@@ -1005,6 +1008,44 @@ func TestWebSocket_ConsoleStreamBackpressureRestartsForResetReplay(t *testing.T)
 	}
 	if client.attemptCount() < 2 {
 		t.Fatalf("console stream attempts = %d, want at least 2", client.attemptCount())
+	}
+}
+
+func TestWebSocket_ConsoleConnectionBackpressureIsDebugOnly(t *testing.T) {
+	var logOutput bytes.Buffer
+	previousLogger := log.Logger
+	log.Logger = zerolog.New(&logOutput).Level(zerolog.DebugLevel)
+	t.Cleanup(func() {
+		log.Logger = previousLogger
+	})
+
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                     "node-remote",
+		StreamConsoleOutputChannel: make(chan node.ConsoleChunk),
+	}
+	registry := noderegistry.New("node-local", nil)
+	registry.Register(client)
+	conn := newTestConnection()
+	conn.outputStreamChannel = make(chan *xylona.Message)
+	token := &struct{}{}
+	conn.consoleStreamTokens = map[string]*struct{}{"server-remote": token}
+	ctx, cancel := context.WithTimeout(t.Context(), 1100*time.Millisecond)
+	defer cancel()
+
+	ws := &WebSocket{ctx: ctx, nodeRegistry: registry}
+	ws.runConsoleStream(ctx, conn, "server-remote", "node-remote", token)
+
+	logs := logOutput.String()
+	for _, message := range []string{
+		"Unable to deliver console connection state",
+		"Console connection-state update was backpressured; will retry",
+	} {
+		if !strings.Contains(logs, message) {
+			t.Fatalf("logs did not exercise %q: %s", message, logs)
+		}
+	}
+	if strings.Contains(logs, `"level":"warn"`) {
+		t.Fatalf("routine console backpressure logged a warning: %s", logs)
 	}
 }
 

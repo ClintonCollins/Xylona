@@ -276,7 +276,7 @@ func (ws *WebSocket) runConsoleStream(
 		}
 		if !ws.forwardConsoleConnectionState(streamCtx, conn, gameServerID, false) {
 			attemptCancel()
-			log.Warn().Str("node_id", nodeID).Str("game_server_id", gameServerID).
+			log.Debug().Str("node_id", nodeID).Str("game_server_id", gameServerID).
 				Dur("retry_in", backoff).Msg("Console connection-state update was backpressured; will retry")
 			if waitForConsoleRetry(streamCtx, backoff) {
 				return
@@ -372,7 +372,7 @@ func (ws *WebSocket) forwardConsoleConnectionState(
 	case conn.outputStreamChannel <- payload:
 		return true
 	case <-time.After(time.Second):
-		log.Warn().Str("game_server_id", gameServerID).Bool("reconnecting", reconnecting).
+		log.Debug().Str("game_server_id", gameServerID).Bool("reconnecting", reconnecting).
 			Msg("Unable to deliver console connection state")
 		return false
 	}
