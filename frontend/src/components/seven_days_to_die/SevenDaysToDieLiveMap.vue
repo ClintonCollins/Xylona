@@ -4,18 +4,14 @@ import L, { type DoneCallback, type Map as LeafletMap } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
-import type {
-  SevenDaysToDieLandClaim,
-  SevenDaysToDieMapMarker,
-  SevenDaysToDieMapPlayer,
-  SevenDaysToDieMapView,
-} from '@/proto/xylona_pb'
+import type { SevenDaysToDieMapPlayer, SevenDaysToDieMapView } from '@/proto/xylona_pb'
 import {
   formatSevenDaysToDieCoordinate,
-  initialSevenDaysToDieLayerVisibility,
-  sevenDaysToDieMarkerIcon,
+  initialSevenDaysToDieMapView,
   sevenDaysToDieTileURL,
 } from '@/pages/game_servers/seven-days-to-die-map'
+
+const fullTileRefreshIntervalMilliseconds = 30_000
 
 const props = withDefaults(
   defineProps<{
@@ -38,23 +34,16 @@ const emit = defineEmits<{
 }>()
 
 const mapElement = ref<HTMLElement | null>(null)
-const railOpen = ref(true)
-const visibleLayers = ref(initialSevenDaysToDieLayerVisibility())
 
 let map: LeafletMap | null = null
 let tileLayer: AuthorizedTileLayer | null = null
 let playerLayer: L.LayerGroup | null = null
-let markerLayer: L.LayerGroup | null = null
-let claimLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
 let initializedKey = ''
+let lastFullTileRefreshAt = Date.now()
 
 const players = computed(() => props.view?.players ?? [])
-const markers = computed(() => props.view?.markers ?? [])
-const claims = computed(() => props.view?.claims ?? [])
 const onlinePlayers = computed(() => players.value.filter((player) => player.online).length)
-const nativeMarkers = computed(() => markers.value.filter((marker) => marker.native).length)
-const localNotes = computed(() => markers.value.length - nativeMarkers.value)
 const mapStatus = computed(() => {
   if (props.loadError) {
     return { label: 'Connection lost', icon: 'cloud_off', tone: 'danger' }
@@ -97,12 +86,50 @@ class AuthorizedTileLayer extends L.GridLayer {
     image.alt = ''
     image.setAttribute('role', 'presentation')
 
+    this.loadTile(coordinates, image, done)
+    return image
+  }
+
+  refreshPlayerTiles(map: LeafletMap, players: readonly SevenDaysToDieMapPlayer[]): void {
+    const tileSize = this.getTileSize()
+    for (const tile of Object.values(this._tiles)) {
+      if (!tile.current) {
+        continue
+      }
+      const containsOnlinePlayer = players.some((player) => {
+        if (!player.online || player.position === undefined) {
+          return false
+        }
+        const projected = map
+          .project([player.position.x, player.position.z], tile.coords.z)
+          .unscaleBy(tileSize)
+          .floor()
+        return (
+          Math.abs(projected.x - tile.coords.x) <= 1 && Math.abs(projected.y - tile.coords.y) <= 1
+        )
+      })
+      if (containsOnlinePlayer) {
+        this.loadTile(tile.coords, tile.el as HTMLImageElement)
+      }
+    }
+  }
+
+  refreshAllTiles(): void {
+    for (const tile of Object.values(this._tiles)) {
+      if (tile.current) {
+        this.loadTile(tile.coords, tile.el as HTMLImageElement)
+      }
+    }
+  }
+
+  private loadTile(coordinates: L.Coords, image: HTMLImageElement, done?: DoneCallback): void {
     const headers: HeadersInit = { Accept: 'image/png' }
     if (this.shareToken !== '') {
       headers['X-Xylona-Map-Share'] = this.shareToken
     }
 
     void fetch(sevenDaysToDieTileURL(this.template, coordinates), {
+      cache: 'no-store',
       credentials: 'same-origin',
       headers,
     })
@@ -118,7 +145,7 @@ class AuthorizedTileLayer extends L.GridLayer {
           'load',
           () => {
             URL.revokeObjectURL(objectURL)
-            done(undefined, image)
+            done?.(undefined, image)
           },
           { once: true },
         )
@@ -126,17 +153,18 @@ class AuthorizedTileLayer extends L.GridLayer {
           'error',
           () => {
             URL.revokeObjectURL(objectURL)
-            done(new Error('The map tile could not be decoded.'), image)
+            done?.(new Error('The map tile could not be decoded.'), image)
           },
           { once: true },
         )
         image.src = objectURL
       })
       .catch((error: unknown) => {
-        done(error instanceof Error ? error : new Error('The map tile could not be loaded.'), image)
+        done?.(
+          error instanceof Error ? error : new Error('The map tile could not be loaded.'),
+          image,
+        )
       })
-
-    return image
   }
 }
 
@@ -165,19 +193,6 @@ function createSevenDaysToDieCRS(maxZoom: number): L.CRS {
   }) as L.CRS
 }
 
-function cssColor(token: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-}
-
-function escapeHTML(value: string): string {
-  return value.replace(
-    /[&<>'"]/g,
-    (character) =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ??
-      character,
-  )
-}
-
 function coordinateText(x: number, y: number, z: number): string {
   return `X ${formatSevenDaysToDieCoordinate(x)} · Y ${formatSevenDaysToDieCoordinate(y)} · Z ${formatSevenDaysToDieCoordinate(z)}`
 }
@@ -204,100 +219,40 @@ function createPlayerPopup(player: SevenDaysToDieMapPlayer): HTMLElement {
   return popup
 }
 
-function createMarkerPopup(marker: SevenDaysToDieMapMarker): HTMLElement {
-  const popup = document.createElement('div')
-  popup.className = 'seven-days-map__popup'
-  const name = document.createElement('strong')
-  name.textContent = marker.name
-  const kind = document.createElement('span')
-  kind.textContent = marker.native ? '7DTD server marker' : 'Shared team note'
-  popup.append(name, kind)
-  if (marker.note !== '') {
-    const note = document.createElement('span')
-    note.textContent = marker.note
-    popup.append(note)
-  }
-  const coordinates = document.createElement('span')
-  coordinates.textContent = `X ${formatSevenDaysToDieCoordinate(marker.x)} · Z ${formatSevenDaysToDieCoordinate(marker.z)}`
-  popup.append(coordinates)
-  return popup
+function createPlayerLabel(player: SevenDaysToDieMapPlayer): HTMLElement {
+  const label = document.createElement('span')
+  label.textContent = player.name
+  return label
 }
 
-function createClaimPopup(claim: SevenDaysToDieLandClaim): HTMLElement {
-  const popup = document.createElement('div')
-  popup.className = 'seven-days-map__popup'
-  const name = document.createElement('strong')
-  name.textContent = claim.ownerName || 'Unknown owner'
-  const state = document.createElement('span')
-  state.textContent = `${claim.active ? 'Active' : 'Inactive'} land claim · ${claim.size} blocks`
-  popup.append(name, state)
-  return popup
-}
-
-function syncOverlays(): void {
-  if (map === null || playerLayer === null || markerLayer === null || claimLayer === null) {
+function syncPlayers(): void {
+  if (map === null || playerLayer === null) {
     return
   }
 
   playerLayer.clearLayers()
-  markerLayer.clearLayers()
-  claimLayer.clearLayers()
-
-  if (visibleLayers.value.players) {
-    for (const player of players.value) {
-      const position = player.position
-      if (position === undefined) {
-        continue
-      }
-      const icon = L.divIcon({
-        className: 'seven-days-map__marker-shell',
-        html: `<span class="seven-days-map__player ${player.online ? 'seven-days-map__player--online' : 'seven-days-map__player--offline'}"><span class="seven-days-map__player-core"></span></span>`,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
-        popupAnchor: [0, -14],
+  for (const player of players.value) {
+    const position = player.position
+    if (position === undefined) {
+      continue
+    }
+    const playerState = player.online ? 'online' : 'offline'
+    const icon = L.divIcon({
+      className: 'seven-days-map__marker-shell',
+      html: `<span class="seven-days-map__player seven-days-map__player--${playerState}"><span class="material-icons" aria-hidden="true">person</span></span>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -16],
+    })
+    L.marker([position.x, position.z], { icon, title: player.name })
+      .bindTooltip(createPlayerLabel(player), {
+        className: `seven-days-map__player-name seven-days-map__player-name--${playerState}`,
+        direction: 'right',
+        offset: L.point(17, 0),
+        permanent: true,
       })
-      L.marker([position.x, position.z], { icon })
-        .bindPopup(createPlayerPopup(player))
-        .addTo(playerLayer)
-    }
-  }
-
-  if (visibleLayers.value.markers) {
-    for (const marker of markers.value) {
-      const iconName = sevenDaysToDieMarkerIcon(marker.icon, marker.native)
-      const icon = L.divIcon({
-        className: 'seven-days-map__marker-shell',
-        html: `<span class="seven-days-map__note ${marker.native ? 'seven-days-map__note--native' : 'seven-days-map__note--local'}"><span class="material-icons" aria-hidden="true">${escapeHTML(iconName)}</span></span>`,
-        iconSize: [30, 36],
-        iconAnchor: [15, 32],
-        popupAnchor: [0, -30],
-      })
-      L.marker([marker.x, marker.z], { icon })
-        .bindPopup(createMarkerPopup(marker))
-        .addTo(markerLayer)
-    }
-  }
-
-  if (visibleLayers.value.claims) {
-    const activeColor = cssColor('--xy-warning')
-    const inactiveColor = cssColor('--xy-text-muted')
-    for (const claim of claims.value) {
-      const position = claim.position
-      if (position === undefined || claim.size <= 0) {
-        continue
-      }
-      const halfSize = claim.size / 2
-      const color = claim.active ? activeColor : inactiveColor
-      L.rectangle(
-        [
-          [position.x - halfSize, position.z - halfSize],
-          [position.x + halfSize, position.z + halfSize],
-        ],
-        { color, fillColor: color, fillOpacity: claim.active ? 0.12 : 0.06, weight: 1 },
-      )
-        .bindPopup(createClaimPopup(claim))
-        .addTo(claimLayer)
-    }
+      .bindPopup(createPlayerPopup(player))
+      .addTo(playerLayer)
   }
 }
 
@@ -306,8 +261,6 @@ function teardownMap(): void {
   resizeObserver = null
   tileLayer = null
   playerLayer = null
-  markerLayer = null
-  claimLayer = null
   map?.remove()
   map = null
   initializedKey = ''
@@ -337,7 +290,7 @@ async function initializeMap(): Promise<void> {
     props.shareToken,
   ].join(':')
   if (map !== null && initializedKey === key) {
-    syncOverlays()
+    syncPlayers()
     return
   }
 
@@ -371,12 +324,12 @@ async function initializeMap(): Promise<void> {
     updateWhenIdle: false,
   })
   tileLayer.addTo(map)
-  claimLayer = L.layerGroup().addTo(map)
-  markerLayer = L.layerGroup().addTo(map)
+  lastFullTileRefreshAt = Date.now()
   playerLayer = L.layerGroup().addTo(map)
-  map.setView([0, 0], Math.min(view.maxZoom, minimumZoom + 2), { animate: false })
+  const initialView = initialSevenDaysToDieMapView(view.maxZoom, players.value)
+  map.setView(initialView.center, initialView.zoom, { animate: false })
   initializedKey = key
-  syncOverlays()
+  syncPlayers()
 
   resizeObserver = new ResizeObserver(() => map?.invalidateSize({ pan: false }))
   resizeObserver.observe(mapElement.value)
@@ -401,7 +354,23 @@ watch(
   () => void initializeMap(),
   { immediate: true },
 )
-watch([players, markers, claims, visibleLayers], syncOverlays, { deep: true })
+watch(
+  () => props.view?.collectedAt?.seconds,
+  () => {
+    const currentTileLayer = tileLayer
+    if (map === null || currentTileLayer === null) {
+      return
+    }
+    const now = Date.now()
+    if (now - lastFullTileRefreshAt >= fullTileRefreshIntervalMilliseconds) {
+      currentTileLayer.refreshAllTiles()
+      lastFullTileRefreshAt = now
+      return
+    }
+    currentTileLayer.refreshPlayerTiles(map, players.value)
+  },
+)
+watch(players, syncPlayers, { deep: true })
 onBeforeUnmount(teardownMap)
 </script>
 
@@ -419,23 +388,8 @@ onBeforeUnmount(teardownMap)
         <span
           ><strong>{{ onlinePlayers }}</strong> online</span
         >
-        <span
-          ><strong>{{ markers.length }}</strong> markers</span
-        >
-        <span v-if="view?.claimsSupported"
-          ><strong>{{ claims.length }}</strong> claims</span
-        >
       </div>
       <div class="seven-days-map__toolbar-actions">
-        <q-btn
-          :aria-label="railOpen ? 'Hide map layers' : 'Show map layers'"
-          dense
-          flat
-          icon="layers"
-          round
-          @click="railOpen = !railOpen">
-          <q-tooltip>{{ railOpen ? 'Hide layers' : 'Show layers' }}</q-tooltip>
-        </q-btn>
         <q-btn aria-label="Refresh live map" dense flat icon="refresh" round @click="refresh">
           <q-tooltip>Refresh map</q-tooltip>
         </q-btn>
@@ -448,50 +402,6 @@ onBeforeUnmount(teardownMap)
         aria-label="7 Days to Die world map"
         class="seven-days-map__viewport"
         role="region"></div>
-
-      <aside v-if="railOpen && view?.enabled" class="seven-days-map__rail" aria-label="Map layers">
-        <div class="seven-days-map__rail-heading">
-          <div>
-            <span>Map layers</span>
-            <strong>World intelligence</strong>
-          </div>
-          <q-btn
-            aria-label="Close map layers"
-            dense
-            flat
-            icon="close"
-            round
-            @click="railOpen = false" />
-        </div>
-        <q-checkbox v-model="visibleLayers.players" dense>
-          <span class="seven-days-map__layer-label">
-            <q-icon name="group" />
-            <span
-              ><strong>Players</strong><small>{{ onlinePlayers }} online</small></span
-            >
-          </span>
-        </q-checkbox>
-        <q-checkbox v-model="visibleLayers.markers" dense>
-          <span class="seven-days-map__layer-label">
-            <q-icon name="location_on" />
-            <span
-              ><strong>Server markers & team notes</strong
-              ><small>{{ nativeMarkers }} from 7DTD · {{ localNotes }} shared here</small></span
-            >
-          </span>
-        </q-checkbox>
-        <q-checkbox v-model="visibleLayers.claims" :disable="!view?.claimsSupported" dense>
-          <span class="seven-days-map__layer-label">
-            <q-icon name="grid_4x4" />
-            <span
-              ><strong>Land claims</strong
-              ><small>{{
-                view?.claimsSupported ? `${claims.length} regions` : 'Not exposed by this server'
-              }}</small></span
-            >
-          </span>
-        </q-checkbox>
-      </aside>
 
       <div v-if="loading && view === null" class="seven-days-map__overlay">
         <q-spinner color="primary" size="42px" />
@@ -608,65 +518,6 @@ onBeforeUnmount(teardownMap)
   background-color: var(--xy-base);
 }
 
-.seven-days-map__rail {
-  position: absolute;
-  z-index: 500;
-  top: var(--xy-space-md);
-  right: var(--xy-space-md);
-  display: grid;
-  gap: var(--xy-space-base);
-  width: min(300px, calc(100% - 32px));
-  padding: var(--xy-space-md);
-  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
-  border: 1px solid var(--xy-border-hover);
-  border-radius: var(--xy-radius-lg);
-  box-shadow: var(--xy-shadow-xl);
-  backdrop-filter: blur(12px);
-}
-
-.seven-days-map__rail-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding-bottom: var(--xy-space-sm);
-  border-bottom: 1px solid var(--xy-border);
-}
-
-.seven-days-map__rail-heading > div {
-  display: grid;
-  gap: var(--xy-space-2xs);
-}
-
-.seven-days-map__rail-heading span {
-  color: var(--xy-accent);
-  font-size: var(--xy-font-size-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.seven-days-map__rail-heading strong {
-  font-family: var(--xy-font-heading);
-  font-weight: 500;
-}
-
-.seven-days-map__layer-label {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-base);
-}
-
-.seven-days-map__layer-label > span {
-  display: grid;
-}
-
-.seven-days-map__layer-label strong {
-  font-weight: 600;
-}
-
-.seven-days-map__layer-label small {
-  color: var(--xy-text-muted);
-}
-
 .seven-days-map__overlay {
   position: absolute;
   z-index: 600;
@@ -750,13 +601,19 @@ onBeforeUnmount(teardownMap)
 :deep(.seven-days-map__player) {
   position: relative;
   display: grid;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   place-items: center;
-  background: var(--xy-accent-bg);
-  border: 1px solid var(--xy-accent);
+  color: var(--xy-accent-hover);
+  background: var(--xy-surface-1);
+  border: 2px solid var(--xy-accent);
   border-radius: 50%;
-  box-shadow: 0 0 18px var(--xy-accent-muted);
+  box-shadow: var(--xy-shadow-md);
+  outline: 3px solid var(--xy-accent-bg);
+}
+
+:deep(.seven-days-map__player .material-icons) {
+  font-size: 19px;
 }
 
 :deep(.seven-days-map__player--offline) {
@@ -764,41 +621,37 @@ onBeforeUnmount(teardownMap)
   opacity: 0.66;
 }
 
-:deep(.seven-days-map__player-core) {
-  width: 8px;
-  height: 8px;
-  background: var(--xy-accent-hover);
-  border-radius: 50%;
-}
-
 :deep(.seven-days-map__player--online::after) {
   position: absolute;
-  inset: -4px;
+  inset: -6px;
   content: '';
   border: 1px solid var(--xy-accent-border);
   border-radius: 50%;
 }
 
-:deep(.seven-days-map__note) {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  color: var(--xy-text-on-color);
-  background: var(--xy-primary);
-  border: 2px solid var(--xy-text-primary);
-  border-radius: 50% 50% 50% 8px;
+:deep(.seven-days-map__player-name) {
+  max-width: 180px;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
+  border: 1px solid var(--xy-border-hover);
+  border-radius: var(--xy-radius-sm);
   box-shadow: var(--xy-shadow-md);
-  transform: rotate(-45deg);
 }
 
-:deep(.seven-days-map__note .material-icons) {
-  font-size: 17px;
-  transform: rotate(45deg);
+:deep(.seven-days-map__player-name::before) {
+  display: none;
 }
 
-:deep(.seven-days-map__note--native) {
-  background: var(--xy-warning-darker);
+:deep(.seven-days-map__player-name--offline) {
+  color: var(--xy-text-secondary);
 }
 
 @media (max-width: 700px) {
@@ -822,12 +675,6 @@ onBeforeUnmount(teardownMap)
 
   .seven-days-map__toolbar-actions {
     margin-left: auto;
-  }
-
-  .seven-days-map__rail {
-    top: var(--xy-space-sm);
-    right: var(--xy-space-sm);
-    width: calc(100% - 16px);
   }
 }
 </style>

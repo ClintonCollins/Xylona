@@ -85,6 +85,7 @@ service Xylona {
   rpc GetPublicPalworldMap (GetPublicPalworldMapRequest) returns (GetPublicPalworldMapResponse) {}
   rpc GetSevenDaysToDieMap (GetSevenDaysToDieMapRequest) returns (GetSevenDaysToDieMapResponse) {}
   rpc UpdateSevenDaysToDieMapNotes (UpdateSevenDaysToDieMapNotesRequest) returns (UpdateSevenDaysToDieMapNotesResponse) {}
+  rpc ListSevenDaysToDieMapShares (ListSevenDaysToDieMapSharesRequest) returns (ListSevenDaysToDieMapSharesResponse) {}
   rpc RegenerateSevenDaysToDieMapShare (RegenerateSevenDaysToDieMapShareRequest) returns (RegenerateSevenDaysToDieMapShareResponse) {}
   rpc RevokeSevenDaysToDieMapShare (RevokeSevenDaysToDieMapShareRequest) returns (RevokeSevenDaysToDieMapShareResponse) {}
   rpc GetPublicSevenDaysToDieMap (GetPublicSevenDaysToDieMapRequest) returns (GetPublicSevenDaysToDieMapResponse) {}
@@ -1790,16 +1791,32 @@ message UpdateSevenDaysToDieMapNotesResponse {
   repeated SevenDaysToDieMapMarker markers = 1;
 }
 
+message SevenDaysToDieMapShare {
+  string id = 1;
+  string share_token = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+message ListSevenDaysToDieMapSharesRequest {
+  string game_server_id = 1;
+}
+
+message ListSevenDaysToDieMapSharesResponse {
+  repeated SevenDaysToDieMapShare shares = 1;
+}
+
 message RegenerateSevenDaysToDieMapShareRequest {
   string game_server_id = 1;
 }
 
 message RegenerateSevenDaysToDieMapShareResponse {
   string share_token = 1;
+  SevenDaysToDieMapShare share = 2;
 }
 
 message RevokeSevenDaysToDieMapShareRequest {
   string game_server_id = 1;
+  string share_id = 2;
 }
 
 message RevokeSevenDaysToDieMapShareResponse {}

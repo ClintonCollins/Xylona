@@ -87,10 +87,10 @@ func ResolveExistingWithinRoot(root, relative string) (string, error) {
 	if errPath != nil {
 		return "", errPath
 	}
-	return resolveExistingWithinRoot(root, validated)
+	return resolveExistingPathWithinRoot(root, validated)
 }
 
-func resolveExistingWithinRoot(root, relative string) (string, error) {
+func resolveExistingPathWithinRoot(root, relative string) (string, error) {
 	fullPath, errResolve := resolveWithinRoot(root, relative)
 	if errResolve != nil {
 		return "", errResolve
@@ -116,27 +116,27 @@ func resolveExistingWithinRoot(root, relative string) (string, error) {
 	return fullPath, nil
 }
 
-func evalPathOrExistingPrefix(path string) (string, bool, error) {
-	resolved, errEval := filepath.EvalSymlinks(path)
+func evalPathOrExistingPrefix(candidatePath string) (string, bool, error) {
+	resolved, errEval := filepath.EvalSymlinks(candidatePath)
 	if errEval == nil {
 		return filepath.Clean(resolved), true, nil
 	}
 	if !isNotExistError(errEval) {
-		return "", false, errEval
+		return "", false, fmt.Errorf("evaluate path symlinks: %w", errEval)
 	}
 
-	current := filepath.Clean(path)
+	current := filepath.Clean(candidatePath)
 	for {
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", false, errEval
+			return "", false, fmt.Errorf("evaluate path symlinks: %w", errEval)
 		}
 		parentResolved, errParent := filepath.EvalSymlinks(parent)
 		if errParent == nil {
 			return filepath.Clean(parentResolved), false, nil
 		}
 		if !isNotExistError(errParent) {
-			return "", false, errParent
+			return "", false, fmt.Errorf("evaluate parent symlinks: %w", errParent)
 		}
 		current = parent
 	}

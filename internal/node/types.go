@@ -561,35 +561,14 @@ type SevenDaysToDieMapPlayer struct {
 	Position SevenDaysToDieMapVector
 }
 
-// SevenDaysToDieMapMarker is a native operator-defined WebAPI marker.
-type SevenDaysToDieMapMarker struct {
-	ID   string
-	X    float64
-	Z    float64
-	Name string
-	Icon string
-}
-
-// SevenDaysToDieLandClaim is a legacy WebAPI land-claim square.
-type SevenDaysToDieLandClaim struct {
-	OwnerID   string
-	OwnerName string
-	Active    bool
-	Position  SevenDaysToDieMapVector
-	Size      int32
-}
-
 // SevenDaysToDieMapSnapshot is the dedicated sanitized native-map payload.
 type SevenDaysToDieMapSnapshot struct {
-	Enabled         bool
-	TileSize        int32
-	MaxZoom         int32
-	MapSize         SevenDaysToDieMapVector
-	SourceTime      string
-	Players         []SevenDaysToDieMapPlayer
-	Markers         []SevenDaysToDieMapMarker
-	Claims          []SevenDaysToDieLandClaim
-	ClaimsSupported bool
+	Enabled    bool
+	TileSize   int32
+	MaxZoom    int32
+	MapSize    SevenDaysToDieMapVector
+	SourceTime string
+	Players    []SevenDaysToDieMapPlayer
 }
 
 // SevenDaysToDieMapQueryRequest contains only node-local map access details.

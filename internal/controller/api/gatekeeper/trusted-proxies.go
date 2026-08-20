@@ -16,8 +16,7 @@ type ProxyTrust struct {
 // An empty string yields a trust object that never trusts forwarded headers.
 func ParseTrustedProxies(raw string) (*ProxyTrust, error) {
 	trust := &ProxyTrust{}
-	parts := strings.Split(raw, ",")
-	for _, part := range parts {
+	for part := range strings.SplitSeq(raw, ",") {
 		trimmed := strings.TrimSpace(part)
 		if trimmed == "" {
 			continue

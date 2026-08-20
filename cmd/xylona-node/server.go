@@ -1278,23 +1278,10 @@ func sevenDaysToDieMapSnapshotToProto(snapshot *node.SevenDaysToDieMapSnapshot) 
 			Position: sevenDaysToDieMapVectorToProto(player.Position),
 		})
 	}
-	markers := make([]*nodeprotov1.SevenDaysToDieMapMarker, 0, len(snapshot.Markers))
-	for _, marker := range snapshot.Markers {
-		markers = append(markers, &nodeprotov1.SevenDaysToDieMapMarker{
-			Id: marker.ID, X: marker.X, Z: marker.Z, Name: marker.Name, Icon: marker.Icon,
-		})
-	}
-	claims := make([]*nodeprotov1.SevenDaysToDieLandClaim, 0, len(snapshot.Claims))
-	for _, claim := range snapshot.Claims {
-		claims = append(claims, &nodeprotov1.SevenDaysToDieLandClaim{
-			OwnerId: claim.OwnerID, OwnerName: claim.OwnerName, Active: claim.Active,
-			Position: sevenDaysToDieMapVectorToProto(claim.Position), Size: claim.Size,
-		})
-	}
 	return &nodeprotov1.SevenDaysToDieMapSnapshot{
 		Enabled: snapshot.Enabled, TileSize: snapshot.TileSize, MaxZoom: snapshot.MaxZoom,
 		MapSize: sevenDaysToDieMapVectorToProto(snapshot.MapSize), SourceTime: snapshot.SourceTime,
-		Players: players, Markers: markers, Claims: claims, ClaimsSupported: snapshot.ClaimsSupported,
+		Players: players,
 	}
 }
 

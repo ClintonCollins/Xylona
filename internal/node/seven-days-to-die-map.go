@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -73,28 +72,6 @@ type sevenDaysToDiePlayerJSON struct {
 	} `json:"position"`
 }
 
-type sevenDaysToDieMarkerJSON struct {
-	ID   string  `json:"id"`
-	X    float64 `json:"x"`
-	Y    float64 `json:"y"`
-	Name *string `json:"name"`
-	Icon *string `json:"icon"`
-}
-
-type sevenDaysToDieClaimsJSON struct {
-	ClaimSize   int `json:"claimsize"`
-	ClaimOwners []struct {
-		SteamID    string  `json:"steamid"`
-		PlayerName *string `json:"playername"`
-		Active     bool    `json:"claimactive"`
-		Claims     []struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-			Z float64 `json:"z"`
-		} `json:"claims"`
-	} `json:"claimowners"`
-}
-
 // QuerySevenDaysToDieMap reads the fixed native WebAPI endpoints from the
 // owning node. It intentionally dials loopback and never accepts a caller URL.
 func (n *Node) QuerySevenDaysToDieMap(ctx context.Context, req SevenDaysToDieMapQueryRequest) (*SevenDaysToDieMapSnapshot, error) {
@@ -133,39 +110,13 @@ func (n *Node) QuerySevenDaysToDieMap(ctx context.Context, req SevenDaysToDieMap
 		return nil, fmt.Errorf("%w: decode players: %w", errSevenDaysToDieMapUnavailable, errDecodePlayers)
 	}
 
-	markers := make([]SevenDaysToDieMapMarker, 0)
-	markersEnvelope, errMarkers := sevenDaysToDieMapGetJSON(ctx, client, baseURL+"/api/markers", req)
-	if errMarkers == nil {
-		var rawMarkers []sevenDaysToDieMarkerJSON
-		errDecodeMarkers := json.Unmarshal(markersEnvelope.Data, &rawMarkers)
-		if errDecodeMarkers == nil {
-			for _, marker := range rawMarkers {
-				markers = append(markers, SevenDaysToDieMapMarker{
-					ID:   strings.TrimSpace(marker.ID),
-					X:    marker.X,
-					Z:    marker.Y,
-					Name: stringPointerValue(marker.Name),
-					Icon: stringPointerValue(marker.Icon),
-				})
-			}
-		}
-	}
-
-	claims, claimsSupported, errClaims := querySevenDaysToDieLandClaims(ctx, client, baseURL, req)
-	if errClaims != nil {
-		return nil, fmt.Errorf("%w: read land claims: %w", errSevenDaysToDieMapUnavailable, errClaims)
-	}
-
 	return &SevenDaysToDieMapSnapshot{
-		Enabled:         config.Enabled,
-		TileSize:        int32(tileSize),
-		MaxZoom:         int32(config.MaxZoom),
-		MapSize:         SevenDaysToDieMapVector{X: config.MapSize.X, Y: config.MapSize.Y, Z: config.MapSize.Z},
-		SourceTime:      strings.TrimSpace(configEnvelope.Meta.ServerTime),
-		Players:         players,
-		Markers:         markers,
-		Claims:          claims,
-		ClaimsSupported: claimsSupported,
+		Enabled:    config.Enabled,
+		TileSize:   int32(tileSize),
+		MaxZoom:    int32(config.MaxZoom),
+		MapSize:    SevenDaysToDieMapVector{X: config.MapSize.X, Y: config.MapSize.Y, Z: config.MapSize.Z},
+		SourceTime: strings.TrimSpace(configEnvelope.Meta.ServerTime),
+		Players:    players,
 	}, nil
 }
 
@@ -353,44 +304,6 @@ func decodeSevenDaysToDieMapPlayers(data json.RawMessage) ([]SevenDaysToDieMapPl
 		})
 	}
 	return players, nil
-}
-
-func querySevenDaysToDieLandClaims(ctx context.Context, client *http.Client, baseURL string, req SevenDaysToDieMapQueryRequest) ([]SevenDaysToDieLandClaim, bool, error) {
-	envelope, errClaims := sevenDaysToDieMapGetJSON(ctx, client, baseURL+"/api/getlandclaims", req)
-	if errors.Is(errClaims, fs.ErrNotExist) {
-		return nil, false, nil
-	}
-	if errClaims != nil {
-		return nil, false, errClaims
-	}
-	var raw sevenDaysToDieClaimsJSON
-	errDecode := json.Unmarshal(envelope.Data, &raw)
-	if errDecode != nil {
-		return nil, false, fmt.Errorf("decode 7 Days to Die land claims: %w", errDecode)
-	}
-	if raw.ClaimSize <= 0 || raw.ClaimSize > math.MaxInt32 {
-		return nil, false, errors.New("7 Days to Die land claim size is invalid")
-	}
-	claims := make([]SevenDaysToDieLandClaim, 0)
-	for _, owner := range raw.ClaimOwners {
-		for _, claim := range owner.Claims {
-			claims = append(claims, SevenDaysToDieLandClaim{
-				OwnerID:   strings.TrimSpace(owner.SteamID),
-				OwnerName: stringPointerValue(owner.PlayerName),
-				Active:    owner.Active,
-				Position:  SevenDaysToDieMapVector{X: claim.X, Y: claim.Y, Z: claim.Z},
-				Size:      int32(raw.ClaimSize),
-			})
-		}
-	}
-	return claims, true, nil
-}
-
-func stringPointerValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return strings.TrimSpace(*value)
 }
 
 func rawJSONIdentifier(value json.RawMessage) string {

@@ -13,6 +13,7 @@ import (
 
 func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
 	_, errGame := fixture.conn.SQLDb.ExecContext(
 		t.Context(),
 		"update game_server set game_id = '7_days_to_die' where id = 'server-local-1'",
@@ -94,6 +95,27 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	if errShare != nil {
 		t.Fatalf("RegenerateSevenDaysToDieMapShare(owner) error = %v", errShare)
 	}
+	secondShareRequest := connect.NewRequest(shareRequest.Msg)
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, secondShareRequest, "user-owner")
+	secondShareResponse, errSecondShare := fixture.service.RegenerateSevenDaysToDieMapShare(t.Context(), secondShareRequest)
+	if errSecondShare != nil {
+		t.Fatalf("RegenerateSevenDaysToDieMapShare(owner, second) error = %v", errSecondShare)
+	}
+	listRequest := connect.NewRequest(&xylona.ListSevenDaysToDieMapSharesRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listRequest, "user-owner")
+	listResponse, errList := fixture.service.ListSevenDaysToDieMapShares(t.Context(), listRequest)
+	if errList != nil {
+		t.Fatalf("ListSevenDaysToDieMapShares(owner) error = %v", errList)
+	}
+	if len(listResponse.Msg.GetShares()) != 2 {
+		t.Fatalf("ListSevenDaysToDieMapShares(owner) count = %d, want 2", len(listResponse.Msg.GetShares()))
+	}
+	viewerListRequest := connect.NewRequest(listRequest.Msg)
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, viewerListRequest, "user-other")
+	_, errViewerList := fixture.service.ListSevenDaysToDieMapShares(t.Context(), viewerListRequest)
+	if connect.CodeOf(errViewerList) != connect.CodePermissionDenied {
+		t.Fatalf("ListSevenDaysToDieMapShares(viewer) code = %v, want %v", connect.CodeOf(errViewerList), connect.CodePermissionDenied)
+	}
 	publicRequest := connect.NewRequest(&xylona.GetPublicSevenDaysToDieMapRequest{ShareToken: shareResponse.Msg.GetShareToken()})
 	publicResponse, errPublic := fixture.service.GetPublicSevenDaysToDieMap(t.Context(), publicRequest)
 	if errPublic != nil {
@@ -104,7 +126,10 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 		t.Fatalf("GetPublicSevenDaysToDieMap() map = %+v", publicMap)
 	}
 
-	revokeRequest := connect.NewRequest(&xylona.RevokeSevenDaysToDieMapShareRequest{GameServerId: "server-local-1"})
+	revokeRequest := connect.NewRequest(&xylona.RevokeSevenDaysToDieMapShareRequest{
+		GameServerId: "server-local-1",
+		ShareId:      shareResponse.Msg.GetShare().GetId(),
+	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, revokeRequest, "user-owner")
 	_, errRevoke := fixture.service.RevokeSevenDaysToDieMapShare(t.Context(), revokeRequest)
 	if errRevoke != nil {
@@ -113,5 +138,10 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	_, errRevoked := fixture.service.GetPublicSevenDaysToDieMap(t.Context(), publicRequest)
 	if connect.CodeOf(errRevoked) != connect.CodeNotFound {
 		t.Fatalf("GetPublicSevenDaysToDieMap(revoked) code = %v, want %v", connect.CodeOf(errRevoked), connect.CodeNotFound)
+	}
+	secondPublicRequest := connect.NewRequest(&xylona.GetPublicSevenDaysToDieMapRequest{ShareToken: secondShareResponse.Msg.GetShareToken()})
+	_, errSecondPublic := fixture.service.GetPublicSevenDaysToDieMap(t.Context(), secondPublicRequest)
+	if errSecondPublic != nil {
+		t.Fatalf("GetPublicSevenDaysToDieMap(remaining share) error = %v", errSecondPublic)
 	}
 }

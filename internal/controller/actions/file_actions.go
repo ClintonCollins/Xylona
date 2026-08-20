@@ -27,7 +27,7 @@ import (
 // MaxRequestBodySize caps file action request bodies at 1 MiB.
 const (
 	MaxRequestBodySize          = 1024 * 1024 * 1 // 1 MB
-	maxMultipartUploadBodyBytes = 100 << 30 // 100 GiB
+	maxMultipartUploadBodyBytes = 100 << 30       // 100 GiB
 )
 
 // StreamFileToUser streams a server file to an HTTP response.
@@ -350,7 +350,7 @@ func (inst *Instance) GetGameServerFile(gameServer *models.GameServer, relativeP
 		return fmt.Errorf("actions: resolve game server file: %w", errResolve)
 	}
 
-	file, errReadFile := os.Open(fullPath)
+	file, errReadFile := os.Open(fullPath) // #nosec G703 -- ResolveExistingWithinRoot rejects traversal and escaping symlinks.
 	if errReadFile != nil {
 		if errors.Is(errReadFile, os.ErrNotExist) {
 			log.Error().Err(errReadFile).Msg("File does not exist")

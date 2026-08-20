@@ -38,7 +38,7 @@ func TestParseTrustedProxies(t *testing.T) {
 			if errParse != nil {
 				t.Fatalf("ParseTrustedProxies() error = %v", errParse)
 			}
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 			req.RemoteAddr = tt.addr
 			got := trust.IsTrustedRemote(req)
 			if got != tt.want {
@@ -56,20 +56,20 @@ func TestProxyTrustRequestIsHTTPS(t *testing.T) {
 		t.Fatalf("ParseTrustedProxies() error = %v", errTrust)
 	}
 
-	directTLS := httptest.NewRequest(http.MethodGet, "/", nil)
+	directTLS := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	directTLS.TLS = &tls.ConnectionState{}
 	if !(*ProxyTrust)(nil).RequestIsHTTPS(directTLS) {
 		t.Fatal("direct TLS should be treated as HTTPS without trusted proxies")
 	}
 
-	spoofed := httptest.NewRequest(http.MethodGet, "/", nil)
+	spoofed := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	spoofed.RemoteAddr = "203.0.113.10:1"
 	spoofed.Header.Set("X-Forwarded-Proto", "https")
 	if trust.RequestIsHTTPS(spoofed) {
 		t.Fatal("untrusted X-Forwarded-Proto should be ignored")
 	}
 
-	proxied := httptest.NewRequest(http.MethodGet, "/", nil)
+	proxied := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	proxied.RemoteAddr = "127.0.0.1:443"
 	proxied.Header.Set("X-Forwarded-Proto", "https")
 	if !trust.RequestIsHTTPS(proxied) {
@@ -87,7 +87,7 @@ func TestProxyTrustAnnotateRequestStripsClientHeader(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	req.Header.Set(InternalHTTPSHeader, "1")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)

@@ -1251,29 +1251,10 @@ func sevenDaysToDieMapSnapshotFromProto(snapshot *nodeprotov1.SevenDaysToDieMapS
 			Position: sevenDaysToDieMapVectorFromProto(player.GetPosition()),
 		})
 	}
-	markers := make([]node.SevenDaysToDieMapMarker, 0, len(snapshot.GetMarkers()))
-	for _, marker := range snapshot.GetMarkers() {
-		if marker == nil {
-			continue
-		}
-		markers = append(markers, node.SevenDaysToDieMapMarker{
-			ID: marker.GetId(), X: marker.GetX(), Z: marker.GetZ(), Name: marker.GetName(), Icon: marker.GetIcon(),
-		})
-	}
-	claims := make([]node.SevenDaysToDieLandClaim, 0, len(snapshot.GetClaims()))
-	for _, claim := range snapshot.GetClaims() {
-		if claim == nil {
-			continue
-		}
-		claims = append(claims, node.SevenDaysToDieLandClaim{
-			OwnerID: claim.GetOwnerId(), OwnerName: claim.GetOwnerName(), Active: claim.GetActive(),
-			Position: sevenDaysToDieMapVectorFromProto(claim.GetPosition()), Size: claim.GetSize(),
-		})
-	}
 	return &node.SevenDaysToDieMapSnapshot{
 		Enabled: snapshot.GetEnabled(), TileSize: snapshot.GetTileSize(), MaxZoom: snapshot.GetMaxZoom(),
 		MapSize: sevenDaysToDieMapVectorFromProto(snapshot.GetMapSize()), SourceTime: snapshot.GetSourceTime(),
-		Players: players, Markers: markers, Claims: claims, ClaimsSupported: snapshot.GetClaimsSupported(),
+		Players: players,
 	}
 }
 

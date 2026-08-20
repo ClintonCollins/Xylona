@@ -83,7 +83,7 @@ func TestSevenDaysToDieDefinitionConfigSchema(t *testing.T) {
 		t.Fatalf("config schema count = %d, want 1", len(entries))
 	}
 	entry := entries[0]
-	for field, wantSource := range map[string]string{
+	for field, wantSource := range map[string]string{ // #nosec G101 -- map keys are configuration field names, not credentials.
 		"EnableMapRendering":  "xylona.local_console_enabled",
 		"TelnetEnabled":       "xylona.local_console_enabled",
 		"TelnetPassword":      "xylona.local_console_password",

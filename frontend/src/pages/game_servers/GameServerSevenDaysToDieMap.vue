@@ -2,31 +2,23 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { copyToClipboard, useQuasar } from 'quasar'
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
 import {
   GetGameServerRequestSchema,
   GetSevenDaysToDieMapRequestSchema,
+  ListSevenDaysToDieMapSharesRequestSchema,
   RegenerateSevenDaysToDieMapShareRequestSchema,
   RevokeSevenDaysToDieMapShareRequestSchema,
-  SevenDaysToDieMapMarkerSchema,
-  UpdateSevenDaysToDieMapNotesRequestSchema,
-  type SevenDaysToDieMapMarker,
+  type SevenDaysToDieMapShare,
   type SevenDaysToDieMapView,
 } from '@/proto/xylona_pb'
+import { formatTimestamp } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 const pollIntervalMilliseconds = 5_000
-const markerIcons = [
-  { label: 'Pin', value: 'location_on' },
-  { label: 'Home', value: 'home' },
-  { label: 'Base', value: 'fort' },
-  { label: 'Loot', value: 'inventory_2' },
-  { label: 'Danger', value: 'warning' },
-  { label: 'Vehicle', value: 'directions_car' },
-]
 
 const route = useRoute()
 const quasar = useQuasar()
@@ -34,20 +26,18 @@ const mapView = ref<SevenDaysToDieMapView | null>(null)
 const loading = ref(false)
 const loadError = ref(false)
 const canManage = ref(false)
-const notesOpen = ref(false)
 const shareOpen = ref(false)
-const savingNotes = ref(false)
-const changingShare = ref(false)
-const generatedShareURL = ref('')
-const editingMarkerID = ref('')
-const markerForm = reactive({ name: '', note: '', icon: 'location_on', x: 0, z: 0 })
+const shareLinks = ref<SevenDaysToDieMapShare[]>([])
+const loadingShares = ref(false)
+const creatingShare = ref(false)
+const removingShareID = ref('')
+const shareLoadError = ref('')
 let pollTimer: ReturnType<typeof setInterval> | undefined
 
 const gameServerID = computed(() => {
   const id = route.params.id
   return Array.isArray(id) ? (id[0] ?? '') : String(id ?? '')
 })
-const localMarkers = computed(() => mapView.value?.markers.filter((marker) => !marker.native) ?? [])
 
 async function loadPermissions(): Promise<void> {
   try {
@@ -80,119 +70,57 @@ async function loadMap(): Promise<void> {
   }
 }
 
-function resetMarkerForm(): void {
-  editingMarkerID.value = ''
-  markerForm.name = ''
-  markerForm.note = ''
-  markerForm.icon = 'location_on'
-  markerForm.x = 0
-  markerForm.z = 0
+function shareURL(token: string): string {
+  return `${window.location.origin}/shared/7-days-to-die-map#${token}`
 }
 
-function editMarker(marker: SevenDaysToDieMapMarker): void {
-  editingMarkerID.value = marker.id
-  markerForm.name = marker.name
-  markerForm.note = marker.note
-  markerForm.icon = marker.icon || 'location_on'
-  markerForm.x = marker.x
-  markerForm.z = marker.z
-}
-
-function buildMarker(): SevenDaysToDieMapMarker {
-  return create(SevenDaysToDieMapMarkerSchema, {
-    id: editingMarkerID.value,
-    name: markerForm.name.trim(),
-    note: markerForm.note.trim(),
-    icon: markerForm.icon,
-    x: markerForm.x,
-    z: markerForm.z,
-    native: false,
-  })
-}
-
-async function updateNotes(markers: SevenDaysToDieMapMarker[]): Promise<boolean> {
-  savingNotes.value = true
+async function loadShares(): Promise<void> {
+  if (loadingShares.value || gameServerID.value === '') {
+    return
+  }
+  loadingShares.value = true
+  shareLoadError.value = ''
   try {
-    const response = await GetXylonaClient().updateSevenDaysToDieMapNotes(
-      create(UpdateSevenDaysToDieMapNotesRequestSchema, {
-        gameServerId: gameServerID.value,
-        markers,
-      }),
+    const response = await GetXylonaClient().listSevenDaysToDieMapShares(
+      create(ListSevenDaysToDieMapSharesRequestSchema, { gameServerId: gameServerID.value }),
     )
+    shareLinks.value = response.shares
     if (mapView.value !== null) {
-      mapView.value.markers = [
-        ...mapView.value.markers.filter((marker) => marker.native),
-        ...response.markers,
-      ]
+      mapView.value.shareEnabled = response.shares.length > 0
     }
-    return true
   } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
-    return false
+    shareLoadError.value = ConnectErrorToString(ConnectError.from(unknownError))
   } finally {
-    savingNotes.value = false
-  }
-}
-
-async function saveMarker(): Promise<void> {
-  if (markerForm.name.trim() === '') {
-    quasar.notify({ type: 'warning', message: 'Give the map note a title.' })
-    return
-  }
-  if (!Number.isFinite(markerForm.x) || !Number.isFinite(markerForm.z)) {
-    quasar.notify({ type: 'warning', message: 'Enter valid X and Z coordinates.' })
-    return
-  }
-  const marker = buildMarker()
-  const markers = localMarkers.value.filter((existing) => existing.id !== marker.id)
-  markers.push(marker)
-  if (await updateNotes(markers)) {
-    resetMarkerForm()
-    quasar.notify({ type: 'positive', message: 'Map note saved.' })
-  }
-}
-
-async function removeMarker(markerID: string): Promise<void> {
-  if (await updateNotes(localMarkers.value.filter((marker) => marker.id !== markerID))) {
-    if (editingMarkerID.value === markerID) {
-      resetMarkerForm()
-    }
-    quasar.notify({ type: 'positive', message: 'Map note removed.' })
+    loadingShares.value = false
   }
 }
 
 async function regenerateShare(): Promise<void> {
-  changingShare.value = true
+  creatingShare.value = true
   try {
     const response = await GetXylonaClient().regenerateSevenDaysToDieMapShare(
       create(RegenerateSevenDaysToDieMapShareRequestSchema, {
         gameServerId: gameServerID.value,
       }),
     )
-    generatedShareURL.value = `${window.location.origin}/shared/7-days-to-die-map#${response.shareToken}`
-    if (mapView.value !== null) {
-      mapView.value.shareEnabled = true
-    }
-    await copyShareURL()
+    await loadShares()
+    await copyShareURL(response.shareToken)
   } catch (unknownError: unknown) {
     quasar.notify({
       type: 'negative',
       message: ConnectErrorToString(ConnectError.from(unknownError)),
     })
   } finally {
-    changingShare.value = false
+    creatingShare.value = false
   }
 }
 
-async function copyShareURL(): Promise<void> {
-  if (generatedShareURL.value === '') {
+async function copyShareURL(token: string): Promise<void> {
+  if (token === '') {
     return
   }
   try {
-    await copyToClipboard(generatedShareURL.value)
+    await copyToClipboard(shareURL(token))
     quasar.notify({ type: 'positive', message: 'Public map link copied.' })
   } catch (unknownError: unknown) {
     console.error(unknownError)
@@ -200,15 +128,18 @@ async function copyShareURL(): Promise<void> {
   }
 }
 
-async function revokeShare(): Promise<void> {
-  changingShare.value = true
+async function revokeShare(shareID: string): Promise<void> {
+  removingShareID.value = shareID
   try {
     await GetXylonaClient().revokeSevenDaysToDieMapShare(
-      create(RevokeSevenDaysToDieMapShareRequestSchema, { gameServerId: gameServerID.value }),
+      create(RevokeSevenDaysToDieMapShareRequestSchema, {
+        gameServerId: gameServerID.value,
+        shareId: shareID,
+      }),
     )
-    generatedShareURL.value = ''
+    shareLinks.value = shareLinks.value.filter((share) => share.id !== shareID)
     if (mapView.value !== null) {
-      mapView.value.shareEnabled = false
+      mapView.value.shareEnabled = shareLinks.value.length > 0
     }
     quasar.notify({ type: 'positive', message: 'Public map link revoked.' })
   } catch (unknownError: unknown) {
@@ -217,7 +148,7 @@ async function revokeShare(): Promise<void> {
       message: ConnectErrorToString(ConnectError.from(unknownError)),
     })
   } finally {
-    changingShare.value = false
+    removingShareID.value = ''
   }
 }
 
@@ -242,11 +173,10 @@ onBeforeUnmount(() => {
         <div>
           <span>7 Days to Die</span>
           <h1>Live world map</h1>
-          <p>Players, server markers, land claims, and shared team notes in one view.</p>
+          <p>Live and last-known player positions across the world.</p>
         </div>
       </div>
       <div v-if="canManage" class="seven-days-map-page__actions">
-        <q-btn icon="edit_location_alt" label="Notes" no-caps outline @click="notesOpen = true" />
         <q-btn color="primary" icon="share" label="Share" no-caps @click="shareOpen = true" />
       </div>
     </header>
@@ -257,99 +187,7 @@ onBeforeUnmount(() => {
       :view="mapView"
       @refresh="loadMap" />
 
-    <q-dialog v-model="notesOpen" @hide="resetMarkerForm">
-      <q-card class="seven-days-map-dialog seven-days-notes-dialog">
-        <q-card-section class="seven-days-map-dialog__heading">
-          <div>
-            <span>Shared intelligence</span>
-            <h2>Map notes</h2>
-          </div>
-          <q-btn v-close-popup aria-label="Close map notes" flat icon="close" round />
-        </q-card-section>
-        <q-separator />
-        <q-card-section class="seven-days-notes-dialog__content">
-          <section class="seven-days-notes-dialog__list">
-            <div class="seven-days-notes-dialog__section-heading">
-              <strong>Saved notes</strong>
-              <span>{{ localMarkers.length }} / 100</span>
-            </div>
-            <div v-if="localMarkers.length === 0" class="seven-days-notes-dialog__empty">
-              No Xylona notes yet. Add a base, loot cache, route hazard, or rally point.
-            </div>
-            <button
-              v-for="marker in localMarkers"
-              :key="marker.id"
-              class="seven-days-notes-dialog__row"
-              type="button"
-              @click="editMarker(marker)">
-              <q-icon :name="marker.icon || 'location_on'" />
-              <span
-                ><strong>{{ marker.name }}</strong
-                ><small>X {{ marker.x }} · Z {{ marker.z }}</small></span
-              >
-              <q-btn
-                :aria-label="`Remove ${marker.name}`"
-                color="negative"
-                dense
-                flat
-                icon="delete_outline"
-                round
-                @click.stop="removeMarker(marker.id)" />
-            </button>
-          </section>
-          <q-form class="seven-days-notes-dialog__form" @submit="saveMarker">
-            <div class="seven-days-notes-dialog__section-heading">
-              <strong>{{ editingMarkerID ? 'Edit note' : 'Add note' }}</strong>
-              <q-btn
-                v-if="editingMarkerID"
-                dense
-                flat
-                label="Cancel"
-                no-caps
-                @click="resetMarkerForm" />
-            </div>
-            <q-input v-model="markerForm.name" dense label="Title" maxlength="100" outlined />
-            <q-input
-              v-model="markerForm.note"
-              autogrow
-              dense
-              label="Details (optional)"
-              maxlength="500"
-              outlined />
-            <q-select
-              v-model="markerForm.icon"
-              dense
-              emit-value
-              label="Icon"
-              map-options
-              :options="markerIcons"
-              outlined />
-            <div class="seven-days-notes-dialog__coordinates">
-              <q-input
-                v-model.number="markerForm.x"
-                dense
-                label="X coordinate"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="markerForm.z"
-                dense
-                label="Z coordinate"
-                outlined
-                type="number" />
-            </div>
-            <q-btn
-              color="primary"
-              :label="editingMarkerID ? 'Save changes' : 'Add to map'"
-              :loading="savingNotes"
-              no-caps
-              type="submit" />
-          </q-form>
-        </q-card-section>
-      </q-card>
-    </q-dialog>
-
-    <q-dialog v-model="shareOpen">
+    <q-dialog v-model="shareOpen" @show="loadShares">
       <q-card class="seven-days-map-dialog seven-days-share-dialog">
         <q-card-section class="seven-days-map-dialog__heading">
           <div>
@@ -361,44 +199,70 @@ onBeforeUnmount(() => {
         <q-separator />
         <q-card-section class="seven-days-share-dialog__body">
           <p>
-            Anyone with the link can view the map, players, markers, claims, and Xylona notes. The
-            link does not grant control-panel access.
+            Anyone with the link can view the map and player positions. The link does not grant
+            control-panel access.
           </p>
-          <q-input
-            v-if="generatedShareURL"
-            dense
-            label="New public link"
-            :model-value="generatedShareURL"
-            outlined
-            readonly>
-            <template #append>
-              <q-btn
-                aria-label="Copy public map link"
-                flat
-                icon="content_copy"
-                round
-                @click="copyShareURL" />
-            </template>
-          </q-input>
-          <div v-else-if="mapView?.shareEnabled" class="seven-days-share-dialog__active">
-            <q-icon name="link" />
-            A public link is active. Generate a replacement if you no longer have the original.
+          <div class="seven-days-share-dialog__list-heading">
+            <strong>Active links</strong>
+            <span>{{ shareLinks.length }}</span>
+          </div>
+          <q-skeleton v-if="loadingShares" height="76px" type="rect" />
+          <div v-else-if="shareLoadError" class="seven-days-share-dialog__error" role="alert">
+            <q-icon name="error_outline" />
+            <span>{{ shareLoadError }}</span>
+            <q-btn dense flat label="Try again" no-caps @click="loadShares" />
+          </div>
+          <div v-else-if="shareLinks.length === 0" class="seven-days-share-dialog__empty">
+            <q-icon name="link_off" />
+            <span>No public links exist for this map.</span>
+          </div>
+          <div v-else class="seven-days-share-dialog__links" aria-live="polite">
+            <div v-for="share in shareLinks" :key="share.id" class="seven-days-share-dialog__link">
+              <div class="seven-days-share-dialog__link-heading">
+                <span>
+                  <q-icon name="link" />
+                  Created {{ formatTimestamp(share.createdAt, 'at an unknown time') }}
+                </span>
+                <q-btn
+                  :aria-label="`Remove map link created ${formatTimestamp(share.createdAt, 'at an unknown time')}`"
+                  color="negative"
+                  dense
+                  flat
+                  icon="delete_outline"
+                  :loading="removingShareID === share.id"
+                  round
+                  @click="revokeShare(share.id)" />
+              </div>
+              <q-input
+                v-if="share.shareToken"
+                dense
+                label="Public link"
+                :model-value="shareURL(share.shareToken)"
+                outlined
+                readonly>
+                <template #append>
+                  <q-btn
+                    aria-label="Copy public map link"
+                    flat
+                    icon="content_copy"
+                    round
+                    @click="copyShareURL(share.shareToken)" />
+                </template>
+              </q-input>
+              <p v-else>
+                This link predates link management, so its address cannot be recovered. It remains
+                active until removed.
+              </p>
+            </div>
           </div>
           <div class="seven-days-share-dialog__actions">
             <q-btn
               color="primary"
-              :label="mapView?.shareEnabled ? 'Replace link' : 'Create public link'"
-              :loading="changingShare"
+              icon="add_link"
+              label="Create public link"
+              :loading="creatingShare"
               no-caps
               @click="regenerateShare" />
-            <q-btn
-              v-if="mapView?.shareEnabled"
-              color="negative"
-              flat
-              label="Revoke access"
-              :loading="changingShare"
-              no-caps
-              @click="revokeShare" />
           </div>
         </q-card-section>
       </q-card>
@@ -496,81 +360,10 @@ onBeforeUnmount(() => {
   font-size: var(--xy-font-size-lg);
 }
 
-.seven-days-notes-dialog__content {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
-  gap: var(--xy-space-lg);
-  padding: var(--xy-space-lg);
-}
-
-.seven-days-notes-dialog__list,
-.seven-days-notes-dialog__form,
 .seven-days-share-dialog__body {
   display: grid;
   align-content: start;
   gap: var(--xy-space-base);
-}
-
-.seven-days-notes-dialog__section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 32px;
-  color: var(--xy-text-secondary);
-}
-
-.seven-days-notes-dialog__section-heading strong {
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-heading);
-  font-weight: 500;
-}
-
-.seven-days-notes-dialog__empty {
-  padding: var(--xy-space-lg);
-  color: var(--xy-text-muted);
-  background: var(--xy-surface-overlay-soft);
-  border: 1px dashed var(--xy-border-hover);
-  border-radius: var(--xy-radius-md);
-}
-
-.seven-days-notes-dialog__row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--xy-space-base);
-  width: 100%;
-  padding: var(--xy-space-sm) var(--xy-space-base);
-  color: var(--xy-text-secondary);
-  text-align: left;
-  background: var(--xy-surface-2);
-  border: 1px solid var(--xy-border);
-  border-radius: var(--xy-radius-md);
-  cursor: pointer;
-}
-
-.seven-days-notes-dialog__row:hover,
-.seven-days-notes-dialog__row:focus-visible {
-  border-color: var(--xy-border-active);
-  outline: none;
-}
-
-.seven-days-notes-dialog__row > span {
-  display: grid;
-}
-
-.seven-days-notes-dialog__row strong {
-  color: var(--xy-text-primary);
-}
-
-.seven-days-notes-dialog__row small {
-  color: var(--xy-text-muted);
-  font-family: var(--xy-font-mono);
-}
-
-.seven-days-notes-dialog__coordinates {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--xy-space-sm);
 }
 
 .seven-days-share-dialog {
@@ -581,15 +374,88 @@ onBeforeUnmount(() => {
   padding: var(--xy-space-lg);
 }
 
-.seven-days-share-dialog__active {
+.seven-days-share-dialog__list-heading,
+.seven-days-share-dialog__link-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+}
+
+.seven-days-share-dialog__list-heading {
+  color: var(--xy-text-secondary);
+}
+
+.seven-days-share-dialog__list-heading strong {
+  color: var(--xy-text-primary);
+}
+
+.seven-days-share-dialog__list-heading span {
+  font-family: var(--xy-font-mono);
+}
+
+.seven-days-share-dialog__links {
+  display: grid;
+  gap: var(--xy-space-sm);
+  max-height: min(44vh, 420px);
+  padding-right: var(--xy-space-xs);
+  overflow-y: auto;
+}
+
+.seven-days-share-dialog__link {
+  display: grid;
+  gap: var(--xy-space-sm);
+  min-width: 0;
+  padding: var(--xy-space-base);
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-md);
+}
+
+.seven-days-share-dialog__link-heading > span {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--xy-space-xs);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.seven-days-share-dialog__link-heading .q-icon {
+  flex: 0 0 auto;
+  color: var(--xy-accent);
+}
+
+.seven-days-share-dialog__link p {
+  font-size: var(--xy-font-size-sm);
+}
+
+.seven-days-share-dialog__empty,
+.seven-days-share-dialog__error {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
   padding: var(--xy-space-base);
-  color: var(--xy-success);
-  background: var(--xy-success-bg-faint);
-  border: 1px solid var(--xy-success-border);
   border-radius: var(--xy-radius-md);
+}
+
+.seven-days-share-dialog__empty {
+  color: var(--xy-text-muted);
+  background: var(--xy-surface-overlay-soft);
+  border: 1px dashed var(--xy-border-hover);
+}
+
+.seven-days-share-dialog__error {
+  color: var(--xy-danger);
+  background: var(--xy-danger-bg-faint);
+  border: 1px solid var(--xy-danger-border);
+}
+
+.seven-days-share-dialog__error span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {
@@ -608,10 +474,6 @@ onBeforeUnmount(() => {
 
   .seven-days-map-page__actions {
     flex-direction: column;
-  }
-
-  .seven-days-notes-dialog__content {
-    grid-template-columns: 1fr;
   }
 }
 </style>

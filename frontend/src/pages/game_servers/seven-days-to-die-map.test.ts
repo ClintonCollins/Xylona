@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatSevenDaysToDieCoordinate,
-  initialSevenDaysToDieLayerVisibility,
-  sevenDaysToDieMarkerIcon,
+  initialSevenDaysToDieMapView,
   sevenDaysToDieTileURL,
 } from './seven-days-to-die-map'
 
@@ -18,24 +17,33 @@ describe('7 Days to Die map helpers', () => {
     ).toBe('/map/2/-3/-5.png')
   })
 
-  it('starts with every operational layer visible', () => {
-    expect(initialSevenDaysToDieLayerVisibility()).toEqual({
-      players: true,
-      markers: true,
-      claims: true,
-    })
+  it.each([
+    {
+      name: 'online player',
+      maxZoom: 4,
+      players: [
+        { online: false, position: { x: 10, z: 20 } },
+        { online: true, position: { x: 30, z: 40 } },
+      ],
+      expected: { center: [30, 40], zoom: 4 },
+    },
+    {
+      name: 'last known player',
+      maxZoom: 4,
+      players: [{ online: false, position: { x: 10, z: 20 } }],
+      expected: { center: [10, 20], zoom: 4 },
+    },
+    {
+      name: 'world origin',
+      maxZoom: 0,
+      players: [],
+      expected: { center: [0, 0], zoom: 0 },
+    },
+  ])('starts near the $name', ({ maxZoom, players, expected }) => {
+    expect(initialSevenDaysToDieMapView(maxZoom, players)).toEqual(expected)
   })
 
   it('formats world coordinates without noisy precision', () => {
     expect(formatSevenDaysToDieCoordinate(123.456)).toBe('123.5')
-  })
-
-  it.each([
-    { icon: 'home', native: false, expected: 'home' },
-    { icon: 'directions_car', native: true, expected: 'directions_car' },
-    { icon: 'https://example.test/marker.png', native: true, expected: 'flag' },
-    { icon: '', native: false, expected: 'edit_location_alt' },
-  ])('normalizes the marker icon $icon', ({ icon, native, expected }) => {
-    expect(sevenDaysToDieMarkerIcon(icon, native)).toBe(expected)
   })
 })

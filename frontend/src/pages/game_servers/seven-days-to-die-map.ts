@@ -1,13 +1,22 @@
 import type { Coords } from 'leaflet'
 
-export interface SevenDaysToDieLayerVisibility {
-  players: boolean
-  markers: boolean
-  claims: boolean
+interface SevenDaysToDieMapFocusPlayer {
+  online: boolean
+  position?: { x: number; z: number }
 }
 
-export function initialSevenDaysToDieLayerVisibility(): SevenDaysToDieLayerVisibility {
-  return { players: true, markers: true, claims: true }
+export function initialSevenDaysToDieMapView(
+  maxZoom: number,
+  players: readonly SevenDaysToDieMapFocusPlayer[],
+): { center: [number, number]; zoom: number } {
+  const player =
+    players.find((candidate) => candidate.online && candidate.position !== undefined) ??
+    players.find((candidate) => candidate.position !== undefined)
+  const position = player?.position
+  return {
+    center: position === undefined ? [0, 0] : [position.x, position.z],
+    zoom: Math.max(0, maxZoom),
+  }
 }
 
 export function sevenDaysToDieTileURL(template: string, coordinates: Coords): string {
@@ -20,12 +29,4 @@ export function sevenDaysToDieTileURL(template: string, coordinates: Coords): st
 
 export function formatSevenDaysToDieCoordinate(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
-}
-
-export function sevenDaysToDieMarkerIcon(icon: string, native: boolean): string {
-  const normalized = icon.trim()
-  if (/^[a-z][a-z0-9_]{0,63}$/.test(normalized)) {
-    return normalized
-  }
-  return native ? 'flag' : 'edit_location_alt'
 }
