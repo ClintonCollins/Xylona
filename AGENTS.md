@@ -9,6 +9,16 @@ Core stack:
 - Frontend: Vue 3, Quasar 2, Vite, TypeScript, Pinia, ConnectRPC, Monaco Editor
 - Tooling: Mage, Bun, Playwright, Vitest
 
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
+
 ## Repo Map
 
 - Backend entry and embedded assets: `cmd/xylona`, `internal/webui`, `sql/migrations`
@@ -66,7 +76,8 @@ Regenerate with:
 
 - Use LF line endings. If a touched file is CRLF, normalize it to LF.
 - Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `internal/webui/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
-- `/docs/` is intentionally ignored as local scratch space. Do not put durable project documentation there unless the ignore policy changes first.
+- `/docs/` is local scratch space except `docs/agents/` and `docs/adr/`, which contain tracked project configuration and decisions.
+- Do not create pull requests unless the user explicitly requests one.
 - For local browser verification, you may read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env`; never print, log, or commit them.
 
 ## Go Conventions
