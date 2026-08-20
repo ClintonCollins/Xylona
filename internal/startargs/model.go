@@ -50,19 +50,7 @@ type BlocklistEntry struct {
 	Reason  string `json:"reason"`
 }
 
-// ResolvedBlock is an argument block after placeholder resolution and patching.
-type ResolvedBlock struct {
-	ID             string    `json:"id"`
-	Ownership      Ownership `json:"ownership"`
-	Tokens         []string  `json:"tokens"`
-	ResolvedTokens []string  `json:"resolved_tokens"`
-	Label          string    `json:"label,omitempty"`
-	Provenance     string    `json:"provenance"`
-	OriginalTokens []string  `json:"original_tokens,omitempty"`
-}
-
-// ValidManagedSources lists managed-source keys supported by the start-args editor.
-var ValidManagedSources = map[string]struct{}{
+var validManagedSources = map[string]struct{}{
 	"game_server.port":              {},
 	"game_server.port_plus_1":       {},
 	"game_server.port_plus_2":       {},
@@ -76,9 +64,8 @@ var ValidManagedSources = map[string]struct{}{
 	"steam_gslt":                    {},
 }
 
-// IsValidManagedSource reports whether the key is supported for managed substitution.
-func IsValidManagedSource(key string) bool {
-	_, ok := ValidManagedSources[key]
+func isValidManagedSource(key string) bool {
+	_, ok := validManagedSources[key]
 	return ok
 }
 
@@ -97,8 +84,7 @@ func ParseTemplate(jsonStr string) ([]ArgBlock, error) {
 	return blocks, nil
 }
 
-// ParsePatches decodes a JSON list of start-argument patches.
-func ParsePatches(jsonStr string) ([]Patch, error) {
+func parsePatches(jsonStr string) ([]Patch, error) {
 	if jsonStr == "" {
 		return nil, nil
 	}

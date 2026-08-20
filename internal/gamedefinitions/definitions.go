@@ -199,7 +199,13 @@ func ValidateModel(game *models.Game) []string {
 		validationErrors = append(validationErrors, schemaErrors...)
 	}
 
-	errStartArgs := validateStructuredStartArgsGameConfig(game)
+	errStartArgs := startargs.ValidateDefinition(startargs.DefinitionConfig{
+		LinuxTemplateJSON:   game.LinuxStartArgsTemplate.GetOr(""),
+		LinuxBaseCommand:    game.LinuxBaseCommand,
+		WindowsTemplateJSON: game.WindowsStartArgsTemplate.GetOr(""),
+		WindowsBaseCommand:  game.WindowsBaseCommand,
+		BlocklistJSON:       game.StartArgBlocklist,
+	})
 	if errStartArgs != nil {
 		validationErrors = append(validationErrors, errStartArgs.Error())
 	}
@@ -799,153 +805,6 @@ func validateConsoleCommands(commands []*xylona.GameConsoleCommand) []string {
 		}
 	}
 	return validationErrors
-}
-
-func validateStructuredStartArgsGameConfig(game *models.Game) error {
-	if game == nil {
-		return errMissingGameDefinition
-	}
-
-	errValidateLinux := validateGameTemplateUpdate(
-		game,
-		"linux",
-		templateJSONForPlatform(game, "linux"),
-		baseCommandForPlatform(game, "linux"),
-	)
-	if errValidateLinux != nil {
-		return fmt.Errorf("linux start args: %w", errValidateLinux)
-	}
-
-	errValidateWindows := validateGameTemplateUpdate(
-		game,
-		"windows",
-		templateJSONForPlatform(game, "windows"),
-		baseCommandForPlatform(game, "windows"),
-	)
-	if errValidateWindows != nil {
-		return fmt.Errorf("windows start args: %w", errValidateWindows)
-	}
-
-	errValidateBlocklist := validateGameBlocklistUpdate(game.StartArgBlocklist)
-	if errValidateBlocklist != nil {
-		return fmt.Errorf("start arg blocklist: %w", errValidateBlocklist)
-	}
-
-	return nil
-}
-
-func templateJSONForPlatform(game *models.Game, platform string) string {
-	if platform == "windows" {
-		return game.WindowsStartArgsTemplate.GetOr("")
-	}
-	return game.LinuxStartArgsTemplate.GetOr("")
-}
-
-func baseCommandForPlatform(game *models.Game, platform string) string {
-	if platform == "windows" {
-		return game.WindowsBaseCommand
-	}
-	return game.LinuxBaseCommand
-}
-
-func validateGameTemplateUpdate(game *models.Game, platform string, templateJSON string, baseCommand string) error {
-	templateBlocks, errTemplate := startargs.ParseTemplate(templateJSON)
-	if errTemplate != nil {
-		return fmt.Errorf("parse start args template: %w", errTemplate)
-	}
-	errValidateTemplate := validateTemplateBlocks(templateBlocks)
-	if errValidateTemplate != nil {
-		return errValidateTemplate
-	}
-
-	if len(templateBlocks) > 0 && strings.TrimSpace(baseCommand) == "" {
-		return errors.New("base command is required when a start args template is configured")
-	}
-
-	otherPlatform := "linux"
-	if platform == "linux" {
-		otherPlatform = "windows"
-	}
-
-	otherBlocks, errOther := startargs.ParseTemplate(templateJSONForPlatform(game, otherPlatform))
-	if errOther != nil {
-		return fmt.Errorf("parse other platform start args template: %w", errOther)
-	}
-
-	return validateSharedTemplateIDs(templateBlocks, otherBlocks)
-}
-
-func validateTemplateBlocks(blocks []startargs.ArgBlock) error {
-	seenIDs := make(map[string]struct{}, len(blocks))
-
-	for _, block := range blocks {
-		blockID := strings.TrimSpace(block.ID)
-		if blockID == "" {
-			return errors.New("template block id is required")
-		}
-		_, exists := seenIDs[blockID]
-		if exists {
-			return fmt.Errorf("duplicate template block id %q", blockID)
-		}
-		seenIDs[blockID] = struct{}{}
-
-		if len(block.Tokens) == 0 {
-			return fmt.Errorf("template block %q must contain at least one token", blockID)
-		}
-
-		switch block.Ownership {
-		case startargs.OwnershipSystem, startargs.OwnershipLocked, startargs.OwnershipEditable:
-		default:
-			return fmt.Errorf("template block %q has invalid ownership %q", blockID, block.Ownership)
-		}
-
-		if block.ManagedSource != "" && !startargs.IsValidManagedSource(block.ManagedSource) {
-			return fmt.Errorf("template block %q has invalid managed source %q", blockID, block.ManagedSource)
-		}
-	}
-
-	return nil
-}
-
-func validateSharedTemplateIDs(primary []startargs.ArgBlock, secondary []startargs.ArgBlock) error {
-	secondaryByID := make(map[string]startargs.ArgBlock, len(secondary))
-	for _, block := range secondary {
-		secondaryByID[block.ID] = block
-	}
-
-	for _, block := range primary {
-		other, exists := secondaryByID[block.ID]
-		if !exists {
-			continue
-		}
-		if block.Ownership != other.Ownership {
-			return fmt.Errorf("shared template block %q must use the same ownership on both platforms", block.ID)
-		}
-		if block.Label != other.Label {
-			return fmt.Errorf("shared template block %q must use the same label on both platforms", block.ID)
-		}
-		if block.ManagedSource != other.ManagedSource {
-			return fmt.Errorf("shared template block %q must use the same managed source on both platforms", block.ID)
-		}
-		if len(block.Tokens) != len(other.Tokens) {
-			return fmt.Errorf("shared template block %q must use the same token arity on both platforms", block.ID)
-		}
-	}
-
-	return nil
-}
-
-func validateGameBlocklistUpdate(blocklistJSON string) error {
-	blocklistEntries, errParse := startargs.ParseBlocklist(blocklistJSON)
-	if errParse != nil {
-		return fmt.Errorf("parse start arg blocklist: %w", errParse)
-	}
-
-	_, errCompile := startargs.CompileBlocklist(blocklistEntries)
-	if errCompile != nil {
-		return fmt.Errorf("compile start arg blocklist: %w", errCompile)
-	}
-	return nil
 }
 
 // DefinitionPathName normalizes a bundled definition filename.

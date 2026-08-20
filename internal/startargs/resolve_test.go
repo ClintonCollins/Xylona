@@ -1,188 +1,105 @@
 package startargs
 
 import (
-	"reflect"
+	"slices"
+	"strings"
 	"testing"
 )
 
-func TestResolveArgs(t *testing.T) {
-	anchorID := "anchor"
-	removedID := "removed"
-	addedID := "added"
-	addedSecondID := "added-second"
-
+func TestResolveServer(t *testing.T) {
 	tests := []struct {
-		name               string
-		template           []ArgBlock
-		patches            []Patch
-		vars               map[string]string
-		wantArgs           []string
-		wantProvenance     []string
-		wantOriginalTokens map[string][]string
+		name        string
+		config      ServerConfig
+		wantArgs    []string
+		wantErrText string
 	}{
 		{
-			name:           "empty template returns empty args",
-			template:       nil,
-			patches:        nil,
-			vars:           nil,
-			wantArgs:       []string{},
-			wantProvenance: []string{},
+			name:     "empty template returns empty args",
+			config:   ServerConfig{},
+			wantArgs: []string{},
 		},
 		{
-			name: "single block returns its tokens",
-			template: []ArgBlock{
-				{ID: "one", Order: 1, Ownership: OwnershipEditable, Tokens: []string{"-Xmx2G"}},
+			name: "flattens ordered blocks and resolves placeholders",
+			config: ServerConfig{
+				TemplateJSON: `[{"id":"tail","order":2,"ownership":"editable","tokens":["nogui"]},{"id":"jar","order":1,"ownership":"locked","tokens":["-jar","{{SERVER_EXECUTABLE}}"]}]`,
+				Variables:    map[string]string{"SERVER_EXECUTABLE": "paper.jar"},
 			},
-			wantArgs:       []string{"-Xmx2G"},
-			wantProvenance: []string{"default"},
+			wantArgs: []string{"-jar", "paper.jar", "nogui"},
 		},
 		{
-			name: "multiple blocks flatten in order",
-			template: []ArgBlock{
-				{ID: "one", Order: 1, Ownership: OwnershipLocked, Tokens: []string{"-jar", "{{SERVER_EXECUTABLE}}"}},
-				{ID: "two", Order: 2, Ownership: OwnershipEditable, Tokens: []string{"nogui"}},
+			name: "applies edit remove and chained add patches",
+			config: ServerConfig{
+				TemplateJSON: `[{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"]},{"id":"remove","order":2,"ownership":"editable","tokens":["old"]},{"id":"tail","order":3,"ownership":"editable","tokens":["nogui"]}]`,
+				PatchesJSON:  `[{"id":"prefix","op":"add","tokens":["prefix"]},{"id":"heap","op":"edit","tokens":["-Xmx8G"]},{"id":"remove","op":"remove"},{"id":"gc","op":"add","tokens":["-XX:+UseG1GC"],"afterId":"heap"},{"id":"log","op":"add","tokens":["--log={{PORT}}"],"afterId":"gc"}]`,
+				Variables:    map[string]string{"PORT": "25565"},
 			},
-			vars:           map[string]string{"SERVER_EXECUTABLE": "paper.jar"},
-			wantArgs:       []string{"-jar", "paper.jar", "nogui"},
-			wantProvenance: []string{"locked", "default"},
+			wantArgs: []string{"prefix", "-Xmx8G", "-XX:+UseG1GC", "--log=25565", "nogui"},
 		},
 		{
-			name: "edit patch replaces tokens and tracks original tokens",
-			template: []ArgBlock{
-				{ID: "heap", Order: 1, Ownership: OwnershipEditable, Tokens: []string{"-Xmx2G"}},
+			name: "preserves add order at the same anchor",
+			config: ServerConfig{
+				TemplateJSON: `[{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"]}]`,
+				PatchesJSON:  `[{"id":"g1","op":"add","tokens":["-XX:+UseG1GC"],"afterId":"heap"},{"id":"z","op":"add","tokens":["-XX:+UseZGC"],"afterId":"heap"}]`,
 			},
-			patches: []Patch{
-				{ID: "heap", Op: PatchOpEdit, Tokens: []string{"-Xmx8G"}},
-			},
-			wantArgs:           []string{"-Xmx8G"},
-			wantProvenance:     []string{"edited"},
-			wantOriginalTokens: map[string][]string{"heap": {"-Xmx2G"}},
+			wantArgs: []string{"-Xmx2G", "-XX:+UseG1GC", "-XX:+UseZGC"},
 		},
 		{
-			name: "remove patch excludes matching block",
-			template: []ArgBlock{
-				{ID: "jar", Order: 1, Ownership: OwnershipSystem, Tokens: []string{"-jar", "paper.jar"}},
-				{ID: "nogui", Order: 2, Ownership: OwnershipEditable, Tokens: []string{"nogui"}},
+			name: "skips orphaned edit and remove patches",
+			config: ServerConfig{
+				TemplateJSON: `[{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"]}]`,
+				PatchesJSON:  `[{"id":"missing","op":"edit","tokens":["-Xmx8G"]},{"id":"missing-remove","op":"remove"}]`,
 			},
-			patches: []Patch{
-				{ID: "nogui", Op: PatchOpRemove},
-			},
-			wantArgs:       []string{"-jar", "paper.jar"},
-			wantProvenance: []string{"system"},
+			wantArgs: []string{"-Xmx2G"},
 		},
 		{
-			name: "add patch inserts after specified anchor",
-			template: []ArgBlock{
-				{ID: anchorID, Order: 1, Ownership: OwnershipEditable, Tokens: []string{"-Xmx2G"}},
-				{ID: "tail", Order: 2, Ownership: OwnershipEditable, Tokens: []string{"nogui"}},
+			name: "skips add anchored to a removed block",
+			config: ServerConfig{
+				TemplateJSON: `[{"id":"removed","order":1,"ownership":"editable","tokens":["old"]},{"id":"tail","order":2,"ownership":"editable","tokens":["nogui"]}]`,
+				PatchesJSON:  `[{"id":"removed","op":"remove"},{"id":"orphan","op":"add","tokens":["unused"],"afterId":"removed"}]`,
 			},
-			patches: []Patch{
-				{ID: addedID, Op: PatchOpAdd, Tokens: []string{"-XX:+UseG1GC"}, AfterID: &anchorID},
-			},
-			wantArgs:       []string{"-Xmx2G", "-XX:+UseG1GC", "nogui"},
-			wantProvenance: []string{"default", "added", "default"},
+			wantArgs: []string{"nogui"},
 		},
 		{
-			name: "add patch with nil anchor inserts at beginning",
-			template: []ArgBlock{
-				{ID: "jar", Order: 1, Ownership: OwnershipSystem, Tokens: []string{"-jar", "paper.jar"}},
+			name: "keeps placeholder values with spaces in one token",
+			config: ServerConfig{
+				TemplateJSON: `[{"id":"name","order":1,"ownership":"editable","tokens":["--name={{SERVER_NAME}}"]}]`,
+				Variables:    map[string]string{"SERVER_NAME": "My Great Server"},
 			},
-			patches: []Patch{
-				{ID: addedID, Op: PatchOpAdd, Tokens: []string{"-Xmx2G"}},
-			},
-			wantArgs:       []string{"-Xmx2G", "-jar", "paper.jar"},
-			wantProvenance: []string{"added", "system"},
+			wantArgs: []string{"--name=My Great Server"},
 		},
 		{
-			name: "multiple adds at same anchor keep patch array order",
-			template: []ArgBlock{
-				{ID: anchorID, Order: 1, Ownership: OwnershipEditable, Tokens: []string{"-Xmx2G"}},
+			name: "rejects malformed persisted patches",
+			config: ServerConfig{
+				TemplateJSON: `[{"id":"heap","order":1,"ownership":"editable","tokens":["-Xmx2G"]}]`,
+				PatchesJSON:  `[{`,
 			},
-			patches: []Patch{
-				{ID: addedID, Op: PatchOpAdd, Tokens: []string{"-XX:+UseG1GC"}, AfterID: &anchorID},
-				{ID: addedSecondID, Op: PatchOpAdd, Tokens: []string{"-XX:+UseZGC"}, AfterID: &anchorID},
-			},
-			wantArgs:       []string{"-Xmx2G", "-XX:+UseG1GC", "-XX:+UseZGC"},
-			wantProvenance: []string{"default", "added", "added"},
+			wantErrText: "parse start arg patches",
 		},
 		{
-			name: "orphaned edit and remove patches are skipped",
-			template: []ArgBlock{
-				{ID: "one", Order: 1, Ownership: OwnershipEditable, Tokens: []string{"-Xmx2G"}},
+			name: "checks final resolved token against blocklist",
+			config: ServerConfig{
+				TemplateJSON:  `[{"id":"debug","order":1,"ownership":"editable","tokens":["{{DEBUG_ARG}}"]}]`,
+				BlocklistJSON: `[{"pattern":"^-agentlib:","reason":"debug agent"}]`,
+				Variables:     map[string]string{"DEBUG_ARG": "-agentlib:jdwp"},
 			},
-			patches: []Patch{
-				{ID: "missing", Op: PatchOpEdit, Tokens: []string{"-Xmx8G"}},
-				{ID: "missing-remove", Op: PatchOpRemove},
-			},
-			wantArgs:       []string{"-Xmx2G"},
-			wantProvenance: []string{"default"},
-		},
-		{
-			name: "orphaned add patch anchored to removed arg is skipped",
-			template: []ArgBlock{
-				{ID: removedID, Order: 1, Ownership: OwnershipEditable, Tokens: []string{"-Xmx2G"}},
-				{ID: "tail", Order: 2, Ownership: OwnershipEditable, Tokens: []string{"nogui"}},
-			},
-			patches: []Patch{
-				{ID: removedID, Op: PatchOpRemove},
-				{ID: addedID, Op: PatchOpAdd, Tokens: []string{"-XX:+UseG1GC"}, AfterID: &removedID},
-			},
-			wantArgs:       []string{"nogui"},
-			wantProvenance: []string{"default"},
-		},
-		{
-			name: "placeholder resolution happens per token",
-			template: []ArgBlock{
-				{ID: "log", Order: 1, Ownership: OwnershipEditable, Tokens: []string{"--log=server-{{PORT}}.txt"}},
-			},
-			vars:           map[string]string{"PORT": "25565"},
-			wantArgs:       []string{"--log=server-25565.txt"},
-			wantProvenance: []string{"default"},
-		},
-		{
-			name: "placeholder value with spaces stays a single token",
-			template: []ArgBlock{
-				{ID: "name", Order: 1, Ownership: OwnershipEditable, Tokens: []string{"--name={{SERVER_NAME}}"}},
-			},
-			vars:           map[string]string{"SERVER_NAME": "My Great Server"},
-			wantArgs:       []string{"--name=My Great Server"},
-			wantProvenance: []string{"default"},
+			wantErrText: `blocked start argument "-agentlib:jdwp": debug agent`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotArgs, gotBlocks, errResolve := ResolveArgs(tt.template, tt.patches, tt.vars)
+			gotArgs, errResolve := ResolveServer(tt.config)
+			if tt.wantErrText != "" {
+				if errResolve == nil || !strings.Contains(errResolve.Error(), tt.wantErrText) {
+					t.Fatalf("ResolveServer() error = %v, want containing %q", errResolve, tt.wantErrText)
+				}
+				return
+			}
 			if errResolve != nil {
-				t.Fatalf("ResolveArgs() error = %v", errResolve)
+				t.Fatalf("ResolveServer() error = %v", errResolve)
 			}
-			if !reflect.DeepEqual(gotArgs, tt.wantArgs) {
-				t.Errorf("ResolveArgs() args = %#v, want %#v", gotArgs, tt.wantArgs)
-			}
-
-			gotProvenance := make([]string, 0, len(gotBlocks))
-			for _, block := range gotBlocks {
-				gotProvenance = append(gotProvenance, block.Provenance)
-			}
-
-			if !reflect.DeepEqual(gotProvenance, tt.wantProvenance) {
-				t.Errorf("ResolveArgs() provenance = %#v, want %#v", gotProvenance, tt.wantProvenance)
-			}
-
-			for blockID, wantOriginal := range tt.wantOriginalTokens {
-				found := false
-				for _, block := range gotBlocks {
-					if block.ID != blockID {
-						continue
-					}
-					found = true
-					if !reflect.DeepEqual(block.OriginalTokens, wantOriginal) {
-						t.Errorf("ResolveArgs() original tokens for %q = %#v, want %#v", blockID, block.OriginalTokens, wantOriginal)
-					}
-				}
-				if !found {
-					t.Errorf("ResolveArgs() missing block %q", blockID)
-				}
+			if !slices.Equal(gotArgs, tt.wantArgs) {
+				t.Errorf("ResolveServer() = %#v, want %#v", gotArgs, tt.wantArgs)
 			}
 		})
 	}

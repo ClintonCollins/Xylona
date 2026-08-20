@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -78,209 +77,14 @@ func normalizeStartArgsPatchesJSON(patches string) string {
 	return trimmed
 }
 
-func validateTemplateBlocks(blocks []startargs.ArgBlock) error {
-	seenIDs := make(map[string]struct{}, len(blocks))
-
-	for _, block := range blocks {
-		blockID := strings.TrimSpace(block.ID)
-		if blockID == "" {
-			return errors.New("template block id is required")
-		}
-		if _, exists := seenIDs[blockID]; exists {
-			return fmt.Errorf("duplicate template block id %q", blockID)
-		}
-		seenIDs[blockID] = struct{}{}
-
-		if len(block.Tokens) == 0 {
-			return fmt.Errorf("template block %q must contain at least one token", blockID)
-		}
-
-		switch block.Ownership {
-		case startargs.OwnershipSystem, startargs.OwnershipLocked, startargs.OwnershipEditable:
-		default:
-			return fmt.Errorf("template block %q has invalid ownership %q", blockID, block.Ownership)
-		}
-
-		if block.ManagedSource != "" && !startargs.IsValidManagedSource(block.ManagedSource) {
-			return fmt.Errorf("template block %q has invalid managed source %q", blockID, block.ManagedSource)
-		}
+func definitionStartArgsConfig(game *models.Game) startargs.DefinitionConfig {
+	return startargs.DefinitionConfig{
+		LinuxTemplateJSON:   game.LinuxStartArgsTemplate.GetOr(""),
+		LinuxBaseCommand:    game.LinuxBaseCommand,
+		WindowsTemplateJSON: game.WindowsStartArgsTemplate.GetOr(""),
+		WindowsBaseCommand:  game.WindowsBaseCommand,
+		BlocklistJSON:       game.StartArgBlocklist,
 	}
-
-	return nil
-}
-
-func validateSharedTemplateIDs(primary []startargs.ArgBlock, secondary []startargs.ArgBlock) error {
-	secondaryByID := make(map[string]startargs.ArgBlock, len(secondary))
-	for _, block := range secondary {
-		secondaryByID[block.ID] = block
-	}
-
-	for _, block := range primary {
-		other, exists := secondaryByID[block.ID]
-		if !exists {
-			continue
-		}
-		if block.Ownership != other.Ownership {
-			return fmt.Errorf("shared template block %q must use the same ownership on both platforms", block.ID)
-		}
-		if block.Label != other.Label {
-			return fmt.Errorf("shared template block %q must use the same label on both platforms", block.ID)
-		}
-		if block.ManagedSource != other.ManagedSource {
-			return fmt.Errorf("shared template block %q must use the same managed source on both platforms", block.ID)
-		}
-		if len(block.Tokens) != len(other.Tokens) {
-			return fmt.Errorf("shared template block %q must use the same token arity on both platforms", block.ID)
-		}
-	}
-
-	return nil
-}
-
-func validateGameTemplateUpdate(game *models.Game, platform string, templateJSON string, baseCommand string) error {
-	templateBlocks, errTemplate := startargs.ParseTemplate(templateJSON)
-	if errTemplate != nil {
-		return fmt.Errorf("rpc: parse start args template: %w", errTemplate)
-	}
-	errValidateTemplate := validateTemplateBlocks(templateBlocks)
-	if errValidateTemplate != nil {
-		return errValidateTemplate
-	}
-
-	if len(templateBlocks) > 0 && strings.TrimSpace(baseCommand) == "" {
-		return errors.New("base command is required when a start args template is configured")
-	}
-
-	otherPlatform := "linux"
-	if platform == "linux" {
-		otherPlatform = "windows"
-	}
-
-	otherBlocks, errOther := startargs.ParseTemplate(templateJSONForPlatform(game, otherPlatform))
-	if errOther != nil {
-		return fmt.Errorf("rpc: parse other platform start args template: %w", errOther)
-	}
-
-	return validateSharedTemplateIDs(templateBlocks, otherBlocks)
-}
-
-func validateGameBlocklistUpdate(blocklistJSON string) error {
-	blocklistEntries, errParse := startargs.ParseBlocklist(blocklistJSON)
-	if errParse != nil {
-		return fmt.Errorf("rpc: parse start arg blocklist: %w", errParse)
-	}
-
-	_, errCompile := startargs.CompileBlocklist(blocklistEntries)
-	if errCompile != nil {
-		return fmt.Errorf("rpc: compile start arg blocklist: %w", errCompile)
-	}
-	return nil
-}
-
-func validateServerPatchStructure(template []startargs.ArgBlock, patches []startargs.Patch) error {
-	templateByID := make(map[string]startargs.ArgBlock, len(template))
-	referenceableIDs := make(map[string]struct{}, len(template))
-	addedIDs := make(map[string]struct{})
-
-	for _, block := range template {
-		templateByID[block.ID] = block
-		referenceableIDs[block.ID] = struct{}{}
-	}
-
-	for _, patch := range patches {
-		patchID := strings.TrimSpace(patch.ID)
-		if patchID == "" {
-			return errors.New("patch id is required")
-		}
-
-		switch patch.Op {
-		case startargs.PatchOpAdd:
-			if len(patch.Tokens) == 0 {
-				return fmt.Errorf("add patch %q must contain at least one token", patchID)
-			}
-			if _, exists := templateByID[patchID]; exists {
-				return fmt.Errorf("add patch %q collides with an existing template block", patchID)
-			}
-			if _, exists := addedIDs[patchID]; exists {
-				return fmt.Errorf("duplicate add patch id %q", patchID)
-			}
-			if patch.AfterID != nil {
-				afterID := strings.TrimSpace(*patch.AfterID)
-				if afterID == "" {
-					return fmt.Errorf("add patch %q has an empty afterId", patchID)
-				}
-				if _, exists := referenceableIDs[afterID]; !exists {
-					return fmt.Errorf("add patch %q references unknown afterId %q", patchID, afterID)
-				}
-			}
-			addedIDs[patchID] = struct{}{}
-			referenceableIDs[patchID] = struct{}{}
-		case startargs.PatchOpEdit:
-			if len(patch.Tokens) == 0 {
-				return fmt.Errorf("edit patch %q must contain at least one token", patchID)
-			}
-			if block, exists := templateByID[patchID]; exists && block.Ownership != startargs.OwnershipEditable {
-				return fmt.Errorf("patch %q targets a non-editable template block", patchID)
-			}
-		case startargs.PatchOpRemove:
-			if block, exists := templateByID[patchID]; exists && block.Ownership != startargs.OwnershipEditable {
-				return fmt.Errorf("patch %q targets a non-editable template block", patchID)
-			}
-		default:
-			return fmt.Errorf("patch %q has invalid operation %q", patchID, patch.Op)
-		}
-	}
-
-	return nil
-}
-
-func validateGameServerStartArgsUpdate(gameServer *models.GameServer, patchesJSON string, platform string) error {
-	if gameServer.R.Game == nil {
-		return errors.New("game relation is required")
-	}
-
-	templateJSON := templateJSONForPlatform(gameServer.R.Game, platform)
-	templateBlocks, errTemplate := startargs.ParseTemplate(templateJSON)
-	if errTemplate != nil {
-		return fmt.Errorf("rpc: parse game server start args template: %w", errTemplate)
-	}
-	if len(templateBlocks) == 0 && normalizeStartArgsPatchesJSON(patchesJSON) == emptyStartArgsPatchesJSON {
-		return nil
-	}
-	if len(templateBlocks) == 0 {
-		return errors.New("this game does not have a start args template for the server platform")
-	}
-
-	patches, errPatches := startargs.ParsePatches(normalizeStartArgsPatchesJSON(patchesJSON))
-	if errPatches != nil {
-		return fmt.Errorf("rpc: parse game server start args patches: %w", errPatches)
-	}
-	errValidateStructure := validateServerPatchStructure(templateBlocks, patches)
-	if errValidateStructure != nil {
-		return errValidateStructure
-	}
-
-	blocklistEntries, errBlocklist := startargs.ParseBlocklist(gameServer.R.Game.StartArgBlocklist)
-	if errBlocklist != nil {
-		return fmt.Errorf("rpc: parse game server start arg blocklist: %w", errBlocklist)
-	}
-	compiledBlocklist, errCompile := startargs.CompileBlocklist(blocklistEntries)
-	if errCompile != nil {
-		return fmt.Errorf("rpc: compile game server start arg blocklist: %w", errCompile)
-	}
-
-	vars := placeholder.BuildVarsFromGameServer(gameServer)
-	resolvedArgs, _, errResolve := startargs.ResolveArgs(templateBlocks, patches, vars)
-	if errResolve != nil {
-		return fmt.Errorf("rpc: resolve game server start args: %w", errResolve)
-	}
-
-	violation := compiledBlocklist.Validate(resolvedArgs)
-	if violation != nil {
-		return fmt.Errorf("blocked start argument %q: %s", violation.Token, violation.Reason)
-	}
-
-	return nil
 }
 
 // UpdateGameStartArgsTemplate updates the structured start args template for a game.
@@ -308,11 +112,6 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 
 	templateJSON := strings.TrimSpace(request.Msg.GetStartArgsTemplate())
 	baseCommand := strings.TrimSpace(request.Msg.GetBaseCommand())
-	errValidate := validateGameTemplateUpdate(gameModel, platform, templateJSON, baseCommand)
-	if errValidate != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
-	}
-
 	updatedGame := *gameModel
 	if platform == "windows" {
 		updatedGame.WindowsStartArgsTemplate = null.FromCond(templateJSON, templateJSON != "")
@@ -322,6 +121,10 @@ func (xs *XylonaService) UpdateGameStartArgsTemplate(
 		updatedGame.LinuxBaseCommand = baseCommand
 	}
 	updatedGame.AllowStartArgEditing = request.Msg.GetAllowStartArgEditing()
+	errValidate := startargs.ValidateDefinition(definitionStartArgsConfig(&updatedGame))
+	if errValidate != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
+	}
 	if updatedGame.XylonaOfficial {
 		updatedGame.OfficialDefinitionDiverged = true
 	}
@@ -357,13 +160,13 @@ func (xs *XylonaService) UpdateGameStartArgBlocklist(
 	}
 
 	blocklistJSON := strings.TrimSpace(request.Msg.GetStartArgBlocklist())
-	errValidate := validateGameBlocklistUpdate(blocklistJSON)
+	updatedGame := *gameModel
+	updatedGame.StartArgBlocklist = blocklistJSON
+	errValidate := startargs.ValidateDefinition(definitionStartArgsConfig(&updatedGame))
 	if errValidate != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
 	}
 
-	updatedGame := *gameModel
-	updatedGame.StartArgBlocklist = blocklistJSON
 	if updatedGame.XylonaOfficial {
 		updatedGame.OfficialDefinitionDiverged = true
 	}
@@ -411,7 +214,12 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 	}
 
 	platform := platformForGOOS(xs.resolveNodeGOOS(gameServer.NodeID))
-	errValidate := validateGameServerStartArgsUpdate(gameServer, normalizedPatches, platform)
+	errValidate := startargs.ValidateServerUpdate(startargs.ServerConfig{
+		TemplateJSON:  templateJSONForPlatform(gameServer.R.Game, platform),
+		PatchesJSON:   normalizedPatches,
+		BlocklistJSON: gameServer.R.Game.StartArgBlocklist,
+		Variables:     placeholder.BuildVarsFromGameServer(gameServer),
+	})
 	if errValidate != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
 	}

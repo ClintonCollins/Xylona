@@ -496,16 +496,6 @@ func (inst *Instance) resolveStructuredStartCommandWithVars(
 		return "", nil, errStartCommandTemplateMissing
 	}
 
-	template, errTemplate := startargs.ParseTemplate(templateJSON)
-	if errTemplate != nil {
-		return "", nil, fmt.Errorf("parse start args template: %w", errTemplate)
-	}
-
-	patches, errPatches := startargs.ParsePatches(gameServer.StartArgsPatches)
-	if errPatches != nil {
-		return "", nil, fmt.Errorf("parse start arg patches: %w", errPatches)
-	}
-
 	startVars := placeholder.BuildVarsFromGameServer(gameServer)
 	maps.Copy(startVars, extraVars)
 	if gameServer.GameID == "minecraft" {
@@ -519,24 +509,14 @@ func (inst *Instance) resolveStructuredStartCommandWithVars(
 		return "", nil, errBaseCommandMissing
 	}
 
-	args, _, errResolve := startargs.ResolveArgs(template, patches, startVars)
+	args, errResolve := startargs.ResolveServer(startargs.ServerConfig{
+		TemplateJSON:  templateJSON,
+		PatchesJSON:   gameServer.StartArgsPatches,
+		BlocklistJSON: gameServer.R.Game.StartArgBlocklist,
+		Variables:     startVars,
+	})
 	if errResolve != nil {
 		return "", nil, fmt.Errorf("resolve start args: %w", errResolve)
-	}
-
-	blocklistEntries, errBlocklist := startargs.ParseBlocklist(gameServer.R.Game.StartArgBlocklist)
-	if errBlocklist != nil {
-		return "", nil, fmt.Errorf("parse start arg blocklist: %w", errBlocklist)
-	}
-
-	compiledBlocklist, errCompile := startargs.CompileBlocklist(blocklistEntries)
-	if errCompile != nil {
-		return "", nil, fmt.Errorf("compile start arg blocklist: %w", errCompile)
-	}
-
-	violation := compiledBlocklist.Validate(args)
-	if violation != nil {
-		return "", nil, fmt.Errorf("blocked start argument %q: %s", violation.Token, violation.Reason)
 	}
 
 	return baseCommand, args, nil
