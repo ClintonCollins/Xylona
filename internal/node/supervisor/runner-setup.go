@@ -331,16 +331,22 @@ func looksLikeServerLocalBaseCommand(baseCommand string) bool {
 
 func (inst *Instance) setupCmdPipes(newCommand *Command, cmd *exec.Cmd) (io.Reader, io.Reader, error) {
 	log.Debug().Str("Command ID", newCommand.ID).Msg("Setting up command pipes")
-	stdOutPipe, errStdOutPipe := cmd.StdoutPipe()
+	stdOutPipeReader, stdOutPipeWriter, errStdOutPipe := os.Pipe()
 	if errStdOutPipe != nil {
 		log.Error().Err(errStdOutPipe).Msg("Unable to get StdOutPipe")
 		return nil, nil, fmt.Errorf("create stdout pipe: %w", errStdOutPipe)
 	}
 
-	stdErrPipe, errStdErrPipe := cmd.StderrPipe()
+	stdErrPipeReader, stdErrPipeWriter, errStdErrPipe := os.Pipe()
 	if errStdErrPipe != nil {
 		log.Error().Err(errStdErrPipe).Msg("Unable to get StdErrPipe")
-		return nil, nil, fmt.Errorf("create stderr pipe: %w", errStdErrPipe)
+		return nil, nil, errors.Join(
+			fmt.Errorf("create stderr pipe: %w", errStdErrPipe),
+			wrapSupervisorError("close stdout pipe reader", stdOutPipeReader.Close()),
+			wrapSupervisorError("close stdout pipe writer", stdOutPipeWriter.Close()),
+		)
 	}
-	return stdOutPipe, stdErrPipe, nil
+	cmd.Stdout = stdOutPipeWriter
+	cmd.Stderr = stdErrPipeWriter
+	return stdOutPipeReader, stdErrPipeReader, nil
 }

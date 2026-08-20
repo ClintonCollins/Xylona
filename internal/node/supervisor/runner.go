@@ -339,6 +339,11 @@ func (inst *Instance) startAndWaitForJob(
 		errStartProcess = currentPTYCMD.Start()
 	} else {
 		errStartProcess = currentCMD.Start()
+		errCloseOutputWriters := closeCommandOutputWriters(currentCMD)
+		if errCloseOutputWriters != nil {
+			log.Debug().Err(errCloseOutputWriters).Str("Game Server ID", command.ID).
+				Msg("Error closing parent command output pipes")
+		}
 	}
 	command.Unlock()
 	drainBeforeClose := false
@@ -425,6 +430,14 @@ func (inst *Instance) startAndWaitForJob(
 		}
 	}
 	waitForJobOutput(command.ID, outputDone)
+	if currentCMD != nil {
+		errClosePipes := closePreparedCommandPipes(command)
+		if errClosePipes != nil {
+			log.Debug().Err(errClosePipes).Str("Game Server ID", command.ID).
+				Msg("Error closing completed command pipes")
+		}
+		waitForJobOutput(command.ID, outputDone)
+	}
 	processCtxCancel()
 	closeTelnetConnectionForGeneration(command, processGeneration, inputMethodType)
 	if errWait != nil {
@@ -1017,9 +1030,16 @@ func closePreparedCommandPipes(command *Command) error {
 	command.RLock()
 	readersAndWriters := []any{command.stdout, command.stderr, command.stdInWriter}
 	command.RUnlock()
+	return closeStreams(readersAndWriters...)
+}
 
-	errorsToJoin := make([]error, 0, len(readersAndWriters))
-	for _, stream := range readersAndWriters {
+func closeCommandOutputWriters(command *exec.Cmd) error {
+	return closeStreams(command.Stdout, command.Stderr)
+}
+
+func closeStreams(streams ...any) error {
+	errorsToJoin := make([]error, 0, len(streams))
+	for _, stream := range streams {
 		closer, canClose := stream.(io.Closer)
 		if !canClose || closer == nil {
 			continue
