@@ -327,10 +327,6 @@ func providerKindFromProviderID(providerID string) updateproviders.ProviderKind 
 func providerSourceID(kind updateproviders.ProviderKind, variantID string, providerID string) string {
 	switch kind {
 	case updateproviders.ProviderKindPaperMC:
-		switch strings.ToLower(strings.TrimSpace(variantID)) {
-		case "paper", "folia", "purpur", "velocity", "waterfall":
-			return strings.ToLower(strings.TrimSpace(variantID))
-		}
 		return strings.ToLower(strings.TrimSpace(variantID))
 	case updateproviders.ProviderKindMojang:
 		return "vanilla"

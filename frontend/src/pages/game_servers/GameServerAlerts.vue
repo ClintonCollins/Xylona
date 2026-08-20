@@ -2,13 +2,18 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
-import { Timestamp } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
 import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
+import {
+  formatDuration,
+  isFiniteNonNegativeNumber,
+  isNonNegativeInteger,
+  readPositiveInteger,
+} from '@/utils/alert-conditions'
 import { canManageAlerts } from '@/utils/alert-permissions'
-import { formatTimestamp as formatCanonicalTimestamp } from '@/utils/format-timestamp'
+import { formatTimestamp } from '@/utils/format-timestamp'
 import { GetXylonaClient } from '@/utils/shared'
 import {
   CreateAlertRuleRequestSchema,
@@ -266,10 +271,6 @@ const filteredHistory = computed(() => {
   return alertHistory.value.filter((entry) => entry.eventType === historyEventTypeFilter.value)
 })
 
-function formatTimestamp(ts: Timestamp | undefined): string {
-  return formatCanonicalTimestamp(ts)
-}
-
 function formatCondition(eventType: AlertEventType, condition: string): string {
   if (!condition) {
     if (eventType === AlertEventType.CRASH) {
@@ -312,28 +313,6 @@ function formatCondition(eventType: AlertEventType, condition: string): string {
   }
 
   return condition
-}
-
-function formatDuration(seconds: number): string {
-  if (seconds % 3600 === 0) return `${seconds / 3600}h`
-  if (seconds % 60 === 0) return `${seconds / 60}m`
-  return `${seconds}s`
-}
-
-function isFiniteNonNegativeNumber(value: unknown): boolean {
-  if (value === null || value === undefined || value === '') return false
-  const numericValue = Number(value)
-  return Number.isFinite(numericValue) && numericValue >= 0
-}
-
-function isNonNegativeInteger(value: unknown): boolean {
-  if (value === null || value === undefined || value === '') return false
-  const numericValue = Number(value)
-  return Number.isInteger(numericValue) && numericValue >= 0
-}
-
-function readPositiveInteger(value: unknown): number {
-  return isNonNegativeInteger(value) && Number(value) > 0 ? Number(value) : 0
 }
 
 function recoveryValidationMessage(value: unknown): string {

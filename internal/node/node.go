@@ -10,10 +10,9 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 )
 
-// Node is the in-process node implementation. The controller creates one of
-// these for the embedded node and (in Step 4+) the node binary will create one
-// of these to back its gRPC server. Method receivers are pointer to allow the
-// caller to reuse a single instance across goroutines.
+// Node is the in-process node implementation used by the controller's embedded
+// node and the node binary's Connect-RPC server. Method receivers are pointers
+// so callers can reuse a single instance across goroutines.
 type Node struct {
 	ctx                        context.Context
 	supervisor                 *supervisor.Instance
@@ -25,12 +24,9 @@ type Node struct {
 	minecraftMapLiveRequests   singleflight.Group
 }
 
-// New constructs a Node. The supervisor and db references are retained as-is;
-// callers are expected to manage their lifetimes.
-//
-// db is included on the constructor signature for forward compatibility with
-// later migration steps that need access to node-local settings; internal/node
-// itself does not currently issue queries against it.
+// New constructs a Node. The supervisor and database references are retained
+// as-is; callers are expected to manage their lifetimes. The database may be
+// nil when internal game-server lookups are unavailable.
 func New(ctx context.Context, supervisorInst *supervisor.Instance, database *db.Connection) *Node {
 	nodeInst := &Node{
 		ctx:                   ctx,

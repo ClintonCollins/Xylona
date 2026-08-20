@@ -142,6 +142,5 @@ func NewConnection(ctx context.Context, path string) (*Connection, error) {
 	}
 
 	bobDB := bob.NewDB(sqlDb)
-	// bobDB := bob.Debug(bob.NewDB(db))
 	return &Connection{ctx: ctx, SQLDb: sqlDb, DB: bobDB}, nil
 }

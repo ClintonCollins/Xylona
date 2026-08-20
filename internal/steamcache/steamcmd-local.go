@@ -234,7 +234,7 @@ func parseLocalSteamReleases(root map[string]any) ([]SteamRelease, error) {
 		releases = append(releases, release)
 	}
 
-	slices.SortStableFunc(releases, compareSteamReleases)
+	slices.SortFunc(releases, compareSteamReleases)
 	return releases, nil
 }
 

@@ -6,8 +6,3 @@ export interface StepState {
   status: StepStatus
   message?: string
 }
-
-export interface OperationContextFact {
-  label: string
-  value: string
-}

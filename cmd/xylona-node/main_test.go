@@ -191,10 +191,8 @@ func TestCLIConfigRestartArgs(t *testing.T) {
 	}
 }
 
-// TestRunWithoutIdentity exercises the Step 4 behavior: calling run() against
-// a data dir with no identity fails cleanly.
-//   - No join token: returns errIdentityMissing wrapper (no pairing was requested)
-//   - Join token: returns errBootstrapNotImplemented (pairing is Step 6)
+// TestRunWithoutIdentity verifies that a node without persisted identity
+// requires either a join token or complete bootstrap configuration.
 func TestRunWithoutIdentity(t *testing.T) {
 	t.Parallel()
 

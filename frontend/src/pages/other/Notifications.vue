@@ -753,6 +753,12 @@ import {
   UpdateNotificationChannelRequestSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
+import {
+  formatDuration,
+  isFiniteNonNegativeNumber,
+  isNonNegativeInteger,
+  readPositiveInteger,
+} from '@/utils/alert-conditions'
 import { canManageAlerts } from '@/utils/alert-permissions'
 import { formatTimestamp } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
@@ -1427,22 +1433,6 @@ function openRuleEditDialog(rule: AlertRule): void {
   showRuleDialog.value = true
 }
 
-function isFiniteNonNegativeNumber(value: unknown): boolean {
-  if (value === null || value === undefined || value === '') return false
-  const numericValue = Number(value)
-  return Number.isFinite(numericValue) && numericValue >= 0
-}
-
-function isNonNegativeInteger(value: unknown): boolean {
-  if (value === null || value === undefined || value === '') return false
-  const numericValue = Number(value)
-  return Number.isInteger(numericValue) && numericValue >= 0
-}
-
-function readPositiveInteger(value: unknown): number {
-  return isNonNegativeInteger(value) && Number(value) > 0 ? Number(value) : 0
-}
-
 function recoveryValidationMessage(value: unknown): string {
   if (value === null || value === undefined || value === '') return ''
   if (!isFiniteNonNegativeNumber(value)) return 'Use a number that is 0 or greater'
@@ -1798,12 +1788,6 @@ function formatCondition(eventType: AlertEventType, condition: string): string {
   }
 
   return condition
-}
-
-function formatDuration(seconds: number): string {
-  if (seconds % 3600 === 0) return `${seconds / 3600}h`
-  if (seconds % 60 === 0) return `${seconds / 60}m`
-  return `${seconds}s`
 }
 
 function deliveryStatusLabel(status: DeliveryStatus): string {

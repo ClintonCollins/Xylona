@@ -167,14 +167,10 @@ func (c *Client) FetchDetails(ctx context.Context, appID string) (*SteamAppDetai
 	}
 
 	for _, lc := range appData.Config.Launch {
-		osName := ""
-		if lc.Config.OSList != "" {
-			osName = lc.Config.OSList
-		}
 		details.LaunchConfigs = append(details.LaunchConfigs, LaunchConfig{
 			Executable:  lc.Executable,
 			Arguments:   lc.Arguments,
-			OS:          osName,
+			OS:          lc.Config.OSList,
 			Description: lc.Description,
 		})
 	}
@@ -351,7 +347,7 @@ func parseSteamReleases(appData steamCmdAppData) ([]SteamRelease, error) {
 		releases = append(releases, release)
 	}
 
-	slices.SortStableFunc(releases, compareSteamReleases)
+	slices.SortFunc(releases, compareSteamReleases)
 	return releases, nil
 }
 
@@ -409,9 +405,6 @@ func steamReleaseLabel(branchName string, description string) string {
 
 	parts := strings.Fields(strings.NewReplacer("_", " ", "-", " ").Replace(trimmedName))
 	for index, part := range parts {
-		if part == "" {
-			continue
-		}
 		parts[index] = strings.ToUpper(part[:1]) + part[1:]
 	}
 	return strings.Join(parts, " ")

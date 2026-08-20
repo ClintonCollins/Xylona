@@ -5,8 +5,8 @@
 // It is intentionally narrow: there is no trusted-peer store and no
 // acting-identity header layer. The model is: a node generates a self-signed certificate,
 // publishes its SHA-256 fingerprint to the controller during bootstrap pairing
-// (Step 6), and the controller pins that fingerprint on every subsequent
-// connection. Application-layer authorization travels in the
+// and the controller pins that fingerprint on every subsequent connection.
+// Application-layer authorization travels in the
 // "Authorization: Bearer <shared_secret>" header.
 package nodetls
 

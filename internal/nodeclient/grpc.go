@@ -33,10 +33,6 @@ const authorizationScheme = "Bearer "
 // GRPCNodeClient is the controller-side NodeClient implementation that talks
 // to a remote node over Connect-RPC. The transport TLS layer pins the node's
 // self-signed cert fingerprint; application-layer auth is the bearer token.
-//
-// Step 4 introduces this implementation but the controller does not yet
-// construct any. Step 6 wires it into noderegistry as part of the bootstrap
-// pairing flow.
 type GRPCNodeClient struct {
 	nodeID        string
 	listenURL     string
@@ -1658,23 +1654,9 @@ func translatePlayerActionError(call string, err error) error {
 	return fmt.Errorf("nodeclient: %s: %w", call, err)
 }
 
-// mapNodeErrorCode looks at the connect error's metadata for a typed
-// NodeErrorCode and maps it to a Go sentinel. Returns nil when no mapping is
-// available.
+// mapNodeErrorCode maps Connect status codes to Go sentinels. It returns nil
+// when no mapping is available.
 func mapNodeErrorCode(connectErr *connect.Error) error {
-	for _, detail := range connectErr.Details() {
-		value, errValue := detail.Value()
-		if errValue != nil {
-			continue
-		}
-		// Detail values arrive as proto messages; for now we only inspect the
-		// raw type URL to detect the NodeErrorCode wrapper. Step 6 will define
-		// the wrapper message; until then this loop is intentionally empty.
-		_ = value
-	}
-
-	// Fallback heuristics based on connect.Code so the embedded node and
-	// future wrappers both behave sensibly.
 	switch connectErr.Code() {
 	case connect.CodeInvalidArgument:
 		return node.ErrInvalidPath
