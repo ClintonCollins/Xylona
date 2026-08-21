@@ -9,15 +9,11 @@ Core stack:
 - Frontend: Vue 3, Quasar 2, Vite, TypeScript, Pinia, ConnectRPC, Monaco Editor
 - Tooling: Mage, Bun, Playwright, Vitest
 
-## Agent skills
+## Task-Specific Context
 
-### Issue tracker
-
-Issues and specs are tracked in GitHub Issues. See `docs/agents/issue-tracker.md`.
-
-### Domain docs
-
-Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
+- Issues and specs: follow `docs/agents/issue-tracker.md`.
+- Domain terminology and decisions: follow `docs/agents/domain.md`.
+- Frontend product or UX work: read `PRODUCT.md` and `frontend/DESIGN.md` first.
 
 ## Repo Map
 
@@ -25,9 +21,10 @@ Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
 - Controller logic and API surface: `internal/controller/actions`, `internal/controller/api/{events,gatekeeper,rpc,websocket}`, `internal/gameintegrations`
 - Node runtime boundary: `cmd/xylona-node`, `internal/node`, `internal/nodeclient`, `internal/noderegistry`, `internal/nodetls`, `internal/node/supervisor`
 - App services: `internal/db`, `internal/modmanager`, `internal/scheduler`, `internal/alerts`, `internal/usermgmt`, `internal/mailer`, `internal/webhooks`, `internal/selfupdate`, `internal/updater`, `internal/steamcache`
-- Shared/domain packages: `pkg/cfgparse`, `pkg/cfgschema`, `pkg/helpers`, `pkg/minecraft`, `pkg/query`, `pkg/xycrypt`, `pkg/modproviders`, `pkg/updateproviders`, `pkg/passwordhash`, `pkg/version`
-- Generated and build assets: `proto`, `sql/migrations`, `sql/models`, `magefiles`, `cmd`
-- Frontend app: `frontend/src/pages`, `components`, `stores`, `router`, `layouts`, `boot`, `utils`, `proto`, `css`, `assets`
+- Shared/domain packages: `pkg/cfgparse`, `pkg/cfgschema`, `pkg/helpers`, `pkg/query`, `pkg/xycrypt`, `pkg/modproviders`, `pkg/updateproviders`, `pkg/passwordhash`, `pkg/version`
+- Schemas and generated code: `proto`, `sql/migrations`, `sql/models`, `frontend/src/proto`
+- Build, code generation, and test orchestration: `magefiles`, `cmd/e2e`
+- Frontend app: `frontend/src/{pages,components,stores,router,layouts,boot,utils,css,assets}`
 
 ## Project Commands
 
@@ -54,7 +51,7 @@ Build and codegen:
 - `mage Build`
 - `mage GenerateProto`
 - `mage GenerateModels`
-- `mage SQLMigrateNew`
+- `mage SQLMigrateNew <migration-name>`
 - `mage SQLMigrateUp`
 - `mage SQLMigrateDown`
 
@@ -75,8 +72,8 @@ Regenerate with:
 ## Local Rules
 
 - Use LF line endings. If a touched file is CRLF, normalize it to LF.
-- Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `internal/webui/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
-- `/docs/` is local scratch space except `docs/agents/` and `docs/adr/`, which contain tracked project configuration and decisions.
+- Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `frontend/coverage`, `internal/webui/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
+- The repo-root `docs/` directory is local scratch space except `docs/agents/` and `docs/adr/`, which contain tracked project guidance and decisions.
 - Do not create pull requests unless the user explicitly requests one.
 - For local browser verification, you may read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env`; never print, log, or commit them.
 
@@ -91,7 +88,7 @@ Regenerate with:
 - Use structured `zerolog` logging and `log.Fatal()` for unrecoverable startup failures
 - Follow standard Go naming; define sentinel errors in package-level `var` blocks
 - Constructors should be `New()` or `NewXxx()` and return pointers
-- Thread `context.Context` through cancellable work and use `sync.RWMutex` for shared mutable state when needed
+- Thread `context.Context` through cancellable work. Protect shared mutable state with the simplest suitable synchronization; use `sync.RWMutex` only when read-heavy contention justifies it.
 - Router uses `chi`; unknown SPA routes should fall back to `index.html`
 - Database access uses SQLite plus bob; DB methods live on `*db.Connection`
 - New multi-word Go filenames should be kebab-case
@@ -103,13 +100,9 @@ Regenerate with:
 - Generated protobuf types come from shared `.proto` files via `buf` and `protoc-gen-es`
 - Before finishing frontend changes, run `bun run lint`, `bun run format`, `bun run test`, and `bun run build` from `frontend/` as appropriate
 
-## Accepted `v-html`
+## HTML Rendering Trust Boundaries
 
-These usages are intentional and should not be flagged as XSS issues unless the trust model changes:
-- `frontend/src/pages/game_servers/GameServerView.vue`: console output HTML from the user's own game server, formatted by `parseConsole()`
-- `frontend/src/components/shared/ClipBoardCopy.vue`: styled tooltip HTML from application-controlled props
-
-Do not add DOMPurify or replace these with plain text unless the trust boundary changes.
+Follow the canonical `v-html` inventory and escaping or sanitization requirements in `PRODUCT.md` under **Accepted Audit Boundaries**. Treat new or materially changed `v-html` as trust-boundary work.
 
 ## Testing
 
@@ -124,7 +117,7 @@ Do not add DOMPurify or replace these with plain text unless the trust boundary 
 The Playwright suite is workflow-focused and driven by `cmd/e2e`.
 
 Local controller:
-- `cmd/e2e setup --mode local-controller` builds binaries, seeds a fresh DB, starts the controller on `:9091`, and runs behind Vite on `:9002`
+- Playwright global setup invokes `cmd/e2e setup --mode local-controller` to build the app, seed a fresh DB, and start the controller on `:9091`; Playwright starts Vite on `:9002`
 - Coverage areas: login, smoke navigation, game server lifecycle, console, files, backups, RBAC, game definitions/start args, notifications
 - Entry files: `frontend/e2e/global-setup.ts`, `frontend/e2e/global-teardown.ts`, `frontend/e2e/api.ts`, `frontend/e2e/auth.ts`, `frontend/e2e/fixtures.ts`, `frontend/e2e/pages.ts`, `frontend/e2e/auth.setup.ts`
 
@@ -153,32 +146,3 @@ Orchestrator reference:
 - Subcommands: `setup`, `teardown`, `status`, `seed`
 - Common flags: `--mode`, `--http-port`, `--node-port`, `--e2e-dir`, `--project-root`
 - Seed flags: `--db`, `--username`, `--password`, `--migrations`
-
-## Design Context
-
-Audience:
-- Self-hosters, gaming community admins, and small hosting providers
-- The UI should be immediately understandable to first-timers while staying efficient for power users
-
-Visual direction:
-- Powerful, sleek, futuristic, and dark-only
-- Favor layered dark surfaces, cyan and blue accents, and a high-tech command-center feel
-- Reference Vercel and Linear for polish, Discord and Steam for audience familiarity, and Pterodactyl or Pelican for domain patterns
-- Avoid generic admin templates, cPanel-style clutter, and flat lifeless layouts
-- Typography hierarchy: Zen Dots for brand, Goldman for headings and controls, Exo 2 for body, JetBrains Mono for technical text
-
-Design principles:
-- Command and control: status, actions, and feedback should be obvious
-- Layered depth: use the surface hierarchy consistently
-- Purposeful contrast: reserve bright accents for interactive or stateful elements
-- Gaming-native but professional: distinctive, capable, never chaotic
-- Progressive disclosure: show essentials first, defer complexity to detail views
-
-Design system:
-- Extend `frontend/src/css/design-tokens.css` for tokens and utilities
-- Extend `frontend/src/css/overrides.css` for component overrides
-- Do not hardcode colors
-- Theme colors: primary `#3B82F6`, secondary `#6366F1`, accent `#1CB7CF`, success `#22C55E`, danger `#EF4444`, warning `#F59E0B`, info `#06B6D4`, base `#0D0E0F`, surfaces `#141516` through `#383B3D`, text `#E0E4E6`, `#979B9E`, `#858A8C`
-
-Accessibility:
-- Follow good contrast and keyboard-navigation practices, but optimize for readability and discoverability over rigid formal WCAG scoring

@@ -130,7 +130,7 @@ vi.mock('quasar', async () => {
     useQuasar: () => ({
       dialog: mocks.dialog,
       notify: mocks.notify,
-      screen: { lt: { md: false } },
+      screen: { lt: { md: false }, xs: false },
     }),
   }
 })
@@ -315,6 +315,7 @@ describe('GameServerList', () => {
           'q-spinner': true,
           'q-skeleton': true,
           'q-separator': { template: '<span />' },
+          'q-toolbar': { template: '<div><slot /></div>' },
           'q-table': defineComponent({
             name: 'QTableStub',
             props: {
@@ -573,7 +574,7 @@ describe('GameServerList', () => {
     expect(mocks.stopGameServer).toHaveBeenCalledTimes(2)
   })
 
-  it('uses negative for Stop and warning for Restart in the bulk selection bar', async () => {
+  it('renders bulk actions in the page header with their semantic colors', async () => {
     mocks.listAggregatedGameServers.mockResolvedValue({
       servers: [
         createProto(AggregatedGameServerSchema, {
@@ -592,7 +593,10 @@ describe('GameServerList', () => {
     vm.selectedGameServers = [...vm.displayRows]
     await flushPromises()
 
+    expect(wrapper.find('.xy-page-actions .server-selection-toolbar').exists()).toBe(true)
+    expect(wrapper.find('.xy-search-input').exists()).toBe(true)
     const buttons = wrapper.findAll('button')
+    expect(buttons.some((button) => button.text() === 'Create Game Server')).toBe(true)
     const stopButton = buttons.find((button) => button.text().startsWith('Stop'))
     const restartButton = buttons.find((button) => button.text().startsWith('Restart'))
     expect(stopButton?.attributes('color')).toBe('negative')

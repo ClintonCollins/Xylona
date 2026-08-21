@@ -23,10 +23,10 @@ export function getConsoleFeedClassifier(gameId: string): ConsoleFeedClassifier 
   return consoleFeedClassifiers[gameId.toLowerCase()] ?? null
 }
 
-// Console lines are stored as sanitized HTML (entities escaped by
-// parseConsole, then highlight spans added). Classification runs against the
-// reconstructed plain text so game patterns can match what the log actually
-// said, e.g. Minecraft's `<name>` chat prefix.
+// Console lines are stored as formatted HTML from an accepted game-server
+// trust boundary. Classification runs against reconstructed plain text so
+// game patterns can match what the log actually said, e.g. Minecraft's
+// `<name>` chat prefix.
 export function consoleLinePlainText(html: string): string {
   return html
     .replace(/<[^>]*>/g, '')

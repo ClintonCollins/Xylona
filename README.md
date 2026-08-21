@@ -226,7 +226,7 @@ For a compiled binary:
 go build -o xylona ./cmd/xylona
 ```
 
-The default app bind is `localhost:8080`.
+By default, the app listens on all interfaces at `:8080`. Set `HOST=localhost` to restrict it to loopback.
 
 ### Frontend Workflow
 

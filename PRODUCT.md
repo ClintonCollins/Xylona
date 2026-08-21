@@ -31,9 +31,9 @@ The differentiating claim is the **conjunction**, not any single element. A neig
 
 ## Operating Context
 
-Xylona runs on hardware the operator controls: a home machine, a VPS, or a small fleet. Both the controller and remote node install themselves as Windows services or systemd units through their `service install` CLI, or run under a container supervisor. The default controller bind is `localhost:8080`.
+Xylona runs on hardware the operator controls: a home machine, a VPS, or a small fleet. Both the controller and remote node install themselves as Windows services or systemd units through their `service install` CLI, or run in the foreground under an external supervisor. By default, the controller listens on all interfaces at `:8080`; set `HOST=localhost` to restrict it to loopback.
 
-State lives in `data.sqlite` beside the binary, with embedded migrations applied automatically at startup. `data.sqlite` and `ENCRYPTION_KEY_BASE64` are a **matched recovery set**: neither alone can restore encrypted control-plane secrets. Built-in backups cover game-server data, not control-plane secrets.
+By default, state lives in `./data.sqlite`; `DB_FILE_PATH` can relocate it. Embedded migrations are applied automatically at startup. The database and `ENCRYPTION_KEY_BASE64` are a **matched recovery set**: neither alone can restore encrypted control-plane secrets. Built-in backups cover game-server data, not control-plane secrets.
 
 Operator workflows, as routed in the app: lifecycle control, console, players, live map, file browser, metrics, configuration, settings, start command, mods, alerts, schedules, backups, and per-server access. Around those sit the games catalog and editor, node management, notifications, and admin surfaces for users, settings, and updates.
 
@@ -66,7 +66,7 @@ Supporting operational facts:
 
 The name **Xylona** and the author attribution (Clinton Collins) are fixed.
 
-The four-typeface identity is already shipped and is binding: **Zen Dots**, **Goldman**, **Exo 2**, and **JetBrains Mono**, all self-hosted via `@fontsource` packages rather than a CDN. Role assignment for these faces belongs to DESIGN.md.
+The four-typeface identity is already shipped and is binding: **Zen Dots**, **Goldman**, **Exo 2**, and **JetBrains Mono**, all self-hosted via `@fontsource` packages rather than a CDN. Role assignment for these faces belongs to `frontend/DESIGN.md`.
 
 The product is **dark-only**. This is a product commitment, not a theming preference, and there is no light mode to design for.
 
@@ -97,13 +97,15 @@ The public GitHub repository (`github.com/ClintonCollins/Xylona`) and its README
 
 Prioritize readability, discoverability, keyboard navigation, and strong contrast. Optimize for real-world usability over rigid score-chasing, but do not ignore common needs such as reduced motion, color-blind-safe status cues, and clear focus states.
 
-Status must never rely on color alone. Reduced-motion behavior is already implemented globally in `design-tokens.css` and must be preserved.
+Status must never rely on color alone. Reduced-motion behavior is already implemented globally in `frontend/src/css/design-tokens.css` and must be preserved.
 
 ## Accepted Audit Boundaries
 
-The following `v-html` usages are intentional and should not be flagged as XSS issues unless the trust model changes:
+The following `v-html` usages are intentional and should not be flagged as XSS issues unless their trust boundary or escaping changes:
 
-- `frontend/src/pages/game_servers/GameServerView.vue`: console output from the user's own authenticated game server, formatted by `parseConsole()`.
-- `frontend/src/components/shared/ClipBoardCopy.vue`: styled tooltip HTML from application-controlled props.
+- `frontend/src/pages/game_servers/GameServerView.vue`: formatted output from the operator's authenticated game server; this source is an explicit trust boundary.
+- `frontend/src/components/ClipBoardCopy.vue`: styled tooltip HTML from application-controlled props.
+- `frontend/src/components/games/GameFormOverviewTab.vue`: command previews produced by `highlightCommand()`, which escapes command text before adding syntax-highlighting spans.
+- `frontend/src/components/game_servers/ModDetailDialog.vue`: third-party description HTML sanitized with DOMPurify and an explicit allowlist before rendering.
 
-Do not add DOMPurify or replace these with plain text unless the trust boundary changes.
+Treat new or materially changed `v-html` as trust-boundary work. Escape or sanitize untrusted content before rendering it.

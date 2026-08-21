@@ -336,5 +336,5 @@ Console and file-browser surfaces should feel native to server administration. N
 - **Don't** use decorative side-stripe borders, gradient text, default glassmorphism, or repeated icon-heading-text card grids.
 - **Don't** hide server lifecycle actions, health, or errors behind vague menus.
 - **Don't** set display faces (Zen Dots, Goldman) below roughly 0.95rem.
-- **Don't** replace accepted `v-html` console and tooltip rendering unless the trust model changes.
-- **Don't** add durable project documentation under the repo-root `/docs/`, which is intentionally local scratch space.
+- **Don't** replace or bypass the accepted `v-html` boundaries in `../PRODUCT.md` unless the trust model changes.
+- **Don't** add durable project documentation under the repo-root `docs/` outside the tracked `docs/agents/` and `docs/adr/` exceptions.

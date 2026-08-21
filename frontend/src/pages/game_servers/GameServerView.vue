@@ -546,7 +546,7 @@
               Show all
             </button>
           </div>
-          <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: game server console output -->
+          <!-- eslint-disable vue/no-v-html -- authenticated game-server output is an accepted trust boundary -->
           <code
             id="consoleCodeEl"
             aria-label="Game server console output"

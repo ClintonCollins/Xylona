@@ -1,5 +1,5 @@
 <template>
-  <!-- eslint-disable vue/no-v-html -- accepted per CLAUDE.md: highlightCommand() syntax highlighting -->
+  <!-- eslint-disable vue/no-v-html -- highlightCommand() escapes input before adding markup -->
   <!-- Identity & Networking (dense metadata strip) -->
   <section class="form-section form-section--compact">
     <div class="overview-metadata">
