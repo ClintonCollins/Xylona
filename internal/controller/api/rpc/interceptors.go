@@ -15,12 +15,13 @@ import (
 )
 
 var publicSessionOptionalProcedures = map[string]struct{}{
-	xylonaconnect.XylonaCheckUserAuthenticatedProcedure:     {},
-	xylonaconnect.XylonaLoginProcedure:                      {},
-	xylonaconnect.XylonaLogoutProcedure:                     {},
-	xylonaconnect.XylonaGetPublicPalworldMapProcedure:       {},
-	xylonaconnect.XylonaGetPublicSevenDaysToDieMapProcedure: {},
-	xylonaconnect.XylonaGetPublicMinecraftMapProcedure:      {},
+	xylonaconnect.XylonaCheckUserAuthenticatedProcedure:        {},
+	xylonaconnect.XylonaLoginProcedure:                         {},
+	xylonaconnect.XylonaLogoutProcedure:                        {},
+	xylonaconnect.XylonaGetPublicPalworldMapProcedure:          {},
+	xylonaconnect.XylonaGetPublicSevenDaysToDieMapProcedure:    {},
+	xylonaconnect.XylonaGetPublicMinecraftMapProcedure:         {},
+	xylonaconnect.XylonaGetPublicGameServerStatusPageProcedure: {},
 }
 
 type sessionAuthInterceptor struct {

@@ -31,30 +31,38 @@ func (j joinSet[Q]) AliasedAs(alias string) joinSet[Q] {
 }
 
 type joins[Q dialect.Joinable] struct {
-	AlertHistories             joinSet[alertHistoryJoins[Q]]
-	AlertRules                 joinSet[alertRuleJoins[Q]]
-	AlertStates                joinSet[alertStateJoins[Q]]
-	Games                      joinSet[gameJoins[Q]]
-	GameServers                joinSet[gameServerJoins[Q]]
-	GameServerBackups          joinSet[gameServerBackupJoins[Q]]
-	GameServerMetricsHistories joinSet[gameServerMetricsHistoryJoins[Q]]
-	GameServerSecrets          joinSet[gameServerSecretJoins[Q]]
-	InstalledMods              joinSet[installedModJoins[Q]]
-	InstalledModFiles          joinSet[installedModFileJoins[Q]]
-	Ips                        joinSet[ipJoins[Q]]
-	Nodes                      joinSet[nodeJoins[Q]]
-	NodeMetricsHistories       joinSet[nodeMetricsHistoryJoins[Q]]
-	NotificationChannels       joinSet[notificationChannelJoins[Q]]
-	Permissions                joinSet[permissionJoins[Q]]
-	Roles                      joinSet[roleJoins[Q]]
-	RolePermissions            joinSet[rolePermissionJoins[Q]]
-	ScheduledTasks             joinSet[scheduledTaskJoins[Q]]
-	ScheduledTaskLogs          joinSet[scheduledTaskLogJoins[Q]]
-	SystemUpdateJobs           joinSet[systemUpdateJobJoins[Q]]
-	SystemUpdateJobEvents      joinSet[systemUpdateJobEventJoins[Q]]
-	Users                      joinSet[userJoins[Q]]
-	UserRoleAssignments        joinSet[userRoleAssignmentJoins[Q]]
-	UserSessions               joinSet[userSessionJoins[Q]]
+	AlertHistories                    joinSet[alertHistoryJoins[Q]]
+	AlertRules                        joinSet[alertRuleJoins[Q]]
+	AlertStates                       joinSet[alertStateJoins[Q]]
+	Games                             joinSet[gameJoins[Q]]
+	GameServers                       joinSet[gameServerJoins[Q]]
+	GameServerBackups                 joinSet[gameServerBackupJoins[Q]]
+	GameServerLifecycleEvents         joinSet[gameServerLifecycleEventJoins[Q]]
+	GameServerMetricsHistories        joinSet[gameServerMetricsHistoryJoins[Q]]
+	GameServerMinecraftMaps           joinSet[gameServerMinecraftMapJoins[Q]]
+	GameServerOperationEvents         joinSet[gameServerOperationEventJoins[Q]]
+	GameServerPalworldMaps            joinSet[gameServerPalworldMapJoins[Q]]
+	GameServerSecrets                 joinSet[gameServerSecretJoins[Q]]
+	GameServerSevenDaysToDieMaps      joinSet[gameServerSevenDaysToDieMapJoins[Q]]
+	GameServerSevenDaysToDieMapShares joinSet[gameServerSevenDaysToDieMapShareJoins[Q]]
+	GameServerStatusPages             joinSet[gameServerStatusPageJoins[Q]]
+	GameServerStatusPageIdentifiers   joinSet[gameServerStatusPageIdentifierJoins[Q]]
+	InstalledMods                     joinSet[installedModJoins[Q]]
+	InstalledModFiles                 joinSet[installedModFileJoins[Q]]
+	Ips                               joinSet[ipJoins[Q]]
+	Nodes                             joinSet[nodeJoins[Q]]
+	NodeMetricsHistories              joinSet[nodeMetricsHistoryJoins[Q]]
+	NotificationChannels              joinSet[notificationChannelJoins[Q]]
+	Permissions                       joinSet[permissionJoins[Q]]
+	Roles                             joinSet[roleJoins[Q]]
+	RolePermissions                   joinSet[rolePermissionJoins[Q]]
+	ScheduledTasks                    joinSet[scheduledTaskJoins[Q]]
+	ScheduledTaskLogs                 joinSet[scheduledTaskLogJoins[Q]]
+	SystemUpdateJobs                  joinSet[systemUpdateJobJoins[Q]]
+	SystemUpdateJobEvents             joinSet[systemUpdateJobEventJoins[Q]]
+	Users                             joinSet[userJoins[Q]]
+	UserRoleAssignments               joinSet[userRoleAssignmentJoins[Q]]
+	UserSessions                      joinSet[userSessionJoins[Q]]
 }
 
 func buildJoinSet[Q interface{ aliasedAs(string) Q }, C any, F func(C, string) Q](c C, f F) joinSet[Q] {
@@ -67,30 +75,38 @@ func buildJoinSet[Q interface{ aliasedAs(string) Q }, C any, F func(C, string) Q
 
 func getJoins[Q dialect.Joinable]() joins[Q] {
 	return joins[Q]{
-		AlertHistories:             buildJoinSet[alertHistoryJoins[Q]](AlertHistories.Columns, buildAlertHistoryJoins),
-		AlertRules:                 buildJoinSet[alertRuleJoins[Q]](AlertRules.Columns, buildAlertRuleJoins),
-		AlertStates:                buildJoinSet[alertStateJoins[Q]](AlertStates.Columns, buildAlertStateJoins),
-		Games:                      buildJoinSet[gameJoins[Q]](Games.Columns, buildGameJoins),
-		GameServers:                buildJoinSet[gameServerJoins[Q]](GameServers.Columns, buildGameServerJoins),
-		GameServerBackups:          buildJoinSet[gameServerBackupJoins[Q]](GameServerBackups.Columns, buildGameServerBackupJoins),
-		GameServerMetricsHistories: buildJoinSet[gameServerMetricsHistoryJoins[Q]](GameServerMetricsHistories.Columns, buildGameServerMetricsHistoryJoins),
-		GameServerSecrets:          buildJoinSet[gameServerSecretJoins[Q]](GameServerSecrets.Columns, buildGameServerSecretJoins),
-		InstalledMods:              buildJoinSet[installedModJoins[Q]](InstalledMods.Columns, buildInstalledModJoins),
-		InstalledModFiles:          buildJoinSet[installedModFileJoins[Q]](InstalledModFiles.Columns, buildInstalledModFileJoins),
-		Ips:                        buildJoinSet[ipJoins[Q]](Ips.Columns, buildIPJoins),
-		Nodes:                      buildJoinSet[nodeJoins[Q]](Nodes.Columns, buildNodeJoins),
-		NodeMetricsHistories:       buildJoinSet[nodeMetricsHistoryJoins[Q]](NodeMetricsHistories.Columns, buildNodeMetricsHistoryJoins),
-		NotificationChannels:       buildJoinSet[notificationChannelJoins[Q]](NotificationChannels.Columns, buildNotificationChannelJoins),
-		Permissions:                buildJoinSet[permissionJoins[Q]](Permissions.Columns, buildPermissionJoins),
-		Roles:                      buildJoinSet[roleJoins[Q]](Roles.Columns, buildRoleJoins),
-		RolePermissions:            buildJoinSet[rolePermissionJoins[Q]](RolePermissions.Columns, buildRolePermissionJoins),
-		ScheduledTasks:             buildJoinSet[scheduledTaskJoins[Q]](ScheduledTasks.Columns, buildScheduledTaskJoins),
-		ScheduledTaskLogs:          buildJoinSet[scheduledTaskLogJoins[Q]](ScheduledTaskLogs.Columns, buildScheduledTaskLogJoins),
-		SystemUpdateJobs:           buildJoinSet[systemUpdateJobJoins[Q]](SystemUpdateJobs.Columns, buildSystemUpdateJobJoins),
-		SystemUpdateJobEvents:      buildJoinSet[systemUpdateJobEventJoins[Q]](SystemUpdateJobEvents.Columns, buildSystemUpdateJobEventJoins),
-		Users:                      buildJoinSet[userJoins[Q]](Users.Columns, buildUserJoins),
-		UserRoleAssignments:        buildJoinSet[userRoleAssignmentJoins[Q]](UserRoleAssignments.Columns, buildUserRoleAssignmentJoins),
-		UserSessions:               buildJoinSet[userSessionJoins[Q]](UserSessions.Columns, buildUserSessionJoins),
+		AlertHistories:                    buildJoinSet[alertHistoryJoins[Q]](AlertHistories.Columns, buildAlertHistoryJoins),
+		AlertRules:                        buildJoinSet[alertRuleJoins[Q]](AlertRules.Columns, buildAlertRuleJoins),
+		AlertStates:                       buildJoinSet[alertStateJoins[Q]](AlertStates.Columns, buildAlertStateJoins),
+		Games:                             buildJoinSet[gameJoins[Q]](Games.Columns, buildGameJoins),
+		GameServers:                       buildJoinSet[gameServerJoins[Q]](GameServers.Columns, buildGameServerJoins),
+		GameServerBackups:                 buildJoinSet[gameServerBackupJoins[Q]](GameServerBackups.Columns, buildGameServerBackupJoins),
+		GameServerLifecycleEvents:         buildJoinSet[gameServerLifecycleEventJoins[Q]](GameServerLifecycleEvents.Columns, buildGameServerLifecycleEventJoins),
+		GameServerMetricsHistories:        buildJoinSet[gameServerMetricsHistoryJoins[Q]](GameServerMetricsHistories.Columns, buildGameServerMetricsHistoryJoins),
+		GameServerMinecraftMaps:           buildJoinSet[gameServerMinecraftMapJoins[Q]](GameServerMinecraftMaps.Columns, buildGameServerMinecraftMapJoins),
+		GameServerOperationEvents:         buildJoinSet[gameServerOperationEventJoins[Q]](GameServerOperationEvents.Columns, buildGameServerOperationEventJoins),
+		GameServerPalworldMaps:            buildJoinSet[gameServerPalworldMapJoins[Q]](GameServerPalworldMaps.Columns, buildGameServerPalworldMapJoins),
+		GameServerSecrets:                 buildJoinSet[gameServerSecretJoins[Q]](GameServerSecrets.Columns, buildGameServerSecretJoins),
+		GameServerSevenDaysToDieMaps:      buildJoinSet[gameServerSevenDaysToDieMapJoins[Q]](GameServerSevenDaysToDieMaps.Columns, buildGameServerSevenDaysToDieMapJoins),
+		GameServerSevenDaysToDieMapShares: buildJoinSet[gameServerSevenDaysToDieMapShareJoins[Q]](GameServerSevenDaysToDieMapShares.Columns, buildGameServerSevenDaysToDieMapShareJoins),
+		GameServerStatusPages:             buildJoinSet[gameServerStatusPageJoins[Q]](GameServerStatusPages.Columns, buildGameServerStatusPageJoins),
+		GameServerStatusPageIdentifiers:   buildJoinSet[gameServerStatusPageIdentifierJoins[Q]](GameServerStatusPageIdentifiers.Columns, buildGameServerStatusPageIdentifierJoins),
+		InstalledMods:                     buildJoinSet[installedModJoins[Q]](InstalledMods.Columns, buildInstalledModJoins),
+		InstalledModFiles:                 buildJoinSet[installedModFileJoins[Q]](InstalledModFiles.Columns, buildInstalledModFileJoins),
+		Ips:                               buildJoinSet[ipJoins[Q]](Ips.Columns, buildIPJoins),
+		Nodes:                             buildJoinSet[nodeJoins[Q]](Nodes.Columns, buildNodeJoins),
+		NodeMetricsHistories:              buildJoinSet[nodeMetricsHistoryJoins[Q]](NodeMetricsHistories.Columns, buildNodeMetricsHistoryJoins),
+		NotificationChannels:              buildJoinSet[notificationChannelJoins[Q]](NotificationChannels.Columns, buildNotificationChannelJoins),
+		Permissions:                       buildJoinSet[permissionJoins[Q]](Permissions.Columns, buildPermissionJoins),
+		Roles:                             buildJoinSet[roleJoins[Q]](Roles.Columns, buildRoleJoins),
+		RolePermissions:                   buildJoinSet[rolePermissionJoins[Q]](RolePermissions.Columns, buildRolePermissionJoins),
+		ScheduledTasks:                    buildJoinSet[scheduledTaskJoins[Q]](ScheduledTasks.Columns, buildScheduledTaskJoins),
+		ScheduledTaskLogs:                 buildJoinSet[scheduledTaskLogJoins[Q]](ScheduledTaskLogs.Columns, buildScheduledTaskLogJoins),
+		SystemUpdateJobs:                  buildJoinSet[systemUpdateJobJoins[Q]](SystemUpdateJobs.Columns, buildSystemUpdateJobJoins),
+		SystemUpdateJobEvents:             buildJoinSet[systemUpdateJobEventJoins[Q]](SystemUpdateJobEvents.Columns, buildSystemUpdateJobEventJoins),
+		Users:                             buildJoinSet[userJoins[Q]](Users.Columns, buildUserJoins),
+		UserRoleAssignments:               buildJoinSet[userRoleAssignmentJoins[Q]](UserRoleAssignments.Columns, buildUserRoleAssignmentJoins),
+		UserSessions:                      buildJoinSet[userSessionJoins[Q]](UserSessions.Columns, buildUserSessionJoins),
 	}
 }
 

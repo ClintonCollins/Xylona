@@ -26,11 +26,35 @@ var _ bob.HookableType = &GameServer{}
 // Make sure the type GameServerBackup runs hooks after queries
 var _ bob.HookableType = &GameServerBackup{}
 
+// Make sure the type GameServerLifecycleEvent runs hooks after queries
+var _ bob.HookableType = &GameServerLifecycleEvent{}
+
 // Make sure the type GameServerMetricsHistory runs hooks after queries
 var _ bob.HookableType = &GameServerMetricsHistory{}
 
+// Make sure the type GameServerMinecraftMap runs hooks after queries
+var _ bob.HookableType = &GameServerMinecraftMap{}
+
+// Make sure the type GameServerOperationEvent runs hooks after queries
+var _ bob.HookableType = &GameServerOperationEvent{}
+
+// Make sure the type GameServerPalworldMap runs hooks after queries
+var _ bob.HookableType = &GameServerPalworldMap{}
+
 // Make sure the type GameServerSecret runs hooks after queries
 var _ bob.HookableType = &GameServerSecret{}
+
+// Make sure the type GameServerSevenDaysToDieMap runs hooks after queries
+var _ bob.HookableType = &GameServerSevenDaysToDieMap{}
+
+// Make sure the type GameServerSevenDaysToDieMapShare runs hooks after queries
+var _ bob.HookableType = &GameServerSevenDaysToDieMapShare{}
+
+// Make sure the type GameServerStatusPage runs hooks after queries
+var _ bob.HookableType = &GameServerStatusPage{}
+
+// Make sure the type GameServerStatusPageIdentifier runs hooks after queries
+var _ bob.HookableType = &GameServerStatusPageIdentifier{}
 
 // Make sure the type InstalledMod runs hooks after queries
 var _ bob.HookableType = &InstalledMod{}
@@ -61,9 +85,6 @@ var _ bob.HookableType = &NotificationChannel{}
 
 // Make sure the type Permission runs hooks after queries
 var _ bob.HookableType = &Permission{}
-
-// Make sure the type RevokedJWT runs hooks after queries
-var _ bob.HookableType = &RevokedJWT{}
 
 // Make sure the type Role runs hooks after queries
 var _ bob.HookableType = &Role{}

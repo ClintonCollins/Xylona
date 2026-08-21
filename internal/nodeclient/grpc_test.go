@@ -608,6 +608,52 @@ func TestGRPCClientQueryGameServerRoundTrips(t *testing.T) {
 	}
 }
 
+func TestGRPCClientQueryGameServerAcceptsLegacyRespondedFields(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		response  *nodeprotov1.QueryGameServerResponse
+		responded func(node.GameServerQueryResult) bool
+	}{
+		{
+			name: "minecraft",
+			response: &nodeprotov1.QueryGameServerResponse{
+				Kind:      nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT,
+				Minecraft: &nodeprotov1.GameServerMinecraftQueryInfo{},
+			},
+			responded: func(result node.GameServerQueryResult) bool { return result.Minecraft.Responded },
+		},
+		{
+			name: "source",
+			response: &nodeprotov1.QueryGameServerResponse{
+				Kind:   nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_SOURCE,
+				Source: &nodeprotov1.GameServerSourceQueryInfo{},
+			},
+			responded: func(result node.GameServerQueryResult) bool { return result.Source.Responded },
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			recorder := &callRecorder{queryResp: test.response}
+			url, fingerprint := newPinnedTestServer(t, recorder)
+			client, errClient := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+			if errClient != nil {
+				t.Fatalf("NewGRPCClient: %v", errClient)
+			}
+
+			result, errQuery := client.QueryGameServer(t.Context(), node.GameServerQueryRequest{})
+			if errQuery != nil {
+				t.Fatalf("QueryGameServer: %v", errQuery)
+			}
+			if !test.responded(result) {
+				t.Fatal("legacy query response was treated as a failed probe")
+			}
+		})
+	}
+}
+
 func TestGRPCClientPerformGameServerPlayerActionRoundTrips(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{}

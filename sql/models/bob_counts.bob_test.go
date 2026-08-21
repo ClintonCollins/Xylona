@@ -123,11 +123,20 @@ func TestGameServerCountStruct(t *testing.T) {
 	// Verify GameServerBackups count field exists and is *int64
 	var _ *int64 = m.C.GameServerBackups
 
+	// Verify GameServerLifecycleEvents count field exists and is *int64
+	var _ *int64 = m.C.GameServerLifecycleEvents
+
 	// Verify GameServerMetricsHistories count field exists and is *int64
 	var _ *int64 = m.C.GameServerMetricsHistories
 
+	// Verify GameServerOperationEvents count field exists and is *int64
+	var _ *int64 = m.C.GameServerOperationEvents
+
 	// Verify GameServerSecrets count field exists and is *int64
 	var _ *int64 = m.C.GameServerSecrets
+
+	// Verify GameServerSevenDaysToDieMapShares count field exists and is *int64
+	var _ *int64 = m.C.GameServerSevenDaysToDieMapShares
 
 	// Verify InstalledMods count field exists and is *int64
 	var _ *int64 = m.C.InstalledMods
@@ -151,17 +160,35 @@ func TestGameServerLoadCountMethods(t *testing.T) {
 	// Verify LoadCountGameServerBackups method exists on slice
 	_ = ms.LoadCountGameServerBackups(ctx, nil)
 
+	// Verify LoadCountGameServerLifecycleEvents method exists on single model
+	_ = m.LoadCountGameServerLifecycleEvents(ctx, nil)
+
+	// Verify LoadCountGameServerLifecycleEvents method exists on slice
+	_ = ms.LoadCountGameServerLifecycleEvents(ctx, nil)
+
 	// Verify LoadCountGameServerMetricsHistories method exists on single model
 	_ = m.LoadCountGameServerMetricsHistories(ctx, nil)
 
 	// Verify LoadCountGameServerMetricsHistories method exists on slice
 	_ = ms.LoadCountGameServerMetricsHistories(ctx, nil)
 
+	// Verify LoadCountGameServerOperationEvents method exists on single model
+	_ = m.LoadCountGameServerOperationEvents(ctx, nil)
+
+	// Verify LoadCountGameServerOperationEvents method exists on slice
+	_ = ms.LoadCountGameServerOperationEvents(ctx, nil)
+
 	// Verify LoadCountGameServerSecrets method exists on single model
 	_ = m.LoadCountGameServerSecrets(ctx, nil)
 
 	// Verify LoadCountGameServerSecrets method exists on slice
 	_ = ms.LoadCountGameServerSecrets(ctx, nil)
+
+	// Verify LoadCountGameServerSevenDaysToDieMapShares method exists on single model
+	_ = m.LoadCountGameServerSevenDaysToDieMapShares(ctx, nil)
+
+	// Verify LoadCountGameServerSevenDaysToDieMapShares method exists on slice
+	_ = ms.LoadCountGameServerSevenDaysToDieMapShares(ctx, nil)
 
 	// Verify LoadCountInstalledMods method exists on single model
 	_ = m.LoadCountInstalledMods(ctx, nil)
@@ -189,11 +216,20 @@ func TestSelectThenLoadCountGameServer(t *testing.T) {
 	// Verify GameServerBackups loader exists
 	_ = SelectThenLoadCount.GameServer.GameServerBackups
 
+	// Verify GameServerLifecycleEvents loader exists
+	_ = SelectThenLoadCount.GameServer.GameServerLifecycleEvents
+
 	// Verify GameServerMetricsHistories loader exists
 	_ = SelectThenLoadCount.GameServer.GameServerMetricsHistories
 
+	// Verify GameServerOperationEvents loader exists
+	_ = SelectThenLoadCount.GameServer.GameServerOperationEvents
+
 	// Verify GameServerSecrets loader exists
 	_ = SelectThenLoadCount.GameServer.GameServerSecrets
+
+	// Verify GameServerSevenDaysToDieMapShares loader exists
+	_ = SelectThenLoadCount.GameServer.GameServerSevenDaysToDieMapShares
 
 	// Verify InstalledMods loader exists
 	_ = SelectThenLoadCount.GameServer.InstalledMods
@@ -212,11 +248,20 @@ func TestPreloadCountGameServer(t *testing.T) {
 	// Verify GameServerBackups preloader exists and returns a Preloader
 	_ = PreloadCount.GameServer.GameServerBackups()
 
+	// Verify GameServerLifecycleEvents preloader exists and returns a Preloader
+	_ = PreloadCount.GameServer.GameServerLifecycleEvents()
+
 	// Verify GameServerMetricsHistories preloader exists and returns a Preloader
 	_ = PreloadCount.GameServer.GameServerMetricsHistories()
 
+	// Verify GameServerOperationEvents preloader exists and returns a Preloader
+	_ = PreloadCount.GameServer.GameServerOperationEvents()
+
 	// Verify GameServerSecrets preloader exists and returns a Preloader
 	_ = PreloadCount.GameServer.GameServerSecrets()
+
+	// Verify GameServerSevenDaysToDieMapShares preloader exists and returns a Preloader
+	_ = PreloadCount.GameServer.GameServerSevenDaysToDieMapShares()
 
 	// Verify InstalledMods preloader exists and returns a Preloader
 	_ = PreloadCount.GameServer.InstalledMods()
@@ -234,9 +279,15 @@ func TestGameServerPreloadCountMethod(t *testing.T) {
 
 	_ = m.PreloadCount("GameServerBackups", 0)
 
+	_ = m.PreloadCount("GameServerLifecycleEvents", 0)
+
 	_ = m.PreloadCount("GameServerMetricsHistories", 0)
 
+	_ = m.PreloadCount("GameServerOperationEvents", 0)
+
 	_ = m.PreloadCount("GameServerSecrets", 0)
+
+	_ = m.PreloadCount("GameServerSevenDaysToDieMapShares", 0)
 
 	_ = m.PreloadCount("InstalledMods", 0)
 
@@ -721,8 +772,20 @@ func TestUserCountStruct(t *testing.T) {
 	// Verify GameServers count field exists and is *int64
 	var _ *int64 = m.C.GameServers
 
+	// Verify UpdatedByUserGameServerMinecraftMaps count field exists and is *int64
+	var _ *int64 = m.C.UpdatedByUserGameServerMinecraftMaps
+
+	// Verify UpdatedByUserGameServerPalworldMaps count field exists and is *int64
+	var _ *int64 = m.C.UpdatedByUserGameServerPalworldMaps
+
 	// Verify UpdatedByUserGameServerSecrets count field exists and is *int64
 	var _ *int64 = m.C.UpdatedByUserGameServerSecrets
+
+	// Verify UpdatedByUserGameServerSevenDaysToDieMaps count field exists and is *int64
+	var _ *int64 = m.C.UpdatedByUserGameServerSevenDaysToDieMaps
+
+	// Verify CreatedByUserGameServerSevenDaysToDieMapShares count field exists and is *int64
+	var _ *int64 = m.C.CreatedByUserGameServerSevenDaysToDieMapShares
 
 	// Verify NotificationChannels count field exists and is *int64
 	var _ *int64 = m.C.NotificationChannels
@@ -767,11 +830,35 @@ func TestUserLoadCountMethods(t *testing.T) {
 	// Verify LoadCountGameServers method exists on slice
 	_ = ms.LoadCountGameServers(ctx, nil)
 
+	// Verify LoadCountUpdatedByUserGameServerMinecraftMaps method exists on single model
+	_ = m.LoadCountUpdatedByUserGameServerMinecraftMaps(ctx, nil)
+
+	// Verify LoadCountUpdatedByUserGameServerMinecraftMaps method exists on slice
+	_ = ms.LoadCountUpdatedByUserGameServerMinecraftMaps(ctx, nil)
+
+	// Verify LoadCountUpdatedByUserGameServerPalworldMaps method exists on single model
+	_ = m.LoadCountUpdatedByUserGameServerPalworldMaps(ctx, nil)
+
+	// Verify LoadCountUpdatedByUserGameServerPalworldMaps method exists on slice
+	_ = ms.LoadCountUpdatedByUserGameServerPalworldMaps(ctx, nil)
+
 	// Verify LoadCountUpdatedByUserGameServerSecrets method exists on single model
 	_ = m.LoadCountUpdatedByUserGameServerSecrets(ctx, nil)
 
 	// Verify LoadCountUpdatedByUserGameServerSecrets method exists on slice
 	_ = ms.LoadCountUpdatedByUserGameServerSecrets(ctx, nil)
+
+	// Verify LoadCountUpdatedByUserGameServerSevenDaysToDieMaps method exists on single model
+	_ = m.LoadCountUpdatedByUserGameServerSevenDaysToDieMaps(ctx, nil)
+
+	// Verify LoadCountUpdatedByUserGameServerSevenDaysToDieMaps method exists on slice
+	_ = ms.LoadCountUpdatedByUserGameServerSevenDaysToDieMaps(ctx, nil)
+
+	// Verify LoadCountCreatedByUserGameServerSevenDaysToDieMapShares method exists on single model
+	_ = m.LoadCountCreatedByUserGameServerSevenDaysToDieMapShares(ctx, nil)
+
+	// Verify LoadCountCreatedByUserGameServerSevenDaysToDieMapShares method exists on slice
+	_ = ms.LoadCountCreatedByUserGameServerSevenDaysToDieMapShares(ctx, nil)
 
 	// Verify LoadCountNotificationChannels method exists on single model
 	_ = m.LoadCountNotificationChannels(ctx, nil)
@@ -823,8 +910,20 @@ func TestSelectThenLoadCountUser(t *testing.T) {
 	// Verify GameServers loader exists
 	_ = SelectThenLoadCount.User.GameServers
 
+	// Verify UpdatedByUserGameServerMinecraftMaps loader exists
+	_ = SelectThenLoadCount.User.UpdatedByUserGameServerMinecraftMaps
+
+	// Verify UpdatedByUserGameServerPalworldMaps loader exists
+	_ = SelectThenLoadCount.User.UpdatedByUserGameServerPalworldMaps
+
 	// Verify UpdatedByUserGameServerSecrets loader exists
 	_ = SelectThenLoadCount.User.UpdatedByUserGameServerSecrets
+
+	// Verify UpdatedByUserGameServerSevenDaysToDieMaps loader exists
+	_ = SelectThenLoadCount.User.UpdatedByUserGameServerSevenDaysToDieMaps
+
+	// Verify CreatedByUserGameServerSevenDaysToDieMapShares loader exists
+	_ = SelectThenLoadCount.User.CreatedByUserGameServerSevenDaysToDieMapShares
 
 	// Verify NotificationChannels loader exists
 	_ = SelectThenLoadCount.User.NotificationChannels
@@ -858,8 +957,20 @@ func TestPreloadCountUser(t *testing.T) {
 	// Verify GameServers preloader exists and returns a Preloader
 	_ = PreloadCount.User.GameServers()
 
+	// Verify UpdatedByUserGameServerMinecraftMaps preloader exists and returns a Preloader
+	_ = PreloadCount.User.UpdatedByUserGameServerMinecraftMaps()
+
+	// Verify UpdatedByUserGameServerPalworldMaps preloader exists and returns a Preloader
+	_ = PreloadCount.User.UpdatedByUserGameServerPalworldMaps()
+
 	// Verify UpdatedByUserGameServerSecrets preloader exists and returns a Preloader
 	_ = PreloadCount.User.UpdatedByUserGameServerSecrets()
+
+	// Verify UpdatedByUserGameServerSevenDaysToDieMaps preloader exists and returns a Preloader
+	_ = PreloadCount.User.UpdatedByUserGameServerSevenDaysToDieMaps()
+
+	// Verify CreatedByUserGameServerSevenDaysToDieMapShares preloader exists and returns a Preloader
+	_ = PreloadCount.User.CreatedByUserGameServerSevenDaysToDieMapShares()
 
 	// Verify NotificationChannels preloader exists and returns a Preloader
 	_ = PreloadCount.User.NotificationChannels()
@@ -890,7 +1001,15 @@ func TestUserPreloadCountMethod(t *testing.T) {
 
 	_ = m.PreloadCount("GameServers", 0)
 
+	_ = m.PreloadCount("UpdatedByUserGameServerMinecraftMaps", 0)
+
+	_ = m.PreloadCount("UpdatedByUserGameServerPalworldMaps", 0)
+
 	_ = m.PreloadCount("UpdatedByUserGameServerSecrets", 0)
+
+	_ = m.PreloadCount("UpdatedByUserGameServerSevenDaysToDieMaps", 0)
+
+	_ = m.PreloadCount("CreatedByUserGameServerSevenDaysToDieMapShares", 0)
 
 	_ = m.PreloadCount("NotificationChannels", 0)
 

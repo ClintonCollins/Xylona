@@ -55,6 +55,7 @@ func Source(host string, port int) (*xylona.SourceQueryInfo, error) {
 		Visibility: info.Visibility,
 		Vac:        info.VAC,
 		Version:    info.Version,
+		Responded:  true,
 	}
 	if info.ExtendedServerInfo != nil {
 		sourceInfo.SteamId = info.ExtendedServerInfo.SteamID
@@ -86,13 +87,15 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 	respQuery, errQuery := conn.QueryFull(host, port)
 	if errQuery == nil {
 		return &xylona.MinecraftQueryInfo{
-			Motd:            respQuery.MOTD,
-			GameType:        respQuery.GameType,
-			Map:             respQuery.Map,
-			NumberOfPlayers: helpers.ClampUint32FromInt(respQuery.OnlinePlayers),
-			MaxPlayers:      helpers.ClampUint32FromInt(respQuery.MaxPlayers),
-			PlayerList:      respQuery.SamplePlayers,
-			ServerVersion:   respQuery.Version,
+			Motd:                respQuery.MOTD,
+			GameType:            respQuery.GameType,
+			Map:                 respQuery.Map,
+			NumberOfPlayers:     helpers.ClampUint32FromInt(respQuery.OnlinePlayers),
+			MaxPlayers:          helpers.ClampUint32FromInt(respQuery.MaxPlayers),
+			PlayerList:          respQuery.SamplePlayers,
+			ServerVersion:       respQuery.Version,
+			PlayerListSupported: true,
+			Responded:           true,
 		}, nil
 	}
 	resp17, errPing17 := conn.Ping17(host, port)
@@ -108,6 +111,7 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 			PlayerList:      playerList,
 			ProtocolVersion: helpers.ClampUint32FromInt(resp17.ProtocolVersion),
 			ServerVersion:   resp17.VersionName,
+			Responded:       true,
 		}, nil
 	}
 	resp16, errPing16 := conn.Ping16(host, port)
@@ -118,6 +122,7 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 			MaxPlayers:      helpers.ClampUint32FromInt(resp16.MaxPlayers),
 			ProtocolVersion: helpers.ClampUint32FromInt(resp16.ProtocolVersion),
 			ServerVersion:   resp16.ServerVersion,
+			Responded:       true,
 		}, nil
 	}
 	respBeta, errPingBeta := conn.PingBeta18(host, port)
@@ -126,6 +131,7 @@ func Minecraft(host string, port int) (*xylona.MinecraftQueryInfo, error) {
 			Motd:            respBeta.MOTD,
 			NumberOfPlayers: helpers.ClampUint32FromInt(respBeta.OnlinePlayers),
 			MaxPlayers:      helpers.ClampUint32FromInt(respBeta.MaxPlayers),
+			Responded:       true,
 		}, nil
 	}
 	return nil, ErrMinecraftServerUnreachable

@@ -548,6 +548,8 @@ message GameServerMinecraftQueryInfo {
   uint32 protocol_version = 7;
   string server_version = 8;
   repeated GameServerPlayer player_details = 9;
+  bool player_list_supported = 10;
+  optional bool responded = 11;
 }
 
 message GameServerSourceQueryInfo {
@@ -567,6 +569,7 @@ message GameServerSourceQueryInfo {
   uint32 protocol = 14;
   repeated string player_list = 15;
   bool player_list_supported = 16;
+  optional bool responded = 17;
 }
 
 message GameServerPalworldQueryInfo {

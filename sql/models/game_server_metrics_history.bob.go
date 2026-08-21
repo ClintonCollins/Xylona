@@ -9,7 +9,9 @@ import (
 	"io"
 	"time"
 
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/sqlite"
 	"github.com/stephenafamo/bob/dialect/sqlite/dialect"
@@ -23,17 +25,75 @@ import (
 
 // GameServerMetricsHistory is an object representing the database table.
 type GameServerMetricsHistory struct {
-	ID              string    `db:"id,pk" `
-	GameServerID    string    `db:"game_server_id" `
-	CPUPercent      float64   `db:"cpu_percent" `
-	MemoryBytes     int64     `db:"memory_bytes" `
-	MemoryPercent   float64   `db:"memory_percent" `
-	DiskUsageBytes  int64     `db:"disk_usage_bytes" `
-	IoReadRate      float64   `db:"io_read_rate" `
-	IoWriteRate     float64   `db:"io_write_rate" `
-	ConnectionCount int64     `db:"connection_count" `
-	PlayerCount     int64     `db:"player_count" `
-	RecordedAt      time.Time `db:"recorded_at" `
+	ID                              string              `db:"id,pk" `
+	GameServerID                    string              `db:"game_server_id" `
+	CPUPercent                      float64             `db:"cpu_percent" `
+	MemoryBytes                     int64               `db:"memory_bytes" `
+	MemoryPercent                   float64             `db:"memory_percent" `
+	DiskUsageBytes                  int64               `db:"disk_usage_bytes" `
+	IoReadRate                      float64             `db:"io_read_rate" `
+	IoWriteRate                     float64             `db:"io_write_rate" `
+	ConnectionCount                 int64               `db:"connection_count" `
+	PlayerCount                     int64               `db:"player_count" `
+	RecordedAt                      time.Time           `db:"recorded_at" `
+	NodeID                          null.Val[string]    `db:"node_id" `
+	GranularitySeconds              int64               `db:"granularity_seconds" `
+	SampleCount                     int64               `db:"sample_count" `
+	AvailableSampleCount            int64               `db:"available_sample_count" `
+	CPUValidSampleCount             int64               `db:"cpu_valid_sample_count" `
+	QuerySuccessfulSampleCount      int64               `db:"query_successful_sample_count" `
+	QueryDurationValidSampleCount   int64               `db:"query_duration_valid_sample_count" `
+	ServerFPSValidSampleCount       int64               `db:"server_fps_valid_sample_count" `
+	ServerFrameTimeValidSampleCount int64               `db:"server_frame_time_valid_sample_count" `
+	VolumeValidSampleCount          int64               `db:"volume_valid_sample_count" `
+	IoValidSampleCount              int64               `db:"io_valid_sample_count" `
+	ConnectionValidSampleCount      int64               `db:"connection_valid_sample_count" `
+	AvailabilityRatio               float64             `db:"availability_ratio" `
+	CollectionStatus                string              `db:"collection_status" `
+	RollupHour                      null.Val[time.Time] `db:"rollup_hour" `
+	ProcessCollectedAt              null.Val[time.Time] `db:"process_collected_at" `
+	CPUValid                        bool                `db:"cpu_valid" `
+	CPUPercentMin                   null.Val[float64]   `db:"cpu_percent_min" `
+	CPUPercentMax                   null.Val[float64]   `db:"cpu_percent_max" `
+	NodeCPUCores                    null.Val[int64]     `db:"node_cpu_cores" `
+	MemoryBytesMin                  null.Val[int64]     `db:"memory_bytes_min" `
+	MemoryBytesMax                  null.Val[int64]     `db:"memory_bytes_max" `
+	MemoryPercentMin                null.Val[float64]   `db:"memory_percent_min" `
+	MemoryPercentMax                null.Val[float64]   `db:"memory_percent_max" `
+	NodeMemoryUsedBytes             null.Val[int64]     `db:"node_memory_used_bytes" `
+	NodeMemoryTotalBytes            null.Val[int64]     `db:"node_memory_total_bytes" `
+	ConfiguredMemoryBytes           null.Val[int64]     `db:"configured_memory_bytes" `
+	DiskUsageBytesMin               null.Val[int64]     `db:"disk_usage_bytes_min" `
+	DiskUsageBytesMax               null.Val[int64]     `db:"disk_usage_bytes_max" `
+	VolumeTotalBytes                null.Val[int64]     `db:"volume_total_bytes" `
+	VolumeFreeBytes                 null.Val[int64]     `db:"volume_free_bytes" `
+	VolumePercent                   null.Val[float64]   `db:"volume_percent" `
+	VolumeValid                     bool                `db:"volume_valid" `
+	DiskMeasuredAt                  null.Val[time.Time] `db:"disk_measured_at" `
+	IoReadRateMin                   null.Val[float64]   `db:"io_read_rate_min" `
+	IoReadRateMax                   null.Val[float64]   `db:"io_read_rate_max" `
+	IoWriteRateMin                  null.Val[float64]   `db:"io_write_rate_min" `
+	IoWriteRateMax                  null.Val[float64]   `db:"io_write_rate_max" `
+	ConnectionCountMin              null.Val[int64]     `db:"connection_count_min" `
+	ConnectionCountMax              null.Val[int64]     `db:"connection_count_max" `
+	PlayerCountMin                  null.Val[int64]     `db:"player_count_min" `
+	PlayerCountMax                  null.Val[int64]     `db:"player_count_max" `
+	PlayerCapacity                  null.Val[int64]     `db:"player_capacity" `
+	QuerySupported                  null.Val[bool]      `db:"query_supported" `
+	QuerySuccess                    null.Val[bool]      `db:"query_success" `
+	QueryDurationMS                 null.Val[float64]   `db:"query_duration_ms" `
+	QueryDurationMSMin              null.Val[float64]   `db:"query_duration_ms_min" `
+	QueryDurationMSMax              null.Val[float64]   `db:"query_duration_ms_max" `
+	QueryCheckedAt                  null.Val[time.Time] `db:"query_checked_at" `
+	ServerFPS                       null.Val[float64]   `db:"server_fps" `
+	ServerFPSMin                    null.Val[float64]   `db:"server_fps_min" `
+	ServerFPSMax                    null.Val[float64]   `db:"server_fps_max" `
+	ServerFrameTimeMS               null.Val[float64]   `db:"server_frame_time_ms" `
+	ServerFrameTimeMSMin            null.Val[float64]   `db:"server_frame_time_ms_min" `
+	ServerFrameTimeMSMax            null.Val[float64]   `db:"server_frame_time_ms_max" `
+	ServerUptimeSeconds             null.Val[int64]     `db:"server_uptime_seconds" `
+	ProcessStatus                   null.Val[string]    `db:"process_status" `
+	ExecutionID                     null.Val[string]    `db:"execution_id" `
 
 	R gameServerMetricsHistoryR `db:"-" `
 }
@@ -64,7 +124,7 @@ type gameServerMetricsHistoryRLoaded struct {
 
 func buildGameServerMetricsHistoryColumns(tableName string) gameServerMetricsHistoryColumns {
 	columnsExpr := expr.NewColumnsExpr(
-		"id", "game_server_id", "cpu_percent", "memory_bytes", "memory_percent", "disk_usage_bytes", "io_read_rate", "io_write_rate", "connection_count", "player_count", "recorded_at",
+		"id", "game_server_id", "cpu_percent", "memory_bytes", "memory_percent", "disk_usage_bytes", "io_read_rate", "io_write_rate", "connection_count", "player_count", "recorded_at", "node_id", "granularity_seconds", "sample_count", "available_sample_count", "cpu_valid_sample_count", "query_successful_sample_count", "query_duration_valid_sample_count", "server_fps_valid_sample_count", "server_frame_time_valid_sample_count", "volume_valid_sample_count", "io_valid_sample_count", "connection_valid_sample_count", "availability_ratio", "collection_status", "rollup_hour", "process_collected_at", "cpu_valid", "cpu_percent_min", "cpu_percent_max", "node_cpu_cores", "memory_bytes_min", "memory_bytes_max", "memory_percent_min", "memory_percent_max", "node_memory_used_bytes", "node_memory_total_bytes", "configured_memory_bytes", "disk_usage_bytes_min", "disk_usage_bytes_max", "volume_total_bytes", "volume_free_bytes", "volume_percent", "volume_valid", "disk_measured_at", "io_read_rate_min", "io_read_rate_max", "io_write_rate_min", "io_write_rate_max", "connection_count_min", "connection_count_max", "player_count_min", "player_count_max", "player_capacity", "query_supported", "query_success", "query_duration_ms", "query_duration_ms_min", "query_duration_ms_max", "query_checked_at", "server_fps", "server_fps_min", "server_fps_max", "server_frame_time_ms", "server_frame_time_ms_min", "server_frame_time_ms_max", "server_uptime_seconds", "process_status", "execution_id",
 	)
 
 	if tableName != "" {
@@ -72,36 +132,152 @@ func buildGameServerMetricsHistoryColumns(tableName string) gameServerMetricsHis
 	}
 
 	return gameServerMetricsHistoryColumns{
-		ColumnsExpr:     columnsExpr,
-		tableAlias:      tableName,
-		ID:              buildGameServerMetricsHistoryColumn(tableName, "id"),
-		GameServerID:    buildGameServerMetricsHistoryColumn(tableName, "game_server_id"),
-		CPUPercent:      buildGameServerMetricsHistoryColumn(tableName, "cpu_percent"),
-		MemoryBytes:     buildGameServerMetricsHistoryColumn(tableName, "memory_bytes"),
-		MemoryPercent:   buildGameServerMetricsHistoryColumn(tableName, "memory_percent"),
-		DiskUsageBytes:  buildGameServerMetricsHistoryColumn(tableName, "disk_usage_bytes"),
-		IoReadRate:      buildGameServerMetricsHistoryColumn(tableName, "io_read_rate"),
-		IoWriteRate:     buildGameServerMetricsHistoryColumn(tableName, "io_write_rate"),
-		ConnectionCount: buildGameServerMetricsHistoryColumn(tableName, "connection_count"),
-		PlayerCount:     buildGameServerMetricsHistoryColumn(tableName, "player_count"),
-		RecordedAt:      buildGameServerMetricsHistoryColumn(tableName, "recorded_at"),
+		ColumnsExpr:                     columnsExpr,
+		tableAlias:                      tableName,
+		ID:                              buildGameServerMetricsHistoryColumn(tableName, "id"),
+		GameServerID:                    buildGameServerMetricsHistoryColumn(tableName, "game_server_id"),
+		CPUPercent:                      buildGameServerMetricsHistoryColumn(tableName, "cpu_percent"),
+		MemoryBytes:                     buildGameServerMetricsHistoryColumn(tableName, "memory_bytes"),
+		MemoryPercent:                   buildGameServerMetricsHistoryColumn(tableName, "memory_percent"),
+		DiskUsageBytes:                  buildGameServerMetricsHistoryColumn(tableName, "disk_usage_bytes"),
+		IoReadRate:                      buildGameServerMetricsHistoryColumn(tableName, "io_read_rate"),
+		IoWriteRate:                     buildGameServerMetricsHistoryColumn(tableName, "io_write_rate"),
+		ConnectionCount:                 buildGameServerMetricsHistoryColumn(tableName, "connection_count"),
+		PlayerCount:                     buildGameServerMetricsHistoryColumn(tableName, "player_count"),
+		RecordedAt:                      buildGameServerMetricsHistoryColumn(tableName, "recorded_at"),
+		NodeID:                          buildGameServerMetricsHistoryColumn(tableName, "node_id"),
+		GranularitySeconds:              buildGameServerMetricsHistoryColumn(tableName, "granularity_seconds"),
+		SampleCount:                     buildGameServerMetricsHistoryColumn(tableName, "sample_count"),
+		AvailableSampleCount:            buildGameServerMetricsHistoryColumn(tableName, "available_sample_count"),
+		CPUValidSampleCount:             buildGameServerMetricsHistoryColumn(tableName, "cpu_valid_sample_count"),
+		QuerySuccessfulSampleCount:      buildGameServerMetricsHistoryColumn(tableName, "query_successful_sample_count"),
+		QueryDurationValidSampleCount:   buildGameServerMetricsHistoryColumn(tableName, "query_duration_valid_sample_count"),
+		ServerFPSValidSampleCount:       buildGameServerMetricsHistoryColumn(tableName, "server_fps_valid_sample_count"),
+		ServerFrameTimeValidSampleCount: buildGameServerMetricsHistoryColumn(tableName, "server_frame_time_valid_sample_count"),
+		VolumeValidSampleCount:          buildGameServerMetricsHistoryColumn(tableName, "volume_valid_sample_count"),
+		IoValidSampleCount:              buildGameServerMetricsHistoryColumn(tableName, "io_valid_sample_count"),
+		ConnectionValidSampleCount:      buildGameServerMetricsHistoryColumn(tableName, "connection_valid_sample_count"),
+		AvailabilityRatio:               buildGameServerMetricsHistoryColumn(tableName, "availability_ratio"),
+		CollectionStatus:                buildGameServerMetricsHistoryColumn(tableName, "collection_status"),
+		RollupHour:                      buildGameServerMetricsHistoryColumn(tableName, "rollup_hour"),
+		ProcessCollectedAt:              buildGameServerMetricsHistoryColumn(tableName, "process_collected_at"),
+		CPUValid:                        buildGameServerMetricsHistoryColumn(tableName, "cpu_valid"),
+		CPUPercentMin:                   buildGameServerMetricsHistoryColumn(tableName, "cpu_percent_min"),
+		CPUPercentMax:                   buildGameServerMetricsHistoryColumn(tableName, "cpu_percent_max"),
+		NodeCPUCores:                    buildGameServerMetricsHistoryColumn(tableName, "node_cpu_cores"),
+		MemoryBytesMin:                  buildGameServerMetricsHistoryColumn(tableName, "memory_bytes_min"),
+		MemoryBytesMax:                  buildGameServerMetricsHistoryColumn(tableName, "memory_bytes_max"),
+		MemoryPercentMin:                buildGameServerMetricsHistoryColumn(tableName, "memory_percent_min"),
+		MemoryPercentMax:                buildGameServerMetricsHistoryColumn(tableName, "memory_percent_max"),
+		NodeMemoryUsedBytes:             buildGameServerMetricsHistoryColumn(tableName, "node_memory_used_bytes"),
+		NodeMemoryTotalBytes:            buildGameServerMetricsHistoryColumn(tableName, "node_memory_total_bytes"),
+		ConfiguredMemoryBytes:           buildGameServerMetricsHistoryColumn(tableName, "configured_memory_bytes"),
+		DiskUsageBytesMin:               buildGameServerMetricsHistoryColumn(tableName, "disk_usage_bytes_min"),
+		DiskUsageBytesMax:               buildGameServerMetricsHistoryColumn(tableName, "disk_usage_bytes_max"),
+		VolumeTotalBytes:                buildGameServerMetricsHistoryColumn(tableName, "volume_total_bytes"),
+		VolumeFreeBytes:                 buildGameServerMetricsHistoryColumn(tableName, "volume_free_bytes"),
+		VolumePercent:                   buildGameServerMetricsHistoryColumn(tableName, "volume_percent"),
+		VolumeValid:                     buildGameServerMetricsHistoryColumn(tableName, "volume_valid"),
+		DiskMeasuredAt:                  buildGameServerMetricsHistoryColumn(tableName, "disk_measured_at"),
+		IoReadRateMin:                   buildGameServerMetricsHistoryColumn(tableName, "io_read_rate_min"),
+		IoReadRateMax:                   buildGameServerMetricsHistoryColumn(tableName, "io_read_rate_max"),
+		IoWriteRateMin:                  buildGameServerMetricsHistoryColumn(tableName, "io_write_rate_min"),
+		IoWriteRateMax:                  buildGameServerMetricsHistoryColumn(tableName, "io_write_rate_max"),
+		ConnectionCountMin:              buildGameServerMetricsHistoryColumn(tableName, "connection_count_min"),
+		ConnectionCountMax:              buildGameServerMetricsHistoryColumn(tableName, "connection_count_max"),
+		PlayerCountMin:                  buildGameServerMetricsHistoryColumn(tableName, "player_count_min"),
+		PlayerCountMax:                  buildGameServerMetricsHistoryColumn(tableName, "player_count_max"),
+		PlayerCapacity:                  buildGameServerMetricsHistoryColumn(tableName, "player_capacity"),
+		QuerySupported:                  buildGameServerMetricsHistoryColumn(tableName, "query_supported"),
+		QuerySuccess:                    buildGameServerMetricsHistoryColumn(tableName, "query_success"),
+		QueryDurationMS:                 buildGameServerMetricsHistoryColumn(tableName, "query_duration_ms"),
+		QueryDurationMSMin:              buildGameServerMetricsHistoryColumn(tableName, "query_duration_ms_min"),
+		QueryDurationMSMax:              buildGameServerMetricsHistoryColumn(tableName, "query_duration_ms_max"),
+		QueryCheckedAt:                  buildGameServerMetricsHistoryColumn(tableName, "query_checked_at"),
+		ServerFPS:                       buildGameServerMetricsHistoryColumn(tableName, "server_fps"),
+		ServerFPSMin:                    buildGameServerMetricsHistoryColumn(tableName, "server_fps_min"),
+		ServerFPSMax:                    buildGameServerMetricsHistoryColumn(tableName, "server_fps_max"),
+		ServerFrameTimeMS:               buildGameServerMetricsHistoryColumn(tableName, "server_frame_time_ms"),
+		ServerFrameTimeMSMin:            buildGameServerMetricsHistoryColumn(tableName, "server_frame_time_ms_min"),
+		ServerFrameTimeMSMax:            buildGameServerMetricsHistoryColumn(tableName, "server_frame_time_ms_max"),
+		ServerUptimeSeconds:             buildGameServerMetricsHistoryColumn(tableName, "server_uptime_seconds"),
+		ProcessStatus:                   buildGameServerMetricsHistoryColumn(tableName, "process_status"),
+		ExecutionID:                     buildGameServerMetricsHistoryColumn(tableName, "execution_id"),
 	}
 }
 
 type gameServerMetricsHistoryColumns struct {
 	expr.ColumnsExpr
-	tableAlias      string
-	ID              gameServerMetricsHistoryColumn
-	GameServerID    gameServerMetricsHistoryColumn
-	CPUPercent      gameServerMetricsHistoryColumn
-	MemoryBytes     gameServerMetricsHistoryColumn
-	MemoryPercent   gameServerMetricsHistoryColumn
-	DiskUsageBytes  gameServerMetricsHistoryColumn
-	IoReadRate      gameServerMetricsHistoryColumn
-	IoWriteRate     gameServerMetricsHistoryColumn
-	ConnectionCount gameServerMetricsHistoryColumn
-	PlayerCount     gameServerMetricsHistoryColumn
-	RecordedAt      gameServerMetricsHistoryColumn
+	tableAlias                      string
+	ID                              gameServerMetricsHistoryColumn
+	GameServerID                    gameServerMetricsHistoryColumn
+	CPUPercent                      gameServerMetricsHistoryColumn
+	MemoryBytes                     gameServerMetricsHistoryColumn
+	MemoryPercent                   gameServerMetricsHistoryColumn
+	DiskUsageBytes                  gameServerMetricsHistoryColumn
+	IoReadRate                      gameServerMetricsHistoryColumn
+	IoWriteRate                     gameServerMetricsHistoryColumn
+	ConnectionCount                 gameServerMetricsHistoryColumn
+	PlayerCount                     gameServerMetricsHistoryColumn
+	RecordedAt                      gameServerMetricsHistoryColumn
+	NodeID                          gameServerMetricsHistoryColumn
+	GranularitySeconds              gameServerMetricsHistoryColumn
+	SampleCount                     gameServerMetricsHistoryColumn
+	AvailableSampleCount            gameServerMetricsHistoryColumn
+	CPUValidSampleCount             gameServerMetricsHistoryColumn
+	QuerySuccessfulSampleCount      gameServerMetricsHistoryColumn
+	QueryDurationValidSampleCount   gameServerMetricsHistoryColumn
+	ServerFPSValidSampleCount       gameServerMetricsHistoryColumn
+	ServerFrameTimeValidSampleCount gameServerMetricsHistoryColumn
+	VolumeValidSampleCount          gameServerMetricsHistoryColumn
+	IoValidSampleCount              gameServerMetricsHistoryColumn
+	ConnectionValidSampleCount      gameServerMetricsHistoryColumn
+	AvailabilityRatio               gameServerMetricsHistoryColumn
+	CollectionStatus                gameServerMetricsHistoryColumn
+	RollupHour                      gameServerMetricsHistoryColumn
+	ProcessCollectedAt              gameServerMetricsHistoryColumn
+	CPUValid                        gameServerMetricsHistoryColumn
+	CPUPercentMin                   gameServerMetricsHistoryColumn
+	CPUPercentMax                   gameServerMetricsHistoryColumn
+	NodeCPUCores                    gameServerMetricsHistoryColumn
+	MemoryBytesMin                  gameServerMetricsHistoryColumn
+	MemoryBytesMax                  gameServerMetricsHistoryColumn
+	MemoryPercentMin                gameServerMetricsHistoryColumn
+	MemoryPercentMax                gameServerMetricsHistoryColumn
+	NodeMemoryUsedBytes             gameServerMetricsHistoryColumn
+	NodeMemoryTotalBytes            gameServerMetricsHistoryColumn
+	ConfiguredMemoryBytes           gameServerMetricsHistoryColumn
+	DiskUsageBytesMin               gameServerMetricsHistoryColumn
+	DiskUsageBytesMax               gameServerMetricsHistoryColumn
+	VolumeTotalBytes                gameServerMetricsHistoryColumn
+	VolumeFreeBytes                 gameServerMetricsHistoryColumn
+	VolumePercent                   gameServerMetricsHistoryColumn
+	VolumeValid                     gameServerMetricsHistoryColumn
+	DiskMeasuredAt                  gameServerMetricsHistoryColumn
+	IoReadRateMin                   gameServerMetricsHistoryColumn
+	IoReadRateMax                   gameServerMetricsHistoryColumn
+	IoWriteRateMin                  gameServerMetricsHistoryColumn
+	IoWriteRateMax                  gameServerMetricsHistoryColumn
+	ConnectionCountMin              gameServerMetricsHistoryColumn
+	ConnectionCountMax              gameServerMetricsHistoryColumn
+	PlayerCountMin                  gameServerMetricsHistoryColumn
+	PlayerCountMax                  gameServerMetricsHistoryColumn
+	PlayerCapacity                  gameServerMetricsHistoryColumn
+	QuerySupported                  gameServerMetricsHistoryColumn
+	QuerySuccess                    gameServerMetricsHistoryColumn
+	QueryDurationMS                 gameServerMetricsHistoryColumn
+	QueryDurationMSMin              gameServerMetricsHistoryColumn
+	QueryDurationMSMax              gameServerMetricsHistoryColumn
+	QueryCheckedAt                  gameServerMetricsHistoryColumn
+	ServerFPS                       gameServerMetricsHistoryColumn
+	ServerFPSMin                    gameServerMetricsHistoryColumn
+	ServerFPSMax                    gameServerMetricsHistoryColumn
+	ServerFrameTimeMS               gameServerMetricsHistoryColumn
+	ServerFrameTimeMSMin            gameServerMetricsHistoryColumn
+	ServerFrameTimeMSMax            gameServerMetricsHistoryColumn
+	ServerUptimeSeconds             gameServerMetricsHistoryColumn
+	ProcessStatus                   gameServerMetricsHistoryColumn
+	ExecutionID                     gameServerMetricsHistoryColumn
 }
 
 // Alias returns the current table alias for the columns set.
@@ -147,21 +323,79 @@ func (c gameServerMetricsHistoryColumn) ShouldOmitParens() bool {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type GameServerMetricsHistorySetter struct {
-	ID              omit.Val[string]    `db:"id,pk" `
-	GameServerID    omit.Val[string]    `db:"game_server_id" `
-	CPUPercent      omit.Val[float64]   `db:"cpu_percent" `
-	MemoryBytes     omit.Val[int64]     `db:"memory_bytes" `
-	MemoryPercent   omit.Val[float64]   `db:"memory_percent" `
-	DiskUsageBytes  omit.Val[int64]     `db:"disk_usage_bytes" `
-	IoReadRate      omit.Val[float64]   `db:"io_read_rate" `
-	IoWriteRate     omit.Val[float64]   `db:"io_write_rate" `
-	ConnectionCount omit.Val[int64]     `db:"connection_count" `
-	PlayerCount     omit.Val[int64]     `db:"player_count" `
-	RecordedAt      omit.Val[time.Time] `db:"recorded_at" `
+	ID                              omit.Val[string]        `db:"id,pk" `
+	GameServerID                    omit.Val[string]        `db:"game_server_id" `
+	CPUPercent                      omit.Val[float64]       `db:"cpu_percent" `
+	MemoryBytes                     omit.Val[int64]         `db:"memory_bytes" `
+	MemoryPercent                   omit.Val[float64]       `db:"memory_percent" `
+	DiskUsageBytes                  omit.Val[int64]         `db:"disk_usage_bytes" `
+	IoReadRate                      omit.Val[float64]       `db:"io_read_rate" `
+	IoWriteRate                     omit.Val[float64]       `db:"io_write_rate" `
+	ConnectionCount                 omit.Val[int64]         `db:"connection_count" `
+	PlayerCount                     omit.Val[int64]         `db:"player_count" `
+	RecordedAt                      omit.Val[time.Time]     `db:"recorded_at" `
+	NodeID                          omitnull.Val[string]    `db:"node_id" `
+	GranularitySeconds              omit.Val[int64]         `db:"granularity_seconds" `
+	SampleCount                     omit.Val[int64]         `db:"sample_count" `
+	AvailableSampleCount            omit.Val[int64]         `db:"available_sample_count" `
+	CPUValidSampleCount             omit.Val[int64]         `db:"cpu_valid_sample_count" `
+	QuerySuccessfulSampleCount      omit.Val[int64]         `db:"query_successful_sample_count" `
+	QueryDurationValidSampleCount   omit.Val[int64]         `db:"query_duration_valid_sample_count" `
+	ServerFPSValidSampleCount       omit.Val[int64]         `db:"server_fps_valid_sample_count" `
+	ServerFrameTimeValidSampleCount omit.Val[int64]         `db:"server_frame_time_valid_sample_count" `
+	VolumeValidSampleCount          omit.Val[int64]         `db:"volume_valid_sample_count" `
+	IoValidSampleCount              omit.Val[int64]         `db:"io_valid_sample_count" `
+	ConnectionValidSampleCount      omit.Val[int64]         `db:"connection_valid_sample_count" `
+	AvailabilityRatio               omit.Val[float64]       `db:"availability_ratio" `
+	CollectionStatus                omit.Val[string]        `db:"collection_status" `
+	RollupHour                      omitnull.Val[time.Time] `db:"rollup_hour" `
+	ProcessCollectedAt              omitnull.Val[time.Time] `db:"process_collected_at" `
+	CPUValid                        omit.Val[bool]          `db:"cpu_valid" `
+	CPUPercentMin                   omitnull.Val[float64]   `db:"cpu_percent_min" `
+	CPUPercentMax                   omitnull.Val[float64]   `db:"cpu_percent_max" `
+	NodeCPUCores                    omitnull.Val[int64]     `db:"node_cpu_cores" `
+	MemoryBytesMin                  omitnull.Val[int64]     `db:"memory_bytes_min" `
+	MemoryBytesMax                  omitnull.Val[int64]     `db:"memory_bytes_max" `
+	MemoryPercentMin                omitnull.Val[float64]   `db:"memory_percent_min" `
+	MemoryPercentMax                omitnull.Val[float64]   `db:"memory_percent_max" `
+	NodeMemoryUsedBytes             omitnull.Val[int64]     `db:"node_memory_used_bytes" `
+	NodeMemoryTotalBytes            omitnull.Val[int64]     `db:"node_memory_total_bytes" `
+	ConfiguredMemoryBytes           omitnull.Val[int64]     `db:"configured_memory_bytes" `
+	DiskUsageBytesMin               omitnull.Val[int64]     `db:"disk_usage_bytes_min" `
+	DiskUsageBytesMax               omitnull.Val[int64]     `db:"disk_usage_bytes_max" `
+	VolumeTotalBytes                omitnull.Val[int64]     `db:"volume_total_bytes" `
+	VolumeFreeBytes                 omitnull.Val[int64]     `db:"volume_free_bytes" `
+	VolumePercent                   omitnull.Val[float64]   `db:"volume_percent" `
+	VolumeValid                     omit.Val[bool]          `db:"volume_valid" `
+	DiskMeasuredAt                  omitnull.Val[time.Time] `db:"disk_measured_at" `
+	IoReadRateMin                   omitnull.Val[float64]   `db:"io_read_rate_min" `
+	IoReadRateMax                   omitnull.Val[float64]   `db:"io_read_rate_max" `
+	IoWriteRateMin                  omitnull.Val[float64]   `db:"io_write_rate_min" `
+	IoWriteRateMax                  omitnull.Val[float64]   `db:"io_write_rate_max" `
+	ConnectionCountMin              omitnull.Val[int64]     `db:"connection_count_min" `
+	ConnectionCountMax              omitnull.Val[int64]     `db:"connection_count_max" `
+	PlayerCountMin                  omitnull.Val[int64]     `db:"player_count_min" `
+	PlayerCountMax                  omitnull.Val[int64]     `db:"player_count_max" `
+	PlayerCapacity                  omitnull.Val[int64]     `db:"player_capacity" `
+	QuerySupported                  omitnull.Val[bool]      `db:"query_supported" `
+	QuerySuccess                    omitnull.Val[bool]      `db:"query_success" `
+	QueryDurationMS                 omitnull.Val[float64]   `db:"query_duration_ms" `
+	QueryDurationMSMin              omitnull.Val[float64]   `db:"query_duration_ms_min" `
+	QueryDurationMSMax              omitnull.Val[float64]   `db:"query_duration_ms_max" `
+	QueryCheckedAt                  omitnull.Val[time.Time] `db:"query_checked_at" `
+	ServerFPS                       omitnull.Val[float64]   `db:"server_fps" `
+	ServerFPSMin                    omitnull.Val[float64]   `db:"server_fps_min" `
+	ServerFPSMax                    omitnull.Val[float64]   `db:"server_fps_max" `
+	ServerFrameTimeMS               omitnull.Val[float64]   `db:"server_frame_time_ms" `
+	ServerFrameTimeMSMin            omitnull.Val[float64]   `db:"server_frame_time_ms_min" `
+	ServerFrameTimeMSMax            omitnull.Val[float64]   `db:"server_frame_time_ms_max" `
+	ServerUptimeSeconds             omitnull.Val[int64]     `db:"server_uptime_seconds" `
+	ProcessStatus                   omitnull.Val[string]    `db:"process_status" `
+	ExecutionID                     omitnull.Val[string]    `db:"execution_id" `
 }
 
 func (s GameServerMetricsHistorySetter) SetColumns() []string {
-	vals := make([]string, 0, 11)
+	vals := make([]string, 0, 69)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -194,6 +428,180 @@ func (s GameServerMetricsHistorySetter) SetColumns() []string {
 	}
 	if s.RecordedAt.IsValue() {
 		vals = append(vals, "recorded_at")
+	}
+	if s.NodeID.IsValue() || s.NodeID.IsNull() {
+		vals = append(vals, "node_id")
+	}
+	if s.GranularitySeconds.IsValue() {
+		vals = append(vals, "granularity_seconds")
+	}
+	if s.SampleCount.IsValue() {
+		vals = append(vals, "sample_count")
+	}
+	if s.AvailableSampleCount.IsValue() {
+		vals = append(vals, "available_sample_count")
+	}
+	if s.CPUValidSampleCount.IsValue() {
+		vals = append(vals, "cpu_valid_sample_count")
+	}
+	if s.QuerySuccessfulSampleCount.IsValue() {
+		vals = append(vals, "query_successful_sample_count")
+	}
+	if s.QueryDurationValidSampleCount.IsValue() {
+		vals = append(vals, "query_duration_valid_sample_count")
+	}
+	if s.ServerFPSValidSampleCount.IsValue() {
+		vals = append(vals, "server_fps_valid_sample_count")
+	}
+	if s.ServerFrameTimeValidSampleCount.IsValue() {
+		vals = append(vals, "server_frame_time_valid_sample_count")
+	}
+	if s.VolumeValidSampleCount.IsValue() {
+		vals = append(vals, "volume_valid_sample_count")
+	}
+	if s.IoValidSampleCount.IsValue() {
+		vals = append(vals, "io_valid_sample_count")
+	}
+	if s.ConnectionValidSampleCount.IsValue() {
+		vals = append(vals, "connection_valid_sample_count")
+	}
+	if s.AvailabilityRatio.IsValue() {
+		vals = append(vals, "availability_ratio")
+	}
+	if s.CollectionStatus.IsValue() {
+		vals = append(vals, "collection_status")
+	}
+	if s.RollupHour.IsValue() || s.RollupHour.IsNull() {
+		vals = append(vals, "rollup_hour")
+	}
+	if s.ProcessCollectedAt.IsValue() || s.ProcessCollectedAt.IsNull() {
+		vals = append(vals, "process_collected_at")
+	}
+	if s.CPUValid.IsValue() {
+		vals = append(vals, "cpu_valid")
+	}
+	if s.CPUPercentMin.IsValue() || s.CPUPercentMin.IsNull() {
+		vals = append(vals, "cpu_percent_min")
+	}
+	if s.CPUPercentMax.IsValue() || s.CPUPercentMax.IsNull() {
+		vals = append(vals, "cpu_percent_max")
+	}
+	if s.NodeCPUCores.IsValue() || s.NodeCPUCores.IsNull() {
+		vals = append(vals, "node_cpu_cores")
+	}
+	if s.MemoryBytesMin.IsValue() || s.MemoryBytesMin.IsNull() {
+		vals = append(vals, "memory_bytes_min")
+	}
+	if s.MemoryBytesMax.IsValue() || s.MemoryBytesMax.IsNull() {
+		vals = append(vals, "memory_bytes_max")
+	}
+	if s.MemoryPercentMin.IsValue() || s.MemoryPercentMin.IsNull() {
+		vals = append(vals, "memory_percent_min")
+	}
+	if s.MemoryPercentMax.IsValue() || s.MemoryPercentMax.IsNull() {
+		vals = append(vals, "memory_percent_max")
+	}
+	if s.NodeMemoryUsedBytes.IsValue() || s.NodeMemoryUsedBytes.IsNull() {
+		vals = append(vals, "node_memory_used_bytes")
+	}
+	if s.NodeMemoryTotalBytes.IsValue() || s.NodeMemoryTotalBytes.IsNull() {
+		vals = append(vals, "node_memory_total_bytes")
+	}
+	if s.ConfiguredMemoryBytes.IsValue() || s.ConfiguredMemoryBytes.IsNull() {
+		vals = append(vals, "configured_memory_bytes")
+	}
+	if s.DiskUsageBytesMin.IsValue() || s.DiskUsageBytesMin.IsNull() {
+		vals = append(vals, "disk_usage_bytes_min")
+	}
+	if s.DiskUsageBytesMax.IsValue() || s.DiskUsageBytesMax.IsNull() {
+		vals = append(vals, "disk_usage_bytes_max")
+	}
+	if s.VolumeTotalBytes.IsValue() || s.VolumeTotalBytes.IsNull() {
+		vals = append(vals, "volume_total_bytes")
+	}
+	if s.VolumeFreeBytes.IsValue() || s.VolumeFreeBytes.IsNull() {
+		vals = append(vals, "volume_free_bytes")
+	}
+	if s.VolumePercent.IsValue() || s.VolumePercent.IsNull() {
+		vals = append(vals, "volume_percent")
+	}
+	if s.VolumeValid.IsValue() {
+		vals = append(vals, "volume_valid")
+	}
+	if s.DiskMeasuredAt.IsValue() || s.DiskMeasuredAt.IsNull() {
+		vals = append(vals, "disk_measured_at")
+	}
+	if s.IoReadRateMin.IsValue() || s.IoReadRateMin.IsNull() {
+		vals = append(vals, "io_read_rate_min")
+	}
+	if s.IoReadRateMax.IsValue() || s.IoReadRateMax.IsNull() {
+		vals = append(vals, "io_read_rate_max")
+	}
+	if s.IoWriteRateMin.IsValue() || s.IoWriteRateMin.IsNull() {
+		vals = append(vals, "io_write_rate_min")
+	}
+	if s.IoWriteRateMax.IsValue() || s.IoWriteRateMax.IsNull() {
+		vals = append(vals, "io_write_rate_max")
+	}
+	if s.ConnectionCountMin.IsValue() || s.ConnectionCountMin.IsNull() {
+		vals = append(vals, "connection_count_min")
+	}
+	if s.ConnectionCountMax.IsValue() || s.ConnectionCountMax.IsNull() {
+		vals = append(vals, "connection_count_max")
+	}
+	if s.PlayerCountMin.IsValue() || s.PlayerCountMin.IsNull() {
+		vals = append(vals, "player_count_min")
+	}
+	if s.PlayerCountMax.IsValue() || s.PlayerCountMax.IsNull() {
+		vals = append(vals, "player_count_max")
+	}
+	if s.PlayerCapacity.IsValue() || s.PlayerCapacity.IsNull() {
+		vals = append(vals, "player_capacity")
+	}
+	if s.QuerySupported.IsValue() || s.QuerySupported.IsNull() {
+		vals = append(vals, "query_supported")
+	}
+	if s.QuerySuccess.IsValue() || s.QuerySuccess.IsNull() {
+		vals = append(vals, "query_success")
+	}
+	if s.QueryDurationMS.IsValue() || s.QueryDurationMS.IsNull() {
+		vals = append(vals, "query_duration_ms")
+	}
+	if s.QueryDurationMSMin.IsValue() || s.QueryDurationMSMin.IsNull() {
+		vals = append(vals, "query_duration_ms_min")
+	}
+	if s.QueryDurationMSMax.IsValue() || s.QueryDurationMSMax.IsNull() {
+		vals = append(vals, "query_duration_ms_max")
+	}
+	if s.QueryCheckedAt.IsValue() || s.QueryCheckedAt.IsNull() {
+		vals = append(vals, "query_checked_at")
+	}
+	if s.ServerFPS.IsValue() || s.ServerFPS.IsNull() {
+		vals = append(vals, "server_fps")
+	}
+	if s.ServerFPSMin.IsValue() || s.ServerFPSMin.IsNull() {
+		vals = append(vals, "server_fps_min")
+	}
+	if s.ServerFPSMax.IsValue() || s.ServerFPSMax.IsNull() {
+		vals = append(vals, "server_fps_max")
+	}
+	if s.ServerFrameTimeMS.IsValue() || s.ServerFrameTimeMS.IsNull() {
+		vals = append(vals, "server_frame_time_ms")
+	}
+	if s.ServerFrameTimeMSMin.IsValue() || s.ServerFrameTimeMSMin.IsNull() {
+		vals = append(vals, "server_frame_time_ms_min")
+	}
+	if s.ServerFrameTimeMSMax.IsValue() || s.ServerFrameTimeMSMax.IsNull() {
+		vals = append(vals, "server_frame_time_ms_max")
+	}
+	if s.ServerUptimeSeconds.IsValue() || s.ServerUptimeSeconds.IsNull() {
+		vals = append(vals, "server_uptime_seconds")
+	}
+	if s.ProcessStatus.IsValue() || s.ProcessStatus.IsNull() {
+		vals = append(vals, "process_status")
+	}
+	if s.ExecutionID.IsValue() || s.ExecutionID.IsNull() {
+		vals = append(vals, "execution_id")
 	}
 	return vals
 }
@@ -231,6 +639,180 @@ func (s GameServerMetricsHistorySetter) Overwrite(t *GameServerMetricsHistory) {
 	}
 	if s.RecordedAt.IsValue() {
 		t.RecordedAt = s.RecordedAt.MustGet()
+	}
+	if s.NodeID.IsValue() || s.NodeID.IsNull() {
+		t.NodeID = s.NodeID.MustGetNull()
+	}
+	if s.GranularitySeconds.IsValue() {
+		t.GranularitySeconds = s.GranularitySeconds.MustGet()
+	}
+	if s.SampleCount.IsValue() {
+		t.SampleCount = s.SampleCount.MustGet()
+	}
+	if s.AvailableSampleCount.IsValue() {
+		t.AvailableSampleCount = s.AvailableSampleCount.MustGet()
+	}
+	if s.CPUValidSampleCount.IsValue() {
+		t.CPUValidSampleCount = s.CPUValidSampleCount.MustGet()
+	}
+	if s.QuerySuccessfulSampleCount.IsValue() {
+		t.QuerySuccessfulSampleCount = s.QuerySuccessfulSampleCount.MustGet()
+	}
+	if s.QueryDurationValidSampleCount.IsValue() {
+		t.QueryDurationValidSampleCount = s.QueryDurationValidSampleCount.MustGet()
+	}
+	if s.ServerFPSValidSampleCount.IsValue() {
+		t.ServerFPSValidSampleCount = s.ServerFPSValidSampleCount.MustGet()
+	}
+	if s.ServerFrameTimeValidSampleCount.IsValue() {
+		t.ServerFrameTimeValidSampleCount = s.ServerFrameTimeValidSampleCount.MustGet()
+	}
+	if s.VolumeValidSampleCount.IsValue() {
+		t.VolumeValidSampleCount = s.VolumeValidSampleCount.MustGet()
+	}
+	if s.IoValidSampleCount.IsValue() {
+		t.IoValidSampleCount = s.IoValidSampleCount.MustGet()
+	}
+	if s.ConnectionValidSampleCount.IsValue() {
+		t.ConnectionValidSampleCount = s.ConnectionValidSampleCount.MustGet()
+	}
+	if s.AvailabilityRatio.IsValue() {
+		t.AvailabilityRatio = s.AvailabilityRatio.MustGet()
+	}
+	if s.CollectionStatus.IsValue() {
+		t.CollectionStatus = s.CollectionStatus.MustGet()
+	}
+	if s.RollupHour.IsValue() || s.RollupHour.IsNull() {
+		t.RollupHour = s.RollupHour.MustGetNull()
+	}
+	if s.ProcessCollectedAt.IsValue() || s.ProcessCollectedAt.IsNull() {
+		t.ProcessCollectedAt = s.ProcessCollectedAt.MustGetNull()
+	}
+	if s.CPUValid.IsValue() {
+		t.CPUValid = s.CPUValid.MustGet()
+	}
+	if s.CPUPercentMin.IsValue() || s.CPUPercentMin.IsNull() {
+		t.CPUPercentMin = s.CPUPercentMin.MustGetNull()
+	}
+	if s.CPUPercentMax.IsValue() || s.CPUPercentMax.IsNull() {
+		t.CPUPercentMax = s.CPUPercentMax.MustGetNull()
+	}
+	if s.NodeCPUCores.IsValue() || s.NodeCPUCores.IsNull() {
+		t.NodeCPUCores = s.NodeCPUCores.MustGetNull()
+	}
+	if s.MemoryBytesMin.IsValue() || s.MemoryBytesMin.IsNull() {
+		t.MemoryBytesMin = s.MemoryBytesMin.MustGetNull()
+	}
+	if s.MemoryBytesMax.IsValue() || s.MemoryBytesMax.IsNull() {
+		t.MemoryBytesMax = s.MemoryBytesMax.MustGetNull()
+	}
+	if s.MemoryPercentMin.IsValue() || s.MemoryPercentMin.IsNull() {
+		t.MemoryPercentMin = s.MemoryPercentMin.MustGetNull()
+	}
+	if s.MemoryPercentMax.IsValue() || s.MemoryPercentMax.IsNull() {
+		t.MemoryPercentMax = s.MemoryPercentMax.MustGetNull()
+	}
+	if s.NodeMemoryUsedBytes.IsValue() || s.NodeMemoryUsedBytes.IsNull() {
+		t.NodeMemoryUsedBytes = s.NodeMemoryUsedBytes.MustGetNull()
+	}
+	if s.NodeMemoryTotalBytes.IsValue() || s.NodeMemoryTotalBytes.IsNull() {
+		t.NodeMemoryTotalBytes = s.NodeMemoryTotalBytes.MustGetNull()
+	}
+	if s.ConfiguredMemoryBytes.IsValue() || s.ConfiguredMemoryBytes.IsNull() {
+		t.ConfiguredMemoryBytes = s.ConfiguredMemoryBytes.MustGetNull()
+	}
+	if s.DiskUsageBytesMin.IsValue() || s.DiskUsageBytesMin.IsNull() {
+		t.DiskUsageBytesMin = s.DiskUsageBytesMin.MustGetNull()
+	}
+	if s.DiskUsageBytesMax.IsValue() || s.DiskUsageBytesMax.IsNull() {
+		t.DiskUsageBytesMax = s.DiskUsageBytesMax.MustGetNull()
+	}
+	if s.VolumeTotalBytes.IsValue() || s.VolumeTotalBytes.IsNull() {
+		t.VolumeTotalBytes = s.VolumeTotalBytes.MustGetNull()
+	}
+	if s.VolumeFreeBytes.IsValue() || s.VolumeFreeBytes.IsNull() {
+		t.VolumeFreeBytes = s.VolumeFreeBytes.MustGetNull()
+	}
+	if s.VolumePercent.IsValue() || s.VolumePercent.IsNull() {
+		t.VolumePercent = s.VolumePercent.MustGetNull()
+	}
+	if s.VolumeValid.IsValue() {
+		t.VolumeValid = s.VolumeValid.MustGet()
+	}
+	if s.DiskMeasuredAt.IsValue() || s.DiskMeasuredAt.IsNull() {
+		t.DiskMeasuredAt = s.DiskMeasuredAt.MustGetNull()
+	}
+	if s.IoReadRateMin.IsValue() || s.IoReadRateMin.IsNull() {
+		t.IoReadRateMin = s.IoReadRateMin.MustGetNull()
+	}
+	if s.IoReadRateMax.IsValue() || s.IoReadRateMax.IsNull() {
+		t.IoReadRateMax = s.IoReadRateMax.MustGetNull()
+	}
+	if s.IoWriteRateMin.IsValue() || s.IoWriteRateMin.IsNull() {
+		t.IoWriteRateMin = s.IoWriteRateMin.MustGetNull()
+	}
+	if s.IoWriteRateMax.IsValue() || s.IoWriteRateMax.IsNull() {
+		t.IoWriteRateMax = s.IoWriteRateMax.MustGetNull()
+	}
+	if s.ConnectionCountMin.IsValue() || s.ConnectionCountMin.IsNull() {
+		t.ConnectionCountMin = s.ConnectionCountMin.MustGetNull()
+	}
+	if s.ConnectionCountMax.IsValue() || s.ConnectionCountMax.IsNull() {
+		t.ConnectionCountMax = s.ConnectionCountMax.MustGetNull()
+	}
+	if s.PlayerCountMin.IsValue() || s.PlayerCountMin.IsNull() {
+		t.PlayerCountMin = s.PlayerCountMin.MustGetNull()
+	}
+	if s.PlayerCountMax.IsValue() || s.PlayerCountMax.IsNull() {
+		t.PlayerCountMax = s.PlayerCountMax.MustGetNull()
+	}
+	if s.PlayerCapacity.IsValue() || s.PlayerCapacity.IsNull() {
+		t.PlayerCapacity = s.PlayerCapacity.MustGetNull()
+	}
+	if s.QuerySupported.IsValue() || s.QuerySupported.IsNull() {
+		t.QuerySupported = s.QuerySupported.MustGetNull()
+	}
+	if s.QuerySuccess.IsValue() || s.QuerySuccess.IsNull() {
+		t.QuerySuccess = s.QuerySuccess.MustGetNull()
+	}
+	if s.QueryDurationMS.IsValue() || s.QueryDurationMS.IsNull() {
+		t.QueryDurationMS = s.QueryDurationMS.MustGetNull()
+	}
+	if s.QueryDurationMSMin.IsValue() || s.QueryDurationMSMin.IsNull() {
+		t.QueryDurationMSMin = s.QueryDurationMSMin.MustGetNull()
+	}
+	if s.QueryDurationMSMax.IsValue() || s.QueryDurationMSMax.IsNull() {
+		t.QueryDurationMSMax = s.QueryDurationMSMax.MustGetNull()
+	}
+	if s.QueryCheckedAt.IsValue() || s.QueryCheckedAt.IsNull() {
+		t.QueryCheckedAt = s.QueryCheckedAt.MustGetNull()
+	}
+	if s.ServerFPS.IsValue() || s.ServerFPS.IsNull() {
+		t.ServerFPS = s.ServerFPS.MustGetNull()
+	}
+	if s.ServerFPSMin.IsValue() || s.ServerFPSMin.IsNull() {
+		t.ServerFPSMin = s.ServerFPSMin.MustGetNull()
+	}
+	if s.ServerFPSMax.IsValue() || s.ServerFPSMax.IsNull() {
+		t.ServerFPSMax = s.ServerFPSMax.MustGetNull()
+	}
+	if s.ServerFrameTimeMS.IsValue() || s.ServerFrameTimeMS.IsNull() {
+		t.ServerFrameTimeMS = s.ServerFrameTimeMS.MustGetNull()
+	}
+	if s.ServerFrameTimeMSMin.IsValue() || s.ServerFrameTimeMSMin.IsNull() {
+		t.ServerFrameTimeMSMin = s.ServerFrameTimeMSMin.MustGetNull()
+	}
+	if s.ServerFrameTimeMSMax.IsValue() || s.ServerFrameTimeMSMax.IsNull() {
+		t.ServerFrameTimeMSMax = s.ServerFrameTimeMSMax.MustGetNull()
+	}
+	if s.ServerUptimeSeconds.IsValue() || s.ServerUptimeSeconds.IsNull() {
+		t.ServerUptimeSeconds = s.ServerUptimeSeconds.MustGetNull()
+	}
+	if s.ProcessStatus.IsValue() || s.ProcessStatus.IsNull() {
+		t.ProcessStatus = s.ProcessStatus.MustGetNull()
+	}
+	if s.ExecutionID.IsValue() || s.ExecutionID.IsNull() {
+		t.ExecutionID = s.ExecutionID.MustGetNull()
 	}
 }
 
@@ -327,6 +909,412 @@ func (s *GameServerMetricsHistorySetter) Apply(q *dialect.InsertQuery) {
 				}
 				return sqlite.Arg(s.RecordedAt.MustGet()).WriteSQL(ctx, w, d, start)
 			}))
+		case "node_id":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.NodeID.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.NodeID.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "granularity_seconds":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.GranularitySeconds.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.GranularitySeconds.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.SampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.SampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "available_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.AvailableSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.AvailableSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "cpu_valid_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.CPUValidSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.CPUValidSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_successful_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QuerySuccessfulSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QuerySuccessfulSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_duration_valid_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QueryDurationValidSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QueryDurationValidSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_fps_valid_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFPSValidSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFPSValidSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_frame_time_valid_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFrameTimeValidSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFrameTimeValidSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "volume_valid_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.VolumeValidSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.VolumeValidSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "io_valid_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.IoValidSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.IoValidSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "connection_valid_sample_count":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ConnectionValidSampleCount.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ConnectionValidSampleCount.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "availability_ratio":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.AvailabilityRatio.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.AvailabilityRatio.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "collection_status":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.CollectionStatus.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.CollectionStatus.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "rollup_hour":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.RollupHour.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.RollupHour.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "process_collected_at":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ProcessCollectedAt.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ProcessCollectedAt.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "cpu_valid":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.CPUValid.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.CPUValid.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "cpu_percent_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.CPUPercentMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.CPUPercentMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "cpu_percent_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.CPUPercentMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.CPUPercentMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "node_cpu_cores":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.NodeCPUCores.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.NodeCPUCores.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "memory_bytes_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.MemoryBytesMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.MemoryBytesMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "memory_bytes_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.MemoryBytesMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.MemoryBytesMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "memory_percent_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.MemoryPercentMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.MemoryPercentMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "memory_percent_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.MemoryPercentMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.MemoryPercentMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "node_memory_used_bytes":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.NodeMemoryUsedBytes.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.NodeMemoryUsedBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "node_memory_total_bytes":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.NodeMemoryTotalBytes.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.NodeMemoryTotalBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "configured_memory_bytes":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ConfiguredMemoryBytes.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ConfiguredMemoryBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "disk_usage_bytes_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.DiskUsageBytesMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.DiskUsageBytesMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "disk_usage_bytes_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.DiskUsageBytesMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.DiskUsageBytesMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "volume_total_bytes":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.VolumeTotalBytes.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.VolumeTotalBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "volume_free_bytes":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.VolumeFreeBytes.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.VolumeFreeBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "volume_percent":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.VolumePercent.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.VolumePercent.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "volume_valid":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.VolumeValid.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.VolumeValid.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
+		case "disk_measured_at":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.DiskMeasuredAt.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.DiskMeasuredAt.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "io_read_rate_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.IoReadRateMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.IoReadRateMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "io_read_rate_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.IoReadRateMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.IoReadRateMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "io_write_rate_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.IoWriteRateMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.IoWriteRateMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "io_write_rate_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.IoWriteRateMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.IoWriteRateMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "connection_count_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ConnectionCountMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ConnectionCountMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "connection_count_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ConnectionCountMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ConnectionCountMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "player_count_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.PlayerCountMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.PlayerCountMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "player_count_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.PlayerCountMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.PlayerCountMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "player_capacity":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.PlayerCapacity.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.PlayerCapacity.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_supported":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QuerySupported.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QuerySupported.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_success":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QuerySuccess.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QuerySuccess.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_duration_ms":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QueryDurationMS.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QueryDurationMS.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_duration_ms_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QueryDurationMSMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QueryDurationMSMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_duration_ms_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QueryDurationMSMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QueryDurationMSMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "query_checked_at":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.QueryCheckedAt.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.QueryCheckedAt.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_fps":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFPS.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFPS.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_fps_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFPSMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFPSMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_fps_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFPSMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFPSMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_frame_time_ms":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFrameTimeMS.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFrameTimeMS.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_frame_time_ms_min":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFrameTimeMSMin.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFrameTimeMSMin.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_frame_time_ms_max":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerFrameTimeMSMax.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerFrameTimeMSMax.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "server_uptime_seconds":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ServerUptimeSeconds.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ServerUptimeSeconds.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "process_status":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ProcessStatus.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ProcessStatus.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "execution_id":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ExecutionID.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ExecutionID.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
 		}
 	}
 
@@ -338,7 +1326,7 @@ func (s GameServerMetricsHistorySetter) UpdateMod() bob.Mod[*dialect.UpdateQuery
 }
 
 func (s GameServerMetricsHistorySetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 11)
+	exprs := make([]bob.Expression, 0, 69)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -414,6 +1402,412 @@ func (s GameServerMetricsHistorySetter) Expressions(prefix ...string) []bob.Expr
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "recorded_at")...),
 			sqlite.Arg(s.RecordedAt),
+		}})
+	}
+
+	if s.NodeID.IsValue() || s.NodeID.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "node_id")...),
+			sqlite.Arg(s.NodeID),
+		}})
+	}
+
+	if s.GranularitySeconds.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "granularity_seconds")...),
+			sqlite.Arg(s.GranularitySeconds),
+		}})
+	}
+
+	if s.SampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "sample_count")...),
+			sqlite.Arg(s.SampleCount),
+		}})
+	}
+
+	if s.AvailableSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "available_sample_count")...),
+			sqlite.Arg(s.AvailableSampleCount),
+		}})
+	}
+
+	if s.CPUValidSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "cpu_valid_sample_count")...),
+			sqlite.Arg(s.CPUValidSampleCount),
+		}})
+	}
+
+	if s.QuerySuccessfulSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_successful_sample_count")...),
+			sqlite.Arg(s.QuerySuccessfulSampleCount),
+		}})
+	}
+
+	if s.QueryDurationValidSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_duration_valid_sample_count")...),
+			sqlite.Arg(s.QueryDurationValidSampleCount),
+		}})
+	}
+
+	if s.ServerFPSValidSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_fps_valid_sample_count")...),
+			sqlite.Arg(s.ServerFPSValidSampleCount),
+		}})
+	}
+
+	if s.ServerFrameTimeValidSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_frame_time_valid_sample_count")...),
+			sqlite.Arg(s.ServerFrameTimeValidSampleCount),
+		}})
+	}
+
+	if s.VolumeValidSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "volume_valid_sample_count")...),
+			sqlite.Arg(s.VolumeValidSampleCount),
+		}})
+	}
+
+	if s.IoValidSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "io_valid_sample_count")...),
+			sqlite.Arg(s.IoValidSampleCount),
+		}})
+	}
+
+	if s.ConnectionValidSampleCount.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "connection_valid_sample_count")...),
+			sqlite.Arg(s.ConnectionValidSampleCount),
+		}})
+	}
+
+	if s.AvailabilityRatio.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "availability_ratio")...),
+			sqlite.Arg(s.AvailabilityRatio),
+		}})
+	}
+
+	if s.CollectionStatus.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "collection_status")...),
+			sqlite.Arg(s.CollectionStatus),
+		}})
+	}
+
+	if s.RollupHour.IsValue() || s.RollupHour.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "rollup_hour")...),
+			sqlite.Arg(s.RollupHour),
+		}})
+	}
+
+	if s.ProcessCollectedAt.IsValue() || s.ProcessCollectedAt.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "process_collected_at")...),
+			sqlite.Arg(s.ProcessCollectedAt),
+		}})
+	}
+
+	if s.CPUValid.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "cpu_valid")...),
+			sqlite.Arg(s.CPUValid),
+		}})
+	}
+
+	if s.CPUPercentMin.IsValue() || s.CPUPercentMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "cpu_percent_min")...),
+			sqlite.Arg(s.CPUPercentMin),
+		}})
+	}
+
+	if s.CPUPercentMax.IsValue() || s.CPUPercentMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "cpu_percent_max")...),
+			sqlite.Arg(s.CPUPercentMax),
+		}})
+	}
+
+	if s.NodeCPUCores.IsValue() || s.NodeCPUCores.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "node_cpu_cores")...),
+			sqlite.Arg(s.NodeCPUCores),
+		}})
+	}
+
+	if s.MemoryBytesMin.IsValue() || s.MemoryBytesMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "memory_bytes_min")...),
+			sqlite.Arg(s.MemoryBytesMin),
+		}})
+	}
+
+	if s.MemoryBytesMax.IsValue() || s.MemoryBytesMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "memory_bytes_max")...),
+			sqlite.Arg(s.MemoryBytesMax),
+		}})
+	}
+
+	if s.MemoryPercentMin.IsValue() || s.MemoryPercentMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "memory_percent_min")...),
+			sqlite.Arg(s.MemoryPercentMin),
+		}})
+	}
+
+	if s.MemoryPercentMax.IsValue() || s.MemoryPercentMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "memory_percent_max")...),
+			sqlite.Arg(s.MemoryPercentMax),
+		}})
+	}
+
+	if s.NodeMemoryUsedBytes.IsValue() || s.NodeMemoryUsedBytes.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "node_memory_used_bytes")...),
+			sqlite.Arg(s.NodeMemoryUsedBytes),
+		}})
+	}
+
+	if s.NodeMemoryTotalBytes.IsValue() || s.NodeMemoryTotalBytes.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "node_memory_total_bytes")...),
+			sqlite.Arg(s.NodeMemoryTotalBytes),
+		}})
+	}
+
+	if s.ConfiguredMemoryBytes.IsValue() || s.ConfiguredMemoryBytes.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "configured_memory_bytes")...),
+			sqlite.Arg(s.ConfiguredMemoryBytes),
+		}})
+	}
+
+	if s.DiskUsageBytesMin.IsValue() || s.DiskUsageBytesMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "disk_usage_bytes_min")...),
+			sqlite.Arg(s.DiskUsageBytesMin),
+		}})
+	}
+
+	if s.DiskUsageBytesMax.IsValue() || s.DiskUsageBytesMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "disk_usage_bytes_max")...),
+			sqlite.Arg(s.DiskUsageBytesMax),
+		}})
+	}
+
+	if s.VolumeTotalBytes.IsValue() || s.VolumeTotalBytes.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "volume_total_bytes")...),
+			sqlite.Arg(s.VolumeTotalBytes),
+		}})
+	}
+
+	if s.VolumeFreeBytes.IsValue() || s.VolumeFreeBytes.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "volume_free_bytes")...),
+			sqlite.Arg(s.VolumeFreeBytes),
+		}})
+	}
+
+	if s.VolumePercent.IsValue() || s.VolumePercent.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "volume_percent")...),
+			sqlite.Arg(s.VolumePercent),
+		}})
+	}
+
+	if s.VolumeValid.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "volume_valid")...),
+			sqlite.Arg(s.VolumeValid),
+		}})
+	}
+
+	if s.DiskMeasuredAt.IsValue() || s.DiskMeasuredAt.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "disk_measured_at")...),
+			sqlite.Arg(s.DiskMeasuredAt),
+		}})
+	}
+
+	if s.IoReadRateMin.IsValue() || s.IoReadRateMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "io_read_rate_min")...),
+			sqlite.Arg(s.IoReadRateMin),
+		}})
+	}
+
+	if s.IoReadRateMax.IsValue() || s.IoReadRateMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "io_read_rate_max")...),
+			sqlite.Arg(s.IoReadRateMax),
+		}})
+	}
+
+	if s.IoWriteRateMin.IsValue() || s.IoWriteRateMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "io_write_rate_min")...),
+			sqlite.Arg(s.IoWriteRateMin),
+		}})
+	}
+
+	if s.IoWriteRateMax.IsValue() || s.IoWriteRateMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "io_write_rate_max")...),
+			sqlite.Arg(s.IoWriteRateMax),
+		}})
+	}
+
+	if s.ConnectionCountMin.IsValue() || s.ConnectionCountMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "connection_count_min")...),
+			sqlite.Arg(s.ConnectionCountMin),
+		}})
+	}
+
+	if s.ConnectionCountMax.IsValue() || s.ConnectionCountMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "connection_count_max")...),
+			sqlite.Arg(s.ConnectionCountMax),
+		}})
+	}
+
+	if s.PlayerCountMin.IsValue() || s.PlayerCountMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "player_count_min")...),
+			sqlite.Arg(s.PlayerCountMin),
+		}})
+	}
+
+	if s.PlayerCountMax.IsValue() || s.PlayerCountMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "player_count_max")...),
+			sqlite.Arg(s.PlayerCountMax),
+		}})
+	}
+
+	if s.PlayerCapacity.IsValue() || s.PlayerCapacity.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "player_capacity")...),
+			sqlite.Arg(s.PlayerCapacity),
+		}})
+	}
+
+	if s.QuerySupported.IsValue() || s.QuerySupported.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_supported")...),
+			sqlite.Arg(s.QuerySupported),
+		}})
+	}
+
+	if s.QuerySuccess.IsValue() || s.QuerySuccess.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_success")...),
+			sqlite.Arg(s.QuerySuccess),
+		}})
+	}
+
+	if s.QueryDurationMS.IsValue() || s.QueryDurationMS.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_duration_ms")...),
+			sqlite.Arg(s.QueryDurationMS),
+		}})
+	}
+
+	if s.QueryDurationMSMin.IsValue() || s.QueryDurationMSMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_duration_ms_min")...),
+			sqlite.Arg(s.QueryDurationMSMin),
+		}})
+	}
+
+	if s.QueryDurationMSMax.IsValue() || s.QueryDurationMSMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_duration_ms_max")...),
+			sqlite.Arg(s.QueryDurationMSMax),
+		}})
+	}
+
+	if s.QueryCheckedAt.IsValue() || s.QueryCheckedAt.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "query_checked_at")...),
+			sqlite.Arg(s.QueryCheckedAt),
+		}})
+	}
+
+	if s.ServerFPS.IsValue() || s.ServerFPS.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_fps")...),
+			sqlite.Arg(s.ServerFPS),
+		}})
+	}
+
+	if s.ServerFPSMin.IsValue() || s.ServerFPSMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_fps_min")...),
+			sqlite.Arg(s.ServerFPSMin),
+		}})
+	}
+
+	if s.ServerFPSMax.IsValue() || s.ServerFPSMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_fps_max")...),
+			sqlite.Arg(s.ServerFPSMax),
+		}})
+	}
+
+	if s.ServerFrameTimeMS.IsValue() || s.ServerFrameTimeMS.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_frame_time_ms")...),
+			sqlite.Arg(s.ServerFrameTimeMS),
+		}})
+	}
+
+	if s.ServerFrameTimeMSMin.IsValue() || s.ServerFrameTimeMSMin.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_frame_time_ms_min")...),
+			sqlite.Arg(s.ServerFrameTimeMSMin),
+		}})
+	}
+
+	if s.ServerFrameTimeMSMax.IsValue() || s.ServerFrameTimeMSMax.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_frame_time_ms_max")...),
+			sqlite.Arg(s.ServerFrameTimeMSMax),
+		}})
+	}
+
+	if s.ServerUptimeSeconds.IsValue() || s.ServerUptimeSeconds.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "server_uptime_seconds")...),
+			sqlite.Arg(s.ServerUptimeSeconds),
+		}})
+	}
+
+	if s.ProcessStatus.IsValue() || s.ProcessStatus.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "process_status")...),
+			sqlite.Arg(s.ProcessStatus),
+		}})
+	}
+
+	if s.ExecutionID.IsValue() || s.ExecutionID.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "execution_id")...),
+			sqlite.Arg(s.ExecutionID),
 		}})
 	}
 
@@ -715,17 +2109,75 @@ func (gameServerMetricsHistory0 *GameServerMetricsHistory) AttachGameServer(ctx 
 }
 
 type gameServerMetricsHistoryWhere[Q sqlite.Filterable] struct {
-	ID              sqlite.WhereMod[Q, string]
-	GameServerID    sqlite.WhereMod[Q, string]
-	CPUPercent      sqlite.WhereMod[Q, float64]
-	MemoryBytes     sqlite.WhereMod[Q, int64]
-	MemoryPercent   sqlite.WhereMod[Q, float64]
-	DiskUsageBytes  sqlite.WhereMod[Q, int64]
-	IoReadRate      sqlite.WhereMod[Q, float64]
-	IoWriteRate     sqlite.WhereMod[Q, float64]
-	ConnectionCount sqlite.WhereMod[Q, int64]
-	PlayerCount     sqlite.WhereMod[Q, int64]
-	RecordedAt      sqlite.WhereMod[Q, time.Time]
+	ID                              sqlite.WhereMod[Q, string]
+	GameServerID                    sqlite.WhereMod[Q, string]
+	CPUPercent                      sqlite.WhereMod[Q, float64]
+	MemoryBytes                     sqlite.WhereMod[Q, int64]
+	MemoryPercent                   sqlite.WhereMod[Q, float64]
+	DiskUsageBytes                  sqlite.WhereMod[Q, int64]
+	IoReadRate                      sqlite.WhereMod[Q, float64]
+	IoWriteRate                     sqlite.WhereMod[Q, float64]
+	ConnectionCount                 sqlite.WhereMod[Q, int64]
+	PlayerCount                     sqlite.WhereMod[Q, int64]
+	RecordedAt                      sqlite.WhereMod[Q, time.Time]
+	NodeID                          sqlite.WhereNullMod[Q, string]
+	GranularitySeconds              sqlite.WhereMod[Q, int64]
+	SampleCount                     sqlite.WhereMod[Q, int64]
+	AvailableSampleCount            sqlite.WhereMod[Q, int64]
+	CPUValidSampleCount             sqlite.WhereMod[Q, int64]
+	QuerySuccessfulSampleCount      sqlite.WhereMod[Q, int64]
+	QueryDurationValidSampleCount   sqlite.WhereMod[Q, int64]
+	ServerFPSValidSampleCount       sqlite.WhereMod[Q, int64]
+	ServerFrameTimeValidSampleCount sqlite.WhereMod[Q, int64]
+	VolumeValidSampleCount          sqlite.WhereMod[Q, int64]
+	IoValidSampleCount              sqlite.WhereMod[Q, int64]
+	ConnectionValidSampleCount      sqlite.WhereMod[Q, int64]
+	AvailabilityRatio               sqlite.WhereMod[Q, float64]
+	CollectionStatus                sqlite.WhereMod[Q, string]
+	RollupHour                      sqlite.WhereNullMod[Q, time.Time]
+	ProcessCollectedAt              sqlite.WhereNullMod[Q, time.Time]
+	CPUValid                        sqlite.WhereMod[Q, bool]
+	CPUPercentMin                   sqlite.WhereNullMod[Q, float64]
+	CPUPercentMax                   sqlite.WhereNullMod[Q, float64]
+	NodeCPUCores                    sqlite.WhereNullMod[Q, int64]
+	MemoryBytesMin                  sqlite.WhereNullMod[Q, int64]
+	MemoryBytesMax                  sqlite.WhereNullMod[Q, int64]
+	MemoryPercentMin                sqlite.WhereNullMod[Q, float64]
+	MemoryPercentMax                sqlite.WhereNullMod[Q, float64]
+	NodeMemoryUsedBytes             sqlite.WhereNullMod[Q, int64]
+	NodeMemoryTotalBytes            sqlite.WhereNullMod[Q, int64]
+	ConfiguredMemoryBytes           sqlite.WhereNullMod[Q, int64]
+	DiskUsageBytesMin               sqlite.WhereNullMod[Q, int64]
+	DiskUsageBytesMax               sqlite.WhereNullMod[Q, int64]
+	VolumeTotalBytes                sqlite.WhereNullMod[Q, int64]
+	VolumeFreeBytes                 sqlite.WhereNullMod[Q, int64]
+	VolumePercent                   sqlite.WhereNullMod[Q, float64]
+	VolumeValid                     sqlite.WhereMod[Q, bool]
+	DiskMeasuredAt                  sqlite.WhereNullMod[Q, time.Time]
+	IoReadRateMin                   sqlite.WhereNullMod[Q, float64]
+	IoReadRateMax                   sqlite.WhereNullMod[Q, float64]
+	IoWriteRateMin                  sqlite.WhereNullMod[Q, float64]
+	IoWriteRateMax                  sqlite.WhereNullMod[Q, float64]
+	ConnectionCountMin              sqlite.WhereNullMod[Q, int64]
+	ConnectionCountMax              sqlite.WhereNullMod[Q, int64]
+	PlayerCountMin                  sqlite.WhereNullMod[Q, int64]
+	PlayerCountMax                  sqlite.WhereNullMod[Q, int64]
+	PlayerCapacity                  sqlite.WhereNullMod[Q, int64]
+	QuerySupported                  sqlite.WhereNullMod[Q, bool]
+	QuerySuccess                    sqlite.WhereNullMod[Q, bool]
+	QueryDurationMS                 sqlite.WhereNullMod[Q, float64]
+	QueryDurationMSMin              sqlite.WhereNullMod[Q, float64]
+	QueryDurationMSMax              sqlite.WhereNullMod[Q, float64]
+	QueryCheckedAt                  sqlite.WhereNullMod[Q, time.Time]
+	ServerFPS                       sqlite.WhereNullMod[Q, float64]
+	ServerFPSMin                    sqlite.WhereNullMod[Q, float64]
+	ServerFPSMax                    sqlite.WhereNullMod[Q, float64]
+	ServerFrameTimeMS               sqlite.WhereNullMod[Q, float64]
+	ServerFrameTimeMSMin            sqlite.WhereNullMod[Q, float64]
+	ServerFrameTimeMSMax            sqlite.WhereNullMod[Q, float64]
+	ServerUptimeSeconds             sqlite.WhereNullMod[Q, int64]
+	ProcessStatus                   sqlite.WhereNullMod[Q, string]
+	ExecutionID                     sqlite.WhereNullMod[Q, string]
 }
 
 func (gameServerMetricsHistoryWhere[Q]) AliasedAs(alias string) gameServerMetricsHistoryWhere[Q] {
@@ -734,17 +2186,75 @@ func (gameServerMetricsHistoryWhere[Q]) AliasedAs(alias string) gameServerMetric
 
 func buildGameServerMetricsHistoryWhere[Q sqlite.Filterable](cols gameServerMetricsHistoryColumns) gameServerMetricsHistoryWhere[Q] {
 	return gameServerMetricsHistoryWhere[Q]{
-		ID:              sqlite.Where[Q, string](cols.ID.Expression),
-		GameServerID:    sqlite.Where[Q, string](cols.GameServerID.Expression),
-		CPUPercent:      sqlite.Where[Q, float64](cols.CPUPercent.Expression),
-		MemoryBytes:     sqlite.Where[Q, int64](cols.MemoryBytes.Expression),
-		MemoryPercent:   sqlite.Where[Q, float64](cols.MemoryPercent.Expression),
-		DiskUsageBytes:  sqlite.Where[Q, int64](cols.DiskUsageBytes.Expression),
-		IoReadRate:      sqlite.Where[Q, float64](cols.IoReadRate.Expression),
-		IoWriteRate:     sqlite.Where[Q, float64](cols.IoWriteRate.Expression),
-		ConnectionCount: sqlite.Where[Q, int64](cols.ConnectionCount.Expression),
-		PlayerCount:     sqlite.Where[Q, int64](cols.PlayerCount.Expression),
-		RecordedAt:      sqlite.Where[Q, time.Time](cols.RecordedAt.Expression),
+		ID:                              sqlite.Where[Q, string](cols.ID.Expression),
+		GameServerID:                    sqlite.Where[Q, string](cols.GameServerID.Expression),
+		CPUPercent:                      sqlite.Where[Q, float64](cols.CPUPercent.Expression),
+		MemoryBytes:                     sqlite.Where[Q, int64](cols.MemoryBytes.Expression),
+		MemoryPercent:                   sqlite.Where[Q, float64](cols.MemoryPercent.Expression),
+		DiskUsageBytes:                  sqlite.Where[Q, int64](cols.DiskUsageBytes.Expression),
+		IoReadRate:                      sqlite.Where[Q, float64](cols.IoReadRate.Expression),
+		IoWriteRate:                     sqlite.Where[Q, float64](cols.IoWriteRate.Expression),
+		ConnectionCount:                 sqlite.Where[Q, int64](cols.ConnectionCount.Expression),
+		PlayerCount:                     sqlite.Where[Q, int64](cols.PlayerCount.Expression),
+		RecordedAt:                      sqlite.Where[Q, time.Time](cols.RecordedAt.Expression),
+		NodeID:                          sqlite.WhereNull[Q, string](cols.NodeID.Expression),
+		GranularitySeconds:              sqlite.Where[Q, int64](cols.GranularitySeconds.Expression),
+		SampleCount:                     sqlite.Where[Q, int64](cols.SampleCount.Expression),
+		AvailableSampleCount:            sqlite.Where[Q, int64](cols.AvailableSampleCount.Expression),
+		CPUValidSampleCount:             sqlite.Where[Q, int64](cols.CPUValidSampleCount.Expression),
+		QuerySuccessfulSampleCount:      sqlite.Where[Q, int64](cols.QuerySuccessfulSampleCount.Expression),
+		QueryDurationValidSampleCount:   sqlite.Where[Q, int64](cols.QueryDurationValidSampleCount.Expression),
+		ServerFPSValidSampleCount:       sqlite.Where[Q, int64](cols.ServerFPSValidSampleCount.Expression),
+		ServerFrameTimeValidSampleCount: sqlite.Where[Q, int64](cols.ServerFrameTimeValidSampleCount.Expression),
+		VolumeValidSampleCount:          sqlite.Where[Q, int64](cols.VolumeValidSampleCount.Expression),
+		IoValidSampleCount:              sqlite.Where[Q, int64](cols.IoValidSampleCount.Expression),
+		ConnectionValidSampleCount:      sqlite.Where[Q, int64](cols.ConnectionValidSampleCount.Expression),
+		AvailabilityRatio:               sqlite.Where[Q, float64](cols.AvailabilityRatio.Expression),
+		CollectionStatus:                sqlite.Where[Q, string](cols.CollectionStatus.Expression),
+		RollupHour:                      sqlite.WhereNull[Q, time.Time](cols.RollupHour.Expression),
+		ProcessCollectedAt:              sqlite.WhereNull[Q, time.Time](cols.ProcessCollectedAt.Expression),
+		CPUValid:                        sqlite.Where[Q, bool](cols.CPUValid.Expression),
+		CPUPercentMin:                   sqlite.WhereNull[Q, float64](cols.CPUPercentMin.Expression),
+		CPUPercentMax:                   sqlite.WhereNull[Q, float64](cols.CPUPercentMax.Expression),
+		NodeCPUCores:                    sqlite.WhereNull[Q, int64](cols.NodeCPUCores.Expression),
+		MemoryBytesMin:                  sqlite.WhereNull[Q, int64](cols.MemoryBytesMin.Expression),
+		MemoryBytesMax:                  sqlite.WhereNull[Q, int64](cols.MemoryBytesMax.Expression),
+		MemoryPercentMin:                sqlite.WhereNull[Q, float64](cols.MemoryPercentMin.Expression),
+		MemoryPercentMax:                sqlite.WhereNull[Q, float64](cols.MemoryPercentMax.Expression),
+		NodeMemoryUsedBytes:             sqlite.WhereNull[Q, int64](cols.NodeMemoryUsedBytes.Expression),
+		NodeMemoryTotalBytes:            sqlite.WhereNull[Q, int64](cols.NodeMemoryTotalBytes.Expression),
+		ConfiguredMemoryBytes:           sqlite.WhereNull[Q, int64](cols.ConfiguredMemoryBytes.Expression),
+		DiskUsageBytesMin:               sqlite.WhereNull[Q, int64](cols.DiskUsageBytesMin.Expression),
+		DiskUsageBytesMax:               sqlite.WhereNull[Q, int64](cols.DiskUsageBytesMax.Expression),
+		VolumeTotalBytes:                sqlite.WhereNull[Q, int64](cols.VolumeTotalBytes.Expression),
+		VolumeFreeBytes:                 sqlite.WhereNull[Q, int64](cols.VolumeFreeBytes.Expression),
+		VolumePercent:                   sqlite.WhereNull[Q, float64](cols.VolumePercent.Expression),
+		VolumeValid:                     sqlite.Where[Q, bool](cols.VolumeValid.Expression),
+		DiskMeasuredAt:                  sqlite.WhereNull[Q, time.Time](cols.DiskMeasuredAt.Expression),
+		IoReadRateMin:                   sqlite.WhereNull[Q, float64](cols.IoReadRateMin.Expression),
+		IoReadRateMax:                   sqlite.WhereNull[Q, float64](cols.IoReadRateMax.Expression),
+		IoWriteRateMin:                  sqlite.WhereNull[Q, float64](cols.IoWriteRateMin.Expression),
+		IoWriteRateMax:                  sqlite.WhereNull[Q, float64](cols.IoWriteRateMax.Expression),
+		ConnectionCountMin:              sqlite.WhereNull[Q, int64](cols.ConnectionCountMin.Expression),
+		ConnectionCountMax:              sqlite.WhereNull[Q, int64](cols.ConnectionCountMax.Expression),
+		PlayerCountMin:                  sqlite.WhereNull[Q, int64](cols.PlayerCountMin.Expression),
+		PlayerCountMax:                  sqlite.WhereNull[Q, int64](cols.PlayerCountMax.Expression),
+		PlayerCapacity:                  sqlite.WhereNull[Q, int64](cols.PlayerCapacity.Expression),
+		QuerySupported:                  sqlite.WhereNull[Q, bool](cols.QuerySupported.Expression),
+		QuerySuccess:                    sqlite.WhereNull[Q, bool](cols.QuerySuccess.Expression),
+		QueryDurationMS:                 sqlite.WhereNull[Q, float64](cols.QueryDurationMS.Expression),
+		QueryDurationMSMin:              sqlite.WhereNull[Q, float64](cols.QueryDurationMSMin.Expression),
+		QueryDurationMSMax:              sqlite.WhereNull[Q, float64](cols.QueryDurationMSMax.Expression),
+		QueryCheckedAt:                  sqlite.WhereNull[Q, time.Time](cols.QueryCheckedAt.Expression),
+		ServerFPS:                       sqlite.WhereNull[Q, float64](cols.ServerFPS.Expression),
+		ServerFPSMin:                    sqlite.WhereNull[Q, float64](cols.ServerFPSMin.Expression),
+		ServerFPSMax:                    sqlite.WhereNull[Q, float64](cols.ServerFPSMax.Expression),
+		ServerFrameTimeMS:               sqlite.WhereNull[Q, float64](cols.ServerFrameTimeMS.Expression),
+		ServerFrameTimeMSMin:            sqlite.WhereNull[Q, float64](cols.ServerFrameTimeMSMin.Expression),
+		ServerFrameTimeMSMax:            sqlite.WhereNull[Q, float64](cols.ServerFrameTimeMSMax.Expression),
+		ServerUptimeSeconds:             sqlite.WhereNull[Q, int64](cols.ServerUptimeSeconds.Expression),
+		ProcessStatus:                   sqlite.WhereNull[Q, string](cols.ProcessStatus.Expression),
+		ExecutionID:                     sqlite.WhereNull[Q, string](cols.ExecutionID.Expression),
 	}
 }
 

@@ -119,14 +119,16 @@ func serverQueryFromNodeResult(gs *models.GameServer, result node.GameServerQuer
 		out.Type = xylona.ServerQuery_Minecraft
 		if result.Minecraft != nil {
 			out.Minecraft = &xylona.MinecraftQueryInfo{
-				Motd:            result.Minecraft.MOTD,
-				GameType:        result.Minecraft.GameType,
-				Map:             result.Minecraft.Map,
-				NumberOfPlayers: result.Minecraft.NumberOfPlayers,
-				MaxPlayers:      result.Minecraft.MaxPlayers,
-				PlayerList:      append([]string(nil), result.Minecraft.PlayerList...),
-				ProtocolVersion: result.Minecraft.ProtocolVersion,
-				ServerVersion:   result.Minecraft.ServerVersion,
+				Motd:                result.Minecraft.MOTD,
+				GameType:            result.Minecraft.GameType,
+				Map:                 result.Minecraft.Map,
+				NumberOfPlayers:     result.Minecraft.NumberOfPlayers,
+				MaxPlayers:          result.Minecraft.MaxPlayers,
+				PlayerList:          append([]string(nil), result.Minecraft.PlayerList...),
+				ProtocolVersion:     result.Minecraft.ProtocolVersion,
+				ServerVersion:       result.Minecraft.ServerVersion,
+				PlayerListSupported: result.Minecraft.PlayerListSupported,
+				Responded:           result.Minecraft.Responded,
 			}
 		}
 	case node.GameServerQueryKindSource:
@@ -149,6 +151,7 @@ func serverQueryFromNodeResult(gs *models.GameServer, result node.GameServerQuer
 				Protocol:            result.Source.Protocol,
 				PlayerList:          append([]string(nil), result.Source.PlayerList...),
 				PlayerListSupported: result.Source.PlayerListSupported,
+				Responded:           result.Source.Responded,
 			}
 		}
 	case node.GameServerQueryKindPalworld:
@@ -209,7 +212,26 @@ func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.Game
 	if !queryResultComplete(serverQuery) {
 		return nil, fmt.Errorf("remote game server returned incomplete %s query", queryType.String())
 	}
+	if !serverQueryResponded(serverQuery) {
+		return nil, fmt.Errorf("remote game server did not respond to %s query", queryType.String())
+	}
 	return serverQuery, nil
+}
+
+func serverQueryResponded(result *xylona.ServerQuery) bool {
+	if result == nil {
+		return false
+	}
+	switch result.GetType() {
+	case xylona.ServerQuery_Minecraft:
+		return result.GetMinecraft().GetResponded()
+	case xylona.ServerQuery_Source:
+		return result.GetSource().GetResponded()
+	case xylona.ServerQuery_Palworld:
+		return result.GetPalworld().GetResponded()
+	default:
+		return false
+	}
 }
 
 func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*models.GameServer) {
@@ -221,7 +243,9 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 			runBackgroundTask("backgroundJobQueryAllGameServers", "query-server", map[string]string{
 				"game_server_id": gs.ID,
 			}, func() {
-				gs.Status = inst.currentProcessStatus(gs).String()
+				currentStatus := inst.currentProcessStatus(gs)
+				inst.storeGameServerStatus(gs.ID, currentStatus)
+				gs.Status = currentStatus.String()
 				if gs.Status == "" {
 					gs.Status = xylona.Status_OFFLINE.String()
 				}

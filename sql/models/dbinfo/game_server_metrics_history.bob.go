@@ -114,8 +114,549 @@ var GameServerMetricsHistories = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		NodeID: column{
+			Name:      "node_id",
+			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		GranularitySeconds: column{
+			Name:      "granularity_seconds",
+			DBType:    "INTEGER",
+			Default:   "60",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		SampleCount: column{
+			Name:      "sample_count",
+			DBType:    "INTEGER",
+			Default:   "1",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		AvailableSampleCount: column{
+			Name:      "available_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		CPUValidSampleCount: column{
+			Name:      "cpu_valid_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QuerySuccessfulSampleCount: column{
+			Name:      "query_successful_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QueryDurationValidSampleCount: column{
+			Name:      "query_duration_valid_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFPSValidSampleCount: column{
+			Name:      "server_fps_valid_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFrameTimeValidSampleCount: column{
+			Name:      "server_frame_time_valid_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		VolumeValidSampleCount: column{
+			Name:      "volume_valid_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		IoValidSampleCount: column{
+			Name:      "io_valid_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ConnectionValidSampleCount: column{
+			Name:      "connection_valid_sample_count",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		AvailabilityRatio: column{
+			Name:      "availability_ratio",
+			DBType:    "REAL",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		CollectionStatus: column{
+			Name:      "collection_status",
+			DBType:    "TEXT",
+			Default:   "'unknown'",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		RollupHour: column{
+			Name:      "rollup_hour",
+			DBType:    "DATETIME",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ProcessCollectedAt: column{
+			Name:      "process_collected_at",
+			DBType:    "DATETIME",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		CPUValid: column{
+			Name:      "cpu_valid",
+			DBType:    "BOOLEAN",
+			Default:   "false",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		CPUPercentMin: column{
+			Name:      "cpu_percent_min",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		CPUPercentMax: column{
+			Name:      "cpu_percent_max",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		NodeCPUCores: column{
+			Name:      "node_cpu_cores",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		MemoryBytesMin: column{
+			Name:      "memory_bytes_min",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		MemoryBytesMax: column{
+			Name:      "memory_bytes_max",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		MemoryPercentMin: column{
+			Name:      "memory_percent_min",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		MemoryPercentMax: column{
+			Name:      "memory_percent_max",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		NodeMemoryUsedBytes: column{
+			Name:      "node_memory_used_bytes",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		NodeMemoryTotalBytes: column{
+			Name:      "node_memory_total_bytes",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ConfiguredMemoryBytes: column{
+			Name:      "configured_memory_bytes",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		DiskUsageBytesMin: column{
+			Name:      "disk_usage_bytes_min",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		DiskUsageBytesMax: column{
+			Name:      "disk_usage_bytes_max",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		VolumeTotalBytes: column{
+			Name:      "volume_total_bytes",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		VolumeFreeBytes: column{
+			Name:      "volume_free_bytes",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		VolumePercent: column{
+			Name:      "volume_percent",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		VolumeValid: column{
+			Name:      "volume_valid",
+			DBType:    "BOOLEAN",
+			Default:   "false",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		DiskMeasuredAt: column{
+			Name:      "disk_measured_at",
+			DBType:    "DATETIME",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		IoReadRateMin: column{
+			Name:      "io_read_rate_min",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		IoReadRateMax: column{
+			Name:      "io_read_rate_max",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		IoWriteRateMin: column{
+			Name:      "io_write_rate_min",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		IoWriteRateMax: column{
+			Name:      "io_write_rate_max",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ConnectionCountMin: column{
+			Name:      "connection_count_min",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ConnectionCountMax: column{
+			Name:      "connection_count_max",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		PlayerCountMin: column{
+			Name:      "player_count_min",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		PlayerCountMax: column{
+			Name:      "player_count_max",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		PlayerCapacity: column{
+			Name:      "player_capacity",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QuerySupported: column{
+			Name:      "query_supported",
+			DBType:    "BOOLEAN",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QuerySuccess: column{
+			Name:      "query_success",
+			DBType:    "BOOLEAN",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QueryDurationMS: column{
+			Name:      "query_duration_ms",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QueryDurationMSMin: column{
+			Name:      "query_duration_ms_min",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QueryDurationMSMax: column{
+			Name:      "query_duration_ms_max",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		QueryCheckedAt: column{
+			Name:      "query_checked_at",
+			DBType:    "DATETIME",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFPS: column{
+			Name:      "server_fps",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFPSMin: column{
+			Name:      "server_fps_min",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFPSMax: column{
+			Name:      "server_fps_max",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFrameTimeMS: column{
+			Name:      "server_frame_time_ms",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFrameTimeMSMin: column{
+			Name:      "server_frame_time_ms_min",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerFrameTimeMSMax: column{
+			Name:      "server_frame_time_ms_max",
+			DBType:    "REAL",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ServerUptimeSeconds: column{
+			Name:      "server_uptime_seconds",
+			DBType:    "INTEGER",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ProcessStatus: column{
+			Name:      "process_status",
+			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ExecutionID: column{
+			Name:      "execution_id",
+			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameServerMetricsHistoryIndexes{
+		GameServerMetricsHistoryRollupHourIdx: index{
+			Type: "c",
+			Name: "game_server_metrics_history_rollup_hour_idx",
+			Columns: []indexColumn{
+				{
+					Name:         "game_server_id",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+				{
+					Name:         "rollup_hour",
+					Desc:         null.FromCond(false, true),
+					IsExpression: false,
+				},
+			},
+			Unique:  true,
+			Comment: "",
+			Partial: true,
+		},
 		IdxGSMetricsServerTime: index{
 			Type: "c",
 			Name: "idx_gs_metrics_server_time",
@@ -171,33 +712,92 @@ var GameServerMetricsHistories = Table[
 }
 
 type gameServerMetricsHistoryColumns struct {
-	ID              column
-	GameServerID    column
-	CPUPercent      column
-	MemoryBytes     column
-	MemoryPercent   column
-	DiskUsageBytes  column
-	IoReadRate      column
-	IoWriteRate     column
-	ConnectionCount column
-	PlayerCount     column
-	RecordedAt      column
+	ID                              column
+	GameServerID                    column
+	CPUPercent                      column
+	MemoryBytes                     column
+	MemoryPercent                   column
+	DiskUsageBytes                  column
+	IoReadRate                      column
+	IoWriteRate                     column
+	ConnectionCount                 column
+	PlayerCount                     column
+	RecordedAt                      column
+	NodeID                          column
+	GranularitySeconds              column
+	SampleCount                     column
+	AvailableSampleCount            column
+	CPUValidSampleCount             column
+	QuerySuccessfulSampleCount      column
+	QueryDurationValidSampleCount   column
+	ServerFPSValidSampleCount       column
+	ServerFrameTimeValidSampleCount column
+	VolumeValidSampleCount          column
+	IoValidSampleCount              column
+	ConnectionValidSampleCount      column
+	AvailabilityRatio               column
+	CollectionStatus                column
+	RollupHour                      column
+	ProcessCollectedAt              column
+	CPUValid                        column
+	CPUPercentMin                   column
+	CPUPercentMax                   column
+	NodeCPUCores                    column
+	MemoryBytesMin                  column
+	MemoryBytesMax                  column
+	MemoryPercentMin                column
+	MemoryPercentMax                column
+	NodeMemoryUsedBytes             column
+	NodeMemoryTotalBytes            column
+	ConfiguredMemoryBytes           column
+	DiskUsageBytesMin               column
+	DiskUsageBytesMax               column
+	VolumeTotalBytes                column
+	VolumeFreeBytes                 column
+	VolumePercent                   column
+	VolumeValid                     column
+	DiskMeasuredAt                  column
+	IoReadRateMin                   column
+	IoReadRateMax                   column
+	IoWriteRateMin                  column
+	IoWriteRateMax                  column
+	ConnectionCountMin              column
+	ConnectionCountMax              column
+	PlayerCountMin                  column
+	PlayerCountMax                  column
+	PlayerCapacity                  column
+	QuerySupported                  column
+	QuerySuccess                    column
+	QueryDurationMS                 column
+	QueryDurationMSMin              column
+	QueryDurationMSMax              column
+	QueryCheckedAt                  column
+	ServerFPS                       column
+	ServerFPSMin                    column
+	ServerFPSMax                    column
+	ServerFrameTimeMS               column
+	ServerFrameTimeMSMin            column
+	ServerFrameTimeMSMax            column
+	ServerUptimeSeconds             column
+	ProcessStatus                   column
+	ExecutionID                     column
 }
 
 func (c gameServerMetricsHistoryColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.GameServerID, c.CPUPercent, c.MemoryBytes, c.MemoryPercent, c.DiskUsageBytes, c.IoReadRate, c.IoWriteRate, c.ConnectionCount, c.PlayerCount, c.RecordedAt,
+		c.ID, c.GameServerID, c.CPUPercent, c.MemoryBytes, c.MemoryPercent, c.DiskUsageBytes, c.IoReadRate, c.IoWriteRate, c.ConnectionCount, c.PlayerCount, c.RecordedAt, c.NodeID, c.GranularitySeconds, c.SampleCount, c.AvailableSampleCount, c.CPUValidSampleCount, c.QuerySuccessfulSampleCount, c.QueryDurationValidSampleCount, c.ServerFPSValidSampleCount, c.ServerFrameTimeValidSampleCount, c.VolumeValidSampleCount, c.IoValidSampleCount, c.ConnectionValidSampleCount, c.AvailabilityRatio, c.CollectionStatus, c.RollupHour, c.ProcessCollectedAt, c.CPUValid, c.CPUPercentMin, c.CPUPercentMax, c.NodeCPUCores, c.MemoryBytesMin, c.MemoryBytesMax, c.MemoryPercentMin, c.MemoryPercentMax, c.NodeMemoryUsedBytes, c.NodeMemoryTotalBytes, c.ConfiguredMemoryBytes, c.DiskUsageBytesMin, c.DiskUsageBytesMax, c.VolumeTotalBytes, c.VolumeFreeBytes, c.VolumePercent, c.VolumeValid, c.DiskMeasuredAt, c.IoReadRateMin, c.IoReadRateMax, c.IoWriteRateMin, c.IoWriteRateMax, c.ConnectionCountMin, c.ConnectionCountMax, c.PlayerCountMin, c.PlayerCountMax, c.PlayerCapacity, c.QuerySupported, c.QuerySuccess, c.QueryDurationMS, c.QueryDurationMSMin, c.QueryDurationMSMax, c.QueryCheckedAt, c.ServerFPS, c.ServerFPSMin, c.ServerFPSMax, c.ServerFrameTimeMS, c.ServerFrameTimeMSMin, c.ServerFrameTimeMSMax, c.ServerUptimeSeconds, c.ProcessStatus, c.ExecutionID,
 	}
 }
 
 type gameServerMetricsHistoryIndexes struct {
+	GameServerMetricsHistoryRollupHourIdx    index
 	IdxGSMetricsServerTime                   index
 	SqliteAutoindexGameServerMetricsHistory1 index
 }
 
 func (i gameServerMetricsHistoryIndexes) AsSlice() []index {
 	return []index{
-		i.IdxGSMetricsServerTime, i.SqliteAutoindexGameServerMetricsHistory1,
+		i.GameServerMetricsHistoryRollupHourIdx, i.IdxGSMetricsServerTime, i.SqliteAutoindexGameServerMetricsHistory1,
 	}
 }
 

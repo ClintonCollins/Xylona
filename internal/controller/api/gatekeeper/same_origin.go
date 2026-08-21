@@ -86,6 +86,15 @@ func requestHostForSameOrigin(r *http.Request, trust *ProxyTrust) string {
 	return strings.TrimSpace(r.URL.Host)
 }
 
+// RequestOrigin returns the externally visible request origin, honoring
+// forwarded scheme and host only for configured trusted proxies.
+func RequestOrigin(r *http.Request, trust *ProxyTrust) string {
+	return (&url.URL{
+		Scheme: requestSchemeForSameOrigin(r, trust),
+		Host:   requestHostForSameOrigin(r, trust),
+	}).String()
+}
+
 func requestForwardedHostForSameOrigin(r *http.Request) string {
 	forwardedHeader := strings.TrimSpace(r.Header.Get("Forwarded"))
 	if forwardedHeader != "" {

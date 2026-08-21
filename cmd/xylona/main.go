@@ -219,7 +219,8 @@ func securityHeaders(trust *gatekeeper.ProxyTrust) func(http.Handler) http.Handl
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("X-Frame-Options", "DENY")
 			referrerPolicy := "strict-origin-when-cross-origin"
-			if r.URL.Path == "/shared/palworld-map" || r.URL.Path == "/shared/7-days-to-die-map" || r.URL.Path == "/shared/minecraft-map" {
+			if r.URL.Path == "/shared/palworld-map" || r.URL.Path == "/shared/7-days-to-die-map" || r.URL.Path == "/shared/minecraft-map" ||
+				strings.HasPrefix(r.URL.Path, "/status/") || strings.HasPrefix(r.URL.Path, "/api/public/status-pages/") {
 				referrerPolicy = "no-referrer"
 			}
 			w.Header().Set("Referrer-Policy", referrerPolicy)
@@ -695,6 +696,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	if errLoadFrontend != nil {
 		return startupFailure(cleanup, ctxCancel, errLoadFrontend, "Failed to load frontend")
 	}
+	statusPageHandler := rpc.NewGameServerStatusPageHTTPHandler(frontendFS, xylonaService, validatedConfig.trustedProxies)
 
 	router.Use(middleware.ClientIPFromRemoteAddr)
 	router.Use(validatedConfig.trustedProxies.AnnotateRequest)
@@ -703,6 +705,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	router.Use(gatekeeper.AuthRateLimiterForProxies(validatedConfig.trustedProxies))
 	registerOperationalRoutes(router, dbInst.SQLDb)
 	registerMetricsRoute(router, config)
+	rpc.RegisterGameServerStatusPageRoutes(router, statusPageHandler)
 	router.Mount(palworldmap.TilePathPrefix, palworldMapTileStore.Handler())
 	router.Get(rpc.SevenDaysToDieMapTilePathPrefix+"/{gameServerId}/{zoom}/{x}/{y}", xylonaService.SevenDaysToDieMapTile)
 	router.Get(rpc.MinecraftMapViewerPathPrefix+"/{gameServerId}/*", xylonaService.MinecraftMapAsset)

@@ -1,5 +1,7 @@
 <template>
-  <q-page class="xy-page-content">
+  <q-page
+    class="server-list-page xy-page-content"
+    :class="{ 'server-list-page--with-settings': showStatusPageSettings }">
     <page-header class="server-list-header" title="Game Servers">
       <div class="server-list-summary">
         <span>{{ displayRows.length }} {{ displayRows.length === 1 ? 'server' : 'servers' }}</span>
@@ -121,6 +123,13 @@
           </template>
         </q-input>
         <q-btn
+          :color="showStatusPageSettings ? 'primary' : undefined"
+          flat
+          icon="public"
+          label="Public status page"
+          no-caps
+          @click="showStatusPageSettings = !showStatusPageSettings" />
+        <q-btn
           v-if="showCreateButton && displayRows.length > 0"
           :disable="loading"
           color="primary"
@@ -148,7 +157,7 @@
         ready.
       </span>
     </div>
-    <div>
+    <div class="server-list-main">
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selectedGameServers"
@@ -481,6 +490,9 @@
         </template>
       </q-table>
     </div>
+    <game-server-status-page-settings-panel
+      v-if="showStatusPageSettings"
+      @close="showStatusPageSettings = false" />
     <delete-game-server-dialog
       v-model:show-dialog="showDeleteGameServerDialog"
       :game-servers="selectedServersForDelete"
@@ -501,6 +513,7 @@ import {
   XylonaEventBus,
 } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
+import GameServerStatusPageSettingsPanel from '@/components/game_servers/GameServerStatusPageSettingsPanel.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -563,6 +576,7 @@ const lifecycleStateAuthoritative = computed(
 const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
+const showStatusPageSettings = ref(false)
 const selectedGameServers = ref([] as DisplayRow[])
 type ServerAction = 'start' | 'stop' | 'restart' | 'update'
 type ServerPlayerCounts = { current: number; max: number }
@@ -1575,6 +1589,23 @@ const columns = ref([
 </script>
 
 <style scoped>
+.server-list-page--with-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(390px, 480px);
+  align-content: start;
+  gap: 0 var(--xy-space-lg);
+}
+
+.server-list-page--with-settings > :deep(.server-list-header),
+.server-list-page--with-settings > .server-list-error,
+.server-list-page--with-settings > .server-list-notice {
+  grid-column: 1 / -1;
+}
+
+.server-list-main {
+  min-width: 0;
+}
+
 .server-list-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1870,6 +1901,13 @@ const columns = ref([
 
   .server-selection-toolbar :deep(.q-icon.on-left) {
     margin-right: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .server-list-page--with-settings {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--xy-space-lg);
   }
 }
 

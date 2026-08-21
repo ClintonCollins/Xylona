@@ -447,7 +447,7 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 	}
 
 	setter := protomap.GameServerModelToSetter(gameServerModel)
-	_, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
+	_, errUpdate := xs.db.UpdateGameServerForEdit(setter, existingGameServer.UserID)
 	if errUpdate != nil {
 		return nil, internalErr()
 	}

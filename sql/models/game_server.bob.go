@@ -55,6 +55,7 @@ type GameServer struct {
 	AutoRestartMaxRetries      int64            `db:"auto_restart_max_retries" `
 	AutoRestartCooldownSeconds int64            `db:"auto_restart_cooldown_seconds" `
 	EnvVars                    string           `db:"env_vars" `
+	PublicConnectionAddress    null.Val[string] `db:"public_connection_address" `
 
 	R gameServerR `db:"-" `
 
@@ -73,16 +74,22 @@ type GameServersQuery = *sqlite.ViewQuery[*GameServer, GameServerSlice]
 
 // gameServerR is where relationships are stored.
 type gameServerR struct {
-	IP                         *IP                           // fk_game_server_0
-	Node                       *Node                         // fk_game_server_1
-	Game                       *Game                         // fk_game_server_2
-	User                       *User                         // fk_game_server_3
-	GameServerBackups          GameServerBackupSlice         // fk_game_server_backup_1
-	GameServerMetricsHistories GameServerMetricsHistorySlice // fk_game_server_metrics_history_0
-	GameServerSecrets          GameServerSecretSlice         // fk_game_server_secret_1
-	InstalledMods              InstalledModSlice             // fk_installed_mod_0
-	ScheduledTasks             ScheduledTaskSlice            // fk_scheduled_task_1
-	UserRoleAssignments        UserRoleAssignmentSlice       // fk_user_role_assignment_1
+	IP                                *IP                                   // fk_game_server_0
+	Node                              *Node                                 // fk_game_server_1
+	Game                              *Game                                 // fk_game_server_2
+	User                              *User                                 // fk_game_server_3
+	GameServerBackups                 GameServerBackupSlice                 // fk_game_server_backup_1
+	GameServerLifecycleEvents         GameServerLifecycleEventSlice         // fk_game_server_lifecycle_event_0
+	GameServerMetricsHistories        GameServerMetricsHistorySlice         // fk_game_server_metrics_history_0
+	GameServerMinecraftMap            *GameServerMinecraftMap               // fk_game_server_minecraft_map_1
+	GameServerOperationEvents         GameServerOperationEventSlice         // fk_game_server_operation_event_0
+	GameServerPalworldMap             *GameServerPalworldMap                // fk_game_server_palworld_map_1
+	GameServerSecrets                 GameServerSecretSlice                 // fk_game_server_secret_1
+	GameServerSevenDaysToDieMap       *GameServerSevenDaysToDieMap          // fk_game_server_seven_days_to_die_map_1
+	GameServerSevenDaysToDieMapShares GameServerSevenDaysToDieMapShareSlice // fk_game_server_seven_days_to_die_map_share_1
+	InstalledMods                     InstalledModSlice                     // fk_installed_mod_0
+	ScheduledTasks                    ScheduledTaskSlice                    // fk_scheduled_task_1
+	UserRoleAssignments               UserRoleAssignmentSlice               // fk_user_role_assignment_1
 	// Loaded reports whether each relationship has been loaded.
 	// A relationship's bool is set by Load*, Preload, ThenLoad, factory builds,
 	// and to-one Attach/Insert operations. To-many Attach/Insert operations leave it unchanged.
@@ -91,21 +98,27 @@ type gameServerR struct {
 
 // gameServerRLoaded tracks which relationships on GameServer have been loaded.
 type gameServerRLoaded struct {
-	IP                         bool // fk_game_server_0
-	Node                       bool // fk_game_server_1
-	Game                       bool // fk_game_server_2
-	User                       bool // fk_game_server_3
-	GameServerBackups          bool // fk_game_server_backup_1
-	GameServerMetricsHistories bool // fk_game_server_metrics_history_0
-	GameServerSecrets          bool // fk_game_server_secret_1
-	InstalledMods              bool // fk_installed_mod_0
-	ScheduledTasks             bool // fk_scheduled_task_1
-	UserRoleAssignments        bool // fk_user_role_assignment_1
+	IP                                bool // fk_game_server_0
+	Node                              bool // fk_game_server_1
+	Game                              bool // fk_game_server_2
+	User                              bool // fk_game_server_3
+	GameServerBackups                 bool // fk_game_server_backup_1
+	GameServerLifecycleEvents         bool // fk_game_server_lifecycle_event_0
+	GameServerMetricsHistories        bool // fk_game_server_metrics_history_0
+	GameServerMinecraftMap            bool // fk_game_server_minecraft_map_1
+	GameServerOperationEvents         bool // fk_game_server_operation_event_0
+	GameServerPalworldMap             bool // fk_game_server_palworld_map_1
+	GameServerSecrets                 bool // fk_game_server_secret_1
+	GameServerSevenDaysToDieMap       bool // fk_game_server_seven_days_to_die_map_1
+	GameServerSevenDaysToDieMapShares bool // fk_game_server_seven_days_to_die_map_share_1
+	InstalledMods                     bool // fk_installed_mod_0
+	ScheduledTasks                    bool // fk_scheduled_task_1
+	UserRoleAssignments               bool // fk_user_role_assignment_1
 }
 
 func buildGameServerColumns(tableName string) gameServerColumns {
 	columnsExpr := expr.NewColumnsExpr(
-		"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars",
+		"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars", "public_connection_address",
 	)
 
 	if tableName != "" {
@@ -144,6 +157,7 @@ func buildGameServerColumns(tableName string) gameServerColumns {
 		AutoRestartMaxRetries:      buildGameServerColumn(tableName, "auto_restart_max_retries"),
 		AutoRestartCooldownSeconds: buildGameServerColumn(tableName, "auto_restart_cooldown_seconds"),
 		EnvVars:                    buildGameServerColumn(tableName, "env_vars"),
+		PublicConnectionAddress:    buildGameServerColumn(tableName, "public_connection_address"),
 	}
 }
 
@@ -179,6 +193,7 @@ type gameServerColumns struct {
 	AutoRestartMaxRetries      gameServerColumn
 	AutoRestartCooldownSeconds gameServerColumn
 	EnvVars                    gameServerColumn
+	PublicConnectionAddress    gameServerColumn
 }
 
 // Alias returns the current table alias for the columns set.
@@ -253,10 +268,11 @@ type GameServerSetter struct {
 	AutoRestartMaxRetries      omit.Val[int64]      `db:"auto_restart_max_retries" `
 	AutoRestartCooldownSeconds omit.Val[int64]      `db:"auto_restart_cooldown_seconds" `
 	EnvVars                    omit.Val[string]     `db:"env_vars" `
+	PublicConnectionAddress    omitnull.Val[string] `db:"public_connection_address" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 29)
+	vals := make([]string, 0, 30)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -343,6 +359,9 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if s.EnvVars.IsValue() {
 		vals = append(vals, "env_vars")
+	}
+	if s.PublicConnectionAddress.IsValue() || s.PublicConnectionAddress.IsNull() {
+		vals = append(vals, "public_connection_address")
 	}
 	return vals
 }
@@ -434,6 +453,9 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	}
 	if s.EnvVars.IsValue() {
 		t.EnvVars = s.EnvVars.MustGet()
+	}
+	if s.PublicConnectionAddress.IsValue() || s.PublicConnectionAddress.IsNull() {
+		t.PublicConnectionAddress = s.PublicConnectionAddress.MustGetNull()
 	}
 }
 
@@ -656,6 +678,13 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 				}
 				return sqlite.Arg(s.EnvVars.MustGet()).WriteSQL(ctx, w, d, start)
 			}))
+		case "public_connection_address":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.PublicConnectionAddress.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.PublicConnectionAddress.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
 		}
 	}
 
@@ -667,7 +696,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 29)
+	exprs := make([]bob.Expression, 0, 30)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -869,6 +898,13 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "env_vars")...),
 			sqlite.Arg(s.EnvVars),
+		}})
+	}
+
+	if s.PublicConnectionAddress.IsValue() || s.PublicConnectionAddress.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "public_connection_address")...),
+			sqlite.Arg(s.PublicConnectionAddress),
 		}})
 	}
 
@@ -1195,6 +1231,25 @@ func (os GameServerSlice) GameServerBackups(mods ...bob.Mod[*dialect.SelectQuery
 	)...)
 }
 
+// GameServerLifecycleEvents starts a query for related objects on game_server_lifecycle_event
+func (o *GameServer) GameServerLifecycleEvents(mods ...bob.Mod[*dialect.SelectQuery]) GameServerLifecycleEventsQuery {
+	return GameServerLifecycleEvents.Query(append(mods,
+		sm.Where(GameServerLifecycleEvents.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerLifecycleEvents(mods ...bob.Mod[*dialect.SelectQuery]) GameServerLifecycleEventsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerLifecycleEvents.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerLifecycleEvents.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // GameServerMetricsHistories starts a query for related objects on game_server_metrics_history
 func (o *GameServer) GameServerMetricsHistories(mods ...bob.Mod[*dialect.SelectQuery]) GameServerMetricsHistoriesQuery {
 	return GameServerMetricsHistories.Query(append(mods,
@@ -1214,6 +1269,63 @@ func (os GameServerSlice) GameServerMetricsHistories(mods ...bob.Mod[*dialect.Se
 	)...)
 }
 
+// GameServerMinecraftMap starts a query for related objects on game_server_minecraft_map
+func (o *GameServer) GameServerMinecraftMap(mods ...bob.Mod[*dialect.SelectQuery]) GameServerMinecraftMapsQuery {
+	return GameServerMinecraftMaps.Query(append(mods,
+		sm.Where(GameServerMinecraftMaps.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerMinecraftMap(mods ...bob.Mod[*dialect.SelectQuery]) GameServerMinecraftMapsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerMinecraftMaps.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerMinecraftMaps.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// GameServerOperationEvents starts a query for related objects on game_server_operation_event
+func (o *GameServer) GameServerOperationEvents(mods ...bob.Mod[*dialect.SelectQuery]) GameServerOperationEventsQuery {
+	return GameServerOperationEvents.Query(append(mods,
+		sm.Where(GameServerOperationEvents.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerOperationEvents(mods ...bob.Mod[*dialect.SelectQuery]) GameServerOperationEventsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerOperationEvents.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerOperationEvents.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// GameServerPalworldMap starts a query for related objects on game_server_palworld_map
+func (o *GameServer) GameServerPalworldMap(mods ...bob.Mod[*dialect.SelectQuery]) GameServerPalworldMapsQuery {
+	return GameServerPalworldMaps.Query(append(mods,
+		sm.Where(GameServerPalworldMaps.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerPalworldMap(mods ...bob.Mod[*dialect.SelectQuery]) GameServerPalworldMapsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerPalworldMaps.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerPalworldMaps.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // GameServerSecrets starts a query for related objects on game_server_secret
 func (o *GameServer) GameServerSecrets(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSecretsQuery {
 	return GameServerSecrets.Query(append(mods,
@@ -1230,6 +1342,44 @@ func (os GameServerSlice) GameServerSecrets(mods ...bob.Mod[*dialect.SelectQuery
 
 	return GameServerSecrets.Query(append(mods,
 		sm.Where(sqlite.Group(GameServerSecrets.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// GameServerSevenDaysToDieMap starts a query for related objects on game_server_seven_days_to_die_map
+func (o *GameServer) GameServerSevenDaysToDieMap(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapsQuery {
+	return GameServerSevenDaysToDieMaps.Query(append(mods,
+		sm.Where(GameServerSevenDaysToDieMaps.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerSevenDaysToDieMap(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerSevenDaysToDieMaps.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerSevenDaysToDieMaps.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// GameServerSevenDaysToDieMapShares starts a query for related objects on game_server_seven_days_to_die_map_share
+func (o *GameServer) GameServerSevenDaysToDieMapShares(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapSharesQuery {
+	return GameServerSevenDaysToDieMapShares.Query(append(mods,
+		sm.Where(GameServerSevenDaysToDieMapShares.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerSevenDaysToDieMapShares(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapSharesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerSevenDaysToDieMapShares.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerSevenDaysToDieMapShares.Columns.GameServerID).OP("IN", PKArgExpr)),
 	)...)
 }
 
@@ -1561,6 +1711,76 @@ func (gameServer0 *GameServer) AttachGameServerBackups(ctx context.Context, exec
 	return nil
 }
 
+func insertGameServerGameServerLifecycleEvents0(ctx context.Context, exec bob.Executor, gameServerLifecycleEvents1 []*GameServerLifecycleEventSetter, gameServer0 *GameServer) (GameServerLifecycleEventSlice, error) {
+	for i := range gameServerLifecycleEvents1 {
+		gameServerLifecycleEvents1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := GameServerLifecycleEvents.Insert(bob.ToMods(gameServerLifecycleEvents1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerLifecycleEvents0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerLifecycleEvents0(ctx context.Context, exec bob.Executor, count int, gameServerLifecycleEvents1 GameServerLifecycleEventSlice, gameServer0 *GameServer) (GameServerLifecycleEventSlice, error) {
+	setter := &GameServerLifecycleEventSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerLifecycleEvents1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerLifecycleEvents0: %w", err)
+	}
+
+	return gameServerLifecycleEvents1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerLifecycleEvents(ctx context.Context, exec bob.Executor, related ...*GameServerLifecycleEventSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerLifecycleEvents1, err := insertGameServerGameServerLifecycleEvents0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerLifecycleEvents = append(gameServer0.R.GameServerLifecycleEvents, gameServerLifecycleEvents1...)
+
+	for _, rel := range gameServerLifecycleEvents1 {
+		rel.R.GameServer = gameServer0
+		rel.R.Loaded.GameServer = true
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerLifecycleEvents(ctx context.Context, exec bob.Executor, related ...*GameServerLifecycleEvent) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerLifecycleEvents1 := GameServerLifecycleEventSlice(related)
+
+	_, err = attachGameServerGameServerLifecycleEvents0(ctx, exec, len(related), gameServerLifecycleEvents1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerLifecycleEvents = append(gameServer0.R.GameServerLifecycleEvents, gameServerLifecycleEvents1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+		rel.R.Loaded.GameServer = true
+	}
+
+	return nil
+}
+
 func insertGameServerGameServerMetricsHistories0(ctx context.Context, exec bob.Executor, gameServerMetricsHistories1 []*GameServerMetricsHistorySetter, gameServer0 *GameServer) (GameServerMetricsHistorySlice, error) {
 	for i := range gameServerMetricsHistories1 {
 		gameServerMetricsHistories1[i].GameServerID = omit.From(gameServer0.ID)
@@ -1631,6 +1851,192 @@ func (gameServer0 *GameServer) AttachGameServerMetricsHistories(ctx context.Cont
 	return nil
 }
 
+func insertGameServerGameServerMinecraftMap0(ctx context.Context, exec bob.Executor, gameServerMinecraftMap1 *GameServerMinecraftMapSetter, gameServer0 *GameServer) (*GameServerMinecraftMap, error) {
+	gameServerMinecraftMap1.GameServerID = omit.From(gameServer0.ID)
+
+	ret, err := GameServerMinecraftMaps.Insert(gameServerMinecraftMap1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerMinecraftMap0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerMinecraftMap0(ctx context.Context, exec bob.Executor, count int, gameServerMinecraftMap1 *GameServerMinecraftMap, gameServer0 *GameServer) (*GameServerMinecraftMap, error) {
+	setter := &GameServerMinecraftMapSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerMinecraftMap1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerMinecraftMap0: %w", err)
+	}
+
+	return gameServerMinecraftMap1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerMinecraftMap(ctx context.Context, exec bob.Executor, related *GameServerMinecraftMapSetter) error {
+	var err error
+
+	gameServerMinecraftMap1, err := insertGameServerGameServerMinecraftMap0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerMinecraftMap = gameServerMinecraftMap1
+	gameServer0.R.Loaded.GameServerMinecraftMap = true
+
+	gameServerMinecraftMap1.R.GameServer = gameServer0
+	gameServerMinecraftMap1.R.Loaded.GameServer = true
+
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerMinecraftMap(ctx context.Context, exec bob.Executor, gameServerMinecraftMap1 *GameServerMinecraftMap) error {
+	var err error
+
+	_, err = attachGameServerGameServerMinecraftMap0(ctx, exec, 1, gameServerMinecraftMap1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerMinecraftMap = gameServerMinecraftMap1
+	gameServer0.R.Loaded.GameServerMinecraftMap = true
+
+	gameServerMinecraftMap1.R.GameServer = gameServer0
+	gameServerMinecraftMap1.R.Loaded.GameServer = true
+
+	return nil
+}
+
+func insertGameServerGameServerOperationEvents0(ctx context.Context, exec bob.Executor, gameServerOperationEvents1 []*GameServerOperationEventSetter, gameServer0 *GameServer) (GameServerOperationEventSlice, error) {
+	for i := range gameServerOperationEvents1 {
+		gameServerOperationEvents1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := GameServerOperationEvents.Insert(bob.ToMods(gameServerOperationEvents1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerOperationEvents0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerOperationEvents0(ctx context.Context, exec bob.Executor, count int, gameServerOperationEvents1 GameServerOperationEventSlice, gameServer0 *GameServer) (GameServerOperationEventSlice, error) {
+	setter := &GameServerOperationEventSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerOperationEvents1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerOperationEvents0: %w", err)
+	}
+
+	return gameServerOperationEvents1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerOperationEvents(ctx context.Context, exec bob.Executor, related ...*GameServerOperationEventSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerOperationEvents1, err := insertGameServerGameServerOperationEvents0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerOperationEvents = append(gameServer0.R.GameServerOperationEvents, gameServerOperationEvents1...)
+
+	for _, rel := range gameServerOperationEvents1 {
+		rel.R.GameServer = gameServer0
+		rel.R.Loaded.GameServer = true
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerOperationEvents(ctx context.Context, exec bob.Executor, related ...*GameServerOperationEvent) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerOperationEvents1 := GameServerOperationEventSlice(related)
+
+	_, err = attachGameServerGameServerOperationEvents0(ctx, exec, len(related), gameServerOperationEvents1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerOperationEvents = append(gameServer0.R.GameServerOperationEvents, gameServerOperationEvents1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+		rel.R.Loaded.GameServer = true
+	}
+
+	return nil
+}
+
+func insertGameServerGameServerPalworldMap0(ctx context.Context, exec bob.Executor, gameServerPalworldMap1 *GameServerPalworldMapSetter, gameServer0 *GameServer) (*GameServerPalworldMap, error) {
+	gameServerPalworldMap1.GameServerID = omit.From(gameServer0.ID)
+
+	ret, err := GameServerPalworldMaps.Insert(gameServerPalworldMap1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerPalworldMap0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerPalworldMap0(ctx context.Context, exec bob.Executor, count int, gameServerPalworldMap1 *GameServerPalworldMap, gameServer0 *GameServer) (*GameServerPalworldMap, error) {
+	setter := &GameServerPalworldMapSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerPalworldMap1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerPalworldMap0: %w", err)
+	}
+
+	return gameServerPalworldMap1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerPalworldMap(ctx context.Context, exec bob.Executor, related *GameServerPalworldMapSetter) error {
+	var err error
+
+	gameServerPalworldMap1, err := insertGameServerGameServerPalworldMap0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerPalworldMap = gameServerPalworldMap1
+	gameServer0.R.Loaded.GameServerPalworldMap = true
+
+	gameServerPalworldMap1.R.GameServer = gameServer0
+	gameServerPalworldMap1.R.Loaded.GameServer = true
+
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerPalworldMap(ctx context.Context, exec bob.Executor, gameServerPalworldMap1 *GameServerPalworldMap) error {
+	var err error
+
+	_, err = attachGameServerGameServerPalworldMap0(ctx, exec, 1, gameServerPalworldMap1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerPalworldMap = gameServerPalworldMap1
+	gameServer0.R.Loaded.GameServerPalworldMap = true
+
+	gameServerPalworldMap1.R.GameServer = gameServer0
+	gameServerPalworldMap1.R.Loaded.GameServer = true
+
+	return nil
+}
+
 func insertGameServerGameServerSecrets0(ctx context.Context, exec bob.Executor, gameServerSecrets1 []*GameServerSecretSetter, gameServer0 *GameServer) (GameServerSecretSlice, error) {
 	for i := range gameServerSecrets1 {
 		gameServerSecrets1[i].GameServerID = omit.From(gameServer0.ID)
@@ -1692,6 +2098,134 @@ func (gameServer0 *GameServer) AttachGameServerSecrets(ctx context.Context, exec
 	}
 
 	gameServer0.R.GameServerSecrets = append(gameServer0.R.GameServerSecrets, gameServerSecrets1...)
+
+	for _, rel := range related {
+		rel.R.GameServer = gameServer0
+		rel.R.Loaded.GameServer = true
+	}
+
+	return nil
+}
+
+func insertGameServerGameServerSevenDaysToDieMap0(ctx context.Context, exec bob.Executor, gameServerSevenDaysToDieMap1 *GameServerSevenDaysToDieMapSetter, gameServer0 *GameServer) (*GameServerSevenDaysToDieMap, error) {
+	gameServerSevenDaysToDieMap1.GameServerID = omit.From(gameServer0.ID)
+
+	ret, err := GameServerSevenDaysToDieMaps.Insert(gameServerSevenDaysToDieMap1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerSevenDaysToDieMap0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerSevenDaysToDieMap0(ctx context.Context, exec bob.Executor, count int, gameServerSevenDaysToDieMap1 *GameServerSevenDaysToDieMap, gameServer0 *GameServer) (*GameServerSevenDaysToDieMap, error) {
+	setter := &GameServerSevenDaysToDieMapSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerSevenDaysToDieMap1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerSevenDaysToDieMap0: %w", err)
+	}
+
+	return gameServerSevenDaysToDieMap1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerSevenDaysToDieMap(ctx context.Context, exec bob.Executor, related *GameServerSevenDaysToDieMapSetter) error {
+	var err error
+
+	gameServerSevenDaysToDieMap1, err := insertGameServerGameServerSevenDaysToDieMap0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerSevenDaysToDieMap = gameServerSevenDaysToDieMap1
+	gameServer0.R.Loaded.GameServerSevenDaysToDieMap = true
+
+	gameServerSevenDaysToDieMap1.R.GameServer = gameServer0
+	gameServerSevenDaysToDieMap1.R.Loaded.GameServer = true
+
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerSevenDaysToDieMap(ctx context.Context, exec bob.Executor, gameServerSevenDaysToDieMap1 *GameServerSevenDaysToDieMap) error {
+	var err error
+
+	_, err = attachGameServerGameServerSevenDaysToDieMap0(ctx, exec, 1, gameServerSevenDaysToDieMap1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerSevenDaysToDieMap = gameServerSevenDaysToDieMap1
+	gameServer0.R.Loaded.GameServerSevenDaysToDieMap = true
+
+	gameServerSevenDaysToDieMap1.R.GameServer = gameServer0
+	gameServerSevenDaysToDieMap1.R.Loaded.GameServer = true
+
+	return nil
+}
+
+func insertGameServerGameServerSevenDaysToDieMapShares0(ctx context.Context, exec bob.Executor, gameServerSevenDaysToDieMapShares1 []*GameServerSevenDaysToDieMapShareSetter, gameServer0 *GameServer) (GameServerSevenDaysToDieMapShareSlice, error) {
+	for i := range gameServerSevenDaysToDieMapShares1 {
+		gameServerSevenDaysToDieMapShares1[i].GameServerID = omit.From(gameServer0.ID)
+	}
+
+	ret, err := GameServerSevenDaysToDieMapShares.Insert(bob.ToMods(gameServerSevenDaysToDieMapShares1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerSevenDaysToDieMapShares0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerSevenDaysToDieMapShares0(ctx context.Context, exec bob.Executor, count int, gameServerSevenDaysToDieMapShares1 GameServerSevenDaysToDieMapShareSlice, gameServer0 *GameServer) (GameServerSevenDaysToDieMapShareSlice, error) {
+	setter := &GameServerSevenDaysToDieMapShareSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerSevenDaysToDieMapShares1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerSevenDaysToDieMapShares0: %w", err)
+	}
+
+	return gameServerSevenDaysToDieMapShares1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, related ...*GameServerSevenDaysToDieMapShareSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerSevenDaysToDieMapShares1, err := insertGameServerGameServerSevenDaysToDieMapShares0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerSevenDaysToDieMapShares = append(gameServer0.R.GameServerSevenDaysToDieMapShares, gameServerSevenDaysToDieMapShares1...)
+
+	for _, rel := range gameServerSevenDaysToDieMapShares1 {
+		rel.R.GameServer = gameServer0
+		rel.R.Loaded.GameServer = true
+	}
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, related ...*GameServerSevenDaysToDieMapShare) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerSevenDaysToDieMapShares1 := GameServerSevenDaysToDieMapShareSlice(related)
+
+	_, err = attachGameServerGameServerSevenDaysToDieMapShares0(ctx, exec, len(related), gameServerSevenDaysToDieMapShares1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerSevenDaysToDieMapShares = append(gameServer0.R.GameServerSevenDaysToDieMapShares, gameServerSevenDaysToDieMapShares1...)
 
 	for _, rel := range related {
 		rel.R.GameServer = gameServer0
@@ -1941,6 +2475,7 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	AutoRestartMaxRetries      sqlite.WhereMod[Q, int64]
 	AutoRestartCooldownSeconds sqlite.WhereMod[Q, int64]
 	EnvVars                    sqlite.WhereMod[Q, string]
+	PublicConnectionAddress    sqlite.WhereNullMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -1978,6 +2513,7 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		AutoRestartMaxRetries:      sqlite.Where[Q, int64](cols.AutoRestartMaxRetries.Expression),
 		AutoRestartCooldownSeconds: sqlite.Where[Q, int64](cols.AutoRestartCooldownSeconds.Expression),
 		EnvVars:                    sqlite.Where[Q, string](cols.EnvVars.Expression),
+		PublicConnectionAddress:    sqlite.WhereNull[Q, string](cols.PublicConnectionAddress.Expression),
 	}
 }
 
@@ -2055,6 +2591,22 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "GameServerLifecycleEvents":
+		rels, ok := retrieved.(GameServerLifecycleEventSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerLifecycleEvents = rels
+		o.R.Loaded.GameServerLifecycleEvents = true
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+				rel.R.Loaded.GameServer = true
+			}
+		}
+		return nil
 	case "GameServerMetricsHistories":
 		rels, ok := retrieved.(GameServerMetricsHistorySlice)
 		if !ok {
@@ -2071,6 +2623,50 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "GameServerMinecraftMap":
+		rel, ok := retrieved.(*GameServerMinecraftMap)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerMinecraftMap = rel
+		o.R.Loaded.GameServerMinecraftMap = true
+
+		if rel != nil {
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+		}
+		return nil
+	case "GameServerOperationEvents":
+		rels, ok := retrieved.(GameServerOperationEventSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerOperationEvents = rels
+		o.R.Loaded.GameServerOperationEvents = true
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+				rel.R.Loaded.GameServer = true
+			}
+		}
+		return nil
+	case "GameServerPalworldMap":
+		rel, ok := retrieved.(*GameServerPalworldMap)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerPalworldMap = rel
+		o.R.Loaded.GameServerPalworldMap = true
+
+		if rel != nil {
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+		}
+		return nil
 	case "GameServerSecrets":
 		rels, ok := retrieved.(GameServerSecretSlice)
 		if !ok {
@@ -2079,6 +2675,36 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 
 		o.R.GameServerSecrets = rels
 		o.R.Loaded.GameServerSecrets = true
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.GameServer = o
+				rel.R.Loaded.GameServer = true
+			}
+		}
+		return nil
+	case "GameServerSevenDaysToDieMap":
+		rel, ok := retrieved.(*GameServerSevenDaysToDieMap)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerSevenDaysToDieMap = rel
+		o.R.Loaded.GameServerSevenDaysToDieMap = true
+
+		if rel != nil {
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+		}
+		return nil
+	case "GameServerSevenDaysToDieMapShares":
+		rels, ok := retrieved.(GameServerSevenDaysToDieMapShareSlice)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerSevenDaysToDieMapShares = rels
+		o.R.Loaded.GameServerSevenDaysToDieMapShares = true
 
 		for _, rel := range rels {
 			if rel != nil {
@@ -2141,10 +2767,13 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 }
 
 type gameServerPreloader struct {
-	IP   func(...sqlite.PreloadOption) sqlite.Preloader
-	Node func(...sqlite.PreloadOption) sqlite.Preloader
-	Game func(...sqlite.PreloadOption) sqlite.Preloader
-	User func(...sqlite.PreloadOption) sqlite.Preloader
+	IP                          func(...sqlite.PreloadOption) sqlite.Preloader
+	Node                        func(...sqlite.PreloadOption) sqlite.Preloader
+	Game                        func(...sqlite.PreloadOption) sqlite.Preloader
+	User                        func(...sqlite.PreloadOption) sqlite.Preloader
+	GameServerMinecraftMap      func(...sqlite.PreloadOption) sqlite.Preloader
+	GameServerPalworldMap       func(...sqlite.PreloadOption) sqlite.Preloader
+	GameServerSevenDaysToDieMap func(...sqlite.PreloadOption) sqlite.Preloader
 }
 
 func buildGameServerPreloader() gameServerPreloader {
@@ -2201,20 +2830,65 @@ func buildGameServerPreloader() gameServerPreloader {
 				},
 			}, Users.Columns.Names(), opts...)
 		},
+		GameServerMinecraftMap: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*GameServerMinecraftMap, GameServerMinecraftMapSlice](sqlite.PreloadRel{
+				Name: "GameServerMinecraftMap",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        GameServers,
+						To:          GameServerMinecraftMaps,
+						FromColumns: []string{"id"},
+						ToColumns:   []string{"game_server_id"},
+					},
+				},
+			}, GameServerMinecraftMaps.Columns.Names(), opts...)
+		},
+		GameServerPalworldMap: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*GameServerPalworldMap, GameServerPalworldMapSlice](sqlite.PreloadRel{
+				Name: "GameServerPalworldMap",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        GameServers,
+						To:          GameServerPalworldMaps,
+						FromColumns: []string{"id"},
+						ToColumns:   []string{"game_server_id"},
+					},
+				},
+			}, GameServerPalworldMaps.Columns.Names(), opts...)
+		},
+		GameServerSevenDaysToDieMap: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*GameServerSevenDaysToDieMap, GameServerSevenDaysToDieMapSlice](sqlite.PreloadRel{
+				Name: "GameServerSevenDaysToDieMap",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        GameServers,
+						To:          GameServerSevenDaysToDieMaps,
+						FromColumns: []string{"id"},
+						ToColumns:   []string{"game_server_id"},
+					},
+				},
+			}, GameServerSevenDaysToDieMaps.Columns.Names(), opts...)
+		},
 	}
 }
 
 type gameServerThenLoader[Q orm.Loadable] struct {
-	IP                         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	Node                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	Game                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	User                       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServerSecrets          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	ScheduledTasks             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	IP                                func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	Node                              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	Game                              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	User                              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerBackups                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerLifecycleEvents         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerMetricsHistories        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerMinecraftMap            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerOperationEvents         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerPalworldMap             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerSecrets                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerSevenDaysToDieMap       func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerSevenDaysToDieMapShares func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	InstalledMods                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	ScheduledTasks                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserRoleAssignments               func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
@@ -2233,11 +2907,29 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	type GameServerBackupsLoadInterface interface {
 		LoadGameServerBackups(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
+	type GameServerLifecycleEventsLoadInterface interface {
+		LoadGameServerLifecycleEvents(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type GameServerMetricsHistoriesLoadInterface interface {
 		LoadGameServerMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
+	type GameServerMinecraftMapLoadInterface interface {
+		LoadGameServerMinecraftMap(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerOperationEventsLoadInterface interface {
+		LoadGameServerOperationEvents(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerPalworldMapLoadInterface interface {
+		LoadGameServerPalworldMap(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type GameServerSecretsLoadInterface interface {
 		LoadGameServerSecrets(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerSevenDaysToDieMapLoadInterface interface {
+		LoadGameServerSevenDaysToDieMap(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerSevenDaysToDieMapSharesLoadInterface interface {
+		LoadGameServerSevenDaysToDieMapShares(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type InstalledModsLoadInterface interface {
 		LoadInstalledMods(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -2280,16 +2972,52 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 				return retrieved.LoadGameServerBackups(ctx, exec, mods...)
 			},
 		),
+		GameServerLifecycleEvents: thenLoadBuilder[Q](
+			"GameServerLifecycleEvents",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerLifecycleEventsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerLifecycleEvents(ctx, exec, mods...)
+			},
+		),
 		GameServerMetricsHistories: thenLoadBuilder[Q](
 			"GameServerMetricsHistories",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerMetricsHistoriesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServerMetricsHistories(ctx, exec, mods...)
 			},
 		),
+		GameServerMinecraftMap: thenLoadBuilder[Q](
+			"GameServerMinecraftMap",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerMinecraftMapLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerMinecraftMap(ctx, exec, mods...)
+			},
+		),
+		GameServerOperationEvents: thenLoadBuilder[Q](
+			"GameServerOperationEvents",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerOperationEventsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerOperationEvents(ctx, exec, mods...)
+			},
+		),
+		GameServerPalworldMap: thenLoadBuilder[Q](
+			"GameServerPalworldMap",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerPalworldMapLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerPalworldMap(ctx, exec, mods...)
+			},
+		),
 		GameServerSecrets: thenLoadBuilder[Q](
 			"GameServerSecrets",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerSecretsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServerSecrets(ctx, exec, mods...)
+			},
+		),
+		GameServerSevenDaysToDieMap: thenLoadBuilder[Q](
+			"GameServerSevenDaysToDieMap",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerSevenDaysToDieMapLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerSevenDaysToDieMap(ctx, exec, mods...)
+			},
+		),
+		GameServerSevenDaysToDieMapShares: thenLoadBuilder[Q](
+			"GameServerSevenDaysToDieMapShares",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerSevenDaysToDieMapSharesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerSevenDaysToDieMapShares(ctx, exec, mods...)
 			},
 		),
 		InstalledMods: thenLoadBuilder[Q](
@@ -2678,6 +3406,80 @@ func (os GameServerSlice) LoadGameServerBackups(ctx context.Context, exec bob.Ex
 	return nil
 }
 
+// LoadGameServerLifecycleEvents loads the gameServer's GameServerLifecycleEvents into the .R struct
+func (o *GameServer) LoadGameServerLifecycleEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerLifecycleEvents = nil
+	o.R.Loaded.GameServerLifecycleEvents = false
+
+	related, err := o.GameServerLifecycleEvents(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+		rel.R.Loaded.GameServer = true
+	}
+
+	o.R.GameServerLifecycleEvents = related
+	o.R.Loaded.GameServerLifecycleEvents = true
+	return nil
+}
+
+// LoadGameServerLifecycleEvents loads the gameServer's GameServerLifecycleEvents into the .R struct
+func (os GameServerSlice) LoadGameServerLifecycleEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerLifecycleEvents, err := os.GameServerLifecycleEvents(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerLifecycleEvents = nil
+		o.R.Loaded.GameServerLifecycleEvents = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerLifecycleEvents {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.GameServerLifecycleEvents = append(o.R.GameServerLifecycleEvents, rel)
+
+		}
+	}
+
+	return nil
+}
+
 // LoadGameServerMetricsHistories loads the gameServer's GameServerMetricsHistories into the .R struct
 func (o *GameServer) LoadGameServerMetricsHistories(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2752,6 +3554,234 @@ func (os GameServerSlice) LoadGameServerMetricsHistories(ctx context.Context, ex
 	return nil
 }
 
+// LoadGameServerMinecraftMap loads the gameServer's GameServerMinecraftMap into the .R struct
+func (o *GameServer) LoadGameServerMinecraftMap(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerMinecraftMap = nil
+	o.R.Loaded.GameServerMinecraftMap = false
+
+	related, err := o.GameServerMinecraftMap(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServer = o
+	related.R.Loaded.GameServer = true
+
+	o.R.GameServerMinecraftMap = related
+	o.R.Loaded.GameServerMinecraftMap = true
+	return nil
+}
+
+// LoadGameServerMinecraftMap loads the gameServer's GameServerMinecraftMap into the .R struct
+func (os GameServerSlice) LoadGameServerMinecraftMap(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerMinecraftMaps, err := os.GameServerMinecraftMap(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerMinecraftMap = nil
+		o.R.Loaded.GameServerMinecraftMap = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerMinecraftMaps {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			// to-one: keep only the first matching child (matches the previous break)
+			if o.R.GameServerMinecraftMap != nil {
+				continue
+			}
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.GameServerMinecraftMap = rel
+
+		}
+	}
+
+	return nil
+}
+
+// LoadGameServerOperationEvents loads the gameServer's GameServerOperationEvents into the .R struct
+func (o *GameServer) LoadGameServerOperationEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerOperationEvents = nil
+	o.R.Loaded.GameServerOperationEvents = false
+
+	related, err := o.GameServerOperationEvents(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+		rel.R.Loaded.GameServer = true
+	}
+
+	o.R.GameServerOperationEvents = related
+	o.R.Loaded.GameServerOperationEvents = true
+	return nil
+}
+
+// LoadGameServerOperationEvents loads the gameServer's GameServerOperationEvents into the .R struct
+func (os GameServerSlice) LoadGameServerOperationEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerOperationEvents, err := os.GameServerOperationEvents(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerOperationEvents = nil
+		o.R.Loaded.GameServerOperationEvents = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerOperationEvents {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.GameServerOperationEvents = append(o.R.GameServerOperationEvents, rel)
+
+		}
+	}
+
+	return nil
+}
+
+// LoadGameServerPalworldMap loads the gameServer's GameServerPalworldMap into the .R struct
+func (o *GameServer) LoadGameServerPalworldMap(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerPalworldMap = nil
+	o.R.Loaded.GameServerPalworldMap = false
+
+	related, err := o.GameServerPalworldMap(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServer = o
+	related.R.Loaded.GameServer = true
+
+	o.R.GameServerPalworldMap = related
+	o.R.Loaded.GameServerPalworldMap = true
+	return nil
+}
+
+// LoadGameServerPalworldMap loads the gameServer's GameServerPalworldMap into the .R struct
+func (os GameServerSlice) LoadGameServerPalworldMap(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerPalworldMaps, err := os.GameServerPalworldMap(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerPalworldMap = nil
+		o.R.Loaded.GameServerPalworldMap = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerPalworldMaps {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			// to-one: keep only the first matching child (matches the previous break)
+			if o.R.GameServerPalworldMap != nil {
+				continue
+			}
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.GameServerPalworldMap = rel
+
+		}
+	}
+
+	return nil
+}
+
 // LoadGameServerSecrets loads the gameServer's GameServerSecrets into the .R struct
 func (o *GameServer) LoadGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2819,6 +3849,157 @@ func (os GameServerSlice) LoadGameServerSecrets(ctx context.Context, exec bob.Ex
 			rel.R.Loaded.GameServer = true
 
 			o.R.GameServerSecrets = append(o.R.GameServerSecrets, rel)
+
+		}
+	}
+
+	return nil
+}
+
+// LoadGameServerSevenDaysToDieMap loads the gameServer's GameServerSevenDaysToDieMap into the .R struct
+func (o *GameServer) LoadGameServerSevenDaysToDieMap(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerSevenDaysToDieMap = nil
+	o.R.Loaded.GameServerSevenDaysToDieMap = false
+
+	related, err := o.GameServerSevenDaysToDieMap(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServer = o
+	related.R.Loaded.GameServer = true
+
+	o.R.GameServerSevenDaysToDieMap = related
+	o.R.Loaded.GameServerSevenDaysToDieMap = true
+	return nil
+}
+
+// LoadGameServerSevenDaysToDieMap loads the gameServer's GameServerSevenDaysToDieMap into the .R struct
+func (os GameServerSlice) LoadGameServerSevenDaysToDieMap(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerSevenDaysToDieMaps, err := os.GameServerSevenDaysToDieMap(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerSevenDaysToDieMap = nil
+		o.R.Loaded.GameServerSevenDaysToDieMap = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerSevenDaysToDieMaps {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			// to-one: keep only the first matching child (matches the previous break)
+			if o.R.GameServerSevenDaysToDieMap != nil {
+				continue
+			}
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.GameServerSevenDaysToDieMap = rel
+
+		}
+	}
+
+	return nil
+}
+
+// LoadGameServerSevenDaysToDieMapShares loads the gameServer's GameServerSevenDaysToDieMapShares into the .R struct
+func (o *GameServer) LoadGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerSevenDaysToDieMapShares = nil
+	o.R.Loaded.GameServerSevenDaysToDieMapShares = false
+
+	related, err := o.GameServerSevenDaysToDieMapShares(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.GameServer = o
+		rel.R.Loaded.GameServer = true
+	}
+
+	o.R.GameServerSevenDaysToDieMapShares = related
+	o.R.Loaded.GameServerSevenDaysToDieMapShares = true
+	return nil
+}
+
+// LoadGameServerSevenDaysToDieMapShares loads the gameServer's GameServerSevenDaysToDieMapShares into the .R struct
+func (os GameServerSlice) LoadGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerSevenDaysToDieMapShares, err := os.GameServerSevenDaysToDieMapShares(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerSevenDaysToDieMapShares = nil
+		o.R.Loaded.GameServerSevenDaysToDieMapShares = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerSevenDaysToDieMapShares {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.GameServerSevenDaysToDieMapShares = append(o.R.GameServerSevenDaysToDieMapShares, rel)
 
 		}
 	}
@@ -3054,12 +4235,15 @@ func (os GameServerSlice) LoadUserRoleAssignments(ctx context.Context, exec bob.
 
 // gameServerC is where relationship counts are stored.
 type gameServerC struct {
-	GameServerBackups          *int64
-	GameServerMetricsHistories *int64
-	GameServerSecrets          *int64
-	InstalledMods              *int64
-	ScheduledTasks             *int64
-	UserRoleAssignments        *int64
+	GameServerBackups                 *int64
+	GameServerLifecycleEvents         *int64
+	GameServerMetricsHistories        *int64
+	GameServerOperationEvents         *int64
+	GameServerSecrets                 *int64
+	GameServerSevenDaysToDieMapShares *int64
+	InstalledMods                     *int64
+	ScheduledTasks                    *int64
+	UserRoleAssignments               *int64
 }
 
 // PreloadCount sets a count in the C struct by name
@@ -3071,10 +4255,16 @@ func (o *GameServer) PreloadCount(name string, count int64) error {
 	switch name {
 	case "GameServerBackups":
 		o.C.GameServerBackups = &count
+	case "GameServerLifecycleEvents":
+		o.C.GameServerLifecycleEvents = &count
 	case "GameServerMetricsHistories":
 		o.C.GameServerMetricsHistories = &count
+	case "GameServerOperationEvents":
+		o.C.GameServerOperationEvents = &count
 	case "GameServerSecrets":
 		o.C.GameServerSecrets = &count
+	case "GameServerSevenDaysToDieMapShares":
+		o.C.GameServerSevenDaysToDieMapShares = &count
 	case "InstalledMods":
 		o.C.InstalledMods = &count
 	case "ScheduledTasks":
@@ -3086,12 +4276,15 @@ func (o *GameServer) PreloadCount(name string, count int64) error {
 }
 
 type gameServerCountPreloader struct {
-	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	GameServerSecrets          func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	ScheduledTasks             func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GameServerBackups                 func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GameServerLifecycleEvents         func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GameServerMetricsHistories        func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GameServerOperationEvents         func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GameServerSecrets                 func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GameServerSevenDaysToDieMapShares func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	InstalledMods                     func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	ScheduledTasks                    func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	UserRoleAssignments               func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
 }
 
 func buildGameServerCountPreloader() gameServerCountPreloader {
@@ -3108,6 +4301,23 @@ func buildGameServerCountPreloader() gameServerCountPreloader {
 
 					sm.From(GameServerBackups.NameAsExpr()),
 					sm.Where(sqlite.Quote(GameServerBackups.Alias(), "game_server_id").EQ(sqlite.Quote(parent, "id"))),
+				}
+				subqueryMods = append(subqueryMods, mods...)
+				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
+			})
+		},
+		GameServerLifecycleEvents: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
+			return countPreloader[*GameServer]("GameServerLifecycleEvents", func(parent string) bob.Expression {
+				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
+				if parent == "" {
+					parent = GameServers.Alias()
+				}
+
+				subqueryMods := []bob.Mod[*dialect.SelectQuery]{
+					sm.Columns(sqlite.Raw("count(*)")),
+
+					sm.From(GameServerLifecycleEvents.NameAsExpr()),
+					sm.Where(sqlite.Quote(GameServerLifecycleEvents.Alias(), "game_server_id").EQ(sqlite.Quote(parent, "id"))),
 				}
 				subqueryMods = append(subqueryMods, mods...)
 				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
@@ -3130,6 +4340,23 @@ func buildGameServerCountPreloader() gameServerCountPreloader {
 				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
 			})
 		},
+		GameServerOperationEvents: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
+			return countPreloader[*GameServer]("GameServerOperationEvents", func(parent string) bob.Expression {
+				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
+				if parent == "" {
+					parent = GameServers.Alias()
+				}
+
+				subqueryMods := []bob.Mod[*dialect.SelectQuery]{
+					sm.Columns(sqlite.Raw("count(*)")),
+
+					sm.From(GameServerOperationEvents.NameAsExpr()),
+					sm.Where(sqlite.Quote(GameServerOperationEvents.Alias(), "game_server_id").EQ(sqlite.Quote(parent, "id"))),
+				}
+				subqueryMods = append(subqueryMods, mods...)
+				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
+			})
+		},
 		GameServerSecrets: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
 			return countPreloader[*GameServer]("GameServerSecrets", func(parent string) bob.Expression {
 				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
@@ -3142,6 +4369,23 @@ func buildGameServerCountPreloader() gameServerCountPreloader {
 
 					sm.From(GameServerSecrets.NameAsExpr()),
 					sm.Where(sqlite.Quote(GameServerSecrets.Alias(), "game_server_id").EQ(sqlite.Quote(parent, "id"))),
+				}
+				subqueryMods = append(subqueryMods, mods...)
+				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
+			})
+		},
+		GameServerSevenDaysToDieMapShares: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
+			return countPreloader[*GameServer]("GameServerSevenDaysToDieMapShares", func(parent string) bob.Expression {
+				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
+				if parent == "" {
+					parent = GameServers.Alias()
+				}
+
+				subqueryMods := []bob.Mod[*dialect.SelectQuery]{
+					sm.Columns(sqlite.Raw("count(*)")),
+
+					sm.From(GameServerSevenDaysToDieMapShares.NameAsExpr()),
+					sm.Where(sqlite.Quote(GameServerSevenDaysToDieMapShares.Alias(), "game_server_id").EQ(sqlite.Quote(parent, "id"))),
 				}
 				subqueryMods = append(subqueryMods, mods...)
 				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
@@ -3202,23 +4446,35 @@ func buildGameServerCountPreloader() gameServerCountPreloader {
 }
 
 type gameServerCountThenLoader[Q orm.Loadable] struct {
-	GameServerBackups          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServerMetricsHistories func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServerSecrets          func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	InstalledMods              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	ScheduledTasks             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserRoleAssignments        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerBackups                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerLifecycleEvents         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerMetricsHistories        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerOperationEvents         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerSecrets                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerSevenDaysToDieMapShares func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	InstalledMods                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	ScheduledTasks                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserRoleAssignments               func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildGameServerCountThenLoader[Q orm.Loadable]() gameServerCountThenLoader[Q] {
 	type GameServerBackupsCountInterface interface {
 		LoadCountGameServerBackups(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
+	type GameServerLifecycleEventsCountInterface interface {
+		LoadCountGameServerLifecycleEvents(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type GameServerMetricsHistoriesCountInterface interface {
 		LoadCountGameServerMetricsHistories(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
+	type GameServerOperationEventsCountInterface interface {
+		LoadCountGameServerOperationEvents(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type GameServerSecretsCountInterface interface {
 		LoadCountGameServerSecrets(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerSevenDaysToDieMapSharesCountInterface interface {
+		LoadCountGameServerSevenDaysToDieMapShares(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type InstalledModsCountInterface interface {
 		LoadCountInstalledMods(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -3237,16 +4493,34 @@ func buildGameServerCountThenLoader[Q orm.Loadable]() gameServerCountThenLoader[
 				return retrieved.LoadCountGameServerBackups(ctx, exec, mods...)
 			},
 		),
+		GameServerLifecycleEvents: countThenLoadBuilder[Q](
+			"GameServerLifecycleEvents",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerLifecycleEventsCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCountGameServerLifecycleEvents(ctx, exec, mods...)
+			},
+		),
 		GameServerMetricsHistories: countThenLoadBuilder[Q](
 			"GameServerMetricsHistories",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerMetricsHistoriesCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadCountGameServerMetricsHistories(ctx, exec, mods...)
 			},
 		),
+		GameServerOperationEvents: countThenLoadBuilder[Q](
+			"GameServerOperationEvents",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerOperationEventsCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCountGameServerOperationEvents(ctx, exec, mods...)
+			},
+		),
 		GameServerSecrets: countThenLoadBuilder[Q](
 			"GameServerSecrets",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerSecretsCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadCountGameServerSecrets(ctx, exec, mods...)
+			},
+		),
+		GameServerSevenDaysToDieMapShares: countThenLoadBuilder[Q](
+			"GameServerSevenDaysToDieMapShares",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerSevenDaysToDieMapSharesCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCountGameServerSevenDaysToDieMapShares(ctx, exec, mods...)
 			},
 		),
 		InstalledMods: countThenLoadBuilder[Q](
@@ -3348,6 +4622,84 @@ func (os GameServerSlice) LoadCountGameServerBackups(ctx context.Context, exec b
 	return nil
 }
 
+// LoadCountGameServerLifecycleEvents loads the count of GameServerLifecycleEvents into the C struct
+func (o *GameServer) LoadCountGameServerLifecycleEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	count, err := o.GameServerLifecycleEvents(mods...).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	o.C.GameServerLifecycleEvents = &count
+	return nil
+}
+
+// LoadCountGameServerLifecycleEvents loads the count of GameServerLifecycleEvents for a slice in a single batch query
+func (os GameServerSlice) LoadCountGameServerLifecycleEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	// Build the IN arg expression from parent PKs
+	PKArgSlice := make([]bob.Expression, 0, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		PKArgSlice = append(PKArgSlice, sqlite.Arg(o.ID))
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	// countResult holds one scanned row from the batch count query.
+	// FK columns are aliased to the parent PK column names for direct map lookup.
+	type countResult struct {
+		ID    string
+		Count int64
+	}
+
+	batchMods := []bob.Mod[*dialect.SelectQuery]{
+		// SELECT fk AS parent_pk, count(*)
+		sm.Columns(
+			GameServerLifecycleEvents.Columns.GameServerID.As("id"),
+			sqlite.Raw("count(*) as count"),
+		),
+		// Single-hop: FROM related table directly
+		sm.From(GameServerLifecycleEvents.NameAsExpr()),
+
+		// WHERE fk IN (parent PKs) — psql single-column FK uses `= ANY(array)` (see PKArgExpr above)
+		sm.Where(GameServerLifecycleEvents.Columns.GameServerID.OP("IN", PKArgExpr)),
+		// GROUP BY fk columns
+		sm.GroupBy(GameServerLifecycleEvents.Columns.GameServerID),
+	}
+	batchMods = append(batchMods, mods...)
+
+	results, err := bob.All(ctx, exec,
+		sqlite.Select(batchMods...),
+		scan.StructMapper[countResult](),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Single-column FK: direct map lookup
+	countMap := make(map[string]int64, len(results))
+	for _, r := range results {
+		countMap[r.ID] = r.Count
+	}
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		count := countMap[o.ID]
+		o.C.GameServerLifecycleEvents = &count
+	}
+
+	return nil
+}
+
 // LoadCountGameServerMetricsHistories loads the count of GameServerMetricsHistories into the C struct
 func (o *GameServer) LoadCountGameServerMetricsHistories(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -3426,6 +4778,84 @@ func (os GameServerSlice) LoadCountGameServerMetricsHistories(ctx context.Contex
 	return nil
 }
 
+// LoadCountGameServerOperationEvents loads the count of GameServerOperationEvents into the C struct
+func (o *GameServer) LoadCountGameServerOperationEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	count, err := o.GameServerOperationEvents(mods...).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	o.C.GameServerOperationEvents = &count
+	return nil
+}
+
+// LoadCountGameServerOperationEvents loads the count of GameServerOperationEvents for a slice in a single batch query
+func (os GameServerSlice) LoadCountGameServerOperationEvents(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	// Build the IN arg expression from parent PKs
+	PKArgSlice := make([]bob.Expression, 0, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		PKArgSlice = append(PKArgSlice, sqlite.Arg(o.ID))
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	// countResult holds one scanned row from the batch count query.
+	// FK columns are aliased to the parent PK column names for direct map lookup.
+	type countResult struct {
+		ID    string
+		Count int64
+	}
+
+	batchMods := []bob.Mod[*dialect.SelectQuery]{
+		// SELECT fk AS parent_pk, count(*)
+		sm.Columns(
+			GameServerOperationEvents.Columns.GameServerID.As("id"),
+			sqlite.Raw("count(*) as count"),
+		),
+		// Single-hop: FROM related table directly
+		sm.From(GameServerOperationEvents.NameAsExpr()),
+
+		// WHERE fk IN (parent PKs) — psql single-column FK uses `= ANY(array)` (see PKArgExpr above)
+		sm.Where(GameServerOperationEvents.Columns.GameServerID.OP("IN", PKArgExpr)),
+		// GROUP BY fk columns
+		sm.GroupBy(GameServerOperationEvents.Columns.GameServerID),
+	}
+	batchMods = append(batchMods, mods...)
+
+	results, err := bob.All(ctx, exec,
+		sqlite.Select(batchMods...),
+		scan.StructMapper[countResult](),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Single-column FK: direct map lookup
+	countMap := make(map[string]int64, len(results))
+	for _, r := range results {
+		countMap[r.ID] = r.Count
+	}
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		count := countMap[o.ID]
+		o.C.GameServerOperationEvents = &count
+	}
+
+	return nil
+}
+
 // LoadCountGameServerSecrets loads the count of GameServerSecrets into the C struct
 func (o *GameServer) LoadCountGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -3499,6 +4929,84 @@ func (os GameServerSlice) LoadCountGameServerSecrets(ctx context.Context, exec b
 		}
 		count := countMap[o.ID]
 		o.C.GameServerSecrets = &count
+	}
+
+	return nil
+}
+
+// LoadCountGameServerSevenDaysToDieMapShares loads the count of GameServerSevenDaysToDieMapShares into the C struct
+func (o *GameServer) LoadCountGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	count, err := o.GameServerSevenDaysToDieMapShares(mods...).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	o.C.GameServerSevenDaysToDieMapShares = &count
+	return nil
+}
+
+// LoadCountGameServerSevenDaysToDieMapShares loads the count of GameServerSevenDaysToDieMapShares for a slice in a single batch query
+func (os GameServerSlice) LoadCountGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	// Build the IN arg expression from parent PKs
+	PKArgSlice := make([]bob.Expression, 0, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		PKArgSlice = append(PKArgSlice, sqlite.Arg(o.ID))
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	// countResult holds one scanned row from the batch count query.
+	// FK columns are aliased to the parent PK column names for direct map lookup.
+	type countResult struct {
+		ID    string
+		Count int64
+	}
+
+	batchMods := []bob.Mod[*dialect.SelectQuery]{
+		// SELECT fk AS parent_pk, count(*)
+		sm.Columns(
+			GameServerSevenDaysToDieMapShares.Columns.GameServerID.As("id"),
+			sqlite.Raw("count(*) as count"),
+		),
+		// Single-hop: FROM related table directly
+		sm.From(GameServerSevenDaysToDieMapShares.NameAsExpr()),
+
+		// WHERE fk IN (parent PKs) — psql single-column FK uses `= ANY(array)` (see PKArgExpr above)
+		sm.Where(GameServerSevenDaysToDieMapShares.Columns.GameServerID.OP("IN", PKArgExpr)),
+		// GROUP BY fk columns
+		sm.GroupBy(GameServerSevenDaysToDieMapShares.Columns.GameServerID),
+	}
+	batchMods = append(batchMods, mods...)
+
+	results, err := bob.All(ctx, exec,
+		sqlite.Select(batchMods...),
+		scan.StructMapper[countResult](),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Single-column FK: direct map lookup
+	countMap := make(map[string]int64, len(results))
+	for _, r := range results {
+		countMap[r.ID] = r.Count
+	}
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		count := countMap[o.ID]
+		o.C.GameServerSevenDaysToDieMapShares = &count
 	}
 
 	return nil
@@ -3739,17 +5247,23 @@ func (os GameServerSlice) LoadCountUserRoleAssignments(ctx context.Context, exec
 }
 
 type gameServerJoins[Q dialect.Joinable] struct {
-	typ                        string
-	IP                         modAs[Q, ipColumns]
-	Node                       modAs[Q, nodeColumns]
-	Game                       modAs[Q, gameColumns]
-	User                       modAs[Q, userColumns]
-	GameServerBackups          modAs[Q, gameServerBackupColumns]
-	GameServerMetricsHistories modAs[Q, gameServerMetricsHistoryColumns]
-	GameServerSecrets          modAs[Q, gameServerSecretColumns]
-	InstalledMods              modAs[Q, installedModColumns]
-	ScheduledTasks             modAs[Q, scheduledTaskColumns]
-	UserRoleAssignments        modAs[Q, userRoleAssignmentColumns]
+	typ                               string
+	IP                                modAs[Q, ipColumns]
+	Node                              modAs[Q, nodeColumns]
+	Game                              modAs[Q, gameColumns]
+	User                              modAs[Q, userColumns]
+	GameServerBackups                 modAs[Q, gameServerBackupColumns]
+	GameServerLifecycleEvents         modAs[Q, gameServerLifecycleEventColumns]
+	GameServerMetricsHistories        modAs[Q, gameServerMetricsHistoryColumns]
+	GameServerMinecraftMap            modAs[Q, gameServerMinecraftMapColumns]
+	GameServerOperationEvents         modAs[Q, gameServerOperationEventColumns]
+	GameServerPalworldMap             modAs[Q, gameServerPalworldMapColumns]
+	GameServerSecrets                 modAs[Q, gameServerSecretColumns]
+	GameServerSevenDaysToDieMap       modAs[Q, gameServerSevenDaysToDieMapColumns]
+	GameServerSevenDaysToDieMapShares modAs[Q, gameServerSevenDaysToDieMapShareColumns]
+	InstalledMods                     modAs[Q, installedModColumns]
+	ScheduledTasks                    modAs[Q, scheduledTaskColumns]
+	UserRoleAssignments               modAs[Q, userRoleAssignmentColumns]
 }
 
 func (j gameServerJoins[Q]) aliasedAs(alias string) gameServerJoins[Q] {
@@ -3829,6 +5343,20 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 				return mods
 			},
 		},
+		GameServerLifecycleEvents: modAs[Q, gameServerLifecycleEventColumns]{
+			c: GameServerLifecycleEvents.Columns,
+			f: func(to gameServerLifecycleEventColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerLifecycleEvents.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
 		GameServerMetricsHistories: modAs[Q, gameServerMetricsHistoryColumns]{
 			c: GameServerMetricsHistories.Columns,
 			f: func(to gameServerMetricsHistoryColumns) bob.Mod[Q] {
@@ -3843,6 +5371,48 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 				return mods
 			},
 		},
+		GameServerMinecraftMap: modAs[Q, gameServerMinecraftMapColumns]{
+			c: GameServerMinecraftMaps.Columns,
+			f: func(to gameServerMinecraftMapColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerMinecraftMaps.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerOperationEvents: modAs[Q, gameServerOperationEventColumns]{
+			c: GameServerOperationEvents.Columns,
+			f: func(to gameServerOperationEventColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerOperationEvents.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerPalworldMap: modAs[Q, gameServerPalworldMapColumns]{
+			c: GameServerPalworldMaps.Columns,
+			f: func(to gameServerPalworldMapColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerPalworldMaps.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
 		GameServerSecrets: modAs[Q, gameServerSecretColumns]{
 			c: GameServerSecrets.Columns,
 			f: func(to gameServerSecretColumns) bob.Mod[Q] {
@@ -3850,6 +5420,34 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServerSecrets.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerSevenDaysToDieMap: modAs[Q, gameServerSevenDaysToDieMapColumns]{
+			c: GameServerSevenDaysToDieMaps.Columns,
+			f: func(to gameServerSevenDaysToDieMapColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerSevenDaysToDieMaps.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerSevenDaysToDieMapShares: modAs[Q, gameServerSevenDaysToDieMapShareColumns]{
+			c: GameServerSevenDaysToDieMapShares.Columns,
+			f: func(to gameServerSevenDaysToDieMapShareColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerSevenDaysToDieMapShares.NameExpr().As(to.Alias())).On(
 						to.GameServerID.EQ(cols.ID),
 					))
 				}

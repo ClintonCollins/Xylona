@@ -90,6 +90,49 @@ func (c *Connection) UpdateGameServer(exec bob.Executor, gameServerSetter *model
 	return gameServer, nil
 }
 
+// UpdateGameServerForEdit applies a complete edit and clears the public address
+// in the same transaction when the owner changes.
+func (c *Connection) UpdateGameServerForEdit(gameServerSetter *models.GameServerSetter, previousOwnerID string) (*models.GameServer, error) {
+	if !gameServerSetter.ID.IsValue() || !gameServerSetter.UserID.IsValue() {
+		return nil, fmt.Errorf("update game server for edit: ID and user ID are required")
+	}
+
+	tx, errBegin := c.SQLDb.BeginTx(c.ctx, nil)
+	if errBegin != nil {
+		return nil, fmt.Errorf("begin game server edit: %w", errBegin)
+	}
+	committed := false
+	defer rollbackTxIfNeeded(tx, &committed, "game server edit")
+
+	gameServerID := gameServerSetter.ID.MustGet()
+	if gameServerSetter.UserID.MustGet() != previousOwnerID {
+		_, errClear := tx.ExecContext(
+			c.ctx,
+			`update game_server set public_connection_address = null where id = ? and user_id = ?`,
+			gameServerID,
+			previousOwnerID,
+		)
+		if errClear != nil {
+			return nil, fmt.Errorf("clear transferred game server public address: %w", errClear)
+		}
+	}
+
+	_, errUpdate := models.GameServers.Update(
+		models.UpdateWhere.GameServers.ID.EQ(gameServerID),
+		gameServerSetter.UpdateMod(),
+	).One(c.ctx, bob.NewTx(tx))
+	if errUpdate != nil {
+		return nil, fmt.Errorf("update game server for edit: %w", errUpdate)
+	}
+
+	errCommit := tx.Commit()
+	if errCommit != nil {
+		return nil, fmt.Errorf("commit game server edit: %w", errCommit)
+	}
+	committed = true
+	return c.GetGameServerByID(gameServerID)
+}
+
 // DeleteGameServer deletes a game server by ID.
 func (c *Connection) DeleteGameServer(gameServerID string) error {
 	gs := models.GameServerSlice{&models.GameServer{ID: gameServerID}}

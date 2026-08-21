@@ -96,6 +96,8 @@ type Instance struct {
 	nodeRegistry          *noderegistry.Registry
 	serverQueriesInfoMap  map[string]*xylona.ServerQuery
 	serverQueriesMutex    *sync.RWMutex
+	gameServerStatuses    map[string]xylona.Status
+	gameServerStatusMutex sync.RWMutex
 	palworldMaps          map[string]PalworldMapState
 	palworldMapsMutex     sync.RWMutex
 	queryTelemetry        gameServerQueryTelemetryStore
@@ -174,6 +176,7 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 		nodeRegistry:         nodeRegistry,
 		serverQueriesInfoMap: make(map[string]*xylona.ServerQuery),
 		serverQueriesMutex:   &sync.RWMutex{},
+		gameServerStatuses:   make(map[string]xylona.Status),
 		palworldMaps:         make(map[string]PalworldMapState),
 		db:                   database,
 		modManager:           modMgr,
@@ -1116,6 +1119,27 @@ func (inst *Instance) updateGameServerWithExecutionID(gameServer *models.GameSer
 // supervisor directly.
 func (inst *Instance) CurrentStatus(gameServer *models.GameServer) xylona.Status {
 	return inst.currentProcessStatus(gameServer)
+}
+
+// GetCachedGameServerStatus returns the latest status captured by the
+// background server poll without contacting a node.
+func (inst *Instance) GetCachedGameServerStatus(gameServerID string) xylona.Status {
+	inst.gameServerStatusMutex.RLock()
+	status, ok := inst.gameServerStatuses[gameServerID]
+	inst.gameServerStatusMutex.RUnlock()
+	if !ok {
+		return xylona.Status_UNKNOWN
+	}
+	return status
+}
+
+func (inst *Instance) storeGameServerStatus(gameServerID string, status xylona.Status) {
+	inst.gameServerStatusMutex.Lock()
+	if inst.gameServerStatuses == nil {
+		inst.gameServerStatuses = make(map[string]xylona.Status)
+	}
+	inst.gameServerStatuses[gameServerID] = status
+	inst.gameServerStatusMutex.Unlock()
 }
 
 // SendConsoleInput writes a single line of input to the running game

@@ -53,16 +53,21 @@ type UsersQuery = *sqlite.ViewQuery[*User, UserSlice]
 
 // userR is where relationships are stored.
 type userR struct {
-	AlertHistories                  AlertHistorySlice        // fk_alert_history_0
-	AlertRules                      AlertRuleSlice           // fk_alert_rule_2
-	GameServers                     GameServerSlice          // fk_game_server_3
-	UpdatedByUserGameServerSecrets  GameServerSecretSlice    // fk_game_server_secret_0
-	NotificationChannels            NotificationChannelSlice // fk_notification_channel_0
-	CreatedByScheduledTasks         ScheduledTaskSlice       // fk_scheduled_task_0
-	RequestedByUserSystemUpdateJobs SystemUpdateJobSlice     // fk_system_update_job_0
-	GrantedByUserRoleAssignments    UserRoleAssignmentSlice  // fk_user_role_assignment_0
-	UserRoleAssignments             UserRoleAssignmentSlice  // fk_user_role_assignment_3
-	UserSessions                    UserSessionSlice         // fk_user_session_0
+	AlertHistories                                 AlertHistorySlice                     // fk_alert_history_0
+	AlertRules                                     AlertRuleSlice                        // fk_alert_rule_2
+	GameServers                                    GameServerSlice                       // fk_game_server_3
+	UpdatedByUserGameServerMinecraftMaps           GameServerMinecraftMapSlice           // fk_game_server_minecraft_map_0
+	UpdatedByUserGameServerPalworldMaps            GameServerPalworldMapSlice            // fk_game_server_palworld_map_0
+	UpdatedByUserGameServerSecrets                 GameServerSecretSlice                 // fk_game_server_secret_0
+	UpdatedByUserGameServerSevenDaysToDieMaps      GameServerSevenDaysToDieMapSlice      // fk_game_server_seven_days_to_die_map_0
+	CreatedByUserGameServerSevenDaysToDieMapShares GameServerSevenDaysToDieMapShareSlice // fk_game_server_seven_days_to_die_map_share_0
+	GameServerStatusPage                           *GameServerStatusPage                 // fk_game_server_status_page_1
+	NotificationChannels                           NotificationChannelSlice              // fk_notification_channel_0
+	CreatedByScheduledTasks                        ScheduledTaskSlice                    // fk_scheduled_task_0
+	RequestedByUserSystemUpdateJobs                SystemUpdateJobSlice                  // fk_system_update_job_0
+	GrantedByUserRoleAssignments                   UserRoleAssignmentSlice               // fk_user_role_assignment_0
+	UserRoleAssignments                            UserRoleAssignmentSlice               // fk_user_role_assignment_3
+	UserSessions                                   UserSessionSlice                      // fk_user_session_0
 	// Loaded reports whether each relationship has been loaded.
 	// A relationship's bool is set by Load*, Preload, ThenLoad, factory builds,
 	// and to-one Attach/Insert operations. To-many Attach/Insert operations leave it unchanged.
@@ -71,16 +76,21 @@ type userR struct {
 
 // userRLoaded tracks which relationships on User have been loaded.
 type userRLoaded struct {
-	AlertHistories                  bool // fk_alert_history_0
-	AlertRules                      bool // fk_alert_rule_2
-	GameServers                     bool // fk_game_server_3
-	UpdatedByUserGameServerSecrets  bool // fk_game_server_secret_0
-	NotificationChannels            bool // fk_notification_channel_0
-	CreatedByScheduledTasks         bool // fk_scheduled_task_0
-	RequestedByUserSystemUpdateJobs bool // fk_system_update_job_0
-	GrantedByUserRoleAssignments    bool // fk_user_role_assignment_0
-	UserRoleAssignments             bool // fk_user_role_assignment_3
-	UserSessions                    bool // fk_user_session_0
+	AlertHistories                                 bool // fk_alert_history_0
+	AlertRules                                     bool // fk_alert_rule_2
+	GameServers                                    bool // fk_game_server_3
+	UpdatedByUserGameServerMinecraftMaps           bool // fk_game_server_minecraft_map_0
+	UpdatedByUserGameServerPalworldMaps            bool // fk_game_server_palworld_map_0
+	UpdatedByUserGameServerSecrets                 bool // fk_game_server_secret_0
+	UpdatedByUserGameServerSevenDaysToDieMaps      bool // fk_game_server_seven_days_to_die_map_0
+	CreatedByUserGameServerSevenDaysToDieMapShares bool // fk_game_server_seven_days_to_die_map_share_0
+	GameServerStatusPage                           bool // fk_game_server_status_page_1
+	NotificationChannels                           bool // fk_notification_channel_0
+	CreatedByScheduledTasks                        bool // fk_scheduled_task_0
+	RequestedByUserSystemUpdateJobs                bool // fk_system_update_job_0
+	GrantedByUserRoleAssignments                   bool // fk_user_role_assignment_0
+	UserRoleAssignments                            bool // fk_user_role_assignment_3
+	UserSessions                                   bool // fk_user_session_0
 }
 
 func buildUserColumns(tableName string) userColumns {
@@ -700,6 +710,44 @@ func (os UserSlice) GameServers(mods ...bob.Mod[*dialect.SelectQuery]) GameServe
 	)...)
 }
 
+// UpdatedByUserGameServerMinecraftMaps starts a query for related objects on game_server_minecraft_map
+func (o *User) UpdatedByUserGameServerMinecraftMaps(mods ...bob.Mod[*dialect.SelectQuery]) GameServerMinecraftMapsQuery {
+	return GameServerMinecraftMaps.Query(append(mods,
+		sm.Where(GameServerMinecraftMaps.Columns.UpdatedByUserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) UpdatedByUserGameServerMinecraftMaps(mods ...bob.Mod[*dialect.SelectQuery]) GameServerMinecraftMapsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerMinecraftMaps.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerMinecraftMaps.Columns.UpdatedByUserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// UpdatedByUserGameServerPalworldMaps starts a query for related objects on game_server_palworld_map
+func (o *User) UpdatedByUserGameServerPalworldMaps(mods ...bob.Mod[*dialect.SelectQuery]) GameServerPalworldMapsQuery {
+	return GameServerPalworldMaps.Query(append(mods,
+		sm.Where(GameServerPalworldMaps.Columns.UpdatedByUserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) UpdatedByUserGameServerPalworldMaps(mods ...bob.Mod[*dialect.SelectQuery]) GameServerPalworldMapsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerPalworldMaps.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerPalworldMaps.Columns.UpdatedByUserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // UpdatedByUserGameServerSecrets starts a query for related objects on game_server_secret
 func (o *User) UpdatedByUserGameServerSecrets(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSecretsQuery {
 	return GameServerSecrets.Query(append(mods,
@@ -716,6 +764,63 @@ func (os UserSlice) UpdatedByUserGameServerSecrets(mods ...bob.Mod[*dialect.Sele
 
 	return GameServerSecrets.Query(append(mods,
 		sm.Where(sqlite.Group(GameServerSecrets.Columns.UpdatedByUserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// UpdatedByUserGameServerSevenDaysToDieMaps starts a query for related objects on game_server_seven_days_to_die_map
+func (o *User) UpdatedByUserGameServerSevenDaysToDieMaps(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapsQuery {
+	return GameServerSevenDaysToDieMaps.Query(append(mods,
+		sm.Where(GameServerSevenDaysToDieMaps.Columns.UpdatedByUserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) UpdatedByUserGameServerSevenDaysToDieMaps(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerSevenDaysToDieMaps.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerSevenDaysToDieMaps.Columns.UpdatedByUserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// CreatedByUserGameServerSevenDaysToDieMapShares starts a query for related objects on game_server_seven_days_to_die_map_share
+func (o *User) CreatedByUserGameServerSevenDaysToDieMapShares(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapSharesQuery {
+	return GameServerSevenDaysToDieMapShares.Query(append(mods,
+		sm.Where(GameServerSevenDaysToDieMapShares.Columns.CreatedByUserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) CreatedByUserGameServerSevenDaysToDieMapShares(mods ...bob.Mod[*dialect.SelectQuery]) GameServerSevenDaysToDieMapSharesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerSevenDaysToDieMapShares.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerSevenDaysToDieMapShares.Columns.CreatedByUserID).OP("IN", PKArgExpr)),
+	)...)
+}
+
+// GameServerStatusPage starts a query for related objects on game_server_status_page
+func (o *User) GameServerStatusPage(mods ...bob.Mod[*dialect.SelectQuery]) GameServerStatusPagesQuery {
+	return GameServerStatusPages.Query(append(mods,
+		sm.Where(GameServerStatusPages.Columns.UserID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os UserSlice) GameServerStatusPage(mods ...bob.Mod[*dialect.SelectQuery]) GameServerStatusPagesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerStatusPages.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerStatusPages.Columns.UserID).OP("IN", PKArgExpr)),
 	)...)
 }
 
@@ -1043,6 +1148,146 @@ func (user0 *User) AttachGameServers(ctx context.Context, exec bob.Executor, rel
 	return nil
 }
 
+func insertUserUpdatedByUserGameServerMinecraftMaps0(ctx context.Context, exec bob.Executor, gameServerMinecraftMaps1 []*GameServerMinecraftMapSetter, user0 *User) (GameServerMinecraftMapSlice, error) {
+	for i := range gameServerMinecraftMaps1 {
+		gameServerMinecraftMaps1[i].UpdatedByUserID = omitnull.From(user0.ID)
+	}
+
+	ret, err := GameServerMinecraftMaps.Insert(bob.ToMods(gameServerMinecraftMaps1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserUpdatedByUserGameServerMinecraftMaps0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserUpdatedByUserGameServerMinecraftMaps0(ctx context.Context, exec bob.Executor, count int, gameServerMinecraftMaps1 GameServerMinecraftMapSlice, user0 *User) (GameServerMinecraftMapSlice, error) {
+	setter := &GameServerMinecraftMapSetter{
+		UpdatedByUserID: omitnull.From(user0.ID),
+	}
+
+	err := gameServerMinecraftMaps1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserUpdatedByUserGameServerMinecraftMaps0: %w", err)
+	}
+
+	return gameServerMinecraftMaps1, nil
+}
+
+func (user0 *User) InsertUpdatedByUserGameServerMinecraftMaps(ctx context.Context, exec bob.Executor, related ...*GameServerMinecraftMapSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerMinecraftMaps1, err := insertUserUpdatedByUserGameServerMinecraftMaps0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerMinecraftMaps = append(user0.R.UpdatedByUserGameServerMinecraftMaps, gameServerMinecraftMaps1...)
+
+	for _, rel := range gameServerMinecraftMaps1 {
+		rel.R.UpdatedByUserUser = user0
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+	return nil
+}
+
+func (user0 *User) AttachUpdatedByUserGameServerMinecraftMaps(ctx context.Context, exec bob.Executor, related ...*GameServerMinecraftMap) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerMinecraftMaps1 := GameServerMinecraftMapSlice(related)
+
+	_, err = attachUserUpdatedByUserGameServerMinecraftMaps0(ctx, exec, len(related), gameServerMinecraftMaps1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerMinecraftMaps = append(user0.R.UpdatedByUserGameServerMinecraftMaps, gameServerMinecraftMaps1...)
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = user0
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+
+	return nil
+}
+
+func insertUserUpdatedByUserGameServerPalworldMaps0(ctx context.Context, exec bob.Executor, gameServerPalworldMaps1 []*GameServerPalworldMapSetter, user0 *User) (GameServerPalworldMapSlice, error) {
+	for i := range gameServerPalworldMaps1 {
+		gameServerPalworldMaps1[i].UpdatedByUserID = omitnull.From(user0.ID)
+	}
+
+	ret, err := GameServerPalworldMaps.Insert(bob.ToMods(gameServerPalworldMaps1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserUpdatedByUserGameServerPalworldMaps0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserUpdatedByUserGameServerPalworldMaps0(ctx context.Context, exec bob.Executor, count int, gameServerPalworldMaps1 GameServerPalworldMapSlice, user0 *User) (GameServerPalworldMapSlice, error) {
+	setter := &GameServerPalworldMapSetter{
+		UpdatedByUserID: omitnull.From(user0.ID),
+	}
+
+	err := gameServerPalworldMaps1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserUpdatedByUserGameServerPalworldMaps0: %w", err)
+	}
+
+	return gameServerPalworldMaps1, nil
+}
+
+func (user0 *User) InsertUpdatedByUserGameServerPalworldMaps(ctx context.Context, exec bob.Executor, related ...*GameServerPalworldMapSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerPalworldMaps1, err := insertUserUpdatedByUserGameServerPalworldMaps0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerPalworldMaps = append(user0.R.UpdatedByUserGameServerPalworldMaps, gameServerPalworldMaps1...)
+
+	for _, rel := range gameServerPalworldMaps1 {
+		rel.R.UpdatedByUserUser = user0
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+	return nil
+}
+
+func (user0 *User) AttachUpdatedByUserGameServerPalworldMaps(ctx context.Context, exec bob.Executor, related ...*GameServerPalworldMap) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerPalworldMaps1 := GameServerPalworldMapSlice(related)
+
+	_, err = attachUserUpdatedByUserGameServerPalworldMaps0(ctx, exec, len(related), gameServerPalworldMaps1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerPalworldMaps = append(user0.R.UpdatedByUserGameServerPalworldMaps, gameServerPalworldMaps1...)
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = user0
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+
+	return nil
+}
+
 func insertUserUpdatedByUserGameServerSecrets0(ctx context.Context, exec bob.Executor, gameServerSecrets1 []*GameServerSecretSetter, user0 *User) (GameServerSecretSlice, error) {
 	for i := range gameServerSecrets1 {
 		gameServerSecrets1[i].UpdatedByUserID = omitnull.From(user0.ID)
@@ -1109,6 +1354,204 @@ func (user0 *User) AttachUpdatedByUserGameServerSecrets(ctx context.Context, exe
 		rel.R.UpdatedByUserUser = user0
 		rel.R.Loaded.UpdatedByUserUser = true
 	}
+
+	return nil
+}
+
+func insertUserUpdatedByUserGameServerSevenDaysToDieMaps0(ctx context.Context, exec bob.Executor, gameServerSevenDaysToDieMaps1 []*GameServerSevenDaysToDieMapSetter, user0 *User) (GameServerSevenDaysToDieMapSlice, error) {
+	for i := range gameServerSevenDaysToDieMaps1 {
+		gameServerSevenDaysToDieMaps1[i].UpdatedByUserID = omitnull.From(user0.ID)
+	}
+
+	ret, err := GameServerSevenDaysToDieMaps.Insert(bob.ToMods(gameServerSevenDaysToDieMaps1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserUpdatedByUserGameServerSevenDaysToDieMaps0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserUpdatedByUserGameServerSevenDaysToDieMaps0(ctx context.Context, exec bob.Executor, count int, gameServerSevenDaysToDieMaps1 GameServerSevenDaysToDieMapSlice, user0 *User) (GameServerSevenDaysToDieMapSlice, error) {
+	setter := &GameServerSevenDaysToDieMapSetter{
+		UpdatedByUserID: omitnull.From(user0.ID),
+	}
+
+	err := gameServerSevenDaysToDieMaps1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserUpdatedByUserGameServerSevenDaysToDieMaps0: %w", err)
+	}
+
+	return gameServerSevenDaysToDieMaps1, nil
+}
+
+func (user0 *User) InsertUpdatedByUserGameServerSevenDaysToDieMaps(ctx context.Context, exec bob.Executor, related ...*GameServerSevenDaysToDieMapSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerSevenDaysToDieMaps1, err := insertUserUpdatedByUserGameServerSevenDaysToDieMaps0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerSevenDaysToDieMaps = append(user0.R.UpdatedByUserGameServerSevenDaysToDieMaps, gameServerSevenDaysToDieMaps1...)
+
+	for _, rel := range gameServerSevenDaysToDieMaps1 {
+		rel.R.UpdatedByUserUser = user0
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+	return nil
+}
+
+func (user0 *User) AttachUpdatedByUserGameServerSevenDaysToDieMaps(ctx context.Context, exec bob.Executor, related ...*GameServerSevenDaysToDieMap) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerSevenDaysToDieMaps1 := GameServerSevenDaysToDieMapSlice(related)
+
+	_, err = attachUserUpdatedByUserGameServerSevenDaysToDieMaps0(ctx, exec, len(related), gameServerSevenDaysToDieMaps1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.UpdatedByUserGameServerSevenDaysToDieMaps = append(user0.R.UpdatedByUserGameServerSevenDaysToDieMaps, gameServerSevenDaysToDieMaps1...)
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = user0
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+
+	return nil
+}
+
+func insertUserCreatedByUserGameServerSevenDaysToDieMapShares0(ctx context.Context, exec bob.Executor, gameServerSevenDaysToDieMapShares1 []*GameServerSevenDaysToDieMapShareSetter, user0 *User) (GameServerSevenDaysToDieMapShareSlice, error) {
+	for i := range gameServerSevenDaysToDieMapShares1 {
+		gameServerSevenDaysToDieMapShares1[i].CreatedByUserID = omitnull.From(user0.ID)
+	}
+
+	ret, err := GameServerSevenDaysToDieMapShares.Insert(bob.ToMods(gameServerSevenDaysToDieMapShares1...)).All(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserCreatedByUserGameServerSevenDaysToDieMapShares0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserCreatedByUserGameServerSevenDaysToDieMapShares0(ctx context.Context, exec bob.Executor, count int, gameServerSevenDaysToDieMapShares1 GameServerSevenDaysToDieMapShareSlice, user0 *User) (GameServerSevenDaysToDieMapShareSlice, error) {
+	setter := &GameServerSevenDaysToDieMapShareSetter{
+		CreatedByUserID: omitnull.From(user0.ID),
+	}
+
+	err := gameServerSevenDaysToDieMapShares1.UpdateAll(ctx, exec, *setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserCreatedByUserGameServerSevenDaysToDieMapShares0: %w", err)
+	}
+
+	return gameServerSevenDaysToDieMapShares1, nil
+}
+
+func (user0 *User) InsertCreatedByUserGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, related ...*GameServerSevenDaysToDieMapShareSetter) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+
+	gameServerSevenDaysToDieMapShares1, err := insertUserCreatedByUserGameServerSevenDaysToDieMapShares0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.CreatedByUserGameServerSevenDaysToDieMapShares = append(user0.R.CreatedByUserGameServerSevenDaysToDieMapShares, gameServerSevenDaysToDieMapShares1...)
+
+	for _, rel := range gameServerSevenDaysToDieMapShares1 {
+		rel.R.CreatedByUserUser = user0
+		rel.R.Loaded.CreatedByUserUser = true
+	}
+	return nil
+}
+
+func (user0 *User) AttachCreatedByUserGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, related ...*GameServerSevenDaysToDieMapShare) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	gameServerSevenDaysToDieMapShares1 := GameServerSevenDaysToDieMapShareSlice(related)
+
+	_, err = attachUserCreatedByUserGameServerSevenDaysToDieMapShares0(ctx, exec, len(related), gameServerSevenDaysToDieMapShares1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.CreatedByUserGameServerSevenDaysToDieMapShares = append(user0.R.CreatedByUserGameServerSevenDaysToDieMapShares, gameServerSevenDaysToDieMapShares1...)
+
+	for _, rel := range related {
+		rel.R.CreatedByUserUser = user0
+		rel.R.Loaded.CreatedByUserUser = true
+	}
+
+	return nil
+}
+
+func insertUserGameServerStatusPage0(ctx context.Context, exec bob.Executor, gameServerStatusPage1 *GameServerStatusPageSetter, user0 *User) (*GameServerStatusPage, error) {
+	gameServerStatusPage1.UserID = omit.From(user0.ID)
+
+	ret, err := GameServerStatusPages.Insert(gameServerStatusPage1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertUserGameServerStatusPage0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachUserGameServerStatusPage0(ctx context.Context, exec bob.Executor, count int, gameServerStatusPage1 *GameServerStatusPage, user0 *User) (*GameServerStatusPage, error) {
+	setter := &GameServerStatusPageSetter{
+		UserID: omit.From(user0.ID),
+	}
+
+	err := gameServerStatusPage1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachUserGameServerStatusPage0: %w", err)
+	}
+
+	return gameServerStatusPage1, nil
+}
+
+func (user0 *User) InsertGameServerStatusPage(ctx context.Context, exec bob.Executor, related *GameServerStatusPageSetter) error {
+	var err error
+
+	gameServerStatusPage1, err := insertUserGameServerStatusPage0(ctx, exec, related, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.GameServerStatusPage = gameServerStatusPage1
+	user0.R.Loaded.GameServerStatusPage = true
+
+	gameServerStatusPage1.R.User = user0
+	gameServerStatusPage1.R.Loaded.User = true
+
+	return nil
+}
+
+func (user0 *User) AttachGameServerStatusPage(ctx context.Context, exec bob.Executor, gameServerStatusPage1 *GameServerStatusPage) error {
+	var err error
+
+	_, err = attachUserGameServerStatusPage0(ctx, exec, 1, gameServerStatusPage1, user0)
+	if err != nil {
+		return err
+	}
+
+	user0.R.GameServerStatusPage = gameServerStatusPage1
+	user0.R.Loaded.GameServerStatusPage = true
+
+	gameServerStatusPage1.R.User = user0
+	gameServerStatusPage1.R.Loaded.User = true
 
 	return nil
 }
@@ -1619,6 +2062,38 @@ func (o *User) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "UpdatedByUserGameServerMinecraftMaps":
+		rels, ok := retrieved.(GameServerMinecraftMapSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.UpdatedByUserGameServerMinecraftMaps = rels
+		o.R.Loaded.UpdatedByUserGameServerMinecraftMaps = true
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.UpdatedByUserUser = o
+				rel.R.Loaded.UpdatedByUserUser = true
+			}
+		}
+		return nil
+	case "UpdatedByUserGameServerPalworldMaps":
+		rels, ok := retrieved.(GameServerPalworldMapSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.UpdatedByUserGameServerPalworldMaps = rels
+		o.R.Loaded.UpdatedByUserGameServerPalworldMaps = true
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.UpdatedByUserUser = o
+				rel.R.Loaded.UpdatedByUserUser = true
+			}
+		}
+		return nil
 	case "UpdatedByUserGameServerSecrets":
 		rels, ok := retrieved.(GameServerSecretSlice)
 		if !ok {
@@ -1633,6 +2108,52 @@ func (o *User) Preload(name string, retrieved any) error {
 				rel.R.UpdatedByUserUser = o
 				rel.R.Loaded.UpdatedByUserUser = true
 			}
+		}
+		return nil
+	case "UpdatedByUserGameServerSevenDaysToDieMaps":
+		rels, ok := retrieved.(GameServerSevenDaysToDieMapSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.UpdatedByUserGameServerSevenDaysToDieMaps = rels
+		o.R.Loaded.UpdatedByUserGameServerSevenDaysToDieMaps = true
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.UpdatedByUserUser = o
+				rel.R.Loaded.UpdatedByUserUser = true
+			}
+		}
+		return nil
+	case "CreatedByUserGameServerSevenDaysToDieMapShares":
+		rels, ok := retrieved.(GameServerSevenDaysToDieMapShareSlice)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.CreatedByUserGameServerSevenDaysToDieMapShares = rels
+		o.R.Loaded.CreatedByUserGameServerSevenDaysToDieMapShares = true
+
+		for _, rel := range rels {
+			if rel != nil {
+				rel.R.CreatedByUserUser = o
+				rel.R.Loaded.CreatedByUserUser = true
+			}
+		}
+		return nil
+	case "GameServerStatusPage":
+		rel, ok := retrieved.(*GameServerStatusPage)
+		if !ok {
+			return fmt.Errorf("user cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerStatusPage = rel
+		o.R.Loaded.GameServerStatusPage = true
+
+		if rel != nil {
+			rel.R.User = o
+			rel.R.Loaded.User = true
 		}
 		return nil
 	case "NotificationChannels":
@@ -1736,23 +2257,44 @@ func (o *User) Preload(name string, retrieved any) error {
 	}
 }
 
-type userPreloader struct{}
+type userPreloader struct {
+	GameServerStatusPage func(...sqlite.PreloadOption) sqlite.Preloader
+}
 
 func buildUserPreloader() userPreloader {
-	return userPreloader{}
+	return userPreloader{
+		GameServerStatusPage: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*GameServerStatusPage, GameServerStatusPageSlice](sqlite.PreloadRel{
+				Name: "GameServerStatusPage",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        Users,
+						To:          GameServerStatusPages,
+						FromColumns: []string{"id"},
+						ToColumns:   []string{"user_id"},
+					},
+				},
+			}, GameServerStatusPages.Columns.Names(), opts...)
+		},
+	}
 }
 
 type userThenLoader[Q orm.Loadable] struct {
-	AlertHistories                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	AlertRules                      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServers                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UpdatedByUserGameServerSecrets  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	NotificationChannels            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	CreatedByScheduledTasks         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	RequestedByUserSystemUpdateJobs func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GrantedByUserRoleAssignments    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserRoleAssignments             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserSessions                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	AlertHistories                                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	AlertRules                                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServers                                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerMinecraftMaps           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerPalworldMaps            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerSecrets                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerSevenDaysToDieMaps      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	CreatedByUserGameServerSevenDaysToDieMapShares func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerStatusPage                           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	NotificationChannels                           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	CreatedByScheduledTasks                        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	RequestedByUserSystemUpdateJobs                func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GrantedByUserRoleAssignments                   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserRoleAssignments                            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserSessions                                   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
@@ -1765,8 +2307,23 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 	type GameServersLoadInterface interface {
 		LoadGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
+	type UpdatedByUserGameServerMinecraftMapsLoadInterface interface {
+		LoadUpdatedByUserGameServerMinecraftMaps(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type UpdatedByUserGameServerPalworldMapsLoadInterface interface {
+		LoadUpdatedByUserGameServerPalworldMaps(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type UpdatedByUserGameServerSecretsLoadInterface interface {
 		LoadUpdatedByUserGameServerSecrets(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type UpdatedByUserGameServerSevenDaysToDieMapsLoadInterface interface {
+		LoadUpdatedByUserGameServerSevenDaysToDieMaps(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type CreatedByUserGameServerSevenDaysToDieMapSharesLoadInterface interface {
+		LoadCreatedByUserGameServerSevenDaysToDieMapShares(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerStatusPageLoadInterface interface {
+		LoadGameServerStatusPage(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type NotificationChannelsLoadInterface interface {
 		LoadNotificationChannels(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -1806,10 +2363,40 @@ func buildUserThenLoader[Q orm.Loadable]() userThenLoader[Q] {
 				return retrieved.LoadGameServers(ctx, exec, mods...)
 			},
 		),
+		UpdatedByUserGameServerMinecraftMaps: thenLoadBuilder[Q](
+			"UpdatedByUserGameServerMinecraftMaps",
+			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerMinecraftMapsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadUpdatedByUserGameServerMinecraftMaps(ctx, exec, mods...)
+			},
+		),
+		UpdatedByUserGameServerPalworldMaps: thenLoadBuilder[Q](
+			"UpdatedByUserGameServerPalworldMaps",
+			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerPalworldMapsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadUpdatedByUserGameServerPalworldMaps(ctx, exec, mods...)
+			},
+		),
 		UpdatedByUserGameServerSecrets: thenLoadBuilder[Q](
 			"UpdatedByUserGameServerSecrets",
 			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerSecretsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadUpdatedByUserGameServerSecrets(ctx, exec, mods...)
+			},
+		),
+		UpdatedByUserGameServerSevenDaysToDieMaps: thenLoadBuilder[Q](
+			"UpdatedByUserGameServerSevenDaysToDieMaps",
+			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerSevenDaysToDieMapsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadUpdatedByUserGameServerSevenDaysToDieMaps(ctx, exec, mods...)
+			},
+		),
+		CreatedByUserGameServerSevenDaysToDieMapShares: thenLoadBuilder[Q](
+			"CreatedByUserGameServerSevenDaysToDieMapShares",
+			func(ctx context.Context, exec bob.Executor, retrieved CreatedByUserGameServerSevenDaysToDieMapSharesLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCreatedByUserGameServerSevenDaysToDieMapShares(ctx, exec, mods...)
+			},
+		),
+		GameServerStatusPage: thenLoadBuilder[Q](
+			"GameServerStatusPage",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerStatusPageLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerStatusPage(ctx, exec, mods...)
 			},
 		),
 		NotificationChannels: thenLoadBuilder[Q](
@@ -2073,6 +2660,162 @@ func (os UserSlice) LoadGameServers(ctx context.Context, exec bob.Executor, mods
 	return nil
 }
 
+// LoadUpdatedByUserGameServerMinecraftMaps loads the user's UpdatedByUserGameServerMinecraftMaps into the .R struct
+func (o *User) LoadUpdatedByUserGameServerMinecraftMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.UpdatedByUserGameServerMinecraftMaps = nil
+	o.R.Loaded.UpdatedByUserGameServerMinecraftMaps = false
+
+	related, err := o.UpdatedByUserGameServerMinecraftMaps(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = o
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+
+	o.R.UpdatedByUserGameServerMinecraftMaps = related
+	o.R.Loaded.UpdatedByUserGameServerMinecraftMaps = true
+	return nil
+}
+
+// LoadUpdatedByUserGameServerMinecraftMaps loads the user's UpdatedByUserGameServerMinecraftMaps into the .R struct
+func (os UserSlice) LoadUpdatedByUserGameServerMinecraftMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerMinecraftMaps, err := os.UpdatedByUserGameServerMinecraftMaps(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.UpdatedByUserGameServerMinecraftMaps = nil
+		o.R.Loaded.UpdatedByUserGameServerMinecraftMaps = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	userByKey := make(map[string][]*User, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		userByKey[o.ID] = append(userByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerMinecraftMaps {
+
+		if !rel.UpdatedByUserID.IsValue() {
+			continue
+		}
+
+		owners, ok := userByKey[rel.UpdatedByUserID.MustGet()]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			rel.R.UpdatedByUserUser = o
+			rel.R.Loaded.UpdatedByUserUser = true
+
+			o.R.UpdatedByUserGameServerMinecraftMaps = append(o.R.UpdatedByUserGameServerMinecraftMaps, rel)
+
+		}
+	}
+
+	return nil
+}
+
+// LoadUpdatedByUserGameServerPalworldMaps loads the user's UpdatedByUserGameServerPalworldMaps into the .R struct
+func (o *User) LoadUpdatedByUserGameServerPalworldMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.UpdatedByUserGameServerPalworldMaps = nil
+	o.R.Loaded.UpdatedByUserGameServerPalworldMaps = false
+
+	related, err := o.UpdatedByUserGameServerPalworldMaps(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = o
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+
+	o.R.UpdatedByUserGameServerPalworldMaps = related
+	o.R.Loaded.UpdatedByUserGameServerPalworldMaps = true
+	return nil
+}
+
+// LoadUpdatedByUserGameServerPalworldMaps loads the user's UpdatedByUserGameServerPalworldMaps into the .R struct
+func (os UserSlice) LoadUpdatedByUserGameServerPalworldMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerPalworldMaps, err := os.UpdatedByUserGameServerPalworldMaps(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.UpdatedByUserGameServerPalworldMaps = nil
+		o.R.Loaded.UpdatedByUserGameServerPalworldMaps = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	userByKey := make(map[string][]*User, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		userByKey[o.ID] = append(userByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerPalworldMaps {
+
+		if !rel.UpdatedByUserID.IsValue() {
+			continue
+		}
+
+		owners, ok := userByKey[rel.UpdatedByUserID.MustGet()]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			rel.R.UpdatedByUserUser = o
+			rel.R.Loaded.UpdatedByUserUser = true
+
+			o.R.UpdatedByUserGameServerPalworldMaps = append(o.R.UpdatedByUserGameServerPalworldMaps, rel)
+
+		}
+	}
+
+	return nil
+}
+
 // LoadUpdatedByUserGameServerSecrets loads the user's UpdatedByUserGameServerSecrets into the .R struct
 func (o *User) LoadUpdatedByUserGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -2144,6 +2887,239 @@ func (os UserSlice) LoadUpdatedByUserGameServerSecrets(ctx context.Context, exec
 			rel.R.Loaded.UpdatedByUserUser = true
 
 			o.R.UpdatedByUserGameServerSecrets = append(o.R.UpdatedByUserGameServerSecrets, rel)
+
+		}
+	}
+
+	return nil
+}
+
+// LoadUpdatedByUserGameServerSevenDaysToDieMaps loads the user's UpdatedByUserGameServerSevenDaysToDieMaps into the .R struct
+func (o *User) LoadUpdatedByUserGameServerSevenDaysToDieMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.UpdatedByUserGameServerSevenDaysToDieMaps = nil
+	o.R.Loaded.UpdatedByUserGameServerSevenDaysToDieMaps = false
+
+	related, err := o.UpdatedByUserGameServerSevenDaysToDieMaps(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.UpdatedByUserUser = o
+		rel.R.Loaded.UpdatedByUserUser = true
+	}
+
+	o.R.UpdatedByUserGameServerSevenDaysToDieMaps = related
+	o.R.Loaded.UpdatedByUserGameServerSevenDaysToDieMaps = true
+	return nil
+}
+
+// LoadUpdatedByUserGameServerSevenDaysToDieMaps loads the user's UpdatedByUserGameServerSevenDaysToDieMaps into the .R struct
+func (os UserSlice) LoadUpdatedByUserGameServerSevenDaysToDieMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerSevenDaysToDieMaps, err := os.UpdatedByUserGameServerSevenDaysToDieMaps(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.UpdatedByUserGameServerSevenDaysToDieMaps = nil
+		o.R.Loaded.UpdatedByUserGameServerSevenDaysToDieMaps = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	userByKey := make(map[string][]*User, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		userByKey[o.ID] = append(userByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerSevenDaysToDieMaps {
+
+		if !rel.UpdatedByUserID.IsValue() {
+			continue
+		}
+
+		owners, ok := userByKey[rel.UpdatedByUserID.MustGet()]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			rel.R.UpdatedByUserUser = o
+			rel.R.Loaded.UpdatedByUserUser = true
+
+			o.R.UpdatedByUserGameServerSevenDaysToDieMaps = append(o.R.UpdatedByUserGameServerSevenDaysToDieMaps, rel)
+
+		}
+	}
+
+	return nil
+}
+
+// LoadCreatedByUserGameServerSevenDaysToDieMapShares loads the user's CreatedByUserGameServerSevenDaysToDieMapShares into the .R struct
+func (o *User) LoadCreatedByUserGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.CreatedByUserGameServerSevenDaysToDieMapShares = nil
+	o.R.Loaded.CreatedByUserGameServerSevenDaysToDieMapShares = false
+
+	related, err := o.CreatedByUserGameServerSevenDaysToDieMapShares(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, rel := range related {
+		rel.R.CreatedByUserUser = o
+		rel.R.Loaded.CreatedByUserUser = true
+	}
+
+	o.R.CreatedByUserGameServerSevenDaysToDieMapShares = related
+	o.R.Loaded.CreatedByUserGameServerSevenDaysToDieMapShares = true
+	return nil
+}
+
+// LoadCreatedByUserGameServerSevenDaysToDieMapShares loads the user's CreatedByUserGameServerSevenDaysToDieMapShares into the .R struct
+func (os UserSlice) LoadCreatedByUserGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerSevenDaysToDieMapShares, err := os.CreatedByUserGameServerSevenDaysToDieMapShares(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.CreatedByUserGameServerSevenDaysToDieMapShares = nil
+		o.R.Loaded.CreatedByUserGameServerSevenDaysToDieMapShares = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	userByKey := make(map[string][]*User, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		userByKey[o.ID] = append(userByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerSevenDaysToDieMapShares {
+
+		if !rel.CreatedByUserID.IsValue() {
+			continue
+		}
+
+		owners, ok := userByKey[rel.CreatedByUserID.MustGet()]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			rel.R.CreatedByUserUser = o
+			rel.R.Loaded.CreatedByUserUser = true
+
+			o.R.CreatedByUserGameServerSevenDaysToDieMapShares = append(o.R.CreatedByUserGameServerSevenDaysToDieMapShares, rel)
+
+		}
+	}
+
+	return nil
+}
+
+// LoadGameServerStatusPage loads the user's GameServerStatusPage into the .R struct
+func (o *User) LoadGameServerStatusPage(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerStatusPage = nil
+	o.R.Loaded.GameServerStatusPage = false
+
+	related, err := o.GameServerStatusPage(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.User = o
+	related.R.Loaded.User = true
+
+	o.R.GameServerStatusPage = related
+	o.R.Loaded.GameServerStatusPage = true
+	return nil
+}
+
+// LoadGameServerStatusPage loads the user's GameServerStatusPage into the .R struct
+func (os UserSlice) LoadGameServerStatusPage(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerStatusPages, err := os.GameServerStatusPage(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerStatusPage = nil
+		o.R.Loaded.GameServerStatusPage = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	userByKey := make(map[string][]*User, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		userByKey[o.ID] = append(userByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerStatusPages {
+
+		owners, ok := userByKey[rel.UserID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			// to-one: keep only the first matching child (matches the previous break)
+			if o.R.GameServerStatusPage != nil {
+				continue
+			}
+
+			rel.R.User = o
+			rel.R.Loaded.User = true
+
+			o.R.GameServerStatusPage = rel
 
 		}
 	}
@@ -2601,16 +3577,20 @@ func (os UserSlice) LoadUserSessions(ctx context.Context, exec bob.Executor, mod
 
 // userC is where relationship counts are stored.
 type userC struct {
-	AlertHistories                  *int64
-	AlertRules                      *int64
-	GameServers                     *int64
-	UpdatedByUserGameServerSecrets  *int64
-	NotificationChannels            *int64
-	CreatedByScheduledTasks         *int64
-	RequestedByUserSystemUpdateJobs *int64
-	GrantedByUserRoleAssignments    *int64
-	UserRoleAssignments             *int64
-	UserSessions                    *int64
+	AlertHistories                                 *int64
+	AlertRules                                     *int64
+	GameServers                                    *int64
+	UpdatedByUserGameServerMinecraftMaps           *int64
+	UpdatedByUserGameServerPalworldMaps            *int64
+	UpdatedByUserGameServerSecrets                 *int64
+	UpdatedByUserGameServerSevenDaysToDieMaps      *int64
+	CreatedByUserGameServerSevenDaysToDieMapShares *int64
+	NotificationChannels                           *int64
+	CreatedByScheduledTasks                        *int64
+	RequestedByUserSystemUpdateJobs                *int64
+	GrantedByUserRoleAssignments                   *int64
+	UserRoleAssignments                            *int64
+	UserSessions                                   *int64
 }
 
 // PreloadCount sets a count in the C struct by name
@@ -2626,8 +3606,16 @@ func (o *User) PreloadCount(name string, count int64) error {
 		o.C.AlertRules = &count
 	case "GameServers":
 		o.C.GameServers = &count
+	case "UpdatedByUserGameServerMinecraftMaps":
+		o.C.UpdatedByUserGameServerMinecraftMaps = &count
+	case "UpdatedByUserGameServerPalworldMaps":
+		o.C.UpdatedByUserGameServerPalworldMaps = &count
 	case "UpdatedByUserGameServerSecrets":
 		o.C.UpdatedByUserGameServerSecrets = &count
+	case "UpdatedByUserGameServerSevenDaysToDieMaps":
+		o.C.UpdatedByUserGameServerSevenDaysToDieMaps = &count
+	case "CreatedByUserGameServerSevenDaysToDieMapShares":
+		o.C.CreatedByUserGameServerSevenDaysToDieMapShares = &count
 	case "NotificationChannels":
 		o.C.NotificationChannels = &count
 	case "CreatedByScheduledTasks":
@@ -2645,16 +3633,20 @@ func (o *User) PreloadCount(name string, count int64) error {
 }
 
 type userCountPreloader struct {
-	AlertHistories                  func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	AlertRules                      func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	GameServers                     func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	UpdatedByUserGameServerSecrets  func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	NotificationChannels            func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	CreatedByScheduledTasks         func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	RequestedByUserSystemUpdateJobs func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	GrantedByUserRoleAssignments    func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	UserRoleAssignments             func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
-	UserSessions                    func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	AlertHistories                                 func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	AlertRules                                     func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GameServers                                    func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	UpdatedByUserGameServerMinecraftMaps           func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	UpdatedByUserGameServerPalworldMaps            func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	UpdatedByUserGameServerSecrets                 func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	UpdatedByUserGameServerSevenDaysToDieMaps      func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	CreatedByUserGameServerSevenDaysToDieMapShares func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	NotificationChannels                           func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	CreatedByScheduledTasks                        func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	RequestedByUserSystemUpdateJobs                func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	GrantedByUserRoleAssignments                   func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	UserRoleAssignments                            func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
+	UserSessions                                   func(...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader
 }
 
 func buildUserCountPreloader() userCountPreloader {
@@ -2710,6 +3702,40 @@ func buildUserCountPreloader() userCountPreloader {
 				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
 			})
 		},
+		UpdatedByUserGameServerMinecraftMaps: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
+			return countPreloader[*User]("UpdatedByUserGameServerMinecraftMaps", func(parent string) bob.Expression {
+				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
+				if parent == "" {
+					parent = Users.Alias()
+				}
+
+				subqueryMods := []bob.Mod[*dialect.SelectQuery]{
+					sm.Columns(sqlite.Raw("count(*)")),
+
+					sm.From(GameServerMinecraftMaps.NameAsExpr()),
+					sm.Where(sqlite.Quote(GameServerMinecraftMaps.Alias(), "updated_by_user_id").EQ(sqlite.Quote(parent, "id"))),
+				}
+				subqueryMods = append(subqueryMods, mods...)
+				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
+			})
+		},
+		UpdatedByUserGameServerPalworldMaps: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
+			return countPreloader[*User]("UpdatedByUserGameServerPalworldMaps", func(parent string) bob.Expression {
+				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
+				if parent == "" {
+					parent = Users.Alias()
+				}
+
+				subqueryMods := []bob.Mod[*dialect.SelectQuery]{
+					sm.Columns(sqlite.Raw("count(*)")),
+
+					sm.From(GameServerPalworldMaps.NameAsExpr()),
+					sm.Where(sqlite.Quote(GameServerPalworldMaps.Alias(), "updated_by_user_id").EQ(sqlite.Quote(parent, "id"))),
+				}
+				subqueryMods = append(subqueryMods, mods...)
+				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
+			})
+		},
 		UpdatedByUserGameServerSecrets: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
 			return countPreloader[*User]("UpdatedByUserGameServerSecrets", func(parent string) bob.Expression {
 				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
@@ -2722,6 +3748,40 @@ func buildUserCountPreloader() userCountPreloader {
 
 					sm.From(GameServerSecrets.NameAsExpr()),
 					sm.Where(sqlite.Quote(GameServerSecrets.Alias(), "updated_by_user_id").EQ(sqlite.Quote(parent, "id"))),
+				}
+				subqueryMods = append(subqueryMods, mods...)
+				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
+			})
+		},
+		UpdatedByUserGameServerSevenDaysToDieMaps: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
+			return countPreloader[*User]("UpdatedByUserGameServerSevenDaysToDieMaps", func(parent string) bob.Expression {
+				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
+				if parent == "" {
+					parent = Users.Alias()
+				}
+
+				subqueryMods := []bob.Mod[*dialect.SelectQuery]{
+					sm.Columns(sqlite.Raw("count(*)")),
+
+					sm.From(GameServerSevenDaysToDieMaps.NameAsExpr()),
+					sm.Where(sqlite.Quote(GameServerSevenDaysToDieMaps.Alias(), "updated_by_user_id").EQ(sqlite.Quote(parent, "id"))),
+				}
+				subqueryMods = append(subqueryMods, mods...)
+				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
+			})
+		},
+		CreatedByUserGameServerSevenDaysToDieMapShares: func(mods ...bob.Mod[*dialect.SelectQuery]) sqlite.Preloader {
+			return countPreloader[*User]("CreatedByUserGameServerSevenDaysToDieMapShares", func(parent string) bob.Expression {
+				// Build a correlated subquery: (SELECT COUNT(*) FROM related WHERE fk = parent.pk)
+				if parent == "" {
+					parent = Users.Alias()
+				}
+
+				subqueryMods := []bob.Mod[*dialect.SelectQuery]{
+					sm.Columns(sqlite.Raw("count(*)")),
+
+					sm.From(GameServerSevenDaysToDieMapShares.NameAsExpr()),
+					sm.Where(sqlite.Quote(GameServerSevenDaysToDieMapShares.Alias(), "created_by_user_id").EQ(sqlite.Quote(parent, "id"))),
 				}
 				subqueryMods = append(subqueryMods, mods...)
 				return sqlite.Group(sqlite.Select(subqueryMods...).Expression)
@@ -2833,16 +3893,20 @@ func buildUserCountPreloader() userCountPreloader {
 }
 
 type userCountThenLoader[Q orm.Loadable] struct {
-	AlertHistories                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	AlertRules                      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GameServers                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UpdatedByUserGameServerSecrets  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	NotificationChannels            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	CreatedByScheduledTasks         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	RequestedByUserSystemUpdateJobs func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	GrantedByUserRoleAssignments    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserRoleAssignments             func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
-	UserSessions                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	AlertHistories                                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	AlertRules                                     func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServers                                    func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerMinecraftMaps           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerPalworldMaps            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerSecrets                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UpdatedByUserGameServerSevenDaysToDieMaps      func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	CreatedByUserGameServerSevenDaysToDieMapShares func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	NotificationChannels                           func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	CreatedByScheduledTasks                        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	RequestedByUserSystemUpdateJobs                func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GrantedByUserRoleAssignments                   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserRoleAssignments                            func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	UserSessions                                   func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 }
 
 func buildUserCountThenLoader[Q orm.Loadable]() userCountThenLoader[Q] {
@@ -2855,8 +3919,20 @@ func buildUserCountThenLoader[Q orm.Loadable]() userCountThenLoader[Q] {
 	type GameServersCountInterface interface {
 		LoadCountGameServers(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
+	type UpdatedByUserGameServerMinecraftMapsCountInterface interface {
+		LoadCountUpdatedByUserGameServerMinecraftMaps(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type UpdatedByUserGameServerPalworldMapsCountInterface interface {
+		LoadCountUpdatedByUserGameServerPalworldMaps(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type UpdatedByUserGameServerSecretsCountInterface interface {
 		LoadCountUpdatedByUserGameServerSecrets(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type UpdatedByUserGameServerSevenDaysToDieMapsCountInterface interface {
+		LoadCountUpdatedByUserGameServerSevenDaysToDieMaps(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type CreatedByUserGameServerSevenDaysToDieMapSharesCountInterface interface {
+		LoadCountCreatedByUserGameServerSevenDaysToDieMapShares(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type NotificationChannelsCountInterface interface {
 		LoadCountNotificationChannels(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -2896,10 +3972,34 @@ func buildUserCountThenLoader[Q orm.Loadable]() userCountThenLoader[Q] {
 				return retrieved.LoadCountGameServers(ctx, exec, mods...)
 			},
 		),
+		UpdatedByUserGameServerMinecraftMaps: countThenLoadBuilder[Q](
+			"UpdatedByUserGameServerMinecraftMaps",
+			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerMinecraftMapsCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCountUpdatedByUserGameServerMinecraftMaps(ctx, exec, mods...)
+			},
+		),
+		UpdatedByUserGameServerPalworldMaps: countThenLoadBuilder[Q](
+			"UpdatedByUserGameServerPalworldMaps",
+			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerPalworldMapsCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCountUpdatedByUserGameServerPalworldMaps(ctx, exec, mods...)
+			},
+		),
 		UpdatedByUserGameServerSecrets: countThenLoadBuilder[Q](
 			"UpdatedByUserGameServerSecrets",
 			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerSecretsCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadCountUpdatedByUserGameServerSecrets(ctx, exec, mods...)
+			},
+		),
+		UpdatedByUserGameServerSevenDaysToDieMaps: countThenLoadBuilder[Q](
+			"UpdatedByUserGameServerSevenDaysToDieMaps",
+			func(ctx context.Context, exec bob.Executor, retrieved UpdatedByUserGameServerSevenDaysToDieMapsCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCountUpdatedByUserGameServerSevenDaysToDieMaps(ctx, exec, mods...)
+			},
+		),
+		CreatedByUserGameServerSevenDaysToDieMapShares: countThenLoadBuilder[Q](
+			"CreatedByUserGameServerSevenDaysToDieMapShares",
+			func(ctx context.Context, exec bob.Executor, retrieved CreatedByUserGameServerSevenDaysToDieMapSharesCountInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadCountCreatedByUserGameServerSevenDaysToDieMapShares(ctx, exec, mods...)
 			},
 		),
 		NotificationChannels: countThenLoadBuilder[Q](
@@ -3175,6 +4275,162 @@ func (os UserSlice) LoadCountGameServers(ctx context.Context, exec bob.Executor,
 	return nil
 }
 
+// LoadCountUpdatedByUserGameServerMinecraftMaps loads the count of UpdatedByUserGameServerMinecraftMaps into the C struct
+func (o *User) LoadCountUpdatedByUserGameServerMinecraftMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	count, err := o.UpdatedByUserGameServerMinecraftMaps(mods...).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	o.C.UpdatedByUserGameServerMinecraftMaps = &count
+	return nil
+}
+
+// LoadCountUpdatedByUserGameServerMinecraftMaps loads the count of UpdatedByUserGameServerMinecraftMaps for a slice in a single batch query
+func (os UserSlice) LoadCountUpdatedByUserGameServerMinecraftMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	// Build the IN arg expression from parent PKs
+	PKArgSlice := make([]bob.Expression, 0, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		PKArgSlice = append(PKArgSlice, sqlite.Arg(o.ID))
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	// countResult holds one scanned row from the batch count query.
+	// FK columns are aliased to the parent PK column names for direct map lookup.
+	type countResult struct {
+		ID    string
+		Count int64
+	}
+
+	batchMods := []bob.Mod[*dialect.SelectQuery]{
+		// SELECT fk AS parent_pk, count(*)
+		sm.Columns(
+			GameServerMinecraftMaps.Columns.UpdatedByUserID.As("id"),
+			sqlite.Raw("count(*) as count"),
+		),
+		// Single-hop: FROM related table directly
+		sm.From(GameServerMinecraftMaps.NameAsExpr()),
+
+		// WHERE fk IN (parent PKs) — psql single-column FK uses `= ANY(array)` (see PKArgExpr above)
+		sm.Where(GameServerMinecraftMaps.Columns.UpdatedByUserID.OP("IN", PKArgExpr)),
+		// GROUP BY fk columns
+		sm.GroupBy(GameServerMinecraftMaps.Columns.UpdatedByUserID),
+	}
+	batchMods = append(batchMods, mods...)
+
+	results, err := bob.All(ctx, exec,
+		sqlite.Select(batchMods...),
+		scan.StructMapper[countResult](),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Single-column FK: direct map lookup
+	countMap := make(map[string]int64, len(results))
+	for _, r := range results {
+		countMap[r.ID] = r.Count
+	}
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		count := countMap[o.ID]
+		o.C.UpdatedByUserGameServerMinecraftMaps = &count
+	}
+
+	return nil
+}
+
+// LoadCountUpdatedByUserGameServerPalworldMaps loads the count of UpdatedByUserGameServerPalworldMaps into the C struct
+func (o *User) LoadCountUpdatedByUserGameServerPalworldMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	count, err := o.UpdatedByUserGameServerPalworldMaps(mods...).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	o.C.UpdatedByUserGameServerPalworldMaps = &count
+	return nil
+}
+
+// LoadCountUpdatedByUserGameServerPalworldMaps loads the count of UpdatedByUserGameServerPalworldMaps for a slice in a single batch query
+func (os UserSlice) LoadCountUpdatedByUserGameServerPalworldMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	// Build the IN arg expression from parent PKs
+	PKArgSlice := make([]bob.Expression, 0, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		PKArgSlice = append(PKArgSlice, sqlite.Arg(o.ID))
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	// countResult holds one scanned row from the batch count query.
+	// FK columns are aliased to the parent PK column names for direct map lookup.
+	type countResult struct {
+		ID    string
+		Count int64
+	}
+
+	batchMods := []bob.Mod[*dialect.SelectQuery]{
+		// SELECT fk AS parent_pk, count(*)
+		sm.Columns(
+			GameServerPalworldMaps.Columns.UpdatedByUserID.As("id"),
+			sqlite.Raw("count(*) as count"),
+		),
+		// Single-hop: FROM related table directly
+		sm.From(GameServerPalworldMaps.NameAsExpr()),
+
+		// WHERE fk IN (parent PKs) — psql single-column FK uses `= ANY(array)` (see PKArgExpr above)
+		sm.Where(GameServerPalworldMaps.Columns.UpdatedByUserID.OP("IN", PKArgExpr)),
+		// GROUP BY fk columns
+		sm.GroupBy(GameServerPalworldMaps.Columns.UpdatedByUserID),
+	}
+	batchMods = append(batchMods, mods...)
+
+	results, err := bob.All(ctx, exec,
+		sqlite.Select(batchMods...),
+		scan.StructMapper[countResult](),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Single-column FK: direct map lookup
+	countMap := make(map[string]int64, len(results))
+	for _, r := range results {
+		countMap[r.ID] = r.Count
+	}
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		count := countMap[o.ID]
+		o.C.UpdatedByUserGameServerPalworldMaps = &count
+	}
+
+	return nil
+}
+
 // LoadCountUpdatedByUserGameServerSecrets loads the count of UpdatedByUserGameServerSecrets into the C struct
 func (o *User) LoadCountUpdatedByUserGameServerSecrets(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
 	if o == nil {
@@ -3248,6 +4504,162 @@ func (os UserSlice) LoadCountUpdatedByUserGameServerSecrets(ctx context.Context,
 		}
 		count := countMap[o.ID]
 		o.C.UpdatedByUserGameServerSecrets = &count
+	}
+
+	return nil
+}
+
+// LoadCountUpdatedByUserGameServerSevenDaysToDieMaps loads the count of UpdatedByUserGameServerSevenDaysToDieMaps into the C struct
+func (o *User) LoadCountUpdatedByUserGameServerSevenDaysToDieMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	count, err := o.UpdatedByUserGameServerSevenDaysToDieMaps(mods...).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	o.C.UpdatedByUserGameServerSevenDaysToDieMaps = &count
+	return nil
+}
+
+// LoadCountUpdatedByUserGameServerSevenDaysToDieMaps loads the count of UpdatedByUserGameServerSevenDaysToDieMaps for a slice in a single batch query
+func (os UserSlice) LoadCountUpdatedByUserGameServerSevenDaysToDieMaps(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	// Build the IN arg expression from parent PKs
+	PKArgSlice := make([]bob.Expression, 0, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		PKArgSlice = append(PKArgSlice, sqlite.Arg(o.ID))
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	// countResult holds one scanned row from the batch count query.
+	// FK columns are aliased to the parent PK column names for direct map lookup.
+	type countResult struct {
+		ID    string
+		Count int64
+	}
+
+	batchMods := []bob.Mod[*dialect.SelectQuery]{
+		// SELECT fk AS parent_pk, count(*)
+		sm.Columns(
+			GameServerSevenDaysToDieMaps.Columns.UpdatedByUserID.As("id"),
+			sqlite.Raw("count(*) as count"),
+		),
+		// Single-hop: FROM related table directly
+		sm.From(GameServerSevenDaysToDieMaps.NameAsExpr()),
+
+		// WHERE fk IN (parent PKs) — psql single-column FK uses `= ANY(array)` (see PKArgExpr above)
+		sm.Where(GameServerSevenDaysToDieMaps.Columns.UpdatedByUserID.OP("IN", PKArgExpr)),
+		// GROUP BY fk columns
+		sm.GroupBy(GameServerSevenDaysToDieMaps.Columns.UpdatedByUserID),
+	}
+	batchMods = append(batchMods, mods...)
+
+	results, err := bob.All(ctx, exec,
+		sqlite.Select(batchMods...),
+		scan.StructMapper[countResult](),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Single-column FK: direct map lookup
+	countMap := make(map[string]int64, len(results))
+	for _, r := range results {
+		countMap[r.ID] = r.Count
+	}
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		count := countMap[o.ID]
+		o.C.UpdatedByUserGameServerSevenDaysToDieMaps = &count
+	}
+
+	return nil
+}
+
+// LoadCountCreatedByUserGameServerSevenDaysToDieMapShares loads the count of CreatedByUserGameServerSevenDaysToDieMapShares into the C struct
+func (o *User) LoadCountCreatedByUserGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	count, err := o.CreatedByUserGameServerSevenDaysToDieMapShares(mods...).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	o.C.CreatedByUserGameServerSevenDaysToDieMapShares = &count
+	return nil
+}
+
+// LoadCountCreatedByUserGameServerSevenDaysToDieMapShares loads the count of CreatedByUserGameServerSevenDaysToDieMapShares for a slice in a single batch query
+func (os UserSlice) LoadCountCreatedByUserGameServerSevenDaysToDieMapShares(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	// Build the IN arg expression from parent PKs
+	PKArgSlice := make([]bob.Expression, 0, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		PKArgSlice = append(PKArgSlice, sqlite.Arg(o.ID))
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	// countResult holds one scanned row from the batch count query.
+	// FK columns are aliased to the parent PK column names for direct map lookup.
+	type countResult struct {
+		ID    string
+		Count int64
+	}
+
+	batchMods := []bob.Mod[*dialect.SelectQuery]{
+		// SELECT fk AS parent_pk, count(*)
+		sm.Columns(
+			GameServerSevenDaysToDieMapShares.Columns.CreatedByUserID.As("id"),
+			sqlite.Raw("count(*) as count"),
+		),
+		// Single-hop: FROM related table directly
+		sm.From(GameServerSevenDaysToDieMapShares.NameAsExpr()),
+
+		// WHERE fk IN (parent PKs) — psql single-column FK uses `= ANY(array)` (see PKArgExpr above)
+		sm.Where(GameServerSevenDaysToDieMapShares.Columns.CreatedByUserID.OP("IN", PKArgExpr)),
+		// GROUP BY fk columns
+		sm.GroupBy(GameServerSevenDaysToDieMapShares.Columns.CreatedByUserID),
+	}
+	batchMods = append(batchMods, mods...)
+
+	results, err := bob.All(ctx, exec,
+		sqlite.Select(batchMods...),
+		scan.StructMapper[countResult](),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Single-column FK: direct map lookup
+	countMap := make(map[string]int64, len(results))
+	for _, r := range results {
+		countMap[r.ID] = r.Count
+	}
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+		count := countMap[o.ID]
+		o.C.CreatedByUserGameServerSevenDaysToDieMapShares = &count
 	}
 
 	return nil
@@ -3722,17 +5134,22 @@ func (os UserSlice) LoadCountUserSessions(ctx context.Context, exec bob.Executor
 }
 
 type userJoins[Q dialect.Joinable] struct {
-	typ                             string
-	AlertHistories                  modAs[Q, alertHistoryColumns]
-	AlertRules                      modAs[Q, alertRuleColumns]
-	GameServers                     modAs[Q, gameServerColumns]
-	UpdatedByUserGameServerSecrets  modAs[Q, gameServerSecretColumns]
-	NotificationChannels            modAs[Q, notificationChannelColumns]
-	CreatedByScheduledTasks         modAs[Q, scheduledTaskColumns]
-	RequestedByUserSystemUpdateJobs modAs[Q, systemUpdateJobColumns]
-	GrantedByUserRoleAssignments    modAs[Q, userRoleAssignmentColumns]
-	UserRoleAssignments             modAs[Q, userRoleAssignmentColumns]
-	UserSessions                    modAs[Q, userSessionColumns]
+	typ                                            string
+	AlertHistories                                 modAs[Q, alertHistoryColumns]
+	AlertRules                                     modAs[Q, alertRuleColumns]
+	GameServers                                    modAs[Q, gameServerColumns]
+	UpdatedByUserGameServerMinecraftMaps           modAs[Q, gameServerMinecraftMapColumns]
+	UpdatedByUserGameServerPalworldMaps            modAs[Q, gameServerPalworldMapColumns]
+	UpdatedByUserGameServerSecrets                 modAs[Q, gameServerSecretColumns]
+	UpdatedByUserGameServerSevenDaysToDieMaps      modAs[Q, gameServerSevenDaysToDieMapColumns]
+	CreatedByUserGameServerSevenDaysToDieMapShares modAs[Q, gameServerSevenDaysToDieMapShareColumns]
+	GameServerStatusPage                           modAs[Q, gameServerStatusPageColumns]
+	NotificationChannels                           modAs[Q, notificationChannelColumns]
+	CreatedByScheduledTasks                        modAs[Q, scheduledTaskColumns]
+	RequestedByUserSystemUpdateJobs                modAs[Q, systemUpdateJobColumns]
+	GrantedByUserRoleAssignments                   modAs[Q, userRoleAssignmentColumns]
+	UserRoleAssignments                            modAs[Q, userRoleAssignmentColumns]
+	UserSessions                                   modAs[Q, userSessionColumns]
 }
 
 func (j userJoins[Q]) aliasedAs(alias string) userJoins[Q] {
@@ -3784,6 +5201,34 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 				return mods
 			},
 		},
+		UpdatedByUserGameServerMinecraftMaps: modAs[Q, gameServerMinecraftMapColumns]{
+			c: GameServerMinecraftMaps.Columns,
+			f: func(to gameServerMinecraftMapColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerMinecraftMaps.NameExpr().As(to.Alias())).On(
+						to.UpdatedByUserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		UpdatedByUserGameServerPalworldMaps: modAs[Q, gameServerPalworldMapColumns]{
+			c: GameServerPalworldMaps.Columns,
+			f: func(to gameServerPalworldMapColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerPalworldMaps.NameExpr().As(to.Alias())).On(
+						to.UpdatedByUserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
 		UpdatedByUserGameServerSecrets: modAs[Q, gameServerSecretColumns]{
 			c: GameServerSecrets.Columns,
 			f: func(to gameServerSecretColumns) bob.Mod[Q] {
@@ -3792,6 +5237,48 @@ func buildUserJoins[Q dialect.Joinable](cols userColumns, typ string) userJoins[
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServerSecrets.NameExpr().As(to.Alias())).On(
 						to.UpdatedByUserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		UpdatedByUserGameServerSevenDaysToDieMaps: modAs[Q, gameServerSevenDaysToDieMapColumns]{
+			c: GameServerSevenDaysToDieMaps.Columns,
+			f: func(to gameServerSevenDaysToDieMapColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerSevenDaysToDieMaps.NameExpr().As(to.Alias())).On(
+						to.UpdatedByUserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		CreatedByUserGameServerSevenDaysToDieMapShares: modAs[Q, gameServerSevenDaysToDieMapShareColumns]{
+			c: GameServerSevenDaysToDieMapShares.Columns,
+			f: func(to gameServerSevenDaysToDieMapShareColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerSevenDaysToDieMapShares.NameExpr().As(to.Alias())).On(
+						to.CreatedByUserID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerStatusPage: modAs[Q, gameServerStatusPageColumns]{
+			c: GameServerStatusPages.Columns,
+			f: func(to gameServerStatusPageColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerStatusPages.NameExpr().As(to.Alias())).On(
+						to.UserID.EQ(cols.ID),
 					))
 				}
 

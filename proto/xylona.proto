@@ -75,6 +75,9 @@ service Xylona {
   //  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
   rpc ListGameServers (ListGameServersRequest) returns (ListGameServersResponse) {}
   rpc QueryGameServer (QueryGameServerRequest) returns (QueryGameServerResponse) {}
+  rpc GetOrCreateGameServerStatusPageSettings (GetOrCreateGameServerStatusPageSettingsRequest) returns (GetOrCreateGameServerStatusPageSettingsResponse) {}
+  rpc UpdateGameServerStatusPageSettings (UpdateGameServerStatusPageSettingsRequest) returns (UpdateGameServerStatusPageSettingsResponse) {}
+  rpc GetPublicGameServerStatusPage (GetPublicGameServerStatusPageRequest) returns (GetPublicGameServerStatusPageResponse) {}
   rpc GetGameServerPlayerManagement (GetGameServerPlayerManagementRequest) returns (GetGameServerPlayerManagementResponse) {}
   rpc PerformGameServerPlayerAction (PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse) {}
   rpc GetPalworldMap (GetPalworldMapRequest) returns (GetPalworldMapResponse) {}
@@ -204,6 +207,83 @@ service Xylona {
   rpc CreateGameServerBackup (CreateGameServerBackupRequest) returns (CreateGameServerBackupResponse) {}
   rpc DeleteGameServerBackup (DeleteGameServerBackupRequest) returns (DeleteGameServerBackupResponse) {}
   rpc RestoreGameServerBackup (RestoreGameServerBackupRequest) returns (RestoreGameServerBackupResponse) {}
+}
+
+message GameServerStatusPageSettingsServer {
+  string id = 1;
+  string name = 2;
+  string configured_connection_address = 3;
+  optional string public_connection_address = 4;
+  string effective_connection_address = 5;
+}
+
+message GameServerStatusPageSettings {
+  string owner_id = 1;
+  string owner_name = 2;
+  string title = 3;
+  string public_identifier = 4;
+  bool enabled = 5;
+  string public_path = 6;
+  repeated GameServerStatusPageSettingsServer servers = 7;
+}
+
+message GetOrCreateGameServerStatusPageSettingsRequest {
+  string owner_id = 1;
+}
+
+message GetOrCreateGameServerStatusPageSettingsResponse {
+  GameServerStatusPageSettings settings = 1;
+}
+
+message GameServerStatusPageConnectionAddress {
+  string game_server_id = 1;
+  string public_connection_address = 2;
+}
+
+message UpdateGameServerStatusPageSettingsRequest {
+  string owner_id = 1;
+  string title = 2;
+  string public_identifier = 3;
+  bool enabled = 4;
+  repeated GameServerStatusPageConnectionAddress connection_addresses = 5;
+}
+
+message UpdateGameServerStatusPageSettingsResponse {
+  GameServerStatusPageSettings settings = 1;
+}
+
+enum GameServerStatusPageRosterState {
+  GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED = 0;
+  GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE = 1;
+  GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED = 2;
+  GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE = 3;
+}
+
+message PublicGameServerStatus {
+  string id = 1;
+  string name = 2;
+  string game_name = 3;
+  Status status = 4;
+  string connection_address = 5;
+  optional uint32 current_player_count = 6;
+  uint32 max_player_count = 7;
+  repeated string player_names = 8;
+  GameServerStatusPageRosterState roster_state = 9;
+  google.protobuf.Timestamp observed_at = 10;
+}
+
+message PublicGameServerStatusPage {
+  string title = 1;
+  repeated PublicGameServerStatus servers = 2;
+  google.protobuf.Timestamp generated_at = 3;
+}
+
+message GetPublicGameServerStatusPageRequest {
+  string public_identifier = 1;
+}
+
+message GetPublicGameServerStatusPageResponse {
+  PublicGameServerStatusPage page = 1;
 }
 
 message LoginRequest {

@@ -222,6 +222,18 @@ func TestSecurityHeadersSupportExternalMapTiles(t *testing.T) {
 			wantImageSrc: `img-src 'self' data: blob: http: https:`,
 			wantReferrer: "no-referrer",
 		},
+		{
+			name:         "public status page does not send referrers",
+			requestURL:   "/status/Owner_Page",
+			wantImageSrc: `img-src 'self' data: blob: http: https:`,
+			wantReferrer: "no-referrer",
+		},
+		{
+			name:         "public status stream does not send referrers",
+			requestURL:   "/api/public/status-pages/Owner_Page/events",
+			wantImageSrc: `img-src 'self' data: blob: http: https:`,
+			wantReferrer: "no-referrer",
+		},
 	}
 
 	for _, testCase := range testCases {

@@ -109,15 +109,17 @@ func minecraftQueryFromXylona(info *xylona.MinecraftQueryInfo) *MinecraftQueryIn
 		playerDetails = append(playerDetails, GameServerPlayer{Name: playerName, ID: playerName})
 	}
 	return &MinecraftQueryInfo{
-		MOTD:            info.GetMotd(),
-		GameType:        info.GetGameType(),
-		Map:             info.GetMap(),
-		NumberOfPlayers: info.GetNumberOfPlayers(),
-		MaxPlayers:      info.GetMaxPlayers(),
-		PlayerList:      append([]string(nil), info.GetPlayerList()...),
-		ProtocolVersion: info.GetProtocolVersion(),
-		ServerVersion:   info.GetServerVersion(),
-		PlayerDetails:   playerDetails,
+		MOTD:                info.GetMotd(),
+		GameType:            info.GetGameType(),
+		Map:                 info.GetMap(),
+		NumberOfPlayers:     info.GetNumberOfPlayers(),
+		MaxPlayers:          info.GetMaxPlayers(),
+		PlayerList:          append([]string(nil), info.GetPlayerList()...),
+		ProtocolVersion:     info.GetProtocolVersion(),
+		ServerVersion:       info.GetServerVersion(),
+		PlayerDetails:       playerDetails,
+		PlayerListSupported: info.GetPlayerListSupported(),
+		Responded:           info.GetResponded(),
 	}
 }
 
@@ -142,6 +144,7 @@ func sourceQueryFromXylona(info *xylona.SourceQueryInfo) *SourceQueryInfo {
 		Protocol:            info.GetProtocol(),
 		PlayerList:          append([]string(nil), info.GetPlayerList()...),
 		PlayerListSupported: info.GetPlayerListSupported(),
+		Responded:           info.GetResponded(),
 	}
 }
 

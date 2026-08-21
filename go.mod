@@ -16,6 +16,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
+	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/mholt/archives v0.1.5
 	github.com/olahol/melody v1.4.0
 	github.com/pelletier/go-toml/v2 v2.4.3

@@ -182,6 +182,7 @@ func TestQueryGameServersUsesNodeClientForRemoteOnlineServer(t *testing.T) {
 			Minecraft: &node.MinecraftQueryInfo{
 				NumberOfPlayers: 7,
 				MaxPlayers:      20,
+				Responded:       true,
 			},
 		},
 	}
@@ -232,6 +233,10 @@ func TestQueryGameServersUsesNodeClientForRemoteOnlineServer(t *testing.T) {
 	if !telemetry.PlayerCapacityValid || telemetry.PlayerCapacity != 20 {
 		t.Fatalf("telemetry player capacity = (%d, %t), want (20, true)", telemetry.PlayerCapacity, telemetry.PlayerCapacityValid)
 	}
+	status := inst.GetCachedGameServerStatus("server-1")
+	if status != xylona.Status_ONLINE {
+		t.Fatalf("cached status = %v, want online", status)
+	}
 }
 
 func TestQueryGameServersKeepsOfflineDefaultForRemoteServer(t *testing.T) {
@@ -273,6 +278,10 @@ func TestQueryGameServersKeepsOfflineDefaultForRemoteServer(t *testing.T) {
 	telemetry := inst.GetGameServerQueryTelemetry("server-1")
 	if telemetry.Status != GameServerQueryTelemetryStatusUnavailable {
 		t.Fatalf("telemetry status = %q, want unavailable", telemetry.Status)
+	}
+	status := inst.GetCachedGameServerStatus("server-1")
+	if status != xylona.Status_OFFLINE {
+		t.Fatalf("cached status = %v, want offline", status)
 	}
 }
 

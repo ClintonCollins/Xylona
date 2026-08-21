@@ -115,6 +115,30 @@ func TestAuthRateLimiter(t *testing.T) {
 		}
 	})
 
+	for _, test := range []struct {
+		name     string
+		path     string
+		requests int
+	}{
+		{name: "rate limits public status reads", path: "/xylona.Xylona/GetPublicGameServerStatusPage", requests: 125},
+		{name: "rate limits public status streams", path: "/api/public/status-pages/Fleet/events", requests: 35},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			handler := AuthRateLimiter()(okHandler)
+			var lastStatus int
+			for range test.requests {
+				req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, test.path, nil)
+				req.RemoteAddr = "192.0.2.7:12345"
+				recorder := httptest.NewRecorder()
+				handler.ServeHTTP(recorder, req)
+				lastStatus = recorder.Code
+			}
+			if lastStatus != http.StatusTooManyRequests {
+				t.Fatalf("status = %d, want %d", lastStatus, http.StatusTooManyRequests)
+			}
+		})
+	}
+
 	t.Run("trusted proxy uses forwarded client IP for login limits", func(t *testing.T) {
 		trust, errTrust := ParseTrustedProxies("127.0.0.1")
 		if errTrust != nil {

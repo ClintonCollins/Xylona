@@ -37,9 +37,13 @@ func AuthRateLimiterForProxies(trust *ProxyTrust) func(http.Handler) http.Handle
 	publicMapLimiter := httprate.LimitBy(120, time.Minute, func(r *http.Request) (string, error) {
 		return httprate.CanonicalizeIP(requestClientIP(r, trust)), nil
 	})
+	publicStatusEventLimiter := httprate.LimitBy(30, time.Minute, func(r *http.Request) (string, error) {
+		return httprate.CanonicalizeIP(requestClientIP(r, trust)), nil
+	})
 	return func(next http.Handler) http.Handler {
 		authLimited := authLimiter(next)
 		publicMapLimited := publicMapLimiter(next)
+		publicStatusEventLimited := publicStatusEventLimiter(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if isLocalhost(requestClientIP(r, trust)) {
 				next.ServeHTTP(w, r)
@@ -50,6 +54,14 @@ func AuthRateLimiterForProxies(trust *ProxyTrust) func(http.Handler) http.Handle
 				return
 			}
 			if shouldRateLimitPublicMapPath(r.URL.Path) {
+				publicMapLimited.ServeHTTP(w, r)
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/api/public/status-pages/") && strings.HasSuffix(r.URL.Path, "/events") {
+				publicStatusEventLimited.ServeHTTP(w, r)
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/status/") || strings.Contains(r.URL.Path, "/GetPublicGameServerStatusPage") {
 				publicMapLimited.ServeHTTP(w, r)
 				return
 			}

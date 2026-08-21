@@ -1157,15 +1157,17 @@ func minecraftQueryToProto(info *node.MinecraftQueryInfo) *nodeprotov1.GameServe
 		return nil
 	}
 	return &nodeprotov1.GameServerMinecraftQueryInfo{
-		Motd:            info.MOTD,
-		GameType:        info.GameType,
-		Map:             info.Map,
-		NumberOfPlayers: info.NumberOfPlayers,
-		MaxPlayers:      info.MaxPlayers,
-		PlayerList:      append([]string(nil), info.PlayerList...),
-		ProtocolVersion: info.ProtocolVersion,
-		ServerVersion:   info.ServerVersion,
-		PlayerDetails:   gameServerPlayersToProto(info.PlayerDetails),
+		Motd:                info.MOTD,
+		GameType:            info.GameType,
+		Map:                 info.Map,
+		NumberOfPlayers:     info.NumberOfPlayers,
+		MaxPlayers:          info.MaxPlayers,
+		PlayerList:          append([]string(nil), info.PlayerList...),
+		ProtocolVersion:     info.ProtocolVersion,
+		ServerVersion:       info.ServerVersion,
+		PlayerDetails:       gameServerPlayersToProto(info.PlayerDetails),
+		PlayerListSupported: info.PlayerListSupported,
+		Responded:           new(info.Responded),
 	}
 }
 
@@ -1190,6 +1192,7 @@ func sourceQueryToProto(info *node.SourceQueryInfo) *nodeprotov1.GameServerSourc
 		Protocol:            info.Protocol,
 		PlayerList:          append([]string(nil), info.PlayerList...),
 		PlayerListSupported: info.PlayerListSupported,
+		Responded:           new(info.Responded),
 	}
 }
 

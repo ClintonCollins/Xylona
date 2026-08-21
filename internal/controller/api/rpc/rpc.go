@@ -82,6 +82,7 @@ type XylonaService struct {
 	hytaleAuth                     *readiness.HytaleDeviceAuthManager
 	palworldMapTiles               PalworldMapTileInstaller
 	minecraftMapAssetSlots         chan struct{}
+	statusPageIdentifier           func() (string, error)
 }
 
 type remoteVersionRefreshCall struct {
@@ -139,6 +140,7 @@ func NewXylonaService(
 		userService:            usermgmt.NewService(database),
 		hytaleAuth:             readiness.NewHytaleDeviceAuthManager(nil),
 		minecraftMapAssetSlots: make(chan struct{}, 32),
+		statusPageIdentifier:   newStatusPageIdentifier,
 	}, nil
 }
 

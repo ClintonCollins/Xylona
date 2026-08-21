@@ -41,6 +41,10 @@ const routes: RouteRecordRaw[] = [
     component: () => import('pages/PublicMinecraftMap.vue'),
   },
   {
+    path: '/status/:identifier',
+    component: () => import('pages/PublicGameServerStatusPage.vue'),
+  },
+  {
     path: '/login',
     component: () => import('pages/Login.vue'),
     beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {

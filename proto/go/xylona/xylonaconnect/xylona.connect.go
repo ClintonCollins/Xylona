@@ -177,6 +177,15 @@ const (
 	XylonaListGameServersProcedure = "/xylona.Xylona/ListGameServers"
 	// XylonaQueryGameServerProcedure is the fully-qualified name of the Xylona's QueryGameServer RPC.
 	XylonaQueryGameServerProcedure = "/xylona.Xylona/QueryGameServer"
+	// XylonaGetOrCreateGameServerStatusPageSettingsProcedure is the fully-qualified name of the
+	// Xylona's GetOrCreateGameServerStatusPageSettings RPC.
+	XylonaGetOrCreateGameServerStatusPageSettingsProcedure = "/xylona.Xylona/GetOrCreateGameServerStatusPageSettings"
+	// XylonaUpdateGameServerStatusPageSettingsProcedure is the fully-qualified name of the Xylona's
+	// UpdateGameServerStatusPageSettings RPC.
+	XylonaUpdateGameServerStatusPageSettingsProcedure = "/xylona.Xylona/UpdateGameServerStatusPageSettings"
+	// XylonaGetPublicGameServerStatusPageProcedure is the fully-qualified name of the Xylona's
+	// GetPublicGameServerStatusPage RPC.
+	XylonaGetPublicGameServerStatusPageProcedure = "/xylona.Xylona/GetPublicGameServerStatusPage"
 	// XylonaGetGameServerPlayerManagementProcedure is the fully-qualified name of the Xylona's
 	// GetGameServerPlayerManagement RPC.
 	XylonaGetGameServerPlayerManagementProcedure = "/xylona.Xylona/GetGameServerPlayerManagement"
@@ -508,6 +517,9 @@ type XylonaClient interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
+	GetOrCreateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.GetOrCreateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerStatusPageSettingsResponse], error)
+	UpdateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.UpdateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.UpdateGameServerStatusPageSettingsResponse], error)
+	GetPublicGameServerStatusPage(context.Context, *connect.Request[xylona.GetPublicGameServerStatusPageRequest]) (*connect.Response[xylona.GetPublicGameServerStatusPageResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
 	GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error)
@@ -986,6 +998,24 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaQueryGameServerProcedure,
 			connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
+			connect.WithClientOptions(opts...),
+		),
+		getOrCreateGameServerStatusPageSettings: connect.NewClient[xylona.GetOrCreateGameServerStatusPageSettingsRequest, xylona.GetOrCreateGameServerStatusPageSettingsResponse](
+			httpClient,
+			baseURL+XylonaGetOrCreateGameServerStatusPageSettingsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetOrCreateGameServerStatusPageSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		updateGameServerStatusPageSettings: connect.NewClient[xylona.UpdateGameServerStatusPageSettingsRequest, xylona.UpdateGameServerStatusPageSettingsResponse](
+			httpClient,
+			baseURL+XylonaUpdateGameServerStatusPageSettingsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("UpdateGameServerStatusPageSettings")),
+			connect.WithClientOptions(opts...),
+		),
+		getPublicGameServerStatusPage: connect.NewClient[xylona.GetPublicGameServerStatusPageRequest, xylona.GetPublicGameServerStatusPageResponse](
+			httpClient,
+			baseURL+XylonaGetPublicGameServerStatusPageProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetPublicGameServerStatusPage")),
 			connect.WithClientOptions(opts...),
 		),
 		getGameServerPlayerManagement: connect.NewClient[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse](
@@ -1569,161 +1599,164 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 
 // xylonaClient implements XylonaClient.
 type xylonaClient struct {
-	addGame                             *connect.Client[xylona.AddGameRequest, xylona.AddGameResponse]
-	editGame                            *connect.Client[xylona.EditGameRequest, xylona.EditGameResponse]
-	updateGameStartArgsTemplate         *connect.Client[xylona.UpdateGameStartArgsTemplateRequest, xylona.UpdateGameStartArgsTemplateResponse]
-	updateGameStartArgBlocklist         *connect.Client[xylona.UpdateGameStartArgBlocklistRequest, xylona.UpdateGameStartArgBlocklistResponse]
-	getGameEnvironment                  *connect.Client[xylona.GetGameEnvironmentRequest, xylona.GetGameEnvironmentResponse]
-	updateGameEnvironment               *connect.Client[xylona.UpdateGameEnvironmentRequest, xylona.UpdateGameEnvironmentResponse]
-	getGame                             *connect.Client[xylona.GetGameRequest, xylona.GetGameResponse]
-	removeGame                          *connect.Client[xylona.RemoveGameRequest, xylona.RemoveGameResponse]
-	importGame                          *connect.Client[xylona.ImportGameRequest, xylona.ImportGameResponse]
-	exportGame                          *connect.Client[xylona.ExportGameRequest, xylona.ExportGameResponse]
-	resetGameToOfficialDefinition       *connect.Client[xylona.ResetGameToOfficialDefinitionRequest, xylona.ResetGameToOfficialDefinitionResponse]
-	listGames                           *connect.Client[xylona.ListGamesRequest, xylona.ListGamesResponse]
-	searchSteamApps                     *connect.Client[xylona.SearchSteamAppsRequest, xylona.SearchSteamAppsResponse]
-	getSteamAppDetails                  *connect.Client[xylona.GetSteamAppDetailsRequest, xylona.GetSteamAppDetailsResponse]
-	login                               *connect.Client[xylona.LoginRequest, xylona.LoginResponse]
-	logout                              *connect.Client[xylona.LogoutRequest, xylona.LogoutResponse]
-	checkUserAuthenticated              *connect.Client[xylona.CheckUserAuthenticatedRequest, xylona.CheckUserAuthenticatedResponse]
-	createUser                          *connect.Client[xylona.CreateUserRequest, xylona.CreateUserResponse]
-	listUsers                           *connect.Client[xylona.ListUsersRequest, xylona.ListUsersResponse]
-	getUser                             *connect.Client[xylona.GetUserDetailsRequest, xylona.GetUserDetailsResponse]
-	updateUser                          *connect.Client[xylona.UpdateUserRequest, xylona.UpdateUserResponse]
-	deleteUser                          *connect.Client[xylona.DeleteUserRequest, xylona.DeleteUserResponse]
-	listRoles                           *connect.Client[xylona.ListRolesRequest, xylona.ListRolesResponse]
-	listPermissions                     *connect.Client[xylona.ListPermissionsRequest, xylona.ListPermissionsResponse]
-	createRole                          *connect.Client[xylona.CreateRoleRequest, xylona.CreateRoleResponse]
-	deleteRole                          *connect.Client[xylona.DeleteRoleRequest, xylona.DeleteRoleResponse]
-	listGameServerAccessGrants          *connect.Client[xylona.ListGameServerAccessGrantsRequest, xylona.ListGameServerAccessGrantsResponse]
-	grantGameServerAccess               *connect.Client[xylona.GrantGameServerAccessRequest, xylona.GrantGameServerAccessResponse]
-	revokeGameServerAccess              *connect.Client[xylona.RevokeGameServerAccessRequest, xylona.RevokeGameServerAccessResponse]
-	listIPs                             *connect.Client[xylona.ListIPsRequest, xylona.ListIPsResponse]
-	addIP                               *connect.Client[xylona.AddIPRequest, xylona.AddIPResponse]
-	removeIP                            *connect.Client[xylona.RemoveIPRequest, xylona.RemoveIPResponse]
-	createGameServer                    *connect.Client[xylona.CreateGameServerRequest, xylona.CreateGameServerResponse]
-	editGameServer                      *connect.Client[xylona.EditGameServerRequest, xylona.EditGameServerResponse]
-	removeGameServer                    *connect.Client[xylona.RemoveGameServerRequest, xylona.RemoveGameServerResponse]
-	startGameServer                     *connect.Client[xylona.StartGameServerRequest, xylona.StartGameServerResponse]
-	stopGameServer                      *connect.Client[xylona.StopGameServerRequest, xylona.StopGameServerResponse]
-	restartGameServer                   *connect.Client[xylona.RestartGameServerRequest, xylona.RestartGameServerResponse]
-	readGameServerOutput                *connect.Client[xylona.ReadGameServerOutputRequest, xylona.ReadGameServerOutputResponse]
-	sendGameServerInput                 *connect.Client[xylona.SendGameServerInputRequest, xylona.SendGameServerInputResponse]
-	getGameServer                       *connect.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
-	updateGameServer                    *connect.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
-	updateGameServerStartArgs           *connect.Client[xylona.UpdateGameServerStartArgsRequest, xylona.UpdateGameServerStartArgsResponse]
-	getGameServerEnvironment            *connect.Client[xylona.GetGameServerEnvironmentRequest, xylona.GetGameServerEnvironmentResponse]
-	updateGameServerEnvironment         *connect.Client[xylona.UpdateGameServerEnvironmentRequest, xylona.UpdateGameServerEnvironmentResponse]
-	setGameServerSecretEnv              *connect.Client[xylona.SetGameServerSecretEnvRequest, xylona.SetGameServerSecretEnvResponse]
-	clearGameServerSecretEnv            *connect.Client[xylona.ClearGameServerSecretEnvRequest, xylona.ClearGameServerSecretEnvResponse]
-	getGameServerAdminInterface         *connect.Client[xylona.GetGameServerAdminInterfaceRequest, xylona.GetGameServerAdminInterfaceResponse]
-	setGameServerAdminInterfacePassword *connect.Client[xylona.SetGameServerAdminInterfacePasswordRequest, xylona.SetGameServerAdminInterfacePasswordResponse]
-	getGameServerReadiness              *connect.Client[xylona.GetGameServerReadinessRequest, xylona.GetGameServerReadinessResponse]
-	acceptMinecraftEula                 *connect.Client[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse]
-	setSteamGSLT                        *connect.Client[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse]
-	clearSteamGSLT                      *connect.Client[xylona.ClearSteamGSLTRequest, xylona.ClearSteamGSLTResponse]
-	startHytaleDeviceAuth               *connect.Client[xylona.StartHytaleDeviceAuthRequest, xylona.StartHytaleDeviceAuthResponse]
-	pollHytaleDeviceAuth                *connect.Client[xylona.PollHytaleDeviceAuthRequest, xylona.PollHytaleDeviceAuthResponse]
-	selectHytaleProfile                 *connect.Client[xylona.SelectHytaleProfileRequest, xylona.SelectHytaleProfileResponse]
-	clearHytaleAccount                  *connect.Client[xylona.ClearHytaleAccountRequest, xylona.ClearHytaleAccountResponse]
-	listGameServers                     *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
-	queryGameServer                     *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
-	getGameServerPlayerManagement       *connect.Client[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse]
-	performGameServerPlayerAction       *connect.Client[xylona.PerformGameServerPlayerActionRequest, xylona.PerformGameServerPlayerActionResponse]
-	getPalworldMap                      *connect.Client[xylona.GetPalworldMapRequest, xylona.GetPalworldMapResponse]
-	updatePalworldMapConfig             *connect.Client[xylona.UpdatePalworldMapConfigRequest, xylona.UpdatePalworldMapConfigResponse]
-	installPalworldMapTiles             *connect.Client[xylona.InstallPalworldMapTilesRequest, xylona.InstallPalworldMapTilesResponse]
-	regeneratePalworldMapShare          *connect.Client[xylona.RegeneratePalworldMapShareRequest, xylona.RegeneratePalworldMapShareResponse]
-	revokePalworldMapShare              *connect.Client[xylona.RevokePalworldMapShareRequest, xylona.RevokePalworldMapShareResponse]
-	getPublicPalworldMap                *connect.Client[xylona.GetPublicPalworldMapRequest, xylona.GetPublicPalworldMapResponse]
-	getSevenDaysToDieMap                *connect.Client[xylona.GetSevenDaysToDieMapRequest, xylona.GetSevenDaysToDieMapResponse]
-	updateSevenDaysToDieMapNotes        *connect.Client[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse]
-	listSevenDaysToDieMapShares         *connect.Client[xylona.ListSevenDaysToDieMapSharesRequest, xylona.ListSevenDaysToDieMapSharesResponse]
-	regenerateSevenDaysToDieMapShare    *connect.Client[xylona.RegenerateSevenDaysToDieMapShareRequest, xylona.RegenerateSevenDaysToDieMapShareResponse]
-	revokeSevenDaysToDieMapShare        *connect.Client[xylona.RevokeSevenDaysToDieMapShareRequest, xylona.RevokeSevenDaysToDieMapShareResponse]
-	getPublicSevenDaysToDieMap          *connect.Client[xylona.GetPublicSevenDaysToDieMapRequest, xylona.GetPublicSevenDaysToDieMapResponse]
-	getMinecraftMap                     *connect.Client[xylona.GetMinecraftMapRequest, xylona.GetMinecraftMapResponse]
-	updateMinecraftMapConfig            *connect.Client[xylona.UpdateMinecraftMapConfigRequest, xylona.UpdateMinecraftMapConfigResponse]
-	regenerateMinecraftMapShare         *connect.Client[xylona.RegenerateMinecraftMapShareRequest, xylona.RegenerateMinecraftMapShareResponse]
-	revokeMinecraftMapShare             *connect.Client[xylona.RevokeMinecraftMapShareRequest, xylona.RevokeMinecraftMapShareResponse]
-	getPublicMinecraftMap               *connect.Client[xylona.GetPublicMinecraftMapRequest, xylona.GetPublicMinecraftMapResponse]
-	getUpdateTargets                    *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
-	setServerVariant                    *connect.Client[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse]
-	getVariantOperationStatus           *connect.Client[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse]
-	listDirectoryFiles                  *connect.Client[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse]
-	gameServerFilesDelete               *connect.Client[xylona.GameServerFilesDeleteRequest, xylona.GameServerFilesDeleteResponse]
-	gameServerFilesArchive              *connect.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesArchiveProgress]
-	gameServerFilesExtract              *connect.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesExtractProgress]
-	gameServerFilesCompress             *connect.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesCompressionResponse]
-	gameServerFilesDecompress           *connect.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesDecompressionResponse]
-	gameServerFilesDownloadFromURL      *connect.Client[xylona.GameServersFileDownloadFromURLRequest, xylona.GameServersFileDownloadFromURLResponse]
-	gameServerFileRename                *connect.Client[xylona.GameServerFileRenameRequest, xylona.GameServerFileRenameResponse]
-	gameServerFilesMove                 *connect.Client[xylona.GameServerFilesMoveRequest, xylona.GameServerFilesMoveResponse]
-	gameServersFileEdit                 *connect.Client[xylona.GameServersFileEditRequest, xylona.GameServersFileEditResponse]
-	gameServersFileOrDirectoryCreate    *connect.Client[xylona.GameServerFileOrDirectoryCreateRequest, xylona.GameServerFileOrDirectoryCreateResponse]
-	getNode                             *connect.Client[xylona.GetNodeRequest, xylona.GetNodeResponse]
-	listNodes                           *connect.Client[xylona.ListNodesRequest, xylona.ListNodesResponse]
-	generateNodePairingObject           *connect.Client[xylona.GenerateNodePairingObjectRequest, xylona.GenerateNodePairingObjectResponse]
-	removeNode                          *connect.Client[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse]
-	editNode                            *connect.Client[xylona.EditNodeRequest, xylona.EditNodeResponse]
-	checkSystemUpdates                  *connect.Client[xylona.CheckSystemUpdatesRequest, xylona.CheckSystemUpdatesResponse]
-	startSystemUpdate                   *connect.Client[xylona.StartSystemUpdateRequest, xylona.StartSystemUpdateResponse]
-	listSystemUpdateJobs                *connect.Client[xylona.ListSystemUpdateJobsRequest, xylona.ListSystemUpdateJobsResponse]
-	getSystemUpdateJob                  *connect.Client[xylona.GetSystemUpdateJobRequest, xylona.GetSystemUpdateJobResponse]
-	getGameConfigSchemas                *connect.Client[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse]
-	updateGameConfigSchemas             *connect.Client[xylona.UpdateGameConfigSchemasRequest, xylona.UpdateGameConfigSchemasResponse]
-	getGameServerConfigFiles            *connect.Client[xylona.GetGameServerConfigFilesRequest, xylona.GetGameServerConfigFilesResponse]
-	getGameServerConfigFile             *connect.Client[xylona.GetGameServerConfigFileRequest, xylona.GetGameServerConfigFileResponse]
-	updateGameServerConfigFile          *connect.Client[xylona.UpdateGameServerConfigFileRequest, xylona.UpdateGameServerConfigFileResponse]
-	generateGameServerConfigFile        *connect.Client[xylona.GenerateGameServerConfigFileRequest, xylona.GenerateGameServerConfigFileResponse]
-	listAggregatedGameServers           *connect.Client[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse]
-	getNodeSystemInfo                   *connect.Client[xylona.GetNodeSystemInfoRequest, xylona.GetNodeSystemInfoResponse]
-	getNodeResourceSnapshot             *connect.Client[xylona.GetNodeResourceSnapshotRequest, xylona.GetNodeResourceSnapshotResponse]
-	getDashboardOverview                *connect.Client[xylona.GetDashboardOverviewRequest, xylona.GetDashboardOverviewResponse]
-	getNodeMetricsHistory               *connect.Client[xylona.GetNodeMetricsHistoryRequest, xylona.GetNodeMetricsHistoryResponse]
-	getGameServerMetricsHistory         *connect.Client[xylona.GetGameServerMetricsHistoryRequest, xylona.GetGameServerMetricsHistoryResponse]
-	searchMods                          *connect.Client[xylona.SearchModsRequest, xylona.SearchModsResponse]
-	getModDetails                       *connect.Client[xylona.GetModDetailsRequest, xylona.GetModDetailsResponse]
-	getModVersions                      *connect.Client[xylona.GetModVersionsRequest, xylona.GetModVersionsResponse]
-	installMod                          *connect.Client[xylona.InstallModRequest, xylona.InstallModResponse]
-	uninstallMod                        *connect.Client[xylona.UninstallModRequest, xylona.UninstallModResponse]
-	updateMod                           *connect.Client[xylona.UpdateModRequest, xylona.UpdateModResponse]
-	listInstalledMods                   *connect.Client[xylona.ListInstalledModsRequest, xylona.ListInstalledModsResponse]
-	setModAutoUpdate                    *connect.Client[xylona.SetModAutoUpdateRequest, xylona.SetModAutoUpdateResponse]
-	setModEnabled                       *connect.Client[xylona.SetModEnabledRequest, xylona.SetModEnabledResponse]
-	pinModVersion                       *connect.Client[xylona.PinModVersionRequest, xylona.PinModVersionResponse]
-	getModCategories                    *connect.Client[xylona.GetModCategoriesRequest, xylona.GetModCategoriesResponse]
-	getVersionInfo                      *connect.Client[xylona.GetVersionInfoRequest, xylona.GetVersionInfoResponse]
-	checkForUpdate                      *connect.Client[xylona.CheckForUpdateRequest, xylona.CheckForUpdateResponse]
-	setDummyUpdateFailure               *connect.Client[xylona.SetDummyUpdateFailureRequest, xylona.SetDummyUpdateFailureResponse]
-	createNotificationChannel           *connect.Client[xylona.CreateNotificationChannelRequest, xylona.CreateNotificationChannelResponse]
-	updateNotificationChannel           *connect.Client[xylona.UpdateNotificationChannelRequest, xylona.UpdateNotificationChannelResponse]
-	deleteNotificationChannel           *connect.Client[xylona.DeleteNotificationChannelRequest, xylona.DeleteNotificationChannelResponse]
-	listNotificationChannels            *connect.Client[xylona.ListNotificationChannelsRequest, xylona.ListNotificationChannelsResponse]
-	testNotificationChannel             *connect.Client[xylona.TestNotificationChannelRequest, xylona.TestNotificationChannelResponse]
-	getLocalSMTPStatus                  *connect.Client[xylona.GetLocalSMTPStatusRequest, xylona.GetLocalSMTPStatusResponse]
-	createAlertRule                     *connect.Client[xylona.CreateAlertRuleRequest, xylona.CreateAlertRuleResponse]
-	updateAlertRule                     *connect.Client[xylona.UpdateAlertRuleRequest, xylona.UpdateAlertRuleResponse]
-	deleteAlertRule                     *connect.Client[xylona.DeleteAlertRuleRequest, xylona.DeleteAlertRuleResponse]
-	listAlertRules                      *connect.Client[xylona.ListAlertRulesRequest, xylona.ListAlertRulesResponse]
-	getAlertHistory                     *connect.Client[xylona.GetAlertHistoryRequest, xylona.GetAlertHistoryResponse]
-	getSystemSMTPConfig                 *connect.Client[xylona.GetSystemSMTPConfigRequest, xylona.GetSystemSMTPConfigResponse]
-	setSystemSMTPConfig                 *connect.Client[xylona.SetSystemSMTPConfigRequest, xylona.SetSystemSMTPConfigResponse]
-	testSystemSMTP                      *connect.Client[xylona.TestSystemSMTPRequest, xylona.TestSystemSMTPResponse]
-	beginGoogleMailOAuth                *connect.Client[xylona.BeginGoogleMailOAuthRequest, xylona.BeginGoogleMailOAuthResponse]
-	disconnectGoogleMail                *connect.Client[xylona.DisconnectGoogleMailRequest, xylona.DisconnectGoogleMailResponse]
-	listScheduledTasks                  *connect.Client[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse]
-	createScheduledTask                 *connect.Client[xylona.CreateScheduledTaskRequest, xylona.CreateScheduledTaskResponse]
-	updateScheduledTask                 *connect.Client[xylona.UpdateScheduledTaskRequest, xylona.UpdateScheduledTaskResponse]
-	deleteScheduledTask                 *connect.Client[xylona.DeleteScheduledTaskRequest, xylona.DeleteScheduledTaskResponse]
-	getScheduledTaskLogs                *connect.Client[xylona.GetScheduledTaskLogsRequest, xylona.GetScheduledTaskLogsResponse]
-	getGameServerBackupOverview         *connect.Client[xylona.GetGameServerBackupOverviewRequest, xylona.GetGameServerBackupOverviewResponse]
-	getBackupSettings                   *connect.Client[xylona.GetBackupSettingsRequest, xylona.GetBackupSettingsResponse]
-	updateBackupSettings                *connect.Client[xylona.UpdateBackupSettingsRequest, xylona.UpdateBackupSettingsResponse]
-	listGameServerBackups               *connect.Client[xylona.ListGameServerBackupsRequest, xylona.ListGameServerBackupsResponse]
-	createGameServerBackup              *connect.Client[xylona.CreateGameServerBackupRequest, xylona.CreateGameServerBackupResponse]
-	deleteGameServerBackup              *connect.Client[xylona.DeleteGameServerBackupRequest, xylona.DeleteGameServerBackupResponse]
-	restoreGameServerBackup             *connect.Client[xylona.RestoreGameServerBackupRequest, xylona.RestoreGameServerBackupResponse]
+	addGame                                 *connect.Client[xylona.AddGameRequest, xylona.AddGameResponse]
+	editGame                                *connect.Client[xylona.EditGameRequest, xylona.EditGameResponse]
+	updateGameStartArgsTemplate             *connect.Client[xylona.UpdateGameStartArgsTemplateRequest, xylona.UpdateGameStartArgsTemplateResponse]
+	updateGameStartArgBlocklist             *connect.Client[xylona.UpdateGameStartArgBlocklistRequest, xylona.UpdateGameStartArgBlocklistResponse]
+	getGameEnvironment                      *connect.Client[xylona.GetGameEnvironmentRequest, xylona.GetGameEnvironmentResponse]
+	updateGameEnvironment                   *connect.Client[xylona.UpdateGameEnvironmentRequest, xylona.UpdateGameEnvironmentResponse]
+	getGame                                 *connect.Client[xylona.GetGameRequest, xylona.GetGameResponse]
+	removeGame                              *connect.Client[xylona.RemoveGameRequest, xylona.RemoveGameResponse]
+	importGame                              *connect.Client[xylona.ImportGameRequest, xylona.ImportGameResponse]
+	exportGame                              *connect.Client[xylona.ExportGameRequest, xylona.ExportGameResponse]
+	resetGameToOfficialDefinition           *connect.Client[xylona.ResetGameToOfficialDefinitionRequest, xylona.ResetGameToOfficialDefinitionResponse]
+	listGames                               *connect.Client[xylona.ListGamesRequest, xylona.ListGamesResponse]
+	searchSteamApps                         *connect.Client[xylona.SearchSteamAppsRequest, xylona.SearchSteamAppsResponse]
+	getSteamAppDetails                      *connect.Client[xylona.GetSteamAppDetailsRequest, xylona.GetSteamAppDetailsResponse]
+	login                                   *connect.Client[xylona.LoginRequest, xylona.LoginResponse]
+	logout                                  *connect.Client[xylona.LogoutRequest, xylona.LogoutResponse]
+	checkUserAuthenticated                  *connect.Client[xylona.CheckUserAuthenticatedRequest, xylona.CheckUserAuthenticatedResponse]
+	createUser                              *connect.Client[xylona.CreateUserRequest, xylona.CreateUserResponse]
+	listUsers                               *connect.Client[xylona.ListUsersRequest, xylona.ListUsersResponse]
+	getUser                                 *connect.Client[xylona.GetUserDetailsRequest, xylona.GetUserDetailsResponse]
+	updateUser                              *connect.Client[xylona.UpdateUserRequest, xylona.UpdateUserResponse]
+	deleteUser                              *connect.Client[xylona.DeleteUserRequest, xylona.DeleteUserResponse]
+	listRoles                               *connect.Client[xylona.ListRolesRequest, xylona.ListRolesResponse]
+	listPermissions                         *connect.Client[xylona.ListPermissionsRequest, xylona.ListPermissionsResponse]
+	createRole                              *connect.Client[xylona.CreateRoleRequest, xylona.CreateRoleResponse]
+	deleteRole                              *connect.Client[xylona.DeleteRoleRequest, xylona.DeleteRoleResponse]
+	listGameServerAccessGrants              *connect.Client[xylona.ListGameServerAccessGrantsRequest, xylona.ListGameServerAccessGrantsResponse]
+	grantGameServerAccess                   *connect.Client[xylona.GrantGameServerAccessRequest, xylona.GrantGameServerAccessResponse]
+	revokeGameServerAccess                  *connect.Client[xylona.RevokeGameServerAccessRequest, xylona.RevokeGameServerAccessResponse]
+	listIPs                                 *connect.Client[xylona.ListIPsRequest, xylona.ListIPsResponse]
+	addIP                                   *connect.Client[xylona.AddIPRequest, xylona.AddIPResponse]
+	removeIP                                *connect.Client[xylona.RemoveIPRequest, xylona.RemoveIPResponse]
+	createGameServer                        *connect.Client[xylona.CreateGameServerRequest, xylona.CreateGameServerResponse]
+	editGameServer                          *connect.Client[xylona.EditGameServerRequest, xylona.EditGameServerResponse]
+	removeGameServer                        *connect.Client[xylona.RemoveGameServerRequest, xylona.RemoveGameServerResponse]
+	startGameServer                         *connect.Client[xylona.StartGameServerRequest, xylona.StartGameServerResponse]
+	stopGameServer                          *connect.Client[xylona.StopGameServerRequest, xylona.StopGameServerResponse]
+	restartGameServer                       *connect.Client[xylona.RestartGameServerRequest, xylona.RestartGameServerResponse]
+	readGameServerOutput                    *connect.Client[xylona.ReadGameServerOutputRequest, xylona.ReadGameServerOutputResponse]
+	sendGameServerInput                     *connect.Client[xylona.SendGameServerInputRequest, xylona.SendGameServerInputResponse]
+	getGameServer                           *connect.Client[xylona.GetGameServerRequest, xylona.GetGameServerResponse]
+	updateGameServer                        *connect.Client[xylona.UpdateGameServerRequest, xylona.UpdateGameServerResponse]
+	updateGameServerStartArgs               *connect.Client[xylona.UpdateGameServerStartArgsRequest, xylona.UpdateGameServerStartArgsResponse]
+	getGameServerEnvironment                *connect.Client[xylona.GetGameServerEnvironmentRequest, xylona.GetGameServerEnvironmentResponse]
+	updateGameServerEnvironment             *connect.Client[xylona.UpdateGameServerEnvironmentRequest, xylona.UpdateGameServerEnvironmentResponse]
+	setGameServerSecretEnv                  *connect.Client[xylona.SetGameServerSecretEnvRequest, xylona.SetGameServerSecretEnvResponse]
+	clearGameServerSecretEnv                *connect.Client[xylona.ClearGameServerSecretEnvRequest, xylona.ClearGameServerSecretEnvResponse]
+	getGameServerAdminInterface             *connect.Client[xylona.GetGameServerAdminInterfaceRequest, xylona.GetGameServerAdminInterfaceResponse]
+	setGameServerAdminInterfacePassword     *connect.Client[xylona.SetGameServerAdminInterfacePasswordRequest, xylona.SetGameServerAdminInterfacePasswordResponse]
+	getGameServerReadiness                  *connect.Client[xylona.GetGameServerReadinessRequest, xylona.GetGameServerReadinessResponse]
+	acceptMinecraftEula                     *connect.Client[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse]
+	setSteamGSLT                            *connect.Client[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse]
+	clearSteamGSLT                          *connect.Client[xylona.ClearSteamGSLTRequest, xylona.ClearSteamGSLTResponse]
+	startHytaleDeviceAuth                   *connect.Client[xylona.StartHytaleDeviceAuthRequest, xylona.StartHytaleDeviceAuthResponse]
+	pollHytaleDeviceAuth                    *connect.Client[xylona.PollHytaleDeviceAuthRequest, xylona.PollHytaleDeviceAuthResponse]
+	selectHytaleProfile                     *connect.Client[xylona.SelectHytaleProfileRequest, xylona.SelectHytaleProfileResponse]
+	clearHytaleAccount                      *connect.Client[xylona.ClearHytaleAccountRequest, xylona.ClearHytaleAccountResponse]
+	listGameServers                         *connect.Client[xylona.ListGameServersRequest, xylona.ListGameServersResponse]
+	queryGameServer                         *connect.Client[xylona.QueryGameServerRequest, xylona.QueryGameServerResponse]
+	getOrCreateGameServerStatusPageSettings *connect.Client[xylona.GetOrCreateGameServerStatusPageSettingsRequest, xylona.GetOrCreateGameServerStatusPageSettingsResponse]
+	updateGameServerStatusPageSettings      *connect.Client[xylona.UpdateGameServerStatusPageSettingsRequest, xylona.UpdateGameServerStatusPageSettingsResponse]
+	getPublicGameServerStatusPage           *connect.Client[xylona.GetPublicGameServerStatusPageRequest, xylona.GetPublicGameServerStatusPageResponse]
+	getGameServerPlayerManagement           *connect.Client[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse]
+	performGameServerPlayerAction           *connect.Client[xylona.PerformGameServerPlayerActionRequest, xylona.PerformGameServerPlayerActionResponse]
+	getPalworldMap                          *connect.Client[xylona.GetPalworldMapRequest, xylona.GetPalworldMapResponse]
+	updatePalworldMapConfig                 *connect.Client[xylona.UpdatePalworldMapConfigRequest, xylona.UpdatePalworldMapConfigResponse]
+	installPalworldMapTiles                 *connect.Client[xylona.InstallPalworldMapTilesRequest, xylona.InstallPalworldMapTilesResponse]
+	regeneratePalworldMapShare              *connect.Client[xylona.RegeneratePalworldMapShareRequest, xylona.RegeneratePalworldMapShareResponse]
+	revokePalworldMapShare                  *connect.Client[xylona.RevokePalworldMapShareRequest, xylona.RevokePalworldMapShareResponse]
+	getPublicPalworldMap                    *connect.Client[xylona.GetPublicPalworldMapRequest, xylona.GetPublicPalworldMapResponse]
+	getSevenDaysToDieMap                    *connect.Client[xylona.GetSevenDaysToDieMapRequest, xylona.GetSevenDaysToDieMapResponse]
+	updateSevenDaysToDieMapNotes            *connect.Client[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse]
+	listSevenDaysToDieMapShares             *connect.Client[xylona.ListSevenDaysToDieMapSharesRequest, xylona.ListSevenDaysToDieMapSharesResponse]
+	regenerateSevenDaysToDieMapShare        *connect.Client[xylona.RegenerateSevenDaysToDieMapShareRequest, xylona.RegenerateSevenDaysToDieMapShareResponse]
+	revokeSevenDaysToDieMapShare            *connect.Client[xylona.RevokeSevenDaysToDieMapShareRequest, xylona.RevokeSevenDaysToDieMapShareResponse]
+	getPublicSevenDaysToDieMap              *connect.Client[xylona.GetPublicSevenDaysToDieMapRequest, xylona.GetPublicSevenDaysToDieMapResponse]
+	getMinecraftMap                         *connect.Client[xylona.GetMinecraftMapRequest, xylona.GetMinecraftMapResponse]
+	updateMinecraftMapConfig                *connect.Client[xylona.UpdateMinecraftMapConfigRequest, xylona.UpdateMinecraftMapConfigResponse]
+	regenerateMinecraftMapShare             *connect.Client[xylona.RegenerateMinecraftMapShareRequest, xylona.RegenerateMinecraftMapShareResponse]
+	revokeMinecraftMapShare                 *connect.Client[xylona.RevokeMinecraftMapShareRequest, xylona.RevokeMinecraftMapShareResponse]
+	getPublicMinecraftMap                   *connect.Client[xylona.GetPublicMinecraftMapRequest, xylona.GetPublicMinecraftMapResponse]
+	getUpdateTargets                        *connect.Client[xylona.GetUpdateTargetsRequest, xylona.GetUpdateTargetsResponse]
+	setServerVariant                        *connect.Client[xylona.SetServerVariantRequest, xylona.SetServerVariantResponse]
+	getVariantOperationStatus               *connect.Client[xylona.GetVariantOperationStatusRequest, xylona.GetVariantOperationStatusResponse]
+	listDirectoryFiles                      *connect.Client[xylona.ListDirectoryFilesRequest, xylona.ListDirectoryFilesResponse]
+	gameServerFilesDelete                   *connect.Client[xylona.GameServerFilesDeleteRequest, xylona.GameServerFilesDeleteResponse]
+	gameServerFilesArchive                  *connect.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesArchiveProgress]
+	gameServerFilesExtract                  *connect.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesExtractProgress]
+	gameServerFilesCompress                 *connect.Client[xylona.GameServerFilesCompressionRequest, xylona.GameServerFilesCompressionResponse]
+	gameServerFilesDecompress               *connect.Client[xylona.GameServerFilesDecompressionRequest, xylona.GameServerFilesDecompressionResponse]
+	gameServerFilesDownloadFromURL          *connect.Client[xylona.GameServersFileDownloadFromURLRequest, xylona.GameServersFileDownloadFromURLResponse]
+	gameServerFileRename                    *connect.Client[xylona.GameServerFileRenameRequest, xylona.GameServerFileRenameResponse]
+	gameServerFilesMove                     *connect.Client[xylona.GameServerFilesMoveRequest, xylona.GameServerFilesMoveResponse]
+	gameServersFileEdit                     *connect.Client[xylona.GameServersFileEditRequest, xylona.GameServersFileEditResponse]
+	gameServersFileOrDirectoryCreate        *connect.Client[xylona.GameServerFileOrDirectoryCreateRequest, xylona.GameServerFileOrDirectoryCreateResponse]
+	getNode                                 *connect.Client[xylona.GetNodeRequest, xylona.GetNodeResponse]
+	listNodes                               *connect.Client[xylona.ListNodesRequest, xylona.ListNodesResponse]
+	generateNodePairingObject               *connect.Client[xylona.GenerateNodePairingObjectRequest, xylona.GenerateNodePairingObjectResponse]
+	removeNode                              *connect.Client[xylona.RemoveNodeRequest, xylona.RemoveNodeResponse]
+	editNode                                *connect.Client[xylona.EditNodeRequest, xylona.EditNodeResponse]
+	checkSystemUpdates                      *connect.Client[xylona.CheckSystemUpdatesRequest, xylona.CheckSystemUpdatesResponse]
+	startSystemUpdate                       *connect.Client[xylona.StartSystemUpdateRequest, xylona.StartSystemUpdateResponse]
+	listSystemUpdateJobs                    *connect.Client[xylona.ListSystemUpdateJobsRequest, xylona.ListSystemUpdateJobsResponse]
+	getSystemUpdateJob                      *connect.Client[xylona.GetSystemUpdateJobRequest, xylona.GetSystemUpdateJobResponse]
+	getGameConfigSchemas                    *connect.Client[xylona.GetGameConfigSchemasRequest, xylona.GetGameConfigSchemasResponse]
+	updateGameConfigSchemas                 *connect.Client[xylona.UpdateGameConfigSchemasRequest, xylona.UpdateGameConfigSchemasResponse]
+	getGameServerConfigFiles                *connect.Client[xylona.GetGameServerConfigFilesRequest, xylona.GetGameServerConfigFilesResponse]
+	getGameServerConfigFile                 *connect.Client[xylona.GetGameServerConfigFileRequest, xylona.GetGameServerConfigFileResponse]
+	updateGameServerConfigFile              *connect.Client[xylona.UpdateGameServerConfigFileRequest, xylona.UpdateGameServerConfigFileResponse]
+	generateGameServerConfigFile            *connect.Client[xylona.GenerateGameServerConfigFileRequest, xylona.GenerateGameServerConfigFileResponse]
+	listAggregatedGameServers               *connect.Client[xylona.ListAggregatedGameServersRequest, xylona.ListAggregatedGameServersResponse]
+	getNodeSystemInfo                       *connect.Client[xylona.GetNodeSystemInfoRequest, xylona.GetNodeSystemInfoResponse]
+	getNodeResourceSnapshot                 *connect.Client[xylona.GetNodeResourceSnapshotRequest, xylona.GetNodeResourceSnapshotResponse]
+	getDashboardOverview                    *connect.Client[xylona.GetDashboardOverviewRequest, xylona.GetDashboardOverviewResponse]
+	getNodeMetricsHistory                   *connect.Client[xylona.GetNodeMetricsHistoryRequest, xylona.GetNodeMetricsHistoryResponse]
+	getGameServerMetricsHistory             *connect.Client[xylona.GetGameServerMetricsHistoryRequest, xylona.GetGameServerMetricsHistoryResponse]
+	searchMods                              *connect.Client[xylona.SearchModsRequest, xylona.SearchModsResponse]
+	getModDetails                           *connect.Client[xylona.GetModDetailsRequest, xylona.GetModDetailsResponse]
+	getModVersions                          *connect.Client[xylona.GetModVersionsRequest, xylona.GetModVersionsResponse]
+	installMod                              *connect.Client[xylona.InstallModRequest, xylona.InstallModResponse]
+	uninstallMod                            *connect.Client[xylona.UninstallModRequest, xylona.UninstallModResponse]
+	updateMod                               *connect.Client[xylona.UpdateModRequest, xylona.UpdateModResponse]
+	listInstalledMods                       *connect.Client[xylona.ListInstalledModsRequest, xylona.ListInstalledModsResponse]
+	setModAutoUpdate                        *connect.Client[xylona.SetModAutoUpdateRequest, xylona.SetModAutoUpdateResponse]
+	setModEnabled                           *connect.Client[xylona.SetModEnabledRequest, xylona.SetModEnabledResponse]
+	pinModVersion                           *connect.Client[xylona.PinModVersionRequest, xylona.PinModVersionResponse]
+	getModCategories                        *connect.Client[xylona.GetModCategoriesRequest, xylona.GetModCategoriesResponse]
+	getVersionInfo                          *connect.Client[xylona.GetVersionInfoRequest, xylona.GetVersionInfoResponse]
+	checkForUpdate                          *connect.Client[xylona.CheckForUpdateRequest, xylona.CheckForUpdateResponse]
+	setDummyUpdateFailure                   *connect.Client[xylona.SetDummyUpdateFailureRequest, xylona.SetDummyUpdateFailureResponse]
+	createNotificationChannel               *connect.Client[xylona.CreateNotificationChannelRequest, xylona.CreateNotificationChannelResponse]
+	updateNotificationChannel               *connect.Client[xylona.UpdateNotificationChannelRequest, xylona.UpdateNotificationChannelResponse]
+	deleteNotificationChannel               *connect.Client[xylona.DeleteNotificationChannelRequest, xylona.DeleteNotificationChannelResponse]
+	listNotificationChannels                *connect.Client[xylona.ListNotificationChannelsRequest, xylona.ListNotificationChannelsResponse]
+	testNotificationChannel                 *connect.Client[xylona.TestNotificationChannelRequest, xylona.TestNotificationChannelResponse]
+	getLocalSMTPStatus                      *connect.Client[xylona.GetLocalSMTPStatusRequest, xylona.GetLocalSMTPStatusResponse]
+	createAlertRule                         *connect.Client[xylona.CreateAlertRuleRequest, xylona.CreateAlertRuleResponse]
+	updateAlertRule                         *connect.Client[xylona.UpdateAlertRuleRequest, xylona.UpdateAlertRuleResponse]
+	deleteAlertRule                         *connect.Client[xylona.DeleteAlertRuleRequest, xylona.DeleteAlertRuleResponse]
+	listAlertRules                          *connect.Client[xylona.ListAlertRulesRequest, xylona.ListAlertRulesResponse]
+	getAlertHistory                         *connect.Client[xylona.GetAlertHistoryRequest, xylona.GetAlertHistoryResponse]
+	getSystemSMTPConfig                     *connect.Client[xylona.GetSystemSMTPConfigRequest, xylona.GetSystemSMTPConfigResponse]
+	setSystemSMTPConfig                     *connect.Client[xylona.SetSystemSMTPConfigRequest, xylona.SetSystemSMTPConfigResponse]
+	testSystemSMTP                          *connect.Client[xylona.TestSystemSMTPRequest, xylona.TestSystemSMTPResponse]
+	beginGoogleMailOAuth                    *connect.Client[xylona.BeginGoogleMailOAuthRequest, xylona.BeginGoogleMailOAuthResponse]
+	disconnectGoogleMail                    *connect.Client[xylona.DisconnectGoogleMailRequest, xylona.DisconnectGoogleMailResponse]
+	listScheduledTasks                      *connect.Client[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse]
+	createScheduledTask                     *connect.Client[xylona.CreateScheduledTaskRequest, xylona.CreateScheduledTaskResponse]
+	updateScheduledTask                     *connect.Client[xylona.UpdateScheduledTaskRequest, xylona.UpdateScheduledTaskResponse]
+	deleteScheduledTask                     *connect.Client[xylona.DeleteScheduledTaskRequest, xylona.DeleteScheduledTaskResponse]
+	getScheduledTaskLogs                    *connect.Client[xylona.GetScheduledTaskLogsRequest, xylona.GetScheduledTaskLogsResponse]
+	getGameServerBackupOverview             *connect.Client[xylona.GetGameServerBackupOverviewRequest, xylona.GetGameServerBackupOverviewResponse]
+	getBackupSettings                       *connect.Client[xylona.GetBackupSettingsRequest, xylona.GetBackupSettingsResponse]
+	updateBackupSettings                    *connect.Client[xylona.UpdateBackupSettingsRequest, xylona.UpdateBackupSettingsResponse]
+	listGameServerBackups                   *connect.Client[xylona.ListGameServerBackupsRequest, xylona.ListGameServerBackupsResponse]
+	createGameServerBackup                  *connect.Client[xylona.CreateGameServerBackupRequest, xylona.CreateGameServerBackupResponse]
+	deleteGameServerBackup                  *connect.Client[xylona.DeleteGameServerBackupRequest, xylona.DeleteGameServerBackupResponse]
+	restoreGameServerBackup                 *connect.Client[xylona.RestoreGameServerBackupRequest, xylona.RestoreGameServerBackupResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -2019,6 +2052,22 @@ func (c *xylonaClient) ListGameServers(ctx context.Context, req *connect.Request
 // QueryGameServer calls xylona.Xylona.QueryGameServer.
 func (c *xylonaClient) QueryGameServer(ctx context.Context, req *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	return c.queryGameServer.CallUnary(ctx, req)
+}
+
+// GetOrCreateGameServerStatusPageSettings calls
+// xylona.Xylona.GetOrCreateGameServerStatusPageSettings.
+func (c *xylonaClient) GetOrCreateGameServerStatusPageSettings(ctx context.Context, req *connect.Request[xylona.GetOrCreateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerStatusPageSettingsResponse], error) {
+	return c.getOrCreateGameServerStatusPageSettings.CallUnary(ctx, req)
+}
+
+// UpdateGameServerStatusPageSettings calls xylona.Xylona.UpdateGameServerStatusPageSettings.
+func (c *xylonaClient) UpdateGameServerStatusPageSettings(ctx context.Context, req *connect.Request[xylona.UpdateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.UpdateGameServerStatusPageSettingsResponse], error) {
+	return c.updateGameServerStatusPageSettings.CallUnary(ctx, req)
+}
+
+// GetPublicGameServerStatusPage calls xylona.Xylona.GetPublicGameServerStatusPage.
+func (c *xylonaClient) GetPublicGameServerStatusPage(ctx context.Context, req *connect.Request[xylona.GetPublicGameServerStatusPageRequest]) (*connect.Response[xylona.GetPublicGameServerStatusPageResponse], error) {
+	return c.getPublicGameServerStatusPage.CallUnary(ctx, req)
 }
 
 // GetGameServerPlayerManagement calls xylona.Xylona.GetGameServerPlayerManagement.
@@ -2568,6 +2617,9 @@ type XylonaHandler interface {
 	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
+	GetOrCreateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.GetOrCreateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerStatusPageSettingsResponse], error)
+	UpdateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.UpdateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.UpdateGameServerStatusPageSettingsResponse], error)
+	GetPublicGameServerStatusPage(context.Context, *connect.Request[xylona.GetPublicGameServerStatusPageRequest]) (*connect.Response[xylona.GetPublicGameServerStatusPageResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
 	GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error)
@@ -3042,6 +3094,24 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaQueryGameServerProcedure,
 		svc.QueryGameServer,
 		connect.WithSchema(xylonaMethods.ByName("QueryGameServer")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetOrCreateGameServerStatusPageSettingsHandler := connect.NewUnaryHandler(
+		XylonaGetOrCreateGameServerStatusPageSettingsProcedure,
+		svc.GetOrCreateGameServerStatusPageSettings,
+		connect.WithSchema(xylonaMethods.ByName("GetOrCreateGameServerStatusPageSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaUpdateGameServerStatusPageSettingsHandler := connect.NewUnaryHandler(
+		XylonaUpdateGameServerStatusPageSettingsProcedure,
+		svc.UpdateGameServerStatusPageSettings,
+		connect.WithSchema(xylonaMethods.ByName("UpdateGameServerStatusPageSettings")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetPublicGameServerStatusPageHandler := connect.NewUnaryHandler(
+		XylonaGetPublicGameServerStatusPageProcedure,
+		svc.GetPublicGameServerStatusPage,
+		connect.WithSchema(xylonaMethods.ByName("GetPublicGameServerStatusPage")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetGameServerPlayerManagementHandler := connect.NewUnaryHandler(
@@ -3740,6 +3810,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaListGameServersHandler.ServeHTTP(w, r)
 		case XylonaQueryGameServerProcedure:
 			xylonaQueryGameServerHandler.ServeHTTP(w, r)
+		case XylonaGetOrCreateGameServerStatusPageSettingsProcedure:
+			xylonaGetOrCreateGameServerStatusPageSettingsHandler.ServeHTTP(w, r)
+		case XylonaUpdateGameServerStatusPageSettingsProcedure:
+			xylonaUpdateGameServerStatusPageSettingsHandler.ServeHTTP(w, r)
+		case XylonaGetPublicGameServerStatusPageProcedure:
+			xylonaGetPublicGameServerStatusPageHandler.ServeHTTP(w, r)
 		case XylonaGetGameServerPlayerManagementProcedure:
 			xylonaGetGameServerPlayerManagementHandler.ServeHTTP(w, r)
 		case XylonaPerformGameServerPlayerActionProcedure:
@@ -4175,6 +4251,18 @@ func (UnimplementedXylonaHandler) ListGameServers(context.Context, *connect.Requ
 
 func (UnimplementedXylonaHandler) QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.QueryGameServer is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetOrCreateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.GetOrCreateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerStatusPageSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetOrCreateGameServerStatusPageSettings is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) UpdateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.UpdateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.UpdateGameServerStatusPageSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.UpdateGameServerStatusPageSettings is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetPublicGameServerStatusPage(context.Context, *connect.Request[xylona.GetPublicGameServerStatusPageRequest]) (*connect.Response[xylona.GetPublicGameServerStatusPageResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetPublicGameServerStatusPage is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error) {
