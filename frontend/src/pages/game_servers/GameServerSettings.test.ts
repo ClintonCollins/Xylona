@@ -1,7 +1,7 @@
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
-import PageHeader from '@/components/shared/PageHeader.vue'
+import GameServerSettingsForm from '@/components/game_servers/GameServerSettingsForm.vue'
 import GameServerSettings from './GameServerSettings.vue'
 
 vi.mock('vue-router', () => ({
@@ -16,12 +16,15 @@ vi.mock('@/stores/xylona', () => ({
 }))
 
 describe('GameServerSettings', () => {
-  it('renders the Settings page title', async () => {
+  it('renders the settings form for the route server', async () => {
     const wrapper = shallowMount(GameServerSettings, {
       global: { renderStubDefaultSlot: true },
     })
     await flushPromises()
 
-    expect(wrapper.findComponent(PageHeader).props('title')).toBe('Settings')
+    expect(wrapper.findComponent(GameServerSettingsForm).props()).toMatchObject({
+      canEditProvisioning: true,
+      gameServerId: 'server-1',
+    })
   })
 })

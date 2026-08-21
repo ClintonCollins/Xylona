@@ -3,58 +3,169 @@
     :form-submitting="formSubmitting"
     :loading="loading"
     :save-disabled="loading"
-    compact-header
+    :subtitle="settingsSubtitle"
+    class="settings-form-shell"
     header-title="Server Settings"
     loading-text="Loading server settings..."
+    save-label="Save server"
     test-id="settings-form-shell"
     @cancel="cancel"
     @save="submitGameServer">
-    <q-form ref="formRef" class="server-form-layout" greedy>
-      <section :class="{ 'form-section--last': !canEditProvisioning }" class="form-section">
-        <div class="section-header">
-          <span class="section-icon section-icon--accent">
-            <q-icon name="badge" size="14px" />
+    <q-form ref="formRef" class="server-form-layout settings-workspace" greedy>
+      <nav aria-label="Settings categories" class="settings-category-rail">
+        <div class="settings-category-group">Server</div>
+        <button
+          :aria-current="activeCategory === 'general' ? 'page' : undefined"
+          :class="{ 'is-active': activeCategory === 'general' }"
+          class="settings-category-button"
+          data-testid="settings-category-general"
+          type="button"
+          @click="selectSettingsCategory('general')">
+          <q-icon name="badge" size="18px" />
+          <span>
+            General
+            <small>Identity & placement</small>
           </span>
-          <span class="section-title font-display">Identity</span>
-          <span class="section-line"></span>
-        </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
-          <q-input
-            v-model="gameServer.name"
-            :rules="serverNameRules"
-            class="col-12 col-md-6"
-            data-testid="editable-name"
-            label="Server Name *"
-            lazy-rules
-            maxlength="80"
-            outlined
-            reactive-rules
-            type="text" />
-          <q-select
-            v-if="canEditProvisioning"
-            v-model="gameServer.gameId"
-            :options="availableGames"
-            :rules="gameRules"
-            class="col-12 col-md-6"
-            data-testid="editable-game"
-            emit-value
-            label="Game *"
-            lazy-rules
-            map-options
-            option-label="label"
-            outlined
-            reactive-rules
-            @update:model-value="onGameSelected" />
-        </div>
-      </section>
+        </button>
+        <button
+          v-if="canEditProvisioning"
+          :aria-current="activeCategory === 'network' ? 'page' : undefined"
+          :class="{ 'is-active': activeCategory === 'network' }"
+          class="settings-category-button"
+          data-testid="settings-category-network"
+          type="button"
+          @click="selectSettingsCategory('network')">
+          <q-icon name="lan" size="18px" />
+          <span>
+            Network & Launch
+            <small>Ports & executable</small>
+          </span>
+        </button>
+        <button
+          :aria-current="activeCategory === 'capacity' ? 'page' : undefined"
+          :class="{ 'is-active': activeCategory === 'capacity' }"
+          class="settings-category-button"
+          data-testid="settings-category-capacity"
+          type="button"
+          @click="selectSettingsCategory('capacity')">
+          <q-icon name="memory" size="18px" />
+          <span>
+            Capacity
+            <small>Players & recovery</small>
+          </span>
+        </button>
 
-      <template v-if="canEditProvisioning">
-        <section class="form-section">
+        <div class="settings-category-group">Operations</div>
+        <button
+          v-if="adminInterface.supported"
+          :aria-current="activeCategory === 'admin' ? 'page' : undefined"
+          :class="{ 'is-active': activeCategory === 'admin' }"
+          class="settings-category-button"
+          data-testid="settings-category-admin"
+          type="button"
+          @click="selectSettingsCategory('admin')">
+          <q-icon name="admin_panel_settings" size="18px" />
+          <span>
+            Remote Admin
+            <small>Credentials & access</small>
+          </span>
+        </button>
+        <button
+          :aria-current="activeCategory === 'environment' ? 'page' : undefined"
+          :class="{ 'is-active': activeCategory === 'environment' }"
+          class="settings-category-button"
+          data-testid="settings-category-environment"
+          type="button"
+          @click="selectSettingsCategory('environment')">
+          <q-icon name="key" size="18px" />
+          <span>
+            Environment
+            <small>Variables & secrets</small>
+          </span>
+        </button>
+        <button
+          :aria-current="activeCategory === 'backups' ? 'page' : undefined"
+          :class="{ 'is-active': activeCategory === 'backups' }"
+          class="settings-category-button"
+          data-testid="settings-category-backups"
+          type="button"
+          @click="selectSettingsCategory('backups')">
+          <q-icon name="backup" size="18px" />
+          <span>
+            Backups
+            <small>Storage & retention</small>
+          </span>
+        </button>
+      </nav>
+
+      <div class="settings-panel">
+        <header class="settings-panel-heading">
+          <div>
+            <h2 class="settings-panel-title font-display">
+              {{ settingsCategoryDetails[activeCategory].title }}
+            </h2>
+            <p>{{ settingsCategoryDetails[activeCategory].description }}</p>
+          </div>
+          <span
+            :class="{
+              'settings-scope--separate': settingsCategoryDetails[activeCategory].separate,
+            }"
+            class="settings-scope">
+            {{ settingsCategoryDetails[activeCategory].scope }}
+          </span>
+        </header>
+
+        <section
+          v-show="activeCategory === 'general'"
+          class="form-section"
+          data-settings-category="general">
+          <div class="section-header">
+            <span class="section-icon section-icon--accent">
+              <q-icon name="badge" size="14px" />
+            </span>
+            <span class="section-title">Identity</span>
+            <span class="section-line"></span>
+          </div>
+          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+            <q-input
+              v-model="gameServer.name"
+              :rules="serverNameRules"
+              class="col-12 col-md-6"
+              data-testid="editable-name"
+              label="Server Name *"
+              lazy-rules
+              maxlength="80"
+              outlined
+              reactive-rules
+              type="text" />
+            <q-select
+              v-if="canEditProvisioning"
+              v-model="gameServer.gameId"
+              :options="availableGames"
+              :rules="gameRules"
+              class="col-12 col-md-6"
+              data-testid="editable-game"
+              emit-value
+              label="Game *"
+              lazy-rules
+              map-options
+              option-label="label"
+              outlined
+              reactive-rules
+              @update:model-value="onGameSelected" />
+          </div>
+        </section>
+
+        <section
+          v-if="canEditProvisioning"
+          v-show="activeCategory === 'general'"
+          class="form-section form-section--last"
+          data-settings-category="general">
           <div class="section-header">
             <span class="section-icon section-icon--primary">
               <q-icon name="hub" size="14px" />
             </span>
-            <span class="section-title font-display">Placement</span>
+            <span class="section-title">Placement</span>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -99,12 +210,16 @@
           </div>
         </section>
 
-        <section class="form-section">
+        <section
+          v-if="canEditProvisioning"
+          v-show="activeCategory === 'network'"
+          class="form-section"
+          data-settings-category="network">
           <div class="section-header">
             <span class="section-icon section-icon--success">
               <q-icon name="lan" size="14px" />
             </span>
-            <span class="section-title font-display">Networking</span>
+            <span class="section-title">Networking</span>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -130,459 +245,486 @@
               type="number" />
           </div>
         </section>
-      </template>
 
-      <game-server-provisioning-context
-        v-else
-        :capacity="provisioningCapacity"
-        :connection="provisioningConnection"
-        :executable="serverExecutableSummary"
-        :game="selectedGameName"
-        :memory="`${maxMemoryModel || 0} MB`"
-        :node="selectedNodeName"
-        :owner="selectedOwnerName"
-        :show-memory="isMinecraftGame" />
+        <game-server-provisioning-context
+          v-if="!canEditProvisioning"
+          v-show="activeCategory === 'general'"
+          class="settings-panel-content"
+          :capacity="provisioningCapacity"
+          :connection="provisioningConnection"
+          :executable="serverExecutableSummary"
+          :game="selectedGameName"
+          :memory="`${maxMemoryModel || 0} MB`"
+          :node="selectedNodeName"
+          :owner="selectedOwnerName"
+          :show-memory="isMinecraftGame" />
 
-      <section v-if="canEditProvisioning" class="form-section">
-        <div class="section-header">
-          <span class="section-icon section-icon--muted">
-            <q-icon name="terminal" size="14px" />
-          </span>
-          <span class="section-title font-display">Launch</span>
-          <span class="section-line"></span>
-        </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
-          <q-input
-            v-model="gameServer.serverExecutable"
-            class="col-12 col-lg-6"
-            data-testid="editable-server-executable"
-            hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder."
-            label="Server Executable"
-            outlined
-            type="text" />
-        </div>
-      </section>
-
-      <section
-        v-if="adminInterfaceLoading || adminInterface.supported"
-        class="form-section"
-        data-testid="admin-interface-settings-section">
-        <div class="section-header">
-          <span class="section-icon section-icon--warning">
-            <q-icon name="admin_panel_settings" size="14px" />
-          </span>
-          <span class="section-title font-display">Remote Administration</span>
-          <span class="section-line"></span>
-        </div>
-
-        <div
-          v-if="adminInterfaceLoading"
-          class="text-caption text-muted"
-          data-testid="admin-interface-settings-loading">
-          Loading admin interface...
-        </div>
-
-        <template v-else>
-          <div class="admin-interface-summary">
-            <div>
-              <div class="text-caption text-muted">Interface</div>
-              <div class="text-body2 text-primary">{{ adminInterface.transport }}</div>
-            </div>
-            <div>
-              <div class="text-caption text-muted">Endpoint</div>
-              <div class="text-body2 text-primary font-mono" data-testid="admin-interface-endpoint">
-                {{ adminInterfaceEndpoint }}
-              </div>
-            </div>
-            <div v-if="adminInterface.username">
-              <div class="text-caption text-muted">Username</div>
-              <div class="text-body2 text-primary font-mono">{{ adminInterface.username }}</div>
-            </div>
-            <div>
-              <div class="text-caption text-muted">Password</div>
-              <div class="text-body2 text-primary" data-testid="admin-interface-password-status">
-                {{ adminInterface.passwordConfigured ? 'Configured' : 'Generated on first start' }}
-              </div>
-            </div>
+        <section
+          v-if="canEditProvisioning"
+          v-show="activeCategory === 'network'"
+          class="form-section form-section--last"
+          data-settings-category="network">
+          <div class="section-header">
+            <span class="section-icon section-icon--muted">
+              <q-icon name="terminal" size="14px" />
+            </span>
+            <span class="section-title">Launch</span>
+            <span class="section-line"></span>
           </div>
-
-          <q-banner class="q-mt-md" data-testid="admin-interface-access-note" dense rounded>
-            {{ adminInterface.remoteAccessNote }}
-            Changes take effect the next time the game server starts.
-          </q-banner>
-          <q-banner
-            v-if="adminInterface.transportSecurityNote"
-            class="q-mt-sm"
-            data-testid="admin-interface-security-note"
-            dense
-            rounded>
-            {{ adminInterface.transportSecurityNote }}
-          </q-banner>
-
-          <div class="admin-interface-password-editor q-mt-md">
+          <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-input
-              v-model="adminInterfacePassword"
-              autocomplete="new-password"
-              data-testid="admin-interface-password"
-              hint="8–128 printable characters; spaces, double quotes, and backslashes are not supported."
-              label="New Admin Interface Password"
+              v-model="gameServer.serverExecutable"
+              class="col-12 col-lg-6"
+              data-testid="editable-server-executable"
+              hint="Optional override for the {{SERVER_EXECUTABLE}} launch placeholder."
+              label="Server Executable"
               outlined
-              type="password" />
-            <q-btn
-              :disable="adminInterfacePassword.length === 0"
-              :loading="adminInterfaceSaving"
-              color="primary"
-              data-testid="save-admin-interface-password"
-              label="Update Password"
-              no-caps
-              @click="saveAdminInterfacePassword" />
+              type="text" />
           </div>
-        </template>
-      </section>
+        </section>
 
-      <section class="form-section" data-testid="environment-settings-section">
-        <div class="section-header">
-          <span class="section-icon section-icon--accent">
-            <q-icon name="key" size="14px" />
-          </span>
-          <span class="section-title font-display">Environment</span>
-          <span class="section-line"></span>
-        </div>
-
-        <div
-          v-if="environmentLoading"
-          class="text-caption text-muted"
-          data-testid="environment-settings-loading">
-          Loading environment...
-        </div>
-
-        <template v-else>
-          <q-banner
-            v-if="environmentIssues.length > 0"
-            class="q-mb-md"
-            data-testid="environment-validation-issues"
-            dense
-            rounded>
-            <div v-for="issue in environmentIssues" :key="issue.name + issue.message">
-              {{ issue.message }}
-            </div>
-          </q-banner>
-          <q-banner
-            v-if="environmentDirty"
-            class="q-mb-md"
-            data-testid="environment-unsaved-warning"
-            dense
-            rounded>
-            Unsaved environment changes. Save Environment applies them separately from server
-            settings.
-          </q-banner>
-
-          <div class="environment-grid">
-            <div class="environment-panel">
-              <div class="environment-panel-header">
-                <div class="environment-panel-title">Variables</div>
-                <q-btn
-                  color="primary"
-                  data-testid="add-environment-row"
-                  dense
-                  flat
-                  icon="add"
-                  round
-                  @click="addEnvironmentRow" />
-              </div>
-
-              <div
-                v-if="environmentRows.length === 0"
-                class="environment-empty text-caption text-muted"
-                data-testid="environment-empty">
-                No variables configured.
-              </div>
-
-              <div
-                v-for="(row, index) in environmentRows"
-                :key="index"
-                class="environment-row"
-                data-testid="environment-row">
-                <q-input
-                  v-model="row.name"
-                  class="environment-name-input"
-                  data-testid="environment-name"
-                  dense
-                  label="Name"
-                  outlined />
-                <q-input
-                  v-model="row.value"
-                  class="environment-value-input"
-                  data-testid="environment-value"
-                  dense
-                  label="Value"
-                  outlined />
-                <q-btn
-                  color="negative"
-                  data-testid="remove-environment-row"
-                  dense
-                  flat
-                  icon="delete"
-                  round
-                  @click="removeEnvironmentRow(index)" />
-              </div>
-
-              <div class="environment-actions">
-                <q-btn
-                  :loading="environmentSaving"
-                  color="primary"
-                  data-testid="save-environment-settings"
-                  label="Save Environment"
-                  no-caps
-                  @click="saveEnvironmentSettings" />
-              </div>
-            </div>
-
-            <div class="environment-panel">
-              <div class="environment-panel-header">
-                <div class="environment-panel-title">Secrets</div>
-              </div>
-
-              <div
-                v-if="secretEnvironmentStates.length === 0"
-                class="environment-empty text-caption text-muted"
-                data-testid="secret-environment-empty">
-                No secrets configured.
-              </div>
-
-              <div
-                v-for="secret in secretEnvironmentStates"
-                :key="secret.name"
-                class="secret-environment-row"
-                data-testid="secret-environment-row">
-                <div class="secret-environment-summary">
-                  <div class="secret-environment-name">{{ secret.name }}</div>
-                  <div class="secret-environment-updated text-caption text-muted">
-                    {{ formatSecretUpdatedAt(secret) }}
-                  </div>
-                </div>
-                <q-btn
-                  color="negative"
-                  data-testid="clear-secret-environment"
-                  dense
-                  flat
-                  icon="delete"
-                  round
-                  @click="clearSecretEnvironment(secret.name)" />
-              </div>
-
-              <div class="secret-environment-editor">
-                <q-input
-                  v-model="secretEnvironmentName"
-                  data-testid="secret-environment-name"
-                  dense
-                  label="Name"
-                  outlined />
-                <q-input
-                  v-model="secretEnvironmentValue"
-                  data-testid="secret-environment-value"
-                  dense
-                  label="Value"
-                  outlined
-                  type="password" />
-                <q-btn
-                  :loading="secretEnvironmentSaving"
-                  color="primary"
-                  data-testid="set-secret-environment"
-                  label="Set Secret"
-                  no-caps
-                  @click="setSecretEnvironment" />
-              </div>
-            </div>
+        <section
+          v-if="adminInterfaceLoading || adminInterface.supported"
+          v-show="activeCategory === 'admin'"
+          class="form-section form-section--last"
+          data-settings-category="admin"
+          data-testid="admin-interface-settings-section">
+          <div class="section-header">
+            <span class="section-icon section-icon--warning">
+              <q-icon name="admin_panel_settings" size="14px" />
+            </span>
+            <span class="section-title">Remote Administration</span>
+            <span class="section-line"></span>
           </div>
-        </template>
-      </section>
-
-      <section class="form-section">
-        <div class="section-header">
-          <span class="section-icon section-icon--warning">
-            <q-icon name="memory" size="14px" />
-          </span>
-          <span class="section-title font-display">Capacity</span>
-          <span class="section-line"></span>
-        </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
-          <q-input
-            v-model.number="setPlayersModel"
-            :rules="setPlayersRules"
-            class="col-12 col-sm-6 col-lg-4"
-            data-testid="editable-set-players"
-            label="Set Players *"
-            lazy-rules
-            outlined
-            reactive-rules
-            type="number" />
-          <q-input
-            v-if="canEditProvisioning"
-            v-model.number="maxPlayersModel"
-            :rules="maxPlayersRules"
-            class="col-12 col-sm-6 col-lg-4"
-            data-testid="editable-max-players"
-            label="Max Players *"
-            lazy-rules
-            outlined
-            reactive-rules
-            type="number" />
-          <q-input
-            v-if="canEditProvisioning && isMinecraftGame"
-            v-model.number="maxMemoryModel"
-            :error="showMaxMemoryStateError"
-            :error-message="maxMemoryStateMessage"
-            :rules="maxMemoryRules"
-            class="col-12 col-lg-4"
-            data-testid="editable-max-memory"
-            label="Max Memory MB *"
-            lazy-rules
-            outlined
-            reactive-rules
-            type="number" />
-        </div>
-      </section>
-
-      <section class="form-section" data-testid="auto-restart-section">
-        <div class="section-header">
-          <span class="section-icon section-icon--success">
-            <q-icon name="restart_alt" size="14px" />
-          </span>
-          <span class="section-title font-display">Auto-Restart</span>
-          <span class="section-line"></span>
-        </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
-          <div class="col-12">
-            <q-toggle
-              v-model="gameServer.autoRestartEnabled"
-              color="primary"
-              data-testid="auto-restart-enabled"
-              label="Restart server automatically on unexpected exit" />
-          </div>
-          <q-input
-            v-if="gameServer.autoRestartEnabled"
-            v-model.number="autoRestartMaxRetriesModel"
-            :rules="autoRestartMaxRetriesRules"
-            class="col-12 col-sm-6"
-            data-testid="auto-restart-max-retries"
-            hint="Maximum restart attempts before giving up (resets after 5 min of stable uptime)."
-            label="Max Retries"
-            lazy-rules
-            outlined
-            reactive-rules
-            type="number" />
-          <q-input
-            v-if="gameServer.autoRestartEnabled"
-            v-model.number="autoRestartCooldownModel"
-            :rules="autoRestartCooldownRules"
-            class="col-12 col-sm-6"
-            data-testid="auto-restart-cooldown"
-            hint="Initial delay before first retry. Doubles with each subsequent attempt."
-            label="Base Cooldown (seconds)"
-            lazy-rules
-            outlined
-            reactive-rules
-            type="number" />
-        </div>
-      </section>
-
-      <section class="form-section form-section--last" data-testid="backup-settings-section">
-        <div class="section-header">
-          <span class="section-icon section-icon--primary">
-            <q-icon name="backup" size="14px" />
-          </span>
-          <span class="section-title font-display">Backup Settings</span>
-          <span class="section-line"></span>
-        </div>
-
-        <div
-          v-if="backupSettingsLoading"
-          class="text-caption text-muted"
-          data-testid="backup-settings-loading">
-          Loading backup settings...
-        </div>
-
-        <template v-else>
-          <q-banner
-            v-if="!backupSettings.backupsSupported"
-            class="col-12 bg-warning text-dark q-mb-md"
-            data-testid="backup-settings-unsupported"
-            dense
-            rounded>
-            {{ backupSettings.disabledReason || 'New backups are unavailable for this server.' }}
-            Existing backups remain available from the Backups page.
-          </q-banner>
 
           <div
-            v-if="backupOverview.canManageSettings"
-            class="row q-col-gutter-md q-gutter-y-md full-width">
+            v-if="adminInterfaceLoading"
+            class="text-caption text-muted"
+            data-testid="admin-interface-settings-loading">
+            Loading admin interface...
+          </div>
+
+          <template v-else>
+            <div class="admin-interface-summary">
+              <div>
+                <div class="text-caption text-muted">Interface</div>
+                <div class="text-body2 text-primary">{{ adminInterface.transport }}</div>
+              </div>
+              <div>
+                <div class="text-caption text-muted">Endpoint</div>
+                <div
+                  class="text-body2 text-primary font-mono"
+                  data-testid="admin-interface-endpoint">
+                  {{ adminInterfaceEndpoint }}
+                </div>
+              </div>
+              <div v-if="adminInterface.username">
+                <div class="text-caption text-muted">Username</div>
+                <div class="text-body2 text-primary font-mono">{{ adminInterface.username }}</div>
+              </div>
+              <div>
+                <div class="text-caption text-muted">Password</div>
+                <div class="text-body2 text-primary" data-testid="admin-interface-password-status">
+                  {{
+                    adminInterface.passwordConfigured ? 'Configured' : 'Generated on first start'
+                  }}
+                </div>
+              </div>
+            </div>
+
+            <q-banner class="q-mt-md" data-testid="admin-interface-access-note" dense rounded>
+              {{ adminInterface.remoteAccessNote }}
+              Changes take effect the next time the game server starts.
+            </q-banner>
+            <q-banner
+              v-if="adminInterface.transportSecurityNote"
+              class="q-mt-sm"
+              data-testid="admin-interface-security-note"
+              dense
+              rounded>
+              {{ adminInterface.transportSecurityNote }}
+            </q-banner>
+
+            <div class="admin-interface-password-editor q-mt-md">
+              <q-input
+                v-model="adminInterfacePassword"
+                autocomplete="new-password"
+                data-testid="admin-interface-password"
+                hint="8–128 printable characters; spaces, double quotes, and backslashes are not supported."
+                label="New Admin Interface Password"
+                outlined
+                type="password" />
+              <q-btn
+                :disable="adminInterfacePassword.length === 0"
+                :loading="adminInterfaceSaving"
+                color="primary"
+                data-testid="save-admin-interface-password"
+                label="Update Password"
+                no-caps
+                @click="saveAdminInterfacePassword" />
+            </div>
+          </template>
+        </section>
+
+        <section
+          v-show="activeCategory === 'environment'"
+          class="form-section form-section--last"
+          data-settings-category="environment"
+          data-testid="environment-settings-section">
+          <div class="section-header">
+            <span class="section-icon section-icon--accent">
+              <q-icon name="key" size="14px" />
+            </span>
+            <span class="section-title">Environment</span>
+            <span class="section-line"></span>
+          </div>
+
+          <div
+            v-if="environmentLoading"
+            class="text-caption text-muted"
+            data-testid="environment-settings-loading">
+            Loading environment...
+          </div>
+
+          <template v-else>
+            <q-banner
+              v-if="environmentIssues.length > 0"
+              class="q-mb-md"
+              data-testid="environment-validation-issues"
+              dense
+              rounded>
+              <div v-for="issue in environmentIssues" :key="issue.name + issue.message">
+                {{ issue.message }}
+              </div>
+            </q-banner>
+            <q-banner
+              v-if="environmentDirty"
+              class="q-mb-md"
+              data-testid="environment-unsaved-warning"
+              dense
+              rounded>
+              Unsaved environment changes. Save Environment applies them separately from server
+              settings.
+            </q-banner>
+
+            <div class="environment-grid">
+              <div class="environment-panel">
+                <div class="environment-panel-header">
+                  <div class="environment-panel-title">Variables</div>
+                  <q-btn
+                    color="primary"
+                    data-testid="add-environment-row"
+                    dense
+                    flat
+                    icon="add"
+                    round
+                    @click="addEnvironmentRow" />
+                </div>
+
+                <div
+                  v-if="environmentRows.length === 0"
+                  class="environment-empty text-caption text-muted"
+                  data-testid="environment-empty">
+                  No variables configured.
+                </div>
+
+                <div
+                  v-for="(row, index) in environmentRows"
+                  :key="index"
+                  class="environment-row"
+                  data-testid="environment-row">
+                  <q-input
+                    v-model="row.name"
+                    class="environment-name-input"
+                    data-testid="environment-name"
+                    dense
+                    label="Name"
+                    outlined />
+                  <q-input
+                    v-model="row.value"
+                    class="environment-value-input"
+                    data-testid="environment-value"
+                    dense
+                    label="Value"
+                    outlined />
+                  <q-btn
+                    color="negative"
+                    data-testid="remove-environment-row"
+                    dense
+                    flat
+                    icon="delete"
+                    round
+                    @click="removeEnvironmentRow(index)" />
+                </div>
+
+                <div class="environment-actions">
+                  <q-btn
+                    :loading="environmentSaving"
+                    color="primary"
+                    data-testid="save-environment-settings"
+                    label="Save Environment"
+                    no-caps
+                    @click="saveEnvironmentSettings" />
+                </div>
+              </div>
+
+              <div class="environment-panel">
+                <div class="environment-panel-header">
+                  <div class="environment-panel-title">Secrets</div>
+                </div>
+
+                <div
+                  v-if="secretEnvironmentStates.length === 0"
+                  class="environment-empty text-caption text-muted"
+                  data-testid="secret-environment-empty">
+                  No secrets configured.
+                </div>
+
+                <div
+                  v-for="secret in secretEnvironmentStates"
+                  :key="secret.name"
+                  class="secret-environment-row"
+                  data-testid="secret-environment-row">
+                  <div class="secret-environment-summary">
+                    <div class="secret-environment-name">{{ secret.name }}</div>
+                    <div class="secret-environment-updated text-caption text-muted">
+                      {{ formatSecretUpdatedAt(secret) }}
+                    </div>
+                  </div>
+                  <q-btn
+                    color="negative"
+                    data-testid="clear-secret-environment"
+                    dense
+                    flat
+                    icon="delete"
+                    round
+                    @click="clearSecretEnvironment(secret.name)" />
+                </div>
+
+                <div class="secret-environment-editor">
+                  <q-input
+                    v-model="secretEnvironmentName"
+                    data-testid="secret-environment-name"
+                    dense
+                    label="Name"
+                    outlined />
+                  <q-input
+                    v-model="secretEnvironmentValue"
+                    data-testid="secret-environment-value"
+                    dense
+                    label="Value"
+                    outlined
+                    type="password" />
+                  <q-btn
+                    :loading="secretEnvironmentSaving"
+                    color="primary"
+                    data-testid="set-secret-environment"
+                    label="Set Secret"
+                    no-caps
+                    @click="setSecretEnvironment" />
+                </div>
+              </div>
+            </div>
+          </template>
+        </section>
+
+        <section
+          v-show="activeCategory === 'capacity'"
+          class="form-section"
+          data-settings-category="capacity">
+          <div class="section-header">
+            <span class="section-icon section-icon--warning">
+              <q-icon name="memory" size="14px" />
+            </span>
+            <span class="section-title">Capacity</span>
+            <span class="section-line"></span>
+          </div>
+          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+            <q-input
+              v-model.number="setPlayersModel"
+              :rules="setPlayersRules"
+              class="col-12 col-sm-6 col-lg-4"
+              data-testid="editable-set-players"
+              label="Set Players *"
+              lazy-rules
+              outlined
+              reactive-rules
+              type="number" />
+            <q-input
+              v-if="canEditProvisioning"
+              v-model.number="maxPlayersModel"
+              :rules="maxPlayersRules"
+              class="col-12 col-sm-6 col-lg-4"
+              data-testid="editable-max-players"
+              label="Max Players *"
+              lazy-rules
+              outlined
+              reactive-rules
+              type="number" />
+            <q-input
+              v-if="canEditProvisioning && isMinecraftGame"
+              v-model.number="maxMemoryModel"
+              :error="showMaxMemoryStateError"
+              :error-message="maxMemoryStateMessage"
+              :rules="maxMemoryRules"
+              class="col-12 col-lg-4"
+              data-testid="editable-max-memory"
+              label="Max Memory MB *"
+              lazy-rules
+              outlined
+              reactive-rules
+              type="number" />
+          </div>
+        </section>
+
+        <section
+          v-show="activeCategory === 'capacity'"
+          class="form-section form-section--last"
+          data-settings-category="capacity"
+          data-testid="auto-restart-section">
+          <div class="section-header">
+            <span class="section-icon section-icon--success">
+              <q-icon name="restart_alt" size="14px" />
+            </span>
+            <span class="section-title">Auto-Restart</span>
+            <span class="section-line"></span>
+          </div>
+          <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <div class="col-12">
               <q-toggle
-                :model-value="backupSettings.backupsEnabled"
+                v-model="gameServer.autoRestartEnabled"
                 color="primary"
-                data-testid="backup-settings-enabled"
-                label="Enable Backups"
-                :disable="backupEnableBlocked && !backupSettings.backupsEnabled"
-                @update:model-value="updateBackupsEnabled" />
+                data-testid="auto-restart-enabled"
+                label="Restart server automatically on unexpected exit" />
             </div>
-
             <q-input
-              :model-value="backupSettings.backupDirectory"
-              class="col-12 col-lg-8"
-              data-testid="backup-settings-directory"
-              dense
-              label="Backup Directory"
+              v-if="gameServer.autoRestartEnabled"
+              v-model.number="autoRestartMaxRetriesModel"
+              :rules="autoRestartMaxRetriesRules"
+              class="col-12 col-sm-6"
+              data-testid="auto-restart-max-retries"
+              hint="Maximum restart attempts before giving up (resets after 5 min of stable uptime)."
+              label="Max Retries"
+              lazy-rules
               outlined
-              @update:model-value="backupSettings.backupDirectory = $event" />
-
+              reactive-rules
+              type="number" />
             <q-input
-              :model-value="String(backupSettings.maxBackups)"
-              class="col-12 col-sm-6 col-lg-4"
-              data-testid="backup-settings-max-backups"
-              dense
-              label="Max Automated Backups"
-              min="0"
+              v-if="gameServer.autoRestartEnabled"
+              v-model.number="autoRestartCooldownModel"
+              :rules="autoRestartCooldownRules"
+              class="col-12 col-sm-6"
+              data-testid="auto-restart-cooldown"
+              hint="Initial delay before first retry. Doubles with each subsequent attempt."
+              label="Base Cooldown (seconds)"
+              lazy-rules
               outlined
-              type="number"
-              @update:model-value="updateBackupMaxBackups($event)" />
+              reactive-rules
+              type="number" />
+          </div>
+        </section>
 
-            <div
-              v-if="backupSettings.defaultBackupDirectory"
-              class="col-12 text-caption text-muted"
-              data-testid="backup-settings-default-directory">
-              Default backup directory: {{ backupSettings.defaultBackupDirectory }}
-            </div>
-
-            <div class="col-12 row justify-end">
-              <q-btn
-                :disable="backupSettingsSaveBlocked"
-                :loading="backupSettingsSaving"
-                color="primary"
-                data-testid="save-backup-settings"
-                label="Save Backup Settings"
-                no-caps
-                @click="saveBackupSettings" />
-            </div>
+        <section
+          v-show="activeCategory === 'backups'"
+          class="form-section form-section--last"
+          data-settings-category="backups"
+          data-testid="backup-settings-section">
+          <div class="section-header">
+            <span class="section-icon section-icon--primary">
+              <q-icon name="backup" size="14px" />
+            </span>
+            <span class="section-title">Backup Settings</span>
+            <span class="section-line"></span>
           </div>
 
           <div
-            v-else
-            class="row q-col-gutter-md q-gutter-y-sm full-width"
-            data-testid="backup-settings-readonly">
-            <div class="col-12 col-md-6">
-              <div class="text-caption text-muted">Status</div>
-              <div class="text-body2 text-primary">
-                {{ formatBackupEnabled(backupSettings.backupsEnabled) }}
+            v-if="backupSettingsLoading"
+            class="text-caption text-muted"
+            data-testid="backup-settings-loading">
+            Loading backup settings...
+          </div>
+
+          <template v-else>
+            <q-banner
+              v-if="!backupSettings.backupsSupported"
+              class="col-12 bg-warning text-dark q-mb-md"
+              data-testid="backup-settings-unsupported"
+              dense
+              rounded>
+              {{ backupSettings.disabledReason || 'New backups are unavailable for this server.' }}
+              Existing backups remain available from the Backups page.
+            </q-banner>
+
+            <div
+              v-if="backupOverview.canManageSettings"
+              class="row q-col-gutter-md q-gutter-y-md full-width">
+              <div class="col-12">
+                <q-toggle
+                  :model-value="backupSettings.backupsEnabled"
+                  color="primary"
+                  data-testid="backup-settings-enabled"
+                  label="Enable Backups"
+                  :disable="backupEnableBlocked && !backupSettings.backupsEnabled"
+                  @update:model-value="updateBackupsEnabled" />
+              </div>
+
+              <q-input
+                :model-value="backupSettings.backupDirectory"
+                class="col-12 col-lg-8"
+                data-testid="backup-settings-directory"
+                dense
+                label="Backup Directory"
+                outlined
+                @update:model-value="backupSettings.backupDirectory = $event" />
+
+              <q-input
+                :model-value="String(backupSettings.maxBackups)"
+                class="col-12 col-sm-6 col-lg-4"
+                data-testid="backup-settings-max-backups"
+                dense
+                label="Max Automated Backups"
+                min="0"
+                outlined
+                type="number"
+                @update:model-value="updateBackupMaxBackups($event)" />
+
+              <div
+                v-if="backupSettings.defaultBackupDirectory"
+                class="col-12 text-caption text-muted"
+                data-testid="backup-settings-default-directory">
+                Default backup directory: {{ backupSettings.defaultBackupDirectory }}
+              </div>
+
+              <div class="col-12 row justify-end">
+                <q-btn
+                  :disable="backupSettingsSaveBlocked"
+                  :loading="backupSettingsSaving"
+                  color="primary"
+                  data-testid="save-backup-settings"
+                  label="Save Backup Settings"
+                  no-caps
+                  @click="saveBackupSettings" />
               </div>
             </div>
-            <div class="col-12 col-md-6">
-              <div class="text-caption text-muted">Max Automated Backups</div>
-              <div class="text-body2 text-primary">{{ String(backupSettings.maxBackups) }}</div>
+
+            <div
+              v-else
+              class="row q-col-gutter-md q-gutter-y-sm full-width"
+              data-testid="backup-settings-readonly">
+              <div class="col-12 col-md-6">
+                <div class="text-caption text-muted">Status</div>
+                <div class="text-body2 text-primary">
+                  {{ formatBackupEnabled(backupSettings.backupsEnabled) }}
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <div class="text-caption text-muted">Max Automated Backups</div>
+                <div class="text-body2 text-primary">{{ String(backupSettings.maxBackups) }}</div>
+              </div>
             </div>
-          </div>
-        </template>
-      </section>
+          </template>
+        </section>
+      </div>
     </q-form>
   </game-server-form-shell>
 </template>
@@ -591,7 +733,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
@@ -632,8 +774,53 @@ const props = defineProps<{
   gameServerId: string
 }>()
 
+type SettingsCategory = 'general' | 'network' | 'capacity' | 'admin' | 'environment' | 'backups'
+
+const settingsCategoryDetails: Record<
+  SettingsCategory,
+  { description: string; scope: string; separate: boolean; title: string }
+> = {
+  general: {
+    title: 'General',
+    description: "The server's identity and where it runs.",
+    scope: 'Saved with server',
+    separate: false,
+  },
+  network: {
+    title: 'Network & Launch',
+    description: 'Connection endpoints and process override.',
+    scope: 'Saved with server',
+    separate: false,
+  },
+  capacity: {
+    title: 'Capacity & Recovery',
+    description: 'Player limits and automatic restart behavior.',
+    scope: 'Saved with server',
+    separate: false,
+  },
+  admin: {
+    title: 'Remote Administration',
+    description: 'Remote access credentials for this game server.',
+    scope: 'Separate action',
+    separate: true,
+  },
+  environment: {
+    title: 'Environment',
+    description: 'Runtime variables and encrypted secrets.',
+    scope: 'Separate save',
+    separate: true,
+  },
+  backups: {
+    title: 'Backup Policy',
+    description: 'Storage location and automated retention.',
+    scope: 'Separate save',
+    separate: true,
+  },
+}
+
 const router = useRouter()
 const $q = useQuasar()
+const activeCategory = ref<SettingsCategory>('general')
 const backupSettings = ref<BackupSettings>(create(BackupSettingsSchema))
 const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
 const backupSettingsLoading = ref(true)
@@ -716,6 +903,10 @@ const {
   loadProvisioningOptions: props.canEditProvisioning,
 })
 
+const settingsSubtitle = computed(
+  () => `${gameServer.value.name || 'Game server'} · ${selectedGameName.value}`,
+)
+
 onMounted(async () => {
   await initialize()
   await Promise.all([
@@ -724,6 +915,24 @@ onMounted(async () => {
     initializeEnvironmentSettings(),
   ])
 })
+
+function selectSettingsCategory(category: SettingsCategory) {
+  activeCategory.value = category
+}
+
+async function revealFirstInvalidCategory() {
+  await nextTick()
+  const formElement = formRef.value?.$el as HTMLElement | undefined
+  const category = formElement
+    ?.querySelector('.q-field--error')
+    ?.closest<HTMLElement>('[data-settings-category]')?.dataset.settingsCategory as
+    | SettingsCategory
+    | undefined
+
+  if (category && category !== activeCategory.value) {
+    selectSettingsCategory(category)
+  }
+}
 
 async function cancel() {
   router.back()
@@ -1051,6 +1260,7 @@ async function submitGameServer() {
     'Complete the required fields before saving this server.',
   )
   if (!formValid) {
+    await revealFirstInvalidCategory()
     return
   }
 
@@ -1084,6 +1294,175 @@ async function submitGameServer() {
 </script>
 
 <style scoped>
+.settings-form-shell {
+  --xy-header-stack-height: 0px;
+}
+
+.settings-workspace {
+  display: grid;
+  grid-template-columns: minmax(180px, 210px) minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-xl);
+}
+
+.settings-category-rail {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-xs);
+  padding: var(--xy-space-sm);
+  background: var(--xy-surface-0);
+  border-right: 1px solid var(--xy-border);
+}
+
+.settings-category-group {
+  padding: var(--xy-space-sm) var(--xy-space-sm) var(--xy-space-xs);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: var(--xy-line-height-tight);
+  text-transform: uppercase;
+}
+
+.settings-category-group:not(:first-child) {
+  margin-top: var(--xy-space-sm);
+}
+
+.settings-category-button {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  width: 100%;
+  padding: 10px var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--xy-radius-md);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    color var(--xy-transition-fast),
+    background-color var(--xy-transition-fast),
+    border-color var(--xy-transition-fast);
+}
+
+.settings-category-button:hover {
+  color: var(--xy-text-primary);
+  background: var(--xy-surface-overlay-soft);
+  border-color: var(--xy-border);
+}
+
+.settings-category-button:focus-visible {
+  outline: 2px solid var(--xy-focus-ring);
+  outline-offset: 2px;
+}
+
+.settings-category-button.is-active {
+  color: var(--xy-text-primary);
+  background: var(--xy-primary-muted);
+  border-color: var(--xy-primary-border-soft);
+}
+
+.settings-category-button :deep(.q-icon) {
+  flex: 0 0 auto;
+  color: var(--xy-text-muted);
+}
+
+.settings-category-button.is-active :deep(.q-icon) {
+  color: var(--xy-accent);
+}
+
+.settings-category-button > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-2xs);
+  min-width: 0;
+  font-size: var(--xy-font-size-sm);
+  font-weight: 600;
+  line-height: var(--xy-line-height-tight);
+}
+
+.settings-category-button small {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 400;
+}
+
+.settings-panel-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+  padding-bottom: var(--xy-space-md);
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.settings-panel-title {
+  margin: 0;
+  color: var(--xy-text-primary);
+  font-size: var(--xy-font-size-lg);
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  line-height: var(--xy-line-height-tight);
+}
+
+.settings-panel-heading p {
+  max-width: 65ch;
+  margin: var(--xy-space-xs) 0 0;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+  line-height: var(--xy-line-height-base);
+}
+
+.settings-scope {
+  flex: 0 0 auto;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-pill);
+  font-size: var(--xy-font-size-2xs);
+  line-height: var(--xy-line-height-tight);
+}
+
+.settings-scope--separate {
+  color: var(--xy-accent-hover);
+  background: var(--xy-accent-muted);
+  border-color: var(--xy-accent-border-soft);
+}
+
+.settings-panel {
+  grid-column: 2;
+  min-width: 0;
+  padding: var(--xy-space-lg);
+}
+
+.settings-panel > .form-section,
+.settings-panel-content {
+  min-width: 0;
+}
+
+.settings-panel > .form-section:first-of-type {
+  padding-top: var(--xy-space-md);
+}
+
+.settings-workspace .section-title {
+  font-family: var(--xy-font-body);
+}
+
+.settings-panel :deep(.q-field--outlined .q-field__control) {
+  background: var(--xy-surface-0);
+}
+
+.settings-panel :deep(.q-field--outlined .q-field__control::before) {
+  border-color: var(--xy-border-hover);
+}
+
 .admin-interface-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1183,6 +1562,65 @@ async function submitGameServer() {
   .environment-row :deep(.q-btn),
   .secret-environment-editor :deep(.q-btn) {
     justify-self: flex-start;
+  }
+}
+
+@media (max-width: 1023px) {
+  .settings-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-category-rail {
+    grid-column: 1;
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: var(--xy-space-xs);
+    border-right: 0;
+    border-bottom: 1px solid var(--xy-border);
+    scrollbar-width: none;
+  }
+
+  .settings-category-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-category-group {
+    display: none;
+  }
+
+  .settings-category-button {
+    flex: 0 0 auto;
+    width: auto;
+  }
+
+  .settings-category-button small {
+    display: none;
+  }
+
+  .settings-panel {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 599px) {
+  :deep(.server-form-header) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :deep(.server-form-header-actions) {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .settings-panel-heading {
+    flex-direction: column;
+    gap: var(--xy-space-sm);
+  }
+
+  .settings-panel {
+    padding: var(--xy-space-md);
   }
 }
 </style>

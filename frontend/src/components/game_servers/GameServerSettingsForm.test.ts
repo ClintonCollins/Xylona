@@ -101,6 +101,15 @@ const QSelectStub = defineComponent({
   template: '<div class="q-select-stub" v-bind="$attrs">{{ label }}</div>',
 })
 
+const qFormValidate = vi.fn()
+const QFormStub = defineComponent({
+  name: 'QFormStub',
+  setup(_props, { expose }) {
+    expose({ validate: qFormValidate })
+  },
+  template: '<form><slot /></form>',
+})
+
 function mountSettingsForm(canEditProvisioning: boolean) {
   return mount(GameServerSettingsForm, {
     props: {
@@ -109,7 +118,7 @@ function mountSettingsForm(canEditProvisioning: boolean) {
     },
     global: {
       stubs: {
-        'q-form': { template: '<form><slot /></form>' },
+        'q-form': QFormStub,
         'q-banner': { template: '<div v-bind="$attrs"><slot /></div>' },
         'q-input': QInputStub,
         'q-select': QSelectStub,
@@ -151,6 +160,8 @@ describe('GameServerSettingsForm', () => {
     mocks.listNodes.mockReset()
     mocks.listUsers.mockReset()
     mocks.listIPs.mockReset()
+    qFormValidate.mockReset()
+    qFormValidate.mockResolvedValue(true)
 
     mocks.listGames.mockResolvedValue({
       games: [
@@ -461,5 +472,50 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.get('[data-testid="admin-interface-security-note"]').text()).toContain(
       'not encrypted',
     )
+  })
+
+  it('switches categories and reveals the category containing a validation error', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-local-1',
+        name: 'Local One',
+        userId: 'user-owner',
+        userName: 'owner',
+        gameId: 'minecraft',
+        gameName: 'Minecraft',
+        nodeId: 'node-local',
+        nodeName: 'Local Node',
+        ip: create(IPSchema, { address: '127.0.0.1' }),
+        port: 25565n,
+        queryPort: 25565n,
+        setMaxPlayers: 20n,
+        maxPlayers: 20n,
+        maxMemoryMb: 1024n,
+      }),
+    )
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="settings-category-environment"]').trigger('click')
+
+    expect(
+      wrapper.get('[data-settings-category="environment"]').attributes('style') ?? '',
+    ).not.toContain('display: none')
+    expect(wrapper.get('[data-settings-category="general"]').attributes('style')).toContain(
+      'display: none',
+    )
+
+    wrapper.get('[data-testid="editable-port"]').element.classList.add('q-field--error')
+    qFormValidate.mockResolvedValueOnce(false)
+    await wrapper.get('.server-form-save-btn').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.get('[data-testid="settings-category-network"]').attributes('aria-current'),
+    ).toBe('page')
+    expect(
+      wrapper.get('[data-settings-category="network"]').attributes('style') ?? '',
+    ).not.toContain('display: none')
   })
 })

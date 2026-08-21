@@ -1,6 +1,5 @@
 <template>
   <q-card-section>
-    <page-header class="settings-page-header" title="Settings" />
     <game-server-settings-form
       v-if="canEditProvisioning !== undefined"
       :can-edit-provisioning="canEditProvisioning"
@@ -13,7 +12,6 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import GameServerSettingsForm from '@/components/game_servers/GameServerSettingsForm.vue'
-import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
 
 const route = useRoute()
@@ -32,9 +30,3 @@ onMounted(async () => {
   canEditProvisioning.value = user?.superUser ?? false
 })
 </script>
-
-<style scoped>
-.settings-page-header {
-  margin-bottom: var(--xy-space-md);
-}
-</style>

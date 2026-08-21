@@ -60,6 +60,10 @@ a.q-item:hover {
   border-color: var(--xy-border-active) !important;
 }
 
+.q-field--focused .q-field__control::after {
+  border-width: 1px !important;
+}
+
 /* ---- Buttons ---- */
 .q-btn {
   font-family: var(--xy-font-control);
@@ -207,7 +211,7 @@ a.q-item:hover {
 }
 
 .q-field:has(:focus-visible) .q-field__control {
-  box-shadow: 0 0 0 2px var(--xy-focus-ring);
+  box-shadow: 0 0 0 1px var(--xy-border-active);
 }
 
 /* ---- Focus Helper ---- */
