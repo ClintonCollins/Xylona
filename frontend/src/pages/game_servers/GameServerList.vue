@@ -11,113 +11,117 @@
         </template>
       </div>
       <template #actions>
-        <q-toolbar
-          v-if="selectedGameServers.length > 0"
-          aria-label="Selected game server actions"
-          class="server-selection-toolbar">
-          <div class="server-selection-toolbar__count">
-            <q-icon name="checklist" size="sm" />
-            <strong aria-hidden="true">
-              {{ selectedGameServers.length
-              }}<span class="server-selection-toolbar__count-label"> selected</span>
-            </strong>
-            <span class="xy-visually-hidden">{{ selectedGameServers.length }} selected</span>
-          </div>
-          <q-separator class="server-selection-toolbar__separator" vertical />
-          <q-btn
-            :aria-label="`Start ${selectedGameServersForStart.length} selected game servers`"
-            :disable="
-              !lifecycleStateAuthoritative || loading || selectedGameServersForStart.length < 1
-            "
-            color="positive"
-            dense
-            icon="play_arrow"
-            :label="`Start ${selectedGameServersForStart.length}`"
-            no-caps
-            outline
-            @click="startSelectedGameServers">
-            <q-tooltip>Start selected game servers</q-tooltip>
-          </q-btn>
-          <q-btn
-            :aria-label="`Restart ${selectedGameServersForRestart.length} selected game servers`"
-            :disable="
-              !lifecycleStateAuthoritative || loading || selectedGameServersForRestart.length < 1
-            "
-            color="warning"
-            dense
-            icon="restart_alt"
-            :label="`Restart ${selectedGameServersForRestart.length}`"
-            no-caps
-            outline
-            @click="restartSelectedGameServers">
-            <q-tooltip>Restart selected game servers</q-tooltip>
-          </q-btn>
-          <q-btn
-            :aria-label="`Stop ${selectedGameServersForStop.length} selected game servers`"
-            :disable="
-              !lifecycleStateAuthoritative || loading || selectedGameServersForStop.length < 1
-            "
-            color="negative"
-            dense
-            icon="stop"
-            :label="`Stop ${selectedGameServersForStop.length}`"
-            no-caps
-            outline
-            @click="stopSelectedGameServers">
-            <q-tooltip>Stop selected game servers</q-tooltip>
-          </q-btn>
-          <q-btn
-            :aria-label="`Update ${selectedGameServersForUpdate.length} selected game servers`"
-            :disable="
-              !lifecycleStateAuthoritative || loading || selectedGameServersForUpdate.length < 1
-            "
-            color="accent"
-            dense
-            icon="system_update_alt"
-            :label="`Update ${selectedGameServersForUpdate.length}`"
-            no-caps
-            outline
-            @click="updateSelectedGameServers">
-            <q-tooltip>Update selected game servers</q-tooltip>
-          </q-btn>
-          <q-separator class="server-selection-toolbar__separator" vertical />
-          <q-btn
-            :aria-label="`Remove ${selectedGameServers.length} selected game servers`"
-            :disable="!lifecycleStateAuthoritative || loading"
-            color="negative"
-            dense
-            flat
-            icon="delete_outline"
-            label="Remove"
-            no-caps
-            @click="deleteGameServerAction(null)">
-            <q-tooltip>Remove selected game servers</q-tooltip>
-          </q-btn>
-          <q-btn
-            aria-label="Clear server selection"
-            dense
-            flat
-            icon="close"
-            round
-            @click="selectedGameServers = []">
-            <q-tooltip>Clear selection</q-tooltip>
-          </q-btn>
-        </q-toolbar>
+        <div class="server-selection-region">
+          <q-toolbar
+            v-if="selectedGameServers.length > 0"
+            aria-label="Selected game server actions"
+            class="server-selection-toolbar">
+            <div class="server-selection-toolbar__count">
+              <q-icon name="checklist" size="sm" />
+              <strong aria-hidden="true">
+                {{ selectedGameServers.length
+                }}<span class="server-selection-toolbar__count-label"> selected</span>
+              </strong>
+              <span class="xy-visually-hidden">{{ selectedGameServers.length }} selected</span>
+            </div>
+            <q-separator class="server-selection-toolbar__separator" vertical />
+            <q-btn
+              :aria-label="`Start ${selectedGameServersForStart.length} selected game servers`"
+              :disable="
+                !lifecycleStateAuthoritative || loading || selectedGameServersForStart.length < 1
+              "
+              color="positive"
+              dense
+              icon="play_arrow"
+              :label="`Start ${selectedGameServersForStart.length}`"
+              no-caps
+              outline
+              @click="startSelectedGameServers">
+              <q-tooltip>Start selected game servers</q-tooltip>
+            </q-btn>
+            <q-btn
+              :aria-label="`Restart ${selectedGameServersForRestart.length} selected game servers`"
+              :disable="
+                !lifecycleStateAuthoritative || loading || selectedGameServersForRestart.length < 1
+              "
+              color="warning"
+              dense
+              icon="restart_alt"
+              :label="`Restart ${selectedGameServersForRestart.length}`"
+              no-caps
+              outline
+              @click="restartSelectedGameServers">
+              <q-tooltip>Restart selected game servers</q-tooltip>
+            </q-btn>
+            <q-btn
+              :aria-label="`Stop ${selectedGameServersForStop.length} selected game servers`"
+              :disable="
+                !lifecycleStateAuthoritative || loading || selectedGameServersForStop.length < 1
+              "
+              color="negative"
+              dense
+              icon="stop"
+              :label="`Stop ${selectedGameServersForStop.length}`"
+              no-caps
+              outline
+              @click="stopSelectedGameServers">
+              <q-tooltip>Stop selected game servers</q-tooltip>
+            </q-btn>
+            <q-btn
+              :aria-label="`Update ${selectedGameServersForUpdate.length} selected game servers`"
+              :disable="
+                !lifecycleStateAuthoritative || loading || selectedGameServersForUpdate.length < 1
+              "
+              color="accent"
+              dense
+              icon="system_update_alt"
+              :label="`Update ${selectedGameServersForUpdate.length}`"
+              no-caps
+              outline
+              @click="updateSelectedGameServers">
+              <q-tooltip>Update selected game servers</q-tooltip>
+            </q-btn>
+            <q-separator class="server-selection-toolbar__separator" vertical />
+            <q-btn
+              :aria-label="`Remove ${selectedGameServers.length} selected game servers`"
+              :disable="!lifecycleStateAuthoritative || loading"
+              color="negative"
+              dense
+              flat
+              icon="delete_outline"
+              label="Remove"
+              no-caps
+              @click="deleteGameServerAction(null)">
+              <q-tooltip>Remove selected game servers</q-tooltip>
+            </q-btn>
+            <q-btn
+              aria-label="Clear server selection"
+              dense
+              flat
+              icon="close"
+              round
+              @click="selectedGameServers = []">
+              <q-tooltip>Clear selection</q-tooltip>
+            </q-btn>
+          </q-toolbar>
+        </div>
         <q-input
+          v-if="displayRows.length > 0"
           v-model="search"
           aria-label="Search game servers"
           class="xy-search-input"
           color="primary"
           debounce="300"
           dense
+          label="Search game servers"
           outlined
-          placeholder="Search...">
+          placeholder="Name, game, node, or owner">
           <template #append>
             <q-icon name="search" />
           </template>
         </q-input>
         <q-btn
-          v-if="showCreateButton"
+          v-if="showCreateButton && displayRows.length > 0"
           :disable="loading"
           color="primary"
           :label="$q.screen.xs ? 'Create' : 'Create Game Server'"
@@ -127,8 +131,10 @@
     <div v-if="serverListError" class="server-list-error" role="alert" aria-live="assertive">
       <q-icon name="sync_problem" size="sm" />
       <div>
-        <strong>Server status could not be refreshed.</strong>
-        <span>{{ serverListError }} Lifecycle actions remain disabled.</span>
+        <strong>Live server status could not be refreshed.</strong>
+        <span>
+          {{ serverListError }} Start, stop, restart, update, and delete remain unavailable.
+        </span>
       </div>
       <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="getGameServers" />
     </div>
@@ -137,7 +143,10 @@
       class="server-list-notice"
       role="status">
       <q-icon name="sync" size="sm" />
-      <span>Connecting to live server status. Lifecycle actions will be available shortly.</span>
+      <span>
+        Connecting to live server status. Server controls are unavailable until the connection is
+        ready.
+      </span>
     </div>
     <div>
       <q-table
@@ -145,16 +154,17 @@
         v-model:selected="selectedGameServers"
         :columns="columns"
         :filter="search"
-        :grid="$q.screen.lt.md"
+        :grid="$q.screen.lt.lg"
         :loading="loading"
         :rows="displayRows"
         class="xy-standalone-table"
         flat
         hide-header-in-grid
+        hide-selected-banner
         row-key="compositeId"
         selection="multiple">
         <template #item="props">
-          <div class="server-grid-item col-12 col-sm-6">
+          <div class="server-grid-item col-12">
             <q-card class="server-mobile-card" flat>
               <q-card-section class="server-mobile-header">
                 <q-checkbox
@@ -176,33 +186,37 @@
               <q-separator />
 
               <q-card-section class="server-mobile-details">
-                <div>
-                  <span class="server-mobile-label">Players</span>
-                  <strong>{{ getPlayerCountLabel(props.row) }}</strong>
+                <div class="server-mobile-detail-group server-mobile-health">
+                  <div>
+                    <span class="server-mobile-label">Players</span>
+                    <strong>{{ getPlayerCountLabel(props.row) }}</strong>
+                  </div>
+                  <div>
+                    <span class="server-mobile-label">CPU</span>
+                    <strong>{{ formatCpuUsage(props.row) }}</strong>
+                  </div>
+                  <div class="server-mobile-memory">
+                    <span class="server-mobile-label">Memory</span>
+                    <strong>{{ formatMemoryUsage(props.row) }}</strong>
+                  </div>
                 </div>
-                <div>
-                  <span class="server-mobile-label">CPU</span>
-                  <strong>{{ formatCpuUsage(props.row) }}</strong>
-                </div>
-                <div class="server-mobile-memory">
-                  <span class="server-mobile-label">Memory</span>
-                  <strong>{{ formatMemoryUsage(props.row) }}</strong>
-                </div>
-                <div>
-                  <span class="server-mobile-label">Node</span>
-                  <strong>{{ props.row.nodeName }}</strong>
-                </div>
-                <div>
-                  <span class="server-mobile-label">Version</span>
-                  <strong>{{ getDisplayVersion(props.row) || 'Not reported' }}</strong>
-                </div>
-                <div v-if="props.row.userName">
-                  <span class="server-mobile-label">Owner</span>
-                  <strong>{{ props.row.userName }}</strong>
-                </div>
-                <div>
-                  <span class="server-mobile-label">Runtime</span>
-                  <strong>{{ props.row.isLocal ? 'Local' : 'Remote' }}</strong>
+                <div class="server-mobile-context server-mobile-detail-group">
+                  <div>
+                    <span class="server-mobile-label">Node</span>
+                    <strong>{{ props.row.nodeName }}</strong>
+                  </div>
+                  <div>
+                    <span class="server-mobile-label">Version</span>
+                    <strong>{{ getDisplayVersion(props.row) || 'Not reported' }}</strong>
+                  </div>
+                  <div v-if="props.row.userName">
+                    <span class="server-mobile-label">Owner</span>
+                    <strong>{{ props.row.userName }}</strong>
+                  </div>
+                  <div>
+                    <span class="server-mobile-label">Runtime</span>
+                    <strong>{{ props.row.isLocal ? 'Local' : 'Remote' }}</strong>
+                  </div>
                 </div>
               </q-card-section>
 
@@ -267,10 +281,10 @@
                 </div>
                 <q-btn
                   :to="`/game-servers/${props.row.id}/configuration`"
-                  aria-label="Edit game server"
+                  :aria-label="`Configure ${props.row.displayName}`"
                   flat
                   icon="settings">
-                  <q-tooltip>Edit game server</q-tooltip>
+                  <q-tooltip>Configure {{ props.row.displayName }}</q-tooltip>
                 </q-btn>
                 <q-btn
                   :aria-label="`Delete ${props.row.displayName}`"
@@ -301,7 +315,7 @@
         </template>
         <template #body-cell-status="props">
           <q-td :props="props">
-            <status-badge :status="props.row.statusEnum" style="margin-left: -1em"></status-badge>
+            <status-badge :status="props.row.statusEnum"></status-badge>
           </q-td>
         </template>
         <template #body-cell-players="props">
@@ -404,22 +418,21 @@
                 </q-btn>
               </div>
               <q-separator vertical />
-              <router-link :to="'/game-servers/' + props.row.id + '/configuration'">
-                <q-btn
-                  :icon="tabSettings"
-                  aria-label="Edit game server"
-                  class="text-main-brighter"
-                  dense
-                  flat
-                  round>
-                  <q-tooltip>Edit game server</q-tooltip>
-                </q-btn>
-              </router-link>
+              <q-btn
+                :to="'/game-servers/' + props.row.id + '/configuration'"
+                :icon="tabSettings"
+                :aria-label="`Configure ${props.row.displayName}`"
+                class="text-main-brighter"
+                dense
+                flat
+                round>
+                <q-tooltip>Configure {{ props.row.displayName }}</q-tooltip>
+              </q-btn>
               <span>
                 <q-btn
                   :icon="tabTrash"
                   :disable="!lifecycleStateAuthoritative"
-                  aria-label="Delete game server"
+                  :aria-label="`Delete ${props.row.displayName}`"
                   class="text-error-brighter"
                   dense
                   flat
@@ -428,8 +441,8 @@
                   <q-tooltip>
                     {{
                       lifecycleStateAuthoritative
-                        ? 'Delete game server'
-                        : 'Waiting for authoritative server status'
+                        ? `Delete ${props.row.displayName}`
+                        : `Live status is unavailable; ${props.row.displayName} cannot be deleted yet.`
                     }}
                   </q-tooltip>
                 </q-btn>
@@ -439,11 +452,27 @@
         </template>
         <template #no-data>
           <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon class="q-mb-sm text-xy-muted" name="dns" size="3rem" />
-            <div class="text-subtitle1">No game servers</div>
-            <div class="text-caption text-xy-muted">Create a game server to get started.</div>
+            <q-icon
+              class="q-mb-sm text-xy-muted"
+              :name="search.trim().length > 0 ? 'search_off' : 'dns'"
+              size="3rem" />
+            <div class="text-subtitle1">
+              {{ search.trim().length > 0 ? 'No matching game servers' : 'No game servers' }}
+            </div>
+            <div class="server-empty-state-copy text-caption text-xy-muted">
+              <template v-if="search.trim().length > 0">
+                No game servers match “{{ search.trim() }}”.
+              </template>
+              <template v-else>Create a game server to get started.</template>
+            </div>
             <q-btn
-              v-if="showCreateButton"
+              v-if="search.trim().length > 0"
+              class="q-mt-md"
+              flat
+              label="Clear search"
+              @click="search = ''" />
+            <q-btn
+              v-else-if="showCreateButton"
               class="q-mt-md"
               color="primary"
               label="Create Game Server"
@@ -1559,8 +1588,24 @@ const columns = ref([
   color: var(--xy-success-text-soft);
 }
 
+.server-list-header {
+  position: relative;
+  padding-bottom: calc(var(--xy-toolbar-height) + var(--xy-space-sm));
+}
+
 .server-list-header :deep(.xy-page-actions) {
   min-width: 0;
+  min-height: var(--xy-toolbar-height);
+}
+
+.server-selection-region {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: flex-end;
+  min-height: var(--xy-toolbar-height);
 }
 
 .server-selection-toolbar {
@@ -1747,24 +1792,40 @@ const columns = ref([
 }
 
 .server-mobile-name {
-  overflow: hidden;
+  display: -webkit-box;
   color: var(--xy-text-primary);
   font-family: var(--xy-font-heading);
   font-size: var(--xy-font-size-lg);
   font-weight: 600;
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .server-mobile-details {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--xy-space-md);
   padding: var(--xy-space-md);
 }
 
-.server-mobile-details > div {
+.server-mobile-detail-group {
+  display: grid;
+  gap: var(--xy-space-md);
+}
+
+.server-mobile-health {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.server-mobile-context {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding-top: var(--xy-space-md);
+  border-top: 1px solid var(--xy-border);
+}
+
+.server-mobile-detail-group > div {
   display: grid;
   gap: var(--xy-space-2xs);
   min-width: 0;
@@ -1786,6 +1847,12 @@ const columns = ref([
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.server-empty-state-copy {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .server-mobile-actions {
@@ -1830,7 +1897,9 @@ const columns = ref([
     padding-inline: 0;
   }
 
-  .server-mobile-details {
+  .server-mobile-health,
+  .server-mobile-context {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--xy-space-sm) var(--xy-space-md);
   }
 

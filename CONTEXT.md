@@ -15,3 +15,9 @@ _Avoid_: Override
 **Start-argument blocklist**:
 A game-level set of forbidden token patterns applied to the effective start arguments before they are saved or launched.
 _Avoid_: Denylist
+
+**Game server owner**:
+The single User with full authority over a game server. Ownership is distinct from access granted to other Users through roles.
+
+**Game server status page**:
+An owner-controlled public view of the live status, players, and connection addresses for every game server they own.

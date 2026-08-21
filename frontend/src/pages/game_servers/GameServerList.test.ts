@@ -349,7 +349,27 @@ describe('GameServerList', () => {
     const wrapper = mountList(true)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Create Game Server')
+    const createButtons = wrapper
+      .findAll('button')
+      .filter((button) => button.text() === 'Create Game Server')
+    expect(createButtons).toHaveLength(1)
+  })
+
+  it('distinguishes an empty fleet from search with no matches', async () => {
+    const wrapper = mountList(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No game servers')
+    expect(wrapper.text()).toContain('Create a game server to get started.')
+
+    const viewModel = wrapper.vm as unknown as { search: string }
+    viewModel.search = 'Minecraft'
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('No matching game servers')
+    expect(wrapper.text()).toContain('No game servers match “Minecraft”.')
+    expect(wrapper.text()).toContain('Clear search')
+    expect(wrapper.text()).not.toContain('Create a game server to get started.')
   })
 
   it('does not call the local game server list endpoint', async () => {
@@ -574,7 +594,7 @@ describe('GameServerList', () => {
     expect(mocks.stopGameServer).toHaveBeenCalledTimes(2)
   })
 
-  it('renders bulk actions in the page header with their semantic colors', async () => {
+  it('keeps page tools visible and uses a reserved row for bulk actions', async () => {
     mocks.listAggregatedGameServers.mockResolvedValue({
       servers: [
         createProto(AggregatedGameServerSchema, {
@@ -586,6 +606,17 @@ describe('GameServerList', () => {
 
     const wrapper = mountList(true)
     await flushPromises()
+    const selectionRegion = wrapper.find('.server-selection-region')
+    expect(selectionRegion.exists()).toBe(true)
+    expect(selectionRegion.find('.server-selection-toolbar').exists()).toBe(false)
+    expect(wrapper.find('.xy-search-input').exists()).toBe(true)
+    expect(
+      wrapper
+        .find('.xy-page-actions')
+        .findAll('button')
+        .some((button) => button.text() === 'Create Game Server'),
+    ).toBe(true)
+
     const vm = wrapper.vm as unknown as {
       displayRows: DisplayRow[]
       selectedGameServers: DisplayRow[]
@@ -593,7 +624,7 @@ describe('GameServerList', () => {
     vm.selectedGameServers = [...vm.displayRows]
     await flushPromises()
 
-    expect(wrapper.find('.xy-page-actions .server-selection-toolbar').exists()).toBe(true)
+    expect(selectionRegion.find('.server-selection-toolbar').exists()).toBe(true)
     expect(wrapper.find('.xy-search-input').exists()).toBe(true)
     const buttons = wrapper.findAll('button')
     expect(buttons.some((button) => button.text() === 'Create Game Server')).toBe(true)
@@ -1213,7 +1244,7 @@ describe('GameServerList', () => {
 
     expect(viewModel.lifecycleStateAuthoritative).toBe(false)
     expect(viewModel.serverListError).toContain('node snapshot timed out')
-    expect(wrapper.text()).toContain('Lifecycle actions remain disabled')
+    expect(wrapper.text()).toContain('Start, stop, restart, update, and delete remain unavailable')
     expect(wrapper.text()).toContain('Retry')
   })
 
