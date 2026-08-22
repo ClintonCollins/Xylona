@@ -202,6 +202,61 @@ func TestNodeServiceServerQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	}
 }
 
+func TestSevenDaysToDieWebAPIStateToProto(t *testing.T) {
+	t.Parallel()
+
+	t.Run("connection state", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input node.SevenDaysToDieWebAPIConnectionState
+			want  nodeprotov1.SevenDaysToDieWebAPIConnectionState
+		}{
+			{name: "unspecified", input: node.SevenDaysToDieWebAPIConnectionStateUnspecified, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED},
+			{name: "available", input: node.SevenDaysToDieWebAPIConnectionStateAvailable, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE},
+			{name: "server offline", input: node.SevenDaysToDieWebAPIConnectionStateServerOffline, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE},
+			{name: "dashboard disabled", input: node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_DASHBOARD_DISABLED},
+			{name: "misconfigured", input: node.SevenDaysToDieWebAPIConnectionStateMisconfigured, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_MISCONFIGURED},
+			{name: "node unavailable", input: node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_NODE_UNAVAILABLE},
+			{name: "unreachable", input: node.SevenDaysToDieWebAPIConnectionStateUnreachable, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_WEB_API_UNREACHABLE},
+			{name: "discovery unsupported", input: node.SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_DISCOVERY_UNSUPPORTED},
+			{name: "authentication denied", input: node.SevenDaysToDieWebAPIConnectionStateAuthenticationDenied, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED},
+			{name: "invalid response", input: node.SevenDaysToDieWebAPIConnectionStateInvalidResponse, want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_INVALID_RESPONSE},
+			{name: "unknown", input: node.SevenDaysToDieWebAPIConnectionState(99), want: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				got := sevenDaysToDieWebAPIConnectionStateToProto(test.input)
+				if got != test.want {
+					t.Fatalf("sevenDaysToDieWebAPIConnectionStateToProto(%v) = %v, want %v", test.input, got, test.want)
+				}
+			})
+		}
+	})
+
+	t.Run("value state", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input node.SevenDaysToDieWebAPIValueState
+			want  nodeprotov1.SevenDaysToDieWebAPIValueState
+		}{
+			{name: "unspecified", input: node.SevenDaysToDieWebAPIValueStateUnspecified, want: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED},
+			{name: "available", input: node.SevenDaysToDieWebAPIValueStateAvailable, want: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE},
+			{name: "unsupported", input: node.SevenDaysToDieWebAPIValueStateUnsupported, want: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED},
+			{name: "permission denied", input: node.SevenDaysToDieWebAPIValueStatePermissionDenied, want: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED},
+			{name: "unavailable", input: node.SevenDaysToDieWebAPIValueStateUnavailable, want: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE},
+			{name: "unknown", input: node.SevenDaysToDieWebAPIValueState(99), want: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				got := sevenDaysToDieWebAPIValueStateToProto(test.input)
+				if got != test.want {
+					t.Fatalf("sevenDaysToDieWebAPIValueStateToProto(%v) = %v, want %v", test.input, got, test.want)
+				}
+			})
+		}
+	})
+}
+
 func TestSevenDaysToDieWebAPIStatusToProto(t *testing.T) {
 	t.Parallel()
 

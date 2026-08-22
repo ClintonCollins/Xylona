@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -61,9 +62,10 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	t.Run("discovers capabilities and Blood Moon state through fixed loopback GETs", func(t *testing.T) {
 		const tokenName = "status-token"
 		const tokenSecret = "status-secret"
-		var paths []string
+		fragments := fullSevenDaysToDieOpenAPIFragments()
+		pathCounts := make(map[string]int)
 		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
-			paths = append(paths, request.URL.Path)
+			pathCounts[request.URL.Path]++
 			if request.Method != http.MethodGet {
 				http.Error(response, "method", http.StatusMethodNotAllowed)
 				return
@@ -78,7 +80,12 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			case "/api/bloodmoon":
 				writeSevenDaysToDieTestResponse(t, response, `{"data":{"gameTime":{"days":42,"hours":7,"minutes":5},"bloodmoonActive":true,"nextBloodmoon":{"days":49,"hours":22,"minutes":0},"nextBloodmoonEnd":{"days":50,"hours":4,"minutes":30}}}`)
 			default:
-				http.NotFound(response, request)
+				fragment, found := fragments[request.URL.Path]
+				if !found {
+					http.NotFound(response, request)
+					return
+				}
+				writeSevenDaysToDieTestResponse(t, response, fragment)
 			}
 		}, "https://example.com/should-never-be-used")
 
@@ -90,7 +97,7 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 		if errQuery != nil {
 			t.Fatalf("QuerySevenDaysToDieWebAPIStatus() error = %v", errQuery)
 		}
-		if status.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || status.APIVersion != "V2.2" {
+		if status.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || status.APIVersion != "1.0.0" {
 			t.Fatalf("QuerySevenDaysToDieWebAPIStatus() = %+v", status)
 		}
 		wantCapabilities := SevenDaysToDieWebAPICapabilities{
@@ -124,8 +131,24 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 		if fmt.Sprintf("%+v", status) == "" || strings.Contains(fmt.Sprintf("%+v", status), tokenSecret) {
 			t.Error("QuerySevenDaysToDieWebAPIStatus() exposed credentials")
 		}
-		if strings.Join(paths, ",") != "/api/openapi/openapi.yaml,/api/bloodmoon" {
-			t.Errorf("QuerySevenDaysToDieWebAPIStatus() paths = %v", paths)
+		wantPathCounts := map[string]int{
+			"/api/openapi/openapi.yaml":                 1,
+			"/api/OpenAPI/Animal.openapi.yaml":          1,
+			"/api/OpenAPI/Blacklist.openapi.yaml":       1,
+			"/api/OpenAPI/Bloodmoon.openapi.yaml":       1,
+			"/api/OpenAPI/GamePrefs.openapi.yaml":       1,
+			"/api/OpenAPI/GameStats.openapi.yaml":       1,
+			"/api/OpenAPI/Hostile.openapi.yaml":         1,
+			"/api/OpenAPI/Log.openapi.yaml":             1,
+			"/api/OpenAPI/Mods.openapi.yaml":            1,
+			"/api/OpenAPI/Player.openapi.yaml":          1,
+			"/api/OpenAPI/ServerStats.openapi.yaml":     1,
+			"/api/OpenAPI/UserPermissions.openapi.yaml": 1,
+			"/api/OpenAPI/Whitelist.openapi.yaml":       1,
+			"/api/bloodmoon":                            1,
+		}
+		if !maps.Equal(pathCounts, wantPathCounts) {
+			t.Errorf("QuerySevenDaysToDieWebAPIStatus() request counts = %v, want %v", pathCounts, wantPathCounts)
 		}
 	})
 
@@ -222,6 +245,128 @@ paths:
 		}
 		if status.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || status.ObservedAt.IsZero() {
 			t.Errorf("QuerySevenDaysToDieWebAPIStatus() = %+v", status)
+		}
+	})
+
+	t.Run("rejects unsafe references without requesting them", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			reference string
+		}{
+			{name: "external URL", reference: "https://example.com/Player.openapi.yaml#/paths/~1api~1player"},
+			{name: "external authority", reference: "//example.com/Player.openapi.yaml#/paths/~1api~1player"},
+			{name: "traversal", reference: "./../Player.openapi.yaml#/paths/~1api~1player"},
+			{name: "nested path", reference: "./nested/Player.openapi.yaml#/paths/~1api~1player"},
+			{name: "encoded traversal", reference: "./%2e%2e%2fPlayer.openapi.yaml#/paths/~1api~1player"},
+			{name: "encoded forward slash", reference: "./nested%2fPlayer.openapi.yaml#/paths/~1api~1player"},
+			{name: "encoded backslash", reference: "./nested%5cPlayer.openapi.yaml#/paths/~1api~1player"},
+			{name: "query", reference: "./Player.openapi.yaml?cache=1#/paths/~1api~1player"},
+			{name: "backslash", reference: `.\Player.openapi.yaml#/paths/~1api~1player`},
+			{name: "wrong pointer", reference: "./Player.openapi.yaml#/paths/~1api~1animal"},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				var unexpectedPaths []string
+				workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+					if request.URL.Path != "/api/openapi/openapi.yaml" {
+						unexpectedPaths = append(unexpectedPaths, request.URL.Path)
+						http.NotFound(response, request)
+						return
+					}
+					writeSevenDaysToDieTestResponse(t, response, fmt.Sprintf(`openapi: 3.1.0
+info:
+  version: '1.0.0'
+paths:
+  /api/player:
+    $ref: %q
+`, test.reference))
+				}, "")
+
+				status, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(t.Context(), SevenDaysToDieWebAPIStatusQueryRequest{WorkingDirectory: workingDirectory})
+				if errQuery != nil {
+					t.Fatalf("QuerySevenDaysToDieWebAPIStatus() error = %v", errQuery)
+				}
+				if status.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || status.Capabilities.PlayerData {
+					t.Errorf("QuerySevenDaysToDieWebAPIStatus() = %+v", status)
+				}
+				if len(unexpectedPaths) != 0 {
+					t.Errorf("QuerySevenDaysToDieWebAPIStatus() requested unsafe paths %v", unexpectedPaths)
+				}
+			})
+		}
+	})
+
+	t.Run("isolates fragment failures to the affected capability", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			handler http.HandlerFunc
+		}{
+			{
+				name: "missing fragment",
+				handler: func(response http.ResponseWriter, request *http.Request) {
+					http.NotFound(response, request)
+				},
+			},
+			{
+				name: "malformed fragment",
+				handler: func(response http.ResponseWriter, _ *http.Request) {
+					writeSevenDaysToDieTestResponse(t, response, "openapi: [\n")
+				},
+			},
+			{
+				name: "oversized fragment",
+				handler: func(response http.ResponseWriter, _ *http.Request) {
+					writeSevenDaysToDieTestResponse(t, response, strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1))
+				},
+			},
+			{
+				name: "redirected fragment",
+				handler: func(response http.ResponseWriter, request *http.Request) {
+					http.Redirect(response, request, "/redirect-target", http.StatusFound)
+				},
+			},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				fragmentRequests := 0
+				redirectFollowed := false
+				workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+					switch request.URL.Path {
+					case "/api/openapi/openapi.yaml":
+						writeSevenDaysToDieTestResponse(t, response, `openapi: 3.1.0
+info:
+  version: '1.0.0'
+paths:
+  /api/log:
+    get: {}
+  /api/player:
+    $ref: './Shared.openapi.yaml#/paths/~1api~1player'
+  /api/mods:
+    $ref: './Shared.openapi.yaml#/paths/~1api~1mods'
+`)
+					case "/api/OpenAPI/Shared.openapi.yaml":
+						fragmentRequests++
+						test.handler(response, request)
+					case "/redirect-target":
+						redirectFollowed = true
+						writeSevenDaysToDieTestResponse(t, response, "paths:\n  /api/mods:\n    get: {}\n")
+					default:
+						http.NotFound(response, request)
+					}
+				}, "")
+
+				status, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(t.Context(), SevenDaysToDieWebAPIStatusQueryRequest{WorkingDirectory: workingDirectory})
+				if errQuery != nil {
+					t.Fatalf("QuerySevenDaysToDieWebAPIStatus() error = %v", errQuery)
+				}
+				if status.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || !status.Capabilities.NativeLog ||
+					status.Capabilities.PlayerData || status.Capabilities.ReportedMods {
+					t.Errorf("QuerySevenDaysToDieWebAPIStatus() = %+v", status)
+				}
+				if fragmentRequests != 1 || redirectFollowed {
+					t.Errorf("fragment requests = %d, redirect followed = %v", fragmentRequests, redirectFollowed)
+				}
+			})
 		}
 	})
 
@@ -359,42 +504,101 @@ func startSevenDaysToDieWebAPITestServer(t *testing.T, handler http.HandlerFunc,
 func fullSevenDaysToDieOpenAPI() string {
 	return `openapi: 3.1.0
 info:
-  version: V2.2
+  version: '1.0.0'
 servers:
   - url: https://example.com/ignored
 paths:
   /api/player:
+    $ref: './Player.openapi.yaml#/paths/~1api~1player'
+  /api/gameprefs:
+    $ref: './GamePrefs.openapi.yaml#/paths/~1api~1gameprefs'
+  /api/gamestats:
+    $ref: './GameStats.openapi.yaml#/paths/~1api~1gamestats'
+  /api/log:
+    $ref: './Log.openapi.yaml#/paths/~1api~1log'
+  /api/serverstats:
+    $ref: './ServerStats.openapi.yaml#/paths/~1api~1serverstats'
+  /api/hostile:
+    $ref: './Hostile.openapi.yaml#/paths/~1api~1hostile'
+  /api/animal:
+    $ref: './Animal.openapi.yaml#/paths/~1api~1animal'
+  /api/blacklist:
+    $ref: './Blacklist.openapi.yaml#/paths/~1api~1blacklist'
+  /api/blacklist/{id}:
+    $ref: './Blacklist.openapi.yaml#/paths/~1api~1blacklist~1{id}'
+  /api/whitelist:
+    $ref: './Whitelist.openapi.yaml#/paths/~1api~1whitelist'
+  /api/whitelist/user/{id}:
+    $ref: './Whitelist.openapi.yaml#/paths/~1api~1whitelist~1user~1{id}'
+  /api/userpermissions:
+    $ref: './UserPermissions.openapi.yaml#/paths/~1api~1userpermissions'
+  /api/userpermissions/user/{id}:
+    $ref: './UserPermissions.openapi.yaml#/paths/~1api~1userpermissions~1user~1{id}'
+  /api/mods:
+    $ref: './Mods.openapi.yaml#/paths/~1api~1mods'
+  /api/bloodmoon:
+    $ref: './Bloodmoon.openapi.yaml#/paths/~1api~1bloodmoon'
+`
+}
+
+func fullSevenDaysToDieOpenAPIFragments() map[string]string {
+	return map[string]string{
+		"/api/OpenAPI/Player.openapi.yaml": `paths:
+  /api/player:
     get: {}
+`,
+		"/api/OpenAPI/GamePrefs.openapi.yaml": `paths:
   /api/gameprefs:
     get: {}
+`,
+		"/api/OpenAPI/GameStats.openapi.yaml": `paths:
   /api/gamestats:
     get: {}
+`,
+		"/api/OpenAPI/Log.openapi.yaml": `paths:
   /api/log:
     get: {}
+`,
+		"/api/OpenAPI/ServerStats.openapi.yaml": `paths:
   /api/serverstats:
     get: {}
+`,
+		"/api/OpenAPI/Hostile.openapi.yaml": `paths:
   /api/hostile:
     get: {}
+`,
+		"/api/OpenAPI/Animal.openapi.yaml": `paths:
   /api/animal:
     get: {}
+`,
+		"/api/OpenAPI/Blacklist.openapi.yaml": `paths:
   /api/blacklist:
     get: {}
   /api/blacklist/{id}:
     post: {}
     delete: {}
+`,
+		"/api/OpenAPI/Whitelist.openapi.yaml": `paths:
   /api/whitelist:
     get: {}
   /api/whitelist/user/{id}:
     post: {}
     delete: {}
+`,
+		"/api/OpenAPI/UserPermissions.openapi.yaml": `paths:
   /api/userpermissions:
     get: {}
   /api/userpermissions/user/{id}:
     post: {}
     delete: {}
+`,
+		"/api/OpenAPI/Mods.openapi.yaml": `paths:
   /api/mods:
     get: {}
+`,
+		"/api/OpenAPI/Bloodmoon.openapi.yaml": `paths:
   /api/bloodmoon:
     get: {}
-`
+`,
+	}
 }

@@ -1279,17 +1279,61 @@ func sevenDaysToDieMapVectorFromProto(vector *nodeprotov1.SevenDaysToDieMapVecto
 	return node.SevenDaysToDieMapVector{X: vector.GetX(), Y: vector.GetY(), Z: vector.GetZ()}
 }
 
+func sevenDaysToDieWebAPIConnectionStateFromProto(
+	state nodeprotov1.SevenDaysToDieWebAPIConnectionState,
+) node.SevenDaysToDieWebAPIConnectionState {
+	switch state {
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE:
+		return node.SevenDaysToDieWebAPIConnectionStateAvailable
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE:
+		return node.SevenDaysToDieWebAPIConnectionStateServerOffline
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_DASHBOARD_DISABLED:
+		return node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_MISCONFIGURED:
+		return node.SevenDaysToDieWebAPIConnectionStateMisconfigured
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_NODE_UNAVAILABLE:
+		return node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_WEB_API_UNREACHABLE:
+		return node.SevenDaysToDieWebAPIConnectionStateUnreachable
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_DISCOVERY_UNSUPPORTED:
+		return node.SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED:
+		return node.SevenDaysToDieWebAPIConnectionStateAuthenticationDenied
+	case nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_INVALID_RESPONSE:
+		return node.SevenDaysToDieWebAPIConnectionStateInvalidResponse
+	default:
+		return node.SevenDaysToDieWebAPIConnectionStateUnspecified
+	}
+}
+
+func sevenDaysToDieWebAPIValueStateFromProto(
+	state nodeprotov1.SevenDaysToDieWebAPIValueState,
+) node.SevenDaysToDieWebAPIValueState {
+	switch state {
+	case nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE:
+		return node.SevenDaysToDieWebAPIValueStateAvailable
+	case nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED:
+		return node.SevenDaysToDieWebAPIValueStateUnsupported
+	case nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED:
+		return node.SevenDaysToDieWebAPIValueStatePermissionDenied
+	case nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE:
+		return node.SevenDaysToDieWebAPIValueStateUnavailable
+	default:
+		return node.SevenDaysToDieWebAPIValueStateUnspecified
+	}
+}
+
 func sevenDaysToDieWebAPIStatusFromProto(status *nodeprotov1.SevenDaysToDieWebAPIStatus) *node.SevenDaysToDieWebAPIStatus {
 	if status == nil {
 		return nil
 	}
 	return &node.SevenDaysToDieWebAPIStatus{
-		ConnectionState:  node.SevenDaysToDieWebAPIConnectionState(status.GetConnectionState()),
+		ConnectionState:  sevenDaysToDieWebAPIConnectionStateFromProto(status.GetConnectionState()),
 		APIVersion:       status.GetApiVersion(),
 		Capabilities:     sevenDaysToDieWebAPICapabilitiesFromProto(status.GetCapabilities()),
-		WorldTimeState:   node.SevenDaysToDieWebAPIValueState(status.GetWorldTimeState()),
+		WorldTimeState:   sevenDaysToDieWebAPIValueStateFromProto(status.GetWorldTimeState()),
 		WorldTime:        sevenDaysToDieGameTimeFromProto(status.GetWorldTime()),
-		BloodMoonState:   node.SevenDaysToDieWebAPIValueState(status.GetBloodMoonState()),
+		BloodMoonState:   sevenDaysToDieWebAPIValueStateFromProto(status.GetBloodMoonState()),
 		BloodMoonActive:  cloneBool(status.BloodMoonActive),
 		NextBloodMoon:    sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoon()),
 		NextBloodMoonEnd: sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoonEnd()),

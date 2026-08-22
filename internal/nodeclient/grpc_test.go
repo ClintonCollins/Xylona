@@ -832,6 +832,81 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	}
 }
 
+func TestGRPCClientQuerySevenDaysToDieWebAPIStatusStateMapping(t *testing.T) {
+	t.Parallel()
+
+	query := func(t *testing.T, status *nodeprotov1.SevenDaysToDieWebAPIStatus) *node.SevenDaysToDieWebAPIStatus {
+		t.Helper()
+		recorder := &callRecorder{
+			webAPIStatusResp: &nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse{Status: status},
+		}
+		url, fingerprint := newPinnedTestServer(t, recorder)
+		client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+		if errNew != nil {
+			t.Fatalf("NewGRPCClient: %v", errNew)
+		}
+		result, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), node.SevenDaysToDieWebAPIStatusQueryRequest{})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieWebAPIStatus: %v", errQuery)
+		}
+		return result
+	}
+
+	t.Run("connection state", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input nodeprotov1.SevenDaysToDieWebAPIConnectionState
+			want  node.SevenDaysToDieWebAPIConnectionState
+		}{
+			{name: "unspecified", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED, want: node.SevenDaysToDieWebAPIConnectionStateUnspecified},
+			{name: "available", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE, want: node.SevenDaysToDieWebAPIConnectionStateAvailable},
+			{name: "server offline", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE, want: node.SevenDaysToDieWebAPIConnectionStateServerOffline},
+			{name: "dashboard disabled", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_DASHBOARD_DISABLED, want: node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled},
+			{name: "misconfigured", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_MISCONFIGURED, want: node.SevenDaysToDieWebAPIConnectionStateMisconfigured},
+			{name: "node unavailable", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_NODE_UNAVAILABLE, want: node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable},
+			{name: "unreachable", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_WEB_API_UNREACHABLE, want: node.SevenDaysToDieWebAPIConnectionStateUnreachable},
+			{name: "discovery unsupported", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_DISCOVERY_UNSUPPORTED, want: node.SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported},
+			{name: "authentication denied", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED, want: node.SevenDaysToDieWebAPIConnectionStateAuthenticationDenied},
+			{name: "invalid response", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_INVALID_RESPONSE, want: node.SevenDaysToDieWebAPIConnectionStateInvalidResponse},
+			{name: "unknown", input: nodeprotov1.SevenDaysToDieWebAPIConnectionState(99), want: node.SevenDaysToDieWebAPIConnectionStateUnspecified},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				got := query(t, &nodeprotov1.SevenDaysToDieWebAPIStatus{ConnectionState: test.input})
+				if got.ConnectionState != test.want {
+					t.Fatalf("connection state = %v, want %v", got.ConnectionState, test.want)
+				}
+			})
+		}
+	})
+
+	t.Run("value state", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input nodeprotov1.SevenDaysToDieWebAPIValueState
+			want  node.SevenDaysToDieWebAPIValueState
+		}{
+			{name: "unspecified", input: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED, want: node.SevenDaysToDieWebAPIValueStateUnspecified},
+			{name: "available", input: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE, want: node.SevenDaysToDieWebAPIValueStateAvailable},
+			{name: "unsupported", input: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED, want: node.SevenDaysToDieWebAPIValueStateUnsupported},
+			{name: "permission denied", input: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED, want: node.SevenDaysToDieWebAPIValueStatePermissionDenied},
+			{name: "unavailable", input: nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE, want: node.SevenDaysToDieWebAPIValueStateUnavailable},
+			{name: "unknown", input: nodeprotov1.SevenDaysToDieWebAPIValueState(99), want: node.SevenDaysToDieWebAPIValueStateUnspecified},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				got := query(t, &nodeprotov1.SevenDaysToDieWebAPIStatus{
+					WorldTimeState: test.input,
+					BloodMoonState: test.input,
+				})
+				if got.WorldTimeState != test.want || got.BloodMoonState != test.want {
+					t.Fatalf("value states = world %v, Blood Moon %v; want %v", got.WorldTimeState, got.BloodMoonState, test.want)
+				}
+			})
+		}
+	})
+}
+
 func TestGRPCClientReadFileReturnsBytes(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{readFileResponse: []byte("hello world")}
