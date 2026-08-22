@@ -1094,6 +1094,5 @@ func wrapCommandError(action string, err error) error {
 }
 
 func stdinFileDescriptor() int {
-	//nolint:gosec // os.Stdin.Fd() is the terminal file descriptor used by x/term.
 	return int(os.Stdin.Fd())
 }

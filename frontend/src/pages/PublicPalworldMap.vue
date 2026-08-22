@@ -6,6 +6,7 @@ import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import { GetPublicPalworldMapRequestSchema, type PalworldMapView } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
 
+const props = defineProps<{ identifier: string }>()
 const pollIntervalMs = 5_000
 // Each poll replaces the view wholesale, so deep reactivity would only re-proxy
 // every actor in the snapshot for nothing.
@@ -15,20 +16,15 @@ const invalidLink = ref(false)
 const loadError = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | undefined
 
-function shareToken(): string {
-  return window.location.hash.slice(1).trim()
-}
-
 async function loadMap(): Promise<void> {
-  const token = shareToken()
-  if (loading.value || token === '') {
-    invalidLink.value = token === ''
+  if (loading.value || props.identifier === '') {
+    invalidLink.value = props.identifier === ''
     return
   }
   loading.value = true
   try {
     const response = await GetXylonaClient().getPublicPalworldMap(
-      create(GetPublicPalworldMapRequestSchema, { shareToken: token }),
+      create(GetPublicPalworldMapRequestSchema, { publicIdentifier: props.identifier }),
     )
     mapView.value = response.map ?? null
     invalidLink.value = false

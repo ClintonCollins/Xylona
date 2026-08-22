@@ -123,7 +123,10 @@ describe('SevenDaysToDieLiveMap', () => {
 
   it('refreshes map tiles without rebuilding the visible grid', async () => {
     const wrapper = shallowMount(SevenDaysToDieLiveMap, {
-      props: { view: mapView(new Date('2026-08-19T12:00:00Z')) },
+      props: {
+        publicIdentifier: 'Public_Map',
+        view: mapView(new Date('2026-08-19T12:00:00Z')),
+      },
     })
     await flushPromises()
 
@@ -142,6 +145,10 @@ describe('SevenDaysToDieLiveMap', () => {
     const neighborTile = tileLayer.createTile(neighborTileCoordinates, vi.fn())
     const farTile = tileLayer.createTile(farTileCoordinates, vi.fn())
     const bufferedTile = tileLayer.createTile(bufferedTileCoordinates, vi.fn())
+    const tileRequest = vi.mocked(fetch).mock.calls.find(([, options]) => options?.headers)
+    expect((tileRequest?.[1]?.headers as Record<string, string>)['X-Xylona-Map-Share']).toBe(
+      'Public_Map',
+    )
     tileLayer._tiles = {
       '1:-2:4': { coords: playerTileCoordinates, current: true, el: playerTile },
       '2:-2:4': { coords: neighborTileCoordinates, current: true, el: neighborTile },

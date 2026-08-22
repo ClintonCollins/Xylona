@@ -2,7 +2,7 @@ package rpc
 
 import (
 	"context"
-	"crypto/subtle"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -27,7 +27,7 @@ const (
 	minecraftGameID = "minecraft"
 	// MinecraftMapViewerPathPrefix is the session-authenticated BlueMap asset route.
 	MinecraftMapViewerPathPrefix = "/api/minecraft-map/view"
-	// MinecraftMapSharedPathPrefix is the public capability-token BlueMap asset route.
+	// MinecraftMapSharedPathPrefix is the public canonical-link BlueMap asset route.
 	MinecraftMapSharedPathPrefix = "/api/minecraft-map/shared"
 	minecraftMapNodeProtocol     = 8
 	minecraftMapDefaultWorldName = "world"
@@ -39,9 +39,9 @@ const (
 var minecraftWorldNamePattern = regexp.MustCompile(`^[A-Za-z0-9._ -]{1,80}$`)
 
 type minecraftMapShareGrant struct {
-	GameServerID   string
-	ShareTokenHash string
-	ExpiresAt      int64
+	GameServerID     string
+	PublicIdentifier string
+	ExpiresAt        int64
 }
 
 // GetMinecraftMap returns BlueMap setup and viewer state to users who can view
@@ -126,6 +126,18 @@ func (xs *XylonaService) UpdateMinecraftMapConfig(
 		return nil, internalErr()
 	}
 	if !request.Msg.GetEnabled() {
+		share, errShare := xs.db.GetGameServerMapShareByGameServerID(gameServer.ID)
+		if errShare != nil && !errors.Is(errShare, sql.ErrNoRows) {
+			log.Error().Err(errShare).Str("game_server_id", gameServer.ID).Msg("Failed to load Minecraft map share settings")
+			return nil, internalErr()
+		}
+		if errShare == nil && share.Enabled {
+			_, errDisableShare := xs.db.UpdateGameServerMapShare(gameServer.ID, share.PublicIdentifier, false)
+			if errDisableShare != nil {
+				log.Error().Err(errDisableShare).Str("game_server_id", gameServer.ID).Msg("Failed to disable Minecraft map sharing")
+				return nil, internalErr()
+			}
+		}
 		client, errClient := xs.resolveNodeClient(gameServer)
 		if errClient != nil {
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("minecraft map was disabled, but its node is unavailable to stop the renderer"))
@@ -176,93 +188,33 @@ func (xs *XylonaService) ensureMinecraftMapRCONPortAvailable(gameServer *models.
 	return nil
 }
 
-// RegenerateMinecraftMapShare rotates the public capability token.
-func (xs *XylonaService) RegenerateMinecraftMapShare(
-	_ context.Context,
-	request *connect.Request[xylona.RegenerateMinecraftMapShareRequest],
-) (*connect.Response[xylona.RegenerateMinecraftMapShareResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	gameServer, errServer := xs.minecraftMapServer(request.Msg.GetGameServerId())
-	if errServer != nil {
-		return nil, errServer
-	}
-	errSettingsPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errSettingsPermission != nil {
-		return nil, errSettingsPermission
-	}
-	settings, errSettings := xs.db.GetGameServerMinecraftMap(gameServer.ID)
-	if errSettings != nil {
-		return nil, internalErr()
-	}
-	if !settings.Enabled {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("enable the Minecraft map before sharing it"))
-	}
-	token, errGenerate := xs.db.RegenerateGameServerMinecraftMapShare(gameServer.ID, user.ID)
-	if errGenerate != nil {
-		log.Error().Err(errGenerate).Str("game_server_id", gameServer.ID).Msg("Failed to regenerate Minecraft map share")
-		return nil, internalErr()
-	}
-	return connect.NewResponse(&xylona.RegenerateMinecraftMapShareResponse{ShareToken: token}), nil
-}
-
-// RevokeMinecraftMapShare disables the current public capability token.
-func (xs *XylonaService) RevokeMinecraftMapShare(
-	_ context.Context,
-	request *connect.Request[xylona.RevokeMinecraftMapShareRequest],
-) (*connect.Response[xylona.RevokeMinecraftMapShareResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	gameServer, errServer := xs.minecraftMapServer(request.Msg.GetGameServerId())
-	if errServer != nil {
-		return nil, errServer
-	}
-	errSettingsPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errSettingsPermission != nil {
-		return nil, errSettingsPermission
-	}
-	errRevoke := xs.db.RevokeGameServerMinecraftMapShare(gameServer.ID, user.ID)
-	if errRevoke != nil {
-		log.Error().Err(errRevoke).Str("game_server_id", gameServer.ID).Msg("Failed to revoke Minecraft map share")
-		return nil, internalErr()
-	}
-	return connect.NewResponse(&xylona.RevokeMinecraftMapShareResponse{}), nil
-}
-
-// GetPublicMinecraftMap resolves a public capability token without a session.
+// GetPublicMinecraftMap resolves an enabled canonical public map link.
 func (xs *XylonaService) GetPublicMinecraftMap(
 	ctx context.Context,
 	request *connect.Request[xylona.GetPublicMinecraftMapRequest],
 ) (*connect.Response[xylona.GetPublicMinecraftMapResponse], error) {
-	token := strings.TrimSpace(request.Msg.GetShareToken())
-	settings, errSettings := xs.db.GetGameServerMinecraftMapByShareToken(token)
-	if errors.Is(errSettings, db.ErrMinecraftMapShareNotFound) || (errSettings == nil && !settings.Enabled) {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("public map link is invalid or has been revoked"))
+	share, gameServer, kind, errResolve := xs.resolvePublicGameServerMapDetails(request.Msg.GetPublicIdentifier())
+	if errors.Is(errResolve, errPublicGameServerMapUnavailable) {
+		return nil, publicGameServerMapNotFound()
 	}
-	if errSettings != nil {
-		log.Error().Err(errSettings).Msg("Failed to resolve public Minecraft map share")
+	if errResolve != nil {
+		log.Error().Err(errResolve).Msg("Failed to resolve public Minecraft map")
 		return nil, internalErr()
 	}
-	gameServer, errServer := xs.minecraftMapServer(settings.GameServerID)
-	if errServer != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("public map link is invalid or has been revoked"))
+	if kind != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT {
+		return nil, publicGameServerMapNotFound()
 	}
 	view, errBuild := xs.buildMinecraftMapView(ctx, gameServer, false, true)
 	if errBuild != nil {
 		return nil, errBuild
 	}
 	response := connect.NewResponse(&xylona.GetPublicMinecraftMapResponse{Map: view})
-	errCookie := xs.setMinecraftMapShareCookie(response.Header(), settings)
+	errCookie := xs.setMinecraftMapShareCookie(response.Header(), share)
 	if errCookie != nil {
 		log.Error().Err(errCookie).Str("game_server_id", gameServer.ID).Msg("Failed to establish public Minecraft map viewer session")
 		return nil, internalErr()
 	}
-	response.Header().Set("Cache-Control", "no-store")
-	response.Header().Set("Referrer-Policy", "no-referrer")
+	setPublicGameServerMapHeaders(response.Header())
 	return response, nil
 }
 
@@ -282,7 +234,6 @@ func (xs *XylonaService) buildMinecraftMapView(
 		GameServerName:          gameServer.Name,
 		Enabled:                 settings.Enabled,
 		CanManage:               canManage,
-		ShareEnabled:            settings.ShareTokenHash.Valid,
 		WorldName:               settings.WorldName,
 		BluemapDownloadAccepted: settings.AcceptedAt.Valid,
 		Status:                  "disabled",
@@ -348,27 +299,27 @@ func (xs *XylonaService) buildMinecraftMapView(
 	return view, nil
 }
 
-func (xs *XylonaService) setMinecraftMapShareCookie(header http.Header, settings *db.GameServerMinecraftMap) error {
+func (xs *XylonaService) setMinecraftMapShareCookie(header http.Header, share *db.GameServerMapShare) error {
 	if xs.secureCookie == nil {
 		return errors.New("secure cookie codec is unavailable")
 	}
-	if settings == nil || !settings.ShareTokenHash.Valid {
+	if share == nil || !share.Enabled {
 		return errors.New("minecraft map share is unavailable")
 	}
 	expiresAt := time.Now().UTC().Add(minecraftMapShareGrantTTL)
 	grant := minecraftMapShareGrant{
-		GameServerID:   settings.GameServerID,
-		ShareTokenHash: settings.ShareTokenHash.String,
-		ExpiresAt:      expiresAt.Unix(),
+		GameServerID:     share.GameServerID,
+		PublicIdentifier: share.PublicIdentifier,
+		ExpiresAt:        expiresAt.Unix(),
 	}
 	encoded, errEncode := xs.secureCookie.Encode(minecraftMapShareGrantName, grant)
 	if errEncode != nil {
 		return fmt.Errorf("encode Minecraft map share grant: %w", errEncode)
 	}
-	cookie := &http.Cookie{
+	cookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
 		Name:     minecraftMapShareCookieName,
 		Value:    encoded,
-		Path:     MinecraftMapSharedPathPrefix + "/" + settings.GameServerID + "/",
+		Path:     MinecraftMapSharedPathPrefix + "/" + share.GameServerID + "/",
 		Expires:  expiresAt,
 		MaxAge:   int(minecraftMapShareGrantTTL.Seconds()),
 		HttpOnly: true,
@@ -392,7 +343,7 @@ func (xs *XylonaService) decodeMinecraftMapShareGrant(request *http.Request) (*m
 	if errDecode != nil {
 		return nil, errors.New("map share viewer session is invalid")
 	}
-	if grant.ExpiresAt <= time.Now().UTC().Unix() || strings.TrimSpace(grant.GameServerID) == "" || strings.TrimSpace(grant.ShareTokenHash) == "" {
+	if grant.ExpiresAt <= time.Now().UTC().Unix() || strings.TrimSpace(grant.GameServerID) == "" || strings.TrimSpace(grant.PublicIdentifier) == "" {
 		return nil, errors.New("map share viewer session has expired")
 	}
 	return &grant, nil
@@ -511,10 +462,11 @@ func (xs *XylonaService) authorizeMinecraftMapAsset(request *http.Request) (*mod
 	}
 	if strings.HasPrefix(request.URL.Path, MinecraftMapSharedPathPrefix+"/") {
 		grant, errGrant := xs.decodeMinecraftMapShareGrant(request)
-		if errGrant != nil || grant.GameServerID != gameServer.ID || !settings.ShareTokenHash.Valid {
+		if errGrant != nil || grant.GameServerID != gameServer.ID {
 			return nil, "", errors.New("map share is invalid")
 		}
-		if subtle.ConstantTimeCompare([]byte(grant.ShareTokenHash), []byte(settings.ShareTokenHash.String)) != 1 {
+		share, errShare := xs.db.GetEnabledGameServerMapShareByIdentifier(grant.PublicIdentifier)
+		if errShare != nil || share.GameServerID != gameServer.ID {
 			return nil, "", errors.New("map share has been revoked")
 		}
 		return gameServer, assetPath, nil

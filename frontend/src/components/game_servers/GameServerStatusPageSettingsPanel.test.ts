@@ -13,6 +13,7 @@ import { useUserAuthStore } from '@/stores/xylona'
 import GameServerStatusPageSettingsPanel from './GameServerStatusPageSettingsPanel.vue'
 
 const mocks = vi.hoisted(() => ({
+  copyToClipboard: vi.fn(),
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
   notify: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
+    copyToClipboard: mocks.copyToClipboard,
     useQuasar: () => ({ notify: mocks.notify, dialog: vi.fn() }),
   }
 })
@@ -39,6 +41,8 @@ describe('GameServerStatusPageSettingsPanel', () => {
     setActivePinia(createPinia())
     const authStore = useUserAuthStore()
     authStore.user = create(UserSchema, { id: 'owner-1', userName: 'owner' })
+    mocks.copyToClipboard.mockReset()
+    mocks.copyToClipboard.mockResolvedValue(undefined)
     mocks.getSettings.mockReset()
     mocks.updateSettings.mockReset()
     mocks.notify.mockReset()
@@ -108,5 +112,37 @@ describe('GameServerStatusPageSettingsPanel', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Connection address must be a valid host and port.')
+  })
+
+  it('copies the public link with the fallback and reports failures', async () => {
+    const settings = create(GameServerStatusPageSettingsSchema, {
+      ownerId: 'owner-1',
+      publicIdentifier: 'Owner_Page',
+      publicPath: '/status/Owner_Page',
+    })
+    mocks.getSettings.mockResolvedValue({ settings })
+    vi.stubGlobal('navigator', {})
+    const wrapper = shallowMount(GameServerStatusPageSettingsPanel)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { copyPublicLink: () => Promise<void> }
+
+    await vm.copyPublicLink()
+
+    expect(mocks.copyToClipboard).toHaveBeenCalledWith(
+      `${window.location.origin}/status/Owner_Page`,
+    )
+    expect(mocks.notify).toHaveBeenCalledWith({
+      type: 'positive',
+      message: 'Public link copied',
+    })
+
+    mocks.notify.mockReset()
+    mocks.copyToClipboard.mockRejectedValueOnce(new Error('copy failed'))
+    await vm.copyPublicLink()
+
+    expect(mocks.notify).toHaveBeenCalledWith({
+      type: 'negative',
+      message: 'Could not copy the public link.',
+    })
   })
 })

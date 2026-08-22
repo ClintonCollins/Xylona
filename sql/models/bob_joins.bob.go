@@ -38,6 +38,7 @@ type joins[Q dialect.Joinable] struct {
 	GameServers                       joinSet[gameServerJoins[Q]]
 	GameServerBackups                 joinSet[gameServerBackupJoins[Q]]
 	GameServerLifecycleEvents         joinSet[gameServerLifecycleEventJoins[Q]]
+	GameServerMapShares               joinSet[gameServerMapShareJoins[Q]]
 	GameServerMetricsHistories        joinSet[gameServerMetricsHistoryJoins[Q]]
 	GameServerMinecraftMaps           joinSet[gameServerMinecraftMapJoins[Q]]
 	GameServerOperationEvents         joinSet[gameServerOperationEventJoins[Q]]
@@ -82,6 +83,7 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		GameServers:                       buildJoinSet[gameServerJoins[Q]](GameServers.Columns, buildGameServerJoins),
 		GameServerBackups:                 buildJoinSet[gameServerBackupJoins[Q]](GameServerBackups.Columns, buildGameServerBackupJoins),
 		GameServerLifecycleEvents:         buildJoinSet[gameServerLifecycleEventJoins[Q]](GameServerLifecycleEvents.Columns, buildGameServerLifecycleEventJoins),
+		GameServerMapShares:               buildJoinSet[gameServerMapShareJoins[Q]](GameServerMapShares.Columns, buildGameServerMapShareJoins),
 		GameServerMetricsHistories:        buildJoinSet[gameServerMetricsHistoryJoins[Q]](GameServerMetricsHistories.Columns, buildGameServerMetricsHistoryJoins),
 		GameServerMinecraftMaps:           buildJoinSet[gameServerMinecraftMapJoins[Q]](GameServerMinecraftMaps.Columns, buildGameServerMinecraftMapJoins),
 		GameServerOperationEvents:         buildJoinSet[gameServerOperationEventJoins[Q]](GameServerOperationEvents.Columns, buildGameServerOperationEventJoins),

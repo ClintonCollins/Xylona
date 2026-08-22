@@ -245,8 +245,8 @@ func isRequestBodyTooLarge(err error) bool {
 		return false
 	}
 
-	var maxBytesErr *http.MaxBytesError
-	if errors.As(err, &maxBytesErr) {
+	_, isMaxBytesErr := errors.AsType[*http.MaxBytesError](err)
+	if isMaxBytesErr {
 		return true
 	}
 

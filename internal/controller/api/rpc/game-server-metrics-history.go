@@ -379,7 +379,7 @@ func mapGameServerMetricsHistoryPoint(row *db.GameServerMetricsRow) *xylona.Game
 	point := &xylona.GameServerMetricsHistoryPoint{
 		Timestamp:       timestamppb.New(row.RecordedAt),
 		CpuPercent:      row.CPUPercent,
-		MemoryBytes:     row.MemoryBytes,
+		MemoryBytes:     row.MemoryBytes, //nolint:staticcheck // Deprecated field remains populated for API compatibility.
 		MemoryPercent:   row.MemoryPercent,
 		DiskUsageBytes:  row.DiskUsageBytes,
 		PlayerCount:     helpers.ClampInt32FromInt64(row.PlayerCount),

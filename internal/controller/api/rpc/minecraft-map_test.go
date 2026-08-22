@@ -93,13 +93,21 @@ func TestMinecraftMapAuthorizationLifecycleAndSharing(t *testing.T) {
 		t.Fatalf("UpdateMinecraftMapConfig(viewer) code = %v, want %v", connect.CodeOf(errViewerUpdate), connect.CodePermissionDenied)
 	}
 
-	shareRequest := connect.NewRequest(&xylona.RegenerateMinecraftMapShareRequest{GameServerId: "server-local-1"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, shareRequest, "user-owner")
-	shareResponse, errShare := fixture.service.RegenerateMinecraftMapShare(t.Context(), shareRequest)
-	if errShare != nil {
-		t.Fatalf("RegenerateMinecraftMapShare(owner) error = %v", errShare)
+	settingsRequest := connect.NewRequest(&xylona.GetOrCreateGameServerMapShareSettingsRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, settingsRequest, "user-owner")
+	_, errSettings := fixture.service.GetOrCreateGameServerMapShareSettings(t.Context(), settingsRequest)
+	if errSettings != nil {
+		t.Fatalf("GetOrCreateGameServerMapShareSettings(owner) error = %v", errSettings)
 	}
-	publicRequest := connect.NewRequest(&xylona.GetPublicMinecraftMapRequest{ShareToken: shareResponse.Msg.GetShareToken()})
+	shareRequest := connect.NewRequest(&xylona.UpdateGameServerMapShareSettingsRequest{
+		GameServerId: "server-local-1", PublicIdentifier: "Minecraft_Map", Enabled: true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, shareRequest, "user-owner")
+	_, errShare := fixture.service.UpdateGameServerMapShareSettings(t.Context(), shareRequest)
+	if errShare != nil {
+		t.Fatalf("UpdateGameServerMapShareSettings(owner) error = %v", errShare)
+	}
+	publicRequest := connect.NewRequest(&xylona.GetPublicMinecraftMapRequest{PublicIdentifier: "Minecraft_Map"})
 	publicResponse, errPublic := fixture.service.GetPublicMinecraftMap(t.Context(), publicRequest)
 	if errPublic != nil {
 		t.Fatalf("GetPublicMinecraftMap() error = %v", errPublic)
@@ -112,11 +120,17 @@ func TestMinecraftMapAuthorizationLifecycleAndSharing(t *testing.T) {
 		t.Fatalf("GetPublicMinecraftMap() Set-Cookie = %q", publicResponse.Header().Get("Set-Cookie"))
 	}
 
-	revokeRequest := connect.NewRequest(&xylona.RevokeMinecraftMapShareRequest{GameServerId: "server-local-1"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, revokeRequest, "user-owner")
-	_, errRevoke := fixture.service.RevokeMinecraftMapShare(t.Context(), revokeRequest)
-	if errRevoke != nil {
-		t.Fatalf("RevokeMinecraftMapShare(owner) error = %v", errRevoke)
+	disableMapRequest := connect.NewRequest(&xylona.UpdateMinecraftMapConfigRequest{
+		GameServerId: "server-local-1", Enabled: false, WorldName: "world",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, disableMapRequest, "user-owner")
+	_, errDisable := fixture.service.UpdateMinecraftMapConfig(t.Context(), disableMapRequest)
+	if errDisable != nil {
+		t.Fatalf("UpdateMinecraftMapConfig(disable) error = %v", errDisable)
+	}
+	disabledShare, errDisabledShare := fixture.conn.GetGameServerMapShareByGameServerID("server-local-1")
+	if errDisabledShare != nil || disabledShare.Enabled || disabledShare.PublicIdentifier != "Minecraft_Map" {
+		t.Fatalf("Minecraft map share after config disable = %+v, %v", disabledShare, errDisabledShare)
 	}
 	_, errRevoked := fixture.service.GetPublicMinecraftMap(t.Context(), publicRequest)
 	if connect.CodeOf(errRevoked) != connect.CodeNotFound {
@@ -215,18 +229,22 @@ func TestMinecraftMapAssetUsesCurrentAuthorizationAndSandboxHeaders(t *testing.T
 		t.Fatalf("MinecraftMapAsset(invalid grant) status = %d, want %d", badResponse.Code, http.StatusNotFound)
 	}
 
-	shareToken, errShare := fixture.conn.RegenerateGameServerMinecraftMapShare("server-local-1", "user-owner")
+	_, errShare := fixture.conn.GetOrCreateGameServerMapShare("server-local-1", "MinecraftAssets")
 	if errShare != nil {
-		t.Fatalf("RegenerateGameServerMinecraftMapShare() error = %v", errShare)
+		t.Fatalf("GetOrCreateGameServerMapShare() error = %v", errShare)
+	}
+	_, errEnableShare := fixture.conn.UpdateGameServerMapShare("server-local-1", "MinecraftAssets", true)
+	if errEnableShare != nil {
+		t.Fatalf("UpdateGameServerMapShare(enable) error = %v", errEnableShare)
 	}
 	sharedRouter := chi.NewRouter()
 	sharedRouter.Get(MinecraftMapSharedPathPrefix+"/{gameServerId}/*", fixture.service.MinecraftMapAsset)
-	publicRequest := connect.NewRequest(&xylona.GetPublicMinecraftMapRequest{ShareToken: shareToken})
+	publicRequest := connect.NewRequest(&xylona.GetPublicMinecraftMapRequest{PublicIdentifier: "MinecraftAssets"})
 	publicResponse, errPublic := fixture.service.GetPublicMinecraftMap(t.Context(), publicRequest)
 	if errPublic != nil {
 		t.Fatalf("GetPublicMinecraftMap() error = %v", errPublic)
 	}
-	shareCookie := strings.Split(publicResponse.Header().Get("Set-Cookie"), ";")[0]
+	shareCookie, _, _ := strings.Cut(publicResponse.Header().Get("Set-Cookie"), ";")
 	sharedRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, MinecraftMapSharedPathPrefix+"/server-local-1/assets/app.js", nil)
 	sharedRequest.Header.Set("Cookie", shareCookie)
 	sharedResponse := httptest.NewRecorder()
@@ -234,13 +252,35 @@ func TestMinecraftMapAssetUsesCurrentAuthorizationAndSandboxHeaders(t *testing.T
 	if sharedResponse.Code != http.StatusOK || sharedResponse.Header().Get("Cache-Control") != "private, max-age=300" {
 		t.Fatalf("MinecraftMapAsset(shared) response = %d cache %q", sharedResponse.Code, sharedResponse.Header().Get("Cache-Control"))
 	}
-	errRevoke := fixture.conn.RevokeGameServerMinecraftMapShare("server-local-1", "user-owner")
-	if errRevoke != nil {
-		t.Fatalf("RevokeGameServerMinecraftMapShare() error = %v", errRevoke)
+	_, errRename := fixture.conn.UpdateGameServerMapShare("server-local-1", "MinecraftRenamed", true)
+	if errRename != nil {
+		t.Fatalf("UpdateGameServerMapShare(rename) error = %v", errRename)
 	}
 	revokedResponse := httptest.NewRecorder()
 	sharedRouter.ServeHTTP(revokedResponse, sharedRequest)
 	if revokedResponse.Code != http.StatusNotFound {
 		t.Fatalf("MinecraftMapAsset(revoked share) status = %d, want %d", revokedResponse.Code, http.StatusNotFound)
+	}
+	renamedPublicRequest := connect.NewRequest(&xylona.GetPublicMinecraftMapRequest{PublicIdentifier: "MinecraftRenamed"})
+	renamedPublicResponse, errRenamedPublic := fixture.service.GetPublicMinecraftMap(t.Context(), renamedPublicRequest)
+	if errRenamedPublic != nil {
+		t.Fatalf("GetPublicMinecraftMap(renamed) error = %v", errRenamedPublic)
+	}
+	renamedCookie, _, _ := strings.Cut(renamedPublicResponse.Header().Get("Set-Cookie"), ";")
+	renamedRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, MinecraftMapSharedPathPrefix+"/server-local-1/assets/app.js", nil)
+	renamedRequest.Header.Set("Cookie", renamedCookie)
+	renamedResponse := httptest.NewRecorder()
+	sharedRouter.ServeHTTP(renamedResponse, renamedRequest)
+	if renamedResponse.Code != http.StatusOK {
+		t.Fatalf("MinecraftMapAsset(renamed share) status = %d, want %d", renamedResponse.Code, http.StatusOK)
+	}
+	_, errDisable := fixture.conn.UpdateGameServerMapShare("server-local-1", "MinecraftRenamed", false)
+	if errDisable != nil {
+		t.Fatalf("UpdateGameServerMapShare(disable) error = %v", errDisable)
+	}
+	disabledResponse := httptest.NewRecorder()
+	sharedRouter.ServeHTTP(disabledResponse, renamedRequest)
+	if disabledResponse.Code != http.StatusNotFound {
+		t.Fatalf("MinecraftMapAsset(disabled share) status = %d, want %d", disabledResponse.Code, http.StatusNotFound)
 	}
 }

@@ -163,19 +163,20 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 		func(*models.GameServer) xylona.Status { return xylona.Status_ONLINE },
 	)
 
-	got := []string{projected.Servers[0].GetName(), projected.Servers[1].GetName(), projected.Servers[2].GetName()}
+	projectedServers := projected.GetServers()
+	got := []string{projectedServers[0].GetName(), projectedServers[1].GetName(), projectedServers[2].GetName()}
 	if !slices.Equal(got, []string{"Alpha", "bravo", "charlie"}) {
 		t.Fatalf("server order = %v", got)
 	}
-	minecraft := projected.Servers[0]
+	minecraft := projectedServers[0]
 	if minecraft.CurrentPlayerCount == nil || minecraft.GetCurrentPlayerCount() != 0 || minecraft.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE {
 		t.Fatalf("Minecraft public state = %+v", minecraft)
 	}
-	source := projected.Servers[1]
+	source := projectedServers[1]
 	if source.CurrentPlayerCount == nil || source.GetCurrentPlayerCount() != 2 || source.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE {
 		t.Fatalf("Source public state = %+v", source)
 	}
-	palworld := projected.Servers[2]
+	palworld := projectedServers[2]
 	if palworld.CurrentPlayerCount != nil || palworld.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE {
 		t.Fatalf("Palworld public state = %+v", palworld)
 	}

@@ -19,13 +19,13 @@ const props = withDefaults(
     loading?: boolean
     loadError?: boolean
     publicMode?: boolean
-    shareToken?: string
+    publicIdentifier?: string
   }>(),
   {
     loading: false,
     loadError: false,
     publicMode: false,
-    shareToken: '',
+    publicIdentifier: '',
   },
 )
 
@@ -73,12 +73,12 @@ const collectedLabel = computed(() => {
 
 class AuthorizedTileLayer extends L.GridLayer {
   private readonly template: string
-  private readonly shareToken: string
+  private readonly publicIdentifier: string
 
-  constructor(template: string, shareToken: string, options: L.GridLayerOptions) {
+  constructor(template: string, publicIdentifier: string, options: L.GridLayerOptions) {
     super(options)
     this.template = template
-    this.shareToken = shareToken
+    this.publicIdentifier = publicIdentifier
   }
 
   protected override createTile(coordinates: L.Coords, done: DoneCallback): HTMLElement {
@@ -124,8 +124,8 @@ class AuthorizedTileLayer extends L.GridLayer {
 
   private loadTile(coordinates: L.Coords, image: HTMLImageElement, done?: DoneCallback): void {
     const headers: HeadersInit = { Accept: 'image/png' }
-    if (this.shareToken !== '') {
-      headers['X-Xylona-Map-Share'] = this.shareToken
+    if (this.publicIdentifier !== '') {
+      headers['X-Xylona-Map-Share'] = this.publicIdentifier
     }
 
     void fetch(sevenDaysToDieTileURL(this.template, coordinates), {
@@ -287,7 +287,7 @@ async function initializeMap(): Promise<void> {
     mapSize.x,
     mapSize.z,
     view.tileUrlTemplate,
-    props.shareToken,
+    props.publicIdentifier,
   ].join(':')
   if (map !== null && initializedKey === key) {
     syncPlayers()
@@ -314,7 +314,7 @@ async function initializeMap(): Promise<void> {
     minZoom: minimumZoom,
     zoomControl: true,
   })
-  tileLayer = new AuthorizedTileLayer(view.tileUrlTemplate, props.shareToken, {
+  tileLayer = new AuthorizedTileLayer(view.tileUrlTemplate, props.publicIdentifier, {
     tileSize: view.tileSize,
     minNativeZoom: 0,
     maxNativeZoom: view.maxZoom,
@@ -349,7 +349,7 @@ watch(
     props.view?.mapSize?.x,
     props.view?.mapSize?.z,
     props.view?.tileUrlTemplate,
-    props.shareToken,
+    props.publicIdentifier,
   ],
   () => void initializeMap(),
   { immediate: true },

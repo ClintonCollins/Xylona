@@ -72,23 +72,36 @@ func TestPalworldMapAuthorizationAndSharing(t *testing.T) {
 		t.Fatalf("InstallPalworldMapTiles(viewer) code = %v, want %v", connect.CodeOf(errViewerInstall), connect.CodePermissionDenied)
 	}
 
-	shareRequest := connect.NewRequest(&xylona.RegeneratePalworldMapShareRequest{GameServerId: "server-local-1"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, shareRequest, "user-owner")
-	shareResponse, errShare := fixture.service.RegeneratePalworldMapShare(t.Context(), shareRequest)
-	if errShare != nil {
-		t.Fatalf("RegeneratePalworldMapShare(owner) error = %v", errShare)
+	settingsRequest := connect.NewRequest(&xylona.GetOrCreateGameServerMapShareSettingsRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, settingsRequest, "user-owner")
+	_, errSettings := fixture.service.GetOrCreateGameServerMapShareSettings(t.Context(), settingsRequest)
+	if errSettings != nil {
+		t.Fatalf("GetOrCreateGameServerMapShareSettings(owner) error = %v", errSettings)
 	}
-	publicRequest := connect.NewRequest(&xylona.GetPublicPalworldMapRequest{ShareToken: shareResponse.Msg.GetShareToken()})
+	shareRequest := connect.NewRequest(&xylona.UpdateGameServerMapShareSettingsRequest{
+		GameServerId: "server-local-1", PublicIdentifier: "Palpagos_Map", Enabled: true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, shareRequest, "user-owner")
+	_, errShare := fixture.service.UpdateGameServerMapShareSettings(t.Context(), shareRequest)
+	if errShare != nil {
+		t.Fatalf("UpdateGameServerMapShareSettings(owner) error = %v", errShare)
+	}
+	publicRequest := connect.NewRequest(&xylona.GetPublicPalworldMapRequest{PublicIdentifier: "Palpagos_Map"})
 	publicResponse, errPublic := fixture.service.GetPublicPalworldMap(t.Context(), publicRequest)
 	if errPublic != nil || publicResponse.Msg.GetMap().GetServerName() != "Local One" {
 		t.Fatalf("GetPublicPalworldMap() = %+v, %v", publicResponse, errPublic)
 	}
+	resolved, errResolve := fixture.service.ResolvePublicGameServerMap(t.Context(), connect.NewRequest(
+		&xylona.ResolvePublicGameServerMapRequest{PublicIdentifier: "Palpagos_Map"},
+	))
+	if errResolve != nil || resolved.Msg.GetKind() != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_PALWORLD {
+		t.Fatalf("ResolvePublicGameServerMap() = %+v, %v", resolved, errResolve)
+	}
 
-	revokeRequest := connect.NewRequest(&xylona.RevokePalworldMapShareRequest{GameServerId: "server-local-1"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, revokeRequest, "user-owner")
-	_, errRevoke := fixture.service.RevokePalworldMapShare(t.Context(), revokeRequest)
-	if errRevoke != nil {
-		t.Fatalf("RevokePalworldMapShare(owner) error = %v", errRevoke)
+	shareRequest.Msg.Enabled = false
+	_, errDisable := fixture.service.UpdateGameServerMapShareSettings(t.Context(), shareRequest)
+	if errDisable != nil {
+		t.Fatalf("UpdateGameServerMapShareSettings(disable) error = %v", errDisable)
 	}
 	_, errRevoked := fixture.service.GetPublicPalworldMap(t.Context(), publicRequest)
 	if connect.CodeOf(errRevoked) != connect.CodeNotFound {
@@ -193,7 +206,6 @@ func TestPalworldMapViewForwardsSafeIntelligenceDataForPrivateAndPublicViewers(t
 				state,
 				nil,
 				tc.canManage,
-				false,
 				now,
 			)
 

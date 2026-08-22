@@ -594,7 +594,7 @@ describe('GameServerList', () => {
     expect(mocks.stopGameServer).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps page tools visible and uses a reserved row for bulk actions', async () => {
+  it('keeps page tools and bulk actions in the same action row', async () => {
     mocks.listAggregatedGameServers.mockResolvedValue({
       servers: [
         createProto(AggregatedGameServerSchema, {
@@ -606,8 +606,10 @@ describe('GameServerList', () => {
 
     const wrapper = mountList(true)
     await flushPromises()
+    const pageActions = wrapper.find('.xy-page-actions')
     const selectionRegion = wrapper.find('.server-selection-region')
     expect(selectionRegion.exists()).toBe(true)
+    expect(selectionRegion.element.parentElement).toBe(pageActions.element)
     expect(selectionRegion.find('.server-selection-toolbar').exists()).toBe(false)
     expect(wrapper.find('.xy-search-input').exists()).toBe(true)
     expect(

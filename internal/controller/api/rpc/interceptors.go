@@ -21,6 +21,7 @@ var publicSessionOptionalProcedures = map[string]struct{}{
 	xylonaconnect.XylonaGetPublicPalworldMapProcedure:          {},
 	xylonaconnect.XylonaGetPublicSevenDaysToDieMapProcedure:    {},
 	xylonaconnect.XylonaGetPublicMinecraftMapProcedure:         {},
+	xylonaconnect.XylonaResolvePublicGameServerMapProcedure:    {},
 	xylonaconnect.XylonaGetPublicGameServerStatusPageProcedure: {},
 }
 

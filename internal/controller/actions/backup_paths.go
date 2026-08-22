@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -475,8 +476,8 @@ func resolvePathForComparison(pathValue string) (string, error) {
 	for {
 		resolvedPath, errEval := filepath.EvalSymlinks(currentPath)
 		if errEval == nil {
-			for i := len(missingPathSuffix) - 1; i >= 0; i-- {
-				resolvedPath = filepath.Join(resolvedPath, missingPathSuffix[i])
+			for _, suffix := range slices.Backward(missingPathSuffix) {
+				resolvedPath = filepath.Join(resolvedPath, suffix)
 			}
 			return filepath.Clean(resolvedPath), nil
 		}

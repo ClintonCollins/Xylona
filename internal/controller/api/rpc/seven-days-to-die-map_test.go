@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -89,34 +91,21 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 		t.Fatalf("UpdateSevenDaysToDieMapNotes(owner) error = %v", errOwnerNotes)
 	}
 
-	shareRequest := connect.NewRequest(&xylona.RegenerateSevenDaysToDieMapShareRequest{GameServerId: "server-local-1"})
+	settingsRequest := connect.NewRequest(&xylona.GetOrCreateGameServerMapShareSettingsRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, settingsRequest, "user-owner")
+	_, errSettings := fixture.service.GetOrCreateGameServerMapShareSettings(t.Context(), settingsRequest)
+	if errSettings != nil {
+		t.Fatalf("GetOrCreateGameServerMapShareSettings(owner) error = %v", errSettings)
+	}
+	shareRequest := connect.NewRequest(&xylona.UpdateGameServerMapShareSettingsRequest{
+		GameServerId: "server-local-1", PublicIdentifier: "Navezgane_Map", Enabled: true,
+	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, shareRequest, "user-owner")
-	shareResponse, errShare := fixture.service.RegenerateSevenDaysToDieMapShare(t.Context(), shareRequest)
+	_, errShare := fixture.service.UpdateGameServerMapShareSettings(t.Context(), shareRequest)
 	if errShare != nil {
-		t.Fatalf("RegenerateSevenDaysToDieMapShare(owner) error = %v", errShare)
+		t.Fatalf("UpdateGameServerMapShareSettings(owner) error = %v", errShare)
 	}
-	secondShareRequest := connect.NewRequest(shareRequest.Msg)
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, secondShareRequest, "user-owner")
-	secondShareResponse, errSecondShare := fixture.service.RegenerateSevenDaysToDieMapShare(t.Context(), secondShareRequest)
-	if errSecondShare != nil {
-		t.Fatalf("RegenerateSevenDaysToDieMapShare(owner, second) error = %v", errSecondShare)
-	}
-	listRequest := connect.NewRequest(&xylona.ListSevenDaysToDieMapSharesRequest{GameServerId: "server-local-1"})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listRequest, "user-owner")
-	listResponse, errList := fixture.service.ListSevenDaysToDieMapShares(t.Context(), listRequest)
-	if errList != nil {
-		t.Fatalf("ListSevenDaysToDieMapShares(owner) error = %v", errList)
-	}
-	if len(listResponse.Msg.GetShares()) != 2 {
-		t.Fatalf("ListSevenDaysToDieMapShares(owner) count = %d, want 2", len(listResponse.Msg.GetShares()))
-	}
-	viewerListRequest := connect.NewRequest(listRequest.Msg)
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, viewerListRequest, "user-other")
-	_, errViewerList := fixture.service.ListSevenDaysToDieMapShares(t.Context(), viewerListRequest)
-	if connect.CodeOf(errViewerList) != connect.CodePermissionDenied {
-		t.Fatalf("ListSevenDaysToDieMapShares(viewer) code = %v, want %v", connect.CodeOf(errViewerList), connect.CodePermissionDenied)
-	}
-	publicRequest := connect.NewRequest(&xylona.GetPublicSevenDaysToDieMapRequest{ShareToken: shareResponse.Msg.GetShareToken()})
+	publicRequest := connect.NewRequest(&xylona.GetPublicSevenDaysToDieMapRequest{PublicIdentifier: "Navezgane_Map"})
 	publicResponse, errPublic := fixture.service.GetPublicSevenDaysToDieMap(t.Context(), publicRequest)
 	if errPublic != nil {
 		t.Fatalf("GetPublicSevenDaysToDieMap() error = %v", errPublic)
@@ -125,23 +114,50 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	if publicMap.GetGameServerName() != "Local One" || len(publicMap.GetMarkers()) != 1 || publicMap.GetMarkers()[0].GetName() != "Main base" {
 		t.Fatalf("GetPublicSevenDaysToDieMap() map = %+v", publicMap)
 	}
-
-	revokeRequest := connect.NewRequest(&xylona.RevokeSevenDaysToDieMapShareRequest{
-		GameServerId: "server-local-1",
-		ShareId:      shareResponse.Msg.GetShare().GetId(),
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, revokeRequest, "user-owner")
-	_, errRevoke := fixture.service.RevokeSevenDaysToDieMapShare(t.Context(), revokeRequest)
-	if errRevoke != nil {
-		t.Fatalf("RevokeSevenDaysToDieMapShare(owner) error = %v", errRevoke)
+	resolved, errResolve := fixture.service.ResolvePublicGameServerMap(t.Context(), connect.NewRequest(
+		&xylona.ResolvePublicGameServerMapRequest{PublicIdentifier: "Navezgane_Map"},
+	))
+	if errResolve != nil || resolved.Msg.GetKind() != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_SEVEN_DAYS_TO_DIE {
+		t.Fatalf("ResolvePublicGameServerMap() = %+v, %v", resolved, errResolve)
 	}
+	gameServer, errGameServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGameServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGameServer)
+	}
+	tileRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	tileRequest.Header.Set(sevenDaysToDieMapShareHeader, "Navezgane_Map")
+	errTileAccess := fixture.service.authorizeSevenDaysToDieMapTile(tileRequest, gameServer)
+	if errTileAccess != nil {
+		t.Fatalf("authorizeSevenDaysToDieMapTile(enabled share) error = %v", errTileAccess)
+	}
+
+	shareRequest.Msg.PublicIdentifier = "Navezgane_Renamed"
+	_, errRename := fixture.service.UpdateGameServerMapShareSettings(t.Context(), shareRequest)
+	if errRename != nil {
+		t.Fatalf("UpdateGameServerMapShareSettings(rename) error = %v", errRename)
+	}
+	errRenamedTile := fixture.service.authorizeSevenDaysToDieMapTile(tileRequest, gameServer)
+	if errRenamedTile == nil {
+		t.Fatal("authorizeSevenDaysToDieMapTile(old identifier) error = nil")
+	}
+	tileRequest.Header.Set(sevenDaysToDieMapShareHeader, "Navezgane_Renamed")
+	errRenamedTileAccess := fixture.service.authorizeSevenDaysToDieMapTile(tileRequest, gameServer)
+	if errRenamedTileAccess != nil {
+		t.Fatalf("authorizeSevenDaysToDieMapTile(renamed share) error = %v", errRenamedTileAccess)
+	}
+
+	shareRequest.Msg.Enabled = false
+	_, errDisable := fixture.service.UpdateGameServerMapShareSettings(t.Context(), shareRequest)
+	if errDisable != nil {
+		t.Fatalf("UpdateGameServerMapShareSettings(disable) error = %v", errDisable)
+	}
+	publicRequest.Msg.PublicIdentifier = "Navezgane_Renamed"
 	_, errRevoked := fixture.service.GetPublicSevenDaysToDieMap(t.Context(), publicRequest)
 	if connect.CodeOf(errRevoked) != connect.CodeNotFound {
 		t.Fatalf("GetPublicSevenDaysToDieMap(revoked) code = %v, want %v", connect.CodeOf(errRevoked), connect.CodeNotFound)
 	}
-	secondPublicRequest := connect.NewRequest(&xylona.GetPublicSevenDaysToDieMapRequest{ShareToken: secondShareResponse.Msg.GetShareToken()})
-	_, errSecondPublic := fixture.service.GetPublicSevenDaysToDieMap(t.Context(), secondPublicRequest)
-	if errSecondPublic != nil {
-		t.Fatalf("GetPublicSevenDaysToDieMap(remaining share) error = %v", errSecondPublic)
+	errRevokedTile := fixture.service.authorizeSevenDaysToDieMapTile(tileRequest, gameServer)
+	if errRevokedTile == nil {
+		t.Fatal("authorizeSevenDaysToDieMapTile(disabled share) error = nil")
 	}
 }

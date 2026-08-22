@@ -2,6 +2,7 @@
 import { create, fromJsonString } from '@bufbuild/protobuf'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { Code, ConnectError } from '@connectrpc/connect'
+import { copyToClipboard, useQuasar } from 'quasar'
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -17,6 +18,7 @@ import { formatMetricAge } from '@/pages/game_servers/metrics-format'
 import { GetXylonaClient } from '@/utils/shared'
 
 const route = useRoute()
+const $q = useQuasar()
 const page = shallowRef<PublicGameServerStatusPage | null>(null)
 const loading = ref(true)
 const initialError = ref(false)
@@ -125,11 +127,15 @@ async function retry() {
 }
 
 async function copyAddress(server: PublicGameServerStatus) {
-  await navigator.clipboard.writeText(server.connectionAddress)
-  copiedServerID.value = server.id
-  window.setTimeout(() => {
-    if (copiedServerID.value === server.id) copiedServerID.value = ''
-  }, 1500)
+  try {
+    await copyToClipboard(server.connectionAddress)
+    copiedServerID.value = server.id
+    window.setTimeout(() => {
+      if (copiedServerID.value === server.id) copiedServerID.value = ''
+    }, 1500)
+  } catch {
+    $q.notify({ type: 'negative', message: 'Could not copy the connection address.' })
+  }
 }
 
 function toggleRoster(serverID: string) {
@@ -194,12 +200,11 @@ onUnmounted(() => {
   <main class="public-status-page">
     <div class="public-status-page__inner">
       <header class="public-status-header">
-        <div class="public-status-header__brand">XYLONA</div>
+        <div class="public-status-header__brand">Xylona</div>
         <div>
           <h1>{{ page?.title || 'Game server status' }}</h1>
           <p>Live game server availability and player counts</p>
         </div>
-        <span v-if="page" class="public-status public-status--online">Live</span>
       </header>
 
       <div v-if="reconnecting && page" class="public-status-notice" role="status">
@@ -306,7 +311,8 @@ onUnmounted(() => {
 }
 
 .public-status-page__inner {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   width: min(1180px, 100%);
   min-height: 100dvh;
   gap: var(--xy-space-lg);
@@ -316,7 +322,7 @@ onUnmounted(() => {
 
 .public-status-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--xy-space-lg);
   padding-bottom: var(--xy-space-lg);
@@ -326,8 +332,8 @@ onUnmounted(() => {
 .public-status-header__brand {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
-  font-size: var(--xy-font-size-lg);
-  letter-spacing: 0.08em;
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
 }
 
 .public-status-header h1,
@@ -428,14 +434,14 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: minmax(180px, 1.3fr) minmax(170px, 1fr) minmax(130px, 0.65fr) auto;
   align-items: center;
-  gap: var(--xy-space-md);
+  gap: var(--xy-space-base) var(--xy-space-md);
   min-height: 92px;
-  padding: var(--xy-space-md);
+  padding: var(--xy-space-base) var(--xy-space-md);
 }
 
 .public-server-row__identity {
   display: grid;
-  gap: var(--xy-space-sm);
+  gap: var(--xy-space-xs);
 }
 
 .public-server-row__identity h2 {
@@ -507,7 +513,7 @@ onUnmounted(() => {
 }
 
 .public-status-footer {
-  align-self: end;
+  margin-top: auto;
   padding-top: var(--xy-space-sm);
   color: var(--xy-text-muted);
   font-size: var(--xy-font-size-xs);
@@ -541,7 +547,7 @@ onUnmounted(() => {
   }
 
   .public-status-header {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     gap: var(--xy-space-sm);
   }
 

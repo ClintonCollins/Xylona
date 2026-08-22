@@ -517,11 +517,14 @@ export function ArchiveTypeToExtension(archiveType: GameServerFilesCompressionTy
   }
 }
 
-export function bytesToSize(bytes: number): string {
+export function bytesToSize(bytes: number, fractionDigits?: number): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-  if (bytes === 0) return '0 Byte'
+  if (bytes === 0) return `${fractionDigits === undefined ? 0 : (0).toFixed(fractionDigits)} Byte`
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i]
+  const value = bytes / Math.pow(1024, i)
+  const formatted =
+    fractionDigits === undefined ? parseFloat(value.toFixed(2)) : value.toFixed(fractionDigits)
+  return formatted + ' ' + sizes[i]
 }
 
 export function ConnectErrorToString(err: ConnectError): string {

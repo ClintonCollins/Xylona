@@ -19,7 +19,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -117,112 +116,27 @@ func (xs *XylonaService) UpdateSevenDaysToDieMapNotes(
 	}), nil
 }
 
-// ListSevenDaysToDieMapShares returns every active public map link.
-func (xs *XylonaService) ListSevenDaysToDieMapShares(
-	_ context.Context,
-	request *connect.Request[xylona.ListSevenDaysToDieMapSharesRequest],
-) (*connect.Response[xylona.ListSevenDaysToDieMapSharesResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	gameServer, errServer := xs.sevenDaysToDieMapServer(request.Msg.GetGameServerId())
-	if errServer != nil {
-		return nil, errServer
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errPermission != nil {
-		return nil, errPermission
-	}
-	shares, errShares := xs.db.ListGameServerSevenDaysToDieMapShares(gameServer.ID)
-	if errShares != nil {
-		return nil, internalErrf("failed to list map shares")
-	}
-	publicShares := make([]*xylona.SevenDaysToDieMapShare, 0, len(shares))
-	for _, share := range shares {
-		publicShares = append(publicShares, publicSevenDaysToDieMapShare(share))
-	}
-	response := connect.NewResponse(&xylona.ListSevenDaysToDieMapSharesResponse{Shares: publicShares})
-	response.Header().Set("Cache-Control", "no-store")
-	return response, nil
-}
-
-// RegenerateSevenDaysToDieMapShare creates and returns a public map capability token.
-func (xs *XylonaService) RegenerateSevenDaysToDieMapShare(
-	_ context.Context,
-	request *connect.Request[xylona.RegenerateSevenDaysToDieMapShareRequest],
-) (*connect.Response[xylona.RegenerateSevenDaysToDieMapShareResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	gameServer, errServer := xs.sevenDaysToDieMapServer(request.Msg.GetGameServerId())
-	if errServer != nil {
-		return nil, errServer
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errPermission != nil {
-		return nil, errPermission
-	}
-	share, errGenerate := xs.db.CreateGameServerSevenDaysToDieMapShare(gameServer.ID, user.ID)
-	if errGenerate != nil {
-		return nil, internalErrf("failed to create map share")
-	}
-	response := connect.NewResponse(&xylona.RegenerateSevenDaysToDieMapShareResponse{
-		ShareToken: share.Token,
-		Share:      publicSevenDaysToDieMapShare(share),
-	})
-	response.Header().Set("Cache-Control", "no-store")
-	return response, nil
-}
-
-// RevokeSevenDaysToDieMapShare removes a public map capability token.
-func (xs *XylonaService) RevokeSevenDaysToDieMapShare(
-	_ context.Context,
-	request *connect.Request[xylona.RevokeSevenDaysToDieMapShareRequest],
-) (*connect.Response[xylona.RevokeSevenDaysToDieMapShareResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	gameServer, errServer := xs.sevenDaysToDieMapServer(request.Msg.GetGameServerId())
-	if errServer != nil {
-		return nil, errServer
-	}
-	errPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errPermission != nil {
-		return nil, errPermission
-	}
-	errRevoke := xs.db.RevokeGameServerSevenDaysToDieMapShare(gameServer.ID, request.Msg.GetShareId())
-	if errRevoke != nil {
-		return nil, internalErrf("failed to revoke map share")
-	}
-	return connect.NewResponse(&xylona.RevokeSevenDaysToDieMapShareResponse{}), nil
-}
-
-// GetPublicSevenDaysToDieMap returns a shared map view after validating its capability token.
+// GetPublicSevenDaysToDieMap returns an enabled canonical public map.
 func (xs *XylonaService) GetPublicSevenDaysToDieMap(
 	ctx context.Context,
 	request *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest],
 ) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error) {
-	settings, errSettings := xs.db.GetGameServerSevenDaysToDieMapByShareToken(request.Msg.GetShareToken())
-	if errors.Is(errSettings, db.ErrSevenDaysToDieMapShareNotFound) {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("map share was not found"))
+	_, gameServer, kind, errResolve := xs.resolvePublicGameServerMapDetails(request.Msg.GetPublicIdentifier())
+	if errors.Is(errResolve, errPublicGameServerMapUnavailable) {
+		return nil, publicGameServerMapNotFound()
 	}
-	if errSettings != nil {
-		return nil, internalErrf("failed to resolve map share")
+	if errResolve != nil {
+		return nil, internalErrf("failed to resolve public map")
 	}
-	gameServer, errServer := xs.sevenDaysToDieMapServer(settings.GameServerID)
-	if errServer != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("map share was not found"))
+	if kind != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_SEVEN_DAYS_TO_DIE {
+		return nil, publicGameServerMapNotFound()
 	}
 	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer)
 	if errView != nil {
 		return nil, errView
 	}
 	response := connect.NewResponse(&xylona.GetPublicSevenDaysToDieMapResponse{Map: view})
-	response.Header().Set("Cache-Control", "no-store")
-	response.Header().Set("Referrer-Policy", "no-referrer")
+	setPublicGameServerMapHeaders(response.Header())
 	return response, nil
 }
 
@@ -277,7 +191,6 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(ctx context.Context, gameSer
 	view := &xylona.SevenDaysToDieMapView{
 		GameServerId:    gameServer.ID,
 		GameServerName:  gameServer.Name,
-		ShareEnabled:    settings.ShareEnabled,
 		Stale:           stale,
 		StatusMessage:   statusMessage,
 		TileUrlTemplate: SevenDaysToDieMapTilePathPrefix + "/" + gameServer.ID + "/{z}/{x}/{y}.png",
@@ -430,12 +343,6 @@ func finiteMapCoordinate(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= -1_000_000 && value <= 1_000_000
 }
 
-func publicSevenDaysToDieMapShare(share *db.GameServerSevenDaysToDieMapShare) *xylona.SevenDaysToDieMapShare {
-	return &xylona.SevenDaysToDieMapShare{
-		Id: share.ID, ShareToken: share.Token, CreatedAt: timestamppb.New(share.CreatedAt),
-	}
-}
-
 func publicSevenDaysToDieMapVector(vector node.SevenDaysToDieMapVector) *xylona.SevenDaysToDieMapVector {
 	return &xylona.SevenDaysToDieMapVector{X: vector.X, Y: vector.Y, Z: vector.Z}
 }
@@ -464,7 +371,7 @@ func publicSevenDaysToDieMapNotes(notes []sevenDaysToDieMapNoteConfig) []*xylona
 	return result
 }
 
-// SevenDaysToDieMapTile serves one authenticated or capability-authorized tile.
+// SevenDaysToDieMapTile serves one authenticated or public-link-authorized tile.
 func (xs *XylonaService) SevenDaysToDieMapTile(response http.ResponseWriter, request *http.Request) {
 	gameServerID := strings.TrimSpace(chi.URLParam(request, "gameServerId"))
 	gameServer, errServer := xs.sevenDaysToDieMapServer(gameServerID)
@@ -521,10 +428,10 @@ func (xs *XylonaService) SevenDaysToDieMapTile(response http.ResponseWriter, req
 }
 
 func (xs *XylonaService) authorizeSevenDaysToDieMapTile(request *http.Request, gameServer *models.GameServer) error {
-	shareToken := strings.TrimSpace(request.Header.Get(sevenDaysToDieMapShareHeader))
-	if shareToken != "" {
-		settings, errShare := xs.db.GetGameServerSevenDaysToDieMapByShareToken(shareToken)
-		if errShare != nil || settings.GameServerID != gameServer.ID {
+	publicIdentifier := strings.TrimSpace(request.Header.Get(sevenDaysToDieMapShareHeader))
+	if publicIdentifier != "" {
+		share, errShare := xs.db.GetEnabledGameServerMapShareByIdentifier(publicIdentifier)
+		if errShare != nil || share.GameServerID != gameServer.ID {
 			return errors.New("map share is invalid")
 		}
 		return nil

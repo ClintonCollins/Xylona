@@ -1,14 +1,13 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { copyToClipboard, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
 import {
   GetMinecraftMapRequestSchema,
-  RegenerateMinecraftMapShareRequestSchema,
-  RevokeMinecraftMapShareRequestSchema,
   UpdateMinecraftMapConfigRequestSchema,
   type MinecraftMapView,
 } from '@/proto/xylona_pb'
@@ -26,8 +25,6 @@ const loadError = ref(false)
 const settingsOpen = ref(false)
 const shareOpen = ref(false)
 const savingSettings = ref(false)
-const changingShare = ref(false)
-const generatedShareURL = ref('')
 const settingsForm = reactive({ enabled: false, worldName: 'world', accepted: false })
 let pollTimer: ReturnType<typeof setInterval> | undefined
 
@@ -113,7 +110,6 @@ async function saveSettings(): Promise<void> {
     mapView.value = response.map ?? null
     if (!settingsForm.enabled) {
       viewerURL.value = ''
-      generatedShareURL.value = ''
     }
     settingsOpen.value = false
     quasar.notify({
@@ -130,55 +126,6 @@ async function saveSettings(): Promise<void> {
     })
   } finally {
     savingSettings.value = false
-  }
-}
-
-async function regenerateShare(): Promise<void> {
-  changingShare.value = true
-  try {
-    const response = await GetXylonaClient().regenerateMinecraftMapShare(
-      create(RegenerateMinecraftMapShareRequestSchema, { gameServerId: gameServerID.value }),
-    )
-    generatedShareURL.value = `${window.location.origin}/shared/minecraft-map#${response.shareToken}`
-    if (mapView.value !== null) mapView.value.shareEnabled = true
-    await copyShareURL()
-  } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
-  } finally {
-    changingShare.value = false
-  }
-}
-
-async function copyShareURL(): Promise<void> {
-  if (generatedShareURL.value === '') return
-  try {
-    await copyToClipboard(generatedShareURL.value)
-    quasar.notify({ type: 'positive', message: 'Public map link copied.' })
-  } catch (unknownError: unknown) {
-    console.error(unknownError)
-    quasar.notify({ type: 'negative', message: 'Could not copy the public map link.' })
-  }
-}
-
-async function revokeShare(): Promise<void> {
-  changingShare.value = true
-  try {
-    await GetXylonaClient().revokeMinecraftMapShare(
-      create(RevokeMinecraftMapShareRequestSchema, { gameServerId: gameServerID.value }),
-    )
-    generatedShareURL.value = ''
-    if (mapView.value !== null) mapView.value.shareEnabled = false
-    quasar.notify({ type: 'positive', message: 'Public map link revoked.' })
-  } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
-  } finally {
-    changingShare.value = false
   }
 }
 
@@ -214,9 +161,10 @@ onBeforeUnmount(() => {
           no-caps
           @click="openSettings" />
         <q-btn
-          v-if="canManage && mapView?.enabled"
+          v-if="canManage"
           color="primary"
           dense
+          :disable="!mapView?.enabled"
           icon="ios_share"
           label="Public link"
           no-caps
@@ -317,61 +265,7 @@ onBeforeUnmount(() => {
     </q-dialog>
 
     <q-dialog v-model="shareOpen">
-      <q-card class="minecraft-map-dialog">
-        <q-card-section class="minecraft-map-dialog__heading">
-          <div>
-            <span>Capability link</span>
-            <h2>Public Minecraft map</h2>
-          </div>
-          <q-btn v-close-popup aria-label="Close public map settings" flat icon="close" round />
-        </q-card-section>
-        <q-separator />
-        <q-card-section class="minecraft-map-dialog__content">
-          <p class="minecraft-map-dialog__share-copy">
-            Anyone with this link can view rendered terrain and live player locations. Rotating or
-            revoking the link takes effect immediately.
-          </p>
-          <q-input
-            v-if="generatedShareURL"
-            readonly
-            :model-value="generatedShareURL"
-            label="New public link"
-            outlined>
-            <template #append>
-              <q-btn
-                aria-label="Copy public map link"
-                flat
-                icon="content_copy"
-                round
-                @click="copyShareURL" />
-            </template>
-          </q-input>
-          <q-banner v-else-if="mapView?.shareEnabled" class="minecraft-map-dialog__notice" rounded>
-            A public link is active. For security, its token is shown only when generated. Rotate it
-            to receive a new link.
-          </q-banner>
-          <q-banner v-else class="minecraft-map-dialog__notice" rounded>
-            Public sharing is off. Generate a link when you are ready to share this world.
-          </q-banner>
-        </q-card-section>
-        <q-card-actions align="between">
-          <q-btn
-            v-if="mapView?.shareEnabled"
-            :loading="changingShare"
-            color="negative"
-            flat
-            label="Revoke link"
-            no-caps
-            @click="revokeShare" />
-          <span v-else />
-          <q-btn
-            :loading="changingShare"
-            color="primary"
-            :label="mapView?.shareEnabled ? 'Rotate link' : 'Generate link'"
-            no-caps
-            @click="regenerateShare" />
-        </q-card-actions>
-      </q-card>
+      <game-server-map-share-settings :game-server-id="gameServerID" @close="shareOpen = false" />
     </q-dialog>
   </div>
 </template>
@@ -448,8 +342,7 @@ onBeforeUnmount(() => {
 .minecraft-map-page__heading p,
 .minecraft-map-page__state p,
 .minecraft-map-dialog__provider span,
-.minecraft-map-dialog__fine-print,
-.minecraft-map-dialog__share-copy {
+.minecraft-map-dialog__fine-print {
   margin: 0;
   color: var(--xy-text-secondary);
 }
@@ -535,11 +428,6 @@ onBeforeUnmount(() => {
 .minecraft-map-dialog__provider div {
   display: grid;
   gap: var(--xy-space-xs);
-}
-
-.minecraft-map-dialog__notice {
-  color: var(--xy-text-secondary);
-  background: var(--xy-surface-3);
 }
 
 @media (max-width: 700px) {

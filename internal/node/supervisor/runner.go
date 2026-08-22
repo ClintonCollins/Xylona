@@ -1086,8 +1086,8 @@ func extractProcessExitCode(processState *os.ProcessState, err error) int {
 	if processState != nil {
 		return processState.ExitCode()
 	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	exitErr, isExitErr := errors.AsType[*exec.ExitError](err)
+	if isExitErr {
 		return exitErr.ExitCode()
 	}
 	// If we can't determine the exit code but there was an error, assume non-zero.

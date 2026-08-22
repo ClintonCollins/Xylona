@@ -20,7 +20,7 @@ func TestNewGameServerStatusPageHTTPHandlerAllowsMissingShell(t *testing.T) {
 		t.Fatal("NewGameServerStatusPageHTTPHandler() returned nil")
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "http://status.example/status/Owner_Page", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://status.example/status/Owner_Page", nil)
 	response := httptest.NewRecorder()
 	handler.StatusPage(response, request)
 	if response.Code != http.StatusInternalServerError {
@@ -32,7 +32,7 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 	newHandler := func(t *testing.T, enabled bool) http.Handler {
 		t.Helper()
 		fixture := newRBACRPCFixture(t)
-		_, errCreate := fixture.conn.CreateGameServerStatusPage("user-owner", `Fleet & <friends>`, "Owner_Page")
+		_, errCreate := fixture.conn.CreateGameServerStatusPage("user-owner", `Fleet $5 & <friends>`, "Owner_Page")
 		if errCreate != nil {
 			t.Fatalf("CreateGameServerStatusPage() error = %v", errCreate)
 		}
@@ -53,7 +53,7 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 
 	t.Run("injects escaped discovery metadata for enabled pages", func(t *testing.T) {
 		handler := newHandler(t, true)
-		request := httptest.NewRequest(http.MethodGet, "http://status.example/status/Owner_Page", nil)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://status.example/status/Owner_Page", nil)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 
@@ -62,7 +62,8 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 		}
 		body := response.Body.String()
 		for _, expected := range []string{
-			`<title>Fleet &amp; &lt;friends&gt; · Xylona status</title>`,
+			`<title>Fleet $5 &amp; &lt;friends&gt; · Xylona status</title>`,
+			`<meta name="description" content="Live game server status for Fleet $5 &amp; &lt;friends&gt;.">`,
 			`rel="canonical" href="http://status.example/status/Owner_Page"`,
 			`name="robots" content="index, follow"`,
 		} {
@@ -80,7 +81,7 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 
 	t.Run("does not disclose disabled pages", func(t *testing.T) {
 		handler := newHandler(t, false)
-		request := httptest.NewRequest(http.MethodGet, "http://status.example/status/Owner_Page", nil)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://status.example/status/Owner_Page", nil)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 
@@ -94,15 +95,14 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 
 	t.Run("streams an immediate complete snapshot", func(t *testing.T) {
 		handler := newHandler(t, true)
-		request := httptest.NewRequest(http.MethodGet, "http://status.example/api/public/status-pages/Owner_Page/events", nil)
-		ctx, cancel := context.WithTimeout(request.Context(), 25*time.Millisecond)
+		ctx, cancel := context.WithTimeout(t.Context(), 25*time.Millisecond)
 		defer cancel()
-		request = request.WithContext(ctx)
+		request := httptest.NewRequestWithContext(ctx, http.MethodGet, "http://status.example/api/public/status-pages/Owner_Page/events", nil)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 
 		body := response.Body.String()
-		if !strings.Contains(body, "retry: 3000") || !strings.Contains(body, "event: snapshot") || !strings.Contains(body, `"title":"Fleet & <friends>"`) {
+		if !strings.Contains(body, "retry: 3000") || !strings.Contains(body, "event: snapshot") || !strings.Contains(body, `"title":"Fleet $5 & <friends>"`) {
 			t.Fatalf("event stream = %q", body)
 		}
 		if response.Header().Get("Content-Type") != "text/event-stream" || response.Header().Get("X-Accel-Buffering") != "no" {
@@ -122,7 +122,7 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 			{path: "/robots.txt", want: "Sitemap: http://status.example/sitemap.xml"},
 			{path: "/sitemap.xml", want: "http://status.example/status/Owner_Page"},
 		} {
-			request := httptest.NewRequest(http.MethodGet, "http://status.example"+test.path, nil)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://status.example"+test.path, nil)
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), test.want) {
@@ -132,7 +132,7 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 				t.Fatalf("GET %s cache = %q", test.path, response.Header().Get("Cache-Control"))
 			}
 			if test.path == "/robots.txt" {
-				for _, directive := range []string{"Disallow: /", "Disallow: /api/", "Disallow: /shared/", "Allow: /status/"} {
+				for _, directive := range []string{"Disallow: /", "Disallow: /api/", "Disallow: /shared/", "Disallow: /maps/", "Allow: /status/"} {
 					if !strings.Contains(response.Body.String(), directive) {
 						t.Fatalf("robots.txt does not contain %q: %q", directive, response.Body.String())
 					}

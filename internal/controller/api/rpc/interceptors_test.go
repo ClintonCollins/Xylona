@@ -89,6 +89,21 @@ func TestSessionAuthInterceptorWrapUnary(t *testing.T) {
 			wantNextCalled: true,
 		},
 		{
+			name:           "public seven days map is allowed without session",
+			procedure:      xylonaconnect.XylonaGetPublicSevenDaysToDieMapProcedure,
+			wantNextCalled: true,
+		},
+		{
+			name:           "public Minecraft map is allowed without session",
+			procedure:      xylonaconnect.XylonaGetPublicMinecraftMapProcedure,
+			wantNextCalled: true,
+		},
+		{
+			name:           "public map resolver is allowed without session",
+			procedure:      xylonaconnect.XylonaResolvePublicGameServerMapProcedure,
+			wantNextCalled: true,
+		},
+		{
 			name:           "protected endpoint is allowed with a valid session",
 			procedure:      xylonaconnect.XylonaListRolesProcedure,
 			withSession:    true,

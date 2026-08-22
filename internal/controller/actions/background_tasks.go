@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -234,6 +236,64 @@ func serverQueryResponded(result *xylona.ServerQuery) bool {
 	}
 }
 
+func (inst *Instance) fillSevenDaysToDiePlayerNames(ctx context.Context, gameServer *models.GameServer, source *xylona.SourceQueryInfo) {
+	if gameServer == nil || gameServer.GameID != sevenDaysToDieGameID || source == nil ||
+		!source.GetResponded() || source.GetPlayers() <= helpers.ClampUint32FromInt(len(source.GetPlayerList())) {
+		return
+	}
+
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		log.Debug().Err(errClient).Str("server", gameServer.Name).Str("node_id", gameServer.NodeID).
+			Msg("Failed to resolve node client for 7 Days to Die player roster fallback")
+		return
+	}
+	tokenName, tokenSecret, errCredentials := inst.SevenDaysToDieMapCredentials(gameServer)
+	if errCredentials != nil {
+		log.Debug().Err(errCredentials).Str("server", gameServer.Name).
+			Msg("Failed to load 7 Days to Die player roster fallback credentials")
+		return
+	}
+	fallbackCtx, cancelFallback := context.WithTimeout(ctx, 2*time.Second)
+	defer cancelFallback()
+	snapshot, errQuery := client.QuerySevenDaysToDieMap(fallbackCtx, node.SevenDaysToDieMapQueryRequest{
+		WorkingDirectory: gameServer.Directory,
+		TokenName:        tokenName,
+		TokenSecret:      tokenSecret,
+	})
+	if errQuery != nil {
+		log.Debug().Err(errQuery).Str("server", gameServer.Name).Str("node_id", gameServer.NodeID).
+			Msg("7 Days to Die player roster fallback unavailable")
+		return
+	}
+	fillSourcePlayerNamesFromSevenDaysToDieMap(source, snapshot)
+}
+
+func fillSourcePlayerNamesFromSevenDaysToDieMap(source *xylona.SourceQueryInfo, snapshot *node.SevenDaysToDieMapSnapshot) {
+	if source == nil || snapshot == nil || source.GetPlayers() <= helpers.ClampUint32FromInt(len(source.GetPlayerList())) {
+		return
+	}
+
+	names := append([]string(nil), source.GetPlayerList()...)
+	for _, player := range snapshot.Players {
+		name := strings.TrimSpace(player.Name)
+		if !player.Online || name == "" || slices.ContainsFunc(names, func(existingName string) bool {
+			return strings.TrimSpace(existingName) == name
+		}) {
+			continue
+		}
+		names = append(names, name)
+		if helpers.ClampUint32FromInt(len(names)) == source.GetPlayers() {
+			break
+		}
+	}
+	if len(names) <= len(source.GetPlayerList()) {
+		return
+	}
+	source.PlayerList = names
+	source.PlayerListSupported = true
+}
+
 func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*models.GameServer) {
 	errGroup, _ := errgroup.WithContext(ctx)
 	errGroup.SetLimit(30)
@@ -294,31 +354,33 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 						return
 					}
 					startedAt := time.Now()
+					var serverQuery *xylona.ServerQuery
 					if inst.isRemoteGameServer(gs) {
-						serverQuery, errQuery := inst.queryRemoteGameServer(ctx, gs, queryType)
+						var errQuery error
+						serverQuery, errQuery = inst.queryRemoteGameServer(ctx, gs, queryType)
 						if errQuery != nil {
 							inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
 							inst.storeServerQuery(defaultServerQuery(gs, queryType))
 							return
 						}
-						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, serverQuery)
-						inst.storeServerQuery(serverQuery)
-						return
-					}
-					info, err := query.Source(gs.IP, int(gameServerQueryPort(gs)))
-					if err != nil {
-						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query source server")
-						inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
-						info = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
 					} else {
-						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, &xylona.ServerQuery{Type: queryType, Source: info})
+						info, errQuery := query.Source(gs.IP, int(gameServerQueryPort(gs)))
+						if errQuery != nil {
+							log.Debug().Err(errQuery).Str("server", gs.Name).Msg("Failed to query source server")
+							inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
+							inst.storeServerQuery(defaultServerQuery(gs, queryType))
+							return
+						}
+						serverQuery = &xylona.ServerQuery{
+							ServerId:   gs.ID,
+							ServerName: gs.Name,
+							Type:       xylona.ServerQuery_Source,
+							Source:     info,
+						}
 					}
-					inst.storeServerQuery(&xylona.ServerQuery{
-						ServerId:   gs.ID,
-						ServerName: gs.Name,
-						Type:       xylona.ServerQuery_Source,
-						Source:     info,
-					})
+					inst.fillSevenDaysToDiePlayerNames(ctx, gs, serverQuery.GetSource())
+					inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, serverQuery)
+					inst.storeServerQuery(serverQuery)
 					return
 				case xylona.ServerQuery_Palworld:
 					if gs.Status != xylona.Status_ONLINE.String() {

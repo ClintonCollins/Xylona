@@ -314,10 +314,10 @@ class FileUploader {
   }
 
   calculateLabels() {
-    this.uploadSizeLabel = bytesToSize(this.uploadSize)
+    this.uploadSizeLabel = bytesToSize(this.uploadSize, 2)
     const uploadedBytes =
       this.uploadedBytes <= this.uploadSize ? this.uploadedBytes : this.uploadSize
-    this.uploadedSizeSoFarLabel = bytesToSize(uploadedBytes)
+    this.uploadedSizeSoFarLabel = bytesToSize(uploadedBytes, 2)
     let progress = this.uploadedBytes / this.uploadSize
     if (isNaN(progress)) {
       progress = 0
@@ -436,7 +436,7 @@ class FileUploader {
     }
     const progress = progressEvent.loaded / progressEvent.total
     file.progressLabel = (progress * 100).toFixed(2) + '%'
-    file.uploadedSizeSoFarLabel = bytesToSize(progressEvent.loaded)
+    file.uploadedSizeSoFarLabel = bytesToSize(progressEvent.loaded, 2)
     const previousLoaded = file.lastLoaded ?? 0
     this.uploadedBytes += Math.max(0, progressEvent.loaded - previousLoaded)
     file.lastLoaded = progressEvent.loaded
@@ -510,7 +510,7 @@ class FileUploader {
       path: getUploaderFilePath(file),
       key: file.name,
       status: FileStatus.Queued,
-      sizeLabel: bytesToSize(file.size),
+      sizeLabel: bytesToSize(file.size, 2),
       uploadedSizeSoFarLabel: '0.00 MB',
       progressLabel: '0.00%',
     }

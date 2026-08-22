@@ -135,7 +135,6 @@ func (xs *XylonaService) serveBackupArchiveRemote(w http.ResponseWriter, r *http
 }
 
 func (xs *XylonaService) serveBackupArchiveLocal(w http.ResponseWriter, r *http.Request, archivePath string) {
-	//nolint:gosec // archivePath is resolved and confined to the managed backup directory above.
 	archiveFile, errOpenArchive := os.Open(archivePath)
 	if errOpenArchive != nil {
 		if errors.Is(errOpenArchive, os.ErrNotExist) {
@@ -436,8 +435,8 @@ func isRequestBodyTooLarge(err error) bool {
 		return false
 	}
 
-	var maxBytesErr *http.MaxBytesError
-	if errors.As(err, &maxBytesErr) {
+	_, isMaxBytesErr := errors.AsType[*http.MaxBytesError](err)
+	if isMaxBytesErr {
 		return true
 	}
 

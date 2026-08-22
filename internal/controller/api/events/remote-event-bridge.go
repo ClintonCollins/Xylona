@@ -102,7 +102,7 @@ func (b *RemoteEventBridge) startForClient(client nodeclient.NodeClient) {
 		existing()
 		delete(b.active, client.ID())
 	}
-	ctx, cancel := context.WithCancel(b.parent) //nolint:gosec // G118: cancel is retained in b.active and invoked by OnRemove or the next startForClient call, not leaked.
+	ctx, cancel := context.WithCancel(b.parent)
 	b.active[client.ID()] = cancel
 	b.mu.Unlock()
 

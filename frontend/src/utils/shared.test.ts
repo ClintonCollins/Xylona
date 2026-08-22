@@ -135,13 +135,15 @@ describe('GetPathSeparator', () => {
 
 describe('bytesToSize', () => {
   it.each([
-    [0, '0 Byte'],
-    [500, '500 Bytes'],
-    [1024, '1 KB'],
-    [1048576, '1 MB'],
-    [1073741824, '1 GB'],
-  ])('formats %i bytes as %s', (bytes, want) => {
-    expect(bytesToSize(bytes)).toBe(want)
+    ['zero bytes', 0, undefined, '0 Byte'],
+    ['bytes', 500, undefined, '500 Bytes'],
+    ['kilobytes', 1024, undefined, '1 KB'],
+    ['megabytes', 1048576, undefined, '1 MB'],
+    ['gigabytes', 1073741824, undefined, '1 GB'],
+    ['fixed zero', 0, 2, '0.00 Byte'],
+    ['fixed trailing zeroes', 1_153_434, 2, '1.10 MB'],
+  ])('formats $name', (_name, bytes, fractionDigits, want) => {
+    expect(bytesToSize(bytes, fractionDigits)).toBe(want)
   })
 })
 

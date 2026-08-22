@@ -202,7 +202,7 @@ func (ws *WebSocket) startConsoleStream(conn *connection, gameServer *models.Gam
 	if baseCtx == nil {
 		baseCtx = context.Background()
 	}
-	streamCtx, cancel := context.WithCancel(baseCtx) //nolint:gosec // cancel is retained in conn.consoleStreamCancels and called on unsubscribe/disconnect.
+	streamCtx, cancel := context.WithCancel(baseCtx)
 	token := &struct{}{}
 
 	conn.Lock()

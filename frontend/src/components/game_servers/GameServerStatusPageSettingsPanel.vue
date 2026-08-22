@@ -2,7 +2,7 @@
 import { create } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
 import { computed, onMounted, ref } from 'vue'
-import { useQuasar } from 'quasar'
+import { copyToClipboard, useQuasar } from 'quasar'
 
 import {
   GameServerStatusPageConnectionAddressSchema,
@@ -153,8 +153,12 @@ async function save() {
 }
 
 async function copyPublicLink() {
-  await navigator.clipboard.writeText(publicURL.value)
-  $q.notify({ type: 'positive', message: 'Public link copied' })
+  try {
+    await copyToClipboard(publicURL.value)
+    $q.notify({ type: 'positive', message: 'Public link copied' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Could not copy the public link.' })
+  }
 }
 
 function openPublicLink() {

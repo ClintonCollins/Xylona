@@ -98,8 +98,8 @@ func runServer(t *testing.T, stdin string, args ...string) (stdout, stderr strin
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		exitErr, isExitErr := errors.AsType[*exec.ExitError](err)
+		if isExitErr {
 			exitCode = exitErr.ExitCode()
 		} else {
 			t.Fatalf("unexpected error running server: %v", err)
@@ -127,8 +127,8 @@ func runServerWithPipe(t *testing.T, args ...string) (stdinWriter io.WriteCloser
 	return stdinPipe, &outBuf, func() int {
 		errWait := cmd.Wait()
 		if errWait != nil {
-			var exitErr *exec.ExitError
-			if errors.As(errWait, &exitErr) {
+			exitErr, isExitErr := errors.AsType[*exec.ExitError](errWait)
+			if isExitErr {
 				return exitErr.ExitCode()
 			}
 		}
@@ -500,8 +500,8 @@ func TestInvalidFlagExitsNonZero(t *testing.T) {
 	if err == nil {
 		t.Error("expected non-zero exit for invalid flag, got exit 0")
 	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	exitErr, isExitErr := errors.AsType[*exec.ExitError](err)
+	if isExitErr {
 		if exitErr.ExitCode() == 0 {
 			t.Errorf("expected non-zero exit code, got 0")
 		}

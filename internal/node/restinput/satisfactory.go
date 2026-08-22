@@ -81,8 +81,7 @@ func ConfigureSatisfactoryAdminPassword(
 		return fmt.Errorf("acquire Satisfactory initial-admin token: %w", errLogin)
 	}
 
-	for index := len(previousPasswords) - 1; index >= 0; index-- {
-		previousPassword := previousPasswords[index]
+	for _, previousPassword := range slices.Backward(previousPasswords) {
 		if previousPassword == password {
 			continue
 		}

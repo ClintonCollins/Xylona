@@ -106,6 +106,7 @@ Follow the canonical `v-html` inventory and escaping or sanitization requirement
 
 ## Testing
 
+- Before finishing work, run `golangci-lint run` from the project root and fix all reported issues
 - Backend tests should be table-driven where useful, use the standard `testing` package, live beside the code, be deterministic, and prefer `errors.Is` or `errors.As`
 - Use `t.TempDir()`, `t.Setenv()`, and `t.Cleanup()` for isolation; use in-memory SQLite for `internal/db` tests
 - Heavier filesystem, DB, or process tests should be skippable in `testing.Short()`

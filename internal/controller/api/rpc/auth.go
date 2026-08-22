@@ -128,7 +128,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 	}
 
 	secureCookies := cookieSecure(xs.secureCookies, request.Header())
-	tokenCookie := &http.Cookie{
+	tokenCookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
 		Name:     gatekeeper.SessionTokenCookieName,
 		Value:    encodedSession,
 		Path:     "/",
@@ -137,7 +137,7 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
-	idCookie := &http.Cookie{
+	idCookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
 		Name:     gatekeeper.SessionIDCookieName,
 		Value:    newSession.ID,
 		Path:     "/",
@@ -169,7 +169,7 @@ func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylo
 	}
 
 	secureCookies := cookieSecure(xs.secureCookies, request.Header())
-	clearTokenCookie := &http.Cookie{
+	clearTokenCookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
 		Name:     gatekeeper.SessionTokenCookieName,
 		Value:    "",
 		Path:     "/",
@@ -179,7 +179,7 @@ func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylo
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
-	clearIDCookie := &http.Cookie{
+	clearIDCookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
 		Name:     gatekeeper.SessionIDCookieName,
 		Value:    "",
 		Path:     "/",

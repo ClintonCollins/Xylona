@@ -1,27 +1,17 @@
 package db
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 )
-
-// ErrMinecraftMapShareNotFound indicates that a public map capability is invalid or revoked.
-var ErrMinecraftMapShareNotFound = errors.New("minecraft map share was not found")
-
-const minecraftMapShareTokenByteLen = 32
 
 // GameServerMinecraftMap contains the persisted BlueMap settings for one server.
 type GameServerMinecraftMap struct {
 	GameServerID    string
 	Enabled         bool
 	WorldName       string
-	ShareTokenHash  sql.NullString
 	AcceptedAt      sql.NullTime
 	UpdatedByUserID sql.NullString
 	CreatedAt       time.Time
@@ -81,83 +71,7 @@ func (c *Connection) UpdateGameServerMinecraftMapConfig(
 	return nil
 }
 
-// RegenerateGameServerMinecraftMapShare replaces and returns the public
-// capability token. Only its SHA-256 digest is persisted.
-func (c *Connection) RegenerateGameServerMinecraftMapShare(gameServerID string, updatedByUserID string) (string, error) {
-	rawToken := make([]byte, minecraftMapShareTokenByteLen)
-	_, errRand := rand.Read(rawToken)
-	if errRand != nil {
-		return "", fmt.Errorf("generate Minecraft map share token: %w", errRand)
-	}
-	token := hex.EncodeToString(rawToken)
-	now := time.Now().UTC()
-	_, errExec := c.SQLDb.ExecContext(
-		c.ctx,
-		`insert into game_server_minecraft_map
-			(game_server_id, share_token_hash, updated_by_user_id, created_at, updated_at)
-		 values (?, ?, ?, ?, ?)
-		 on conflict(game_server_id) do update set
-			share_token_hash = excluded.share_token_hash,
-			updated_by_user_id = excluded.updated_by_user_id,
-			updated_at = excluded.updated_at`,
-		gameServerID,
-		hashMinecraftMapShareToken(token),
-		nullableTrimmedString(updatedByUserID),
-		now,
-		now,
-	)
-	if errExec != nil {
-		return "", fmt.Errorf("regenerate game server Minecraft map share: %w", errExec)
-	}
-	return token, nil
-}
-
-// RevokeGameServerMinecraftMapShare clears the current public capability.
-func (c *Connection) RevokeGameServerMinecraftMapShare(gameServerID string, updatedByUserID string) error {
-	now := time.Now().UTC()
-	_, errExec := c.SQLDb.ExecContext(
-		c.ctx,
-		`insert into game_server_minecraft_map
-			(game_server_id, share_token_hash, updated_by_user_id, created_at, updated_at)
-		 values (?, null, ?, ?, ?)
-		 on conflict(game_server_id) do update set
-			share_token_hash = null,
-			updated_by_user_id = excluded.updated_by_user_id,
-			updated_at = excluded.updated_at`,
-		gameServerID,
-		nullableTrimmedString(updatedByUserID),
-		now,
-		now,
-	)
-	if errExec != nil {
-		return fmt.Errorf("revoke game server Minecraft map share: %w", errExec)
-	}
-	return nil
-}
-
-// GetGameServerMinecraftMapByShareToken resolves a public capability token.
-func (c *Connection) GetGameServerMinecraftMapByShareToken(token string) (*GameServerMinecraftMap, error) {
-	token = strings.TrimSpace(token)
-	decoded, errDecode := hex.DecodeString(token)
-	if errDecode != nil || len(decoded) != minecraftMapShareTokenByteLen {
-		return nil, ErrMinecraftMapShareNotFound
-	}
-	row := c.SQLDb.QueryRowContext(
-		c.ctx,
-		minecraftMapSelect+" where share_token_hash = ?",
-		hashMinecraftMapShareToken(token),
-	)
-	settings, errScan := scanGameServerMinecraftMap(row)
-	if errors.Is(errScan, sql.ErrNoRows) {
-		return nil, ErrMinecraftMapShareNotFound
-	}
-	if errScan != nil {
-		return nil, fmt.Errorf("get Minecraft map by share token: %w", errScan)
-	}
-	return settings, nil
-}
-
-const minecraftMapSelect = `select game_server_id, enabled, world_name, share_token_hash,
+const minecraftMapSelect = `select game_server_id, enabled, world_name,
 	 accepted_at, updated_by_user_id, created_at, updated_at
 	 from game_server_minecraft_map`
 
@@ -167,7 +81,6 @@ func scanGameServerMinecraftMap(row scanner) (*GameServerMinecraftMap, error) {
 		&settings.GameServerID,
 		&settings.Enabled,
 		&settings.WorldName,
-		&settings.ShareTokenHash,
 		&settings.AcceptedAt,
 		&settings.UpdatedByUserID,
 		&settings.CreatedAt,
@@ -177,9 +90,4 @@ func scanGameServerMinecraftMap(row scanner) (*GameServerMinecraftMap, error) {
 		return nil, fmt.Errorf("scan game server Minecraft map: %w", errScan)
 	}
 	return &settings, nil
-}
-
-func hashMinecraftMapShareToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
 }

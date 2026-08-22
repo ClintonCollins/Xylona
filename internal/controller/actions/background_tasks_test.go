@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aarondl/opt/omit"
+
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
@@ -65,6 +67,210 @@ func TestServerQueryFromNodeResultPreservesSourcePlayerList(t *testing.T) {
 	}
 	if !result.GetSource().GetPlayerListSupported() || !slices.Equal(result.GetSource().GetPlayerList(), []string{"Alyx", "Gordon"}) {
 		t.Fatalf("Source player data = %+v, want supported [Alyx Gordon]", result.GetSource())
+	}
+}
+
+func TestFillSourcePlayerNamesFromSevenDaysToDieMap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		source        *xylona.SourceQueryInfo
+		snapshot      *node.SevenDaysToDieMapSnapshot
+		wantNames     []string
+		wantSupported bool
+	}{
+		{
+			name:   "fills a blank A2S roster",
+			source: &xylona.SourceQueryInfo{Players: 1, PlayerListSupported: true},
+			snapshot: &node.SevenDaysToDieMapSnapshot{Players: []node.SevenDaysToDieMapPlayer{
+				{Name: "Alex", Online: true},
+			}},
+			wantNames:     []string{"Alex"},
+			wantSupported: true,
+		},
+		{
+			name: "appends dashboard names to a partial A2S roster",
+			source: &xylona.SourceQueryInfo{
+				Players:             3,
+				PlayerList:          []string{"Alyx"},
+				PlayerListSupported: true,
+			},
+			snapshot: &node.SevenDaysToDieMapSnapshot{Players: []node.SevenDaysToDieMapPlayer{
+				{Name: "Gordon", Online: true},
+				{Name: "Chell", Online: true},
+			}},
+			wantNames:     []string{"Alyx", "Gordon", "Chell"},
+			wantSupported: true,
+		},
+		{
+			name: "preserves a complete A2S roster",
+			source: &xylona.SourceQueryInfo{
+				Players:             1,
+				PlayerList:          []string{"Alyx"},
+				PlayerListSupported: true,
+			},
+			snapshot: &node.SevenDaysToDieMapSnapshot{Players: []node.SevenDaysToDieMapPlayer{
+				{Name: "Alex", Online: true},
+			}},
+			wantNames:     []string{"Alyx"},
+			wantSupported: true,
+		},
+		{
+			name:   "uses only current usable names up to the A2S count",
+			source: &xylona.SourceQueryInfo{Players: 1},
+			snapshot: &node.SevenDaysToDieMapSnapshot{Players: []node.SevenDaysToDieMapPlayer{
+				{Name: "Old", Online: false},
+				{Name: " ", Online: true},
+				{Name: "Current", Online: true},
+				{Name: "Joined later", Online: true},
+			}},
+			wantNames:     []string{"Current"},
+			wantSupported: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fillSourcePlayerNamesFromSevenDaysToDieMap(test.source, test.snapshot)
+
+			if !slices.Equal(test.source.GetPlayerList(), test.wantNames) {
+				t.Fatalf("player list = %v, want %v", test.source.GetPlayerList(), test.wantNames)
+			}
+			if test.source.GetPlayerListSupported() != test.wantSupported {
+				t.Fatalf("player list supported = %t, want %t", test.source.GetPlayerListSupported(), test.wantSupported)
+			}
+		})
+	}
+}
+
+func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T) {
+	inst := newTestInstance(t)
+	inst.db.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	_, errNode := inst.db.SQLDb.ExecContext(
+		t.Context(),
+		`insert into node (id, name, listen_url, enabled) values (?, ?, ?, ?)
+		 on conflict(id) do nothing`,
+		"node-remote", "Remote Node", "http://localhost:8081", true,
+	)
+	if errNode != nil {
+		t.Fatalf("insert node setup error = %v", errNode)
+	}
+	_, errIP := inst.db.SQLDb.ExecContext(
+		t.Context(),
+		`insert into ip (address, usable, external, node_id) values (?, ?, ?, ?)
+		 on conflict(address, node_id) do nothing`,
+		"127.0.0.1", true, false, "node-remote",
+	)
+	if errIP != nil {
+		t.Fatalf("insert IP setup error = %v", errIP)
+	}
+	_, errUser := inst.db.SQLDb.ExecContext(
+		t.Context(),
+		`insert into user (id, user_name, email, first_name, last_name, password_hash, super_user, created_at, updated_at)
+		 values (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		 on conflict(id) do nothing`,
+		"user-roster", "owner", "owner@example.com", "Owner", "User", "hash", false,
+	)
+	if errUser != nil {
+		t.Fatalf("insert user setup error = %v", errUser)
+	}
+	directory := t.TempDir()
+	_, errServer := inst.db.InsertGameServer(inst.db.DB, &models.GameServerSetter{
+		ID:               omit.From("server-roster"),
+		UserID:           omit.From("user-roster"),
+		Name:             omit.From("7DTD Server"),
+		GameID:           omit.From(sevenDaysToDieGameID),
+		Status:           omit.From(xylona.Status_ONLINE.String()),
+		SetPlayers:       omit.From(int64(32)),
+		MaxPlayers:       omit.From(int64(32)),
+		Map:              omit.From("world"),
+		IP:               omit.From("127.0.0.1"),
+		Port:             omit.From(int64(26900)),
+		QueryPort:        omit.From(int64(26904)),
+		Directory:        omit.From(directory),
+		NodeID:           omit.From("node-remote"),
+		StartArgsPatches: omit.From("[]"),
+	})
+	if errServer != nil {
+		t.Fatalf("InsertGameServer() error = %v", errServer)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID: "node-remote",
+		GetProcessSnapshotResult: &node.ProcessSnapshot{
+			ID:     "server-roster",
+			Status: xylona.Status_ONLINE.String(),
+		},
+		GetProcessSnapshotFound: true,
+		QueryGameServerResult: node.GameServerQueryResult{
+			Kind: node.GameServerQueryKindSource,
+			Source: &node.SourceQueryInfo{
+				Players:   1,
+				Responded: true,
+			},
+		},
+		QuerySevenDaysToDieMapResult: &node.SevenDaysToDieMapSnapshot{
+			Players: []node.SevenDaysToDieMapPlayer{{Name: "Alex", Online: true}},
+		},
+	}
+	registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+	registry.Register(remoteClient)
+	inst.nodeRegistry = registry
+	gameServer := &models.GameServer{
+		ID:        "server-roster",
+		Name:      "7DTD Server",
+		GameID:    sevenDaysToDieGameID,
+		Directory: directory,
+		NodeID:    "node-remote",
+		Port:      26900,
+		QueryPort: 26904,
+	}
+	gameServer.R.Game = adminInputTestGameDefinition(sevenDaysToDieGameID)
+	gameServer.R.Game.UsesSourceQuery = true
+
+	inst.queryGameServers(t.Context(), []*models.GameServer{gameServer})
+	inst.serverQueriesMutex.RLock()
+	result := inst.serverQueriesInfoMap[gameServer.ID]
+	inst.serverQueriesMutex.RUnlock()
+	if !slices.Equal(result.GetSource().GetPlayerList(), []string{"Alex"}) {
+		t.Fatalf("player list = %v, want [Alex]", result.GetSource().GetPlayerList())
+	}
+	if len(remoteClient.QueryGameServerCalls) != 1 {
+		t.Fatalf("A2S calls = %d, want 1", len(remoteClient.QueryGameServerCalls))
+	}
+	if len(remoteClient.QuerySevenDaysToDieMapCalls) != 1 {
+		t.Fatalf("dashboard calls = %d, want 1", len(remoteClient.QuerySevenDaysToDieMapCalls))
+	}
+	request := remoteClient.QuerySevenDaysToDieMapCalls[0]
+	if request.WorkingDirectory != directory || request.TokenName == "" || request.TokenSecret == "" {
+		t.Fatal("dashboard request is missing its directory or managed credentials")
+	}
+
+	remoteClient.QueryGameServerResult.Source = &node.SourceQueryInfo{
+		Players:             1,
+		PlayerList:          []string{"Alyx"},
+		PlayerListSupported: true,
+		Responded:           true,
+	}
+	inst.queryGameServers(t.Context(), []*models.GameServer{gameServer})
+	if len(remoteClient.QuerySevenDaysToDieMapCalls) != 1 {
+		t.Fatalf("dashboard calls = %d, want no fallback for a complete A2S roster", len(remoteClient.QuerySevenDaysToDieMapCalls))
+	}
+
+	remoteClient.QueryGameServerResult.Source = &node.SourceQueryInfo{
+		Players:             2,
+		PlayerList:          []string{"Alyx"},
+		PlayerListSupported: true,
+		Responded:           true,
+	}
+	remoteClient.QuerySevenDaysToDieMapErr = errors.New("dashboard unavailable")
+	inst.queryGameServers(t.Context(), []*models.GameServer{gameServer})
+	inst.serverQueriesMutex.RLock()
+	result = inst.serverQueriesInfoMap[gameServer.ID]
+	inst.serverQueriesMutex.RUnlock()
+	if !slices.Equal(result.GetSource().GetPlayerList(), []string{"Alyx"}) {
+		t.Fatalf("player list after dashboard failure = %v, want preserved A2S roster", result.GetSource().GetPlayerList())
 	}
 }
 

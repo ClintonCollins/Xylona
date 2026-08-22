@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -111,10 +112,10 @@ func logRollbackError(err error, msg string) {
 
 func cleanupPromotedFiles(moves []fileMove) error {
 	var cleanupErr error
-	for i := len(moves) - 1; i >= 0; i-- {
-		errRemove := os.Remove(moves[i].target)
+	for _, move := range slices.Backward(moves) {
+		errRemove := os.Remove(move.target)
 		if errRemove != nil && !os.IsNotExist(errRemove) && cleanupErr == nil {
-			cleanupErr = fmt.Errorf("remove promoted file %s: %w", moves[i].target, errRemove)
+			cleanupErr = fmt.Errorf("remove promoted file %s: %w", move.target, errRemove)
 		}
 	}
 
@@ -224,10 +225,10 @@ func logRemoteDeleteError(ctx context.Context, client FileClient, directory stri
 
 func cleanupRemotePromotedFiles(ctx context.Context, client FileClient, directory string, moves []fileMove) error {
 	var cleanupErr error
-	for i := len(moves) - 1; i >= 0; i-- {
-		_, errDelete := client.DeleteFiles(ctx, directory, []string{moves[i].target}, node.ProtectionPolicy{})
+	for _, move := range slices.Backward(moves) {
+		_, errDelete := client.DeleteFiles(ctx, directory, []string{move.target}, node.ProtectionPolicy{})
 		if errDelete != nil && cleanupErr == nil {
-			cleanupErr = fmt.Errorf("remove promoted remote file %s: %w", moves[i].target, errDelete)
+			cleanupErr = fmt.Errorf("remove promoted remote file %s: %w", move.target, errDelete)
 		}
 	}
 	return cleanupErr
@@ -235,8 +236,7 @@ func cleanupRemotePromotedFiles(ctx context.Context, client FileClient, director
 
 func restoreRemoteMovedFiles(ctx context.Context, client FileClient, directory string, moves []fileMove) error {
 	var restoreErr error
-	for i := len(moves) - 1; i >= 0; i-- {
-		move := moves[i]
+	for _, move := range slices.Backward(moves) {
 		parent := path.Dir(move.target)
 		if parent != "." && parent != "" {
 			errMkdir := client.CreateFileOrDirectory(ctx, directory, parent, "", true, node.ProtectionPolicy{})
@@ -415,8 +415,7 @@ func moveExistingFilesToRollback(serverDir string, installSubdir string, oldFile
 
 func restoreMovedFiles(moves []fileMove) error {
 	var restoreErr error
-	for i := len(moves) - 1; i >= 0; i-- {
-		move := moves[i]
+	for _, move := range slices.Backward(moves) {
 		errMkdir := os.MkdirAll(filepath.Dir(move.target), 0o750)
 		if errMkdir != nil {
 			if restoreErr == nil {

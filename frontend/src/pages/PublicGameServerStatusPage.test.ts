@@ -7,11 +7,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Status } from '@/proto/shared_pb'
 import {
   GameServerStatusPageRosterState,
+  type PublicGameServerStatus,
+  PublicGameServerStatusSchema,
   PublicGameServerStatusPageSchema,
 } from '@/proto/xylona_pb'
 import PublicGameServerStatusPage from './PublicGameServerStatusPage.vue'
 
-const mocks = vi.hoisted(() => ({ getStatusPage: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  copyToClipboard: vi.fn(),
+  getStatusPage: vi.fn(),
+  notify: vi.fn(),
+}))
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({ getPublicGameServerStatusPage: mocks.getStatusPage }),
@@ -20,6 +26,15 @@ vi.mock('@/utils/shared', () => ({
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { identifier: 'Fleet_A' } }),
 }))
+
+vi.mock('quasar', async () => {
+  const actual = await vi.importActual<typeof import('quasar')>('quasar')
+  return {
+    ...actual,
+    copyToClipboard: mocks.copyToClipboard,
+    useQuasar: () => ({ notify: mocks.notify }),
+  }
+})
 
 class FakeEventSource {
   static instances: FakeEventSource[] = []
@@ -50,7 +65,10 @@ describe('PublicGameServerStatusPage', () => {
     vi.setSystemTime(new Date('2026-08-21T12:02:00Z'))
     FakeEventSource.instances = []
     vi.stubGlobal('EventSource', FakeEventSource)
+    mocks.copyToClipboard.mockReset()
+    mocks.copyToClipboard.mockResolvedValue(undefined)
     mocks.getStatusPage.mockReset()
+    mocks.notify.mockReset()
   })
 
   afterEach(() => {
@@ -106,5 +124,35 @@ describe('PublicGameServerStatusPage', () => {
     expect(wrapper.text()).toContain('This status page is not available')
     wrapper.unmount()
     expect(FakeEventSource.instances[0]?.closed).toBe(true)
+  })
+
+  it('copies connection addresses with the fallback and reports failures', async () => {
+    mocks.getStatusPage.mockResolvedValue({
+      page: create(PublicGameServerStatusPageSchema, { title: 'Owner fleet' }),
+    })
+    vi.stubGlobal('navigator', {})
+    const wrapper = shallowMount(PublicGameServerStatusPage)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      copiedServerID: string
+      copyAddress: (server: PublicGameServerStatus) => Promise<void>
+    }
+    const server = create(PublicGameServerStatusSchema, {
+      id: 'server-1',
+      connectionAddress: 'play.example.test:25565',
+    })
+
+    await vm.copyAddress(server)
+
+    expect(mocks.copyToClipboard).toHaveBeenCalledWith('play.example.test:25565')
+    expect(vm.copiedServerID).toBe('server-1')
+
+    mocks.copyToClipboard.mockRejectedValueOnce(new Error('copy failed'))
+    await vm.copyAddress(create(PublicGameServerStatusSchema, { id: 'server-2' }))
+
+    expect(mocks.notify).toHaveBeenCalledWith({
+      type: 'negative',
+      message: 'Could not copy the connection address.',
+    })
   })
 })

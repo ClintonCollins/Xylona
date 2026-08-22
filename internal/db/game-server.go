@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -94,7 +95,7 @@ func (c *Connection) UpdateGameServer(exec bob.Executor, gameServerSetter *model
 // in the same transaction when the owner changes.
 func (c *Connection) UpdateGameServerForEdit(gameServerSetter *models.GameServerSetter, previousOwnerID string) (*models.GameServer, error) {
 	if !gameServerSetter.ID.IsValue() || !gameServerSetter.UserID.IsValue() {
-		return nil, fmt.Errorf("update game server for edit: ID and user ID are required")
+		return nil, errors.New("update game server for edit: ID and user ID are required")
 	}
 
 	tx, errBegin := c.SQLDb.BeginTx(c.ctx, nil)

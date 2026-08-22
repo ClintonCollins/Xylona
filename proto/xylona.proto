@@ -78,24 +78,20 @@ service Xylona {
   rpc GetOrCreateGameServerStatusPageSettings (GetOrCreateGameServerStatusPageSettingsRequest) returns (GetOrCreateGameServerStatusPageSettingsResponse) {}
   rpc UpdateGameServerStatusPageSettings (UpdateGameServerStatusPageSettingsRequest) returns (UpdateGameServerStatusPageSettingsResponse) {}
   rpc GetPublicGameServerStatusPage (GetPublicGameServerStatusPageRequest) returns (GetPublicGameServerStatusPageResponse) {}
+  rpc GetOrCreateGameServerMapShareSettings (GetOrCreateGameServerMapShareSettingsRequest) returns (GetOrCreateGameServerMapShareSettingsResponse) {}
+  rpc UpdateGameServerMapShareSettings (UpdateGameServerMapShareSettingsRequest) returns (UpdateGameServerMapShareSettingsResponse) {}
+  rpc ResolvePublicGameServerMap (ResolvePublicGameServerMapRequest) returns (ResolvePublicGameServerMapResponse) {}
   rpc GetGameServerPlayerManagement (GetGameServerPlayerManagementRequest) returns (GetGameServerPlayerManagementResponse) {}
   rpc PerformGameServerPlayerAction (PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse) {}
   rpc GetPalworldMap (GetPalworldMapRequest) returns (GetPalworldMapResponse) {}
   rpc UpdatePalworldMapConfig (UpdatePalworldMapConfigRequest) returns (UpdatePalworldMapConfigResponse) {}
   rpc InstallPalworldMapTiles (InstallPalworldMapTilesRequest) returns (InstallPalworldMapTilesResponse) {}
-  rpc RegeneratePalworldMapShare (RegeneratePalworldMapShareRequest) returns (RegeneratePalworldMapShareResponse) {}
-  rpc RevokePalworldMapShare (RevokePalworldMapShareRequest) returns (RevokePalworldMapShareResponse) {}
   rpc GetPublicPalworldMap (GetPublicPalworldMapRequest) returns (GetPublicPalworldMapResponse) {}
   rpc GetSevenDaysToDieMap (GetSevenDaysToDieMapRequest) returns (GetSevenDaysToDieMapResponse) {}
   rpc UpdateSevenDaysToDieMapNotes (UpdateSevenDaysToDieMapNotesRequest) returns (UpdateSevenDaysToDieMapNotesResponse) {}
-  rpc ListSevenDaysToDieMapShares (ListSevenDaysToDieMapSharesRequest) returns (ListSevenDaysToDieMapSharesResponse) {}
-  rpc RegenerateSevenDaysToDieMapShare (RegenerateSevenDaysToDieMapShareRequest) returns (RegenerateSevenDaysToDieMapShareResponse) {}
-  rpc RevokeSevenDaysToDieMapShare (RevokeSevenDaysToDieMapShareRequest) returns (RevokeSevenDaysToDieMapShareResponse) {}
   rpc GetPublicSevenDaysToDieMap (GetPublicSevenDaysToDieMapRequest) returns (GetPublicSevenDaysToDieMapResponse) {}
   rpc GetMinecraftMap (GetMinecraftMapRequest) returns (GetMinecraftMapResponse) {}
   rpc UpdateMinecraftMapConfig (UpdateMinecraftMapConfigRequest) returns (UpdateMinecraftMapConfigResponse) {}
-  rpc RegenerateMinecraftMapShare (RegenerateMinecraftMapShareRequest) returns (RegenerateMinecraftMapShareResponse) {}
-  rpc RevokeMinecraftMapShare (RevokeMinecraftMapShareRequest) returns (RevokeMinecraftMapShareResponse) {}
   rpc GetPublicMinecraftMap (GetPublicMinecraftMapRequest) returns (GetPublicMinecraftMapResponse) {}
 
   rpc GetUpdateTargets (GetUpdateTargetsRequest) returns (GetUpdateTargetsResponse) {}
@@ -1699,6 +1695,46 @@ enum PalworldMapActorKind {
   PALWORLD_MAP_ACTOR_KIND_OTHER = 7;
 }
 
+enum GameServerMapKind {
+  GAME_SERVER_MAP_KIND_UNSPECIFIED = 0;
+  GAME_SERVER_MAP_KIND_PALWORLD = 1;
+  GAME_SERVER_MAP_KIND_SEVEN_DAYS_TO_DIE = 2;
+  GAME_SERVER_MAP_KIND_MINECRAFT = 3;
+}
+
+message GameServerMapShareSettings {
+  string game_server_id = 1;
+  string public_identifier = 2;
+  bool enabled = 3;
+  string public_path = 4;
+}
+
+message GetOrCreateGameServerMapShareSettingsRequest {
+  string game_server_id = 1;
+}
+
+message GetOrCreateGameServerMapShareSettingsResponse {
+  GameServerMapShareSettings settings = 1;
+}
+
+message UpdateGameServerMapShareSettingsRequest {
+  string game_server_id = 1;
+  string public_identifier = 2;
+  bool enabled = 3;
+}
+
+message UpdateGameServerMapShareSettingsResponse {
+  GameServerMapShareSettings settings = 1;
+}
+
+message ResolvePublicGameServerMapRequest {
+  string public_identifier = 1;
+}
+
+message ResolvePublicGameServerMapResponse {
+  GameServerMapKind kind = 1;
+}
+
 message PalworldMapActor {
   string key = 1;
   PalworldMapActorKind kind = 2;
@@ -1751,7 +1787,6 @@ message PalworldMapView {
   repeated PalworldMapActor actors = 11;
   repeated PalworldMapLayer layers = 12;
   bool can_manage_share = 13;
-  bool share_enabled = 14;
   PalworldMapHealth health = 15;
   string partial_reason = 16;
 }
@@ -1781,22 +1816,8 @@ message InstallPalworldMapTilesResponse {
   repeated PalworldMapLayer layers = 1;
 }
 
-message RegeneratePalworldMapShareRequest {
-  string game_server_id = 1;
-}
-
-message RegeneratePalworldMapShareResponse {
-  string share_token = 1;
-}
-
-message RevokePalworldMapShareRequest {
-  string game_server_id = 1;
-}
-
-message RevokePalworldMapShareResponse {}
-
 message GetPublicPalworldMapRequest {
-  string share_token = 1;
+  string public_identifier = 1;
 }
 
 message GetPublicPalworldMapResponse {
@@ -1850,7 +1871,6 @@ message SevenDaysToDieMapView {
   string source_time = 12;
   bool stale = 13;
   string status_message = 14;
-  bool share_enabled = 15;
   string tile_url_template = 16;
 }
 
@@ -1871,38 +1891,8 @@ message UpdateSevenDaysToDieMapNotesResponse {
   repeated SevenDaysToDieMapMarker markers = 1;
 }
 
-message SevenDaysToDieMapShare {
-  string id = 1;
-  string share_token = 2;
-  google.protobuf.Timestamp created_at = 3;
-}
-
-message ListSevenDaysToDieMapSharesRequest {
-  string game_server_id = 1;
-}
-
-message ListSevenDaysToDieMapSharesResponse {
-  repeated SevenDaysToDieMapShare shares = 1;
-}
-
-message RegenerateSevenDaysToDieMapShareRequest {
-  string game_server_id = 1;
-}
-
-message RegenerateSevenDaysToDieMapShareResponse {
-  string share_token = 1;
-  SevenDaysToDieMapShare share = 2;
-}
-
-message RevokeSevenDaysToDieMapShareRequest {
-  string game_server_id = 1;
-  string share_id = 2;
-}
-
-message RevokeSevenDaysToDieMapShareResponse {}
-
 message GetPublicSevenDaysToDieMapRequest {
-  string share_token = 1;
+  string public_identifier = 1;
 }
 
 message GetPublicSevenDaysToDieMapResponse {
@@ -1918,7 +1908,6 @@ message MinecraftMapView {
   string status = 6;
   string status_message = 7;
   bool can_manage = 8;
-  bool share_enabled = 9;
   string viewer_url = 10;
   string world_name = 11;
   string bluemap_version = 12;
@@ -1945,22 +1934,8 @@ message UpdateMinecraftMapConfigResponse {
   MinecraftMapView map = 1;
 }
 
-message RegenerateMinecraftMapShareRequest {
-  string game_server_id = 1;
-}
-
-message RegenerateMinecraftMapShareResponse {
-  string share_token = 1;
-}
-
-message RevokeMinecraftMapShareRequest {
-  string game_server_id = 1;
-}
-
-message RevokeMinecraftMapShareResponse {}
-
 message GetPublicMinecraftMapRequest {
-  string share_token = 1;
+  string public_identifier = 1;
 }
 
 message GetPublicMinecraftMapResponse {

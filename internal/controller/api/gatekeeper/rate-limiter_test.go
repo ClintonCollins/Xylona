@@ -120,6 +120,9 @@ func TestAuthRateLimiter(t *testing.T) {
 		path     string
 		requests int
 	}{
+		{name: "rate limits public map resolver", path: "/xylona.Xylona/ResolvePublicGameServerMap", requests: 125},
+		{name: "rate limits public map shell", path: "/maps/Current_Map", requests: 125},
+		{name: "rate limits malformed public map shell", path: "/maps/Current_Map/extra", requests: 125},
 		{name: "rate limits public status reads", path: "/xylona.Xylona/GetPublicGameServerStatusPage", requests: 125},
 		{name: "rate limits public status streams", path: "/api/public/status-pages/Fleet/events", requests: 35},
 	} {
@@ -138,6 +141,19 @@ func TestAuthRateLimiter(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("does not apply the public limit to map management", func(t *testing.T) {
+		handler := AuthRateLimiter()(okHandler)
+		for requestNumber := range 125 {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/UpdateGameServerMapShareSettings", nil)
+			req.RemoteAddr = "192.0.2.8:12345"
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("request %d status = %d, want %d", requestNumber+1, recorder.Code, http.StatusOK)
+			}
+		}
+	})
 
 	t.Run("trusted proxy uses forwarded client IP for login limits", func(t *testing.T) {
 		trust, errTrust := ParseTrustedProxies("127.0.0.1")

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -249,8 +250,7 @@ func restoreInternalUpdateTransaction(
 		return true, fmt.Errorf("actions: validate internal update manifest: %w", errValidate)
 	}
 
-	for index := len(manifest.Entries) - 1; index >= 0; index-- {
-		entry := manifest.Entries[index]
+	for _, entry := range slices.Backward(manifest.Entries) {
 		backupPath := path.Join(gameintegrations.InternalUpdateFilesDirectory, entry.Path)
 		if entry.Existed {
 			_, errBackup := client.StatFile(ctx, gs.Directory, backupPath)

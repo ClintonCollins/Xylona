@@ -107,7 +107,6 @@ func (xs *XylonaService) GetPalworldMap(
 		state,
 		layers,
 		canManage,
-		settings.ShareTokenHash.Valid,
 		time.Now().UTC(),
 	)
 	return connect.NewResponse(&xylona.GetPalworldMapResponse{Map: view}), nil
@@ -199,84 +198,36 @@ func (xs *XylonaService) InstallPalworldMapTiles(
 	}), nil
 }
 
-// RegeneratePalworldMapShare rotates the capability token and returns the new
-// plaintext token once. Existing public links stop working immediately.
-func (xs *XylonaService) RegeneratePalworldMapShare(
-	_ context.Context,
-	request *connect.Request[xylona.RegeneratePalworldMapShareRequest],
-) (*connect.Response[xylona.RegeneratePalworldMapShareResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	gameServer, errServer := xs.palworldMapServer(request.Msg.GetGameServerId())
-	if errServer != nil {
-		return nil, errServer
-	}
-	errSettings := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errSettings != nil {
-		return nil, errSettings
-	}
-	token, errGenerate := xs.db.RegenerateGameServerPalworldMapShare(gameServer.ID, user.ID)
-	if errGenerate != nil {
-		log.Error().Err(errGenerate).Str("game_server_id", gameServer.ID).Msg("Failed to regenerate Palworld map share")
-		return nil, internalErr()
-	}
-	return connect.NewResponse(&xylona.RegeneratePalworldMapShareResponse{ShareToken: token}), nil
-}
-
-// RevokePalworldMapShare disables the current public map link.
-func (xs *XylonaService) RevokePalworldMapShare(
-	_ context.Context,
-	request *connect.Request[xylona.RevokePalworldMapShareRequest],
-) (*connect.Response[xylona.RevokePalworldMapShareResponse], error) {
-	user, errUser := xs.getUserFromHeader(request.Header())
-	if errUser != nil {
-		return nil, unauthenticated()
-	}
-	gameServer, errServer := xs.palworldMapServer(request.Msg.GetGameServerId())
-	if errServer != nil {
-		return nil, errServer
-	}
-	errSettings := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errSettings != nil {
-		return nil, errSettings
-	}
-	errRevoke := xs.db.RevokeGameServerPalworldMapShare(gameServer.ID, user.ID)
-	if errRevoke != nil {
-		log.Error().Err(errRevoke).Str("game_server_id", gameServer.ID).Msg("Failed to revoke Palworld map share")
-		return nil, internalErr()
-	}
-	return connect.NewResponse(&xylona.RevokePalworldMapShareResponse{}), nil
-}
-
-// GetPublicPalworldMap resolves a public capability token without requiring a
-// session. The token is sent in the request body, not the request URL.
+// GetPublicPalworldMap resolves an enabled canonical public map link.
 func (xs *XylonaService) GetPublicPalworldMap(
 	_ context.Context,
 	request *connect.Request[xylona.GetPublicPalworldMapRequest],
 ) (*connect.Response[xylona.GetPublicPalworldMapResponse], error) {
-	settings, errSettings := xs.db.GetGameServerPalworldMapByShareToken(request.Msg.GetShareToken())
-	if errors.Is(errSettings, db.ErrPalworldMapShareNotFound) {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("public map link is invalid or has been revoked"))
+	_, gameServer, kind, errResolve := xs.resolvePublicGameServerMapDetails(request.Msg.GetPublicIdentifier())
+	if errors.Is(errResolve, errPublicGameServerMapUnavailable) {
+		return nil, publicGameServerMapNotFound()
 	}
-	if errSettings != nil {
-		log.Error().Err(errSettings).Msg("Failed to resolve public Palworld map share")
+	if errResolve != nil {
+		log.Error().Err(errResolve).Msg("Failed to resolve public Palworld map")
 		return nil, internalErr()
 	}
-	gameServer, errGameServer := xs.db.GetGameServerByID(settings.GameServerID)
-	if errGameServer != nil || gameServer.GameID != palworldGameID {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("public map link is invalid or has been revoked"))
+	if kind != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_PALWORLD {
+		return nil, publicGameServerMapNotFound()
 	}
 	if xs.actionsInst == nil {
 		return nil, internalErr()
 	}
-	layers, errLayers := decodePalworldMapLayers(settings.LayersJSON)
-	if errLayers != nil {
-		log.Error().Err(errLayers).Str("game_server_id", settings.GameServerID).Msg("Stored public Palworld map layer configuration is invalid")
+	settings, errSettings := xs.db.GetGameServerPalworldMap(gameServer.ID)
+	if errSettings != nil {
+		log.Error().Err(errSettings).Str("game_server_id", gameServer.ID).Msg("Failed to load public Palworld map settings")
 		return nil, internalErr()
 	}
-	state := xs.actionsInst.GetPalworldMapState(settings.GameServerID)
+	layers, errLayers := decodePalworldMapLayers(settings.LayersJSON)
+	if errLayers != nil {
+		log.Error().Err(errLayers).Str("game_server_id", gameServer.ID).Msg("Stored public Palworld map layer configuration is invalid")
+		return nil, internalErr()
+	}
+	state := xs.actionsInst.GetPalworldMapState(gameServer.ID)
 	if state.ServerName == "" {
 		state.ServerName = gameServer.Name
 	}
@@ -284,12 +235,10 @@ func (xs *XylonaService) GetPublicPalworldMap(
 		state,
 		layers,
 		false,
-		false,
 		time.Now().UTC(),
 	)
 	response := connect.NewResponse(&xylona.GetPublicPalworldMapResponse{Map: view})
-	response.Header().Set("Cache-Control", "no-store")
-	response.Header().Set("Referrer-Policy", "no-referrer")
+	setPublicGameServerMapHeaders(response.Header())
 	return response, nil
 }
 
@@ -312,7 +261,6 @@ func palworldMapView(
 	state actions.PalworldMapState,
 	layers []palworldMapLayerConfig,
 	canManage bool,
-	shareEnabled bool,
 	now time.Time,
 ) *xylona.PalworldMapView {
 	view := &xylona.PalworldMapView{
@@ -321,7 +269,6 @@ func palworldMapView(
 		UnavailableReason: state.UnavailableReason,
 		Layers:            publicPalworldMapLayers(layers),
 		CanManageShare:    canManage,
-		ShareEnabled:      shareEnabled,
 	}
 	if state.Snapshot == nil {
 		return view

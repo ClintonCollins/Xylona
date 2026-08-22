@@ -29,16 +29,8 @@ const requireAlertAccess = async () => {
 const routes: RouteRecordRaw[] = [
   // Unauthenticated routes
   {
-    path: '/shared/palworld-map',
-    component: () => import('pages/PublicPalworldMap.vue'),
-  },
-  {
-    path: '/shared/7-days-to-die-map',
-    component: () => import('pages/PublicSevenDaysToDieMap.vue'),
-  },
-  {
-    path: '/shared/minecraft-map',
-    component: () => import('pages/PublicMinecraftMap.vue'),
+    path: '/maps/:identifier',
+    component: () => import('pages/PublicGameServerMap.vue'),
   },
   {
     path: '/status/:identifier',

@@ -18,7 +18,7 @@ Xylona is still evolving quickly. Expect active iteration, and treat upgrades th
 
 ### Prerequisites
 
-- [Go 1.26.6](https://go.dev/doc/install)
+- [Go 1.27.0](https://go.dev/doc/install)
 - [Bun 1.3.12](https://bun.sh/docs/installation)
 - [golangci-lint](https://golangci-lint.run/welcome/install/)
 - [Mage](https://magefile.org/) for build, codegen, and E2E helpers

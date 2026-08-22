@@ -4,14 +4,11 @@ import (
 	"testing"
 )
 
-//go:fix inline
-func int32Ptr(v int32) *int32 { return new(v) }
-
 func TestSortFieldsBySchema_RespectsXOrder(t *testing.T) {
 	fields := []FieldData{
-		{Key: "c", Group: "net", Order: int32Ptr(3)},
-		{Key: "a", Group: "net", Order: int32Ptr(1)},
-		{Key: "b", Group: "net", Order: int32Ptr(2)},
+		{Key: "c", Group: "net", Order: new(int32(3))},
+		{Key: "a", Group: "net", Order: new(int32(1))},
+		{Key: "b", Group: "net", Order: new(int32(2))},
 	}
 	schema := SchemaDefinition{
 		Groups: []string{"net"},
@@ -51,7 +48,7 @@ func TestSortFieldsBySchema_NilOrderSortsLast(t *testing.T) {
 	fields := []FieldData{
 		{Key: "z-unordered", Group: "net"},
 		{Key: "a-unordered", Group: "net"},
-		{Key: "ordered", Group: "net", Order: int32Ptr(1)},
+		{Key: "ordered", Group: "net", Order: new(int32(1))},
 	}
 	schema := SchemaDefinition{
 		Groups: []string{"net"},
@@ -131,9 +128,9 @@ func TestSortFieldsBySchema_NoOrderNoGroups_PreservesOriginalOrder(t *testing.T)
 func TestSortedPropertyKeys_SortsByOrder(t *testing.T) {
 	schema := SchemaDefinition{
 		Properties: map[string]SchemaProperty{
-			"c": {Order: int32Ptr(3)},
-			"a": {Order: int32Ptr(1)},
-			"b": {Order: int32Ptr(2)},
+			"c": {Order: new(int32(3))},
+			"a": {Order: new(int32(1))},
+			"b": {Order: new(int32(2))},
 		},
 	}
 
@@ -170,9 +167,9 @@ func TestSortedPropertyKeys_MixedOrderAndNil(t *testing.T) {
 	schema := SchemaDefinition{
 		Properties: map[string]SchemaProperty{
 			"zebra":    {},
-			"ordered1": {Order: int32Ptr(2)},
+			"ordered1": {Order: new(int32(2))},
 			"apple":    {},
-			"ordered0": {Order: int32Ptr(1)},
+			"ordered0": {Order: new(int32(1))},
 		},
 	}
 
@@ -189,17 +186,17 @@ func TestSortedPropertyKeys_MixedOrderAndNil(t *testing.T) {
 func TestSortFieldsBySchema_CombinedGroupAndFieldOrder(t *testing.T) {
 	fields := []FieldData{
 		// Group "gameplay" fields (should be third group).
-		{Key: "pvp", Group: "gameplay", Order: int32Ptr(1)},
-		{Key: "difficulty", Group: "gameplay", Order: int32Ptr(0)},
-		{Key: "motd", Group: "gameplay", Order: int32Ptr(2)},
+		{Key: "pvp", Group: "gameplay", Order: new(int32(1))},
+		{Key: "difficulty", Group: "gameplay", Order: new(int32(0))},
+		{Key: "motd", Group: "gameplay", Order: new(int32(2))},
 		// Group "network" fields (should be first group).
-		{Key: "query-port", Group: "network", Order: int32Ptr(2)},
-		{Key: "ip", Group: "network", Order: int32Ptr(0)},
-		{Key: "port", Group: "network", Order: int32Ptr(1)},
+		{Key: "query-port", Group: "network", Order: new(int32(2))},
+		{Key: "ip", Group: "network", Order: new(int32(0))},
+		{Key: "port", Group: "network", Order: new(int32(1))},
 		// Group "world" fields (should be second group).
-		{Key: "seed", Group: "world", Order: int32Ptr(1)},
-		{Key: "level-name", Group: "world", Order: int32Ptr(0)},
-		{Key: "spawn-protection", Group: "world", Order: int32Ptr(2)},
+		{Key: "seed", Group: "world", Order: new(int32(1))},
+		{Key: "level-name", Group: "world", Order: new(int32(0))},
+		{Key: "spawn-protection", Group: "world", Order: new(int32(2))},
 	}
 	schema := SchemaDefinition{
 		Groups: []string{"network", "world", "gameplay"},
@@ -240,9 +237,9 @@ func TestSortedPropertyKeys_EmptySchema(t *testing.T) {
 
 func TestSortFieldsBySchema_DoesNotMutateInput(t *testing.T) {
 	fields := []FieldData{
-		{Key: "c", Group: "net", Order: int32Ptr(3)},
-		{Key: "a", Group: "net", Order: int32Ptr(1)},
-		{Key: "b", Group: "net", Order: int32Ptr(2)},
+		{Key: "c", Group: "net", Order: new(int32(3))},
+		{Key: "a", Group: "net", Order: new(int32(1))},
+		{Key: "b", Group: "net", Order: new(int32(2))},
 	}
 	schema := SchemaDefinition{
 		Groups: []string{"net"},

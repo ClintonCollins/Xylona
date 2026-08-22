@@ -24,6 +24,7 @@ type preloaders struct {
 	GameServer                       gameServerPreloader
 	GameServerBackup                 gameServerBackupPreloader
 	GameServerLifecycleEvent         gameServerLifecycleEventPreloader
+	GameServerMapShare               gameServerMapSharePreloader
 	GameServerMetricsHistory         gameServerMetricsHistoryPreloader
 	GameServerMinecraftMap           gameServerMinecraftMapPreloader
 	GameServerOperationEvent         gameServerOperationEventPreloader
@@ -60,6 +61,7 @@ func getPreloaders() preloaders {
 		GameServer:                       buildGameServerPreloader(),
 		GameServerBackup:                 buildGameServerBackupPreloader(),
 		GameServerLifecycleEvent:         buildGameServerLifecycleEventPreloader(),
+		GameServerMapShare:               buildGameServerMapSharePreloader(),
 		GameServerMetricsHistory:         buildGameServerMetricsHistoryPreloader(),
 		GameServerMinecraftMap:           buildGameServerMinecraftMapPreloader(),
 		GameServerOperationEvent:         buildGameServerOperationEventPreloader(),
@@ -102,6 +104,7 @@ type thenLoaders[Q orm.Loadable] struct {
 	GameServer                       gameServerThenLoader[Q]
 	GameServerBackup                 gameServerBackupThenLoader[Q]
 	GameServerLifecycleEvent         gameServerLifecycleEventThenLoader[Q]
+	GameServerMapShare               gameServerMapShareThenLoader[Q]
 	GameServerMetricsHistory         gameServerMetricsHistoryThenLoader[Q]
 	GameServerMinecraftMap           gameServerMinecraftMapThenLoader[Q]
 	GameServerOperationEvent         gameServerOperationEventThenLoader[Q]
@@ -138,6 +141,7 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		GameServer:                       buildGameServerThenLoader[Q](),
 		GameServerBackup:                 buildGameServerBackupThenLoader[Q](),
 		GameServerLifecycleEvent:         buildGameServerLifecycleEventThenLoader[Q](),
+		GameServerMapShare:               buildGameServerMapShareThenLoader[Q](),
 		GameServerMetricsHistory:         buildGameServerMetricsHistoryThenLoader[Q](),
 		GameServerMinecraftMap:           buildGameServerMinecraftMapThenLoader[Q](),
 		GameServerOperationEvent:         buildGameServerOperationEventThenLoader[Q](),

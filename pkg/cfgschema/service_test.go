@@ -839,9 +839,9 @@ func TestMatchFields_RespectsXOrderAndXGroups(t *testing.T) {
 		Type:   "object",
 		Groups: []string{"network", "gameplay"},
 		Properties: map[string]SchemaProperty{
-			"motd": {Type: "string", Title: "MOTD", Group: "gameplay", Order: int32Ptr(0)},
-			"port": {Type: "integer", Title: "Port", Group: "network", Order: int32Ptr(1)},
-			"ip":   {Type: "string", Title: "IP", Group: "network", Order: int32Ptr(0)},
+			"motd": {Type: "string", Title: "MOTD", Group: "gameplay", Order: new(int32(0))},
+			"port": {Type: "integer", Title: "Port", Group: "network", Order: new(int32(1))},
+			"ip":   {Type: "string", Title: "IP", Group: "network", Order: new(int32(0))},
 		},
 	}
 
@@ -863,9 +863,9 @@ func TestMatchFields_SchemaOnlyFieldsSortedByOrder(t *testing.T) {
 	schema := SchemaDefinition{
 		Type: "object",
 		Properties: map[string]SchemaProperty{
-			"z-field": {Type: "string", Order: int32Ptr(2)},
-			"a-field": {Type: "string", Order: int32Ptr(0)},
-			"m-field": {Type: "string", Order: int32Ptr(1)},
+			"z-field": {Type: "string", Order: new(int32(2))},
+			"a-field": {Type: "string", Order: new(int32(0))},
+			"m-field": {Type: "string", Order: new(int32(1))},
 		},
 	}
 
@@ -889,7 +889,7 @@ func TestMatchFields_OrderPropagatedToFieldData(t *testing.T) {
 	schema := SchemaDefinition{
 		Type: "object",
 		Properties: map[string]SchemaProperty{
-			"motd": {Type: "string", Title: "MOTD", Order: int32Ptr(5)},
+			"motd": {Type: "string", Title: "MOTD", Order: new(int32(5))},
 		},
 	}
 
@@ -917,9 +917,9 @@ func TestMatchFields_MixedOrderedAndUnorderedFields(t *testing.T) {
 		Type: "object",
 		Properties: map[string]SchemaProperty{
 			"motd":       {Type: "string", Title: "MOTD"},
-			"port":       {Type: "integer", Title: "Port", Order: int32Ptr(0)},
+			"port":       {Type: "integer", Title: "Port", Order: new(int32(0))},
 			"pvp":        {Type: "boolean", Title: "PvP"},
-			"difficulty": {Type: "string", Title: "Difficulty", Order: int32Ptr(1)},
+			"difficulty": {Type: "string", Title: "Difficulty", Order: new(int32(1))},
 		},
 	}
 
@@ -948,10 +948,10 @@ func TestMatchFields_GroupOrderWithMixedFileAndSchemaOnlyFields(t *testing.T) {
 		Type:   "object",
 		Groups: []string{"network", "gameplay"},
 		Properties: map[string]SchemaProperty{
-			"port":       {Type: "integer", Title: "Port", Group: "network", Order: int32Ptr(0)},
-			"ip":         {Type: "string", Title: "IP", Group: "network", Order: int32Ptr(1), Default: "0.0.0.0"},
-			"motd":       {Type: "string", Title: "MOTD", Group: "gameplay", Order: int32Ptr(0)},
-			"difficulty": {Type: "string", Title: "Difficulty", Group: "gameplay", Order: int32Ptr(1), Default: "normal"},
+			"port":       {Type: "integer", Title: "Port", Group: "network", Order: new(int32(0))},
+			"ip":         {Type: "string", Title: "IP", Group: "network", Order: new(int32(1)), Default: "0.0.0.0"},
+			"motd":       {Type: "string", Title: "MOTD", Group: "gameplay", Order: new(int32(0))},
+			"difficulty": {Type: "string", Title: "Difficulty", Group: "gameplay", Order: new(int32(1)), Default: "normal"},
 		},
 	}
 
@@ -1076,9 +1076,9 @@ func TestGenerateDefaultEntries_RespectsOrder(t *testing.T) {
 		Schema: SchemaDefinition{
 			Type: "object",
 			Properties: map[string]SchemaProperty{
-				"z-field": {Type: "string", Default: "z", Order: int32Ptr(2)},
-				"a-field": {Type: "string", Default: "a", Order: int32Ptr(0)},
-				"m-field": {Type: "string", Default: "m", Order: int32Ptr(1)},
+				"z-field": {Type: "string", Default: "z", Order: new(int32(2))},
+				"a-field": {Type: "string", Default: "a", Order: new(int32(0))},
+				"m-field": {Type: "string", Default: "m", Order: new(int32(1))},
 			},
 		},
 	}

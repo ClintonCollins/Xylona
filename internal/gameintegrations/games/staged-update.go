@@ -365,8 +365,7 @@ func (update *stagedUpdate) applyEntry(
 
 func (update *stagedUpdate) rollback(manifest gameintegrations.UpdateTransactionManifest) error {
 	var rollbackErrors []error
-	for index := len(manifest.Entries) - 1; index >= 0; index-- {
-		entry := manifest.Entries[index]
+	for _, entry := range slices.Backward(manifest.Entries) {
 		livePath := filepath.Join(update.directory, filepath.FromSlash(entry.Path))
 		backupPath := filepath.Join(
 			update.directory,

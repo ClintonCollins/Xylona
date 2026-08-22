@@ -18,6 +18,7 @@ var publicMapRPCPaths = []string{
 	"/GetPublicPalworldMap",
 	"/GetPublicSevenDaysToDieMap",
 	"/GetPublicMinecraftMap",
+	"/ResolvePublicGameServerMap",
 }
 
 // AuthRateLimiter applies a strict IP limit to authentication RPCs and a
@@ -53,7 +54,7 @@ func AuthRateLimiterForProxies(trust *ProxyTrust) func(http.Handler) http.Handle
 				authLimited.ServeHTTP(w, r)
 				return
 			}
-			if shouldRateLimitPublicMapPath(r.URL.Path) {
+			if shouldRateLimitPublicMapPath(r.URL.Path) || isPublicGameServerMapPath(r.URL.Path) {
 				publicMapLimited.ServeHTTP(w, r)
 				return
 			}
@@ -68,6 +69,10 @@ func AuthRateLimiterForProxies(trust *ProxyTrust) func(http.Handler) http.Handle
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isPublicGameServerMapPath(path string) bool {
+	return path == "/maps" || strings.HasPrefix(path, "/maps/")
 }
 
 func shouldRateLimitPublicMapPath(path string) bool {

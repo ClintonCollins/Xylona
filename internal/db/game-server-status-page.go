@@ -13,8 +13,10 @@ import (
 )
 
 var (
+	// ErrGameServerStatusPageIdentifierConflict indicates that another page uses the identifier.
 	ErrGameServerStatusPageIdentifierConflict = errors.New("game server status page identifier is already reserved")
-	ErrGameServerStatusPageServerNotOwned     = errors.New("game server does not belong to the status page owner")
+	// ErrGameServerStatusPageServerNotOwned indicates that a server belongs to another user.
+	ErrGameServerStatusPageServerNotOwned = errors.New("game server does not belong to the status page owner")
 )
 
 // GameServerStatusPage is the persisted owner-level public status page.
@@ -51,7 +53,7 @@ func (c *Connection) CreateGameServerStatusPage(userID string, title string, ide
 		identifier,
 	)
 	if errReserve != nil {
-		if errors.Is(dberrors.ErrUniqueConstraint, errReserve) {
+		if dberrors.ErrUniqueConstraint.Is(errReserve) {
 			return nil, ErrGameServerStatusPageIdentifierConflict
 		}
 		return nil, fmt.Errorf("reserve game server status page identifier: %w", errReserve)
@@ -166,7 +168,7 @@ func (c *Connection) UpdateGameServerStatusPage(update GameServerStatusPageUpdat
 			update.PublicIdentifier,
 		)
 		if errReserve != nil {
-			if errors.Is(dberrors.ErrUniqueConstraint, errReserve) {
+			if dberrors.ErrUniqueConstraint.Is(errReserve) {
 				return nil, ErrGameServerStatusPageIdentifierConflict
 			}
 			return nil, fmt.Errorf("reserve updated game server status page identifier: %w", errReserve)
@@ -241,7 +243,7 @@ func scanGameServerStatusPage(row *sql.Row) (*GameServerStatusPage, error) {
 		&page.UpdatedAt,
 	)
 	if errScan != nil {
-		return nil, errScan
+		return nil, fmt.Errorf("scan game server status page: %w", errScan)
 	}
 	return &page, nil
 }

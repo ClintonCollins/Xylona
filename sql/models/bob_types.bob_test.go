@@ -29,6 +29,9 @@ var _ bob.HookableType = &GameServerBackup{}
 // Make sure the type GameServerLifecycleEvent runs hooks after queries
 var _ bob.HookableType = &GameServerLifecycleEvent{}
 
+// Make sure the type GameServerMapShare runs hooks after queries
+var _ bob.HookableType = &GameServerMapShare{}
+
 // Make sure the type GameServerMetricsHistory runs hooks after queries
 var _ bob.HookableType = &GameServerMetricsHistory{}
 

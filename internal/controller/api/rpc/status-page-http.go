@@ -87,8 +87,8 @@ func (h *GameServerStatusPageHTTPHandler) StatusPage(w http.ResponseWriter, r *h
 	canonical := origin + "/status/" + identifier
 	title := page.Title + " · Xylona status"
 	description := "Live game server status for " + page.Title + "."
-	body := statusPageTitleElement.ReplaceAll(index, []byte("<title>"+html.EscapeString(title)+"</title>"))
-	body = statusPageDescriptionElement.ReplaceAll(body, []byte(`<meta name="description" content="`+html.EscapeString(description)+`">`))
+	body := statusPageTitleElement.ReplaceAllLiteral(index, []byte("<title>"+html.EscapeString(title)+"</title>"))
+	body = statusPageDescriptionElement.ReplaceAllLiteral(body, []byte(`<meta name="description" content="`+html.EscapeString(description)+`">`))
 	metadata := `<link rel="canonical" href="` + html.EscapeString(canonical) + `">` +
 		`<meta property="og:type" content="website">` +
 		`<meta property="og:title" content="` + html.EscapeString(title) + `">` +
@@ -229,7 +229,8 @@ func (h *GameServerStatusPageHTTPHandler) Robots(w http.ResponseWriter, r *http.
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Vary", "Host, X-Forwarded-Host, X-Forwarded-Proto")
-	_, errWrite := fmt.Fprintf(w, "User-agent: *\nDisallow: /\nDisallow: /api/\nDisallow: /shared/\nAllow: /status/\nSitemap: %s/sitemap.xml\n", gatekeeper.RequestOrigin(r, h.trust))
+	origin := html.EscapeString(gatekeeper.RequestOrigin(r, h.trust))
+	_, errWrite := fmt.Fprintf(w, "User-agent: *\nDisallow: /\nDisallow: /api/\nDisallow: /shared/\nDisallow: /maps/\nAllow: /status/\nSitemap: %s/sitemap.xml\n", origin)
 	if errWrite != nil {
 		return
 	}
@@ -293,17 +294,26 @@ func (h *GameServerStatusPageHTTPHandler) release(clientIP string) {
 func writeStatusPageSnapshot(w http.ResponseWriter, page *xylona.PublicGameServerStatusPage) ([]byte, error) {
 	body, errMarshal := protojson.Marshal(page)
 	if errMarshal != nil {
-		return nil, errMarshal
+		return nil, fmt.Errorf("marshal status page snapshot: %w", errMarshal)
 	}
+	//nolint:gosec // The protojson payload is JSON in a text/event-stream field, not HTML.
 	_, errWrite := fmt.Fprintf(w, "event: snapshot\ndata: %s\n\n", body)
 	if errWrite != nil {
-		return nil, errWrite
+		return nil, fmt.Errorf("write status page snapshot: %w", errWrite)
 	}
-	return statusPageSnapshotFingerprint(page)
+	fingerprint, errFingerprint := statusPageSnapshotFingerprint(page)
+	if errFingerprint != nil {
+		return nil, fmt.Errorf("fingerprint status page snapshot: %w", errFingerprint)
+	}
+	return fingerprint, nil
 }
 
 func statusPageSnapshotFingerprint(page *xylona.PublicGameServerStatusPage) ([]byte, error) {
-	return protojson.Marshal(&xylona.PublicGameServerStatusPage{Title: page.GetTitle(), Servers: page.GetServers()})
+	fingerprint, errMarshal := protojson.Marshal(&xylona.PublicGameServerStatusPage{Title: page.GetTitle(), Servers: page.GetServers()})
+	if errMarshal != nil {
+		return nil, fmt.Errorf("marshal status page snapshot fingerprint: %w", errMarshal)
+	}
+	return fingerprint, nil
 }
 
 func discardResolvedStatusOverrides(
@@ -321,7 +331,11 @@ func discardResolvedStatusOverrides(
 }
 
 func flushResponse(w http.ResponseWriter) error {
-	return http.NewResponseController(w).Flush()
+	errFlush := http.NewResponseController(w).Flush()
+	if errFlush != nil {
+		return fmt.Errorf("flush response: %w", errFlush)
+	}
+	return nil
 }
 
 func writeUnavailableStatusPage(w http.ResponseWriter, index []byte) {

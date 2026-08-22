@@ -1,17 +1,16 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { copyToClipboard, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
+import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
 import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import {
   GetPalworldMapRequestSchema,
   InstallPalworldMapTilesRequestSchema,
   PalworldMapLayerSchema,
-  RegeneratePalworldMapShareRequestSchema,
-  RevokePalworldMapShareRequestSchema,
   UpdatePalworldMapConfigRequestSchema,
   type PalworldMapLayer,
   type PalworldMapView,
@@ -47,8 +46,6 @@ const settingsOpen = ref(false)
 const shareOpen = ref(false)
 const savingSettings = ref(false)
 const installingTiles = ref(false)
-const changingShare = ref(false)
-const generatedShareURL = ref('')
 const layerForm = ref<PalworldMapLayer>(defaultLayer())
 let pollTimer: ReturnType<typeof setInterval> | undefined
 
@@ -165,61 +162,6 @@ async function removeImagery(): Promise<void> {
     })
   } finally {
     savingSettings.value = false
-  }
-}
-
-async function regenerateShare(): Promise<void> {
-  changingShare.value = true
-  try {
-    const response = await GetXylonaClient().regeneratePalworldMapShare(
-      create(RegeneratePalworldMapShareRequestSchema, { gameServerId: gameServerID.value }),
-    )
-    generatedShareURL.value = `${window.location.origin}/shared/palworld-map#${response.shareToken}`
-    if (mapView.value !== null) {
-      mapView.value.shareEnabled = true
-    }
-    await copyShareURL()
-  } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
-  } finally {
-    changingShare.value = false
-  }
-}
-
-async function copyShareURL(): Promise<void> {
-  if (generatedShareURL.value === '') {
-    return
-  }
-  try {
-    await copyToClipboard(generatedShareURL.value)
-    quasar.notify({ type: 'positive', message: 'Public map link copied.' })
-  } catch (unknownError: unknown) {
-    console.error(unknownError)
-    quasar.notify({ type: 'negative', message: 'Could not copy the public map link.' })
-  }
-}
-
-async function revokeShare(): Promise<void> {
-  changingShare.value = true
-  try {
-    await GetXylonaClient().revokePalworldMapShare(
-      create(RevokePalworldMapShareRequestSchema, { gameServerId: gameServerID.value }),
-    )
-    generatedShareURL.value = ''
-    if (mapView.value !== null) {
-      mapView.value.shareEnabled = false
-    }
-    quasar.notify({ type: 'positive', message: 'Public map link revoked.' })
-  } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
-  } finally {
-    changingShare.value = false
   }
 }
 
@@ -427,56 +369,7 @@ onUnmounted(() => {
     </q-dialog>
 
     <q-dialog v-model="shareOpen">
-      <q-card class="palworld-map-dialog palworld-share-dialog">
-        <q-card-section class="palworld-map-dialog__heading">
-          <div>
-            <div class="text-h6">Public live map</div>
-            <div class="text-caption text-xy-secondary">
-              Anyone with the link can see the same exact names and positions shown here.
-            </div>
-          </div>
-          <q-btn v-close-popup aria-label="Close public link settings" flat icon="close" round />
-        </q-card-section>
-
-        <q-card-section>
-          <div v-if="generatedShareURL" class="palworld-share-dialog__link">
-            <q-input :model-value="generatedShareURL" dense label="Public link" outlined readonly />
-            <q-btn color="primary" icon="content_copy" label="Copy" no-caps @click="copyShareURL" />
-          </div>
-          <div v-else-if="mapView?.shareEnabled" class="palworld-share-dialog__state">
-            <q-icon color="positive" name="public" size="28px" />
-            <div>
-              <strong>A public link is active</strong>
-              <span>Generate a new link to replace it and copy the new address.</span>
-            </div>
-          </div>
-          <div v-else class="palworld-share-dialog__state">
-            <q-icon name="link_off" size="28px" />
-            <div>
-              <strong>Public sharing is off</strong>
-              <span>Generate a link when you are ready to share this live map.</span>
-            </div>
-          </div>
-        </q-card-section>
-
-        <q-card-actions align="between">
-          <q-btn
-            v-if="mapView?.shareEnabled"
-            :loading="changingShare"
-            color="negative"
-            flat
-            label="Revoke link"
-            no-caps
-            @click="revokeShare" />
-          <span v-else />
-          <q-btn
-            :loading="changingShare"
-            color="primary"
-            :label="mapView?.shareEnabled ? 'Generate new link' : 'Generate public link'"
-            no-caps
-            @click="regenerateShare" />
-        </q-card-actions>
-      </q-card>
+      <game-server-map-share-settings :game-server-id="gameServerID" @close="shareOpen = false" />
     </q-dialog>
   </div>
 </template>
@@ -493,9 +386,7 @@ onUnmounted(() => {
 }
 
 .palworld-map-page__header,
-.palworld-map-dialog__heading,
-.palworld-share-dialog__link,
-.palworld-share-dialog__state {
+.palworld-map-dialog__heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -599,33 +490,6 @@ onUnmounted(() => {
   gap: var(--xy-space-md);
 }
 
-.palworld-share-dialog__link {
-  align-items: flex-end;
-}
-
-.palworld-share-dialog__link .q-field {
-  flex: 1;
-  min-width: 0;
-}
-
-.palworld-share-dialog__state {
-  justify-content: flex-start;
-  padding: var(--xy-space-md);
-  background: var(--xy-surface-2);
-  border: 1px solid var(--xy-border);
-  border-radius: var(--xy-radius-lg);
-}
-
-.palworld-share-dialog__state div {
-  display: grid;
-  gap: var(--xy-space-xs);
-}
-
-.palworld-share-dialog__state span {
-  color: var(--xy-text-secondary);
-  font-size: var(--xy-font-size-sm);
-}
-
 @media (max-width: 700px) {
   .palworld-map-page {
     padding: var(--xy-space-sm);
@@ -654,11 +518,6 @@ onUnmounted(() => {
 
   .palworld-map-dialog__grid > span {
     display: none;
-  }
-
-  .palworld-share-dialog__link {
-    align-items: stretch;
-    flex-direction: column;
   }
 }
 </style>

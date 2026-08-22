@@ -164,11 +164,11 @@ func (xs *XylonaService) publicGameServerStatusPage(identifier string, statuses 
 		return nil, errPublicStatusPageUnavailable
 	}
 	if errPage != nil {
-		return nil, errPage
+		return nil, fmt.Errorf("get enabled game server status page: %w", errPage)
 	}
 	servers, errServers := xs.db.GetGameServersByUser(page.UserID)
 	if errServers != nil {
-		return nil, errServers
+		return nil, fmt.Errorf("get game servers for public status page: %w", errServers)
 	}
 
 	queries := &xylona.AllServersQueryInfo{}
@@ -229,19 +229,26 @@ func (xs *XylonaService) createGameServerStatusPage(owner *models.User) (*db.Gam
 		if errors.Is(errCreate, db.ErrGameServerStatusPageIdentifierConflict) {
 			continue
 		}
-		return page, errCreate
+		if errCreate != nil {
+			return nil, fmt.Errorf("create game server status page: %w", errCreate)
+		}
+		return page, nil
 	}
 	return nil, errors.New("could not allocate a game server status page identifier")
 }
 
 func newStatusPageIdentifier() (string, error) {
-	return gonanoid.New()
+	identifier, errIdentifier := gonanoid.New()
+	if errIdentifier != nil {
+		return "", fmt.Errorf("generate status page identifier: %w", errIdentifier)
+	}
+	return identifier, nil
 }
 
 func (xs *XylonaService) gameServerStatusPageSettings(owner *models.User, page *db.GameServerStatusPage) (*xylona.GameServerStatusPageSettings, error) {
 	servers, errServers := xs.db.GetGameServersByUser(owner.ID)
 	if errServers != nil {
-		return nil, errServers
+		return nil, fmt.Errorf("get game servers for status page settings: %w", errServers)
 	}
 	slices.SortFunc(servers, compareGameServersByName)
 	settingsServers := make([]*xylona.GameServerStatusPageSettingsServer, 0, len(servers))
@@ -296,7 +303,8 @@ func projectPublicGameServerStatusPage(
 		if server.R.Game != nil {
 			publicServer.GameName = server.R.Game.Name
 		}
-		if telemetry.Status == actions.GameServerQueryTelemetryStatusSuccess {
+		switch telemetry.Status {
+		case actions.GameServerQueryTelemetryStatusSuccess:
 			if telemetry.PlayerCountValid {
 				count := telemetry.PlayerCount
 				publicServer.CurrentPlayerCount = &count
@@ -308,7 +316,7 @@ func projectPublicGameServerStatusPage(
 				publicServer.ObservedAt = timestamppb.New(telemetry.LastSuccessAt)
 			}
 			applyPublicRoster(publicServer, queryForServer(queries, server.ID), telemetry.QueryType)
-		} else if telemetry.Status == actions.GameServerQueryTelemetryStatusUnsupported {
+		case actions.GameServerQueryTelemetryStatusUnsupported:
 			publicServer.RosterState = xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED
 		}
 		publicServers = append(publicServers, publicServer)

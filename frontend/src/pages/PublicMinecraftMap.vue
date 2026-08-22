@@ -6,23 +6,23 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { GetPublicMinecraftMapRequestSchema, type MinecraftMapView } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
 
+const props = defineProps<{ identifier: string }>()
 const pollIntervalMilliseconds = 10_000
 const mapView = ref<MinecraftMapView | null>(null)
 const loading = ref(false)
 const invalidLink = ref(false)
 const loadError = ref(false)
-const token = ref('')
 let pollTimer: ReturnType<typeof setInterval> | undefined
 
 async function loadMap(): Promise<void> {
-  if (loading.value || token.value === '') {
-    invalidLink.value = token.value === ''
+  if (loading.value || props.identifier === '') {
+    invalidLink.value = props.identifier === ''
     return
   }
   loading.value = true
   try {
     const response = await GetXylonaClient().getPublicMinecraftMap(
-      create(GetPublicMinecraftMapRequestSchema, { shareToken: token.value }),
+      create(GetPublicMinecraftMapRequestSchema, { publicIdentifier: props.identifier }),
     )
     mapView.value = response.map ?? null
     invalidLink.value = false
@@ -43,7 +43,6 @@ async function loadMap(): Promise<void> {
 }
 
 onMounted(() => {
-  token.value = window.location.hash.slice(1).trim()
   void loadMap()
   pollTimer = setInterval(() => void loadMap(), pollIntervalMilliseconds)
 })

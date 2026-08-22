@@ -1,7 +1,7 @@
 package db
 
 import (
-	"errors"
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -24,89 +24,19 @@ func TestGameServerSevenDaysToDieMapPersistence(t *testing.T) {
 		t.Fatalf("StoreGameServerSevenDaysToDieMapSnapshot() error = %v", errSnapshot)
 	}
 
-	firstShare, errFirstShare := conn.CreateGameServerSevenDaysToDieMapShare(gameServerID, "user-owner")
-	if errFirstShare != nil {
-		t.Fatalf("CreateGameServerSevenDaysToDieMapShare(first) error = %v", errFirstShare)
-	}
-	secondShare, errSecondShare := conn.CreateGameServerSevenDaysToDieMapShare(gameServerID, "user-owner")
-	if errSecondShare != nil {
-		t.Fatalf("CreateGameServerSevenDaysToDieMapShare(second) error = %v", errSecondShare)
-	}
-	if len(firstShare.Token) != sevenDaysToDieMapShareTokenByteLen*2 || firstShare.ID == secondShare.ID {
-		t.Fatalf("created shares = %+v, %+v", firstShare, secondShare)
-	}
-
-	shares, errList := conn.ListGameServerSevenDaysToDieMapShares(gameServerID)
-	if errList != nil {
-		t.Fatalf("ListGameServerSevenDaysToDieMapShares() error = %v", errList)
-	}
-	if len(shares) != 2 {
-		t.Fatalf("ListGameServerSevenDaysToDieMapShares() count = %d, want 2", len(shares))
-	}
-	listedTokens := map[string]bool{}
-	for _, share := range shares {
-		listedTokens[share.Token] = true
-	}
-	if !listedTokens[firstShare.Token] || !listedTokens[secondShare.Token] {
-		t.Errorf("listed share tokens = %v", listedTokens)
-	}
-	var encryptedToken string
-	errEncrypted := conn.SQLDb.QueryRowContext(
-		t.Context(),
-		"select token_encrypted from game_server_seven_days_to_die_map_share where id = ?",
-		firstShare.ID,
-	).Scan(&encryptedToken)
-	if errEncrypted != nil {
-		t.Fatalf("read encrypted share token: %v", errEncrypted)
-	}
-	if encryptedToken == firstShare.Token {
-		t.Error("stored public map credential contains the plaintext share token")
-	}
-
-	resolved, errResolve := conn.GetGameServerSevenDaysToDieMapByShareToken(firstShare.Token)
-	if errResolve != nil {
-		t.Fatalf("GetGameServerSevenDaysToDieMapByShareToken() error = %v", errResolve)
-	}
-	if resolved.GameServerID != gameServerID || resolved.NotesJSON != `[{"id":"base"}]` || resolved.SnapshotJSON != `{"enabled":true}` {
-		t.Errorf("GetGameServerSevenDaysToDieMapByShareToken() = %+v", resolved)
-	}
-	if !resolved.SnapshotAt.Valid || !resolved.SnapshotAt.Time.Equal(snapshotAt) {
-		t.Errorf("snapshot time = %v, want %v", resolved.SnapshotAt, snapshotAt)
-	}
-	if !resolved.ShareEnabled {
-		t.Error("resolved map share_enabled = false, want true")
-	}
-
-	errRevoke := conn.RevokeGameServerSevenDaysToDieMapShare(gameServerID, firstShare.ID)
-	if errRevoke != nil {
-		t.Fatalf("RevokeGameServerSevenDaysToDieMapShare() error = %v", errRevoke)
-	}
-	_, errRevoked := conn.GetGameServerSevenDaysToDieMapByShareToken(firstShare.Token)
-	if !errors.Is(errRevoked, ErrSevenDaysToDieMapShareNotFound) {
-		t.Errorf("revoked token error = %v, want %v", errRevoked, ErrSevenDaysToDieMapShareNotFound)
-	}
-	_, errSecondResolve := conn.GetGameServerSevenDaysToDieMapByShareToken(secondShare.Token)
-	if errSecondResolve != nil {
-		t.Errorf("remaining token error = %v", errSecondResolve)
-	}
-	errRevokeAll := conn.RevokeGameServerSevenDaysToDieMapShare(gameServerID, "")
-	if errRevokeAll != nil {
-		t.Fatalf("RevokeGameServerSevenDaysToDieMapShare(all) error = %v", errRevokeAll)
-	}
 	settings, errSettings := conn.GetGameServerSevenDaysToDieMap(gameServerID)
 	if errSettings != nil {
 		t.Fatalf("GetGameServerSevenDaysToDieMap() error = %v", errSettings)
 	}
-	if settings.ShareEnabled {
-		t.Error("map share_enabled = true after revoking all shares")
+	if settings.GameServerID != gameServerID || settings.NotesJSON != `[{"id":"base"}]` || settings.SnapshotJSON != `{"enabled":true}` {
+		t.Errorf("GetGameServerSevenDaysToDieMap() = %+v", settings)
 	}
-	_, errMalformed := conn.GetGameServerSevenDaysToDieMapByShareToken("not-a-token")
-	if !errors.Is(errMalformed, ErrSevenDaysToDieMapShareNotFound) {
-		t.Errorf("malformed token error = %v, want %v", errMalformed, ErrSevenDaysToDieMapShareNotFound)
+	if !settings.SnapshotAt.Valid || !settings.SnapshotAt.Time.Equal(snapshotAt) {
+		t.Errorf("snapshot time = %v, want %v", settings.SnapshotAt, snapshotAt)
 	}
 }
 
-func TestGameServerSevenDaysToDieMapShareMigrationPreservesLegacyLink(t *testing.T) {
+func TestGameServerMapShareMigrationInvalidatesLegacyLinks(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "seven-days-to-die-map-legacy.sqlite")
 	conn, errConnection := NewConnection(t.Context(), dbPath)
 	if errConnection != nil {
@@ -130,39 +60,65 @@ func TestGameServerSevenDaysToDieMapShareMigrationPreservesLegacyLink(t *testing
 	}
 	seedRBACFixture(t, conn)
 	const gameServerID = "server-local-1"
-	const legacyToken = "0000000000000000000000000000000000000000000000000000000000000000"
-	_, errLegacy := conn.SQLDb.ExecContext(
+	const legacyHash = "legacy-token-hash"
+	_, errLegacySevenDays := conn.SQLDb.ExecContext(
 		t.Context(),
 		`insert into game_server_seven_days_to_die_map (game_server_id, share_token_hash)
 		 values (?, ?)`,
 		gameServerID,
-		hashSevenDaysToDieMapShareToken(legacyToken),
+		legacyHash,
 	)
-	if errLegacy != nil {
-		t.Fatalf("insert legacy map share: %v", errLegacy)
+	if errLegacySevenDays != nil {
+		t.Fatalf("insert legacy 7 Days to Die map share: %v", errLegacySevenDays)
 	}
-	_, errLatestMigration := migrate.ExecVersion(conn.SQLDb, "sqlite3", migrationSource, migrate.Up, 20260819000000)
+	_, errLegacyPalworld := conn.SQLDb.ExecContext(
+		t.Context(),
+		`insert into game_server_palworld_map (game_server_id, share_token_hash) values (?, ?)`,
+		gameServerID,
+		legacyHash,
+	)
+	if errLegacyPalworld != nil {
+		t.Fatalf("insert legacy Palworld map share: %v", errLegacyPalworld)
+	}
+	_, errLegacyMinecraft := conn.SQLDb.ExecContext(
+		t.Context(),
+		`insert into game_server_minecraft_map (game_server_id, share_token_hash, created_at, updated_at)
+		 values (?, ?, current_timestamp, current_timestamp)`,
+		gameServerID,
+		legacyHash,
+	)
+	if errLegacyMinecraft != nil {
+		t.Fatalf("insert legacy Minecraft map share: %v", errLegacyMinecraft)
+	}
+	_, errLatestMigration := migrate.ExecVersion(conn.SQLDb, "sqlite3", migrationSource, migrate.Up, 20260822000000)
 	if errLatestMigration != nil {
-		t.Fatalf("apply map shares migration: %v", errLatestMigration)
+		t.Fatalf("apply canonical map share migration: %v", errLatestMigration)
 	}
 
-	shares, errList := conn.ListGameServerSevenDaysToDieMapShares(gameServerID)
-	if errList != nil {
-		t.Fatalf("ListGameServerSevenDaysToDieMapShares() error = %v", errList)
+	var legacyShareCount int
+	errCount := conn.SQLDb.QueryRowContext(
+		t.Context(),
+		"select count(*) from game_server_seven_days_to_die_map_share where game_server_id = ?",
+		gameServerID,
+	).Scan(&legacyShareCount)
+	if errCount != nil {
+		t.Fatalf("count legacy 7 Days to Die shares: %v", errCount)
 	}
-	if len(shares) != 1 || shares[0].Token != "" {
-		t.Fatalf("migrated shares = %+v, want one legacy entry without a recoverable token", shares)
+	if legacyShareCount != 0 {
+		t.Fatalf("legacy 7 Days to Die share count = %d, want 0", legacyShareCount)
 	}
-	_, errResolve := conn.GetGameServerSevenDaysToDieMapByShareToken(legacyToken)
-	if errResolve != nil {
-		t.Fatalf("GetGameServerSevenDaysToDieMapByShareToken(legacy) error = %v", errResolve)
-	}
-	errRevoke := conn.RevokeGameServerSevenDaysToDieMapShare(gameServerID, shares[0].ID)
-	if errRevoke != nil {
-		t.Fatalf("RevokeGameServerSevenDaysToDieMapShare(legacy) error = %v", errRevoke)
-	}
-	_, errRevoked := conn.GetGameServerSevenDaysToDieMapByShareToken(legacyToken)
-	if !errors.Is(errRevoked, ErrSevenDaysToDieMapShareNotFound) {
-		t.Errorf("revoked legacy token error = %v, want %v", errRevoked, ErrSevenDaysToDieMapShareNotFound)
+	for _, table := range []string{"game_server_seven_days_to_die_map", "game_server_palworld_map", "game_server_minecraft_map"} {
+		var tokenHash sql.NullString
+		errHash := conn.SQLDb.QueryRowContext(
+			t.Context(),
+			"select share_token_hash from "+table+" where game_server_id = ?",
+			gameServerID,
+		).Scan(&tokenHash)
+		if errHash != nil {
+			t.Fatalf("read %s legacy token hash: %v", table, errHash)
+		}
+		if tokenHash.Valid {
+			t.Errorf("%s legacy token hash was not cleared", table)
+		}
 	}
 }

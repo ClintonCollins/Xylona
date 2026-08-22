@@ -197,8 +197,8 @@ func (n *Node) SendConsoleInputContext(ctx context.Context, processID, input str
 }
 
 func translateSupervisorConsoleInputError(errSend error) error {
-	var rejectedError *supervisor.ConsoleInputRejectedError
-	if errors.As(errSend, &rejectedError) {
+	rejectedError, isRejected := errors.AsType[*supervisor.ConsoleInputRejectedError](errSend)
+	if isRejected {
 		return NewConsoleInputRejectedError(rejectedError.Detail)
 	}
 	if errors.Is(errSend, supervisor.ErrConsoleInputUnavailable) {

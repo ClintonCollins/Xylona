@@ -383,7 +383,7 @@ func writeWindowsConsoleInput(processID uint32, input string) error {
 		uintptr(recordCount),
 		uintptr(unsafe.Pointer(&recordsWritten)),
 	)
-	if result == 0 && (errWrite == nil || errors.Is(errWrite, syscall.Errno(0))) {
+	if result == 0 && errors.Is(errWrite, syscall.Errno(0)) {
 		errWrite = syscall.EINVAL
 	}
 	if result != 0 && recordsWritten != recordCount {
@@ -427,7 +427,7 @@ func windowsConsoleInputRecords(input string) ([]windowsInputRecord, error) {
 func windowsVirtualKeyForCodeUnit(codeUnit uint16) (uint16, uint16, uint32, error) {
 	if codeUnit == '\r' {
 		scan, _, errMap := mapVirtualKeyProc.Call(windowsVirtualKeyReturn, windowsMapVirtualKeyToScan)
-		if errMap != nil && !errors.Is(errMap, syscall.Errno(0)) {
+		if !errors.Is(errMap, syscall.Errno(0)) {
 			return 0, 0, 0, fmt.Errorf("map return key to scan code: %w", errMap)
 		}
 		scanCode, errScanCode := windowsUint16Result(scan, "return key scan code")
@@ -437,7 +437,7 @@ func windowsVirtualKeyForCodeUnit(codeUnit uint16) (uint16, uint16, uint32, erro
 		return windowsVirtualKeyReturn, scanCode, 0, nil
 	}
 	keyScan, _, errKeyScan := vkKeyScanProc.Call(uintptr(codeUnit))
-	if errKeyScan != nil && !errors.Is(errKeyScan, syscall.Errno(0)) {
+	if !errors.Is(errKeyScan, syscall.Errno(0)) {
 		return 0, 0, 0, fmt.Errorf("map console character %d to virtual key: %w", codeUnit, errKeyScan)
 	}
 	if keyScan == math.MaxUint16 {
@@ -456,7 +456,7 @@ func windowsVirtualKeyForCodeUnit(codeUnit uint16) (uint16, uint16, uint32, erro
 		controlState |= windowsLeftAltPressed
 	}
 	scan, _, errMap := mapVirtualKeyProc.Call(uintptr(virtualKey), windowsMapVirtualKeyToScan)
-	if errMap != nil && !errors.Is(errMap, syscall.Errno(0)) {
+	if !errors.Is(errMap, syscall.Errno(0)) {
 		return 0, 0, 0, fmt.Errorf("map virtual key %d to scan code: %w", virtualKey, errMap)
 	}
 	scanCode, errScanCode := windowsUint16Result(scan, "virtual key scan code")
@@ -535,7 +535,7 @@ func callWindowsConsoleProc(proc *windows.LazyProc, args ...uintptr) error {
 	if result != 0 {
 		return nil
 	}
-	if errCall != nil && !errors.Is(errCall, syscall.Errno(0)) {
+	if !errors.Is(errCall, syscall.Errno(0)) {
 		return fmt.Errorf("call Windows console API: %w", errCall)
 	}
 	return syscall.EINVAL

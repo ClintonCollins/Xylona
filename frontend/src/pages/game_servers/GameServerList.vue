@@ -1619,23 +1619,19 @@ const columns = ref([
   color: var(--xy-success-text-soft);
 }
 
-.server-list-header {
-  position: relative;
-  padding-bottom: calc(var(--xy-toolbar-height) + var(--xy-space-sm));
-}
-
 .server-list-header :deep(.xy-page-actions) {
+  flex: 1 1 0;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
   min-width: 0;
   min-height: var(--xy-toolbar-height);
 }
 
 .server-selection-region {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   display: flex;
+  flex: 1 1 0;
   justify-content: flex-end;
+  min-width: 0;
   min-height: var(--xy-toolbar-height);
 }
 
@@ -1901,6 +1897,13 @@ const columns = ref([
 
   .server-selection-toolbar :deep(.q-icon.on-left) {
     margin-right: 0;
+  }
+}
+
+@media (max-width: 1439px) {
+  .server-list-header :deep(.xy-page-actions) {
+    flex-basis: 100%;
+    width: 100%;
   }
 }
 
