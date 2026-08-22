@@ -103,6 +103,7 @@ describe('PublicGameServerStatusPage', () => {
     expect(wrapper.text()).toContain('Live · updated 2m ago')
     expect(wrapper.text()).not.toContain('0 known · 1 unavailable')
     expect(wrapper.text()).toContain('Player count unavailable')
+    expect(wrapper.get('.public-server-row').classes()).toContain('is-online')
     expect(FakeEventSource.instances[0]?.url).toBe('/api/public/status-pages/Fleet_A/events')
 
     const initialServer = initial.servers[0]

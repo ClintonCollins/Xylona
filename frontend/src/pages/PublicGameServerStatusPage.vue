@@ -247,12 +247,15 @@ onUnmounted(() => {
         <h2>Loading server status</h2>
         <p>Connecting to the live status feed.</p>
       </div>
-      <div v-else-if="unavailable" class="public-status-state">
+      <div v-else-if="unavailable" class="public-status-state public-status-state--fault">
         <q-icon name="link_off" size="48px" />
         <h2>This status page is not available</h2>
         <p>The link may be incomplete, disabled, or no longer current.</p>
       </div>
-      <div v-else-if="initialError" class="public-status-state" role="alert">
+      <div
+        v-else-if="initialError"
+        class="public-status-state public-status-state--fault"
+        role="alert">
         <q-icon name="cloud_off" size="48px" />
         <h2>Server status could not be loaded</h2>
         <p>Check your connection and try again.</p>
@@ -279,7 +282,9 @@ onUnmounted(() => {
           </span>
         </div>
 
-        <div v-if="page.servers.length === 0" class="public-status-state">
+        <div
+          v-if="page.servers.length === 0"
+          class="public-status-state public-status-state--empty">
           <q-icon name="dns" size="48px" />
           <h2>No game servers are published yet</h2>
           <p>This page is active. Its owner has not added any game servers.</p>
@@ -289,7 +294,11 @@ onUnmounted(() => {
             v-for="server in page.servers"
             :key="server.id"
             class="public-server-row"
-            :class="{ 'is-online': server.status === Status.ONLINE }">
+            :class="{
+              'is-online': server.status === Status.ONLINE,
+              'is-offline': server.status === Status.OFFLINE,
+              'is-pending': server.status !== Status.ONLINE && server.status !== Status.OFFLINE,
+            }">
             <div class="public-server-row__summary">
               <div class="public-server-row__identity">
                 <h2>{{ server.name }}</h2>
@@ -401,8 +410,8 @@ onUnmounted(() => {
 
 .public-status-header__brand span {
   padding: var(--xy-space-2xs) var(--xy-space-sm);
-  color: var(--xy-text-secondary);
-  background: var(--xy-surface-2);
+  color: var(--xy-accent-hover);
+  background: var(--xy-accent-muted);
   border-radius: var(--xy-radius-pill);
   font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-2xs);
@@ -475,9 +484,14 @@ onUnmounted(() => {
   align-items: center;
   gap: var(--xy-space-md) var(--xy-space-xl);
   padding: var(--xy-space-md);
-  color: var(--xy-text-secondary);
-  background: var(--xy-surface-0) var(--xy-surface-gradient-subtle);
-  border: 1px solid var(--xy-border);
+  color: var(--xy-text-primary);
+  background: linear-gradient(
+    115deg,
+    var(--xy-accent-bg),
+    var(--xy-primary-bg-subtle) 52%,
+    var(--xy-surface-0)
+  );
+  border: 1px solid var(--xy-accent-border-soft);
   border-radius: var(--xy-radius-lg);
 }
 
@@ -496,7 +510,10 @@ onUnmounted(() => {
 
 .public-status-summary__availability > .q-icon {
   flex: 0 0 auto;
-  color: var(--xy-accent);
+  padding: var(--xy-space-sm);
+  color: var(--xy-accent-hover);
+  background: var(--xy-accent-muted);
+  border-radius: var(--xy-radius-md);
 }
 
 .public-status-summary__availability > div {
@@ -514,7 +531,7 @@ onUnmounted(() => {
 
 .public-status-summary__caption {
   display: block;
-  color: var(--xy-text-secondary);
+  color: color-mix(in srgb, var(--xy-text-primary) 72%, var(--xy-accent) 28%);
   font-size: var(--xy-font-size-xs);
 }
 
@@ -573,8 +590,18 @@ onUnmounted(() => {
 }
 
 .public-server-row.is-online {
-  background: color-mix(in srgb, var(--xy-success) 4%, var(--xy-surface-1));
+  background: color-mix(in srgb, var(--xy-success) 6%, var(--xy-surface-1));
   border-color: var(--xy-success-border-soft);
+}
+
+.public-server-row.is-offline {
+  background: color-mix(in srgb, var(--xy-danger) 3%, var(--xy-surface-1));
+  border-color: color-mix(in srgb, var(--xy-danger) 18%, var(--xy-border));
+}
+
+.public-server-row.is-pending {
+  background: color-mix(in srgb, var(--xy-warning) 4%, var(--xy-surface-1));
+  border-color: var(--xy-warning-border-soft);
 }
 
 .public-server-row__summary {
@@ -650,13 +677,27 @@ onUnmounted(() => {
 }
 
 .public-server-row__copy-action:hover {
-  color: var(--xy-text-primary);
-  background: var(--xy-surface-3);
+  color: var(--xy-primary-hover);
+  background: var(--xy-primary-muted);
 }
 
 .public-server-row__copy-action.is-copied {
   color: var(--xy-success-text-soft);
   background: var(--xy-success-bg);
+}
+
+.public-server-row__roster-action {
+  color: var(--xy-text-secondary);
+  border-radius: var(--xy-radius-md);
+  transition:
+    color var(--xy-transition-fast),
+    background-color var(--xy-transition-fast);
+}
+
+.public-server-row__roster-action:hover,
+.public-server-row__roster-action[aria-expanded='true'] {
+  color: var(--xy-accent-hover);
+  background: var(--xy-accent-muted);
 }
 
 .public-server-row__roster {
@@ -719,6 +760,14 @@ onUnmounted(() => {
 
 .public-status-state p {
   max-width: 55ch;
+}
+
+.public-status-state--fault > .q-icon {
+  color: var(--xy-danger-hover);
+}
+
+.public-status-state--empty > .q-icon {
+  color: var(--xy-accent-hover);
 }
 
 .public-status-footer {
