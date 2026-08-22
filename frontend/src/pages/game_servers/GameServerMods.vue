@@ -8,12 +8,16 @@ import { GetXylonaClient } from '@/utils/shared'
 import {
   GetGameServerRequestSchema,
   GetModVersionsRequestSchema,
+  GetSevenDaysToDieReportedModsRequestSchema,
   GetUpdateTargetsRequestSchema,
   InstallModRequestSchema,
   ListInstalledModsRequestSchema,
   PinModVersionRequestSchema,
+  SevenDaysToDieWebAPIConnectionState,
+  SevenDaysToDieWebAPIValueState,
   SetModAutoUpdateRequestSchema,
   SetModEnabledRequestSchema,
+  type SevenDaysToDieReportedMod,
   UninstallModRequestSchema,
   UpdateModRequestSchema,
 } from '@/proto/xylona_pb'
@@ -31,6 +35,15 @@ const gameServerId = route.params.id as string
 const activeTab = ref<'installed' | 'browse'>('installed')
 const loading = ref(true)
 const installedMods = ref<InstalledMod[]>([])
+const isSevenDaysToDie = ref(false)
+const reportedModsLoading = ref(false)
+const reportedModsConnectionState = ref(
+  SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED,
+)
+const reportedModsState = ref(
+  SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED,
+)
+const reportedMods = ref<SevenDaysToDieReportedMod[]>([])
 
 // Detail dialog state
 const showDetailDialog = ref(false)
@@ -61,15 +74,54 @@ const detailIsInstalled = computed(() => {
   )
 })
 
-onMounted(async () => {
-  await loadInstalledMods()
+const reportedModsStateText = computed((): string => {
+  if (reportedModsLoading.value) return 'Loading reported mods...'
+  if (
+    reportedModsConnectionState.value ===
+    SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE
+  ) {
+    return 'The game server is offline.'
+  }
+  if (
+    reportedModsState.value ===
+    SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED
+  ) {
+    return 'This game server does not support reporting mods.'
+  }
+  if (
+    reportedModsState.value ===
+    SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED
+  ) {
+    return 'The game server denied access to its reported mods.'
+  }
+  if (
+    reportedModsState.value ===
+      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE &&
+    reportedMods.value.length === 0
+  ) {
+    return 'No mods reported by the game server.'
+  }
+  if (
+    reportedModsState.value !==
+    SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE
+  ) {
+    return 'Reported mods are currently unavailable.'
+  }
+  return ''
+})
 
-  // Default to the browse tab when no mods are installed.
-  if (installedMods.value.length === 0) {
+onMounted(async () => {
+  const installedModsPromise = loadInstalledMods()
+  await loadGameServerConfig()
+  if (isSevenDaysToDie.value) {
+    await loadReportedMods()
+  }
+  await installedModsPromise
+
+  // Keep 7 Days to Die on Installed so its native inventory remains visible.
+  if (!isSevenDaysToDie.value && installedMods.value.length === 0) {
     activeTab.value = 'browse'
   }
-
-  await loadGameServerConfig()
 })
 
 async function loadInstalledMods(): Promise<void> {
@@ -94,6 +146,8 @@ async function loadGameServerConfig(): Promise<void> {
     const gs = response.gameServer
     if (!gs) return
 
+    isSevenDaysToDie.value = gs.gameId === '7_days_to_die'
+
     const resolvedModProfile = gs.resolvedModProfile
     modSources.value =
       resolvedModProfile?.sources.map((src) => ({
@@ -106,6 +160,25 @@ async function loadGameServerConfig(): Promise<void> {
     }
   } catch (unknownErr: unknown) {
     console.error('Failed to load game server config:', unknownErr)
+  }
+}
+
+async function loadReportedMods(): Promise<void> {
+  reportedModsLoading.value = true
+  try {
+    const request = create(GetSevenDaysToDieReportedModsRequestSchema, { gameServerId })
+    const response = await GetXylonaClient().getSevenDaysToDieReportedMods(request)
+    reportedModsConnectionState.value = response.connectionState
+    reportedModsState.value = response.state
+    reportedMods.value = response.mods
+  } catch {
+    reportedModsConnectionState.value =
+      SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED
+    reportedModsState.value =
+      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
+    reportedMods.value = []
+  } finally {
+    reportedModsLoading.value = false
   }
 }
 
@@ -427,15 +500,54 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 
     <q-tab-panels v-model="activeTab" animated class="mods-panels">
       <q-tab-panel name="installed">
-        <installed-mods-table
-          :installed-mods="installedMods"
-          :loading="loading"
-          @uninstall="handleUninstall"
-          @update="handleUpdate"
-          @toggle-auto-update="handleToggleAutoUpdate"
-          @toggle-enabled="handleToggleEnabled"
-          @pin-version="handlePinVersion"
-          @update-all="handleUpdateAll" />
+        <div :class="{ 'installed-sources--reported': isSevenDaysToDie }" class="installed-sources">
+          <section
+            :aria-labelledby="isSevenDaysToDie ? 'managed-mods-heading' : undefined"
+            class="managed-mods-source">
+            <h2 v-if="isSevenDaysToDie" id="managed-mods-heading" class="mod-source-heading">
+              Xylona-managed
+            </h2>
+            <installed-mods-table
+              :installed-mods="installedMods"
+              :loading="loading"
+              @uninstall="handleUninstall"
+              @update="handleUpdate"
+              @toggle-auto-update="handleToggleAutoUpdate"
+              @toggle-enabled="handleToggleEnabled"
+              @pin-version="handlePinVersion"
+              @update-all="handleUpdateAll" />
+          </section>
+
+          <section
+            v-if="isSevenDaysToDie"
+            aria-labelledby="reported-mods-heading"
+            class="reported-mods">
+            <h2 id="reported-mods-heading" class="mod-source-heading">Reported by game server</h2>
+            <div v-if="reportedModsStateText" class="reported-mods-state" role="status">
+              <q-spinner v-if="reportedModsLoading" color="primary" size="1.5rem" />
+              <span>{{ reportedModsStateText }}</span>
+            </div>
+            <div v-else class="reported-mods-grid">
+              <article v-for="mod in reportedMods" :key="mod.name" class="reported-mod-card">
+                <div class="reported-mod-header">
+                  <div>
+                    <h3 class="reported-mod-title">{{ mod.displayName || mod.name }}</h3>
+                    <div class="reported-mod-name font-mono">{{ mod.name }}</div>
+                  </div>
+                  <span v-if="mod.version" class="reported-mod-version font-mono">
+                    {{ mod.version }}
+                  </span>
+                </div>
+                <div v-if="mod.author" class="reported-mod-author text-xy-muted">
+                  By {{ mod.author }}
+                </div>
+                <p v-if="mod.description" class="reported-mod-description">
+                  {{ mod.description }}
+                </p>
+              </article>
+            </div>
+          </section>
+        </div>
       </q-tab-panel>
 
       <q-tab-panel name="browse">
@@ -515,5 +627,119 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.installed-sources,
+.managed-mods-source {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.installed-sources--reported {
+  display: block;
+  overflow-y: auto;
+}
+
+.installed-sources--reported .managed-mods-source {
+  height: min(45vh, 28rem);
+  min-height: 16rem;
+}
+
+.mod-source-heading {
+  margin: 0;
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  border-bottom: 1px solid var(--xy-border);
+  background: var(--xy-surface-1);
+  color: var(--xy-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reported-mods {
+  border-top: 1px solid var(--xy-border);
+}
+
+.reported-mods-state {
+  min-height: 8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-xl) var(--xy-space-md);
+  color: var(--xy-text-muted);
+  text-align: center;
+}
+
+.reported-mods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-md);
+}
+
+.reported-mod-card {
+  min-width: 0;
+  padding: var(--xy-space-md);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-md);
+  background: var(--xy-surface-1);
+}
+
+.reported-mod-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+}
+
+.reported-mod-title {
+  margin: 0;
+  color: var(--xy-text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.reported-mod-name,
+.reported-mod-version,
+.reported-mod-author {
+  font-size: 0.72rem;
+}
+
+.reported-mod-name {
+  margin-top: var(--xy-space-xs);
+  color: var(--xy-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.reported-mod-version {
+  flex-shrink: 0;
+  color: var(--xy-text-secondary);
+}
+
+.reported-mod-author {
+  margin-top: var(--xy-space-sm);
+}
+
+.reported-mod-description {
+  margin: var(--xy-space-sm) 0 0;
+  color: var(--xy-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 599px) {
+  .reported-mods-grid {
+    padding: var(--xy-space-sm);
+  }
+
+  .reported-mod-card {
+    padding: var(--xy-space-sm);
+  }
 }
 </style>

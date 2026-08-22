@@ -585,6 +585,93 @@ func TestNodeQuerySevenDaysToDiePlayers(t *testing.T) {
 	})
 }
 
+func TestNodeQuerySevenDaysToDieReportedMods(t *testing.T) {
+	t.Parallel()
+
+	t.Run("decodes only approved text fields from the fixed mods endpoint", func(t *testing.T) {
+		t.Parallel()
+		paths := make([]string, 0, 3)
+		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+			paths = append(paths, request.URL.Path)
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPI())
+			case "/api/OpenAPI/Mods.openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPIFragments()[request.URL.Path])
+			case "/api/mods":
+				if request.Header.Get("X-SDTD-API-TOKENNAME") != "xylona" || request.Header.Get("X-SDTD-API-SECRET") != "secret" {
+					t.Fatal("QuerySevenDaysToDieReportedMods() did not send the node-held credentials")
+				}
+				writeSevenDaysToDieTestResponse(t, response, `{"data":[{"name":"Example","displayName":"<b>Example</b>","description":"Plain text","author":"Operator","version":"1.2.3","website":"https://example.invalid","web":{"baseUrl":"/webmods/Example/","bundle":"/webmods/Example/bundle.js"}}],"meta":{}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}, "")
+
+		result, errQuery := new(Node).QuerySevenDaysToDieReportedMods(t.Context(), SevenDaysToDieReportedModsQueryRequest{
+			WorkingDirectory: workingDirectory,
+			TokenName:        "xylona",
+			TokenSecret:      "secret",
+		})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieReportedMods() error = %v", errQuery)
+		}
+		if result.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || result.State != SevenDaysToDieWebAPIValueStateAvailable || len(result.Mods) != 1 {
+			t.Fatalf("QuerySevenDaysToDieReportedMods() = %+v", result)
+		}
+		want := SevenDaysToDieReportedMod{Name: "Example", DisplayName: "<b>Example</b>", Description: "Plain text", Author: "Operator", Version: "1.2.3"}
+		if result.Mods[0] != want {
+			t.Fatalf("reported mod = %+v, want %+v", result.Mods[0], want)
+		}
+		wantPaths := []string{"/api/openapi/openapi.yaml", "/api/OpenAPI/Mods.openapi.yaml", "/api/mods"}
+		if !slices.Equal(paths, wantPaths) {
+			t.Fatalf("QuerySevenDaysToDieReportedMods() paths = %v, want %v", paths, wantPaths)
+		}
+	})
+
+	tests := []struct {
+		name       string
+		master     string
+		statusCode int
+		body       string
+		wantState  SevenDaysToDieWebAPIValueState
+	}{
+		{name: "confirmed empty list", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":[],"meta":{}}`, wantState: SevenDaysToDieWebAPIValueStateAvailable},
+		{name: "missing capability", master: "openapi: 3.1.0\ninfo:\n  version: '1'\npaths: {}\n", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
+		{name: "endpoint unauthorized", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusUnauthorized, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "endpoint forbidden", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "malformed result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "oversized result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+				switch request.URL.Path {
+				case "/api/openapi/openapi.yaml":
+					writeSevenDaysToDieTestResponse(t, response, test.master)
+				case "/api/OpenAPI/Mods.openapi.yaml":
+					writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPIFragments()[request.URL.Path])
+				case "/api/mods":
+					response.WriteHeader(test.statusCode)
+					if test.body != "" {
+						writeSevenDaysToDieTestResponse(t, response, test.body)
+					}
+				default:
+					http.NotFound(response, request)
+				}
+			}, "")
+			result, errQuery := new(Node).QuerySevenDaysToDieReportedMods(t.Context(), SevenDaysToDieReportedModsQueryRequest{WorkingDirectory: workingDirectory})
+			if errQuery != nil {
+				t.Fatalf("QuerySevenDaysToDieReportedMods() error = %v", errQuery)
+			}
+			if result.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || result.State != test.wantState || len(result.Mods) != 0 {
+				t.Fatalf("QuerySevenDaysToDieReportedMods() = %+v, want state %v", result, test.wantState)
+			}
+		})
+	}
+}
+
 func writeSevenDaysToDieWebAPIConfig(t *testing.T, workingDirectory string, enabled string, port string, dashboardURL string) {
 	t.Helper()
 	config := `<ServerSettings>` +

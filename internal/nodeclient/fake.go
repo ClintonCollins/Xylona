@@ -136,6 +136,11 @@ type FakeNodeClient struct {
 	QuerySevenDaysToDiePlayersCalls  []node.SevenDaysToDiePlayersQueryRequest
 	QuerySevenDaysToDiePlayersFunc   func(context.Context, node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error)
 
+	QuerySevenDaysToDieReportedModsResult *node.SevenDaysToDieReportedMods
+	QuerySevenDaysToDieReportedModsErr    error
+	QuerySevenDaysToDieReportedModsCalls  []node.SevenDaysToDieReportedModsQueryRequest
+	QuerySevenDaysToDieReportedModsFunc   func(context.Context, node.SevenDaysToDieReportedModsQueryRequest) (*node.SevenDaysToDieReportedMods, error)
+
 	SevenDaysToDieMapTileResult []byte
 	SevenDaysToDieMapTileErr    error
 	SevenDaysToDieMapTileCalls  []node.SevenDaysToDieMapTileRequest
@@ -635,6 +640,17 @@ func (f *FakeNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, req nod
 		return f.QuerySevenDaysToDiePlayersFunc(ctx, req)
 	}
 	return f.QuerySevenDaysToDiePlayersResult, f.QuerySevenDaysToDiePlayersErr
+}
+
+// QuerySevenDaysToDieReportedMods records the call and returns the configured reported mods.
+func (f *FakeNodeClient) QuerySevenDaysToDieReportedMods(ctx context.Context, req node.SevenDaysToDieReportedModsQueryRequest) (*node.SevenDaysToDieReportedMods, error) {
+	f.mu.Lock()
+	f.QuerySevenDaysToDieReportedModsCalls = append(f.QuerySevenDaysToDieReportedModsCalls, req)
+	f.mu.Unlock()
+	if f.QuerySevenDaysToDieReportedModsFunc != nil {
+		return f.QuerySevenDaysToDieReportedModsFunc(ctx, req)
+	}
+	return f.QuerySevenDaysToDieReportedModsResult, f.QuerySevenDaysToDieReportedModsErr
 }
 
 // GetSevenDaysToDieMapTile records the call and returns configured PNG bytes.

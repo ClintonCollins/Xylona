@@ -346,6 +346,9 @@ const (
 	// XylonaListInstalledModsProcedure is the fully-qualified name of the Xylona's ListInstalledMods
 	// RPC.
 	XylonaListInstalledModsProcedure = "/xylona.Xylona/ListInstalledMods"
+	// XylonaGetSevenDaysToDieReportedModsProcedure is the fully-qualified name of the Xylona's
+	// GetSevenDaysToDieReportedMods RPC.
+	XylonaGetSevenDaysToDieReportedModsProcedure = "/xylona.Xylona/GetSevenDaysToDieReportedMods"
 	// XylonaSetModAutoUpdateProcedure is the fully-qualified name of the Xylona's SetModAutoUpdate RPC.
 	XylonaSetModAutoUpdateProcedure = "/xylona.Xylona/SetModAutoUpdate"
 	// XylonaSetModEnabledProcedure is the fully-qualified name of the Xylona's SetModEnabled RPC.
@@ -579,6 +582,7 @@ type XylonaClient interface {
 	UninstallMod(context.Context, *connect.Request[xylona.UninstallModRequest]) (*connect.Response[xylona.UninstallModResponse], error)
 	UpdateMod(context.Context, *connect.Request[xylona.UpdateModRequest]) (*connect.Response[xylona.UpdateModResponse], error)
 	ListInstalledMods(context.Context, *connect.Request[xylona.ListInstalledModsRequest]) (*connect.Response[xylona.ListInstalledModsResponse], error)
+	GetSevenDaysToDieReportedMods(context.Context, *connect.Request[xylona.GetSevenDaysToDieReportedModsRequest]) (*connect.Response[xylona.GetSevenDaysToDieReportedModsResponse], error)
 	SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error)
 	SetModEnabled(context.Context, *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error)
 	PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error)
@@ -1354,6 +1358,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("ListInstalledMods")),
 			connect.WithClientOptions(opts...),
 		),
+		getSevenDaysToDieReportedMods: connect.NewClient[xylona.GetSevenDaysToDieReportedModsRequest, xylona.GetSevenDaysToDieReportedModsResponse](
+			httpClient,
+			baseURL+XylonaGetSevenDaysToDieReportedModsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieReportedMods")),
+			connect.WithClientOptions(opts...),
+		),
 		setModAutoUpdate: connect.NewClient[xylona.SetModAutoUpdateRequest, xylona.SetModAutoUpdateResponse](
 			httpClient,
 			baseURL+XylonaSetModAutoUpdateProcedure,
@@ -1689,6 +1699,7 @@ type xylonaClient struct {
 	uninstallMod                            *connect.Client[xylona.UninstallModRequest, xylona.UninstallModResponse]
 	updateMod                               *connect.Client[xylona.UpdateModRequest, xylona.UpdateModResponse]
 	listInstalledMods                       *connect.Client[xylona.ListInstalledModsRequest, xylona.ListInstalledModsResponse]
+	getSevenDaysToDieReportedMods           *connect.Client[xylona.GetSevenDaysToDieReportedModsRequest, xylona.GetSevenDaysToDieReportedModsResponse]
 	setModAutoUpdate                        *connect.Client[xylona.SetModAutoUpdateRequest, xylona.SetModAutoUpdateResponse]
 	setModEnabled                           *connect.Client[xylona.SetModEnabledRequest, xylona.SetModEnabledResponse]
 	pinModVersion                           *connect.Client[xylona.PinModVersionRequest, xylona.PinModVersionResponse]
@@ -2327,6 +2338,11 @@ func (c *xylonaClient) ListInstalledMods(ctx context.Context, req *connect.Reque
 	return c.listInstalledMods.CallUnary(ctx, req)
 }
 
+// GetSevenDaysToDieReportedMods calls xylona.Xylona.GetSevenDaysToDieReportedMods.
+func (c *xylonaClient) GetSevenDaysToDieReportedMods(ctx context.Context, req *connect.Request[xylona.GetSevenDaysToDieReportedModsRequest]) (*connect.Response[xylona.GetSevenDaysToDieReportedModsResponse], error) {
+	return c.getSevenDaysToDieReportedMods.CallUnary(ctx, req)
+}
+
 // SetModAutoUpdate calls xylona.Xylona.SetModAutoUpdate.
 func (c *xylonaClient) SetModAutoUpdate(ctx context.Context, req *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error) {
 	return c.setModAutoUpdate.CallUnary(ctx, req)
@@ -2640,6 +2656,7 @@ type XylonaHandler interface {
 	UninstallMod(context.Context, *connect.Request[xylona.UninstallModRequest]) (*connect.Response[xylona.UninstallModResponse], error)
 	UpdateMod(context.Context, *connect.Request[xylona.UpdateModRequest]) (*connect.Response[xylona.UpdateModResponse], error)
 	ListInstalledMods(context.Context, *connect.Request[xylona.ListInstalledModsRequest]) (*connect.Response[xylona.ListInstalledModsResponse], error)
+	GetSevenDaysToDieReportedMods(context.Context, *connect.Request[xylona.GetSevenDaysToDieReportedModsRequest]) (*connect.Response[xylona.GetSevenDaysToDieReportedModsResponse], error)
 	SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error)
 	SetModEnabled(context.Context, *connect.Request[xylona.SetModEnabledRequest]) (*connect.Response[xylona.SetModEnabledResponse], error)
 	PinModVersion(context.Context, *connect.Request[xylona.PinModVersionRequest]) (*connect.Response[xylona.PinModVersionResponse], error)
@@ -3411,6 +3428,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("ListInstalledMods")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetSevenDaysToDieReportedModsHandler := connect.NewUnaryHandler(
+		XylonaGetSevenDaysToDieReportedModsProcedure,
+		svc.GetSevenDaysToDieReportedMods,
+		connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieReportedMods")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaSetModAutoUpdateHandler := connect.NewUnaryHandler(
 		XylonaSetModAutoUpdateProcedure,
 		svc.SetModAutoUpdate,
@@ -3863,6 +3886,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaUpdateModHandler.ServeHTTP(w, r)
 		case XylonaListInstalledModsProcedure:
 			xylonaListInstalledModsHandler.ServeHTTP(w, r)
+		case XylonaGetSevenDaysToDieReportedModsProcedure:
+			xylonaGetSevenDaysToDieReportedModsHandler.ServeHTTP(w, r)
 		case XylonaSetModAutoUpdateProcedure:
 			xylonaSetModAutoUpdateHandler.ServeHTTP(w, r)
 		case XylonaSetModEnabledProcedure:
@@ -4420,6 +4445,10 @@ func (UnimplementedXylonaHandler) UpdateMod(context.Context, *connect.Request[xy
 
 func (UnimplementedXylonaHandler) ListInstalledMods(context.Context, *connect.Request[xylona.ListInstalledModsRequest]) (*connect.Response[xylona.ListInstalledModsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListInstalledMods is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSevenDaysToDieReportedMods(context.Context, *connect.Request[xylona.GetSevenDaysToDieReportedModsRequest]) (*connect.Response[xylona.GetSevenDaysToDieReportedModsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSevenDaysToDieReportedMods is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) SetModAutoUpdate(context.Context, *connect.Request[xylona.SetModAutoUpdateRequest]) (*connect.Response[xylona.SetModAutoUpdateResponse], error) {

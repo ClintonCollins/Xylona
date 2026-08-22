@@ -256,6 +256,47 @@ func TestSevenDaysToDiePlayersToProtoPreservesOptionalZeroValues(t *testing.T) {
 	}
 }
 
+func TestNodeServiceServerQuerySevenDaysToDieReportedMods(t *testing.T) {
+	t.Parallel()
+	const secret = "test-secret"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	directory := t.TempDir()
+	config := `<ServerSettings>
+		<property name="WebDashboardEnabled" value="false" />
+		<property name="WebDashboardPort" value="8082" />
+	</ServerSettings>`
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+	result, errQuery := client.QuerySevenDaysToDieReportedMods(t.Context(), node.SevenDaysToDieReportedModsQueryRequest{WorkingDirectory: directory})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieReportedMods: %v", errQuery)
+	}
+	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
+		t.Fatalf("result = %+v, want dashboard disabled", result)
+	}
+}
+
+func TestSevenDaysToDieReportedModsToProto(t *testing.T) {
+	t.Parallel()
+	result := sevenDaysToDieReportedModsToProto(&node.SevenDaysToDieReportedMods{
+		ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+		State:           node.SevenDaysToDieWebAPIValueStateAvailable,
+		Mods: []node.SevenDaysToDieReportedMod{{
+			Name: "Example", DisplayName: "Example Mod", Description: "Description", Author: "Author", Version: "1.0",
+		}},
+	})
+	if result.GetState() != nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE ||
+		len(result.GetMods()) != 1 || result.GetMods()[0].GetDisplayName() != "Example Mod" {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 func TestSevenDaysToDieWebAPIStateToProto(t *testing.T) {
 	t.Parallel()
 

@@ -57,6 +57,8 @@ type callRecorder struct {
 	webAPIStatusResp *nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse
 	playersReq       *nodeprotov1.QuerySevenDaysToDiePlayersRequest
 	playersResp      *nodeprotov1.QuerySevenDaysToDiePlayersResponse
+	reportedModsReq  *nodeprotov1.QuerySevenDaysToDieReportedModsRequest
+	reportedModsResp *nodeprotov1.QuerySevenDaysToDieReportedModsResponse
 	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
 	playerActionErr  error
 	consoleInputErr  error
@@ -218,6 +220,18 @@ func (s *stubHandler) QuerySevenDaysToDiePlayers(_ context.Context, req *connect
 	s.rec.mu.Unlock()
 	if resp == nil {
 		resp = &nodeprotov1.QuerySevenDaysToDiePlayersResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) QuerySevenDaysToDieReportedMods(_ context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieReportedModsRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieReportedModsResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.reportedModsReq = req.Msg
+	resp := s.rec.reportedModsResp
+	s.rec.mu.Unlock()
+	if resp == nil {
+		resp = &nodeprotov1.QuerySevenDaysToDieReportedModsResponse{}
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -896,6 +910,42 @@ func TestGRPCClientQuerySevenDaysToDiePlayers(t *testing.T) {
 	}
 	if !slices.Equal(authHeaders, []string{"Bearer node-secret"}) {
 		t.Fatalf("authorization headers = %q", authHeaders)
+	}
+}
+
+func TestGRPCClientQuerySevenDaysToDieReportedMods(t *testing.T) {
+	t.Parallel()
+	recorder := &callRecorder{
+		reportedModsResp: &nodeprotov1.QuerySevenDaysToDieReportedModsResponse{
+			Result: &nodeprotov1.SevenDaysToDieReportedMods{
+				ConnectionState: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+				State:           nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+				Mods: []*nodeprotov1.SevenDaysToDieReportedMod{{
+					Name: "Example", DisplayName: "Example Mod", Description: "Description", Author: "Author", Version: "1.0",
+				}},
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, recorder)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	result, errQuery := client.QuerySevenDaysToDieReportedMods(t.Context(), node.SevenDaysToDieReportedModsQueryRequest{
+		WorkingDirectory: "C:/servers/7dtd", TokenName: "controller", TokenSecret: "web-api-secret",
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieReportedMods: %v", errQuery)
+	}
+	if result == nil || result.State != node.SevenDaysToDieWebAPIValueStateAvailable || len(result.Mods) != 1 ||
+		result.Mods[0] != (node.SevenDaysToDieReportedMod{Name: "Example", DisplayName: "Example Mod", Description: "Description", Author: "Author", Version: "1.0"}) {
+		t.Fatalf("result = %+v", result)
+	}
+	recorder.mu.Lock()
+	request := recorder.reportedModsReq
+	recorder.mu.Unlock()
+	if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
+		t.Fatal("request did not preserve the expected directory and credentials")
 	}
 }
 

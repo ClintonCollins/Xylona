@@ -926,6 +926,27 @@ func (s *nodeServiceServer) QuerySevenDaysToDiePlayers(ctx context.Context, req 
 	}), nil
 }
 
+func (s *nodeServiceServer) QuerySevenDaysToDieReportedMods(ctx context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieReportedModsRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieReportedModsResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	result, errQuery := s.n.QuerySevenDaysToDieReportedMods(ctx, node.SevenDaysToDieReportedModsQueryRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		TokenName:        req.Msg.GetTokenName(),
+		TokenSecret:      req.Msg.GetTokenSecret(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QuerySevenDaysToDieReportedModsResponse{
+		Result: sevenDaysToDieReportedModsToProto(result),
+	}), nil
+}
+
 func (s *nodeServiceServer) GetSevenDaysToDieMapTile(ctx context.Context, req *connect.Request[nodeprotov1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[nodeprotov1.GetSevenDaysToDieMapTileResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1454,6 +1475,23 @@ func sevenDaysToDiePlayersToProto(result *node.SevenDaysToDiePlayers) *nodeproto
 		ConnectionState: sevenDaysToDieWebAPIConnectionStateToProto(result.ConnectionState),
 		State:           sevenDaysToDieWebAPIValueStateToProto(result.State),
 		Players:         players,
+	}
+}
+
+func sevenDaysToDieReportedModsToProto(result *node.SevenDaysToDieReportedMods) *nodeprotov1.SevenDaysToDieReportedMods {
+	if result == nil {
+		return nil
+	}
+	mods := make([]*nodeprotov1.SevenDaysToDieReportedMod, 0, len(result.Mods))
+	for _, mod := range result.Mods {
+		mods = append(mods, &nodeprotov1.SevenDaysToDieReportedMod{
+			Name: mod.Name, DisplayName: mod.DisplayName, Description: mod.Description, Author: mod.Author, Version: mod.Version,
+		})
+	}
+	return &nodeprotov1.SevenDaysToDieReportedMods{
+		ConnectionState: sevenDaysToDieWebAPIConnectionStateToProto(result.ConnectionState),
+		State:           sevenDaysToDieWebAPIValueStateToProto(result.State),
+		Mods:            mods,
 	}
 }
 

@@ -45,6 +45,7 @@ const (
 	sevenDaysToDieWebAPIEndpointBloodMoon
 	sevenDaysToDieWebAPIEndpointServerStats
 	sevenDaysToDieWebAPIEndpointPlayer
+	sevenDaysToDieWebAPIEndpointMods
 )
 
 type sevenDaysToDieOpenAPI struct {
@@ -104,6 +105,18 @@ type sevenDaysToDiePlayersEnvelope struct {
 	Data struct {
 		Players []sevenDaysToDiePlayerJSON `json:"players"`
 	} `json:"data"`
+}
+
+type sevenDaysToDieReportedModsEnvelope struct {
+	Data []sevenDaysToDieReportedModJSON `json:"data"`
+}
+
+type sevenDaysToDieReportedModJSON struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	Author      string `json:"author"`
+	Version     string `json:"version"`
 }
 
 // QuerySevenDaysToDieWebAPIStatus returns bounded diagnostics from the native
@@ -183,28 +196,64 @@ func (*Node) QuerySevenDaysToDiePlayers(ctx context.Context, req SevenDaysToDieP
 		result.State = SevenDaysToDieWebAPIValueStateUnsupported
 		return result, nil
 	}
-	statusCode, body, errQuery := getSevenDaysToDieWebAPI(discovery.ctx, discovery.settings, sevenDaysToDieWebAPIEndpointPlayer, req.TokenName, req.TokenSecret)
+	state, body, errQuery := querySevenDaysToDieWebAPIResource(ctx, discovery, sevenDaysToDieWebAPIEndpointPlayer, req.TokenName, req.TokenSecret)
 	if errQuery != nil {
-		errContext := ctx.Err()
-		if errContext != nil {
-			return nil, fmt.Errorf("node: query 7 Days to Die players: %w", errContext)
-		}
-		return result, nil
+		return nil, fmt.Errorf("node: query 7 Days to Die players: %w", errQuery)
 	}
-	switch statusCode {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		result.State = SevenDaysToDieWebAPIValueStatePermissionDenied
-		return result, nil
-	case http.StatusOK:
-	default:
+	result.State = state
+	if state != SevenDaysToDieWebAPIValueStateAvailable {
 		return result, nil
 	}
 	players, errDecode := decodeSevenDaysToDiePlayers(body)
 	if errDecode != nil {
+		result.State = SevenDaysToDieWebAPIValueStateUnavailable
 		return result, nil //nolint:nilerr // Invalid upstream data is represented as an unavailable value state.
 	}
-	result.State = SevenDaysToDieWebAPIValueStateAvailable
 	result.Players = players
+	return result, nil
+}
+
+// QuerySevenDaysToDieReportedMods returns the game server's ephemeral loaded-mod list.
+func (*Node) QuerySevenDaysToDieReportedMods(ctx context.Context, req SevenDaysToDieReportedModsQueryRequest) (*SevenDaysToDieReportedMods, error) {
+	discovery, errDiscovery := discoverSevenDaysToDieWebAPI(ctx, req.WorkingDirectory, req.TokenName, req.TokenSecret)
+	if errDiscovery != nil {
+		return nil, fmt.Errorf("node: query 7 Days to Die reported mods: %w", errDiscovery)
+	}
+	defer discovery.cancel()
+	result := &SevenDaysToDieReportedMods{
+		ConnectionState: discovery.connectionState,
+		State:           SevenDaysToDieWebAPIValueStateUnavailable,
+		Mods:            make([]SevenDaysToDieReportedMod, 0),
+	}
+	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
+		return result, nil
+	}
+	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/mods", method: http.MethodGet})
+	if !advertised {
+		errContext := ctx.Err()
+		if errContext != nil {
+			return nil, fmt.Errorf("node: query 7 Days to Die reported mods: %w", errContext)
+		}
+		if discovery.resolver.failed {
+			return result, nil
+		}
+		result.State = SevenDaysToDieWebAPIValueStateUnsupported
+		return result, nil
+	}
+	state, body, errQuery := querySevenDaysToDieWebAPIResource(ctx, discovery, sevenDaysToDieWebAPIEndpointMods, req.TokenName, req.TokenSecret)
+	if errQuery != nil {
+		return nil, fmt.Errorf("node: query 7 Days to Die reported mods: %w", errQuery)
+	}
+	result.State = state
+	if state != SevenDaysToDieWebAPIValueStateAvailable {
+		return result, nil
+	}
+	mods, errDecode := decodeSevenDaysToDieReportedMods(body)
+	if errDecode != nil {
+		result.State = SevenDaysToDieWebAPIValueStateUnavailable
+		return result, nil //nolint:nilerr // Invalid upstream data is represented as an unavailable value state.
+	}
+	result.Mods = mods
 	return result, nil
 }
 
@@ -286,6 +335,31 @@ func discoverSevenDaysToDieWebAPI(
 	return discovery, nil
 }
 
+func querySevenDaysToDieWebAPIResource(
+	callerCtx context.Context,
+	discovery *sevenDaysToDieWebAPIDiscovery,
+	endpoint sevenDaysToDieWebAPIEndpoint,
+	tokenName string,
+	tokenSecret string,
+) (SevenDaysToDieWebAPIValueState, []byte, error) {
+	statusCode, body, errQuery := getSevenDaysToDieWebAPI(discovery.ctx, discovery.settings, endpoint, tokenName, tokenSecret)
+	if errQuery != nil {
+		errContext := callerCtx.Err()
+		if errContext != nil {
+			return SevenDaysToDieWebAPIValueStateUnavailable, nil, errContext
+		}
+		return SevenDaysToDieWebAPIValueStateUnavailable, nil, nil
+	}
+	switch statusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return SevenDaysToDieWebAPIValueStatePermissionDenied, nil, nil
+	case http.StatusOK:
+		return SevenDaysToDieWebAPIValueStateAvailable, body, nil
+	default:
+		return SevenDaysToDieWebAPIValueStateUnavailable, nil, nil
+	}
+}
+
 func readSevenDaysToDieWebAPISettings(workingDirectory string) (sevenDaysToDieWebAPISettings, error) {
 	values, errValues := readSevenDaysToDieServerSettings(workingDirectory)
 	if errValues != nil {
@@ -355,6 +429,8 @@ func getSevenDaysToDieWebAPI(
 		path = "/api/serverstats"
 	case sevenDaysToDieWebAPIEndpointPlayer:
 		path = "/api/player"
+	case sevenDaysToDieWebAPIEndpointMods:
+		path = "/api/mods"
 	default:
 		return 0, nil, errors.New("node: invalid 7 Days to Die WebAPI endpoint")
 	}
@@ -547,6 +623,28 @@ func decodeSevenDaysToDiePlayers(body []byte) ([]SevenDaysToDiePlayer, error) {
 		players = append(players, player)
 	}
 	return players, nil
+}
+
+func decodeSevenDaysToDieReportedMods(body []byte) ([]SevenDaysToDieReportedMod, error) {
+	var envelope sevenDaysToDieReportedModsEnvelope
+	errDecode := json.Unmarshal(body, &envelope)
+	if errDecode != nil {
+		return nil, fmt.Errorf("decode 7 Days to Die reported mods: %w", errDecode)
+	}
+	if envelope.Data == nil {
+		return nil, errors.New("decode 7 Days to Die reported mods: missing mod list")
+	}
+	mods := make([]SevenDaysToDieReportedMod, 0, len(envelope.Data))
+	for _, rawMod := range envelope.Data {
+		mods = append(mods, SevenDaysToDieReportedMod{
+			Name:        rawMod.Name,
+			DisplayName: rawMod.DisplayName,
+			Description: rawMod.Description,
+			Author:      rawMod.Author,
+			Version:     rawMod.Version,
+		})
+	}
+	return mods, nil
 }
 
 func sevenDaysToDieOpenAPIReferenceFile(pathItem map[string]yaml.Node, operationPath string) (string, bool) {

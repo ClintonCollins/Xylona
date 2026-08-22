@@ -683,6 +683,29 @@ type SevenDaysToDiePlayers struct {
 	Players         []SevenDaysToDiePlayer
 }
 
+// SevenDaysToDieReportedModsQueryRequest contains only node-local mods API access details.
+type SevenDaysToDieReportedModsQueryRequest struct {
+	WorkingDirectory string
+	TokenName        string
+	TokenSecret      string
+}
+
+// SevenDaysToDieReportedMod is one read-only mod record supplied by the game server.
+type SevenDaysToDieReportedMod struct {
+	Name        string
+	DisplayName string
+	Description string
+	Author      string
+	Version     string
+}
+
+// SevenDaysToDieReportedMods is the bounded native reported-mod result.
+type SevenDaysToDieReportedMods struct {
+	ConnectionState SevenDaysToDieWebAPIConnectionState
+	State           SevenDaysToDieWebAPIValueState
+	Mods            []SevenDaysToDieReportedMod
+}
+
 // SevenDaysToDieMapTileRequest identifies one native tile. Coordinates are
 // integers by construction, so callers cannot turn this into an open proxy.
 type SevenDaysToDieMapTileRequest struct {

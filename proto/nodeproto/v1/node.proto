@@ -895,6 +895,7 @@ service NodeService {
   rpc QuerySevenDaysToDieMap(QuerySevenDaysToDieMapRequest) returns (QuerySevenDaysToDieMapResponse);
   rpc QuerySevenDaysToDieWebAPIStatus(QuerySevenDaysToDieWebAPIStatusRequest) returns (QuerySevenDaysToDieWebAPIStatusResponse);
   rpc QuerySevenDaysToDiePlayers(QuerySevenDaysToDiePlayersRequest) returns (QuerySevenDaysToDiePlayersResponse);
+  rpc QuerySevenDaysToDieReportedMods(QuerySevenDaysToDieReportedModsRequest) returns (QuerySevenDaysToDieReportedModsResponse);
   rpc GetSevenDaysToDieMapTile(GetSevenDaysToDieMapTileRequest) returns (GetSevenDaysToDieMapTileResponse);
   rpc EnsureMinecraftMap(EnsureMinecraftMapRequest) returns (EnsureMinecraftMapResponse);
   rpc StopMinecraftMap(StopMinecraftMapRequest) returns (StopMinecraftMapResponse);
@@ -1051,4 +1052,28 @@ message QuerySevenDaysToDiePlayersRequest {
 
 message QuerySevenDaysToDiePlayersResponse {
   SevenDaysToDiePlayers result = 1;
+}
+
+message SevenDaysToDieReportedMod {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  string author = 4;
+  string version = 5;
+}
+
+message SevenDaysToDieReportedMods {
+  SevenDaysToDieWebAPIConnectionState connection_state = 1;
+  SevenDaysToDieWebAPIValueState state = 2;
+  repeated SevenDaysToDieReportedMod mods = 3;
+}
+
+message QuerySevenDaysToDieReportedModsRequest {
+  string working_directory = 1;
+  string token_name = 2;
+  string token_secret = 3;
+}
+
+message QuerySevenDaysToDieReportedModsResponse {
+  SevenDaysToDieReportedMods result = 1;
 }

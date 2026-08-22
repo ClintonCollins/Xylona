@@ -154,6 +154,7 @@ service Xylona {
   rpc UninstallMod (UninstallModRequest) returns (UninstallModResponse) {}
   rpc UpdateMod (UpdateModRequest) returns (UpdateModResponse) {}
   rpc ListInstalledMods (ListInstalledModsRequest) returns (ListInstalledModsResponse) {}
+  rpc GetSevenDaysToDieReportedMods (GetSevenDaysToDieReportedModsRequest) returns (GetSevenDaysToDieReportedModsResponse) {}
   rpc SetModAutoUpdate (SetModAutoUpdateRequest) returns (SetModAutoUpdateResponse) {}
   rpc SetModEnabled (SetModEnabledRequest) returns (SetModEnabledResponse) {}
   rpc PinModVersion (PinModVersionRequest) returns (PinModVersionResponse) {}
@@ -1321,6 +1322,24 @@ message ListInstalledModsRequest {
 }
 message ListInstalledModsResponse {
   repeated InstalledMod installed_mods = 1;
+}
+
+message SevenDaysToDieReportedMod {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  string author = 4;
+  string version = 5;
+}
+
+message GetSevenDaysToDieReportedModsRequest {
+  string game_server_id = 1;
+}
+
+message GetSevenDaysToDieReportedModsResponse {
+  SevenDaysToDieWebAPIConnectionState connection_state = 1;
+  SevenDaysToDieWebAPIValueState state = 2;
+  repeated SevenDaysToDieReportedMod mods = 3;
 }
 
 message SetModAutoUpdateRequest {

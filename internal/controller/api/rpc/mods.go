@@ -503,9 +503,18 @@ func (xs *XylonaService) ListInstalledMods(
 	_ context.Context,
 	request *connect.Request[xylona.ListInstalledModsRequest],
 ) (*connect.Response[xylona.ListInstalledModsResponse], error) {
-	_, errUser := xs.getUserFromHeader(request.Header())
+	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
 		return nil, unauthenticated()
+	}
+
+	gameServer, errGetServer := xs.getGameServerFromID(request.Msg.GetGameServerId())
+	if errGetServer != nil {
+		return nil, errGetServer
+	}
+	errPerm := xs.ensureLocalServerPermission(user, gameServer, PermissionGameServerMods)
+	if errPerm != nil {
+		return nil, errPerm
 	}
 
 	mods, errGet := xs.db.GetInstalledModsByGameServerID(request.Msg.GetGameServerId())

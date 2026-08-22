@@ -773,6 +773,20 @@ func (c *GRPCNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, players
 	return sevenDaysToDiePlayersFromProto(resp.Msg.GetResult()), nil
 }
 
+// QuerySevenDaysToDieReportedMods invokes the private native reported-mod RPC.
+func (c *GRPCNodeClient) QuerySevenDaysToDieReportedMods(ctx context.Context, modsReq node.SevenDaysToDieReportedModsQueryRequest) (*node.SevenDaysToDieReportedMods, error) {
+	req := newReq(c, &nodeprotov1.QuerySevenDaysToDieReportedModsRequest{
+		WorkingDirectory: modsReq.WorkingDirectory,
+		TokenName:        modsReq.TokenName,
+		TokenSecret:      modsReq.TokenSecret,
+	})
+	resp, errRPC := c.connectClient.QuerySevenDaysToDieReportedMods(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("query 7 Days to Die reported mods", errRPC)
+	}
+	return sevenDaysToDieReportedModsFromProto(resp.Msg.GetResult()), nil
+}
+
 // GetSevenDaysToDieMapTile invokes the bounded native-tile RPC.
 func (c *GRPCNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, tileReq node.SevenDaysToDieMapTileRequest) ([]byte, error) {
 	req := newReq(c, &nodeprotov1.GetSevenDaysToDieMapTileRequest{
@@ -1386,6 +1400,26 @@ func sevenDaysToDiePlayersFromProto(result *nodeprotov1.SevenDaysToDiePlayers) *
 		ConnectionState: sevenDaysToDieWebAPIConnectionStateFromProto(result.GetConnectionState()),
 		State:           sevenDaysToDieWebAPIValueStateFromProto(result.GetState()),
 		Players:         players,
+	}
+}
+
+func sevenDaysToDieReportedModsFromProto(result *nodeprotov1.SevenDaysToDieReportedMods) *node.SevenDaysToDieReportedMods {
+	if result == nil {
+		return nil
+	}
+	mods := make([]node.SevenDaysToDieReportedMod, 0, len(result.GetMods()))
+	for _, mod := range result.GetMods() {
+		if mod == nil {
+			continue
+		}
+		mods = append(mods, node.SevenDaysToDieReportedMod{
+			Name: mod.GetName(), DisplayName: mod.GetDisplayName(), Description: mod.GetDescription(), Author: mod.GetAuthor(), Version: mod.GetVersion(),
+		})
+	}
+	return &node.SevenDaysToDieReportedMods{
+		ConnectionState: sevenDaysToDieWebAPIConnectionStateFromProto(result.GetConnectionState()),
+		State:           sevenDaysToDieWebAPIValueStateFromProto(result.GetState()),
+		Mods:            mods,
 	}
 }
 

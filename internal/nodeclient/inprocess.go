@@ -345,6 +345,17 @@ func (c *inProcessNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, re
 	return result, nil
 }
 
+func (c *inProcessNodeClient) QuerySevenDaysToDieReportedMods(ctx context.Context, req node.SevenDaysToDieReportedModsQueryRequest) (*node.SevenDaysToDieReportedMods, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+	result, errQuery := c.node.QuerySevenDaysToDieReportedMods(ctx, req)
+	if errQuery != nil {
+		return nil, fmt.Errorf("nodeclient: query 7 Days to Die reported mods: %w", errQuery)
+	}
+	return result, nil
+}
+
 func (c *inProcessNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error) {
 	if c.node == nil {
 		return nil, ErrNodeNil

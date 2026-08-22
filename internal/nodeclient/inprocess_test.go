@@ -98,6 +98,32 @@ func TestInProcessClientQuerySevenDaysToDiePlayers(t *testing.T) {
 	}
 }
 
+func TestInProcessClientQuerySevenDaysToDieReportedMods(t *testing.T) {
+	client, _ := newTestClient(t)
+	directory := t.TempDir()
+	config := `<ServerSettings>
+		<property name="WebDashboardEnabled" value="false" />
+		<property name="WebDashboardPort" value="8082" />
+	</ServerSettings>`
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+
+	result, errQuery := client.QuerySevenDaysToDieReportedMods(t.Context(), node.SevenDaysToDieReportedModsQueryRequest{
+		WorkingDirectory: directory,
+		TokenName:        "controller",
+		TokenSecret:      "web-api-secret",
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieReportedMods: %v", errQuery)
+	}
+	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled ||
+		result.State != node.SevenDaysToDieWebAPIValueStateUnavailable {
+		t.Fatalf("result = %+v, want dashboard disabled", result)
+	}
+}
+
 func TestInProcessClientFileRoundTrip(t *testing.T) {
 	client, _ := newTestClient(t)
 	dir := t.TempDir()
