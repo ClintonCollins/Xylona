@@ -690,6 +690,13 @@ type SevenDaysToDieReportedModsQueryRequest struct {
 	TokenSecret      string
 }
 
+const (
+	// SevenDaysToDieReportedModCountLimit bounds one ephemeral inventory.
+	SevenDaysToDieReportedModCountLimit = 512
+	// SevenDaysToDieReportedModFieldByteLimit bounds each upstream text field.
+	SevenDaysToDieReportedModFieldByteLimit = 1024
+)
+
 // SevenDaysToDieReportedMod is one read-only mod record supplied by the game server.
 type SevenDaysToDieReportedMod struct {
 	Name        string
@@ -704,6 +711,28 @@ type SevenDaysToDieReportedMods struct {
 	ConnectionState SevenDaysToDieWebAPIConnectionState
 	State           SevenDaysToDieWebAPIValueState
 	Mods            []SevenDaysToDieReportedMod
+}
+
+// ValidateSevenDaysToDieReportedMods enforces the shared inventory bounds at
+// node and controller trust boundaries.
+func ValidateSevenDaysToDieReportedMods(mods []SevenDaysToDieReportedMod) error {
+	if len(mods) > SevenDaysToDieReportedModCountLimit {
+		return errors.New("node: 7 Days to Die reported mod count exceeds limit")
+	}
+	for _, mod := range mods {
+		errMod := validateSevenDaysToDieReportedMod(mod)
+		if errMod != nil {
+			return errMod
+		}
+	}
+	return nil
+}
+
+func validateSevenDaysToDieReportedMod(mod SevenDaysToDieReportedMod) error {
+	if max(len(mod.Name), len(mod.DisplayName), len(mod.Description), len(mod.Author), len(mod.Version)) > SevenDaysToDieReportedModFieldByteLimit {
+		return errors.New("node: 7 Days to Die reported mod field exceeds limit")
+	}
+	return nil
 }
 
 // SevenDaysToDieMapTileRequest identifies one native tile. Coordinates are

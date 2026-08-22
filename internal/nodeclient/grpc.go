@@ -31,15 +31,18 @@ const AuthorizationHeader = "Authorization"
 // authorizationScheme is the value prefix paired with AuthorizationHeader.
 const authorizationScheme = "Bearer "
 
+const sevenDaysToDieReportedModsResponseLimit = 3 << 20
+
 // GRPCNodeClient is the controller-side NodeClient implementation that talks
 // to a remote node over Connect-RPC. The transport TLS layer pins the node's
 // self-signed cert fingerprint; application-layer auth is the bearer token.
 type GRPCNodeClient struct {
-	nodeID        string
-	listenURL     string
-	sharedSecret  string
-	httpClient    *http.Client
-	connectClient nodeprotoconnect.NodeServiceClient
+	nodeID             string
+	listenURL          string
+	sharedSecret       string
+	httpClient         *http.Client
+	connectClient      nodeprotoconnect.NodeServiceClient
+	reportedModsClient nodeprotoconnect.NodeServiceClient
 }
 
 // NewGRPCClient constructs a remote NodeClient. listenURL is the node's HTTPS
@@ -70,13 +73,19 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		listenURL,
 		connect.WithReadMaxBytes(32<<20),
 	)
+	reportedModsClient := nodeprotoconnect.NewNodeServiceClient(
+		httpClient,
+		listenURL,
+		connect.WithReadMaxBytes(sevenDaysToDieReportedModsResponseLimit),
+	)
 
 	return &GRPCNodeClient{
-		nodeID:        nodeID,
-		listenURL:     listenURL,
-		sharedSecret:  sharedSecret,
-		httpClient:    httpClient,
-		connectClient: connectClient,
+		nodeID:             nodeID,
+		listenURL:          listenURL,
+		sharedSecret:       sharedSecret,
+		httpClient:         httpClient,
+		connectClient:      connectClient,
+		reportedModsClient: reportedModsClient,
 	}, nil
 }
 
@@ -780,11 +789,15 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieReportedMods(ctx context.Context, mo
 		TokenName:        modsReq.TokenName,
 		TokenSecret:      modsReq.TokenSecret,
 	})
-	resp, errRPC := c.connectClient.QuerySevenDaysToDieReportedMods(ctx, req)
+	resp, errRPC := c.reportedModsClient.QuerySevenDaysToDieReportedMods(ctx, req)
 	if errRPC != nil {
 		return nil, translateError("query 7 Days to Die reported mods", errRPC)
 	}
-	return sevenDaysToDieReportedModsFromProto(resp.Msg.GetResult()), nil
+	result, errResult := sevenDaysToDieReportedModsFromProto(resp.Msg.GetResult())
+	if errResult != nil {
+		return nil, fmt.Errorf("query 7 Days to Die reported mods: invalid node response: %w", errResult)
+	}
+	return result, nil
 }
 
 // GetSevenDaysToDieMapTile invokes the bounded native-tile RPC.
@@ -1403,24 +1416,32 @@ func sevenDaysToDiePlayersFromProto(result *nodeprotov1.SevenDaysToDiePlayers) *
 	}
 }
 
-func sevenDaysToDieReportedModsFromProto(result *nodeprotov1.SevenDaysToDieReportedMods) *node.SevenDaysToDieReportedMods {
+func sevenDaysToDieReportedModsFromProto(result *nodeprotov1.SevenDaysToDieReportedMods) (*node.SevenDaysToDieReportedMods, error) {
 	if result == nil {
-		return nil
+		return nil, errors.New("reported mod result is missing")
 	}
-	mods := make([]node.SevenDaysToDieReportedMod, 0, len(result.GetMods()))
-	for _, mod := range result.GetMods() {
+	protoMods := result.GetMods()
+	if len(protoMods) > node.SevenDaysToDieReportedModCountLimit {
+		return nil, errors.New("reported mod count exceeds limit")
+	}
+	mods := make([]node.SevenDaysToDieReportedMod, 0, len(protoMods))
+	for _, mod := range protoMods {
 		if mod == nil {
-			continue
+			return nil, errors.New("reported mod is missing")
 		}
 		mods = append(mods, node.SevenDaysToDieReportedMod{
 			Name: mod.GetName(), DisplayName: mod.GetDisplayName(), Description: mod.GetDescription(), Author: mod.GetAuthor(), Version: mod.GetVersion(),
 		})
 	}
+	errMods := node.ValidateSevenDaysToDieReportedMods(mods)
+	if errMods != nil {
+		return nil, fmt.Errorf("validate reported mods: %w", errMods)
+	}
 	return &node.SevenDaysToDieReportedMods{
 		ConnectionState: sevenDaysToDieWebAPIConnectionStateFromProto(result.GetConnectionState()),
 		State:           sevenDaysToDieWebAPIValueStateFromProto(result.GetState()),
 		Mods:            mods,
-	}
+	}, nil
 }
 
 func sevenDaysToDieWebAPICapabilitiesFromProto(capabilities *nodeprotov1.SevenDaysToDieWebAPICapabilities) node.SevenDaysToDieWebAPICapabilities {

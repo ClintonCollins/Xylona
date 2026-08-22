@@ -73,6 +73,10 @@ func (xs *XylonaService) GetSevenDaysToDieReportedMods(
 	if reportedMods == nil {
 		return nil, internalErrf("node returned an empty 7 Days to Die reported mod result")
 	}
+	errValidate := node.ValidateSevenDaysToDieReportedMods(reportedMods.Mods)
+	if errValidate != nil {
+		return nil, internalErrf("node returned an invalid 7 Days to Die reported mod result")
+	}
 
 	mods := make([]*xylona.SevenDaysToDieReportedMod, 0, len(reportedMods.Mods))
 	for _, reportedMod := range reportedMods.Mods {

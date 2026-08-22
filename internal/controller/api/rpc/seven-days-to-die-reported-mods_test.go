@@ -107,10 +107,22 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 			versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{},
 		)
 
-		var beforeCount int
-		errBefore := fixture.conn.SQLDb.QueryRowContext(t.Context(), "select count(*) from installed_mod where game_server_id = ?", "server-local-1").Scan(&beforeCount)
+		_, errSeedMod := fixture.conn.SQLDb.ExecContext(t.Context(), `insert into installed_mod
+			(id, game_server_id, source, source_id, mod_name, mod_author, installed_version, installed_version_id,
+			 file_hash, auto_update, enabled, pinned_version, created_at, updated_at)
+			values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			"managed-mod-1", "server-local-1", "curseforge", "source-1", "Managed Mod", "Managed Author",
+			"1.0.0", "version-1", "sha256:managed", 1, 0, "0.9.0", "2026-08-20 01:02:03", "2026-08-21 04:05:06")
+		if errSeedMod != nil {
+			t.Fatalf("seed managed mod: %v", errSeedMod)
+		}
+		const snapshotQuery = `select json_array(id, game_server_id, source, source_id, mod_name, mod_author,
+			installed_version, installed_version_id, file_hash, auto_update, enabled, pinned_version, created_at, updated_at)
+			from installed_mod where id = ?`
+		var beforeContents string
+		errBefore := fixture.conn.SQLDb.QueryRowContext(t.Context(), snapshotQuery, "managed-mod-1").Scan(&beforeContents)
 		if errBefore != nil {
-			t.Fatalf("count managed mods before query: %v", errBefore)
+			t.Fatalf("read managed mod before query: %v", errBefore)
 		}
 		request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
 		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
@@ -118,13 +130,13 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 		if errMods != nil {
 			t.Fatalf("GetSevenDaysToDieReportedMods() error = %v", errMods)
 		}
-		var afterCount int
-		errAfter := fixture.conn.SQLDb.QueryRowContext(t.Context(), "select count(*) from installed_mod where game_server_id = ?", "server-local-1").Scan(&afterCount)
+		var afterContents string
+		errAfter := fixture.conn.SQLDb.QueryRowContext(t.Context(), snapshotQuery, "managed-mod-1").Scan(&afterContents)
 		if errAfter != nil {
-			t.Fatalf("count managed mods after query: %v", errAfter)
+			t.Fatalf("read managed mod after query: %v", errAfter)
 		}
-		if afterCount != beforeCount {
-			t.Fatalf("managed mod count = %d, want unchanged %d", afterCount, beforeCount)
+		if afterContents != beforeContents {
+			t.Fatalf("managed mod contents changed from %s to %s", beforeContents, afterContents)
 		}
 
 		if len(localClient.QuerySevenDaysToDieReportedModsCalls) != 0 || len(remoteClient.QuerySevenDaysToDieReportedModsCalls) != 1 {
@@ -177,6 +189,26 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 			wantConnection: xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
 			wantState:      xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
 		},
+	}
+
+	invalidInventories := []struct {
+		name string
+		mods []node.SevenDaysToDieReportedMod
+	}{
+		{name: "over-count", mods: make([]node.SevenDaysToDieReportedMod, node.SevenDaysToDieReportedModCountLimit+1)},
+		{name: "over-limit field", mods: []node.SevenDaysToDieReportedMod{{Description: strings.Repeat("x", node.SevenDaysToDieReportedModFieldByteLimit+1)}}},
+	}
+	for _, test := range invalidInventories {
+		t.Run("rejects invalid "+test.name+" inventory", func(t *testing.T) {
+			fixture, _ := newReportedModsRPCFixture(t, &node.SevenDaysToDieReportedMods{Mods: test.mods})
+			request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+			_, errMods := fixture.service.GetSevenDaysToDieReportedMods(t.Context(), request)
+			if connect.CodeOf(errMods) != connect.CodeInternal {
+				t.Fatalf("GetSevenDaysToDieReportedMods() code = %v, want %v", connect.CodeOf(errMods), connect.CodeInternal)
+			}
+		})
 	}
 	for _, test := range states {
 		t.Run("projects "+test.name, func(t *testing.T) {

@@ -666,6 +666,8 @@ func TestNodeQuerySevenDaysToDieReportedMods(t *testing.T) {
 		{name: "internal query timeout", master: fullSevenDaysToDieOpenAPI(), waitForTimeout: true, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "malformed result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "oversized result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "over-count result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":[` + strings.Repeat(`{},`, SevenDaysToDieReportedModCountLimit) + `{}` + `]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "over-limit field result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":[{"description":"` + strings.Repeat("x", SevenDaysToDieReportedModFieldByteLimit+1) + `"}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

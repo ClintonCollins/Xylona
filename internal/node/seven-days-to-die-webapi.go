@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -105,10 +106,6 @@ type sevenDaysToDiePlayersEnvelope struct {
 	Data struct {
 		Players []sevenDaysToDiePlayerJSON `json:"players"`
 	} `json:"data"`
-}
-
-type sevenDaysToDieReportedModsEnvelope struct {
-	Data []sevenDaysToDieReportedModJSON `json:"data"`
 }
 
 type sevenDaysToDieReportedModJSON struct {
@@ -626,17 +623,83 @@ func decodeSevenDaysToDiePlayers(body []byte) ([]SevenDaysToDiePlayer, error) {
 }
 
 func decodeSevenDaysToDieReportedMods(body []byte) ([]SevenDaysToDieReportedMod, error) {
-	var envelope sevenDaysToDieReportedModsEnvelope
-	errDecode := json.Unmarshal(body, &envelope)
-	if errDecode != nil {
-		return nil, fmt.Errorf("decode 7 Days to Die reported mods: %w", errDecode)
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	opening, errOpening := decoder.Token()
+	if errOpening != nil {
+		return nil, fmt.Errorf("decode 7 Days to Die reported mods: invalid envelope: %w", errOpening)
 	}
-	if envelope.Data == nil {
+	if opening != json.Delim('{') {
+		return nil, errors.New("decode 7 Days to Die reported mods: invalid envelope")
+	}
+
+	mods := make([]SevenDaysToDieReportedMod, 0)
+	foundMods := false
+	for decoder.More() {
+		fieldToken, errField := decoder.Token()
+		if errField != nil {
+			return nil, fmt.Errorf("decode 7 Days to Die reported mods: read envelope field: %w", errField)
+		}
+		field, validField := fieldToken.(string)
+		if !validField {
+			return nil, errors.New("decode 7 Days to Die reported mods: invalid envelope field")
+		}
+		if field != "data" {
+			var ignored json.RawMessage
+			errIgnored := decoder.Decode(&ignored)
+			if errIgnored != nil {
+				return nil, fmt.Errorf("decode 7 Days to Die reported mods: skip envelope field: %w", errIgnored)
+			}
+			continue
+		}
+		if foundMods {
+			return nil, errors.New("decode 7 Days to Die reported mods: duplicate mod list")
+		}
+		foundMods = true
+		openingMods, errOpeningMods := decoder.Token()
+		if errOpeningMods != nil {
+			return nil, fmt.Errorf("decode 7 Days to Die reported mods: invalid mod list: %w", errOpeningMods)
+		}
+		if openingMods != json.Delim('[') {
+			return nil, errors.New("decode 7 Days to Die reported mods: invalid mod list")
+		}
+		for decoder.More() {
+			if len(mods) == SevenDaysToDieReportedModCountLimit {
+				return nil, errors.New("decode 7 Days to Die reported mods: mod count exceeds limit")
+			}
+			var rawMod sevenDaysToDieReportedModJSON
+			errMod := decoder.Decode(&rawMod)
+			if errMod != nil {
+				return nil, fmt.Errorf("decode 7 Days to Die reported mods: decode mod: %w", errMod)
+			}
+			mod := SevenDaysToDieReportedMod(rawMod)
+			errMod = validateSevenDaysToDieReportedMod(mod)
+			if errMod != nil {
+				return nil, fmt.Errorf("decode 7 Days to Die reported mods: %w", errMod)
+			}
+			mods = append(mods, mod)
+		}
+		closingMods, errClosingMods := decoder.Token()
+		if errClosingMods != nil {
+			return nil, fmt.Errorf("decode 7 Days to Die reported mods: invalid mod list end: %w", errClosingMods)
+		}
+		if closingMods != json.Delim(']') {
+			return nil, errors.New("decode 7 Days to Die reported mods: invalid mod list end")
+		}
+	}
+	closing, errClosing := decoder.Token()
+	if errClosing != nil {
+		return nil, fmt.Errorf("decode 7 Days to Die reported mods: invalid envelope end: %w", errClosing)
+	}
+	if closing != json.Delim('}') {
+		return nil, errors.New("decode 7 Days to Die reported mods: invalid envelope end")
+	}
+	if !foundMods {
 		return nil, errors.New("decode 7 Days to Die reported mods: missing mod list")
 	}
-	mods := make([]SevenDaysToDieReportedMod, 0, len(envelope.Data))
-	for _, rawMod := range envelope.Data {
-		mods = append(mods, SevenDaysToDieReportedMod(rawMod))
+	var trailing json.RawMessage
+	errTrailing := decoder.Decode(&trailing)
+	if !errors.Is(errTrailing, io.EOF) {
+		return nil, errors.New("decode 7 Days to Die reported mods: trailing data")
 	}
 	return mods, nil
 }

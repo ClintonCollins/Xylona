@@ -915,37 +915,56 @@ func TestGRPCClientQuerySevenDaysToDiePlayers(t *testing.T) {
 
 func TestGRPCClientQuerySevenDaysToDieReportedMods(t *testing.T) {
 	t.Parallel()
-	recorder := &callRecorder{
-		reportedModsResp: &nodeprotov1.QuerySevenDaysToDieReportedModsResponse{
-			Result: &nodeprotov1.SevenDaysToDieReportedMods{
-				ConnectionState: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
-				State:           nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
-				Mods: []*nodeprotov1.SevenDaysToDieReportedMod{{
-					Name: "Example", DisplayName: "Example Mod", Description: "Description", Author: "Author", Version: "1.0",
-				}},
-			},
+	tests := []struct {
+		name    string
+		mods    []*nodeprotov1.SevenDaysToDieReportedMod
+		wantErr bool
+	}{
+		{
+			name: "maps bounded inventory",
+			mods: []*nodeprotov1.SevenDaysToDieReportedMod{{
+				Name: "Example", DisplayName: "Example Mod", Description: "Description", Author: "Author", Version: "1.0",
+			}},
 		},
+		{name: "rejects over-count inventory", mods: make([]*nodeprotov1.SevenDaysToDieReportedMod, node.SevenDaysToDieReportedModCountLimit+1), wantErr: true},
+		{name: "rejects over-limit field", mods: []*nodeprotov1.SevenDaysToDieReportedMod{{Name: strings.Repeat("x", node.SevenDaysToDieReportedModFieldByteLimit+1)}}, wantErr: true},
 	}
-	url, fingerprint := newPinnedTestServer(t, recorder)
-	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
-	if errNew != nil {
-		t.Fatalf("NewGRPCClient: %v", errNew)
-	}
-	result, errQuery := client.QuerySevenDaysToDieReportedMods(t.Context(), node.SevenDaysToDieReportedModsQueryRequest{
-		WorkingDirectory: "C:/servers/7dtd", TokenName: "controller", TokenSecret: "web-api-secret",
-	})
-	if errQuery != nil {
-		t.Fatalf("QuerySevenDaysToDieReportedMods: %v", errQuery)
-	}
-	if result == nil || result.State != node.SevenDaysToDieWebAPIValueStateAvailable || len(result.Mods) != 1 ||
-		result.Mods[0] != (node.SevenDaysToDieReportedMod{Name: "Example", DisplayName: "Example Mod", Description: "Description", Author: "Author", Version: "1.0"}) {
-		t.Fatalf("result = %+v", result)
-	}
-	recorder.mu.Lock()
-	request := recorder.reportedModsReq
-	recorder.mu.Unlock()
-	if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
-		t.Fatal("request did not preserve the expected directory and credentials")
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := &callRecorder{
+				reportedModsResp: &nodeprotov1.QuerySevenDaysToDieReportedModsResponse{
+					Result: &nodeprotov1.SevenDaysToDieReportedMods{
+						ConnectionState: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+						State:           nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+						Mods:            test.mods,
+					},
+				},
+			}
+			url, fingerprint := newPinnedTestServer(t, recorder)
+			client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+			if errNew != nil {
+				t.Fatalf("NewGRPCClient: %v", errNew)
+			}
+			result, errQuery := client.QuerySevenDaysToDieReportedMods(t.Context(), node.SevenDaysToDieReportedModsQueryRequest{
+				WorkingDirectory: "C:/servers/7dtd", TokenName: "controller", TokenSecret: "web-api-secret",
+			})
+			if (errQuery != nil) != test.wantErr {
+				t.Fatalf("QuerySevenDaysToDieReportedMods() error = %v, want error %t", errQuery, test.wantErr)
+			}
+			if test.wantErr {
+				return
+			}
+			if result == nil || result.State != node.SevenDaysToDieWebAPIValueStateAvailable || len(result.Mods) != 1 ||
+				result.Mods[0] != (node.SevenDaysToDieReportedMod{Name: "Example", DisplayName: "Example Mod", Description: "Description", Author: "Author", Version: "1.0"}) {
+				t.Fatalf("result = %+v", result)
+			}
+			recorder.mu.Lock()
+			request := recorder.reportedModsReq
+			recorder.mu.Unlock()
+			if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
+				t.Fatal("request did not preserve the expected directory and credentials")
+			}
+		})
 	}
 }
 
