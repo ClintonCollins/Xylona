@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/urfave/cli/v3"
 
@@ -205,8 +206,7 @@ func assignNewNodeServicePaths(
 			)
 		}
 	}
-	for index := len(createdDataDirectories) - 1; index >= 0; index-- {
-		directoryPath := createdDataDirectories[index]
+	for _, directoryPath := range slices.Backward(createdDataDirectories) {
 		errDirectory := appservice.ChownLinuxPath(directoryPath, account)
 		if errDirectory != nil {
 			return nodeServiceOwnershipRecoveryError(
@@ -301,8 +301,7 @@ func missingNodeServiceDirectories(dataDirectory string) ([]string, string, erro
 
 func cleanupCreatedNodeServiceDirectories(createdDataDirectories []string) error {
 	var cleanupErrors []error
-	for index := len(createdDataDirectories) - 1; index >= 0; index-- {
-		directoryPath := createdDataDirectories[index]
+	for _, directoryPath := range slices.Backward(createdDataDirectories) {
 		errRemove := os.Remove(directoryPath)
 		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
 			cleanupErrors = append(
