@@ -207,7 +207,7 @@ func (*Node) QuerySevenDaysToDiePlayers(ctx context.Context, req SevenDaysToDieP
 	players, errDecode := decodeSevenDaysToDiePlayers(body)
 	if errDecode != nil {
 		result.State = SevenDaysToDieWebAPIValueStateUnavailable
-		return result, nil //nolint:nilerr // Invalid upstream data is represented as an unavailable value state.
+		return result, nil
 	}
 	result.Players = players
 	return result, nil
@@ -251,7 +251,7 @@ func (*Node) QuerySevenDaysToDieReportedMods(ctx context.Context, req SevenDaysT
 	mods, errDecode := decodeSevenDaysToDieReportedMods(body)
 	if errDecode != nil {
 		result.State = SevenDaysToDieWebAPIValueStateUnavailable
-		return result, nil //nolint:nilerr // Invalid upstream data is represented as an unavailable value state.
+		return result, nil
 	}
 	result.Mods = mods
 	return result, nil
@@ -265,7 +265,7 @@ func discoverSevenDaysToDieWebAPI(
 ) (*sevenDaysToDieWebAPIDiscovery, error) {
 	errContext := ctx.Err()
 	if errContext != nil {
-		return nil, errContext
+		return nil, fmt.Errorf("node: discover 7 Days to Die WebAPI: %w", errContext)
 	}
 	queryCtx, cancel := context.WithTimeout(ctx, sevenDaysToDieWebAPIQueryTimeout)
 	discovery := &sevenDaysToDieWebAPIDiscovery{
@@ -275,7 +275,7 @@ func discoverSevenDaysToDieWebAPI(
 	}
 	settings, errSettings := readSevenDaysToDieWebAPISettings(workingDirectory)
 	if errSettings != nil {
-		return discovery, nil
+		return discovery, nil //nolint:nilerr // Invalid server settings are represented as a misconfigured connection state.
 	}
 	discovery.settings = settings
 	if !settings.enabled {
@@ -287,7 +287,7 @@ func discoverSevenDaysToDieWebAPI(
 		errContext = ctx.Err()
 		if errContext != nil {
 			cancel()
-			return nil, errContext
+			return nil, fmt.Errorf("node: discover 7 Days to Die WebAPI: %w", errContext)
 		}
 		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateUnreachable
 		if errors.Is(errQuery, errSevenDaysToDieWebAPIResponseTooLarge) {
@@ -311,7 +311,7 @@ func discoverSevenDaysToDieWebAPI(
 	errYAML := yaml.Unmarshal(body, &document)
 	if errYAML != nil {
 		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateInvalidResponse
-		return discovery, nil
+		return discovery, nil //nolint:nilerr // Invalid discovery data is represented as an invalid-response state.
 	}
 	if !strings.HasPrefix(strings.TrimSpace(document.OpenAPI), "3.") {
 		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported
@@ -346,7 +346,7 @@ func querySevenDaysToDieWebAPIResource(
 	if errQuery != nil {
 		errContext := callerCtx.Err()
 		if errContext != nil {
-			return SevenDaysToDieWebAPIValueStateUnavailable, nil, errContext
+			return SevenDaysToDieWebAPIValueStateUnavailable, nil, fmt.Errorf("query 7 Days to Die WebAPI resource: %w", errContext)
 		}
 		return SevenDaysToDieWebAPIValueStateUnavailable, nil, nil
 	}
@@ -636,13 +636,7 @@ func decodeSevenDaysToDieReportedMods(body []byte) ([]SevenDaysToDieReportedMod,
 	}
 	mods := make([]SevenDaysToDieReportedMod, 0, len(envelope.Data))
 	for _, rawMod := range envelope.Data {
-		mods = append(mods, SevenDaysToDieReportedMod{
-			Name:        rawMod.Name,
-			DisplayName: rawMod.DisplayName,
-			Description: rawMod.Description,
-			Author:      rawMod.Author,
-			Version:     rawMod.Version,
-		})
+		mods = append(mods, SevenDaysToDieReportedMod(rawMod))
 	}
 	return mods, nil
 }

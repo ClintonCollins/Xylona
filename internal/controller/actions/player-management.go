@@ -110,7 +110,7 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 				return management, fmt.Errorf("actions: query native player roster: %w", errQuery)
 			}
 			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
-			return management, nil //nolint:nilerr // Node transport failure is represented as an unavailable roster.
+			return management, nil
 		}
 		if result == nil {
 			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
