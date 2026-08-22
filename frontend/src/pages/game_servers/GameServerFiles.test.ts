@@ -9,6 +9,7 @@ import {
   type File as XylonaFile,
 } from '@/proto/gameserver_files_operations_pb'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import FileUploaderDrop from '@/components/game_servers/FileUploaderDrop.vue'
 import { GameServerSchema, type GameServer } from '@/proto/shared_pb'
 import { GetGameServerResponseSchema } from '@/proto/xylona_pb'
 import GameServerFiles from './GameServerFiles.vue'
@@ -499,6 +500,61 @@ describe('GameServerFiles', () => {
     expect(mocks.notify).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'server.jar uploaded from URL.' }),
     )
+    wrapper.unmount()
+  })
+
+  it('keeps the upload dialog open when a file upload fails', async () => {
+    class FailedUploadXHR {
+      status = 500
+      responseText = 'upload failed'
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      onabort: (() => void) | null = null
+      open() {}
+      abort() {}
+      send() {
+        queueMicrotask(() => this.onload?.())
+      }
+    }
+
+    vi.stubGlobal('XMLHttpRequest', FailedUploadXHR)
+    mocks.listDirectoryFiles.mockResolvedValue(
+      create(ListDirectoryFilesResponseSchema, { files: [] }),
+    )
+
+    const wrapper = shallowMount(GameServerFiles, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          FileUploaderDrop: false,
+          QInput: { template: '<input />' },
+          QVirtualScroll: virtualScrollStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as { fileUploaderDialog: boolean }
+    viewModel.fileUploaderDialog = true
+    await flushPromises()
+
+    const uploaderWrapper = wrapper.findComponent(FileUploaderDrop)
+    const input = uploaderWrapper.get('[data-testid="file-upload-picker"]')
+    Object.defineProperty(input.element, 'files', {
+      configurable: true,
+      value: [new File(['server'], 'server.jar')],
+    })
+    await input.trigger('change')
+
+    const uploaderViewModel = uploaderWrapper.vm as unknown as {
+      uploader: { upload: () => Promise<void> }
+    }
+    await uploaderViewModel.uploader.upload()
+    await flushPromises()
+
+    expect(viewModel.fileUploaderDialog).toBe(true)
+    expect(uploaderWrapper.text()).toContain('upload failed')
     wrapper.unmount()
   })
 })

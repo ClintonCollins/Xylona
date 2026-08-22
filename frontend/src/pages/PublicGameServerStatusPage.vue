@@ -326,10 +326,16 @@ onUnmounted(() => {
                     dense
                     flat
                     :icon="copiedServerID === server.id ? 'check' : 'content_copy'"
-                    :label="copiedServerID === server.id ? 'Copied' : 'Copy'"
-                    no-caps
-                    @click="copyAddress(server)" />
+                    @click="copyAddress(server)">
+                    <q-tooltip>
+                      {{ copiedServerID === server.id ? 'Copied' : 'Copy address' }}
+                    </q-tooltip>
+                  </q-btn>
                 </div>
+              </div>
+              <div class="public-server-row__version">
+                <span class="public-server-row__label">Version</span>
+                <span class="public-server-row__value">{{ server.version || 'Unavailable' }}</span>
               </div>
               <div class="public-server-row__metrics">
                 <div>
@@ -485,13 +491,8 @@ onUnmounted(() => {
   gap: var(--xy-space-md) var(--xy-space-xl);
   padding: var(--xy-space-md);
   color: var(--xy-text-primary);
-  background: linear-gradient(
-    115deg,
-    var(--xy-accent-bg),
-    var(--xy-primary-bg-subtle) 52%,
-    var(--xy-surface-0)
-  );
-  border: 1px solid var(--xy-accent-border-soft);
+  background: color-mix(in srgb, var(--xy-accent) 5%, var(--xy-surface-0));
+  border: 1px solid color-mix(in srgb, var(--xy-accent) 16%, var(--xy-border));
   border-radius: var(--xy-radius-lg);
 }
 
@@ -531,7 +532,7 @@ onUnmounted(() => {
 
 .public-status-summary__caption {
   display: block;
-  color: color-mix(in srgb, var(--xy-text-primary) 72%, var(--xy-accent) 28%);
+  color: color-mix(in srgb, var(--xy-text-secondary) 88%, var(--xy-accent) 12%);
   font-size: var(--xy-font-size-xs);
 }
 
@@ -546,7 +547,6 @@ onUnmounted(() => {
   border-radius: var(--xy-radius-pill);
   font-size: var(--xy-font-size-xs);
   font-weight: 600;
-  animation: public-live-signal 2.8s ease-in-out infinite;
 }
 
 .public-status-summary__freshness::before {
@@ -560,13 +560,6 @@ onUnmounted(() => {
 .public-status-summary__freshness.is-stale {
   color: var(--xy-warning-hover);
   background: var(--xy-warning-bg-faint);
-  animation: none;
-}
-
-@keyframes public-live-signal {
-  50% {
-    background: var(--xy-success-bg);
-  }
 }
 
 .public-status-notice {
@@ -590,23 +583,25 @@ onUnmounted(() => {
 }
 
 .public-server-row.is-online {
-  background: color-mix(in srgb, var(--xy-success) 6%, var(--xy-surface-1));
-  border-color: var(--xy-success-border-soft);
+  background: color-mix(in srgb, var(--xy-success) 3%, var(--xy-surface-1));
+  border-color: color-mix(in srgb, var(--xy-success) 14%, var(--xy-border));
 }
 
 .public-server-row.is-offline {
-  background: color-mix(in srgb, var(--xy-danger) 3%, var(--xy-surface-1));
-  border-color: color-mix(in srgb, var(--xy-danger) 18%, var(--xy-border));
+  background: color-mix(in srgb, var(--xy-danger) 2%, var(--xy-surface-1));
+  border-color: color-mix(in srgb, var(--xy-danger) 12%, var(--xy-border));
 }
 
 .public-server-row.is-pending {
-  background: color-mix(in srgb, var(--xy-warning) 4%, var(--xy-surface-1));
-  border-color: var(--xy-warning-border-soft);
+  background: color-mix(in srgb, var(--xy-warning) 2%, var(--xy-surface-1));
+  border-color: color-mix(in srgb, var(--xy-warning) 14%, var(--xy-border));
 }
 
 .public-server-row__summary {
   display: grid;
-  grid-template-columns: minmax(180px, 1.3fr) minmax(170px, 1fr) minmax(230px, 0.8fr);
+  grid-template-columns:
+    minmax(180px, 1.3fr) minmax(170px, 1fr) minmax(90px, 0.4fr)
+    minmax(230px, 0.8fr);
   align-items: center;
   gap: var(--xy-space-base) var(--xy-space-md);
   min-height: 92px;
@@ -668,7 +663,6 @@ onUnmounted(() => {
 }
 
 .public-server-row__copy-action {
-  min-width: 86px;
   color: var(--xy-text-secondary);
   border-radius: var(--xy-radius-md);
   transition:
@@ -712,8 +706,8 @@ onUnmounted(() => {
 
 @keyframes public-roster-reveal {
   from {
-    opacity: 0.6;
-    transform: translateY(-4px);
+    opacity: 0.85;
+    transform: translateY(calc(var(--xy-space-2xs) * -1));
   }
 }
 
@@ -792,10 +786,6 @@ onUnmounted(() => {
   .public-server-row__summary {
     grid-template-columns: minmax(0, 1fr) minmax(170px, 1fr);
   }
-
-  .public-server-row__metrics {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 599px) {
@@ -833,7 +823,6 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .public-status-summary__freshness,
   .public-server-row__roster {
     animation: none;
   }

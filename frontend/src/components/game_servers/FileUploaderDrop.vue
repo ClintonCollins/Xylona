@@ -119,7 +119,10 @@
                 <q-item-label class="full-width ellipsis">
                   {{ file.file.name }}
                 </q-item-label>
-                <q-item-label caption> Status: {{ file.status.toString() }} </q-item-label>
+                <q-item-label caption>
+                  Status: {{ file.status.toString() }}
+                  <span v-if="file.errorMessage">— {{ file.errorMessage }}</span>
+                </q-item-label>
 
                 <q-item-label caption>
                   {{ file.uploadedSizeSoFarLabel }} uploaded out of {{ file.sizeLabel }} /
@@ -251,6 +254,7 @@ type uploaderFile = {
   sizeLabel: string
   progressLabel: string
   lastLoaded?: number
+  errorMessage?: string
 }
 
 enum FileStatus {
@@ -347,6 +351,7 @@ class FileUploader {
   }
 
   async upload() {
+    this.gotError = false
     this.isUploading = true
     this.canUpload = false
     this.abortController = new AbortController()
@@ -374,6 +379,7 @@ class FileUploader {
 
   async uploadFile(file: uploaderFile) {
     file.status = FileStatus.Queued
+    file.errorMessage = undefined
     const formData = new FormData()
     formData.append('gameServerId', props.gameServerId)
     formData.append('path', file.path)
@@ -398,7 +404,9 @@ class FileUploader {
           this.changeFileStatus(file, FileStatus.Aborted)
           return
         }
+        this.gotError = true
         this.changeFileStatus(file, FileStatus.Error)
+        file.errorMessage = error.message
         file.progressLabel = '0.00%'
       })
       .finally(async () => {
@@ -427,7 +435,9 @@ class FileUploader {
     this.finishedUpload = true
     this.abortController = null
     this.aborted = false
-    emits('uploadedFiles', this.uploadedFilesCount)
+    if (!this.gotError) {
+      emits('uploadedFiles', this.uploadedFilesCount)
+    }
   }
 
   setFileProgressDetails(file: uploaderFile, progressEvent: { loaded: number; total: number }) {

@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -193,7 +195,7 @@ func (xs *XylonaService) publicGameServerStatusPage(identifier string, statuses 
 			return xs.actionsInst.GetCachedGameServerStatus(server.ID)
 		}
 	}
-	return projectPublicGameServerStatusPage(page, servers, queries, telemetry, status), nil
+	return projectPublicGameServerStatusPage(page, servers, queries, telemetry, status, xs.versionState), nil
 }
 
 func (xs *XylonaService) statusPageOwner(header http.Header, requestedOwnerID string) (*models.User, error) {
@@ -286,12 +288,20 @@ func projectPublicGameServerStatusPage(
 	queries *xylona.AllServersQueryInfo,
 	telemetryFor func(string) actions.GameServerQueryTelemetrySnapshot,
 	statusFor func(*models.GameServer) xylona.Status,
+	versionState *versiontracker.VersionStateMap,
 ) *xylona.PublicGameServerStatusPage {
 	servers = slices.Clone(servers)
 	slices.SortFunc(servers, compareGameServersByName)
 	publicServers := make([]*xylona.PublicGameServerStatus, 0, len(servers))
 	for _, server := range servers {
 		telemetry := telemetryFor(server.ID)
+		version := strings.TrimSpace(server.Version)
+		if versionState != nil {
+			state, ok := versionState.GetWithOK(server.ID)
+			if ok {
+				version = cmp.Or(strings.TrimSpace(state.InstalledVersionLabel), strings.TrimSpace(state.InstalledVersion), version)
+			}
+		}
 		publicServer := &xylona.PublicGameServerStatus{
 			Id:                server.ID,
 			Name:              server.Name,
@@ -299,6 +309,7 @@ func projectPublicGameServerStatusPage(
 			ConnectionAddress: effectiveGameServerAddress(server),
 			MaxPlayerCount:    uint32FromInt64(server.MaxPlayers),
 			RosterState:       xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE,
+			Version:           version,
 		}
 		if server.R.Game != nil {
 			publicServer.GameName = server.R.Game.Name

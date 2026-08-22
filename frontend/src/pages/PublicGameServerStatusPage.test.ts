@@ -87,6 +87,7 @@ describe('PublicGameServerStatusPage', () => {
           gameName: 'Minecraft',
           status: Status.ONLINE,
           connectionAddress: 'play.example.test:25565',
+          version: '1.21.1',
           maxPlayerCount: 20,
           observedAt: timestampFromDate(new Date('2026-08-21T12:00:00Z')),
           playerNames: ['Alex'],
@@ -103,6 +104,7 @@ describe('PublicGameServerStatusPage', () => {
     expect(wrapper.text()).toContain('Live · updated 2m ago')
     expect(wrapper.text()).not.toContain('0 known · 1 unavailable')
     expect(wrapper.text()).toContain('Player count unavailable')
+    expect(wrapper.text()).toContain('1.21.1')
     expect(wrapper.get('.public-server-row').classes()).toContain('is-online')
     expect(FakeEventSource.instances[0]?.url).toBe('/api/public/status-pages/Fleet_A/events')
 
@@ -119,9 +121,7 @@ describe('PublicGameServerStatusPage', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('2 / 20')
     expect(wrapper.get('.public-status').attributes('aria-label')).toBe('Alpha status: Online')
-    expect(
-      wrapper.get('.public-server-row__metrics .public-server-row__value').attributes('aria-label'),
-    ).toBe('Alpha players: 2 / 20')
+    expect(wrapper.get('[aria-label="Alpha players: 2 / 20"]')).toBeDefined()
 
     mocks.getStatusPage.mockRejectedValueOnce(new ConnectError('not found', Code.NotFound))
     FakeEventSource.instances[0]?.onerror?.()
@@ -170,7 +170,7 @@ describe('PublicGameServerStatusPage', () => {
     expect(vm.copyAnnouncement).toBe('Alpha connection address copied.')
     await wrapper.vm.$nextTick()
     const copiedButton = wrapper.get('[aria-label="Alpha connection address copied"]')
-    expect(copiedButton.attributes('label')).toBe('Copied')
+    expect(copiedButton.attributes('icon')).toBe('check')
     expect(copiedButton.classes()).toContain('is-copied')
 
     await vi.advanceTimersByTimeAsync(1500)

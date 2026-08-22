@@ -10,6 +10,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -154,6 +155,11 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 			LastSuccessAt: observedAt.Add(-5 * time.Minute),
 		},
 	}
+	versionState := versiontracker.NewVersionStateMap()
+	versionState.Set("minecraft", versiontracker.VersionState{
+		InstalledVersion:      "1.21.1",
+		InstalledVersionLabel: "Paper 1.21.1",
+	})
 
 	page := &db.GameServerStatusPage{UserID: "owner", Title: "Owner fleet", Enabled: true}
 	projected := projectPublicGameServerStatusPage(
@@ -162,6 +168,7 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 		queries,
 		func(id string) actions.GameServerQueryTelemetrySnapshot { return telemetry[id] },
 		func(*models.GameServer) xylona.Status { return xylona.Status_ONLINE },
+		versionState,
 	)
 
 	projectedServers := projected.GetServers()
@@ -172,6 +179,9 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 	minecraft := projectedServers[0]
 	if minecraft.CurrentPlayerCount == nil || minecraft.GetCurrentPlayerCount() != 0 || minecraft.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE {
 		t.Fatalf("Minecraft public state = %+v", minecraft)
+	}
+	if minecraft.GetVersion() != "Paper 1.21.1" {
+		t.Fatalf("Minecraft version = %q, want %q", minecraft.GetVersion(), "Paper 1.21.1")
 	}
 	source := projectedServers[1]
 	if source.CurrentPlayerCount == nil || source.GetCurrentPlayerCount() != 2 || source.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE {
@@ -197,6 +207,7 @@ func statusPageTestServer(t *testing.T, id string, name string, gameName string,
 		IP:         "127.0.0.1",
 		Port:       25565,
 		MaxPlayers: maxPlayers,
+		Version:    "1.21.1",
 	}
 	setGameServerRelation(t, server, &models.Game{ID: id, Name: gameName})
 	return server
