@@ -31,7 +31,10 @@ const AuthorizationHeader = "Authorization"
 // authorizationScheme is the value prefix paired with AuthorizationHeader.
 const authorizationScheme = "Bearer "
 
-const sevenDaysToDieReportedModsResponseLimit = 3 << 20
+const (
+	sevenDaysToDieReportedModsResponseLimit    = 3 << 20
+	sevenDaysToDieSandboxSettingsResponseLimit = 10 << 20
+)
 
 // GRPCNodeClient is the controller-side NodeClient implementation that talks
 // to a remote node over Connect-RPC. The transport TLS layer pins the node's
@@ -43,6 +46,7 @@ type GRPCNodeClient struct {
 	httpClient         *http.Client
 	connectClient      nodeprotoconnect.NodeServiceClient
 	reportedModsClient nodeprotoconnect.NodeServiceClient
+	sandboxClient      nodeprotoconnect.NodeServiceClient
 }
 
 // NewGRPCClient constructs a remote NodeClient. listenURL is the node's HTTPS
@@ -79,6 +83,12 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		connect.WithReadMaxBytes(sevenDaysToDieReportedModsResponseLimit),
 		connect.WithCodec(reportedModsProtoCodec{}),
 	)
+	sandboxClient := nodeprotoconnect.NewNodeServiceClient(
+		httpClient,
+		listenURL,
+		connect.WithReadMaxBytes(sevenDaysToDieSandboxSettingsResponseLimit),
+		connect.WithCodec(sandboxSettingsProtoCodec{}),
+	)
 
 	return &GRPCNodeClient{
 		nodeID:             nodeID,
@@ -87,6 +97,7 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		httpClient:         httpClient,
 		connectClient:      connectClient,
 		reportedModsClient: reportedModsClient,
+		sandboxClient:      sandboxClient,
 	}, nil
 }
 
@@ -808,7 +819,7 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieSandboxSettings(ctx context.Context,
 		TokenName:        sandboxReq.TokenName,
 		TokenSecret:      sandboxReq.TokenSecret,
 	})
-	resp, errRPC := c.connectClient.QuerySevenDaysToDieSandboxSettings(ctx, req)
+	resp, errRPC := c.sandboxClient.QuerySevenDaysToDieSandboxSettings(ctx, req)
 	if errRPC != nil {
 		return nil, translateError("query 7 Days to Die sandbox settings", errRPC)
 	}

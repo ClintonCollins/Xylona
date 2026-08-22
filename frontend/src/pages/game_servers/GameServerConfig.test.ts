@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   updateGameServerConfigFile: vi.fn(),
   generateGameServerConfigFile: vi.fn(),
   getSevenDaysToDieSandboxSettings: vi.fn(),
+  getGameServer: vi.fn(),
 }))
 
 vi.mock('quasar', async () => {
@@ -49,6 +50,7 @@ vi.mock('@/utils/shared', () => ({
     updateGameServerConfigFile: mocks.updateGameServerConfigFile,
     generateGameServerConfigFile: mocks.generateGameServerConfigFile,
     getSevenDaysToDieSandboxSettings: mocks.getSevenDaysToDieSandboxSettings,
+    getGameServer: mocks.getGameServer,
   }),
   ConnectErrorToString: (err: unknown) => String(err),
 }))
@@ -69,6 +71,7 @@ function mountConfig() {
 describe('GameServerConfig', () => {
   beforeEach(() => {
     mocks.routeState.current = undefined
+    mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: '7_days_to_die' } })
   })
 
   afterEach(() => {
@@ -79,6 +82,7 @@ describe('GameServerConfig', () => {
     mocks.updateGameServerConfigFile.mockReset()
     mocks.generateGameServerConfigFile.mockReset()
     mocks.getSevenDaysToDieSandboxSettings.mockReset()
+    mocks.getGameServer.mockReset()
   })
 
   it('renders the Configuration page title', async () => {
@@ -104,14 +108,22 @@ describe('GameServerConfig', () => {
     {
       name: 'shows the inspector for SandboxCode metadata',
       fields: [{ key: 'SandboxCode', value: 'ABC' }],
+      gameId: '7_days_to_die',
       visible: true,
     },
     {
       name: 'leaves other config workflows unchanged',
       fields: [{ key: 'ServerName', value: 'Example' }],
+      gameId: '7_days_to_die',
       visible: false,
     },
-  ])('$name', async ({ fields, visible }) => {
+    {
+      name: 'does not show for another game with custom SandboxCode metadata',
+      fields: [{ key: 'SandboxCode', value: 'CUSTOM' }],
+      gameId: 'custom_game',
+      visible: false,
+    },
+  ])('$name', async ({ fields, gameId, visible }) => {
     mocks.routeState.current = { params: { id: 'server-12' } }
     mocks.getGameServerConfigFiles.mockResolvedValue({
       configFiles: [
@@ -119,6 +131,7 @@ describe('GameServerConfig', () => {
       ],
     })
     mocks.getGameServerConfigFile.mockResolvedValue({ fields, advancedFields: [] })
+    mocks.getGameServer.mockResolvedValue({ gameServer: { gameId } })
 
     const wrapper = mountConfig()
     await flushPromises()

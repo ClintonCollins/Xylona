@@ -126,6 +126,21 @@ type sevenDaysToDieSandboxSnapshot struct {
 	settings      []SevenDaysToDieSandboxSetting
 }
 
+const (
+	sevenDaysToDieSandboxJSONTokenLimit          = 16_384
+	sevenDaysToDieSandboxJSONContainerEntryLimit = 4_096
+	sevenDaysToDieSandboxJSONDepthLimit          = 12
+)
+
+var errSevenDaysToDieSandboxJSONStructure = errors.New("7 Days to Die sandbox JSON structure exceeds limit")
+
+type sevenDaysToDieSandboxJSONFrame struct {
+	delimiter    json.Delim
+	entries      int
+	expectingKey bool
+	keys         map[string]struct{}
+}
+
 // QuerySevenDaysToDieWebAPIStatus returns bounded diagnostics from the native
 // WebAPI exposed by a managed 7 Days to Die server.
 func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysToDieWebAPIStatusQueryRequest) (*SevenDaysToDieWebAPIStatus, error) {
@@ -314,12 +329,20 @@ func (*Node) QuerySevenDaysToDieSandboxSettings(ctx context.Context, req SevenDa
 		return result, nil
 	}
 	effective, errEffective := decodeSevenDaysToDieSandboxSnapshot(body)
-	if errEffective != nil || !effective.codeKnown || (effective.validityKnown && !effective.valid) {
+	if errEffective != nil {
+		result.State = SevenDaysToDieWebAPIValueStateUnavailable
+		return result, nil
+	}
+	result.ObservedAt = time.Now().UTC()
+	if effective.validityKnown && !effective.valid {
+		result.ComparisonState = SevenDaysToDieSandboxComparisonStateStale
+		return result, nil
+	}
+	if !effective.codeKnown {
 		result.State = SevenDaysToDieWebAPIValueStateUnavailable
 		return result, nil
 	}
 	result.EffectiveCode = effective.code
-	result.ObservedAt = time.Now().UTC()
 
 	if !configuredPresent {
 		result.ComparisonState = SevenDaysToDieSandboxComparisonStateStale
@@ -449,6 +472,10 @@ func compareSevenDaysToDieSandboxSettings(
 }
 
 func decodeSevenDaysToDieSandboxSnapshot(body []byte) (sevenDaysToDieSandboxSnapshot, error) {
+	errStructure := validateSevenDaysToDieSandboxJSONStructure(body)
+	if errStructure != nil {
+		return sevenDaysToDieSandboxSnapshot{}, errStructure
+	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var root any
@@ -463,8 +490,16 @@ func decodeSevenDaysToDieSandboxSnapshot(body []byte) (sevenDaysToDieSandboxSnap
 	}
 
 	snapshot := sevenDaysToDieSandboxSnapshot{settings: make([]SevenDaysToDieSandboxSetting, 0)}
-	snapshot.code, snapshot.codeKnown = findSevenDaysToDieSandboxText(root, 0, "sandboxCode", "currentCode", "code")
-	valid, foundValid := findSevenDaysToDieSandboxBool(root, 0, "valid", "recognized")
+	code, foundCode, errCode := findSevenDaysToDieSandboxText(root, 0, "sandboxCode", "currentCode", "code")
+	if errCode != nil {
+		return sevenDaysToDieSandboxSnapshot{}, errCode
+	}
+	snapshot.code = code
+	snapshot.codeKnown = foundCode
+	valid, foundValid, errValid := findSevenDaysToDieSandboxBool(root, 0, "valid", "recognized")
+	if errValid != nil {
+		return sevenDaysToDieSandboxSnapshot{}, errValid
+	}
 	snapshot.valid = valid
 	snapshot.validityKnown = foundValid
 	object, validObject := root.(map[string]any)
@@ -474,6 +509,9 @@ func decodeSevenDaysToDieSandboxSnapshot(body []byte) (sevenDaysToDieSandboxSnap
 	data, foundData := lookupSevenDaysToDieSandboxJSON(object, "data")
 	if !foundData {
 		return sevenDaysToDieSandboxSnapshot{}, errors.New("decode 7 Days to Die sandbox settings: missing data")
+	}
+	if snapshot.validityKnown && !snapshot.valid {
+		return snapshot, nil
 	}
 	errSettings := collectSevenDaysToDieSandboxSettings(data, "", 0, &snapshot.settings)
 	if errSettings != nil {
@@ -491,6 +529,124 @@ func decodeSevenDaysToDieSandboxSnapshot(body []byte) (sevenDaysToDieSandboxSnap
 		return sevenDaysToDieSandboxSnapshot{}, fmt.Errorf("decode 7 Days to Die sandbox settings: %w", errValidate)
 	}
 	return snapshot, nil
+}
+
+func validateSevenDaysToDieSandboxJSONStructure(body []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	frames := make([]sevenDaysToDieSandboxJSONFrame, 0, sevenDaysToDieSandboxJSONDepthLimit)
+	rootValues := 0
+	tokenCount := 0
+	for {
+		token, errToken := decoder.Token()
+		if errors.Is(errToken, io.EOF) {
+			break
+		}
+		if errToken != nil {
+			return fmt.Errorf("scan 7 Days to Die sandbox JSON: %w", errToken)
+		}
+		tokenCount++
+		if tokenCount > sevenDaysToDieSandboxJSONTokenLimit {
+			return errSevenDaysToDieSandboxJSONStructure
+		}
+
+		delimiter, isDelimiter := token.(json.Delim)
+		if isDelimiter && (delimiter == '}' || delimiter == ']') {
+			if len(frames) == 0 {
+				return errors.New("scan 7 Days to Die sandbox JSON: unexpected closing delimiter")
+			}
+			frame := frames[len(frames)-1]
+			if (delimiter == '}' && frame.delimiter != '{') || (delimiter == ']' && frame.delimiter != '[') ||
+				(frame.delimiter == '{' && !frame.expectingKey) {
+				return errors.New("scan 7 Days to Die sandbox JSON: mismatched delimiter")
+			}
+			frames = frames[:len(frames)-1]
+			continue
+		}
+
+		if len(frames) > 0 {
+			frame := &frames[len(frames)-1]
+			if frame.delimiter == '{' && frame.expectingKey {
+				key, validKey := token.(string)
+				if !validKey || len(key) > SevenDaysToDieSandboxTextByteLimit {
+					return errSevenDaysToDieSandboxJSONStructure
+				}
+				normalizedKey := strings.ToLower(key)
+				_, duplicate := frame.keys[normalizedKey]
+				if duplicate {
+					return errors.New("scan 7 Days to Die sandbox JSON: duplicate object key")
+				}
+				frame.keys[normalizedKey] = struct{}{}
+				frame.entries++
+				if frame.entries > sevenDaysToDieSandboxJSONContainerEntryLimit {
+					return errSevenDaysToDieSandboxJSONStructure
+				}
+				frame.expectingKey = false
+				continue
+			}
+		}
+
+		errValue := acceptSevenDaysToDieSandboxJSONValue(frames, &rootValues)
+		if errValue != nil {
+			return errValue
+		}
+		if rootValues > 1 {
+			return errors.New("scan 7 Days to Die sandbox JSON: multiple root values")
+		}
+
+		if isDelimiter {
+			frame := sevenDaysToDieSandboxJSONFrame{delimiter: delimiter}
+			if delimiter == '{' {
+				frame.expectingKey = true
+				frame.keys = make(map[string]struct{})
+			} else if delimiter != '[' {
+				return errors.New("scan 7 Days to Die sandbox JSON: invalid delimiter")
+			}
+			frames = append(frames, frame)
+			if len(frames) > sevenDaysToDieSandboxJSONDepthLimit {
+				return errSevenDaysToDieSandboxJSONStructure
+			}
+			continue
+		}
+
+		switch value := token.(type) {
+		case string:
+			if len(value) > SevenDaysToDieSandboxTextByteLimit {
+				return errSevenDaysToDieSandboxJSONStructure
+			}
+		case json.Number:
+			if len(value.String()) > SevenDaysToDieSandboxTextByteLimit {
+				return errSevenDaysToDieSandboxJSONStructure
+			}
+		case bool, nil:
+		default:
+			return errors.New("scan 7 Days to Die sandbox JSON: invalid scalar")
+		}
+	}
+	if rootValues != 1 || len(frames) != 0 {
+		return errors.New("scan 7 Days to Die sandbox JSON: incomplete document")
+	}
+	return nil
+}
+
+func acceptSevenDaysToDieSandboxJSONValue(frames []sevenDaysToDieSandboxJSONFrame, rootValues *int) error {
+	if len(frames) == 0 {
+		(*rootValues)++
+		return nil
+	}
+	frame := &frames[len(frames)-1]
+	if frame.delimiter == '{' {
+		if frame.expectingKey {
+			return errors.New("scan 7 Days to Die sandbox JSON: object key is missing")
+		}
+		frame.expectingKey = true
+		return nil
+	}
+	frame.entries++
+	if frame.entries > sevenDaysToDieSandboxJSONContainerEntryLimit {
+		return errSevenDaysToDieSandboxJSONStructure
+	}
+	return nil
 }
 
 func collectSevenDaysToDieSandboxSettings(
@@ -599,6 +755,105 @@ func textFromSevenDaysToDieSandboxJSON(object map[string]any, names ...string) (
 	if !found {
 		return "", false
 	}
+	return sevenDaysToDieSandboxJSONText(value)
+}
+
+func findSevenDaysToDieSandboxText(value any, depth int, names ...string) (string, bool, error) {
+	if depth > 3 {
+		return "", false, nil
+	}
+	object, validObject := value.(map[string]any)
+	if !validObject {
+		return "", false, nil
+	}
+	textValue := ""
+	found := false
+	for key, child := range object {
+		if !sevenDaysToDieSandboxJSONNameMatches(key, names...) {
+			continue
+		}
+		candidate, validText := sevenDaysToDieSandboxJSONText(child)
+		if !validText {
+			return "", false, errors.New("decode 7 Days to Die sandbox settings: invalid text alias")
+		}
+		if found && candidate != textValue {
+			return "", false, errors.New("decode 7 Days to Die sandbox settings: conflicting text aliases")
+		}
+		textValue = candidate
+		found = true
+	}
+	for key, child := range object {
+		if strings.EqualFold(key, "settings") || strings.EqualFold(key, "options") {
+			continue
+		}
+		candidate, foundChild, errChild := findSevenDaysToDieSandboxText(child, depth+1, names...)
+		if errChild != nil {
+			return "", false, errChild
+		}
+		if foundChild && found && candidate != textValue {
+			return "", false, errors.New("decode 7 Days to Die sandbox settings: conflicting text aliases")
+		}
+		if foundChild {
+			textValue = candidate
+			found = true
+		}
+	}
+	return textValue, found, nil
+}
+
+func findSevenDaysToDieSandboxBool(value any, depth int, names ...string) (bool, bool, error) {
+	if depth > 3 {
+		return false, false, nil
+	}
+	object, validObject := value.(map[string]any)
+	if !validObject {
+		return false, false, nil
+	}
+	boolValue := false
+	found := false
+	for key, child := range object {
+		if !sevenDaysToDieSandboxJSONNameMatches(key, names...) {
+			continue
+		}
+		candidate, validBool := child.(bool)
+		if !validBool {
+			return false, false, errors.New("decode 7 Days to Die sandbox settings: invalid boolean alias")
+		}
+		if found && candidate != boolValue {
+			return false, false, errors.New("decode 7 Days to Die sandbox settings: conflicting boolean aliases")
+		}
+		boolValue = candidate
+		found = true
+	}
+	for key, child := range object {
+		if strings.EqualFold(key, "settings") || strings.EqualFold(key, "options") {
+			continue
+		}
+		candidate, foundChild, errChild := findSevenDaysToDieSandboxBool(child, depth+1, names...)
+		if errChild != nil {
+			return false, false, errChild
+		}
+		if foundChild && found && candidate != boolValue {
+			return false, false, errors.New("decode 7 Days to Die sandbox settings: conflicting boolean aliases")
+		}
+		if foundChild {
+			boolValue = candidate
+			found = true
+		}
+	}
+	return boolValue, found, nil
+}
+
+func sevenDaysToDieSandboxJSONNameMatches(key string, names ...string) bool {
+	for _, name := range names {
+		if strings.EqualFold(key, name) {
+			return true
+		}
+	}
+	return false
+}
+
+func sevenDaysToDieSandboxJSONText(value any) (string, bool) {
 	switch typed := value.(type) {
 	case string:
 		return strings.TrimSpace(typed), true
@@ -609,55 +864,6 @@ func textFromSevenDaysToDieSandboxJSON(object map[string]any, names ...string) (
 	default:
 		return "", false
 	}
-}
-
-func findSevenDaysToDieSandboxText(value any, depth int, names ...string) (string, bool) {
-	if depth > 3 {
-		return "", false
-	}
-	object, validObject := value.(map[string]any)
-	if !validObject {
-		return "", false
-	}
-	textValue, found := textFromSevenDaysToDieSandboxJSON(object, names...)
-	if found {
-		return textValue, true
-	}
-	for key, child := range object {
-		if strings.EqualFold(key, "settings") || strings.EqualFold(key, "options") {
-			continue
-		}
-		textValue, found = findSevenDaysToDieSandboxText(child, depth+1, names...)
-		if found {
-			return textValue, true
-		}
-	}
-	return "", false
-}
-
-func findSevenDaysToDieSandboxBool(value any, depth int, names ...string) (bool, bool) {
-	if depth > 3 {
-		return false, false
-	}
-	object, validObject := value.(map[string]any)
-	if !validObject {
-		return false, false
-	}
-	jsonValue, found := lookupSevenDaysToDieSandboxJSON(object, names...)
-	if found {
-		boolValue, validBool := jsonValue.(bool)
-		return boolValue, validBool
-	}
-	for key, child := range object {
-		if strings.EqualFold(key, "settings") || strings.EqualFold(key, "options") {
-			continue
-		}
-		boolValue, foundChild := findSevenDaysToDieSandboxBool(child, depth+1, names...)
-		if foundChild {
-			return boolValue, true
-		}
-	}
-	return false, false
 }
 
 func discoverSevenDaysToDieWebAPI(

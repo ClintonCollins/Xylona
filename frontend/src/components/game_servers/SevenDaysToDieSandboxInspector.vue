@@ -27,14 +27,16 @@
         </button>
       </div>
 
-      <template v-if="hasComparison">
-        <div class="sandbox-code-grid" aria-label="Sandbox code comparison">
+      <template v-if="hasObservation">
+        <div
+          class="sandbox-code-grid"
+          :aria-label="isStale ? 'Sandbox observations' : 'Sandbox code comparison'">
           <div>
-            <span class="sandbox-code-label">Saved SandboxCode</span>
+            <span class="sandbox-code-label">{{ configuredCodeLabel }}</span>
             <code>{{ response?.configuredCode || 'Empty' }}</code>
           </div>
           <div>
-            <span class="sandbox-code-label">Running effective code</span>
+            <span class="sandbox-code-label">{{ effectiveCodeLabel }}</span>
             <code>{{ response?.effectiveCode || 'Not reported' }}</code>
           </div>
         </div>
@@ -45,7 +47,7 @@
             <span class="sr-only">Filter sandbox settings</span>
             <input v-model="filter" type="search" placeholder="Filter settings" />
           </label>
-          <label class="sandbox-differences">
+          <label v-if="!isStale" class="sandbox-differences">
             <input v-model="differencesOnly" type="checkbox" />
             Differences only
           </label>
@@ -65,8 +67,8 @@
               <thead>
                 <tr>
                   <th scope="col">Setting</th>
-                  <th scope="col">Saved code</th>
-                  <th scope="col">Running</th>
+                  <th v-if="!isStale" scope="col">Saved code</th>
+                  <th scope="col">{{ runningValueLabel }}</th>
                   <th scope="col">Result</th>
                 </tr>
               </thead>
@@ -76,14 +78,20 @@
                     <span>{{ setting.label || setting.key }}</span>
                     <small v-if="setting.description">{{ setting.description }}</small>
                   </th>
-                  <td>{{ displayValue(setting.configuredLabel, setting.configuredValue) }}</td>
+                  <td v-if="!isStale">
+                    {{ displayValue(setting.configuredLabel, setting.configuredValue) }}
+                  </td>
                   <td>{{ displayValue(setting.effectiveLabel, setting.effectiveValue) }}</td>
                   <td>
                     <span
                       class="sandbox-row-status"
-                      :class="setting.matches ? 'is-match' : 'is-mismatch'">
-                      <q-icon :name="setting.matches ? 'check_circle' : 'warning'" size="16px" />
-                      {{ setting.matches ? 'Matches' : 'Different' }}
+                      :class="
+                        isStale ? 'is-uncompared' : setting.matches ? 'is-match' : 'is-mismatch'
+                      ">
+                      <q-icon
+                        :name="isStale ? 'history' : setting.matches ? 'check_circle' : 'warning'"
+                        size="16px" />
+                      {{ isStale ? 'Not compared' : setting.matches ? 'Matches' : 'Different' }}
                     </span>
                   </td>
                 </tr>
@@ -132,7 +140,21 @@ const serverOfflineState =
 const authenticationDeniedState =
   SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED
 
-const hasComparison = computed(() => response.value?.state === availableState)
+const hasObservation = computed(() => response.value?.state === availableState)
+const isStale = computed(
+  () =>
+    staleSinceSave.value ||
+    response.value?.comparisonState === SevenDaysToDieSandboxComparisonState.STALE,
+)
+const configuredCodeLabel = computed(() =>
+  staleSinceSave.value ? 'Previously saved SandboxCode' : 'Saved SandboxCode',
+)
+const effectiveCodeLabel = computed(() =>
+  staleSinceSave.value ? 'Previously observed effective code' : 'Observed effective code',
+)
+const runningValueLabel = computed(() =>
+  staleSinceSave.value ? 'Previously observed running' : 'Observed running',
+)
 
 const status = computed(() => {
   if (loading.value) {
@@ -208,16 +230,22 @@ const status = computed(() => {
         'Effective sandbox settings are currently unavailable. Retry after checking the node and game WebAPI.',
     }
   }
-  if (
-    staleSinceSave.value ||
-    response.value.comparisonState === SevenDaysToDieSandboxComparisonState.STALE
-  ) {
+  if (staleSinceSave.value) {
     return {
       label: 'Stale',
       icon: 'history',
       tone: 'warning',
       message:
-        'The saved SandboxCode is unrecognized or changed since this observation. Review it in the editor, then refresh after the game reloads it. Nothing was changed or restarted.',
+        'These observations predate the current editor value and are not a comparison. Refresh after the game reloads the saved code. Nothing was changed or restarted.',
+    }
+  }
+  if (response.value.comparisonState === SevenDaysToDieSandboxComparisonState.STALE) {
+    return {
+      label: 'Stale',
+      icon: 'history',
+      tone: 'warning',
+      message:
+        'The saved SandboxCode was not recognized, so running observations are not compared with it. Review the code in the editor. Nothing was changed or restarted.',
     }
   }
   if (response.value.comparisonState === SevenDaysToDieSandboxComparisonState.MATCH) {
@@ -250,7 +278,7 @@ const groupedSettings = computed(() => {
   const query = filter.value.trim().toLocaleLowerCase()
   const groups = new Map<string, SevenDaysToDieSandboxSetting[]>()
   for (const setting of response.value?.settings ?? []) {
-    if (differencesOnly.value && setting.matches) continue
+    if (!isStale.value && differencesOnly.value && setting.matches) continue
     const searchable = [setting.key, setting.label, setting.description, setting.group]
       .join(' ')
       .toLocaleLowerCase()
@@ -345,7 +373,7 @@ function displayValue(label: string, value: string): string {
   font-weight: 600;
 }
 .sandbox-status {
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
 }
 .sandbox-status--positive,
@@ -378,7 +406,7 @@ function displayValue(label: string, value: string): string {
 .sandbox-guidance {
   margin: 0;
   color: var(--xy-text-secondary);
-  font-size: 0.84rem;
+  font-size: var(--xy-font-size-sm);
 }
 .sandbox-refresh {
   flex: none;
@@ -409,7 +437,7 @@ function displayValue(label: string, value: string): string {
   display: block;
   margin-bottom: 4px;
   color: var(--xy-text-secondary);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -444,7 +472,7 @@ function displayValue(label: string, value: string): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   white-space: nowrap;
 }
 .sandbox-group + .sandbox-group {
@@ -452,7 +480,7 @@ function displayValue(label: string, value: string): string {
 }
 .sandbox-group h3 {
   margin: 0 0 var(--xy-space-xs);
-  font-size: 0.86rem;
+  font-size: var(--xy-font-size-sm);
 }
 .sandbox-table-wrap {
   overflow-x: auto;
@@ -460,7 +488,7 @@ function displayValue(label: string, value: string): string {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-xs);
 }
 th,
 td {
@@ -483,6 +511,9 @@ th small {
   white-space: nowrap;
   font-weight: 600;
 }
+.is-uncompared {
+  color: var(--xy-text-secondary);
+}
 .sandbox-empty {
   padding: var(--xy-space-lg);
   color: var(--xy-text-secondary);
@@ -500,7 +531,7 @@ th small {
   border: 0;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .sandbox-inspector {
     margin-inline: var(--xy-space-sm);
   }

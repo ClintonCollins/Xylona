@@ -733,6 +733,8 @@ func TestDecodeSevenDaysToDieSandboxSnapshot(t *testing.T) {
 			wantCode: "A", wantKey: "EnemySpawn", wantGroup: "Entities", wantValue: "true", wantLabel: "Enabled",
 		},
 		{name: "rejects a missing data envelope", body: `{"settings":[]}`, wantErr: true},
+		{name: "rejects conflicting validity aliases", body: `{"data":{"valid":false,"recognized":true}}`, wantErr: true},
+		{name: "rejects conflicting code aliases", body: `{"data":{"code":"A","sandboxCode":"B","settings":[{"key":"x","value":"1"}]}}`, wantErr: true},
 		{name: "rejects a non-scalar setting value", body: `{"data":{"settings":[{"key":"EnemySpawn","value":{"nested":true}}]}}`, wantErr: true},
 		{
 			name: "rejects oversized text",
@@ -777,6 +779,52 @@ func TestDecodeSevenDaysToDieSandboxSnapshot(t *testing.T) {
 			setting := snapshot.settings[0]
 			if setting.Key != test.wantKey || setting.Group != test.wantGroup || setting.EffectiveValue != test.wantValue || setting.EffectiveLabel != test.wantLabel {
 				t.Fatalf("setting = %+v", setting)
+			}
+		})
+	}
+
+	t.Run("accepts explicit invalidity without settings", func(t *testing.T) {
+		snapshot, errDecode := decodeSevenDaysToDieSandboxSnapshot([]byte(`{"data":{"valid":false}}`))
+		if errDecode != nil {
+			t.Fatalf("decodeSevenDaysToDieSandboxSnapshot() error = %v", errDecode)
+		}
+		if !snapshot.validityKnown || snapshot.valid || len(snapshot.settings) != 0 {
+			t.Fatalf("decodeSevenDaysToDieSandboxSnapshot() = %+v", snapshot)
+		}
+	})
+}
+
+func TestValidateSevenDaysToDieSandboxJSONStructure(t *testing.T) {
+	var wide strings.Builder
+	wide.WriteString(`{"data":{`)
+	for index := range sevenDaysToDieSandboxJSONContainerEntryLimit + 1 {
+		if index > 0 {
+			wide.WriteByte(',')
+		}
+		fmt.Fprintf(&wide, `"ignored-%d":null`, index)
+	}
+	wide.WriteString(`}}`)
+	tests := []struct {
+		name    string
+		body    string
+		wantErr error
+	}{
+		{name: "bounded aliases", body: `{"data":{"code":"A","settings":[{"key":"EnemySpawn","value":true}],"future":null}}`},
+		{name: "wide valid object", body: wide.String(), wantErr: errSevenDaysToDieSandboxJSONStructure},
+		{name: "duplicate case-insensitive key", body: `{"data":{"code":"A","Code":"B"}}`, wantErr: errors.New("duplicate")},
+		{name: "multiple roots", body: `{} {}`, wantErr: errors.New("multiple")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			errValidate := validateSevenDaysToDieSandboxJSONStructure([]byte(test.body))
+			if test.wantErr == nil && errValidate != nil {
+				t.Fatalf("validateSevenDaysToDieSandboxJSONStructure() error = %v", errValidate)
+			}
+			if test.wantErr != nil && errValidate == nil {
+				t.Fatal("validateSevenDaysToDieSandboxJSONStructure() accepted invalid structure")
+			}
+			if errors.Is(test.wantErr, errSevenDaysToDieSandboxJSONStructure) && !errors.Is(errValidate, errSevenDaysToDieSandboxJSONStructure) {
+				t.Fatalf("validateSevenDaysToDieSandboxJSONStructure() error = %v, want %v", errValidate, errSevenDaysToDieSandboxJSONStructure)
 			}
 		})
 	}
@@ -919,6 +967,27 @@ func TestNodeQuerySevenDaysToDieSandboxSettings(t *testing.T) {
 			t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v", errQuery)
 		}
 		if result.State != SevenDaysToDieWebAPIValueStateAvailable || result.ComparisonState != SevenDaysToDieSandboxComparisonStateStale {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() = %+v", result)
+		}
+	})
+
+	t.Run("maps explicit invalid native data to stale without settings", func(t *testing.T) {
+		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, "openapi: 3.1.0\ninfo:\n  version: '3.0'\npaths:\n  /api/sandboxsettings:\n    get: {}\n")
+			case "/api/sandboxsettings":
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"valid":false}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}, "")
+
+		result, errQuery := new(Node).QuerySevenDaysToDieSandboxSettings(t.Context(), SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: workingDirectory})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v", errQuery)
+		}
+		if result.State != SevenDaysToDieWebAPIValueStateAvailable || result.ComparisonState != SevenDaysToDieSandboxComparisonStateStale || len(result.Settings) != 0 {
 			t.Fatalf("QuerySevenDaysToDieSandboxSettings() = %+v", result)
 		}
 	})

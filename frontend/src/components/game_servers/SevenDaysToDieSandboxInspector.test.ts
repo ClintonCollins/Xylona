@@ -52,6 +52,14 @@ describe('SevenDaysToDieSandboxInspector', () => {
     })
   })
 
+  it('starts not checked without querying the game', () => {
+    const wrapper = mountInspector()
+
+    expect(wrapper.get('.sandbox-status').text()).toContain('Not checked')
+    expect(wrapper.get('.sandbox-summary').attributes('aria-expanded')).toBe('false')
+    expect(mocks.getSettings).not.toHaveBeenCalled()
+  })
+
   it.each([
     {
       name: 'match',
@@ -133,6 +141,12 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.get('.sandbox-status').text()).toContain(text)
   })
 
+  it('shows the native empty state', async () => {
+    const wrapper = await expandInspector()
+
+    expect(wrapper.text()).toContain('The game reported no sandbox settings.')
+  })
+
   it('routes by server id, groups and filters metadata, and renders upstream text as text', async () => {
     mocks.getSettings.mockResolvedValue({
       connectionState: available,
@@ -178,6 +192,14 @@ describe('SevenDaysToDieSandboxInspector', () => {
     await wrapper.get('input[type="search"]').setValue('day length')
     expect(wrapper.text()).not.toContain('<script>Blood moon</script>')
     expect(wrapper.text()).toContain('Day length')
+
+    await wrapper.get('input[type="search"]').setValue('does not exist')
+    expect(wrapper.text()).toContain('No settings match this filter.')
+
+    await wrapper.get('input[type="search"]').setValue('')
+    await wrapper.get('input[type="checkbox"]').setValue(true)
+    expect(wrapper.text()).toContain('<script>Blood moon</script>')
+    expect(wrapper.text()).not.toContain('Day length')
   })
 
   it('renders loading, authorization, and failure without exposing errors', async () => {
@@ -203,11 +225,61 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.text()).not.toContain('token=must-not-render')
   })
 
-  it('marks an observed comparison stale after SandboxCode is saved', async () => {
+  it('renders backend stale observations without comparison claims', async () => {
+    mocks.getSettings.mockResolvedValue({
+      connectionState: available,
+      state: valueAvailable,
+      comparisonState: SevenDaysToDieSandboxComparisonState.STALE,
+      configuredCode: 'INVALID',
+      effectiveCode: 'RUNNING',
+      settings: [
+        {
+          key: 'EnemySpawn',
+          label: 'Enemy spawning',
+          configuredValue: 'false',
+          effectiveValue: 'true',
+          matches: false,
+        },
+      ],
+    })
+    const wrapper = await expandInspector()
+
+    expect(wrapper.text()).toContain('running observations are not compared')
+    expect(wrapper.text()).toContain('Observed running')
+    expect(wrapper.text()).toContain('Not compared')
+    expect(wrapper.text()).not.toContain('Different')
+    expect(wrapper.text()).not.toContain('Matches')
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(wrapper.findAll('th').map((header) => header.text())).not.toContain('Saved code')
+  })
+
+  it('marks old rows unpaired after SandboxCode is saved', async () => {
+    mocks.getSettings.mockResolvedValue({
+      connectionState: available,
+      state: valueAvailable,
+      comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+      configuredCode: 'OLD',
+      effectiveCode: 'OLD',
+      settings: [
+        {
+          key: 'EnemySpawn',
+          label: 'Enemy spawning',
+          configuredValue: 'true',
+          effectiveValue: 'true',
+          matches: true,
+        },
+      ],
+    })
     const wrapper = await expandInspector()
     await wrapper.setProps({ refreshKey: 1 })
 
     expect(wrapper.get('.sandbox-status').text()).toContain('Stale')
+    expect(wrapper.text()).toContain('predate the current editor value')
+    expect(wrapper.text()).toContain('Previously saved SandboxCode')
+    expect(wrapper.text()).toContain('Previously observed running')
+    expect(wrapper.text()).toContain('Not compared')
+    expect(wrapper.text()).not.toContain('Matches')
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(mocks.getSettings).toHaveBeenCalledOnce()
   })
 })

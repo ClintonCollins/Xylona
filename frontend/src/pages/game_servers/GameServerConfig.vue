@@ -75,6 +75,7 @@ import type {
 import {
   ConfigFieldDataSchema,
   GenerateGameServerConfigFileRequestSchema,
+  GetGameServerRequestSchema,
   GetGameServerConfigFileRequestSchema,
   GetGameServerConfigFilesRequestSchema,
   UpdateGameServerConfigFileRequestSchema,
@@ -146,6 +147,7 @@ const fileAdvancedFields = ref<AdvancedField[]>([])
 const validationErrors = ref<ConfigValidationError[]>([])
 const pendingAdvancedUpdates = ref<AdvancedField[]>([])
 const sandboxInspectorRefreshKey = ref(0)
+const isSevenDaysToDie = ref(false)
 
 const categoryColorMap = computed(() => buildCategoryColorMap(configFiles.value))
 
@@ -157,11 +159,29 @@ const selectedFileCategory = computed(() => selectedFile.value?.category || '')
 const selectedFileCategoryColor = computed(
   () => categoryColorMap.value.get(selectedFileCategory.value) || CATEGORY_COLORS[0],
 )
-const hasSandboxCode = computed(() => fileFields.value.some((field) => field.key === 'SandboxCode'))
+const hasSandboxCode = computed(
+  () => isSevenDaysToDie.value && fileFields.value.some((field) => field.key === 'SandboxCode'),
+)
 
 onMounted(async () => {
-  await loadConfigFiles()
+  await Promise.all([loadConfigFiles(), loadGameServerIdentity()])
 })
+
+async function loadGameServerIdentity() {
+  const gameServerId = getGameServerId()
+  if (gameServerId === '') {
+    isSevenDaysToDie.value = false
+    return
+  }
+  try {
+    const response = await GetXylonaClient().getGameServer(
+      create(GetGameServerRequestSchema, { id: gameServerId }),
+    )
+    isSevenDaysToDie.value = response.gameServer?.gameId === '7_days_to_die'
+  } catch {
+    isSevenDaysToDie.value = false
+  }
+}
 
 async function loadConfigFiles(showLoading = true) {
   if (showLoading) {
