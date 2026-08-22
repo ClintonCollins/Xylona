@@ -43,12 +43,16 @@ const actionReason = ref('')
 
 const capabilities = computed(() => management.value?.capabilities)
 const isOnline = computed(() => management.value?.status === Status.ONLINE)
-const players = computed(() => management.value?.players ?? [])
+const players = computed(() => management.value?.managementPlayers ?? [])
 const rosterState = computed(
   () => capabilities.value?.rosterState ?? GameServerPlayerManagementRosterState.UNSPECIFIED,
 )
+const nativeRoster = computed(
+  () => rosterState.value !== GameServerPlayerManagementRosterState.UNSPECIFIED,
+)
 const rosterAvailable = computed(
-  () => rosterState.value === GameServerPlayerManagementRosterState.AVAILABLE,
+  () =>
+    !nativeRoster.value || rosterState.value === GameServerPlayerManagementRosterState.AVAILABLE,
 )
 const rosterStateText = computed(() => {
   switch (rosterState.value) {
@@ -246,6 +250,16 @@ function playerMetrics(player: GameServerManagementPlayer): { label: string; val
   return metrics
 }
 
+function playerSecondaryText(player: GameServerManagementPlayer): string {
+  if (
+    player.actionIdentifier === '' ||
+    (!nativeRoster.value && player.actionIdentifier === player.name)
+  ) {
+    return ''
+  }
+  return nativeRoster.value ? `Action ID: ${player.actionIdentifier}` : player.actionIdentifier
+}
+
 function actionTextColor(definition: PlayerActionDefinition | null): string {
   return definition?.color === 'warning' || definition?.color === 'positive' ? 'dark' : 'white'
 }
@@ -325,7 +339,7 @@ defineExpose({ loadPlayerManagement })
           </q-banner>
         </q-card-section>
 
-        <q-card-section v-if="isOnline && !rosterAvailable">
+        <q-card-section v-if="isOnline && nativeRoster && !rosterAvailable">
           <q-banner class="players-panel__banner players-panel__banner--warning" dense rounded>
             <template #avatar><q-icon color="warning" name="person_off" /></template>
             {{ rosterStateText }}
@@ -336,7 +350,13 @@ defineExpose({ loadPlayerManagement })
           <q-icon name="group_off" size="42px" />
           <div class="players-panel__empty-title">No players reported</div>
           <div>
-            {{ 'The native player roster is currently empty.' }}
+            {{
+              nativeRoster
+                ? 'The native player roster is currently empty.'
+                : isOnline
+                  ? 'The server query returned an empty roster.'
+                  : 'The roster will appear after the server starts.'
+            }}
           </div>
         </q-card-section>
 
@@ -356,10 +376,15 @@ defineExpose({ loadPlayerManagement })
             </q-item-section>
             <q-item-section>
               <q-item-label class="players-panel__player-name">{{ player.name }}</q-item-label>
-              <q-item-label v-if="player.actionIdentifier" caption class="players-panel__player-id">
-                Action ID: {{ player.actionIdentifier }}
+              <q-item-label
+                v-if="playerSecondaryText(player)"
+                caption
+                class="players-panel__player-id">
+                {{ playerSecondaryText(player) }}
               </q-item-label>
-              <div v-if="playerMetrics(player).length > 0" class="players-panel__metrics">
+              <div
+                v-if="nativeRoster && playerMetrics(player).length > 0"
+                class="players-panel__metrics">
                 <span
                   v-for="metric in playerMetrics(player)"
                   :key="metric.label || metric.value"

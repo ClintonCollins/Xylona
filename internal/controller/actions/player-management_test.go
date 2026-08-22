@@ -128,6 +128,9 @@ func TestGetPlayerManagement(t *testing.T) {
 			if tc.wantReasonContains != "" && !strings.Contains(management.UnavailableReason, tc.wantReasonContains) {
 				t.Fatalf("unavailable reason = %q, want containing %q", management.UnavailableReason, tc.wantReasonContains)
 			}
+			if management.RosterState != node.SevenDaysToDieWebAPIValueStateUnspecified {
+				t.Fatalf("RosterState = %v, want unspecified for non-7DTD roster", management.RosterState)
+			}
 			if client.RuntimeCapabilitiesCalls != tc.wantRuntimeCalls {
 				t.Fatalf("runtime capability calls = %d, want %d", client.RuntimeCapabilitiesCalls, tc.wantRuntimeCalls)
 			}

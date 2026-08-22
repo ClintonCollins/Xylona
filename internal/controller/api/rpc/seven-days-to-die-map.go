@@ -351,7 +351,7 @@ func publicSevenDaysToDieMapPlayers(players []storedSevenDaysToDieMapPlayer) []*
 	result := make([]*xylona.SevenDaysToDieMapPlayer, 0, len(players))
 	for _, player := range players {
 		item := &xylona.SevenDaysToDieMapPlayer{
-			Id: player.ID, Name: player.Name, Online: player.Online, Position: publicSevenDaysToDieMapVector(player.Position),
+			Name: player.Name, Online: player.Online, Position: publicSevenDaysToDieMapVector(player.Position),
 		}
 		if !player.LastSeenAt.IsZero() {
 			item.LastSeenAt = timestamppb.New(player.LastSeenAt)

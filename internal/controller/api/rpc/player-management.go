@@ -52,8 +52,16 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("player management is unavailable"))
 	}
 
-	players := make([]*xylona.GameServerManagementPlayer, 0, len(management.Players))
+	players := make([]*xylona.GameServerPlayer, 0, len(management.Players))
+	managementPlayers := make([]*xylona.GameServerManagementPlayer, 0, len(management.Players))
 	for _, player := range management.Players {
+		legacyPlayer := &xylona.GameServerPlayer{Name: player.Name}
+		if gameServer.GameID != sevenDaysToDieGameID && player.ActionID != "" {
+			playerID := player.ActionID
+			legacyPlayer.Id = &playerID
+		}
+		players = append(players, legacyPlayer)
+
 		playerProto := &xylona.GameServerManagementPlayer{
 			Name:             player.Name,
 			ActionIdentifier: player.ActionID,
@@ -91,7 +99,7 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 		if player.Banned != nil {
 			playerProto.Banned = new(*player.Banned)
 		}
-		players = append(players, playerProto)
+		managementPlayers = append(managementPlayers, playerProto)
 	}
 	supportedActions := make([]xylona.GameServerPlayerAction, 0, len(management.SupportedActions))
 	for _, action := range management.SupportedActions {
@@ -105,8 +113,9 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 			SupportedActions:  supportedActions,
 			RosterState:       publicPlayerManagementRosterState(management.RosterState),
 		},
-		Players: players,
-		Status:  management.Status,
+		Players:           players,
+		Status:            management.Status,
+		ManagementPlayers: managementPlayers,
 	}), nil
 }
 

@@ -145,7 +145,7 @@ const dialogTextColor = computed(() =>
 
 function resolvePlayerId(name: string): string {
   const managed = management.value?.players.find((player) => player.name === name)
-  return managed?.actionIdentifier ?? ''
+  return managed?.id ?? ''
 }
 
 function rowActions(name: string): PlayerActionDefinition[] {

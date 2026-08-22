@@ -1718,8 +1718,9 @@ message GetGameServerPlayerManagementRequest {
 
 message GetGameServerPlayerManagementResponse {
   GameServerPlayerManagementCapabilities capabilities = 1;
-  repeated GameServerManagementPlayer players = 2;
+  repeated GameServerPlayer players = 2;
   Status status = 3;
+  repeated GameServerManagementPlayer management_players = 4;
 }
 
 message PerformGameServerPlayerActionRequest {

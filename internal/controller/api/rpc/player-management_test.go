@@ -49,8 +49,11 @@ func TestPlayerManagementAuthorizationAndDispatch(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetGameServerPlayerManagement() error = %v", errGet)
 	}
-	if len(getResponse.Msg.GetPlayers()) != 1 || getResponse.Msg.GetPlayers()[0].GetActionIdentifier() != "Alex" {
-		t.Fatalf("players = %+v, want Alex with stable ID", getResponse.Msg.GetPlayers())
+	if len(getResponse.Msg.GetPlayers()) != 1 || getResponse.Msg.GetPlayers()[0].GetId() != "Alex" {
+		t.Fatalf("legacy players = %+v, want Alex with stable ID", getResponse.Msg.GetPlayers())
+	}
+	if len(getResponse.Msg.GetManagementPlayers()) != 1 || getResponse.Msg.GetManagementPlayers()[0].GetActionIdentifier() != "Alex" {
+		t.Fatalf("management players = %+v, want Alex with stable ID", getResponse.Msg.GetManagementPlayers())
 	}
 	if !getResponse.Msg.GetCapabilities().GetActionsSupported() || len(getResponse.Msg.GetCapabilities().GetSupportedActions()) != 5 {
 		t.Fatalf("capabilities = %+v", getResponse.Msg.GetCapabilities())
@@ -137,7 +140,10 @@ func TestSevenDaysToDiePlayerManagementUsesNativeRoster(t *testing.T) {
 		!response.Msg.GetCapabilities().GetActionsSupported() {
 		t.Fatalf("capabilities = %+v", response.Msg.GetCapabilities())
 	}
-	players := response.Msg.GetPlayers()
+	if len(response.Msg.GetPlayers()) != 2 || response.Msg.GetPlayers()[0].GetId() != "" {
+		t.Fatalf("legacy players = %+v, want names without native action IDs", response.Msg.GetPlayers())
+	}
+	players := response.Msg.GetManagementPlayers()
 	if len(players) != 2 || players[0].GetActionIdentifier() != "Steam_1" || players[1].GetActionIdentifier() != "" {
 		t.Fatalf("players = %+v", players)
 	}

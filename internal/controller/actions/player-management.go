@@ -55,7 +55,6 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 	profile := playerManagementProfileForServer(gameServer)
 	management := PlayerManagement{
 		Players:           make([]node.SevenDaysToDiePlayer, 0),
-		RosterState:       node.SevenDaysToDieWebAPIValueStateUnsupported,
 		UnavailableReason: profile.unavailableReason,
 		IdentifierLabel:   profile.identifierLabel,
 		SupportedActions:  append([]node.GameServerPlayerAction(nil), profile.supportedActions...),
@@ -131,9 +130,6 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		MaxPlayers: gameServer.MaxPlayers,
 	}
 	if profile.queryKind == node.GameServerQueryKindUnknown || management.Status != xylona.Status_ONLINE {
-		if profile.queryKind != node.GameServerQueryKindUnknown {
-			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
-		}
 		return management, nil
 	}
 	if profile.queryKind == node.GameServerQueryKindPalworld {
@@ -155,7 +151,6 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		)
 	}
 	management.Players = playersFromQueryResult(result)
-	management.RosterState = node.SevenDaysToDieWebAPIValueStateAvailable
 	return management, nil
 }
 

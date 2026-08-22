@@ -69,16 +69,22 @@ const stubs = {
 
 function response(
   rosterState: GameServerPlayerManagementRosterState,
-  options: { players?: GameServerManagementPlayer[]; status?: Status } = {},
+  options: {
+    players?: GameServerManagementPlayer[]
+    status?: Status
+    actionsSupported?: boolean
+    unavailableReason?: string
+  } = {},
 ) {
   return create(GetGameServerPlayerManagementResponseSchema, {
     capabilities: {
-      actionsSupported: true,
+      actionsSupported: options.actionsSupported ?? true,
+      unavailableReason: options.unavailableReason,
       identifierLabel: 'Platform, cross-platform, or entity ID',
       supportedActions: [GameServerPlayerAction.KICK],
       rosterState,
     },
-    players: options.players ?? [],
+    managementPlayers: options.players ?? [],
     status: options.status ?? Status.ONLINE,
   })
 }
@@ -186,5 +192,34 @@ describe('PlayerManagementPanel', () => {
       expect.objectContaining({ playerId: 'Steam_1' }),
     )
     wrapper.unmount()
+  })
+
+  it('preserves non-native roster wording and identifier presentation', async () => {
+    const player = create(GameServerManagementPlayerSchema, {
+      name: 'Alex',
+      actionIdentifier: 'Alex',
+    })
+    mocks.getManagement.mockResolvedValue(
+      response(GameServerPlayerManagementRosterState.UNSPECIFIED, { players: [player] }),
+    )
+    const minecraft = await mountPanel()
+
+    expect(minecraft.text()).toContain('Alex')
+    expect(minecraft.text()).not.toContain('Native player roster')
+    expect(minecraft.text()).not.toContain('Action ID: Alex')
+    minecraft.unmount()
+
+    mocks.getManagement.mockResolvedValue(
+      response(GameServerPlayerManagementRosterState.UNSPECIFIED, {
+        actionsSupported: false,
+        unavailableReason: 'Palworld REST API credentials are not configured for this server.',
+      }),
+    )
+    const palworld = await mountPanel()
+
+    expect(palworld.text()).toContain('Palworld REST API credentials are not configured')
+    expect(palworld.text()).toContain('The server query returned an empty roster')
+    expect(palworld.text()).not.toContain('Native player roster')
+    palworld.unmount()
   })
 })

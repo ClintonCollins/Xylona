@@ -71,6 +71,9 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	if !mapView.GetStale() || len(mapView.GetPlayers()) != 1 || mapView.GetPlayers()[0].GetOnline() {
 		t.Fatalf("GetSevenDaysToDieMap(viewer) map = %+v, want an offline last-known player", mapView)
 	}
+	if mapView.GetPlayers()[0].GetId() != "" {
+		t.Fatalf("GetSevenDaysToDieMap(viewer) player ID = %q, want redacted", mapView.GetPlayers()[0].GetId())
+	}
 
 	viewerNotesRequest := connect.NewRequest(&xylona.UpdateSevenDaysToDieMapNotesRequest{
 		GameServerId: "server-local-1",
@@ -113,6 +116,9 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	publicMap := publicResponse.Msg.GetMap()
 	if publicMap.GetGameServerName() != "Local One" || len(publicMap.GetMarkers()) != 1 || publicMap.GetMarkers()[0].GetName() != "Main base" {
 		t.Fatalf("GetPublicSevenDaysToDieMap() map = %+v", publicMap)
+	}
+	if len(publicMap.GetPlayers()) != 1 || publicMap.GetPlayers()[0].GetId() != "" {
+		t.Fatalf("GetPublicSevenDaysToDieMap() players = %+v, want redacted IDs", publicMap.GetPlayers())
 	}
 	resolved, errResolve := fixture.service.ResolvePublicGameServerMap(t.Context(), connect.NewRequest(
 		&xylona.ResolvePublicGameServerMapRequest{PublicIdentifier: "Navezgane_Map"},
