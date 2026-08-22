@@ -39,6 +39,31 @@ async function expandInspector() {
   return wrapper
 }
 
+function matchingResponse(code: string) {
+  return {
+    connectionState: available,
+    state: valueAvailable,
+    comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+    configuredCode: code,
+    effectiveCode: code,
+    settings: [
+      {
+        key: 'EnemySpawn',
+        label: 'Enemy spawning',
+        effectiveValue: code,
+      },
+    ],
+  }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 describe('SevenDaysToDieSandboxInspector', () => {
   beforeEach(() => {
     mocks.getSettings.mockReset()
@@ -151,29 +176,24 @@ describe('SevenDaysToDieSandboxInspector', () => {
     mocks.getSettings.mockResolvedValue({
       connectionState: available,
       state: valueAvailable,
-      comparisonState: SevenDaysToDieSandboxComparisonState.MISMATCH,
-      configuredCode: 'SAVED',
-      effectiveCode: 'RUNNING',
+      comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+      configuredCode: 'SAME',
+      effectiveCode: 'SAME',
       settings: [
         {
           key: 'BloodMoonFrequency',
           label: '<script>Blood moon</script>',
           description: '<img src=x onerror=alert(1)>',
           group: 'World',
-          configuredValue: '7',
-          configuredLabel: 'Every 7 days',
           effectiveValue: '3',
           effectiveLabel: 'Every 3 days',
-          matches: false,
         },
         {
           key: 'DayNightLength',
           label: 'Day length',
           description: 'Minutes per day',
           group: 'World',
-          configuredValue: '60',
           effectiveValue: '60',
-          matches: true,
         },
       ],
     })
@@ -187,7 +207,7 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.find('.sandbox-inspector script').exists()).toBe(false)
     expect(wrapper.find('.sandbox-inspector img').exists()).toBe(false)
     expect(wrapper.text()).toContain('World')
-    expect(wrapper.text()).toContain('Different')
+    expect(wrapper.text()).toContain('Matches')
 
     await wrapper.get('input[type="search"]').setValue('day length')
     expect(wrapper.text()).not.toContain('<script>Blood moon</script>')
@@ -195,11 +215,32 @@ describe('SevenDaysToDieSandboxInspector', () => {
 
     await wrapper.get('input[type="search"]').setValue('does not exist')
     expect(wrapper.text()).toContain('No settings match this filter.')
+  })
 
-    await wrapper.get('input[type="search"]').setValue('')
-    await wrapper.get('input[type="checkbox"]').setValue(true)
-    expect(wrapper.text()).toContain('<script>Blood moon</script>')
-    expect(wrapper.text()).not.toContain('Day length')
+  it('shows mismatched code settings as unpaired observations without a configured snapshot', async () => {
+    mocks.getSettings.mockResolvedValue({
+      connectionState: available,
+      state: valueAvailable,
+      comparisonState: SevenDaysToDieSandboxComparisonState.MISMATCH,
+      configuredCode: 'SAVED',
+      effectiveCode: 'RUNNING',
+      settings: [
+        {
+          key: 'EnemySpawn',
+          label: 'Enemy spawning',
+          effectiveValue: 'true',
+        },
+      ],
+    })
+    const wrapper = await expandInspector()
+
+    expect(wrapper.get('.sandbox-status').text()).toContain('Mismatch')
+    expect(wrapper.text()).toContain('are observations, not per-setting comparisons')
+    expect(wrapper.text()).toContain('Observed running')
+    expect(wrapper.text()).toContain('Not compared')
+    expect(wrapper.text()).not.toContain('Different')
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(wrapper.findAll('th').map((header) => header.text())).not.toContain('Saved code')
   })
 
   it('renders loading, authorization, and failure without exposing errors', async () => {
@@ -236,9 +277,7 @@ describe('SevenDaysToDieSandboxInspector', () => {
         {
           key: 'EnemySpawn',
           label: 'Enemy spawning',
-          configuredValue: 'false',
           effectiveValue: 'true',
-          matches: false,
         },
       ],
     })
@@ -264,9 +303,7 @@ describe('SevenDaysToDieSandboxInspector', () => {
         {
           key: 'EnemySpawn',
           label: 'Enemy spawning',
-          configuredValue: 'true',
           effectiveValue: 'true',
-          matches: true,
         },
       ],
     })
@@ -281,5 +318,67 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.text()).not.toContain('Matches')
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(mocks.getSettings).toHaveBeenCalledOnce()
+  })
+
+  it('marks an initial response stale when SandboxCode is saved while it is pending', async () => {
+    const pending = deferred<ReturnType<typeof matchingResponse>>()
+    mocks.getSettings.mockReturnValue(pending.promise)
+    const wrapper = mountInspector()
+
+    await wrapper.get('.sandbox-summary').trigger('click')
+    await wrapper.setProps({ refreshKey: 1 })
+    pending.resolve(matchingResponse('OLD'))
+    await flushPromises()
+
+    expect(wrapper.get('.sandbox-status').text()).toContain('Stale')
+    expect(wrapper.text()).toContain('predate the current editor value')
+    expect(wrapper.text()).toContain('Previously saved SandboxCode')
+    expect(wrapper.text()).toContain('Not compared')
+    expect(wrapper.text()).not.toContain('Matches')
+  })
+
+  it('keeps old observations stale while a refresh is pending', async () => {
+    mocks.getSettings.mockResolvedValueOnce(matchingResponse('OLD'))
+    const wrapper = await expandInspector()
+    await wrapper.setProps({ refreshKey: 1 })
+    const pending = deferred<ReturnType<typeof matchingResponse>>()
+    mocks.getSettings.mockReturnValueOnce(pending.promise)
+
+    await wrapper.get('.sandbox-refresh').trigger('click')
+
+    expect(wrapper.get('.sandbox-status').text()).toContain('Loading')
+    expect(wrapper.text()).toContain('Previously saved SandboxCode')
+    expect(wrapper.text()).toContain('Not compared')
+    expect(wrapper.text()).not.toContain('Matches')
+
+    pending.resolve(matchingResponse('NEW'))
+    await flushPromises()
+
+    expect(wrapper.get('.sandbox-status').text()).toContain('Match')
+    expect(wrapper.text()).not.toContain('Previously saved SandboxCode')
+    expect(wrapper.text()).toContain('NEW')
+    expect(wrapper.text()).toContain('Matches')
+  })
+
+  it('ignores a superseded response that resolves last', async () => {
+    const older = deferred<ReturnType<typeof matchingResponse>>()
+    const newer = deferred<ReturnType<typeof matchingResponse>>()
+    mocks.getSettings.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise)
+    const wrapper = mountInspector()
+
+    await wrapper.get('.sandbox-summary').trigger('click')
+    const refresh = wrapper.get<HTMLButtonElement>('.sandbox-refresh')
+    refresh.element.disabled = false
+    await refresh.trigger('click')
+    expect(mocks.getSettings).toHaveBeenCalledTimes(2)
+
+    newer.resolve(matchingResponse('NEW'))
+    await flushPromises()
+    expect(wrapper.text()).toContain('NEW')
+
+    older.resolve(matchingResponse('OLD'))
+    await flushPromises()
+    expect(wrapper.text()).toContain('NEW')
+    expect(wrapper.text()).not.toContain('OLD')
   })
 })

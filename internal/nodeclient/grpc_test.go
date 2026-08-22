@@ -989,7 +989,7 @@ func TestGRPCClientQuerySevenDaysToDieSandboxSettings(t *testing.T) {
 		settings []*nodeprotov1.SevenDaysToDieSandboxSetting
 		wantErr  bool
 	}{
-		{name: "maps bounded settings", settings: []*nodeprotov1.SevenDaysToDieSandboxSetting{{Key: "EnemySpawn", Label: "Enemy spawning", EffectiveValue: "true", Matches: true}}},
+		{name: "maps bounded settings", settings: []*nodeprotov1.SevenDaysToDieSandboxSetting{{Key: "EnemySpawn", Label: "Enemy spawning", EffectiveValue: "true"}}},
 		{name: "rejects over-count settings", settings: make([]*nodeprotov1.SevenDaysToDieSandboxSetting, node.SevenDaysToDieSandboxSettingCountLimit+1), wantErr: true},
 		{name: "rejects oversized text", settings: []*nodeprotov1.SevenDaysToDieSandboxSetting{{Key: "EnemySpawn", Description: strings.Repeat("x", node.SevenDaysToDieSandboxTextByteLimit+1)}}, wantErr: true},
 	}

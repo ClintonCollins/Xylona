@@ -1091,11 +1091,9 @@ message SevenDaysToDieSandboxSetting {
   string label = 2;
   string description = 3;
   string group = 4;
-  string configured_value = 5;
-  string configured_label = 6;
+  reserved 5, 6, 9;
   string effective_value = 7;
   string effective_label = 8;
-  bool matches = 9;
 }
 
 message SevenDaysToDieSandboxSettings {

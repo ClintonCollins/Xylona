@@ -80,15 +80,12 @@ func (xs *XylonaService) GetSevenDaysToDieSandboxSettings(
 	settings := make([]*xylona.SevenDaysToDieSandboxSetting, 0, len(result.Settings))
 	for _, setting := range result.Settings {
 		settings = append(settings, &xylona.SevenDaysToDieSandboxSetting{
-			Key:             setting.Key,
-			Label:           setting.Label,
-			Description:     setting.Description,
-			Group:           setting.Group,
-			ConfiguredValue: setting.ConfiguredValue,
-			ConfiguredLabel: setting.ConfiguredLabel,
-			EffectiveValue:  setting.EffectiveValue,
-			EffectiveLabel:  setting.EffectiveLabel,
-			Matches:         setting.Matches,
+			Key:            setting.Key,
+			Label:          setting.Label,
+			Description:    setting.Description,
+			Group:          setting.Group,
+			EffectiveValue: setting.EffectiveValue,
+			EffectiveLabel: setting.EffectiveLabel,
 		})
 	}
 	response := &xylona.GetSevenDaysToDieSandboxSettingsResponse{

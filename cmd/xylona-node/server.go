@@ -1524,8 +1524,7 @@ func sevenDaysToDieSandboxSettingsToProto(result *node.SevenDaysToDieSandboxSett
 	for _, setting := range result.Settings {
 		settings = append(settings, &nodeprotov1.SevenDaysToDieSandboxSetting{
 			Key: setting.Key, Label: setting.Label, Description: setting.Description, Group: setting.Group,
-			ConfiguredValue: setting.ConfiguredValue, ConfiguredLabel: setting.ConfiguredLabel,
-			EffectiveValue: setting.EffectiveValue, EffectiveLabel: setting.EffectiveLabel, Matches: setting.Matches,
+			EffectiveValue: setting.EffectiveValue, EffectiveLabel: setting.EffectiveLabel,
 		})
 	}
 	protoResult := &nodeprotov1.SevenDaysToDieSandboxSettings{

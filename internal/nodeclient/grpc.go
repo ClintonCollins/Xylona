@@ -1488,15 +1488,12 @@ func sevenDaysToDieSandboxSettingsFromProto(result *nodeprotov1.SevenDaysToDieSa
 			return nil, errors.New("sandbox setting is missing")
 		}
 		settings = append(settings, node.SevenDaysToDieSandboxSetting{
-			Key:             setting.GetKey(),
-			Label:           setting.GetLabel(),
-			Description:     setting.GetDescription(),
-			Group:           setting.GetGroup(),
-			ConfiguredValue: setting.GetConfiguredValue(),
-			ConfiguredLabel: setting.GetConfiguredLabel(),
-			EffectiveValue:  setting.GetEffectiveValue(),
-			EffectiveLabel:  setting.GetEffectiveLabel(),
-			Matches:         setting.GetMatches(),
+			Key:            setting.GetKey(),
+			Label:          setting.GetLabel(),
+			Description:    setting.GetDescription(),
+			Group:          setting.GetGroup(),
+			EffectiveValue: setting.GetEffectiveValue(),
+			EffectiveLabel: setting.GetEffectiveLabel(),
 		})
 	}
 	converted := &node.SevenDaysToDieSandboxSettings{

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -351,124 +350,12 @@ func (*Node) QuerySevenDaysToDieSandboxSettings(ctx context.Context, req SevenDa
 	}
 	if configuredCode == effective.code {
 		result.ComparisonState = SevenDaysToDieSandboxComparisonStateMatch
-		result.Settings = matchedSevenDaysToDieSandboxSettings(effective.settings)
-		return result, nil
-	}
-
-	configured, configuredState, stale, errConfigured := queryConfiguredSevenDaysToDieSandboxSnapshot(
-		ctx, discovery, configuredCode, req.TokenName, req.TokenSecret,
-	)
-	if errConfigured != nil {
-		return nil, fmt.Errorf("node: query configured 7 Days to Die sandbox settings: %w", errConfigured)
-	}
-	if stale {
-		result.ComparisonState = SevenDaysToDieSandboxComparisonStateStale
 		result.Settings = effective.settings
 		return result, nil
 	}
-	if configuredState != SevenDaysToDieWebAPIValueStateAvailable || configured == nil {
-		result.State = configuredState
-		return result, nil
-	}
 	result.ComparisonState = SevenDaysToDieSandboxComparisonStateMismatch
-	result.Settings = compareSevenDaysToDieSandboxSettings(configured.settings, effective.settings)
-	errValidate := ValidateSevenDaysToDieSandboxSettings(result)
-	if errValidate != nil {
-		result.State = SevenDaysToDieWebAPIValueStateUnavailable
-		result.Settings = nil
-	}
+	result.Settings = effective.settings
 	return result, nil
-}
-
-func queryConfiguredSevenDaysToDieSandboxSnapshot(
-	callerCtx context.Context,
-	discovery *sevenDaysToDieWebAPIDiscovery,
-	configuredCode string,
-	tokenName string,
-	tokenSecret string,
-) (*sevenDaysToDieSandboxSnapshot, SevenDaysToDieWebAPIValueState, bool, error) {
-	query := url.Values{"code": []string{configuredCode}}.Encode()
-	statusCode, body, errQuery := getSevenDaysToDieWebAPIPath(
-		discovery.ctx,
-		discovery.settings,
-		"/api/sandboxsettings?"+query,
-		"application/json",
-		tokenName,
-		tokenSecret,
-	)
-	if errQuery != nil {
-		errContext := callerCtx.Err()
-		if errContext != nil {
-			return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, fmt.Errorf("query configured sandbox settings: %w", errContext)
-		}
-		return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, nil
-	}
-	switch statusCode {
-	case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity:
-		return nil, SevenDaysToDieWebAPIValueStateAvailable, true, nil
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, SevenDaysToDieWebAPIValueStatePermissionDenied, false, nil
-	case http.StatusOK:
-	default:
-		return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, nil
-	}
-	snapshot, errDecode := decodeSevenDaysToDieSandboxSnapshot(body)
-	if errDecode != nil {
-		return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, nil //nolint:nilerr // A malformed native response is represented as unavailable.
-	}
-	if snapshot.validityKnown && !snapshot.valid {
-		return nil, SevenDaysToDieWebAPIValueStateAvailable, true, nil
-	}
-	if snapshot.code != "" && snapshot.code != configuredCode {
-		return nil, SevenDaysToDieWebAPIValueStateAvailable, true, nil
-	}
-	return &snapshot, SevenDaysToDieWebAPIValueStateAvailable, false, nil
-}
-
-func matchedSevenDaysToDieSandboxSettings(settings []SevenDaysToDieSandboxSetting) []SevenDaysToDieSandboxSetting {
-	matched := make([]SevenDaysToDieSandboxSetting, len(settings))
-	for index, setting := range settings {
-		setting.ConfiguredValue = setting.EffectiveValue
-		setting.ConfiguredLabel = setting.EffectiveLabel
-		setting.Matches = true
-		matched[index] = setting
-	}
-	return matched
-}
-
-func compareSevenDaysToDieSandboxSettings(
-	configured []SevenDaysToDieSandboxSetting,
-	effective []SevenDaysToDieSandboxSetting,
-) []SevenDaysToDieSandboxSetting {
-	configuredByKey := make(map[string]SevenDaysToDieSandboxSetting, len(configured))
-	for _, setting := range configured {
-		configuredByKey[setting.Key] = setting
-	}
-	compared := make([]SevenDaysToDieSandboxSetting, 0, max(len(configured), len(effective)))
-	seen := make(map[string]struct{}, len(effective))
-	for _, setting := range effective {
-		configuredSetting, found := configuredByKey[setting.Key]
-		if found {
-			setting.ConfiguredValue = configuredSetting.EffectiveValue
-			setting.ConfiguredLabel = configuredSetting.EffectiveLabel
-			setting.Matches = setting.ConfiguredValue == setting.EffectiveValue
-		}
-		compared = append(compared, setting)
-		seen[setting.Key] = struct{}{}
-	}
-	for _, setting := range configured {
-		_, found := seen[setting.Key]
-		if found {
-			continue
-		}
-		setting.ConfiguredValue = setting.EffectiveValue
-		setting.ConfiguredLabel = setting.EffectiveLabel
-		setting.EffectiveValue = ""
-		setting.EffectiveLabel = ""
-		setting.Matches = false
-		compared = append(compared, setting)
-	}
-	return compared
 }
 
 func decodeSevenDaysToDieSandboxSnapshot(body []byte) (sevenDaysToDieSandboxSnapshot, error) {

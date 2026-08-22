@@ -333,7 +333,7 @@ func TestSevenDaysToDieSandboxSettingsToProto(t *testing.T) {
 		ConfiguredCode:  "SAVED",
 		EffectiveCode:   "RUNNING",
 		Settings: []node.SevenDaysToDieSandboxSetting{{
-			Key: "EnemySpawn", Label: "Enemy spawning", ConfiguredValue: "false", EffectiveValue: "true",
+			Key: "EnemySpawn", Label: "Enemy spawning", EffectiveValue: "true",
 		}},
 	})
 	if result.GetComparisonState() != nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH ||

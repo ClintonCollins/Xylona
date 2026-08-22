@@ -81,7 +81,7 @@ func TestGetSevenDaysToDieSandboxSettings(t *testing.T) {
 				ObservedAt:      time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC),
 				Settings: []node.SevenDaysToDieSandboxSetting{{
 					Key: "EnemySpawnMode", Label: "Enemy spawning", Description: "<b>Upstream text</b>", Group: "World",
-					ConfiguredValue: "0", EffectiveValue: "1", Matches: false,
+					EffectiveValue: "1",
 				}},
 			},
 		}

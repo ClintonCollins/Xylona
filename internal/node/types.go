@@ -732,17 +732,14 @@ const (
 	SevenDaysToDieSandboxTextByteLimit = 4096
 )
 
-// SevenDaysToDieSandboxSetting is one effective setting and its saved-code comparison.
+// SevenDaysToDieSandboxSetting is one effective setting reported by the running game.
 type SevenDaysToDieSandboxSetting struct {
-	Key             string
-	Label           string
-	Description     string
-	Group           string
-	ConfiguredValue string
-	ConfiguredLabel string
-	EffectiveValue  string
-	EffectiveLabel  string
-	Matches         bool
+	Key            string
+	Label          string
+	Description    string
+	Group          string
+	EffectiveValue string
+	EffectiveLabel string
 }
 
 // SevenDaysToDieSandboxSettingsQueryRequest contains only node-local access details.
@@ -786,7 +783,7 @@ func ValidateSevenDaysToDieSandboxSettings(result *SevenDaysToDieSandboxSettings
 		keys[setting.Key] = struct{}{}
 		if max(
 			len(setting.Key), len(setting.Label), len(setting.Description), len(setting.Group),
-			len(setting.ConfiguredValue), len(setting.ConfiguredLabel), len(setting.EffectiveValue), len(setting.EffectiveLabel),
+			len(setting.EffectiveValue), len(setting.EffectiveLabel),
 		) > SevenDaysToDieSandboxTextByteLimit {
 			return errors.New("node: 7 Days to Die sandbox setting field exceeds limit")
 		}

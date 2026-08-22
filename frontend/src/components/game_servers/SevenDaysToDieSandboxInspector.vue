@@ -47,10 +47,6 @@
             <span class="sr-only">Filter sandbox settings</span>
             <input v-model="filter" type="search" placeholder="Filter settings" />
           </label>
-          <label v-if="!isStale" class="sandbox-differences">
-            <input v-model="differencesOnly" type="checkbox" />
-            Differences only
-          </label>
         </div>
 
         <div v-if="groupedSettings.length === 0" class="sandbox-empty">
@@ -67,7 +63,6 @@
               <thead>
                 <tr>
                   <th scope="col">Setting</th>
-                  <th v-if="!isStale" scope="col">Saved code</th>
                   <th scope="col">{{ runningValueLabel }}</th>
                   <th scope="col">Result</th>
                 </tr>
@@ -78,20 +73,13 @@
                     <span>{{ setting.label || setting.key }}</span>
                     <small v-if="setting.description">{{ setting.description }}</small>
                   </th>
-                  <td v-if="!isStale">
-                    {{ displayValue(setting.configuredLabel, setting.configuredValue) }}
-                  </td>
                   <td>{{ displayValue(setting.effectiveLabel, setting.effectiveValue) }}</td>
                   <td>
                     <span
                       class="sandbox-row-status"
-                      :class="
-                        isStale ? 'is-uncompared' : setting.matches ? 'is-match' : 'is-mismatch'
-                      ">
-                      <q-icon
-                        :name="isStale ? 'history' : setting.matches ? 'check_circle' : 'warning'"
-                        size="16px" />
-                      {{ isStale ? 'Not compared' : setting.matches ? 'Matches' : 'Different' }}
+                      :class="settingsMatch ? 'is-match' : 'is-uncompared'">
+                      <q-icon :name="settingsMatch ? 'check_circle' : 'history'" size="16px" />
+                      {{ settingsMatch ? 'Matches' : 'Not compared' }}
                     </span>
                   </td>
                 </tr>
@@ -131,7 +119,7 @@ const failed = ref(false)
 const staleSinceSave = ref(false)
 const response = ref<GetSevenDaysToDieSandboxSettingsResponse>()
 const filter = ref('')
-const differencesOnly = ref(false)
+let latestRequestGeneration = 0
 
 const availableState =
   SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE
@@ -145,6 +133,11 @@ const isStale = computed(
   () =>
     staleSinceSave.value ||
     response.value?.comparisonState === SevenDaysToDieSandboxComparisonState.STALE,
+)
+const settingsMatch = computed(
+  () =>
+    !isStale.value &&
+    response.value?.comparisonState === SevenDaysToDieSandboxComparisonState.MATCH,
 )
 const configuredCodeLabel = computed(() =>
   staleSinceSave.value ? 'Previously saved SandboxCode' : 'Saved SandboxCode',
@@ -263,7 +256,7 @@ const status = computed(() => {
       icon: 'warning',
       tone: 'warning',
       message:
-        'The saved code differs from the running game. Review the affected settings below; nothing was changed or restarted.',
+        'The saved code differs from the running game. The running settings below are observations, not per-setting comparisons; nothing was changed or restarted.',
     }
   }
   return {
@@ -278,7 +271,6 @@ const groupedSettings = computed(() => {
   const query = filter.value.trim().toLocaleLowerCase()
   const groups = new Map<string, SevenDaysToDieSandboxSetting[]>()
   for (const setting of response.value?.settings ?? []) {
-    if (!isStale.value && differencesOnly.value && setting.matches) continue
     const searchable = [setting.key, setting.label, setting.description, setting.group]
       .join(' ')
       .toLocaleLowerCase()
@@ -294,7 +286,7 @@ const groupedSettings = computed(() => {
 watch(
   () => props.refreshKey,
   () => {
-    if (response.value) staleSinceSave.value = true
+    staleSinceSave.value = true
   },
 )
 
@@ -304,22 +296,27 @@ async function toggleExpanded(): Promise<void> {
 }
 
 async function loadSettings(): Promise<void> {
+  const requestGeneration = ++latestRequestGeneration
+  const refreshKeyAtRequest = props.refreshKey
   loading.value = true
   unauthorized.value = false
   failed.value = false
-  staleSinceSave.value = false
   try {
     const request = create(GetSevenDaysToDieSandboxSettingsRequestSchema, {
       gameServerId: props.gameServerId,
     })
-    response.value = await GetXylonaClient().getSevenDaysToDieSandboxSettings(request)
+    const nextResponse = await GetXylonaClient().getSevenDaysToDieSandboxSettings(request)
+    if (requestGeneration !== latestRequestGeneration) return
+    response.value = nextResponse
+    staleSinceSave.value = refreshKeyAtRequest !== props.refreshKey
   } catch (unknownErr: unknown) {
+    if (requestGeneration !== latestRequestGeneration) return
     response.value = undefined
     const err = ConnectError.from(unknownErr)
     unauthorized.value = err.code === Code.PermissionDenied || err.code === Code.Unauthenticated
     failed.value = !unauthorized.value
   } finally {
-    loading.value = false
+    if (requestGeneration === latestRequestGeneration) loading.value = false
   }
 }
 
@@ -380,8 +377,7 @@ function displayValue(label: string, value: string): string {
 .is-match {
   color: var(--q-positive);
 }
-.sandbox-status--warning,
-.is-mismatch {
+.sandbox-status--warning {
   color: var(--q-warning);
 }
 .sandbox-status--negative {
@@ -467,13 +463,6 @@ function displayValue(label: string, value: string): string {
   outline: 0;
   background: transparent;
   color: inherit;
-}
-.sandbox-differences {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--xy-font-size-sm);
-  white-space: nowrap;
 }
 .sandbox-group + .sandbox-group {
   margin-top: var(--xy-space-md);
