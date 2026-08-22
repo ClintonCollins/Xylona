@@ -1,6 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  SevenDaysToDieSandboxComparisonState,
+  SevenDaysToDieWebAPIConnectionState,
+  SevenDaysToDieWebAPIValueState,
+} from '@/proto/xylona_pb'
+
 import GameServerConfig from './GameServerConfig.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -62,10 +68,23 @@ function mountConfig() {
         'q-icon': { template: '<i />' },
         'q-spinner-dots': { template: '<div class="spinner-stub" />' },
         ConfigFileSidebar: { template: '<div class="sidebar-stub" />' },
-        ConfigFileEditor: { template: '<div class="editor-stub" />' },
+        ConfigFileEditor: {
+          name: 'ConfigFileEditor',
+          props: ['fields', 'saving'],
+          emits: ['save'],
+          template: '<div class="editor-stub" />',
+        },
       },
     },
   })
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
 }
 
 describe('GameServerConfig', () => {
@@ -138,5 +157,66 @@ describe('GameServerConfig', () => {
 
     expect(wrapper.findComponent({ name: 'SevenDaysToDieSandboxInspector' }).exists()).toBe(visible)
     expect(wrapper.find('.editor-stub').exists()).toBe(true)
+  })
+
+  it('marks sandbox observations stale before post-save reloads finish', async () => {
+    const configFiles = [
+      { path: 'serverconfig.xml', category: 'General', format: 'xml', existsOnDisk: true },
+    ]
+    const reloadedFields = [{ key: 'SandboxCode', value: 'NEW-CODE' }]
+    const fileReload = createDeferred<{ fields: typeof reloadedFields; advancedFields: [] }>()
+    const fileListReload = createDeferred<{ configFiles: typeof configFiles }>()
+
+    mocks.routeState.current = { params: { id: 'server-12' } }
+    mocks.getGameServerConfigFiles.mockResolvedValue({ configFiles })
+    mocks.getGameServerConfigFile.mockResolvedValue({
+      fields: [{ key: 'SandboxCode', value: 'OLD-CODE' }],
+      advancedFields: [],
+    })
+    mocks.getSevenDaysToDieSandboxSettings.mockResolvedValue({
+      connectionState:
+        SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+      state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+      comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+      configuredCode: 'OLD-CODE',
+      effectiveCode: 'OLD-CODE',
+      settings: [],
+    })
+    mocks.updateGameServerConfigFile.mockResolvedValue({ success: true, errors: [] })
+
+    const wrapper = mountConfig()
+    await flushPromises()
+
+    const inspector = wrapper.findComponent({ name: 'SevenDaysToDieSandboxInspector' })
+    await inspector.find('.sandbox-summary').trigger('click')
+    await flushPromises()
+    expect(inspector.text()).toContain('Match')
+
+    mocks.getGameServerConfigFile.mockReturnValueOnce(fileReload.promise)
+    mocks.getGameServerConfigFiles.mockReturnValueOnce(fileListReload.promise)
+
+    wrapper
+      .findComponent({ name: 'ConfigFileEditor' })
+      .vm.$emit('save', new Map([['SandboxCode', 'NEW-CODE']]))
+    await flushPromises()
+
+    expect(inspector.props('refreshKey')).toBe(1)
+    expect(inspector.text()).toContain('Stale')
+    expect(mocks.getGameServerConfigFile).toHaveBeenCalledTimes(2)
+    expect(mocks.getGameServerConfigFiles).toHaveBeenCalledTimes(1)
+
+    fileReload.resolve({ fields: reloadedFields, advancedFields: [] })
+    await flushPromises()
+
+    expect(mocks.getGameServerConfigFiles).toHaveBeenCalledTimes(2)
+    expect(inspector.text()).toContain('Stale')
+
+    fileListReload.resolve({ configFiles })
+    await flushPromises()
+
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('fields')).toEqual(
+      reloadedFields,
+    )
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('saving')).toBe(false)
   })
 })

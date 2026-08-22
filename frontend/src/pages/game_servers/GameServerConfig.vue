@@ -307,7 +307,7 @@ async function handleSave(fieldValues: Map<string, string>) {
     const response = await GetXylonaClient().updateGameServerConfigFile(request)
 
     if (response.success) {
-      const savedSandboxCode = fieldValues.has('SandboxCode')
+      if (fieldValues.has('SandboxCode')) sandboxInspectorRefreshKey.value += 1
       $q.notify({
         type: 'xylona-success',
         caption: `${selectedFilePath.value} saved successfully`,
@@ -318,7 +318,6 @@ async function handleSave(fieldValues: Map<string, string>) {
       await handleFileSelect(selectedFilePath.value, false)
       // Refresh file list to update exists status (without showing loading spinner)
       await loadConfigFiles(false)
-      if (savedSandboxCode) sandboxInspectorRefreshKey.value += 1
     } else {
       validationErrors.value = response.errors
     }
