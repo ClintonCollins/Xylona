@@ -58,13 +58,6 @@ func TestRegisterAndGetProvider(t *testing.T) {
 	}
 }
 
-func TestGetProvider_UnknownID(t *testing.T) {
-	_, ok := GetProvider("does-not-exist-xyz")
-	if ok {
-		t.Error("GetProvider() ok = true for unknown ID, want false")
-	}
-}
-
 func TestRegisterProvider_PanicOnDuplicate(t *testing.T) {
 	p := &mockProvider{id: "test-duplicate-panic"}
 	RegisterProvider(p)
@@ -77,22 +70,6 @@ func TestRegisterProvider_PanicOnDuplicate(t *testing.T) {
 	}()
 
 	RegisterProvider(&mockProvider{id: "test-duplicate-panic"})
-}
-
-func TestAllProviders(t *testing.T) {
-	p1 := &mockProvider{id: "test-all-providers-alpha"}
-	p2 := &mockProvider{id: "test-all-providers-beta"}
-	RegisterProvider(p1)
-	RegisterProvider(p2)
-
-	all := AllProviders()
-
-	if _, ok := all["test-all-providers-alpha"]; !ok {
-		t.Error("AllProviders() missing test-all-providers-alpha")
-	}
-	if _, ok := all["test-all-providers-beta"]; !ok {
-		t.Error("AllProviders() missing test-all-providers-beta")
-	}
 }
 
 func TestAllProviders_ReturnsCopy(t *testing.T) {

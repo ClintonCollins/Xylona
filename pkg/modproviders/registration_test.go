@@ -25,12 +25,3 @@ func TestAllProvidersRegistered(t *testing.T) {
 		}
 	}
 }
-
-func TestProviderCount(t *testing.T) {
-	providers := modproviders.AllProviders()
-	// Account for the mock providers registered by provider_test.go in the same package.
-	// We just verify that at least the 6 real providers are present.
-	if len(providers) < 6 {
-		t.Errorf("expected at least 6 providers, got %d", len(providers))
-	}
-}

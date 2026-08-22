@@ -1,8 +1,6 @@
 <template>
   <q-page class="xy-page-content">
-    <div class="xy-page-header">
-      <h1 class="xy-page-title">Notifications</h1>
-    </div>
+    <page-header title="Notifications" />
 
     <q-tabs
       v-model="activeTab"
@@ -732,6 +730,7 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import type {
   AlertHistoryEntry,
   AlertRule,

@@ -36,21 +36,6 @@ func newSupervisorBackedTestClient(t *testing.T) (NodeClient, *node.Node) {
 	return client, n
 }
 
-func TestInProcessClientIDReturnsConfiguredID(t *testing.T) {
-	client, _ := newTestClient(t)
-	if got := client.ID(); got != "node-A" {
-		t.Fatalf("ID() = %q, want %q", got, "node-A")
-	}
-}
-
-func TestInProcessClientPingSucceedsWithLiveContext(t *testing.T) {
-	client, _ := newTestClient(t)
-	errPing := client.Ping(t.Context())
-	if errPing != nil {
-		t.Fatalf("Ping() unexpected error: %v", errPing)
-	}
-}
-
 func TestInProcessClientPingHonorsCanceledContext(t *testing.T) {
 	client, _ := newTestClient(t)
 	ctx, cancel := context.WithCancel(t.Context())

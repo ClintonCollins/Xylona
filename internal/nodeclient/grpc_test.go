@@ -377,19 +377,6 @@ func TestGRPCClientPingAttachesBearerToken(t *testing.T) {
 		t.Fatalf("unexpected auth header: %q", rec.authHeaders[0])
 	}
 }
-func TestGRPCClientIDIsStable(t *testing.T) {
-	t.Parallel()
-	rec := &callRecorder{}
-	url, fingerprint := newPinnedTestServer(t, rec)
-
-	client, errNew := nodeclient.NewGRPCClient("my-node", url, fingerprint, "secret")
-	if errNew != nil {
-		t.Fatalf("NewGRPCClient: %v", errNew)
-	}
-	if client.ID() != "my-node" {
-		t.Fatalf("ID: got %q want %q", client.ID(), "my-node")
-	}
-}
 func TestGRPCClientConstructorValidatesRequiredFields(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

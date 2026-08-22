@@ -217,7 +217,7 @@ Design for repeated operational workflows: scanning server status, comparing val
 
 Use dense but organized layouts with clear alignment, predictable actions, and durable responsive behavior. Page headers should expose the current object, status, and primary actions. Prefer progressive disclosure over cramming every control into the first view. Keep essential server health, player counts, resource usage, lifecycle state, and recent feedback visible without forcing users to hunt.
 
-Page structure uses the shared utilities in `design-tokens.css`: `.xy-page-content` for the responsive content well (16px/24px padding, widening to 24px/32px above 1024px), `.xy-page-header` for the title-and-actions band, and `.xy-section-overline` for uppercase section labels.
+Page structure uses the shared utilities in `design-tokens.css`: `.xy-page-content` for the responsive content well (16px/24px padding, widening to 24px/32px above 1024px), `.xy-page-header` for the title-and-actions band, and `.xy-section-overline` for uppercase section labels. Use `src/components/shared/PageHeader.vue` for standard page titles, subtitles, and actions; reserve direct `.xy-page-header` markup for context-specific headers that do not fit that structure.
 
 Spacing comes from the `--xy-space-*` scale (2px through 64px, including a 12px `base` step). The toolbar height is fixed at 50px via `--xy-toolbar-height`.
 

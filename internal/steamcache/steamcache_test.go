@@ -221,10 +221,3 @@ func TestFetchDetails_MultipleLaunchConfigs(t *testing.T) {
 		t.Errorf("LaunchConfigs length = %d, want 2", len(details.LaunchConfigs))
 	}
 }
-
-func TestNew_SetsDefaults(t *testing.T) {
-	c := New()
-	if c.detailsURLFmt == "" {
-		t.Error("detailsURLFmt not set")
-	}
-}

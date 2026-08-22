@@ -1,23 +1,20 @@
 <template>
   <q-page class="xy-page-content">
     <div v-if="!detailNode">
-      <div class="xy-page-header">
-        <div>
-          <h1 class="xy-page-title">Nodes</h1>
-          <div class="text-caption text-xy-secondary" style="margin-top: 2px">
-            {{ rows.length }} {{ rows.length === 1 ? 'node' : 'nodes' }}
-            <template v-if="totalServers > 0">
-              &middot; {{ totalServers }} {{ totalServers === 1 ? 'server' : 'servers' }}
-              <span v-if="runningServers > 0" class="text-success"
-                >({{ runningServers }} running)</span
-              >
-            </template>
-            <template v-if="totalUsers > 0">
-              &middot; {{ totalUsers }} {{ totalUsers === 1 ? 'user' : 'users' }}
-            </template>
-          </div>
+      <page-header title="Nodes">
+        <div class="text-caption text-xy-secondary">
+          {{ rows.length }} {{ rows.length === 1 ? 'node' : 'nodes' }}
+          <template v-if="totalServers > 0">
+            &middot; {{ totalServers }} {{ totalServers === 1 ? 'server' : 'servers' }}
+            <span v-if="runningServers > 0" class="text-success"
+              >({{ runningServers }} running)</span
+            >
+          </template>
+          <template v-if="totalUsers > 0">
+            &middot; {{ totalUsers }} {{ totalUsers === 1 ? 'user' : 'users' }}
+          </template>
         </div>
-        <div class="xy-page-actions">
+        <template #actions>
           <q-input
             v-model="search"
             aria-label="Search nodes"
@@ -32,8 +29,8 @@
             </template>
           </q-input>
           <q-btn color="primary" label="Add node" to="/nodes/add" />
-        </div>
-      </div>
+        </template>
+      </page-header>
       <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
         <q-icon name="sync_problem" size="sm" />
         <div>
@@ -381,6 +378,7 @@ import {
   ListNodesRequestSchema,
   RemoveNodeRequestSchema,
 } from '@/proto/xylona_pb'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 

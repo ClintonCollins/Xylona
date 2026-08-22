@@ -1,16 +1,11 @@
 <template>
   <q-page class="xy-page-content system-updates">
-    <div class="xy-page-header">
-      <div class="system-updates__heading">
-        <h1 class="xy-page-title">System Updates</h1>
-        <div class="system-updates__summary text-xy-secondary">
-          {{ updates.length }} {{ updates.length === 1 ? 'target' : 'targets' }}
-          <template v-if="activeJobs.length > 0">
-            &middot; {{ activeJobs.length }} active
-          </template>
-        </div>
+    <page-header title="System Updates">
+      <div class="system-updates__summary text-xy-secondary">
+        {{ updates.length }} {{ updates.length === 1 ? 'target' : 'targets' }}
+        <template v-if="activeJobs.length > 0"> &middot; {{ activeJobs.length }} active </template>
       </div>
-      <div class="xy-page-actions">
+      <template #actions>
         <q-btn
           :disable="!websocketBrowserOnline"
           :loading="isRefreshing"
@@ -19,8 +14,8 @@
           label="Resync"
           no-caps
           @click="resyncPage" />
-      </div>
-    </div>
+      </template>
+    </page-header>
 
     <div
       :class="['system-updates__live-strip', `is-${liveStatus.tone}`]"
@@ -550,6 +545,7 @@ import { Notify, useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import PageHeader from '@/components/shared/PageHeader.vue'
 import type { GameServer, Node } from '@/proto/shared_pb'
 import {
   CheckSystemUpdatesRequestSchema,
@@ -1817,7 +1813,6 @@ function reloadInterface(): void {
   color: var(--xy-text-primary);
 }
 
-.system-updates__heading,
 .system-updates__target-copy,
 .system-updates__active-copy {
   min-width: 0;

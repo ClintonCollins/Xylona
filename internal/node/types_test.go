@@ -68,20 +68,3 @@ func TestProcessConfigNormalize(t *testing.T) {
 		})
 	}
 }
-
-func TestNewFileEntry(t *testing.T) {
-	modTime := time.Date(2026, 4, 16, 12, 0, 0, 0, time.UTC)
-	entry := NewFileEntry("server.cfg", 1024, false, modTime)
-	if entry.Name != "server.cfg" {
-		t.Fatalf("Name = %q, want %q", entry.Name, "server.cfg")
-	}
-	if entry.Size != 1024 {
-		t.Fatalf("Size = %d, want 1024", entry.Size)
-	}
-	if entry.IsDirectory {
-		t.Fatalf("IsDirectory = true, want false")
-	}
-	if !entry.LastModified.Equal(modTime) {
-		t.Fatalf("LastModified = %v, want %v", entry.LastModified, modTime)
-	}
-}

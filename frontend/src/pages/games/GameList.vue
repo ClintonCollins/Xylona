@@ -1,8 +1,7 @@
 <template>
   <q-page class="xy-page-content">
-    <div class="xy-page-header">
-      <h1 class="xy-page-title">Games</h1>
-      <div class="xy-page-actions">
+    <page-header title="Games">
+      <template #actions>
         <q-input
           v-model="search"
           aria-label="Search games"
@@ -22,8 +21,8 @@
           label="Import JSON"
           @click="showGameImportDialog = true" />
         <q-btn color="primary" label="Add game" to="/games/new" />
-      </div>
-    </div>
+      </template>
+    </page-header>
     <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
       <q-icon name="sync_problem" size="sm" />
       <div>
@@ -211,6 +210,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { usePersistedRef } from '@/utils/persisted-ref'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import GameDeleteDialog from '@/components/games/GameDeleteDialog.vue'
 import GameImportDialog from '@/components/games/GameImportDialog.vue'
 import { exportGameDefinitionJSON } from '@/components/games/game-definition-json'
@@ -237,6 +237,8 @@ const selectedActionGame = ref<Game | null>(null)
 const initialPagination = usePersistedRef('game-pagination', {
   rowsPerPage: 25,
   page: 1,
+  sortBy: 'name',
+  descending: false,
 })
 
 onMounted(async () => {

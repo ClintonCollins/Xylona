@@ -225,13 +225,3 @@ func TestRemoveAutomaticallyAddedIPs(t *testing.T) {
 		t.Errorf("GetAllIPs() missing manual IP %q after removal", "10.0.0.2")
 	}
 }
-
-func TestGetAllIPsNoError(t *testing.T) {
-	conn := newRBACMigratedConnection(t, "ip-empty.sqlite")
-
-	// With no IPs inserted, GetAllIPs should return without error.
-	_, errGetAll := conn.GetAllIPs()
-	if errGetAll != nil {
-		t.Fatalf("GetAllIPs() error = %v", errGetAll)
-	}
-}

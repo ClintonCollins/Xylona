@@ -1,8 +1,7 @@
 <template>
   <q-page class="xy-page-content">
-    <div class="xy-page-header">
-      <h1 class="xy-page-title">Users</h1>
-      <div class="xy-page-actions">
+    <page-header title="Users">
+      <template #actions>
         <q-input
           v-model="search"
           aria-label="Search users"
@@ -17,8 +16,8 @@
           </template>
         </q-input>
         <q-btn color="primary" label="Add user" to="/admin/users/create" />
-      </div>
-    </div>
+      </template>
+    </page-header>
     <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
       <q-icon name="sync_problem" size="sm" />
       <div>
@@ -160,6 +159,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
 import { formatDate } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'

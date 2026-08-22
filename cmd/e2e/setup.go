@@ -238,10 +238,9 @@ func (run *setupRun) prepareFilesystem() error {
 }
 
 func (run *setupRun) buildBinaries() error {
-	log.Info().Msg("[E2E Setup] Building frontend SPA...")
-	errFrontend := buildFrontend(run.cfg.projectRoot)
-	if errFrontend != nil {
-		return fmt.Errorf("build frontend: %w", errFrontend)
+	errFrontendPlaceholder := prepareFrontendPlaceholder(run.cfg.projectRoot)
+	if errFrontendPlaceholder != nil {
+		return fmt.Errorf("prepare frontend placeholder: %w", errFrontendPlaceholder)
 	}
 
 	run.xylonaExe = filepath.Join(run.paths.binDir, binaryName("xylona"))

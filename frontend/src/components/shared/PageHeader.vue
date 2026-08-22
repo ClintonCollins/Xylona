@@ -24,6 +24,10 @@ defineProps<{
 </script>
 
 <style scoped>
+.xy-page-header-main {
+  min-width: 0;
+}
+
 .xy-page-title-icon {
   margin-right: var(--xy-space-xs);
   color: var(--xy-primary);

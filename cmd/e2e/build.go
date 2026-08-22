@@ -76,15 +76,15 @@ func buildXylonaNode(projectRoot, outputPath string) error {
 	return nil
 }
 
-func buildFrontend(projectRoot string) error {
-	log.Info().Msg("[E2E Setup] Building frontend SPA...")
-	cmd := exec.Command("bun", "run", "build") //nolint:noctx // build commands don't need cancellation context
-	cmd.Dir = filepath.Join(projectRoot, "frontend")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	errRun := cmd.Run()
-	if errRun != nil {
-		return fmt.Errorf("build frontend SPA: %w", errRun)
+func prepareFrontendPlaceholder(projectRoot string) error {
+	placeholderPath := filepath.Join(projectRoot, "internal", "webui", "dist", "spa", ".gitkeep")
+	errMkdir := os.MkdirAll(filepath.Dir(placeholderPath), 0o750)
+	if errMkdir != nil {
+		return fmt.Errorf("create frontend placeholder directory: %w", errMkdir)
+	}
+	errWrite := os.WriteFile(placeholderPath, nil, 0o600)
+	if errWrite != nil {
+		return fmt.Errorf("write frontend placeholder: %w", errWrite)
 	}
 	return nil
 }

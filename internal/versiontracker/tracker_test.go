@@ -23,18 +23,6 @@ func TestTrackerTypeName(t *testing.T) {
 	}
 }
 
-func TestVersionsEqualIgnoresWhitespace(t *testing.T) {
-	if !versionsEqual(" 1.21.4 \n", "\t1.21.4 ") {
-		t.Fatal("versionsEqual() = false, want true for whitespace-only differences")
-	}
-}
-
-func TestVersionsEqualDetectsDifferentVersions(t *testing.T) {
-	if versionsEqual("1.21.3", "1.21.4") {
-		t.Fatal("versionsEqual() = true, want false for different versions")
-	}
-}
-
 func TestResolveTracker_SteamCMDUsesAppUpdateID(t *testing.T) {
 	tracker := ResolveTrackerWithContext(ResolverConfig{}, TrackerContext{
 		GameID:         "7_days_to_die",

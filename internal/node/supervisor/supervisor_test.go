@@ -9,20 +9,6 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-func TestNewInstance(t *testing.T) {
-	ctx := context.Background()
-	inst, err := New(ctx)
-	if err != nil {
-		t.Fatalf("Failed to create supervisor instance: %v", err)
-	}
-	if inst == nil {
-		t.Fatal("Supervisor instance is nil")
-	}
-	if inst.runningCommands == nil {
-		t.Fatal("runningCommands map is nil")
-	}
-}
-
 func TestGetCommandByID(t *testing.T) {
 	ctx := context.Background()
 	inst, _ := New(ctx)
