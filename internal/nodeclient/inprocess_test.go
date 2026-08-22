@@ -47,6 +47,31 @@ func TestInProcessClientPingHonorsCanceledContext(t *testing.T) {
 	}
 }
 
+func TestInProcessClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
+	client, _ := newTestClient(t)
+	directory := t.TempDir()
+	config := `<ServerSettings>
+		<property name="WebDashboardEnabled" value="false" />
+		<property name="WebDashboardPort" value="8082" />
+	</ServerSettings>`
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+
+	status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), node.SevenDaysToDieWebAPIStatusQueryRequest{
+		WorkingDirectory: directory,
+		TokenName:        "controller",
+		TokenSecret:      "web-api-secret",
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieWebAPIStatus: %v", errQuery)
+	}
+	if status == nil || status.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
+		t.Fatalf("status = %+v, want dashboard disabled", status)
+	}
+}
+
 func TestInProcessClientFileRoundTrip(t *testing.T) {
 	client, _ := newTestClient(t)
 	dir := t.TempDir()

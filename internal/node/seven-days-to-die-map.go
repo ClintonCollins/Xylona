@@ -4,35 +4,22 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
-	sevenDaysToDieServerConfigName = "serverconfig.xml"
-	sevenDaysToDieMapJSONLimit     = 4 << 20
-	sevenDaysToDieMapTileLimit     = 4 << 20
+	sevenDaysToDieMapJSONLimit = 4 << 20
+	sevenDaysToDieMapTileLimit = 4 << 20
 )
 
 var errSevenDaysToDieMapUnavailable = errors.New("node: 7 Days to Die map is unavailable")
-
-type sevenDaysToDieServerSettingsXML struct {
-	XMLName    xml.Name `xml:"ServerSettings"`
-	Properties []struct {
-		Name  string `xml:"name,attr"`
-		Value string `xml:"value,attr"`
-	} `xml:"property"`
-}
 
 type sevenDaysToDieMapEnvelope struct {
 	Data json.RawMessage `json:"data"`
@@ -165,23 +152,9 @@ func (n *Node) GetSevenDaysToDieMapTile(ctx context.Context, req SevenDaysToDieM
 }
 
 func sevenDaysToDieMapBaseURL(workingDirectory string) (string, error) {
-	trimmedDirectory := strings.TrimSpace(workingDirectory)
-	if trimmedDirectory == "" {
-		return "", errors.New("node: 7 Days to Die working directory is empty")
-	}
-	configPath := filepath.Join(trimmedDirectory, sevenDaysToDieServerConfigName)
-	data, errRead := os.ReadFile(configPath) // #nosec G304 -- fixed file under the tracked server directory.
-	if errRead != nil {
-		return "", fmt.Errorf("node: read 7 Days to Die server config: %w", errRead)
-	}
-	var settings sevenDaysToDieServerSettingsXML
-	errXML := xml.Unmarshal(data, &settings)
-	if errXML != nil {
-		return "", fmt.Errorf("node: parse 7 Days to Die server config: %w", errXML)
-	}
-	values := make(map[string]string, len(settings.Properties))
-	for _, property := range settings.Properties {
-		values[property.Name] = property.Value
+	values, errValues := readSevenDaysToDieServerSettings(workingDirectory)
+	if errValues != nil {
+		return "", errValues
 	}
 	port, errPort := strconv.ParseUint(strings.TrimSpace(values["WebDashboardPort"]), 10, 16)
 	if errPort != nil || port == 0 {
@@ -191,12 +164,7 @@ func sevenDaysToDieMapBaseURL(workingDirectory string) (string, error) {
 }
 
 func sevenDaysToDieMapHTTPClient() *http.Client {
-	return &http.Client{
-		Timeout: 10 * time.Second,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	return sevenDaysToDieWebAPIHTTPClient()
 }
 
 func sevenDaysToDieMapGetJSON(ctx context.Context, client *http.Client, endpoint string, req SevenDaysToDieMapQueryRequest) (sevenDaysToDieMapEnvelope, error) {

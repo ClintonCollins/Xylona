@@ -53,6 +53,8 @@ type callRecorder struct {
 	queryResp        *nodeprotov1.QueryGameServerResponse
 	palworldMapReq   *nodeprotov1.QueryPalworldMapRequest
 	palworldMapResp  *nodeprotov1.QueryPalworldMapResponse
+	webAPIStatusReq  *nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest
+	webAPIStatusResp *nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse
 	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
 	playerActionErr  error
 	consoleInputErr  error
@@ -190,6 +192,18 @@ func (s *stubHandler) QueryPalworldMap(_ context.Context, req *connect.Request[n
 	s.rec.mu.Unlock()
 	if resp == nil {
 		resp = &nodeprotov1.QueryPalworldMapResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) QuerySevenDaysToDieWebAPIStatus(_ context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.webAPIStatusReq = req.Msg
+	resp := s.rec.webAPIStatusResp
+	s.rec.mu.Unlock()
+	if resp == nil {
+		resp = &nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse{}
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -727,6 +741,94 @@ func TestGRPCClientQueryGameServerPreservesSourcePlayerList(t *testing.T) {
 	}
 	if !result.Source.PlayerListSupported || !slices.Equal(result.Source.PlayerList, []string{"Alyx", "Gordon"}) {
 		t.Fatalf("Source player data = %+v, want supported [Alyx Gordon]", result.Source)
+	}
+}
+
+func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
+	t.Parallel()
+
+	active := false
+	observedAt := time.Unix(1_700_000_000, 0).UTC()
+	tests := []struct {
+		name           string
+		observedAt     *timestamppb.Timestamp
+		wantObservedAt time.Time
+	}{
+		{name: "maps status and optional values", observedAt: timestamppb.New(observedAt), wantObservedAt: observedAt},
+		{name: "invalid timestamp becomes zero", observedAt: &timestamppb.Timestamp{Seconds: 253_402_300_800}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			rec := &callRecorder{
+				webAPIStatusResp: &nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse{
+					Status: &nodeprotov1.SevenDaysToDieWebAPIStatus{
+						ConnectionState: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+						ApiVersion:      "3.1.0",
+						Capabilities: &nodeprotov1.SevenDaysToDieWebAPICapabilities{
+							PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
+							HostileAndAnimalPositions: true, AccessControl: true, GamePermissions: true, ReportedMods: true,
+						},
+						WorldTimeState:  nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+						WorldTime:       &nodeprotov1.SevenDaysToDieGameTime{Day: 12, Hour: 5, Minute: 30},
+						BloodMoonState:  nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+						BloodMoonActive: &active,
+						NextBloodMoon:   &nodeprotov1.SevenDaysToDieGameTime{Day: 14, Hour: 22},
+						NextBloodMoonEnd: &nodeprotov1.SevenDaysToDieGameTime{
+							Day: 15, Hour: 4,
+						},
+						ObservedAt: test.observedAt,
+					},
+				},
+			}
+			url, fingerprint := newPinnedTestServer(t, rec)
+			client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+			if errNew != nil {
+				t.Fatalf("NewGRPCClient: %v", errNew)
+			}
+
+			status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), node.SevenDaysToDieWebAPIStatusQueryRequest{
+				WorkingDirectory: "C:/servers/7dtd",
+				TokenName:        "controller",
+				TokenSecret:      "web-api-secret",
+			})
+			if errQuery != nil {
+				t.Fatalf("QuerySevenDaysToDieWebAPIStatus: %v", errQuery)
+			}
+			if status == nil || status.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateAvailable || status.APIVersion != "3.1.0" {
+				t.Fatalf("status = %+v", status)
+			}
+			if status.WorldTime == nil || *status.WorldTime != (node.SevenDaysToDieGameTime{Day: 12, Hour: 5, Minute: 30}) {
+				t.Fatalf("world time = %+v", status.WorldTime)
+			}
+			if status.BloodMoonActive == nil || *status.BloodMoonActive {
+				t.Fatalf("blood moon active = %v, want present false", status.BloodMoonActive)
+			}
+			if status.NextBloodMoon == nil || status.NextBloodMoon.Day != 14 || status.NextBloodMoonEnd == nil || status.NextBloodMoonEnd.Day != 15 {
+				t.Fatalf("blood moon times = next %+v end %+v", status.NextBloodMoon, status.NextBloodMoonEnd)
+			}
+			if status.Capabilities != (node.SevenDaysToDieWebAPICapabilities{
+				PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
+				HostileAndAnimalPositions: true, AccessControl: true, GamePermissions: true, ReportedMods: true,
+			}) {
+				t.Fatalf("capabilities = %+v", status.Capabilities)
+			}
+			if !status.ObservedAt.Equal(test.wantObservedAt) {
+				t.Fatalf("observed at = %v, want %v", status.ObservedAt, test.wantObservedAt)
+			}
+
+			rec.mu.Lock()
+			request := rec.webAPIStatusReq
+			authHeaders := append([]string(nil), rec.authHeaders...)
+			rec.mu.Unlock()
+			if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
+				t.Fatal("request did not preserve the expected directory and credentials")
+			}
+			if !slices.Equal(authHeaders, []string{"Bearer node-secret"}) {
+				t.Fatalf("authorization headers = %q", authHeaders)
+			}
+		})
 	}
 }
 

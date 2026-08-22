@@ -149,6 +149,10 @@ type NodeClient interface {
 	// the owning node.
 	QuerySevenDaysToDieMap(ctx context.Context, req node.SevenDaysToDieMapQueryRequest) (*node.SevenDaysToDieMapSnapshot, error)
 
+	// QuerySevenDaysToDieWebAPIStatus reads bounded diagnostics from the native
+	// WebAPI on the owning node.
+	QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error)
+
 	// GetSevenDaysToDieMapTile reads one native PNG tile on the owning node.
 	GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error)
 

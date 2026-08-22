@@ -884,6 +884,27 @@ func (s *nodeServiceServer) QuerySevenDaysToDieMap(ctx context.Context, req *con
 	}), nil
 }
 
+func (s *nodeServiceServer) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	status, errQuery := s.n.QuerySevenDaysToDieWebAPIStatus(ctx, node.SevenDaysToDieWebAPIStatusQueryRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		TokenName:        req.Msg.GetTokenName(),
+		TokenSecret:      req.Msg.GetTokenSecret(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse{
+		Status: sevenDaysToDieWebAPIStatusToProto(status),
+	}), nil
+}
+
 func (s *nodeServiceServer) GetSevenDaysToDieMapTile(ctx context.Context, req *connect.Request[nodeprotov1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[nodeprotov1.GetSevenDaysToDieMapTileResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1290,6 +1311,53 @@ func sevenDaysToDieMapSnapshotToProto(snapshot *node.SevenDaysToDieMapSnapshot) 
 
 func sevenDaysToDieMapVectorToProto(vector node.SevenDaysToDieMapVector) *nodeprotov1.SevenDaysToDieMapVector {
 	return &nodeprotov1.SevenDaysToDieMapVector{X: vector.X, Y: vector.Y, Z: vector.Z}
+}
+
+func sevenDaysToDieWebAPIStatusToProto(status *node.SevenDaysToDieWebAPIStatus) *nodeprotov1.SevenDaysToDieWebAPIStatus {
+	if status == nil {
+		return nil
+	}
+	result := &nodeprotov1.SevenDaysToDieWebAPIStatus{
+		ConnectionState:  nodeprotov1.SevenDaysToDieWebAPIConnectionState(status.ConnectionState),
+		ApiVersion:       status.APIVersion,
+		Capabilities:     sevenDaysToDieWebAPICapabilitiesToProto(status.Capabilities),
+		WorldTimeState:   nodeprotov1.SevenDaysToDieWebAPIValueState(status.WorldTimeState),
+		WorldTime:        sevenDaysToDieGameTimeToProto(status.WorldTime),
+		BloodMoonState:   nodeprotov1.SevenDaysToDieWebAPIValueState(status.BloodMoonState),
+		NextBloodMoon:    sevenDaysToDieGameTimeToProto(status.NextBloodMoon),
+		NextBloodMoonEnd: sevenDaysToDieGameTimeToProto(status.NextBloodMoonEnd),
+	}
+	if status.BloodMoonActive != nil {
+		result.BloodMoonActive = new(*status.BloodMoonActive)
+	}
+	if !status.ObservedAt.IsZero() {
+		observedAt := timestamppb.New(status.ObservedAt)
+		errTimestamp := observedAt.CheckValid()
+		if errTimestamp == nil {
+			result.ObservedAt = observedAt
+		}
+	}
+	return result
+}
+
+func sevenDaysToDieWebAPICapabilitiesToProto(capabilities node.SevenDaysToDieWebAPICapabilities) *nodeprotov1.SevenDaysToDieWebAPICapabilities {
+	return &nodeprotov1.SevenDaysToDieWebAPICapabilities{
+		PlayerData:                capabilities.PlayerData,
+		RuntimeSettings:           capabilities.RuntimeSettings,
+		NativeLog:                 capabilities.NativeLog,
+		WorldPopulation:           capabilities.WorldPopulation,
+		HostileAndAnimalPositions: capabilities.HostileAndAnimalPositions,
+		AccessControl:             capabilities.AccessControl,
+		GamePermissions:           capabilities.GamePermissions,
+		ReportedMods:              capabilities.ReportedMods,
+	}
+}
+
+func sevenDaysToDieGameTimeToProto(gameTime *node.SevenDaysToDieGameTime) *nodeprotov1.SevenDaysToDieGameTime {
+	if gameTime == nil {
+		return nil
+	}
+	return &nodeprotov1.SevenDaysToDieGameTime{Day: gameTime.Day, Hour: gameTime.Hour, Minute: gameTime.Minute}
 }
 
 func palworldMapActorKindToProto(kind node.PalworldMapActorKind) nodeprotov1.PalworldMapActorKind {

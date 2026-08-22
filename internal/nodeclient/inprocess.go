@@ -323,6 +323,17 @@ func (c *inProcessNodeClient) QuerySevenDaysToDieMap(ctx context.Context, req no
 	return snapshot, nil
 }
 
+func (c *inProcessNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+	status, errQuery := c.node.QuerySevenDaysToDieWebAPIStatus(ctx, req)
+	if errQuery != nil {
+		return nil, fmt.Errorf("nodeclient: query 7 Days to Die WebAPI status: %w", errQuery)
+	}
+	return status, nil
+}
+
 func (c *inProcessNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error) {
 	if c.node == nil {
 		return nil, ErrNodeNil

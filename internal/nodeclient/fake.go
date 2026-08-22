@@ -126,6 +126,11 @@ type FakeNodeClient struct {
 	QuerySevenDaysToDieMapCalls  []node.SevenDaysToDieMapQueryRequest
 	QuerySevenDaysToDieMapFunc   func(context.Context, node.SevenDaysToDieMapQueryRequest) (*node.SevenDaysToDieMapSnapshot, error)
 
+	QuerySevenDaysToDieWebAPIStatusResult *node.SevenDaysToDieWebAPIStatus
+	QuerySevenDaysToDieWebAPIStatusErr    error
+	QuerySevenDaysToDieWebAPIStatusCalls  []node.SevenDaysToDieWebAPIStatusQueryRequest
+	QuerySevenDaysToDieWebAPIStatusFunc   func(context.Context, node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error)
+
 	SevenDaysToDieMapTileResult []byte
 	SevenDaysToDieMapTileErr    error
 	SevenDaysToDieMapTileCalls  []node.SevenDaysToDieMapTileRequest
@@ -603,6 +608,17 @@ func (f *FakeNodeClient) QuerySevenDaysToDieMap(ctx context.Context, req node.Se
 		return f.QuerySevenDaysToDieMapFunc(ctx, req)
 	}
 	return f.QuerySevenDaysToDieMapResult, f.QuerySevenDaysToDieMapErr
+}
+
+// QuerySevenDaysToDieWebAPIStatus records the call and returns the configured status.
+func (f *FakeNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error) {
+	f.mu.Lock()
+	f.QuerySevenDaysToDieWebAPIStatusCalls = append(f.QuerySevenDaysToDieWebAPIStatusCalls, req)
+	f.mu.Unlock()
+	if f.QuerySevenDaysToDieWebAPIStatusFunc != nil {
+		return f.QuerySevenDaysToDieWebAPIStatusFunc(ctx, req)
+	}
+	return f.QuerySevenDaysToDieWebAPIStatusResult, f.QuerySevenDaysToDieWebAPIStatusErr
 }
 
 // GetSevenDaysToDieMapTile records the call and returns configured PNG bytes.

@@ -14,6 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodetls"
@@ -744,6 +745,20 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieMap(ctx context.Context, mapReq node
 	return sevenDaysToDieMapSnapshotFromProto(resp.Msg.GetSnapshot()), nil
 }
 
+// QuerySevenDaysToDieWebAPIStatus invokes the bounded native WebAPI diagnostics RPC.
+func (c *GRPCNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, statusReq node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error) {
+	req := newReq(c, &nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest{
+		WorkingDirectory: statusReq.WorkingDirectory,
+		TokenName:        statusReq.TokenName,
+		TokenSecret:      statusReq.TokenSecret,
+	})
+	resp, errRPC := c.connectClient.QuerySevenDaysToDieWebAPIStatus(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("query 7 Days to Die WebAPI status", errRPC)
+	}
+	return sevenDaysToDieWebAPIStatusFromProto(resp.Msg.GetStatus()), nil
+}
+
 // GetSevenDaysToDieMapTile invokes the bounded native-tile RPC.
 func (c *GRPCNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, tileReq node.SevenDaysToDieMapTileRequest) ([]byte, error) {
 	req := newReq(c, &nodeprotov1.GetSevenDaysToDieMapTileRequest{
@@ -1262,6 +1277,65 @@ func sevenDaysToDieMapVectorFromProto(vector *nodeprotov1.SevenDaysToDieMapVecto
 		return node.SevenDaysToDieMapVector{}
 	}
 	return node.SevenDaysToDieMapVector{X: vector.GetX(), Y: vector.GetY(), Z: vector.GetZ()}
+}
+
+func sevenDaysToDieWebAPIStatusFromProto(status *nodeprotov1.SevenDaysToDieWebAPIStatus) *node.SevenDaysToDieWebAPIStatus {
+	if status == nil {
+		return nil
+	}
+	return &node.SevenDaysToDieWebAPIStatus{
+		ConnectionState:  node.SevenDaysToDieWebAPIConnectionState(status.GetConnectionState()),
+		APIVersion:       status.GetApiVersion(),
+		Capabilities:     sevenDaysToDieWebAPICapabilitiesFromProto(status.GetCapabilities()),
+		WorldTimeState:   node.SevenDaysToDieWebAPIValueState(status.GetWorldTimeState()),
+		WorldTime:        sevenDaysToDieGameTimeFromProto(status.GetWorldTime()),
+		BloodMoonState:   node.SevenDaysToDieWebAPIValueState(status.GetBloodMoonState()),
+		BloodMoonActive:  cloneBool(status.BloodMoonActive),
+		NextBloodMoon:    sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoon()),
+		NextBloodMoonEnd: sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoonEnd()),
+		ObservedAt:       validProtoTime(status.GetObservedAt()),
+	}
+}
+
+func sevenDaysToDieWebAPICapabilitiesFromProto(capabilities *nodeprotov1.SevenDaysToDieWebAPICapabilities) node.SevenDaysToDieWebAPICapabilities {
+	if capabilities == nil {
+		return node.SevenDaysToDieWebAPICapabilities{}
+	}
+	return node.SevenDaysToDieWebAPICapabilities{
+		PlayerData:                capabilities.GetPlayerData(),
+		RuntimeSettings:           capabilities.GetRuntimeSettings(),
+		NativeLog:                 capabilities.GetNativeLog(),
+		WorldPopulation:           capabilities.GetWorldPopulation(),
+		HostileAndAnimalPositions: capabilities.GetHostileAndAnimalPositions(),
+		AccessControl:             capabilities.GetAccessControl(),
+		GamePermissions:           capabilities.GetGamePermissions(),
+		ReportedMods:              capabilities.GetReportedMods(),
+	}
+}
+
+func sevenDaysToDieGameTimeFromProto(gameTime *nodeprotov1.SevenDaysToDieGameTime) *node.SevenDaysToDieGameTime {
+	if gameTime == nil {
+		return nil
+	}
+	return &node.SevenDaysToDieGameTime{Day: gameTime.GetDay(), Hour: gameTime.GetHour(), Minute: gameTime.GetMinute()}
+}
+
+func validProtoTime(timestamp *timestamppb.Timestamp) time.Time {
+	if timestamp == nil {
+		return time.Time{}
+	}
+	errValid := timestamp.CheckValid()
+	if errValid != nil {
+		return time.Time{}
+	}
+	return timestamp.AsTime()
+}
+
+func cloneBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	return new(*value)
 }
 
 func palworldMapSnapshotFromProto(snapshot *nodeprotov1.PalworldMapSnapshot) *node.PalworldMapSnapshot {

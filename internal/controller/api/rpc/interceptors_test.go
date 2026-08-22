@@ -84,6 +84,12 @@ func TestSessionAuthInterceptorWrapUnary(t *testing.T) {
 			wantCode:  connect.CodeUnauthenticated,
 		},
 		{
+			name:      "seven days WebAPI status requires a session",
+			procedure: xylonaconnect.XylonaGetSevenDaysToDieWebAPIStatusProcedure,
+			wantErr:   true,
+			wantCode:  connect.CodeUnauthenticated,
+		},
+		{
 			name:           "public Palworld map is allowed without session",
 			procedure:      xylonaconnect.XylonaGetPublicPalworldMapProcedure,
 			wantNextCalled: true,

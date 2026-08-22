@@ -170,6 +170,92 @@ func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
 	}
 }
 
+func TestNodeServiceServerQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	directory := t.TempDir()
+	config := `<ServerSettings>
+		<property name="WebDashboardEnabled" value="false" />
+		<property name="WebDashboardPort" value="8082" />
+	</ServerSettings>`
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+
+	status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), node.SevenDaysToDieWebAPIStatusQueryRequest{
+		WorkingDirectory: directory,
+		TokenName:        "controller",
+		TokenSecret:      "web-api-secret",
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieWebAPIStatus: %v", errQuery)
+	}
+	if status == nil || status.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
+		t.Fatalf("status = %+v, want dashboard disabled", status)
+	}
+}
+
+func TestSevenDaysToDieWebAPIStatusToProto(t *testing.T) {
+	t.Parallel()
+
+	active := false
+	observedAt := time.Unix(1_700_000_000, 0).UTC()
+	tests := []struct {
+		name           string
+		observedAt     time.Time
+		wantObservedAt bool
+	}{
+		{name: "maps complete status", observedAt: observedAt, wantObservedAt: true},
+		{name: "omits invalid timestamp", observedAt: time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			status := sevenDaysToDieWebAPIStatusToProto(&node.SevenDaysToDieWebAPIStatus{
+				ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+				APIVersion:      "3.1.0",
+				Capabilities: node.SevenDaysToDieWebAPICapabilities{
+					PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
+					HostileAndAnimalPositions: true, AccessControl: true, GamePermissions: true, ReportedMods: true,
+				},
+				WorldTimeState:   node.SevenDaysToDieWebAPIValueStateAvailable,
+				WorldTime:        &node.SevenDaysToDieGameTime{Day: 12, Hour: 5, Minute: 30},
+				BloodMoonState:   node.SevenDaysToDieWebAPIValueStateAvailable,
+				BloodMoonActive:  &active,
+				NextBloodMoon:    &node.SevenDaysToDieGameTime{Day: 14, Hour: 22},
+				NextBloodMoonEnd: &node.SevenDaysToDieGameTime{Day: 15, Hour: 4},
+				ObservedAt:       test.observedAt,
+			})
+			if status.GetConnectionState() != nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE || status.GetApiVersion() != "3.1.0" {
+				t.Fatalf("status = %+v", status)
+			}
+			if status.GetWorldTime().GetDay() != 12 || status.GetNextBloodMoon().GetDay() != 14 || status.GetNextBloodMoonEnd().GetDay() != 15 {
+				t.Fatalf("game times = world %+v next %+v end %+v", status.GetWorldTime(), status.GetNextBloodMoon(), status.GetNextBloodMoonEnd())
+			}
+			if status.BloodMoonActive == nil || status.GetBloodMoonActive() {
+				t.Fatalf("blood moon active = %v, want present false", status.BloodMoonActive)
+			}
+			capabilities := status.GetCapabilities()
+			if !capabilities.GetPlayerData() || !capabilities.GetRuntimeSettings() || !capabilities.GetNativeLog() ||
+				!capabilities.GetWorldPopulation() || !capabilities.GetHostileAndAnimalPositions() || !capabilities.GetAccessControl() ||
+				!capabilities.GetGamePermissions() || !capabilities.GetReportedMods() {
+				t.Fatalf("capabilities = %+v", capabilities)
+			}
+			if (status.GetObservedAt() != nil) != test.wantObservedAt {
+				t.Fatalf("observed at = %v, want present %t", status.GetObservedAt(), test.wantObservedAt)
+			}
+		})
+	}
+}
+
 func TestNodeRESTInputKindFromProto(t *testing.T) {
 	t.Parallel()
 

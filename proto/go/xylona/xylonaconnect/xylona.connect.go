@@ -215,6 +215,9 @@ const (
 	// XylonaGetSevenDaysToDieMapProcedure is the fully-qualified name of the Xylona's
 	// GetSevenDaysToDieMap RPC.
 	XylonaGetSevenDaysToDieMapProcedure = "/xylona.Xylona/GetSevenDaysToDieMap"
+	// XylonaGetSevenDaysToDieWebAPIStatusProcedure is the fully-qualified name of the Xylona's
+	// GetSevenDaysToDieWebAPIStatus RPC.
+	XylonaGetSevenDaysToDieWebAPIStatusProcedure = "/xylona.Xylona/GetSevenDaysToDieWebAPIStatus"
 	// XylonaUpdateSevenDaysToDieMapNotesProcedure is the fully-qualified name of the Xylona's
 	// UpdateSevenDaysToDieMapNotes RPC.
 	XylonaUpdateSevenDaysToDieMapNotesProcedure = "/xylona.Xylona/UpdateSevenDaysToDieMapNotes"
@@ -518,6 +521,7 @@ type XylonaClient interface {
 	InstallPalworldMapTiles(context.Context, *connect.Request[xylona.InstallPalworldMapTilesRequest]) (*connect.Response[xylona.InstallPalworldMapTilesResponse], error)
 	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
 	GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error)
+	GetSevenDaysToDieWebAPIStatus(context.Context, *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error)
 	UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error)
 	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
 	GetMinecraftMap(context.Context, *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error)
@@ -1060,6 +1064,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaGetSevenDaysToDieMapProcedure,
 			connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieMap")),
+			connect.WithClientOptions(opts...),
+		),
+		getSevenDaysToDieWebAPIStatus: connect.NewClient[xylona.GetSevenDaysToDieWebAPIStatusRequest, xylona.GetSevenDaysToDieWebAPIStatusResponse](
+			httpClient,
+			baseURL+XylonaGetSevenDaysToDieWebAPIStatusProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieWebAPIStatus")),
 			connect.WithClientOptions(opts...),
 		),
 		updateSevenDaysToDieMapNotes: connect.NewClient[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse](
@@ -1631,6 +1641,7 @@ type xylonaClient struct {
 	installPalworldMapTiles                 *connect.Client[xylona.InstallPalworldMapTilesRequest, xylona.InstallPalworldMapTilesResponse]
 	getPublicPalworldMap                    *connect.Client[xylona.GetPublicPalworldMapRequest, xylona.GetPublicPalworldMapResponse]
 	getSevenDaysToDieMap                    *connect.Client[xylona.GetSevenDaysToDieMapRequest, xylona.GetSevenDaysToDieMapResponse]
+	getSevenDaysToDieWebAPIStatus           *connect.Client[xylona.GetSevenDaysToDieWebAPIStatusRequest, xylona.GetSevenDaysToDieWebAPIStatusResponse]
 	updateSevenDaysToDieMapNotes            *connect.Client[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse]
 	getPublicSevenDaysToDieMap              *connect.Client[xylona.GetPublicSevenDaysToDieMapRequest, xylona.GetPublicSevenDaysToDieMapResponse]
 	getMinecraftMap                         *connect.Client[xylona.GetMinecraftMapRequest, xylona.GetMinecraftMapResponse]
@@ -2074,6 +2085,11 @@ func (c *xylonaClient) GetPublicPalworldMap(ctx context.Context, req *connect.Re
 // GetSevenDaysToDieMap calls xylona.Xylona.GetSevenDaysToDieMap.
 func (c *xylonaClient) GetSevenDaysToDieMap(ctx context.Context, req *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error) {
 	return c.getSevenDaysToDieMap.CallUnary(ctx, req)
+}
+
+// GetSevenDaysToDieWebAPIStatus calls xylona.Xylona.GetSevenDaysToDieWebAPIStatus.
+func (c *xylonaClient) GetSevenDaysToDieWebAPIStatus(ctx context.Context, req *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error) {
+	return c.getSevenDaysToDieWebAPIStatus.CallUnary(ctx, req)
 }
 
 // UpdateSevenDaysToDieMapNotes calls xylona.Xylona.UpdateSevenDaysToDieMapNotes.
@@ -2566,6 +2582,7 @@ type XylonaHandler interface {
 	InstallPalworldMapTiles(context.Context, *connect.Request[xylona.InstallPalworldMapTilesRequest]) (*connect.Response[xylona.InstallPalworldMapTilesResponse], error)
 	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
 	GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error)
+	GetSevenDaysToDieWebAPIStatus(context.Context, *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error)
 	UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error)
 	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
 	GetMinecraftMap(context.Context, *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error)
@@ -3104,6 +3121,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaGetSevenDaysToDieMapProcedure,
 		svc.GetSevenDaysToDieMap,
 		connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetSevenDaysToDieWebAPIStatusHandler := connect.NewUnaryHandler(
+		XylonaGetSevenDaysToDieWebAPIStatusProcedure,
+		svc.GetSevenDaysToDieWebAPIStatus,
+		connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieWebAPIStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaUpdateSevenDaysToDieMapNotesHandler := connect.NewUnaryHandler(
@@ -3744,6 +3767,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetPublicPalworldMapHandler.ServeHTTP(w, r)
 		case XylonaGetSevenDaysToDieMapProcedure:
 			xylonaGetSevenDaysToDieMapHandler.ServeHTTP(w, r)
+		case XylonaGetSevenDaysToDieWebAPIStatusProcedure:
+			xylonaGetSevenDaysToDieWebAPIStatusHandler.ServeHTTP(w, r)
 		case XylonaUpdateSevenDaysToDieMapNotesProcedure:
 			xylonaUpdateSevenDaysToDieMapNotesHandler.ServeHTTP(w, r)
 		case XylonaGetPublicSevenDaysToDieMapProcedure:
@@ -4203,6 +4228,10 @@ func (UnimplementedXylonaHandler) GetPublicPalworldMap(context.Context, *connect
 
 func (UnimplementedXylonaHandler) GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSevenDaysToDieMap is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSevenDaysToDieWebAPIStatus(context.Context, *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSevenDaysToDieWebAPIStatus is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error) {

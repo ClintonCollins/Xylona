@@ -581,6 +581,75 @@ type SevenDaysToDieMapQueryRequest struct {
 	TokenSecret      string
 }
 
+// SevenDaysToDieWebAPIConnectionState describes discovery and connection health.
+type SevenDaysToDieWebAPIConnectionState int32
+
+// SevenDaysToDieWebAPIConnectionState values classify WebAPI discovery health.
+const (
+	SevenDaysToDieWebAPIConnectionStateUnspecified SevenDaysToDieWebAPIConnectionState = iota
+	SevenDaysToDieWebAPIConnectionStateAvailable
+	SevenDaysToDieWebAPIConnectionStateServerOffline
+	SevenDaysToDieWebAPIConnectionStateDashboardDisabled
+	SevenDaysToDieWebAPIConnectionStateMisconfigured
+	SevenDaysToDieWebAPIConnectionStateNodeUnavailable
+	SevenDaysToDieWebAPIConnectionStateUnreachable
+	SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported
+	SevenDaysToDieWebAPIConnectionStateAuthenticationDenied
+	SevenDaysToDieWebAPIConnectionStateInvalidResponse
+)
+
+// SevenDaysToDieWebAPIValueState describes one independently queried value.
+type SevenDaysToDieWebAPIValueState int32
+
+// SevenDaysToDieWebAPIValueState values classify an independently queried value.
+const (
+	SevenDaysToDieWebAPIValueStateUnspecified SevenDaysToDieWebAPIValueState = iota
+	SevenDaysToDieWebAPIValueStateAvailable
+	SevenDaysToDieWebAPIValueStateUnsupported
+	SevenDaysToDieWebAPIValueStatePermissionDenied
+	SevenDaysToDieWebAPIValueStateUnavailable
+)
+
+// SevenDaysToDieGameTime is the game's typed day and clock value.
+type SevenDaysToDieGameTime struct {
+	Day    int32
+	Hour   int32
+	Minute int32
+}
+
+// SevenDaysToDieWebAPICapabilities is the fixed feature projection used by the controller.
+type SevenDaysToDieWebAPICapabilities struct {
+	PlayerData                bool
+	RuntimeSettings           bool
+	NativeLog                 bool
+	WorldPopulation           bool
+	HostileAndAnimalPositions bool
+	AccessControl             bool
+	GamePermissions           bool
+	ReportedMods              bool
+}
+
+// SevenDaysToDieWebAPIStatus is the bounded diagnostics result returned by a node.
+type SevenDaysToDieWebAPIStatus struct {
+	ConnectionState  SevenDaysToDieWebAPIConnectionState
+	APIVersion       string
+	Capabilities     SevenDaysToDieWebAPICapabilities
+	WorldTimeState   SevenDaysToDieWebAPIValueState
+	WorldTime        *SevenDaysToDieGameTime
+	BloodMoonState   SevenDaysToDieWebAPIValueState
+	BloodMoonActive  *bool
+	NextBloodMoon    *SevenDaysToDieGameTime
+	NextBloodMoonEnd *SevenDaysToDieGameTime
+	ObservedAt       time.Time
+}
+
+// SevenDaysToDieWebAPIStatusQueryRequest contains only node-local access details.
+type SevenDaysToDieWebAPIStatusQueryRequest struct {
+	WorkingDirectory string
+	TokenName        string
+	TokenSecret      string
+}
+
 // SevenDaysToDieMapTileRequest identifies one native tile. Coordinates are
 // integers by construction, so callers cannot turn this into an open proxy.
 type SevenDaysToDieMapTileRequest struct {
