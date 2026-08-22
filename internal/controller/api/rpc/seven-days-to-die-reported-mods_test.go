@@ -124,6 +124,11 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 		if errBefore != nil {
 			t.Fatalf("read managed mod before query: %v", errBefore)
 		}
+		var beforeCount int
+		errBeforeCount := fixture.conn.SQLDb.QueryRowContext(t.Context(), "select count(*) from installed_mod").Scan(&beforeCount)
+		if errBeforeCount != nil {
+			t.Fatalf("count managed mods before query: %v", errBeforeCount)
+		}
 		request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
 		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 		response, errMods := fixture.service.GetSevenDaysToDieReportedMods(t.Context(), request)
@@ -137,6 +142,14 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 		}
 		if afterContents != beforeContents {
 			t.Fatalf("managed mod contents changed from %s to %s", beforeContents, afterContents)
+		}
+		var afterCount int
+		errAfterCount := fixture.conn.SQLDb.QueryRowContext(t.Context(), "select count(*) from installed_mod").Scan(&afterCount)
+		if errAfterCount != nil {
+			t.Fatalf("count managed mods after query: %v", errAfterCount)
+		}
+		if afterCount != beforeCount {
+			t.Fatalf("managed mod count = %d, want unchanged %d", afterCount, beforeCount)
 		}
 
 		if len(localClient.QuerySevenDaysToDieReportedModsCalls) != 0 || len(remoteClient.QuerySevenDaysToDieReportedModsCalls) != 1 {

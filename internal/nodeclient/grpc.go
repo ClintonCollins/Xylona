@@ -77,6 +77,7 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		httpClient,
 		listenURL,
 		connect.WithReadMaxBytes(sevenDaysToDieReportedModsResponseLimit),
+		connect.WithCodec(reportedModsProtoCodec{}),
 	)
 
 	return &GRPCNodeClient{
