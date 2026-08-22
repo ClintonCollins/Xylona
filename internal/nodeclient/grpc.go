@@ -801,6 +801,24 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieReportedMods(ctx context.Context, mo
 	return result, nil
 }
 
+// QuerySevenDaysToDieSandboxSettings invokes the private native sandbox-settings RPC.
+func (c *GRPCNodeClient) QuerySevenDaysToDieSandboxSettings(ctx context.Context, sandboxReq node.SevenDaysToDieSandboxSettingsQueryRequest) (*node.SevenDaysToDieSandboxSettings, error) {
+	req := newReq(c, &nodeprotov1.QuerySevenDaysToDieSandboxSettingsRequest{
+		WorkingDirectory: sandboxReq.WorkingDirectory,
+		TokenName:        sandboxReq.TokenName,
+		TokenSecret:      sandboxReq.TokenSecret,
+	})
+	resp, errRPC := c.connectClient.QuerySevenDaysToDieSandboxSettings(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("query 7 Days to Die sandbox settings", errRPC)
+	}
+	result, errResult := sevenDaysToDieSandboxSettingsFromProto(resp.Msg.GetResult())
+	if errResult != nil {
+		return nil, fmt.Errorf("query 7 Days to Die sandbox settings: invalid node response: %w", errResult)
+	}
+	return result, nil
+}
+
 // GetSevenDaysToDieMapTile invokes the bounded native-tile RPC.
 func (c *GRPCNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, tileReq node.SevenDaysToDieMapTileRequest) ([]byte, error) {
 	req := newReq(c, &nodeprotov1.GetSevenDaysToDieMapTileRequest{
@@ -1443,6 +1461,60 @@ func sevenDaysToDieReportedModsFromProto(result *nodeprotov1.SevenDaysToDieRepor
 		State:           sevenDaysToDieWebAPIValueStateFromProto(result.GetState()),
 		Mods:            mods,
 	}, nil
+}
+
+func sevenDaysToDieSandboxSettingsFromProto(result *nodeprotov1.SevenDaysToDieSandboxSettings) (*node.SevenDaysToDieSandboxSettings, error) {
+	if result == nil {
+		return nil, errors.New("sandbox settings result is missing")
+	}
+	protoSettings := result.GetSettings()
+	if len(protoSettings) > node.SevenDaysToDieSandboxSettingCountLimit {
+		return nil, errors.New("sandbox setting count exceeds limit")
+	}
+	settings := make([]node.SevenDaysToDieSandboxSetting, 0, len(protoSettings))
+	for _, setting := range protoSettings {
+		if setting == nil {
+			return nil, errors.New("sandbox setting is missing")
+		}
+		settings = append(settings, node.SevenDaysToDieSandboxSetting{
+			Key:             setting.GetKey(),
+			Label:           setting.GetLabel(),
+			Description:     setting.GetDescription(),
+			Group:           setting.GetGroup(),
+			ConfiguredValue: setting.GetConfiguredValue(),
+			ConfiguredLabel: setting.GetConfiguredLabel(),
+			EffectiveValue:  setting.GetEffectiveValue(),
+			EffectiveLabel:  setting.GetEffectiveLabel(),
+			Matches:         setting.GetMatches(),
+		})
+	}
+	converted := &node.SevenDaysToDieSandboxSettings{
+		ConnectionState: sevenDaysToDieWebAPIConnectionStateFromProto(result.GetConnectionState()),
+		State:           sevenDaysToDieWebAPIValueStateFromProto(result.GetState()),
+		ComparisonState: sevenDaysToDieSandboxComparisonStateFromProto(result.GetComparisonState()),
+		ConfiguredCode:  result.GetConfiguredCode(),
+		EffectiveCode:   result.GetEffectiveCode(),
+		Settings:        settings,
+		ObservedAt:      validProtoTime(result.GetObservedAt()),
+	}
+	errValidate := node.ValidateSevenDaysToDieSandboxSettings(converted)
+	if errValidate != nil {
+		return nil, fmt.Errorf("validate sandbox settings: %w", errValidate)
+	}
+	return converted, nil
+}
+
+func sevenDaysToDieSandboxComparisonStateFromProto(state nodeprotov1.SevenDaysToDieSandboxComparisonState) node.SevenDaysToDieSandboxComparisonState {
+	switch state {
+	case nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MATCH:
+		return node.SevenDaysToDieSandboxComparisonStateMatch
+	case nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH:
+		return node.SevenDaysToDieSandboxComparisonStateMismatch
+	case nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE:
+		return node.SevenDaysToDieSandboxComparisonStateStale
+	default:
+		return node.SevenDaysToDieSandboxComparisonStateUnspecified
+	}
 }
 
 func sevenDaysToDieWebAPICapabilitiesFromProto(capabilities *nodeprotov1.SevenDaysToDieWebAPICapabilities) node.SevenDaysToDieWebAPICapabilities {

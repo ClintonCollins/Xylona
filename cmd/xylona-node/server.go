@@ -947,6 +947,27 @@ func (s *nodeServiceServer) QuerySevenDaysToDieReportedMods(ctx context.Context,
 	}), nil
 }
 
+func (s *nodeServiceServer) QuerySevenDaysToDieSandboxSettings(ctx context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieSandboxSettingsRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	result, errQuery := s.n.QuerySevenDaysToDieSandboxSettings(ctx, node.SevenDaysToDieSandboxSettingsQueryRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		TokenName:        req.Msg.GetTokenName(),
+		TokenSecret:      req.Msg.GetTokenSecret(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse{
+		Result: sevenDaysToDieSandboxSettingsToProto(result),
+	}), nil
+}
+
 func (s *nodeServiceServer) GetSevenDaysToDieMapTile(ctx context.Context, req *connect.Request[nodeprotov1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[nodeprotov1.GetSevenDaysToDieMapTileResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1492,6 +1513,49 @@ func sevenDaysToDieReportedModsToProto(result *node.SevenDaysToDieReportedMods) 
 		ConnectionState: sevenDaysToDieWebAPIConnectionStateToProto(result.ConnectionState),
 		State:           sevenDaysToDieWebAPIValueStateToProto(result.State),
 		Mods:            mods,
+	}
+}
+
+func sevenDaysToDieSandboxSettingsToProto(result *node.SevenDaysToDieSandboxSettings) *nodeprotov1.SevenDaysToDieSandboxSettings {
+	if result == nil {
+		return nil
+	}
+	settings := make([]*nodeprotov1.SevenDaysToDieSandboxSetting, 0, len(result.Settings))
+	for _, setting := range result.Settings {
+		settings = append(settings, &nodeprotov1.SevenDaysToDieSandboxSetting{
+			Key: setting.Key, Label: setting.Label, Description: setting.Description, Group: setting.Group,
+			ConfiguredValue: setting.ConfiguredValue, ConfiguredLabel: setting.ConfiguredLabel,
+			EffectiveValue: setting.EffectiveValue, EffectiveLabel: setting.EffectiveLabel, Matches: setting.Matches,
+		})
+	}
+	protoResult := &nodeprotov1.SevenDaysToDieSandboxSettings{
+		ConnectionState: sevenDaysToDieWebAPIConnectionStateToProto(result.ConnectionState),
+		State:           sevenDaysToDieWebAPIValueStateToProto(result.State),
+		ComparisonState: sevenDaysToDieSandboxComparisonStateToProto(result.ComparisonState),
+		ConfiguredCode:  result.ConfiguredCode,
+		EffectiveCode:   result.EffectiveCode,
+		Settings:        settings,
+	}
+	if !result.ObservedAt.IsZero() {
+		observedAt := timestamppb.New(result.ObservedAt)
+		errTimestamp := observedAt.CheckValid()
+		if errTimestamp == nil {
+			protoResult.ObservedAt = observedAt
+		}
+	}
+	return protoResult
+}
+
+func sevenDaysToDieSandboxComparisonStateToProto(state node.SevenDaysToDieSandboxComparisonState) nodeprotov1.SevenDaysToDieSandboxComparisonState {
+	switch state {
+	case node.SevenDaysToDieSandboxComparisonStateMatch:
+		return nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MATCH
+	case node.SevenDaysToDieSandboxComparisonStateMismatch:
+		return nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH
+	case node.SevenDaysToDieSandboxComparisonStateStale:
+		return nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE
+	default:
+		return nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_UNSPECIFIED
 	}
 }
 

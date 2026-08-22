@@ -89,6 +89,7 @@ service Xylona {
   rpc GetPublicPalworldMap (GetPublicPalworldMapRequest) returns (GetPublicPalworldMapResponse) {}
   rpc GetSevenDaysToDieMap (GetSevenDaysToDieMapRequest) returns (GetSevenDaysToDieMapResponse) {}
   rpc GetSevenDaysToDieWebAPIStatus (GetSevenDaysToDieWebAPIStatusRequest) returns (GetSevenDaysToDieWebAPIStatusResponse) {}
+  rpc GetSevenDaysToDieSandboxSettings (GetSevenDaysToDieSandboxSettingsRequest) returns (GetSevenDaysToDieSandboxSettingsResponse) {}
   rpc UpdateSevenDaysToDieMapNotes (UpdateSevenDaysToDieMapNotesRequest) returns (UpdateSevenDaysToDieMapNotesResponse) {}
   rpc GetPublicSevenDaysToDieMap (GetPublicSevenDaysToDieMapRequest) returns (GetPublicSevenDaysToDieMapResponse) {}
   rpc GetMinecraftMap (GetMinecraftMapRequest) returns (GetMinecraftMapResponse) {}
@@ -2058,4 +2059,37 @@ message GetSevenDaysToDieWebAPIStatusRequest {
 
 message GetSevenDaysToDieWebAPIStatusResponse {
   SevenDaysToDieWebAPIStatus status = 1;
+}
+
+enum SevenDaysToDieSandboxComparisonState {
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_UNSPECIFIED = 0;
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MATCH = 1;
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH = 2;
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE = 3;
+}
+
+message SevenDaysToDieSandboxSetting {
+  string key = 1;
+  string label = 2;
+  string description = 3;
+  string group = 4;
+  string configured_value = 5;
+  string configured_label = 6;
+  string effective_value = 7;
+  string effective_label = 8;
+  bool matches = 9;
+}
+
+message GetSevenDaysToDieSandboxSettingsRequest {
+  string game_server_id = 1;
+}
+
+message GetSevenDaysToDieSandboxSettingsResponse {
+  SevenDaysToDieWebAPIConnectionState connection_state = 1;
+  SevenDaysToDieWebAPIValueState state = 2;
+  SevenDaysToDieSandboxComparisonState comparison_state = 3;
+  string configured_code = 4;
+  string effective_code = 5;
+  repeated SevenDaysToDieSandboxSetting settings = 6;
+  google.protobuf.Timestamp observed_at = 7;
 }

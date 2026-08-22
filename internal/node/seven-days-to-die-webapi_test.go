@@ -710,12 +710,227 @@ func TestNodeQuerySevenDaysToDieReportedMods(t *testing.T) {
 	}
 }
 
+func TestDecodeSevenDaysToDieSandboxSnapshot(t *testing.T) {
+	tests := []struct {
+		name      string
+		body      string
+		wantCode  string
+		wantKey   string
+		wantGroup string
+		wantValue string
+		wantLabel string
+		wantErr   bool
+		buildBody func() string
+	}{
+		{
+			name:     "decodes categorized native metadata",
+			body:     `{"data":{"sandboxCode":"AAAE","categories":[{"name":"Player","settings":[{"enumName":"RangedDamage","localizedName":"Ranged damage","description":"<b>untrusted</b>","currentValue":0.85,"localizedValue":"85%"}]}]}}`,
+			wantCode: "AAAE", wantKey: "RangedDamage", wantGroup: "Player", wantValue: "0.85", wantLabel: "85%",
+		},
+		{
+			name:     "decodes tolerant scalar aliases",
+			body:     `{"data":{"code":"A","settings":[{"key":"EnemySpawn","label":"Enemy spawning","group":"Entities","value":true,"valueLabel":"Enabled"}]}}`,
+			wantCode: "A", wantKey: "EnemySpawn", wantGroup: "Entities", wantValue: "true", wantLabel: "Enabled",
+		},
+		{name: "rejects a missing data envelope", body: `{"settings":[]}`, wantErr: true},
+		{name: "rejects a non-scalar setting value", body: `{"data":{"settings":[{"key":"EnemySpawn","value":{"nested":true}}]}}`, wantErr: true},
+		{
+			name: "rejects oversized text",
+			buildBody: func() string {
+				return `{"data":{"settings":[{"key":"EnemySpawn","value":"` + strings.Repeat("x", SevenDaysToDieSandboxTextByteLimit+1) + `"}]}}`
+			},
+			wantErr: true,
+		},
+		{
+			name: "rejects too many settings",
+			buildBody: func() string {
+				var body strings.Builder
+				body.WriteString(`{"data":{"settings":[`)
+				for index := range SevenDaysToDieSandboxSettingCountLimit + 1 {
+					if index > 0 {
+						body.WriteByte(',')
+					}
+					fmt.Fprintf(&body, `{"key":"setting-%d","value":%d}`, index, index)
+				}
+				body.WriteString(`]}}`)
+				return body.String()
+			},
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body := test.body
+			if test.buildBody != nil {
+				body = test.buildBody()
+			}
+			snapshot, errDecode := decodeSevenDaysToDieSandboxSnapshot([]byte(body))
+			if (errDecode != nil) != test.wantErr {
+				t.Fatalf("decodeSevenDaysToDieSandboxSnapshot() error = %v, wantErr %v", errDecode, test.wantErr)
+			}
+			if test.wantErr {
+				return
+			}
+			if snapshot.code != test.wantCode || len(snapshot.settings) != 1 {
+				t.Fatalf("decodeSevenDaysToDieSandboxSnapshot() = %+v", snapshot)
+			}
+			setting := snapshot.settings[0]
+			if setting.Key != test.wantKey || setting.Group != test.wantGroup || setting.EffectiveValue != test.wantValue || setting.EffectiveLabel != test.wantLabel {
+				t.Fatalf("setting = %+v", setting)
+			}
+		})
+	}
+}
+
+func TestNodeQuerySevenDaysToDieSandboxSettings(t *testing.T) {
+	const configuredCode = "AAAJABJACJADJARFBNC"
+
+	t.Run("marks matching codes and settings", func(t *testing.T) {
+		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, "openapi: 3.1.0\ninfo:\n  version: '3.0'\npaths:\n  /api/sandboxsettings:\n    get: {}\n")
+			case "/api/sandboxsettings":
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"code":"AAAJABJACJADJARFBNC","settings":[{"key":"RangedDamage","value":"1"}]}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}, "")
+
+		result, errQuery := new(Node).QuerySevenDaysToDieSandboxSettings(t.Context(), SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: workingDirectory})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v", errQuery)
+		}
+		if result.ComparisonState != SevenDaysToDieSandboxComparisonStateMatch || len(result.Settings) != 1 || !result.Settings[0].Matches || result.Settings[0].ConfiguredValue != "1" {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() = %+v", result)
+		}
+	})
+
+	t.Run("compares effective and configured settings through GET only", func(t *testing.T) {
+		var methods []string
+		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+			methods = append(methods, request.Method)
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, "openapi: 3.1.0\ninfo:\n  version: '3.0'\npaths:\n  /api/sandboxsettings:\n    get: {}\n")
+			case "/api/sandboxsettings":
+				if request.URL.Query().Get("code") == configuredCode {
+					writeSevenDaysToDieTestResponse(t, response, `{"data":{"code":"AAAJABJACJADJARFBNC","groups":[{"title":"Player","options":[{"name":"RangedDamage","title":"Ranged damage","description":"Saved description","value":"1","displayValue":"100%"}]}]}}`)
+					return
+				}
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"code":"AAAE","groups":[{"title":"Player","options":[{"name":"RangedDamage","title":"Ranged damage","description":"<script>text only</script>","value":"0.85","displayValue":"85%"}]}]}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}, "")
+		configPath := filepath.Join(workingDirectory, sevenDaysToDieServerConfigName)
+		before, errRead := os.ReadFile(configPath)
+		if errRead != nil {
+			t.Fatalf("read config before query: %v", errRead)
+		}
+
+		result, errQuery := new(Node).QuerySevenDaysToDieSandboxSettings(t.Context(), SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: workingDirectory})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v", errQuery)
+		}
+		if result.State != SevenDaysToDieWebAPIValueStateAvailable || result.ComparisonState != SevenDaysToDieSandboxComparisonStateMismatch ||
+			result.ConfiguredCode != configuredCode || result.EffectiveCode != "AAAE" || len(result.Settings) != 1 {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() = %+v", result)
+		}
+		setting := result.Settings[0]
+		if setting.Matches || setting.ConfiguredLabel != "100%" || setting.EffectiveLabel != "85%" || setting.Description != "<script>text only</script>" {
+			t.Fatalf("compared setting = %+v", setting)
+		}
+		if slices.ContainsFunc(methods, func(method string) bool { return method != http.MethodGet }) {
+			t.Fatalf("request methods = %v, want GET only", methods)
+		}
+		after, errRead := os.ReadFile(configPath)
+		if errRead != nil {
+			t.Fatalf("read config after query: %v", errRead)
+		}
+		if string(after) != string(before) {
+			t.Fatal("sandbox settings query modified serverconfig.xml")
+		}
+	})
+
+	tests := []struct {
+		name           string
+		openAPI        string
+		responseStatus int
+		responseBody   string
+		wantState      SevenDaysToDieWebAPIValueState
+		wantComparison SevenDaysToDieSandboxComparisonState
+	}{
+		{name: "unsupported", openAPI: "openapi: 3.1.0\ninfo:\n  version: '2.6'\npaths: {}\n", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
+		{name: "upstream unauthorized", responseStatus: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "missing effective code", responseStatus: http.StatusOK, responseBody: `{"data":{"settings":[{"key":"x","value":"1"}]}}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "malformed upstream data", responseStatus: http.StatusOK, responseBody: `{"data":{"settings":[{"key":"x","value":{}}]}}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "oversized upstream data", responseStatus: http.StatusOK, responseBody: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+				switch request.URL.Path {
+				case "/api/openapi/openapi.yaml":
+					openAPI := test.openAPI
+					if openAPI == "" {
+						openAPI = "openapi: 3.1.0\ninfo:\n  version: '3.0'\npaths:\n  /api/sandboxsettings:\n    get: {}\n"
+					}
+					writeSevenDaysToDieTestResponse(t, response, openAPI)
+				case "/api/sandboxsettings":
+					response.WriteHeader(test.responseStatus)
+					_, errWrite := response.Write([]byte(test.responseBody))
+					if errWrite != nil {
+						t.Errorf("write response: %v", errWrite)
+					}
+				default:
+					http.NotFound(response, request)
+				}
+			}, "")
+
+			result, errQuery := new(Node).QuerySevenDaysToDieSandboxSettings(t.Context(), SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: workingDirectory})
+			if errQuery != nil {
+				t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v", errQuery)
+			}
+			if result.State != test.wantState || result.ComparisonState != test.wantComparison {
+				t.Fatalf("QuerySevenDaysToDieSandboxSettings() = %+v", result)
+			}
+		})
+	}
+
+	t.Run("marks an unrecognized configured code stale", func(t *testing.T) {
+		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, "openapi: 3.1.0\ninfo:\n  version: '3.0'\npaths:\n  /api/sandboxsettings:\n    get: {}\n")
+			case "/api/sandboxsettings":
+				if request.URL.Query().Has("code") {
+					http.Error(response, "invalid code", http.StatusBadRequest)
+					return
+				}
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"code":"AAAE","settings":[{"key":"RangedDamage","value":"0.85"}]}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}, "")
+
+		result, errQuery := new(Node).QuerySevenDaysToDieSandboxSettings(t.Context(), SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: workingDirectory})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v", errQuery)
+		}
+		if result.State != SevenDaysToDieWebAPIValueStateAvailable || result.ComparisonState != SevenDaysToDieSandboxComparisonStateStale {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() = %+v", result)
+		}
+	})
+}
+
 func writeSevenDaysToDieWebAPIConfig(t *testing.T, workingDirectory string, enabled string, port string, dashboardURL string) {
 	t.Helper()
 	config := `<ServerSettings>` +
 		`<property name="WebDashboardEnabled" value="` + enabled + `" />` +
 		`<property name="WebDashboardPort" value="` + port + `" />` +
 		`<property name="WebDashboardUrl" value="` + dashboardURL + `" />` +
+		`<property name="SandboxCode" value="AAAJABJACJADJARFBNC" />` +
 		`</ServerSettings>`
 	errWrite := os.WriteFile(filepath.Join(workingDirectory, sevenDaysToDieServerConfigName), []byte(config), 0o600)
 	if errWrite != nil {

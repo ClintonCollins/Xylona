@@ -713,6 +713,87 @@ type SevenDaysToDieReportedMods struct {
 	Mods            []SevenDaysToDieReportedMod
 }
 
+// SevenDaysToDieSandboxComparisonState describes the relationship between the
+// saved SandboxCode and the settings reported by the running game.
+type SevenDaysToDieSandboxComparisonState int32
+
+// SevenDaysToDieSandboxComparisonState values classify one read-only comparison.
+const (
+	SevenDaysToDieSandboxComparisonStateUnspecified SevenDaysToDieSandboxComparisonState = iota
+	SevenDaysToDieSandboxComparisonStateMatch
+	SevenDaysToDieSandboxComparisonStateMismatch
+	SevenDaysToDieSandboxComparisonStateStale
+)
+
+const (
+	// SevenDaysToDieSandboxSettingCountLimit bounds one native settings response.
+	SevenDaysToDieSandboxSettingCountLimit = 256
+	// SevenDaysToDieSandboxTextByteLimit bounds upstream codes, labels, descriptions, and values.
+	SevenDaysToDieSandboxTextByteLimit = 4096
+)
+
+// SevenDaysToDieSandboxSetting is one effective setting and its saved-code comparison.
+type SevenDaysToDieSandboxSetting struct {
+	Key             string
+	Label           string
+	Description     string
+	Group           string
+	ConfiguredValue string
+	ConfiguredLabel string
+	EffectiveValue  string
+	EffectiveLabel  string
+	Matches         bool
+}
+
+// SevenDaysToDieSandboxSettingsQueryRequest contains only node-local access details.
+type SevenDaysToDieSandboxSettingsQueryRequest struct {
+	WorkingDirectory string
+	TokenName        string
+	TokenSecret      string
+}
+
+// SevenDaysToDieSandboxSettings is the bounded, read-only native settings comparison.
+type SevenDaysToDieSandboxSettings struct {
+	ConnectionState SevenDaysToDieWebAPIConnectionState
+	State           SevenDaysToDieWebAPIValueState
+	ComparisonState SevenDaysToDieSandboxComparisonState
+	ConfiguredCode  string
+	EffectiveCode   string
+	Settings        []SevenDaysToDieSandboxSetting
+	ObservedAt      time.Time
+}
+
+// ValidateSevenDaysToDieSandboxSettings enforces bounds at node and controller trust boundaries.
+func ValidateSevenDaysToDieSandboxSettings(result *SevenDaysToDieSandboxSettings) error {
+	if result == nil {
+		return errors.New("node: 7 Days to Die sandbox settings are missing")
+	}
+	if len(result.Settings) > SevenDaysToDieSandboxSettingCountLimit {
+		return errors.New("node: 7 Days to Die sandbox setting count exceeds limit")
+	}
+	if max(len(result.ConfiguredCode), len(result.EffectiveCode)) > SevenDaysToDieSandboxTextByteLimit {
+		return errors.New("node: 7 Days to Die sandbox code exceeds limit")
+	}
+	keys := make(map[string]struct{}, len(result.Settings))
+	for _, setting := range result.Settings {
+		if strings.TrimSpace(setting.Key) == "" {
+			return errors.New("node: 7 Days to Die sandbox setting key is empty")
+		}
+		_, duplicate := keys[setting.Key]
+		if duplicate {
+			return errors.New("node: 7 Days to Die sandbox setting key is duplicated")
+		}
+		keys[setting.Key] = struct{}{}
+		if max(
+			len(setting.Key), len(setting.Label), len(setting.Description), len(setting.Group),
+			len(setting.ConfiguredValue), len(setting.ConfiguredLabel), len(setting.EffectiveValue), len(setting.EffectiveLabel),
+		) > SevenDaysToDieSandboxTextByteLimit {
+			return errors.New("node: 7 Days to Die sandbox setting field exceeds limit")
+		}
+	}
+	return nil
+}
+
 // ValidateSevenDaysToDieReportedMods enforces the shared inventory bounds at
 // node and controller trust boundaries.
 func ValidateSevenDaysToDieReportedMods(mods []SevenDaysToDieReportedMod) error {

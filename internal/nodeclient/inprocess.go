@@ -356,6 +356,18 @@ func (c *inProcessNodeClient) QuerySevenDaysToDieReportedMods(ctx context.Contex
 	return result, nil
 }
 
+// QuerySevenDaysToDieSandboxSettings queries the embedded node directly.
+func (c *inProcessNodeClient) QuerySevenDaysToDieSandboxSettings(ctx context.Context, req node.SevenDaysToDieSandboxSettingsQueryRequest) (*node.SevenDaysToDieSandboxSettings, error) {
+	if c == nil || c.node == nil {
+		return nil, ErrNodeNil
+	}
+	result, errQuery := c.node.QuerySevenDaysToDieSandboxSettings(ctx, req)
+	if errQuery != nil {
+		return nil, fmt.Errorf("nodeclient: query 7 Days to Die sandbox settings: %w", errQuery)
+	}
+	return result, nil
+}
+
 func (c *inProcessNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error) {
 	if c.node == nil {
 		return nil, ErrNodeNil

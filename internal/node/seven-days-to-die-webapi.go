@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -47,6 +48,7 @@ const (
 	sevenDaysToDieWebAPIEndpointServerStats
 	sevenDaysToDieWebAPIEndpointPlayer
 	sevenDaysToDieWebAPIEndpointMods
+	sevenDaysToDieWebAPIEndpointSandboxSettings
 )
 
 type sevenDaysToDieOpenAPI struct {
@@ -114,6 +116,14 @@ type sevenDaysToDieReportedModJSON struct {
 	Description string `json:"description"`
 	Author      string `json:"author"`
 	Version     string `json:"version"`
+}
+
+type sevenDaysToDieSandboxSnapshot struct {
+	code          string
+	codeKnown     bool
+	valid         bool
+	validityKnown bool
+	settings      []SevenDaysToDieSandboxSetting
 }
 
 // QuerySevenDaysToDieWebAPIStatus returns bounded diagnostics from the native
@@ -252,6 +262,402 @@ func (*Node) QuerySevenDaysToDieReportedMods(ctx context.Context, req SevenDaysT
 	}
 	result.Mods = mods
 	return result, nil
+}
+
+// QuerySevenDaysToDieSandboxSettings compares the saved SandboxCode with the
+// effective settings reported by the running game. It performs GET requests only.
+func (*Node) QuerySevenDaysToDieSandboxSettings(ctx context.Context, req SevenDaysToDieSandboxSettingsQueryRequest) (*SevenDaysToDieSandboxSettings, error) {
+	discovery, errDiscovery := discoverSevenDaysToDieWebAPI(ctx, req.WorkingDirectory, req.TokenName, req.TokenSecret)
+	if errDiscovery != nil {
+		return nil, fmt.Errorf("node: query 7 Days to Die sandbox settings: %w", errDiscovery)
+	}
+	defer discovery.cancel()
+	result := &SevenDaysToDieSandboxSettings{
+		ConnectionState: discovery.connectionState,
+		State:           SevenDaysToDieWebAPIValueStateUnavailable,
+		Settings:        make([]SevenDaysToDieSandboxSetting, 0),
+	}
+	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
+		return result, nil
+	}
+	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/sandboxsettings", method: http.MethodGet})
+	if !advertised {
+		errContext := ctx.Err()
+		if errContext != nil {
+			return nil, fmt.Errorf("node: query 7 Days to Die sandbox settings: %w", errContext)
+		}
+		if !discovery.resolver.failed {
+			result.State = SevenDaysToDieWebAPIValueStateUnsupported
+		}
+		return result, nil
+	}
+
+	configuredValues, errConfig := readSevenDaysToDieServerSettings(req.WorkingDirectory)
+	if errConfig != nil {
+		return result, nil
+	}
+	configuredCode, configuredPresent := configuredValues["SandboxCode"]
+	configuredCode = strings.TrimSpace(configuredCode)
+	if len(configuredCode) > SevenDaysToDieSandboxTextByteLimit {
+		return result, nil
+	}
+	result.ConfiguredCode = configuredCode
+
+	state, body, errQuery := querySevenDaysToDieWebAPIResource(
+		ctx, discovery, sevenDaysToDieWebAPIEndpointSandboxSettings, req.TokenName, req.TokenSecret,
+	)
+	if errQuery != nil {
+		return nil, fmt.Errorf("node: query 7 Days to Die sandbox settings: %w", errQuery)
+	}
+	result.State = state
+	if state != SevenDaysToDieWebAPIValueStateAvailable {
+		return result, nil
+	}
+	effective, errEffective := decodeSevenDaysToDieSandboxSnapshot(body)
+	if errEffective != nil || !effective.codeKnown || (effective.validityKnown && !effective.valid) {
+		result.State = SevenDaysToDieWebAPIValueStateUnavailable
+		return result, nil
+	}
+	result.EffectiveCode = effective.code
+	result.ObservedAt = time.Now().UTC()
+
+	if !configuredPresent {
+		result.ComparisonState = SevenDaysToDieSandboxComparisonStateStale
+		result.Settings = effective.settings
+		return result, nil
+	}
+	if configuredCode == effective.code {
+		result.ComparisonState = SevenDaysToDieSandboxComparisonStateMatch
+		result.Settings = matchedSevenDaysToDieSandboxSettings(effective.settings)
+		return result, nil
+	}
+
+	configured, configuredState, stale, errConfigured := queryConfiguredSevenDaysToDieSandboxSnapshot(
+		ctx, discovery, configuredCode, req.TokenName, req.TokenSecret,
+	)
+	if errConfigured != nil {
+		return nil, fmt.Errorf("node: query configured 7 Days to Die sandbox settings: %w", errConfigured)
+	}
+	if stale {
+		result.ComparisonState = SevenDaysToDieSandboxComparisonStateStale
+		result.Settings = effective.settings
+		return result, nil
+	}
+	if configuredState != SevenDaysToDieWebAPIValueStateAvailable || configured == nil {
+		result.State = configuredState
+		return result, nil
+	}
+	result.ComparisonState = SevenDaysToDieSandboxComparisonStateMismatch
+	result.Settings = compareSevenDaysToDieSandboxSettings(configured.settings, effective.settings)
+	errValidate := ValidateSevenDaysToDieSandboxSettings(result)
+	if errValidate != nil {
+		result.State = SevenDaysToDieWebAPIValueStateUnavailable
+		result.Settings = nil
+	}
+	return result, nil
+}
+
+func queryConfiguredSevenDaysToDieSandboxSnapshot(
+	callerCtx context.Context,
+	discovery *sevenDaysToDieWebAPIDiscovery,
+	configuredCode string,
+	tokenName string,
+	tokenSecret string,
+) (*sevenDaysToDieSandboxSnapshot, SevenDaysToDieWebAPIValueState, bool, error) {
+	query := url.Values{"code": []string{configuredCode}}.Encode()
+	statusCode, body, errQuery := getSevenDaysToDieWebAPIPath(
+		discovery.ctx,
+		discovery.settings,
+		"/api/sandboxsettings?"+query,
+		"application/json",
+		tokenName,
+		tokenSecret,
+	)
+	if errQuery != nil {
+		errContext := callerCtx.Err()
+		if errContext != nil {
+			return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, fmt.Errorf("query configured sandbox settings: %w", errContext)
+		}
+		return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, nil
+	}
+	switch statusCode {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusUnprocessableEntity:
+		return nil, SevenDaysToDieWebAPIValueStateAvailable, true, nil
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return nil, SevenDaysToDieWebAPIValueStatePermissionDenied, false, nil
+	case http.StatusOK:
+	default:
+		return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, nil
+	}
+	snapshot, errDecode := decodeSevenDaysToDieSandboxSnapshot(body)
+	if errDecode != nil {
+		return nil, SevenDaysToDieWebAPIValueStateUnavailable, false, nil //nolint:nilerr // A malformed native response is represented as unavailable.
+	}
+	if snapshot.validityKnown && !snapshot.valid {
+		return nil, SevenDaysToDieWebAPIValueStateAvailable, true, nil
+	}
+	if snapshot.code != "" && snapshot.code != configuredCode {
+		return nil, SevenDaysToDieWebAPIValueStateAvailable, true, nil
+	}
+	return &snapshot, SevenDaysToDieWebAPIValueStateAvailable, false, nil
+}
+
+func matchedSevenDaysToDieSandboxSettings(settings []SevenDaysToDieSandboxSetting) []SevenDaysToDieSandboxSetting {
+	matched := make([]SevenDaysToDieSandboxSetting, len(settings))
+	for index, setting := range settings {
+		setting.ConfiguredValue = setting.EffectiveValue
+		setting.ConfiguredLabel = setting.EffectiveLabel
+		setting.Matches = true
+		matched[index] = setting
+	}
+	return matched
+}
+
+func compareSevenDaysToDieSandboxSettings(
+	configured []SevenDaysToDieSandboxSetting,
+	effective []SevenDaysToDieSandboxSetting,
+) []SevenDaysToDieSandboxSetting {
+	configuredByKey := make(map[string]SevenDaysToDieSandboxSetting, len(configured))
+	for _, setting := range configured {
+		configuredByKey[setting.Key] = setting
+	}
+	compared := make([]SevenDaysToDieSandboxSetting, 0, max(len(configured), len(effective)))
+	seen := make(map[string]struct{}, len(effective))
+	for _, setting := range effective {
+		configuredSetting, found := configuredByKey[setting.Key]
+		if found {
+			setting.ConfiguredValue = configuredSetting.EffectiveValue
+			setting.ConfiguredLabel = configuredSetting.EffectiveLabel
+			setting.Matches = setting.ConfiguredValue == setting.EffectiveValue
+		}
+		compared = append(compared, setting)
+		seen[setting.Key] = struct{}{}
+	}
+	for _, setting := range configured {
+		_, found := seen[setting.Key]
+		if found {
+			continue
+		}
+		setting.ConfiguredValue = setting.EffectiveValue
+		setting.ConfiguredLabel = setting.EffectiveLabel
+		setting.EffectiveValue = ""
+		setting.EffectiveLabel = ""
+		setting.Matches = false
+		compared = append(compared, setting)
+	}
+	return compared
+}
+
+func decodeSevenDaysToDieSandboxSnapshot(body []byte) (sevenDaysToDieSandboxSnapshot, error) {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	var root any
+	errDecode := decoder.Decode(&root)
+	if errDecode != nil {
+		return sevenDaysToDieSandboxSnapshot{}, fmt.Errorf("decode 7 Days to Die sandbox settings: %w", errDecode)
+	}
+	var trailing json.RawMessage
+	errTrailing := decoder.Decode(&trailing)
+	if !errors.Is(errTrailing, io.EOF) {
+		return sevenDaysToDieSandboxSnapshot{}, errors.New("decode 7 Days to Die sandbox settings: trailing data")
+	}
+
+	snapshot := sevenDaysToDieSandboxSnapshot{settings: make([]SevenDaysToDieSandboxSetting, 0)}
+	snapshot.code, snapshot.codeKnown = findSevenDaysToDieSandboxText(root, 0, "sandboxCode", "currentCode", "code")
+	valid, foundValid := findSevenDaysToDieSandboxBool(root, 0, "valid", "recognized")
+	snapshot.valid = valid
+	snapshot.validityKnown = foundValid
+	object, validObject := root.(map[string]any)
+	if !validObject {
+		return sevenDaysToDieSandboxSnapshot{}, errors.New("decode 7 Days to Die sandbox settings: invalid envelope")
+	}
+	data, foundData := lookupSevenDaysToDieSandboxJSON(object, "data")
+	if !foundData {
+		return sevenDaysToDieSandboxSnapshot{}, errors.New("decode 7 Days to Die sandbox settings: missing data")
+	}
+	errSettings := collectSevenDaysToDieSandboxSettings(data, "", 0, &snapshot.settings)
+	if errSettings != nil {
+		return sevenDaysToDieSandboxSnapshot{}, errSettings
+	}
+	if len(snapshot.settings) == 0 {
+		return sevenDaysToDieSandboxSnapshot{}, errors.New("decode 7 Days to Die sandbox settings: missing settings")
+	}
+	result := &SevenDaysToDieSandboxSettings{
+		ConfiguredCode: snapshot.code,
+		Settings:       snapshot.settings,
+	}
+	errValidate := ValidateSevenDaysToDieSandboxSettings(result)
+	if errValidate != nil {
+		return sevenDaysToDieSandboxSnapshot{}, fmt.Errorf("decode 7 Days to Die sandbox settings: %w", errValidate)
+	}
+	return snapshot, nil
+}
+
+func collectSevenDaysToDieSandboxSettings(
+	value any,
+	inheritedGroup string,
+	depth int,
+	settings *[]SevenDaysToDieSandboxSetting,
+) error {
+	if depth > 8 {
+		return errors.New("decode 7 Days to Die sandbox settings: nesting exceeds limit")
+	}
+	switch typed := value.(type) {
+	case []any:
+		for _, item := range typed {
+			errCollect := collectSevenDaysToDieSandboxSettings(item, inheritedGroup, depth+1, settings)
+			if errCollect != nil {
+				return errCollect
+			}
+		}
+	case map[string]any:
+		setting, isSetting, errSetting := decodeSevenDaysToDieSandboxSetting(typed, inheritedGroup)
+		if errSetting != nil {
+			return errSetting
+		}
+		if isSetting {
+			if len(*settings) == SevenDaysToDieSandboxSettingCountLimit {
+				return errors.New("decode 7 Days to Die sandbox settings: setting count exceeds limit")
+			}
+			*settings = append(*settings, setting)
+			return nil
+		}
+		group := inheritedGroup
+		groupValue, hasGroup := textFromSevenDaysToDieSandboxJSON(typed, "group", "category")
+		if hasGroup {
+			group = groupValue
+		} else {
+			_, hasSettings := lookupSevenDaysToDieSandboxJSON(typed, "settings", "options")
+			if hasSettings {
+				label, hasLabel := textFromSevenDaysToDieSandboxJSON(typed, "label", "title", "displayName", "name")
+				if hasLabel {
+					group = label
+				}
+			}
+		}
+		for _, containerName := range []string{"settings", "options", "categories", "groups"} {
+			container, found := lookupSevenDaysToDieSandboxJSON(typed, containerName)
+			if !found {
+				continue
+			}
+			errCollect := collectSevenDaysToDieSandboxSettings(container, group, depth+1, settings)
+			if errCollect != nil {
+				return errCollect
+			}
+		}
+	}
+	return nil
+}
+
+func decodeSevenDaysToDieSandboxSetting(
+	object map[string]any,
+	inheritedGroup string,
+) (SevenDaysToDieSandboxSetting, bool, error) {
+	key, hasKey := textFromSevenDaysToDieSandboxJSON(object, "key", "id", "enumName", "name")
+	value, hasValue := textFromSevenDaysToDieSandboxJSON(object, "value", "selectedValue", "currentValue", "effectiveValue", "current")
+	if !hasKey || !hasValue {
+		return SevenDaysToDieSandboxSetting{}, false, nil
+	}
+	label, _ := textFromSevenDaysToDieSandboxJSON(object, "label", "title", "displayName", "localizedName", "name")
+	description, _ := textFromSevenDaysToDieSandboxJSON(object, "description", "help", "tooltip")
+	group, hasGroup := textFromSevenDaysToDieSandboxJSON(object, "group", "category")
+	if !hasGroup {
+		group = inheritedGroup
+	}
+	valueLabel, _ := textFromSevenDaysToDieSandboxJSON(object, "valueLabel", "displayValue", "selectedLabel", "localizedValue", "valueName")
+	setting := SevenDaysToDieSandboxSetting{
+		Key: key, Label: label, Description: description, Group: group,
+		EffectiveValue: value, EffectiveLabel: valueLabel,
+	}
+	if setting.Label == "" {
+		setting.Label = setting.Key
+	}
+	if setting.Group == "" {
+		setting.Group = "Sandbox"
+	}
+	result := &SevenDaysToDieSandboxSettings{Settings: []SevenDaysToDieSandboxSetting{setting}}
+	errValidate := ValidateSevenDaysToDieSandboxSettings(result)
+	if errValidate != nil {
+		return SevenDaysToDieSandboxSetting{}, false, errValidate
+	}
+	return setting, true, nil
+}
+
+func lookupSevenDaysToDieSandboxJSON(object map[string]any, names ...string) (any, bool) {
+	for _, name := range names {
+		for key, value := range object {
+			if strings.EqualFold(key, name) {
+				return value, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func textFromSevenDaysToDieSandboxJSON(object map[string]any, names ...string) (string, bool) {
+	value, found := lookupSevenDaysToDieSandboxJSON(object, names...)
+	if !found {
+		return "", false
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed), true
+	case json.Number:
+		return typed.String(), true
+	case bool:
+		return strconv.FormatBool(typed), true
+	default:
+		return "", false
+	}
+}
+
+func findSevenDaysToDieSandboxText(value any, depth int, names ...string) (string, bool) {
+	if depth > 3 {
+		return "", false
+	}
+	object, validObject := value.(map[string]any)
+	if !validObject {
+		return "", false
+	}
+	textValue, found := textFromSevenDaysToDieSandboxJSON(object, names...)
+	if found {
+		return textValue, true
+	}
+	for key, child := range object {
+		if strings.EqualFold(key, "settings") || strings.EqualFold(key, "options") {
+			continue
+		}
+		textValue, found = findSevenDaysToDieSandboxText(child, depth+1, names...)
+		if found {
+			return textValue, true
+		}
+	}
+	return "", false
+}
+
+func findSevenDaysToDieSandboxBool(value any, depth int, names ...string) (bool, bool) {
+	if depth > 3 {
+		return false, false
+	}
+	object, validObject := value.(map[string]any)
+	if !validObject {
+		return false, false
+	}
+	jsonValue, found := lookupSevenDaysToDieSandboxJSON(object, names...)
+	if found {
+		boolValue, validBool := jsonValue.(bool)
+		return boolValue, validBool
+	}
+	for key, child := range object {
+		if strings.EqualFold(key, "settings") || strings.EqualFold(key, "options") {
+			continue
+		}
+		boolValue, foundChild := findSevenDaysToDieSandboxBool(child, depth+1, names...)
+		if foundChild {
+			return boolValue, true
+		}
+	}
+	return false, false
 }
 
 func discoverSevenDaysToDieWebAPI(
@@ -428,6 +834,8 @@ func getSevenDaysToDieWebAPI(
 		path = "/api/player"
 	case sevenDaysToDieWebAPIEndpointMods:
 		path = "/api/mods"
+	case sevenDaysToDieWebAPIEndpointSandboxSettings:
+		path = "/api/sandboxsettings"
 	default:
 		return 0, nil, errors.New("node: invalid 7 Days to Die WebAPI endpoint")
 	}

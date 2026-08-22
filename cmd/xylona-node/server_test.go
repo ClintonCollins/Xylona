@@ -297,6 +297,51 @@ func TestSevenDaysToDieReportedModsToProto(t *testing.T) {
 	}
 }
 
+func TestNodeServiceServerQuerySevenDaysToDieSandboxSettings(t *testing.T) {
+	t.Parallel()
+	const secret = "test-secret"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	directory := t.TempDir()
+	config := `<ServerSettings>
+		<property name="WebDashboardEnabled" value="false" />
+		<property name="WebDashboardPort" value="8082" />
+		<property name="SandboxCode" value="ABC" />
+	</ServerSettings>`
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+	result, errQuery := client.QuerySevenDaysToDieSandboxSettings(t.Context(), node.SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: directory})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieSandboxSettings: %v", errQuery)
+	}
+	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
+		t.Fatalf("result = %+v, want dashboard disabled", result)
+	}
+}
+
+func TestSevenDaysToDieSandboxSettingsToProto(t *testing.T) {
+	t.Parallel()
+	result := sevenDaysToDieSandboxSettingsToProto(&node.SevenDaysToDieSandboxSettings{
+		ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+		State:           node.SevenDaysToDieWebAPIValueStateAvailable,
+		ComparisonState: node.SevenDaysToDieSandboxComparisonStateMismatch,
+		ConfiguredCode:  "SAVED",
+		EffectiveCode:   "RUNNING",
+		Settings: []node.SevenDaysToDieSandboxSetting{{
+			Key: "EnemySpawn", Label: "Enemy spawning", ConfiguredValue: "false", EffectiveValue: "true",
+		}},
+	})
+	if result.GetComparisonState() != nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH ||
+		len(result.GetSettings()) != 1 || result.GetSettings()[0].GetLabel() != "Enemy spawning" {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 func TestSevenDaysToDieWebAPIStateToProto(t *testing.T) {
 	t.Parallel()
 

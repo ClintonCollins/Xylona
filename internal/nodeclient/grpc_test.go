@@ -59,6 +59,8 @@ type callRecorder struct {
 	playersResp      *nodeprotov1.QuerySevenDaysToDiePlayersResponse
 	reportedModsReq  *nodeprotov1.QuerySevenDaysToDieReportedModsRequest
 	reportedModsResp *nodeprotov1.QuerySevenDaysToDieReportedModsResponse
+	sandboxReq       *nodeprotov1.QuerySevenDaysToDieSandboxSettingsRequest
+	sandboxResp      *nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse
 	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
 	playerActionErr  error
 	consoleInputErr  error
@@ -232,6 +234,18 @@ func (s *stubHandler) QuerySevenDaysToDieReportedMods(_ context.Context, req *co
 	s.rec.mu.Unlock()
 	if resp == nil {
 		resp = &nodeprotov1.QuerySevenDaysToDieReportedModsResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) QuerySevenDaysToDieSandboxSettings(_ context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieSandboxSettingsRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.sandboxReq = req.Msg
+	resp := s.rec.sandboxResp
+	s.rec.mu.Unlock()
+	if resp == nil {
+		resp = &nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse{}
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -963,6 +977,58 @@ func TestGRPCClientQuerySevenDaysToDieReportedMods(t *testing.T) {
 			recorder.mu.Unlock()
 			if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
 				t.Fatal("request did not preserve the expected directory and credentials")
+			}
+		})
+	}
+}
+
+func TestGRPCClientQuerySevenDaysToDieSandboxSettings(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		settings []*nodeprotov1.SevenDaysToDieSandboxSetting
+		wantErr  bool
+	}{
+		{name: "maps bounded settings", settings: []*nodeprotov1.SevenDaysToDieSandboxSetting{{Key: "EnemySpawn", Label: "Enemy spawning", EffectiveValue: "true", Matches: true}}},
+		{name: "rejects over-count settings", settings: make([]*nodeprotov1.SevenDaysToDieSandboxSetting, node.SevenDaysToDieSandboxSettingCountLimit+1), wantErr: true},
+		{name: "rejects oversized text", settings: []*nodeprotov1.SevenDaysToDieSandboxSetting{{Key: "EnemySpawn", Description: strings.Repeat("x", node.SevenDaysToDieSandboxTextByteLimit+1)}}, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := &callRecorder{sandboxResp: &nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse{
+				Result: &nodeprotov1.SevenDaysToDieSandboxSettings{
+					ConnectionState: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+					State:           nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+					ComparisonState: nodeprotov1.SevenDaysToDieSandboxComparisonState_SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MATCH,
+					ConfiguredCode:  "ABC", EffectiveCode: "ABC", Settings: test.settings,
+				},
+			}}
+			url, fingerprint := newPinnedTestServer(t, recorder)
+			client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+			if errNew != nil {
+				t.Fatalf("NewGRPCClient: %v", errNew)
+			}
+			result, errQuery := client.QuerySevenDaysToDieSandboxSettings(t.Context(), node.SevenDaysToDieSandboxSettingsQueryRequest{
+				WorkingDirectory: "C:/servers/7dtd", TokenName: "controller", TokenSecret: "web-api-secret",
+			})
+			if (errQuery != nil) != test.wantErr {
+				t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v, want error %t", errQuery, test.wantErr)
+			}
+			if test.wantErr {
+				return
+			}
+			if result == nil || result.ComparisonState != node.SevenDaysToDieSandboxComparisonStateMatch || len(result.Settings) != 1 || result.Settings[0].Key != "EnemySpawn" {
+				t.Fatalf("result = %+v", result)
+			}
+			recorder.mu.Lock()
+			request := recorder.sandboxReq
+			authHeaders := append([]string(nil), recorder.authHeaders...)
+			recorder.mu.Unlock()
+			if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
+				t.Fatal("request did not preserve the expected directory and credentials")
+			}
+			if !slices.Equal(authHeaders, []string{"Bearer node-secret"}) {
+				t.Fatalf("authorization headers = %q", authHeaders)
 			}
 		})
 	}

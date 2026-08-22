@@ -159,6 +159,9 @@ type NodeClient interface {
 	// QuerySevenDaysToDieReportedMods reads the private native loaded-mod list on the owning node.
 	QuerySevenDaysToDieReportedMods(ctx context.Context, req node.SevenDaysToDieReportedModsQueryRequest) (*node.SevenDaysToDieReportedMods, error)
 
+	// QuerySevenDaysToDieSandboxSettings reads the effective native sandbox settings on the owning node.
+	QuerySevenDaysToDieSandboxSettings(ctx context.Context, req node.SevenDaysToDieSandboxSettingsQueryRequest) (*node.SevenDaysToDieSandboxSettings, error)
+
 	// GetSevenDaysToDieMapTile reads one native PNG tile on the owning node.
 	GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error)
 

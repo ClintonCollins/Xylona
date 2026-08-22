@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   getGameServerConfigFile: vi.fn(),
   updateGameServerConfigFile: vi.fn(),
   generateGameServerConfigFile: vi.fn(),
+  getSevenDaysToDieSandboxSettings: vi.fn(),
 }))
 
 vi.mock('quasar', async () => {
@@ -47,6 +48,7 @@ vi.mock('@/utils/shared', () => ({
     getGameServerConfigFile: mocks.getGameServerConfigFile,
     updateGameServerConfigFile: mocks.updateGameServerConfigFile,
     generateGameServerConfigFile: mocks.generateGameServerConfigFile,
+    getSevenDaysToDieSandboxSettings: mocks.getSevenDaysToDieSandboxSettings,
   }),
   ConnectErrorToString: (err: unknown) => String(err),
 }))
@@ -76,6 +78,7 @@ describe('GameServerConfig', () => {
     mocks.getGameServerConfigFile.mockReset()
     mocks.updateGameServerConfigFile.mockReset()
     mocks.generateGameServerConfigFile.mockReset()
+    mocks.getSevenDaysToDieSandboxSettings.mockReset()
   })
 
   it('renders the Configuration page title', async () => {
@@ -95,5 +98,32 @@ describe('GameServerConfig', () => {
 
     expect(mocks.getGameServerConfigFiles).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('No config files for this game yet')
+  })
+
+  it.each([
+    {
+      name: 'shows the inspector for SandboxCode metadata',
+      fields: [{ key: 'SandboxCode', value: 'ABC' }],
+      visible: true,
+    },
+    {
+      name: 'leaves other config workflows unchanged',
+      fields: [{ key: 'ServerName', value: 'Example' }],
+      visible: false,
+    },
+  ])('$name', async ({ fields, visible }) => {
+    mocks.routeState.current = { params: { id: 'server-12' } }
+    mocks.getGameServerConfigFiles.mockResolvedValue({
+      configFiles: [
+        { path: 'serverconfig.xml', category: 'General', format: 'xml', existsOnDisk: true },
+      ],
+    })
+    mocks.getGameServerConfigFile.mockResolvedValue({ fields, advancedFields: [] })
+
+    const wrapper = mountConfig()
+    await flushPromises()
+
+    expect(wrapper.findComponent({ name: 'SevenDaysToDieSandboxInspector' }).exists()).toBe(visible)
+    expect(wrapper.find('.editor-stub').exists()).toBe(true)
   })
 })

@@ -218,6 +218,9 @@ const (
 	// XylonaGetSevenDaysToDieWebAPIStatusProcedure is the fully-qualified name of the Xylona's
 	// GetSevenDaysToDieWebAPIStatus RPC.
 	XylonaGetSevenDaysToDieWebAPIStatusProcedure = "/xylona.Xylona/GetSevenDaysToDieWebAPIStatus"
+	// XylonaGetSevenDaysToDieSandboxSettingsProcedure is the fully-qualified name of the Xylona's
+	// GetSevenDaysToDieSandboxSettings RPC.
+	XylonaGetSevenDaysToDieSandboxSettingsProcedure = "/xylona.Xylona/GetSevenDaysToDieSandboxSettings"
 	// XylonaUpdateSevenDaysToDieMapNotesProcedure is the fully-qualified name of the Xylona's
 	// UpdateSevenDaysToDieMapNotes RPC.
 	XylonaUpdateSevenDaysToDieMapNotesProcedure = "/xylona.Xylona/UpdateSevenDaysToDieMapNotes"
@@ -525,6 +528,7 @@ type XylonaClient interface {
 	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
 	GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error)
 	GetSevenDaysToDieWebAPIStatus(context.Context, *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error)
+	GetSevenDaysToDieSandboxSettings(context.Context, *connect.Request[xylona.GetSevenDaysToDieSandboxSettingsRequest]) (*connect.Response[xylona.GetSevenDaysToDieSandboxSettingsResponse], error)
 	UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error)
 	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
 	GetMinecraftMap(context.Context, *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error)
@@ -1074,6 +1078,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaGetSevenDaysToDieWebAPIStatusProcedure,
 			connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieWebAPIStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		getSevenDaysToDieSandboxSettings: connect.NewClient[xylona.GetSevenDaysToDieSandboxSettingsRequest, xylona.GetSevenDaysToDieSandboxSettingsResponse](
+			httpClient,
+			baseURL+XylonaGetSevenDaysToDieSandboxSettingsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieSandboxSettings")),
 			connect.WithClientOptions(opts...),
 		),
 		updateSevenDaysToDieMapNotes: connect.NewClient[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse](
@@ -1652,6 +1662,7 @@ type xylonaClient struct {
 	getPublicPalworldMap                    *connect.Client[xylona.GetPublicPalworldMapRequest, xylona.GetPublicPalworldMapResponse]
 	getSevenDaysToDieMap                    *connect.Client[xylona.GetSevenDaysToDieMapRequest, xylona.GetSevenDaysToDieMapResponse]
 	getSevenDaysToDieWebAPIStatus           *connect.Client[xylona.GetSevenDaysToDieWebAPIStatusRequest, xylona.GetSevenDaysToDieWebAPIStatusResponse]
+	getSevenDaysToDieSandboxSettings        *connect.Client[xylona.GetSevenDaysToDieSandboxSettingsRequest, xylona.GetSevenDaysToDieSandboxSettingsResponse]
 	updateSevenDaysToDieMapNotes            *connect.Client[xylona.UpdateSevenDaysToDieMapNotesRequest, xylona.UpdateSevenDaysToDieMapNotesResponse]
 	getPublicSevenDaysToDieMap              *connect.Client[xylona.GetPublicSevenDaysToDieMapRequest, xylona.GetPublicSevenDaysToDieMapResponse]
 	getMinecraftMap                         *connect.Client[xylona.GetMinecraftMapRequest, xylona.GetMinecraftMapResponse]
@@ -2101,6 +2112,11 @@ func (c *xylonaClient) GetSevenDaysToDieMap(ctx context.Context, req *connect.Re
 // GetSevenDaysToDieWebAPIStatus calls xylona.Xylona.GetSevenDaysToDieWebAPIStatus.
 func (c *xylonaClient) GetSevenDaysToDieWebAPIStatus(ctx context.Context, req *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error) {
 	return c.getSevenDaysToDieWebAPIStatus.CallUnary(ctx, req)
+}
+
+// GetSevenDaysToDieSandboxSettings calls xylona.Xylona.GetSevenDaysToDieSandboxSettings.
+func (c *xylonaClient) GetSevenDaysToDieSandboxSettings(ctx context.Context, req *connect.Request[xylona.GetSevenDaysToDieSandboxSettingsRequest]) (*connect.Response[xylona.GetSevenDaysToDieSandboxSettingsResponse], error) {
+	return c.getSevenDaysToDieSandboxSettings.CallUnary(ctx, req)
 }
 
 // UpdateSevenDaysToDieMapNotes calls xylona.Xylona.UpdateSevenDaysToDieMapNotes.
@@ -2599,6 +2615,7 @@ type XylonaHandler interface {
 	GetPublicPalworldMap(context.Context, *connect.Request[xylona.GetPublicPalworldMapRequest]) (*connect.Response[xylona.GetPublicPalworldMapResponse], error)
 	GetSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetSevenDaysToDieMapResponse], error)
 	GetSevenDaysToDieWebAPIStatus(context.Context, *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error)
+	GetSevenDaysToDieSandboxSettings(context.Context, *connect.Request[xylona.GetSevenDaysToDieSandboxSettingsRequest]) (*connect.Response[xylona.GetSevenDaysToDieSandboxSettingsResponse], error)
 	UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error)
 	GetPublicSevenDaysToDieMap(context.Context, *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest]) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error)
 	GetMinecraftMap(context.Context, *connect.Request[xylona.GetMinecraftMapRequest]) (*connect.Response[xylona.GetMinecraftMapResponse], error)
@@ -3144,6 +3161,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaGetSevenDaysToDieWebAPIStatusProcedure,
 		svc.GetSevenDaysToDieWebAPIStatus,
 		connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieWebAPIStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetSevenDaysToDieSandboxSettingsHandler := connect.NewUnaryHandler(
+		XylonaGetSevenDaysToDieSandboxSettingsProcedure,
+		svc.GetSevenDaysToDieSandboxSettings,
+		connect.WithSchema(xylonaMethods.ByName("GetSevenDaysToDieSandboxSettings")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaUpdateSevenDaysToDieMapNotesHandler := connect.NewUnaryHandler(
@@ -3792,6 +3815,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetSevenDaysToDieMapHandler.ServeHTTP(w, r)
 		case XylonaGetSevenDaysToDieWebAPIStatusProcedure:
 			xylonaGetSevenDaysToDieWebAPIStatusHandler.ServeHTTP(w, r)
+		case XylonaGetSevenDaysToDieSandboxSettingsProcedure:
+			xylonaGetSevenDaysToDieSandboxSettingsHandler.ServeHTTP(w, r)
 		case XylonaUpdateSevenDaysToDieMapNotesProcedure:
 			xylonaUpdateSevenDaysToDieMapNotesHandler.ServeHTTP(w, r)
 		case XylonaGetPublicSevenDaysToDieMapProcedure:
@@ -4257,6 +4282,10 @@ func (UnimplementedXylonaHandler) GetSevenDaysToDieMap(context.Context, *connect
 
 func (UnimplementedXylonaHandler) GetSevenDaysToDieWebAPIStatus(context.Context, *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]) (*connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSevenDaysToDieWebAPIStatus is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSevenDaysToDieSandboxSettings(context.Context, *connect.Request[xylona.GetSevenDaysToDieSandboxSettingsRequest]) (*connect.Response[xylona.GetSevenDaysToDieSandboxSettingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSevenDaysToDieSandboxSettings is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) UpdateSevenDaysToDieMapNotes(context.Context, *connect.Request[xylona.UpdateSevenDaysToDieMapNotesRequest]) (*connect.Response[xylona.UpdateSevenDaysToDieMapNotesResponse], error) {

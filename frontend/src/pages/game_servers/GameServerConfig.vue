@@ -32,22 +32,27 @@
         </div>
 
         <!-- File editor -->
-        <config-file-editor
-          v-else
-          ref="editorRef"
-          :advanced-fields="fileAdvancedFields"
-          :category="selectedFileCategory"
-          :category-color="selectedFileCategoryColor"
-          :fields="fileFields"
-          :file-path="selectedFilePath"
-          :format="selectedFileFormat"
-          :generating="generating"
-          :is-missing="selectedFileIsMissing"
-          :saving="saving"
-          :validation-errors="validationErrors"
-          @generate="handleGenerate"
-          @save="handleSave"
-          @update-advanced="handleUpdateAdvanced" />
+        <template v-else>
+          <seven-days-to-die-sandbox-inspector
+            v-if="hasSandboxCode"
+            :game-server-id="getGameServerId()"
+            :refresh-key="sandboxInspectorRefreshKey" />
+          <config-file-editor
+            ref="editorRef"
+            :advanced-fields="fileAdvancedFields"
+            :category="selectedFileCategory"
+            :category-color="selectedFileCategoryColor"
+            :fields="fileFields"
+            :file-path="selectedFilePath"
+            :format="selectedFileFormat"
+            :generating="generating"
+            :is-missing="selectedFileIsMissing"
+            :saving="saving"
+            :validation-errors="validationErrors"
+            @generate="handleGenerate"
+            @save="handleSave"
+            @update-advanced="handleUpdateAdvanced" />
+        </template>
       </div>
     </div>
   </div>
@@ -76,6 +81,7 @@ import {
 } from '@/proto/xylona_pb'
 import ConfigFileSidebar from '@/components/game_servers/ConfigFileSidebar.vue'
 import ConfigFileEditor from '@/components/game_servers/ConfigFileEditor.vue'
+import SevenDaysToDieSandboxInspector from '@/components/game_servers/SevenDaysToDieSandboxInspector.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import {
   buildCategoryColorMap,
@@ -139,6 +145,7 @@ const fileFields = ref<ConfigFieldData[]>([])
 const fileAdvancedFields = ref<AdvancedField[]>([])
 const validationErrors = ref<ConfigValidationError[]>([])
 const pendingAdvancedUpdates = ref<AdvancedField[]>([])
+const sandboxInspectorRefreshKey = ref(0)
 
 const categoryColorMap = computed(() => buildCategoryColorMap(configFiles.value))
 
@@ -150,6 +157,7 @@ const selectedFileCategory = computed(() => selectedFile.value?.category || '')
 const selectedFileCategoryColor = computed(
   () => categoryColorMap.value.get(selectedFileCategory.value) || CATEGORY_COLORS[0],
 )
+const hasSandboxCode = computed(() => fileFields.value.some((field) => field.key === 'SandboxCode'))
 
 onMounted(async () => {
   await loadConfigFiles()
@@ -279,6 +287,7 @@ async function handleSave(fieldValues: Map<string, string>) {
     const response = await GetXylonaClient().updateGameServerConfigFile(request)
 
     if (response.success) {
+      const savedSandboxCode = fieldValues.has('SandboxCode')
       $q.notify({
         type: 'xylona-success',
         caption: `${selectedFilePath.value} saved successfully`,
@@ -289,6 +298,7 @@ async function handleSave(fieldValues: Map<string, string>) {
       await handleFileSelect(selectedFilePath.value, false)
       // Refresh file list to update exists status (without showing loading spinner)
       await loadConfigFiles(false)
+      if (savedSandboxCode) sandboxInspectorRefreshKey.value += 1
     } else {
       validationErrors.value = response.errors
     }

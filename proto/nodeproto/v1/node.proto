@@ -896,6 +896,7 @@ service NodeService {
   rpc QuerySevenDaysToDieWebAPIStatus(QuerySevenDaysToDieWebAPIStatusRequest) returns (QuerySevenDaysToDieWebAPIStatusResponse);
   rpc QuerySevenDaysToDiePlayers(QuerySevenDaysToDiePlayersRequest) returns (QuerySevenDaysToDiePlayersResponse);
   rpc QuerySevenDaysToDieReportedMods(QuerySevenDaysToDieReportedModsRequest) returns (QuerySevenDaysToDieReportedModsResponse);
+  rpc QuerySevenDaysToDieSandboxSettings(QuerySevenDaysToDieSandboxSettingsRequest) returns (QuerySevenDaysToDieSandboxSettingsResponse);
   rpc GetSevenDaysToDieMapTile(GetSevenDaysToDieMapTileRequest) returns (GetSevenDaysToDieMapTileResponse);
   rpc EnsureMinecraftMap(EnsureMinecraftMapRequest) returns (EnsureMinecraftMapResponse);
   rpc StopMinecraftMap(StopMinecraftMapRequest) returns (StopMinecraftMapResponse);
@@ -1076,4 +1077,43 @@ message QuerySevenDaysToDieReportedModsRequest {
 
 message QuerySevenDaysToDieReportedModsResponse {
   SevenDaysToDieReportedMods result = 1;
+}
+
+enum SevenDaysToDieSandboxComparisonState {
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_UNSPECIFIED = 0;
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MATCH = 1;
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH = 2;
+  SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE = 3;
+}
+
+message SevenDaysToDieSandboxSetting {
+  string key = 1;
+  string label = 2;
+  string description = 3;
+  string group = 4;
+  string configured_value = 5;
+  string configured_label = 6;
+  string effective_value = 7;
+  string effective_label = 8;
+  bool matches = 9;
+}
+
+message SevenDaysToDieSandboxSettings {
+  SevenDaysToDieWebAPIConnectionState connection_state = 1;
+  SevenDaysToDieWebAPIValueState state = 2;
+  SevenDaysToDieSandboxComparisonState comparison_state = 3;
+  string configured_code = 4;
+  string effective_code = 5;
+  repeated SevenDaysToDieSandboxSetting settings = 6;
+  google.protobuf.Timestamp observed_at = 7;
+}
+
+message QuerySevenDaysToDieSandboxSettingsRequest {
+  string working_directory = 1;
+  string token_name = 2;
+  string token_secret = 3;
+}
+
+message QuerySevenDaysToDieSandboxSettingsResponse {
+  SevenDaysToDieSandboxSettings result = 1;
 }

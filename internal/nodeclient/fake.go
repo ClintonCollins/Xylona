@@ -141,6 +141,11 @@ type FakeNodeClient struct {
 	QuerySevenDaysToDieReportedModsCalls  []node.SevenDaysToDieReportedModsQueryRequest
 	QuerySevenDaysToDieReportedModsFunc   func(context.Context, node.SevenDaysToDieReportedModsQueryRequest) (*node.SevenDaysToDieReportedMods, error)
 
+	QuerySevenDaysToDieSandboxSettingsResult *node.SevenDaysToDieSandboxSettings
+	QuerySevenDaysToDieSandboxSettingsErr    error
+	QuerySevenDaysToDieSandboxSettingsCalls  []node.SevenDaysToDieSandboxSettingsQueryRequest
+	QuerySevenDaysToDieSandboxSettingsFunc   func(context.Context, node.SevenDaysToDieSandboxSettingsQueryRequest) (*node.SevenDaysToDieSandboxSettings, error)
+
 	SevenDaysToDieMapTileResult []byte
 	SevenDaysToDieMapTileErr    error
 	SevenDaysToDieMapTileCalls  []node.SevenDaysToDieMapTileRequest
@@ -651,6 +656,17 @@ func (f *FakeNodeClient) QuerySevenDaysToDieReportedMods(ctx context.Context, re
 		return f.QuerySevenDaysToDieReportedModsFunc(ctx, req)
 	}
 	return f.QuerySevenDaysToDieReportedModsResult, f.QuerySevenDaysToDieReportedModsErr
+}
+
+// QuerySevenDaysToDieSandboxSettings records the call and returns the configured sandbox settings.
+func (f *FakeNodeClient) QuerySevenDaysToDieSandboxSettings(ctx context.Context, req node.SevenDaysToDieSandboxSettingsQueryRequest) (*node.SevenDaysToDieSandboxSettings, error) {
+	f.mu.Lock()
+	f.QuerySevenDaysToDieSandboxSettingsCalls = append(f.QuerySevenDaysToDieSandboxSettingsCalls, req)
+	f.mu.Unlock()
+	if f.QuerySevenDaysToDieSandboxSettingsFunc != nil {
+		return f.QuerySevenDaysToDieSandboxSettingsFunc(ctx, req)
+	}
+	return f.QuerySevenDaysToDieSandboxSettingsResult, f.QuerySevenDaysToDieSandboxSettingsErr
 }
 
 // GetSevenDaysToDieMapTile records the call and returns configured PNG bytes.
