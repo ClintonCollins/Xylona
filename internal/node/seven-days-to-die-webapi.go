@@ -44,6 +44,7 @@ const (
 	sevenDaysToDieWebAPIEndpointOpenAPI sevenDaysToDieWebAPIEndpoint = iota
 	sevenDaysToDieWebAPIEndpointBloodMoon
 	sevenDaysToDieWebAPIEndpointServerStats
+	sevenDaysToDieWebAPIEndpointPlayer
 )
 
 type sevenDaysToDieOpenAPI struct {
@@ -66,6 +67,16 @@ type sevenDaysToDieOpenAPIResolver struct {
 	tokenSecret string
 	document    sevenDaysToDieOpenAPI
 	fragments   map[string]*sevenDaysToDieOpenAPI
+	failed      bool
+}
+
+type sevenDaysToDieWebAPIDiscovery struct {
+	ctx             context.Context
+	cancel          context.CancelFunc
+	settings        sevenDaysToDieWebAPISettings
+	resolver        *sevenDaysToDieOpenAPIResolver
+	connectionState SevenDaysToDieWebAPIConnectionState
+	apiVersion      string
 }
 
 type sevenDaysToDieGameTimeJSON struct {
@@ -89,84 +100,39 @@ type sevenDaysToDieServerStatsEnvelope struct {
 	} `json:"data"`
 }
 
+type sevenDaysToDiePlayersEnvelope struct {
+	Data struct {
+		Players []sevenDaysToDiePlayerJSON `json:"players"`
+	} `json:"data"`
+}
+
 // QuerySevenDaysToDieWebAPIStatus returns bounded diagnostics from the native
 // WebAPI exposed by a managed 7 Days to Die server.
 func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysToDieWebAPIStatusQueryRequest) (*SevenDaysToDieWebAPIStatus, error) {
-	errContext := ctx.Err()
-	if errContext != nil {
-		return nil, fmt.Errorf("node: query 7 Days to Die WebAPI status: %w", errContext)
-	}
-	queryCtx, cancel := context.WithTimeout(ctx, sevenDaysToDieWebAPIQueryTimeout)
-	defer cancel()
-
-	settings, errSettings := readSevenDaysToDieWebAPISettings(req.WorkingDirectory)
-	if errSettings != nil {
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateMisconfigured}, nil
-	}
-	if !settings.enabled {
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateDashboardDisabled}, nil
-	}
-
-	statusCode, body, errDiscovery := getSevenDaysToDieWebAPI(queryCtx, settings, sevenDaysToDieWebAPIEndpointOpenAPI, req.TokenName, req.TokenSecret)
+	discovery, errDiscovery := discoverSevenDaysToDieWebAPI(ctx, req.WorkingDirectory, req.TokenName, req.TokenSecret)
 	if errDiscovery != nil {
-		errContext = ctx.Err()
-		if errContext != nil {
-			return nil, fmt.Errorf("node: query 7 Days to Die WebAPI discovery: %w", errContext)
-		}
-		connectionState := SevenDaysToDieWebAPIConnectionStateUnreachable
-		if errors.Is(errDiscovery, errSevenDaysToDieWebAPIResponseTooLarge) {
-			connectionState = SevenDaysToDieWebAPIConnectionStateInvalidResponse
-		}
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: connectionState}, nil
+		return nil, fmt.Errorf("node: query 7 Days to Die WebAPI status: %w", errDiscovery)
 	}
-	switch statusCode {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateAuthenticationDenied}, nil
-	case http.StatusNotFound:
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported}, nil
-	case http.StatusOK:
-	default:
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateUnreachable}, nil
-	}
-
-	var document sevenDaysToDieOpenAPI
-	errYAML := yaml.Unmarshal(body, &document)
-	if errYAML != nil {
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateInvalidResponse}, nil
-	}
-	openAPIVersion := strings.TrimSpace(document.OpenAPI)
-	if !strings.HasPrefix(openAPIVersion, "3.") {
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported}, nil
-	}
-	apiVersion := strings.TrimSpace(document.Info.Version)
-	if apiVersion == "" || len(apiVersion) > 128 {
-		return &SevenDaysToDieWebAPIStatus{ConnectionState: SevenDaysToDieWebAPIConnectionStateInvalidResponse}, nil
-	}
-
-	resolver := &sevenDaysToDieOpenAPIResolver{
-		ctx:         queryCtx,
-		settings:    settings,
-		tokenName:   req.TokenName,
-		tokenSecret: req.TokenSecret,
-		document:    document,
-		fragments:   make(map[string]*sevenDaysToDieOpenAPI),
+	defer discovery.cancel()
+	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
+		return &SevenDaysToDieWebAPIStatus{ConnectionState: discovery.connectionState}, nil
 	}
 	status := &SevenDaysToDieWebAPIStatus{
 		ConnectionState: SevenDaysToDieWebAPIConnectionStateAvailable,
-		APIVersion:      apiVersion,
-		Capabilities:    projectSevenDaysToDieWebAPICapabilities(resolver),
+		APIVersion:      discovery.apiVersion,
+		Capabilities:    projectSevenDaysToDieWebAPICapabilities(discovery.resolver),
 		WorldTimeState:  SevenDaysToDieWebAPIValueStateUnsupported,
 		BloodMoonState:  SevenDaysToDieWebAPIValueStateUnsupported,
 		ObservedAt:      time.Now().UTC(),
 	}
-	errContext = ctx.Err()
+	errContext := ctx.Err()
 	if errContext != nil {
 		return nil, fmt.Errorf("node: query 7 Days to Die WebAPI discovery: %w", errContext)
 	}
 
-	bloodMoonAdvertised := resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/bloodmoon", method: http.MethodGet})
+	bloodMoonAdvertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/bloodmoon", method: http.MethodGet})
 	if bloodMoonAdvertised {
-		errBloodMoon := querySevenDaysToDieBloodMoon(queryCtx, ctx, settings, req, status)
+		errBloodMoon := querySevenDaysToDieBloodMoon(discovery.ctx, ctx, discovery.settings, req, status)
 		if errBloodMoon != nil {
 			return nil, errBloodMoon
 		}
@@ -175,9 +141,9 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 		return status, nil
 	}
 
-	serverStatsAdvertised := resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/serverstats", method: http.MethodGet})
+	serverStatsAdvertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/serverstats", method: http.MethodGet})
 	if serverStatsAdvertised {
-		errServerStats := querySevenDaysToDieServerStats(queryCtx, ctx, settings, req, status)
+		errServerStats := querySevenDaysToDieServerStats(discovery.ctx, ctx, discovery.settings, req, status)
 		if errServerStats != nil {
 			return nil, errServerStats
 		}
@@ -187,6 +153,137 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 		return nil, fmt.Errorf("node: query 7 Days to Die WebAPI discovery: %w", errContext)
 	}
 	return status, nil
+}
+
+// QuerySevenDaysToDiePlayers returns the native management roster without
+// exposing it through the broad game-server query path.
+func (*Node) QuerySevenDaysToDiePlayers(ctx context.Context, req SevenDaysToDiePlayersQueryRequest) (*SevenDaysToDiePlayers, error) {
+	discovery, errDiscovery := discoverSevenDaysToDieWebAPI(ctx, req.WorkingDirectory, req.TokenName, req.TokenSecret)
+	if errDiscovery != nil {
+		return nil, fmt.Errorf("node: query 7 Days to Die players: %w", errDiscovery)
+	}
+	defer discovery.cancel()
+	result := &SevenDaysToDiePlayers{
+		ConnectionState: discovery.connectionState,
+		State:           SevenDaysToDieWebAPIValueStateUnavailable,
+		Players:         make([]SevenDaysToDiePlayer, 0),
+	}
+	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
+		return result, nil
+	}
+	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/player", method: http.MethodGet})
+	if !advertised {
+		errContext := ctx.Err()
+		if errContext != nil {
+			return nil, fmt.Errorf("node: query 7 Days to Die players: %w", errContext)
+		}
+		if discovery.resolver.failed {
+			return result, nil
+		}
+		result.State = SevenDaysToDieWebAPIValueStateUnsupported
+		return result, nil
+	}
+	statusCode, body, errQuery := getSevenDaysToDieWebAPI(discovery.ctx, discovery.settings, sevenDaysToDieWebAPIEndpointPlayer, req.TokenName, req.TokenSecret)
+	if errQuery != nil {
+		errContext := ctx.Err()
+		if errContext != nil {
+			return nil, fmt.Errorf("node: query 7 Days to Die players: %w", errContext)
+		}
+		return result, nil
+	}
+	switch statusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		result.State = SevenDaysToDieWebAPIValueStatePermissionDenied
+		return result, nil
+	case http.StatusOK:
+	default:
+		return result, nil
+	}
+	players, errDecode := decodeSevenDaysToDiePlayers(body)
+	if errDecode != nil {
+		return result, nil //nolint:nilerr // Invalid upstream data is represented as an unavailable value state.
+	}
+	result.State = SevenDaysToDieWebAPIValueStateAvailable
+	result.Players = players
+	return result, nil
+}
+
+func discoverSevenDaysToDieWebAPI(
+	ctx context.Context,
+	workingDirectory string,
+	tokenName string,
+	tokenSecret string,
+) (*sevenDaysToDieWebAPIDiscovery, error) {
+	errContext := ctx.Err()
+	if errContext != nil {
+		return nil, errContext
+	}
+	queryCtx, cancel := context.WithTimeout(ctx, sevenDaysToDieWebAPIQueryTimeout)
+	discovery := &sevenDaysToDieWebAPIDiscovery{
+		ctx:             queryCtx,
+		cancel:          cancel,
+		connectionState: SevenDaysToDieWebAPIConnectionStateMisconfigured,
+	}
+	settings, errSettings := readSevenDaysToDieWebAPISettings(workingDirectory)
+	if errSettings != nil {
+		return discovery, nil
+	}
+	discovery.settings = settings
+	if !settings.enabled {
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateDashboardDisabled
+		return discovery, nil
+	}
+	statusCode, body, errQuery := getSevenDaysToDieWebAPI(queryCtx, settings, sevenDaysToDieWebAPIEndpointOpenAPI, tokenName, tokenSecret)
+	if errQuery != nil {
+		errContext = ctx.Err()
+		if errContext != nil {
+			cancel()
+			return nil, errContext
+		}
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateUnreachable
+		if errors.Is(errQuery, errSevenDaysToDieWebAPIResponseTooLarge) {
+			discovery.connectionState = SevenDaysToDieWebAPIConnectionStateInvalidResponse
+		}
+		return discovery, nil
+	}
+	switch statusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateAuthenticationDenied
+		return discovery, nil
+	case http.StatusNotFound:
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported
+		return discovery, nil
+	case http.StatusOK:
+	default:
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateUnreachable
+		return discovery, nil
+	}
+	var document sevenDaysToDieOpenAPI
+	errYAML := yaml.Unmarshal(body, &document)
+	if errYAML != nil {
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateInvalidResponse
+		return discovery, nil
+	}
+	if !strings.HasPrefix(strings.TrimSpace(document.OpenAPI), "3.") {
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateDiscoveryUnsupported
+		return discovery, nil
+	}
+	apiVersion := strings.TrimSpace(document.Info.Version)
+	if apiVersion == "" || len(apiVersion) > 128 {
+		discovery.connectionState = SevenDaysToDieWebAPIConnectionStateInvalidResponse
+		return discovery, nil
+	}
+	discovery.connectionState = SevenDaysToDieWebAPIConnectionStateAvailable
+	discovery.apiVersion = apiVersion
+	discovery.resolver = &sevenDaysToDieOpenAPIResolver{
+		ctx:         queryCtx,
+		settings:    settings,
+		tokenName:   tokenName,
+		tokenSecret: tokenSecret,
+		document:    document,
+		fragments:   make(map[string]*sevenDaysToDieOpenAPI),
+	}
+	return discovery, nil
 }
 
 func readSevenDaysToDieWebAPISettings(workingDirectory string) (sevenDaysToDieWebAPISettings, error) {
@@ -256,6 +353,8 @@ func getSevenDaysToDieWebAPI(
 		path = "/api/bloodmoon"
 	case sevenDaysToDieWebAPIEndpointServerStats:
 		path = "/api/serverstats"
+	case sevenDaysToDieWebAPIEndpointPlayer:
+		path = "/api/player"
 	default:
 		return 0, nil, errors.New("node: invalid 7 Days to Die WebAPI endpoint")
 	}
@@ -383,16 +482,71 @@ func (r *sevenDaysToDieOpenAPIResolver) fragment(fileName string) *sevenDaysToDi
 	}
 	statusCode, body, errGet := getSevenDaysToDieOpenAPIFragment(r.ctx, r.settings, fileName, r.tokenName, r.tokenSecret)
 	if errGet != nil || statusCode != http.StatusOK {
+		r.failed = true
 		r.fragments[fileName] = nil
 		return nil
 	}
 	fragment = new(sevenDaysToDieOpenAPI)
 	errYAML := yaml.Unmarshal(body, fragment)
 	if errYAML != nil {
+		r.failed = true
 		fragment = nil
 	}
 	r.fragments[fileName] = fragment
 	return fragment
+}
+
+func decodeSevenDaysToDiePlayers(body []byte) ([]SevenDaysToDiePlayer, error) {
+	var envelope sevenDaysToDiePlayersEnvelope
+	errDecode := json.Unmarshal(body, &envelope)
+	if errDecode != nil {
+		return nil, fmt.Errorf("decode 7 Days to Die players: %w", errDecode)
+	}
+	if envelope.Data.Players == nil {
+		return nil, errors.New("decode 7 Days to Die players: missing player list")
+	}
+	players := make([]SevenDaysToDiePlayer, 0, len(envelope.Data.Players))
+	for _, rawPlayer := range envelope.Data.Players {
+		entityID := rawJSONIdentifier(rawPlayer.EntityID)
+		platformID := strings.TrimSpace(rawPlayer.PlatformID.CombinedString)
+		if platformID == "" {
+			platformID = strings.TrimSpace(rawPlayer.SteamID)
+		}
+		crossPlatformID := strings.TrimSpace(rawPlayer.CrossPlatformIDObject.CombinedString)
+		if crossPlatformID == "" {
+			crossPlatformID = strings.TrimSpace(rawPlayer.CrossPlatformID)
+		}
+		actionID := platformID
+		if actionID == "" {
+			actionID = crossPlatformID
+		}
+		if actionID == "" {
+			actionID = entityID
+		}
+		player := SevenDaysToDiePlayer{
+			Name:            strings.TrimSpace(rawPlayer.Name),
+			ActionID:        actionID,
+			EntityID:        entityID,
+			PlatformID:      platformID,
+			CrossPlatformID: crossPlatformID,
+			Online:          rawPlayer.Online,
+			Ping:            rawPlayer.Ping,
+			Level:           rawPlayer.Level,
+			Health:          rawPlayer.Health,
+			Stamina:         rawPlayer.Stamina,
+			Score:           rawPlayer.Score,
+			Deaths:          rawPlayer.Deaths,
+		}
+		if rawPlayer.Kills != nil {
+			player.ZombieKills = rawPlayer.Kills.Zombies
+			player.PlayerKills = rawPlayer.Kills.Players
+		}
+		if rawPlayer.Banned != nil {
+			player.Banned = rawPlayer.Banned.Active
+		}
+		players = append(players, player)
+	}
+	return players, nil
 }
 
 func sevenDaysToDieOpenAPIReferenceFile(pathItem map[string]yaml.Node, operationPath string) (string, bool) {

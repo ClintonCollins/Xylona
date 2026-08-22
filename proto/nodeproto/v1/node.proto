@@ -894,6 +894,7 @@ service NodeService {
   rpc QueryPalworldMap(QueryPalworldMapRequest) returns (QueryPalworldMapResponse);
   rpc QuerySevenDaysToDieMap(QuerySevenDaysToDieMapRequest) returns (QuerySevenDaysToDieMapResponse);
   rpc QuerySevenDaysToDieWebAPIStatus(QuerySevenDaysToDieWebAPIStatusRequest) returns (QuerySevenDaysToDieWebAPIStatusResponse);
+  rpc QuerySevenDaysToDiePlayers(QuerySevenDaysToDiePlayersRequest) returns (QuerySevenDaysToDiePlayersResponse);
   rpc GetSevenDaysToDieMapTile(GetSevenDaysToDieMapTileRequest) returns (GetSevenDaysToDieMapTileResponse);
   rpc EnsureMinecraftMap(EnsureMinecraftMapRequest) returns (EnsureMinecraftMapResponse);
   rpc StopMinecraftMap(StopMinecraftMapRequest) returns (StopMinecraftMapResponse);
@@ -1016,4 +1017,38 @@ message QuerySevenDaysToDieWebAPIStatusRequest {
 
 message QuerySevenDaysToDieWebAPIStatusResponse {
   SevenDaysToDieWebAPIStatus status = 1;
+}
+
+message SevenDaysToDiePlayer {
+  string name = 1;
+  string action_id = 2;
+  string entity_id = 3;
+  string platform_id = 4;
+  string cross_platform_id = 5;
+  optional bool online = 6;
+  optional int32 ping = 7;
+  optional int32 level = 8;
+  optional int32 health = 9;
+  optional float stamina = 10;
+  optional int32 score = 11;
+  optional int32 deaths = 12;
+  optional int32 zombie_kills = 13;
+  optional int32 player_kills = 14;
+  optional bool banned = 15;
+}
+
+message SevenDaysToDiePlayers {
+  SevenDaysToDieWebAPIConnectionState connection_state = 1;
+  SevenDaysToDieWebAPIValueState state = 2;
+  repeated SevenDaysToDiePlayer players = 3;
+}
+
+message QuerySevenDaysToDiePlayersRequest {
+  string working_directory = 1;
+  string token_name = 2;
+  string token_secret = 3;
+}
+
+message QuerySevenDaysToDiePlayersResponse {
+  SevenDaysToDiePlayers result = 1;
 }

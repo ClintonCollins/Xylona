@@ -202,6 +202,60 @@ func TestNodeServiceServerQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	}
 }
 
+func TestNodeServiceServerQuerySevenDaysToDiePlayers(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+	directory := t.TempDir()
+	config := `<ServerSettings>
+		<property name="WebDashboardEnabled" value="false" />
+		<property name="WebDashboardPort" value="8082" />
+	</ServerSettings>`
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+
+	result, errQuery := client.QuerySevenDaysToDiePlayers(t.Context(), node.SevenDaysToDiePlayersQueryRequest{
+		WorkingDirectory: directory,
+		TokenName:        "controller",
+		TokenSecret:      "web-api-secret",
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDiePlayers: %v", errQuery)
+	}
+	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled ||
+		result.State != node.SevenDaysToDieWebAPIValueStateUnavailable {
+		t.Fatalf("result = %+v, want dashboard disabled", result)
+	}
+}
+
+func TestSevenDaysToDiePlayersToProtoPreservesOptionalZeroValues(t *testing.T) {
+	t.Parallel()
+	falseValue := false
+	zeroInt := int32(0)
+	zeroFloat := float32(0)
+	result := sevenDaysToDiePlayersToProto(&node.SevenDaysToDiePlayers{
+		ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+		State:           node.SevenDaysToDieWebAPIValueStateAvailable,
+		Players: []node.SevenDaysToDiePlayer{{
+			Name: "Player", ActionID: "Steam_1", EntityID: "1", PlatformID: "Steam_1", CrossPlatformID: "EOS_1",
+			Online: &falseValue, Ping: &zeroInt, Level: &zeroInt, Health: &zeroInt, Stamina: &zeroFloat,
+			Score: &zeroInt, Deaths: &zeroInt, ZombieKills: &zeroInt, PlayerKills: &zeroInt, Banned: &falseValue,
+		}},
+	})
+	player := result.GetPlayers()[0]
+	if player.GetActionId() != "Steam_1" || player.Online == nil || player.GetOnline() || player.Ping == nil || player.GetPing() != 0 ||
+		player.Stamina == nil || player.GetStamina() != 0 || player.Banned == nil || player.GetBanned() {
+		t.Fatalf("mapped player = %+v", player)
+	}
+}
+
 func TestSevenDaysToDieWebAPIStateToProto(t *testing.T) {
 	t.Parallel()
 

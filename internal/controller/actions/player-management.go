@@ -31,7 +31,8 @@ const (
 // PlayerManagement describes the roster, runtime state, and typed actions
 // available for one game server.
 type PlayerManagement struct {
-	Players           []node.GameServerPlayer
+	Players           []node.SevenDaysToDiePlayer
+	RosterState       node.SevenDaysToDieWebAPIValueState
 	ActionsSupported  bool
 	UnavailableReason string
 	IdentifierLabel   string
@@ -53,7 +54,8 @@ type playerManagementProfile struct {
 func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *models.GameServer) (PlayerManagement, error) {
 	profile := playerManagementProfileForServer(gameServer)
 	management := PlayerManagement{
-		Players:           make([]node.GameServerPlayer, 0),
+		Players:           make([]node.SevenDaysToDiePlayer, 0),
+		RosterState:       node.SevenDaysToDieWebAPIValueStateUnsupported,
 		UnavailableReason: profile.unavailableReason,
 		IdentifierLabel:   profile.identifierLabel,
 		SupportedActions:  append([]node.GameServerPlayerAction(nil), profile.supportedActions...),
@@ -88,6 +90,37 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		}
 	}
 
+	if gameServer.GameID == sevenDaysToDieGameID {
+		if management.Status != xylona.Status_ONLINE {
+			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			return management, nil
+		}
+		tokenName, tokenSecret, errCredentials := inst.SevenDaysToDieMapCredentials(gameServer)
+		if errCredentials != nil {
+			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			return management, nil //nolint:nilerr // Credential failure is represented as an unavailable roster.
+		}
+		result, errQuery := client.QuerySevenDaysToDiePlayers(ctx, node.SevenDaysToDiePlayersQueryRequest{
+			WorkingDirectory: gameServer.Directory,
+			TokenName:        tokenName,
+			TokenSecret:      tokenSecret,
+		})
+		if errQuery != nil {
+			if errors.Is(errQuery, context.Canceled) || errors.Is(errQuery, context.DeadlineExceeded) {
+				return management, fmt.Errorf("actions: query native player roster: %w", errQuery)
+			}
+			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			return management, nil //nolint:nilerr // Node transport failure is represented as an unavailable roster.
+		}
+		if result == nil {
+			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			return management, nil
+		}
+		management.RosterState = result.State
+		management.Players = append(management.Players, result.Players...)
+		return management, nil
+	}
+
 	queryRequest := node.GameServerQueryRequest{
 		Kind:       profile.queryKind,
 		IP:         gameServer.IP,
@@ -95,6 +128,9 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		MaxPlayers: gameServer.MaxPlayers,
 	}
 	if profile.queryKind == node.GameServerQueryKindUnknown || management.Status != xylona.Status_ONLINE {
+		if profile.queryKind != node.GameServerQueryKindUnknown {
+			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+		}
 		return management, nil
 	}
 	if profile.queryKind == node.GameServerQueryKindPalworld {
@@ -116,6 +152,7 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		)
 	}
 	management.Players = playersFromQueryResult(result)
+	management.RosterState = node.SevenDaysToDieWebAPIValueStateAvailable
 	return management, nil
 }
 
@@ -237,9 +274,8 @@ func playerManagementProfileForServer(gameServer *models.GameServer) playerManag
 		}
 	case sevenDaysToDieGameID:
 		return playerManagementProfile{
-			queryKind:       node.GameServerQueryKindSource,
 			actionKind:      node.GameServerQueryKindSevenDaysToDie,
-			identifierLabel: "Player name, entity ID, or platform ID",
+			identifierLabel: "Platform, cross-platform, or entity ID",
 			supportedActions: []node.GameServerPlayerAction{
 				node.GameServerPlayerActionKick,
 				node.GameServerPlayerActionBan,
@@ -357,14 +393,14 @@ func statusFromModel(gameServer *models.GameServer) xylona.Status {
 	return xylona.Status(statusValue)
 }
 
-func playersFromQueryResult(result node.GameServerQueryResult) []node.GameServerPlayer {
+func playersFromQueryResult(result node.GameServerQueryResult) []node.SevenDaysToDiePlayer {
 	switch result.Kind {
 	case node.GameServerQueryKindMinecraft:
 		if result.Minecraft == nil {
 			return nil
 		}
 		if len(result.Minecraft.PlayerDetails) > 0 {
-			return append([]node.GameServerPlayer(nil), result.Minecraft.PlayerDetails...)
+			return managementPlayers(result.Minecraft.PlayerDetails)
 		}
 		return playerNamesToDetails(result.Minecraft.PlayerList, true)
 	case node.GameServerQueryKindSource:
@@ -377,7 +413,7 @@ func playersFromQueryResult(result node.GameServerQueryResult) []node.GameServer
 			return nil
 		}
 		if len(result.Palworld.PlayerDetails) > 0 {
-			return append([]node.GameServerPlayer(nil), result.Palworld.PlayerDetails...)
+			return managementPlayers(result.Palworld.PlayerDetails)
 		}
 		return playerNamesToDetails(result.Palworld.PlayerList, false)
 	default:
@@ -385,14 +421,22 @@ func playersFromQueryResult(result node.GameServerQueryResult) []node.GameServer
 	}
 }
 
-func playerNamesToDetails(names []string, useNameAsID bool) []node.GameServerPlayer {
-	players := make([]node.GameServerPlayer, 0, len(names))
+func playerNamesToDetails(names []string, useNameAsID bool) []node.SevenDaysToDiePlayer {
+	players := make([]node.SevenDaysToDiePlayer, 0, len(names))
 	for _, name := range names {
-		player := node.GameServerPlayer{Name: name}
+		player := node.SevenDaysToDiePlayer{Name: name}
 		if useNameAsID {
-			player.ID = name
+			player.ActionID = name
 		}
 		players = append(players, player)
 	}
 	return players
+}
+
+func managementPlayers(players []node.GameServerPlayer) []node.SevenDaysToDiePlayer {
+	result := make([]node.SevenDaysToDiePlayer, 0, len(players))
+	for _, player := range players {
+		result = append(result, node.SevenDaysToDiePlayer{Name: player.Name, ActionID: player.ID})
+	}
+	return result
 }

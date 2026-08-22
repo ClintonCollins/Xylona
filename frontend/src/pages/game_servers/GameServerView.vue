@@ -609,6 +609,7 @@
             :game-server-id="gameServerId"
             :is-online="isServerOnline"
             :max-player-count="maxPlayerCount"
+            :native-identifiers-required="gameServer.gameId === '7_days_to_die'"
             :player-list-supported="playerListSupported"
             :player-names="onlinePlayers"
             :unlisted-player-count="unlistedPlayerCount" />

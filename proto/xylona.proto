@@ -1659,11 +1659,38 @@ enum GameServerPlayerAction {
   GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE = 5;
 }
 
+enum GameServerPlayerManagementRosterState {
+  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED = 0;
+  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE = 1;
+  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED = 2;
+  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED = 3;
+  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE = 4;
+}
+
 message GameServerPlayerManagementCapabilities {
   bool actions_supported = 1;
   string unavailable_reason = 2;
   string identifier_label = 3;
   repeated GameServerPlayerAction supported_actions = 4;
+  GameServerPlayerManagementRosterState roster_state = 5;
+}
+
+message GameServerManagementPlayer {
+  string name = 1;
+  string action_identifier = 2;
+  string entity_id = 3;
+  string platform_id = 4;
+  string cross_platform_id = 5;
+  optional bool online = 6;
+  optional int32 ping = 7;
+  optional int32 level = 8;
+  optional int32 health = 9;
+  optional float stamina = 10;
+  optional int32 score = 11;
+  optional int32 deaths = 12;
+  optional int32 zombie_kills = 13;
+  optional int32 player_kills = 14;
+  optional bool banned = 15;
 }
 
 message GetGameServerPlayerManagementRequest {
@@ -1672,7 +1699,7 @@ message GetGameServerPlayerManagementRequest {
 
 message GetGameServerPlayerManagementResponse {
   GameServerPlayerManagementCapabilities capabilities = 1;
-  repeated GameServerPlayer players = 2;
+  repeated GameServerManagementPlayer players = 2;
   Status status = 3;
 }
 

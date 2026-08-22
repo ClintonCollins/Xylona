@@ -55,6 +55,8 @@ type callRecorder struct {
 	palworldMapResp  *nodeprotov1.QueryPalworldMapResponse
 	webAPIStatusReq  *nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest
 	webAPIStatusResp *nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse
+	playersReq       *nodeprotov1.QuerySevenDaysToDiePlayersRequest
+	playersResp      *nodeprotov1.QuerySevenDaysToDiePlayersResponse
 	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
 	playerActionErr  error
 	consoleInputErr  error
@@ -204,6 +206,18 @@ func (s *stubHandler) QuerySevenDaysToDieWebAPIStatus(_ context.Context, req *co
 	s.rec.mu.Unlock()
 	if resp == nil {
 		resp = &nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) QuerySevenDaysToDiePlayers(_ context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDiePlayersResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.playersReq = req.Msg
+	resp := s.rec.playersResp
+	s.rec.mu.Unlock()
+	if resp == nil {
+		resp = &nodeprotov1.QuerySevenDaysToDiePlayersResponse{}
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -829,6 +843,59 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 				t.Fatalf("authorization headers = %q", authHeaders)
 			}
 		})
+	}
+}
+
+func TestGRPCClientQuerySevenDaysToDiePlayers(t *testing.T) {
+	t.Parallel()
+	falseValue := false
+	zeroInt := int32(0)
+	zeroFloat := float32(0)
+	recorder := &callRecorder{
+		playersResp: &nodeprotov1.QuerySevenDaysToDiePlayersResponse{
+			Result: &nodeprotov1.SevenDaysToDiePlayers{
+				ConnectionState: nodeprotov1.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+				State:           nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+				Players: []*nodeprotov1.SevenDaysToDiePlayer{{
+					Name: "Player", ActionId: "Steam_1", EntityId: "1", PlatformId: "Steam_1", CrossPlatformId: "EOS_1",
+					Online: &falseValue, Ping: &zeroInt, Level: &zeroInt, Health: &zeroInt, Stamina: &zeroFloat,
+					Score: &zeroInt, Deaths: &zeroInt, ZombieKills: &zeroInt, PlayerKills: &zeroInt, Banned: &falseValue,
+				}},
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, recorder)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	result, errQuery := client.QuerySevenDaysToDiePlayers(t.Context(), node.SevenDaysToDiePlayersQueryRequest{
+		WorkingDirectory: "C:/servers/7dtd",
+		TokenName:        "controller",
+		TokenSecret:      "web-api-secret",
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDiePlayers: %v", errQuery)
+	}
+	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateAvailable ||
+		result.State != node.SevenDaysToDieWebAPIValueStateAvailable || len(result.Players) != 1 {
+		t.Fatalf("result = %+v", result)
+	}
+	player := result.Players[0]
+	if player.ActionID != "Steam_1" || player.Online == nil || *player.Online || player.Ping == nil || *player.Ping != 0 ||
+		player.Stamina == nil || *player.Stamina != 0 || player.Banned == nil || *player.Banned {
+		t.Fatalf("player = %+v", player)
+	}
+	recorder.mu.Lock()
+	request := recorder.playersReq
+	authHeaders := append([]string(nil), recorder.authHeaders...)
+	recorder.mu.Unlock()
+	if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
+		t.Fatal("request did not preserve the expected directory and credentials")
+	}
+	if !slices.Equal(authHeaders, []string{"Bearer node-secret"}) {
+		t.Fatalf("authorization headers = %q", authHeaders)
 	}
 }
 

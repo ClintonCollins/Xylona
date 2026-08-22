@@ -2,9 +2,11 @@ package rpc
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/node"
@@ -47,7 +49,7 @@ func TestPlayerManagementAuthorizationAndDispatch(t *testing.T) {
 	if errGet != nil {
 		t.Fatalf("GetGameServerPlayerManagement() error = %v", errGet)
 	}
-	if len(getResponse.Msg.GetPlayers()) != 1 || getResponse.Msg.GetPlayers()[0].GetId() != "Alex" {
+	if len(getResponse.Msg.GetPlayers()) != 1 || getResponse.Msg.GetPlayers()[0].GetActionIdentifier() != "Alex" {
 		t.Fatalf("players = %+v, want Alex with stable ID", getResponse.Msg.GetPlayers())
 	}
 	if !getResponse.Msg.GetCapabilities().GetActionsSupported() || len(getResponse.Msg.GetCapabilities().GetSupportedActions()) != 5 {
@@ -81,6 +83,107 @@ func TestPlayerManagementAuthorizationAndDispatch(t *testing.T) {
 	_, errDenied := fixture.service.GetGameServerPlayerManagement(t.Context(), deniedRequest)
 	if connect.CodeOf(errDenied) != connect.CodePermissionDenied {
 		t.Fatalf("other user error = %v, want permission denied", errDenied)
+	}
+}
+
+func TestSevenDaysToDiePlayerManagementUsesNativeRoster(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
+	falseValue := false
+	zeroInt := int32(0)
+	zeroFloat := float32(0)
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-local",
+		RuntimeCapabilitiesResult: node.RuntimeCapabilities{PlayerActions: true, ProtocolVersion: 4},
+		GetProcessSnapshotResult:  &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
+		GetProcessSnapshotFound:   true,
+		QuerySevenDaysToDiePlayersResult: &node.SevenDaysToDiePlayers{
+			ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+			State:           node.SevenDaysToDieWebAPIValueStateAvailable,
+			Players: []node.SevenDaysToDiePlayer{{
+				Name: "Player", ActionID: "Steam_1", EntityID: "7", PlatformID: "Steam_1", CrossPlatformID: "EOS_1",
+				Online: &falseValue, Ping: &zeroInt, Level: &zeroInt, Health: &zeroInt, Stamina: &zeroFloat,
+				Score: &zeroInt, Deaths: &zeroInt, ZombieKills: &zeroInt, PlayerKills: &zeroInt, Banned: &falseValue,
+			}, {Name: "Visible without action ID"}},
+		},
+	}
+	actionsContext, cancelActions := context.WithCancel(t.Context())
+	fixture.service.actionsInst = actions.NewInstance(
+		actionsContext,
+		fixture.conn,
+		client,
+		nil,
+		nil,
+		versiontracker.NewVersionStateMap(),
+		versiontracker.ResolverConfig{},
+	)
+	t.Cleanup(cancelActions)
+
+	request := connect.NewRequest(&xylona.GetGameServerPlayerManagementRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+	response, errGet := fixture.service.GetGameServerPlayerManagement(t.Context(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServerPlayerManagement() error = %v", errGet)
+	}
+	if len(client.QuerySevenDaysToDiePlayersCalls) != 1 || len(client.QueryGameServerCalls) != 0 {
+		t.Fatalf("native calls = %d, generic calls = %d", len(client.QuerySevenDaysToDiePlayersCalls), len(client.QueryGameServerCalls))
+	}
+	call := client.QuerySevenDaysToDiePlayersCalls[0]
+	if call.WorkingDirectory != "/tmp/server-local-1" || call.TokenName == "" || call.TokenSecret == "" {
+		t.Fatal("native player query did not receive the node-local directory and credentials")
+	}
+	if response.Msg.GetCapabilities().GetRosterState() != xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE ||
+		!response.Msg.GetCapabilities().GetActionsSupported() {
+		t.Fatalf("capabilities = %+v", response.Msg.GetCapabilities())
+	}
+	players := response.Msg.GetPlayers()
+	if len(players) != 2 || players[0].GetActionIdentifier() != "Steam_1" || players[1].GetActionIdentifier() != "" {
+		t.Fatalf("players = %+v", players)
+	}
+	player := players[0]
+	if player.GetEntityId() != "7" || player.GetPlatformId() != "Steam_1" || player.GetCrossPlatformId() != "EOS_1" ||
+		player.Online == nil || player.GetOnline() || player.Ping == nil || player.GetPing() != 0 ||
+		player.Stamina == nil || player.GetStamina() != 0 || player.Banned == nil || player.GetBanned() {
+		t.Fatalf("mapped player = %+v", player)
+	}
+	responseJSON, errMarshal := protojson.Marshal(response.Msg)
+	if errMarshal != nil {
+		t.Fatalf("marshal response: %v", errMarshal)
+	}
+	if strings.Contains(string(responseJSON), call.TokenName) || strings.Contains(string(responseJSON), call.TokenSecret) {
+		t.Fatal("management response exposed WebAPI credentials")
+	}
+}
+
+func TestSevenDaysToDiePlayerManagementPreservesManualActionsWhenRosterFails(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-local",
+		RuntimeCapabilitiesResult: node.RuntimeCapabilities{PlayerActions: true, ProtocolVersion: 4},
+		GetProcessSnapshotResult:  &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
+		GetProcessSnapshotFound:   true,
+		QuerySevenDaysToDiePlayersResult: &node.SevenDaysToDiePlayers{
+			ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+			State:           node.SevenDaysToDieWebAPIValueStateUnavailable,
+		},
+	}
+	actionsContext, cancelActions := context.WithCancel(t.Context())
+	fixture.service.actionsInst = actions.NewInstance(
+		actionsContext, fixture.conn, client, nil, nil, versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{},
+	)
+	t.Cleanup(cancelActions)
+	request := connect.NewRequest(&xylona.GetGameServerPlayerManagementRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+	response, errGet := fixture.service.GetGameServerPlayerManagement(t.Context(), request)
+	if errGet != nil {
+		t.Fatalf("GetGameServerPlayerManagement() error = %v", errGet)
+	}
+	capabilities := response.Msg.GetCapabilities()
+	if !capabilities.GetActionsSupported() || capabilities.GetRosterState() != xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE {
+		t.Fatalf("capabilities = %+v", capabilities)
 	}
 }
 

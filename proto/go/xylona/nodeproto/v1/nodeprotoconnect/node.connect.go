@@ -112,6 +112,9 @@ const (
 	// NodeServiceQuerySevenDaysToDieWebAPIStatusProcedure is the fully-qualified name of the
 	// NodeService's QuerySevenDaysToDieWebAPIStatus RPC.
 	NodeServiceQuerySevenDaysToDieWebAPIStatusProcedure = "/xylona.node.v1.NodeService/QuerySevenDaysToDieWebAPIStatus"
+	// NodeServiceQuerySevenDaysToDiePlayersProcedure is the fully-qualified name of the NodeService's
+	// QuerySevenDaysToDiePlayers RPC.
+	NodeServiceQuerySevenDaysToDiePlayersProcedure = "/xylona.node.v1.NodeService/QuerySevenDaysToDiePlayers"
 	// NodeServiceGetSevenDaysToDieMapTileProcedure is the fully-qualified name of the NodeService's
 	// GetSevenDaysToDieMapTile RPC.
 	NodeServiceGetSevenDaysToDieMapTileProcedure = "/xylona.node.v1.NodeService/GetSevenDaysToDieMapTile"
@@ -191,6 +194,7 @@ type NodeServiceClient interface {
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
 	QuerySevenDaysToDieWebAPIStatus(context.Context, *connect.Request[v1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[v1.QuerySevenDaysToDieWebAPIStatusResponse], error)
+	QuerySevenDaysToDiePlayers(context.Context, *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error)
 	GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error)
 	EnsureMinecraftMap(context.Context, *connect.Request[v1.EnsureMinecraftMapRequest]) (*connect.Response[v1.EnsureMinecraftMapResponse], error)
 	StopMinecraftMap(context.Context, *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error)
@@ -391,6 +395,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieWebAPIStatus")),
 			connect.WithClientOptions(opts...),
 		),
+		querySevenDaysToDiePlayers: connect.NewClient[v1.QuerySevenDaysToDiePlayersRequest, v1.QuerySevenDaysToDiePlayersResponse](
+			httpClient,
+			baseURL+NodeServiceQuerySevenDaysToDiePlayersProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDiePlayers")),
+			connect.WithClientOptions(opts...),
+		),
 		getSevenDaysToDieMapTile: connect.NewClient[v1.GetSevenDaysToDieMapTileRequest, v1.GetSevenDaysToDieMapTileResponse](
 			httpClient,
 			baseURL+NodeServiceGetSevenDaysToDieMapTileProcedure,
@@ -514,6 +524,7 @@ type nodeServiceClient struct {
 	queryPalworldMap                *connect.Client[v1.QueryPalworldMapRequest, v1.QueryPalworldMapResponse]
 	querySevenDaysToDieMap          *connect.Client[v1.QuerySevenDaysToDieMapRequest, v1.QuerySevenDaysToDieMapResponse]
 	querySevenDaysToDieWebAPIStatus *connect.Client[v1.QuerySevenDaysToDieWebAPIStatusRequest, v1.QuerySevenDaysToDieWebAPIStatusResponse]
+	querySevenDaysToDiePlayers      *connect.Client[v1.QuerySevenDaysToDiePlayersRequest, v1.QuerySevenDaysToDiePlayersResponse]
 	getSevenDaysToDieMapTile        *connect.Client[v1.GetSevenDaysToDieMapTileRequest, v1.GetSevenDaysToDieMapTileResponse]
 	ensureMinecraftMap              *connect.Client[v1.EnsureMinecraftMapRequest, v1.EnsureMinecraftMapResponse]
 	stopMinecraftMap                *connect.Client[v1.StopMinecraftMapRequest, v1.StopMinecraftMapResponse]
@@ -671,6 +682,11 @@ func (c *nodeServiceClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context,
 	return c.querySevenDaysToDieWebAPIStatus.CallUnary(ctx, req)
 }
 
+// QuerySevenDaysToDiePlayers calls xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers.
+func (c *nodeServiceClient) QuerySevenDaysToDiePlayers(ctx context.Context, req *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error) {
+	return c.querySevenDaysToDiePlayers.CallUnary(ctx, req)
+}
+
 // GetSevenDaysToDieMapTile calls xylona.node.v1.NodeService.GetSevenDaysToDieMapTile.
 func (c *nodeServiceClient) GetSevenDaysToDieMapTile(ctx context.Context, req *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error) {
 	return c.getSevenDaysToDieMapTile.CallUnary(ctx, req)
@@ -779,6 +795,7 @@ type NodeServiceHandler interface {
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
 	QuerySevenDaysToDieWebAPIStatus(context.Context, *connect.Request[v1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[v1.QuerySevenDaysToDieWebAPIStatusResponse], error)
+	QuerySevenDaysToDiePlayers(context.Context, *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error)
 	GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error)
 	EnsureMinecraftMap(context.Context, *connect.Request[v1.EnsureMinecraftMapRequest]) (*connect.Response[v1.EnsureMinecraftMapResponse], error)
 	StopMinecraftMap(context.Context, *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error)
@@ -975,6 +992,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieWebAPIStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceQuerySevenDaysToDiePlayersHandler := connect.NewUnaryHandler(
+		NodeServiceQuerySevenDaysToDiePlayersProcedure,
+		svc.QuerySevenDaysToDiePlayers,
+		connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDiePlayers")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceGetSevenDaysToDieMapTileHandler := connect.NewUnaryHandler(
 		NodeServiceGetSevenDaysToDieMapTileProcedure,
 		svc.GetSevenDaysToDieMapTile,
@@ -1123,6 +1146,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceQuerySevenDaysToDieMapHandler.ServeHTTP(w, r)
 		case NodeServiceQuerySevenDaysToDieWebAPIStatusProcedure:
 			nodeServiceQuerySevenDaysToDieWebAPIStatusHandler.ServeHTTP(w, r)
+		case NodeServiceQuerySevenDaysToDiePlayersProcedure:
+			nodeServiceQuerySevenDaysToDiePlayersHandler.ServeHTTP(w, r)
 		case NodeServiceGetSevenDaysToDieMapTileProcedure:
 			nodeServiceGetSevenDaysToDieMapTileHandler.ServeHTTP(w, r)
 		case NodeServiceEnsureMinecraftMapProcedure:
@@ -1272,6 +1297,10 @@ func (UnimplementedNodeServiceHandler) QuerySevenDaysToDieMap(context.Context, *
 
 func (UnimplementedNodeServiceHandler) QuerySevenDaysToDieWebAPIStatus(context.Context, *connect.Request[v1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[v1.QuerySevenDaysToDieWebAPIStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) QuerySevenDaysToDiePlayers(context.Context, *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) GetSevenDaysToDieMapTile(context.Context, *connect.Request[v1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[v1.GetSevenDaysToDieMapTileResponse], error) {

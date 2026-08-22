@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -464,6 +465,122 @@ paths:
 		_, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(ctx, SevenDaysToDieWebAPIStatusQueryRequest{WorkingDirectory: workingDirectory})
 		if !errors.Is(errQuery, context.Canceled) {
 			t.Errorf("QuerySevenDaysToDieWebAPIStatus() error = %v, want context.Canceled", errQuery)
+		}
+	})
+}
+
+func TestNodeQuerySevenDaysToDiePlayers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("decodes identifiers and optional zero values from the fixed player endpoint", func(t *testing.T) {
+		t.Parallel()
+		paths := make([]string, 0, 3)
+		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+			paths = append(paths, request.URL.Path)
+			if request.Header.Get("X-SDTD-API-TOKENNAME") != "xylona" || request.Header.Get("X-SDTD-API-SECRET") != "secret" {
+				t.Fatal("QuerySevenDaysToDiePlayers() did not send the node-held credentials")
+			}
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPI())
+			case "/api/OpenAPI/Player.openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPIFragments()[request.URL.Path])
+			case "/api/player":
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"players":[
+					{"entityId":42,"name":"Platform","platformId":{"combinedString":"Steam_100"},"crossplatformId":{"combinedString":"EOS_200"},"online":false,"ping":0,"level":0,"health":0,"stamina":0,"score":0,"deaths":0,"kills":{"zombies":0,"players":0},"banned":{"banActive":false},"ip":"203.0.113.10","position":{"x":1,"y":2,"z":3}},
+					{"entityId":"43","name":"Cross-platform","crossplatformId":{"combinedString":"EOS_201"}},
+					{"entityId":44,"name":"Entity only"},
+					{"name":"Read only"}
+				]},"meta":{}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}, "")
+
+		result, errQuery := new(Node).QuerySevenDaysToDiePlayers(t.Context(), SevenDaysToDiePlayersQueryRequest{
+			WorkingDirectory: workingDirectory,
+			TokenName:        "xylona",
+			TokenSecret:      "secret",
+		})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDiePlayers() error = %v", errQuery)
+		}
+		if result.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || result.State != SevenDaysToDieWebAPIValueStateAvailable {
+			t.Fatalf("QuerySevenDaysToDiePlayers() states = %v, %v", result.ConnectionState, result.State)
+		}
+		if len(result.Players) != 4 {
+			t.Fatalf("QuerySevenDaysToDiePlayers() players = %+v", result.Players)
+		}
+		platform := result.Players[0]
+		if platform.ActionID != "Steam_100" || platform.EntityID != "42" || platform.PlatformID != "Steam_100" || platform.CrossPlatformID != "EOS_200" {
+			t.Fatalf("platform identifiers = %+v", platform)
+		}
+		if platform.Online == nil || *platform.Online || platform.Ping == nil || *platform.Ping != 0 ||
+			platform.Level == nil || *platform.Level != 0 || platform.Health == nil || *platform.Health != 0 ||
+			platform.Stamina == nil || *platform.Stamina != 0 || platform.Score == nil || *platform.Score != 0 ||
+			platform.Deaths == nil || *platform.Deaths != 0 || platform.ZombieKills == nil || *platform.ZombieKills != 0 ||
+			platform.PlayerKills == nil || *platform.PlayerKills != 0 || platform.Banned == nil || *platform.Banned {
+			t.Fatalf("optional zero values = %+v", platform)
+		}
+		if result.Players[1].ActionID != "EOS_201" || result.Players[2].ActionID != "44" || result.Players[3].ActionID != "" {
+			t.Fatalf("identifier precedence = %+v", result.Players)
+		}
+		wantPaths := []string{"/api/openapi/openapi.yaml", "/api/OpenAPI/Player.openapi.yaml", "/api/player"}
+		if !slices.Equal(paths, wantPaths) {
+			t.Fatalf("QuerySevenDaysToDiePlayers() paths = %v, want %v", paths, wantPaths)
+		}
+	})
+
+	tests := []struct {
+		name       string
+		master     string
+		statusCode int
+		body       string
+		wantState  SevenDaysToDieWebAPIValueState
+		wantCount  int
+	}{
+		{name: "confirmed empty roster", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":{"players":[]},"meta":{}}`, wantState: SevenDaysToDieWebAPIValueStateAvailable},
+		{name: "missing capability", master: "openapi: 3.1.0\ninfo:\n  version: '1'\npaths: {}\n", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
+		{name: "endpoint unauthorized", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusUnauthorized, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "endpoint forbidden", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "malformed result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":{"players":`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "oversized result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+				switch request.URL.Path {
+				case "/api/openapi/openapi.yaml":
+					writeSevenDaysToDieTestResponse(t, response, test.master)
+				case "/api/OpenAPI/Player.openapi.yaml":
+					writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPIFragments()[request.URL.Path])
+				case "/api/player":
+					response.WriteHeader(test.statusCode)
+					if test.body != "" {
+						writeSevenDaysToDieTestResponse(t, response, test.body)
+					}
+				default:
+					http.NotFound(response, request)
+				}
+			}, "")
+			result, errQuery := new(Node).QuerySevenDaysToDiePlayers(t.Context(), SevenDaysToDiePlayersQueryRequest{WorkingDirectory: workingDirectory})
+			if errQuery != nil {
+				t.Fatalf("QuerySevenDaysToDiePlayers() error = %v", errQuery)
+			}
+			if result.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || result.State != test.wantState || len(result.Players) != test.wantCount {
+				t.Fatalf("QuerySevenDaysToDiePlayers() = %+v, want state %v and %d players", result, test.wantState, test.wantCount)
+			}
+		})
+	}
+
+	t.Run("returns parent cancellation as an error", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		_, errQuery := new(Node).QuerySevenDaysToDiePlayers(ctx, SevenDaysToDiePlayersQueryRequest{})
+		if !errors.Is(errQuery, context.Canceled) {
+			t.Fatalf("QuerySevenDaysToDiePlayers() error = %v, want context.Canceled", errQuery)
 		}
 	})
 }

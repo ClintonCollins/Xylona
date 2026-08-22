@@ -44,6 +44,12 @@ type sevenDaysToDiePlayerJSON struct {
 	EntityID        json.RawMessage `json:"entityId"`
 	Name            string          `json:"name"`
 	Online          *bool           `json:"online"`
+	Ping            *int32          `json:"ping"`
+	Level           *int32          `json:"level"`
+	Health          *int32          `json:"health"`
+	Stamina         *float32        `json:"stamina"`
+	Score           *int32          `json:"score"`
+	Deaths          *int32          `json:"deaths"`
 	SteamID         string          `json:"steamid"`
 	CrossPlatformID string          `json:"crossplatformid"`
 	PlatformID      struct {
@@ -52,6 +58,13 @@ type sevenDaysToDiePlayerJSON struct {
 	CrossPlatformIDObject struct {
 		CombinedString string `json:"combinedString"`
 	} `json:"crossplatformId"`
+	Kills *struct {
+		Zombies *int32 `json:"zombies"`
+		Players *int32 `json:"players"`
+	} `json:"kills"`
+	Banned *struct {
+		Active *bool `json:"banActive"`
+	} `json:"banned"`
 	Position *struct {
 		X float64 `json:"x"`
 		Y float64 `json:"y"`

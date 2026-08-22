@@ -905,6 +905,27 @@ func (s *nodeServiceServer) QuerySevenDaysToDieWebAPIStatus(ctx context.Context,
 	}), nil
 }
 
+func (s *nodeServiceServer) QuerySevenDaysToDiePlayers(ctx context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDiePlayersResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	result, errQuery := s.n.QuerySevenDaysToDiePlayers(ctx, node.SevenDaysToDiePlayersQueryRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		TokenName:        req.Msg.GetTokenName(),
+		TokenSecret:      req.Msg.GetTokenSecret(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QuerySevenDaysToDiePlayersResponse{
+		Result: sevenDaysToDiePlayersToProto(result),
+	}), nil
+}
+
 func (s *nodeServiceServer) GetSevenDaysToDieMapTile(ctx context.Context, req *connect.Request[nodeprotov1.GetSevenDaysToDieMapTileRequest]) (*connect.Response[nodeprotov1.GetSevenDaysToDieMapTileResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1382,6 +1403,58 @@ func sevenDaysToDieWebAPIStatusToProto(status *node.SevenDaysToDieWebAPIStatus) 
 		}
 	}
 	return result
+}
+
+func sevenDaysToDiePlayersToProto(result *node.SevenDaysToDiePlayers) *nodeprotov1.SevenDaysToDiePlayers {
+	if result == nil {
+		return nil
+	}
+	players := make([]*nodeprotov1.SevenDaysToDiePlayer, 0, len(result.Players))
+	for _, player := range result.Players {
+		playerProto := &nodeprotov1.SevenDaysToDiePlayer{
+			Name:            player.Name,
+			ActionId:        player.ActionID,
+			EntityId:        player.EntityID,
+			PlatformId:      player.PlatformID,
+			CrossPlatformId: player.CrossPlatformID,
+		}
+		if player.Online != nil {
+			playerProto.Online = new(*player.Online)
+		}
+		if player.Ping != nil {
+			playerProto.Ping = new(*player.Ping)
+		}
+		if player.Level != nil {
+			playerProto.Level = new(*player.Level)
+		}
+		if player.Health != nil {
+			playerProto.Health = new(*player.Health)
+		}
+		if player.Stamina != nil {
+			playerProto.Stamina = new(*player.Stamina)
+		}
+		if player.Score != nil {
+			playerProto.Score = new(*player.Score)
+		}
+		if player.Deaths != nil {
+			playerProto.Deaths = new(*player.Deaths)
+		}
+		if player.ZombieKills != nil {
+			playerProto.ZombieKills = new(*player.ZombieKills)
+		}
+		if player.PlayerKills != nil {
+			playerProto.PlayerKills = new(*player.PlayerKills)
+		}
+		if player.Banned != nil {
+			playerProto.Banned = new(*player.Banned)
+		}
+		players = append(players, playerProto)
+	}
+	return &nodeprotov1.SevenDaysToDiePlayers{
+		ConnectionState: sevenDaysToDieWebAPIConnectionStateToProto(result.ConnectionState),
+		State:           sevenDaysToDieWebAPIValueStateToProto(result.State),
+		Players:         players,
+	}
 }
 
 func sevenDaysToDieWebAPICapabilitiesToProto(capabilities node.SevenDaysToDieWebAPICapabilities) *nodeprotov1.SevenDaysToDieWebAPICapabilities {

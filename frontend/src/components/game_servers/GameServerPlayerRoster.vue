@@ -109,6 +109,7 @@ const props = defineProps<{
   playerListSupported: boolean
   unlistedPlayerCount: number
   canManagePlayers: boolean
+  nativeIdentifiersRequired: boolean
 }>()
 
 const management = ref<GetGameServerPlayerManagementResponse | null>(null)
@@ -130,6 +131,7 @@ const quickActionDefinitions = computed(() =>
 const canPerformActions = computed(
   () =>
     props.canManagePlayers &&
+    !props.nativeIdentifiersRequired &&
     Boolean(capabilities.value?.actionsSupported) &&
     management.value?.status === Status.ONLINE &&
     props.isOnline &&
@@ -143,7 +145,7 @@ const dialogTextColor = computed(() =>
 
 function resolvePlayerId(name: string): string {
   const managed = management.value?.players.find((player) => player.name === name)
-  return managed?.id ?? ''
+  return managed?.actionIdentifier ?? ''
 }
 
 function rowActions(name: string): PlayerActionDefinition[] {
@@ -152,7 +154,7 @@ function rowActions(name: string): PlayerActionDefinition[] {
 }
 
 async function loadManagement(): Promise<void> {
-  if (!props.canManagePlayers || props.gameServerId === '') {
+  if (!props.canManagePlayers || props.nativeIdentifiersRequired || props.gameServerId === '') {
     return
   }
   try {

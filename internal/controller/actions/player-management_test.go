@@ -22,7 +22,7 @@ func TestGetPlayerManagement(t *testing.T) {
 		protocolVersion      int64
 		wantActionsSupported bool
 		wantActions          int
-		wantPlayers          []node.GameServerPlayer
+		wantPlayers          []node.SevenDaysToDiePlayer
 		wantReasonContains   string
 		wantRuntimeCalls     int
 	}{
@@ -32,7 +32,7 @@ func TestGetPlayerManagement(t *testing.T) {
 			playerActions:        true,
 			wantActionsSupported: true,
 			wantActions:          5,
-			wantPlayers:          []node.GameServerPlayer{{Name: "Alex", ID: "Alex"}},
+			wantPlayers:          []node.SevenDaysToDiePlayer{{Name: "Alex", ActionID: "Alex"}},
 			wantRuntimeCalls:     1,
 			queryResult: node.GameServerQueryResult{
 				Kind: node.GameServerQueryKindMinecraft,
@@ -71,7 +71,7 @@ func TestGetPlayerManagement(t *testing.T) {
 		{
 			name:               "Source roster stays read only",
 			gameServer:         sourcePlayerTestServer,
-			wantPlayers:        []node.GameServerPlayer{{Name: "Gordon"}},
+			wantPlayers:        []node.SevenDaysToDiePlayer{{Name: "Gordon"}},
 			wantReasonContains: "read-only",
 			queryResult: node.GameServerQueryResult{
 				Kind:   node.GameServerQueryKindSource,
@@ -82,7 +82,7 @@ func TestGetPlayerManagement(t *testing.T) {
 			name:               "legacy node advertises no actions",
 			gameServer:         minecraftPlayerTestServer,
 			wantActions:        5,
-			wantPlayers:        []node.GameServerPlayer{{Name: "Alex", ID: "Alex"}},
+			wantPlayers:        []node.SevenDaysToDiePlayer{{Name: "Alex", ActionID: "Alex"}},
 			wantReasonContains: "Upgrade the node",
 			wantRuntimeCalls:   1,
 			queryResult: node.GameServerQueryResult{
@@ -306,7 +306,7 @@ func TestPlayerManagementProfilesCoverDocumentedAdminConsoles(t *testing.T) {
 	}{
 		{gameID: minecraftGameID, queryKind: node.GameServerQueryKindMinecraft, actionKind: node.GameServerQueryKindMinecraft, actionCount: 5},
 		{gameID: palworldGameID, queryKind: node.GameServerQueryKindPalworld, actionKind: node.GameServerQueryKindPalworld, actionCount: 3},
-		{gameID: sevenDaysToDieGameID, queryKind: node.GameServerQueryKindSource, actionKind: node.GameServerQueryKindSevenDaysToDie, actionCount: 5},
+		{gameID: sevenDaysToDieGameID, actionKind: node.GameServerQueryKindSevenDaysToDie, actionCount: 5},
 		{gameID: factorioGameID, actionKind: node.GameServerQueryKindFactorio, actionCount: 5},
 		{gameID: hytaleGameID, actionKind: node.GameServerQueryKindHytale, actionCount: 5},
 		{gameID: projectZomboidGameID, queryKind: node.GameServerQueryKindSource, actionKind: node.GameServerQueryKindProjectZomboid, actionCount: 4},

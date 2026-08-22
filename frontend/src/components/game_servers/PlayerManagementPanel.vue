@@ -2,13 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { notifyConnectError, notifySuccess } from '@/api/notifications'
-import type { GameServerPlayer } from '@/proto/shared_pb'
 import { Status } from '@/proto/shared_pb'
 import type { AllServersQueryInfo } from '@/proto/websocket_pb'
 import {
   GameServerPlayerAction,
+  GameServerPlayerManagementRosterState,
   GetGameServerPlayerManagementRequestSchema,
   PerformGameServerPlayerActionRequestSchema,
+  type GameServerManagementPlayer,
   type GetGameServerPlayerManagementResponse,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
@@ -43,6 +44,22 @@ const actionReason = ref('')
 const capabilities = computed(() => management.value?.capabilities)
 const isOnline = computed(() => management.value?.status === Status.ONLINE)
 const players = computed(() => management.value?.players ?? [])
+const rosterState = computed(
+  () => capabilities.value?.rosterState ?? GameServerPlayerManagementRosterState.UNSPECIFIED,
+)
+const rosterAvailable = computed(
+  () => rosterState.value === GameServerPlayerManagementRosterState.AVAILABLE,
+)
+const rosterStateText = computed(() => {
+  switch (rosterState.value) {
+    case GameServerPlayerManagementRosterState.UNSUPPORTED:
+      return 'Native player roster is not supported by this server.'
+    case GameServerPlayerManagementRosterState.PERMISSION_DENIED:
+      return 'Native player roster access was denied by the game server.'
+    default:
+      return 'Native player roster is unavailable. Retry after confirming the WebAPI is reachable.'
+  }
+})
 const supportedActionDefinitions = computed(() =>
   getSupportedPlayerActionDefinitions(capabilities.value?.supportedActions ?? []),
 )
@@ -209,11 +226,24 @@ async function performPlayerAction(): Promise<void> {
   }
 }
 
-function playerSecondaryText(player: GameServerPlayer): string {
-  if (player.id === undefined || player.id === '' || player.id === player.name) {
-    return ''
-  }
-  return player.id
+function playerMetrics(player: GameServerManagementPlayer): { label: string; value: string }[] {
+  const metrics: { label: string; value: string }[] = []
+  if (player.online !== undefined)
+    metrics.push({ label: '', value: player.online ? 'Online' : 'Offline' })
+  if (player.ping !== undefined) metrics.push({ label: 'Ping', value: `${player.ping} ms` })
+  if (player.level !== undefined) metrics.push({ label: 'Level', value: String(player.level) })
+  if (player.health !== undefined) metrics.push({ label: 'Health', value: String(player.health) })
+  if (player.stamina !== undefined)
+    metrics.push({ label: 'Stamina', value: String(player.stamina) })
+  if (player.score !== undefined) metrics.push({ label: 'Score', value: String(player.score) })
+  if (player.deaths !== undefined) metrics.push({ label: 'Deaths', value: String(player.deaths) })
+  if (player.zombieKills !== undefined)
+    metrics.push({ label: 'Zombie kills', value: String(player.zombieKills) })
+  if (player.playerKills !== undefined)
+    metrics.push({ label: 'Player kills', value: String(player.playerKills) })
+  if (player.banned !== undefined)
+    metrics.push({ label: 'Banned', value: player.banned ? 'Yes' : 'No' })
+  return metrics
 }
 
 function actionTextColor(definition: PlayerActionDefinition | null): string {
@@ -295,36 +325,55 @@ defineExpose({ loadPlayerManagement })
           </q-banner>
         </q-card-section>
 
-        <q-card-section v-if="players.length === 0" class="players-panel__empty">
+        <q-card-section v-if="isOnline && !rosterAvailable">
+          <q-banner class="players-panel__banner players-panel__banner--warning" dense rounded>
+            <template #avatar><q-icon color="warning" name="person_off" /></template>
+            {{ rosterStateText }}
+          </q-banner>
+        </q-card-section>
+
+        <q-card-section v-if="rosterAvailable && players.length === 0" class="players-panel__empty">
           <q-icon name="group_off" size="42px" />
           <div class="players-panel__empty-title">No players reported</div>
           <div>
-            {{
-              isOnline
-                ? 'The server query returned an empty roster.'
-                : 'The roster will appear after the server starts.'
-            }}
+            {{ 'The native player roster is currently empty.' }}
           </div>
         </q-card-section>
 
-        <q-list v-else class="players-panel__roster" separator>
+        <q-list v-else-if="rosterAvailable" class="players-panel__roster" separator>
           <q-item
             v-for="player in players"
-            :key="player.id || player.name"
+            :key="
+              player.actionIdentifier ||
+              player.platformId ||
+              player.crossPlatformId ||
+              player.entityId ||
+              player.name
+            "
             class="players-panel__player">
             <q-item-section avatar>
               <q-avatar class="players-panel__avatar" icon="person" />
             </q-item-section>
             <q-item-section>
               <q-item-label class="players-panel__player-name">{{ player.name }}</q-item-label>
-              <q-item-label
-                v-if="playerSecondaryText(player)"
-                caption
-                class="players-panel__player-id">
-                {{ playerSecondaryText(player) }}
+              <q-item-label v-if="player.actionIdentifier" caption class="players-panel__player-id">
+                Action ID: {{ player.actionIdentifier }}
               </q-item-label>
+              <div v-if="playerMetrics(player).length > 0" class="players-panel__metrics">
+                <span
+                  v-for="metric in playerMetrics(player)"
+                  :key="metric.label || metric.value"
+                  class="players-panel__metric">
+                  <span v-if="metric.label" class="players-panel__metric-label">{{
+                    metric.label
+                  }}</span>
+                  {{ metric.value }}
+                </span>
+              </div>
             </q-item-section>
-            <q-item-section v-if="player.id && quickActionDefinitions.length > 0" side>
+            <q-item-section
+              v-if="player.actionIdentifier && quickActionDefinitions.length > 0"
+              side>
               <div class="players-panel__quick-actions">
                 <q-btn
                   v-for="definition in quickActionDefinitions"
@@ -337,7 +386,7 @@ defineExpose({ loadPlayerManagement })
                   dense
                   flat
                   no-caps
-                  @click="openPlayerAction(definition, player.id || '', player.name)" />
+                  @click="openPlayerAction(definition, player.actionIdentifier, player.name)" />
               </div>
             </q-item-section>
           </q-item>
@@ -543,6 +592,25 @@ defineExpose({ loadPlayerManagement })
   overflow-wrap: anywhere;
 }
 
+.players-panel__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs) var(--xy-space-sm);
+  margin-top: var(--xy-space-xs);
+}
+
+.players-panel__metric {
+  color: var(--xy-text-secondary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-xs);
+}
+
+.players-panel__metric-label {
+  color: var(--xy-text-muted);
+  font-family: var(--xy-font-body);
+  margin-right: var(--xy-space-2xs);
+}
+
 .players-panel__quick-actions {
   display: flex;
   gap: var(--xy-space-xs);
@@ -566,7 +634,7 @@ defineExpose({ loadPlayerManagement })
   justify-content: flex-start;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 1023px) {
   .players-panel__manual-form {
     grid-template-columns: 1fr;
   }
@@ -581,7 +649,7 @@ defineExpose({ loadPlayerManagement })
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 599px) {
   .players-panel__summary {
     align-items: flex-start;
     flex-direction: column;

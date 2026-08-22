@@ -52,12 +52,44 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("player management is unavailable"))
 	}
 
-	players := make([]*xylona.GameServerPlayer, 0, len(management.Players))
+	players := make([]*xylona.GameServerManagementPlayer, 0, len(management.Players))
 	for _, player := range management.Players {
-		playerProto := &xylona.GameServerPlayer{Name: player.Name}
-		if player.ID != "" {
-			playerID := player.ID
-			playerProto.Id = &playerID
+		playerProto := &xylona.GameServerManagementPlayer{
+			Name:             player.Name,
+			ActionIdentifier: player.ActionID,
+			EntityId:         player.EntityID,
+			PlatformId:       player.PlatformID,
+			CrossPlatformId:  player.CrossPlatformID,
+		}
+		if player.Online != nil {
+			playerProto.Online = new(*player.Online)
+		}
+		if player.Ping != nil {
+			playerProto.Ping = new(*player.Ping)
+		}
+		if player.Level != nil {
+			playerProto.Level = new(*player.Level)
+		}
+		if player.Health != nil {
+			playerProto.Health = new(*player.Health)
+		}
+		if player.Stamina != nil {
+			playerProto.Stamina = new(*player.Stamina)
+		}
+		if player.Score != nil {
+			playerProto.Score = new(*player.Score)
+		}
+		if player.Deaths != nil {
+			playerProto.Deaths = new(*player.Deaths)
+		}
+		if player.ZombieKills != nil {
+			playerProto.ZombieKills = new(*player.ZombieKills)
+		}
+		if player.PlayerKills != nil {
+			playerProto.PlayerKills = new(*player.PlayerKills)
+		}
+		if player.Banned != nil {
+			playerProto.Banned = new(*player.Banned)
 		}
 		players = append(players, playerProto)
 	}
@@ -71,10 +103,26 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 			UnavailableReason: management.UnavailableReason,
 			IdentifierLabel:   management.IdentifierLabel,
 			SupportedActions:  supportedActions,
+			RosterState:       publicPlayerManagementRosterState(management.RosterState),
 		},
 		Players: players,
 		Status:  management.Status,
 	}), nil
+}
+
+func publicPlayerManagementRosterState(state node.SevenDaysToDieWebAPIValueState) xylona.GameServerPlayerManagementRosterState {
+	switch state {
+	case node.SevenDaysToDieWebAPIValueStateAvailable:
+		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE
+	case node.SevenDaysToDieWebAPIValueStateUnsupported:
+		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED
+	case node.SevenDaysToDieWebAPIValueStatePermissionDenied:
+		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED
+	case node.SevenDaysToDieWebAPIValueStateUnavailable:
+		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE
+	default:
+		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED
+	}
 }
 
 // PerformGameServerPlayerAction executes one capability-gated typed action.

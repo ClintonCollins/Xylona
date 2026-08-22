@@ -153,6 +153,9 @@ type NodeClient interface {
 	// WebAPI on the owning node.
 	QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error)
 
+	// QuerySevenDaysToDiePlayers reads the private native management roster on the owning node.
+	QuerySevenDaysToDiePlayers(ctx context.Context, req node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error)
+
 	// GetSevenDaysToDieMapTile reads one native PNG tile on the owning node.
 	GetSevenDaysToDieMapTile(ctx context.Context, req node.SevenDaysToDieMapTileRequest) ([]byte, error)
 

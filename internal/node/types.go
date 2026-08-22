@@ -650,6 +650,39 @@ type SevenDaysToDieWebAPIStatusQueryRequest struct {
 	TokenSecret      string
 }
 
+// SevenDaysToDiePlayersQueryRequest contains only node-local player API access details.
+type SevenDaysToDiePlayersQueryRequest struct {
+	WorkingDirectory string
+	TokenName        string
+	TokenSecret      string
+}
+
+// SevenDaysToDiePlayer is a private management record from the native player API.
+type SevenDaysToDiePlayer struct {
+	Name            string
+	ActionID        string
+	EntityID        string
+	PlatformID      string
+	CrossPlatformID string
+	Online          *bool
+	Ping            *int32
+	Level           *int32
+	Health          *int32
+	Stamina         *float32
+	Score           *int32
+	Deaths          *int32
+	ZombieKills     *int32
+	PlayerKills     *int32
+	Banned          *bool
+}
+
+// SevenDaysToDiePlayers is the bounded native player roster result.
+type SevenDaysToDiePlayers struct {
+	ConnectionState SevenDaysToDieWebAPIConnectionState
+	State           SevenDaysToDieWebAPIValueState
+	Players         []SevenDaysToDiePlayer
+}
+
 // SevenDaysToDieMapTileRequest identifies one native tile. Coordinates are
 // integers by construction, so callers cannot turn this into an open proxy.
 type SevenDaysToDieMapTileRequest struct {

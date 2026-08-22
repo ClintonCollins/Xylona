@@ -759,6 +759,20 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, st
 	return sevenDaysToDieWebAPIStatusFromProto(resp.Msg.GetStatus()), nil
 }
 
+// QuerySevenDaysToDiePlayers invokes the private native player-roster RPC.
+func (c *GRPCNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, playersReq node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error) {
+	req := newReq(c, &nodeprotov1.QuerySevenDaysToDiePlayersRequest{
+		WorkingDirectory: playersReq.WorkingDirectory,
+		TokenName:        playersReq.TokenName,
+		TokenSecret:      playersReq.TokenSecret,
+	})
+	resp, errRPC := c.connectClient.QuerySevenDaysToDiePlayers(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("query 7 Days to Die players", errRPC)
+	}
+	return sevenDaysToDiePlayersFromProto(resp.Msg.GetResult()), nil
+}
+
 // GetSevenDaysToDieMapTile invokes the bounded native-tile RPC.
 func (c *GRPCNodeClient) GetSevenDaysToDieMapTile(ctx context.Context, tileReq node.SevenDaysToDieMapTileRequest) ([]byte, error) {
 	req := newReq(c, &nodeprotov1.GetSevenDaysToDieMapTileRequest{
@@ -1341,6 +1355,40 @@ func sevenDaysToDieWebAPIStatusFromProto(status *nodeprotov1.SevenDaysToDieWebAP
 	}
 }
 
+func sevenDaysToDiePlayersFromProto(result *nodeprotov1.SevenDaysToDiePlayers) *node.SevenDaysToDiePlayers {
+	if result == nil {
+		return nil
+	}
+	players := make([]node.SevenDaysToDiePlayer, 0, len(result.GetPlayers()))
+	for _, player := range result.GetPlayers() {
+		if player == nil {
+			continue
+		}
+		players = append(players, node.SevenDaysToDiePlayer{
+			Name:            player.GetName(),
+			ActionID:        player.GetActionId(),
+			EntityID:        player.GetEntityId(),
+			PlatformID:      player.GetPlatformId(),
+			CrossPlatformID: player.GetCrossPlatformId(),
+			Online:          cloneBool(player.Online),
+			Ping:            cloneInt32(player.Ping),
+			Level:           cloneInt32(player.Level),
+			Health:          cloneInt32(player.Health),
+			Stamina:         cloneFloat32(player.Stamina),
+			Score:           cloneInt32(player.Score),
+			Deaths:          cloneInt32(player.Deaths),
+			ZombieKills:     cloneInt32(player.ZombieKills),
+			PlayerKills:     cloneInt32(player.PlayerKills),
+			Banned:          cloneBool(player.Banned),
+		})
+	}
+	return &node.SevenDaysToDiePlayers{
+		ConnectionState: sevenDaysToDieWebAPIConnectionStateFromProto(result.GetConnectionState()),
+		State:           sevenDaysToDieWebAPIValueStateFromProto(result.GetState()),
+		Players:         players,
+	}
+}
+
 func sevenDaysToDieWebAPICapabilitiesFromProto(capabilities *nodeprotov1.SevenDaysToDieWebAPICapabilities) node.SevenDaysToDieWebAPICapabilities {
 	if capabilities == nil {
 		return node.SevenDaysToDieWebAPICapabilities{}
@@ -1376,6 +1424,20 @@ func validProtoTime(timestamp *timestamppb.Timestamp) time.Time {
 }
 
 func cloneBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	return new(*value)
+}
+
+func cloneInt32(value *int32) *int32 {
+	if value == nil {
+		return nil
+	}
+	return new(*value)
+}
+
+func cloneFloat32(value *float32) *float32 {
 	if value == nil {
 		return nil
 	}
