@@ -168,7 +168,9 @@ describe('PublicGameServerStatusPage', () => {
     expect(vm.copiedServerID).toBe('server-1')
     expect(vm.copyAnnouncement).toBe('Alpha connection address copied.')
     await wrapper.vm.$nextTick()
-    expect(wrapper.get('[aria-label="Alpha connection address copied"]').exists()).toBe(true)
+    const copiedButton = wrapper.get('[aria-label="Alpha connection address copied"]')
+    expect(copiedButton.attributes('label')).toBe('Copied')
+    expect(copiedButton.classes()).toContain('is-copied')
 
     await vi.advanceTimersByTimeAsync(1500)
     expect(vm.copyAnnouncement).toBe('')

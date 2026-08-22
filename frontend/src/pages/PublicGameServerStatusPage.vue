@@ -224,7 +224,10 @@ onUnmounted(() => {
   <main class="public-status-page">
     <div class="public-status-page__inner">
       <header class="public-status-header">
-        <div class="public-status-header__brand">Xylona</div>
+        <div class="public-status-header__brand">
+          Xylona
+          <span>Public status</span>
+        </div>
         <div>
           <h1>{{ page?.title || 'Game server status' }}</h1>
           <p>Live game server availability and player counts</p>
@@ -242,6 +245,7 @@ onUnmounted(() => {
       <div v-if="loading && !page" class="public-status-state" role="status">
         <q-spinner color="primary" size="42px" />
         <h2>Loading server status</h2>
+        <p>Connecting to the live status feed.</p>
       </div>
       <div v-else-if="unavailable" class="public-status-state">
         <q-icon name="link_off" size="48px" />
@@ -259,22 +263,20 @@ onUnmounted(() => {
           v-if="page.servers.length > 0"
           class="public-status-summary"
           aria-label="Server status summary">
-          <div class="public-status-summary__signal">
-            <span class="public-status-summary__title">Server status</span>
-            <span class="public-status-summary__freshness" :class="{ 'is-stale': reconnecting }">
-              {{ fleetFreshnessLabel }}
-            </span>
+          <div class="public-status-summary__availability">
+            <q-icon name="dns" size="24px" aria-hidden="true" />
+            <div>
+              <span class="public-status-summary__title">
+                {{ onlineCount }} of {{ page.servers.length }} servers online
+              </span>
+              <span class="public-status-summary__caption">
+                Availability across published game servers
+              </span>
+            </div>
           </div>
-          <dl class="public-status-summary__metrics">
-            <div>
-              <dt>Servers</dt>
-              <dd>{{ page.servers.length }}</dd>
-            </div>
-            <div>
-              <dt>Online</dt>
-              <dd>{{ onlineCount }}</dd>
-            </div>
-          </dl>
+          <span class="public-status-summary__freshness" :class="{ 'is-stale': reconnecting }">
+            {{ fleetFreshnessLabel }}
+          </span>
         </div>
 
         <div v-if="page.servers.length === 0" class="public-status-state">
@@ -283,7 +285,11 @@ onUnmounted(() => {
           <p>This page is active. Its owner has not added any game servers.</p>
         </div>
         <section v-else class="public-server-stack" aria-label="Game server status">
-          <article v-for="server in page.servers" :key="server.id" class="public-server-row">
+          <article
+            v-for="server in page.servers"
+            :key="server.id"
+            class="public-server-row"
+            :class="{ 'is-online': server.status === Status.ONLINE }">
             <div class="public-server-row__summary">
               <div class="public-server-row__identity">
                 <h2>{{ server.name }}</h2>
@@ -301,7 +307,8 @@ onUnmounted(() => {
                 <div class="public-address-line">
                   <span class="public-server-row__value">{{ server.connectionAddress }}</span>
                   <q-btn
-                    class="public-server-row__action"
+                    class="public-server-row__action public-server-row__copy-action"
+                    :class="{ 'is-copied': copiedServerID === server.id }"
                     :aria-label="
                       copiedServerID === server.id
                         ? `${server.name} connection address copied`
@@ -310,7 +317,8 @@ onUnmounted(() => {
                     dense
                     flat
                     :icon="copiedServerID === server.id ? 'check' : 'content_copy'"
-                    round
+                    :label="copiedServerID === server.id ? 'Copied' : 'Copy'"
+                    no-caps
                     @click="copyAddress(server)" />
                 </div>
               </div>
@@ -356,7 +364,8 @@ onUnmounted(() => {
 .public-status-page {
   min-height: 100dvh;
   color: var(--xy-text-primary);
-  background: var(--xy-base);
+  background-color: var(--xy-base);
+  background-image: var(--xy-surface-gradient-subtle);
   font-family: var(--xy-font-body);
 }
 
@@ -380,10 +389,26 @@ onUnmounted(() => {
 }
 
 .public-status-header__brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xy-space-sm);
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
   font-size: var(--xy-font-size-xl);
   line-height: var(--xy-line-height-tight);
+}
+
+.public-status-header__brand span {
+  padding: var(--xy-space-2xs) var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+  background: var(--xy-surface-2);
+  border-radius: var(--xy-radius-pill);
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .public-status-header h1,
@@ -446,12 +471,12 @@ onUnmounted(() => {
 
 .public-status-summary {
   display: grid;
-  grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--xy-space-md) var(--xy-space-xl);
-  padding: var(--xy-space-base) var(--xy-space-md);
+  padding: var(--xy-space-md);
   color: var(--xy-text-secondary);
-  background: var(--xy-surface-0);
+  background: var(--xy-surface-0) var(--xy-surface-gradient-subtle);
   border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-lg);
 }
@@ -463,25 +488,48 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.public-status-summary__signal {
+.public-status-summary__availability {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-base);
+}
+
+.public-status-summary__availability > .q-icon {
+  flex: 0 0 auto;
+  color: var(--xy-accent);
+}
+
+.public-status-summary__availability > div {
   display: grid;
-  gap: var(--xy-space-xs);
+  gap: var(--xy-space-2xs);
 }
 
 .public-status-summary__title {
+  display: block;
   color: var(--xy-text-primary);
   font-family: var(--xy-font-heading);
-  font-size: var(--xy-font-size-base);
+  font-size: var(--xy-font-size-lg);
   font-weight: 600;
+}
+
+.public-status-summary__caption {
+  display: block;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
 }
 
 .public-status-summary__freshness {
   display: inline-flex;
   align-items: center;
   gap: var(--xy-space-sm);
+  width: max-content;
+  padding: var(--xy-space-xs) var(--xy-space-base);
   color: var(--xy-success-text-soft);
+  background: var(--xy-success-bg-faint);
+  border-radius: var(--xy-radius-pill);
   font-size: var(--xy-font-size-xs);
   font-weight: 600;
+  animation: public-live-signal 2.8s ease-in-out infinite;
 }
 
 .public-status-summary__freshness::before {
@@ -494,31 +542,14 @@ onUnmounted(() => {
 
 .public-status-summary__freshness.is-stale {
   color: var(--xy-warning-hover);
+  background: var(--xy-warning-bg-faint);
+  animation: none;
 }
 
-.public-status-summary__metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--xy-space-md);
-  margin: 0;
-}
-
-.public-status-summary__metrics div {
-  display: grid;
-  gap: var(--xy-space-2xs);
-}
-
-.public-status-summary__metrics dt {
-  color: var(--xy-text-muted);
-  font-size: var(--xy-font-size-xs);
-}
-
-.public-status-summary__metrics dd {
-  margin: 0;
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-mono);
-  font-size: var(--xy-font-size-sm);
-  font-variant-numeric: tabular-nums;
+@keyframes public-live-signal {
+  50% {
+    background: var(--xy-success-bg);
+  }
 }
 
 .public-status-notice {
@@ -541,6 +572,11 @@ onUnmounted(() => {
   border-radius: var(--xy-radius-lg);
 }
 
+.public-server-row.is-online {
+  background: color-mix(in srgb, var(--xy-success) 4%, var(--xy-surface-1));
+  border-color: var(--xy-success-border-soft);
+}
+
 .public-server-row__summary {
   display: grid;
   grid-template-columns: minmax(180px, 1.3fr) minmax(170px, 1fr) minmax(230px, 0.8fr);
@@ -552,12 +588,26 @@ onUnmounted(() => {
 
 .public-server-row__identity {
   display: grid;
-  gap: var(--xy-space-xs);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--xy-space-xs) var(--xy-space-base);
 }
 
 .public-server-row__identity h2 {
+  grid-column: 1;
+  grid-row: 1;
   font-size: var(--xy-font-size-base);
   line-height: var(--xy-line-height-tight);
+}
+
+.public-server-row__identity p {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.public-server-row__identity .public-status {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .public-server-row__identity p,
@@ -590,6 +640,25 @@ onUnmounted(() => {
   min-height: 44px;
 }
 
+.public-server-row__copy-action {
+  min-width: 86px;
+  color: var(--xy-text-secondary);
+  border-radius: var(--xy-radius-md);
+  transition:
+    color var(--xy-transition-fast),
+    background-color var(--xy-transition-fast);
+}
+
+.public-server-row__copy-action:hover {
+  color: var(--xy-text-primary);
+  background: var(--xy-surface-3);
+}
+
+.public-server-row__copy-action.is-copied {
+  color: var(--xy-success-text-soft);
+  background: var(--xy-success-bg);
+}
+
 .public-server-row__roster {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
@@ -618,8 +687,24 @@ onUnmounted(() => {
 
 .public-roster-list li {
   overflow: hidden;
+  padding: var(--xy-space-xs) var(--xy-space-base);
+  color: var(--xy-text-primary);
+  background: var(--xy-success-bg-faint);
+  border-radius: var(--xy-radius-pill);
+  font-size: var(--xy-font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.public-roster-list li::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: var(--xy-space-sm);
+  background: var(--xy-success);
+  border-radius: 50%;
+  content: '';
+  vertical-align: middle;
 }
 
 .public-status-state {
@@ -684,20 +769,6 @@ onUnmounted(() => {
     gap: var(--xy-space-base);
   }
 
-  .public-status-summary__metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--xy-space-base);
-  }
-
-  .public-server-row__identity {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-  }
-
-  .public-server-row__identity h2 {
-    grid-column: 1 / -1;
-  }
-
   .public-server-row__summary {
     grid-template-columns: 1fr;
     gap: var(--xy-space-sm);
@@ -713,6 +784,7 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .public-status-summary__freshness,
   .public-server-row__roster {
     animation: none;
   }
