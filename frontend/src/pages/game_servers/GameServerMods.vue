@@ -90,7 +90,9 @@ const reportedModsStateText = computed((): string => {
   }
   if (
     reportedModsState.value ===
-    SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED
+      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED ||
+    reportedModsConnectionState.value ===
+      SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED
   ) {
     return 'The game server denied access to its reported mods.'
   }
@@ -156,7 +158,7 @@ async function loadGameServerConfig(): Promise<void> {
       })) ?? []
 
     if (gs.selectedVariantId || gs.resolvedUpdateProvider) {
-      await loadAvailableVersions()
+      void loadAvailableVersions()
     }
   } catch (unknownErr: unknown) {
     console.error('Failed to load game server config:', unknownErr)
@@ -728,7 +730,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 .reported-mod-description {
   margin: var(--xy-space-sm) 0 0;
   color: var(--xy-text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }

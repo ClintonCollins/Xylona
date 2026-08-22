@@ -28,6 +28,17 @@ func TestListInstalledModsRequiresGameServerPermission(t *testing.T) {
 }
 
 func TestGetSevenDaysToDieReportedMods(t *testing.T) {
+	t.Run("rejects non seven days to die servers", func(t *testing.T) {
+		fixture := newRBACRPCFixture(t)
+		request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+		_, errMods := fixture.service.GetSevenDaysToDieReportedMods(t.Context(), request)
+		if connect.CodeOf(errMods) != connect.CodeFailedPrecondition {
+			t.Fatalf("GetSevenDaysToDieReportedMods() code = %v, want %v", connect.CodeOf(errMods), connect.CodeFailedPrecondition)
+		}
+	})
+
 	t.Run("requires game server mod permission", func(t *testing.T) {
 		fixture := newRBACRPCFixture(t)
 		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
@@ -137,4 +148,90 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 			t.Fatal("reported mods response exposed WebAPI credentials")
 		}
 	})
+
+	states := []struct {
+		name           string
+		connection     node.SevenDaysToDieWebAPIConnectionState
+		state          node.SevenDaysToDieWebAPIValueState
+		wantConnection xylona.SevenDaysToDieWebAPIConnectionState
+		wantState      xylona.SevenDaysToDieWebAPIValueState
+	}{
+		{
+			name:           "unsupported",
+			connection:     node.SevenDaysToDieWebAPIConnectionStateAvailable,
+			state:          node.SevenDaysToDieWebAPIValueStateUnsupported,
+			wantConnection: xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+			wantState:      xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
+		},
+		{
+			name:           "permission denied",
+			connection:     node.SevenDaysToDieWebAPIConnectionStateAuthenticationDenied,
+			state:          node.SevenDaysToDieWebAPIValueStateUnavailable,
+			wantConnection: xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED,
+			wantState:      xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
+		},
+		{
+			name:           "unavailable",
+			connection:     node.SevenDaysToDieWebAPIConnectionStateAvailable,
+			state:          node.SevenDaysToDieWebAPIValueStateUnavailable,
+			wantConnection: xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+			wantState:      xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
+		},
+	}
+	for _, test := range states {
+		t.Run("projects "+test.name, func(t *testing.T) {
+			fixture, _ := newReportedModsRPCFixture(t, &node.SevenDaysToDieReportedMods{
+				ConnectionState: test.connection,
+				State:           test.state,
+			})
+			request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+			response, errMods := fixture.service.GetSevenDaysToDieReportedMods(t.Context(), request)
+			if errMods != nil {
+				t.Fatalf("GetSevenDaysToDieReportedMods() error = %v", errMods)
+			}
+			if response.Msg.GetConnectionState() != test.wantConnection || response.Msg.GetState() != test.wantState {
+				t.Fatalf("response state = %+v", response.Msg)
+			}
+		})
+	}
+
+	t.Run("preserves parent cancellation", func(t *testing.T) {
+		fixture, client := newReportedModsRPCFixture(t, nil)
+		client.QuerySevenDaysToDieReportedModsFunc = func(ctx context.Context, _ node.SevenDaysToDieReportedModsQueryRequest) (*node.SevenDaysToDieReportedMods, error) {
+			return nil, ctx.Err()
+		}
+		request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		_, errMods := fixture.service.GetSevenDaysToDieReportedMods(ctx, request)
+		if connect.CodeOf(errMods) != connect.CodeCanceled {
+			t.Fatalf("GetSevenDaysToDieReportedMods() code = %v, want %v", connect.CodeOf(errMods), connect.CodeCanceled)
+		}
+	})
+}
+
+func newReportedModsRPCFixture(t *testing.T, result *node.SevenDaysToDieReportedMods) (*rbacRPCFixture, *nodeclient.FakeNodeClient) {
+	t.Helper()
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
+	client := &nodeclient.FakeNodeClient{
+		NodeID:                                "node-local",
+		GetProcessSnapshotResult:              &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
+		GetProcessSnapshotFound:               true,
+		QuerySevenDaysToDieReportedModsResult: result,
+	}
+	registry := noderegistry.New("node-local", client)
+	fixture.service.nodeRegistry = registry
+	actionsContext, cancelActions := context.WithCancel(t.Context())
+	t.Cleanup(cancelActions)
+	fixture.service.actionsInst = actions.NewInstance(
+		actionsContext, fixture.conn, client, registry, nil,
+		versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{},
+	)
+	return fixture, client
 }

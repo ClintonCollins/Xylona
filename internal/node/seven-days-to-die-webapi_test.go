@@ -532,17 +532,23 @@ func TestNodeQuerySevenDaysToDiePlayers(t *testing.T) {
 	})
 
 	tests := []struct {
-		name       string
-		master     string
-		statusCode int
-		body       string
-		wantState  SevenDaysToDieWebAPIValueState
-		wantCount  int
+		name             string
+		master           string
+		masterStatusCode int
+		statusCode       int
+		body             string
+		waitForTimeout   bool
+		wantConnection   SevenDaysToDieWebAPIConnectionState
+		wantState        SevenDaysToDieWebAPIValueState
+		wantCount        int
 	}{
 		{name: "confirmed empty roster", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":{"players":[]},"meta":{}}`, wantState: SevenDaysToDieWebAPIValueStateAvailable},
 		{name: "missing capability", master: "openapi: 3.1.0\ninfo:\n  version: '1'\npaths: {}\n", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
+		{name: "discovery unauthorized", masterStatusCode: http.StatusUnauthorized, wantConnection: SevenDaysToDieWebAPIConnectionStateAuthenticationDenied, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "discovery forbidden", masterStatusCode: http.StatusForbidden, wantConnection: SevenDaysToDieWebAPIConnectionStateAuthenticationDenied, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "endpoint unauthorized", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusUnauthorized, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
 		{name: "endpoint forbidden", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "internal query timeout", master: fullSevenDaysToDieOpenAPI(), waitForTimeout: true, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "malformed result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":{"players":`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "oversized result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 	}
@@ -552,10 +558,18 @@ func TestNodeQuerySevenDaysToDiePlayers(t *testing.T) {
 			workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
 				switch request.URL.Path {
 				case "/api/openapi/openapi.yaml":
+					if test.masterStatusCode != 0 {
+						response.WriteHeader(test.masterStatusCode)
+						return
+					}
 					writeSevenDaysToDieTestResponse(t, response, test.master)
 				case "/api/OpenAPI/Player.openapi.yaml":
 					writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPIFragments()[request.URL.Path])
 				case "/api/player":
+					if test.waitForTimeout {
+						<-request.Context().Done()
+						return
+					}
 					response.WriteHeader(test.statusCode)
 					if test.body != "" {
 						writeSevenDaysToDieTestResponse(t, response, test.body)
@@ -568,7 +582,11 @@ func TestNodeQuerySevenDaysToDiePlayers(t *testing.T) {
 			if errQuery != nil {
 				t.Fatalf("QuerySevenDaysToDiePlayers() error = %v", errQuery)
 			}
-			if result.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || result.State != test.wantState || len(result.Players) != test.wantCount {
+			wantConnection := test.wantConnection
+			if wantConnection == SevenDaysToDieWebAPIConnectionStateUnspecified {
+				wantConnection = SevenDaysToDieWebAPIConnectionStateAvailable
+			}
+			if result.ConnectionState != wantConnection || result.State != test.wantState || len(result.Players) != test.wantCount {
 				t.Fatalf("QuerySevenDaysToDiePlayers() = %+v, want state %v and %d players", result, test.wantState, test.wantCount)
 			}
 		})
@@ -630,16 +648,22 @@ func TestNodeQuerySevenDaysToDieReportedMods(t *testing.T) {
 	})
 
 	tests := []struct {
-		name       string
-		master     string
-		statusCode int
-		body       string
-		wantState  SevenDaysToDieWebAPIValueState
+		name             string
+		master           string
+		masterStatusCode int
+		statusCode       int
+		body             string
+		waitForTimeout   bool
+		wantConnection   SevenDaysToDieWebAPIConnectionState
+		wantState        SevenDaysToDieWebAPIValueState
 	}{
 		{name: "confirmed empty list", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":[],"meta":{}}`, wantState: SevenDaysToDieWebAPIValueStateAvailable},
 		{name: "missing capability", master: "openapi: 3.1.0\ninfo:\n  version: '1'\npaths: {}\n", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
+		{name: "discovery unauthorized", masterStatusCode: http.StatusUnauthorized, wantConnection: SevenDaysToDieWebAPIConnectionStateAuthenticationDenied, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "discovery forbidden", masterStatusCode: http.StatusForbidden, wantConnection: SevenDaysToDieWebAPIConnectionStateAuthenticationDenied, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "endpoint unauthorized", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusUnauthorized, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
 		{name: "endpoint forbidden", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "internal query timeout", master: fullSevenDaysToDieOpenAPI(), waitForTimeout: true, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "malformed result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "oversized result", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 	}
@@ -649,10 +673,18 @@ func TestNodeQuerySevenDaysToDieReportedMods(t *testing.T) {
 			workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
 				switch request.URL.Path {
 				case "/api/openapi/openapi.yaml":
+					if test.masterStatusCode != 0 {
+						response.WriteHeader(test.masterStatusCode)
+						return
+					}
 					writeSevenDaysToDieTestResponse(t, response, test.master)
 				case "/api/OpenAPI/Mods.openapi.yaml":
 					writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPIFragments()[request.URL.Path])
 				case "/api/mods":
+					if test.waitForTimeout {
+						<-request.Context().Done()
+						return
+					}
 					response.WriteHeader(test.statusCode)
 					if test.body != "" {
 						writeSevenDaysToDieTestResponse(t, response, test.body)
@@ -665,7 +697,11 @@ func TestNodeQuerySevenDaysToDieReportedMods(t *testing.T) {
 			if errQuery != nil {
 				t.Fatalf("QuerySevenDaysToDieReportedMods() error = %v", errQuery)
 			}
-			if result.ConnectionState != SevenDaysToDieWebAPIConnectionStateAvailable || result.State != test.wantState || len(result.Mods) != 0 {
+			wantConnection := test.wantConnection
+			if wantConnection == SevenDaysToDieWebAPIConnectionStateUnspecified {
+				wantConnection = SevenDaysToDieWebAPIConnectionStateAvailable
+			}
+			if result.ConnectionState != wantConnection || result.State != test.wantState || len(result.Mods) != 0 {
 				t.Fatalf("QuerySevenDaysToDieReportedMods() = %+v, want state %v", result, test.wantState)
 			}
 		})

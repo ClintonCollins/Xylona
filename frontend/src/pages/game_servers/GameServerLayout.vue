@@ -156,7 +156,9 @@ async function configureTabs() {
       const isOwner = gameServerResp.gameServer?.userId === currentUser.id
       isSuperUser = currentUser.superUser
       isOwnerOrSuper = currentUser.superUser || isOwner
-      hasModSupport = Boolean(gameServerResp.gameServer?.resolvedHasModSupport)
+      hasModSupport =
+        Boolean(gameServerResp.gameServer?.resolvedHasModSupport) ||
+        gameServerResp.gameServer?.gameId === '7_days_to_die'
       allowStartArgEditing = gameServerResp.gameServer?.game?.allowStartArgEditing ?? true
       hasLiveMap = ['minecraft', 'palworld', '7_days_to_die'].includes(
         gameServerResp.gameServer?.gameId ?? '',

@@ -166,7 +166,7 @@ func TestSevenDaysToDiePlayerManagementPreservesManualActionsWhenRosterFails(t *
 		GetProcessSnapshotResult:  &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
 		GetProcessSnapshotFound:   true,
 		QuerySevenDaysToDiePlayersResult: &node.SevenDaysToDiePlayers{
-			ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+			ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAuthenticationDenied,
 			State:           node.SevenDaysToDieWebAPIValueStateUnavailable,
 		},
 	}
@@ -182,7 +182,7 @@ func TestSevenDaysToDiePlayerManagementPreservesManualActionsWhenRosterFails(t *
 		t.Fatalf("GetGameServerPlayerManagement() error = %v", errGet)
 	}
 	capabilities := response.Msg.GetCapabilities()
-	if !capabilities.GetActionsSupported() || capabilities.GetRosterState() != xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE {
+	if !capabilities.GetActionsSupported() || capabilities.GetRosterState() != xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED {
 		t.Fatalf("capabilities = %+v", capabilities)
 	}
 }

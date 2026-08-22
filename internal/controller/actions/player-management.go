@@ -117,6 +117,9 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 			return management, nil
 		}
 		management.RosterState = result.State
+		if result.ConnectionState == node.SevenDaysToDieWebAPIConnectionStateAuthenticationDenied {
+			management.RosterState = node.SevenDaysToDieWebAPIValueStatePermissionDenied
+		}
 		management.Players = append(management.Players, result.Players...)
 		return management, nil
 	}

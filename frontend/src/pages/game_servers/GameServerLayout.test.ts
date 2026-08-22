@@ -168,6 +168,37 @@ describe('GameServerLayout', () => {
       .map((tab) => tab.attributes('label'))
     expect(groupStartTabs).toEqual(['Files', 'Backups', 'Access'])
   })
+
+  it('keeps the Mods route available for native 7DTD reports without a managed mod profile', async () => {
+    mocks.route.path = '/game-servers/server-a/mods'
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: create(GameServerSchema, {
+          id: 'server-a',
+          userId: 'user-1',
+          gameId: '7_days_to_die',
+          effectivePermissions: ['game_server.mods'],
+          resolvedHasModSupport: false,
+          game: create(GameSchema, { allowStartArgEditing: true }),
+        }),
+      }),
+    )
+
+    const wrapper = shallowMount(GameServerLayout, {
+      global: { stubs: { 'router-view': RouterViewStub } },
+    })
+    await flushPromises()
+
+    const viewModel = wrapper.vm as unknown as {
+      enforceRouteAccess: () => Promise<void>
+      layoutTabs: Array<{ name: string }>
+    }
+    const tabs = viewModel.layoutTabs
+    expect(tabs.map((tab) => tab.name)).toContain('Mods')
+    mocks.replace.mockClear()
+    await viewModel.enforceRouteAccess()
+    expect(mocks.replace).not.toHaveBeenCalled()
+  })
 })
 
 function buildGameServerResponse(serverID: string) {

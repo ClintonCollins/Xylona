@@ -154,6 +154,16 @@ describe('GameServerMods reported mods', () => {
       text: 'The game server denied access to its reported mods.',
     },
     {
+      name: 'discovery authentication denied',
+      response: {
+        connectionState:
+          SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED,
+        state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
+        mods: [],
+      },
+      text: 'The game server denied access to its reported mods.',
+    },
+    {
       name: 'unavailable',
       response: {
         connectionState:
@@ -187,6 +197,18 @@ describe('GameServerMods reported mods', () => {
 
     expect(wrapper.get('[data-testid="managed-mods"]').text()).toBe('managed:1')
     expect(wrapper.text()).toContain('Reported mods are currently unavailable.')
+  })
+
+  it('starts reported loading without waiting for update targets', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { gameId: '7_days_to_die', selectedVariantId: 'stable' },
+    })
+    mocks.getUpdateTargets.mockReturnValue(new Promise(() => undefined))
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(mocks.getReportedMods).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('No mods reported by the game server.')
   })
 
   it('keeps the existing browse default for non-7DTD servers', async () => {
