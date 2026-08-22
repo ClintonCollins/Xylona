@@ -203,7 +203,10 @@ func (xs *XylonaService) GetPublicPalworldMap(
 	_ context.Context,
 	request *connect.Request[xylona.GetPublicPalworldMapRequest],
 ) (*connect.Response[xylona.GetPublicPalworldMapResponse], error) {
-	_, gameServer, kind, errResolve := xs.resolvePublicGameServerMapDetails(request.Msg.GetPublicIdentifier())
+	access, errResolve := xs.resolvePublicGameServerMapAccess(
+		request.Msg.GetPublicIdentifier(),
+		xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_PALWORLD,
+	)
 	if errors.Is(errResolve, errPublicGameServerMapUnavailable) {
 		return nil, publicGameServerMapNotFound()
 	}
@@ -211,12 +214,10 @@ func (xs *XylonaService) GetPublicPalworldMap(
 		log.Error().Err(errResolve).Msg("Failed to resolve public Palworld map")
 		return nil, internalErr()
 	}
-	if kind != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_PALWORLD {
-		return nil, publicGameServerMapNotFound()
-	}
 	if xs.actionsInst == nil {
 		return nil, internalErr()
 	}
+	gameServer := access.gameServer
 	settings, errSettings := xs.db.GetGameServerPalworldMap(gameServer.ID)
 	if errSettings != nil {
 		log.Error().Err(errSettings).Str("game_server_id", gameServer.ID).Msg("Failed to load public Palworld map settings")

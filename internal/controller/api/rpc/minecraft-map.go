@@ -193,7 +193,10 @@ func (xs *XylonaService) GetPublicMinecraftMap(
 	ctx context.Context,
 	request *connect.Request[xylona.GetPublicMinecraftMapRequest],
 ) (*connect.Response[xylona.GetPublicMinecraftMapResponse], error) {
-	share, gameServer, kind, errResolve := xs.resolvePublicGameServerMapDetails(request.Msg.GetPublicIdentifier())
+	access, errResolve := xs.resolvePublicGameServerMapAccess(
+		request.Msg.GetPublicIdentifier(),
+		xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT,
+	)
 	if errors.Is(errResolve, errPublicGameServerMapUnavailable) {
 		return nil, publicGameServerMapNotFound()
 	}
@@ -201,17 +204,14 @@ func (xs *XylonaService) GetPublicMinecraftMap(
 		log.Error().Err(errResolve).Msg("Failed to resolve public Minecraft map")
 		return nil, internalErr()
 	}
-	if kind != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT {
-		return nil, publicGameServerMapNotFound()
-	}
-	view, errBuild := xs.buildMinecraftMapView(ctx, gameServer, false, true)
+	view, errBuild := xs.buildMinecraftMapView(ctx, access.gameServer, false, true)
 	if errBuild != nil {
 		return nil, errBuild
 	}
 	response := connect.NewResponse(&xylona.GetPublicMinecraftMapResponse{Map: view})
-	errCookie := xs.setMinecraftMapShareCookie(response.Header(), share)
+	errCookie := xs.setMinecraftMapShareCookie(response.Header(), access.share)
 	if errCookie != nil {
-		log.Error().Err(errCookie).Str("game_server_id", gameServer.ID).Msg("Failed to establish public Minecraft map viewer session")
+		log.Error().Err(errCookie).Str("game_server_id", access.gameServer.ID).Msg("Failed to establish public Minecraft map viewer session")
 		return nil, internalErr()
 	}
 	setPublicGameServerMapHeaders(response.Header())

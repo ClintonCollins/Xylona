@@ -77,6 +77,7 @@ describe('PublicGameServerStatusPage', () => {
   })
 
   it('keeps the latest snapshot while reconnecting and clears it after NotFound', async () => {
+    const initialDocumentTitle = document.title
     const initial = create(PublicGameServerStatusPageSchema, {
       title: 'Owner fleet',
       servers: [
@@ -98,7 +99,10 @@ describe('PublicGameServerStatusPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Owner fleet')
-    expect(wrapper.text()).not.toContain('0 / 20 players')
+    expect(document.title).toBe('Owner fleet · Xylona')
+    expect(wrapper.text()).toContain('Live · updated 2m ago')
+    expect(wrapper.text()).not.toContain('0 known · 1 unavailable')
+    expect(wrapper.text()).toContain('Player count unavailable')
     expect(FakeEventSource.instances[0]?.url).toBe('/api/public/status-pages/Fleet_A/events')
 
     const initialServer = initial.servers[0]
@@ -113,6 +117,10 @@ describe('PublicGameServerStatusPage', () => {
     )
     await flushPromises()
     expect(wrapper.text()).toContain('2 / 20')
+    expect(wrapper.get('.public-status').attributes('aria-label')).toBe('Alpha status: Online')
+    expect(
+      wrapper.get('.public-server-row__metrics .public-server-row__value').attributes('aria-label'),
+    ).toBe('Alpha players: 2 / 20')
 
     mocks.getStatusPage.mockRejectedValueOnce(new ConnectError('not found', Code.NotFound))
     FakeEventSource.instances[0]?.onerror?.()
@@ -124,21 +132,33 @@ describe('PublicGameServerStatusPage', () => {
     expect(wrapper.text()).toContain('This status page is not available')
     wrapper.unmount()
     expect(FakeEventSource.instances[0]?.closed).toBe(true)
+    expect(document.title).toBe(initialDocumentTitle)
   })
 
   it('copies connection addresses with the fallback and reports failures', async () => {
     mocks.getStatusPage.mockResolvedValue({
-      page: create(PublicGameServerStatusPageSchema, { title: 'Owner fleet' }),
+      page: create(PublicGameServerStatusPageSchema, {
+        title: 'Owner fleet',
+        servers: [
+          {
+            id: 'server-1',
+            name: 'Alpha',
+            connectionAddress: 'play.example.test:25565',
+          },
+        ],
+      }),
     })
     vi.stubGlobal('navigator', {})
     const wrapper = shallowMount(PublicGameServerStatusPage)
     await flushPromises()
     const vm = wrapper.vm as unknown as {
       copiedServerID: string
+      copyAnnouncement: string
       copyAddress: (server: PublicGameServerStatus) => Promise<void>
     }
     const server = create(PublicGameServerStatusSchema, {
       id: 'server-1',
+      name: 'Alpha',
       connectionAddress: 'play.example.test:25565',
     })
 
@@ -146,6 +166,12 @@ describe('PublicGameServerStatusPage', () => {
 
     expect(mocks.copyToClipboard).toHaveBeenCalledWith('play.example.test:25565')
     expect(vm.copiedServerID).toBe('server-1')
+    expect(vm.copyAnnouncement).toBe('Alpha connection address copied.')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[aria-label="Alpha connection address copied"]').exists()).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(vm.copyAnnouncement).toBe('')
 
     mocks.copyToClipboard.mockRejectedValueOnce(new Error('copy failed'))
     await vm.copyAddress(create(PublicGameServerStatusSchema, { id: 'server-2' }))
@@ -154,5 +180,6 @@ describe('PublicGameServerStatusPage', () => {
       type: 'negative',
       message: 'Could not copy the connection address.',
     })
+    wrapper.unmount()
   })
 })

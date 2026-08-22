@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  assign: vi.fn(),
   createCallbackClient: vi.fn(),
   createClient: vi.fn(),
   createConnectTransport: vi.fn(),
@@ -23,7 +24,10 @@ describe('connect-client', () => {
     mocks.createClient.mockReset()
     mocks.createConnectTransport.mockReset()
     mocks.fetch.mockReset()
+    mocks.assign.mockReset()
     vi.stubGlobal('fetch', mocks.fetch)
+    vi.spyOn(window.location, 'assign').mockImplementation(mocks.assign)
+    window.history.replaceState({}, '', '/')
   })
 
   it('builds the local API base URL from the browser location', async () => {
@@ -44,6 +48,7 @@ describe('connect-client', () => {
     const { createXylonaTransport } = await import('./connect-client')
 
     mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
+    mocks.fetch.mockResolvedValue(new Response(null, { status: 200 }))
 
     const transport = createXylonaTransport('peer.example.test:8443')
 
@@ -61,6 +66,45 @@ describe('connect-client', () => {
       method: 'POST',
       credentials: 'include',
     })
+  })
+
+  it('redirects once when concurrent API requests report an expired session', async () => {
+    const { createXylonaTransport } = await import('./connect-client')
+
+    mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
+    mocks.fetch.mockResolvedValue(new Response(null, { status: 401 }))
+    createXylonaTransport()
+
+    const transportCall = mocks.createConnectTransport.mock.calls[0]
+    if (!transportCall) {
+      throw new Error('expected createConnectTransport to be called')
+    }
+    const options = transportCall[0]
+    await Promise.all([
+      options.fetch('/rpc/jobs'),
+      options.fetch('/rpc/availability'),
+      options.fetch('/rpc/context'),
+    ])
+
+    expect(mocks.assign).toHaveBeenCalledOnce()
+    expect(mocks.assign).toHaveBeenCalledWith('/login?reason=session-expired')
+  })
+
+  it('does not redirect an unauthenticated request from the login page', async () => {
+    const { createXylonaTransport } = await import('./connect-client')
+
+    window.history.replaceState({}, '', '/login')
+    mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
+    mocks.fetch.mockResolvedValue(new Response(null, { status: 401 }))
+    createXylonaTransport()
+
+    const transportCall = mocks.createConnectTransport.mock.calls[0]
+    if (!transportCall) {
+      throw new Error('expected createConnectTransport to be called')
+    }
+    await transportCall[0].fetch('/rpc/login')
+
+    expect(mocks.assign).not.toHaveBeenCalled()
   })
 
   it('creates the unary client from the shared transport', async () => {

@@ -240,6 +240,55 @@ describe('SystemUpdates', () => {
     vi.useRealTimers()
   })
 
+  it('stops loading the Resync button after the initial refresh completes', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const resyncButtons = wrapper
+      .findAllComponents(QBtnStub)
+      .filter((button) => button.props('label') === 'Resync')
+    expect(resyncButtons).toHaveLength(1)
+    expect(resyncButtons.every((button) => button.props('loading') === false)).toBe(true)
+    expect(wrapper.get('[data-test="live-status-strip"]').text()).toContain(
+      'No updates in progress',
+    )
+    expect(wrapper.find('#active-update-jobs-title').exists()).toBe(false)
+  })
+
+  it('keeps the idle layout stable while a Resync is pending', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    let resolveAvailability!: (value: { updates: SystemUpdateAvailability[] }) => void
+    let resolveJobs!: (value: { jobs: SystemUpdateJob[] }) => void
+    mocks.checkSystemUpdates.mockImplementationOnce(
+      () =>
+        new Promise<{ updates: SystemUpdateAvailability[] }>((resolve) => {
+          resolveAvailability = resolve
+        }),
+    )
+    mocks.listSystemUpdateJobs.mockImplementationOnce(
+      () =>
+        new Promise<{ jobs: SystemUpdateJob[] }>((resolve) => {
+          resolveJobs = resolve
+        }),
+    )
+
+    const resyncButton = wrapper
+      .findAllComponents(QBtnStub)
+      .find((button) => button.props('label') === 'Resync')
+    if (!resyncButton) throw new Error('expected Resync button')
+    await resyncButton.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('#active-update-jobs-title').exists()).toBe(false)
+    expect(wrapper.get('[data-test="table-loading"]').text()).toBe('false')
+
+    resolveAvailability({ updates: [controllerAvailability()] })
+    resolveJobs({ jobs: [] })
+    await flushPromises()
+  })
+
   it('subscribes before hydration, coalesces unknown-job detail, and never regresses live progress', async () => {
     let resolveList!: (value: { jobs: SystemUpdateJob[] }) => void
     let resolveDetail!: (value: { job: SystemUpdateJob; events: never[] }) => void

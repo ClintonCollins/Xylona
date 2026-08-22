@@ -149,8 +149,9 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 			PlayerCapacityValid: true,
 		},
 		"palworld": {
-			Status:    actions.GameServerQueryTelemetryStatusFailure,
-			QueryType: xylona.ServerQuery_Palworld,
+			Status:        actions.GameServerQueryTelemetryStatusFailure,
+			QueryType:     xylona.ServerQuery_Palworld,
+			LastSuccessAt: observedAt.Add(-5 * time.Minute),
 		},
 	}
 
@@ -179,6 +180,9 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 	palworld := projectedServers[2]
 	if palworld.CurrentPlayerCount != nil || palworld.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE {
 		t.Fatalf("Palworld public state = %+v", palworld)
+	}
+	if palworld.GetObservedAt() == nil || !palworld.GetObservedAt().AsTime().Equal(observedAt.Add(-5*time.Minute)) {
+		t.Fatalf("Palworld observed time = %v", palworld.GetObservedAt())
 	}
 	if projected.GetGeneratedAt() == nil || !projected.GetGeneratedAt().IsValid() {
 		t.Fatal("generated_at is missing")

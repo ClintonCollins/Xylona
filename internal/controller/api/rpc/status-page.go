@@ -303,6 +303,9 @@ func projectPublicGameServerStatusPage(
 		if server.R.Game != nil {
 			publicServer.GameName = server.R.Game.Name
 		}
+		if !telemetry.LastSuccessAt.IsZero() {
+			publicServer.ObservedAt = timestamppb.New(telemetry.LastSuccessAt)
+		}
 		switch telemetry.Status {
 		case actions.GameServerQueryTelemetryStatusSuccess:
 			if telemetry.PlayerCountValid {
@@ -311,9 +314,6 @@ func projectPublicGameServerStatusPage(
 			}
 			if telemetry.PlayerCapacityValid {
 				publicServer.MaxPlayerCount = telemetry.PlayerCapacity
-			}
-			if !telemetry.LastSuccessAt.IsZero() {
-				publicServer.ObservedAt = timestamppb.New(telemetry.LastSuccessAt)
 			}
 			applyPublicRoster(publicServer, queryForServer(queries, server.ID), telemetry.QueryType)
 		case actions.GameServerQueryTelemetryStatusUnsupported:

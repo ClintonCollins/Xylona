@@ -11,6 +11,7 @@ import { Xylona } from '@/proto/xylona_pb'
 const transportCache = new Map<string, ReturnType<typeof createConnectTransport>>()
 const unaryClientCache = new Map<string, Client<typeof Xylona>>()
 const callbackClientCache = new Map<string, CallbackClient<typeof Xylona>>()
+let sessionRedirecting = false
 
 export function getXylonaApiBaseURL(nodeAddress: string = window.location.host): string {
   return nodeAddress === window.location.host
@@ -21,7 +22,14 @@ export function getXylonaApiBaseURL(nodeAddress: string = window.location.host):
 export function createXylonaTransport(nodeAddress: string = window.location.host) {
   return createConnectTransport({
     baseUrl: getXylonaApiBaseURL(nodeAddress),
-    fetch: (input, init) => fetch(input, { ...init, credentials: 'include' }),
+    fetch: async (input, init) => {
+      const response = await fetch(input, { ...init, credentials: 'include' })
+      if (response.status === 401 && !sessionRedirecting && window.location.pathname !== '/login') {
+        sessionRedirecting = true
+        window.location.assign('/login?reason=session-expired')
+      }
+      return response
+    },
   })
 }
 

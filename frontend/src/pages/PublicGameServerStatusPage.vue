@@ -3,7 +3,7 @@ import { create, fromJsonString } from '@bufbuild/protobuf'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { Code, ConnectError } from '@connectrpc/connect'
 import { copyToClipboard, useQuasar } from 'quasar'
-import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { Status } from '@/proto/shared_pb'
@@ -25,36 +25,50 @@ const initialError = ref(false)
 const unavailable = ref(false)
 const reconnecting = ref(false)
 const copiedServerID = ref('')
+const copyAnnouncement = ref('')
 const expandedServerIDs = ref(new Set<string>())
 const now = ref(Date.now())
 let eventSource: EventSource | undefined
 let pollTimer: ReturnType<typeof setInterval> | undefined
 let ageTimer: ReturnType<typeof setInterval> | undefined
+let copyResetTimer: ReturnType<typeof setTimeout> | undefined
+const initialDocumentTitle = document.title
 
 const identifier = computed(() => String(route.params['identifier'] ?? ''))
 const onlineCount = computed(
   () => page.value?.servers.filter((server) => server.status === Status.ONLINE).length ?? 0,
 )
-const knownPlayerCount = computed(
-  () => page.value?.servers.reduce((sum, server) => sum + (server.currentPlayerCount ?? 0), 0) ?? 0,
-)
-const allPlayerCountsKnown = computed(
-  () => page.value?.servers.every((server) => server.currentPlayerCount !== undefined) ?? false,
-)
-const maximumPlayerCount = computed(
-  () => page.value?.servers.reduce((sum, server) => sum + server.maxPlayerCount, 0) ?? 0,
-)
-const reconnectSnapshotLabel = computed(() => {
+const latestObservedAt = computed(() => {
   let latest: number | null = null
   for (const server of page.value?.servers ?? []) {
     if (!server.observedAt) continue
     const observedAt = timestampDate(server.observedAt).getTime()
     if (Number.isFinite(observedAt) && (latest === null || observedAt > latest)) latest = observedAt
   }
-  return latest === null
-    ? 'the last known update'
-    : `data observed ${formatMetricAge(latest, now.value)}`
+  return latest
 })
+const fleetFreshnessLabel = computed(() => {
+  const state = reconnecting.value ? 'Last known' : 'Live'
+  return latestObservedAt.value === null
+    ? `${state} · awaiting player data`
+    : `${state} · updated ${relativeAge(latestObservedAt.value)}`
+})
+const reconnectSnapshotLabel = computed(() =>
+  latestObservedAt.value === null
+    ? 'the last known update'
+    : `data observed ${relativeAge(latestObservedAt.value)}`,
+)
+
+watch(page, (currentPage) => {
+  document.title = currentPage
+    ? `${currentPage.title || 'Game server status'} · Xylona`
+    : initialDocumentTitle
+})
+
+function relativeAge(timestampMs: number): string {
+  const age = formatMetricAge(timestampMs, now.value)
+  return age === 'Just now' ? 'just now' : age
+}
 
 async function loadSnapshot(): Promise<boolean> {
   try {
@@ -130,10 +144,16 @@ async function copyAddress(server: PublicGameServerStatus) {
   try {
     await copyToClipboard(server.connectionAddress)
     copiedServerID.value = server.id
-    window.setTimeout(() => {
-      if (copiedServerID.value === server.id) copiedServerID.value = ''
+    copyAnnouncement.value = `${server.name} connection address copied.`
+    if (copyResetTimer !== undefined) clearTimeout(copyResetTimer)
+    copyResetTimer = window.setTimeout(() => {
+      copiedServerID.value = ''
+      copyAnnouncement.value = ''
+      copyResetTimer = undefined
     }, 1500)
   } catch {
+    copiedServerID.value = ''
+    copyAnnouncement.value = ''
     $q.notify({ type: 'negative', message: 'Could not copy the connection address.' })
   }
 }
@@ -169,8 +189,10 @@ function statusClass(status: Status): string {
 }
 
 function playerLabel(server: PublicGameServerStatus): string {
-  const current = server.currentPlayerCount ?? 'Unavailable'
-  return `${current} / ${server.maxPlayerCount}`
+  if (server.currentPlayerCount !== undefined) {
+    return `${server.currentPlayerCount} / ${server.maxPlayerCount}`
+  }
+  return server.status === Status.OFFLINE ? 'Unavailable while offline' : 'Player count unavailable'
 }
 
 function rosterLabel(server: PublicGameServerStatus): string {
@@ -193,6 +215,8 @@ onUnmounted(() => {
   eventSource?.close()
   stopPolling()
   if (ageTimer !== undefined) clearInterval(ageTimer)
+  if (copyResetTimer !== undefined) clearTimeout(copyResetTimer)
+  document.title = initialDocumentTitle
 })
 </script>
 
@@ -206,6 +230,9 @@ onUnmounted(() => {
           <p>Live game server availability and player counts</p>
         </div>
       </header>
+      <div class="xy-visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+        {{ copyAnnouncement }}
+      </div>
 
       <div v-if="reconnecting && page" class="public-status-notice" role="status">
         Live updates were interrupted. Showing {{ reconnectSnapshotLabel }} while the connection
@@ -231,16 +258,23 @@ onUnmounted(() => {
         <div
           v-if="page.servers.length > 0"
           class="public-status-summary"
-          aria-label="Fleet summary">
-          <span
-            ><strong>{{ page.servers.length }}</strong> servers</span
-          >
-          <span
-            ><strong>{{ onlineCount }}</strong> online</span
-          >
-          <span v-if="maximumPlayerCount > 0 && allPlayerCountsKnown">
-            <strong>{{ knownPlayerCount }} / {{ maximumPlayerCount }}</strong> players
-          </span>
+          aria-label="Server status summary">
+          <div class="public-status-summary__signal">
+            <span class="public-status-summary__title">Server status</span>
+            <span class="public-status-summary__freshness" :class="{ 'is-stale': reconnecting }">
+              {{ fleetFreshnessLabel }}
+            </span>
+          </div>
+          <dl class="public-status-summary__metrics">
+            <div>
+              <dt>Servers</dt>
+              <dd>{{ page.servers.length }}</dd>
+            </div>
+            <div>
+              <dt>Online</dt>
+              <dd>{{ onlineCount }}</dd>
+            </div>
+          </dl>
         </div>
 
         <div v-if="page.servers.length === 0" class="public-status-state">
@@ -254,7 +288,11 @@ onUnmounted(() => {
               <div class="public-server-row__identity">
                 <h2>{{ server.name }}</h2>
                 <p>{{ server.gameName }}</p>
-                <span class="public-status" :class="statusClass(server.status)">
+                <span
+                  class="public-status"
+                  :class="statusClass(server.status)"
+                  role="status"
+                  :aria-label="`${server.name} status: ${statusLabel(server.status)}`">
                   {{ statusLabel(server.status) }}
                 </span>
               </div>
@@ -263,7 +301,12 @@ onUnmounted(() => {
                 <div class="public-address-line">
                   <span class="public-server-row__value">{{ server.connectionAddress }}</span>
                   <q-btn
-                    :aria-label="`Copy ${server.name} connection address`"
+                    class="public-server-row__action"
+                    :aria-label="
+                      copiedServerID === server.id
+                        ? `${server.name} connection address copied`
+                        : `Copy ${server.name} connection address`
+                    "
                     dense
                     flat
                     :icon="copiedServerID === server.id ? 'check' : 'content_copy'"
@@ -271,19 +314,27 @@ onUnmounted(() => {
                     @click="copyAddress(server)" />
                 </div>
               </div>
-              <div>
-                <span class="public-server-row__label">Players</span>
-                <span class="public-server-row__value">{{ playerLabel(server) }}</span>
+              <div class="public-server-row__metrics">
+                <div>
+                  <span class="public-server-row__label">Players</span>
+                  <span
+                    class="public-server-row__value"
+                    role="status"
+                    :aria-label="`${server.name} players: ${playerLabel(server)}`">
+                    {{ playerLabel(server) }}
+                  </span>
+                </div>
+                <q-btn
+                  v-if="server.rosterState !== GameServerStatusPageRosterState.UNSPECIFIED"
+                  class="public-server-row__action public-server-row__roster-action"
+                  :aria-expanded="expandedServerIDs.has(server.id)"
+                  :aria-label="`${expandedServerIDs.has(server.id) ? 'Hide' : 'Show'} ${server.name} player roster`"
+                  flat
+                  :icon-right="expandedServerIDs.has(server.id) ? 'expand_less' : 'expand_more'"
+                  label="Players"
+                  no-caps
+                  @click="toggleRoster(server.id)" />
               </div>
-              <q-btn
-                v-if="server.rosterState !== GameServerStatusPageRosterState.UNSPECIFIED"
-                :aria-expanded="expandedServerIDs.has(server.id)"
-                :aria-label="`${expandedServerIDs.has(server.id) ? 'Hide' : 'Show'} ${server.name} player roster`"
-                dense
-                flat
-                :icon="expandedServerIDs.has(server.id) ? 'expand_less' : 'expand_more'"
-                round
-                @click="toggleRoster(server.id)" />
             </div>
             <div v-if="expandedServerIDs.has(server.id)" class="public-server-row__roster">
               <span class="public-server-row__label">Player roster</span>
@@ -303,7 +354,6 @@ onUnmounted(() => {
 
 <style scoped>
 .public-status-page {
-  min-width: 320px;
   min-height: 100dvh;
   color: var(--xy-text-primary);
   background: var(--xy-base);
@@ -313,7 +363,7 @@ onUnmounted(() => {
 .public-status-page__inner {
   display: flex;
   flex-direction: column;
-  width: min(1180px, 100%);
+  width: min(100%, clamp(1180px, 50vw, 1920px));
   min-height: 100dvh;
   gap: var(--xy-space-lg);
   margin: 0 auto;
@@ -332,8 +382,8 @@ onUnmounted(() => {
 .public-status-header__brand {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
-  font-size: 1.25rem;
-  letter-spacing: 0.05em;
+  font-size: var(--xy-font-size-xl);
+  line-height: var(--xy-line-height-tight);
 }
 
 .public-status-header h1,
@@ -357,7 +407,6 @@ onUnmounted(() => {
 }
 
 .public-status,
-.public-status-summary,
 .public-address-line {
   display: flex;
   align-items: center;
@@ -396,17 +445,79 @@ onUnmounted(() => {
 }
 
 .public-status-summary {
-  flex-wrap: wrap;
-  gap: var(--xy-space-base) var(--xy-space-lg);
+  display: grid;
+  grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--xy-space-md) var(--xy-space-xl);
+  padding: var(--xy-space-base) var(--xy-space-md);
   color: var(--xy-text-secondary);
-  font-size: var(--xy-font-size-sm);
+  background: var(--xy-surface-0);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-lg);
 }
 
-.public-status-summary strong,
 .public-server-row__value {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-mono);
   font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.public-status-summary__signal {
+  display: grid;
+  gap: var(--xy-space-xs);
+}
+
+.public-status-summary__title {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-base);
+  font-weight: 600;
+}
+
+.public-status-summary__freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  color: var(--xy-success-text-soft);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+}
+
+.public-status-summary__freshness::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+  content: '';
+}
+
+.public-status-summary__freshness.is-stale {
+  color: var(--xy-warning-hover);
+}
+
+.public-status-summary__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xy-space-md);
+  margin: 0;
+}
+
+.public-status-summary__metrics div {
+  display: grid;
+  gap: var(--xy-space-2xs);
+}
+
+.public-status-summary__metrics dt {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+}
+
+.public-status-summary__metrics dd {
+  margin: 0;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -432,7 +543,7 @@ onUnmounted(() => {
 
 .public-server-row__summary {
   display: grid;
-  grid-template-columns: minmax(180px, 1.3fr) minmax(170px, 1fr) minmax(130px, 0.65fr) auto;
+  grid-template-columns: minmax(180px, 1.3fr) minmax(170px, 1fr) minmax(230px, 0.8fr);
   align-items: center;
   gap: var(--xy-space-base) var(--xy-space-md);
   min-height: 92px;
@@ -446,6 +557,7 @@ onUnmounted(() => {
 
 .public-server-row__identity h2 {
   font-size: var(--xy-font-size-base);
+  line-height: var(--xy-line-height-tight);
 }
 
 .public-server-row__identity p,
@@ -464,6 +576,18 @@ onUnmounted(() => {
 
 .public-address-line {
   gap: var(--xy-space-xs);
+}
+
+.public-server-row__metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--xy-space-base);
+}
+
+.public-server-row__action {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .public-server-row__roster {
@@ -532,11 +656,11 @@ onUnmounted(() => {
 
 @media (max-width: 1023px) {
   .public-server-row__summary {
-    grid-template-columns: minmax(0, 1fr) minmax(170px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 1fr);
   }
 
-  .public-server-row__summary > :nth-child(3) {
-    grid-column: 2;
+  .public-server-row__metrics {
+    grid-column: 1 / -1;
   }
 }
 
@@ -555,13 +679,28 @@ onUnmounted(() => {
     grid-column: 1 / -1;
   }
 
-  .public-server-row__summary {
-    grid-template-columns: 1fr auto;
+  .public-status-summary {
+    grid-template-columns: 1fr;
+    gap: var(--xy-space-base);
   }
 
-  .public-server-row__summary > :nth-child(2),
-  .public-server-row__summary > :nth-child(3) {
+  .public-status-summary__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--xy-space-base);
+  }
+
+  .public-server-row__identity {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .public-server-row__identity h2 {
     grid-column: 1 / -1;
+  }
+
+  .public-server-row__summary {
+    grid-template-columns: 1fr;
+    gap: var(--xy-space-sm);
   }
 
   .public-server-row__roster {

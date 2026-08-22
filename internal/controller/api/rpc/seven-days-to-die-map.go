@@ -121,17 +121,17 @@ func (xs *XylonaService) GetPublicSevenDaysToDieMap(
 	ctx context.Context,
 	request *connect.Request[xylona.GetPublicSevenDaysToDieMapRequest],
 ) (*connect.Response[xylona.GetPublicSevenDaysToDieMapResponse], error) {
-	_, gameServer, kind, errResolve := xs.resolvePublicGameServerMapDetails(request.Msg.GetPublicIdentifier())
+	access, errResolve := xs.resolvePublicGameServerMapAccess(
+		request.Msg.GetPublicIdentifier(),
+		xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_SEVEN_DAYS_TO_DIE,
+	)
 	if errors.Is(errResolve, errPublicGameServerMapUnavailable) {
 		return nil, publicGameServerMapNotFound()
 	}
 	if errResolve != nil {
 		return nil, internalErrf("failed to resolve public map")
 	}
-	if kind != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_SEVEN_DAYS_TO_DIE {
-		return nil, publicGameServerMapNotFound()
-	}
-	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer)
+	view, errView := xs.buildSevenDaysToDieMapView(ctx, access.gameServer)
 	if errView != nil {
 		return nil, errView
 	}

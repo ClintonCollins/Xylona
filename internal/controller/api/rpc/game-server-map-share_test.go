@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -149,6 +150,179 @@ func TestGameServerMapShareSettingsAndResolution(t *testing.T) {
 			t.Fatalf("GetOrCreateGameServerMapShareSettings(unsupported) code = %v, want %v", connect.CodeOf(errSettings), connect.CodeFailedPrecondition)
 		}
 	})
+}
+
+func TestResolvePublicGameServerMapAccess(t *testing.T) {
+	tests := []struct {
+		name               string
+		identifier         string
+		expectedKind       xylona.GameServerMapKind
+		createShare        bool
+		enableShare        bool
+		enableMinecraftMap bool
+		unsupportedGame    bool
+		breakDatabase      bool
+		wantKind           xylona.GameServerMapKind
+		wantUnavailable    bool
+		wantError          string
+	}{
+		{
+			name:               "valid expected kind",
+			identifier:         "ExpectedMinecraft",
+			expectedKind:       xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT,
+			createShare:        true,
+			enableShare:        true,
+			enableMinecraftMap: true,
+			wantKind:           xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT,
+		},
+		{
+			name:               "unspecified kind discovers map",
+			identifier:         "DiscoverMinecraft",
+			expectedKind:       xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED,
+			createShare:        true,
+			enableShare:        true,
+			enableMinecraftMap: true,
+			wantKind:           xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT,
+		},
+		{
+			name:               "wrong kind is unavailable",
+			identifier:         "WrongKind",
+			expectedKind:       xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_PALWORLD,
+			createShare:        true,
+			enableShare:        true,
+			enableMinecraftMap: true,
+			wantUnavailable:    true,
+		},
+		{
+			name:            "malformed identifier is unavailable",
+			identifier:      "bad slug",
+			expectedKind:    xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED,
+			wantUnavailable: true,
+		},
+		{
+			name:            "missing identifier is unavailable",
+			identifier:      "MissingMap",
+			expectedKind:    xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED,
+			wantUnavailable: true,
+		},
+		{
+			name:            "disabled share is unavailable",
+			identifier:      "DisabledShare",
+			expectedKind:    xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT,
+			createShare:     true,
+			wantUnavailable: true,
+		},
+		{
+			name:            "unsupported game is unavailable",
+			identifier:      "UnsupportedGame",
+			expectedKind:    xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED,
+			createShare:     true,
+			enableShare:     true,
+			unsupportedGame: true,
+			wantUnavailable: true,
+		},
+		{
+			name:            "disabled Minecraft map is unavailable",
+			identifier:      "DisabledMinecraft",
+			expectedKind:    xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT,
+			createShare:     true,
+			enableShare:     true,
+			wantUnavailable: true,
+		},
+		{
+			name:          "database failure remains internal",
+			identifier:    "DatabaseFailure",
+			expectedKind:  xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED,
+			breakDatabase: true,
+			wantError:     "get enabled game server map share",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			if test.unsupportedGame {
+				_, errGame := fixture.conn.SQLDb.ExecContext(
+					t.Context(),
+					`insert into game (id, name, default_port, default_query_port, default_max_players, windows_support)
+					 values (?, ?, ?, ?, ?, ?)`,
+					"unsupported", "Unsupported", 27015, 27015, 16, true,
+				)
+				if errGame != nil {
+					t.Fatalf("insert unsupported game: %v", errGame)
+				}
+				_, errUpdate := fixture.conn.SQLDb.ExecContext(
+					t.Context(),
+					"update game_server set game_id = ? where id = ?",
+					"unsupported",
+					"server-local-1",
+				)
+				if errUpdate != nil {
+					t.Fatalf("set unsupported game: %v", errUpdate)
+				}
+			}
+			if test.enableMinecraftMap {
+				errMap := fixture.conn.UpdateGameServerMinecraftMapConfig(
+					"server-local-1",
+					true,
+					"world",
+					true,
+					"user-owner",
+				)
+				if errMap != nil {
+					t.Fatalf("enable Minecraft map: %v", errMap)
+				}
+			}
+			if test.createShare {
+				_, errCreate := fixture.conn.GetOrCreateGameServerMapShare("server-local-1", test.identifier)
+				if errCreate != nil {
+					t.Fatalf("create map share: %v", errCreate)
+				}
+				if test.enableShare {
+					_, errEnable := fixture.conn.UpdateGameServerMapShare("server-local-1", test.identifier, true)
+					if errEnable != nil {
+						t.Fatalf("enable map share: %v", errEnable)
+					}
+				}
+			}
+			if test.breakDatabase {
+				_, errDrop := fixture.conn.SQLDb.ExecContext(t.Context(), "drop table game_server_map_share")
+				if errDrop != nil {
+					t.Fatalf("drop map share table: %v", errDrop)
+				}
+			}
+
+			access, errAccess := fixture.service.resolvePublicGameServerMapAccess(
+				test.identifier,
+				test.expectedKind,
+			)
+			if test.wantUnavailable {
+				if !errors.Is(errAccess, errPublicGameServerMapUnavailable) {
+					t.Fatalf("resolvePublicGameServerMapAccess() error = %v, want unavailable", errAccess)
+				}
+				if access != nil {
+					t.Fatalf("resolvePublicGameServerMapAccess() access = %+v, want nil", access)
+				}
+				return
+			}
+			if test.wantError != "" {
+				if errAccess == nil || !strings.Contains(errAccess.Error(), test.wantError) {
+					t.Fatalf("resolvePublicGameServerMapAccess() error = %v, want containing %q", errAccess, test.wantError)
+				}
+				if errors.Is(errAccess, errPublicGameServerMapUnavailable) {
+					t.Fatalf("resolvePublicGameServerMapAccess() error = %v, want internal failure", errAccess)
+				}
+				return
+			}
+			if errAccess != nil {
+				t.Fatalf("resolvePublicGameServerMapAccess() error = %v", errAccess)
+			}
+			if access == nil || access.share.PublicIdentifier != test.identifier ||
+				access.gameServer.ID != "server-local-1" || access.kind != test.wantKind {
+				t.Fatalf("resolvePublicGameServerMapAccess() = %+v", access)
+			}
+		})
+	}
 }
 
 func insertTestGameServer(t *testing.T, fixture *rbacRPCFixture, gameServerID string) {

@@ -17,6 +17,12 @@ import (
 
 var errPublicGameServerMapUnavailable = errors.New("public game server map unavailable")
 
+type publicGameServerMapAccess struct {
+	share      *db.GameServerMapShare
+	gameServer *models.GameServer
+	kind       xylona.GameServerMapKind
+}
+
 // GetOrCreateGameServerMapShareSettings returns the canonical map link settings,
 // creating disabled settings on first use.
 func (xs *XylonaService) GetOrCreateGameServerMapShareSettings(
@@ -153,45 +159,59 @@ func (xs *XylonaService) ensureGameServerMapShareCanEnable(gameServer *models.Ga
 }
 
 func (xs *XylonaService) resolvePublicGameServerMapKind(identifier string) (xylona.GameServerMapKind, error) {
-	_, _, kind, errResolve := xs.resolvePublicGameServerMapDetails(identifier)
-	return kind, errResolve
+	access, errResolve := xs.resolvePublicGameServerMapAccess(
+		identifier,
+		xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED,
+	)
+	if errResolve != nil {
+		return xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, errResolve
+	}
+	return access.kind, nil
 }
 
-func (xs *XylonaService) resolvePublicGameServerMapDetails(
+func (xs *XylonaService) resolvePublicGameServerMapAccess(
 	identifier string,
-) (*db.GameServerMapShare, *models.GameServer, xylona.GameServerMapKind, error) {
+	expectedKind xylona.GameServerMapKind,
+) (*publicGameServerMapAccess, error) {
 	errIdentifier := validateStatusPageIdentifier(identifier)
 	if errIdentifier != nil {
-		return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, errPublicGameServerMapUnavailable
+		return nil, errPublicGameServerMapUnavailable
 	}
 	share, errShare := xs.db.GetEnabledGameServerMapShareByIdentifier(identifier)
 	if errors.Is(errShare, sql.ErrNoRows) {
-		return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, errPublicGameServerMapUnavailable
+		return nil, errPublicGameServerMapUnavailable
 	}
 	if errShare != nil {
-		return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, fmt.Errorf("get enabled game server map share: %w", errShare)
+		return nil, fmt.Errorf("get enabled game server map share: %w", errShare)
 	}
 	gameServer, errServer := xs.db.GetGameServerByID(share.GameServerID)
 	if errors.Is(errServer, sql.ErrNoRows) {
-		return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, errPublicGameServerMapUnavailable
+		return nil, errPublicGameServerMapUnavailable
 	}
 	if errServer != nil {
-		return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, fmt.Errorf("get game server for map share: %w", errServer)
+		return nil, fmt.Errorf("get game server for map share: %w", errServer)
 	}
 	kind, supported := gameServerMapKind(gameServer.GameID)
 	if !supported {
-		return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, errPublicGameServerMapUnavailable
+		return nil, errPublicGameServerMapUnavailable
 	}
 	if kind == xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT {
 		settings, errSettings := xs.db.GetGameServerMinecraftMap(gameServer.ID)
 		if errSettings != nil {
-			return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, fmt.Errorf("get Minecraft map settings: %w", errSettings)
+			return nil, fmt.Errorf("get Minecraft map settings: %w", errSettings)
 		}
 		if !settings.Enabled {
-			return nil, nil, xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED, errPublicGameServerMapUnavailable
+			return nil, errPublicGameServerMapUnavailable
 		}
 	}
-	return share, gameServer, kind, nil
+	if expectedKind != xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_UNSPECIFIED && kind != expectedKind {
+		return nil, errPublicGameServerMapUnavailable
+	}
+	return &publicGameServerMapAccess{
+		share:      share,
+		gameServer: gameServer,
+		kind:       kind,
+	}, nil
 }
 
 func gameServerMapKind(gameID string) (xylona.GameServerMapKind, bool) {

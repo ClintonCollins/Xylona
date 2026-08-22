@@ -20,7 +20,11 @@
               <div class="login-form-header">
                 <h1 id="login-title" class="login-form-title">Sign in to Xylona</h1>
                 <p id="login-help" class="login-form-help">
-                  Use your panel credentials to access the servers and tools assigned to you.
+                  {{
+                    route.query.reason === 'session-expired'
+                      ? 'Your session expired. Sign in again to continue.'
+                      : 'Use your panel credentials to access the servers and tools assigned to you.'
+                  }}
                 </p>
               </div>
               <q-input
@@ -88,8 +92,9 @@ import { create } from '@bufbuild/protobuf'
 import { LoginRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { useUserAuthStore } from '@/stores/xylona'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
+const route = useRoute()
 const router = useRouter()
 const username = ref('')
 const password = ref('')

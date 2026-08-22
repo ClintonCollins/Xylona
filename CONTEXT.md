@@ -21,3 +21,7 @@ The single User with full authority over a game server. Ownership is distinct fr
 
 **Game server status page**:
 An owner-controlled public view of the live status, players, and connection addresses for every game server they own.
+
+**Game server map share**:
+An owner-controlled public identifier that exposes the live map of one supported game server while both the share and any required map configuration are enabled.
+_Avoid_: Public map token, shared map token

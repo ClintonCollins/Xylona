@@ -24,7 +24,7 @@
 
     <div
       :class="['system-updates__live-strip', `is-${liveStatus.tone}`]"
-      aria-label="System update connection status"
+      aria-label="System update status"
       data-test="live-status-strip">
       <div class="system-updates__live-state">
         <q-icon :name="liveStatus.icon" size="sm" />
@@ -42,15 +42,6 @@
         <span class="system-updates__sync-time">
           {{ lastSynchronizedLabel }}
         </span>
-        <q-btn
-          :disable="!websocketBrowserOnline"
-          :loading="isRefreshing"
-          dense
-          flat
-          icon="refresh"
-          label="Resync"
-          no-caps
-          @click="resyncPage" />
       </div>
     </div>
 
@@ -83,13 +74,15 @@
     </div>
 
     <div class="system-updates__sections">
-      <section class="system-updates__section" aria-labelledby="active-update-jobs-title">
+      <section
+        v-if="!jobsHasLoaded || jobsError || activeJobs.length > 0"
+        class="system-updates__section"
+        aria-labelledby="active-update-jobs-title">
         <div class="system-updates__section-header">
           <div>
             <h2 id="active-update-jobs-title" class="system-updates__section-title">
               Active updates
             </h2>
-            <p>Live progress is reconciled with persisted job state.</p>
           </div>
           <q-badge
             v-if="activeJobs.length > 0"
@@ -174,14 +167,6 @@
             </q-card-section>
           </q-card>
         </div>
-
-        <div v-else-if="jobsHasLoaded" class="system-updates__empty">
-          <q-icon name="task_alt" size="md" />
-          <div>
-            <strong>No updates in progress</strong>
-            <span>New controller and node updates will appear here as soon as they start.</span>
-          </div>
-        </div>
       </section>
 
       <section class="system-updates__section" aria-labelledby="available-targets-title">
@@ -241,7 +226,6 @@
           v-else-if="updates.length > 0"
           :columns="updateColumns"
           :grid="mobileGrid"
-          :loading="availabilityLoading || contextLoading"
           :rows="updates"
           class="xy-standalone-table"
           flat
@@ -392,7 +376,6 @@
           v-else-if="terminalJobs.length > 0"
           :columns="historyColumns"
           :grid="mobileGrid"
-          :loading="jobsLoading"
           :rows="terminalJobs"
           class="xy-standalone-table"
           flat
@@ -742,11 +725,7 @@ const canSubmitSelected = computed(() => {
 })
 
 const isRefreshing = computed(
-  () =>
-    availabilityLoading.value ||
-    jobsLoading.value ||
-    contextLoading.value ||
-    Boolean(refreshPromise),
+  () => availabilityLoading.value || jobsLoading.value || contextLoading.value,
 )
 
 const lastSynchronizedAt = computed(() => {
@@ -775,6 +754,14 @@ const liveStatus = computed<{ title: string; detail: string; icon: string; tone:
     }
   }
   if (websocketStateAuthoritative.value) {
+    if (jobsHasLoaded.value && !jobsError.value && activeJobs.value.length === 0) {
+      return {
+        title: 'No updates in progress',
+        detail: 'Live updates are connected. New controller and node updates will appear here.',
+        icon: 'task_alt',
+        tone: 'live',
+      }
+    }
     return {
       title: 'Live updates connected',
       detail: 'Progress events are active and persisted state is reconciled in the background.',
