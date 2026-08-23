@@ -30,6 +30,8 @@ const title = ref('')
 const publicIdentifier = ref('')
 const enabled = ref(false)
 const addresses = ref<Record<string, string>>({})
+const notes = ref<Record<string, string>>({})
+const passwords = ref<Record<string, string>>({})
 const savedFingerprint = ref('')
 
 const isSuperUser = computed(() => authStore.user?.superUser === true)
@@ -46,6 +48,8 @@ const formFingerprint = computed(() =>
     publicIdentifier: publicIdentifier.value,
     enabled: enabled.value,
     addresses: addresses.value,
+    notes: notes.value,
+    passwords: passwords.value,
   }),
 )
 const dirty = computed(
@@ -55,8 +59,18 @@ const formValid = computed(
   () =>
     title.value.trim().length >= 1 &&
     [...title.value.trim()].length <= 80 &&
-    /^[A-Za-z0-9_-]{3,64}$/.test(publicIdentifier.value),
+    /^[A-Za-z0-9_-]{3,64}$/.test(publicIdentifier.value) &&
+    Object.values(notes.value).every((value) => publicNoteLimitRule(value) === true) &&
+    Object.values(passwords.value).every((value) => publicPasswordLimitRule(value) === true),
 )
+
+function publicNoteLimitRule(value: string | null | undefined) {
+  return [...(value ?? '')].length <= 500 || 'Use 500 characters or fewer.'
+}
+
+function publicPasswordLimitRule(value: string | null | undefined) {
+  return [...(value ?? '')].length <= 128 || 'Use 128 characters or fewer.'
+}
 
 function applySettings(next: GameServerStatusPageSettings) {
   settings.value = next
@@ -66,6 +80,12 @@ function applySettings(next: GameServerStatusPageSettings) {
   enabled.value = next.enabled
   addresses.value = Object.fromEntries(
     next.servers.map((server) => [server.id, server.publicConnectionAddress ?? '']),
+  )
+  notes.value = Object.fromEntries(
+    next.servers.map((server) => [server.id, server.publicNote ?? '']),
+  )
+  passwords.value = Object.fromEntries(
+    next.servers.map((server) => [server.id, server.publicPassword ?? '']),
   )
   savedFingerprint.value = formFingerprint.value
   identifierError.value = ''
@@ -131,6 +151,8 @@ async function save() {
           create(GameServerStatusPageConnectionAddressSchema, {
             gameServerId: server.id,
             publicConnectionAddress: addresses.value[server.id]?.trim() ?? '',
+            publicNote: notes.value[server.id]?.trim() ?? '',
+            publicPassword: passwords.value[server.id] ?? '',
           }),
         ),
       }),
@@ -266,19 +288,42 @@ onMounted(async () => {
 
         <section class="status-settings-addresses" aria-labelledby="public-addresses-title">
           <div>
-            <h3 id="public-addresses-title">Public connection addresses</h3>
+            <h3 id="public-addresses-title">Public server details</h3>
             <p>
-              Override only what visitors should use. Query, RCON, and node addresses stay private.
+              Share only player-facing details. Never enter admin, query, RCON, or node credentials.
             </p>
           </div>
-          <q-input
+          <section
             v-for="server in settings.servers"
             :key="server.id"
-            v-model="addresses[server.id]"
-            :hint="`Default: ${server.configuredConnectionAddress}`"
-            :label="server.name"
-            outlined
-            placeholder="Use default address" />
+            class="status-settings-server"
+            :aria-label="`${server.name} public details`">
+            <h4>{{ server.name }}</h4>
+            <q-input
+              v-model="addresses[server.id]"
+              :hint="`Default: ${server.configuredConnectionAddress}`"
+              label="Public connection address"
+              outlined
+              placeholder="Use default address" />
+            <q-input
+              v-model="notes[server.id]"
+              :rules="[publicNoteLimitRule]"
+              autogrow
+              hint="500 characters maximum"
+              label="Public note"
+              outlined
+              type="textarea" />
+            <q-input
+              v-model="passwords[server.id]"
+              :rules="[publicPasswordLimitRule]"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              hint="128 characters maximum"
+              label="Public join password"
+              outlined
+              spellcheck="false" />
+          </section>
           <p v-if="addressError" class="text-negative" role="alert">{{ addressError }}</p>
           <p v-if="settings.servers.length === 0" class="status-settings-addresses__empty">
             This owner has no game servers.
@@ -367,6 +412,19 @@ onMounted(async () => {
 .status-settings-addresses {
   display: grid;
   gap: var(--xy-space-sm);
+}
+
+.status-settings-server {
+  display: grid;
+  gap: var(--xy-space-base);
+  padding-top: var(--xy-space-md);
+  border-top: 1px solid var(--xy-border);
+}
+
+.status-settings-server h4 {
+  margin: 0;
+  color: var(--xy-text-primary);
+  font-size: var(--xy-font-size-sm);
 }
 
 .status-settings-link > span {

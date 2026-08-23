@@ -359,6 +359,27 @@ onUnmounted(() => {
                   @click="toggleRoster(server.id)" />
               </div>
             </div>
+            <div
+              v-if="server.publicNote || server.publicPassword || server.publicMapPath"
+              class="public-server-row__details"
+              :aria-label="`${server.name} connection details`">
+              <div v-if="server.publicNote" class="public-server-row__detail">
+                <span class="public-server-row__label">Note</span>
+                <p class="public-server-row__note">{{ server.publicNote }}</p>
+              </div>
+              <div v-if="server.publicPassword" class="public-server-row__detail">
+                <span class="public-server-row__label">Join password</span>
+                <code class="public-server-row__password">{{ server.publicPassword }}</code>
+              </div>
+              <a
+                v-if="server.publicMapPath"
+                class="public-server-row__map-link"
+                :aria-label="`Open ${server.name} public map`"
+                :href="server.publicMapPath">
+                <q-icon name="map" aria-hidden="true" />
+                View public map
+              </a>
+            </div>
             <div v-if="expandedServerIDs.has(server.id)" class="public-server-row__roster">
               <span class="public-server-row__label">Player roster</span>
               <p v-if="rosterLabel(server)">{{ rosterLabel(server) }}</p>
@@ -704,6 +725,53 @@ onUnmounted(() => {
   animation: public-roster-reveal 180ms var(--xy-ease-standard);
 }
 
+.public-server-row__details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--xy-space-md) var(--xy-space-xl);
+  padding: var(--xy-space-base) var(--xy-space-md);
+  background: var(--xy-surface-0);
+  border-top: 1px solid var(--xy-border);
+}
+
+.public-server-row__detail {
+  display: grid;
+  flex: 1 1 220px;
+  min-width: min(100%, 180px);
+  gap: var(--xy-space-xs);
+}
+
+.public-server-row__note {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.public-server-row__password {
+  overflow-wrap: anywhere;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
+  white-space: pre-wrap;
+}
+
+.public-server-row__map-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: var(--xy-space-xs);
+  padding: 0 var(--xy-space-base);
+  color: var(--xy-primary-hover);
+  border-radius: var(--xy-radius-md);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.public-server-row__map-link:hover {
+  background: var(--xy-primary-muted);
+}
+
 @keyframes public-roster-reveal {
   from {
     opacity: 0.85;
@@ -815,6 +883,11 @@ onUnmounted(() => {
 
   .public-server-row__roster {
     grid-template-columns: 1fr;
+  }
+
+  .public-server-row__details {
+    display: grid;
+    gap: var(--xy-space-base);
   }
 
   .public-roster-list {

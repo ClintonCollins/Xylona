@@ -214,6 +214,8 @@ message GameServerStatusPageSettingsServer {
   string configured_connection_address = 3;
   optional string public_connection_address = 4;
   string effective_connection_address = 5;
+  optional string public_note = 6;
+  optional string public_password = 7;
 }
 
 message GameServerStatusPageSettings {
@@ -237,6 +239,8 @@ message GetOrCreateGameServerStatusPageSettingsResponse {
 message GameServerStatusPageConnectionAddress {
   string game_server_id = 1;
   string public_connection_address = 2;
+  optional string public_note = 3;
+  optional string public_password = 4;
 }
 
 message UpdateGameServerStatusPageSettingsRequest {
@@ -270,6 +274,9 @@ message PublicGameServerStatus {
   GameServerStatusPageRosterState roster_state = 9;
   google.protobuf.Timestamp observed_at = 10;
   string version = 11;
+  optional string public_note = 12;
+  optional string public_password = 13;
+  optional string public_map_path = 14;
 }
 
 message PublicGameServerStatusPage {

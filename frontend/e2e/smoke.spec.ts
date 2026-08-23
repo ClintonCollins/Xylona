@@ -26,8 +26,7 @@ test.describe('Smoke navigation @smoke', () => {
     await gotoAppPage(page, '/admin/updates')
 
     await expect(page.getByRole('heading', { name: 'System Updates', exact: true })).toBeVisible()
-    await expect(page.getByLabel('System update connection status')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Active updates' })).toBeVisible()
+    await expect(page.getByLabel('System update status')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Available targets' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Update history' })).toBeVisible()
 

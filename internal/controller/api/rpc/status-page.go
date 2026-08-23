@@ -85,7 +85,7 @@ func (xs *XylonaService) UpdateGameServerStatusPageSettings(
 	for _, server := range servers {
 		owned[server.ID] = struct{}{}
 	}
-	addresses := make(map[string]string, len(servers))
+	serverDetails := make(map[string]db.GameServerStatusPageServerDetails, len(servers))
 	for _, value := range request.Msg.GetConnectionAddresses() {
 		if value == nil {
 			return nil, invalidArg("connection_addresses: entries are required")
@@ -95,7 +95,7 @@ func (xs *XylonaService) UpdateGameServerStatusPageSettings(
 		if !isOwned {
 			return nil, invalidArg("connection_addresses: game server is not owned by the selected user")
 		}
-		_, duplicate := addresses[serverID]
+		_, duplicate := serverDetails[serverID]
 		if duplicate {
 			return nil, invalidArg("connection_addresses: duplicate game server")
 		}
@@ -103,18 +103,38 @@ func (xs *XylonaService) UpdateGameServerStatusPageSettings(
 		if errAddress != nil {
 			return nil, invalidArg("connection_addresses: " + errAddress.Error())
 		}
-		addresses[serverID] = address
+		var publicNote *string
+		if value.PublicNote != nil {
+			note, errNote := normalizePublicStatusNote(value.GetPublicNote())
+			if errNote != nil {
+				return nil, invalidArg("connection_addresses: public_note: " + errNote.Error())
+			}
+			publicNote = &note
+		}
+		var publicPassword *string
+		if value.PublicPassword != nil {
+			password, errPassword := normalizePublicStatusPassword(value.GetPublicPassword())
+			if errPassword != nil {
+				return nil, invalidArg("connection_addresses: public_password: " + errPassword.Error())
+			}
+			publicPassword = &password
+		}
+		serverDetails[serverID] = db.GameServerStatusPageServerDetails{
+			ConnectionAddress: address,
+			PublicNote:        publicNote,
+			PublicPassword:    publicPassword,
+		}
 	}
-	if len(addresses) != len(servers) {
+	if len(serverDetails) != len(servers) {
 		return nil, invalidArg("connection_addresses: a complete server set is required")
 	}
 
 	page, errUpdate := xs.db.UpdateGameServerStatusPage(db.GameServerStatusPageUpdate{
-		UserID:              owner.ID,
-		PublicIdentifier:    identifier,
-		Title:               title,
-		Enabled:             request.Msg.GetEnabled(),
-		ConnectionAddresses: addresses,
+		UserID:           owner.ID,
+		PublicIdentifier: identifier,
+		Title:            title,
+		Enabled:          request.Msg.GetEnabled(),
+		ServerDetails:    serverDetails,
 	})
 	if errors.Is(errUpdate, db.ErrGameServerStatusPageIdentifierConflict) {
 		return nil, connect.NewError(connect.CodeAlreadyExists, errors.New("public identifier is unavailable"))
@@ -195,7 +215,15 @@ func (xs *XylonaService) publicGameServerStatusPage(identifier string, statuses 
 			return xs.actionsInst.GetCachedGameServerStatus(server.ID)
 		}
 	}
-	return projectPublicGameServerStatusPage(page, servers, queries, telemetry, status, xs.versionState), nil
+	serverIDs := make([]string, len(servers))
+	for index, server := range servers {
+		serverIDs[index] = server.ID
+	}
+	details, errDetails := xs.db.GetGameServerStatusPagePublicServerDetails(serverIDs)
+	if errDetails != nil {
+		return nil, fmt.Errorf("get public game server status details: %w", errDetails)
+	}
+	return projectPublicGameServerStatusPage(page, servers, queries, telemetry, status, xs.versionState, details), nil
 }
 
 func (xs *XylonaService) statusPageOwner(header http.Header, requestedOwnerID string) (*models.User, error) {
@@ -253,6 +281,14 @@ func (xs *XylonaService) gameServerStatusPageSettings(owner *models.User, page *
 		return nil, fmt.Errorf("get game servers for status page settings: %w", errServers)
 	}
 	slices.SortFunc(servers, compareGameServersByName)
+	serverIDs := make([]string, len(servers))
+	for index, server := range servers {
+		serverIDs[index] = server.ID
+	}
+	detailsByServerID, errDetails := xs.db.GetGameServerStatusPagePublicServerDetails(serverIDs)
+	if errDetails != nil {
+		return nil, fmt.Errorf("get game server status page settings details: %w", errDetails)
+	}
 	settingsServers := make([]*xylona.GameServerStatusPageSettingsServer, 0, len(servers))
 	for _, server := range servers {
 		configured := configuredGameServerAddress(server)
@@ -263,12 +299,23 @@ func (xs *XylonaService) gameServerStatusPageSettings(owner *models.User, page *
 			publicAddress = &value
 			effective = value
 		}
+		publicDetails := detailsByServerID[server.ID]
+		var publicNote *string
+		if publicDetails.PublicNote.Valid {
+			publicNote = &publicDetails.PublicNote.String
+		}
+		var publicPassword *string
+		if publicDetails.PublicPassword.Valid {
+			publicPassword = &publicDetails.PublicPassword.String
+		}
 		settingsServers = append(settingsServers, &xylona.GameServerStatusPageSettingsServer{
 			Id:                          server.ID,
 			Name:                        server.Name,
 			ConfiguredConnectionAddress: configured,
 			PublicConnectionAddress:     publicAddress,
 			EffectiveConnectionAddress:  effective,
+			PublicNote:                  publicNote,
+			PublicPassword:              publicPassword,
 		})
 	}
 	return &xylona.GameServerStatusPageSettings{
@@ -289,6 +336,7 @@ func projectPublicGameServerStatusPage(
 	telemetryFor func(string) actions.GameServerQueryTelemetrySnapshot,
 	statusFor func(*models.GameServer) xylona.Status,
 	versionState *versiontracker.VersionStateMap,
+	detailsByServerID map[string]db.GameServerStatusPagePublicServerDetails,
 ) *xylona.PublicGameServerStatusPage {
 	servers = slices.Clone(servers)
 	slices.SortFunc(servers, compareGameServersByName)
@@ -310,6 +358,17 @@ func projectPublicGameServerStatusPage(
 			MaxPlayerCount:    uint32FromInt64(server.MaxPlayers),
 			RosterState:       xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE,
 			Version:           version,
+		}
+		details := detailsByServerID[server.ID]
+		if details.PublicNote.Valid {
+			publicServer.PublicNote = &details.PublicNote.String
+		}
+		if details.PublicPassword.Valid {
+			publicServer.PublicPassword = &details.PublicPassword.String
+		}
+		mapPath := projectedPublicGameServerMapPath(server, details)
+		if mapPath != "" {
+			publicServer.PublicMapPath = &mapPath
 		}
 		if server.R.Game != nil {
 			publicServer.GameName = server.R.Game.Name
@@ -337,6 +396,24 @@ func projectPublicGameServerStatusPage(
 		Servers:     publicServers,
 		GeneratedAt: timestamppb.Now(),
 	}
+}
+
+func projectedPublicGameServerMapPath(server *models.GameServer, details db.GameServerStatusPagePublicServerDetails) string {
+	if !details.MapShareEnabled || !details.MapPublicIdentifier.Valid {
+		return ""
+	}
+	errIdentifier := validateStatusPageIdentifier(details.MapPublicIdentifier.String)
+	if errIdentifier != nil {
+		return ""
+	}
+	kind, supported := gameServerMapKind(server.GameID)
+	if !supported {
+		return ""
+	}
+	if kind == xylona.GameServerMapKind_GAME_SERVER_MAP_KIND_MINECRAFT && !details.MinecraftMapEnabled {
+		return ""
+	}
+	return "/maps/" + details.MapPublicIdentifier.String
 }
 
 func applyPublicRoster(publicServer *xylona.PublicGameServerStatus, query *xylona.ServerQuery, queryType xylona.ServerQuery_Type) {
@@ -447,6 +524,33 @@ func normalizePublicConnectionAddress(value string) (string, error) {
 		return "", errors.New("port must be between 1 and 65535")
 	}
 	return normalized, nil
+}
+
+func normalizePublicStatusNote(value string) (string, error) {
+	normalized := strings.ReplaceAll(value, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	normalized = strings.TrimSpace(normalized)
+	if utf8.RuneCountInString(normalized) > 500 {
+		return "", errors.New("must contain at most 500 characters")
+	}
+	for _, char := range normalized {
+		if unicode.IsControl(char) && char != '\n' {
+			return "", errors.New("must not contain control characters other than line breaks")
+		}
+	}
+	return normalized, nil
+}
+
+func normalizePublicStatusPassword(value string) (string, error) {
+	if utf8.RuneCountInString(value) > 128 {
+		return "", errors.New("must contain at most 128 characters")
+	}
+	for _, char := range value {
+		if unicode.IsControl(char) {
+			return "", errors.New("must not contain control characters")
+		}
+	}
+	return value, nil
 }
 
 func statusPageNotFound() error {

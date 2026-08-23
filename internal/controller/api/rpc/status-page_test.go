@@ -1,8 +1,10 @@
 package rpc
 
 import (
+	"database/sql"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -45,7 +47,12 @@ func TestGameServerStatusPageManagement(t *testing.T) {
 		PublicIdentifier: "Owner_Fleet",
 		Enabled:          true,
 		ConnectionAddresses: []*xylona.GameServerStatusPageConnectionAddress{
-			{GameServerId: "server-local-1", PublicConnectionAddress: "[2001:db8::1]:25565"},
+			{
+				GameServerId:            "server-local-1",
+				PublicConnectionAddress: "[2001:db8::1]:25565",
+				PublicNote:              new("Bring snacks\r\nNo griefing"),
+				PublicPassword:          new(" join-me "),
+			},
 		},
 	})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateRequest, "user-owner")
@@ -60,6 +67,30 @@ func TestGameServerStatusPageManagement(t *testing.T) {
 	got := updated.GetServers()[0].GetEffectiveConnectionAddress()
 	if got != "[2001:db8::1]:25565" {
 		t.Fatalf("effective connection address = %q", got)
+	}
+	if updated.GetServers()[0].GetPublicNote() != "Bring snacks\nNo griefing" || updated.GetServers()[0].GetPublicPassword() != " join-me " {
+		t.Fatalf("public settings details = %+v", updated.GetServers()[0])
+	}
+
+	legacyUpdateRequest := connect.NewRequest(&xylona.UpdateGameServerStatusPageSettingsRequest{
+		Title:            "Owner fleet renamed",
+		PublicIdentifier: "Owner_Fleet",
+		Enabled:          true,
+		ConnectionAddresses: []*xylona.GameServerStatusPageConnectionAddress{
+			{
+				GameServerId:            "server-local-1",
+				PublicConnectionAddress: "legacy.example.test:25565",
+			},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, legacyUpdateRequest, "user-owner")
+	legacyUpdateResponse, errLegacyUpdate := fixture.service.UpdateGameServerStatusPageSettings(t.Context(), legacyUpdateRequest)
+	if errLegacyUpdate != nil {
+		t.Fatalf("legacy UpdateGameServerStatusPageSettings() error = %v", errLegacyUpdate)
+	}
+	legacyServer := legacyUpdateResponse.Msg.GetSettings().GetServers()[0]
+	if legacyServer.GetPublicNote() != "Bring snacks\nNo griefing" || legacyServer.GetPublicPassword() != " join-me " {
+		t.Fatalf("legacy update cleared public details = %+v", legacyServer)
 	}
 }
 
@@ -81,6 +112,14 @@ func TestGameServerStatusPageValidation(t *testing.T) {
 		{name: "missing port", field: "address", value: "example.test", wantErr: true},
 		{name: "bad port", field: "address", value: "example.test:65536", wantErr: true},
 		{name: "whitespace", field: "address", value: "example .test:25565", wantErr: true},
+		{name: "note", field: "note", value: " Hello\r\nworld ", wantErr: false},
+		{name: "note at limit", field: "note", value: strings.Repeat("n", 500), wantErr: false},
+		{name: "note over limit", field: "note", value: strings.Repeat("n", 501), wantErr: true},
+		{name: "note control", field: "note", value: "Hello\tworld", wantErr: true},
+		{name: "password", field: "password", value: " pass word ", wantErr: false},
+		{name: "password at limit", field: "password", value: strings.Repeat("p", 128), wantErr: false},
+		{name: "password over limit", field: "password", value: strings.Repeat("p", 129), wantErr: true},
+		{name: "password control", field: "password", value: "pass\nword", wantErr: true},
 	}
 
 	for _, test := range tests {
@@ -93,6 +132,10 @@ func TestGameServerStatusPageValidation(t *testing.T) {
 				errValidate = validateStatusPageIdentifier(test.value)
 			case "address":
 				_, errValidate = normalizePublicConnectionAddress(test.value)
+			case "note":
+				_, errValidate = normalizePublicStatusNote(test.value)
+			case "password":
+				_, errValidate = normalizePublicStatusPassword(test.value)
 			}
 			if (errValidate != nil) != test.wantErr {
 				t.Fatalf("validation error = %v, wantErr %v", errValidate, test.wantErr)
@@ -169,6 +212,15 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 		func(id string) actions.GameServerQueryTelemetrySnapshot { return telemetry[id] },
 		func(*models.GameServer) xylona.Status { return xylona.Status_ONLINE },
 		versionState,
+		map[string]db.GameServerStatusPagePublicServerDetails{
+			"minecraft": {
+				PublicNote:          sql.NullString{String: "Welcome", Valid: true},
+				PublicPassword:      sql.NullString{String: "visible-password", Valid: true},
+				MapPublicIdentifier: sql.NullString{String: "Minecraft_Map", Valid: true},
+				MapShareEnabled:     true,
+				MinecraftMapEnabled: true,
+			},
+		},
 	)
 
 	projectedServers := projected.GetServers()
@@ -182,6 +234,9 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 	}
 	if minecraft.GetVersion() != "Paper 1.21.1" {
 		t.Fatalf("Minecraft version = %q, want %q", minecraft.GetVersion(), "Paper 1.21.1")
+	}
+	if minecraft.GetPublicNote() != "Welcome" || minecraft.GetPublicPassword() != "visible-password" || minecraft.GetPublicMapPath() != "/maps/Minecraft_Map" {
+		t.Fatalf("Minecraft public details = %+v", minecraft)
 	}
 	source := projectedServers[1]
 	if source.CurrentPlayerCount == nil || source.GetCurrentPlayerCount() != 2 || source.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE {
@@ -199,10 +254,72 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 	}
 }
 
+func TestPublicGameServerMapPath(t *testing.T) {
+	tests := []struct {
+		name    string
+		gameID  string
+		details db.GameServerStatusPagePublicServerDetails
+		want    string
+	}{
+		{
+			name:   "enabled Palworld share",
+			gameID: palworldGameID,
+			details: db.GameServerStatusPagePublicServerDetails{
+				MapPublicIdentifier: sql.NullString{String: "Palworld_Map", Valid: true},
+				MapShareEnabled:     true,
+			},
+			want: "/maps/Palworld_Map",
+		},
+		{
+			name:   "disabled share",
+			gameID: palworldGameID,
+			details: db.GameServerStatusPagePublicServerDetails{
+				MapPublicIdentifier: sql.NullString{String: "Palworld_Map", Valid: true},
+			},
+		},
+		{
+			name:   "Minecraft map disabled",
+			gameID: minecraftGameID,
+			details: db.GameServerStatusPagePublicServerDetails{
+				MapPublicIdentifier: sql.NullString{String: "Minecraft_Map", Valid: true},
+				MapShareEnabled:     true,
+			},
+		},
+		{
+			name:   "Minecraft map enabled",
+			gameID: minecraftGameID,
+			details: db.GameServerStatusPagePublicServerDetails{
+				MapPublicIdentifier: sql.NullString{String: "Minecraft_Map", Valid: true},
+				MapShareEnabled:     true,
+				MinecraftMapEnabled: true,
+			},
+			want: "/maps/Minecraft_Map",
+		},
+		{
+			name:   "unsupported game",
+			gameID: "unsupported",
+			details: db.GameServerStatusPagePublicServerDetails{
+				MapPublicIdentifier: sql.NullString{String: "Map", Valid: true},
+				MapShareEnabled:     true,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := projectedPublicGameServerMapPath(&models.GameServer{GameID: test.gameID}, test.details)
+			if got != test.want {
+				t.Fatalf("projectedPublicGameServerMapPath() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func statusPageTestServer(t *testing.T, id string, name string, gameName string, maxPlayers int64) *models.GameServer {
 	t.Helper()
 	server := &models.GameServer{
 		ID:         id,
+		GameID:     id,
 		Name:       name,
 		IP:         "127.0.0.1",
 		Port:       25565,

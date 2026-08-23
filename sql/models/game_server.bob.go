@@ -56,6 +56,8 @@ type GameServer struct {
 	AutoRestartCooldownSeconds int64            `db:"auto_restart_cooldown_seconds" `
 	EnvVars                    string           `db:"env_vars" `
 	PublicConnectionAddress    null.Val[string] `db:"public_connection_address" `
+	PublicStatusNote           null.Val[string] `db:"public_status_note" `
+	PublicStatusPassword       null.Val[string] `db:"public_status_password" `
 
 	R gameServerR `db:"-" `
 
@@ -120,7 +122,7 @@ type gameServerRLoaded struct {
 
 func buildGameServerColumns(tableName string) gameServerColumns {
 	columnsExpr := expr.NewColumnsExpr(
-		"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars", "public_connection_address",
+		"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars", "public_connection_address", "public_status_note", "public_status_password",
 	)
 
 	if tableName != "" {
@@ -160,6 +162,8 @@ func buildGameServerColumns(tableName string) gameServerColumns {
 		AutoRestartCooldownSeconds: buildGameServerColumn(tableName, "auto_restart_cooldown_seconds"),
 		EnvVars:                    buildGameServerColumn(tableName, "env_vars"),
 		PublicConnectionAddress:    buildGameServerColumn(tableName, "public_connection_address"),
+		PublicStatusNote:           buildGameServerColumn(tableName, "public_status_note"),
+		PublicStatusPassword:       buildGameServerColumn(tableName, "public_status_password"),
 	}
 }
 
@@ -196,6 +200,8 @@ type gameServerColumns struct {
 	AutoRestartCooldownSeconds gameServerColumn
 	EnvVars                    gameServerColumn
 	PublicConnectionAddress    gameServerColumn
+	PublicStatusNote           gameServerColumn
+	PublicStatusPassword       gameServerColumn
 }
 
 // Alias returns the current table alias for the columns set.
@@ -271,10 +277,12 @@ type GameServerSetter struct {
 	AutoRestartCooldownSeconds omit.Val[int64]      `db:"auto_restart_cooldown_seconds" `
 	EnvVars                    omit.Val[string]     `db:"env_vars" `
 	PublicConnectionAddress    omitnull.Val[string] `db:"public_connection_address" `
+	PublicStatusNote           omitnull.Val[string] `db:"public_status_note" `
+	PublicStatusPassword       omitnull.Val[string] `db:"public_status_password" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 30)
+	vals := make([]string, 0, 32)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -364,6 +372,12 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if s.PublicConnectionAddress.IsValue() || s.PublicConnectionAddress.IsNull() {
 		vals = append(vals, "public_connection_address")
+	}
+	if s.PublicStatusNote.IsValue() || s.PublicStatusNote.IsNull() {
+		vals = append(vals, "public_status_note")
+	}
+	if s.PublicStatusPassword.IsValue() || s.PublicStatusPassword.IsNull() {
+		vals = append(vals, "public_status_password")
 	}
 	return vals
 }
@@ -458,6 +472,12 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	}
 	if s.PublicConnectionAddress.IsValue() || s.PublicConnectionAddress.IsNull() {
 		t.PublicConnectionAddress = s.PublicConnectionAddress.MustGetNull()
+	}
+	if s.PublicStatusNote.IsValue() || s.PublicStatusNote.IsNull() {
+		t.PublicStatusNote = s.PublicStatusNote.MustGetNull()
+	}
+	if s.PublicStatusPassword.IsValue() || s.PublicStatusPassword.IsNull() {
+		t.PublicStatusPassword = s.PublicStatusPassword.MustGetNull()
 	}
 }
 
@@ -687,6 +707,20 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 				}
 				return sqlite.Arg(s.PublicConnectionAddress.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
+		case "public_status_note":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.PublicStatusNote.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.PublicStatusNote.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
+		case "public_status_password":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.PublicStatusPassword.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.PublicStatusPassword.MustGetNull()).WriteSQL(ctx, w, d, start)
+			}))
 		}
 	}
 
@@ -698,7 +732,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 30)
+	exprs := make([]bob.Expression, 0, 32)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -907,6 +941,20 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "public_connection_address")...),
 			sqlite.Arg(s.PublicConnectionAddress),
+		}})
+	}
+
+	if s.PublicStatusNote.IsValue() || s.PublicStatusNote.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "public_status_note")...),
+			sqlite.Arg(s.PublicStatusNote),
+		}})
+	}
+
+	if s.PublicStatusPassword.IsValue() || s.PublicStatusPassword.IsNull() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "public_status_password")...),
+			sqlite.Arg(s.PublicStatusPassword),
 		}})
 	}
 
@@ -2555,6 +2603,8 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	AutoRestartCooldownSeconds sqlite.WhereMod[Q, int64]
 	EnvVars                    sqlite.WhereMod[Q, string]
 	PublicConnectionAddress    sqlite.WhereNullMod[Q, string]
+	PublicStatusNote           sqlite.WhereNullMod[Q, string]
+	PublicStatusPassword       sqlite.WhereNullMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -2593,6 +2643,8 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		AutoRestartCooldownSeconds: sqlite.Where[Q, int64](cols.AutoRestartCooldownSeconds.Expression),
 		EnvVars:                    sqlite.Where[Q, string](cols.EnvVars.Expression),
 		PublicConnectionAddress:    sqlite.WhereNull[Q, string](cols.PublicConnectionAddress.Expression),
+		PublicStatusNote:           sqlite.WhereNull[Q, string](cols.PublicStatusNote.Expression),
+		PublicStatusPassword:       sqlite.WhereNull[Q, string](cols.PublicStatusPassword.Expression),
 	}
 }
 

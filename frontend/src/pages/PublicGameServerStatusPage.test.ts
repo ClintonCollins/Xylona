@@ -87,6 +87,9 @@ describe('PublicGameServerStatusPage', () => {
           gameName: 'Minecraft',
           status: Status.ONLINE,
           connectionAddress: 'play.example.test:25565',
+          publicNote: 'Bring a friend.\nEvents begin at 8 PM.',
+          publicPassword: 'join-us',
+          publicMapPath: '/maps/Alpha_Map',
           version: '1.21.1',
           maxPlayerCount: 20,
           observedAt: timestampFromDate(new Date('2026-08-21T12:00:00Z')),
@@ -106,13 +109,26 @@ describe('PublicGameServerStatusPage', () => {
     expect(wrapper.text()).toContain('Player count unavailable')
     expect(wrapper.text()).toContain('1.21.1')
     expect(wrapper.get('.public-server-row').classes()).toContain('is-online')
+    expect(wrapper.text()).toContain('Bring a friend.')
+    expect(wrapper.text()).toContain('join-us')
+    expect(wrapper.get('[aria-label="Open Alpha public map"]').attributes('href')).toBe(
+      '/maps/Alpha_Map',
+    )
     expect(FakeEventSource.instances[0]?.url).toBe('/api/public/status-pages/Fleet_A/events')
 
     const initialServer = initial.servers[0]
     if (!initialServer) throw new Error('Expected the initial server fixture.')
     const live = create(PublicGameServerStatusPageSchema, {
       ...initial,
-      servers: [{ ...initialServer, currentPlayerCount: 2 }],
+      servers: [
+        {
+          ...initialServer,
+          currentPlayerCount: 2,
+          publicNote: 'Map reset tomorrow.',
+          publicPassword: '',
+          publicMapPath: '',
+        },
+      ],
     })
     FakeEventSource.instances[0]?.emit(
       'snapshot',
@@ -122,6 +138,9 @@ describe('PublicGameServerStatusPage', () => {
     expect(wrapper.text()).toContain('2 / 20')
     expect(wrapper.get('.public-status').attributes('aria-label')).toBe('Alpha status: Online')
     expect(wrapper.get('[aria-label="Alpha players: 2 / 20"]')).toBeDefined()
+    expect(wrapper.text()).toContain('Map reset tomorrow.')
+    expect(wrapper.text()).not.toContain('join-us')
+    expect(wrapper.find('[aria-label="Open Alpha public map"]').exists()).toBe(false)
 
     mocks.getStatusPage.mockRejectedValueOnce(new ConnectError('not found', Code.NotFound))
     FakeEventSource.instances[0]?.onerror?.()

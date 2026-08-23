@@ -91,7 +91,7 @@ func (c *Connection) UpdateGameServer(exec bob.Executor, gameServerSetter *model
 	return gameServer, nil
 }
 
-// UpdateGameServerForEdit applies a complete edit and clears the public address
+// UpdateGameServerForEdit applies a complete edit and clears public status details
 // in the same transaction when the owner changes.
 func (c *Connection) UpdateGameServerForEdit(gameServerSetter *models.GameServerSetter, previousOwnerID string) (*models.GameServer, error) {
 	if !gameServerSetter.ID.IsValue() || !gameServerSetter.UserID.IsValue() {
@@ -109,12 +109,14 @@ func (c *Connection) UpdateGameServerForEdit(gameServerSetter *models.GameServer
 	if gameServerSetter.UserID.MustGet() != previousOwnerID {
 		_, errClear := tx.ExecContext(
 			c.ctx,
-			`update game_server set public_connection_address = null where id = ? and user_id = ?`,
+			`update game_server
+			 set public_connection_address = null, public_status_note = null, public_status_password = null
+			 where id = ? and user_id = ?`,
 			gameServerID,
 			previousOwnerID,
 		)
 		if errClear != nil {
-			return nil, fmt.Errorf("clear transferred game server public address: %w", errClear)
+			return nil, fmt.Errorf("clear transferred game server public status details: %w", errClear)
 		}
 	}
 

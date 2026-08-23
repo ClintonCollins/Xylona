@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/sql/models"
 	"github.com/ClintonCollins/Xylona/sql/models/dberrors"
 )
 
@@ -31,11 +31,27 @@ type GameServerStatusPage struct {
 
 // GameServerStatusPageUpdate replaces all mutable page settings atomically.
 type GameServerStatusPageUpdate struct {
-	UserID              string
-	PublicIdentifier    string
-	Title               string
-	Enabled             bool
-	ConnectionAddresses map[string]string
+	UserID           string
+	PublicIdentifier string
+	Title            string
+	Enabled          bool
+	ServerDetails    map[string]GameServerStatusPageServerDetails
+}
+
+// GameServerStatusPageServerDetails contains the owner-selected public details for one server.
+type GameServerStatusPageServerDetails struct {
+	ConnectionAddress string
+	PublicNote        *string
+	PublicPassword    *string
+}
+
+// GameServerStatusPagePublicServerDetails contains persisted public details and map availability.
+type GameServerStatusPagePublicServerDetails struct {
+	PublicNote          sql.NullString
+	PublicPassword      sql.NullString
+	MapPublicIdentifier sql.NullString
+	MapShareEnabled     bool
+	MinecraftMapEnabled bool
 }
 
 // CreateGameServerStatusPage reserves an identifier and creates one page in a transaction.
@@ -191,29 +207,43 @@ func (c *Connection) UpdateGameServerStatusPage(update GameServerStatusPageUpdat
 
 	_, errReset := tx.ExecContext(
 		c.ctx,
-		`update game_server set public_connection_address = null where user_id = ?`,
+		`update game_server
+		 set public_connection_address = null
+		 where user_id = ?`,
 		update.UserID,
 	)
 	if errReset != nil {
-		return nil, fmt.Errorf("reset game server public addresses: %w", errReset)
+		return nil, fmt.Errorf("reset game server public status details: %w", errReset)
 	}
 
-	for gameServerID, address := range update.ConnectionAddresses {
-		normalized := strings.TrimSpace(address)
-		if normalized == "" {
-			continue
+	for gameServerID, details := range update.ServerDetails {
+		publicNote := ""
+		updatePublicNote := details.PublicNote != nil
+		if updatePublicNote {
+			publicNote = *details.PublicNote
 		}
-		result, errAddress := tx.ExecContext(
+		publicPassword := ""
+		updatePublicPassword := details.PublicPassword != nil
+		if updatePublicPassword {
+			publicPassword = *details.PublicPassword
+		}
+		result, errDetails := tx.ExecContext(
 			c.ctx,
 			`update game_server
-			 set public_connection_address = ?
+			 set public_connection_address = nullif(?, ''),
+			     public_status_note = case when ? then nullif(?, '') else public_status_note end,
+			     public_status_password = case when ? then nullif(?, '') else public_status_password end
 			 where id = ? and user_id = ?`,
-			normalized,
+			details.ConnectionAddress,
+			updatePublicNote,
+			publicNote,
+			updatePublicPassword,
+			publicPassword,
 			gameServerID,
 			update.UserID,
 		)
-		if errAddress != nil {
-			return nil, fmt.Errorf("update game server public address: %w", errAddress)
+		if errDetails != nil {
+			return nil, fmt.Errorf("update game server public status details: %w", errDetails)
 		}
 		rowsAffected, errRowsAffected := result.RowsAffected()
 		if errRowsAffected != nil {
@@ -230,6 +260,45 @@ func (c *Connection) UpdateGameServerStatusPage(update GameServerStatusPageUpdat
 	}
 	committed = true
 	return c.GetGameServerStatusPageByUserID(update.UserID)
+}
+
+// GetGameServerStatusPagePublicServerDetails batch-loads public details and map state.
+func (c *Connection) GetGameServerStatusPagePublicServerDetails(gameServerIDs []string) (map[string]GameServerStatusPagePublicServerDetails, error) {
+	if len(gameServerIDs) == 0 {
+		return map[string]GameServerStatusPagePublicServerDetails{}, nil
+	}
+	gameServers, errQuery := models.GameServers.Query(
+		models.SelectWhere.GameServers.ID.In(gameServerIDs...),
+		models.Preload.GameServer.GameServerMapShare(),
+		models.Preload.GameServer.GameServerMinecraftMap(),
+	).All(c.ctx, c.DB)
+	if errQuery != nil {
+		return nil, fmt.Errorf("get game server status page public details: %w", errQuery)
+	}
+	detailsByServerID := make(map[string]GameServerStatusPagePublicServerDetails, len(gameServerIDs))
+	for _, gameServer := range gameServers {
+		details := GameServerStatusPagePublicServerDetails{
+			PublicNote: sql.NullString{
+				String: gameServer.PublicStatusNote.GetOrZero(),
+				Valid:  gameServer.PublicStatusNote.IsValue(),
+			},
+			PublicPassword: sql.NullString{
+				String: gameServer.PublicStatusPassword.GetOrZero(),
+				Valid:  gameServer.PublicStatusPassword.IsValue(),
+			},
+		}
+		mapShare := gameServer.R.GameServerMapShare
+		if mapShare != nil {
+			details.MapPublicIdentifier = sql.NullString{String: mapShare.PublicIdentifier, Valid: true}
+			details.MapShareEnabled = mapShare.Enabled
+		}
+		minecraftMap := gameServer.R.GameServerMinecraftMap
+		if minecraftMap != nil {
+			details.MinecraftMapEnabled = minecraftMap.Enabled != 0
+		}
+		detailsByServerID[gameServer.ID] = details
+	}
+	return detailsByServerID, nil
 }
 
 func scanGameServerStatusPage(row *sql.Row) (*GameServerStatusPage, error) {

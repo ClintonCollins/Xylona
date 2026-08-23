@@ -61,6 +61,8 @@ describe('GameServerStatusPageSettingsPanel', () => {
           name: 'Alpha',
           configuredConnectionAddress: '127.0.0.1:25565',
           effectiveConnectionAddress: '127.0.0.1:25565',
+          publicNote: 'Weekend events are active.',
+          publicPassword: 'join-us',
         }),
       ],
     })
@@ -79,11 +81,15 @@ describe('GameServerStatusPageSettingsPanel', () => {
       title: string
       enabled: boolean
       addresses: Record<string, string>
+      notes: Record<string, string>
+      passwords: Record<string, string>
       save: () => Promise<void>
     }
     vm.title = 'Public fleet'
     vm.enabled = true
     vm.addresses = { 'server-1': 'play.example.test:25565' }
+    vm.notes = { 'server-1': 'Bring a friend.' }
+    vm.passwords = { 'server-1': ' public-pass ' }
     await vm.save()
 
     expect(mocks.updateSettings).toHaveBeenCalledWith(
@@ -96,6 +102,8 @@ describe('GameServerStatusPageSettingsPanel', () => {
           expect.objectContaining({
             gameServerId: 'server-1',
             publicConnectionAddress: 'play.example.test:25565',
+            publicNote: 'Bring a friend.',
+            publicPassword: ' public-pass ',
           }),
         ],
       }),
@@ -144,5 +152,34 @@ describe('GameServerStatusPageSettingsPanel', () => {
       type: 'negative',
       message: 'Could not copy the public link.',
     })
+  })
+
+  it('counts Unicode characters for public detail limits', async () => {
+    const settings = create(GameServerStatusPageSettingsSchema, {
+      ownerId: 'owner-1',
+      title: 'Owner fleet',
+      publicIdentifier: 'Owner_Page',
+      servers: [
+        create(GameServerStatusPageSettingsServerSchema, {
+          id: 'server-1',
+          name: 'Alpha',
+        }),
+      ],
+    })
+    mocks.getSettings.mockResolvedValue({ settings })
+    const wrapper = shallowMount(GameServerStatusPageSettingsPanel)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      formValid: boolean
+      notes: Record<string, string>
+      passwords: Record<string, string>
+    }
+
+    vm.notes = { 'server-1': '🎮'.repeat(500) }
+    vm.passwords = { 'server-1': '🔑'.repeat(128) }
+    expect(vm.formValid).toBe(true)
+
+    vm.notes = { 'server-1': '🎮'.repeat(501) }
+    expect(vm.formValid).toBe(false)
   })
 })
