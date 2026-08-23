@@ -237,7 +237,7 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(
 }
 
 func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapshot *node.SevenDaysToDieMapSnapshot) {
-	view.NativeMarkerState = publicSevenDaysToDieWebAPIValueState(snapshot.NativeMarkerState)
+	view.NativeMarkerState = publicSevenDaysToDieTacticalValueState(snapshot.NativeMarkerState)
 	if snapshot.NativeMarkerState == node.SevenDaysToDieWebAPIValueStateAvailable {
 		view.NativeMarkers = make([]*xylona.SevenDaysToDieMapMarker, 0, len(snapshot.NativeMarkers))
 		for _, marker := range snapshot.NativeMarkers {
@@ -246,7 +246,7 @@ func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapsh
 			})
 		}
 	}
-	view.ClaimsState = publicSevenDaysToDieWebAPIValueState(snapshot.ClaimsState)
+	view.ClaimsState = publicSevenDaysToDieTacticalValueState(snapshot.ClaimsState)
 	view.ClaimsSupported = snapshot.ClaimsState == node.SevenDaysToDieWebAPIValueStateAvailable
 	if snapshot.ClaimsState == node.SevenDaysToDieWebAPIValueStateAvailable {
 		view.Claims = make([]*xylona.SevenDaysToDieLandClaim, 0, len(snapshot.Claims))
@@ -257,7 +257,7 @@ func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapsh
 			})
 		}
 	}
-	view.BloodMoonState = publicSevenDaysToDieWebAPIValueState(snapshot.BloodMoonState)
+	view.BloodMoonState = publicSevenDaysToDieTacticalValueState(snapshot.BloodMoonState)
 	if snapshot.BloodMoonState == node.SevenDaysToDieWebAPIValueStateAvailable && snapshot.BloodMoon != nil {
 		view.BloodMoon = &xylona.SevenDaysToDieMapBloodMoon{
 			GameTime: publicSevenDaysToDieGameTime(&snapshot.BloodMoon.GameTime), Active: snapshot.BloodMoon.Active,
@@ -265,14 +265,21 @@ func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapsh
 			NextBloodMoonEnd: publicSevenDaysToDieGameTime(&snapshot.BloodMoon.NextBloodMoonEnd),
 		}
 	}
-	view.HostileState = publicSevenDaysToDieWebAPIValueState(snapshot.HostileState)
+	view.HostileState = publicSevenDaysToDieTacticalValueState(snapshot.HostileState)
 	if snapshot.HostileState == node.SevenDaysToDieWebAPIValueStateAvailable {
 		view.Hostiles = publicSevenDaysToDieMapEntities(snapshot.Hostiles)
 	}
-	view.AnimalState = publicSevenDaysToDieWebAPIValueState(snapshot.AnimalState)
+	view.AnimalState = publicSevenDaysToDieTacticalValueState(snapshot.AnimalState)
 	if snapshot.AnimalState == node.SevenDaysToDieWebAPIValueStateAvailable {
 		view.Animals = publicSevenDaysToDieMapEntities(snapshot.Animals)
 	}
+}
+
+func publicSevenDaysToDieTacticalValueState(state node.SevenDaysToDieWebAPIValueState) xylona.SevenDaysToDieWebAPIValueState {
+	if state == node.SevenDaysToDieWebAPIValueStateUnspecified {
+		return xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
+	}
+	return publicSevenDaysToDieWebAPIValueState(state)
 }
 
 func projectUnavailableSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView) {

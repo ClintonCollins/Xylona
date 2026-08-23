@@ -155,20 +155,28 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
 		return &SevenDaysToDieWebAPIStatus{ConnectionState: discovery.connectionState}, nil
 	}
+	capabilities := projectSevenDaysToDieWebAPICapabilities(discovery.resolver)
+	if !req.IncludeTactical {
+		capabilities.HostileAndAnimalPositions = false
+		capabilities.HostilePositions = false
+		capabilities.AnimalPositions = false
+	}
 	status := &SevenDaysToDieWebAPIStatus{
 		ConnectionState: SevenDaysToDieWebAPIConnectionStateAvailable,
 		APIVersion:      discovery.apiVersion,
-		Capabilities:    projectSevenDaysToDieWebAPICapabilities(discovery.resolver),
+		Capabilities:    capabilities,
 		WorldTimeState:  SevenDaysToDieWebAPIValueStateUnsupported,
-		BloodMoonState:  SevenDaysToDieWebAPIValueStateUnsupported,
 		ObservedAt:      time.Now().UTC(),
+	}
+	if req.IncludeTactical {
+		status.BloodMoonState = SevenDaysToDieWebAPIValueStateUnsupported
 	}
 	errContext := ctx.Err()
 	if errContext != nil {
 		return nil, fmt.Errorf("node: query 7 Days to Die WebAPI discovery: %w", errContext)
 	}
 
-	bloodMoonAdvertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/bloodmoon", method: http.MethodGet})
+	bloodMoonAdvertised := req.IncludeTactical && discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/bloodmoon", method: http.MethodGet})
 	if bloodMoonAdvertised {
 		errBloodMoon := querySevenDaysToDieBloodMoon(discovery.ctx, ctx, discovery.settings, req, status)
 		if errBloodMoon != nil {

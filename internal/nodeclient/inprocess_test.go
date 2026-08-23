@@ -114,27 +114,63 @@ func TestInProcessClientQuerySevenDaysToDieMapHonorsTacticalFlag(t *testing.T) {
 }
 
 func TestInProcessClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
+	bloodMoonRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		var body string
+		switch request.URL.Path {
+		case "/api/openapi/openapi.yaml":
+			body = "openapi: 3.1.0\ninfo:\n  version: V2.2\npaths:\n  /api/bloodmoon:\n    get: {}\n  /api/serverstats:\n    get: {}\n"
+		case "/api/bloodmoon":
+			bloodMoonRequests++
+			body = `{"data":{"gameTime":{"days":7,"hours":22,"minutes":0},"bloodmoonActive":true,"nextBloodmoon":{"days":14,"hours":22,"minutes":0},"nextBloodmoonEnd":{"days":15,"hours":4,"minutes":0}}}`
+		case "/api/serverstats":
+			body = `{"data":{"gameTime":{"days":8,"hours":13,"minutes":37}}}`
+		default:
+			http.NotFound(response, request)
+			return
+		}
+		_, errWrite := response.Write([]byte(body))
+		if errWrite != nil {
+			t.Errorf("write upstream response: %v", errWrite)
+		}
+	}))
+	t.Cleanup(server.Close)
+	serverURL, errURL := url.Parse(server.URL)
+	if errURL != nil {
+		t.Fatalf("parse upstream URL: %v", errURL)
+	}
+	_, port, found := strings.Cut(serverURL.Host, ":")
+	if !found {
+		t.Fatalf("upstream host %q has no port", serverURL.Host)
+	}
 	client, _ := newTestClient(t)
 	directory := t.TempDir()
-	config := `<ServerSettings>
-		<property name="WebDashboardEnabled" value="false" />
-		<property name="WebDashboardPort" value="8082" />
-	</ServerSettings>`
+	config := fmt.Sprintf(`<ServerSettings><property name="WebDashboardEnabled" value="true"/><property name="WebDashboardPort" value="%s" /></ServerSettings>`, port)
 	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
 	if errWrite != nil {
 		t.Fatalf("write server config: %v", errWrite)
 	}
 
-	status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), node.SevenDaysToDieWebAPIStatusQueryRequest{
+	request := node.SevenDaysToDieWebAPIStatusQueryRequest{
 		WorkingDirectory: directory,
 		TokenName:        "controller",
 		TokenSecret:      "web-api-secret",
-	})
+	}
+	status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), request)
 	if errQuery != nil {
 		t.Fatalf("QuerySevenDaysToDieWebAPIStatus: %v", errQuery)
 	}
-	if status == nil || status.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
-		t.Fatalf("status = %+v, want dashboard disabled", status)
+	if status == nil || status.WorldTime == nil || status.WorldTime.Day != 8 ||
+		status.BloodMoonState != node.SevenDaysToDieWebAPIValueStateUnspecified || bloodMoonRequests != 0 {
+		t.Fatalf("viewer status = %+v, Blood Moon requests = %d", status, bloodMoonRequests)
+	}
+	request.IncludeTactical = true
+	tacticalStatus, errTactical := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), request)
+	if errTactical != nil {
+		t.Fatalf("QuerySevenDaysToDieWebAPIStatus(tactical): %v", errTactical)
+	}
+	if tacticalStatus == nil || tacticalStatus.BloodMoonState != node.SevenDaysToDieWebAPIValueStateAvailable || bloodMoonRequests != 1 {
+		t.Fatalf("tactical status = %+v, Blood Moon requests = %d", tacticalStatus, bloodMoonRequests)
 	}
 }
 

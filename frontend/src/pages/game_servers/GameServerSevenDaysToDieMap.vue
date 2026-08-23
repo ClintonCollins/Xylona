@@ -15,6 +15,7 @@ import {
   type SevenDaysToDieMapView,
   type SevenDaysToDieWebAPICapabilities,
   type SevenDaysToDieWebAPIStatus,
+  SevenDaysToDieWebAPIStatusSchema,
   SevenDaysToDieWebAPIValueState,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
@@ -52,6 +53,7 @@ const mapView = ref<SevenDaysToDieMapView | null>(null)
 const loading = ref(false)
 const loadError = ref(false)
 const canManage = ref(false)
+const permissionsLoaded = ref(false)
 const shareOpen = ref(false)
 const currentStatus = shallowRef<SevenDaysToDieWebAPIStatus | null>(null)
 const lastAvailableStatus = shallowRef<SevenDaysToDieWebAPIStatus | null>(null)
@@ -191,9 +193,17 @@ const observationAgeLabel = computed(() => {
   const hours = Math.floor(minutes / 60)
   return `Observed ${hours} hour${hours === 1 ? '' : 's'} ago`
 })
+const visibleCapabilities = computed(() =>
+  canManage.value
+    ? capabilities
+    : capabilities.filter(
+        (capability) =>
+          capability.key !== 'hostilePositions' && capability.key !== 'animalPositions',
+      ),
+)
 const supportedCapabilityCount = computed(
   () =>
-    capabilities.filter(
+    visibleCapabilities.value.filter(
       (capability) => lastAvailableStatus.value?.capabilities?.[capability.key] === true,
     ).length,
 )
@@ -233,6 +243,34 @@ function bloodMoonTimeLabel(gameTime: SevenDaysToDieGameTime | undefined): strin
       : valueStateLabel(state)
 }
 
+function withoutTacticalStatus(status: SevenDaysToDieWebAPIStatus): SevenDaysToDieWebAPIStatus {
+  return create(SevenDaysToDieWebAPIStatusSchema, {
+    ...status,
+    capabilities: status.capabilities
+      ? {
+          ...status.capabilities,
+          hostileAndAnimalPositions: false,
+          hostilePositions: false,
+          animalPositions: false,
+        }
+      : undefined,
+    bloodMoonState:
+      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED,
+    bloodMoonActive: undefined,
+    nextBloodMoon: undefined,
+    nextBloodMoonEnd: undefined,
+  })
+}
+
+function clearRetainedTacticalStatus(): void {
+  if (currentStatus.value !== null) {
+    currentStatus.value = withoutTacticalStatus(currentStatus.value)
+  }
+  if (lastAvailableStatus.value !== null) {
+    lastAvailableStatus.value = withoutTacticalStatus(lastAvailableStatus.value)
+  }
+}
+
 async function loadPermissions(): Promise<void> {
   try {
     const response = await GetXylonaClient().getGameServer(
@@ -241,7 +279,13 @@ async function loadPermissions(): Promise<void> {
     canManage.value =
       response.gameServer?.effectivePermissions.includes('game_server.settings') ?? false
   } catch (unknownError: unknown) {
+    canManage.value = false
     console.error(unknownError)
+  } finally {
+    permissionsLoaded.value = true
+    if (!canManage.value) {
+      clearRetainedTacticalStatus()
+    }
   }
 }
 
@@ -309,16 +353,23 @@ async function loadStatus(): Promise<void> {
     if (!response.status) {
       throw new Error('The WebAPI status response was empty.')
     }
-    currentStatus.value = response.status
+    const status =
+      permissionsLoaded.value && !canManage.value
+        ? withoutTacticalStatus(response.status)
+        : response.status
+    currentStatus.value = status
     statusTransportError.value = false
     if (
-      response.status.connectionState ===
+      status.connectionState ===
       SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE
     ) {
-      lastAvailableStatus.value = response.status
+      lastAvailableStatus.value = status
+    } else {
+      clearRetainedTacticalStatus()
     }
   } catch (unknownError: unknown) {
     currentStatus.value = null
+    clearRetainedTacticalStatus()
     statusTransportError.value = true
     console.error(unknownError)
   } finally {
@@ -416,18 +467,20 @@ onBeforeUnmount(() => {
                 <dt>World time</dt>
                 <dd>{{ worldTimeLabel }}</dd>
               </div>
-              <div data-testid="blood-moon-state">
-                <dt>Blood Moon</dt>
-                <dd>{{ bloodMoonLabel }}</dd>
-              </div>
-              <div>
-                <dt>Next Blood Moon</dt>
-                <dd>{{ nextBloodMoonLabel }}</dd>
-              </div>
-              <div>
-                <dt>Blood Moon end</dt>
-                <dd>{{ nextBloodMoonEndLabel }}</dd>
-              </div>
+              <template v-if="canManage">
+                <div data-testid="blood-moon-state">
+                  <dt>Blood Moon</dt>
+                  <dd>{{ bloodMoonLabel }}</dd>
+                </div>
+                <div>
+                  <dt>Next Blood Moon</dt>
+                  <dd>{{ nextBloodMoonLabel }}</dd>
+                </div>
+                <div>
+                  <dt>Blood Moon end</dt>
+                  <dd>{{ nextBloodMoonEndLabel }}</dd>
+                </div>
+              </template>
               <div>
                 <dt>Observation age</dt>
                 <dd>{{ observationAgeLabel }}</dd>
@@ -437,10 +490,13 @@ onBeforeUnmount(() => {
             <details class="webapi-diagnostics__capabilities" data-testid="webapi-capabilities">
               <summary>
                 <span><q-icon name="fact_check" /> Capability details</span>
-                <span>{{ supportedCapabilityCount }} of {{ capabilities.length }} supported</span>
+                <span
+                  >{{ supportedCapabilityCount }} of
+                  {{ visibleCapabilities.length }} supported</span
+                >
               </summary>
               <ul>
-                <li v-for="capability in capabilities" :key="capability.key">
+                <li v-for="capability in visibleCapabilities" :key="capability.key">
                   <span><q-icon :name="capability.icon" /> {{ capability.label }}</span>
                   <span
                     :class="{

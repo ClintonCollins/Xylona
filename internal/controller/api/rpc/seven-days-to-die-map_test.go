@@ -295,16 +295,42 @@ func TestSevenDaysToDieMapTacticalProjectionAndFailureClearing(t *testing.T) {
 		}
 	}
 
+	fakeNode.QuerySevenDaysToDieMapResult = &node.SevenDaysToDieMapSnapshot{
+		Enabled: true, TileSize: 128, MaxZoom: 4,
+		MapSize: node.SevenDaysToDieMapVector{X: 6144, Y: 255, Z: 6144},
+		Players: []node.SevenDaysToDieMapPlayer{{ID: "old-player", Name: "Alex", Online: true}},
+		NativeMarkers: []node.SevenDaysToDieMapMarker{{
+			ID: "old-marker", Name: "Old marker", Position: node.SevenDaysToDieMapVector{X: 10, Z: 20},
+		}},
+		Claims: []node.SevenDaysToDieLandClaim{{
+			OwnerID: "old-owner", OwnerName: "Old owner", Position: node.SevenDaysToDieMapVector{X: 30, Z: 40},
+		}},
+		BloodMoon: &node.SevenDaysToDieBloodMoon{
+			GameTime:      node.SevenDaysToDieGameTime{Day: 7, Hour: 22},
+			NextBloodMoon: node.SevenDaysToDieGameTime{Day: 14, Hour: 22}, NextBloodMoonEnd: node.SevenDaysToDieGameTime{Day: 15, Hour: 4},
+		},
+		Hostiles: []node.SevenDaysToDieMapEntity{{Name: "Old zombie", Position: node.SevenDaysToDieMapVector{X: 50, Z: 60}}},
+		Animals:  []node.SevenDaysToDieMapEntity{{Name: "Old wolf", Position: node.SevenDaysToDieMapVector{X: 70, Z: 80}}},
+	}
+	oldNodeResponse, errOldNode := fixture.service.GetSevenDaysToDieMap(t.Context(), ownerRequest)
+	if errOldNode != nil {
+		t.Fatalf("GetSevenDaysToDieMap(old node) error = %v", errOldNode)
+	}
+	if len(oldNodeResponse.Msg.GetMap().GetPlayers()) == 0 {
+		t.Fatalf("old-node base map = %+v", oldNodeResponse.Msg.GetMap())
+	}
+	assertSevenDaysToDieTacticalMapUnavailable(t, oldNodeResponse.Msg.GetMap())
+
 	fakeNode.QuerySevenDaysToDieMapErr = errors.New("node disconnected")
 	fallbackResponse, errFallback := fixture.service.GetSevenDaysToDieMap(t.Context(), ownerRequest)
 	if errFallback != nil {
 		t.Fatalf("GetSevenDaysToDieMap(fallback) error = %v", errFallback)
 	}
-	if !fallbackResponse.Msg.GetMap().GetStale() || len(fallbackResponse.Msg.GetMap().GetPlayers()) != 1 {
+	if !fallbackResponse.Msg.GetMap().GetStale() || len(fallbackResponse.Msg.GetMap().GetPlayers()) == 0 {
 		t.Fatalf("fallback map = %+v, want cached base/player snapshot", fallbackResponse.Msg.GetMap())
 	}
 	assertSevenDaysToDieTacticalMapUnavailable(t, fallbackResponse.Msg.GetMap())
-	if len(fakeNode.QuerySevenDaysToDieMapCalls) != 4 || !fakeNode.QuerySevenDaysToDieMapCalls[3].IncludeTactical {
+	if len(fakeNode.QuerySevenDaysToDieMapCalls) != 5 || !fakeNode.QuerySevenDaysToDieMapCalls[4].IncludeTactical {
 		t.Fatalf("fallback map request flags = %+v, want tactical retry", fakeNode.QuerySevenDaysToDieMapCalls)
 	}
 }

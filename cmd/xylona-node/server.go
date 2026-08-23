@@ -897,6 +897,7 @@ func (s *nodeServiceServer) QuerySevenDaysToDieWebAPIStatus(ctx context.Context,
 		WorkingDirectory: req.Msg.GetWorkingDirectory(),
 		TokenName:        req.Msg.GetTokenName(),
 		TokenSecret:      req.Msg.GetTokenSecret(),
+		IncludeTactical:  req.Msg.GetIncludeTactical(),
 	})
 	if errQuery != nil {
 		return nil, translate(errQuery)

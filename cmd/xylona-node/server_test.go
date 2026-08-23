@@ -174,32 +174,68 @@ func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
 func TestNodeServiceServerQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	t.Parallel()
 
+	bloodMoonRequests := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		var body string
+		switch request.URL.Path {
+		case "/api/openapi/openapi.yaml":
+			body = "openapi: 3.1.0\ninfo:\n  version: V2.2\npaths:\n  /api/bloodmoon:\n    get: {}\n  /api/serverstats:\n    get: {}\n"
+		case "/api/bloodmoon":
+			bloodMoonRequests++
+			body = `{"data":{"gameTime":{"days":7,"hours":22,"minutes":0},"bloodmoonActive":true,"nextBloodmoon":{"days":14,"hours":22,"minutes":0},"nextBloodmoonEnd":{"days":15,"hours":4,"minutes":0}}}`
+		case "/api/serverstats":
+			body = `{"data":{"gameTime":{"days":8,"hours":13,"minutes":37}}}`
+		default:
+			http.NotFound(response, request)
+			return
+		}
+		_, errWriteResponse := response.Write([]byte(body))
+		if errWriteResponse != nil {
+			t.Errorf("write upstream response: %v", errWriteResponse)
+		}
+	}))
+	t.Cleanup(upstream.Close)
+	upstreamURL, errURL := neturl.Parse(upstream.URL)
+	if errURL != nil {
+		t.Fatalf("parse upstream URL: %v", errURL)
+	}
+	_, port, found := strings.Cut(upstreamURL.Host, ":")
+	if !found {
+		t.Fatalf("upstream host %q has no port", upstreamURL.Host)
+	}
+	directory := t.TempDir()
+	config := fmt.Sprintf(`<ServerSettings><property name="WebDashboardEnabled" value="true"/><property name="WebDashboardPort" value="%s" /></ServerSettings>`, port)
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
 	const secret = "test-secret"
 	url, fingerprint := newTestServer(t, secret)
 	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
 	if errNew != nil {
 		t.Fatalf("NewGRPCClient: %v", errNew)
 	}
-	directory := t.TempDir()
-	config := `<ServerSettings>
-		<property name="WebDashboardEnabled" value="false" />
-		<property name="WebDashboardPort" value="8082" />
-	</ServerSettings>`
-	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
-	if errWrite != nil {
-		t.Fatalf("write server config: %v", errWrite)
-	}
-
-	status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), node.SevenDaysToDieWebAPIStatusQueryRequest{
+	request := node.SevenDaysToDieWebAPIStatusQueryRequest{
 		WorkingDirectory: directory,
 		TokenName:        "controller",
 		TokenSecret:      "web-api-secret",
-	})
+		IncludeTactical:  true,
+	}
+	status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), request)
 	if errQuery != nil {
 		t.Fatalf("QuerySevenDaysToDieWebAPIStatus: %v", errQuery)
 	}
-	if status == nil || status.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
-		t.Fatalf("status = %+v, want dashboard disabled", status)
+	if status == nil || status.BloodMoonState != node.SevenDaysToDieWebAPIValueStateAvailable || bloodMoonRequests != 1 {
+		t.Fatalf("tactical status = %+v, Blood Moon requests = %d", status, bloodMoonRequests)
+	}
+	request.IncludeTactical = false
+	viewerStatus, errViewer := client.QuerySevenDaysToDieWebAPIStatus(t.Context(), request)
+	if errViewer != nil {
+		t.Fatalf("QuerySevenDaysToDieWebAPIStatus(viewer): %v", errViewer)
+	}
+	if viewerStatus == nil || viewerStatus.WorldTime == nil || viewerStatus.WorldTime.Day != 8 ||
+		viewerStatus.BloodMoonState != node.SevenDaysToDieWebAPIValueStateUnspecified || bloodMoonRequests != 1 {
+		t.Fatalf("viewer status = %+v, Blood Moon requests = %d", viewerStatus, bloodMoonRequests)
 	}
 }
 

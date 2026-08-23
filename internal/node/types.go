@@ -694,6 +694,7 @@ type SevenDaysToDieWebAPIStatusQueryRequest struct {
 	WorkingDirectory string
 	TokenName        string
 	TokenSecret      string
+	IncludeTactical  bool
 }
 
 // SevenDaysToDiePlayersQueryRequest contains only node-local player API access details.

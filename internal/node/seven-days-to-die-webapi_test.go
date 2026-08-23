@@ -96,6 +96,7 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			WorkingDirectory: workingDirectory,
 			TokenName:        tokenName,
 			TokenSecret:      tokenSecret,
+			IncludeTactical:  true,
 		})
 		if errQuery != nil {
 			t.Fatalf("QuerySevenDaysToDieWebAPIStatus() error = %v", errQuery)
@@ -157,6 +158,53 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 		}
 	})
 
+	t.Run("keeps viewer diagnostics without fetching tactical status", func(t *testing.T) {
+		paths := make([]string, 0, 3)
+		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
+			paths = append(paths, request.URL.Path)
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				writeSevenDaysToDieTestResponse(t, response, `openapi: 3.1.0
+info:
+  version: V2.2
+paths:
+  /api/player:
+    get: {}
+  /api/bloodmoon:
+    get: {}
+  /api/hostile:
+    get: {}
+  /api/animal:
+    get: {}
+  /api/serverstats:
+    get: {}
+`)
+			case "/api/bloodmoon":
+				t.Fatal("view-only status requested the Blood Moon endpoint")
+			case "/api/serverstats":
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"gameTime":{"days":8,"hours":13,"minutes":37}}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}, "")
+
+		status, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(t.Context(), SevenDaysToDieWebAPIStatusQueryRequest{
+			WorkingDirectory: workingDirectory,
+		})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieWebAPIStatus() error = %v", errQuery)
+		}
+		if status.WorldTimeState != SevenDaysToDieWebAPIValueStateAvailable || status.WorldTime == nil || status.WorldTime.Day != 8 ||
+			!status.Capabilities.PlayerData || status.Capabilities.HostileAndAnimalPositions || status.Capabilities.HostilePositions ||
+			status.Capabilities.AnimalPositions || status.BloodMoonState != SevenDaysToDieWebAPIValueStateUnspecified ||
+			status.BloodMoonActive != nil || status.NextBloodMoon != nil || status.NextBloodMoonEnd != nil {
+			t.Fatalf("view-only status = %+v", status)
+		}
+		if slices.Contains(paths, "/api/bloodmoon") {
+			t.Fatalf("view-only request paths = %v", paths)
+		}
+	})
+
 	t.Run("falls back to server statistics when Blood Moon access is denied", func(t *testing.T) {
 		workingDirectory := startSevenDaysToDieWebAPITestServer(t, func(response http.ResponseWriter, request *http.Request) {
 			switch request.URL.Path {
@@ -178,7 +226,7 @@ paths:
 				http.NotFound(response, request)
 			}
 		}, "")
-		status, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(t.Context(), SevenDaysToDieWebAPIStatusQueryRequest{WorkingDirectory: workingDirectory})
+		status, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(t.Context(), SevenDaysToDieWebAPIStatusQueryRequest{WorkingDirectory: workingDirectory, IncludeTactical: true})
 		if errQuery != nil {
 			t.Fatalf("QuerySevenDaysToDieWebAPIStatus() error = %v", errQuery)
 		}
@@ -212,7 +260,7 @@ paths:
 				http.NotFound(response, request)
 			}
 		}, "")
-		status, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(t.Context(), SevenDaysToDieWebAPIStatusQueryRequest{WorkingDirectory: workingDirectory})
+		status, errQuery := new(Node).QuerySevenDaysToDieWebAPIStatus(t.Context(), SevenDaysToDieWebAPIStatusQueryRequest{WorkingDirectory: workingDirectory, IncludeTactical: true})
 		if errQuery != nil {
 			t.Fatalf("QuerySevenDaysToDieWebAPIStatus() error = %v", errQuery)
 		}

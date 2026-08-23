@@ -909,6 +909,7 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 				WorkingDirectory: "C:/servers/7dtd",
 				TokenName:        "controller",
 				TokenSecret:      "web-api-secret",
+				IncludeTactical:  true,
 			})
 			if errQuery != nil {
 				t.Fatalf("QuerySevenDaysToDieWebAPIStatus: %v", errQuery)
@@ -940,7 +941,8 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			request := rec.webAPIStatusReq
 			authHeaders := append([]string(nil), rec.authHeaders...)
 			rec.mu.Unlock()
-			if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" || request.GetTokenSecret() != "web-api-secret" {
+			if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" ||
+				request.GetTokenSecret() != "web-api-secret" || !request.GetIncludeTactical() {
 				t.Fatal("request did not preserve the expected directory and credentials")
 			}
 			if !slices.Equal(authHeaders, []string{"Bearer node-secret"}) {

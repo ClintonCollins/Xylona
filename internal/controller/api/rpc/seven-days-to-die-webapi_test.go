@@ -150,6 +150,14 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 			t.Fatalf("insert remote node IP: %v", errIP)
 		}
 		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-remote")
+		grantRequest := connect.NewRequest(&xylona.GrantGameServerAccessRequest{
+			GameServerId: "server-local-1", UserId: "user-other", RoleId: "viewer",
+		})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, grantRequest, "user-owner")
+		_, errGrant := fixture.service.GrantGameServerAccess(t.Context(), grantRequest)
+		if errGrant != nil {
+			t.Fatalf("grant viewer role: %v", errGrant)
+		}
 
 		active := false
 		observedAt := time.Date(2026, time.August, 22, 18, 30, 0, 0, time.UTC)
@@ -208,7 +216,7 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 			t.Fatalf("remote node query call count = %d, want 1", len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls))
 		}
 		call := remoteClient.QuerySevenDaysToDieWebAPIStatusCalls[0]
-		if call.WorkingDirectory != "/tmp/server-local-1" || call.TokenName == "" || call.TokenSecret == "" {
+		if call.WorkingDirectory != "/tmp/server-local-1" || call.TokenName == "" || call.TokenSecret == "" || !call.IncludeTactical {
 			t.Fatal("node query did not include the working directory and derived credentials")
 		}
 
@@ -232,6 +240,34 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		}
 		if strings.Contains(string(responseJSON), call.TokenName) || strings.Contains(string(responseJSON), call.TokenSecret) {
 			t.Fatal("response exposed WebAPI credentials")
+		}
+
+		viewerRequest := connect.NewRequest(&xylona.GetSevenDaysToDieWebAPIStatusRequest{GameServerId: "server-local-1"})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, viewerRequest, "user-other")
+		viewerResponse, errViewer := fixture.service.GetSevenDaysToDieWebAPIStatus(t.Context(), viewerRequest)
+		if errViewer != nil {
+			t.Fatalf("GetSevenDaysToDieWebAPIStatus(viewer) error = %v", errViewer)
+		}
+		if len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls) != 2 || remoteClient.QuerySevenDaysToDieWebAPIStatusCalls[1].IncludeTactical {
+			t.Fatalf("status tactical request flags = %+v, want owner true then viewer false", remoteClient.QuerySevenDaysToDieWebAPIStatusCalls)
+		}
+		viewerStatus := viewerResponse.Msg.GetStatus()
+		viewerCapabilities := viewerStatus.GetCapabilities()
+		if viewerStatus.GetApiVersion() != "1.4.2" || viewerStatus.GetWorldTime().GetDay() != 12 ||
+			!viewerCapabilities.GetPlayerData() || !viewerCapabilities.GetReportedMods() ||
+			viewerCapabilities.GetHostileAndAnimalPositions() || viewerCapabilities.GetHostilePositions() || viewerCapabilities.GetAnimalPositions() ||
+			viewerStatus.GetBloodMoonState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED ||
+			viewerStatus.BloodMoonActive != nil || viewerStatus.GetNextBloodMoon() != nil || viewerStatus.GetNextBloodMoonEnd() != nil {
+			t.Fatalf("viewer status was not narrowly redacted: %+v", viewerStatus)
+		}
+		viewerJSON, errViewerMarshal := protojson.Marshal(viewerResponse.Msg)
+		if errViewerMarshal != nil {
+			t.Fatalf("marshal viewer response: %v", errViewerMarshal)
+		}
+		for _, tacticalField := range []string{"bloodMoon", "hostileAndAnimalPositions", "hostilePositions", "animalPositions"} {
+			if strings.Contains(string(viewerJSON), tacticalField) {
+				t.Fatalf("viewer response wire exposed tactical field %q: %s", tacticalField, viewerJSON)
+			}
 		}
 	})
 }

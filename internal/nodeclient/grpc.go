@@ -788,6 +788,7 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, st
 		WorkingDirectory: statusReq.WorkingDirectory,
 		TokenName:        statusReq.TokenName,
 		TokenSecret:      statusReq.TokenSecret,
+		IncludeTactical:  statusReq.IncludeTactical,
 	})
 	resp, errRPC := c.connectClient.QuerySevenDaysToDieWebAPIStatus(ctx, req)
 	if errRPC != nil {

@@ -35,24 +35,25 @@ func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
 	if gameServer.GameID != sevenDaysToDieGameID {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("web API diagnostics are only available for 7 Days to Die servers"))
 	}
+	includeTactical := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings) == nil
 
 	if gameServer.Status == xylona.Status_OFFLINE.String() {
-		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline), nil
+		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline, includeTactical), nil
 	}
 
 	client, errClient := xs.resolveNodeClient(gameServer)
 	if errClient != nil {
-		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable), nil //nolint:nilerr // Node reachability is a typed operational state.
+		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable, includeTactical), nil //nolint:nilerr // Node reachability is a typed operational state.
 	}
 	process, found, errProcess := client.GetProcessSnapshot(ctx, gameServer.ID)
 	if errProcess != nil {
 		if errors.Is(errProcess, context.Canceled) || errors.Is(errProcess, context.DeadlineExceeded) {
 			return nil, connect.NewError(contextConnectCode(errProcess), errProcess)
 		}
-		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable), nil
+		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable, includeTactical), nil
 	}
 	if !found || process == nil || process.Status != xylona.Status_ONLINE.String() {
-		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline), nil
+		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline, includeTactical), nil
 	}
 	if xs.actionsInst == nil {
 		return nil, internalErrf("7 Days to Die WebAPI credentials are unavailable")
@@ -67,56 +68,65 @@ func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
 		WorkingDirectory: gameServer.Directory,
 		TokenName:        tokenName,
 		TokenSecret:      tokenSecret,
+		IncludeTactical:  includeTactical,
 	})
 	if errQuery != nil {
 		if errors.Is(errQuery, context.Canceled) || errors.Is(errQuery, context.DeadlineExceeded) {
 			return nil, connect.NewError(contextConnectCode(errQuery), errQuery)
 		}
-		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable), nil
+		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable, includeTactical), nil
 	}
 	if status == nil {
 		return nil, internalErrf("node returned an empty 7 Days to Die WebAPI status")
 	}
 
 	return connect.NewResponse(&xylona.GetSevenDaysToDieWebAPIStatusResponse{
-		Status: publicSevenDaysToDieWebAPIStatus(status),
+		Status: publicSevenDaysToDieWebAPIStatus(status, includeTactical),
 	}), nil
 }
 
-func sevenDaysToDieWebAPIStateResponse(state node.SevenDaysToDieWebAPIConnectionState) *connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse] {
+func sevenDaysToDieWebAPIStateResponse(
+	state node.SevenDaysToDieWebAPIConnectionState,
+	includeTactical bool,
+) *connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse] {
+	status := &xylona.SevenDaysToDieWebAPIStatus{
+		ConnectionState: publicSevenDaysToDieWebAPIConnectionState(state),
+		Capabilities:    &xylona.SevenDaysToDieWebAPICapabilities{},
+		WorldTimeState:  xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
+	}
+	if includeTactical {
+		status.BloodMoonState = xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
+	}
 	return connect.NewResponse(&xylona.GetSevenDaysToDieWebAPIStatusResponse{
-		Status: &xylona.SevenDaysToDieWebAPIStatus{
-			ConnectionState: publicSevenDaysToDieWebAPIConnectionState(state),
-			Capabilities:    &xylona.SevenDaysToDieWebAPICapabilities{},
-			WorldTimeState:  xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
-			BloodMoonState:  xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
-		},
+		Status: status,
 	})
 }
 
-func publicSevenDaysToDieWebAPIStatus(status *node.SevenDaysToDieWebAPIStatus) *xylona.SevenDaysToDieWebAPIStatus {
+func publicSevenDaysToDieWebAPIStatus(status *node.SevenDaysToDieWebAPIStatus, includeTactical bool) *xylona.SevenDaysToDieWebAPIStatus {
 	result := &xylona.SevenDaysToDieWebAPIStatus{
 		ConnectionState: publicSevenDaysToDieWebAPIConnectionState(status.ConnectionState),
 		ApiVersion:      status.APIVersion,
 		Capabilities: &xylona.SevenDaysToDieWebAPICapabilities{
-			PlayerData:                status.Capabilities.PlayerData,
-			RuntimeSettings:           status.Capabilities.RuntimeSettings,
-			NativeLog:                 status.Capabilities.NativeLog,
-			WorldPopulation:           status.Capabilities.WorldPopulation,
-			HostileAndAnimalPositions: status.Capabilities.HostileAndAnimalPositions,
-			HostilePositions:          status.Capabilities.HostilePositions,
-			AnimalPositions:           status.Capabilities.AnimalPositions,
-			AccessControl:             status.Capabilities.AccessControl,
-			GamePermissions:           status.Capabilities.GamePermissions,
-			ReportedMods:              status.Capabilities.ReportedMods,
+			PlayerData:      status.Capabilities.PlayerData,
+			RuntimeSettings: status.Capabilities.RuntimeSettings,
+			NativeLog:       status.Capabilities.NativeLog,
+			WorldPopulation: status.Capabilities.WorldPopulation,
+			AccessControl:   status.Capabilities.AccessControl,
+			GamePermissions: status.Capabilities.GamePermissions,
+			ReportedMods:    status.Capabilities.ReportedMods,
 		},
-		WorldTimeState:   publicSevenDaysToDieWebAPIValueState(status.WorldTimeState),
-		WorldTime:        publicSevenDaysToDieGameTime(status.WorldTime),
-		BloodMoonState:   publicSevenDaysToDieWebAPIValueState(status.BloodMoonState),
-		NextBloodMoon:    publicSevenDaysToDieGameTime(status.NextBloodMoon),
-		NextBloodMoonEnd: publicSevenDaysToDieGameTime(status.NextBloodMoonEnd),
+		WorldTimeState: publicSevenDaysToDieWebAPIValueState(status.WorldTimeState),
+		WorldTime:      publicSevenDaysToDieGameTime(status.WorldTime),
 	}
-	if status.BloodMoonActive != nil {
+	if includeTactical {
+		result.Capabilities.HostileAndAnimalPositions = status.Capabilities.HostileAndAnimalPositions
+		result.Capabilities.HostilePositions = status.Capabilities.HostilePositions
+		result.Capabilities.AnimalPositions = status.Capabilities.AnimalPositions
+		result.BloodMoonState = publicSevenDaysToDieWebAPIValueState(status.BloodMoonState)
+		result.NextBloodMoon = publicSevenDaysToDieGameTime(status.NextBloodMoon)
+		result.NextBloodMoonEnd = publicSevenDaysToDieGameTime(status.NextBloodMoonEnd)
+	}
+	if includeTactical && status.BloodMoonActive != nil {
 		active := *status.BloodMoonActive
 		result.BloodMoonActive = &active
 	}

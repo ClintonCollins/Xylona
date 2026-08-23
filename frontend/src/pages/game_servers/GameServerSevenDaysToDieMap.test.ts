@@ -76,6 +76,9 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
   })
 
   it('loads immediately and renders available diagnostics as text', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { effectivePermissions: ['game_server.view', 'game_server.settings'] },
+    })
     let resolveStatus: ((value: { status: typeof availableStatus }) => void) | undefined
     mocks.getStatus.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -177,6 +180,9 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
       text: 'Unavailable',
     },
   ])('renders $name Blood Moon access independently', async ({ state, text }) => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { effectivePermissions: ['game_server.view', 'game_server.settings'] },
+    })
     mocks.getStatus.mockResolvedValue({
       status: create(SevenDaysToDieWebAPIStatusSchema, {
         ...availableStatus,
@@ -196,6 +202,9 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
   })
 
   it('retains the last available details and marks them stale after a later failure', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { effectivePermissions: ['game_server.view', 'game_server.settings'] },
+    })
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mocks.getStatus.mockResolvedValueOnce({ status: availableStatus })
     mocks.getStatus.mockRejectedValueOnce(new Error('node disconnected'))
@@ -210,10 +219,16 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     expect(wrapper.text()).toContain('Last successful observation')
     expect(wrapper.text()).toContain('API V2.2')
     expect(wrapper.text()).toContain('Day 42, 13:07')
+    expect(wrapper.text()).not.toContain('Inactive')
+    expect(wrapper.text()).not.toContain('Day 49, 22:00')
+    expect(wrapper.text()).not.toContain('Day 50, 04:30')
     wrapper.unmount()
   })
 
   it('shows a typed failure while retaining stale details', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { effectivePermissions: ['game_server.view', 'game_server.settings'] },
+    })
     mocks.getStatus.mockResolvedValueOnce({ status: availableStatus }).mockResolvedValueOnce({
       status: create(SevenDaysToDieWebAPIStatusSchema, {
         connectionState:
@@ -229,6 +244,30 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     expect(wrapper.text()).toContain('Server offline')
     expect(wrapper.text()).toContain('Last successful observation')
     expect(wrapper.text()).toContain('API V2.2')
+    expect(wrapper.text()).not.toContain('Inactive')
+    expect(wrapper.text()).not.toContain('Day 49, 22:00')
+    wrapper.unmount()
+  })
+
+  it('keeps viewer diagnostics while never displaying tactical status from a malformed response', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { effectivePermissions: ['game_server.view'] },
+    })
+    mocks.getStatus.mockResolvedValue({ status: availableStatus })
+
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('WebAPI available')
+    expect(wrapper.text()).toContain('API V2.2')
+    expect(wrapper.text()).toContain('Day 42, 13:07')
+    expect(wrapper.find('[data-testid="blood-moon-state"]').exists()).toBe(false)
+    const details = wrapper.get('[data-testid="webapi-capabilities"]')
+    expect(details.text()).toContain('Player data')
+    expect(details.text()).not.toContain('Hostile positions')
+    expect(details.text()).not.toContain('Animal positions')
+    expect(wrapper.text()).not.toContain('Inactive')
+    expect(wrapper.text()).not.toContain('Day 49, 22:00')
     wrapper.unmount()
   })
 
