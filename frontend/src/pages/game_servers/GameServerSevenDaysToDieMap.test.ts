@@ -4,10 +4,12 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  SevenDaysToDieMapViewSchema,
   SevenDaysToDieWebAPIConnectionState,
   SevenDaysToDieWebAPIStatusSchema,
   SevenDaysToDieWebAPIValueState,
 } from '@/proto/xylona_pb'
+import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
 import GameServerSevenDaysToDieMap from './GameServerSevenDaysToDieMap.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -253,5 +255,62 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     await vi.advanceTimersByTimeAsync(30_000)
     expect(mocks.getStatus).toHaveBeenCalledTimes(3)
     expect(mocks.getMap).toHaveBeenCalledTimes(7)
+  })
+
+  it('clears tactical data immediately after a rejected map poll while retaining base data', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const tacticalMap = create(SevenDaysToDieMapViewSchema, {
+      enabled: true,
+      tileSize: 128,
+      maxZoom: 4,
+      mapSize: { x: 6144, z: 6144 },
+      players: [{ id: 'player-1', name: 'Alex', online: true, position: { x: 1, z: 2 } }],
+      nativeMarkerState:
+        SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+      nativeMarkers: [{ id: 'marker-1', name: 'Trader', x: 10, z: 20 }],
+      claimsState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+      claims: [{ ownerName: 'Owner', size: 41, position: { x: 30, z: 40 } }],
+      bloodMoonState:
+        SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+      bloodMoon: {
+        gameTime: { day: 7, hour: 22 },
+        nextBloodMoon: { day: 14, hour: 22 },
+        nextBloodMoonEnd: { day: 15, hour: 4 },
+      },
+      hostileState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+      hostiles: [{ name: 'Zombie', position: { x: 50, z: 60 } }],
+      animalState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+      animals: [{ name: 'Wolf', position: { x: 70, z: 80 } }],
+    })
+    mocks.getMap
+      .mockResolvedValueOnce({ map: tacticalMap })
+      .mockRejectedValueOnce(new Error('node disconnected'))
+
+    const wrapper = mountPage()
+    await flushPromises()
+    let mapProps = wrapper.getComponent(SevenDaysToDieLiveMap).props('view')
+    expect(mapProps.players).toHaveLength(1)
+    expect(mapProps.hostiles).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flushPromises()
+    mapProps = wrapper.getComponent(SevenDaysToDieLiveMap).props('view')
+    const unavailable =
+      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
+    expect(mapProps.players).toHaveLength(1)
+    expect(mapProps.nativeMarkers).toHaveLength(0)
+    expect(mapProps.claims).toHaveLength(0)
+    expect(mapProps.bloodMoon).toBeUndefined()
+    expect(mapProps.hostiles).toHaveLength(0)
+    expect(mapProps.animals).toHaveLength(0)
+    expect([
+      mapProps.nativeMarkerState,
+      mapProps.claimsState,
+      mapProps.bloodMoonState,
+      mapProps.hostileState,
+      mapProps.animalState,
+    ]).toEqual([unavailable, unavailable, unavailable, unavailable, unavailable])
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
   })
 })

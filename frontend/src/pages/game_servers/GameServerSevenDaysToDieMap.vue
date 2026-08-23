@@ -257,11 +257,40 @@ async function loadMap(): Promise<void> {
     mapView.value = response.map ?? null
     loadError.value = false
   } catch (unknownError: unknown) {
+    clearTacticalMapAfterTransportFailure(mapView.value)
     loadError.value = true
     console.error(unknownError)
   } finally {
     loading.value = false
   }
+}
+
+function clearTacticalMapAfterTransportFailure(view: SevenDaysToDieMapView | null): void {
+  if (view === null) return
+  const unspecified =
+    SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED
+  const hadTacticalProjection = [
+    view.nativeMarkerState,
+    view.claimsState,
+    view.bloodMoonState,
+    view.hostileState,
+    view.animalState,
+  ].some((state) => state !== unspecified)
+  if (!hadTacticalProjection) return
+
+  const unavailable =
+    SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
+  view.nativeMarkers = []
+  view.nativeMarkerState = unavailable
+  view.claims = []
+  view.claimsSupported = false
+  view.claimsState = unavailable
+  view.bloodMoon = undefined
+  view.bloodMoonState = unavailable
+  view.hostiles = []
+  view.hostileState = unavailable
+  view.animals = []
+  view.animalState = unavailable
 }
 
 async function loadStatus(): Promise<void> {

@@ -28,10 +28,7 @@ func TestNodeSevenDaysToDieMap(t *testing.T) {
 			writeSevenDaysToDieTestResponse(t, response, `{"data":{"enabled":true,"mapBlockSize":128,"maxZoom":4,"mapSize":{"x":6144,"y":255,"z":6144}},"meta":{"serverTime":"Day 2, 09:15"}}`)
 		case "/api/player":
 			writeSevenDaysToDieTestResponse(t, response, `{"data":{"players":[{"entityId":7,"name":"Clinton","online":true,"platformId":{"combinedString":"Steam_123"},"position":{"x":10.5,"y":42,"z":-9.25}}]}}`)
-		case "/api/markers":
-			receivedUnusedAPI = request.URL.Path
-			http.NotFound(response, request)
-		case "/api/getlandclaims":
+		case "/api/openapi/openapi.yaml", "/api/markers", "/api/getlandclaims", "/api/bloodmoon", "/api/hostile", "/api/animal":
 			receivedUnusedAPI = request.URL.Path
 			http.NotFound(response, request)
 		case "/map/4/1/-2.png":
@@ -132,29 +129,36 @@ paths:
 	deep := `{"data":[{"id":"` + markerID + `","x":1,"y":2,"extra":` + strings.Repeat("[", 13) + `0` + strings.Repeat("]", 13) + `}]}`
 	wide := `{"data":[{"id":"` + markerID + `","x":1,"y":2,` + strings.Repeat(`"a":0,`, sevenDaysToDieMapContainerEntryLimit) + `"z":0}]}`
 	overCount := `{"data":[` + strings.TrimSuffix(strings.Repeat(`{"id":"`+markerID+`","x":1,"y":2},`, sevenDaysToDieMapItemLimit+1), ",") + `]}`
+	overEntityCount := `{"data":[` + strings.TrimSuffix(strings.Repeat(`{"id":1,"name":"Wolf","position":{"x":1,"y":2,"z":3}},`, sevenDaysToDieMapItemLimit+1), ",") + `]}`
 	tests := []struct {
-		name          string
-		openAPI       string
-		path          string
-		statusCode    int
-		body          string
-		wantState     SevenDaysToDieWebAPIValueState
-		wantHostile   SevenDaysToDieWebAPIValueState
-		wantAvailable bool
+		name       string
+		openAPI    string
+		path       string
+		statusCode int
+		body       string
+		wantState  SevenDaysToDieWebAPIValueState
 	}{
-		{name: "available", openAPI: fullOpenAPI, wantState: SevenDaysToDieWebAPIValueStateAvailable, wantAvailable: true},
+		{name: "available", openAPI: fullOpenAPI, wantState: SevenDaysToDieWebAPIValueStateAvailable},
 		{name: "unsupported", openAPI: strings.Replace(fullOpenAPI, "  /api/markers:\n    get: {}\n", "", 1), path: "/api/markers", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
 		{name: "upstream permission", openAPI: fullOpenAPI, path: "/api/markers", statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
-		{name: "hostile permission is independent", openAPI: fullOpenAPI, path: "/api/hostile", statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStateAvailable, wantHostile: SevenDaysToDieWebAPIValueStatePermissionDenied},
-		{name: "malformed", openAPI: fullOpenAPI, path: "/api/markers", body: `{"data":[`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
-		{name: "oversized", openAPI: fullOpenAPI, path: "/api/markers", body: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "hostile permission is independent", openAPI: fullOpenAPI, path: "/api/hostile", statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
+		{name: "marker schema", openAPI: fullOpenAPI, path: "/api/markers", body: `{"data":[{"x":1,"y":2}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "claim schema", openAPI: fullOpenAPI, path: "/api/getlandclaims", body: `{"data":{"claimowners":[]}}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "blood moon schema", openAPI: fullOpenAPI, path: "/api/bloodmoon", body: `{"data":{"gameTime":{"days":7,"hours":22,"minutes":0},"bloodmoonActive":true}}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "hostile schema", openAPI: fullOpenAPI, path: "/api/hostile", body: `{"data":[{"id":1,"name":"Zombie"}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "animal schema", openAPI: fullOpenAPI, path: "/api/animal", body: `{"data":[{"id":2,"name":"","position":{"x":1,"y":2,"z":3}}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "malformed JSON", openAPI: fullOpenAPI, path: "/api/markers", body: `{"data":[`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "oversized claim response", openAPI: fullOpenAPI, path: "/api/getlandclaims", body: strings.Repeat("x", sevenDaysToDieWebAPIResponseLimit+1), wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "wide", openAPI: fullOpenAPI, path: "/api/markers", body: wide, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
-		{name: "deep", openAPI: fullOpenAPI, path: "/api/markers", body: deep, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
-		{name: "count", openAPI: fullOpenAPI, path: "/api/markers", body: overCount, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "deep hostile response", openAPI: fullOpenAPI, path: "/api/hostile", body: deep, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "marker count", openAPI: fullOpenAPI, path: "/api/markers", body: overCount, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "animal count", openAPI: fullOpenAPI, path: "/api/animal", body: overEntityCount, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "string", openAPI: fullOpenAPI, path: "/api/markers", body: `{"data":[{"id":"` + markerID + `","name":"` + strings.Repeat("x", sevenDaysToDieMapTextLimit+1) + `","x":1,"y":2}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
-		{name: "non finite", openAPI: fullOpenAPI, path: "/api/markers", body: `{"data":[{"id":"` + markerID + `","x":1e1000,"y":2}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "non finite hostile", openAPI: fullOpenAPI, path: "/api/hostile", body: `{"data":[{"id":1,"name":"Zombie","position":{"x":1e1000,"y":2,"z":3}}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "non integer compatibility shape", openAPI: fullOpenAPI, path: "/api/markers", body: `{"data":[{"id":"` + markerID + `","x":1.5,"y":2}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
-		{name: "out of map", openAPI: fullOpenAPI, path: "/api/markers", body: `{"data":[{"id":"` + markerID + `","x":4000,"y":2}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "out of map claim", openAPI: fullOpenAPI, path: "/api/getlandclaims", body: `{"data":{"claimsize":41,"claimowners":[{"steamid":"Steam_1","claimactive":true,"playername":"Alex","claims":[{"x":4000,"y":5,"z":40}]}]}}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "out of map animal", openAPI: fullOpenAPI, path: "/api/animal", body: `{"data":[{"id":2,"name":"Wolf","position":{"x":4000,"y":2,"z":3}}]}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
+		{name: "blood moon time range", openAPI: fullOpenAPI, path: "/api/bloodmoon", body: `{"data":{"gameTime":{"days":7,"hours":24,"minutes":0},"bloodmoonActive":true,"nextBloodmoon":{"days":14,"hours":22,"minutes":0},"nextBloodmoonEnd":{"days":15,"hours":4,"minutes":30}}}`, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -206,22 +210,41 @@ paths:
 			}
 
 			snapshot, errQuery := new(Node).QuerySevenDaysToDieMap(t.Context(), SevenDaysToDieMapQueryRequest{
-				WorkingDirectory: workingDirectory, TokenName: "map-token", TokenSecret: "map-secret",
+				WorkingDirectory: workingDirectory, TokenName: "map-token", TokenSecret: "map-secret", IncludeTactical: true,
 			})
 			if errQuery != nil {
 				t.Fatalf("QuerySevenDaysToDieMap() error = %v", errQuery)
 			}
-			if len(snapshot.Players) != 1 || snapshot.AnimalState != SevenDaysToDieWebAPIValueStateAvailable {
+			if len(snapshot.Players) != 1 {
 				t.Fatalf("base/independent overlays unavailable after optional failure: %+v", snapshot)
 			}
-			if snapshot.NativeMarkerState != test.wantState {
-				t.Fatalf("NativeMarkerState = %v, want %v", snapshot.NativeMarkerState, test.wantState)
+			targetPath := test.path
+			if targetPath == "" {
+				targetPath = "/api/markers"
 			}
-			if test.wantHostile != SevenDaysToDieWebAPIValueStateUnspecified && snapshot.HostileState != test.wantHostile {
-				t.Fatalf("HostileState = %v, want %v", snapshot.HostileState, test.wantHostile)
+			states := map[string]SevenDaysToDieWebAPIValueState{
+				"/api/markers": snapshot.NativeMarkerState, "/api/getlandclaims": snapshot.ClaimsState,
+				"/api/bloodmoon": snapshot.BloodMoonState, "/api/hostile": snapshot.HostileState, "/api/animal": snapshot.AnimalState,
 			}
-			if test.wantAvailable && (len(snapshot.NativeMarkers) != 1 || len(snapshot.Claims) != 1 || snapshot.BloodMoon == nil || len(snapshot.Hostiles) != 1 || len(snapshot.Animals) != 1) {
-				t.Fatalf("available tactical snapshot = %+v", snapshot)
+			counts := map[string]int{
+				"/api/markers": len(snapshot.NativeMarkers), "/api/getlandclaims": len(snapshot.Claims),
+				"/api/bloodmoon": 0, "/api/hostile": len(snapshot.Hostiles), "/api/animal": len(snapshot.Animals),
+			}
+			if snapshot.BloodMoon != nil {
+				counts["/api/bloodmoon"] = 1
+			}
+			for path := range defaultBodies {
+				wantState := SevenDaysToDieWebAPIValueStateAvailable
+				wantCount := 1
+				if path == targetPath {
+					wantState = test.wantState
+					if wantState != SevenDaysToDieWebAPIValueStateAvailable {
+						wantCount = 0
+					}
+				}
+				if states[path] != wantState || counts[path] != wantCount {
+					t.Fatalf("overlay %s = state %v count %d, want state %v count %d; snapshot %+v", path, states[path], counts[path], wantState, wantCount, snapshot)
+				}
 			}
 			for key := range requested {
 				if !strings.HasPrefix(key, http.MethodGet+" ") {

@@ -243,8 +243,8 @@ func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T
 		t.Fatalf("dashboard calls = %d, want 1", len(remoteClient.QuerySevenDaysToDieMapCalls))
 	}
 	request := remoteClient.QuerySevenDaysToDieMapCalls[0]
-	if request.WorkingDirectory != directory || request.TokenName == "" || request.TokenSecret == "" {
-		t.Fatal("dashboard request is missing its directory or managed credentials")
+	if request.WorkingDirectory != directory || request.TokenName == "" || request.TokenSecret == "" || request.IncludeTactical {
+		t.Fatal("dashboard request omitted base fields or unexpectedly included tactical data")
 	}
 
 	remoteClient.QueryGameServerResult.Source = &node.SourceQueryInfo{

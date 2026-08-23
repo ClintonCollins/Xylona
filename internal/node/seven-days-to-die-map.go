@@ -160,7 +160,9 @@ func (n *Node) QuerySevenDaysToDieMap(ctx context.Context, req SevenDaysToDieMap
 		SourceTime: strings.TrimSpace(configEnvelope.Meta.ServerTime),
 		Players:    players,
 	}
-	querySevenDaysToDieTacticalOverlays(ctx, req, snapshot)
+	if req.IncludeTactical {
+		querySevenDaysToDieTacticalOverlays(ctx, req, snapshot)
+	}
 	return snapshot, nil
 }
 

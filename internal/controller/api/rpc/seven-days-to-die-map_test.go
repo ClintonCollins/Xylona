@@ -270,6 +270,10 @@ func TestSevenDaysToDieMapTacticalProjectionAndFailureClearing(t *testing.T) {
 		t.Fatalf("GetPublicSevenDaysToDieMap() error = %v", errPublic)
 	}
 	assertSevenDaysToDieTacticalMapRedacted(t, publicResponse.Msg.GetMap())
+	if len(fakeNode.QuerySevenDaysToDieMapCalls) != 3 || !fakeNode.QuerySevenDaysToDieMapCalls[0].IncludeTactical ||
+		fakeNode.QuerySevenDaysToDieMapCalls[1].IncludeTactical || fakeNode.QuerySevenDaysToDieMapCalls[2].IncludeTactical {
+		t.Fatalf("map tactical request flags = %+v, want owner true then viewer/public false", fakeNode.QuerySevenDaysToDieMapCalls)
+	}
 
 	for _, response := range []proto.Message{viewerResponse.Msg, publicResponse.Msg} {
 		wire, errMarshal := proto.Marshal(response)
@@ -299,7 +303,22 @@ func TestSevenDaysToDieMapTacticalProjectionAndFailureClearing(t *testing.T) {
 	if !fallbackResponse.Msg.GetMap().GetStale() || len(fallbackResponse.Msg.GetMap().GetPlayers()) != 1 {
 		t.Fatalf("fallback map = %+v, want cached base/player snapshot", fallbackResponse.Msg.GetMap())
 	}
-	assertSevenDaysToDieTacticalMapRedacted(t, fallbackResponse.Msg.GetMap())
+	assertSevenDaysToDieTacticalMapUnavailable(t, fallbackResponse.Msg.GetMap())
+	if len(fakeNode.QuerySevenDaysToDieMapCalls) != 4 || !fakeNode.QuerySevenDaysToDieMapCalls[3].IncludeTactical {
+		t.Fatalf("fallback map request flags = %+v, want tactical retry", fakeNode.QuerySevenDaysToDieMapCalls)
+	}
+}
+
+func assertSevenDaysToDieTacticalMapUnavailable(t *testing.T, mapView *xylona.SevenDaysToDieMapView) {
+	t.Helper()
+	unavailable := xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
+	if len(mapView.GetNativeMarkers()) != 0 || len(mapView.GetClaims()) != 0 || mapView.GetBloodMoon() != nil ||
+		len(mapView.GetHostiles()) != 0 || len(mapView.GetAnimals()) != 0 || mapView.GetClaimsSupported() ||
+		mapView.GetNativeMarkerState() != unavailable || mapView.GetClaimsState() != unavailable ||
+		mapView.GetBloodMoonState() != unavailable || mapView.GetHostileState() != unavailable ||
+		mapView.GetAnimalState() != unavailable {
+		t.Fatalf("tactical map was not explicitly unavailable: %+v", mapView)
+	}
 }
 
 func assertSevenDaysToDieTacticalMapRedacted(t *testing.T, mapView *xylona.SevenDaysToDieMapView) {

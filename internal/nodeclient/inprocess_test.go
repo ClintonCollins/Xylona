@@ -5,6 +5,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +47,69 @@ func TestInProcessClientPingHonorsCanceledContext(t *testing.T) {
 	errPing := client.Ping(ctx)
 	if !errors.Is(errPing, context.Canceled) {
 		t.Fatalf("Ping() err = %v, want context.Canceled", errPing)
+	}
+}
+
+func TestInProcessClientQuerySevenDaysToDieMapHonorsTacticalFlag(t *testing.T) {
+	const markerID = "f4c2d4ea-7e4d-46b0-aaf2-26ea769951d4"
+	tacticalRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("X-SDTD-API-TOKENNAME") != "controller" || request.Header.Get("X-SDTD-API-SECRET") != "web-api-secret" {
+			http.Error(response, "missing credentials", http.StatusUnauthorized)
+			return
+		}
+		var body string
+		switch request.URL.Path {
+		case "/api/map/config":
+			body = `{"data":{"enabled":true,"mapBlockSize":128,"maxZoom":4,"mapSize":{"x":6144,"y":255,"z":6144}}}`
+		case "/api/player":
+			body = `{"data":{"players":[{"entityId":7,"name":"Alex","position":{"x":1,"y":2,"z":3}}]}}`
+		case "/api/openapi/openapi.yaml":
+			tacticalRequests++
+			body = "openapi: 3.1.0\ninfo:\n  version: \"3.0\"\npaths:\n  /api/markers:\n    get: {}\n"
+		case "/api/markers":
+			tacticalRequests++
+			body = `{"data":[{"id":"` + markerID + `","name":"Trader","x":10,"y":20}]}`
+		default:
+			http.NotFound(response, request)
+			return
+		}
+		_, errWrite := response.Write([]byte(body))
+		if errWrite != nil {
+			t.Errorf("write upstream response: %v", errWrite)
+		}
+	}))
+	t.Cleanup(server.Close)
+	serverURL, errURL := url.Parse(server.URL)
+	if errURL != nil {
+		t.Fatalf("parse upstream URL: %v", errURL)
+	}
+	_, port, found := strings.Cut(serverURL.Host, ":")
+	if !found {
+		t.Fatalf("upstream host %q has no port", serverURL.Host)
+	}
+	directory := t.TempDir()
+	config := fmt.Sprintf(`<ServerSettings><property name="WebDashboardEnabled" value="true"/><property name="WebDashboardPort" value="%s" /></ServerSettings>`, port)
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+	client, _ := newTestClient(t)
+	request := node.SevenDaysToDieMapQueryRequest{
+		WorkingDirectory: directory, TokenName: "controller", TokenSecret: "web-api-secret",
+	}
+
+	base, errBase := client.QuerySevenDaysToDieMap(t.Context(), request)
+	if errBase != nil || base == nil || len(base.Players) != 1 || tacticalRequests != 0 ||
+		base.NativeMarkerState != node.SevenDaysToDieWebAPIValueStateUnspecified {
+		t.Fatalf("base map = %+v, requests = %d, error = %v", base, tacticalRequests, errBase)
+	}
+	request.IncludeTactical = true
+	tactical, errTactical := client.QuerySevenDaysToDieMap(t.Context(), request)
+	if errTactical != nil || tactical == nil || len(tactical.NativeMarkers) != 1 ||
+		tactical.NativeMarkerState != node.SevenDaysToDieWebAPIValueStateAvailable ||
+		tactical.ClaimsState != node.SevenDaysToDieWebAPIValueStateUnsupported || tacticalRequests != 2 {
+		t.Fatalf("tactical map = %+v, requests = %d, error = %v", tactical, tacticalRequests, errTactical)
 	}
 }
 

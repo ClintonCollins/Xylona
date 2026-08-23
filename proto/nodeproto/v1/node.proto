@@ -713,6 +713,7 @@ message QuerySevenDaysToDieMapRequest {
   string working_directory = 1;
   string token_name = 2;
   string token_secret = 3;
+  bool include_tactical = 4;
 }
 
 message QuerySevenDaysToDieMapResponse {

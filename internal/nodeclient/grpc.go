@@ -769,6 +769,7 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieMap(ctx context.Context, mapReq node
 		WorkingDirectory: mapReq.WorkingDirectory,
 		TokenName:        mapReq.TokenName,
 		TokenSecret:      mapReq.TokenSecret,
+		IncludeTactical:  mapReq.IncludeTactical,
 	})
 	resp, errRPC := c.mapClient.QuerySevenDaysToDieMap(ctx, req)
 	if errRPC != nil {
@@ -1694,8 +1695,8 @@ func sevenDaysToDieWebAPICapabilitiesFromProto(capabilities *nodeprotov1.SevenDa
 		NativeLog:                 capabilities.GetNativeLog(),
 		WorldPopulation:           capabilities.GetWorldPopulation(),
 		HostileAndAnimalPositions: capabilities.GetHostileAndAnimalPositions(),
-		HostilePositions:          capabilities.GetHostilePositions(),
-		AnimalPositions:           capabilities.GetAnimalPositions(),
+		HostilePositions:          capabilities.GetHostilePositions() || capabilities.GetHostileAndAnimalPositions(),
+		AnimalPositions:           capabilities.GetAnimalPositions() || capabilities.GetHostileAndAnimalPositions(),
 		AccessControl:             capabilities.GetAccessControl(),
 		GamePermissions:           capabilities.GetGamePermissions(),
 		ReportedMods:              capabilities.GetReportedMods(),

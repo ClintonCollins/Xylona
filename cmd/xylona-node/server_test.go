@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -202,6 +203,72 @@ func TestNodeServiceServerQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	}
 }
 
+func TestNodeServiceServerQuerySevenDaysToDieMapRoundTrip(t *testing.T) {
+	const markerID = "f4c2d4ea-7e4d-46b0-aaf2-26ea769951d4"
+	tacticalRequests := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("X-SDTD-API-TOKENNAME") != "controller" || request.Header.Get("X-SDTD-API-SECRET") != "web-api-secret" {
+			http.Error(response, "missing credentials", http.StatusUnauthorized)
+			return
+		}
+		var body string
+		switch request.URL.Path {
+		case "/api/map/config":
+			body = `{"data":{"enabled":true,"mapBlockSize":128,"maxZoom":4,"mapSize":{"x":6144,"y":255,"z":6144}}}`
+		case "/api/player":
+			body = `{"data":{"players":[{"entityId":7,"name":"Alex","position":{"x":1,"y":2,"z":3}}]}}`
+		case "/api/openapi/openapi.yaml":
+			tacticalRequests++
+			body = "openapi: 3.1.0\ninfo:\n  version: \"3.0\"\npaths:\n  /api/markers:\n    get: {}\n"
+		case "/api/markers":
+			tacticalRequests++
+			body = `{"data":[{"id":"` + markerID + `","name":"Trader","x":10,"y":20}]}`
+		default:
+			http.NotFound(response, request)
+			return
+		}
+		_, errWrite := response.Write([]byte(body))
+		if errWrite != nil {
+			t.Errorf("write upstream response: %v", errWrite)
+		}
+	}))
+	t.Cleanup(upstream.Close)
+	upstreamURL, errURL := neturl.Parse(upstream.URL)
+	if errURL != nil {
+		t.Fatalf("parse upstream URL: %v", errURL)
+	}
+	_, port, found := strings.Cut(upstreamURL.Host, ":")
+	if !found {
+		t.Fatalf("upstream host %q has no port", upstreamURL.Host)
+	}
+	directory := t.TempDir()
+	config := fmt.Sprintf(`<ServerSettings><property name="WebDashboardEnabled" value="true"/><property name="WebDashboardPort" value="%s" /></ServerSettings>`, port)
+	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
+	if errWrite != nil {
+		t.Fatalf("write server config: %v", errWrite)
+	}
+	const nodeSecret = "node-secret"
+	serverURL, fingerprint := newTestServer(t, nodeSecret)
+	client, errClient := nodeclient.NewGRPCClient("node", serverURL, fingerprint, nodeSecret)
+	if errClient != nil {
+		t.Fatalf("NewGRPCClient: %v", errClient)
+	}
+	request := node.SevenDaysToDieMapQueryRequest{
+		WorkingDirectory: directory, TokenName: "controller", TokenSecret: "web-api-secret", IncludeTactical: true,
+	}
+	snapshot, errQuery := client.QuerySevenDaysToDieMap(t.Context(), request)
+	if errQuery != nil || snapshot == nil || len(snapshot.NativeMarkers) != 1 ||
+		snapshot.NativeMarkerState != node.SevenDaysToDieWebAPIValueStateAvailable || tacticalRequests != 2 {
+		t.Fatalf("tactical snapshot = %+v, requests = %d, error = %v", snapshot, tacticalRequests, errQuery)
+	}
+	request.IncludeTactical = false
+	base, errBase := client.QuerySevenDaysToDieMap(t.Context(), request)
+	if errBase != nil || base == nil || len(base.Players) != 1 ||
+		base.NativeMarkerState != node.SevenDaysToDieWebAPIValueStateUnspecified || tacticalRequests != 2 {
+		t.Fatalf("base snapshot = %+v, requests = %d, error = %v", base, tacticalRequests, errBase)
+	}
+}
+
 func TestNodeServiceServerQuerySevenDaysToDiePlayers(t *testing.T) {
 	t.Parallel()
 
@@ -253,6 +320,40 @@ func TestSevenDaysToDiePlayersToProtoPreservesOptionalZeroValues(t *testing.T) {
 	if player.GetActionId() != "Steam_1" || player.Online == nil || player.GetOnline() || player.Ping == nil || player.GetPing() != 0 ||
 		player.Stamina == nil || player.GetStamina() != 0 || player.Banned == nil || player.GetBanned() {
 		t.Fatalf("mapped player = %+v", player)
+	}
+}
+
+func TestSevenDaysToDieMapSnapshotToProtoMapsTacticalData(t *testing.T) {
+	available := node.SevenDaysToDieWebAPIValueStateAvailable
+	result := sevenDaysToDieMapSnapshotToProto(&node.SevenDaysToDieMapSnapshot{
+		Enabled: true, TileSize: 128, MaxZoom: 4, MapSize: node.SevenDaysToDieMapVector{X: 6144, Z: 6144},
+		Players:           []node.SevenDaysToDieMapPlayer{{ID: "player-1", Name: "Alex", Online: true}},
+		NativeMarkerState: available,
+		NativeMarkers: []node.SevenDaysToDieMapMarker{{
+			ID: "f4c2d4ea-7e4d-46b0-aaf2-26ea769951d4", Name: "Trader", Position: node.SevenDaysToDieMapVector{X: 10, Z: 20},
+		}},
+		ClaimsState: available,
+		Claims: []node.SevenDaysToDieLandClaim{{
+			OwnerID: "Steam_1", OwnerName: "Owner", Active: true, Position: node.SevenDaysToDieMapVector{X: 30, Z: 40}, Size: 41,
+		}},
+		BloodMoonState: available,
+		BloodMoon: &node.SevenDaysToDieBloodMoon{
+			GameTime:      node.SevenDaysToDieGameTime{Day: 7, Hour: 22},
+			NextBloodMoon: node.SevenDaysToDieGameTime{Day: 14, Hour: 22}, NextBloodMoonEnd: node.SevenDaysToDieGameTime{Day: 15, Hour: 4},
+		},
+		HostileState: available,
+		Hostiles:     []node.SevenDaysToDieMapEntity{{Name: "Zombie", Position: node.SevenDaysToDieMapVector{X: 50, Z: 60}}},
+		AnimalState:  available,
+		Animals:      []node.SevenDaysToDieMapEntity{{Name: "Wolf", Position: node.SevenDaysToDieMapVector{X: 70, Z: 80}}},
+	})
+	if result == nil || len(result.GetPlayers()) != 1 || len(result.GetMarkers()) != 1 || len(result.GetClaims()) != 1 ||
+		result.GetBloodMoon() == nil || len(result.GetHostiles()) != 1 || len(result.GetAnimals()) != 1 ||
+		result.GetNativeMarkerState() != nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE ||
+		result.GetClaimsState() != nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE ||
+		result.GetBloodMoonState() != nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE ||
+		result.GetHostileState() != nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE ||
+		result.GetAnimalState() != nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE {
+		t.Fatalf("mapped map snapshot = %+v", result)
 	}
 }
 
@@ -419,7 +520,8 @@ func TestSevenDaysToDieWebAPIStatusToProto(t *testing.T) {
 				APIVersion:      "3.1.0",
 				Capabilities: node.SevenDaysToDieWebAPICapabilities{
 					PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
-					HostileAndAnimalPositions: true, AccessControl: true, GamePermissions: true, ReportedMods: true,
+					HostileAndAnimalPositions: true, HostilePositions: true, AnimalPositions: true,
+					AccessControl: true, GamePermissions: true, ReportedMods: true,
 				},
 				WorldTimeState:   node.SevenDaysToDieWebAPIValueStateAvailable,
 				WorldTime:        &node.SevenDaysToDieGameTime{Day: 12, Hour: 5, Minute: 30},
@@ -440,7 +542,8 @@ func TestSevenDaysToDieWebAPIStatusToProto(t *testing.T) {
 			}
 			capabilities := status.GetCapabilities()
 			if !capabilities.GetPlayerData() || !capabilities.GetRuntimeSettings() || !capabilities.GetNativeLog() ||
-				!capabilities.GetWorldPopulation() || !capabilities.GetHostileAndAnimalPositions() || !capabilities.GetAccessControl() ||
+				!capabilities.GetWorldPopulation() || !capabilities.GetHostileAndAnimalPositions() ||
+				!capabilities.GetHostilePositions() || !capabilities.GetAnimalPositions() || !capabilities.GetAccessControl() ||
 				!capabilities.GetGamePermissions() || !capabilities.GetReportedMods() {
 				t.Fatalf("capabilities = %+v", capabilities)
 			}

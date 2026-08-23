@@ -12,36 +12,40 @@ import (
 )
 
 func TestSevenDaysToDieMapProtoCodecRejectsLargeWireOverlayBeforeUnmarshal(t *testing.T) {
-	snapshotPayload := func(count int) []byte {
+	snapshotPayload := func(fieldNumber protowire.Number, count int) []byte {
 		snapshot := make([]byte, 0, count*2)
 		for range count {
-			snapshot = protowire.AppendTag(snapshot, 14, protowire.BytesType)
+			snapshot = protowire.AppendTag(snapshot, fieldNumber, protowire.BytesType)
 			snapshot = protowire.AppendBytes(snapshot, nil)
 		}
 		return snapshot
 	}
-	appendSnapshot := func(payload []byte, count int) []byte {
+	appendSnapshot := func(payload []byte, fieldNumber protowire.Number, count int) []byte {
 		payload = protowire.AppendTag(payload, 1, protowire.BytesType)
-		return protowire.AppendBytes(payload, snapshotPayload(count))
+		return protowire.AppendBytes(payload, snapshotPayload(fieldNumber, count))
 	}
 	tests := []struct {
-		name    string
-		payload []byte
+		name        string
+		fieldNumber protowire.Number
+		counts      []int
 	}{
-		{name: "one snapshot", payload: appendSnapshot(nil, node.SevenDaysToDieMapItemLimit+1)},
-		{
-			name: "merged snapshot fields",
-			payload: appendSnapshot(
-				appendSnapshot(nil, node.SevenDaysToDieMapItemLimit/2+1),
-				node.SevenDaysToDieMapItemLimit/2,
-			),
-		},
+		{name: "players", fieldNumber: 6, counts: []int{node.SevenDaysToDieMapItemLimit + 1}},
+		{name: "markers", fieldNumber: 7, counts: []int{node.SevenDaysToDieMapItemLimit + 1}},
+		{name: "claims", fieldNumber: 8, counts: []int{node.SevenDaysToDieMapItemLimit + 1}},
+		{name: "hostiles", fieldNumber: 14, counts: []int{node.SevenDaysToDieMapItemLimit + 1}},
+		{name: "animals", fieldNumber: 16, counts: []int{node.SevenDaysToDieMapItemLimit + 1}},
+		{name: "merged snapshot fields", fieldNumber: 14, counts: []int{node.SevenDaysToDieMapItemLimit/2 + 1, node.SevenDaysToDieMapItemLimit / 2}},
+		{name: "million empty tactical records under byte cap", fieldNumber: 14, counts: []int{1_000_000}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			var payload []byte
+			for _, count := range test.counts {
+				payload = appendSnapshot(payload, test.fieldNumber, count)
+			}
 			codec := sevenDaysToDieMapProtoCodec{}
 			var response nodeprotov1.QuerySevenDaysToDieMapResponse
-			errUnmarshal := codec.Unmarshal(test.payload, &response)
+			errUnmarshal := codec.Unmarshal(payload, &response)
 			if !errors.Is(errUnmarshal, errSevenDaysToDieMapWireCount) {
 				t.Fatalf("Unmarshal() error = %v, want %v", errUnmarshal, errSevenDaysToDieMapWireCount)
 			}

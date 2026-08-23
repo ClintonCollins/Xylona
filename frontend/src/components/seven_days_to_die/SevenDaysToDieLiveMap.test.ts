@@ -255,20 +255,41 @@ describe('SevenDaysToDieLiveMap', () => {
     expect(unsafeMarker?.popup?.textContent).toContain('<img src=x onerror=alert(1)>')
     expect(unsafeMarker?.popup?.querySelector('img')).toBeNull()
 
-    const hostileLayer = leafletMocks.layerGroups[4]
-    const animalLayer = leafletMocks.layerGroups[5]
-    const hostileCount = leafletMocks.overlays.filter(
-      (entry) => entry.group === hostileLayer,
-    ).length
-    const animalCount = leafletMocks.overlays.filter((entry) => entry.group === animalLayer).length
-    wrapper.getComponent('[data-testid="toggle-hostiles"]').vm.$emit('update:modelValue', false)
+    const layerToggleCases = [
+      { control: 'toggle-native-markers', layer: 2, otherLayer: 5 },
+      { control: 'toggle-land-claims', layer: 3, otherLayer: 5 },
+      { control: 'toggle-hostiles', layer: 4, otherLayer: 5 },
+      { control: 'toggle-animals', layer: 5, otherLayer: 4 },
+    ]
+    for (const test of layerToggleCases) {
+      const targetLayer = leafletMocks.layerGroups[test.layer]
+      const otherLayer = leafletMocks.layerGroups[test.otherLayer]
+      const targetCount = leafletMocks.overlays.filter(
+        (entry) => entry.group === targetLayer,
+      ).length
+      const otherCount = leafletMocks.overlays.filter((entry) => entry.group === otherLayer).length
+      const control = wrapper.getComponent(`[data-testid="${test.control}"]`)
+      control.vm.$emit('update:modelValue', false)
+      await flushPromises()
+      expect(leafletMocks.overlays.filter((entry) => entry.group === targetLayer)).toHaveLength(
+        targetCount,
+      )
+      expect(
+        leafletMocks.overlays.filter((entry) => entry.group === otherLayer).length,
+      ).toBeGreaterThan(otherCount)
+      control.vm.$emit('update:modelValue', true)
+      await flushPromises()
+    }
+
+    const overlayCount = leafletMocks.overlays.length
+    const bloodMoonControl = wrapper.getComponent('[data-testid="toggle-blood-moon"]')
+    bloodMoonControl.vm.$emit('update:modelValue', false)
     await flushPromises()
-    expect(leafletMocks.overlays.filter((entry) => entry.group === hostileLayer)).toHaveLength(
-      hostileCount,
-    )
-    expect(
-      leafletMocks.overlays.filter((entry) => entry.group === animalLayer).length,
-    ).toBeGreaterThan(animalCount)
+    expect(wrapper.find('[data-testid="blood-moon-overlay"]').exists()).toBe(false)
+    expect(leafletMocks.overlays).toHaveLength(overlayCount)
+    bloodMoonControl.vm.$emit('update:modelValue', true)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="blood-moon-overlay"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -291,6 +312,13 @@ describe('SevenDaysToDieLiveMap', () => {
       leafletMocks.overlays.some((entry) => entry.popup?.textContent?.includes('Private')),
     ).toBe(false)
     wrapper.unmount()
+
+    const viewOnlyWrapper = shallowMount(SevenDaysToDieLiveMap, {
+      props: { view: mapView(new Date('2026-08-19T12:00:00Z')) },
+    })
+    await flushPromises()
+    expect(viewOnlyWrapper.find('[data-testid="tactical-layer-controls"]').exists()).toBe(false)
+    viewOnlyWrapper.unmount()
   })
 
   it('reports unavailable private layers without rendering stale entity arrays', async () => {
@@ -298,19 +326,31 @@ describe('SevenDaysToDieLiveMap', () => {
       ...mapView(new Date('2026-08-19T12:00:00Z')),
       animalState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
       animals: [{ name: 'Stale wolf', position: { x: 20, z: 30 } }],
+      bloodMoonState:
+        SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
+      claimsState:
+        SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED,
       hostileState:
         SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED,
       hostiles: [{ name: 'Stale zombie', position: { x: 60, z: 70 } }],
+      nativeMarkerState:
+        SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
     })
     const wrapper = shallowMount(SevenDaysToDieLiveMap, { props: { view: unavailableView } })
     await flushPromises()
 
-    const hostileToggle = wrapper.get('[data-testid="toggle-hostiles"]')
-    const animalToggle = wrapper.get('[data-testid="toggle-animals"]')
-    expect(hostileToggle.attributes('label')).toContain('Upstream access denied')
-    expect(animalToggle.attributes('label')).toContain('Unavailable')
-    expect(hostileToggle.attributes('disable')).toBe('true')
-    expect(animalToggle.attributes('disable')).toBe('true')
+    const stateCases = [
+      { control: 'toggle-native-markers', label: 'Unsupported' },
+      { control: 'toggle-land-claims', label: 'Upstream access denied' },
+      { control: 'toggle-blood-moon', label: 'Unavailable' },
+      { control: 'toggle-hostiles', label: 'Upstream access denied' },
+      { control: 'toggle-animals', label: 'Unavailable' },
+    ]
+    for (const test of stateCases) {
+      const control = wrapper.get(`[data-testid="${test.control}"]`)
+      expect(control.attributes('label')).toContain(test.label)
+      expect(control.attributes('disable')).toBe('true')
+    }
     expect(leafletMocks.overlays.some((entry) => entry.popup?.textContent?.includes('Stale'))).toBe(
       false,
     )

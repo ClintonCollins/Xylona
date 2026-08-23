@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
@@ -469,6 +471,18 @@ paths:
 			t.Errorf("QuerySevenDaysToDieWebAPIStatus() error = %v, want context.Canceled", errQuery)
 		}
 	})
+}
+
+func TestProjectSevenDaysToDieWebAPICapabilitiesKeepsEntityEndpointsIndependent(t *testing.T) {
+	resolver := &sevenDaysToDieOpenAPIResolver{document: sevenDaysToDieOpenAPI{
+		Paths: map[string]map[string]yaml.Node{
+			"/api/hostile": {"get": {}},
+		},
+	}}
+	capabilities := projectSevenDaysToDieWebAPICapabilities(resolver)
+	if !capabilities.HostilePositions || capabilities.AnimalPositions || capabilities.HostileAndAnimalPositions {
+		t.Fatalf("independent entity capabilities = %+v", capabilities)
+	}
 }
 
 func TestNodeQuerySevenDaysToDiePlayers(t *testing.T) {

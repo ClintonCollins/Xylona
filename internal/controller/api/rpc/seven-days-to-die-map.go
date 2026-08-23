@@ -181,7 +181,8 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(
 	}
 	statusMessage := ""
 	stale := false
-	liveSnapshot, errLive := xs.querySevenDaysToDieMap(ctx, gameServer)
+	includeTactical := audience == sevenDaysToDieMapAudienceTactical
+	liveSnapshot, errLive := xs.querySevenDaysToDieMap(ctx, gameServer, includeTactical)
 	if errLive == nil && liveSnapshot != nil {
 		collectedAt = time.Now().UTC()
 		cached = mergeSevenDaysToDieMapSnapshot(cached, liveSnapshot, collectedAt)
@@ -214,6 +215,9 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(
 	}
 	if !collectedAt.IsZero() {
 		view.CollectedAt = timestamppb.New(collectedAt)
+	}
+	if includeTactical && (liveSnapshot == nil || stale) {
+		projectUnavailableSevenDaysToDieTacticalMap(view)
 	}
 	if cached == nil {
 		view.Markers = publicSevenDaysToDieMapNotes(notes)
@@ -271,6 +275,15 @@ func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapsh
 	}
 }
 
+func projectUnavailableSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView) {
+	unavailable := xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
+	view.NativeMarkerState = unavailable
+	view.ClaimsState = unavailable
+	view.BloodMoonState = unavailable
+	view.HostileState = unavailable
+	view.AnimalState = unavailable
+}
+
 func publicSevenDaysToDieMapEntities(entities []node.SevenDaysToDieMapEntity) []*xylona.SevenDaysToDieMapEntity {
 	result := make([]*xylona.SevenDaysToDieMapEntity, 0, len(entities))
 	for _, entity := range entities {
@@ -281,7 +294,11 @@ func publicSevenDaysToDieMapEntities(entities []node.SevenDaysToDieMapEntity) []
 	return result
 }
 
-func (xs *XylonaService) querySevenDaysToDieMap(ctx context.Context, gameServer *models.GameServer) (*node.SevenDaysToDieMapSnapshot, error) {
+func (xs *XylonaService) querySevenDaysToDieMap(
+	ctx context.Context,
+	gameServer *models.GameServer,
+	includeTactical bool,
+) (*node.SevenDaysToDieMapSnapshot, error) {
 	client, errClient := xs.resolveNodeClient(gameServer)
 	if errClient != nil {
 		return nil, errClient
@@ -294,6 +311,7 @@ func (xs *XylonaService) querySevenDaysToDieMap(ctx context.Context, gameServer 
 		WorkingDirectory: gameServer.Directory,
 		TokenName:        tokenName,
 		TokenSecret:      tokenSecret,
+		IncludeTactical:  includeTactical,
 	})
 	if errQuery != nil {
 		return nil, fmt.Errorf("query 7 Days to Die map: %w", errQuery)

@@ -622,6 +622,7 @@ type SevenDaysToDieMapQueryRequest struct {
 	WorkingDirectory string
 	TokenName        string
 	TokenSecret      string
+	IncludeTactical  bool
 }
 
 // SevenDaysToDieWebAPIConnectionState describes discovery and connection health.

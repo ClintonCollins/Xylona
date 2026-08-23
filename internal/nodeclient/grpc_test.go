@@ -53,6 +53,8 @@ type callRecorder struct {
 	queryResp        *nodeprotov1.QueryGameServerResponse
 	palworldMapReq   *nodeprotov1.QueryPalworldMapRequest
 	palworldMapResp  *nodeprotov1.QueryPalworldMapResponse
+	sevenDaysMapReq  *nodeprotov1.QuerySevenDaysToDieMapRequest
+	sevenDaysMapResp *nodeprotov1.QuerySevenDaysToDieMapResponse
 	webAPIStatusReq  *nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest
 	webAPIStatusResp *nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse
 	playersReq       *nodeprotov1.QuerySevenDaysToDiePlayersRequest
@@ -198,6 +200,18 @@ func (s *stubHandler) QueryPalworldMap(_ context.Context, req *connect.Request[n
 	s.rec.mu.Unlock()
 	if resp == nil {
 		resp = &nodeprotov1.QueryPalworldMapResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) QuerySevenDaysToDieMap(_ context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieMapRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieMapResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.sevenDaysMapReq = req.Msg
+	resp := s.rec.sevenDaysMapResp
+	s.rec.mu.Unlock()
+	if resp == nil {
+		resp = &nodeprotov1.QuerySevenDaysToDieMapResponse{}
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -786,6 +800,67 @@ func TestGRPCClientQueryGameServerPreservesSourcePlayerList(t *testing.T) {
 	}
 }
 
+func TestGRPCClientQuerySevenDaysToDieMapMapsRequestAndTacticalResponse(t *testing.T) {
+	t.Parallel()
+	available := nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE
+	rec := &callRecorder{sevenDaysMapResp: &nodeprotov1.QuerySevenDaysToDieMapResponse{
+		Snapshot: &nodeprotov1.SevenDaysToDieMapSnapshot{
+			Enabled: true, TileSize: 128, MaxZoom: 4,
+			MapSize: &nodeprotov1.SevenDaysToDieMapVector{X: 6144, Y: 255, Z: 6144},
+			Players: []*nodeprotov1.SevenDaysToDieMapPlayer{{
+				Id: "player-1", Name: "Alex", Online: true,
+				Position: &nodeprotov1.SevenDaysToDieMapVector{X: 1, Y: 2, Z: 3},
+			}},
+			Markers: []*nodeprotov1.SevenDaysToDieMapMarker{{
+				Id: "f4c2d4ea-7e4d-46b0-aaf2-26ea769951d4", Name: "Trader", X: 10, Z: 20,
+			}},
+			NativeMarkerState: available,
+			Claims: []*nodeprotov1.SevenDaysToDieLandClaim{{
+				OwnerId: "Steam_1", OwnerName: "Owner", Active: true,
+				Position: &nodeprotov1.SevenDaysToDieMapVector{X: 30, Y: 4, Z: 40}, Size: 41,
+			}},
+			ClaimsState: available,
+			BloodMoon: &nodeprotov1.SevenDaysToDieMapBloodMoon{
+				GameTime: &nodeprotov1.SevenDaysToDieGameTime{Day: 7, Hour: 22}, Active: true,
+				NextBloodMoon:    &nodeprotov1.SevenDaysToDieGameTime{Day: 14, Hour: 22},
+				NextBloodMoonEnd: &nodeprotov1.SevenDaysToDieGameTime{Day: 15, Hour: 4},
+			},
+			BloodMoonState: available,
+			Hostiles: []*nodeprotov1.SevenDaysToDieMapEntity{{
+				Name: "Zombie", Position: &nodeprotov1.SevenDaysToDieMapVector{X: 50, Z: 60},
+			}},
+			HostileState: available,
+			Animals: []*nodeprotov1.SevenDaysToDieMapEntity{{
+				Name: "Wolf", Position: &nodeprotov1.SevenDaysToDieMapVector{X: 70, Z: 80},
+			}},
+			AnimalState: available,
+		},
+	}}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, errClient := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+	if errClient != nil {
+		t.Fatalf("NewGRPCClient: %v", errClient)
+	}
+
+	snapshot, errQuery := client.QuerySevenDaysToDieMap(t.Context(), node.SevenDaysToDieMapQueryRequest{
+		WorkingDirectory: "C:/servers/7dtd", TokenName: "controller", TokenSecret: "web-api-secret", IncludeTactical: true,
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieMap: %v", errQuery)
+	}
+	if snapshot == nil || len(snapshot.Players) != 1 || len(snapshot.NativeMarkers) != 1 || len(snapshot.Claims) != 1 ||
+		snapshot.BloodMoon == nil || len(snapshot.Hostiles) != 1 || len(snapshot.Animals) != 1 {
+		t.Fatalf("mapped snapshot = %+v", snapshot)
+	}
+	rec.mu.Lock()
+	request := rec.sevenDaysMapReq
+	rec.mu.Unlock()
+	if request.GetWorkingDirectory() != "C:/servers/7dtd" || request.GetTokenName() != "controller" ||
+		request.GetTokenSecret() != "web-api-secret" || !request.GetIncludeTactical() {
+		t.Fatalf("map request = %+v", request)
+	}
+}
+
 func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	t.Parallel()
 
@@ -852,7 +927,8 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			}
 			if status.Capabilities != (node.SevenDaysToDieWebAPICapabilities{
 				PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
-				HostileAndAnimalPositions: true, AccessControl: true, GamePermissions: true, ReportedMods: true,
+				HostileAndAnimalPositions: true, HostilePositions: true, AnimalPositions: true,
+				AccessControl: true, GamePermissions: true, ReportedMods: true,
 			}) {
 				t.Fatalf("capabilities = %+v", status.Capabilities)
 			}
