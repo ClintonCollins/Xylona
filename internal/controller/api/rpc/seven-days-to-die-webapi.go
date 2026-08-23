@@ -12,7 +12,7 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-const sevenDaysToDieNonTacticalStatusNodeProtocol int64 = 10
+const sevenDaysToDiePrivateWebAPINodeProtocol int64 = 10
 
 // GetSevenDaysToDieWebAPIStatus returns bounded native WebAPI diagnostics for
 // an authenticated 7 Days to Die game server.
@@ -57,19 +57,15 @@ func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
 	if !found || process == nil || process.Status != xylona.Status_ONLINE.String() {
 		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline, includeTactical), nil
 	}
-	if !includeTactical {
-		capabilities, errCapabilities := client.GetRuntimeCapabilities(ctx)
-		if errCapabilities != nil {
-			if errors.Is(errCapabilities, context.Canceled) || errors.Is(errCapabilities, context.DeadlineExceeded) {
-				return nil, connect.NewError(contextConnectCode(errCapabilities), errCapabilities)
-			}
-			return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateUnspecified, false), nil
+	capabilities, errCapabilities := client.GetRuntimeCapabilities(ctx)
+	if errCapabilities != nil {
+		if errors.Is(errCapabilities, context.Canceled) || errors.Is(errCapabilities, context.DeadlineExceeded) {
+			return nil, connect.NewError(contextConnectCode(errCapabilities), errCapabilities)
 		}
-		// Older nodes ignore the tactical query flag and fetch Blood Moon data.
-		// Do not call their legacy status RPC for view-only requests.
-		if capabilities.ProtocolVersion < sevenDaysToDieNonTacticalStatusNodeProtocol {
-			return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateUnspecified, false), nil
-		}
+		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateUnspecified, includeTactical), nil
+	}
+	if capabilities.ProtocolVersion < sevenDaysToDiePrivateWebAPINodeProtocol {
+		return sevenDaysToDieWebAPIUnsupportedResponse(includeTactical), nil
 	}
 	if xs.actionsInst == nil {
 		return nil, internalErrf("7 Days to Die WebAPI credentials are unavailable")
@@ -99,6 +95,15 @@ func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
 	return connect.NewResponse(&xylona.GetSevenDaysToDieWebAPIStatusResponse{
 		Status: publicSevenDaysToDieWebAPIStatus(status, includeTactical),
 	}), nil
+}
+
+func sevenDaysToDieWebAPIUnsupportedResponse(includeTactical bool) *connect.Response[xylona.GetSevenDaysToDieWebAPIStatusResponse] {
+	response := sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateUnspecified, includeTactical)
+	response.Msg.Status.WorldTimeState = xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED
+	if includeTactical {
+		response.Msg.Status.BloodMoonState = xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED
+	}
+	return response
 }
 
 func sevenDaysToDieWebAPIStateResponse(
@@ -139,12 +144,9 @@ func publicSevenDaysToDieWebAPIStatus(status *node.SevenDaysToDieWebAPIStatus, i
 		result.Capabilities.HostilePositions = status.Capabilities.HostilePositions
 		result.Capabilities.AnimalPositions = status.Capabilities.AnimalPositions
 		result.BloodMoonState = publicSevenDaysToDieWebAPIValueState(status.BloodMoonState)
+		result.BloodMoonActive = status.BloodMoonActive
 		result.NextBloodMoon = publicSevenDaysToDieGameTime(status.NextBloodMoon)
 		result.NextBloodMoonEnd = publicSevenDaysToDieGameTime(status.NextBloodMoonEnd)
-	}
-	if includeTactical && status.BloodMoonActive != nil {
-		active := *status.BloodMoonActive
-		result.BloodMoonActive = &active
 	}
 	if !status.ObservedAt.IsZero() {
 		result.ObservedAt = timestamppb.New(status.ObservedAt.UTC())

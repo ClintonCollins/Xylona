@@ -25,6 +25,7 @@ const (
 	rustGameID             = "rust"
 
 	expandedPlayerActionsProtocolVersion int64 = 4
+	sevenDaysToDiePlayerRosterProtocol   int64 = 10
 	managedAdminInputUnavailableReason         = "This game definition does not configure the managed admin console required for player actions."
 )
 
@@ -69,18 +70,22 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		return management, fmt.Errorf("actions: resolve player-management node: %w", errClient)
 	}
 	management.Status = currentPlayerManagementStatus(ctx, client, gameServer)
+	var runtimeCapabilities node.RuntimeCapabilities
+	var errRuntimeCapabilities error
+	runtimeCapabilitiesChecked := false
 
 	if len(profile.supportedActions) > 0 {
 		if !gameServerDefinitionSupportsPlayerActionProfile(gameServer, profile) {
 			management.UnavailableReason = managedAdminInputUnavailableReason
 		} else {
-			caps, errCaps := client.GetRuntimeCapabilities(ctx)
+			runtimeCapabilities, errRuntimeCapabilities = client.GetRuntimeCapabilities(ctx)
+			runtimeCapabilitiesChecked = true
 			switch {
-			case errCaps != nil:
+			case errRuntimeCapabilities != nil:
 				management.UnavailableReason = "The target node's player-action capabilities are unavailable."
-			case !caps.PlayerActions:
+			case !runtimeCapabilities.PlayerActions:
 				management.UnavailableReason = "The target node does not support player actions. Upgrade the node to enable management."
-			case !runtimeSupportsPlayerActionProfile(caps, profile):
+			case !runtimeSupportsPlayerActionProfile(runtimeCapabilities, profile):
 				management.UnavailableReason = "The target node does not support this game's player actions. Upgrade the node to enable management."
 			default:
 				management.ActionsSupported = true
@@ -92,6 +97,20 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 	if gameServer.GameID == sevenDaysToDieGameID {
 		if management.Status != xylona.Status_ONLINE {
 			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			return management, nil
+		}
+		if !runtimeCapabilitiesChecked {
+			runtimeCapabilities, errRuntimeCapabilities = client.GetRuntimeCapabilities(ctx)
+		}
+		if errRuntimeCapabilities != nil {
+			if errors.Is(errRuntimeCapabilities, context.Canceled) || errors.Is(errRuntimeCapabilities, context.DeadlineExceeded) {
+				return management, fmt.Errorf("actions: get native player roster capabilities: %w", errRuntimeCapabilities)
+			}
+			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			return management, nil
+		}
+		if runtimeCapabilities.ProtocolVersion < sevenDaysToDiePlayerRosterProtocol {
+			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnsupported
 			return management, nil
 		}
 		tokenName, tokenSecret, errCredentials := inst.SevenDaysToDieMapCredentials(gameServer)

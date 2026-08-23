@@ -58,14 +58,6 @@ type storedSevenDaysToDieMapSnapshot struct {
 	Players    []storedSevenDaysToDieMapPlayer `json:"players"`
 }
 
-type sevenDaysToDieMapAudience uint8
-
-const (
-	sevenDaysToDieMapAudienceView sevenDaysToDieMapAudience = iota
-	sevenDaysToDieMapAudienceTactical
-	sevenDaysToDieMapAudiencePublic
-)
-
 // GetSevenDaysToDieMap returns the current or last-known map view for a 7 Days to Die server.
 func (xs *XylonaService) GetSevenDaysToDieMap(
 	ctx context.Context,
@@ -83,12 +75,9 @@ func (xs *XylonaService) GetSevenDaysToDieMap(
 	if errPermission != nil {
 		return nil, errPermission
 	}
-	audience := sevenDaysToDieMapAudienceView
 	errSettingsPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
-	if errSettingsPermission == nil {
-		audience = sevenDaysToDieMapAudienceTactical
-	}
-	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer, audience)
+	includeTactical := errSettingsPermission == nil
+	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer, includeTactical)
 	if errView != nil {
 		return nil, errView
 	}
@@ -144,7 +133,7 @@ func (xs *XylonaService) GetPublicSevenDaysToDieMap(
 	if errResolve != nil {
 		return nil, internalErrf("failed to resolve public map")
 	}
-	view, errView := xs.buildSevenDaysToDieMapView(ctx, access.gameServer, sevenDaysToDieMapAudiencePublic)
+	view, errView := xs.buildSevenDaysToDieMapView(ctx, access.gameServer, false)
 	if errView != nil {
 		return nil, errView
 	}
@@ -156,7 +145,7 @@ func (xs *XylonaService) GetPublicSevenDaysToDieMap(
 func (xs *XylonaService) buildSevenDaysToDieMapView(
 	ctx context.Context,
 	gameServer *models.GameServer,
-	audience sevenDaysToDieMapAudience,
+	includeTactical bool,
 ) (*xylona.SevenDaysToDieMapView, error) {
 	settings, errSettings := xs.db.GetGameServerSevenDaysToDieMap(gameServer.ID)
 	if errSettings != nil {
@@ -181,7 +170,6 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(
 	}
 	statusMessage := ""
 	stale := false
-	includeTactical := audience == sevenDaysToDieMapAudienceTactical
 	liveSnapshot, errLive := xs.querySevenDaysToDieMap(ctx, gameServer, includeTactical)
 	if errLive == nil && liveSnapshot != nil {
 		collectedAt = time.Now().UTC()
@@ -230,7 +218,7 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(
 	view.SourceTime = cached.SourceTime
 	view.Players = publicSevenDaysToDieMapPlayers(cached.Players)
 	view.Markers = publicSevenDaysToDieMapNotes(notes)
-	if audience == sevenDaysToDieMapAudienceTactical && liveSnapshot != nil && !stale {
+	if includeTactical && liveSnapshot != nil && !stale {
 		projectSevenDaysToDieTacticalMap(view, liveSnapshot)
 	}
 	return view, nil

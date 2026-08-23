@@ -5,55 +5,13 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/encoding/protowire"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
-	nodeprotov1 "github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1"
 )
 
 var (
 	errSevenDaysToDieReportedModsWireCount = errors.New("reported mod wire count exceeds limit")
 )
-
-// reportedModsProtoCodec remains a binary "proto" codec, so the dedicated
-// client never negotiates JSON. It scans the one bounded response before the
-// standard protobuf decoder can allocate its repeated message graph.
-type reportedModsProtoCodec struct{}
-
-func (reportedModsProtoCodec) Name() string {
-	return "proto"
-}
-
-func (reportedModsProtoCodec) Marshal(message any) ([]byte, error) {
-	protoMessage, ok := message.(proto.Message)
-	if !ok {
-		return nil, fmt.Errorf("marshal %T: message does not implement proto.Message", message)
-	}
-	data, errMarshal := proto.Marshal(protoMessage)
-	if errMarshal != nil {
-		return nil, fmt.Errorf("marshal %T: %w", message, errMarshal)
-	}
-	return data, nil
-}
-
-func (reportedModsProtoCodec) Unmarshal(data []byte, message any) error {
-	protoMessage, ok := message.(proto.Message)
-	if !ok {
-		return fmt.Errorf("unmarshal into %T: message does not implement proto.Message", message)
-	}
-	_, boundedResponse := message.(*nodeprotov1.QuerySevenDaysToDieReportedModsResponse)
-	if boundedResponse {
-		errWire := validateSevenDaysToDieReportedModsResponseWire(data)
-		if errWire != nil {
-			return fmt.Errorf("unmarshal into %T: %w", message, errWire)
-		}
-	}
-	errUnmarshal := proto.Unmarshal(data, protoMessage)
-	if errUnmarshal != nil {
-		return fmt.Errorf("unmarshal into %T: %w", message, errUnmarshal)
-	}
-	return nil
-}
 
 func validateSevenDaysToDieReportedModsResponseWire(data []byte) error {
 	modCount := 0

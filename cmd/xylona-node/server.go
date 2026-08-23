@@ -1476,11 +1476,9 @@ func sevenDaysToDieWebAPIStatusToProto(status *node.SevenDaysToDieWebAPIStatus) 
 		WorldTimeState:   sevenDaysToDieWebAPIValueStateToProto(status.WorldTimeState),
 		WorldTime:        sevenDaysToDieGameTimeToProto(status.WorldTime),
 		BloodMoonState:   sevenDaysToDieWebAPIValueStateToProto(status.BloodMoonState),
+		BloodMoonActive:  status.BloodMoonActive,
 		NextBloodMoon:    sevenDaysToDieGameTimeToProto(status.NextBloodMoon),
 		NextBloodMoonEnd: sevenDaysToDieGameTimeToProto(status.NextBloodMoonEnd),
-	}
-	if status.BloodMoonActive != nil {
-		result.BloodMoonActive = new(*status.BloodMoonActive)
 	}
 	if !status.ObservedAt.IsZero() {
 		observedAt := timestamppb.New(status.ObservedAt)
@@ -1504,36 +1502,16 @@ func sevenDaysToDiePlayersToProto(result *node.SevenDaysToDiePlayers) *nodeproto
 			EntityId:        player.EntityID,
 			PlatformId:      player.PlatformID,
 			CrossPlatformId: player.CrossPlatformID,
-		}
-		if player.Online != nil {
-			playerProto.Online = new(*player.Online)
-		}
-		if player.Ping != nil {
-			playerProto.Ping = new(*player.Ping)
-		}
-		if player.Level != nil {
-			playerProto.Level = new(*player.Level)
-		}
-		if player.Health != nil {
-			playerProto.Health = new(*player.Health)
-		}
-		if player.Stamina != nil {
-			playerProto.Stamina = new(*player.Stamina)
-		}
-		if player.Score != nil {
-			playerProto.Score = new(*player.Score)
-		}
-		if player.Deaths != nil {
-			playerProto.Deaths = new(*player.Deaths)
-		}
-		if player.ZombieKills != nil {
-			playerProto.ZombieKills = new(*player.ZombieKills)
-		}
-		if player.PlayerKills != nil {
-			playerProto.PlayerKills = new(*player.PlayerKills)
-		}
-		if player.Banned != nil {
-			playerProto.Banned = new(*player.Banned)
+			Online:          player.Online,
+			Ping:            player.Ping,
+			Level:           player.Level,
+			Health:          player.Health,
+			Stamina:         player.Stamina,
+			Score:           player.Score,
+			Deaths:          player.Deaths,
+			ZombieKills:     player.ZombieKills,
+			PlayerKills:     player.PlayerKills,
+			Banned:          player.Banned,
 		}
 		players = append(players, playerProto)
 	}

@@ -72,6 +72,9 @@ func TestGetSevenDaysToDieSandboxSettings(t *testing.T) {
 			NodeID:                   "node-remote",
 			GetProcessSnapshotResult: &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
 			GetProcessSnapshotFound:  true,
+			RuntimeCapabilitiesResult: node.RuntimeCapabilities{
+				ProtocolVersion: node.RuntimeProtocolVersion,
+			},
 			QuerySevenDaysToDieSandboxSettingsResult: &node.SevenDaysToDieSandboxSettings{
 				ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
 				State:           node.SevenDaysToDieWebAPIValueStateAvailable,
@@ -141,6 +144,31 @@ func TestGetSevenDaysToDieSandboxSettings(t *testing.T) {
 			}
 		})
 	}
+
+	legacyProtocols := []struct {
+		name    string
+		version int64
+	}{
+		{name: "protocol 9", version: sevenDaysToDiePrivateWebAPINodeProtocol - 1},
+		{name: "unknown protocol", version: 0},
+	}
+	for _, legacyProtocol := range legacyProtocols {
+		t.Run("gates "+legacyProtocol.name, func(t *testing.T) {
+			fixture, client := newSandboxSettingsRPCFixture(t, &node.SevenDaysToDieSandboxSettings{})
+			client.RuntimeCapabilitiesResult.ProtocolVersion = legacyProtocol.version
+			request := connect.NewRequest(&xylona.GetSevenDaysToDieSandboxSettingsRequest{GameServerId: "server-local-1"})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+			response, errGet := fixture.service.GetSevenDaysToDieSandboxSettings(t.Context(), request)
+			if errGet != nil {
+				t.Fatalf("GetSevenDaysToDieSandboxSettings() error = %v", errGet)
+			}
+			if response.Msg.GetState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED ||
+				len(client.QuerySevenDaysToDieSandboxSettingsCalls) != 0 {
+				t.Fatalf("response = %+v, query calls = %d", response.Msg, len(client.QuerySevenDaysToDieSandboxSettingsCalls))
+			}
+		})
+	}
 }
 
 func newSandboxSettingsRPCFixture(t *testing.T, result *node.SevenDaysToDieSandboxSettings) (*rbacRPCFixture, *nodeclient.FakeNodeClient) {
@@ -152,6 +180,7 @@ func newSandboxSettingsRPCFixture(t *testing.T, result *node.SevenDaysToDieSandb
 		NodeID:                                   "node-local",
 		GetProcessSnapshotResult:                 &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
 		GetProcessSnapshotFound:                  true,
+		RuntimeCapabilitiesResult:                node.RuntimeCapabilities{ProtocolVersion: node.RuntimeProtocolVersion},
 		QuerySevenDaysToDieSandboxSettingsResult: result,
 	}
 	registry := noderegistry.New("node-local", client)

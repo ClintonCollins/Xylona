@@ -39,19 +39,17 @@ type sevenDaysToDieServerSettingsXML struct {
 	} `xml:"property"`
 }
 
-type sevenDaysToDieWebAPIEndpoint uint8
-
 const (
-	sevenDaysToDieWebAPIEndpointOpenAPI sevenDaysToDieWebAPIEndpoint = iota
-	sevenDaysToDieWebAPIEndpointBloodMoon
-	sevenDaysToDieWebAPIEndpointServerStats
-	sevenDaysToDieWebAPIEndpointPlayer
-	sevenDaysToDieWebAPIEndpointMods
-	sevenDaysToDieWebAPIEndpointSandboxSettings
-	sevenDaysToDieWebAPIEndpointMarkers
-	sevenDaysToDieWebAPIEndpointLandClaims
-	sevenDaysToDieWebAPIEndpointHostile
-	sevenDaysToDieWebAPIEndpointAnimal
+	sevenDaysToDieWebAPIEndpointOpenAPI         = "/api/openapi/openapi.yaml"
+	sevenDaysToDieWebAPIEndpointBloodMoon       = "/api/bloodmoon"
+	sevenDaysToDieWebAPIEndpointServerStats     = "/api/serverstats"
+	sevenDaysToDieWebAPIEndpointPlayer          = "/api/player"
+	sevenDaysToDieWebAPIEndpointMods            = "/api/mods"
+	sevenDaysToDieWebAPIEndpointSandboxSettings = "/api/sandboxsettings"
+	sevenDaysToDieWebAPIEndpointMarkers         = "/api/markers"
+	sevenDaysToDieWebAPIEndpointLandClaims      = "/api/getlandclaims"
+	sevenDaysToDieWebAPIEndpointHostile         = "/api/hostile"
+	sevenDaysToDieWebAPIEndpointAnimal          = "/api/animal"
 )
 
 type sevenDaysToDieOpenAPI struct {
@@ -176,7 +174,7 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 		return nil, fmt.Errorf("node: query 7 Days to Die WebAPI discovery: %w", errContext)
 	}
 
-	bloodMoonAdvertised := req.IncludeTactical && discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/bloodmoon", method: http.MethodGet})
+	bloodMoonAdvertised := req.IncludeTactical && discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointBloodMoon, method: http.MethodGet})
 	if bloodMoonAdvertised {
 		errBloodMoon := querySevenDaysToDieBloodMoon(discovery.ctx, ctx, discovery.settings, req, status)
 		if errBloodMoon != nil {
@@ -187,7 +185,7 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 		return status, nil
 	}
 
-	serverStatsAdvertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/serverstats", method: http.MethodGet})
+	serverStatsAdvertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointServerStats, method: http.MethodGet})
 	if serverStatsAdvertised {
 		errServerStats := querySevenDaysToDieServerStats(discovery.ctx, ctx, discovery.settings, req, status)
 		if errServerStats != nil {
@@ -217,7 +215,7 @@ func (*Node) QuerySevenDaysToDiePlayers(ctx context.Context, req SevenDaysToDieP
 	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
 		return result, nil
 	}
-	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/player", method: http.MethodGet})
+	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointPlayer, method: http.MethodGet})
 	if !advertised {
 		errContext := ctx.Err()
 		if errContext != nil {
@@ -261,7 +259,7 @@ func (*Node) QuerySevenDaysToDieReportedMods(ctx context.Context, req SevenDaysT
 	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
 		return result, nil
 	}
-	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/mods", method: http.MethodGet})
+	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointMods, method: http.MethodGet})
 	if !advertised {
 		errContext := ctx.Err()
 		if errContext != nil {
@@ -306,7 +304,7 @@ func (*Node) QuerySevenDaysToDieSandboxSettings(ctx context.Context, req SevenDa
 	if discovery.connectionState != SevenDaysToDieWebAPIConnectionStateAvailable {
 		return result, nil
 	}
-	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: "/api/sandboxsettings", method: http.MethodGet})
+	advertised := discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointSandboxSettings, method: http.MethodGet})
 	if !advertised {
 		errContext := ctx.Err()
 		if errContext != nil {
@@ -566,10 +564,7 @@ func collectSevenDaysToDieSandboxSettings(
 			}
 		}
 	case map[string]any:
-		setting, isSetting, errSetting := decodeSevenDaysToDieSandboxSetting(typed, inheritedGroup)
-		if errSetting != nil {
-			return errSetting
-		}
+		setting, isSetting := decodeSevenDaysToDieSandboxSetting(typed, inheritedGroup)
 		if isSetting {
 			if len(*settings) == SevenDaysToDieSandboxSettingCountLimit {
 				return errors.New("decode 7 Days to Die sandbox settings: setting count exceeds limit")
@@ -607,11 +602,11 @@ func collectSevenDaysToDieSandboxSettings(
 func decodeSevenDaysToDieSandboxSetting(
 	object map[string]any,
 	inheritedGroup string,
-) (SevenDaysToDieSandboxSetting, bool, error) {
+) (SevenDaysToDieSandboxSetting, bool) {
 	key, hasKey := textFromSevenDaysToDieSandboxJSON(object, "key", "id", "enumName", "name")
 	value, hasValue := textFromSevenDaysToDieSandboxJSON(object, "value", "selectedValue", "currentValue", "effectiveValue", "current")
 	if !hasKey || !hasValue {
-		return SevenDaysToDieSandboxSetting{}, false, nil
+		return SevenDaysToDieSandboxSetting{}, false
 	}
 	label, _ := textFromSevenDaysToDieSandboxJSON(object, "label", "title", "displayName", "localizedName", "name")
 	description, _ := textFromSevenDaysToDieSandboxJSON(object, "description", "help", "tooltip")
@@ -630,12 +625,7 @@ func decodeSevenDaysToDieSandboxSetting(
 	if setting.Group == "" {
 		setting.Group = "Sandbox"
 	}
-	result := &SevenDaysToDieSandboxSettings{Settings: []SevenDaysToDieSandboxSetting{setting}}
-	errValidate := ValidateSevenDaysToDieSandboxSettings(result)
-	if errValidate != nil {
-		return SevenDaysToDieSandboxSetting{}, false, errValidate
-	}
-	return setting, true, nil
+	return setting, true
 }
 
 func lookupSevenDaysToDieSandboxJSON(object map[string]any, names ...string) (any, bool) {
@@ -846,7 +836,7 @@ func discoverSevenDaysToDieWebAPI(
 func querySevenDaysToDieWebAPIResource(
 	callerCtx context.Context,
 	discovery *sevenDaysToDieWebAPIDiscovery,
-	endpoint sevenDaysToDieWebAPIEndpoint,
+	endpoint string,
 	tokenName string,
 	tokenSecret string,
 ) (SevenDaysToDieWebAPIValueState, []byte, error) {
@@ -921,36 +911,13 @@ func sevenDaysToDieWebAPIHTTPClient() *http.Client {
 func getSevenDaysToDieWebAPI(
 	ctx context.Context,
 	settings sevenDaysToDieWebAPISettings,
-	endpoint sevenDaysToDieWebAPIEndpoint,
+	path string,
 	tokenName string,
 	tokenSecret string,
 ) (int, []byte, error) {
-	var path string
 	accept := "application/json"
-	switch endpoint {
-	case sevenDaysToDieWebAPIEndpointOpenAPI:
-		path = "/api/openapi/openapi.yaml"
+	if path == sevenDaysToDieWebAPIEndpointOpenAPI {
 		accept = "application/yaml, text/yaml, application/json"
-	case sevenDaysToDieWebAPIEndpointBloodMoon:
-		path = "/api/bloodmoon"
-	case sevenDaysToDieWebAPIEndpointServerStats:
-		path = "/api/serverstats"
-	case sevenDaysToDieWebAPIEndpointPlayer:
-		path = "/api/player"
-	case sevenDaysToDieWebAPIEndpointMods:
-		path = "/api/mods"
-	case sevenDaysToDieWebAPIEndpointSandboxSettings:
-		path = "/api/sandboxsettings"
-	case sevenDaysToDieWebAPIEndpointMarkers:
-		path = "/api/markers"
-	case sevenDaysToDieWebAPIEndpointLandClaims:
-		path = "/api/getlandclaims"
-	case sevenDaysToDieWebAPIEndpointHostile:
-		path = "/api/hostile"
-	case sevenDaysToDieWebAPIEndpointAnimal:
-		path = "/api/animal"
-	default:
-		return 0, nil, errors.New("node: invalid 7 Days to Die WebAPI endpoint")
 	}
 	return getSevenDaysToDieWebAPIPath(ctx, settings, path, accept, tokenName, tokenSecret)
 }
@@ -1011,19 +978,19 @@ func getSevenDaysToDieWebAPIPath(
 
 func projectSevenDaysToDieWebAPICapabilities(resolver *sevenDaysToDieOpenAPIResolver) SevenDaysToDieWebAPICapabilities {
 	hostilePositions := resolver.supports(
-		sevenDaysToDieOpenAPIOperation{path: "/api/hostile", method: http.MethodGet})
+		sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointHostile, method: http.MethodGet})
 	animalPositions := resolver.supports(
-		sevenDaysToDieOpenAPIOperation{path: "/api/animal", method: http.MethodGet})
+		sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointAnimal, method: http.MethodGet})
 	return SevenDaysToDieWebAPICapabilities{
 		PlayerData: resolver.supports(
-			sevenDaysToDieOpenAPIOperation{path: "/api/player", method: http.MethodGet}),
+			sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointPlayer, method: http.MethodGet}),
 		RuntimeSettings: resolver.supports(
 			sevenDaysToDieOpenAPIOperation{path: "/api/gameprefs", method: http.MethodGet},
 			sevenDaysToDieOpenAPIOperation{path: "/api/gamestats", method: http.MethodGet}),
 		NativeLog: resolver.supports(
 			sevenDaysToDieOpenAPIOperation{path: "/api/log", method: http.MethodGet}),
 		WorldPopulation: resolver.supports(
-			sevenDaysToDieOpenAPIOperation{path: "/api/serverstats", method: http.MethodGet}),
+			sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointServerStats, method: http.MethodGet}),
 		HostileAndAnimalPositions: hostilePositions && animalPositions,
 		HostilePositions:          hostilePositions,
 		AnimalPositions:           animalPositions,
@@ -1039,7 +1006,7 @@ func projectSevenDaysToDieWebAPICapabilities(resolver *sevenDaysToDieOpenAPIReso
 			sevenDaysToDieOpenAPIOperation{path: "/api/userpermissions/user/{id}", method: http.MethodPost},
 			sevenDaysToDieOpenAPIOperation{path: "/api/userpermissions/user/{id}", method: http.MethodDelete}),
 		ReportedMods: resolver.supports(
-			sevenDaysToDieOpenAPIOperation{path: "/api/mods", method: http.MethodGet}),
+			sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointMods, method: http.MethodGet}),
 	}
 }
 
@@ -1114,13 +1081,7 @@ func decodeSevenDaysToDiePlayers(body []byte) ([]SevenDaysToDiePlayer, error) {
 		if crossPlatformID == "" {
 			crossPlatformID = strings.TrimSpace(rawPlayer.CrossPlatformID)
 		}
-		actionID := platformID
-		if actionID == "" {
-			actionID = crossPlatformID
-		}
-		if actionID == "" {
-			actionID = entityID
-		}
+		actionID := firstSafeSevenDaysToDieActionID(platformID, crossPlatformID, entityID)
 		player := SevenDaysToDiePlayer{
 			Name:            strings.TrimSpace(rawPlayer.Name),
 			ActionID:        actionID,
@@ -1145,6 +1106,16 @@ func decodeSevenDaysToDiePlayers(body []byte) ([]SevenDaysToDiePlayer, error) {
 		players = append(players, player)
 	}
 	return players, nil
+}
+
+func firstSafeSevenDaysToDieActionID(identifiers ...string) string {
+	for _, identifier := range identifiers {
+		_, errIdentifier := quotedPlayerIdentifier(identifier, "7 Days to Die")
+		if errIdentifier == nil {
+			return identifier
+		}
+	}
+	return ""
 }
 
 func decodeSevenDaysToDieReportedMods(body []byte) ([]SevenDaysToDieReportedMod, error) {

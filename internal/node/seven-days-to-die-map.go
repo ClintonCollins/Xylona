@@ -138,7 +138,7 @@ func (n *Node) QuerySevenDaysToDieMap(ctx context.Context, req SevenDaysToDieMap
 		return nil, fmt.Errorf("%w: invalid native map dimensions", errSevenDaysToDieMapUnavailable)
 	}
 
-	playersEnvelope, errPlayers := sevenDaysToDieMapGetJSON(ctx, client, baseURL+"/api/player", req)
+	playersEnvelope, errPlayers := sevenDaysToDieMapGetJSON(ctx, client, baseURL+sevenDaysToDieWebAPIEndpointPlayer, req)
 	if errPlayers != nil && errors.Is(errPlayers, fs.ErrNotExist) {
 		playersEnvelope, errPlayers = sevenDaysToDieMapGetJSON(ctx, client, baseURL+"/api/getplayerslocation?offline=true", req)
 	}
@@ -186,64 +186,56 @@ func querySevenDaysToDieTacticalOverlays(ctx context.Context, req SevenDaysToDie
 		return
 	}
 
-	snapshot.NativeMarkerState = querySevenDaysToDieMapOverlay(
-		ctx, discovery, req, "/api/markers", sevenDaysToDieWebAPIEndpointMarkers,
-		func(body []byte) error {
+	overlays := []struct {
+		path   string
+		state  *SevenDaysToDieWebAPIValueState
+		decode func([]byte) error
+	}{
+		{sevenDaysToDieWebAPIEndpointMarkers, &snapshot.NativeMarkerState, func(body []byte) error {
 			markers, errDecode := decodeSevenDaysToDieNativeMarkers(body, snapshot.MapSize)
 			if errDecode == nil {
 				snapshot.NativeMarkers = markers
 			}
 			return errDecode
-		},
-	)
-	snapshot.ClaimsState = querySevenDaysToDieMapOverlay(
-		ctx, discovery, req, "/api/getlandclaims", sevenDaysToDieWebAPIEndpointLandClaims,
-		func(body []byte) error {
+		}},
+		{sevenDaysToDieWebAPIEndpointLandClaims, &snapshot.ClaimsState, func(body []byte) error {
 			claims, errDecode := decodeSevenDaysToDieLandClaims(body, snapshot.MapSize)
 			if errDecode == nil {
 				snapshot.Claims = claims
 			}
 			return errDecode
-		},
-	)
-	snapshot.BloodMoonState = querySevenDaysToDieMapOverlay(
-		ctx, discovery, req, "/api/bloodmoon", sevenDaysToDieWebAPIEndpointBloodMoon,
-		func(body []byte) error {
+		}},
+		{sevenDaysToDieWebAPIEndpointBloodMoon, &snapshot.BloodMoonState, func(body []byte) error {
 			bloodMoon, errDecode := decodeSevenDaysToDieMapBloodMoon(body)
 			if errDecode == nil {
 				snapshot.BloodMoon = bloodMoon
 			}
 			return errDecode
-		},
-	)
-	snapshot.HostileState = querySevenDaysToDieMapOverlay(
-		ctx, discovery, req, "/api/hostile", sevenDaysToDieWebAPIEndpointHostile,
-		func(body []byte) error {
+		}},
+		{sevenDaysToDieWebAPIEndpointHostile, &snapshot.HostileState, func(body []byte) error {
 			entities, errDecode := decodeSevenDaysToDieMapEntities(body, snapshot.MapSize)
 			if errDecode == nil {
 				snapshot.Hostiles = entities
 			}
 			return errDecode
-		},
-	)
-	snapshot.AnimalState = querySevenDaysToDieMapOverlay(
-		ctx, discovery, req, "/api/animal", sevenDaysToDieWebAPIEndpointAnimal,
-		func(body []byte) error {
+		}},
+		{sevenDaysToDieWebAPIEndpointAnimal, &snapshot.AnimalState, func(body []byte) error {
 			entities, errDecode := decodeSevenDaysToDieMapEntities(body, snapshot.MapSize)
 			if errDecode == nil {
 				snapshot.Animals = entities
 			}
 			return errDecode
-		},
-	)
+		}},
+	}
+	for _, overlay := range overlays {
+		*overlay.state = querySevenDaysToDieMapOverlay(discovery, req, overlay.path, overlay.decode)
+	}
 }
 
 func querySevenDaysToDieMapOverlay(
-	ctx context.Context,
 	discovery *sevenDaysToDieWebAPIDiscovery,
 	req SevenDaysToDieMapQueryRequest,
 	path string,
-	endpoint sevenDaysToDieWebAPIEndpoint,
 	decode func([]byte) error,
 ) SevenDaysToDieWebAPIValueState {
 	if !discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: path, method: http.MethodGet}) {
@@ -252,10 +244,8 @@ func querySevenDaysToDieMapOverlay(
 		}
 		return SevenDaysToDieWebAPIValueStateUnsupported
 	}
-	queryCtx, cancel := context.WithTimeout(ctx, sevenDaysToDieWebAPIQueryTimeout)
-	defer cancel()
 	statusCode, body, errQuery := getSevenDaysToDieWebAPI(
-		queryCtx, discovery.settings, endpoint, req.TokenName, req.TokenSecret,
+		discovery.ctx, discovery.settings, path, req.TokenName, req.TokenSecret,
 	)
 	if errQuery != nil {
 		return SevenDaysToDieWebAPIValueStateUnavailable

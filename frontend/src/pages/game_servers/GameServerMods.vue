@@ -37,13 +37,12 @@ const loading = ref(true)
 const installedMods = ref<InstalledMod[]>([])
 const isSevenDaysToDie = ref(false)
 const reportedModsLoading = ref(false)
-const reportedModsConnectionState = ref(
-  SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED,
-)
-const reportedModsState = ref(
-  SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED,
-)
-const reportedMods = ref<SevenDaysToDieReportedMod[]>([])
+const reportedModsResponse = ref({
+  connectionState:
+    SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED,
+  state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED,
+  mods: [] as SevenDaysToDieReportedMod[],
+})
 
 // Detail dialog state
 const showDetailDialog = ref(false)
@@ -77,34 +76,34 @@ const detailIsInstalled = computed(() => {
 const reportedModsStateText = computed((): string => {
   if (reportedModsLoading.value) return 'Loading reported mods...'
   if (
-    reportedModsConnectionState.value ===
+    reportedModsResponse.value.connectionState ===
     SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE
   ) {
     return 'The game server is offline.'
   }
   if (
-    reportedModsState.value ===
+    reportedModsResponse.value.state ===
     SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED
   ) {
     return 'This game server does not support reporting mods.'
   }
   if (
-    reportedModsState.value ===
+    reportedModsResponse.value.state ===
       SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED ||
-    reportedModsConnectionState.value ===
+    reportedModsResponse.value.connectionState ===
       SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED
   ) {
     return 'The game server denied access to its reported mods.'
   }
   if (
-    reportedModsState.value ===
+    reportedModsResponse.value.state ===
       SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE &&
-    reportedMods.value.length === 0
+    reportedModsResponse.value.mods.length === 0
   ) {
     return 'No mods reported by the game server.'
   }
   if (
-    reportedModsState.value !==
+    reportedModsResponse.value.state !==
     SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE
   ) {
     return 'Reported mods are currently unavailable.'
@@ -170,15 +169,14 @@ async function loadReportedMods(): Promise<void> {
   try {
     const request = create(GetSevenDaysToDieReportedModsRequestSchema, { gameServerId })
     const response = await GetXylonaClient().getSevenDaysToDieReportedMods(request)
-    reportedModsConnectionState.value = response.connectionState
-    reportedModsState.value = response.state
-    reportedMods.value = response.mods
+    reportedModsResponse.value = response
   } catch {
-    reportedModsConnectionState.value =
-      SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED
-    reportedModsState.value =
-      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
-    reportedMods.value = []
+    reportedModsResponse.value = {
+      connectionState:
+        SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED,
+      state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
+      mods: [],
+    }
   } finally {
     reportedModsLoading.value = false
   }
@@ -530,7 +528,10 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
               <span>{{ reportedModsStateText }}</span>
             </div>
             <div v-else class="reported-mods-grid">
-              <article v-for="mod in reportedMods" :key="mod.name" class="reported-mod-card">
+              <article
+                v-for="mod in reportedModsResponse.mods"
+                :key="mod.name"
+                class="reported-mod-card">
                 <div class="reported-mod-header">
                   <div>
                     <h3 class="reported-mod-title">{{ mod.displayName || mod.name }}</h3>

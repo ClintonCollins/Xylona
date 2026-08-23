@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -133,6 +134,64 @@ func TestGetPlayerManagement(t *testing.T) {
 			}
 			if client.RuntimeCapabilitiesCalls != tc.wantRuntimeCalls {
 				t.Fatalf("runtime capability calls = %d, want %d", client.RuntimeCapabilitiesCalls, tc.wantRuntimeCalls)
+			}
+		})
+	}
+}
+
+func TestGetPlayerManagementGatesNativeRosterCapabilities(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		protocolVersion   int64
+		capabilitiesError error
+		wantState         node.SevenDaysToDieWebAPIValueState
+		wantError         error
+	}{
+		{
+			name:            "protocol 9 is unsupported",
+			protocolVersion: sevenDaysToDiePlayerRosterProtocol - 1,
+			wantState:       node.SevenDaysToDieWebAPIValueStateUnsupported,
+		},
+		{
+			name:              "capability failure is unavailable",
+			capabilitiesError: errors.New("capability transport failed"),
+			wantState:         node.SevenDaysToDieWebAPIValueStateUnavailable,
+		},
+		{
+			name:              "canceled capability request propagates",
+			capabilitiesError: context.Canceled,
+			wantError:         context.Canceled,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			client := &nodeclient.FakeNodeClient{
+				NodeID: "node-1",
+				RuntimeCapabilitiesResult: node.RuntimeCapabilities{
+					PlayerActions:   true,
+					ProtocolVersion: test.protocolVersion,
+				},
+				RuntimeCapabilitiesErr:   test.capabilitiesError,
+				GetProcessSnapshotResult: &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
+				GetProcessSnapshotFound:  true,
+			}
+			inst := &Instance{embeddedNodeClient: client}
+			gameServer := &models.GameServer{
+				ID: "server-1", GameID: sevenDaysToDieGameID, NodeID: "node-1", Status: xylona.Status_ONLINE.String(),
+			}
+
+			management, errManagement := inst.GetPlayerManagement(t.Context(), gameServer)
+			if !errors.Is(errManagement, test.wantError) {
+				t.Fatalf("GetPlayerManagement() error = %v, want %v", errManagement, test.wantError)
+			}
+			if management.RosterState != test.wantState {
+				t.Fatalf("RosterState = %v, want %v", management.RosterState, test.wantState)
+			}
+			if client.RuntimeCapabilitiesCalls != 1 || len(client.QuerySevenDaysToDiePlayersCalls) != 0 {
+				t.Fatalf("runtime capability calls = %d, native roster calls = %d", client.RuntimeCapabilitiesCalls, len(client.QuerySevenDaysToDiePlayersCalls))
 			}
 		})
 	}

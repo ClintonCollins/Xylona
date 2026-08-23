@@ -44,8 +44,11 @@
         <div class="sandbox-filters">
           <label class="sandbox-search">
             <q-icon name="search" size="18px" />
-            <span class="sr-only">Filter sandbox settings</span>
-            <input v-model="filter" type="search" placeholder="Filter settings" />
+            <input
+              v-model="filter"
+              aria-label="Filter sandbox settings"
+              type="search"
+              placeholder="Filter settings" />
           </label>
         </div>
 
@@ -64,7 +67,6 @@
                 <tr>
                   <th scope="col">Setting</th>
                   <th scope="col">{{ runningValueLabel }}</th>
-                  <th scope="col">Result</th>
                 </tr>
               </thead>
               <tbody>
@@ -74,14 +76,6 @@
                     <small v-if="setting.description">{{ setting.description }}</small>
                   </th>
                   <td>{{ displayValue(setting.effectiveLabel, setting.effectiveValue) }}</td>
-                  <td>
-                    <span
-                      class="sandbox-row-status"
-                      :class="settingsMatch ? 'is-match' : 'is-uncompared'">
-                      <q-icon :name="settingsMatch ? 'check_circle' : 'history'" size="16px" />
-                      {{ settingsMatch ? 'Matches' : 'Not compared' }}
-                    </span>
-                  </td>
                 </tr>
               </tbody>
             </table>
@@ -133,11 +127,6 @@ const isStale = computed(
   () =>
     staleSinceSave.value ||
     response.value?.comparisonState === SevenDaysToDieSandboxComparisonState.STALE,
-)
-const settingsMatch = computed(
-  () =>
-    !isStale.value &&
-    response.value?.comparisonState === SevenDaysToDieSandboxComparisonState.MATCH,
 )
 const configuredCodeLabel = computed(() =>
   staleSinceSave.value ? 'Previously saved SandboxCode' : 'Saved SandboxCode',
@@ -359,7 +348,6 @@ function displayValue(label: string, value: string): string {
 }
 .sandbox-summary-title,
 .sandbox-status,
-.sandbox-row-status,
 .sandbox-refresh,
 .sandbox-search {
   display: inline-flex;
@@ -373,8 +361,7 @@ function displayValue(label: string, value: string): string {
   font-size: var(--xy-font-size-xs);
   font-weight: 600;
 }
-.sandbox-status--positive,
-.is-match {
+.sandbox-status--positive {
   color: var(--q-positive);
 }
 .sandbox-status--warning {
@@ -496,30 +483,11 @@ th small {
   color: var(--xy-text-secondary);
   font-weight: 400;
 }
-.sandbox-row-status {
-  white-space: nowrap;
-  font-weight: 600;
-}
-.is-uncompared {
-  color: var(--xy-text-secondary);
-}
 .sandbox-empty {
   padding: var(--xy-space-lg);
   color: var(--xy-text-secondary);
   text-align: center;
 }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 @media (max-width: 599px) {
   .sandbox-inspector {
     margin-inline: var(--xy-space-sm);

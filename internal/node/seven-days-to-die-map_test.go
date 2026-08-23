@@ -8,8 +8,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestNodeSevenDaysToDieMap(t *testing.T) {
@@ -255,6 +259,51 @@ paths:
 				t.Fatal("unsupported marker endpoint was requested")
 			}
 		})
+	}
+}
+
+func TestSevenDaysToDieTacticalOverlaysDoNotRenewExhaustedDiscoveryBudget(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		writeSevenDaysToDieTestResponse(t, response, `{}`)
+	}))
+	t.Cleanup(server.Close)
+	serverURL, errURL := url.Parse(server.URL)
+	if errURL != nil {
+		t.Fatalf("parse server URL: %v", errURL)
+	}
+	_, portText, found := strings.Cut(serverURL.Host, ":")
+	if !found {
+		t.Fatalf("test server host %q has no port", serverURL.Host)
+	}
+	port, errPort := strconv.ParseUint(portText, 10, 16)
+	if errPort != nil {
+		t.Fatalf("parse server port: %v", errPort)
+	}
+
+	budgetCtx, cancel := context.WithTimeout(t.Context(), 0)
+	defer cancel()
+	discovery := &sevenDaysToDieWebAPIDiscovery{
+		ctx:      budgetCtx,
+		settings: sevenDaysToDieWebAPISettings{enabled: true, port: port},
+		resolver: &sevenDaysToDieOpenAPIResolver{document: sevenDaysToDieOpenAPI{
+			Paths: map[string]map[string]yaml.Node{
+				string(sevenDaysToDieWebAPIEndpointMarkers): {"get": {}},
+			},
+		}},
+	}
+	state := querySevenDaysToDieMapOverlay(
+		discovery,
+		SevenDaysToDieMapQueryRequest{},
+		sevenDaysToDieWebAPIEndpointMarkers,
+		func([]byte) error { return nil },
+	)
+	if state != SevenDaysToDieWebAPIValueStateUnavailable {
+		t.Fatalf("querySevenDaysToDieMapOverlay() state = %v, want unavailable", state)
+	}
+	if requests.Load() != 0 {
+		t.Fatalf("querySevenDaysToDieMapOverlay() made %d requests after its shared budget expired", requests.Load())
 	}
 }
 

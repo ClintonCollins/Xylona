@@ -89,6 +89,9 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 			NodeID:                   "node-remote",
 			GetProcessSnapshotResult: &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
 			GetProcessSnapshotFound:  true,
+			RuntimeCapabilitiesResult: node.RuntimeCapabilities{
+				ProtocolVersion: node.RuntimeProtocolVersion,
+			},
 			QuerySevenDaysToDieReportedModsResult: &node.SevenDaysToDieReportedMods{
 				ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
 				State:           node.SevenDaysToDieWebAPIValueStateAvailable,
@@ -257,6 +260,31 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 			t.Fatalf("GetSevenDaysToDieReportedMods() code = %v, want %v", connect.CodeOf(errMods), connect.CodeCanceled)
 		}
 	})
+
+	legacyProtocols := []struct {
+		name    string
+		version int64
+	}{
+		{name: "protocol 9", version: sevenDaysToDiePrivateWebAPINodeProtocol - 1},
+		{name: "unknown protocol", version: 0},
+	}
+	for _, legacyProtocol := range legacyProtocols {
+		t.Run("gates "+legacyProtocol.name, func(t *testing.T) {
+			fixture, client := newReportedModsRPCFixture(t, &node.SevenDaysToDieReportedMods{})
+			client.RuntimeCapabilitiesResult.ProtocolVersion = legacyProtocol.version
+			request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+			response, errMods := fixture.service.GetSevenDaysToDieReportedMods(t.Context(), request)
+			if errMods != nil {
+				t.Fatalf("GetSevenDaysToDieReportedMods() error = %v", errMods)
+			}
+			if response.Msg.GetState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED ||
+				len(client.QuerySevenDaysToDieReportedModsCalls) != 0 {
+				t.Fatalf("response = %+v, query calls = %d", response.Msg, len(client.QuerySevenDaysToDieReportedModsCalls))
+			}
+		})
+	}
 }
 
 func newReportedModsRPCFixture(t *testing.T, result *node.SevenDaysToDieReportedMods) (*rbacRPCFixture, *nodeclient.FakeNodeClient) {
@@ -268,6 +296,7 @@ func newReportedModsRPCFixture(t *testing.T, result *node.SevenDaysToDieReported
 		NodeID:                                "node-local",
 		GetProcessSnapshotResult:              &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
 		GetProcessSnapshotFound:               true,
+		RuntimeCapabilitiesResult:             node.RuntimeCapabilities{ProtocolVersion: node.RuntimeProtocolVersion},
 		QuerySevenDaysToDieReportedModsResult: result,
 	}
 	registry := noderegistry.New("node-local", client)

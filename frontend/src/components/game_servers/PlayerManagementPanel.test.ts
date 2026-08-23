@@ -1,8 +1,8 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Status } from '@/proto/shared_pb'
+import { AllServersQueryInfoSchema, ServerQuery_Type, Status } from '@/proto/shared_pb'
 import {
   GameServerManagementPlayerSchema,
   type GameServerManagementPlayer,
@@ -104,6 +104,10 @@ describe('PlayerManagementPanel', () => {
     mocks.performAction.mockReset().mockResolvedValue({})
     mocks.on.mockReset()
     mocks.off.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it.each([
@@ -221,5 +225,46 @@ describe('PlayerManagementPanel', () => {
     expect(palworld.text()).toContain('The server query returned an empty roster')
     expect(palworld.text()).not.toContain('Native player roster')
     palworld.unmount()
+  })
+
+  it('ignores retained offline native players when comparing live query events', async () => {
+    vi.useFakeTimers()
+    mocks.getManagement.mockResolvedValue(
+      response(GameServerPlayerManagementRosterState.AVAILABLE, {
+        players: [
+          create(GameServerManagementPlayerSchema, { name: 'Alex', online: true }),
+          create(GameServerManagementPlayerSchema, { name: 'Jamie', online: false }),
+        ],
+      }),
+    )
+    const wrapper = await mountPanel()
+    const queryInfoHandler = mocks.on.mock.calls.find(
+      ([eventName]) => eventName === 'gameServersQueryInfo',
+    )?.[1]
+    expect(queryInfoHandler).toBeTypeOf('function')
+
+    const queryInfoEvent = (playerList: string[]) =>
+      create(AllServersQueryInfoSchema, {
+        servers: {
+          'server-1': {
+            serverId: 'server-1',
+            type: ServerQuery_Type.Source,
+            source: {
+              playerList,
+              playerListSupported: true,
+              players: playerList.length,
+            },
+          },
+        },
+      })
+
+    queryInfoHandler?.(queryInfoEvent(['Alex']))
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(mocks.getManagement).toHaveBeenCalledTimes(1)
+
+    queryInfoHandler?.(queryInfoEvent(['Alex', 'Morgan']))
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(mocks.getManagement).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
   })
 })

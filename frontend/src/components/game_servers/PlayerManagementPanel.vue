@@ -141,7 +141,10 @@ function onServersQueryInfo(allServersQueryInfo: AllServersQueryInfo): void {
   const snapshot = queryInfoPlayerSnapshot(queryInfo)
   if (snapshot === null || !snapshot.playerListSupported) return
 
-  const knownNames = new Set(players.value.map((player) => player.name))
+  const comparedPlayers = nativeRoster.value
+    ? players.value.filter((player) => player.online === true)
+    : players.value
+  const knownNames = new Set(comparedPlayers.map((player) => player.name))
   const rosterChanged =
     snapshot.players.length !== knownNames.size ||
     snapshot.players.some((name) => !knownNames.has(name))

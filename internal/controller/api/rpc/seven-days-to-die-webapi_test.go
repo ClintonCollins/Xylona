@@ -254,8 +254,8 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		if len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls) != 2 || remoteClient.QuerySevenDaysToDieWebAPIStatusCalls[1].IncludeTactical {
 			t.Fatalf("status tactical request flags = %+v, want owner true then viewer false", remoteClient.QuerySevenDaysToDieWebAPIStatusCalls)
 		}
-		if remoteClient.RuntimeCapabilitiesCalls != 1 {
-			t.Fatalf("viewer runtime capability calls = %d, want 1", remoteClient.RuntimeCapabilitiesCalls)
+		if remoteClient.RuntimeCapabilitiesCalls != 2 {
+			t.Fatalf("runtime capability calls = %d, want 2", remoteClient.RuntimeCapabilitiesCalls)
 		}
 		viewerStatus := viewerResponse.Msg.GetStatus()
 		viewerCapabilities := viewerStatus.GetCapabilities()
@@ -276,30 +276,46 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 			}
 		}
 
-		legacyProtocols := []struct {
-			name    string
-			version int64
+		legacyRequests := []struct {
+			name               string
+			version            int64
+			request            *connect.Request[xylona.GetSevenDaysToDieWebAPIStatusRequest]
+			wantBloodMoonState xylona.SevenDaysToDieWebAPIValueState
 		}{
-			{name: "older node", version: sevenDaysToDieNonTacticalStatusNodeProtocol - 1},
-			{name: "unknown node", version: 0},
+			{
+				name:               "older node with settings permission",
+				version:            sevenDaysToDiePrivateWebAPINodeProtocol - 1,
+				request:            request,
+				wantBloodMoonState: xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
+			},
+			{
+				name:    "older node with view permission",
+				version: sevenDaysToDiePrivateWebAPINodeProtocol - 1,
+				request: viewerRequest,
+			},
+			{
+				name:    "unknown node with view permission",
+				version: 0,
+				request: viewerRequest,
+			},
 		}
-		for index, protocol := range legacyProtocols {
-			remoteClient.RuntimeCapabilitiesResult.ProtocolVersion = protocol.version
-			legacyResponse, errLegacy := fixture.service.GetSevenDaysToDieWebAPIStatus(t.Context(), viewerRequest)
+		for index, legacyRequest := range legacyRequests {
+			remoteClient.RuntimeCapabilitiesResult.ProtocolVersion = legacyRequest.version
+			legacyResponse, errLegacy := fixture.service.GetSevenDaysToDieWebAPIStatus(t.Context(), legacyRequest.request)
 			if errLegacy != nil {
-				t.Fatalf("GetSevenDaysToDieWebAPIStatus(%s viewer) error = %v", protocol.name, errLegacy)
+				t.Fatalf("GetSevenDaysToDieWebAPIStatus(%s) error = %v", legacyRequest.name, errLegacy)
 			}
 			if len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls) != 2 {
-				t.Fatalf("%s status handler calls = %d, want unchanged at 2", protocol.name, len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls))
+				t.Fatalf("%s status handler calls = %d, want unchanged at 2", legacyRequest.name, len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls))
 			}
-			if remoteClient.RuntimeCapabilitiesCalls != index+2 {
-				t.Fatalf("%s runtime capability calls = %d, want %d", protocol.name, remoteClient.RuntimeCapabilitiesCalls, index+2)
+			if remoteClient.RuntimeCapabilitiesCalls != index+3 {
+				t.Fatalf("%s runtime capability calls = %d, want %d", legacyRequest.name, remoteClient.RuntimeCapabilitiesCalls, index+3)
 			}
 			legacyStatus := legacyResponse.Msg.GetStatus()
 			if legacyStatus.GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED ||
-				legacyStatus.GetWorldTimeState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE ||
-				legacyStatus.GetBloodMoonState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED {
-				t.Fatalf("%s viewer status = %+v, want safe non-tactical limited state", protocol.name, legacyStatus)
+				legacyStatus.GetWorldTimeState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED ||
+				legacyStatus.GetBloodMoonState() != legacyRequest.wantBloodMoonState {
+				t.Fatalf("%s status = %+v, want upgrade-required state", legacyRequest.name, legacyStatus)
 			}
 		}
 	})

@@ -23,7 +23,7 @@ func TestReportedModsProtoCodecRejectsLargeWireInventoryBeforeUnmarshal(t *testi
 		t.Fatalf("wire payload size = %d, want below %d", len(payload), sevenDaysToDieReportedModsResponseLimit)
 	}
 
-	codec := reportedModsProtoCodec{}
+	codec := boundedProtoCodecFor[*nodeprotov1.QuerySevenDaysToDieReportedModsResponse](validateSevenDaysToDieReportedModsResponseWire)
 	if codec.Name() != "proto" {
 		t.Fatalf("Name() = %q, want binary proto codec", codec.Name())
 	}

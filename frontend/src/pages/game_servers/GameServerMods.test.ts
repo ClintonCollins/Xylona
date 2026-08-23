@@ -47,6 +47,13 @@ const InstalledModsTableStub = defineComponent({
   template: '<div data-testid="managed-mods">managed:{{ installedMods.length }}</div>',
 })
 
+const reportedModsResponse = {
+  connectionState:
+    SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+  state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+  mods: [],
+}
+
 function mountPage() {
   return mount(GameServerMods, {
     global: {
@@ -74,19 +81,12 @@ describe('GameServerMods reported mods', () => {
     mocks.listInstalledMods.mockReset()
     mocks.listInstalledMods.mockResolvedValue({ installedMods: [] })
     mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: '7_days_to_die' } })
-    mocks.getReportedMods.mockResolvedValue({
-      connectionState:
-        SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
-      state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
-      mods: [],
-    })
+    mocks.getReportedMods.mockResolvedValue(reportedModsResponse)
   })
 
   it('keeps managed and reported inventories separate and escapes reported text', async () => {
     mocks.getReportedMods.mockResolvedValue({
-      connectionState:
-        SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
-      state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+      ...reportedModsResponse,
       mods: [
         {
           name: 'safe-name',
@@ -114,67 +114,53 @@ describe('GameServerMods reported mods', () => {
   it.each([
     {
       name: 'empty',
-      response: {
-        connectionState:
-          SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
-        state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
-        mods: [],
-      },
+      overrides: {},
       text: 'No mods reported by the game server.',
     },
     {
       name: 'offline',
-      response: {
+      overrides: {
         connectionState:
           SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE,
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
-        mods: [],
       },
       text: 'The game server is offline.',
     },
     {
       name: 'unsupported',
-      response: {
-        connectionState:
-          SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+      overrides: {
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
-        mods: [],
       },
       text: 'This game server does not support reporting mods.',
     },
     {
       name: 'permission denied',
-      response: {
-        connectionState:
-          SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE,
+      overrides: {
         state:
           SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_PERMISSION_DENIED,
-        mods: [],
       },
       text: 'The game server denied access to its reported mods.',
     },
     {
       name: 'discovery authentication denied',
-      response: {
+      overrides: {
         connectionState:
           SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED,
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
-        mods: [],
       },
       text: 'The game server denied access to its reported mods.',
     },
     {
       name: 'unavailable',
-      response: {
+      overrides: {
         connectionState:
           SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_INVALID_RESPONSE,
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
-        mods: [],
       },
       text: 'Reported mods are currently unavailable.',
     },
-  ])('shows the $name state', async ({ response, text }) => {
-    mocks.getReportedMods.mockResolvedValue(response)
+  ])('shows the $name state', async ({ overrides, text }) => {
+    mocks.getReportedMods.mockResolvedValue({ ...reportedModsResponse, ...overrides })
     const wrapper = mountPage()
     await flushPromises()
 

@@ -42,16 +42,24 @@ const mapElement = ref<HTMLElement | null>(null)
 let map: LeafletMap | null = null
 let tileLayer: AuthorizedTileLayer | null = null
 let playerLayer: L.LayerGroup | null = null
-let noteLayer: L.LayerGroup | null = null
-let nativeMarkerLayer: L.LayerGroup | null = null
-let claimLayer: L.LayerGroup | null = null
-let hostileLayer: L.LayerGroup | null = null
-let animalLayer: L.LayerGroup | null = null
+let overlayLayer: L.LayerGroup | null = null
 let resizeObserver: ResizeObserver | null = null
 let initializedKey = ''
 let lastFullTileRefreshAt = Date.now()
 
 const players = computed(() => props.view?.players ?? [])
+const mapStructureKey = computed(() =>
+  [
+    props.view?.gameServerId,
+    props.view?.enabled,
+    props.view?.tileSize,
+    props.view?.maxZoom,
+    props.view?.mapSize?.x,
+    props.view?.mapSize?.z,
+    props.view?.tileUrlTemplate,
+    props.publicIdentifier,
+  ].join(':'),
+)
 const showNativeMarkers = ref(true)
 const showClaims = ref(true)
 const showBloodMoon = ref(true)
@@ -285,18 +293,11 @@ function createMapLabel(name: string): HTMLElement {
 }
 
 function syncOverlays(): void {
-  if (
-    map === null ||
-    noteLayer === null ||
-    nativeMarkerLayer === null ||
-    claimLayer === null ||
-    hostileLayer === null ||
-    animalLayer === null
-  ) {
+  if (map === null || overlayLayer === null) {
     return
   }
 
-  noteLayer.clearLayers()
+  overlayLayer.clearLayers()
   for (const note of props.view?.markers ?? []) {
     const icon = L.divIcon({
       className: 'seven-days-map__marker-shell',
@@ -307,10 +308,9 @@ function syncOverlays(): void {
     L.marker([note.x, note.z], { icon, title: note.name })
       .bindTooltip(createMapLabel(note.name))
       .bindPopup(createMapPopup(note.name, note.x, 0, note.z))
-      .addTo(noteLayer)
+      .addTo(overlayLayer)
   }
 
-  nativeMarkerLayer.clearLayers()
   if (
     !props.publicMode &&
     props.view?.nativeMarkerState === availableState &&
@@ -326,11 +326,10 @@ function syncOverlays(): void {
       L.marker([marker.x, marker.z], { icon, title: marker.name })
         .bindTooltip(createMapLabel(marker.name))
         .bindPopup(createMapPopup(marker.name, marker.x, 0, marker.z))
-        .addTo(nativeMarkerLayer)
+        .addTo(overlayLayer)
     }
   }
 
-  claimLayer.clearLayers()
   if (!props.publicMode && props.view?.claimsState === availableState && showClaims.value) {
     for (const claim of props.view.claims) {
       const position = claim.position
@@ -351,11 +350,10 @@ function syncOverlays(): void {
             position.z,
           ),
         )
-        .addTo(claimLayer)
+        .addTo(overlayLayer)
     }
   }
 
-  hostileLayer.clearLayers()
   if (!props.publicMode && props.view?.hostileState === availableState && showHostiles.value) {
     for (const hostile of props.view.hostiles) {
       const position = hostile.position
@@ -367,11 +365,10 @@ function syncOverlays(): void {
         radius: 6,
       })
         .bindPopup(createMapPopup(hostile.name, position.x, position.y, position.z))
-        .addTo(hostileLayer)
+        .addTo(overlayLayer)
     }
   }
 
-  animalLayer.clearLayers()
   if (!props.publicMode && props.view?.animalState === availableState && showAnimals.value) {
     for (const animal of props.view.animals) {
       const position = animal.position
@@ -383,7 +380,7 @@ function syncOverlays(): void {
         radius: 6,
       })
         .bindPopup(createMapPopup(animal.name, position.x, position.y, position.z))
-        .addTo(animalLayer)
+        .addTo(overlayLayer)
     }
   }
 }
@@ -429,11 +426,7 @@ function teardownMap(): void {
   resizeObserver = null
   tileLayer = null
   playerLayer = null
-  noteLayer = null
-  nativeMarkerLayer = null
-  claimLayer = null
-  hostileLayer = null
-  animalLayer = null
+  overlayLayer = null
   map?.remove()
   map = null
   initializedKey = ''
@@ -453,18 +446,8 @@ async function initializeMap(): Promise<void> {
     return
   }
 
-  const key = [
-    view.gameServerId,
-    view.tileSize,
-    view.maxZoom,
-    mapSize.x,
-    mapSize.z,
-    view.tileUrlTemplate,
-    props.publicIdentifier,
-  ].join(':')
+  const key = mapStructureKey.value
   if (map !== null && initializedKey === key) {
-    syncPlayers()
-    syncOverlays()
     return
   }
 
@@ -500,11 +483,7 @@ async function initializeMap(): Promise<void> {
   tileLayer.addTo(map)
   lastFullTileRefreshAt = Date.now()
   playerLayer = L.layerGroup().addTo(map)
-  noteLayer = L.layerGroup().addTo(map)
-  nativeMarkerLayer = L.layerGroup().addTo(map)
-  claimLayer = L.layerGroup().addTo(map)
-  hostileLayer = L.layerGroup().addTo(map)
-  animalLayer = L.layerGroup().addTo(map)
+  overlayLayer = L.layerGroup().addTo(map)
   const initialView = initialSevenDaysToDieMapView(view.maxZoom, players.value)
   map.setView(initialView.center, initialView.zoom, { animate: false })
   initializedKey = key
@@ -520,20 +499,7 @@ function refresh(): void {
   emit('refresh')
 }
 
-watch(
-  () => [
-    props.view?.gameServerId,
-    props.view?.enabled,
-    props.view?.tileSize,
-    props.view?.maxZoom,
-    props.view?.mapSize?.x,
-    props.view?.mapSize?.z,
-    props.view?.tileUrlTemplate,
-    props.publicIdentifier,
-  ],
-  () => void initializeMap(),
-  { immediate: true },
-)
+watch(mapStructureKey, () => void initializeMap(), { immediate: true })
 watch(
   () => props.view?.collectedAt?.seconds,
   () => {

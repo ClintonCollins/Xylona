@@ -210,7 +210,7 @@ describe('SevenDaysToDieLiveMap', () => {
     wrapper.unmount()
   })
 
-  it('keeps tactical controls and Leaflet layers independent and escapes labels', async () => {
+  it('keeps tactical controls independent on one shared Leaflet layer and escapes labels', async () => {
     const tacticalView = create(SevenDaysToDieMapViewSchema, {
       ...mapView(new Date('2026-08-19T12:00:00Z')),
       animalState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
@@ -244,11 +244,13 @@ describe('SevenDaysToDieLiveMap', () => {
     expect(wrapper.get('[data-testid="tactical-layer-controls"]').attributes('role')).toBe('group')
     expect(wrapper.findAll('[data-testid^="toggle-"]')).toHaveLength(5)
     expect(wrapper.get('[data-testid="blood-moon-overlay"]').text()).toContain('Blood Moon active')
-    expect(leafletMocks.layerGroups).toHaveLength(6)
+    expect(leafletMocks.layerGroups).toHaveLength(2)
     expect(leafletMocks.overlays.some((entry) => entry.kind === 'claim')).toBe(true)
     expect(
       leafletMocks.overlays.filter((entry) => entry.kind === 'animal-or-hostile'),
     ).toHaveLength(2)
+    const overlayLayer = leafletMocks.layerGroups[1]
+    expect(leafletMocks.overlays.filter((entry) => entry.group === overlayLayer)).toHaveLength(4)
     const unsafeMarker = leafletMocks.overlays.find(
       (entry) => entry.title === '<img src=x onerror=alert(1)>',
     )
@@ -256,27 +258,33 @@ describe('SevenDaysToDieLiveMap', () => {
     expect(unsafeMarker?.popup?.querySelector('img')).toBeNull()
 
     const layerToggleCases = [
-      { control: 'toggle-native-markers', layer: 2, otherLayer: 5 },
-      { control: 'toggle-land-claims', layer: 3, otherLayer: 5 },
-      { control: 'toggle-hostiles', layer: 4, otherLayer: 5 },
-      { control: 'toggle-animals', layer: 5, otherLayer: 4 },
+      'toggle-native-markers',
+      'toggle-land-claims',
+      'toggle-hostiles',
+      'toggle-animals',
     ]
-    for (const test of layerToggleCases) {
-      const targetLayer = leafletMocks.layerGroups[test.layer]
-      const otherLayer = leafletMocks.layerGroups[test.otherLayer]
-      const targetCount = leafletMocks.overlays.filter(
-        (entry) => entry.group === targetLayer,
-      ).length
-      const otherCount = leafletMocks.overlays.filter((entry) => entry.group === otherLayer).length
-      const control = wrapper.getComponent(`[data-testid="${test.control}"]`)
+    for (const controlTestId of layerToggleCases) {
+      const overlayCountBeforeToggle = leafletMocks.overlays.length
+      const control = wrapper.getComponent(`[data-testid="${controlTestId}"]`)
       control.vm.$emit('update:modelValue', false)
       await flushPromises()
-      expect(leafletMocks.overlays.filter((entry) => entry.group === targetLayer)).toHaveLength(
-        targetCount,
-      )
+      const rebuiltOverlays = leafletMocks.overlays.slice(overlayCountBeforeToggle)
+      expect(rebuiltOverlays).toHaveLength(3)
+      expect(rebuiltOverlays.every((entry) => entry.group === overlayLayer)).toBe(true)
       expect(
-        leafletMocks.overlays.filter((entry) => entry.group === otherLayer).length,
-      ).toBeGreaterThan(otherCount)
+        rebuiltOverlays.some((entry) => {
+          switch (controlTestId) {
+            case 'toggle-native-markers':
+              return entry.title === '<img src=x onerror=alert(1)>'
+            case 'toggle-land-claims':
+              return entry.kind === 'claim'
+            case 'toggle-hostiles':
+              return entry.popup?.textContent?.includes('Zombie')
+            default:
+              return entry.popup?.textContent?.includes('Wolf')
+          }
+        }),
+      ).toBe(false)
       control.vm.$emit('update:modelValue', true)
       await flushPromises()
     }
@@ -290,6 +298,28 @@ describe('SevenDaysToDieLiveMap', () => {
     bloodMoonControl.vm.$emit('update:modelValue', true)
     await flushPromises()
     expect(wrapper.find('[data-testid="blood-moon-overlay"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('rebuilds each Leaflet data layer once for a same-map snapshot', async () => {
+    const wrapper = shallowMount(SevenDaysToDieLiveMap, {
+      props: { view: mapView(new Date('2026-08-19T12:00:00Z')) },
+    })
+    await flushPromises()
+
+    expect(leafletMocks.layerGroups).toHaveLength(2)
+    for (const group of leafletMocks.layerGroups) {
+      expect(group.clearLayers).toHaveBeenCalledTimes(1)
+    }
+    const tileLayer = leafletMocks.layers[0] as { _tiles: Record<string, never> }
+    tileLayer._tiles = {}
+
+    await wrapper.setProps({ view: mapView(new Date('2026-08-19T12:00:05Z')) })
+    await flushPromises()
+
+    for (const group of leafletMocks.layerGroups) {
+      expect(group.clearLayers).toHaveBeenCalledTimes(2)
+    }
     wrapper.unmount()
   })
 

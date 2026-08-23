@@ -85,19 +85,19 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		httpClient,
 		listenURL,
 		connect.WithReadMaxBytes(sevenDaysToDieMapResponseLimit),
-		connect.WithCodec(sevenDaysToDieMapProtoCodec{}),
+		connect.WithCodec(boundedProtoCodecFor[*nodeprotov1.QuerySevenDaysToDieMapResponse](validateSevenDaysToDieMapResponseWire)),
 	)
 	reportedModsClient := nodeprotoconnect.NewNodeServiceClient(
 		httpClient,
 		listenURL,
 		connect.WithReadMaxBytes(sevenDaysToDieReportedModsResponseLimit),
-		connect.WithCodec(reportedModsProtoCodec{}),
+		connect.WithCodec(boundedProtoCodecFor[*nodeprotov1.QuerySevenDaysToDieReportedModsResponse](validateSevenDaysToDieReportedModsResponseWire)),
 	)
 	sandboxClient := nodeprotoconnect.NewNodeServiceClient(
 		httpClient,
 		listenURL,
 		connect.WithReadMaxBytes(sevenDaysToDieSandboxSettingsResponseLimit),
-		connect.WithCodec(sandboxSettingsProtoCodec{}),
+		connect.WithCodec(boundedProtoCodecFor[*nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse](validateSevenDaysToDieSandboxSettingsResponseWire)),
 	)
 
 	return &GRPCNodeClient{
@@ -1566,7 +1566,7 @@ func sevenDaysToDieWebAPIStatusFromProto(status *nodeprotov1.SevenDaysToDieWebAP
 		WorldTimeState:   sevenDaysToDieWebAPIValueStateFromProto(status.GetWorldTimeState()),
 		WorldTime:        sevenDaysToDieGameTimeFromProto(status.GetWorldTime()),
 		BloodMoonState:   sevenDaysToDieWebAPIValueStateFromProto(status.GetBloodMoonState()),
-		BloodMoonActive:  cloneBool(status.BloodMoonActive),
+		BloodMoonActive:  status.BloodMoonActive,
 		NextBloodMoon:    sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoon()),
 		NextBloodMoonEnd: sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoonEnd()),
 		ObservedAt:       validProtoTime(status.GetObservedAt()),
@@ -1588,16 +1588,16 @@ func sevenDaysToDiePlayersFromProto(result *nodeprotov1.SevenDaysToDiePlayers) *
 			EntityID:        player.GetEntityId(),
 			PlatformID:      player.GetPlatformId(),
 			CrossPlatformID: player.GetCrossPlatformId(),
-			Online:          cloneBool(player.Online),
-			Ping:            cloneInt32(player.Ping),
-			Level:           cloneInt32(player.Level),
-			Health:          cloneInt32(player.Health),
-			Stamina:         cloneFloat32(player.Stamina),
-			Score:           cloneInt32(player.Score),
-			Deaths:          cloneInt32(player.Deaths),
-			ZombieKills:     cloneInt32(player.ZombieKills),
-			PlayerKills:     cloneInt32(player.PlayerKills),
-			Banned:          cloneBool(player.Banned),
+			Online:          player.Online,
+			Ping:            player.Ping,
+			Level:           player.Level,
+			Health:          player.Health,
+			Stamina:         player.Stamina,
+			Score:           player.Score,
+			Deaths:          player.Deaths,
+			ZombieKills:     player.ZombieKills,
+			PlayerKills:     player.PlayerKills,
+			Banned:          player.Banned,
 		})
 	}
 	return &node.SevenDaysToDiePlayers{
@@ -1720,27 +1720,6 @@ func validProtoTime(timestamp *timestamppb.Timestamp) time.Time {
 		return time.Time{}
 	}
 	return timestamp.AsTime()
-}
-
-func cloneBool(value *bool) *bool {
-	if value == nil {
-		return nil
-	}
-	return new(*value)
-}
-
-func cloneInt32(value *int32) *int32 {
-	if value == nil {
-		return nil
-	}
-	return new(*value)
-}
-
-func cloneFloat32(value *float32) *float32 {
-	if value == nil {
-		return nil
-	}
-	return new(*value)
 }
 
 func palworldMapSnapshotFromProto(snapshot *nodeprotov1.PalworldMapSnapshot) *node.PalworldMapSnapshot {

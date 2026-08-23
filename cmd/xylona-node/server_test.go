@@ -305,7 +305,7 @@ func TestNodeServiceServerQuerySevenDaysToDieMapRoundTrip(t *testing.T) {
 	}
 }
 
-func TestNodeServiceServerQuerySevenDaysToDiePlayers(t *testing.T) {
+func TestNodeServiceServerSevenDaysToDieQueriesDashboardDisabled(t *testing.T) {
 	t.Parallel()
 
 	const secret = "test-secret"
@@ -324,18 +324,40 @@ func TestNodeServiceServerQuerySevenDaysToDiePlayers(t *testing.T) {
 		t.Fatalf("write server config: %v", errWrite)
 	}
 
-	result, errQuery := client.QuerySevenDaysToDiePlayers(t.Context(), node.SevenDaysToDiePlayersQueryRequest{
-		WorkingDirectory: directory,
-		TokenName:        "controller",
-		TokenSecret:      "web-api-secret",
+	t.Run("players", func(t *testing.T) {
+		result, errQuery := client.QuerySevenDaysToDiePlayers(t.Context(), node.SevenDaysToDiePlayersQueryRequest{
+			WorkingDirectory: directory,
+			TokenName:        "controller",
+			TokenSecret:      "web-api-secret",
+		})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDiePlayers: %v", errQuery)
+		}
+		if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled ||
+			result.State != node.SevenDaysToDieWebAPIValueStateUnavailable {
+			t.Fatalf("result = %+v, want dashboard disabled", result)
+		}
 	})
-	if errQuery != nil {
-		t.Fatalf("QuerySevenDaysToDiePlayers: %v", errQuery)
-	}
-	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled ||
-		result.State != node.SevenDaysToDieWebAPIValueStateUnavailable {
-		t.Fatalf("result = %+v, want dashboard disabled", result)
-	}
+
+	t.Run("reported mods", func(t *testing.T) {
+		result, errQuery := client.QuerySevenDaysToDieReportedMods(t.Context(), node.SevenDaysToDieReportedModsQueryRequest{WorkingDirectory: directory})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieReportedMods: %v", errQuery)
+		}
+		if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
+			t.Fatalf("result = %+v, want dashboard disabled", result)
+		}
+	})
+
+	t.Run("sandbox settings", func(t *testing.T) {
+		result, errQuery := client.QuerySevenDaysToDieSandboxSettings(t.Context(), node.SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: directory})
+		if errQuery != nil {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings: %v", errQuery)
+		}
+		if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
+			t.Fatalf("result = %+v, want dashboard disabled", result)
+		}
+	})
 }
 
 func TestSevenDaysToDiePlayersToProtoPreservesOptionalZeroValues(t *testing.T) {
@@ -393,32 +415,6 @@ func TestSevenDaysToDieMapSnapshotToProtoMapsTacticalData(t *testing.T) {
 	}
 }
 
-func TestNodeServiceServerQuerySevenDaysToDieReportedMods(t *testing.T) {
-	t.Parallel()
-	const secret = "test-secret"
-	url, fingerprint := newTestServer(t, secret)
-	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
-	if errNew != nil {
-		t.Fatalf("NewGRPCClient: %v", errNew)
-	}
-	directory := t.TempDir()
-	config := `<ServerSettings>
-		<property name="WebDashboardEnabled" value="false" />
-		<property name="WebDashboardPort" value="8082" />
-	</ServerSettings>`
-	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
-	if errWrite != nil {
-		t.Fatalf("write server config: %v", errWrite)
-	}
-	result, errQuery := client.QuerySevenDaysToDieReportedMods(t.Context(), node.SevenDaysToDieReportedModsQueryRequest{WorkingDirectory: directory})
-	if errQuery != nil {
-		t.Fatalf("QuerySevenDaysToDieReportedMods: %v", errQuery)
-	}
-	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
-		t.Fatalf("result = %+v, want dashboard disabled", result)
-	}
-}
-
 func TestSevenDaysToDieReportedModsToProto(t *testing.T) {
 	t.Parallel()
 	result := sevenDaysToDieReportedModsToProto(&node.SevenDaysToDieReportedMods{
@@ -431,33 +427,6 @@ func TestSevenDaysToDieReportedModsToProto(t *testing.T) {
 	if result.GetState() != nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE ||
 		len(result.GetMods()) != 1 || result.GetMods()[0].GetDisplayName() != "Example Mod" {
 		t.Fatalf("result = %+v", result)
-	}
-}
-
-func TestNodeServiceServerQuerySevenDaysToDieSandboxSettings(t *testing.T) {
-	t.Parallel()
-	const secret = "test-secret"
-	url, fingerprint := newTestServer(t, secret)
-	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
-	if errNew != nil {
-		t.Fatalf("NewGRPCClient: %v", errNew)
-	}
-	directory := t.TempDir()
-	config := `<ServerSettings>
-		<property name="WebDashboardEnabled" value="false" />
-		<property name="WebDashboardPort" value="8082" />
-		<property name="SandboxCode" value="ABC" />
-	</ServerSettings>`
-	errWrite := os.WriteFile(filepath.Join(directory, "serverconfig.xml"), []byte(config), 0o600)
-	if errWrite != nil {
-		t.Fatalf("write server config: %v", errWrite)
-	}
-	result, errQuery := client.QuerySevenDaysToDieSandboxSettings(t.Context(), node.SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: directory})
-	if errQuery != nil {
-		t.Fatalf("QuerySevenDaysToDieSandboxSettings: %v", errQuery)
-	}
-	if result == nil || result.ConnectionState != node.SevenDaysToDieWebAPIConnectionStateDashboardDisabled {
-		t.Fatalf("result = %+v, want dashboard disabled", result)
 	}
 }
 

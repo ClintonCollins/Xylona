@@ -23,7 +23,7 @@ func TestSandboxSettingsProtoCodecRejectsLargeWireInventoryBeforeUnmarshal(t *te
 		t.Fatalf("wire payload size = %d, want below %d", len(payload), sevenDaysToDieSandboxSettingsResponseLimit)
 	}
 
-	codec := sandboxSettingsProtoCodec{}
+	codec := boundedProtoCodecFor[*nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse](validateSevenDaysToDieSandboxSettingsResponseWire)
 	if codec.Name() != "proto" {
 		t.Fatalf("Name() = %q, want binary proto codec", codec.Name())
 	}

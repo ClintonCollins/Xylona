@@ -43,7 +43,7 @@ func TestSevenDaysToDieMapProtoCodecRejectsLargeWireOverlayBeforeUnmarshal(t *te
 			for _, count := range test.counts {
 				payload = appendSnapshot(payload, test.fieldNumber, count)
 			}
-			codec := sevenDaysToDieMapProtoCodec{}
+			codec := boundedProtoCodecFor[*nodeprotov1.QuerySevenDaysToDieMapResponse](validateSevenDaysToDieMapResponseWire)
 			var response nodeprotov1.QuerySevenDaysToDieMapResponse
 			errUnmarshal := codec.Unmarshal(payload, &response)
 			if !errors.Is(errUnmarshal, errSevenDaysToDieMapWireCount) {

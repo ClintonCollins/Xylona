@@ -19,6 +19,12 @@ const available =
   SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AVAILABLE
 const valueAvailable =
   SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE
+const sandboxResponse = {
+  connectionState: available,
+  state: valueAvailable,
+  comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+  settings: [],
+}
 
 function mountInspector() {
   return mount(SevenDaysToDieSandboxInspector, {
@@ -41,9 +47,7 @@ async function expandInspector() {
 
 function matchingResponse(code: string) {
   return {
-    connectionState: available,
-    state: valueAvailable,
-    comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+    ...sandboxResponse,
     configuredCode: code,
     effectiveCode: code,
     settings: [
@@ -68,12 +72,9 @@ describe('SevenDaysToDieSandboxInspector', () => {
   beforeEach(() => {
     mocks.getSettings.mockReset()
     mocks.getSettings.mockResolvedValue({
-      connectionState: available,
-      state: valueAvailable,
-      comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+      ...sandboxResponse,
       configuredCode: 'ABC',
       effectiveCode: 'ABC',
-      settings: [],
     })
   })
 
@@ -88,79 +89,63 @@ describe('SevenDaysToDieSandboxInspector', () => {
   it.each([
     {
       name: 'match',
-      response: {
-        connectionState: available,
-        state: valueAvailable,
-        comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
-        settings: [],
-      },
+      overrides: {},
       text: 'Match',
     },
     {
       name: 'mismatch',
-      response: {
-        connectionState: available,
-        state: valueAvailable,
+      overrides: {
         comparisonState: SevenDaysToDieSandboxComparisonState.MISMATCH,
-        settings: [],
       },
       text: 'Mismatch',
     },
     {
       name: 'stale',
-      response: {
-        connectionState: available,
-        state: valueAvailable,
+      overrides: {
         comparisonState: SevenDaysToDieSandboxComparisonState.STALE,
-        settings: [],
       },
       text: 'Stale',
     },
     {
       name: 'offline',
-      response: {
+      overrides: {
         connectionState:
           SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE,
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
         comparisonState: SevenDaysToDieSandboxComparisonState.UNSPECIFIED,
-        settings: [],
       },
       text: 'Offline',
     },
     {
       name: 'unsupported',
-      response: {
-        connectionState: available,
+      overrides: {
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
         comparisonState: SevenDaysToDieSandboxComparisonState.UNSPECIFIED,
-        settings: [],
       },
       text: 'Unsupported',
     },
     {
       name: 'native unauthorized',
-      response: {
+      overrides: {
         connectionState:
           SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_AUTHENTICATION_DENIED,
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
         comparisonState: SevenDaysToDieSandboxComparisonState.UNSPECIFIED,
-        settings: [],
       },
       text: 'Unauthorized',
     },
     {
       name: 'unavailable',
-      response: {
+      overrides: {
         connectionState:
           SevenDaysToDieWebAPIConnectionState.SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_INVALID_RESPONSE,
         state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
         comparisonState: SevenDaysToDieSandboxComparisonState.UNSPECIFIED,
-        settings: [],
       },
       text: 'Unavailable',
     },
-  ])('renders the $name state', async ({ response, text }) => {
-    mocks.getSettings.mockResolvedValue(response)
+  ])('renders the $name state', async ({ overrides, text }) => {
+    mocks.getSettings.mockResolvedValue({ ...sandboxResponse, ...overrides })
     const wrapper = await expandInspector()
 
     expect(wrapper.get('.sandbox-status').text()).toContain(text)
@@ -174,9 +159,7 @@ describe('SevenDaysToDieSandboxInspector', () => {
 
   it('routes by server id, groups and filters metadata, and renders upstream text as text', async () => {
     mocks.getSettings.mockResolvedValue({
-      connectionState: available,
-      state: valueAvailable,
-      comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+      ...sandboxResponse,
       configuredCode: 'SAME',
       effectiveCode: 'SAME',
       settings: [
@@ -207,7 +190,6 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.find('.sandbox-inspector script').exists()).toBe(false)
     expect(wrapper.find('.sandbox-inspector img').exists()).toBe(false)
     expect(wrapper.text()).toContain('World')
-    expect(wrapper.text()).toContain('Matches')
 
     await wrapper.get('input[type="search"]').setValue('day length')
     expect(wrapper.text()).not.toContain('<script>Blood moon</script>')
@@ -219,8 +201,7 @@ describe('SevenDaysToDieSandboxInspector', () => {
 
   it('shows mismatched code settings as unpaired observations without a configured snapshot', async () => {
     mocks.getSettings.mockResolvedValue({
-      connectionState: available,
-      state: valueAvailable,
+      ...sandboxResponse,
       comparisonState: SevenDaysToDieSandboxComparisonState.MISMATCH,
       configuredCode: 'SAVED',
       effectiveCode: 'RUNNING',
@@ -237,8 +218,6 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.get('.sandbox-status').text()).toContain('Mismatch')
     expect(wrapper.text()).toContain('are observations, not per-setting comparisons')
     expect(wrapper.text()).toContain('Observed running')
-    expect(wrapper.text()).toContain('Not compared')
-    expect(wrapper.text()).not.toContain('Different')
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(wrapper.findAll('th').map((header) => header.text())).not.toContain('Saved code')
   })
@@ -268,8 +247,7 @@ describe('SevenDaysToDieSandboxInspector', () => {
 
   it('renders backend stale observations without comparison claims', async () => {
     mocks.getSettings.mockResolvedValue({
-      connectionState: available,
-      state: valueAvailable,
+      ...sandboxResponse,
       comparisonState: SevenDaysToDieSandboxComparisonState.STALE,
       configuredCode: 'INVALID',
       effectiveCode: 'RUNNING',
@@ -285,18 +263,13 @@ describe('SevenDaysToDieSandboxInspector', () => {
 
     expect(wrapper.text()).toContain('running observations are not compared')
     expect(wrapper.text()).toContain('Observed running')
-    expect(wrapper.text()).toContain('Not compared')
-    expect(wrapper.text()).not.toContain('Different')
-    expect(wrapper.text()).not.toContain('Matches')
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(wrapper.findAll('th').map((header) => header.text())).not.toContain('Saved code')
   })
 
   it('marks old rows unpaired after SandboxCode is saved', async () => {
     mocks.getSettings.mockResolvedValue({
-      connectionState: available,
-      state: valueAvailable,
-      comparisonState: SevenDaysToDieSandboxComparisonState.MATCH,
+      ...sandboxResponse,
       configuredCode: 'OLD',
       effectiveCode: 'OLD',
       settings: [
@@ -314,8 +287,6 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.text()).toContain('predate the current editor value')
     expect(wrapper.text()).toContain('Previously saved SandboxCode')
     expect(wrapper.text()).toContain('Previously observed running')
-    expect(wrapper.text()).toContain('Not compared')
-    expect(wrapper.text()).not.toContain('Matches')
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(mocks.getSettings).toHaveBeenCalledOnce()
   })
@@ -333,8 +304,6 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.get('.sandbox-status').text()).toContain('Stale')
     expect(wrapper.text()).toContain('predate the current editor value')
     expect(wrapper.text()).toContain('Previously saved SandboxCode')
-    expect(wrapper.text()).toContain('Not compared')
-    expect(wrapper.text()).not.toContain('Matches')
   })
 
   it('keeps old observations stale while a refresh is pending', async () => {
@@ -348,8 +317,6 @@ describe('SevenDaysToDieSandboxInspector', () => {
 
     expect(wrapper.get('.sandbox-status').text()).toContain('Loading')
     expect(wrapper.text()).toContain('Previously saved SandboxCode')
-    expect(wrapper.text()).toContain('Not compared')
-    expect(wrapper.text()).not.toContain('Matches')
 
     pending.resolve(matchingResponse('NEW'))
     await flushPromises()
@@ -357,7 +324,6 @@ describe('SevenDaysToDieSandboxInspector', () => {
     expect(wrapper.get('.sandbox-status').text()).toContain('Match')
     expect(wrapper.text()).not.toContain('Previously saved SandboxCode')
     expect(wrapper.text()).toContain('NEW')
-    expect(wrapper.text()).toContain('Matches')
   })
 
   it('ignores a superseded response that resolves last', async () => {

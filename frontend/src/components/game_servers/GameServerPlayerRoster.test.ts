@@ -26,6 +26,31 @@ vi.mock('@/api/notifications', () => ({
   notifySuccess: vi.fn(),
 }))
 
+async function mountRoster(nativeIdentifiersRequired: boolean) {
+  const wrapper = mount(GameServerPlayerRoster, {
+    props: {
+      gameServerId: 'server-1',
+      isOnline: true,
+      playerNames: ['Duplicated name'],
+      currentPlayerCount: 1,
+      maxPlayerCount: 8,
+      playerListSupported: true,
+      unlistedPlayerCount: 0,
+      canManagePlayers: true,
+      nativeIdentifiersRequired,
+    },
+    global: {
+      stubs: {
+        'q-icon': true,
+        'q-btn': { props: ['label'], template: '<button>{{ label }}</button>' },
+        'q-dialog': true,
+      },
+    },
+  })
+  await flushPromises()
+  return wrapper
+}
+
 describe('GameServerPlayerRoster', () => {
   beforeEach(() => {
     mocks.getManagement.mockReset().mockResolvedValue(
@@ -41,27 +66,7 @@ describe('GameServerPlayerRoster', () => {
   })
 
   it('does not associate a 7DTD query display name with a moderation target', async () => {
-    const wrapper = mount(GameServerPlayerRoster, {
-      props: {
-        gameServerId: 'server-1',
-        isOnline: true,
-        playerNames: ['Duplicated name'],
-        currentPlayerCount: 1,
-        maxPlayerCount: 8,
-        playerListSupported: true,
-        unlistedPlayerCount: 0,
-        canManagePlayers: true,
-        nativeIdentifiersRequired: true,
-      },
-      global: {
-        stubs: {
-          'q-icon': true,
-          'q-btn': { props: ['label'], template: '<button>{{ label }}</button>' },
-          'q-dialog': true,
-        },
-      },
-    })
-    await flushPromises()
+    const wrapper = await mountRoster(true)
 
     expect(wrapper.text()).toContain('Duplicated name')
     expect(wrapper.text()).not.toContain('Kick')
@@ -70,27 +75,7 @@ describe('GameServerPlayerRoster', () => {
   })
 
   it('keeps non-7DTD console quick actions on the compatible player field', async () => {
-    const wrapper = mount(GameServerPlayerRoster, {
-      props: {
-        gameServerId: 'server-1',
-        isOnline: true,
-        playerNames: ['Duplicated name'],
-        currentPlayerCount: 1,
-        maxPlayerCount: 8,
-        playerListSupported: true,
-        unlistedPlayerCount: 0,
-        canManagePlayers: true,
-        nativeIdentifiersRequired: false,
-      },
-      global: {
-        stubs: {
-          'q-icon': true,
-          'q-btn': { props: ['label'], template: '<button>{{ label }}</button>' },
-          'q-dialog': true,
-        },
-      },
-    })
-    await flushPromises()
+    const wrapper = await mountRoster(false)
     await wrapper.vm.$nextTick()
 
     expect(mocks.getManagement).toHaveBeenCalledOnce()

@@ -51,6 +51,18 @@ func (xs *XylonaService) GetSevenDaysToDieReportedMods(
 	if !found || process == nil || process.Status != xylona.Status_ONLINE.String() {
 		return sevenDaysToDieReportedModsStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline), nil
 	}
+	capabilities, errCapabilities := client.GetRuntimeCapabilities(ctx)
+	if errCapabilities != nil {
+		if errors.Is(errCapabilities, context.Canceled) || errors.Is(errCapabilities, context.DeadlineExceeded) {
+			return nil, connect.NewError(contextConnectCode(errCapabilities), errCapabilities)
+		}
+		return sevenDaysToDieReportedModsStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable), nil
+	}
+	if capabilities.ProtocolVersion < sevenDaysToDiePrivateWebAPINodeProtocol {
+		return connect.NewResponse(&xylona.GetSevenDaysToDieReportedModsResponse{
+			State: xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
+		}), nil
+	}
 	if xs.actionsInst == nil {
 		return nil, internalErrf("7 Days to Die WebAPI credentials are unavailable")
 	}
