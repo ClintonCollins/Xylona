@@ -1,7 +1,7 @@
 package node
 
 // RuntimeProtocolVersion is the node process-runtime capability protocol version.
-const RuntimeProtocolVersion int64 = 9
+const RuntimeProtocolVersion int64 = 10
 
 // RuntimeCapabilities describes process-runtime features exposed by a node.
 type RuntimeCapabilities struct {

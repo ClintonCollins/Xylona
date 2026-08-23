@@ -166,6 +166,9 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 			NodeID:                   "node-remote",
 			GetProcessSnapshotResult: &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()},
 			GetProcessSnapshotFound:  true,
+			RuntimeCapabilitiesResult: node.RuntimeCapabilities{
+				ProtocolVersion: node.RuntimeProtocolVersion,
+			},
 			QuerySevenDaysToDieWebAPIStatusResult: &node.SevenDaysToDieWebAPIStatus{
 				ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
 				APIVersion:      "1.4.2",
@@ -251,6 +254,9 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		if len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls) != 2 || remoteClient.QuerySevenDaysToDieWebAPIStatusCalls[1].IncludeTactical {
 			t.Fatalf("status tactical request flags = %+v, want owner true then viewer false", remoteClient.QuerySevenDaysToDieWebAPIStatusCalls)
 		}
+		if remoteClient.RuntimeCapabilitiesCalls != 1 {
+			t.Fatalf("viewer runtime capability calls = %d, want 1", remoteClient.RuntimeCapabilitiesCalls)
+		}
 		viewerStatus := viewerResponse.Msg.GetStatus()
 		viewerCapabilities := viewerStatus.GetCapabilities()
 		if viewerStatus.GetApiVersion() != "1.4.2" || viewerStatus.GetWorldTime().GetDay() != 12 ||
@@ -267,6 +273,33 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		for _, tacticalField := range []string{"bloodMoon", "hostileAndAnimalPositions", "hostilePositions", "animalPositions"} {
 			if strings.Contains(string(viewerJSON), tacticalField) {
 				t.Fatalf("viewer response wire exposed tactical field %q: %s", tacticalField, viewerJSON)
+			}
+		}
+
+		legacyProtocols := []struct {
+			name    string
+			version int64
+		}{
+			{name: "older node", version: sevenDaysToDieNonTacticalStatusNodeProtocol - 1},
+			{name: "unknown node", version: 0},
+		}
+		for index, protocol := range legacyProtocols {
+			remoteClient.RuntimeCapabilitiesResult.ProtocolVersion = protocol.version
+			legacyResponse, errLegacy := fixture.service.GetSevenDaysToDieWebAPIStatus(t.Context(), viewerRequest)
+			if errLegacy != nil {
+				t.Fatalf("GetSevenDaysToDieWebAPIStatus(%s viewer) error = %v", protocol.name, errLegacy)
+			}
+			if len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls) != 2 {
+				t.Fatalf("%s status handler calls = %d, want unchanged at 2", protocol.name, len(remoteClient.QuerySevenDaysToDieWebAPIStatusCalls))
+			}
+			if remoteClient.RuntimeCapabilitiesCalls != index+2 {
+				t.Fatalf("%s runtime capability calls = %d, want %d", protocol.name, remoteClient.RuntimeCapabilitiesCalls, index+2)
+			}
+			legacyStatus := legacyResponse.Msg.GetStatus()
+			if legacyStatus.GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED ||
+				legacyStatus.GetWorldTimeState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE ||
+				legacyStatus.GetBloodMoonState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED {
+				t.Fatalf("%s viewer status = %+v, want safe non-tactical limited state", protocol.name, legacyStatus)
 			}
 		}
 	})

@@ -12,6 +12,8 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
+const sevenDaysToDieNonTacticalStatusNodeProtocol int64 = 10
+
 // GetSevenDaysToDieWebAPIStatus returns bounded native WebAPI diagnostics for
 // an authenticated 7 Days to Die game server.
 func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
@@ -54,6 +56,20 @@ func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
 	}
 	if !found || process == nil || process.Status != xylona.Status_ONLINE.String() {
 		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline, includeTactical), nil
+	}
+	if !includeTactical {
+		capabilities, errCapabilities := client.GetRuntimeCapabilities(ctx)
+		if errCapabilities != nil {
+			if errors.Is(errCapabilities, context.Canceled) || errors.Is(errCapabilities, context.DeadlineExceeded) {
+				return nil, connect.NewError(contextConnectCode(errCapabilities), errCapabilities)
+			}
+			return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateUnspecified, false), nil
+		}
+		// Older nodes ignore the tactical query flag and fetch Blood Moon data.
+		// Do not call their legacy status RPC for view-only requests.
+		if capabilities.ProtocolVersion < sevenDaysToDieNonTacticalStatusNodeProtocol {
+			return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateUnspecified, false), nil
+		}
 	}
 	if xs.actionsInst == nil {
 		return nil, internalErrf("7 Days to Die WebAPI credentials are unavailable")
