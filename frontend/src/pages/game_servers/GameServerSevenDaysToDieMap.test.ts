@@ -1,5 +1,4 @@
 import { create } from '@bufbuild/protobuf'
-import { timestampFromDate } from '@bufbuild/protobuf/wkt'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -52,21 +51,47 @@ const availableStatus = create(SevenDaysToDieWebAPIStatusSchema, {
   bloodMoonActive: false,
   nextBloodMoon: { day: 49, hour: 22 },
   nextBloodMoonEnd: { day: 50, hour: 4, minute: 30 },
-  observedAt: timestampFromDate(new Date('2026-08-22T12:00:00Z')),
+})
+
+const worldMap = create(SevenDaysToDieMapViewSchema, {
+  enabled: true,
+  tileSize: 128,
+  maxZoom: 4,
+  mapSize: { x: 6144, z: 6144 },
+  players: [
+    { id: 'player-1', name: 'Alex', online: true, position: { x: 1, z: 2 } },
+    { id: 'player-2', name: 'Blake', position: { x: 3, z: 4 } },
+  ],
+  markers: [
+    { id: 'marker-1', name: 'Trader', x: 10, z: 20 },
+    { id: 'marker-2', name: 'Base', x: 30, z: 40 },
+  ],
+  claimsState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+  claims: [{ ownerName: 'Owner', size: 41, position: { x: 30, z: 40 } }],
+  hostileState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+  hostiles: [{ name: 'Zombie', position: { x: 50, z: 60 } }],
+  animalState: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
+  animals: [
+    { name: 'Wolf', position: { x: 70, z: 80 } },
+    { name: 'Deer', position: { x: 90, z: 100 } },
+  ],
 })
 
 function mountPage() {
   return shallowMount(GameServerSevenDaysToDieMap, {
-    global: { renderStubDefaultSlot: true },
+    global: {
+      renderStubDefaultSlot: true,
+      stubs: { SevenDaysToDieWorldOverview: false },
+    },
   })
 }
 
-describe('GameServerSevenDaysToDieMap diagnostics', () => {
+describe('GameServerSevenDaysToDieMap world overview', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-22T12:00:20Z'))
     mocks.getGameServer.mockReset().mockResolvedValue({ gameServer: null })
-    mocks.getMap.mockReset().mockResolvedValue({ map: null })
+    mocks.getMap.mockReset().mockResolvedValue({ map: worldMap })
     mocks.getStatus.mockReset().mockResolvedValue({ status: availableStatus })
   })
 
@@ -75,9 +100,11 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     vi.useRealTimers()
   })
 
-  it('loads immediately and renders available diagnostics as text', async () => {
+  it('puts the map first and renders existing world data in a compact overview', async () => {
     mocks.getGameServer.mockResolvedValue({
-      gameServer: { effectivePermissions: ['game_server.view', 'game_server.settings'] },
+      gameServer: {
+        effectivePermissions: ['game_server.view', 'game_server.settings', 'game_server.config'],
+      },
     })
     let resolveStatus: ((value: { status: typeof availableStatus }) => void) | undefined
     mocks.getStatus.mockReturnValueOnce(
@@ -87,29 +114,32 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     )
 
     const wrapper = mountPage()
-    expect(wrapper.text()).toContain('Checking WebAPI diagnostics')
+    expect(wrapper.text()).toContain('Loading world data')
 
     resolveStatus?.({ status: availableStatus })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('WebAPI available')
-    expect(wrapper.text()).toContain('API V2.2')
-    expect(wrapper.text()).toContain('Day 42, 13:07')
-    expect(wrapper.text()).toContain('Inactive')
-    expect(wrapper.text()).toContain('Day 49, 22:00')
-    expect(wrapper.text()).toContain('Day 50, 04:30')
-    expect(wrapper.text()).toContain('Observed 20 seconds ago')
-    expect(wrapper.get('[data-testid="webapi-diagnostics"]').attributes('aria-live')).toBe('polite')
+    const overview = wrapper.get('[data-testid="world-overview"]')
+    expect(overview.attributes('aria-live')).toBe('polite')
+    expect(overview.text()).toContain('Day 42, 13:07')
+    expect(overview.text()).toContain('Inactive')
+    expect(overview.text()).toContain('Day 49, 22:00')
+    expect(overview.text()).toContain('Day 50, 04:30')
+    expect(overview.text()).toContain('1 online · 2 known')
+    expect(overview.text()).toContain('6,144 × 6,144')
+    expect(overview.text()).toContain('Map notes2')
+    expect(overview.text()).toContain('Land claims1')
+    expect(overview.text()).toContain('Hostiles1')
+    expect(overview.text()).toContain('Animals2')
+    expect(wrapper.text()).not.toContain('WebAPI diagnostics')
+    expect(wrapper.text()).not.toContain('API V2.2')
+    expect(wrapper.text()).not.toContain('Capability details')
 
-    const details = wrapper.get('[data-testid="webapi-capabilities"]')
-    expect(details.attributes('open')).toBeUndefined()
-    await details.get('summary').trigger('click')
-    expect(details.attributes('open')).toBeDefined()
-    expect(details.text()).toContain('Player data')
-    expect(details.text()).toContain('Hostile positions')
-    expect(details.text()).toContain('Animal positions')
-    expect(details.text()).toContain('Supported')
-    expect(details.text()).toContain('Not advertised')
+    const map = wrapper.getComponent(SevenDaysToDieLiveMap)
+    expect(map.props('configurationPath')).toBe('/game-servers/server-1/configuration')
+    expect(
+      map.element.compareDocumentPosition(overview.element) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     wrapper.unmount()
   })
 
@@ -159,7 +189,6 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain(text)
-    expect(wrapper.find('[data-testid="webapi-capabilities"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -215,9 +244,7 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     await flushPromises()
 
     expect(errorSpy).toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Diagnostics unavailable')
-    expect(wrapper.text()).toContain('Last successful observation')
-    expect(wrapper.text()).toContain('API V2.2')
+    expect(wrapper.text()).toContain('World data unavailable')
     expect(wrapper.text()).toContain('Day 42, 13:07')
     expect(wrapper.text()).not.toContain('Inactive')
     expect(wrapper.text()).not.toContain('Day 49, 22:00')
@@ -242,14 +269,13 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Server offline')
-    expect(wrapper.text()).toContain('Last successful observation')
-    expect(wrapper.text()).toContain('API V2.2')
+    expect(wrapper.text()).toContain('Day 42, 13:07')
     expect(wrapper.text()).not.toContain('Inactive')
     expect(wrapper.text()).not.toContain('Day 49, 22:00')
     wrapper.unmount()
   })
 
-  it('keeps viewer diagnostics while never displaying tactical status from a malformed response', async () => {
+  it('shows base world stats while never displaying tactical data to a viewer', async () => {
     mocks.getGameServer.mockResolvedValue({
       gameServer: { effectivePermissions: ['game_server.view'] },
     })
@@ -258,42 +284,55 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('WebAPI available')
-    expect(wrapper.text()).toContain('API V2.2')
     expect(wrapper.text()).toContain('Day 42, 13:07')
+    expect(wrapper.text()).toContain('1 online · 2 known')
+    expect(wrapper.text()).toContain('6,144 × 6,144')
     expect(wrapper.find('[data-testid="blood-moon-state"]').exists()).toBe(false)
-    const details = wrapper.get('[data-testid="webapi-capabilities"]')
-    expect(details.text()).toContain('Player data')
-    expect(details.text()).not.toContain('Hostile positions')
-    expect(details.text()).not.toContain('Animal positions')
+    expect(wrapper.text()).not.toContain('Land claims')
+    expect(wrapper.text()).not.toContain('Hostiles')
+    expect(wrapper.text()).not.toContain('Animals')
     expect(wrapper.text()).not.toContain('Inactive')
     expect(wrapper.text()).not.toContain('Day 49, 22:00')
     wrapper.unmount()
   })
 
-  it('retries a failed request and stops both polling loops on unmount', async () => {
+  it('refreshes map and overview together and stops both polling loops on unmount', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mocks.getStatus.mockRejectedValueOnce(new Error('temporary failure'))
     mocks.getStatus.mockResolvedValue({ status: availableStatus })
 
     const wrapper = mountPage()
     await flushPromises()
-    expect(wrapper.text()).toContain('Diagnostics unavailable')
+    expect(wrapper.text()).toContain('World data unavailable')
 
-    await wrapper.get('[data-testid="webapi-retry"]').trigger('click')
+    let resolveMap: ((value: { map: typeof worldMap }) => void) | undefined
+    let resolveStatus: ((value: { status: typeof availableStatus }) => void) | undefined
+    mocks.getMap.mockReturnValueOnce(new Promise((resolve) => (resolveMap = resolve)))
+    mocks.getStatus.mockReturnValueOnce(new Promise((resolve) => (resolveStatus = resolve)))
+
+    const map = wrapper.getComponent(SevenDaysToDieLiveMap)
+    map.vm.$emit('refresh')
+    await Promise.resolve()
+    expect(map.props('refreshing')).toBe(true)
+
+    resolveMap?.({ map: worldMap })
+    resolveStatus?.({ status: availableStatus })
     await flushPromises()
-    expect(wrapper.text()).toContain('WebAPI available')
+    expect(map.props('refreshing')).toBe(false)
+    expect(wrapper.text()).not.toContain('World data unavailable')
     expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(mocks.getStatus).toHaveBeenCalledTimes(2)
+    expect(mocks.getMap).toHaveBeenCalledTimes(2)
 
     await vi.advanceTimersByTimeAsync(30_000)
     await flushPromises()
     expect(mocks.getStatus).toHaveBeenCalledTimes(3)
-    expect(mocks.getMap).toHaveBeenCalledTimes(7)
+    expect(mocks.getMap).toHaveBeenCalledTimes(8)
 
     wrapper.unmount()
     await vi.advanceTimersByTimeAsync(30_000)
     expect(mocks.getStatus).toHaveBeenCalledTimes(3)
-    expect(mocks.getMap).toHaveBeenCalledTimes(7)
+    expect(mocks.getMap).toHaveBeenCalledTimes(8)
   })
 
   it('clears tactical data immediately after a rejected map poll while retaining base data', async () => {

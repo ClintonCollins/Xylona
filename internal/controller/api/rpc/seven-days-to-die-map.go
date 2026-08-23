@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -77,7 +78,7 @@ func (xs *XylonaService) GetSevenDaysToDieMap(
 	}
 	errSettingsPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
 	includeTactical := errSettingsPermission == nil
-	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer, includeTactical)
+	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer, includeTactical, false)
 	if errView != nil {
 		return nil, errView
 	}
@@ -133,7 +134,7 @@ func (xs *XylonaService) GetPublicSevenDaysToDieMap(
 	if errResolve != nil {
 		return nil, internalErrf("failed to resolve public map")
 	}
-	view, errView := xs.buildSevenDaysToDieMapView(ctx, access.gameServer, false)
+	view, errView := xs.buildSevenDaysToDieMapView(ctx, access.gameServer, true, true)
 	if errView != nil {
 		return nil, errView
 	}
@@ -146,6 +147,7 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(
 	ctx context.Context,
 	gameServer *models.GameServer,
 	includeTactical bool,
+	publicProjection bool,
 ) (*xylona.SevenDaysToDieMapView, error) {
 	settings, errSettings := xs.db.GetGameServerSevenDaysToDieMap(gameServer.ID)
 	if errSettings != nil {
@@ -216,17 +218,23 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(
 	view.MaxZoom = cached.MaxZoom
 	view.MapSize = publicSevenDaysToDieMapVector(cached.MapSize)
 	view.SourceTime = cached.SourceTime
-	view.Players = publicSevenDaysToDieMapPlayers(cached.Players)
+	view.Players = publicSevenDaysToDieMapPlayers(gameServer.ID, cached.Players)
 	view.Markers = publicSevenDaysToDieMapNotes(notes)
 	if includeTactical && liveSnapshot != nil && !stale {
-		projectSevenDaysToDieTacticalMap(view, liveSnapshot)
+		projectSevenDaysToDieTacticalMap(view, liveSnapshot, publicProjection)
 	}
 	return view, nil
 }
 
-func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapshot *node.SevenDaysToDieMapSnapshot) {
-	view.NativeMarkerState = publicSevenDaysToDieTacticalValueState(snapshot.NativeMarkerState)
-	if snapshot.NativeMarkerState == node.SevenDaysToDieWebAPIValueStateAvailable {
+func projectSevenDaysToDieTacticalMap(
+	view *xylona.SevenDaysToDieMapView,
+	snapshot *node.SevenDaysToDieMapSnapshot,
+	publicProjection bool,
+) {
+	if !publicProjection {
+		view.NativeMarkerState = publicSevenDaysToDieTacticalValueState(snapshot.NativeMarkerState)
+	}
+	if !publicProjection && snapshot.NativeMarkerState == node.SevenDaysToDieWebAPIValueStateAvailable {
 		view.NativeMarkers = make([]*xylona.SevenDaysToDieMapMarker, 0, len(snapshot.NativeMarkers))
 		for _, marker := range snapshot.NativeMarkers {
 			view.NativeMarkers = append(view.NativeMarkers, &xylona.SevenDaysToDieMapMarker{
@@ -239,10 +247,14 @@ func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapsh
 	if snapshot.ClaimsState == node.SevenDaysToDieWebAPIValueStateAvailable {
 		view.Claims = make([]*xylona.SevenDaysToDieLandClaim, 0, len(snapshot.Claims))
 		for _, claim := range snapshot.Claims {
-			view.Claims = append(view.Claims, &xylona.SevenDaysToDieLandClaim{
-				OwnerId: claim.OwnerID, OwnerName: claim.OwnerName, Active: claim.Active,
+			item := &xylona.SevenDaysToDieLandClaim{
+				OwnerName: claim.OwnerName, Active: claim.Active,
 				Position: publicSevenDaysToDieMapVector(claim.Position), Size: claim.Size,
-			})
+			}
+			if !publicProjection {
+				item.OwnerId = claim.OwnerID
+			}
+			view.Claims = append(view.Claims, item)
 		}
 	}
 	view.BloodMoonState = publicSevenDaysToDieTacticalValueState(snapshot.BloodMoonState)
@@ -429,10 +441,14 @@ func publicSevenDaysToDieMapVector(vector node.SevenDaysToDieMapVector) *xylona.
 	return &xylona.SevenDaysToDieMapVector{X: vector.X, Y: vector.Y, Z: vector.Z}
 }
 
-func publicSevenDaysToDieMapPlayers(players []storedSevenDaysToDieMapPlayer) []*xylona.SevenDaysToDieMapPlayer {
+func publicSevenDaysToDieMapPlayers(
+	gameServerID string,
+	players []storedSevenDaysToDieMapPlayer,
+) []*xylona.SevenDaysToDieMapPlayer {
 	result := make([]*xylona.SevenDaysToDieMapPlayer, 0, len(players))
 	for _, player := range players {
 		item := &xylona.SevenDaysToDieMapPlayer{
+			Id:   opaqueSevenDaysToDieMapPlayerID(gameServerID, player.ID),
 			Name: player.Name, Online: player.Online, Position: publicSevenDaysToDieMapVector(player.Position),
 		}
 		if !player.LastSeenAt.IsZero() {
@@ -441,6 +457,14 @@ func publicSevenDaysToDieMapPlayers(players []storedSevenDaysToDieMapPlayer) []*
 		result = append(result, item)
 	}
 	return result
+}
+
+func opaqueSevenDaysToDieMapPlayerID(gameServerID string, playerID string) string {
+	if playerID == "" {
+		return ""
+	}
+	digest := sha256.Sum256([]byte(gameServerID + "\x00" + playerID))
+	return fmt.Sprintf("%x", digest[:16])
 }
 
 func publicSevenDaysToDieMapNotes(notes []sevenDaysToDieMapNoteConfig) []*xylona.SevenDaysToDieMapMarker {

@@ -286,6 +286,10 @@ async function enforceRouteAccess() {
     padding-inline: var(--xy-space-base);
   }
 
+  .game-server-tabs :deep(.q-tab.q-tab--active) {
+    background: var(--xy-primary-muted);
+  }
+
   .game-server-tabs :deep(.q-tab__content) {
     flex-direction: row;
     flex-wrap: nowrap;

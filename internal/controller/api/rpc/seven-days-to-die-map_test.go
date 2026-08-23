@@ -79,8 +79,9 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	if !mapView.GetStale() || len(mapView.GetPlayers()) != 1 || mapView.GetPlayers()[0].GetOnline() {
 		t.Fatalf("GetSevenDaysToDieMap(viewer) map = %+v, want an offline last-known player", mapView)
 	}
-	if mapView.GetPlayers()[0].GetId() != "" {
-		t.Fatalf("GetSevenDaysToDieMap(viewer) player ID = %q, want redacted", mapView.GetPlayers()[0].GetId())
+	viewerPlayerID := mapView.GetPlayers()[0].GetId()
+	if viewerPlayerID == "" || viewerPlayerID == "Steam_123" {
+		t.Fatalf("GetSevenDaysToDieMap(viewer) player ID = %q, want opaque ID", viewerPlayerID)
 	}
 
 	viewerNotesRequest := connect.NewRequest(&xylona.UpdateSevenDaysToDieMapNotesRequest{
@@ -125,8 +126,8 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	if publicMap.GetGameServerName() != "Local One" || len(publicMap.GetMarkers()) != 1 || publicMap.GetMarkers()[0].GetName() != "Main base" {
 		t.Fatalf("GetPublicSevenDaysToDieMap() map = %+v", publicMap)
 	}
-	if len(publicMap.GetPlayers()) != 1 || publicMap.GetPlayers()[0].GetId() != "" {
-		t.Fatalf("GetPublicSevenDaysToDieMap() players = %+v, want redacted IDs", publicMap.GetPlayers())
+	if len(publicMap.GetPlayers()) != 1 || publicMap.GetPlayers()[0].GetId() != viewerPlayerID {
+		t.Fatalf("GetPublicSevenDaysToDieMap() players = %+v, want stable opaque ID %q", publicMap.GetPlayers(), viewerPlayerID)
 	}
 	resolved, errResolve := fixture.service.ResolvePublicGameServerMap(t.Context(), connect.NewRequest(
 		&xylona.ResolvePublicGameServerMapRequest{PublicIdentifier: "Navezgane_Map"},
@@ -237,7 +238,8 @@ func TestSevenDaysToDieMapTacticalProjectionAndFailureClearing(t *testing.T) {
 	}
 	ownerMap := ownerResponse.Msg.GetMap()
 	if len(ownerMap.GetNativeMarkers()) != 1 || len(ownerMap.GetClaims()) != 1 || ownerMap.GetBloodMoon() == nil ||
-		len(ownerMap.GetHostiles()) != 1 || len(ownerMap.GetAnimals()) != 1 {
+		len(ownerMap.GetHostiles()) != 1 || len(ownerMap.GetAnimals()) != 1 ||
+		ownerMap.GetNativeMarkers()[0].GetId() != "private-marker" || ownerMap.GetClaims()[0].GetOwnerId() != "private-owner" {
 		t.Fatalf("GetSevenDaysToDieMap(owner) tactical map = %+v", ownerMap)
 	}
 
@@ -269,21 +271,44 @@ func TestSevenDaysToDieMapTacticalProjectionAndFailureClearing(t *testing.T) {
 	if errPublic != nil {
 		t.Fatalf("GetPublicSevenDaysToDieMap() error = %v", errPublic)
 	}
-	assertSevenDaysToDieTacticalMapRedacted(t, publicResponse.Msg.GetMap())
+	publicMap := publicResponse.Msg.GetMap()
+	publicAvailable := xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE
+	publicUnspecified := xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED
+	if len(publicMap.GetNativeMarkers()) != 0 || publicMap.GetNativeMarkerState() != publicUnspecified ||
+		len(publicMap.GetClaims()) != 1 ||
+		publicMap.GetClaims()[0].GetOwnerName() != "Secret owner" || publicMap.GetClaims()[0].GetOwnerId() != "" ||
+		publicMap.GetBloodMoon() == nil || len(publicMap.GetHostiles()) != 1 || len(publicMap.GetAnimals()) != 1 ||
+		!publicMap.GetClaimsSupported() || publicMap.GetClaimsState() != publicAvailable ||
+		publicMap.GetBloodMoonState() != publicAvailable ||
+		publicMap.GetHostileState() != publicAvailable || publicMap.GetAnimalState() != publicAvailable {
+		t.Fatalf("GetPublicSevenDaysToDieMap() tactical map = %+v", publicMap)
+	}
 	if len(fakeNode.QuerySevenDaysToDieMapCalls) != 3 || !fakeNode.QuerySevenDaysToDieMapCalls[0].IncludeTactical ||
-		fakeNode.QuerySevenDaysToDieMapCalls[1].IncludeTactical || fakeNode.QuerySevenDaysToDieMapCalls[2].IncludeTactical {
-		t.Fatalf("map tactical request flags = %+v, want owner true then viewer/public false", fakeNode.QuerySevenDaysToDieMapCalls)
+		fakeNode.QuerySevenDaysToDieMapCalls[1].IncludeTactical || !fakeNode.QuerySevenDaysToDieMapCalls[2].IncludeTactical {
+		t.Fatalf("map tactical request flags = %+v, want owner/public true and viewer false", fakeNode.QuerySevenDaysToDieMapCalls)
 	}
 
+	viewerWire, errViewerMarshal := proto.Marshal(viewerResponse.Msg)
+	if errViewerMarshal != nil {
+		t.Fatalf("marshal viewer response: %v", errViewerMarshal)
+	}
+	for _, secret := range []string{"private-marker", "Secret marker", "Secret owner", "private-owner", "Secret zombie", "Secret wolf"} {
+		if bytes.Contains(viewerWire, []byte(secret)) {
+			t.Fatalf("viewer response wire contains %q", secret)
+		}
+	}
 	for _, response := range []proto.Message{viewerResponse.Msg, publicResponse.Msg} {
 		wire, errMarshal := proto.Marshal(response)
 		if errMarshal != nil {
-			t.Fatalf("marshal redacted response: %v", errMarshal)
+			t.Fatalf("marshal map response: %v", errMarshal)
 		}
-		for _, secret := range []string{"private-marker", "Secret owner", "private-owner", "Secret zombie", "Secret wolf"} {
+		for _, secret := range []string{"private-player", "private-marker", "private-owner"} {
 			if bytes.Contains(wire, []byte(secret)) {
-				t.Fatalf("redacted response wire contains %q", secret)
+				t.Fatalf("map response wire contains raw ID %q", secret)
 			}
+		}
+		if response == publicResponse.Msg && bytes.Contains(wire, []byte("Secret marker")) {
+			t.Fatal("public map response contains native marker")
 		}
 		for _, call := range fakeNode.QuerySevenDaysToDieMapCalls {
 			if call.TokenName != "" && bytes.Contains(wire, []byte(call.TokenName)) {

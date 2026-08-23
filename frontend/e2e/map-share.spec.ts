@@ -32,7 +32,7 @@ test('owner can publish, rename, reuse, and disable one public game map link', a
     })
 
     await gotoAppPage(page, `/game-servers/${gameServerId}/map`)
-    await page.getByRole('button', { name: 'Public link' }).click()
+    await page.getByRole('button', { name: 'Open public map link settings' }).click()
     const settings = page.locator('.map-share-settings')
     await expect(settings.getByRole('heading', { name: 'Public live map' })).toBeVisible()
     await settings.getByLabel('Public identifier').fill('E2E_7DTD_Map')
@@ -43,8 +43,19 @@ test('owner can publish, rename, reuse, and disable one public game map link', a
 
     publicContext = await browser.newContext({ baseURL })
     const publicPage = await publicContext.newPage()
+    await publicPage.setViewportSize({ width: 1920, height: 1200 })
     await publicPage.goto('/maps/E2E_7DTD_Map')
     await expect(publicPage.getByText('7 Days to Die live map')).toBeVisible()
+    const publicMapViewportBounds = await publicPage
+      .getByRole('region', { name: '7 Days to Die world map' })
+      .boundingBox()
+    const publicViewportSize = publicPage.viewportSize()
+    if (publicMapViewportBounds === null || publicViewportSize === null) {
+      throw new Error('Public map viewport bounds are unavailable')
+    }
+    expect(publicMapViewportBounds.y + publicMapViewportBounds.height).toBeGreaterThanOrEqual(
+      publicViewportSize.height - 20,
+    )
 
     await settings.getByLabel('Public identifier').fill('E2E_7DTD_Renamed')
     await settings.getByRole('button', { name: 'Save settings' }).click()
@@ -67,7 +78,7 @@ test('owner can publish, rename, reuse, and disable one public game map link', a
       queryPort: 25802,
     })
     await gotoAppPage(page, `/game-servers/${reuseServerId}/map`)
-    await page.getByRole('button', { name: 'Public link' }).click()
+    await page.getByRole('button', { name: 'Open public map link settings' }).click()
     const reuseSettings = page.locator('.map-share-settings')
     await reuseSettings.getByLabel('Public identifier').fill('E2E_7DTD_Map')
     const reuseEnabled = reuseSettings.getByLabel('Enable public live map')
@@ -79,7 +90,7 @@ test('owner can publish, rename, reuse, and disable one public game map link', a
     await expect(publicPage.getByText('7 Days to Die live map')).toBeVisible()
 
     await gotoAppPage(page, `/game-servers/${gameServerId}/map`)
-    await page.getByRole('button', { name: 'Public link' }).click()
+    await page.getByRole('button', { name: 'Open public map link settings' }).click()
     const renamedSettings = page.locator('.map-share-settings')
     const renamedEnabled = renamedSettings.getByLabel('Enable public live map')
     await expect(renamedEnabled).toBeChecked()

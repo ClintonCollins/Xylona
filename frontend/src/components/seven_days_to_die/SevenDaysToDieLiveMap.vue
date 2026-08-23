@@ -2,8 +2,23 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 import L, { type DoneCallback, type Map as LeafletMap } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import animalIconURL from '@/assets/seven-days-to-die-map/animal.webp'
+import bearIconURL from '@/assets/seven-days-to-die-map/bear.webp'
+import beeSwarmIconURL from '@/assets/seven-days-to-die-map/bee-swarm.webp'
+import boarIconURL from '@/assets/seven-days-to-die-map/boar.webp'
+import chickenIconURL from '@/assets/seven-days-to-die-map/chicken.webp'
+import coyoteIconURL from '@/assets/seven-days-to-die-map/coyote.webp'
+import doeIconURL from '@/assets/seven-days-to-die-map/doe.webp'
+import insectSwarmIconURL from '@/assets/seven-days-to-die-map/insect-swarm.webp'
+import littleBearIconURL from '@/assets/seven-days-to-die-map/little-bear.webp'
+import mountainLionIconURL from '@/assets/seven-days-to-die-map/mountain-lion.webp'
+import rabbitIconURL from '@/assets/seven-days-to-die-map/rabbit.webp'
+import rattlesnakeIconURL from '@/assets/seven-days-to-die-map/rattlesnake.webp'
+import stagIconURL from '@/assets/seven-days-to-die-map/stag.webp'
+import wolfIconURL from '@/assets/seven-days-to-die-map/wolf.webp'
+import zombieIconURL from '@/assets/seven-days-to-die-map/zombie.webp'
 import {
   type SevenDaysToDieMapPlayer,
   type SevenDaysToDieMapView,
@@ -16,20 +31,38 @@ import {
 } from '@/pages/game_servers/seven-days-to-die-map'
 
 const fullTileRefreshIntervalMilliseconds = 30_000
+const animalIcons = [
+  { keywords: ['littlebear', 'bearsmall', 'smallbear', 'bearcub'], url: littleBearIconURL },
+  { keywords: ['mountainlion'], url: mountainLionIconURL },
+  { keywords: ['beeswarm'], url: beeSwarmIconURL },
+  { keywords: ['insectswarm'], url: insectSwarmIconURL },
+  { keywords: ['rattlesnake', 'snake'], url: rattlesnakeIconURL },
+  { keywords: ['chicken'], url: chickenIconURL },
+  { keywords: ['coyote'], url: coyoteIconURL },
+  { keywords: ['rabbit'], url: rabbitIconURL },
+  { keywords: ['stag'], url: stagIconURL },
+  { keywords: ['doe'], url: doeIconURL },
+  { keywords: ['boar'], url: boarIconURL },
+  { keywords: ['bear'], url: bearIconURL },
+  { keywords: ['wolf'], url: wolfIconURL },
+] as const
+const zombieKeywords = ['zombie', 'zomie', 'direwolf', 'grace', 'vulture'] as const
 
 const props = withDefaults(
   defineProps<{
     view: SevenDaysToDieMapView | null
     loading?: boolean
     loadError?: boolean
-    publicMode?: boolean
+    refreshing?: boolean
     publicIdentifier?: string
+    configurationPath?: string
   }>(),
   {
     loading: false,
     loadError: false,
-    publicMode: false,
+    refreshing: false,
     publicIdentifier: '',
+    configurationPath: '',
   },
 )
 
@@ -37,7 +70,10 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
+const mapRoot = ref<HTMLElement | null>(null)
 const mapElement = ref<HTMLElement | null>(null)
+const fullscreen = ref(false)
+const followedPlayerID = ref<string | null>(null)
 
 let map: LeafletMap | null = null
 let tileLayer: AuthorizedTileLayer | null = null
@@ -48,6 +84,11 @@ let initializedKey = ''
 let lastFullTileRefreshAt = Date.now()
 
 const players = computed(() => props.view?.players ?? [])
+const followedPlayer = computed(() =>
+  players.value.find(
+    (player) => player.id === followedPlayerID.value && player.position !== undefined,
+  ),
+)
 const mapStructureKey = computed(() =>
   [
     props.view?.gameServerId,
@@ -60,27 +101,50 @@ const mapStructureKey = computed(() =>
     props.publicIdentifier,
   ].join(':'),
 )
-const showNativeMarkers = ref(true)
 const showClaims = ref(true)
-const showBloodMoon = ref(true)
 const showHostiles = ref(true)
 const showAnimals = ref(true)
 const availableState =
   SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE
 const unspecifiedState =
   SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED
-const hasTacticalProjection = computed(
-  () =>
-    !props.publicMode &&
-    [
-      props.view?.nativeMarkerState,
-      props.view?.claimsState,
-      props.view?.bloodMoonState,
-      props.view?.hostileState,
-      props.view?.animalState,
-    ].some((state) => state !== undefined && state !== unspecifiedState),
+const playersWithPositions = computed(() =>
+  players.value.filter((player) => player.position !== undefined),
 )
-const onlinePlayers = computed(() => players.value.filter((player) => player.online).length)
+const onlinePlayers = computed(
+  () => playersWithPositions.value.filter((player) => player.online).length,
+)
+const lastKnownPlayers = computed(
+  () => playersWithPositions.value.filter((player) => !player.online).length,
+)
+const unavailableTacticalLayers = computed(() =>
+  [
+    { label: 'Land claims', state: props.view?.claimsState },
+    { label: 'Blood Moon', state: props.view?.bloodMoonState },
+    { label: 'Hostiles', state: props.view?.hostileState },
+    { label: 'Animals', state: props.view?.animalState },
+  ].flatMap((layer) =>
+    layer.state !== undefined && layer.state !== unspecifiedState && layer.state !== availableState
+      ? [{ label: layer.label, state: overlayStateLabel(layer.state) }]
+      : [],
+  ),
+)
+const hasAvailableTacticalLayers = computed(
+  () =>
+    !props.loadError &&
+    [props.view?.claimsState, props.view?.hostileState, props.view?.animalState].some(
+      (state) => state === availableState,
+    ),
+)
+const mapDataSummaryLabel = computed(() =>
+  unavailableTacticalLayers.value.length > 0 ? 'Map key & data' : 'Map key',
+)
+const bloodMoonActive = computed(
+  () =>
+    !props.loadError &&
+    props.view?.bloodMoonState === availableState &&
+    props.view.bloodMoon?.active === true,
+)
 const mapStatus = computed(() => {
   if (props.loadError) {
     return { label: 'Connection lost', icon: 'cloud_off', tone: 'danger' }
@@ -292,6 +356,25 @@ function createMapLabel(name: string): HTMLElement {
   return label
 }
 
+function createEntityIcon(name: string, hostile: boolean): L.DivIcon {
+  const normalizedName = name.toLowerCase().replaceAll(/[^a-z]/g, '')
+  const isZombie = hostile && zombieKeywords.some((keyword) => normalizedName.includes(keyword))
+  const iconURL = isZombie
+    ? zombieIconURL
+    : (animalIcons.find(({ keywords }) =>
+        keywords.some((keyword) => normalizedName.includes(keyword)),
+      )?.url ?? (hostile ? zombieIconURL : animalIconURL))
+  const tone = hostile ? 'hostile' : 'animal'
+
+  return L.divIcon({
+    className: 'seven-days-map__marker-shell',
+    html: `<span class="seven-days-map__entity seven-days-map__entity--${tone}"><img src="${iconURL}" alt="" aria-hidden="true"></span>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -16],
+  })
+}
+
 function syncOverlays(): void {
   if (map === null || overlayLayer === null) {
     return
@@ -311,26 +394,9 @@ function syncOverlays(): void {
       .addTo(overlayLayer)
   }
 
-  if (
-    !props.publicMode &&
-    props.view?.nativeMarkerState === availableState &&
-    showNativeMarkers.value
-  ) {
-    for (const marker of props.view.nativeMarkers) {
-      const icon = L.divIcon({
-        className: 'seven-days-map__marker-shell',
-        html: '<span class="seven-days-map__map-pin seven-days-map__map-pin--native"><span class="material-icons" aria-hidden="true">place</span></span>',
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
-      })
-      L.marker([marker.x, marker.z], { icon, title: marker.name })
-        .bindTooltip(createMapLabel(marker.name))
-        .bindPopup(createMapPopup(marker.name, marker.x, 0, marker.z))
-        .addTo(overlayLayer)
-    }
-  }
+  if (props.loadError) return
 
-  if (!props.publicMode && props.view?.claimsState === availableState && showClaims.value) {
+  if (props.view?.claimsState === availableState && showClaims.value) {
     for (const claim of props.view.claims) {
       const position = claim.position
       if (position === undefined) continue
@@ -354,30 +420,26 @@ function syncOverlays(): void {
     }
   }
 
-  if (!props.publicMode && props.view?.hostileState === availableState && showHostiles.value) {
+  if (props.view?.hostileState === availableState && showHostiles.value) {
     for (const hostile of props.view.hostiles) {
       const position = hostile.position
       if (position === undefined) continue
-      L.circleMarker([position.x, position.z], {
-        color: 'var(--xy-danger)',
-        fillColor: 'var(--xy-danger)',
-        fillOpacity: 0.8,
-        radius: 6,
+      L.marker([position.x, position.z], {
+        icon: createEntityIcon(hostile.name, true),
+        title: hostile.name,
       })
         .bindPopup(createMapPopup(hostile.name, position.x, position.y, position.z))
         .addTo(overlayLayer)
     }
   }
 
-  if (!props.publicMode && props.view?.animalState === availableState && showAnimals.value) {
+  if (props.view?.animalState === availableState && showAnimals.value) {
     for (const animal of props.view.animals) {
       const position = animal.position
       if (position === undefined) continue
-      L.circleMarker([position.x, position.z], {
-        color: 'var(--xy-success)',
-        fillColor: 'var(--xy-success)',
-        fillOpacity: 0.8,
-        radius: 6,
+      L.marker([position.x, position.z], {
+        icon: createEntityIcon(animal.name, false),
+        title: animal.name,
       })
         .bindPopup(createMapPopup(animal.name, position.x, position.y, position.z))
         .addTo(overlayLayer)
@@ -391,6 +453,10 @@ function gameTimeLabel(time: { day: number; hour: number; minute: number } | und
 }
 
 function syncPlayers(): void {
+  const followed = followedPlayer.value
+  if (followedPlayerID.value !== null && followed === undefined) {
+    followedPlayerID.value = null
+  }
   if (map === null || playerLayer === null) {
     return
   }
@@ -409,7 +475,9 @@ function syncPlayers(): void {
       iconAnchor: [15, 15],
       popupAnchor: [0, -16],
     })
-    L.marker([position.x, position.z], { icon, title: player.name })
+    const marker = L.marker([position.x, position.z], { icon, title: `Follow ${player.name}` })
+    marker.on('click', () => followPlayer(player))
+    marker
       .bindTooltip(createPlayerLabel(player), {
         className: `seven-days-map__player-name seven-days-map__player-name--${playerState}`,
         direction: 'right',
@@ -418,6 +486,10 @@ function syncPlayers(): void {
       })
       .bindPopup(createPlayerPopup(player))
       .addTo(playerLayer)
+  }
+
+  if (followed !== undefined) {
+    panToPlayer(followed)
   }
 }
 
@@ -430,6 +502,7 @@ function teardownMap(): void {
   map?.remove()
   map = null
   initializedKey = ''
+  followedPlayerID.value = null
 }
 
 async function initializeMap(): Promise<void> {
@@ -499,6 +572,64 @@ function refresh(): void {
   emit('refresh')
 }
 
+function shouldAnimateMap(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches !== true
+}
+
+function fitWorld(): void {
+  const mapSize = props.view?.mapSize
+  if (map === null || mapSize === undefined) return
+  map.fitBounds(
+    [
+      [-mapSize.x / 2, -mapSize.z / 2],
+      [mapSize.x / 2, mapSize.z / 2],
+    ],
+    { animate: shouldAnimateMap(), padding: [24, 24] },
+  )
+}
+
+function panToPlayer(player: SevenDaysToDieMapPlayer): void {
+  const position = player.position
+  if (map === null || position === undefined) return
+  map.panTo([position.x, position.z], { animate: shouldAnimateMap() })
+}
+
+function followPlayer(player: SevenDaysToDieMapPlayer): void {
+  followedPlayerID.value = player.id
+  panToPlayer(player)
+}
+
+function stopFollowingPlayer(): void {
+  followedPlayerID.value = null
+}
+
+function focusPlayer(player: SevenDaysToDieMapPlayer): void {
+  const position = player.position
+  if (map === null || position === undefined) return
+  map.setView([position.x, position.z], Math.max(0, props.view?.maxZoom ?? 0), {
+    animate: shouldAnimateMap(),
+  })
+}
+
+async function toggleFullscreen(): Promise<void> {
+  if (mapRoot.value === null) return
+
+  try {
+    if (document.fullscreenElement === mapRoot.value) {
+      await document.exitFullscreen()
+    } else {
+      await mapRoot.value.requestFullscreen()
+    }
+  } catch (unknownError: unknown) {
+    console.error('Could not change 7 Days to Die map fullscreen state', unknownError)
+  }
+}
+
+function handleFullscreenChange(): void {
+  fullscreen.value = document.fullscreenElement === mapRoot.value
+  void nextTick(() => map?.invalidateSize({ pan: false }))
+}
+
 watch(mapStructureKey, () => void initializeMap(), { immediate: true })
 watch(
   () => props.view?.collectedAt?.seconds,
@@ -518,12 +649,22 @@ watch(
 )
 watch(players, syncPlayers, { deep: true })
 watch(() => props.view, syncOverlays, { deep: true })
-watch([showNativeMarkers, showClaims, showHostiles, showAnimals], syncOverlays)
-onBeforeUnmount(teardownMap)
+watch(() => props.loadError, syncOverlays)
+watch([showClaims, showHostiles, showAnimals], syncOverlays)
+onMounted(() => document.addEventListener('fullscreenchange', handleFullscreenChange))
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  teardownMap()
+})
 </script>
 
 <template>
-  <section class="seven-days-map" data-testid="seven-days-map">
+  <section
+    ref="mapRoot"
+    class="seven-days-map"
+    :class="{ 'seven-days-map--fullscreen': fullscreen }"
+    :data-blood-moon-active="bloodMoonActive"
+    data-testid="seven-days-map">
     <div class="seven-days-map__toolbar">
       <div class="seven-days-map__live-state">
         <span class="seven-days-map__status" :data-tone="mapStatus.tone">
@@ -536,55 +677,159 @@ onBeforeUnmount(teardownMap)
         <span
           ><strong>{{ onlinePlayers }}</strong> online</span
         >
+        <span v-if="lastKnownPlayers > 0"
+          ><strong>{{ lastKnownPlayers }}</strong> last known</span
+        >
       </div>
       <div class="seven-days-map__toolbar-actions">
-        <q-btn aria-label="Refresh live map" dense flat icon="refresh" round @click="refresh">
-          <q-tooltip>Refresh map</q-tooltip>
+        <q-btn
+          v-if="followedPlayer"
+          :aria-label="`Stop following ${followedPlayer.name}`"
+          color="accent"
+          data-testid="stop-following-player"
+          dense
+          flat
+          icon="gps_fixed"
+          :label="`Following ${followedPlayer.name}`"
+          no-caps
+          @click="stopFollowingPlayer">
+          <q-tooltip>Stop following {{ followedPlayer.name }}</q-tooltip>
         </q-btn>
+        <q-btn
+          :loading="refreshing"
+          :aria-label="refreshing ? 'Scanning world data' : 'Refresh live data'"
+          data-testid="refresh-live-data"
+          dense
+          flat
+          icon="refresh"
+          :label="refreshing ? 'Scanning world' : 'Refresh'"
+          no-caps
+          @click="refresh" />
+        <q-btn
+          :disable="view?.enabled !== true"
+          aria-label="Fit the whole world in view"
+          data-testid="fit-world"
+          dense
+          flat
+          icon="zoom_out_map"
+          label="Fit world"
+          no-caps
+          @click="fitWorld" />
+        <q-btn
+          :aria-label="fullscreen ? 'Exit fullscreen map' : 'Open fullscreen map'"
+          data-testid="fullscreen-map"
+          dense
+          flat
+          :icon="fullscreen ? 'fullscreen_exit' : 'fullscreen'"
+          round
+          @click="toggleFullscreen">
+          <q-tooltip>{{ fullscreen ? 'Exit fullscreen' : 'Fullscreen map' }}</q-tooltip>
+        </q-btn>
+        <q-btn-dropdown
+          v-if="playersWithPositions.length > 1"
+          aria-label="Focus a player on the map"
+          dense
+          flat
+          icon="person_pin_circle"
+          label="Players"
+          no-caps>
+          <q-list dense>
+            <q-item
+              v-for="(player, index) in playersWithPositions"
+              :key="player.id || index"
+              v-close-popup
+              clickable
+              :data-testid="`focus-player-${player.id || index}`"
+              @click="focusPlayer(player)">
+              <q-item-section avatar>
+                <q-icon :color="player.online ? 'positive' : undefined" name="person" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ player.name }}</q-item-label>
+                <q-item-label caption>{{ player.online ? 'Online' : 'Last known' }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
       </div>
     </div>
 
-    <div
-      v-if="hasTacticalProjection"
-      aria-label="Tactical map layers"
-      class="seven-days-map__layer-controls"
-      data-testid="tactical-layer-controls"
-      role="group">
-      <q-toggle
-        v-if="view?.nativeMarkerState !== unspecifiedState"
-        v-model="showNativeMarkers"
-        :disable="view?.nativeMarkerState !== availableState"
-        :label="`Native markers · ${overlayStateLabel(view?.nativeMarkerState ?? unspecifiedState)}`"
-        aria-label="Toggle native markers"
-        data-testid="toggle-native-markers" />
-      <q-toggle
-        v-if="view?.claimsState !== unspecifiedState"
-        v-model="showClaims"
-        :disable="view?.claimsState !== availableState"
-        :label="`Land claims · ${overlayStateLabel(view?.claimsState ?? unspecifiedState)}`"
-        aria-label="Toggle land claims"
-        data-testid="toggle-land-claims" />
-      <q-toggle
-        v-if="view?.bloodMoonState !== unspecifiedState"
-        v-model="showBloodMoon"
-        :disable="view?.bloodMoonState !== availableState"
-        :label="`Blood Moon · ${overlayStateLabel(view?.bloodMoonState ?? unspecifiedState)}`"
-        aria-label="Toggle Blood Moon details"
-        data-testid="toggle-blood-moon" />
-      <q-toggle
-        v-if="view?.hostileState !== unspecifiedState"
-        v-model="showHostiles"
-        :disable="view?.hostileState !== availableState"
-        :label="`Hostiles · ${overlayStateLabel(view?.hostileState ?? unspecifiedState)}`"
-        aria-label="Toggle hostile positions"
-        data-testid="toggle-hostiles" />
-      <q-toggle
-        v-if="view?.animalState !== unspecifiedState"
-        v-model="showAnimals"
-        :disable="view?.animalState !== availableState"
-        :label="`Animals · ${overlayStateLabel(view?.animalState ?? unspecifiedState)}`"
-        aria-label="Toggle animal positions"
-        data-testid="toggle-animals" />
+    <div aria-label="Map tools" class="seven-days-map__layer-controls" data-testid="map-tools">
+      <div
+        v-if="hasAvailableTacticalLayers"
+        aria-label="Tactical map layers"
+        class="seven-days-map__toggles"
+        data-testid="tactical-layer-controls"
+        role="group">
+        <q-toggle
+          v-if="view?.claimsState === availableState"
+          v-model="showClaims"
+          label="Land claims"
+          aria-label="Toggle land claims"
+          data-testid="toggle-land-claims" />
+        <q-toggle
+          v-if="view?.hostileState === availableState"
+          v-model="showHostiles"
+          label="Hostiles"
+          aria-label="Toggle hostile positions"
+          data-testid="toggle-hostiles" />
+        <q-toggle
+          v-if="view?.animalState === availableState"
+          v-model="showAnimals"
+          label="Animals"
+          aria-label="Toggle animal positions"
+          data-testid="toggle-animals" />
+      </div>
+
+      <span
+        v-if="!loadError && view?.bloodMoonState === availableState && view.bloodMoon"
+        class="seven-days-map__blood-moon"
+        :data-active="view.bloodMoon.active"
+        data-testid="blood-moon-status">
+        <q-icon name="dark_mode" />
+        <strong>{{ view.bloodMoon.active ? 'Blood Moon active' : 'Blood Moon inactive' }}</strong>
+        <span>{{ gameTimeLabel(view.bloodMoon.gameTime) }}</span>
+      </span>
+
+      <details class="seven-days-map__map-data" data-testid="map-data-disclosure">
+        <summary :aria-label="mapDataSummaryLabel">
+          <q-icon name="info_outline" />
+          <span class="seven-days-map__map-data-label">{{ mapDataSummaryLabel }}</span>
+        </summary>
+        <div class="seven-days-map__map-data-content">
+          <div aria-label="Map legend" class="seven-days-map__legend">
+            <strong>Map key</strong>
+            <span><q-icon color="accent" name="person" /> Online player</span>
+            <span><q-icon name="history" /> Last-known player</span>
+            <span><q-icon color="purple" name="edit_location" /> Map note</span>
+            <span v-if="!loadError && view?.hostileState === availableState"
+              ><q-icon color="negative" name="warning" /> Hostile</span
+            >
+            <span v-if="!loadError && view?.animalState === availableState"
+              ><q-icon color="positive" name="pets" /> Animal</span
+            >
+          </div>
+          <div v-if="unavailableTacticalLayers.length > 0" class="seven-days-map__unavailable-data">
+            <strong>Unavailable map data</strong>
+            <dl>
+              <div v-for="layer in unavailableTacticalLayers" :key="layer.label">
+                <dt>{{ layer.label }}</dt>
+                <dd>{{ layer.state }}</dd>
+              </div>
+            </dl>
+            <router-link
+              v-if="configurationPath"
+              class="seven-days-map__configuration-link"
+              :to="configurationPath">
+              <q-icon name="tune" />
+              Open map configuration
+            </router-link>
+            <span v-else class="seven-days-map__configuration-hint">
+              A server administrator can review the Web Dashboard configuration.
+            </span>
+          </div>
+        </div>
+      </details>
     </div>
 
     <div class="seven-days-map__viewport-shell">
@@ -594,9 +839,15 @@ onBeforeUnmount(teardownMap)
         class="seven-days-map__viewport"
         role="region"></div>
 
+      <div
+        v-if="refreshing && view?.enabled"
+        aria-hidden="true"
+        class="seven-days-map__scan"
+        data-testid="world-scan"></div>
+
       <div v-if="loading && view === null" class="seven-days-map__overlay">
         <q-spinner color="primary" size="42px" />
-        <strong>Loading the world...</strong>
+        <strong>Surveying the world…</strong>
       </div>
       <div v-else-if="view === null || !view.enabled" class="seven-days-map__overlay">
         <q-icon name="map" size="48px" />
@@ -604,7 +855,16 @@ onBeforeUnmount(teardownMap)
         <span>{{
           view?.statusMessage || 'Start the server with Web Dashboard and map rendering enabled.'
         }}</span>
-        <q-btn v-if="loadError" color="primary" label="Try again" no-caps @click="refresh" />
+        <div class="seven-days-map__overlay-actions">
+          <q-btn v-if="loadError" color="primary" label="Try again" no-caps @click="refresh" />
+          <q-btn
+            v-if="configurationPath"
+            :to="configurationPath"
+            flat
+            icon="tune"
+            label="Open configuration"
+            no-caps />
+        </div>
       </div>
 
       <div v-if="view?.stale && view.enabled" class="seven-days-map__stale-banner">
@@ -614,21 +874,6 @@ onBeforeUnmount(teardownMap)
           'Showing the latest cached positions while the server is unavailable.'
         }}
       </div>
-
-      <aside
-        v-if="
-          hasTacticalProjection &&
-          showBloodMoon &&
-          view?.bloodMoonState === availableState &&
-          view.bloodMoon
-        "
-        aria-live="polite"
-        class="seven-days-map__blood-moon"
-        data-testid="blood-moon-overlay">
-        <strong>{{ view.bloodMoon.active ? 'Blood Moon active' : 'Blood Moon inactive' }}</strong>
-        <span>{{ gameTimeLabel(view.bloodMoon.gameTime) }}</span>
-        <span>Next {{ gameTimeLabel(view.bloodMoon.nextBloodMoon) }}</span>
-      </aside>
     </div>
   </section>
 </template>
@@ -646,11 +891,25 @@ onBeforeUnmount(teardownMap)
   border-radius: var(--xy-radius-lg);
 }
 
+.seven-days-map--fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.seven-days-map--fullscreen .seven-days-map__viewport-shell,
+.seven-days-map--fullscreen .seven-days-map__viewport {
+  min-height: 0;
+}
+
 .seven-days-map__toolbar {
   z-index: 2;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: var(--xy-space-lg);
+  gap: var(--xy-space-base);
   min-height: 60px;
   padding: var(--xy-space-base) var(--xy-space-md);
   background: var(--xy-surface-1);
@@ -693,7 +952,8 @@ onBeforeUnmount(teardownMap)
 
 .seven-days-map__summary {
   display: flex;
-  gap: var(--xy-space-lg);
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs) var(--xy-space-base);
   margin-left: auto;
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-sm);
@@ -706,11 +966,16 @@ onBeforeUnmount(teardownMap)
 
 .seven-days-map__toolbar-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--xy-space-xs);
 }
 
 .seven-days-map__layer-controls {
+  position: relative;
+  z-index: 2000;
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--xy-space-xs) var(--xy-space-md);
   padding: var(--xy-space-sm) var(--xy-space-md);
@@ -718,6 +983,138 @@ onBeforeUnmount(teardownMap)
   background: var(--xy-surface-1);
   border-bottom: 1px solid var(--xy-border);
   font-size: var(--xy-font-size-sm);
+}
+
+.seven-days-map__toggles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs) var(--xy-space-md);
+}
+
+.seven-days-map__blood-moon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-pill);
+  font-size: var(--xy-font-size-xs);
+}
+
+.seven-days-map__blood-moon strong {
+  color: var(--xy-text-primary);
+}
+
+.seven-days-map__blood-moon[data-active='true'] {
+  color: var(--xy-danger-hover);
+  background: var(--xy-danger-bg);
+  border-color: var(--xy-danger-border);
+}
+
+.seven-days-map__blood-moon[data-active='true'] strong {
+  color: var(--xy-danger-hover);
+}
+
+.seven-days-map__map-data {
+  position: relative;
+  margin-left: auto;
+}
+
+.seven-days-map__map-data summary {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  min-height: 32px;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  color: var(--xy-text-primary);
+  border-radius: var(--xy-radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.seven-days-map__map-data summary:hover,
+.seven-days-map__map-data summary:focus-visible {
+  background: var(--xy-surface-3);
+}
+
+.seven-days-map__map-data summary::-webkit-details-marker {
+  display: none;
+}
+
+.seven-days-map__map-data-content {
+  position: absolute;
+  z-index: 2100;
+  top: calc(100% + var(--xy-space-xs));
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--xy-space-lg);
+  width: min(560px, calc(100vw - var(--xy-space-xl)));
+  max-height: min(60vh, 480px);
+  padding: var(--xy-space-md);
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: var(--xy-surface-2);
+  border: 1px solid var(--xy-border-hover);
+  border-radius: var(--xy-radius-lg);
+  box-shadow: var(--xy-shadow-lg);
+}
+
+.seven-days-map__legend,
+.seven-days-map__unavailable-data {
+  display: grid;
+  align-content: start;
+  gap: var(--xy-space-sm);
+}
+
+.seven-days-map__legend > span {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+}
+
+.seven-days-map__unavailable-data dl {
+  display: grid;
+  gap: var(--xy-space-xs);
+  margin: 0;
+}
+
+.seven-days-map__unavailable-data dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--xy-space-base);
+}
+
+.seven-days-map__unavailable-data dt {
+  color: var(--xy-text-primary);
+}
+
+.seven-days-map__unavailable-data dd {
+  margin: 0;
+}
+
+.seven-days-map__configuration-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  width: fit-content;
+  color: var(--xy-primary-hover);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.seven-days-map__configuration-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.seven-days-map__configuration-hint {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
 }
 
 .seven-days-map__viewport-shell {
@@ -733,6 +1130,44 @@ onBeforeUnmount(teardownMap)
   height: 100%;
   min-height: 450px;
   background-color: var(--xy-base);
+}
+
+.seven-days-map__scan {
+  position: absolute;
+  z-index: 500;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.seven-days-map__scan::before {
+  position: absolute;
+  top: -20%;
+  right: 0;
+  left: 0;
+  height: 20%;
+  content: '';
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--xy-accent) 12%, transparent),
+    var(--xy-accent-border),
+    transparent
+  );
+  opacity: 0.7;
+  animation: seven-days-map-scan 1s var(--xy-ease-standard) infinite;
+}
+
+.seven-days-map[data-blood-moon-active='true'] .seven-days-map__viewport-shell::after {
+  position: absolute;
+  z-index: 490;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px var(--xy-danger-border),
+    inset 0 0 var(--xy-space-3xl) color-mix(in srgb, var(--xy-danger) 14%, transparent);
+  animation: seven-days-map-blood-moon 900ms var(--xy-ease-standard) both;
 }
 
 .seven-days-map__overlay {
@@ -759,6 +1194,13 @@ onBeforeUnmount(teardownMap)
   max-width: 52ch;
 }
 
+.seven-days-map__overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--xy-space-sm);
+}
+
 .seven-days-map__stale-banner {
   position: absolute;
   z-index: 510;
@@ -776,27 +1218,6 @@ onBeforeUnmount(teardownMap)
   border: 1px solid var(--xy-warning-border);
   border-radius: var(--xy-radius-md);
   box-shadow: var(--xy-shadow-lg);
-}
-
-.seven-days-map__blood-moon {
-  position: absolute;
-  z-index: 500;
-  top: var(--xy-space-md);
-  right: var(--xy-space-md);
-  display: grid;
-  gap: var(--xy-space-2xs);
-  padding: var(--xy-space-sm) var(--xy-space-base);
-  color: var(--xy-text-secondary);
-  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
-  border: 1px solid var(--xy-danger-border);
-  border-radius: var(--xy-radius-md);
-  box-shadow: var(--xy-shadow-lg);
-  font-size: var(--xy-font-size-xs);
-}
-
-.seven-days-map__blood-moon strong {
-  color: var(--xy-danger-hover);
-  font-size: var(--xy-font-size-sm);
 }
 
 :deep(.leaflet-control-zoom a) {
@@ -851,7 +1272,7 @@ onBeforeUnmount(teardownMap)
 }
 
 :deep(.seven-days-map__player .material-icons) {
-  font-size: 19px;
+  font-size: var(--xy-font-size-lg);
 }
 
 :deep(.seven-days-map__player--offline) {
@@ -892,7 +1313,8 @@ onBeforeUnmount(teardownMap)
   color: var(--xy-text-secondary);
 }
 
-:deep(.seven-days-map__map-pin) {
+:deep(.seven-days-map__map-pin),
+:deep(.seven-days-map__entity) {
   display: grid;
   width: 30px;
   height: 30px;
@@ -904,12 +1326,79 @@ onBeforeUnmount(teardownMap)
   box-shadow: var(--xy-shadow-md);
 }
 
+:deep(.seven-days-map__entity) {
+  box-sizing: border-box;
+  padding: 3px;
+}
+
+:deep(.seven-days-map__entity img) {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+:deep(.seven-days-map__entity--animal) {
+  border-color: var(--xy-success);
+}
+
+:deep(.seven-days-map__entity--hostile) {
+  border-color: var(--xy-danger);
+}
+
 :deep(.seven-days-map__map-pin--note) {
   border-color: var(--xy-purple);
 }
 
-:deep(.seven-days-map__map-pin--native) {
-  border-color: var(--xy-info);
+@keyframes seven-days-map-scan {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(600%);
+  }
+}
+
+@keyframes seven-days-map-blood-moon {
+  0% {
+    opacity: 0.4;
+    box-shadow:
+      inset 0 0 0 1px var(--xy-danger-border),
+      inset 0 0 var(--xy-space-lg) color-mix(in srgb, var(--xy-danger) 8%, transparent);
+  }
+
+  48% {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 0 1px var(--xy-danger-border),
+      inset 0 0 var(--xy-space-3xl) color-mix(in srgb, var(--xy-danger) 20%, transparent);
+  }
+
+  100% {
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seven-days-map__scan::before,
+  .seven-days-map[data-blood-moon-active='true'] .seven-days-map__viewport-shell::after {
+    animation: none;
+  }
+
+  .seven-days-map__scan::before {
+    top: 40%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .seven-days-map__map-data summary {
+    min-width: 36px;
+    justify-content: center;
+  }
+
+  .seven-days-map__map-data-label {
+    display: none;
+  }
 }
 
 @media (max-width: 700px) {
@@ -921,28 +1410,37 @@ onBeforeUnmount(teardownMap)
   }
 
   .seven-days-map__toolbar {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr auto;
     gap: var(--xy-space-sm);
   }
 
   .seven-days-map__summary {
-    order: 3;
-    width: 100%;
     margin: 0;
   }
 
   .seven-days-map__toolbar-actions {
-    margin-left: auto;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 
   .seven-days-map__layer-controls {
-    flex-direction: column;
-    align-items: flex-start;
+    gap: var(--xy-space-xs) var(--xy-space-base);
   }
 
-  .seven-days-map__blood-moon {
-    top: var(--xy-space-sm);
-    right: var(--xy-space-sm);
+  .seven-days-map__map-data-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 599px) {
+  .seven-days-map__map-data summary {
+    min-width: 36px;
+    justify-content: center;
+  }
+
+  .seven-days-map__map-data-label {
+    display: none;
   }
 }
 </style>

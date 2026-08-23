@@ -3,6 +3,7 @@ import { create } from '@bufbuild/protobuf'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
+import SevenDaysToDieWorldOverview from '@/components/seven_days_to_die/SevenDaysToDieWorldOverview.vue'
 import {
   GetPublicSevenDaysToDieMapRequestSchema,
   type SevenDaysToDieMapView,
@@ -57,7 +58,7 @@ onBeforeUnmount(() => {
 <template>
   <main class="public-seven-days-map">
     <header class="public-seven-days-map__header">
-      <div class="public-seven-days-map__brand">XYLONA</div>
+      <div class="public-seven-days-map__brand">Xylona</div>
       <div class="public-seven-days-map__title">
         <span>7 Days to Die live map</span>
         <strong>{{ mapView?.gameServerName || 'Shared server' }}</strong>
@@ -71,18 +72,25 @@ onBeforeUnmount(() => {
     </div>
     <seven-days-to-die-live-map
       v-else
+      class="public-seven-days-map__map"
       :load-error="loadError"
       :loading="loading"
-      public-mode
       :public-identifier="identifier"
       :view="mapView"
       @refresh="loadMap" />
+    <seven-days-to-die-world-overview
+      v-if="!invalidLink"
+      class="public-seven-days-map__overview"
+      :show-tactical="!loadError"
+      :status-loading="loading && mapView === null"
+      :view="mapView" />
   </main>
 </template>
 
 <style scoped>
 .public-seven-days-map {
   display: flex;
+  height: 100dvh;
   min-height: 100dvh;
   flex-direction: column;
   padding: var(--xy-space-md);
@@ -101,8 +109,8 @@ onBeforeUnmount(() => {
 .public-seven-days-map__brand {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
-  font-size: var(--xy-font-size-lg);
-  letter-spacing: 0.08em;
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
 }
 
 .public-seven-days-map__title {
@@ -142,6 +150,40 @@ onBeforeUnmount(() => {
   max-width: 48ch;
   margin: 0;
   color: var(--xy-text-secondary);
+}
+
+.public-seven-days-map__map {
+  min-width: 0;
+}
+
+.public-seven-days-map__overview {
+  margin-top: var(--xy-space-md);
+}
+
+@media (min-width: 1200px) {
+  .public-seven-days-map {
+    display: grid;
+    grid-template-areas:
+      'header header'
+      'map overview';
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--xy-space-md);
+  }
+
+  .public-seven-days-map__header {
+    grid-area: header;
+  }
+
+  .public-seven-days-map__map {
+    grid-area: map;
+  }
+
+  .public-seven-days-map__overview {
+    grid-area: overview;
+    min-width: 0;
+    margin-top: 0;
+  }
 }
 
 @media (max-width: 600px) {
