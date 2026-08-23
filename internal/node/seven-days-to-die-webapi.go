@@ -48,6 +48,10 @@ const (
 	sevenDaysToDieWebAPIEndpointPlayer
 	sevenDaysToDieWebAPIEndpointMods
 	sevenDaysToDieWebAPIEndpointSandboxSettings
+	sevenDaysToDieWebAPIEndpointMarkers
+	sevenDaysToDieWebAPIEndpointLandClaims
+	sevenDaysToDieWebAPIEndpointHostile
+	sevenDaysToDieWebAPIEndpointAnimal
 )
 
 type sevenDaysToDieOpenAPI struct {
@@ -929,6 +933,14 @@ func getSevenDaysToDieWebAPI(
 		path = "/api/mods"
 	case sevenDaysToDieWebAPIEndpointSandboxSettings:
 		path = "/api/sandboxsettings"
+	case sevenDaysToDieWebAPIEndpointMarkers:
+		path = "/api/markers"
+	case sevenDaysToDieWebAPIEndpointLandClaims:
+		path = "/api/getlandclaims"
+	case sevenDaysToDieWebAPIEndpointHostile:
+		path = "/api/hostile"
+	case sevenDaysToDieWebAPIEndpointAnimal:
+		path = "/api/animal"
 	default:
 		return 0, nil, errors.New("node: invalid 7 Days to Die WebAPI endpoint")
 	}
@@ -990,6 +1002,10 @@ func getSevenDaysToDieWebAPIPath(
 }
 
 func projectSevenDaysToDieWebAPICapabilities(resolver *sevenDaysToDieOpenAPIResolver) SevenDaysToDieWebAPICapabilities {
+	hostilePositions := resolver.supports(
+		sevenDaysToDieOpenAPIOperation{path: "/api/hostile", method: http.MethodGet})
+	animalPositions := resolver.supports(
+		sevenDaysToDieOpenAPIOperation{path: "/api/animal", method: http.MethodGet})
 	return SevenDaysToDieWebAPICapabilities{
 		PlayerData: resolver.supports(
 			sevenDaysToDieOpenAPIOperation{path: "/api/player", method: http.MethodGet}),
@@ -1000,9 +1016,9 @@ func projectSevenDaysToDieWebAPICapabilities(resolver *sevenDaysToDieOpenAPIReso
 			sevenDaysToDieOpenAPIOperation{path: "/api/log", method: http.MethodGet}),
 		WorldPopulation: resolver.supports(
 			sevenDaysToDieOpenAPIOperation{path: "/api/serverstats", method: http.MethodGet}),
-		HostileAndAnimalPositions: resolver.supports(
-			sevenDaysToDieOpenAPIOperation{path: "/api/hostile", method: http.MethodGet},
-			sevenDaysToDieOpenAPIOperation{path: "/api/animal", method: http.MethodGet}),
+		HostileAndAnimalPositions: hostilePositions && animalPositions,
+		HostilePositions:          hostilePositions,
+		AnimalPositions:           animalPositions,
 		AccessControl: resolver.supports(
 			sevenDaysToDieOpenAPIOperation{path: "/api/blacklist", method: http.MethodGet},
 			sevenDaysToDieOpenAPIOperation{path: "/api/blacklist/{id}", method: http.MethodPost},

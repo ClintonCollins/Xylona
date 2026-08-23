@@ -104,6 +104,8 @@ func publicSevenDaysToDieWebAPIStatus(status *node.SevenDaysToDieWebAPIStatus) *
 			NativeLog:                 status.Capabilities.NativeLog,
 			WorldPopulation:           status.Capabilities.WorldPopulation,
 			HostileAndAnimalPositions: status.Capabilities.HostileAndAnimalPositions,
+			HostilePositions:          status.Capabilities.HostilePositions,
+			AnimalPositions:           status.Capabilities.AnimalPositions,
 			AccessControl:             status.Capabilities.AccessControl,
 			GamePermissions:           status.Capabilities.GamePermissions,
 			ReportedMods:              status.Capabilities.ReportedMods,

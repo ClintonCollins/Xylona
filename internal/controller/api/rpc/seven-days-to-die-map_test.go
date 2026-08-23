@@ -1,15 +1,23 @@
 package rpc
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -165,5 +173,144 @@ func TestSevenDaysToDieMapAuthorizationSharingAndLastKnownState(t *testing.T) {
 	errRevokedTile := fixture.service.authorizeSevenDaysToDieMapTile(tileRequest, gameServer)
 	if errRevokedTile == nil {
 		t.Fatal("authorizeSevenDaysToDieMapTile(disabled share) error = nil")
+	}
+}
+
+func TestSevenDaysToDieMapTacticalProjectionAndFailureClearing(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
+	_, errGame := fixture.conn.SQLDb.ExecContext(
+		t.Context(), "update game_server set game_id = '7_days_to_die' where id = 'server-local-1'",
+	)
+	if errGame != nil {
+		t.Fatalf("set 7 Days to Die game: %v", errGame)
+	}
+	grantRequest := connect.NewRequest(&xylona.GrantGameServerAccessRequest{
+		GameServerId: "server-local-1", UserId: "user-other", RoleId: "viewer",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, grantRequest, "user-owner")
+	_, errGrant := fixture.service.GrantGameServerAccess(t.Context(), grantRequest)
+	if errGrant != nil {
+		t.Fatalf("grant viewer role: %v", errGrant)
+	}
+
+	available := node.SevenDaysToDieWebAPIValueStateAvailable
+	fakeNode := &nodeclient.FakeNodeClient{
+		NodeID: "node-local",
+		QuerySevenDaysToDieMapResult: &node.SevenDaysToDieMapSnapshot{
+			Enabled: true, TileSize: 128, MaxZoom: 4,
+			MapSize:           node.SevenDaysToDieMapVector{X: 6144, Y: 255, Z: 6144},
+			Players:           []node.SevenDaysToDieMapPlayer{{ID: "private-player", Name: "Alex", Online: true}},
+			NativeMarkerState: available,
+			NativeMarkers: []node.SevenDaysToDieMapMarker{{
+				ID: "private-marker", Name: "Secret marker", Position: node.SevenDaysToDieMapVector{X: 10, Z: 20},
+			}},
+			ClaimsState: available,
+			Claims: []node.SevenDaysToDieLandClaim{{
+				OwnerID: "private-owner", OwnerName: "Secret owner", Active: true,
+				Position: node.SevenDaysToDieMapVector{X: 30, Y: 5, Z: 40}, Size: 41,
+			}},
+			BloodMoonState: available,
+			BloodMoon: &node.SevenDaysToDieBloodMoon{
+				GameTime: node.SevenDaysToDieGameTime{Day: 7, Hour: 22}, Active: true,
+				NextBloodMoon:    node.SevenDaysToDieGameTime{Day: 14, Hour: 22},
+				NextBloodMoonEnd: node.SevenDaysToDieGameTime{Day: 15, Hour: 4},
+			},
+			HostileState: available,
+			Hostiles:     []node.SevenDaysToDieMapEntity{{Name: "Secret zombie", Position: node.SevenDaysToDieMapVector{X: 50, Z: 60}}},
+			AnimalState:  available,
+			Animals:      []node.SevenDaysToDieMapEntity{{Name: "Secret wolf", Position: node.SevenDaysToDieMapVector{X: 70, Z: 80}}},
+		},
+	}
+	registry := noderegistry.New("node-local", fakeNode)
+	fixture.service.nodeRegistry = registry
+	fixture.service.actionsInst = actions.NewInstance(
+		context.Background(), fixture.conn, fakeNode, registry, nil,
+		versiontracker.NewVersionStateMap(), versiontracker.ResolverConfig{},
+	)
+
+	ownerRequest := connect.NewRequest(&xylona.GetSevenDaysToDieMapRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, ownerRequest, "user-owner")
+	ownerResponse, errOwner := fixture.service.GetSevenDaysToDieMap(t.Context(), ownerRequest)
+	if errOwner != nil {
+		t.Fatalf("GetSevenDaysToDieMap(owner) error = %v", errOwner)
+	}
+	ownerMap := ownerResponse.Msg.GetMap()
+	if len(ownerMap.GetNativeMarkers()) != 1 || len(ownerMap.GetClaims()) != 1 || ownerMap.GetBloodMoon() == nil ||
+		len(ownerMap.GetHostiles()) != 1 || len(ownerMap.GetAnimals()) != 1 {
+		t.Fatalf("GetSevenDaysToDieMap(owner) tactical map = %+v", ownerMap)
+	}
+
+	viewerRequest := connect.NewRequest(&xylona.GetSevenDaysToDieMapRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, viewerRequest, "user-other")
+	viewerResponse, errViewer := fixture.service.GetSevenDaysToDieMap(t.Context(), viewerRequest)
+	if errViewer != nil {
+		t.Fatalf("GetSevenDaysToDieMap(viewer) error = %v", errViewer)
+	}
+	assertSevenDaysToDieTacticalMapRedacted(t, viewerResponse.Msg.GetMap())
+
+	settingsRequest := connect.NewRequest(&xylona.GetOrCreateGameServerMapShareSettingsRequest{GameServerId: "server-local-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, settingsRequest, "user-owner")
+	_, errSettings := fixture.service.GetOrCreateGameServerMapShareSettings(t.Context(), settingsRequest)
+	if errSettings != nil {
+		t.Fatalf("create map share settings: %v", errSettings)
+	}
+	shareRequest := connect.NewRequest(&xylona.UpdateGameServerMapShareSettingsRequest{
+		GameServerId: "server-local-1", PublicIdentifier: "Private_Tactical_Test", Enabled: true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, shareRequest, "user-owner")
+	_, errShare := fixture.service.UpdateGameServerMapShareSettings(t.Context(), shareRequest)
+	if errShare != nil {
+		t.Fatalf("enable map share: %v", errShare)
+	}
+	publicResponse, errPublic := fixture.service.GetPublicSevenDaysToDieMap(t.Context(), connect.NewRequest(
+		&xylona.GetPublicSevenDaysToDieMapRequest{PublicIdentifier: "Private_Tactical_Test"},
+	))
+	if errPublic != nil {
+		t.Fatalf("GetPublicSevenDaysToDieMap() error = %v", errPublic)
+	}
+	assertSevenDaysToDieTacticalMapRedacted(t, publicResponse.Msg.GetMap())
+
+	for _, response := range []proto.Message{viewerResponse.Msg, publicResponse.Msg} {
+		wire, errMarshal := proto.Marshal(response)
+		if errMarshal != nil {
+			t.Fatalf("marshal redacted response: %v", errMarshal)
+		}
+		for _, secret := range []string{"private-marker", "Secret owner", "private-owner", "Secret zombie", "Secret wolf"} {
+			if bytes.Contains(wire, []byte(secret)) {
+				t.Fatalf("redacted response wire contains %q", secret)
+			}
+		}
+		for _, call := range fakeNode.QuerySevenDaysToDieMapCalls {
+			if call.TokenName != "" && bytes.Contains(wire, []byte(call.TokenName)) {
+				t.Fatal("redacted response contains native token name")
+			}
+			if call.TokenSecret != "" && bytes.Contains(wire, []byte(call.TokenSecret)) {
+				t.Fatal("redacted response contains native token secret")
+			}
+		}
+	}
+
+	fakeNode.QuerySevenDaysToDieMapErr = errors.New("node disconnected")
+	fallbackResponse, errFallback := fixture.service.GetSevenDaysToDieMap(t.Context(), ownerRequest)
+	if errFallback != nil {
+		t.Fatalf("GetSevenDaysToDieMap(fallback) error = %v", errFallback)
+	}
+	if !fallbackResponse.Msg.GetMap().GetStale() || len(fallbackResponse.Msg.GetMap().GetPlayers()) != 1 {
+		t.Fatalf("fallback map = %+v, want cached base/player snapshot", fallbackResponse.Msg.GetMap())
+	}
+	assertSevenDaysToDieTacticalMapRedacted(t, fallbackResponse.Msg.GetMap())
+}
+
+func assertSevenDaysToDieTacticalMapRedacted(t *testing.T, mapView *xylona.SevenDaysToDieMapView) {
+	t.Helper()
+	if len(mapView.GetNativeMarkers()) != 0 || len(mapView.GetClaims()) != 0 || mapView.GetBloodMoon() != nil ||
+		len(mapView.GetHostiles()) != 0 || len(mapView.GetAnimals()) != 0 || mapView.GetClaimsSupported() ||
+		mapView.GetNativeMarkerState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED ||
+		mapView.GetClaimsState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED ||
+		mapView.GetBloodMoonState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED ||
+		mapView.GetHostileState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED ||
+		mapView.GetAnimalState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED {
+		t.Fatalf("tactical map was not redacted: %+v", mapView)
 	}
 }

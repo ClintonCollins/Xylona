@@ -40,11 +40,8 @@ const capabilities: Capability[] = [
   { icon: 'tune', key: 'runtimeSettings', label: 'Runtime settings' },
   { icon: 'article', key: 'nativeLog', label: 'Native log' },
   { icon: 'groups', key: 'worldPopulation', label: 'World population' },
-  {
-    icon: 'location_searching',
-    key: 'hostileAndAnimalPositions',
-    label: 'Hostile and animal positions',
-  },
+  { icon: 'location_searching', key: 'hostilePositions', label: 'Hostile positions' },
+  { icon: 'pets', key: 'animalPositions', label: 'Animal positions' },
   { icon: 'admin_panel_settings', key: 'accessControl', label: 'Access control' },
   { icon: 'key', key: 'gamePermissions', label: 'Game permissions' },
   { icon: 'extension', key: 'reportedMods', label: 'Reported mods' },

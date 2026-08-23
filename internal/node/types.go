@@ -556,6 +556,9 @@ type SevenDaysToDieMapVector struct {
 	Z float64
 }
 
+// SevenDaysToDieMapItemLimit bounds each repeated map overlay across node transport.
+const SevenDaysToDieMapItemLimit = 4096
+
 // SevenDaysToDieMapPlayer is a privacy-filtered player location.
 type SevenDaysToDieMapPlayer struct {
 	ID       string
@@ -564,14 +567,54 @@ type SevenDaysToDieMapPlayer struct {
 	Position SevenDaysToDieMapVector
 }
 
+// SevenDaysToDieMapMarker is a read-only native map marker.
+type SevenDaysToDieMapMarker struct {
+	ID       string
+	Name     string
+	Position SevenDaysToDieMapVector
+}
+
+// SevenDaysToDieLandClaim is a read-only native land claim.
+type SevenDaysToDieLandClaim struct {
+	OwnerID   string
+	OwnerName string
+	Active    bool
+	Position  SevenDaysToDieMapVector
+	Size      int32
+}
+
+// SevenDaysToDieMapEntity is a current hostile or animal position.
+type SevenDaysToDieMapEntity struct {
+	Name     string
+	Position SevenDaysToDieMapVector
+}
+
+// SevenDaysToDieBloodMoon is the current native Blood Moon state.
+type SevenDaysToDieBloodMoon struct {
+	GameTime         SevenDaysToDieGameTime
+	Active           bool
+	NextBloodMoon    SevenDaysToDieGameTime
+	NextBloodMoonEnd SevenDaysToDieGameTime
+}
+
 // SevenDaysToDieMapSnapshot is the dedicated sanitized native-map payload.
 type SevenDaysToDieMapSnapshot struct {
-	Enabled    bool
-	TileSize   int32
-	MaxZoom    int32
-	MapSize    SevenDaysToDieMapVector
-	SourceTime string
-	Players    []SevenDaysToDieMapPlayer
+	Enabled           bool
+	TileSize          int32
+	MaxZoom           int32
+	MapSize           SevenDaysToDieMapVector
+	SourceTime        string
+	Players           []SevenDaysToDieMapPlayer
+	NativeMarkers     []SevenDaysToDieMapMarker
+	NativeMarkerState SevenDaysToDieWebAPIValueState
+	Claims            []SevenDaysToDieLandClaim
+	ClaimsState       SevenDaysToDieWebAPIValueState
+	BloodMoon         *SevenDaysToDieBloodMoon
+	BloodMoonState    SevenDaysToDieWebAPIValueState
+	Hostiles          []SevenDaysToDieMapEntity
+	HostileState      SevenDaysToDieWebAPIValueState
+	Animals           []SevenDaysToDieMapEntity
+	AnimalState       SevenDaysToDieWebAPIValueState
 }
 
 // SevenDaysToDieMapQueryRequest contains only node-local map access details.
@@ -624,6 +667,8 @@ type SevenDaysToDieWebAPICapabilities struct {
 	NativeLog                 bool
 	WorldPopulation           bool
 	HostileAndAnimalPositions bool
+	HostilePositions          bool
+	AnimalPositions           bool
 	AccessControl             bool
 	GamePermissions           bool
 	ReportedMods              bool

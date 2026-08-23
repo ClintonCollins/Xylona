@@ -1365,11 +1365,54 @@ func sevenDaysToDieMapSnapshotToProto(snapshot *node.SevenDaysToDieMapSnapshot) 
 			Position: sevenDaysToDieMapVectorToProto(player.Position),
 		})
 	}
+	markers := make([]*nodeprotov1.SevenDaysToDieMapMarker, 0, len(snapshot.NativeMarkers))
+	for _, marker := range snapshot.NativeMarkers {
+		markers = append(markers, &nodeprotov1.SevenDaysToDieMapMarker{
+			Id: marker.ID, Name: marker.Name, X: marker.Position.X, Z: marker.Position.Z,
+		})
+	}
+	claims := make([]*nodeprotov1.SevenDaysToDieLandClaim, 0, len(snapshot.Claims))
+	for _, claim := range snapshot.Claims {
+		claims = append(claims, &nodeprotov1.SevenDaysToDieLandClaim{
+			OwnerId: claim.OwnerID, OwnerName: claim.OwnerName, Active: claim.Active,
+			Position: sevenDaysToDieMapVectorToProto(claim.Position), Size: claim.Size,
+		})
+	}
 	return &nodeprotov1.SevenDaysToDieMapSnapshot{
 		Enabled: snapshot.Enabled, TileSize: snapshot.TileSize, MaxZoom: snapshot.MaxZoom,
 		MapSize: sevenDaysToDieMapVectorToProto(snapshot.MapSize), SourceTime: snapshot.SourceTime,
-		Players: players,
+		Players: players, Markers: markers, Claims: claims,
+		ClaimsSupported:   snapshot.ClaimsState == node.SevenDaysToDieWebAPIValueStateAvailable,
+		NativeMarkerState: sevenDaysToDieWebAPIValueStateToProto(snapshot.NativeMarkerState),
+		ClaimsState:       sevenDaysToDieWebAPIValueStateToProto(snapshot.ClaimsState),
+		BloodMoon:         sevenDaysToDieMapBloodMoonToProto(snapshot.BloodMoon),
+		BloodMoonState:    sevenDaysToDieWebAPIValueStateToProto(snapshot.BloodMoonState),
+		Hostiles:          sevenDaysToDieMapEntitiesToProto(snapshot.Hostiles),
+		HostileState:      sevenDaysToDieWebAPIValueStateToProto(snapshot.HostileState),
+		Animals:           sevenDaysToDieMapEntitiesToProto(snapshot.Animals),
+		AnimalState:       sevenDaysToDieWebAPIValueStateToProto(snapshot.AnimalState),
 	}
+}
+
+func sevenDaysToDieMapBloodMoonToProto(value *node.SevenDaysToDieBloodMoon) *nodeprotov1.SevenDaysToDieMapBloodMoon {
+	if value == nil {
+		return nil
+	}
+	return &nodeprotov1.SevenDaysToDieMapBloodMoon{
+		GameTime: sevenDaysToDieGameTimeToProto(&value.GameTime), Active: value.Active,
+		NextBloodMoon:    sevenDaysToDieGameTimeToProto(&value.NextBloodMoon),
+		NextBloodMoonEnd: sevenDaysToDieGameTimeToProto(&value.NextBloodMoonEnd),
+	}
+}
+
+func sevenDaysToDieMapEntitiesToProto(values []node.SevenDaysToDieMapEntity) []*nodeprotov1.SevenDaysToDieMapEntity {
+	result := make([]*nodeprotov1.SevenDaysToDieMapEntity, 0, len(values))
+	for _, value := range values {
+		result = append(result, &nodeprotov1.SevenDaysToDieMapEntity{
+			Name: value.Name, Position: sevenDaysToDieMapVectorToProto(value.Position),
+		})
+	}
+	return result
 }
 
 func sevenDaysToDieMapVectorToProto(vector node.SevenDaysToDieMapVector) *nodeprotov1.SevenDaysToDieMapVector {
@@ -1565,6 +1608,8 @@ func sevenDaysToDieWebAPICapabilitiesToProto(capabilities node.SevenDaysToDieWeb
 		NativeLog:                 capabilities.NativeLog,
 		WorldPopulation:           capabilities.WorldPopulation,
 		HostileAndAnimalPositions: capabilities.HostileAndAnimalPositions,
+		HostilePositions:          capabilities.HostilePositions,
+		AnimalPositions:           capabilities.AnimalPositions,
 		AccessControl:             capabilities.AccessControl,
 		GamePermissions:           capabilities.GamePermissions,
 		ReportedMods:              capabilities.ReportedMods,

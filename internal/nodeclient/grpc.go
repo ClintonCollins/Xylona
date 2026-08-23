@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"net/http"
 	"os"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -34,6 +36,7 @@ const authorizationScheme = "Bearer "
 const (
 	sevenDaysToDieReportedModsResponseLimit    = 3 << 20
 	sevenDaysToDieSandboxSettingsResponseLimit = 10 << 20
+	sevenDaysToDieMapResponseLimit             = 8 << 20
 )
 
 // GRPCNodeClient is the controller-side NodeClient implementation that talks
@@ -45,6 +48,7 @@ type GRPCNodeClient struct {
 	sharedSecret       string
 	httpClient         *http.Client
 	connectClient      nodeprotoconnect.NodeServiceClient
+	mapClient          nodeprotoconnect.NodeServiceClient
 	reportedModsClient nodeprotoconnect.NodeServiceClient
 	sandboxClient      nodeprotoconnect.NodeServiceClient
 }
@@ -77,6 +81,12 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		listenURL,
 		connect.WithReadMaxBytes(32<<20),
 	)
+	mapClient := nodeprotoconnect.NewNodeServiceClient(
+		httpClient,
+		listenURL,
+		connect.WithReadMaxBytes(sevenDaysToDieMapResponseLimit),
+		connect.WithCodec(sevenDaysToDieMapProtoCodec{}),
+	)
 	reportedModsClient := nodeprotoconnect.NewNodeServiceClient(
 		httpClient,
 		listenURL,
@@ -96,6 +106,7 @@ func NewGRPCClient(nodeID string, listenURL string, certFingerprint string, shar
 		sharedSecret:       sharedSecret,
 		httpClient:         httpClient,
 		connectClient:      connectClient,
+		mapClient:          mapClient,
 		reportedModsClient: reportedModsClient,
 		sandboxClient:      sandboxClient,
 	}, nil
@@ -759,11 +770,15 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieMap(ctx context.Context, mapReq node
 		TokenName:        mapReq.TokenName,
 		TokenSecret:      mapReq.TokenSecret,
 	})
-	resp, errRPC := c.connectClient.QuerySevenDaysToDieMap(ctx, req)
+	resp, errRPC := c.mapClient.QuerySevenDaysToDieMap(ctx, req)
 	if errRPC != nil {
 		return nil, translateError("query 7 Days to Die map", errRPC)
 	}
-	return sevenDaysToDieMapSnapshotFromProto(resp.Msg.GetSnapshot()), nil
+	snapshot, errSnapshot := sevenDaysToDieMapSnapshotFromProto(resp.Msg.GetSnapshot())
+	if errSnapshot != nil {
+		return nil, fmt.Errorf("query 7 Days to Die map: invalid node response: %w", errSnapshot)
+	}
+	return snapshot, nil
 }
 
 // QuerySevenDaysToDieWebAPIStatus invokes the bounded native WebAPI diagnostics RPC.
@@ -1320,9 +1335,14 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 	}, nil
 }
 
-func sevenDaysToDieMapSnapshotFromProto(snapshot *nodeprotov1.SevenDaysToDieMapSnapshot) *node.SevenDaysToDieMapSnapshot {
+func sevenDaysToDieMapSnapshotFromProto(snapshot *nodeprotov1.SevenDaysToDieMapSnapshot) (*node.SevenDaysToDieMapSnapshot, error) {
 	if snapshot == nil {
-		return nil
+		return nil, errors.New("map snapshot is missing")
+	}
+	if len(snapshot.GetPlayers()) > node.SevenDaysToDieMapItemLimit || len(snapshot.GetMarkers()) > node.SevenDaysToDieMapItemLimit ||
+		len(snapshot.GetClaims()) > node.SevenDaysToDieMapItemLimit || len(snapshot.GetHostiles()) > node.SevenDaysToDieMapItemLimit ||
+		len(snapshot.GetAnimals()) > node.SevenDaysToDieMapItemLimit {
+		return nil, errors.New("map item count exceeds limit")
 	}
 	players := make([]node.SevenDaysToDieMapPlayer, 0, len(snapshot.GetPlayers()))
 	for _, player := range snapshot.GetPlayers() {
@@ -1336,11 +1356,150 @@ func sevenDaysToDieMapSnapshotFromProto(snapshot *nodeprotov1.SevenDaysToDieMapS
 			Position: sevenDaysToDieMapVectorFromProto(player.GetPosition()),
 		})
 	}
-	return &node.SevenDaysToDieMapSnapshot{
+	markers := make([]node.SevenDaysToDieMapMarker, 0, len(snapshot.GetMarkers()))
+	for _, marker := range snapshot.GetMarkers() {
+		if marker == nil {
+			continue
+		}
+		markers = append(markers, node.SevenDaysToDieMapMarker{
+			ID: marker.GetId(), Name: marker.GetName(),
+			Position: node.SevenDaysToDieMapVector{X: marker.GetX(), Z: marker.GetZ()},
+		})
+	}
+	claims := make([]node.SevenDaysToDieLandClaim, 0, len(snapshot.GetClaims()))
+	for _, claim := range snapshot.GetClaims() {
+		if claim == nil {
+			continue
+		}
+		claims = append(claims, node.SevenDaysToDieLandClaim{
+			OwnerID: claim.GetOwnerId(), OwnerName: claim.GetOwnerName(), Active: claim.GetActive(),
+			Position: sevenDaysToDieMapVectorFromProto(claim.GetPosition()), Size: claim.GetSize(),
+		})
+	}
+	result := &node.SevenDaysToDieMapSnapshot{
 		Enabled: snapshot.GetEnabled(), TileSize: snapshot.GetTileSize(), MaxZoom: snapshot.GetMaxZoom(),
 		MapSize: sevenDaysToDieMapVectorFromProto(snapshot.GetMapSize()), SourceTime: snapshot.GetSourceTime(),
-		Players: players,
+		Players: players, NativeMarkers: markers,
+		NativeMarkerState: sevenDaysToDieWebAPIValueStateFromProto(snapshot.GetNativeMarkerState()),
+		Claims:            claims, ClaimsState: sevenDaysToDieWebAPIValueStateFromProto(snapshot.GetClaimsState()),
+		BloodMoon:      sevenDaysToDieMapBloodMoonFromProto(snapshot.GetBloodMoon()),
+		BloodMoonState: sevenDaysToDieWebAPIValueStateFromProto(snapshot.GetBloodMoonState()),
+		Hostiles:       sevenDaysToDieMapEntitiesFromProto(snapshot.GetHostiles()),
+		HostileState:   sevenDaysToDieWebAPIValueStateFromProto(snapshot.GetHostileState()),
+		Animals:        sevenDaysToDieMapEntitiesFromProto(snapshot.GetAnimals()),
+		AnimalState:    sevenDaysToDieWebAPIValueStateFromProto(snapshot.GetAnimalState()),
 	}
+	errValidate := validateRemoteSevenDaysToDieMapSnapshot(result)
+	if errValidate != nil {
+		return nil, errValidate
+	}
+	return result, nil
+}
+
+func validateRemoteSevenDaysToDieMapSnapshot(snapshot *node.SevenDaysToDieMapSnapshot) error {
+	if snapshot.TileSize < 2 || snapshot.TileSize > 4096 || snapshot.MaxZoom < 0 || snapshot.MaxZoom > 30 ||
+		!validRemoteSevenDaysToDieMapDimension(snapshot.MapSize.X) || !validRemoteSevenDaysToDieMapDimension(snapshot.MapSize.Z) ||
+		len(snapshot.SourceTime) > 256 {
+		return errors.New("map configuration is invalid")
+	}
+	for _, player := range snapshot.Players {
+		if player.Name == "" || len(player.ID) > 256 || len(player.Name) > 256 || !validRemoteSevenDaysToDieMapPosition(player.Position, snapshot.MapSize) {
+			return errors.New("map player is invalid")
+		}
+	}
+	if snapshot.NativeMarkerState != node.SevenDaysToDieWebAPIValueStateAvailable && len(snapshot.NativeMarkers) != 0 {
+		return errors.New("native markers are present without an available state")
+	}
+	for _, marker := range snapshot.NativeMarkers {
+		if uuid.Validate(marker.ID) != nil || marker.Name == "" || len(marker.Name) > 256 ||
+			!validRemoteSevenDaysToDieMapPosition(marker.Position, snapshot.MapSize) {
+			return errors.New("native map marker is invalid")
+		}
+	}
+	if snapshot.ClaimsState != node.SevenDaysToDieWebAPIValueStateAvailable && len(snapshot.Claims) != 0 {
+		return errors.New("land claims are present without an available state")
+	}
+	for _, claim := range snapshot.Claims {
+		if claim.OwnerID == "" || len(claim.OwnerID) > 256 || len(claim.OwnerName) > 256 || claim.Size <= 0 || claim.Size > 10000 ||
+			!validRemoteSevenDaysToDieMapPosition(claim.Position, snapshot.MapSize) {
+			return errors.New("map land claim is invalid")
+		}
+	}
+	if snapshot.BloodMoonState == node.SevenDaysToDieWebAPIValueStateAvailable {
+		if snapshot.BloodMoon == nil || !validRemoteSevenDaysToDieGameTime(snapshot.BloodMoon.GameTime) ||
+			!validRemoteSevenDaysToDieGameTime(snapshot.BloodMoon.NextBloodMoon) ||
+			!validRemoteSevenDaysToDieGameTime(snapshot.BloodMoon.NextBloodMoonEnd) {
+			return errors.New("map Blood Moon state is invalid")
+		}
+	} else if snapshot.BloodMoon != nil {
+		return errors.New("blood moon data is present without an available state")
+	}
+	errHostiles := validateRemoteSevenDaysToDieMapEntities(snapshot.Hostiles, snapshot.HostileState, snapshot.MapSize)
+	if errHostiles != nil {
+		return fmt.Errorf("map hostile positions: %w", errHostiles)
+	}
+	errAnimals := validateRemoteSevenDaysToDieMapEntities(snapshot.Animals, snapshot.AnimalState, snapshot.MapSize)
+	if errAnimals != nil {
+		return fmt.Errorf("map animal positions: %w", errAnimals)
+	}
+	return nil
+}
+
+func validateRemoteSevenDaysToDieMapEntities(
+	entities []node.SevenDaysToDieMapEntity,
+	state node.SevenDaysToDieWebAPIValueState,
+	mapSize node.SevenDaysToDieMapVector,
+) error {
+	if state != node.SevenDaysToDieWebAPIValueStateAvailable && len(entities) != 0 {
+		return errors.New("entities are present without an available state")
+	}
+	for _, entity := range entities {
+		if entity.Name == "" || len(entity.Name) > 256 || !validRemoteSevenDaysToDieMapPosition(entity.Position, mapSize) {
+			return errors.New("entity is invalid")
+		}
+	}
+	return nil
+}
+
+func validRemoteSevenDaysToDieMapDimension(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value > 0 && value <= 2_000_000
+}
+
+func validRemoteSevenDaysToDieMapPosition(position node.SevenDaysToDieMapVector, mapSize node.SevenDaysToDieMapVector) bool {
+	return !math.IsNaN(position.X) && !math.IsInf(position.X, 0) && !math.IsNaN(position.Y) && !math.IsInf(position.Y, 0) &&
+		!math.IsNaN(position.Z) && !math.IsInf(position.Z, 0) && math.Abs(position.X) <= mapSize.X/2 &&
+		math.Abs(position.Z) <= mapSize.Z/2 && position.Y >= -1_000_000 && position.Y <= 1_000_000
+}
+
+func validRemoteSevenDaysToDieGameTime(value node.SevenDaysToDieGameTime) bool {
+	return value.Day >= 0 && value.Hour >= 0 && value.Hour < 24 && value.Minute >= 0 && value.Minute < 60
+}
+
+func sevenDaysToDieMapBloodMoonFromProto(value *nodeprotov1.SevenDaysToDieMapBloodMoon) *node.SevenDaysToDieBloodMoon {
+	if value == nil {
+		return nil
+	}
+	gameTime := sevenDaysToDieGameTimeFromProto(value.GetGameTime())
+	next := sevenDaysToDieGameTimeFromProto(value.GetNextBloodMoon())
+	end := sevenDaysToDieGameTimeFromProto(value.GetNextBloodMoonEnd())
+	if gameTime == nil || next == nil || end == nil {
+		return nil
+	}
+	return &node.SevenDaysToDieBloodMoon{
+		GameTime: *gameTime, Active: value.GetActive(), NextBloodMoon: *next, NextBloodMoonEnd: *end,
+	}
+}
+
+func sevenDaysToDieMapEntitiesFromProto(values []*nodeprotov1.SevenDaysToDieMapEntity) []node.SevenDaysToDieMapEntity {
+	result := make([]node.SevenDaysToDieMapEntity, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, node.SevenDaysToDieMapEntity{
+				Name: value.GetName(), Position: sevenDaysToDieMapVectorFromProto(value.GetPosition()),
+			})
+		}
+	}
+	return result
 }
 
 func sevenDaysToDieMapVectorFromProto(vector *nodeprotov1.SevenDaysToDieMapVector) node.SevenDaysToDieMapVector {
@@ -1535,6 +1694,8 @@ func sevenDaysToDieWebAPICapabilitiesFromProto(capabilities *nodeprotov1.SevenDa
 		NativeLog:                 capabilities.GetNativeLog(),
 		WorldPopulation:           capabilities.GetWorldPopulation(),
 		HostileAndAnimalPositions: capabilities.GetHostileAndAnimalPositions(),
+		HostilePositions:          capabilities.GetHostilePositions(),
+		AnimalPositions:           capabilities.GetAnimalPositions(),
 		AccessControl:             capabilities.GetAccessControl(),
 		GamePermissions:           capabilities.GetGamePermissions(),
 		ReportedMods:              capabilities.GetReportedMods(),

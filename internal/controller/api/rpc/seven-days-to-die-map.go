@@ -58,6 +58,14 @@ type storedSevenDaysToDieMapSnapshot struct {
 	Players    []storedSevenDaysToDieMapPlayer `json:"players"`
 }
 
+type sevenDaysToDieMapAudience uint8
+
+const (
+	sevenDaysToDieMapAudienceView sevenDaysToDieMapAudience = iota
+	sevenDaysToDieMapAudienceTactical
+	sevenDaysToDieMapAudiencePublic
+)
+
 // GetSevenDaysToDieMap returns the current or last-known map view for a 7 Days to Die server.
 func (xs *XylonaService) GetSevenDaysToDieMap(
 	ctx context.Context,
@@ -75,7 +83,12 @@ func (xs *XylonaService) GetSevenDaysToDieMap(
 	if errPermission != nil {
 		return nil, errPermission
 	}
-	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer)
+	audience := sevenDaysToDieMapAudienceView
+	errSettingsPermission := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings)
+	if errSettingsPermission == nil {
+		audience = sevenDaysToDieMapAudienceTactical
+	}
+	view, errView := xs.buildSevenDaysToDieMapView(ctx, gameServer, audience)
 	if errView != nil {
 		return nil, errView
 	}
@@ -131,7 +144,7 @@ func (xs *XylonaService) GetPublicSevenDaysToDieMap(
 	if errResolve != nil {
 		return nil, internalErrf("failed to resolve public map")
 	}
-	view, errView := xs.buildSevenDaysToDieMapView(ctx, access.gameServer)
+	view, errView := xs.buildSevenDaysToDieMapView(ctx, access.gameServer, sevenDaysToDieMapAudiencePublic)
 	if errView != nil {
 		return nil, errView
 	}
@@ -140,7 +153,11 @@ func (xs *XylonaService) GetPublicSevenDaysToDieMap(
 	return response, nil
 }
 
-func (xs *XylonaService) buildSevenDaysToDieMapView(ctx context.Context, gameServer *models.GameServer) (*xylona.SevenDaysToDieMapView, error) {
+func (xs *XylonaService) buildSevenDaysToDieMapView(
+	ctx context.Context,
+	gameServer *models.GameServer,
+	audience sevenDaysToDieMapAudience,
+) (*xylona.SevenDaysToDieMapView, error) {
 	settings, errSettings := xs.db.GetGameServerSevenDaysToDieMap(gameServer.ID)
 	if errSettings != nil {
 		return nil, internalErrf("failed to load map settings")
@@ -209,7 +226,59 @@ func (xs *XylonaService) buildSevenDaysToDieMapView(ctx context.Context, gameSer
 	view.SourceTime = cached.SourceTime
 	view.Players = publicSevenDaysToDieMapPlayers(cached.Players)
 	view.Markers = publicSevenDaysToDieMapNotes(notes)
+	if audience == sevenDaysToDieMapAudienceTactical && liveSnapshot != nil && !stale {
+		projectSevenDaysToDieTacticalMap(view, liveSnapshot)
+	}
 	return view, nil
+}
+
+func projectSevenDaysToDieTacticalMap(view *xylona.SevenDaysToDieMapView, snapshot *node.SevenDaysToDieMapSnapshot) {
+	view.NativeMarkerState = publicSevenDaysToDieWebAPIValueState(snapshot.NativeMarkerState)
+	if snapshot.NativeMarkerState == node.SevenDaysToDieWebAPIValueStateAvailable {
+		view.NativeMarkers = make([]*xylona.SevenDaysToDieMapMarker, 0, len(snapshot.NativeMarkers))
+		for _, marker := range snapshot.NativeMarkers {
+			view.NativeMarkers = append(view.NativeMarkers, &xylona.SevenDaysToDieMapMarker{
+				Id: marker.ID, Name: marker.Name, X: marker.Position.X, Z: marker.Position.Z, Native: true,
+			})
+		}
+	}
+	view.ClaimsState = publicSevenDaysToDieWebAPIValueState(snapshot.ClaimsState)
+	view.ClaimsSupported = snapshot.ClaimsState == node.SevenDaysToDieWebAPIValueStateAvailable
+	if snapshot.ClaimsState == node.SevenDaysToDieWebAPIValueStateAvailable {
+		view.Claims = make([]*xylona.SevenDaysToDieLandClaim, 0, len(snapshot.Claims))
+		for _, claim := range snapshot.Claims {
+			view.Claims = append(view.Claims, &xylona.SevenDaysToDieLandClaim{
+				OwnerId: claim.OwnerID, OwnerName: claim.OwnerName, Active: claim.Active,
+				Position: publicSevenDaysToDieMapVector(claim.Position), Size: claim.Size,
+			})
+		}
+	}
+	view.BloodMoonState = publicSevenDaysToDieWebAPIValueState(snapshot.BloodMoonState)
+	if snapshot.BloodMoonState == node.SevenDaysToDieWebAPIValueStateAvailable && snapshot.BloodMoon != nil {
+		view.BloodMoon = &xylona.SevenDaysToDieMapBloodMoon{
+			GameTime: publicSevenDaysToDieGameTime(&snapshot.BloodMoon.GameTime), Active: snapshot.BloodMoon.Active,
+			NextBloodMoon:    publicSevenDaysToDieGameTime(&snapshot.BloodMoon.NextBloodMoon),
+			NextBloodMoonEnd: publicSevenDaysToDieGameTime(&snapshot.BloodMoon.NextBloodMoonEnd),
+		}
+	}
+	view.HostileState = publicSevenDaysToDieWebAPIValueState(snapshot.HostileState)
+	if snapshot.HostileState == node.SevenDaysToDieWebAPIValueStateAvailable {
+		view.Hostiles = publicSevenDaysToDieMapEntities(snapshot.Hostiles)
+	}
+	view.AnimalState = publicSevenDaysToDieWebAPIValueState(snapshot.AnimalState)
+	if snapshot.AnimalState == node.SevenDaysToDieWebAPIValueStateAvailable {
+		view.Animals = publicSevenDaysToDieMapEntities(snapshot.Animals)
+	}
+}
+
+func publicSevenDaysToDieMapEntities(entities []node.SevenDaysToDieMapEntity) []*xylona.SevenDaysToDieMapEntity {
+	result := make([]*xylona.SevenDaysToDieMapEntity, 0, len(entities))
+	for _, entity := range entities {
+		result = append(result, &xylona.SevenDaysToDieMapEntity{
+			Name: entity.Name, Position: publicSevenDaysToDieMapVector(entity.Position),
+		})
+	}
+	return result
 }
 
 func (xs *XylonaService) querySevenDaysToDieMap(ctx context.Context, gameServer *models.GameServer) (*node.SevenDaysToDieMapSnapshot, error) {

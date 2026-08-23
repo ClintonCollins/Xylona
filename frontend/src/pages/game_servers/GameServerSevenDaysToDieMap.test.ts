@@ -38,6 +38,8 @@ const availableStatus = create(SevenDaysToDieWebAPIStatusSchema, {
     nativeLog: true,
     worldPopulation: true,
     hostileAndAnimalPositions: false,
+    hostilePositions: true,
+    animalPositions: false,
     accessControl: false,
     gamePermissions: true,
     reportedMods: true,
@@ -99,7 +101,8 @@ describe('GameServerSevenDaysToDieMap diagnostics', () => {
     await details.get('summary').trigger('click')
     expect(details.attributes('open')).toBeDefined()
     expect(details.text()).toContain('Player data')
-    expect(details.text()).toContain('Hostile and animal positions')
+    expect(details.text()).toContain('Hostile positions')
+    expect(details.text()).toContain('Animal positions')
     expect(details.text()).toContain('Supported')
     expect(details.text()).toContain('Not advertised')
     wrapper.unmount()

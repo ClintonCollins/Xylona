@@ -1906,6 +1906,18 @@ message SevenDaysToDieLandClaim {
   int32 size = 5;
 }
 
+message SevenDaysToDieMapEntity {
+  string name = 1;
+  SevenDaysToDieMapVector position = 2;
+}
+
+message SevenDaysToDieMapBloodMoon {
+  SevenDaysToDieGameTime game_time = 1;
+  bool active = 2;
+  SevenDaysToDieGameTime next_blood_moon = 3;
+  SevenDaysToDieGameTime next_blood_moon_end = 4;
+}
+
 message SevenDaysToDieMapView {
   string game_server_id = 1;
   string game_server_name = 2;
@@ -1922,6 +1934,15 @@ message SevenDaysToDieMapView {
   bool stale = 13;
   string status_message = 14;
   string tile_url_template = 16;
+  repeated SevenDaysToDieMapMarker native_markers = 17;
+  SevenDaysToDieWebAPIValueState native_marker_state = 18;
+  SevenDaysToDieWebAPIValueState claims_state = 19;
+  SevenDaysToDieMapBloodMoon blood_moon = 20;
+  SevenDaysToDieWebAPIValueState blood_moon_state = 21;
+  repeated SevenDaysToDieMapEntity hostiles = 22;
+  SevenDaysToDieWebAPIValueState hostile_state = 23;
+  repeated SevenDaysToDieMapEntity animals = 24;
+  SevenDaysToDieWebAPIValueState animal_state = 25;
 }
 
 message GetSevenDaysToDieMapRequest {
@@ -2038,6 +2059,8 @@ message SevenDaysToDieWebAPICapabilities {
   bool access_control = 6;
   bool game_permissions = 7;
   bool reported_mods = 8;
+  bool hostile_positions = 9;
+  bool animal_positions = 10;
 }
 
 message SevenDaysToDieWebAPIStatus {

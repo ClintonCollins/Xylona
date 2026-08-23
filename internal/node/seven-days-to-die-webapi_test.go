@@ -107,6 +107,8 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			NativeLog:                 true,
 			WorldPopulation:           true,
 			HostileAndAnimalPositions: true,
+			HostilePositions:          true,
+			AnimalPositions:           true,
 			AccessControl:             true,
 			GamePermissions:           true,
 			ReportedMods:              true,
