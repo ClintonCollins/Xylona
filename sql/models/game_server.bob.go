@@ -58,6 +58,7 @@ type GameServer struct {
 	PublicConnectionAddress    null.Val[string] `db:"public_connection_address" `
 	PublicStatusNote           null.Val[string] `db:"public_status_note" `
 	PublicStatusPassword       null.Val[string] `db:"public_status_password" `
+	BaseCommandOverride        string           `db:"base_command_override" `
 
 	R gameServerR `db:"-" `
 
@@ -122,7 +123,7 @@ type gameServerRLoaded struct {
 
 func buildGameServerColumns(tableName string) gameServerColumns {
 	columnsExpr := expr.NewColumnsExpr(
-		"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars", "public_connection_address", "public_status_note", "public_status_password",
+		"id", "user_id", "name", "game_id", "status", "set_players", "max_players", "map", "ip", "port", "query_port", "directory", "max_memory_mb", "backups_enabled", "backup_directory", "max_backups", "version", "branch", "created_at", "updated_at", "node_id", "server_software", "server_executable", "target_pinned", "start_args_patches", "auto_restart_enabled", "auto_restart_max_retries", "auto_restart_cooldown_seconds", "env_vars", "public_connection_address", "public_status_note", "public_status_password", "base_command_override",
 	)
 
 	if tableName != "" {
@@ -164,6 +165,7 @@ func buildGameServerColumns(tableName string) gameServerColumns {
 		PublicConnectionAddress:    buildGameServerColumn(tableName, "public_connection_address"),
 		PublicStatusNote:           buildGameServerColumn(tableName, "public_status_note"),
 		PublicStatusPassword:       buildGameServerColumn(tableName, "public_status_password"),
+		BaseCommandOverride:        buildGameServerColumn(tableName, "base_command_override"),
 	}
 }
 
@@ -202,6 +204,7 @@ type gameServerColumns struct {
 	PublicConnectionAddress    gameServerColumn
 	PublicStatusNote           gameServerColumn
 	PublicStatusPassword       gameServerColumn
+	BaseCommandOverride        gameServerColumn
 }
 
 // Alias returns the current table alias for the columns set.
@@ -279,10 +282,11 @@ type GameServerSetter struct {
 	PublicConnectionAddress    omitnull.Val[string] `db:"public_connection_address" `
 	PublicStatusNote           omitnull.Val[string] `db:"public_status_note" `
 	PublicStatusPassword       omitnull.Val[string] `db:"public_status_password" `
+	BaseCommandOverride        omit.Val[string]     `db:"base_command_override" `
 }
 
 func (s GameServerSetter) SetColumns() []string {
-	vals := make([]string, 0, 32)
+	vals := make([]string, 0, 33)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -378,6 +382,9 @@ func (s GameServerSetter) SetColumns() []string {
 	}
 	if s.PublicStatusPassword.IsValue() || s.PublicStatusPassword.IsNull() {
 		vals = append(vals, "public_status_password")
+	}
+	if s.BaseCommandOverride.IsValue() {
+		vals = append(vals, "base_command_override")
 	}
 	return vals
 }
@@ -478,6 +485,9 @@ func (s GameServerSetter) Overwrite(t *GameServer) {
 	}
 	if s.PublicStatusPassword.IsValue() || s.PublicStatusPassword.IsNull() {
 		t.PublicStatusPassword = s.PublicStatusPassword.MustGetNull()
+	}
+	if s.BaseCommandOverride.IsValue() {
+		t.BaseCommandOverride = s.BaseCommandOverride.MustGet()
 	}
 }
 
@@ -721,6 +731,13 @@ func (s *GameServerSetter) Apply(q *dialect.InsertQuery) {
 				}
 				return sqlite.Arg(s.PublicStatusPassword.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
+		case "base_command_override":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.BaseCommandOverride.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.BaseCommandOverride.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
 		}
 	}
 
@@ -732,7 +749,7 @@ func (s GameServerSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 32)
+	exprs := make([]bob.Expression, 0, 33)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -955,6 +972,13 @@ func (s GameServerSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "public_status_password")...),
 			sqlite.Arg(s.PublicStatusPassword),
+		}})
+	}
+
+	if s.BaseCommandOverride.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "base_command_override")...),
+			sqlite.Arg(s.BaseCommandOverride),
 		}})
 	}
 
@@ -2605,6 +2629,7 @@ type gameServerWhere[Q sqlite.Filterable] struct {
 	PublicConnectionAddress    sqlite.WhereNullMod[Q, string]
 	PublicStatusNote           sqlite.WhereNullMod[Q, string]
 	PublicStatusPassword       sqlite.WhereNullMod[Q, string]
+	BaseCommandOverride        sqlite.WhereMod[Q, string]
 }
 
 func (gameServerWhere[Q]) AliasedAs(alias string) gameServerWhere[Q] {
@@ -2645,6 +2670,7 @@ func buildGameServerWhere[Q sqlite.Filterable](cols gameServerColumns) gameServe
 		PublicConnectionAddress:    sqlite.WhereNull[Q, string](cols.PublicConnectionAddress.Expression),
 		PublicStatusNote:           sqlite.WhereNull[Q, string](cols.PublicStatusNote.Expression),
 		PublicStatusPassword:       sqlite.WhereNull[Q, string](cols.PublicStatusPassword.Expression),
+		BaseCommandOverride:        sqlite.Where[Q, string](cols.BaseCommandOverride.Expression),
 	}
 }
 

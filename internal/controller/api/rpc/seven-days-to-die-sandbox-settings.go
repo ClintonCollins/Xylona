@@ -35,10 +35,6 @@ func (xs *XylonaService) GetSevenDaysToDieSandboxSettings(
 	if gameServer.GameID != sevenDaysToDieGameID {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("sandbox settings are only available for 7 Days to Die servers"))
 	}
-	if gameServer.Status == xylona.Status_OFFLINE.String() {
-		return sevenDaysToDieSandboxSettingsStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline), nil
-	}
-
 	client, errClient := xs.resolveNodeClient(gameServer)
 	if errClient != nil {
 		return sevenDaysToDieSandboxSettingsStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable), nil //nolint:nilerr // Node reachability is a typed operational state.

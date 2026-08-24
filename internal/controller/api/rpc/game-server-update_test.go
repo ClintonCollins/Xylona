@@ -80,3 +80,26 @@ func TestUpdateGameServerPersistsSelectedSteamBranch(t *testing.T) {
 		})
 	}
 }
+
+func TestMergeEditableGameServerUpdatePreservesStartCommandOverrides(t *testing.T) {
+	existing := &models.GameServer{
+		ID:                  "server-1",
+		StartArgsPatches:    `[{"id":"locked","op":"remove"}]`,
+		BaseCommandOverride: "./custom-start.sh",
+	}
+	incoming := &models.GameServer{
+		ID:                  "changed-id",
+		StartArgsPatches:    "[]",
+		BaseCommandOverride: "./tampered.sh",
+	}
+
+	for _, allowProvisioningChanges := range []bool{false, true} {
+		merged := mergeEditableGameServerUpdate(existing, incoming, allowProvisioningChanges)
+		if merged.StartArgsPatches != existing.StartArgsPatches {
+			t.Fatalf("allowProvisioningChanges %v: StartArgsPatches = %q, want %q", allowProvisioningChanges, merged.StartArgsPatches, existing.StartArgsPatches)
+		}
+		if merged.BaseCommandOverride != existing.BaseCommandOverride {
+			t.Fatalf("allowProvisioningChanges %v: BaseCommandOverride = %q, want %q", allowProvisioningChanges, merged.BaseCommandOverride, existing.BaseCommandOverride)
+		}
+	}
+}

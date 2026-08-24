@@ -55,6 +55,8 @@ func mergeEditableGameServerUpdate(
 	merged.BackupDirectory = existingGameServer.BackupDirectory
 	merged.MaxBackups = existingGameServer.MaxBackups
 	merged.EnvVars = existingGameServer.EnvVars
+	merged.StartArgsPatches = existingGameServer.StartArgsPatches
+	merged.BaseCommandOverride = existingGameServer.BaseCommandOverride
 	return &merged
 }
 

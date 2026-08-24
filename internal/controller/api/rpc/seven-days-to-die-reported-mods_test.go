@@ -56,7 +56,7 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 		}
 	})
 
-	t.Run("reports an offline server without querying its node", func(t *testing.T) {
+	t.Run("reports a missing live process as offline", func(t *testing.T) {
 		fixture := newRBACRPCFixture(t)
 		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_OFFLINE.String(), "node-local")
 		client := &nodeclient.FakeNodeClient{NodeID: "node-local"}
@@ -72,8 +72,8 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 			response.Msg.GetState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE {
 			t.Fatalf("response state = %+v", response.Msg)
 		}
-		if len(client.QuerySevenDaysToDieReportedModsCalls) != 0 {
-			t.Fatalf("node query call count = %d, want 0", len(client.QuerySevenDaysToDieReportedModsCalls))
+		if len(client.GetProcessSnapshotCalls) != 1 || len(client.QuerySevenDaysToDieReportedModsCalls) != 0 {
+			t.Fatalf("process calls = %v, reported-mod query calls = %d", client.GetProcessSnapshotCalls, len(client.QuerySevenDaysToDieReportedModsCalls))
 		}
 	})
 
@@ -82,7 +82,7 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 		fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
 		insertRemoteNodeForParityTests(t, fixture, "node-remote")
 		insertNodeScopedIPForParityTests(t, fixture, "node-remote", "127.0.0.2")
-		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-remote")
+		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_OFFLINE.String(), "node-remote")
 
 		localClient := &nodeclient.FakeNodeClient{NodeID: "node-local"}
 		remoteClient := &nodeclient.FakeNodeClient{

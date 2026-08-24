@@ -507,7 +507,11 @@ func (inst *Instance) resolveStructuredStartCommandWithVars(
 			return "", nil, errors.New("minecraft server executable is not configured. set it in server settings or place the server jar in the server root")
 		}
 	}
-	baseCommand := placeholder.ResolveToken(gameBaseCommand(gameServer.R.Game, nodeOS), startVars)
+	configuredBaseCommand := strings.TrimSpace(gameServer.BaseCommandOverride)
+	if configuredBaseCommand == "" {
+		configuredBaseCommand = gameBaseCommand(gameServer.R.Game, nodeOS)
+	}
+	baseCommand := placeholder.ResolveToken(configuredBaseCommand, startVars)
 	if strings.TrimSpace(baseCommand) == "" {
 		return "", nil, errBaseCommandMissing
 	}

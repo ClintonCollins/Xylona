@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:5919907a9b9dd8a5b0e07c94363271830476253f7ab578ba46ce0f2264d8fcb1",
+  "content_hash": "sha256:0443579e086158cb638440e7657777466b1ada8e0d903ec291bf2f58ca18d4df",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -43,7 +43,7 @@
     "windowsUpdateType": "STEAMCMD",
     "linuxStartArgsTemplate": "",
     "windowsStartArgsTemplate": "",
-    "linuxBaseCommand": "./7DaysToDieServer",
+    "linuxBaseCommand": "./7DaysToDieServer.x86_64",
     "windowsBaseCommand": "7DaysToDieServer.exe",
     "startArgBlocklist": "",
     "allowStartArgEditing": true,

@@ -239,6 +239,150 @@ func TestUpdateGameServerStartArgsRequiresEditingEnabledForNonSuperUser(t *testi
 	}
 }
 
+func TestUpdateGameServerStartArgsPrivilegedOverrides(t *testing.T) {
+	template := `[
+		{"id":"system","order":1,"ownership":"system","tokens":["server.jar"]},
+		{"id":"locked","order":2,"ownership":"locked","tokens":["--safe"]},
+		{"id":"ordinary","order":3,"ownership":"editable","tokens":["--port","28010"]}
+	]`
+	tests := []struct {
+		name            string
+		userID          string
+		existingPatches string
+		existingBase    string
+		patches         string
+		baseOverride    string
+		wantErr         bool
+		wantCode        connect.Code
+		wantPatches     string
+		wantBase        string
+	}{
+		{
+			name:         "superuser edits locked block and base command",
+			userID:       "user-admin",
+			patches:      `[{"id":"locked","op":"edit","tokens":["--custom"]}]`,
+			baseOverride: " ./custom-start.sh ",
+			wantPatches:  `[{"id":"locked","op":"edit","tokens":["--custom"]}]`,
+			wantBase:     "./custom-start.sh",
+		},
+		{
+			name:        "superuser removes locked block",
+			userID:      "user-admin",
+			patches:     `[{"id":"locked","op":"remove"}]`,
+			wantPatches: `[{"id":"locked","op":"remove"}]`,
+		},
+		{
+			name:         "superuser clears base command override",
+			userID:       "user-admin",
+			existingBase: "./custom-start.sh",
+			patches:      `[]`,
+			wantPatches:  `[]`,
+		},
+		{
+			name:     "system block remains immutable",
+			userID:   "user-admin",
+			patches:  `[{"id":"system","op":"remove"}]`,
+			wantErr:  true,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:            "ordinary edit preserves locked patch",
+			userID:          "user-owner",
+			existingPatches: `[{"id":"locked","op":"edit","tokens":["--custom"]}]`,
+			existingBase:    "./custom-start.sh",
+			patches:         `[{"id":"ordinary","op":"edit","tokens":["--port","28012"]},{"id":"locked","op":"edit","tokens":["--custom"]}]`,
+			baseOverride:    "./custom-start.sh",
+			wantPatches:     `[{"id":"ordinary","op":"edit","tokens":["--port","28012"]},{"id":"locked","op":"edit","tokens":["--custom"]}]`,
+			wantBase:        "./custom-start.sh",
+		},
+		{
+			name:            "non-superuser cannot tamper with locked patch",
+			userID:          "user-owner",
+			existingPatches: `[{"id":"locked","op":"edit","tokens":["--custom"]}]`,
+			patches:         `[{"id":"locked","op":"edit","tokens":["--tampered"]}]`,
+			wantErr:         true,
+			wantCode:        connect.CodePermissionDenied,
+		},
+		{
+			name:            "non-superuser cannot delete locked patch",
+			userID:          "user-owner",
+			existingPatches: `[{"id":"locked","op":"remove"}]`,
+			patches:         `[]`,
+			wantErr:         true,
+			wantCode:        connect.CodePermissionDenied,
+		},
+		{
+			name:         "non-superuser cannot change base command override",
+			userID:       "user-owner",
+			existingBase: "./custom-start.sh",
+			patches:      `[]`,
+			baseOverride: "./tampered.sh",
+			wantErr:      true,
+			wantCode:     connect.CodePermissionDenied,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			game := addGameForTests(t, fixture, "privileged-start-args-game", "Privileged Start Args Game")
+			insertStartArgsTestServer(t, fixture, "server-privileged-start-args", game.GetId())
+
+			_, errGame := fixture.conn.SQLDb.ExecContext(
+				t.Context(),
+				`UPDATE game SET linux_base_command = ?, windows_base_command = ?, linux_start_args_template = ?,
+				 windows_start_args_template = ?, allow_start_arg_editing = true WHERE id = ?`,
+				"definition-start", "definition-start", template, template, game.GetId(),
+			)
+			if errGame != nil {
+				t.Fatalf("configure game error = %v", errGame)
+			}
+
+			existingPatches := test.existingPatches
+			if existingPatches == "" {
+				existingPatches = "[]"
+			}
+			_, errServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+				ID:                  omit.From("server-privileged-start-args"),
+				StartArgsPatches:    omit.From(existingPatches),
+				BaseCommandOverride: omit.From(test.existingBase),
+			})
+			if errServer != nil {
+				t.Fatalf("configure game server error = %v", errServer)
+			}
+
+			req := connect.NewRequest(&xylona.UpdateGameServerStartArgsRequest{
+				ServerId:            "server-privileged-start-args",
+				StartArgsPatches:    test.patches,
+				BaseCommandOverride: test.baseOverride,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, test.userID)
+
+			_, errUpdate := fixture.service.UpdateGameServerStartArgs(t.Context(), req)
+			if test.wantErr {
+				if connect.CodeOf(errUpdate) != test.wantCode {
+					t.Fatalf("UpdateGameServerStartArgs() code = %v, want %v (error %v)", connect.CodeOf(errUpdate), test.wantCode, errUpdate)
+				}
+				return
+			}
+			if errUpdate != nil {
+				t.Fatalf("UpdateGameServerStartArgs() error = %v", errUpdate)
+			}
+
+			updated, errGet := fixture.conn.GetGameServerByID("server-privileged-start-args")
+			if errGet != nil {
+				t.Fatalf("GetGameServerByID() error = %v", errGet)
+			}
+			if updated.StartArgsPatches != test.wantPatches {
+				t.Fatalf("StartArgsPatches = %q, want %q", updated.StartArgsPatches, test.wantPatches)
+			}
+			if updated.BaseCommandOverride != test.wantBase {
+				t.Fatalf("BaseCommandOverride = %q, want %q", updated.BaseCommandOverride, test.wantBase)
+			}
+		})
+	}
+}
+
 func TestUpdateGameServerStartArgsRejectsBlockedResolvedArgs(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	game := addGameForTests(t, fixture, "start-args-blocked-game", "Structured Args Blocked Game")

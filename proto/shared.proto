@@ -245,6 +245,7 @@ message GameServer {
   int64 auto_restart_cooldown_seconds = 56;
   bool io_valid = 57;
   bool connection_count_valid = 58;
+  string base_command_override = 59;
 }
 
 message EnvironmentVariable {

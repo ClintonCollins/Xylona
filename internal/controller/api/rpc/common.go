@@ -92,8 +92,7 @@ func (xs *XylonaService) resolveNodeClient(gameServer *models.GameServer) (nodec
 // buildProtectionPolicy constructs a node.ProtectionPolicy from the game's
 // configured server executable and platform-appropriate base command. Passed
 // to node-side write operations so the node can re-run the controller's
-// IsProtectedServerPath check. Returns a zero-value policy when the game
-// definition is missing — in that case the node simply skips the check.
+// IsProtectedServerPath check.
 func (xs *XylonaService) buildProtectionPolicy(gameServer *models.GameServer) node.ProtectionPolicy {
 	if gameServer == nil {
 		return node.ProtectionPolicy{}
@@ -101,6 +100,11 @@ func (xs *XylonaService) buildProtectionPolicy(gameServer *models.GameServer) no
 
 	policy := node.ProtectionPolicy{
 		ServerExecutable: gameServer.ServerExecutable.GetOr(""),
+	}
+	override := strings.TrimSpace(gameServer.BaseCommandOverride)
+	if override != "" {
+		policy.BaseCommand = override
+		return policy
 	}
 	if gameServer.R.Game != nil {
 		game := gameServer.R.Game

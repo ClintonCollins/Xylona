@@ -28,12 +28,20 @@ const template: StartArgBlock[] = [
   },
 ]
 
-function createWrapper(patches: StartArgPatch[] = [], allowEditing = true) {
+function createWrapper(
+  patches: StartArgPatch[] = [],
+  allowEditing = true,
+  allowProtectedEditing = false,
+  baseCommandOverride = '',
+) {
   return mount(StartArgsEditor, {
     props: {
       allowEditing,
+      allowProtectedEditing,
       baseCommand: 'java',
+      baseCommandOverride,
       blocklist: [],
+      inheritedBaseCommand: 'java',
       patches,
       template,
     },
@@ -88,7 +96,7 @@ describe('StartArgsEditor', () => {
   it('renders provenance badges and base command header', () => {
     const wrapper = createWrapper()
 
-    expect(wrapper.text()).toContain('Base command')
+    expect(wrapper.text()).toContain('Effective base command')
     expect(wrapper.text()).toContain('java')
     expect(wrapper.text()).toContain('System')
     expect(wrapper.text()).toContain('Locked')
@@ -103,6 +111,33 @@ describe('StartArgsEditor', () => {
     expect(wrapper.find('[data-testid="edit-system-arg"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="remove-system-arg"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="edit-locked-arg"]').exists()).toBe(false)
+  })
+
+  it('lets privileged users edit locked blocks and reset the base command', async () => {
+    const wrapper = createWrapper(
+      [
+        {
+          id: 'locked-arg',
+          op: 'edit',
+          tokens: ['-Dcustom=true'],
+          afterId: null,
+        },
+      ],
+      true,
+      true,
+      './custom-start.sh',
+    )
+
+    expect(wrapper.find('[data-testid="base-command-override"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Inherited')
+    expect(wrapper.find('[data-testid="edit-locked-arg"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="remove-locked-arg"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="reset-locked-arg"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="edit-system-arg"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="remove-system-arg"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="reset-base-command"]').trigger('click')
+    expect(wrapper.emitted('update:base-command-override')?.at(-1)?.[0]).toBe('')
   })
 
   it('shows edited provenance, reset controls, and previous value note', () => {

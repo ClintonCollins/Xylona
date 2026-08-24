@@ -54,7 +54,7 @@
 
       <div class="start-args-page__preview-rail">
         <resolved-command-preview
-          :base-command="baseCommand"
+          :base-command="resolvedBaseCommand"
           :resolved-blocks="resolvedPreview.resolvedBlocks" />
       </div>
 
@@ -93,10 +93,14 @@
         <div class="start-args-page__editor-column">
           <start-args-editor
             :allow-editing="canEditStartArgs"
+            :allow-protected-editing="isSuperUser"
             :base-command="baseCommand"
+            :base-command-override="draftBaseCommandOverride"
             :blocklist="blocklistEntries"
+            :inherited-base-command="definitionBaseCommand"
             :patches="draftPatches"
             :template="templateBlocks"
+            @update:base-command-override="draftBaseCommandOverride = $event"
             @update:patches="draftPatches = $event" />
         </div>
       </div>
@@ -120,6 +124,7 @@ import {
   parseStartArgsPatches,
   parseStartArgsTemplate,
   resolveStartArgs,
+  resolveStartCommandBase,
   serializeStartArgsPatches,
   type StartArgPatch,
 } from '@/components/game_servers/start-args'
@@ -156,6 +161,8 @@ const gameServer = ref<GetGameServerResponse['gameServer']>()
 const nodeOsById = ref<Record<string, string>>({})
 const draftPatches = ref<StartArgPatch[]>([])
 const savedPatchesJson = ref('')
+const draftBaseCommandOverride = ref('')
+const savedBaseCommandOverride = ref('')
 let liveStatusSequence = 0
 let statusRefreshRequestSequence = 0
 
@@ -180,7 +187,7 @@ const templateBlocks = computed(() => {
   )
 })
 
-const baseCommand = computed(() => {
+const definitionBaseCommand = computed(() => {
   const game = gameServer.value?.game
   if (!game || selectedPlatform.value === null) {
     return ''
@@ -188,6 +195,13 @@ const baseCommand = computed(() => {
 
   return selectedPlatform.value === 'windows' ? game.windowsBaseCommand : game.linuxBaseCommand
 })
+
+const baseCommand = computed(
+  () => draftBaseCommandOverride.value.trim() || definitionBaseCommand.value,
+)
+const resolvedBaseCommand = computed(() =>
+  resolveStartCommandBase(baseCommand.value, buildPlaceholderVars(gameServer.value ?? undefined)),
+)
 
 const blocklistEntries = computed(() =>
   parseStartArgBlocklist(gameServer.value?.game?.startArgBlocklist ?? ''),
@@ -262,7 +276,19 @@ const platformIcon = computed(() => {
 })
 
 const templateBlockCount = computed(() => templateBlocks.value.length)
-const draftChangeCount = computed(() => draftPatches.value.length)
+const savedPatches = computed(() => parseStartArgsPatches(savedPatchesJson.value))
+const draftChangeCount = computed(() => {
+  const patchIDs = new Set([
+    ...savedPatches.value.map((patch) => patch.id),
+    ...draftPatches.value.map((patch) => patch.id),
+  ])
+  const patchChanges = [...patchIDs].filter((id) => {
+    const saved = savedPatches.value.find((patch) => patch.id === id)
+    const draft = draftPatches.value.find((patch) => patch.id === id)
+    return JSON.stringify(saved) !== JSON.stringify(draft)
+  }).length
+  return patchChanges + Number(draftBaseCommandOverride.value !== savedBaseCommandOverride.value)
+})
 const draftChangeLabel = computed(() => {
   if (draftChangeCount.value === 0) {
     return 'Clean'
@@ -273,13 +299,11 @@ const draftChangeLabel = computed(() => {
 const resolvedTokenCount = computed(() =>
   resolvedPreview.value.resolvedBlocks.reduce(
     (count, block) => count + block.resolvedTokens.length,
-    baseCommand.value === '' ? 0 : 1,
+    resolvedBaseCommand.value === '' ? 0 : 1,
   ),
 )
 
-const isDirty = computed(
-  () => serializeStartArgsPatches(draftPatches.value) !== savedPatchesJson.value,
-)
+const isDirty = computed(() => draftChangeCount.value > 0)
 
 const platformWarning = computed(() => {
   if (selectedPlatform.value === null) {
@@ -334,6 +358,8 @@ async function loadGameServer() {
   serverStatusFresh.value = websocketStateAuthoritative.value
   savedPatchesJson.value = gameServer.value?.startArgsPatches ?? ''
   draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
+  savedBaseCommandOverride.value = gameServer.value?.baseCommandOverride ?? ''
+  draftBaseCommandOverride.value = savedBaseCommandOverride.value
 }
 
 function onServerStatus(serverID: string, _serverName: string, status: Status) {
@@ -440,6 +466,7 @@ async function savePatches(restartAfterSave: boolean) {
       create(UpdateGameServerStartArgsRequestSchema, {
         serverId: gameServerId.value,
         startArgsPatches: serializeStartArgsPatches(draftPatches.value),
+        baseCommandOverride: draftBaseCommandOverride.value,
       }),
     )
     const runtimeStatus = gameServer.value.status
@@ -451,6 +478,8 @@ async function savePatches(restartAfterSave: boolean) {
       : response.gameServer
     savedPatchesJson.value = response.gameServer?.startArgsPatches ?? ''
     draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
+    savedBaseCommandOverride.value = response.gameServer?.baseCommandOverride ?? ''
+    draftBaseCommandOverride.value = savedBaseCommandOverride.value
     startArgsSaved = true
 
     if (restartAfterSave) {
@@ -465,7 +494,7 @@ async function savePatches(restartAfterSave: boolean) {
       $q.notify({
         type: 'positive',
         position: 'top',
-        caption: 'Start arguments saved and server restarted.',
+        caption: 'Start command saved and server restarted.',
         icon: 'task_alt',
       })
       return
@@ -474,7 +503,7 @@ async function savePatches(restartAfterSave: boolean) {
     $q.notify({
       type: 'positive',
       position: 'top',
-      caption: 'Start arguments saved successfully.',
+      caption: 'Start command saved successfully.',
       icon: 'task_alt',
     })
   } catch (unknownError: unknown) {
@@ -483,8 +512,8 @@ async function savePatches(restartAfterSave: boolean) {
       type: 'xylona-error',
       position: 'top',
       caption: startArgsSaved
-        ? `Start arguments were saved, but the server could not restart: ${ConnectErrorToString(err)}`
-        : `Failed to save start arguments: ${ConnectErrorToString(err)}`,
+        ? `Start command was saved, but the server could not restart: ${ConnectErrorToString(err)}`
+        : `Failed to save start command: ${ConnectErrorToString(err)}`,
       icon: 'report_problem',
     })
   } finally {
@@ -518,7 +547,17 @@ async function waitForServerOffline() {
 }
 
 function resetAll() {
-  draftPatches.value = []
+  if (isSuperUser.value) {
+    draftPatches.value = []
+    draftBaseCommandOverride.value = ''
+    return
+  }
+
+  const protectedIDs = new Set(
+    templateBlocks.value.filter((block) => block.ownership !== 'editable').map((block) => block.id),
+  )
+  draftPatches.value = savedPatches.value.filter((patch) => protectedIDs.has(patch.id))
+  draftBaseCommandOverride.value = savedBaseCommandOverride.value
 }
 </script>
 

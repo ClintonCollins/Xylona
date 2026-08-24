@@ -23,3 +23,18 @@ func TestValidateWritableServerPathRejectsProtectedPath(t *testing.T) {
 		t.Fatalf("validateWritableServerPath() = %q, want empty path on error", got)
 	}
 }
+
+func TestValidateWritableServerPathRejectsBaseCommandOverride(t *testing.T) {
+	gameServer := &models.GameServer{
+		ID:                  "server-protected-override",
+		BaseCommandOverride: " {{INSTALL_DIR}}/custom-start.sh ",
+	}
+
+	got, errValidate := validateWritableServerPath(gameServer, "custom-start.sh")
+	if !errors.Is(errValidate, ErrProtectedPath) {
+		t.Fatalf("validateWritableServerPath() error = %v, want %v", errValidate, ErrProtectedPath)
+	}
+	if got != "" {
+		t.Fatalf("validateWritableServerPath() = %q, want empty path on error", got)
+	}
+}

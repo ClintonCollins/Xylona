@@ -95,7 +95,7 @@ func TestValidateDefinition(t *testing.T) {
 }
 
 func TestValidateServerUpdate(t *testing.T) {
-	template := `[{"id":"system","order":1,"ownership":"system","tokens":["-jar","server.jar"]},{"id":"heap","order":2,"ownership":"editable","tokens":["-Xmx2G"]}]`
+	template := `[{"id":"system","order":1,"ownership":"system","tokens":["-jar","server.jar"]},{"id":"locked","order":2,"ownership":"locked","tokens":["-safe"]},{"id":"heap","order":3,"ownership":"editable","tokens":["-Xmx2G"]}]`
 	tests := []struct {
 		name        string
 		config      ServerConfig
@@ -146,7 +146,16 @@ func TestValidateServerUpdate(t *testing.T) {
 				TemplateJSON: template,
 				PatchesJSON:  `[{"id":"extra","op":"add","tokens":["a"]},{"id":"extra","op":"add","tokens":["b"]}]`,
 			},
-			wantErrText: "duplicate add patch id",
+			wantErrText: "duplicate patch id",
+		},
+		{
+			name: "duplicate locked patch ids are rejected",
+			config: ServerConfig{
+				TemplateJSON:        template,
+				ExistingPatchesJSON: `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
+				PatchesJSON:         `[{"id":"locked","op":"remove"},{"id":"locked","op":"edit","tokens":["-custom"]}]`,
+			},
+			wantErrText: `duplicate patch id "locked"`,
 		},
 		{
 			name: "add anchor cannot be empty",
@@ -163,6 +172,67 @@ func TestValidateServerUpdate(t *testing.T) {
 				PatchesJSON:  `[{"id":"system","op":"remove"}]`,
 			},
 			wantErrText: "targets a non-editable template block",
+		},
+		{
+			name: "superuser can edit locked block",
+			config: ServerConfig{
+				TemplateJSON:     template,
+				PatchesJSON:      `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
+				AllowLockedEdits: true,
+			},
+		},
+		{
+			name: "superuser can remove locked block",
+			config: ServerConfig{
+				TemplateJSON:     template,
+				PatchesJSON:      `[{"id":"locked","op":"remove"}]`,
+				AllowLockedEdits: true,
+			},
+		},
+		{
+			name: "superuser locked edit is checked against blocklist",
+			config: ServerConfig{
+				TemplateJSON:     template,
+				PatchesJSON:      `[{"id":"locked","op":"edit","tokens":["--blocked"]}]`,
+				BlocklistJSON:    `[{"pattern":"^--blocked$","reason":"blocked for everyone"}]`,
+				AllowLockedEdits: true,
+			},
+			wantErrText: `blocked start argument "--blocked": blocked for everyone`,
+		},
+		{
+			name: "system block remains immutable for superuser",
+			config: ServerConfig{
+				TemplateJSON:     template,
+				PatchesJSON:      `[{"id":"system","op":"edit","tokens":["other.jar"]}]`,
+				AllowLockedEdits: true,
+			},
+			wantErrText: "targets a non-editable template block",
+		},
+		{
+			name: "non-superuser can retain locked patch while editing ordinary block",
+			config: ServerConfig{
+				TemplateJSON:        template,
+				ExistingPatchesJSON: `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
+				PatchesJSON:         `[{"id":"locked","op":"edit","tokens":["-custom"]},{"id":"heap","op":"edit","tokens":["-Xmx4G"]}]`,
+			},
+		},
+		{
+			name: "non-superuser cannot change locked patch",
+			config: ServerConfig{
+				TemplateJSON:        template,
+				ExistingPatchesJSON: `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
+				PatchesJSON:         `[{"id":"locked","op":"edit","tokens":["-tampered"]}]`,
+			},
+			wantErrText: "locked start arguments may only be changed by a superuser",
+		},
+		{
+			name: "non-superuser cannot delete locked patch",
+			config: ServerConfig{
+				TemplateJSON:        template,
+				ExistingPatchesJSON: `[{"id":"locked","op":"remove"}]`,
+				PatchesJSON:         `[]`,
+			},
+			wantErrText: "locked start arguments may only be changed by a superuser",
 		},
 		{
 			name: "add requires tokens",

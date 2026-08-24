@@ -43,7 +43,7 @@ func TestGetSevenDaysToDieSandboxSettings(t *testing.T) {
 		}
 	})
 
-	t.Run("reports offline without a native query", func(t *testing.T) {
+	t.Run("checks the live process when stored status is offline", func(t *testing.T) {
 		fixture := newRBACRPCFixture(t)
 		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_OFFLINE.String(), "node-local")
 		client := &nodeclient.FakeNodeClient{NodeID: "node-local"}
@@ -56,8 +56,8 @@ func TestGetSevenDaysToDieSandboxSettings(t *testing.T) {
 			t.Fatalf("GetSevenDaysToDieSandboxSettings() error = %v", errGet)
 		}
 		if response.Msg.GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE ||
-			len(client.QuerySevenDaysToDieSandboxSettingsCalls) != 0 {
-			t.Fatalf("offline response = %+v, calls = %d", response.Msg, len(client.QuerySevenDaysToDieSandboxSettingsCalls))
+			len(client.GetProcessSnapshotCalls) != 1 || len(client.QuerySevenDaysToDieSandboxSettingsCalls) != 0 {
+			t.Fatalf("offline response = %+v, process calls = %v, sandbox query calls = %d", response.Msg, client.GetProcessSnapshotCalls, len(client.QuerySevenDaysToDieSandboxSettingsCalls))
 		}
 	})
 

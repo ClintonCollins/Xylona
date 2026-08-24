@@ -52,7 +52,7 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		}
 	})
 
-	t.Run("reports an offline server without querying its node", func(t *testing.T) {
+	t.Run("reports a missing live process as offline", func(t *testing.T) {
 		fixture := newRBACRPCFixture(t)
 		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_OFFLINE.String(), "node-local")
 		client := &nodeclient.FakeNodeClient{NodeID: "node-local"}
@@ -67,8 +67,8 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		if response.Msg.GetStatus().GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE {
 			t.Fatalf("connection state = %v, want server offline", response.Msg.GetStatus().GetConnectionState())
 		}
-		if len(client.QuerySevenDaysToDieWebAPIStatusCalls) != 0 {
-			t.Fatalf("node query call count = %d, want 0", len(client.QuerySevenDaysToDieWebAPIStatusCalls))
+		if len(client.GetProcessSnapshotCalls) != 1 || len(client.QuerySevenDaysToDieWebAPIStatusCalls) != 0 {
+			t.Fatalf("process calls = %v, WebAPI query calls = %d", client.GetProcessSnapshotCalls, len(client.QuerySevenDaysToDieWebAPIStatusCalls))
 		}
 	})
 
@@ -87,7 +87,7 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		}
 	})
 
-	t.Run("reports a missing live process as offline", func(t *testing.T) {
+	t.Run("reports a missing live process as offline despite stored online status", func(t *testing.T) {
 		fixture := newRBACRPCFixture(t)
 		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
 		client := &nodeclient.FakeNodeClient{NodeID: "node-local"}
@@ -149,7 +149,7 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		if errIP != nil {
 			t.Fatalf("insert remote node IP: %v", errIP)
 		}
-		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-remote")
+		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_OFFLINE.String(), "node-remote")
 		grantRequest := connect.NewRequest(&xylona.GrantGameServerAccessRequest{
 			GameServerId: "server-local-1", UserId: "user-other", RoleId: "viewer",
 		})

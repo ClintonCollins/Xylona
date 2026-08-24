@@ -45,6 +45,19 @@ interface PendingSimilarAction {
   tokens: string[]
 }
 
+const legacyPlaceholderKeys: Record<string, string> = {
+  '%GAMESERVER_DIRECTORY%': 'INSTALL_DIR',
+  '%GAMESERVER_ID%': 'SERVER_ID',
+  '%GAMESERVER_BACKUP_DIRECTORY%': 'BACKUP_DIR',
+  '%GAMESERVER_NAME%': 'SERVER_NAME',
+  '%GAMESERVER_IP%': 'IP',
+  '%GAMESERVER_PORT%': 'PORT',
+  '%GAMESERVER_QUERY_PORT%': 'QUERY_PORT',
+  '%GAMESERVER_MAX_MEMORY_MB%': 'MAX_MEMORY_MB',
+  '%GAMESERVER_MAX_PLAYERS%': 'MAX_PLAYERS',
+  '%GAMESERVER_SET_PLAYERS%': 'SET_PLAYERS',
+}
+
 export function parseStartArgsTemplate(jsonStr: string): StartArgBlock[] {
   if (!jsonStr) {
     return []
@@ -136,17 +149,29 @@ export function serializeStartArgBlocklist(blocklist: StartArgBlocklistEntry[]):
 }
 
 export function buildPlaceholderVars(gameServer: Partial<GameServer> | null | undefined) {
+  const port = gameServer?.port ?? 0n
+  const queryPort = gameServer?.queryPort ?? 0n
+
   return {
     SERVER_ID: gameServer?.id ?? '',
     IP: gameServer?.ip?.address ?? '',
-    PORT: String(gameServer?.port ?? 0n),
-    QUERY_PORT: String(gameServer?.queryPort ?? 0n),
+    PORT: String(port),
+    PORT_PLUS_1: String(port + 1n),
+    PORT_PLUS_2: String(port + 2n),
+    QUERY_PORT: String(queryPort),
+    QUERY_PORT_PLUS_1: String(queryPort + 1n),
     MAX_MEMORY_MB: String(gameServer?.maxMemoryMb ?? 0n),
     MAX_PLAYERS: String(gameServer?.maxPlayers ?? 0n),
     SERVER_NAME: gameServer?.name ?? '',
     INSTALL_DIR: gameServer?.directory ?? '',
+    BACKUP_DIR: gameServer?.backupDirectory ?? '',
+    SET_PLAYERS: String(gameServer?.setMaxPlayers ?? 0n),
     SERVER_EXECUTABLE: gameServer?.serverExecutable ?? '',
   }
+}
+
+export function resolveStartCommandBase(baseCommand: string, vars: Record<string, string>) {
+  return resolveToken(baseCommand.trim(), vars)
 }
 
 export function resolveStartArgs(
@@ -469,7 +494,12 @@ function resolveToken(token: string, vars: Record<string, string>): string {
     return ''
   }
 
-  return token.replace(/\{\{([A-Z_]+)\}\}/gu, (_match, key: string) => vars[key] ?? '')
+  let resolved = token
+  for (const [placeholder, key] of Object.entries(legacyPlaceholderKeys)) {
+    resolved = resolved.replaceAll(placeholder, vars[key] ?? '')
+  }
+
+  return resolved.replace(/\{\{([A-Z_]+)\}\}/gu, (_match, key: string) => vars[key] ?? '')
 }
 
 function cloneTemplate(template: StartArgBlock[]): StartArgBlock[] {

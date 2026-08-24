@@ -7,9 +7,31 @@
           Edit the argument blocks Xylona passes to the server. One line equals one argv token.
         </div>
       </div>
-      <div class="start-args-editor__base">
+      <div v-if="allowProtectedEditing" class="start-args-editor__base-editor">
+        <q-input
+          :model-value="baseCommandOverride"
+          clearable
+          data-testid="base-command-override"
+          hint="Blank uses the inherited game-definition command."
+          label="Base command override"
+          outlined
+          @clear="updateBaseCommandOverride('')"
+          @update:model-value="updateBaseCommandOverride" />
+        <div class="start-args-editor__inherited">
+          <span>Inherited</span>
+          <code>{{ inheritedBaseCommand || 'Not configured' }}</code>
+        </div>
+        <q-btn
+          v-if="baseCommandOverride"
+          data-testid="reset-base-command"
+          flat
+          icon="restart_alt"
+          label="Use inherited"
+          @click="updateBaseCommandOverride('')" />
+      </div>
+      <div v-else class="start-args-editor__base">
         <q-icon name="lock" size="14px" />
-        <span>Base command</span>
+        <span>Effective base command</span>
         <code>{{ baseCommand }}</code>
       </div>
     </div>
@@ -178,13 +200,17 @@ import {
 
 const props = defineProps<{
   allowEditing: boolean
+  allowProtectedEditing: boolean
   baseCommand: string
+  baseCommandOverride: string
   blocklist: StartArgBlocklistEntry[]
+  inheritedBaseCommand: string
   patches: StartArgPatch[]
   template: StartArgBlock[]
 }>()
 
 const emit = defineEmits<{
+  'update:base-command-override': [value: string]
   'update:patches': [patches: StartArgPatch[]]
 }>()
 
@@ -240,7 +266,9 @@ function canEdit(block: ResolvedStartArgBlock) {
     return true
   }
 
-  return block.ownership === 'editable'
+  return (
+    block.ownership === 'editable' || (props.allowProtectedEditing && block.ownership === 'locked')
+  )
 }
 
 function canRemove(block: ResolvedStartArgBlock) {
@@ -248,11 +276,24 @@ function canRemove(block: ResolvedStartArgBlock) {
     return false
   }
 
-  return block.provenance === 'added' || block.provenance === 'default'
+  return (
+    block.provenance === 'added' ||
+    block.provenance === 'default' ||
+    (props.allowProtectedEditing && block.ownership === 'locked')
+  )
 }
 
 function canReset(block: ResolvedStartArgBlock) {
-  return props.allowEditing && block.provenance === 'edited'
+  return (
+    props.allowEditing &&
+    block.provenance === 'edited' &&
+    (block.ownership === 'editable' ||
+      (props.allowProtectedEditing && block.ownership === 'locked'))
+  )
+}
+
+function updateBaseCommandOverride(value: string | number | null) {
+  emit('update:base-command-override', String(value ?? ''))
 }
 
 function canMoveUp(index: number, block: ResolvedStartArgBlock) {
@@ -349,7 +390,11 @@ function saveDialog() {
     const similar = findSimilarArg(tokens, displayBlocks.value)
 
     if (similar) {
-      if (similar.ownership !== 'editable' && similar.provenance !== 'added') {
+      const canReplaceSimilar =
+        similar.ownership === 'editable' ||
+        similar.provenance === 'added' ||
+        (props.allowProtectedEditing && similar.ownership === 'locked')
+      if (!canReplaceSimilar) {
         formError.value =
           similar.provenance === 'system'
             ? 'This argument is managed by Xylona. Change it in Server Settings instead.'
@@ -519,6 +564,35 @@ function createPatchId() {
   border: 1px solid color-mix(in srgb, var(--xy-accent) 14%, var(--xy-border) 86%);
   background: color-mix(in srgb, var(--xy-accent) 4%, var(--xy-surface-0) 96%);
   color: var(--xy-text-secondary);
+}
+
+.start-args-editor__base-editor {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) auto;
+  gap: var(--xy-space-sm) var(--xy-space-md);
+  align-items: center;
+  width: min(100%, 42rem);
+}
+
+.start-args-editor__base-editor > :first-child {
+  grid-column: 1 / -1;
+}
+
+.start-args-editor__inherited {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+}
+
+.start-args-editor__inherited code {
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .start-args-editor__base code {
@@ -695,6 +769,14 @@ function createPatchId() {
 }
 
 @media (max-width: 720px) {
+  .start-args-editor__base-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .start-args-editor__base-editor > :first-child {
+    grid-column: auto;
+  }
+
   .start-args-editor__row {
     grid-template-columns: 1fr;
   }

@@ -27,17 +27,19 @@ func IsProtectedServerPath(relativePath string, baseCommand string, serverExecut
 }
 
 func normalizeBaseCommandPath(baseCommand string) string {
-	if baseCommand == "" {
+	normalizedCommand := strings.ReplaceAll(strings.TrimSpace(baseCommand), `\`, "/")
+	normalizedCommand = strings.TrimPrefix(normalizedCommand, "{{INSTALL_DIR}}/")
+	if normalizedCommand == "" {
 		return ""
 	}
-	if filepath.IsAbs(baseCommand) {
+	if filepath.IsAbs(normalizedCommand) {
 		return ""
 	}
-	if !looksLikeServerRelativeExecutable(baseCommand) {
+	if !looksLikeServerRelativeExecutable(normalizedCommand) {
 		return ""
 	}
 
-	return normalizeRelativePath(baseCommand)
+	return normalizeRelativePath(normalizedCommand)
 }
 
 func normalizeRelativePath(value string) string {

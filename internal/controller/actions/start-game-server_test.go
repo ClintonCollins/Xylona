@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 
@@ -222,5 +223,42 @@ func TestResolveStructuredStartCommand_BackfillsLegacyMinecraftExecutable(t *tes
 
 	if updated.ServerExecutable.GetOr("") != "paper-1.21.4-100.jar" {
 		t.Fatalf("server executable = %q, want %q", updated.ServerExecutable.GetOr(""), "paper-1.21.4-100.jar")
+	}
+}
+
+func TestResolveStructuredStartCommandBaseCommandOverride(t *testing.T) {
+	inst := newTestInstance(t)
+	serverDir := t.TempDir()
+	template := `[{"id":"flag","order":1,"ownership":"editable","tokens":["--flag"]}]`
+	gameServer := &models.GameServer{
+		Directory:           serverDir,
+		StartArgsPatches:    "[]",
+		BaseCommandOverride: " {{INSTALL_DIR}}/custom-start.sh ",
+	}
+	gameServer.R.Game = &models.Game{
+		LinuxBaseCommand:         "definition-start",
+		WindowsBaseCommand:       "definition-start",
+		LinuxStartArgsTemplate:   null.From(template),
+		WindowsStartArgsTemplate: null.From(template),
+	}
+
+	baseCommand, args, errResolve := inst.resolveStructuredStartCommand(gameServer)
+	if errResolve != nil {
+		t.Fatalf("resolveStructuredStartCommand() error = %v", errResolve)
+	}
+	if baseCommand != serverDir+"/custom-start.sh" && baseCommand != serverDir+`\custom-start.sh` {
+		t.Fatalf("base command = %q, want resolved custom command under %q", baseCommand, serverDir)
+	}
+	if len(args) != 1 || args[0] != "--flag" {
+		t.Fatalf("args = %v, want [--flag]", args)
+	}
+
+	gameServer.BaseCommandOverride = ""
+	baseCommand, _, errResolve = inst.resolveStructuredStartCommand(gameServer)
+	if errResolve != nil {
+		t.Fatalf("resolveStructuredStartCommand() after clear error = %v", errResolve)
+	}
+	if baseCommand != "definition-start" {
+		t.Fatalf("base command after clear = %q, want definition command", baseCommand)
 	}
 }

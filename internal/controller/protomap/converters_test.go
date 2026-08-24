@@ -59,6 +59,7 @@ func TestGameServerProtoToModel(t *testing.T) {
 		Name:                 "My Server",
 		GameId:               "game-1",
 		StartArgsPatches:     `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
+		BaseCommandOverride:  "./custom-start.sh",
 		Status:               xylona.Status_ONLINE,
 		SetMaxPlayers:        32,
 		MaxPlayers:           64,
@@ -92,6 +93,9 @@ func TestGameServerProtoToModel(t *testing.T) {
 	}
 	if got.StartArgsPatches != `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]` {
 		t.Errorf("StartArgsPatches = %q, want %q", got.StartArgsPatches, `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`)
+	}
+	if got.BaseCommandOverride != "./custom-start.sh" {
+		t.Errorf("BaseCommandOverride = %q, want %q", got.BaseCommandOverride, "./custom-start.sh")
 	}
 	if got.Status != "ONLINE" {
 		t.Errorf("Status = %q, want %q", got.Status, "ONLINE")
@@ -139,29 +143,30 @@ func TestGameServerModelToProto(t *testing.T) {
 
 	t.Run("fully populated with relations", func(t *testing.T) {
 		input := &models.GameServer{
-			ID:               "gs-1",
-			UserID:           "user-1",
-			Name:             "My Server",
-			GameID:           "game-1",
-			StartArgsPatches: `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
-			Status:           "ONLINE",
-			SetPlayers:       32,
-			MaxPlayers:       64,
-			Map:              "de_dust2",
-			IP:               "192.168.1.1",
-			Port:             27015,
-			QueryPort:        27016,
-			Directory:        "/srv/game",
-			MaxMemoryMB:      4096,
-			BackupsEnabled:   true,
-			BackupDirectory:  "/backups",
-			MaxBackups:       5,
-			Version:          "1.0.0",
-			NodeID:           "node-1",
-			Branch:           "1.21.4",
-			TargetPinned:     true,
-			CreatedAt:        now,
-			UpdatedAt:        now,
+			ID:                  "gs-1",
+			UserID:              "user-1",
+			Name:                "My Server",
+			GameID:              "game-1",
+			StartArgsPatches:    `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`,
+			BaseCommandOverride: "./custom-start.sh",
+			Status:              "ONLINE",
+			SetPlayers:          32,
+			MaxPlayers:          64,
+			Map:                 "de_dust2",
+			IP:                  "192.168.1.1",
+			Port:                27015,
+			QueryPort:           27016,
+			Directory:           "/srv/game",
+			MaxMemoryMB:         4096,
+			BackupsEnabled:      true,
+			BackupDirectory:     "/backups",
+			MaxBackups:          5,
+			Version:             "1.0.0",
+			NodeID:              "node-1",
+			Branch:              "1.21.4",
+			TargetPinned:        true,
+			CreatedAt:           now,
+			UpdatedAt:           now,
 		}
 		input.R.Game = &models.Game{Name: "Counter-Strike"}
 		input.R.User = &models.User{UserName: "admin"}
@@ -174,6 +179,9 @@ func TestGameServerModelToProto(t *testing.T) {
 		}
 		if got.GetStartArgsPatches() != `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]` {
 			t.Errorf("StartArgsPatches = %q, want %q", got.GetStartArgsPatches(), `[{"id":"mem","op":"edit","tokens":["-Xmx4G"]}]`)
+		}
+		if got.GetBaseCommandOverride() != "./custom-start.sh" {
+			t.Errorf("BaseCommandOverride = %q, want %q", got.GetBaseCommandOverride(), "./custom-start.sh")
 		}
 		if got.GetStatus() != xylona.Status_ONLINE {
 			t.Errorf("Status = %v, want %v", got.GetStatus(), xylona.Status_ONLINE)
@@ -260,18 +268,19 @@ func TestGameServerModelToProto(t *testing.T) {
 func TestGameServerModelToSetter(t *testing.T) {
 	now := time.Now().Truncate(time.Second)
 	input := &models.GameServer{
-		ID:             "gs-1",
-		UserID:         "user-1",
-		Name:           "My Server",
-		Status:         "ONLINE",
-		Port:           27015,
-		BackupsEnabled: true,
-		NodeID:         "node-1",
-		MaxMemoryMB:    4096,
-		Branch:         "1.21.4",
-		TargetPinned:   true,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                  "gs-1",
+		UserID:              "user-1",
+		Name:                "My Server",
+		Status:              "ONLINE",
+		Port:                27015,
+		BackupsEnabled:      true,
+		NodeID:              "node-1",
+		MaxMemoryMB:         4096,
+		Branch:              "1.21.4",
+		TargetPinned:        true,
+		BaseCommandOverride: "./custom-start.sh",
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 
 	setter := GameServerModelToSetter(input)
@@ -298,6 +307,14 @@ func TestGameServerModelToSetter(t *testing.T) {
 	}
 	if gotStatus != "ONLINE" {
 		t.Errorf("Status = %q, want %q", gotStatus, "ONLINE")
+	}
+
+	gotBaseCommandOverride, okBaseCommandOverride := setter.BaseCommandOverride.Get()
+	if !okBaseCommandOverride {
+		t.Fatal("BaseCommandOverride should be set")
+	}
+	if gotBaseCommandOverride != "./custom-start.sh" {
+		t.Errorf("BaseCommandOverride = %q, want %q", gotBaseCommandOverride, "./custom-start.sh")
 	}
 
 	gotPort, okPort := setter.Port.Get()

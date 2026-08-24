@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     eventBus,
+    superUser: false,
     getGameServer: vi.fn(),
     listNodes: vi.fn(),
     notify: vi.fn(),
@@ -63,8 +64,10 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/stores/xylona', () => ({
   useUserAuthStore: () => ({
-    checkUserAuthenticated: vi.fn().mockResolvedValue({ user: { superUser: false } }),
-    user: { superUser: false },
+    checkUserAuthenticated: vi.fn().mockResolvedValue({
+      user: { superUser: mocks.superUser },
+    }),
+    user: { superUser: mocks.superUser },
   }),
 }))
 
@@ -80,22 +83,27 @@ vi.mock('@/utils/shared', () => ({
   XylonaEventBus: mocks.eventBus,
 }))
 
-function buildGameServer(status: Status) {
+function buildGameServer(status: Status, baseCommandOverride = '', startArgsPatches = '') {
   return create(GameServerSchema, {
     id: 'server-1',
     nodeId: 'node-1',
     status,
+    baseCommandOverride,
+    startArgsPatches,
     effectivePermissions: ['game_server.settings', 'game_server.start', 'game_server.stop'],
     game: create(GameSchema, {
       allowStartArgEditing: true,
-      linuxBaseCommand: './server',
-      linuxStartArgsTemplate: '[{"id":"port","tokens":["--port","25565"]}]',
+      linuxBaseCommand: '{{INSTALL_DIR}}/server',
+      linuxStartArgsTemplate:
+        '[{"id":"locked","order":1,"ownership":"locked","tokens":["--safe"]},{"id":"port","order":2,"ownership":"editable","tokens":["--port","25565"]}]',
     }),
+    directory: '/srv/game',
   })
 }
 
 describe('GameServerStartArgs', () => {
   beforeEach(() => {
+    mocks.superUser = false
     setWebsocketConnectionStatus('connected')
     mocks.listNodes.mockResolvedValue(
       create(ListNodesResponseSchema, {
@@ -116,8 +124,8 @@ describe('GameServerStartArgs', () => {
   })
 
   it('saves, stops, waits for offline, and starts through supported RPCs', async () => {
-    const onlineServer = buildGameServer(Status.ONLINE)
-    const offlineServer = buildGameServer(Status.OFFLINE)
+    const onlineServer = buildGameServer(Status.ONLINE, './custom-start.sh')
+    const offlineServer = buildGameServer(Status.OFFLINE, './custom-start.sh')
     mocks.getGameServer
       .mockResolvedValueOnce(create(GetGameServerResponseSchema, { gameServer: onlineServer }))
       .mockResolvedValueOnce(create(GetGameServerResponseSchema, { gameServer: offlineServer }))
@@ -136,6 +144,12 @@ describe('GameServerStartArgs', () => {
     await viewModel.saveAndRestart()
 
     expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(1)
+    expect(mocks.updateGameServerStartArgs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverId: 'server-1',
+        baseCommandOverride: './custom-start.sh',
+      }),
+    )
     expect(mocks.stopGameServer).toHaveBeenCalledWith(
       expect.objectContaining({ serverId: 'server-1' }),
     )
@@ -150,8 +164,100 @@ describe('GameServerStartArgs', () => {
       mocks.startGameServer.mock.invocationCallOrder[0] ?? 0,
     )
     expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ caption: 'Start arguments saved and server restarted.' }),
+      expect.objectContaining({ caption: 'Start command saved and server restarted.' }),
     )
+  })
+
+  it('shows the effective command read-only to ordinary users', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: buildGameServer(Status.OFFLINE, './custom-start.sh'),
+      }),
+    )
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+
+    const editor = wrapper.getComponent({ name: 'StartArgsEditor' })
+    expect(editor.props('allowProtectedEditing')).toBe(false)
+    expect(editor.props('baseCommand')).toBe('./custom-start.sh')
+  })
+
+  it('resets only editable patches for ordinary users', async () => {
+    const patches = JSON.stringify([
+      { id: 'locked', op: 'edit', tokens: ['--custom'] },
+      { id: 'port', op: 'edit', tokens: ['--port', '28010'] },
+      { id: 'added', op: 'add', tokens: ['--extra'], afterId: 'port' },
+    ])
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: buildGameServer(Status.OFFLINE, './custom-start.sh', patches),
+      }),
+    )
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      draftBaseCommandOverride: string
+      draftPatches: Array<{ id: string }>
+      resetAll: () => void
+    }
+    viewModel.resetAll()
+
+    expect(viewModel.draftPatches.map((patch) => patch.id)).toEqual(['locked'])
+    expect(viewModel.draftBaseCommandOverride).toBe('./custom-start.sh')
+  })
+
+  it('lets superusers reset every server override', async () => {
+    mocks.superUser = true
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: buildGameServer(
+          Status.OFFLINE,
+          './custom-start.sh',
+          '[{"id":"locked","op":"remove"}]',
+        ),
+      }),
+    )
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const editor = wrapper.getComponent({ name: 'StartArgsEditor' })
+    const viewModel = wrapper.vm as unknown as {
+      draftBaseCommandOverride: string
+      draftPatches: Array<{ id: string }>
+      resetAll: () => void
+    }
+
+    expect(editor.props('allowProtectedEditing')).toBe(true)
+    viewModel.resetAll()
+    expect(viewModel.draftPatches).toEqual([])
+    expect(viewModel.draftBaseCommandOverride).toBe('')
+  })
+
+  it('updates preview and dirty state when the base override changes', async () => {
+    mocks.superUser = true
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: buildGameServer(Status.OFFLINE),
+      }),
+    )
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      draftBaseCommandOverride: string
+      draftChangeCount: number
+      isDirty: boolean
+      resolvedBaseCommand: string
+    }
+
+    expect(viewModel.resolvedBaseCommand).toBe('/srv/game/server')
+    viewModel.draftBaseCommandOverride = '{{INSTALL_DIR}}/custom-start.sh'
+    await wrapper.vm.$nextTick()
+    expect(viewModel.resolvedBaseCommand).toBe('/srv/game/custom-start.sh')
+    expect(viewModel.draftChangeCount).toBe(1)
+    expect(viewModel.isDirty).toBe(true)
   })
 
   it('preserves the authoritative runtime status after saving start arguments', async () => {

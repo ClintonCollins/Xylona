@@ -195,6 +195,7 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 	}
 
 	normalizedPatches := normalizeStartArgsPatchesJSON(request.Msg.GetStartArgsPatches())
+	baseCommandOverride := strings.TrimSpace(request.Msg.GetBaseCommandOverride())
 
 	gameServer, errLookup := xs.db.GetGameServerByID(serverID)
 	if errLookup != nil {
@@ -212,21 +213,33 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 	if !user.SuperUser && !gameServer.R.Game.AllowStartArgEditing {
 		return nil, permissionDenied("start arg editing is disabled for this game")
 	}
+	if !user.SuperUser && baseCommandOverride != strings.TrimSpace(gameServer.BaseCommandOverride) {
+		return nil, permissionDenied("base command override may only be changed by a superuser")
+	}
+	if !user.SuperUser {
+		baseCommandOverride = gameServer.BaseCommandOverride
+	}
 
 	platform := platformForGOOS(xs.resolveNodeGOOS(gameServer.NodeID))
 	errValidate := startargs.ValidateServerUpdate(startargs.ServerConfig{
-		TemplateJSON:  templateJSONForPlatform(gameServer.R.Game, platform),
-		PatchesJSON:   normalizedPatches,
-		BlocklistJSON: gameServer.R.Game.StartArgBlocklist,
-		Variables:     placeholder.BuildVarsFromGameServer(gameServer),
+		TemplateJSON:        templateJSONForPlatform(gameServer.R.Game, platform),
+		PatchesJSON:         normalizedPatches,
+		ExistingPatchesJSON: gameServer.StartArgsPatches,
+		BlocklistJSON:       gameServer.R.Game.StartArgBlocklist,
+		Variables:           placeholder.BuildVarsFromGameServer(gameServer),
+		AllowLockedEdits:    user.SuperUser,
 	})
 	if errValidate != nil {
+		if errors.Is(errValidate, startargs.ErrLockedStartArgumentEdit) {
+			return nil, permissionDenied(errValidate.Error())
+		}
 		return nil, connect.NewError(connect.CodeInvalidArgument, errValidate)
 	}
 
 	setter := &models.GameServerSetter{
-		ID:               omit.From(gameServer.ID),
-		StartArgsPatches: omit.From(normalizedPatches),
+		ID:                  omit.From(gameServer.ID),
+		StartArgsPatches:    omit.From(normalizedPatches),
+		BaseCommandOverride: omit.From(baseCommandOverride),
 	}
 	updated, errUpdate := xs.db.UpdateGameServer(xs.db.DB, setter)
 	if errUpdate != nil {

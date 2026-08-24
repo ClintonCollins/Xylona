@@ -39,10 +39,6 @@ func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
 	}
 	includeTactical := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings) == nil
 
-	if gameServer.Status == xylona.Status_OFFLINE.String() {
-		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline, includeTactical), nil
-	}
-
 	client, errClient := xs.resolveNodeClient(gameServer)
 	if errClient != nil {
 		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable, includeTactical), nil //nolint:nilerr // Node reachability is a typed operational state.

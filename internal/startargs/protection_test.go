@@ -59,6 +59,13 @@ func TestIsProtectedServerPath(t *testing.T) {
 			serverExecutable: "",
 			want:             true,
 		},
+		{
+			name:             "install directory placeholder remains protected",
+			relativePath:     "scripts/custom-start.sh",
+			baseCommand:      "{{INSTALL_DIR}}/scripts/custom-start.sh",
+			serverExecutable: "",
+			want:             true,
+		},
 	}
 
 	for _, tt := range tests {

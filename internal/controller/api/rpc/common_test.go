@@ -57,6 +57,24 @@ func TestBuildProtectionPolicyUsesTargetNodeOS(t *testing.T) {
 	}
 }
 
+func TestBuildProtectionPolicyUsesBaseCommandOverride(t *testing.T) {
+	t.Parallel()
+
+	xs := &XylonaService{}
+	gameServer := &models.GameServer{
+		BaseCommandOverride: " ./custom-start.sh ",
+		ServerExecutable:    null.From("server.jar"),
+	}
+
+	policy := xs.buildProtectionPolicy(gameServer)
+	if policy.BaseCommand != "./custom-start.sh" {
+		t.Fatalf("buildProtectionPolicy().BaseCommand = %q, want %q", policy.BaseCommand, "./custom-start.sh")
+	}
+	if policy.ServerExecutable != "server.jar" {
+		t.Fatalf("buildProtectionPolicy().ServerExecutable = %q, want %q", policy.ServerExecutable, "server.jar")
+	}
+}
+
 func setGameServerRelation(t *testing.T, gameServer *models.GameServer, game *models.Game) {
 	t.Helper()
 

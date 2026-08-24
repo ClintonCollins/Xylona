@@ -32,7 +32,14 @@ func validateLocalServerPath(gameServer *models.GameServer, relativePath string)
 // still runs on the node (which knows its own OS) so the executable match
 // remains accurate end-to-end.
 func baseCommandForProtectedPath(gameServer *models.GameServer) string {
-	if gameServer == nil || gameServer.R.Game == nil {
+	if gameServer == nil {
+		return ""
+	}
+	override := strings.TrimSpace(gameServer.BaseCommandOverride)
+	if override != "" {
+		return override
+	}
+	if gameServer.R.Game == nil {
 		return ""
 	}
 

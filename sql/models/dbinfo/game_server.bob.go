@@ -303,6 +303,15 @@ var GameServers = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		BaseCommandOverride: column{
+			Name:      "base_command_override",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameServerIndexes{
 		GameServerUserIDNameUniqueIndex: index{
@@ -419,11 +428,12 @@ type gameServerColumns struct {
 	PublicConnectionAddress    column
 	PublicStatusNote           column
 	PublicStatusPassword       column
+	BaseCommandOverride        column
 }
 
 func (c gameServerColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches, c.AutoRestartEnabled, c.AutoRestartMaxRetries, c.AutoRestartCooldownSeconds, c.EnvVars, c.PublicConnectionAddress, c.PublicStatusNote, c.PublicStatusPassword,
+		c.ID, c.UserID, c.Name, c.GameID, c.Status, c.SetPlayers, c.MaxPlayers, c.Map, c.IP, c.Port, c.QueryPort, c.Directory, c.MaxMemoryMB, c.BackupsEnabled, c.BackupDirectory, c.MaxBackups, c.Version, c.Branch, c.CreatedAt, c.UpdatedAt, c.NodeID, c.ServerSoftware, c.ServerExecutable, c.TargetPinned, c.StartArgsPatches, c.AutoRestartEnabled, c.AutoRestartMaxRetries, c.AutoRestartCooldownSeconds, c.EnvVars, c.PublicConnectionAddress, c.PublicStatusNote, c.PublicStatusPassword, c.BaseCommandOverride,
 	}
 }
 

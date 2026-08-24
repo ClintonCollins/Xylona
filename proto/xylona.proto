@@ -555,6 +555,7 @@ message UpdateGameServerResponse {}
 message UpdateGameServerStartArgsRequest {
   string server_id = 1;
   string start_args_patches = 2;
+  string base_command_override = 3;
 }
 
 message UpdateGameServerStartArgsResponse {

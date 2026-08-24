@@ -3,8 +3,12 @@ package startargs
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
+
+// ErrLockedStartArgumentEdit reports a non-superuser attempt to change a locked patch.
+var ErrLockedStartArgumentEdit = errors.New("locked start arguments may only be changed by a superuser")
 
 // DefinitionConfig contains the platform templates and blocklist for a game definition.
 type DefinitionConfig struct {
@@ -17,10 +21,12 @@ type DefinitionConfig struct {
 
 // ServerConfig contains the template, patches, and values used for one game server.
 type ServerConfig struct {
-	TemplateJSON  string
-	PatchesJSON   string
-	BlocklistJSON string
-	Variables     map[string]string
+	TemplateJSON        string
+	PatchesJSON         string
+	ExistingPatchesJSON string
+	BlocklistJSON       string
+	Variables           map[string]string
+	AllowLockedEdits    bool
 }
 
 // ValidateDefinition validates a game's complete structured start-argument configuration.
@@ -68,7 +74,21 @@ func ValidateServerUpdate(config ServerConfig) error {
 		return fmt.Errorf("parse game server start args patches: %w", errPatches)
 	}
 
-	errStructure := validateServerPatches(template, patches)
+	allowLockedEdits := config.AllowLockedEdits
+	if !allowLockedEdits {
+		existingPatches, errExisting := parsePatches(config.ExistingPatchesJSON)
+		if errExisting != nil {
+			return fmt.Errorf("parse existing game server start args patches: %w", errExisting)
+		}
+
+		errLocked := validateLockedPatchesUnchanged(template, existingPatches, patches)
+		if errLocked != nil {
+			return errLocked
+		}
+		allowLockedEdits = true
+	}
+
+	errStructure := validateServerPatches(template, patches, allowLockedEdits)
 	if errStructure != nil {
 		return errStructure
 	}
@@ -181,10 +201,10 @@ func validateSharedTemplateIDs(primary []ArgBlock, secondary []ArgBlock) error {
 	return nil
 }
 
-func validateServerPatches(template []ArgBlock, patches []Patch) error {
+func validateServerPatches(template []ArgBlock, patches []Patch, allowLockedEdits bool) error {
 	templateByID := make(map[string]ArgBlock, len(template))
 	referenceableIDs := make(map[string]struct{}, len(template))
-	addedIDs := make(map[string]struct{})
+	seenPatchIDs := make(map[string]struct{}, len(patches))
 	for _, block := range template {
 		templateByID[block.ID] = block
 		referenceableIDs[block.ID] = struct{}{}
@@ -195,6 +215,11 @@ func validateServerPatches(template []ArgBlock, patches []Patch) error {
 		if patchID == "" {
 			return errors.New("patch id is required")
 		}
+		_, duplicate := seenPatchIDs[patchID]
+		if duplicate {
+			return fmt.Errorf("duplicate patch id %q", patchID)
+		}
+		seenPatchIDs[patchID] = struct{}{}
 
 		switch patch.Op {
 		case PatchOpAdd:
@@ -204,10 +229,6 @@ func validateServerPatches(template []ArgBlock, patches []Patch) error {
 			_, exists := templateByID[patchID]
 			if exists {
 				return fmt.Errorf("add patch %q collides with an existing template block", patchID)
-			}
-			_, exists = addedIDs[patchID]
-			if exists {
-				return fmt.Errorf("duplicate add patch id %q", patchID)
 			}
 			if patch.AfterID != nil {
 				afterID := strings.TrimSpace(*patch.AfterID)
@@ -219,19 +240,18 @@ func validateServerPatches(template []ArgBlock, patches []Patch) error {
 					return fmt.Errorf("add patch %q references unknown afterId %q", patchID, afterID)
 				}
 			}
-			addedIDs[patchID] = struct{}{}
 			referenceableIDs[patchID] = struct{}{}
 		case PatchOpEdit:
 			if len(patch.Tokens) == 0 {
 				return fmt.Errorf("edit patch %q must contain at least one token", patchID)
 			}
 			block, exists := templateByID[patchID]
-			if exists && block.Ownership != OwnershipEditable {
+			if exists && !canPatchBlock(block, allowLockedEdits) {
 				return fmt.Errorf("patch %q targets a non-editable template block", patchID)
 			}
 		case PatchOpRemove:
 			block, exists := templateByID[patchID]
-			if exists && block.Ownership != OwnershipEditable {
+			if exists && !canPatchBlock(block, allowLockedEdits) {
 				return fmt.Errorf("patch %q targets a non-editable template block", patchID)
 			}
 		default:
@@ -240,6 +260,59 @@ func validateServerPatches(template []ArgBlock, patches []Patch) error {
 	}
 
 	return nil
+}
+
+func canPatchBlock(block ArgBlock, allowLockedEdits bool) bool {
+	return block.Ownership == OwnershipEditable ||
+		(allowLockedEdits && block.Ownership == OwnershipLocked)
+}
+
+func validateLockedPatchesUnchanged(template []ArgBlock, existing []Patch, updated []Patch) error {
+	lockedIDs := make(map[string]struct{})
+	for _, block := range template {
+		if block.Ownership == OwnershipLocked {
+			lockedIDs[block.ID] = struct{}{}
+		}
+	}
+
+	existingLocked := patchesByID(existing, lockedIDs)
+	updatedLocked := patchesByID(updated, lockedIDs)
+	if len(existingLocked) != len(updatedLocked) {
+		return ErrLockedStartArgumentEdit
+	}
+	for id, existingPatch := range existingLocked {
+		updatedPatch, exists := updatedLocked[id]
+		if !exists || !equalPatch(existingPatch, updatedPatch) {
+			return ErrLockedStartArgumentEdit
+		}
+	}
+
+	return nil
+}
+
+func patchesByID(patches []Patch, ids map[string]struct{}) map[string]Patch {
+	filtered := make(map[string]Patch)
+	for _, patch := range patches {
+		if _, exists := ids[patch.ID]; exists {
+			filtered[patch.ID] = patch
+		}
+	}
+	return filtered
+}
+
+func equalPatch(left Patch, right Patch) bool {
+	return left.ID == right.ID &&
+		left.Op == right.Op &&
+		slices.Equal(left.Tokens, right.Tokens) &&
+		left.Label == right.Label &&
+		equalOptionalString(left.AfterID, right.AfterID)
+}
+
+func equalOptionalString(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func validateBlocklist(blocklistJSON string, args []string) error {
