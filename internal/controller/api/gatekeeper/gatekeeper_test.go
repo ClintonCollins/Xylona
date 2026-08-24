@@ -309,15 +309,17 @@ func TestRequireSameOriginFormRequests(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		origin        string
-		referer       string
-		forwardedHost string
-		wantStatus    int
-		wantCalled    bool
-		requestURL    string
-		requestHost   string
-		requestProto  string
+		name           string
+		origin         string
+		referer        string
+		forwardedHost  string
+		forwardedProto string
+		secFetchSite   string
+		wantStatus     int
+		wantCalled     bool
+		requestURL     string
+		requestHost    string
+		requestProto   string
 	}{
 		{
 			name:         "same origin is allowed",
@@ -329,8 +331,29 @@ func TestRequireSameOriginFormRequests(t *testing.T) {
 			requestProto: "https",
 		},
 		{
+			name:           "same-origin fetch metadata is allowed through HTTPS proxy",
+			origin:         "https://xylona.test",
+			forwardedHost:  "xylona.test",
+			forwardedProto: "https",
+			secFetchSite:   "same-origin",
+			wantStatus:     http.StatusNoContent,
+			wantCalled:     true,
+			requestURL:     "http://internal.proxy.local/api/file/upload",
+			requestHost:    "internal.proxy.local",
+		},
+		{
+			name:           "same host and forwarded HTTPS are allowed without fetch metadata",
+			origin:         "https://xylona.test",
+			forwardedProto: "https",
+			wantStatus:     http.StatusNoContent,
+			wantCalled:     true,
+			requestURL:     "http://xylona.test/api/file/upload",
+			requestHost:    "xylona.test",
+		},
+		{
 			name:         "foreign origin is rejected",
 			origin:       "https://evil.test",
+			secFetchSite: "cross-site",
 			wantStatus:   http.StatusForbidden,
 			wantCalled:   false,
 			requestURL:   "http://xylona.test/api/file/upload",
@@ -384,6 +407,12 @@ func TestRequireSameOriginFormRequests(t *testing.T) {
 			}
 			if tt.forwardedHost != "" {
 				req.Header.Set("X-Forwarded-Host", tt.forwardedHost)
+			}
+			if tt.forwardedProto != "" {
+				req.Header.Set("X-Forwarded-Proto", tt.forwardedProto)
+			}
+			if tt.secFetchSite != "" {
+				req.Header.Set("Sec-Fetch-Site", tt.secFetchSite)
 			}
 			if tt.requestProto == "https" {
 				req.TLS = &tls.ConnectionState{}

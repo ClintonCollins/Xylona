@@ -21,6 +21,12 @@ func RequireSameOriginFormRequests() func(http.Handler) http.Handler {
 func RequireSameOriginFormRequestsForProxies(trust *ProxyTrust) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Browsers set this forbidden request header from the actual request URL,
+			// so it remains accurate when a reverse proxy terminates HTTPS.
+			if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")), "same-origin") {
+				next.ServeHTTP(w, r)
+				return
+			}
 			if errOrigin := validateSameOriginHeader(r, r.Header.Get("Origin"), trust); errOrigin != nil {
 				http.Error(w, sameOriginRequestDeniedMessage, http.StatusForbidden)
 				return
@@ -51,11 +57,23 @@ func validateSameOriginHeader(r *http.Request, rawHeader string, trust *ProxyTru
 
 	requestScheme := requestSchemeForSameOrigin(r, trust)
 	requestHost := requestHostForSameOrigin(r, trust)
-	if !strings.EqualFold(headerURL.Scheme, requestScheme) {
-		return errors.New("origin does not match request scheme")
-	}
 	if !strings.EqualFold(headerURL.Host, requestHost) {
 		return errors.New("origin does not match request host")
+	}
+	if !strings.EqualFold(headerURL.Scheme, requestScheme) {
+		directRequestHost := ""
+		if r != nil {
+			directRequestHost = strings.TrimSpace(r.Host)
+		}
+		// Limit the untrusted forwarded-proto fallback to HTTPS termination where
+		// the browser Origin already matches the request Host.
+		forwardedHTTPSOnSameHost := requestScheme == "http" &&
+			strings.EqualFold(headerURL.Scheme, "https") &&
+			strings.EqualFold(headerURL.Host, directRequestHost) &&
+			strings.EqualFold(firstForwardedProto(r), "https")
+		if !forwardedHTTPSOnSameHost {
+			return errors.New("origin does not match request scheme")
+		}
 	}
 
 	return nil
