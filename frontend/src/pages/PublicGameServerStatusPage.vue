@@ -14,8 +14,8 @@ import {
   type PublicGameServerStatusPage,
   PublicGameServerStatusPageSchema,
 } from '@/proto/xylona_pb'
+import { getXylonaClient } from '@/api/connect-client'
 import { formatMetricAge } from '@/pages/game_servers/metrics-format'
-import { GetXylonaClient } from '@/utils/shared'
 
 const route = useRoute()
 const $q = useQuasar()
@@ -72,7 +72,7 @@ function relativeAge(timestampMs: number): string {
 
 async function loadSnapshot(): Promise<boolean> {
   try {
-    const response = await GetXylonaClient().getPublicGameServerStatusPage(
+    const response = await getXylonaClient().getPublicGameServerStatusPage(
       create(GetPublicGameServerStatusPageRequestSchema, {
         publicIdentifier: identifier.value,
       }),
@@ -243,12 +243,15 @@ onUnmounted(() => {
       </div>
 
       <div v-if="loading && !page" class="public-status-state" role="status">
-        <q-spinner color="primary" size="42px" />
+        <q-spinner aria-hidden="true" color="primary" size="42px" />
         <h2>Loading server status</h2>
         <p>Connecting to the live status feed.</p>
       </div>
-      <div v-else-if="unavailable" class="public-status-state public-status-state--fault">
-        <q-icon name="link_off" size="48px" />
+      <div
+        v-else-if="unavailable"
+        class="public-status-state public-status-state--fault"
+        role="alert">
+        <q-icon name="link_off" size="48px" aria-hidden="true" />
         <h2>This status page is not available</h2>
         <p>The link may be incomplete, disabled, or no longer current.</p>
       </div>
@@ -256,7 +259,7 @@ onUnmounted(() => {
         v-else-if="initialError"
         class="public-status-state public-status-state--fault"
         role="alert">
-        <q-icon name="cloud_off" size="48px" />
+        <q-icon name="cloud_off" size="48px" aria-hidden="true" />
         <h2>Server status could not be loaded</h2>
         <p>Check your connection and try again.</p>
         <q-btn color="primary" label="Try again" @click="retry" />
@@ -285,7 +288,7 @@ onUnmounted(() => {
         <div
           v-if="page.servers.length === 0"
           class="public-status-state public-status-state--empty">
-          <q-icon name="dns" size="48px" />
+          <q-icon name="dns" size="48px" aria-hidden="true" />
           <h2>No game servers are published yet</h2>
           <p>This page is active. Its owner has not added any game servers.</p>
         </div>
@@ -375,7 +378,9 @@ onUnmounted(() => {
                 v-if="server.publicMapPath"
                 class="public-server-row__map-link"
                 :aria-label="`Open ${server.name} public map`"
-                :href="server.publicMapPath">
+                :href="server.publicMapPath"
+                rel="noopener noreferrer"
+                target="_blank">
                 <q-icon name="map" aria-hidden="true" />
                 View public map
               </a>
@@ -408,7 +413,7 @@ onUnmounted(() => {
 .public-status-page__inner {
   display: flex;
   flex-direction: column;
-  width: min(100%, clamp(1180px, 50vw, 1920px));
+  width: 100%;
   min-height: 100dvh;
   gap: var(--xy-space-lg);
   margin: 0 auto;

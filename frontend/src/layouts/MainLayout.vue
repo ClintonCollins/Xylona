@@ -13,8 +13,10 @@ import Navigation from '@/components/Navigation.vue'
 import { onMounted } from 'vue'
 
 import { initGameServerNotificationService } from '@/utils/game-server-notifications'
+import { GetOrCreateXylonaWebsocketClient } from '@/utils/shared'
 
 onMounted(() => {
   initGameServerNotificationService()
+  GetOrCreateXylonaWebsocketClient()
 })
 </script>

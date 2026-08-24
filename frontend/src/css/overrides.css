@@ -204,6 +204,11 @@ a.q-item:hover {
   outline-offset: 3px;
 }
 
+.q-btn:focus-visible {
+  outline: 3px solid var(--xy-focus-ring) !important;
+  outline-offset: 3px !important;
+}
+
 /* Keep field focus on the visible shell instead of the nested native input. */
 .q-field__native:focus-visible,
 .q-field__input:focus-visible {

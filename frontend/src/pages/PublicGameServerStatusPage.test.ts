@@ -19,8 +19,8 @@ const mocks = vi.hoisted(() => ({
   notify: vi.fn(),
 }))
 
-vi.mock('@/utils/shared', () => ({
-  GetXylonaClient: () => ({ getPublicGameServerStatusPage: mocks.getStatusPage }),
+vi.mock('@/api/connect-client', () => ({
+  getXylonaClient: () => ({ getPublicGameServerStatusPage: mocks.getStatusPage }),
 }))
 
 vi.mock('vue-router', () => ({
@@ -111,9 +111,10 @@ describe('PublicGameServerStatusPage', () => {
     expect(wrapper.get('.public-server-row').classes()).toContain('is-online')
     expect(wrapper.text()).toContain('Bring a friend.')
     expect(wrapper.text()).toContain('join-us')
-    expect(wrapper.get('[aria-label="Open Alpha public map"]').attributes('href')).toBe(
-      '/maps/Alpha_Map',
-    )
+    const mapLink = wrapper.get('[aria-label="Open Alpha public map"]')
+    expect(mapLink.attributes('href')).toBe('/maps/Alpha_Map')
+    expect(mapLink.attributes('target')).toBe('_blank')
+    expect(mapLink.attributes('rel')).toBe('noopener noreferrer')
     expect(FakeEventSource.instances[0]?.url).toBe('/api/public/status-pages/Fleet_A/events')
 
     const initialServer = initial.servers[0]
@@ -150,6 +151,7 @@ describe('PublicGameServerStatusPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('This status page is not available')
+    expect(wrapper.get('.public-status-state--fault').attributes('role')).toBe('alert')
     wrapper.unmount()
     expect(FakeEventSource.instances[0]?.closed).toBe(true)
     expect(document.title).toBe(initialDocumentTitle)
