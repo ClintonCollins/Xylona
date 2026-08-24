@@ -53,14 +53,14 @@ func TestNodeSevenDaysToDieMap(t *testing.T) {
 	if !found {
 		t.Fatalf("test server host %q has no port", serverURL.Host)
 	}
-	config := fmt.Sprintf(`<ServerSettings><property name="WebDashboardPort" value="%s" /></ServerSettings>`, port)
+	config := fmt.Sprintf(`<ServerSettings><property name="WebDashboardEnabled" value="false"/><property name="WebDashboardPort" value="%s" /></ServerSettings>`, port)
 	errWrite := os.WriteFile(filepath.Join(workingDirectory, sevenDaysToDieServerConfigName), []byte(config), 0o600)
 	if errWrite != nil {
 		t.Fatalf("write server config: %v", errWrite)
 	}
 
 	n := new(Node)
-	t.Run("reads the current native snapshot without arbitrary proxying", func(t *testing.T) {
+	t.Run("reads the current native snapshot while the dashboard is disabled", func(t *testing.T) {
 		snapshot, errQuery := n.QuerySevenDaysToDieMap(context.Background(), SevenDaysToDieMapQueryRequest{
 			WorkingDirectory: workingDirectory,
 			TokenName:        tokenName,
@@ -80,7 +80,7 @@ func TestNodeSevenDaysToDieMap(t *testing.T) {
 		}
 	})
 
-	t.Run("fetches only a bounded PNG tile with the native credentials", func(t *testing.T) {
+	t.Run("fetches a bounded PNG tile while the dashboard is disabled", func(t *testing.T) {
 		tile, errTile := n.GetSevenDaysToDieMapTile(context.Background(), SevenDaysToDieMapTileRequest{
 			WorkingDirectory: workingDirectory,
 			TokenName:        tokenName,
@@ -293,9 +293,10 @@ func TestSevenDaysToDieTacticalOverlaysDoNotRenewExhaustedDiscoveryBudget(t *tes
 			},
 		}},
 	}
+	access := newSevenDaysToDieNativeAccess("", "", "")
 	state := querySevenDaysToDieMapOverlay(
+		access,
 		discovery,
-		SevenDaysToDieMapQueryRequest{},
 		sevenDaysToDieWebAPIEndpointMarkers,
 		func([]byte) error { return nil },
 	)

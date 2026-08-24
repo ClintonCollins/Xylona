@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"math"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -114,13 +113,8 @@ type sevenDaysToDieMapEntityJSON struct {
 // QuerySevenDaysToDieMap reads the fixed native WebAPI endpoints from the
 // owning node. It intentionally dials loopback and never accepts a caller URL.
 func (n *Node) QuerySevenDaysToDieMap(ctx context.Context, req SevenDaysToDieMapQueryRequest) (*SevenDaysToDieMapSnapshot, error) {
-	baseURL, errBaseURL := sevenDaysToDieMapBaseURL(req.WorkingDirectory)
-	if errBaseURL != nil {
-		return nil, errBaseURL
-	}
-
-	client := sevenDaysToDieMapHTTPClient()
-	configEnvelope, errConfig := sevenDaysToDieMapGetJSON(ctx, client, baseURL+"/api/map/config", req)
+	access := newSevenDaysToDieNativeAccess(req.WorkingDirectory, req.TokenName, req.TokenSecret)
+	configEnvelope, errConfig := access.mapJSON(ctx, "/api/map/config")
 	if errConfig != nil {
 		return nil, fmt.Errorf("%w: read config: %w", errSevenDaysToDieMapUnavailable, errConfig)
 	}
@@ -138,9 +132,9 @@ func (n *Node) QuerySevenDaysToDieMap(ctx context.Context, req SevenDaysToDieMap
 		return nil, fmt.Errorf("%w: invalid native map dimensions", errSevenDaysToDieMapUnavailable)
 	}
 
-	playersEnvelope, errPlayers := sevenDaysToDieMapGetJSON(ctx, client, baseURL+sevenDaysToDieWebAPIEndpointPlayer, req)
+	playersEnvelope, errPlayers := access.mapJSON(ctx, sevenDaysToDieWebAPIEndpointPlayer)
 	if errPlayers != nil && errors.Is(errPlayers, fs.ErrNotExist) {
-		playersEnvelope, errPlayers = sevenDaysToDieMapGetJSON(ctx, client, baseURL+"/api/getplayerslocation?offline=true", req)
+		playersEnvelope, errPlayers = access.mapJSON(ctx, "/api/getplayerslocation?offline=true")
 	}
 	if errPlayers != nil {
 		return nil, fmt.Errorf("%w: read players: %w", errSevenDaysToDieMapUnavailable, errPlayers)
@@ -161,7 +155,7 @@ func (n *Node) QuerySevenDaysToDieMap(ctx context.Context, req SevenDaysToDieMap
 		Players:    players,
 	}
 	if req.IncludeTactical {
-		querySevenDaysToDieTacticalOverlays(ctx, req, snapshot)
+		querySevenDaysToDieTacticalOverlays(ctx, access, snapshot)
 	}
 	return snapshot, nil
 }
@@ -170,14 +164,18 @@ func validSevenDaysToDieMapDimension(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0) && value > 0 && value <= 2_000_000
 }
 
-func querySevenDaysToDieTacticalOverlays(ctx context.Context, req SevenDaysToDieMapQueryRequest, snapshot *SevenDaysToDieMapSnapshot) {
+func querySevenDaysToDieTacticalOverlays(
+	ctx context.Context,
+	access *sevenDaysToDieNativeAccess,
+	snapshot *SevenDaysToDieMapSnapshot,
+) {
 	snapshot.NativeMarkerState = SevenDaysToDieWebAPIValueStateUnavailable
 	snapshot.ClaimsState = SevenDaysToDieWebAPIValueStateUnavailable
 	snapshot.BloodMoonState = SevenDaysToDieWebAPIValueStateUnavailable
 	snapshot.HostileState = SevenDaysToDieWebAPIValueStateUnavailable
 	snapshot.AnimalState = SevenDaysToDieWebAPIValueStateUnavailable
 
-	discovery, errDiscovery := discoverSevenDaysToDieWebAPI(ctx, req.WorkingDirectory, req.TokenName, req.TokenSecret)
+	discovery, errDiscovery := access.discover(ctx)
 	if errDiscovery != nil {
 		return
 	}
@@ -228,13 +226,13 @@ func querySevenDaysToDieTacticalOverlays(ctx context.Context, req SevenDaysToDie
 		}},
 	}
 	for _, overlay := range overlays {
-		*overlay.state = querySevenDaysToDieMapOverlay(discovery, req, overlay.path, overlay.decode)
+		*overlay.state = querySevenDaysToDieMapOverlay(access, discovery, overlay.path, overlay.decode)
 	}
 }
 
 func querySevenDaysToDieMapOverlay(
+	access *sevenDaysToDieNativeAccess,
 	discovery *sevenDaysToDieWebAPIDiscovery,
-	req SevenDaysToDieMapQueryRequest,
 	path string,
 	decode func([]byte) error,
 ) SevenDaysToDieWebAPIValueState {
@@ -244,9 +242,7 @@ func querySevenDaysToDieMapOverlay(
 		}
 		return SevenDaysToDieWebAPIValueStateUnsupported
 	}
-	statusCode, body, errQuery := getSevenDaysToDieWebAPI(
-		discovery.ctx, discovery.settings, path, req.TokenName, req.TokenSecret,
-	)
+	statusCode, body, errQuery := access.getWebAPI(discovery.ctx, discovery.settings, path)
 	if errQuery != nil {
 		return SevenDaysToDieWebAPIValueStateUnavailable
 	}
@@ -270,115 +266,9 @@ func (n *Node) GetSevenDaysToDieMapTile(ctx context.Context, req SevenDaysToDieM
 	if req.Zoom < 0 || req.Zoom > 30 || req.X < -1_000_000 || req.X > 1_000_000 || req.Y < -1_000_000 || req.Y > 1_000_000 {
 		return nil, errors.New("node: invalid 7 Days to Die map tile coordinates")
 	}
-	baseURL, errBaseURL := sevenDaysToDieMapBaseURL(req.WorkingDirectory)
-	if errBaseURL != nil {
-		return nil, errBaseURL
-	}
-	tileURL := fmt.Sprintf("%s/map/%d/%d/%d.png", baseURL, req.Zoom, req.X, req.Y)
-	httpRequest, errRequest := http.NewRequestWithContext(ctx, http.MethodGet, tileURL, nil)
-	if errRequest != nil {
-		return nil, fmt.Errorf("node: create 7 Days to Die tile request: %w", errRequest)
-	}
-	setSevenDaysToDieMapHeaders(httpRequest, req.TokenName, req.TokenSecret)
-	response, errDo := sevenDaysToDieMapHTTPClient().Do(httpRequest)
-	if errDo != nil {
-		return nil, fmt.Errorf("%w: fetch tile: %w", errSevenDaysToDieMapUnavailable, errDo)
-	}
-	if response.StatusCode == http.StatusNotFound {
-		errClose := response.Body.Close()
-		if errClose != nil {
-			return nil, fmt.Errorf("node: close missing 7 Days to Die map tile response: %w", errClose)
-		}
-		return nil, fs.ErrNotExist
-	}
-	if response.StatusCode != http.StatusOK {
-		errClose := response.Body.Close()
-		if errClose != nil {
-			return nil, fmt.Errorf("%w: tile returned status %d and close response: %w", errSevenDaysToDieMapUnavailable, response.StatusCode, errClose)
-		}
-		return nil, fmt.Errorf("%w: tile returned status %d", errSevenDaysToDieMapUnavailable, response.StatusCode)
-	}
-	content, errRead := io.ReadAll(io.LimitReader(response.Body, sevenDaysToDieMapTileLimit+1))
-	errClose := response.Body.Close()
-	if errRead != nil || errClose != nil {
-		return nil, fmt.Errorf("node: read 7 Days to Die map tile: %w", errors.Join(errRead, errClose))
-	}
-	if len(content) > sevenDaysToDieMapTileLimit || !bytes.HasPrefix(content, []byte("\x89PNG\r\n\x1a\n")) {
-		return nil, errors.New("node: invalid 7 Days to Die map tile")
-	}
-	return content, nil
-}
-
-func sevenDaysToDieMapBaseURL(workingDirectory string) (string, error) {
-	values, errValues := readSevenDaysToDieServerSettings(workingDirectory)
-	if errValues != nil {
-		return "", errValues
-	}
-	port, errPort := strconv.ParseUint(strings.TrimSpace(values["WebDashboardPort"]), 10, 16)
-	if errPort != nil || port == 0 {
-		return "", errors.New("node: 7 Days to Die WebDashboardPort is invalid")
-	}
-	return "http://127.0.0.1:" + strconv.FormatUint(port, 10), nil
-}
-
-func sevenDaysToDieMapHTTPClient() *http.Client {
-	return sevenDaysToDieWebAPIHTTPClient()
-}
-
-func sevenDaysToDieMapGetJSON(ctx context.Context, client *http.Client, endpoint string, req SevenDaysToDieMapQueryRequest) (sevenDaysToDieMapEnvelope, error) {
-	parsedURL, errURL := url.Parse(endpoint)
-	if errURL != nil || parsedURL.Scheme != "http" || parsedURL.Hostname() != "127.0.0.1" {
-		return sevenDaysToDieMapEnvelope{}, errors.New("node: invalid 7 Days to Die map endpoint")
-	}
-	httpRequest, errRequest := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if errRequest != nil {
-		return sevenDaysToDieMapEnvelope{}, fmt.Errorf("node: create 7 Days to Die map request: %w", errRequest)
-	}
-	setSevenDaysToDieMapHeaders(httpRequest, req.TokenName, req.TokenSecret)
-	response, errDo := client.Do(httpRequest)
-	if errDo != nil {
-		return sevenDaysToDieMapEnvelope{}, fmt.Errorf("perform 7 Days to Die map request: %w", errDo)
-	}
-	if response.StatusCode == http.StatusNotFound {
-		errClose := response.Body.Close()
-		if errClose != nil {
-			return sevenDaysToDieMapEnvelope{}, fmt.Errorf("close missing response: %w", errClose)
-		}
-		return sevenDaysToDieMapEnvelope{}, fs.ErrNotExist
-	}
-	if response.StatusCode != http.StatusOK {
-		errClose := response.Body.Close()
-		if errClose != nil {
-			return sevenDaysToDieMapEnvelope{}, fmt.Errorf("status %d and close response: %w", response.StatusCode, errClose)
-		}
-		return sevenDaysToDieMapEnvelope{}, fmt.Errorf("status %d", response.StatusCode)
-	}
-	data, errRead := io.ReadAll(io.LimitReader(response.Body, sevenDaysToDieMapJSONLimit+1))
-	errClose := response.Body.Close()
-	if errRead != nil || errClose != nil {
-		return sevenDaysToDieMapEnvelope{}, errors.Join(errRead, errClose)
-	}
-	if len(data) > sevenDaysToDieMapJSONLimit {
-		return sevenDaysToDieMapEnvelope{}, fmt.Errorf("response exceeds %d bytes", sevenDaysToDieMapJSONLimit)
-	}
-	errStructure := validateSevenDaysToDieMapJSONStructure(data)
-	if errStructure != nil {
-		return sevenDaysToDieMapEnvelope{}, errStructure
-	}
-	var envelope sevenDaysToDieMapEnvelope
-	errDecode := json.Unmarshal(data, &envelope)
-	if errDecode != nil || len(envelope.Data) == 0 {
-		return sevenDaysToDieMapEnvelope{}, fmt.Errorf("decode response: %w", errDecode)
-	}
-	return envelope, nil
-}
-
-func setSevenDaysToDieMapHeaders(request *http.Request, tokenName string, tokenSecret string) {
-	request.Header.Set("Accept", "application/json, image/png")
-	if strings.TrimSpace(tokenName) != "" && strings.TrimSpace(tokenSecret) != "" {
-		request.Header.Set("X-SDTD-API-TOKENNAME", tokenName)
-		request.Header.Set("X-SDTD-API-SECRET", tokenSecret)
-	}
+	access := newSevenDaysToDieNativeAccess(req.WorkingDirectory, req.TokenName, req.TokenSecret)
+	tilePath := fmt.Sprintf("/map/%d/%d/%d.png", req.Zoom, req.X, req.Y)
+	return access.mapTile(ctx, tilePath)
 }
 
 func decodeSevenDaysToDieMapPlayers(data json.RawMessage, mapSize SevenDaysToDieMapVector) ([]SevenDaysToDieMapPlayer, error) {

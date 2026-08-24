@@ -943,6 +943,52 @@ func TestNodeQuerySevenDaysToDieSandboxSettings(t *testing.T) {
 		}
 	})
 
+	t.Run("uses one server config snapshot per operation", func(t *testing.T) {
+		workingDirectory := t.TempDir()
+		discoveryStarted := make(chan struct{})
+		continueDiscovery := make(chan struct{})
+		server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			switch request.URL.Path {
+			case "/api/openapi/openapi.yaml":
+				close(discoveryStarted)
+				<-continueDiscovery
+				writeSevenDaysToDieTestResponse(t, response, "openapi: 3.1.0\ninfo:\n  version: '3.0'\npaths:\n  /api/sandboxsettings:\n    get: {}\n")
+			case "/api/sandboxsettings":
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"code":"AAAJABJACJADJARFBNC","settings":[{"key":"RangedDamage","value":"1"}]}}`)
+			default:
+				http.NotFound(response, request)
+			}
+		}))
+		t.Cleanup(server.Close)
+		_, port, errSplitHostPort := net.SplitHostPort(server.Listener.Addr().String())
+		if errSplitHostPort != nil {
+			t.Fatalf("split test server host: %v", errSplitHostPort)
+		}
+		writeSevenDaysToDieWebAPIConfig(t, workingDirectory, "true", port, "")
+
+		type queryResult struct {
+			result *SevenDaysToDieSandboxSettings
+			err    error
+		}
+		resultChannel := make(chan queryResult, 1)
+		go func() {
+			result, errQuery := new(Node).QuerySevenDaysToDieSandboxSettings(t.Context(), SevenDaysToDieSandboxSettingsQueryRequest{WorkingDirectory: workingDirectory})
+			resultChannel <- queryResult{result: result, err: errQuery}
+		}()
+
+		<-discoveryStarted
+		writeSevenDaysToDieWebAPIConfigWithSandboxCode(t, workingDirectory, "true", port, "", "AAAE")
+		close(continueDiscovery)
+
+		query := <-resultChannel
+		if query.err != nil {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() error = %v", query.err)
+		}
+		if query.result.ConfiguredCode != configuredCode || query.result.ComparisonState != SevenDaysToDieSandboxComparisonStateMatch {
+			t.Fatalf("QuerySevenDaysToDieSandboxSettings() = %+v, want initial config snapshot", query.result)
+		}
+	})
+
 	t.Run("reports a truthful mismatch from one current GET", func(t *testing.T) {
 		var methods []string
 		sandboxRequests := 0
@@ -1071,11 +1117,16 @@ func TestNodeQuerySevenDaysToDieSandboxSettings(t *testing.T) {
 
 func writeSevenDaysToDieWebAPIConfig(t *testing.T, workingDirectory string, enabled string, port string, dashboardURL string) {
 	t.Helper()
+	writeSevenDaysToDieWebAPIConfigWithSandboxCode(t, workingDirectory, enabled, port, dashboardURL, "AAAJABJACJADJARFBNC")
+}
+
+func writeSevenDaysToDieWebAPIConfigWithSandboxCode(t *testing.T, workingDirectory string, enabled string, port string, dashboardURL string, sandboxCode string) {
+	t.Helper()
 	config := `<ServerSettings>` +
 		`<property name="WebDashboardEnabled" value="` + enabled + `" />` +
 		`<property name="WebDashboardPort" value="` + port + `" />` +
 		`<property name="WebDashboardUrl" value="` + dashboardURL + `" />` +
-		`<property name="SandboxCode" value="AAAJABJACJADJARFBNC" />` +
+		`<property name="SandboxCode" value="` + sandboxCode + `" />` +
 		`</ServerSettings>`
 	errWrite := os.WriteFile(filepath.Join(workingDirectory, sevenDaysToDieServerConfigName), []byte(config), 0o600)
 	if errWrite != nil {
