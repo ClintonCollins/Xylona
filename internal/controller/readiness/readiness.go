@@ -15,7 +15,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -37,6 +36,14 @@ const minecraftEULAFileName = "eula.txt"
 
 var sunkenlandWorldNamePattern = regexp.MustCompile(`(?i)^.+~([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`)
 
+type readinessNodeClient interface {
+	GetNodeSnapshot(ctx context.Context) (*node.NodeSnapshot, error)
+	ListFiles(ctx context.Context, directory, relativePath string) ([]node.FileEntry, error)
+	ReadFile(ctx context.Context, directory, relativePath string) ([]byte, error)
+	WriteFile(ctx context.Context, directory, relativePath string, content []byte, policy node.ProtectionPolicy) error
+	GetRuntimeCapabilities(ctx context.Context) (node.RuntimeCapabilities, error)
+}
+
 // Item is the public readiness state returned to the UI.
 type Item struct {
 	Kind       string
@@ -52,7 +59,7 @@ type minecraftEULAPublicData struct {
 }
 
 // List returns the current public readiness state for a server.
-func List(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client nodeclient.NodeClient) ([]Item, error) {
+func List(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client readinessNodeClient) ([]Item, error) {
 	if gameServer == nil {
 		return nil, errors.New("readiness: game server is nil")
 	}
@@ -127,7 +134,7 @@ func List(ctx context.Context, database *db.Connection, gameServer *models.GameS
 }
 
 // CheckStart blocks launch when required setup is missing.
-func CheckStart(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client nodeclient.NodeClient) error {
+func CheckStart(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client readinessNodeClient) error {
 	if gameServer == nil {
 		return errors.New("game server is missing")
 	}
@@ -182,7 +189,7 @@ func CheckStart(ctx context.Context, database *db.Connection, gameServer *models
 	return nil
 }
 
-func dragonwildsConfigItem(ctx context.Context, gameServer *models.GameServer, client nodeclient.NodeClient) (Item, error) {
+func dragonwildsConfigItem(ctx context.Context, gameServer *models.GameServer, client readinessNodeClient) (Item, error) {
 	item := Item{
 		Kind:     KindDragonwildsConfig,
 		Required: true,
@@ -257,7 +264,7 @@ func dragonwildsConfigItem(ctx context.Context, gameServer *models.GameServer, c
 	return item, nil
 }
 
-func sunkenlandWorldItem(ctx context.Context, gameServer *models.GameServer, client nodeclient.NodeClient) (Item, error) {
+func sunkenlandWorldItem(ctx context.Context, gameServer *models.GameServer, client readinessNodeClient) (Item, error) {
 	item := Item{
 		Kind:     KindSunkenlandWorld,
 		Required: true,
@@ -326,7 +333,7 @@ func sunkenlandWorldItem(ctx context.Context, gameServer *models.GameServer, cli
 }
 
 // AcceptMinecraftEULA records EULA acceptance and writes eula.txt when possible.
-func AcceptMinecraftEULA(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client nodeclient.NodeClient, userID string) error {
+func AcceptMinecraftEULA(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client readinessNodeClient, userID string) error {
 	if gameServer == nil {
 		return errors.New("game server is missing")
 	}
@@ -395,7 +402,7 @@ func ClearSteamGSLT(database *db.Connection, gameServerID string) error {
 	return nil
 }
 
-func minecraftEULAItem(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client nodeclient.NodeClient, repairFile bool) (Item, error) {
+func minecraftEULAItem(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client readinessNodeClient, repairFile bool) (Item, error) {
 	item := Item{
 		Kind:     KindMinecraftEULA,
 		Required: true,
@@ -516,7 +523,7 @@ func minecraftEULAAcceptedFromDB(database *db.Connection, gameServerID string) (
 	return data.Accepted, true, nil
 }
 
-func readMinecraftEULA(ctx context.Context, gameServer *models.GameServer, client nodeclient.NodeClient) (bool, error) {
+func readMinecraftEULA(ctx context.Context, gameServer *models.GameServer, client readinessNodeClient) (bool, error) {
 	if client == nil {
 		return false, errors.New("target node client is unavailable")
 	}
@@ -535,7 +542,7 @@ func readMinecraftEULA(ctx context.Context, gameServer *models.GameServer, clien
 	return false, nil
 }
 
-func writeMinecraftEULA(ctx context.Context, gameServer *models.GameServer, client nodeclient.NodeClient) error {
+func writeMinecraftEULA(ctx context.Context, gameServer *models.GameServer, client readinessNodeClient) error {
 	if client == nil {
 		return errors.New("target node client is unavailable")
 	}

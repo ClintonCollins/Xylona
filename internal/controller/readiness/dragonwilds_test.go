@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -39,9 +38,9 @@ func TestDragonwildsConfigItem(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &nodeclient.FakeNodeClient{
-				SnapshotResult: &node.NodeSnapshot{OS: test.operatingSys},
-				ReadFileResult: []byte(test.contents),
+			client := &readinessNodeClientFake{
+				snapshotResult: &node.NodeSnapshot{OS: test.operatingSys},
+				readFileResult: []byte(test.contents),
 			}
 			gameServer := &models.GameServer{
 				GameID:    "runescape_dragonwilds",
@@ -58,17 +57,17 @@ func TestDragonwildsConfigItem(t *testing.T) {
 			if !strings.Contains(item.Message, test.wantMessage) {
 				t.Fatalf("message = %q, want substring %q", item.Message, test.wantMessage)
 			}
-			if len(client.ReadFileCalls) != 1 || client.ReadFileCalls[0].RelativePath != test.wantPath {
-				t.Fatalf("ReadFile calls = %+v, want path %q", client.ReadFileCalls, test.wantPath)
+			if len(client.readFileCalls) != 1 || client.readFileCalls[0].relativePath != test.wantPath {
+				t.Fatalf("ReadFile calls = %+v, want path %q", client.readFileCalls, test.wantPath)
 			}
 		})
 	}
 }
 
 func TestCheckStartBlocksIncompleteDragonwildsConfig(t *testing.T) {
-	client := &nodeclient.FakeNodeClient{
-		SnapshotResult: &node.NodeSnapshot{OS: "linux"},
-		ReadFileResult: []byte("ServerName=Server\nDefaultWorldName=World\n"),
+	client := &readinessNodeClientFake{
+		snapshotResult: &node.NodeSnapshot{OS: "linux"},
+		readFileResult: []byte("ServerName=Server\nDefaultWorldName=World\n"),
 	}
 	gameServer := &models.GameServer{
 		GameID:    "runescape_dragonwilds",

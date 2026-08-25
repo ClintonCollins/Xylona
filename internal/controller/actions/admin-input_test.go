@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"testing"
@@ -8,7 +9,6 @@ import (
 	"github.com/aarondl/opt/null"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -112,11 +112,11 @@ func TestGameServerAdminInput(t *testing.T) {
 				}
 			}
 
-			client := &nodeclient.FakeNodeClient{}
+			client := &runtimeCapabilitiesClientFake{}
 			errSupported := (&Instance{}).ensureAdminInputSupported(client, input)
 			if tc.wantCapability == "" {
-				if errSupported != nil || client.RuntimeCapabilitiesCalls != 0 {
-					t.Fatalf("capability check = %v, calls = %d", errSupported, client.RuntimeCapabilitiesCalls)
+				if errSupported != nil || client.calls != 0 {
+					t.Fatalf("capability check = %v, calls = %d", errSupported, client.calls)
 				}
 				return
 			}
@@ -153,8 +153,8 @@ func TestEnsureAdminInputSupportedRequiresPalworldRESTProtocol(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			client := &nodeclient.FakeNodeClient{
-				RuntimeCapabilitiesResult: node.RuntimeCapabilities{
+			client := &runtimeCapabilitiesClientFake{
+				result: node.RuntimeCapabilities{
 					ProtocolVersion: tc.protocolVersion,
 					RESTInput:       true,
 				},
@@ -214,4 +214,14 @@ func adminInputTestGameDefinition(gameID string) *models.Game {
 		game.LinuxStartArgsTemplate = null.From(`[{"ownership":"system","tokens":["-multihome={{IP}}","-ini:Engine:[HTTPServer.Listeners]:DefaultBindAddress={{IP}}"]}]`)
 	}
 	return game
+}
+
+type runtimeCapabilitiesClientFake struct {
+	result node.RuntimeCapabilities
+	calls  int
+}
+
+func (f *runtimeCapabilitiesClientFake) GetRuntimeCapabilities(context.Context) (node.RuntimeCapabilities, error) {
+	f.calls++
+	return f.result, nil
 }

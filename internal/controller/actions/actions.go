@@ -72,6 +72,10 @@ type BackupProgressBroadcaster interface {
 	BroadcastBackupProgress(serverID string, progress *xylona.BackupProgress)
 }
 
+type runtimeCapabilitiesClient interface {
+	GetRuntimeCapabilities(ctx context.Context) (node.RuntimeCapabilities, error)
+}
+
 type versionRefreshCall struct {
 	done chan struct{}
 }
@@ -689,7 +693,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	return &StartGameServerResult{Started: true}, nil
 }
 
-func (inst *Instance) ensureLaunchEnvSupported(client nodeclient.NodeClient, required bool) error {
+func (inst *Instance) ensureLaunchEnvSupported(client runtimeCapabilitiesClient, required bool) error {
 	if !required {
 		return nil
 	}
@@ -703,7 +707,7 @@ func (inst *Instance) ensureLaunchEnvSupported(client nodeclient.NodeClient, req
 	return nil
 }
 
-func (inst *Instance) ensureTelnetInputSupported(client nodeclient.NodeClient) error {
+func (inst *Instance) ensureTelnetInputSupported(client runtimeCapabilitiesClient) error {
 	caps, errCaps := client.GetRuntimeCapabilities(inst.ctx)
 	if errCaps != nil {
 		return startUnavailableError("target node runtime capabilities unavailable", errCaps)

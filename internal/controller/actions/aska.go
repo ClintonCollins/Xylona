@@ -2,12 +2,12 @@ package actions
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -17,9 +17,14 @@ const (
 	askaGSLTSetting    = "authentication token"
 )
 
+type askaFileClient interface {
+	ReadFile(ctx context.Context, directory, relativePath string) ([]byte, error)
+	WriteFile(ctx context.Context, directory, relativePath string, content []byte, policy node.ProtectionPolicy) error
+}
+
 func (inst *Instance) writeGameLaunchSecrets(
 	gameServer *models.GameServer,
-	client nodeclient.NodeClient,
+	client askaFileClient,
 	secretVars map[string]string,
 ) error {
 	if gameServer == nil || gameServer.GameID != askaGameID {

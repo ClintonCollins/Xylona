@@ -17,7 +17,6 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/admininterface"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -352,7 +351,7 @@ func (input gameServerAdminInput) mergePlaceholderVars(values map[string]string)
 }
 
 func (inst *Instance) ensureAdminInputSupported(
-	client nodeclient.NodeClient,
+	client runtimeCapabilitiesClient,
 	input gameServerAdminInput,
 ) error {
 	if input.telnet == nil && input.rcon == nil && input.rest == nil {

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 )
 
 func TestEnsureTelnetInputSupported(t *testing.T) {
@@ -20,8 +19,8 @@ func TestEnsureTelnetInputSupported(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := &nodeclient.FakeNodeClient{
-				RuntimeCapabilitiesResult: node.RuntimeCapabilities{TelnetInput: test.capability},
+			client := &runtimeCapabilitiesClientFake{
+				result: node.RuntimeCapabilities{TelnetInput: test.capability},
 			}
 			inst := &Instance{ctx: context.Background()}
 
@@ -32,8 +31,8 @@ func TestEnsureTelnetInputSupported(t *testing.T) {
 			if !test.wantError && errSupported != nil {
 				t.Fatalf("ensureTelnetInputSupported() error = %v", errSupported)
 			}
-			if client.RuntimeCapabilitiesCalls != 1 {
-				t.Fatalf("GetRuntimeCapabilities call count = %d, want 1", client.RuntimeCapabilitiesCalls)
+			if client.calls != 1 {
+				t.Fatalf("GetRuntimeCapabilities call count = %d, want 1", client.calls)
 			}
 		})
 	}

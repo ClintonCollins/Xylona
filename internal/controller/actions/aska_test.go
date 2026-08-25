@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -75,8 +75,8 @@ func TestPatchKeyValueSetting(t *testing.T) {
 
 func TestWriteGameLaunchSecretsPatchesASKAProperties(t *testing.T) {
 	inst := &Instance{ctx: context.Background()}
-	client := &nodeclient.FakeNodeClient{
-		ReadFileResult: []byte("display name = Example\nauthentication token = old-token\n"),
+	client := &askaFileClientFake{
+		readResult: []byte("display name = Example\nauthentication token = old-token\n"),
 	}
 	gameServer := &models.GameServer{
 		ID:        "aska-server",
@@ -92,22 +92,48 @@ func TestWriteGameLaunchSecretsPatchesASKAProperties(t *testing.T) {
 	if errWrite != nil {
 		t.Fatalf("writeGameLaunchSecrets() error = %v", errWrite)
 	}
-	if len(client.ReadFileCalls) != 1 {
-		t.Fatalf("ReadFile call count = %d, want 1", len(client.ReadFileCalls))
+	if len(client.readCalls) != 1 {
+		t.Fatalf("ReadFile call count = %d, want 1", len(client.readCalls))
 	}
-	readCall := client.ReadFileCalls[0]
-	if readCall.Directory != gameServer.Directory || readCall.RelativePath != askaPropertiesPath {
+	readCall := client.readCalls[0]
+	if readCall.directory != gameServer.Directory || readCall.relativePath != askaPropertiesPath {
 		t.Errorf("ReadFile call = %+v, want directory %q and path %q", readCall, gameServer.Directory, askaPropertiesPath)
 	}
-	if len(client.WriteFileCalls) != 1 {
-		t.Fatalf("WriteFile call count = %d, want 1", len(client.WriteFileCalls))
+	if len(client.writeCalls) != 1 {
+		t.Fatalf("WriteFile call count = %d, want 1", len(client.writeCalls))
 	}
-	writeCall := client.WriteFileCalls[0]
-	if writeCall.Directory != gameServer.Directory || writeCall.RelativePath != askaPropertiesPath {
+	writeCall := client.writeCalls[0]
+	if writeCall.directory != gameServer.Directory || writeCall.relativePath != askaPropertiesPath {
 		t.Errorf("WriteFile call = %+v, want directory %q and path %q", writeCall, gameServer.Directory, askaPropertiesPath)
 	}
 	wantContent := "display name = Example\nauthentication token = new-token\n"
-	if string(writeCall.Content) != wantContent {
-		t.Errorf("WriteFile content = %q, want %q", string(writeCall.Content), wantContent)
+	if string(writeCall.content) != wantContent {
+		t.Errorf("WriteFile content = %q, want %q", string(writeCall.content), wantContent)
 	}
+}
+
+type askaFileCall struct {
+	directory    string
+	relativePath string
+	content      []byte
+}
+
+type askaFileClientFake struct {
+	readResult []byte
+	readCalls  []askaFileCall
+	writeCalls []askaFileCall
+}
+
+func (f *askaFileClientFake) ReadFile(_ context.Context, directory string, relativePath string) ([]byte, error) {
+	f.readCalls = append(f.readCalls, askaFileCall{directory: directory, relativePath: relativePath})
+	return f.readResult, nil
+}
+
+func (f *askaFileClientFake) WriteFile(_ context.Context, directory string, relativePath string, content []byte, _ node.ProtectionPolicy) error {
+	f.writeCalls = append(f.writeCalls, askaFileCall{
+		directory:    directory,
+		relativePath: relativePath,
+		content:      append([]byte(nil), content...),
+	})
+	return nil
 }

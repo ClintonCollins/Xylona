@@ -18,7 +18,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -690,7 +689,7 @@ func RequiresLaunchEnv(gameServer *models.GameServer) bool {
 }
 
 // HytaleAccountItem returns the public readiness state for Hytale account linking.
-func HytaleAccountItem(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client nodeclient.NodeClient, checkNode bool) (Item, error) {
+func HytaleAccountItem(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client readinessNodeClient, checkNode bool) (Item, error) {
 	item := Item{
 		Kind:     KindHytaleAccount,
 		Required: true,

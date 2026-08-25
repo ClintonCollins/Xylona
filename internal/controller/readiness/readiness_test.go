@@ -10,7 +10,6 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
-	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -21,8 +20,8 @@ func TestCheckStartMinecraftEULABlocksUntilAccepted(t *testing.T) {
 		GameID:    "minecraft",
 		Directory: "/srv/minecraft",
 	}
-	client := &nodeclient.FakeNodeClient{
-		ReadFileErr: os.ErrNotExist,
+	client := &readinessNodeClientFake{
+		readFileErr: os.ErrNotExist,
 	}
 
 	errMissing := CheckStart(context.Background(), conn, gameServer, client)
@@ -32,23 +31,23 @@ func TestCheckStartMinecraftEULABlocksUntilAccepted(t *testing.T) {
 	if !strings.Contains(errMissing.Error(), "Minecraft EULA required") {
 		t.Fatalf("CheckStart() error = %v, want Minecraft EULA required", errMissing)
 	}
-	if len(client.WriteFileCalls) != 0 {
-		t.Fatalf("WriteFile call count = %d, want 0", len(client.WriteFileCalls))
+	if len(client.writeFileCalls) != 0 {
+		t.Fatalf("WriteFile call count = %d, want 0", len(client.writeFileCalls))
 	}
 
 	errAccept := AcceptMinecraftEULA(context.Background(), conn, gameServer, client, "user-admin")
 	if errAccept != nil {
 		t.Fatalf("AcceptMinecraftEULA() error = %v", errAccept)
 	}
-	if len(client.WriteFileCalls) != 1 {
-		t.Fatalf("WriteFile call count = %d, want 1", len(client.WriteFileCalls))
+	if len(client.writeFileCalls) != 1 {
+		t.Fatalf("WriteFile call count = %d, want 1", len(client.writeFileCalls))
 	}
-	writeCall := client.WriteFileCalls[0]
-	if writeCall.RelativePath != minecraftEULAFileName {
-		t.Fatalf("WriteFile relative path = %q, want %q", writeCall.RelativePath, minecraftEULAFileName)
+	writeCall := client.writeFileCalls[0]
+	if writeCall.relativePath != minecraftEULAFileName {
+		t.Fatalf("WriteFile relative path = %q, want %q", writeCall.relativePath, minecraftEULAFileName)
 	}
-	if string(writeCall.Content) != "eula=true\n" {
-		t.Fatalf("WriteFile content = %q, want eula=true", string(writeCall.Content))
+	if string(writeCall.content) != "eula=true\n" {
+		t.Fatalf("WriteFile content = %q, want eula=true", string(writeCall.content))
 	}
 
 	errReady := CheckStart(context.Background(), conn, gameServer, client)
@@ -84,8 +83,8 @@ func TestCheckStartSteamGSLTBlocksUntilSecretConfigured(t *testing.T) {
 func TestHytaleReadinessBlocksUntilLinkedAndLaunchEnvSupported(t *testing.T) {
 	conn := newReadinessSecretConnection(t)
 	gameServer := &models.GameServer{ID: "server-1", GameID: "hytale"}
-	client := &nodeclient.FakeNodeClient{
-		RuntimeCapabilitiesResult: node.RuntimeCapabilities{LaunchEnv: true},
+	client := &readinessNodeClientFake{
+		runtimeCapabilitiesResult: node.RuntimeCapabilities{LaunchEnv: true},
 	}
 
 	errMissing := CheckStart(context.Background(), conn, gameServer, client)
@@ -104,7 +103,7 @@ func TestHytaleReadinessBlocksUntilLinkedAndLaunchEnvSupported(t *testing.T) {
 		t.Fatalf("PersistHytaleAccount() error = %v", errPersist)
 	}
 
-	client.RuntimeCapabilitiesResult = node.RuntimeCapabilities{LaunchEnv: false}
+	client.runtimeCapabilitiesResult = node.RuntimeCapabilities{LaunchEnv: false}
 	errNoLaunchEnv := CheckStart(context.Background(), conn, gameServer, client)
 	if errNoLaunchEnv == nil {
 		t.Fatal("CheckStart() error = nil, want launch env support error")
@@ -113,7 +112,7 @@ func TestHytaleReadinessBlocksUntilLinkedAndLaunchEnvSupported(t *testing.T) {
 		t.Fatalf("CheckStart() error = %v, want launch-only Hytale credentials", errNoLaunchEnv)
 	}
 
-	client.RuntimeCapabilitiesResult = node.RuntimeCapabilities{LaunchEnv: true}
+	client.runtimeCapabilitiesResult = node.RuntimeCapabilities{LaunchEnv: true}
 	errReady := CheckStart(context.Background(), conn, gameServer, client)
 	if errReady != nil {
 		t.Fatalf("CheckStart() after Hytale link error = %v", errReady)
@@ -167,9 +166,9 @@ func TestCheckStartSunkenlandWorld(t *testing.T) {
 				GameID:    "sunkenland",
 				Directory: "C:/servers/sunkenland",
 			}
-			client := &nodeclient.FakeNodeClient{
-				ListFilesResult: test.entries,
-				ListFilesErr:    test.listError,
+			client := &readinessNodeClientFake{
+				listFilesResult: test.entries,
+				listFilesErr:    test.listError,
 			}
 
 			errStart := CheckStart(context.Background(), nil, gameServer, client)
@@ -185,11 +184,11 @@ func TestCheckStartSunkenlandWorld(t *testing.T) {
 			if errStart != nil {
 				t.Fatalf("CheckStart() error = %v", errStart)
 			}
-			if len(client.ListFilesCalls) != 2 {
-				t.Fatalf("ListFiles call count = %d, want 2", len(client.ListFilesCalls))
+			if len(client.listFilesCalls) != 2 {
+				t.Fatalf("ListFiles call count = %d, want 2", len(client.listFilesCalls))
 			}
-			if client.ListFilesCalls[1].RelativePath != "worlds/"+validWorldFolder {
-				t.Errorf("world inspection path = %q", client.ListFilesCalls[1].RelativePath)
+			if client.listFilesCalls[1].relativePath != "worlds/"+validWorldFolder {
+				t.Errorf("world inspection path = %q", client.listFilesCalls[1].relativePath)
 			}
 		})
 	}
@@ -316,6 +315,51 @@ func newReadinessSecretConnection(t *testing.T) *db.Connection {
 	}
 
 	return conn
+}
+
+type readinessFileCall struct {
+	directory    string
+	relativePath string
+	content      []byte
+}
+
+type readinessNodeClientFake struct {
+	snapshotResult            *node.NodeSnapshot
+	listFilesResult           []node.FileEntry
+	listFilesErr              error
+	listFilesCalls            []readinessFileCall
+	readFileResult            []byte
+	readFileErr               error
+	readFileCalls             []readinessFileCall
+	writeFileCalls            []readinessFileCall
+	runtimeCapabilitiesResult node.RuntimeCapabilities
+}
+
+func (f *readinessNodeClientFake) GetNodeSnapshot(context.Context) (*node.NodeSnapshot, error) {
+	return f.snapshotResult, nil
+}
+
+func (f *readinessNodeClientFake) ListFiles(_ context.Context, directory string, relativePath string) ([]node.FileEntry, error) {
+	f.listFilesCalls = append(f.listFilesCalls, readinessFileCall{directory: directory, relativePath: relativePath})
+	return f.listFilesResult, f.listFilesErr
+}
+
+func (f *readinessNodeClientFake) ReadFile(_ context.Context, directory string, relativePath string) ([]byte, error) {
+	f.readFileCalls = append(f.readFileCalls, readinessFileCall{directory: directory, relativePath: relativePath})
+	return f.readFileResult, f.readFileErr
+}
+
+func (f *readinessNodeClientFake) WriteFile(_ context.Context, directory string, relativePath string, content []byte, _ node.ProtectionPolicy) error {
+	f.writeFileCalls = append(f.writeFileCalls, readinessFileCall{
+		directory:    directory,
+		relativePath: relativePath,
+		content:      append([]byte(nil), content...),
+	})
+	return nil
+}
+
+func (f *readinessNodeClientFake) GetRuntimeCapabilities(context.Context) (node.RuntimeCapabilities, error) {
+	return f.runtimeCapabilitiesResult, nil
 }
 
 type fakeHytaleClient struct {
