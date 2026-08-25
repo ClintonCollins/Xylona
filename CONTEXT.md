@@ -29,3 +29,11 @@ An owner-controlled public view of the live status, players, and connection addr
 **Game server map share**:
 An owner-controlled public identifier that exposes the live map of one supported game server while both the share and any required map configuration are enabled.
 _Avoid_: Public map token, shared map token
+
+**7 Days to Die native dashboard**:
+The in-game dashboard a 7 Days to Die game server exposes on the node host. Xylona reads live diagnostics, players, reported mods, sandbox, and the live map from it.
+_Avoid_: WebAPI, map credentials
+
+**Native dashboard token**:
+The deterministic token Xylona injects into a 7 Days to Die game server's locked start arguments so it can read that server's native dashboard.
+_Avoid_: Map credentials
