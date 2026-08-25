@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xml>
+	<Name value="Xylona_LandClaims" />
+	<DisplayName value="Xylona Land Claims" />
+	<Description value="Exposes land claim blocks to the authenticated server WebAPI" />
+	<Author value="Xylona" />
+	<Version value="1.0.0.0" />
+	<Website value="https://github.com/ClintonCollins/Xylona" />
+</xml>

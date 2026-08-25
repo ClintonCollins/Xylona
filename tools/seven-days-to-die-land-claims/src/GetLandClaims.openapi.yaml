@@ -1,0 +1,84 @@
+openapi: 3.1.0
+info:
+  title: Land claims
+  version: '1'
+
+components:
+  schemas:
+    LandClaimPosition:
+      type: object
+      properties:
+        x:
+          type: integer
+        y:
+          type: integer
+        z:
+          type: integer
+      required:
+        - x
+        - y
+        - z
+
+    LandClaimOwner:
+      type: object
+      properties:
+        steamid:
+          type: string
+          description: Internal platform identifier of the claim owner
+        claimactive:
+          type: boolean
+        playername:
+          type: string
+        claims:
+          type: array
+          items:
+            $ref: '#/components/schemas/LandClaimPosition'
+      required:
+        - steamid
+        - claimactive
+        - playername
+        - claims
+
+    LandClaims:
+      type: object
+      properties:
+        claimsize:
+          type: integer
+          minimum: 1
+        claimowners:
+          type: array
+          items:
+            $ref: '#/components/schemas/LandClaimOwner'
+      required:
+        - claimsize
+        - claimowners
+
+paths:
+  /api/getlandclaims:
+    get:
+      tags:
+        - Map
+      summary: Land claim list
+      description: Fetch land claim blocks grouped by owner
+      operationId: getlandclaims.get
+      responses:
+        200:
+          description: Current land claims
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LandClaims'
+                  meta:
+                    $ref: './openapi.yaml#/components/schemas/ResultEnvelopeMeta'
+                required:
+                  - data
+                  - meta
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

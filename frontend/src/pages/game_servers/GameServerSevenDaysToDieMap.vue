@@ -3,6 +3,7 @@ import { create } from '@bufbuild/protobuf'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
 import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
 import SevenDaysToDieWorldOverview from '@/components/seven_days_to_die/SevenDaysToDieWorldOverview.vue'
@@ -10,6 +11,7 @@ import {
   GetGameServerRequestSchema,
   GetSevenDaysToDieMapRequestSchema,
   GetSevenDaysToDieWebAPIStatusRequestSchema,
+  InstallSevenDaysToDieLandClaimsModRequestSchema,
   SevenDaysToDieWebAPIConnectionState,
   type SevenDaysToDieMapView,
   type SevenDaysToDieWebAPIStatus,
@@ -41,6 +43,7 @@ const statusLoading = ref(true)
 const statusRefreshing = ref(false)
 const manualRefreshing = ref(false)
 const statusTransportError = ref(false)
+const installingLandClaims = ref(false)
 let mapPollTimer: ReturnType<typeof setInterval> | undefined
 let statusPollTimer: ReturnType<typeof setInterval> | undefined
 
@@ -50,6 +53,13 @@ const gameServerID = computed(() => {
 })
 const configurationPath = computed(() =>
   canConfigure.value ? `/game-servers/${gameServerID.value}/configuration` : '',
+)
+const showLandClaimHelper = computed(
+  () =>
+    canManage.value &&
+    mapView.value !== null &&
+    mapView.value.claimsState ===
+      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
 )
 
 const statusPresentation = computed<StatusPresentation | null>(() => {
@@ -268,6 +278,24 @@ async function refreshLiveData(): Promise<void> {
   }
 }
 
+async function installLandClaimHelper(): Promise<void> {
+  if (installingLandClaims.value) return
+
+  installingLandClaims.value = true
+  try {
+    await GetXylonaClient().installSevenDaysToDieLandClaimsMod(
+      create(InstallSevenDaysToDieLandClaimsModRequestSchema, {
+        gameServerId: gameServerID.value,
+      }),
+    )
+    notifySuccess('Land claim support installed. Start the server to load it.')
+  } catch (unknownError: unknown) {
+    notifyConnectError(unknownError, 'Failed to install land claim support')
+  } finally {
+    installingLandClaims.value = false
+  }
+}
+
 onMounted(() => {
   void loadPermissions()
   void loadMap()
@@ -297,6 +325,18 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div v-if="canManage" class="seven-days-map-page__actions">
+        <q-btn
+          v-if="showLandClaimHelper"
+          aria-label="Install or repair land claim support"
+          data-testid="install-land-claim-helper"
+          flat
+          icon="extension"
+          :loading="installingLandClaims"
+          no-caps
+          @click="installLandClaimHelper">
+          <span class="seven-days-map-page__claim-helper-label">Install / repair claims</span>
+          <q-tooltip>Stop the server before installing or repairing land claim support.</q-tooltip>
+        </q-btn>
         <q-btn
           aria-label="Open public map link settings"
           color="primary"
@@ -441,6 +481,10 @@ onBeforeUnmount(() => {
   }
 
   .seven-days-map-page__share-label {
+    display: none;
+  }
+
+  .seven-days-map-page__claim-helper-label {
     display: none;
   }
 }

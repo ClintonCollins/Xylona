@@ -125,7 +125,7 @@ paths:
 `
 	defaultBodies := map[string]string{
 		"/api/markers":       `{"data":[{"id":"` + markerID + `","name":"Trader","x":10,"y":20,"icon":"https://example.invalid/icon.png"}]}`,
-		"/api/getlandclaims": `{"data":{"claimsize":41,"claimowners":[{"steamid":"Steam_1","claimactive":true,"playername":"Alex","claims":[{"x":30,"y":5,"z":40}]}]}}`,
+		"/api/getlandclaims": `{"data":{"claimsize":51,"claimowners":[{"steamid":"Steam_1","claimactive":true,"playername":"Alex","claims":[{"x":30,"y":5,"z":40},{"x":31,"y":6,"z":41}]},{"steamid":"Steam_2","claimactive":false,"playername":"Blair","claims":[{"x":-30,"y":7,"z":-40}]}]}}`,
 		"/api/bloodmoon":     `{"data":{"gameTime":{"days":7,"hours":22,"minutes":0},"bloodmoonActive":true,"nextBloodmoon":{"days":14,"hours":22,"minutes":0},"nextBloodmoonEnd":{"days":15,"hours":4,"minutes":30}}}`,
 		"/api/hostile":       `{"data":[{"id":1,"name":"Zombie","position":{"x":50,"y":6,"z":60}}]}`,
 		"/api/animal":        `{"data":[{"id":2,"name":"Wolf","position":{"x":70,"y":7,"z":80}}]}`,
@@ -141,8 +141,11 @@ paths:
 		statusCode int
 		body       string
 		wantState  SevenDaysToDieWebAPIValueState
+		wantCount  int
+		checkCount bool
 	}{
 		{name: "available", openAPI: fullOpenAPI, wantState: SevenDaysToDieWebAPIValueStateAvailable},
+		{name: "no claims", openAPI: fullOpenAPI, path: "/api/getlandclaims", body: `{"data":{"claimsize":51,"claimowners":[]}}`, wantState: SevenDaysToDieWebAPIValueStateAvailable, wantCount: 0, checkCount: true},
 		{name: "unsupported", openAPI: strings.Replace(fullOpenAPI, "  /api/markers:\n    get: {}\n", "", 1), path: "/api/markers", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
 		{name: "upstream permission", openAPI: fullOpenAPI, path: "/api/markers", statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
 		{name: "hostile permission is independent", openAPI: fullOpenAPI, path: "/api/hostile", statusCode: http.StatusForbidden, wantState: SevenDaysToDieWebAPIValueStatePermissionDenied},
@@ -237,13 +240,18 @@ paths:
 			if snapshot.BloodMoon != nil {
 				counts["/api/bloodmoon"] = 1
 			}
+			defaultCounts := map[string]int{
+				"/api/markers": 1, "/api/getlandclaims": 3, "/api/bloodmoon": 1, "/api/hostile": 1, "/api/animal": 1,
+			}
 			for path := range defaultBodies {
 				wantState := SevenDaysToDieWebAPIValueStateAvailable
-				wantCount := 1
+				wantCount := defaultCounts[path]
 				if path == targetPath {
 					wantState = test.wantState
 					if wantState != SevenDaysToDieWebAPIValueStateAvailable {
 						wantCount = 0
+					} else if test.checkCount {
+						wantCount = test.wantCount
 					}
 				}
 				if states[path] != wantState || counts[path] != wantCount {
@@ -257,6 +265,15 @@ paths:
 			}
 			if test.name == "unsupported" && requested[http.MethodGet+" /api/markers"] != 0 {
 				t.Fatal("unsupported marker endpoint was requested")
+			}
+			if test.name == "available" {
+				claims := snapshot.Claims
+				if claims[0].OwnerID != "Steam_1" || claims[0].OwnerName != "Alex" || !claims[0].Active || claims[0].Size != 51 || claims[0].Position.X != 30 || claims[1].Position.X != 31 {
+					t.Fatalf("active owner claims = %+v, want Alex's two configured 51-block claims", claims[:2])
+				}
+				if claims[2].OwnerID != "Steam_2" || claims[2].OwnerName != "Blair" || claims[2].Active || claims[2].Size != 51 || claims[2].Position.X != -30 {
+					t.Fatalf("inactive owner claim = %+v, want Blair's configured 51-block claim", claims[2])
+				}
 			}
 		})
 	}

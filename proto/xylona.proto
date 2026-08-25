@@ -88,6 +88,7 @@ service Xylona {
   rpc InstallPalworldMapTiles (InstallPalworldMapTilesRequest) returns (InstallPalworldMapTilesResponse) {}
   rpc GetPublicPalworldMap (GetPublicPalworldMapRequest) returns (GetPublicPalworldMapResponse) {}
   rpc GetSevenDaysToDieMap (GetSevenDaysToDieMapRequest) returns (GetSevenDaysToDieMapResponse) {}
+  rpc InstallSevenDaysToDieLandClaimsMod (InstallSevenDaysToDieLandClaimsModRequest) returns (InstallSevenDaysToDieLandClaimsModResponse) {}
   rpc GetSevenDaysToDieWebAPIStatus (GetSevenDaysToDieWebAPIStatusRequest) returns (GetSevenDaysToDieWebAPIStatusResponse) {}
   rpc GetSevenDaysToDieSandboxSettings (GetSevenDaysToDieSandboxSettingsRequest) returns (GetSevenDaysToDieSandboxSettingsResponse) {}
   rpc UpdateSevenDaysToDieMapNotes (UpdateSevenDaysToDieMapNotesRequest) returns (UpdateSevenDaysToDieMapNotesResponse) {}
@@ -2122,3 +2123,9 @@ message GetSevenDaysToDieSandboxSettingsResponse {
   repeated SevenDaysToDieSandboxSetting settings = 6;
   google.protobuf.Timestamp observed_at = 7;
 }
+
+message InstallSevenDaysToDieLandClaimsModRequest {
+  string game_server_id = 1;
+}
+
+message InstallSevenDaysToDieLandClaimsModResponse {}
