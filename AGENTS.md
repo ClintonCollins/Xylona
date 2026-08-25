@@ -71,6 +71,7 @@ Regenerate with:
 ## Local Rules
 
 - Use LF line endings. If a touched file is CRLF, normalize it to LF.
+- Call game-server participants and their collective list "players," not a "roster," in code, APIs, tests, documentation, and UI copy.
 - Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `frontend/coverage`, `internal/webui/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
 - The repo-root `docs/` directory is local scratch space except `docs/agents/` and `docs/adr/`, which contain tracked project guidance and decisions.
 - Do not create pull requests unless the user explicitly requests one.

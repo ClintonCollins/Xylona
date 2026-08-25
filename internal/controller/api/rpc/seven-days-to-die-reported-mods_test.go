@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -72,8 +73,23 @@ func TestGetSevenDaysToDieReportedMods(t *testing.T) {
 			response.Msg.GetState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE {
 			t.Fatalf("response state = %+v", response.Msg)
 		}
-		if len(client.GetProcessSnapshotCalls) != 1 || len(client.QuerySevenDaysToDieReportedModsCalls) != 0 {
-			t.Fatalf("process calls = %v, reported-mod query calls = %d", client.GetProcessSnapshotCalls, len(client.QuerySevenDaysToDieReportedModsCalls))
+	})
+
+	t.Run("projects unavailable runtime capabilities as node unavailable", func(t *testing.T) {
+		fixture, client := newReportedModsRPCFixture(t, &node.SevenDaysToDieReportedMods{})
+		client.RuntimeCapabilitiesErr = errors.New("runtime capabilities unavailable")
+		request := connect.NewRequest(&xylona.GetSevenDaysToDieReportedModsRequest{GameServerId: "server-local-1"})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+		response, errMods := fixture.service.GetSevenDaysToDieReportedMods(t.Context(), request)
+		if errMods != nil {
+			t.Fatalf("GetSevenDaysToDieReportedMods() error = %v", errMods)
+		}
+		if response.Msg.GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_NODE_UNAVAILABLE {
+			t.Fatalf("connection state = %v, want node unavailable", response.Msg.GetConnectionState())
+		}
+		if len(client.QuerySevenDaysToDieReportedModsCalls) != 0 {
+			t.Fatalf("node query call count = %d, want 0", len(client.QuerySevenDaysToDieReportedModsCalls))
 		}
 	})
 

@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -55,9 +56,26 @@ func TestGetSevenDaysToDieSandboxSettings(t *testing.T) {
 		if errGet != nil {
 			t.Fatalf("GetSevenDaysToDieSandboxSettings() error = %v", errGet)
 		}
-		if response.Msg.GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE ||
-			len(client.GetProcessSnapshotCalls) != 1 || len(client.QuerySevenDaysToDieSandboxSettingsCalls) != 0 {
-			t.Fatalf("offline response = %+v, process calls = %v, sandbox query calls = %d", response.Msg, client.GetProcessSnapshotCalls, len(client.QuerySevenDaysToDieSandboxSettingsCalls))
+		if response.Msg.GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE {
+			t.Fatalf("offline response = %+v", response.Msg)
+		}
+	})
+
+	t.Run("projects unavailable runtime capabilities as node unavailable", func(t *testing.T) {
+		fixture, client := newSandboxSettingsRPCFixture(t, &node.SevenDaysToDieSandboxSettings{})
+		client.RuntimeCapabilitiesErr = errors.New("runtime capabilities unavailable")
+		request := connect.NewRequest(&xylona.GetSevenDaysToDieSandboxSettingsRequest{GameServerId: "server-local-1"})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+		response, errGet := fixture.service.GetSevenDaysToDieSandboxSettings(t.Context(), request)
+		if errGet != nil {
+			t.Fatalf("GetSevenDaysToDieSandboxSettings() error = %v", errGet)
+		}
+		if response.Msg.GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_NODE_UNAVAILABLE {
+			t.Fatalf("connection state = %v, want node unavailable", response.Msg.GetConnectionState())
+		}
+		if len(client.QuerySevenDaysToDieSandboxSettingsCalls) != 0 {
+			t.Fatalf("node query call count = %d, want 0", len(client.QuerySevenDaysToDieSandboxSettingsCalls))
 		}
 	})
 

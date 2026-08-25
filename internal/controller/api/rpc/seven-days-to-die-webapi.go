@@ -12,8 +12,6 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
-const sevenDaysToDiePrivateWebAPINodeProtocol int64 = 10
-
 // GetSevenDaysToDieWebAPIStatus returns bounded native WebAPI diagnostics for
 // an authenticated 7 Days to Die game server.
 func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
@@ -39,43 +37,28 @@ func (xs *XylonaService) GetSevenDaysToDieWebAPIStatus(
 	}
 	includeTactical := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerSettings) == nil
 
-	client, errClient := xs.resolveNodeClient(gameServer)
-	if errClient != nil {
-		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable, includeTactical), nil //nolint:nilerr // Node reachability is a typed operational state.
+	access, outcome, errAccess := xs.prepareSevenDaysToDiePrivateRead(ctx, gameServer)
+	if errAccess != nil {
+		return nil, errAccess
 	}
-	process, found, errProcess := client.GetProcessSnapshot(ctx, gameServer.ID)
-	if errProcess != nil {
-		if errors.Is(errProcess, context.Canceled) || errors.Is(errProcess, context.DeadlineExceeded) {
-			return nil, connect.NewError(contextConnectCode(errProcess), errProcess)
-		}
+	switch outcome {
+	case sevenDaysToDiePrivateReadReady:
+	case sevenDaysToDiePrivateReadNodeUnavailable:
 		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateNodeUnavailable, includeTactical), nil
-	}
-	if !found || process == nil || process.Status != xylona.Status_ONLINE.String() {
+	case sevenDaysToDiePrivateReadServerOffline:
 		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateServerOffline, includeTactical), nil
-	}
-	capabilities, errCapabilities := client.GetRuntimeCapabilities(ctx)
-	if errCapabilities != nil {
-		if errors.Is(errCapabilities, context.Canceled) || errors.Is(errCapabilities, context.DeadlineExceeded) {
-			return nil, connect.NewError(contextConnectCode(errCapabilities), errCapabilities)
-		}
+	case sevenDaysToDiePrivateReadRuntimeUnavailable:
 		return sevenDaysToDieWebAPIStateResponse(node.SevenDaysToDieWebAPIConnectionStateUnspecified, includeTactical), nil
-	}
-	if capabilities.ProtocolVersion < sevenDaysToDiePrivateWebAPINodeProtocol {
+	case sevenDaysToDiePrivateReadUnsupported:
 		return sevenDaysToDieWebAPIUnsupportedResponse(includeTactical), nil
-	}
-	if xs.actionsInst == nil {
-		return nil, internalErrf("7 Days to Die WebAPI credentials are unavailable")
-	}
-
-	tokenName, tokenSecret, errCredentials := xs.actionsInst.SevenDaysToDieMapCredentials(gameServer)
-	if errCredentials != nil {
-		return nil, internalErrf("failed to resolve 7 Days to Die WebAPI credentials")
+	default:
+		return nil, internalErrf("invalid 7 Days to Die private read outcome")
 	}
 
-	status, errQuery := client.QuerySevenDaysToDieWebAPIStatus(ctx, node.SevenDaysToDieWebAPIStatusQueryRequest{
-		WorkingDirectory: gameServer.Directory,
-		TokenName:        tokenName,
-		TokenSecret:      tokenSecret,
+	status, errQuery := access.client.QuerySevenDaysToDieWebAPIStatus(ctx, node.SevenDaysToDieWebAPIStatusQueryRequest{
+		WorkingDirectory: access.workingDirectory,
+		TokenName:        access.tokenName,
+		TokenSecret:      access.tokenSecret,
 		IncludeTactical:  includeTactical,
 	})
 	if errQuery != nil {

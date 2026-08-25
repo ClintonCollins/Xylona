@@ -19,6 +19,10 @@ _Avoid_: Denylist
 **Game server owner**:
 The single User with full authority over a game server. Ownership is distinct from access granted to other Users through roles.
 
+**Player**:
+A participant reported by a game server or its query interface. Groups and lists of players are still called players.
+_Avoid_: Roster
+
 **Game server status page**:
 An owner-controlled public view of the live status, players, and connection addresses for every game server they own.
 

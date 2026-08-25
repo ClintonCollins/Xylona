@@ -52,26 +52,6 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		}
 	})
 
-	t.Run("reports a missing live process as offline", func(t *testing.T) {
-		fixture := newRBACRPCFixture(t)
-		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_OFFLINE.String(), "node-local")
-		client := &nodeclient.FakeNodeClient{NodeID: "node-local"}
-		fixture.service.nodeRegistry = noderegistry.New("node-local", client)
-		request := connect.NewRequest(&xylona.GetSevenDaysToDieWebAPIStatusRequest{GameServerId: "server-local-1"})
-		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
-
-		response, errStatus := fixture.service.GetSevenDaysToDieWebAPIStatus(t.Context(), request)
-		if errStatus != nil {
-			t.Fatalf("GetSevenDaysToDieWebAPIStatus() error = %v", errStatus)
-		}
-		if response.Msg.GetStatus().GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE {
-			t.Fatalf("connection state = %v, want server offline", response.Msg.GetStatus().GetConnectionState())
-		}
-		if len(client.GetProcessSnapshotCalls) != 1 || len(client.QuerySevenDaysToDieWebAPIStatusCalls) != 0 {
-			t.Fatalf("process calls = %v, WebAPI query calls = %d", client.GetProcessSnapshotCalls, len(client.QuerySevenDaysToDieWebAPIStatusCalls))
-		}
-	})
-
 	t.Run("reports an unavailable node", func(t *testing.T) {
 		fixture := newRBACRPCFixture(t)
 		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
@@ -102,19 +82,11 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		if response.Msg.GetStatus().GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_SERVER_OFFLINE {
 			t.Fatalf("connection state = %v, want server offline", response.Msg.GetStatus().GetConnectionState())
 		}
-		if len(client.GetProcessSnapshotCalls) != 1 || len(client.QuerySevenDaysToDieWebAPIStatusCalls) != 0 {
-			t.Fatalf("process calls = %v, query calls = %d", client.GetProcessSnapshotCalls, len(client.QuerySevenDaysToDieWebAPIStatusCalls))
-		}
 	})
 
-	t.Run("reports a process transport failure as node unavailable", func(t *testing.T) {
-		fixture := newRBACRPCFixture(t)
-		setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
-		client := &nodeclient.FakeNodeClient{
-			NodeID:                "node-local",
-			GetProcessSnapshotErr: errors.New("node transport failed"),
-		}
-		fixture.service.nodeRegistry = noderegistry.New("node-local", client)
+	t.Run("projects unavailable runtime capabilities as unspecified", func(t *testing.T) {
+		fixture, _, client := newPrivateReadGateFixture(t)
+		client.RuntimeCapabilitiesErr = errors.New("runtime capabilities unavailable")
 		request := connect.NewRequest(&xylona.GetSevenDaysToDieWebAPIStatusRequest{GameServerId: "server-local-1"})
 		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 
@@ -122,8 +94,8 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		if errStatus != nil {
 			t.Fatalf("GetSevenDaysToDieWebAPIStatus() error = %v", errStatus)
 		}
-		if response.Msg.GetStatus().GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_NODE_UNAVAILABLE {
-			t.Fatalf("connection state = %v, want node unavailable", response.Msg.GetStatus().GetConnectionState())
+		if response.Msg.GetStatus().GetConnectionState() != xylona.SevenDaysToDieWebAPIConnectionState_SEVEN_DAYS_TO_DIE_WEB_API_CONNECTION_STATE_UNSPECIFIED {
+			t.Fatalf("connection state = %v, want unspecified", response.Msg.GetStatus().GetConnectionState())
 		}
 		if len(client.QuerySevenDaysToDieWebAPIStatusCalls) != 0 {
 			t.Fatalf("node query call count = %d, want 0", len(client.QuerySevenDaysToDieWebAPIStatusCalls))
