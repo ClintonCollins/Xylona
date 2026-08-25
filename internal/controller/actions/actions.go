@@ -49,8 +49,6 @@ var (
 	// ErrNotMinecraftServer is returned when a non-Minecraft server is used with Minecraft-only flows.
 	ErrNotMinecraftServer             = errors.New("game server is not a minecraft server")
 	errGameRelationNotLoaded          = errors.New("game relation not loaded")
-	errStartCommandTemplateMissing    = errors.New("no start command template configured for this game. a superuser must set up the start command template before servers can be started")
-	errBaseCommandMissing             = errors.New("no base command configured for this game")
 	errMinecraftGameRelationNotLoaded = errors.New("minecraft game relation not loaded")
 	reSteamBranchableUpdate           = regexp.MustCompile(`(?i)(\+app_update\s+\d+)`)
 )
@@ -494,11 +492,6 @@ func (inst *Instance) resolveStructuredStartCommandWithVars(
 	}
 
 	nodeOS := inst.resolveNodeOS(inst.ctx, gameServer.NodeID)
-	templateJSON := strings.TrimSpace(gameStartArgsTemplate(gameServer.R.Game, nodeOS))
-	if templateJSON == "" {
-		return "", nil, errStartCommandTemplateMissing
-	}
-
 	startVars := placeholder.BuildVarsFromGameServer(gameServer)
 	maps.Copy(startVars, extraVars)
 	if gameServer.GameID == "minecraft" {
@@ -507,26 +500,21 @@ func (inst *Instance) resolveStructuredStartCommandWithVars(
 			return "", nil, errors.New("minecraft server executable is not configured. set it in server settings or place the server jar in the server root")
 		}
 	}
-	configuredBaseCommand := strings.TrimSpace(gameServer.BaseCommandOverride)
-	if configuredBaseCommand == "" {
-		configuredBaseCommand = gameBaseCommand(gameServer.R.Game, nodeOS)
-	}
-	baseCommand := placeholder.ResolveToken(configuredBaseCommand, startVars)
-	if strings.TrimSpace(baseCommand) == "" {
-		return "", nil, errBaseCommandMissing
-	}
-
-	args, errResolve := startargs.ResolveServer(startargs.ServerConfig{
-		TemplateJSON:  templateJSON,
-		PatchesJSON:   gameServer.StartArgsPatches,
-		BlocklistJSON: gameServer.R.Game.StartArgBlocklist,
-		Variables:     startVars,
+	command, errResolve := startargs.ResolveServer(startargs.ServerConfig{
+		Definition:          gameStartArgsDefinition(gameServer.R.Game),
+		GOOS:                string(nodeOS),
+		BaseCommandOverride: gameServer.BaseCommandOverride,
+		PatchesJSON:         gameServer.StartArgsPatches,
+		Variables:           startVars,
 	})
 	if errResolve != nil {
+		if errors.Is(errResolve, startargs.ErrStartCommandTemplateMissing) || errors.Is(errResolve, startargs.ErrBaseCommandMissing) {
+			return "", nil, fmt.Errorf("%w", errResolve)
+		}
 		return "", nil, fmt.Errorf("resolve start args: %w", errResolve)
 	}
 
-	return baseCommand, args, nil
+	return command.BaseCommand, command.Args, nil
 }
 
 func (inst *Instance) postInstallStep(gameServer *models.GameServer) error {

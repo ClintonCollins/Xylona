@@ -101,20 +101,12 @@ func (xs *XylonaService) buildProtectionPolicy(gameServer *models.GameServer) no
 	policy := node.ProtectionPolicy{
 		ServerExecutable: gameServer.ServerExecutable.GetOr(""),
 	}
-	override := strings.TrimSpace(gameServer.BaseCommandOverride)
-	if override != "" {
-		policy.BaseCommand = override
-		return policy
+	nodeOS := ""
+	if strings.TrimSpace(gameServer.BaseCommandOverride) == "" && gameServer.R.Game != nil {
+		nodeOS = xs.resolveNodeGOOS(gameServer.NodeID)
 	}
-	if gameServer.R.Game != nil {
-		game := gameServer.R.Game
-		nodeOS := xs.resolveNodeGOOS(gameServer.NodeID)
-		if nodeOS == "windows" {
-			policy.BaseCommand = game.WindowsBaseCommand
-		} else {
-			policy.BaseCommand = game.LinuxBaseCommand
-		}
-	}
+	target := definitionStartArgsConfig(gameServer.R.Game).ForGOOS(nodeOS, gameServer.BaseCommandOverride)
+	policy.BaseCommand = target.ConfiguredBaseCommand()
 	return policy
 }
 

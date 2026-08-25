@@ -16,6 +16,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/defaultpaths"
 	"github.com/ClintonCollins/Xylona/internal/placeholder"
+	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -154,28 +155,25 @@ func DefaultInstallPath() (string, error) {
 	)
 }
 
-// The game*Command helpers take an explicit osType so the caller can select
+func gameStartArgsDefinition(game *models.Game) startargs.DefinitionConfig {
+	if game == nil {
+		return startargs.DefinitionConfig{}
+	}
+
+	return startargs.DefinitionConfig{
+		LinuxTemplateJSON:   game.LinuxStartArgsTemplate.GetOr(""),
+		LinuxBaseCommand:    game.LinuxBaseCommand,
+		WindowsTemplateJSON: game.WindowsStartArgsTemplate.GetOr(""),
+		WindowsBaseCommand:  game.WindowsBaseCommand,
+		BlocklistJSON:       game.StartArgBlocklist,
+	}
+}
+
+// The game command helpers take an explicit osType so the caller can select
 // the command flavor that matches the target node — which may differ from
 // the controller's own OS in a hub-spoke deployment. Call sites that don't
 // know a target node pass OperatingSystem (the controller's OS) as a
 // best-effort default.
-
-func gameBaseCommand(game *models.Game, osType OSType) string {
-	startCommand := game.LinuxBaseCommand
-	if osType == Windows {
-		startCommand = game.WindowsBaseCommand
-	}
-	return startCommand
-}
-
-func gameStartArgsTemplate(game *models.Game, osType OSType) string {
-	startTemplate := game.LinuxStartArgsTemplate.GetOr("")
-	if osType == Windows {
-		startTemplate = game.WindowsStartArgsTemplate.GetOr("")
-	}
-	return startTemplate
-}
-
 func gameStopCommand(game *models.Game, osType OSType) string {
 	stopCommand := game.LinuxStopCommand
 	if osType == Windows {

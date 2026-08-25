@@ -35,15 +35,12 @@ func baseCommandForProtectedPath(gameServer *models.GameServer) string {
 	if gameServer == nil {
 		return ""
 	}
-	override := strings.TrimSpace(gameServer.BaseCommandOverride)
-	if override != "" {
-		return override
-	}
-	if gameServer.R.Game == nil {
-		return ""
-	}
 
-	return gameBaseCommand(gameServer.R.Game, OperatingSystem)
+	target := gameStartArgsDefinition(gameServer.R.Game).ForGOOS(
+		string(OperatingSystem),
+		gameServer.BaseCommandOverride,
+	)
+	return target.ConfiguredBaseCommand()
 }
 
 func validateWritableServerPath(gameServer *models.GameServer, relativePath string) (string, error) {

@@ -103,7 +103,7 @@ func TestValidateServerUpdate(t *testing.T) {
 	}{
 		{
 			name:   "empty template and patches skip blocklist validation",
-			config: ServerConfig{BlocklistJSON: `[{"pattern":"["}]`},
+			config: ServerConfig{Definition: testDefinition("", `[{"pattern":"["}]`)},
 		},
 		{
 			name:        "patches require a template",
@@ -113,45 +113,45 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "missing edit and remove targets are accepted",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"old-edit","op":"edit","tokens":["old"]},{"id":"old-remove","op":"remove"}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"old-edit","op":"edit","tokens":["old"]},{"id":"old-remove","op":"remove"}]`,
 			},
 		},
 		{
 			name: "add can reference an earlier add",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"first","op":"add","tokens":["a"],"afterId":"heap"},{"id":"second","op":"add","tokens":["b"],"afterId":"first"}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"first","op":"add","tokens":["a"],"afterId":"heap"},{"id":"second","op":"add","tokens":["b"],"afterId":"first"}]`,
 			},
 		},
 		{
 			name: "add cannot reference a later add",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"first","op":"add","tokens":["a"],"afterId":"second"},{"id":"second","op":"add","tokens":["b"],"afterId":"heap"}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"first","op":"add","tokens":["a"],"afterId":"second"},{"id":"second","op":"add","tokens":["b"],"afterId":"heap"}]`,
 			},
 			wantErrText: `references unknown afterId "second"`,
 		},
 		{
 			name: "add id cannot collide with template",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"heap","op":"add","tokens":["a"]}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"heap","op":"add","tokens":["a"]}]`,
 			},
 			wantErrText: "collides with an existing template block",
 		},
 		{
 			name: "duplicate add ids are rejected",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"extra","op":"add","tokens":["a"]},{"id":"extra","op":"add","tokens":["b"]}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"extra","op":"add","tokens":["a"]},{"id":"extra","op":"add","tokens":["b"]}]`,
 			},
 			wantErrText: "duplicate patch id",
 		},
 		{
 			name: "duplicate locked patch ids are rejected",
 			config: ServerConfig{
-				TemplateJSON:        template,
+				Definition:          testDefinition(template, ""),
 				ExistingPatchesJSON: `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
 				PatchesJSON:         `[{"id":"locked","op":"remove"},{"id":"locked","op":"edit","tokens":["-custom"]}]`,
 			},
@@ -160,23 +160,23 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "add anchor cannot be empty",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"extra","op":"add","tokens":["a"],"afterId":" "}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"extra","op":"add","tokens":["a"],"afterId":" "}]`,
 			},
 			wantErrText: "has an empty afterId",
 		},
 		{
 			name: "patch cannot target non-editable block",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"system","op":"remove"}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"system","op":"remove"}]`,
 			},
 			wantErrText: "targets a non-editable template block",
 		},
 		{
 			name: "superuser can edit locked block",
 			config: ServerConfig{
-				TemplateJSON:     template,
+				Definition:       testDefinition(template, ""),
 				PatchesJSON:      `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
 				AllowLockedEdits: true,
 			},
@@ -184,7 +184,7 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "superuser can remove locked block",
 			config: ServerConfig{
-				TemplateJSON:     template,
+				Definition:       testDefinition(template, ""),
 				PatchesJSON:      `[{"id":"locked","op":"remove"}]`,
 				AllowLockedEdits: true,
 			},
@@ -192,9 +192,8 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "superuser locked edit is checked against blocklist",
 			config: ServerConfig{
-				TemplateJSON:     template,
+				Definition:       testDefinition(template, `[{"pattern":"^--blocked$","reason":"blocked for everyone"}]`),
 				PatchesJSON:      `[{"id":"locked","op":"edit","tokens":["--blocked"]}]`,
-				BlocklistJSON:    `[{"pattern":"^--blocked$","reason":"blocked for everyone"}]`,
 				AllowLockedEdits: true,
 			},
 			wantErrText: `blocked start argument "--blocked": blocked for everyone`,
@@ -202,7 +201,7 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "system block remains immutable for superuser",
 			config: ServerConfig{
-				TemplateJSON:     template,
+				Definition:       testDefinition(template, ""),
 				PatchesJSON:      `[{"id":"system","op":"edit","tokens":["other.jar"]}]`,
 				AllowLockedEdits: true,
 			},
@@ -211,7 +210,7 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "non-superuser can retain locked patch while editing ordinary block",
 			config: ServerConfig{
-				TemplateJSON:        template,
+				Definition:          testDefinition(template, ""),
 				ExistingPatchesJSON: `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
 				PatchesJSON:         `[{"id":"locked","op":"edit","tokens":["-custom"]},{"id":"heap","op":"edit","tokens":["-Xmx4G"]}]`,
 			},
@@ -219,7 +218,7 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "non-superuser cannot change locked patch",
 			config: ServerConfig{
-				TemplateJSON:        template,
+				Definition:          testDefinition(template, ""),
 				ExistingPatchesJSON: `[{"id":"locked","op":"edit","tokens":["-custom"]}]`,
 				PatchesJSON:         `[{"id":"locked","op":"edit","tokens":["-tampered"]}]`,
 			},
@@ -228,7 +227,7 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "non-superuser cannot delete locked patch",
 			config: ServerConfig{
-				TemplateJSON:        template,
+				Definition:          testDefinition(template, ""),
 				ExistingPatchesJSON: `[{"id":"locked","op":"remove"}]`,
 				PatchesJSON:         `[]`,
 			},
@@ -237,26 +236,25 @@ func TestValidateServerUpdate(t *testing.T) {
 		{
 			name: "add requires tokens",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"extra","op":"add"}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"extra","op":"add"}]`,
 			},
 			wantErrText: "must contain at least one token",
 		},
 		{
 			name: "patch operation must be supported",
 			config: ServerConfig{
-				TemplateJSON: template,
-				PatchesJSON:  `[{"id":"heap","op":"replace","tokens":["a"]}]`,
+				Definition:  testDefinition(template, ""),
+				PatchesJSON: `[{"id":"heap","op":"replace","tokens":["a"]}]`,
 			},
 			wantErrText: "invalid operation",
 		},
 		{
 			name: "resolved update is checked against blocklist",
 			config: ServerConfig{
-				TemplateJSON:  template,
-				PatchesJSON:   `[{"id":"heap","op":"edit","tokens":["{{HEAP}}"]}]`,
-				BlocklistJSON: `[{"pattern":"^-Xmx32G$","reason":"memory limit"}]`,
-				Variables:     map[string]string{"HEAP": "-Xmx32G"},
+				Definition:  testDefinition(template, `[{"pattern":"^-Xmx32G$","reason":"memory limit"}]`),
+				PatchesJSON: `[{"id":"heap","op":"edit","tokens":["{{HEAP}}"]}]`,
+				Variables:   map[string]string{"HEAP": "-Xmx32G"},
 			},
 			wantErrText: `blocked start argument "-Xmx32G": memory limit`,
 		},

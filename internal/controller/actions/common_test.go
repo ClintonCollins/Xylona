@@ -5,8 +5,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/aarondl/opt/null"
-
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -161,15 +159,11 @@ func TestJoinForNodeOS(t *testing.T) {
 
 func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	game := &models.Game{
-		LinuxBaseCommand:          "linux-base",
-		LinuxStartArgsTemplate:    null.From("linux-template"),
 		LinuxStopCommand:          "linux-stop",
 		LinuxInstallCommand:       "linux-install",
 		LinuxInstallCommandType:   "bash",
 		LinuxUpdateCommand:        "linux-update",
 		LinuxUpdateCommandType:    "bash",
-		WindowsBaseCommand:        "windows-base",
-		WindowsStartArgsTemplate:  null.From("windows-template"),
 		WindowsStopCommand:        "windows-stop",
 		WindowsInstallCommand:     "windows-install",
 		WindowsInstallCommandType: "cmd",
@@ -178,59 +172,45 @@ func TestGameCommandSelectionByOperatingSystem(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		nodeOS       OSType
-		wantBase     string
-		wantTemplate string
-		wantStop     string
-		wantInstall  string
-		wantType     string
-		wantUpdate   string
-		wantUpdType  string
+		name        string
+		nodeOS      OSType
+		wantStop    string
+		wantInstall string
+		wantType    string
+		wantUpdate  string
+		wantUpdType string
 	}{
 		{
-			name:         "linux uses unix commands",
-			nodeOS:       Linux,
-			wantBase:     "linux-base",
-			wantTemplate: "linux-template",
-			wantStop:     "linux-stop",
-			wantInstall:  "linux-install",
-			wantType:     "bash",
-			wantUpdate:   "linux-update",
-			wantUpdType:  "bash",
+			name:        "linux uses unix commands",
+			nodeOS:      Linux,
+			wantStop:    "linux-stop",
+			wantInstall: "linux-install",
+			wantType:    "bash",
+			wantUpdate:  "linux-update",
+			wantUpdType: "bash",
 		},
 		{
-			name:         "darwin uses unix commands",
-			nodeOS:       Darwin,
-			wantBase:     "linux-base",
-			wantTemplate: "linux-template",
-			wantStop:     "linux-stop",
-			wantInstall:  "linux-install",
-			wantType:     "bash",
-			wantUpdate:   "linux-update",
-			wantUpdType:  "bash",
+			name:        "darwin uses unix commands",
+			nodeOS:      Darwin,
+			wantStop:    "linux-stop",
+			wantInstall: "linux-install",
+			wantType:    "bash",
+			wantUpdate:  "linux-update",
+			wantUpdType: "bash",
 		},
 		{
-			name:         "windows uses windows commands",
-			nodeOS:       Windows,
-			wantBase:     "windows-base",
-			wantTemplate: "windows-template",
-			wantStop:     "windows-stop",
-			wantInstall:  "windows-install",
-			wantType:     "cmd",
-			wantUpdate:   "windows-update",
-			wantUpdType:  "cmd",
+			name:        "windows uses windows commands",
+			nodeOS:      Windows,
+			wantStop:    "windows-stop",
+			wantInstall: "windows-install",
+			wantType:    "cmd",
+			wantUpdate:  "windows-update",
+			wantUpdType: "cmd",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := gameBaseCommand(game, tt.nodeOS); got != tt.wantBase {
-				t.Errorf("gameBaseCommand() = %q, want %q", got, tt.wantBase)
-			}
-			if got := gameStartArgsTemplate(game, tt.nodeOS); got != tt.wantTemplate {
-				t.Errorf("gameStartArgsTemplate() = %q, want %q", got, tt.wantTemplate)
-			}
 			if got := gameStopCommand(game, tt.nodeOS); got != tt.wantStop {
 				t.Errorf("gameStopCommand() = %q, want %q", got, tt.wantStop)
 			}

@@ -5,10 +5,18 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 )
 
-// ErrLockedStartArgumentEdit reports a non-superuser attempt to change a locked patch.
-var ErrLockedStartArgumentEdit = errors.New("locked start arguments may only be changed by a superuser")
+var (
+	// ErrLockedStartArgumentEdit reports a non-superuser attempt to change a locked patch.
+	ErrLockedStartArgumentEdit = errors.New("locked start arguments may only be changed by a superuser")
+	// ErrStartCommandTemplateMissing reports a missing target-platform start command template.
+	ErrStartCommandTemplateMissing = errors.New("no start command template configured for this game. a superuser must set up the start command template before servers can be started")
+	// ErrBaseCommandMissing reports a missing resolved target-platform base command.
+	ErrBaseCommandMissing = errors.New("no base command configured for this game")
+)
 
 // DefinitionConfig contains the platform templates and blocklist for a game definition.
 type DefinitionConfig struct {
@@ -19,14 +27,53 @@ type DefinitionConfig struct {
 	BlocklistJSON       string
 }
 
-// ServerConfig contains the template, patches, and values used for one game server.
+// TargetConfig contains the selected start-argument configuration for a target platform.
+type TargetConfig struct {
+	templateJSON  string
+	baseCommand   string
+	blocklistJSON string
+}
+
+// ForGOOS selects the start-argument configuration for a target platform.
+func (config DefinitionConfig) ForGOOS(goos string, baseCommandOverride string) TargetConfig {
+	target := TargetConfig{
+		templateJSON:  config.LinuxTemplateJSON,
+		baseCommand:   config.LinuxBaseCommand,
+		blocklistJSON: config.BlocklistJSON,
+	}
+	if strings.EqualFold(strings.TrimSpace(goos), "windows") {
+		target.templateJSON = config.WindowsTemplateJSON
+		target.baseCommand = config.WindowsBaseCommand
+	}
+
+	override := strings.TrimSpace(baseCommandOverride)
+	if override != "" {
+		target.baseCommand = override
+	}
+
+	return target
+}
+
+// ConfiguredBaseCommand returns the selected unresolved base command.
+func (config TargetConfig) ConfiguredBaseCommand() string {
+	return config.baseCommand
+}
+
+// ServerConfig contains the definition, target, patches, and values used for one game server.
 type ServerConfig struct {
-	TemplateJSON        string
+	Definition          DefinitionConfig
+	GOOS                string
+	BaseCommandOverride string
 	PatchesJSON         string
 	ExistingPatchesJSON string
-	BlocklistJSON       string
 	Variables           map[string]string
 	AllowLockedEdits    bool
+}
+
+// ResolvedCommand contains the executable and arguments for a server process.
+type ResolvedCommand struct {
+	BaseCommand string
+	Args        []string
 }
 
 // ValidateDefinition validates a game's complete structured start-argument configuration.
@@ -56,7 +103,8 @@ func ValidateDefinition(config DefinitionConfig) error {
 
 // ValidateServerUpdate strictly validates a proposed server start-argument patch update.
 func ValidateServerUpdate(config ServerConfig) error {
-	template, errTemplate := ParseTemplate(config.TemplateJSON)
+	target := config.Definition.ForGOOS(config.GOOS, config.BaseCommandOverride)
+	template, errTemplate := ParseTemplate(target.templateJSON)
 	if errTemplate != nil {
 		return fmt.Errorf("parse game server start args template: %w", errTemplate)
 	}
@@ -94,7 +142,7 @@ func ValidateServerUpdate(config ServerConfig) error {
 	}
 
 	args := resolveArgs(template, patches, config.Variables)
-	errBlocklist := validateBlocklist(config.BlocklistJSON, args)
+	errBlocklist := validateBlocklist(target.blocklistJSON, args)
 	if errBlocklist != nil {
 		return errBlocklist
 	}
@@ -103,24 +151,34 @@ func ValidateServerUpdate(config ServerConfig) error {
 }
 
 // ResolveServer tolerantly applies persisted patches and validates the final arguments.
-func ResolveServer(config ServerConfig) ([]string, error) {
-	template, errTemplate := ParseTemplate(config.TemplateJSON)
+func ResolveServer(config ServerConfig) (ResolvedCommand, error) {
+	target := config.Definition.ForGOOS(config.GOOS, config.BaseCommandOverride)
+	if strings.TrimSpace(target.templateJSON) == "" {
+		return ResolvedCommand{}, ErrStartCommandTemplateMissing
+	}
+
+	baseCommand := placeholder.ResolveToken(target.baseCommand, config.Variables)
+	if strings.TrimSpace(baseCommand) == "" {
+		return ResolvedCommand{}, ErrBaseCommandMissing
+	}
+
+	template, errTemplate := ParseTemplate(target.templateJSON)
 	if errTemplate != nil {
-		return nil, fmt.Errorf("parse start args template: %w", errTemplate)
+		return ResolvedCommand{}, fmt.Errorf("parse start args template: %w", errTemplate)
 	}
 
 	patches, errPatches := parsePatches(config.PatchesJSON)
 	if errPatches != nil {
-		return nil, fmt.Errorf("parse start arg patches: %w", errPatches)
+		return ResolvedCommand{}, fmt.Errorf("parse start arg patches: %w", errPatches)
 	}
 
 	args := resolveArgs(template, patches, config.Variables)
-	errBlocklist := validateBlocklist(config.BlocklistJSON, args)
+	errBlocklist := validateBlocklist(target.blocklistJSON, args)
 	if errBlocklist != nil {
-		return nil, errBlocklist
+		return ResolvedCommand{}, errBlocklist
 	}
 
-	return args, nil
+	return ResolvedCommand{BaseCommand: baseCommand, Args: args}, nil
 }
 
 func validateDefinitionTemplate(templateJSON string, baseCommand string) ([]ArgBlock, error) {

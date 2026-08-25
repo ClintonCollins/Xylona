@@ -51,23 +51,6 @@ func normalizeStartArgsPlatform(platform string) (string, error) {
 	}
 }
 
-// platformForGOOS normalizes a GOOS-like value into the two platform families
-// supported by the structured start-args templates.
-func platformForGOOS(goos string) string {
-	if strings.EqualFold(strings.TrimSpace(goos), "windows") {
-		return "windows"
-	}
-	return "linux"
-}
-
-func templateJSONForPlatform(game *models.Game, platform string) string {
-	if platform == "windows" {
-		return game.WindowsStartArgsTemplate.GetOr("")
-	}
-
-	return game.LinuxStartArgsTemplate.GetOr("")
-}
-
 func normalizeStartArgsPatchesJSON(patches string) string {
 	trimmed := strings.TrimSpace(patches)
 	if trimmed == "" {
@@ -78,6 +61,10 @@ func normalizeStartArgsPatchesJSON(patches string) string {
 }
 
 func definitionStartArgsConfig(game *models.Game) startargs.DefinitionConfig {
+	if game == nil {
+		return startargs.DefinitionConfig{}
+	}
+
 	return startargs.DefinitionConfig{
 		LinuxTemplateJSON:   game.LinuxStartArgsTemplate.GetOr(""),
 		LinuxBaseCommand:    game.LinuxBaseCommand,
@@ -220,12 +207,12 @@ func (xs *XylonaService) UpdateGameServerStartArgs(
 		baseCommandOverride = gameServer.BaseCommandOverride
 	}
 
-	platform := platformForGOOS(xs.resolveNodeGOOS(gameServer.NodeID))
 	errValidate := startargs.ValidateServerUpdate(startargs.ServerConfig{
-		TemplateJSON:        templateJSONForPlatform(gameServer.R.Game, platform),
+		Definition:          definitionStartArgsConfig(gameServer.R.Game),
+		GOOS:                xs.resolveNodeGOOS(gameServer.NodeID),
+		BaseCommandOverride: baseCommandOverride,
 		PatchesJSON:         normalizedPatches,
 		ExistingPatchesJSON: gameServer.StartArgsPatches,
-		BlocklistJSON:       gameServer.R.Game.StartArgBlocklist,
 		Variables:           placeholder.BuildVarsFromGameServer(gameServer),
 		AllowLockedEdits:    user.SuperUser,
 	})
