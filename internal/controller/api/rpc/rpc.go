@@ -12,6 +12,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/firstsetup"
 	"github.com/ClintonCollins/Xylona/internal/mailer"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
@@ -83,6 +84,7 @@ type XylonaService struct {
 	palworldMapTiles               PalworldMapTileInstaller
 	minecraftMapAssetSlots         chan struct{}
 	statusPageIdentifier           func() (string, error)
+	setupToken                     *firstsetup.Token
 }
 
 type remoteVersionRefreshCall struct {

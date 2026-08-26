@@ -87,6 +87,15 @@ func (s *Service) List() ([]*User, error) {
 	return result, nil
 }
 
+// CountSuperUsers returns the number of superuser accounts.
+func (s *Service) CountSuperUsers() (int, error) {
+	count, errCount := s.db.CountSuperUsers()
+	if errCount != nil {
+		return 0, fmt.Errorf(`usermgmt: count superusers: %w`, errCount)
+	}
+	return count, nil
+}
+
 // GetByID returns a local user by ID.
 func (s *Service) GetByID(id string) (*User, error) {
 	trimmedID := strings.TrimSpace(id)

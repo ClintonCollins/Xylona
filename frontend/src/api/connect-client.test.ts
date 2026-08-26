@@ -107,6 +107,23 @@ describe('connect-client', () => {
     expect(mocks.assign).not.toHaveBeenCalled()
   })
 
+  it('does not redirect an unauthenticated request from the setup page', async () => {
+    const { createXylonaTransport } = await import('./connect-client')
+
+    window.history.replaceState({}, '', '/setup')
+    mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
+    mocks.fetch.mockResolvedValue(new Response(null, { status: 401 }))
+    createXylonaTransport()
+
+    const transportCall = mocks.createConnectTransport.mock.calls[0]
+    if (!transportCall) {
+      throw new Error('expected createConnectTransport to be called')
+    }
+    await transportCall[0].fetch('/rpc/setup')
+
+    expect(mocks.assign).not.toHaveBeenCalled()
+  })
+
   it('creates the unary client from the shared transport', async () => {
     const { getXylonaClient } = await import('./connect-client')
 

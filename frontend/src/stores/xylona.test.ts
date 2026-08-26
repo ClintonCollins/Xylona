@@ -213,6 +213,10 @@ describe('useUserAuthStore — state helpers', () => {
       lastName: 'User',
       superUser: true,
     })
+    store.initialFetch = true
+    store.initialResponse = create(CheckUserAuthenticatedResponseSchema, {
+      authenticated: false,
+    })
 
     store.setUser(user)
 
@@ -222,5 +226,7 @@ describe('useUserAuthStore — state helpers', () => {
       email: 'admin@example.com',
       superUser: true,
     })
+    expect(store.initialFetch).toBe(false)
+    expect(store.initialResponse).toBeNull()
   })
 })

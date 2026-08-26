@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/firstsetup"
 	"github.com/ClintonCollins/Xylona/internal/usermgmt"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/xylonaconnect"
@@ -22,6 +23,22 @@ type UserHandler struct {
 // NewUserHandler creates a local IPC handler backed by the shared user service.
 func NewUserHandler(service *usermgmt.Service) *UserHandler {
 	return &UserHandler{service: service}
+}
+
+// CompleteSetup creates the first superuser through the local-only transport.
+func (h *UserHandler) CompleteSetup(_ context.Context, request *connect.Request[xylona.CompleteSetupRequest]) (*connect.Response[xylona.CompleteSetupResponse], error) {
+	user, errCreate := firstsetup.CreateFirstSuperUser(h.service, usermgmt.CreateInput{
+		UserName: request.Msg.GetUserName(),
+		Email:    request.Msg.GetEmail(),
+		Password: request.Msg.GetPassword(),
+	})
+	if errCreate != nil {
+		if errors.Is(errCreate, firstsetup.ErrAlreadyInstalled) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errCreate)
+		}
+		return nil, mapUserManagementError(errCreate)
+	}
+	return connect.NewResponse(&xylona.CompleteSetupResponse{User: userToProto(user)}), nil
 }
 
 // CreateUser creates a local user through the local admin transport.

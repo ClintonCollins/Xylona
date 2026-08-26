@@ -79,7 +79,7 @@ func Run(ctx context.Context, args []string, options Options) error {
 }
 
 func runList(ctx context.Context, cmd *cli.Command, options Options) error {
-	resolvedOptions, errResolve := resolveOptions(ctx, options)
+	resolvedOptions, errResolve := ResolveOptions(ctx, options)
 	if errResolve != nil {
 		return errResolve
 	}
@@ -108,7 +108,7 @@ func runList(ctx context.Context, cmd *cli.Command, options Options) error {
 }
 
 func runShow(ctx context.Context, cmd *cli.Command, options Options) error {
-	resolvedOptions, errResolve := resolveOptions(ctx, options)
+	resolvedOptions, errResolve := ResolveOptions(ctx, options)
 	if errResolve != nil {
 		return errResolve
 	}
@@ -147,7 +147,7 @@ func runCreate(ctx context.Context, cmd *cli.Command, options Options) error {
 		return errors.New(`create does not accept positional arguments`)
 	}
 
-	resolvedOptions, errResolve := resolveOptions(ctx, options)
+	resolvedOptions, errResolve := ResolveOptions(ctx, options)
 	if errResolve != nil {
 		return errResolve
 	}
@@ -309,7 +309,7 @@ func promptYesNo(label string, defaultYes bool) (bool, error) {
 }
 
 func runUpdate(ctx context.Context, cmd *cli.Command, options Options) error {
-	resolvedOptions, errResolve := resolveOptions(ctx, options)
+	resolvedOptions, errResolve := ResolveOptions(ctx, options)
 	if errResolve != nil {
 		return errResolve
 	}
@@ -396,7 +396,7 @@ func updateHasRequestedChanges(cmd *cli.Command, password *string, superUser *bo
 }
 
 func runDelete(ctx context.Context, cmd *cli.Command, options Options) error {
-	resolvedOptions, errResolve := resolveOptions(ctx, options)
+	resolvedOptions, errResolve := ResolveOptions(ctx, options)
 	if errResolve != nil {
 		return errResolve
 	}
@@ -1068,7 +1068,8 @@ func modeCommandFlags() []cli.Flag {
 	}
 }
 
-func resolveOptions(ctx context.Context, options Options) (Options, error) {
+// ResolveOptions fills the default database path when the caller did not provide one.
+func ResolveOptions(ctx context.Context, options Options) (Options, error) {
 	resolvedOptions := options
 	if strings.TrimSpace(resolvedOptions.DefaultDBPath) != `` {
 		return resolvedOptions, nil

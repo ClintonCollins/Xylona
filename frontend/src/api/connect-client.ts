@@ -24,7 +24,12 @@ export function createXylonaTransport(nodeAddress: string = window.location.host
     baseUrl: getXylonaApiBaseURL(nodeAddress),
     fetch: async (input, init) => {
       const response = await fetch(input, { ...init, credentials: 'include' })
-      if (response.status === 401 && !sessionRedirecting && window.location.pathname !== '/login') {
+      if (
+        response.status === 401 &&
+        !sessionRedirecting &&
+        window.location.pathname !== '/login' &&
+        window.location.pathname !== '/setup'
+      ) {
         sessionRedirecting = true
         window.location.assign('/login?reason=session-expired')
       }

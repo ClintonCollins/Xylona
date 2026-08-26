@@ -29,6 +29,8 @@ service Xylona {
   rpc Login (LoginRequest) returns (LoginResponse) {}
   rpc Logout (LogoutRequest) returns (LogoutResponse) {}
   rpc CheckUserAuthenticated (CheckUserAuthenticatedRequest) returns (CheckUserAuthenticatedResponse) {}
+  rpc GetSetupStatus (GetSetupStatusRequest) returns (GetSetupStatusResponse) {}
+  rpc CompleteSetup (CompleteSetupRequest) returns (CompleteSetupResponse) {}
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {}
   rpc ListUsers (ListUsersRequest) returns (ListUsersResponse) {}
   rpc GetUser (GetUserDetailsRequest) returns (GetUserDetailsResponse) {}
@@ -2129,3 +2131,20 @@ message InstallSevenDaysToDieLandClaimsModRequest {
 }
 
 message InstallSevenDaysToDieLandClaimsModResponse {}
+
+message GetSetupStatusRequest {}
+
+message GetSetupStatusResponse {
+  bool needed = 1;
+}
+
+message CompleteSetupRequest {
+  string user_name = 1;
+  string email = 2;
+  string password = 3;
+  string token = 4;
+}
+
+message CompleteSetupResponse {
+  User user = 1;
+}

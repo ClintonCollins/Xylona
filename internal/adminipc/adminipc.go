@@ -147,20 +147,32 @@ func GuardOfflineMutation(ctx context.Context, dbPath string) (*db.AppLock, erro
 	if errLock != nil {
 		return nil, fmt.Errorf(`%w: %w`, ErrAppLockHeld, errLock)
 	}
+	releaseLock := func(err error) error {
+		errClose := lock.Close()
+		if errClose != nil {
+			errClose = fmt.Errorf(`adminipc: release app lock: %w`, errClose)
+		}
+		return errors.Join(err, errClose)
+	}
 
 	conn, _, errConn := db.OpenOfflineUserConnection(ctx, dbPath)
 	if errConn != nil {
-		_ = lock.Close()
-		return nil, fmt.Errorf(`adminipc: open offline connection: %w`, errConn)
+		return nil, releaseLock(fmt.Errorf(`adminipc: open offline connection: %w`, errConn))
 	}
-	defer func() {
-		_ = conn.SQLDb.Close()
-	}()
 
 	errVerify := db.VerifyOfflineWriteAccess(ctx, conn)
+	errCloseConn := conn.SQLDb.Close()
+	if errCloseConn != nil {
+		errCloseConn = fmt.Errorf(`adminipc: close offline connection: %w`, errCloseConn)
+	}
 	if errVerify != nil {
-		_ = lock.Close()
-		return nil, fmt.Errorf(`adminipc: verify offline write access: %w`, errVerify)
+		return nil, releaseLock(errors.Join(
+			fmt.Errorf(`adminipc: verify offline write access: %w`, errVerify),
+			errCloseConn,
+		))
+	}
+	if errCloseConn != nil {
+		return nil, releaseLock(errCloseConn)
 	}
 
 	return lock, nil

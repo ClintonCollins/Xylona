@@ -122,12 +122,19 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 		},
 	}
 
-	encodedSession, errEncodeSession := xs.secureCookie.Encode(gatekeeper.SessionTokenCookieName, newSession.Token)
-	if errEncodeSession != nil {
+	errCookies := xs.appendSessionCookies(resp.Header(), request.Header(), newSession)
+	if errCookies != nil {
 		return nil, internalErr()
 	}
+	return resp, nil
+}
 
-	secureCookies := cookieSecure(xs.secureCookies, request.Header())
+func (xs *XylonaService) appendSessionCookies(responseHeader http.Header, requestHeader http.Header, session *models.UserSession) error {
+	encodedSession, errEncodeSession := xs.secureCookie.Encode(gatekeeper.SessionTokenCookieName, session.Token)
+	if errEncodeSession != nil {
+		return fmt.Errorf("rpc: encode session cookie: %w", errEncodeSession)
+	}
+	secureCookies := cookieSecure(xs.secureCookies, requestHeader)
 	tokenCookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
 		Name:     gatekeeper.SessionTokenCookieName,
 		Value:    encodedSession,
@@ -139,18 +146,16 @@ func (xs *XylonaService) Login(_ context.Context, request *connect.Request[xylon
 	}
 	idCookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
 		Name:     gatekeeper.SessionIDCookieName,
-		Value:    newSession.ID,
+		Value:    session.ID,
 		Path:     "/",
 		Expires:  time.Now().Add(defaultSessionDuration),
 		Secure:   secureCookies,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
-
-	resp.Header().Add("Set-Cookie", tokenCookie.String())
-	resp.Header().Add("Set-Cookie", idCookie.String())
-
-	return resp, nil
+	responseHeader.Add("Set-Cookie", tokenCookie.String())
+	responseHeader.Add("Set-Cookie", idCookie.String())
+	return nil
 }
 
 // Logout clears the current user session cookies.

@@ -74,6 +74,10 @@ const (
 	// XylonaCheckUserAuthenticatedProcedure is the fully-qualified name of the Xylona's
 	// CheckUserAuthenticated RPC.
 	XylonaCheckUserAuthenticatedProcedure = "/xylona.Xylona/CheckUserAuthenticated"
+	// XylonaGetSetupStatusProcedure is the fully-qualified name of the Xylona's GetSetupStatus RPC.
+	XylonaGetSetupStatusProcedure = "/xylona.Xylona/GetSetupStatus"
+	// XylonaCompleteSetupProcedure is the fully-qualified name of the Xylona's CompleteSetup RPC.
+	XylonaCompleteSetupProcedure = "/xylona.Xylona/CompleteSetup"
 	// XylonaCreateUserProcedure is the fully-qualified name of the Xylona's CreateUser RPC.
 	XylonaCreateUserProcedure = "/xylona.Xylona/CreateUser"
 	// XylonaListUsersProcedure is the fully-qualified name of the Xylona's ListUsers RPC.
@@ -472,6 +476,8 @@ type XylonaClient interface {
 	Login(context.Context, *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error)
 	CheckUserAuthenticated(context.Context, *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error)
+	GetSetupStatus(context.Context, *connect.Request[xylona.GetSetupStatusRequest]) (*connect.Response[xylona.GetSetupStatusResponse], error)
+	CompleteSetup(context.Context, *connect.Request[xylona.CompleteSetupRequest]) (*connect.Response[xylona.CompleteSetupResponse], error)
 	CreateUser(context.Context, *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[xylona.ListUsersRequest]) (*connect.Response[xylona.ListUsersResponse], error)
 	GetUser(context.Context, *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error)
@@ -746,6 +752,18 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaCheckUserAuthenticatedProcedure,
 			connect.WithSchema(xylonaMethods.ByName("CheckUserAuthenticated")),
+			connect.WithClientOptions(opts...),
+		),
+		getSetupStatus: connect.NewClient[xylona.GetSetupStatusRequest, xylona.GetSetupStatusResponse](
+			httpClient,
+			baseURL+XylonaGetSetupStatusProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetSetupStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		completeSetup: connect.NewClient[xylona.CompleteSetupRequest, xylona.CompleteSetupResponse](
+			httpClient,
+			baseURL+XylonaCompleteSetupProcedure,
+			connect.WithSchema(xylonaMethods.ByName("CompleteSetup")),
 			connect.WithClientOptions(opts...),
 		),
 		createUser: connect.NewClient[xylona.CreateUserRequest, xylona.CreateUserResponse](
@@ -1616,6 +1634,8 @@ type xylonaClient struct {
 	login                                   *connect.Client[xylona.LoginRequest, xylona.LoginResponse]
 	logout                                  *connect.Client[xylona.LogoutRequest, xylona.LogoutResponse]
 	checkUserAuthenticated                  *connect.Client[xylona.CheckUserAuthenticatedRequest, xylona.CheckUserAuthenticatedResponse]
+	getSetupStatus                          *connect.Client[xylona.GetSetupStatusRequest, xylona.GetSetupStatusResponse]
+	completeSetup                           *connect.Client[xylona.CompleteSetupRequest, xylona.CompleteSetupResponse]
 	createUser                              *connect.Client[xylona.CreateUserRequest, xylona.CreateUserResponse]
 	listUsers                               *connect.Client[xylona.ListUsersRequest, xylona.ListUsersResponse]
 	getUser                                 *connect.Client[xylona.GetUserDetailsRequest, xylona.GetUserDetailsResponse]
@@ -1842,6 +1862,16 @@ func (c *xylonaClient) Logout(ctx context.Context, req *connect.Request[xylona.L
 // CheckUserAuthenticated calls xylona.Xylona.CheckUserAuthenticated.
 func (c *xylonaClient) CheckUserAuthenticated(ctx context.Context, req *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
 	return c.checkUserAuthenticated.CallUnary(ctx, req)
+}
+
+// GetSetupStatus calls xylona.Xylona.GetSetupStatus.
+func (c *xylonaClient) GetSetupStatus(ctx context.Context, req *connect.Request[xylona.GetSetupStatusRequest]) (*connect.Response[xylona.GetSetupStatusResponse], error) {
+	return c.getSetupStatus.CallUnary(ctx, req)
+}
+
+// CompleteSetup calls xylona.Xylona.CompleteSetup.
+func (c *xylonaClient) CompleteSetup(ctx context.Context, req *connect.Request[xylona.CompleteSetupRequest]) (*connect.Response[xylona.CompleteSetupResponse], error) {
+	return c.completeSetup.CallUnary(ctx, req)
 }
 
 // CreateUser calls xylona.Xylona.CreateUser.
@@ -2572,6 +2602,8 @@ type XylonaHandler interface {
 	Login(context.Context, *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error)
 	CheckUserAuthenticated(context.Context, *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error)
+	GetSetupStatus(context.Context, *connect.Request[xylona.GetSetupStatusRequest]) (*connect.Response[xylona.GetSetupStatusResponse], error)
+	CompleteSetup(context.Context, *connect.Request[xylona.CompleteSetupRequest]) (*connect.Response[xylona.CompleteSetupResponse], error)
 	CreateUser(context.Context, *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error)
 	ListUsers(context.Context, *connect.Request[xylona.ListUsersRequest]) (*connect.Response[xylona.ListUsersResponse], error)
 	GetUser(context.Context, *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error)
@@ -2842,6 +2874,18 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaCheckUserAuthenticatedProcedure,
 		svc.CheckUserAuthenticated,
 		connect.WithSchema(xylonaMethods.ByName("CheckUserAuthenticated")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetSetupStatusHandler := connect.NewUnaryHandler(
+		XylonaGetSetupStatusProcedure,
+		svc.GetSetupStatus,
+		connect.WithSchema(xylonaMethods.ByName("GetSetupStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaCompleteSetupHandler := connect.NewUnaryHandler(
+		XylonaCompleteSetupProcedure,
+		svc.CompleteSetup,
+		connect.WithSchema(xylonaMethods.ByName("CompleteSetup")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaCreateUserHandler := connect.NewUnaryHandler(
@@ -3726,6 +3770,10 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaLogoutHandler.ServeHTTP(w, r)
 		case XylonaCheckUserAuthenticatedProcedure:
 			xylonaCheckUserAuthenticatedHandler.ServeHTTP(w, r)
+		case XylonaGetSetupStatusProcedure:
+			xylonaGetSetupStatusHandler.ServeHTTP(w, r)
+		case XylonaCompleteSetupProcedure:
+			xylonaCompleteSetupHandler.ServeHTTP(w, r)
 		case XylonaCreateUserProcedure:
 			xylonaCreateUserHandler.ServeHTTP(w, r)
 		case XylonaListUsersProcedure:
@@ -4083,6 +4131,14 @@ func (UnimplementedXylonaHandler) Logout(context.Context, *connect.Request[xylon
 
 func (UnimplementedXylonaHandler) CheckUserAuthenticated(context.Context, *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CheckUserAuthenticated is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetSetupStatus(context.Context, *connect.Request[xylona.GetSetupStatusRequest]) (*connect.Response[xylona.GetSetupStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetSetupStatus is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) CompleteSetup(context.Context, *connect.Request[xylona.CompleteSetupRequest]) (*connect.Response[xylona.CompleteSetupResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CompleteSetup is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) CreateUser(context.Context, *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error) {

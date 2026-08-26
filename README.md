@@ -14,6 +14,35 @@ Xylona is still evolving quickly. Expect active iteration, and treat upgrades th
 - Configure game and server settings
 - Administer users, permissions, and nodes
 
+## First-run setup
+
+A fresh controller is ready when cookie and encryption secrets exist and the first superuser has been created. Game servers are created after you sign in; that is a separate step.
+
+On a desktop or an SSH session with a TTY, run `xylona` with no arguments. If setup is still needed, Xylona asks whether to configure in the CLI or open a browser.
+
+On a VPS or as a service (no TTY), Xylona starts in awaiting-setup and prints one or more one-time URLs. Wildcard listeners print loopback first, followed by each detected interface address:
+
+```text
+Setup: http://127.0.0.1:8080/setup?token=…
+Setup: http://<interface-address>:8080/setup?token=…
+```
+
+Copy one of those URLs from `journalctl -u xylona` or the Windows Event Log, or SSH in and run `xylona setup`. The token is valid until the first superuser is created or the process restarts.
+
+Non-interactive setup (takes precedence over the chooser):
+
+```bash
+xylona setup --username admin --email admin@localhost --password-stdin
+```
+
+```bash
+xylona --setup-username admin --setup-password-stdin
+```
+
+Passwords are read from stdin, never from argv. If `data.sqlite` already exists, Xylona will not generate a new `ENCRYPTION_KEY_BASE64`; restore the matched recovery key instead.
+
+`xylona user create --superuser` still works and also counts as completing first-run setup.
+
 ## Development
 
 ### Prerequisites

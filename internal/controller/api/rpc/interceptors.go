@@ -18,6 +18,8 @@ var publicSessionOptionalProcedures = map[string]struct{}{
 	xylonaconnect.XylonaCheckUserAuthenticatedProcedure:        {},
 	xylonaconnect.XylonaLoginProcedure:                         {},
 	xylonaconnect.XylonaLogoutProcedure:                        {},
+	xylonaconnect.XylonaGetSetupStatusProcedure:                {},
+	xylonaconnect.XylonaCompleteSetupProcedure:                 {},
 	xylonaconnect.XylonaGetPublicPalworldMapProcedure:          {},
 	xylonaconnect.XylonaGetPublicSevenDaysToDieMapProcedure:    {},
 	xylonaconnect.XylonaGetPublicMinecraftMapProcedure:         {},

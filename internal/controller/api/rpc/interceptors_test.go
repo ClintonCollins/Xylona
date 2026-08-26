@@ -78,6 +78,16 @@ func TestSessionAuthInterceptorWrapUnary(t *testing.T) {
 			wantNextCalled: true,
 		},
 		{
+			name:           "public setup status is allowed without session",
+			procedure:      xylonaconnect.XylonaGetSetupStatusProcedure,
+			wantNextCalled: true,
+		},
+		{
+			name:           "public complete setup is allowed without session",
+			procedure:      xylonaconnect.XylonaCompleteSetupProcedure,
+			wantNextCalled: true,
+		},
+		{
 			name:      "remove node procedure requires a session",
 			procedure: xylonaconnect.XylonaRemoveNodeProcedure,
 			wantErr:   true,

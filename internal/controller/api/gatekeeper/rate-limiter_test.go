@@ -15,23 +15,23 @@ func TestAuthRateLimiter(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	t.Run("rate limits Login path after exceeding threshold", func(t *testing.T) {
-		handler := AuthRateLimiter()(okHandler)
-
-		var lastStatus int
-		for range 15 {
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/Login", nil)
-			req.RemoteAddr = "192.0.2.1:12345"
-			rec := httptest.NewRecorder()
-			handler.ServeHTTP(rec, req)
-			lastStatus = rec.Code
-		}
-
-		if lastStatus != http.StatusTooManyRequests {
-			t.Fatalf("expected status %d after exceeding rate limit on /Login, got %d",
-				http.StatusTooManyRequests, lastStatus)
-		}
-	})
+	for _, procedure := range []string{"CompleteSetup", "Login"} {
+		t.Run("rate limits "+procedure+" after exceeding threshold", func(t *testing.T) {
+			handler := AuthRateLimiter()(okHandler)
+			var lastStatus int
+			for range 15 {
+				req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/"+procedure, nil)
+				req.RemoteAddr = "192.0.2.1:12345"
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, req)
+				lastStatus = rec.Code
+			}
+			if lastStatus != http.StatusTooManyRequests {
+				t.Fatalf("expected status %d after exceeding rate limit on /%s, got %d",
+					http.StatusTooManyRequests, procedure, lastStatus)
+			}
+		})
+	}
 
 	t.Run("does not rate limit non-Login paths", func(t *testing.T) {
 		handler := AuthRateLimiter()(okHandler)

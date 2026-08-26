@@ -1,7 +1,10 @@
 package db
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -87,5 +90,52 @@ func TestNewConnectionReturnsErrorForInvalidPath(t *testing.T) {
 	}
 	if conn != nil {
 		t.Fatalf("NewConnection() connection = %+v, want nil", conn)
+	}
+}
+
+func TestCountExistingSuperUsersReadOnly(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	missingCount, errMissing := CountExistingSuperUsersReadOnly(context.Background(), filepath.Join(tempDir, "missing.sqlite"))
+	if errMissing != nil || missingCount != 0 {
+		t.Fatalf("CountExistingSuperUsersReadOnly() missing database = %d, %v; want 0, nil", missingCount, errMissing)
+	}
+
+	dbPath := filepath.Join(tempDir, "read-only-count.sqlite")
+	sqlDB, errOpen := sql.Open("sqlite", dbPath)
+	if errOpen != nil {
+		t.Fatalf("sql.Open() error = %v", errOpen)
+	}
+	_, errCreate := sqlDB.ExecContext(context.Background(), `CREATE TABLE user (super_user BOOLEAN NOT NULL)`)
+	if errCreate != nil {
+		t.Fatalf("create user table error = %v", errCreate)
+	}
+	_, errInsert := sqlDB.ExecContext(context.Background(), `INSERT INTO user (super_user) VALUES (1), (0), (1)`)
+	if errInsert != nil {
+		t.Fatalf("insert users error = %v", errInsert)
+	}
+	errClose := sqlDB.Close()
+	if errClose != nil {
+		t.Fatalf("Close() error = %v", errClose)
+	}
+
+	before, errReadBefore := os.ReadFile(dbPath)
+	if errReadBefore != nil {
+		t.Fatalf("ReadFile() before error = %v", errReadBefore)
+	}
+	count, errCount := CountExistingSuperUsersReadOnly(context.Background(), dbPath)
+	if errCount != nil {
+		t.Fatalf("CountExistingSuperUsersReadOnly() error = %v", errCount)
+	}
+	if count != 2 {
+		t.Fatalf("CountExistingSuperUsersReadOnly() = %d, want 2", count)
+	}
+	after, errReadAfter := os.ReadFile(dbPath)
+	if errReadAfter != nil {
+		t.Fatalf("ReadFile() after error = %v", errReadAfter)
+	}
+	if !bytes.Equal(after, before) {
+		t.Fatal("CountExistingSuperUsersReadOnly() mutated the database")
 	}
 }

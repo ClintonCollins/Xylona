@@ -26,6 +26,8 @@ export const useUserAuthStore = defineStore('userAuth', {
   actions: {
     setUser(user: User) {
       this.user = user
+      this.initialFetch = false
+      this.initialResponse = null
     },
     async checkUserAuthenticated(): Promise<CheckUserAuthenticatedResponse | null> {
       if (this.initialFetch) {

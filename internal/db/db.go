@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -143,4 +145,55 @@ func NewConnection(ctx context.Context, path string) (*Connection, error) {
 
 	bobDB := bob.NewDB(sqlDb)
 	return &Connection{ctx: ctx, SQLDb: sqlDb, DB: bobDB}, nil
+}
+
+// CountExistingSuperUsersReadOnly counts superusers without changing SQLite state.
+// A database without the user table is treated as not yet set up.
+func CountExistingSuperUsersReadOnly(ctx context.Context, path string) (count int, errResult error) {
+	resolvedPath, errResolve := ResolveDatabasePath(path)
+	if errResolve != nil {
+		return 0, errResolve
+	}
+	info, errStat := os.Stat(resolvedPath)
+	if errors.Is(errStat, os.ErrNotExist) {
+		return 0, nil
+	}
+	if errStat != nil {
+		return 0, fmt.Errorf("db: stat database: %w", errStat)
+	}
+	if info.IsDir() {
+		return 0, fmt.Errorf("db: database path %q is a directory", resolvedPath)
+	}
+	databasePath := filepath.ToSlash(resolvedPath)
+	volumeName := filepath.VolumeName(resolvedPath)
+	if volumeName != "" {
+		databasePath = "/" + databasePath
+	}
+	databaseURL := url.URL{Scheme: "file", Path: databasePath}
+	dsn := sqliteDSNWithPragmas(databaseURL.String()+"?mode=ro", "query_only(1)", "busy_timeout(5000)")
+	sqlDB, errOpen := sql.Open("sqlite", dsn)
+	if errOpen != nil {
+		return 0, fmt.Errorf("db: open read-only database: %w", errOpen)
+	}
+	defer func() {
+		errClose := sqlDB.Close()
+		if errClose != nil {
+			errResult = errors.Join(errResult, fmt.Errorf("db: close read-only database: %w", errClose))
+		}
+	}()
+
+	var userTableExists bool
+	errTable := sqlDB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user')`).Scan(&userTableExists)
+	if errTable != nil {
+		return 0, fmt.Errorf("db: inspect user table: %w", errTable)
+	}
+	if !userTableExists {
+		return 0, nil
+	}
+
+	errCount := sqlDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM user WHERE super_user = 1`).Scan(&count)
+	if errCount != nil {
+		return 0, fmt.Errorf("db: count existing superusers: %w", errCount)
+	}
+	return count, nil
 }

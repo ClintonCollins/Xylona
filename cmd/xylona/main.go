@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,6 +36,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/adminipc"
 	"github.com/ClintonCollins/Xylona/internal/alerts"
 	"github.com/ClintonCollins/Xylona/internal/appservice"
+	"github.com/ClintonCollins/Xylona/internal/cli/setupcmd"
 	"github.com/ClintonCollins/Xylona/internal/cli/usercmd"
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/api/events"
@@ -43,6 +45,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/controller/api/websocket"
 	dbpkg "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
+	"github.com/ClintonCollins/Xylona/internal/firstsetup"
 	"github.com/ClintonCollins/Xylona/internal/gamedefinitions"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations/games"
 	"github.com/ClintonCollins/Xylona/internal/mailer"
@@ -510,7 +513,11 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	}()
 
 	config := Configuration{}
-	_ = godotenv.Load()
+	errLoadEnv := godotenv.Load()
+	if errLoadEnv != nil && !errors.Is(errLoadEnv, os.ErrNotExist) {
+		log.Error().Err(errLoadEnv).Msg("Error loading env file")
+		return 1
+	}
 	errParseConfig := env.Parse(&config)
 	if errParseConfig != nil {
 		log.Error().Err(errParseConfig).Msg("Error parsing config")
@@ -523,6 +530,24 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 		return 1
 	}
 	config.DBFilePath = resolvedDBPath
+
+	runtimeDBLock, errRuntimeDBLock := dbpkg.AcquireRuntimeDBLock(config.DBFilePath)
+	if errRuntimeDBLock != nil {
+		log.Error().Err(errRuntimeDBLock).Msg("Failed to acquire runtime database lock")
+		return 1
+	}
+	defer func() {
+		errCloseRuntimeDBLock := runtimeDBLock.Close()
+		if errCloseRuntimeDBLock != nil {
+			log.Error().Err(errCloseRuntimeDBLock).Msg("Failed to release runtime database lock")
+		}
+	}()
+
+	errEnsureSecrets := ensureConfigurationSecrets(&config)
+	if errEnsureSecrets != nil {
+		log.Error().Err(errEnsureSecrets).Msg("Failed to ensure first-run secrets")
+		return 1
+	}
 
 	validatedConfig, errValidateConfig := validateConfiguration(config)
 	if errValidateConfig != nil {
@@ -543,14 +568,6 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
 	updateShutdownChannel := make(chan struct{}, 1)
-
-	runtimeDBLock, errRuntimeDBLock := dbpkg.AcquireRuntimeDBLock(config.DBFilePath)
-	if errRuntimeDBLock != nil {
-		return startupFailure(cleanup, ctxCancel, errRuntimeDBLock, "Failed to acquire runtime database lock")
-	}
-	defer func() {
-		_ = runtimeDBLock.Close()
-	}()
 
 	secureCookie := securecookie.New(validatedConfig.cookieHashKey, validatedConfig.cookieBlockKey)
 
@@ -638,6 +655,25 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	xylonaService, errXylonaService := rpc.NewXylonaService(ctx, dbInst, actionsInst, nodeRegistry, secureCookie, config.SecureCookies, steamCache, modMgr, versionState)
 	if errXylonaService != nil {
 		return startupFailure(cleanup, ctxCancel, errXylonaService, "Failed to create Xylona RPC service")
+	}
+	superUserCount, errSuperUserCount := dbInst.CountSuperUsers()
+	if errSuperUserCount != nil {
+		return startupFailure(cleanup, ctxCancel, errSuperUserCount, "Failed to count superusers")
+	}
+	setupBrowserURL := ""
+	if superUserCount == 0 {
+		plaintextToken, setupToken, errIssueToken := firstsetup.IssueToken()
+		if errIssueToken != nil {
+			return startupFailure(cleanup, ctxCancel, errIssueToken, "Failed to issue setup token")
+		}
+		xylonaService.SetSetupToken(setupToken)
+		setupURLs := setupAccessURLs(config, plaintextToken)
+		log.Info().Strs("urls", setupURLs).Msg("Xylona is not set up yet. Open one of these URLs or run xylona setup.")
+		_, errWriteSetupURL := fmt.Fprintf(os.Stderr, "Setup: %s\n", strings.Join(setupURLs, "\nSetup: "))
+		if errWriteSetupURL != nil {
+			log.Warn().Err(errWriteSetupURL).Msg("Failed to write setup URL")
+		}
+		setupBrowserURL = setupURLs[0]
 	}
 	localUserService := usermgmt.NewService(dbInst)
 	localAdminServer, errLocalAdminServer := adminipc.NewServer(adminipc.ServerConfig{
@@ -751,6 +787,11 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	router.HandleFunc("/*", handleSPAFunc(frontendFS))
 
 	// Start the web server
+	listenConfig := net.ListenConfig{}
+	httpListener, errHTTPListen := listenConfig.Listen(ctx, "tcp", httpServer.Addr)
+	if errHTTPListen != nil {
+		return startupFailure(cleanup, ctxCancel, errHTTPListen, "Failed to bind Xylona web server")
+	}
 	startupErrCh := make(chan error, 3)
 	go func() {
 		log.Info().Str("endpoint", localAdminServer.Endpoint()).Msg("Starting Xylona local admin server")
@@ -760,9 +801,14 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 		}
 	}()
 	go func() {
-		log.Info().Str("address", fmt.Sprintf("%s:%d", config.Host, config.HTTPPort)).Msg("Starting Xylona web server")
-		startServer(ctxCancel, "start Xylona web server", httpServer.ListenAndServe, startupErrCh)
+		log.Info().Str("address", httpListener.Addr().String()).Msg("Starting Xylona web server")
+		startServer(ctxCancel, "start Xylona web server", func() error {
+			return httpServer.Serve(httpListener)
+		}, startupErrCh)
 	}()
+	if setupBrowserURL != "" {
+		maybeOpenSetupBrowser(setupBrowserURL)
+	}
 
 	games.RegisterInternalGames()
 
@@ -819,11 +865,16 @@ func controllerServiceExitCode(updateRequested bool, restartMode selfupdate.Rest
 }
 
 func newRootCommand(serviceAction func() int) *cli.Command {
+	cliOptions := usercmd.Options{
+		Migrate: func(sqlDB *sql.DB) error {
+			return dbpkg.RunMigrations(sqlDB, migrations.FS, migrations.Root)
+		},
+		ResolveDefaultDBPath: resolveDefaultCLIUserDBPath,
+	}
 	commands := []*cli.Command{
-		usercmd.NewCommand(usercmd.Options{
-			Migrate: func(sqlDB *sql.DB) error {
-				return dbpkg.RunMigrations(sqlDB, migrations.FS, migrations.Root)
-			},
+		usercmd.NewCommand(cliOptions),
+		setupcmd.NewCommand(setupcmd.Options{
+			Migrate:              cliOptions.Migrate,
 			ResolveDefaultDBPath: resolveDefaultCLIUserDBPath,
 		}),
 	}
@@ -835,9 +886,22 @@ func newRootCommand(serviceAction func() int) *cli.Command {
 		UsageText: `xylona [command]`,
 		Writer:    rootCLIStdout,
 		ErrWriter: rootCLIStderr,
-		Action: func(_ context.Context, _ *cli.Command) error {
-			serviceAction()
-			return nil
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "setup-username",
+				Usage: "Non-interactive first-run username",
+			},
+			&cli.StringFlag{
+				Name:  "setup-email",
+				Usage: "Non-interactive first-run email",
+			},
+			&cli.BoolFlag{
+				Name:  "setup-password-stdin",
+				Usage: "Read the first-run password from stdin",
+			},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return runRootAction(ctx, cmd, serviceAction)
 		},
 		Commands: commands,
 	}

@@ -2,7 +2,22 @@ import { RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
 import { useUserAuthStore } from '@/stores/xylona'
 import { CheckUserAuthenticatedResponse } from '@/proto/xylona_pb'
 import { canViewAlerts } from '@/utils/alert-permissions'
+import { fetchSetupStatus, unauthenticatedRedirect } from '@/utils/setup-status'
 import { legacyGameServerEditRedirect } from './game-server-route-helpers'
+
+async function redirectForFirstRun(to: RouteLocationNormalized) {
+  try {
+    const status = await fetchSetupStatus()
+    const token = typeof to.query['token'] === 'string' ? to.query['token'] : ''
+    const redirect = unauthenticatedRedirect(status.needed, to.path, token)
+    if (redirect === null) {
+      return
+    }
+    return redirect
+  } catch {
+    return
+  }
+}
 
 const requireSuperUser = async () => {
   const store = useUserAuthStore()
@@ -40,6 +55,10 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     component: () => import('pages/Login.vue'),
     beforeEnter: async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
+      const setupRedirect = await redirectForFirstRun(to)
+      if (setupRedirect) {
+        return setupRedirect
+      }
       const resp: CheckUserAuthenticatedResponse | null =
         await useUserAuthStore().checkUserAuthenticated()
       if (resp && resp.user && resp.authenticated) {
@@ -50,13 +69,24 @@ const routes: RouteRecordRaw[] = [
       }
     },
   },
+  {
+    path: '/setup',
+    component: () => import('pages/Setup.vue'),
+    beforeEnter: async (to: RouteLocationNormalized) => {
+      return redirectForFirstRun(to)
+    },
+  },
   // Regular routes
   {
     path: '/',
-    beforeEnter: async (_to: RouteLocationNormalized, _from: RouteLocationNormalized) => {
+    beforeEnter: async (to: RouteLocationNormalized, _from: RouteLocationNormalized) => {
       const resp: CheckUserAuthenticatedResponse | null =
         await useUserAuthStore().checkUserAuthenticated()
       if (useUserAuthStore().user === null && (!resp || !resp.authenticated)) {
+        const setupRedirect = await redirectForFirstRun(to)
+        if (setupRedirect) {
+          return setupRedirect
+        }
         return { path: '/login' }
       }
     },

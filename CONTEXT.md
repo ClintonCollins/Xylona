@@ -37,3 +37,7 @@ _Avoid_: WebAPI, map credentials
 **Native dashboard token**:
 The deterministic token Xylona injects into a 7 Days to Die game server's locked start arguments so it can read that server's native dashboard.
 _Avoid_: Map credentials
+
+**First-run setup**:
+The one-time controller bootstrap that persists cookie and encryption secrets and creates the first superuser. It is not game-server software install and is not creating the first game server.
+_Avoid_: Install, onboarding (when you mean this bootstrap)
