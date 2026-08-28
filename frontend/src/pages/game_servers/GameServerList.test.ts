@@ -101,10 +101,6 @@ const mocks = vi.hoisted(() => {
   }
 })
 
-const storageState = vi.hoisted(() => ({
-  values: new Map<string, unknown>(),
-}))
-
 vi.mock('@/utils/shared', async () => {
   const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
   return {
@@ -136,12 +132,7 @@ vi.mock('quasar', async () => {
 })
 
 vi.mock('@/utils/persisted-ref', () => ({
-  usePersistedRef: <T>(key: string, initialValue: T) => {
-    if (!storageState.values.has(key)) {
-      storageState.values.set(key, ref(initialValue))
-    }
-    return storageState.values.get(key) as { value: T }
-  },
+  usePersistedRef: <T>(_key: string, initialValue: T) => ref(initialValue),
 }))
 
 const QBtnStub = defineComponent({
@@ -251,7 +242,6 @@ describe('GameServerList', () => {
   beforeEach(() => {
     setWebsocketConnectionStatus('connected')
     setActivePinia(createPinia())
-    storageState.values.clear()
     mocks.listAggregatedGameServers.mockReset()
     mocks.listGameServers.mockReset()
     mocks.listNodes.mockReset()
@@ -284,16 +274,6 @@ describe('GameServerList', () => {
   afterEach(() => {
     setWebsocketConnectionStatus('connecting')
   })
-
-  function seedStoredDisplayRows(rows: DisplayRow[]) {
-    storageState.values.set('game-server-display-rows-cache', ref(rows))
-  }
-
-  function getStoredDisplayRows() {
-    return storageState.values.get('game-server-display-rows-cache') as
-      | { value: DisplayRow[] }
-      | undefined
-  }
 
   function mountList(superUser: boolean) {
     const store = useUserAuthStore()
@@ -817,100 +797,6 @@ describe('GameServerList', () => {
     expect(vm.formatMemoryUsage(row)).toBe('—')
   })
 
-  it('shows cached rows before aggregated data finishes loading', async () => {
-    seedStoredDisplayRows([
-      {
-        compositeId: 'local/server-cached',
-        id: 'server-cached',
-        isLocal: true,
-        displayName: 'Cached Local Server',
-        gameName: 'Minecraft',
-        userName: 'owner',
-        statusEnum: Status.OFFLINE,
-        nodeName: 'Cached Local Node',
-        isStale: false,
-        sourceNodeId: '',
-        version: '1.20.4',
-      },
-    ])
-    const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    const nodesRequest = createDeferred<{ nodes: unknown[] }>()
-    mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listNodes.mockReturnValueOnce(nodesRequest.promise)
-
-    const wrapper = mountList(true)
-
-    await vi.waitFor(() => {
-      expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('1')
-    })
-    expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe('true')
-    expect(
-      (wrapper.vm as unknown as { displayRows: Array<{ displayName: string }> }).displayRows,
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          displayName: 'Cached Local Server',
-          nodeName: 'Cached Local Node',
-        }),
-      ]),
-    )
-
-    nodesRequest.resolve({ nodes: [buildLocalNode()] })
-    aggregatedRequest.resolve({ servers: [] })
-    await flushPromises()
-  })
-
-  it('does not render cached local online rows before the first live fetch completes', async () => {
-    seedStoredDisplayRows([
-      {
-        compositeId: 'local/server-cached-online',
-        id: 'server-cached-online',
-        isLocal: true,
-        displayName: 'Cached Local Server',
-        gameName: 'Minecraft',
-        userName: 'owner',
-        statusEnum: Status.ONLINE,
-        nodeName: 'Local Node',
-        isStale: false,
-        sourceNodeId: '',
-        version: '1.20.4',
-      },
-    ])
-
-    const pendingRequest = new Promise<never>(() => {})
-    mocks.listAggregatedGameServers.mockReturnValueOnce(pendingRequest)
-    mocks.listNodes.mockReturnValueOnce(pendingRequest)
-
-    const wrapper = mountList(true)
-
-    await vi.waitFor(() => {
-      expect(mocks.listAggregatedGameServers).toHaveBeenCalledTimes(1)
-      expect(mocks.listGameServers).not.toHaveBeenCalled()
-      expect(mocks.listNodes).toHaveBeenCalledTimes(1)
-    })
-
-    const displayRows = (wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows
-
-    expect(displayRows).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          compositeId: 'local/server-cached-online',
-          isLocal: true,
-          statusEnum: Status.ONLINE,
-        }),
-      ]),
-    )
-    expect(getStoredDisplayRows()?.value).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          compositeId: 'local/server-cached-online',
-          isLocal: true,
-          statusEnum: Status.ONLINE,
-        }),
-      ]),
-    )
-  })
-
   it('renders local and remote rows from aggregated data', async () => {
     const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
     mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
@@ -936,49 +822,6 @@ describe('GameServerList', () => {
       expect.arrayContaining([
         expect.objectContaining({ displayName: 'Local Server' }),
         expect.objectContaining({ displayName: 'Remote Server' }),
-      ]),
-    )
-  })
-
-  it('rebuilds cached remote rows when nodes resolve after aggregated data', async () => {
-    const aggregatedRequest = createDeferred<{ servers: unknown[] }>()
-    const nodesRequest = createDeferred<{ nodes: unknown[] }>()
-    mocks.listAggregatedGameServers.mockReturnValueOnce(aggregatedRequest.promise)
-    mocks.listNodes.mockReturnValueOnce(nodesRequest.promise)
-
-    const wrapper = mountList(true)
-
-    aggregatedRequest.resolve({
-      servers: [buildLocalAggregatedServer(), buildRemoteAggregatedServer()],
-    })
-
-    await vi.waitFor(() => {
-      expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('2')
-    })
-
-    expect(getStoredDisplayRows()?.value).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          compositeId: 'node-remote/server-remote',
-          displayName: 'Remote Server',
-          isLocal: false,
-        }),
-      ]),
-    )
-
-    nodesRequest.resolve({
-      nodes: [buildLocalNode(), buildRemoteNode()],
-    })
-    await flushPromises()
-
-    expect(getStoredDisplayRows()?.value).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          compositeId: 'node-remote/server-remote',
-          displayName: 'Remote Server',
-          isLocal: false,
-          sourceNodeId: 'node-remote',
-        }),
       ]),
     )
   })
@@ -1027,15 +870,6 @@ describe('GameServerList', () => {
         }),
       ]),
     )
-    expect(getStoredDisplayRows()?.value).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          compositeId: 'local/server-local',
-          statusEnum: Status.ONLINE,
-          version: '1.20.6',
-        }),
-      ]),
-    )
   })
 
   it('uses aggregated local state when no websocket updates occurred', async () => {
@@ -1061,15 +895,6 @@ describe('GameServerList', () => {
     await flushPromises()
 
     expect((wrapper.vm as unknown as { displayRows: DisplayRow[] }).displayRows).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          compositeId: 'local/server-local',
-          statusEnum: Status.ONLINE,
-          version: '1.20.6',
-        }),
-      ]),
-    )
-    expect(getStoredDisplayRows()?.value).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           compositeId: 'local/server-local',

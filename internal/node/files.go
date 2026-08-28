@@ -3,12 +3,14 @@ package node
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha1" // #nosec G505 -- used only for Mojang-published checksum verification.
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,11 +23,14 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/internal/webhooks"
-	"github.com/ClintonCollins/Xylona/pkg/helpers"
 )
 
 var (
-	downloadHTTPClient     = helpers.GetXylonaHTTPClient
+	downloadHTTPClient = func() *http.Client {
+		client := webhooks.NewSafeHTTPClient()
+		client.Timeout = 0
+		return client
+	}
 	validateDownloadTarget = webhooks.ValidateWebhookTarget
 )
 
@@ -321,33 +326,65 @@ func (n *Node) WriteFileFromReader(directory, relativePath string, reader io.Rea
 		return WriteFileResult{}, errProtected
 	}
 
-	fullPath, errResolve := resolveWithinRoot(directory, validated)
-	if errResolve != nil {
-		return WriteFileResult{}, errResolve
+	root, errRoot := openMutationRoot(directory)
+	if errRoot != nil {
+		return WriteFileResult{}, errRoot
 	}
+	defer closeMutationRoot(root)
 
-	return writeFileFromReaderAtPath(fullPath, reader, 0o600)
+	return writeFileFromReaderAtRoot(root, validated, reader, 0o600)
 }
 
-func writeFileFromReaderAtPath(fullPath string, reader io.Reader, perm os.FileMode) (result WriteFileResult, err error) {
-	parent := filepath.Dir(fullPath)
-	tempFile, errCreate := os.CreateTemp(parent, ".xylona-write-*")
+func openMutationRoot(directory string) (*os.Root, error) {
+	root, errOpen := os.OpenRoot(directory)
+	if errOpen != nil {
+		return nil, fmt.Errorf("node: open root: %w", errOpen)
+	}
+	return root, nil
+}
+
+func closeMutationRoot(root *os.Root) {
+	errClose := root.Close()
+	if errClose != nil {
+		log.Warn().Err(errClose).Msg("node: close root")
+	}
+}
+
+func mkdirAllAtRoot(root *os.Root, relativePath string, perm os.FileMode) error {
+	if relativePath == "" || relativePath == "." {
+		return nil
+	}
+	errMkdir := root.MkdirAll(relativePath, perm)
+	if errMkdir != nil {
+		return fmt.Errorf("node: create rooted directory: %w", errMkdir)
+	}
+	return nil
+}
+
+func removeMutationRoot(directory string) error {
+	cleanDirectory := filepath.Clean(directory)
+	parentRoot, errRoot := openMutationRoot(filepath.Dir(cleanDirectory))
+	if errors.Is(errRoot, os.ErrNotExist) {
+		return nil
+	}
+	if errRoot != nil {
+		return errRoot
+	}
+	defer closeMutationRoot(parentRoot)
+
+	errRemove := parentRoot.RemoveAll(filepath.Base(cleanDirectory))
+	if errRemove != nil {
+		return fmt.Errorf("node: remove root: %w", errRemove)
+	}
+	return nil
+}
+
+func writeFileFromReaderAtRoot(root *os.Root, targetRelative string, reader io.Reader, perm os.FileMode) (result WriteFileResult, err error) {
+	tempRelative := filepath.Join(filepath.Dir(targetRelative), "."+filepath.Base(targetRelative)+".xylona-write-"+rand.Text())
+	tempFile, errCreate := root.OpenFile(tempRelative, os.O_RDWR|os.O_CREATE|os.O_EXCL, perm)
 	if errCreate != nil {
 		return WriteFileResult{}, fmt.Errorf("node: create temp file: %w", errCreate)
 	}
-
-	tempPath := tempFile.Name()
-	removeTemp := true
-	defer func() {
-		if !removeTemp {
-			return
-		}
-		errRemove := os.Remove(tempPath)
-		if err == nil && errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
-			err = fmt.Errorf("node: remove temp file: %w", errRemove)
-		}
-	}()
-
 	errChmod := tempFile.Chmod(perm)
 	if errChmod != nil {
 		errClose := tempFile.Close()
@@ -356,6 +393,17 @@ func writeFileFromReaderAtPath(fullPath string, reader io.Reader, perm os.FileMo
 		}
 		return WriteFileResult{}, fmt.Errorf("node: chmod temp file: %w", errChmod)
 	}
+
+	removeTemp := true
+	defer func() {
+		if !removeTemp {
+			return
+		}
+		errRemove := root.Remove(tempRelative)
+		if err == nil && errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+			err = fmt.Errorf("node: remove temp file: %w", errRemove)
+		}
+	}()
 
 	hasher := sha256.New()
 	writer := io.MultiWriter(tempFile, hasher)
@@ -371,7 +419,7 @@ func writeFileFromReaderAtPath(fullPath string, reader io.Reader, perm os.FileMo
 		return WriteFileResult{}, fmt.Errorf("node: close temp file: %w", errClose)
 	}
 
-	errRename := replaceFile(tempPath, fullPath)
+	errRename := replaceRootedFile(root, tempRelative, targetRelative)
 	if errRename != nil {
 		return WriteFileResult{}, fmt.Errorf("node: replace file: %w", errRename)
 	}
@@ -383,8 +431,8 @@ func writeFileFromReaderAtPath(fullPath string, reader io.Reader, perm os.FileMo
 	}, nil
 }
 
-func replaceFile(tempPath, targetPath string) error {
-	errRename := os.Rename(tempPath, targetPath)
+func replaceRootedFile(root *os.Root, tempRelative, targetRelative string) error {
+	errRename := root.Rename(tempRelative, targetRelative)
 	if errRename == nil {
 		return nil
 	}
@@ -392,15 +440,15 @@ func replaceFile(tempPath, targetPath string) error {
 		return fmt.Errorf("rename temp file: %w", errRename)
 	}
 
-	_, errStat := os.Stat(targetPath)
+	_, errStat := root.Stat(targetRelative)
 	if errStat != nil {
 		return fmt.Errorf("rename temp file: %w", errRename)
 	}
-	errRemove := os.Remove(targetPath)
+	errRemove := root.Remove(targetRelative)
 	if errRemove != nil {
 		return errors.Join(errRename, fmt.Errorf("node: remove existing file before replace: %w", errRemove))
 	}
-	errRenameAgain := os.Rename(tempPath, targetPath)
+	errRenameAgain := root.Rename(tempRelative, targetRelative)
 	if errRenameAgain != nil {
 		return errors.Join(errRename, fmt.Errorf("node: rename after removing existing file: %w", errRenameAgain))
 	}
@@ -421,13 +469,19 @@ func (n *Node) CreateFileOrDirectory(directory, relativePath, content string, is
 		return errProtected
 	}
 
-	fullPath, errResolve := resolveWithinRoot(directory, validated)
-	if errResolve != nil {
-		return errResolve
+	errMkdirRoot := os.MkdirAll(directory, 0o750)
+	if errMkdirRoot != nil {
+		return fmt.Errorf("node: create root: %w", errMkdirRoot)
 	}
 
+	root, errRoot := openMutationRoot(directory)
+	if errRoot != nil {
+		return errRoot
+	}
+	defer closeMutationRoot(root)
+
 	if isDirectory {
-		errMkdir := os.MkdirAll(fullPath, 0o750)
+		errMkdir := mkdirAllAtRoot(root, validated, 0o750)
 		if errMkdir != nil {
 			log.Error().Err(errMkdir).Msg("node: create directory failed")
 			return fmt.Errorf("node: create directory: %w", errMkdir)
@@ -435,7 +489,7 @@ func (n *Node) CreateFileOrDirectory(directory, relativePath, content string, is
 		return nil
 	}
 
-	file, errCreate := os.Create(fullPath)
+	file, errCreate := root.Create(validated)
 	if errCreate != nil {
 		log.Error().Err(errCreate).Msg("node: create file failed")
 		return fmt.Errorf("node: create file: %w", errCreate)
@@ -466,12 +520,12 @@ func (n *Node) CreateFileOrDirectory(directory, relativePath, content string, is
 // configured, any protected path in the set aborts the operation with
 // ErrProtectedPath.
 func (n *Node) DeleteFiles(ctx context.Context, directory string, files []string, policy ProtectionPolicy) ([]string, error) {
-	deleted := make([]string, 0, len(files))
+	validatedFiles := make([]string, 0, len(files))
+	deleteRoot := false
 	for _, file := range files {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("node: delete files canceled: %w", ctx.Err())
-		default:
+		errContext := ctx.Err()
+		if errContext != nil {
+			return nil, fmt.Errorf("node: delete files canceled: %w", errContext)
 		}
 
 		validated, errPath := validateLocalPath(file)
@@ -482,14 +536,34 @@ func (n *Node) DeleteFiles(ctx context.Context, directory string, files []string
 		if errProtected != nil {
 			return nil, errProtected
 		}
-		fullPath, errResolve := resolveWithinRoot(directory, validated)
-		if errResolve != nil {
-			return nil, errResolve
-		}
-		errRemove := os.RemoveAll(fullPath)
+		validatedFiles = append(validatedFiles, validated)
+		deleteRoot = deleteRoot || validated == ""
+	}
+
+	if deleteRoot {
+		errRemove := removeMutationRoot(directory)
 		if errRemove != nil {
-			log.Error().Err(errRemove).Str("path", validated).Msg("node: remove failed")
-			continue
+			return nil, errRemove
+		}
+		return validatedFiles, nil
+	}
+
+	root, errRoot := openMutationRoot(directory)
+	if errRoot != nil {
+		return nil, errRoot
+	}
+	defer closeMutationRoot(root)
+
+	deleted := make([]string, 0, len(validatedFiles))
+	for _, validated := range validatedFiles {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("node: delete files canceled: %w", ctx.Err())
+		default:
+		}
+		errRemove := root.RemoveAll(validated)
+		if errRemove != nil {
+			return deleted, fmt.Errorf("node: remove %q: %w", validated, errRemove)
 		}
 		deleted = append(deleted, validated)
 	}
@@ -518,16 +592,13 @@ func (n *Node) RenameFile(directory, oldRelativePath, newRelativePath string, po
 		return "", errProtectedNew
 	}
 
-	oldFullPath, errResolveOld := resolveWithinRoot(directory, validatedOld)
-	if errResolveOld != nil {
-		return "", errResolveOld
+	root, errRoot := openMutationRoot(directory)
+	if errRoot != nil {
+		return "", errRoot
 	}
-	newFullPath, errResolveNew := resolveWithinRoot(directory, validatedNew)
-	if errResolveNew != nil {
-		return "", errResolveNew
-	}
+	defer closeMutationRoot(root)
 
-	errRename := os.Rename(oldFullPath, newFullPath)
+	errRename := root.Rename(validatedOld, validatedNew)
 	if errRename != nil {
 		log.Error().Err(errRename).Msg("node: rename failed")
 		return "", fmt.Errorf("node: rename file: %w", errRename)
@@ -549,11 +620,13 @@ func (n *Node) MoveFiles(ctx context.Context, directory string, files []string, 
 		return nil, ErrInvalidPath
 	}
 
-	destinationFullPath, errResolveDest := resolveWithinRoot(directory, validatedDestination)
-	if errResolveDest != nil {
-		return nil, errResolveDest
+	root, errRoot := openMutationRoot(directory)
+	if errRoot != nil {
+		return nil, errRoot
 	}
-	errMkdir := os.MkdirAll(destinationFullPath, 0o750)
+	defer closeMutationRoot(root)
+
+	errMkdir := mkdirAllAtRoot(root, validatedDestination, 0o750)
 	if errMkdir != nil {
 		log.Error().Err(errMkdir).Msg("node: create destination directory failed")
 		return nil, fmt.Errorf("node: create destination directory: %w", errMkdir)
@@ -575,23 +648,12 @@ func (n *Node) MoveFiles(ctx context.Context, directory string, files []string, 
 		if errProtectedSrc != nil {
 			return nil, errProtectedSrc
 		}
-		fullPath, errResolveSrc := resolveWithinRoot(directory, validatedFile)
-		if errResolveSrc != nil {
-			return nil, errResolveSrc
-		}
-
 		destinationRel := filepath.Join(validatedDestination, filepath.Base(validatedFile))
 		errProtectedDest := enforceProtection(destinationRel, policy)
 		if errProtectedDest != nil {
 			return nil, errProtectedDest
 		}
-		destinationFilePath := filepath.Join(destinationFullPath, filepath.Base(validatedFile))
-		_, errResolveTarget := resolveWithinRoot(directory, destinationRel)
-		if errResolveTarget != nil {
-			return nil, errResolveTarget
-		}
-
-		errRename := os.Rename(fullPath, destinationFilePath)
+		errRename := root.Rename(validatedFile, destinationRel)
 		if errRename != nil {
 			log.Error().Err(errRename).Msg("node: move failed")
 			continue
@@ -604,6 +666,12 @@ func (n *Node) MoveFiles(ctx context.Context, directory string, files []string, 
 // CopyFiles copies each source path to its paired destination path inside
 // directory. Destination paths are subject to the protected-path check.
 func (n *Node) CopyFiles(ctx context.Context, directory string, operations []CopyFileOperation, policy ProtectionPolicy) ([]string, error) {
+	root, errRoot := openMutationRoot(directory)
+	if errRoot != nil {
+		return nil, errRoot
+	}
+	defer closeMutationRoot(root)
+
 	copied := make([]string, 0, len(operations))
 	for _, operation := range operations {
 		select {
@@ -625,16 +693,7 @@ func (n *Node) CopyFiles(ctx context.Context, directory string, operations []Cop
 			return nil, errProtected
 		}
 
-		sourceFullPath, errSourceResolve := resolveWithinRoot(directory, validatedSource)
-		if errSourceResolve != nil {
-			return nil, errSourceResolve
-		}
-		destinationFullPath, errDestinationResolve := resolveWithinRoot(directory, validatedDestination)
-		if errDestinationResolve != nil {
-			return nil, errDestinationResolve
-		}
-
-		errCopy := copyPath(ctx, sourceFullPath, destinationFullPath, validatedDestination, policy)
+		errCopy := copyPath(ctx, root, validatedSource, validatedDestination, policy)
 		if errCopy != nil {
 			return nil, errCopy
 		}
@@ -643,8 +702,8 @@ func (n *Node) CopyFiles(ctx context.Context, directory string, operations []Cop
 	return copied, nil
 }
 
-func copyPath(ctx context.Context, sourceFullPath, destinationFullPath, destinationRelativePath string, policy ProtectionPolicy) error {
-	sourceInfo, errStat := os.Lstat(sourceFullPath)
+func copyPath(ctx context.Context, root *os.Root, sourceRelativePath, destinationRelativePath string, policy ProtectionPolicy) error {
+	sourceInfo, errStat := root.Lstat(sourceRelativePath)
 	if errStat != nil {
 		return fmt.Errorf("node: stat copy source: %w", errStat)
 	}
@@ -652,17 +711,18 @@ func copyPath(ctx context.Context, sourceFullPath, destinationFullPath, destinat
 		return ErrInvalidPath
 	}
 	if !sourceInfo.IsDir() {
-		return copyRegularFile(sourceFullPath, destinationFullPath, sourceInfo.Mode().Perm())
+		return copyRegularFile(root, sourceRelativePath, destinationRelativePath, sourceInfo.Mode().Perm())
 	}
 
-	cleanSource := filepath.Clean(sourceFullPath)
-	cleanDestination := filepath.Clean(destinationFullPath)
+	cleanSource := filepath.Clean(sourceRelativePath)
+	cleanDestination := filepath.Clean(destinationRelativePath)
 	sourcePrefix := cleanSource + string(filepath.Separator)
 	if cleanDestination == cleanSource || strings.HasPrefix(cleanDestination, sourcePrefix) {
 		return ErrInvalidPath
 	}
 
-	errWalk := filepath.WalkDir(sourceFullPath, func(current string, entry os.DirEntry, walkErr error) error {
+	sourceFSPath := filepath.ToSlash(sourceRelativePath)
+	errWalk := fs.WalkDir(root.FS(), sourceFSPath, func(current string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -671,15 +731,13 @@ func copyPath(ctx context.Context, sourceFullPath, destinationFullPath, destinat
 			return fmt.Errorf("node: copy files canceled: %w", errCtx)
 		}
 
-		relativeToSource, errRel := filepath.Rel(sourceFullPath, current)
+		relativeToSource, errRel := filepath.Rel(filepath.FromSlash(sourceFSPath), filepath.FromSlash(current))
 		if errRel != nil {
 			return fmt.Errorf("node: calculate copy relative path: %w", errRel)
 		}
-		targetPath := filepath.Join(destinationFullPath, relativeToSource)
-		targetRelativePath := filepath.ToSlash(filepath.Join(destinationRelativePath, relativeToSource))
+		targetRelativePath := filepath.Join(destinationRelativePath, filepath.FromSlash(relativeToSource))
 		if relativeToSource == "." {
-			targetPath = destinationFullPath
-			targetRelativePath = filepath.ToSlash(destinationRelativePath)
+			targetRelativePath = destinationRelativePath
 		}
 
 		errProtected := enforceProtection(targetRelativePath, policy)
@@ -695,13 +753,13 @@ func copyPath(ctx context.Context, sourceFullPath, destinationFullPath, destinat
 			return ErrInvalidPath
 		}
 		if info.IsDir() {
-			errMkdir := os.MkdirAll(targetPath, info.Mode().Perm())
+			errMkdir := mkdirAllAtRoot(root, targetRelativePath, info.Mode().Perm())
 			if errMkdir != nil {
 				return fmt.Errorf("node: create copy directory: %w", errMkdir)
 			}
 			return nil
 		}
-		return copyRegularFile(current, targetPath, info.Mode().Perm())
+		return copyRegularFile(root, filepath.FromSlash(current), targetRelativePath, info.Mode().Perm())
 	})
 	if errWalk != nil {
 		return fmt.Errorf("node: copy directory: %w", errWalk)
@@ -709,13 +767,13 @@ func copyPath(ctx context.Context, sourceFullPath, destinationFullPath, destinat
 	return nil
 }
 
-func copyRegularFile(sourcePath, destinationPath string, perm os.FileMode) error {
-	errMkdir := os.MkdirAll(filepath.Dir(destinationPath), 0o750)
+func copyRegularFile(root *os.Root, sourceRelativePath, destinationRelativePath string, perm os.FileMode) error {
+	errMkdir := mkdirAllAtRoot(root, filepath.Dir(destinationRelativePath), 0o750)
 	if errMkdir != nil {
 		return fmt.Errorf("node: create copy parent directory: %w", errMkdir)
 	}
 
-	sourceFile, errOpen := os.Open(sourcePath)
+	sourceFile, errOpen := root.Open(sourceRelativePath)
 	if errOpen != nil {
 		return fmt.Errorf("node: open copy source: %w", errOpen)
 	}
@@ -726,7 +784,7 @@ func copyRegularFile(sourcePath, destinationPath string, perm os.FileMode) error
 		}
 	}()
 
-	_, errWrite := writeFileFromReaderAtPath(destinationPath, sourceFile, perm)
+	_, errWrite := writeFileFromReaderAtRoot(root, destinationRelativePath, sourceFile, perm)
 	if errWrite != nil {
 		return errWrite
 	}
@@ -774,6 +832,7 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 	if errNewReq != nil {
 		return DownloadFileResult{}, fmt.Errorf("node: create download request: %w", errNewReq)
 	}
+	req.Header.Set("User-Agent", "Xylona/0.1 (https://github.com/ClintonCollins/Xylona)")
 
 	fileName := strings.TrimPrefix(path.Base(req.URL.Path), "/")
 	if !filepath.IsLocal(fileName) {
@@ -799,24 +858,25 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 	if errProtected != nil {
 		return DownloadFileResult{}, errProtected
 	}
-	destinationFullPath, errResolve := resolveWithinRoot(directory, destinationRelative)
-	if errResolve != nil {
-		return DownloadFileResult{}, errResolve
+	root, errRoot := openMutationRoot(directory)
+	if errRoot != nil {
+		return DownloadFileResult{}, errRoot
 	}
+	defer closeMutationRoot(root)
 
-	tempFile, errCreate := os.CreateTemp(filepath.Dir(destinationFullPath), "."+filepath.Base(destinationFullPath)+".download-*")
+	tempRelative := filepath.Join(filepath.Dir(destinationRelative), "."+filepath.Base(destinationRelative)+".download-"+rand.Text())
+	tempFile, errCreate := root.OpenFile(tempRelative, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
 	if errCreate != nil {
 		return DownloadFileResult{}, fmt.Errorf("node: create downloaded file: %w", errCreate)
 	}
-	tempPath := tempFile.Name()
 	keepTemp := false
 	defer func() {
 		if keepTemp {
 			return
 		}
-		errRemove := os.Remove(tempPath)
+		errRemove := root.Remove(tempRelative)
 		if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
-			log.Warn().Err(errRemove).Str("path", tempPath).Msg("node: remove incomplete download")
+			log.Warn().Err(errRemove).Str("path", tempRelative).Msg("node: remove incomplete download")
 		}
 	}()
 
@@ -856,16 +916,9 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 		return DownloadFileResult{}, fmt.Errorf("node: close downloaded file: %w", errClose)
 	}
 
-	errRename := os.Rename(tempPath, destinationFullPath)
+	errRename := replaceRootedFile(root, tempRelative, destinationRelative)
 	if errRename != nil {
-		errRemoveDestination := os.Remove(destinationFullPath)
-		if errRemoveDestination != nil && !errors.Is(errRemoveDestination, os.ErrNotExist) {
-			return DownloadFileResult{}, fmt.Errorf("node: replace downloaded file: %w", errRemoveDestination)
-		}
-		errRename = os.Rename(tempPath, destinationFullPath)
-		if errRename != nil {
-			return DownloadFileResult{}, fmt.Errorf("node: promote downloaded file: %w", errRename)
-		}
+		return DownloadFileResult{}, fmt.Errorf("node: promote downloaded file: %w", errRename)
 	}
 	keepTemp = true
 

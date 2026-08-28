@@ -288,6 +288,10 @@ func TestDeleteUserAllowsRemovingSuperUserWhenAnotherSuperUserExists(t *testing.
 	})
 
 	service := NewService(conn)
+	revokedUserID := ""
+	service.SetSessionsRevokedHandler(func(userID string) {
+		revokedUserID = userID
+	})
 
 	errDeleteUser := service.Delete(DeleteInput{
 		ID: adminUser.ID,
@@ -299,6 +303,9 @@ func TestDeleteUserAllowsRemovingSuperUserWhenAnotherSuperUserExists(t *testing.
 	_, errGetUser := conn.GetUserByID(adminUser.ID)
 	if !errors.Is(errGetUser, sql.ErrNoRows) {
 		t.Fatalf(`GetUserByID() error = %v, want deleted user to be gone`, errGetUser)
+	}
+	if revokedUserID != adminUser.ID {
+		t.Fatalf("revoked user ID = %q, want %q", revokedUserID, adminUser.ID)
 	}
 }
 
@@ -361,6 +368,10 @@ func TestUpdateUserPasswordRevokesSessions(t *testing.T) {
 	createUserMgmtSession(t, conn, "session-revoke-password", createdUser.ID)
 
 	service := NewService(conn)
+	revokedUserID := ""
+	service.SetSessionsRevokedHandler(func(userID string) {
+		revokedUserID = userID
+	})
 	password := "new-password-123"
 	errUpdateUser := mustNoUserResult(service.Update(UpdateInput{
 		ID:       createdUser.ID,
@@ -373,6 +384,9 @@ func TestUpdateUserPasswordRevokesSessions(t *testing.T) {
 	_, errGetSession := conn.GetUserSession("session-revoke-password")
 	if !errors.Is(errGetSession, sql.ErrNoRows) {
 		t.Fatalf("GetUserSession() error = %v, want revoked session", errGetSession)
+	}
+	if revokedUserID != createdUser.ID {
+		t.Fatalf("revoked user ID = %q, want %q", revokedUserID, createdUser.ID)
 	}
 }
 
@@ -401,6 +415,10 @@ func TestUpdateUserDemotionRevokesSessions(t *testing.T) {
 	createUserMgmtSession(t, conn, "session-admin-revoke", adminUser.ID)
 
 	service := NewService(conn)
+	revokedUserID := ""
+	service.SetSessionsRevokedHandler(func(userID string) {
+		revokedUserID = userID
+	})
 	demote := false
 	errUpdateUser := mustNoUserResult(service.Update(UpdateInput{
 		ID:        adminUser.ID,
@@ -413,6 +431,9 @@ func TestUpdateUserDemotionRevokesSessions(t *testing.T) {
 	_, errGetSession := conn.GetUserSession("session-admin-revoke")
 	if !errors.Is(errGetSession, sql.ErrNoRows) {
 		t.Fatalf("GetUserSession() error = %v, want revoked session", errGetSession)
+	}
+	if revokedUserID != adminUser.ID {
+		t.Fatalf("revoked user ID = %q, want %q", revokedUserID, adminUser.ID)
 	}
 }
 
@@ -432,6 +453,10 @@ func TestUpdateUserNameKeepsSessions(t *testing.T) {
 	createUserMgmtSession(t, conn, "session-keep", createdUser.ID)
 
 	service := NewService(conn)
+	revokedUserID := ""
+	service.SetSessionsRevokedHandler(func(userID string) {
+		revokedUserID = userID
+	})
 	firstName := "Updated"
 	errUpdateUser := mustNoUserResult(service.Update(UpdateInput{
 		ID:        createdUser.ID,
@@ -447,6 +472,9 @@ func TestUpdateUserNameKeepsSessions(t *testing.T) {
 	}
 	if session.ID != "session-keep" {
 		t.Fatalf("GetUserSession().ID = %q, want session-keep", session.ID)
+	}
+	if revokedUserID != "" {
+		t.Fatalf("revoked user ID = %q, want no revocation", revokedUserID)
 	}
 }
 

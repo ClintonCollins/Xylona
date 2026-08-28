@@ -217,7 +217,10 @@ func (ws *WebSocket) startConsoleStream(conn *connection, gameServer *models.Gam
 	conn.consoleStreamTokens[gameServer.ID] = token
 	conn.Unlock()
 
-	go ws.runConsoleStream(streamCtx, conn, gameServer.ID, nodeID, token)
+	go func() {
+		defer cancel()
+		ws.runConsoleStream(streamCtx, conn, gameServer.ID, nodeID, token)
+	}()
 	return nil
 }
 
@@ -236,12 +239,22 @@ func (ws *WebSocket) runConsoleStream(
 		}
 		conn.Unlock()
 	}()
+	permissionInterval := ws.consolePermissionInterval
+	if permissionInterval <= 0 {
+		permissionInterval = defaultConsolePermissionValidationInterval
+	}
+	permissionTicker := time.NewTicker(permissionInterval)
+	defer permissionTicker.Stop()
 
 	backoff := 250 * time.Millisecond
 	const maxBackoff = 5 * time.Second
 	disconnectedNoticeSent := false
 	for {
 		if streamCtx.Err() != nil {
+			return
+		}
+		if !conn.hasConsolePermission(gameServerID) {
+			conn.removeConsoleSubscription(gameServerID)
 			return
 		}
 
@@ -293,12 +306,17 @@ func (ws *WebSocket) runConsoleStream(
 			case <-streamCtx.Done():
 				attemptCancel()
 				return
+			case <-permissionTicker.C:
+				if !conn.hasConsolePermission(gameServerID) {
+					conn.removeConsoleSubscription(gameServerID)
+					attemptCancel()
+					return
+				}
 			case chunk, ok := <-stream:
 				if !ok {
 					attemptCancel()
 					goto retry
 				}
-
 				processID := chunk.ProcessID
 				if processID == "" {
 					processID = gameServerID

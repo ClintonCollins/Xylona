@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -25,9 +26,11 @@ func newTestConnection() *connection {
 	return &connection{
 		id:                           uuid.New(),
 		metricsPermissionLookup:      func(string) (bool, error) { return true, nil },
+		consolePermissionLookup:      func(string) (bool, error) { return true, nil },
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
 		consoleStreamCancels:         make(map[string]context.CancelFunc),
+		consoleStreamTokens:          make(map[string]*struct{}),
 		RWMutex:                      &sync.RWMutex{},
 	}
 }
@@ -916,6 +919,11 @@ func TestWebSocket_ConsoleStreamRetriesWithExplicitStateAndResetReplay(t *testin
 	t.Cleanup(cancel)
 	conn := newTestConnection()
 	conn.outputStreamChannel = make(chan *xylona.Message, 8)
+	var permissionChecks atomic.Int32
+	conn.consolePermissionLookup = func(string) (bool, error) {
+		permissionChecks.Add(1)
+		return true, nil
+	}
 	ws := &WebSocket{ctx: ctx, nodeRegistry: registry}
 
 	errStart := ws.startConsoleStream(conn, &models.GameServer{ID: "server-remote", NodeID: "node-remote"})
@@ -945,6 +953,10 @@ func TestWebSocket_ConsoleStreamRetriesWithExplicitStateAndResetReplay(t *testin
 	}
 	if client.attemptCount() != 2 {
 		t.Fatalf("console stream attempts = %d, want 2", client.attemptCount())
+	}
+	got := permissionChecks.Load()
+	if got != 2 {
+		t.Fatalf("console permission checks = %d, want one per stream attempt", got)
 	}
 }
 
@@ -1132,5 +1144,64 @@ func TestWebSocket_CancelConsoleStreamsCancelsSelfNodeClientStream(t *testing.T)
 	conn.RUnlock()
 	if remaining != 0 {
 		t.Fatalf("consoleStreamCancels len = %d, want 0", remaining)
+	}
+}
+
+func TestWebSocket_ConsoleStreamStopsAfterPeriodicPermissionRevocationCheck(t *testing.T) {
+	stream := make(chan node.ConsoleChunk, 1)
+	localClient := &contextCapturingNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{
+			NodeID:                     "node-local",
+			StreamConsoleOutputChannel: stream,
+		},
+		contexts: make(chan context.Context, 1),
+	}
+	registry := noderegistry.New("node-local", localClient)
+	conn := newTestConnection()
+	conn.outputStreamChannel = make(chan *xylona.Message, 2)
+	conn.requestedGameServerOutputIDs["server-local"] = struct{}{}
+	var allowed atomic.Bool
+	allowed.Store(true)
+	conn.consolePermissionLookup = func(string) (bool, error) {
+		return allowed.Load(), nil
+	}
+	ws := &WebSocket{
+		ctx:                       t.Context(),
+		nodeRegistry:              registry,
+		consolePermissionInterval: 10 * time.Millisecond,
+	}
+
+	errSubscribe := ws.startConsoleStream(conn, &models.GameServer{ID: "server-local", NodeID: "node-local"})
+	if errSubscribe != nil {
+		t.Fatalf("startConsoleStream() error = %v", errSubscribe)
+	}
+	connected := receiveConsoleMessage(t, conn.outputStreamChannel, time.Second)
+	if connected.Reconnecting == nil || connected.GetReconnecting() {
+		t.Fatalf("initial connection state = %+v, want connected", connected)
+	}
+
+	var streamCtx context.Context
+	select {
+	case streamCtx = <-localClient.contexts:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for stream context")
+	}
+	allowed.Store(false)
+
+	select {
+	case <-streamCtx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("console stream was not canceled after permission revocation")
+	}
+	conn.RLock()
+	_, subscribed := conn.requestedGameServerOutputIDs["server-local"]
+	conn.RUnlock()
+	if subscribed {
+		t.Fatal("console subscription remained after permission revocation")
+	}
+	select {
+	case message := <-conn.outputStreamChannel:
+		t.Fatalf("received console output after permission revocation: %+v", message)
+	default:
 	}
 }

@@ -58,15 +58,25 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 signs:
-  - artifacts: checksum
-    signature: '${artifact}.sig'
+  - id: legacy-gpg
     cmd: gpg
+    signature: '${artifact}.sig'
     args:
       - '--batch'
       - '--output'
       - '${signature}'
       - '--detach-sign'
       - '${artifact}'
+    artifacts: checksum
+  - id: sigstore
+    cmd: cosign
+    signature: '${artifact}.sigstore.json'
+    args:
+      - 'sign-blob'
+      - '--bundle=${signature}'
+      - '${artifact}'
+      - '--yes'
+    artifacts: checksum
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 changelog:

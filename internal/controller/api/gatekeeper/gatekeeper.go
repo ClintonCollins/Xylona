@@ -108,6 +108,16 @@ func GetSessionFromCookies(cookies []*http.Cookie) (*SessionCookies, error) {
 
 // GetUserFromSession resolves the authenticated user for a session cookie pair.
 func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connection, secureCookie *securecookie.SecureCookie) (*models.User, error) {
+	return resolveUserFromSession(sessionID, sessionTokenEncoded, dbConn, secureCookie, true)
+}
+
+// ValidateUserFromSession resolves an authenticated user without recording
+// activity. It is intended for passive server-side session checks.
+func ValidateUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connection, secureCookie *securecookie.SecureCookie) (*models.User, error) {
+	return resolveUserFromSession(sessionID, sessionTokenEncoded, dbConn, secureCookie, false)
+}
+
+func resolveUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connection, secureCookie *securecookie.SecureCookie, touchActivity bool) (*models.User, error) {
 	if sessionID == "" || sessionTokenEncoded == "" {
 		log.Debug().Msg("Session ID or token not set")
 		return nil, errors.New("session ID or token not set")
@@ -165,7 +175,7 @@ func GetUserFromSession(sessionID, sessionTokenEncoded string, dbConn *db.Connec
 		return nil, errors.New("internal error")
 	}
 
-	if now.Sub(lastActivity) >= sessionActivityTouchInterval {
+	if touchActivity && now.Sub(lastActivity) >= sessionActivityTouchInterval {
 		errTouch := dbConn.TouchUserSession(session.ID, now.UTC())
 		if errTouch != nil {
 			log.Warn().Err(errTouch).Str("session_id", session.ID).Msg("Failed to record session activity")

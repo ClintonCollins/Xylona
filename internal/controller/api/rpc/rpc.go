@@ -85,6 +85,9 @@ type XylonaService struct {
 	minecraftMapAssetSlots         chan struct{}
 	statusPageIdentifier           func() (string, error)
 	setupToken                     *firstsetup.Token
+	closeSession                   func(sessionID string)
+	closeUserSessions              func(userID string)
+	closeAllSessions               func()
 }
 
 type remoteVersionRefreshCall struct {
@@ -207,4 +210,17 @@ func (xs *XylonaService) SetPalworldMapTileInstaller(installer PalworldMapTileIn
 // SetDummyTracker sets the dummy tracker used for testing update failure simulation.
 func (xs *XylonaService) SetDummyTracker(dt *versiontracker.DummyTracker) {
 	xs.dummyTracker = dt
+}
+
+// SetSessionRevocationHandlers sets callbacks used to terminate live sessions
+// after authentication or authorization state changes.
+func (xs *XylonaService) SetSessionRevocationHandlers(
+	closeSession func(sessionID string),
+	closeUserSessions func(userID string),
+	closeAllSessions func(),
+) {
+	xs.closeSession = closeSession
+	xs.closeUserSessions = closeUserSessions
+	xs.closeAllSessions = closeAllSessions
+	xs.userManagementService().SetSessionsRevokedHandler(closeUserSessions)
 }

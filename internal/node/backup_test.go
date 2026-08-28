@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -385,6 +386,145 @@ func TestExtractBackupArchiveExactDoesNotPruneBeforeFailedExtraction(t *testing.
 	}
 	if string(contents) != "keep-me" {
 		t.Fatalf("orphan contents = %q, want unchanged %q", contents, "keep-me")
+	}
+}
+
+func TestExtractBackupArchiveEnforcesExpansionBudgets(t *testing.T) {
+	tests := []struct {
+		name          string
+		maxEntries    int64
+		maxEntryBytes int64
+		maxTotalBytes int64
+		entries       []nodeTestZipEntry
+		wantError     string
+	}{
+		{
+			name:          "entry count",
+			maxEntries:    1,
+			maxEntryBytes: 100,
+			maxTotalBytes: 100,
+			entries: []nodeTestZipEntry{
+				{name: "a.txt", contents: "a"},
+				{name: "b.txt", contents: "b"},
+			},
+			wantError: "more than 1 entries",
+		},
+		{
+			name:          "per entry actual bytes",
+			maxEntries:    10,
+			maxEntryBytes: 3,
+			maxTotalBytes: 100,
+			entries:       []nodeTestZipEntry{{name: "large.txt", contents: "1234"}},
+			wantError:     "entry exceeds 3 bytes",
+		},
+		{
+			name:          "total actual bytes",
+			maxEntries:    10,
+			maxEntryBytes: 10,
+			maxTotalBytes: 5,
+			entries: []nodeTestZipEntry{
+				{name: "a.txt", contents: "123"},
+				{name: "b.txt", contents: "456"},
+			},
+			wantError: "exceeds 5 expanded bytes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setArchiveExtractionLimits(t, tt.maxEntries, tt.maxEntryBytes, tt.maxTotalBytes)
+			root := t.TempDir()
+			markerPath := filepath.Join(root, "marker.txt")
+			errWriteMarker := os.WriteFile(markerPath, []byte("unchanged"), 0o600)
+			if errWriteMarker != nil {
+				t.Fatalf("WriteFile marker error = %v", errWriteMarker)
+			}
+			archivePath := filepath.Join(t.TempDir(), "restore.zip")
+			writeOrderedNodeTestZipArchive(t, archivePath, tt.entries)
+
+			n := &Node{}
+			errExtract := n.ExtractBackupArchive(t.Context(), root, archivePath, ExtractModeOverlay)
+			if errExtract == nil || !strings.Contains(errExtract.Error(), tt.wantError) {
+				t.Fatalf("ExtractBackupArchive() error = %v, want containing %q", errExtract, tt.wantError)
+			}
+			contents, errRead := os.ReadFile(markerPath)
+			if errRead != nil {
+				t.Fatalf("ReadFile marker error = %v", errRead)
+			}
+			if string(contents) != "unchanged" {
+				t.Fatalf("marker contents = %q, want unchanged", contents)
+			}
+			for _, entry := range tt.entries {
+				restoredPath := filepath.Join(root, filepath.FromSlash(entry.name))
+				_, errStat := os.Stat(restoredPath)
+				if !errors.Is(errStat, os.ErrNotExist) {
+					t.Fatalf("Stat(%q) error = %v, want %v", restoredPath, errStat, os.ErrNotExist)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractBackupArchiveConfinesSymlinkMutations(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows symlink creation requires extra privileges in some environments")
+	}
+
+	tests := []struct {
+		name      string
+		mode      ExtractMode
+		entries   []nodeTestZipEntry
+		wantError bool
+	}{
+		{
+			name:      "overlay rejects parent escape",
+			mode:      ExtractModeOverlay,
+			entries:   []nodeTestZipEntry{{name: "link/escaped.txt", contents: "blocked"}},
+			wantError: true,
+		},
+		{
+			name:    "exact prune removes link only",
+			mode:    ExtractModeExact,
+			entries: []nodeTestZipEntry{{name: "keep.txt", contents: "restored"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			outside := t.TempDir()
+			outsideMarker := filepath.Join(outside, "outside.txt")
+			errWriteMarker := os.WriteFile(outsideMarker, []byte("unchanged"), 0o600)
+			if errWriteMarker != nil {
+				t.Fatalf("WriteFile outside marker error = %v", errWriteMarker)
+			}
+			errSymlink := os.Symlink(outside, filepath.Join(root, "link"))
+			if errSymlink != nil {
+				t.Fatalf("Symlink error = %v", errSymlink)
+			}
+			archivePath := filepath.Join(t.TempDir(), "restore.zip")
+			writeOrderedNodeTestZipArchive(t, archivePath, tt.entries)
+
+			n := &Node{}
+			errExtract := n.ExtractBackupArchive(t.Context(), root, archivePath, tt.mode)
+			if tt.wantError && errExtract == nil {
+				t.Fatal("ExtractBackupArchive() error = nil, want symlink escape rejection")
+			}
+			if !tt.wantError && errExtract != nil {
+				t.Fatalf("ExtractBackupArchive() error = %v", errExtract)
+			}
+			contents, errRead := os.ReadFile(outsideMarker)
+			if errRead != nil {
+				t.Fatalf("ReadFile outside marker error = %v", errRead)
+			}
+			if string(contents) != "unchanged" {
+				t.Fatalf("outside marker contents = %q, want unchanged", contents)
+			}
+			_, errStat := os.Stat(filepath.Join(outside, "escaped.txt"))
+			if !errors.Is(errStat, os.ErrNotExist) {
+				t.Fatalf("Stat escaped file error = %v, want %v", errStat, os.ErrNotExist)
+			}
+		})
 	}
 }
 

@@ -2,15 +2,24 @@ package updater
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
-	"unicode"
+
+	"github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/tuf"
+	"github.com/sigstore/sigstore-go/pkg/verify"
+)
+
+const (
+	sigstoreGitHubActionsIssuer = "https://token.actions.githubusercontent.com"
+	sigstoreReleaseIdentity     = `^https://github\.com/ClintonCollins/Xylona/\.github/workflows/release\.yml@refs/tags/v[^/]*$`
 )
 
 var (
@@ -71,66 +80,41 @@ func VerifySHA256(r io.Reader, expected string) (int64, error) {
 	return written, nil
 }
 
-// VerifyDetachedSignatureWithGPG verifies a detached signature using the
-// system gpg binary. keyringPath and trustedFingerprint are trust boundaries:
-// at least one is required, and a supplied keyring disables default keyrings.
-func VerifyDetachedSignatureWithGPG(ctx context.Context, artifactPath string, signaturePath string, keyringPath string, trustedFingerprint string) error {
-	args, errArgs := gpgVerifyArgs(artifactPath, signaturePath, keyringPath, trustedFingerprint)
-	if errArgs != nil {
-		return errArgs
+// VerifySigstoreBundle verifies an artifact against a keyless Sigstore bundle
+// issued to Xylona's tag-triggered GitHub release workflow.
+func VerifySigstoreBundle(ctx context.Context, artifact []byte, bundleJSON []byte) error {
+	signedBundle := &bundle.Bundle{}
+	errBundle := signedBundle.UnmarshalJSON(bundleJSON)
+	if errBundle != nil {
+		return fmt.Errorf("updater: parse Sigstore bundle: %w", errBundle)
 	}
-	cmd := exec.CommandContext(ctx, "gpg", args...)
-	output, errRun := cmd.CombinedOutput()
-	if errRun != nil {
-		return fmt.Errorf("updater: verify checksum signature: %w: %s", errRun, strings.TrimSpace(string(output)))
+
+	options := tuf.DefaultOptions().WithContext(ctx).WithDisableLocalCache()
+	trustedRoot, errRoot := root.FetchTrustedRootWithOptions(options)
+	if errRoot != nil {
+		return fmt.Errorf("updater: fetch Sigstore trusted root: %w", errRoot)
 	}
-	if strings.TrimSpace(trustedFingerprint) != "" && !gpgOutputHasValidSignature(output, trustedFingerprint) {
-		return errors.New("updater: checksum signature was not made by the trusted GPG fingerprint")
+
+	identity, errIdentity := verify.NewShortCertificateIdentity(sigstoreGitHubActionsIssuer, "", "", sigstoreReleaseIdentity)
+	if errIdentity != nil {
+		return fmt.Errorf("updater: configure Sigstore release identity: %w", errIdentity)
+	}
+	verifier, errVerifier := verify.NewVerifier(
+		trustedRoot,
+		verify.WithSignedCertificateTimestamps(1),
+		verify.WithObserverTimestamps(1),
+		verify.WithTransparencyLog(1),
+	)
+	if errVerifier != nil {
+		return fmt.Errorf("updater: configure Sigstore verifier: %w", errVerifier)
+	}
+	policy := verify.NewPolicy(
+		verify.WithArtifact(bytes.NewReader(artifact)),
+		verify.WithCertificateIdentity(identity),
+	)
+	_, errVerify := verifier.Verify(signedBundle, policy)
+	if errVerify != nil {
+		return fmt.Errorf("updater: verify Sigstore bundle: %w", errVerify)
 	}
 	return nil
-}
-
-func gpgVerifyArgs(artifactPath string, signaturePath string, keyringPath string, trustedFingerprint string) ([]string, error) {
-	keyringPath = strings.TrimSpace(keyringPath)
-	trustedFingerprint = normalizeGPGFingerprint(trustedFingerprint)
-	if keyringPath == "" && trustedFingerprint == "" {
-		return nil, errors.New("updater: trusted GPG keyring or fingerprint is required")
-	}
-
-	args := []string{"--batch", "--status-fd", "1"}
-	if keyringPath != "" {
-		args = append(args, "--no-default-keyring", "--keyring", keyringPath)
-	}
-	args = append(args, "--verify", signaturePath, artifactPath)
-	return args, nil
-}
-
-func gpgOutputHasValidSignature(output []byte, trustedFingerprint string) bool {
-	trustedFingerprint = normalizeGPGFingerprint(trustedFingerprint)
-	if trustedFingerprint == "" {
-		return false
-	}
-
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 3 {
-			continue
-		}
-		if fields[0] == "[GNUPG:]" && fields[1] == "VALIDSIG" && normalizeGPGFingerprint(fields[2]) == trustedFingerprint {
-			return true
-		}
-	}
-	return false
-}
-
-func normalizeGPGFingerprint(value string) string {
-	var builder strings.Builder
-	for _, r := range value {
-		if unicode.IsSpace(r) {
-			continue
-		}
-		builder.WriteRune(unicode.ToUpper(r))
-	}
-	return builder.String()
 }

@@ -167,6 +167,9 @@ func (xs *XylonaService) Logout(_ context.Context, request *connect.Request[xylo
 			log.Warn().Err(errDeleteSession).Msg("Failed to delete user session on logout")
 			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete session"))
 		}
+		if xs.closeSession != nil {
+			xs.closeSession(sessionCookies.SessionID)
+		}
 	}
 
 	resp := &connect.Response[xylona.LogoutResponse]{

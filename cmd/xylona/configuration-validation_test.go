@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caarlos0/env/v10"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -166,6 +167,38 @@ func TestRegisterMetricsRouteEnabled(t *testing.T) {
 
 	if response.Code != http.StatusOK {
 		t.Fatalf(`GET /metrics status = %d, want %d`, response.Code, http.StatusOK)
+	}
+}
+
+func TestNewHTTPServerAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		want string
+	}{
+		{name: "defaults to IPv4 loopback", want: "127.0.0.1:8080"},
+		{name: "blank host defaults to IPv4 loopback", host: "  ", want: "127.0.0.1:8080"},
+		{name: "all interfaces requires explicit host", host: "0.0.0.0", want: "0.0.0.0:8080"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newHTTPServer(Configuration{Host: tt.host, HTTPPort: 8080}, nil)
+			if server.Addr != tt.want {
+				t.Fatalf("newHTTPServer() Addr = %q, want %q", server.Addr, tt.want)
+			}
+		})
+	}
+}
+
+func TestConfigurationHostDefault(t *testing.T) {
+	config := Configuration{}
+	errParse := env.ParseWithOptions(&config, env.Options{Environment: map[string]string{}})
+	if errParse != nil {
+		t.Fatalf("ParseWithOptions() error = %v", errParse)
+	}
+	if config.Host != "" {
+		t.Fatalf("Configuration.Host = %q, want empty before install compatibility is resolved", config.Host)
 	}
 }
 

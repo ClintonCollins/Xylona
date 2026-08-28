@@ -17,6 +17,10 @@ func TestLogout(t *testing.T) {
 		db:           fixture.conn,
 		secureCookie: fixture.secureCookie,
 	}
+	closedSessionID := ""
+	xs.closeSession = func(sessionID string) {
+		closedSessionID = sessionID
+	}
 
 	// 1. Create a user and a session
 	user := createUserForRPCUserTests(t, fixture, "logoutuser", false)
@@ -71,5 +75,8 @@ func TestLogout(t *testing.T) {
 	_, err = fixture.conn.GetUserSession(sessionID)
 	if err == nil {
 		t.Error("Session still exists in DB after logout")
+	}
+	if closedSessionID != sessionID {
+		t.Errorf("closed session ID = %q, want %q", closedSessionID, sessionID)
 	}
 }

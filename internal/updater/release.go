@@ -210,13 +210,13 @@ func FindChecksumAsset(release *Release) (Asset, bool) {
 	return Asset{}, false
 }
 
-// FindChecksumSignatureAsset returns a detached signature for checksums.txt.
-func FindChecksumSignatureAsset(release *Release) (Asset, bool) {
+// FindChecksumBundleAsset returns the Sigstore bundle for checksums.txt.
+func FindChecksumBundleAsset(release *Release) (Asset, bool) {
 	if release == nil {
 		return Asset{}, false
 	}
 	for _, asset := range release.Assets {
-		if strings.EqualFold(asset.Name, "checksums.txt.sig") || strings.EqualFold(asset.Name, "checksums.txt.asc") {
+		if strings.EqualFold(asset.Name, "checksums.txt.sigstore.json") {
 			return asset, true
 		}
 	}

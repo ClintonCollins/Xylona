@@ -7,8 +7,8 @@ test.describe('Login page', () => {
   test('renders the login form', async ({ page }) => {
     await page.goto('/login')
 
-    await expect(page.locator('.login-brand-name')).toHaveText('Xylona')
-    await expect(page.locator('.login-brand-tagline')).toContainText(/Game Server\s*Control Panel/i)
+    await expect(page.locator('.auth-brand-name')).toHaveText('Xylona')
+    await expect(page.locator('.auth-brand-tagline')).toContainText(/Game Server\s*Control Panel/i)
     await expect(page.getByLabel('Username')).toBeVisible()
     await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()

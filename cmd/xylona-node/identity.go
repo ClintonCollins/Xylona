@@ -44,6 +44,24 @@ var errIdentityMissing = errors.New("node identity file not found")
 // to fall through to pairing instead.
 func loadIdentity(dataDir string) (*nodeIdentity, error) {
 	path := filepath.Join(dataDir, identityFileName)
+	errDataDir := ensureIdentityDataDir(dataDir)
+	if errDataDir != nil {
+		return nil, fmt.Errorf("prepare data directory %s: %w", dataDir, errDataDir)
+	}
+
+	_, errStat := os.Stat(path)
+	if errStat != nil {
+		if errors.Is(errStat, os.ErrNotExist) {
+			return nil, fmt.Errorf("%w: %s", errIdentityMissing, path)
+		}
+		return nil, fmt.Errorf("stat node identity: %w", errStat)
+	}
+
+	errProtect := protectIdentityPathSecurity(path, false)
+	if errProtect != nil {
+		return nil, fmt.Errorf("protect node identity %s: %w", path, errProtect)
+	}
+
 	data, errRead := os.ReadFile(path)
 	if errRead != nil {
 		if errors.Is(errRead, os.ErrNotExist) {
@@ -73,11 +91,6 @@ func saveIdentity(dataDir string, id *nodeIdentity) error {
 		return errors.New("identity is nil")
 	}
 
-	errMkdir := os.MkdirAll(dataDir, 0o700)
-	if errMkdir != nil {
-		return fmt.Errorf("create data directory %s: %w", dataDir, errMkdir)
-	}
-
 	if id.SchemaVersion == 0 {
 		id.SchemaVersion = currentIdentitySchemaVersion
 	}
@@ -91,19 +104,64 @@ func saveIdentity(dataDir string, id *nodeIdentity) error {
 		return fmt.Errorf("marshal node identity: %w", errMarshal)
 	}
 
+	errDataDir := ensureIdentityDataDir(dataDir)
+	if errDataDir != nil {
+		return fmt.Errorf("prepare data directory %s: %w", dataDir, errDataDir)
+	}
+
 	path := filepath.Join(dataDir, identityFileName)
-	tmpPath := path + ".tmp"
-	errWrite := os.WriteFile(tmpPath, data, 0o600)
+	tmpPath, errWrite := writeIdentityTemp(dataDir, data)
 	if errWrite != nil {
-		return fmt.Errorf("write node identity tmp %s: %w", tmpPath, errWrite)
+		return fmt.Errorf("write node identity tmp: %w", errWrite)
 	}
 	errRename := os.Rename(tmpPath, path)
 	if errRename != nil {
-		// Best-effort cleanup so the tmp file does not linger.
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename node identity %s -> %s: %w", tmpPath, path, errRename)
+		return removeIdentityTemp(
+			tmpPath,
+			fmt.Errorf("rename node identity %s -> %s: %w", tmpPath, path, errRename),
+		)
 	}
 	return nil
+}
+
+func writeIdentityTemp(dataDir string, data []byte) (string, error) {
+	file, errOpen := os.CreateTemp(dataDir, identityFileName+".*.tmp")
+	if errOpen != nil {
+		return "", fmt.Errorf("create temporary identity in %s: %w", dataDir, errOpen)
+	}
+	path := file.Name()
+
+	errProtect := protectIdentityPathSecurity(path, false)
+	if errProtect != nil {
+		return "", closeAndRemoveIdentityTemp(file, path, fmt.Errorf("protect %s: %w", path, errProtect))
+	}
+
+	_, errWrite := file.Write(data)
+	if errWrite != nil {
+		return "", closeAndRemoveIdentityTemp(file, path, fmt.Errorf("write %s: %w", path, errWrite))
+	}
+
+	errClose := file.Close()
+	if errClose != nil {
+		return "", removeIdentityTemp(path, fmt.Errorf("close %s: %w", path, errClose))
+	}
+	return path, nil
+}
+
+func closeAndRemoveIdentityTemp(file *os.File, path string, cause error) error {
+	errClose := file.Close()
+	if errClose != nil {
+		cause = errors.Join(cause, fmt.Errorf("close %s: %w", path, errClose))
+	}
+	return removeIdentityTemp(path, cause)
+}
+
+func removeIdentityTemp(path string, cause error) error {
+	errRemove := os.Remove(path)
+	if errRemove != nil && !errors.Is(errRemove, os.ErrNotExist) {
+		return errors.Join(cause, fmt.Errorf("remove node identity tmp %s: %w", path, errRemove))
+	}
+	return cause
 }
 
 // validate fails fast on missing required fields. It is intentionally strict:

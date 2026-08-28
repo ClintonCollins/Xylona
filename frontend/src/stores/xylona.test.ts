@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   buildXylonaErrorNotification: vi.fn(),
   checkUserAuthenticated: vi.fn(),
   connectErrorMessage: vi.fn(),
+  disposeWebsocketClients: vi.fn(),
   logout: vi.fn(),
 }))
 
@@ -24,11 +25,26 @@ vi.mock('@/api/connect-errors', () => ({
   connectErrorMessage: mocks.connectErrorMessage,
 }))
 
+vi.mock('@/utils/shared', () => ({
+  DisposeXylonaWebsocketClients: mocks.disposeWebsocketClients,
+}))
+
 vi.mock('quasar', () => ({
   Notify: {
     create: vi.fn(),
   },
 }))
+
+const storageValues = new Map<string, string>()
+
+beforeEach(() => {
+  storageValues.clear()
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => storageValues.get(key) ?? null,
+    setItem: (key: string, value: string) => storageValues.set(key, value),
+    removeItem: (key: string) => storageValues.delete(key),
+  })
+})
 
 describe('useUserAuthStore — checkUserAuthenticated', () => {
   beforeEach(() => {
@@ -36,6 +52,7 @@ describe('useUserAuthStore — checkUserAuthenticated', () => {
     mocks.buildXylonaErrorNotification.mockReset()
     mocks.checkUserAuthenticated.mockReset()
     mocks.connectErrorMessage.mockReset()
+    mocks.disposeWebsocketClients.mockReset()
     mocks.logout.mockReset()
   })
 
@@ -134,11 +151,17 @@ describe('useUserAuthStore — logout', () => {
     mocks.buildXylonaErrorNotification.mockReset()
     mocks.checkUserAuthenticated.mockReset()
     mocks.connectErrorMessage.mockReset()
+    mocks.disposeWebsocketClients.mockReset()
     mocks.logout.mockReset()
   })
 
   it('success: clears user, initialFetch, and initialResponse', async () => {
+    localStorage.setItem('game-server-display-rows-cache', '[{"id":"legacy-server"}]')
+    localStorage.setItem('game-server-remote-node-ids-cache', '["legacy-node"]')
     const store = useUserAuthStore()
+    expect(localStorage.getItem('game-server-display-rows-cache')).toBeNull()
+    expect(localStorage.getItem('game-server-remote-node-ids-cache')).toBeNull()
+
     const user = create(UserSchema, {
       id: 'user-1',
       userName: 'admin',
@@ -152,10 +175,15 @@ describe('useUserAuthStore — logout', () => {
     })
 
     mocks.logout.mockResolvedValueOnce({})
+    localStorage.setItem('game-server-display-rows-cache', '[{"id":"legacy-server"}]')
+    localStorage.setItem('game-server-remote-node-ids-cache', '["legacy-node"]')
 
     await store.logout()
 
     expect(mocks.logout).toHaveBeenCalledTimes(1)
+    expect(mocks.disposeWebsocketClients).toHaveBeenCalledOnce()
+    expect(localStorage.getItem('game-server-display-rows-cache')).toBeNull()
+    expect(localStorage.getItem('game-server-remote-node-ids-cache')).toBeNull()
     expect(store.user).toBeNull()
     expect(store.initialFetch).toBe(false)
     expect(store.initialResponse).toBeNull()
@@ -178,6 +206,7 @@ describe('useUserAuthStore — logout', () => {
     await store.logout()
 
     expect(consoleSpy).toHaveBeenCalledWith('Logout error:', 'logout failed')
+    expect(mocks.disposeWebsocketClients).not.toHaveBeenCalled()
 
     // User should NOT be cleared since the API call failed
     expect(store.user).not.toBeNull()
@@ -192,6 +221,7 @@ describe('useUserAuthStore — state helpers', () => {
     mocks.buildXylonaErrorNotification.mockReset()
     mocks.checkUserAuthenticated.mockReset()
     mocks.connectErrorMessage.mockReset()
+    mocks.disposeWebsocketClients.mockReset()
     mocks.logout.mockReset()
   })
 

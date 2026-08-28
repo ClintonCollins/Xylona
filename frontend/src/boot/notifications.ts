@@ -11,27 +11,23 @@ import { Notify } from 'quasar'
 // more info on params: https://v2.quasar.dev/quasar-cli/boot-files
 export default boot(async ({ app: _app }) => {
   Notify.registerType('xylona-success', {
-    message: '<span class="text-bold notification-title">Success</span>',
+    message: 'Success',
     icon: tabOutlineCheck,
-    html: true,
     classes: 'xylona-notification notification-success',
   })
   Notify.registerType('xylona-error', {
-    message: '<span class="text-bold notification-title">Error</span>',
+    message: 'Error',
     icon: tabOutlineX,
-    html: true,
     classes: 'xylona-notification notification-error',
   })
   Notify.registerType('xylona-alert', {
-    message: '<span class="text-bold notification-title">Alert</span>',
+    message: 'Alert',
     icon: tabOutlineAlertTriangle,
-    html: true,
     classes: 'xylona-notification notification-alert',
   })
   Notify.registerType('xylona-info', {
-    message: '<span class="text-bold notification-title">Info</span>',
+    message: 'Info',
     icon: tabOutlineInfoSquareRounded,
-    html: true,
     classes: 'xylona-notification notification-info',
   })
 })

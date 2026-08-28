@@ -37,6 +37,11 @@ const (
 	firstRunChoiceBrowser
 )
 
+const (
+	defaultControllerHost = "127.0.0.1"
+	legacyControllerHost  = "0.0.0.0"
+)
+
 var (
 	firstRunBindableIPs  = helpers.GetBindableIPs
 	openSetupBrowserOnce bool
@@ -115,10 +120,21 @@ func ensureConfigurationSecrets(config *Configuration) error {
 	if errLoadSecrets != nil {
 		return fmt.Errorf("load first-run secrets: %w", errLoadSecrets)
 	}
+	configuredHost, hostConfigured, errLoadHost := loadConfiguredHost(envPath)
+	if errLoadHost != nil {
+		return errLoadHost
+	}
+	databaseExists, errDatabaseExists := databaseFileExists(config.DBFilePath)
+	if errDatabaseExists != nil {
+		return errDatabaseExists
+	}
+	resolvedHost, hostDefault := resolveControllerHost(configuredHost, hostConfigured, databaseExists)
+	config.Host = resolvedHost
 	secrets, errEnsure := firstsetup.EnsureSecrets(firstsetup.EnsureSecretsInput{
-		Current: fileSecrets,
-		DBPath:  config.DBFilePath,
-		EnvPath: envPath,
+		Current:     fileSecrets,
+		DBPath:      config.DBFilePath,
+		EnvPath:     envPath,
+		HostDefault: hostDefault,
 	})
 	if errEnsure != nil {
 		return fmt.Errorf("ensure first-run secrets: %w", errEnsure)
@@ -131,6 +147,47 @@ func ensureConfigurationSecrets(config *Configuration) error {
 	config.CookieBlockKey = secrets.CookieBlockKey
 	config.EncryptionKey = secrets.EncryptionKey
 	return nil
+}
+
+func loadConfiguredHost(envPath string) (string, bool, error) {
+	host, configured := os.LookupEnv("HOST")
+	if configured {
+		return host, true, nil
+	}
+
+	values, errRead := godotenv.Read(envPath)
+	if errRead != nil {
+		if os.IsNotExist(errRead) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("load HOST from env file: %w", errRead)
+	}
+	host, configured = values["HOST"]
+	return host, configured, nil
+}
+
+func databaseFileExists(path string) (bool, error) {
+	info, errStat := os.Stat(path)
+	if errStat != nil {
+		if os.IsNotExist(errStat) {
+			return false, nil
+		}
+		return false, fmt.Errorf("inspect database for listener compatibility: %w", errStat)
+	}
+	return !info.IsDir(), nil
+}
+
+func resolveControllerHost(configuredHost string, hostConfigured bool, databaseExists bool) (string, string) {
+	if hostConfigured {
+		if strings.TrimSpace(configuredHost) == "" {
+			return legacyControllerHost, ""
+		}
+		return configuredHost, ""
+	}
+	if databaseExists {
+		return legacyControllerHost, ""
+	}
+	return defaultControllerHost, defaultControllerHost
 }
 
 func setupAccessURLs(config Configuration, token string) []string {

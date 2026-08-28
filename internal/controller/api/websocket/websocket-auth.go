@@ -1,13 +1,52 @@
 package websocket
 
 import (
+	"errors"
 	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/olahol/melody"
 	"github.com/rs/zerolog/log"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func (c *connection) revalidateSession() error {
+	c.RLock()
+	lookup := c.sessionUserLookup
+	userID := c.userID
+	c.RUnlock()
+	return c.validateSessionUser(lookup, userID)
+}
+
+func (c *connection) validateSession() error {
+	c.RLock()
+	lookup := c.sessionUserValidation
+	userID := c.userID
+	c.RUnlock()
+	return c.validateSessionUser(lookup, userID)
+}
+
+func (c *connection) validateSessionUser(lookup func() (*models.User, error), userID string) error {
+	if lookup == nil {
+		return errors.New("websocket session lookup is unavailable")
+	}
+
+	user, errLookup := lookup()
+	if errLookup != nil {
+		return errLookup
+	}
+	if user == nil || user.ID != userID {
+		return errors.New("websocket session user does not match connection user")
+	}
+
+	c.Lock()
+	c.isSuperUser = user.SuperUser
+	c.lastSuperUserCheck = time.Now()
+	c.Unlock()
+	return nil
+}
 
 func getSessionUsername(s *melody.Session) (string, error) {
 	u, usernameExists := s.Get(sessionKeyUserName)
@@ -100,6 +139,29 @@ func (c *connection) canSubscribeToServerMetrics(serverID string) bool {
 		return false
 	}
 	return allowed
+}
+
+func (c *connection) hasConsolePermission(serverID string) bool {
+	c.RLock()
+	permissionLookup := c.consolePermissionLookup
+	c.RUnlock()
+	if permissionLookup == nil {
+		return false
+	}
+
+	allowed, errPermission := permissionLookup(serverID)
+	if errPermission != nil {
+		log.Warn().Err(errPermission).Str("server_id", serverID).
+			Msg("Failed to authorize game server console access")
+		return false
+	}
+	return allowed
+}
+
+func (c *connection) removeConsoleSubscription(serverID string) {
+	c.Lock()
+	delete(c.requestedGameServerOutputIDs, serverID)
+	c.Unlock()
 }
 
 // addGameServerAccess adds a server ID to the connection's accessible server set.

@@ -647,7 +647,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 
 	steamCache := steamcache.New()
 
-	wsInst, websocketHandler := websocket.NewInstance(ctx, actionsInst, dbInst, nodeRegistry, secureCookie)
+	wsInst, websocketHandler := websocket.NewInstance(ctx, actionsInst, dbInst, nodeRegistry, secureCookie, validatedConfig.trustedProxies)
 	actionsInst.SetVersionBroadcaster(wsInst)
 	actionsInst.SetBackupProgressBroadcaster(wsInst)
 
@@ -656,6 +656,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	if errXylonaService != nil {
 		return startupFailure(cleanup, ctxCancel, errXylonaService, "Failed to create Xylona RPC service")
 	}
+	xylonaService.SetSessionRevocationHandlers(wsInst.CloseSession, wsInst.CloseUser, wsInst.CloseAll)
 	superUserCount, errSuperUserCount := dbInst.CountSuperUsers()
 	if errSuperUserCount != nil {
 		return startupFailure(cleanup, ctxCancel, errSuperUserCount, "Failed to count superusers")
@@ -676,6 +677,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 		setupBrowserURL = setupURLs[0]
 	}
 	localUserService := usermgmt.NewService(dbInst)
+	localUserService.SetSessionsRevokedHandler(wsInst.CloseUser)
 	localAdminServer, errLocalAdminServer := adminipc.NewServer(adminipc.ServerConfig{
 		DBPath:  config.DBFilePath,
 		Handler: adminipc.NewUserHandler(localUserService),

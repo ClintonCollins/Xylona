@@ -16,6 +16,12 @@ import (
 	"github.com/mholt/archives"
 )
 
+var (
+	maxArchiveExtractEntries    int64 = 100_000
+	maxArchiveExtractEntryBytes int64 = 8 << 30
+	maxArchiveExtractTotalBytes int64 = 64 << 30
+)
+
 // CreateFileArchive creates an archive inside directory using only node-local
 // filesystem access. includePaths and destinationArchivePath are relative to
 // directory; the returned path is slash-style and relative to directory.
@@ -293,11 +299,6 @@ func (n *Node) ExtractFileArchiveWithProgress(
 	if errResolveArchive != nil {
 		return nil, ExtractProgress{}, errResolveArchive
 	}
-	_, errResolveDestination := resolveWithinRoot(directory, validatedDestination)
-	if errResolveDestination != nil {
-		return nil, ExtractProgress{}, errResolveDestination
-	}
-
 	progress, errProgress := inspectNodeArchive(ctx, fullArchivePath)
 	if errProgress != nil {
 		return nil, ExtractProgress{}, errProgress
@@ -321,8 +322,17 @@ func (n *Node) ExtractFileArchiveWithProgress(
 		return nil, ExtractProgress{}, fmt.Errorf("node: identify file archive: %w", errIdentify)
 	}
 
+	destinationRoot, errRoot := os.OpenRoot(directory)
+	if errRoot != nil {
+		errClose := archiveFile.Close()
+		if errClose != nil {
+			return nil, ExtractProgress{}, errors.Join(fmt.Errorf("node: open archive destination root: %w", errRoot), fmt.Errorf("node: close file archive: %w", errClose))
+		}
+		return nil, ExtractProgress{}, fmt.Errorf("node: open archive destination root: %w", errRoot)
+	}
+
 	extractor := &nodeArchiveExtractor{
-		rootDirectory:        directory,
+		root:                 destinationRoot,
 		destinationDirectory: validatedDestination,
 		policy:               policy,
 		progress:             progress,
@@ -330,15 +340,17 @@ func (n *Node) ExtractFileArchiveWithProgress(
 	}
 
 	errExtract := extractNodeArchive(ctx, format, archiveStream, extractor)
-	errClose := archiveFile.Close()
-	if errExtract != nil {
-		if errClose != nil {
-			return nil, ExtractProgress{}, errors.Join(errExtract, fmt.Errorf("node: close file archive: %w", errClose))
-		}
-		return nil, ExtractProgress{}, errExtract
+	errCloseRoot := destinationRoot.Close()
+	if errCloseRoot != nil {
+		errCloseRoot = fmt.Errorf("node: close archive destination root: %w", errCloseRoot)
 	}
-	if errClose != nil {
-		return nil, ExtractProgress{}, fmt.Errorf("node: close file archive: %w", errClose)
+	errCloseArchive := archiveFile.Close()
+	if errCloseArchive != nil {
+		errCloseArchive = fmt.Errorf("node: close file archive: %w", errCloseArchive)
+	}
+	errExtract = errors.Join(errExtract, errCloseRoot, errCloseArchive)
+	if errExtract != nil {
+		return nil, ExtractProgress{}, errExtract
 	}
 
 	return append([]string(nil), extractor.extractedPaths...), extractor.progress, nil
@@ -351,9 +363,17 @@ func inspectNodeArchive(ctx context.Context, archivePath string) (ExtractProgres
 	}
 
 	progress := ExtractProgress{}
+	var entryCount int64
 	errWalk := fs.WalkDir(archiveFS, ".", func(pathValue string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
+		}
+		if pathValue == "." {
+			return nil
+		}
+		entryCount++
+		if entryCount > maxArchiveExtractEntries {
+			return fmt.Errorf("node: archive contains more than %d entries", maxArchiveExtractEntries)
 		}
 		if d.IsDir() {
 			return nil
@@ -374,12 +394,13 @@ func inspectNodeArchive(ctx context.Context, archivePath string) (ExtractProgres
 }
 
 type nodeArchiveExtractor struct {
-	rootDirectory        string
+	root                 *os.Root
 	destinationDirectory string
 	policy               ProtectionPolicy
 	progress             ExtractProgress
 	onProgress           func(ExtractProgress) error
 	extractedPaths       []string
+	entryCount           int64
 }
 
 func extractNodeArchive(ctx context.Context, format archives.Format, archiveStream io.Reader, extractor *nodeArchiveExtractor) error {
@@ -408,6 +429,10 @@ func (e *nodeArchiveExtractor) extractFile(ctx context.Context, file archives.Fi
 	if errContext != nil {
 		return fmt.Errorf("node: extract file archive canceled: %w", errContext)
 	}
+	e.entryCount++
+	if e.entryCount > maxArchiveExtractEntries {
+		return fmt.Errorf("node: archive contains more than %d entries", maxArchiveExtractEntries)
+	}
 
 	localEntryPath, slashEntryPath, errEntry := cleanArchiveEntryPath(file.NameInArchive)
 	if errEntry != nil {
@@ -420,20 +445,15 @@ func (e *nodeArchiveExtractor) extractFile(ctx context.Context, file archives.Fi
 		return errProtected
 	}
 
-	outputPath, errResolve := resolveWithinRoot(e.rootDirectory, outputRelativePath)
-	if errResolve != nil {
-		return errResolve
-	}
-
 	if file.IsDir() {
-		errMkdir := os.MkdirAll(outputPath, 0o700)
+		errMkdir := e.root.MkdirAll(outputRelativePath, 0o700)
 		if errMkdir != nil {
 			return fmt.Errorf("node: create extracted directory: %w", errMkdir)
 		}
 		return nil
 	}
 
-	errParent := os.MkdirAll(filepath.Dir(outputPath), 0o700)
+	errParent := e.root.MkdirAll(filepath.Dir(outputRelativePath), 0o700)
 	if errParent != nil {
 		return fmt.Errorf("node: create extracted parent directory: %w", errParent)
 	}
@@ -443,7 +463,7 @@ func (e *nodeArchiveExtractor) extractFile(ctx context.Context, file archives.Fi
 		return fmt.Errorf("node: open archive entry: %w", errOpen)
 	}
 
-	outputFile, errCreate := os.Create(outputPath)
+	outputFile, errCreate := e.root.Create(outputRelativePath)
 	if errCreate != nil {
 		errCloseEntry := archiveFile.Close()
 		if errCloseEntry != nil {
@@ -452,23 +472,45 @@ func (e *nodeArchiveExtractor) extractFile(ctx context.Context, file archives.Fi
 		return fmt.Errorf("node: create extracted file: %w", errCreate)
 	}
 
-	_, errCopy := io.Copy(outputFile, archiveFile)
+	errCopy := copyArchiveEntry(outputFile, archiveFile, &e.progress.BytesExtracted)
 	errCloseOutput := outputFile.Close()
 	errCloseEntry := archiveFile.Close()
 	if errCopy != nil {
-		return errors.Join(fmt.Errorf("node: write extracted file: %w", errCopy), closeErrors(errCloseOutput, errCloseEntry))
+		errRemove := e.root.Remove(outputRelativePath)
+		if errors.Is(errRemove, fs.ErrNotExist) {
+			errRemove = nil
+		} else if errRemove != nil {
+			errRemove = fmt.Errorf("node: remove partial extracted file: %w", errRemove)
+		}
+		return errors.Join(fmt.Errorf("node: write extracted file: %w", errCopy), closeErrors(errCloseOutput, errCloseEntry), errRemove)
 	}
 	if errCloseOutput != nil || errCloseEntry != nil {
 		return closeErrors(errCloseOutput, errCloseEntry)
 	}
 
 	e.progress.FilesExtracted++
-	e.progress.BytesExtracted += file.Size()
 	e.progress.CurrentFile = slashEntryPath
 	e.extractedPaths = append(e.extractedPaths, slashEntryPath)
 	errProgress := sendExtractProgress(e.onProgress, e.progress)
 	if errProgress != nil {
 		return errProgress
+	}
+	return nil
+}
+
+func copyArchiveEntry(dst io.Writer, src io.Reader, total *int64) error {
+	remainingTotal := max(0, maxArchiveExtractTotalBytes-*total)
+	copyLimit := min(maxArchiveExtractEntryBytes, remainingTotal)
+	written, errCopy := io.Copy(dst, io.LimitReader(src, copyLimit+1))
+	*total += written
+	if errCopy != nil {
+		return fmt.Errorf("copy archive entry: %w", errCopy)
+	}
+	if written > maxArchiveExtractEntryBytes {
+		return fmt.Errorf("archive entry exceeds %d bytes", maxArchiveExtractEntryBytes)
+	}
+	if *total > maxArchiveExtractTotalBytes {
+		return fmt.Errorf("archive exceeds %d expanded bytes", maxArchiveExtractTotalBytes)
 	}
 	return nil
 }

@@ -29,7 +29,6 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/internal/nodetls"
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
-	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
 )
 
 const (
@@ -346,7 +345,7 @@ func serveNodeService(ctx context.Context, listen string, identity *nodeIdentity
 
 	mux := http.NewServeMux()
 	svc := newNodeServiceServer(n, identity.SharedSecret, updateManager)
-	path, handler := nodeprotoconnect.NewNodeServiceHandler(svc)
+	path, handler := newNodeServiceHandler(svc)
 	mux.Handle(path, handler)
 
 	server := newNodeHTTPServer(ctx, listen, mux)
@@ -382,7 +381,10 @@ func newNodeHTTPServer(ctx context.Context, listen string, handler http.Handler)
 	return &http.Server{
 		Addr:              listen,
 		Handler:           handler,
+		ReadTimeout:       nodetls.DefaultClientTimeout,
 		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      nodetls.DefaultClientTimeout,
+		IdleTimeout:       2 * time.Minute,
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},

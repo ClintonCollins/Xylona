@@ -31,7 +31,7 @@ The differentiating claim is the **conjunction**, not any single element. A neig
 
 ## Operating Context
 
-Xylona runs on hardware the operator controls: a home machine, a VPS, or a small fleet. Both the controller and remote node install themselves as Windows services or systemd units through their `service install` CLI, or run in the foreground under an external supervisor. By default, the controller listens on all interfaces at `:8080`; set `HOST=localhost` to restrict it to loopback.
+Xylona runs on hardware the operator controls: a home machine, a VPS, or a small fleet. Both the controller and remote node install themselves as Windows services or systemd units through their `service install` CLI, or run in the foreground under an external supervisor. By default, the controller listens only on `127.0.0.1:8080`; setting `HOST=0.0.0.0` is an explicit opt-in to listen on all IPv4 interfaces and requires TLS directly or through a trusted reverse proxy before network exposure.
 
 By default, state lives in `./data.sqlite`; `DB_FILE_PATH` can relocate it. Embedded migrations are applied automatically at startup. The database and `ENCRYPTION_KEY_BASE64` are a **matched recovery set**: neither alone can restore encrypted control-plane secrets. Built-in backups cover game-server data, not control-plane secrets.
 

@@ -140,11 +140,11 @@ func newReq[T any](c *GRPCNodeClient, msg *T) *connect.Request[T] {
 	return req
 }
 
-func (c *GRPCNodeClient) streamConnectClient() nodeprotoconnect.NodeServiceClient {
-	streamHTTPClient := *c.httpClient
-	streamHTTPClient.Timeout = 0
+func (c *GRPCNodeClient) longRunningConnectClient() nodeprotoconnect.NodeServiceClient {
+	longRunningHTTPClient := *c.httpClient
+	longRunningHTTPClient.Timeout = 0
 	return nodeprotoconnect.NewNodeServiceClient(
-		&streamHTTPClient,
+		&longRunningHTTPClient,
 		c.listenURL,
 		connect.WithReadMaxBytes(32<<20),
 	)
@@ -276,7 +276,7 @@ func (c *GRPCNodeClient) StreamConsoleOutput(ctx context.Context, processID stri
 		ProcessId:    processID,
 		ReplayBuffer: true,
 	})
-	stream, errOpen := c.streamConnectClient().StreamConsoleOutput(ctx, req)
+	stream, errOpen := c.longRunningConnectClient().StreamConsoleOutput(ctx, req)
 	if errOpen != nil {
 		return nil, translateError("stream console output", errOpen)
 	}
@@ -368,7 +368,7 @@ func (c *GRPCNodeClient) StreamFile(ctx context.Context, directory string, relat
 		Directory:    directory,
 		RelativePath: relativePath,
 	})
-	stream, errOpen := c.streamConnectClient().StreamFile(ctx, req)
+	stream, errOpen := c.longRunningConnectClient().StreamFile(ctx, req)
 	if errOpen != nil {
 		return nil, translateError("stream file", errOpen)
 	}
@@ -438,7 +438,7 @@ const streamWriteFileChunkBytes = 64 * 1024
 
 // StreamWriteFile invokes the client-streaming StreamWriteFile RPC.
 func (c *GRPCNodeClient) StreamWriteFile(ctx context.Context, directory string, relativePath string, reader io.Reader, policy node.ProtectionPolicy) (node.WriteFileResult, error) {
-	stream := c.streamConnectClient().StreamWriteFile(ctx)
+	stream := c.longRunningConnectClient().StreamWriteFile(ctx)
 	c.authorize(stream.RequestHeader())
 
 	errSend := stream.Send(&nodeprotov1.StreamWriteFileRequest{
@@ -580,7 +580,7 @@ func (c *GRPCNodeClient) DownloadFileFromURL(ctx context.Context, directory stri
 		ExpectedSha256:           integrity.ExpectedSHA256,
 		ExpectedSha1:             integrity.ExpectedSHA1,
 	})
-	resp, errRPC := c.connectClient.DownloadFileFromURL(ctx, req)
+	resp, errRPC := c.longRunningConnectClient().DownloadFileFromURL(ctx, req)
 	if errRPC != nil {
 		return node.DownloadFileResult{}, translateError("download file from URL", errRPC)
 	}
@@ -608,7 +608,7 @@ func (c *GRPCNodeClient) CreateFileArchiveWithProgress(ctx context.Context, dire
 		ServerExecutable:       policy.ServerExecutable,
 		BaseCommand:            policy.BaseCommand,
 	})
-	stream, errRPC := c.streamConnectClient().StreamCreateFileArchive(ctx, req)
+	stream, errRPC := c.longRunningConnectClient().StreamCreateFileArchive(ctx, req)
 	if errRPC != nil {
 		return "", node.ArchiveProgress{}, translateError("create file archive", errRPC)
 	}
@@ -652,7 +652,7 @@ func (c *GRPCNodeClient) ExtractFileArchiveWithProgress(ctx context.Context, dir
 		ServerExecutable:         policy.ServerExecutable,
 		BaseCommand:              policy.BaseCommand,
 	})
-	stream, errRPC := c.streamConnectClient().StreamExtractFileArchive(ctx, req)
+	stream, errRPC := c.longRunningConnectClient().StreamExtractFileArchive(ctx, req)
 	if errRPC != nil {
 		return nil, node.ExtractProgress{}, translateError("extract file archive", errRPC)
 	}
@@ -686,7 +686,7 @@ func (c *GRPCNodeClient) CreateBackupArchive(ctx context.Context, directory stri
 		IncludePaths:           append([]string(nil), includePaths...),
 		DestinationArchivePath: destinationArchivePath,
 	})
-	resp, errRPC := c.connectClient.CreateBackupArchive(ctx, req)
+	resp, errRPC := c.longRunningConnectClient().CreateBackupArchive(ctx, req)
 	if errRPC != nil {
 		return 0, "", translateError("create backup archive", errRPC)
 	}
@@ -700,7 +700,7 @@ func (c *GRPCNodeClient) ExtractBackupArchive(ctx context.Context, directory str
 		ArchivePath: archivePath,
 		Mode:        extractModeToProto(mode),
 	})
-	_, errRPC := c.connectClient.ExtractBackupArchive(ctx, req)
+	_, errRPC := c.longRunningConnectClient().ExtractBackupArchive(ctx, req)
 	if errRPC != nil {
 		return translateError("extract backup archive", errRPC)
 	}
@@ -873,7 +873,7 @@ func (c *GRPCNodeClient) EnsureMinecraftMap(ctx context.Context, mapReq node.Min
 		JavaExecutable:   mapReq.JavaExecutable,
 		MinecraftVersion: mapReq.MinecraftVersion,
 	})
-	resp, errRPC := c.connectClient.EnsureMinecraftMap(ctx, req)
+	resp, errRPC := c.longRunningConnectClient().EnsureMinecraftMap(ctx, req)
 	if errRPC != nil {
 		return node.MinecraftMapStatus{}, translateError("ensure Minecraft map", errRPC)
 	}
@@ -1831,7 +1831,7 @@ const stageSelfUpdateChunkBytes = 256 * 1024
 
 // StageSelfUpdate streams a self-update artifact to the node.
 func (c *GRPCNodeClient) StageSelfUpdate(ctx context.Context, req node.StageSelfUpdateRequest) (node.StageSelfUpdateResult, error) {
-	stream := c.streamConnectClient().StageSelfUpdate(ctx)
+	stream := c.longRunningConnectClient().StageSelfUpdate(ctx)
 	c.authorize(stream.RequestHeader())
 
 	errSend := stream.Send(&nodeprotov1.StageSelfUpdateRequest{
@@ -1900,7 +1900,7 @@ func (c *GRPCNodeClient) ApplySelfUpdate(ctx context.Context, req node.ApplySelf
 // during streaming are logged via the closed channel.
 func (c *GRPCNodeClient) StreamEvents(ctx context.Context) (<-chan node.Event, error) {
 	req := newReq(c, &nodeprotov1.StreamEventsRequest{ReplayProcessStatus: true})
-	stream, errOpen := c.streamConnectClient().StreamEvents(ctx, req)
+	stream, errOpen := c.longRunningConnectClient().StreamEvents(ctx, req)
 	if errOpen != nil {
 		return nil, translateError("stream events", errOpen)
 	}

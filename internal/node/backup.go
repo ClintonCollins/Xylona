@@ -3,6 +3,7 @@ package node
 import (
 	"archive/zip"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -288,10 +289,6 @@ const (
 // extraction to follow a symlink outside the intended tree.
 var ErrRestoreDestinationSymlink = errors.New("restore destination contains a symlink")
 
-// maxBackupExtractEntryBytes caps individual archive entries to 8 GiB so a
-// decompression bomb cannot fill the node's disk via ExtractBackupArchive.
-const maxBackupExtractEntryBytes int64 = 8 << 30
-
 // ExtractBackupArchive unpacks archivePath into directory using the given
 // mode. Paths inside the archive that escape the directory or target a
 // symlink are rejected. Intended for backup-restore flows; callers should
@@ -333,24 +330,36 @@ func (n *Node) ExtractBackupArchive(ctx context.Context, directory, archivePath 
 	if errMkdir != nil {
 		return fmt.Errorf("node: prepare extract directory: %w", errMkdir)
 	}
+	liveRoot, errRoot := os.OpenRoot(cleanRoot)
+	if errRoot != nil {
+		return fmt.Errorf("node: open backup restore root: %w", errRoot)
+	}
 
+	var errRestore error
 	if mode == ExtractModeExact {
-		errPrune := pruneDirectoryForExactExtract(cleanRoot, archivePaths)
+		errPrune := pruneDirectoryForExactExtract(liveRoot, archivePaths)
 		if errPrune != nil {
-			return errPrune
+			errRestore = errPrune
 		}
 	}
 
-	errApply := applyStagedBackupExtract(ctx, stageRoot, cleanRoot, directoryModes)
-	if errApply != nil {
-		return errApply
+	if errRestore == nil {
+		errRestore = applyStagedBackupExtract(ctx, stageRoot, liveRoot, directoryModes)
 	}
-	return nil
+	errCloseRoot := liveRoot.Close()
+	if errCloseRoot != nil {
+		errCloseRoot = fmt.Errorf("node: close backup restore root: %w", errCloseRoot)
+	}
+	return errors.Join(errRestore, errCloseRoot)
 }
 
 func extractBackupArchiveToStaging(ctx context.Context, stageRoot string, files []*zip.File) (map[string]struct{}, map[string]fs.FileMode, error) {
+	if int64(len(files)) > maxArchiveExtractEntries {
+		return nil, nil, fmt.Errorf("node: backup archive contains more than %d entries", maxArchiveExtractEntries)
+	}
 	archivePaths := make(map[string]struct{}, len(files))
 	directoryModes := make(map[string]fs.FileMode, len(files))
+	var totalBytes int64
 	for _, f := range files {
 		errCtx := ctx.Err()
 		if errCtx != nil {
@@ -363,7 +372,7 @@ func extractBackupArchiveToStaging(ctx context.Context, stageRoot string, files 
 		}
 		archivePaths[relative] = struct{}{}
 
-		errExtract := extractBackupEntry(stageRoot, f, directoryModes)
+		errExtract := extractBackupEntry(stageRoot, f, directoryModes, &totalBytes)
 		if errExtract != nil {
 			return nil, nil, errExtract
 		}
@@ -371,7 +380,7 @@ func extractBackupArchiveToStaging(ctx context.Context, stageRoot string, files 
 	return archivePaths, directoryModes, nil
 }
 
-func extractBackupEntry(root string, f *zip.File, directoryModes map[string]fs.FileMode) error {
+func extractBackupEntry(root string, f *zip.File, directoryModes map[string]fs.FileMode, totalBytes *int64) error {
 	relative, errRelative := backupExtractRelativePath(f.Name)
 	if errRelative != nil {
 		return errRelative
@@ -424,11 +433,16 @@ func extractBackupEntry(root string, f *zip.File, directoryModes map[string]fs.F
 	if errCreate != nil {
 		return fmt.Errorf("node: create archive entry %s: %w", f.Name, errCreate)
 	}
-	// Bound per-entry writes to guard against decompression bombs (gosec G110).
-	_, errCopy := io.Copy(dst, io.LimitReader(src, maxBackupExtractEntryBytes))
+	errCopy := copyArchiveEntry(dst, src, totalBytes)
 	errClose := dst.Close()
 	if errCopy != nil {
-		return fmt.Errorf("node: write archive entry %s: %w", f.Name, errCopy)
+		errRemove := os.Remove(full)
+		if errors.Is(errRemove, fs.ErrNotExist) {
+			errRemove = nil
+		} else if errRemove != nil {
+			errRemove = fmt.Errorf("node: remove partial staged backup file: %w", errRemove)
+		}
+		return errors.Join(fmt.Errorf("node: write archive entry %s: %w", f.Name, errCopy), errRemove)
 	}
 	if errClose != nil {
 		return fmt.Errorf("node: close extracted file %s: %w", f.Name, errClose)
@@ -444,7 +458,7 @@ func backupExtractRelativePath(entryName string) (string, error) {
 	return relative, nil
 }
 
-func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string, archivedDirectoryModes map[string]fs.FileMode) error {
+func applyStagedBackupExtract(ctx context.Context, stageRoot string, liveRoot *os.Root, archivedDirectoryModes map[string]fs.FileMode) error {
 	finalDirectoryModes := make(map[string]fs.FileMode, len(archivedDirectoryModes))
 	errWalk := filepath.WalkDir(stageRoot, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		errCtx := ctx.Err()
@@ -474,7 +488,6 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string, a
 			return fmt.Errorf("node: symlinks not allowed in staged backup extract: %s", relative)
 		}
 
-		livePath := filepath.Join(liveRoot, relative)
 		if info.IsDir() {
 			relativeSlash := filepath.ToSlash(relative)
 			perm := info.Mode().Perm()
@@ -485,7 +498,7 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string, a
 			perm = backupDirectoryPerm(perm)
 			finalDirectoryModes[relativeSlash] = perm
 
-			errPrepare := prepareBackupRestoreDirectory(liveRoot, livePath, writableBackupDirectoryPerm(perm))
+			errPrepare := prepareBackupRestoreDirectory(liveRoot, relative, writableBackupDirectoryPerm(perm))
 			if errPrepare != nil {
 				return errPrepare
 			}
@@ -495,7 +508,7 @@ func applyStagedBackupExtract(ctx context.Context, stageRoot, liveRoot string, a
 			return nil
 		}
 
-		errCopy := copyStagedBackupFile(liveRoot, currentPath, livePath, info.Mode().Perm())
+		errCopy := copyStagedBackupFile(liveRoot, currentPath, relative, info.Mode().Perm())
 		if errCopy != nil {
 			return errCopy
 		}
@@ -522,7 +535,7 @@ func writableBackupDirectoryPerm(perm fs.FileMode) fs.FileMode {
 	return backupDirectoryPerm(perm) | 0o700
 }
 
-func restoreBackupDirectoryModes(liveRoot string, directoryModes map[string]fs.FileMode) error {
+func restoreBackupDirectoryModes(liveRoot *os.Root, directoryModes map[string]fs.FileMode) error {
 	directories := make([]string, 0, len(directoryModes))
 	for relative := range directoryModes {
 		directories = append(directories, relative)
@@ -532,8 +545,7 @@ func restoreBackupDirectoryModes(liveRoot string, directoryModes map[string]fs.F
 	})
 
 	for _, relative := range directories {
-		livePath := filepath.Join(liveRoot, filepath.FromSlash(relative))
-		errChmod := os.Chmod(livePath, backupDirectoryPerm(directoryModes[relative]))
+		errChmod := liveRoot.Chmod(filepath.FromSlash(relative), backupDirectoryPerm(directoryModes[relative]))
 		if errChmod != nil {
 			return fmt.Errorf("node: set live backup directory mode: %w", errChmod)
 		}
@@ -548,7 +560,7 @@ func backupDirectoryDepth(relative string) int {
 	return strings.Count(relative, "/")
 }
 
-func copyStagedBackupFile(liveRoot, sourcePath, destinationPath string, perm fs.FileMode) error {
+func copyStagedBackupFile(liveRoot *os.Root, sourcePath, destinationRelative string, perm fs.FileMode) error {
 	srcFile, errOpen := os.Open(sourcePath)
 	if errOpen != nil {
 		return fmt.Errorf("node: open staged backup file: %w", errOpen)
@@ -560,7 +572,7 @@ func copyStagedBackupFile(liveRoot, sourcePath, destinationPath string, perm fs.
 		}
 	}()
 
-	errPrepare := prepareBackupRestoreFile(liveRoot, destinationPath)
+	errPrepare := prepareBackupRestoreFile(liveRoot, destinationRelative)
 	if errPrepare != nil {
 		return errPrepare
 	}
@@ -569,18 +581,17 @@ func copyStagedBackupFile(liveRoot, sourcePath, destinationPath string, perm fs.
 		perm = 0o600
 	}
 
-	parentDirectory := filepath.Dir(destinationPath)
-	tempFile, errCreate := os.CreateTemp(parentDirectory, ".xylona-restore-*")
+	tempRelative := filepath.Join(filepath.Dir(destinationRelative), ".xylona-restore-"+rand.Text())
+	tempFile, errCreate := liveRoot.OpenFile(tempRelative, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if errCreate != nil {
 		return fmt.Errorf("node: create live backup temp file: %w", errCreate)
 	}
-	tempPath := tempFile.Name()
 	removeTemp := true
 	defer func() {
 		if removeTemp {
-			errRemove := os.Remove(tempPath)
+			errRemove := liveRoot.Remove(tempRelative)
 			if errRemove != nil && !errors.Is(errRemove, fs.ErrNotExist) {
-				log.Warn().Err(errRemove).Str("path", tempPath).Msg("node: remove backup restore temp file")
+				log.Warn().Err(errRemove).Str("path", tempRelative).Msg("node: remove backup restore temp file")
 			}
 		}
 	}()
@@ -591,36 +602,36 @@ func copyStagedBackupFile(liveRoot, sourcePath, destinationPath string, perm fs.
 	if errCopy != nil || errSync != nil || errClose != nil {
 		return fmt.Errorf("node: write live backup temp file: %w", errors.Join(errCopy, errSync, errClose))
 	}
-	errChmod := os.Chmod(tempPath, perm)
+	errChmod := liveRoot.Chmod(tempRelative, perm)
 	if errChmod != nil {
 		return fmt.Errorf("node: set live backup temp file mode: %w", errChmod)
 	}
-	errRename := os.Rename(tempPath, destinationPath)
+	errRename := liveRoot.Rename(tempRelative, destinationRelative)
 	if errRename != nil {
 		return fmt.Errorf("node: move live backup temp file into place: %w", errRename)
 	}
 	removeTemp = false
 
-	errChmod = os.Chmod(destinationPath, perm)
+	errChmod = liveRoot.Chmod(destinationRelative, perm)
 	if errChmod != nil {
 		return fmt.Errorf("node: set live backup file mode: %w", errChmod)
 	}
 	return nil
 }
 
-func prepareBackupRestoreDirectory(liveRoot, targetPath string, perm fs.FileMode) error {
-	errParents := ensureBackupRestoreDirectoryChain(liveRoot, filepath.Dir(targetPath))
+func prepareBackupRestoreDirectory(liveRoot *os.Root, targetRelative string, perm fs.FileMode) error {
+	errParents := ensureBackupRestoreDirectoryChain(liveRoot, filepath.Dir(targetRelative))
 	if errParents != nil {
 		return errParents
 	}
 
-	info, errLstat := os.Lstat(targetPath)
+	info, errLstat := liveRoot.Lstat(targetRelative)
 	if errLstat == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return ErrRestoreDestinationSymlink
 		}
 		if !info.IsDir() {
-			errRemove := os.RemoveAll(targetPath)
+			errRemove := liveRoot.RemoveAll(targetRelative)
 			if errRemove != nil {
 				return fmt.Errorf("node: replace restore file with directory: %w", errRemove)
 			}
@@ -632,24 +643,24 @@ func prepareBackupRestoreDirectory(liveRoot, targetPath string, perm fs.FileMode
 	if perm == 0 {
 		perm = 0o750
 	}
-	errMkdir := os.MkdirAll(targetPath, perm)
+	errMkdir := liveRoot.MkdirAll(targetRelative, perm)
 	if errMkdir != nil {
 		return fmt.Errorf("node: create live backup directory: %w", errMkdir)
 	}
-	errChmod := os.Chmod(targetPath, perm)
+	errChmod := liveRoot.Chmod(targetRelative, perm)
 	if errChmod != nil {
 		return fmt.Errorf("node: set live backup directory mode: %w", errChmod)
 	}
 	return nil
 }
 
-func prepareBackupRestoreFile(liveRoot, targetPath string) error {
-	errParents := ensureBackupRestoreDirectoryChain(liveRoot, filepath.Dir(targetPath))
+func prepareBackupRestoreFile(liveRoot *os.Root, targetRelative string) error {
+	errParents := ensureBackupRestoreDirectoryChain(liveRoot, filepath.Dir(targetRelative))
 	if errParents != nil {
 		return errParents
 	}
 
-	info, errLstat := os.Lstat(targetPath)
+	info, errLstat := liveRoot.Lstat(targetRelative)
 	if errLstat != nil {
 		if errors.Is(errLstat, fs.ErrNotExist) {
 			return nil
@@ -660,20 +671,15 @@ func prepareBackupRestoreFile(liveRoot, targetPath string) error {
 		return ErrRestoreDestinationSymlink
 	}
 
-	errRemove := os.RemoveAll(targetPath)
+	errRemove := liveRoot.RemoveAll(targetRelative)
 	if errRemove != nil {
 		return fmt.Errorf("node: replace restore destination: %w", errRemove)
 	}
 	return nil
 }
 
-func ensureBackupRestoreDirectoryChain(liveRoot, targetDirectory string) error {
-	cleanRoot := filepath.Clean(liveRoot)
-	cleanTarget := filepath.Clean(targetDirectory)
-	relative, errRel := filepath.Rel(cleanRoot, cleanTarget)
-	if errRel != nil {
-		return fmt.Errorf("node: resolve restore parent path: %w", errRel)
-	}
+func ensureBackupRestoreDirectoryChain(liveRoot *os.Root, targetDirectory string) error {
+	relative := filepath.Clean(targetDirectory)
 	if relative == "." {
 		return nil
 	}
@@ -681,13 +687,13 @@ func ensureBackupRestoreDirectoryChain(liveRoot, targetDirectory string) error {
 		return fmt.Errorf("node: restore parent escapes root: %s", relative)
 	}
 
-	currentPath := cleanRoot
+	currentPath := ""
 	for part := range strings.SplitSeq(relative, string(filepath.Separator)) {
 		if part == "" || part == "." {
 			continue
 		}
 		currentPath = filepath.Join(currentPath, part)
-		info, errLstat := os.Lstat(currentPath)
+		info, errLstat := liveRoot.Lstat(currentPath)
 		if errLstat == nil {
 			if info.Mode()&os.ModeSymlink != 0 {
 				return ErrRestoreDestinationSymlink
@@ -695,7 +701,7 @@ func ensureBackupRestoreDirectoryChain(liveRoot, targetDirectory string) error {
 			if info.IsDir() {
 				continue
 			}
-			errRemove := os.RemoveAll(currentPath)
+			errRemove := liveRoot.RemoveAll(currentPath)
 			if errRemove != nil {
 				return fmt.Errorf("node: replace restore parent with directory: %w", errRemove)
 			}
@@ -703,7 +709,7 @@ func ensureBackupRestoreDirectoryChain(liveRoot, targetDirectory string) error {
 			return fmt.Errorf("node: inspect restore parent directory: %w", errLstat)
 		}
 
-		errMkdir := os.Mkdir(currentPath, 0o750)
+		errMkdir := liveRoot.Mkdir(currentPath, 0o750)
 		if errMkdir != nil && !errors.Is(errMkdir, fs.ErrExist) {
 			return fmt.Errorf("node: create restore parent directory: %w", errMkdir)
 		}
@@ -721,26 +727,22 @@ func cleanupBackupRestoreStaging(stageRoot string) {
 // pruneDirectoryForExactExtract removes any entry inside root that is not in
 // archivePaths. Used by ExtractModeExact so restored directories match the
 // archive exactly.
-func pruneDirectoryForExactExtract(root string, archivePaths map[string]struct{}) error {
-	errWalk := filepath.WalkDir(root, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+func pruneDirectoryForExactExtract(liveRoot *os.Root, archivePaths map[string]struct{}) error {
+	errWalk := fs.WalkDir(liveRoot.FS(), ".", func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return fmt.Errorf("node: walk exact-extract prune: %w", walkErr)
 		}
-		if currentPath == root {
+		if currentPath == "." {
 			return nil
 		}
-		rel, errRel := filepath.Rel(root, currentPath)
-		if errRel != nil {
-			return fmt.Errorf("node: resolve prune relative path: %w", errRel)
-		}
-		relSlash := filepath.ToSlash(rel)
+		relSlash := filepath.ToSlash(currentPath)
 		if _, inArchive := archivePaths[relSlash]; inArchive {
 			return nil
 		}
 		if entry.IsDir() {
 			// Only remove dirs if they contain no archive entries.
 			if dirContainsNoArchiveEntries(relSlash, archivePaths) {
-				errRemove := os.RemoveAll(currentPath) //nolint:gosec // G122: currentPath is filepath.WalkDir result rooted at validated directory
+				errRemove := liveRoot.RemoveAll(filepath.FromSlash(currentPath))
 				if errRemove != nil {
 					return fmt.Errorf("node: remove extra directory %s: %w", relSlash, errRemove)
 				}
@@ -748,7 +750,7 @@ func pruneDirectoryForExactExtract(root string, archivePaths map[string]struct{}
 			}
 			return nil
 		}
-		errRemove := os.Remove(currentPath) //nolint:gosec // G122: currentPath is filepath.WalkDir result rooted at validated directory
+		errRemove := liveRoot.Remove(filepath.FromSlash(currentPath))
 		if errRemove != nil && !errors.Is(errRemove, fs.ErrNotExist) {
 			return fmt.Errorf("node: remove extra file %s: %w", relSlash, errRemove)
 		}

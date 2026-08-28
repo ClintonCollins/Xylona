@@ -178,6 +178,50 @@ func TestAuthRateLimiter(t *testing.T) {
 		}
 	})
 
+	t.Run("spoofed leftmost forwarded addresses share the nearest client limit", func(t *testing.T) {
+		trust, errTrust := ParseTrustedProxies("192.0.2.10")
+		if errTrust != nil {
+			t.Fatalf("ParseTrustedProxies() error = %v", errTrust)
+		}
+		handler := AuthRateLimiterForProxies(trust)(okHandler)
+
+		var lastStatus int
+		for i := range 15 {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/Login", nil)
+			req.RemoteAddr = "192.0.2.10:443"
+			req.Header.Set("X-Forwarded-For", fmt.Sprintf("203.0.113.%d, 198.51.100.10", i+1))
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			lastStatus = rec.Code
+		}
+
+		if lastStatus != http.StatusTooManyRequests {
+			t.Fatalf("status = %d, want %d", lastStatus, http.StatusTooManyRequests)
+		}
+	})
+
+	t.Run("forwarded loopback is not exempt", func(t *testing.T) {
+		trust, errTrust := ParseTrustedProxies("127.0.0.1")
+		if errTrust != nil {
+			t.Fatalf("ParseTrustedProxies() error = %v", errTrust)
+		}
+		handler := AuthRateLimiterForProxies(trust)(okHandler)
+
+		var lastStatus int
+		for range 15 {
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/xylona.Xylona/Login", nil)
+			req.RemoteAddr = "127.0.0.1:443"
+			req.Header.Set("X-Forwarded-For", "127.0.0.1")
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			lastStatus = rec.Code
+		}
+
+		if lastStatus != http.StatusTooManyRequests {
+			t.Fatalf("status = %d, want %d", lastStatus, http.StatusTooManyRequests)
+		}
+	})
+
 	t.Run("does not trust forwarded client IP headers", func(t *testing.T) {
 		handler := middleware.ClientIPFromRemoteAddr(AuthRateLimiter()(okHandler))
 

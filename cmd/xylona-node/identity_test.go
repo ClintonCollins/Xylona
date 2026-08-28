@@ -15,7 +15,7 @@ func TestIdentityRoundTrip(t *testing.T) {
 
 	t.Run("save then load returns identical identity", func(t *testing.T) {
 		t.Parallel()
-		dir := t.TempDir()
+		dir := filepath.Join(t.TempDir(), "node-data")
 
 		// #nosec G101 -- static test fixture placeholders, not real credentials.
 		original := &nodeIdentity{
@@ -66,11 +66,20 @@ func TestIdentityRoundTrip(t *testing.T) {
 
 	t.Run("loadIdentity rejects corrupt JSON", func(t *testing.T) {
 		t.Parallel()
-		dir := t.TempDir()
+		dir := filepath.Join(t.TempDir(), "node-data")
+		errDataDir := ensureIdentityDataDir(dir)
+		if errDataDir != nil {
+			t.Fatalf("ensureIdentityDataDir: %v", errDataDir)
+		}
 
-		errWrite := os.WriteFile(filepath.Join(dir, identityFileName), []byte("not json"), 0o600)
+		identityPath := filepath.Join(dir, identityFileName)
+		errWrite := os.WriteFile(identityPath, []byte("not json"), 0o600)
 		if errWrite != nil {
 			t.Fatalf("WriteFile: %v", errWrite)
+		}
+		errProtect := protectIdentityPathSecurity(identityPath, false)
+		if errProtect != nil {
+			t.Fatalf("protectIdentityPathSecurity: %v", errProtect)
 		}
 		_, errLoad := loadIdentity(dir)
 		if errLoad == nil {

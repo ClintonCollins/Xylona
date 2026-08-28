@@ -4,7 +4,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/sigstore/sigstore-go/pkg/fulcio/certificate"
+	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
 func TestFindArtifact(t *testing.T) {
@@ -70,42 +74,88 @@ func TestParseChecksums(t *testing.T) {
 	}
 }
 
-func TestGPGVerifyArgsRequiresPinnedTrust(t *testing.T) {
+func TestFindChecksumBundleAsset(t *testing.T) {
 	t.Parallel()
 
-	_, errArgs := gpgVerifyArgs("checksums.txt", "checksums.txt.sig", "", "")
-	if errArgs == nil {
-		t.Fatal("gpgVerifyArgs() error = nil, want trust requirement error")
+	release := &Release{Assets: []Asset{
+		{Name: "checksums.txt"},
+		{Name: "checksums.txt.sig"},
+		{Name: "checksums.txt.sigstore.json", BrowserDownloadURL: "https://example.test/bundle"},
+	}}
+
+	asset, ok := FindChecksumBundleAsset(release)
+	if !ok {
+		t.Fatal("FindChecksumBundleAsset() ok = false, want true")
+	}
+	if asset.BrowserDownloadURL != "https://example.test/bundle" {
+		t.Fatalf("FindChecksumBundleAsset() URL = %q, want bundle URL", asset.BrowserDownloadURL)
 	}
 }
 
-func TestGPGVerifyArgsDisablesDefaultKeyring(t *testing.T) {
+func TestSigstoreReleaseIdentity(t *testing.T) {
 	t.Parallel()
 
-	args, errArgs := gpgVerifyArgs("checksums.txt", "checksums.txt.sig", "trusted.gpg", "")
-	if errArgs != nil {
-		t.Fatalf("gpgVerifyArgs() error = %v, want nil", errArgs)
+	identity, errIdentity := verify.NewShortCertificateIdentity(sigstoreGitHubActionsIssuer, "", "", sigstoreReleaseIdentity)
+	if errIdentity != nil {
+		t.Fatalf("NewShortCertificateIdentity() error = %v", errIdentity)
 	}
 
-	want := []string{"--batch", "--status-fd", "1", "--no-default-keyring", "--keyring", "trusted.gpg", "--verify", "checksums.txt.sig", "checksums.txt"}
-	if len(args) != len(want) {
-		t.Fatalf("gpgVerifyArgs() = %#v, want %#v", args, want)
+	tests := []struct {
+		name    string
+		issuer  string
+		subject string
+		wantErr bool
+	}{
+		{
+			name:    "tag release workflow",
+			issuer:  sigstoreGitHubActionsIssuer,
+			subject: "https://github.com/ClintonCollins/Xylona/.github/workflows/release.yml@refs/tags/v1.2.3",
+		},
+		{
+			name:    "branch workflow",
+			issuer:  sigstoreGitHubActionsIssuer,
+			subject: "https://github.com/ClintonCollins/Xylona/.github/workflows/release.yml@refs/heads/main",
+			wantErr: true,
+		},
+		{
+			name:    "different repository",
+			issuer:  sigstoreGitHubActionsIssuer,
+			subject: "https://github.com/example/Xylona/.github/workflows/release.yml@refs/tags/v1.2.3",
+			wantErr: true,
+		},
+		{
+			name:    "different issuer",
+			issuer:  "https://example.test",
+			subject: "https://github.com/ClintonCollins/Xylona/.github/workflows/release.yml@refs/tags/v1.2.3",
+			wantErr: true,
+		},
 	}
-	for i := range want {
-		if args[i] != want[i] {
-			t.Fatalf("gpgVerifyArgs()[%d] = %q, want %q; args = %#v", i, args[i], want[i], args)
-		}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			errVerify := identity.Verify(certificate.Summary{
+				SubjectAlternativeName: tt.subject,
+				Extensions: certificate.Extensions{
+					Issuer: tt.issuer,
+				},
+			})
+			if (errVerify != nil) != tt.wantErr {
+				t.Fatalf("identity.Verify() error = %v, wantErr %t", errVerify, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestGPGOutputHasValidSignature(t *testing.T) {
+func TestVerifySigstoreBundleRejectsMalformedBundle(t *testing.T) {
 	t.Parallel()
 
-	output := []byte("[GNUPG:] NEWSIG\n[GNUPG:] VALIDSIG ABCD1234EF 2026-04-21 0 4 0 1 10 00 ABCD1234EF\n")
-	if !gpgOutputHasValidSignature(output, "abcd 1234 ef") {
-		t.Fatal("gpgOutputHasValidSignature() = false, want true")
+	errVerify := VerifySigstoreBundle(t.Context(), []byte("checksums"), []byte("not a bundle"))
+	if errVerify == nil {
+		t.Fatal("VerifySigstoreBundle() error = nil, want malformed bundle error")
 	}
-	if gpgOutputHasValidSignature(output, "BADF00D") {
-		t.Fatal("gpgOutputHasValidSignature() = true for wrong fingerprint, want false")
+	if !strings.Contains(errVerify.Error(), "parse Sigstore bundle") {
+		t.Fatalf("VerifySigstoreBundle() error = %v, want bundle parsing error", errVerify)
 	}
 }

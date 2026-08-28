@@ -260,6 +260,21 @@ func TestCompleteNodeSelfUpdate(t *testing.T) {
 	}
 }
 
+func TestNodeHTTPServerTimeouts(t *testing.T) {
+	t.Parallel()
+
+	server := newNodeHTTPServer(t.Context(), "127.0.0.1:0", http.NotFoundHandler())
+	if server.ReadHeaderTimeout != 10*time.Second {
+		t.Fatalf("ReadHeaderTimeout = %v, want 10s", server.ReadHeaderTimeout)
+	}
+	if server.IdleTimeout != 2*time.Minute {
+		t.Fatalf("IdleTimeout = %v, want 2m", server.IdleTimeout)
+	}
+	if server.ReadTimeout != 30*time.Second || server.WriteTimeout != 30*time.Second {
+		t.Fatalf("request timeouts = (read %v, write %v), want both 30s", server.ReadTimeout, server.WriteTimeout)
+	}
+}
+
 func TestNodeHTTPServerCancelsActiveRequests(t *testing.T) {
 	t.Parallel()
 

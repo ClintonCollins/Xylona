@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/http"
 	"os"
 	"slices"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/nodetls"
 	"github.com/ClintonCollins/Xylona/internal/selfupdate"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -25,6 +27,88 @@ import (
 	"github.com/ClintonCollins/Xylona/proto/go/xylona/nodeproto/v1/nodeprotoconnect"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+const nodeRPCMessageMaxBytes = 32 << 20
+
+func nodeLongRunningProcedure(procedure string) bool {
+	switch procedure {
+	case nodeprotoconnect.NodeServiceDownloadFileFromURLProcedure,
+		nodeprotoconnect.NodeServiceCreateFileArchiveProcedure,
+		nodeprotoconnect.NodeServiceExtractFileArchiveProcedure,
+		nodeprotoconnect.NodeServiceCreateBackupArchiveProcedure,
+		nodeprotoconnect.NodeServiceExtractBackupArchiveProcedure,
+		nodeprotoconnect.NodeServiceEnsureMinecraftMapProcedure:
+		return true
+	default:
+		return false
+	}
+}
+
+func newNodeServiceHandler(svc *nodeServiceServer) (string, http.Handler) {
+	path, handler := nodeprotoconnect.NewNodeServiceHandler(
+		svc,
+		connect.WithReadMaxBytes(nodeRPCMessageMaxBytes),
+		connect.WithInterceptors(nodeUnaryTimeoutInterceptor(nodetls.DefaultClientTimeout)),
+	)
+	return path, nodeStreamingDeadlineHandler(svc, handler)
+}
+
+func nodeStreamingDeadlineHandler(svc *nodeServiceServer, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		clearRead := false
+		switch request.URL.Path {
+		case nodeprotoconnect.NodeServiceStreamWriteFileProcedure,
+			nodeprotoconnect.NodeServiceStageSelfUpdateProcedure:
+			clearRead = true
+		case nodeprotoconnect.NodeServiceStreamConsoleOutputProcedure,
+			nodeprotoconnect.NodeServiceStreamFileProcedure,
+			nodeprotoconnect.NodeServiceStreamCreateFileArchiveProcedure,
+			nodeprotoconnect.NodeServiceStreamExtractFileArchiveProcedure,
+			nodeprotoconnect.NodeServiceStreamEventsProcedure:
+		default:
+			if nodeLongRunningProcedure(request.URL.Path) {
+				break
+			}
+			next.ServeHTTP(response, request)
+			return
+		}
+
+		errAuth := svc.authorize(request.Header)
+		if errAuth != nil {
+			next.ServeHTTP(response, request)
+			return
+		}
+
+		controller := http.NewResponseController(response)
+		if clearRead {
+			errRead := controller.SetReadDeadline(time.Time{})
+			if errRead != nil {
+				http.Error(response, "streaming unavailable", http.StatusInternalServerError)
+				return
+			}
+		}
+		errWrite := controller.SetWriteDeadline(time.Time{})
+		if errWrite != nil {
+			http.Error(response, "streaming unavailable", http.StatusInternalServerError)
+			return
+		}
+
+		next.ServeHTTP(response, request)
+	})
+}
+
+func nodeUnaryTimeoutInterceptor(timeout time.Duration) connect.UnaryInterceptorFunc {
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
+			if nodeLongRunningProcedure(request.Spec().Procedure) {
+				return next(ctx, request)
+			}
+			timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+			return next(timeoutCtx, request)
+		}
+	}
+}
 
 // nodeServiceServer is the Connect-RPC handler implementation that wraps a
 // *internal/node.Node. Every method validates the bearer token, translates proto

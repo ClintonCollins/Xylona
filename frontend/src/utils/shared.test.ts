@@ -19,6 +19,7 @@ import {
   ArchiveTypeToExtension,
   ArchiveTypeToString,
   bytesToSize,
+  DisposeXylonaWebsocketClients,
   dispatchWebsocketMessage,
   getColorFromFilenameExtension,
   getIconFromFilenameExtension,
@@ -69,6 +70,11 @@ class FakeLifecycleWebSocket {
 
   triggerMessage(data: unknown): void {
     this.onmessage?.(new MessageEvent('message', { data }))
+  }
+
+  triggerClose(code: number, reason: string): void {
+    this.readyState = FakeLifecycleWebSocket.CLOSED
+    this.onclose?.(new CloseEvent('close', { code, reason }))
   }
 }
 
@@ -292,7 +298,7 @@ describe('controller websocket browser lifecycle', () => {
     XylonaEventBus.on('websocketDisconnected', disconnected)
 
     try {
-      const client = GetOrCreateXylonaWebsocketClient()
+      GetOrCreateXylonaWebsocketClient()
       const initialEpoch = websocketConnectionEpoch.value
       getLifecycleSocket(0).triggerOpen()
       expect(websocketConnectionStatus.value).toBe('connected')
@@ -358,7 +364,7 @@ describe('controller websocket browser lifecycle', () => {
 
       XylonaEventBus.off('websocketConnected', connected)
       XylonaEventBus.off('websocketDisconnected', disconnected)
-      client.dispose()
+      DisposeXylonaWebsocketClients()
     } finally {
       XylonaEventBus.off('websocketConnected', connected)
       XylonaEventBus.off('websocketDisconnected', disconnected)
@@ -378,6 +384,72 @@ describe('controller websocket browser lifecycle', () => {
       } else {
         Object.defineProperty(document, 'visibilityState', originalVisibility)
       }
+    }
+  })
+
+  it('disposes and evicts cached sockets when authentication changes', () => {
+    const originalWebSocket = globalThis.WebSocket
+
+    globalThis.WebSocket = FakeLifecycleWebSocket as unknown as typeof WebSocket
+    setWebsocketBrowserOnline(true)
+    setWebsocketConnectionStatus('connecting')
+
+    try {
+      const controllerClient = GetOrCreateXylonaWebsocketClient()
+      GetOrCreateXylonaWebsocketClient('node.example.test')
+      expect(FakeLifecycleWebSocket.instances).toHaveLength(2)
+
+      DisposeXylonaWebsocketClients()
+
+      expect(FakeLifecycleWebSocket.instances.every((socket) => socket.readyState === 3)).toBe(true)
+      expect(websocketConnectionStatus.value).toBe('disconnected')
+
+      const replacementClient = GetOrCreateXylonaWebsocketClient()
+      expect(replacementClient).not.toBe(controllerClient)
+      expect(FakeLifecycleWebSocket.instances).toHaveLength(3)
+      getLifecycleSocket(2).triggerOpen()
+      expect(() =>
+        XylonaEventBus.emit('gameServerConsoleOutputRequest', 'server-123'),
+      ).not.toThrow()
+      expect(getLifecycleSocket(2).sent).toHaveLength(1)
+    } finally {
+      DisposeXylonaWebsocketClients()
+      setWebsocketConnectionStatus('connecting')
+      setWebsocketBrowserOnline(true)
+      globalThis.WebSocket = originalWebSocket
+      FakeLifecycleWebSocket.instances = []
+    }
+  })
+
+  it('stops reconnecting and redirects when the session expires', () => {
+    const originalWebSocket = globalThis.WebSocket
+    const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => undefined)
+
+    vi.useFakeTimers()
+    globalThis.WebSocket = FakeLifecycleWebSocket as unknown as typeof WebSocket
+    window.history.replaceState({}, '', '/dashboard')
+    setWebsocketBrowserOnline(true)
+    setWebsocketConnectionStatus('connecting')
+
+    try {
+      GetOrCreateXylonaWebsocketClient()
+      getLifecycleSocket(0).triggerOpen()
+      getLifecycleSocket(0).triggerClose(4003, 'Session expired')
+
+      expect(assign).toHaveBeenCalledOnce()
+      expect(assign).toHaveBeenCalledWith('/login?reason=session-expired')
+      expect(websocketConnectionStatus.value).toBe('disconnected')
+      vi.advanceTimersByTime(60_000)
+      expect(FakeLifecycleWebSocket.instances).toHaveLength(1)
+    } finally {
+      DisposeXylonaWebsocketClients()
+      setWebsocketConnectionStatus('connecting')
+      setWebsocketBrowserOnline(true)
+      globalThis.WebSocket = originalWebSocket
+      FakeLifecycleWebSocket.instances = []
+      assign.mockRestore()
+      vi.clearAllTimers()
+      vi.useRealTimers()
     }
   })
 })

@@ -49,6 +49,19 @@ func newTestSender() *Sender {
 	}
 }
 
+func TestNewSafeHTTPClientDisablesEnvironmentProxy(t *testing.T) {
+	t.Parallel()
+
+	client := NewSafeHTTPClient()
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("NewSafeHTTPClient() transport type = %T, want *http.Transport", client.Transport)
+	}
+	if transport.Proxy != nil {
+		t.Fatal("NewSafeHTTPClient() retained an environment proxy")
+	}
+}
+
 // --- Formatting tests ---
 
 func TestFormatDiscord_CrashEvent(t *testing.T) {
@@ -655,9 +668,7 @@ func TestRejectRedirects(t *testing.T) {
 	}
 }
 
-func TestDialValidatedBlocksPrivateResolvedIP(t *testing.T) {
-	t.Parallel()
-
+func TestNewSafeHTTPClientBlocksPrivateResolvedIPAtDialTime(t *testing.T) {
 	originalLookup := lookupIPAddr
 	lookupIPAddr = func(_ context.Context, _ string) ([]net.IPAddr, error) {
 		return []net.IPAddr{{IP: net.ParseIP("169.254.169.254")}}, nil
@@ -666,10 +677,20 @@ func TestDialValidatedBlocksPrivateResolvedIP(t *testing.T) {
 		lookupIPAddr = originalLookup
 	})
 
-	dialer := &net.Dialer{Timeout: 50 * time.Millisecond}
-	_, errDial := dialValidated(context.Background(), "tcp", "metadata.example:80", dialer)
-	if !errors.Is(errDial, ErrSSRFBlocked) {
-		t.Fatalf("dialValidated() error = %v, want ErrSSRFBlocked", errDial)
+	client := NewSafeHTTPClient()
+	request, errRequest := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://metadata.example/latest/meta-data/", nil)
+	if errRequest != nil {
+		t.Fatalf("NewRequestWithContext() error = %v", errRequest)
+	}
+	response, errGet := client.Do(request)
+	if response != nil {
+		errClose := response.Body.Close()
+		if errClose != nil {
+			t.Fatalf("close unexpected response body: %v", errClose)
+		}
+	}
+	if !errors.Is(errGet, ErrSSRFBlocked) {
+		t.Fatalf("Get() error = %v, want ErrSSRFBlocked", errGet)
 	}
 }
 

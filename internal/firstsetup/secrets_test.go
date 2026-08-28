@@ -26,6 +26,7 @@ func TestEnsureSecrets(t *testing.T) {
 		current               Secrets
 		createDBFile          bool
 		existingEnv           string
+		hostDefault           string
 		wantErr               error
 		wantGenerated         []string
 		wantKeepCurrent       bool
@@ -45,6 +46,16 @@ func TestEnsureSecrets(t *testing.T) {
 				EncryptionKey:  existingEncryption,
 			},
 			wantKeepCurrent: true,
+		},
+		{
+			name: "persists the fresh install host default with existing secrets",
+			current: Secrets{
+				CookieHashKey:  existingHash,
+				CookieBlockKey: existingBlock,
+				EncryptionKey:  existingEncryption,
+			},
+			hostDefault:   "127.0.0.1",
+			wantGenerated: []string{"HOST"},
 		},
 		{
 			name: "leaves an existing env file untouched when all keys already exist",
@@ -122,9 +133,10 @@ func TestEnsureSecrets(t *testing.T) {
 			}
 
 			result, errEnsure := EnsureSecrets(EnsureSecretsInput{
-				Current: tt.current,
-				DBPath:  dbPath,
-				EnvPath: envPath,
+				Current:     tt.current,
+				DBPath:      dbPath,
+				EnvPath:     envPath,
+				HostDefault: tt.hostDefault,
 			})
 			if tt.wantErr != nil {
 				if !errors.Is(errEnsure, tt.wantErr) {

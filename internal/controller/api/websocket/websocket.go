@@ -26,11 +26,14 @@ import (
 )
 
 const (
-	sessionKeyUserID        = "userID"
-	sessionKeyStreamChannel = "streamChannel"
-	sessionKeyUserName      = "userName"
-	sessionKeyConnectionID  = "connectionID"
-	sessionKeyGamesServers  = "gameServers"
+	sessionKeyUserID                           = "userID"
+	sessionKeyStreamChannel                    = "streamChannel"
+	sessionKeyUserName                         = "userName"
+	sessionKeyConnectionID                     = "connectionID"
+	sessionKeyGamesServers                     = "gameServers"
+	sessionExpiredCloseCode                    = 4003
+	defaultSessionValidationInterval           = 30 * time.Second
+	defaultConsolePermissionValidationInterval = 5 * time.Second
 )
 
 var (
@@ -44,9 +47,14 @@ type connection struct {
 	id                           uuid.UUID
 	melodySession                *melody.Session
 	outputStreamChannel          chan *xylona.Message
+	sessionID                    string
+	sessionToken                 string
 	userID                       string
+	sessionUserLookup            func() (*models.User, error)
+	sessionUserValidation        func() (*models.User, error)
 	userLookup                   func(string) (*models.User, error)
 	metricsPermissionLookup      func(string) (bool, error)
+	consolePermissionLookup      func(string) (bool, error)
 	allGameServerIDs             []string
 	requestedGameServerOutputIDs map[string]struct{}
 	subscribedMetricsServerIDs   map[string]struct{}
@@ -81,6 +89,8 @@ type WebSocket struct {
 	userWebsocketConnections     map[string]map[uuid.UUID]*connection // map[userID]map[connectionID]*connection
 	userWebsocketConnectionsLock *sync.RWMutex
 	sessionLock                  *sync.RWMutex
+	sessionValidationInterval    time.Duration
+	consolePermissionInterval    time.Duration
 }
 
 func (ws *WebSocket) getSessionGameServers(s *melody.Session) ([]*models.GameServer, error) {
@@ -137,8 +147,12 @@ func NewInstance(
 	database *db.Connection,
 	nodeRegistry *noderegistry.Registry,
 	secureCookie *securecookie.SecureCookie,
+	proxyTrust *gatekeeper.ProxyTrust,
 ) (*WebSocket, http.HandlerFunc) {
 	m := melody.New()
+	m.Upgrader.CheckOrigin = func(r *http.Request) bool {
+		return gatekeeper.IsSameOriginRequest(r, proxyTrust)
+	}
 	inst := &WebSocket{
 		melody:                       m,
 		actions:                      actionsInst,
@@ -149,6 +163,7 @@ func NewInstance(
 		userWebsocketConnections:     make(map[string]map[uuid.UUID]*connection),
 		userWebsocketConnectionsLock: &sync.RWMutex{},
 		sessionLock:                  &sync.RWMutex{},
+		sessionValidationInterval:    defaultSessionValidationInterval,
 	}
 	m.HandleConnect(inst.handleConnect)
 	m.HandleDisconnect(inst.handleDisconnect)
@@ -159,6 +174,65 @@ func NewInstance(
 
 // AddGameServerToUserID reserves a hook for future ownership cache updates.
 func (ws *WebSocket) AddGameServerToUserID() {}
+
+// CloseSession closes every websocket authenticated by sessionID.
+func (ws *WebSocket) CloseSession(sessionID string) {
+	if ws == nil || sessionID == "" {
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	connections := make([]*connection, 0)
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			if conn.sessionID == sessionID {
+				connections = append(connections, conn)
+			}
+		}
+	}
+	ws.userWebsocketConnectionsLock.RUnlock()
+	ws.closeConnections(connections)
+}
+
+// CloseUser closes every websocket authenticated as userID.
+func (ws *WebSocket) CloseUser(userID string) {
+	if ws == nil || userID == "" {
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	userConnections := ws.userWebsocketConnections[userID]
+	connections := make([]*connection, 0, len(userConnections))
+	for _, conn := range userConnections {
+		connections = append(connections, conn)
+	}
+	ws.userWebsocketConnectionsLock.RUnlock()
+	ws.closeConnections(connections)
+}
+
+// CloseAll closes every active websocket connection.
+func (ws *WebSocket) CloseAll() {
+	if ws == nil {
+		return
+	}
+
+	ws.userWebsocketConnectionsLock.RLock()
+	connections := make([]*connection, 0)
+	for _, userConnections := range ws.userWebsocketConnections {
+		for _, conn := range userConnections {
+			connections = append(connections, conn)
+		}
+	}
+	ws.userWebsocketConnectionsLock.RUnlock()
+	ws.closeConnections(connections)
+}
+
+func (ws *WebSocket) closeConnections(connections []*connection) {
+	for _, conn := range connections {
+		ws.cancelConsoleStreams(conn)
+		closeSessionWithPolicyViolation(conn.melodySession)
+	}
+}
 
 func (ws *WebSocket) handleRequest(w http.ResponseWriter, r *http.Request) {
 	err := ws.melody.HandleRequest(w, r)
@@ -180,7 +254,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 			Str("remote_addr", s.Request.RemoteAddr).
 			Str("user_agent", s.Request.UserAgent()).
 			Msg("Rejected websocket connection without session cookies")
-		_ = s.CloseWithMsg([]byte("Unauthorized"))
+		closeSessionExpired(s)
 		return
 	}
 
@@ -189,7 +263,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		ws.db, ws.secureCookie)
 	if errGetUser != nil {
 		log.Error().Err(errGetUser).Msg("Failed to get user from session")
-		_ = s.CloseWithMsg([]byte("Unauthorized"))
+		closeSessionExpired(s)
 		return
 	}
 
@@ -198,6 +272,8 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		id:                  uuid.New(),
 		melodySession:       s,
 		outputStreamChannel: make(chan *xylona.Message, 256),
+		sessionID:           sessionCookies.SessionID,
+		sessionToken:        sessionCookies.SessionToken,
 		userID:              user.ID,
 		userLookup:          ws.db.GetUserByID,
 		metricsPermissionLookup: func(serverID string) (bool, error) {
@@ -217,6 +293,23 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 				"game_server.metrics",
 			)
 		},
+		consolePermissionLookup: func(serverID string) (bool, error) {
+			currentUser, errUser := ws.db.GetUserByID(user.ID)
+			if errUser != nil {
+				return false, fmt.Errorf("load websocket user for console authorization: %w", errUser)
+			}
+			gameServer, errGameServer := ws.db.GetGameServerByID(serverID)
+			if errGameServer != nil {
+				return false, fmt.Errorf("load game server for console authorization: %w", errGameServer)
+			}
+			return db.HasPermission(
+				ws.db,
+				currentUser,
+				gameServer.ID,
+				gameServer.UserID,
+				"game_server.console",
+			)
+		},
 		allGameServerIDs:             []string{},
 		requestedGameServerOutputIDs: make(map[string]struct{}),
 		subscribedMetricsServerIDs:   make(map[string]struct{}),
@@ -225,6 +318,22 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		isSuperUser:                  user.SuperUser,
 		lastSuperUserCheck:           time.Now(),
 		RWMutex:                      &sync.RWMutex{},
+	}
+	wsConnection.sessionUserLookup = func() (*models.User, error) {
+		return gatekeeper.GetUserFromSession(
+			wsConnection.sessionID,
+			wsConnection.sessionToken,
+			ws.db,
+			ws.secureCookie,
+		)
+	}
+	wsConnection.sessionUserValidation = func() (*models.User, error) {
+		return gatekeeper.ValidateUserFromSession(
+			wsConnection.sessionID,
+			wsConnection.sessionToken,
+			ws.db,
+			ws.secureCookie,
+		)
 	}
 
 	s.Set(sessionKeyConnectionID, wsConnection.id)
@@ -258,7 +367,7 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 		go ws.sendUserGameServerStatus(s, gameServer)
 	}
 
-	go ws.handleUserWebsocketConnection(s, user, wsConnection.outputStreamChannel)
+	go ws.handleUserWebsocketConnection(s, user, wsConnection)
 	go ws.sendOwnedServersQueryInfo(s)
 	go ws.sendOwnedServersMetrics(s)
 
@@ -273,7 +382,15 @@ func (ws *WebSocket) handleConnect(s *melody.Session) {
 
 // handleUserWebsocketConnection handles a single websocket connection for a user. It's designed to be run in a Go routine.
 // It listens for messages on the streamChan channel and writes them to the websocket connection.
-func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *models.User, streamChan chan *xylona.Message) {
+
+func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *models.User, conn *connection) {
+	validationInterval := ws.sessionValidationInterval
+	if validationInterval <= 0 {
+		validationInterval = defaultSessionValidationInterval
+	}
+	validationTicker := time.NewTicker(validationInterval)
+	defer validationTicker.Stop()
+
 	for {
 		select {
 		case <-ws.ctx.Done():
@@ -286,7 +403,16 @@ func (ws *WebSocket) handleUserWebsocketConnection(s *melody.Session, user *mode
 			closeSession(s)
 			ws.closeConsoleOutputStreams(s)
 			return
-		case output := <-streamChan:
+		case <-validationTicker.C:
+			errSession := conn.validateSession()
+			if errSession != nil {
+				log.Warn().Err(errSession).Str("user_id", conn.userID).
+					Msg("Closing websocket with an invalid passive session")
+				ws.cancelConsoleStreams(conn)
+				closeSessionExpired(s)
+				return
+			}
+		case output := <-conn.outputStreamChannel:
 			// Only write game server console output if this connection is subscribed.
 			if output.GetType() == xylona.Message_GameServerConsole {
 				sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
@@ -379,6 +505,22 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 	if msg == nil {
 		return
 	}
+	sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
+	if errGetSessionConnection != nil {
+		log.Error().Err(errGetSessionConnection).Msg("Failed to get session connection")
+		closeSessionWithPolicyViolation(s)
+		return
+	}
+	// Automatic heartbeat pings count as session activity by design. An open,
+	// connected UI keeps its session active until absolute expiry or revocation.
+	errSession := sessionConnection.revalidateSession()
+	if errSession != nil {
+		log.Warn().Err(errSession).Str("user_id", sessionConnection.userID).
+			Msg("Closing websocket with an invalid session")
+		ws.cancelConsoleStreams(sessionConnection)
+		closeSessionExpired(s)
+		return
+	}
 	// Handle heartbeat from websocket. Ensures a connection is still alive.
 	if strings.ToLower(string(msg)) == "ping" {
 		errWrite := s.Write([]byte("pong"))
@@ -392,12 +534,6 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 	username, errGetUsername := getSessionUsername(s)
 	if errGetUsername != nil {
 		log.Error().Msg("Failed to get username from session")
-		return
-	}
-
-	sessionConnection, errGetSessionConnection := ws.getSessionConnection(s)
-	if errGetSessionConnection != nil {
-		log.Error().Err(errGetSessionConnection).Msg("Failed to get session connection")
 		return
 	}
 
@@ -419,10 +555,11 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 				Msg("Rejected console subscription: user does not have access to server")
 			return
 		}
-
-		sessionConnection.Lock()
-		sessionConnection.requestedGameServerOutputIDs[serverID] = struct{}{}
-		sessionConnection.Unlock()
+		if !sessionConnection.hasConsolePermission(serverID) {
+			log.Warn().Str("User", username).Str("server_id", serverID).
+				Msg("Rejected console subscription: user does not have console permission")
+			return
+		}
 
 		gameServer, errGetServer := ws.db.GetGameServerByID(serverID)
 		if errGetServer != nil {
@@ -432,8 +569,13 @@ func (ws *WebSocket) handleMessage(s *melody.Session, msg []byte) {
 			return
 		}
 
+		sessionConnection.Lock()
+		sessionConnection.requestedGameServerOutputIDs[serverID] = struct{}{}
+		sessionConnection.Unlock()
+
 		errSubscribe := ws.subscribeGameServerConsole(sessionConnection, gameServer)
 		if errSubscribe != nil {
+			sessionConnection.removeConsoleSubscription(serverID)
 			log.Error().Err(errSubscribe).Str("server_id", serverID).Msg("Failed to subscribe to game server console output")
 			return
 		}
@@ -493,5 +635,25 @@ func closeSession(s *melody.Session) {
 	errClose := s.Close()
 	if errClose != nil {
 		log.Error().Err(errClose).Msg("Failed to close websocket connection")
+	}
+}
+
+func closeSessionWithPolicyViolation(s *melody.Session) {
+	if s.IsClosed() {
+		return
+	}
+	errClose := s.CloseWithMsg(melody.FormatCloseMessage(melody.ClosePolicyViolation, "Unauthorized"))
+	if errClose != nil {
+		log.Error().Err(errClose).Msg("Failed to close unauthorized websocket connection")
+	}
+}
+
+func closeSessionExpired(s *melody.Session) {
+	if s.IsClosed() {
+		return
+	}
+	errClose := s.CloseWithMsg(melody.FormatCloseMessage(sessionExpiredCloseCode, "Session expired"))
+	if errClose != nil {
+		log.Error().Err(errClose).Msg("Failed to close websocket with an expired session")
 	}
 }

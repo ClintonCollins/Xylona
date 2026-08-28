@@ -143,8 +143,12 @@ func registerMetricsRoute(router chi.Router, config Configuration) {
 }
 
 func newHTTPServer(config Configuration, handler http.Handler) *http.Server {
+	host := strings.TrimSpace(config.Host)
+	if host == "" {
+		host = "127.0.0.1"
+	}
 	return &http.Server{
-		Addr:              fmt.Sprintf(`%s:%d`, config.Host, config.HTTPPort),
+		Addr:              fmt.Sprintf("%s:%d", host, config.HTTPPort),
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       config.HTTPReadTimeout,

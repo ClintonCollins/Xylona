@@ -48,6 +48,75 @@ func TestParseTrustedProxies(t *testing.T) {
 	}
 }
 
+func TestProxyTrustClientIP(t *testing.T) {
+	t.Parallel()
+
+	trust, errTrust := ParseTrustedProxies("10.0.0.0/8")
+	if errTrust != nil {
+		t.Fatalf("ParseTrustedProxies() error = %v", errTrust)
+	}
+
+	tests := []struct {
+		name       string
+		remoteAddr string
+		forwarded  []string
+		want       string
+	}{
+		{
+			name:       "strips trusted hops from the right",
+			remoteAddr: "10.2.2.2:443",
+			forwarded:  []string{"198.51.100.7, 10.1.1.1"},
+			want:       "198.51.100.7",
+		},
+		{
+			name:       "ignores spoofed leftmost address",
+			remoteAddr: "10.2.2.2:443",
+			forwarded:  []string{"203.0.113.99, 198.51.100.7"},
+			want:       "198.51.100.7",
+		},
+		{
+			name:       "ignores malformed value left of client",
+			remoteAddr: "10.2.2.2:443",
+			forwarded:  []string{"invalid, 198.51.100.7"},
+			want:       "198.51.100.7",
+		},
+		{
+			name:       "parses every header field",
+			remoteAddr: "10.2.2.2:443",
+			forwarded:  []string{"198.51.100.8", "10.1.1.1"},
+			want:       "198.51.100.8",
+		},
+		{
+			name:       "invalid chain falls back to direct peer",
+			remoteAddr: "10.2.2.2:443",
+			forwarded:  []string{"198.51.100.8, invalid"},
+			want:       "10.2.2.2",
+		},
+		{
+			name:       "untrusted peer cannot forward",
+			remoteAddr: "192.0.2.10:443",
+			forwarded:  []string{"198.51.100.8"},
+			want:       "192.0.2.10",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			req.RemoteAddr = tt.remoteAddr
+			for _, value := range tt.forwarded {
+				req.Header.Add("X-Forwarded-For", value)
+			}
+			got := trust.ClientIP(req)
+			if got != tt.want {
+				t.Fatalf("ClientIP() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestProxyTrustRequestIsHTTPS(t *testing.T) {
 	t.Parallel()
 

@@ -61,12 +61,19 @@ type DeleteInput struct {
 
 // Service applies shared local user-management rules on top of the DB layer.
 type Service struct {
-	db *db.Connection
+	db                *db.Connection
+	sessionsRevokedFn func(userID string)
 }
 
 // NewService creates a shared user-management service.
 func NewService(database *db.Connection) *Service {
 	return &Service{db: database}
+}
+
+// SetSessionsRevokedHandler sets the callback invoked after a user's sessions
+// are deleted or the user account is removed.
+func (s *Service) SetSessionsRevokedHandler(handler func(userID string)) {
+	s.sessionsRevokedFn = handler
 }
 
 // List returns all local users.
@@ -314,6 +321,9 @@ func (s *Service) Delete(input DeleteInput) error {
 		}
 		return fmt.Errorf(`usermgmt: delete user: %w`, errDeleteUser)
 	}
+	if s.sessionsRevokedFn != nil {
+		s.sessionsRevokedFn(userID)
+	}
 
 	return nil
 }
@@ -328,6 +338,9 @@ func (s *Service) RevokeAllSessions(userID string) error {
 	_, errRevoke := s.db.DeleteUserSessionsByUserID(trimmedID)
 	if errRevoke != nil {
 		return fmt.Errorf("usermgmt: revoke all sessions: %w", errRevoke)
+	}
+	if s.sessionsRevokedFn != nil {
+		s.sessionsRevokedFn(trimmedID)
 	}
 	return nil
 }

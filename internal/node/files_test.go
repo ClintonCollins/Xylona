@@ -193,7 +193,7 @@ func TestFileReadsRejectSymlinkEscape(t *testing.T) {
 }
 
 func TestCreateFileOrDirectoryAndDelete(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "server")
 	n := &Node{}
 
 	errCreateDir := n.CreateFileOrDirectory(dir, "configs", "", true, ProtectionPolicy{})
@@ -223,6 +223,146 @@ func TestCreateFileOrDirectoryAndDelete(t *testing.T) {
 	}
 	if len(deleted) != 1 || deleted[0] != "configs/server.cfg" {
 		t.Fatalf("DeleteFiles returned %v, want [configs/server.cfg]", deleted)
+	}
+
+	deleted, errDelete = n.DeleteFiles(t.Context(), dir, []string{""}, ProtectionPolicy{})
+	if errDelete != nil {
+		t.Fatalf("DeleteFiles root error = %v", errDelete)
+	}
+	if len(deleted) != 1 || deleted[0] != "" {
+		t.Fatalf("DeleteFiles root returned %v, want [empty path]", deleted)
+	}
+	_, errStatRoot := os.Stat(dir)
+	if !errors.Is(errStatRoot, os.ErrNotExist) {
+		t.Fatalf("server root stat error = %v, want not exist", errStatRoot)
+	}
+}
+
+func TestFileMutationsRejectSymlinkEscape(t *testing.T) {
+	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, errWrite := w.Write([]byte("payload"))
+		if errWrite != nil {
+			t.Errorf("write download response: %v", errWrite)
+		}
+	}))
+	defer downloadServer.Close()
+
+	tests := []struct {
+		name        string
+		outsideName string
+		seedOutside bool
+		mutate      func(t *testing.T, n *Node, root string) error
+	}{
+		{
+			name:        "write",
+			outsideName: "written.txt",
+			mutate: func(_ *testing.T, n *Node, root string) error {
+				return n.WriteFile(root, "escape/written.txt", []byte("escaped"), ProtectionPolicy{})
+			},
+		},
+		{
+			name:        "create file",
+			outsideName: "created.txt",
+			mutate: func(_ *testing.T, n *Node, root string) error {
+				return n.CreateFileOrDirectory(root, "escape/created.txt", "escaped", false, ProtectionPolicy{})
+			},
+		},
+		{
+			name:        "create directory",
+			outsideName: "created-dir",
+			mutate: func(_ *testing.T, n *Node, root string) error {
+				return n.CreateFileOrDirectory(root, "escape/created-dir", "", true, ProtectionPolicy{})
+			},
+		},
+		{
+			name:        "delete",
+			outsideName: "victim.txt",
+			seedOutside: true,
+			mutate: func(t *testing.T, n *Node, root string) error {
+				_, errDelete := n.DeleteFiles(t.Context(), root, []string{"escape/victim.txt"}, ProtectionPolicy{})
+				return errDelete
+			},
+		},
+		{
+			name:        "rename",
+			outsideName: "renamed.txt",
+			mutate: func(_ *testing.T, n *Node, root string) error {
+				_, errRename := n.RenameFile(root, "source.txt", "escape/renamed.txt", ProtectionPolicy{})
+				return errRename
+			},
+		},
+		{
+			name:        "move",
+			outsideName: "source.txt",
+			mutate: func(t *testing.T, n *Node, root string) error {
+				_, errMove := n.MoveFiles(t.Context(), root, []string{"source.txt"}, "escape", ProtectionPolicy{})
+				return errMove
+			},
+		},
+		{
+			name:        "copy",
+			outsideName: "copied.txt",
+			mutate: func(t *testing.T, n *Node, root string) error {
+				_, errCopy := n.CopyFiles(t.Context(), root, []CopyFileOperation{
+					{SourceRelativePath: "source.txt", DestinationRelativePath: "escape/copied.txt"},
+				}, ProtectionPolicy{})
+				return errCopy
+			},
+		},
+		{
+			name:        "download",
+			outsideName: "payload.txt",
+			mutate: func(t *testing.T, n *Node, root string) error {
+				withDownloadTestHTTPClient(t, downloadServer.Client())
+				_, errDownload := n.DownloadFileFromURL(t.Context(), root, downloadServer.URL+"/payload.txt", "escape", DownloadIntegrity{}, ProtectionPolicy{})
+				return errDownload
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			base := t.TempDir()
+			root := filepath.Join(base, "root")
+			outside := filepath.Join(base, "outside")
+			for _, directory := range []string{root, outside} {
+				errMkdir := os.Mkdir(directory, 0o750)
+				if errMkdir != nil {
+					t.Fatalf("Mkdir(%s) error = %v", directory, errMkdir)
+				}
+			}
+			errSymlink := os.Symlink(outside, filepath.Join(root, "escape"))
+			if errSymlink != nil {
+				t.Skipf("symlinks unavailable: %v", errSymlink)
+			}
+			errSource := os.WriteFile(filepath.Join(root, "source.txt"), []byte("source"), 0o600)
+			if errSource != nil {
+				t.Fatalf("write source: %v", errSource)
+			}
+			outsidePath := filepath.Join(outside, tt.outsideName)
+			if tt.seedOutside {
+				errSeed := os.WriteFile(outsidePath, []byte("keep"), 0o600)
+				if errSeed != nil {
+					t.Fatalf("seed outside file: %v", errSeed)
+				}
+			}
+
+			errMutate := tt.mutate(t, &Node{}, root)
+			if errMutate != nil {
+				t.Logf("mutation rejected: %v", errMutate)
+			}
+
+			_, errStat := os.Stat(outsidePath)
+			if tt.seedOutside {
+				if errStat != nil {
+					t.Fatalf("outside target was removed: %v", errStat)
+				}
+				return
+			}
+			if !errors.Is(errStat, os.ErrNotExist) {
+				t.Fatalf("outside target stat error = %v, want not exist", errStat)
+			}
+		})
 	}
 }
 
@@ -257,6 +397,18 @@ func TestRenameAndMove(t *testing.T) {
 	_, errStatMoved := os.Stat(filepath.Join(dir, "dest", "new.txt"))
 	if errStatMoved != nil {
 		t.Fatalf("expected moved file, stat error = %v", errStatMoved)
+	}
+
+	moved, errMove = n.MoveFiles(t.Context(), dir, []string{"dest/new.txt"}, "", ProtectionPolicy{})
+	if errMove != nil {
+		t.Fatalf("MoveFiles to root error = %v", errMove)
+	}
+	if len(moved) != 1 || moved[0] != "dest/new.txt" {
+		t.Fatalf("MoveFiles to root returned %v, want [dest/new.txt]", moved)
+	}
+	_, errStatRoot := os.Stat(filepath.Join(dir, "new.txt"))
+	if errStatRoot != nil {
+		t.Fatalf("expected file moved to root, stat error = %v", errStatRoot)
 	}
 }
 
@@ -345,6 +497,13 @@ func TestDownloadFileFromURLRejectsNonSuccessStatus(t *testing.T) {
 	}
 }
 
+func TestDownloadHTTPClientHasNoOverallTimeout(t *testing.T) {
+	client := downloadHTTPClient()
+	if client.Timeout != 0 {
+		t.Fatalf("download HTTP client timeout = %v, want no overall timeout", client.Timeout)
+	}
+}
+
 func TestDownloadFileFromURLRejectsLoopbackTarget(t *testing.T) {
 	dir := t.TempDir()
 	n := &Node{}
@@ -362,6 +521,29 @@ func TestDownloadFileFromURLRejectsLoopbackTarget(t *testing.T) {
 	}
 	if !strings.Contains(errDownload.Error(), "private or reserved") {
 		t.Fatalf("DownloadFileFromURL() error = %v, want SSRF validation failure", errDownload)
+	}
+}
+
+func TestDownloadFileFromURLRejectsPrivateTargetAtDialTime(t *testing.T) {
+	dir := t.TempDir()
+	n := &Node{}
+
+	originalValidate := validateDownloadTarget
+	validateDownloadTarget = func(string) error { return nil }
+	t.Cleanup(func() {
+		validateDownloadTarget = originalValidate
+	})
+
+	_, errDownload := n.DownloadFileFromURL(
+		t.Context(),
+		dir,
+		"http://127.0.0.1:8080/file.txt",
+		"",
+		DownloadIntegrity{},
+		ProtectionPolicy{},
+	)
+	if errDownload == nil || !strings.Contains(errDownload.Error(), "private or reserved") {
+		t.Fatalf("DownloadFileFromURL() error = %v, want dial-time SSRF rejection", errDownload)
 	}
 }
 
@@ -601,12 +783,13 @@ func TestCopyFilesCopiesContentAndProtectsDestination(t *testing.T) {
 
 	copied, errCopy := n.CopyFiles(t.Context(), dir, []CopyFileOperation{
 		{SourceRelativePath: "source.txt", DestinationRelativePath: "nested/destination.txt"},
+		{SourceRelativePath: "source.txt", DestinationRelativePath: "destination.txt"},
 	}, ProtectionPolicy{})
 	if errCopy != nil {
 		t.Fatalf("CopyFiles error = %v", errCopy)
 	}
-	if len(copied) != 1 || copied[0] != "nested/destination.txt" {
-		t.Fatalf("CopyFiles copied = %v, want [nested/destination.txt]", copied)
+	if len(copied) != 2 || copied[0] != "nested/destination.txt" || copied[1] != "destination.txt" {
+		t.Fatalf("CopyFiles copied = %v, want nested and top-level destinations", copied)
 	}
 	data, errRead := os.ReadFile(filepath.Join(dir, "nested", "destination.txt"))
 	if errRead != nil {
@@ -614,6 +797,29 @@ func TestCopyFilesCopiesContentAndProtectsDestination(t *testing.T) {
 	}
 	if string(data) != "copy me" {
 		t.Fatalf("copied content = %q, want %q", string(data), "copy me")
+	}
+	topLevelData, errReadTopLevel := os.ReadFile(filepath.Join(dir, "destination.txt"))
+	if errReadTopLevel != nil || string(topLevelData) != "copy me" {
+		t.Fatalf("top-level copied content = %q, error = %v", topLevelData, errReadTopLevel)
+	}
+
+	errMkdir := os.MkdirAll(filepath.Join(dir, "source-dir", "nested"), 0o750)
+	if errMkdir != nil {
+		t.Fatalf("MkdirAll source directory error = %v", errMkdir)
+	}
+	errWriteNested := os.WriteFile(filepath.Join(dir, "source-dir", "nested", "file.txt"), []byte("nested"), 0o600)
+	if errWriteNested != nil {
+		t.Fatalf("WriteFile nested source error = %v", errWriteNested)
+	}
+	_, errCopyDirectory := n.CopyFiles(t.Context(), dir, []CopyFileOperation{
+		{SourceRelativePath: "source-dir", DestinationRelativePath: "copied-dir"},
+	}, ProtectionPolicy{})
+	if errCopyDirectory != nil {
+		t.Fatalf("CopyFiles directory error = %v", errCopyDirectory)
+	}
+	nestedData, errReadNested := os.ReadFile(filepath.Join(dir, "copied-dir", "nested", "file.txt"))
+	if errReadNested != nil || string(nestedData) != "nested" {
+		t.Fatalf("copied nested file = %q, error = %v", nestedData, errReadNested)
 	}
 
 	_, errProtected := n.CopyFiles(t.Context(), dir, []CopyFileOperation{

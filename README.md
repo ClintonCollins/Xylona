@@ -20,14 +20,13 @@ A fresh controller is ready when cookie and encryption secrets exist and the fir
 
 On a desktop or an SSH session with a TTY, run `xylona` with no arguments. If setup is still needed, Xylona asks whether to configure in the CLI or open a browser.
 
-On a VPS or as a service (no TTY), Xylona starts in awaiting-setup and prints one or more one-time URLs. Wildcard listeners print loopback first, followed by each detected interface address:
+On a VPS or as a service (no TTY), Xylona starts in awaiting-setup and prints a one-time URL for its loopback-only default listener:
 
 ```text
 Setup: http://127.0.0.1:8080/setup?token=…
-Setup: http://<interface-address>:8080/setup?token=…
 ```
 
-Copy one of those URLs from `journalctl -u xylona` or the Windows Event Log, or SSH in and run `xylona setup`. The token is valid until the first superuser is created or the process restarts.
+Read the URL from `journalctl -u xylona` or the Windows Event Log and reach it through an SSH tunnel, or SSH in and run `xylona setup`. Setting `HOST=0.0.0.0` explicitly enables a wildcard listener, which prints loopback first followed by each detected interface address; configure TLS before exposing it to a network. The token is valid until the first superuser is created or the process restarts.
 
 Non-interactive setup (takes precedence over the chooser):
 
@@ -184,6 +183,8 @@ Native Windows MSI/MSIX packages are not part of the current release. The intend
 
 System updates are downloaded, checksum-verified, capacity-checked, and staged before Xylona stops game servers on the target node. Update storage keeps the newest rollback executable and at most two unapplied staged updates; confirmed, superseded, expired, and orphaned handoff artifacts are reconciled automatically at startup and before the next update.
 
+Self-update verifies the checksum manifest's keyless Sigstore bundle against Xylona's GitHub release workflow identity and fails closed if the bundle, artifact digest, certificate, transparency-log entry, or identity is invalid. Sigstore's TUF trust bootstrap handles public-root rotation automatically; no local verification tool or signing key is required. `XYLONA_UPDATE_ALLOW_UNSIGNED=true` is an explicit emergency-only bypass that accepts the release API checksum without publisher-signature verification.
+
 ### Secret Storage And Recovery
 
 `data.sqlite` and `ENCRYPTION_KEY_BASE64` are a matched recovery set. Keep them together in disaster-recovery planning: the database alone is not enough to recover encrypted control-plane secrets, and the encryption key alone is not enough to recreate state.
@@ -255,7 +256,7 @@ For a compiled binary:
 go build -o xylona ./cmd/xylona
 ```
 
-By default, the app listens on all interfaces at `:8080`. Set `HOST=localhost` to restrict it to loopback.
+By default, the app listens only on `127.0.0.1:8080`. Set `HOST=0.0.0.0` to explicitly listen on all IPv4 interfaces, and use TLS directly or through a trusted reverse proxy before exposing the controller to a network.
 
 ### Frontend Workflow
 
@@ -267,6 +268,8 @@ bun run dev
 ```
 
 The frontend dev server proxies API traffic to the backend using the project proxy configuration. The frontend build targets modern evergreen browsers with native `BigInt` support, including Safari 15.6+.
+
+The optional `docker/development` Caddy proxy reaches the controller through `host.docker.internal`. Start the controller with `HOST=0.0.0.0` for that workflow because a container cannot reach a host process bound only to loopback. Use this setting only on a trusted development network.
 
 ### Common Commands
 

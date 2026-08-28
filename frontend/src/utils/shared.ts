@@ -63,6 +63,7 @@ const allAPIWebsockets: Map<string, ReconnectingWebSocket> = new Map<
 // How long a refocused socket may stay authoritative while its probe is outstanding.
 // Comfortably above a healthy round trip and well under the websocket's own pong timeout.
 const LIVENESS_GRACE_MS = 1_500
+const SESSION_EXPIRED_CLOSE_CODE = 4003
 
 let browserLifecycleInitialized = false
 let pageLifecyclePaused = false
@@ -149,6 +150,18 @@ export function GetOrCreateXylonaWebsocketClient(
   return apiWebsocket
 }
 
+export function DisposeXylonaWebsocketClients(): void {
+  clearLivenessGrace()
+  for (const websocket of allAPIWebsockets.values()) {
+    websocket.dispose(1000, 'Authentication changed')
+  }
+  allAPIWebsockets.clear()
+  XylonaEventBus.off('gameServerConsoleOutputRequest')
+  XylonaEventBus.off('gameServerConsoleOutputRemoveRequest')
+  controllerFrameCount = 0
+  transitionControllerConnection('disconnected')
+}
+
 export function reconnectControllerWebsocket(): void {
   if (!websocketBrowserOnline.value) {
     return
@@ -187,12 +200,19 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket:
       console.debug(`${event.data}`)
     }
   }
-  apiWebsocket.onclose = (_event) => {
+  apiWebsocket.onclose = (event) => {
     if (isControllerSocket) {
       clearLivenessGrace()
       demoteControllerConnection()
     }
     console.debug('Websocket closed')
+    if (isControllerSocket && event.code === SESSION_EXPIRED_CLOSE_CODE) {
+      DisposeXylonaWebsocketClients()
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/setup') {
+        window.location.assign('/login?reason=session-expired')
+      }
+      return
+    }
     // Let the ReconnectingWebSocket handle the rest.
   }
   apiWebsocket.onerror = (event) => {

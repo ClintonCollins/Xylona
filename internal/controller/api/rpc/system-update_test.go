@@ -648,6 +648,8 @@ func TestSystemUpdateAvailabilityBlocksChecksumResolutionFailures(t *testing.T) 
 }
 
 func TestNodeUpdateAvailabilityProbesNodesConcurrently(t *testing.T) {
+	t.Setenv("XYLONA_UPDATE_ALLOW_UNSIGNED", "true")
+
 	fixture := newRBACRPCFixture(t)
 	nodeIDs := []string{"node-remote-a", "node-remote-b", "node-remote-c"}
 	started := make(chan string, len(nodeIDs))
@@ -752,53 +754,92 @@ func TestNodeUpdateAvailabilityProbesNodesConcurrently(t *testing.T) {
 	}
 }
 
-func TestFillArtifactSHARequiresChecksumsWhenSignaturesAreRequired(t *testing.T) {
-	t.Setenv("XYLONA_UPDATE_REQUIRE_SIGNATURE", "1")
+func TestFillArtifactSHAVerificationPolicy(t *testing.T) {
+	artifactName := fmt.Sprintf("xylona_%s_%s", runtime.GOOS, runtime.GOARCH)
+	inlineSHA := "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	checksumServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, errWrite := fmt.Fprintf(w, "%s  %s\n", strings.Repeat("b", 64), artifactName)
+		if errWrite != nil {
+			t.Logf("write checksums response: %v", errWrite)
+		}
+	}))
+	t.Cleanup(checksumServer.Close)
 
-	release := &updater.Release{
-		TagName: "v1.2.0",
-		Version: "1.2.0",
-		Assets: []updater.Asset{
-			{
-				Name:               fmt.Sprintf("xylona_%s_%s", runtime.GOOS, runtime.GOARCH),
-				BrowserDownloadURL: "https://example.invalid/xylona",
-				SHA256:             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	tests := []struct {
+		name          string
+		allowUnsigned string
+		assets        []updater.Asset
+		wantSHA       string
+		wantErr       error
+		wantErrText   string
+	}{
+		{
+			name:    "default rejects inline digest without checksums",
+			assets:  []updater.Asset{{Name: artifactName, SHA256: inlineSHA}},
+			wantErr: updater.ErrChecksumNotFound,
+		},
+		{
+			name: "default rejects checksums without signature",
+			assets: []updater.Asset{
+				{Name: artifactName, SHA256: inlineSHA},
+				{Name: "checksums.txt", BrowserDownloadURL: checksumServer.URL},
 			},
+			wantErrText: "checksum Sigstore bundle is required but missing from release",
+		},
+		{
+			name:          "break glass trusts inline digest",
+			allowUnsigned: "true",
+			assets:        []updater.Asset{{Name: artifactName, SHA256: inlineSHA}},
+			wantSHA:       strings.Repeat("a", 64),
 		},
 	}
-	artifact, ok := updater.FindArtifact(release, updater.ComponentController, runtime.GOOS, runtime.GOARCH)
-	if !ok {
-		t.Fatal("FindArtifact() ok = false, want true")
-	}
 
-	errSHA := (&XylonaService{}).fillArtifactSHA(context.Background(), release, &artifact)
-	if !errors.Is(errSHA, updater.ErrChecksumNotFound) {
-		t.Fatalf("fillArtifactSHA() error = %v, want ErrChecksumNotFound", errSHA)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("XYLONA_UPDATE_ALLOW_UNSIGNED", tt.allowUnsigned)
+			release := &updater.Release{TagName: "v1.2.0", Version: "1.2.0", Assets: tt.assets}
+			artifact, ok := updater.FindArtifact(release, updater.ComponentController, runtime.GOOS, runtime.GOARCH)
+			if !ok {
+				t.Fatal("FindArtifact() ok = false, want true")
+			}
+
+			errSHA := (&XylonaService{}).fillArtifactSHA(t.Context(), release, &artifact)
+			if tt.wantErr != nil && !errors.Is(errSHA, tt.wantErr) {
+				t.Fatalf("fillArtifactSHA() error = %v, want %v", errSHA, tt.wantErr)
+			}
+			if tt.wantErrText != "" && (errSHA == nil || !strings.Contains(errSHA.Error(), tt.wantErrText)) {
+				t.Fatalf("fillArtifactSHA() error = %v, want text %q", errSHA, tt.wantErrText)
+			}
+			if tt.wantErr == nil && tt.wantErrText == "" && errSHA != nil {
+				t.Fatalf("fillArtifactSHA() error = %v, want nil", errSHA)
+			}
+			if artifact.SHA256 != tt.wantSHA && tt.wantSHA != "" {
+				t.Fatalf("fillArtifactSHA() SHA256 = %q, want %q", artifact.SHA256, tt.wantSHA)
+			}
+		})
 	}
 }
 
-func TestMaybeVerifyChecksumsSignatureRequiresTrustedVerifier(t *testing.T) {
-	t.Setenv("XYLONA_UPDATE_REQUIRE_SIGNATURE", "1")
-
-	signatureServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, errWrite := w.Write([]byte("signature"))
+func TestVerifyChecksumsBundleRejectsMalformedBundle(t *testing.T) {
+	bundleServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, errWrite := w.Write([]byte("not a bundle"))
 		if errWrite != nil {
-			t.Logf("write signature response: %v", errWrite)
+			t.Logf("write bundle response: %v", errWrite)
 		}
 	}))
-	t.Cleanup(signatureServer.Close)
+	t.Cleanup(bundleServer.Close)
 
 	release := &updater.Release{
 		Assets: []updater.Asset{
-			{Name: "checksums.txt.sig", BrowserDownloadURL: signatureServer.URL},
+			{Name: "checksums.txt.sigstore.json", BrowserDownloadURL: bundleServer.URL},
 		},
 	}
-	errVerify := maybeVerifyChecksumsSignature(context.Background(), release, []byte("checksums"))
+	errVerify := verifyChecksumsBundle(t.Context(), release, []byte("checksums"))
 	if errVerify == nil {
-		t.Fatal("maybeVerifyChecksumsSignature() error = nil, want trusted verifier error")
+		t.Fatal("verifyChecksumsBundle() error = nil, want malformed bundle error")
 	}
-	if !strings.Contains(errVerify.Error(), "trusted GPG keyring or fingerprint is required") {
-		t.Fatalf("maybeVerifyChecksumsSignature() error = %v, want trusted verifier error", errVerify)
+	if !strings.Contains(errVerify.Error(), "parse Sigstore bundle") {
+		t.Fatalf("verifyChecksumsBundle() error = %v, want bundle parsing error", errVerify)
 	}
 }
 

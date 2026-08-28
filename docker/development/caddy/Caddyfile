@@ -3,11 +3,7 @@
 }
 
 localhost {
-    reverse_proxy /* host.docker.internal:9000 {
-    	transport http {
-    		tls_insecure_skip_verify
-    	}
-    }
+    reverse_proxy /* host.docker.internal:9000
     tls internal
     reverse_proxy /xylona.Xylona/* host.docker.internal:8080
     reverse_proxy /api/* host.docker.internal:8080

@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"connectrpc.com/connect"
@@ -52,7 +53,7 @@ func newTestServer(t *testing.T, sharedSecret string) (string, string) {
 
 	svc := newNodeServiceServer(n, sharedSecret)
 	mux := http.NewServeMux()
-	path, handler := nodeprotoconnect.NewNodeServiceHandler(svc)
+	path, handler := newNodeServiceHandler(svc)
 	mux.Handle(path, handler)
 
 	server := httptest.NewUnstartedServer(mux)
@@ -62,6 +63,137 @@ func newTestServer(t *testing.T, sharedSecret string) (string, string) {
 	t.Cleanup(server.Close)
 
 	return server.URL, fingerprint
+}
+
+type deadlineResponseWriter struct {
+	header         http.Header
+	readDeadlines  []time.Time
+	writeDeadlines []time.Time
+	readErr        error
+	writeErr       error
+}
+
+func (w *deadlineResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (*deadlineResponseWriter) Write(body []byte) (int, error) {
+	return len(body), nil
+}
+
+func (*deadlineResponseWriter) WriteHeader(int) {}
+
+func (w *deadlineResponseWriter) SetReadDeadline(deadline time.Time) error {
+	w.readDeadlines = append(w.readDeadlines, deadline)
+	return w.readErr
+}
+
+func (w *deadlineResponseWriter) SetWriteDeadline(deadline time.Time) error {
+	w.writeDeadlines = append(w.writeDeadlines, deadline)
+	return w.writeErr
+}
+
+func TestNodeStreamingDeadlineHandler(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	tests := []struct {
+		name      string
+		procedure string
+		auth      string
+		wantRead  bool
+		wantWrite bool
+	}{
+		{name: "console stream", procedure: nodeprotoconnect.NodeServiceStreamConsoleOutputProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "file read stream", procedure: nodeprotoconnect.NodeServiceStreamFileProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "archive creation stream", procedure: nodeprotoconnect.NodeServiceStreamCreateFileArchiveProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "archive extraction stream", procedure: nodeprotoconnect.NodeServiceStreamExtractFileArchiveProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "event stream", procedure: nodeprotoconnect.NodeServiceStreamEventsProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "file write stream", procedure: nodeprotoconnect.NodeServiceStreamWriteFileProcedure, auth: "Bearer " + secret, wantRead: true, wantWrite: true},
+		{name: "self-update stream", procedure: nodeprotoconnect.NodeServiceStageSelfUpdateProcedure, auth: "Bearer " + secret, wantRead: true, wantWrite: true},
+		{name: "URL download", procedure: nodeprotoconnect.NodeServiceDownloadFileFromURLProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "file archive creation", procedure: nodeprotoconnect.NodeServiceCreateFileArchiveProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "file archive extraction", procedure: nodeprotoconnect.NodeServiceExtractFileArchiveProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "backup creation", procedure: nodeprotoconnect.NodeServiceCreateBackupArchiveProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "backup extraction", procedure: nodeprotoconnect.NodeServiceExtractBackupArchiveProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "Minecraft map setup", procedure: nodeprotoconnect.NodeServiceEnsureMinecraftMapProcedure, auth: "Bearer " + secret, wantWrite: true},
+		{name: "unary procedure", procedure: nodeprotoconnect.NodeServicePingProcedure, auth: "Bearer " + secret},
+		{name: "missing authentication", procedure: nodeprotoconnect.NodeServiceStageSelfUpdateProcedure},
+		{name: "invalid authentication", procedure: nodeprotoconnect.NodeServiceStreamEventsProcedure, auth: "Bearer wrong-secret"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			writer := &deadlineResponseWriter{header: make(http.Header)}
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, test.procedure, nil)
+			request.Header.Set(nodeclient.AuthorizationHeader, test.auth)
+			nextCalled := false
+			next := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				nextCalled = true
+			})
+			handler := nodeStreamingDeadlineHandler(newNodeServiceServer(nil, secret), next)
+			handler.ServeHTTP(writer, request)
+
+			if !nextCalled {
+				t.Fatal("next handler was not called")
+			}
+			gotRead := len(writer.readDeadlines) == 1
+			if gotRead != test.wantRead {
+				t.Fatalf("read deadline cleared = %t, want %t", gotRead, test.wantRead)
+			}
+			gotWrite := len(writer.writeDeadlines) == 1
+			if gotWrite != test.wantWrite {
+				t.Fatalf("write deadline cleared = %t, want %t", gotWrite, test.wantWrite)
+			}
+			if test.wantRead && !writer.readDeadlines[0].IsZero() {
+				t.Fatalf("read deadline = %v, want zero", writer.readDeadlines[0])
+			}
+			if test.wantWrite && !writer.writeDeadlines[0].IsZero() {
+				t.Fatalf("write deadline = %v, want zero", writer.writeDeadlines[0])
+			}
+		})
+	}
+}
+
+func TestNodeUnaryTimeoutInterceptor(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		const timeout = 5 * time.Second
+		interceptor := nodeUnaryTimeoutInterceptor(timeout)
+		startedAt := time.Now()
+		_, errCall := interceptor.WrapUnary(func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		})(t.Context(), connect.NewRequest(&nodeprotov1.PingRequest{}))
+		if !errors.Is(errCall, context.DeadlineExceeded) {
+			t.Fatalf("unary call error = %v, want context deadline exceeded", errCall)
+		}
+		elapsed := time.Since(startedAt)
+		if elapsed != timeout {
+			t.Fatalf("unary call elapsed = %v, want %v", elapsed, timeout)
+		}
+	})
+}
+
+func TestNodeServiceHandlerRejectsOversizedMessages(t *testing.T) {
+	const secret = "test-secret"
+	svc := newNodeServiceServer(nil, secret)
+	_, handler := newNodeServiceHandler(svc)
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+
+	client := nodeprotoconnect.NewNodeServiceClient(server.Client(), server.URL)
+	request := connect.NewRequest(&nodeprotov1.WriteFileRequest{
+		Content: make([]byte, nodeRPCMessageMaxBytes+1),
+	})
+	request.Header().Set(nodeclient.AuthorizationHeader, "Bearer "+secret)
+	_, errWrite := client.WriteFile(t.Context(), request)
+	if connect.CodeOf(errWrite) != connect.CodeResourceExhausted {
+		t.Fatalf("oversized WriteFile() code = %v, want %v (error %v)", connect.CodeOf(errWrite), connect.CodeResourceExhausted, errWrite)
+	}
 }
 
 // TestServerAuthorization verifies that requests without a bearer token or

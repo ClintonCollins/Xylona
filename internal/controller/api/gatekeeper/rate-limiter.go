@@ -24,8 +24,7 @@ var publicMapRPCPaths = []string{
 
 // AuthRateLimiter applies a strict IP limit to authentication RPCs and a
 // separate higher limit to public map polling. All other requests pass through
-// without throttling. Localhost addresses remain exempt for E2E suites unless
-// the request arrived through a trusted proxy with a non-loopback client IP.
+// without throttling. Direct localhost peers remain exempt for E2E suites.
 func AuthRateLimiter() func(http.Handler) http.Handler {
 	return AuthRateLimiterForProxies(nil)
 }
@@ -47,7 +46,7 @@ func AuthRateLimiterForProxies(trust *ProxyTrust) func(http.Handler) http.Handle
 		publicMapLimited := publicMapLimiter(next)
 		publicStatusEventLimited := publicStatusEventLimiter(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if isLocalhost(requestClientIP(r, trust)) {
+			if isLocalhost(r.RemoteAddr) && !trust.IsTrustedRemote(r) {
 				next.ServeHTTP(w, r)
 				return
 			}

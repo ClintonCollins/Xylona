@@ -13,7 +13,7 @@ import (
 
 func TestPrepareNodeServiceInstall(t *testing.T) {
 	t.Run("reuses existing identity with absolute data path", func(t *testing.T) {
-		dataDir := t.TempDir()
+		dataDir := filepath.Join(t.TempDir(), "node-data")
 		writeServiceTestIdentity(t, dataDir)
 
 		preparation, errPrepare := parseNodeServiceInstallForTest(t, []string{
@@ -39,7 +39,7 @@ func TestPrepareNodeServiceInstall(t *testing.T) {
 	})
 
 	t.Run("rejects bootstrap flags for existing identity", func(t *testing.T) {
-		dataDir := t.TempDir()
+		dataDir := filepath.Join(t.TempDir(), "node-data")
 		writeServiceTestIdentity(t, dataDir)
 
 		_, errPrepare := parseNodeServiceInstallForTest(t, []string{

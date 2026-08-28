@@ -131,14 +131,17 @@ type Sender struct {
 // NewSender creates a Sender with default production settings.
 func NewSender() *Sender {
 	return &Sender{
-		client:      newSafeHTTPClient(),
+		client:      NewSafeHTTPClient(),
 		rateLimiter: newRateLimiter(10),
 		retry:       defaultRetryConfig,
 		ssrfCheckFn: ValidateWebhookTarget,
 	}
 }
 
-func newSafeHTTPClient() *http.Client {
+// NewSafeHTTPClient returns an HTTP client that resolves and validates every
+// dial target immediately before connecting. Callers may replace
+// CheckRedirect while retaining the dial-time SSRF protection.
+func NewSafeHTTPClient() *http.Client {
 	baseTransport, ok := http.DefaultTransport.(*http.Transport)
 	var transport *http.Transport
 	if ok {
@@ -146,6 +149,7 @@ func newSafeHTTPClient() *http.Client {
 	} else {
 		transport = &http.Transport{}
 	}
+	transport.Proxy = nil
 	dialer := &net.Dialer{
 		Timeout:   10 * time.Second,
 		KeepAlive: 30 * time.Second,

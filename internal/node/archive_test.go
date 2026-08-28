@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -139,6 +141,146 @@ func TestExtractFileArchiveRejectsProtectedEntry(t *testing.T) {
 	protectedPath := filepath.Join(dir, "server.jar")
 	if _, errStat := os.Stat(protectedPath); !errors.Is(errStat, os.ErrNotExist) {
 		t.Fatalf("Stat(%q) error = %v, want %v", protectedPath, errStat, os.ErrNotExist)
+	}
+}
+
+func TestExtractFileArchiveEnforcesExpansionBudgets(t *testing.T) {
+	tests := []struct {
+		name             string
+		maxEntries       int64
+		maxEntryBytes    int64
+		maxTotalBytes    int64
+		entries          []nodeTestZipEntry
+		wantError        string
+		wantMissingEntry string
+	}{
+		{
+			name:          "entry count",
+			maxEntries:    1,
+			maxEntryBytes: 100,
+			maxTotalBytes: 100,
+			entries: []nodeTestZipEntry{
+				{name: "a.txt", contents: "a"},
+				{name: "b.txt", contents: "b"},
+			},
+			wantError:        "more than 1 entries",
+			wantMissingEntry: "a.txt",
+		},
+		{
+			name:             "per entry actual bytes",
+			maxEntries:       10,
+			maxEntryBytes:    3,
+			maxTotalBytes:    100,
+			entries:          []nodeTestZipEntry{{name: "large.txt", contents: "1234"}},
+			wantError:        "entry exceeds 3 bytes",
+			wantMissingEntry: "large.txt",
+		},
+		{
+			name:          "total actual bytes",
+			maxEntries:    10,
+			maxEntryBytes: 10,
+			maxTotalBytes: 5,
+			entries: []nodeTestZipEntry{
+				{name: "a.txt", contents: "123"},
+				{name: "b.txt", contents: "456"},
+			},
+			wantError:        "exceeds 5 expanded bytes",
+			wantMissingEntry: "b.txt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setArchiveExtractionLimits(t, tt.maxEntries, tt.maxEntryBytes, tt.maxTotalBytes)
+			dir := t.TempDir()
+			archivePath := filepath.Join(dir, "import.zip")
+			writeOrderedNodeTestZipArchive(t, archivePath, tt.entries)
+
+			n := &Node{}
+			_, _, errExtract := n.ExtractFileArchive(t.Context(), dir, "import.zip", "restored", ProtectionPolicy{})
+			if errExtract == nil || !strings.Contains(errExtract.Error(), tt.wantError) {
+				t.Fatalf("ExtractFileArchive() error = %v, want containing %q", errExtract, tt.wantError)
+			}
+			partialPath := filepath.Join(dir, "restored", tt.wantMissingEntry)
+			_, errStat := os.Stat(partialPath)
+			if !errors.Is(errStat, os.ErrNotExist) {
+				t.Fatalf("Stat(%q) error = %v, want %v", partialPath, errStat, os.ErrNotExist)
+			}
+		})
+	}
+}
+
+func TestExtractFileArchiveRejectsDestinationSymlinkEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows symlink creation requires extra privileges in some environments")
+	}
+
+	dir := t.TempDir()
+	outside := t.TempDir()
+	errSymlink := os.Symlink(outside, filepath.Join(dir, "restored"))
+	if errSymlink != nil {
+		t.Fatalf("Symlink error = %v", errSymlink)
+	}
+	archivePath := filepath.Join(dir, "import.zip")
+	writeOrderedNodeTestZipArchive(t, archivePath, []nodeTestZipEntry{{name: "escaped.txt", contents: "blocked"}})
+
+	n := &Node{}
+	_, _, errExtract := n.ExtractFileArchive(t.Context(), dir, "import.zip", "restored", ProtectionPolicy{})
+	if errExtract == nil {
+		t.Fatal("ExtractFileArchive() error = nil, want symlink escape rejection")
+	}
+	outsidePath := filepath.Join(outside, "escaped.txt")
+	_, errStat := os.Stat(outsidePath)
+	if !errors.Is(errStat, os.ErrNotExist) {
+		t.Fatalf("Stat(%q) error = %v, want %v", outsidePath, errStat, os.ErrNotExist)
+	}
+}
+
+type nodeTestZipEntry struct {
+	name     string
+	contents string
+}
+
+func setArchiveExtractionLimits(t *testing.T, entries, entryBytes, totalBytes int64) {
+	t.Helper()
+	oldEntries := maxArchiveExtractEntries
+	oldEntryBytes := maxArchiveExtractEntryBytes
+	oldTotalBytes := maxArchiveExtractTotalBytes
+	maxArchiveExtractEntries = entries
+	maxArchiveExtractEntryBytes = entryBytes
+	maxArchiveExtractTotalBytes = totalBytes
+	t.Cleanup(func() {
+		maxArchiveExtractEntries = oldEntries
+		maxArchiveExtractEntryBytes = oldEntryBytes
+		maxArchiveExtractTotalBytes = oldTotalBytes
+	})
+}
+
+func writeOrderedNodeTestZipArchive(t *testing.T, archivePath string, entries []nodeTestZipEntry) {
+	t.Helper()
+
+	file, errCreate := os.Create(archivePath)
+	if errCreate != nil {
+		t.Fatalf("Create(%q) error = %v", archivePath, errCreate)
+	}
+	zipWriter := zip.NewWriter(file)
+	for _, entry := range entries {
+		writer, errCreateEntry := zipWriter.Create(entry.name)
+		if errCreateEntry != nil {
+			t.Fatalf("zip.Create(%q) error = %v", entry.name, errCreateEntry)
+		}
+		_, errWrite := writer.Write([]byte(entry.contents))
+		if errWrite != nil {
+			t.Fatalf("zip entry write %q error = %v", entry.name, errWrite)
+		}
+	}
+	errCloseZip := zipWriter.Close()
+	errCloseFile := file.Close()
+	if errCloseZip != nil {
+		t.Fatalf("zip.Close() error = %v", errCloseZip)
+	}
+	if errCloseFile != nil {
+		t.Fatalf("file.Close() error = %v", errCloseFile)
 	}
 }
 

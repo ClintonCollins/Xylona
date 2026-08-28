@@ -4,6 +4,7 @@ import { Notify } from 'quasar'
 
 import { getXylonaClient } from '@/api/connect-client'
 import { buildXylonaErrorNotification, connectErrorMessage } from '@/api/connect-errors'
+import { DisposeXylonaWebsocketClients } from '@/utils/shared'
 import {
   CheckUserAuthenticatedRequestSchema,
   CheckUserAuthenticatedResponse,
@@ -17,12 +18,30 @@ interface userAuthState {
   initialResponse: CheckUserAuthenticatedResponse | null
 }
 
+const legacyUserScopedCacheKeys = [
+  'game-server-display-rows-cache',
+  'game-server-remote-node-ids-cache',
+]
+
+function clearLegacyUserScopedCaches(): void {
+  try {
+    for (const key of legacyUserScopedCacheKeys) {
+      localStorage.removeItem(key)
+    }
+  } catch {
+    // Storage may be unavailable in restricted browser contexts.
+  }
+}
+
 export const useUserAuthStore = defineStore('userAuth', {
-  state: (): userAuthState => ({
-    user: null,
-    initialFetch: false,
-    initialResponse: null,
-  }),
+  state: (): userAuthState => {
+    clearLegacyUserScopedCaches()
+    return {
+      user: null,
+      initialFetch: false,
+      initialResponse: null,
+    }
+  },
   actions: {
     setUser(user: User) {
       this.user = user
@@ -61,6 +80,8 @@ export const useUserAuthStore = defineStore('userAuth', {
     async logout(): Promise<void> {
       try {
         await getXylonaClient().logout(create(LogoutRequestSchema, {}))
+        DisposeXylonaWebsocketClients()
+        clearLegacyUserScopedCaches()
         this.user = null
         this.initialFetch = false
         this.initialResponse = null

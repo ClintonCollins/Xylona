@@ -114,6 +114,34 @@ func TestPromptFirstRunChoice(t *testing.T) {
 	}
 }
 
+func TestResolveControllerHost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		configuredHost  string
+		hostConfigured  bool
+		databaseExists  bool
+		wantHost        string
+		wantHostDefault string
+	}{
+		{name: "fresh install defaults to loopback", wantHost: defaultControllerHost, wantHostDefault: defaultControllerHost},
+		{name: "legacy install keeps wildcard listener", databaseExists: true, wantHost: legacyControllerHost},
+		{name: "explicit listener remains authoritative", configuredHost: "192.0.2.10", hostConfigured: true, wantHost: "192.0.2.10"},
+		{name: "explicit blank retains legacy wildcard intent", hostConfigured: true, wantHost: legacyControllerHost},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			host, hostDefault := resolveControllerHost(tt.configuredHost, tt.hostConfigured, tt.databaseExists)
+			if host != tt.wantHost || hostDefault != tt.wantHostDefault {
+				t.Fatalf("resolveControllerHost() = (%q, %q), want (%q, %q)", host, hostDefault, tt.wantHost, tt.wantHostDefault)
+			}
+		})
+	}
+}
+
 func TestSetupAccessURLs(t *testing.T) {
 	originalBindableIPs := firstRunBindableIPs
 	t.Cleanup(func() {

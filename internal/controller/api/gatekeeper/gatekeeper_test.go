@@ -245,6 +245,44 @@ func TestGetUserFromSessionRejectsIdleTimeout(t *testing.T) {
 	}
 }
 
+func TestValidateUserFromSessionDoesNotRecordActivity(t *testing.T) {
+	conn, secureCookieInst := newGatekeeperTestConnection(t)
+	user := createGatekeeperTestUser(t, conn, "user-passive", "passive")
+	encodedToken := createGatekeeperTestSession(
+		t,
+		conn,
+		secureCookieInst,
+		user.ID,
+		"session-passive",
+		"token-passive",
+		time.Now().UTC().Add(time.Hour),
+	)
+
+	staleAt := time.Now().UTC().Add(-2 * sessionActivityTouchInterval).Format("2006-01-02 15:04:05")
+	_, errStale := conn.SQLDb.ExecContext(
+		context.Background(),
+		`update user_session set updated_at = ? where id = ?`,
+		staleAt,
+		"session-passive",
+	)
+	if errStale != nil {
+		t.Fatalf("update passive session error = %v", errStale)
+	}
+
+	_, errValidate := ValidateUserFromSession("session-passive", encodedToken, conn, secureCookieInst)
+	if errValidate != nil {
+		t.Fatalf("ValidateUserFromSession() error = %v", errValidate)
+	}
+
+	session, errSession := conn.GetUserSession("session-passive")
+	if errSession != nil {
+		t.Fatalf("GetUserSession() error = %v", errSession)
+	}
+	if session.UpdatedAt.Format("2006-01-02 15:04:05") != staleAt {
+		t.Fatalf("ValidateUserFromSession() updated activity to %s, want %s", session.UpdatedAt, staleAt)
+	}
+}
+
 func TestRequireSessionAuth(t *testing.T) {
 	conn, secureCookieInst := newGatekeeperTestConnection(t)
 	user := createGatekeeperTestUser(t, conn, "user-session-middleware", "middleware")

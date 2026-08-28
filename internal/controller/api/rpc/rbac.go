@@ -152,6 +152,9 @@ func (xs *XylonaService) DeleteRole(_ context.Context, request *connect.Request[
 		log.Error().Err(errDeleteRole).Str("role_id", roleID).Msg("failed to delete role")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to delete role"))
 	}
+	if xs.closeAllSessions != nil {
+		xs.closeAllSessions()
+	}
 
 	return connect.NewResponse(&xylona.DeleteRoleResponse{}), nil
 }
@@ -270,6 +273,9 @@ func (xs *XylonaService) GrantGameServerAccess(_ context.Context, request *conne
 	if errBuildGrant != nil {
 		return nil, errBuildGrant
 	}
+	if xs.closeUserSessions != nil {
+		xs.closeUserSessions(userID)
+	}
 
 	return connect.NewResponse(&xylona.GrantGameServerAccessResponse{Grant: grant}), nil
 }
@@ -305,6 +311,9 @@ func (xs *XylonaService) RevokeGameServerAccess(_ context.Context, request *conn
 	if errDelete != nil {
 		log.Error().Err(errDelete).Str("grant_id", grantID).Msg("failed to delete local access grant")
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to revoke access"))
+	}
+	if xs.closeUserSessions != nil {
+		xs.closeUserSessions(assignment.UserID)
 	}
 	return connect.NewResponse(&xylona.RevokeGameServerAccessResponse{}), nil
 }

@@ -283,6 +283,10 @@ func TestGrantGameServerAccessAuthorizationAndShape(t *testing.T) {
 
 func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
+	closedUserID := ""
+	fixture.service.closeUserSessions = func(userID string) {
+		closedUserID = userID
+	}
 
 	createRequest := connect.NewRequest(&xylona.GrantGameServerAccessRequest{
 		GameServerId: "server-local-1",
@@ -296,6 +300,10 @@ func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 		t.Fatalf("GrantGameServerAccess() setup error = %v", errCreate)
 	}
 	grantID := createResponse.Msg.GetGrant().GetId()
+	if closedUserID != "user-other" {
+		t.Fatalf("closed user ID after grant = %q, want user-other", closedUserID)
+	}
+	closedUserID = ""
 
 	denyRequest := connect.NewRequest(&xylona.RevokeGameServerAccessRequest{
 		GrantId:      grantID,
@@ -322,6 +330,9 @@ func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 	_, errGetAssignment := fixture.conn.GetUserRoleAssignmentByID(grantID)
 	if !errors.Is(errGetAssignment, sql.ErrNoRows) {
 		t.Errorf("GetUserRoleAssignmentByID() error = %v, want %v", errGetAssignment, sql.ErrNoRows)
+	}
+	if closedUserID != "user-other" {
+		t.Errorf("closed user ID after revoke = %q, want user-other", closedUserID)
 	}
 }
 
@@ -512,6 +523,10 @@ func TestCreateRole(t *testing.T) {
 
 func TestDeleteRole(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
+	closedAll := false
+	fixture.service.closeAllSessions = func() {
+		closedAll = true
+	}
 
 	// Non-super → CodePermissionDenied
 	nonSuperReq := connect.NewRequest(&xylona.DeleteRoleRequest{
@@ -575,6 +590,9 @@ func TestDeleteRole(t *testing.T) {
 	_, errDelete := fixture.service.DeleteRole(context.Background(), deleteReq)
 	if errDelete != nil {
 		t.Fatalf("DeleteRole() error = %v", errDelete)
+	}
+	if !closedAll {
+		t.Fatal("DeleteRole() did not close active sessions")
 	}
 }
 

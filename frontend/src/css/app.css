@@ -119,12 +119,14 @@ a.table-link {
   background-color: var(--xy-surface-2);
 }
 
-.notification-title {
+.xylona-notification .q-notification__message {
   font-family: var(--xy-font-brand);
+  font-weight: 400;
 }
 
 .xylona-notification .q-notification__caption {
   color: var(--xy-text-primary);
+  font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-base);
   font-weight: 400;
   opacity: 1;

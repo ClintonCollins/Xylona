@@ -1026,8 +1026,7 @@ func (xs *XylonaService) fillArtifactSHA(ctx context.Context, release *updater.R
 	if artifact == nil {
 		return errors.New("artifact is required")
 	}
-	requireSignature := envBool("XYLONA_UPDATE_REQUIRE_SIGNATURE")
-	if strings.TrimSpace(artifact.SHA256) != "" && !requireSignature {
+	if strings.TrimSpace(artifact.SHA256) != "" && envBool("XYLONA_UPDATE_ALLOW_UNSIGNED") {
 		artifact.SHA256 = normalizeSHA256(artifact.SHA256)
 		return nil
 	}
@@ -1039,9 +1038,9 @@ func (xs *XylonaService) fillArtifactSHA(ctx context.Context, release *updater.R
 	if errDownload != nil {
 		return fmt.Errorf("download checksums: %w", errDownload)
 	}
-	errSig := maybeVerifyChecksumsSignature(ctx, release, checksumBytes)
-	if errSig != nil {
-		return fmt.Errorf("verify checksum signature: %w", errSig)
+	errBundle := verifyChecksumsBundle(ctx, release, checksumBytes)
+	if errBundle != nil {
+		return fmt.Errorf("verify checksum bundle: %w", errBundle)
 	}
 	checksums := updater.ParseChecksums(string(checksumBytes))
 	sum := checksums[artifact.Name]
@@ -1056,39 +1055,18 @@ func normalizeSHA256(value string) string {
 	return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(value)), "sha256:")
 }
 
-func maybeVerifyChecksumsSignature(ctx context.Context, release *updater.Release, checksumBytes []byte) error {
-	requireSignature := envBool("XYLONA_UPDATE_REQUIRE_SIGNATURE")
-	if !requireSignature {
-		return nil
-	}
-	signatureAsset, ok := updater.FindChecksumSignatureAsset(release)
+func verifyChecksumsBundle(ctx context.Context, release *updater.Release, checksumBytes []byte) error {
+	bundleAsset, ok := updater.FindChecksumBundleAsset(release)
 	if !ok {
-		return errors.New("checksum signature is required but missing from release")
+		return errors.New("checksum Sigstore bundle is required but missing from release")
 	}
-	sigBytes, errDownload := downloadBytes(ctx, signatureAsset.BrowserDownloadURL, 1024*1024)
+	bundleBytes, errDownload := downloadBytes(ctx, bundleAsset.BrowserDownloadURL, 1024*1024)
 	if errDownload != nil {
-		return fmt.Errorf("download checksum signature: %w", errDownload)
+		return fmt.Errorf("download checksum Sigstore bundle: %w", errDownload)
 	}
-	dir, errDir := os.MkdirTemp("", "xylona-checksums-*")
-	if errDir != nil {
-		return fmt.Errorf("create checksum verification dir: %w", errDir)
-	}
-	defer func() {
-		_ = os.RemoveAll(dir)
-	}()
-	checksumPath := filepath.Join(dir, "checksums.txt")
-	signaturePath := filepath.Join(dir, signatureAsset.Name)
-	errWriteChecksum := os.WriteFile(checksumPath, checksumBytes, 0o600)
-	if errWriteChecksum != nil {
-		return fmt.Errorf("write checksums for verification: %w", errWriteChecksum)
-	}
-	errWriteSignature := os.WriteFile(signaturePath, sigBytes, 0o600)
-	if errWriteSignature != nil {
-		return fmt.Errorf("write checksum signature for verification: %w", errWriteSignature)
-	}
-	errVerify := updater.VerifyDetachedSignatureWithGPG(ctx, checksumPath, signaturePath, os.Getenv("XYLONA_UPDATE_GPG_KEYRING"), os.Getenv("XYLONA_UPDATE_GPG_FINGERPRINT"))
+	errVerify := updater.VerifySigstoreBundle(ctx, checksumBytes, bundleBytes)
 	if errVerify != nil {
-		return fmt.Errorf("verify checksum signature: %w", errVerify)
+		return fmt.Errorf("verify checksum Sigstore bundle: %w", errVerify)
 	}
 	return nil
 }

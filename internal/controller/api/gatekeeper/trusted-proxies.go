@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 )
 
@@ -48,7 +49,11 @@ func (p *ProxyTrust) IsTrustedRemote(r *http.Request) bool {
 	}
 	host := hostFromAddr(r.RemoteAddr)
 	ip := net.ParseIP(host)
-	if ip == nil {
+	return p.isTrustedIP(ip)
+}
+
+func (p *ProxyTrust) isTrustedIP(ip net.IP) bool {
+	if p == nil || ip == nil {
 		return false
 	}
 	for _, network := range p.networks {
@@ -60,13 +65,15 @@ func (p *ProxyTrust) IsTrustedRemote(r *http.Request) bool {
 }
 
 // ClientIP returns the effective client IP. Forwarded addresses are used only
-// when the immediate peer is a configured trusted proxy.
+// when the immediate peer is a configured trusted proxy. Trusted proxy hops
+// are removed from right to left so client-supplied leftmost values cannot
+// replace the nearest untrusted address.
 func (p *ProxyTrust) ClientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
 	if p.IsTrustedRemote(r) {
-		forwarded := firstForwardedFor(r)
+		forwarded := p.forwardedClientIP(r)
 		if forwarded != "" {
 			return forwarded
 		}
@@ -107,28 +114,28 @@ func (p *ProxyTrust) AnnotateRequest(next http.Handler) http.Handler {
 	})
 }
 
-func firstForwardedFor(r *http.Request) string {
+func (p *ProxyTrust) forwardedClientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
 	values := r.Header.Values("X-Forwarded-For")
-	if len(values) == 0 {
-		return ""
+	for _, value := range slices.Backward(values) {
+		parts := strings.Split(value, ",")
+		for _, part := range slices.Backward(parts) {
+			candidate := strings.TrimSpace(part)
+			ip := net.ParseIP(candidate)
+			if ip == nil {
+				ip = net.ParseIP(hostFromAddr(candidate))
+			}
+			if ip == nil {
+				return ""
+			}
+			if !p.isTrustedIP(ip) {
+				return ip.String()
+			}
+		}
 	}
-	parts := strings.Split(values[0], ",")
-	if len(parts) == 0 {
-		return ""
-	}
-	candidate := strings.TrimSpace(parts[0])
-	parsedIP := net.ParseIP(candidate)
-	if parsedIP != nil {
-		return parsedIP.String()
-	}
-	host := hostFromAddr(candidate)
-	if net.ParseIP(host) == nil {
-		return ""
-	}
-	return host
+	return ""
 }
 
 func firstForwardedProto(r *http.Request) string {

@@ -41,6 +41,15 @@ func RequireSameOriginFormRequestsForProxies(trust *ProxyTrust) func(http.Handle
 	}
 }
 
+// IsSameOriginRequest reports whether a request's Origin matches its effective
+// request origin, honoring forwarded scheme and host only for trusted proxies.
+func IsSameOriginRequest(r *http.Request, trust *ProxyTrust) bool {
+	if r == nil {
+		return false
+	}
+	return validateSameOriginHeader(r, r.Header.Get("Origin"), trust) == nil
+}
+
 func validateSameOriginHeader(r *http.Request, rawHeader string, trust *ProxyTrust) error {
 	rawHeader = strings.TrimSpace(rawHeader)
 	if rawHeader == "" {

@@ -540,13 +540,7 @@ import {
   type UpdateProgress,
 } from '@/proto/xylona_pb'
 import { type AllServersMetrics, Request, Request_Type, RequestSchema } from '@/proto/websocket_pb'
-import {
-  buildDisplayRows,
-  type DisplayRow,
-  extractRemoteNodeIDs,
-  filterRowsByRemoteNodeIDs,
-  sanitizeBootstrapCachedRows,
-} from './server-list-cache'
+import { buildDisplayRows, type DisplayRow } from './server-list-cache'
 import {
   buildLifecycleConfirmation,
   canRestartServer,
@@ -589,9 +583,6 @@ const pendingActionByServerID = ref(new Map<string, ServerAction>())
 const updateStepsByServerID = new Map<string, StepState[]>()
 const playerCountsByServerID = ref(new Map<string, ServerPlayerCounts>())
 const resourceUsageByServerID = ref(new Map<string, ServerResourceUsage>())
-const cachedDisplayRows = usePersistedRef<DisplayRow[]>('game-server-display-rows-cache', [])
-const cachedRemoteNodeIDs = usePersistedRef<string[]>('game-server-remote-node-ids-cache', [])
-const allowedRemoteNodeIDs = ref(new Set(cachedRemoteNodeIDs.value))
 const $q = useQuasar()
 let loadSequence = 0
 let initialLoadComplete = false
@@ -605,32 +596,15 @@ type BufferedLiveServerState = {
 }
 const bufferedLiveServerStateByID = new Map<string, BufferedLiveServerState>()
 
-const sanitizedCachedDisplayRows = sanitizeBootstrapCachedRows(cachedDisplayRows.value)
-if (sanitizedCachedDisplayRows.some((row, index) => row !== cachedDisplayRows.value[index])) {
-  cachedDisplayRows.value = sanitizedCachedDisplayRows
-}
-
 const initialPagination = usePersistedRef('game-server-pagination', {
   rowsPerPage: 25,
   page: 1,
 })
 const authStore = useUserAuthStore()
 const showCreateButton = computed(() => authStore.user?.superUser ?? false)
-const hasFetchedLiveRows = computed(() => {
-  return aggregatedServers.value !== null
-})
-
-const liveDisplayRows = computed((): DisplayRow[] => {
-  return buildDisplayRows(aggregatedServers.value ?? [], nodesByID.value)
-})
 
 const displayRows = computed((): DisplayRow[] => {
-  if (hasFetchedLiveRows.value) {
-    return liveDisplayRows.value
-  }
-  return filterRowsByRemoteNodeIDs(cachedDisplayRows.value, allowedRemoteNodeIDs.value).filter(
-    (row) => !row.isLocal || row.statusEnum !== Status.ONLINE,
-  )
+  return buildDisplayRows(aggregatedServers.value ?? [], nodesByID.value)
 })
 
 const onlineServerCount = computed(
@@ -798,7 +772,7 @@ function formatMemoryUsage(server: DisplayRow): string {
 function applyServerQueryInfo(queryInfo: AllServersQueryInfo) {
   const nextCounts = new Map(playerCountsByServerID.value)
   for (const [serverID, serverQuery] of Object.entries(queryInfo.servers)) {
-    const server = liveDisplayRows.value.find((row) => row.id === serverID)
+    const server = displayRows.value.find((row) => row.id === serverID)
     if (!server || server.statusEnum !== Status.ONLINE) {
       nextCounts.delete(serverID)
       continue
@@ -836,7 +810,7 @@ function applyServerQueryInfo(queryInfo: AllServersQueryInfo) {
 function applyServerMetrics(metrics: AllServersMetrics) {
   const nextUsage = new Map(resourceUsageByServerID.value)
   for (const [serverID, serverMetrics] of Object.entries(metrics.servers)) {
-    const server = liveDisplayRows.value.find((row) => row.id === serverID)
+    const server = displayRows.value.find((row) => row.id === serverID)
     if (!server || server.statusEnum !== Status.ONLINE) {
       nextUsage.delete(serverID)
       continue
@@ -917,24 +891,6 @@ function clearMetricsSubscriptions() {
 
 function applyNodesResponse(nodes: Node[]) {
   nodesByID.value = new Map(nodes.map((node) => [node.id, node]))
-  const remoteNodeIDs = extractRemoteNodeIDs(nodes)
-  cachedRemoteNodeIDs.value = [...remoteNodeIDs]
-  allowedRemoteNodeIDs.value = remoteNodeIDs
-  if (aggregatedServers.value !== null) {
-    cacheAggregatedRows(aggregatedServers.value)
-    return
-  }
-  cachedDisplayRows.value = filterRowsByRemoteNodeIDs(cachedDisplayRows.value, remoteNodeIDs)
-}
-
-function cacheAggregatedRows(servers: AggregatedGameServer[]) {
-  cachedDisplayRows.value = filterRowsByRemoteNodeIDs(
-    buildDisplayRows(servers, nodesByID.value).map((row) => ({
-      ...row,
-      versionInfo: undefined,
-    })),
-    allowedRemoteNodeIDs.value,
-  )
 }
 
 function recordBufferedLiveServerState(serverID: string, state: BufferedLiveServerState) {
@@ -1039,7 +995,6 @@ async function getGameServers() {
 
       const servers = applyBufferedLiveServerStateToServers(response.servers)
       aggregatedServers.value = servers
-      cacheAggregatedRows(servers)
       syncMetricsSubscriptions(
         buildDisplayRows(servers, nodesByID.value)
           .filter((server) => hasPermission(server, 'game_server.metrics'))
@@ -1198,18 +1153,6 @@ function setServerStatus(serverID: string, serverStatus: Status) {
     resourceUsageByServerID.value = nextResourceUsage
   }
 
-  for (const row of cachedDisplayRows.value) {
-    if (row.id === serverID) {
-      row.statusEnum = serverStatus
-      if (serverStatus !== Status.ONLINE) {
-        row.currentPlayers = 0
-        row.cpuPercent = null
-        row.memoryBytes = null
-        row.memoryPercent = null
-      }
-    }
-  }
-
   updateLiveServerData((server) => {
     if (server.isLocal && server.localServer && server.localServer.id === serverID) {
       server.localServer.status = serverStatus
@@ -1231,12 +1174,6 @@ function setServerStatus(serverID: string, serverStatus: Status) {
 
 function setServerVersion(serverID: string, version: string, versionInfo?: VersionInfo) {
   recordBufferedLiveServerState(serverID, { version, versionInfo })
-
-  for (const row of cachedDisplayRows.value) {
-    if (row.id === serverID) {
-      row.version = version
-    }
-  }
 
   updateLiveServerData((server) => {
     if (server.isLocal && server.localServer && server.localServer.id === serverID) {

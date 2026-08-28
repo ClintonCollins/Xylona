@@ -22,6 +22,7 @@ const (
 	envCookieHashKey  = "COOKIE_HASH_KEY_BASE64"
 	envCookieBlockKey = "COOKIE_BLOCK_KEY_BASE64"
 	envEncryptionKey  = "ENCRYPTION_KEY_BASE64"
+	envHost           = "HOST"
 )
 
 // Secrets holds the controller runtime keys used during first-run setup.
@@ -31,18 +32,22 @@ type Secrets struct {
 	EncryptionKey  string
 }
 
-// EnsureSecretsInput is the current process view of secrets and paths.
+// EnsureSecretsInput is the current process view of first-run values and paths.
 type EnsureSecretsInput struct {
-	Current Secrets
-	DBPath  string
-	EnvPath string
+	Current     Secrets
+	DBPath      string
+	EnvPath     string
+	HostDefault string
 }
 
-// EnsureSecrets generates missing first-run secrets, persists only the keys
-// this process created, and leaves existing values unchanged.
+// EnsureSecrets generates missing first-run secrets, persists only new values,
+// and leaves existing values unchanged.
 func EnsureSecrets(input EnsureSecretsInput) (Secrets, error) {
 	secrets := input.Current
 	generated := make(map[string]string)
+	if strings.TrimSpace(input.HostDefault) != "" {
+		generated[envHost] = input.HostDefault
+	}
 
 	if strings.TrimSpace(secrets.CookieHashKey) == "" {
 		encoded, errGenerate := generateEncodedKey(cookieHashKeyBytes)
