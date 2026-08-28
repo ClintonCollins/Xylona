@@ -13,7 +13,7 @@ import (
 func TestCopyFilesPreservesPermissions(t *testing.T) {
 	const childEnv = "XYLONA_COPY_PERMISSIONS_CHILD"
 	if os.Getenv(childEnv) == "" {
-		command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestCopyFilesPreservesPermissions$")
+		command := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestCopyFilesPreservesPermissions$") //nolint:gosec // Re-exec the current test binary with a controlled argument.
 		command.Env = append(os.Environ(), childEnv+"=1")
 		output, errRun := command.CombinedOutput()
 		if errRun != nil {
@@ -27,11 +27,11 @@ func TestCopyFilesPreservesPermissions(t *testing.T) {
 
 	directory := t.TempDir()
 	sourcePath := filepath.Join(directory, "source")
-	errWrite := os.WriteFile(sourcePath, []byte("content"), 0o770)
+	errWrite := os.WriteFile(sourcePath, []byte("content"), 0o770) //nolint:gosec // The test verifies executable group permissions are preserved.
 	if errWrite != nil {
 		t.Fatalf("WriteFile() error = %v", errWrite)
 	}
-	errChmod := os.Chmod(sourcePath, 0o770)
+	errChmod := os.Chmod(sourcePath, 0o770) //nolint:gosec // The test verifies executable group permissions are preserved.
 	if errChmod != nil {
 		t.Fatalf("Chmod() source error = %v", errChmod)
 	}

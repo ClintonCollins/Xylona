@@ -15,12 +15,7 @@ import {
 import { XylonaEventBus } from '@/utils/shared'
 
 export type GameServerLifecycleIntent =
-  | 'start'
-  | 'stop'
-  | 'update'
-  | 'backup'
-  | 'restore'
-  | 'install'
+  'start' | 'stop' | 'update' | 'backup' | 'restore' | 'install'
 
 const hydrationWindowMs = 1_500
 const shortToastTimeoutMs = 3_000

@@ -123,8 +123,7 @@ describe('file operation hardening', () => {
 
     await viewModel.archiveFiles()
     const complete = mocks.gameServerFilesArchive.mock.calls[0]?.[2] as
-      | ((error?: ConnectError) => void)
-      | undefined
+      ((error?: ConnectError) => void) | undefined
     complete?.(new ConnectError('node unavailable'))
     await flushPromises()
 
@@ -154,8 +153,7 @@ describe('file operation hardening', () => {
 
     await viewModel.extractFiles()
     const complete = mocks.gameServerFilesExtract.mock.calls[0]?.[2] as
-      | ((error?: ConnectError) => void)
-      | undefined
+      ((error?: ConnectError) => void) | undefined
     complete?.(new ConnectError('node unavailable'))
     await flushPromises()
 

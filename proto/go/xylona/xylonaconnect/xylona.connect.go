@@ -519,8 +519,8 @@ type XylonaClient interface {
 	PollHytaleDeviceAuth(context.Context, *connect.Request[xylona.PollHytaleDeviceAuthRequest]) (*connect.Response[xylona.PollHytaleDeviceAuthResponse], error)
 	SelectHytaleProfile(context.Context, *connect.Request[xylona.SelectHytaleProfileRequest]) (*connect.Response[xylona.SelectHytaleProfileResponse], error)
 	ClearHytaleAccount(context.Context, *connect.Request[xylona.ClearHytaleAccountRequest]) (*connect.Response[xylona.ClearHytaleAccountResponse], error)
-	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
-	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
+	//  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
+	//  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
 	GetOrCreateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.GetOrCreateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerStatusPageSettingsResponse], error)
@@ -2645,8 +2645,8 @@ type XylonaHandler interface {
 	PollHytaleDeviceAuth(context.Context, *connect.Request[xylona.PollHytaleDeviceAuthRequest]) (*connect.Response[xylona.PollHytaleDeviceAuthResponse], error)
 	SelectHytaleProfile(context.Context, *connect.Request[xylona.SelectHytaleProfileRequest]) (*connect.Response[xylona.SelectHytaleProfileResponse], error)
 	ClearHytaleAccount(context.Context, *connect.Request[xylona.ClearHytaleAccountRequest]) (*connect.Response[xylona.ClearHytaleAccountResponse], error)
-	// rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
-	// rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
+	//  rpc ReinstallGameServer (ReinstallGameServerRequest) returns (ReinstallGameServerResponse) {}
+	//  rpc BackupGameServer (BackupGameServerRequest) returns (BackupGameServerResponse) {}
 	ListGameServers(context.Context, *connect.Request[xylona.ListGameServersRequest]) (*connect.Response[xylona.ListGameServersResponse], error)
 	QueryGameServer(context.Context, *connect.Request[xylona.QueryGameServerRequest]) (*connect.Response[xylona.QueryGameServerResponse], error)
 	GetOrCreateGameServerStatusPageSettings(context.Context, *connect.Request[xylona.GetOrCreateGameServerStatusPageSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerStatusPageSettingsResponse], error)

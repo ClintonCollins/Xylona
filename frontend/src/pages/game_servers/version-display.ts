@@ -36,11 +36,7 @@ export function resolveCanonicalVersionDisplay(
 }
 
 export type VersionSectionState =
-  | 'up-to-date'
-  | 'update-available'
-  | 'pinned-behind'
-  | 'checking'
-  | 'unknown'
+  'up-to-date' | 'update-available' | 'pinned-behind' | 'checking' | 'unknown'
 
 export interface VersionSectionDisplay {
   installedVersion: string

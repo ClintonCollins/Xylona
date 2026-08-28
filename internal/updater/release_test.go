@@ -137,9 +137,7 @@ func TestSigstoreReleaseIdentity(t *testing.T) {
 
 			errVerify := identity.Verify(certificate.Summary{
 				SubjectAlternativeName: tt.subject,
-				Extensions: certificate.Extensions{
-					Issuer: tt.issuer,
-				},
+				Issuer:                 tt.issuer,
 			})
 			if (errVerify != nil) != tt.wantErr {
 				t.Fatalf("identity.Verify() error = %v, wantErr %t", errVerify, tt.wantErr)

@@ -320,8 +320,8 @@ Buf. Install the pinned Go plugins once, and run `bun install` in `frontend/`
 before generating:
 
 ```bash
-go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.18.1
-go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.3
+go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.20.0
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
 ```
 
 ```bash

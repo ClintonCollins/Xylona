@@ -792,8 +792,7 @@ describe('GameForm', () => {
     })
 
     let resolveEnvironment:
-      | ((value: { defaultEnv: never[]; validationIssues: never[] }) => void)
-      | undefined
+      ((value: { defaultEnv: never[]; validationIssues: never[] }) => void) | undefined
     mocks.getGameEnvironment.mockReturnValue(
       new Promise((resolve) => {
         resolveEnvironment = resolve

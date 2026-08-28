@@ -926,8 +926,7 @@ async function revealFirstInvalidCategory() {
   const category = formElement
     ?.querySelector('.q-field--error')
     ?.closest<HTMLElement>('[data-settings-category]')?.dataset.settingsCategory as
-    | SettingsCategory
-    | undefined
+    SettingsCategory | undefined
 
   if (category && category !== activeCategory.value) {
     selectSettingsCategory(category)

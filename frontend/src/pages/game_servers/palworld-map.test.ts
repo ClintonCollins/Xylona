@@ -147,15 +147,12 @@ describe('Palworld map actor helpers', () => {
   })
 
   it('bounds a 25k low-zoom render plan without mutating its source', () => {
-    const fixture = Array.from(
-      { length: 25_000 },
-      (_, index): PalworldMapActor => ({
-        ...wildActor,
-        key: `wild-${index.toString().padStart(5, '0')}`,
-        locationX: index % 500,
-        locationY: Math.floor(index / 500),
-      }),
-    )
+    const fixture = Array.from({ length: 25_000 }, (_, index): PalworldMapActor => ({
+      ...wildActor,
+      key: `wild-${index.toString().padStart(5, '0')}`,
+      locationX: index % 500,
+      locationY: Math.floor(index / 500),
+    }))
     const sourceOrder = fixture.map((actor) => actor.key)
 
     const plan = buildPalworldMapRenderPlan(fixture, {
@@ -186,15 +183,12 @@ describe('Palworld map actor helpers', () => {
   })
 
   it('keeps dense high-zoom views aggregated above the individual marker limit', () => {
-    const fixture = Array.from(
-      { length: 1_501 },
-      (_, index): PalworldMapActor => ({
-        ...wildActor,
-        key: `wild-${index.toString().padStart(4, '0')}`,
-        locationX: index % 100,
-        locationY: Math.floor(index / 100),
-      }),
-    )
+    const fixture = Array.from({ length: 1_501 }, (_, index): PalworldMapActor => ({
+      ...wildActor,
+      key: `wild-${index.toString().padStart(4, '0')}`,
+      locationX: index % 100,
+      locationY: Math.floor(index / 100),
+    }))
 
     const plan = buildPalworldMapRenderPlan(fixture, {
       zoom: 5,

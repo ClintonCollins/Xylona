@@ -5,7 +5,7 @@
 Xylona is a game server control panel built to be easy to self-host and ship as a single binary. The Go backend embeds the Quasar/Vue frontend via `embed.FS`.
 
 Core stack:
-- Backend: Go 1.26, `chi`, ConnectRPC, SQLite (`modernc.org/sqlite`), bob ORM, `sql-migrate`, `zerolog`
+- Backend: Go 1.27, `chi`, ConnectRPC, SQLite (`modernc.org/sqlite`), bob ORM, `sql-migrate`, `zerolog`
 - Frontend: Vue 3, Quasar 2, Vite, TypeScript, Pinia, ConnectRPC, Monaco Editor
 - Tooling: Mage, Bun, Playwright, Vitest
 
