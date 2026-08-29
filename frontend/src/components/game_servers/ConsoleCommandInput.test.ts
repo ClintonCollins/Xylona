@@ -64,19 +64,43 @@ function mountInput(modelValue = '', catalog = commands) {
 }
 
 describe('ConsoleCommandInput', () => {
-  it('opens the known-command list and exposes combobox state on focus', async () => {
-    const wrapper = mountInput()
+  it('keeps focus quiet and exposes a canonical prefix as inline completion', async () => {
+    const wrapper = mountInput('white')
     const input = wrapper.get('input')
 
     await input.trigger('focus')
 
     expect(input.attributes('role')).toBe('combobox')
+    expect(input.attributes('aria-autocomplete')).toBe('both')
+    expect(input.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
+    expect(wrapper.get('.console-command-input__completion').element.textContent).toBe(
+      'whitelist add',
+    )
+    expect(wrapper.get('.console-command-input__completion-suffix').text()).toBe('list add')
+
+    const metadataMatch = mountInput('server state')
+    expect(metadataMatch.find('.console-command-input__completion').exists()).toBe(false)
+  })
+
+  it('opens the known-command browser only on explicit requests', async () => {
+    const wrapper = mountInput()
+    const input = wrapper.get('input')
+
+    await wrapper.get('button[aria-label="Browse 2 known Minecraft commands"]').trigger('click')
+
     expect(input.attributes('aria-expanded')).toBe('true')
     expect(wrapper.get('[role="listbox"]').attributes('aria-label')).toBe('Known console commands')
     expect(wrapper.findAll('[role="option"]')).toHaveLength(2)
+
+    await input.trigger('keydown', { key: 'Escape' })
+    await input.trigger('keydown', { code: 'Space', ctrlKey: true, key: ' ' })
+
+    expect(input.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.findAll('[role="option"]')).toHaveLength(2)
   })
 
-  it('uses Tab to complete the active match without submitting', async () => {
+  it('uses Tab to accept inline completion without submitting', async () => {
     const wrapper = mountInput('white')
     const input = wrapper.get('input')
 
@@ -91,7 +115,7 @@ describe('ConsoleCommandInput', () => {
     const wrapper = mountInput()
     const input = wrapper.get('input')
 
-    await input.trigger('focus')
+    await wrapper.get('button[aria-label="Browse 2 known Minecraft commands"]').trigger('click')
     await input.trigger('keydown', { key: 'ArrowDown' })
     await input.trigger('keydown', { key: 'Tab' })
 
@@ -123,7 +147,7 @@ describe('ConsoleCommandInput', () => {
     const wrapper = mountInput()
     const input = wrapper.get('input')
 
-    await input.trigger('focus')
+    await wrapper.get('button[aria-label="Browse 2 known Minecraft commands"]').trigger('click')
     await input.trigger('keydown', { key: 'Escape' })
     await input.trigger('keydown', { key: 'ArrowUp' })
 
@@ -133,7 +157,7 @@ describe('ConsoleCommandInput', () => {
   it('shows unrestricted-input guidance when there are no matches', async () => {
     const wrapper = mountInput('unknown')
 
-    await wrapper.get('input').trigger('focus')
+    await wrapper.get('button[aria-label="Browse 2 known Minecraft commands"]').trigger('click')
 
     expect(wrapper.text()).toContain('No known command matches')
     expect(wrapper.text()).toContain('Press Enter to send your input exactly as typed.')

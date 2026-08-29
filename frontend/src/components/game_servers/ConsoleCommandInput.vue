@@ -100,35 +100,47 @@
         square
         @mousedown="onBrowseMousedown"
         @click="toggleCommandBrowser">
-        <q-tooltip>Browse {{ commands.length }} known commands</q-tooltip>
+        <q-tooltip>Browse {{ commands.length }} known commands (Ctrl+Space)</q-tooltip>
       </q-btn>
-      <input
-        id="consoleInput"
-        ref="inputElement"
-        :aria-activedescendant="activeDescendant"
-        aria-autocomplete="list"
-        aria-describedby="console-command-input-help"
-        :aria-controls="commands.length > 0 ? listboxID : undefined"
-        :aria-expanded="suggestionsOpen"
-        aria-label="Game server console command"
-        :disabled="disabled"
-        :placeholder="placeholderText"
-        :value="modelValue"
-        autocomplete="off"
-        autofocus
-        class="console-command-input__field"
-        name="consoleInput"
-        role="combobox"
-        spellcheck="false"
-        type="text"
-        @focus="onInputFocus"
-        @input="onInput"
-        @keydown="onInputKeydown" />
+      <div class="console-command-input__entry">
+        <span
+          v-if="inlineCompletionSuffix"
+          aria-hidden="true"
+          class="console-command-input__completion">
+          <span class="console-command-input__completion-prefix">{{ modelValue }}</span
+          ><span class="console-command-input__completion-suffix">{{
+            inlineCompletionSuffix
+          }}</span>
+        </span>
+        <input
+          id="consoleInput"
+          ref="inputElement"
+          :aria-activedescendant="activeDescendant"
+          aria-autocomplete="both"
+          aria-describedby="console-command-input-help"
+          :aria-controls="commands.length > 0 ? listboxID : undefined"
+          :aria-expanded="suggestionsOpen"
+          aria-keyshortcuts="Control+Space"
+          aria-label="Game server console command"
+          :disabled="disabled"
+          :placeholder="placeholderText"
+          :value="modelValue"
+          autocomplete="off"
+          autofocus
+          class="console-command-input__field"
+          name="consoleInput"
+          role="combobox"
+          spellcheck="false"
+          type="text"
+          @focus="onInputFocus"
+          @input="onInput"
+          @keydown="onInputKeydown" />
+      </div>
       <span id="console-command-input-help" class="console-command-input__assistive">
         <template v-if="disabled && disabledReason !== ''">{{ disabledReason }}.</template>
         <template v-else>
-          Enter sends exactly what you type. Tab completes a known command when suggestions are
-          open.
+          Enter sends exactly what you type. Tab accepts an inline completion. Use the browse button
+          or Control Space to open known commands.
         </template>
       </span>
       <q-btn
@@ -188,7 +200,6 @@ const maximumVisibleMatches = 10
 const listboxID = 'console-command-suggestions'
 const rootElement = ref<HTMLElement | null>(null)
 const inputElement = ref<HTMLInputElement | null>(null)
-const inputFocused = ref(false)
 const browserRequested = ref(false)
 const dismissed = ref(false)
 const activeIndex = ref(0)
@@ -201,13 +212,30 @@ const placeholderText = computed(() => {
   }
   return 'Enter command...'
 })
-// The command browser stays open as read-only documentation while the input is
-// disabled; only typing-triggered suggestions require an enabled input.
 const suggestionsOpen = computed(
-  () =>
-    props.commands.length > 0 &&
-    !dismissed.value &&
-    ((inputFocused.value && !props.disabled) || browserRequested.value),
+  () => props.commands.length > 0 && !dismissed.value && browserRequested.value,
+)
+const inlineCompletionMatch = computed(() => {
+  if (props.disabled || dismissed.value || suggestionsOpen.value || props.modelValue === '') {
+    return undefined
+  }
+
+  const match = matches.value[0]
+  if (!match) {
+    return undefined
+  }
+
+  const command = match.entry.command
+  if (
+    command.length <= props.modelValue.length ||
+    !command.toLocaleLowerCase().startsWith(props.modelValue.toLocaleLowerCase())
+  ) {
+    return undefined
+  }
+  return match
+})
+const inlineCompletionSuffix = computed(() =>
+  inlineCompletionMatch.value?.entry.command.slice(props.modelValue.length),
 )
 const activeDescendant = computed(() => {
   if (!suggestionsOpen.value || visibleMatches.value.length === 0) {
@@ -264,7 +292,6 @@ function matchFieldLabel(field: ConsoleCommandMatchField): string {
 }
 
 function onInputFocus(): void {
-  inputFocused.value = true
   dismissed.value = false
 }
 
@@ -274,7 +301,6 @@ function onFocusOut(event: FocusEvent): void {
     return
   }
 
-  inputFocused.value = false
   browserRequested.value = false
   dismissed.value = true
 }
@@ -335,7 +361,7 @@ function toggleCommandBrowser(): void {
 
   const shouldOpen = !suggestionsOpen.value
   browserRequested.value = shouldOpen
-  dismissed.value = !shouldOpen
+  dismissed.value = false
   if (shouldOpen && !props.disabled) {
     inputElement.value?.focus()
   }
@@ -343,6 +369,14 @@ function toggleCommandBrowser(): void {
 
 function onInputKeydown(event: KeyboardEvent): void {
   if (event.isComposing) {
+    return
+  }
+
+  if (event.ctrlKey && event.code === 'Space' && props.commands.length > 0) {
+    event.preventDefault()
+    activeIndex.value = 0
+    browserRequested.value = true
+    dismissed.value = false
     return
   }
 
@@ -354,14 +388,25 @@ function onInputKeydown(event: KeyboardEvent): void {
 
   if (event.key === 'Escape' && suggestionsOpen.value) {
     event.preventDefault()
-    dismissed.value = true
     browserRequested.value = false
+    return
+  }
+
+  if (event.key === 'Escape' && inlineCompletionMatch.value) {
+    event.preventDefault()
+    dismissed.value = true
     return
   }
 
   if (event.key === 'Tab' && suggestionsOpen.value && visibleMatches.value.length > 0) {
     event.preventDefault()
     selectMatch(activeIndex.value)
+    return
+  }
+
+  if (event.key === 'Tab' && inlineCompletionMatch.value) {
+    event.preventDefault()
+    selectMatch(0)
     return
   }
 
@@ -455,18 +500,44 @@ function onInputKeydown(event: KeyboardEvent): void {
   font-size: var(--xy-font-size-lg);
 }
 
-.console-command-input__field {
+.console-command-input__entry {
+  position: relative;
   min-width: 0;
   flex: 1 1 auto;
   align-self: stretch;
+}
+
+.console-command-input__completion,
+.console-command-input__field {
+  width: 100%;
+  height: 100%;
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
+  line-height: 1.4;
+}
+
+.console-command-input__completion {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: var(--xy-text-muted);
+  pointer-events: none;
+  white-space: pre;
+}
+
+.console-command-input__completion-prefix {
+  color: transparent;
+}
+
+.console-command-input__field {
+  position: relative;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--xy-text-primary);
   caret-color: var(--xy-accent);
-  font-family: var(--xy-font-mono);
-  font-size: var(--xy-font-size-sm);
-  line-height: 1.4;
 }
 
 .console-command-input__field::placeholder {
