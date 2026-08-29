@@ -172,7 +172,14 @@ func sevenDaysToDieWebDashboardPort(values map[string]string) (uint64, error) {
 	return port, nil
 }
 
-func (a *sevenDaysToDieNativeAccess) request(ctx context.Context, port uint64, path string, accept string) (*http.Request, error) {
+func (a *sevenDaysToDieNativeAccess) request(
+	ctx context.Context,
+	port uint64,
+	method string,
+	path string,
+	accept string,
+	body []byte,
+) (*http.Request, error) {
 	parsedPath, errPath := url.ParseRequestURI(path)
 	if errPath != nil || parsedPath.IsAbs() || parsedPath.Host != "" || !strings.HasPrefix(parsedPath.Path, "/") {
 		return nil, errors.New("node: invalid 7 Days to Die native path")
@@ -183,11 +190,14 @@ func (a *sevenDaysToDieNativeAccess) request(ctx context.Context, port uint64, p
 		Path:     parsedPath.Path,
 		RawQuery: parsedPath.RawQuery,
 	}
-	request, errRequest := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	request, errRequest := http.NewRequestWithContext(ctx, method, endpoint.String(), bytes.NewReader(body))
 	if errRequest != nil {
 		return nil, fmt.Errorf("create 7 Days to Die native request: %w", errRequest)
 	}
 	request.Header.Set("Accept", accept)
+	if len(body) > 0 {
+		request.Header.Set("Content-Type", "application/json")
+	}
 	if strings.TrimSpace(a.tokenName) != "" && strings.TrimSpace(a.tokenSecret) != "" {
 		request.Header.Set("X-SDTD-API-TOKENNAME", a.tokenName)
 		request.Header.Set("X-SDTD-API-SECRET", a.tokenSecret)
@@ -200,7 +210,7 @@ func (a *sevenDaysToDieNativeAccess) mapJSON(ctx context.Context, path string) (
 	if errPort != nil {
 		return sevenDaysToDieMapEnvelope{}, errPort
 	}
-	request, errRequest := a.request(ctx, port, path, "application/json, image/png")
+	request, errRequest := a.request(ctx, port, http.MethodGet, path, "application/json, image/png", nil)
 	if errRequest != nil {
 		return sevenDaysToDieMapEnvelope{}, fmt.Errorf("node: create 7 Days to Die map request: %w", errRequest)
 	}
@@ -247,7 +257,7 @@ func (a *sevenDaysToDieNativeAccess) mapTile(ctx context.Context, path string) (
 	if errPort != nil {
 		return nil, errPort
 	}
-	request, errRequest := a.request(ctx, port, path, "application/json, image/png")
+	request, errRequest := a.request(ctx, port, http.MethodGet, path, "application/json, image/png", nil)
 	if errRequest != nil {
 		return nil, fmt.Errorf("node: create 7 Days to Die tile request: %w", errRequest)
 	}
@@ -311,7 +321,39 @@ func (a *sevenDaysToDieNativeAccess) getWebAPIPath(
 	path string,
 	accept string,
 ) (int, []byte, error) {
-	request, errRequest := a.request(ctx, settings.port, path, accept)
+	return a.requestWebAPIPath(ctx, settings, http.MethodGet, path, accept, nil)
+}
+
+func (a *sevenDaysToDieNativeAccess) postWebAPIJSON(
+	ctx context.Context,
+	settings sevenDaysToDieWebAPISettings,
+	path string,
+	payload any,
+) (int, error) {
+	body, errMarshal := json.Marshal(payload)
+	if errMarshal != nil {
+		return 0, fmt.Errorf("node: encode 7 Days to Die WebAPI request: %w", errMarshal)
+	}
+	statusCode, _, errRequest := a.requestWebAPIPath(
+		ctx,
+		settings,
+		http.MethodPost,
+		path,
+		"application/json",
+		body,
+	)
+	return statusCode, errRequest
+}
+
+func (a *sevenDaysToDieNativeAccess) requestWebAPIPath(
+	ctx context.Context,
+	settings sevenDaysToDieWebAPISettings,
+	method string,
+	path string,
+	accept string,
+	body []byte,
+) (int, []byte, error) {
+	request, errRequest := a.request(ctx, settings.port, method, path, accept, body)
 	if errRequest != nil {
 		return 0, nil, fmt.Errorf("node: create 7 Days to Die WebAPI request: %w", errRequest)
 	}

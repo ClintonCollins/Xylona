@@ -80,6 +80,8 @@ type XylonaService struct {
 	taskScheduler                  *scheduler.Scheduler
 	remoteVersionRefreshMu         sync.Mutex
 	remoteVersionRefreshCalls      map[string]*remoteVersionRefreshCall
+	gameOperationMu                sync.Mutex
+	gameOperationsInFlight         map[string]struct{}
 	hytaleAuth                     *readiness.HytaleDeviceAuthManager
 	palworldMapTiles               PalworldMapTileInstaller
 	minecraftMapAssetSlots         chan struct{}

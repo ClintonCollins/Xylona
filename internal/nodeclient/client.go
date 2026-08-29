@@ -178,6 +178,9 @@ type NodeClient interface {
 	// administration action on the node that owns the game server.
 	PerformGameServerPlayerAction(ctx context.Context, req node.GameServerPlayerActionRequest) error
 
+	// ExecuteGameOperation executes one node-validated structured game operation.
+	ExecuteGameOperation(ctx context.Context, req node.GameOperationRequest) (node.GameOperationResult, error)
+
 	// SendConsoleOutput writes a controller-generated line into the process's
 	// console buffer on the node side. Used for pre-start messages, mod
 	// auto-update progress, and other controller chatter that should appear

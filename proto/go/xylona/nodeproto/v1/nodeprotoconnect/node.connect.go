@@ -136,6 +136,9 @@ const (
 	// NodeServicePerformGameServerPlayerActionProcedure is the fully-qualified name of the
 	// NodeService's PerformGameServerPlayerAction RPC.
 	NodeServicePerformGameServerPlayerActionProcedure = "/xylona.node.v1.NodeService/PerformGameServerPlayerAction"
+	// NodeServiceExecuteGameOperationProcedure is the fully-qualified name of the NodeService's
+	// ExecuteGameOperation RPC.
+	NodeServiceExecuteGameOperationProcedure = "/xylona.node.v1.NodeService/ExecuteGameOperation"
 	// NodeServiceSendConsoleOutputProcedure is the fully-qualified name of the NodeService's
 	// SendConsoleOutput RPC.
 	NodeServiceSendConsoleOutputProcedure = "/xylona.node.v1.NodeService/SendConsoleOutput"
@@ -208,6 +211,7 @@ type NodeServiceClient interface {
 	StopMinecraftMap(context.Context, *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error)
 	GetMinecraftMapAsset(context.Context, *connect.Request[v1.GetMinecraftMapAssetRequest]) (*connect.Response[v1.GetMinecraftMapAssetResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
+	ExecuteGameOperation(context.Context, *connect.Request[v1.ExecuteGameOperationRequest]) (*connect.Response[v1.ExecuteGameOperationResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
 	// Process introspection
@@ -451,6 +455,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("PerformGameServerPlayerAction")),
 			connect.WithClientOptions(opts...),
 		),
+		executeGameOperation: connect.NewClient[v1.ExecuteGameOperationRequest, v1.ExecuteGameOperationResponse](
+			httpClient,
+			baseURL+NodeServiceExecuteGameOperationProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("ExecuteGameOperation")),
+			connect.WithClientOptions(opts...),
+		),
 		sendConsoleOutput: connect.NewClient[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse](
 			httpClient,
 			baseURL+NodeServiceSendConsoleOutputProcedure,
@@ -552,6 +562,7 @@ type nodeServiceClient struct {
 	stopMinecraftMap                   *connect.Client[v1.StopMinecraftMapRequest, v1.StopMinecraftMapResponse]
 	getMinecraftMapAsset               *connect.Client[v1.GetMinecraftMapAssetRequest, v1.GetMinecraftMapAssetResponse]
 	performGameServerPlayerAction      *connect.Client[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse]
+	executeGameOperation               *connect.Client[v1.ExecuteGameOperationRequest, v1.ExecuteGameOperationResponse]
 	sendConsoleOutput                  *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
 	getProcessSnapshot                 *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
 	listBindableIPs                    *connect.Client[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse]
@@ -745,6 +756,11 @@ func (c *nodeServiceClient) PerformGameServerPlayerAction(ctx context.Context, r
 	return c.performGameServerPlayerAction.CallUnary(ctx, req)
 }
 
+// ExecuteGameOperation calls xylona.node.v1.NodeService.ExecuteGameOperation.
+func (c *nodeServiceClient) ExecuteGameOperation(ctx context.Context, req *connect.Request[v1.ExecuteGameOperationRequest]) (*connect.Response[v1.ExecuteGameOperationResponse], error) {
+	return c.executeGameOperation.CallUnary(ctx, req)
+}
+
 // SendConsoleOutput calls xylona.node.v1.NodeService.SendConsoleOutput.
 func (c *nodeServiceClient) SendConsoleOutput(ctx context.Context, req *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error) {
 	return c.sendConsoleOutput.CallUnary(ctx, req)
@@ -836,6 +852,7 @@ type NodeServiceHandler interface {
 	StopMinecraftMap(context.Context, *connect.Request[v1.StopMinecraftMapRequest]) (*connect.Response[v1.StopMinecraftMapResponse], error)
 	GetMinecraftMapAsset(context.Context, *connect.Request[v1.GetMinecraftMapAssetRequest]) (*connect.Response[v1.GetMinecraftMapAssetResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error)
+	ExecuteGameOperation(context.Context, *connect.Request[v1.ExecuteGameOperationRequest]) (*connect.Response[v1.ExecuteGameOperationResponse], error)
 	// Console output (controller-generated lines pushed into the process buffer)
 	SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error)
 	// Process introspection
@@ -1075,6 +1092,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("PerformGameServerPlayerAction")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceExecuteGameOperationHandler := connect.NewUnaryHandler(
+		NodeServiceExecuteGameOperationProcedure,
+		svc.ExecuteGameOperation,
+		connect.WithSchema(nodeServiceMethods.ByName("ExecuteGameOperation")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceSendConsoleOutputHandler := connect.NewUnaryHandler(
 		NodeServiceSendConsoleOutputProcedure,
 		svc.SendConsoleOutput,
@@ -1209,6 +1232,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceGetMinecraftMapAssetHandler.ServeHTTP(w, r)
 		case NodeServicePerformGameServerPlayerActionProcedure:
 			nodeServicePerformGameServerPlayerActionHandler.ServeHTTP(w, r)
+		case NodeServiceExecuteGameOperationProcedure:
+			nodeServiceExecuteGameOperationHandler.ServeHTTP(w, r)
 		case NodeServiceSendConsoleOutputProcedure:
 			nodeServiceSendConsoleOutputHandler.ServeHTTP(w, r)
 		case NodeServiceGetProcessSnapshotProcedure:
@@ -1380,6 +1405,10 @@ func (UnimplementedNodeServiceHandler) GetMinecraftMapAsset(context.Context, *co
 
 func (UnimplementedNodeServiceHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[v1.PerformGameServerPlayerActionRequest]) (*connect.Response[v1.PerformGameServerPlayerActionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.PerformGameServerPlayerAction is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) ExecuteGameOperation(context.Context, *connect.Request[v1.ExecuteGameOperationRequest]) (*connect.Response[v1.ExecuteGameOperationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.ExecuteGameOperation is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) SendConsoleOutput(context.Context, *connect.Request[v1.SendConsoleOutputRequest]) (*connect.Response[v1.SendConsoleOutputResponse], error) {

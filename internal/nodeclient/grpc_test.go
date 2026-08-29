@@ -34,48 +34,50 @@ type stubHandler struct {
 }
 
 type callRecorder struct {
-	mu               sync.Mutex
-	authHeaders      []string
-	listFilesReq     *nodeprotov1.ListFilesRequest
-	startProcessReq  *nodeprotov1.StartProcessRequest
-	readFileResponse []byte
-	streamFileChunks [][]byte
-	streamWriteReqs  []*nodeprotov1.StreamWriteFileRequest
-	streamWriteResp  *nodeprotov1.StreamWriteFileResponse
-	listFilesResp    *nodeprotov1.ListFilesResponse
-	statFileResp     *nodeprotov1.StatFileResponse
-	bindableIPsResp  *nodeprotov1.ListBindableIPsResponse
-	copyFilesReq     *nodeprotov1.CopyFilesRequest
-	copyFilesResp    *nodeprotov1.CopyFilesResponse
-	probeReq         *nodeprotov1.ProbeInstalledVersionRequest
-	probeResp        *nodeprotov1.ProbeInstalledVersionResponse
-	queryReq         *nodeprotov1.QueryGameServerRequest
-	queryResp        *nodeprotov1.QueryGameServerResponse
-	palworldMapReq   *nodeprotov1.QueryPalworldMapRequest
-	palworldMapResp  *nodeprotov1.QueryPalworldMapResponse
-	sevenDaysMapReq  *nodeprotov1.QuerySevenDaysToDieMapRequest
-	sevenDaysMapResp *nodeprotov1.QuerySevenDaysToDieMapResponse
-	webAPIStatusReq  *nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest
-	webAPIStatusResp *nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse
-	playersReq       *nodeprotov1.QuerySevenDaysToDiePlayersRequest
-	playersResp      *nodeprotov1.QuerySevenDaysToDiePlayersResponse
-	reportedModsReq  *nodeprotov1.QuerySevenDaysToDieReportedModsRequest
-	reportedModsResp *nodeprotov1.QuerySevenDaysToDieReportedModsResponse
-	sandboxReq       *nodeprotov1.QuerySevenDaysToDieSandboxSettingsRequest
-	sandboxResp      *nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse
-	playerActionReq  *nodeprotov1.PerformGameServerPlayerActionRequest
-	playerActionErr  error
-	consoleInputErr  error
-	fileArchiveReq   *nodeprotov1.CreateFileArchiveRequest
-	fileArchiveResp  []*nodeprotov1.CreateFileArchiveResponse
-	fileExtractReq   *nodeprotov1.ExtractFileArchiveRequest
-	fileExtractResp  []*nodeprotov1.ExtractFileArchiveResponse
-	streamEvents     []*nodeprotov1.Event
-	streamConsole    []*nodeprotov1.ConsoleChunk
-	nodeSnapshot     *nodeprotov1.NodeSnapshot
-	runtimeCapsResp  *nodeprotov1.GetRuntimeCapabilitiesResponse
-	runtimeCapsErr   error
-	errOverride      error
+	mu                sync.Mutex
+	authHeaders       []string
+	listFilesReq      *nodeprotov1.ListFilesRequest
+	startProcessReq   *nodeprotov1.StartProcessRequest
+	readFileResponse  []byte
+	streamFileChunks  [][]byte
+	streamWriteReqs   []*nodeprotov1.StreamWriteFileRequest
+	streamWriteResp   *nodeprotov1.StreamWriteFileResponse
+	listFilesResp     *nodeprotov1.ListFilesResponse
+	statFileResp      *nodeprotov1.StatFileResponse
+	bindableIPsResp   *nodeprotov1.ListBindableIPsResponse
+	copyFilesReq      *nodeprotov1.CopyFilesRequest
+	copyFilesResp     *nodeprotov1.CopyFilesResponse
+	probeReq          *nodeprotov1.ProbeInstalledVersionRequest
+	probeResp         *nodeprotov1.ProbeInstalledVersionResponse
+	queryReq          *nodeprotov1.QueryGameServerRequest
+	queryResp         *nodeprotov1.QueryGameServerResponse
+	palworldMapReq    *nodeprotov1.QueryPalworldMapRequest
+	palworldMapResp   *nodeprotov1.QueryPalworldMapResponse
+	sevenDaysMapReq   *nodeprotov1.QuerySevenDaysToDieMapRequest
+	sevenDaysMapResp  *nodeprotov1.QuerySevenDaysToDieMapResponse
+	webAPIStatusReq   *nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest
+	webAPIStatusResp  *nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse
+	playersReq        *nodeprotov1.QuerySevenDaysToDiePlayersRequest
+	playersResp       *nodeprotov1.QuerySevenDaysToDiePlayersResponse
+	reportedModsReq   *nodeprotov1.QuerySevenDaysToDieReportedModsRequest
+	reportedModsResp  *nodeprotov1.QuerySevenDaysToDieReportedModsResponse
+	sandboxReq        *nodeprotov1.QuerySevenDaysToDieSandboxSettingsRequest
+	sandboxResp       *nodeprotov1.QuerySevenDaysToDieSandboxSettingsResponse
+	playerActionReq   *nodeprotov1.PerformGameServerPlayerActionRequest
+	playerActionErr   error
+	gameOperationReq  *nodeprotov1.ExecuteGameOperationRequest
+	gameOperationResp *nodeprotov1.ExecuteGameOperationResponse
+	consoleInputErr   error
+	fileArchiveReq    *nodeprotov1.CreateFileArchiveRequest
+	fileArchiveResp   []*nodeprotov1.CreateFileArchiveResponse
+	fileExtractReq    *nodeprotov1.ExtractFileArchiveRequest
+	fileExtractResp   []*nodeprotov1.ExtractFileArchiveResponse
+	streamEvents      []*nodeprotov1.Event
+	streamConsole     []*nodeprotov1.ConsoleChunk
+	nodeSnapshot      *nodeprotov1.NodeSnapshot
+	runtimeCapsResp   *nodeprotov1.GetRuntimeCapabilitiesResponse
+	runtimeCapsErr    error
+	errOverride       error
 }
 
 func (r *callRecorder) recordAuth(headers http.Header) {
@@ -274,6 +276,18 @@ func (s *stubHandler) PerformGameServerPlayerAction(_ context.Context, req *conn
 		return nil, errAction
 	}
 	return connect.NewResponse(&nodeprotov1.PerformGameServerPlayerActionResponse{}), nil
+}
+
+func (s *stubHandler) ExecuteGameOperation(_ context.Context, req *connect.Request[nodeprotov1.ExecuteGameOperationRequest]) (*connect.Response[nodeprotov1.ExecuteGameOperationResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.gameOperationReq = req.Msg
+	response := s.rec.gameOperationResp
+	s.rec.mu.Unlock()
+	if response == nil {
+		response = &nodeprotov1.ExecuteGameOperationResponse{}
+	}
+	return connect.NewResponse(response), nil
 }
 
 func (s *stubHandler) SendConsoleInput(_ context.Context, req *connect.Request[nodeprotov1.SendConsoleInputRequest]) (*connect.Response[nodeprotov1.SendConsoleInputResponse], error) {
@@ -759,6 +773,57 @@ func TestGRPCClientPerformGameServerPlayerActionTranslatesValidationErrors(t *te
 	errAction := client.PerformGameServerPlayerAction(t.Context(), node.GameServerPlayerActionRequest{})
 	if !errors.Is(errAction, node.ErrInvalidPlayerAction) {
 		t.Fatalf("PerformGameServerPlayerAction error = %v, want invalid player action", errAction)
+	}
+}
+
+func TestGRPCClientExecuteGameOperationRoundTrips(t *testing.T) {
+	t.Parallel()
+	recorder := &callRecorder{
+		gameOperationResp: &nodeprotov1.ExecuteGameOperationResponse{
+			Classification: nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_CONFIRMED,
+			Message:        "confirmed",
+			TransportDetails: &nodeprotov1.GameOperationTransportDetails{
+				Method:       "native dashboard",
+				Verification: "permission read-back",
+			},
+		},
+	}
+	serverURL, fingerprint := newPinnedTestServer(t, recorder)
+	client, errNew := nodeclient.NewGRPCClient("node", serverURL, fingerprint, "shared-secret")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	result, errExecute := client.ExecuteGameOperation(t.Context(), node.GameOperationRequest{
+		WorkingDirectory: "/srv/game",
+		TokenName:        "operator",
+		TokenSecret:      "native-secret",
+		OperationID:      "player_access.add_administrator",
+		Values: []node.GameOperationValue{
+			{FieldID: "player", StringValue: new("EOS_PLAYER_1")},
+			{FieldID: "permission_level", IntegerValue: new(int64(0))},
+		},
+	})
+	if errExecute != nil {
+		t.Fatalf("ExecuteGameOperation: %v", errExecute)
+	}
+	if result.Classification != node.GameOperationResultConfirmed || result.Message != "confirmed" ||
+		result.TransportDetails.Verification != "permission read-back" {
+		t.Fatalf("result = %+v", result)
+	}
+
+	recorder.mu.Lock()
+	request := recorder.gameOperationReq
+	authHeaders := append([]string(nil), recorder.authHeaders...)
+	recorder.mu.Unlock()
+	if request.GetWorkingDirectory() != "/srv/game" || request.GetTokenName() != "operator" ||
+		request.GetTokenSecret() != "native-secret" || request.GetOperationId() != "player_access.add_administrator" ||
+		len(request.GetValues()) != 2 || request.GetValues()[0].GetStringValue() != "EOS_PLAYER_1" ||
+		request.GetValues()[1].GetIntegerValue() != 0 {
+		t.Fatalf("request = %+v", request)
+	}
+	if !slices.Contains(authHeaders, "Bearer shared-secret") {
+		t.Fatalf("authorization headers = %v", authHeaders)
 	}
 }
 

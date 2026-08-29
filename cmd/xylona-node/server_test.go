@@ -304,6 +304,25 @@ func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
 	}
 }
 
+func TestNodeServiceServerExecuteGameOperationRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	serverURL, fingerprint := newTestServer(t, "shared-secret")
+	client, errClient := nodeclient.NewGRPCClient("node", serverURL, fingerprint, "shared-secret")
+	if errClient != nil {
+		t.Fatalf("NewGRPCClient: %v", errClient)
+	}
+	result, errExecute := client.ExecuteGameOperation(t.Context(), node.GameOperationRequest{
+		OperationID: "unknown",
+	})
+	if errExecute != nil {
+		t.Fatalf("ExecuteGameOperation: %v", errExecute)
+	}
+	if result.Classification != node.GameOperationResultFailed || !strings.Contains(result.Message, "Unknown") {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 func TestNodeServiceServerQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 	t.Parallel()
 

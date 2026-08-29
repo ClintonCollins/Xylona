@@ -423,6 +423,13 @@ func (c *inProcessNodeClient) PerformGameServerPlayerAction(ctx context.Context,
 	return nil
 }
 
+func (c *inProcessNodeClient) ExecuteGameOperation(ctx context.Context, req node.GameOperationRequest) (node.GameOperationResult, error) {
+	if c.node == nil {
+		return node.GameOperationResult{}, ErrNodeNil
+	}
+	return c.node.ExecuteGameOperation(ctx, req), nil
+}
+
 func (c *inProcessNodeClient) SendConsoleOutput(_ context.Context, processID, line string) error {
 	if c.node == nil {
 		return ErrNodeNil

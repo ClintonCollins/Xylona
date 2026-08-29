@@ -165,6 +165,11 @@ type FakeNodeClient struct {
 	PerformGameServerPlayerActionErr   error
 	PerformGameServerPlayerActionCalls []node.GameServerPlayerActionRequest
 
+	ExecuteGameOperationResult node.GameOperationResult
+	ExecuteGameOperationErr    error
+	ExecuteGameOperationCalls  []node.GameOperationRequest
+	ExecuteGameOperationFunc   func(context.Context, node.GameOperationRequest) (node.GameOperationResult, error)
+
 	SendConsoleOutputErr   error
 	SendConsoleOutputCalls []SendConsoleOutputCall
 
@@ -716,6 +721,20 @@ func (f *FakeNodeClient) PerformGameServerPlayerAction(_ context.Context, req no
 	f.PerformGameServerPlayerActionCalls = append(f.PerformGameServerPlayerActionCalls, req)
 	f.mu.Unlock()
 	return f.PerformGameServerPlayerActionErr
+}
+
+// ExecuteGameOperation records the call and returns the configured result.
+func (f *FakeNodeClient) ExecuteGameOperation(ctx context.Context, req node.GameOperationRequest) (node.GameOperationResult, error) {
+	f.mu.Lock()
+	f.ExecuteGameOperationCalls = append(f.ExecuteGameOperationCalls, req)
+	execute := f.ExecuteGameOperationFunc
+	result := f.ExecuteGameOperationResult
+	errExecute := f.ExecuteGameOperationErr
+	f.mu.Unlock()
+	if execute != nil {
+		return execute(ctx, req)
+	}
+	return result, errExecute
 }
 
 // SendConsoleOutput records the call and returns the configured error.

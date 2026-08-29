@@ -929,6 +929,7 @@ service NodeService {
   rpc StopMinecraftMap(StopMinecraftMapRequest) returns (StopMinecraftMapResponse);
   rpc GetMinecraftMapAsset(GetMinecraftMapAssetRequest) returns (GetMinecraftMapAssetResponse);
   rpc PerformGameServerPlayerAction(PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse);
+  rpc ExecuteGameOperation(ExecuteGameOperationRequest) returns (ExecuteGameOperationResponse);
 
   // Console output (controller-generated lines pushed into the process buffer)
   rpc SendConsoleOutput(SendConsoleOutputRequest) returns (SendConsoleOutputResponse);
@@ -976,6 +977,41 @@ message PerformGameServerPlayerActionRequest {
 }
 
 message PerformGameServerPlayerActionResponse {}
+
+message GameOperationValue {
+  string field_id = 1;
+  oneof value {
+    string string_value = 2;
+    int64 integer_value = 3;
+    bool boolean_value = 4;
+  }
+}
+
+enum GameOperationResultClassification {
+  GAME_OPERATION_RESULT_CLASSIFICATION_UNSPECIFIED = 0;
+  GAME_OPERATION_RESULT_CLASSIFICATION_CONFIRMED = 1;
+  GAME_OPERATION_RESULT_CLASSIFICATION_ACCEPTED_BUT_UNVERIFIED = 2;
+  GAME_OPERATION_RESULT_CLASSIFICATION_FAILED = 3;
+}
+
+message GameOperationTransportDetails {
+  string method = 1;
+  string verification = 2;
+}
+
+message ExecuteGameOperationRequest {
+  string working_directory = 1;
+  string token_name = 2;
+  string token_secret = 3;
+  string operation_id = 4;
+  repeated GameOperationValue values = 5;
+}
+
+message ExecuteGameOperationResponse {
+  GameOperationResultClassification classification = 1;
+  string message = 2;
+  GameOperationTransportDetails transport_details = 3;
+}
 
 message PalworldMapHealth {
   double server_fps = 1;

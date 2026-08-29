@@ -3,18 +3,25 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { DOMWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ExecuteGameServerOperationResponseSchema,
   GameOperationDescriptorSchema,
   GameOperationFieldOptionSchema,
   GameOperationFieldSchema,
   GameOperationFieldType,
+  GameOperationResultClassification,
+  GameOperationResultSchema,
   GameOperationReviewSchema,
   GameOperationRisk,
+  GameOperationTransportDetailsSchema,
   ListGameServerOperationsResponseSchema,
 } from '@/proto/xylona_pb'
 import type { GameOperationDescriptor } from '@/proto/xylona_pb'
 import GameServerOperations from './GameServerOperations.vue'
 
-const mocks = vi.hoisted(() => ({ listGameServerOperations: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  executeGameServerOperation: vi.fn(),
+  listGameServerOperations: vi.fn(),
+}))
 const screen = vi.hoisted(() => ({ mobile: false }))
 
 vi.mock('quasar', async () => {
@@ -26,7 +33,10 @@ vi.mock('quasar', async () => {
 })
 
 vi.mock('@/utils/shared', () => ({
-  GetXylonaClient: () => ({ listGameServerOperations: mocks.listGameServerOperations }),
+  GetXylonaClient: () => ({
+    executeGameServerOperation: mocks.executeGameServerOperation,
+    listGameServerOperations: mocks.listGameServerOperations,
+  }),
 }))
 
 vi.mock('vue-router', () => ({
@@ -129,6 +139,7 @@ async function pressNativeButton(button: DOMWrapper<HTMLButtonElement>, key: 'En
 
 describe('GameServerOperations', () => {
   beforeEach(() => {
+    mocks.executeGameServerOperation.mockReset()
     mocks.listGameServerOperations.mockReset()
     screen.mobile = false
   })
@@ -224,10 +235,69 @@ describe('GameServerOperations', () => {
     const review = wrapper.get('[data-testid="operation-review"]').text()
     expect(review).toContain('Steam_PLAYER_42')
     expect(review).toContain('42')
-    expect(review).toContain('Review only')
+    expect(review).toContain('Execute Add administrator')
     expect(review).not.toMatch(/POST|\/api\/|command/i)
     wrapper.unmount()
     host.remove()
+  })
+
+  it('executes typed semantic values once and retains the confirmed result', async () => {
+    let resolveExecution: ((value: unknown) => void) | undefined
+    mocks.executeGameServerOperation.mockReturnValue(
+      new Promise((resolve) => {
+        resolveExecution = resolve
+      }),
+    )
+    const wrapper = await mountOperations([addAdministrator()])
+    await wrapper.get('[data-testid="operation-toggle"]').trigger('click')
+
+    const review = wrapper.get('[data-testid="operation-review"]')
+    expect(review.text()).toContain('Test Server')
+    expect(review.text()).toContain('Caution')
+    expect(review.text()).toContain('The selected Player will be added as an administrator.')
+
+    const execute = wrapper.get<HTMLButtonElement>('[data-testid="execute-operation"]')
+    await execute.trigger('click')
+    await execute.trigger('click')
+    expect(mocks.executeGameServerOperation).toHaveBeenCalledTimes(1)
+    expect(execute.attributes('disabled')).toBeDefined()
+    expect(execute.text()).toContain('Executing')
+
+    const request = mocks.executeGameServerOperation.mock.calls[0]?.[0]
+    expect(request).toMatchObject({
+      gameServerId: 'server-1',
+      operationId: 'player_access.add_administrator',
+      values: [
+        { fieldId: 'player', value: { case: 'stringValue', value: 'Steam_PLAYER_1' } },
+        { fieldId: 'permission_level', value: { case: 'integerValue', value: 0n } },
+      ],
+    })
+    expect(
+      JSON.stringify(request, (_key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    ).not.toMatch(/POST|\/api\/|command/i)
+
+    resolveExecution?.(
+      create(ExecuteGameServerOperationResponseSchema, {
+        result: create(GameOperationResultSchema, {
+          classification: GameOperationResultClassification.CONFIRMED,
+          message: 'Administrator access was confirmed.',
+          transportDetails: create(GameOperationTransportDetailsSchema, {
+            method: '7 Days to Die native dashboard',
+            verification: 'User permission read-back',
+          }),
+        }),
+      }),
+    )
+    await flushPromises()
+
+    const result = wrapper.get('[data-testid="operation-result"]')
+    expect(result.attributes('role')).toBe('status')
+    expect(result.text()).toContain('Confirmed')
+    expect(result.text()).toContain('Administrator access was confirmed.')
+    expect(result.text()).toContain('User permission read-back')
+    expect(wrapper.get('[data-testid="operation-review"]').exists()).toBe(true)
   })
 
   it('exposes a native mobile category control', async () => {

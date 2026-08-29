@@ -1,21 +1,28 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
+import { ConnectError } from '@connectrpc/connect'
 import { computed, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import { useQuasar } from 'quasar'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import {
+  ExecuteGameServerOperationRequestSchema,
   GameOperationFieldType,
+  GameOperationResultClassification,
+  GameOperationResultSchema,
   GameOperationRisk,
+  GameOperationValueSchema,
   ListGameServerOperationsRequestSchema,
 } from '@/proto/xylona_pb'
 import type {
   GameOperationDescriptor,
   GameOperationField,
   GameOperationFieldOption,
+  GameOperationResult,
+  GameOperationValue,
 } from '@/proto/xylona_pb'
-import { GetXylonaClient } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 type OperationValue = string | number | boolean
 type PlayerIdentityMode = 'known' | 'manual'
@@ -32,6 +39,8 @@ const expandedOperationID = ref('')
 const operationValues = ref<Record<string, OperationValue>>({})
 const playerModes = ref<Record<string, PlayerIdentityMode>>({})
 const playerSearches = ref<Record<string, string>>({})
+const operationResults = ref<Record<string, GameOperationResult>>({})
+const executingOperationID = ref('')
 const mobileLayout = computed(() => $q.screen.lt.md)
 
 const bundledOperationRenderers: Readonly<Record<string, Component>> = Object.freeze({})
@@ -217,6 +226,85 @@ function rendererFor(operation: GameOperationDescriptor) {
   return operation.rendererKey && Object.hasOwn(bundledOperationRenderers, operation.rendererKey)
     ? bundledOperationRenderers[operation.rendererKey]
     : undefined
+}
+
+function typedOperationValues(operation: GameOperationDescriptor): GameOperationValue[] {
+  return operation.fields.map((field) => {
+    const rawValue = operationValues.value[field.id]
+    if (
+      field.type === GameOperationFieldType.INTEGER ||
+      field.type === GameOperationFieldType.DURATION
+    ) {
+      return create(GameOperationValueSchema, {
+        fieldId: field.id,
+        value: { case: 'integerValue', value: BigInt(String(rawValue)) },
+      })
+    }
+    if (field.type === GameOperationFieldType.BOOLEAN) {
+      return create(GameOperationValueSchema, {
+        fieldId: field.id,
+        value: { case: 'booleanValue', value: Boolean(rawValue) },
+      })
+    }
+    return create(GameOperationValueSchema, {
+      fieldId: field.id,
+      value: { case: 'stringValue', value: String(rawValue ?? '') },
+    })
+  })
+}
+
+async function executeOperation(operation: GameOperationDescriptor) {
+  if (executingOperationID.value !== '' || !reviewReady(operation)) {
+    return
+  }
+  executingOperationID.value = operation.id
+  try {
+    const response = await GetXylonaClient().executeGameServerOperation(
+      create(ExecuteGameServerOperationRequestSchema, {
+        gameServerId: String(route.params.id ?? ''),
+        operationId: operation.id,
+        values: typedOperationValues(operation),
+      }),
+    )
+    operationResults.value[operation.id] =
+      response.result ?? failedOperationResult('The server returned no operation result.')
+  } catch (unknownError) {
+    const error = ConnectError.from(unknownError)
+    operationResults.value[operation.id] = failedOperationResult(
+      `The operation could not be completed: ${ConnectErrorToString(error)}`,
+    )
+  } finally {
+    executingOperationID.value = ''
+  }
+}
+
+function failedOperationResult(message: string) {
+  return create(GameOperationResultSchema, {
+    classification: GameOperationResultClassification.FAILED,
+    message,
+  })
+}
+
+function resultLabel(classification: GameOperationResultClassification) {
+  switch (classification) {
+    case GameOperationResultClassification.CONFIRMED:
+      return 'Confirmed'
+    case GameOperationResultClassification.ACCEPTED_BUT_UNVERIFIED:
+      return 'Accepted, not verified'
+    default:
+      return 'Failed'
+  }
+}
+
+function resultIcon(classification: GameOperationResultClassification) {
+  switch (classification) {
+    case GameOperationResultClassification.CONFIRMED:
+      return 'check_circle'
+    case GameOperationResultClassification.ACCEPTED_BUT_UNVERIFIED:
+      return 'help_outline'
+    default:
+      return 'error_outline'
+  }
 }
 </script>
 
@@ -538,20 +626,74 @@ function rendererFor(operation: GameOperationDescriptor) {
                       <q-icon aria-hidden="true" name="fact_check" />
                       <h3>{{ operation.review?.title || 'Review intended effect' }}</h3>
                     </div>
-                    <p>{{ operation.review?.effect }}</p>
                     <dl>
                       <template v-for="field in operation.fields" :key="field.id">
                         <dt>{{ field.label }}</dt>
                         <dd>{{ reviewValue(field) }}</dd>
                       </template>
+                      <dt>Scope</dt>
+                      <dd>{{ gameServerName || 'This game server' }}</dd>
+                      <dt>Risk</dt>
+                      <dd>{{ riskLabel(operation.risk) }}</dd>
+                      <dt>Expected effect</dt>
+                      <dd>{{ operation.review?.effect }}</dd>
                     </dl>
                     <p v-if="operation.review?.caution" class="operation-review__caution">
                       <q-icon aria-hidden="true" name="warning" />
                       {{ operation.review.caution }}
                     </p>
-                    <p class="operation-review__notice">
-                      Review only — no change is sent from this page yet.
-                    </p>
+                    <div class="operation-review__actions">
+                      <button
+                        :aria-busy="executingOperationID === operation.id"
+                        class="operations-button operations-button--primary"
+                        data-testid="execute-operation"
+                        :disabled="executingOperationID !== ''"
+                        type="button"
+                        @click="executeOperation(operation)">
+                        {{
+                          executingOperationID === operation.id
+                            ? 'Executing…'
+                            : `Execute ${operation.name}`
+                        }}
+                      </button>
+                    </div>
+                  </section>
+
+                  <section
+                    v-if="operationResults[operation.id]"
+                    class="operation-result"
+                    :class="`operation-result--${resultLabel(
+                      operationResults[operation.id]!.classification,
+                    )
+                      .toLowerCase()
+                      .replaceAll(/[^a-z]+/g, '-')}`"
+                    data-testid="operation-result"
+                    :role="
+                      operationResults[operation.id]!.classification ===
+                      GameOperationResultClassification.FAILED
+                        ? 'alert'
+                        : 'status'
+                    ">
+                    <div class="operation-result__heading">
+                      <q-icon
+                        aria-hidden="true"
+                        :name="resultIcon(operationResults[operation.id]!.classification)" />
+                      <strong>{{
+                        resultLabel(operationResults[operation.id]!.classification)
+                      }}</strong>
+                    </div>
+                    <p>{{ operationResults[operation.id]!.message }}</p>
+                    <details v-if="operationResults[operation.id]!.transportDetails">
+                      <summary>Transport details</summary>
+                      <dl>
+                        <dt>Method</dt>
+                        <dd>{{ operationResults[operation.id]!.transportDetails?.method }}</dd>
+                        <dt>Verification</dt>
+                        <dd>
+                          {{ operationResults[operation.id]!.transportDetails?.verification }}
+                        </dd>
+                      </dl>
+                    </details>
                   </section>
                 </div>
               </section>
@@ -1013,8 +1155,7 @@ function rendererFor(operation: GameOperationDescriptor) {
   color: var(--xy-text);
 }
 
-.operation-review__caution,
-.operation-review__notice {
+.operation-review__caution {
   display: flex;
   gap: var(--xy-space-sm);
   align-items: flex-start;
@@ -1025,9 +1166,69 @@ function rendererFor(operation: GameOperationDescriptor) {
   color: var(--xy-warning-text);
 }
 
-.operation-review__notice {
+.operation-review__actions {
+  margin-top: var(--xy-space-lg);
+}
+
+.operations-button--primary {
+  color: var(--xy-text-on-bright);
+  background: var(--xy-primary);
+}
+
+.operations-button--primary:hover:not(:disabled) {
+  background: var(--xy-primary-hover);
+}
+
+.operations-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.operation-result {
+  padding-top: var(--xy-space-lg);
+  color: var(--xy-success-text);
+  border-top: 1px solid var(--xy-border);
+}
+
+.operation-result--accepted-not-verified {
+  color: var(--xy-warning-text);
+}
+
+.operation-result--failed {
+  color: var(--xy-danger-text);
+}
+
+.operation-result__heading {
+  display: flex;
+  gap: var(--xy-space-sm);
+  align-items: center;
+  font-size: var(--xy-font-size-lg);
+}
+
+.operation-result > p {
+  max-width: 70ch;
+  color: var(--xy-text);
+}
+
+.operation-result details {
+  max-width: 60ch;
   color: var(--xy-text-muted);
-  font-size: var(--xy-font-size-sm);
+}
+
+.operation-result summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.operation-result dl {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: var(--xy-space-xs) var(--xy-space-base);
+}
+
+.operation-result dd {
+  margin: 0;
+  color: var(--xy-text);
 }
 
 .operations-state {

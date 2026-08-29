@@ -15,7 +15,7 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-const gameOperationsNodeProtocol int64 = 11
+const gameOperationsNodeProtocol int64 = 12
 
 type operationAvailability struct {
 	available bool
@@ -84,6 +84,96 @@ func (xs *XylonaService) ListGameServerOperations(
 		response.Operations = append(response.Operations, publicGameOperation(operation, availability, playerOptions))
 	}
 	return connect.NewResponse(response), nil
+}
+
+// ExecuteGameServerOperation reauthorizes and executes one structured operation on its owning node.
+func (xs *XylonaService) ExecuteGameServerOperation(
+	ctx context.Context,
+	request *connect.Request[xylona.ExecuteGameServerOperationRequest],
+) (*connect.Response[xylona.ExecuteGameServerOperationResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+
+	gameServerID := strings.TrimSpace(request.Msg.GetGameServerId())
+	if gameServerID == "" {
+		return nil, invalidArg("game_server_id is required")
+	}
+	operationID := strings.TrimSpace(request.Msg.GetOperationId())
+	if operationID == "" {
+		return nil, invalidArg("operation_id is required")
+	}
+
+	gameServer, errServer := xs.getGameServerFromID(gameServerID)
+	if errServer != nil {
+		return nil, errServer
+	}
+	errView := xs.ensureLocalServerPermission(user, gameServer, permissionGameServerView)
+	if errView != nil {
+		return nil, errView
+	}
+
+	operation, found := gameOperationByID(gameServer.GameID, operationID)
+	if !found {
+		return nil, invalidArg("unknown game operation")
+	}
+	errPermission := xs.ensureLocalServerPermission(user, gameServer, operation.PermissionID)
+	if errPermission != nil {
+		return nil, errPermission
+	}
+
+	availability, access, _, errAvailability := xs.gameOperationAvailability(ctx, gameServer, operationID)
+	if errAvailability != nil {
+		return nil, errAvailability
+	}
+	if !availability.available {
+		return failedPublicGameOperation(availability.text), nil
+	}
+	values := nodeGameOperationValues(request.Msg.GetValues())
+	playerTarget := ""
+	for _, value := range values {
+		if value.FieldID == "player" && value.StringValue != nil {
+			playerTarget = *value.StringValue
+			break
+		}
+	}
+	operationKey := gameServer.ID + "\x00" + operationID + "\x00" + playerTarget
+	xs.gameOperationMu.Lock()
+	if xs.gameOperationsInFlight == nil {
+		xs.gameOperationsInFlight = make(map[string]struct{})
+	}
+	_, alreadyInFlight := xs.gameOperationsInFlight[operationKey]
+	if !alreadyInFlight {
+		xs.gameOperationsInFlight[operationKey] = struct{}{}
+	}
+	xs.gameOperationMu.Unlock()
+	if alreadyInFlight {
+		return failedPublicGameOperation("This operation is already in progress for this game server."), nil
+	}
+	defer func() {
+		xs.gameOperationMu.Lock()
+		delete(xs.gameOperationsInFlight, operationKey)
+		xs.gameOperationMu.Unlock()
+	}()
+
+	result, errExecute := access.client.ExecuteGameOperation(ctx, node.GameOperationRequest{
+		WorkingDirectory: access.workingDirectory,
+		TokenName:        access.tokenName,
+		TokenSecret:      access.tokenSecret,
+		OperationID:      operationID,
+		Values:           values,
+	})
+	if errExecute != nil {
+		if errors.Is(errExecute, context.Canceled) || errors.Is(errExecute, context.DeadlineExceeded) {
+			return nil, connect.NewError(contextConnectCode(errExecute), errExecute)
+		}
+		return failedPublicGameOperation("The server node could not execute the operation."), nil
+	}
+
+	return connect.NewResponse(&xylona.ExecuteGameServerOperationResponse{
+		Result: publicGameOperationResult(result, access.tokenName, access.tokenSecret),
+	}), nil
 }
 
 func (xs *XylonaService) gameOperationAvailability(
@@ -357,4 +447,84 @@ func cloneInt32(value *int32) *int32 {
 	}
 	cloned := *value
 	return &cloned
+}
+
+func gameOperationByID(gameID string, operationID string) (gameintegrations.OperationDescriptor, bool) {
+	for _, operation := range gameintegrations.OperationsForGame(gameID) {
+		if operation.ID == operationID {
+			return operation, true
+		}
+	}
+	return gameintegrations.OperationDescriptor{}, false
+}
+
+func nodeGameOperationValues(values []*xylona.GameOperationValue) []node.GameOperationValue {
+	converted := make([]node.GameOperationValue, 0, len(values))
+	for _, value := range values {
+		if value == nil {
+			converted = append(converted, node.GameOperationValue{})
+			continue
+		}
+		convertedValue := node.GameOperationValue{FieldID: value.GetFieldId()}
+		switch typedValue := value.GetValue().(type) {
+		case *xylona.GameOperationValue_StringValue:
+			convertedValue.StringValue = new(typedValue.StringValue)
+		case *xylona.GameOperationValue_IntegerValue:
+			convertedValue.IntegerValue = new(typedValue.IntegerValue)
+		case *xylona.GameOperationValue_BooleanValue:
+			convertedValue.BooleanValue = new(typedValue.BooleanValue)
+		}
+		converted = append(converted, convertedValue)
+	}
+	return converted
+}
+
+func publicGameOperationResult(result node.GameOperationResult, secrets ...string) *xylona.GameOperationResult {
+	classification := xylona.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_FAILED
+	switch result.Classification {
+	case node.GameOperationResultConfirmed:
+		classification = xylona.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_CONFIRMED
+	case node.GameOperationResultAcceptedButUnverified:
+		classification = xylona.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_ACCEPTED_BUT_UNVERIFIED
+	case node.GameOperationResultFailed:
+		classification = xylona.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_FAILED
+	default:
+		result.Message = "The node returned an invalid operation result."
+	}
+
+	publicResult := &xylona.GameOperationResult{
+		Classification: classification,
+		Message:        boundedRedactedGameOperationText(result.Message, 512, secrets...),
+	}
+	method := boundedRedactedGameOperationText(result.TransportDetails.Method, 128, secrets...)
+	verification := boundedRedactedGameOperationText(result.TransportDetails.Verification, 128, secrets...)
+	if method != "" || verification != "" {
+		publicResult.TransportDetails = &xylona.GameOperationTransportDetails{
+			Method:       method,
+			Verification: verification,
+		}
+	}
+	return publicResult
+}
+
+func failedPublicGameOperation(message string) *connect.Response[xylona.ExecuteGameServerOperationResponse] {
+	return connect.NewResponse(&xylona.ExecuteGameServerOperationResponse{
+		Result: &xylona.GameOperationResult{
+			Classification: xylona.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_FAILED,
+			Message:        boundedRedactedGameOperationText(message, 512),
+		},
+	})
+}
+
+func boundedRedactedGameOperationText(value string, limit int, secrets ...string) string {
+	for _, secret := range secrets {
+		if secret != "" {
+			value = strings.ReplaceAll(value, secret, "[redacted]")
+		}
+	}
+	runes := []rune(strings.ToValidUTF8(value, "\uFFFD"))
+	if len(runes) > limit {
+		runes = runes[:limit]
+	}
+	return string(runes)
 }

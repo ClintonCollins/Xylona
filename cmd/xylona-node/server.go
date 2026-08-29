@@ -1165,6 +1165,38 @@ func (s *nodeServiceServer) PerformGameServerPlayerAction(ctx context.Context, r
 	return connect.NewResponse(&nodeprotov1.PerformGameServerPlayerActionResponse{}), nil
 }
 
+func (s *nodeServiceServer) ExecuteGameOperation(ctx context.Context, req *connect.Request[nodeprotov1.ExecuteGameOperationRequest]) (*connect.Response[nodeprotov1.ExecuteGameOperationResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	values := make([]node.GameOperationValue, 0, len(req.Msg.GetValues()))
+	for _, value := range req.Msg.GetValues() {
+		values = append(values, nodeGameOperationValueFromProto(value))
+	}
+	result := s.n.ExecuteGameOperation(ctx, node.GameOperationRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+		TokenName:        req.Msg.GetTokenName(),
+		TokenSecret:      req.Msg.GetTokenSecret(),
+		OperationID:      req.Msg.GetOperationId(),
+		Values:           values,
+	})
+	response := &nodeprotov1.ExecuteGameOperationResponse{
+		Classification: gameOperationResultClassificationToProto(result.Classification),
+		Message:        result.Message,
+	}
+	if result.TransportDetails.Method != "" || result.TransportDetails.Verification != "" {
+		response.TransportDetails = &nodeprotov1.GameOperationTransportDetails{
+			Method:       result.TransportDetails.Method,
+			Verification: result.TransportDetails.Verification,
+		}
+	}
+	return connect.NewResponse(response), nil
+}
+
 func (s *nodeServiceServer) SendConsoleOutput(_ context.Context, req *connect.Request[nodeprotov1.SendConsoleOutputRequest]) (*connect.Response[nodeprotov1.SendConsoleOutputResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1322,6 +1354,34 @@ func nodeGameServerPlayerActionFromProto(action nodeprotov1.GameServerPlayerActi
 		return node.GameServerPlayerActionAllowlistRemove
 	default:
 		return node.GameServerPlayerActionUnknown
+	}
+}
+
+func nodeGameOperationValueFromProto(value *nodeprotov1.GameOperationValue) node.GameOperationValue {
+	result := node.GameOperationValue{FieldID: value.GetFieldId()}
+	switch typedValue := value.GetValue().(type) {
+	case *nodeprotov1.GameOperationValue_StringValue:
+		result.StringValue = new(typedValue.StringValue)
+	case *nodeprotov1.GameOperationValue_IntegerValue:
+		result.IntegerValue = new(typedValue.IntegerValue)
+	case *nodeprotov1.GameOperationValue_BooleanValue:
+		result.BooleanValue = new(typedValue.BooleanValue)
+	}
+	return result
+}
+
+func gameOperationResultClassificationToProto(
+	classification node.GameOperationResultClassification,
+) nodeprotov1.GameOperationResultClassification {
+	switch classification {
+	case node.GameOperationResultConfirmed:
+		return nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_CONFIRMED
+	case node.GameOperationResultAcceptedButUnverified:
+		return nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_ACCEPTED_BUT_UNVERIFIED
+	case node.GameOperationResultFailed:
+		return nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_FAILED
+	default:
+		return nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_UNSPECIFIED
 	}
 }
 

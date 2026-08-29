@@ -86,6 +86,7 @@ service Xylona {
   rpc GetGameServerPlayerManagement (GetGameServerPlayerManagementRequest) returns (GetGameServerPlayerManagementResponse) {}
   rpc PerformGameServerPlayerAction (PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse) {}
   rpc ListGameServerOperations (ListGameServerOperationsRequest) returns (ListGameServerOperationsResponse) {}
+  rpc ExecuteGameServerOperation (ExecuteGameServerOperationRequest) returns (ExecuteGameServerOperationResponse) {}
   rpc GetPalworldMap (GetPalworldMapRequest) returns (GetPalworldMapResponse) {}
   rpc UpdatePalworldMapConfig (UpdatePalworldMapConfigRequest) returns (UpdatePalworldMapConfigResponse) {}
   rpc InstallPalworldMapTiles (InstallPalworldMapTilesRequest) returns (InstallPalworldMapTilesResponse) {}
@@ -1826,6 +1827,43 @@ message ListGameServerOperationsRequest {
 message ListGameServerOperationsResponse {
   string game_server_name = 1;
   repeated GameOperationDescriptor operations = 2;
+}
+
+message GameOperationValue {
+  string field_id = 1;
+  oneof value {
+    string string_value = 2;
+    int64 integer_value = 3;
+    bool boolean_value = 4;
+  }
+}
+
+enum GameOperationResultClassification {
+  GAME_OPERATION_RESULT_CLASSIFICATION_UNSPECIFIED = 0;
+  GAME_OPERATION_RESULT_CLASSIFICATION_CONFIRMED = 1;
+  GAME_OPERATION_RESULT_CLASSIFICATION_ACCEPTED_BUT_UNVERIFIED = 2;
+  GAME_OPERATION_RESULT_CLASSIFICATION_FAILED = 3;
+}
+
+message GameOperationTransportDetails {
+  string method = 1;
+  string verification = 2;
+}
+
+message GameOperationResult {
+  GameOperationResultClassification classification = 1;
+  string message = 2;
+  GameOperationTransportDetails transport_details = 3;
+}
+
+message ExecuteGameServerOperationRequest {
+  string game_server_id = 1;
+  string operation_id = 2;
+  repeated GameOperationValue values = 3;
+}
+
+message ExecuteGameServerOperationResponse {
+  GameOperationResult result = 1;
 }
 
 enum PalworldMapActorKind {

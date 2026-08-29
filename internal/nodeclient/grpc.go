@@ -939,6 +939,65 @@ func (c *GRPCNodeClient) PerformGameServerPlayerAction(ctx context.Context, acti
 	return nil
 }
 
+// ExecuteGameOperation invokes the node-owned structured operation RPC.
+func (c *GRPCNodeClient) ExecuteGameOperation(ctx context.Context, operationReq node.GameOperationRequest) (node.GameOperationResult, error) {
+	values := make([]*nodeprotov1.GameOperationValue, 0, len(operationReq.Values))
+	for _, value := range operationReq.Values {
+		values = append(values, gameOperationValueToProto(value))
+	}
+	req := newReq(c, &nodeprotov1.ExecuteGameOperationRequest{
+		WorkingDirectory: operationReq.WorkingDirectory,
+		TokenName:        operationReq.TokenName,
+		TokenSecret:      operationReq.TokenSecret,
+		OperationId:      operationReq.OperationID,
+		Values:           values,
+	})
+	response, errRPC := c.connectClient.ExecuteGameOperation(ctx, req)
+	if errRPC != nil {
+		return node.GameOperationResult{}, translateError("execute game operation", errRPC)
+	}
+	details := response.Msg.GetTransportDetails()
+	result := node.GameOperationResult{
+		Classification: gameOperationResultClassificationFromProto(response.Msg.GetClassification()),
+		Message:        response.Msg.GetMessage(),
+	}
+	if details != nil {
+		result.TransportDetails = node.GameOperationTransportDetails{
+			Method:       details.GetMethod(),
+			Verification: details.GetVerification(),
+		}
+	}
+	return result, nil
+}
+
+func gameOperationValueToProto(value node.GameOperationValue) *nodeprotov1.GameOperationValue {
+	result := &nodeprotov1.GameOperationValue{FieldId: value.FieldID}
+	switch {
+	case value.StringValue != nil:
+		result.Value = &nodeprotov1.GameOperationValue_StringValue{StringValue: *value.StringValue}
+	case value.IntegerValue != nil:
+		result.Value = &nodeprotov1.GameOperationValue_IntegerValue{IntegerValue: *value.IntegerValue}
+	case value.BooleanValue != nil:
+		result.Value = &nodeprotov1.GameOperationValue_BooleanValue{BooleanValue: *value.BooleanValue}
+	}
+	return result
+}
+
+func gameOperationResultClassificationFromProto(
+	classification nodeprotov1.GameOperationResultClassification,
+) node.GameOperationResultClassification {
+	switch classification {
+	case nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_CONFIRMED:
+		return node.GameOperationResultConfirmed
+	case nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_ACCEPTED_BUT_UNVERIFIED:
+		return node.GameOperationResultAcceptedButUnverified
+	case nodeprotov1.GameOperationResultClassification_GAME_OPERATION_RESULT_CLASSIFICATION_FAILED:
+		return node.GameOperationResultFailed
+	default:
+		return 0
+	}
+}
+
 // SendConsoleOutput invokes the SendConsoleOutput RPC.
 func (c *GRPCNodeClient) SendConsoleOutput(ctx context.Context, processID, line string) error {
 	req := newReq(c, &nodeprotov1.SendConsoleOutputRequest{
