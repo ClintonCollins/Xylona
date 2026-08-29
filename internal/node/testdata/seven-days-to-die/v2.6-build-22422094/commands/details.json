@@ -1,0 +1,3884 @@
+{
+  "AdminSpeed": {
+    "requestName": "AdminSpeed",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "AdminSpeed",
+            "description": "AdminSpeed",
+            "help": null,
+            "overloads": [
+              "AdminSpeed",
+              "as"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "Dynamic mesh": {
+    "requestName": "zz",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "Dynamic mesh",
+            "description": "Dynamic mesh",
+            "help": null,
+            "overloads": [
+              "Dynamic mesh",
+              "zz"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "Dynamic mesh debug": {
+    "requestName": "zd",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "Dynamic mesh debug",
+            "description": "Dynamic mesh debug",
+            "help": null,
+            "overloads": [
+              "Dynamic mesh debug",
+              "zd"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "ForceEventDate": {
+    "requestName": "ForceEventDate",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "ForceEventDate",
+            "description": "Specify date for testing event dates",
+            "help": null,
+            "overloads": [
+              "ForceEventDate"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "ScreenEffect": {
+    "requestName": "ScreenEffect",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "ScreenEffect",
+            "description": "Sets a screen effect",
+            "help": "ScreenEffect [name] [intensity] [fade time]\nScreenEffect clear\nScreenEffect reload",
+            "overloads": [
+              "ScreenEffect"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "SetAccuracyDecay": {
+    "requestName": "SetAccuracyDecay",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "SetAccuracyDecay",
+            "description": "Accuracy Decay for guns, show/hide/reset/\u003cDecimal value\u003e",
+            "help": "reset - apply the default settings for this command\n\u003cDecimal Value\u003e - Sets the decay constant for accuracy calculations using ItemActionRanged",
+            "overloads": [
+              "AccDecay",
+              "SetAccDecay",
+              "SetAccuracyDecay",
+              "sad"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "SpawnScreen": {
+    "requestName": "SpawnScreen",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "SpawnScreen",
+            "description": "Display SpawnScreen",
+            "help": "SpawnScreen on/off",
+            "overloads": [
+              "SpawnScreen"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "SystemInfo": {
+    "requestName": "SystemInfo",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "SystemInfo",
+            "description": "List SystemInfo",
+            "help": "",
+            "overloads": [
+              "SystemInfo"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "admin": {
+    "requestName": "admin",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "admin",
+            "description": "Manage user permission levels",
+            "help": "Set/get user permission levels. A level of 0 is maximum permission,\nusers without an explicitly set permission have a permission level of 1000.\nUsage:\n   admin add \u003cname / entity id / platform + platform user id\u003e \u003clevel\u003e [displayname]\n   admin remove \u003cname / entity / platform + platform user id\u003e\n   admin addgroup \u003csteam id\u003e \u003clevel regular\u003e \u003clevel mods\u003e [displayname]\n   admin removegroup \u003csteam id\u003e\n   admin list\nTo use the add/remove sub commands with a name or entity ID the player has\nto be online, the variant with platform and platform ID can be used for currently offline\nusers too.\nDisplayname can be used to put a descriptive name to the ban list in addition\nto the user's platform ID. If used on an online user the player name is used by default.\nWhen adding groups you set two permission levels: The 'regular' level applies to\nnormal members of the group, the 'mods' level applies to moderators / officers of\nthe group.",
+            "overloads": [
+              "admin"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "agemap": {
+    "requestName": "agemap",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "agemap",
+            "description": "Output debug map for chunk age/protection/save status.",
+            "help": "\"agemap\" or \"agemap [x]\", where [x] is a float value specifying the maximum age to normalise results to in in-game days. Defaults to EnumGamePrefs.MaxChunkAge when not specified.\n\tOutputs a TGA texture representing a map of all chunks with chunk age, protection status and save status data split across each colour channel:\n\tR [scalar]: Effective chunk age proportionate to maximum age, taking POI-based grouping rules into account. More red = older, closer to expiry.\n\tG [scalar]: Raw chunk age proportionate to maximum age, ignoring POI-based grouping. Can be compared with the red channel to asses the impacts of grouping.\n\tB [scalar]: Protection level. More blue = more protected.\n\tA [binary]: Saved status. Opaque = saved, transparent = not saved.",
+            "overloads": [
+              "agemap"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "ai": {
+    "requestName": "ai",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "ai",
+            "description": "AI commands",
+            "help": "AI commands:\nactivityclear - remove all activity areas (heat)\nanim \u003cname\u003e - trigger an animation (attack, attack2)\nanimmove \u003cforward\u003e \u003cstrafe\u003e - set animation forward and strafe motion\nfreezepos - toggles movement\nlatency - toggles drawing\npathlines - toggles drawing editor path lines\npathgrid - force grid update\nragdoll \u003cforce\u003e \u003ctime\u003e\nrage \u003cspeed\u003e \u003ctime\u003e - make all zombies rage (0 - 2, 0 stops) (seconds)\nsendnames - toggles admin clients receiving debug name info",
+            "overloads": [
+              "ai"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "aiddebug": {
+    "requestName": "aiddebug",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "aiddebug",
+            "description": "Toggles AIDirector debug output.",
+            "help": null,
+            "overloads": [
+              "aiddebug"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "audio": {
+    "requestName": "audio",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "audio",
+            "description": "Watch audio stats",
+            "help": "Just type audio and hit enter for the info.\n",
+            "overloads": [
+              "audio"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "automove": {
+    "requestName": "automove",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "automove",
+            "description": "Player auto movement",
+            "help": "Parameters:\noff - disable\ngototarget - goto the target position\nsettarget - set target to current player position\nclearlookat - disable look at\nsetlookat - set look at to current player position\nline duration loops \u003cx\u003e \u003cy\u003e \u003cz\u003e - move to x y z (or target) over duration with loops (-loops will ping pong)\norbit duration loops \u003cx\u003e \u003cy\u003e \u003cz\u003e - circle around x y z (or target) over duration with loops (-loops will ping pong)\nrelative x z angle - move by x (left/right) and z (forward) and turn by angle per second",
+            "overloads": [
+              "automove"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "ban": {
+    "requestName": "ban",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "ban",
+            "description": "Manage ban entries",
+            "help": "Set/get ban entries. Bans will be automatically lifted after the given time.\nUsage:\n   ban add \u003cname / entity id / platform + platform user id\u003e \u003cduration\u003e \u003cduration unit\u003e [reason] [displayname]\n   ban remove \u003cname / entity id / platform + platform user id\u003e\n   ban list\nTo use the add/remove sub commands with a name or entity ID the player has\nto be online, the variant with platform and platform ID can be used for currently offline\nusers too.\nDuration unit is a modifier to the duration which specifies if in what unit\nthe duration is given. Valid units:\n    minute(s), hour(s), day(s), week(s), month(s), year(s)\nDisplayname can be used to put a descriptive name to the ban list in addition\nto the user's platform ID. If used on an online user the player name is used by default.\nExample: ban add madmole 2 minutes \"Time for a break\" \"Joel\"",
+            "overloads": [
+              "ban"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "bents": {
+    "requestName": "bents",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "bents",
+            "description": "Switches block entities on/off or counts them",
+            "help": "Use 'on' or 'off', or 'info' to count",
+            "overloads": [
+              "bents"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "buff": {
+    "requestName": "buff",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "buff",
+            "description": "Applies a buff to the local player",
+            "help": null,
+            "overloads": [
+              "buff"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "buffplayer": {
+    "requestName": "buffplayer",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "buffplayer",
+            "description": "Apply a buff to a player",
+            "help": "Usage:\n   buffplayer \u003cplayer name / steam id / entity id\u003e \u003cbuff name\u003e\nApply the given buff to the player given by the player name or entity id (as given by e.g. \"lpi\").",
+            "overloads": [
+              "buffplayer"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "camera": {
+    "requestName": "camera",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "camera",
+            "description": "Lock/unlock camera movement or load/save a specific camera position",
+            "help": "Usage:\n   1. cam save \u003cname\u003e [comment]\n   2. cam load \u003cname\u003e\n   3. cam list\n   4. cam lock\n   5. cam unlock\n1. Save the current player's position and camera view or the camera position\nand view if in detached mode under the given name. Optionally a more descriptive\ncomment can be supplied.\n2. Load the position and direction with the given name. If in detached camera\nmode the camera itself will be adjusted, otherwise the player will be teleported.\n3. List the saved camera positions.\n4/5. Lock/unlock the camera rotation. Can also be achieved with the \"Lock Camera\" key.",
+            "overloads": [
+              "camera",
+              "cam"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "challenges": {
+    "requestName": "challenges",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "challenges",
+            "description": "Complete certain challenges",
+            "help": "Usage:\n  1. challenges list [group name]\n  2. challenges complete all [\"redeem\"/\"r\"]\n  3. challenges complete first [\"redeem\"/\"r\"]\n  4. challenges complete challenge \u003cchallenge name\u003e [\"redeem\"/\"r\"]\n  5. challenges complete group \u003cgroup name\u003e [\"redeem\"/\"r\"]\n  6. challenges complete category \u003ccategory name\u003e [\"redeem\"/\"r\"]\n  7. challenges groups [category name]\nShort forms: \"list\"-\u003e\"l\", \"complete\"-\u003e\"c\", \"groups\"-\u003e\"g\".\n1. List challenges - optionally limited to a specific group.\n2. Set all challenges to completed.\n3. Set challenges of the first defined group to completed.\n4. Set given challenge to completed.\n5. Set all challenges in the given group to completed.\n6. Set all challenges in the given category to completed.\n2.-6. If the optional \"redeem\" or \"r\" is specified it will automatically redeem the completed challenges.\n7. List all groups - optionally limited to a specific category.",
+            "overloads": [
+              "challenges"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "chunkcache": {
+    "requestName": "chunkcache",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "chunkcache",
+            "description": "shows all loaded chunks in cache",
+            "help": null,
+            "overloads": [
+              "chunkcache",
+              "cc"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "chunkobserver": {
+    "requestName": "chunkobserver",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "chunkobserver",
+            "description": "Place a chunk observer on a given position.",
+            "help": "Usage:\n  1. chunkobserver add \u003cx\u003e \u003cz\u003e [size]\n  2. chunkobserver remove \u003cx\u003e \u003cz\u003e\n  3. chunkobserver list\n1. Place an observer on the chunk that contains the coordinate x/z.\n   Optionally specifying the box radius in chunks, defaulting to 1.\n2. Remove the observer from the chunk with the coordinate, if any.\n3. List all currently placed observers",
+            "overloads": [
+              "chunkobserver",
+              "co"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "chunkreset": {
+    "requestName": "chunkreset",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "chunkreset",
+            "description": "resets the specified chunks",
+            "help": "Usage:\n  1. chunkreset \u003cx1\u003e \u003cz1\u003e \u003cx2\u003e \u003cz2\u003e\n  2. chunkreset [f]\n1. Rebuilds the chunks that contain the given coordinate range.\n2. Can only be executed by a player in the ingame console! Behaviour depends on whether the\n   player is currently within the bounds of a POI:\n   Within a POI: The POI is reset.\n   Not within a POI: The chunk the player is in and the eight chunks around that one are\n     rebuilt. Not deco! Does not reload POI data!\n   d - regen deco\n   f - fully regenerates chunks (may cause double entities!)\n   u, utimed, ue - Unload chunks or entities\n   nq - Enqueue a 3x3 group of chunks centred around the player to be reset when unsynced, unless they are otherwise protected from the chunk reset system.",
+            "overloads": [
+              "chunkreset",
+              "cr"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "commandpermission": {
+    "requestName": "commandpermission",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "commandpermission",
+            "description": "Manage command permission levels",
+            "help": "Set/get permission levels required to execute a given command. Default\nlevel required for commands that are not explicitly specified is 0.\nUsage:\n   cp add \u003ccommand\u003e \u003clevel\u003e\n   cp remove \u003ccommand\u003e\n   cp list",
+            "overloads": [
+              "commandpermission",
+              "cp"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "config": {
+    "requestName": "config",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "config",
+            "description": "Import/export config data from/to external file",
+            "help": "Imports/exports config data from/to external file\nUsage:\n   config import [filename]\n   config export [filename]\n",
+            "overloads": [
+              "config"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "createwebuser": {
+    "requestName": "createwebuser",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "createwebuser",
+            "description": "Create a web dashboard user account",
+            "help": "",
+            "overloads": [
+              "createwebuser"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "creativemenu": {
+    "requestName": "creativemenu",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "creativemenu",
+            "description": "enables/disables the creativemenu",
+            "help": null,
+            "overloads": [
+              "creativemenu",
+              "cm"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "cvar": {
+    "requestName": "cvar",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "cvar",
+            "description": "Commands to set, get, track or list CVars.",
+            "help": "Usages of the commands. Add '-p \u003cplayerId\u003e' to any command to apply that command to a remote player. \ncvar get \u003ccvarName\u003e\ncvar set \u003ccvarName\u003e \u003cfloatValue\u003e\ncvar track \u003ccvarName\u003e \u003ctrue|false\u003e\ncvar list \u003csearchFilter\u003e",
+            "overloads": [
+              "cvar"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "damagereset": {
+    "requestName": "damagereset",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "damagereset",
+            "description": "Reset damage on all blocks in the currently loaded POI",
+            "help": "Usage:\r\n    damagereset [include doors]\r\nBy default the command only resets non-door blocks to full health. If the optional argument is \"true\" doors are also repaired.",
+            "overloads": [
+              "damagereset"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "debuff": {
+    "requestName": "debuff",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "debuff",
+            "description": "Removes a buff from the local player",
+            "help": null,
+            "overloads": [
+              "debuff"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "debuffplayer": {
+    "requestName": "debuffplayer",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "debuffplayer",
+            "description": "Remove a buff from a player",
+            "help": "Usage:\n   debuffplayer \u003cplayer name / steam id / entity id\u003e \u003cbuff name\u003e\nRemove the given buff from the player given by the player name or entity id (as given by e.g. \"lpi\").",
+            "overloads": [
+              "debuffplayer"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "debuggamestats": {
+    "requestName": "debuggamestats",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "debuggamestats",
+            "description": "GameStats commands",
+            "help": null,
+            "overloads": [
+              "debuggamestats"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "debugmenu": {
+    "requestName": "debugmenu",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "debugmenu",
+            "description": "enables/disables the debugmenu ",
+            "help": null,
+            "overloads": [
+              "debugmenu",
+              "dm"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "debugpanels": {
+    "requestName": "debugpanels",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "debugpanels",
+            "description": "allows usage of debug display panels (F3 menu) via command console",
+            "help": "debugpanels - toggle display, enabling also enables the debug menu\r\ndebugpanels [names] - set these panels active and disable all others, uses the short name of the panel (e.g. debugpanels Ply Ge Sp)",
+            "overloads": [
+              "debugpanels"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "debugshot": {
+    "requestName": "debugshot",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "debugshot",
+            "description": "Creates a screenshot with some debug information",
+            "help": "Usage:\n  debugshot [save perks]\nLets you make a screenshot that will have some generic info\non it and a custom text you can enter. Also stores a list\nof your current perk levels, buffs and cvars in a CSV file\nnext to it if the optional parameter 'save perks' is set to true",
+            "overloads": [
+              "debugshot",
+              "dbs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "debugweather": {
+    "requestName": "debugweather",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "debugweather",
+            "description": "Dumps internal weather state to the console.",
+            "help": null,
+            "overloads": [
+              "debugweather"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "decomgr": {
+    "requestName": "decomgr",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "decomgr",
+            "description": "\"decomgr\": Saves a debug texture visualising the DecoOccupiedMap.\n\"decomgr state\": Saves a debug texture visualising the location/state of all of the DecoObjects saved in decorations.7dtd.",
+            "help": null,
+            "overloads": [
+              "decomgr"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "discord": {
+    "requestName": "discord",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "discord",
+            "description": "Toggle Discord debug window",
+            "help": null,
+            "overloads": [
+              "discord",
+              "dc"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "dms": {
+    "requestName": "dms",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "dms",
+            "description": "Gives control over Dynamic Music functionality.",
+            "help": "No commands available for dms at the moment.",
+            "overloads": [
+              "dms"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "dynamicproperties": {
+    "requestName": "dynamicproperties",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "dynamicproperties",
+            "description": "Dynamic Properties debugging",
+            "help": null,
+            "overloads": [
+              "dynamicproperties",
+              "dprop"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "enablerendering": {
+    "requestName": "enablerendering",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "enablerendering",
+            "description": "Disable live map rendering",
+            "help": "Usage:\n  1. enablerendering\n  2. enablerendering \u003c0/1\u003e\n1. Show current state of renderer\n2. Disable/enable renderer\nNOTE: This command can only turn the renderer off, it can not turn it on if it is not enabled in the serverconfig!",
+            "overloads": [
+              "enablerendering"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "exception": {
+    "requestName": "exception",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "exception",
+            "description": "Throw an exception / log messages",
+            "help": null,
+            "overloads": [
+              "exception"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "exhausted": {
+    "requestName": "exhausted",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "exhausted",
+            "description": "Makes the player exhausted.",
+            "help": null,
+            "overloads": [
+              "exhausted"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "expiryinfo": {
+    "requestName": "expiryinfo",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "expiryinfo",
+            "description": "Prints location and expiry day/time for the next [x] chunks set to expire.",
+            "help": "expiryinfo [x]\nPrints location and expiry day/time for the next [x] chunks set to expire.",
+            "overloads": [
+              "expiryinfo"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "exportcurrentconfigs": {
+    "requestName": "exportcurrentconfigs",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "exportcurrentconfigs",
+            "description": "Exports the current game config XMLs",
+            "help": "Exports all game config XMLs as they are currently used (including applied\npatches from mods) to the folder \"Configs\" in the save folder of the game.\nIf run from the main menu it exports the XUi configs for the menu, if run\nfrom a game session will export all others.",
+            "overloads": [
+              "exportcurrentconfigs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "exportprefab": {
+    "requestName": "exportprefab",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "exportprefab",
+            "description": "Exports a prefab from a world area",
+            "help": "Usage:\n  exportprefab \u003cname\u003e \u003cx1\u003e \u003cy1\u003e \u003cz1\u003e \u003cx2\u003e \u003cy2\u003e \u003cz2\u003e [part]\nExports a prefab with the given name from a box defined by the coordinate pair of two corners\nIf the optional parameter 'part' is 'true' it will export into the 'Parts' subfolder of the prefabs folder",
+            "overloads": [
+              "exportprefab"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "floatingorigin": {
+    "requestName": "floatingorigin",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "floatingorigin",
+            "description": "",
+            "help": "",
+            "overloads": [
+              "floatingorigin",
+              "fo"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "fov": {
+    "requestName": "fov",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "fov",
+            "description": "Camera field of view",
+            "help": "",
+            "overloads": [
+              "fov"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "gamestage": {
+    "requestName": "gamestage",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "gamestage",
+            "description": "Shows the gamestage of the local player",
+            "help": null,
+            "overloads": [
+              "gamestage"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "getgamepref": {
+    "requestName": "getgamepref",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "getgamepref",
+            "description": "Gets game preferences",
+            "help": "Get all game preferences or only those matching a given substring",
+            "overloads": [
+              "getgamepref",
+              "gg"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "getgamestat": {
+    "requestName": "getgamestat",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "getgamestat",
+            "description": "Gets game stats",
+            "help": "Get all game stats or only those matching a given substring",
+            "overloads": [
+              "getgamestat",
+              "ggs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "getlogpath": {
+    "requestName": "getlogpath",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "getlogpath",
+            "description": "Get the path of the logfile the game currently writes to",
+            "help": null,
+            "overloads": [
+              "getlogpath",
+              "glp"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "getoptions": {
+    "requestName": "getoptions",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "getoptions",
+            "description": "Gets game options",
+            "help": "Get all game options on the local game",
+            "overloads": [
+              "getoptions"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "gettime": {
+    "requestName": "gettime",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "gettime",
+            "description": "Get the current game time",
+            "help": null,
+            "overloads": [
+              "gettime",
+              "gt"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "gfx": {
+    "requestName": "gfx",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "gfx",
+            "description": "Graphics commands",
+            "help": "Graphics commands:\naf \u003cvalue\u003e - anisotropic filtering off, on or force on (0, 1, 2)\ndr \u003cscale\u003e \u003cmin\u003e \u003cmax\u003e - set dynamic res scale (0 auto, .1 to 1 force, -1 for off) and min/max FPS\ndt \u003cvalue\u003e - toggle distant terrain or set value (0 or 1)\ndti \u003cvalue\u003e - set distant terrain instancing (0 or 1)\ndtmaxlod \u003cvalue\u003e - set distant terrain max LOD (0 to 5)\ndtpix \u003cvalue\u003e - set distant terrain pixel error (1 to 200)\nkey name \u003cvalue\u003e - set shader keyword (0 or 1)\npp name \u003cvalue\u003e - set postprocessing name (enable, ambientOcclusion (ao), auto exposure (ae), bloom, colorGrading (cg), etc.) to value (0 or 1)\nres \u003cwidth\u003e \u003cheight\u003e - set screen resolution\nresetrev - clear graphics preset revision\nskin \u003cvalue\u003e - set skin bone count (1, 2, 4, 5+ (all))\nst name \u003cvalue\u003e - set streaming name (budget (0 disables), discard, forceload, reduction) to value\ntex - show texture info\ntexbias \u003cvalue\u003e - set bias on all textures\ntexlimit \u003cvalue\u003e - set limit (0-x)\nviewdist \u003cvalue\u003e - Set view distance in chunks",
+            "overloads": [
+              "gfx"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "give": {
+    "requestName": "give",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "give",
+            "description": "give an item to a player (entity id or name)",
+            "help": "Give an item to a player by dropping it in front of that player\nUsage:\n   give \u003cname / entity id\u003e \u003citem name\u003e \u003camount\u003e\n   give \u003cname / entity id\u003e \u003citem name\u003e \u003camount\u003e \u003cquality\u003e\nEither pass the full name of a player or his entity id (given by e.g. \"lpi\").\nItem name has to be the exact name of an item as listed by \"listitems\".\nAmount is the number of instances of this item to drop (as a single stack).\nQuality is the quality of the dropped items for items that have a quality.",
+            "overloads": [
+              "give",
+              ""
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "givequest": {
+    "requestName": "givequest",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "givequest",
+            "description": "Gives a quest to the player or add to quest tier",
+            "help": "givequest commands:\ncomplete - complete all quests\ntieradd \u003cpoints\u003e - add the points to your quest tier (default is 10)\n\u003cquest name\u003e - gives you the quest",
+            "overloads": [
+              "givequest"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "giveself": {
+    "requestName": "giveself",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "giveself",
+            "description": "usage: giveself itemName [qualityLevel=6] [count=1] [putInInventory=false] [spawnWithMods=true]",
+            "help": null,
+            "overloads": [
+              "giveself"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "giveselfxp": {
+    "requestName": "giveselfxp",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "giveselfxp",
+            "description": "usage: giveselfxp 10000",
+            "help": "Give yourself experience\nUsage:\n   giveselfxp \u003cnumber\u003e [1 (use xp bonuses)]",
+            "overloads": [
+              "giveselfxp"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "givexp": {
+    "requestName": "givexp",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "givexp",
+            "description": "Give XP to a player",
+            "help": "Give a player experience points\nUsage:\n   givexp \u003centity id / player name / user id\u003e \u003cnumber\u003e",
+            "overloads": [
+              "givexp"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "graph": {
+    "requestName": "graph",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "graph",
+            "description": "Draws graphs on screen",
+            "help": "Graph commands:\n# - 0 removes all graphs, 1+ sets graphs height\ncvar \u003cname\u003e \u003ccount\u003e \u003cmax\u003e - show graph of a cvar, line count (0 hides), max graph value (default is 1)\ndr \u003ccount\u003e - show dynamic res graph, line count (0 hides)\nfps \u003ccount\u003e \u003cfps max\u003e - show fps graph, line count (0 hides), max graph value\npe \u003cname\u003e \u003ccount\u003e \u003cmax\u003e - show graph of a passive effect (healthmax..), line count (0 hides), max graph value (default is 1)\nspf \u003ccount\u003e \u003cspf max\u003e - show seconds per frame graph, line count (0 hides), max graph value\nstat \u003cname\u003e \u003ccount\u003e \u003cmax\u003e - show graph of a stat (health, stamina..) with line count (0 hides), max graph value (default is 1)\ntex \u003cname\u003e \u003ccount\u003e - show texture graph (mem or stream), line count (0 hides)",
+            "overloads": [
+              "graph"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "help": {
+    "requestName": "help",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "help",
+            "description": "Help on console and specific commands",
+            "help": "Usage:\r\n  1. help\r\n  2. help * \u003csearchstring\u003e\r\n  3. help \u003ccommand name\u003e\r\n  4. help output\r\n  5. help outputdetailed\r\n1. Show general help and list all available commands\r\n2. List commands where either the name or the description contains the given text\r\n3. Show help for the given command\r\n4. Write command list to log file\r\n5. Write command list with help texts to log file",
+            "overloads": [
+              "help"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "invalidatecaches": {
+    "requestName": "invalidatecaches",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "invalidatecaches",
+            "description": "Invalidate contents of web file caches",
+            "help": "TODO",
+            "overloads": [
+              "invalidatecaches"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "jds": {
+    "requestName": "jds",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "jds",
+            "description": "Server junk drone commands.",
+            "help": "JunkDrone help:\r\n[Server/Host Commands]\r\njds, log man - logs out drone manager data\r\nclear - clears drone data for player (ex. clear [PlayerName])\r\nunstuck [playerId] - triggers teleport to player\r\n",
+            "overloads": [
+              "jds"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "junkDrone": {
+    "requestName": "junkDrone",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "junkDrone",
+            "description": "Local player junk drone commands.",
+            "help": "JunkDrone help:\r\n[Client Commands]\r\njd, log - logs out local player owned drones\r\ndebuglog - toggles extended data logging\r\ndebugcam, dcam - toggles debug camera\r\nunstuck - triggers teleport to player\r\nfriendlyfire, ff - toggles friendly fire\r\n",
+            "overloads": [
+              "junkDrone",
+              "jd"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "kick": {
+    "requestName": "kick",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "kick",
+            "description": "Kicks user with optional reason. \"kick playername reason\"",
+            "help": null,
+            "overloads": [
+              "kick"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "kickall": {
+    "requestName": "kickall",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "kickall",
+            "description": "Kicks all users with optional reason. \"kickall reason\"",
+            "help": null,
+            "overloads": [
+              "kickall"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "kill": {
+    "requestName": "kill",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "kill",
+            "description": "Kill a given entity",
+            "help": "Kill a given entity.\nUsage:\n   1. kill \u003centity id\u003e\n   2. kill \u003cplayer name / steam id\u003e\n1. can be used to kill any entity that can be killed (zombies, players).\n2. can only be used to kill players.",
+            "overloads": [
+              "kill"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "killall": {
+    "requestName": "killall",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "killall",
+            "description": "Kill all entities",
+            "help": "Kills all matching entities (but never players)\nUsage:\n   killall (all enemies)\n   killall alive (all EntityAlive types except vehicles and turrets)\n   killall all (all types)",
+            "overloads": [
+              "killall"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "lights": {
+    "requestName": "lights",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "lights",
+            "description": "Light debugging",
+            "help": "Light debugging:\nv - toggle viewer enable\noff - viewer lights off\non - viewer lights on\nclearreg - clear registered\ndisableall - \nenableall - \nlist - list all lights\nlistfile - list all lights to Lights.txt\nliste - list lights effecting the player position\nlodviewdistance \u003cd\u003e - set the light LOD view distance (0 uses defaults)",
+            "overloads": [
+              "lights"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "listdlc": {
+    "requestName": "listdlc",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "listdlc",
+            "description": "List the available DLC and their current entitlement status.",
+            "help": "List DLCs and their entitlement states.\nUsage:\n   listdlc\n   dlcs\n",
+            "overloads": [
+              "listdlc",
+              "dlcs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "listents": {
+    "requestName": "listents",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "listents",
+            "description": "lists all entities",
+            "help": null,
+            "overloads": [
+              "listents",
+              "le"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "listgameobjects": {
+    "requestName": "listgameobjects",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "listgameobjects",
+            "description": "List all active game objects",
+            "help": null,
+            "overloads": [
+              "lgo",
+              "listgameobjects"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "listitems": {
+    "requestName": "listitems",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "listitems",
+            "description": "lists all items that contain the given substring",
+            "help": "List all available item names\nUsage:\n   1. listitems \u003csearchString\u003e\n   2. listitems *\n1. List only names that contain the given string.\n2. List all names.",
+            "overloads": [
+              "listitems",
+              "li"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "listplayerids": {
+    "requestName": "listplayerids",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "listplayerids",
+            "description": "Lists all players with their IDs for ingame commands",
+            "help": null,
+            "overloads": [
+              "listplayerids",
+              "lpi"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "listplayers": {
+    "requestName": "listplayers",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "listplayers",
+            "description": "lists all players",
+            "help": null,
+            "overloads": [
+              "listplayers",
+              "lp"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "listthreads": {
+    "requestName": "listthreads",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "listthreads",
+            "description": "lists all threads",
+            "help": null,
+            "overloads": [
+              "listthreads",
+              "lt"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "loggamestate": {
+    "requestName": "loggamestate",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "loggamestate",
+            "description": "Log the current state of the game",
+            "help": "Writes information on the current state of the game (like memory usage,\nentities) to the log file. The section will use the message parameter\nin its header.\nUsage:\n   loggamestate \u003cmessage\u003e [true/false]\nMessage is a string that will be included in the header of the generated\nlog section. The optional boolean parameter specifies if this command\nshould be run on the client (true) instead of the server (false) which\nis the default.",
+            "overloads": [
+              "loggamestate",
+              "lgs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "loglevel": {
+    "requestName": "loglevel",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "loglevel",
+            "description": "Telnet/Web only: Select which types of log messages are shown",
+            "help": "Select which types of log messages are shown on the connection\nyou enter this command. By default all log messages are printed\non every connection.\nUsage: loglevel \u003cloglevel name\u003e \u003ctrue/false\u003e\nLog levels: INF, WRN, ERR, EXC or ALL\nExample: Disable display of WRN messages: loglevel WRN false",
+            "overloads": [
+              "loglevel"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "loot": {
+    "requestName": "loot",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "loot",
+            "description": "Loot commands",
+            "help": "Loot commands:\ncontainer [name] \u003ccount\u003e \u003cstage\u003e \u003cabundance\u003e - list loot from named container for count times",
+            "overloads": [
+              "loot"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "mapdata": {
+    "requestName": "mapdata",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "mapdata",
+            "description": "Writes some map data to an image",
+            "help": "Usage:\nclear - reset player map data\nprefab - save prefabs to mapdata.png\nstart - save start points to mapdata.png",
+            "overloads": [
+              "mapdata"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "mem": {
+    "requestName": "mem",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "mem",
+            "description": "Prints memory information and unloads resources or changes garbage collector",
+            "help": "Commands:\nclean - cleanup memory pools\npools - list memory pools\ngc - show GC info\ngc alloc \u003cvalue\u003e - allocate k value of temp memory\ngc perm \u003cvalue\u003e - allocate k value of permanent memory\ngc clearperm - clear permanent allocations list\ngc c - run collection\ngc enable \u003cvalue\u003e - enable GC (0 or 1)\ngc inc \u003cvalue\u003e - run incremental collect for value ms\ngc inctime \u003cvalue\u003e - set incremental collect time in ms\nobj [mode] - list object pool (active or all)\nobjs - shrink object pool\nlog [interval] - start/stop logging of performance data to a file",
+            "overloads": [
+              "mem"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "memcl": {
+    "requestName": "memcl",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "memcl",
+            "description": "Prints memory information on client and calls garbage collector",
+            "help": "Commands:\nclean - cleanup memory pools\npools - list memory pools\ngc - show GC info\ngc alloc \u003cvalue\u003e - allocate k value of temp memory\ngc perm \u003cvalue\u003e - allocate k value of permanent memory\ngc clearperm - clear permanent allocations list\ngc c - run collection\ngc enable \u003cvalue\u003e - enable GC (0 or 1)\ngc inc \u003cvalue\u003e - run incremental collect for value ms\ngc inctime \u003cvalue\u003e - set incremental collect time in ms\nobj [mode] - list object pool (active or all)\nobjs - shrink object pool\nlog [interval] - start/stop logging of performance data to a file",
+            "overloads": [
+              "memcl"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "memprofile": {
+    "requestName": "memprofile",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "memprofile",
+            "description": "Toggles screen Memory Profiler UI",
+            "help": null,
+            "overloads": [
+              "memprofile",
+              "mprof"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "meshdatamanager": {
+    "requestName": "meshdatamanager",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "meshdatamanager",
+            "description": "Toggle the MeshDataManager",
+            "help": "mdm",
+            "overloads": [
+              "meshdatamanager",
+              "mdm"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "mumblepositionalaudio": {
+    "requestName": "mumblepositionalaudio",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "mumblepositionalaudio",
+            "description": "Mumble Positional Audio related tools",
+            "help": "Usage:\r\n  1. mpa enable\r\n  2. mpa disable\r\n  3. mpa reinit",
+            "overloads": [
+              "mumblepositionalaudio",
+              "mpa"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "na": {
+    "requestName": "na",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "na",
+            "description": "Test new HD stuff.",
+            "help": "Usage:\n  1. na\n",
+            "overloads": [
+              "na"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "networkclient": {
+    "requestName": "networkclient",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "networkclient",
+            "description": "Client side network commands",
+            "help": "Commands:\nlatencysim \u003cmin\u003e \u003cmax\u003e - sets simulation in millisecs (0 min disables)\npacketlosssim \u003cchance\u003e - sets simulation in percent (0 - 50)",
+            "overloads": [
+              "networkclient",
+              "netc"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "networkserver": {
+    "requestName": "networkserver",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "networkserver",
+            "description": "Server side network commands",
+            "help": "Commands:\nlatencysim \u003cmin\u003e \u003cmax\u003e - sets simulation in millisecs (0 min disables)\npacketlosssim \u003cchance\u003e - sets simulation in percent (0 - 50)",
+            "overloads": [
+              "networkserver",
+              "nets"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "newweathersurvival": {
+    "requestName": "newweathersurvival",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "newweathersurvival",
+            "description": "Enables/disables new weather survival",
+            "help": null,
+            "overloads": [
+              "newweathersurvival"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "occlusion": {
+    "requestName": "occlusion",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "occlusion",
+            "description": "Control OcclusionManager",
+            "help": "",
+            "overloads": [
+              "occlusion"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "openiddebug": {
+    "requestName": "openiddebug",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "openiddebug",
+            "description": "enable/disable OpenID debugging",
+            "help": null,
+            "overloads": [
+              "openiddebug"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "overridemaxplayercount": {
+    "requestName": "overridemaxplayercount",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "overridemaxplayercount",
+            "description": "Override Max Server Player Count",
+            "help": null,
+            "overloads": [
+              "overridemaxplayercount"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "permissionsallowed": {
+    "requestName": "permissionsallowed",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "permissionsallowed",
+            "description": "Apply a mask to permissions for testing purposes (respects the existing conditions though).",
+            "help": "pa i[nfo] - Prints info about the current permissions.\npa g[rant] \u003cMultiplayer|Communication|Crossplay|HostMultiplayer|All\u003e - Adds the given permissions to the current debug permissions mask (still respects existing permissions though).\npa rev[oke] \u003cMultiplayer|Communication|Crossplay|HostMultiplayer|All\u003e - Removes the given permissions from the current debug permissions mask.\npa res[olve] \u003cMultiplayer|Communication|Crossplay|HostMultiplayer|All\u003e \u003ctrue|false\u003e - Attempt to resolve the specified permissions. True allows prompting the user for input, otherwise it is a silent resolution.",
+            "overloads": [
+              "permissionsallowed",
+              "pallowed",
+              "pa"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "pirs": {
+    "requestName": "pirs",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "pirs",
+            "description": "tbd",
+            "help": "tbd",
+            "overloads": [
+              "pirs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "placeblockrotations": {
+    "requestName": "placeblockrotations",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "placeblockrotations",
+            "description": "Places all rotations of the currently held block",
+            "help": "Places the block you currently hold in your hand in all supported rotations. Starts\nat the current selection box and spreads out towards the right relative to the\ncurrent view direction of the player. Spaces out each block by 1m meter.",
+            "overloads": [
+              "placeblockrotations",
+              "pbr"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "placeblockshapes": {
+    "requestName": "placeblockshapes",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "placeblockshapes",
+            "description": "Places all shapes of the currently held variant helper block",
+            "help": "Places all variants of the helper block you currently hold in your hand. Starts\nat the current selection box and spreads out towards the right relative to the\ncurrent view direction of the player, starting a new row behind those every\n25 blocks. Spaces out each block by 1m meter.",
+            "overloads": [
+              "placeblockshapes",
+              "pbs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "playerOwnedEntities": {
+    "requestName": "playerOwnedEntities",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "playerOwnedEntities",
+            "description": "Lists player owned entities.",
+            "help": "Player Owned Entities help:\r\n[Client Commands]\r\npoe - Lists owned entities for the local player\r\n[Server/Host Commands]\r\npoe - Lists owned entities for all players online\r\n[PlayerName] - Lists the owned entities for passed online player (ex. poe [PlayerName])\r\n",
+            "overloads": [
+              "playerOwnedEntities",
+              "poe"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "playervisitmap": {
+    "requestName": "playervisitmap",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "playervisitmap",
+            "description": "Teleports the player through a rectangular area with optional memory logging",
+            "help": "\u003cx1\u003e \u003cz1\u003e \u003cx2\u003e \u003cz2\u003e : start teleporting through the area defined by the coorindates, should be such that x1 \u003c x2 and z1 \u003c z2\nstop : stop moving\nheight \u003cint\u003e : set the height off the ground to move the player to\nstepradius \u003cint\u003e : set distance between teleports in chunks, default is half the player's view dimension\nlogfile \u003cprefix\u003e : sets the file for the memory log to a temporary file with this prefix\nstepsperlog \u003cint\u003e : count of teleports between logs\ndumplog : dump the current log file to the game log",
+            "overloads": [
+              "playervisitmap",
+              "pvm"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "pois": {
+    "requestName": "pois",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "pois",
+            "description": "Switches distant POIs on/off",
+            "help": "Use on or off or only the command to toggle",
+            "overloads": [
+              "pois"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "poiwaypoints": {
+    "requestName": "poiwaypoints",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "poiwaypoints",
+            "description": "Adds waypoints for specified POIs.",
+            "help": "Adds waypoints for specified POIs.\n\npwp * - adds waypoints to all POIs in the world.\npwp \u003cname\u003e - adds waypoints to all POIs that starts with the name.\npwp \u003cdistance\u003e - adds waypoints to all POIs with the specified distance.\npwp * \u003cdistance\u003e - adds waypoints to all POIs within the specified distance.\npwp \u003cname\u003e \u003cdistance\u003e - adds waypoints to all POIs within the specified distance that start with the name.\npwp -clear - removes all POI waypoints.",
+            "overloads": [
+              "poiwaypoints",
+              "pwp"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "pplist": {
+    "requestName": "pplist",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "pplist",
+            "description": "Lists all PersistentPlayer data",
+            "help": null,
+            "overloads": [
+              "pplist"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "prefab": {
+    "requestName": "prefab",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "prefab",
+            "description": "Prefab commands",
+            "help": "Prefab commands:\nclear\nexport\nmerge\nload\nsave\nbulk [stop count] - Create imposters for ALL prefabs [stop after count]\nthumbnail\ndensity \u003cmatch density\u003e \u003cset density\u003e - set density of non air blocks that match",
+            "overloads": [
+              "prefab"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "prefabeditor": {
+    "requestName": "prefabeditor",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "prefabeditor",
+            "description": "Open the Prefab Editor",
+            "help": "prefabeditor",
+            "overloads": [
+              "prefabeditor",
+              "prefabedit",
+              "predit"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "prefabupdater": {
+    "requestName": "prefabupdater",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "prefabupdater",
+            "description": "",
+            "help": "Update prefabs for newer game builds.\nUsage:\n   1. prefabupdater loadxml \u003cxmlfile\u003e\n   2. prefabupdater clearxml\n   3. prefabupdater createmapping \u003cprefabname\u003e\n   4. prefabupdater loadtable [nametablefile]\n   5. prefabupdater unloadtables\n   6. prefabupdater updateblocks\n\n1. Load a blocks.xml that has the information about the prefabs to be\n   updated. If you have a modded XML first load that modded XML and\n   afterwards load the XML provided with the game for legacy prefabs.\n   The xmlfile-parameter can either be relative to the game's base\n   directory or an absolute path (for pre-Alpha 17 prefabs).\n2. Unload the data loaded with loadxml.\n3. Create a block mapping file for the given prefab(s). Accepts '*' as\n   wildcard (for pre-Alpha 17 prefabs).\n4. Load a block name mapping file. File path is relative to the game\n   directory if not specified as absolute path. If no file is given the\n   default file supplied with the game is loaded (BlockUpdates.csv). \n5. Unload the data loaded with loadtable.\n6. Update the block mappings in prefabs with the block name mapping table loaded by 4.",
+            "overloads": [
+              "prefabupdater"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "profilenetwork": {
+    "requestName": "profilenetwork",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "profilenetwork",
+            "description": "Writes network profiling information",
+            "help": null,
+            "overloads": [
+              "profilenetwork"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "profiler": {
+    "requestName": "profiler",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "profiler",
+            "description": "Utilities for collection profiling data from a variety of sources",
+            "help": "",
+            "overloads": [
+              "profiler"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "profiling": {
+    "requestName": "profiling",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "profiling",
+            "description": "Enable Unity profiling for 300 frames",
+            "help": null,
+            "overloads": [
+              "profiling"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "regionreset": {
+    "requestName": "regionreset",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "regionreset",
+            "description": "Resets chunks within a target region, or for the entire map.",
+            "help": "Usage: \n'rr' Shorthand for 'rr 0'; reset all unprotected chunks in all regions.\n'rr [mode]' Process all regions, resetting chunks based on the specified mode.\n'rr [x] [z]' Shorthand for 'rr [x] [z] 0'; reset all unprotected chunks in the specified region. E.g. 'rr 1 -2' will only affect region (1,-2).\n'rr [x] [z] [mode]' Process the specified region, resetting chunks based on the specified mode.\n\nModes: \n'0' - Default: All protection statuses are respected, including the dynamic protection of synced chunks around active player position(s).\n'1' - EXPERIMENTAL: Most protection statuses are respected, excepting the dynamic protection of synced chunks around active player position(s). Chunks whose *only* protection status is \"CurrentlySynced\" will be treated as unprotected and are subject to being reset.\n'2' - EXPERIMENTAL: All protection statuses are ignored. Every chunk in the target area will be reset whether protected or not.\n'3' - EXPERIMENTAL: Most protection statuses are ignored, excepting the dynamic protection of synced chunks around active player position(s). Chunks whose protection status includes \"CurrentlySynced\" will be treated as protected; all other chunks are subject to being reset.\n\nNotes: \n - Use with caution! This operation permanently deletes all saved data for affected chunks.\n - The experimental modes are provided for debug purposes only. They bypass various protections in order to force chunks to be reset. This can cause a significant hitch whilst any synced chunks are regenerated, and may cause other side effects such as failing to clean up nav markers for land claims, etc.",
+            "overloads": [
+              "regionreset",
+              "rr"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "reloadentityclasses": {
+    "requestName": "reloadentityclasses",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "reloadentityclasses",
+            "description": "reloads entityclasses xml data.",
+            "help": null,
+            "overloads": [
+              "reloadentityclasses",
+              "rec"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "removequest": {
+    "requestName": "removequest",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "removequest",
+            "description": "usage: removequest questname",
+            "help": null,
+            "overloads": [
+              "removequest"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "rendermap": {
+    "requestName": "rendermap",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "rendermap",
+            "description": "render the current map to a file",
+            "help": null,
+            "overloads": [
+              "rendermap"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "repairchunkdensity": {
+    "requestName": "repairchunkdensity",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "repairchunkdensity",
+            "description": "check and optionally fix densities of a chunk",
+            "help": "This command is used to check if the densities of blocks in a chunk match the actual block type.\nIf there is a mismatch it can lead to the chunk rendering incorrectly or not at all, typically\nindicated by the error message \"Failed setting triangles. Some indices are referencing out of\nbounds vertices.\". It can also fix such mismatches within a chunk.\nUsage:\n  1. repairchunkdensity \u003cx\u003e \u003cz\u003e\n  2. repairchunkdensity \u003cx\u003e \u003cz\u003e fix\n1. Just checks the chunk and prints mismatched to the server log. x and z are the coordinates of any\n   block within the chunk to check.\n2. Repairs any mismatch found in the chunk.",
+            "overloads": [
+              "repairchunkdensity",
+              "rcd"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "reply": {
+    "requestName": "reply",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "reply",
+            "description": "send a message to  the player who last sent you a PM",
+            "help": "Usage:\n   reply \u003cmessage\u003e\nSend the given message to the user you last received a PM from.",
+            "overloads": [
+              "reply",
+              "re"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "resetallstats": {
+    "requestName": "resetallstats",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "resetallstats",
+            "description": "Resets all achievement stats (and achievements when parameter is true)",
+            "help": null,
+            "overloads": [
+              "resetallstats"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "saveworld": {
+    "requestName": "saveworld",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "saveworld",
+            "description": "Saves the world manually.",
+            "help": null,
+            "overloads": [
+              "saveworld",
+              "sa"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "say": {
+    "requestName": "say",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "say",
+            "description": "Sends a message to all connected clients",
+            "help": null,
+            "overloads": [
+              "say"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "sayplayer": {
+    "requestName": "sayplayer",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "sayplayer",
+            "description": "send a message to a single player",
+            "help": "Usage:\n   pm \u003cplayer name / steam id / entity id\u003e \u003cmessage\u003e\nSend a PM to the player given by the player name or entity id (as given by e.g. \"lpi\").",
+            "overloads": [
+              "sayplayer",
+              "pm"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "sdcs": {
+    "requestName": "sdcs",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "sdcs",
+            "description": "Control entity sex, race, and variant",
+            "help": "Change a player's sex, race, and variant:\n  Usage:\n    sdcs                            : Show current archetype values\n    sdcs \u003csex|race|variant\u003e \u003cvalue\u003e : Set the specified value\n  Examples :\n    sdcs sex \u003cmale|female\u003e\n    sdcs race \u003cwhite|black|asian|native\u003e\n    sdcs variant \u003c1|2|3|4\u003e",
+            "overloads": [
+              "sdcs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "setgamepref": {
+    "requestName": "setgamepref",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "setgamepref",
+            "description": "sets a game pref",
+            "help": null,
+            "overloads": [
+              "setgamepref",
+              "sg"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "setgamestat": {
+    "requestName": "setgamestat",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "setgamestat",
+            "description": "sets a game stat",
+            "help": null,
+            "overloads": [
+              "setgamestat",
+              "sgs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "settargetfps": {
+    "requestName": "settargetfps",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "settargetfps",
+            "description": "Set the target FPS the game should run at (upper limit)",
+            "help": "Set the target FPS the game should run at (upper limit).\nUsage:\n  1. settargetfps\n  2. settargetfps \u003cfps\u003e\n1. gets the current target FPS.\n2. sets the target FPS to the given integer value, 0 disables the FPS limiter.",
+            "overloads": [
+              "settargetfps"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "sette": {
+    "requestName": "sette",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "sette",
+            "description": "Sets the UseTriggerEffects flag, if true controller trigger effects are to be used",
+            "help": null,
+            "overloads": [
+              "sette"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "settempunit": {
+    "requestName": "settempunit",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "settempunit",
+            "description": "Set the current temperature units.",
+            "help": "Set the current temperature units.\nUsage:\n  1. settempunit F\n  2. settempunit C\n1. sets the temperature unit to Fahrenheit.\n2. sets the temperature unit to Celsius.\n",
+            "overloads": [
+              "settempunit",
+              "stu"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "settime": {
+    "requestName": "settime",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "settime",
+            "description": "Set the current game time",
+            "help": "Set the current game time.\nUsage:\n  1. settime day\n  2. settime night\n  3. settime \u003ctime\u003e\n  4. settime \u003cday\u003e \u003chour\u003e \u003cminute\u003e\n1. sets the time to day 1, 12:00 pm.\n2. sets the time to day 2, 12:00 am.\n3. sets the time to the given value. 1000 is one hour.\n4. sets the time to the given day/hour/minute values.",
+            "overloads": [
+              "settime",
+              "st"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "setwatervalue": {
+    "requestName": "setwatervalue",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "setwatervalue",
+            "description": "Sets the water value for all flow-permitting blocks within the current selection area, specified in the range of 0 (empty) to 1 (full).",
+            "help": "'swv [0.0 - 1.0]' Sets water value between empty (0.0) and full (1.0) for all flow-permitting blocks within the current selection bounds. \nE.g. 'swv 0.5' will set all affected blocks to be half-full. \nBlocks which do not permit flow are unchanged.",
+            "overloads": [
+              "setwatervalue",
+              "swv"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "show": {
+    "requestName": "show",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "show",
+            "description": "Shows custom layers of rendering.",
+            "help": null,
+            "overloads": [
+              "show"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "showClouds": {
+    "requestName": "showClouds",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "showClouds",
+            "description": "Artist command to show one layer of clouds.",
+            "help": "type \"showClouds myCloudTexture\" where \"myCloudTexture\" is the name of the texture you want to see.\ntype \"showClouds\" to turn off this view.\nNote: cloud textures MUST be locasted at ./resources/textures/environment/spectrums/default\n",
+            "overloads": [
+              "showClouds"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "showalbedo": {
+    "requestName": "showalbedo",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "showalbedo",
+            "description": "enables/disables display of albedo in gBuffer",
+            "help": null,
+            "overloads": [
+              "showalbedo",
+              "albedo"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "showchunkdata": {
+    "requestName": "showchunkdata",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "showchunkdata",
+            "description": "shows some date of the current chunk",
+            "help": null,
+            "overloads": [
+              "showchunkdata",
+              "sc"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "showhits": {
+    "requestName": "showhits",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "showhits",
+            "description": "Show hit entity info",
+            "help": "Commands:\ndamage - toggle damage numbers\nhits \u003ctime\u003e \u003csize\u003e - toggle hits",
+            "overloads": [
+              "showhits"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "shownexthordetime": {
+    "requestName": "shownexthordetime",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "shownexthordetime",
+            "description": "Displays the wandering horde time",
+            "help": null,
+            "overloads": [
+              "shownexthordetime"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "shownormals": {
+    "requestName": "shownormals",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "shownormals",
+            "description": "enables/disables display of normal maps in gBuffer",
+            "help": null,
+            "overloads": [
+              "shownormals",
+              "norms"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "showspecular": {
+    "requestName": "showspecular",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "showspecular",
+            "description": "enables/disables display of specular values in gBuffer",
+            "help": null,
+            "overloads": [
+              "showspecular",
+              "spec"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "showswings": {
+    "requestName": "showswings",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "showswings",
+            "description": "Show melee swing arc rays",
+            "help": null,
+            "overloads": [
+              "showswings"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "showtriggers": {
+    "requestName": "showtriggers",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "showtriggers",
+            "description": "Sets the visibility of the block triggers.",
+            "help": null,
+            "overloads": [
+              "showtriggers"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "shutdown": {
+    "requestName": "shutdown",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "shutdown",
+            "description": "shuts down the game",
+            "help": null,
+            "overloads": [
+              "shutdown"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "sleep": {
+    "requestName": "sleep",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "sleep",
+            "description": "Makes the main thread sleep for the given number of seconds (allows decimals)",
+            "help": null,
+            "overloads": [
+              "sleep"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "sleeper": {
+    "requestName": "sleeper",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "sleeper",
+            "description": "Drawn or list sleeper info",
+            "help": "draw - toggle drawing for current player prefab\nlist - list for current player prefab\nlistall - list all\nr - reset all",
+            "overloads": [
+              "sleeper"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "smoothpoi": {
+    "requestName": "smoothpoi",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "smoothpoi",
+            "description": "Smoothens the POI",
+            "help": "Usage:\n  smoothpoi [mode] [passes]\nMode defaults to \"land\", also accepts \"air\".\nPasses defaults to 1.\nSmoothed area can be restricted with the blue selection.",
+            "overloads": [
+              "smoothpoi"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "smoothworldall": {
+    "requestName": "smoothworldall",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "smoothworldall",
+            "description": "Applies some batched smoothing commands.",
+            "help": "Usage:\n  1. smoothworldall [passes] [noregion]\n  2. smoothworldall \u003cworldname\u003e [passes] [noregion]\nArguments:\n  passes: Integer number, overriding the default of 5 passes\n  noregion: If passed in literally it will write the resulting heightmap\n            to the dtm.raw instead of updating all of the worlds region files\n  worldname: If specified the command is applied to the given world instead of the currently loaded world",
+            "overloads": [
+              "smoothworldall",
+              "swa"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spawnairdrop": {
+    "requestName": "spawnairdrop",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spawnairdrop",
+            "description": "Spawns an air drop",
+            "help": null,
+            "overloads": [
+              "spawnairdrop"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spawnentity": {
+    "requestName": "spawnentity",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spawnentity",
+            "description": "spawns an entity",
+            "help": "se playerId entity# \u003ccount\u003e - spawn around playerId (0 for local) entity# of count (1 to 100)",
+            "overloads": [
+              "spawnentity",
+              "se"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spawnentityat": {
+    "requestName": "spawnentityat",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spawnentityat",
+            "description": "Spawns an entity at a give position",
+            "help": "Usage:\n  1. spawnentityat\n  2. spawnentityat \u003centityidx\u003e \u003cx\u003e \u003cy\u003e \u003cz\u003e\n  3. spawnentityat \u003centityidx\u003e \u003cx\u003e \u003cy\u003e \u003cz\u003e \u003ccount\u003e\n  4. spawnentityat \u003centityidx\u003e \u003cx\u003e \u003cy\u003e \u003cz\u003e \u003ccount\u003e \u003crotX\u003e \u003crotY\u003e \u003crotZ\u003e\n  5. spawnentityat \u003centityidx\u003e \u003cx\u003e \u003cy\u003e \u003cz\u003e \u003ccount\u003e \u003crotX\u003e \u003crotY\u003e \u003crotZ\u003e \u003cstepX\u003e \u003cstepY\u003e \u003cstepZ\u003e\n  6. spawnentityat \u003centityidx\u003e \u003cx\u003e \u003cy\u003e \u003cz\u003e \u003ccount\u003e \u003crotX\u003e \u003crotY\u003e \u003crotZ\u003e \u003cstepX\u003e \u003cstepY\u003e \u003cstepZ\u003e \u003cspawnerType\u003e\n1. Lists the known entity class names\n2. Spawns the entity with the given class name at the given coordinates\n3. As 2. but spawns \u003ccount\u003e instances of that entity type\n4. As 3. but also specifies the rotation of the spawned entities\n5. As 4. but also specify the step distance between entities\n6. As 5. but also specify the spawner source of the entity (Dynamic, StaticSpawner, Biome)",
+            "overloads": [
+              "spawnentityat",
+              "sea"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spawnscouts": {
+    "requestName": "spawnscouts",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spawnscouts",
+            "description": "Spawns zombie scouts",
+            "help": "Spawn scouts near a player.Usage:\n   1. spawnscouts\n   2. spawnscouts \u003cplayer name/steam id/entity id\u003e\n   3. spawnscouts \u003cx\u003e \u003cy\u003e \u003cz\u003e\n1. Will spawn the scouts near the issuing player. Can only be used by a player, not a remote console.\n2. Spawn scouts near the given player.\n3. Spawn scouts at the given coordinates.",
+            "overloads": [
+              "spawnscouts"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spawnsupplycrate": {
+    "requestName": "spawnsupplycrate",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spawnsupplycrate",
+            "description": "Spawns a supply crate where the player is",
+            "help": null,
+            "overloads": [
+              "spawnsupplycrate"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spawnwandering": {
+    "requestName": "spawnwandering",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spawnwandering",
+            "description": "Spawn wandering entities",
+            "help": "Commands:\nb - bandits\nh - horde",
+            "overloads": [
+              "spawnwandering",
+              "spawnw"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spectatormode": {
+    "requestName": "spectatormode",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spectatormode",
+            "description": "enables/disables spectator mode",
+            "help": null,
+            "overloads": [
+              "spectator",
+              "spectatormode",
+              "sm"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "spectrum": {
+    "requestName": "spectrum",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "spectrum",
+            "description": "Force a particular lighting spectrum.",
+            "help": "spectrum \u003cAuto, Biome, BloodMoon, Foggy, Rainy, Stormy, Snowy\u003e\n",
+            "overloads": [
+              "spectrum"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "squarespiral": {
+    "requestName": "squarespiral",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "squarespiral",
+            "description": "Move the player chunk by chunk in a square spiral. Will start off paused and required un-pausing. Also gives god mode and flying at the start.",
+            "help": "\u003cs[tart] [chunks per auto-pause]|p[ause]|r[eset]|waitmode [minimal|meshes|displayed]\u003e",
+            "overloads": [
+              "squarespiral",
+              "sqs"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "stab": {
+    "requestName": "stab",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "stab",
+            "description": "stability",
+            "help": "",
+            "overloads": [
+              "stab"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "starve": {
+    "requestName": "starve",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "starve",
+            "description": "Makes the player starve (optionally specify the amount of food you want to have in percent).",
+            "help": null,
+            "overloads": [
+              "starve",
+              "hungry",
+              "food"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "switchview": {
+    "requestName": "switchview",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "switchview",
+            "description": "Switch between fpv and tpv",
+            "help": null,
+            "overloads": [
+              "switchview",
+              "sv"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "teleport": {
+    "requestName": "teleport",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "teleport",
+            "description": "Teleport the local player",
+            "help": "Usage:\n  1. teleport \u003cx\u003e \u003cy\u003e \u003cz\u003e [view direction]\n  2. teleport \u003cx\u003e \u003cz\u003e [view direction]\n  3. teleport \u003ctarget steam id / player name / entity id\u003e\n  4. teleport offset \u003cinc x\u003e \u003cinc y\u003e \u003cinc z\u003e\nFor 1. and 2.: view direction is an optional specifier to select the direction you want to look into\nafter teleporting. This can be either of n, ne, e, se, s, sw, w, nw or north, northeast, etc.\n1. Teleports the local player to the specified location. Use y = -1 to spawn on ground.\n2. Same as 1 but always spawn on ground.\n3. Teleports to the location of the given player\n4. Teleport the local player to the position calculated by his current position and the given offsets",
+            "overloads": [
+              "teleport",
+              "tp"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "teleportplayer": {
+    "requestName": "teleportplayer",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "teleportplayer",
+            "description": "Teleport a given player",
+            "help": "Usage:\n  1. teleportplayer \u003cuser id / player name / entity id\u003e \u003cx\u003e \u003cy\u003e \u003cz\u003e [view direction]\n  2. teleportplayer \u003cuser id / player name / entity id\u003e \u003ctarget user id / player name / entity id\u003e\n1. Teleports the player given by his UserID, player name or entity id (as given by e.g. \"lpi\")\n   to the specified location. Use y = -1 to spawn on ground. Optional argument view direction\n   allows you to speify a direction you want to look in after teleporting. This can be either\n   of n, ne, e, se, s, sw, w, nw or north, northeast, etc.\n2. As 1, but destination given by another (online) player",
+            "overloads": [
+              "teleportplayer",
+              "tele"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "teleportpoirelative": {
+    "requestName": "teleportpoirelative",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "teleportpoirelative",
+            "description": "Teleport the local player within the current POI",
+            "help": "\t\t\tUsage:\n  1. teleportpoirelative \u003cx\u003e \u003cy\u003e \u003cz\u003e [view direction]\n1. Teleports the local player to the specified location relative to the bounds of the current POI. View\ndirection is an optional specifier to select the direction you want to look into after teleporting. This\ncan be either of n, ne, e, se, s, sw, w, nw or north, northeast, etc.",
+            "overloads": [
+              "teleportpoirelative",
+              "tppr"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "testCensor": {
+    "requestName": "testCensor",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "testCensor",
+            "description": "Censorship testing toggle.",
+            "help": null,
+            "overloads": [
+              "testCensor",
+              "tcc"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "testCoverSystem": {
+    "requestName": "testCoverSystem",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "testCoverSystem",
+            "description": "CoverSystem queries.",
+            "help": null,
+            "overloads": [
+              "tcs",
+              "testCoverSystem"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "testDismemberment": {
+    "requestName": "testDismemberment",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "testDismemberment",
+            "description": "Dismemberment testing toggle.",
+            "help": null,
+            "overloads": [
+              "testDismemberment",
+              "tds"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "testloop": {
+    "requestName": "testloop",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "testloop",
+            "description": "Test code in a loop",
+            "help": "Commands:\np - player",
+            "overloads": [
+              "testloop"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "testoccreport": {
+    "requestName": "testoccreport",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "testoccreport",
+            "description": "Test the occlusion manager self reporting to backtrace, requires Backtrace to be enabled at build creation",
+            "help": null,
+            "overloads": [
+              "testoccreport",
+              "toccr"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "thirsty": {
+    "requestName": "thirsty",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "thirsty",
+            "description": "Makes the player thirsty (optionally specify the amount of water you want to have in percent).",
+            "help": null,
+            "overloads": [
+              "thirsty"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "tls": {
+    "requestName": "tls",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "tls",
+            "description": "Spams the log with until stopped",
+            "help": "Usage:\r\n  1. tls \u003cN\u003e ['second']\r\n  2. tls stop\r\n1. Start spamming with N messages per frame - or per second if the second argument is the word 'second'\r\n2. Stop spamming",
+            "overloads": [
+              "tls"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "tppoi": {
+    "requestName": "tppoi",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "tppoi",
+            "description": "Open POI Teleporter window",
+            "help": null,
+            "overloads": [
+              "tppoi"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "traderarea": {
+    "requestName": "traderarea",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "traderarea",
+            "description": "...",
+            "help": null,
+            "overloads": [
+              "traderarea"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "transformdebug": {
+    "requestName": "transformdebug",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "transformdebug",
+            "description": "Transform Debugging",
+            "help": "tdbg - Toggle Transform Debugging",
+            "overloads": [
+              "transformdebug",
+              "tdbg"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "trees": {
+    "requestName": "trees",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "trees",
+            "description": "Switches trees on/off",
+            "help": "trees - toggles\ntrees \u003cvalue\u003e - (off, on)",
+            "overloads": [
+              "trees"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "twitch": {
+    "requestName": "twitch",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "twitch",
+            "description": "usage: twitch \u003ccommand\u003e \u003cparams\u003e",
+            "help": null,
+            "overloads": [
+              "twitch"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "twitchadmin": {
+    "requestName": "twitchadmin",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "twitchadmin",
+            "description": "Twitch Admin Commands",
+            "help": "Usage:\n  1. twitchadmin cleanup\n  2. twitchadmin export\n  3. twitchadmin import\n  4. twitchadmin pointtotals\n  5. twitchadmin reset all both\n  6. twitchadmin reset all pp\n  7. twitchadmin reset all sp\n1. Cleans up duplicate Viewer Data.\n2. Exports all the users to a comma delimited twitchusers.xml\n3. Imports all the users to a comma delimited twitchusers.xml\n4. Prints out the totals for PP, SP, and BitCredit\n5. Clears all PP and SP for all users\n6. Clears all PP for all users\n7. Clears all SP for all users",
+            "overloads": [
+              "twitchadmin"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "uioptions": {
+    "requestName": "uioptions",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "uioptions",
+            "description": "Allows overriding of some options that control the presentation of the UI",
+            "help": "Commands:\noptionsvideowindow \u003cvalue\u003e - set the options window to use for video settings\n[no parameters] - toggles video settings between simplified and detailed modes\n",
+            "overloads": [
+              "uioptions",
+              "uio"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "version": {
+    "requestName": "version",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "version",
+            "description": "Get the currently running version of the game and loaded mods",
+            "help": null,
+            "overloads": [
+              "version"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "versionui": {
+    "requestName": "versionui",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "versionui",
+            "description": "Toggle version number display",
+            "help": null,
+            "overloads": [
+              "versionui"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "visitmap": {
+    "requestName": "visitmap",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "visitmap",
+            "description": "Visit an given area of the map. Optionally run the density check on each visited chunk.",
+            "help": "Usage:\n  1. visitmap \u003cx1\u003e \u003cz1\u003e \u003cx2\u003e \u003cz2\u003e [check]\n  2. visitmap full [check]\n  3. visitmap stop\n1. Start visiting the map in the rectangle specified with the two edges defined by\n   coordinate pairs x1/z1 and x2/z2. If the parameter \"check\" is added each visited\n   chunk will be checked for density issues.\n2. Start visiting the full map. If the parameter \"check\" is added each visited\n   chunk will be checked for density issues.\n3. Stop the current visitmap run.",
+            "overloads": [
+              "visitmap"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "visitpois": {
+    "requestName": "visitpois",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "visitpois",
+            "description": "",
+            "help": "\u003cs[tart] [pois per auto-pause]|p[ause]|r[eset]\u003e",
+            "overloads": [
+              "vpois",
+              "visitpois"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "weather": {
+    "requestName": "weather",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "weather",
+            "description": "Control weather settings",
+            "help": "Clouds [0 to 1 (-1 defaults)]\nFog [density (-1 defaults)] [start] [end]\nFogColor [red (-1 defaults)] [green] [blue]\nRain [0 to 1 (-1 defaults)]\nSnowFall [0 to 1 (-1 defaults)]\nTemp [-99 to 101 (\u003c -99 defaults)]\nWind [0 to 200 (-1 defaults)]\nSimRand [0 to 1 (-1 defaults)]\nStorm \u003cduration hours\u003e \u003cbiome name\u003e\nDefaults or d\n",
+            "overloads": [
+              "weather"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "weathersurvival": {
+    "requestName": "weathersurvival",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "weathersurvival",
+            "description": "Enables/disables weather survival",
+            "help": null,
+            "overloads": [
+              "weathersurvival"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "webpermission": {
+    "requestName": "webpermission",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "webpermission",
+            "description": "Manage web permission levels",
+            "help": "Set/get permission levels required to access a given web functionality. Default\nlevel required for functions that are not explicitly specified is 0.\nUsage:\n   1. webpermission add \u003cwebfunction\u003e \u003cmethod\u003e \u003clevel\u003e\n   2. webpermission remove \u003cwebfunction\u003e\n   3. webpermission list [includedefaults]\n1. Add a new override (or replace the existing one) for the given function. Method must be a HTTP method (like 'GET', 'POST') supported by the function or the keyword 'global' for a per-API permission level. Use the permission level keyword 'inherit' to use the per-API permission level for the specified method instead of a custom one for just the single method.\n2. Removes any custom overrides for the specified function.\n3. List all permissions. Pass in 'true' for the includedefaults argument to also show functions that do not have a custom override defined.",
+            "overloads": [
+              "webpermission"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "webtokens": {
+    "requestName": "webtokens",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "webtokens",
+            "description": "Manage web tokens",
+            "help": "Set/get webtoken permission levels. A level of 0 is maximum permission.\nUsage:\n   webtokens add \u003ctokenname\u003e \u003ctokensecret\u003e \u003clevel\u003e\n   webtokens remove \u003ctokenname\u003e\n   webtokens list",
+            "overloads": [
+              "webtokens"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "whitelist": {
+    "requestName": "whitelist",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "whitelist",
+            "description": "Manage whitelist entries",
+            "help": "Set/get whitelist entries. Note: If there is at least one entry on the list\nno user who is not on this list will be able to join the server!\nUsage:\n   whitelist add \u003cname / entity id / platform + platform user id\u003e [displayname]\n   whitelist remove \u003cname / entity id / platform + platform user id\u003e\n   whitelist addgroup \u003csteam id\u003e [displayname]\n   whitelist removegroup \u003csteam id\u003e\n   whitelist list\nTo use the add/remove sub commands with a name or entity ID the player has\nto be online, the variant with platform and platform ID can be used for currently offline\nusers too.\nDisplayname can be used to put a descriptive name to the ban list in addition\nto the user's platform ID. If used on an online user the player name is used by default.",
+            "overloads": [
+              "whitelist"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "workstationmaterials": {
+    "requestName": "workstationmaterials",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "workstationmaterials",
+            "description": "Set material counts on workstations.",
+            "help": "Set the material count for the given material slot on the currently opened workstation\nto the given value.\nUsage:\n   wsmats \u003cslot\u003e \u003ccount\u003e\nSlot specifies the index of the material slot in the workstation, e.g. 0 on forge is iron, or \"all\"\nto change all slots at once.Count defines to what you want to set the material count with a maximum of 30000.\n",
+            "overloads": [
+              "wsmats",
+              "workstationmaterials"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  },
+  "xui": {
+    "requestName": "xui",
+    "response": {
+      "data": {
+        "commands": [
+          {
+            "allowed": true,
+            "command": "xui",
+            "description": "Execute XUi operations",
+            "help": "Usage:\n   xui open \u003cwindow group name\u003e [instance] [closeOthers]\n   xui close \u003cwindow group name\u003e [instance]\n   xui reload [window group name] [instance]\n   xui list \u003c\"instances\" / \"windows\"\u003e [instance]\n",
+            "overloads": [
+              "xui"
+            ]
+          }
+        ]
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,912 @@
+{
+  "data": [
+    {
+      "command": "AccDecay",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "admin",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "AdminSpeed",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "agemap",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "ai",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "aiddebug",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "audio",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "automove",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "ban",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "bents",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "buff",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "buffplayer",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "camera",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "challenges",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "chunkcache",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "chunkobserver",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "chunkreset",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "commandpermission",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "config",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "createwebuser",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "creativemenu",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "cvar",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "damagereset",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "debuff",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "debuffplayer",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "debuggamestats",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "debugmenu",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "debugpanels",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "debugshot",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "debugweather",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "decomgr",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "discord",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "dms",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "Dynamic mesh",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "Dynamic mesh debug",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "dynamicproperties",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "enablerendering",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "exception",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "exhausted",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "expiryinfo",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "exportcurrentconfigs",
+      "default": false,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "exportprefab",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "floatingorigin",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "ForceEventDate",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "fov",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "gamestage",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "getgamepref",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "getgamestat",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "getlogpath",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "getoptions",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "gettime",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "gfx",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "give",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "givequest",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "giveself",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "giveselfxp",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "givexp",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "graph",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "help",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "invalidatecaches",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "jds",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "junkDrone",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "kick",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "kickall",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "kill",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "killall",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "lgo",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "lights",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "listdlc",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "listents",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "listitems",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "listplayerids",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "listplayers",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "listthreads",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "loggamestate",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "loglevel",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "loot",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "mapdata",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "mem",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "memcl",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "memprofile",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "meshdatamanager",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "mumblepositionalaudio",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "na",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "networkclient",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "networkserver",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "newweathersurvival",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "occlusion",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "openiddebug",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "overridemaxplayercount",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "permissionsallowed",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "pirs",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "placeblockrotations",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "placeblockshapes",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "playerOwnedEntities",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "playervisitmap",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "pois",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "poiwaypoints",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "pplist",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "prefab",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "prefabeditor",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "prefabupdater",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "profilenetwork",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "profiler",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "profiling",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "regionreset",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "reloadentityclasses",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "removequest",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "rendermap",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "repairchunkdensity",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "reply",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "resetallstats",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "saveworld",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "say",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "sayplayer",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "ScreenEffect",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "sdcs",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "setgamepref",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "setgamestat",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "settargetfps",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "sette",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "settempunit",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "settime",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "setwatervalue",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "show",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "showalbedo",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "showchunkdata",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "showClouds",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "showhits",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "shownexthordetime",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "shownormals",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "showspecular",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "showswings",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "showtriggers",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "shutdown",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "sleep",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "sleeper",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "smoothpoi",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "smoothworldall",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spawnairdrop",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spawnentity",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spawnentityat",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spawnscouts",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "SpawnScreen",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spawnsupplycrate",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spawnwandering",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spectator",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "spectrum",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "squarespiral",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "stab",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "starve",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "switchview",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "SystemInfo",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "tcs",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "teleport",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "teleportplayer",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "teleportpoirelative",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "testCensor",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "testDismemberment",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "testloop",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "testoccreport",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "thirsty",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "tls",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "tppoi",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "traderarea",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "transformdebug",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "trees",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "twitch",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "twitchadmin",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "uioptions",
+      "default": true,
+      "permissionLevel": 1000
+    },
+    {
+      "command": "version",
+      "default": false,
+      "permissionLevel": 1
+    },
+    {
+      "command": "versionui",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "visitmap",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "vpois",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "weather",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "weathersurvival",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "webpermission",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "webtokens",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "whitelist",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "wsmats",
+      "default": true,
+      "permissionLevel": 0
+    },
+    {
+      "command": "xui",
+      "default": true,
+      "permissionLevel": 0
+    }
+  ],
+  "meta": {
+    "serverTime": "2000-01-01T00:00:00Z"
+  }
+}

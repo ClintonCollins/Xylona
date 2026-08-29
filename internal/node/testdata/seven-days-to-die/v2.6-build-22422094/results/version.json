@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/api/command",
+    "headerNames": [
+      "Accept",
+      "Content-Type",
+      "X-SDTD-API-SECRET",
+      "X-SDTD-API-TOKENNAME"
+    ],
+    "body": {
+      "command": "version",
+      "format": "Full"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "data": {
+        "command": "version",
+        "parameters": "",
+        "result": "Game version: V 2.6 (b14) Compatibility Version: V 2.6\r\nMod TFP_Harmony: 192.0.2.1\r\nMod TFP_CommandExtensions: 192.0.2.1\r\nMod TFP_MapRendering: 192.0.2.1\r\nMod TFP_WebServer: 192.0.2.1\r\nMod TFP_MarkersExample: 192.0.2.1\r\n"
+      },
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  }
+}

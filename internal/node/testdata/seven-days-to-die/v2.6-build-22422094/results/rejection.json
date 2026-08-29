@@ -1,0 +1,30 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/api/userpermissions/user/{invalidPlayerId}",
+    "headerNames": [
+      "Accept",
+      "Content-Type",
+      "X-SDTD-API-SECRET",
+      "X-SDTD-API-TOKENNAME"
+    ],
+    "body": {
+      "permissionLevel": "invalid"
+    }
+  },
+  "response": {
+    "status": 400,
+    "body": {
+      "data": [],
+      "meta": {
+        "errorCode": "INVALID_USER",
+        "requestBody": {
+          "permissionLevel": "invalid"
+        },
+        "requestMethod": "POST",
+        "requestSubpath": "user/invalid",
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  }
+}

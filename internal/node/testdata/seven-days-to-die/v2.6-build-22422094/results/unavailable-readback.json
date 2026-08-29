@@ -1,0 +1,13 @@
+{
+  "outcome": "unavailable",
+  "request": {
+    "method": "GET",
+    "path": "/api/userpermissions",
+    "headerNames": [
+      "Accept",
+      "X-SDTD-API-SECRET",
+      "X-SDTD-API-TOKENNAME"
+    ]
+  },
+  "source": "transport-simulation"
+}

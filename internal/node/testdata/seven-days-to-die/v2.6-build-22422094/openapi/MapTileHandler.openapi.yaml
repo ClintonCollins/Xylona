@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: MapTileHandler
+  version: '1'
+
+components:
+  parameters:
+    ZoomLevelParameter:
+      name: zoom
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+      description: Zoom level, 0 being most zoomed out
+
+    CoordXParameter:
+      name: x
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: X (east/west) index of the tile
+
+    CoordYParameter:
+      name: y
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Y (north/south) index of the tile
+
+
+paths:
+  /BASEPATH/{zoom}/{x}/{y}.png:
+    get:
+      tags:
+        - Map
+      summary: MapTile get
+      description: Get a map tile for the given zoom level and tile indexes
+      operationId: MapTileHandler.get.name
+      parameters:
+        - $ref: '#/components/parameters/ZoomLevelParameter'
+        - $ref: '#/components/parameters/CoordXParameter'
+        - $ref: '#/components/parameters/CoordYParameter'
+      responses:
+        200:
+          description: Map tile
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        404:
+          description: Tile not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: ''
+        403:
+          $ref: './openapi.yaml#/components/responses/Unauthorized'
+      security:
+        - apiTokenName: []
+          apiTokenSecret: []
+        - sessionCookie: []

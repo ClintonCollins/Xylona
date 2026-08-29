@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "DELETE",
+    "path": "/api/commandpermissions/{command}",
+    "headerNames": [
+      "Accept",
+      "X-SDTD-API-SECRET",
+      "X-SDTD-API-TOKENNAME"
+    ]
+  },
+  "response": {
+    "status": 204
+  }
+}

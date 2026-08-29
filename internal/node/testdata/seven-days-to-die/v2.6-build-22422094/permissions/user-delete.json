@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "DELETE",
+    "path": "/api/userpermissions/user/{playerId}",
+    "headerNames": [
+      "Accept",
+      "X-SDTD-API-SECRET",
+      "X-SDTD-API-TOKENNAME"
+    ]
+  },
+  "response": {
+    "status": 204
+  }
+}

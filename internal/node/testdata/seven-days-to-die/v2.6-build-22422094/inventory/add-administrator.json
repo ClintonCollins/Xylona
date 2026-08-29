@@ -1,0 +1,25 @@
+{
+  "operation": "Add administrator",
+  "category": "Player access",
+  "execution": {
+    "method": "POST",
+    "path": "/api/userpermissions/user/{id}",
+    "body": {
+      "permissionLevel": "integer, required",
+      "name": "string, optional"
+    },
+    "verifiedSuccessStatus": 201,
+    "evidence": "permissions/user-create.json"
+  },
+  "readBack": {
+    "method": "GET",
+    "path": "/api/userpermissions",
+    "match": ["data.users[].userId.combinedString", "data.users[].permissionLevel"],
+    "verifiedResult": "Confirmed",
+    "evidence": "results/add-administrator-confirmed.json"
+  },
+  "unavailableReadBack": {
+    "verifiedResult": "Accepted but unverified",
+    "evidence": "results/unavailable-readback.json"
+  }
+}

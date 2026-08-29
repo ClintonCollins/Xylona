@@ -1,0 +1,63 @@
+{
+  "source": "sanitized native dashboard OpenAPI",
+  "baselineOperationCount": 58,
+  "supported": [
+    {
+      "category": "Console",
+      "operations": ["GET /api/command", "GET /api/command/{name}", "POST /api/command"]
+    },
+    {
+      "category": "Players",
+      "operations": ["GET /api/player", "GET /api/player/{id}"]
+    },
+    {
+      "category": "Server state",
+      "operations": [
+        "GET /api/animal", "GET /api/bloodmoon", "GET /api/entityclass", "GET /api/gameprefs", "GET /api/gamestats", "GET /api/hostile",
+        "GET /api/item", "GET /api/log", "GET /api/map/config", "GET /api/mods", "GET /api/serverinfo", "GET /api/serverstats"
+      ]
+    },
+    {
+      "category": "Player access",
+      "operations": [
+        "DELETE /api/blacklist/{id}", "DELETE /api/commandpermissions/{command}", "DELETE /api/userpermissions/group/{id}",
+        "DELETE /api/userpermissions/user/{id}", "DELETE /api/whitelist/group/{id}", "DELETE /api/whitelist/user/{id}",
+        "GET /api/blacklist", "GET /api/commandpermissions", "GET /api/userpermissions", "GET /api/whitelist",
+        "POST /api/blacklist/{id}", "POST /api/commandpermissions/{command}", "POST /api/userpermissions/group/{id}",
+        "POST /api/userpermissions/user/{id}", "POST /api/whitelist/group/{id}", "POST /api/whitelist/user/{id}"
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "reason": "Dashboard map annotations are not native game-management operations in the approved Operations workspace.",
+      "escapeHatch": "Console",
+      "operations": ["DELETE /api/markers/{id}", "GET /api/markers", "GET /api/markers/{id}", "POST /api/markers", "PUT /api/markers/{id}"]
+    },
+    {
+      "reason": "Contract discovery metadata is an integration-maintenance surface, not an operator game action.",
+      "escapeHatch": "Console",
+      "operations": ["GET /api/OpenAPI/openapi.yaml", "GET /api/OpenAPI/{name}.openapi.yaml"]
+    },
+    {
+      "reason": "Dashboard registration, account, module, and token administration is outside game-server operations and may handle credentials or secrets.",
+      "escapeHatch": "Console",
+      "operations": [
+        "DELETE /api/webapitokens/{apiTokenName}", "DELETE /api/webmodules/{moduleName}", "DELETE /api/webusers/{userName}",
+        "GET /api/registeruser/{token}", "GET /api/webapitokens", "GET /api/webmodules", "GET /api/webusers",
+        "POST /api/registeruser", "POST /api/webapitokens/{apiTokenName}", "POST /api/webmodules/{moduleName}", "POST /api/webusers/{userName}"
+      ]
+    },
+    {
+      "reason": "Browser session and dashboard status routes are not game operations.",
+      "escapeHatch": "Console",
+      "operations": ["GET /session/loginsteam", "GET /session/logout", "GET /session/verifysteamopenid", "GET /userstatus", "POST /session/login"]
+    },
+    {
+      "reason": "Rendered dashboard image delivery is not an operator game action.",
+      "escapeHatch": "Console",
+      "operations": ["GET /itemicons/{name}__{tint}.png", "GET /map/{zoom}/{x}/{y}.png"]
+    }
+  ],
+  "escapeHatchNote": "Console is the manual administrative fallback; it is not asserted to be transport-equivalent to excluded dashboard-only routes."
+}

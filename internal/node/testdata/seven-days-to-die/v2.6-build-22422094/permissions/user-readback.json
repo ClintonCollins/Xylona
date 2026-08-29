@@ -1,0 +1,19 @@
+{
+  "data": {
+    "groups": [],
+    "users": [
+      {
+        "name": "Fixture Player 1",
+        "permissionLevel": 0,
+        "userId": {
+          "combinedString": "EOS_PLAYER_1",
+          "platformId": "EOS",
+          "userId": "PLAYER_1"
+        }
+      }
+    ]
+  },
+  "meta": {
+    "serverTime": "2000-01-01T00:00:00Z"
+  }
+}

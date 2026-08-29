@@ -1,0 +1,72 @@
+{
+  "source": "live /api/command catalog",
+  "baselineCommandCount": 181,
+  "supported": [
+    {
+      "category": "Player access",
+      "commands": ["admin", "ban", "commandpermission", "kick", "kickall", "permissionsallowed", "whitelist"]
+    },
+    {
+      "category": "Players",
+      "commands": ["listplayerids", "listplayers", "playerOwnedEntities", "pplist"]
+    },
+    {
+      "category": "Communication",
+      "commands": ["say", "sayplayer"]
+    },
+    {
+      "category": "Server information",
+      "commands": ["getgamepref", "getgamestat", "gettime", "listdlc", "listitems", "version"]
+    },
+    {
+      "category": "Server control",
+      "commands": ["saveworld", "settempunit", "settime", "shutdown"]
+    }
+  ],
+  "excluded": [
+    {
+      "reason": "Developer, local-client, diagnostic, profiling, rendering, prefab/world-editing, or Game Master command; the captured contract does not provide the interactive state and bounded validation needed for a structured operation.",
+      "escapeHatch": "Console",
+      "commands": [
+        "AdminSpeed", "Dynamic mesh", "Dynamic mesh debug", "ForceEventDate", "ScreenEffect", "SetAccuracyDecay", "SpawnScreen", "SystemInfo",
+        "agemap", "ai", "aiddebug", "audio", "automove", "bents", "camera", "chunkcache", "chunkobserver", "chunkreset", "creativemenu", "cvar",
+        "damagereset", "debuggamestats", "debugmenu", "debugpanels", "debugshot", "debugweather", "decomgr", "dms", "dynamicproperties",
+        "enablerendering", "exception", "exhausted", "expiryinfo", "exportcurrentconfigs", "exportprefab", "floatingorigin", "fov",
+        "gamestage", "gfx", "graph", "invalidatecaches", "jds", "junkDrone", "kill", "killall", "lights", "listents", "listgameobjects",
+        "listthreads", "loggamestate", "loglevel", "loot", "mapdata", "mem", "memcl", "memprofile", "meshdatamanager", "mumblepositionalaudio",
+        "na", "networkclient", "networkserver", "occlusion", "openiddebug", "pirs", "placeblockrotations", "placeblockshapes", "playervisitmap",
+        "pois", "poiwaypoints", "prefab", "prefabeditor", "prefabupdater", "profilenetwork", "profiler", "profiling", "regionreset",
+        "reloadentityclasses", "rendermap", "repairchunkdensity", "reply", "resetallstats", "sdcs", "settargetfps", "sette", "setwatervalue",
+        "show", "showClouds", "showalbedo", "showchunkdata", "showhits", "shownexthordetime", "shownormals", "showspecular", "showswings",
+        "showtriggers", "sleep", "sleeper", "smoothpoi", "smoothworldall", "spectrum", "squarespiral", "stab", "starve", "switchview",
+        "teleport", "teleportplayer", "teleportpoirelative", "testCensor", "testCoverSystem", "testDismemberment", "testloop", "testoccreport",
+        "thirsty", "tls", "tppoi", "traderarea", "transformdebug", "trees", "uioptions", "versionui", "visitmap", "visitpois",
+        "workstationmaterials", "xui"
+      ]
+    },
+    {
+      "reason": "Changes progression, entities, quests, weather, or world state; Game Master and world-editing behavior is outside the Operations pilot and no bounded safe input contract is authored.",
+      "escapeHatch": "Console",
+      "commands": [
+        "buff", "buffplayer", "challenges", "debuff", "debuffplayer", "give", "givequest", "giveself", "giveselfxp", "givexp",
+        "newweathersurvival", "removequest", "spawnairdrop", "spawnentity", "spawnentityat", "spawnscouts", "spawnsupplycrate",
+        "spawnwandering", "spectatormode", "weather", "weathersurvival"
+      ]
+    },
+    {
+      "reason": "Changes dashboard accounts, permissions, or secrets through an open-ended console surface; use the typed native permission API where verified and keep secret management out of generic operations.",
+      "escapeHatch": "Console",
+      "commands": ["createwebuser", "webpermission", "webtokens"]
+    },
+    {
+      "reason": "Interactive discovery or open-ended configuration/readout lacks bounded structured fields or may reveal private server state.",
+      "escapeHatch": "Console",
+      "commands": ["config", "getlogpath", "getoptions", "help", "overridemaxplayercount", "setgamepref", "setgamestat"]
+    },
+    {
+      "reason": "Depends on a separately configured external integration and has no verified integration contract in this baseline.",
+      "escapeHatch": "Console",
+      "commands": ["discord", "twitch", "twitchadmin"]
+    }
+  ]
+}

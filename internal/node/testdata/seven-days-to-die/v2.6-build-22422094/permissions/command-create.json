@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/api/commandpermissions/{command}",
+    "headerNames": [
+      "Accept",
+      "Content-Type",
+      "X-SDTD-API-SECRET",
+      "X-SDTD-API-TOKENNAME"
+    ],
+    "body": {
+      "permissionLevel": 1
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "data": [],
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  }
+}

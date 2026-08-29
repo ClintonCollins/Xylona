@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/api/userpermissions/user/{playerId}",
+    "headerNames": [
+      "Accept",
+      "Content-Type",
+      "X-SDTD-API-SECRET",
+      "X-SDTD-API-TOKENNAME"
+    ],
+    "body": {
+      "name": "Fixture Player",
+      "permissionLevel": 0
+    }
+  },
+  "response": {
+    "status": 201,
+    "body": {
+      "data": [],
+      "meta": {
+        "serverTime": "2000-01-01T00:00:00Z"
+      }
+    }
+  }
+}
