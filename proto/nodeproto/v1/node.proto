@@ -821,6 +821,11 @@ message PingResponse {
 
 message GetRuntimeCapabilitiesRequest {}
 
+message GameOperationSupport {
+  string game_id = 1;
+  repeated string operation_ids = 2;
+}
+
 message GetRuntimeCapabilitiesResponse {
   int64 protocol_version = 1;
   bool launch_env = 2;
@@ -832,6 +837,7 @@ message GetRuntimeCapabilitiesResponse {
   bool palworld_map = 8;
   bool seven_days_to_die_map = 9;
   bool minecraft_map = 10;
+  repeated GameOperationSupport game_operations = 11;
 }
 
 // --- Self-update RPCs -------------------------------------------------------

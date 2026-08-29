@@ -47,6 +47,43 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
+  it('shows Operations only for supported games with Player management permission', () => {
+    const supported = buildGameServerTabs(
+      serverID,
+      ['game_server.players.manage'],
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+    )
+    const unsupported = buildGameServerTabs(
+      serverID,
+      ['game_server.players.manage'],
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+    )
+    const unauthorized = buildGameServerTabs(
+      serverID,
+      ['game_server.view'],
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+    )
+
+    expect(supported.map((tab) => tab.name)).toEqual(['Console', 'Operations'])
+    expect(unsupported.map((tab) => tab.name)).toEqual(['Console'])
+    expect(unauthorized.map((tab) => tab.name)).toEqual(['Console'])
+  })
+
   it('shows all tabs for admin role', () => {
     const perms = [
       'game_server.view',
@@ -231,6 +268,48 @@ describe('buildGameServerTabs', () => {
 describe('getUnauthorizedRedirect', () => {
   const serverID = 'test-server'
   const consolePath = `/game-servers/${serverID}/console`
+
+  it('redirects unsupported or unauthorized Operations routes', () => {
+    expect(
+      getUnauthorizedRedirect(
+        `/game-servers/${serverID}/operations`,
+        serverID,
+        ['game_server.players.manage'],
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+      ),
+    ).toBe(consolePath)
+    expect(
+      getUnauthorizedRedirect(
+        `/game-servers/${serverID}/operations`,
+        serverID,
+        ['game_server.view'],
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+      ),
+    ).toBe(consolePath)
+    expect(
+      getUnauthorizedRedirect(
+        `/game-servers/${serverID}/operations`,
+        serverID,
+        ['game_server.players.manage'],
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+      ),
+    ).toBeNull()
+  })
 
   it('redirects /files when missing files.view permission', () => {
     const result = getUnauthorizedRedirect(

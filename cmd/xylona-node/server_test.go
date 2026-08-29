@@ -298,7 +298,8 @@ func TestNodeServiceServerRuntimeCapabilities(t *testing.T) {
 	if caps.ProtocolVersion != node.RuntimeProtocolVersion || !caps.LaunchEnv ||
 		!caps.ReliableProcessLifecycle || !caps.TelnetInput || !caps.RCONInput ||
 		!caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap ||
-		!caps.SevenDaysToDieMap || !caps.MinecraftMap {
+		!caps.SevenDaysToDieMap || !caps.MinecraftMap ||
+		!caps.SupportsGameOperation("7_days_to_die", "player_access.add_administrator") {
 		t.Fatalf("runtime capabilities = %+v", caps)
 	}
 }

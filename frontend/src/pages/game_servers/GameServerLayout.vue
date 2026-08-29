@@ -63,6 +63,7 @@ let currentHasModSupport = false
 let currentAllowStartArgEditing = true
 let currentIsSuperUser = false
 let currentHasLiveMap = false
+let currentHasOperations = false
 let tabConfigurationSequence = 0
 
 onMounted(async () => {
@@ -133,6 +134,7 @@ async function configureTabs() {
   let allowStartArgEditing = true
   let isSuperUser = false
   let hasLiveMap = false
+  let hasOperations = false
 
   if (currentUser) {
     try {
@@ -163,6 +165,7 @@ async function configureTabs() {
       hasLiveMap = ['minecraft', 'palworld', '7_days_to_die'].includes(
         gameServerResp.gameServer?.gameId ?? '',
       )
+      hasOperations = gameServerResp.gameServer?.gameId === '7_days_to_die'
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       console.error(err)
@@ -179,6 +182,7 @@ async function configureTabs() {
   currentAllowStartArgEditing = allowStartArgEditing
   currentIsSuperUser = isSuperUser
   currentHasLiveMap = hasLiveMap
+  currentHasOperations = hasOperations
 
   layoutTabs.value = buildGameServerTabs(
     serverID,
@@ -188,6 +192,7 @@ async function configureTabs() {
     allowStartArgEditing,
     isSuperUser,
     hasLiveMap,
+    hasOperations,
   )
   return true
 }
@@ -207,6 +212,7 @@ async function enforceRouteAccess() {
     currentAllowStartArgEditing,
     currentIsSuperUser,
     currentHasLiveMap,
+    currentHasOperations,
   )
   if (redirectPath !== null && route.path !== redirectPath) {
     await router.replace(redirectPath)

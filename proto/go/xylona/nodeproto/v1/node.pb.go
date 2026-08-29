@@ -7283,25 +7283,78 @@ func (*GetRuntimeCapabilitiesRequest) Descriptor() ([]byte, []int) {
 	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{92}
 }
 
+type GameOperationSupport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GameId        string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	OperationIds  []string               `protobuf:"bytes,2,rep,name=operation_ids,json=operationIds,proto3" json:"operation_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GameOperationSupport) Reset() {
+	*x = GameOperationSupport{}
+	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GameOperationSupport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GameOperationSupport) ProtoMessage() {}
+
+func (x *GameOperationSupport) ProtoReflect() protoreflect.Message {
+	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GameOperationSupport.ProtoReflect.Descriptor instead.
+func (*GameOperationSupport) Descriptor() ([]byte, []int) {
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{93}
+}
+
+func (x *GameOperationSupport) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *GameOperationSupport) GetOperationIds() []string {
+	if x != nil {
+		return x.OperationIds
+	}
+	return nil
+}
+
 type GetRuntimeCapabilitiesResponse struct {
-	state                    protoimpl.MessageState `protogen:"open.v1"`
-	ProtocolVersion          int64                  `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
-	LaunchEnv                bool                   `protobuf:"varint,2,opt,name=launch_env,json=launchEnv,proto3" json:"launch_env,omitempty"`
-	ReliableProcessLifecycle bool                   `protobuf:"varint,3,opt,name=reliable_process_lifecycle,json=reliableProcessLifecycle,proto3" json:"reliable_process_lifecycle,omitempty"`
-	TelnetInput              bool                   `protobuf:"varint,4,opt,name=telnet_input,json=telnetInput,proto3" json:"telnet_input,omitempty"`
-	PlayerActions            bool                   `protobuf:"varint,5,opt,name=player_actions,json=playerActions,proto3" json:"player_actions,omitempty"`
-	RconInput                bool                   `protobuf:"varint,6,opt,name=rcon_input,json=rconInput,proto3" json:"rcon_input,omitempty"`
-	RestInput                bool                   `protobuf:"varint,7,opt,name=rest_input,json=restInput,proto3" json:"rest_input,omitempty"`
-	PalworldMap              bool                   `protobuf:"varint,8,opt,name=palworld_map,json=palworldMap,proto3" json:"palworld_map,omitempty"`
-	SevenDaysToDieMap        bool                   `protobuf:"varint,9,opt,name=seven_days_to_die_map,json=sevenDaysToDieMap,proto3" json:"seven_days_to_die_map,omitempty"`
-	MinecraftMap             bool                   `protobuf:"varint,10,opt,name=minecraft_map,json=minecraftMap,proto3" json:"minecraft_map,omitempty"`
+	state                    protoimpl.MessageState  `protogen:"open.v1"`
+	ProtocolVersion          int64                   `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	LaunchEnv                bool                    `protobuf:"varint,2,opt,name=launch_env,json=launchEnv,proto3" json:"launch_env,omitempty"`
+	ReliableProcessLifecycle bool                    `protobuf:"varint,3,opt,name=reliable_process_lifecycle,json=reliableProcessLifecycle,proto3" json:"reliable_process_lifecycle,omitempty"`
+	TelnetInput              bool                    `protobuf:"varint,4,opt,name=telnet_input,json=telnetInput,proto3" json:"telnet_input,omitempty"`
+	PlayerActions            bool                    `protobuf:"varint,5,opt,name=player_actions,json=playerActions,proto3" json:"player_actions,omitempty"`
+	RconInput                bool                    `protobuf:"varint,6,opt,name=rcon_input,json=rconInput,proto3" json:"rcon_input,omitempty"`
+	RestInput                bool                    `protobuf:"varint,7,opt,name=rest_input,json=restInput,proto3" json:"rest_input,omitempty"`
+	PalworldMap              bool                    `protobuf:"varint,8,opt,name=palworld_map,json=palworldMap,proto3" json:"palworld_map,omitempty"`
+	SevenDaysToDieMap        bool                    `protobuf:"varint,9,opt,name=seven_days_to_die_map,json=sevenDaysToDieMap,proto3" json:"seven_days_to_die_map,omitempty"`
+	MinecraftMap             bool                    `protobuf:"varint,10,opt,name=minecraft_map,json=minecraftMap,proto3" json:"minecraft_map,omitempty"`
+	GameOperations           []*GameOperationSupport `protobuf:"bytes,11,rep,name=game_operations,json=gameOperations,proto3" json:"game_operations,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
 
 func (x *GetRuntimeCapabilitiesResponse) Reset() {
 	*x = GetRuntimeCapabilitiesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7313,7 +7366,7 @@ func (x *GetRuntimeCapabilitiesResponse) String() string {
 func (*GetRuntimeCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetRuntimeCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7326,7 +7379,7 @@ func (x *GetRuntimeCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuntimeCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetRuntimeCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{93}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *GetRuntimeCapabilitiesResponse) GetProtocolVersion() int64 {
@@ -7399,6 +7452,13 @@ func (x *GetRuntimeCapabilitiesResponse) GetMinecraftMap() bool {
 	return false
 }
 
+func (x *GetRuntimeCapabilitiesResponse) GetGameOperations() []*GameOperationSupport {
+	if x != nil {
+		return x.GameOperations
+	}
+	return nil
+}
+
 type GetUpdateCapabilitiesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -7407,7 +7467,7 @@ type GetUpdateCapabilitiesRequest struct {
 
 func (x *GetUpdateCapabilitiesRequest) Reset() {
 	*x = GetUpdateCapabilitiesRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7419,7 +7479,7 @@ func (x *GetUpdateCapabilitiesRequest) String() string {
 func (*GetUpdateCapabilitiesRequest) ProtoMessage() {}
 
 func (x *GetUpdateCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7432,7 +7492,7 @@ func (x *GetUpdateCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUpdateCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*GetUpdateCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{94}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{95}
 }
 
 type GetUpdateCapabilitiesResponse struct {
@@ -7453,7 +7513,7 @@ type GetUpdateCapabilitiesResponse struct {
 
 func (x *GetUpdateCapabilitiesResponse) Reset() {
 	*x = GetUpdateCapabilitiesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7465,7 +7525,7 @@ func (x *GetUpdateCapabilitiesResponse) String() string {
 func (*GetUpdateCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetUpdateCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7478,7 +7538,7 @@ func (x *GetUpdateCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUpdateCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetUpdateCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{95}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *GetUpdateCapabilitiesResponse) GetSupported() bool {
@@ -7566,7 +7626,7 @@ type StageSelfUpdateRequest struct {
 
 func (x *StageSelfUpdateRequest) Reset() {
 	*x = StageSelfUpdateRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7578,7 +7638,7 @@ func (x *StageSelfUpdateRequest) String() string {
 func (*StageSelfUpdateRequest) ProtoMessage() {}
 
 func (x *StageSelfUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7591,7 +7651,7 @@ func (x *StageSelfUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StageSelfUpdateRequest.ProtoReflect.Descriptor instead.
 func (*StageSelfUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{96}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *StageSelfUpdateRequest) GetComponent() string {
@@ -7654,7 +7714,7 @@ type StageSelfUpdateResponse struct {
 
 func (x *StageSelfUpdateResponse) Reset() {
 	*x = StageSelfUpdateResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7666,7 +7726,7 @@ func (x *StageSelfUpdateResponse) String() string {
 func (*StageSelfUpdateResponse) ProtoMessage() {}
 
 func (x *StageSelfUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7679,7 +7739,7 @@ func (x *StageSelfUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StageSelfUpdateResponse.ProtoReflect.Descriptor instead.
 func (*StageSelfUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{97}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *StageSelfUpdateResponse) GetStageId() string {
@@ -7714,7 +7774,7 @@ type ApplySelfUpdateRequest struct {
 
 func (x *ApplySelfUpdateRequest) Reset() {
 	*x = ApplySelfUpdateRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7726,7 +7786,7 @@ func (x *ApplySelfUpdateRequest) String() string {
 func (*ApplySelfUpdateRequest) ProtoMessage() {}
 
 func (x *ApplySelfUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7739,7 +7799,7 @@ func (x *ApplySelfUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplySelfUpdateRequest.ProtoReflect.Descriptor instead.
 func (*ApplySelfUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{98}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *ApplySelfUpdateRequest) GetStageId() string {
@@ -7773,7 +7833,7 @@ type ApplySelfUpdateResponse struct {
 
 func (x *ApplySelfUpdateResponse) Reset() {
 	*x = ApplySelfUpdateResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7785,7 +7845,7 @@ func (x *ApplySelfUpdateResponse) String() string {
 func (*ApplySelfUpdateResponse) ProtoMessage() {}
 
 func (x *ApplySelfUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7798,7 +7858,7 @@ func (x *ApplySelfUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplySelfUpdateResponse.ProtoReflect.Descriptor instead.
 func (*ApplySelfUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{99}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *ApplySelfUpdateResponse) GetAccepted() bool {
@@ -7825,7 +7885,7 @@ type GameServerPlayer struct {
 
 func (x *GameServerPlayer) Reset() {
 	*x = GameServerPlayer{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7837,7 +7897,7 @@ func (x *GameServerPlayer) String() string {
 func (*GameServerPlayer) ProtoMessage() {}
 
 func (x *GameServerPlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7850,7 +7910,7 @@ func (x *GameServerPlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerPlayer.ProtoReflect.Descriptor instead.
 func (*GameServerPlayer) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{100}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *GameServerPlayer) GetName() string {
@@ -7884,7 +7944,7 @@ type PerformGameServerPlayerActionRequest struct {
 
 func (x *PerformGameServerPlayerActionRequest) Reset() {
 	*x = PerformGameServerPlayerActionRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7896,7 +7956,7 @@ func (x *PerformGameServerPlayerActionRequest) String() string {
 func (*PerformGameServerPlayerActionRequest) ProtoMessage() {}
 
 func (x *PerformGameServerPlayerActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7909,7 +7969,7 @@ func (x *PerformGameServerPlayerActionRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use PerformGameServerPlayerActionRequest.ProtoReflect.Descriptor instead.
 func (*PerformGameServerPlayerActionRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{101}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *PerformGameServerPlayerActionRequest) GetKind() GameServerQueryKind {
@@ -7983,7 +8043,7 @@ type PerformGameServerPlayerActionResponse struct {
 
 func (x *PerformGameServerPlayerActionResponse) Reset() {
 	*x = PerformGameServerPlayerActionResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7995,7 +8055,7 @@ func (x *PerformGameServerPlayerActionResponse) String() string {
 func (*PerformGameServerPlayerActionResponse) ProtoMessage() {}
 
 func (x *PerformGameServerPlayerActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8008,7 +8068,7 @@ func (x *PerformGameServerPlayerActionResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use PerformGameServerPlayerActionResponse.ProtoReflect.Descriptor instead.
 func (*PerformGameServerPlayerActionResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{102}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{103}
 }
 
 type PalworldMapHealth struct {
@@ -8026,7 +8086,7 @@ type PalworldMapHealth struct {
 
 func (x *PalworldMapHealth) Reset() {
 	*x = PalworldMapHealth{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8038,7 +8098,7 @@ func (x *PalworldMapHealth) String() string {
 func (*PalworldMapHealth) ProtoMessage() {}
 
 func (x *PalworldMapHealth) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8051,7 +8111,7 @@ func (x *PalworldMapHealth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapHealth.ProtoReflect.Descriptor instead.
 func (*PalworldMapHealth) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{103}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *PalworldMapHealth) GetServerFps() float64 {
@@ -8114,7 +8174,7 @@ type SevenDaysToDieGameTime struct {
 
 func (x *SevenDaysToDieGameTime) Reset() {
 	*x = SevenDaysToDieGameTime{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8126,7 +8186,7 @@ func (x *SevenDaysToDieGameTime) String() string {
 func (*SevenDaysToDieGameTime) ProtoMessage() {}
 
 func (x *SevenDaysToDieGameTime) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8139,7 +8199,7 @@ func (x *SevenDaysToDieGameTime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieGameTime.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieGameTime) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{104}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *SevenDaysToDieGameTime) GetDay() int32 {
@@ -8181,7 +8241,7 @@ type SevenDaysToDieWebAPICapabilities struct {
 
 func (x *SevenDaysToDieWebAPICapabilities) Reset() {
 	*x = SevenDaysToDieWebAPICapabilities{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8193,7 +8253,7 @@ func (x *SevenDaysToDieWebAPICapabilities) String() string {
 func (*SevenDaysToDieWebAPICapabilities) ProtoMessage() {}
 
 func (x *SevenDaysToDieWebAPICapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8206,7 +8266,7 @@ func (x *SevenDaysToDieWebAPICapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieWebAPICapabilities.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieWebAPICapabilities) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{105}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *SevenDaysToDieWebAPICapabilities) GetPlayerData() bool {
@@ -8297,7 +8357,7 @@ type SevenDaysToDieWebAPIStatus struct {
 
 func (x *SevenDaysToDieWebAPIStatus) Reset() {
 	*x = SevenDaysToDieWebAPIStatus{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8309,7 +8369,7 @@ func (x *SevenDaysToDieWebAPIStatus) String() string {
 func (*SevenDaysToDieWebAPIStatus) ProtoMessage() {}
 
 func (x *SevenDaysToDieWebAPIStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8322,7 +8382,7 @@ func (x *SevenDaysToDieWebAPIStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieWebAPIStatus.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieWebAPIStatus) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{106}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *SevenDaysToDieWebAPIStatus) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -8407,7 +8467,7 @@ type QuerySevenDaysToDieWebAPIStatusRequest struct {
 
 func (x *QuerySevenDaysToDieWebAPIStatusRequest) Reset() {
 	*x = QuerySevenDaysToDieWebAPIStatusRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8419,7 +8479,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusRequest) String() string {
 func (*QuerySevenDaysToDieWebAPIStatusRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieWebAPIStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8432,7 +8492,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use QuerySevenDaysToDieWebAPIStatusRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieWebAPIStatusRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{107}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *QuerySevenDaysToDieWebAPIStatusRequest) GetWorkingDirectory() string {
@@ -8472,7 +8532,7 @@ type QuerySevenDaysToDieWebAPIStatusResponse struct {
 
 func (x *QuerySevenDaysToDieWebAPIStatusResponse) Reset() {
 	*x = QuerySevenDaysToDieWebAPIStatusResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8484,7 +8544,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusResponse) String() string {
 func (*QuerySevenDaysToDieWebAPIStatusResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieWebAPIStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8497,7 +8557,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusResponse) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use QuerySevenDaysToDieWebAPIStatusResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieWebAPIStatusResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{108}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *QuerySevenDaysToDieWebAPIStatusResponse) GetStatus() *SevenDaysToDieWebAPIStatus {
@@ -8530,7 +8590,7 @@ type SevenDaysToDiePlayer struct {
 
 func (x *SevenDaysToDiePlayer) Reset() {
 	*x = SevenDaysToDiePlayer{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8542,7 +8602,7 @@ func (x *SevenDaysToDiePlayer) String() string {
 func (*SevenDaysToDiePlayer) ProtoMessage() {}
 
 func (x *SevenDaysToDiePlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8555,7 +8615,7 @@ func (x *SevenDaysToDiePlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDiePlayer.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDiePlayer) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{109}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *SevenDaysToDiePlayer) GetName() string {
@@ -8674,7 +8734,7 @@ type SevenDaysToDiePlayers struct {
 
 func (x *SevenDaysToDiePlayers) Reset() {
 	*x = SevenDaysToDiePlayers{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8686,7 +8746,7 @@ func (x *SevenDaysToDiePlayers) String() string {
 func (*SevenDaysToDiePlayers) ProtoMessage() {}
 
 func (x *SevenDaysToDiePlayers) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8699,7 +8759,7 @@ func (x *SevenDaysToDiePlayers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDiePlayers.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDiePlayers) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{110}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *SevenDaysToDiePlayers) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -8734,7 +8794,7 @@ type QuerySevenDaysToDiePlayersRequest struct {
 
 func (x *QuerySevenDaysToDiePlayersRequest) Reset() {
 	*x = QuerySevenDaysToDiePlayersRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8746,7 +8806,7 @@ func (x *QuerySevenDaysToDiePlayersRequest) String() string {
 func (*QuerySevenDaysToDiePlayersRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDiePlayersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8759,7 +8819,7 @@ func (x *QuerySevenDaysToDiePlayersRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use QuerySevenDaysToDiePlayersRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDiePlayersRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{111}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *QuerySevenDaysToDiePlayersRequest) GetWorkingDirectory() string {
@@ -8792,7 +8852,7 @@ type QuerySevenDaysToDiePlayersResponse struct {
 
 func (x *QuerySevenDaysToDiePlayersResponse) Reset() {
 	*x = QuerySevenDaysToDiePlayersResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8804,7 +8864,7 @@ func (x *QuerySevenDaysToDiePlayersResponse) String() string {
 func (*QuerySevenDaysToDiePlayersResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDiePlayersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8817,7 +8877,7 @@ func (x *QuerySevenDaysToDiePlayersResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use QuerySevenDaysToDiePlayersResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDiePlayersResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{112}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *QuerySevenDaysToDiePlayersResponse) GetResult() *SevenDaysToDiePlayers {
@@ -8840,7 +8900,7 @@ type SevenDaysToDieReportedMod struct {
 
 func (x *SevenDaysToDieReportedMod) Reset() {
 	*x = SevenDaysToDieReportedMod{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8852,7 +8912,7 @@ func (x *SevenDaysToDieReportedMod) String() string {
 func (*SevenDaysToDieReportedMod) ProtoMessage() {}
 
 func (x *SevenDaysToDieReportedMod) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8865,7 +8925,7 @@ func (x *SevenDaysToDieReportedMod) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieReportedMod.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieReportedMod) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{113}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *SevenDaysToDieReportedMod) GetName() string {
@@ -8914,7 +8974,7 @@ type SevenDaysToDieReportedMods struct {
 
 func (x *SevenDaysToDieReportedMods) Reset() {
 	*x = SevenDaysToDieReportedMods{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8926,7 +8986,7 @@ func (x *SevenDaysToDieReportedMods) String() string {
 func (*SevenDaysToDieReportedMods) ProtoMessage() {}
 
 func (x *SevenDaysToDieReportedMods) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8939,7 +8999,7 @@ func (x *SevenDaysToDieReportedMods) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieReportedMods.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieReportedMods) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{114}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *SevenDaysToDieReportedMods) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -8974,7 +9034,7 @@ type QuerySevenDaysToDieReportedModsRequest struct {
 
 func (x *QuerySevenDaysToDieReportedModsRequest) Reset() {
 	*x = QuerySevenDaysToDieReportedModsRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8986,7 +9046,7 @@ func (x *QuerySevenDaysToDieReportedModsRequest) String() string {
 func (*QuerySevenDaysToDieReportedModsRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieReportedModsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8999,7 +9059,7 @@ func (x *QuerySevenDaysToDieReportedModsRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use QuerySevenDaysToDieReportedModsRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieReportedModsRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{115}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *QuerySevenDaysToDieReportedModsRequest) GetWorkingDirectory() string {
@@ -9032,7 +9092,7 @@ type QuerySevenDaysToDieReportedModsResponse struct {
 
 func (x *QuerySevenDaysToDieReportedModsResponse) Reset() {
 	*x = QuerySevenDaysToDieReportedModsResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9044,7 +9104,7 @@ func (x *QuerySevenDaysToDieReportedModsResponse) String() string {
 func (*QuerySevenDaysToDieReportedModsResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieReportedModsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9057,7 +9117,7 @@ func (x *QuerySevenDaysToDieReportedModsResponse) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use QuerySevenDaysToDieReportedModsResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieReportedModsResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{116}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *QuerySevenDaysToDieReportedModsResponse) GetResult() *SevenDaysToDieReportedMods {
@@ -9081,7 +9141,7 @@ type SevenDaysToDieSandboxSetting struct {
 
 func (x *SevenDaysToDieSandboxSetting) Reset() {
 	*x = SevenDaysToDieSandboxSetting{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9093,7 +9153,7 @@ func (x *SevenDaysToDieSandboxSetting) String() string {
 func (*SevenDaysToDieSandboxSetting) ProtoMessage() {}
 
 func (x *SevenDaysToDieSandboxSetting) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9106,7 +9166,7 @@ func (x *SevenDaysToDieSandboxSetting) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieSandboxSetting.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieSandboxSetting) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{117}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *SevenDaysToDieSandboxSetting) GetKey() string {
@@ -9166,7 +9226,7 @@ type SevenDaysToDieSandboxSettings struct {
 
 func (x *SevenDaysToDieSandboxSettings) Reset() {
 	*x = SevenDaysToDieSandboxSettings{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9178,7 +9238,7 @@ func (x *SevenDaysToDieSandboxSettings) String() string {
 func (*SevenDaysToDieSandboxSettings) ProtoMessage() {}
 
 func (x *SevenDaysToDieSandboxSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9191,7 +9251,7 @@ func (x *SevenDaysToDieSandboxSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieSandboxSettings.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieSandboxSettings) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{118}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *SevenDaysToDieSandboxSettings) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -9254,7 +9314,7 @@ type QuerySevenDaysToDieSandboxSettingsRequest struct {
 
 func (x *QuerySevenDaysToDieSandboxSettingsRequest) Reset() {
 	*x = QuerySevenDaysToDieSandboxSettingsRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9266,7 +9326,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsRequest) String() string {
 func (*QuerySevenDaysToDieSandboxSettingsRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieSandboxSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9279,7 +9339,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsRequest) ProtoReflect() protoreflect.
 
 // Deprecated: Use QuerySevenDaysToDieSandboxSettingsRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieSandboxSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{119}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *QuerySevenDaysToDieSandboxSettingsRequest) GetWorkingDirectory() string {
@@ -9312,7 +9372,7 @@ type QuerySevenDaysToDieSandboxSettingsResponse struct {
 
 func (x *QuerySevenDaysToDieSandboxSettingsResponse) Reset() {
 	*x = QuerySevenDaysToDieSandboxSettingsResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9324,7 +9384,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsResponse) String() string {
 func (*QuerySevenDaysToDieSandboxSettingsResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieSandboxSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9337,7 +9397,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsResponse) ProtoReflect() protoreflect
 
 // Deprecated: Use QuerySevenDaysToDieSandboxSettingsResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieSandboxSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{120}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *QuerySevenDaysToDieSandboxSettingsResponse) GetResult() *SevenDaysToDieSandboxSettings {
@@ -9915,7 +9975,10 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\fPingResponse\x12;\n" +
 	"\vserver_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"serverTime\"\x1f\n" +
-	"\x1dGetRuntimeCapabilitiesRequest\"\xaa\x03\n" +
+	"\x1dGetRuntimeCapabilitiesRequest\"T\n" +
+	"\x14GameOperationSupport\x12\x17\n" +
+	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12#\n" +
+	"\roperation_ids\x18\x02 \x03(\tR\foperationIds\"\xf9\x03\n" +
 	"\x1eGetRuntimeCapabilitiesResponse\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\x03R\x0fprotocolVersion\x12\x1d\n" +
 	"\n" +
@@ -9930,7 +9993,8 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\fpalworld_map\x18\b \x01(\bR\vpalworldMap\x120\n" +
 	"\x15seven_days_to_die_map\x18\t \x01(\bR\x11sevenDaysToDieMap\x12#\n" +
 	"\rminecraft_map\x18\n" +
-	" \x01(\bR\fminecraftMap\"\x1e\n" +
+	" \x01(\bR\fminecraftMap\x12M\n" +
+	"\x0fgame_operations\x18\v \x03(\v2$.xylona.node.v1.GameOperationSupportR\x0egameOperations\"\x1e\n" +
 	"\x1cGetUpdateCapabilitiesRequest\"\x8e\x03\n" +
 	"\x1dGetUpdateCapabilitiesResponse\x12\x1c\n" +
 	"\tsupported\x18\x01 \x01(\bR\tsupported\x12\x16\n" +
@@ -10267,7 +10331,7 @@ func file_nodeproto_v1_node_proto_rawDescGZIP() []byte {
 }
 
 var file_nodeproto_v1_node_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_nodeproto_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 122)
+var file_nodeproto_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 123)
 var file_nodeproto_v1_node_proto_goTypes = []any{
 	(NodeErrorCode)(0),                                 // 0: xylona.node.v1.NodeErrorCode
 	(ProcessStatus)(0),                                 // 1: xylona.node.v1.ProcessStatus
@@ -10375,51 +10439,52 @@ var file_nodeproto_v1_node_proto_goTypes = []any{
 	(*PingRequest)(nil),                                // 103: xylona.node.v1.PingRequest
 	(*PingResponse)(nil),                               // 104: xylona.node.v1.PingResponse
 	(*GetRuntimeCapabilitiesRequest)(nil),              // 105: xylona.node.v1.GetRuntimeCapabilitiesRequest
-	(*GetRuntimeCapabilitiesResponse)(nil),             // 106: xylona.node.v1.GetRuntimeCapabilitiesResponse
-	(*GetUpdateCapabilitiesRequest)(nil),               // 107: xylona.node.v1.GetUpdateCapabilitiesRequest
-	(*GetUpdateCapabilitiesResponse)(nil),              // 108: xylona.node.v1.GetUpdateCapabilitiesResponse
-	(*StageSelfUpdateRequest)(nil),                     // 109: xylona.node.v1.StageSelfUpdateRequest
-	(*StageSelfUpdateResponse)(nil),                    // 110: xylona.node.v1.StageSelfUpdateResponse
-	(*ApplySelfUpdateRequest)(nil),                     // 111: xylona.node.v1.ApplySelfUpdateRequest
-	(*ApplySelfUpdateResponse)(nil),                    // 112: xylona.node.v1.ApplySelfUpdateResponse
-	(*GameServerPlayer)(nil),                           // 113: xylona.node.v1.GameServerPlayer
-	(*PerformGameServerPlayerActionRequest)(nil),       // 114: xylona.node.v1.PerformGameServerPlayerActionRequest
-	(*PerformGameServerPlayerActionResponse)(nil),      // 115: xylona.node.v1.PerformGameServerPlayerActionResponse
-	(*PalworldMapHealth)(nil),                          // 116: xylona.node.v1.PalworldMapHealth
-	(*SevenDaysToDieGameTime)(nil),                     // 117: xylona.node.v1.SevenDaysToDieGameTime
-	(*SevenDaysToDieWebAPICapabilities)(nil),           // 118: xylona.node.v1.SevenDaysToDieWebAPICapabilities
-	(*SevenDaysToDieWebAPIStatus)(nil),                 // 119: xylona.node.v1.SevenDaysToDieWebAPIStatus
-	(*QuerySevenDaysToDieWebAPIStatusRequest)(nil),     // 120: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
-	(*QuerySevenDaysToDieWebAPIStatusResponse)(nil),    // 121: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
-	(*SevenDaysToDiePlayer)(nil),                       // 122: xylona.node.v1.SevenDaysToDiePlayer
-	(*SevenDaysToDiePlayers)(nil),                      // 123: xylona.node.v1.SevenDaysToDiePlayers
-	(*QuerySevenDaysToDiePlayersRequest)(nil),          // 124: xylona.node.v1.QuerySevenDaysToDiePlayersRequest
-	(*QuerySevenDaysToDiePlayersResponse)(nil),         // 125: xylona.node.v1.QuerySevenDaysToDiePlayersResponse
-	(*SevenDaysToDieReportedMod)(nil),                  // 126: xylona.node.v1.SevenDaysToDieReportedMod
-	(*SevenDaysToDieReportedMods)(nil),                 // 127: xylona.node.v1.SevenDaysToDieReportedMods
-	(*QuerySevenDaysToDieReportedModsRequest)(nil),     // 128: xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
-	(*QuerySevenDaysToDieReportedModsResponse)(nil),    // 129: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
-	(*SevenDaysToDieSandboxSetting)(nil),               // 130: xylona.node.v1.SevenDaysToDieSandboxSetting
-	(*SevenDaysToDieSandboxSettings)(nil),              // 131: xylona.node.v1.SevenDaysToDieSandboxSettings
-	(*QuerySevenDaysToDieSandboxSettingsRequest)(nil),  // 132: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
-	(*QuerySevenDaysToDieSandboxSettingsResponse)(nil), // 133: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
-	nil,                           // 134: xylona.node.v1.StartProcessRequest.LaunchEnvEntry
-	(*timestamppb.Timestamp)(nil), // 135: google.protobuf.Timestamp
+	(*GameOperationSupport)(nil),                       // 106: xylona.node.v1.GameOperationSupport
+	(*GetRuntimeCapabilitiesResponse)(nil),             // 107: xylona.node.v1.GetRuntimeCapabilitiesResponse
+	(*GetUpdateCapabilitiesRequest)(nil),               // 108: xylona.node.v1.GetUpdateCapabilitiesRequest
+	(*GetUpdateCapabilitiesResponse)(nil),              // 109: xylona.node.v1.GetUpdateCapabilitiesResponse
+	(*StageSelfUpdateRequest)(nil),                     // 110: xylona.node.v1.StageSelfUpdateRequest
+	(*StageSelfUpdateResponse)(nil),                    // 111: xylona.node.v1.StageSelfUpdateResponse
+	(*ApplySelfUpdateRequest)(nil),                     // 112: xylona.node.v1.ApplySelfUpdateRequest
+	(*ApplySelfUpdateResponse)(nil),                    // 113: xylona.node.v1.ApplySelfUpdateResponse
+	(*GameServerPlayer)(nil),                           // 114: xylona.node.v1.GameServerPlayer
+	(*PerformGameServerPlayerActionRequest)(nil),       // 115: xylona.node.v1.PerformGameServerPlayerActionRequest
+	(*PerformGameServerPlayerActionResponse)(nil),      // 116: xylona.node.v1.PerformGameServerPlayerActionResponse
+	(*PalworldMapHealth)(nil),                          // 117: xylona.node.v1.PalworldMapHealth
+	(*SevenDaysToDieGameTime)(nil),                     // 118: xylona.node.v1.SevenDaysToDieGameTime
+	(*SevenDaysToDieWebAPICapabilities)(nil),           // 119: xylona.node.v1.SevenDaysToDieWebAPICapabilities
+	(*SevenDaysToDieWebAPIStatus)(nil),                 // 120: xylona.node.v1.SevenDaysToDieWebAPIStatus
+	(*QuerySevenDaysToDieWebAPIStatusRequest)(nil),     // 121: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
+	(*QuerySevenDaysToDieWebAPIStatusResponse)(nil),    // 122: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
+	(*SevenDaysToDiePlayer)(nil),                       // 123: xylona.node.v1.SevenDaysToDiePlayer
+	(*SevenDaysToDiePlayers)(nil),                      // 124: xylona.node.v1.SevenDaysToDiePlayers
+	(*QuerySevenDaysToDiePlayersRequest)(nil),          // 125: xylona.node.v1.QuerySevenDaysToDiePlayersRequest
+	(*QuerySevenDaysToDiePlayersResponse)(nil),         // 126: xylona.node.v1.QuerySevenDaysToDiePlayersResponse
+	(*SevenDaysToDieReportedMod)(nil),                  // 127: xylona.node.v1.SevenDaysToDieReportedMod
+	(*SevenDaysToDieReportedMods)(nil),                 // 128: xylona.node.v1.SevenDaysToDieReportedMods
+	(*QuerySevenDaysToDieReportedModsRequest)(nil),     // 129: xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
+	(*QuerySevenDaysToDieReportedModsResponse)(nil),    // 130: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
+	(*SevenDaysToDieSandboxSetting)(nil),               // 131: xylona.node.v1.SevenDaysToDieSandboxSetting
+	(*SevenDaysToDieSandboxSettings)(nil),              // 132: xylona.node.v1.SevenDaysToDieSandboxSettings
+	(*QuerySevenDaysToDieSandboxSettingsRequest)(nil),  // 133: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
+	(*QuerySevenDaysToDieSandboxSettingsResponse)(nil), // 134: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
+	nil,                           // 135: xylona.node.v1.StartProcessRequest.LaunchEnvEntry
+	(*timestamppb.Timestamp)(nil), // 136: google.protobuf.Timestamp
 }
 var file_nodeproto_v1_node_proto_depIdxs = []int32{
-	135, // 0: xylona.node.v1.FileEntry.last_modified:type_name -> google.protobuf.Timestamp
-	135, // 1: xylona.node.v1.ProcessSnapshot.disk_measured_at:type_name -> google.protobuf.Timestamp
+	136, // 0: xylona.node.v1.FileEntry.last_modified:type_name -> google.protobuf.Timestamp
+	136, // 1: xylona.node.v1.ProcessSnapshot.disk_measured_at:type_name -> google.protobuf.Timestamp
 	14,  // 2: xylona.node.v1.NodeSnapshot.processes:type_name -> xylona.node.v1.ProcessSnapshot
-	135, // 3: xylona.node.v1.NodeSnapshot.collected:type_name -> google.protobuf.Timestamp
-	135, // 4: xylona.node.v1.ConsoleChunk.timestamp:type_name -> google.protobuf.Timestamp
+	136, // 3: xylona.node.v1.NodeSnapshot.collected:type_name -> google.protobuf.Timestamp
+	136, // 4: xylona.node.v1.ConsoleChunk.timestamp:type_name -> google.protobuf.Timestamp
 	15,  // 5: xylona.node.v1.MetricsUpdateEvent.snapshot:type_name -> xylona.node.v1.NodeSnapshot
-	135, // 6: xylona.node.v1.Event.timestamp:type_name -> google.protobuf.Timestamp
+	136, // 6: xylona.node.v1.Event.timestamp:type_name -> google.protobuf.Timestamp
 	18,  // 7: xylona.node.v1.Event.process_status:type_name -> xylona.node.v1.ProcessStatusEvent
 	17,  // 8: xylona.node.v1.Event.console_output:type_name -> xylona.node.v1.ConsoleChunk
 	19,  // 9: xylona.node.v1.Event.metrics_update:type_name -> xylona.node.v1.MetricsUpdateEvent
 	20,  // 10: xylona.node.v1.Event.process_crash:type_name -> xylona.node.v1.ProcessCrashEvent
 	1,   // 11: xylona.node.v1.StartProcessRequest.initial_status:type_name -> xylona.node.v1.ProcessStatus
-	134, // 12: xylona.node.v1.StartProcessRequest.launch_env:type_name -> xylona.node.v1.StartProcessRequest.LaunchEnvEntry
+	135, // 12: xylona.node.v1.StartProcessRequest.launch_env:type_name -> xylona.node.v1.StartProcessRequest.LaunchEnvEntry
 	23,  // 13: xylona.node.v1.StartProcessRequest.telnet_input:type_name -> xylona.node.v1.TelnetInput
 	24,  // 14: xylona.node.v1.StartProcessRequest.rcon_input:type_name -> xylona.node.v1.RCONInput
 	25,  // 15: xylona.node.v1.StartProcessRequest.rest_input:type_name -> xylona.node.v1.RESTInput
@@ -10433,23 +10498,23 @@ var file_nodeproto_v1_node_proto_depIdxs = []int32{
 	5,   // 23: xylona.node.v1.ExtractBackupArchiveRequest.mode:type_name -> xylona.node.v1.ExtractMode
 	6,   // 24: xylona.node.v1.ProbeInstalledVersionRequest.kind:type_name -> xylona.node.v1.InstalledVersionProbeKind
 	7,   // 25: xylona.node.v1.QueryGameServerRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
-	113, // 26: xylona.node.v1.GameServerMinecraftQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
-	113, // 27: xylona.node.v1.GameServerPalworldQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
+	114, // 26: xylona.node.v1.GameServerMinecraftQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
+	114, // 27: xylona.node.v1.GameServerPalworldQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
 	7,   // 28: xylona.node.v1.QueryGameServerResponse.kind:type_name -> xylona.node.v1.GameServerQueryKind
 	70,  // 29: xylona.node.v1.QueryGameServerResponse.minecraft:type_name -> xylona.node.v1.GameServerMinecraftQueryInfo
 	71,  // 30: xylona.node.v1.QueryGameServerResponse.source:type_name -> xylona.node.v1.GameServerSourceQueryInfo
 	72,  // 31: xylona.node.v1.QueryGameServerResponse.palworld:type_name -> xylona.node.v1.GameServerPalworldQueryInfo
 	8,   // 32: xylona.node.v1.PalworldMapActor.kind:type_name -> xylona.node.v1.PalworldMapActorKind
-	135, // 33: xylona.node.v1.PalworldMapSnapshot.collected_at:type_name -> google.protobuf.Timestamp
+	136, // 33: xylona.node.v1.PalworldMapSnapshot.collected_at:type_name -> google.protobuf.Timestamp
 	74,  // 34: xylona.node.v1.PalworldMapSnapshot.actors:type_name -> xylona.node.v1.PalworldMapActor
-	116, // 35: xylona.node.v1.PalworldMapSnapshot.health:type_name -> xylona.node.v1.PalworldMapHealth
+	117, // 35: xylona.node.v1.PalworldMapSnapshot.health:type_name -> xylona.node.v1.PalworldMapHealth
 	75,  // 36: xylona.node.v1.QueryPalworldMapResponse.snapshot:type_name -> xylona.node.v1.PalworldMapSnapshot
 	78,  // 37: xylona.node.v1.SevenDaysToDieMapPlayer.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
 	78,  // 38: xylona.node.v1.SevenDaysToDieLandClaim.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
 	78,  // 39: xylona.node.v1.SevenDaysToDieMapEntity.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
-	117, // 40: xylona.node.v1.SevenDaysToDieMapBloodMoon.game_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	117, // 41: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	117, // 42: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	118, // 40: xylona.node.v1.SevenDaysToDieMapBloodMoon.game_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	118, // 41: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	118, // 42: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
 	78,  // 43: xylona.node.v1.SevenDaysToDieMapSnapshot.map_size:type_name -> xylona.node.v1.SevenDaysToDieMapVector
 	79,  // 44: xylona.node.v1.SevenDaysToDieMapSnapshot.players:type_name -> xylona.node.v1.SevenDaysToDieMapPlayer
 	80,  // 45: xylona.node.v1.SevenDaysToDieMapSnapshot.markers:type_name -> xylona.node.v1.SevenDaysToDieMapMarker
@@ -10465,129 +10530,130 @@ var file_nodeproto_v1_node_proto_depIdxs = []int32{
 	84,  // 55: xylona.node.v1.QuerySevenDaysToDieMapResponse.snapshot:type_name -> xylona.node.v1.SevenDaysToDieMapSnapshot
 	14,  // 56: xylona.node.v1.GetProcessSnapshotResponse.snapshot:type_name -> xylona.node.v1.ProcessSnapshot
 	16,  // 57: xylona.node.v1.ListBindableIPsResponse.ips:type_name -> xylona.node.v1.BindableIP
-	135, // 58: xylona.node.v1.PingResponse.server_time:type_name -> google.protobuf.Timestamp
-	7,   // 59: xylona.node.v1.PerformGameServerPlayerActionRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
-	9,   // 60: xylona.node.v1.PerformGameServerPlayerActionRequest.action:type_name -> xylona.node.v1.GameServerPlayerAction
-	10,  // 61: xylona.node.v1.SevenDaysToDieWebAPIStatus.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	118, // 62: xylona.node.v1.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.node.v1.SevenDaysToDieWebAPICapabilities
-	11,  // 63: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	117, // 64: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	11,  // 65: xylona.node.v1.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	117, // 66: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	117, // 67: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	135, // 68: xylona.node.v1.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
-	119, // 69: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.node.v1.SevenDaysToDieWebAPIStatus
-	10,  // 70: xylona.node.v1.SevenDaysToDiePlayers.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	11,  // 71: xylona.node.v1.SevenDaysToDiePlayers.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	122, // 72: xylona.node.v1.SevenDaysToDiePlayers.players:type_name -> xylona.node.v1.SevenDaysToDiePlayer
-	123, // 73: xylona.node.v1.QuerySevenDaysToDiePlayersResponse.result:type_name -> xylona.node.v1.SevenDaysToDiePlayers
-	10,  // 74: xylona.node.v1.SevenDaysToDieReportedMods.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	11,  // 75: xylona.node.v1.SevenDaysToDieReportedMods.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	126, // 76: xylona.node.v1.SevenDaysToDieReportedMods.mods:type_name -> xylona.node.v1.SevenDaysToDieReportedMod
-	127, // 77: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieReportedMods
-	10,  // 78: xylona.node.v1.SevenDaysToDieSandboxSettings.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	11,  // 79: xylona.node.v1.SevenDaysToDieSandboxSettings.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	12,  // 80: xylona.node.v1.SevenDaysToDieSandboxSettings.comparison_state:type_name -> xylona.node.v1.SevenDaysToDieSandboxComparisonState
-	130, // 81: xylona.node.v1.SevenDaysToDieSandboxSettings.settings:type_name -> xylona.node.v1.SevenDaysToDieSandboxSetting
-	135, // 82: xylona.node.v1.SevenDaysToDieSandboxSettings.observed_at:type_name -> google.protobuf.Timestamp
-	131, // 83: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieSandboxSettings
-	22,  // 84: xylona.node.v1.NodeService.StartProcess:input_type -> xylona.node.v1.StartProcessRequest
-	27,  // 85: xylona.node.v1.NodeService.StopProcess:input_type -> xylona.node.v1.StopProcessRequest
-	29,  // 86: xylona.node.v1.NodeService.SendConsoleInput:input_type -> xylona.node.v1.SendConsoleInputRequest
-	31,  // 87: xylona.node.v1.NodeService.ReadConsoleBuffer:input_type -> xylona.node.v1.ReadConsoleBufferRequest
-	33,  // 88: xylona.node.v1.NodeService.StreamConsoleOutput:input_type -> xylona.node.v1.StreamConsoleOutputRequest
-	34,  // 89: xylona.node.v1.NodeService.ListFiles:input_type -> xylona.node.v1.ListFilesRequest
-	36,  // 90: xylona.node.v1.NodeService.ReadFile:input_type -> xylona.node.v1.ReadFileRequest
-	38,  // 91: xylona.node.v1.NodeService.StatFile:input_type -> xylona.node.v1.StatFileRequest
-	40,  // 92: xylona.node.v1.NodeService.StreamFile:input_type -> xylona.node.v1.StreamFileRequest
-	42,  // 93: xylona.node.v1.NodeService.WriteFile:input_type -> xylona.node.v1.WriteFileRequest
-	44,  // 94: xylona.node.v1.NodeService.StreamWriteFile:input_type -> xylona.node.v1.StreamWriteFileRequest
-	49,  // 95: xylona.node.v1.NodeService.CreateFileOrDirectory:input_type -> xylona.node.v1.CreateFileOrDirectoryRequest
-	51,  // 96: xylona.node.v1.NodeService.DeleteFiles:input_type -> xylona.node.v1.DeleteFilesRequest
-	53,  // 97: xylona.node.v1.NodeService.RenameFile:input_type -> xylona.node.v1.RenameFileRequest
-	55,  // 98: xylona.node.v1.NodeService.MoveFiles:input_type -> xylona.node.v1.MoveFilesRequest
-	47,  // 99: xylona.node.v1.NodeService.CopyFiles:input_type -> xylona.node.v1.CopyFilesRequest
-	57,  // 100: xylona.node.v1.NodeService.DownloadFileFromURL:input_type -> xylona.node.v1.DownloadFileFromURLRequest
-	59,  // 101: xylona.node.v1.NodeService.CreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
-	59,  // 102: xylona.node.v1.NodeService.StreamCreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
-	61,  // 103: xylona.node.v1.NodeService.ExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
-	61,  // 104: xylona.node.v1.NodeService.StreamExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
-	63,  // 105: xylona.node.v1.NodeService.CreateBackupArchive:input_type -> xylona.node.v1.CreateBackupArchiveRequest
-	65,  // 106: xylona.node.v1.NodeService.ExtractBackupArchive:input_type -> xylona.node.v1.ExtractBackupArchiveRequest
-	67,  // 107: xylona.node.v1.NodeService.ProbeInstalledVersion:input_type -> xylona.node.v1.ProbeInstalledVersionRequest
-	69,  // 108: xylona.node.v1.NodeService.QueryGameServer:input_type -> xylona.node.v1.QueryGameServerRequest
-	76,  // 109: xylona.node.v1.NodeService.QueryPalworldMap:input_type -> xylona.node.v1.QueryPalworldMapRequest
-	85,  // 110: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:input_type -> xylona.node.v1.QuerySevenDaysToDieMapRequest
-	120, // 111: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:input_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
-	124, // 112: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:input_type -> xylona.node.v1.QuerySevenDaysToDiePlayersRequest
-	128, // 113: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:input_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
-	132, // 114: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:input_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
-	87,  // 115: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:input_type -> xylona.node.v1.GetSevenDaysToDieMapTileRequest
-	89,  // 116: xylona.node.v1.NodeService.EnsureMinecraftMap:input_type -> xylona.node.v1.EnsureMinecraftMapRequest
-	91,  // 117: xylona.node.v1.NodeService.StopMinecraftMap:input_type -> xylona.node.v1.StopMinecraftMapRequest
-	93,  // 118: xylona.node.v1.NodeService.GetMinecraftMapAsset:input_type -> xylona.node.v1.GetMinecraftMapAssetRequest
-	114, // 119: xylona.node.v1.NodeService.PerformGameServerPlayerAction:input_type -> xylona.node.v1.PerformGameServerPlayerActionRequest
-	95,  // 120: xylona.node.v1.NodeService.SendConsoleOutput:input_type -> xylona.node.v1.SendConsoleOutputRequest
-	97,  // 121: xylona.node.v1.NodeService.GetProcessSnapshot:input_type -> xylona.node.v1.GetProcessSnapshotRequest
-	100, // 122: xylona.node.v1.NodeService.ListBindableIPs:input_type -> xylona.node.v1.ListBindableIPsRequest
-	99,  // 123: xylona.node.v1.NodeService.GetNodeSnapshot:input_type -> xylona.node.v1.GetNodeSnapshotRequest
-	105, // 124: xylona.node.v1.NodeService.GetRuntimeCapabilities:input_type -> xylona.node.v1.GetRuntimeCapabilitiesRequest
-	102, // 125: xylona.node.v1.NodeService.StreamEvents:input_type -> xylona.node.v1.StreamEventsRequest
-	103, // 126: xylona.node.v1.NodeService.Ping:input_type -> xylona.node.v1.PingRequest
-	107, // 127: xylona.node.v1.NodeService.GetUpdateCapabilities:input_type -> xylona.node.v1.GetUpdateCapabilitiesRequest
-	109, // 128: xylona.node.v1.NodeService.StageSelfUpdate:input_type -> xylona.node.v1.StageSelfUpdateRequest
-	111, // 129: xylona.node.v1.NodeService.ApplySelfUpdate:input_type -> xylona.node.v1.ApplySelfUpdateRequest
-	26,  // 130: xylona.node.v1.NodeService.StartProcess:output_type -> xylona.node.v1.StartProcessResponse
-	28,  // 131: xylona.node.v1.NodeService.StopProcess:output_type -> xylona.node.v1.StopProcessResponse
-	30,  // 132: xylona.node.v1.NodeService.SendConsoleInput:output_type -> xylona.node.v1.SendConsoleInputResponse
-	32,  // 133: xylona.node.v1.NodeService.ReadConsoleBuffer:output_type -> xylona.node.v1.ReadConsoleBufferResponse
-	17,  // 134: xylona.node.v1.NodeService.StreamConsoleOutput:output_type -> xylona.node.v1.ConsoleChunk
-	35,  // 135: xylona.node.v1.NodeService.ListFiles:output_type -> xylona.node.v1.ListFilesResponse
-	37,  // 136: xylona.node.v1.NodeService.ReadFile:output_type -> xylona.node.v1.ReadFileResponse
-	39,  // 137: xylona.node.v1.NodeService.StatFile:output_type -> xylona.node.v1.StatFileResponse
-	41,  // 138: xylona.node.v1.NodeService.StreamFile:output_type -> xylona.node.v1.StreamFileResponse
-	43,  // 139: xylona.node.v1.NodeService.WriteFile:output_type -> xylona.node.v1.WriteFileResponse
-	45,  // 140: xylona.node.v1.NodeService.StreamWriteFile:output_type -> xylona.node.v1.StreamWriteFileResponse
-	50,  // 141: xylona.node.v1.NodeService.CreateFileOrDirectory:output_type -> xylona.node.v1.CreateFileOrDirectoryResponse
-	52,  // 142: xylona.node.v1.NodeService.DeleteFiles:output_type -> xylona.node.v1.DeleteFilesResponse
-	54,  // 143: xylona.node.v1.NodeService.RenameFile:output_type -> xylona.node.v1.RenameFileResponse
-	56,  // 144: xylona.node.v1.NodeService.MoveFiles:output_type -> xylona.node.v1.MoveFilesResponse
-	48,  // 145: xylona.node.v1.NodeService.CopyFiles:output_type -> xylona.node.v1.CopyFilesResponse
-	58,  // 146: xylona.node.v1.NodeService.DownloadFileFromURL:output_type -> xylona.node.v1.DownloadFileFromURLResponse
-	60,  // 147: xylona.node.v1.NodeService.CreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
-	60,  // 148: xylona.node.v1.NodeService.StreamCreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
-	62,  // 149: xylona.node.v1.NodeService.ExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
-	62,  // 150: xylona.node.v1.NodeService.StreamExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
-	64,  // 151: xylona.node.v1.NodeService.CreateBackupArchive:output_type -> xylona.node.v1.CreateBackupArchiveResponse
-	66,  // 152: xylona.node.v1.NodeService.ExtractBackupArchive:output_type -> xylona.node.v1.ExtractBackupArchiveResponse
-	68,  // 153: xylona.node.v1.NodeService.ProbeInstalledVersion:output_type -> xylona.node.v1.ProbeInstalledVersionResponse
-	73,  // 154: xylona.node.v1.NodeService.QueryGameServer:output_type -> xylona.node.v1.QueryGameServerResponse
-	77,  // 155: xylona.node.v1.NodeService.QueryPalworldMap:output_type -> xylona.node.v1.QueryPalworldMapResponse
-	86,  // 156: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:output_type -> xylona.node.v1.QuerySevenDaysToDieMapResponse
-	121, // 157: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:output_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
-	125, // 158: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:output_type -> xylona.node.v1.QuerySevenDaysToDiePlayersResponse
-	129, // 159: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:output_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
-	133, // 160: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:output_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
-	88,  // 161: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:output_type -> xylona.node.v1.GetSevenDaysToDieMapTileResponse
-	90,  // 162: xylona.node.v1.NodeService.EnsureMinecraftMap:output_type -> xylona.node.v1.EnsureMinecraftMapResponse
-	92,  // 163: xylona.node.v1.NodeService.StopMinecraftMap:output_type -> xylona.node.v1.StopMinecraftMapResponse
-	94,  // 164: xylona.node.v1.NodeService.GetMinecraftMapAsset:output_type -> xylona.node.v1.GetMinecraftMapAssetResponse
-	115, // 165: xylona.node.v1.NodeService.PerformGameServerPlayerAction:output_type -> xylona.node.v1.PerformGameServerPlayerActionResponse
-	96,  // 166: xylona.node.v1.NodeService.SendConsoleOutput:output_type -> xylona.node.v1.SendConsoleOutputResponse
-	98,  // 167: xylona.node.v1.NodeService.GetProcessSnapshot:output_type -> xylona.node.v1.GetProcessSnapshotResponse
-	101, // 168: xylona.node.v1.NodeService.ListBindableIPs:output_type -> xylona.node.v1.ListBindableIPsResponse
-	15,  // 169: xylona.node.v1.NodeService.GetNodeSnapshot:output_type -> xylona.node.v1.NodeSnapshot
-	106, // 170: xylona.node.v1.NodeService.GetRuntimeCapabilities:output_type -> xylona.node.v1.GetRuntimeCapabilitiesResponse
-	21,  // 171: xylona.node.v1.NodeService.StreamEvents:output_type -> xylona.node.v1.Event
-	104, // 172: xylona.node.v1.NodeService.Ping:output_type -> xylona.node.v1.PingResponse
-	108, // 173: xylona.node.v1.NodeService.GetUpdateCapabilities:output_type -> xylona.node.v1.GetUpdateCapabilitiesResponse
-	110, // 174: xylona.node.v1.NodeService.StageSelfUpdate:output_type -> xylona.node.v1.StageSelfUpdateResponse
-	112, // 175: xylona.node.v1.NodeService.ApplySelfUpdate:output_type -> xylona.node.v1.ApplySelfUpdateResponse
-	130, // [130:176] is the sub-list for method output_type
-	84,  // [84:130] is the sub-list for method input_type
-	84,  // [84:84] is the sub-list for extension type_name
-	84,  // [84:84] is the sub-list for extension extendee
-	0,   // [0:84] is the sub-list for field type_name
+	136, // 58: xylona.node.v1.PingResponse.server_time:type_name -> google.protobuf.Timestamp
+	106, // 59: xylona.node.v1.GetRuntimeCapabilitiesResponse.game_operations:type_name -> xylona.node.v1.GameOperationSupport
+	7,   // 60: xylona.node.v1.PerformGameServerPlayerActionRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
+	9,   // 61: xylona.node.v1.PerformGameServerPlayerActionRequest.action:type_name -> xylona.node.v1.GameServerPlayerAction
+	10,  // 62: xylona.node.v1.SevenDaysToDieWebAPIStatus.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	119, // 63: xylona.node.v1.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.node.v1.SevenDaysToDieWebAPICapabilities
+	11,  // 64: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	118, // 65: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	11,  // 66: xylona.node.v1.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	118, // 67: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	118, // 68: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	136, // 69: xylona.node.v1.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
+	120, // 70: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.node.v1.SevenDaysToDieWebAPIStatus
+	10,  // 71: xylona.node.v1.SevenDaysToDiePlayers.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	11,  // 72: xylona.node.v1.SevenDaysToDiePlayers.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	123, // 73: xylona.node.v1.SevenDaysToDiePlayers.players:type_name -> xylona.node.v1.SevenDaysToDiePlayer
+	124, // 74: xylona.node.v1.QuerySevenDaysToDiePlayersResponse.result:type_name -> xylona.node.v1.SevenDaysToDiePlayers
+	10,  // 75: xylona.node.v1.SevenDaysToDieReportedMods.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	11,  // 76: xylona.node.v1.SevenDaysToDieReportedMods.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	127, // 77: xylona.node.v1.SevenDaysToDieReportedMods.mods:type_name -> xylona.node.v1.SevenDaysToDieReportedMod
+	128, // 78: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieReportedMods
+	10,  // 79: xylona.node.v1.SevenDaysToDieSandboxSettings.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	11,  // 80: xylona.node.v1.SevenDaysToDieSandboxSettings.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	12,  // 81: xylona.node.v1.SevenDaysToDieSandboxSettings.comparison_state:type_name -> xylona.node.v1.SevenDaysToDieSandboxComparisonState
+	131, // 82: xylona.node.v1.SevenDaysToDieSandboxSettings.settings:type_name -> xylona.node.v1.SevenDaysToDieSandboxSetting
+	136, // 83: xylona.node.v1.SevenDaysToDieSandboxSettings.observed_at:type_name -> google.protobuf.Timestamp
+	132, // 84: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieSandboxSettings
+	22,  // 85: xylona.node.v1.NodeService.StartProcess:input_type -> xylona.node.v1.StartProcessRequest
+	27,  // 86: xylona.node.v1.NodeService.StopProcess:input_type -> xylona.node.v1.StopProcessRequest
+	29,  // 87: xylona.node.v1.NodeService.SendConsoleInput:input_type -> xylona.node.v1.SendConsoleInputRequest
+	31,  // 88: xylona.node.v1.NodeService.ReadConsoleBuffer:input_type -> xylona.node.v1.ReadConsoleBufferRequest
+	33,  // 89: xylona.node.v1.NodeService.StreamConsoleOutput:input_type -> xylona.node.v1.StreamConsoleOutputRequest
+	34,  // 90: xylona.node.v1.NodeService.ListFiles:input_type -> xylona.node.v1.ListFilesRequest
+	36,  // 91: xylona.node.v1.NodeService.ReadFile:input_type -> xylona.node.v1.ReadFileRequest
+	38,  // 92: xylona.node.v1.NodeService.StatFile:input_type -> xylona.node.v1.StatFileRequest
+	40,  // 93: xylona.node.v1.NodeService.StreamFile:input_type -> xylona.node.v1.StreamFileRequest
+	42,  // 94: xylona.node.v1.NodeService.WriteFile:input_type -> xylona.node.v1.WriteFileRequest
+	44,  // 95: xylona.node.v1.NodeService.StreamWriteFile:input_type -> xylona.node.v1.StreamWriteFileRequest
+	49,  // 96: xylona.node.v1.NodeService.CreateFileOrDirectory:input_type -> xylona.node.v1.CreateFileOrDirectoryRequest
+	51,  // 97: xylona.node.v1.NodeService.DeleteFiles:input_type -> xylona.node.v1.DeleteFilesRequest
+	53,  // 98: xylona.node.v1.NodeService.RenameFile:input_type -> xylona.node.v1.RenameFileRequest
+	55,  // 99: xylona.node.v1.NodeService.MoveFiles:input_type -> xylona.node.v1.MoveFilesRequest
+	47,  // 100: xylona.node.v1.NodeService.CopyFiles:input_type -> xylona.node.v1.CopyFilesRequest
+	57,  // 101: xylona.node.v1.NodeService.DownloadFileFromURL:input_type -> xylona.node.v1.DownloadFileFromURLRequest
+	59,  // 102: xylona.node.v1.NodeService.CreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
+	59,  // 103: xylona.node.v1.NodeService.StreamCreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
+	61,  // 104: xylona.node.v1.NodeService.ExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
+	61,  // 105: xylona.node.v1.NodeService.StreamExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
+	63,  // 106: xylona.node.v1.NodeService.CreateBackupArchive:input_type -> xylona.node.v1.CreateBackupArchiveRequest
+	65,  // 107: xylona.node.v1.NodeService.ExtractBackupArchive:input_type -> xylona.node.v1.ExtractBackupArchiveRequest
+	67,  // 108: xylona.node.v1.NodeService.ProbeInstalledVersion:input_type -> xylona.node.v1.ProbeInstalledVersionRequest
+	69,  // 109: xylona.node.v1.NodeService.QueryGameServer:input_type -> xylona.node.v1.QueryGameServerRequest
+	76,  // 110: xylona.node.v1.NodeService.QueryPalworldMap:input_type -> xylona.node.v1.QueryPalworldMapRequest
+	85,  // 111: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:input_type -> xylona.node.v1.QuerySevenDaysToDieMapRequest
+	121, // 112: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:input_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
+	125, // 113: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:input_type -> xylona.node.v1.QuerySevenDaysToDiePlayersRequest
+	129, // 114: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:input_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
+	133, // 115: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:input_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
+	87,  // 116: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:input_type -> xylona.node.v1.GetSevenDaysToDieMapTileRequest
+	89,  // 117: xylona.node.v1.NodeService.EnsureMinecraftMap:input_type -> xylona.node.v1.EnsureMinecraftMapRequest
+	91,  // 118: xylona.node.v1.NodeService.StopMinecraftMap:input_type -> xylona.node.v1.StopMinecraftMapRequest
+	93,  // 119: xylona.node.v1.NodeService.GetMinecraftMapAsset:input_type -> xylona.node.v1.GetMinecraftMapAssetRequest
+	115, // 120: xylona.node.v1.NodeService.PerformGameServerPlayerAction:input_type -> xylona.node.v1.PerformGameServerPlayerActionRequest
+	95,  // 121: xylona.node.v1.NodeService.SendConsoleOutput:input_type -> xylona.node.v1.SendConsoleOutputRequest
+	97,  // 122: xylona.node.v1.NodeService.GetProcessSnapshot:input_type -> xylona.node.v1.GetProcessSnapshotRequest
+	100, // 123: xylona.node.v1.NodeService.ListBindableIPs:input_type -> xylona.node.v1.ListBindableIPsRequest
+	99,  // 124: xylona.node.v1.NodeService.GetNodeSnapshot:input_type -> xylona.node.v1.GetNodeSnapshotRequest
+	105, // 125: xylona.node.v1.NodeService.GetRuntimeCapabilities:input_type -> xylona.node.v1.GetRuntimeCapabilitiesRequest
+	102, // 126: xylona.node.v1.NodeService.StreamEvents:input_type -> xylona.node.v1.StreamEventsRequest
+	103, // 127: xylona.node.v1.NodeService.Ping:input_type -> xylona.node.v1.PingRequest
+	108, // 128: xylona.node.v1.NodeService.GetUpdateCapabilities:input_type -> xylona.node.v1.GetUpdateCapabilitiesRequest
+	110, // 129: xylona.node.v1.NodeService.StageSelfUpdate:input_type -> xylona.node.v1.StageSelfUpdateRequest
+	112, // 130: xylona.node.v1.NodeService.ApplySelfUpdate:input_type -> xylona.node.v1.ApplySelfUpdateRequest
+	26,  // 131: xylona.node.v1.NodeService.StartProcess:output_type -> xylona.node.v1.StartProcessResponse
+	28,  // 132: xylona.node.v1.NodeService.StopProcess:output_type -> xylona.node.v1.StopProcessResponse
+	30,  // 133: xylona.node.v1.NodeService.SendConsoleInput:output_type -> xylona.node.v1.SendConsoleInputResponse
+	32,  // 134: xylona.node.v1.NodeService.ReadConsoleBuffer:output_type -> xylona.node.v1.ReadConsoleBufferResponse
+	17,  // 135: xylona.node.v1.NodeService.StreamConsoleOutput:output_type -> xylona.node.v1.ConsoleChunk
+	35,  // 136: xylona.node.v1.NodeService.ListFiles:output_type -> xylona.node.v1.ListFilesResponse
+	37,  // 137: xylona.node.v1.NodeService.ReadFile:output_type -> xylona.node.v1.ReadFileResponse
+	39,  // 138: xylona.node.v1.NodeService.StatFile:output_type -> xylona.node.v1.StatFileResponse
+	41,  // 139: xylona.node.v1.NodeService.StreamFile:output_type -> xylona.node.v1.StreamFileResponse
+	43,  // 140: xylona.node.v1.NodeService.WriteFile:output_type -> xylona.node.v1.WriteFileResponse
+	45,  // 141: xylona.node.v1.NodeService.StreamWriteFile:output_type -> xylona.node.v1.StreamWriteFileResponse
+	50,  // 142: xylona.node.v1.NodeService.CreateFileOrDirectory:output_type -> xylona.node.v1.CreateFileOrDirectoryResponse
+	52,  // 143: xylona.node.v1.NodeService.DeleteFiles:output_type -> xylona.node.v1.DeleteFilesResponse
+	54,  // 144: xylona.node.v1.NodeService.RenameFile:output_type -> xylona.node.v1.RenameFileResponse
+	56,  // 145: xylona.node.v1.NodeService.MoveFiles:output_type -> xylona.node.v1.MoveFilesResponse
+	48,  // 146: xylona.node.v1.NodeService.CopyFiles:output_type -> xylona.node.v1.CopyFilesResponse
+	58,  // 147: xylona.node.v1.NodeService.DownloadFileFromURL:output_type -> xylona.node.v1.DownloadFileFromURLResponse
+	60,  // 148: xylona.node.v1.NodeService.CreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
+	60,  // 149: xylona.node.v1.NodeService.StreamCreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
+	62,  // 150: xylona.node.v1.NodeService.ExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
+	62,  // 151: xylona.node.v1.NodeService.StreamExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
+	64,  // 152: xylona.node.v1.NodeService.CreateBackupArchive:output_type -> xylona.node.v1.CreateBackupArchiveResponse
+	66,  // 153: xylona.node.v1.NodeService.ExtractBackupArchive:output_type -> xylona.node.v1.ExtractBackupArchiveResponse
+	68,  // 154: xylona.node.v1.NodeService.ProbeInstalledVersion:output_type -> xylona.node.v1.ProbeInstalledVersionResponse
+	73,  // 155: xylona.node.v1.NodeService.QueryGameServer:output_type -> xylona.node.v1.QueryGameServerResponse
+	77,  // 156: xylona.node.v1.NodeService.QueryPalworldMap:output_type -> xylona.node.v1.QueryPalworldMapResponse
+	86,  // 157: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:output_type -> xylona.node.v1.QuerySevenDaysToDieMapResponse
+	122, // 158: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:output_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
+	126, // 159: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:output_type -> xylona.node.v1.QuerySevenDaysToDiePlayersResponse
+	130, // 160: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:output_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
+	134, // 161: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:output_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
+	88,  // 162: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:output_type -> xylona.node.v1.GetSevenDaysToDieMapTileResponse
+	90,  // 163: xylona.node.v1.NodeService.EnsureMinecraftMap:output_type -> xylona.node.v1.EnsureMinecraftMapResponse
+	92,  // 164: xylona.node.v1.NodeService.StopMinecraftMap:output_type -> xylona.node.v1.StopMinecraftMapResponse
+	94,  // 165: xylona.node.v1.NodeService.GetMinecraftMapAsset:output_type -> xylona.node.v1.GetMinecraftMapAssetResponse
+	116, // 166: xylona.node.v1.NodeService.PerformGameServerPlayerAction:output_type -> xylona.node.v1.PerformGameServerPlayerActionResponse
+	96,  // 167: xylona.node.v1.NodeService.SendConsoleOutput:output_type -> xylona.node.v1.SendConsoleOutputResponse
+	98,  // 168: xylona.node.v1.NodeService.GetProcessSnapshot:output_type -> xylona.node.v1.GetProcessSnapshotResponse
+	101, // 169: xylona.node.v1.NodeService.ListBindableIPs:output_type -> xylona.node.v1.ListBindableIPsResponse
+	15,  // 170: xylona.node.v1.NodeService.GetNodeSnapshot:output_type -> xylona.node.v1.NodeSnapshot
+	107, // 171: xylona.node.v1.NodeService.GetRuntimeCapabilities:output_type -> xylona.node.v1.GetRuntimeCapabilitiesResponse
+	21,  // 172: xylona.node.v1.NodeService.StreamEvents:output_type -> xylona.node.v1.Event
+	104, // 173: xylona.node.v1.NodeService.Ping:output_type -> xylona.node.v1.PingResponse
+	109, // 174: xylona.node.v1.NodeService.GetUpdateCapabilities:output_type -> xylona.node.v1.GetUpdateCapabilitiesResponse
+	111, // 175: xylona.node.v1.NodeService.StageSelfUpdate:output_type -> xylona.node.v1.StageSelfUpdateResponse
+	113, // 176: xylona.node.v1.NodeService.ApplySelfUpdate:output_type -> xylona.node.v1.ApplySelfUpdateResponse
+	131, // [131:177] is the sub-list for method output_type
+	85,  // [85:131] is the sub-list for method input_type
+	85,  // [85:85] is the sub-list for extension type_name
+	85,  // [85:85] is the sub-list for extension extendee
+	0,   // [0:85] is the sub-list for field type_name
 }
 
 func init() { file_nodeproto_v1_node_proto_init() }
@@ -10605,15 +10671,15 @@ func file_nodeproto_v1_node_proto_init() {
 	}
 	file_nodeproto_v1_node_proto_msgTypes[57].OneofWrappers = []any{}
 	file_nodeproto_v1_node_proto_msgTypes[58].OneofWrappers = []any{}
-	file_nodeproto_v1_node_proto_msgTypes[106].OneofWrappers = []any{}
-	file_nodeproto_v1_node_proto_msgTypes[109].OneofWrappers = []any{}
+	file_nodeproto_v1_node_proto_msgTypes[107].OneofWrappers = []any{}
+	file_nodeproto_v1_node_proto_msgTypes[110].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nodeproto_v1_node_proto_rawDesc), len(file_nodeproto_v1_node_proto_rawDesc)),
 			NumEnums:      13,
-			NumMessages:   122,
+			NumMessages:   123,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

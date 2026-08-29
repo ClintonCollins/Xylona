@@ -1401,6 +1401,9 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 			PalworldMap:              true,
 			SevenDaysToDieMap:        true,
 			MinecraftMap:             true,
+			GameOperations: []*nodeprotov1.GameOperationSupport{
+				{GameId: "7_days_to_die", OperationIds: []string{"player_access.add_administrator"}},
+			},
 		},
 	}
 	url, fingerprint := newPinnedTestServer(t, rec)
@@ -1412,7 +1415,8 @@ func TestGRPCClientRuntimeCapabilities(t *testing.T) {
 	}
 	if caps.ProtocolVersion != node.RuntimeProtocolVersion || !caps.LaunchEnv || !caps.ReliableProcessLifecycle ||
 		!caps.TelnetInput || !caps.RCONInput || !caps.RESTInput || !caps.PlayerActions || !caps.PalworldMap ||
-		!caps.SevenDaysToDieMap || !caps.MinecraftMap {
+		!caps.SevenDaysToDieMap || !caps.MinecraftMap ||
+		!caps.SupportsGameOperation("7_days_to_die", "player_access.add_administrator") {
 		t.Fatalf("runtime capabilities = %+v, want all optional features", caps)
 	}
 }
@@ -1577,7 +1581,9 @@ func TestGRPCClientRuntimeCapabilitiesUnimplementedMeansNoOptionalFeatures(t *te
 	if errCaps != nil {
 		t.Fatalf("GetRuntimeCapabilities: %v", errCaps)
 	}
-	if caps != (node.RuntimeCapabilities{}) {
+	if caps.ProtocolVersion != 0 || caps.LaunchEnv || caps.ReliableProcessLifecycle || caps.TelnetInput ||
+		caps.RCONInput || caps.RESTInput || caps.PlayerActions || caps.PalworldMap || caps.SevenDaysToDieMap ||
+		caps.MinecraftMap || len(caps.GameOperations) != 0 {
 		t.Fatalf("runtime capabilities = %+v, want empty capabilities", caps)
 	}
 }

@@ -143,6 +143,10 @@ const routes: RouteRecordRaw[] = [
             component: () => import('pages/game_servers/GameServerView.vue'),
           },
           {
+            path: 'operations',
+            component: () => import('pages/game_servers/GameServerOperations.vue'),
+          },
+          {
             // Player management lives on the console page now; keep old
             // bookmarks working.
             path: 'players',

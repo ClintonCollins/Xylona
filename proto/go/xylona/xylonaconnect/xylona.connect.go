@@ -205,6 +205,9 @@ const (
 	// XylonaPerformGameServerPlayerActionProcedure is the fully-qualified name of the Xylona's
 	// PerformGameServerPlayerAction RPC.
 	XylonaPerformGameServerPlayerActionProcedure = "/xylona.Xylona/PerformGameServerPlayerAction"
+	// XylonaListGameServerOperationsProcedure is the fully-qualified name of the Xylona's
+	// ListGameServerOperations RPC.
+	XylonaListGameServerOperationsProcedure = "/xylona.Xylona/ListGameServerOperations"
 	// XylonaGetPalworldMapProcedure is the fully-qualified name of the Xylona's GetPalworldMap RPC.
 	XylonaGetPalworldMapProcedure = "/xylona.Xylona/GetPalworldMap"
 	// XylonaUpdatePalworldMapConfigProcedure is the fully-qualified name of the Xylona's
@@ -531,6 +534,7 @@ type XylonaClient interface {
 	ResolvePublicGameServerMap(context.Context, *connect.Request[xylona.ResolvePublicGameServerMapRequest]) (*connect.Response[xylona.ResolvePublicGameServerMapResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
+	ListGameServerOperations(context.Context, *connect.Request[xylona.ListGameServerOperationsRequest]) (*connect.Response[xylona.ListGameServerOperationsResponse], error)
 	GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error)
 	UpdatePalworldMapConfig(context.Context, *connect.Request[xylona.UpdatePalworldMapConfigRequest]) (*connect.Response[xylona.UpdatePalworldMapConfigResponse], error)
 	InstallPalworldMapTiles(context.Context, *connect.Request[xylona.InstallPalworldMapTilesRequest]) (*connect.Response[xylona.InstallPalworldMapTilesResponse], error)
@@ -1064,6 +1068,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaPerformGameServerPlayerActionProcedure,
 			connect.WithSchema(xylonaMethods.ByName("PerformGameServerPlayerAction")),
+			connect.WithClientOptions(opts...),
+		),
+		listGameServerOperations: connect.NewClient[xylona.ListGameServerOperationsRequest, xylona.ListGameServerOperationsResponse](
+			httpClient,
+			baseURL+XylonaListGameServerOperationsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListGameServerOperations")),
 			connect.WithClientOptions(opts...),
 		),
 		getPalworldMap: connect.NewClient[xylona.GetPalworldMapRequest, xylona.GetPalworldMapResponse](
@@ -1686,6 +1696,7 @@ type xylonaClient struct {
 	resolvePublicGameServerMap              *connect.Client[xylona.ResolvePublicGameServerMapRequest, xylona.ResolvePublicGameServerMapResponse]
 	getGameServerPlayerManagement           *connect.Client[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse]
 	performGameServerPlayerAction           *connect.Client[xylona.PerformGameServerPlayerActionRequest, xylona.PerformGameServerPlayerActionResponse]
+	listGameServerOperations                *connect.Client[xylona.ListGameServerOperationsRequest, xylona.ListGameServerOperationsResponse]
 	getPalworldMap                          *connect.Client[xylona.GetPalworldMapRequest, xylona.GetPalworldMapResponse]
 	updatePalworldMapConfig                 *connect.Client[xylona.UpdatePalworldMapConfigRequest, xylona.UpdatePalworldMapConfigResponse]
 	installPalworldMapTiles                 *connect.Client[xylona.InstallPalworldMapTilesRequest, xylona.InstallPalworldMapTilesResponse]
@@ -2123,6 +2134,11 @@ func (c *xylonaClient) GetGameServerPlayerManagement(ctx context.Context, req *c
 // PerformGameServerPlayerAction calls xylona.Xylona.PerformGameServerPlayerAction.
 func (c *xylonaClient) PerformGameServerPlayerAction(ctx context.Context, req *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error) {
 	return c.performGameServerPlayerAction.CallUnary(ctx, req)
+}
+
+// ListGameServerOperations calls xylona.Xylona.ListGameServerOperations.
+func (c *xylonaClient) ListGameServerOperations(ctx context.Context, req *connect.Request[xylona.ListGameServerOperationsRequest]) (*connect.Response[xylona.ListGameServerOperationsResponse], error) {
+	return c.listGameServerOperations.CallUnary(ctx, req)
 }
 
 // GetPalworldMap calls xylona.Xylona.GetPalworldMap.
@@ -2657,6 +2673,7 @@ type XylonaHandler interface {
 	ResolvePublicGameServerMap(context.Context, *connect.Request[xylona.ResolvePublicGameServerMapRequest]) (*connect.Response[xylona.ResolvePublicGameServerMapResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
+	ListGameServerOperations(context.Context, *connect.Request[xylona.ListGameServerOperationsRequest]) (*connect.Response[xylona.ListGameServerOperationsResponse], error)
 	GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error)
 	UpdatePalworldMapConfig(context.Context, *connect.Request[xylona.UpdatePalworldMapConfigRequest]) (*connect.Response[xylona.UpdatePalworldMapConfigResponse], error)
 	InstallPalworldMapTiles(context.Context, *connect.Request[xylona.InstallPalworldMapTilesRequest]) (*connect.Response[xylona.InstallPalworldMapTilesResponse], error)
@@ -3186,6 +3203,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaPerformGameServerPlayerActionProcedure,
 		svc.PerformGameServerPlayerAction,
 		connect.WithSchema(xylonaMethods.ByName("PerformGameServerPlayerAction")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListGameServerOperationsHandler := connect.NewUnaryHandler(
+		XylonaListGameServerOperationsProcedure,
+		svc.ListGameServerOperations,
+		connect.WithSchema(xylonaMethods.ByName("ListGameServerOperations")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetPalworldMapHandler := connect.NewUnaryHandler(
@@ -3874,6 +3897,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetGameServerPlayerManagementHandler.ServeHTTP(w, r)
 		case XylonaPerformGameServerPlayerActionProcedure:
 			xylonaPerformGameServerPlayerActionHandler.ServeHTTP(w, r)
+		case XylonaListGameServerOperationsProcedure:
+			xylonaListGameServerOperationsHandler.ServeHTTP(w, r)
 		case XylonaGetPalworldMapProcedure:
 			xylonaGetPalworldMapHandler.ServeHTTP(w, r)
 		case XylonaUpdatePalworldMapConfigProcedure:
@@ -4339,6 +4364,10 @@ func (UnimplementedXylonaHandler) GetGameServerPlayerManagement(context.Context,
 
 func (UnimplementedXylonaHandler) PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.PerformGameServerPlayerAction is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListGameServerOperations(context.Context, *connect.Request[xylona.ListGameServerOperationsRequest]) (*connect.Response[xylona.ListGameServerOperationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListGameServerOperations is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetPalworldMap(context.Context, *connect.Request[xylona.GetPalworldMapRequest]) (*connect.Response[xylona.GetPalworldMapResponse], error) {

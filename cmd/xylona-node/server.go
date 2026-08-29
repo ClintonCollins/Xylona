@@ -1868,6 +1868,13 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
 	}
 	caps := s.n.RuntimeCapabilities()
+	gameOperations := make([]*nodeprotov1.GameOperationSupport, 0, len(caps.GameOperations))
+	for _, support := range caps.GameOperations {
+		gameOperations = append(gameOperations, &nodeprotov1.GameOperationSupport{
+			GameId:       support.GameID,
+			OperationIds: slices.Clone(support.OperationIDs),
+		})
+	}
 	return connect.NewResponse(&nodeprotov1.GetRuntimeCapabilitiesResponse{
 		ProtocolVersion:          caps.ProtocolVersion,
 		LaunchEnv:                caps.LaunchEnv,
@@ -1879,6 +1886,7 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		PalworldMap:              caps.PalworldMap,
 		SevenDaysToDieMap:        caps.SevenDaysToDieMap,
 		MinecraftMap:             caps.MinecraftMap,
+		GameOperations:           gameOperations,
 	}), nil
 }
 

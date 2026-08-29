@@ -19,6 +19,7 @@ export function buildGameServerTabs(
   allowStartArgEditing = true,
   isSuperUser = false,
   hasLiveMap = false,
+  hasOperations = false,
 ): GameServerLayoutTab[] {
   const basePath = `/game-servers/${serverID}`
   const has = (perm: string) => permissions.includes(perm)
@@ -26,6 +27,17 @@ export function buildGameServerTabs(
   const tabs: GameServerLayoutTab[] = [
     { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true, group: 'Operate' },
   ]
+
+  if (hasOperations && has('game_server.players.manage')) {
+    tabs.push({
+      name: 'Operations',
+      to: `${basePath}/operations`,
+      icon: 'admin_panel_settings',
+      exact: true,
+      group: 'Operate',
+      requiredPermission: 'game_server.players.manage',
+    })
+  }
 
   if (hasLiveMap && has('game_server.view')) {
     tabs.push({
@@ -155,10 +167,18 @@ export function getUnauthorizedRedirect(
   allowStartArgEditing = true,
   isSuperUser = false,
   hasLiveMap = false,
+  hasOperations = false,
 ): string | null {
   const basePath = `/game-servers/${serverID}`
   const consolePath = `${basePath}/console`
   const has = (perm: string) => permissions.includes(perm)
+
+  if (
+    currentPath === `${basePath}/operations` &&
+    (!hasOperations || !has('game_server.players.manage'))
+  ) {
+    return consolePath
+  }
 
   if (currentPath === `${basePath}/map` && (!hasLiveMap || !has('game_server.view'))) {
     return consolePath

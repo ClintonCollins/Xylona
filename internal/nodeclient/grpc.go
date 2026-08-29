@@ -1323,6 +1323,16 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		return node.RuntimeCapabilities{}, translateError("get runtime capabilities", errRPC)
 	}
 	msg := resp.Msg
+	gameOperations := make([]node.GameOperationSupport, 0, len(msg.GetGameOperations()))
+	for _, support := range msg.GetGameOperations() {
+		if support == nil {
+			continue
+		}
+		gameOperations = append(gameOperations, node.GameOperationSupport{
+			GameID:       support.GetGameId(),
+			OperationIDs: slices.Clone(support.GetOperationIds()),
+		})
+	}
 	return node.RuntimeCapabilities{
 		ProtocolVersion:          msg.GetProtocolVersion(),
 		LaunchEnv:                msg.GetLaunchEnv(),
@@ -1334,6 +1344,7 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		PalworldMap:              msg.GetPalworldMap(),
 		SevenDaysToDieMap:        msg.GetSevenDaysToDieMap(),
 		MinecraftMap:             msg.GetMinecraftMap(),
+		GameOperations:           gameOperations,
 	}, nil
 }
 

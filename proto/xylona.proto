@@ -85,6 +85,7 @@ service Xylona {
   rpc ResolvePublicGameServerMap (ResolvePublicGameServerMapRequest) returns (ResolvePublicGameServerMapResponse) {}
   rpc GetGameServerPlayerManagement (GetGameServerPlayerManagementRequest) returns (GetGameServerPlayerManagementResponse) {}
   rpc PerformGameServerPlayerAction (PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse) {}
+  rpc ListGameServerOperations (ListGameServerOperationsRequest) returns (ListGameServerOperationsResponse) {}
   rpc GetPalworldMap (GetPalworldMapRequest) returns (GetPalworldMapResponse) {}
   rpc UpdatePalworldMapConfig (UpdatePalworldMapConfigRequest) returns (UpdatePalworldMapConfigResponse) {}
   rpc InstallPalworldMapTiles (InstallPalworldMapTilesRequest) returns (InstallPalworldMapTilesResponse) {}
@@ -1744,6 +1745,88 @@ message PerformGameServerPlayerActionRequest {
 }
 
 message PerformGameServerPlayerActionResponse {}
+
+enum GameOperationRisk {
+  GAME_OPERATION_RISK_UNSPECIFIED = 0;
+  GAME_OPERATION_RISK_ROUTINE = 1;
+  GAME_OPERATION_RISK_CAUTION = 2;
+  GAME_OPERATION_RISK_IRREVERSIBLE = 3;
+}
+
+enum GameOperationFieldType {
+  GAME_OPERATION_FIELD_TYPE_UNSPECIFIED = 0;
+  GAME_OPERATION_FIELD_TYPE_TEXT = 1;
+  GAME_OPERATION_FIELD_TYPE_INTEGER = 2;
+  GAME_OPERATION_FIELD_TYPE_BOOLEAN = 3;
+  GAME_OPERATION_FIELD_TYPE_ENUM = 4;
+  GAME_OPERATION_FIELD_TYPE_DURATION = 5;
+  GAME_OPERATION_FIELD_TYPE_PLAYER_IDENTITY = 6;
+}
+
+enum GameOperationAvailabilityReason {
+  GAME_OPERATION_AVAILABILITY_REASON_UNSPECIFIED = 0;
+  GAME_OPERATION_AVAILABILITY_REASON_SERVER_OFFLINE = 1;
+  GAME_OPERATION_AVAILABILITY_REASON_NODE_UNAVAILABLE = 2;
+  GAME_OPERATION_AVAILABILITY_REASON_NODE_CAPABILITY_UNAVAILABLE = 3;
+  GAME_OPERATION_AVAILABILITY_REASON_NODE_UNSUPPORTED = 4;
+  GAME_OPERATION_AVAILABILITY_REASON_NATIVE_DASHBOARD_DISABLED = 5;
+  GAME_OPERATION_AVAILABILITY_REASON_NATIVE_DASHBOARD_UNREACHABLE = 6;
+  GAME_OPERATION_AVAILABILITY_REASON_NATIVE_AUTHENTICATION_DENIED = 7;
+  GAME_OPERATION_AVAILABILITY_REASON_GAME_PERMISSION_UNSUPPORTED = 8;
+  GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID = 9;
+}
+
+message GameOperationFieldOption {
+  string label = 1;
+  string value = 2;
+  string description = 3;
+}
+
+message GameOperationField {
+  string id = 1;
+  string label = 2;
+  string description = 3;
+  GameOperationFieldType type = 4;
+  bool required = 5;
+  string default_value = 6;
+  repeated GameOperationFieldOption options = 7;
+  bool allow_manual = 8;
+  bool allow_exact_value = 9;
+  string validation_pattern = 10;
+  optional int32 min_value = 11;
+  optional int32 max_value = 12;
+}
+
+message GameOperationReview {
+  string title = 1;
+  string effect = 2;
+  string caution = 3;
+}
+
+message GameOperationDescriptor {
+  string id = 1;
+  string name = 2;
+  string summary = 3;
+  string category = 4;
+  string permission_id = 5;
+  GameOperationRisk risk = 6;
+  repeated string availability_requirements = 7;
+  repeated GameOperationField fields = 8;
+  GameOperationReview review = 9;
+  string renderer_key = 10;
+  bool available = 11;
+  GameOperationAvailabilityReason availability_reason = 12;
+  string availability_reason_text = 13;
+}
+
+message ListGameServerOperationsRequest {
+  string game_server_id = 1;
+}
+
+message ListGameServerOperationsResponse {
+  string game_server_name = 1;
+  repeated GameOperationDescriptor operations = 2;
+}
 
 enum PalworldMapActorKind {
   PALWORLD_MAP_ACTOR_KIND_UNSPECIFIED = 0;
