@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"testing/iotest"
 )
 
 func TestValidateLocalPath(t *testing.T) {
@@ -652,8 +653,35 @@ func TestDownloadFileFromURLRemovesIntegrityMismatch(t *testing.T) {
 }
 
 func TestDownloadFileFromURLEnforcesHardSizeCap(t *testing.T) {
-	dir := t.TempDir()
-	n := &Node{}
+	bodyReadErr := errors.New("response body was read")
+	tests := []struct {
+		name          string
+		contentLength int64
+		body          io.ReadCloser
+		wantErr       error
+		wantBytes     int64
+		wantDetail    string
+	}{
+		{
+			name:          "advertised content length is rejected before reading",
+			contentLength: 17,
+			body:          io.NopCloser(iotest.ErrReader(bodyReadErr)),
+			wantErr:       ErrDownloadTooLarge,
+			wantDetail:    "content length 17 bytes exceeds limit 16 bytes",
+		},
+		{
+			name:          "unknown content length is capped while streaming",
+			contentLength: -1,
+			body:          io.NopCloser(strings.NewReader("0123456789abcdef!!!")),
+			wantErr:       ErrDownloadTooLarge,
+		},
+		{
+			name:          "content length equal to the limit is allowed",
+			contentLength: 16,
+			body:          io.NopCloser(strings.NewReader("0123456789abcdef")),
+			wantBytes:     16,
+		},
+	}
 
 	originalLimit := maxDownloadFromURLBytes
 	maxDownloadFromURLBytes = 16
@@ -661,43 +689,83 @@ func TestDownloadFileFromURLEnforcesHardSizeCap(t *testing.T) {
 		maxDownloadFromURLBytes = originalLimit
 	})
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, errWrite := w.Write([]byte("0123456789abcdef!!!"))
-		if errWrite != nil {
-			t.Fatalf("Write response: %v", errWrite)
-		}
-	}))
-	defer server.Close()
-	withDownloadTestHTTPClient(t, server.Client())
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			n := &Node{}
 
-	_, errDownload := n.DownloadFileFromURL(
-		t.Context(),
-		dir,
-		server.URL+"/server.jar",
-		"",
-		DownloadIntegrity{},
-		ProtectionPolicy{},
-	)
-	if !errors.Is(errDownload, ErrDownloadTooLarge) {
-		t.Fatalf("DownloadFileFromURL() error = %v, want %v", errDownload, ErrDownloadTooLarge)
-	}
-	_, errStat := os.Stat(filepath.Join(dir, "server.jar"))
-	if !errors.Is(errStat, os.ErrNotExist) {
-		t.Fatalf("downloaded file stat error = %v, want not exist", errStat)
+			client := &http.Client{Transport: downloadRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode:    http.StatusOK,
+					Status:        "200 OK",
+					Header:        make(http.Header),
+					Body:          tc.body,
+					ContentLength: tc.contentLength,
+					Request:       req,
+				}, nil
+			})}
+			withDownloadTestHTTPClient(t, client)
+
+			result, errDownload := n.DownloadFileFromURL(
+				t.Context(),
+				dir,
+				"https://downloads.example.test/server.jar",
+				"",
+				DownloadIntegrity{},
+				ProtectionPolicy{},
+			)
+			if tc.wantErr != nil {
+				if !errors.Is(errDownload, tc.wantErr) {
+					t.Fatalf("DownloadFileFromURL() error = %v, want %v", errDownload, tc.wantErr)
+				}
+				if errors.Is(errDownload, bodyReadErr) {
+					t.Fatalf("DownloadFileFromURL() read an oversized response body: %v", errDownload)
+				}
+				if tc.wantDetail != "" && !strings.Contains(errDownload.Error(), tc.wantDetail) {
+					t.Fatalf("DownloadFileFromURL() error = %v, want containing %q", errDownload, tc.wantDetail)
+				}
+				_, errStat := os.Stat(filepath.Join(dir, "server.jar"))
+				if !errors.Is(errStat, os.ErrNotExist) {
+					t.Fatalf("downloaded file stat error = %v, want not exist", errStat)
+				}
+				return
+			}
+			if errDownload != nil {
+				t.Fatalf("DownloadFileFromURL() unexpected error = %v", errDownload)
+			}
+			if result.BytesWritten != tc.wantBytes {
+				t.Fatalf("DownloadFileFromURL() bytes written = %d, want %d", result.BytesWritten, tc.wantBytes)
+			}
+		})
 	}
 }
 
-func TestDownloadSizeLimitRejectsOversizedExpectedSize(t *testing.T) {
-	originalLimit := maxDownloadFromURLBytes
-	maxDownloadFromURLBytes = 16
-	t.Cleanup(func() {
-		maxDownloadFromURLBytes = originalLimit
+func TestDownloadSizeLimit(t *testing.T) {
+	t.Run("default is 100 GB", func(t *testing.T) {
+		const want int64 = 100_000_000_000
+		if defaultMaxDownloadFromURLBytes != want {
+			t.Fatalf("defaultMaxDownloadFromURLBytes = %d, want %d", defaultMaxDownloadFromURLBytes, want)
+		}
 	})
 
-	_, errLimit := downloadSizeLimit(DownloadIntegrity{ExpectedSize: 32})
-	if !errors.Is(errLimit, ErrDownloadTooLarge) {
-		t.Fatalf("downloadSizeLimit() error = %v, want %v", errLimit, ErrDownloadTooLarge)
-	}
+	t.Run("oversized expected size is rejected", func(t *testing.T) {
+		originalLimit := maxDownloadFromURLBytes
+		maxDownloadFromURLBytes = 16
+		t.Cleanup(func() {
+			maxDownloadFromURLBytes = originalLimit
+		})
+
+		_, errLimit := downloadSizeLimit(DownloadIntegrity{ExpectedSize: 32})
+		if !errors.Is(errLimit, ErrDownloadTooLarge) {
+			t.Fatalf("downloadSizeLimit() error = %v, want %v", errLimit, ErrDownloadTooLarge)
+		}
+	})
+}
+
+type downloadRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn downloadRoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
 }
 
 func withDownloadTestHTTPClient(t *testing.T, client *http.Client) {

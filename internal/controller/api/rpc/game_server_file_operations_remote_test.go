@@ -314,6 +314,52 @@ func TestGameServerFilesExtractRoutesToRemoteNodeWithoutControllerStaging(t *tes
 	}
 }
 
+func TestGameServerFilesExtractProtectionPolicyByUser(t *testing.T) {
+	tests := []struct {
+		name           string
+		userID         string
+		wantConfigured bool
+	}{
+		{name: "owner remains protected", userID: "user-owner", wantConfigured: true},
+		{name: "superuser bypasses protection", userID: "user-admin", wantConfigured: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			_, errUpdate := fixture.conn.SQLDb.ExecContext(
+				t.Context(),
+				"update game_server set server_executable = ? where id = ?",
+				"server.jar",
+				"server-local-1",
+			)
+			if errUpdate != nil {
+				t.Fatalf("set protected executable: %v", errUpdate)
+			}
+
+			selfClient := &nodeclient.FakeNodeClient{NodeID: "node-local"}
+			fixture.service.nodeRegistry = testParityRegistry(selfClient, nil)
+
+			request := connect.NewRequest(&xylona.GameServerFilesDecompressionRequest{
+				GameServerId: "server-local-1",
+				FullFilePath: "imports/bundle.zip",
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, tt.userID)
+
+			errExtract := fixture.service.GameServerFilesExtract(t.Context(), request, nil)
+			if errExtract != nil {
+				t.Fatalf("GameServerFilesExtract() error = %v", errExtract)
+			}
+			if len(selfClient.ExtractFileArchiveCalls) != 1 {
+				t.Fatalf("ExtractFileArchive call count = %d, want 1", len(selfClient.ExtractFileArchiveCalls))
+			}
+			if got := selfClient.ExtractFileArchiveCalls[0].Policy.IsConfigured(); got != tt.wantConfigured {
+				t.Fatalf("protection policy configured = %t, want %t", got, tt.wantConfigured)
+			}
+		})
+	}
+}
+
 func TestSanitizeRemoteFileActionPathIsSlashNeutral(t *testing.T) {
 	tests := []struct {
 		name      string

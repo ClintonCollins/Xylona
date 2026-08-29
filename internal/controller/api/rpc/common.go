@@ -110,6 +110,13 @@ func (xs *XylonaService) buildProtectionPolicy(gameServer *models.GameServer) no
 	return policy
 }
 
+func (xs *XylonaService) buildFileMutationProtectionPolicy(user *models.User, gameServer *models.GameServer) node.ProtectionPolicy {
+	if user != nil && user.SuperUser {
+		return node.ProtectionPolicy{}
+	}
+	return xs.buildProtectionPolicy(gameServer)
+}
+
 func (xs *XylonaService) resolveNodeGOOS(nodeID string) string {
 	nodeOS, errResolve := xs.resolveNodeGOOSRequired(nodeID)
 	if errResolve != nil {

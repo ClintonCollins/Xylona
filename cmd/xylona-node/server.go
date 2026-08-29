@@ -201,6 +201,9 @@ func translate(err error) error {
 	if errors.Is(err, node.ErrUnexpectedHTTPStatus) || errors.Is(err, node.ErrDownloadIntegrityMismatch) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
+	if errors.Is(err, node.ErrDownloadTooLarge) {
+		return connect.NewError(connect.CodeResourceExhausted, err)
+	}
 	if errors.Is(err, selfupdate.ErrInvalidStage) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}

@@ -298,6 +298,7 @@ type CreateFileArchiveCall struct {
 	DestinationArchivePath string
 	IncludePaths           []string
 	Compression            node.ArchiveCompression
+	Policy                 node.ProtectionPolicy
 }
 
 // ExtractFileArchiveCall records a single ExtractFileArchive invocation.
@@ -305,6 +306,7 @@ type ExtractFileArchiveCall struct {
 	Directory                string
 	ArchivePath              string
 	DestinationDirectoryPath string
+	Policy                   node.ProtectionPolicy
 }
 
 // CreateBackupArchiveCall records a single CreateBackupArchive invocation.
@@ -510,12 +512,12 @@ func (f *FakeNodeClient) DownloadFileFromURL(_ context.Context, directory, rawUR
 }
 
 // CreateFileArchive records the call and returns the configured result.
-func (f *FakeNodeClient) CreateFileArchive(_ context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, _ node.ProtectionPolicy) (string, node.ArchiveProgress, error) {
-	return f.CreateFileArchiveWithProgress(context.Background(), directory, destinationArchivePath, includePaths, compression, node.ProtectionPolicy{}, nil)
+func (f *FakeNodeClient) CreateFileArchive(_ context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy) (string, node.ArchiveProgress, error) {
+	return f.CreateFileArchiveWithProgress(context.Background(), directory, destinationArchivePath, includePaths, compression, policy, nil)
 }
 
 // CreateFileArchiveWithProgress records the call and returns the configured result.
-func (f *FakeNodeClient) CreateFileArchiveWithProgress(_ context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, _ node.ProtectionPolicy, onProgress func(node.ArchiveProgress) error) (string, node.ArchiveProgress, error) {
+func (f *FakeNodeClient) CreateFileArchiveWithProgress(_ context.Context, directory string, destinationArchivePath string, includePaths []string, compression node.ArchiveCompression, policy node.ProtectionPolicy, onProgress func(node.ArchiveProgress) error) (string, node.ArchiveProgress, error) {
 	f.mu.Lock()
 	copied := append([]string(nil), includePaths...)
 	f.CreateFileArchiveCalls = append(f.CreateFileArchiveCalls, CreateFileArchiveCall{
@@ -523,6 +525,7 @@ func (f *FakeNodeClient) CreateFileArchiveWithProgress(_ context.Context, direct
 		DestinationArchivePath: destinationArchivePath,
 		IncludePaths:           copied,
 		Compression:            compression,
+		Policy:                 policy,
 	})
 	f.mu.Unlock()
 	if onProgress != nil {
@@ -535,17 +538,18 @@ func (f *FakeNodeClient) CreateFileArchiveWithProgress(_ context.Context, direct
 }
 
 // ExtractFileArchive records the call and returns the configured result.
-func (f *FakeNodeClient) ExtractFileArchive(_ context.Context, directory string, archivePath string, destinationDirectoryPath string, _ node.ProtectionPolicy) ([]string, node.ExtractProgress, error) {
-	return f.ExtractFileArchiveWithProgress(context.Background(), directory, archivePath, destinationDirectoryPath, node.ProtectionPolicy{}, nil)
+func (f *FakeNodeClient) ExtractFileArchive(_ context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy) ([]string, node.ExtractProgress, error) {
+	return f.ExtractFileArchiveWithProgress(context.Background(), directory, archivePath, destinationDirectoryPath, policy, nil)
 }
 
 // ExtractFileArchiveWithProgress records the call and returns the configured result.
-func (f *FakeNodeClient) ExtractFileArchiveWithProgress(_ context.Context, directory string, archivePath string, destinationDirectoryPath string, _ node.ProtectionPolicy, onProgress func(node.ExtractProgress) error) ([]string, node.ExtractProgress, error) {
+func (f *FakeNodeClient) ExtractFileArchiveWithProgress(_ context.Context, directory string, archivePath string, destinationDirectoryPath string, policy node.ProtectionPolicy, onProgress func(node.ExtractProgress) error) ([]string, node.ExtractProgress, error) {
 	f.mu.Lock()
 	f.ExtractFileArchiveCalls = append(f.ExtractFileArchiveCalls, ExtractFileArchiveCall{
 		Directory:                directory,
 		ArchivePath:              archivePath,
 		DestinationDirectoryPath: destinationDirectoryPath,
+		Policy:                   policy,
 	})
 	f.mu.Unlock()
 	if onProgress != nil {

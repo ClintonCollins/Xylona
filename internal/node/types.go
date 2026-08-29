@@ -16,9 +16,7 @@ var (
 	// ErrInvalidPath is returned when a relative path escapes the resolved root.
 	ErrInvalidPath = errors.New("node: invalid path")
 	// ErrProtectedPath is returned when a write targets a protected file path.
-	// internal/node never sets this directly; callers (the controller) may layer
-	// protected-path policy on top of node operations.
-	ErrProtectedPath = errors.New("node: path is protected")
+	ErrProtectedPath = errors.New("the operation targets the configured server executable or launch command; only superusers may modify protected server files")
 	// ErrProcessNotFound is returned when a process command is not currently
 	// tracked by the node.
 	ErrProcessNotFound = errors.New("node: process not found")

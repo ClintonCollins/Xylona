@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -223,7 +224,9 @@ func (inst *Instance) downloadGameServerFileWithMaxBytes(w http.ResponseWriter, 
 				"game_server.files.edit",
 				"Failed to upload file",
 				func(gameServer *models.GameServer) error {
-					return inst.saveUploadedGameServerFile(gameServer, relativePath, filename, part)
+					user, okUser := gatekeeper.UserFromContext(r.Context())
+					allowProtectedPaths := okUser && user != nil && user.SuperUser
+					return inst.saveUploadedGameServerFile(gameServer, relativePath, filename, part, allowProtectedPaths)
 				},
 			) {
 				return
@@ -254,7 +257,7 @@ func isRequestBodyTooLarge(err error) bool {
 	return strings.Contains(errText, "request body too large") || strings.Contains(errText, "message too large")
 }
 
-func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, relativePath, fileName string, fileSource io.Reader) error {
+func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, relativePath, fileName string, fileSource io.Reader, allowProtectedPaths bool) error {
 	validatedPath, errPath := validateRemoteServerPath(relativePath)
 	if errPath != nil {
 		return errPath
@@ -267,6 +270,9 @@ func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, 
 
 	protectedRelativePath := path.Join(validatedPath, sanitizedFileName)
 	policy := remoteFileProtectionPolicy(gameServer)
+	if allowProtectedPaths {
+		policy = node.ProtectionPolicy{}
+	}
 	if policy.IsConfigured() && startargs.IsProtectedServerPath(protectedRelativePath, policy.BaseCommand, policy.ServerExecutable) {
 		log.Warn().Str("Game Server ID", gameServer.ID).Str("path", protectedRelativePath).Msg("Blocked mutation of protected server path")
 		return ErrProtectedPath

@@ -1,18 +1,18 @@
 package actions
 
 import (
-	"errors"
 	"path/filepath"
 	"strings"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 // ErrProtectedPath is returned when a write targets a protected server file.
-var ErrProtectedPath = errors.New("path is protected")
+var ErrProtectedPath = node.ErrProtectedPath
 
 func validateLocalServerPath(gameServer *models.GameServer, relativePath string) (string, error) {
 	trimmedPath := strings.TrimPrefix(relativePath, "/")

@@ -73,6 +73,10 @@ func (inst *Instance) serveLocalFileRequest(
 			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
 			return false
 		}
+		if errors.Is(errLocal, ErrProtectedPath) {
+			http.Error(w, ErrProtectedPath.Error(), http.StatusForbidden)
+			return false
+		}
 		log.Error().Err(errLocal).Msg(failureMessage)
 		http.Error(w, failureMessage, http.StatusInternalServerError)
 		return false

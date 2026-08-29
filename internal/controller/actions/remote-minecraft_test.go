@@ -83,8 +83,14 @@ func TestPost7DaysToDieInstallCopiesConfigThroughRemoteNodeClient(t *testing.T) 
 	if len(remoteClient.ReadFileCalls) != 0 {
 		t.Fatalf("ReadFile call count = %d, want 0", len(remoteClient.ReadFileCalls))
 	}
-	if len(remoteClient.WriteFileCalls) != 0 {
-		t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+	if len(remoteClient.StatFileCalls) != 1 {
+		t.Fatalf("StatFile call count = %d, want 1", len(remoteClient.StatFileCalls))
+	}
+	if len(remoteClient.CreateFileOrDirectoryCalls) != 1 {
+		t.Fatalf("CreateFileOrDirectory call count = %d, want 1", len(remoteClient.CreateFileOrDirectoryCalls))
+	}
+	if len(remoteClient.WriteFileCalls) != 2 {
+		t.Fatalf("WriteFile call count = %d, want 2", len(remoteClient.WriteFileCalls))
 	}
 	if len(remoteClient.CopyFilesCalls) != 1 {
 		t.Fatalf("CopyFiles call count = %d, want 1", len(remoteClient.CopyFilesCalls))

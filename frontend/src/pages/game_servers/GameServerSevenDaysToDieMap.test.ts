@@ -146,7 +146,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     expect(wrapper.text()).not.toContain('WebAPI diagnostics')
     expect(wrapper.text()).not.toContain('API V2.2')
     expect(wrapper.text()).not.toContain('Capability details')
-    expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(true)
 
     const map = wrapper.getComponent(SevenDaysToDieLiveMap)
     expect(map.props('configurationPath')).toBe('/game-servers/server-1/configuration')
@@ -285,7 +285,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     expect(wrapper.text()).toContain('Day 42, 13:07')
     expect(wrapper.text()).not.toContain('Inactive')
     expect(wrapper.text()).not.toContain('Day 49, 22:00')
-    expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -323,7 +323,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     await flushPromises()
 
     expect(mocks.notifySuccess).toHaveBeenCalledWith(
-      'Land claim support installed. Start the server to load it.',
+      'Land claim support installed. It will load the next time the server starts.',
     )
     expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(true)
     wrapper.unmount()
@@ -342,7 +342,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
       name: 'unavailable',
       state: SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE,
     },
-  ])('does not offer claim repair for the $name state', async ({ state }) => {
+  ])('keeps manual installation available for the $name state', async ({ state }) => {
     mocks.getGameServer.mockResolvedValue({
       gameServer: { effectivePermissions: ['game_server.view', 'game_server.settings'] },
     })
@@ -357,7 +357,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -373,7 +373,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
           SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
       }),
     })
-    const installError = new Error('server must be stopped')
+    const installError = new Error('write failed')
     mocks.installLandClaims.mockRejectedValue(installError)
 
     const wrapper = mountPage()

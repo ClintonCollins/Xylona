@@ -737,7 +737,7 @@ func TestNodeRESTInputKindFromProto(t *testing.T) {
 	}
 }
 
-func TestTranslateConsoleInputErrors(t *testing.T) {
+func TestTranslateKnownNodeErrors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -757,6 +757,12 @@ func TestTranslateConsoleInputErrors(t *testing.T) {
 			input:       node.ErrConsoleInputUnavailable,
 			wantCode:    connect.CodeFailedPrecondition,
 			wantMessage: node.ErrConsoleInputUnavailable.Error(),
+		},
+		{
+			name:        "oversized download is resource exhausted",
+			input:       fmt.Errorf("%w: content length exceeds limit", node.ErrDownloadTooLarge),
+			wantCode:    connect.CodeResourceExhausted,
+			wantMessage: "content length exceeds limit",
 		},
 	}
 

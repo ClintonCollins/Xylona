@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/sevendaystodiemod"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -40,12 +41,12 @@ func (inst *Instance) actionContext() context.Context {
 }
 
 func (inst *Instance) post7DaysToDieInstall(gameServer *models.GameServer) error {
-	if inst.shouldUseRemoteNodeFiles(gameServer.NodeID) {
-		client, errClient := inst.nodeRegistry.Get(gameServer.NodeID)
-		if errClient != nil {
-			return fmt.Errorf("actions: resolve node client for 7 days to die post install: %w", errClient)
-		}
+	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
+	if errClient != nil {
+		return fmt.Errorf("actions: resolve node client for 7 days to die post install: %w", errClient)
+	}
 
+	if inst.shouldUseRemoteNodeFiles(gameServer.NodeID) {
 		_, errCopy := client.CopyFiles(inst.actionContext(), gameServer.Directory, []node.CopyFileOperation{
 			{
 				SourceRelativePath:      "serverconfig.xml",
@@ -56,10 +57,18 @@ func (inst *Instance) post7DaysToDieInstall(gameServer *models.GameServer) error
 			log.Error().Err(errCopy).Msg("Failed to copy remote serverconfig.xml to settings.xml")
 			return fmt.Errorf("actions: copy serverconfig.xml to settings.xml: %w", errCopy)
 		}
-		return nil
+	} else {
+		errPostInstall := post7DaysToDieInstall(gameServer)
+		if errPostInstall != nil {
+			return errPostInstall
+		}
 	}
 
-	return post7DaysToDieInstall(gameServer)
+	errInstall := sevendaystodiemod.Install(inst.actionContext(), client, gameServer, node.ProtectionPolicy{})
+	if errInstall != nil {
+		return fmt.Errorf("actions: install 7 days to die land claim helper: %w", errInstall)
+	}
+	return nil
 }
 
 func post7DaysToDieInstall(gameServer *models.GameServer) error {

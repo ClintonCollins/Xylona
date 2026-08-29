@@ -852,6 +852,14 @@ func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, desti
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return DownloadFileResult{}, fmt.Errorf("%w: %s", ErrUnexpectedHTTPStatus, resp.Status)
 	}
+	if resp.ContentLength > maxDownloadFromURLBytes {
+		return DownloadFileResult{}, fmt.Errorf(
+			"%w: content length %d bytes exceeds limit %d bytes",
+			ErrDownloadTooLarge,
+			resp.ContentLength,
+			maxDownloadFromURLBytes,
+		)
+	}
 
 	destinationRelative := filepath.Join(validatedDestination, fileName)
 	errProtected := enforceProtection(destinationRelative, policy)
@@ -943,7 +951,7 @@ func validateDownloadRedirectTarget(req *http.Request, via []*http.Request) erro
 	return nil
 }
 
-const defaultMaxDownloadFromURLBytes int64 = 512 << 20
+const defaultMaxDownloadFromURLBytes int64 = 100_000_000_000
 
 var maxDownloadFromURLBytes = defaultMaxDownloadFromURLBytes
 

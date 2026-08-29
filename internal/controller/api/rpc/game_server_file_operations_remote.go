@@ -56,6 +56,7 @@ func hasRemoteWindowsDrivePrefix(pathValue string) bool {
 func (xs *XylonaService) archiveGameServerFilesWithNodeClient(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *connect.Request[xylona.GameServerFilesCompressionRequest],
 	stream *connect.ServerStream[xylona.GameServerFilesArchiveProgress],
 ) error {
@@ -69,7 +70,7 @@ func (xs *XylonaService) archiveGameServerFilesWithNodeClient(
 		}
 		return nil
 	}
-	_, _, errArchive := xs.createGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, request.Msg, onProgress)
+	_, _, errArchive := xs.createGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, policy, request.Msg, onProgress)
 	if errArchive != nil {
 		return fileMutationError(errArchive)
 	}
@@ -79,6 +80,7 @@ func (xs *XylonaService) archiveGameServerFilesWithNodeClient(
 func (xs *XylonaService) extractGameServerFilesWithNodeClient(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *connect.Request[xylona.GameServerFilesDecompressionRequest],
 	stream *connect.ServerStream[xylona.GameServerFilesExtractProgress],
 ) error {
@@ -92,7 +94,7 @@ func (xs *XylonaService) extractGameServerFilesWithNodeClient(
 		}
 		return nil
 	}
-	_, _, errExtract := xs.extractGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, request.Msg, onProgress)
+	_, _, errExtract := xs.extractGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, policy, request.Msg, onProgress)
 	if errExtract != nil {
 		return fileMutationError(errExtract)
 	}
@@ -102,9 +104,10 @@ func (xs *XylonaService) extractGameServerFilesWithNodeClient(
 func (xs *XylonaService) compressGameServerFilesWithNodeClient(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *connect.Request[xylona.GameServerFilesCompressionRequest],
 ) (*connect.Response[xylona.GameServerFilesCompressionResponse], error) {
-	archivePath, _, errArchive := xs.createGameServerFileArchiveWithNodeClient(ctx, gameServer, request.Msg)
+	archivePath, _, errArchive := xs.createGameServerFileArchiveWithNodeClient(ctx, gameServer, policy, request.Msg)
 	if errArchive != nil {
 		return nil, fileMutationError(errArchive)
 	}
@@ -114,9 +117,10 @@ func (xs *XylonaService) compressGameServerFilesWithNodeClient(
 func (xs *XylonaService) decompressGameServerFilesWithNodeClient(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *connect.Request[xylona.GameServerFilesDecompressionRequest],
 ) (*connect.Response[xylona.GameServerFilesDecompressionResponse], error) {
-	extractedPaths, _, errExtract := xs.extractGameServerFileArchiveWithNodeClient(ctx, gameServer, request.Msg)
+	extractedPaths, _, errExtract := xs.extractGameServerFileArchiveWithNodeClient(ctx, gameServer, policy, request.Msg)
 	if errExtract != nil {
 		return nil, fileMutationError(errExtract)
 	}
@@ -126,14 +130,16 @@ func (xs *XylonaService) decompressGameServerFilesWithNodeClient(
 func (xs *XylonaService) createGameServerFileArchiveWithNodeClient(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *xylona.GameServerFilesCompressionRequest,
 ) (string, node.ArchiveProgress, error) {
-	return xs.createGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, request, nil)
+	return xs.createGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, policy, request, nil)
 }
 
 func (xs *XylonaService) createGameServerFileArchiveWithNodeClientProgress(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *xylona.GameServerFilesCompressionRequest,
 	onProgress func(node.ArchiveProgress) error,
 ) (string, node.ArchiveProgress, error) {
@@ -150,7 +156,7 @@ func (xs *XylonaService) createGameServerFileArchiveWithNodeClientProgress(
 		return "", node.ArchiveProgress{}, errDestination
 	}
 	compression := remoteArchiveCompressionFromXylona(request.GetCompressionType())
-	archivePath, progress, errArchive := client.CreateFileArchiveWithProgress(ctx, gameServer.Directory, destinationPath, includePaths, compression, xs.buildProtectionPolicy(gameServer), onProgress)
+	archivePath, progress, errArchive := client.CreateFileArchiveWithProgress(ctx, gameServer.Directory, destinationPath, includePaths, compression, policy, onProgress)
 	if errArchive != nil {
 		return "", node.ArchiveProgress{}, fmt.Errorf("create game server file archive: %w", errArchive)
 	}
@@ -160,14 +166,16 @@ func (xs *XylonaService) createGameServerFileArchiveWithNodeClientProgress(
 func (xs *XylonaService) extractGameServerFileArchiveWithNodeClient(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *xylona.GameServerFilesDecompressionRequest,
 ) ([]string, node.ExtractProgress, error) {
-	return xs.extractGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, request, nil)
+	return xs.extractGameServerFileArchiveWithNodeClientProgress(ctx, gameServer, policy, request, nil)
 }
 
 func (xs *XylonaService) extractGameServerFileArchiveWithNodeClientProgress(
 	ctx context.Context,
 	gameServer *models.GameServer,
+	policy node.ProtectionPolicy,
 	request *xylona.GameServerFilesDecompressionRequest,
 	onProgress func(node.ExtractProgress) error,
 ) ([]string, node.ExtractProgress, error) {
@@ -183,7 +191,7 @@ func (xs *XylonaService) extractGameServerFileArchiveWithNodeClientProgress(
 	if errDestination != nil {
 		return nil, node.ExtractProgress{}, errDestination
 	}
-	extractedPaths, progress, errExtract := client.ExtractFileArchiveWithProgress(ctx, gameServer.Directory, archivePath, destinationPath, xs.buildProtectionPolicy(gameServer), onProgress)
+	extractedPaths, progress, errExtract := client.ExtractFileArchiveWithProgress(ctx, gameServer.Directory, archivePath, destinationPath, policy, onProgress)
 	if errExtract != nil {
 		return nil, node.ExtractProgress{}, fmt.Errorf("extract game server file archive: %w", errExtract)
 	}

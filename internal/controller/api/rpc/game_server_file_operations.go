@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
@@ -43,7 +44,7 @@ func (xs *XylonaService) prepareFileMutation(header http.Header, gameServerID st
 	return &fileMutationSetup{
 		gameServer: gameServer,
 		client:     client,
-		policy:     xs.buildProtectionPolicy(gameServer),
+		policy:     xs.buildFileMutationProtectionPolicy(user, gameServer),
 	}, nil
 }
 
@@ -52,7 +53,26 @@ func fileMutationError(err error) error {
 		return invalidArg("invalid path")
 	}
 	if errors.Is(err, actions.ErrProtectedPath) || errors.Is(err, node.ErrProtectedPath) {
-		return permissionDenied("path is protected")
+		return permissionDenied(node.ErrProtectedPath.Error())
+	}
+
+	downloadTooLargeMessage := ""
+	if errors.Is(err, node.ErrDownloadTooLarge) {
+		downloadTooLargeMessage = err.Error()
+	} else {
+		connectErr := new(connect.Error)
+		isConnectError := errors.As(err, &connectErr)
+		if isConnectError && connectErr.Code() == connect.CodeResourceExhausted &&
+			strings.HasPrefix(connectErr.Message(), node.ErrDownloadTooLarge.Error()) {
+			downloadTooLargeMessage = connectErr.Message()
+		}
+	}
+	if downloadTooLargeMessage != "" {
+		markerIndex := strings.Index(downloadTooLargeMessage, node.ErrDownloadTooLarge.Error())
+		if markerIndex >= 0 {
+			downloadTooLargeMessage = downloadTooLargeMessage[markerIndex:]
+		}
+		return connect.NewError(connect.CodeResourceExhausted, errors.New(downloadTooLargeMessage))
 	}
 
 	log.Error().Err(err).Msg("file mutation failed")
@@ -102,7 +122,8 @@ func (xs *XylonaService) GameServerFilesArchive(ctx context.Context, request *co
 		return errPermission
 	}
 
-	return xs.archiveGameServerFilesWithNodeClient(ctx, gameServer, request, c)
+	policy := xs.buildFileMutationProtectionPolicy(user, gameServer)
+	return xs.archiveGameServerFilesWithNodeClient(ctx, gameServer, policy, request, c)
 }
 
 // GameServerFilesExtract streams archive extraction progress for a game server.
@@ -121,7 +142,8 @@ func (xs *XylonaService) GameServerFilesExtract(ctx context.Context, request *co
 		return errPermission
 	}
 
-	return xs.extractGameServerFilesWithNodeClient(ctx, gameServer, request, c)
+	policy := xs.buildFileMutationProtectionPolicy(user, gameServer)
+	return xs.extractGameServerFilesWithNodeClient(ctx, gameServer, policy, request, c)
 }
 
 // GameServerFilesCompress creates a compressed archive for game server files.
@@ -140,7 +162,8 @@ func (xs *XylonaService) GameServerFilesCompress(ctx context.Context, request *c
 		return nil, errPermission
 	}
 
-	return xs.compressGameServerFilesWithNodeClient(ctx, gameServer, request)
+	policy := xs.buildFileMutationProtectionPolicy(user, gameServer)
+	return xs.compressGameServerFilesWithNodeClient(ctx, gameServer, policy, request)
 }
 
 // GameServerFilesDecompress extracts an archive for a game server.
@@ -159,7 +182,8 @@ func (xs *XylonaService) GameServerFilesDecompress(ctx context.Context, request 
 		return nil, errPermission
 	}
 
-	return xs.decompressGameServerFilesWithNodeClient(ctx, gameServer, request)
+	policy := xs.buildFileMutationProtectionPolicy(user, gameServer)
+	return xs.decompressGameServerFilesWithNodeClient(ctx, gameServer, policy, request)
 }
 
 // GameServerFilesDownloadFromURL downloads a file into a game server directory.

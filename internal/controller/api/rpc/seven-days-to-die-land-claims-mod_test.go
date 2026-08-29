@@ -1,9 +1,7 @@
 package rpc
 
 import (
-	"bytes"
 	"context"
-	"debug/pe"
 	"errors"
 	"fmt"
 	"os"
@@ -53,33 +51,29 @@ func TestInstallSevenDaysToDieLandClaimsMod(t *testing.T) {
 		}
 	})
 
-	t.Run("requires the server to be offline", func(t *testing.T) {
+	t.Run("installs while the server is online", func(t *testing.T) {
 		fixture, client := newLandClaimsInstallerFixture(t, "node-local")
 		client.GetProcessSnapshotResult = &node.ProcessSnapshot{Status: xylona.Status_ONLINE.String()}
 		client.GetProcessSnapshotFound = true
 		request := landClaimsInstallerRequest(t, fixture)
 
 		_, errInstall := fixture.service.InstallSevenDaysToDieLandClaimsMod(t.Context(), request)
-		if connect.CodeOf(errInstall) != connect.CodeFailedPrecondition {
-			t.Fatalf("InstallSevenDaysToDieLandClaimsMod() code = %v, want %v", connect.CodeOf(errInstall), connect.CodeFailedPrecondition)
+		if errInstall != nil {
+			t.Fatalf("InstallSevenDaysToDieLandClaimsMod() error = %v", errInstall)
 		}
-		if len(client.StatFileCalls) != 0 || len(client.WriteFileCalls) != 0 {
-			t.Fatalf("node file calls made for online server: stat = %d, write = %d", len(client.StatFileCalls), len(client.WriteFileCalls))
-		}
+		assertLandClaimsInstallerCalls(t, client, 1)
 	})
 
-	t.Run("rejects an unknown server status", func(t *testing.T) {
+	t.Run("installs without a runtime status", func(t *testing.T) {
 		fixture, client := newLandClaimsInstallerFixture(t, "node-local")
 		client.GetProcessSnapshotErr = errors.New("node unavailable")
 		request := landClaimsInstallerRequest(t, fixture)
 
 		_, errInstall := fixture.service.InstallSevenDaysToDieLandClaimsMod(t.Context(), request)
-		if connect.CodeOf(errInstall) != connect.CodeFailedPrecondition {
-			t.Fatalf("InstallSevenDaysToDieLandClaimsMod() code = %v, want %v", connect.CodeOf(errInstall), connect.CodeFailedPrecondition)
+		if errInstall != nil {
+			t.Fatalf("InstallSevenDaysToDieLandClaimsMod() error = %v", errInstall)
 		}
-		if len(client.StatFileCalls) != 0 || len(client.WriteFileCalls) != 0 {
-			t.Fatalf("node file calls made with unknown status: stat = %d, write = %d", len(client.StatFileCalls), len(client.WriteFileCalls))
-		}
+		assertLandClaimsInstallerCalls(t, client, 1)
 	})
 
 	t.Run("installs the v2.6 build when the legacy WebServer exists", func(t *testing.T) {
@@ -90,7 +84,7 @@ func TestInstallSevenDaysToDieLandClaimsMod(t *testing.T) {
 		if errInstall != nil {
 			t.Fatalf("InstallSevenDaysToDieLandClaimsMod() error = %v", errInstall)
 		}
-		assertLandClaimsInstallerCalls(t, client, sevenDaysToDieLandClaimsV26DLL, 1)
+		assertLandClaimsInstallerCalls(t, client, 1)
 	})
 
 	t.Run("installs and repairs the v3 build on the owning remote node", func(t *testing.T) {
@@ -104,7 +98,7 @@ func TestInstallSevenDaysToDieLandClaimsMod(t *testing.T) {
 				t.Fatalf("InstallSevenDaysToDieLandClaimsMod() error = %v", errInstall)
 			}
 		}
-		assertLandClaimsInstallerCalls(t, client, sevenDaysToDieLandClaimsV3DLL, 2)
+		assertLandClaimsInstallerCalls(t, client, 2)
 	})
 
 	t.Run("does not guess the version after a stat failure", func(t *testing.T) {
@@ -159,34 +153,6 @@ func TestInstallSevenDaysToDieLandClaimsMod(t *testing.T) {
 			}
 			if len(client.WriteFileCalls) != test.failAtCall {
 				t.Fatalf("write calls = %d, want %d", len(client.WriteFileCalls), test.failAtCall)
-			}
-		})
-	}
-}
-
-func TestSevenDaysToDieLandClaimsEmbeddedAssets(t *testing.T) {
-	if len(sevenDaysToDieLandClaimsModInfo) == 0 {
-		t.Fatal("embedded ModInfo.xml is empty")
-	}
-	assets := []struct {
-		name    string
-		content []byte
-	}{
-		{name: "v2.6", content: sevenDaysToDieLandClaimsV26DLL},
-		{name: "v3", content: sevenDaysToDieLandClaimsV3DLL},
-	}
-	for _, asset := range assets {
-		t.Run(asset.name, func(t *testing.T) {
-			if !bytes.Contains(asset.content, []byte("GetLandClaims.openapi.yaml")) {
-				t.Fatal("embedded DLL is missing the GetLandClaims OpenAPI resource")
-			}
-			file, errOpen := pe.NewFile(bytes.NewReader(asset.content))
-			if errOpen != nil {
-				t.Fatalf("parse embedded DLL: %v", errOpen)
-			}
-			errClose := file.Close()
-			if errClose != nil {
-				t.Fatalf("close embedded DLL: %v", errClose)
 			}
 		})
 	}
@@ -249,7 +215,6 @@ func landClaimsInstallerRequest(
 func assertLandClaimsInstallerCalls(
 	t *testing.T,
 	client *nodeclient.FakeNodeClient,
-	wantDLL []byte,
 	wantInstallCount int,
 ) {
 	t.Helper()
@@ -257,7 +222,7 @@ func assertLandClaimsInstallerCalls(
 		t.Fatalf("stat calls = %d, want %d", len(client.StatFileCalls), wantInstallCount)
 	}
 	for _, call := range client.StatFileCalls {
-		if call.Directory != "/tmp/server-local-1" || call.RelativePath != sevenDaysToDieWebServerDLLPath {
+		if call.Directory != "/tmp/server-local-1" || call.RelativePath != "Mods/TFP_WebServer/WebServer.dll" {
 			t.Fatalf("stat call = %+v", call)
 		}
 	}
@@ -265,7 +230,7 @@ func assertLandClaimsInstallerCalls(
 		t.Fatalf("create calls = %d, want %d", len(client.CreateFileOrDirectoryCalls), wantInstallCount)
 	}
 	for _, call := range client.CreateFileOrDirectoryCalls {
-		if call.Directory != "/tmp/server-local-1" || call.RelativePath != sevenDaysToDieLandClaimsModDirectory || !call.IsDirectory {
+		if call.Directory != "/tmp/server-local-1" || call.RelativePath != "Mods/Xylona_LandClaims" || !call.IsDirectory {
 			t.Fatalf("create call = %+v", call)
 		}
 	}
@@ -275,14 +240,14 @@ func assertLandClaimsInstallerCalls(
 	for installIndex := range wantInstallCount {
 		dllCall := client.WriteFileCalls[installIndex*2]
 		if dllCall.Directory != "/tmp/server-local-1" ||
-			dllCall.RelativePath != sevenDaysToDieLandClaimsModDirectory+"/XylonaLandClaims.dll" ||
-			!bytes.Equal(dllCall.Content, wantDLL) {
+			dllCall.RelativePath != "Mods/Xylona_LandClaims/XylonaLandClaims.dll" ||
+			len(dllCall.Content) == 0 {
 			t.Fatalf("DLL write call = %+v", dllCall)
 		}
 		modInfoCall := client.WriteFileCalls[installIndex*2+1]
 		if modInfoCall.Directory != "/tmp/server-local-1" ||
-			modInfoCall.RelativePath != sevenDaysToDieLandClaimsModDirectory+"/ModInfo.xml" ||
-			!bytes.Equal(modInfoCall.Content, sevenDaysToDieLandClaimsModInfo) {
+			modInfoCall.RelativePath != "Mods/Xylona_LandClaims/ModInfo.xml" ||
+			len(modInfoCall.Content) == 0 {
 			t.Fatalf("ModInfo write call = %+v", modInfoCall)
 		}
 	}

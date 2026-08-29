@@ -68,6 +68,7 @@ func TestSaveUploadedGameServerFileWritesLocalUploadThroughNodeClient(t *testing
 		`uploads\active`,
 		`server.jar`,
 		strings.NewReader(uploadContent),
+		false,
 	)
 	if errSave != nil {
 		t.Fatalf("saveUploadedGameServerFile() error = %v", errSave)
@@ -98,6 +99,53 @@ func TestSaveUploadedGameServerFileWritesLocalUploadThroughNodeClient(t *testing
 	}
 	if len(localClient.WriteFileCalls) != 0 {
 		t.Fatalf("WriteFile call count = %d, want 0", len(localClient.WriteFileCalls))
+	}
+}
+
+func TestSaveUploadedGameServerFileProtectedPathAccess(t *testing.T) {
+	tests := []struct {
+		name                string
+		allowProtectedPaths bool
+		wantProtectedError  bool
+	}{
+		{name: "regular user is blocked", wantProtectedError: true},
+		{name: "superuser is allowed", allowProtectedPaths: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newFileActionTestFixture(t)
+			fixture.gameServer.NodeID = "node-local"
+			localClient := &nodeclient.FakeNodeClient{NodeID: "node-local"}
+			fixture.inst.nodeRegistry = noderegistry.New("node-local", localClient)
+
+			errSave := fixture.inst.saveUploadedGameServerFile(
+				fixture.gameServer,
+				"",
+				"server.jar",
+				strings.NewReader("payload"),
+				tt.allowProtectedPaths,
+			)
+			if tt.wantProtectedError {
+				if !errors.Is(errSave, ErrProtectedPath) {
+					t.Fatalf("saveUploadedGameServerFile() error = %v, want %v", errSave, ErrProtectedPath)
+				}
+				if len(localClient.StreamWriteFileCalls) != 0 {
+					t.Fatalf("StreamWriteFile call count = %d, want 0", len(localClient.StreamWriteFileCalls))
+				}
+				return
+			}
+
+			if errSave != nil {
+				t.Fatalf("saveUploadedGameServerFile() error = %v", errSave)
+			}
+			if len(localClient.StreamWriteFileCalls) != 1 {
+				t.Fatalf("StreamWriteFile call count = %d, want 1", len(localClient.StreamWriteFileCalls))
+			}
+			if localClient.StreamWriteFileCalls[0].Policy.IsConfigured() {
+				t.Fatal("StreamWriteFile protection policy is configured for superuser")
+			}
+		})
 	}
 }
 

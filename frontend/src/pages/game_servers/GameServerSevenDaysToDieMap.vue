@@ -54,14 +54,6 @@ const gameServerID = computed(() => {
 const configurationPath = computed(() =>
   canConfigure.value ? `/game-servers/${gameServerID.value}/configuration` : '',
 )
-const showLandClaimHelper = computed(
-  () =>
-    canManage.value &&
-    mapView.value !== null &&
-    mapView.value.claimsState ===
-      SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSUPPORTED,
-)
-
 const statusPresentation = computed<StatusPresentation | null>(() => {
   if (statusTransportError.value) {
     return {
@@ -288,7 +280,7 @@ async function installLandClaimHelper(): Promise<void> {
         gameServerId: gameServerID.value,
       }),
     )
-    notifySuccess('Land claim support installed. Start the server to load it.')
+    notifySuccess('Land claim support installed. It will load the next time the server starts.')
   } catch (unknownError: unknown) {
     notifyConnectError(unknownError, 'Failed to install land claim support')
   } finally {
@@ -326,7 +318,6 @@ onBeforeUnmount(() => {
       </div>
       <div v-if="canManage" class="seven-days-map-page__actions">
         <q-btn
-          v-if="showLandClaimHelper"
           aria-label="Install or repair land claim support"
           data-testid="install-land-claim-helper"
           flat
@@ -335,7 +326,10 @@ onBeforeUnmount(() => {
           no-caps
           @click="installLandClaimHelper">
           <span class="seven-days-map-page__claim-helper-label">Install / repair claims</span>
-          <q-tooltip>Stop the server before installing or repairing land claim support.</q-tooltip>
+          <q-tooltip
+            >Install or repair land claim support. It loads the next time the server
+            starts.</q-tooltip
+          >
         </q-btn>
         <q-btn
           aria-label="Open public map link settings"
