@@ -1,0 +1,405 @@
+{
+  "commands": [
+    {
+      "name": "admin",
+      "status": "modeled",
+      "operationIds": ["player_access.add_administrator", "player_access.remove_administrator"]
+    },
+    {
+      "name": "ban",
+      "status": "modeled",
+      "operationIds": ["player_moderation.ban", "player_moderation.unban"]
+    },
+    {
+      "name": "commandpermission",
+      "status": "modeled",
+      "operationIds": ["permissions.set_command_permission", "permissions.reset_command_permission"]
+    },
+    {
+      "name": "kick",
+      "status": "modeled",
+      "operationIds": ["player_moderation.kick"]
+    },
+    {
+      "name": "kickall",
+      "status": "excluded",
+      "reason": "The captured command is a mass action with no per-Player target or authoritative result read-back.",
+      "alternative": "Use Kick Player for explicit targets or Console when a deliberate mass action is required."
+    },
+    {
+      "name": "permissionsallowed",
+      "status": "excluded",
+      "reason": "The captured help identifies a permission-system diagnostic rather than a bounded Player or permission mutation.",
+      "alternative": "Use Console for diagnostic output."
+    },
+    {
+      "name": "whitelist",
+      "status": "modeled",
+      "operationIds": ["player_access.allowlist_add", "player_access.allowlist_remove"]
+    },
+    {
+      "name": "buffplayer",
+      "status": "modeled",
+      "operationIds": ["player_assistance.apply_buff"]
+    },
+    {
+      "name": "debuffplayer",
+      "status": "modeled",
+      "operationIds": ["player_assistance.remove_buff"]
+    },
+    {
+      "name": "give",
+      "status": "modeled",
+      "operationIds": ["player_assistance.give_item"]
+    },
+    {
+      "name": "givexp",
+      "status": "modeled",
+      "operationIds": ["player_assistance.give_experience"]
+    },
+    {
+      "name": "teleportplayer",
+      "status": "modeled",
+      "operationIds": ["player_assistance.teleport_to_player"]
+    },
+    {
+      "name": "listplayerids",
+      "status": "excluded",
+      "reason": "This is read-only console output; structured operations use native stable Player identities instead.",
+      "alternative": "Use the Players page or Console for the raw listing."
+    },
+    {
+      "name": "listplayers",
+      "status": "excluded",
+      "reason": "This is read-only console output; structured operations use the native Player list instead.",
+      "alternative": "Use the Players page or Console for the raw listing."
+    },
+    {
+      "name": "playerOwnedEntities",
+      "status": "excluded",
+      "reason": "The read-only ownership report is not a Player or permission management mutation and has no bounded response contract.",
+      "alternative": "Use Console for the ownership report."
+    },
+    {
+      "name": "pplist",
+      "status": "excluded",
+      "reason": "This is read-only console output; structured administrator operations use the native user-permission read-back.",
+      "alternative": "Use Console for the raw permission listing."
+    },
+    {
+      "name": "say",
+      "status": "modeled",
+      "operationIds": ["communication.broadcast_message"]
+    },
+    {
+      "name": "sayplayer",
+      "status": "modeled",
+      "operationIds": ["communication.message_player"]
+    },
+    {
+      "name": "getgamepref",
+      "status": "modeled",
+      "operationIds": ["server_information.game_preferences"]
+    },
+    {
+      "name": "getgamestat",
+      "status": "modeled",
+      "operationIds": ["server_information.game_statistics"]
+    },
+    {
+      "name": "gettime",
+      "status": "modeled",
+      "operationIds": ["server_information.game_time"]
+    },
+    {
+      "name": "listdlc",
+      "status": "modeled",
+      "operationIds": ["server_information.dlc_status"]
+    },
+    {
+      "name": "listitems",
+      "status": "modeled",
+      "operationIds": ["server_information.item_search"]
+    },
+    {
+      "name": "version",
+      "status": "modeled",
+      "operationIds": ["server_information.version"]
+    },
+    {
+      "name": "saveworld",
+      "status": "modeled",
+      "operationIds": ["server_control.save_world"]
+    },
+    {
+      "name": "settempunit",
+      "status": "modeled",
+      "operationIds": ["server_control.set_temperature_unit"]
+    },
+    {
+      "name": "settime",
+      "status": "modeled",
+      "operationIds": ["server_control.set_game_time"]
+    },
+    {
+      "name": "shutdown",
+      "status": "modeled",
+      "operationIds": ["server_control.shutdown"]
+    },
+    {
+      "name": "spawnairdrop",
+      "status": "modeled",
+      "operationIds": ["world_events.spawn_airdrop"]
+    },
+    {
+      "name": "spawnwandering",
+      "status": "modeled",
+      "operationIds": ["world_events.spawn_wandering_horde"]
+    },
+    {
+      "name": "weather",
+      "status": "modeled",
+      "operationIds": ["world_events.set_weather"]
+    }
+  ],
+  "nativeApi": [
+    {
+      "name": "GET /api/command",
+      "status": "supporting",
+      "operationIds": [
+        "communication.broadcast_message",
+        "communication.message_player",
+        "player_assistance.teleport_to_player",
+        "player_assistance.give_item",
+        "player_assistance.give_experience",
+        "player_assistance.apply_buff",
+        "player_assistance.remove_buff",
+        "server_information.game_preferences",
+        "server_information.game_statistics",
+        "server_information.game_time",
+        "server_information.dlc_status",
+        "server_information.item_search",
+        "server_information.version",
+        "server_control.save_world",
+        "server_control.set_temperature_unit",
+        "server_control.set_game_time",
+        "server_control.shutdown",
+        "world_events.spawn_airdrop",
+        "world_events.spawn_wandering_horde",
+        "world_events.set_weather"
+      ]
+    },
+    {
+      "name": "GET /api/command/{name}",
+      "status": "excluded",
+      "reason": "Per-command help is integration discovery metadata rather than an operator action.",
+      "alternative": "Use the modeled Operations fields or Console help for manual command discovery."
+    },
+    {
+      "name": "POST /api/command",
+      "status": "supporting",
+      "operationIds": [
+        "communication.broadcast_message",
+        "communication.message_player",
+        "player_assistance.teleport_to_player",
+        "player_assistance.give_item",
+        "player_assistance.give_experience",
+        "player_assistance.apply_buff",
+        "player_assistance.remove_buff",
+        "server_information.game_preferences",
+        "server_information.game_statistics",
+        "server_information.game_time",
+        "server_information.dlc_status",
+        "server_information.item_search",
+        "server_information.version",
+        "server_control.save_world",
+        "server_control.set_temperature_unit",
+        "server_control.set_game_time",
+        "server_control.shutdown",
+        "world_events.spawn_airdrop",
+        "world_events.spawn_wandering_horde",
+        "world_events.set_weather"
+      ]
+    },
+    {
+      "name": "GET /api/animal",
+      "status": "excluded",
+      "reason": "Animal positions are live world telemetry rather than a bounded operator action.",
+      "alternative": "Use the existing 7 Days to Die world overview."
+    },
+    {
+      "name": "GET /api/bloodmoon",
+      "status": "excluded",
+      "reason": "Blood moon state is live world telemetry rather than a bounded operator action.",
+      "alternative": "Use the existing 7 Days to Die world overview."
+    },
+    {
+      "name": "GET /api/entityclass",
+      "status": "excluded",
+      "reason": "Entity-class discovery is integration metadata rather than an operator action.",
+      "alternative": "Use Console for manual entity discovery when needed."
+    },
+    {
+      "name": "GET /api/gameprefs",
+      "status": "excluded",
+      "reason": "The native route returns a broad settings document rather than the bounded filtered result contract.",
+      "alternative": "Use View game preferences in Operations."
+    },
+    {
+      "name": "GET /api/gamestats",
+      "status": "excluded",
+      "reason": "The native route returns a broad statistics document rather than the bounded filtered result contract.",
+      "alternative": "Use View game statistics in Operations."
+    },
+    {
+      "name": "GET /api/hostile",
+      "status": "excluded",
+      "reason": "Hostile positions are live world telemetry rather than a bounded operator action.",
+      "alternative": "Use the existing 7 Days to Die world overview."
+    },
+    {
+      "name": "GET /api/item",
+      "status": "excluded",
+      "reason": "The native route exposes an unbounded item inventory rather than the filtered result contract.",
+      "alternative": "Use Search items in Operations."
+    },
+    {
+      "name": "GET /api/log",
+      "status": "excluded",
+      "reason": "The live server log is a streaming diagnostic surface rather than a transient operation result.",
+      "alternative": "Use Console for live server diagnostics."
+    },
+    {
+      "name": "GET /api/map/config",
+      "status": "excluded",
+      "reason": "Map configuration supports world rendering and is not an operator action.",
+      "alternative": "Use the existing 7 Days to Die world overview."
+    },
+    {
+      "name": "GET /api/mods",
+      "status": "excluded",
+      "reason": "Installed-mod discovery is server inventory rather than an operator action.",
+      "alternative": "Use the existing mod management workspace."
+    },
+    {
+      "name": "GET /api/serverinfo",
+      "status": "excluded",
+      "reason": "General server identity is status metadata rather than an operator action.",
+      "alternative": "Use the existing server overview."
+    },
+    {
+      "name": "GET /api/serverstats",
+      "status": "supporting",
+      "operationIds": ["server_control.set_game_time"]
+    },
+    {
+      "name": "DELETE /api/blacklist/{id}",
+      "status": "excluded",
+      "reason": "Stable identifier and result semantics for this dashboard route were not captured.",
+      "alternative": "Use Unban Player, whose typed console contract is captured."
+    },
+    {
+      "name": "DELETE /api/commandpermissions/{command}",
+      "status": "modeled",
+      "operationIds": ["permissions.reset_command_permission"]
+    },
+    {
+      "name": "DELETE /api/userpermissions/group/{id}",
+      "status": "excluded",
+      "reason": "No stable group identity, membership effect, or live mutation exchange was captured.",
+      "alternative": "Use Console for native group administration."
+    },
+    {
+      "name": "DELETE /api/userpermissions/user/{id}",
+      "status": "modeled",
+      "operationIds": ["player_access.remove_administrator"]
+    },
+    {
+      "name": "DELETE /api/whitelist/group/{id}",
+      "status": "excluded",
+      "reason": "No stable group identity, membership effect, or live mutation exchange was captured.",
+      "alternative": "Use Console for native group administration."
+    },
+    {
+      "name": "DELETE /api/whitelist/user/{id}",
+      "status": "excluded",
+      "reason": "Stable identifier and result semantics for this dashboard route were not captured.",
+      "alternative": "Use Remove from allowlist, whose typed console contract is captured."
+    },
+    {
+      "name": "GET /api/blacklist",
+      "status": "excluded",
+      "reason": "The route shape exists in OpenAPI, but no authoritative live read-back contract was captured.",
+      "alternative": "Use Console for the native blacklist listing."
+    },
+    {
+      "name": "GET /api/commandpermissions",
+      "status": "supporting",
+      "operationIds": ["permissions.set_command_permission", "permissions.reset_command_permission"]
+    },
+    {
+      "name": "GET /api/player",
+      "status": "supporting",
+      "operationIds": [
+        "player_access.add_administrator",
+        "player_access.remove_administrator",
+        "player_moderation.kick",
+        "player_moderation.ban",
+        "player_moderation.unban",
+        "player_access.allowlist_add",
+        "player_access.allowlist_remove"
+      ]
+    },
+    {
+      "name": "GET /api/player/{id}",
+      "status": "excluded",
+      "reason": "No structured operation needs the single-Player route because the native Player list supplies stable identity choices.",
+      "alternative": "Use the Players page for structured Player details."
+    },
+    {
+      "name": "GET /api/userpermissions",
+      "status": "supporting",
+      "operationIds": ["player_access.add_administrator", "player_access.remove_administrator"]
+    },
+    {
+      "name": "GET /api/whitelist",
+      "status": "excluded",
+      "reason": "The route shape exists in OpenAPI, but no authoritative live read-back contract was captured.",
+      "alternative": "Use Console for the native allowlist listing."
+    },
+    {
+      "name": "POST /api/blacklist/{id}",
+      "status": "excluded",
+      "reason": "Stable identifier and result semantics for this dashboard route were not captured.",
+      "alternative": "Use Ban Player, whose typed console contract is captured."
+    },
+    {
+      "name": "POST /api/commandpermissions/{command}",
+      "status": "modeled",
+      "operationIds": ["permissions.set_command_permission"]
+    },
+    {
+      "name": "POST /api/userpermissions/group/{id}",
+      "status": "excluded",
+      "reason": "No stable group identity, membership effect, or live mutation exchange was captured.",
+      "alternative": "Use Console for native group administration."
+    },
+    {
+      "name": "POST /api/userpermissions/user/{id}",
+      "status": "modeled",
+      "operationIds": ["player_access.add_administrator"]
+    },
+    {
+      "name": "POST /api/whitelist/group/{id}",
+      "status": "excluded",
+      "reason": "No stable group identity, membership effect, or live mutation exchange was captured.",
+      "alternative": "Use Console for native group administration."
+    },
+    {
+      "name": "POST /api/whitelist/user/{id}",
+      "status": "excluded",
+      "reason": "Stable identifier and result semantics for this dashboard route were not captured.",
+      "alternative": "Use Add to allowlist, whose typed console contract is captured."
+    }
+  ]
+}

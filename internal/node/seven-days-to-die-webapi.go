@@ -90,11 +90,12 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 		capabilities.AnimalPositions = false
 	}
 	status := &SevenDaysToDieWebAPIStatus{
-		ConnectionState: SevenDaysToDieWebAPIConnectionStateAvailable,
-		APIVersion:      discovery.apiVersion,
-		Capabilities:    capabilities,
-		WorldTimeState:  SevenDaysToDieWebAPIValueStateUnsupported,
-		ObservedAt:      time.Now().UTC(),
+		ConnectionState:        SevenDaysToDieWebAPIConnectionStateAvailable,
+		APIVersion:             discovery.apiVersion,
+		Capabilities:           capabilities,
+		WorldTimeState:         SevenDaysToDieWebAPIValueStateUnsupported,
+		CommandOperationsState: SevenDaysToDieWebAPIValueStateUnsupported,
+		ObservedAt:             time.Now().UTC(),
 	}
 	if req.IncludeTactical {
 		status.BloodMoonState = SevenDaysToDieWebAPIValueStateUnsupported
@@ -102,6 +103,16 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 	errContext := ctx.Err()
 	if errContext != nil {
 		return nil, fmt.Errorf("node: query 7 Days to Die WebAPI discovery: %w", errContext)
+	}
+	if capabilities.CommandExecution {
+		commandState, supportedOperations, allowedOperations, knownCommands, errCommands := querySevenDaysToDieCommandOperations(ctx, discovery, access)
+		if errCommands != nil {
+			return nil, fmt.Errorf("node: query 7 Days to Die command operations: %w", errCommands)
+		}
+		status.CommandOperationsState = commandState
+		status.SupportedGameOperations = supportedOperations
+		status.AllowedGameOperations = allowedOperations
+		status.KnownCommands = knownCommands
 	}
 
 	bloodMoonAdvertised := req.IncludeTactical && discovery.resolver.supports(sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointBloodMoon, method: http.MethodGet})
@@ -715,6 +726,13 @@ func projectSevenDaysToDieWebAPICapabilities(resolver *sevenDaysToDieOpenAPIReso
 			sevenDaysToDieOpenAPIOperation{path: "/api/userpermissions", method: http.MethodGet},
 			sevenDaysToDieOpenAPIOperation{path: "/api/userpermissions/user/{id}", method: http.MethodPost},
 			sevenDaysToDieOpenAPIOperation{path: "/api/userpermissions/user/{id}", method: http.MethodDelete}),
+		CommandExecution: resolver.supports(
+			sevenDaysToDieOpenAPIOperation{path: "/api/command", method: http.MethodGet},
+			sevenDaysToDieOpenAPIOperation{path: "/api/command", method: http.MethodPost}),
+		CommandPermissions: resolver.supports(
+			sevenDaysToDieOpenAPIOperation{path: "/api/commandpermissions", method: http.MethodGet},
+			sevenDaysToDieOpenAPIOperation{path: "/api/commandpermissions/{command}", method: http.MethodPost},
+			sevenDaysToDieOpenAPIOperation{path: "/api/commandpermissions/{command}", method: http.MethodDelete}),
 		ReportedMods: resolver.supports(
 			sevenDaysToDieOpenAPIOperation{path: sevenDaysToDieWebAPIEndpointMods, method: http.MethodGet}),
 	}

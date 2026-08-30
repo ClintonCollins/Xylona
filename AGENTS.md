@@ -75,7 +75,7 @@ Regenerate with:
 - Skip these directories when searching unless the task needs them: `frontend/node_modules`, `frontend/.quasar`, `frontend/coverage`, `internal/webui/dist`, `cmd/minecraft_version_hasher/versions`, `dist`
 - The repo-root `docs/` directory is local scratch space except `docs/agents/` and `docs/adr/`, which contain tracked project guidance and decisions.
 - Do not create pull requests unless the user explicitly requests one.
-- For local browser verification, you may read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env`; never print, log, or commit them.
+- For any browser use that requires credentials, read `XYLONA_ADMIN_USERNAME` and `XYLONA_ADMIN_PASSWORD` from `.env`; never print, log, or commit them.
 
 ## Go Conventions
 
@@ -98,7 +98,7 @@ Regenerate with:
 - TypeScript uses ESM, Bun, Vue 3, Quasar 2, Pinia, ConnectRPC, and Monaco
 - Use PascalCase `.vue` filenames
 - Generated protobuf types come from shared `.proto` files via `buf` and `protoc-gen-es`
-- Before finishing frontend changes, run `bun run lint`, `bun run format`, `bun run test`, and `bun run build` from `frontend/` as appropriate
+- Before finishing frontend changes, run the lint, format, and build checks appropriate to the current work
 
 ## HTML Rendering Trust Boundaries
 
@@ -106,7 +106,10 @@ Follow the canonical `v-html` inventory and escaping or sanitization requirement
 
 ## Testing
 
-- Before finishing work, run `golangci-lint run` from the project root and fix all reported issues
+- Run only tests directly related to the current work and pending changes, using the narrowest applicable packages, test files, or named cases
+- Run broader package, repository-wide, integration, or E2E suites only when the changes span their scope or the user explicitly requests them
+- Documentation-only and other non-executable changes require no tests
+- For Go changes, run `golangci-lint run` for affected packages and fix all reported issues; run it repository-wide only when the changes span the repository or the user explicitly requests it
 - Backend tests should be table-driven where useful, use the standard `testing` package, live beside the code, be deterministic, and prefer `errors.Is` or `errors.As`
 - Use `t.TempDir()`, `t.Setenv()`, and `t.Cleanup()` for isolation; use in-memory SQLite for `internal/db` tests
 - Heavier filesystem, DB, or process tests should be skippable in `testing.Short()`

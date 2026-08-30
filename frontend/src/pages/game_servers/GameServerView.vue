@@ -581,14 +581,27 @@
           <span class="player-rail__head-actions">
             <q-btn
               v-if="hasPermission('game_server.players.manage')"
-              aria-label="Open player management"
+              :aria-label="
+                gameServer.gameId === '7_days_to_die'
+                  ? 'Open Player operations'
+                  : 'Open player management'
+              "
               class="console-toolbar-btn"
               dense
               flat
               icon="manage_accounts"
               square
-              @click="playerManagementOpen = true">
-              <q-tooltip>Player management</q-tooltip>
+              :to="
+                gameServer.gameId === '7_days_to_die'
+                  ? `/game-servers/${gameServerId}/operations`
+                  : undefined
+              "
+              @click="openPlayerManagement">
+              <q-tooltip>
+                {{
+                  gameServer.gameId === '7_days_to_die' ? 'Player operations' : 'Player management'
+                }}
+              </q-tooltip>
             </q-btn>
             <q-btn
               aria-label="Collapse player panel"
@@ -634,6 +647,7 @@
   </div>
 
   <game-server-player-management-dialog
+    v-if="gameServer.gameId !== '7_days_to_die'"
     v-model="playerManagementOpen"
     :game-server-id="gameServerId" />
 
@@ -769,6 +783,10 @@ function setSidebarCollapsed(collapsed: boolean): void {
 const playerRailStorageKey = 'xylona_console_player_rail'
 const playerRailCollapsed = ref(readPlayerRailCollapsed())
 const playerManagementOpen = ref(false)
+
+function openPlayerManagement(): void {
+  if (gameServer.value.gameId !== '7_days_to_die') playerManagementOpen.value = true
+}
 
 function readPlayerRailCollapsed(): boolean {
   try {

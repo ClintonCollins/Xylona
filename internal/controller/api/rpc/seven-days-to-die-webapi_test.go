@@ -148,6 +148,7 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 					PlayerData:                true,
 					RuntimeSettings:           true,
 					HostileAndAnimalPositions: true,
+					CommandPermissions:        true,
 					ReportedMods:              true,
 				},
 				WorldTimeState:   node.SevenDaysToDieWebAPIValueStateAvailable,
@@ -202,7 +203,8 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		if status.BloodMoonActive == nil || status.GetBloodMoonActive() {
 			t.Fatalf("blood moon active = %v, want present false", status.BloodMoonActive)
 		}
-		if !status.GetCapabilities().GetPlayerData() || !status.GetCapabilities().GetHostileAndAnimalPositions() || status.GetCapabilities().GetNativeLog() {
+		if !status.GetCapabilities().GetPlayerData() || !status.GetCapabilities().GetHostileAndAnimalPositions() ||
+			!status.GetCapabilities().GetCommandPermissions() || status.GetCapabilities().GetNativeLog() {
 			t.Fatalf("capability mapping = %+v", status.GetCapabilities())
 		}
 		if status.GetObservedAt().AsTime() != observedAt {
@@ -232,7 +234,7 @@ func TestGetSevenDaysToDieWebAPIStatus(t *testing.T) {
 		viewerStatus := viewerResponse.Msg.GetStatus()
 		viewerCapabilities := viewerStatus.GetCapabilities()
 		if viewerStatus.GetApiVersion() != "1.4.2" || viewerStatus.GetWorldTime().GetDay() != 12 ||
-			!viewerCapabilities.GetPlayerData() || !viewerCapabilities.GetReportedMods() ||
+			!viewerCapabilities.GetPlayerData() || !viewerCapabilities.GetCommandPermissions() || !viewerCapabilities.GetReportedMods() ||
 			viewerCapabilities.GetHostileAndAnimalPositions() || viewerCapabilities.GetHostilePositions() || viewerCapabilities.GetAnimalPositions() ||
 			viewerStatus.GetBloodMoonState() != xylona.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNSPECIFIED ||
 			viewerStatus.BloodMoonActive != nil || viewerStatus.GetNextBloodMoon() != nil || viewerStatus.GetNextBloodMoonEnd() != nil {

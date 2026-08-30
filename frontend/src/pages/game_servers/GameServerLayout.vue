@@ -1,5 +1,5 @@
 <template>
-  <q-page :padding="windowWidth > 1024" class="game-server-page">
+  <div class="q-page game-server-page" :class="{ 'q-layout-padding': windowWidth > 1024 }">
     <q-card class="full-width game-server-card">
       <q-tabs
         v-if="layoutTabs.length > 0"
@@ -28,7 +28,7 @@
         <router-view :key="gameServerRouteKey"></router-view>
       </div>
     </q-card>
-  </q-page>
+  </div>
 </template>
 
 <script lang="ts" setup>

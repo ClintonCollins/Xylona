@@ -921,6 +921,7 @@ service NodeService {
   rpc QueryPalworldMap(QueryPalworldMapRequest) returns (QueryPalworldMapResponse);
   rpc QuerySevenDaysToDieMap(QuerySevenDaysToDieMapRequest) returns (QuerySevenDaysToDieMapResponse);
   rpc QuerySevenDaysToDieWebAPIStatus(QuerySevenDaysToDieWebAPIStatusRequest) returns (QuerySevenDaysToDieWebAPIStatusResponse);
+  rpc QuerySevenDaysToDieOperationMetadata(QuerySevenDaysToDieOperationMetadataRequest) returns (QuerySevenDaysToDieOperationMetadataResponse);
   rpc QuerySevenDaysToDiePlayers(QuerySevenDaysToDiePlayersRequest) returns (QuerySevenDaysToDiePlayersResponse);
   rpc QuerySevenDaysToDieReportedMods(QuerySevenDaysToDieReportedModsRequest) returns (QuerySevenDaysToDieReportedModsResponse);
   rpc QuerySevenDaysToDieSandboxSettings(QuerySevenDaysToDieSandboxSettingsRequest) returns (QuerySevenDaysToDieSandboxSettingsResponse);
@@ -1061,6 +1062,8 @@ message SevenDaysToDieWebAPICapabilities {
   bool reported_mods = 8;
   bool hostile_positions = 9;
   bool animal_positions = 10;
+  bool command_execution = 11;
+  bool command_permissions = 12;
 }
 
 message SevenDaysToDieWebAPIStatus {
@@ -1074,6 +1077,10 @@ message SevenDaysToDieWebAPIStatus {
   SevenDaysToDieGameTime next_blood_moon = 8;
   SevenDaysToDieGameTime next_blood_moon_end = 9;
   google.protobuf.Timestamp observed_at = 10;
+  SevenDaysToDieWebAPIValueState command_operations_state = 11;
+  repeated string allowed_game_operations = 12;
+  repeated string supported_game_operations = 13;
+  repeated string known_commands = 14;
 }
 
 message QuerySevenDaysToDieWebAPIStatusRequest {
@@ -1085,6 +1092,30 @@ message QuerySevenDaysToDieWebAPIStatusRequest {
 
 message QuerySevenDaysToDieWebAPIStatusResponse {
   SevenDaysToDieWebAPIStatus status = 1;
+}
+
+message SevenDaysToDieOperationOption {
+  string label = 1;
+  string value = 2;
+  string description = 3;
+  string icon_name = 4;
+  string category = 5;
+  string accent_color = 6;
+}
+
+message SevenDaysToDieOperationMetadata {
+  repeated SevenDaysToDieOperationOption players = 1;
+  repeated SevenDaysToDieOperationOption items = 2;
+  repeated SevenDaysToDieOperationOption buffs = 3;
+  repeated SevenDaysToDieOperationOption commands = 4;
+}
+
+message QuerySevenDaysToDieOperationMetadataRequest {
+  string working_directory = 1;
+}
+
+message QuerySevenDaysToDieOperationMetadataResponse {
+  SevenDaysToDieOperationMetadata result = 1;
 }
 
 message SevenDaysToDiePlayer {

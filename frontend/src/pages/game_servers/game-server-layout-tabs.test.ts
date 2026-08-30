@@ -47,17 +47,24 @@ describe('buildGameServerTabs', () => {
     expect(tabs.map((t) => t.name)).toEqual(['Console'])
   })
 
-  it('shows Operations only for supported games with Player management permission', () => {
-    const supported = buildGameServerTabs(
-      serverID,
-      ['game_server.players.manage'],
-      false,
-      false,
-      true,
-      false,
-      false,
-      true,
-    )
+  it.each(['game_server.players.manage', 'game_server.console'])(
+    'shows Operations for supported games with %s',
+    (permission) => {
+      const supported = buildGameServerTabs(
+        serverID,
+        [permission],
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+      )
+      expect(supported.map((tab) => tab.name)).toEqual(['Console', 'Operations'])
+    },
+  )
+
+  it('hides Operations for unsupported games or unrelated permissions', () => {
     const unsupported = buildGameServerTabs(
       serverID,
       ['game_server.players.manage'],
@@ -78,8 +85,6 @@ describe('buildGameServerTabs', () => {
       false,
       true,
     )
-
-    expect(supported.map((tab) => tab.name)).toEqual(['Console', 'Operations'])
     expect(unsupported.map((tab) => tab.name)).toEqual(['Console'])
     expect(unauthorized.map((tab) => tab.name)).toEqual(['Console'])
   })
@@ -309,6 +314,32 @@ describe('getUnauthorizedRedirect', () => {
         true,
       ),
     ).toBeNull()
+    expect(
+      getUnauthorizedRedirect(
+        `/game-servers/${serverID}/operations`,
+        serverID,
+        ['game_server.console'],
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+      ),
+    ).toBeNull()
+    expect(
+      getUnauthorizedRedirect(
+        `/game-servers/${serverID}/operations`,
+        serverID,
+        ['game_server.stop'],
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+      ),
+    ).toBe(consolePath)
   })
 
   it('redirects /files when missing files.view permission', () => {

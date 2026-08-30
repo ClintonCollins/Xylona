@@ -11,6 +11,8 @@ export interface GameServerLayoutTab {
   requiredPermission?: string
 }
 
+const GAME_OPERATION_PERMISSIONS = ['game_server.players.manage', 'game_server.console']
+
 export function buildGameServerTabs(
   serverID: string,
   permissions: string[],
@@ -28,14 +30,13 @@ export function buildGameServerTabs(
     { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true, group: 'Operate' },
   ]
 
-  if (hasOperations && has('game_server.players.manage')) {
+  if (hasOperations && GAME_OPERATION_PERMISSIONS.some(has)) {
     tabs.push({
       name: 'Operations',
       to: `${basePath}/operations`,
       icon: 'admin_panel_settings',
       exact: true,
       group: 'Operate',
-      requiredPermission: 'game_server.players.manage',
     })
   }
 
@@ -175,7 +176,7 @@ export function getUnauthorizedRedirect(
 
   if (
     currentPath === `${basePath}/operations` &&
-    (!hasOperations || !has('game_server.players.manage'))
+    (!hasOperations || !GAME_OPERATION_PERMISSIONS.some(has))
   ) {
     return consolePath
   }

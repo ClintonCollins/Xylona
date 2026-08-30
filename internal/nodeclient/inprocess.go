@@ -334,6 +334,17 @@ func (c *inProcessNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Contex
 	return status, nil
 }
 
+func (c *inProcessNodeClient) QuerySevenDaysToDieOperationMetadata(ctx context.Context, req node.SevenDaysToDieOperationMetadataQueryRequest) (*node.SevenDaysToDieOperationMetadata, error) {
+	if c.node == nil {
+		return nil, ErrNodeNil
+	}
+	result, errQuery := c.node.QuerySevenDaysToDieOperationMetadata(ctx, req)
+	if errQuery != nil {
+		return nil, fmt.Errorf("nodeclient: query 7 Days to Die operation metadata: %w", errQuery)
+	}
+	return result, nil
+}
+
 func (c *inProcessNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, req node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error) {
 	if c.node == nil {
 		return nil, ErrNodeNil

@@ -732,21 +732,23 @@ const (
 	GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_NATIVE_AUTHENTICATION_DENIED GameOperationAvailabilityReason = 7
 	GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_GAME_PERMISSION_UNSUPPORTED  GameOperationAvailabilityReason = 8
 	GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID GameOperationAvailabilityReason = 9
+	GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_NATIVE_COMMAND_UNSUPPORTED   GameOperationAvailabilityReason = 10
 )
 
 // Enum value maps for GameOperationAvailabilityReason.
 var (
 	GameOperationAvailabilityReason_name = map[int32]string{
-		0: "GAME_OPERATION_AVAILABILITY_REASON_UNSPECIFIED",
-		1: "GAME_OPERATION_AVAILABILITY_REASON_SERVER_OFFLINE",
-		2: "GAME_OPERATION_AVAILABILITY_REASON_NODE_UNAVAILABLE",
-		3: "GAME_OPERATION_AVAILABILITY_REASON_NODE_CAPABILITY_UNAVAILABLE",
-		4: "GAME_OPERATION_AVAILABILITY_REASON_NODE_UNSUPPORTED",
-		5: "GAME_OPERATION_AVAILABILITY_REASON_NATIVE_DASHBOARD_DISABLED",
-		6: "GAME_OPERATION_AVAILABILITY_REASON_NATIVE_DASHBOARD_UNREACHABLE",
-		7: "GAME_OPERATION_AVAILABILITY_REASON_NATIVE_AUTHENTICATION_DENIED",
-		8: "GAME_OPERATION_AVAILABILITY_REASON_GAME_PERMISSION_UNSUPPORTED",
-		9: "GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID",
+		0:  "GAME_OPERATION_AVAILABILITY_REASON_UNSPECIFIED",
+		1:  "GAME_OPERATION_AVAILABILITY_REASON_SERVER_OFFLINE",
+		2:  "GAME_OPERATION_AVAILABILITY_REASON_NODE_UNAVAILABLE",
+		3:  "GAME_OPERATION_AVAILABILITY_REASON_NODE_CAPABILITY_UNAVAILABLE",
+		4:  "GAME_OPERATION_AVAILABILITY_REASON_NODE_UNSUPPORTED",
+		5:  "GAME_OPERATION_AVAILABILITY_REASON_NATIVE_DASHBOARD_DISABLED",
+		6:  "GAME_OPERATION_AVAILABILITY_REASON_NATIVE_DASHBOARD_UNREACHABLE",
+		7:  "GAME_OPERATION_AVAILABILITY_REASON_NATIVE_AUTHENTICATION_DENIED",
+		8:  "GAME_OPERATION_AVAILABILITY_REASON_GAME_PERMISSION_UNSUPPORTED",
+		9:  "GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID",
+		10: "GAME_OPERATION_AVAILABILITY_REASON_NATIVE_COMMAND_UNSUPPORTED",
 	}
 	GameOperationAvailabilityReason_value = map[string]int32{
 		"GAME_OPERATION_AVAILABILITY_REASON_UNSPECIFIED":                  0,
@@ -759,6 +761,7 @@ var (
 		"GAME_OPERATION_AVAILABILITY_REASON_NATIVE_AUTHENTICATION_DENIED": 7,
 		"GAME_OPERATION_AVAILABILITY_REASON_GAME_PERMISSION_UNSUPPORTED":  8,
 		"GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID": 9,
+		"GAME_OPERATION_AVAILABILITY_REASON_NATIVE_COMMAND_UNSUPPORTED":   10,
 	}
 )
 
@@ -16367,6 +16370,9 @@ type GameOperationFieldOption struct {
 	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
 	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	IconUrl       string                 `protobuf:"bytes,4,opt,name=icon_url,json=iconUrl,proto3" json:"icon_url,omitempty"`
+	Category      string                 `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
+	AccentColor   string                 `protobuf:"bytes,6,opt,name=accent_color,json=accentColor,proto3" json:"accent_color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -16418,6 +16424,27 @@ func (x *GameOperationFieldOption) GetValue() string {
 func (x *GameOperationFieldOption) GetDescription() string {
 	if x != nil {
 		return x.Description
+	}
+	return ""
+}
+
+func (x *GameOperationFieldOption) GetIconUrl() string {
+	if x != nil {
+		return x.IconUrl
+	}
+	return ""
+}
+
+func (x *GameOperationFieldOption) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *GameOperationFieldOption) GetAccentColor() string {
+	if x != nil {
+		return x.AccentColor
 	}
 	return ""
 }
@@ -19880,6 +19907,7 @@ type SevenDaysToDieWebAPICapabilities struct {
 	ReportedMods              bool                   `protobuf:"varint,8,opt,name=reported_mods,json=reportedMods,proto3" json:"reported_mods,omitempty"`
 	HostilePositions          bool                   `protobuf:"varint,9,opt,name=hostile_positions,json=hostilePositions,proto3" json:"hostile_positions,omitempty"`
 	AnimalPositions           bool                   `protobuf:"varint,10,opt,name=animal_positions,json=animalPositions,proto3" json:"animal_positions,omitempty"`
+	CommandPermissions        bool                   `protobuf:"varint,11,opt,name=command_permissions,json=commandPermissions,proto3" json:"command_permissions,omitempty"`
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
@@ -19980,6 +20008,13 @@ func (x *SevenDaysToDieWebAPICapabilities) GetHostilePositions() bool {
 func (x *SevenDaysToDieWebAPICapabilities) GetAnimalPositions() bool {
 	if x != nil {
 		return x.AnimalPositions
+	}
+	return false
+}
+
+func (x *SevenDaysToDieWebAPICapabilities) GetCommandPermissions() bool {
+	if x != nil {
+		return x.CommandPermissions
 	}
 	return false
 }
@@ -21738,11 +21773,14 @@ const file_xylona_proto_rawDesc = "" +
 	"\tplayer_id\x18\x03 \x01(\tR\bplayerId\x12\x1b\n" +
 	"\x06reason\x18\x04 \x01(\tH\x00R\x06reason\x88\x01\x01B\t\n" +
 	"\a_reason\"'\n" +
-	"%PerformGameServerPlayerActionResponse\"h\n" +
+	"%PerformGameServerPlayerActionResponse\"\xc2\x01\n" +
 	"\x18GameOperationFieldOption\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\"\xeb\x03\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x19\n" +
+	"\bicon_url\x18\x04 \x01(\tR\aiconUrl\x12\x1a\n" +
+	"\bcategory\x18\x05 \x01(\tR\bcategory\x12!\n" +
+	"\faccent_color\x18\x06 \x01(\tR\vaccentColor\"\xeb\x03\n" +
 	"\x12GameOperationField\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
@@ -22031,7 +22069,7 @@ const file_xylona_proto_rawDesc = "" +
 	"\x16SevenDaysToDieGameTime\x12\x10\n" +
 	"\x03day\x18\x01 \x01(\x05R\x03day\x12\x12\n" +
 	"\x04hour\x18\x02 \x01(\x05R\x04hour\x12\x16\n" +
-	"\x06minute\x18\x03 \x01(\x05R\x06minute\"\xc8\x03\n" +
+	"\x06minute\x18\x03 \x01(\x05R\x06minute\"\xf9\x03\n" +
 	" SevenDaysToDieWebAPICapabilities\x12\x1f\n" +
 	"\vplayer_data\x18\x01 \x01(\bR\n" +
 	"playerData\x12)\n" +
@@ -22045,7 +22083,8 @@ const file_xylona_proto_rawDesc = "" +
 	"\rreported_mods\x18\b \x01(\bR\freportedMods\x12+\n" +
 	"\x11hostile_positions\x18\t \x01(\bR\x10hostilePositions\x12)\n" +
 	"\x10animal_positions\x18\n" +
-	" \x01(\bR\x0fanimalPositions\"\xe1\x05\n" +
+	" \x01(\bR\x0fanimalPositions\x12/\n" +
+	"\x13command_permissions\x18\v \x01(\bR\x12commandPermissions\"\xe1\x05\n" +
 	"\x1aSevenDaysToDieWebAPIStatus\x12V\n" +
 	"\x10connection_state\x18\x01 \x01(\x0e2+.xylona.SevenDaysToDieWebAPIConnectionStateR\x0fconnectionState\x12\x1f\n" +
 	"\vapi_version\x18\x02 \x01(\tR\n" +
@@ -22184,7 +22223,7 @@ const file_xylona_proto_rawDesc = "" +
 	"!GAME_OPERATION_FIELD_TYPE_BOOLEAN\x10\x03\x12\"\n" +
 	"\x1eGAME_OPERATION_FIELD_TYPE_ENUM\x10\x04\x12&\n" +
 	"\"GAME_OPERATION_FIELD_TYPE_DURATION\x10\x05\x12-\n" +
-	")GAME_OPERATION_FIELD_TYPE_PLAYER_IDENTITY\x10\x06*\x97\x05\n" +
+	")GAME_OPERATION_FIELD_TYPE_PLAYER_IDENTITY\x10\x06*\xda\x05\n" +
 	"\x1fGameOperationAvailabilityReason\x122\n" +
 	".GAME_OPERATION_AVAILABILITY_REASON_UNSPECIFIED\x10\x00\x125\n" +
 	"1GAME_OPERATION_AVAILABILITY_REASON_SERVER_OFFLINE\x10\x01\x127\n" +
@@ -22195,7 +22234,9 @@ const file_xylona_proto_rawDesc = "" +
 	"?GAME_OPERATION_AVAILABILITY_REASON_NATIVE_DASHBOARD_UNREACHABLE\x10\x06\x12C\n" +
 	"?GAME_OPERATION_AVAILABILITY_REASON_NATIVE_AUTHENTICATION_DENIED\x10\a\x12B\n" +
 	">GAME_OPERATION_AVAILABILITY_REASON_GAME_PERMISSION_UNSUPPORTED\x10\b\x12C\n" +
-	"?GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID\x10\t*\x80\x02\n" +
+	"?GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID\x10\t\x12A\n" +
+	"=GAME_OPERATION_AVAILABILITY_REASON_NATIVE_COMMAND_UNSUPPORTED\x10\n" +
+	"*\x80\x02\n" +
 	"!GameOperationResultClassification\x124\n" +
 	"0GAME_OPERATION_RESULT_CLASSIFICATION_UNSPECIFIED\x10\x00\x122\n" +
 	".GAME_OPERATION_RESULT_CLASSIFICATION_CONFIRMED\x10\x01\x12@\n" +

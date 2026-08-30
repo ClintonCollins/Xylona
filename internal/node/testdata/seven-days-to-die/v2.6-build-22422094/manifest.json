@@ -8,7 +8,7 @@
     "commands/catalog.json": "89cfc98f24f0b66439c7292c44901671bc062f85e4ecd94d41f05e576fcd9dfd",
     "commands/details.json": "d8c960e232c2da0c94f5be745dc41c99260703901e659941367346eab527be09",
     "inventory/add-administrator.json": "4a580779fb046a64fbc548cbc0f1f2f949ed668e60f1957e481047a47c0293bf",
-    "inventory/commands.json": "0cb7f21d28b36d8d2f76c638bad52785ba13c0e04d64fb1884fd482776c90363",
+    "inventory/commands.json": "206667394890ea46bfc255386822dce3267ab24e90913efbc264a259a8babe39",
     "inventory/native-api.json": "fc736559698dd87bf3623035e2873c37423a006db105aee9a06f15458e34ade1",
     "openapi/Animal.openapi.yaml": "6211cda6ad9cf3475f694c9efa1406d8ddfb02d3b04369774f4cb62bcdd9148b",
     "openapi/Blacklist.openapi.yaml": "769f39eca61ab70339aab2a01e3c9ff980e3fe7149f8c2e96491c26c8dd6974e",
@@ -52,6 +52,7 @@
     "players/representative.json": "80dd03eb7f8dadd8d837aefb720543b4d809837f38a4621744c0ce657b057faf",
     "results/add-administrator-confirmed.json": "7d3baf1f217ed5685f0ea0428ec57b15f5c2455dddb98213958919fc4bdfa360",
     "results/rejection.json": "5e22203b2c6b6948a1744a2cad72666ff73080c839cc8aedd70d32b8d5eb20d7",
+    "results/set-game-time-readback.json": "dc991bc97f934426fbd8ea7f03824398509f1a29cf5e7629c74cf7f1f2a050fd",
     "results/timeout.json": "27a8ce53e836a6de76c1ca5965b839b20e477234e9d59c852487140b97544088",
     "results/unavailable-readback.json": "50152eb9089e410b6b02d4551027afe1c98c26ffde86432acd3ab90586775d97",
     "results/version.json": "3e160e7920fc38561f2d221ac7bf1d60b11af089722b9e8debe64037179cbda6"

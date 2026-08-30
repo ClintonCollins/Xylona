@@ -11,12 +11,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 )
 
 const sevenDaysToDieManagementBaselineRoot = "testdata/seven-days-to-die/v2.6-build-22422094"
@@ -56,6 +59,25 @@ type sevenDaysToDieManagementInventoryGroup struct {
 
 type sevenDaysToDieOpenAPIDocument struct {
 	Paths map[string]map[string]any `yaml:"paths"`
+}
+
+type sevenDaysToDieOperationCoverage struct {
+	Commands  []sevenDaysToDieOperationCoverageEntry `json:"commands"`
+	NativeAPI []sevenDaysToDieOperationCoverageEntry `json:"nativeApi"`
+}
+
+type sevenDaysToDieOperationCoverageEntry struct {
+	Name         string   `json:"name"`
+	Status       string   `json:"status"`
+	OperationIDs []string `json:"operationIds"`
+	Reason       string   `json:"reason"`
+	Alternative  string   `json:"alternative"`
+}
+
+type sevenDaysToDieCommandDrift struct {
+	newCommands     []string
+	removedCommands []string
+	changedCommands []string
 }
 
 func TestSevenDaysToDieManagementBaseline(t *testing.T) {
@@ -117,6 +139,74 @@ func TestSevenDaysToDieManagementBaseline(t *testing.T) {
 		}
 		validateSevenDaysToDieOperationInventory(t, commands, inventory, true)
 	})
+	t.Run("approved Server control commands are modeled", func(t *testing.T) {
+		inventory := readSevenDaysToDieBaselineJSON[sevenDaysToDieManagementInventory](t, filepath.Join(root, "inventory", "commands.json"))
+		var approvedCommands []string
+		for _, group := range inventory.Supported {
+			if group.Category == "Server control" {
+				approvedCommands = group.Commands
+				break
+			}
+		}
+		modeled := map[string]string{
+			"saveworld":   gameintegrations.OperationIDSaveWorld,
+			"settempunit": gameintegrations.OperationIDSetTemperatureUnit,
+			"settime":     gameintegrations.OperationIDSetGameTime,
+			"shutdown":    gameintegrations.OperationIDShutdown,
+		}
+		operations := gameintegrations.OperationsForGame("7_days_to_die")
+		if len(approvedCommands) != len(modeled) {
+			t.Fatalf("approved Server control command count = %d, modeled = %d", len(approvedCommands), len(modeled))
+		}
+		for command, operationID := range modeled {
+			if !slices.Contains(approvedCommands, command) ||
+				!slices.ContainsFunc(operations, func(operation gameintegrations.OperationDescriptor) bool {
+					return operation.ID == operationID
+				}) {
+				t.Fatalf("approved Server control command %q is not modeled as %q", command, operationID)
+			}
+		}
+	})
+	t.Run("approved management inventory is modeled or explicitly excluded", func(t *testing.T) {
+		coverage := readSevenDaysToDieBaselineJSON[sevenDaysToDieOperationCoverage](
+			t,
+			filepath.Join("testdata", "seven-days-to-die", "operations-coverage.json"),
+		)
+		commandInventory := readSevenDaysToDieBaselineJSON[sevenDaysToDieManagementInventory](t, filepath.Join(root, "inventory", "commands.json"))
+		nativeInventory := readSevenDaysToDieBaselineJSON[sevenDaysToDieManagementInventory](t, filepath.Join(root, "inventory", "native-api.json"))
+		wantCommands := sevenDaysToDieManagementEntries(
+			commandInventory,
+			true,
+			"Player access",
+			"Players",
+			"Communication",
+			"Server information",
+			"Server control",
+			"Player assistance",
+			"World events",
+		)
+		wantNativeAPI := sevenDaysToDieManagementEntries(
+			nativeInventory,
+			false,
+			"Console",
+			"Player access",
+			"Players",
+			"Server state",
+		)
+		operationIDs := make(map[string]struct{})
+		for _, operation := range gameintegrations.OperationsForGame("7_days_to_die") {
+			operationIDs[operation.ID] = struct{}{}
+		}
+		coveredOperationIDs := make(map[string]struct{})
+		validateSevenDaysToDieOperationCoverage(t, wantCommands, coverage.Commands, operationIDs, coveredOperationIDs)
+		validateSevenDaysToDieOperationCoverage(t, wantNativeAPI, coverage.NativeAPI, operationIDs, coveredOperationIDs)
+		for operationID := range operationIDs {
+			_, covered := coveredOperationIDs[operationID]
+			if !covered {
+				t.Fatalf("operation %q is missing from the approved baseline coverage", operationID)
+			}
+		}
+	})
 	t.Run("Player identities are representative and neutral", func(t *testing.T) {
 		players := readSevenDaysToDieBaselineJSON[struct {
 			Data struct {
@@ -152,6 +242,126 @@ func TestSevenDaysToDieManagementBaseline(t *testing.T) {
 	t.Run("permission and result evidence identifies Add administrator", func(t *testing.T) {
 		validateSevenDaysToDiePermissionEvidence(t, root)
 	})
+	t.Run("command drift identifies new removed and changed commands", func(t *testing.T) {
+		baseline := readSevenDaysToDieBaselineJSON[map[string]any](t, filepath.Join(root, "commands", "details.json"))
+		tests := []struct {
+			name   string
+			mutate func(map[string]any)
+			want   sevenDaysToDieCommandDrift
+		}{
+			{
+				name: "new command",
+				mutate: func(live map[string]any) {
+					live["future-command"] = map[string]any{"response": "new"}
+				},
+				want: sevenDaysToDieCommandDrift{newCommands: []string{"future-command"}},
+			},
+			{
+				name: "removed command",
+				mutate: func(live map[string]any) {
+					delete(live, "version")
+				},
+				want: sevenDaysToDieCommandDrift{removedCommands: []string{"version"}},
+			},
+			{
+				name: "changed command",
+				mutate: func(live map[string]any) {
+					live["version"] = map[string]any{"response": "changed"}
+				},
+				want: sevenDaysToDieCommandDrift{changedCommands: []string{"version"}},
+			},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				live := maps.Clone(baseline)
+				test.mutate(live)
+				if drift := detectSevenDaysToDieCommandDrift(baseline, live); !reflect.DeepEqual(drift, test.want) {
+					t.Fatalf("command drift = %+v, want %+v", drift, test.want)
+				}
+			})
+		}
+	})
+}
+
+func detectSevenDaysToDieCommandDrift(baseline map[string]any, live map[string]any) sevenDaysToDieCommandDrift {
+	var drift sevenDaysToDieCommandDrift
+	for command, baselineDetail := range baseline {
+		liveDetail, found := live[command]
+		if !found {
+			drift.removedCommands = append(drift.removedCommands, command)
+			continue
+		}
+		if !reflect.DeepEqual(baselineDetail, liveDetail) {
+			drift.changedCommands = append(drift.changedCommands, command)
+		}
+	}
+	for command := range live {
+		_, found := baseline[command]
+		if !found {
+			drift.newCommands = append(drift.newCommands, command)
+		}
+	}
+	slices.Sort(drift.newCommands)
+	slices.Sort(drift.removedCommands)
+	slices.Sort(drift.changedCommands)
+	return drift
+}
+
+func sevenDaysToDieManagementEntries(
+	inventory sevenDaysToDieManagementInventory,
+	commands bool,
+	categories ...string,
+) []string {
+	entries := make([]string, 0)
+	for _, group := range inventory.Supported {
+		if !slices.Contains(categories, group.Category) {
+			continue
+		}
+		if commands {
+			entries = append(entries, group.Commands...)
+		} else {
+			entries = append(entries, group.Operations...)
+		}
+	}
+	slices.Sort(entries)
+	return entries
+}
+
+func validateSevenDaysToDieOperationCoverage(
+	t *testing.T,
+	want []string,
+	coverage []sevenDaysToDieOperationCoverageEntry,
+	operationIDs map[string]struct{},
+	coveredOperationIDs map[string]struct{},
+) {
+	t.Helper()
+	got := make([]string, 0, len(coverage))
+	for _, entry := range coverage {
+		got = append(got, entry.Name)
+		switch entry.Status {
+		case "modeled", "supporting":
+			if len(entry.OperationIDs) == 0 || entry.Reason != "" || entry.Alternative != "" {
+				t.Fatalf("coverage entry %q has incomplete %s metadata", entry.Name, entry.Status)
+			}
+			for _, operationID := range entry.OperationIDs {
+				_, found := operationIDs[operationID]
+				if !found {
+					t.Fatalf("coverage entry %q references unknown operation %q", entry.Name, operationID)
+				}
+				coveredOperationIDs[operationID] = struct{}{}
+			}
+		case "excluded":
+			if len(entry.OperationIDs) != 0 || entry.Reason == "" || entry.Alternative == "" {
+				t.Fatalf("coverage entry %q has incomplete exclusion metadata", entry.Name)
+			}
+		default:
+			t.Fatalf("coverage entry %q has unknown status %q", entry.Name, entry.Status)
+		}
+	}
+	slices.Sort(got)
+	if !slices.Equal(want, got) {
+		t.Fatalf("approved management coverage mismatch: want=%v got=%v", want, got)
+	}
 }
 
 func validateSevenDaysToDieBaselineFiles(t *testing.T, root string, hashes map[string]string) {

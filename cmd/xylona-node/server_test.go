@@ -678,7 +678,7 @@ func TestSevenDaysToDieWebAPIStatusToProto(t *testing.T) {
 				Capabilities: node.SevenDaysToDieWebAPICapabilities{
 					PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
 					HostileAndAnimalPositions: true, HostilePositions: true, AnimalPositions: true,
-					AccessControl: true, GamePermissions: true, ReportedMods: true,
+					AccessControl: true, GamePermissions: true, CommandPermissions: true, ReportedMods: true, CommandExecution: true,
 				},
 				WorldTimeState:   node.SevenDaysToDieWebAPIValueStateAvailable,
 				WorldTime:        &node.SevenDaysToDieGameTime{Day: 12, Hour: 5, Minute: 30},
@@ -701,7 +701,8 @@ func TestSevenDaysToDieWebAPIStatusToProto(t *testing.T) {
 			if !capabilities.GetPlayerData() || !capabilities.GetRuntimeSettings() || !capabilities.GetNativeLog() ||
 				!capabilities.GetWorldPopulation() || !capabilities.GetHostileAndAnimalPositions() ||
 				!capabilities.GetHostilePositions() || !capabilities.GetAnimalPositions() || !capabilities.GetAccessControl() ||
-				!capabilities.GetGamePermissions() || !capabilities.GetReportedMods() {
+				!capabilities.GetGamePermissions() || !capabilities.GetCommandPermissions() || !capabilities.GetReportedMods() ||
+				!capabilities.GetCommandExecution() {
 				t.Fatalf("capabilities = %+v", capabilities)
 			}
 			if (status.GetObservedAt() != nil) != test.wantObservedAt {

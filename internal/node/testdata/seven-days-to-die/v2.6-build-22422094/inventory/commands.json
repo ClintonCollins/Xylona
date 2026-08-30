@@ -21,6 +21,14 @@
     {
       "category": "Server control",
       "commands": ["saveworld", "settempunit", "settime", "shutdown"]
+    },
+    {
+      "category": "Player assistance",
+      "commands": ["buffplayer", "debuffplayer", "give", "givexp", "teleportplayer"]
+    },
+    {
+      "category": "World events",
+      "commands": ["spawnairdrop", "spawnwandering", "weather"]
     }
   ],
   "excluded": [
@@ -39,7 +47,7 @@
         "reloadentityclasses", "rendermap", "repairchunkdensity", "reply", "resetallstats", "sdcs", "settargetfps", "sette", "setwatervalue",
         "show", "showClouds", "showalbedo", "showchunkdata", "showhits", "shownexthordetime", "shownormals", "showspecular", "showswings",
         "showtriggers", "sleep", "sleeper", "smoothpoi", "smoothworldall", "spectrum", "squarespiral", "stab", "starve", "switchview",
-        "teleport", "teleportplayer", "teleportpoirelative", "testCensor", "testCoverSystem", "testDismemberment", "testloop", "testoccreport",
+        "teleport", "teleportpoirelative", "testCensor", "testCoverSystem", "testDismemberment", "testloop", "testoccreport",
         "thirsty", "tls", "tppoi", "traderarea", "transformdebug", "trees", "uioptions", "versionui", "visitmap", "visitpois",
         "workstationmaterials", "xui"
       ]
@@ -48,9 +56,8 @@
       "reason": "Changes progression, entities, quests, weather, or world state; Game Master and world-editing behavior is outside the Operations pilot and no bounded safe input contract is authored.",
       "escapeHatch": "Console",
       "commands": [
-        "buff", "buffplayer", "challenges", "debuff", "debuffplayer", "give", "givequest", "giveself", "giveselfxp", "givexp",
-        "newweathersurvival", "removequest", "spawnairdrop", "spawnentity", "spawnentityat", "spawnscouts", "spawnsupplycrate",
-        "spawnwandering", "spectatormode", "weather", "weathersurvival"
+        "buff", "challenges", "debuff", "givequest", "giveself", "giveselfxp", "newweathersurvival", "removequest",
+        "spawnentity", "spawnentityat", "spawnscouts", "spawnsupplycrate", "spectatormode", "weathersurvival"
       ]
     },
     {

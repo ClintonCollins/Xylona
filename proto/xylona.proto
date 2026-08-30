@@ -1775,12 +1775,16 @@ enum GameOperationAvailabilityReason {
   GAME_OPERATION_AVAILABILITY_REASON_NATIVE_AUTHENTICATION_DENIED = 7;
   GAME_OPERATION_AVAILABILITY_REASON_GAME_PERMISSION_UNSUPPORTED = 8;
   GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID = 9;
+  GAME_OPERATION_AVAILABILITY_REASON_NATIVE_COMMAND_UNSUPPORTED = 10;
 }
 
 message GameOperationFieldOption {
   string label = 1;
   string value = 2;
   string description = 3;
+  string icon_url = 4;
+  string category = 5;
+  string accent_color = 6;
 }
 
 message GameOperationField {
@@ -2193,6 +2197,7 @@ message SevenDaysToDieWebAPICapabilities {
   bool reported_mods = 8;
   bool hostile_positions = 9;
   bool animal_positions = 10;
+  bool command_permissions = 11;
 }
 
 message SevenDaysToDieWebAPIStatus {

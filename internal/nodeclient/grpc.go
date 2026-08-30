@@ -797,6 +797,22 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, st
 	return sevenDaysToDieWebAPIStatusFromProto(resp.Msg.GetStatus()), nil
 }
 
+// QuerySevenDaysToDieOperationMetadata invokes the offline server-file metadata RPC.
+func (c *GRPCNodeClient) QuerySevenDaysToDieOperationMetadata(ctx context.Context, metadataReq node.SevenDaysToDieOperationMetadataQueryRequest) (*node.SevenDaysToDieOperationMetadata, error) {
+	req := newReq(c, &nodeprotov1.QuerySevenDaysToDieOperationMetadataRequest{
+		WorkingDirectory: metadataReq.WorkingDirectory,
+	})
+	resp, errRPC := c.connectClient.QuerySevenDaysToDieOperationMetadata(ctx, req)
+	if errRPC != nil {
+		return nil, translateError("query 7 Days to Die operation metadata", errRPC)
+	}
+	result, errResult := sevenDaysToDieOperationMetadataFromProto(resp.Msg.GetResult())
+	if errResult != nil {
+		return nil, fmt.Errorf("query 7 Days to Die operation metadata: invalid node response: %w", errResult)
+	}
+	return result, nil
+}
+
 // QuerySevenDaysToDiePlayers invokes the private native player-roster RPC.
 func (c *GRPCNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, playersReq node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error) {
 	req := newReq(c, &nodeprotov1.QuerySevenDaysToDiePlayersRequest{
@@ -1630,17 +1646,72 @@ func sevenDaysToDieWebAPIStatusFromProto(status *nodeprotov1.SevenDaysToDieWebAP
 		return nil
 	}
 	return &node.SevenDaysToDieWebAPIStatus{
-		ConnectionState:  sevenDaysToDieWebAPIConnectionStateFromProto(status.GetConnectionState()),
-		APIVersion:       status.GetApiVersion(),
-		Capabilities:     sevenDaysToDieWebAPICapabilitiesFromProto(status.GetCapabilities()),
-		WorldTimeState:   sevenDaysToDieWebAPIValueStateFromProto(status.GetWorldTimeState()),
-		WorldTime:        sevenDaysToDieGameTimeFromProto(status.GetWorldTime()),
-		BloodMoonState:   sevenDaysToDieWebAPIValueStateFromProto(status.GetBloodMoonState()),
-		BloodMoonActive:  status.BloodMoonActive,
-		NextBloodMoon:    sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoon()),
-		NextBloodMoonEnd: sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoonEnd()),
-		ObservedAt:       validProtoTime(status.GetObservedAt()),
+		ConnectionState:         sevenDaysToDieWebAPIConnectionStateFromProto(status.GetConnectionState()),
+		APIVersion:              status.GetApiVersion(),
+		Capabilities:            sevenDaysToDieWebAPICapabilitiesFromProto(status.GetCapabilities()),
+		WorldTimeState:          sevenDaysToDieWebAPIValueStateFromProto(status.GetWorldTimeState()),
+		WorldTime:               sevenDaysToDieGameTimeFromProto(status.GetWorldTime()),
+		BloodMoonState:          sevenDaysToDieWebAPIValueStateFromProto(status.GetBloodMoonState()),
+		BloodMoonActive:         status.BloodMoonActive,
+		NextBloodMoon:           sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoon()),
+		NextBloodMoonEnd:        sevenDaysToDieGameTimeFromProto(status.GetNextBloodMoonEnd()),
+		CommandOperationsState:  sevenDaysToDieWebAPIValueStateFromProto(status.GetCommandOperationsState()),
+		SupportedGameOperations: slices.Clone(status.GetSupportedGameOperations()),
+		AllowedGameOperations:   slices.Clone(status.GetAllowedGameOperations()),
+		KnownCommands:           slices.Clone(status.GetKnownCommands()),
+		ObservedAt:              validProtoTime(status.GetObservedAt()),
 	}
+}
+
+func sevenDaysToDieOperationMetadataFromProto(result *nodeprotov1.SevenDaysToDieOperationMetadata) (*node.SevenDaysToDieOperationMetadata, error) {
+	if result == nil {
+		return nil, errors.New("operation metadata result is missing")
+	}
+	players, errPlayers := sevenDaysToDieOperationOptionsFromProto(result.GetPlayers())
+	if errPlayers != nil {
+		return nil, fmt.Errorf("players: %w", errPlayers)
+	}
+	items, errItems := sevenDaysToDieOperationOptionsFromProto(result.GetItems())
+	if errItems != nil {
+		return nil, fmt.Errorf("items: %w", errItems)
+	}
+	buffs, errBuffs := sevenDaysToDieOperationOptionsFromProto(result.GetBuffs())
+	if errBuffs != nil {
+		return nil, fmt.Errorf("buffs: %w", errBuffs)
+	}
+	commands, errCommands := sevenDaysToDieOperationOptionsFromProto(result.GetCommands())
+	if errCommands != nil {
+		return nil, fmt.Errorf("commands: %w", errCommands)
+	}
+	return &node.SevenDaysToDieOperationMetadata{
+		Players: players, Items: items, Buffs: buffs, Commands: commands,
+	}, nil
+}
+
+func sevenDaysToDieOperationOptionsFromProto(options []*nodeprotov1.SevenDaysToDieOperationOption) ([]node.SevenDaysToDieOperationOption, error) {
+	if len(options) > node.SevenDaysToDieOperationOptionCountLimit {
+		return nil, errors.New("option count exceeds limit")
+	}
+	result := make([]node.SevenDaysToDieOperationOption, 0, len(options))
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("option is missing")
+		}
+		fields := []string{
+			option.GetLabel(), option.GetValue(), option.GetDescription(), option.GetIconName(),
+			option.GetCategory(), option.GetAccentColor(),
+		}
+		if option.GetValue() == "" || slices.ContainsFunc(fields, func(field string) bool {
+			return len(field) > node.SevenDaysToDieOperationOptionFieldByteLimit || strings.ContainsAny(field, "\x00\r\n")
+		}) {
+			return nil, errors.New("option contains an invalid field")
+		}
+		result = append(result, node.SevenDaysToDieOperationOption{
+			Label: option.GetLabel(), Value: option.GetValue(), Description: option.GetDescription(), IconName: option.GetIconName(),
+			Category: option.GetCategory(), AccentColor: option.GetAccentColor(),
+		})
+	}
+	return result, nil
 }
 
 func sevenDaysToDiePlayersFromProto(result *nodeprotov1.SevenDaysToDiePlayers) *node.SevenDaysToDiePlayers {
@@ -1770,6 +1841,8 @@ func sevenDaysToDieWebAPICapabilitiesFromProto(capabilities *nodeprotov1.SevenDa
 		AnimalPositions:           capabilities.GetAnimalPositions() || capabilities.GetHostileAndAnimalPositions(),
 		AccessControl:             capabilities.GetAccessControl(),
 		GamePermissions:           capabilities.GetGamePermissions(),
+		CommandExecution:          capabilities.GetCommandExecution(),
+		CommandPermissions:        capabilities.GetCommandPermissions(),
 		ReportedMods:              capabilities.GetReportedMods(),
 	}
 }

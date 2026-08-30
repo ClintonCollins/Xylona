@@ -86,6 +86,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import { Status } from '@/proto/shared_pb'
 import {
@@ -111,6 +112,7 @@ const props = defineProps<{
   canManagePlayers: boolean
   nativeIdentifiersRequired: boolean
 }>()
+const router = useRouter()
 
 const management = ref<GetGameServerPlayerManagementResponse | null>(null)
 const performing = ref(false)
@@ -131,7 +133,6 @@ const quickActionDefinitions = computed(() =>
 const canPerformActions = computed(
   () =>
     props.canManagePlayers &&
-    !props.nativeIdentifiersRequired &&
     Boolean(capabilities.value?.actionsSupported) &&
     management.value?.status === Status.ONLINE &&
     props.isOnline &&
@@ -144,6 +145,14 @@ const dialogTextColor = computed(() =>
 )
 
 function resolvePlayerId(name: string): string {
+  if (props.nativeIdentifiersRequired) {
+    if (props.playerNames.filter((candidate) => candidate === name).length !== 1) return ''
+    const matches =
+      management.value?.managementPlayers.filter(
+        (player) => player.name === name && player.actionIdentifier !== '',
+      ) ?? []
+    return matches.length === 1 ? (matches[0]?.actionIdentifier ?? '') : ''
+  }
   const managed = management.value?.players.find((player) => player.name === name)
   return managed?.id ?? ''
 }
@@ -154,7 +163,7 @@ function rowActions(name: string): PlayerActionDefinition[] {
 }
 
 async function loadManagement(): Promise<void> {
-  if (!props.canManagePlayers || props.nativeIdentifiersRequired || props.gameServerId === '') {
+  if (!props.canManagePlayers || props.gameServerId === '') {
     return
   }
   try {
@@ -176,6 +185,13 @@ function scheduleManagementRefresh(): void {
 function openAction(definition: PlayerActionDefinition, name: string): void {
   const playerId = resolvePlayerId(name)
   if (!canPerformActions.value || playerId === '') return
+  if (props.nativeIdentifiersRequired) {
+    void router.push({
+      path: `/game-servers/${props.gameServerId}/operations`,
+      query: { operation: definition.operationId, player: playerId },
+    })
+    return
+  }
   pendingDefinition.value = definition
   pendingName.value = name
   pendingId.value = playerId
@@ -194,7 +210,13 @@ function closeAction(): void {
 
 async function performAction(): Promise<void> {
   const definition = pendingDefinition.value
-  if (definition === null || pendingId.value === '' || performing.value) return
+  if (
+    props.nativeIdentifiersRequired ||
+    definition === null ||
+    pendingId.value === '' ||
+    performing.value
+  )
+    return
 
   performing.value = true
   try {

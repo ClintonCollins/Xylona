@@ -419,6 +419,24 @@ describe('GameServerView', () => {
     expect(mocks.stopGameServer).toHaveBeenCalledTimes(wantStopped ? 1 : 0)
   })
 
+  it('routes 7DTD Player management to Operations instead of the superseded dialog', async () => {
+    const gameServer = buildOnlineGameServer()
+    gameServer.gameId = '7_days_to_die'
+    gameServer.effectivePermissions.push('game_server.players.manage')
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer,
+      }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const operationsLink = wrapper.get('[aria-label="Open Player operations"]')
+    expect(operationsLink.attributes('to')).toBe('/game-servers/server-remote-1/operations')
+    expect(wrapper.find('game-server-player-management-dialog-stub').exists()).toBe(false)
+  })
+
   it('shows game server update output in the console without an update progress dialog', async () => {
     mocks.readGameServerOutput.mockResolvedValue(
       create(ReadGameServerOutputResponseSchema, { output: '' }),

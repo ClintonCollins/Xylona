@@ -166,9 +166,44 @@ func TestIntegrationSevenDaysToDieManagementBaselineDrift(t *testing.T) {
 	}
 	catalog := capture.getJSON(t, "/api/command")
 	sortSevenDaysToDieCommands(t, catalog)
-	assertSevenDaysToDieBaselineJSON(t, filepath.Join(sevenDaysToDieBaselineRoot, "commands", "catalog.json"), catalog)
 	details := capture.commandDetails(t, catalog)
-	assertSevenDaysToDieBaselineJSON(t, filepath.Join(sevenDaysToDieBaselineRoot, "commands", "details.json"), details)
+	baseline := readSevenDaysToDieBaselineJSON[map[string]any](
+		t,
+		filepath.Join(sevenDaysToDieBaselineRoot, "commands", "details.json"),
+	)
+	drift := detectSevenDaysToDieCommandDrift(baseline, details)
+	if len(drift.newCommands) != 0 || len(drift.removedCommands) != 0 || len(drift.changedCommands) != 0 {
+		t.Fatalf(
+			"live command catalog drifted: new=%v removed=%v changed=%v",
+			drift.newCommands,
+			drift.removedCommands,
+			drift.changedCommands,
+		)
+	}
+	verifySevenDaysToDieLiveOperationsSmoke(t, capture)
+}
+
+func verifySevenDaysToDieLiveOperationsSmoke(t *testing.T, capture *sevenDaysToDieBaselineCapture) {
+	t.Helper()
+	status, response := capture.requestJSON(t, http.MethodPost, "/api/command", map[string]any{
+		"command": "version",
+		"format":  "Full",
+	})
+	responseRoot, okRoot := response.(map[string]any)
+	responseData, okData := responseRoot["data"].(map[string]any)
+	version, okVersion := responseData["result"].(string)
+	if status != http.StatusOK || !okRoot || !okData || !okVersion || !strings.Contains(version, "Game version: V 2.6 (b14)") {
+		t.Fatal("live command transport does not match the supported V2.6 build b14 baseline")
+	}
+
+	permissions := capture.getJSON(t, "/api/userpermissions")
+	permissionsRoot, okRoot := permissions.(map[string]any)
+	permissionsData, okData := permissionsRoot["data"].(map[string]any)
+	_, okGroups := permissionsData["groups"].([]any)
+	_, okUsers := permissionsData["users"].([]any)
+	if !okRoot || !okData || !okGroups || !okUsers {
+		t.Fatal("live native permission read-back does not match the supported baseline")
+	}
 }
 
 func (c *sevenDaysToDieBaselineCapture) commandDetails(t *testing.T, catalog any) map[string]any {
@@ -592,30 +627,6 @@ func capturedSevenDaysToDieBaselineRequest(method string, path string, body map[
 		Path:        path,
 		HeaderNames: headerNames,
 		Body:        body,
-	}
-}
-
-func assertSevenDaysToDieBaselineJSON(t *testing.T, path string, actual any) {
-	t.Helper()
-	expectedData, errRead := os.ReadFile(filepath.FromSlash(path))
-	if errRead != nil {
-		t.Fatalf("read command baseline: %v", errRead)
-	}
-	expected := decodeSevenDaysToDieBaselineJSON(t, expectedData, nil)
-	expectedJSON, errExpected := json.Marshal(expected)
-	actualJSON, errActual := json.Marshal(actual)
-	if errExpected != nil || errActual != nil {
-		t.Fatalf("encode command baseline comparison: %v", errors.Join(errExpected, errActual))
-	}
-	if !bytes.Equal(expectedJSON, actualJSON) {
-		expectedHash := sha256.Sum256(expectedJSON)
-		actualHash := sha256.Sum256(actualJSON)
-		t.Fatalf(
-			"live command data drifted from %s (baseline %s, live %s)",
-			filepath.Base(path),
-			hex.EncodeToString(expectedHash[:8]),
-			hex.EncodeToString(actualHash[:8]),
-		)
 	}
 }
 

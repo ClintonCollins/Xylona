@@ -670,21 +670,27 @@ type SevenDaysToDieWebAPICapabilities struct {
 	AnimalPositions           bool
 	AccessControl             bool
 	GamePermissions           bool
+	CommandExecution          bool
+	CommandPermissions        bool
 	ReportedMods              bool
 }
 
 // SevenDaysToDieWebAPIStatus is the bounded diagnostics result returned by a node.
 type SevenDaysToDieWebAPIStatus struct {
-	ConnectionState  SevenDaysToDieWebAPIConnectionState
-	APIVersion       string
-	Capabilities     SevenDaysToDieWebAPICapabilities
-	WorldTimeState   SevenDaysToDieWebAPIValueState
-	WorldTime        *SevenDaysToDieGameTime
-	BloodMoonState   SevenDaysToDieWebAPIValueState
-	BloodMoonActive  *bool
-	NextBloodMoon    *SevenDaysToDieGameTime
-	NextBloodMoonEnd *SevenDaysToDieGameTime
-	ObservedAt       time.Time
+	ConnectionState         SevenDaysToDieWebAPIConnectionState
+	APIVersion              string
+	Capabilities            SevenDaysToDieWebAPICapabilities
+	WorldTimeState          SevenDaysToDieWebAPIValueState
+	WorldTime               *SevenDaysToDieGameTime
+	BloodMoonState          SevenDaysToDieWebAPIValueState
+	BloodMoonActive         *bool
+	NextBloodMoon           *SevenDaysToDieGameTime
+	NextBloodMoonEnd        *SevenDaysToDieGameTime
+	CommandOperationsState  SevenDaysToDieWebAPIValueState
+	SupportedGameOperations []string
+	AllowedGameOperations   []string
+	KnownCommands           []string
+	ObservedAt              time.Time
 }
 
 // SevenDaysToDieWebAPIStatusQueryRequest contains only node-local access details.
@@ -693,6 +699,36 @@ type SevenDaysToDieWebAPIStatusQueryRequest struct {
 	TokenName        string
 	TokenSecret      string
 	IncludeTactical  bool
+}
+
+// SevenDaysToDieOperationMetadataQueryRequest identifies one node-local server directory.
+type SevenDaysToDieOperationMetadataQueryRequest struct {
+	WorkingDirectory string
+}
+
+const (
+	// SevenDaysToDieOperationOptionCountLimit bounds each server-derived catalog.
+	SevenDaysToDieOperationOptionCountLimit = 10_000
+	// SevenDaysToDieOperationOptionFieldByteLimit bounds each catalog field.
+	SevenDaysToDieOperationOptionFieldByteLimit = 256
+)
+
+// SevenDaysToDieOperationOption is one server-derived operation input choice.
+type SevenDaysToDieOperationOption struct {
+	Label       string
+	Value       string
+	Description string
+	IconName    string
+	Category    string
+	AccentColor string
+}
+
+// SevenDaysToDieOperationMetadata contains offline-safe choices derived from server files.
+type SevenDaysToDieOperationMetadata struct {
+	Players  []SevenDaysToDieOperationOption
+	Items    []SevenDaysToDieOperationOption
+	Buffs    []SevenDaysToDieOperationOption
+	Commands []SevenDaysToDieOperationOption
 }
 
 // SevenDaysToDiePlayersQueryRequest contains only node-local player API access details.

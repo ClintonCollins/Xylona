@@ -23,6 +23,10 @@ The single User with full authority over a game server. Ownership is distinct fr
 A participant reported by a game server or its query interface. Groups and lists of players are still called players.
 _Avoid_: Roster
 
+**Game operation**:
+A structured action an operator can perform against a game server, such as adding a Player as an in-game administrator. The same operation remains one concept even when games expose it differently.
+_Avoid_: Command (when referring to the operator's intent)
+
 **Game server status page**:
 An owner-controlled public view of the live status, players, and connection addresses for every game server they own.
 

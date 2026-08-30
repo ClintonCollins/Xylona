@@ -994,6 +994,25 @@ func (s *nodeServiceServer) QuerySevenDaysToDieWebAPIStatus(ctx context.Context,
 	}), nil
 }
 
+func (s *nodeServiceServer) QuerySevenDaysToDieOperationMetadata(ctx context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieOperationMetadataRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieOperationMetadataResponse], error) {
+	errAuth := s.authorize(req.Header())
+	if errAuth != nil {
+		return nil, errAuth
+	}
+	if s.n == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
+	}
+	result, errQuery := s.n.QuerySevenDaysToDieOperationMetadata(ctx, node.SevenDaysToDieOperationMetadataQueryRequest{
+		WorkingDirectory: req.Msg.GetWorkingDirectory(),
+	})
+	if errQuery != nil {
+		return nil, translate(errQuery)
+	}
+	return connect.NewResponse(&nodeprotov1.QuerySevenDaysToDieOperationMetadataResponse{
+		Result: sevenDaysToDieOperationMetadataToProto(result),
+	}), nil
+}
+
 func (s *nodeServiceServer) QuerySevenDaysToDiePlayers(ctx context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDiePlayersResponse], error) {
 	errAuth := s.authorize(req.Header())
 	if errAuth != nil {
@@ -1617,15 +1636,19 @@ func sevenDaysToDieWebAPIStatusToProto(status *node.SevenDaysToDieWebAPIStatus) 
 		return nil
 	}
 	result := &nodeprotov1.SevenDaysToDieWebAPIStatus{
-		ConnectionState:  sevenDaysToDieWebAPIConnectionStateToProto(status.ConnectionState),
-		ApiVersion:       status.APIVersion,
-		Capabilities:     sevenDaysToDieWebAPICapabilitiesToProto(status.Capabilities),
-		WorldTimeState:   sevenDaysToDieWebAPIValueStateToProto(status.WorldTimeState),
-		WorldTime:        sevenDaysToDieGameTimeToProto(status.WorldTime),
-		BloodMoonState:   sevenDaysToDieWebAPIValueStateToProto(status.BloodMoonState),
-		BloodMoonActive:  status.BloodMoonActive,
-		NextBloodMoon:    sevenDaysToDieGameTimeToProto(status.NextBloodMoon),
-		NextBloodMoonEnd: sevenDaysToDieGameTimeToProto(status.NextBloodMoonEnd),
+		ConnectionState:         sevenDaysToDieWebAPIConnectionStateToProto(status.ConnectionState),
+		ApiVersion:              status.APIVersion,
+		Capabilities:            sevenDaysToDieWebAPICapabilitiesToProto(status.Capabilities),
+		WorldTimeState:          sevenDaysToDieWebAPIValueStateToProto(status.WorldTimeState),
+		WorldTime:               sevenDaysToDieGameTimeToProto(status.WorldTime),
+		BloodMoonState:          sevenDaysToDieWebAPIValueStateToProto(status.BloodMoonState),
+		BloodMoonActive:         status.BloodMoonActive,
+		NextBloodMoon:           sevenDaysToDieGameTimeToProto(status.NextBloodMoon),
+		NextBloodMoonEnd:        sevenDaysToDieGameTimeToProto(status.NextBloodMoonEnd),
+		CommandOperationsState:  sevenDaysToDieWebAPIValueStateToProto(status.CommandOperationsState),
+		SupportedGameOperations: slices.Clone(status.SupportedGameOperations),
+		AllowedGameOperations:   slices.Clone(status.AllowedGameOperations),
+		KnownCommands:           slices.Clone(status.KnownCommands),
 	}
 	if !status.ObservedAt.IsZero() {
 		observedAt := timestamppb.New(status.ObservedAt)
@@ -1633,6 +1656,29 @@ func sevenDaysToDieWebAPIStatusToProto(status *node.SevenDaysToDieWebAPIStatus) 
 		if errTimestamp == nil {
 			result.ObservedAt = observedAt
 		}
+	}
+	return result
+}
+
+func sevenDaysToDieOperationMetadataToProto(result *node.SevenDaysToDieOperationMetadata) *nodeprotov1.SevenDaysToDieOperationMetadata {
+	if result == nil {
+		return nil
+	}
+	return &nodeprotov1.SevenDaysToDieOperationMetadata{
+		Players:  sevenDaysToDieOperationOptionsToProto(result.Players),
+		Items:    sevenDaysToDieOperationOptionsToProto(result.Items),
+		Buffs:    sevenDaysToDieOperationOptionsToProto(result.Buffs),
+		Commands: sevenDaysToDieOperationOptionsToProto(result.Commands),
+	}
+}
+
+func sevenDaysToDieOperationOptionsToProto(options []node.SevenDaysToDieOperationOption) []*nodeprotov1.SevenDaysToDieOperationOption {
+	result := make([]*nodeprotov1.SevenDaysToDieOperationOption, 0, len(options))
+	for _, option := range options {
+		result = append(result, &nodeprotov1.SevenDaysToDieOperationOption{
+			Label: option.Label, Value: option.Value, Description: option.Description, IconName: option.IconName,
+			Category: option.Category, AccentColor: option.AccentColor,
+		})
 	}
 	return result
 }
@@ -1739,6 +1785,8 @@ func sevenDaysToDieWebAPICapabilitiesToProto(capabilities node.SevenDaysToDieWeb
 		AnimalPositions:           capabilities.AnimalPositions,
 		AccessControl:             capabilities.AccessControl,
 		GamePermissions:           capabilities.GamePermissions,
+		CommandExecution:          capabilities.CommandExecution,
+		CommandPermissions:        capabilities.CommandPermissions,
 		ReportedMods:              capabilities.ReportedMods,
 	}
 }

@@ -14,6 +14,12 @@ Xylona is still evolving quickly. Expect active iteration, and treat upgrades th
 - Configure game and server settings
 - Administer users, permissions, and nodes
 
+### 7 Days to Die operations pilot
+
+The structured Operations workspace is verified against 7 Days to Die V2.6 Stable (b14), Steam build 22422094, and native dashboard API 1.0.0. Runtime availability remains capability-dependent: the server and node must be online, the node must advertise the operation, and native dashboard authentication, endpoint support, and token permission must be confirmed where the operation uses that dashboard.
+
+Operations expose bounded semantic fields and transient results; they do not store an operation history. Commands outside the approved baseline remain available through Console as a deliberate manual escape hatch and are never modeled automatically when a future game version changes the catalog. Excluded dashboard-only routes remain outside Operations.
+
 ## First-run setup
 
 A fresh controller is ready when cookie and encryption secrets exist and the first superuser has been created. Game servers are created after you sign in; that is a separate step.

@@ -44,3 +44,5 @@ data.sqlite
 /internal/webui/dist/*
 !/internal/webui/dist/.gitkeep
 /plans/
+/.impeccable
+/docs

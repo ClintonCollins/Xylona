@@ -80,6 +80,8 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			switch request.URL.Path {
 			case "/api/openapi/openapi.yaml":
 				writeSevenDaysToDieTestResponse(t, response, fullSevenDaysToDieOpenAPI())
+			case "/api/command":
+				writeSevenDaysToDieTestResponse(t, response, `{"data":{"commands":[{"command":"say","allowed":false},{"command":"teleport","allowed":true},{"command":"version","allowed":true}]}}`)
 			case "/api/bloodmoon":
 				writeSevenDaysToDieTestResponse(t, response, `{"data":{"gameTime":{"days":42,"hours":7,"minutes":5},"bloodmoonActive":true,"nextBloodmoon":{"days":49,"hours":22,"minutes":0},"nextBloodmoonEnd":{"days":50,"hours":4,"minutes":30}}}`)
 			default:
@@ -114,6 +116,8 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			AnimalPositions:           true,
 			AccessControl:             true,
 			GamePermissions:           true,
+			CommandExecution:          true,
+			CommandPermissions:        true,
 			ReportedMods:              true,
 		}
 		if status.Capabilities != wantCapabilities {
@@ -124,6 +128,12 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 		}
 		if status.BloodMoonState != SevenDaysToDieWebAPIValueStateAvailable || status.BloodMoonActive == nil || !*status.BloodMoonActive {
 			t.Errorf("QuerySevenDaysToDieWebAPIStatus() Blood Moon = %v %v", status.BloodMoonState, status.BloodMoonActive)
+		}
+		if status.CommandOperationsState != SevenDaysToDieWebAPIValueStateAvailable ||
+			!slices.Equal(status.SupportedGameOperations, []string{"communication.broadcast_message", "server_information.version"}) ||
+			!slices.Equal(status.AllowedGameOperations, []string{"server_information.version"}) ||
+			!slices.Equal(status.KnownCommands, []string{"say", "teleport", "version"}) {
+			t.Errorf("QuerySevenDaysToDieWebAPIStatus() command operations = %v %v %v %v", status.CommandOperationsState, status.SupportedGameOperations, status.AllowedGameOperations, status.KnownCommands)
 		}
 		if status.NextBloodMoon == nil || *status.NextBloodMoon != (SevenDaysToDieGameTime{Day: 49, Hour: 22}) {
 			t.Errorf("QuerySevenDaysToDieWebAPIStatus() next Blood Moon = %+v", status.NextBloodMoon)
@@ -138,20 +148,23 @@ func TestNodeQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			t.Error("QuerySevenDaysToDieWebAPIStatus() exposed credentials")
 		}
 		wantPathCounts := map[string]int{
-			"/api/openapi/openapi.yaml":                 1,
-			"/api/OpenAPI/Animal.openapi.yaml":          1,
-			"/api/OpenAPI/Blacklist.openapi.yaml":       1,
-			"/api/OpenAPI/Bloodmoon.openapi.yaml":       1,
-			"/api/OpenAPI/GamePrefs.openapi.yaml":       1,
-			"/api/OpenAPI/GameStats.openapi.yaml":       1,
-			"/api/OpenAPI/Hostile.openapi.yaml":         1,
-			"/api/OpenAPI/Log.openapi.yaml":             1,
-			"/api/OpenAPI/Mods.openapi.yaml":            1,
-			"/api/OpenAPI/Player.openapi.yaml":          1,
-			"/api/OpenAPI/ServerStats.openapi.yaml":     1,
-			"/api/OpenAPI/UserPermissions.openapi.yaml": 1,
-			"/api/OpenAPI/Whitelist.openapi.yaml":       1,
-			"/api/bloodmoon":                            1,
+			"/api/openapi/openapi.yaml":                    1,
+			"/api/OpenAPI/Animal.openapi.yaml":             1,
+			"/api/OpenAPI/Blacklist.openapi.yaml":          1,
+			"/api/OpenAPI/Bloodmoon.openapi.yaml":          1,
+			"/api/OpenAPI/Command.openapi.yaml":            1,
+			"/api/OpenAPI/CommandPermissions.openapi.yaml": 1,
+			"/api/OpenAPI/GamePrefs.openapi.yaml":          1,
+			"/api/OpenAPI/GameStats.openapi.yaml":          1,
+			"/api/OpenAPI/Hostile.openapi.yaml":            1,
+			"/api/OpenAPI/Log.openapi.yaml":                1,
+			"/api/OpenAPI/Mods.openapi.yaml":               1,
+			"/api/OpenAPI/Player.openapi.yaml":             1,
+			"/api/OpenAPI/ServerStats.openapi.yaml":        1,
+			"/api/OpenAPI/UserPermissions.openapi.yaml":    1,
+			"/api/OpenAPI/Whitelist.openapi.yaml":          1,
+			"/api/bloodmoon":                               1,
+			"/api/command":                                 1,
 		}
 		if !maps.Equal(pathCounts, wantPathCounts) {
 			t.Errorf("QuerySevenDaysToDieWebAPIStatus() request counts = %v, want %v", pathCounts, wantPathCounts)
@@ -1163,6 +1176,12 @@ servers:
 paths:
   /api/player:
     $ref: './Player.openapi.yaml#/paths/~1api~1player'
+  /api/command:
+    $ref: './Command.openapi.yaml#/paths/~1api~1command'
+  /api/commandpermissions:
+    $ref: './CommandPermissions.openapi.yaml#/paths/~1api~1commandpermissions'
+  /api/commandpermissions/{command}:
+    $ref: './CommandPermissions.openapi.yaml#/paths/~1api~1commandpermissions~1{command}'
   /api/gameprefs:
     $ref: './GamePrefs.openapi.yaml#/paths/~1api~1gameprefs'
   /api/gamestats:
@@ -1199,6 +1218,18 @@ func fullSevenDaysToDieOpenAPIFragments() map[string]string {
 		"/api/OpenAPI/Player.openapi.yaml": `paths:
   /api/player:
     get: {}
+`,
+		"/api/OpenAPI/Command.openapi.yaml": `paths:
+  /api/command:
+    get: {}
+    post: {}
+`,
+		"/api/OpenAPI/CommandPermissions.openapi.yaml": `paths:
+  /api/commandpermissions:
+    get: {}
+  /api/commandpermissions/{command}:
+    post: {}
+    delete: {}
 `,
 		"/api/OpenAPI/GamePrefs.openapi.yaml": `paths:
   /api/gameprefs:

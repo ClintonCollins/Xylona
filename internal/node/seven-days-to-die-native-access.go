@@ -329,12 +329,12 @@ func (a *sevenDaysToDieNativeAccess) postWebAPIJSON(
 	settings sevenDaysToDieWebAPISettings,
 	path string,
 	payload any,
-) (int, error) {
+) (int, []byte, error) {
 	body, errMarshal := json.Marshal(payload)
 	if errMarshal != nil {
-		return 0, fmt.Errorf("node: encode 7 Days to Die WebAPI request: %w", errMarshal)
+		return 0, nil, fmt.Errorf("node: encode 7 Days to Die WebAPI request: %w", errMarshal)
 	}
-	statusCode, _, errRequest := a.requestWebAPIPath(
+	return a.requestWebAPIPath(
 		ctx,
 		settings,
 		http.MethodPost,
@@ -342,7 +342,6 @@ func (a *sevenDaysToDieNativeAccess) postWebAPIJSON(
 		"application/json",
 		body,
 	)
-	return statusCode, errRequest
 }
 
 func (a *sevenDaysToDieNativeAccess) requestWebAPIPath(

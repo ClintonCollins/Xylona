@@ -112,6 +112,9 @@ const (
 	// NodeServiceQuerySevenDaysToDieWebAPIStatusProcedure is the fully-qualified name of the
 	// NodeService's QuerySevenDaysToDieWebAPIStatus RPC.
 	NodeServiceQuerySevenDaysToDieWebAPIStatusProcedure = "/xylona.node.v1.NodeService/QuerySevenDaysToDieWebAPIStatus"
+	// NodeServiceQuerySevenDaysToDieOperationMetadataProcedure is the fully-qualified name of the
+	// NodeService's QuerySevenDaysToDieOperationMetadata RPC.
+	NodeServiceQuerySevenDaysToDieOperationMetadataProcedure = "/xylona.node.v1.NodeService/QuerySevenDaysToDieOperationMetadata"
 	// NodeServiceQuerySevenDaysToDiePlayersProcedure is the fully-qualified name of the NodeService's
 	// QuerySevenDaysToDiePlayers RPC.
 	NodeServiceQuerySevenDaysToDiePlayersProcedure = "/xylona.node.v1.NodeService/QuerySevenDaysToDiePlayers"
@@ -203,6 +206,7 @@ type NodeServiceClient interface {
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
 	QuerySevenDaysToDieWebAPIStatus(context.Context, *connect.Request[v1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[v1.QuerySevenDaysToDieWebAPIStatusResponse], error)
+	QuerySevenDaysToDieOperationMetadata(context.Context, *connect.Request[v1.QuerySevenDaysToDieOperationMetadataRequest]) (*connect.Response[v1.QuerySevenDaysToDieOperationMetadataResponse], error)
 	QuerySevenDaysToDiePlayers(context.Context, *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error)
 	QuerySevenDaysToDieReportedMods(context.Context, *connect.Request[v1.QuerySevenDaysToDieReportedModsRequest]) (*connect.Response[v1.QuerySevenDaysToDieReportedModsResponse], error)
 	QuerySevenDaysToDieSandboxSettings(context.Context, *connect.Request[v1.QuerySevenDaysToDieSandboxSettingsRequest]) (*connect.Response[v1.QuerySevenDaysToDieSandboxSettingsResponse], error)
@@ -407,6 +411,12 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieWebAPIStatus")),
 			connect.WithClientOptions(opts...),
 		),
+		querySevenDaysToDieOperationMetadata: connect.NewClient[v1.QuerySevenDaysToDieOperationMetadataRequest, v1.QuerySevenDaysToDieOperationMetadataResponse](
+			httpClient,
+			baseURL+NodeServiceQuerySevenDaysToDieOperationMetadataProcedure,
+			connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieOperationMetadata")),
+			connect.WithClientOptions(opts...),
+		),
 		querySevenDaysToDiePlayers: connect.NewClient[v1.QuerySevenDaysToDiePlayersRequest, v1.QuerySevenDaysToDiePlayersResponse](
 			httpClient,
 			baseURL+NodeServiceQuerySevenDaysToDiePlayersProcedure,
@@ -526,53 +536,54 @@ func NewNodeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // nodeServiceClient implements NodeServiceClient.
 type nodeServiceClient struct {
-	startProcess                       *connect.Client[v1.StartProcessRequest, v1.StartProcessResponse]
-	stopProcess                        *connect.Client[v1.StopProcessRequest, v1.StopProcessResponse]
-	sendConsoleInput                   *connect.Client[v1.SendConsoleInputRequest, v1.SendConsoleInputResponse]
-	readConsoleBuffer                  *connect.Client[v1.ReadConsoleBufferRequest, v1.ReadConsoleBufferResponse]
-	streamConsoleOutput                *connect.Client[v1.StreamConsoleOutputRequest, v1.ConsoleChunk]
-	listFiles                          *connect.Client[v1.ListFilesRequest, v1.ListFilesResponse]
-	readFile                           *connect.Client[v1.ReadFileRequest, v1.ReadFileResponse]
-	statFile                           *connect.Client[v1.StatFileRequest, v1.StatFileResponse]
-	streamFile                         *connect.Client[v1.StreamFileRequest, v1.StreamFileResponse]
-	writeFile                          *connect.Client[v1.WriteFileRequest, v1.WriteFileResponse]
-	streamWriteFile                    *connect.Client[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse]
-	createFileOrDirectory              *connect.Client[v1.CreateFileOrDirectoryRequest, v1.CreateFileOrDirectoryResponse]
-	deleteFiles                        *connect.Client[v1.DeleteFilesRequest, v1.DeleteFilesResponse]
-	renameFile                         *connect.Client[v1.RenameFileRequest, v1.RenameFileResponse]
-	moveFiles                          *connect.Client[v1.MoveFilesRequest, v1.MoveFilesResponse]
-	copyFiles                          *connect.Client[v1.CopyFilesRequest, v1.CopyFilesResponse]
-	downloadFileFromURL                *connect.Client[v1.DownloadFileFromURLRequest, v1.DownloadFileFromURLResponse]
-	createFileArchive                  *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
-	streamCreateFileArchive            *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
-	extractFileArchive                 *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
-	streamExtractFileArchive           *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
-	createBackupArchive                *connect.Client[v1.CreateBackupArchiveRequest, v1.CreateBackupArchiveResponse]
-	extractBackupArchive               *connect.Client[v1.ExtractBackupArchiveRequest, v1.ExtractBackupArchiveResponse]
-	probeInstalledVersion              *connect.Client[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse]
-	queryGameServer                    *connect.Client[v1.QueryGameServerRequest, v1.QueryGameServerResponse]
-	queryPalworldMap                   *connect.Client[v1.QueryPalworldMapRequest, v1.QueryPalworldMapResponse]
-	querySevenDaysToDieMap             *connect.Client[v1.QuerySevenDaysToDieMapRequest, v1.QuerySevenDaysToDieMapResponse]
-	querySevenDaysToDieWebAPIStatus    *connect.Client[v1.QuerySevenDaysToDieWebAPIStatusRequest, v1.QuerySevenDaysToDieWebAPIStatusResponse]
-	querySevenDaysToDiePlayers         *connect.Client[v1.QuerySevenDaysToDiePlayersRequest, v1.QuerySevenDaysToDiePlayersResponse]
-	querySevenDaysToDieReportedMods    *connect.Client[v1.QuerySevenDaysToDieReportedModsRequest, v1.QuerySevenDaysToDieReportedModsResponse]
-	querySevenDaysToDieSandboxSettings *connect.Client[v1.QuerySevenDaysToDieSandboxSettingsRequest, v1.QuerySevenDaysToDieSandboxSettingsResponse]
-	getSevenDaysToDieMapTile           *connect.Client[v1.GetSevenDaysToDieMapTileRequest, v1.GetSevenDaysToDieMapTileResponse]
-	ensureMinecraftMap                 *connect.Client[v1.EnsureMinecraftMapRequest, v1.EnsureMinecraftMapResponse]
-	stopMinecraftMap                   *connect.Client[v1.StopMinecraftMapRequest, v1.StopMinecraftMapResponse]
-	getMinecraftMapAsset               *connect.Client[v1.GetMinecraftMapAssetRequest, v1.GetMinecraftMapAssetResponse]
-	performGameServerPlayerAction      *connect.Client[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse]
-	executeGameOperation               *connect.Client[v1.ExecuteGameOperationRequest, v1.ExecuteGameOperationResponse]
-	sendConsoleOutput                  *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
-	getProcessSnapshot                 *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
-	listBindableIPs                    *connect.Client[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse]
-	getNodeSnapshot                    *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
-	getRuntimeCapabilities             *connect.Client[v1.GetRuntimeCapabilitiesRequest, v1.GetRuntimeCapabilitiesResponse]
-	streamEvents                       *connect.Client[v1.StreamEventsRequest, v1.Event]
-	ping                               *connect.Client[v1.PingRequest, v1.PingResponse]
-	getUpdateCapabilities              *connect.Client[v1.GetUpdateCapabilitiesRequest, v1.GetUpdateCapabilitiesResponse]
-	stageSelfUpdate                    *connect.Client[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse]
-	applySelfUpdate                    *connect.Client[v1.ApplySelfUpdateRequest, v1.ApplySelfUpdateResponse]
+	startProcess                         *connect.Client[v1.StartProcessRequest, v1.StartProcessResponse]
+	stopProcess                          *connect.Client[v1.StopProcessRequest, v1.StopProcessResponse]
+	sendConsoleInput                     *connect.Client[v1.SendConsoleInputRequest, v1.SendConsoleInputResponse]
+	readConsoleBuffer                    *connect.Client[v1.ReadConsoleBufferRequest, v1.ReadConsoleBufferResponse]
+	streamConsoleOutput                  *connect.Client[v1.StreamConsoleOutputRequest, v1.ConsoleChunk]
+	listFiles                            *connect.Client[v1.ListFilesRequest, v1.ListFilesResponse]
+	readFile                             *connect.Client[v1.ReadFileRequest, v1.ReadFileResponse]
+	statFile                             *connect.Client[v1.StatFileRequest, v1.StatFileResponse]
+	streamFile                           *connect.Client[v1.StreamFileRequest, v1.StreamFileResponse]
+	writeFile                            *connect.Client[v1.WriteFileRequest, v1.WriteFileResponse]
+	streamWriteFile                      *connect.Client[v1.StreamWriteFileRequest, v1.StreamWriteFileResponse]
+	createFileOrDirectory                *connect.Client[v1.CreateFileOrDirectoryRequest, v1.CreateFileOrDirectoryResponse]
+	deleteFiles                          *connect.Client[v1.DeleteFilesRequest, v1.DeleteFilesResponse]
+	renameFile                           *connect.Client[v1.RenameFileRequest, v1.RenameFileResponse]
+	moveFiles                            *connect.Client[v1.MoveFilesRequest, v1.MoveFilesResponse]
+	copyFiles                            *connect.Client[v1.CopyFilesRequest, v1.CopyFilesResponse]
+	downloadFileFromURL                  *connect.Client[v1.DownloadFileFromURLRequest, v1.DownloadFileFromURLResponse]
+	createFileArchive                    *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
+	streamCreateFileArchive              *connect.Client[v1.CreateFileArchiveRequest, v1.CreateFileArchiveResponse]
+	extractFileArchive                   *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
+	streamExtractFileArchive             *connect.Client[v1.ExtractFileArchiveRequest, v1.ExtractFileArchiveResponse]
+	createBackupArchive                  *connect.Client[v1.CreateBackupArchiveRequest, v1.CreateBackupArchiveResponse]
+	extractBackupArchive                 *connect.Client[v1.ExtractBackupArchiveRequest, v1.ExtractBackupArchiveResponse]
+	probeInstalledVersion                *connect.Client[v1.ProbeInstalledVersionRequest, v1.ProbeInstalledVersionResponse]
+	queryGameServer                      *connect.Client[v1.QueryGameServerRequest, v1.QueryGameServerResponse]
+	queryPalworldMap                     *connect.Client[v1.QueryPalworldMapRequest, v1.QueryPalworldMapResponse]
+	querySevenDaysToDieMap               *connect.Client[v1.QuerySevenDaysToDieMapRequest, v1.QuerySevenDaysToDieMapResponse]
+	querySevenDaysToDieWebAPIStatus      *connect.Client[v1.QuerySevenDaysToDieWebAPIStatusRequest, v1.QuerySevenDaysToDieWebAPIStatusResponse]
+	querySevenDaysToDieOperationMetadata *connect.Client[v1.QuerySevenDaysToDieOperationMetadataRequest, v1.QuerySevenDaysToDieOperationMetadataResponse]
+	querySevenDaysToDiePlayers           *connect.Client[v1.QuerySevenDaysToDiePlayersRequest, v1.QuerySevenDaysToDiePlayersResponse]
+	querySevenDaysToDieReportedMods      *connect.Client[v1.QuerySevenDaysToDieReportedModsRequest, v1.QuerySevenDaysToDieReportedModsResponse]
+	querySevenDaysToDieSandboxSettings   *connect.Client[v1.QuerySevenDaysToDieSandboxSettingsRequest, v1.QuerySevenDaysToDieSandboxSettingsResponse]
+	getSevenDaysToDieMapTile             *connect.Client[v1.GetSevenDaysToDieMapTileRequest, v1.GetSevenDaysToDieMapTileResponse]
+	ensureMinecraftMap                   *connect.Client[v1.EnsureMinecraftMapRequest, v1.EnsureMinecraftMapResponse]
+	stopMinecraftMap                     *connect.Client[v1.StopMinecraftMapRequest, v1.StopMinecraftMapResponse]
+	getMinecraftMapAsset                 *connect.Client[v1.GetMinecraftMapAssetRequest, v1.GetMinecraftMapAssetResponse]
+	performGameServerPlayerAction        *connect.Client[v1.PerformGameServerPlayerActionRequest, v1.PerformGameServerPlayerActionResponse]
+	executeGameOperation                 *connect.Client[v1.ExecuteGameOperationRequest, v1.ExecuteGameOperationResponse]
+	sendConsoleOutput                    *connect.Client[v1.SendConsoleOutputRequest, v1.SendConsoleOutputResponse]
+	getProcessSnapshot                   *connect.Client[v1.GetProcessSnapshotRequest, v1.GetProcessSnapshotResponse]
+	listBindableIPs                      *connect.Client[v1.ListBindableIPsRequest, v1.ListBindableIPsResponse]
+	getNodeSnapshot                      *connect.Client[v1.GetNodeSnapshotRequest, v1.NodeSnapshot]
+	getRuntimeCapabilities               *connect.Client[v1.GetRuntimeCapabilitiesRequest, v1.GetRuntimeCapabilitiesResponse]
+	streamEvents                         *connect.Client[v1.StreamEventsRequest, v1.Event]
+	ping                                 *connect.Client[v1.PingRequest, v1.PingResponse]
+	getUpdateCapabilities                *connect.Client[v1.GetUpdateCapabilitiesRequest, v1.GetUpdateCapabilitiesResponse]
+	stageSelfUpdate                      *connect.Client[v1.StageSelfUpdateRequest, v1.StageSelfUpdateResponse]
+	applySelfUpdate                      *connect.Client[v1.ApplySelfUpdateRequest, v1.ApplySelfUpdateResponse]
 }
 
 // StartProcess calls xylona.node.v1.NodeService.StartProcess.
@@ -715,6 +726,12 @@ func (c *nodeServiceClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context,
 	return c.querySevenDaysToDieWebAPIStatus.CallUnary(ctx, req)
 }
 
+// QuerySevenDaysToDieOperationMetadata calls
+// xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata.
+func (c *nodeServiceClient) QuerySevenDaysToDieOperationMetadata(ctx context.Context, req *connect.Request[v1.QuerySevenDaysToDieOperationMetadataRequest]) (*connect.Response[v1.QuerySevenDaysToDieOperationMetadataResponse], error) {
+	return c.querySevenDaysToDieOperationMetadata.CallUnary(ctx, req)
+}
+
 // QuerySevenDaysToDiePlayers calls xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers.
 func (c *nodeServiceClient) QuerySevenDaysToDiePlayers(ctx context.Context, req *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error) {
 	return c.querySevenDaysToDiePlayers.CallUnary(ctx, req)
@@ -844,6 +861,7 @@ type NodeServiceHandler interface {
 	QueryPalworldMap(context.Context, *connect.Request[v1.QueryPalworldMapRequest]) (*connect.Response[v1.QueryPalworldMapResponse], error)
 	QuerySevenDaysToDieMap(context.Context, *connect.Request[v1.QuerySevenDaysToDieMapRequest]) (*connect.Response[v1.QuerySevenDaysToDieMapResponse], error)
 	QuerySevenDaysToDieWebAPIStatus(context.Context, *connect.Request[v1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[v1.QuerySevenDaysToDieWebAPIStatusResponse], error)
+	QuerySevenDaysToDieOperationMetadata(context.Context, *connect.Request[v1.QuerySevenDaysToDieOperationMetadataRequest]) (*connect.Response[v1.QuerySevenDaysToDieOperationMetadataResponse], error)
 	QuerySevenDaysToDiePlayers(context.Context, *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error)
 	QuerySevenDaysToDieReportedMods(context.Context, *connect.Request[v1.QuerySevenDaysToDieReportedModsRequest]) (*connect.Response[v1.QuerySevenDaysToDieReportedModsResponse], error)
 	QuerySevenDaysToDieSandboxSettings(context.Context, *connect.Request[v1.QuerySevenDaysToDieSandboxSettingsRequest]) (*connect.Response[v1.QuerySevenDaysToDieSandboxSettingsResponse], error)
@@ -1044,6 +1062,12 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieWebAPIStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	nodeServiceQuerySevenDaysToDieOperationMetadataHandler := connect.NewUnaryHandler(
+		NodeServiceQuerySevenDaysToDieOperationMetadataProcedure,
+		svc.QuerySevenDaysToDieOperationMetadata,
+		connect.WithSchema(nodeServiceMethods.ByName("QuerySevenDaysToDieOperationMetadata")),
+		connect.WithHandlerOptions(opts...),
+	)
 	nodeServiceQuerySevenDaysToDiePlayersHandler := connect.NewUnaryHandler(
 		NodeServiceQuerySevenDaysToDiePlayersProcedure,
 		svc.QuerySevenDaysToDiePlayers,
@@ -1216,6 +1240,8 @@ func NewNodeServiceHandler(svc NodeServiceHandler, opts ...connect.HandlerOption
 			nodeServiceQuerySevenDaysToDieMapHandler.ServeHTTP(w, r)
 		case NodeServiceQuerySevenDaysToDieWebAPIStatusProcedure:
 			nodeServiceQuerySevenDaysToDieWebAPIStatusHandler.ServeHTTP(w, r)
+		case NodeServiceQuerySevenDaysToDieOperationMetadataProcedure:
+			nodeServiceQuerySevenDaysToDieOperationMetadataHandler.ServeHTTP(w, r)
 		case NodeServiceQuerySevenDaysToDiePlayersProcedure:
 			nodeServiceQuerySevenDaysToDiePlayersHandler.ServeHTTP(w, r)
 		case NodeServiceQuerySevenDaysToDieReportedModsProcedure:
@@ -1373,6 +1399,10 @@ func (UnimplementedNodeServiceHandler) QuerySevenDaysToDieMap(context.Context, *
 
 func (UnimplementedNodeServiceHandler) QuerySevenDaysToDieWebAPIStatus(context.Context, *connect.Request[v1.QuerySevenDaysToDieWebAPIStatusRequest]) (*connect.Response[v1.QuerySevenDaysToDieWebAPIStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus is not implemented"))
+}
+
+func (UnimplementedNodeServiceHandler) QuerySevenDaysToDieOperationMetadata(context.Context, *connect.Request[v1.QuerySevenDaysToDieOperationMetadataRequest]) (*connect.Response[v1.QuerySevenDaysToDieOperationMetadataResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata is not implemented"))
 }
 
 func (UnimplementedNodeServiceHandler) QuerySevenDaysToDiePlayers(context.Context, *connect.Request[v1.QuerySevenDaysToDiePlayersRequest]) (*connect.Response[v1.QuerySevenDaysToDiePlayersResponse], error) {

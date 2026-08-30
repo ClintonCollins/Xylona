@@ -153,6 +153,9 @@ type NodeClient interface {
 	// WebAPI on the owning node.
 	QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error)
 
+	// QuerySevenDaysToDieOperationMetadata reads offline-safe operation choices from server files.
+	QuerySevenDaysToDieOperationMetadata(ctx context.Context, req node.SevenDaysToDieOperationMetadataQueryRequest) (*node.SevenDaysToDieOperationMetadata, error)
+
 	// QuerySevenDaysToDiePlayers reads the private native management roster on the owning node.
 	QuerySevenDaysToDiePlayers(ctx context.Context, req node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error)
 

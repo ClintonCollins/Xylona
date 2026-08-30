@@ -777,6 +777,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	router.Group(func(r chi.Router) {
 		r.Use(gatekeeper.RequireSessionAuth(dbInst, secureCookie))
 		r.Get("/api/backups/download/{gameServerId}/{backupId}", xylonaService.DownloadGameServerBackupArchive)
+		r.Get(rpc.SevenDaysToDieOperationItemIconPathPrefix+"/{gameServerId}/{icon}", xylonaService.SevenDaysToDieOperationItemIcon)
 		r.Post("/api/file/get", actionsInst.StreamFileToUser)
 		r.Get("/api/file/download/{gameServerId}/{path}", actionsInst.UploadFileToUserGET)
 		r.Group(func(r chi.Router) {

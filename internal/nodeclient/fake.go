@@ -131,6 +131,11 @@ type FakeNodeClient struct {
 	QuerySevenDaysToDieWebAPIStatusCalls  []node.SevenDaysToDieWebAPIStatusQueryRequest
 	QuerySevenDaysToDieWebAPIStatusFunc   func(context.Context, node.SevenDaysToDieWebAPIStatusQueryRequest) (*node.SevenDaysToDieWebAPIStatus, error)
 
+	QuerySevenDaysToDieOperationMetadataResult *node.SevenDaysToDieOperationMetadata
+	QuerySevenDaysToDieOperationMetadataErr    error
+	QuerySevenDaysToDieOperationMetadataCalls  []node.SevenDaysToDieOperationMetadataQueryRequest
+	QuerySevenDaysToDieOperationMetadataFunc   func(context.Context, node.SevenDaysToDieOperationMetadataQueryRequest) (*node.SevenDaysToDieOperationMetadata, error)
+
 	QuerySevenDaysToDiePlayersResult *node.SevenDaysToDiePlayers
 	QuerySevenDaysToDiePlayersErr    error
 	QuerySevenDaysToDiePlayersCalls  []node.SevenDaysToDiePlayersQueryRequest
@@ -643,6 +648,17 @@ func (f *FakeNodeClient) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, re
 		return f.QuerySevenDaysToDieWebAPIStatusFunc(ctx, req)
 	}
 	return f.QuerySevenDaysToDieWebAPIStatusResult, f.QuerySevenDaysToDieWebAPIStatusErr
+}
+
+// QuerySevenDaysToDieOperationMetadata records the call and returns the configured metadata.
+func (f *FakeNodeClient) QuerySevenDaysToDieOperationMetadata(ctx context.Context, req node.SevenDaysToDieOperationMetadataQueryRequest) (*node.SevenDaysToDieOperationMetadata, error) {
+	f.mu.Lock()
+	f.QuerySevenDaysToDieOperationMetadataCalls = append(f.QuerySevenDaysToDieOperationMetadataCalls, req)
+	f.mu.Unlock()
+	if f.QuerySevenDaysToDieOperationMetadataFunc != nil {
+		return f.QuerySevenDaysToDieOperationMetadataFunc(ctx, req)
+	}
+	return f.QuerySevenDaysToDieOperationMetadataResult, f.QuerySevenDaysToDieOperationMetadataErr
 }
 
 // QuerySevenDaysToDiePlayers records the call and returns the configured roster.

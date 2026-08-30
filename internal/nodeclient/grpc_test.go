@@ -57,6 +57,8 @@ type callRecorder struct {
 	sevenDaysMapResp  *nodeprotov1.QuerySevenDaysToDieMapResponse
 	webAPIStatusReq   *nodeprotov1.QuerySevenDaysToDieWebAPIStatusRequest
 	webAPIStatusResp  *nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse
+	metadataReq       *nodeprotov1.QuerySevenDaysToDieOperationMetadataRequest
+	metadataResp      *nodeprotov1.QuerySevenDaysToDieOperationMetadataResponse
 	playersReq        *nodeprotov1.QuerySevenDaysToDiePlayersRequest
 	playersResp       *nodeprotov1.QuerySevenDaysToDiePlayersResponse
 	reportedModsReq   *nodeprotov1.QuerySevenDaysToDieReportedModsRequest
@@ -226,6 +228,18 @@ func (s *stubHandler) QuerySevenDaysToDieWebAPIStatus(_ context.Context, req *co
 	s.rec.mu.Unlock()
 	if resp == nil {
 		resp = &nodeprotov1.QuerySevenDaysToDieWebAPIStatusResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *stubHandler) QuerySevenDaysToDieOperationMetadata(_ context.Context, req *connect.Request[nodeprotov1.QuerySevenDaysToDieOperationMetadataRequest]) (*connect.Response[nodeprotov1.QuerySevenDaysToDieOperationMetadataResponse], error) {
+	s.rec.recordAuth(req.Header())
+	s.rec.mu.Lock()
+	s.rec.metadataReq = req.Msg
+	resp := s.rec.metadataResp
+	s.rec.mu.Unlock()
+	if resp == nil {
+		resp = &nodeprotov1.QuerySevenDaysToDieOperationMetadataResponse{}
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -950,7 +964,8 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 						ApiVersion:      "3.1.0",
 						Capabilities: &nodeprotov1.SevenDaysToDieWebAPICapabilities{
 							PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
-							HostileAndAnimalPositions: true, AccessControl: true, GamePermissions: true, ReportedMods: true,
+							HostileAndAnimalPositions: true, AccessControl: true, GamePermissions: true, CommandPermissions: true, ReportedMods: true,
+							CommandExecution: true,
 						},
 						WorldTimeState:  nodeprotov1.SevenDaysToDieWebAPIValueState_SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
 						WorldTime:       &nodeprotov1.SevenDaysToDieGameTime{Day: 12, Hour: 5, Minute: 30},
@@ -960,7 +975,8 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 						NextBloodMoonEnd: &nodeprotov1.SevenDaysToDieGameTime{
 							Day: 15, Hour: 4,
 						},
-						ObservedAt: test.observedAt,
+						KnownCommands: []string{"say", "teleport", "version"},
+						ObservedAt:    test.observedAt,
 					},
 				},
 			}
@@ -991,10 +1007,13 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 			if status.NextBloodMoon == nil || status.NextBloodMoon.Day != 14 || status.NextBloodMoonEnd == nil || status.NextBloodMoonEnd.Day != 15 {
 				t.Fatalf("blood moon times = next %+v end %+v", status.NextBloodMoon, status.NextBloodMoonEnd)
 			}
+			if !slices.Equal(status.KnownCommands, []string{"say", "teleport", "version"}) {
+				t.Fatalf("known commands = %v", status.KnownCommands)
+			}
 			if status.Capabilities != (node.SevenDaysToDieWebAPICapabilities{
 				PlayerData: true, RuntimeSettings: true, NativeLog: true, WorldPopulation: true,
 				HostileAndAnimalPositions: true, HostilePositions: true, AnimalPositions: true,
-				AccessControl: true, GamePermissions: true, ReportedMods: true,
+				AccessControl: true, GamePermissions: true, CommandPermissions: true, ReportedMods: true, CommandExecution: true,
 			}) {
 				t.Fatalf("capabilities = %+v", status.Capabilities)
 			}
@@ -1014,6 +1033,45 @@ func TestGRPCClientQuerySevenDaysToDieWebAPIStatus(t *testing.T) {
 				t.Fatalf("authorization headers = %q", authHeaders)
 			}
 		})
+	}
+}
+
+func TestGRPCClientQuerySevenDaysToDieOperationMetadata(t *testing.T) {
+	t.Parallel()
+
+	rec := &callRecorder{
+		metadataResp: &nodeprotov1.QuerySevenDaysToDieOperationMetadataResponse{
+			Result: &nodeprotov1.SevenDaysToDieOperationMetadata{
+				Players: []*nodeprotov1.SevenDaysToDieOperationOption{{Label: "Alice", Value: "EOS_abc123", Description: "Saved player"}},
+				Items: []*nodeprotov1.SevenDaysToDieOperationOption{{
+					Label: "Wood", Value: "resourceWood", IconName: "resourceWood",
+					Category: "Resources", AccentColor: "#8b5a2b",
+				}},
+			},
+		},
+	}
+	url, fingerprint := newPinnedTestServer(t, rec)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, "node-secret")
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	metadata, errQuery := client.QuerySevenDaysToDieOperationMetadata(t.Context(), node.SevenDaysToDieOperationMetadataQueryRequest{
+		WorkingDirectory: "C:/servers/7dtd",
+	})
+	if errQuery != nil {
+		t.Fatalf("QuerySevenDaysToDieOperationMetadata: %v", errQuery)
+	}
+	if metadata == nil || len(metadata.Players) != 1 || metadata.Players[0].Value != "EOS_abc123" ||
+		len(metadata.Items) != 1 || metadata.Items[0].IconName != "resourceWood" ||
+		metadata.Items[0].Category != "Resources" || metadata.Items[0].AccentColor != "#8b5a2b" {
+		t.Fatalf("metadata = %+v", metadata)
+	}
+	rec.mu.Lock()
+	request := rec.metadataReq
+	rec.mu.Unlock()
+	if request.GetWorkingDirectory() != "C:/servers/7dtd" {
+		t.Fatalf("metadata request = %+v", request)
 	}
 }
 
