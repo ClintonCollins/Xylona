@@ -12,6 +12,11 @@ const mocks = vi.hoisted(() => ({
   setConnection: vi.fn(),
 }))
 
+const QMenuStub = defineComponent({
+  inheritAttrs: false,
+  template: '<div v-bind="$attrs"><slot /></div>',
+})
+
 const QInputStub = defineComponent({
   inheritAttrs: false,
   props: ['modelValue'],
@@ -58,9 +63,15 @@ describe('DNSProviderSettings', () => {
     })
 
     const wrapper = shallowMount(DNSProviderSettings, {
-      global: { stubs: { 'q-input': QInputStub } },
+      global: { stubs: { 'q-input': QInputStub, 'q-menu': QMenuStub } },
     })
     await flushPromises()
+
+    expect(wrapper.find('[data-testid="cloudflare-permission-help"]').exists()).toBe(true)
+    const permissionGuidance = wrapper.get('[data-testid="cloudflare-permission-guidance"]').text()
+    expect(permissionGuidance).toContain('Zone Read')
+    expect(permissionGuidance).toContain('DNS Write')
+    expect(permissionGuidance).toContain('Read, create, and update A and AAAA records')
 
     await wrapper.get('[data-testid="cloudflare-api-token"]').setValue('top-secret-token')
     await wrapper.get('[data-testid="list-dns-zones"]').trigger('click')
@@ -110,11 +121,20 @@ describe('DNSProviderSettings', () => {
     })
 
     const wrapper = shallowMount(DNSProviderSettings, {
-      global: { stubs: { 'q-input': QInputStub } },
+      global: { stubs: { 'q-input': QInputStub, 'q-menu': QMenuStub } },
     })
     await flushPromises()
 
     expect(wrapper.find('[aria-label="AWS access key ID"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="AWS secret access key"]').exists()).toBe(true)
+
+    expect(wrapper.find('[data-testid="route53-permission-help"]').exists()).toBe(true)
+    const permissionGuidance = wrapper.get('[data-testid="route53-permission-guidance"]').text()
+    expect(permissionGuidance).toContain('route53:GetHostedZone')
+    expect(permissionGuidance).toContain('route53:ListResourceRecordSets')
+    expect(permissionGuidance).toContain('route53:ChangeResourceRecordSets')
+    expect(permissionGuidance).toContain('route53:ListHostedZones')
+    expect(permissionGuidance).toContain('Resource: *')
+    expect(permissionGuidance).toContain('Exact zone entry does not need it')
   })
 })

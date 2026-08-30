@@ -49,10 +49,41 @@
 
       <div class="dns-provider-panel q-mt-md">
         <div v-if="provider === DNSProviderKind.DNS_PROVIDER_KIND_CLOUDFLARE">
-          <h3 class="text-subtitle1 q-my-none">Cloudflare</h3>
+          <div class="provider-title">
+            <h3 class="text-subtitle1 q-my-none">Cloudflare</h3>
+            <span class="permission-help">
+              <q-btn
+                aria-label="Cloudflare permission requirements"
+                class="permission-help-trigger"
+                data-testid="cloudflare-permission-help"
+                dense
+                flat
+                icon="info_outline"
+                round
+                size="sm">
+                <q-tooltip>Permission requirements</q-tooltip>
+              </q-btn>
+              <q-menu anchor="bottom left" :offset="[0, 8]" self="top left">
+                <div class="permission-help-content" data-testid="cloudflare-permission-guidance">
+                  <div class="permission-help-title">Cloudflare permissions</div>
+                  <p class="permission-help-intro">Scope the token to the selected zone.</p>
+                  <dl class="permission-help-list">
+                    <div>
+                      <dt class="font-mono">Zone Read</dt>
+                      <dd>List and verify the zone.</dd>
+                    </div>
+                    <div>
+                      <dt class="font-mono">DNS Write</dt>
+                      <dd>Read, create, and update A and AAAA records.</dd>
+                    </div>
+                  </dl>
+                </div>
+              </q-menu>
+            </span>
+          </div>
           <p class="provider-copy">
-            Use a scoped API token with read and write access to the selected zone. Records created
-            by Xylona are always DNS-only.
+            Use a scoped API token for the selected zone. Records created by Xylona are always
+            DNS-only.
           </p>
           <q-input
             v-model="cloudflareApiToken"
@@ -67,9 +98,50 @@
         </div>
 
         <div v-else>
-          <h3 class="text-subtitle1 q-my-none">Amazon Route 53</h3>
+          <div class="provider-title">
+            <h3 class="text-subtitle1 q-my-none">Amazon Route 53</h3>
+            <span class="permission-help">
+              <q-btn
+                aria-label="Route 53 permission requirements"
+                class="permission-help-trigger"
+                data-testid="route53-permission-help"
+                dense
+                flat
+                icon="info_outline"
+                round
+                size="sm">
+                <q-tooltip>Permission requirements</q-tooltip>
+              </q-btn>
+              <q-menu anchor="bottom left" :offset="[0, 8]" self="top left">
+                <div class="permission-help-content" data-testid="route53-permission-guidance">
+                  <div class="permission-help-title">Route 53 permissions</div>
+                  <p class="permission-help-intro">Apply these to the selected hosted zone.</p>
+                  <dl class="permission-help-list">
+                    <div>
+                      <dt class="font-mono">route53:GetHostedZone</dt>
+                      <dd>Verify the exact hosted zone.</dd>
+                    </div>
+                    <div>
+                      <dt class="font-mono">route53:ListResourceRecordSets</dt>
+                      <dd>Read the current record.</dd>
+                    </div>
+                    <div>
+                      <dt class="font-mono">route53:ChangeResourceRecordSets</dt>
+                      <dd>Create and update A and AAAA records.</dd>
+                    </div>
+                  </dl>
+                  <p class="permission-help-note">
+                    <span class="font-mono">route53:ListHostedZones</span> is needed only by List
+                    zones and must allow all resources (<span class="font-mono">Resource: *</span>).
+                    Exact zone entry does not need it.
+                  </p>
+                </div>
+              </q-menu>
+            </span>
+          </div>
           <p class="provider-copy">
-            Use the controller runtime credential chain or enter write-only access keys.
+            Use the controller runtime credential chain or enter access keys. Stored access keys are
+            encrypted and never returned.
           </p>
           <q-option-group
             v-model="credentialMode"
@@ -433,6 +505,12 @@ onMounted(loadConnection)
   padding: var(--xy-space-md);
 }
 
+.provider-title {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+}
+
 .zone-heading,
 .provider-actions {
   display: flex;
@@ -444,6 +522,57 @@ onMounted(loadConnection)
 .provider-actions {
   align-items: center;
   justify-content: flex-start;
+}
+
+.permission-help {
+  display: inline-flex;
+}
+
+.permission-help-trigger {
+  color: var(--xy-text-secondary);
+}
+
+.permission-help-content {
+  width: min(27rem, calc(100vw - var(--xy-space-xl)));
+  padding: var(--xy-space-md);
+}
+
+.permission-help-title {
+  color: var(--xy-text-primary);
+  font-weight: 600;
+}
+
+.permission-help-intro,
+.permission-help-list dd,
+.permission-help-note {
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+}
+
+.permission-help-intro {
+  margin: var(--xy-space-xs) 0 0;
+}
+
+.permission-help-list {
+  display: grid;
+  gap: var(--xy-space-sm);
+  margin: var(--xy-space-base) 0 0;
+}
+
+.permission-help-list dt {
+  color: var(--xy-text-primary);
+  font-size: var(--xy-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.permission-help-list dd {
+  margin: var(--xy-space-2xs) 0 0;
+}
+
+.permission-help-note {
+  margin: var(--xy-space-base) 0 0;
+  padding-top: var(--xy-space-base);
+  border-top: 1px solid var(--xy-border);
 }
 
 .runtime-note {
