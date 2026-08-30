@@ -19,6 +19,18 @@ _Avoid_: Denylist
 **Game server owner**:
 The single User with full authority over a game server. Ownership is distinct from access granted to other Users through roles.
 
+**DNS provider connection**:
+The controller-wide authorization Xylona uses to manage records through one supported DNS provider in one existing authoritative zone.
+_Avoid_: DNS account, DNS integration
+
+**DNS binding**:
+A superuser-managed relationship between one game server and one relative DNS name whose A or AAAA record can be manually synchronized to that server's bind address.
+_Avoid_: DNS mapping, record mapping
+
+**Record adoption**:
+An explicit action that gives a DNS binding ownership of an existing provider record without changing that record.
+_Avoid_: Import, takeover
+
 **Player**:
 A participant reported by a game server or its query interface. Groups and lists of players are still called players.
 _Avoid_: Roster

@@ -509,7 +509,9 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 	if errConfirm != nil {
 		return nil, errConfirm
 	}
+	xs.dnsMutationMu.Lock()
 	errRemove := xs.actionsInst.RemoveGameServer(ctx, gameServer)
+	xs.dnsMutationMu.Unlock()
 	if errRemove != nil {
 		return nil, removeGameServerConnectError(errRemove)
 	}

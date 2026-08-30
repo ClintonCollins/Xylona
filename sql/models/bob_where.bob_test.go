@@ -146,6 +146,27 @@ func TestAlertStateHasRelationsEmitExists(t *testing.T) {
 	})
 }
 
+// TestDNSRecordBindingHasRelationsEmitExists verifies that every generated
+// Has{Rel} helper produces a correlated EXISTS subquery (semi-join) rather than
+// an INNER JOIN, so the parent rows are never multiplied.
+func TestDNSRecordBindingHasRelationsEmitExists(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("GameServer", func(t *testing.T) {
+		q := sqlite.Select(
+			sm.From(DNSRecordBindings.NameExpr()),
+			SelectWhere.DNSRecordBindings.R.HasGameServer(),
+		)
+		sql, _, err := bob.Build(ctx, q)
+		if err != nil {
+			t.Fatalf("HasGameServer: build error: %v", err)
+		}
+		if !strings.Contains(sql, "EXISTS") {
+			t.Errorf("HasGameServer: expected EXISTS in query, got: %s", sql)
+		}
+	})
+}
+
 // TestGameHasRelationsEmitExists verifies that every generated
 // Has{Rel} helper produces a correlated EXISTS subquery (semi-join) rather than
 // an INNER JOIN, so the parent rows are never multiplied.
@@ -172,6 +193,20 @@ func TestGameHasRelationsEmitExists(t *testing.T) {
 // an INNER JOIN, so the parent rows are never multiplied.
 func TestGameServerHasRelationsEmitExists(t *testing.T) {
 	ctx := context.Background()
+
+	t.Run("DNSRecordBinding", func(t *testing.T) {
+		q := sqlite.Select(
+			sm.From(GameServers.NameExpr()),
+			SelectWhere.GameServers.R.HasDNSRecordBinding(),
+		)
+		sql, _, err := bob.Build(ctx, q)
+		if err != nil {
+			t.Fatalf("HasDNSRecordBinding: build error: %v", err)
+		}
+		if !strings.Contains(sql, "EXISTS") {
+			t.Errorf("HasDNSRecordBinding: expected EXISTS in query, got: %s", sql)
+		}
+	})
 
 	t.Run("IP", func(t *testing.T) {
 		q := sqlite.Select(

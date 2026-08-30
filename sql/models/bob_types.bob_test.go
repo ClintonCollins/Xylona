@@ -17,6 +17,9 @@ var _ bob.HookableType = &AlertRule{}
 // Make sure the type AlertState runs hooks after queries
 var _ bob.HookableType = &AlertState{}
 
+// Make sure the type DNSRecordBinding runs hooks after queries
+var _ bob.HookableType = &DNSRecordBinding{}
+
 // Make sure the type Game runs hooks after queries
 var _ bob.HookableType = &Game{}
 

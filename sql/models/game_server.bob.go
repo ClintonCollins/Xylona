@@ -78,6 +78,7 @@ type GameServersQuery = *sqlite.ViewQuery[*GameServer, GameServerSlice]
 
 // gameServerR is where relationships are stored.
 type gameServerR struct {
+	DNSRecordBinding                  *DNSRecordBinding                     // fk_dns_record_binding_0
 	IP                                *IP                                   // fk_game_server_0
 	Node                              *Node                                 // fk_game_server_1
 	Game                              *Game                                 // fk_game_server_2
@@ -103,6 +104,7 @@ type gameServerR struct {
 
 // gameServerRLoaded tracks which relationships on GameServer have been loaded.
 type gameServerRLoaded struct {
+	DNSRecordBinding                  bool // fk_dns_record_binding_0
 	IP                                bool // fk_game_server_0
 	Node                              bool // fk_game_server_1
 	Game                              bool // fk_game_server_2
@@ -1307,6 +1309,25 @@ func (o GameServerSlice) ReloadAll(ctx context.Context, exec bob.Executor) error
 	return nil
 }
 
+// DNSRecordBinding starts a query for related objects on dns_record_binding
+func (o *GameServer) DNSRecordBinding(mods ...bob.Mod[*dialect.SelectQuery]) DNSRecordBindingsQuery {
+	return DNSRecordBindings.Query(append(mods,
+		sm.Where(DNSRecordBindings.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) DNSRecordBinding(mods ...bob.Mod[*dialect.SelectQuery]) DNSRecordBindingsQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return DNSRecordBindings.Query(append(mods,
+		sm.Where(sqlite.Group(DNSRecordBindings.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // IP starts a query for related objects on ip
 func (o *GameServer) RelatedIP(mods ...bob.Mod[*dialect.SelectQuery]) IpsQuery {
 	return Ips.Query(append(mods,
@@ -1628,6 +1649,64 @@ func (os GameServerSlice) UserRoleAssignments(mods ...bob.Mod[*dialect.SelectQue
 	return UserRoleAssignments.Query(append(mods,
 		sm.Where(sqlite.Group(UserRoleAssignments.Columns.GameServerID).OP("IN", PKArgExpr)),
 	)...)
+}
+
+func insertGameServerDNSRecordBinding0(ctx context.Context, exec bob.Executor, dnsRecordBinding1 *DNSRecordBindingSetter, gameServer0 *GameServer) (*DNSRecordBinding, error) {
+	dnsRecordBinding1.GameServerID = omit.From(gameServer0.ID)
+
+	ret, err := DNSRecordBindings.Insert(dnsRecordBinding1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerDNSRecordBinding0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerDNSRecordBinding0(ctx context.Context, exec bob.Executor, count int, dnsRecordBinding1 *DNSRecordBinding, gameServer0 *GameServer) (*DNSRecordBinding, error) {
+	setter := &DNSRecordBindingSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := dnsRecordBinding1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerDNSRecordBinding0: %w", err)
+	}
+
+	return dnsRecordBinding1, nil
+}
+
+func (gameServer0 *GameServer) InsertDNSRecordBinding(ctx context.Context, exec bob.Executor, related *DNSRecordBindingSetter) error {
+	var err error
+
+	dnsRecordBinding1, err := insertGameServerDNSRecordBinding0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.DNSRecordBinding = dnsRecordBinding1
+	gameServer0.R.Loaded.DNSRecordBinding = true
+
+	dnsRecordBinding1.R.GameServer = gameServer0
+	dnsRecordBinding1.R.Loaded.GameServer = true
+
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachDNSRecordBinding(ctx context.Context, exec bob.Executor, dnsRecordBinding1 *DNSRecordBinding) error {
+	var err error
+
+	_, err = attachGameServerDNSRecordBinding0(ctx, exec, 1, dnsRecordBinding1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.DNSRecordBinding = dnsRecordBinding1
+	gameServer0.R.Loaded.DNSRecordBinding = true
+
+	dnsRecordBinding1.R.GameServer = gameServer0
+	dnsRecordBinding1.R.Loaded.GameServer = true
+
+	return nil
 }
 
 func attachGameServerIP0(ctx context.Context, exec bob.Executor, count int, gameServer0 *GameServer, ip1 *IP) (*GameServer, error) {
@@ -2782,6 +2861,20 @@ type gameServerWhereR[Q sqlite.Filterable] struct {
 	cols gameServerColumns
 }
 
+// HasDNSRecordBinding filters parents that have a matching DNSRecordBinding using a
+// correlated EXISTS subquery (semi-join). Unlike an INNER JOIN it does not
+// multiply parent rows, so no DISTINCT is needed. The optional filters are
+// applied to the subquery (i.e. to DNSRecordBindings).
+func (w gameServerWhereR[Q]) HasDNSRecordBinding(filters ...bob.Mod[*dialect.SelectQuery]) mods.Where[Q] {
+	q := sqlite.Select(
+		sm.Columns(sqlite.Raw("1")),
+		sm.From(DNSRecordBindings.NameExpr()),
+		sm.Where(DNSRecordBindings.Columns.GameServerID.EQ(w.cols.ID)),
+	)
+	q.Apply(filters...)
+	return mods.Where[Q]{E: sqlite.Exists(q)}
+}
+
 // HasIP filters parents that have a matching IP using a
 // correlated EXISTS subquery (semi-join). Unlike an INNER JOIN it does not
 // multiply parent rows, so no DISTINCT is needed. The optional filters are
@@ -3304,6 +3397,20 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 	}
 
 	switch name {
+	case "DNSRecordBinding":
+		rel, ok := retrieved.(*DNSRecordBinding)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.DNSRecordBinding = rel
+		o.R.Loaded.DNSRecordBinding = true
+
+		if rel != nil {
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+		}
+		return nil
 	case "IP":
 		rel, ok := retrieved.(*IP)
 		if !ok {
@@ -3562,6 +3669,7 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 }
 
 type gameServerPreloader struct {
+	DNSRecordBinding            func(...sqlite.PreloadOption) sqlite.Preloader
 	IP                          func(...sqlite.PreloadOption) sqlite.Preloader
 	Node                        func(...sqlite.PreloadOption) sqlite.Preloader
 	Game                        func(...sqlite.PreloadOption) sqlite.Preloader
@@ -3574,6 +3682,19 @@ type gameServerPreloader struct {
 
 func buildGameServerPreloader() gameServerPreloader {
 	return gameServerPreloader{
+		DNSRecordBinding: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*DNSRecordBinding, DNSRecordBindingSlice](sqlite.PreloadRel{
+				Name: "DNSRecordBinding",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        GameServers,
+						To:          DNSRecordBindings,
+						FromColumns: []string{"id"},
+						ToColumns:   []string{"game_server_id"},
+					},
+				},
+			}, DNSRecordBindings.Columns.Names(), dnsRecordBindingScanMapperNullable, opts...)
+		},
 		IP: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
 			return sqlite.Preload[*IP, IPSlice](sqlite.PreloadRel{
 				Name: "IP",
@@ -3682,6 +3803,7 @@ func buildGameServerPreloader() gameServerPreloader {
 }
 
 type gameServerThenLoader[Q orm.Loadable] struct {
+	DNSRecordBinding                  func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	IP                                func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Node                              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	Game                              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -3702,6 +3824,9 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 }
 
 func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
+	type DNSRecordBindingLoadInterface interface {
+		LoadDNSRecordBinding(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
 	type IPLoadInterface interface {
 		LoadIP(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
@@ -3755,6 +3880,12 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 
 	return gameServerThenLoader[Q]{
+		DNSRecordBinding: thenLoadBuilder[Q](
+			"DNSRecordBinding",
+			func(ctx context.Context, exec bob.Executor, retrieved DNSRecordBindingLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadDNSRecordBinding(ctx, exec, mods...)
+			},
+		),
 		IP: thenLoadBuilder[Q](
 			"IP",
 			func(ctx context.Context, exec bob.Executor, retrieved IPLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
@@ -3858,6 +3989,83 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			},
 		),
 	}
+}
+
+// LoadDNSRecordBinding loads the gameServer's DNSRecordBinding into the .R struct
+func (o *GameServer) LoadDNSRecordBinding(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.DNSRecordBinding = nil
+	o.R.Loaded.DNSRecordBinding = false
+
+	related, err := o.DNSRecordBinding(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServer = o
+	related.R.Loaded.GameServer = true
+
+	o.R.DNSRecordBinding = related
+	o.R.Loaded.DNSRecordBinding = true
+	return nil
+}
+
+// LoadDNSRecordBinding loads the gameServer's DNSRecordBinding into the .R struct
+func (os GameServerSlice) LoadDNSRecordBinding(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	dnsRecordBindings, err := os.DNSRecordBinding(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.DNSRecordBinding = nil
+		o.R.Loaded.DNSRecordBinding = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range dnsRecordBindings {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			// to-one: keep only the first matching child (matches the previous break)
+			if o.R.DNSRecordBinding != nil {
+				continue
+			}
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.DNSRecordBinding = rel
+
+		}
+	}
+
+	return nil
 }
 
 // LoadIP loads the gameServer's IP into the .R struct
@@ -6144,6 +6352,7 @@ func (os GameServerSlice) LoadCountUserRoleAssignments(ctx context.Context, exec
 
 type gameServerJoins[Q dialect.Joinable] struct {
 	typ                               string
+	DNSRecordBinding                  modAs[Q, dnsRecordBindingColumns]
 	IP                                modAs[Q, ipColumns]
 	Node                              modAs[Q, nodeColumns]
 	Game                              modAs[Q, gameColumns]
@@ -6170,6 +6379,20 @@ func (j gameServerJoins[Q]) aliasedAs(alias string) gameServerJoins[Q] {
 func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string) gameServerJoins[Q] {
 	return gameServerJoins[Q]{
 		typ: typ,
+		DNSRecordBinding: modAs[Q, dnsRecordBindingColumns]{
+			c: DNSRecordBindings.Columns,
+			f: func(to dnsRecordBindingColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, DNSRecordBindings.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
 		IP: modAs[Q, ipColumns]{
 			c: Ips.Columns,
 			f: func(to ipColumns) bob.Mod[Q] {

@@ -16,6 +16,7 @@ import (
 	"github.com/aarondl/opt/omitnull"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/controller/dnsprovider"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
@@ -597,6 +598,77 @@ func TestRemoveGameServerPreservesRecordWhenShutdownOrCleanupFails(t *testing.T)
 				t.Fatalf("DeleteFiles call count = %d, want %d", len(remoteClient.DeleteFilesCalls), tc.wantDeleteFilesCalls)
 			}
 		})
+	}
+}
+
+func TestRemoveGameServerSerializesWithDNSSync(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertNodeScopedIPForParityTests(t, fixture, "node-remote", "203.0.113.20")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+	_, errIP := fixture.conn.SQLDb.ExecContext(t.Context(), `update game_server set ip = ? where id = ?`, "203.0.113.20", "server-remote-1")
+	if errIP != nil {
+		t.Fatalf("update remote game server IP: %v", errIP)
+	}
+	storeDNSConnection(t, fixture)
+	errBinding := fixture.conn.UpsertDNSRecordBinding("server-remote-1", "remote")
+	if errBinding != nil {
+		t.Fatalf("UpsertDNSRecordBinding() error = %v", errBinding)
+	}
+
+	readEntered := make(chan struct{})
+	readRelease := make(chan struct{})
+	provider := newFakeDNSProvider()
+	provider.readEntered = readEntered
+	provider.readRelease = readRelease
+	fixture.service.dnsProviderFactory = func(context.Context, dnsProviderConnectionConfig) (dnsprovider.Provider, error) {
+		return provider, nil
+	}
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	configureLifecycleActionsForParityTests(t, fixture, registry)
+
+	syncRequest := connect.NewRequest(&xylona.SyncDNSBindingRequest{GameServerId: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, syncRequest, "user-admin")
+	syncDone := make(chan error, 1)
+	go func() {
+		_, errSync := fixture.service.SyncDNSBinding(t.Context(), syncRequest)
+		syncDone <- errSync
+	}()
+	<-readEntered
+
+	removeRequest := connect.NewRequest(&xylona.RemoveGameServerRequest{ServerId: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, removeRequest, "user-admin")
+	removeDone := make(chan error, 1)
+	go func() {
+		_, errRemove := fixture.service.RemoveGameServer(t.Context(), removeRequest)
+		removeDone <- errRemove
+	}()
+	select {
+	case errRemove := <-removeDone:
+		t.Fatalf("RemoveGameServer() completed during DNS sync: %v", errRemove)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(readRelease)
+	errSync := <-syncDone
+	if errSync != nil {
+		t.Fatalf("SyncDNSBinding() error = %v", errSync)
+	}
+	errRemove := <-removeDone
+	if errRemove != nil {
+		t.Fatalf("RemoveGameServer() error = %v", errRemove)
+	}
+	if provider.createCalls != 1 || len(provider.records) != 1 {
+		t.Fatalf("provider records after serialized delete = %d, create calls = %d", len(provider.records), provider.createCalls)
+	}
+	_, errServer := fixture.conn.GetGameServerByID("server-remote-1")
+	if errServer == nil {
+		t.Fatal("game server row remains after removal")
+	}
+	_, errRemovedBinding := fixture.conn.GetDNSRecordBinding("server-remote-1")
+	if errRemovedBinding == nil {
+		t.Fatal("DNS binding remains after game server removal")
 	}
 }
 

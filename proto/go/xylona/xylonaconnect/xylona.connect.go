@@ -199,6 +199,17 @@ const (
 	// XylonaResolvePublicGameServerMapProcedure is the fully-qualified name of the Xylona's
 	// ResolvePublicGameServerMap RPC.
 	XylonaResolvePublicGameServerMapProcedure = "/xylona.Xylona/ResolvePublicGameServerMap"
+	// XylonaGetDNSBindingProcedure is the fully-qualified name of the Xylona's GetDNSBinding RPC.
+	XylonaGetDNSBindingProcedure = "/xylona.Xylona/GetDNSBinding"
+	// XylonaSetDNSBindingProcedure is the fully-qualified name of the Xylona's SetDNSBinding RPC.
+	XylonaSetDNSBindingProcedure = "/xylona.Xylona/SetDNSBinding"
+	// XylonaRemoveDNSBindingProcedure is the fully-qualified name of the Xylona's RemoveDNSBinding RPC.
+	XylonaRemoveDNSBindingProcedure = "/xylona.Xylona/RemoveDNSBinding"
+	// XylonaSyncDNSBindingProcedure is the fully-qualified name of the Xylona's SyncDNSBinding RPC.
+	XylonaSyncDNSBindingProcedure = "/xylona.Xylona/SyncDNSBinding"
+	// XylonaAdoptDNSBindingRecordProcedure is the fully-qualified name of the Xylona's
+	// AdoptDNSBindingRecord RPC.
+	XylonaAdoptDNSBindingRecordProcedure = "/xylona.Xylona/AdoptDNSBindingRecord"
 	// XylonaGetGameServerPlayerManagementProcedure is the fully-qualified name of the Xylona's
 	// GetGameServerPlayerManagement RPC.
 	XylonaGetGameServerPlayerManagementProcedure = "/xylona.Xylona/GetGameServerPlayerManagement"
@@ -422,6 +433,15 @@ const (
 	// XylonaDisconnectGoogleMailProcedure is the fully-qualified name of the Xylona's
 	// DisconnectGoogleMail RPC.
 	XylonaDisconnectGoogleMailProcedure = "/xylona.Xylona/DisconnectGoogleMail"
+	// XylonaGetDNSProviderConnectionProcedure is the fully-qualified name of the Xylona's
+	// GetDNSProviderConnection RPC.
+	XylonaGetDNSProviderConnectionProcedure = "/xylona.Xylona/GetDNSProviderConnection"
+	// XylonaListDNSProviderZonesProcedure is the fully-qualified name of the Xylona's
+	// ListDNSProviderZones RPC.
+	XylonaListDNSProviderZonesProcedure = "/xylona.Xylona/ListDNSProviderZones"
+	// XylonaSetDNSProviderConnectionProcedure is the fully-qualified name of the Xylona's
+	// SetDNSProviderConnection RPC.
+	XylonaSetDNSProviderConnectionProcedure = "/xylona.Xylona/SetDNSProviderConnection"
 	// XylonaListScheduledTasksProcedure is the fully-qualified name of the Xylona's ListScheduledTasks
 	// RPC.
 	XylonaListScheduledTasksProcedure = "/xylona.Xylona/ListScheduledTasks"
@@ -535,6 +555,11 @@ type XylonaClient interface {
 	GetOrCreateGameServerMapShareSettings(context.Context, *connect.Request[xylona.GetOrCreateGameServerMapShareSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerMapShareSettingsResponse], error)
 	UpdateGameServerMapShareSettings(context.Context, *connect.Request[xylona.UpdateGameServerMapShareSettingsRequest]) (*connect.Response[xylona.UpdateGameServerMapShareSettingsResponse], error)
 	ResolvePublicGameServerMap(context.Context, *connect.Request[xylona.ResolvePublicGameServerMapRequest]) (*connect.Response[xylona.ResolvePublicGameServerMapResponse], error)
+	GetDNSBinding(context.Context, *connect.Request[xylona.GetDNSBindingRequest]) (*connect.Response[xylona.GetDNSBindingResponse], error)
+	SetDNSBinding(context.Context, *connect.Request[xylona.SetDNSBindingRequest]) (*connect.Response[xylona.SetDNSBindingResponse], error)
+	RemoveDNSBinding(context.Context, *connect.Request[xylona.RemoveDNSBindingRequest]) (*connect.Response[xylona.RemoveDNSBindingResponse], error)
+	SyncDNSBinding(context.Context, *connect.Request[xylona.SyncDNSBindingRequest]) (*connect.Response[xylona.SyncDNSBindingResponse], error)
+	AdoptDNSBindingRecord(context.Context, *connect.Request[xylona.AdoptDNSBindingRecordRequest]) (*connect.Response[xylona.AdoptDNSBindingRecordResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
 	ListGameServerOperations(context.Context, *connect.Request[xylona.ListGameServerOperationsRequest]) (*connect.Response[xylona.ListGameServerOperationsResponse], error)
@@ -633,6 +658,10 @@ type XylonaClient interface {
 	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
 	BeginGoogleMailOAuth(context.Context, *connect.Request[xylona.BeginGoogleMailOAuthRequest]) (*connect.Response[xylona.BeginGoogleMailOAuthResponse], error)
 	DisconnectGoogleMail(context.Context, *connect.Request[xylona.DisconnectGoogleMailRequest]) (*connect.Response[xylona.DisconnectGoogleMailResponse], error)
+	// DNS provider connection (superuser only)
+	GetDNSProviderConnection(context.Context, *connect.Request[xylona.GetDNSProviderConnectionRequest]) (*connect.Response[xylona.GetDNSProviderConnectionResponse], error)
+	ListDNSProviderZones(context.Context, *connect.Request[xylona.ListDNSProviderZonesRequest]) (*connect.Response[xylona.ListDNSProviderZonesResponse], error)
+	SetDNSProviderConnection(context.Context, *connect.Request[xylona.SetDNSProviderConnectionRequest]) (*connect.Response[xylona.SetDNSProviderConnectionResponse], error)
 	// Scheduled Tasks
 	ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error)
 	CreateScheduledTask(context.Context, *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error)
@@ -1060,6 +1089,36 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaResolvePublicGameServerMapProcedure,
 			connect.WithSchema(xylonaMethods.ByName("ResolvePublicGameServerMap")),
+			connect.WithClientOptions(opts...),
+		),
+		getDNSBinding: connect.NewClient[xylona.GetDNSBindingRequest, xylona.GetDNSBindingResponse](
+			httpClient,
+			baseURL+XylonaGetDNSBindingProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetDNSBinding")),
+			connect.WithClientOptions(opts...),
+		),
+		setDNSBinding: connect.NewClient[xylona.SetDNSBindingRequest, xylona.SetDNSBindingResponse](
+			httpClient,
+			baseURL+XylonaSetDNSBindingProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetDNSBinding")),
+			connect.WithClientOptions(opts...),
+		),
+		removeDNSBinding: connect.NewClient[xylona.RemoveDNSBindingRequest, xylona.RemoveDNSBindingResponse](
+			httpClient,
+			baseURL+XylonaRemoveDNSBindingProcedure,
+			connect.WithSchema(xylonaMethods.ByName("RemoveDNSBinding")),
+			connect.WithClientOptions(opts...),
+		),
+		syncDNSBinding: connect.NewClient[xylona.SyncDNSBindingRequest, xylona.SyncDNSBindingResponse](
+			httpClient,
+			baseURL+XylonaSyncDNSBindingProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SyncDNSBinding")),
+			connect.WithClientOptions(opts...),
+		),
+		adoptDNSBindingRecord: connect.NewClient[xylona.AdoptDNSBindingRecordRequest, xylona.AdoptDNSBindingRecordResponse](
+			httpClient,
+			baseURL+XylonaAdoptDNSBindingRecordProcedure,
+			connect.WithSchema(xylonaMethods.ByName("AdoptDNSBindingRecord")),
 			connect.WithClientOptions(opts...),
 		),
 		getGameServerPlayerManagement: connect.NewClient[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse](
@@ -1560,6 +1619,24 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("DisconnectGoogleMail")),
 			connect.WithClientOptions(opts...),
 		),
+		getDNSProviderConnection: connect.NewClient[xylona.GetDNSProviderConnectionRequest, xylona.GetDNSProviderConnectionResponse](
+			httpClient,
+			baseURL+XylonaGetDNSProviderConnectionProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetDNSProviderConnection")),
+			connect.WithClientOptions(opts...),
+		),
+		listDNSProviderZones: connect.NewClient[xylona.ListDNSProviderZonesRequest, xylona.ListDNSProviderZonesResponse](
+			httpClient,
+			baseURL+XylonaListDNSProviderZonesProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ListDNSProviderZones")),
+			connect.WithClientOptions(opts...),
+		),
+		setDNSProviderConnection: connect.NewClient[xylona.SetDNSProviderConnectionRequest, xylona.SetDNSProviderConnectionResponse](
+			httpClient,
+			baseURL+XylonaSetDNSProviderConnectionProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetDNSProviderConnection")),
+			connect.WithClientOptions(opts...),
+		),
 		listScheduledTasks: connect.NewClient[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse](
 			httpClient,
 			baseURL+XylonaListScheduledTasksProcedure,
@@ -1704,6 +1781,11 @@ type xylonaClient struct {
 	getOrCreateGameServerMapShareSettings   *connect.Client[xylona.GetOrCreateGameServerMapShareSettingsRequest, xylona.GetOrCreateGameServerMapShareSettingsResponse]
 	updateGameServerMapShareSettings        *connect.Client[xylona.UpdateGameServerMapShareSettingsRequest, xylona.UpdateGameServerMapShareSettingsResponse]
 	resolvePublicGameServerMap              *connect.Client[xylona.ResolvePublicGameServerMapRequest, xylona.ResolvePublicGameServerMapResponse]
+	getDNSBinding                           *connect.Client[xylona.GetDNSBindingRequest, xylona.GetDNSBindingResponse]
+	setDNSBinding                           *connect.Client[xylona.SetDNSBindingRequest, xylona.SetDNSBindingResponse]
+	removeDNSBinding                        *connect.Client[xylona.RemoveDNSBindingRequest, xylona.RemoveDNSBindingResponse]
+	syncDNSBinding                          *connect.Client[xylona.SyncDNSBindingRequest, xylona.SyncDNSBindingResponse]
+	adoptDNSBindingRecord                   *connect.Client[xylona.AdoptDNSBindingRecordRequest, xylona.AdoptDNSBindingRecordResponse]
 	getGameServerPlayerManagement           *connect.Client[xylona.GetGameServerPlayerManagementRequest, xylona.GetGameServerPlayerManagementResponse]
 	performGameServerPlayerAction           *connect.Client[xylona.PerformGameServerPlayerActionRequest, xylona.PerformGameServerPlayerActionResponse]
 	listGameServerOperations                *connect.Client[xylona.ListGameServerOperationsRequest, xylona.ListGameServerOperationsResponse]
@@ -1787,6 +1869,9 @@ type xylonaClient struct {
 	testSystemSMTP                          *connect.Client[xylona.TestSystemSMTPRequest, xylona.TestSystemSMTPResponse]
 	beginGoogleMailOAuth                    *connect.Client[xylona.BeginGoogleMailOAuthRequest, xylona.BeginGoogleMailOAuthResponse]
 	disconnectGoogleMail                    *connect.Client[xylona.DisconnectGoogleMailRequest, xylona.DisconnectGoogleMailResponse]
+	getDNSProviderConnection                *connect.Client[xylona.GetDNSProviderConnectionRequest, xylona.GetDNSProviderConnectionResponse]
+	listDNSProviderZones                    *connect.Client[xylona.ListDNSProviderZonesRequest, xylona.ListDNSProviderZonesResponse]
+	setDNSProviderConnection                *connect.Client[xylona.SetDNSProviderConnectionRequest, xylona.SetDNSProviderConnectionResponse]
 	listScheduledTasks                      *connect.Client[xylona.ListScheduledTasksRequest, xylona.ListScheduledTasksResponse]
 	createScheduledTask                     *connect.Client[xylona.CreateScheduledTaskRequest, xylona.CreateScheduledTaskResponse]
 	updateScheduledTask                     *connect.Client[xylona.UpdateScheduledTaskRequest, xylona.UpdateScheduledTaskResponse]
@@ -2135,6 +2220,31 @@ func (c *xylonaClient) UpdateGameServerMapShareSettings(ctx context.Context, req
 // ResolvePublicGameServerMap calls xylona.Xylona.ResolvePublicGameServerMap.
 func (c *xylonaClient) ResolvePublicGameServerMap(ctx context.Context, req *connect.Request[xylona.ResolvePublicGameServerMapRequest]) (*connect.Response[xylona.ResolvePublicGameServerMapResponse], error) {
 	return c.resolvePublicGameServerMap.CallUnary(ctx, req)
+}
+
+// GetDNSBinding calls xylona.Xylona.GetDNSBinding.
+func (c *xylonaClient) GetDNSBinding(ctx context.Context, req *connect.Request[xylona.GetDNSBindingRequest]) (*connect.Response[xylona.GetDNSBindingResponse], error) {
+	return c.getDNSBinding.CallUnary(ctx, req)
+}
+
+// SetDNSBinding calls xylona.Xylona.SetDNSBinding.
+func (c *xylonaClient) SetDNSBinding(ctx context.Context, req *connect.Request[xylona.SetDNSBindingRequest]) (*connect.Response[xylona.SetDNSBindingResponse], error) {
+	return c.setDNSBinding.CallUnary(ctx, req)
+}
+
+// RemoveDNSBinding calls xylona.Xylona.RemoveDNSBinding.
+func (c *xylonaClient) RemoveDNSBinding(ctx context.Context, req *connect.Request[xylona.RemoveDNSBindingRequest]) (*connect.Response[xylona.RemoveDNSBindingResponse], error) {
+	return c.removeDNSBinding.CallUnary(ctx, req)
+}
+
+// SyncDNSBinding calls xylona.Xylona.SyncDNSBinding.
+func (c *xylonaClient) SyncDNSBinding(ctx context.Context, req *connect.Request[xylona.SyncDNSBindingRequest]) (*connect.Response[xylona.SyncDNSBindingResponse], error) {
+	return c.syncDNSBinding.CallUnary(ctx, req)
+}
+
+// AdoptDNSBindingRecord calls xylona.Xylona.AdoptDNSBindingRecord.
+func (c *xylonaClient) AdoptDNSBindingRecord(ctx context.Context, req *connect.Request[xylona.AdoptDNSBindingRecordRequest]) (*connect.Response[xylona.AdoptDNSBindingRecordResponse], error) {
+	return c.adoptDNSBindingRecord.CallUnary(ctx, req)
 }
 
 // GetGameServerPlayerManagement calls xylona.Xylona.GetGameServerPlayerManagement.
@@ -2552,6 +2662,21 @@ func (c *xylonaClient) DisconnectGoogleMail(ctx context.Context, req *connect.Re
 	return c.disconnectGoogleMail.CallUnary(ctx, req)
 }
 
+// GetDNSProviderConnection calls xylona.Xylona.GetDNSProviderConnection.
+func (c *xylonaClient) GetDNSProviderConnection(ctx context.Context, req *connect.Request[xylona.GetDNSProviderConnectionRequest]) (*connect.Response[xylona.GetDNSProviderConnectionResponse], error) {
+	return c.getDNSProviderConnection.CallUnary(ctx, req)
+}
+
+// ListDNSProviderZones calls xylona.Xylona.ListDNSProviderZones.
+func (c *xylonaClient) ListDNSProviderZones(ctx context.Context, req *connect.Request[xylona.ListDNSProviderZonesRequest]) (*connect.Response[xylona.ListDNSProviderZonesResponse], error) {
+	return c.listDNSProviderZones.CallUnary(ctx, req)
+}
+
+// SetDNSProviderConnection calls xylona.Xylona.SetDNSProviderConnection.
+func (c *xylonaClient) SetDNSProviderConnection(ctx context.Context, req *connect.Request[xylona.SetDNSProviderConnectionRequest]) (*connect.Response[xylona.SetDNSProviderConnectionResponse], error) {
+	return c.setDNSProviderConnection.CallUnary(ctx, req)
+}
+
 // ListScheduledTasks calls xylona.Xylona.ListScheduledTasks.
 func (c *xylonaClient) ListScheduledTasks(ctx context.Context, req *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error) {
 	return c.listScheduledTasks.CallUnary(ctx, req)
@@ -2687,6 +2812,11 @@ type XylonaHandler interface {
 	GetOrCreateGameServerMapShareSettings(context.Context, *connect.Request[xylona.GetOrCreateGameServerMapShareSettingsRequest]) (*connect.Response[xylona.GetOrCreateGameServerMapShareSettingsResponse], error)
 	UpdateGameServerMapShareSettings(context.Context, *connect.Request[xylona.UpdateGameServerMapShareSettingsRequest]) (*connect.Response[xylona.UpdateGameServerMapShareSettingsResponse], error)
 	ResolvePublicGameServerMap(context.Context, *connect.Request[xylona.ResolvePublicGameServerMapRequest]) (*connect.Response[xylona.ResolvePublicGameServerMapResponse], error)
+	GetDNSBinding(context.Context, *connect.Request[xylona.GetDNSBindingRequest]) (*connect.Response[xylona.GetDNSBindingResponse], error)
+	SetDNSBinding(context.Context, *connect.Request[xylona.SetDNSBindingRequest]) (*connect.Response[xylona.SetDNSBindingResponse], error)
+	RemoveDNSBinding(context.Context, *connect.Request[xylona.RemoveDNSBindingRequest]) (*connect.Response[xylona.RemoveDNSBindingResponse], error)
+	SyncDNSBinding(context.Context, *connect.Request[xylona.SyncDNSBindingRequest]) (*connect.Response[xylona.SyncDNSBindingResponse], error)
+	AdoptDNSBindingRecord(context.Context, *connect.Request[xylona.AdoptDNSBindingRecordRequest]) (*connect.Response[xylona.AdoptDNSBindingRecordResponse], error)
 	GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error)
 	PerformGameServerPlayerAction(context.Context, *connect.Request[xylona.PerformGameServerPlayerActionRequest]) (*connect.Response[xylona.PerformGameServerPlayerActionResponse], error)
 	ListGameServerOperations(context.Context, *connect.Request[xylona.ListGameServerOperationsRequest]) (*connect.Response[xylona.ListGameServerOperationsResponse], error)
@@ -2785,6 +2915,10 @@ type XylonaHandler interface {
 	TestSystemSMTP(context.Context, *connect.Request[xylona.TestSystemSMTPRequest]) (*connect.Response[xylona.TestSystemSMTPResponse], error)
 	BeginGoogleMailOAuth(context.Context, *connect.Request[xylona.BeginGoogleMailOAuthRequest]) (*connect.Response[xylona.BeginGoogleMailOAuthResponse], error)
 	DisconnectGoogleMail(context.Context, *connect.Request[xylona.DisconnectGoogleMailRequest]) (*connect.Response[xylona.DisconnectGoogleMailResponse], error)
+	// DNS provider connection (superuser only)
+	GetDNSProviderConnection(context.Context, *connect.Request[xylona.GetDNSProviderConnectionRequest]) (*connect.Response[xylona.GetDNSProviderConnectionResponse], error)
+	ListDNSProviderZones(context.Context, *connect.Request[xylona.ListDNSProviderZonesRequest]) (*connect.Response[xylona.ListDNSProviderZonesResponse], error)
+	SetDNSProviderConnection(context.Context, *connect.Request[xylona.SetDNSProviderConnectionRequest]) (*connect.Response[xylona.SetDNSProviderConnectionResponse], error)
 	// Scheduled Tasks
 	ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error)
 	CreateScheduledTask(context.Context, *connect.Request[xylona.CreateScheduledTaskRequest]) (*connect.Response[xylona.CreateScheduledTaskResponse], error)
@@ -3208,6 +3342,36 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaResolvePublicGameServerMapProcedure,
 		svc.ResolvePublicGameServerMap,
 		connect.WithSchema(xylonaMethods.ByName("ResolvePublicGameServerMap")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetDNSBindingHandler := connect.NewUnaryHandler(
+		XylonaGetDNSBindingProcedure,
+		svc.GetDNSBinding,
+		connect.WithSchema(xylonaMethods.ByName("GetDNSBinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetDNSBindingHandler := connect.NewUnaryHandler(
+		XylonaSetDNSBindingProcedure,
+		svc.SetDNSBinding,
+		connect.WithSchema(xylonaMethods.ByName("SetDNSBinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaRemoveDNSBindingHandler := connect.NewUnaryHandler(
+		XylonaRemoveDNSBindingProcedure,
+		svc.RemoveDNSBinding,
+		connect.WithSchema(xylonaMethods.ByName("RemoveDNSBinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSyncDNSBindingHandler := connect.NewUnaryHandler(
+		XylonaSyncDNSBindingProcedure,
+		svc.SyncDNSBinding,
+		connect.WithSchema(xylonaMethods.ByName("SyncDNSBinding")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaAdoptDNSBindingRecordHandler := connect.NewUnaryHandler(
+		XylonaAdoptDNSBindingRecordProcedure,
+		svc.AdoptDNSBindingRecord,
+		connect.WithSchema(xylonaMethods.ByName("AdoptDNSBindingRecord")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetGameServerPlayerManagementHandler := connect.NewUnaryHandler(
@@ -3708,6 +3872,24 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("DisconnectGoogleMail")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaGetDNSProviderConnectionHandler := connect.NewUnaryHandler(
+		XylonaGetDNSProviderConnectionProcedure,
+		svc.GetDNSProviderConnection,
+		connect.WithSchema(xylonaMethods.ByName("GetDNSProviderConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaListDNSProviderZonesHandler := connect.NewUnaryHandler(
+		XylonaListDNSProviderZonesProcedure,
+		svc.ListDNSProviderZones,
+		connect.WithSchema(xylonaMethods.ByName("ListDNSProviderZones")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetDNSProviderConnectionHandler := connect.NewUnaryHandler(
+		XylonaSetDNSProviderConnectionProcedure,
+		svc.SetDNSProviderConnection,
+		connect.WithSchema(xylonaMethods.ByName("SetDNSProviderConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
 	xylonaListScheduledTasksHandler := connect.NewUnaryHandler(
 		XylonaListScheduledTasksProcedure,
 		svc.ListScheduledTasks,
@@ -3916,6 +4098,16 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaUpdateGameServerMapShareSettingsHandler.ServeHTTP(w, r)
 		case XylonaResolvePublicGameServerMapProcedure:
 			xylonaResolvePublicGameServerMapHandler.ServeHTTP(w, r)
+		case XylonaGetDNSBindingProcedure:
+			xylonaGetDNSBindingHandler.ServeHTTP(w, r)
+		case XylonaSetDNSBindingProcedure:
+			xylonaSetDNSBindingHandler.ServeHTTP(w, r)
+		case XylonaRemoveDNSBindingProcedure:
+			xylonaRemoveDNSBindingHandler.ServeHTTP(w, r)
+		case XylonaSyncDNSBindingProcedure:
+			xylonaSyncDNSBindingHandler.ServeHTTP(w, r)
+		case XylonaAdoptDNSBindingRecordProcedure:
+			xylonaAdoptDNSBindingRecordHandler.ServeHTTP(w, r)
 		case XylonaGetGameServerPlayerManagementProcedure:
 			xylonaGetGameServerPlayerManagementHandler.ServeHTTP(w, r)
 		case XylonaPerformGameServerPlayerActionProcedure:
@@ -4082,6 +4274,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaBeginGoogleMailOAuthHandler.ServeHTTP(w, r)
 		case XylonaDisconnectGoogleMailProcedure:
 			xylonaDisconnectGoogleMailHandler.ServeHTTP(w, r)
+		case XylonaGetDNSProviderConnectionProcedure:
+			xylonaGetDNSProviderConnectionHandler.ServeHTTP(w, r)
+		case XylonaListDNSProviderZonesProcedure:
+			xylonaListDNSProviderZonesHandler.ServeHTTP(w, r)
+		case XylonaSetDNSProviderConnectionProcedure:
+			xylonaSetDNSProviderConnectionHandler.ServeHTTP(w, r)
 		case XylonaListScheduledTasksProcedure:
 			xylonaListScheduledTasksHandler.ServeHTTP(w, r)
 		case XylonaCreateScheduledTaskProcedure:
@@ -4381,6 +4579,26 @@ func (UnimplementedXylonaHandler) UpdateGameServerMapShareSettings(context.Conte
 
 func (UnimplementedXylonaHandler) ResolvePublicGameServerMap(context.Context, *connect.Request[xylona.ResolvePublicGameServerMapRequest]) (*connect.Response[xylona.ResolvePublicGameServerMapResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ResolvePublicGameServerMap is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetDNSBinding(context.Context, *connect.Request[xylona.GetDNSBindingRequest]) (*connect.Response[xylona.GetDNSBindingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetDNSBinding is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetDNSBinding(context.Context, *connect.Request[xylona.SetDNSBindingRequest]) (*connect.Response[xylona.SetDNSBindingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetDNSBinding is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) RemoveDNSBinding(context.Context, *connect.Request[xylona.RemoveDNSBindingRequest]) (*connect.Response[xylona.RemoveDNSBindingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RemoveDNSBinding is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SyncDNSBinding(context.Context, *connect.Request[xylona.SyncDNSBindingRequest]) (*connect.Response[xylona.SyncDNSBindingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SyncDNSBinding is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) AdoptDNSBindingRecord(context.Context, *connect.Request[xylona.AdoptDNSBindingRecordRequest]) (*connect.Response[xylona.AdoptDNSBindingRecordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AdoptDNSBindingRecord is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetGameServerPlayerManagement(context.Context, *connect.Request[xylona.GetGameServerPlayerManagementRequest]) (*connect.Response[xylona.GetGameServerPlayerManagementResponse], error) {
@@ -4713,6 +4931,18 @@ func (UnimplementedXylonaHandler) BeginGoogleMailOAuth(context.Context, *connect
 
 func (UnimplementedXylonaHandler) DisconnectGoogleMail(context.Context, *connect.Request[xylona.DisconnectGoogleMailRequest]) (*connect.Response[xylona.DisconnectGoogleMailResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DisconnectGoogleMail is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetDNSProviderConnection(context.Context, *connect.Request[xylona.GetDNSProviderConnectionRequest]) (*connect.Response[xylona.GetDNSProviderConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetDNSProviderConnection is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ListDNSProviderZones(context.Context, *connect.Request[xylona.ListDNSProviderZonesRequest]) (*connect.Response[xylona.ListDNSProviderZonesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ListDNSProviderZones is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetDNSProviderConnection(context.Context, *connect.Request[xylona.SetDNSProviderConnectionRequest]) (*connect.Response[xylona.SetDNSProviderConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetDNSProviderConnection is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListScheduledTasks(context.Context, *connect.Request[xylona.ListScheduledTasksRequest]) (*connect.Response[xylona.ListScheduledTasksResponse], error) {

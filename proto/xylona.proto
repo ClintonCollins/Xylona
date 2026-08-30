@@ -83,6 +83,11 @@ service Xylona {
   rpc GetOrCreateGameServerMapShareSettings (GetOrCreateGameServerMapShareSettingsRequest) returns (GetOrCreateGameServerMapShareSettingsResponse) {}
   rpc UpdateGameServerMapShareSettings (UpdateGameServerMapShareSettingsRequest) returns (UpdateGameServerMapShareSettingsResponse) {}
   rpc ResolvePublicGameServerMap (ResolvePublicGameServerMapRequest) returns (ResolvePublicGameServerMapResponse) {}
+  rpc GetDNSBinding (GetDNSBindingRequest) returns (GetDNSBindingResponse) {}
+  rpc SetDNSBinding (SetDNSBindingRequest) returns (SetDNSBindingResponse) {}
+  rpc RemoveDNSBinding (RemoveDNSBindingRequest) returns (RemoveDNSBindingResponse) {}
+  rpc SyncDNSBinding (SyncDNSBindingRequest) returns (SyncDNSBindingResponse) {}
+  rpc AdoptDNSBindingRecord (AdoptDNSBindingRecordRequest) returns (AdoptDNSBindingRecordResponse) {}
   rpc GetGameServerPlayerManagement (GetGameServerPlayerManagementRequest) returns (GetGameServerPlayerManagementResponse) {}
   rpc PerformGameServerPlayerAction (PerformGameServerPlayerActionRequest) returns (PerformGameServerPlayerActionResponse) {}
   rpc ListGameServerOperations (ListGameServerOperationsRequest) returns (ListGameServerOperationsResponse) {}
@@ -195,6 +200,11 @@ service Xylona {
   rpc TestSystemSMTP (TestSystemSMTPRequest) returns (TestSystemSMTPResponse) {}
   rpc BeginGoogleMailOAuth (BeginGoogleMailOAuthRequest) returns (BeginGoogleMailOAuthResponse) {}
   rpc DisconnectGoogleMail (DisconnectGoogleMailRequest) returns (DisconnectGoogleMailResponse) {}
+
+  // DNS provider connection (superuser only)
+  rpc GetDNSProviderConnection (GetDNSProviderConnectionRequest) returns (GetDNSProviderConnectionResponse) {}
+  rpc ListDNSProviderZones (ListDNSProviderZonesRequest) returns (ListDNSProviderZonesResponse) {}
+  rpc SetDNSProviderConnection (SetDNSProviderConnectionRequest) returns (SetDNSProviderConnectionResponse) {}
 
   // Scheduled Tasks
   rpc ListScheduledTasks (ListScheduledTasksRequest) returns (ListScheduledTasksResponse) {}
@@ -1575,6 +1585,64 @@ message BeginGoogleMailOAuthResponse {
 message DisconnectGoogleMailRequest {}
 message DisconnectGoogleMailResponse {}
 
+// --- DNS Provider Connection ---
+
+enum DNSProviderKind {
+  DNS_PROVIDER_KIND_UNSPECIFIED = 0;
+  DNS_PROVIDER_KIND_CLOUDFLARE = 1;
+  DNS_PROVIDER_KIND_ROUTE53 = 2;
+}
+
+enum DNSCredentialMode {
+  DNS_CREDENTIAL_MODE_UNSPECIFIED = 0;
+  DNS_CREDENTIAL_MODE_CLOUDFLARE_API_TOKEN = 1;
+  DNS_CREDENTIAL_MODE_AWS_RUNTIME = 2;
+  DNS_CREDENTIAL_MODE_AWS_ACCESS_KEY = 3;
+}
+
+message DNSProviderConnectionInput {
+  DNSProviderKind provider = 1;
+  string zone_name = 2;
+  string zone_id = 3;
+  DNSCredentialMode credential_mode = 4;
+  string cloudflare_api_token = 5;
+  string aws_access_key_id = 6;
+  string aws_secret_access_key = 7;
+}
+
+message DNSProviderConnection {
+  DNSProviderKind provider = 1;
+  string zone_name = 2;
+  string zone_id = 3;
+  DNSCredentialMode credential_mode = 4;
+  bool credentials_configured = 5;
+}
+
+message DNSProviderZone {
+  string id = 1;
+  string name = 2;
+}
+
+message GetDNSProviderConnectionRequest {}
+message GetDNSProviderConnectionResponse {
+  DNSProviderConnection connection = 1;
+  bool configured = 2;
+}
+
+message ListDNSProviderZonesRequest {
+  DNSProviderConnectionInput candidate = 1;
+}
+message ListDNSProviderZonesResponse {
+  repeated DNSProviderZone zones = 1;
+}
+
+message SetDNSProviderConnectionRequest {
+  DNSProviderConnectionInput candidate = 1;
+}
+message SetDNSProviderConnectionResponse {
+  DNSProviderConnection connection = 1;
+}
+
 // --- Scheduled Tasks ---
 
 message ListScheduledTasksRequest {
@@ -1919,6 +1987,70 @@ message ResolvePublicGameServerMapRequest {
 
 message ResolvePublicGameServerMapResponse {
   GameServerMapKind kind = 1;
+}
+
+enum DNSRecordType {
+  DNS_RECORD_TYPE_UNSPECIFIED = 0;
+  DNS_RECORD_TYPE_A = 1;
+  DNS_RECORD_TYPE_AAAA = 2;
+}
+
+enum DNSSyncResult {
+  DNS_SYNC_RESULT_UNSPECIFIED = 0;
+  DNS_SYNC_RESULT_CREATED = 1;
+  DNS_SYNC_RESULT_UPDATED = 2;
+  DNS_SYNC_RESULT_UNCHANGED = 3;
+}
+
+message DNSBinding {
+  string game_server_id = 1;
+  string relative_name = 2;
+  string fully_qualified_name = 3;
+  DNSRecordType record_type = 4;
+  string bind_address = 5;
+  bool private_address = 6;
+  int32 ttl_seconds = 7;
+  bool owned = 8;
+  string owned_fully_qualified_name = 9;
+  DNSRecordType owned_record_type = 10;
+  string owned_value = 11;
+  int32 owned_ttl_seconds = 12;
+}
+
+message GetDNSBindingRequest {
+  string game_server_id = 1;
+}
+message GetDNSBindingResponse {
+  DNSBinding binding = 1;
+  bool configured = 2;
+}
+
+message SetDNSBindingRequest {
+  string game_server_id = 1;
+  string relative_name = 2;
+}
+message SetDNSBindingResponse {
+  DNSBinding binding = 1;
+}
+
+message RemoveDNSBindingRequest {
+  string game_server_id = 1;
+}
+message RemoveDNSBindingResponse {}
+
+message SyncDNSBindingRequest {
+  string game_server_id = 1;
+}
+message SyncDNSBindingResponse {
+  DNSBinding binding = 1;
+  DNSSyncResult result = 2;
+}
+
+message AdoptDNSBindingRecordRequest {
+  string game_server_id = 1;
+}
+message AdoptDNSBindingRecordResponse {
+  DNSBinding binding = 1;
 }
 
 message PalworldMapActor {

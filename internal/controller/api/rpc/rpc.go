@@ -82,6 +82,8 @@ type XylonaService struct {
 	remoteVersionRefreshCalls      map[string]*remoteVersionRefreshCall
 	gameOperationMu                sync.Mutex
 	gameOperationsInFlight         map[string]gameOperationInFlight
+	dnsMutationMu                  sync.Mutex
+	dnsProviderFactory             dnsProviderFactory
 	hytaleAuth                     *readiness.HytaleDeviceAuthManager
 	palworldMapTiles               PalworldMapTileInstaller
 	minecraftMapAssetSlots         chan struct{}

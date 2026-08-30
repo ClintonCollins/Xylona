@@ -20,6 +20,7 @@ func Where[Q sqlite.Filterable]() struct {
 	AlertHistories                    alertHistoryWhere[Q]
 	AlertRules                        alertRuleWhere[Q]
 	AlertStates                       alertStateWhere[Q]
+	DNSRecordBindings                 dnsRecordBindingWhere[Q]
 	Games                             gameWhere[Q]
 	GameServers                       gameServerWhere[Q]
 	GameServerBackups                 gameServerBackupWhere[Q]
@@ -59,6 +60,7 @@ func Where[Q sqlite.Filterable]() struct {
 		AlertHistories                    alertHistoryWhere[Q]
 		AlertRules                        alertRuleWhere[Q]
 		AlertStates                       alertStateWhere[Q]
+		DNSRecordBindings                 dnsRecordBindingWhere[Q]
 		Games                             gameWhere[Q]
 		GameServers                       gameServerWhere[Q]
 		GameServerBackups                 gameServerBackupWhere[Q]
@@ -97,6 +99,7 @@ func Where[Q sqlite.Filterable]() struct {
 		AlertHistories:                    buildAlertHistoryWhere[Q](AlertHistories.Columns),
 		AlertRules:                        buildAlertRuleWhere[Q](AlertRules.Columns),
 		AlertStates:                       buildAlertStateWhere[Q](AlertStates.Columns),
+		DNSRecordBindings:                 buildDNSRecordBindingWhere[Q](DNSRecordBindings.Columns),
 		Games:                             buildGameWhere[Q](Games.Columns),
 		GameServers:                       buildGameServerWhere[Q](GameServers.Columns),
 		GameServerBackups:                 buildGameServerBackupWhere[Q](GameServerBackups.Columns),

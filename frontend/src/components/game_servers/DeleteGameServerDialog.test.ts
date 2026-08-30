@@ -67,6 +67,7 @@ describe('DeleteGameServerDialog', () => {
     if (!deleteButton) {
       throw new Error('expected delete button')
     }
+    expect(wrapper.text()).toContain('DNS records remain at the provider')
 
     await Promise.all([deleteButton.trigger('click'), deleteButton.trigger('click')])
     await flushPromises()

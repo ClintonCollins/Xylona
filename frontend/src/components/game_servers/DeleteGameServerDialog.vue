@@ -17,6 +17,11 @@
             <span class="text-info">{{ gameServers.map((gs) => gs.name).join(', ') }}</span>
             <br />
             <br />
+            <span class="text-warning">
+              Any DNS records remain at the provider after their local bindings are removed.
+            </span>
+            <br />
+            <br />
             <span class="text-bold">This action cannot be undone.</span>
           </p>
         </div>

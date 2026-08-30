@@ -199,6 +199,7 @@ describe('GameServerSettingsForm submit flow', () => {
       global: {
         stubs: {
           GameServerFormShell: GameServerFormShellStub,
+          GameServerDnsBindingSettings: true,
         },
       },
     })

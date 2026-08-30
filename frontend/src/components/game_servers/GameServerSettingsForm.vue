@@ -42,6 +42,20 @@
           </span>
         </button>
         <button
+          v-if="canEditProvisioning"
+          :aria-current="activeCategory === 'dns' ? 'page' : undefined"
+          :class="{ 'is-active': activeCategory === 'dns' }"
+          class="settings-category-button"
+          data-testid="settings-category-dns"
+          type="button"
+          @click="selectSettingsCategory('dns')">
+          <q-icon name="dns" size="18px" />
+          <span>
+            DNS
+            <small>Manual record sync</small>
+          </span>
+        </button>
+        <button
           :aria-current="activeCategory === 'capacity' ? 'page' : undefined"
           :class="{ 'is-active': activeCategory === 'capacity' }"
           class="settings-category-button"
@@ -244,6 +258,15 @@
               reactive-rules
               type="number" />
           </div>
+        </section>
+
+        <section
+          v-if="canEditProvisioning"
+          v-show="activeCategory === 'dns'"
+          class="form-section form-section--last"
+          data-settings-category="dns"
+          data-testid="dns-binding-settings-section">
+          <game-server-dns-binding-settings :game-server-id="gameServerId" />
         </section>
 
         <game-server-provisioning-context
@@ -738,6 +761,7 @@ import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerFormShell from './GameServerFormShell.vue'
+import GameServerDnsBindingSettings from './GameServerDNSBindingSettings.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
 import { formatProtoTimestamp } from './game-server-access-utils'
 import { useGameServerFormState } from './useGameServerFormState'
@@ -774,7 +798,8 @@ const props = defineProps<{
   gameServerId: string
 }>()
 
-type SettingsCategory = 'general' | 'network' | 'capacity' | 'admin' | 'environment' | 'backups'
+type SettingsCategory =
+  'general' | 'network' | 'dns' | 'capacity' | 'admin' | 'environment' | 'backups'
 
 const settingsCategoryDetails: Record<
   SettingsCategory,
@@ -791,6 +816,12 @@ const settingsCategoryDetails: Record<
     description: 'Connection endpoints and process override.',
     scope: 'Saved with server',
     separate: false,
+  },
+  dns: {
+    title: 'DNS Binding',
+    description: 'Manually synchronize one DNS name to this game server.',
+    scope: 'Separate actions',
+    separate: true,
   },
   capacity: {
     title: 'Capacity & Recovery',

@@ -20,6 +20,7 @@ type preloaders struct {
 	AlertHistory                     alertHistoryPreloader
 	AlertRule                        alertRulePreloader
 	AlertState                       alertStatePreloader
+	DNSRecordBinding                 dnsRecordBindingPreloader
 	Game                             gamePreloader
 	GameServer                       gameServerPreloader
 	GameServerBackup                 gameServerBackupPreloader
@@ -57,6 +58,7 @@ func getPreloaders() preloaders {
 		AlertHistory:                     buildAlertHistoryPreloader(),
 		AlertRule:                        buildAlertRulePreloader(),
 		AlertState:                       buildAlertStatePreloader(),
+		DNSRecordBinding:                 buildDNSRecordBindingPreloader(),
 		Game:                             buildGamePreloader(),
 		GameServer:                       buildGameServerPreloader(),
 		GameServerBackup:                 buildGameServerBackupPreloader(),
@@ -100,6 +102,7 @@ type thenLoaders[Q orm.Loadable] struct {
 	AlertHistory                     alertHistoryThenLoader[Q]
 	AlertRule                        alertRuleThenLoader[Q]
 	AlertState                       alertStateThenLoader[Q]
+	DNSRecordBinding                 dnsRecordBindingThenLoader[Q]
 	Game                             gameThenLoader[Q]
 	GameServer                       gameServerThenLoader[Q]
 	GameServerBackup                 gameServerBackupThenLoader[Q]
@@ -137,6 +140,7 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		AlertHistory:                     buildAlertHistoryThenLoader[Q](),
 		AlertRule:                        buildAlertRuleThenLoader[Q](),
 		AlertState:                       buildAlertStateThenLoader[Q](),
+		DNSRecordBinding:                 buildDNSRecordBindingThenLoader[Q](),
 		Game:                             buildGameThenLoader[Q](),
 		GameServer:                       buildGameServerThenLoader[Q](),
 		GameServerBackup:                 buildGameServerBackupThenLoader[Q](),

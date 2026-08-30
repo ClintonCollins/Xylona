@@ -32,6 +32,7 @@ type joins[Q dialect.Joinable] struct {
 	AlertHistories                    joinSet[alertHistoryJoins[Q]]
 	AlertRules                        joinSet[alertRuleJoins[Q]]
 	AlertStates                       joinSet[alertStateJoins[Q]]
+	DNSRecordBindings                 joinSet[dnsRecordBindingJoins[Q]]
 	Games                             joinSet[gameJoins[Q]]
 	GameServers                       joinSet[gameServerJoins[Q]]
 	GameServerBackups                 joinSet[gameServerBackupJoins[Q]]
@@ -77,6 +78,7 @@ func getJoins[Q dialect.Joinable]() joins[Q] {
 		AlertHistories:                    buildJoinSet[alertHistoryJoins[Q]](AlertHistories.Columns, buildAlertHistoryJoins),
 		AlertRules:                        buildJoinSet[alertRuleJoins[Q]](AlertRules.Columns, buildAlertRuleJoins),
 		AlertStates:                       buildJoinSet[alertStateJoins[Q]](AlertStates.Columns, buildAlertStateJoins),
+		DNSRecordBindings:                 buildJoinSet[dnsRecordBindingJoins[Q]](DNSRecordBindings.Columns, buildDNSRecordBindingJoins),
 		Games:                             buildJoinSet[gameJoins[Q]](Games.Columns, buildGameJoins),
 		GameServers:                       buildJoinSet[gameServerJoins[Q]](GameServers.Columns, buildGameServerJoins),
 		GameServerBackups:                 buildJoinSet[gameServerBackupJoins[Q]](GameServerBackups.Columns, buildGameServerBackupJoins),

@@ -130,6 +130,7 @@ function mountSettingsForm(canEditProvisioning: boolean) {
         'q-spinner-dots': true,
         'q-inner-loading': true,
         'q-toggle': { template: '<input type="checkbox" />' },
+        GameServerDnsBindingSettings: true,
         'router-link': { template: '<a><slot /></a>' },
       },
     },
@@ -264,6 +265,8 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="editable-server-executable"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-max-players"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editable-max-memory"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="settings-category-dns"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dns-binding-settings-section"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="readonly-provisioning"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="backup-settings-enabled"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(true)
@@ -364,6 +367,8 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="editable-query-port"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-server-executable"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="editable-max-players"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="settings-category-dns"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="dns-binding-settings-section"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="backup-settings-readonly"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(false)
   })
