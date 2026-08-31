@@ -179,3 +179,24 @@ func TestRemoteEventBridgeRetainsLegacyPreviousStatus(t *testing.T) {
 	case <-time.After(50 * time.Millisecond):
 	}
 }
+
+func TestCurrentNodeOwnsProcess(t *testing.T) {
+	tests := []struct {
+		name         string
+		serverNodeID string
+		eventNodeID  string
+		want         bool
+	}{
+		{name: "current owner", serverNodeID: "node-a", eventNodeID: "node-a", want: true},
+		{name: "former node after reassignment", serverNodeID: "node-b", eventNodeID: "node-a", want: false},
+		{name: "missing server", serverNodeID: "", eventNodeID: "node-a", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := currentNodeOwnsProcess(test.serverNodeID, test.eventNodeID)
+			if got != test.want {
+				t.Fatalf("currentNodeOwnsProcess(%q, %q) = %v, want %v", test.serverNodeID, test.eventNodeID, got, test.want)
+			}
+		})
+	}
+}

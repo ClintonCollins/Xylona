@@ -173,6 +173,10 @@ func waitOrCancel(ctx context.Context, d time.Duration) bool {
 	}
 }
 
+func currentNodeOwnsProcess(serverNodeID, eventNodeID string) bool {
+	return serverNodeID != "" && serverNodeID == eventNodeID
+}
+
 // republish translates a node.Event into the controller's eventbus topics.
 // For EventTypeProcessStatus, v2 events carry authoritative lifecycle metadata
 // and are deduplicated across replay. Legacy events retain the previous-status
@@ -183,6 +187,12 @@ func (b *RemoteEventBridge) republish(
 	previousStatus map[string]string,
 	lifecycleCursors map[string]processLifecycleCursor,
 ) {
+	if ev.Type == node.EventTypeProcessStatus && b.db != nil {
+		gameServer, errServer := b.db.GetGameServerByID(ev.ProcessID)
+		if errServer != nil || !currentNodeOwnsProcess(gameServer.NodeID, nodeID) {
+			return
+		}
+	}
 	switch ev.Type {
 	case node.EventTypeProcessStatus:
 		newStatus := strings.ToUpper(strings.TrimSpace(ev.Status))

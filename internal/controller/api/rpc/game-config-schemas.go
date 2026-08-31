@@ -417,18 +417,46 @@ func updateGameServerConfigFile(
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("config file not found in schema"))
 	}
 
+	p, errGetParser := cfgschema.ParserForEntry(*schemaEntry)
+	if errGetParser != nil {
+		return nil, internalErrf("unsupported format")
+	}
+
+	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
+		Name:       gameServer.Name,
+		Directory:  gameServer.Directory,
+		IP:         gameServer.IP,
+		Port:       gameServer.Port,
+		QueryPort:  gameServer.QueryPort,
+		MaxPlayers: gameServer.MaxPlayers,
+	})
+
 	// Convert proto fields to service types.
 	var fields []cfgschema.FieldData
 	for _, pf := range msg.GetFields() {
+		source, isManaged := schemaEntry.ManagedFields[pf.GetKey()]
 		fd := cfgschema.FieldData{
-			Key:               pf.GetKey(),
-			Value:             pf.GetValue(),
-			Title:             pf.GetTitle(),
-			FieldType:         pf.GetFieldType(),
-			IsManaged:         pf.GetIsManaged(),
-			IsMissingFromFile: pf.GetIsMissingFromFile(),
-			AllowMultiple:     pf.GetAllowMultiple(),
-			Values:            pf.GetValues(),
+			Key:       pf.GetKey(),
+			Value:     pf.GetValue(),
+			Title:     pf.GetTitle(),
+			FieldType: pf.GetFieldType(),
+			IsManaged: isManaged,
+		}
+
+		prop, hasProp := schemaEntry.Schema.Properties[pf.GetKey()]
+		if hasProp && p.IsFlat() {
+			fd.AllowMultiple = prop.AllowMultiple
+		}
+		if fd.AllowMultiple {
+			fd.Values = pf.GetValues()
+		}
+
+		if isManaged {
+			resolvedValue, okResolved := resolver(source)
+			if !okResolved {
+				continue
+			}
+			fd.Value = resolvedValue
 		}
 		if pf.Minimum != nil {
 			fd.Minimum = pf.Minimum
@@ -460,12 +488,6 @@ func updateGameServerConfigFile(
 		}, nil
 	}
 
-	// Get parser.
-	p, errGetParser := cfgschema.ParserForEntry(*schemaEntry)
-	if errGetParser != nil {
-		return nil, internalErrf("unsupported format")
-	}
-
 	relativePath, errPath := sanitizeConfigRelativePath(schemaEntry.Path)
 	if errPath != nil {
 		return nil, errPath
@@ -476,8 +498,12 @@ func updateGameServerConfigFile(
 	// Convert advanced fields.
 	var advancedFields []cfgschema.AdvancedFieldData
 	for _, af := range msg.GetAdvancedFields() {
+		key := strings.TrimSpace(af.GetKey())
+		if advancedFieldCollidesWithSchema(key, schemaEntry.Schema, schemaEntry.ManagedFields, !p.IsFlat()) {
+			return nil, invalidArg("advanced field collides with a schema or managed field")
+		}
 		advancedFields = append(advancedFields, cfgschema.AdvancedFieldData{
-			Key:     af.GetKey(),
+			Key:     key,
 			Value:   af.GetValue(),
 			Section: af.GetSection(),
 		})
@@ -506,6 +532,43 @@ func updateGameServerConfigFile(
 			Success: true,
 		},
 	}, nil
+}
+
+func advancedFieldCollidesWithSchema(
+	key string,
+	schema cfgschema.SchemaDefinition,
+	managedFields map[string]string,
+	checkHierarchy bool,
+) bool {
+	if key == "" {
+		return false
+	}
+	_, inSchema := schema.Properties[key]
+	_, inManaged := managedFields[key]
+	if inSchema || inManaged {
+		return true
+	}
+	if !checkHierarchy {
+		return false
+	}
+	for propKey := range schema.Properties {
+		if structuredPathsRelated(key, propKey) {
+			return true
+		}
+	}
+	for managedKey := range managedFields {
+		if structuredPathsRelated(key, managedKey) {
+			return true
+		}
+	}
+	return false
+}
+
+func structuredPathsRelated(left, right string) bool {
+	if left == "" || right == "" {
+		return false
+	}
+	return strings.HasPrefix(left, right+".") || strings.HasPrefix(right, left+".")
 }
 
 var errParseConfigFile = errors.New("parse config file")

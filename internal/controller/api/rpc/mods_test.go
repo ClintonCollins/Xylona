@@ -7,14 +7,17 @@ import (
 	"math"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"github.com/aarondl/opt/omit"
 
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 type rpcMockModProvider struct {
@@ -237,5 +240,64 @@ func TestSearchModsRequiresServerPermission(t *testing.T) {
 	}
 	if connect.CodeOf(errSearch) != connect.CodePermissionDenied {
 		t.Fatalf("SearchMods() code = %v, want %v", connect.CodeOf(errSearch), connect.CodePermissionDenied)
+	}
+}
+
+func TestSetModAutoUpdateRejectsModFromAnotherServer(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	now := time.Now().UTC()
+	_, errServer := fixture.conn.SQLDb.ExecContext(
+		t.Context(),
+		`insert into game_server
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
+		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"server-local-2", "user-other", "Local Two", "minecraft", "OFFLINE",
+		10, 10, "world", "127.0.0.1", 25566, 25566, "/tmp/server-local-2", "node-local", "[]",
+	)
+	if errServer != nil {
+		t.Fatalf("insert second game server error = %v", errServer)
+	}
+
+	_, errInsert := fixture.conn.InsertInstalledMod(fixture.conn.DB, &models.InstalledModSetter{
+		ID:                 omit.From("mod-foreign"),
+		GameServerID:       omit.From("server-local-2"),
+		Source:             omit.From("modrinth"),
+		SourceID:           omit.From("src-foreign"),
+		ModName:            omit.From("ForeignMod"),
+		ModAuthor:          omit.From("Author"),
+		InstalledVersion:   omit.From("1.0.0"),
+		InstalledVersionID: omit.From("v1"),
+		FileHash:           omit.From("hash"),
+		AutoUpdate:         omit.From(int64(0)),
+		Enabled:            omit.From(int64(1)),
+		CreatedAt:          omit.From(now),
+		UpdatedAt:          omit.From(now),
+	})
+	if errInsert != nil {
+		t.Fatalf("InsertInstalledMod() error = %v", errInsert)
+	}
+
+	request := connect.NewRequest(&xylona.SetModAutoUpdateRequest{
+		GameServerId:   "server-local-1",
+		InstalledModId: "mod-foreign",
+		Enabled:        true,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errUpdate := fixture.service.SetModAutoUpdate(t.Context(), request)
+	if errUpdate == nil {
+		t.Fatal("SetModAutoUpdate() error = nil, want not found")
+	}
+	if connect.CodeOf(errUpdate) != connect.CodeNotFound {
+		t.Fatalf("SetModAutoUpdate() code = %v, want %v", connect.CodeOf(errUpdate), connect.CodeNotFound)
+	}
+
+	stored, errGet := fixture.conn.GetInstalledModByID("mod-foreign")
+	if errGet != nil {
+		t.Fatalf("GetInstalledModByID() error = %v", errGet)
+	}
+	if stored.AutoUpdate != 0 {
+		t.Fatalf("foreign mod AutoUpdate = %d, want 0", stored.AutoUpdate)
 	}
 }

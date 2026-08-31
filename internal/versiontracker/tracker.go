@@ -45,6 +45,21 @@ func NormalizeSteamBranch(branch string) string {
 	return normalized
 }
 
+// IsSafeSteamBranch reports whether branch is a single SteamCMD beta identifier.
+func IsSafeSteamBranch(branch string) bool {
+	if branch == "" {
+		return false
+	}
+	for _, r := range branch {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func versionsEqual(installed string, latest string) bool {
 	return normalizeVersion(installed) == normalizeVersion(latest)
 }

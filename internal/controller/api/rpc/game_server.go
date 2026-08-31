@@ -892,6 +892,9 @@ func (xs *XylonaService) UpdateGameServer(_ context.Context, request *connect.Re
 	if errors.Is(errUpdate, actions.ErrGameServerOperationInProgress) {
 		return nil, connect.NewError(connect.CodeAlreadyExists, errUpdate)
 	}
+	if errors.Is(errUpdate, actions.ErrInvalidSteamBranch) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errUpdate)
+	}
 	if errUpdate != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("start game server update: %w", errUpdate))
 	}

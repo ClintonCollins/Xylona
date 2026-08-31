@@ -249,6 +249,57 @@ func TestGetInstalledModByIDNotFound(t *testing.T) {
 	}
 }
 
+func TestGetInstalledModByIDAndGameServerID(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "imod-bound.sqlite")
+	seedInstalledModFixture(t, conn)
+
+	now := time.Now().UTC()
+	_, errServer := conn.SQLDb.ExecContext(
+		context.Background(),
+		`insert into game_server
+		 (id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
+		 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"server-local-2", "user-other", "Local Two", "minecraft", "OFFLINE",
+		10, 10, "world", "127.0.0.1", 25566, 25566, "/tmp/server-local-2", "node-local", "[]",
+	)
+	if errServer != nil {
+		t.Fatalf("insert second game server error = %v", errServer)
+	}
+
+	setter := &models.InstalledModSetter{
+		ID:                 omit.From("mod-bound"),
+		GameServerID:       omit.From("server-local-2"),
+		Source:             omit.From("modrinth"),
+		SourceID:           omit.From("src-bound"),
+		ModName:            omit.From("BoundMod"),
+		ModAuthor:          omit.From("Author"),
+		InstalledVersion:   omit.From("1.0.0"),
+		InstalledVersionID: omit.From("v1"),
+		FileHash:           omit.From("hash"),
+		AutoUpdate:         omit.From(int64(0)),
+		Enabled:            omit.From(int64(1)),
+		CreatedAt:          omit.From(now),
+		UpdatedAt:          omit.From(now),
+	}
+	_, errInsert := conn.InsertInstalledMod(conn.DB, setter)
+	if errInsert != nil {
+		t.Fatalf("InsertInstalledMod() error = %v", errInsert)
+	}
+
+	matched, errMatched := conn.GetInstalledModByIDAndGameServerID("mod-bound", "server-local-2")
+	if errMatched != nil {
+		t.Fatalf("GetInstalledModByIDAndGameServerID(matching) error = %v", errMatched)
+	}
+	if matched.ID != "mod-bound" {
+		t.Fatalf("GetInstalledModByIDAndGameServerID().ID = %q, want %q", matched.ID, "mod-bound")
+	}
+
+	_, errForeign := conn.GetInstalledModByIDAndGameServerID("mod-bound", "server-local-1")
+	if !errors.Is(errForeign, sql.ErrNoRows) {
+		t.Fatalf("GetInstalledModByIDAndGameServerID(foreign) error = %v, want %v", errForeign, sql.ErrNoRows)
+	}
+}
+
 func TestInsertAndGetInstalledModFiles(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "imod-files.sqlite")
 	seedInstalledModFixture(t, conn)

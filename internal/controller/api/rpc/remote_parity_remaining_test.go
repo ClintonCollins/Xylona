@@ -204,6 +204,279 @@ func TestUpdateGameServerConfigFileWritesRemoteNodeFile(t *testing.T) {
 	}
 }
 
+func TestUpdateGameServerConfigFileIgnoresClientManagedMetadata(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	updateGameConfigSchemasForRemoteParity(t, fixture, `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"server-port":"game_server.port","authentication token":"steam_gslt"},"schema":{"type":"object","properties":{"motd":{"type":"string"},"max-players":{"type":"integer","minimum":1,"maximum":20},"server-port":{"type":"integer","minimum":1,"maximum":65535},"authentication token":{"type":"string"}}}}]`)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-config")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		ReadFileResult: []byte("motd=Old MOTD\nmax-players=10\nserver-port=25565\nauthentication token=keep-secret\n"),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	invalidManagedRequest := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+		GameServerId: "server-remote-config",
+		FilePath:     "server.properties",
+		Fields: []*xylona.ConfigFieldData{
+			{Key: "motd", Value: "Kept MOTD"},
+			{Key: "max-players", Value: "99999", IsManaged: true},
+			{Key: "server-port", Value: "1", IsManaged: false},
+			{Key: "authentication token", Value: "stolen-token", IsManaged: true},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, invalidManagedRequest, "user-owner")
+
+	invalidResponse, errInvalid := fixture.service.UpdateGameServerConfigFile(context.Background(), invalidManagedRequest)
+	if errInvalid != nil {
+		t.Fatalf("UpdateGameServerConfigFile(invalid managed) error = %v", errInvalid)
+	}
+	if invalidResponse.Msg.GetSuccess() || len(invalidResponse.Msg.GetErrors()) == 0 {
+		t.Fatalf("UpdateGameServerConfigFile(invalid managed) = %+v, want validation errors", invalidResponse.Msg)
+	}
+	if len(remoteClient.WriteFileCalls) != 0 {
+		t.Fatalf("WriteFile call count after invalid managed flag = %d, want 0", len(remoteClient.WriteFileCalls))
+	}
+
+	validRequest := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+		GameServerId: "server-remote-config",
+		FilePath:     "server.properties",
+		Fields: []*xylona.ConfigFieldData{
+			{Key: "motd", Value: "New MOTD"},
+			{Key: "max-players", Value: "8"},
+			{Key: "server-port", Value: "1", IsManaged: false},
+			{Key: "authentication token", Value: "stolen-token", IsManaged: false},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, validRequest, "user-owner")
+
+	validResponse, errValid := fixture.service.UpdateGameServerConfigFile(context.Background(), validRequest)
+	if errValid != nil {
+		t.Fatalf("UpdateGameServerConfigFile(valid) error = %v", errValid)
+	}
+	if !validResponse.Msg.GetSuccess() {
+		t.Fatalf("UpdateGameServerConfigFile(valid) = %+v, want success", validResponse.Msg)
+	}
+	if len(remoteClient.WriteFileCalls) != 1 {
+		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	}
+	got := string(remoteClient.WriteFileCalls[0].Content)
+	if !strings.Contains(got, "motd=New MOTD") || !strings.Contains(got, "max-players=8") {
+		t.Fatalf("WriteFile content = %q", got)
+	}
+	if strings.Contains(got, "server-port=1") {
+		t.Fatalf("managed server-port used client value in %q", got)
+	}
+	if !strings.Contains(got, "authentication token=keep-secret") || strings.Contains(got, "stolen-token") {
+		t.Fatalf("unresolved managed token was not preserved in %q", got)
+	}
+}
+
+func TestUpdateGameServerConfigFileIgnoresClientAllowMultiple(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	updateGameConfigSchemasForRemoteParity(t, fixture, `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","properties":{"motd":{"type":"string"},"max-players":{"type":"integer","minimum":1,"maximum":20}}}}]`)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-config")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		ReadFileResult: []byte("motd=Old MOTD\nmax-players=10\n"),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	request := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+		GameServerId: "server-remote-config",
+		FilePath:     "server.properties",
+		Fields: []*xylona.ConfigFieldData{
+			{Key: "motd", Value: "New MOTD"},
+			{Key: "max-players", Value: "10", AllowMultiple: true, Values: []string{"99999"}},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	response, errUpdate := fixture.service.UpdateGameServerConfigFile(context.Background(), request)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameServerConfigFile() error = %v", errUpdate)
+	}
+	if !response.Msg.GetSuccess() {
+		t.Fatalf("UpdateGameServerConfigFile() = %+v, want success", response.Msg)
+	}
+	if len(remoteClient.WriteFileCalls) != 1 {
+		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	}
+	got := string(remoteClient.WriteFileCalls[0].Content)
+	if !strings.Contains(got, "max-players=10") || strings.Contains(got, "99999") {
+		t.Fatalf("WriteFile content = %q, want schema-validated max-players", got)
+	}
+}
+
+func TestUpdateGameServerConfigFileStructuredRequiredUsesValueNotAllowMultipleValues(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	updateGameConfigSchemasForRemoteParity(t, fixture, `[{"path":"config.json","format":"json","category":"Core","schema":{"type":"object","properties":{"name":{"type":"string","required":true,"x-allow-multiple":true}}}}]`)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-json-allow-multi")
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		ReadFileResult: []byte(`{"name":"old"}`),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	keptRequest := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+		GameServerId: "server-remote-json-allow-multi",
+		FilePath:     "config.json",
+		Fields: []*xylona.ConfigFieldData{
+			{Key: "name", Value: "kept", AllowMultiple: true, Values: []string{"kept", ""}},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, keptRequest, "user-owner")
+
+	keptResponse, errKept := fixture.service.UpdateGameServerConfigFile(context.Background(), keptRequest)
+	if errKept != nil {
+		t.Fatalf("UpdateGameServerConfigFile(kept) error = %v", errKept)
+	}
+	if !keptResponse.Msg.GetSuccess() {
+		t.Fatalf("UpdateGameServerConfigFile(kept) = %+v, want success", keptResponse.Msg)
+	}
+	if len(remoteClient.WriteFileCalls) != 1 {
+		t.Fatalf("WriteFile call count = %d, want 1", len(remoteClient.WriteFileCalls))
+	}
+	got := string(remoteClient.WriteFileCalls[0].Content)
+	if !strings.Contains(got, "kept") {
+		t.Fatalf("WriteFile content = %q, want Value kept", got)
+	}
+
+	emptyRequest := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+		GameServerId: "server-remote-json-allow-multi",
+		FilePath:     "config.json",
+		Fields: []*xylona.ConfigFieldData{
+			{Key: "name", Value: "", AllowMultiple: true, Values: []string{"kept", ""}},
+		},
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, emptyRequest, "user-owner")
+
+	emptyResponse, errEmpty := fixture.service.UpdateGameServerConfigFile(context.Background(), emptyRequest)
+	if errEmpty != nil {
+		t.Fatalf("UpdateGameServerConfigFile(empty) error = %v", errEmpty)
+	}
+	if emptyResponse.Msg.GetSuccess() {
+		t.Fatal("UpdateGameServerConfigFile(empty) succeeded, want required validation error")
+	}
+	if len(remoteClient.WriteFileCalls) != 1 {
+		t.Fatalf("WriteFile call count after empty Value = %d, want 1", len(remoteClient.WriteFileCalls))
+	}
+}
+
+func TestUpdateGameServerConfigFileRejectsAdvancedFieldsThatCollideWithSchema(t *testing.T) {
+	tests := []struct {
+		name         string
+		schema       string
+		serverID     string
+		filePath     string
+		fileContents string
+		fields       []*xylona.ConfigFieldData
+		advancedKey  string
+	}{
+		{
+			name:         "flat schema property",
+			schema:       `[{"path":"server.properties","format":"properties","category":"Core","schema":{"type":"object","properties":{"motd":{"type":"string"},"max-players":{"type":"integer","minimum":1,"maximum":20}}}}]`,
+			serverID:     "server-remote-adv-flat-schema",
+			filePath:     "server.properties",
+			fileContents: "motd=Old MOTD\nmax-players=10\n",
+			fields:       []*xylona.ConfigFieldData{{Key: "motd", Value: "New MOTD"}},
+			advancedKey:  "max-players",
+		},
+		{
+			name:         "flat managed field",
+			schema:       `[{"path":"server.properties","format":"properties","category":"Core","managed_fields":{"server-port":"game_server.port"},"schema":{"type":"object","properties":{"motd":{"type":"string"},"server-port":{"type":"integer"}}}}]`,
+			serverID:     "server-remote-adv-flat-managed",
+			filePath:     "server.properties",
+			fileContents: "motd=Old MOTD\nserver-port=25565\n",
+			fields:       []*xylona.ConfigFieldData{{Key: "motd", Value: "New MOTD"}},
+			advancedKey:  "server-port",
+		},
+		{
+			name:         "structured schema property",
+			schema:       windroseLikeJSONSchema(),
+			serverID:     "server-remote-adv-json-schema",
+			filePath:     windroseConfigPath,
+			fileContents: `{"ServerDescription_Persistent":{"ServerName":"Old Windrose","MaxPlayerCount":4,"UseDirectConnection":false,"DirectConnectionServerPort":7777}}`,
+			fields:       []*xylona.ConfigFieldData{{Key: "ServerDescription_Persistent.MaxPlayerCount", Value: "8"}},
+			advancedKey:  "ServerDescription_Persistent.ServerName",
+		},
+		{
+			name:         "structured managed field",
+			schema:       windroseLikeJSONSchema(),
+			serverID:     "server-remote-adv-json-managed",
+			filePath:     windroseConfigPath,
+			fileContents: `{"ServerDescription_Persistent":{"ServerName":"Old Windrose","MaxPlayerCount":4,"UseDirectConnection":false,"DirectConnectionServerPort":7777}}`,
+			fields:       []*xylona.ConfigFieldData{{Key: "ServerDescription_Persistent.ServerName", Value: "New Windrose"}},
+			advancedKey:  "ServerDescription_Persistent.DirectConnectionServerPort",
+		},
+		{
+			name:         "structured managed field with surrounding whitespace",
+			schema:       windroseLikeJSONSchema(),
+			serverID:     "server-remote-adv-json-managed-ws",
+			filePath:     windroseConfigPath,
+			fileContents: `{"ServerDescription_Persistent":{"ServerName":"Old Windrose","MaxPlayerCount":4,"UseDirectConnection":false,"DirectConnectionServerPort":7777}}`,
+			fields:       []*xylona.ConfigFieldData{{Key: "ServerDescription_Persistent.ServerName", Value: "New Windrose"}},
+			advancedKey:  " ServerDescription_Persistent.DirectConnectionServerPort ",
+		},
+		{
+			name:         "structured descendant of managed field",
+			schema:       windroseLikeJSONSchema(),
+			serverID:     "server-remote-adv-json-descendant",
+			filePath:     windroseConfigPath,
+			fileContents: `{"ServerDescription_Persistent":{"ServerName":"Old Windrose","MaxPlayerCount":4,"UseDirectConnection":false,"DirectConnectionServerPort":7777}}`,
+			fields:       []*xylona.ConfigFieldData{{Key: "ServerDescription_Persistent.ServerName", Value: "New Windrose"}},
+			advancedKey:  "ServerDescription_Persistent.DirectConnectionServerPort.child",
+		},
+		{
+			name:         "structured ancestor of managed field",
+			schema:       windroseLikeJSONSchema(),
+			serverID:     "server-remote-adv-json-ancestor",
+			filePath:     windroseConfigPath,
+			fileContents: `{"ServerDescription_Persistent":{"ServerName":"Old Windrose","MaxPlayerCount":4,"UseDirectConnection":false,"DirectConnectionServerPort":7777}}`,
+			fields:       []*xylona.ConfigFieldData{{Key: "ServerDescription_Persistent.ServerName", Value: "New Windrose"}},
+			advancedKey:  "ServerDescription_Persistent",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			updateGameConfigSchemasForRemoteParity(t, fixture, test.schema)
+			insertRemoteNodeForParityTests(t, fixture, "node-remote")
+			insertRemoteServerForParityTests(t, fixture, test.serverID)
+
+			remoteClient := &nodeclient.FakeNodeClient{
+				NodeID:         "node-remote",
+				ReadFileResult: []byte(test.fileContents),
+			}
+			fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+			request := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+				GameServerId: test.serverID,
+				FilePath:     test.filePath,
+				Fields:       test.fields,
+				AdvancedFields: []*xylona.AdvancedField{
+					{Key: test.advancedKey, Value: "attacker-controlled"},
+				},
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+			_, errUpdate := fixture.service.UpdateGameServerConfigFile(context.Background(), request)
+			if connect.CodeOf(errUpdate) != connect.CodeInvalidArgument {
+				t.Fatalf("UpdateGameServerConfigFile() code = %v, want %v (error %v)", connect.CodeOf(errUpdate), connect.CodeInvalidArgument, errUpdate)
+			}
+			if len(remoteClient.WriteFileCalls) != 0 {
+				t.Fatalf("WriteFile call count = %d, want 0", len(remoteClient.WriteFileCalls))
+			}
+		})
+	}
+}
+
 func TestGenerateGameServerConfigFileWritesRemoteDefaults(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	updateGameConfigSchemasForRemoteParity(t, fixture, `[{"path":"server.properties","format":"properties","category":"Core","generate_before_start":true,"schema":{"type":"object","properties":{"motd":{"type":"string","default":"Generated MOTD"}}}}]`)

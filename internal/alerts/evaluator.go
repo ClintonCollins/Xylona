@@ -13,9 +13,12 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-// RuleStore abstracts the DB methods the evaluator needs for fetching rules.
+// RuleStore abstracts the DB methods the evaluator needs for fetching rules
+// and re-authorizing their owners at delivery time.
 type RuleStore interface {
 	GetEnabledAlertRulesByEventType(eventType string) ([]*models.AlertRule, error)
+	CanDeliverServerAlert(userID string, serverID string) (bool, error)
+	CanDeliverNodeAlert(userID string) (bool, error)
 }
 
 // DeliveryJob represents a unit of work for the delivery workers. It contains
@@ -344,6 +347,15 @@ func processServerEvent(store RuleStore, eventType, serverID, serverNodeID strin
 		if !matchesServer(rule, serverID, serverNodeID) {
 			continue
 		}
+		allowed, errAuth := store.CanDeliverServerAlert(rule.UserID, serverID)
+		if errAuth != nil {
+			log.Warn().Err(errAuth).Str("rule_id", rule.ID).Msg("Failed to re-authorize alert rule owner, skipping rule")
+			continue
+		}
+		if !allowed {
+			continue
+		}
+
 		matches, errCond := evaluateCondition(rule.Condition, data)
 		if errCond != nil {
 			log.Warn().Err(errCond).Str("rule_id", rule.ID).Msg("Failed to evaluate condition, skipping rule")
@@ -381,6 +393,15 @@ func processNodeEvent(store RuleStore, eventType, nodeID string, data eventData,
 		if !matchesNode(rule, nodeID) {
 			continue
 		}
+		allowed, errAuth := store.CanDeliverNodeAlert(rule.UserID)
+		if errAuth != nil {
+			log.Warn().Err(errAuth).Str("rule_id", rule.ID).Msg("Failed to re-authorize node alert rule owner, skipping rule")
+			continue
+		}
+		if !allowed {
+			continue
+		}
+
 		matches, errCond := evaluateCondition(rule.Condition, data)
 		if errCond != nil {
 			log.Warn().Err(errCond).Str("rule_id", rule.ID).Msg("Failed to evaluate condition, skipping rule")

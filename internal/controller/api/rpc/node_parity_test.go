@@ -348,6 +348,42 @@ func TestRemoveNodeRejectsEmbeddedSelfNode(t *testing.T) {
 	}
 }
 
+func TestRemoveNodeUnregistersLiveClient(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	_, errInsert := fixture.conn.InsertNode(&models.NodeSetter{
+		ID:        omit.From("node-remote"),
+		Name:      omit.From("Remote Node"),
+		ListenURL: omit.From("https://node-remote.example.com"),
+		Enabled:   omit.From(true),
+	})
+	if errInsert != nil {
+		t.Fatalf("InsertNode() error = %v", errInsert)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{NodeID: "node-remote"}
+	registry := testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	fixture.service.nodeRegistry = registry
+
+	_, errGetBefore := registry.Get("node-remote")
+	if errGetBefore != nil {
+		t.Fatalf("Get(node-remote) before remove error = %v", errGetBefore)
+	}
+
+	request := connect.NewRequest(&xylona.RemoveNodeRequest{NodeId: "node-remote"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	_, errRemove := fixture.service.RemoveNode(t.Context(), request)
+	if errRemove != nil {
+		t.Fatalf("RemoveNode() error = %v", errRemove)
+	}
+
+	_, errGetAfter := registry.Get("node-remote")
+	if !errors.Is(errGetAfter, noderegistry.ErrNodeNotRegistered) {
+		t.Fatalf("Get(node-remote) after remove error = %v, want %v", errGetAfter, noderegistry.ErrNodeNotRegistered)
+	}
+}
+
 func TestEditNodeCancelsRuntimeSnapshotWithRequest(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	insertRemoteNodeForParityTests(t, fixture, "node-remote")

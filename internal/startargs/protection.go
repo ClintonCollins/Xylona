@@ -6,24 +6,63 @@ import (
 	"strings"
 )
 
-// IsProtectedServerPath reports whether a relative path targets protected binaries.
+// IsProtectedServerPath reports whether a relative path targets a protected
+// launch binary or an ancestor of one, including the server root when a
+// protection policy exists.
 func IsProtectedServerPath(relativePath string, baseCommand string, serverExecutable string) bool {
-	normalizedPath := normalizeRelativePath(relativePath)
-	if normalizedPath == "" {
+	executablePath := normalizeRelativePath(serverExecutable)
+	baseCommandPath := normalizeBaseCommandPath(baseCommand)
+	if executablePath == "" && baseCommandPath == "" {
 		return false
 	}
 
-	executablePath := normalizeRelativePath(serverExecutable)
-	if executablePath != "" && executablePath == normalizedPath {
+	normalizedPath := normalizeRelativePath(relativePath)
+	if normalizedPath == "" {
 		return true
 	}
-
-	baseCommandPath := normalizeBaseCommandPath(baseCommand)
-	if baseCommandPath != "" && baseCommandPath == normalizedPath {
+	if protectsPath(normalizedPath, executablePath) {
+		return true
+	}
+	if protectsPath(normalizedPath, baseCommandPath) {
 		return true
 	}
 
 	return false
+}
+
+// IsReservedManagedPath reports whether a relative path is inside Xylona's
+// managed BlueMap directory and must not be mutated through generic file APIs.
+func IsReservedManagedPath(relativePath string) bool {
+	normalizedPath := normalizeRelativePath(relativePath)
+	if normalizedPath == "" {
+		return false
+	}
+	if pathNamesEqual(normalizedPath, ".xylona") || pathNamesEqual(normalizedPath, ".xylona/bluemap") {
+		return true
+	}
+	return hasPathPrefixFold(normalizedPath, ".xylona/bluemap/")
+}
+
+func protectsPath(candidate string, protectedPath string) bool {
+	if protectedPath == "" {
+		return false
+	}
+	if pathNamesEqual(candidate, protectedPath) {
+		return true
+	}
+
+	return hasPathPrefixFold(protectedPath, candidate+"/")
+}
+
+func pathNamesEqual(left string, right string) bool {
+	return strings.EqualFold(left, right)
+}
+
+func hasPathPrefixFold(value string, prefix string) bool {
+	if prefix == "" || len(value) < len(prefix) {
+		return false
+	}
+	return strings.EqualFold(value[:len(prefix)], prefix)
 }
 
 func normalizeBaseCommandPath(baseCommand string) string {

@@ -46,3 +46,4 @@ data.sqlite
 /plans/
 /.impeccable
 /docs
+/WATCHDOG.yml

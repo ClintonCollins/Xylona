@@ -18,6 +18,9 @@ type executeTaskDBFake struct {
 	task       *models.ScheduledTask
 	gameServer *models.GameServer
 	node       *models.Node
+	user       *models.User
+
+	denyPermission bool
 
 	logCalls []scheduledTaskLogCall
 
@@ -102,6 +105,17 @@ func (db *executeTaskDBFake) GetNodeByID(_ string) (*models.Node, error) {
 		return nil, errors.New("node not configured")
 	}
 	return db.node, nil
+}
+
+func (db *executeTaskDBFake) GetUserByID(id string) (*models.User, error) {
+	if db.user != nil {
+		return db.user, nil
+	}
+	return &models.User{ID: id, SuperUser: true}, nil
+}
+
+func (db *executeTaskDBFake) UserHasPermissionOnServer(string, string, string) (bool, error) {
+	return !db.denyPermission, nil
 }
 
 type executeTaskActionsFake struct {
@@ -376,6 +390,56 @@ func TestExecuteTaskBackupPartialSuccessReportsPostBackupFailure(t *testing.T) {
 	}
 	if !db.lastRunSeen {
 		t.Fatal("expected last_run_at update to be written")
+	}
+}
+
+func TestExecuteTaskSkipsWhenCreatorLosesAccess(t *testing.T) {
+	now := time.Now().UTC()
+	task := &models.ScheduledTask{
+		ID:             "task-revoked",
+		GameServerID:   "server-1",
+		CreatedBy:      "user-other",
+		Name:           "Nightly Backup",
+		TaskType:       "backup",
+		CronExpression: "0 2 * * *",
+		Timezone:       "UTC",
+		Enabled:        1,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	gameServer := &models.GameServer{
+		ID:     "server-1",
+		UserID: "user-owner",
+		NodeID: "node-1",
+	}
+	db := &executeTaskDBFake{
+		task:           task,
+		gameServer:     gameServer,
+		node:           &models.Node{ID: "node-1", Enabled: true},
+		user:           &models.User{ID: "user-other", SuperUser: false},
+		denyPermission: true,
+	}
+	backupExecutor := &executeTaskBackupFake{
+		backup: &models.GameServerBackup{ID: "backup-1"},
+	}
+	s := &Scheduler{
+		ctx:     context.Background(),
+		db:      db,
+		actions: &executeTaskActionsFake{},
+		backup:  backupExecutor,
+		jobs:    map[string]uuid.UUID{},
+	}
+
+	s.executeTask(task.ID)
+
+	if len(backupExecutor.calls) != 0 {
+		t.Fatalf("backup executor call count = %d, want 0", len(backupExecutor.calls))
+	}
+	if len(db.logCalls) != 1 {
+		t.Fatalf("scheduled task log call count = %d, want 1", len(db.logCalls))
+	}
+	if db.logCalls[0].status != statusSkipped {
+		t.Fatalf("log status = %q, want %q", db.logCalls[0].status, statusSkipped)
 	}
 }
 

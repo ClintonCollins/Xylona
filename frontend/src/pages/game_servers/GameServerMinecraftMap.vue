@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
         :src="viewerURL"
         title="Minecraft live world map"
         referrerpolicy="no-referrer"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads" />
+        sandbox="allow-scripts allow-forms allow-popups allow-downloads" />
     </section>
 
     <section v-else class="minecraft-map-page__state">

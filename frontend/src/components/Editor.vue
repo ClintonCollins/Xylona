@@ -47,21 +47,19 @@
 </template>
 
 <script lang="ts" setup>
-import { create } from '@bufbuild/protobuf'
 import { QCard, useQuasar } from 'quasar'
+import type { editor as MonacoEditor } from 'monaco-editor'
+
 import loadCustomEditorSettings, {
   getLanguageFromFileName,
   LanguageOptions,
 } from '@/components/editor/editor'
 import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
-import {
-  GameServersFileEditRequest,
-  GameServersFileEditRequestSchema,
-} from '@/proto/gameserver_files_operations_pb'
-import { GetXylonaClient } from '@/utils/shared'
+import { uploadFormData } from '@/utils/upload'
 import { onMounted, onUnmounted, ref } from 'vue'
 
-type IStandaloneCodeEditor = import('monaco-editor').editor.IStandaloneCodeEditor
+type IStandaloneCodeEditor = MonacoEditor.IStandaloneCodeEditor
+
 
 const $q = useQuasar()
 
@@ -203,11 +201,12 @@ async function saveFile() {
   saving.value = true
   saveError.value = ''
   try {
-    const request: GameServersFileEditRequest = create(GameServersFileEditRequestSchema, {})
-    request.content = codeInput.value
-    request.fullFilePath = props.fullFilePath
-    request.gameServerId = props.gameServerId
-    await GetXylonaClient().gameServersFileEdit(request)
+    const directory = props.fullFilePath.replaceAll('\\', '/').split('/').slice(0, -1).join('/')
+    const formData = new FormData()
+    formData.append('gameServerId', props.gameServerId)
+    formData.append('path', directory)
+    formData.append('file', new File([codeInput.value], props.fileName))
+    await uploadFormData('/api/file/upload', formData)
     $q.notify({
       caption: `File ${props.fileName} saved successfully.`,
       type: 'xylona-success',

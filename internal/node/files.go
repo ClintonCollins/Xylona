@@ -40,6 +40,10 @@ var (
 // ProtectionPolicy for requests unrelated to a game server (the check is
 // then a no-op).
 func enforceProtection(relativePath string, policy ProtectionPolicy) error {
+	if startargs.IsReservedManagedPath(relativePath) {
+		log.Warn().Str("path", relativePath).Msg("node: rejected write to reserved managed path")
+		return ErrProtectedPath
+	}
 	if !policy.IsConfigured() {
 		return nil
 	}

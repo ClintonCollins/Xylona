@@ -142,6 +142,39 @@ func (c *Connection) GetEnabledAlertRulesByEventType(eventType string) ([]*model
 	return rules, nil
 }
 
+// CanDeliverServerAlert reports whether the rule owner may still receive
+// events for the given game server.
+func (c *Connection) CanDeliverServerAlert(userID string, serverID string) (bool, error) {
+	user, errUser := c.GetUserByID(userID)
+	if errUser != nil {
+		if errors.Is(errUser, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, errUser
+	}
+	gameServer, errServer := c.GetGameServerByID(serverID)
+	if errServer != nil {
+		if errors.Is(errServer, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, errServer
+	}
+	return HasPermission(c, user, serverID, gameServer.UserID, "game_server.view")
+}
+
+// CanDeliverNodeAlert reports whether the rule owner may still receive node
+// resource alerts. Live node snapshots are superuser-only.
+func (c *Connection) CanDeliverNodeAlert(userID string) (bool, error) {
+	user, errUser := c.GetUserByID(userID)
+	if errUser != nil {
+		if errors.Is(errUser, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, errUser
+	}
+	return user.SuperUser, nil
+}
+
 // UpdateAlertRule updates all mutable fields of an alert rule identified by id
 // and scoped to userID.
 func (c *Connection) UpdateAlertRule(id, userID, serverID, serverNodeID, nodeID, eventType, condition, channelID string, enabled bool) error {

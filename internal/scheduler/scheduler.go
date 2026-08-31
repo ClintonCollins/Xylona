@@ -29,6 +29,8 @@ type DB interface {
 	DeleteExpiredJoinTokens(cutoff time.Time) (int64, error)
 	GetGameServerByID(gameServerID string) (*models.GameServer, error)
 	GetNodeByID(id string) (*models.Node, error)
+	GetUserByID(id string) (*models.User, error)
+	UserHasPermissionOnServer(userID string, gameServerID string, permissionID string) (bool, error)
 }
 
 // ActionsExecutor abstracts the actions layer for game server lifecycle

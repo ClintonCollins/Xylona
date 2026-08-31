@@ -262,7 +262,7 @@ For a compiled binary:
 go build -o xylona ./cmd/xylona
 ```
 
-By default, the app listens only on `127.0.0.1:8080`. Set `HOST=0.0.0.0` to explicitly listen on all IPv4 interfaces, and use TLS directly or through a trusted reverse proxy before exposing the controller to a network.
+By default, the app listens only on `127.0.0.1:8080`. Set `HOST=0.0.0.0` to explicitly listen on all IPv4 interfaces, and use TLS directly or through a trusted reverse proxy before exposing the controller to a network. Minecraft live-map asset URLs include a short-lived path token; redact `/api/minecraft-map/view/` and `/api/minecraft-map/shared/` in reverse-proxy access logs (Xylona's application log already does).
 
 ### Frontend Workflow
 

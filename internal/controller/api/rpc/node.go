@@ -118,7 +118,11 @@ func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[
 	if errDelete != nil {
 		return nil, connect.NewError(connect.CodeInternal, errDelete)
 	}
+	if xs.nodeRegistry != nil {
+		xs.nodeRegistry.Remove(nodeID)
+	}
 	return connect.NewResponse(&xylona.RemoveNodeResponse{}), nil
+
 }
 
 // EditNode updates a configured node.

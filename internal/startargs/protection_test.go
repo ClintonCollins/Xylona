@@ -66,6 +66,76 @@ func TestIsProtectedServerPath(t *testing.T) {
 			serverExecutable: "",
 			want:             true,
 		},
+		{
+			name:             "ancestor of executable is protected",
+			relativePath:     "bin",
+			baseCommand:      "java",
+			serverExecutable: "bin/server.exe",
+			want:             true,
+		},
+		{
+			name:             "server root is protected when executable policy exists",
+			relativePath:     "",
+			baseCommand:      "java",
+			serverExecutable: "paper-1.21.4-100.jar",
+			want:             true,
+		},
+		{
+			name:             "dot root is protected when executable policy exists",
+			relativePath:     ".",
+			baseCommand:      "java",
+			serverExecutable: "paper-1.21.4-100.jar",
+			want:             true,
+		},
+		{
+			name:             "ancestor of relative base command is protected",
+			relativePath:     "scripts",
+			baseCommand:      "{{INSTALL_DIR}}/scripts/custom-start.sh",
+			serverExecutable: "",
+			want:             true,
+		},
+		{
+			name:             "sibling directory is not protected",
+			relativePath:     "plugins",
+			baseCommand:      "java",
+			serverExecutable: "bin/server.exe",
+			want:             false,
+		},
+		{
+			name:             "prefix-named sibling of executable directory is not protected",
+			relativePath:     "bin2",
+			baseCommand:      "java",
+			serverExecutable: "bin/server.exe",
+			want:             false,
+		},
+		{
+			name:             "root is not protected when no policy exists",
+			relativePath:     "",
+			baseCommand:      "java",
+			serverExecutable: "",
+			want:             false,
+		},
+		{
+			name:             "case-variant ancestor is protected",
+			relativePath:     "BIN",
+			baseCommand:      "java",
+			serverExecutable: "bin/server.exe",
+			want:             true,
+		},
+		{
+			name:             "case-variant executable is protected",
+			relativePath:     "bin/SERVER.EXE",
+			baseCommand:      "java",
+			serverExecutable: "bin/server.exe",
+			want:             true,
+		},
+		{
+			name:             "case-variant prefix sibling is not protected",
+			relativePath:     "BIN2",
+			baseCommand:      "java",
+			serverExecutable: "bin/server.exe",
+			want:             false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -73,6 +143,30 @@ func TestIsProtectedServerPath(t *testing.T) {
 			got := IsProtectedServerPath(tt.relativePath, tt.baseCommand, tt.serverExecutable)
 			if got != tt.want {
 				t.Errorf("IsProtectedServerPath() = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsReservedManagedPath(t *testing.T) {
+	tests := []struct {
+		name         string
+		relativePath string
+		want         bool
+	}{
+		{name: "managed BlueMap directory", relativePath: ".xylona/bluemap", want: true},
+		{name: "managed BlueMap web asset", relativePath: ".xylona/bluemap/web/index.html", want: true},
+		{name: "managed xylona root", relativePath: ".xylona", want: true},
+		{name: "case-variant managed xylona root", relativePath: ".XYLONA", want: true},
+		{name: "case-variant managed BlueMap asset", relativePath: ".Xylona/BlueMap/web/index.html", want: true},
+		{name: "world files are not reserved", relativePath: "world/level.dat", want: false},
+		{name: "empty path is not reserved", relativePath: "", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsReservedManagedPath(tt.relativePath)
+			if got != tt.want {
+				t.Errorf("IsReservedManagedPath(%q) = %t, want %t", tt.relativePath, got, tt.want)
 			}
 		})
 	}

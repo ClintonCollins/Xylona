@@ -64,6 +64,14 @@ func getServerModInfo(xs *XylonaService, gameServerID string) (*serverModInfo, e
 	}, nil
 }
 
+func (xs *XylonaService) getInstalledModForServer(installedModID string, gameServerID string) (*models.InstalledMod, error) {
+	mod, errGet := xs.db.GetInstalledModByIDAndGameServerID(installedModID, gameServerID)
+	if errGet != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("installed mod not found"))
+	}
+	return mod, nil
+}
+
 // getInstallPath returns the install path from the effective mod profile.
 func getInstallPath(profile *updateproviders.ModProfile) string {
 	if profile == nil || profile.InstallPath == "" {
@@ -438,6 +446,11 @@ func (xs *XylonaService) UninstallMod(
 		return nil, errPerm
 	}
 
+	_, errMod := xs.getInstalledModForServer(request.Msg.GetInstalledModId(), gameServer.ID)
+	if errMod != nil {
+		return nil, errMod
+	}
+
 	nodeClient, errNodeClient := xs.resolveNodeClient(gameServer)
 	if errNodeClient != nil {
 		return nil, errNodeClient
@@ -472,6 +485,11 @@ func (xs *XylonaService) UpdateMod(
 	errPerm := xs.ensureLocalServerPermission(user, gameServer, PermissionGameServerMods)
 	if errPerm != nil {
 		return nil, errPerm
+	}
+
+	_, errMod := xs.getInstalledModForServer(request.Msg.GetInstalledModId(), gameServer.ID)
+	if errMod != nil {
+		return nil, errMod
 	}
 
 	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(gameServer)
@@ -555,9 +573,9 @@ func (xs *XylonaService) SetModAutoUpdate(
 		return nil, errPerm
 	}
 
-	mod, errGet := xs.db.GetInstalledModByID(request.Msg.GetInstalledModId())
+	mod, errGet := xs.getInstalledModForServer(request.Msg.GetInstalledModId(), gameServer.ID)
 	if errGet != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("installed mod not found"))
+		return nil, errGet
 	}
 
 	autoUpdateVal := int64(0)
@@ -601,6 +619,11 @@ func (xs *XylonaService) SetModEnabled(
 	errPerm := xs.ensureLocalServerPermission(user, info.gameServer, PermissionGameServerMods)
 	if errPerm != nil {
 		return nil, errPerm
+	}
+
+	_, errMod := xs.getInstalledModForServer(request.Msg.GetInstalledModId(), info.gameServer.ID)
+	if errMod != nil {
+		return nil, errMod
 	}
 
 	if info.modProfile == nil {
@@ -687,9 +710,9 @@ func (xs *XylonaService) PinModVersion(
 		return nil, errPerm
 	}
 
-	mod, errGet := xs.db.GetInstalledModByID(request.Msg.GetInstalledModId())
+	mod, errGet := xs.getInstalledModForServer(request.Msg.GetInstalledModId(), gameServer.ID)
 	if errGet != nil {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("installed mod not found"))
+		return nil, errGet
 	}
 
 	version := request.Msg.GetVersion()

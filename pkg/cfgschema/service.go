@@ -451,9 +451,9 @@ func MergeAndWrite(
 
 	for _, e := range existingEntries {
 		fd, inSchema := fieldValues[e.Key]
+		emitted := emittedFieldValues(fd)
 		switch {
 		case inSchema && !updated[e.Key] && fd.IsManaged:
-			// Managed fields keep their resolved values.
 			result = append(result, cfgparse.ConfigEntry{
 				Key:     e.Key,
 				Value:   fd.Value,
@@ -462,20 +462,18 @@ func MergeAndWrite(
 				Comment: e.Comment,
 			})
 			updated[e.Key] = true
-		case inSchema && !updated[e.Key] && fd.AllowMultiple && len(fd.Values) > 0:
-			// Write all values for allow-multiple fields.
-			for i, v := range fd.Values {
+		case inSchema && !updated[e.Key] && fd.AllowMultiple && len(emitted) > 0:
+			for i, v := range emitted {
+				comment := ""
+				if i == 0 {
+					comment = e.Comment
+				}
 				result = append(result, cfgparse.ConfigEntry{
 					Key:     e.Key,
 					Value:   v,
 					Index:   i,
 					Section: e.Section,
-					Comment: func() string {
-						if i == 0 {
-							return e.Comment
-						}
-						return ""
-					}(),
+					Comment: comment,
 				})
 			}
 			updated[e.Key] = true
@@ -488,6 +486,7 @@ func MergeAndWrite(
 				Comment: e.Comment,
 			})
 			updated[e.Key] = true
+
 		case inSchema && updated[e.Key]:
 			// Skip duplicate entries for keys we've already processed
 			// (unless allow-multiple, handled above).
@@ -520,15 +519,26 @@ func MergeAndWrite(
 		if updated[fd.Key] || fd.IsManaged {
 			continue
 		}
-		if fd.IsMissingFromFile && fd.Value != "" {
+		for _, value := range emittedFieldValues(fd) {
+			if value == "" {
+				continue
+			}
 			result = append(result, cfgparse.ConfigEntry{
 				Key:   fd.Key,
-				Value: fd.Value,
+				Value: value,
 			})
 		}
+
 	}
 
 	return result
+}
+
+func emittedFieldValues(f FieldData) []string {
+	if f.AllowMultiple && len(f.Values) > 0 {
+		return f.Values
+	}
+	return []string{f.Value}
 }
 
 // ValidationError represents a validation failure for a single field.
@@ -539,6 +549,7 @@ type ValidationError struct {
 
 // ValidateFields validates field values against their schema constraints.
 func ValidateFields(fields []FieldData, schema SchemaDefinition) []ValidationError {
+
 	var errs []ValidationError
 
 	for _, f := range fields {
@@ -552,57 +563,57 @@ func ValidateFields(fields []FieldData, schema SchemaDefinition) []ValidationErr
 			continue
 		}
 
-		value := f.Value
+		emitted := emittedFieldValues(f)
+		hasValue := false
+		for _, value := range emitted {
+			if value == "" {
+				continue
+			}
+			hasValue = true
+			errs = append(errs, validateFieldValue(f.Key, value, prop)...)
+		}
 
-		// Required check.
-		if prop.Required && value == "" {
+		if prop.Required && !hasValue {
 			errs = append(errs, ValidationError{
 				Field:   f.Key,
 				Message: "field is required",
 			})
-			continue
 		}
-
-		if value == "" {
-			continue
-		}
-
-		// Type-specific validation.
-		switch prop.Type {
-		case "integer":
-			n, errParse := strconv.ParseInt(value, 10, 64)
-			if errParse != nil {
-				errs = append(errs, ValidationError{
-					Field:   f.Key,
-					Message: fmt.Sprintf("invalid integer: %s", value),
-				})
-				continue
-			}
-			if prop.Minimum != nil && n < *prop.Minimum {
-				errs = append(errs, ValidationError{
-					Field:   f.Key,
-					Message: fmt.Sprintf("value %d is below minimum %d", n, *prop.Minimum),
-				})
-			}
-			if prop.Maximum != nil && n > *prop.Maximum {
-				errs = append(errs, ValidationError{
-					Field:   f.Key,
-					Message: fmt.Sprintf("value %d exceeds maximum %d", n, *prop.Maximum),
-				})
-			}
-
-		case "string":
-			if prop.MaxLength != nil && helpers.ClampInt32FromInt(len(value)) > *prop.MaxLength {
-				errs = append(errs, ValidationError{
-					Field:   f.Key,
-					Message: fmt.Sprintf("value length %d exceeds maximum %d", len(value), *prop.MaxLength),
-				})
-			}
-		}
-
-		// Enum values are suggestions, not constraints. Mods and plugins may
-		// require values outside the predefined list, so we do not reject them.
 	}
 
+	return errs
+}
+
+func validateFieldValue(field string, value string, prop SchemaProperty) []ValidationError {
+	var errs []ValidationError
+	switch prop.Type {
+	case "integer":
+		n, errParse := strconv.ParseInt(value, 10, 64)
+		if errParse != nil {
+			return []ValidationError{{
+				Field:   field,
+				Message: fmt.Sprintf("invalid integer: %s", value),
+			}}
+		}
+		if prop.Minimum != nil && n < *prop.Minimum {
+			errs = append(errs, ValidationError{
+				Field:   field,
+				Message: fmt.Sprintf("value %d is below minimum %d", n, *prop.Minimum),
+			})
+		}
+		if prop.Maximum != nil && n > *prop.Maximum {
+			errs = append(errs, ValidationError{
+				Field:   field,
+				Message: fmt.Sprintf("value %d exceeds maximum %d", n, *prop.Maximum),
+			})
+		}
+	case "string":
+		if prop.MaxLength != nil && helpers.ClampInt32FromInt(len(value)) > *prop.MaxLength {
+			errs = append(errs, ValidationError{
+				Field:   field,
+				Message: fmt.Sprintf("value length %d exceeds maximum %d", len(value), *prop.MaxLength),
+			})
+		}
+	}
 	return errs
 }

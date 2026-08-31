@@ -48,7 +48,10 @@ func validateWritableServerPath(gameServer *models.GameServer, relativePath stri
 	if errPath != nil {
 		return "", errPath
 	}
-
+	if startargs.IsReservedManagedPath(trimmedPath) {
+		log.Warn().Str("Game Server ID", gameServer.ID).Str("path", trimmedPath).Msg("Blocked mutation of reserved managed path")
+		return "", ErrProtectedPath
+	}
 	if startargs.IsProtectedServerPath(trimmedPath, baseCommandForProtectedPath(gameServer), gameServer.ServerExecutable.GetOr("")) {
 		log.Warn().Str("Game Server ID", gameServer.ID).Str("path", trimmedPath).Msg("Blocked mutation of protected server path")
 		return "", ErrProtectedPath

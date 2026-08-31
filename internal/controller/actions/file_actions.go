@@ -269,6 +269,10 @@ func (inst *Instance) saveUploadedGameServerFile(gameServer *models.GameServer, 
 	}
 
 	protectedRelativePath := path.Join(validatedPath, sanitizedFileName)
+	if startargs.IsReservedManagedPath(protectedRelativePath) {
+		log.Warn().Str("Game Server ID", gameServer.ID).Str("path", protectedRelativePath).Msg("Blocked mutation of reserved managed path")
+		return ErrProtectedPath
+	}
 	policy := remoteFileProtectionPolicy(gameServer)
 	if allowProtectedPaths {
 		policy = node.ProtectionPolicy{}

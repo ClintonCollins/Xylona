@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import Editor from './Editor.vue'
 
 const mocks = vi.hoisted(() => ({
-  editFile: vi.fn(),
+  uploadFormData: vi.fn(),
   notify: vi.fn(),
 }))
 
@@ -16,13 +16,13 @@ vi.mock('quasar', async () => {
   }
 })
 
-vi.mock('@/utils/shared', () => ({
-  GetXylonaClient: () => ({ gameServersFileEdit: mocks.editFile }),
+vi.mock('@/utils/upload', () => ({
+  uploadFormData: mocks.uploadFormData,
 }))
 
 describe('Editor', () => {
   afterEach(() => {
-    mocks.editFile.mockReset()
+    mocks.uploadFormData.mockReset()
     mocks.notify.mockReset()
   })
 
@@ -41,14 +41,14 @@ describe('Editor', () => {
       saveFile: () => Promise<void>
     }
 
-    mocks.editFile.mockRejectedValueOnce(new Error('node unavailable'))
+    mocks.uploadFormData.mockRejectedValueOnce(new Error('node unavailable'))
     await viewModel.saveFile()
 
     expect(wrapper.emitted('submit')).toBeUndefined()
     expect(viewModel.codeInput).toBe('server-port=25565')
     expect(viewModel.saveError).toContain('node unavailable')
 
-    mocks.editFile.mockResolvedValueOnce({})
+    mocks.uploadFormData.mockResolvedValueOnce(undefined)
     await viewModel.saveFile()
 
     expect(wrapper.emitted('submit')).toHaveLength(1)
@@ -58,6 +58,13 @@ describe('Editor', () => {
       expect.objectContaining({ caption: 'File server.properties saved successfully.' }),
     )
     expect(mocks.notify.mock.calls.at(-1)?.[0]).not.toHaveProperty('html')
+    expect(mocks.uploadFormData).toHaveBeenLastCalledWith('/api/file/upload', expect.any(FormData))
+    const savedForm = mocks.uploadFormData.mock.calls.at(-1)?.[1] as FormData
+    expect(savedForm.get('gameServerId')).toBe('server-1')
+    expect(savedForm.get('path')).toBe('config')
+    const savedFile = savedForm.get('file')
+    expect(savedFile).toBeInstanceOf(File)
+    expect((savedFile as File).name).toBe('server.properties')
 
     wrapper.unmount()
   })

@@ -10,6 +10,8 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
+	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -129,5 +131,39 @@ func TestSetServerSoftwareUsesLiveNodeStatus(t *testing.T) {
 	}
 	if got := updatedServer.ServerSoftware.GetOr(""); got != "paper" {
 		t.Fatalf("updated server software = %q, want %q", got, "paper")
+	}
+}
+
+func TestSetServerVariantRejectsSteamInjectionTarget(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	fixture.service.installTracker = modmanager.NewInstallTracker()
+	fixture.service.nodeRegistry = noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+
+	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+		ID:     omit.From("server-local-1"),
+		GameID: omit.From("7_days_to_die"),
+		Branch: omit.From("public"),
+	})
+	if errUpdateServer != nil {
+		t.Fatalf("UpdateGameServer() setup error = %v", errUpdateServer)
+	}
+
+	request := connect.NewRequest(&xylona.SetServerVariantRequest{
+		GameServerId: "server-local-1",
+		Target:       "latest +force_install_dir /tmp/pwn",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errSet := fixture.service.SetServerVariant(context.Background(), request)
+	if connect.CodeOf(errSet) != connect.CodeInvalidArgument {
+		t.Fatalf("SetServerVariant() code = %v, want %v (error %v)", connect.CodeOf(errSet), connect.CodeInvalidArgument, errSet)
+	}
+
+	gameServer, errGetServer := fixture.conn.GetGameServerByID("server-local-1")
+	if errGetServer != nil {
+		t.Fatalf("GetGameServerByID() error = %v", errGetServer)
+	}
+	if gameServer.Branch != "public" {
+		t.Fatalf("GetGameServerByID().Branch = %q, want unchanged %q", gameServer.Branch, "public")
 	}
 }

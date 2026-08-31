@@ -34,6 +34,19 @@ func (c *Connection) GetInstalledModByID(id string) (*models.InstalledMod, error
 	return mod, nil
 }
 
+// GetInstalledModByIDAndGameServerID fetches an installed mod only when it
+// belongs to the given game server.
+func (c *Connection) GetInstalledModByIDAndGameServerID(id string, gameServerID string) (*models.InstalledMod, error) {
+	mod, errGet := c.GetInstalledModByID(id)
+	if errGet != nil {
+		return nil, errGet
+	}
+	if mod.GameServerID != gameServerID {
+		return nil, fmt.Errorf("get installed mod by ID and game server ID: %w", sql.ErrNoRows)
+	}
+	return mod, nil
+}
+
 // GetInstalledModsByGameServerID fetches all installed mods for a game server.
 func (c *Connection) GetInstalledModsByGameServerID(gameServerID string) ([]*models.InstalledMod, error) {
 	mods, errGet := models.InstalledMods.Query(models.SelectWhere.InstalledMods.GameServerID.EQ(gameServerID)).All(c.ctx, c.DB)

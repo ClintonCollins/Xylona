@@ -17,11 +17,13 @@ import (
 	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
+	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
@@ -202,7 +204,11 @@ func (xs *XylonaService) SetServerVariant(
 			persistedTarget,
 			persistedTargetPinned,
 			omitnull.Val[string]{},
+			resolved.Provider.Kind,
 		)
+		if errors.Is(errUpdate, actions.ErrInvalidSteamBranch) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errUpdate)
+		}
 		if errUpdate != nil {
 			return nil, internalErrf("failed to update variant")
 		}
@@ -427,6 +433,7 @@ func (xs *XylonaService) applyVariantDownload(
 		persistedTarget,
 		persistedTargetPinned,
 		executableSetterValue(newExecutable),
+		resolved.Provider.Kind,
 	)
 	if errUpdate != nil {
 		xs.installTracker.SetFailed(gameServer.ID, errUpdate.Error())
@@ -655,7 +662,14 @@ func (xs *XylonaService) persistVariantSelection(
 	target string,
 	targetPinned bool,
 	executable omitnull.Val[string],
+	kind updateproviders.ProviderKind,
 ) (*models.GameServer, error) {
+	if kind == updateproviders.ProviderKindSteamCMD {
+		trimmedTarget := strings.TrimSpace(target)
+		if trimmedTarget != "" && !versiontracker.IsSafeSteamBranch(trimmedTarget) {
+			return nil, actions.ErrInvalidSteamBranch
+		}
+	}
 	setter := &models.GameServerSetter{
 		ID:             omit.From(gameServer.ID),
 		ServerSoftware: omitnull.FromNull(null.FromCond(strings.TrimSpace(variantID), strings.TrimSpace(variantID) != "")),

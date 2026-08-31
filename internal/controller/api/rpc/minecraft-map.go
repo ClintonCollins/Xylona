@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -25,23 +26,52 @@ import (
 
 const (
 	minecraftGameID = "minecraft"
-	// MinecraftMapViewerPathPrefix is the session-authenticated BlueMap asset route.
+	// MinecraftMapViewerPathPrefix is the cookie-free BlueMap viewer asset route.
 	MinecraftMapViewerPathPrefix = "/api/minecraft-map/view"
-	// MinecraftMapSharedPathPrefix is the public canonical-link BlueMap asset route.
+	// MinecraftMapSharedPathPrefix is the cookie-free public BlueMap asset route.
 	MinecraftMapSharedPathPrefix = "/api/minecraft-map/shared"
 	minecraftMapNodeProtocol     = 8
 	minecraftMapDefaultWorldName = "world"
-	minecraftMapShareCookieName  = "xylona_minecraft_map_share"
-	minecraftMapShareGrantName   = "minecraft-map-share"
-	minecraftMapShareGrantTTL    = 15 * time.Minute
+	minecraftMapPathGrantName    = "minecraft-map-path"
+	minecraftMapPathGrantTTL     = 60 * time.Minute
+	minecraftMapPathKindView     = "view"
+	minecraftMapPathKindShared   = "shared"
 )
 
 var minecraftWorldNamePattern = regexp.MustCompile(`^[A-Za-z0-9._ -]{1,80}$`)
 
-type minecraftMapShareGrant struct {
+type minecraftMapPathGrant struct {
 	GameServerID     string
+	UserID           string
+	Kind             string
 	PublicIdentifier string
 	ExpiresAt        int64
+}
+
+// RedactMinecraftMapAssetPath replaces the path-token segment so request
+// logs cannot copy a live map grant. Reverse proxies should apply the same
+// redaction to access logs for these prefixes.
+func RedactMinecraftMapAssetPath(requestPath string) string {
+	prefixes := []string{MinecraftMapViewerPathPrefix + "/", MinecraftMapSharedPathPrefix + "/"}
+	for _, prefix := range prefixes {
+		if !strings.HasPrefix(requestPath, prefix) {
+			continue
+		}
+		rest := strings.TrimPrefix(requestPath, prefix)
+		gameServerID, remainder, found := strings.Cut(rest, "/")
+		if !found || gameServerID == "" || remainder == "" {
+			return requestPath
+		}
+		token, asset, foundAsset := strings.Cut(remainder, "/")
+		if token == "" {
+			return requestPath
+		}
+		if !foundAsset {
+			return prefix + gameServerID + "/REDACTED"
+		}
+		return prefix + gameServerID + "/REDACTED/" + asset
+	}
+	return requestPath
 }
 
 // GetMinecraftMap returns BlueMap setup and viewer state to users who can view
@@ -67,7 +97,7 @@ func (xs *XylonaService) GetMinecraftMap(
 		log.Error().Err(errManage).Str("game_server_id", gameServer.ID).Msg("Failed to check Minecraft map settings permission")
 		return nil, internalErr()
 	}
-	view, errBuild := xs.buildMinecraftMapView(ctx, gameServer, canManage, false)
+	view, errBuild := xs.buildMinecraftMapView(ctx, gameServer, canManage, false, user.ID, "")
 	if errBuild != nil {
 		return nil, errBuild
 	}
@@ -148,7 +178,7 @@ func (xs *XylonaService) UpdateMinecraftMapConfig(
 			return nil, connect.NewError(connect.CodeUnavailable, errors.New("minecraft map was disabled, but the renderer did not stop cleanly"))
 		}
 	}
-	view, errBuild := xs.buildMinecraftMapView(ctx, gameServer, true, false)
+	view, errBuild := xs.buildMinecraftMapView(ctx, gameServer, true, false, user.ID, "")
 	if errBuild != nil {
 		return nil, errBuild
 	}
@@ -204,18 +234,18 @@ func (xs *XylonaService) GetPublicMinecraftMap(
 		log.Error().Err(errResolve).Msg("Failed to resolve public Minecraft map")
 		return nil, internalErr()
 	}
-	view, errBuild := xs.buildMinecraftMapView(ctx, access.gameServer, false, true)
+	shareIdentifier := ""
+	if access.share != nil {
+		shareIdentifier = access.share.PublicIdentifier
+	}
+	view, errBuild := xs.buildMinecraftMapView(ctx, access.gameServer, false, true, "", shareIdentifier)
 	if errBuild != nil {
 		return nil, errBuild
 	}
 	response := connect.NewResponse(&xylona.GetPublicMinecraftMapResponse{Map: view})
-	errCookie := xs.setMinecraftMapShareCookie(response.Header(), access.share)
-	if errCookie != nil {
-		log.Error().Err(errCookie).Str("game_server_id", access.gameServer.ID).Msg("Failed to establish public Minecraft map viewer session")
-		return nil, internalErr()
-	}
 	setPublicGameServerMapHeaders(response.Header())
 	return response, nil
+
 }
 
 func (xs *XylonaService) buildMinecraftMapView(
@@ -223,6 +253,8 @@ func (xs *XylonaService) buildMinecraftMapView(
 	gameServer *models.GameServer,
 	canManage bool,
 	public bool,
+	userID string,
+	shareIdentifier string,
 ) (*xylona.MinecraftMapView, error) {
 	settings, errSettings := xs.db.GetGameServerMinecraftMap(gameServer.ID)
 	if errSettings != nil {
@@ -290,61 +322,54 @@ func (xs *XylonaService) buildMinecraftMapView(
 	view.BluemapVersion = status.BlueMapVersion
 	view.LivePlayersAvailable = status.LivePlayersAvailable
 	if status.Ready {
+		prefix := MinecraftMapViewerPathPrefix
+		kind := minecraftMapPathKindView
 		if public {
-			view.ViewerUrl = MinecraftMapSharedPathPrefix + "/" + gameServer.ID + "/"
-		} else {
-			view.ViewerUrl = MinecraftMapViewerPathPrefix + "/" + gameServer.ID + "/"
+			prefix = MinecraftMapSharedPathPrefix
+			kind = minecraftMapPathKindShared
 		}
+		token, errToken := xs.encodeMinecraftMapPathToken(minecraftMapPathGrant{
+			GameServerID:     gameServer.ID,
+			UserID:           userID,
+			Kind:             kind,
+			PublicIdentifier: shareIdentifier,
+			ExpiresAt:        time.Now().UTC().Add(minecraftMapPathGrantTTL).Unix(),
+		})
+		if errToken != nil {
+			log.Error().Err(errToken).Str("game_server_id", gameServer.ID).Msg("Failed to mint Minecraft map path token")
+			return nil, internalErr()
+		}
+		view.ViewerUrl = prefix + "/" + gameServer.ID + "/" + token + "/"
 	}
 	return view, nil
 }
 
-func (xs *XylonaService) setMinecraftMapShareCookie(header http.Header, share *db.GameServerMapShare) error {
+func (xs *XylonaService) encodeMinecraftMapPathToken(grant minecraftMapPathGrant) (string, error) {
 	if xs.secureCookie == nil {
-		return errors.New("secure cookie codec is unavailable")
+		return "", errors.New("secure cookie codec is unavailable")
 	}
-	if share == nil || !share.Enabled {
-		return errors.New("minecraft map share is unavailable")
-	}
-	expiresAt := time.Now().UTC().Add(minecraftMapShareGrantTTL)
-	grant := minecraftMapShareGrant{
-		GameServerID:     share.GameServerID,
-		PublicIdentifier: share.PublicIdentifier,
-		ExpiresAt:        expiresAt.Unix(),
-	}
-	encoded, errEncode := xs.secureCookie.Encode(minecraftMapShareGrantName, grant)
+	encoded, errEncode := xs.secureCookie.Encode(minecraftMapPathGrantName, grant)
 	if errEncode != nil {
-		return fmt.Errorf("encode Minecraft map share grant: %w", errEncode)
+		return "", fmt.Errorf("encode Minecraft map path grant: %w", errEncode)
 	}
-	cookie := &http.Cookie{ //nolint:gosec // Secure follows explicit HTTP configuration or trusted-proxy HTTPS.
-		Name:     minecraftMapShareCookieName,
-		Value:    encoded,
-		Path:     MinecraftMapSharedPathPrefix + "/" + share.GameServerID + "/",
-		Expires:  expiresAt,
-		MaxAge:   int(minecraftMapShareGrantTTL.Seconds()),
-		HttpOnly: true,
-		Secure:   cookieSecure(xs.secureCookies, header),
-		SameSite: http.SameSiteStrictMode,
-	}
-	header.Add("Set-Cookie", cookie.String())
-	return nil
+	return url.PathEscape(encoded), nil
 }
 
-func (xs *XylonaService) decodeMinecraftMapShareGrant(request *http.Request) (*minecraftMapShareGrant, error) {
+func (xs *XylonaService) decodeMinecraftMapPathToken(token string) (*minecraftMapPathGrant, error) {
 	if xs.secureCookie == nil {
 		return nil, errors.New("secure cookie codec is unavailable")
 	}
-	cookie, errCookie := request.Cookie(minecraftMapShareCookieName)
-	if errCookie != nil {
-		return nil, errors.New("map share viewer session is missing")
+	unescaped, errUnescape := url.PathUnescape(strings.TrimSpace(token))
+	if errUnescape != nil || unescaped == "" {
+		return nil, errors.New("map path token is invalid")
 	}
-	var grant minecraftMapShareGrant
-	errDecode := xs.secureCookie.Decode(minecraftMapShareGrantName, cookie.Value, &grant)
+	var grant minecraftMapPathGrant
+	errDecode := xs.secureCookie.Decode(minecraftMapPathGrantName, unescaped, &grant)
 	if errDecode != nil {
-		return nil, errors.New("map share viewer session is invalid")
+		return nil, errors.New("map path token is invalid")
 	}
-	if grant.ExpiresAt <= time.Now().UTC().Unix() || strings.TrimSpace(grant.GameServerID) == "" || strings.TrimSpace(grant.PublicIdentifier) == "" {
-		return nil, errors.New("map share viewer session has expired")
+	if grant.ExpiresAt < time.Now().UTC().Unix() {
+		return nil, errors.New("map path token has expired")
 	}
 	return &grant, nil
 }
@@ -435,9 +460,10 @@ func (xs *XylonaService) MinecraftMapAsset(response http.ResponseWriter, request
 		cacheControl = "private, max-age=300"
 	}
 	response.Header().Set("Cache-Control", cacheControl)
-	response.Header().Set("X-Content-Type-Options", "nosniff")
 	response.Header().Set("X-Frame-Options", "SAMEORIGIN")
-	response.Header().Set("Content-Security-Policy", "sandbox allow-same-origin allow-scripts allow-forms allow-popups allow-downloads; default-src 'self'; base-uri 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'")
+	response.Header().Set("Access-Control-Allow-Origin", "*")
+	response.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
+	response.Header().Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-downloads; default-src *; img-src * data: blob:; style-src * 'unsafe-inline'; script-src * 'wasm-unsafe-eval'; worker-src * blob:; connect-src *; frame-ancestors 'self'; object-src 'none'; base-uri 'none'")
 	response.Header().Set("Referrer-Policy", "no-referrer")
 	if asset.ContentEncoding != "" {
 		response.Header().Set("Content-Encoding", asset.ContentEncoding)
@@ -452,6 +478,10 @@ func (xs *XylonaService) MinecraftMapAsset(response http.ResponseWriter, request
 func (xs *XylonaService) authorizeMinecraftMapAsset(request *http.Request) (*models.GameServer, string, error) {
 	gameServerID := strings.TrimSpace(chi.URLParam(request, "gameServerId"))
 	assetPath := strings.TrimPrefix(chi.URLParam(request, "*"), "/")
+	grant, errGrant := xs.decodeMinecraftMapPathToken(chi.URLParam(request, "token"))
+	if errGrant != nil || grant.GameServerID != gameServerID {
+		return nil, "", errors.New("map path token is invalid")
+	}
 	gameServer, errServer := xs.minecraftMapServer(gameServerID)
 	if errServer != nil {
 		return nil, "", errServer
@@ -461,9 +491,8 @@ func (xs *XylonaService) authorizeMinecraftMapAsset(request *http.Request) (*mod
 		return nil, "", errors.New("map is disabled")
 	}
 	if strings.HasPrefix(request.URL.Path, MinecraftMapSharedPathPrefix+"/") {
-		grant, errGrant := xs.decodeMinecraftMapShareGrant(request)
-		if errGrant != nil || grant.GameServerID != gameServer.ID {
-			return nil, "", errors.New("map share is invalid")
+		if grant.Kind != minecraftMapPathKindShared {
+			return nil, "", errors.New("map path token is invalid")
 		}
 		share, errShare := xs.db.GetEnabledGameServerMapShareByIdentifier(grant.PublicIdentifier)
 		if errShare != nil || share.GameServerID != gameServer.ID {
@@ -471,7 +500,10 @@ func (xs *XylonaService) authorizeMinecraftMapAsset(request *http.Request) (*mod
 		}
 		return gameServer, assetPath, nil
 	}
-	user, errUser := xs.getUserFromHeader(request.Header)
+	if grant.Kind != minecraftMapPathKindView {
+		return nil, "", errors.New("map path token is invalid")
+	}
+	user, errUser := xs.db.GetUserByID(grant.UserID)
 	if errUser != nil {
 		return nil, "", errors.New("map viewer session is invalid")
 	}

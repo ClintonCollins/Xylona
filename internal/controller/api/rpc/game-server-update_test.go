@@ -16,13 +16,15 @@ import (
 func TestUpdateGameServerPersistsSelectedSteamBranch(t *testing.T) {
 	tests := []struct {
 		name                string
+		target              string
 		operationInProgress bool
 		wantErr             bool
 		wantCode            connect.Code
 		wantBranch          string
 	}{
-		{name: "accepted update", wantBranch: "v2.5"},
-		{name: "rejected concurrent update", operationInProgress: true, wantErr: true, wantCode: connect.CodeAlreadyExists, wantBranch: "public"},
+		{name: "accepted update", target: "v2.5", wantBranch: "v2.5"},
+		{name: "rejected concurrent update", target: "v2.5", operationInProgress: true, wantErr: true, wantCode: connect.CodeAlreadyExists, wantBranch: "public"},
+		{name: "rejects steam injection target", target: "latest +force_install_dir /tmp/pwn", wantErr: true, wantCode: connect.CodeInvalidArgument, wantBranch: "public"},
 	}
 
 	for _, test := range tests {
@@ -58,7 +60,7 @@ func TestUpdateGameServerPersistsSelectedSteamBranch(t *testing.T) {
 
 			request := connect.NewRequest(&xylona.UpdateGameServerRequest{
 				ServerId: "server-local-1",
-				Target:   "v2.5",
+				Target:   test.target,
 			})
 			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 

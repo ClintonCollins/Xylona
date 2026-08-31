@@ -257,7 +257,7 @@ func routerLogger(next http.Handler) http.Handler {
 			timeStop := time.Now()
 			log.Info().Fields(map[string]any{
 				"method":     r.Method,
-				"url":        r.URL.Path,
+				"url":        rpc.RedactMinecraftMapAssetPath(r.URL.Path),
 				"ip":         r.RemoteAddr,
 				"user-agent": r.UserAgent(),
 				"latency":    timeStop.Sub(timeStart).String(),
@@ -725,6 +725,7 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 
 	xylonaAPIPath, handler := xylonaconnect.NewXylonaHandler(
 		xylonaService,
+		connect.WithReadMaxBytes(rpc.ConnectReadMaxBytes),
 		connect.WithInterceptors(
 			rpc.NewSessionAuthInterceptor(dbInst, secureCookie),
 			rpc.NewUnaryTimeoutInterceptor(60*time.Second),
@@ -749,9 +750,9 @@ func runServiceUntil(shutdownSignalChannel <-chan os.Signal) (exitCode int) {
 	rpc.RegisterGameServerMapRoutes(router, mapHandler)
 	router.Mount(palworldmap.TilePathPrefix, palworldMapTileStore.Handler())
 	router.Get(rpc.SevenDaysToDieMapTilePathPrefix+"/{gameServerId}/{zoom}/{x}/{y}", xylonaService.SevenDaysToDieMapTile)
-	router.Get(rpc.MinecraftMapViewerPathPrefix+"/{gameServerId}/*", xylonaService.MinecraftMapAsset)
-	router.Get(rpc.MinecraftMapSharedPathPrefix+"/{gameServerId}/*", xylonaService.MinecraftMapAsset)
-	router.Mount(xylonaAPIPath, handler)
+	router.Get(rpc.MinecraftMapViewerPathPrefix+"/{gameServerId}/{token}/*", xylonaService.MinecraftMapAsset)
+	router.Get(rpc.MinecraftMapSharedPathPrefix+"/{gameServerId}/{token}/*", xylonaService.MinecraftMapAsset)
+	router.Mount(xylonaAPIPath, http.MaxBytesHandler(handler, int64(rpc.ConnectReadMaxBytes)))
 	router.Mount("/api/websocket", websocketHandler)
 	// Node bootstrap endpoint — auth is by the one-shot join token in the
 	// JSON body; does not require a session cookie.

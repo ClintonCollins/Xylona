@@ -303,3 +303,32 @@ func TestAlertRule_CheckConstraint_MutualExclusive(t *testing.T) {
 		t.Errorf("Expected CHECK constraint error, got: %v", errExec)
 	}
 }
+
+func TestCanDeliverNodeAlert(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "ar-node-auth.sqlite")
+	seedRBACFixture(t, conn)
+
+	adminAllowed, errAdmin := conn.CanDeliverNodeAlert("user-admin")
+	if errAdmin != nil {
+		t.Fatalf("CanDeliverNodeAlert(admin) error = %v", errAdmin)
+	}
+	if !adminAllowed {
+		t.Fatal("CanDeliverNodeAlert(admin) = false, want true")
+	}
+
+	ownerAllowed, errOwner := conn.CanDeliverNodeAlert("user-owner")
+	if errOwner != nil {
+		t.Fatalf("CanDeliverNodeAlert(owner) error = %v", errOwner)
+	}
+	if ownerAllowed {
+		t.Fatal("CanDeliverNodeAlert(owner) = true, want false")
+	}
+
+	missingAllowed, errMissing := conn.CanDeliverNodeAlert("user-missing")
+	if errMissing != nil {
+		t.Fatalf("CanDeliverNodeAlert(missing) error = %v", errMissing)
+	}
+	if missingAllowed {
+		t.Fatal("CanDeliverNodeAlert(missing) = true, want false")
+	}
+}

@@ -593,6 +593,112 @@ func TestMergeAndWrite_AllowMultipleDuplicates(t *testing.T) {
 	}
 }
 
+func TestMergeAndWrite_AllowMultipleMissingKeyUsesEmittedValues(t *testing.T) {
+	updated := []FieldData{
+		{
+			Key:               "max-players",
+			Value:             "99999",
+			AllowMultiple:     true,
+			Values:            []string{"10"},
+			IsMissingFromFile: true,
+		},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"max-players": {Type: "integer", Minimum: new(int64(1)), Maximum: new(int64(20)), AllowMultiple: true},
+		},
+	}
+
+	errs := ValidateFields(updated, schema)
+	if len(errs) != 0 {
+		t.Fatalf("ValidateFields() = %v, want no errors", errs)
+	}
+
+	result := MergeAndWrite(nil, updated, nil, schema)
+	if len(result) != 1 {
+		t.Fatalf("MergeAndWrite() len = %d, want 1", len(result))
+	}
+	if result[0].Key != "max-players" || result[0].Value != "10" {
+		t.Fatalf("MergeAndWrite() = %+v, want emitted value 10", result[0])
+	}
+}
+
+func TestMergeAndWrite_AllowMultipleEmptyValuesDoesNotWriteUnvalidatedValue(t *testing.T) {
+	existing := []cfgparse.ConfigEntry{
+		{Key: "level", Value: "world1"},
+	}
+	updated := []FieldData{
+		{Key: "level", Value: "99999", AllowMultiple: true, Values: []string{""}},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"level": {Type: "string", AllowMultiple: true},
+		},
+	}
+
+	result := MergeAndWrite(existing, updated, nil, schema)
+	if len(result) != 1 {
+		t.Fatalf("MergeAndWrite() len = %d, want 1", len(result))
+	}
+	if result[0].Value != "" {
+		t.Fatalf("MergeAndWrite() value = %q, want empty emitted value", result[0].Value)
+	}
+}
+
+func TestMergeStructuredFields_WritesValueNotTrailingAllowMultipleValues(t *testing.T) {
+	root := &cfgparse.ConfigNode{Type: cfgparse.NodeObject}
+	fields := []FieldData{
+		{Key: "max-players", Value: "10", AllowMultiple: true, Values: []string{"10", ""}},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"max-players": {Type: "integer", Required: true, AllowMultiple: true},
+		},
+	}
+
+	errs := ValidateFields(fields, schema)
+	if len(errs) != 0 {
+		t.Fatalf("ValidateFields() = %v, want no errors for Value 10", errs)
+	}
+
+	MergeStructuredFields(root, fields, nil, schema)
+	if len(root.Children) != 1 {
+		t.Fatalf("structured children = %d, want 1", len(root.Children))
+	}
+	if root.Children[0].Value != "10" {
+		t.Fatalf("structured field = %q, want Value 10 not last Values element", root.Children[0].Value)
+	}
+}
+
+func TestMergeStructuredFields_EmptyValueClearsExisting(t *testing.T) {
+	root := &cfgparse.ConfigNode{
+		Type: cfgparse.NodeObject,
+		Children: []*cfgparse.ConfigNode{
+			{Key: "motd", Value: "Hello", Type: cfgparse.NodeString},
+		},
+	}
+	fields := []FieldData{
+		{Key: "motd", Value: ""},
+	}
+	schema := SchemaDefinition{
+		Type: "object",
+		Properties: map[string]SchemaProperty{
+			"motd": {Type: "string"},
+		},
+	}
+
+	MergeStructuredFields(root, fields, nil, schema)
+	if len(root.Children) != 1 {
+		t.Fatalf("structured children = %d, want 1", len(root.Children))
+	}
+	if root.Children[0].Value != "" {
+		t.Fatalf("structured motd = %q, want empty", root.Children[0].Value)
+	}
+}
+
 // ValidateFields tests
 
 func TestValidateFields_ValidValues(t *testing.T) {

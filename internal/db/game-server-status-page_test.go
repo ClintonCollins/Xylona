@@ -239,6 +239,25 @@ func TestGameServerStatusPagePersistence(t *testing.T) {
 		if errPrepare != nil {
 			t.Fatalf("prepare public details: %v", errPrepare)
 		}
+		_, errCreateShare := conn.GetOrCreateGameServerMapShare("server-local-1", "Owner_Map")
+		if errCreateShare != nil {
+			t.Fatalf("GetOrCreateGameServerMapShare() error = %v", errCreateShare)
+		}
+		_, errEnableShare := conn.UpdateGameServerMapShare("server-local-1", "Owner_Map", true)
+		if errEnableShare != nil {
+			t.Fatalf("UpdateGameServerMapShare() error = %v", errEnableShare)
+		}
+		_, errSameOwner := conn.UpdateGameServerForEdit(&models.GameServerSetter{
+			ID:     omit.From("server-local-1"),
+			UserID: omit.From("user-owner"),
+		}, "user-owner")
+		if errSameOwner != nil {
+			t.Fatalf("UpdateGameServerForEdit(same owner) error = %v", errSameOwner)
+		}
+		preserved, errPreserved := conn.GetEnabledGameServerMapShareByIdentifier("Owner_Map")
+		if errPreserved != nil || preserved.GameServerID != "server-local-1" || !preserved.Enabled {
+			t.Fatalf("same-owner map share = %+v, %v", preserved, errPreserved)
+		}
 		_, errUpdate := conn.UpdateGameServerForEdit(&models.GameServerSetter{
 			ID:     omit.From("server-local-1"),
 			UserID: omit.From("user-other"),
@@ -262,5 +281,15 @@ func TestGameServerStatusPagePersistence(t *testing.T) {
 		if gotDetails.PublicNote.Valid || gotDetails.PublicPassword.Valid {
 			t.Fatalf("transferred public details = %+v", gotDetails)
 		}
+		_, errOldShare := conn.GetEnabledGameServerMapShareByIdentifier("Owner_Map")
+		if !errors.Is(errOldShare, sql.ErrNoRows) {
+			t.Fatalf("old map identifier after transfer error = %v, want sql.ErrNoRows", errOldShare)
+		}
+		_, errDeletedShare := conn.GetGameServerMapShareByGameServerID("server-local-1")
+		if !errors.Is(errDeletedShare, sql.ErrNoRows) {
+			t.Fatalf("map share after transfer error = %v, want sql.ErrNoRows", errDeletedShare)
+		}
+
 	})
+
 }

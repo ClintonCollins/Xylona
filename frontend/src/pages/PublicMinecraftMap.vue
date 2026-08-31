@@ -8,11 +8,26 @@ import { GetXylonaClient } from '@/utils/shared'
 
 const props = defineProps<{ identifier: string }>()
 const pollIntervalMilliseconds = 10_000
+const viewerRefreshMilliseconds = 45 * 60 * 1_000
 const mapView = ref<MinecraftMapView | null>(null)
+const viewerURL = ref('')
+const viewerURLSetAt = ref(0)
 const loading = ref(false)
 const invalidLink = ref(false)
 const loadError = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | undefined
+
+function assignViewerURL(nextViewerURL: string): void {
+  if (nextViewerURL === '') {
+    viewerURL.value = ''
+    viewerURLSetAt.value = 0
+    return
+  }
+  if (viewerURL.value === '' || Date.now() - viewerURLSetAt.value >= viewerRefreshMilliseconds) {
+    viewerURL.value = nextViewerURL
+    viewerURLSetAt.value = Date.now()
+  }
+}
 
 async function loadMap(): Promise<void> {
   if (loading.value || props.identifier === '') {
@@ -25,6 +40,7 @@ async function loadMap(): Promise<void> {
       create(GetPublicMinecraftMapRequestSchema, { publicIdentifier: props.identifier }),
     )
     mapView.value = response.map ?? null
+    assignViewerURL(response.map?.viewerUrl ?? '')
     invalidLink.value = false
     loadError.value = false
   } catch (unknownError: unknown) {
@@ -32,6 +48,7 @@ async function loadMap(): Promise<void> {
     const connectError = ConnectError.from(unknownError)
     if (connectError.code === Code.NotFound) {
       mapView.value = null
+      assignViewerURL('')
       invalidLink.value = true
       loadError.value = false
     } else {
@@ -68,13 +85,13 @@ onBeforeUnmount(() => {
       <h1>This map link is not available</h1>
       <p>It may be incomplete, replaced, or revoked by the server administrator.</p>
     </section>
-    <section v-else-if="mapView?.viewerUrl" class="public-minecraft-map__viewer-shell">
+    <section v-else-if="viewerURL" class="public-minecraft-map__viewer-shell">
       <iframe
         class="public-minecraft-map__viewer"
-        :src="mapView.viewerUrl"
+        :src="viewerURL"
         title="Shared Minecraft live world map"
         referrerpolicy="no-referrer"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads" />
+        sandbox="allow-scripts allow-forms allow-popups allow-downloads" />
     </section>
     <section v-else class="public-minecraft-map__state">
       <q-spinner v-if="loading && mapView === null" color="primary" size="42px" />

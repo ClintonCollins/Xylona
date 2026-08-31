@@ -47,7 +47,9 @@ var (
 	// ErrGameServerOperationInProgress is returned when the same server already has an active lifecycle operation.
 	ErrGameServerOperationInProgress = errors.New("game server lifecycle operation is already in progress")
 	// ErrNotMinecraftServer is returned when a non-Minecraft server is used with Minecraft-only flows.
-	ErrNotMinecraftServer             = errors.New("game server is not a minecraft server")
+	ErrNotMinecraftServer = errors.New("game server is not a minecraft server")
+	// ErrInvalidSteamBranch is returned when a Steam beta identifier is unsafe.
+	ErrInvalidSteamBranch             = errors.New("steam branch is not a valid identifier")
 	errGameRelationNotLoaded          = errors.New("game relation not loaded")
 	errMinecraftGameRelationNotLoaded = errors.New("minecraft game relation not loaded")
 	reSteamBranchableUpdate           = regexp.MustCompile(`(?i)(\+app_update\s+\d+)`)
@@ -1085,7 +1087,10 @@ func (inst *Instance) updateGameServerWithExecutionID(gameServer *models.GameSer
 			}
 			updateVars[gameintegrations.StarboundSteamUsernameEnv] = steamUsername
 		}
-		updateCommand := appendSteamBranchToUpdateCommand(updateCmd, gameServer.Branch)
+		updateCommand, errBranch := appendSteamBranchToUpdateCommand(updateCmd, gameServer.Branch)
+		if errBranch != nil {
+			return fmt.Errorf("actions: steam branch: %w", errBranch)
+		}
 		baseCommand, args, errCommandArgs := resolveCommandLineToProcessArgs(updateCommand, updateVars)
 		if errCommandArgs != nil {
 			return fmt.Errorf("actions: parse update command: %w", errCommandArgs)
@@ -1182,29 +1187,36 @@ func normalizeSteamBranch(branch string) string {
 	return versiontracker.NormalizeSteamBranch(branch)
 }
 
-func appendSteamBranchToUpdateCommand(command string, branch string) string {
+func appendSteamBranchToUpdateCommand(command string, branch string) (string, error) {
 	if !strings.Contains(strings.ToLower(command), "steamcmd") {
-		return command
+		return command, nil
 	}
 
 	normalizedBranch := normalizeSteamBranch(branch)
+	if !versiontracker.IsSafeSteamBranch(normalizedBranch) {
+		return "", ErrInvalidSteamBranch
+	}
 	if normalizedBranch == "public" {
-		return command
+		return command, nil
 	}
 
 	if strings.Contains(strings.ToLower(command), " -beta ") {
-		return command
+		return command, nil
 	}
 
 	if reSteamBranchableUpdate.MatchString(command) {
-		return reSteamBranchableUpdate.ReplaceAllString(command, fmt.Sprintf("${1} -beta %s", normalizedBranch))
+		return reSteamBranchableUpdate.ReplaceAllString(command, fmt.Sprintf("${1} -beta %s", normalizedBranch)), nil
 	}
 
-	return command + " -beta " + normalizedBranch
+	return command + " -beta " + normalizedBranch, nil
 }
 
 // PersistSteamBranchSelection stores the selected Steam branch on the server record.
 func (inst *Instance) PersistSteamBranchSelection(gameServer *models.GameServer, branch string) error {
+	trimmedBranch := strings.TrimSpace(branch)
+	if trimmedBranch != "" && !versiontracker.IsSafeSteamBranch(trimmedBranch) {
+		return ErrInvalidSteamBranch
+	}
 	normalizedBranch := normalizeSteamBranch(branch)
 	gameServer.Branch = normalizedBranch
 

@@ -118,6 +118,15 @@ func (c *Connection) UpdateGameServerForEdit(gameServerSetter *models.GameServer
 		if errClear != nil {
 			return nil, fmt.Errorf("clear transferred game server public status details: %w", errClear)
 		}
+		_, errDeleteShare := tx.ExecContext(
+			c.ctx,
+			`delete from game_server_map_share where game_server_id = ?`,
+			gameServerID,
+		)
+		if errDeleteShare != nil {
+			return nil, fmt.Errorf("delete transferred game server map share: %w", errDeleteShare)
+		}
+
 	}
 
 	_, errUpdate := models.GameServers.Update(

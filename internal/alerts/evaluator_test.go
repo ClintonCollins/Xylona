@@ -363,6 +363,14 @@ func (m *mockRuleStore) GetEnabledAlertRulesByEventType(eventType string) ([]*mo
 	return m.rules[eventType], nil
 }
 
+func (m *mockRuleStore) CanDeliverServerAlert(string, string) (bool, error) {
+	return true, nil
+}
+
+func (m *mockRuleStore) CanDeliverNodeAlert(string) (bool, error) {
+	return true, nil
+}
+
 func TestProcessServerEvent(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -604,6 +612,73 @@ func TestProcessServerEvent_StoreError(t *testing.T) {
 	_, errProcess := processServerEvent(store, "ALERT_EVENT_TYPE_CRASH", "srv-1", "node-a", eventData{}, "{}")
 	if errProcess == nil {
 		t.Fatal("processServerEvent() error = nil, want error from store")
+	}
+}
+
+type authorizingRuleStore struct {
+	rules   map[string][]*models.AlertRule
+	allowed map[string]bool
+}
+
+func (m *authorizingRuleStore) GetEnabledAlertRulesByEventType(eventType string) ([]*models.AlertRule, error) {
+	return m.rules[eventType], nil
+}
+
+func (m *authorizingRuleStore) CanDeliverServerAlert(userID string, _ string) (bool, error) {
+	return m.allowed[userID], nil
+}
+
+func (m *authorizingRuleStore) CanDeliverNodeAlert(userID string) (bool, error) {
+	return m.allowed[userID], nil
+}
+
+func TestProcessServerEventSkipsRevokedOwner(t *testing.T) {
+	store := &authorizingRuleStore{
+		rules: map[string][]*models.AlertRule{
+			"ALERT_EVENT_TYPE_CRASH": {
+				makeRule("r1", "u-revoked", "srv-1", "node-a", "", "ALERT_EVENT_TYPE_CRASH", "", "ch1", true),
+				makeRule("r2", "u-allowed", "srv-1", "node-a", "", "ALERT_EVENT_TYPE_CRASH", "", "ch2", true),
+			},
+		},
+		allowed: map[string]bool{
+			"u-allowed": true,
+		},
+	}
+
+	jobs, errProcess := processServerEvent(store, "ALERT_EVENT_TYPE_CRASH", "srv-1", "node-a", eventData{}, "{}")
+	if errProcess != nil {
+		t.Fatalf("processServerEvent() error = %v", errProcess)
+	}
+	if len(jobs) != 1 {
+		t.Fatalf("processServerEvent() jobs = %d, want 1", len(jobs))
+	}
+	if jobs[0].UserID != "u-allowed" {
+		t.Fatalf("job.UserID = %q, want %q", jobs[0].UserID, "u-allowed")
+	}
+}
+
+func TestProcessNodeEventSkipsRevokedOwner(t *testing.T) {
+	store := &authorizingRuleStore{
+		rules: map[string][]*models.AlertRule{
+			"ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD": {
+				makeRule("r1", "u-revoked", "", "", "node-a", "ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD", `{"operator":">=","value":90}`, "ch1", true),
+				makeRule("r2", "u-allowed", "", "", "node-a", "ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD", `{"operator":">=","value":90}`, "ch2", true),
+			},
+		},
+		allowed: map[string]bool{
+			"u-allowed": true,
+		},
+	}
+
+	jobs, errProcess := processNodeEvent(store, "ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD", "node-a", eventData{CurrentValue: 95}, "{}")
+	if errProcess != nil {
+		t.Fatalf("processNodeEvent() error = %v", errProcess)
+	}
+	if len(jobs) != 1 {
+		t.Fatalf("processNodeEvent() jobs = %d, want 1", len(jobs))
+	}
+	if jobs[0].UserID != "u-allowed" {
+		t.Fatalf("job.UserID = %q, want %q", jobs[0].UserID, "u-allowed")
 	}
 }
 

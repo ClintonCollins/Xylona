@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	controlleractions "github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -55,17 +56,26 @@ func (s *Scheduler) executeTask(taskID string) {
 
 	var status string
 	var message string
-
-	switch task.TaskType {
-	case "restart":
-		status, message = s.executeRestart(task)
-	case "console_command":
-		status, message = s.executeConsoleCommand(task)
-	case "backup":
-		status, message = s.executeBackup(task)
-	default:
+	authorized, errAuth := s.creatorMayExecute(task)
+	switch {
+	case errAuth != nil:
 		status = statusFailed
-		message = fmt.Sprintf("unknown task type: %s", task.TaskType)
+		message = fmt.Sprintf("failed to authorize task creator: %s", errAuth)
+	case !authorized:
+		status = statusSkipped
+		message = "creator is no longer authorized to run this task"
+	default:
+		switch task.TaskType {
+		case "restart":
+			status, message = s.executeRestart(task)
+		case "console_command":
+			status, message = s.executeConsoleCommand(task)
+		case "backup":
+			status, message = s.executeBackup(task)
+		default:
+			status = statusFailed
+			message = fmt.Sprintf("unknown task type: %s", task.TaskType)
+		}
 	}
 
 	finishedAt := time.Now().UTC()
@@ -92,6 +102,38 @@ func (s *Scheduler) executeTask(taskID string) {
 		logger.Error().Err(errUpdate).Msg("Failed to update scheduled task last_run_at")
 	}
 
+}
+
+func (s *Scheduler) creatorMayExecute(task *models.ScheduledTask) (bool, error) {
+	user, errUser := s.db.GetUserByID(task.CreatedBy)
+	if errUser != nil {
+		return false, fmt.Errorf("load scheduled task creator: %w", errUser)
+	}
+	gameServer, errServer := s.db.GetGameServerByID(task.GameServerID)
+	if errServer != nil {
+		return false, fmt.Errorf("load scheduled task game server: %w", errServer)
+	}
+
+	permissions := []string{"game_server.scheduled_tasks"}
+	switch task.TaskType {
+	case "restart":
+		permissions = append(permissions, "game_server.restart")
+	case "console_command":
+		permissions = append(permissions, "game_server.console")
+	case "backup":
+		permissions = append(permissions, "game_server.backup")
+	}
+
+	for _, permissionID := range permissions {
+		allowed, errPermission := db.HasPermission(s.db, user, task.GameServerID, gameServer.UserID, permissionID)
+		if errPermission != nil {
+			return false, fmt.Errorf("check scheduled task permission %s: %w", permissionID, errPermission)
+		}
+		if !allowed {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (s *Scheduler) executeRestart(task *models.ScheduledTask) (string, string) {
