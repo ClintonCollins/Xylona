@@ -135,6 +135,7 @@ describe('GameServerStatusPageSettingsPanel', () => {
     const vm = wrapper.vm as unknown as {
       copyPublicLink: () => Promise<void>
       copyPublicAPIURL: () => Promise<void>
+      copyPublicEventsURL: () => Promise<void>
     }
 
     await vm.copyPublicLink()
@@ -160,13 +161,26 @@ describe('GameServerStatusPageSettingsPanel', () => {
       message: 'JSON endpoint copied',
     })
 
+    mocks.copyToClipboard.mockReset()
+    mocks.copyToClipboard.mockResolvedValue(undefined)
+    mocks.notify.mockReset()
+    await vm.copyPublicEventsURL()
+
+    expect(mocks.copyToClipboard).toHaveBeenCalledWith(
+      `${window.location.origin}/api/public/status-pages/Owner_Page/events`,
+    )
+    expect(mocks.notify).toHaveBeenCalledWith({
+      type: 'positive',
+      message: 'Live endpoint copied',
+    })
+
     mocks.notify.mockReset()
     mocks.copyToClipboard.mockRejectedValueOnce(new Error('copy failed'))
-    await vm.copyPublicAPIURL()
+    await vm.copyPublicEventsURL()
 
     expect(mocks.notify).toHaveBeenCalledWith({
       type: 'negative',
-      message: 'Could not copy the JSON endpoint.',
+      message: 'Could not copy the live endpoint.',
     })
   })
 

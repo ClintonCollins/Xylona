@@ -46,6 +46,7 @@ const publicAPIURL = computed(() =>
     ? `${window.location.origin}/api/public/status-pages/${encodeURIComponent(settings.value.publicIdentifier)}`
     : '',
 )
+const publicEventsURL = computed(() => (publicAPIURL.value ? `${publicAPIURL.value}/events` : ''))
 const formFingerprint = computed(() =>
   JSON.stringify({
     ownerID: ownerID.value,
@@ -197,6 +198,15 @@ async function copyPublicAPIURL() {
   }
 }
 
+async function copyPublicEventsURL() {
+  try {
+    await copyToClipboard(publicEventsURL.value)
+    $q.notify({ type: 'positive', message: 'Live endpoint copied' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Could not copy the live endpoint.' })
+  }
+}
+
 function openPublicLink() {
   window.open(publicURL.value, '_blank', 'noopener,noreferrer')
 }
@@ -314,6 +324,21 @@ onMounted(async () => {
               icon="content_copy"
               label="Copy endpoint"
               @click="copyPublicAPIURL" />
+          </div>
+        </div>
+
+        <div class="status-settings-link">
+          <span>Saved live endpoint</span>
+          <p>Use this URL with EventSource and listen for snapshot events.</p>
+          <code>{{ publicEventsURL }}</code>
+          <div>
+            <q-btn
+              :disable="!settings.enabled"
+              dense
+              flat
+              icon="content_copy"
+              label="Copy live endpoint"
+              @click="copyPublicEventsURL" />
           </div>
         </div>
 
