@@ -41,6 +41,11 @@ const ownerOptions = computed(() =>
 const publicURL = computed(() =>
   settings.value ? `${window.location.origin}${settings.value.publicPath}` : '',
 )
+const publicAPIURL = computed(() =>
+  settings.value
+    ? `${window.location.origin}/api/public/status-pages/${encodeURIComponent(settings.value.publicIdentifier)}`
+    : '',
+)
 const formFingerprint = computed(() =>
   JSON.stringify({
     ownerID: ownerID.value,
@@ -183,6 +188,15 @@ async function copyPublicLink() {
   }
 }
 
+async function copyPublicAPIURL() {
+  try {
+    await copyToClipboard(publicAPIURL.value)
+    $q.notify({ type: 'positive', message: 'JSON endpoint copied' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Could not copy the JSON endpoint.' })
+  }
+}
+
 function openPublicLink() {
   window.open(publicURL.value, '_blank', 'noopener,noreferrer')
 }
@@ -286,6 +300,23 @@ onMounted(async () => {
           </div>
         </div>
 
+        <div class="status-settings-link">
+          <span>Saved JSON endpoint</span>
+          <p>
+            Fetch this URL from another website to render the status data with your own styling.
+          </p>
+          <code>{{ publicAPIURL }}</code>
+          <div>
+            <q-btn
+              :disable="!settings.enabled"
+              dense
+              flat
+              icon="content_copy"
+              label="Copy endpoint"
+              @click="copyPublicAPIURL" />
+          </div>
+        </div>
+
         <section class="status-settings-addresses" aria-labelledby="public-addresses-title">
           <div>
             <h3 id="public-addresses-title">Public server details</h3>
@@ -383,6 +414,7 @@ onMounted(async () => {
 
 .status-settings-panel__header p,
 .status-settings-toggle p,
+.status-settings-link p,
 .status-settings-addresses p {
   margin: var(--xy-space-xs) 0 0;
   color: var(--xy-text-secondary);

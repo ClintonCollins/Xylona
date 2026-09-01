@@ -22,9 +22,9 @@ var publicMapRPCPaths = []string{
 	"/ResolvePublicGameServerMap",
 }
 
-// AuthRateLimiter applies a strict IP limit to authentication RPCs and a
-// separate higher limit to public map polling. All other requests pass through
-// without throttling. Direct localhost peers remain exempt for E2E suites.
+// AuthRateLimiter applies a strict IP limit to authentication RPCs and
+// separate limits to public reads. All other requests pass through without
+// throttling. Direct localhost peers remain exempt for E2E suites.
 func AuthRateLimiter() func(http.Handler) http.Handler {
 	return AuthRateLimiterForProxies(nil)
 }
@@ -62,7 +62,8 @@ func AuthRateLimiterForProxies(trust *ProxyTrust) func(http.Handler) http.Handle
 				publicStatusEventLimited.ServeHTTP(w, r)
 				return
 			}
-			if strings.HasPrefix(r.URL.Path, "/status/") || strings.Contains(r.URL.Path, "/GetPublicGameServerStatusPage") {
+			if strings.HasPrefix(r.URL.Path, "/status/") || strings.HasPrefix(r.URL.Path, "/api/public/status-pages/") ||
+				strings.Contains(r.URL.Path, "/GetPublicGameServerStatusPage") {
 				publicMapLimited.ServeHTTP(w, r)
 				return
 			}

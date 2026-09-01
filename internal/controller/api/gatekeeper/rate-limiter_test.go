@@ -124,6 +124,7 @@ func TestAuthRateLimiter(t *testing.T) {
 		{name: "rate limits public map shell", path: "/maps/Current_Map", requests: 125},
 		{name: "rate limits malformed public map shell", path: "/maps/Current_Map/extra", requests: 125},
 		{name: "rate limits public status reads", path: "/xylona.Xylona/GetPublicGameServerStatusPage", requests: 125},
+		{name: "rate limits public status JSON", path: "/api/public/status-pages/Fleet", requests: 125},
 		{name: "rate limits public status streams", path: "/api/public/status-pages/Fleet/events", requests: 35},
 	} {
 		t.Run(test.name, func(t *testing.T) {

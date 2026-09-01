@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
@@ -93,6 +94,50 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 		}
 	})
 
+	t.Run("returns a cross-origin JSON snapshot", func(t *testing.T) {
+		handler := newHandler(t, true)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://status.example/api/public/status-pages/Owner_Page", nil)
+		request.Header.Set("Origin", "https://community.example")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+
+		if response.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+		}
+		page := &xylona.PublicGameServerStatusPage{}
+		errUnmarshal := protojson.Unmarshal(response.Body.Bytes(), page)
+		if errUnmarshal != nil {
+			t.Fatalf("unmarshal snapshot: %v", errUnmarshal)
+		}
+		if page.GetTitle() != `Fleet $5 & <friends>` {
+			t.Fatalf("title = %q, want %q", page.GetTitle(), `Fleet $5 & <friends>`)
+		}
+		if response.Header().Get("Content-Type") != "application/json" || response.Header().Get("Access-Control-Allow-Origin") != "*" {
+			t.Fatalf("snapshot headers = %v", response.Header())
+		}
+		if response.Header().Get("Access-Control-Allow-Credentials") != "" {
+			t.Fatalf("credentials header = %q, want empty", response.Header().Get("Access-Control-Allow-Credentials"))
+		}
+		if response.Header().Get("Cache-Control") != "public, max-age=5, stale-while-revalidate=10" {
+			t.Fatalf("snapshot cache = %q", response.Header().Get("Cache-Control"))
+		}
+	})
+
+	t.Run("does not disclose disabled pages through JSON", func(t *testing.T) {
+		handler := newHandler(t, false)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://status.example/api/public/status-pages/Owner_Page", nil)
+		request.Header.Set("Origin", "https://community.example")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+
+		if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "Fleet") {
+			t.Fatalf("disabled response = %d %q", response.Code, response.Body.String())
+		}
+		if response.Header().Get("Access-Control-Allow-Origin") != "*" || response.Header().Get("Cache-Control") != "no-store" {
+			t.Fatalf("disabled headers = %v", response.Header())
+		}
+	})
+
 	t.Run("streams an immediate complete snapshot", func(t *testing.T) {
 		handler := newHandler(t, true)
 		ctx, cancel := context.WithTimeout(t.Context(), 25*time.Millisecond)
@@ -107,6 +152,9 @@ func TestGameServerStatusPageHTTP(t *testing.T) {
 		}
 		if response.Header().Get("Content-Type") != "text/event-stream" || response.Header().Get("X-Accel-Buffering") != "no" {
 			t.Fatalf("event headers = %v", response.Header())
+		}
+		if response.Header().Get("Access-Control-Allow-Origin") != "*" || response.Header().Get("Access-Control-Allow-Credentials") != "" {
+			t.Fatalf("event CORS headers = %v", response.Header())
 		}
 		if response.Header().Get("Cache-Control") != "no-store, no-transform" {
 			t.Fatalf("event cache = %q", response.Header().Get("Cache-Control"))

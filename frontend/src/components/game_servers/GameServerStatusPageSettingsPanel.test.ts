@@ -122,7 +122,7 @@ describe('GameServerStatusPageSettingsPanel', () => {
     expect(wrapper.text()).toContain('Connection address must be a valid host and port.')
   })
 
-  it('copies the public link with the fallback and reports failures', async () => {
+  it('copies public access URLs and reports failures', async () => {
     const settings = create(GameServerStatusPageSettingsSchema, {
       ownerId: 'owner-1',
       publicIdentifier: 'Owner_Page',
@@ -132,7 +132,10 @@ describe('GameServerStatusPageSettingsPanel', () => {
     vi.stubGlobal('navigator', {})
     const wrapper = shallowMount(GameServerStatusPageSettingsPanel)
     await flushPromises()
-    const vm = wrapper.vm as unknown as { copyPublicLink: () => Promise<void> }
+    const vm = wrapper.vm as unknown as {
+      copyPublicLink: () => Promise<void>
+      copyPublicAPIURL: () => Promise<void>
+    }
 
     await vm.copyPublicLink()
 
@@ -144,13 +147,26 @@ describe('GameServerStatusPageSettingsPanel', () => {
       message: 'Public link copied',
     })
 
+    mocks.copyToClipboard.mockReset()
+    mocks.copyToClipboard.mockResolvedValue(undefined)
+    mocks.notify.mockReset()
+    await vm.copyPublicAPIURL()
+
+    expect(mocks.copyToClipboard).toHaveBeenCalledWith(
+      `${window.location.origin}/api/public/status-pages/Owner_Page`,
+    )
+    expect(mocks.notify).toHaveBeenCalledWith({
+      type: 'positive',
+      message: 'JSON endpoint copied',
+    })
+
     mocks.notify.mockReset()
     mocks.copyToClipboard.mockRejectedValueOnce(new Error('copy failed'))
-    await vm.copyPublicLink()
+    await vm.copyPublicAPIURL()
 
     expect(mocks.notify).toHaveBeenCalledWith({
       type: 'negative',
-      message: 'Could not copy the public link.',
+      message: 'Could not copy the JSON endpoint.',
     })
   })
 

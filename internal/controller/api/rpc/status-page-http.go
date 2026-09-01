@@ -25,6 +25,7 @@ import (
 
 const (
 	publicStatusPageEventPath         = "/api/public/status-pages/{identifier}/events"
+	publicStatusPageSnapshotPath      = "/api/public/status-pages/{identifier}"
 	publicStatusPagePath              = "/status/{identifier}"
 	publicStatusPagePollInterval      = 5 * time.Second
 	publicStatusPageStatusOverrideTTL = 2 * publicStatusPagePollInterval
@@ -35,8 +36,7 @@ var (
 	statusPageDescriptionElement = regexp.MustCompile(`(?is)<meta\s+name=["']?description["']?\s+content=["'][^"']*["']\s*/?>`)
 )
 
-// GameServerStatusPageHTTPHandler serves status-page HTML, discovery files,
-// and the live event stream.
+// GameServerStatusPageHTTPHandler serves status-page HTML, public data, and discovery files.
 type GameServerStatusPageHTTPHandler struct {
 	service  *XylonaService
 	frontend fs.FS
@@ -59,6 +59,7 @@ func NewGameServerStatusPageHTTPHandler(frontend fs.FS, service *XylonaService, 
 // RegisterGameServerStatusPageRoutes registers public routes before the SPA fallback.
 func RegisterGameServerStatusPageRoutes(router chi.Router, handler *GameServerStatusPageHTTPHandler) {
 	router.Get(publicStatusPagePath, handler.StatusPage)
+	router.Get(publicStatusPageSnapshotPath, handler.Snapshot)
 	router.Get(publicStatusPageEventPath, handler.Events)
 	router.Get("/robots.txt", handler.Robots)
 	router.Get("/sitemap.xml", handler.Sitemap)
@@ -114,8 +115,39 @@ func (h *GameServerStatusPageHTTPHandler) StatusPage(w http.ResponseWriter, r *h
 	}
 }
 
+// Snapshot returns the current public game server status page as JSON.
+func (h *GameServerStatusPageHTTPHandler) Snapshot(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	identifier := chi.URLParam(r, "identifier")
+	page, errPage := h.service.publicGameServerStatusPage(identifier, nil)
+	if errors.Is(errPage, errPublicStatusPageUnavailable) {
+		writeUnavailableStatusData(w)
+		return
+	}
+	if errPage != nil {
+		writeStatusPageError(w)
+		return
+	}
+
+	body, errMarshal := marshalStatusPageSnapshot(page)
+	if errMarshal != nil {
+		writeStatusPageError(w)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=5, stale-while-revalidate=10")
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+	//nolint:gosec // The protobuf marshaler produces JSON for an application/json response, not HTML.
+	_, errWrite := w.Write(body)
+	if errWrite != nil {
+		return
+	}
+}
+
 // Events streams complete public snapshots from cached state.
 func (h *GameServerStatusPageHTTPHandler) Events(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	identifier := chi.URLParam(r, "identifier")
 	clientIP := h.trust.ClientIP(r)
 	if !h.acquire(clientIP) {
@@ -126,7 +158,7 @@ func (h *GameServerStatusPageHTTPHandler) Events(w http.ResponseWriter, r *http.
 
 	page, errPage := h.service.publicGameServerStatusPage(identifier, nil)
 	if errors.Is(errPage, errPublicStatusPageUnavailable) {
-		writeUnavailableStatusEvent(w)
+		writeUnavailableStatusData(w)
 		return
 	}
 	if errPage != nil {
@@ -292,9 +324,9 @@ func (h *GameServerStatusPageHTTPHandler) release(clientIP string) {
 }
 
 func writeStatusPageSnapshot(w http.ResponseWriter, page *xylona.PublicGameServerStatusPage) ([]byte, error) {
-	body, errMarshal := protojson.Marshal(page)
+	body, errMarshal := marshalStatusPageSnapshot(page)
 	if errMarshal != nil {
-		return nil, fmt.Errorf("marshal status page snapshot: %w", errMarshal)
+		return nil, errMarshal
 	}
 	//nolint:gosec // The protojson payload is JSON in a text/event-stream field, not HTML.
 	_, errWrite := fmt.Fprintf(w, "event: snapshot\ndata: %s\n\n", body)
@@ -306,6 +338,14 @@ func writeStatusPageSnapshot(w http.ResponseWriter, page *xylona.PublicGameServe
 		return nil, fmt.Errorf("fingerprint status page snapshot: %w", errFingerprint)
 	}
 	return fingerprint, nil
+}
+
+func marshalStatusPageSnapshot(page *xylona.PublicGameServerStatusPage) ([]byte, error) {
+	body, errMarshal := protojson.Marshal(page)
+	if errMarshal != nil {
+		return nil, fmt.Errorf("marshal status page snapshot: %w", errMarshal)
+	}
+	return body, nil
 }
 
 func statusPageSnapshotFingerprint(page *xylona.PublicGameServerStatusPage) ([]byte, error) {
@@ -354,7 +394,7 @@ func writeUnavailableStatusPage(w http.ResponseWriter, index []byte) {
 	}
 }
 
-func writeUnavailableStatusEvent(w http.ResponseWriter) {
+func writeUnavailableStatusData(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Robots-Tag", "noindex, nofollow")
