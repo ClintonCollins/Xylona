@@ -252,7 +252,13 @@ import { ConnectError } from '@connectrpc/connect'
 import type { InstalledMod, ModSearchResult } from '@/proto/shared_pb'
 import { GetModCategoriesRequestSchema, SearchModsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
+import {
+  formatDownloads,
+  iconGradient,
+  sourceBadgeStyle,
+  sourceDisplayName,
+  sourceLabel,
+} from '@/utils/mod-sources'
 import {
   buildModBrowseQuery,
   clampModBrowsePage,
@@ -542,23 +548,6 @@ function isModInstalled(source: string, sourceId: string): boolean {
 }
 
 // --- Display helpers ---
-
-function iconGradient(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue1 = Math.abs(hash) % 360
-  const hue2 = (hue1 + 40) % 360
-  return `linear-gradient(135deg, hsl(${hue1}, 60%, 40%), hsl(${hue2}, 60%, 30%))`
-}
-
-function formatDownloads(downloads: bigint): string {
-  const num = Number(downloads)
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`
-  return num.toString()
-}
 
 function formatRelativeDate(dateStr: string): string {
   if (!dateStr) return ''

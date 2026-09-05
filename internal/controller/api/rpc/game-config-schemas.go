@@ -131,19 +131,9 @@ func getGameServerConfigFiles(
 	client nodeclient.NodeClient,
 	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.GetGameServerConfigFilesResponse], error) {
-	game, errGame := dbInst.GetGameByID(gameServer.GameID)
-	if errGame != nil {
-		return nil, internalErrf("failed to get game")
-	}
-
-	schemasJSON := game.ConfigSchemas.GetOr("")
-	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
-	if errParse != nil {
-		return nil, internalErrf("failed to parse config schemas")
-	}
-	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
-	if errResolvePaths != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
+	game, entries, errLoad := loadGameConfigSchemas(dbInst, gameServer.GameID, resolvePlatform)
+	if errLoad != nil {
+		return nil, errLoad
 	}
 
 	var configFiles []*xylona.ConfigFileInfo
@@ -221,19 +211,9 @@ func getGameServerConfigFile(
 	requestedPath string,
 	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.GetGameServerConfigFileResponse], error) {
-	game, errGame := dbInst.GetGameByID(gameServer.GameID)
-	if errGame != nil {
-		return nil, internalErrf("failed to get game")
-	}
-
-	schemasJSON := game.ConfigSchemas.GetOr("")
-	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
-	if errParse != nil {
-		return nil, internalErrf("failed to parse config schemas")
-	}
-	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
-	if errResolvePaths != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
+	_, entries, errLoad := loadGameConfigSchemas(dbInst, gameServer.GameID, resolvePlatform)
+	if errLoad != nil {
+		return nil, errLoad
 	}
 
 	// Find the matching schema entry.
@@ -390,19 +370,9 @@ func updateGameServerConfigFile(
 	msg *xylona.UpdateGameServerConfigFileRequest,
 	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.UpdateGameServerConfigFileResponse], error) {
-	game, errGame := dbInst.GetGameByID(gameServer.GameID)
-	if errGame != nil {
-		return nil, internalErrf("failed to get game")
-	}
-
-	schemasJSON := game.ConfigSchemas.GetOr("")
-	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
-	if errParse != nil {
-		return nil, internalErrf("failed to parse config schemas")
-	}
-	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
-	if errResolvePaths != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
+	_, entries, errLoad := loadGameConfigSchemas(dbInst, gameServer.GameID, resolvePlatform)
+	if errLoad != nil {
+		return nil, errLoad
 	}
 
 	// Find the matching schema entry.
@@ -687,19 +657,9 @@ func generateGameServerConfigFile(
 	requestedPath string,
 	resolvePlatform configPlatformResolver,
 ) (*connect.Response[xylona.GenerateGameServerConfigFileResponse], error) {
-	game, errGame := dbInst.GetGameByID(gameServer.GameID)
-	if errGame != nil {
-		return nil, internalErrf("failed to get game")
-	}
-
-	schemasJSON := game.ConfigSchemas.GetOr("")
-	entries, errParse := cfgschema.ParseConfigSchemas(schemasJSON)
-	if errParse != nil {
-		return nil, internalErrf("failed to parse config schemas")
-	}
-	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
-	if errResolvePaths != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
+	_, entries, errLoad := loadGameConfigSchemas(dbInst, gameServer.GameID, resolvePlatform)
+	if errLoad != nil {
+		return nil, errLoad
 	}
 
 	var schemaEntry *cfgschema.ConfigSchemaEntry
@@ -778,6 +738,27 @@ func configSchemasJSONForGeneration(schemaEntry *cfgschema.ConfigSchemaEntry) (s
 	}
 
 	return string(data), nil
+}
+
+func loadGameConfigSchemas(
+	dbInst *db.Connection,
+	gameID string,
+	resolvePlatform configPlatformResolver,
+) (*models.Game, []cfgschema.ConfigSchemaEntry, error) {
+	game, errGame := dbInst.GetGameByID(gameID)
+	if errGame != nil {
+		return nil, nil, internalErrf("failed to get game")
+	}
+
+	entries, errParse := cfgschema.ParseConfigSchemas(game.ConfigSchemas.GetOr(""))
+	if errParse != nil {
+		return nil, nil, internalErrf("failed to parse config schemas")
+	}
+	errResolvePaths := resolveConfigSchemaPaths(entries, resolvePlatform)
+	if errResolvePaths != nil {
+		return nil, nil, connect.NewError(connect.CodeUnavailable, errResolvePaths)
+	}
+	return game, entries, nil
 }
 
 func resolveConfigSchemaPaths(

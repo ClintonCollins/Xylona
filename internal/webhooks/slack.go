@@ -2,7 +2,8 @@ package webhooks
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 )
 
 // SlackPayload is the top-level payload for Slack incoming webhooks using Block Kit.
@@ -49,11 +50,7 @@ func FormatSlack(event AlertEvent) SlackPayload {
 	// Section block with fields if present.
 	if len(event.Fields) > 0 {
 		// Sort keys for deterministic output.
-		keys := make([]string, 0, len(event.Fields))
-		for k := range event.Fields {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := slices.Sorted(maps.Keys(event.Fields))
 
 		fields := make([]SlackText, 0, len(event.Fields))
 		for _, k := range keys {

@@ -275,7 +275,7 @@ describe('GameServerList', () => {
     setWebsocketConnectionStatus('connecting')
   })
 
-  function mountList(superUser: boolean) {
+  function mountList(superUser: boolean, rowSlot?: 'item' | 'body-cell-actions') {
     const store = useUserAuthStore()
     store.user = createProto(UserSchema, {
       id: superUser ? 'user-admin' : 'user-owner',
@@ -290,6 +290,11 @@ describe('GameServerList', () => {
           'q-input': { template: '<div><slot /></div>' },
           'q-icon': true,
           'q-badge': true,
+          'q-card': { template: '<div><slot /></div>' },
+          'q-card-section': { template: '<div><slot /></div>' },
+          'q-card-actions': { template: '<div><slot /></div>' },
+          'q-checkbox': true,
+          'q-space': true,
           'q-td': { template: '<div><slot /></div>' },
           'q-tooltip': true,
           'q-spinner': true,
@@ -298,16 +303,20 @@ describe('GameServerList', () => {
           'q-toolbar': { template: '<div><slot /></div>' },
           'q-table': defineComponent({
             name: 'QTableStub',
+            setup: () => ({ rowSlot }),
             props: {
               rows: { type: Array, default: () => [] },
               loading: { type: Boolean, default: false },
             },
             template:
+              '<div>' +
               '<div data-test="q-table-row-count">{{ rows.length }}</div>' +
               '<div data-test="q-table-loading">{{ loading }}</div>' +
               '<slot />' +
               '<slot name="bottom-row" />' +
-              '<slot name="no-data" />',
+              '<slot name="no-data" />' +
+              '<template v-if="rowSlot"><slot v-for="row in rows" :name="rowSlot" :row="row" :selected="false" /></template>' +
+              '</div>',
           }),
           'router-link': { template: '<a><slot /></a>' },
           'delete-game-server-dialog': true,
@@ -317,6 +326,49 @@ describe('GameServerList', () => {
       },
     })
   }
+
+  it.each(['item', 'body-cell-actions'] as const)(
+    'renders lifecycle controls in order and starts the server from the %s layout',
+    async (rowSlot) => {
+      mocks.listAggregatedGameServers.mockResolvedValue({
+        servers: [buildLocalAggregatedServer()],
+      })
+      const startRequest = createDeferred<Record<string, never>>()
+      mocks.startGameServer.mockReturnValueOnce(startRequest.promise)
+      const wrapper = mountList(true, rowSlot)
+      await flushPromises()
+
+      const buttons = wrapper.find('.server-lifecycle-actions').findAll('button')
+      expect(
+        buttons.map((button) => [
+          button.attributes('aria-label'),
+          button.attributes('color'),
+          button.attributes('icon'),
+          button.attributes('disable'),
+        ]),
+      ).toEqual([
+        ['Start Local Server', 'positive', 'play_arrow', 'false'],
+        ['Restart Local Server', 'warning', 'restart_alt', 'true'],
+        ['Stop Local Server', 'negative', 'stop', 'true'],
+        ['Update Local Server', 'accent', 'system_update_alt', 'true'],
+      ])
+
+      const startButton = buttons[0]
+      if (!startButton) throw new Error('expected start button')
+      await startButton.trigger('click')
+      expect(mocks.startGameServer).toHaveBeenCalledWith(
+        expect.objectContaining({ serverId: 'server-local' }),
+      )
+      expect(startButton.attributes('loading')).toBe('true')
+      expect(buttons.every((button) => button.attributes('disable') === 'true')).toBe(true)
+
+      startRequest.resolve({})
+      await flushPromises()
+      const refreshedStartButton = wrapper.get('button[aria-label="Start Local Server"]')
+      expect(refreshedStartButton.attributes('loading')).toBe('false')
+      expect(refreshedStartButton.attributes('disable')).toBe('false')
+    },
+  )
 
   it('hides the create button for non-superusers', async () => {
     const wrapper = mountList(false)

@@ -240,52 +240,18 @@
                 <q-space />
                 <div class="server-lifecycle-actions">
                   <q-btn
-                    :aria-label="`Start ${props.row.displayName}`"
-                    :disable="!canRunServerAction(props.row, 'start')"
-                    :loading="isServerActionPending(props.row, 'start')"
-                    color="positive"
+                    v-for="action in serverActions"
+                    :key="action.name"
+                    :aria-label="`${action.label} ${props.row.displayName}`"
+                    :disable="!canRunServerAction(props.row, action.name)"
+                    :loading="isServerActionPending(props.row, action.name)"
+                    :color="action.color"
                     dense
                     flat
-                    icon="play_arrow"
+                    :icon="action.icon"
                     round
-                    @click="runServerAction('start', props.row)">
-                    <q-tooltip>{{ getServerActionTooltip(props.row, 'start') }}</q-tooltip>
-                  </q-btn>
-                  <q-btn
-                    :aria-label="`Restart ${props.row.displayName}`"
-                    :disable="!canRunServerAction(props.row, 'restart')"
-                    :loading="isServerActionPending(props.row, 'restart')"
-                    color="warning"
-                    dense
-                    flat
-                    icon="restart_alt"
-                    round
-                    @click="runServerAction('restart', props.row)">
-                    <q-tooltip>{{ getServerActionTooltip(props.row, 'restart') }}</q-tooltip>
-                  </q-btn>
-                  <q-btn
-                    :aria-label="`Stop ${props.row.displayName}`"
-                    :disable="!canRunServerAction(props.row, 'stop')"
-                    :loading="isServerActionPending(props.row, 'stop')"
-                    color="negative"
-                    dense
-                    flat
-                    icon="stop"
-                    round
-                    @click="runServerAction('stop', props.row)">
-                    <q-tooltip>{{ getServerActionTooltip(props.row, 'stop') }}</q-tooltip>
-                  </q-btn>
-                  <q-btn
-                    :aria-label="`Update ${props.row.displayName}`"
-                    :disable="!canRunServerAction(props.row, 'update')"
-                    :loading="isServerActionPending(props.row, 'update')"
-                    color="accent"
-                    dense
-                    flat
-                    icon="system_update_alt"
-                    round
-                    @click="runServerAction('update', props.row)">
-                    <q-tooltip>{{ getServerActionTooltip(props.row, 'update') }}</q-tooltip>
+                    @click="runServerAction(action.name, props.row)">
+                    <q-tooltip>{{ getServerActionTooltip(props.row, action.name) }}</q-tooltip>
                   </q-btn>
                 </div>
                 <q-btn
@@ -378,52 +344,18 @@
             <div class="server-table-actions">
               <div class="server-lifecycle-actions">
                 <q-btn
-                  :aria-label="`Start ${props.row.displayName}`"
-                  :disable="!canRunServerAction(props.row, 'start')"
-                  :loading="isServerActionPending(props.row, 'start')"
-                  color="positive"
+                  v-for="action in serverActions"
+                  :key="action.name"
+                  :aria-label="`${action.label} ${props.row.displayName}`"
+                  :disable="!canRunServerAction(props.row, action.name)"
+                  :loading="isServerActionPending(props.row, action.name)"
+                  :color="action.color"
                   dense
                   flat
-                  icon="play_arrow"
+                  :icon="action.icon"
                   round
-                  @click="runServerAction('start', props.row)">
-                  <q-tooltip>{{ getServerActionTooltip(props.row, 'start') }}</q-tooltip>
-                </q-btn>
-                <q-btn
-                  :aria-label="`Restart ${props.row.displayName}`"
-                  :disable="!canRunServerAction(props.row, 'restart')"
-                  :loading="isServerActionPending(props.row, 'restart')"
-                  color="warning"
-                  dense
-                  flat
-                  icon="restart_alt"
-                  round
-                  @click="runServerAction('restart', props.row)">
-                  <q-tooltip>{{ getServerActionTooltip(props.row, 'restart') }}</q-tooltip>
-                </q-btn>
-                <q-btn
-                  :aria-label="`Stop ${props.row.displayName}`"
-                  :disable="!canRunServerAction(props.row, 'stop')"
-                  :loading="isServerActionPending(props.row, 'stop')"
-                  color="negative"
-                  dense
-                  flat
-                  icon="stop"
-                  round
-                  @click="runServerAction('stop', props.row)">
-                  <q-tooltip>{{ getServerActionTooltip(props.row, 'stop') }}</q-tooltip>
-                </q-btn>
-                <q-btn
-                  :aria-label="`Update ${props.row.displayName}`"
-                  :disable="!canRunServerAction(props.row, 'update')"
-                  :loading="isServerActionPending(props.row, 'update')"
-                  color="accent"
-                  dense
-                  flat
-                  icon="system_update_alt"
-                  round
-                  @click="runServerAction('update', props.row)">
-                  <q-tooltip>{{ getServerActionTooltip(props.row, 'update') }}</q-tooltip>
+                  @click="runServerAction(action.name, props.row)">
+                  <q-tooltip>{{ getServerActionTooltip(props.row, action.name) }}</q-tooltip>
                 </q-btn>
               </div>
               <q-separator vertical />
@@ -573,6 +505,17 @@ const showDeleteGameServerDialog = ref(false)
 const showStatusPageSettings = ref(false)
 const selectedGameServers = ref([] as DisplayRow[])
 type ServerAction = 'start' | 'stop' | 'restart' | 'update'
+const serverActions: readonly {
+  name: ServerAction
+  label: string
+  color: string
+  icon: string
+}[] = [
+  { name: 'start', label: 'Start', color: 'positive', icon: 'play_arrow' },
+  { name: 'restart', label: 'Restart', color: 'warning', icon: 'restart_alt' },
+  { name: 'stop', label: 'Stop', color: 'negative', icon: 'stop' },
+  { name: 'update', label: 'Update', color: 'accent', icon: 'system_update_alt' },
+]
 type ServerPlayerCounts = { current: number; max: number }
 type ServerResourceUsage = {
   cpuPercent: number | null

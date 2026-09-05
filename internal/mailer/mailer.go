@@ -7,10 +7,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/mail"
 	"net/smtp"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -205,11 +206,7 @@ func FormatBody(event webhooks.AlertEvent) string {
 	if len(event.Fields) > 0 {
 		b.WriteString("\nDetails:\n")
 
-		keys := make([]string, 0, len(event.Fields))
-		for k := range event.Fields {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := slices.Sorted(maps.Keys(event.Fields))
 
 		for _, k := range keys {
 			b.WriteString("  ")

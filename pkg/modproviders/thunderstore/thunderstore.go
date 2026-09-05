@@ -419,16 +419,5 @@ func thunderstoreOrdering(params modproviders.SearchParams) string {
 
 // extractCommunity pulls the community string from SearchParams["community"].
 func extractCommunity(params modproviders.SearchParams) string {
-	if params == nil {
-		return ""
-	}
-	value, ok := params["community"]
-	if !ok {
-		return ""
-	}
-	community, ok := value.(string)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(community)
+	return strings.TrimSpace(providerhttp.StringParam(params, "community"))
 }

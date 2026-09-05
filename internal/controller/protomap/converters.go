@@ -148,12 +148,13 @@ func GameServerModelToProto(gsModel *models.GameServer, vsm *versiontracker.Vers
 		}
 	}
 	if vsm != nil {
-		proto.VersionInfo = versionStateToVersionInfoProto(vsm.Get(gsModel.ID))
+		proto.VersionInfo = VersionStateToProto(vsm.Get(gsModel.ID))
 	}
 	return proto
 }
 
-func versionStateToVersionInfoProto(state versiontracker.VersionState) *xylona.VersionInfo {
+// VersionStateToProto converts cached version metadata to a protobuf message.
+func VersionStateToProto(state versiontracker.VersionState) *xylona.VersionInfo {
 	protoStatus := xylona.VersionStatus_VERSION_STATUS_NO_TRACKER
 	switch state.Status {
 	case versiontracker.VersionStatusUnchecked:

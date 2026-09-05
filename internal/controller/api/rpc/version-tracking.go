@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
@@ -31,7 +32,7 @@ func (xs *XylonaService) resolveLocalVersionData(ctx context.Context, gs *models
 		return "", nil, nil
 	}
 	_, state := xs.actionsInst.ResolveVersionData(ctx, gs, opts)
-	return state.InstalledVersion, versionStateToProto(state), nil
+	return state.InstalledVersion, protomap.VersionStateToProto(state), nil
 }
 
 func (xs *XylonaService) resolveRemoteVersionData(ctx context.Context, gs *models.GameServer, opts actions.VersionResolveOptions) (string, *xylona.VersionInfo, error) {
@@ -47,7 +48,7 @@ func (xs *XylonaService) resolveRemoteVersionData(ctx context.Context, gs *model
 	if errResolve != nil {
 		return "", nil, errResolve
 	}
-	return state.InstalledVersion, versionStateToProto(state), nil
+	return state.InstalledVersion, protomap.VersionStateToProto(state), nil
 }
 
 func (xs *XylonaService) resolveRemoteVersionDataAsync(gs *models.GameServer, opts actions.VersionResolveOptions) (string, *xylona.VersionInfo) {
@@ -59,14 +60,14 @@ func (xs *XylonaService) resolveRemoteVersionDataAsync(gs *models.GameServer, op
 	if tracker == nil {
 		xs.versionState.InitNoTracker(gs.ID)
 		state = xs.versionState.Get(gs.ID)
-		return rawVersion, versionStateToProto(state)
+		return rawVersion, protomap.VersionStateToProto(state)
 	}
 
 	trackerType := versiontracker.TrackerTypeName(tracker)
 	contextKey := trackerInfo.CacheKey()
 	refreshInstalled, refreshLatest := remoteVersionRefreshNeeds(state, ok, opts.ForceRefresh, trackerType, contextKey)
 	if !refreshInstalled && !refreshLatest {
-		return rawVersion, versionStateToProto(state)
+		return rawVersion, protomap.VersionStateToProto(state)
 	}
 
 	xs.startRemoteVersionRefresh(gs, opts.ForceRefresh)
@@ -77,10 +78,10 @@ func (xs *XylonaService) resolveRemoteVersionDataAsync(gs *models.GameServer, op
 		checkingState.TrackerType = trackerType
 		checkingState.ContextKey = contextKey
 		xs.versionState.Set(gs.ID, checkingState)
-		return rawVersion, versionStateToProto(checkingState)
+		return rawVersion, protomap.VersionStateToProto(checkingState)
 	}
 
-	return rawVersion, versionStateToProto(state)
+	return rawVersion, protomap.VersionStateToProto(state)
 }
 
 func resolveRemoteDisplayVersion(gs *models.GameServer, state versiontracker.VersionState, ok bool) string {
@@ -448,36 +449,4 @@ func maxRemoteVersionTime(a time.Time, b time.Time) time.Time {
 		return a
 	}
 	return b
-}
-
-func versionStateToProto(state versiontracker.VersionState) *xylona.VersionInfo {
-	protoStatus := xylona.VersionStatus_VERSION_STATUS_NO_TRACKER
-	switch state.Status {
-	case versiontracker.VersionStatusUnchecked:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_UNCHECKED
-	case versiontracker.VersionStatusChecking:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKING
-	case versiontracker.VersionStatusChecked:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKED
-	case versiontracker.VersionStatusError:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_ERROR
-	}
-
-	var lastCheckUnix int64
-	if !state.LastCheckTime.IsZero() {
-		lastCheckUnix = state.LastCheckTime.Unix()
-	}
-
-	return &xylona.VersionInfo{
-		InstalledVersion:      state.InstalledVersion,
-		LatestVersion:         state.LatestVersion,
-		UpdateAvailable:       state.UpdateAvailable,
-		LastCheckTime:         lastCheckUnix,
-		TrackerType:           state.TrackerType,
-		Status:                protoStatus,
-		InstalledVersionLabel: state.InstalledVersionLabel,
-		LatestVersionLabel:    state.LatestVersionLabel,
-		InstalledBranch:       state.InstalledBranch,
-		LatestBranch:          state.LatestBranch,
-	}
 }

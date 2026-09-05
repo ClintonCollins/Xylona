@@ -410,18 +410,7 @@ func splitSourceID(sourceID string) (author, slug string, err error) {
 
 // extractPlatform pulls the platform string from SearchParams["platform"].
 func extractPlatform(params modproviders.SearchParams) string {
-	if params == nil {
-		return ""
-	}
-	v, ok := params["platform"]
-	if !ok {
-		return ""
-	}
-	s, ok := v.(string)
-	if !ok {
-		return ""
-	}
-	return s
+	return providerhttp.StringParam(params, "platform")
 }
 
 // primaryDownloadFor returns the download URL and file size for the best available platform.

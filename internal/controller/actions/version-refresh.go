@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
-	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -247,40 +247,8 @@ func maxVersionTime(a time.Time, b time.Time) time.Time {
 	return b
 }
 
-func versionStateToProto(state versiontracker.VersionState) *xylona.VersionInfo {
-	protoStatus := xylona.VersionStatus_VERSION_STATUS_NO_TRACKER
-	switch state.Status {
-	case versiontracker.VersionStatusUnchecked:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_UNCHECKED
-	case versiontracker.VersionStatusChecking:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKING
-	case versiontracker.VersionStatusChecked:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_CHECKED
-	case versiontracker.VersionStatusError:
-		protoStatus = xylona.VersionStatus_VERSION_STATUS_ERROR
-	}
-
-	var lastCheckUnix int64
-	if !state.LastCheckTime.IsZero() {
-		lastCheckUnix = state.LastCheckTime.Unix()
-	}
-
-	return &xylona.VersionInfo{
-		InstalledVersion:      state.InstalledVersion,
-		LatestVersion:         state.LatestVersion,
-		UpdateAvailable:       state.UpdateAvailable,
-		LastCheckTime:         lastCheckUnix,
-		TrackerType:           state.TrackerType,
-		Status:                protoStatus,
-		InstalledVersionLabel: state.InstalledVersionLabel,
-		LatestVersionLabel:    state.LatestVersionLabel,
-		InstalledBranch:       state.InstalledBranch,
-		LatestBranch:          state.LatestBranch,
-	}
-}
-
 func (inst *Instance) publishVersionState(gs *models.GameServer, state versiontracker.VersionState) {
-	protoState := versionStateToProto(state)
+	protoState := protomap.VersionStateToProto(state)
 	rawVersion := versiontracker.ResolveCurrentVersion(gs)
 
 	if inst.versionBroadcaster != nil {

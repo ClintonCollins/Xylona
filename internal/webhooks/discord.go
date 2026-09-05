@@ -2,7 +2,8 @@
 package webhooks
 
 import (
-	"sort"
+	"maps"
+	"slices"
 )
 
 // Discord embed color constants matching the project's design tokens.
@@ -44,11 +45,7 @@ func FormatDiscord(event AlertEvent) DiscordPayload {
 
 	if len(event.Fields) > 0 {
 		// Sort keys for deterministic output.
-		keys := make([]string, 0, len(event.Fields))
-		for k := range event.Fields {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		keys := slices.Sorted(maps.Keys(event.Fields))
 
 		fields := make([]DiscordField, 0, len(event.Fields))
 		for _, k := range keys {

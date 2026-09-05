@@ -928,6 +928,18 @@ func TestGameServerModelToProtoVersionInfo(t *testing.T) {
 		}
 	})
 
+	t.Run("unknown status defaults to no tracker", func(t *testing.T) {
+		vsm := versiontracker.NewVersionStateMap()
+		vsm.Set("gs-vi-1", versiontracker.VersionState{Status: versiontracker.VersionStatus(-1)})
+		got := GameServerModelToProto(baseInput(), vsm)
+		if got.GetVersionInfo() == nil {
+			t.Fatal("VersionInfo should not be nil when vsm is provided")
+		}
+		if got.GetVersionInfo().GetStatus() != xylona.VersionStatus_VERSION_STATUS_NO_TRACKER {
+			t.Errorf("Status = %v, want VERSION_STATUS_NO_TRACKER", got.GetVersionInfo().GetStatus())
+		}
+	})
+
 	t.Run("vsm present with checked status populates all fields", func(t *testing.T) {
 		checkTime := time.Now().Truncate(time.Second)
 		vsm := versiontracker.NewVersionStateMap()

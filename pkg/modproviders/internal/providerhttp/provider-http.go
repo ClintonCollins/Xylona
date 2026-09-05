@@ -138,30 +138,13 @@ func DownloadToFile(ctx context.Context, client *http.Client, rawURL string, des
 
 // StringParam returns a string search parameter.
 func StringParam(params modproviders.SearchParams, key string) string {
-	if params == nil {
-		return ""
-	}
-	v, ok := params[key]
-	if !ok {
-		return ""
-	}
-	s, ok := v.(string)
-	if !ok {
-		return ""
-	}
+	s, _ := params[key].(string)
 	return s
 }
 
 // IntParam returns an integer search parameter or defaultValue.
 func IntParam(params modproviders.SearchParams, key string, defaultValue int) int {
-	if params == nil {
-		return defaultValue
-	}
-	v, ok := params[key]
-	if !ok {
-		return defaultValue
-	}
-	n, ok := v.(int)
+	n, ok := params[key].(int)
 	if !ok {
 		return defaultValue
 	}
@@ -170,16 +153,6 @@ func IntParam(params modproviders.SearchParams, key string, defaultValue int) in
 
 // StringSliceParam returns a string slice search parameter.
 func StringSliceParam(params modproviders.SearchParams, key string) []string {
-	if params == nil {
-		return nil
-	}
-	v, ok := params[key]
-	if !ok {
-		return nil
-	}
-	s, ok := v.([]string)
-	if !ok {
-		return nil
-	}
+	s, _ := params[key].([]string)
 	return s
 }
