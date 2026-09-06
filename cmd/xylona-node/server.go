@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/launchenv"
@@ -289,6 +290,7 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 
 	msg := req.Msg
 	cfg := node.ProcessConfig{
+		RedactValues:     append(slices.Clone(msg.GetRedactValues()), s.sharedSecret),
 		ID:               msg.GetId(),
 		ExecutionID:      msg.GetExecutionId(),
 		Name:             msg.GetName(),
@@ -300,6 +302,13 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 		ServiceID:        msg.GetServiceId(),
 		StopTimeout:      time.Duration(msg.GetStopTimeoutSeconds()) * time.Second,
 		LaunchEnv:        cloneStringMap(msg.GetLaunchEnv()),
+	}
+	if msg.GetAttemptStartedAt() != nil {
+		errTimestamp := msg.GetAttemptStartedAt().CheckValid()
+		if errTimestamp != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errTimestamp)
+		}
+		cfg.AttemptStartedAt = msg.GetAttemptStartedAt().AsTime()
 	}
 	telnetInput := msg.GetTelnetInput()
 	if telnetInput != nil {
@@ -355,6 +364,17 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 
 	_, errStart := s.n.StartProcess(cfg, xylonaStatusFromProto(msg.GetInitialStatus()))
 	if errStart != nil {
+		failure, isFailure := errors.AsType[*node.StartFailureError](errStart)
+		if isFailure {
+			connectError := connect.NewError(connect.CodeOf(translate(errStart)), errors.New(failure.Report.Error))
+			detail, errDetail := connect.NewErrorDetail(processFailureToProto(&failure.Report))
+			if errDetail != nil {
+				log.Error().Err(errDetail).Str("process_id", cfg.ID).Msg("Unable to serialize process failure evidence")
+			} else {
+				connectError.AddDetail(detail)
+			}
+			return nil, connectError
+		}
 		return nil, translate(errStart)
 	}
 	return connect.NewResponse(&nodeprotov1.StartProcessResponse{ProcessId: cfg.ID}), nil
@@ -2147,6 +2167,7 @@ func nodeEventToProto(ev node.Event) *nodeprotov1.Event {
 	switch ev.Type {
 	case node.EventTypeProcessStatus:
 		status := &nodeprotov1.ProcessStatusEvent{
+			Failure:            processFailureToProto(ev.Failure),
 			ProcessId:          ev.ProcessID,
 			Status:             ev.Status,
 			OldStatus:          ev.OldStatus,

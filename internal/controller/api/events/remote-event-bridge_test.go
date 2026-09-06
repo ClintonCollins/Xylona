@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -21,6 +22,7 @@ func TestRemoteEventBridgeRepublishReliableLifecycle(t *testing.T) {
 	cursors := make(map[string]processLifecycleCursor)
 	occurredAt := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
 	event := node.Event{
+		Failure:            &diagnosis.Report{ExecutionID: "execution-1", Stage: diagnosis.StageRuntime, Evidence: "terminal evidence"},
 		Type:               node.EventTypeProcessStatus,
 		ProcessID:          "server-1",
 		OldStatus:          xylona.Status_ONLINE.String(),
@@ -47,6 +49,9 @@ func TestRemoteEventBridgeRepublishReliableLifecycle(t *testing.T) {
 	}
 	if !got.OccurredAt.Equal(occurredAt) {
 		t.Fatalf("lifecycle occurrence time = %v, want %v", got.OccurredAt, occurredAt)
+	}
+	if got.Failure == nil || got.Failure.ExecutionID != "execution-1" || got.Failure.Evidence != "terminal evidence" {
+		t.Fatalf("failure evidence was lost: %+v", got.Failure)
 	}
 	rawCrash := <-crashEvents
 	crash, ok := rawCrash.(eventbus.ServerCrashedEvent)

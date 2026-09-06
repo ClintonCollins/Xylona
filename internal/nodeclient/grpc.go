@@ -161,6 +161,7 @@ func cloneStringMap(values map[string]string) map[string]string {
 // StreamConsoleOutput, and snapshots for lifecycle observation.
 func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) error {
 	msg := &nodeprotov1.StartProcessRequest{
+		RedactValues:       slices.Clone(cfg.RedactValues),
 		Id:                 cfg.ID,
 		ExecutionId:        cfg.ExecutionID,
 		Name:               cfg.Name,
@@ -175,6 +176,9 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 		InternalCommand:    cfg.InternalCommand,
 		InternalGameId:     cfg.InternalGameID,
 		LaunchEnv:          cloneStringMap(cfg.LaunchEnv),
+	}
+	if !cfg.AttemptStartedAt.IsZero() {
+		msg.AttemptStartedAt = timestamppb.New(cfg.AttemptStartedAt)
 	}
 	if cfg.InputTelnet != nil {
 		if cfg.InputTelnet.Port < 0 || cfg.InputTelnet.Port > 65535 {
@@ -220,6 +224,24 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 
 	_, errRPC := c.connectClient.StartProcess(ctx, req)
 	if errRPC != nil {
+		connectError, isConnectError := errors.AsType[*connect.Error](errRPC)
+		if isConnectError {
+			for _, detail := range connectError.Details() {
+				value, errValue := detail.Value()
+				if errValue != nil {
+					log.Warn().Err(errValue).Msg("Unable to decode process failure detail")
+					continue
+				}
+				failure, isFailure := value.(*nodeprotov1.ProcessFailure)
+				if !isFailure {
+					continue
+				}
+				report := processFailureFromProto(failure)
+				if report != nil && report.ExecutionID == cfg.ExecutionID {
+					return &node.StartFailureError{Report: *report, Err: translateError("start process", errRPC)}
+				}
+			}
+		}
 		return translateError("start process", errRPC)
 	}
 	return nil
@@ -2153,6 +2175,10 @@ func nodeEventFromProto(ev *nodeprotov1.Event) node.Event {
 		out.TransitionSequence = status.GetTransitionSequence()
 		out.IntentionalStop = status.GetIntentionalStop()
 		out.Replayed = status.GetReplayed()
+		out.Failure = processFailureFromProto(status.GetFailure())
+		if out.Failure != nil && out.Failure.ExecutionID != out.ExecutionID {
+			out.Failure = nil
+		}
 		if status.ExitCode != nil {
 			out.ExitCode = int(status.GetExitCode())
 			out.ExitCodeKnown = true

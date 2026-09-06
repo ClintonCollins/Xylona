@@ -9,6 +9,8 @@ import (
 	"maps"
 	"strings"
 	"time"
+
+	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 )
 
 // Sentinel errors returned by node operations.
@@ -93,6 +95,8 @@ const defaultStopTimeout = 15 * time.Second
 // transport-agnostic input for StartProcess and is translated into a
 // supervisor.PreparedCommand internally.
 type ProcessConfig struct {
+	AttemptStartedAt time.Time
+	RedactValues     []string
 	ID               string
 	ExecutionID      string
 	Name             string
@@ -200,6 +204,7 @@ type RESTInput struct {
 // command, args duplicated, and the stop timeout defaulted.
 func (p ProcessConfig) normalize() ProcessConfig {
 	out := p
+	out.RedactValues = append([]string(nil), p.RedactValues...)
 	out.BaseCommand = strings.TrimSpace(p.BaseCommand)
 	if len(p.Args) > 0 {
 		out.Args = append([]string(nil), p.Args...)
@@ -1063,6 +1068,7 @@ const (
 
 // Event is a typed event emitted by the node and consumed by the controller.
 type Event struct {
+	Failure            *diagnosis.Report
 	Type               EventType
 	ProcessID          string
 	Status             string

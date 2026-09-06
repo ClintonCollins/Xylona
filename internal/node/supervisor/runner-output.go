@@ -67,6 +67,9 @@ func (c *Command) scanJobOutput(
 	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
+	evidenceWriter := c.newFailureOutputWriter(processDone)
+	defer evidenceWriter.flush(true)
+	reader = io.TeeReader(reader, evidenceWriter)
 
 	errRead := readConsoleRecords(reader, func(output string) bool {
 		select {
@@ -98,7 +101,9 @@ func (c *Command) scanJobOutput(
 // readTelnetOutput reads the output of one attached telnet connection.
 func (c *Command) readTelnetOutput(telnetConnection *telnet.Conn, processDone <-chan struct{}) error {
 	log.Debug().Str("Game Server ID", c.ID).Msg("Telnet is running")
-	errRead := readConsoleRecords(telnetConnection, func(telnetOut string) bool {
+	evidenceWriter := c.newFailureOutputWriter(processDone)
+	defer evidenceWriter.flush(true)
+	errRead := readConsoleRecords(io.TeeReader(telnetConnection, evidenceWriter), func(telnetOut string) bool {
 		select {
 		case <-c.instanceCtx.Done():
 			log.Debug().Str("Game Server ID", c.ID).Msg("Received Xylona shutdown signal.  Closing telnet reader.")

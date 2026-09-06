@@ -278,6 +278,20 @@ func TestGameServerHasRelationsEmitExists(t *testing.T) {
 		}
 	})
 
+	t.Run("GameServerDiagnosis", func(t *testing.T) {
+		q := sqlite.Select(
+			sm.From(GameServers.NameExpr()),
+			SelectWhere.GameServers.R.HasGameServerDiagnosis(),
+		)
+		sql, _, err := bob.Build(ctx, q)
+		if err != nil {
+			t.Fatalf("HasGameServerDiagnosis: build error: %v", err)
+		}
+		if !strings.Contains(sql, "EXISTS") {
+			t.Errorf("HasGameServerDiagnosis: expected EXISTS in query, got: %s", sql)
+		}
+	})
+
 	t.Run("GameServerLifecycleEvents", func(t *testing.T) {
 		q := sqlite.Select(
 			sm.From(GameServers.NameExpr()),
@@ -471,6 +485,27 @@ func TestGameServerBackupHasRelationsEmitExists(t *testing.T) {
 		q := sqlite.Select(
 			sm.From(GameServerBackups.NameExpr()),
 			SelectWhere.GameServerBackups.R.HasGameServer(),
+		)
+		sql, _, err := bob.Build(ctx, q)
+		if err != nil {
+			t.Fatalf("HasGameServer: build error: %v", err)
+		}
+		if !strings.Contains(sql, "EXISTS") {
+			t.Errorf("HasGameServer: expected EXISTS in query, got: %s", sql)
+		}
+	})
+}
+
+// TestGameServerDiagnosisHasRelationsEmitExists verifies that every generated
+// Has{Rel} helper produces a correlated EXISTS subquery (semi-join) rather than
+// an INNER JOIN, so the parent rows are never multiplied.
+func TestGameServerDiagnosisHasRelationsEmitExists(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("GameServer", func(t *testing.T) {
+		q := sqlite.Select(
+			sm.From(GameServerDiagnoses.NameExpr()),
+			SelectWhere.GameServerDiagnoses.R.HasGameServer(),
 		)
 		sql, _, err := bob.Build(ctx, q)
 		if err != nil {

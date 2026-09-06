@@ -1467,6 +1467,8 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 	client, _ := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
 
 	cfg := node.ProcessConfig{
+		AttemptStartedAt: time.Now().Add(-time.Minute).UTC(),
+		RedactValues:     []string{"launch-secret"},
 		ID:               "gs-1",
 		ExecutionID:      "execution-1",
 		Name:             "server",
@@ -1504,6 +1506,9 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 	}
 	if got.GetExecutionId() != "execution-1" {
 		t.Fatalf("execution ID = %q, want execution-1", got.GetExecutionId())
+	}
+	if !got.GetAttemptStartedAt().AsTime().Equal(cfg.AttemptStartedAt) || !slices.Equal(got.GetRedactValues(), cfg.RedactValues) {
+		t.Fatal("attempt timestamp or redaction values were not sent")
 	}
 	if got.GetTelnetInput().GetPort() != 8081 || got.GetTelnetInput().GetPassword() != t.Name() {
 		t.Fatalf("telnet input = %+v", got.GetTelnetInput())

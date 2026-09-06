@@ -141,6 +141,22 @@ message ProcessStatusEvent {
   string execution_id = 6;
   uint64 transition_sequence = 7;
   bool replayed = 8;
+  ProcessFailure failure = 9;
+}
+
+// ProcessFailure is a bounded, redacted snapshot of one failed execution.
+message ProcessFailure {
+  string execution_id = 1;
+  google.protobuf.Timestamp attempt_started_at = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  string stage = 4;
+  string category = 5;
+  string error = 6;
+  string evidence = 7;
+  string matched_evidence = 8;
+  bool truncated = 9;
+  bool evidence_available = 10;
+  optional int64 exit_code = 11;
 }
 
 // MetricsUpdateEvent fires when the node pushes a fresh metrics snapshot.
@@ -203,6 +219,8 @@ message StartProcessRequest {
   TelnetInput telnet_input = 15;
   RCONInput rcon_input = 16;
   RESTInput rest_input = 17;
+  google.protobuf.Timestamp attempt_started_at = 18;
+  repeated string redact_values = 19;
 }
 
 message TelnetInput {

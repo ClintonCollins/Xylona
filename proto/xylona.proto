@@ -66,6 +66,7 @@ service Xylona {
   rpc GetGameServerAdminInterface (GetGameServerAdminInterfaceRequest) returns (GetGameServerAdminInterfaceResponse) {}
   rpc SetGameServerAdminInterfacePassword (SetGameServerAdminInterfacePasswordRequest) returns (SetGameServerAdminInterfacePasswordResponse) {}
   rpc GetGameServerReadiness (GetGameServerReadinessRequest) returns (GetGameServerReadinessResponse) {}
+  rpc GetGameServerDiagnosis (GetGameServerDiagnosisRequest) returns (GetGameServerDiagnosisResponse) {}
   rpc AcceptMinecraftEula (AcceptMinecraftEulaRequest) returns (AcceptMinecraftEulaResponse) {}
   rpc SetSteamGSLT (SetSteamGSLTRequest) returns (SetSteamGSLTResponse) {}
   rpc ClearSteamGSLT (ClearSteamGSLTRequest) returns (ClearSteamGSLTResponse) {}
@@ -676,6 +677,30 @@ message GameServerReadinessItem {
   bool blocking = 4;
   string message = 5;
   string public_data_json = 6;
+}
+
+message GetGameServerDiagnosisRequest {
+  string server_id = 1;
+}
+
+message GetGameServerDiagnosisResponse {
+  GameServerDiagnosis diagnosis = 1;
+}
+
+message GameServerDiagnosis {
+  string execution_id = 1;
+  google.protobuf.Timestamp attempt_started_at = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+  string stage = 4;
+  string category = 5;
+  string error = 6;
+  string evidence = 7;
+  string matched_evidence = 8;
+  bool truncated = 9;
+  bool evidence_available = 10;
+  optional int64 exit_code = 11;
+  bool evidence_restricted = 12;
+  bool inferred = 13;
 }
 
 message GetGameServerReadinessRequest {

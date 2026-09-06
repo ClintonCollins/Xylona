@@ -52,6 +52,7 @@ export interface MetricsTimelineEvent {
 interface UseGameServerMetricsOptions {
   gameServerId: Ref<string>
   initialRange?: MetricsRangeKey
+  focusAt?: Ref<number | null>
 }
 
 function timestampToMs(timestamp: Timestamp | undefined): number | null {
@@ -351,7 +352,11 @@ export function normalizeLiveMetricPoint(
   }
 }
 
-export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServerMetricsOptions) {
+export function useGameServerMetrics({
+  gameServerId,
+  initialRange,
+  focusAt,
+}: UseGameServerMetricsOptions) {
   const selectedRange = ref<MetricsRangeKey>(initialRange ?? '1h')
   const samples = ref<MetricSample[]>([])
   const timeline = ref<MetricsTimelineEvent[]>([])
@@ -369,7 +374,15 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
   let subscribedGameServerId = ''
   let subscriptionMounted = false
 
-  const rangeRequest = computed(() => getMetricsRangeRequest(selectedRange.value))
+  function getRangeRequest() {
+    const at = focusAt?.value
+    const range = getMetricsRangeRequest(
+      selectedRange.value,
+      at == null ? Date.now() : at + 5 * 60_000,
+    )
+    return at == null ? range : { ...range, live: false }
+  }
+  const rangeRequest = computed(getRangeRequest)
   const latestSample = computed(() => samples.value[samples.value.length - 1] ?? null)
   const viewState = computed(() =>
     deriveMetricsViewState({
@@ -410,7 +423,7 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
   async function fetchMetrics(): Promise<void> {
     const requestSequence = guard.begin()
     const serverId = gameServerId.value
-    const range = getMetricsRangeRequest(selectedRange.value)
+    const range = getRangeRequest()
     loading.value = true
     error.value = ''
 
@@ -475,7 +488,7 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
 
   function appendLiveMetrics(metrics: GameServerMetrics): void {
     liveProcessMetrics.value = metrics
-    const currentRange = getMetricsRangeRequest(selectedRange.value)
+    const currentRange = getRangeRequest()
     if (!currentRange.live) return
     const nowMs = Date.now()
     const bucketMs = Math.max(
@@ -555,6 +568,7 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
     { flush: 'sync', immediate: true },
   )
   watch(selectedRange, () => void fetchMetrics())
+  if (focusAt) watch(focusAt, () => void fetchMetrics())
 
   onMounted(() => {
     subscriptionMounted = true

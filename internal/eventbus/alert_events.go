@@ -2,6 +2,8 @@ package eventbus
 
 import (
 	"time"
+
+	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 )
 
 // Alert event topics — server events.
@@ -45,6 +47,7 @@ type ServerCrashedEvent struct {
 // NewStatus is OFFLINE and the process exited with a known code; zero
 // otherwise (including graceful stops).
 type StatusChangedEvent struct {
+	Failure            *diagnosis.Report
 	ServerID           string
 	ServerName         string
 	ServerNodeID       string

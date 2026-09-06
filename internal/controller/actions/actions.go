@@ -21,6 +21,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
@@ -542,10 +543,23 @@ func (inst *Instance) postInstallStep(gameServer *models.GameServer) error {
 // server. Routes through NodeClient so both embedded and remote nodes launch
 // processes via the same surface; exit handling is driven by the status-
 // change eventbus subscriber.
-func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGameServerResult, error) {
+func (inst *Instance) StartGameServer(gameServer *models.GameServer) (result *StartGameServerResult, errStartGame error) {
 	if gameServer == nil {
 		return nil, startConfigurationError("game server is missing", errors.New("game server is nil"))
 	}
+	attemptID, errAttempt := uuid.NewV7()
+	if errAttempt != nil {
+		return nil, startInternalError("failed to allocate server execution identity", errAttempt)
+	}
+	executionID := attemptID.String()
+	attemptStartedAt := diagnosis.AttemptTime(executionID)
+	failureStage := diagnosis.StagePreStart
+	var redactValues []string
+	defer func() {
+		if errStartGame != nil {
+			inst.recordStartDiagnosis(gameServer, executionID, attemptStartedAt, failureStage, errStartGame, redactValues)
+		}
+	}()
 
 	reloadedGameServer, errReload := inst.reloadGameServerForStart(gameServer)
 	if errReload != nil {
@@ -581,11 +595,13 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 			inst.reportStartFailure(gameServer, "Admin interface password setup failed: "+errAdminInterfacePassword.Error())
 			return nil, startConfigurationError("admin interface password setup failed", errAdminInterfacePassword)
 		}
+		redactValues = append(redactValues, adminInterfacePassword)
 		previousAdminPasswords, errPasswordHistory := inst.loadAdminInterfacePasswordHistory(gameServer)
 		if errPasswordHistory != nil {
 			inst.reportStartFailure(gameServer, "Admin interface password history failed: "+errPasswordHistory.Error())
 			return nil, startConfigurationError("admin interface password history failed", errPasswordHistory)
 		}
+		redactValues = append(redactValues, previousAdminPasswords...)
 		var errAdminInput error
 		adminInput, errAdminInput = newGameServerAdminInput(
 			gameServer,
@@ -636,6 +652,9 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		return nil, startConfigurationError("server launch secret is unavailable", errSecretStartVars)
 	}
 	adminInput.mergePlaceholderVars(secretStartVars)
+	for _, value := range secretStartVars {
+		redactValues = append(redactValues, value)
+	}
 
 	errGameLaunchSecrets := inst.writeGameLaunchSecrets(gameServer, client, secretStartVars)
 	if errGameLaunchSecrets != nil {
@@ -653,7 +672,8 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 
 	cfg := node.ProcessConfig{
 		ID:               gameServer.ID,
-		ExecutionID:      uuid.NewString(),
+		ExecutionID:      executionID,
+		AttemptStartedAt: attemptStartedAt,
 		Name:             gameServer.Name,
 		BaseCommand:      baseCommand,
 		Args:             args,
@@ -676,13 +696,18 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, "Launch environment could not be loaded: "+errLaunchEnv.Error())
 		return nil, startConfigurationError("launch environment could not be loaded", errLaunchEnv)
 	}
+	for _, value := range launchEnv {
+		redactValues = append(redactValues, value)
+	}
 	launchEnv, errLaunchEnv = inst.prepareLaunchSecrets(gameServer, client, launchEnv)
 	if errLaunchEnv != nil {
 		inst.reportStartFailure(gameServer, "Launch secrets could not be prepared: "+errLaunchEnv.Error())
 		return nil, startConfigurationError("launch secrets could not be prepared", errLaunchEnv)
 	}
 	cfg.LaunchEnv = launchEnv
+	cfg.RedactValues = redactValues
 
+	failureStage = diagnosis.StageLaunch
 	errStart := client.StartProcess(inst.ctx, cfg, xylona.Status_ONLINE)
 	if errStart != nil {
 		log.Error().Err(errStart).Str("game_server_id", gameServer.ID).

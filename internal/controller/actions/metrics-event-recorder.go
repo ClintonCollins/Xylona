@@ -45,6 +45,7 @@ func (inst *Instance) startMetricsEventRecorderWithBus(ctx context.Context, bus 
 					continue
 				}
 				inst.recordLifecycleStatusEvent(ctx, event)
+				inst.recordLifecycleDiagnosis(event)
 			}
 		}
 	}()

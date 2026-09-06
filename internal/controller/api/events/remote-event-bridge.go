@@ -227,6 +227,7 @@ func (b *RemoteEventBridge) republish(
 		serverName := b.resolveServerName(ev.ProcessID)
 
 		b.bus.Publish(eventbus.TopicGameServerStatusChanged, eventbus.StatusChangedEvent{
+			Failure:            ev.Failure,
 			ServerID:           ev.ProcessID,
 			ServerName:         serverName,
 			ServerNodeID:       nodeID,

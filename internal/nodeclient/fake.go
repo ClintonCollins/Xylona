@@ -354,6 +354,7 @@ func (f *FakeNodeClient) ID() string {
 func (f *FakeNodeClient) StartProcess(_ context.Context, cfg node.ProcessConfig, status xylona.Status) error {
 	recorded := cfg
 	recorded.Args = append([]string(nil), cfg.Args...)
+	recorded.RedactValues = append([]string(nil), cfg.RedactValues...)
 	recorded.LaunchEnv = cloneStringMap(cfg.LaunchEnv)
 	f.mu.Lock()
 	f.StartProcessCalls = append(f.StartProcessCalls, StartProcessCall{Config: recorded, Status: status})

@@ -28,6 +28,14 @@
     <status-badge :status="gameServer.status" />
   </div>
 
+  <game-server-diagnosis-panel
+    ref="diagnosisPanel"
+    :server-id="gameServerId"
+    :status="gameServer.status"
+    :permissions="gameServer.effectivePermissions"
+    :readiness-visible="readinessVisible"
+    @show-readiness="showReadiness" />
+
   <div :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
     <div
       :class="{ 'sidebar-backdrop-visible': !sidebarCollapsed }"
@@ -117,7 +125,7 @@
           </div>
         </div>
 
-        <div v-if="readinessVisible" class="sidebar-section">
+        <div v-if="readinessVisible" ref="readinessSection" tabindex="-1" class="sidebar-section">
           <div class="sidebar-section-label">Readiness</div>
           <div class="readiness-list">
             <div
@@ -728,7 +736,8 @@ import {
   XylonaEventBus,
 } from '@/utils/shared'
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
-import { computed, onBeforeUnmount, onMounted, Ref, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref, watch } from 'vue'
+import GameServerDiagnosisPanel from '@/components/game_servers/GameServerDiagnosisPanel.vue'
 import { useRoute } from 'vue-router'
 import {
   resolveCanonicalVersionDisplay,
@@ -758,6 +767,15 @@ const gameServerId: Ref<string> = ref(
 const consoleScrollArea = ref<QScrollArea | null>(null)
 const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>(null)
 const consoleExpanded = ref(false)
+const diagnosisPanel = ref<InstanceType<typeof GameServerDiagnosisPanel> | null>(null)
+const readinessSection = ref<HTMLElement | null>(null)
+
+async function showReadiness() {
+  setSidebarCollapsed(false)
+  await nextTick()
+  readinessSection.value?.scrollIntoView({ block: 'nearest' })
+  readinessSection.value?.focus({ preventScroll: true })
+}
 
 const sidebarStorageKey = 'xylona_console_sidebar'
 const sidebarCollapsed = ref(readSidebarCollapsed())
@@ -1499,6 +1517,7 @@ async function startGameServer() {
   } catch (e) {
     console.error(e)
     void loadReadiness()
+    void diagnosisPanel.value?.refresh()
     $q.notify({
       type: 'xylona-error',
       position: 'top-right',

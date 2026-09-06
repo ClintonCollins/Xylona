@@ -61,8 +61,10 @@ func (c *Command) sendJobStatusNotificationDetails(
 		executionID := c.executionID
 		c.lastExitCode = exitCode
 		c.exitCodeKnown = exitCodeKnown
+		failure := c.failure
 		c.Unlock()
 		statusEvent := eventbus.StatusChangedEvent{
+			Failure:            failure,
 			ServerID:           c.ID,
 			ServerName:         gameServerName,
 			ServerNodeID:       nodeID,

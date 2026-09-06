@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -35,6 +36,10 @@ func TestStartProcessRejectsInvalidLaunchEnvironmentAtNodeBoundary(t *testing.T)
 	}
 	if strings.Contains(errStart.Error(), secretValue) {
 		t.Fatalf("StartProcess() error leaked launch environment value: %v", errStart)
+	}
+	failure, isFailure := errors.AsType[*StartFailureError](errStart)
+	if !isFailure || failure.Report.Stage != diagnosis.StagePreStart || failure.Report.EvidenceAvailable || failure.Report.ExecutionID == "" || failure.Report.AttemptStartedAt.IsZero() {
+		t.Fatalf("pre-start report = %+v", failure)
 	}
 }
 

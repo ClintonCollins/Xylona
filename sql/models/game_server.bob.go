@@ -84,6 +84,7 @@ type gameServerR struct {
 	Game                              *Game                                 // fk_game_server_2
 	User                              *User                                 // fk_game_server_3
 	GameServerBackups                 GameServerBackupSlice                 // fk_game_server_backup_1
+	GameServerDiagnosis               *GameServerDiagnosis                  // fk_game_server_diagnosis_0
 	GameServerLifecycleEvents         GameServerLifecycleEventSlice         // fk_game_server_lifecycle_event_0
 	GameServerMapShare                *GameServerMapShare                   // fk_game_server_map_share_0
 	GameServerMetricsHistories        GameServerMetricsHistorySlice         // fk_game_server_metrics_history_0
@@ -110,6 +111,7 @@ type gameServerRLoaded struct {
 	Game                              bool // fk_game_server_2
 	User                              bool // fk_game_server_3
 	GameServerBackups                 bool // fk_game_server_backup_1
+	GameServerDiagnosis               bool // fk_game_server_diagnosis_0
 	GameServerLifecycleEvents         bool // fk_game_server_lifecycle_event_0
 	GameServerMapShare                bool // fk_game_server_map_share_0
 	GameServerMetricsHistories        bool // fk_game_server_metrics_history_0
@@ -1423,6 +1425,25 @@ func (os GameServerSlice) GameServerBackups(mods ...bob.Mod[*dialect.SelectQuery
 	)...)
 }
 
+// GameServerDiagnosis starts a query for related objects on game_server_diagnosis
+func (o *GameServer) GameServerDiagnosis(mods ...bob.Mod[*dialect.SelectQuery]) GameServerDiagnosesQuery {
+	return GameServerDiagnoses.Query(append(mods,
+		sm.Where(GameServerDiagnoses.Columns.GameServerID.EQ(sqlite.Arg(o.ID))),
+	)...)
+}
+
+func (os GameServerSlice) GameServerDiagnosis(mods ...bob.Mod[*dialect.SelectQuery]) GameServerDiagnosesQuery {
+	PKArgSlice := make([]bob.Expression, len(os))
+	for i, o := range os {
+		PKArgSlice[i] = sqlite.ArgGroup(o.ID)
+	}
+	PKArgExpr := sqlite.Group(PKArgSlice...)
+
+	return GameServerDiagnoses.Query(append(mods,
+		sm.Where(sqlite.Group(GameServerDiagnoses.Columns.GameServerID).OP("IN", PKArgExpr)),
+	)...)
+}
+
 // GameServerLifecycleEvents starts a query for related objects on game_server_lifecycle_event
 func (o *GameServer) GameServerLifecycleEvents(mods ...bob.Mod[*dialect.SelectQuery]) GameServerLifecycleEventsQuery {
 	return GameServerLifecycleEvents.Query(append(mods,
@@ -1976,6 +1997,64 @@ func (gameServer0 *GameServer) AttachGameServerBackups(ctx context.Context, exec
 		rel.R.GameServer = gameServer0
 		rel.R.Loaded.GameServer = true
 	}
+
+	return nil
+}
+
+func insertGameServerGameServerDiagnosis0(ctx context.Context, exec bob.Executor, gameServerDiagnosis1 *GameServerDiagnosisSetter, gameServer0 *GameServer) (*GameServerDiagnosis, error) {
+	gameServerDiagnosis1.GameServerID = omit.From(gameServer0.ID)
+
+	ret, err := GameServerDiagnoses.Insert(gameServerDiagnosis1).One(ctx, exec)
+	if err != nil {
+		return ret, fmt.Errorf("insertGameServerGameServerDiagnosis0: %w", err)
+	}
+
+	return ret, nil
+}
+
+func attachGameServerGameServerDiagnosis0(ctx context.Context, exec bob.Executor, count int, gameServerDiagnosis1 *GameServerDiagnosis, gameServer0 *GameServer) (*GameServerDiagnosis, error) {
+	setter := &GameServerDiagnosisSetter{
+		GameServerID: omit.From(gameServer0.ID),
+	}
+
+	err := gameServerDiagnosis1.Update(ctx, exec, setter)
+	if err != nil {
+		return nil, fmt.Errorf("attachGameServerGameServerDiagnosis0: %w", err)
+	}
+
+	return gameServerDiagnosis1, nil
+}
+
+func (gameServer0 *GameServer) InsertGameServerDiagnosis(ctx context.Context, exec bob.Executor, related *GameServerDiagnosisSetter) error {
+	var err error
+
+	gameServerDiagnosis1, err := insertGameServerGameServerDiagnosis0(ctx, exec, related, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerDiagnosis = gameServerDiagnosis1
+	gameServer0.R.Loaded.GameServerDiagnosis = true
+
+	gameServerDiagnosis1.R.GameServer = gameServer0
+	gameServerDiagnosis1.R.Loaded.GameServer = true
+
+	return nil
+}
+
+func (gameServer0 *GameServer) AttachGameServerDiagnosis(ctx context.Context, exec bob.Executor, gameServerDiagnosis1 *GameServerDiagnosis) error {
+	var err error
+
+	_, err = attachGameServerGameServerDiagnosis0(ctx, exec, 1, gameServerDiagnosis1, gameServer0)
+	if err != nil {
+		return err
+	}
+
+	gameServer0.R.GameServerDiagnosis = gameServerDiagnosis1
+	gameServer0.R.Loaded.GameServerDiagnosis = true
+
+	gameServerDiagnosis1.R.GameServer = gameServer0
+	gameServerDiagnosis1.R.Loaded.GameServer = true
 
 	return nil
 }
@@ -2946,6 +3025,20 @@ func (w gameServerWhereR[Q]) HasGameServerBackups(filters ...bob.Mod[*dialect.Se
 	return mods.Where[Q]{E: sqlite.Exists(q)}
 }
 
+// HasGameServerDiagnosis filters parents that have a matching GameServerDiagnosis using a
+// correlated EXISTS subquery (semi-join). Unlike an INNER JOIN it does not
+// multiply parent rows, so no DISTINCT is needed. The optional filters are
+// applied to the subquery (i.e. to GameServerDiagnoses).
+func (w gameServerWhereR[Q]) HasGameServerDiagnosis(filters ...bob.Mod[*dialect.SelectQuery]) mods.Where[Q] {
+	q := sqlite.Select(
+		sm.Columns(sqlite.Raw("1")),
+		sm.From(GameServerDiagnoses.NameExpr()),
+		sm.Where(GameServerDiagnoses.Columns.GameServerID.EQ(w.cols.ID)),
+	)
+	q.Apply(filters...)
+	return mods.Where[Q]{E: sqlite.Exists(q)}
+}
+
 // HasGameServerLifecycleEvents filters parents that have a matching GameServerLifecycleEvents using a
 // correlated EXISTS subquery (semi-join). Unlike an INNER JOIN it does not
 // multiply parent rows, so no DISTINCT is needed. The optional filters are
@@ -3479,6 +3572,20 @@ func (o *GameServer) Preload(name string, retrieved any) error {
 			}
 		}
 		return nil
+	case "GameServerDiagnosis":
+		rel, ok := retrieved.(*GameServerDiagnosis)
+		if !ok {
+			return fmt.Errorf("gameServer cannot load %T as %q", retrieved, name)
+		}
+
+		o.R.GameServerDiagnosis = rel
+		o.R.Loaded.GameServerDiagnosis = true
+
+		if rel != nil {
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+		}
+		return nil
 	case "GameServerLifecycleEvents":
 		rels, ok := retrieved.(GameServerLifecycleEventSlice)
 		if !ok {
@@ -3674,6 +3781,7 @@ type gameServerPreloader struct {
 	Node                        func(...sqlite.PreloadOption) sqlite.Preloader
 	Game                        func(...sqlite.PreloadOption) sqlite.Preloader
 	User                        func(...sqlite.PreloadOption) sqlite.Preloader
+	GameServerDiagnosis         func(...sqlite.PreloadOption) sqlite.Preloader
 	GameServerMapShare          func(...sqlite.PreloadOption) sqlite.Preloader
 	GameServerMinecraftMap      func(...sqlite.PreloadOption) sqlite.Preloader
 	GameServerPalworldMap       func(...sqlite.PreloadOption) sqlite.Preloader
@@ -3747,6 +3855,19 @@ func buildGameServerPreloader() gameServerPreloader {
 				},
 			}, Users.Columns.Names(), userScanMapperNullable, opts...)
 		},
+		GameServerDiagnosis: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
+			return sqlite.Preload[*GameServerDiagnosis, GameServerDiagnosisSlice](sqlite.PreloadRel{
+				Name: "GameServerDiagnosis",
+				Sides: []sqlite.PreloadSide{
+					{
+						From:        GameServers,
+						To:          GameServerDiagnoses,
+						FromColumns: []string{"id"},
+						ToColumns:   []string{"game_server_id"},
+					},
+				},
+			}, GameServerDiagnoses.Columns.Names(), gameServerDiagnosisScanMapperNullable, opts...)
+		},
 		GameServerMapShare: func(opts ...sqlite.PreloadOption) sqlite.Preloader {
 			return sqlite.Preload[*GameServerMapShare, GameServerMapShareSlice](sqlite.PreloadRel{
 				Name: "GameServerMapShare",
@@ -3809,6 +3930,7 @@ type gameServerThenLoader[Q orm.Loadable] struct {
 	Game                              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	User                              func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerBackups                 func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
+	GameServerDiagnosis               func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerLifecycleEvents         func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerMapShare                func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
 	GameServerMetricsHistories        func(...bob.Mod[*dialect.SelectQuery]) orm.Loader[Q]
@@ -3841,6 +3963,9 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 	}
 	type GameServerBackupsLoadInterface interface {
 		LoadGameServerBackups(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
+	}
+	type GameServerDiagnosisLoadInterface interface {
+		LoadGameServerDiagnosis(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
 	}
 	type GameServerLifecycleEventsLoadInterface interface {
 		LoadGameServerLifecycleEvents(context.Context, bob.Executor, ...bob.Mod[*dialect.SelectQuery]) error
@@ -3914,6 +4039,12 @@ func buildGameServerThenLoader[Q orm.Loadable]() gameServerThenLoader[Q] {
 			"GameServerBackups",
 			func(ctx context.Context, exec bob.Executor, retrieved GameServerBackupsLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
 				return retrieved.LoadGameServerBackups(ctx, exec, mods...)
+			},
+		),
+		GameServerDiagnosis: thenLoadBuilder[Q](
+			"GameServerDiagnosis",
+			func(ctx context.Context, exec bob.Executor, retrieved GameServerDiagnosisLoadInterface, mods ...bob.Mod[*dialect.SelectQuery]) error {
+				return retrieved.LoadGameServerDiagnosis(ctx, exec, mods...)
 			},
 		),
 		GameServerLifecycleEvents: thenLoadBuilder[Q](
@@ -4426,6 +4557,83 @@ func (os GameServerSlice) LoadGameServerBackups(ctx context.Context, exec bob.Ex
 			rel.R.Loaded.GameServer = true
 
 			o.R.GameServerBackups = append(o.R.GameServerBackups, rel)
+
+		}
+	}
+
+	return nil
+}
+
+// LoadGameServerDiagnosis loads the gameServer's GameServerDiagnosis into the .R struct
+func (o *GameServer) LoadGameServerDiagnosis(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if o == nil {
+		return nil
+	}
+
+	// Reset the relationship
+	o.R.GameServerDiagnosis = nil
+	o.R.Loaded.GameServerDiagnosis = false
+
+	related, err := o.GameServerDiagnosis(mods...).One(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	related.R.GameServer = o
+	related.R.Loaded.GameServer = true
+
+	o.R.GameServerDiagnosis = related
+	o.R.Loaded.GameServerDiagnosis = true
+	return nil
+}
+
+// LoadGameServerDiagnosis loads the gameServer's GameServerDiagnosis into the .R struct
+func (os GameServerSlice) LoadGameServerDiagnosis(ctx context.Context, exec bob.Executor, mods ...bob.Mod[*dialect.SelectQuery]) error {
+	if len(os) == 0 {
+		return nil
+	}
+
+	gameServerDiagnoses, err := os.GameServerDiagnosis(mods...).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		o.R.GameServerDiagnosis = nil
+		o.R.Loaded.GameServerDiagnosis = true
+	}
+	// O(N+M) stitch via a map keyed by the join column (key -> []parent; was O(N*M)).
+	gameServerByKey := make(map[string][]*GameServer, len(os))
+	for _, o := range os {
+		if o == nil {
+			continue
+		}
+
+		gameServerByKey[o.ID] = append(gameServerByKey[o.ID], o)
+	}
+
+	for _, rel := range gameServerDiagnoses {
+
+		owners, ok := gameServerByKey[rel.GameServerID]
+		if !ok {
+			continue
+		}
+
+		for _, o := range owners {
+
+			// to-one: keep only the first matching child (matches the previous break)
+			if o.R.GameServerDiagnosis != nil {
+				continue
+			}
+
+			rel.R.GameServer = o
+			rel.R.Loaded.GameServer = true
+
+			o.R.GameServerDiagnosis = rel
 
 		}
 	}
@@ -6358,6 +6566,7 @@ type gameServerJoins[Q dialect.Joinable] struct {
 	Game                              modAs[Q, gameColumns]
 	User                              modAs[Q, userColumns]
 	GameServerBackups                 modAs[Q, gameServerBackupColumns]
+	GameServerDiagnosis               modAs[Q, gameServerDiagnosisColumns]
 	GameServerLifecycleEvents         modAs[Q, gameServerLifecycleEventColumns]
 	GameServerMapShare                modAs[Q, gameServerMapShareColumns]
 	GameServerMetricsHistories        modAs[Q, gameServerMetricsHistoryColumns]
@@ -6456,6 +6665,20 @@ func buildGameServerJoins[Q dialect.Joinable](cols gameServerColumns, typ string
 
 				{
 					mods = append(mods, dialect.Join[Q](typ, GameServerBackups.NameExpr().As(to.Alias())).On(
+						to.GameServerID.EQ(cols.ID),
+					))
+				}
+
+				return mods
+			},
+		},
+		GameServerDiagnosis: modAs[Q, gameServerDiagnosisColumns]{
+			c: GameServerDiagnoses.Columns,
+			f: func(to gameServerDiagnosisColumns) bob.Mod[Q] {
+				mods := make(mods.QueryMods[Q], 0, 1)
+
+				{
+					mods = append(mods, dialect.Join[Q](typ, GameServerDiagnoses.NameExpr().As(to.Alias())).On(
 						to.GameServerID.EQ(cols.ID),
 					))
 				}

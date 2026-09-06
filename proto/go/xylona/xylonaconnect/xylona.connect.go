@@ -158,6 +158,9 @@ const (
 	// XylonaGetGameServerReadinessProcedure is the fully-qualified name of the Xylona's
 	// GetGameServerReadiness RPC.
 	XylonaGetGameServerReadinessProcedure = "/xylona.Xylona/GetGameServerReadiness"
+	// XylonaGetGameServerDiagnosisProcedure is the fully-qualified name of the Xylona's
+	// GetGameServerDiagnosis RPC.
+	XylonaGetGameServerDiagnosisProcedure = "/xylona.Xylona/GetGameServerDiagnosis"
 	// XylonaAcceptMinecraftEulaProcedure is the fully-qualified name of the Xylona's
 	// AcceptMinecraftEula RPC.
 	XylonaAcceptMinecraftEulaProcedure = "/xylona.Xylona/AcceptMinecraftEula"
@@ -538,6 +541,7 @@ type XylonaClient interface {
 	GetGameServerAdminInterface(context.Context, *connect.Request[xylona.GetGameServerAdminInterfaceRequest]) (*connect.Response[xylona.GetGameServerAdminInterfaceResponse], error)
 	SetGameServerAdminInterfacePassword(context.Context, *connect.Request[xylona.SetGameServerAdminInterfacePasswordRequest]) (*connect.Response[xylona.SetGameServerAdminInterfacePasswordResponse], error)
 	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
+	GetGameServerDiagnosis(context.Context, *connect.Request[xylona.GetGameServerDiagnosisRequest]) (*connect.Response[xylona.GetGameServerDiagnosisResponse], error)
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
 	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
 	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
@@ -999,6 +1003,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaGetGameServerReadinessProcedure,
 			connect.WithSchema(xylonaMethods.ByName("GetGameServerReadiness")),
+			connect.WithClientOptions(opts...),
+		),
+		getGameServerDiagnosis: connect.NewClient[xylona.GetGameServerDiagnosisRequest, xylona.GetGameServerDiagnosisResponse](
+			httpClient,
+			baseURL+XylonaGetGameServerDiagnosisProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetGameServerDiagnosis")),
 			connect.WithClientOptions(opts...),
 		),
 		acceptMinecraftEula: connect.NewClient[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse](
@@ -1766,6 +1776,7 @@ type xylonaClient struct {
 	getGameServerAdminInterface             *connect.Client[xylona.GetGameServerAdminInterfaceRequest, xylona.GetGameServerAdminInterfaceResponse]
 	setGameServerAdminInterfacePassword     *connect.Client[xylona.SetGameServerAdminInterfacePasswordRequest, xylona.SetGameServerAdminInterfacePasswordResponse]
 	getGameServerReadiness                  *connect.Client[xylona.GetGameServerReadinessRequest, xylona.GetGameServerReadinessResponse]
+	getGameServerDiagnosis                  *connect.Client[xylona.GetGameServerDiagnosisRequest, xylona.GetGameServerDiagnosisResponse]
 	acceptMinecraftEula                     *connect.Client[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse]
 	setSteamGSLT                            *connect.Client[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse]
 	clearSteamGSLT                          *connect.Client[xylona.ClearSteamGSLTRequest, xylona.ClearSteamGSLTResponse]
@@ -2144,6 +2155,11 @@ func (c *xylonaClient) SetGameServerAdminInterfacePassword(ctx context.Context, 
 // GetGameServerReadiness calls xylona.Xylona.GetGameServerReadiness.
 func (c *xylonaClient) GetGameServerReadiness(ctx context.Context, req *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error) {
 	return c.getGameServerReadiness.CallUnary(ctx, req)
+}
+
+// GetGameServerDiagnosis calls xylona.Xylona.GetGameServerDiagnosis.
+func (c *xylonaClient) GetGameServerDiagnosis(ctx context.Context, req *connect.Request[xylona.GetGameServerDiagnosisRequest]) (*connect.Response[xylona.GetGameServerDiagnosisResponse], error) {
+	return c.getGameServerDiagnosis.CallUnary(ctx, req)
 }
 
 // AcceptMinecraftEula calls xylona.Xylona.AcceptMinecraftEula.
@@ -2795,6 +2811,7 @@ type XylonaHandler interface {
 	GetGameServerAdminInterface(context.Context, *connect.Request[xylona.GetGameServerAdminInterfaceRequest]) (*connect.Response[xylona.GetGameServerAdminInterfaceResponse], error)
 	SetGameServerAdminInterfacePassword(context.Context, *connect.Request[xylona.SetGameServerAdminInterfacePasswordRequest]) (*connect.Response[xylona.SetGameServerAdminInterfacePasswordResponse], error)
 	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
+	GetGameServerDiagnosis(context.Context, *connect.Request[xylona.GetGameServerDiagnosisRequest]) (*connect.Response[xylona.GetGameServerDiagnosisResponse], error)
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
 	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
 	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
@@ -3252,6 +3269,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaGetGameServerReadinessProcedure,
 		svc.GetGameServerReadiness,
 		connect.WithSchema(xylonaMethods.ByName("GetGameServerReadiness")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetGameServerDiagnosisHandler := connect.NewUnaryHandler(
+		XylonaGetGameServerDiagnosisProcedure,
+		svc.GetGameServerDiagnosis,
+		connect.WithSchema(xylonaMethods.ByName("GetGameServerDiagnosis")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaAcceptMinecraftEulaHandler := connect.NewUnaryHandler(
@@ -4068,6 +4091,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaSetGameServerAdminInterfacePasswordHandler.ServeHTTP(w, r)
 		case XylonaGetGameServerReadinessProcedure:
 			xylonaGetGameServerReadinessHandler.ServeHTTP(w, r)
+		case XylonaGetGameServerDiagnosisProcedure:
+			xylonaGetGameServerDiagnosisHandler.ServeHTTP(w, r)
 		case XylonaAcceptMinecraftEulaProcedure:
 			xylonaAcceptMinecraftEulaHandler.ServeHTTP(w, r)
 		case XylonaSetSteamGSLTProcedure:
@@ -4519,6 +4544,10 @@ func (UnimplementedXylonaHandler) SetGameServerAdminInterfacePassword(context.Co
 
 func (UnimplementedXylonaHandler) GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerReadiness is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetGameServerDiagnosis(context.Context, *connect.Request[xylona.GetGameServerDiagnosisRequest]) (*connect.Response[xylona.GetGameServerDiagnosisResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetGameServerDiagnosis is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error) {

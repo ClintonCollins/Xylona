@@ -1089,6 +1089,9 @@ func TestInternalCommandExitStatus(t *testing.T) {
 			if finalEvent.ExitCode != test.wantExitCode {
 				t.Errorf("exit code = %d, want %d", finalEvent.ExitCode, test.wantExitCode)
 			}
+			if finalEvent.Failure != nil {
+				t.Errorf("internal command produced game-server failure evidence: %+v", finalEvent.Failure)
+			}
 			if command.Status() != xylona.Status_OFFLINE {
 				t.Errorf("command status = %s, want %s", command.Status(), xylona.Status_OFFLINE)
 			}

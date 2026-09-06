@@ -1518,6 +1518,7 @@ type ProcessStatusEvent struct {
 	ExecutionId        string                 `protobuf:"bytes,6,opt,name=execution_id,json=executionId,proto3" json:"execution_id,omitempty"`
 	TransitionSequence uint64                 `protobuf:"varint,7,opt,name=transition_sequence,json=transitionSequence,proto3" json:"transition_sequence,omitempty"`
 	Replayed           bool                   `protobuf:"varint,8,opt,name=replayed,proto3" json:"replayed,omitempty"`
+	Failure            *ProcessFailure        `protobuf:"bytes,9,opt,name=failure,proto3" json:"failure,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1608,6 +1609,138 @@ func (x *ProcessStatusEvent) GetReplayed() bool {
 	return false
 }
 
+func (x *ProcessStatusEvent) GetFailure() *ProcessFailure {
+	if x != nil {
+		return x.Failure
+	}
+	return nil
+}
+
+// ProcessFailure is a bounded, redacted snapshot of one failed execution.
+type ProcessFailure struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ExecutionId       string                 `protobuf:"bytes,1,opt,name=execution_id,json=executionId,proto3" json:"execution_id,omitempty"`
+	AttemptStartedAt  *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=attempt_started_at,json=attemptStartedAt,proto3" json:"attempt_started_at,omitempty"`
+	OccurredAt        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	Stage             string                 `protobuf:"bytes,4,opt,name=stage,proto3" json:"stage,omitempty"`
+	Category          string                 `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
+	Error             string                 `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
+	Evidence          string                 `protobuf:"bytes,7,opt,name=evidence,proto3" json:"evidence,omitempty"`
+	MatchedEvidence   string                 `protobuf:"bytes,8,opt,name=matched_evidence,json=matchedEvidence,proto3" json:"matched_evidence,omitempty"`
+	Truncated         bool                   `protobuf:"varint,9,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	EvidenceAvailable bool                   `protobuf:"varint,10,opt,name=evidence_available,json=evidenceAvailable,proto3" json:"evidence_available,omitempty"`
+	ExitCode          *int64                 `protobuf:"varint,11,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ProcessFailure) Reset() {
+	*x = ProcessFailure{}
+	mi := &file_nodeproto_v1_node_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProcessFailure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcessFailure) ProtoMessage() {}
+
+func (x *ProcessFailure) ProtoReflect() protoreflect.Message {
+	mi := &file_nodeproto_v1_node_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcessFailure.ProtoReflect.Descriptor instead.
+func (*ProcessFailure) Descriptor() ([]byte, []int) {
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ProcessFailure) GetExecutionId() string {
+	if x != nil {
+		return x.ExecutionId
+	}
+	return ""
+}
+
+func (x *ProcessFailure) GetAttemptStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AttemptStartedAt
+	}
+	return nil
+}
+
+func (x *ProcessFailure) GetOccurredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return nil
+}
+
+func (x *ProcessFailure) GetStage() string {
+	if x != nil {
+		return x.Stage
+	}
+	return ""
+}
+
+func (x *ProcessFailure) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ProcessFailure) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *ProcessFailure) GetEvidence() string {
+	if x != nil {
+		return x.Evidence
+	}
+	return ""
+}
+
+func (x *ProcessFailure) GetMatchedEvidence() string {
+	if x != nil {
+		return x.MatchedEvidence
+	}
+	return ""
+}
+
+func (x *ProcessFailure) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+func (x *ProcessFailure) GetEvidenceAvailable() bool {
+	if x != nil {
+		return x.EvidenceAvailable
+	}
+	return false
+}
+
+func (x *ProcessFailure) GetExitCode() int64 {
+	if x != nil && x.ExitCode != nil {
+		return *x.ExitCode
+	}
+	return 0
+}
+
 // MetricsUpdateEvent fires when the node pushes a fresh metrics snapshot.
 type MetricsUpdateEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1618,7 +1751,7 @@ type MetricsUpdateEvent struct {
 
 func (x *MetricsUpdateEvent) Reset() {
 	*x = MetricsUpdateEvent{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[6]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1630,7 +1763,7 @@ func (x *MetricsUpdateEvent) String() string {
 func (*MetricsUpdateEvent) ProtoMessage() {}
 
 func (x *MetricsUpdateEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[6]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1643,7 +1776,7 @@ func (x *MetricsUpdateEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetricsUpdateEvent.ProtoReflect.Descriptor instead.
 func (*MetricsUpdateEvent) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{6}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *MetricsUpdateEvent) GetSnapshot() *NodeSnapshot {
@@ -1665,7 +1798,7 @@ type ProcessCrashEvent struct {
 
 func (x *ProcessCrashEvent) Reset() {
 	*x = ProcessCrashEvent{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[7]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1677,7 +1810,7 @@ func (x *ProcessCrashEvent) String() string {
 func (*ProcessCrashEvent) ProtoMessage() {}
 
 func (x *ProcessCrashEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[7]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1690,7 +1823,7 @@ func (x *ProcessCrashEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessCrashEvent.ProtoReflect.Descriptor instead.
 func (*ProcessCrashEvent) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{7}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ProcessCrashEvent) GetProcessId() string {
@@ -1732,7 +1865,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[8]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1744,7 +1877,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[8]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1757,7 +1890,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{8}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Event) GetTimestamp() *timestamppb.Timestamp {
@@ -1870,16 +2003,18 @@ type StartProcessRequest struct {
 	ExecutionId string `protobuf:"bytes,14,opt,name=execution_id,json=executionId,proto3" json:"execution_id,omitempty"`
 	// telnet_input configures node-local telnet console input. The node always
 	// dials localhost; no remote host is accepted over the wire.
-	TelnetInput   *TelnetInput `protobuf:"bytes,15,opt,name=telnet_input,json=telnetInput,proto3" json:"telnet_input,omitempty"`
-	RconInput     *RCONInput   `protobuf:"bytes,16,opt,name=rcon_input,json=rconInput,proto3" json:"rcon_input,omitempty"`
-	RestInput     *RESTInput   `protobuf:"bytes,17,opt,name=rest_input,json=restInput,proto3" json:"rest_input,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	TelnetInput      *TelnetInput           `protobuf:"bytes,15,opt,name=telnet_input,json=telnetInput,proto3" json:"telnet_input,omitempty"`
+	RconInput        *RCONInput             `protobuf:"bytes,16,opt,name=rcon_input,json=rconInput,proto3" json:"rcon_input,omitempty"`
+	RestInput        *RESTInput             `protobuf:"bytes,17,opt,name=rest_input,json=restInput,proto3" json:"rest_input,omitempty"`
+	AttemptStartedAt *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=attempt_started_at,json=attemptStartedAt,proto3" json:"attempt_started_at,omitempty"`
+	RedactValues     []string               `protobuf:"bytes,19,rep,name=redact_values,json=redactValues,proto3" json:"redact_values,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *StartProcessRequest) Reset() {
 	*x = StartProcessRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[9]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1891,7 +2026,7 @@ func (x *StartProcessRequest) String() string {
 func (*StartProcessRequest) ProtoMessage() {}
 
 func (x *StartProcessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[9]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1904,7 +2039,7 @@ func (x *StartProcessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartProcessRequest.ProtoReflect.Descriptor instead.
 func (*StartProcessRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{9}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *StartProcessRequest) GetId() string {
@@ -2026,6 +2161,20 @@ func (x *StartProcessRequest) GetRestInput() *RESTInput {
 	return nil
 }
 
+func (x *StartProcessRequest) GetAttemptStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AttemptStartedAt
+	}
+	return nil
+}
+
+func (x *StartProcessRequest) GetRedactValues() []string {
+	if x != nil {
+		return x.RedactValues
+	}
+	return nil
+}
+
 type TelnetInput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Port          int32                  `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
@@ -2036,7 +2185,7 @@ type TelnetInput struct {
 
 func (x *TelnetInput) Reset() {
 	*x = TelnetInput{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[10]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2048,7 +2197,7 @@ func (x *TelnetInput) String() string {
 func (*TelnetInput) ProtoMessage() {}
 
 func (x *TelnetInput) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[10]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2061,7 +2210,7 @@ func (x *TelnetInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelnetInput.ProtoReflect.Descriptor instead.
 func (*TelnetInput) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{10}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TelnetInput) GetPort() int32 {
@@ -2090,7 +2239,7 @@ type RCONInput struct {
 
 func (x *RCONInput) Reset() {
 	*x = RCONInput{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[11]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2102,7 +2251,7 @@ func (x *RCONInput) String() string {
 func (*RCONInput) ProtoMessage() {}
 
 func (x *RCONInput) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[11]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2115,7 +2264,7 @@ func (x *RCONInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RCONInput.ProtoReflect.Descriptor instead.
 func (*RCONInput) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{11}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RCONInput) GetHost() string {
@@ -2159,7 +2308,7 @@ type RESTInput struct {
 
 func (x *RESTInput) Reset() {
 	*x = RESTInput{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[12]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2171,7 +2320,7 @@ func (x *RESTInput) String() string {
 func (*RESTInput) ProtoMessage() {}
 
 func (x *RESTInput) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[12]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2184,7 +2333,7 @@ func (x *RESTInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RESTInput.ProtoReflect.Descriptor instead.
 func (*RESTInput) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{12}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RESTInput) GetHost() string {
@@ -2231,7 +2380,7 @@ type StartProcessResponse struct {
 
 func (x *StartProcessResponse) Reset() {
 	*x = StartProcessResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[13]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2243,7 +2392,7 @@ func (x *StartProcessResponse) String() string {
 func (*StartProcessResponse) ProtoMessage() {}
 
 func (x *StartProcessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[13]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2256,7 +2405,7 @@ func (x *StartProcessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartProcessResponse.ProtoReflect.Descriptor instead.
 func (*StartProcessResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{13}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StartProcessResponse) GetProcessId() string {
@@ -2276,7 +2425,7 @@ type StopProcessRequest struct {
 
 func (x *StopProcessRequest) Reset() {
 	*x = StopProcessRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[14]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2288,7 +2437,7 @@ func (x *StopProcessRequest) String() string {
 func (*StopProcessRequest) ProtoMessage() {}
 
 func (x *StopProcessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[14]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2301,7 +2450,7 @@ func (x *StopProcessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopProcessRequest.ProtoReflect.Descriptor instead.
 func (*StopProcessRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{14}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *StopProcessRequest) GetProcessId() string {
@@ -2326,7 +2475,7 @@ type StopProcessResponse struct {
 
 func (x *StopProcessResponse) Reset() {
 	*x = StopProcessResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[15]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2338,7 +2487,7 @@ func (x *StopProcessResponse) String() string {
 func (*StopProcessResponse) ProtoMessage() {}
 
 func (x *StopProcessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[15]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2351,7 +2500,7 @@ func (x *StopProcessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopProcessResponse.ProtoReflect.Descriptor instead.
 func (*StopProcessResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{15}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{16}
 }
 
 type SendConsoleInputRequest struct {
@@ -2364,7 +2513,7 @@ type SendConsoleInputRequest struct {
 
 func (x *SendConsoleInputRequest) Reset() {
 	*x = SendConsoleInputRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[16]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2525,7 @@ func (x *SendConsoleInputRequest) String() string {
 func (*SendConsoleInputRequest) ProtoMessage() {}
 
 func (x *SendConsoleInputRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[16]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2538,7 @@ func (x *SendConsoleInputRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendConsoleInputRequest.ProtoReflect.Descriptor instead.
 func (*SendConsoleInputRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{16}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SendConsoleInputRequest) GetProcessId() string {
@@ -2414,7 +2563,7 @@ type SendConsoleInputResponse struct {
 
 func (x *SendConsoleInputResponse) Reset() {
 	*x = SendConsoleInputResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[17]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2426,7 +2575,7 @@ func (x *SendConsoleInputResponse) String() string {
 func (*SendConsoleInputResponse) ProtoMessage() {}
 
 func (x *SendConsoleInputResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[17]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2439,7 +2588,7 @@ func (x *SendConsoleInputResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendConsoleInputResponse.ProtoReflect.Descriptor instead.
 func (*SendConsoleInputResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{17}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{18}
 }
 
 type ReadConsoleBufferRequest struct {
@@ -2451,7 +2600,7 @@ type ReadConsoleBufferRequest struct {
 
 func (x *ReadConsoleBufferRequest) Reset() {
 	*x = ReadConsoleBufferRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[18]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2463,7 +2612,7 @@ func (x *ReadConsoleBufferRequest) String() string {
 func (*ReadConsoleBufferRequest) ProtoMessage() {}
 
 func (x *ReadConsoleBufferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[18]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2476,7 +2625,7 @@ func (x *ReadConsoleBufferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadConsoleBufferRequest.ProtoReflect.Descriptor instead.
 func (*ReadConsoleBufferRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{18}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ReadConsoleBufferRequest) GetProcessId() string {
@@ -2495,7 +2644,7 @@ type ReadConsoleBufferResponse struct {
 
 func (x *ReadConsoleBufferResponse) Reset() {
 	*x = ReadConsoleBufferResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[19]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2507,7 +2656,7 @@ func (x *ReadConsoleBufferResponse) String() string {
 func (*ReadConsoleBufferResponse) ProtoMessage() {}
 
 func (x *ReadConsoleBufferResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[19]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2520,7 +2669,7 @@ func (x *ReadConsoleBufferResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadConsoleBufferResponse.ProtoReflect.Descriptor instead.
 func (*ReadConsoleBufferResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{19}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ReadConsoleBufferResponse) GetChunk() *ConsoleChunk {
@@ -2542,7 +2691,7 @@ type StreamConsoleOutputRequest struct {
 
 func (x *StreamConsoleOutputRequest) Reset() {
 	*x = StreamConsoleOutputRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[20]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2554,7 +2703,7 @@ func (x *StreamConsoleOutputRequest) String() string {
 func (*StreamConsoleOutputRequest) ProtoMessage() {}
 
 func (x *StreamConsoleOutputRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[20]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2567,7 +2716,7 @@ func (x *StreamConsoleOutputRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamConsoleOutputRequest.ProtoReflect.Descriptor instead.
 func (*StreamConsoleOutputRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{20}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *StreamConsoleOutputRequest) GetProcessId() string {
@@ -2594,7 +2743,7 @@ type ListFilesRequest struct {
 
 func (x *ListFilesRequest) Reset() {
 	*x = ListFilesRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[21]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2606,7 +2755,7 @@ func (x *ListFilesRequest) String() string {
 func (*ListFilesRequest) ProtoMessage() {}
 
 func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[21]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2619,7 +2768,7 @@ func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListFilesRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{21}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListFilesRequest) GetDirectory() string {
@@ -2645,7 +2794,7 @@ type ListFilesResponse struct {
 
 func (x *ListFilesResponse) Reset() {
 	*x = ListFilesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[22]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2657,7 +2806,7 @@ func (x *ListFilesResponse) String() string {
 func (*ListFilesResponse) ProtoMessage() {}
 
 func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[22]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2670,7 +2819,7 @@ func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListFilesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{22}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListFilesResponse) GetEntries() []*FileEntry {
@@ -2690,7 +2839,7 @@ type ReadFileRequest struct {
 
 func (x *ReadFileRequest) Reset() {
 	*x = ReadFileRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[23]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2702,7 +2851,7 @@ func (x *ReadFileRequest) String() string {
 func (*ReadFileRequest) ProtoMessage() {}
 
 func (x *ReadFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[23]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2715,7 +2864,7 @@ func (x *ReadFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadFileRequest.ProtoReflect.Descriptor instead.
 func (*ReadFileRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{23}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ReadFileRequest) GetDirectory() string {
@@ -2741,7 +2890,7 @@ type ReadFileResponse struct {
 
 func (x *ReadFileResponse) Reset() {
 	*x = ReadFileResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[24]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2753,7 +2902,7 @@ func (x *ReadFileResponse) String() string {
 func (*ReadFileResponse) ProtoMessage() {}
 
 func (x *ReadFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[24]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2766,7 +2915,7 @@ func (x *ReadFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadFileResponse.ProtoReflect.Descriptor instead.
 func (*ReadFileResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{24}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ReadFileResponse) GetContent() []byte {
@@ -2786,7 +2935,7 @@ type StatFileRequest struct {
 
 func (x *StatFileRequest) Reset() {
 	*x = StatFileRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[25]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2798,7 +2947,7 @@ func (x *StatFileRequest) String() string {
 func (*StatFileRequest) ProtoMessage() {}
 
 func (x *StatFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[25]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2811,7 +2960,7 @@ func (x *StatFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatFileRequest.ProtoReflect.Descriptor instead.
 func (*StatFileRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{25}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *StatFileRequest) GetDirectory() string {
@@ -2837,7 +2986,7 @@ type StatFileResponse struct {
 
 func (x *StatFileResponse) Reset() {
 	*x = StatFileResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[26]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2849,7 +2998,7 @@ func (x *StatFileResponse) String() string {
 func (*StatFileResponse) ProtoMessage() {}
 
 func (x *StatFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[26]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2862,7 +3011,7 @@ func (x *StatFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatFileResponse.ProtoReflect.Descriptor instead.
 func (*StatFileResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{26}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *StatFileResponse) GetEntry() *FileEntry {
@@ -2882,7 +3031,7 @@ type StreamFileRequest struct {
 
 func (x *StreamFileRequest) Reset() {
 	*x = StreamFileRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[27]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2894,7 +3043,7 @@ func (x *StreamFileRequest) String() string {
 func (*StreamFileRequest) ProtoMessage() {}
 
 func (x *StreamFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[27]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2907,7 +3056,7 @@ func (x *StreamFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamFileRequest.ProtoReflect.Descriptor instead.
 func (*StreamFileRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{27}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *StreamFileRequest) GetDirectory() string {
@@ -2933,7 +3082,7 @@ type StreamFileResponse struct {
 
 func (x *StreamFileResponse) Reset() {
 	*x = StreamFileResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[28]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2945,7 +3094,7 @@ func (x *StreamFileResponse) String() string {
 func (*StreamFileResponse) ProtoMessage() {}
 
 func (x *StreamFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[28]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2958,7 +3107,7 @@ func (x *StreamFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamFileResponse.ProtoReflect.Descriptor instead.
 func (*StreamFileResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{28}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *StreamFileResponse) GetContent() []byte {
@@ -2986,7 +3135,7 @@ type WriteFileRequest struct {
 
 func (x *WriteFileRequest) Reset() {
 	*x = WriteFileRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[29]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2998,7 +3147,7 @@ func (x *WriteFileRequest) String() string {
 func (*WriteFileRequest) ProtoMessage() {}
 
 func (x *WriteFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[29]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3011,7 +3160,7 @@ func (x *WriteFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteFileRequest.ProtoReflect.Descriptor instead.
 func (*WriteFileRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{29}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *WriteFileRequest) GetDirectory() string {
@@ -3057,7 +3206,7 @@ type WriteFileResponse struct {
 
 func (x *WriteFileResponse) Reset() {
 	*x = WriteFileResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[30]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3069,7 +3218,7 @@ func (x *WriteFileResponse) String() string {
 func (*WriteFileResponse) ProtoMessage() {}
 
 func (x *WriteFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[30]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3082,7 +3231,7 @@ func (x *WriteFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteFileResponse.ProtoReflect.Descriptor instead.
 func (*WriteFileResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{30}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{31}
 }
 
 type StreamWriteFileRequest struct {
@@ -3098,7 +3247,7 @@ type StreamWriteFileRequest struct {
 
 func (x *StreamWriteFileRequest) Reset() {
 	*x = StreamWriteFileRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[31]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3110,7 +3259,7 @@ func (x *StreamWriteFileRequest) String() string {
 func (*StreamWriteFileRequest) ProtoMessage() {}
 
 func (x *StreamWriteFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[31]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3123,7 +3272,7 @@ func (x *StreamWriteFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamWriteFileRequest.ProtoReflect.Descriptor instead.
 func (*StreamWriteFileRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{31}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *StreamWriteFileRequest) GetDirectory() string {
@@ -3171,7 +3320,7 @@ type StreamWriteFileResponse struct {
 
 func (x *StreamWriteFileResponse) Reset() {
 	*x = StreamWriteFileResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[32]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3183,7 +3332,7 @@ func (x *StreamWriteFileResponse) String() string {
 func (*StreamWriteFileResponse) ProtoMessage() {}
 
 func (x *StreamWriteFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[32]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3196,7 +3345,7 @@ func (x *StreamWriteFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamWriteFileResponse.ProtoReflect.Descriptor instead.
 func (*StreamWriteFileResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{32}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *StreamWriteFileResponse) GetBytesWritten() int64 {
@@ -3223,7 +3372,7 @@ type CopyFileOperation struct {
 
 func (x *CopyFileOperation) Reset() {
 	*x = CopyFileOperation{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[33]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3235,7 +3384,7 @@ func (x *CopyFileOperation) String() string {
 func (*CopyFileOperation) ProtoMessage() {}
 
 func (x *CopyFileOperation) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[33]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3248,7 +3397,7 @@ func (x *CopyFileOperation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyFileOperation.ProtoReflect.Descriptor instead.
 func (*CopyFileOperation) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{33}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *CopyFileOperation) GetSourceRelativePath() string {
@@ -3277,7 +3426,7 @@ type CopyFilesRequest struct {
 
 func (x *CopyFilesRequest) Reset() {
 	*x = CopyFilesRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[34]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3289,7 +3438,7 @@ func (x *CopyFilesRequest) String() string {
 func (*CopyFilesRequest) ProtoMessage() {}
 
 func (x *CopyFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[34]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3302,7 +3451,7 @@ func (x *CopyFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyFilesRequest.ProtoReflect.Descriptor instead.
 func (*CopyFilesRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{34}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *CopyFilesRequest) GetDirectory() string {
@@ -3342,7 +3491,7 @@ type CopyFilesResponse struct {
 
 func (x *CopyFilesResponse) Reset() {
 	*x = CopyFilesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[35]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3354,7 +3503,7 @@ func (x *CopyFilesResponse) String() string {
 func (*CopyFilesResponse) ProtoMessage() {}
 
 func (x *CopyFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[35]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3367,7 +3516,7 @@ func (x *CopyFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyFilesResponse.ProtoReflect.Descriptor instead.
 func (*CopyFilesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{35}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CopyFilesResponse) GetCopied() []string {
@@ -3391,7 +3540,7 @@ type CreateFileOrDirectoryRequest struct {
 
 func (x *CreateFileOrDirectoryRequest) Reset() {
 	*x = CreateFileOrDirectoryRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[36]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3403,7 +3552,7 @@ func (x *CreateFileOrDirectoryRequest) String() string {
 func (*CreateFileOrDirectoryRequest) ProtoMessage() {}
 
 func (x *CreateFileOrDirectoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[36]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3416,7 +3565,7 @@ func (x *CreateFileOrDirectoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFileOrDirectoryRequest.ProtoReflect.Descriptor instead.
 func (*CreateFileOrDirectoryRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{36}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CreateFileOrDirectoryRequest) GetDirectory() string {
@@ -3469,7 +3618,7 @@ type CreateFileOrDirectoryResponse struct {
 
 func (x *CreateFileOrDirectoryResponse) Reset() {
 	*x = CreateFileOrDirectoryResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[37]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3481,7 +3630,7 @@ func (x *CreateFileOrDirectoryResponse) String() string {
 func (*CreateFileOrDirectoryResponse) ProtoMessage() {}
 
 func (x *CreateFileOrDirectoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[37]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3494,7 +3643,7 @@ func (x *CreateFileOrDirectoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFileOrDirectoryResponse.ProtoReflect.Descriptor instead.
 func (*CreateFileOrDirectoryResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{37}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{38}
 }
 
 type DeleteFilesRequest struct {
@@ -3509,7 +3658,7 @@ type DeleteFilesRequest struct {
 
 func (x *DeleteFilesRequest) Reset() {
 	*x = DeleteFilesRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[38]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3521,7 +3670,7 @@ func (x *DeleteFilesRequest) String() string {
 func (*DeleteFilesRequest) ProtoMessage() {}
 
 func (x *DeleteFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[38]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3534,7 +3683,7 @@ func (x *DeleteFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFilesRequest.ProtoReflect.Descriptor instead.
 func (*DeleteFilesRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{38}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *DeleteFilesRequest) GetDirectory() string {
@@ -3574,7 +3723,7 @@ type DeleteFilesResponse struct {
 
 func (x *DeleteFilesResponse) Reset() {
 	*x = DeleteFilesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[39]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3586,7 +3735,7 @@ func (x *DeleteFilesResponse) String() string {
 func (*DeleteFilesResponse) ProtoMessage() {}
 
 func (x *DeleteFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[39]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3599,7 +3748,7 @@ func (x *DeleteFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteFilesResponse.ProtoReflect.Descriptor instead.
 func (*DeleteFilesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{39}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DeleteFilesResponse) GetDeleted() []string {
@@ -3622,7 +3771,7 @@ type RenameFileRequest struct {
 
 func (x *RenameFileRequest) Reset() {
 	*x = RenameFileRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[40]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3634,7 +3783,7 @@ func (x *RenameFileRequest) String() string {
 func (*RenameFileRequest) ProtoMessage() {}
 
 func (x *RenameFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[40]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3647,7 +3796,7 @@ func (x *RenameFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameFileRequest.ProtoReflect.Descriptor instead.
 func (*RenameFileRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{40}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *RenameFileRequest) GetDirectory() string {
@@ -3694,7 +3843,7 @@ type RenameFileResponse struct {
 
 func (x *RenameFileResponse) Reset() {
 	*x = RenameFileResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[41]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3706,7 +3855,7 @@ func (x *RenameFileResponse) String() string {
 func (*RenameFileResponse) ProtoMessage() {}
 
 func (x *RenameFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[41]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3719,7 +3868,7 @@ func (x *RenameFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameFileResponse.ProtoReflect.Descriptor instead.
 func (*RenameFileResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{41}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *RenameFileResponse) GetNewRelativePath() string {
@@ -3742,7 +3891,7 @@ type MoveFilesRequest struct {
 
 func (x *MoveFilesRequest) Reset() {
 	*x = MoveFilesRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[42]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3754,7 +3903,7 @@ func (x *MoveFilesRequest) String() string {
 func (*MoveFilesRequest) ProtoMessage() {}
 
 func (x *MoveFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[42]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3767,7 +3916,7 @@ func (x *MoveFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveFilesRequest.ProtoReflect.Descriptor instead.
 func (*MoveFilesRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{42}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *MoveFilesRequest) GetDirectory() string {
@@ -3814,7 +3963,7 @@ type MoveFilesResponse struct {
 
 func (x *MoveFilesResponse) Reset() {
 	*x = MoveFilesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[43]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3826,7 +3975,7 @@ func (x *MoveFilesResponse) String() string {
 func (*MoveFilesResponse) ProtoMessage() {}
 
 func (x *MoveFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[43]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3839,7 +3988,7 @@ func (x *MoveFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveFilesResponse.ProtoReflect.Descriptor instead.
 func (*MoveFilesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{43}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *MoveFilesResponse) GetMoved() []string {
@@ -3865,7 +4014,7 @@ type DownloadFileFromURLRequest struct {
 
 func (x *DownloadFileFromURLRequest) Reset() {
 	*x = DownloadFileFromURLRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[44]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3877,7 +4026,7 @@ func (x *DownloadFileFromURLRequest) String() string {
 func (*DownloadFileFromURLRequest) ProtoMessage() {}
 
 func (x *DownloadFileFromURLRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[44]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3890,7 +4039,7 @@ func (x *DownloadFileFromURLRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadFileFromURLRequest.ProtoReflect.Descriptor instead.
 func (*DownloadFileFromURLRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{44}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DownloadFileFromURLRequest) GetDirectory() string {
@@ -3962,7 +4111,7 @@ type DownloadFileFromURLResponse struct {
 
 func (x *DownloadFileFromURLResponse) Reset() {
 	*x = DownloadFileFromURLResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[45]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3974,7 +4123,7 @@ func (x *DownloadFileFromURLResponse) String() string {
 func (*DownloadFileFromURLResponse) ProtoMessage() {}
 
 func (x *DownloadFileFromURLResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[45]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3987,7 +4136,7 @@ func (x *DownloadFileFromURLResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadFileFromURLResponse.ProtoReflect.Descriptor instead.
 func (*DownloadFileFromURLResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{45}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *DownloadFileFromURLResponse) GetRelativePath() string {
@@ -4039,7 +4188,7 @@ type CreateFileArchiveRequest struct {
 
 func (x *CreateFileArchiveRequest) Reset() {
 	*x = CreateFileArchiveRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[46]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4051,7 +4200,7 @@ func (x *CreateFileArchiveRequest) String() string {
 func (*CreateFileArchiveRequest) ProtoMessage() {}
 
 func (x *CreateFileArchiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[46]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4064,7 +4213,7 @@ func (x *CreateFileArchiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFileArchiveRequest.ProtoReflect.Descriptor instead.
 func (*CreateFileArchiveRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{46}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CreateFileArchiveRequest) GetDirectory() string {
@@ -4123,7 +4272,7 @@ type CreateFileArchiveResponse struct {
 
 func (x *CreateFileArchiveResponse) Reset() {
 	*x = CreateFileArchiveResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[47]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4135,7 +4284,7 @@ func (x *CreateFileArchiveResponse) String() string {
 func (*CreateFileArchiveResponse) ProtoMessage() {}
 
 func (x *CreateFileArchiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[47]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4148,7 +4297,7 @@ func (x *CreateFileArchiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateFileArchiveResponse.ProtoReflect.Descriptor instead.
 func (*CreateFileArchiveResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{47}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *CreateFileArchiveResponse) GetRelativePath() string {
@@ -4206,7 +4355,7 @@ type ExtractFileArchiveRequest struct {
 
 func (x *ExtractFileArchiveRequest) Reset() {
 	*x = ExtractFileArchiveRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[48]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4218,7 +4367,7 @@ func (x *ExtractFileArchiveRequest) String() string {
 func (*ExtractFileArchiveRequest) ProtoMessage() {}
 
 func (x *ExtractFileArchiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[48]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4231,7 +4380,7 @@ func (x *ExtractFileArchiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtractFileArchiveRequest.ProtoReflect.Descriptor instead.
 func (*ExtractFileArchiveRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{48}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ExtractFileArchiveRequest) GetDirectory() string {
@@ -4283,7 +4432,7 @@ type ExtractFileArchiveResponse struct {
 
 func (x *ExtractFileArchiveResponse) Reset() {
 	*x = ExtractFileArchiveResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[49]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4295,7 +4444,7 @@ func (x *ExtractFileArchiveResponse) String() string {
 func (*ExtractFileArchiveResponse) ProtoMessage() {}
 
 func (x *ExtractFileArchiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[49]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4308,7 +4457,7 @@ func (x *ExtractFileArchiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtractFileArchiveResponse.ProtoReflect.Descriptor instead.
 func (*ExtractFileArchiveResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{49}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ExtractFileArchiveResponse) GetExtractedPaths() []string {
@@ -4367,7 +4516,7 @@ type CreateBackupArchiveRequest struct {
 
 func (x *CreateBackupArchiveRequest) Reset() {
 	*x = CreateBackupArchiveRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[50]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4379,7 +4528,7 @@ func (x *CreateBackupArchiveRequest) String() string {
 func (*CreateBackupArchiveRequest) ProtoMessage() {}
 
 func (x *CreateBackupArchiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[50]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4392,7 +4541,7 @@ func (x *CreateBackupArchiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBackupArchiveRequest.ProtoReflect.Descriptor instead.
 func (*CreateBackupArchiveRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{50}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *CreateBackupArchiveRequest) GetDirectory() string {
@@ -4426,7 +4575,7 @@ type CreateBackupArchiveResponse struct {
 
 func (x *CreateBackupArchiveResponse) Reset() {
 	*x = CreateBackupArchiveResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[51]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4438,7 +4587,7 @@ func (x *CreateBackupArchiveResponse) String() string {
 func (*CreateBackupArchiveResponse) ProtoMessage() {}
 
 func (x *CreateBackupArchiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[51]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4451,7 +4600,7 @@ func (x *CreateBackupArchiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBackupArchiveResponse.ProtoReflect.Descriptor instead.
 func (*CreateBackupArchiveResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{51}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CreateBackupArchiveResponse) GetArchiveBytes() int64 {
@@ -4484,7 +4633,7 @@ type ExtractBackupArchiveRequest struct {
 
 func (x *ExtractBackupArchiveRequest) Reset() {
 	*x = ExtractBackupArchiveRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[52]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4496,7 +4645,7 @@ func (x *ExtractBackupArchiveRequest) String() string {
 func (*ExtractBackupArchiveRequest) ProtoMessage() {}
 
 func (x *ExtractBackupArchiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[52]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4509,7 +4658,7 @@ func (x *ExtractBackupArchiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtractBackupArchiveRequest.ProtoReflect.Descriptor instead.
 func (*ExtractBackupArchiveRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{52}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ExtractBackupArchiveRequest) GetDirectory() string {
@@ -4541,7 +4690,7 @@ type ExtractBackupArchiveResponse struct {
 
 func (x *ExtractBackupArchiveResponse) Reset() {
 	*x = ExtractBackupArchiveResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[53]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4553,7 +4702,7 @@ func (x *ExtractBackupArchiveResponse) String() string {
 func (*ExtractBackupArchiveResponse) ProtoMessage() {}
 
 func (x *ExtractBackupArchiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[53]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4566,7 +4715,7 @@ func (x *ExtractBackupArchiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtractBackupArchiveResponse.ProtoReflect.Descriptor instead.
 func (*ExtractBackupArchiveResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{53}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{54}
 }
 
 type ProbeInstalledVersionRequest struct {
@@ -4581,7 +4730,7 @@ type ProbeInstalledVersionRequest struct {
 
 func (x *ProbeInstalledVersionRequest) Reset() {
 	*x = ProbeInstalledVersionRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[54]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4593,7 +4742,7 @@ func (x *ProbeInstalledVersionRequest) String() string {
 func (*ProbeInstalledVersionRequest) ProtoMessage() {}
 
 func (x *ProbeInstalledVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[54]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4606,7 +4755,7 @@ func (x *ProbeInstalledVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeInstalledVersionRequest.ProtoReflect.Descriptor instead.
 func (*ProbeInstalledVersionRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{54}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ProbeInstalledVersionRequest) GetDirectory() string {
@@ -4648,7 +4797,7 @@ type ProbeInstalledVersionResponse struct {
 
 func (x *ProbeInstalledVersionResponse) Reset() {
 	*x = ProbeInstalledVersionResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[55]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4660,7 +4809,7 @@ func (x *ProbeInstalledVersionResponse) String() string {
 func (*ProbeInstalledVersionResponse) ProtoMessage() {}
 
 func (x *ProbeInstalledVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[55]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4673,7 +4822,7 @@ func (x *ProbeInstalledVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeInstalledVersionResponse.ProtoReflect.Descriptor instead.
 func (*ProbeInstalledVersionResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{55}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ProbeInstalledVersionResponse) GetFound() bool {
@@ -4711,7 +4860,7 @@ type QueryGameServerRequest struct {
 
 func (x *QueryGameServerRequest) Reset() {
 	*x = QueryGameServerRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[56]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4723,7 +4872,7 @@ func (x *QueryGameServerRequest) String() string {
 func (*QueryGameServerRequest) ProtoMessage() {}
 
 func (x *QueryGameServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[56]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4736,7 +4885,7 @@ func (x *QueryGameServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryGameServerRequest.ProtoReflect.Descriptor instead.
 func (*QueryGameServerRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{56}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *QueryGameServerRequest) GetKind() GameServerQueryKind {
@@ -4800,7 +4949,7 @@ type GameServerMinecraftQueryInfo struct {
 
 func (x *GameServerMinecraftQueryInfo) Reset() {
 	*x = GameServerMinecraftQueryInfo{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[57]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4812,7 +4961,7 @@ func (x *GameServerMinecraftQueryInfo) String() string {
 func (*GameServerMinecraftQueryInfo) ProtoMessage() {}
 
 func (x *GameServerMinecraftQueryInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[57]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4825,7 +4974,7 @@ func (x *GameServerMinecraftQueryInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerMinecraftQueryInfo.ProtoReflect.Descriptor instead.
 func (*GameServerMinecraftQueryInfo) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{57}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *GameServerMinecraftQueryInfo) GetMotd() string {
@@ -4930,7 +5079,7 @@ type GameServerSourceQueryInfo struct {
 
 func (x *GameServerSourceQueryInfo) Reset() {
 	*x = GameServerSourceQueryInfo{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[58]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4942,7 +5091,7 @@ func (x *GameServerSourceQueryInfo) String() string {
 func (*GameServerSourceQueryInfo) ProtoMessage() {}
 
 func (x *GameServerSourceQueryInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[58]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4955,7 +5104,7 @@ func (x *GameServerSourceQueryInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerSourceQueryInfo.ProtoReflect.Descriptor instead.
 func (*GameServerSourceQueryInfo) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{58}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *GameServerSourceQueryInfo) GetName() string {
@@ -5098,7 +5247,7 @@ type GameServerPalworldQueryInfo struct {
 
 func (x *GameServerPalworldQueryInfo) Reset() {
 	*x = GameServerPalworldQueryInfo{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[59]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5110,7 +5259,7 @@ func (x *GameServerPalworldQueryInfo) String() string {
 func (*GameServerPalworldQueryInfo) ProtoMessage() {}
 
 func (x *GameServerPalworldQueryInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[59]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5123,7 +5272,7 @@ func (x *GameServerPalworldQueryInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerPalworldQueryInfo.ProtoReflect.Descriptor instead.
 func (*GameServerPalworldQueryInfo) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{59}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *GameServerPalworldQueryInfo) GetName() string {
@@ -5229,7 +5378,7 @@ type QueryGameServerResponse struct {
 
 func (x *QueryGameServerResponse) Reset() {
 	*x = QueryGameServerResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[60]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5241,7 +5390,7 @@ func (x *QueryGameServerResponse) String() string {
 func (*QueryGameServerResponse) ProtoMessage() {}
 
 func (x *QueryGameServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[60]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5254,7 +5403,7 @@ func (x *QueryGameServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryGameServerResponse.ProtoReflect.Descriptor instead.
 func (*QueryGameServerResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{60}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *QueryGameServerResponse) GetKind() GameServerQueryKind {
@@ -5310,7 +5459,7 @@ type PalworldMapActor struct {
 
 func (x *PalworldMapActor) Reset() {
 	*x = PalworldMapActor{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[61]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5322,7 +5471,7 @@ func (x *PalworldMapActor) String() string {
 func (*PalworldMapActor) ProtoMessage() {}
 
 func (x *PalworldMapActor) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[61]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5335,7 +5484,7 @@ func (x *PalworldMapActor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapActor.ProtoReflect.Descriptor instead.
 func (*PalworldMapActor) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{61}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *PalworldMapActor) GetKey() string {
@@ -5473,7 +5622,7 @@ type PalworldMapSnapshot struct {
 
 func (x *PalworldMapSnapshot) Reset() {
 	*x = PalworldMapSnapshot{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[62]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5485,7 +5634,7 @@ func (x *PalworldMapSnapshot) String() string {
 func (*PalworldMapSnapshot) ProtoMessage() {}
 
 func (x *PalworldMapSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[62]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5498,7 +5647,7 @@ func (x *PalworldMapSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapSnapshot.ProtoReflect.Descriptor instead.
 func (*PalworldMapSnapshot) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{62}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *PalworldMapSnapshot) GetSourceTime() string {
@@ -5569,7 +5718,7 @@ type QueryPalworldMapRequest struct {
 
 func (x *QueryPalworldMapRequest) Reset() {
 	*x = QueryPalworldMapRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[63]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5581,7 +5730,7 @@ func (x *QueryPalworldMapRequest) String() string {
 func (*QueryPalworldMapRequest) ProtoMessage() {}
 
 func (x *QueryPalworldMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[63]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5594,7 +5743,7 @@ func (x *QueryPalworldMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPalworldMapRequest.ProtoReflect.Descriptor instead.
 func (*QueryPalworldMapRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{63}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *QueryPalworldMapRequest) GetIp() string {
@@ -5634,7 +5783,7 @@ type QueryPalworldMapResponse struct {
 
 func (x *QueryPalworldMapResponse) Reset() {
 	*x = QueryPalworldMapResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[64]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5646,7 +5795,7 @@ func (x *QueryPalworldMapResponse) String() string {
 func (*QueryPalworldMapResponse) ProtoMessage() {}
 
 func (x *QueryPalworldMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[64]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5659,7 +5808,7 @@ func (x *QueryPalworldMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPalworldMapResponse.ProtoReflect.Descriptor instead.
 func (*QueryPalworldMapResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{64}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *QueryPalworldMapResponse) GetSnapshot() *PalworldMapSnapshot {
@@ -5680,7 +5829,7 @@ type SevenDaysToDieMapVector struct {
 
 func (x *SevenDaysToDieMapVector) Reset() {
 	*x = SevenDaysToDieMapVector{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[65]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5692,7 +5841,7 @@ func (x *SevenDaysToDieMapVector) String() string {
 func (*SevenDaysToDieMapVector) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapVector) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[65]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5705,7 +5854,7 @@ func (x *SevenDaysToDieMapVector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapVector.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapVector) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{65}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *SevenDaysToDieMapVector) GetX() float64 {
@@ -5741,7 +5890,7 @@ type SevenDaysToDieMapPlayer struct {
 
 func (x *SevenDaysToDieMapPlayer) Reset() {
 	*x = SevenDaysToDieMapPlayer{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[66]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5753,7 +5902,7 @@ func (x *SevenDaysToDieMapPlayer) String() string {
 func (*SevenDaysToDieMapPlayer) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapPlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[66]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5766,7 +5915,7 @@ func (x *SevenDaysToDieMapPlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapPlayer.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapPlayer) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{66}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *SevenDaysToDieMapPlayer) GetId() string {
@@ -5810,7 +5959,7 @@ type SevenDaysToDieMapMarker struct {
 
 func (x *SevenDaysToDieMapMarker) Reset() {
 	*x = SevenDaysToDieMapMarker{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[67]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5822,7 +5971,7 @@ func (x *SevenDaysToDieMapMarker) String() string {
 func (*SevenDaysToDieMapMarker) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapMarker) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[67]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5835,7 +5984,7 @@ func (x *SevenDaysToDieMapMarker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapMarker.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapMarker) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{67}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *SevenDaysToDieMapMarker) GetId() string {
@@ -5886,7 +6035,7 @@ type SevenDaysToDieLandClaim struct {
 
 func (x *SevenDaysToDieLandClaim) Reset() {
 	*x = SevenDaysToDieLandClaim{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[68]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5898,7 +6047,7 @@ func (x *SevenDaysToDieLandClaim) String() string {
 func (*SevenDaysToDieLandClaim) ProtoMessage() {}
 
 func (x *SevenDaysToDieLandClaim) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[68]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5911,7 +6060,7 @@ func (x *SevenDaysToDieLandClaim) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieLandClaim.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieLandClaim) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{68}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *SevenDaysToDieLandClaim) GetOwnerId() string {
@@ -5959,7 +6108,7 @@ type SevenDaysToDieMapEntity struct {
 
 func (x *SevenDaysToDieMapEntity) Reset() {
 	*x = SevenDaysToDieMapEntity{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[69]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5971,7 +6120,7 @@ func (x *SevenDaysToDieMapEntity) String() string {
 func (*SevenDaysToDieMapEntity) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[69]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5984,7 +6133,7 @@ func (x *SevenDaysToDieMapEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapEntity.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapEntity) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{69}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *SevenDaysToDieMapEntity) GetName() string {
@@ -6013,7 +6162,7 @@ type SevenDaysToDieMapBloodMoon struct {
 
 func (x *SevenDaysToDieMapBloodMoon) Reset() {
 	*x = SevenDaysToDieMapBloodMoon{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[70]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6025,7 +6174,7 @@ func (x *SevenDaysToDieMapBloodMoon) String() string {
 func (*SevenDaysToDieMapBloodMoon) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapBloodMoon) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[70]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6038,7 +6187,7 @@ func (x *SevenDaysToDieMapBloodMoon) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapBloodMoon.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapBloodMoon) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{70}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *SevenDaysToDieMapBloodMoon) GetGameTime() *SevenDaysToDieGameTime {
@@ -6094,7 +6243,7 @@ type SevenDaysToDieMapSnapshot struct {
 
 func (x *SevenDaysToDieMapSnapshot) Reset() {
 	*x = SevenDaysToDieMapSnapshot{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[71]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6106,7 +6255,7 @@ func (x *SevenDaysToDieMapSnapshot) String() string {
 func (*SevenDaysToDieMapSnapshot) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[71]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6119,7 +6268,7 @@ func (x *SevenDaysToDieMapSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapSnapshot.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapSnapshot) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{71}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *SevenDaysToDieMapSnapshot) GetEnabled() bool {
@@ -6253,7 +6402,7 @@ type QuerySevenDaysToDieMapRequest struct {
 
 func (x *QuerySevenDaysToDieMapRequest) Reset() {
 	*x = QuerySevenDaysToDieMapRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[72]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6265,7 +6414,7 @@ func (x *QuerySevenDaysToDieMapRequest) String() string {
 func (*QuerySevenDaysToDieMapRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[72]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6278,7 +6427,7 @@ func (x *QuerySevenDaysToDieMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QuerySevenDaysToDieMapRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieMapRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{72}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *QuerySevenDaysToDieMapRequest) GetWorkingDirectory() string {
@@ -6318,7 +6467,7 @@ type QuerySevenDaysToDieMapResponse struct {
 
 func (x *QuerySevenDaysToDieMapResponse) Reset() {
 	*x = QuerySevenDaysToDieMapResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[73]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6330,7 +6479,7 @@ func (x *QuerySevenDaysToDieMapResponse) String() string {
 func (*QuerySevenDaysToDieMapResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[73]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6343,7 +6492,7 @@ func (x *QuerySevenDaysToDieMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QuerySevenDaysToDieMapResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieMapResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{73}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *QuerySevenDaysToDieMapResponse) GetSnapshot() *SevenDaysToDieMapSnapshot {
@@ -6367,7 +6516,7 @@ type GetSevenDaysToDieMapTileRequest struct {
 
 func (x *GetSevenDaysToDieMapTileRequest) Reset() {
 	*x = GetSevenDaysToDieMapTileRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[74]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6379,7 +6528,7 @@ func (x *GetSevenDaysToDieMapTileRequest) String() string {
 func (*GetSevenDaysToDieMapTileRequest) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieMapTileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[74]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6392,7 +6541,7 @@ func (x *GetSevenDaysToDieMapTileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSevenDaysToDieMapTileRequest.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieMapTileRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{74}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *GetSevenDaysToDieMapTileRequest) GetWorkingDirectory() string {
@@ -6446,7 +6595,7 @@ type GetSevenDaysToDieMapTileResponse struct {
 
 func (x *GetSevenDaysToDieMapTileResponse) Reset() {
 	*x = GetSevenDaysToDieMapTileResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[75]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6458,7 +6607,7 @@ func (x *GetSevenDaysToDieMapTileResponse) String() string {
 func (*GetSevenDaysToDieMapTileResponse) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieMapTileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[75]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6471,7 +6620,7 @@ func (x *GetSevenDaysToDieMapTileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSevenDaysToDieMapTileResponse.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieMapTileResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{75}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *GetSevenDaysToDieMapTileResponse) GetContent() []byte {
@@ -6494,7 +6643,7 @@ type EnsureMinecraftMapRequest struct {
 
 func (x *EnsureMinecraftMapRequest) Reset() {
 	*x = EnsureMinecraftMapRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[76]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6506,7 +6655,7 @@ func (x *EnsureMinecraftMapRequest) String() string {
 func (*EnsureMinecraftMapRequest) ProtoMessage() {}
 
 func (x *EnsureMinecraftMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[76]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6519,7 +6668,7 @@ func (x *EnsureMinecraftMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnsureMinecraftMapRequest.ProtoReflect.Descriptor instead.
 func (*EnsureMinecraftMapRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{76}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *EnsureMinecraftMapRequest) GetProcessId() string {
@@ -6573,7 +6722,7 @@ type EnsureMinecraftMapResponse struct {
 
 func (x *EnsureMinecraftMapResponse) Reset() {
 	*x = EnsureMinecraftMapResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[77]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6585,7 +6734,7 @@ func (x *EnsureMinecraftMapResponse) String() string {
 func (*EnsureMinecraftMapResponse) ProtoMessage() {}
 
 func (x *EnsureMinecraftMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[77]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6598,7 +6747,7 @@ func (x *EnsureMinecraftMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnsureMinecraftMapResponse.ProtoReflect.Descriptor instead.
 func (*EnsureMinecraftMapResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{77}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *EnsureMinecraftMapResponse) GetInstalled() bool {
@@ -6666,7 +6815,7 @@ type StopMinecraftMapRequest struct {
 
 func (x *StopMinecraftMapRequest) Reset() {
 	*x = StopMinecraftMapRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[78]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6678,7 +6827,7 @@ func (x *StopMinecraftMapRequest) String() string {
 func (*StopMinecraftMapRequest) ProtoMessage() {}
 
 func (x *StopMinecraftMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[78]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6691,7 +6840,7 @@ func (x *StopMinecraftMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopMinecraftMapRequest.ProtoReflect.Descriptor instead.
 func (*StopMinecraftMapRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{78}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *StopMinecraftMapRequest) GetProcessId() string {
@@ -6709,7 +6858,7 @@ type StopMinecraftMapResponse struct {
 
 func (x *StopMinecraftMapResponse) Reset() {
 	*x = StopMinecraftMapResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[79]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6721,7 +6870,7 @@ func (x *StopMinecraftMapResponse) String() string {
 func (*StopMinecraftMapResponse) ProtoMessage() {}
 
 func (x *StopMinecraftMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[79]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6734,7 +6883,7 @@ func (x *StopMinecraftMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopMinecraftMapResponse.ProtoReflect.Descriptor instead.
 func (*StopMinecraftMapResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{79}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{80}
 }
 
 type GetMinecraftMapAssetRequest struct {
@@ -6748,7 +6897,7 @@ type GetMinecraftMapAssetRequest struct {
 
 func (x *GetMinecraftMapAssetRequest) Reset() {
 	*x = GetMinecraftMapAssetRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[80]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6760,7 +6909,7 @@ func (x *GetMinecraftMapAssetRequest) String() string {
 func (*GetMinecraftMapAssetRequest) ProtoMessage() {}
 
 func (x *GetMinecraftMapAssetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[80]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6773,7 +6922,7 @@ func (x *GetMinecraftMapAssetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMinecraftMapAssetRequest.ProtoReflect.Descriptor instead.
 func (*GetMinecraftMapAssetRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{80}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *GetMinecraftMapAssetRequest) GetProcessId() string {
@@ -6809,7 +6958,7 @@ type GetMinecraftMapAssetResponse struct {
 
 func (x *GetMinecraftMapAssetResponse) Reset() {
 	*x = GetMinecraftMapAssetResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[81]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6821,7 +6970,7 @@ func (x *GetMinecraftMapAssetResponse) String() string {
 func (*GetMinecraftMapAssetResponse) ProtoMessage() {}
 
 func (x *GetMinecraftMapAssetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[81]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6834,7 +6983,7 @@ func (x *GetMinecraftMapAssetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMinecraftMapAssetResponse.ProtoReflect.Descriptor instead.
 func (*GetMinecraftMapAssetResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{81}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *GetMinecraftMapAssetResponse) GetContent() []byte {
@@ -6880,7 +7029,7 @@ type SendConsoleOutputRequest struct {
 
 func (x *SendConsoleOutputRequest) Reset() {
 	*x = SendConsoleOutputRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[82]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6892,7 +7041,7 @@ func (x *SendConsoleOutputRequest) String() string {
 func (*SendConsoleOutputRequest) ProtoMessage() {}
 
 func (x *SendConsoleOutputRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[82]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6905,7 +7054,7 @@ func (x *SendConsoleOutputRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendConsoleOutputRequest.ProtoReflect.Descriptor instead.
 func (*SendConsoleOutputRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{82}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *SendConsoleOutputRequest) GetProcessId() string {
@@ -6930,7 +7079,7 @@ type SendConsoleOutputResponse struct {
 
 func (x *SendConsoleOutputResponse) Reset() {
 	*x = SendConsoleOutputResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[83]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6942,7 +7091,7 @@ func (x *SendConsoleOutputResponse) String() string {
 func (*SendConsoleOutputResponse) ProtoMessage() {}
 
 func (x *SendConsoleOutputResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[83]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6955,7 +7104,7 @@ func (x *SendConsoleOutputResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendConsoleOutputResponse.ProtoReflect.Descriptor instead.
 func (*SendConsoleOutputResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{83}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{84}
 }
 
 // GetProcessSnapshotRequest fetches the metrics + status for one process.
@@ -6970,7 +7119,7 @@ type GetProcessSnapshotRequest struct {
 
 func (x *GetProcessSnapshotRequest) Reset() {
 	*x = GetProcessSnapshotRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[84]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6982,7 +7131,7 @@ func (x *GetProcessSnapshotRequest) String() string {
 func (*GetProcessSnapshotRequest) ProtoMessage() {}
 
 func (x *GetProcessSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[84]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6995,7 +7144,7 @@ func (x *GetProcessSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProcessSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetProcessSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{84}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *GetProcessSnapshotRequest) GetProcessId() string {
@@ -7015,7 +7164,7 @@ type GetProcessSnapshotResponse struct {
 
 func (x *GetProcessSnapshotResponse) Reset() {
 	*x = GetProcessSnapshotResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[85]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7027,7 +7176,7 @@ func (x *GetProcessSnapshotResponse) String() string {
 func (*GetProcessSnapshotResponse) ProtoMessage() {}
 
 func (x *GetProcessSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[85]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7040,7 +7189,7 @@ func (x *GetProcessSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProcessSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*GetProcessSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{85}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *GetProcessSnapshotResponse) GetSnapshot() *ProcessSnapshot {
@@ -7065,7 +7214,7 @@ type GetNodeSnapshotRequest struct {
 
 func (x *GetNodeSnapshotRequest) Reset() {
 	*x = GetNodeSnapshotRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[86]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7077,7 +7226,7 @@ func (x *GetNodeSnapshotRequest) String() string {
 func (*GetNodeSnapshotRequest) ProtoMessage() {}
 
 func (x *GetNodeSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[86]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7090,7 +7239,7 @@ func (x *GetNodeSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{86}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{87}
 }
 
 type ListBindableIPsRequest struct {
@@ -7101,7 +7250,7 @@ type ListBindableIPsRequest struct {
 
 func (x *ListBindableIPsRequest) Reset() {
 	*x = ListBindableIPsRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[87]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7113,7 +7262,7 @@ func (x *ListBindableIPsRequest) String() string {
 func (*ListBindableIPsRequest) ProtoMessage() {}
 
 func (x *ListBindableIPsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[87]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7126,7 +7275,7 @@ func (x *ListBindableIPsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBindableIPsRequest.ProtoReflect.Descriptor instead.
 func (*ListBindableIPsRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{87}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{88}
 }
 
 type ListBindableIPsResponse struct {
@@ -7138,7 +7287,7 @@ type ListBindableIPsResponse struct {
 
 func (x *ListBindableIPsResponse) Reset() {
 	*x = ListBindableIPsResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[88]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7150,7 +7299,7 @@ func (x *ListBindableIPsResponse) String() string {
 func (*ListBindableIPsResponse) ProtoMessage() {}
 
 func (x *ListBindableIPsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[88]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7163,7 +7312,7 @@ func (x *ListBindableIPsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBindableIPsResponse.ProtoReflect.Descriptor instead.
 func (*ListBindableIPsResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{88}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *ListBindableIPsResponse) GetIps() []*BindableIP {
@@ -7184,7 +7333,7 @@ type StreamEventsRequest struct {
 
 func (x *StreamEventsRequest) Reset() {
 	*x = StreamEventsRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[89]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7196,7 +7345,7 @@ func (x *StreamEventsRequest) String() string {
 func (*StreamEventsRequest) ProtoMessage() {}
 
 func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[89]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7209,7 +7358,7 @@ func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEventsRequest.ProtoReflect.Descriptor instead.
 func (*StreamEventsRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{89}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *StreamEventsRequest) GetReplayProcessStatus() bool {
@@ -7227,7 +7376,7 @@ type PingRequest struct {
 
 func (x *PingRequest) Reset() {
 	*x = PingRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[90]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7239,7 +7388,7 @@ func (x *PingRequest) String() string {
 func (*PingRequest) ProtoMessage() {}
 
 func (x *PingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[90]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7252,7 +7401,7 @@ func (x *PingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingRequest.ProtoReflect.Descriptor instead.
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{90}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{91}
 }
 
 type PingResponse struct {
@@ -7264,7 +7413,7 @@ type PingResponse struct {
 
 func (x *PingResponse) Reset() {
 	*x = PingResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[91]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7276,7 +7425,7 @@ func (x *PingResponse) String() string {
 func (*PingResponse) ProtoMessage() {}
 
 func (x *PingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[91]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7289,7 +7438,7 @@ func (x *PingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingResponse.ProtoReflect.Descriptor instead.
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{91}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *PingResponse) GetServerTime() *timestamppb.Timestamp {
@@ -7307,7 +7456,7 @@ type GetRuntimeCapabilitiesRequest struct {
 
 func (x *GetRuntimeCapabilitiesRequest) Reset() {
 	*x = GetRuntimeCapabilitiesRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[92]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7319,7 +7468,7 @@ func (x *GetRuntimeCapabilitiesRequest) String() string {
 func (*GetRuntimeCapabilitiesRequest) ProtoMessage() {}
 
 func (x *GetRuntimeCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[92]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7332,7 +7481,7 @@ func (x *GetRuntimeCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuntimeCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*GetRuntimeCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{92}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{93}
 }
 
 type GameOperationSupport struct {
@@ -7345,7 +7494,7 @@ type GameOperationSupport struct {
 
 func (x *GameOperationSupport) Reset() {
 	*x = GameOperationSupport{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7357,7 +7506,7 @@ func (x *GameOperationSupport) String() string {
 func (*GameOperationSupport) ProtoMessage() {}
 
 func (x *GameOperationSupport) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[93]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7370,7 +7519,7 @@ func (x *GameOperationSupport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationSupport.ProtoReflect.Descriptor instead.
 func (*GameOperationSupport) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{93}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *GameOperationSupport) GetGameId() string {
@@ -7406,7 +7555,7 @@ type GetRuntimeCapabilitiesResponse struct {
 
 func (x *GetRuntimeCapabilitiesResponse) Reset() {
 	*x = GetRuntimeCapabilitiesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7418,7 +7567,7 @@ func (x *GetRuntimeCapabilitiesResponse) String() string {
 func (*GetRuntimeCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetRuntimeCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[94]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7431,7 +7580,7 @@ func (x *GetRuntimeCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuntimeCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetRuntimeCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{94}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *GetRuntimeCapabilitiesResponse) GetProtocolVersion() int64 {
@@ -7519,7 +7668,7 @@ type GetUpdateCapabilitiesRequest struct {
 
 func (x *GetUpdateCapabilitiesRequest) Reset() {
 	*x = GetUpdateCapabilitiesRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7531,7 +7680,7 @@ func (x *GetUpdateCapabilitiesRequest) String() string {
 func (*GetUpdateCapabilitiesRequest) ProtoMessage() {}
 
 func (x *GetUpdateCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[95]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7544,7 +7693,7 @@ func (x *GetUpdateCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUpdateCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*GetUpdateCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{95}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{96}
 }
 
 type GetUpdateCapabilitiesResponse struct {
@@ -7565,7 +7714,7 @@ type GetUpdateCapabilitiesResponse struct {
 
 func (x *GetUpdateCapabilitiesResponse) Reset() {
 	*x = GetUpdateCapabilitiesResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7577,7 +7726,7 @@ func (x *GetUpdateCapabilitiesResponse) String() string {
 func (*GetUpdateCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetUpdateCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[96]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7590,7 +7739,7 @@ func (x *GetUpdateCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUpdateCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetUpdateCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{96}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *GetUpdateCapabilitiesResponse) GetSupported() bool {
@@ -7678,7 +7827,7 @@ type StageSelfUpdateRequest struct {
 
 func (x *StageSelfUpdateRequest) Reset() {
 	*x = StageSelfUpdateRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7690,7 +7839,7 @@ func (x *StageSelfUpdateRequest) String() string {
 func (*StageSelfUpdateRequest) ProtoMessage() {}
 
 func (x *StageSelfUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[97]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7703,7 +7852,7 @@ func (x *StageSelfUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StageSelfUpdateRequest.ProtoReflect.Descriptor instead.
 func (*StageSelfUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{97}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *StageSelfUpdateRequest) GetComponent() string {
@@ -7766,7 +7915,7 @@ type StageSelfUpdateResponse struct {
 
 func (x *StageSelfUpdateResponse) Reset() {
 	*x = StageSelfUpdateResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7778,7 +7927,7 @@ func (x *StageSelfUpdateResponse) String() string {
 func (*StageSelfUpdateResponse) ProtoMessage() {}
 
 func (x *StageSelfUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[98]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7791,7 +7940,7 @@ func (x *StageSelfUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StageSelfUpdateResponse.ProtoReflect.Descriptor instead.
 func (*StageSelfUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{98}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *StageSelfUpdateResponse) GetStageId() string {
@@ -7826,7 +7975,7 @@ type ApplySelfUpdateRequest struct {
 
 func (x *ApplySelfUpdateRequest) Reset() {
 	*x = ApplySelfUpdateRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7838,7 +7987,7 @@ func (x *ApplySelfUpdateRequest) String() string {
 func (*ApplySelfUpdateRequest) ProtoMessage() {}
 
 func (x *ApplySelfUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[99]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7851,7 +8000,7 @@ func (x *ApplySelfUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplySelfUpdateRequest.ProtoReflect.Descriptor instead.
 func (*ApplySelfUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{99}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *ApplySelfUpdateRequest) GetStageId() string {
@@ -7885,7 +8034,7 @@ type ApplySelfUpdateResponse struct {
 
 func (x *ApplySelfUpdateResponse) Reset() {
 	*x = ApplySelfUpdateResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7897,7 +8046,7 @@ func (x *ApplySelfUpdateResponse) String() string {
 func (*ApplySelfUpdateResponse) ProtoMessage() {}
 
 func (x *ApplySelfUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[100]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7910,7 +8059,7 @@ func (x *ApplySelfUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplySelfUpdateResponse.ProtoReflect.Descriptor instead.
 func (*ApplySelfUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{100}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *ApplySelfUpdateResponse) GetAccepted() bool {
@@ -7937,7 +8086,7 @@ type GameServerPlayer struct {
 
 func (x *GameServerPlayer) Reset() {
 	*x = GameServerPlayer{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7949,7 +8098,7 @@ func (x *GameServerPlayer) String() string {
 func (*GameServerPlayer) ProtoMessage() {}
 
 func (x *GameServerPlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[101]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7962,7 +8111,7 @@ func (x *GameServerPlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerPlayer.ProtoReflect.Descriptor instead.
 func (*GameServerPlayer) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{101}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *GameServerPlayer) GetName() string {
@@ -7996,7 +8145,7 @@ type PerformGameServerPlayerActionRequest struct {
 
 func (x *PerformGameServerPlayerActionRequest) Reset() {
 	*x = PerformGameServerPlayerActionRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8008,7 +8157,7 @@ func (x *PerformGameServerPlayerActionRequest) String() string {
 func (*PerformGameServerPlayerActionRequest) ProtoMessage() {}
 
 func (x *PerformGameServerPlayerActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[102]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8021,7 +8170,7 @@ func (x *PerformGameServerPlayerActionRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use PerformGameServerPlayerActionRequest.ProtoReflect.Descriptor instead.
 func (*PerformGameServerPlayerActionRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{102}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *PerformGameServerPlayerActionRequest) GetKind() GameServerQueryKind {
@@ -8095,7 +8244,7 @@ type PerformGameServerPlayerActionResponse struct {
 
 func (x *PerformGameServerPlayerActionResponse) Reset() {
 	*x = PerformGameServerPlayerActionResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8107,7 +8256,7 @@ func (x *PerformGameServerPlayerActionResponse) String() string {
 func (*PerformGameServerPlayerActionResponse) ProtoMessage() {}
 
 func (x *PerformGameServerPlayerActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[103]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8120,7 +8269,7 @@ func (x *PerformGameServerPlayerActionResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use PerformGameServerPlayerActionResponse.ProtoReflect.Descriptor instead.
 func (*PerformGameServerPlayerActionResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{103}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{104}
 }
 
 type GameOperationValue struct {
@@ -8138,7 +8287,7 @@ type GameOperationValue struct {
 
 func (x *GameOperationValue) Reset() {
 	*x = GameOperationValue{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8150,7 +8299,7 @@ func (x *GameOperationValue) String() string {
 func (*GameOperationValue) ProtoMessage() {}
 
 func (x *GameOperationValue) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[104]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8163,7 +8312,7 @@ func (x *GameOperationValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationValue.ProtoReflect.Descriptor instead.
 func (*GameOperationValue) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{104}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *GameOperationValue) GetFieldId() string {
@@ -8239,7 +8388,7 @@ type GameOperationTransportDetails struct {
 
 func (x *GameOperationTransportDetails) Reset() {
 	*x = GameOperationTransportDetails{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8251,7 +8400,7 @@ func (x *GameOperationTransportDetails) String() string {
 func (*GameOperationTransportDetails) ProtoMessage() {}
 
 func (x *GameOperationTransportDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[105]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8264,7 +8413,7 @@ func (x *GameOperationTransportDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationTransportDetails.ProtoReflect.Descriptor instead.
 func (*GameOperationTransportDetails) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{105}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *GameOperationTransportDetails) GetMethod() string {
@@ -8294,7 +8443,7 @@ type ExecuteGameOperationRequest struct {
 
 func (x *ExecuteGameOperationRequest) Reset() {
 	*x = ExecuteGameOperationRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8306,7 +8455,7 @@ func (x *ExecuteGameOperationRequest) String() string {
 func (*ExecuteGameOperationRequest) ProtoMessage() {}
 
 func (x *ExecuteGameOperationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[106]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8319,7 +8468,7 @@ func (x *ExecuteGameOperationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteGameOperationRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteGameOperationRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{106}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *ExecuteGameOperationRequest) GetWorkingDirectory() string {
@@ -8368,7 +8517,7 @@ type ExecuteGameOperationResponse struct {
 
 func (x *ExecuteGameOperationResponse) Reset() {
 	*x = ExecuteGameOperationResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8380,7 +8529,7 @@ func (x *ExecuteGameOperationResponse) String() string {
 func (*ExecuteGameOperationResponse) ProtoMessage() {}
 
 func (x *ExecuteGameOperationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[107]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8393,7 +8542,7 @@ func (x *ExecuteGameOperationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteGameOperationResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteGameOperationResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{107}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *ExecuteGameOperationResponse) GetClassification() GameOperationResultClassification {
@@ -8432,7 +8581,7 @@ type PalworldMapHealth struct {
 
 func (x *PalworldMapHealth) Reset() {
 	*x = PalworldMapHealth{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8444,7 +8593,7 @@ func (x *PalworldMapHealth) String() string {
 func (*PalworldMapHealth) ProtoMessage() {}
 
 func (x *PalworldMapHealth) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[108]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8457,7 +8606,7 @@ func (x *PalworldMapHealth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapHealth.ProtoReflect.Descriptor instead.
 func (*PalworldMapHealth) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{108}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *PalworldMapHealth) GetServerFps() float64 {
@@ -8520,7 +8669,7 @@ type SevenDaysToDieGameTime struct {
 
 func (x *SevenDaysToDieGameTime) Reset() {
 	*x = SevenDaysToDieGameTime{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8532,7 +8681,7 @@ func (x *SevenDaysToDieGameTime) String() string {
 func (*SevenDaysToDieGameTime) ProtoMessage() {}
 
 func (x *SevenDaysToDieGameTime) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[109]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8545,7 +8694,7 @@ func (x *SevenDaysToDieGameTime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieGameTime.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieGameTime) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{109}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *SevenDaysToDieGameTime) GetDay() int32 {
@@ -8589,7 +8738,7 @@ type SevenDaysToDieWebAPICapabilities struct {
 
 func (x *SevenDaysToDieWebAPICapabilities) Reset() {
 	*x = SevenDaysToDieWebAPICapabilities{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8601,7 +8750,7 @@ func (x *SevenDaysToDieWebAPICapabilities) String() string {
 func (*SevenDaysToDieWebAPICapabilities) ProtoMessage() {}
 
 func (x *SevenDaysToDieWebAPICapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[110]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8614,7 +8763,7 @@ func (x *SevenDaysToDieWebAPICapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieWebAPICapabilities.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieWebAPICapabilities) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{110}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *SevenDaysToDieWebAPICapabilities) GetPlayerData() bool {
@@ -8723,7 +8872,7 @@ type SevenDaysToDieWebAPIStatus struct {
 
 func (x *SevenDaysToDieWebAPIStatus) Reset() {
 	*x = SevenDaysToDieWebAPIStatus{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8735,7 +8884,7 @@ func (x *SevenDaysToDieWebAPIStatus) String() string {
 func (*SevenDaysToDieWebAPIStatus) ProtoMessage() {}
 
 func (x *SevenDaysToDieWebAPIStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[111]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8748,7 +8897,7 @@ func (x *SevenDaysToDieWebAPIStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieWebAPIStatus.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieWebAPIStatus) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{111}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *SevenDaysToDieWebAPIStatus) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -8861,7 +9010,7 @@ type QuerySevenDaysToDieWebAPIStatusRequest struct {
 
 func (x *QuerySevenDaysToDieWebAPIStatusRequest) Reset() {
 	*x = QuerySevenDaysToDieWebAPIStatusRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8873,7 +9022,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusRequest) String() string {
 func (*QuerySevenDaysToDieWebAPIStatusRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieWebAPIStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[112]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8886,7 +9035,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use QuerySevenDaysToDieWebAPIStatusRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieWebAPIStatusRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{112}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *QuerySevenDaysToDieWebAPIStatusRequest) GetWorkingDirectory() string {
@@ -8926,7 +9075,7 @@ type QuerySevenDaysToDieWebAPIStatusResponse struct {
 
 func (x *QuerySevenDaysToDieWebAPIStatusResponse) Reset() {
 	*x = QuerySevenDaysToDieWebAPIStatusResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8938,7 +9087,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusResponse) String() string {
 func (*QuerySevenDaysToDieWebAPIStatusResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieWebAPIStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[113]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8951,7 +9100,7 @@ func (x *QuerySevenDaysToDieWebAPIStatusResponse) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use QuerySevenDaysToDieWebAPIStatusResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieWebAPIStatusResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{113}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *QuerySevenDaysToDieWebAPIStatusResponse) GetStatus() *SevenDaysToDieWebAPIStatus {
@@ -8975,7 +9124,7 @@ type SevenDaysToDieOperationOption struct {
 
 func (x *SevenDaysToDieOperationOption) Reset() {
 	*x = SevenDaysToDieOperationOption{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8987,7 +9136,7 @@ func (x *SevenDaysToDieOperationOption) String() string {
 func (*SevenDaysToDieOperationOption) ProtoMessage() {}
 
 func (x *SevenDaysToDieOperationOption) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[114]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9000,7 +9149,7 @@ func (x *SevenDaysToDieOperationOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieOperationOption.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieOperationOption) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{114}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *SevenDaysToDieOperationOption) GetLabel() string {
@@ -9057,7 +9206,7 @@ type SevenDaysToDieOperationMetadata struct {
 
 func (x *SevenDaysToDieOperationMetadata) Reset() {
 	*x = SevenDaysToDieOperationMetadata{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9069,7 +9218,7 @@ func (x *SevenDaysToDieOperationMetadata) String() string {
 func (*SevenDaysToDieOperationMetadata) ProtoMessage() {}
 
 func (x *SevenDaysToDieOperationMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[115]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9082,7 +9231,7 @@ func (x *SevenDaysToDieOperationMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieOperationMetadata.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieOperationMetadata) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{115}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *SevenDaysToDieOperationMetadata) GetPlayers() []*SevenDaysToDieOperationOption {
@@ -9122,7 +9271,7 @@ type QuerySevenDaysToDieOperationMetadataRequest struct {
 
 func (x *QuerySevenDaysToDieOperationMetadataRequest) Reset() {
 	*x = QuerySevenDaysToDieOperationMetadataRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9134,7 +9283,7 @@ func (x *QuerySevenDaysToDieOperationMetadataRequest) String() string {
 func (*QuerySevenDaysToDieOperationMetadataRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieOperationMetadataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[116]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9147,7 +9296,7 @@ func (x *QuerySevenDaysToDieOperationMetadataRequest) ProtoReflect() protoreflec
 
 // Deprecated: Use QuerySevenDaysToDieOperationMetadataRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieOperationMetadataRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{116}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *QuerySevenDaysToDieOperationMetadataRequest) GetWorkingDirectory() string {
@@ -9166,7 +9315,7 @@ type QuerySevenDaysToDieOperationMetadataResponse struct {
 
 func (x *QuerySevenDaysToDieOperationMetadataResponse) Reset() {
 	*x = QuerySevenDaysToDieOperationMetadataResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9178,7 +9327,7 @@ func (x *QuerySevenDaysToDieOperationMetadataResponse) String() string {
 func (*QuerySevenDaysToDieOperationMetadataResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieOperationMetadataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[117]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9191,7 +9340,7 @@ func (x *QuerySevenDaysToDieOperationMetadataResponse) ProtoReflect() protorefle
 
 // Deprecated: Use QuerySevenDaysToDieOperationMetadataResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieOperationMetadataResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{117}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *QuerySevenDaysToDieOperationMetadataResponse) GetResult() *SevenDaysToDieOperationMetadata {
@@ -9224,7 +9373,7 @@ type SevenDaysToDiePlayer struct {
 
 func (x *SevenDaysToDiePlayer) Reset() {
 	*x = SevenDaysToDiePlayer{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9236,7 +9385,7 @@ func (x *SevenDaysToDiePlayer) String() string {
 func (*SevenDaysToDiePlayer) ProtoMessage() {}
 
 func (x *SevenDaysToDiePlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[118]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9249,7 +9398,7 @@ func (x *SevenDaysToDiePlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDiePlayer.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDiePlayer) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{118}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *SevenDaysToDiePlayer) GetName() string {
@@ -9368,7 +9517,7 @@ type SevenDaysToDiePlayers struct {
 
 func (x *SevenDaysToDiePlayers) Reset() {
 	*x = SevenDaysToDiePlayers{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9380,7 +9529,7 @@ func (x *SevenDaysToDiePlayers) String() string {
 func (*SevenDaysToDiePlayers) ProtoMessage() {}
 
 func (x *SevenDaysToDiePlayers) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[119]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9393,7 +9542,7 @@ func (x *SevenDaysToDiePlayers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDiePlayers.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDiePlayers) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{119}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *SevenDaysToDiePlayers) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -9428,7 +9577,7 @@ type QuerySevenDaysToDiePlayersRequest struct {
 
 func (x *QuerySevenDaysToDiePlayersRequest) Reset() {
 	*x = QuerySevenDaysToDiePlayersRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9440,7 +9589,7 @@ func (x *QuerySevenDaysToDiePlayersRequest) String() string {
 func (*QuerySevenDaysToDiePlayersRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDiePlayersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[120]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9453,7 +9602,7 @@ func (x *QuerySevenDaysToDiePlayersRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use QuerySevenDaysToDiePlayersRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDiePlayersRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{120}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *QuerySevenDaysToDiePlayersRequest) GetWorkingDirectory() string {
@@ -9486,7 +9635,7 @@ type QuerySevenDaysToDiePlayersResponse struct {
 
 func (x *QuerySevenDaysToDiePlayersResponse) Reset() {
 	*x = QuerySevenDaysToDiePlayersResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[121]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9498,7 +9647,7 @@ func (x *QuerySevenDaysToDiePlayersResponse) String() string {
 func (*QuerySevenDaysToDiePlayersResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDiePlayersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[121]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9511,7 +9660,7 @@ func (x *QuerySevenDaysToDiePlayersResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use QuerySevenDaysToDiePlayersResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDiePlayersResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{121}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *QuerySevenDaysToDiePlayersResponse) GetResult() *SevenDaysToDiePlayers {
@@ -9534,7 +9683,7 @@ type SevenDaysToDieReportedMod struct {
 
 func (x *SevenDaysToDieReportedMod) Reset() {
 	*x = SevenDaysToDieReportedMod{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[122]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9546,7 +9695,7 @@ func (x *SevenDaysToDieReportedMod) String() string {
 func (*SevenDaysToDieReportedMod) ProtoMessage() {}
 
 func (x *SevenDaysToDieReportedMod) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[122]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9559,7 +9708,7 @@ func (x *SevenDaysToDieReportedMod) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieReportedMod.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieReportedMod) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{122}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *SevenDaysToDieReportedMod) GetName() string {
@@ -9608,7 +9757,7 @@ type SevenDaysToDieReportedMods struct {
 
 func (x *SevenDaysToDieReportedMods) Reset() {
 	*x = SevenDaysToDieReportedMods{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[123]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9620,7 +9769,7 @@ func (x *SevenDaysToDieReportedMods) String() string {
 func (*SevenDaysToDieReportedMods) ProtoMessage() {}
 
 func (x *SevenDaysToDieReportedMods) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[123]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9633,7 +9782,7 @@ func (x *SevenDaysToDieReportedMods) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieReportedMods.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieReportedMods) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{123}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *SevenDaysToDieReportedMods) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -9668,7 +9817,7 @@ type QuerySevenDaysToDieReportedModsRequest struct {
 
 func (x *QuerySevenDaysToDieReportedModsRequest) Reset() {
 	*x = QuerySevenDaysToDieReportedModsRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[124]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9680,7 +9829,7 @@ func (x *QuerySevenDaysToDieReportedModsRequest) String() string {
 func (*QuerySevenDaysToDieReportedModsRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieReportedModsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[124]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9693,7 +9842,7 @@ func (x *QuerySevenDaysToDieReportedModsRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use QuerySevenDaysToDieReportedModsRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieReportedModsRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{124}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *QuerySevenDaysToDieReportedModsRequest) GetWorkingDirectory() string {
@@ -9726,7 +9875,7 @@ type QuerySevenDaysToDieReportedModsResponse struct {
 
 func (x *QuerySevenDaysToDieReportedModsResponse) Reset() {
 	*x = QuerySevenDaysToDieReportedModsResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[125]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9738,7 +9887,7 @@ func (x *QuerySevenDaysToDieReportedModsResponse) String() string {
 func (*QuerySevenDaysToDieReportedModsResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieReportedModsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[125]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9751,7 +9900,7 @@ func (x *QuerySevenDaysToDieReportedModsResponse) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use QuerySevenDaysToDieReportedModsResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieReportedModsResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{125}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *QuerySevenDaysToDieReportedModsResponse) GetResult() *SevenDaysToDieReportedMods {
@@ -9775,7 +9924,7 @@ type SevenDaysToDieSandboxSetting struct {
 
 func (x *SevenDaysToDieSandboxSetting) Reset() {
 	*x = SevenDaysToDieSandboxSetting{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[126]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9787,7 +9936,7 @@ func (x *SevenDaysToDieSandboxSetting) String() string {
 func (*SevenDaysToDieSandboxSetting) ProtoMessage() {}
 
 func (x *SevenDaysToDieSandboxSetting) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[126]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9800,7 +9949,7 @@ func (x *SevenDaysToDieSandboxSetting) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieSandboxSetting.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieSandboxSetting) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{126}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *SevenDaysToDieSandboxSetting) GetKey() string {
@@ -9860,7 +10009,7 @@ type SevenDaysToDieSandboxSettings struct {
 
 func (x *SevenDaysToDieSandboxSettings) Reset() {
 	*x = SevenDaysToDieSandboxSettings{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[127]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9872,7 +10021,7 @@ func (x *SevenDaysToDieSandboxSettings) String() string {
 func (*SevenDaysToDieSandboxSettings) ProtoMessage() {}
 
 func (x *SevenDaysToDieSandboxSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[127]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9885,7 +10034,7 @@ func (x *SevenDaysToDieSandboxSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieSandboxSettings.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieSandboxSettings) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{127}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *SevenDaysToDieSandboxSettings) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -9948,7 +10097,7 @@ type QuerySevenDaysToDieSandboxSettingsRequest struct {
 
 func (x *QuerySevenDaysToDieSandboxSettingsRequest) Reset() {
 	*x = QuerySevenDaysToDieSandboxSettingsRequest{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[128]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9960,7 +10109,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsRequest) String() string {
 func (*QuerySevenDaysToDieSandboxSettingsRequest) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieSandboxSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[128]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9973,7 +10122,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsRequest) ProtoReflect() protoreflect.
 
 // Deprecated: Use QuerySevenDaysToDieSandboxSettingsRequest.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieSandboxSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{128}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *QuerySevenDaysToDieSandboxSettingsRequest) GetWorkingDirectory() string {
@@ -10006,7 +10155,7 @@ type QuerySevenDaysToDieSandboxSettingsResponse struct {
 
 func (x *QuerySevenDaysToDieSandboxSettingsResponse) Reset() {
 	*x = QuerySevenDaysToDieSandboxSettingsResponse{}
-	mi := &file_nodeproto_v1_node_proto_msgTypes[129]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10018,7 +10167,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsResponse) String() string {
 func (*QuerySevenDaysToDieSandboxSettingsResponse) ProtoMessage() {}
 
 func (x *QuerySevenDaysToDieSandboxSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_nodeproto_v1_node_proto_msgTypes[129]
+	mi := &file_nodeproto_v1_node_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10031,7 +10180,7 @@ func (x *QuerySevenDaysToDieSandboxSettingsResponse) ProtoReflect() protoreflect
 
 // Deprecated: Use QuerySevenDaysToDieSandboxSettingsResponse.ProtoReflect.Descriptor instead.
 func (*QuerySevenDaysToDieSandboxSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{129}
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *QuerySevenDaysToDieSandboxSettingsResponse) GetResult() *SevenDaysToDieSandboxSettings {
@@ -10132,7 +10281,7 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x128\n" +
 	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1a\n" +
 	"\bsequence\x18\x04 \x01(\x04R\bsequence\x12!\n" +
-	"\freset_buffer\x18\x05 \x01(\bR\vresetBuffer\"\xb5\x02\n" +
+	"\freset_buffer\x18\x05 \x01(\bR\vresetBuffer\"\xef\x02\n" +
 	"\x12ProcessStatusEvent\x12\x1d\n" +
 	"\n" +
 	"process_id\x18\x01 \x01(\tR\tprocessId\x12\x16\n" +
@@ -10143,7 +10292,24 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\texit_code\x18\x05 \x01(\x05H\x00R\bexitCode\x88\x01\x01\x12!\n" +
 	"\fexecution_id\x18\x06 \x01(\tR\vexecutionId\x12/\n" +
 	"\x13transition_sequence\x18\a \x01(\x04R\x12transitionSequence\x12\x1a\n" +
-	"\breplayed\x18\b \x01(\bR\breplayedB\f\n" +
+	"\breplayed\x18\b \x01(\bR\breplayed\x128\n" +
+	"\afailure\x18\t \x01(\v2\x1e.xylona.node.v1.ProcessFailureR\afailureB\f\n" +
+	"\n" +
+	"_exit_code\"\xc6\x03\n" +
+	"\x0eProcessFailure\x12!\n" +
+	"\fexecution_id\x18\x01 \x01(\tR\vexecutionId\x12H\n" +
+	"\x12attempt_started_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x10attemptStartedAt\x12;\n" +
+	"\voccurred_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"occurredAt\x12\x14\n" +
+	"\x05stage\x18\x04 \x01(\tR\x05stage\x12\x1a\n" +
+	"\bcategory\x18\x05 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05error\x18\x06 \x01(\tR\x05error\x12\x1a\n" +
+	"\bevidence\x18\a \x01(\tR\bevidence\x12)\n" +
+	"\x10matched_evidence\x18\b \x01(\tR\x0fmatchedEvidence\x12\x1c\n" +
+	"\ttruncated\x18\t \x01(\bR\ttruncated\x12-\n" +
+	"\x12evidence_available\x18\n" +
+	" \x01(\bR\x11evidenceAvailable\x12 \n" +
+	"\texit_code\x18\v \x01(\x03H\x00R\bexitCode\x88\x01\x01B\f\n" +
 	"\n" +
 	"_exit_code\"N\n" +
 	"\x12MetricsUpdateEvent\x128\n" +
@@ -10159,7 +10325,7 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\x0econsole_output\x18\x03 \x01(\v2\x1c.xylona.node.v1.ConsoleChunkH\x00R\rconsoleOutput\x12K\n" +
 	"\x0emetrics_update\x18\x04 \x01(\v2\".xylona.node.v1.MetricsUpdateEventH\x00R\rmetricsUpdate\x12H\n" +
 	"\rprocess_crash\x18\x05 \x01(\v2!.xylona.node.v1.ProcessCrashEventH\x00R\fprocessCrashB\t\n" +
-	"\apayload\"\x9e\x06\n" +
+	"\apayload\"\x8d\a\n" +
 	"\x13StartProcessRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -10182,7 +10348,9 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\n" +
 	"rcon_input\x18\x10 \x01(\v2\x19.xylona.node.v1.RCONInputR\trconInput\x128\n" +
 	"\n" +
-	"rest_input\x18\x11 \x01(\v2\x19.xylona.node.v1.RESTInputR\trestInput\x1a<\n" +
+	"rest_input\x18\x11 \x01(\v2\x19.xylona.node.v1.RESTInputR\trestInput\x12H\n" +
+	"\x12attempt_started_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\x10attemptStartedAt\x12#\n" +
+	"\rredact_values\x18\x13 \x03(\tR\fredactValues\x1a<\n" +
 	"\x0eLaunchEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"=\n" +
@@ -11014,7 +11182,7 @@ func file_nodeproto_v1_node_proto_rawDescGZIP() []byte {
 }
 
 var file_nodeproto_v1_node_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
-var file_nodeproto_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 131)
+var file_nodeproto_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 132)
 var file_nodeproto_v1_node_proto_goTypes = []any{
 	(NodeErrorCode)(0),                                   // 0: xylona.node.v1.NodeErrorCode
 	(ProcessStatus)(0),                                   // 1: xylona.node.v1.ProcessStatus
@@ -11036,329 +11204,334 @@ var file_nodeproto_v1_node_proto_goTypes = []any{
 	(*BindableIP)(nil),                                   // 17: xylona.node.v1.BindableIP
 	(*ConsoleChunk)(nil),                                 // 18: xylona.node.v1.ConsoleChunk
 	(*ProcessStatusEvent)(nil),                           // 19: xylona.node.v1.ProcessStatusEvent
-	(*MetricsUpdateEvent)(nil),                           // 20: xylona.node.v1.MetricsUpdateEvent
-	(*ProcessCrashEvent)(nil),                            // 21: xylona.node.v1.ProcessCrashEvent
-	(*Event)(nil),                                        // 22: xylona.node.v1.Event
-	(*StartProcessRequest)(nil),                          // 23: xylona.node.v1.StartProcessRequest
-	(*TelnetInput)(nil),                                  // 24: xylona.node.v1.TelnetInput
-	(*RCONInput)(nil),                                    // 25: xylona.node.v1.RCONInput
-	(*RESTInput)(nil),                                    // 26: xylona.node.v1.RESTInput
-	(*StartProcessResponse)(nil),                         // 27: xylona.node.v1.StartProcessResponse
-	(*StopProcessRequest)(nil),                           // 28: xylona.node.v1.StopProcessRequest
-	(*StopProcessResponse)(nil),                          // 29: xylona.node.v1.StopProcessResponse
-	(*SendConsoleInputRequest)(nil),                      // 30: xylona.node.v1.SendConsoleInputRequest
-	(*SendConsoleInputResponse)(nil),                     // 31: xylona.node.v1.SendConsoleInputResponse
-	(*ReadConsoleBufferRequest)(nil),                     // 32: xylona.node.v1.ReadConsoleBufferRequest
-	(*ReadConsoleBufferResponse)(nil),                    // 33: xylona.node.v1.ReadConsoleBufferResponse
-	(*StreamConsoleOutputRequest)(nil),                   // 34: xylona.node.v1.StreamConsoleOutputRequest
-	(*ListFilesRequest)(nil),                             // 35: xylona.node.v1.ListFilesRequest
-	(*ListFilesResponse)(nil),                            // 36: xylona.node.v1.ListFilesResponse
-	(*ReadFileRequest)(nil),                              // 37: xylona.node.v1.ReadFileRequest
-	(*ReadFileResponse)(nil),                             // 38: xylona.node.v1.ReadFileResponse
-	(*StatFileRequest)(nil),                              // 39: xylona.node.v1.StatFileRequest
-	(*StatFileResponse)(nil),                             // 40: xylona.node.v1.StatFileResponse
-	(*StreamFileRequest)(nil),                            // 41: xylona.node.v1.StreamFileRequest
-	(*StreamFileResponse)(nil),                           // 42: xylona.node.v1.StreamFileResponse
-	(*WriteFileRequest)(nil),                             // 43: xylona.node.v1.WriteFileRequest
-	(*WriteFileResponse)(nil),                            // 44: xylona.node.v1.WriteFileResponse
-	(*StreamWriteFileRequest)(nil),                       // 45: xylona.node.v1.StreamWriteFileRequest
-	(*StreamWriteFileResponse)(nil),                      // 46: xylona.node.v1.StreamWriteFileResponse
-	(*CopyFileOperation)(nil),                            // 47: xylona.node.v1.CopyFileOperation
-	(*CopyFilesRequest)(nil),                             // 48: xylona.node.v1.CopyFilesRequest
-	(*CopyFilesResponse)(nil),                            // 49: xylona.node.v1.CopyFilesResponse
-	(*CreateFileOrDirectoryRequest)(nil),                 // 50: xylona.node.v1.CreateFileOrDirectoryRequest
-	(*CreateFileOrDirectoryResponse)(nil),                // 51: xylona.node.v1.CreateFileOrDirectoryResponse
-	(*DeleteFilesRequest)(nil),                           // 52: xylona.node.v1.DeleteFilesRequest
-	(*DeleteFilesResponse)(nil),                          // 53: xylona.node.v1.DeleteFilesResponse
-	(*RenameFileRequest)(nil),                            // 54: xylona.node.v1.RenameFileRequest
-	(*RenameFileResponse)(nil),                           // 55: xylona.node.v1.RenameFileResponse
-	(*MoveFilesRequest)(nil),                             // 56: xylona.node.v1.MoveFilesRequest
-	(*MoveFilesResponse)(nil),                            // 57: xylona.node.v1.MoveFilesResponse
-	(*DownloadFileFromURLRequest)(nil),                   // 58: xylona.node.v1.DownloadFileFromURLRequest
-	(*DownloadFileFromURLResponse)(nil),                  // 59: xylona.node.v1.DownloadFileFromURLResponse
-	(*CreateFileArchiveRequest)(nil),                     // 60: xylona.node.v1.CreateFileArchiveRequest
-	(*CreateFileArchiveResponse)(nil),                    // 61: xylona.node.v1.CreateFileArchiveResponse
-	(*ExtractFileArchiveRequest)(nil),                    // 62: xylona.node.v1.ExtractFileArchiveRequest
-	(*ExtractFileArchiveResponse)(nil),                   // 63: xylona.node.v1.ExtractFileArchiveResponse
-	(*CreateBackupArchiveRequest)(nil),                   // 64: xylona.node.v1.CreateBackupArchiveRequest
-	(*CreateBackupArchiveResponse)(nil),                  // 65: xylona.node.v1.CreateBackupArchiveResponse
-	(*ExtractBackupArchiveRequest)(nil),                  // 66: xylona.node.v1.ExtractBackupArchiveRequest
-	(*ExtractBackupArchiveResponse)(nil),                 // 67: xylona.node.v1.ExtractBackupArchiveResponse
-	(*ProbeInstalledVersionRequest)(nil),                 // 68: xylona.node.v1.ProbeInstalledVersionRequest
-	(*ProbeInstalledVersionResponse)(nil),                // 69: xylona.node.v1.ProbeInstalledVersionResponse
-	(*QueryGameServerRequest)(nil),                       // 70: xylona.node.v1.QueryGameServerRequest
-	(*GameServerMinecraftQueryInfo)(nil),                 // 71: xylona.node.v1.GameServerMinecraftQueryInfo
-	(*GameServerSourceQueryInfo)(nil),                    // 72: xylona.node.v1.GameServerSourceQueryInfo
-	(*GameServerPalworldQueryInfo)(nil),                  // 73: xylona.node.v1.GameServerPalworldQueryInfo
-	(*QueryGameServerResponse)(nil),                      // 74: xylona.node.v1.QueryGameServerResponse
-	(*PalworldMapActor)(nil),                             // 75: xylona.node.v1.PalworldMapActor
-	(*PalworldMapSnapshot)(nil),                          // 76: xylona.node.v1.PalworldMapSnapshot
-	(*QueryPalworldMapRequest)(nil),                      // 77: xylona.node.v1.QueryPalworldMapRequest
-	(*QueryPalworldMapResponse)(nil),                     // 78: xylona.node.v1.QueryPalworldMapResponse
-	(*SevenDaysToDieMapVector)(nil),                      // 79: xylona.node.v1.SevenDaysToDieMapVector
-	(*SevenDaysToDieMapPlayer)(nil),                      // 80: xylona.node.v1.SevenDaysToDieMapPlayer
-	(*SevenDaysToDieMapMarker)(nil),                      // 81: xylona.node.v1.SevenDaysToDieMapMarker
-	(*SevenDaysToDieLandClaim)(nil),                      // 82: xylona.node.v1.SevenDaysToDieLandClaim
-	(*SevenDaysToDieMapEntity)(nil),                      // 83: xylona.node.v1.SevenDaysToDieMapEntity
-	(*SevenDaysToDieMapBloodMoon)(nil),                   // 84: xylona.node.v1.SevenDaysToDieMapBloodMoon
-	(*SevenDaysToDieMapSnapshot)(nil),                    // 85: xylona.node.v1.SevenDaysToDieMapSnapshot
-	(*QuerySevenDaysToDieMapRequest)(nil),                // 86: xylona.node.v1.QuerySevenDaysToDieMapRequest
-	(*QuerySevenDaysToDieMapResponse)(nil),               // 87: xylona.node.v1.QuerySevenDaysToDieMapResponse
-	(*GetSevenDaysToDieMapTileRequest)(nil),              // 88: xylona.node.v1.GetSevenDaysToDieMapTileRequest
-	(*GetSevenDaysToDieMapTileResponse)(nil),             // 89: xylona.node.v1.GetSevenDaysToDieMapTileResponse
-	(*EnsureMinecraftMapRequest)(nil),                    // 90: xylona.node.v1.EnsureMinecraftMapRequest
-	(*EnsureMinecraftMapResponse)(nil),                   // 91: xylona.node.v1.EnsureMinecraftMapResponse
-	(*StopMinecraftMapRequest)(nil),                      // 92: xylona.node.v1.StopMinecraftMapRequest
-	(*StopMinecraftMapResponse)(nil),                     // 93: xylona.node.v1.StopMinecraftMapResponse
-	(*GetMinecraftMapAssetRequest)(nil),                  // 94: xylona.node.v1.GetMinecraftMapAssetRequest
-	(*GetMinecraftMapAssetResponse)(nil),                 // 95: xylona.node.v1.GetMinecraftMapAssetResponse
-	(*SendConsoleOutputRequest)(nil),                     // 96: xylona.node.v1.SendConsoleOutputRequest
-	(*SendConsoleOutputResponse)(nil),                    // 97: xylona.node.v1.SendConsoleOutputResponse
-	(*GetProcessSnapshotRequest)(nil),                    // 98: xylona.node.v1.GetProcessSnapshotRequest
-	(*GetProcessSnapshotResponse)(nil),                   // 99: xylona.node.v1.GetProcessSnapshotResponse
-	(*GetNodeSnapshotRequest)(nil),                       // 100: xylona.node.v1.GetNodeSnapshotRequest
-	(*ListBindableIPsRequest)(nil),                       // 101: xylona.node.v1.ListBindableIPsRequest
-	(*ListBindableIPsResponse)(nil),                      // 102: xylona.node.v1.ListBindableIPsResponse
-	(*StreamEventsRequest)(nil),                          // 103: xylona.node.v1.StreamEventsRequest
-	(*PingRequest)(nil),                                  // 104: xylona.node.v1.PingRequest
-	(*PingResponse)(nil),                                 // 105: xylona.node.v1.PingResponse
-	(*GetRuntimeCapabilitiesRequest)(nil),                // 106: xylona.node.v1.GetRuntimeCapabilitiesRequest
-	(*GameOperationSupport)(nil),                         // 107: xylona.node.v1.GameOperationSupport
-	(*GetRuntimeCapabilitiesResponse)(nil),               // 108: xylona.node.v1.GetRuntimeCapabilitiesResponse
-	(*GetUpdateCapabilitiesRequest)(nil),                 // 109: xylona.node.v1.GetUpdateCapabilitiesRequest
-	(*GetUpdateCapabilitiesResponse)(nil),                // 110: xylona.node.v1.GetUpdateCapabilitiesResponse
-	(*StageSelfUpdateRequest)(nil),                       // 111: xylona.node.v1.StageSelfUpdateRequest
-	(*StageSelfUpdateResponse)(nil),                      // 112: xylona.node.v1.StageSelfUpdateResponse
-	(*ApplySelfUpdateRequest)(nil),                       // 113: xylona.node.v1.ApplySelfUpdateRequest
-	(*ApplySelfUpdateResponse)(nil),                      // 114: xylona.node.v1.ApplySelfUpdateResponse
-	(*GameServerPlayer)(nil),                             // 115: xylona.node.v1.GameServerPlayer
-	(*PerformGameServerPlayerActionRequest)(nil),         // 116: xylona.node.v1.PerformGameServerPlayerActionRequest
-	(*PerformGameServerPlayerActionResponse)(nil),        // 117: xylona.node.v1.PerformGameServerPlayerActionResponse
-	(*GameOperationValue)(nil),                           // 118: xylona.node.v1.GameOperationValue
-	(*GameOperationTransportDetails)(nil),                // 119: xylona.node.v1.GameOperationTransportDetails
-	(*ExecuteGameOperationRequest)(nil),                  // 120: xylona.node.v1.ExecuteGameOperationRequest
-	(*ExecuteGameOperationResponse)(nil),                 // 121: xylona.node.v1.ExecuteGameOperationResponse
-	(*PalworldMapHealth)(nil),                            // 122: xylona.node.v1.PalworldMapHealth
-	(*SevenDaysToDieGameTime)(nil),                       // 123: xylona.node.v1.SevenDaysToDieGameTime
-	(*SevenDaysToDieWebAPICapabilities)(nil),             // 124: xylona.node.v1.SevenDaysToDieWebAPICapabilities
-	(*SevenDaysToDieWebAPIStatus)(nil),                   // 125: xylona.node.v1.SevenDaysToDieWebAPIStatus
-	(*QuerySevenDaysToDieWebAPIStatusRequest)(nil),       // 126: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
-	(*QuerySevenDaysToDieWebAPIStatusResponse)(nil),      // 127: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
-	(*SevenDaysToDieOperationOption)(nil),                // 128: xylona.node.v1.SevenDaysToDieOperationOption
-	(*SevenDaysToDieOperationMetadata)(nil),              // 129: xylona.node.v1.SevenDaysToDieOperationMetadata
-	(*QuerySevenDaysToDieOperationMetadataRequest)(nil),  // 130: xylona.node.v1.QuerySevenDaysToDieOperationMetadataRequest
-	(*QuerySevenDaysToDieOperationMetadataResponse)(nil), // 131: xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse
-	(*SevenDaysToDiePlayer)(nil),                         // 132: xylona.node.v1.SevenDaysToDiePlayer
-	(*SevenDaysToDiePlayers)(nil),                        // 133: xylona.node.v1.SevenDaysToDiePlayers
-	(*QuerySevenDaysToDiePlayersRequest)(nil),            // 134: xylona.node.v1.QuerySevenDaysToDiePlayersRequest
-	(*QuerySevenDaysToDiePlayersResponse)(nil),           // 135: xylona.node.v1.QuerySevenDaysToDiePlayersResponse
-	(*SevenDaysToDieReportedMod)(nil),                    // 136: xylona.node.v1.SevenDaysToDieReportedMod
-	(*SevenDaysToDieReportedMods)(nil),                   // 137: xylona.node.v1.SevenDaysToDieReportedMods
-	(*QuerySevenDaysToDieReportedModsRequest)(nil),       // 138: xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
-	(*QuerySevenDaysToDieReportedModsResponse)(nil),      // 139: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
-	(*SevenDaysToDieSandboxSetting)(nil),                 // 140: xylona.node.v1.SevenDaysToDieSandboxSetting
-	(*SevenDaysToDieSandboxSettings)(nil),                // 141: xylona.node.v1.SevenDaysToDieSandboxSettings
-	(*QuerySevenDaysToDieSandboxSettingsRequest)(nil),    // 142: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
-	(*QuerySevenDaysToDieSandboxSettingsResponse)(nil),   // 143: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
-	nil,                           // 144: xylona.node.v1.StartProcessRequest.LaunchEnvEntry
-	(*timestamppb.Timestamp)(nil), // 145: google.protobuf.Timestamp
+	(*ProcessFailure)(nil),                               // 20: xylona.node.v1.ProcessFailure
+	(*MetricsUpdateEvent)(nil),                           // 21: xylona.node.v1.MetricsUpdateEvent
+	(*ProcessCrashEvent)(nil),                            // 22: xylona.node.v1.ProcessCrashEvent
+	(*Event)(nil),                                        // 23: xylona.node.v1.Event
+	(*StartProcessRequest)(nil),                          // 24: xylona.node.v1.StartProcessRequest
+	(*TelnetInput)(nil),                                  // 25: xylona.node.v1.TelnetInput
+	(*RCONInput)(nil),                                    // 26: xylona.node.v1.RCONInput
+	(*RESTInput)(nil),                                    // 27: xylona.node.v1.RESTInput
+	(*StartProcessResponse)(nil),                         // 28: xylona.node.v1.StartProcessResponse
+	(*StopProcessRequest)(nil),                           // 29: xylona.node.v1.StopProcessRequest
+	(*StopProcessResponse)(nil),                          // 30: xylona.node.v1.StopProcessResponse
+	(*SendConsoleInputRequest)(nil),                      // 31: xylona.node.v1.SendConsoleInputRequest
+	(*SendConsoleInputResponse)(nil),                     // 32: xylona.node.v1.SendConsoleInputResponse
+	(*ReadConsoleBufferRequest)(nil),                     // 33: xylona.node.v1.ReadConsoleBufferRequest
+	(*ReadConsoleBufferResponse)(nil),                    // 34: xylona.node.v1.ReadConsoleBufferResponse
+	(*StreamConsoleOutputRequest)(nil),                   // 35: xylona.node.v1.StreamConsoleOutputRequest
+	(*ListFilesRequest)(nil),                             // 36: xylona.node.v1.ListFilesRequest
+	(*ListFilesResponse)(nil),                            // 37: xylona.node.v1.ListFilesResponse
+	(*ReadFileRequest)(nil),                              // 38: xylona.node.v1.ReadFileRequest
+	(*ReadFileResponse)(nil),                             // 39: xylona.node.v1.ReadFileResponse
+	(*StatFileRequest)(nil),                              // 40: xylona.node.v1.StatFileRequest
+	(*StatFileResponse)(nil),                             // 41: xylona.node.v1.StatFileResponse
+	(*StreamFileRequest)(nil),                            // 42: xylona.node.v1.StreamFileRequest
+	(*StreamFileResponse)(nil),                           // 43: xylona.node.v1.StreamFileResponse
+	(*WriteFileRequest)(nil),                             // 44: xylona.node.v1.WriteFileRequest
+	(*WriteFileResponse)(nil),                            // 45: xylona.node.v1.WriteFileResponse
+	(*StreamWriteFileRequest)(nil),                       // 46: xylona.node.v1.StreamWriteFileRequest
+	(*StreamWriteFileResponse)(nil),                      // 47: xylona.node.v1.StreamWriteFileResponse
+	(*CopyFileOperation)(nil),                            // 48: xylona.node.v1.CopyFileOperation
+	(*CopyFilesRequest)(nil),                             // 49: xylona.node.v1.CopyFilesRequest
+	(*CopyFilesResponse)(nil),                            // 50: xylona.node.v1.CopyFilesResponse
+	(*CreateFileOrDirectoryRequest)(nil),                 // 51: xylona.node.v1.CreateFileOrDirectoryRequest
+	(*CreateFileOrDirectoryResponse)(nil),                // 52: xylona.node.v1.CreateFileOrDirectoryResponse
+	(*DeleteFilesRequest)(nil),                           // 53: xylona.node.v1.DeleteFilesRequest
+	(*DeleteFilesResponse)(nil),                          // 54: xylona.node.v1.DeleteFilesResponse
+	(*RenameFileRequest)(nil),                            // 55: xylona.node.v1.RenameFileRequest
+	(*RenameFileResponse)(nil),                           // 56: xylona.node.v1.RenameFileResponse
+	(*MoveFilesRequest)(nil),                             // 57: xylona.node.v1.MoveFilesRequest
+	(*MoveFilesResponse)(nil),                            // 58: xylona.node.v1.MoveFilesResponse
+	(*DownloadFileFromURLRequest)(nil),                   // 59: xylona.node.v1.DownloadFileFromURLRequest
+	(*DownloadFileFromURLResponse)(nil),                  // 60: xylona.node.v1.DownloadFileFromURLResponse
+	(*CreateFileArchiveRequest)(nil),                     // 61: xylona.node.v1.CreateFileArchiveRequest
+	(*CreateFileArchiveResponse)(nil),                    // 62: xylona.node.v1.CreateFileArchiveResponse
+	(*ExtractFileArchiveRequest)(nil),                    // 63: xylona.node.v1.ExtractFileArchiveRequest
+	(*ExtractFileArchiveResponse)(nil),                   // 64: xylona.node.v1.ExtractFileArchiveResponse
+	(*CreateBackupArchiveRequest)(nil),                   // 65: xylona.node.v1.CreateBackupArchiveRequest
+	(*CreateBackupArchiveResponse)(nil),                  // 66: xylona.node.v1.CreateBackupArchiveResponse
+	(*ExtractBackupArchiveRequest)(nil),                  // 67: xylona.node.v1.ExtractBackupArchiveRequest
+	(*ExtractBackupArchiveResponse)(nil),                 // 68: xylona.node.v1.ExtractBackupArchiveResponse
+	(*ProbeInstalledVersionRequest)(nil),                 // 69: xylona.node.v1.ProbeInstalledVersionRequest
+	(*ProbeInstalledVersionResponse)(nil),                // 70: xylona.node.v1.ProbeInstalledVersionResponse
+	(*QueryGameServerRequest)(nil),                       // 71: xylona.node.v1.QueryGameServerRequest
+	(*GameServerMinecraftQueryInfo)(nil),                 // 72: xylona.node.v1.GameServerMinecraftQueryInfo
+	(*GameServerSourceQueryInfo)(nil),                    // 73: xylona.node.v1.GameServerSourceQueryInfo
+	(*GameServerPalworldQueryInfo)(nil),                  // 74: xylona.node.v1.GameServerPalworldQueryInfo
+	(*QueryGameServerResponse)(nil),                      // 75: xylona.node.v1.QueryGameServerResponse
+	(*PalworldMapActor)(nil),                             // 76: xylona.node.v1.PalworldMapActor
+	(*PalworldMapSnapshot)(nil),                          // 77: xylona.node.v1.PalworldMapSnapshot
+	(*QueryPalworldMapRequest)(nil),                      // 78: xylona.node.v1.QueryPalworldMapRequest
+	(*QueryPalworldMapResponse)(nil),                     // 79: xylona.node.v1.QueryPalworldMapResponse
+	(*SevenDaysToDieMapVector)(nil),                      // 80: xylona.node.v1.SevenDaysToDieMapVector
+	(*SevenDaysToDieMapPlayer)(nil),                      // 81: xylona.node.v1.SevenDaysToDieMapPlayer
+	(*SevenDaysToDieMapMarker)(nil),                      // 82: xylona.node.v1.SevenDaysToDieMapMarker
+	(*SevenDaysToDieLandClaim)(nil),                      // 83: xylona.node.v1.SevenDaysToDieLandClaim
+	(*SevenDaysToDieMapEntity)(nil),                      // 84: xylona.node.v1.SevenDaysToDieMapEntity
+	(*SevenDaysToDieMapBloodMoon)(nil),                   // 85: xylona.node.v1.SevenDaysToDieMapBloodMoon
+	(*SevenDaysToDieMapSnapshot)(nil),                    // 86: xylona.node.v1.SevenDaysToDieMapSnapshot
+	(*QuerySevenDaysToDieMapRequest)(nil),                // 87: xylona.node.v1.QuerySevenDaysToDieMapRequest
+	(*QuerySevenDaysToDieMapResponse)(nil),               // 88: xylona.node.v1.QuerySevenDaysToDieMapResponse
+	(*GetSevenDaysToDieMapTileRequest)(nil),              // 89: xylona.node.v1.GetSevenDaysToDieMapTileRequest
+	(*GetSevenDaysToDieMapTileResponse)(nil),             // 90: xylona.node.v1.GetSevenDaysToDieMapTileResponse
+	(*EnsureMinecraftMapRequest)(nil),                    // 91: xylona.node.v1.EnsureMinecraftMapRequest
+	(*EnsureMinecraftMapResponse)(nil),                   // 92: xylona.node.v1.EnsureMinecraftMapResponse
+	(*StopMinecraftMapRequest)(nil),                      // 93: xylona.node.v1.StopMinecraftMapRequest
+	(*StopMinecraftMapResponse)(nil),                     // 94: xylona.node.v1.StopMinecraftMapResponse
+	(*GetMinecraftMapAssetRequest)(nil),                  // 95: xylona.node.v1.GetMinecraftMapAssetRequest
+	(*GetMinecraftMapAssetResponse)(nil),                 // 96: xylona.node.v1.GetMinecraftMapAssetResponse
+	(*SendConsoleOutputRequest)(nil),                     // 97: xylona.node.v1.SendConsoleOutputRequest
+	(*SendConsoleOutputResponse)(nil),                    // 98: xylona.node.v1.SendConsoleOutputResponse
+	(*GetProcessSnapshotRequest)(nil),                    // 99: xylona.node.v1.GetProcessSnapshotRequest
+	(*GetProcessSnapshotResponse)(nil),                   // 100: xylona.node.v1.GetProcessSnapshotResponse
+	(*GetNodeSnapshotRequest)(nil),                       // 101: xylona.node.v1.GetNodeSnapshotRequest
+	(*ListBindableIPsRequest)(nil),                       // 102: xylona.node.v1.ListBindableIPsRequest
+	(*ListBindableIPsResponse)(nil),                      // 103: xylona.node.v1.ListBindableIPsResponse
+	(*StreamEventsRequest)(nil),                          // 104: xylona.node.v1.StreamEventsRequest
+	(*PingRequest)(nil),                                  // 105: xylona.node.v1.PingRequest
+	(*PingResponse)(nil),                                 // 106: xylona.node.v1.PingResponse
+	(*GetRuntimeCapabilitiesRequest)(nil),                // 107: xylona.node.v1.GetRuntimeCapabilitiesRequest
+	(*GameOperationSupport)(nil),                         // 108: xylona.node.v1.GameOperationSupport
+	(*GetRuntimeCapabilitiesResponse)(nil),               // 109: xylona.node.v1.GetRuntimeCapabilitiesResponse
+	(*GetUpdateCapabilitiesRequest)(nil),                 // 110: xylona.node.v1.GetUpdateCapabilitiesRequest
+	(*GetUpdateCapabilitiesResponse)(nil),                // 111: xylona.node.v1.GetUpdateCapabilitiesResponse
+	(*StageSelfUpdateRequest)(nil),                       // 112: xylona.node.v1.StageSelfUpdateRequest
+	(*StageSelfUpdateResponse)(nil),                      // 113: xylona.node.v1.StageSelfUpdateResponse
+	(*ApplySelfUpdateRequest)(nil),                       // 114: xylona.node.v1.ApplySelfUpdateRequest
+	(*ApplySelfUpdateResponse)(nil),                      // 115: xylona.node.v1.ApplySelfUpdateResponse
+	(*GameServerPlayer)(nil),                             // 116: xylona.node.v1.GameServerPlayer
+	(*PerformGameServerPlayerActionRequest)(nil),         // 117: xylona.node.v1.PerformGameServerPlayerActionRequest
+	(*PerformGameServerPlayerActionResponse)(nil),        // 118: xylona.node.v1.PerformGameServerPlayerActionResponse
+	(*GameOperationValue)(nil),                           // 119: xylona.node.v1.GameOperationValue
+	(*GameOperationTransportDetails)(nil),                // 120: xylona.node.v1.GameOperationTransportDetails
+	(*ExecuteGameOperationRequest)(nil),                  // 121: xylona.node.v1.ExecuteGameOperationRequest
+	(*ExecuteGameOperationResponse)(nil),                 // 122: xylona.node.v1.ExecuteGameOperationResponse
+	(*PalworldMapHealth)(nil),                            // 123: xylona.node.v1.PalworldMapHealth
+	(*SevenDaysToDieGameTime)(nil),                       // 124: xylona.node.v1.SevenDaysToDieGameTime
+	(*SevenDaysToDieWebAPICapabilities)(nil),             // 125: xylona.node.v1.SevenDaysToDieWebAPICapabilities
+	(*SevenDaysToDieWebAPIStatus)(nil),                   // 126: xylona.node.v1.SevenDaysToDieWebAPIStatus
+	(*QuerySevenDaysToDieWebAPIStatusRequest)(nil),       // 127: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
+	(*QuerySevenDaysToDieWebAPIStatusResponse)(nil),      // 128: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
+	(*SevenDaysToDieOperationOption)(nil),                // 129: xylona.node.v1.SevenDaysToDieOperationOption
+	(*SevenDaysToDieOperationMetadata)(nil),              // 130: xylona.node.v1.SevenDaysToDieOperationMetadata
+	(*QuerySevenDaysToDieOperationMetadataRequest)(nil),  // 131: xylona.node.v1.QuerySevenDaysToDieOperationMetadataRequest
+	(*QuerySevenDaysToDieOperationMetadataResponse)(nil), // 132: xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse
+	(*SevenDaysToDiePlayer)(nil),                         // 133: xylona.node.v1.SevenDaysToDiePlayer
+	(*SevenDaysToDiePlayers)(nil),                        // 134: xylona.node.v1.SevenDaysToDiePlayers
+	(*QuerySevenDaysToDiePlayersRequest)(nil),            // 135: xylona.node.v1.QuerySevenDaysToDiePlayersRequest
+	(*QuerySevenDaysToDiePlayersResponse)(nil),           // 136: xylona.node.v1.QuerySevenDaysToDiePlayersResponse
+	(*SevenDaysToDieReportedMod)(nil),                    // 137: xylona.node.v1.SevenDaysToDieReportedMod
+	(*SevenDaysToDieReportedMods)(nil),                   // 138: xylona.node.v1.SevenDaysToDieReportedMods
+	(*QuerySevenDaysToDieReportedModsRequest)(nil),       // 139: xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
+	(*QuerySevenDaysToDieReportedModsResponse)(nil),      // 140: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
+	(*SevenDaysToDieSandboxSetting)(nil),                 // 141: xylona.node.v1.SevenDaysToDieSandboxSetting
+	(*SevenDaysToDieSandboxSettings)(nil),                // 142: xylona.node.v1.SevenDaysToDieSandboxSettings
+	(*QuerySevenDaysToDieSandboxSettingsRequest)(nil),    // 143: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
+	(*QuerySevenDaysToDieSandboxSettingsResponse)(nil),   // 144: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
+	nil,                           // 145: xylona.node.v1.StartProcessRequest.LaunchEnvEntry
+	(*timestamppb.Timestamp)(nil), // 146: google.protobuf.Timestamp
 }
 var file_nodeproto_v1_node_proto_depIdxs = []int32{
-	145, // 0: xylona.node.v1.FileEntry.last_modified:type_name -> google.protobuf.Timestamp
-	145, // 1: xylona.node.v1.ProcessSnapshot.disk_measured_at:type_name -> google.protobuf.Timestamp
+	146, // 0: xylona.node.v1.FileEntry.last_modified:type_name -> google.protobuf.Timestamp
+	146, // 1: xylona.node.v1.ProcessSnapshot.disk_measured_at:type_name -> google.protobuf.Timestamp
 	15,  // 2: xylona.node.v1.NodeSnapshot.processes:type_name -> xylona.node.v1.ProcessSnapshot
-	145, // 3: xylona.node.v1.NodeSnapshot.collected:type_name -> google.protobuf.Timestamp
-	145, // 4: xylona.node.v1.ConsoleChunk.timestamp:type_name -> google.protobuf.Timestamp
-	16,  // 5: xylona.node.v1.MetricsUpdateEvent.snapshot:type_name -> xylona.node.v1.NodeSnapshot
-	145, // 6: xylona.node.v1.Event.timestamp:type_name -> google.protobuf.Timestamp
-	19,  // 7: xylona.node.v1.Event.process_status:type_name -> xylona.node.v1.ProcessStatusEvent
-	18,  // 8: xylona.node.v1.Event.console_output:type_name -> xylona.node.v1.ConsoleChunk
-	20,  // 9: xylona.node.v1.Event.metrics_update:type_name -> xylona.node.v1.MetricsUpdateEvent
-	21,  // 10: xylona.node.v1.Event.process_crash:type_name -> xylona.node.v1.ProcessCrashEvent
-	1,   // 11: xylona.node.v1.StartProcessRequest.initial_status:type_name -> xylona.node.v1.ProcessStatus
-	144, // 12: xylona.node.v1.StartProcessRequest.launch_env:type_name -> xylona.node.v1.StartProcessRequest.LaunchEnvEntry
-	24,  // 13: xylona.node.v1.StartProcessRequest.telnet_input:type_name -> xylona.node.v1.TelnetInput
-	25,  // 14: xylona.node.v1.StartProcessRequest.rcon_input:type_name -> xylona.node.v1.RCONInput
-	26,  // 15: xylona.node.v1.StartProcessRequest.rest_input:type_name -> xylona.node.v1.RESTInput
-	2,   // 16: xylona.node.v1.RCONInput.protocol:type_name -> xylona.node.v1.RCONProtocol
-	3,   // 17: xylona.node.v1.RESTInput.kind:type_name -> xylona.node.v1.RESTInputKind
-	18,  // 18: xylona.node.v1.ReadConsoleBufferResponse.chunk:type_name -> xylona.node.v1.ConsoleChunk
-	14,  // 19: xylona.node.v1.ListFilesResponse.entries:type_name -> xylona.node.v1.FileEntry
-	14,  // 20: xylona.node.v1.StatFileResponse.entry:type_name -> xylona.node.v1.FileEntry
-	47,  // 21: xylona.node.v1.CopyFilesRequest.operations:type_name -> xylona.node.v1.CopyFileOperation
-	4,   // 22: xylona.node.v1.CreateFileArchiveRequest.compression:type_name -> xylona.node.v1.FileArchiveCompression
-	5,   // 23: xylona.node.v1.ExtractBackupArchiveRequest.mode:type_name -> xylona.node.v1.ExtractMode
-	6,   // 24: xylona.node.v1.ProbeInstalledVersionRequest.kind:type_name -> xylona.node.v1.InstalledVersionProbeKind
-	7,   // 25: xylona.node.v1.QueryGameServerRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
-	115, // 26: xylona.node.v1.GameServerMinecraftQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
-	115, // 27: xylona.node.v1.GameServerPalworldQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
-	7,   // 28: xylona.node.v1.QueryGameServerResponse.kind:type_name -> xylona.node.v1.GameServerQueryKind
-	71,  // 29: xylona.node.v1.QueryGameServerResponse.minecraft:type_name -> xylona.node.v1.GameServerMinecraftQueryInfo
-	72,  // 30: xylona.node.v1.QueryGameServerResponse.source:type_name -> xylona.node.v1.GameServerSourceQueryInfo
-	73,  // 31: xylona.node.v1.QueryGameServerResponse.palworld:type_name -> xylona.node.v1.GameServerPalworldQueryInfo
-	8,   // 32: xylona.node.v1.PalworldMapActor.kind:type_name -> xylona.node.v1.PalworldMapActorKind
-	145, // 33: xylona.node.v1.PalworldMapSnapshot.collected_at:type_name -> google.protobuf.Timestamp
-	75,  // 34: xylona.node.v1.PalworldMapSnapshot.actors:type_name -> xylona.node.v1.PalworldMapActor
-	122, // 35: xylona.node.v1.PalworldMapSnapshot.health:type_name -> xylona.node.v1.PalworldMapHealth
-	76,  // 36: xylona.node.v1.QueryPalworldMapResponse.snapshot:type_name -> xylona.node.v1.PalworldMapSnapshot
-	79,  // 37: xylona.node.v1.SevenDaysToDieMapPlayer.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
-	79,  // 38: xylona.node.v1.SevenDaysToDieLandClaim.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
-	79,  // 39: xylona.node.v1.SevenDaysToDieMapEntity.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
-	123, // 40: xylona.node.v1.SevenDaysToDieMapBloodMoon.game_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	123, // 41: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	123, // 42: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	79,  // 43: xylona.node.v1.SevenDaysToDieMapSnapshot.map_size:type_name -> xylona.node.v1.SevenDaysToDieMapVector
-	80,  // 44: xylona.node.v1.SevenDaysToDieMapSnapshot.players:type_name -> xylona.node.v1.SevenDaysToDieMapPlayer
-	81,  // 45: xylona.node.v1.SevenDaysToDieMapSnapshot.markers:type_name -> xylona.node.v1.SevenDaysToDieMapMarker
-	82,  // 46: xylona.node.v1.SevenDaysToDieMapSnapshot.claims:type_name -> xylona.node.v1.SevenDaysToDieLandClaim
-	12,  // 47: xylona.node.v1.SevenDaysToDieMapSnapshot.native_marker_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	12,  // 48: xylona.node.v1.SevenDaysToDieMapSnapshot.claims_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	84,  // 49: xylona.node.v1.SevenDaysToDieMapSnapshot.blood_moon:type_name -> xylona.node.v1.SevenDaysToDieMapBloodMoon
-	12,  // 50: xylona.node.v1.SevenDaysToDieMapSnapshot.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	83,  // 51: xylona.node.v1.SevenDaysToDieMapSnapshot.hostiles:type_name -> xylona.node.v1.SevenDaysToDieMapEntity
-	12,  // 52: xylona.node.v1.SevenDaysToDieMapSnapshot.hostile_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	83,  // 53: xylona.node.v1.SevenDaysToDieMapSnapshot.animals:type_name -> xylona.node.v1.SevenDaysToDieMapEntity
-	12,  // 54: xylona.node.v1.SevenDaysToDieMapSnapshot.animal_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	85,  // 55: xylona.node.v1.QuerySevenDaysToDieMapResponse.snapshot:type_name -> xylona.node.v1.SevenDaysToDieMapSnapshot
-	15,  // 56: xylona.node.v1.GetProcessSnapshotResponse.snapshot:type_name -> xylona.node.v1.ProcessSnapshot
-	17,  // 57: xylona.node.v1.ListBindableIPsResponse.ips:type_name -> xylona.node.v1.BindableIP
-	145, // 58: xylona.node.v1.PingResponse.server_time:type_name -> google.protobuf.Timestamp
-	107, // 59: xylona.node.v1.GetRuntimeCapabilitiesResponse.game_operations:type_name -> xylona.node.v1.GameOperationSupport
-	7,   // 60: xylona.node.v1.PerformGameServerPlayerActionRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
-	9,   // 61: xylona.node.v1.PerformGameServerPlayerActionRequest.action:type_name -> xylona.node.v1.GameServerPlayerAction
-	118, // 62: xylona.node.v1.ExecuteGameOperationRequest.values:type_name -> xylona.node.v1.GameOperationValue
-	10,  // 63: xylona.node.v1.ExecuteGameOperationResponse.classification:type_name -> xylona.node.v1.GameOperationResultClassification
-	119, // 64: xylona.node.v1.ExecuteGameOperationResponse.transport_details:type_name -> xylona.node.v1.GameOperationTransportDetails
-	11,  // 65: xylona.node.v1.SevenDaysToDieWebAPIStatus.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	124, // 66: xylona.node.v1.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.node.v1.SevenDaysToDieWebAPICapabilities
-	12,  // 67: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	123, // 68: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	12,  // 69: xylona.node.v1.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	123, // 70: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	123, // 71: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	145, // 72: xylona.node.v1.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
-	12,  // 73: xylona.node.v1.SevenDaysToDieWebAPIStatus.command_operations_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	125, // 74: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.node.v1.SevenDaysToDieWebAPIStatus
-	128, // 75: xylona.node.v1.SevenDaysToDieOperationMetadata.players:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	128, // 76: xylona.node.v1.SevenDaysToDieOperationMetadata.items:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	128, // 77: xylona.node.v1.SevenDaysToDieOperationMetadata.buffs:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	128, // 78: xylona.node.v1.SevenDaysToDieOperationMetadata.commands:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	129, // 79: xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse.result:type_name -> xylona.node.v1.SevenDaysToDieOperationMetadata
-	11,  // 80: xylona.node.v1.SevenDaysToDiePlayers.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	12,  // 81: xylona.node.v1.SevenDaysToDiePlayers.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	132, // 82: xylona.node.v1.SevenDaysToDiePlayers.players:type_name -> xylona.node.v1.SevenDaysToDiePlayer
-	133, // 83: xylona.node.v1.QuerySevenDaysToDiePlayersResponse.result:type_name -> xylona.node.v1.SevenDaysToDiePlayers
-	11,  // 84: xylona.node.v1.SevenDaysToDieReportedMods.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	12,  // 85: xylona.node.v1.SevenDaysToDieReportedMods.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	136, // 86: xylona.node.v1.SevenDaysToDieReportedMods.mods:type_name -> xylona.node.v1.SevenDaysToDieReportedMod
-	137, // 87: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieReportedMods
-	11,  // 88: xylona.node.v1.SevenDaysToDieSandboxSettings.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	12,  // 89: xylona.node.v1.SevenDaysToDieSandboxSettings.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	13,  // 90: xylona.node.v1.SevenDaysToDieSandboxSettings.comparison_state:type_name -> xylona.node.v1.SevenDaysToDieSandboxComparisonState
-	140, // 91: xylona.node.v1.SevenDaysToDieSandboxSettings.settings:type_name -> xylona.node.v1.SevenDaysToDieSandboxSetting
-	145, // 92: xylona.node.v1.SevenDaysToDieSandboxSettings.observed_at:type_name -> google.protobuf.Timestamp
-	141, // 93: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieSandboxSettings
-	23,  // 94: xylona.node.v1.NodeService.StartProcess:input_type -> xylona.node.v1.StartProcessRequest
-	28,  // 95: xylona.node.v1.NodeService.StopProcess:input_type -> xylona.node.v1.StopProcessRequest
-	30,  // 96: xylona.node.v1.NodeService.SendConsoleInput:input_type -> xylona.node.v1.SendConsoleInputRequest
-	32,  // 97: xylona.node.v1.NodeService.ReadConsoleBuffer:input_type -> xylona.node.v1.ReadConsoleBufferRequest
-	34,  // 98: xylona.node.v1.NodeService.StreamConsoleOutput:input_type -> xylona.node.v1.StreamConsoleOutputRequest
-	35,  // 99: xylona.node.v1.NodeService.ListFiles:input_type -> xylona.node.v1.ListFilesRequest
-	37,  // 100: xylona.node.v1.NodeService.ReadFile:input_type -> xylona.node.v1.ReadFileRequest
-	39,  // 101: xylona.node.v1.NodeService.StatFile:input_type -> xylona.node.v1.StatFileRequest
-	41,  // 102: xylona.node.v1.NodeService.StreamFile:input_type -> xylona.node.v1.StreamFileRequest
-	43,  // 103: xylona.node.v1.NodeService.WriteFile:input_type -> xylona.node.v1.WriteFileRequest
-	45,  // 104: xylona.node.v1.NodeService.StreamWriteFile:input_type -> xylona.node.v1.StreamWriteFileRequest
-	50,  // 105: xylona.node.v1.NodeService.CreateFileOrDirectory:input_type -> xylona.node.v1.CreateFileOrDirectoryRequest
-	52,  // 106: xylona.node.v1.NodeService.DeleteFiles:input_type -> xylona.node.v1.DeleteFilesRequest
-	54,  // 107: xylona.node.v1.NodeService.RenameFile:input_type -> xylona.node.v1.RenameFileRequest
-	56,  // 108: xylona.node.v1.NodeService.MoveFiles:input_type -> xylona.node.v1.MoveFilesRequest
-	48,  // 109: xylona.node.v1.NodeService.CopyFiles:input_type -> xylona.node.v1.CopyFilesRequest
-	58,  // 110: xylona.node.v1.NodeService.DownloadFileFromURL:input_type -> xylona.node.v1.DownloadFileFromURLRequest
-	60,  // 111: xylona.node.v1.NodeService.CreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
-	60,  // 112: xylona.node.v1.NodeService.StreamCreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
-	62,  // 113: xylona.node.v1.NodeService.ExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
-	62,  // 114: xylona.node.v1.NodeService.StreamExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
-	64,  // 115: xylona.node.v1.NodeService.CreateBackupArchive:input_type -> xylona.node.v1.CreateBackupArchiveRequest
-	66,  // 116: xylona.node.v1.NodeService.ExtractBackupArchive:input_type -> xylona.node.v1.ExtractBackupArchiveRequest
-	68,  // 117: xylona.node.v1.NodeService.ProbeInstalledVersion:input_type -> xylona.node.v1.ProbeInstalledVersionRequest
-	70,  // 118: xylona.node.v1.NodeService.QueryGameServer:input_type -> xylona.node.v1.QueryGameServerRequest
-	77,  // 119: xylona.node.v1.NodeService.QueryPalworldMap:input_type -> xylona.node.v1.QueryPalworldMapRequest
-	86,  // 120: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:input_type -> xylona.node.v1.QuerySevenDaysToDieMapRequest
-	126, // 121: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:input_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
-	130, // 122: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:input_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataRequest
-	134, // 123: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:input_type -> xylona.node.v1.QuerySevenDaysToDiePlayersRequest
-	138, // 124: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:input_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
-	142, // 125: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:input_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
-	88,  // 126: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:input_type -> xylona.node.v1.GetSevenDaysToDieMapTileRequest
-	90,  // 127: xylona.node.v1.NodeService.EnsureMinecraftMap:input_type -> xylona.node.v1.EnsureMinecraftMapRequest
-	92,  // 128: xylona.node.v1.NodeService.StopMinecraftMap:input_type -> xylona.node.v1.StopMinecraftMapRequest
-	94,  // 129: xylona.node.v1.NodeService.GetMinecraftMapAsset:input_type -> xylona.node.v1.GetMinecraftMapAssetRequest
-	116, // 130: xylona.node.v1.NodeService.PerformGameServerPlayerAction:input_type -> xylona.node.v1.PerformGameServerPlayerActionRequest
-	120, // 131: xylona.node.v1.NodeService.ExecuteGameOperation:input_type -> xylona.node.v1.ExecuteGameOperationRequest
-	96,  // 132: xylona.node.v1.NodeService.SendConsoleOutput:input_type -> xylona.node.v1.SendConsoleOutputRequest
-	98,  // 133: xylona.node.v1.NodeService.GetProcessSnapshot:input_type -> xylona.node.v1.GetProcessSnapshotRequest
-	101, // 134: xylona.node.v1.NodeService.ListBindableIPs:input_type -> xylona.node.v1.ListBindableIPsRequest
-	100, // 135: xylona.node.v1.NodeService.GetNodeSnapshot:input_type -> xylona.node.v1.GetNodeSnapshotRequest
-	106, // 136: xylona.node.v1.NodeService.GetRuntimeCapabilities:input_type -> xylona.node.v1.GetRuntimeCapabilitiesRequest
-	103, // 137: xylona.node.v1.NodeService.StreamEvents:input_type -> xylona.node.v1.StreamEventsRequest
-	104, // 138: xylona.node.v1.NodeService.Ping:input_type -> xylona.node.v1.PingRequest
-	109, // 139: xylona.node.v1.NodeService.GetUpdateCapabilities:input_type -> xylona.node.v1.GetUpdateCapabilitiesRequest
-	111, // 140: xylona.node.v1.NodeService.StageSelfUpdate:input_type -> xylona.node.v1.StageSelfUpdateRequest
-	113, // 141: xylona.node.v1.NodeService.ApplySelfUpdate:input_type -> xylona.node.v1.ApplySelfUpdateRequest
-	27,  // 142: xylona.node.v1.NodeService.StartProcess:output_type -> xylona.node.v1.StartProcessResponse
-	29,  // 143: xylona.node.v1.NodeService.StopProcess:output_type -> xylona.node.v1.StopProcessResponse
-	31,  // 144: xylona.node.v1.NodeService.SendConsoleInput:output_type -> xylona.node.v1.SendConsoleInputResponse
-	33,  // 145: xylona.node.v1.NodeService.ReadConsoleBuffer:output_type -> xylona.node.v1.ReadConsoleBufferResponse
-	18,  // 146: xylona.node.v1.NodeService.StreamConsoleOutput:output_type -> xylona.node.v1.ConsoleChunk
-	36,  // 147: xylona.node.v1.NodeService.ListFiles:output_type -> xylona.node.v1.ListFilesResponse
-	38,  // 148: xylona.node.v1.NodeService.ReadFile:output_type -> xylona.node.v1.ReadFileResponse
-	40,  // 149: xylona.node.v1.NodeService.StatFile:output_type -> xylona.node.v1.StatFileResponse
-	42,  // 150: xylona.node.v1.NodeService.StreamFile:output_type -> xylona.node.v1.StreamFileResponse
-	44,  // 151: xylona.node.v1.NodeService.WriteFile:output_type -> xylona.node.v1.WriteFileResponse
-	46,  // 152: xylona.node.v1.NodeService.StreamWriteFile:output_type -> xylona.node.v1.StreamWriteFileResponse
-	51,  // 153: xylona.node.v1.NodeService.CreateFileOrDirectory:output_type -> xylona.node.v1.CreateFileOrDirectoryResponse
-	53,  // 154: xylona.node.v1.NodeService.DeleteFiles:output_type -> xylona.node.v1.DeleteFilesResponse
-	55,  // 155: xylona.node.v1.NodeService.RenameFile:output_type -> xylona.node.v1.RenameFileResponse
-	57,  // 156: xylona.node.v1.NodeService.MoveFiles:output_type -> xylona.node.v1.MoveFilesResponse
-	49,  // 157: xylona.node.v1.NodeService.CopyFiles:output_type -> xylona.node.v1.CopyFilesResponse
-	59,  // 158: xylona.node.v1.NodeService.DownloadFileFromURL:output_type -> xylona.node.v1.DownloadFileFromURLResponse
-	61,  // 159: xylona.node.v1.NodeService.CreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
-	61,  // 160: xylona.node.v1.NodeService.StreamCreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
-	63,  // 161: xylona.node.v1.NodeService.ExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
-	63,  // 162: xylona.node.v1.NodeService.StreamExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
-	65,  // 163: xylona.node.v1.NodeService.CreateBackupArchive:output_type -> xylona.node.v1.CreateBackupArchiveResponse
-	67,  // 164: xylona.node.v1.NodeService.ExtractBackupArchive:output_type -> xylona.node.v1.ExtractBackupArchiveResponse
-	69,  // 165: xylona.node.v1.NodeService.ProbeInstalledVersion:output_type -> xylona.node.v1.ProbeInstalledVersionResponse
-	74,  // 166: xylona.node.v1.NodeService.QueryGameServer:output_type -> xylona.node.v1.QueryGameServerResponse
-	78,  // 167: xylona.node.v1.NodeService.QueryPalworldMap:output_type -> xylona.node.v1.QueryPalworldMapResponse
-	87,  // 168: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:output_type -> xylona.node.v1.QuerySevenDaysToDieMapResponse
-	127, // 169: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:output_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
-	131, // 170: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:output_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse
-	135, // 171: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:output_type -> xylona.node.v1.QuerySevenDaysToDiePlayersResponse
-	139, // 172: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:output_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
-	143, // 173: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:output_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
-	89,  // 174: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:output_type -> xylona.node.v1.GetSevenDaysToDieMapTileResponse
-	91,  // 175: xylona.node.v1.NodeService.EnsureMinecraftMap:output_type -> xylona.node.v1.EnsureMinecraftMapResponse
-	93,  // 176: xylona.node.v1.NodeService.StopMinecraftMap:output_type -> xylona.node.v1.StopMinecraftMapResponse
-	95,  // 177: xylona.node.v1.NodeService.GetMinecraftMapAsset:output_type -> xylona.node.v1.GetMinecraftMapAssetResponse
-	117, // 178: xylona.node.v1.NodeService.PerformGameServerPlayerAction:output_type -> xylona.node.v1.PerformGameServerPlayerActionResponse
-	121, // 179: xylona.node.v1.NodeService.ExecuteGameOperation:output_type -> xylona.node.v1.ExecuteGameOperationResponse
-	97,  // 180: xylona.node.v1.NodeService.SendConsoleOutput:output_type -> xylona.node.v1.SendConsoleOutputResponse
-	99,  // 181: xylona.node.v1.NodeService.GetProcessSnapshot:output_type -> xylona.node.v1.GetProcessSnapshotResponse
-	102, // 182: xylona.node.v1.NodeService.ListBindableIPs:output_type -> xylona.node.v1.ListBindableIPsResponse
-	16,  // 183: xylona.node.v1.NodeService.GetNodeSnapshot:output_type -> xylona.node.v1.NodeSnapshot
-	108, // 184: xylona.node.v1.NodeService.GetRuntimeCapabilities:output_type -> xylona.node.v1.GetRuntimeCapabilitiesResponse
-	22,  // 185: xylona.node.v1.NodeService.StreamEvents:output_type -> xylona.node.v1.Event
-	105, // 186: xylona.node.v1.NodeService.Ping:output_type -> xylona.node.v1.PingResponse
-	110, // 187: xylona.node.v1.NodeService.GetUpdateCapabilities:output_type -> xylona.node.v1.GetUpdateCapabilitiesResponse
-	112, // 188: xylona.node.v1.NodeService.StageSelfUpdate:output_type -> xylona.node.v1.StageSelfUpdateResponse
-	114, // 189: xylona.node.v1.NodeService.ApplySelfUpdate:output_type -> xylona.node.v1.ApplySelfUpdateResponse
-	142, // [142:190] is the sub-list for method output_type
-	94,  // [94:142] is the sub-list for method input_type
-	94,  // [94:94] is the sub-list for extension type_name
-	94,  // [94:94] is the sub-list for extension extendee
-	0,   // [0:94] is the sub-list for field type_name
+	146, // 3: xylona.node.v1.NodeSnapshot.collected:type_name -> google.protobuf.Timestamp
+	146, // 4: xylona.node.v1.ConsoleChunk.timestamp:type_name -> google.protobuf.Timestamp
+	20,  // 5: xylona.node.v1.ProcessStatusEvent.failure:type_name -> xylona.node.v1.ProcessFailure
+	146, // 6: xylona.node.v1.ProcessFailure.attempt_started_at:type_name -> google.protobuf.Timestamp
+	146, // 7: xylona.node.v1.ProcessFailure.occurred_at:type_name -> google.protobuf.Timestamp
+	16,  // 8: xylona.node.v1.MetricsUpdateEvent.snapshot:type_name -> xylona.node.v1.NodeSnapshot
+	146, // 9: xylona.node.v1.Event.timestamp:type_name -> google.protobuf.Timestamp
+	19,  // 10: xylona.node.v1.Event.process_status:type_name -> xylona.node.v1.ProcessStatusEvent
+	18,  // 11: xylona.node.v1.Event.console_output:type_name -> xylona.node.v1.ConsoleChunk
+	21,  // 12: xylona.node.v1.Event.metrics_update:type_name -> xylona.node.v1.MetricsUpdateEvent
+	22,  // 13: xylona.node.v1.Event.process_crash:type_name -> xylona.node.v1.ProcessCrashEvent
+	1,   // 14: xylona.node.v1.StartProcessRequest.initial_status:type_name -> xylona.node.v1.ProcessStatus
+	145, // 15: xylona.node.v1.StartProcessRequest.launch_env:type_name -> xylona.node.v1.StartProcessRequest.LaunchEnvEntry
+	25,  // 16: xylona.node.v1.StartProcessRequest.telnet_input:type_name -> xylona.node.v1.TelnetInput
+	26,  // 17: xylona.node.v1.StartProcessRequest.rcon_input:type_name -> xylona.node.v1.RCONInput
+	27,  // 18: xylona.node.v1.StartProcessRequest.rest_input:type_name -> xylona.node.v1.RESTInput
+	146, // 19: xylona.node.v1.StartProcessRequest.attempt_started_at:type_name -> google.protobuf.Timestamp
+	2,   // 20: xylona.node.v1.RCONInput.protocol:type_name -> xylona.node.v1.RCONProtocol
+	3,   // 21: xylona.node.v1.RESTInput.kind:type_name -> xylona.node.v1.RESTInputKind
+	18,  // 22: xylona.node.v1.ReadConsoleBufferResponse.chunk:type_name -> xylona.node.v1.ConsoleChunk
+	14,  // 23: xylona.node.v1.ListFilesResponse.entries:type_name -> xylona.node.v1.FileEntry
+	14,  // 24: xylona.node.v1.StatFileResponse.entry:type_name -> xylona.node.v1.FileEntry
+	48,  // 25: xylona.node.v1.CopyFilesRequest.operations:type_name -> xylona.node.v1.CopyFileOperation
+	4,   // 26: xylona.node.v1.CreateFileArchiveRequest.compression:type_name -> xylona.node.v1.FileArchiveCompression
+	5,   // 27: xylona.node.v1.ExtractBackupArchiveRequest.mode:type_name -> xylona.node.v1.ExtractMode
+	6,   // 28: xylona.node.v1.ProbeInstalledVersionRequest.kind:type_name -> xylona.node.v1.InstalledVersionProbeKind
+	7,   // 29: xylona.node.v1.QueryGameServerRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
+	116, // 30: xylona.node.v1.GameServerMinecraftQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
+	116, // 31: xylona.node.v1.GameServerPalworldQueryInfo.player_details:type_name -> xylona.node.v1.GameServerPlayer
+	7,   // 32: xylona.node.v1.QueryGameServerResponse.kind:type_name -> xylona.node.v1.GameServerQueryKind
+	72,  // 33: xylona.node.v1.QueryGameServerResponse.minecraft:type_name -> xylona.node.v1.GameServerMinecraftQueryInfo
+	73,  // 34: xylona.node.v1.QueryGameServerResponse.source:type_name -> xylona.node.v1.GameServerSourceQueryInfo
+	74,  // 35: xylona.node.v1.QueryGameServerResponse.palworld:type_name -> xylona.node.v1.GameServerPalworldQueryInfo
+	8,   // 36: xylona.node.v1.PalworldMapActor.kind:type_name -> xylona.node.v1.PalworldMapActorKind
+	146, // 37: xylona.node.v1.PalworldMapSnapshot.collected_at:type_name -> google.protobuf.Timestamp
+	76,  // 38: xylona.node.v1.PalworldMapSnapshot.actors:type_name -> xylona.node.v1.PalworldMapActor
+	123, // 39: xylona.node.v1.PalworldMapSnapshot.health:type_name -> xylona.node.v1.PalworldMapHealth
+	77,  // 40: xylona.node.v1.QueryPalworldMapResponse.snapshot:type_name -> xylona.node.v1.PalworldMapSnapshot
+	80,  // 41: xylona.node.v1.SevenDaysToDieMapPlayer.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
+	80,  // 42: xylona.node.v1.SevenDaysToDieLandClaim.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
+	80,  // 43: xylona.node.v1.SevenDaysToDieMapEntity.position:type_name -> xylona.node.v1.SevenDaysToDieMapVector
+	124, // 44: xylona.node.v1.SevenDaysToDieMapBloodMoon.game_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	124, // 45: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	124, // 46: xylona.node.v1.SevenDaysToDieMapBloodMoon.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	80,  // 47: xylona.node.v1.SevenDaysToDieMapSnapshot.map_size:type_name -> xylona.node.v1.SevenDaysToDieMapVector
+	81,  // 48: xylona.node.v1.SevenDaysToDieMapSnapshot.players:type_name -> xylona.node.v1.SevenDaysToDieMapPlayer
+	82,  // 49: xylona.node.v1.SevenDaysToDieMapSnapshot.markers:type_name -> xylona.node.v1.SevenDaysToDieMapMarker
+	83,  // 50: xylona.node.v1.SevenDaysToDieMapSnapshot.claims:type_name -> xylona.node.v1.SevenDaysToDieLandClaim
+	12,  // 51: xylona.node.v1.SevenDaysToDieMapSnapshot.native_marker_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	12,  // 52: xylona.node.v1.SevenDaysToDieMapSnapshot.claims_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	85,  // 53: xylona.node.v1.SevenDaysToDieMapSnapshot.blood_moon:type_name -> xylona.node.v1.SevenDaysToDieMapBloodMoon
+	12,  // 54: xylona.node.v1.SevenDaysToDieMapSnapshot.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	84,  // 55: xylona.node.v1.SevenDaysToDieMapSnapshot.hostiles:type_name -> xylona.node.v1.SevenDaysToDieMapEntity
+	12,  // 56: xylona.node.v1.SevenDaysToDieMapSnapshot.hostile_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	84,  // 57: xylona.node.v1.SevenDaysToDieMapSnapshot.animals:type_name -> xylona.node.v1.SevenDaysToDieMapEntity
+	12,  // 58: xylona.node.v1.SevenDaysToDieMapSnapshot.animal_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	86,  // 59: xylona.node.v1.QuerySevenDaysToDieMapResponse.snapshot:type_name -> xylona.node.v1.SevenDaysToDieMapSnapshot
+	15,  // 60: xylona.node.v1.GetProcessSnapshotResponse.snapshot:type_name -> xylona.node.v1.ProcessSnapshot
+	17,  // 61: xylona.node.v1.ListBindableIPsResponse.ips:type_name -> xylona.node.v1.BindableIP
+	146, // 62: xylona.node.v1.PingResponse.server_time:type_name -> google.protobuf.Timestamp
+	108, // 63: xylona.node.v1.GetRuntimeCapabilitiesResponse.game_operations:type_name -> xylona.node.v1.GameOperationSupport
+	7,   // 64: xylona.node.v1.PerformGameServerPlayerActionRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
+	9,   // 65: xylona.node.v1.PerformGameServerPlayerActionRequest.action:type_name -> xylona.node.v1.GameServerPlayerAction
+	119, // 66: xylona.node.v1.ExecuteGameOperationRequest.values:type_name -> xylona.node.v1.GameOperationValue
+	10,  // 67: xylona.node.v1.ExecuteGameOperationResponse.classification:type_name -> xylona.node.v1.GameOperationResultClassification
+	120, // 68: xylona.node.v1.ExecuteGameOperationResponse.transport_details:type_name -> xylona.node.v1.GameOperationTransportDetails
+	11,  // 69: xylona.node.v1.SevenDaysToDieWebAPIStatus.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	125, // 70: xylona.node.v1.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.node.v1.SevenDaysToDieWebAPICapabilities
+	12,  // 71: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	124, // 72: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	12,  // 73: xylona.node.v1.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	124, // 74: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	124, // 75: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	146, // 76: xylona.node.v1.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
+	12,  // 77: xylona.node.v1.SevenDaysToDieWebAPIStatus.command_operations_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	126, // 78: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.node.v1.SevenDaysToDieWebAPIStatus
+	129, // 79: xylona.node.v1.SevenDaysToDieOperationMetadata.players:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	129, // 80: xylona.node.v1.SevenDaysToDieOperationMetadata.items:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	129, // 81: xylona.node.v1.SevenDaysToDieOperationMetadata.buffs:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	129, // 82: xylona.node.v1.SevenDaysToDieOperationMetadata.commands:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	130, // 83: xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse.result:type_name -> xylona.node.v1.SevenDaysToDieOperationMetadata
+	11,  // 84: xylona.node.v1.SevenDaysToDiePlayers.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	12,  // 85: xylona.node.v1.SevenDaysToDiePlayers.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	133, // 86: xylona.node.v1.SevenDaysToDiePlayers.players:type_name -> xylona.node.v1.SevenDaysToDiePlayer
+	134, // 87: xylona.node.v1.QuerySevenDaysToDiePlayersResponse.result:type_name -> xylona.node.v1.SevenDaysToDiePlayers
+	11,  // 88: xylona.node.v1.SevenDaysToDieReportedMods.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	12,  // 89: xylona.node.v1.SevenDaysToDieReportedMods.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	137, // 90: xylona.node.v1.SevenDaysToDieReportedMods.mods:type_name -> xylona.node.v1.SevenDaysToDieReportedMod
+	138, // 91: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieReportedMods
+	11,  // 92: xylona.node.v1.SevenDaysToDieSandboxSettings.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	12,  // 93: xylona.node.v1.SevenDaysToDieSandboxSettings.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	13,  // 94: xylona.node.v1.SevenDaysToDieSandboxSettings.comparison_state:type_name -> xylona.node.v1.SevenDaysToDieSandboxComparisonState
+	141, // 95: xylona.node.v1.SevenDaysToDieSandboxSettings.settings:type_name -> xylona.node.v1.SevenDaysToDieSandboxSetting
+	146, // 96: xylona.node.v1.SevenDaysToDieSandboxSettings.observed_at:type_name -> google.protobuf.Timestamp
+	142, // 97: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieSandboxSettings
+	24,  // 98: xylona.node.v1.NodeService.StartProcess:input_type -> xylona.node.v1.StartProcessRequest
+	29,  // 99: xylona.node.v1.NodeService.StopProcess:input_type -> xylona.node.v1.StopProcessRequest
+	31,  // 100: xylona.node.v1.NodeService.SendConsoleInput:input_type -> xylona.node.v1.SendConsoleInputRequest
+	33,  // 101: xylona.node.v1.NodeService.ReadConsoleBuffer:input_type -> xylona.node.v1.ReadConsoleBufferRequest
+	35,  // 102: xylona.node.v1.NodeService.StreamConsoleOutput:input_type -> xylona.node.v1.StreamConsoleOutputRequest
+	36,  // 103: xylona.node.v1.NodeService.ListFiles:input_type -> xylona.node.v1.ListFilesRequest
+	38,  // 104: xylona.node.v1.NodeService.ReadFile:input_type -> xylona.node.v1.ReadFileRequest
+	40,  // 105: xylona.node.v1.NodeService.StatFile:input_type -> xylona.node.v1.StatFileRequest
+	42,  // 106: xylona.node.v1.NodeService.StreamFile:input_type -> xylona.node.v1.StreamFileRequest
+	44,  // 107: xylona.node.v1.NodeService.WriteFile:input_type -> xylona.node.v1.WriteFileRequest
+	46,  // 108: xylona.node.v1.NodeService.StreamWriteFile:input_type -> xylona.node.v1.StreamWriteFileRequest
+	51,  // 109: xylona.node.v1.NodeService.CreateFileOrDirectory:input_type -> xylona.node.v1.CreateFileOrDirectoryRequest
+	53,  // 110: xylona.node.v1.NodeService.DeleteFiles:input_type -> xylona.node.v1.DeleteFilesRequest
+	55,  // 111: xylona.node.v1.NodeService.RenameFile:input_type -> xylona.node.v1.RenameFileRequest
+	57,  // 112: xylona.node.v1.NodeService.MoveFiles:input_type -> xylona.node.v1.MoveFilesRequest
+	49,  // 113: xylona.node.v1.NodeService.CopyFiles:input_type -> xylona.node.v1.CopyFilesRequest
+	59,  // 114: xylona.node.v1.NodeService.DownloadFileFromURL:input_type -> xylona.node.v1.DownloadFileFromURLRequest
+	61,  // 115: xylona.node.v1.NodeService.CreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
+	61,  // 116: xylona.node.v1.NodeService.StreamCreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
+	63,  // 117: xylona.node.v1.NodeService.ExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
+	63,  // 118: xylona.node.v1.NodeService.StreamExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
+	65,  // 119: xylona.node.v1.NodeService.CreateBackupArchive:input_type -> xylona.node.v1.CreateBackupArchiveRequest
+	67,  // 120: xylona.node.v1.NodeService.ExtractBackupArchive:input_type -> xylona.node.v1.ExtractBackupArchiveRequest
+	69,  // 121: xylona.node.v1.NodeService.ProbeInstalledVersion:input_type -> xylona.node.v1.ProbeInstalledVersionRequest
+	71,  // 122: xylona.node.v1.NodeService.QueryGameServer:input_type -> xylona.node.v1.QueryGameServerRequest
+	78,  // 123: xylona.node.v1.NodeService.QueryPalworldMap:input_type -> xylona.node.v1.QueryPalworldMapRequest
+	87,  // 124: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:input_type -> xylona.node.v1.QuerySevenDaysToDieMapRequest
+	127, // 125: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:input_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
+	131, // 126: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:input_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataRequest
+	135, // 127: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:input_type -> xylona.node.v1.QuerySevenDaysToDiePlayersRequest
+	139, // 128: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:input_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
+	143, // 129: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:input_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
+	89,  // 130: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:input_type -> xylona.node.v1.GetSevenDaysToDieMapTileRequest
+	91,  // 131: xylona.node.v1.NodeService.EnsureMinecraftMap:input_type -> xylona.node.v1.EnsureMinecraftMapRequest
+	93,  // 132: xylona.node.v1.NodeService.StopMinecraftMap:input_type -> xylona.node.v1.StopMinecraftMapRequest
+	95,  // 133: xylona.node.v1.NodeService.GetMinecraftMapAsset:input_type -> xylona.node.v1.GetMinecraftMapAssetRequest
+	117, // 134: xylona.node.v1.NodeService.PerformGameServerPlayerAction:input_type -> xylona.node.v1.PerformGameServerPlayerActionRequest
+	121, // 135: xylona.node.v1.NodeService.ExecuteGameOperation:input_type -> xylona.node.v1.ExecuteGameOperationRequest
+	97,  // 136: xylona.node.v1.NodeService.SendConsoleOutput:input_type -> xylona.node.v1.SendConsoleOutputRequest
+	99,  // 137: xylona.node.v1.NodeService.GetProcessSnapshot:input_type -> xylona.node.v1.GetProcessSnapshotRequest
+	102, // 138: xylona.node.v1.NodeService.ListBindableIPs:input_type -> xylona.node.v1.ListBindableIPsRequest
+	101, // 139: xylona.node.v1.NodeService.GetNodeSnapshot:input_type -> xylona.node.v1.GetNodeSnapshotRequest
+	107, // 140: xylona.node.v1.NodeService.GetRuntimeCapabilities:input_type -> xylona.node.v1.GetRuntimeCapabilitiesRequest
+	104, // 141: xylona.node.v1.NodeService.StreamEvents:input_type -> xylona.node.v1.StreamEventsRequest
+	105, // 142: xylona.node.v1.NodeService.Ping:input_type -> xylona.node.v1.PingRequest
+	110, // 143: xylona.node.v1.NodeService.GetUpdateCapabilities:input_type -> xylona.node.v1.GetUpdateCapabilitiesRequest
+	112, // 144: xylona.node.v1.NodeService.StageSelfUpdate:input_type -> xylona.node.v1.StageSelfUpdateRequest
+	114, // 145: xylona.node.v1.NodeService.ApplySelfUpdate:input_type -> xylona.node.v1.ApplySelfUpdateRequest
+	28,  // 146: xylona.node.v1.NodeService.StartProcess:output_type -> xylona.node.v1.StartProcessResponse
+	30,  // 147: xylona.node.v1.NodeService.StopProcess:output_type -> xylona.node.v1.StopProcessResponse
+	32,  // 148: xylona.node.v1.NodeService.SendConsoleInput:output_type -> xylona.node.v1.SendConsoleInputResponse
+	34,  // 149: xylona.node.v1.NodeService.ReadConsoleBuffer:output_type -> xylona.node.v1.ReadConsoleBufferResponse
+	18,  // 150: xylona.node.v1.NodeService.StreamConsoleOutput:output_type -> xylona.node.v1.ConsoleChunk
+	37,  // 151: xylona.node.v1.NodeService.ListFiles:output_type -> xylona.node.v1.ListFilesResponse
+	39,  // 152: xylona.node.v1.NodeService.ReadFile:output_type -> xylona.node.v1.ReadFileResponse
+	41,  // 153: xylona.node.v1.NodeService.StatFile:output_type -> xylona.node.v1.StatFileResponse
+	43,  // 154: xylona.node.v1.NodeService.StreamFile:output_type -> xylona.node.v1.StreamFileResponse
+	45,  // 155: xylona.node.v1.NodeService.WriteFile:output_type -> xylona.node.v1.WriteFileResponse
+	47,  // 156: xylona.node.v1.NodeService.StreamWriteFile:output_type -> xylona.node.v1.StreamWriteFileResponse
+	52,  // 157: xylona.node.v1.NodeService.CreateFileOrDirectory:output_type -> xylona.node.v1.CreateFileOrDirectoryResponse
+	54,  // 158: xylona.node.v1.NodeService.DeleteFiles:output_type -> xylona.node.v1.DeleteFilesResponse
+	56,  // 159: xylona.node.v1.NodeService.RenameFile:output_type -> xylona.node.v1.RenameFileResponse
+	58,  // 160: xylona.node.v1.NodeService.MoveFiles:output_type -> xylona.node.v1.MoveFilesResponse
+	50,  // 161: xylona.node.v1.NodeService.CopyFiles:output_type -> xylona.node.v1.CopyFilesResponse
+	60,  // 162: xylona.node.v1.NodeService.DownloadFileFromURL:output_type -> xylona.node.v1.DownloadFileFromURLResponse
+	62,  // 163: xylona.node.v1.NodeService.CreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
+	62,  // 164: xylona.node.v1.NodeService.StreamCreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
+	64,  // 165: xylona.node.v1.NodeService.ExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
+	64,  // 166: xylona.node.v1.NodeService.StreamExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
+	66,  // 167: xylona.node.v1.NodeService.CreateBackupArchive:output_type -> xylona.node.v1.CreateBackupArchiveResponse
+	68,  // 168: xylona.node.v1.NodeService.ExtractBackupArchive:output_type -> xylona.node.v1.ExtractBackupArchiveResponse
+	70,  // 169: xylona.node.v1.NodeService.ProbeInstalledVersion:output_type -> xylona.node.v1.ProbeInstalledVersionResponse
+	75,  // 170: xylona.node.v1.NodeService.QueryGameServer:output_type -> xylona.node.v1.QueryGameServerResponse
+	79,  // 171: xylona.node.v1.NodeService.QueryPalworldMap:output_type -> xylona.node.v1.QueryPalworldMapResponse
+	88,  // 172: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:output_type -> xylona.node.v1.QuerySevenDaysToDieMapResponse
+	128, // 173: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:output_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
+	132, // 174: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:output_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse
+	136, // 175: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:output_type -> xylona.node.v1.QuerySevenDaysToDiePlayersResponse
+	140, // 176: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:output_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
+	144, // 177: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:output_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
+	90,  // 178: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:output_type -> xylona.node.v1.GetSevenDaysToDieMapTileResponse
+	92,  // 179: xylona.node.v1.NodeService.EnsureMinecraftMap:output_type -> xylona.node.v1.EnsureMinecraftMapResponse
+	94,  // 180: xylona.node.v1.NodeService.StopMinecraftMap:output_type -> xylona.node.v1.StopMinecraftMapResponse
+	96,  // 181: xylona.node.v1.NodeService.GetMinecraftMapAsset:output_type -> xylona.node.v1.GetMinecraftMapAssetResponse
+	118, // 182: xylona.node.v1.NodeService.PerformGameServerPlayerAction:output_type -> xylona.node.v1.PerformGameServerPlayerActionResponse
+	122, // 183: xylona.node.v1.NodeService.ExecuteGameOperation:output_type -> xylona.node.v1.ExecuteGameOperationResponse
+	98,  // 184: xylona.node.v1.NodeService.SendConsoleOutput:output_type -> xylona.node.v1.SendConsoleOutputResponse
+	100, // 185: xylona.node.v1.NodeService.GetProcessSnapshot:output_type -> xylona.node.v1.GetProcessSnapshotResponse
+	103, // 186: xylona.node.v1.NodeService.ListBindableIPs:output_type -> xylona.node.v1.ListBindableIPsResponse
+	16,  // 187: xylona.node.v1.NodeService.GetNodeSnapshot:output_type -> xylona.node.v1.NodeSnapshot
+	109, // 188: xylona.node.v1.NodeService.GetRuntimeCapabilities:output_type -> xylona.node.v1.GetRuntimeCapabilitiesResponse
+	23,  // 189: xylona.node.v1.NodeService.StreamEvents:output_type -> xylona.node.v1.Event
+	106, // 190: xylona.node.v1.NodeService.Ping:output_type -> xylona.node.v1.PingResponse
+	111, // 191: xylona.node.v1.NodeService.GetUpdateCapabilities:output_type -> xylona.node.v1.GetUpdateCapabilitiesResponse
+	113, // 192: xylona.node.v1.NodeService.StageSelfUpdate:output_type -> xylona.node.v1.StageSelfUpdateResponse
+	115, // 193: xylona.node.v1.NodeService.ApplySelfUpdate:output_type -> xylona.node.v1.ApplySelfUpdateResponse
+	146, // [146:194] is the sub-list for method output_type
+	98,  // [98:146] is the sub-list for method input_type
+	98,  // [98:98] is the sub-list for extension type_name
+	98,  // [98:98] is the sub-list for extension extendee
+	0,   // [0:98] is the sub-list for field type_name
 }
 
 func init() { file_nodeproto_v1_node_proto_init() }
@@ -11368,28 +11541,29 @@ func file_nodeproto_v1_node_proto_init() {
 	}
 	file_nodeproto_v1_node_proto_msgTypes[1].OneofWrappers = []any{}
 	file_nodeproto_v1_node_proto_msgTypes[5].OneofWrappers = []any{}
-	file_nodeproto_v1_node_proto_msgTypes[8].OneofWrappers = []any{
+	file_nodeproto_v1_node_proto_msgTypes[6].OneofWrappers = []any{}
+	file_nodeproto_v1_node_proto_msgTypes[9].OneofWrappers = []any{
 		(*Event_ProcessStatus)(nil),
 		(*Event_ConsoleOutput)(nil),
 		(*Event_MetricsUpdate)(nil),
 		(*Event_ProcessCrash)(nil),
 	}
-	file_nodeproto_v1_node_proto_msgTypes[57].OneofWrappers = []any{}
 	file_nodeproto_v1_node_proto_msgTypes[58].OneofWrappers = []any{}
-	file_nodeproto_v1_node_proto_msgTypes[104].OneofWrappers = []any{
+	file_nodeproto_v1_node_proto_msgTypes[59].OneofWrappers = []any{}
+	file_nodeproto_v1_node_proto_msgTypes[105].OneofWrappers = []any{
 		(*GameOperationValue_StringValue)(nil),
 		(*GameOperationValue_IntegerValue)(nil),
 		(*GameOperationValue_BooleanValue)(nil),
 	}
-	file_nodeproto_v1_node_proto_msgTypes[111].OneofWrappers = []any{}
-	file_nodeproto_v1_node_proto_msgTypes[118].OneofWrappers = []any{}
+	file_nodeproto_v1_node_proto_msgTypes[112].OneofWrappers = []any{}
+	file_nodeproto_v1_node_proto_msgTypes[119].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nodeproto_v1_node_proto_rawDesc), len(file_nodeproto_v1_node_proto_rawDesc)),
 			NumEnums:      14,
-			NumMessages:   131,
+			NumMessages:   132,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

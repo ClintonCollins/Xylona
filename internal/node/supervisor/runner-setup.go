@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,23 @@ import (
 )
 
 func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistentCommand *Command) *Command {
+	if preparedCommand.AttemptStartedAt.IsZero() {
+		preparedCommand.AttemptStartedAt = time.Now().UTC()
+	}
+	redactValues := slices.Clone(preparedCommand.RedactValues)
+	for _, value := range preparedCommand.LaunchEnv {
+		redactValues = append(redactValues, value)
+	}
+	if preparedCommand.InputMethod.TelnetCredentials != nil {
+		redactValues = append(redactValues, preparedCommand.InputMethod.TelnetCredentials.Password)
+	}
+	if preparedCommand.InputMethod.RCONCredentials != nil {
+		redactValues = append(redactValues, preparedCommand.InputMethod.RCONCredentials.Password)
+	}
+	if preparedCommand.InputMethod.RESTCredentials != nil {
+		redactValues = append(redactValues, preparedCommand.InputMethod.RESTCredentials.Password)
+		redactValues = append(redactValues, preparedCommand.InputMethod.RESTCredentials.PreviousPasswords...)
+	}
 	var newCommand *Command
 	var internalLaunchEnv map[string]string
 	if preparedCommand.InternalCommand {
@@ -39,6 +57,12 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		preserveBufferedOutputOnReuse := newCommand.preserveBufferedOutputOnReuse
 		newCommand.User = preparedCommand.User
 		newCommand.executionID = preparedCommand.ExecutionID
+		newCommand.attemptStartedAt = preparedCommand.AttemptStartedAt
+		clear(newCommand.redactValues)
+		newCommand.redactValues = redactValues
+		newCommand.failure = nil
+		newCommand.failureOutput.Reset()
+		newCommand.failureOutputTruncated = false
 		newCommand.nodeID = preparedCommand.NodeID
 		newCommand.stopTimeout = preparedCommand.StopTimeout
 		newCommand.BaseCommand = preparedCommand.BaseCommand
@@ -71,6 +95,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 	} else {
 		log.Debug().Str("Command ID", preparedCommand.ID).Msg("Creating new command")
 		newCommand = &Command{
+			attemptStartedAt:     preparedCommand.AttemptStartedAt,
+			redactValues:         redactValues,
 			ID:                   preparedCommand.ID,
 			executionID:          preparedCommand.ExecutionID,
 			User:                 preparedCommand.User,

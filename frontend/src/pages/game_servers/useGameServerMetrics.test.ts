@@ -84,11 +84,11 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-function mountHarness(gameServerId: Ref<string>) {
+function mountHarness(gameServerId: Ref<string>, focusAt?: Ref<number | null>) {
   let metrics!: ReturnType<typeof useGameServerMetrics>
   const Harness = defineComponent({
     setup() {
-      metrics = useGameServerMetrics({ gameServerId })
+      metrics = useGameServerMetrics({ gameServerId, focusAt })
       return () => null
     },
   })
@@ -116,6 +116,21 @@ describe('useGameServerMetrics route changes', () => {
     for (const wrapper of mountedWrappers) wrapper.unmount()
     mountedWrappers.clear()
     vi.restoreAllMocks()
+  })
+
+  it('loads a fixed window around a failure and resumes current metrics when cleared', async () => {
+    mocks.client.getGameServerMetricsHistory.mockResolvedValue(historyResponse('server-a', 25))
+    const focusAt = ref<number | null>(1_700_000_000_000)
+    mountHarness(ref('server-a'), focusAt)
+    await flushPromises()
+    const focusedRequest = mocks.client.getGameServerMetricsHistory.mock.calls[0]?.[0]
+    expect(Number(focusedRequest.until.seconds) * 1000).toBe(1_700_000_300_000)
+    expect(Number(focusedRequest.since.seconds) * 1000).toBe(1_699_996_700_000)
+    const now = Date.now()
+    focusAt.value = null
+    await flushPromises()
+    const currentRequest = mocks.client.getGameServerMetricsHistory.mock.calls.at(-1)?.[0]
+    expect(Number(currentRequest.until.seconds) * 1000).toBeGreaterThanOrEqual(now - 1000)
   })
 
   it('clears server A state synchronously before loading server B', async () => {
