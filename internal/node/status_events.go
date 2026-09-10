@@ -16,7 +16,6 @@ func (n *Node) startStatusEventBridge() {
 	}
 	n.supervisor.SetStatusEventHook(func(statusEvent eventbus.StatusChangedEvent) {
 		n.events.Publish(Event{
-			Failure:            statusEvent.Failure,
 			Type:               EventTypeProcessStatus,
 			ProcessID:          statusEvent.ServerID,
 			Status:             statusEvent.NewStatus,

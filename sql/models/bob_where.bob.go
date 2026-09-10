@@ -24,7 +24,6 @@ func Where[Q sqlite.Filterable]() struct {
 	Games                             gameWhere[Q]
 	GameServers                       gameServerWhere[Q]
 	GameServerBackups                 gameServerBackupWhere[Q]
-	GameServerDiagnoses               gameServerDiagnosisWhere[Q]
 	GameServerLifecycleEvents         gameServerLifecycleEventWhere[Q]
 	GameServerMapShares               gameServerMapShareWhere[Q]
 	GameServerMetricsHistories        gameServerMetricsHistoryWhere[Q]
@@ -65,7 +64,6 @@ func Where[Q sqlite.Filterable]() struct {
 		Games                             gameWhere[Q]
 		GameServers                       gameServerWhere[Q]
 		GameServerBackups                 gameServerBackupWhere[Q]
-		GameServerDiagnoses               gameServerDiagnosisWhere[Q]
 		GameServerLifecycleEvents         gameServerLifecycleEventWhere[Q]
 		GameServerMapShares               gameServerMapShareWhere[Q]
 		GameServerMetricsHistories        gameServerMetricsHistoryWhere[Q]
@@ -105,7 +103,6 @@ func Where[Q sqlite.Filterable]() struct {
 		Games:                             buildGameWhere[Q](Games.Columns),
 		GameServers:                       buildGameServerWhere[Q](GameServers.Columns),
 		GameServerBackups:                 buildGameServerBackupWhere[Q](GameServerBackups.Columns),
-		GameServerDiagnoses:               buildGameServerDiagnosisWhere[Q](GameServerDiagnoses.Columns),
 		GameServerLifecycleEvents:         buildGameServerLifecycleEventWhere[Q](GameServerLifecycleEvents.Columns),
 		GameServerMapShares:               buildGameServerMapShareWhere[Q](GameServerMapShares.Columns),
 		GameServerMetricsHistories:        buildGameServerMetricsHistoryWhere[Q](GameServerMetricsHistories.Columns),

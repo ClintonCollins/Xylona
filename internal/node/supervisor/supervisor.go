@@ -3,7 +3,6 @@
 package supervisor
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -16,7 +15,6 @@ import (
 	pty "github.com/aymanbagabas/go-pty"
 	"github.com/ziutek/telnet"
 
-	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -100,11 +98,6 @@ type Instance struct {
 
 // Command represents a managed process or internal task execution.
 type Command struct {
-	attemptStartedAt              time.Time
-	redactValues                  []string
-	failure                       *diagnosis.Report
-	failureOutput                 bytes.Buffer
-	failureOutputTruncated        bool
 	ID                            string
 	executionID                   string
 	User                          string

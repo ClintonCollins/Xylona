@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -23,43 +22,7 @@ import (
 // (ONLINE for game server start, INSTALLING/UPDATING for internal commands,
 // etc.). This method is a thin wrapper around supervisor.StartCommand and
 // does no policy of its own.
-func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (_ *supervisor.Command, errResult error) {
-	if config.ExecutionID == "" {
-		config.ExecutionID = uuid.NewString()
-	}
-	if config.AttemptStartedAt.IsZero() {
-		config.AttemptStartedAt = time.Now().UTC()
-	}
-	stage := diagnosis.StagePreStart
-	defer func() {
-		if errResult == nil || status != xylona.Status_ONLINE || config.InternalCommand || config.SuppressStatusEvents {
-			return
-		}
-		secrets := slices.Clone(config.RedactValues)
-		for _, value := range config.LaunchEnv {
-			secrets = append(secrets, value)
-		}
-		if config.InputTelnet != nil {
-			secrets = append(secrets, config.InputTelnet.Password)
-		}
-		if config.InputRCON != nil {
-			secrets = append(secrets, config.InputRCON.Password)
-		}
-		if config.InputREST != nil {
-			secrets = append(secrets, config.InputREST.Password)
-			secrets = append(secrets, config.InputREST.PreviousPasswords...)
-		}
-		report := diagnosis.Capture(errResult, "", secrets...)
-		report.ExecutionID = config.ExecutionID
-		report.AttemptStartedAt = config.AttemptStartedAt
-		report.OccurredAt = time.Now().UTC()
-		report.Stage = stage
-		report.EvidenceAvailable = false
-		if errors.Is(errResult, supervisor.ErrCommandAlreadyRunning) {
-			report.Stage = diagnosis.StagePreStart
-		}
-		errResult = &StartFailureError{Report: report, Err: errResult}
-	}()
+func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*supervisor.Command, error) {
 	if n.supervisor == nil {
 		return nil, errors.New("node: supervisor not configured")
 	}
@@ -70,9 +33,10 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (_ *supe
 	if errLaunchEnvironment != nil {
 		return nil, fmt.Errorf("node: validate launch environment: %w", errLaunchEnvironment)
 	}
+	if normalized.ExecutionID == "" {
+		normalized.ExecutionID = uuid.NewString()
+	}
 	prepared := supervisor.PreparedCommand{
-		AttemptStartedAt:     normalized.AttemptStartedAt,
-		RedactValues:         normalized.RedactValues,
 		ID:                   normalized.ID,
 		ExecutionID:          normalized.ExecutionID,
 		GameServerName:       normalized.Name,
@@ -155,7 +119,6 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (_ *supe
 		}
 	}
 
-	stage = diagnosis.StageLaunch
 	cmd, errStart := n.supervisor.StartCommand(prepared)
 	if errStart != nil {
 		return nil, fmt.Errorf("node: start process: %w", errStart)

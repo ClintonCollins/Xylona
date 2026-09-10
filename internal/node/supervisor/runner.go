@@ -16,7 +16,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/ziutek/telnet"
 
-	"github.com/ClintonCollins/Xylona/internal/diagnosis"
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/gameintegrations"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -103,8 +102,6 @@ type InputMethod struct {
 
 // PreparedCommand contains all inputs needed to launch or reuse a command.
 type PreparedCommand struct {
-	AttemptStartedAt   time.Time
-	RedactValues       []string
 	ID                 string
 	ExecutionID        string
 	GameServerName     string
@@ -333,7 +330,6 @@ func (inst *Instance) startAndWaitForJob(
 		errUnavailable := errors.New("start command: prepared process is unavailable")
 		startupResult <- errUnavailable
 		waitForJobOutput(command.ID, outputDone)
-		command.captureFailure(processGeneration, diagnosis.StageLaunch, errUnavailable, nil)
 		command.finalizeExecution(processGeneration, 1, true, false, commandEndFunc)
 		return
 	}
@@ -378,7 +374,6 @@ func (inst *Instance) startAndWaitForJob(
 			}
 		}
 		waitForJobOutput(command.ID, outputDone)
-		command.captureFailure(processGeneration, diagnosis.StageLaunch, errStartProcess, nil)
 		command.finalizeExecution(processGeneration, 1, true, false, commandEndFunc)
 		return
 	}
@@ -450,13 +445,6 @@ func (inst *Instance) startAndWaitForJob(
 		log.Debug().Err(errWait).Msg("Error waiting for command.")
 	}
 
-	if !command.IntentionalStop() && (errWait != nil || exitCodeKnown && exitCode != 0) {
-		var failureExitCode *int
-		if exitCodeKnown {
-			failureExitCode = &exitCode
-		}
-		command.captureFailure(processGeneration, diagnosis.StageRuntime, errWait, failureExitCode)
-	}
 	reportUnexpectedProcessExit(command, errWait, lifecycleExitCode, exitCodeKnown)
 
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
@@ -495,9 +483,6 @@ func (c *Command) finalizeExecution(
 	c.status = xylona.Status_OFFLINE
 	finalizationDone := c.finalizationDone
 	c.finalizationDone = nil
-	clear(c.redactValues)
-	c.redactValues = nil
-	c.failureOutput.Reset()
 	if clearLaunchEnvironment {
 		for name := range c.launchEnv {
 			c.launchEnv[name] = ""
@@ -593,9 +578,6 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 		}
 		if err != nil {
 			newCommand.Lock()
-			clear(newCommand.redactValues)
-			newCommand.redactValues = nil
-			newCommand.failureOutput.Reset()
 			newCommand.currentCMD = nil
 			newCommand.currentPTYCMD = nil
 			newCommand.currentPTY = nil

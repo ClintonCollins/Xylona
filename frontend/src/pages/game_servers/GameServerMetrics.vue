@@ -75,14 +75,6 @@
       </div>
     </section>
 
-    <div v-if="focusAt !== null" class="metrics-toolbar__metadata">
-      <span
-        >Historical window around {{ new Date(focusAt).toLocaleString() }}. Sampling can miss brief
-        spikes.</span
-      >
-      <q-btn flat no-caps label="Return to current metrics" @click="clearFocus" />
-    </div>
-
     <q-banner
       v-if="error !== ''"
       class="metrics-inline-state metrics-inline-state--error"
@@ -570,16 +562,6 @@ function resolveInitialRange() {
 }
 
 const viewMode = ref<MetricsViewMode>(resolveInitialViewMode())
-const focusAt = computed(() => {
-  const parsed = Date.parse(queryValue(route.query.at))
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-})
-
-function clearFocus() {
-  const query = { ...route.query }
-  delete query.at
-  void router.replace({ query })
-}
 
 const {
   currentCapacity,
@@ -593,7 +575,7 @@ const {
   selectedRange,
   timeline,
   viewState,
-} = useGameServerMetrics({ gameServerId, initialRange: resolveInitialRange(), focusAt })
+} = useGameServerMetrics({ gameServerId, initialRange: resolveInitialRange() })
 
 watch([selectedRange, viewMode], ([range, view]) => {
   try {
@@ -631,10 +613,7 @@ onBeforeUnmount(() => {
   hoveredMetricTimestampMs.value = null
 })
 
-const currentRange = computed(() => ({
-  ...getMetricsRangeOption(selectedRange.value),
-  live: focusAt.value === null && getMetricsRangeOption(selectedRange.value).live,
-}))
+const currentRange = computed(() => getMetricsRangeOption(selectedRange.value))
 
 const nextLongerRange = computed(() => {
   const index = metricsRangeOptions.findIndex((option) => option.value === selectedRange.value)

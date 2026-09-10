@@ -24,7 +24,6 @@ type preloaders struct {
 	Game                             gamePreloader
 	GameServer                       gameServerPreloader
 	GameServerBackup                 gameServerBackupPreloader
-	GameServerDiagnosis              gameServerDiagnosisPreloader
 	GameServerLifecycleEvent         gameServerLifecycleEventPreloader
 	GameServerMapShare               gameServerMapSharePreloader
 	GameServerMetricsHistory         gameServerMetricsHistoryPreloader
@@ -63,7 +62,6 @@ func getPreloaders() preloaders {
 		Game:                             buildGamePreloader(),
 		GameServer:                       buildGameServerPreloader(),
 		GameServerBackup:                 buildGameServerBackupPreloader(),
-		GameServerDiagnosis:              buildGameServerDiagnosisPreloader(),
 		GameServerLifecycleEvent:         buildGameServerLifecycleEventPreloader(),
 		GameServerMapShare:               buildGameServerMapSharePreloader(),
 		GameServerMetricsHistory:         buildGameServerMetricsHistoryPreloader(),
@@ -108,7 +106,6 @@ type thenLoaders[Q orm.Loadable] struct {
 	Game                             gameThenLoader[Q]
 	GameServer                       gameServerThenLoader[Q]
 	GameServerBackup                 gameServerBackupThenLoader[Q]
-	GameServerDiagnosis              gameServerDiagnosisThenLoader[Q]
 	GameServerLifecycleEvent         gameServerLifecycleEventThenLoader[Q]
 	GameServerMapShare               gameServerMapShareThenLoader[Q]
 	GameServerMetricsHistory         gameServerMetricsHistoryThenLoader[Q]
@@ -147,7 +144,6 @@ func getThenLoaders[Q orm.Loadable]() thenLoaders[Q] {
 		Game:                             buildGameThenLoader[Q](),
 		GameServer:                       buildGameServerThenLoader[Q](),
 		GameServerBackup:                 buildGameServerBackupThenLoader[Q](),
-		GameServerDiagnosis:              buildGameServerDiagnosisThenLoader[Q](),
 		GameServerLifecycleEvent:         buildGameServerLifecycleEventThenLoader[Q](),
 		GameServerMapShare:               buildGameServerMapShareThenLoader[Q](),
 		GameServerMetricsHistory:         buildGameServerMetricsHistoryThenLoader[Q](),
