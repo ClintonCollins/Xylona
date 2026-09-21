@@ -166,6 +166,7 @@ async function loadComposable() {
 }
 
 type HarnessVm = ComponentPublicInstance & {
+  queryFresh: boolean
   currentPlayerCount: number
   gameServer: ReturnType<typeof makeGameServer>
   maxPlayerCount: number
@@ -479,4 +480,17 @@ describe('useGameServerQueryStatusVersion', () => {
     expect(vm.gameServer.version).toBe('1.20.1')
     expect(vm.gameServer.versionInfo).toBeUndefined()
   })
+})
+
+it('keeps failed Valheim queries unavailable', async () => {
+  const wrapper = await mountHarness()
+  const vm = getHarnessVm(wrapper)
+  vm.gameServer.gameId = 'valheim'
+  vm.startQueryStatusVersionLifecycle()
+  const response = makeSourceQueryResponse(0, 10)
+  mocks.queryGameServer.mockResolvedValue(response)
+  await vm.queryGameServer()
+  expect(vm.queryFresh).toBe(false)
+  expect(vm.playerListSupported).toBe(false)
+  unmountHarness(wrapper)
 })

@@ -65,6 +65,18 @@ func List(ctx context.Context, database *db.Connection, gameServer *models.GameS
 	}
 
 	items := []Item{}
+	if gameServer.GameID == "valheim" {
+		item := Item{Kind: "valheim_runtime", Required: true, Complete: true, Message: "Valheim native runtime available"}
+		if client != nil {
+			caps, errCapabilities := client.GetRuntimeCapabilities(ctx)
+			if errCapabilities != nil || !caps.ValheimNativeRuntimeV1 {
+				item.Blocking = true
+				item.Complete = false
+				item.Message = "Reconnect or upgrade the target node to support the Valheim native runtime"
+			}
+		}
+		items = append(items, item)
+	}
 	if gameServer.GameID == "minecraft" {
 		item, errItem := minecraftEULAItem(ctx, database, gameServer, client, false)
 		if errItem != nil {
@@ -137,6 +149,10 @@ func List(ctx context.Context, database *db.Connection, gameServer *models.GameS
 func CheckStart(ctx context.Context, database *db.Connection, gameServer *models.GameServer, client readinessNodeClient) error {
 	if gameServer == nil {
 		return errors.New("game server is missing")
+	}
+	errJoinPassword := ValidateJoinPasswordStart(database, gameServer)
+	if errJoinPassword != nil {
+		return errJoinPassword
 	}
 	if gameServer.GameID == "minecraft" {
 		item, errItem := minecraftEULAItem(ctx, database, gameServer, client, true)

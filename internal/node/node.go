@@ -14,6 +14,7 @@ import (
 // node and the node binary's Connect-RPC server. Method receivers are pointers
 // so callers can reuse a single instance across goroutines.
 type Node struct {
+	serverLifecycleLocks       sync.Map
 	ctx                        context.Context
 	supervisor                 *supervisor.Instance
 	db                         *db.Connection

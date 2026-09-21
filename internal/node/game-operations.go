@@ -35,6 +35,8 @@ type GameOperationValue struct {
 
 // GameOperationRequest contains transport-neutral values plus controller-owned node credentials.
 type GameOperationRequest struct {
+	GameID           string
+	GameServerID     string
 	WorkingDirectory string
 	TokenName        string
 	TokenSecret      string
@@ -60,9 +62,10 @@ type GameOperationTransportDetails struct {
 
 // GameOperationResult is the node-authoritative transient outcome of an operation.
 type GameOperationResult struct {
-	Classification   GameOperationResultClassification
-	Message          string
-	TransportDetails GameOperationTransportDetails
+	ValheimAccessList *ValheimAccessList
+	Classification    GameOperationResultClassification
+	Message           string
+	TransportDetails  GameOperationTransportDetails
 }
 
 type addAdministratorValues struct {
@@ -127,6 +130,9 @@ type sevenDaysToDieCommandOperation struct {
 func (n *Node) ExecuteGameOperation(ctx context.Context, request GameOperationRequest) GameOperationResult {
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if request.GameID == "valheim" {
+		return n.executeValheimAccessOperation(ctx, request)
 	}
 	switch request.OperationID {
 	case gameintegrations.OperationIDSetCommandPermission, gameintegrations.OperationIDResetCommandPermission:

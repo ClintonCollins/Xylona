@@ -67,6 +67,7 @@ func (c *Command) scanJobOutput(
 	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
+	reader = c.redactedOutputReader(reader)
 
 	errRead := readConsoleRecords(reader, func(output string) bool {
 		select {

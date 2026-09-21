@@ -616,8 +616,14 @@
           </span>
         </div>
         <div class="player-rail__body">
+          <p v-if="gameServer.gameId === 'valheim' && !queryFresh" role="status" class="q-pa-md">
+            Player count and names unavailable. No fresh successful query has been received.
+          </p>
           <game-server-player-roster
-            :can-manage-players="hasPermission('game_server.players.manage')"
+            v-else
+            :can-manage-players="
+              gameServer.gameId !== 'valheim' && hasPermission('game_server.players.manage')
+            "
             :current-player-count="currentPlayerCount"
             :game-server-id="gameServerId"
             :is-online="isServerOnline"
@@ -640,7 +646,11 @@
           <q-tooltip>Expand player panel</q-tooltip>
         </q-btn>
         <span class="player-rail__mini-count font-mono">
-          {{ currentPlayerCount }}/{{ maxPlayerCount }}
+          {{
+            gameServer.gameId === 'valheim' && !queryFresh
+              ? 'Unknown'
+              : `${currentPlayerCount}/${maxPlayerCount}`
+          }}
         </span>
       </template>
     </aside>
@@ -883,6 +893,7 @@ const {
   gameServerId,
 })
 const {
+  queryFresh,
   currentPlayerCount,
   maxPlayerCount,
   onlinePlayers,
@@ -1469,6 +1480,7 @@ async function clearHytaleAccount() {
 }
 
 function readinessLabel(kind: string): string {
+  if (kind === 'valheim_runtime') return 'Valheim runtime'
   if (kind === 'minecraft_eula') {
     return 'Minecraft EULA'
   }

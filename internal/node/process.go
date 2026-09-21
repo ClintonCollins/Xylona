@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/ClintonCollins/Xylona/internal/launchenv"
 	"github.com/ClintonCollins/Xylona/internal/node/supervisor"
+	"github.com/ClintonCollins/Xylona/internal/valheim"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -23,10 +26,22 @@ import (
 // etc.). This method is a thin wrapper around supervisor.StartCommand and
 // does no policy of its own.
 func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*supervisor.Command, error) {
+	if config.RuntimeMode == valheim.NativeRuntime {
+		for index, arg := range config.Args {
+			if strings.EqualFold(arg, "-password") && index+1 < len(config.Args) {
+				config.RedactValues = append(config.RedactValues, config.Args[index+1])
+			}
+		}
+	}
 	if n.supervisor == nil {
 		return nil, errors.New("node: supervisor not configured")
 	}
 
+	unlockLifecycle, errLifecycle := n.lockServerLifecycle(config.WorkingDirectory)
+	if errLifecycle != nil {
+		return nil, errLifecycle
+	}
+	defer unlockLifecycle()
 	normalized := config.normalize()
 	launchEnvironmentIssues := launchenv.ValidateMap(normalized.LaunchEnv)
 	errLaunchEnvironment := launchenv.NewValidationError(launchEnvironmentIssues)
@@ -37,6 +52,7 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		normalized.ExecutionID = uuid.NewString()
 	}
 	prepared := supervisor.PreparedCommand{
+		RedactValues:         slices.Clone(normalized.RedactValues),
 		ID:                   normalized.ID,
 		ExecutionID:          normalized.ExecutionID,
 		GameServerName:       normalized.Name,
@@ -52,6 +68,23 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		SuppressStatusEvents: normalized.SuppressStatusEvents,
 	}
 
+	if normalized.RuntimeMode != "" {
+		if normalized.RuntimeMode != valheim.NativeRuntime || normalized.GameID != "valheim" || status != xylona.Status_ONLINE || normalized.InternalCommand {
+			return nil, errors.New("unsupported managed runtime mode")
+		}
+		root, executable, trusted, errPrepare := valheim.PrepareNative(runtime.GOOS, normalized.WorkingDirectory, normalized.BaseCommand, normalized.ID, normalized.Args, normalized.LaunchEnv)
+		if errPrepare != nil {
+			return nil, fmt.Errorf("prepare native Valheim runtime: %w", errPrepare)
+		}
+		errLoader := prepareInstalledValheimLoader(root, runtime.GOOS, trusted)
+		if errLoader != nil {
+			return nil, errLoader
+		}
+		prepared.WorkingDirectory, prepared.BaseCommand, prepared.TrustedRuntimeEnv = root, executable, trusted
+		prepared.StopTimeout = 120 * time.Second
+		prepared.ServiceID = "valheim"
+
+	}
 	configuredInputs := 0
 	if normalized.InputTelnet != nil {
 		configuredInputs++
@@ -165,6 +198,14 @@ func (n *Node) StopProcess(processID, stopInputCommand string) error {
 		}
 		return fmt.Errorf("node: stop process: %w", errGet)
 	}
+	unlockLifecycle, errLifecycle := n.lockServerLifecycle(cmd.WorkingDir())
+	if errLifecycle != nil {
+		return errLifecycle
+	}
+	defer unlockLifecycle()
+	if cmd.ServiceID() == "valheim" {
+		stopInputCommand = ""
+	}
 	cmd.Stop(stopInputCommand)
 	return nil
 }
@@ -188,6 +229,9 @@ func (n *Node) SendConsoleInputContext(ctx context.Context, processID, input str
 			return ErrProcessNotFound
 		}
 		return fmt.Errorf("node: send console input: %w", errGet)
+	}
+	if cmd.ServiceID() == "valheim" {
+		return ErrConsoleInputUnavailable
 	}
 	_, errSend := cmd.ExecuteInput(ctx, input)
 	if errSend != nil {

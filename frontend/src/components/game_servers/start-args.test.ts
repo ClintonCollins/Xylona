@@ -1,6 +1,47 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildPlaceholderVars, resolveStartCommandBase } from './start-args'
+import {
+  buildPlaceholderVars,
+  resolveStartCommandBase,
+  resolveStartArgs,
+  type StartArgBlock,
+  type StartArgPatch,
+} from './start-args'
+
+describe('optional Valheim password', () => {
+  const template: StartArgBlock[] = [
+    { id: 'password', order: 1, ownership: 'editable', tokens: ['-password', ''] },
+    { id: 'port', order: 2, ownership: 'system', tokens: ['-port', '2456'] },
+  ]
+
+  it.each([
+    { name: 'unset default', patches: [], expected: ['-port', '2456'] },
+    {
+      name: 'legacy empty value',
+      patches: [{ id: 'password', op: 'edit', tokens: ['-password', ''] }],
+      expected: ['-port', '2456'],
+    },
+    { name: 'cleared', patches: [{ id: 'password', op: 'remove' }], expected: ['-port', '2456'] },
+    {
+      name: 'configured',
+      patches: [{ id: 'password', op: 'edit', tokens: ['-password', 'two words'] }],
+      expected: ['-password', 'two words', '-port', '2456'],
+    },
+  ])('$name', ({ patches, expected }) => {
+    const result = resolveStartArgs(template, patches as StartArgPatch[], {}, 'valheim')
+    expect(result.args).toEqual(expected)
+    expect(result.resolvedBlocks.flatMap((block) => block.resolvedTokens)).toEqual(expected)
+  })
+
+  it('preserves empty arguments for other games', () => {
+    expect(resolveStartArgs(template, [], {}, 'other').args).toEqual([
+      '-password',
+      '',
+      '-port',
+      '2456',
+    ])
+  })
+})
 
 describe('buildPlaceholderVars', () => {
   it('includes SERVER_ID for unique placeholder resolution', () => {

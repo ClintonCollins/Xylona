@@ -36,6 +36,7 @@ const activeTab = ref<'installed' | 'browse'>('installed')
 const loading = ref(true)
 const installedMods = ref<InstalledMod[]>([])
 const isSevenDaysToDie = ref(false)
+const isValheim = ref(false)
 const reportedModsLoading = ref(false)
 const reportedModsResponse = ref({
   connectionState:
@@ -147,6 +148,7 @@ async function loadGameServerConfig(): Promise<void> {
     const gs = response.gameServer
     if (!gs) return
 
+    isValheim.value = gs.gameId === 'valheim'
     isSevenDaysToDie.value = gs.gameId === '7_days_to_die'
 
     const resolvedModProfile = gs.resolvedModProfile
@@ -367,6 +369,11 @@ async function handleInstallFromBrowse(source: string, sourceId: string): Promis
 
     const latestVersion = response.versions[0]
 
+    if (isValheim.value) {
+      await directInstall(source, sourceId, latestVersion.versionId)
+      return
+    }
+
     // If there are no new dependencies, install directly without showing
     // the confirmation dialog to reduce friction.
     const hasNewDeps = latestVersion.dependencies.some(
@@ -405,6 +412,11 @@ async function handleInstallFromDetail(
   versionId: string,
 ): Promise<void> {
   showDetailDialog.value = false
+
+  if (isValheim.value) {
+    await directInstall(source, sourceId, versionId)
+    return
+  }
 
   // Fetch versions to get dependency info for the selected version
   try {

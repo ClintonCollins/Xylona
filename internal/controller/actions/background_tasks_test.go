@@ -662,3 +662,61 @@ func TestGameServerQueryTelemetrySnapshots(t *testing.T) {
 		})
 	}
 }
+
+func TestValheimRemoteQueryRecovery(t *testing.T) {
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                   "remote-node",
+		GetProcessSnapshotResult: &node.ProcessSnapshot{ID: "valheim", Status: xylona.Status_ONLINE.String()},
+		GetProcessSnapshotFound:  true,
+		QueryGameServerResult:    node.GameServerQueryResult{Kind: node.GameServerQueryKindSource, Source: &node.SourceQueryInfo{Responded: true, Players: 2, MaxPlayers: 10}},
+	}
+	registry := noderegistry.New("local-node", &nodeclient.FakeNodeClient{NodeID: "local-node"})
+	registry.Register(remoteClient)
+	inst := &Instance{ctx: context.Background(), nodeRegistry: registry, serverQueriesInfoMap: make(map[string]*xylona.ServerQuery), serverQueriesMutex: &sync.RWMutex{}}
+	server := &models.GameServer{ID: "valheim", GameID: "valheim", NodeID: "remote-node", IP: "10.0.0.5", Port: 2456, QueryPort: 2457, MaxPlayers: 10}
+	server.R.Game = &models.Game{ID: "valheim", UsesSourceQuery: true}
+	inst.queryGameServers(context.Background(), []*models.GameServer{server})
+	first := inst.GetGameServerQueryTelemetry(server.ID)
+	if !first.PlayerCountValid || first.PlayerCount != 2 || inst.GetServerQueries().GetServers()[server.ID].GetSource().GetPlayerListSupported() {
+		t.Fatal("valid count without player list was lost")
+	}
+	remoteClient.QueryGameServerErr = errors.New("node connection lost")
+	inst.queryGameServers(context.Background(), []*models.GameServer{server})
+	failed := inst.GetGameServerQueryTelemetry(server.ID)
+	if failed.Status != GameServerQueryTelemetryStatusFailure || failed.PlayerCountValid || !failed.LastSuccessAt.Equal(first.LastSuccessAt) {
+		t.Fatalf("failed query telemetry = %+v", failed)
+	}
+	if inst.GetServerQueries().GetServers()[server.ID].GetSource().GetResponded() {
+		t.Fatal("failed remote query retained a successful response")
+	}
+	remoteClient.QueryGameServerErr = nil
+	remoteClient.QueryGameServerResult.Source.Players = 0
+	remoteClient.QueryGameServerResult.Source.PlayerListSupported = true
+	inst.queryGameServers(context.Background(), []*models.GameServer{server})
+	recovered := inst.GetGameServerQueryTelemetry(server.ID)
+	if recovered.Status != GameServerQueryTelemetryStatusSuccess || !recovered.PlayerCountValid || recovered.PlayerCount != 0 {
+		t.Fatalf("recovered zero telemetry = %+v", recovered)
+	}
+	if remoteClient.QueryGameServerCalls[0].QueryPort != 2457 {
+		t.Fatal("remote query did not use configured adjacent port")
+	}
+}
+
+func TestValheimQueryExpiresCachedPlayers(t *testing.T) {
+	inst := &Instance{serverQueriesInfoMap: map[string]*xylona.ServerQuery{
+		"valheim": {ServerId: "valheim", Type: xylona.ServerQuery_Source, Source: &xylona.SourceQueryInfo{Responded: true, Players: 1, PlayerListSupported: true, PlayerList: []string{"Player"}}},
+	}, serverQueriesMutex: &sync.RWMutex{}}
+	observedAt := time.Now().Add(-time.Minute)
+	inst.storeGameServerQueryTelemetry("valheim", GameServerQueryTelemetrySnapshot{Status: GameServerQueryTelemetryStatusSuccess, QueryType: xylona.ServerQuery_Source, LastSuccessAt: observedAt, PlayerCountValid: true, PlayerCount: 1})
+	telemetry := inst.GetGameServerQueryTelemetry("valheim")
+	if telemetry.Status != GameServerQueryTelemetryStatusUnavailable || telemetry.PlayerCountValid || !telemetry.LastSuccessAt.Equal(observedAt) {
+		t.Fatalf("expired telemetry = %+v", telemetry)
+	}
+	query := inst.GetServerQueries().GetServers()["valheim"].GetSource()
+	if query.GetResponded() || len(query.GetPlayerList()) != 0 || query.GetPlayerListSupported() {
+		t.Fatalf("expired query exposed current players: %v", query)
+	}
+	if !inst.serverQueriesInfoMap["valheim"].GetSource().GetResponded() {
+		t.Fatal("projection mutated the shared cached response")
+	}
+}

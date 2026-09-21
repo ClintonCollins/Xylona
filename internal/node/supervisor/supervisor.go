@@ -98,6 +98,7 @@ type Instance struct {
 
 // Command represents a managed process or internal task execution.
 type Command struct {
+	redactValues                  []string
 	ID                            string
 	executionID                   string
 	User                          string

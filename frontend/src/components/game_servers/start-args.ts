@@ -178,6 +178,7 @@ export function resolveStartArgs(
   template: StartArgBlock[],
   patches: StartArgPatch[],
   vars: Record<string, string>,
+  gameId?: string,
 ) {
   if (template.length === 0) {
     return {
@@ -273,6 +274,20 @@ export function resolveStartArgs(
     })
 
     emitAnchoredAdds(block.id)
+  }
+
+  if (gameId === 'valheim') {
+    for (const block of resolvedBlocks) {
+      for (let index = 0; index + 1 < block.resolvedTokens.length; index++) {
+        if (
+          block.resolvedTokens[index]?.toLowerCase() === '-password' &&
+          block.resolvedTokens[index + 1] === ''
+        ) {
+          block.resolvedTokens.splice(index, 2)
+          index--
+        }
+      }
+    }
   }
 
   return {

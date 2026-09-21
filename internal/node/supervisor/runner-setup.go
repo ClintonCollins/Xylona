@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,20 @@ import (
 )
 
 func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistentCommand *Command) *Command {
+	redactValues := slices.Clone(preparedCommand.RedactValues)
+	for _, value := range preparedCommand.LaunchEnv {
+		redactValues = append(redactValues, value)
+	}
+	if preparedCommand.InputMethod.TelnetCredentials != nil {
+		redactValues = append(redactValues, preparedCommand.InputMethod.TelnetCredentials.Password)
+	}
+	if preparedCommand.InputMethod.RCONCredentials != nil {
+		redactValues = append(redactValues, preparedCommand.InputMethod.RCONCredentials.Password)
+	}
+	if preparedCommand.InputMethod.RESTCredentials != nil {
+		redactValues = append(redactValues, preparedCommand.InputMethod.RESTCredentials.Password)
+		redactValues = append(redactValues, preparedCommand.InputMethod.RESTCredentials.PreviousPasswords...)
+	}
 	var newCommand *Command
 	var internalLaunchEnv map[string]string
 	if preparedCommand.InternalCommand {
@@ -103,6 +118,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			suppressStatusEvents: preparedCommand.SuppressStatusEvents,
 		}
 	}
+	clear(newCommand.redactValues)
+	newCommand.redactValues = redactValues
 	return newCommand
 }
 
@@ -135,7 +152,7 @@ func (inst *Instance) setupCmd(newCommand *Command, preparedCommand PreparedComm
 		return terminateProcessTree(cmd.Process)
 	}
 	cmd.Dir = preparedCommand.WorkingDirectory
-	cmd.Env = appendLaunchEnvironment(buildChildEnvironment(CurrentRuntime, os.Environ()), preparedCommand.LaunchEnv)
+	cmd.Env = appendLaunchEnvironment(appendLaunchEnvironment(buildChildEnvironment(CurrentRuntime, os.Environ()), preparedCommand.LaunchEnv), preparedCommand.TrustedRuntimeEnv)
 
 	stdOutPipe, stdErrPipe, err := inst.setupCmdPipes(newCommand, cmd)
 	if err != nil {

@@ -4,6 +4,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import ValheimAccessOperations from '@/components/game_servers/ValheimAccessOperations.vue'
 import OperationCatalogInput from '@/components/game_servers/OperationCatalogInput.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import {
@@ -188,6 +189,12 @@ const defaultWorkbenchState: WorkbenchState = {
 const route = useRoute()
 const operations = ref<GameOperationDescriptor[]>([])
 const gameServerName = ref('')
+const gameID = ref('')
+const isValheim = computed(
+  () =>
+    gameID.value === 'valheim' ||
+    operations.value.some((operation) => operation.id.startsWith('valheim.access.')),
+)
 const loading = ref(true)
 const loadError = ref('')
 const formError = ref('')
@@ -456,9 +463,11 @@ const worldTimeLabel = computed(() => {
 onMounted(() => {
   restoreWorkbenchState()
   void loadOperations()
-  void loadLifecycleState()
-  void loadWorldStatus()
-  worldStatusPollTimer = setInterval(() => void loadWorldStatus(), worldStatusPollMilliseconds)
+  void loadLifecycleState().then(() => {
+    if (isValheim.value) return
+    void loadWorldStatus()
+    worldStatusPollTimer = setInterval(() => void loadWorldStatus(), worldStatusPollMilliseconds)
+  })
 })
 
 watch(
@@ -485,7 +494,7 @@ onBeforeUnmount(() => {
 })
 
 async function loadOperations() {
-  loading.value = true
+  loading.value = operations.value.length === 0
   loadError.value = ''
   try {
     const response = await GetXylonaClient().listGameServerOperations(
@@ -510,6 +519,7 @@ async function loadLifecycleState() {
       create(GetGameServerRequestSchema, { id: gameServerID.value }),
     )
     const gameServer = response.gameServer
+    gameID.value = gameServer?.gameId ?? ''
     if (!gameServer || gameServer.status === Status.UNKNOWN) return
     lifecycleStatus.value = gameServer.status
     canStartServer.value = gameServer.effectivePermissions.includes('game_server.start')
@@ -1003,7 +1013,7 @@ function resultIcon(classification: GameOperationResultClassification) {
       "
       title="Operations workbench" />
 
-    <section class="server-strip" aria-label="Current server state">
+    <section v-if="!isValheim" class="server-strip" aria-label="Current server state">
       <div class="server-strip__identity">
         <span class="server-strip__icon"><q-icon aria-hidden="true" name="schedule" /></span>
         <div>
@@ -1059,6 +1069,12 @@ function resultIcon(classification: GameOperationResultClassification) {
         Retry
       </button>
     </div>
+
+    <valheim-access-operations
+      v-else-if="isValheim"
+      :server-id="gameServerID"
+      :operations="operations"
+      @refresh="loadOperations" />
 
     <div v-else-if="!hasCommonOperations" class="operations-state">
       <q-icon aria-hidden="true" name="visibility_off" />

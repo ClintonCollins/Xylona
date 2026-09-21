@@ -10,6 +10,21 @@ func (inst *Instance) GetServerQueries() *xylona.AllServersQueryInfo {
 	defer inst.serverQueriesMutex.RUnlock()
 	allServerQueryInfo := &xylona.AllServersQueryInfo{Servers: make(map[string]*xylona.ServerQuery)}
 	for _, serverQuery := range inst.serverQueriesInfoMap {
+		telemetry := inst.GetGameServerQueryTelemetry(serverQuery.GetServerId())
+		if telemetry.Status == GameServerQueryTelemetryStatusUnavailable && serverQueryResponded(serverQuery) {
+			// Send an explicit unavailable payload so subscribers discard old players.
+			unavailable := &xylona.ServerQuery{ServerId: serverQuery.GetServerId(), ServerName: serverQuery.GetServerName(), Type: serverQuery.GetType()}
+			switch serverQuery.GetType() {
+			case xylona.ServerQuery_Source:
+				unavailable.Source = &xylona.SourceQueryInfo{MaxPlayers: serverQuery.GetSource().GetMaxPlayers()}
+			case xylona.ServerQuery_Minecraft:
+				unavailable.Minecraft = &xylona.MinecraftQueryInfo{MaxPlayers: serverQuery.GetMinecraft().GetMaxPlayers()}
+			case xylona.ServerQuery_Palworld:
+				unavailable.Palworld = &xylona.PalworldQueryInfo{MaxPlayers: serverQuery.GetPalworld().GetMaxPlayers()}
+			}
+			allServerQueryInfo.Servers[serverQuery.GetServerId()] = unavailable
+			continue
+		}
 		allServerQueryInfo.Servers[serverQuery.GetServerId()] = serverQuery
 	}
 	return allServerQueryInfo

@@ -161,6 +161,14 @@ const (
 	// XylonaAcceptMinecraftEulaProcedure is the fully-qualified name of the Xylona's
 	// AcceptMinecraftEula RPC.
 	XylonaAcceptMinecraftEulaProcedure = "/xylona.Xylona/AcceptMinecraftEula"
+	// XylonaGetJoinPasswordStateProcedure is the fully-qualified name of the Xylona's
+	// GetJoinPasswordState RPC.
+	XylonaGetJoinPasswordStateProcedure = "/xylona.Xylona/GetJoinPasswordState"
+	// XylonaSetJoinPasswordProcedure is the fully-qualified name of the Xylona's SetJoinPassword RPC.
+	XylonaSetJoinPasswordProcedure = "/xylona.Xylona/SetJoinPassword"
+	// XylonaClearJoinPasswordProcedure is the fully-qualified name of the Xylona's ClearJoinPassword
+	// RPC.
+	XylonaClearJoinPasswordProcedure = "/xylona.Xylona/ClearJoinPassword"
 	// XylonaSetSteamGSLTProcedure is the fully-qualified name of the Xylona's SetSteamGSLT RPC.
 	XylonaSetSteamGSLTProcedure = "/xylona.Xylona/SetSteamGSLT"
 	// XylonaClearSteamGSLTProcedure is the fully-qualified name of the Xylona's ClearSteamGSLT RPC.
@@ -539,6 +547,9 @@ type XylonaClient interface {
 	SetGameServerAdminInterfacePassword(context.Context, *connect.Request[xylona.SetGameServerAdminInterfacePasswordRequest]) (*connect.Response[xylona.SetGameServerAdminInterfacePasswordResponse], error)
 	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
+	GetJoinPasswordState(context.Context, *connect.Request[xylona.GetJoinPasswordStateRequest]) (*connect.Response[xylona.GetJoinPasswordStateResponse], error)
+	SetJoinPassword(context.Context, *connect.Request[xylona.SetJoinPasswordRequest]) (*connect.Response[xylona.SetJoinPasswordResponse], error)
+	ClearJoinPassword(context.Context, *connect.Request[xylona.ClearJoinPasswordRequest]) (*connect.Response[xylona.ClearJoinPasswordResponse], error)
 	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
 	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
 	StartHytaleDeviceAuth(context.Context, *connect.Request[xylona.StartHytaleDeviceAuthRequest]) (*connect.Response[xylona.StartHytaleDeviceAuthResponse], error)
@@ -1005,6 +1016,24 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaAcceptMinecraftEulaProcedure,
 			connect.WithSchema(xylonaMethods.ByName("AcceptMinecraftEula")),
+			connect.WithClientOptions(opts...),
+		),
+		getJoinPasswordState: connect.NewClient[xylona.GetJoinPasswordStateRequest, xylona.GetJoinPasswordStateResponse](
+			httpClient,
+			baseURL+XylonaGetJoinPasswordStateProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetJoinPasswordState")),
+			connect.WithClientOptions(opts...),
+		),
+		setJoinPassword: connect.NewClient[xylona.SetJoinPasswordRequest, xylona.SetJoinPasswordResponse](
+			httpClient,
+			baseURL+XylonaSetJoinPasswordProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SetJoinPassword")),
+			connect.WithClientOptions(opts...),
+		),
+		clearJoinPassword: connect.NewClient[xylona.ClearJoinPasswordRequest, xylona.ClearJoinPasswordResponse](
+			httpClient,
+			baseURL+XylonaClearJoinPasswordProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ClearJoinPassword")),
 			connect.WithClientOptions(opts...),
 		),
 		setSteamGSLT: connect.NewClient[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse](
@@ -1767,6 +1796,9 @@ type xylonaClient struct {
 	setGameServerAdminInterfacePassword     *connect.Client[xylona.SetGameServerAdminInterfacePasswordRequest, xylona.SetGameServerAdminInterfacePasswordResponse]
 	getGameServerReadiness                  *connect.Client[xylona.GetGameServerReadinessRequest, xylona.GetGameServerReadinessResponse]
 	acceptMinecraftEula                     *connect.Client[xylona.AcceptMinecraftEulaRequest, xylona.AcceptMinecraftEulaResponse]
+	getJoinPasswordState                    *connect.Client[xylona.GetJoinPasswordStateRequest, xylona.GetJoinPasswordStateResponse]
+	setJoinPassword                         *connect.Client[xylona.SetJoinPasswordRequest, xylona.SetJoinPasswordResponse]
+	clearJoinPassword                       *connect.Client[xylona.ClearJoinPasswordRequest, xylona.ClearJoinPasswordResponse]
 	setSteamGSLT                            *connect.Client[xylona.SetSteamGSLTRequest, xylona.SetSteamGSLTResponse]
 	clearSteamGSLT                          *connect.Client[xylona.ClearSteamGSLTRequest, xylona.ClearSteamGSLTResponse]
 	startHytaleDeviceAuth                   *connect.Client[xylona.StartHytaleDeviceAuthRequest, xylona.StartHytaleDeviceAuthResponse]
@@ -2149,6 +2181,21 @@ func (c *xylonaClient) GetGameServerReadiness(ctx context.Context, req *connect.
 // AcceptMinecraftEula calls xylona.Xylona.AcceptMinecraftEula.
 func (c *xylonaClient) AcceptMinecraftEula(ctx context.Context, req *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error) {
 	return c.acceptMinecraftEula.CallUnary(ctx, req)
+}
+
+// GetJoinPasswordState calls xylona.Xylona.GetJoinPasswordState.
+func (c *xylonaClient) GetJoinPasswordState(ctx context.Context, req *connect.Request[xylona.GetJoinPasswordStateRequest]) (*connect.Response[xylona.GetJoinPasswordStateResponse], error) {
+	return c.getJoinPasswordState.CallUnary(ctx, req)
+}
+
+// SetJoinPassword calls xylona.Xylona.SetJoinPassword.
+func (c *xylonaClient) SetJoinPassword(ctx context.Context, req *connect.Request[xylona.SetJoinPasswordRequest]) (*connect.Response[xylona.SetJoinPasswordResponse], error) {
+	return c.setJoinPassword.CallUnary(ctx, req)
+}
+
+// ClearJoinPassword calls xylona.Xylona.ClearJoinPassword.
+func (c *xylonaClient) ClearJoinPassword(ctx context.Context, req *connect.Request[xylona.ClearJoinPasswordRequest]) (*connect.Response[xylona.ClearJoinPasswordResponse], error) {
+	return c.clearJoinPassword.CallUnary(ctx, req)
 }
 
 // SetSteamGSLT calls xylona.Xylona.SetSteamGSLT.
@@ -2796,6 +2843,9 @@ type XylonaHandler interface {
 	SetGameServerAdminInterfacePassword(context.Context, *connect.Request[xylona.SetGameServerAdminInterfacePasswordRequest]) (*connect.Response[xylona.SetGameServerAdminInterfacePasswordResponse], error)
 	GetGameServerReadiness(context.Context, *connect.Request[xylona.GetGameServerReadinessRequest]) (*connect.Response[xylona.GetGameServerReadinessResponse], error)
 	AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error)
+	GetJoinPasswordState(context.Context, *connect.Request[xylona.GetJoinPasswordStateRequest]) (*connect.Response[xylona.GetJoinPasswordStateResponse], error)
+	SetJoinPassword(context.Context, *connect.Request[xylona.SetJoinPasswordRequest]) (*connect.Response[xylona.SetJoinPasswordResponse], error)
+	ClearJoinPassword(context.Context, *connect.Request[xylona.ClearJoinPasswordRequest]) (*connect.Response[xylona.ClearJoinPasswordResponse], error)
 	SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error)
 	ClearSteamGSLT(context.Context, *connect.Request[xylona.ClearSteamGSLTRequest]) (*connect.Response[xylona.ClearSteamGSLTResponse], error)
 	StartHytaleDeviceAuth(context.Context, *connect.Request[xylona.StartHytaleDeviceAuthRequest]) (*connect.Response[xylona.StartHytaleDeviceAuthResponse], error)
@@ -3258,6 +3308,24 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaAcceptMinecraftEulaProcedure,
 		svc.AcceptMinecraftEula,
 		connect.WithSchema(xylonaMethods.ByName("AcceptMinecraftEula")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetJoinPasswordStateHandler := connect.NewUnaryHandler(
+		XylonaGetJoinPasswordStateProcedure,
+		svc.GetJoinPasswordState,
+		connect.WithSchema(xylonaMethods.ByName("GetJoinPasswordState")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaSetJoinPasswordHandler := connect.NewUnaryHandler(
+		XylonaSetJoinPasswordProcedure,
+		svc.SetJoinPassword,
+		connect.WithSchema(xylonaMethods.ByName("SetJoinPassword")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaClearJoinPasswordHandler := connect.NewUnaryHandler(
+		XylonaClearJoinPasswordProcedure,
+		svc.ClearJoinPassword,
+		connect.WithSchema(xylonaMethods.ByName("ClearJoinPassword")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaSetSteamGSLTHandler := connect.NewUnaryHandler(
@@ -4070,6 +4138,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaGetGameServerReadinessHandler.ServeHTTP(w, r)
 		case XylonaAcceptMinecraftEulaProcedure:
 			xylonaAcceptMinecraftEulaHandler.ServeHTTP(w, r)
+		case XylonaGetJoinPasswordStateProcedure:
+			xylonaGetJoinPasswordStateHandler.ServeHTTP(w, r)
+		case XylonaSetJoinPasswordProcedure:
+			xylonaSetJoinPasswordHandler.ServeHTTP(w, r)
+		case XylonaClearJoinPasswordProcedure:
+			xylonaClearJoinPasswordHandler.ServeHTTP(w, r)
 		case XylonaSetSteamGSLTProcedure:
 			xylonaSetSteamGSLTHandler.ServeHTTP(w, r)
 		case XylonaClearSteamGSLTProcedure:
@@ -4523,6 +4597,18 @@ func (UnimplementedXylonaHandler) GetGameServerReadiness(context.Context, *conne
 
 func (UnimplementedXylonaHandler) AcceptMinecraftEula(context.Context, *connect.Request[xylona.AcceptMinecraftEulaRequest]) (*connect.Response[xylona.AcceptMinecraftEulaResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.AcceptMinecraftEula is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetJoinPasswordState(context.Context, *connect.Request[xylona.GetJoinPasswordStateRequest]) (*connect.Response[xylona.GetJoinPasswordStateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetJoinPasswordState is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SetJoinPassword(context.Context, *connect.Request[xylona.SetJoinPasswordRequest]) (*connect.Response[xylona.SetJoinPasswordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SetJoinPassword is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ClearJoinPassword(context.Context, *connect.Request[xylona.ClearJoinPasswordRequest]) (*connect.Response[xylona.ClearJoinPasswordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ClearJoinPassword is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) SetSteamGSLT(context.Context, *connect.Request[xylona.SetSteamGSLTRequest]) (*connect.Response[xylona.SetSteamGSLTResponse], error) {

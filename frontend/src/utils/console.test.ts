@@ -5,6 +5,60 @@ import { parseConsole } from './console'
 describe('parseConsole', () => {
   it.each([
     {
+      input: '09/09/2026 22:31:14: Worldgenerator version setup:2',
+      expected:
+        "<span class='text-grey-6'>09/09/2026 22:31:14:</span> Worldgenerator version setup:2",
+    },
+    {
+      input: '[Info   : Unity Log] 09/09/2026 22:31:14: Steam game server initialized',
+      expected:
+        "<span class='text-cyan-5'>[Info   : Unity Log]</span> <span class='text-grey-6'>09/09/2026 22:31:14:</span> <span class='text-green-5'>Steam game server initialized</span>",
+    },
+    {
+      input: '[Message:   BepInEx] Chainloader startup complete',
+      expected:
+        "<span class='text-cyan-5'>[Message:   BepInEx]</span> Chainloader startup complete",
+    },
+    {
+      input: '[Warning: Unity Log] HDR Render Texture not supported',
+      expected:
+        "<span class='text-yellow-5'>[Warning: Unity Log]</span> HDR Render Texture not supported",
+    },
+    {
+      input: '[Error  : Unity Log] NullReferenceException: Object reference not set',
+      expected:
+        "<span class='text-red-5'>[Error  : Unity Log]</span> <span class='text-red-5'>NullReferenceException: Object reference not set</span>",
+    },
+    {
+      input: '09/09/2026 22:31:14: Error bad password: Server password is too short',
+      expected:
+        "<span class='text-grey-6'>09/09/2026 22:31:14:</span> <span class='text-red-5'>Error bad password: Server password is too short</span>",
+    },
+    {
+      input: '[Debug  : Plugin] Waiting for world',
+      expected: "<span class='text-grey-6'>[Debug  : Plugin]</span> Waiting for world",
+    },
+    {
+      input: '  Warning: Missing audio\r\n\nGame server connected\n  at ZNet.Awake ()',
+      expected:
+        "  <span class='text-yellow-5'>Warning: Missing audio</span>\r\n\n<span class='text-green-5'>Game server connected</span>\n  at ZNet.Awake ()",
+    },
+    {
+      input: '[Info   : <img src=x onerror=alert(1)>] <script>alert("&")</script>',
+      expected:
+        '<span class=\'text-cyan-5\'>[Info   : &lt;img src=x onerror=alert(1)&gt;]</span> &lt;script&gt;alert("&amp;")&lt;/script&gt;',
+    },
+    {
+      input: 'unrecognized <output> & text',
+      expected: 'unrecognized &lt;output&gt; &amp; text',
+    },
+  ])('highlights Valheim output: $input', ({ input, expected }) => {
+    expect(parseConsole('valheim', input)).toBe(expected)
+    expect(parseConsole('VALHEIM', input)).toBe(expected)
+  })
+
+  it.each([
+    {
       name: 'highlights a SteamCMD launcher and executable path for every game',
       game: 'minecraft',
       input:

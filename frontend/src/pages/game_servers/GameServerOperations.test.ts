@@ -324,6 +324,9 @@ async function mountOperations(operations = commonOperations) {
   const wrapper = mount(GameServerOperations, {
     global: {
       stubs: {
+        'q-select': true,
+        'q-input': true,
+        'q-btn': { props: ['label'], template: '<button>{{ label }}</button>' },
         'q-icon': { props: ['name'], template: '<i :data-icon="name" />' },
         'q-spinner': { template: '<span>Loading</span>' },
         'q-dialog': {
@@ -1108,4 +1111,26 @@ describe('GameServerOperations', () => {
     ).toBeDefined()
     expect(wrapper.text()).toContain('Start the server to manage players.')
   })
+})
+
+it('opens stored Valheim operations while stopped without requesting 7 Days to Die status', async () => {
+  mocks.getSevenDaysToDieWebAPIStatus.mockClear()
+  mocks.getGameServer.mockResolvedValue({
+    gameServer: create(GameServerSchema, {
+      id: 'server-1',
+      gameId: 'valheim',
+      status: Status.OFFLINE,
+    }),
+  })
+  const wrapper = await mountOperations([
+    create(GameOperationDescriptorSchema, {
+      id: 'valheim.access.administrators.list',
+      name: 'Read administrators',
+      available: true,
+    }),
+  ])
+  expect(mocks.getSevenDaysToDieWebAPIStatus).not.toHaveBeenCalled()
+  expect(wrapper.text()).toContain('Stop the server before making changes')
+  expect(wrapper.text()).not.toContain('to run operations')
+  wrapper.unmount()
 })

@@ -140,6 +140,11 @@
             <span class="section-title">Identity</span>
             <span class="section-line"></span>
           </div>
+          <join-password-settings
+            v-if="gameServer.gameId === 'valheim'"
+            :server-id="gameServerId"
+            :can-edit="gameServer.effectivePermissions.includes('game_server.settings')"
+            class="q-mb-lg full-width" />
           <div class="row q-col-gutter-md q-gutter-y-md full-width">
             <q-input
               v-model="gameServer.name"
@@ -763,6 +768,7 @@ import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerDnsBindingSettings from './GameServerDNSBindingSettings.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
+import JoinPasswordSettings from './JoinPasswordSettings.vue'
 import { formatProtoTimestamp } from './game-server-access-utils'
 import { useGameServerFormState } from './useGameServerFormState'
 import type {

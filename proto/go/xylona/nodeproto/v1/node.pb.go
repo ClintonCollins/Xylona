@@ -1873,6 +1873,9 @@ type StartProcessRequest struct {
 	TelnetInput   *TelnetInput `protobuf:"bytes,15,opt,name=telnet_input,json=telnetInput,proto3" json:"telnet_input,omitempty"`
 	RconInput     *RCONInput   `protobuf:"bytes,16,opt,name=rcon_input,json=rconInput,proto3" json:"rcon_input,omitempty"`
 	RestInput     *RESTInput   `protobuf:"bytes,17,opt,name=rest_input,json=restInput,proto3" json:"rest_input,omitempty"`
+	RedactValues  []string     `protobuf:"bytes,19,rep,name=redact_values,json=redactValues,proto3" json:"redact_values,omitempty"`
+	GameId        string       `protobuf:"bytes,20,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	RuntimeMode   string       `protobuf:"bytes,21,opt,name=runtime_mode,json=runtimeMode,proto3" json:"runtime_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2024,6 +2027,27 @@ func (x *StartProcessRequest) GetRestInput() *RESTInput {
 		return x.RestInput
 	}
 	return nil
+}
+
+func (x *StartProcessRequest) GetRedactValues() []string {
+	if x != nil {
+		return x.RedactValues
+	}
+	return nil
+}
+
+func (x *StartProcessRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *StartProcessRequest) GetRuntimeMode() string {
+	if x != nil {
+		return x.RuntimeMode
+	}
+	return ""
 }
 
 type TelnetInput struct {
@@ -7400,6 +7424,7 @@ type GetRuntimeCapabilitiesResponse struct {
 	SevenDaysToDieMap        bool                    `protobuf:"varint,9,opt,name=seven_days_to_die_map,json=sevenDaysToDieMap,proto3" json:"seven_days_to_die_map,omitempty"`
 	MinecraftMap             bool                    `protobuf:"varint,10,opt,name=minecraft_map,json=minecraftMap,proto3" json:"minecraft_map,omitempty"`
 	GameOperations           []*GameOperationSupport `protobuf:"bytes,11,rep,name=game_operations,json=gameOperations,proto3" json:"game_operations,omitempty"`
+	ValheimNativeRuntimeV1   bool                    `protobuf:"varint,12,opt,name=valheim_native_runtime_v1,json=valheimNativeRuntimeV1,proto3" json:"valheim_native_runtime_v1,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -7509,6 +7534,13 @@ func (x *GetRuntimeCapabilitiesResponse) GetGameOperations() []*GameOperationSup
 		return x.GameOperations
 	}
 	return nil
+}
+
+func (x *GetRuntimeCapabilitiesResponse) GetValheimNativeRuntimeV1() bool {
+	if x != nil {
+		return x.ValheimNativeRuntimeV1
+	}
+	return false
 }
 
 type GetUpdateCapabilitiesRequest struct {
@@ -8288,6 +8320,8 @@ type ExecuteGameOperationRequest struct {
 	TokenSecret      string                 `protobuf:"bytes,3,opt,name=token_secret,json=tokenSecret,proto3" json:"token_secret,omitempty"`
 	OperationId      string                 `protobuf:"bytes,4,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
 	Values           []*GameOperationValue  `protobuf:"bytes,5,rep,name=values,proto3" json:"values,omitempty"`
+	GameId           string                 `protobuf:"bytes,6,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	GameServerId     string                 `protobuf:"bytes,7,opt,name=game_server_id,json=gameServerId,proto3" json:"game_server_id,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -8357,13 +8391,28 @@ func (x *ExecuteGameOperationRequest) GetValues() []*GameOperationValue {
 	return nil
 }
 
+func (x *ExecuteGameOperationRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *ExecuteGameOperationRequest) GetGameServerId() string {
+	if x != nil {
+		return x.GameServerId
+	}
+	return ""
+}
+
 type ExecuteGameOperationResponse struct {
-	state            protoimpl.MessageState            `protogen:"open.v1"`
-	Classification   GameOperationResultClassification `protobuf:"varint,1,opt,name=classification,proto3,enum=xylona.node.v1.GameOperationResultClassification" json:"classification,omitempty"`
-	Message          string                            `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	TransportDetails *GameOperationTransportDetails    `protobuf:"bytes,3,opt,name=transport_details,json=transportDetails,proto3" json:"transport_details,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state             protoimpl.MessageState            `protogen:"open.v1"`
+	Classification    GameOperationResultClassification `protobuf:"varint,1,opt,name=classification,proto3,enum=xylona.node.v1.GameOperationResultClassification" json:"classification,omitempty"`
+	Message           string                            `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	TransportDetails  *GameOperationTransportDetails    `protobuf:"bytes,3,opt,name=transport_details,json=transportDetails,proto3" json:"transport_details,omitempty"`
+	ValheimAccessList *ValheimAccessList                `protobuf:"bytes,4,opt,name=valheim_access_list,json=valheimAccessList,proto3" json:"valheim_access_list,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ExecuteGameOperationResponse) Reset() {
@@ -8413,6 +8462,13 @@ func (x *ExecuteGameOperationResponse) GetMessage() string {
 func (x *ExecuteGameOperationResponse) GetTransportDetails() *GameOperationTransportDetails {
 	if x != nil {
 		return x.TransportDetails
+	}
+	return nil
+}
+
+func (x *ExecuteGameOperationResponse) GetValheimAccessList() *ValheimAccessList {
+	if x != nil {
+		return x.ValheimAccessList
 	}
 	return nil
 }
@@ -10041,6 +10097,82 @@ func (x *QuerySevenDaysToDieSandboxSettingsResponse) GetResult() *SevenDaysToDie
 	return nil
 }
 
+type ValheimAccessList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ListKind      string                 `protobuf:"bytes,1,opt,name=list_kind,json=listKind,proto3" json:"list_kind,omitempty"`
+	Identities    []string               `protobuf:"bytes,2,rep,name=identities,proto3" json:"identities,omitempty"`
+	Revision      string                 `protobuf:"bytes,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	Diagnostics   []string               `protobuf:"bytes,4,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	Missing       bool                   `protobuf:"varint,5,opt,name=missing,proto3" json:"missing,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValheimAccessList) Reset() {
+	*x = ValheimAccessList{}
+	mi := &file_nodeproto_v1_node_proto_msgTypes[130]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValheimAccessList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValheimAccessList) ProtoMessage() {}
+
+func (x *ValheimAccessList) ProtoReflect() protoreflect.Message {
+	mi := &file_nodeproto_v1_node_proto_msgTypes[130]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValheimAccessList.ProtoReflect.Descriptor instead.
+func (*ValheimAccessList) Descriptor() ([]byte, []int) {
+	return file_nodeproto_v1_node_proto_rawDescGZIP(), []int{130}
+}
+
+func (x *ValheimAccessList) GetListKind() string {
+	if x != nil {
+		return x.ListKind
+	}
+	return ""
+}
+
+func (x *ValheimAccessList) GetIdentities() []string {
+	if x != nil {
+		return x.Identities
+	}
+	return nil
+}
+
+func (x *ValheimAccessList) GetRevision() string {
+	if x != nil {
+		return x.Revision
+	}
+	return ""
+}
+
+func (x *ValheimAccessList) GetDiagnostics() []string {
+	if x != nil {
+		return x.Diagnostics
+	}
+	return nil
+}
+
+func (x *ValheimAccessList) GetMissing() bool {
+	if x != nil {
+		return x.Missing
+	}
+	return false
+}
+
 var File_nodeproto_v1_node_proto protoreflect.FileDescriptor
 
 const file_nodeproto_v1_node_proto_rawDesc = "" +
@@ -10159,7 +10291,7 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\x0econsole_output\x18\x03 \x01(\v2\x1c.xylona.node.v1.ConsoleChunkH\x00R\rconsoleOutput\x12K\n" +
 	"\x0emetrics_update\x18\x04 \x01(\v2\".xylona.node.v1.MetricsUpdateEventH\x00R\rmetricsUpdate\x12H\n" +
 	"\rprocess_crash\x18\x05 \x01(\v2!.xylona.node.v1.ProcessCrashEventH\x00R\fprocessCrashB\t\n" +
-	"\apayload\"\x9e\x06\n" +
+	"\apayload\"\xff\x06\n" +
 	"\x13StartProcessRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -10182,7 +10314,10 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\n" +
 	"rcon_input\x18\x10 \x01(\v2\x19.xylona.node.v1.RCONInputR\trconInput\x128\n" +
 	"\n" +
-	"rest_input\x18\x11 \x01(\v2\x19.xylona.node.v1.RESTInputR\trestInput\x1a<\n" +
+	"rest_input\x18\x11 \x01(\v2\x19.xylona.node.v1.RESTInputR\trestInput\x12#\n" +
+	"\rredact_values\x18\x13 \x03(\tR\fredactValues\x12\x17\n" +
+	"\agame_id\x18\x14 \x01(\tR\x06gameId\x12!\n" +
+	"\fruntime_mode\x18\x15 \x01(\tR\vruntimeMode\x1a<\n" +
 	"\x0eLaunchEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"=\n" +
@@ -10612,7 +10747,7 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\x1dGetRuntimeCapabilitiesRequest\"T\n" +
 	"\x14GameOperationSupport\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12#\n" +
-	"\roperation_ids\x18\x02 \x03(\tR\foperationIds\"\xf9\x03\n" +
+	"\roperation_ids\x18\x02 \x03(\tR\foperationIds\"\xb4\x04\n" +
 	"\x1eGetRuntimeCapabilitiesResponse\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\x03R\x0fprotocolVersion\x12\x1d\n" +
 	"\n" +
@@ -10628,7 +10763,8 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\x15seven_days_to_die_map\x18\t \x01(\bR\x11sevenDaysToDieMap\x12#\n" +
 	"\rminecraft_map\x18\n" +
 	" \x01(\bR\fminecraftMap\x12M\n" +
-	"\x0fgame_operations\x18\v \x03(\v2$.xylona.node.v1.GameOperationSupportR\x0egameOperations\"\x1e\n" +
+	"\x0fgame_operations\x18\v \x03(\v2$.xylona.node.v1.GameOperationSupportR\x0egameOperations\x129\n" +
+	"\x19valheim_native_runtime_v1\x18\f \x01(\bR\x16valheimNativeRuntimeV1\"\x1e\n" +
 	"\x1cGetUpdateCapabilitiesRequest\"\x8e\x03\n" +
 	"\x1dGetUpdateCapabilitiesResponse\x12\x1c\n" +
 	"\tsupported\x18\x01 \x01(\bR\tsupported\x12\x16\n" +
@@ -10685,18 +10821,21 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\x05value\"[\n" +
 	"\x1dGameOperationTransportDetails\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\"\n" +
-	"\fverification\x18\x02 \x01(\tR\fverification\"\xeb\x01\n" +
+	"\fverification\x18\x02 \x01(\tR\fverification\"\xaa\x02\n" +
 	"\x1bExecuteGameOperationRequest\x12+\n" +
 	"\x11working_directory\x18\x01 \x01(\tR\x10workingDirectory\x12\x1d\n" +
 	"\n" +
 	"token_name\x18\x02 \x01(\tR\ttokenName\x12!\n" +
 	"\ftoken_secret\x18\x03 \x01(\tR\vtokenSecret\x12!\n" +
 	"\foperation_id\x18\x04 \x01(\tR\voperationId\x12:\n" +
-	"\x06values\x18\x05 \x03(\v2\".xylona.node.v1.GameOperationValueR\x06values\"\xef\x01\n" +
+	"\x06values\x18\x05 \x03(\v2\".xylona.node.v1.GameOperationValueR\x06values\x12\x17\n" +
+	"\agame_id\x18\x06 \x01(\tR\x06gameId\x12$\n" +
+	"\x0egame_server_id\x18\a \x01(\tR\fgameServerId\"\xc2\x02\n" +
 	"\x1cExecuteGameOperationResponse\x12Y\n" +
 	"\x0eclassification\x18\x01 \x01(\x0e21.xylona.node.v1.GameOperationResultClassificationR\x0eclassification\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12Z\n" +
-	"\x11transport_details\x18\x03 \x01(\v2-.xylona.node.v1.GameOperationTransportDetailsR\x10transportDetails\"\x90\x02\n" +
+	"\x11transport_details\x18\x03 \x01(\v2-.xylona.node.v1.GameOperationTransportDetailsR\x10transportDetails\x12Q\n" +
+	"\x13valheim_access_list\x18\x04 \x01(\v2!.xylona.node.v1.ValheimAccessListR\x11valheimAccessList\"\x90\x02\n" +
 	"\x11PalworldMapHealth\x12\x1d\n" +
 	"\n" +
 	"server_fps\x18\x01 \x01(\x01R\tserverFps\x12/\n" +
@@ -10851,7 +10990,15 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"token_name\x18\x02 \x01(\tR\ttokenName\x12!\n" +
 	"\ftoken_secret\x18\x03 \x01(\tR\vtokenSecret\"s\n" +
 	"*QuerySevenDaysToDieSandboxSettingsResponse\x12E\n" +
-	"\x06result\x18\x01 \x01(\v2-.xylona.node.v1.SevenDaysToDieSandboxSettingsR\x06result*\xbf\x02\n" +
+	"\x06result\x18\x01 \x01(\v2-.xylona.node.v1.SevenDaysToDieSandboxSettingsR\x06result\"\xa8\x01\n" +
+	"\x11ValheimAccessList\x12\x1b\n" +
+	"\tlist_kind\x18\x01 \x01(\tR\blistKind\x12\x1e\n" +
+	"\n" +
+	"identities\x18\x02 \x03(\tR\n" +
+	"identities\x12\x1a\n" +
+	"\brevision\x18\x03 \x01(\tR\brevision\x12 \n" +
+	"\vdiagnostics\x18\x04 \x03(\tR\vdiagnostics\x12\x18\n" +
+	"\amissing\x18\x05 \x01(\bR\amissing*\xbf\x02\n" +
 	"\rNodeErrorCode\x12\x1a\n" +
 	"\x16NODE_ERROR_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17NODE_ERROR_INVALID_PATH\x10\x01\x12\x1d\n" +
@@ -11014,7 +11161,7 @@ func file_nodeproto_v1_node_proto_rawDescGZIP() []byte {
 }
 
 var file_nodeproto_v1_node_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
-var file_nodeproto_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 131)
+var file_nodeproto_v1_node_proto_msgTypes = make([]protoimpl.MessageInfo, 132)
 var file_nodeproto_v1_node_proto_goTypes = []any{
 	(NodeErrorCode)(0),                                   // 0: xylona.node.v1.NodeErrorCode
 	(ProcessStatus)(0),                                   // 1: xylona.node.v1.ProcessStatus
@@ -11160,23 +11307,24 @@ var file_nodeproto_v1_node_proto_goTypes = []any{
 	(*SevenDaysToDieSandboxSettings)(nil),                // 141: xylona.node.v1.SevenDaysToDieSandboxSettings
 	(*QuerySevenDaysToDieSandboxSettingsRequest)(nil),    // 142: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
 	(*QuerySevenDaysToDieSandboxSettingsResponse)(nil),   // 143: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
-	nil,                           // 144: xylona.node.v1.StartProcessRequest.LaunchEnvEntry
-	(*timestamppb.Timestamp)(nil), // 145: google.protobuf.Timestamp
+	(*ValheimAccessList)(nil),                            // 144: xylona.node.v1.ValheimAccessList
+	nil,                                                  // 145: xylona.node.v1.StartProcessRequest.LaunchEnvEntry
+	(*timestamppb.Timestamp)(nil),                        // 146: google.protobuf.Timestamp
 }
 var file_nodeproto_v1_node_proto_depIdxs = []int32{
-	145, // 0: xylona.node.v1.FileEntry.last_modified:type_name -> google.protobuf.Timestamp
-	145, // 1: xylona.node.v1.ProcessSnapshot.disk_measured_at:type_name -> google.protobuf.Timestamp
+	146, // 0: xylona.node.v1.FileEntry.last_modified:type_name -> google.protobuf.Timestamp
+	146, // 1: xylona.node.v1.ProcessSnapshot.disk_measured_at:type_name -> google.protobuf.Timestamp
 	15,  // 2: xylona.node.v1.NodeSnapshot.processes:type_name -> xylona.node.v1.ProcessSnapshot
-	145, // 3: xylona.node.v1.NodeSnapshot.collected:type_name -> google.protobuf.Timestamp
-	145, // 4: xylona.node.v1.ConsoleChunk.timestamp:type_name -> google.protobuf.Timestamp
+	146, // 3: xylona.node.v1.NodeSnapshot.collected:type_name -> google.protobuf.Timestamp
+	146, // 4: xylona.node.v1.ConsoleChunk.timestamp:type_name -> google.protobuf.Timestamp
 	16,  // 5: xylona.node.v1.MetricsUpdateEvent.snapshot:type_name -> xylona.node.v1.NodeSnapshot
-	145, // 6: xylona.node.v1.Event.timestamp:type_name -> google.protobuf.Timestamp
+	146, // 6: xylona.node.v1.Event.timestamp:type_name -> google.protobuf.Timestamp
 	19,  // 7: xylona.node.v1.Event.process_status:type_name -> xylona.node.v1.ProcessStatusEvent
 	18,  // 8: xylona.node.v1.Event.console_output:type_name -> xylona.node.v1.ConsoleChunk
 	20,  // 9: xylona.node.v1.Event.metrics_update:type_name -> xylona.node.v1.MetricsUpdateEvent
 	21,  // 10: xylona.node.v1.Event.process_crash:type_name -> xylona.node.v1.ProcessCrashEvent
 	1,   // 11: xylona.node.v1.StartProcessRequest.initial_status:type_name -> xylona.node.v1.ProcessStatus
-	144, // 12: xylona.node.v1.StartProcessRequest.launch_env:type_name -> xylona.node.v1.StartProcessRequest.LaunchEnvEntry
+	145, // 12: xylona.node.v1.StartProcessRequest.launch_env:type_name -> xylona.node.v1.StartProcessRequest.LaunchEnvEntry
 	24,  // 13: xylona.node.v1.StartProcessRequest.telnet_input:type_name -> xylona.node.v1.TelnetInput
 	25,  // 14: xylona.node.v1.StartProcessRequest.rcon_input:type_name -> xylona.node.v1.RCONInput
 	26,  // 15: xylona.node.v1.StartProcessRequest.rest_input:type_name -> xylona.node.v1.RESTInput
@@ -11197,7 +11345,7 @@ var file_nodeproto_v1_node_proto_depIdxs = []int32{
 	72,  // 30: xylona.node.v1.QueryGameServerResponse.source:type_name -> xylona.node.v1.GameServerSourceQueryInfo
 	73,  // 31: xylona.node.v1.QueryGameServerResponse.palworld:type_name -> xylona.node.v1.GameServerPalworldQueryInfo
 	8,   // 32: xylona.node.v1.PalworldMapActor.kind:type_name -> xylona.node.v1.PalworldMapActorKind
-	145, // 33: xylona.node.v1.PalworldMapSnapshot.collected_at:type_name -> google.protobuf.Timestamp
+	146, // 33: xylona.node.v1.PalworldMapSnapshot.collected_at:type_name -> google.protobuf.Timestamp
 	75,  // 34: xylona.node.v1.PalworldMapSnapshot.actors:type_name -> xylona.node.v1.PalworldMapActor
 	122, // 35: xylona.node.v1.PalworldMapSnapshot.health:type_name -> xylona.node.v1.PalworldMapHealth
 	76,  // 36: xylona.node.v1.QueryPalworldMapResponse.snapshot:type_name -> xylona.node.v1.PalworldMapSnapshot
@@ -11222,143 +11370,144 @@ var file_nodeproto_v1_node_proto_depIdxs = []int32{
 	85,  // 55: xylona.node.v1.QuerySevenDaysToDieMapResponse.snapshot:type_name -> xylona.node.v1.SevenDaysToDieMapSnapshot
 	15,  // 56: xylona.node.v1.GetProcessSnapshotResponse.snapshot:type_name -> xylona.node.v1.ProcessSnapshot
 	17,  // 57: xylona.node.v1.ListBindableIPsResponse.ips:type_name -> xylona.node.v1.BindableIP
-	145, // 58: xylona.node.v1.PingResponse.server_time:type_name -> google.protobuf.Timestamp
+	146, // 58: xylona.node.v1.PingResponse.server_time:type_name -> google.protobuf.Timestamp
 	107, // 59: xylona.node.v1.GetRuntimeCapabilitiesResponse.game_operations:type_name -> xylona.node.v1.GameOperationSupport
 	7,   // 60: xylona.node.v1.PerformGameServerPlayerActionRequest.kind:type_name -> xylona.node.v1.GameServerQueryKind
 	9,   // 61: xylona.node.v1.PerformGameServerPlayerActionRequest.action:type_name -> xylona.node.v1.GameServerPlayerAction
 	118, // 62: xylona.node.v1.ExecuteGameOperationRequest.values:type_name -> xylona.node.v1.GameOperationValue
 	10,  // 63: xylona.node.v1.ExecuteGameOperationResponse.classification:type_name -> xylona.node.v1.GameOperationResultClassification
 	119, // 64: xylona.node.v1.ExecuteGameOperationResponse.transport_details:type_name -> xylona.node.v1.GameOperationTransportDetails
-	11,  // 65: xylona.node.v1.SevenDaysToDieWebAPIStatus.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	124, // 66: xylona.node.v1.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.node.v1.SevenDaysToDieWebAPICapabilities
-	12,  // 67: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	123, // 68: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	12,  // 69: xylona.node.v1.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	123, // 70: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	123, // 71: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
-	145, // 72: xylona.node.v1.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
-	12,  // 73: xylona.node.v1.SevenDaysToDieWebAPIStatus.command_operations_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	125, // 74: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.node.v1.SevenDaysToDieWebAPIStatus
-	128, // 75: xylona.node.v1.SevenDaysToDieOperationMetadata.players:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	128, // 76: xylona.node.v1.SevenDaysToDieOperationMetadata.items:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	128, // 77: xylona.node.v1.SevenDaysToDieOperationMetadata.buffs:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	128, // 78: xylona.node.v1.SevenDaysToDieOperationMetadata.commands:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
-	129, // 79: xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse.result:type_name -> xylona.node.v1.SevenDaysToDieOperationMetadata
-	11,  // 80: xylona.node.v1.SevenDaysToDiePlayers.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	12,  // 81: xylona.node.v1.SevenDaysToDiePlayers.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	132, // 82: xylona.node.v1.SevenDaysToDiePlayers.players:type_name -> xylona.node.v1.SevenDaysToDiePlayer
-	133, // 83: xylona.node.v1.QuerySevenDaysToDiePlayersResponse.result:type_name -> xylona.node.v1.SevenDaysToDiePlayers
-	11,  // 84: xylona.node.v1.SevenDaysToDieReportedMods.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	12,  // 85: xylona.node.v1.SevenDaysToDieReportedMods.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	136, // 86: xylona.node.v1.SevenDaysToDieReportedMods.mods:type_name -> xylona.node.v1.SevenDaysToDieReportedMod
-	137, // 87: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieReportedMods
-	11,  // 88: xylona.node.v1.SevenDaysToDieSandboxSettings.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
-	12,  // 89: xylona.node.v1.SevenDaysToDieSandboxSettings.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
-	13,  // 90: xylona.node.v1.SevenDaysToDieSandboxSettings.comparison_state:type_name -> xylona.node.v1.SevenDaysToDieSandboxComparisonState
-	140, // 91: xylona.node.v1.SevenDaysToDieSandboxSettings.settings:type_name -> xylona.node.v1.SevenDaysToDieSandboxSetting
-	145, // 92: xylona.node.v1.SevenDaysToDieSandboxSettings.observed_at:type_name -> google.protobuf.Timestamp
-	141, // 93: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieSandboxSettings
-	23,  // 94: xylona.node.v1.NodeService.StartProcess:input_type -> xylona.node.v1.StartProcessRequest
-	28,  // 95: xylona.node.v1.NodeService.StopProcess:input_type -> xylona.node.v1.StopProcessRequest
-	30,  // 96: xylona.node.v1.NodeService.SendConsoleInput:input_type -> xylona.node.v1.SendConsoleInputRequest
-	32,  // 97: xylona.node.v1.NodeService.ReadConsoleBuffer:input_type -> xylona.node.v1.ReadConsoleBufferRequest
-	34,  // 98: xylona.node.v1.NodeService.StreamConsoleOutput:input_type -> xylona.node.v1.StreamConsoleOutputRequest
-	35,  // 99: xylona.node.v1.NodeService.ListFiles:input_type -> xylona.node.v1.ListFilesRequest
-	37,  // 100: xylona.node.v1.NodeService.ReadFile:input_type -> xylona.node.v1.ReadFileRequest
-	39,  // 101: xylona.node.v1.NodeService.StatFile:input_type -> xylona.node.v1.StatFileRequest
-	41,  // 102: xylona.node.v1.NodeService.StreamFile:input_type -> xylona.node.v1.StreamFileRequest
-	43,  // 103: xylona.node.v1.NodeService.WriteFile:input_type -> xylona.node.v1.WriteFileRequest
-	45,  // 104: xylona.node.v1.NodeService.StreamWriteFile:input_type -> xylona.node.v1.StreamWriteFileRequest
-	50,  // 105: xylona.node.v1.NodeService.CreateFileOrDirectory:input_type -> xylona.node.v1.CreateFileOrDirectoryRequest
-	52,  // 106: xylona.node.v1.NodeService.DeleteFiles:input_type -> xylona.node.v1.DeleteFilesRequest
-	54,  // 107: xylona.node.v1.NodeService.RenameFile:input_type -> xylona.node.v1.RenameFileRequest
-	56,  // 108: xylona.node.v1.NodeService.MoveFiles:input_type -> xylona.node.v1.MoveFilesRequest
-	48,  // 109: xylona.node.v1.NodeService.CopyFiles:input_type -> xylona.node.v1.CopyFilesRequest
-	58,  // 110: xylona.node.v1.NodeService.DownloadFileFromURL:input_type -> xylona.node.v1.DownloadFileFromURLRequest
-	60,  // 111: xylona.node.v1.NodeService.CreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
-	60,  // 112: xylona.node.v1.NodeService.StreamCreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
-	62,  // 113: xylona.node.v1.NodeService.ExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
-	62,  // 114: xylona.node.v1.NodeService.StreamExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
-	64,  // 115: xylona.node.v1.NodeService.CreateBackupArchive:input_type -> xylona.node.v1.CreateBackupArchiveRequest
-	66,  // 116: xylona.node.v1.NodeService.ExtractBackupArchive:input_type -> xylona.node.v1.ExtractBackupArchiveRequest
-	68,  // 117: xylona.node.v1.NodeService.ProbeInstalledVersion:input_type -> xylona.node.v1.ProbeInstalledVersionRequest
-	70,  // 118: xylona.node.v1.NodeService.QueryGameServer:input_type -> xylona.node.v1.QueryGameServerRequest
-	77,  // 119: xylona.node.v1.NodeService.QueryPalworldMap:input_type -> xylona.node.v1.QueryPalworldMapRequest
-	86,  // 120: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:input_type -> xylona.node.v1.QuerySevenDaysToDieMapRequest
-	126, // 121: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:input_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
-	130, // 122: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:input_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataRequest
-	134, // 123: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:input_type -> xylona.node.v1.QuerySevenDaysToDiePlayersRequest
-	138, // 124: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:input_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
-	142, // 125: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:input_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
-	88,  // 126: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:input_type -> xylona.node.v1.GetSevenDaysToDieMapTileRequest
-	90,  // 127: xylona.node.v1.NodeService.EnsureMinecraftMap:input_type -> xylona.node.v1.EnsureMinecraftMapRequest
-	92,  // 128: xylona.node.v1.NodeService.StopMinecraftMap:input_type -> xylona.node.v1.StopMinecraftMapRequest
-	94,  // 129: xylona.node.v1.NodeService.GetMinecraftMapAsset:input_type -> xylona.node.v1.GetMinecraftMapAssetRequest
-	116, // 130: xylona.node.v1.NodeService.PerformGameServerPlayerAction:input_type -> xylona.node.v1.PerformGameServerPlayerActionRequest
-	120, // 131: xylona.node.v1.NodeService.ExecuteGameOperation:input_type -> xylona.node.v1.ExecuteGameOperationRequest
-	96,  // 132: xylona.node.v1.NodeService.SendConsoleOutput:input_type -> xylona.node.v1.SendConsoleOutputRequest
-	98,  // 133: xylona.node.v1.NodeService.GetProcessSnapshot:input_type -> xylona.node.v1.GetProcessSnapshotRequest
-	101, // 134: xylona.node.v1.NodeService.ListBindableIPs:input_type -> xylona.node.v1.ListBindableIPsRequest
-	100, // 135: xylona.node.v1.NodeService.GetNodeSnapshot:input_type -> xylona.node.v1.GetNodeSnapshotRequest
-	106, // 136: xylona.node.v1.NodeService.GetRuntimeCapabilities:input_type -> xylona.node.v1.GetRuntimeCapabilitiesRequest
-	103, // 137: xylona.node.v1.NodeService.StreamEvents:input_type -> xylona.node.v1.StreamEventsRequest
-	104, // 138: xylona.node.v1.NodeService.Ping:input_type -> xylona.node.v1.PingRequest
-	109, // 139: xylona.node.v1.NodeService.GetUpdateCapabilities:input_type -> xylona.node.v1.GetUpdateCapabilitiesRequest
-	111, // 140: xylona.node.v1.NodeService.StageSelfUpdate:input_type -> xylona.node.v1.StageSelfUpdateRequest
-	113, // 141: xylona.node.v1.NodeService.ApplySelfUpdate:input_type -> xylona.node.v1.ApplySelfUpdateRequest
-	27,  // 142: xylona.node.v1.NodeService.StartProcess:output_type -> xylona.node.v1.StartProcessResponse
-	29,  // 143: xylona.node.v1.NodeService.StopProcess:output_type -> xylona.node.v1.StopProcessResponse
-	31,  // 144: xylona.node.v1.NodeService.SendConsoleInput:output_type -> xylona.node.v1.SendConsoleInputResponse
-	33,  // 145: xylona.node.v1.NodeService.ReadConsoleBuffer:output_type -> xylona.node.v1.ReadConsoleBufferResponse
-	18,  // 146: xylona.node.v1.NodeService.StreamConsoleOutput:output_type -> xylona.node.v1.ConsoleChunk
-	36,  // 147: xylona.node.v1.NodeService.ListFiles:output_type -> xylona.node.v1.ListFilesResponse
-	38,  // 148: xylona.node.v1.NodeService.ReadFile:output_type -> xylona.node.v1.ReadFileResponse
-	40,  // 149: xylona.node.v1.NodeService.StatFile:output_type -> xylona.node.v1.StatFileResponse
-	42,  // 150: xylona.node.v1.NodeService.StreamFile:output_type -> xylona.node.v1.StreamFileResponse
-	44,  // 151: xylona.node.v1.NodeService.WriteFile:output_type -> xylona.node.v1.WriteFileResponse
-	46,  // 152: xylona.node.v1.NodeService.StreamWriteFile:output_type -> xylona.node.v1.StreamWriteFileResponse
-	51,  // 153: xylona.node.v1.NodeService.CreateFileOrDirectory:output_type -> xylona.node.v1.CreateFileOrDirectoryResponse
-	53,  // 154: xylona.node.v1.NodeService.DeleteFiles:output_type -> xylona.node.v1.DeleteFilesResponse
-	55,  // 155: xylona.node.v1.NodeService.RenameFile:output_type -> xylona.node.v1.RenameFileResponse
-	57,  // 156: xylona.node.v1.NodeService.MoveFiles:output_type -> xylona.node.v1.MoveFilesResponse
-	49,  // 157: xylona.node.v1.NodeService.CopyFiles:output_type -> xylona.node.v1.CopyFilesResponse
-	59,  // 158: xylona.node.v1.NodeService.DownloadFileFromURL:output_type -> xylona.node.v1.DownloadFileFromURLResponse
-	61,  // 159: xylona.node.v1.NodeService.CreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
-	61,  // 160: xylona.node.v1.NodeService.StreamCreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
-	63,  // 161: xylona.node.v1.NodeService.ExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
-	63,  // 162: xylona.node.v1.NodeService.StreamExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
-	65,  // 163: xylona.node.v1.NodeService.CreateBackupArchive:output_type -> xylona.node.v1.CreateBackupArchiveResponse
-	67,  // 164: xylona.node.v1.NodeService.ExtractBackupArchive:output_type -> xylona.node.v1.ExtractBackupArchiveResponse
-	69,  // 165: xylona.node.v1.NodeService.ProbeInstalledVersion:output_type -> xylona.node.v1.ProbeInstalledVersionResponse
-	74,  // 166: xylona.node.v1.NodeService.QueryGameServer:output_type -> xylona.node.v1.QueryGameServerResponse
-	78,  // 167: xylona.node.v1.NodeService.QueryPalworldMap:output_type -> xylona.node.v1.QueryPalworldMapResponse
-	87,  // 168: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:output_type -> xylona.node.v1.QuerySevenDaysToDieMapResponse
-	127, // 169: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:output_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
-	131, // 170: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:output_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse
-	135, // 171: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:output_type -> xylona.node.v1.QuerySevenDaysToDiePlayersResponse
-	139, // 172: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:output_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
-	143, // 173: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:output_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
-	89,  // 174: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:output_type -> xylona.node.v1.GetSevenDaysToDieMapTileResponse
-	91,  // 175: xylona.node.v1.NodeService.EnsureMinecraftMap:output_type -> xylona.node.v1.EnsureMinecraftMapResponse
-	93,  // 176: xylona.node.v1.NodeService.StopMinecraftMap:output_type -> xylona.node.v1.StopMinecraftMapResponse
-	95,  // 177: xylona.node.v1.NodeService.GetMinecraftMapAsset:output_type -> xylona.node.v1.GetMinecraftMapAssetResponse
-	117, // 178: xylona.node.v1.NodeService.PerformGameServerPlayerAction:output_type -> xylona.node.v1.PerformGameServerPlayerActionResponse
-	121, // 179: xylona.node.v1.NodeService.ExecuteGameOperation:output_type -> xylona.node.v1.ExecuteGameOperationResponse
-	97,  // 180: xylona.node.v1.NodeService.SendConsoleOutput:output_type -> xylona.node.v1.SendConsoleOutputResponse
-	99,  // 181: xylona.node.v1.NodeService.GetProcessSnapshot:output_type -> xylona.node.v1.GetProcessSnapshotResponse
-	102, // 182: xylona.node.v1.NodeService.ListBindableIPs:output_type -> xylona.node.v1.ListBindableIPsResponse
-	16,  // 183: xylona.node.v1.NodeService.GetNodeSnapshot:output_type -> xylona.node.v1.NodeSnapshot
-	108, // 184: xylona.node.v1.NodeService.GetRuntimeCapabilities:output_type -> xylona.node.v1.GetRuntimeCapabilitiesResponse
-	22,  // 185: xylona.node.v1.NodeService.StreamEvents:output_type -> xylona.node.v1.Event
-	105, // 186: xylona.node.v1.NodeService.Ping:output_type -> xylona.node.v1.PingResponse
-	110, // 187: xylona.node.v1.NodeService.GetUpdateCapabilities:output_type -> xylona.node.v1.GetUpdateCapabilitiesResponse
-	112, // 188: xylona.node.v1.NodeService.StageSelfUpdate:output_type -> xylona.node.v1.StageSelfUpdateResponse
-	114, // 189: xylona.node.v1.NodeService.ApplySelfUpdate:output_type -> xylona.node.v1.ApplySelfUpdateResponse
-	142, // [142:190] is the sub-list for method output_type
-	94,  // [94:142] is the sub-list for method input_type
-	94,  // [94:94] is the sub-list for extension type_name
-	94,  // [94:94] is the sub-list for extension extendee
-	0,   // [0:94] is the sub-list for field type_name
+	144, // 65: xylona.node.v1.ExecuteGameOperationResponse.valheim_access_list:type_name -> xylona.node.v1.ValheimAccessList
+	11,  // 66: xylona.node.v1.SevenDaysToDieWebAPIStatus.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	124, // 67: xylona.node.v1.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.node.v1.SevenDaysToDieWebAPICapabilities
+	12,  // 68: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	123, // 69: xylona.node.v1.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	12,  // 70: xylona.node.v1.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	123, // 71: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	123, // 72: xylona.node.v1.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.node.v1.SevenDaysToDieGameTime
+	146, // 73: xylona.node.v1.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
+	12,  // 74: xylona.node.v1.SevenDaysToDieWebAPIStatus.command_operations_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	125, // 75: xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.node.v1.SevenDaysToDieWebAPIStatus
+	128, // 76: xylona.node.v1.SevenDaysToDieOperationMetadata.players:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	128, // 77: xylona.node.v1.SevenDaysToDieOperationMetadata.items:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	128, // 78: xylona.node.v1.SevenDaysToDieOperationMetadata.buffs:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	128, // 79: xylona.node.v1.SevenDaysToDieOperationMetadata.commands:type_name -> xylona.node.v1.SevenDaysToDieOperationOption
+	129, // 80: xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse.result:type_name -> xylona.node.v1.SevenDaysToDieOperationMetadata
+	11,  // 81: xylona.node.v1.SevenDaysToDiePlayers.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	12,  // 82: xylona.node.v1.SevenDaysToDiePlayers.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	132, // 83: xylona.node.v1.SevenDaysToDiePlayers.players:type_name -> xylona.node.v1.SevenDaysToDiePlayer
+	133, // 84: xylona.node.v1.QuerySevenDaysToDiePlayersResponse.result:type_name -> xylona.node.v1.SevenDaysToDiePlayers
+	11,  // 85: xylona.node.v1.SevenDaysToDieReportedMods.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	12,  // 86: xylona.node.v1.SevenDaysToDieReportedMods.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	136, // 87: xylona.node.v1.SevenDaysToDieReportedMods.mods:type_name -> xylona.node.v1.SevenDaysToDieReportedMod
+	137, // 88: xylona.node.v1.QuerySevenDaysToDieReportedModsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieReportedMods
+	11,  // 89: xylona.node.v1.SevenDaysToDieSandboxSettings.connection_state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIConnectionState
+	12,  // 90: xylona.node.v1.SevenDaysToDieSandboxSettings.state:type_name -> xylona.node.v1.SevenDaysToDieWebAPIValueState
+	13,  // 91: xylona.node.v1.SevenDaysToDieSandboxSettings.comparison_state:type_name -> xylona.node.v1.SevenDaysToDieSandboxComparisonState
+	140, // 92: xylona.node.v1.SevenDaysToDieSandboxSettings.settings:type_name -> xylona.node.v1.SevenDaysToDieSandboxSetting
+	146, // 93: xylona.node.v1.SevenDaysToDieSandboxSettings.observed_at:type_name -> google.protobuf.Timestamp
+	141, // 94: xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse.result:type_name -> xylona.node.v1.SevenDaysToDieSandboxSettings
+	23,  // 95: xylona.node.v1.NodeService.StartProcess:input_type -> xylona.node.v1.StartProcessRequest
+	28,  // 96: xylona.node.v1.NodeService.StopProcess:input_type -> xylona.node.v1.StopProcessRequest
+	30,  // 97: xylona.node.v1.NodeService.SendConsoleInput:input_type -> xylona.node.v1.SendConsoleInputRequest
+	32,  // 98: xylona.node.v1.NodeService.ReadConsoleBuffer:input_type -> xylona.node.v1.ReadConsoleBufferRequest
+	34,  // 99: xylona.node.v1.NodeService.StreamConsoleOutput:input_type -> xylona.node.v1.StreamConsoleOutputRequest
+	35,  // 100: xylona.node.v1.NodeService.ListFiles:input_type -> xylona.node.v1.ListFilesRequest
+	37,  // 101: xylona.node.v1.NodeService.ReadFile:input_type -> xylona.node.v1.ReadFileRequest
+	39,  // 102: xylona.node.v1.NodeService.StatFile:input_type -> xylona.node.v1.StatFileRequest
+	41,  // 103: xylona.node.v1.NodeService.StreamFile:input_type -> xylona.node.v1.StreamFileRequest
+	43,  // 104: xylona.node.v1.NodeService.WriteFile:input_type -> xylona.node.v1.WriteFileRequest
+	45,  // 105: xylona.node.v1.NodeService.StreamWriteFile:input_type -> xylona.node.v1.StreamWriteFileRequest
+	50,  // 106: xylona.node.v1.NodeService.CreateFileOrDirectory:input_type -> xylona.node.v1.CreateFileOrDirectoryRequest
+	52,  // 107: xylona.node.v1.NodeService.DeleteFiles:input_type -> xylona.node.v1.DeleteFilesRequest
+	54,  // 108: xylona.node.v1.NodeService.RenameFile:input_type -> xylona.node.v1.RenameFileRequest
+	56,  // 109: xylona.node.v1.NodeService.MoveFiles:input_type -> xylona.node.v1.MoveFilesRequest
+	48,  // 110: xylona.node.v1.NodeService.CopyFiles:input_type -> xylona.node.v1.CopyFilesRequest
+	58,  // 111: xylona.node.v1.NodeService.DownloadFileFromURL:input_type -> xylona.node.v1.DownloadFileFromURLRequest
+	60,  // 112: xylona.node.v1.NodeService.CreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
+	60,  // 113: xylona.node.v1.NodeService.StreamCreateFileArchive:input_type -> xylona.node.v1.CreateFileArchiveRequest
+	62,  // 114: xylona.node.v1.NodeService.ExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
+	62,  // 115: xylona.node.v1.NodeService.StreamExtractFileArchive:input_type -> xylona.node.v1.ExtractFileArchiveRequest
+	64,  // 116: xylona.node.v1.NodeService.CreateBackupArchive:input_type -> xylona.node.v1.CreateBackupArchiveRequest
+	66,  // 117: xylona.node.v1.NodeService.ExtractBackupArchive:input_type -> xylona.node.v1.ExtractBackupArchiveRequest
+	68,  // 118: xylona.node.v1.NodeService.ProbeInstalledVersion:input_type -> xylona.node.v1.ProbeInstalledVersionRequest
+	70,  // 119: xylona.node.v1.NodeService.QueryGameServer:input_type -> xylona.node.v1.QueryGameServerRequest
+	77,  // 120: xylona.node.v1.NodeService.QueryPalworldMap:input_type -> xylona.node.v1.QueryPalworldMapRequest
+	86,  // 121: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:input_type -> xylona.node.v1.QuerySevenDaysToDieMapRequest
+	126, // 122: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:input_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusRequest
+	130, // 123: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:input_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataRequest
+	134, // 124: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:input_type -> xylona.node.v1.QuerySevenDaysToDiePlayersRequest
+	138, // 125: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:input_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsRequest
+	142, // 126: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:input_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsRequest
+	88,  // 127: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:input_type -> xylona.node.v1.GetSevenDaysToDieMapTileRequest
+	90,  // 128: xylona.node.v1.NodeService.EnsureMinecraftMap:input_type -> xylona.node.v1.EnsureMinecraftMapRequest
+	92,  // 129: xylona.node.v1.NodeService.StopMinecraftMap:input_type -> xylona.node.v1.StopMinecraftMapRequest
+	94,  // 130: xylona.node.v1.NodeService.GetMinecraftMapAsset:input_type -> xylona.node.v1.GetMinecraftMapAssetRequest
+	116, // 131: xylona.node.v1.NodeService.PerformGameServerPlayerAction:input_type -> xylona.node.v1.PerformGameServerPlayerActionRequest
+	120, // 132: xylona.node.v1.NodeService.ExecuteGameOperation:input_type -> xylona.node.v1.ExecuteGameOperationRequest
+	96,  // 133: xylona.node.v1.NodeService.SendConsoleOutput:input_type -> xylona.node.v1.SendConsoleOutputRequest
+	98,  // 134: xylona.node.v1.NodeService.GetProcessSnapshot:input_type -> xylona.node.v1.GetProcessSnapshotRequest
+	101, // 135: xylona.node.v1.NodeService.ListBindableIPs:input_type -> xylona.node.v1.ListBindableIPsRequest
+	100, // 136: xylona.node.v1.NodeService.GetNodeSnapshot:input_type -> xylona.node.v1.GetNodeSnapshotRequest
+	106, // 137: xylona.node.v1.NodeService.GetRuntimeCapabilities:input_type -> xylona.node.v1.GetRuntimeCapabilitiesRequest
+	103, // 138: xylona.node.v1.NodeService.StreamEvents:input_type -> xylona.node.v1.StreamEventsRequest
+	104, // 139: xylona.node.v1.NodeService.Ping:input_type -> xylona.node.v1.PingRequest
+	109, // 140: xylona.node.v1.NodeService.GetUpdateCapabilities:input_type -> xylona.node.v1.GetUpdateCapabilitiesRequest
+	111, // 141: xylona.node.v1.NodeService.StageSelfUpdate:input_type -> xylona.node.v1.StageSelfUpdateRequest
+	113, // 142: xylona.node.v1.NodeService.ApplySelfUpdate:input_type -> xylona.node.v1.ApplySelfUpdateRequest
+	27,  // 143: xylona.node.v1.NodeService.StartProcess:output_type -> xylona.node.v1.StartProcessResponse
+	29,  // 144: xylona.node.v1.NodeService.StopProcess:output_type -> xylona.node.v1.StopProcessResponse
+	31,  // 145: xylona.node.v1.NodeService.SendConsoleInput:output_type -> xylona.node.v1.SendConsoleInputResponse
+	33,  // 146: xylona.node.v1.NodeService.ReadConsoleBuffer:output_type -> xylona.node.v1.ReadConsoleBufferResponse
+	18,  // 147: xylona.node.v1.NodeService.StreamConsoleOutput:output_type -> xylona.node.v1.ConsoleChunk
+	36,  // 148: xylona.node.v1.NodeService.ListFiles:output_type -> xylona.node.v1.ListFilesResponse
+	38,  // 149: xylona.node.v1.NodeService.ReadFile:output_type -> xylona.node.v1.ReadFileResponse
+	40,  // 150: xylona.node.v1.NodeService.StatFile:output_type -> xylona.node.v1.StatFileResponse
+	42,  // 151: xylona.node.v1.NodeService.StreamFile:output_type -> xylona.node.v1.StreamFileResponse
+	44,  // 152: xylona.node.v1.NodeService.WriteFile:output_type -> xylona.node.v1.WriteFileResponse
+	46,  // 153: xylona.node.v1.NodeService.StreamWriteFile:output_type -> xylona.node.v1.StreamWriteFileResponse
+	51,  // 154: xylona.node.v1.NodeService.CreateFileOrDirectory:output_type -> xylona.node.v1.CreateFileOrDirectoryResponse
+	53,  // 155: xylona.node.v1.NodeService.DeleteFiles:output_type -> xylona.node.v1.DeleteFilesResponse
+	55,  // 156: xylona.node.v1.NodeService.RenameFile:output_type -> xylona.node.v1.RenameFileResponse
+	57,  // 157: xylona.node.v1.NodeService.MoveFiles:output_type -> xylona.node.v1.MoveFilesResponse
+	49,  // 158: xylona.node.v1.NodeService.CopyFiles:output_type -> xylona.node.v1.CopyFilesResponse
+	59,  // 159: xylona.node.v1.NodeService.DownloadFileFromURL:output_type -> xylona.node.v1.DownloadFileFromURLResponse
+	61,  // 160: xylona.node.v1.NodeService.CreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
+	61,  // 161: xylona.node.v1.NodeService.StreamCreateFileArchive:output_type -> xylona.node.v1.CreateFileArchiveResponse
+	63,  // 162: xylona.node.v1.NodeService.ExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
+	63,  // 163: xylona.node.v1.NodeService.StreamExtractFileArchive:output_type -> xylona.node.v1.ExtractFileArchiveResponse
+	65,  // 164: xylona.node.v1.NodeService.CreateBackupArchive:output_type -> xylona.node.v1.CreateBackupArchiveResponse
+	67,  // 165: xylona.node.v1.NodeService.ExtractBackupArchive:output_type -> xylona.node.v1.ExtractBackupArchiveResponse
+	69,  // 166: xylona.node.v1.NodeService.ProbeInstalledVersion:output_type -> xylona.node.v1.ProbeInstalledVersionResponse
+	74,  // 167: xylona.node.v1.NodeService.QueryGameServer:output_type -> xylona.node.v1.QueryGameServerResponse
+	78,  // 168: xylona.node.v1.NodeService.QueryPalworldMap:output_type -> xylona.node.v1.QueryPalworldMapResponse
+	87,  // 169: xylona.node.v1.NodeService.QuerySevenDaysToDieMap:output_type -> xylona.node.v1.QuerySevenDaysToDieMapResponse
+	127, // 170: xylona.node.v1.NodeService.QuerySevenDaysToDieWebAPIStatus:output_type -> xylona.node.v1.QuerySevenDaysToDieWebAPIStatusResponse
+	131, // 171: xylona.node.v1.NodeService.QuerySevenDaysToDieOperationMetadata:output_type -> xylona.node.v1.QuerySevenDaysToDieOperationMetadataResponse
+	135, // 172: xylona.node.v1.NodeService.QuerySevenDaysToDiePlayers:output_type -> xylona.node.v1.QuerySevenDaysToDiePlayersResponse
+	139, // 173: xylona.node.v1.NodeService.QuerySevenDaysToDieReportedMods:output_type -> xylona.node.v1.QuerySevenDaysToDieReportedModsResponse
+	143, // 174: xylona.node.v1.NodeService.QuerySevenDaysToDieSandboxSettings:output_type -> xylona.node.v1.QuerySevenDaysToDieSandboxSettingsResponse
+	89,  // 175: xylona.node.v1.NodeService.GetSevenDaysToDieMapTile:output_type -> xylona.node.v1.GetSevenDaysToDieMapTileResponse
+	91,  // 176: xylona.node.v1.NodeService.EnsureMinecraftMap:output_type -> xylona.node.v1.EnsureMinecraftMapResponse
+	93,  // 177: xylona.node.v1.NodeService.StopMinecraftMap:output_type -> xylona.node.v1.StopMinecraftMapResponse
+	95,  // 178: xylona.node.v1.NodeService.GetMinecraftMapAsset:output_type -> xylona.node.v1.GetMinecraftMapAssetResponse
+	117, // 179: xylona.node.v1.NodeService.PerformGameServerPlayerAction:output_type -> xylona.node.v1.PerformGameServerPlayerActionResponse
+	121, // 180: xylona.node.v1.NodeService.ExecuteGameOperation:output_type -> xylona.node.v1.ExecuteGameOperationResponse
+	97,  // 181: xylona.node.v1.NodeService.SendConsoleOutput:output_type -> xylona.node.v1.SendConsoleOutputResponse
+	99,  // 182: xylona.node.v1.NodeService.GetProcessSnapshot:output_type -> xylona.node.v1.GetProcessSnapshotResponse
+	102, // 183: xylona.node.v1.NodeService.ListBindableIPs:output_type -> xylona.node.v1.ListBindableIPsResponse
+	16,  // 184: xylona.node.v1.NodeService.GetNodeSnapshot:output_type -> xylona.node.v1.NodeSnapshot
+	108, // 185: xylona.node.v1.NodeService.GetRuntimeCapabilities:output_type -> xylona.node.v1.GetRuntimeCapabilitiesResponse
+	22,  // 186: xylona.node.v1.NodeService.StreamEvents:output_type -> xylona.node.v1.Event
+	105, // 187: xylona.node.v1.NodeService.Ping:output_type -> xylona.node.v1.PingResponse
+	110, // 188: xylona.node.v1.NodeService.GetUpdateCapabilities:output_type -> xylona.node.v1.GetUpdateCapabilitiesResponse
+	112, // 189: xylona.node.v1.NodeService.StageSelfUpdate:output_type -> xylona.node.v1.StageSelfUpdateResponse
+	114, // 190: xylona.node.v1.NodeService.ApplySelfUpdate:output_type -> xylona.node.v1.ApplySelfUpdateResponse
+	143, // [143:191] is the sub-list for method output_type
+	95,  // [95:143] is the sub-list for method input_type
+	95,  // [95:95] is the sub-list for extension type_name
+	95,  // [95:95] is the sub-list for extension extendee
+	0,   // [0:95] is the sub-list for field type_name
 }
 
 func init() { file_nodeproto_v1_node_proto_init() }
@@ -11389,7 +11538,7 @@ func file_nodeproto_v1_node_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_nodeproto_v1_node_proto_rawDesc), len(file_nodeproto_v1_node_proto_rawDesc)),
 			NumEnums:      14,
-			NumMessages:   131,
+			NumMessages:   132,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

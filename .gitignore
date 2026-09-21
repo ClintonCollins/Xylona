@@ -47,3 +47,10 @@ data.sqlite
 /.impeccable
 /docs
 /WATCHDOG.yml
+/.cache/
+/.tmp/
+/.tmp-*/
+*.log
+*.tmp
+*.sqlite
+*.sqlite-*

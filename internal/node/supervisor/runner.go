@@ -102,6 +102,8 @@ type InputMethod struct {
 
 // PreparedCommand contains all inputs needed to launch or reuse a command.
 type PreparedCommand struct {
+	TrustedRuntimeEnv  map[string]string
+	RedactValues       []string
 	ID                 string
 	ExecutionID        string
 	GameServerName     string
@@ -211,6 +213,9 @@ func (c *Command) Stop(stopInputCommand string) {
 		return
 	case <-time.After(stopTimeout):
 		log.Warn().Str("ID", commandID).Str("User", user).Msg("Timeout waiting for command to stop")
+		if c.ServiceID() == "valheim" {
+			c.sendJobNotification("Graceful stop deadline expired; forcing process termination. Save completion is unverified.")
+		}
 		processCtxCancel()
 	}
 }
@@ -483,6 +488,8 @@ func (c *Command) finalizeExecution(
 	c.status = xylona.Status_OFFLINE
 	finalizationDone := c.finalizationDone
 	c.finalizationDone = nil
+	clear(c.redactValues)
+	c.redactValues = nil
 	if clearLaunchEnvironment {
 		for name := range c.launchEnv {
 			c.launchEnv[name] = ""
@@ -578,6 +585,8 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 		}
 		if err != nil {
 			newCommand.Lock()
+			clear(newCommand.redactValues)
+			newCommand.redactValues = nil
 			newCommand.currentCMD = nil
 			newCommand.currentPTYCMD = nil
 			newCommand.currentPTY = nil

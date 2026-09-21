@@ -173,6 +173,16 @@ func (xs *XylonaService) ensureNodeScopedIP(ctx context.Context, nodeID string, 
 // all IPs occupy that footprint across every IP on the node.
 // excludeServerID can be set to skip a specific server (useful when editing an existing server).
 func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64, queryPort int64, game *models.Game, excludeServerID string) (int64, int64, error) {
+	if game != nil && game.ID == "valheim" {
+		if port < 1 || port > 65534 {
+			return 0, 0, errors.New("valheim game port must be between 1 and 65534")
+		}
+		if excludeServerID == "" {
+			queryPort = port + 1
+		} else if queryPort != port+1 {
+			return 0, 0, fmt.Errorf("valheim query port must be game port + 1 (%d); received %d", port+1, queryPort)
+		}
+	}
 	existingServers, errGetServers := xs.db.GetGameServersByNodeID(nodeID)
 	if errGetServers != nil {
 		return 0, 0, fmt.Errorf("rpc: list game servers by node: %w", errGetServers)
@@ -228,6 +238,9 @@ func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64,
 		if !conflict {
 			return port, queryPort, nil
 		}
+		if gameID == "valheim" && excludeServerID != "" {
+			return 0, 0, errors.New("valheim game/query port pair is already in use; select another adjacent pair")
+		}
 		port++
 		queryPort++
 	}
@@ -248,7 +261,7 @@ func gameServerPortFootprint(gameID string, port int64, queryPort int64) []int64
 			ports = append(ports, candidate)
 		}
 		ports = append(ports, queryPort+1)
-	case "project_zomboid":
+	case "project_zomboid", "valheim":
 		ports = append(ports, port+1)
 	case "conan_exiles":
 		ports = append(ports, port+1, port+2)
@@ -302,6 +315,12 @@ func (xs *XylonaService) CreateGameServer(ctx context.Context, request *connect.
 	}
 
 	newGameServerModel := protomap.GameServerProtoToModel(request.Msg.GetGameServer())
+	if game.ID == "valheim" {
+		if newGameServerModel.Port < 1 || newGameServerModel.Port > 65534 {
+			return nil, invalidArg("Valheim game port must be between 1 and 65534")
+		}
+		newGameServerModel.QueryPort = newGameServerModel.Port + 1
+	}
 	encodedEnvironment, errEnvironment := prepareCreateGameServerEnvironment(game, request.Msg.GetEnvVars())
 	if errEnvironment != nil {
 		return nil, invalidArg(errEnvironment.Error())
@@ -409,6 +428,10 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 	incomingGameServer := protomap.GameServerProtoToModel(request.Msg.GetGameServer())
 	gameServerModel := mergeEditableGameServerUpdate(existingGameServer, incomingGameServer, user.SuperUser)
 	gameServerModel.NodeID = fallbackNodeID(gameServerModel.NodeID, existingGameServer.NodeID)
+	errJoinPasswordName := xs.validateJoinPasswordServerName(existingGameServer, gameServerModel)
+	if errJoinPasswordName != nil {
+		return nil, errJoinPasswordName
+	}
 
 	game, errGetGame := xs.db.GetGameByID(gameServerModel.GameID)
 	if errGetGame != nil {

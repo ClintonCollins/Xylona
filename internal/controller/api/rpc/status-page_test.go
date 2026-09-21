@@ -145,7 +145,7 @@ func TestGameServerStatusPageValidation(t *testing.T) {
 }
 
 func TestProjectPublicGameServerStatusPage(t *testing.T) {
-	observedAt := time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC)
+	observedAt := time.Now().UTC()
 	servers := []*models.GameServer{
 		statusPageTestServer(t, "source", "bravo", "Source Game", 16),
 		statusPageTestServer(t, "minecraft", "Alpha", "Minecraft", 20),
@@ -344,5 +344,40 @@ func TestPublicStatusPageNotFoundMetadata(t *testing.T) {
 	}
 	if connectError.Meta().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatalf("referrer policy = %q", connectError.Meta().Get("Referrer-Policy"))
+	}
+}
+
+func TestPublicGameServerStatusValheimFreshness(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		age       time.Duration
+		status    xylona.Status
+		wantCount bool
+	}{
+		{"fresh zero", 0, xylona.Status_ONLINE, true},
+		{"stale success", time.Minute, xylona.Status_ONLINE, false},
+		{"node loss", 0, xylona.Status_OFFLINE, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := statusPageTestServer(t, "valheim", "Valheim", "Valheim", 10)
+			observedAt := time.Now().Add(-test.age)
+			queries := &xylona.AllServersQueryInfo{Servers: map[string]*xylona.ServerQuery{
+				"valheim": {Type: xylona.ServerQuery_Source, Source: &xylona.SourceQueryInfo{Responded: true, PlayerListSupported: true}},
+			}}
+			projected := projectPublicGameServerStatusPage(&db.GameServerStatusPage{}, []*models.GameServer{server}, queries,
+				func(string) actions.GameServerQueryTelemetrySnapshot {
+					return actions.GameServerQueryTelemetrySnapshot{Status: actions.GameServerQueryTelemetryStatusSuccess, QueryType: xylona.ServerQuery_Source, LastSuccessAt: observedAt, PlayerCountValid: true}
+				}, func(*models.GameServer) xylona.Status { return test.status }, nil, nil)
+			got := projected.GetServers()[0]
+			if (got.CurrentPlayerCount != nil) != test.wantCount {
+				t.Fatalf("count presence = %t, want %t", got.CurrentPlayerCount != nil, test.wantCount)
+			}
+			if !test.wantCount && (len(got.GetPlayerNames()) != 0 || got.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE) {
+				t.Fatalf("expired players = %v, state = %v", got.GetPlayerNames(), got.GetRosterState())
+			}
+			if got.PublicPassword != nil || !got.GetObservedAt().AsTime().Equal(observedAt) {
+				t.Fatal("projection changed explicit password or last observation")
+			}
+		})
 	}
 }

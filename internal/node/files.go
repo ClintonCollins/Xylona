@@ -320,6 +320,12 @@ func (n *Node) WriteFile(directory, relativePath string, content []byte, policy 
 // same-directory temp file, then replaces the target. It returns the byte count
 // and SHA-256 digest of the written content.
 func (n *Node) WriteFileFromReader(directory, relativePath string, reader io.Reader, policy ProtectionPolicy) (WriteFileResult, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return WriteFileResult{}, errLock
+	}
+	defer unlock()
+
 	validated, errPath := validateLocalPath(relativePath)
 	if errPath != nil {
 		return WriteFileResult{}, errPath
@@ -437,24 +443,8 @@ func writeFileFromReaderAtRoot(root *os.Root, targetRelative string, reader io.R
 
 func replaceRootedFile(root *os.Root, tempRelative, targetRelative string) error {
 	errRename := root.Rename(tempRelative, targetRelative)
-	if errRename == nil {
-		return nil
-	}
-	if runtime.GOOS != "windows" {
-		return fmt.Errorf("rename temp file: %w", errRename)
-	}
-
-	_, errStat := root.Stat(targetRelative)
-	if errStat != nil {
-		return fmt.Errorf("rename temp file: %w", errRename)
-	}
-	errRemove := root.Remove(targetRelative)
-	if errRemove != nil {
-		return errors.Join(errRename, fmt.Errorf("node: remove existing file before replace: %w", errRemove))
-	}
-	errRenameAgain := root.Rename(tempRelative, targetRelative)
-	if errRenameAgain != nil {
-		return errors.Join(errRename, fmt.Errorf("node: rename after removing existing file: %w", errRenameAgain))
+	if errRename != nil {
+		return fmt.Errorf("node: replace rooted file: %w", errRename)
 	}
 	return nil
 }
@@ -463,6 +453,12 @@ func replaceRootedFile(root *os.Root, tempRelative, targetRelative string) error
 // isDirectory is true, the path is created with MkdirAll. When false, the file
 // is created and content (if non-empty) is written into it.
 func (n *Node) CreateFileOrDirectory(directory, relativePath, content string, isDirectory bool, policy ProtectionPolicy) error {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return errLock
+	}
+	defer unlock()
+
 	validated, errPath := validateLocalPath(relativePath)
 	if errPath != nil {
 		return errPath
@@ -524,6 +520,12 @@ func (n *Node) CreateFileOrDirectory(directory, relativePath, content string, is
 // configured, any protected path in the set aborts the operation with
 // ErrProtectedPath.
 func (n *Node) DeleteFiles(ctx context.Context, directory string, files []string, policy ProtectionPolicy) ([]string, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return nil, errLock
+	}
+	defer unlock()
+
 	validatedFiles := make([]string, 0, len(files))
 	deleteRoot := false
 	for _, file := range files {
@@ -578,6 +580,12 @@ func (n *Node) DeleteFiles(ctx context.Context, directory string, files []string
 // validated new path is returned on success. Both paths are subject to the
 // protected-path check.
 func (n *Node) RenameFile(directory, oldRelativePath, newRelativePath string, policy ProtectionPolicy) (string, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return "", errLock
+	}
+	defer unlock()
+
 	validatedOld, errOld := validateLocalPath(oldRelativePath)
 	if errOld != nil {
 		return "", errOld
@@ -616,6 +624,12 @@ func (n *Node) RenameFile(directory, oldRelativePath, newRelativePath string, po
 // Each source path and the destination itself are subject to the protected-
 // path check.
 func (n *Node) MoveFiles(ctx context.Context, directory string, files []string, destination string, policy ProtectionPolicy) ([]string, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return nil, errLock
+	}
+	defer unlock()
+
 	validatedDestination, errDestination := validateLocalPath(destination)
 	if errDestination != nil {
 		return nil, errDestination
@@ -670,6 +684,12 @@ func (n *Node) MoveFiles(ctx context.Context, directory string, files []string, 
 // CopyFiles copies each source path to its paired destination path inside
 // directory. Destination paths are subject to the protected-path check.
 func (n *Node) CopyFiles(ctx context.Context, directory string, operations []CopyFileOperation, policy ProtectionPolicy) ([]string, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return nil, errLock
+	}
+	defer unlock()
+
 	root, errRoot := openMutationRoot(directory)
 	if errRoot != nil {
 		return nil, errRoot
@@ -802,6 +822,12 @@ func copyRegularFile(root *os.Root, sourceRelativePath, destinationRelativePath 
 // final destination path (destinationDirectoryPath + basename) is subject to
 // the protected-path check.
 func (n *Node) DownloadFileFromURL(ctx context.Context, directory, rawURL, destinationDirectoryPath string, integrity DownloadIntegrity, policy ProtectionPolicy) (DownloadFileResult, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return DownloadFileResult{}, errLock
+	}
+	defer unlock()
+
 	validatedDestination, errPath := validateLocalPath(destinationDirectoryPath)
 	if errPath != nil {
 		return DownloadFileResult{}, errPath

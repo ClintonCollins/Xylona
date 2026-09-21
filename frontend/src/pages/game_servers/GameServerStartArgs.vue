@@ -256,6 +256,7 @@ const resolvedPreview = computed(() =>
         templateBlocks.value,
         draftPatches.value,
         buildPlaceholderVars(gameServer.value ?? undefined),
+        gameServer.value?.gameId,
       ),
 )
 

@@ -41,7 +41,18 @@ var (
 
 // ModManager coordinates between mod providers, the database, and the filesystem.
 type ModManager struct {
-	db *db.Connection
+	db          *db.Connection
+	serverLocks sync.Map
+}
+
+func (m *ModManager) lockServerMods(serverID string) func() {
+	value, _ := m.serverLocks.LoadOrStore(serverID, &sync.Mutex{})
+	mutex, valid := value.(*sync.Mutex)
+	if !valid {
+		panic("invalid mod server lock")
+	}
+	mutex.Lock()
+	return mutex.Unlock
 }
 
 type fileMove struct {
@@ -438,6 +449,16 @@ func (m *ModManager) Install(
 	ctx context.Context,
 	serverID, source, sourceID, versionID, serverDir, installPath string,
 ) (*models.InstalledMod, error) {
+	unlock := m.lockServerMods(serverID)
+	defer unlock()
+	valheim, errValheim := m.isValheimMod(serverID, source)
+	if errValheim != nil {
+		return nil, errValheim
+	}
+	if valheim {
+		return m.changeValheimMod(ctx, nil, serverID, sourceID, versionID, serverDir)
+	}
+
 	provider, ok := modproviders.GetProvider(source)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrProviderNotFound, source)
@@ -562,6 +583,16 @@ func (m *ModManager) InstallRemote(
 	client FileClient,
 	serverID, source, sourceID, versionID, serverDir, installPath string,
 ) (*models.InstalledMod, error) {
+	unlock := m.lockServerMods(serverID)
+	defer unlock()
+	valheim, errValheim := m.isValheimMod(serverID, source)
+	if errValheim != nil {
+		return nil, errValheim
+	}
+	if valheim {
+		return m.changeValheimMod(ctx, client, serverID, sourceID, versionID, serverDir)
+	}
+
 	provider, ok := modproviders.GetProvider(source)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrProviderNotFound, source)
@@ -681,6 +712,17 @@ func (m *ModManager) Uninstall(ctx context.Context, client FileClient, modID, se
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
 	}
 
+	unlock := m.lockServerMods(mod.GameServerID)
+	defer unlock()
+
+	valheim, errValheim := m.isValheimMod(mod.GameServerID, mod.Source)
+	if errValheim != nil {
+		return errValheim
+	}
+	if valheim {
+		return m.mutateValheimMod(ctx, client, mod, serverDir, "remove")
+	}
+
 	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
 	if errFiles != nil {
 		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
@@ -714,6 +756,17 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
+	}
+
+	unlock := m.lockServerMods(mod.GameServerID)
+	defer unlock()
+
+	valheim, errValheim := m.isValheimMod(mod.GameServerID, mod.Source)
+	if errValheim != nil {
+		return nil, errValheim
+	}
+	if valheim {
+		return m.changeValheimMod(ctx, nil, mod.GameServerID, mod.SourceID, versionID, serverDir)
 	}
 
 	provider, ok := modproviders.GetProvider(mod.Source)
@@ -886,6 +939,17 @@ func (m *ModManager) UpdateRemote(ctx context.Context, client FileClient, modID,
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
+	}
+
+	unlock := m.lockServerMods(mod.GameServerID)
+	defer unlock()
+
+	valheim, errValheim := m.isValheimMod(mod.GameServerID, mod.Source)
+	if errValheim != nil {
+		return nil, errValheim
+	}
+	if valheim {
+		return m.changeValheimMod(ctx, client, mod.GameServerID, mod.SourceID, versionID, serverDir)
 	}
 
 	provider, ok := modproviders.GetProvider(mod.Source)
@@ -1208,6 +1272,17 @@ func (m *ModManager) Enable(ctx context.Context, client FileClient, modID, serve
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
 	}
 
+	unlock := m.lockServerMods(mod.GameServerID)
+	defer unlock()
+
+	valheim, errValheim := m.isValheimMod(mod.GameServerID, mod.Source)
+	if errValheim != nil {
+		return errValheim
+	}
+	if valheim {
+		return m.mutateValheimMod(ctx, client, mod, serverDir, "enable")
+	}
+
 	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)
 	if errFiles != nil {
 		return fmt.Errorf("modmanager: get mod files: %w", errFiles)
@@ -1242,6 +1317,17 @@ func (m *ModManager) Disable(ctx context.Context, client FileClient, modID, serv
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
+	}
+
+	unlock := m.lockServerMods(mod.GameServerID)
+	defer unlock()
+
+	valheim, errValheim := m.isValheimMod(mod.GameServerID, mod.Source)
+	if errValheim != nil {
+		return errValheim
+	}
+	if valheim {
+		return m.mutateValheimMod(ctx, client, mod, serverDir, "disable")
 	}
 
 	files, errFiles := m.db.GetInstalledModFilesByModID(mod.ID)

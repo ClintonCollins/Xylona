@@ -47,6 +47,12 @@ func (n *Node) CreateFileArchiveWithProgress(
 	policy ProtectionPolicy,
 	onProgress func(ArchiveProgress) error,
 ) (string, ArchiveProgress, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return "", ArchiveProgress{}, errLock
+	}
+	defer unlock()
+
 	validatedDestination, errDestination := validateLocalPath(destinationArchivePath)
 	if errDestination != nil {
 		return "", ArchiveProgress{}, errDestination
@@ -286,6 +292,12 @@ func (n *Node) ExtractFileArchiveWithProgress(
 	policy ProtectionPolicy,
 	onProgress func(ExtractProgress) error,
 ) ([]string, ExtractProgress, error) {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return nil, ExtractProgress{}, errLock
+	}
+	defer unlock()
+
 	validatedArchivePath, errArchivePath := validateLocalPath(archivePath)
 	if errArchivePath != nil {
 		return nil, ExtractProgress{}, errArchivePath

@@ -160,7 +160,22 @@ func cloneStringMap(values map[string]string) map[string]string {
 // StartProcess sends the StartProcess RPC. Callers should rely on StreamEvents,
 // StreamConsoleOutput, and snapshots for lifecycle observation.
 func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfig, status xylona.Status) error {
+	if cfg.RuntimeMode != "" {
+		if cfg.RuntimeMode != "valheim-native" {
+			return errors.New("nodeclient: unsupported required runtime mode")
+		}
+		capabilities, errCapabilities := c.GetRuntimeCapabilities(ctx)
+		if errCapabilities != nil {
+			return errCapabilities
+		}
+		if !capabilities.ValheimNativeRuntimeV1 {
+			return errors.New("nodeclient: owning node must be updated to support the Valheim native runtime")
+		}
+	}
 	msg := &nodeprotov1.StartProcessRequest{
+		GameId:             cfg.GameID,
+		RuntimeMode:        cfg.RuntimeMode,
+		RedactValues:       slices.Clone(cfg.RedactValues),
 		Id:                 cfg.ID,
 		ExecutionId:        cfg.ExecutionID,
 		Name:               cfg.Name,
@@ -962,6 +977,8 @@ func (c *GRPCNodeClient) ExecuteGameOperation(ctx context.Context, operationReq 
 		values = append(values, gameOperationValueToProto(value))
 	}
 	req := newReq(c, &nodeprotov1.ExecuteGameOperationRequest{
+		GameId:           operationReq.GameID,
+		GameServerId:     operationReq.GameServerID,
 		WorkingDirectory: operationReq.WorkingDirectory,
 		TokenName:        operationReq.TokenName,
 		TokenSecret:      operationReq.TokenSecret,
@@ -972,10 +989,15 @@ func (c *GRPCNodeClient) ExecuteGameOperation(ctx context.Context, operationReq 
 	if errRPC != nil {
 		return node.GameOperationResult{}, translateError("execute game operation", errRPC)
 	}
+	accessList, errAccessList := valheimAccessListFromProto(response.Msg.GetValheimAccessList())
+	if errAccessList != nil {
+		return node.GameOperationResult{}, errAccessList
+	}
 	details := response.Msg.GetTransportDetails()
 	result := node.GameOperationResult{
-		Classification: gameOperationResultClassificationFromProto(response.Msg.GetClassification()),
-		Message:        response.Msg.GetMessage(),
+		ValheimAccessList: accessList,
+		Classification:    gameOperationResultClassificationFromProto(response.Msg.GetClassification()),
+		Message:           response.Msg.GetMessage(),
 	}
 	if details != nil {
 		result.TransportDetails = node.GameOperationTransportDetails{
@@ -1409,6 +1431,7 @@ func (c *GRPCNodeClient) GetRuntimeCapabilities(ctx context.Context) (node.Runti
 		})
 	}
 	return node.RuntimeCapabilities{
+		ValheimNativeRuntimeV1:   msg.GetValheimNativeRuntimeV1(),
 		ProtocolVersion:          msg.GetProtocolVersion(),
 		LaunchEnv:                msg.GetLaunchEnv(),
 		ReliableProcessLifecycle: msg.GetReliableProcessLifecycle(),
@@ -2270,4 +2293,24 @@ func mapNodeErrorCode(connectErr *connect.Error) error {
 		return node.ErrProtectedPath
 	}
 	return nil
+}
+
+func valheimAccessListFromProto(value *nodeprotov1.ValheimAccessList) (*node.ValheimAccessList, error) {
+	if value == nil {
+		return nil, nil //nolint:nilnil // An absent optional payload is valid for other games and older nodes.
+	}
+	if len(value.GetIdentities()) > 4096 || len(value.GetDiagnostics()) > 4096 {
+		return nil, errors.New("nodeclient: Valheim access list exceeds entry limit")
+	}
+	size := len(value.GetListKind()) + len(value.GetRevision())
+	for _, identity := range value.GetIdentities() {
+		size += len(identity)
+	}
+	for _, diagnostic := range value.GetDiagnostics() {
+		size += len(diagnostic)
+	}
+	if size > 2<<20 {
+		return nil, errors.New("nodeclient: Valheim access list exceeds response limit")
+	}
+	return &node.ValheimAccessList{ListKind: value.GetListKind(), Identities: slices.Clone(value.GetIdentities()), Revision: value.GetRevision(), Diagnostics: slices.Clone(value.GetDiagnostics()), Missing: value.GetMissing()}, nil
 }

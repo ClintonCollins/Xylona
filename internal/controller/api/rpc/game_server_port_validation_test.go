@@ -394,3 +394,35 @@ func insertPortValidationServer(t *testing.T, fixture *rbacRPCFixture, id string
 		t.Fatalf("insert game server error = %v", errInsert)
 	}
 }
+
+func TestFindAvailablePortValheim(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	for _, test := range []struct {
+		name            string
+		port, queryPort int64
+		exclude         string
+		wantQuery       int64
+		wantError       bool
+	}{
+		{"derive new pair", 2456, 27015, "", 2457, false},
+		{"highest pair", 65534, 0, "", 65535, false},
+		{"overflow", 65535, 65535, "", 0, true},
+		{"zero", 0, 1, "", 0, true},
+		{"reject edited mismatch", 2456, 27015, "existing", 0, true},
+		{"accept edited pair", 2456, 2457, "existing", 2457, false},
+		{"reject edited collision", 25564, 25565, "existing", 0, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			port, queryPort, errFind := fixture.service.findAvailablePort("node-local", "127.0.0.1", test.port, test.queryPort, &models.Game{ID: "valheim"}, test.exclude)
+			if (errFind != nil) != test.wantError {
+				t.Fatalf("findAvailablePort error = %v", errFind)
+			}
+			if !test.wantError && (port != test.port || queryPort != test.wantQuery) {
+				t.Fatalf("pair = %d/%d, want %d/%d", port, queryPort, test.port, test.wantQuery)
+			}
+		})
+	}
+	if !slices.Contains(gameServerPortFootprint("valheim", 2456, 27015), int64(2457)) {
+		t.Fatal("legacy mismatched query port must still reserve native adjacent port")
+	}
+}

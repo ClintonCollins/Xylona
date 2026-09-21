@@ -1,6 +1,7 @@
 package updateconfig
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/aarondl/opt/null"
@@ -8,6 +9,35 @@ import (
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+func TestResolveModelConfigValheimMods(t *testing.T) {
+	defaultProfile := &updateproviders.ModProfile{
+		InstallPath: "BepInEx/plugins",
+		Sources:     []updateproviders.ModSource{{ID: "thunderstore", SearchParamsJSON: `{"community":"valheim"}`}},
+	}
+	for _, test := range []struct {
+		name   string
+		gameID string
+		stored string
+		want   *updateproviders.ModProfile
+	}{
+		{name: "legacy Valheim", gameID: "valheim", want: defaultProfile},
+		{name: "stored Valheim without mods", gameID: "valheim", stored: `{"update_provider":{"kind":"steamcmd"}}`, want: defaultProfile},
+		{name: "custom profile", gameID: "valheim", stored: `{"mod_profile":{"install_path":"custom","sources":[{"id":"thunderstore"}]}}`, want: &updateproviders.ModProfile{InstallPath: "custom", Sources: []updateproviders.ModSource{{ID: "thunderstore"}}}},
+		{name: "other game", gameID: "other"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			game := &models.Game{ID: test.gameID, ServerSoftware: null.From(test.stored)}
+			resolved, errResolve := ResolveModelConfig(game, &models.GameServer{})
+			if errResolve != nil {
+				t.Fatal(errResolve)
+			}
+			if !reflect.DeepEqual(resolved.ModProfile, test.want) {
+				t.Fatalf("mod profile = %#v, want %#v", resolved.ModProfile, test.want)
+			}
+		})
+	}
+}
 
 func TestLoadGameConfigFromModel_LegacyServerSoftwareJSON(t *testing.T) {
 	game := &models.Game{

@@ -7,10 +7,11 @@ import (
 )
 
 // RuntimeProtocolVersion is the node process-runtime capability protocol version.
-const RuntimeProtocolVersion int64 = 13
+const RuntimeProtocolVersion int64 = 14
 
 // RuntimeCapabilities describes process-runtime features exposed by a node.
 type RuntimeCapabilities struct {
+	ValheimNativeRuntimeV1   bool
 	ProtocolVersion          int64
 	LaunchEnv                bool
 	ReliableProcessLifecycle bool
@@ -47,7 +48,12 @@ func (n *Node) RuntimeCapabilities() RuntimeCapabilities {
 	for _, operation := range operations {
 		operationIDs = append(operationIDs, operation.ID)
 	}
+	valheimIDs := make([]string, 0)
+	for _, operation := range gameintegrations.OperationsForGame("valheim") {
+		valheimIDs = append(valheimIDs, operation.ID)
+	}
 	return RuntimeCapabilities{
+		ValheimNativeRuntimeV1:   true,
 		ProtocolVersion:          RuntimeProtocolVersion,
 		LaunchEnv:                true,
 		ReliableProcessLifecycle: true,
@@ -60,6 +66,7 @@ func (n *Node) RuntimeCapabilities() RuntimeCapabilities {
 		MinecraftMap:             true,
 		GameOperations: []GameOperationSupport{
 			{GameID: "7_days_to_die", OperationIDs: operationIDs},
+			{GameID: "valheim", OperationIDs: valheimIDs},
 		},
 	}
 }

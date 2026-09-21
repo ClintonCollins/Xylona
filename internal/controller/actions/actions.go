@@ -10,6 +10,8 @@ import (
 	"maps"
 	"os"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +31,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
 	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/internal/startargs"
+	"github.com/ClintonCollins/Xylona/internal/valheim"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -520,6 +523,14 @@ func (inst *Instance) resolveStructuredStartCommandWithVars(
 		return "", nil, fmt.Errorf("resolve start args: %w", errResolve)
 	}
 
+	if gameServer.GameID == "valheim" {
+		for index := 0; index+1 < len(command.Args); index++ {
+			if strings.EqualFold(command.Args[index], "-password") && command.Args[index+1] == "" {
+				command.Args = slices.Delete(command.Args, index, index+2)
+				index--
+			}
+		}
+	}
 	return command.BaseCommand, command.Args, nil
 }
 
@@ -567,6 +578,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, "Failed to reach target node: "+errClient.Error())
 		return nil, startUnavailableError("target node is unavailable", errClient)
 	}
+	var redactValues []string
 	adminInput := gameServerAdminInput{}
 	adminInterfacePassword := ""
 	configureAdminInput, disableManagedConsole, errConfigureAdminInput := inst.shouldConfigureAdminInput(gameServer)
@@ -581,11 +593,13 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 			inst.reportStartFailure(gameServer, "Admin interface password setup failed: "+errAdminInterfacePassword.Error())
 			return nil, startConfigurationError("admin interface password setup failed", errAdminInterfacePassword)
 		}
+		redactValues = append(redactValues, adminInterfacePassword)
 		previousAdminPasswords, errPasswordHistory := inst.loadAdminInterfacePasswordHistory(gameServer)
 		if errPasswordHistory != nil {
 			inst.reportStartFailure(gameServer, "Admin interface password history failed: "+errPasswordHistory.Error())
 			return nil, startConfigurationError("admin interface password history failed", errPasswordHistory)
 		}
+		redactValues = append(redactValues, previousAdminPasswords...)
 		var errAdminInput error
 		adminInput, errAdminInput = newGameServerAdminInput(
 			gameServer,
@@ -630,12 +644,23 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, errReadiness.Error())
 		return nil, startConfigurationError("server setup is incomplete", errReadiness)
 	}
+	if gameServer.GameID == "valheim" {
+		caps, errCaps := client.GetRuntimeCapabilities(inst.ctx)
+		if errCaps != nil || !caps.ValheimNativeRuntimeV1 {
+			return nil, startConfigurationError("upgrade the target node to support the Valheim native runtime", nil)
+		}
+	}
 	secretStartVars, errSecretStartVars := inst.secretStartPlaceholderVars(gameServer)
 	if errSecretStartVars != nil {
 		inst.reportStartFailure(gameServer, "Failed to load server launch secret: "+errSecretStartVars.Error())
 		return nil, startConfigurationError("server launch secret is unavailable", errSecretStartVars)
 	}
 	adminInput.mergePlaceholderVars(secretStartVars)
+	for _, value := range secretStartVars {
+		redactValues = append(redactValues, value)
+		quoted := strconv.Quote(value)
+		redactValues = append(redactValues, quoted[1:len(quoted)-1])
+	}
 
 	errGameLaunchSecrets := inst.writeGameLaunchSecrets(gameServer, client, secretStartVars)
 	if errGameLaunchSecrets != nil {
@@ -662,6 +687,18 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		NodeID:           gameServer.NodeID,
 		ServiceID:        gameServer.GameID,
 	}
+	if gameServer.GameID == "valheim" {
+		for index, arg := range args {
+			if arg == "-password" && index+1 < len(args) {
+				password := args[index+1]
+				quoted := strconv.Quote(password)
+				redactValues = append(redactValues, password, quoted[1:len(quoted)-1])
+			}
+		}
+		cfg.GameID = gameServer.GameID
+		cfg.RuntimeMode = valheim.NativeRuntime
+		cfg.StopTimeout = 120 * time.Second
+	}
 	adminInput.apply(&cfg)
 
 	launchEnvRequired := startLaunchEnvRequired(normalLaunchEnv, secretLaunchEnvStates) || readiness.RequiresLaunchEnv(gameServer)
@@ -676,15 +713,23 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		inst.reportStartFailure(gameServer, "Launch environment could not be loaded: "+errLaunchEnv.Error())
 		return nil, startConfigurationError("launch environment could not be loaded", errLaunchEnv)
 	}
+	for _, value := range launchEnv {
+		redactValues = append(redactValues, value)
+	}
 	launchEnv, errLaunchEnv = inst.prepareLaunchSecrets(gameServer, client, launchEnv)
 	if errLaunchEnv != nil {
 		inst.reportStartFailure(gameServer, "Launch secrets could not be prepared: "+errLaunchEnv.Error())
 		return nil, startConfigurationError("launch secrets could not be prepared", errLaunchEnv)
 	}
 	cfg.LaunchEnv = launchEnv
+	cfg.RedactValues = redactValues
 
 	errStart := client.StartProcess(inst.ctx, cfg, xylona.Status_ONLINE)
 	if errStart != nil {
+		redactedError := redactLaunchError(errStart.Error(), redactValues...)
+		if redactedError != errStart.Error() {
+			errStart = errors.New(redactedError)
+		}
 		log.Error().Err(errStart).Str("game_server_id", gameServer.ID).
 			Msg("Failed to start game server")
 		inst.reportStartFailure(gameServer, "Failed to start server: "+errStart.Error())
@@ -934,7 +979,7 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 	}
 
 	var errAutoUpdate error
-	if inst.isRemoteGameServer(gameServer) {
+	if inst.isRemoteGameServer(gameServer) || gameServer.GameID == "valheim" {
 		client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 		if errClient != nil {
 			log.Warn().Err(errClient).Str("game_server_id", gameServer.ID).

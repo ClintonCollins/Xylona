@@ -289,6 +289,9 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 
 	msg := req.Msg
 	cfg := node.ProcessConfig{
+		GameID:           msg.GetGameId(),
+		RuntimeMode:      msg.GetRuntimeMode(),
+		RedactValues:     append(slices.Clone(msg.GetRedactValues()), s.sharedSecret),
 		ID:               msg.GetId(),
 		ExecutionID:      msg.GetExecutionId(),
 		Name:             msg.GetName(),
@@ -1197,6 +1200,8 @@ func (s *nodeServiceServer) ExecuteGameOperation(ctx context.Context, req *conne
 		values = append(values, nodeGameOperationValueFromProto(value))
 	}
 	result := s.n.ExecuteGameOperation(ctx, node.GameOperationRequest{
+		GameID:           req.Msg.GetGameId(),
+		GameServerID:     req.Msg.GetGameServerId(),
 		WorkingDirectory: req.Msg.GetWorkingDirectory(),
 		TokenName:        req.Msg.GetTokenName(),
 		TokenSecret:      req.Msg.GetTokenSecret(),
@@ -1204,8 +1209,9 @@ func (s *nodeServiceServer) ExecuteGameOperation(ctx context.Context, req *conne
 		Values:           values,
 	})
 	response := &nodeprotov1.ExecuteGameOperationResponse{
-		Classification: gameOperationResultClassificationToProto(result.Classification),
-		Message:        result.Message,
+		ValheimAccessList: valheimAccessListToProto(result.ValheimAccessList),
+		Classification:    gameOperationResultClassificationToProto(result.Classification),
+		Message:           result.Message,
 	}
 	if result.TransportDetails.Method != "" || result.TransportDetails.Verification != "" {
 		response.TransportDetails = &nodeprotov1.GameOperationTransportDetails{
@@ -1984,6 +1990,7 @@ func (s *nodeServiceServer) GetRuntimeCapabilities(_ context.Context, req *conne
 		})
 	}
 	return connect.NewResponse(&nodeprotov1.GetRuntimeCapabilitiesResponse{
+		ValheimNativeRuntimeV1:   caps.ValheimNativeRuntimeV1,
 		ProtocolVersion:          caps.ProtocolVersion,
 		LaunchEnv:                caps.LaunchEnv,
 		ReliableProcessLifecycle: caps.ReliableProcessLifecycle,
@@ -2180,4 +2187,11 @@ func nodeEventToProto(ev node.Event) *nodeprotov1.Event {
 		}
 	}
 	return out
+}
+
+func valheimAccessListToProto(value *node.ValheimAccessList) *nodeprotov1.ValheimAccessList {
+	if value == nil {
+		return nil
+	}
+	return &nodeprotov1.ValheimAccessList{ListKind: value.ListKind, Identities: slices.Clone(value.Identities), Revision: value.Revision, Diagnostics: slices.Clone(value.Diagnostics), Missing: value.Missing}
 }

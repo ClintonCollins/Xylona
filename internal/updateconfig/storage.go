@@ -95,6 +95,15 @@ func ResolveModelConfig(game *models.Game, server *models.GameServer) (updatepro
 	}
 
 	resolved.Target = normalizeTarget(resolved.Provider.Kind, resolved.Target)
+	if game != nil && game.ID == "valheim" && resolved.ModProfile == nil {
+		resolved.ModProfile = &updateproviders.ModProfile{
+			InstallPath: "BepInEx/plugins",
+			Sources: []updateproviders.ModSource{{
+				ID:               "thunderstore",
+				SearchParamsJSON: `{"community":"valheim"}`,
+			}},
+		}
+	}
 	return resolved, nil
 }
 

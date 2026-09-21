@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf'
-import { onUnmounted, ref, type Ref } from 'vue'
+import { computed, onUnmounted, ref, type Ref } from 'vue'
 import {
   type AllServersQueryInfo,
   type GameServer,
@@ -16,6 +16,8 @@ import {
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+
+import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 interface UseGameServerQueryStatusVersionOptions {
   gameServer: Ref<GameServer>
@@ -75,15 +77,33 @@ export function useGameServerQueryStatusVersion({
   const maxPlayerCount = ref(0)
   const onlinePlayers = ref<string[]>([])
   const playerListSupported = ref(false)
+  const queryReceivedAt = ref(0)
+  const now = ref(Date.now())
+  const queryFresh = computed(
+    () =>
+      gameServer.value.status === Status.ONLINE &&
+      websocketStateAuthoritative.value &&
+      queryReceivedAt.value > 0 &&
+      now.value - queryReceivedAt.value < 30_000,
+  )
+  let freshnessTimer: ReturnType<typeof setInterval> | undefined
   let lifecycleStarted = false
   let lifecycleUnmounted = false
 
   function applyQueryInfo(queryInfo: ServerQuery) {
+    if (gameServer.value.gameId === 'valheim' && !queryInfo.source?.responded) {
+      queryReceivedAt.value = 0
+      onlinePlayers.value = []
+      playerListSupported.value = false
+      return
+    }
     const snapshot = queryInfoPlayerSnapshot(queryInfo)
     if (snapshot === null) {
       return
     }
 
+    queryReceivedAt.value = Date.now()
+    now.value = Date.now()
     currentPlayerCount.value = snapshot.playerCount
     maxPlayerCount.value = snapshot.playerCapacity
     onlinePlayers.value = snapshot.players
@@ -99,6 +119,7 @@ export function useGameServerQueryStatusVersion({
         applyQueryInfo(response.queryInfo)
       }
     } catch (error) {
+      queryReceivedAt.value = 0
       console.error(error)
       $q.notify({
         type: 'xylona-error',
@@ -141,6 +162,9 @@ export function useGameServerQueryStatusVersion({
     }
 
     lifecycleStarted = true
+    freshnessTimer = setInterval(() => {
+      now.value = Date.now()
+    }, 1000)
     XylonaEventBus.on('gameServersQueryInfo', onServerQueryInfo)
     XylonaEventBus.on('gameServerStatus', onServerStatusUpdate)
     XylonaEventBus.on('gameServerVersion', onServerVersionUpdate)
@@ -152,6 +176,7 @@ export function useGameServerQueryStatusVersion({
     }
 
     lifecycleStarted = false
+    clearInterval(freshnessTimer)
     XylonaEventBus.off('gameServersQueryInfo', onServerQueryInfo)
     XylonaEventBus.off('gameServerStatus', onServerStatusUpdate)
     XylonaEventBus.off('gameServerVersion', onServerVersionUpdate)
@@ -163,6 +188,7 @@ export function useGameServerQueryStatusVersion({
   })
 
   return {
+    queryFresh,
     currentPlayerCount,
     maxPlayerCount,
     onlinePlayers,

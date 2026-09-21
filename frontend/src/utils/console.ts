@@ -57,6 +57,14 @@ const rePalworldExistingFile = /^(The file already exists:)(\s+)(.+)$/i
 const rePalworldEngineVersion = /^(\d+\.\d+\.\d+-\d+\+{3}UE5\+Release-\d+\.\d+)(.*)$/i
 const rePalworldTrailingOK = /^(.*\s)(OK)([.!]?)$/i
 
+// Valheim (Unity and BepInEx) console regex
+const reValheimLog =
+  /^(\s*)(\[\s*(Fatal|Error|Warning|Warn|Message|Info|Debug|Trace)\s*:[^\]\r\n]+\])?([ \t]*)(\d{1,2}\/\d{1,2}\/\d{4} \d{2}:\d{2}:\d{2}:)?([ \t]*)(.*)$/i
+const reValheimError =
+  /^(?:Error\b|Failed\b|[\w.]*Exception:|The WorldGenerator instance was null)/i
+const reValheimWarning = /^(?:Warning\b|Missing\b)/i
+const reValheimReady = /^(?:Game server connected\b|Steam game server initialized\b)/i
+
 // V-Rising console regex
 const reVRisingServer = /^\[Server]/gm
 const reVRisingCompress = /^\[CompressModificationIdsOnLoadSystem]/gm
@@ -108,6 +116,9 @@ export function parseConsole(game: string, data: string): string {
     case 'palworld':
       data = parsePalworldConsole(data)
       break
+    case 'valheim':
+      data = parseValheimConsole(data)
+      break
     case '7_days_to_die':
       data = parse7DaysToDieConsole(data)
       break
@@ -129,6 +140,35 @@ export function parseConsole(game: string, data: string): string {
 
 function consoleSpan(className: string, content: string): string {
   return `<span class='${className}'>${content}</span>`
+}
+
+function parseValheimConsole(data: string): string {
+  return data.replace(/[^\r\n]+/g, (line) => {
+    const match = line.match(reValheimLog)
+    if (match === null) return line
+
+    const [
+      ,
+      leading = '',
+      tag = '',
+      level = '',
+      gap = '',
+      timestamp = '',
+      spacing = '',
+      message = '',
+    ] = match
+    let highlightedMessage = message
+    if (reValheimError.test(message)) {
+      highlightedMessage = consoleSpan('text-red-5', message)
+    } else if (reValheimWarning.test(message)) {
+      highlightedMessage = consoleSpan('text-yellow-5', message)
+    } else if (reValheimReady.test(message)) {
+      highlightedMessage = consoleSpan('text-green-5', message)
+    }
+    const highlightedTag = tag === '' ? '' : consoleSpan(consoleLevelClass(level), tag)
+    const highlightedTimestamp = timestamp === '' ? '' : consoleSpan('text-grey-6', timestamp)
+    return `${leading}${highlightedTag}${gap}${highlightedTimestamp}${spacing}${highlightedMessage}`
+  })
 }
 
 function parseSteamCMDConsole(data: string): string {
@@ -259,7 +299,7 @@ function parsePalworldLine(line: string): string {
     const [, leading = '', timestamp = '', spacing = '', level = '', gap = '', message = ''] =
       structuredLog
     const levelName = level.slice(1, -1)
-    return `${leading}${consoleSpan('text-grey-6', timestamp)}${spacing}${consoleSpan(palworldLevelClass(levelName), level)}${gap}${highlightPalworldMessage(message)}`
+    return `${leading}${consoleSpan('text-grey-6', timestamp)}${spacing}${consoleSpan(consoleLevelClass(levelName), level)}${gap}${highlightPalworldMessage(message)}`
   }
 
   const detailedLog = line.match(rePalworldDetailedLog)
@@ -453,7 +493,7 @@ function palworldVerbosityClass(verbosity: string): string {
   }
 }
 
-function palworldLevelClass(level: string): string {
+function consoleLevelClass(level: string): string {
   switch (level.toLowerCase()) {
     case 'fatal':
     case 'error':

@@ -67,6 +67,9 @@ service Xylona {
   rpc SetGameServerAdminInterfacePassword (SetGameServerAdminInterfacePasswordRequest) returns (SetGameServerAdminInterfacePasswordResponse) {}
   rpc GetGameServerReadiness (GetGameServerReadinessRequest) returns (GetGameServerReadinessResponse) {}
   rpc AcceptMinecraftEula (AcceptMinecraftEulaRequest) returns (AcceptMinecraftEulaResponse) {}
+  rpc GetJoinPasswordState (GetJoinPasswordStateRequest) returns (GetJoinPasswordStateResponse) {}
+  rpc SetJoinPassword (SetJoinPasswordRequest) returns (SetJoinPasswordResponse) {}
+  rpc ClearJoinPassword (ClearJoinPasswordRequest) returns (ClearJoinPasswordResponse) {}
   rpc SetSteamGSLT (SetSteamGSLTRequest) returns (SetSteamGSLTResponse) {}
   rpc ClearSteamGSLT (ClearSteamGSLTRequest) returns (ClearSteamGSLTResponse) {}
   rpc StartHytaleDeviceAuth (StartHytaleDeviceAuthRequest) returns (StartHytaleDeviceAuthResponse) {}
@@ -1926,6 +1929,15 @@ message GameOperationResult {
   GameOperationResultClassification classification = 1;
   string message = 2;
   GameOperationTransportDetails transport_details = 3;
+  ValheimAccessList valheim_access_list = 4;
+}
+
+message ValheimAccessList {
+  string list_kind = 1;
+  repeated string identities = 2;
+  string revision = 3;
+  repeated string diagnostics = 4;
+  bool missing = 5;
 }
 
 message ExecuteGameServerOperationRequest {
@@ -2406,3 +2418,18 @@ message CompleteSetupRequest {
 message CompleteSetupResponse {
   User user = 1;
 }
+
+message JoinPasswordState {
+  bool supported = 1;
+  bool configured = 2;
+  repeated string validation_issues = 4;
+}
+message GetJoinPasswordStateRequest { string server_id = 1; }
+message GetJoinPasswordStateResponse { JoinPasswordState state = 1; }
+message SetJoinPasswordRequest {
+  string server_id = 1;
+  string password = 2;
+}
+message SetJoinPasswordResponse { JoinPasswordState state = 1; }
+message ClearJoinPasswordRequest { string server_id = 1; }
+message ClearJoinPasswordResponse { JoinPasswordState state = 1; }

@@ -160,12 +160,12 @@ async function configureTabs() {
       isOwnerOrSuper = currentUser.superUser || isOwner
       hasModSupport =
         Boolean(gameServerResp.gameServer?.resolvedHasModSupport) ||
-        gameServerResp.gameServer?.gameId === '7_days_to_die'
+        ['7_days_to_die', 'valheim'].includes(gameServerResp.gameServer?.gameId ?? '')
       allowStartArgEditing = gameServerResp.gameServer?.game?.allowStartArgEditing ?? true
       hasLiveMap = ['minecraft', 'palworld', '7_days_to_die'].includes(
         gameServerResp.gameServer?.gameId ?? '',
       )
-      hasOperations = gameServerResp.gameServer?.gameId === '7_days_to_die'
+      hasOperations = ['7_days_to_die', 'valheim'].includes(gameServerResp.gameServer?.gameId ?? '')
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       console.error(err)

@@ -294,6 +294,12 @@ var ErrRestoreDestinationSymlink = errors.New("restore destination contains a sy
 // symlink are rejected. Intended for backup-restore flows; callers should
 // have already stopped the game server process.
 func (n *Node) ExtractBackupArchive(ctx context.Context, directory, archivePath string, mode ExtractMode) error {
+	unlock, errLock := n.lockServerLifecycle(directory)
+	if errLock != nil {
+		return errLock
+	}
+	defer unlock()
+
 	if strings.TrimSpace(directory) == "" {
 		return errors.New("node: extract directory is required")
 	}

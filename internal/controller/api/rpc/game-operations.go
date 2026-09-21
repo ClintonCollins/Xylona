@@ -200,6 +200,9 @@ func (xs *XylonaService) ExecuteGameServerOperation(
 	defer releaseOperation()
 
 	playerAction, isPlayerAction := gameOperationPlayerAction(operationID)
+	if gameServer.GameID != "7_days_to_die" {
+		isPlayerAction = false
+	}
 	var result node.GameOperationResult
 	var errExecute error
 	if isPlayerAction {
@@ -211,6 +214,8 @@ func (xs *XylonaService) ExecuteGameServerOperation(
 		result = playerActionOperationResult(operation.Name, errExecute)
 	} else {
 		result, errExecute = access.client.ExecuteGameOperation(ctx, node.GameOperationRequest{
+			GameID:           gameServer.GameID,
+			GameServerID:     gameServer.ID,
 			WorkingDirectory: access.workingDirectory,
 			TokenName:        access.tokenName,
 			TokenSecret:      access.tokenSecret,
@@ -281,6 +286,15 @@ func (xs *XylonaService) resolveGameOperationEnvironment(
 			xylona.GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_NODE_UNAVAILABLE,
 			"The server node could not report the live process state.",
 		)
+	}
+	if gameServer.GameID == "valheim" {
+		if slices.ContainsFunc(operations, func(operation gameintegrations.OperationDescriptor) bool {
+			_, action, valid := gameintegrations.ValheimAccessOperation(operation.ID)
+			return valid && action != "list"
+		}) && found && (process == nil || process.Status != xylona.Status_OFFLINE.String()) {
+			environment.nativeUnavailable = operationAvailability{reason: xylona.GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_SERVER_CONFIGURATION_INVALID, text: "Stop the server before changing stored access."}
+		}
+		return environment, nil
 	}
 	if !found || process == nil || process.Status != xylona.Status_ONLINE.String() {
 		return preconditionDisabled(
@@ -387,6 +401,19 @@ func gameOperationAvailability(
 			reason: xylona.GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_NODE_UNSUPPORTED,
 			text:   "Update the node to a version that supports game operations.",
 		}
+	}
+	if gameID == "valheim" {
+		if environment.capabilities.ProtocolVersion < 14 {
+			return operationAvailability{reason: xylona.GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_NODE_UNSUPPORTED, text: "Update the node to support Valheim stored access."}
+		}
+		_, action, valid := gameintegrations.ValheimAccessOperation(operation.ID)
+		if valid && action == "list" {
+			return operationAvailability{available: true}
+		}
+		if environment.nativeUnavailable.reason != xylona.GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_UNSPECIFIED {
+			return environment.nativeUnavailable
+		}
+		return operationAvailability{available: valid}
 	}
 	if operation.NativeCapability == gameintegrations.OperationNativeCapabilityPlayerActions {
 		if !environment.capabilities.PlayerActions {
@@ -902,6 +929,10 @@ func publicGameOperationResult(result node.GameOperationResult, secrets ...strin
 	publicResult := &xylona.GameOperationResult{
 		Classification: classification,
 		Message:        boundedRedactedGameOperationText(result.Message, 512, secrets...),
+	}
+	if result.ValheimAccessList != nil {
+		list := result.ValheimAccessList
+		publicResult.ValheimAccessList = &xylona.ValheimAccessList{ListKind: list.ListKind, Identities: slices.Clone(list.Identities), Revision: list.Revision, Diagnostics: slices.Clone(list.Diagnostics), Missing: list.Missing}
 	}
 	method := boundedRedactedGameOperationText(result.TransportDetails.Method, 128, secrets...)
 	verification := boundedRedactedGameOperationText(result.TransportDetails.Verification, 128, secrets...)

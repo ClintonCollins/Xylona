@@ -93,6 +93,9 @@ const defaultStopTimeout = 15 * time.Second
 // transport-agnostic input for StartProcess and is translated into a
 // supervisor.PreparedCommand internally.
 type ProcessConfig struct {
+	GameID           string
+	RuntimeMode      string
+	RedactValues     []string
 	ID               string
 	ExecutionID      string
 	Name             string

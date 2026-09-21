@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -378,6 +379,11 @@ func projectPublicGameServerStatusPage(
 		}
 		switch telemetry.Status {
 		case actions.GameServerQueryTelemetryStatusSuccess:
+			// Query polling normally runs every five seconds. Expire cached success
+			// when polling stalls or the owning node/process is no longer online.
+			if publicServer.GetStatus() != xylona.Status_ONLINE || telemetry.LastSuccessAt.IsZero() || time.Since(telemetry.LastSuccessAt) > 30*time.Second {
+				break
+			}
 			if telemetry.PlayerCountValid {
 				count := telemetry.PlayerCount
 				publicServer.CurrentPlayerCount = &count

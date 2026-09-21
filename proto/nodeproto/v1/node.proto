@@ -203,6 +203,9 @@ message StartProcessRequest {
   TelnetInput telnet_input = 15;
   RCONInput rcon_input = 16;
   RESTInput rest_input = 17;
+  repeated string redact_values = 19;
+  string game_id = 20;
+  string runtime_mode = 21;
 }
 
 message TelnetInput {
@@ -838,6 +841,7 @@ message GetRuntimeCapabilitiesResponse {
   bool seven_days_to_die_map = 9;
   bool minecraft_map = 10;
   repeated GameOperationSupport game_operations = 11;
+  bool valheim_native_runtime_v1 = 12;
 }
 
 // --- Self-update RPCs -------------------------------------------------------
@@ -1006,12 +1010,15 @@ message ExecuteGameOperationRequest {
   string token_secret = 3;
   string operation_id = 4;
   repeated GameOperationValue values = 5;
+  string game_id = 6;
+  string game_server_id = 7;
 }
 
 message ExecuteGameOperationResponse {
   GameOperationResultClassification classification = 1;
   string message = 2;
   GameOperationTransportDetails transport_details = 3;
+  ValheimAccessList valheim_access_list = 4;
 }
 
 message PalworldMapHealth {
@@ -1211,4 +1218,12 @@ message QuerySevenDaysToDieSandboxSettingsRequest {
 
 message QuerySevenDaysToDieSandboxSettingsResponse {
   SevenDaysToDieSandboxSettings result = 1;
+}
+
+message ValheimAccessList {
+  string list_kind = 1;
+  repeated string identities = 2;
+  string revision = 3;
+  repeated string diagnostics = 4;
+  bool missing = 5;
 }

@@ -366,6 +366,13 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 		return nil, fmt.Errorf("setupDatabase: run migrations: %w", errMigrate)
 	}
 
+	dbInst.SetEncryptionKey(encryptionKey)
+	if cfg.JWTSecretKey != "" {
+		jwtFallbackBytes, errDecodeJWTFallback := base64.StdEncoding.DecodeString(cfg.JWTSecretKey)
+		if errDecodeJWTFallback == nil && len(jwtFallbackBytes) >= xycrypt.EncryptionKeySize {
+			dbInst.SetFallbackEncryptionKey(jwtFallbackBytes[:xycrypt.EncryptionKeySize])
+		}
+	}
 	syncResult, errSyncDefinitions := gamedefinitions.SyncOfficialDefinitions(dbInst)
 	if errSyncDefinitions != nil {
 		_ = dbInst.SQLDb.Close()
@@ -378,15 +385,6 @@ func setupDatabase(ctx context.Context, cfg Configuration) (*dbpkg.Connection, e
 			Int("diverged", syncResult.Diverged).
 			Int("skipped", syncResult.Skipped).
 			Msg("Synced official game definitions")
-	}
-
-	dbInst.SetEncryptionKey(encryptionKey)
-
-	if cfg.JWTSecretKey != "" {
-		jwtFallbackBytes, errDecodeJWTFallback := base64.StdEncoding.DecodeString(cfg.JWTSecretKey)
-		if errDecodeJWTFallback == nil && len(jwtFallbackBytes) >= xycrypt.EncryptionKeySize {
-			dbInst.SetFallbackEncryptionKey(jwtFallbackBytes[:xycrypt.EncryptionKeySize])
-		}
 	}
 
 	return dbInst, nil

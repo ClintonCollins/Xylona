@@ -906,6 +906,9 @@ func playerActionOperation(
 // OperationsForGame returns a detached copy of the built-in catalog for a game ID.
 func OperationsForGame(gameID string) []OperationDescriptor {
 	operations := slices.Clone(operationsByGame[gameID])
+	if gameID == "valheim" {
+		operations = valheimOperations()
+	}
 	for index := range operations {
 		operations[index].AvailabilityRequirements = slices.Clone(operations[index].AvailabilityRequirements)
 		operations[index].Concurrency.ConflictsWith = slices.Clone(operations[index].Concurrency.ConflictsWith)

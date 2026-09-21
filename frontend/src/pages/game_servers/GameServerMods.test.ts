@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   getReportedMods: vi.fn(),
   getUpdateTargets: vi.fn(),
   listInstalledMods: vi.fn(),
+  getModVersions: vi.fn(),
+  installMod: vi.fn(),
 }))
 
 vi.mock('@/utils/shared', () => ({
@@ -21,6 +23,8 @@ vi.mock('@/utils/shared', () => ({
     getSevenDaysToDieReportedMods: mocks.getReportedMods,
     getUpdateTargets: mocks.getUpdateTargets,
     listInstalledMods: mocks.listInstalledMods,
+    getModVersions: mocks.getModVersions,
+    installMod: mocks.installMod,
   }),
 }))
 
@@ -32,6 +36,7 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
+    Notify: { create: vi.fn() },
     useQuasar: () => ({ dialog: vi.fn() }),
   }
 })
@@ -75,6 +80,8 @@ function mountPage() {
 
 describe('GameServerMods reported mods', () => {
   beforeEach(() => {
+    mocks.getModVersions.mockReset()
+    mocks.installMod.mockReset()
     mocks.getGameServer.mockReset()
     mocks.getReportedMods.mockReset()
     mocks.getUpdateTargets.mockReset()
@@ -82,6 +89,49 @@ describe('GameServerMods reported mods', () => {
     mocks.listInstalledMods.mockResolvedValue({ installedMods: [] })
     mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: '7_days_to_die' } })
     mocks.getReportedMods.mockResolvedValue(reportedModsResponse)
+  })
+
+  it('lets Valheim browse Thunderstore and install a selected mod', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: {
+        gameId: 'valheim',
+        resolvedModProfile: {
+          sources: [{ id: 'thunderstore', searchParamsJson: '{"community":"valheim"}' }],
+        },
+      },
+    })
+    mocks.getModVersions.mockResolvedValue({
+      versions: [
+        {
+          versionId: '1.2.3',
+          dependencies: [{ sourceId: 'Example-Library-1.0.0', name: 'Library', required: true }],
+        },
+      ],
+    })
+    mocks.installMod.mockResolvedValue({})
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const browser = wrapper.getComponent({ name: 'ModBrowse' })
+    expect(browser.props('sources')).toEqual([
+      { id: 'thunderstore', searchParams: { community: 'valheim' } },
+    ])
+    expect((wrapper.vm as unknown as { activeTab: string }).activeTab).toBe('browse')
+    expect(wrapper.find('[data-testid="managed-mods"]').exists()).toBe(true)
+    browser.vm.$emit('install', 'thunderstore', 'Example-Mod')
+    await flushPromises()
+
+    expect(mocks.installMod).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gameServerId: 'server-1',
+        source: 'thunderstore',
+        sourceId: 'Example-Mod',
+        versionId: '1.2.3',
+      }),
+    )
+    expect(mocks.listInstalledMods).toHaveBeenCalledTimes(2)
+    expect(mocks.installMod).toHaveBeenCalledOnce()
+    expect(mocks.getReportedMods).not.toHaveBeenCalled()
   })
 
   it('keeps managed and reported inventories separate and escapes reported text', async () => {

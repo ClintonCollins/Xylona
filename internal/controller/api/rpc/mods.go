@@ -85,6 +85,11 @@ func (xs *XylonaService) remoteModClient(gameServer *models.GameServer) (modmana
 		return nil, false, nil
 	}
 
+	if gameServer.GameID == "valheim" {
+		client, errClient := xs.resolveNodeClient(gameServer)
+		return client, true, errClient
+	}
+
 	selfNodeID := xs.selfNodeID()
 	if gameServer.NodeID == "" || gameServer.NodeID == selfNodeID {
 		return nil, false, nil
@@ -385,6 +390,14 @@ func (xs *XylonaService) InstallMod(
 
 	installPath := getInstallPath(info.modProfile)
 
+	if info.gameServer.GameID == "valheim" && request.Msg.GetSource() != "thunderstore" {
+		return nil, invalidArg("Valheim mod installation requires a Thunderstore package")
+	}
+	errStopped := xs.ensureValheimModsStopped(ctx, info.gameServer)
+	if errStopped != nil {
+		return nil, errStopped
+	}
+
 	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(info.gameServer)
 	if errRemoteClient != nil {
 		return nil, errRemoteClient
@@ -416,7 +429,7 @@ func (xs *XylonaService) InstallMod(
 	}
 	if errInstall != nil {
 		log.Error().Err(errInstall).Msg("Failed to install mod")
-		return nil, internalErrf("failed to install mod")
+		return nil, modMutationError(errInstall, "install")
 	}
 
 	return &connect.Response[xylona.InstallModResponse]{
@@ -451,6 +464,11 @@ func (xs *XylonaService) UninstallMod(
 		return nil, errMod
 	}
 
+	errStopped := xs.ensureValheimModsStopped(ctx, gameServer)
+	if errStopped != nil {
+		return nil, errStopped
+	}
+
 	nodeClient, errNodeClient := xs.resolveNodeClient(gameServer)
 	if errNodeClient != nil {
 		return nil, errNodeClient
@@ -459,7 +477,7 @@ func (xs *XylonaService) UninstallMod(
 	errUninstall := xs.modManager.Uninstall(ctx, nodeClient, request.Msg.GetInstalledModId(), gameServer.Directory)
 	if errUninstall != nil {
 		log.Error().Err(errUninstall).Msg("Failed to uninstall mod")
-		return nil, internalErrf("failed to uninstall mod")
+		return nil, modMutationError(errUninstall, "uninstall")
 	}
 
 	return &connect.Response[xylona.UninstallModResponse]{
@@ -492,6 +510,11 @@ func (xs *XylonaService) UpdateMod(
 		return nil, errMod
 	}
 
+	errStopped := xs.ensureValheimModsStopped(ctx, gameServer)
+	if errStopped != nil {
+		return nil, errStopped
+	}
+
 	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(gameServer)
 	if errRemoteClient != nil {
 		return nil, errRemoteClient
@@ -506,7 +529,7 @@ func (xs *XylonaService) UpdateMod(
 	}
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Failed to update mod")
-		return nil, internalErrf("failed to update mod")
+		return nil, modMutationError(errUpdate, "update")
 	}
 
 	return &connect.Response[xylona.UpdateModResponse]{
@@ -632,6 +655,11 @@ func (xs *XylonaService) SetModEnabled(
 
 	installPath := getInstallPath(info.modProfile)
 
+	errStopped := xs.ensureValheimModsStopped(ctx, info.gameServer)
+	if errStopped != nil {
+		return nil, errStopped
+	}
+
 	nodeClient, errNodeClient := xs.resolveNodeClient(info.gameServer)
 	if errNodeClient != nil {
 		return nil, errNodeClient
@@ -641,13 +669,13 @@ func (xs *XylonaService) SetModEnabled(
 		errEnable := xs.modManager.Enable(ctx, nodeClient, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
 		if errEnable != nil {
 			log.Error().Err(errEnable).Msg("Failed to enable mod")
-			return nil, internalErrf("failed to enable mod")
+			return nil, modMutationError(errEnable, "enable")
 		}
 	} else {
 		errDisable := xs.modManager.Disable(ctx, nodeClient, request.Msg.GetInstalledModId(), info.gameServer.Directory, installPath)
 		if errDisable != nil {
 			log.Error().Err(errDisable).Msg("Failed to disable mod")
-			return nil, internalErrf("failed to disable mod")
+			return nil, modMutationError(errDisable, "disable")
 		}
 	}
 

@@ -71,6 +71,14 @@ func (inst *Instance) GetGameServerQueryTelemetry(gameServerID string) GameServe
 	if !ok {
 		return GameServerQueryTelemetrySnapshot{Status: GameServerQueryTelemetryStatusNotYetQueried}
 	}
+	if snapshot.Status == GameServerQueryTelemetryStatusSuccess && time.Since(snapshot.LastSuccessAt) > 30*time.Second {
+		return GameServerQueryTelemetrySnapshot{
+			Status:        GameServerQueryTelemetryStatusUnavailable,
+			QueryType:     snapshot.QueryType,
+			CheckedAt:     snapshot.CheckedAt,
+			LastSuccessAt: snapshot.LastSuccessAt,
+		}
+	}
 	return snapshot
 }
 
