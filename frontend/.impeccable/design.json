@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-24T00:00:00Z",
+  "generatedAt": "2026-09-10T02:47:52Z",
   "title": "Design System: Xylona",
   "extensions": {
     "colorMeta": {
@@ -273,7 +273,7 @@
       "refersTo": "input",
       "description": "Compact field with an explicit label and consequence-bearing helper text.",
       "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Server name</span><input class=\"ds-input\" type=\"text\" value=\"survival-01\" /><span class=\"ds-field-helper\">Used in backup filenames and console output.</span></label>",
-      "css": ".ds-field { display: flex; flex-direction: column; gap: var(--xy-space-xs); } .ds-field-label { font-family: var(--xy-font-body); font-size: var(--xy-font-size-xs); font-weight: 600; letter-spacing: 0.02em; color: var(--xy-field-label-color); } .ds-input { background: var(--xy-surface-0); color: var(--xy-text-primary); font-family: var(--xy-font-body); font-size: var(--xy-font-size-sm); padding: 8px 12px; border: 1px solid var(--xy-border); border-radius: var(--xy-radius-md); transition: border-color var(--xy-transition-fast); } .ds-input:hover { border-color: var(--xy-border-hover); } .ds-input:focus { outline: none; border-color: var(--xy-border-active); } .ds-field-helper { font-family: var(--xy-font-body); font-size: var(--xy-font-size-xs); color: var(--xy-field-helper-color); }"
+      "css": ".ds-field { display: flex; flex-direction: column; gap: var(--xy-space-xs); } .ds-field-label { font-family: var(--xy-font-body); font-size: var(--xy-font-size-xs); font-weight: 600; letter-spacing: 0.02em; color: var(--xy-field-label-color); } .ds-input { background: var(--xy-surface-0); color: var(--xy-text-primary); font-family: var(--xy-font-body); font-size: var(--xy-font-size-sm); padding: 8px 12px; border: 1px solid var(--xy-border); border-radius: var(--xy-radius-md); transition: border-color var(--xy-transition-fast); } .ds-input:hover { border-color: var(--xy-border-hover); } .ds-input:focus { outline: 2px solid var(--xy-focus-ring); outline-offset: 2px; border-color: var(--xy-border-active); } .ds-field-helper { font-family: var(--xy-font-body); font-size: var(--xy-font-size-xs); color: var(--xy-field-helper-color); }"
     },
     {
       "name": "Surface Card",
@@ -297,7 +297,7 @@
       "refersTo": "toolbar",
       "description": "Fixed 50px command band. Active navigation carries Signal Cyan.",
       "html": "<div class=\"ds-toolbar\"><span class=\"ds-toolbar-brand\">XYLONA</span><nav class=\"ds-toolbar-nav\"><a class=\"ds-toolbar-link ds-toolbar-link-active\" href=\"#\">Console</a><a class=\"ds-toolbar-link\" href=\"#\">Files</a><a class=\"ds-toolbar-link\" href=\"#\">Backups</a></nav></div>",
-      "css": ".ds-toolbar { display: flex; align-items: center; gap: var(--xy-space-lg); height: 50px; padding: 0 var(--xy-space-md); background: var(--xy-surface-2); border-bottom: 1px solid var(--xy-border); } .ds-toolbar-brand { font-family: var(--xy-font-brand); font-size: var(--xy-font-size-base); color: var(--xy-text-primary); } .ds-toolbar-nav { display: flex; gap: var(--xy-space-md); } .ds-toolbar-link { font-family: var(--xy-font-heading); font-size: var(--xy-font-size-sm); color: var(--xy-text-secondary); text-decoration: none; transition: color var(--xy-transition-fast); } .ds-toolbar-link:hover { color: var(--xy-text-primary); } .ds-toolbar-link-active { color: var(--xy-accent); }"
+      "css": ".ds-toolbar { display: flex; align-items: center; gap: var(--xy-space-lg); height: 50px; padding: 0 var(--xy-space-md); background: var(--xy-surface-2); border-bottom: 1px solid var(--xy-border); } .ds-toolbar-brand { font-family: var(--xy-font-brand); font-size: var(--xy-font-size-base); color: var(--xy-text-primary); } .ds-toolbar-nav { display: flex; gap: var(--xy-space-md); } .ds-toolbar-link { font-family: var(--xy-font-control); font-size: var(--xy-font-size-sm); color: var(--xy-text-secondary); text-decoration: none; transition: color var(--xy-transition-fast); } .ds-toolbar-link:hover { color: var(--xy-text-primary); } .ds-toolbar-link-active { color: var(--xy-accent); }"
     },
     {
       "name": "Console",
@@ -317,7 +317,7 @@
     }
   ],
   "narrative": {
-    "overview": "Xylona is a dark-only product UI with a futuristic command-center feel. It should communicate operational control, server health, and technical confidence while staying approachable for self-hosters.\n\nThe visual language is layered, cool-tinted, and precise: near-black foundations, stacked surfaces, cyan and blue accents, readable status colors, and restrained sci-fi typography. The product should feel immersive without sacrificing speed, scanability, or workflow clarity.\n\nThe personality is powerful, sleek, and futuristic — a high-tech command center that is confident, technical, and in control. The tone can be gaming-native and energetic, but it must never become chaotic, toy-like, or cute. Xylona should feel at home beside Discord and Steam for audience familiarity, while matching the polish and clarity users expect from tools like Linear and Vercel.",
+    "overview": "Xylona is a dark-only product UI with a futuristic command-center feel. It should communicate operational control, server health, and technical confidence while staying approachable for self-hosters.\n\nThe visual language is layered, cool-tinted, and precise: near-black foundations, stacked surfaces, cyan and blue accents, readable status colors, and restrained sci-fi typography. The product should feel immersive without sacrificing speed, scanability, or workflow clarity.\n\nThe personality is **powerful, sleek, and futuristic** — a high-tech command center that is confident, technical, and in control. The tone can be gaming-native and energetic, but it must never become chaotic, toy-like, or cute. Xylona should feel at home beside Discord and Steam for audience familiarity, while matching the polish and clarity users expect from tools like Linear and Vercel.\n\n**Anti-references.** Avoid generic admin-panel templates, cPanel-style clutter, flat lifeless dashboards, and sterile spreadsheet-like layouts. Avoid softening the identity into a plain SaaS theme. Do not imitate other game server control panels: study their domain patterns for console, file browser, server controls, backups, and configuration, then differentiate through stronger hierarchy, tighter interaction design, and a more distinctive command-center visual language.",
     "keyCharacteristics": [
       "Dark-only, cool-tinted, never pure black.",
       "Depth by stacked surfaces first, borders second, shadows last.",
@@ -333,12 +333,12 @@
       },
       {
         "name": "The Never-Pure-Black Rule",
-        "body": "The floor is --xy-base (#0D0E0F), never #000. Neutrals stay cool-tinted; a warm or fully desaturated gray reads as a different product.",
+        "body": "The floor is `--xy-base` (#0D0E0F), never `#000`. Neutrals stay cool-tinted; a warm or fully desaturated gray reads as a different product.",
         "section": "colors"
       },
       {
         "name": "The Series-Is-Not-Status Rule",
-        "body": "Time-series data uses --xy-series-*, not --xy-chart-3 / --xy-chart-4. Red and amber are reserved for real state — threshold breaches and configured-limit lines — so an ordinary series like storage growth never plots in alarm colors.",
+        "body": "Time-series data uses `--xy-series-*`, not `--xy-chart-3` / `--xy-chart-4`. Red and amber are reserved for real state — threshold breaches and configured-limit lines — so an ordinary series like storage growth never plots in alarm colors.",
         "section": "colors"
       },
       {
@@ -348,7 +348,7 @@
       },
       {
         "name": "The Two-Steps-Below Rule",
-        "body": "Below body-sm (0.875rem) there are exactly two steps: caption (--xy-font-size-xs, 0.75rem) and micro (--xy-font-size-2xs, 0.6875rem). Do not freelance a size in between.",
+        "body": "Below `body-sm` (0.875rem) there are exactly two steps: caption (`--xy-font-size-xs`, 0.75rem) and micro (`--xy-font-size-2xs`, 0.6875rem). Do not freelance a size in between.",
         "section": "typography"
       },
       {
@@ -373,7 +373,7 @@
       },
       {
         "name": "The Token Radius Rule",
-        "body": "Always use --xy-radius-*. A literal 1rem or 999px in a component is a defect.",
+        "body": "Always use `--xy-radius-*`. A literal `1rem` or `999px` in a component is a defect.",
         "section": "shapes"
       },
       {
@@ -398,22 +398,22 @@
       }
     ],
     "dos": [
-      "Do use existing --xy-* tokens before adding new values.",
-      "Do extend design-tokens.css for utilities and overrides.css for Quasar component styling.",
-      "Do keep the app dark-only, layered, and cool-tinted.",
-      "Do make status, feedback, and available actions obvious.",
-      "Do use cyan and blue accents for interactive or stateful meaning.",
-      "Do preserve the global reduced-motion block in design-tokens.css, and animate transform and opacity rather than layout properties.",
-      "Do use --xy-ease-standard (cubic-bezier(0.2, 0, 0, 1)) and the --xy-transition-fast / --xy-transition-base tokens for state changes."
+      "**Do** use existing `--xy-*` tokens before adding new values.",
+      "**Do** extend `design-tokens.css` for utilities and `overrides.css` for Quasar component styling.",
+      "**Do** keep the app dark-only, layered, and cool-tinted.",
+      "**Do** make status, feedback, and available actions obvious.",
+      "**Do** use cyan and blue accents for interactive or stateful meaning.",
+      "**Do** preserve the global reduced-motion block in `design-tokens.css`, and animate transform and opacity rather than layout properties.",
+      "**Do** use `--xy-ease-standard` (`cubic-bezier(0.2, 0, 0, 1)`) and the `--xy-transition-fast` / `--xy-transition-base` tokens for state changes."
     ],
     "donts": [
-      "Don't hardcode colors, radii, or type sizes in components.",
-      "Don't create generic admin-template screens or cPanel-style clutter.",
-      "Don't use decorative side-stripe borders, gradient text, default glassmorphism, or repeated icon-heading-text card grids.",
-      "Don't hide server lifecycle actions, health, or errors behind vague menus.",
-      "Don't set display faces (Zen Dots, Goldman) below roughly 0.95rem.",
-      "Don't replace accepted v-html console and tooltip rendering unless the trust model changes.",
-      "Don't add durable project documentation under the repo-root /docs/, which is intentionally local scratch space."
+      "**Don't** hardcode colors, radii, or type sizes in components.",
+      "**Don't** create generic admin-template screens or cPanel-style clutter.",
+      "**Don't** use decorative side-stripe borders, gradient text, default glassmorphism, or repeated icon-heading-text card grids.",
+      "**Don't** hide server lifecycle actions, health, or errors behind vague menus.",
+      "**Don't** set display faces (Zen Dots, Goldman) below roughly 0.95rem.",
+      "**Don't** replace or bypass the accepted `v-html` boundaries in `../PRODUCT.md` unless the trust model changes.",
+      "**Don't** add durable project documentation under the repo-root `docs/` outside the tracked `docs/agents/` and `docs/adr/` exceptions."
     ]
   }
 }
