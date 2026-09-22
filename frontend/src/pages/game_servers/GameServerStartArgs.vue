@@ -1,5 +1,5 @@
 <template>
-  <div class="start-args-page">
+  <div class="start-args-page xy-page-content">
     <page-header
       subtitle="Edit the structured launch arguments for this server and preview the resolved argv before saving."
       title="Start Command">
@@ -567,7 +567,6 @@ function resetAll() {
   display: flex;
   flex-direction: column;
   gap: var(--xy-space-lg);
-  padding: var(--xy-space-xl);
 }
 
 .start-args-page > .xy-page-header {
@@ -580,7 +579,7 @@ function resetAll() {
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: var(--xy-border);
 }
 
@@ -606,7 +605,7 @@ function resetAll() {
 .start-args-page__status-label {
   display: block;
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1.3;
 }
 
@@ -616,7 +615,7 @@ function resetAll() {
   overflow: hidden;
   color: var(--xy-text-primary);
   font-family: var(--xy-font-mono);
-  font-size: 0.86rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -658,13 +657,13 @@ function resetAll() {
   color: var(--xy-text-primary);
 }
 
-@media (max-width: 1160px) {
+@media (max-width: 1023px) {
   .start-args-page__status-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .start-args-page {
     padding: var(--xy-space-md);
   }

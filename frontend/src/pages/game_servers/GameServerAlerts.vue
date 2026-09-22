@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
 import {
@@ -618,7 +619,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 </script>
 
 <template>
-  <div class="alerts-page">
+  <div class="alerts-page xy-page-content">
     <page-header class="alerts-page-header" title="Alerts" />
     <q-tabs
       v-model="activeTab"
@@ -677,6 +678,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           </q-banner>
 
           <q-table
+            aria-label="Alert rules"
             :columns="rulesColumns"
             :grid="mobileGrid"
             :loading="rulesLoading"
@@ -685,8 +687,12 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             class="xy-standalone-table"
             flat
             hide-pagination
-            no-data-label="No alert rules configured for this server"
             row-key="id">
+            <template #no-data>
+              <empty-state
+                icon="notifications_off"
+                title="No alert rules configured for this server" />
+            </template>
             <template #item="props">
               <q-card bordered class="alerts-mobile-card" flat>
                 <q-card-section class="alerts-mobile-card__header">
@@ -700,6 +706,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
                   </div>
                   <q-toggle
                     v-if="hasAlertsManage"
+                    :aria-label="`Enable ${props.row.name}`"
                     :model-value="props.row.enabled"
                     color="positive"
                     dense
@@ -737,6 +744,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               <q-td :props="props">
                 <q-toggle
                   v-if="hasAlertsManage"
+                  :aria-label="`Enable ${props.row.name}`"
                   :model-value="props.row.enabled"
                   color="positive"
                   @update:model-value="toggleRuleEnabled(props.row)" />
@@ -799,6 +807,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           </div>
 
           <q-table
+            aria-label="Alert history"
             :columns="historyColumns"
             :grid="mobileGrid"
             :loading="historyLoading"
@@ -806,8 +815,10 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             :rows="filteredHistory"
             class="xy-standalone-table"
             flat
-            no-data-label="No alert history for this server"
             row-key="id">
+            <template #no-data>
+              <empty-state icon="history" title="No alert history for this server" />
+            </template>
             <template #item="props">
               <q-card bordered class="alerts-mobile-card" flat>
                 <q-card-section class="alerts-mobile-card__header">
@@ -866,10 +877,14 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
     </q-tab-panels>
 
     <!-- Create/Edit Rule Dialog -->
-    <q-dialog v-if="hasAlertsManage" v-model="showRuleDialog" persistent>
+    <q-dialog
+      v-if="hasAlertsManage"
+      v-model="showRuleDialog"
+      aria-labelledby="alert-rule-dialog-title"
+      persistent>
       <q-card class="alert-rule-dialog">
         <q-card-section>
-          <div class="text-h6">{{ dialogTitle }}</div>
+          <div id="alert-rule-dialog-title" class="text-h6">{{ dialogTitle }}</div>
         </q-card-section>
 
         <q-card-section class="q-pt-none">
@@ -1015,7 +1030,6 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 }
 
 .alerts-page-header {
-  padding: var(--xy-space-md) var(--xy-space-md) 0;
   margin-bottom: var(--xy-space-sm);
 }
 
@@ -1054,7 +1068,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
 .threshold-advanced__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: var(--xy-space-md);
   padding-inline: var(--xy-space-md);
   padding-bottom: var(--xy-space-md);
@@ -1103,7 +1117,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 599px) {
   .alert-rule-dialog {
     width: calc(100vw - 1rem);
     max-height: calc(100vh - 1rem);

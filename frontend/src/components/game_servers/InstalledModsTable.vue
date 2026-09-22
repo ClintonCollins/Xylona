@@ -32,16 +32,17 @@
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="installedMods.length === 0" class="mods-empty">
-      <q-icon aria-hidden="true" class="text-xy-muted" name="extension_off" size="3rem" />
-      <div class="mods-empty-title text-xy-secondary">No mods installed</div>
-      <div class="mods-empty-subtitle text-xy-muted">Browse available mods to get started.</div>
-    </div>
+    <empty-state
+      v-else-if="installedMods.length === 0"
+      description="Browse available mods to get started."
+      icon="extension_off"
+      title="No mods installed" />
 
     <!-- No filter results -->
-    <div v-else-if="filteredMods.length === 0" class="mods-empty">
-      <div class="mods-empty-title text-xy-secondary">No mods match "{{ filterText }}"</div>
-    </div>
+    <empty-state
+      v-else-if="filteredMods.length === 0"
+      :title="`No mods match &quot;${filterText}&quot;`"
+      icon="search_off" />
 
     <!-- Mod table -->
     <div v-else class="mods-table-scroll">
@@ -190,6 +191,7 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import type { InstalledMod } from '@/proto/shared_pb'
 import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
 
@@ -261,8 +263,7 @@ function iconGradient(name: string): string {
 }
 
 /* ---- Loading / Empty states ---- */
-.mods-loading,
-.mods-empty {
+.mods-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -271,19 +272,11 @@ function iconGradient(name: string): string {
   padding: var(--xy-space-2xl) var(--xy-space-md);
 }
 
-.mods-empty-title {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.mods-empty-subtitle {
-  font-size: 0.8rem;
-}
-
 /* ---- Table scroll ---- */
 .mods-table-scroll {
   flex: 1;
   min-height: 0;
+  overflow-x: auto;
   overflow-y: auto;
   background-color: var(--xy-base);
 }
@@ -298,7 +291,7 @@ function iconGradient(name: string): string {
 
 .mods-table-scroll::-webkit-scrollbar-thumb {
   background: var(--xy-surface-4);
-  border-radius: 3px;
+  border-radius: var(--xy-radius-sm);
 }
 
 /* ---- Table ---- */
@@ -313,7 +306,7 @@ function iconGradient(name: string): string {
   z-index: 5;
   background-color: var(--xy-surface-1);
   padding: 0.5rem 1rem;
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -390,11 +383,11 @@ function iconGradient(name: string): string {
 .mod-icon {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 700;
   color: var(--xy-text-on-color);
   flex-shrink: 0;
@@ -407,7 +400,7 @@ function iconGradient(name: string): string {
 }
 
 .mod-name {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 500;
   color: var(--xy-text-primary);
   white-space: nowrap;
@@ -416,7 +409,7 @@ function iconGradient(name: string): string {
 }
 
 .mod-author {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 /* ---- Source badge ---- */
@@ -426,22 +419,22 @@ function iconGradient(name: string): string {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  font-size: 0.65rem;
+  border-radius: var(--xy-radius-sm);
+  font-size: var(--xy-font-size-2xs);
   font-weight: 700;
   flex-shrink: 0;
   vertical-align: middle;
 }
 
 .source-name {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   margin-left: var(--xy-space-xs);
   vertical-align: middle;
 }
 
 /* ---- Version ---- */
 .version-text {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-primary);
 }
 
@@ -455,7 +448,7 @@ function iconGradient(name: string): string {
   display: inline-flex;
   align-items: center;
   gap: var(--xy-space-xs);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-success);
 }
 
@@ -463,7 +456,7 @@ function iconGradient(name: string): string {
   display: inline-flex;
   align-items: center;
   gap: var(--xy-space-xs);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 /* ---- Screen reader only ---- */
@@ -480,7 +473,7 @@ function iconGradient(name: string): string {
 }
 
 /* ---- Mobile ---- */
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .mods-toolbar {
     flex-wrap: wrap;
     padding: var(--xy-space-xs) var(--xy-space-sm);
@@ -516,7 +509,7 @@ function iconGradient(name: string): string {
   display: inline-block;
   width: 36px;
   height: 14px;
-  border-radius: 7px;
+  border-radius: var(--xy-radius-md);
   background-color: var(--xy-surface-4);
   position: relative;
   transition: background-color 0.2s ease;

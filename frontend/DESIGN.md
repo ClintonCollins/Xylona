@@ -16,8 +16,8 @@ colors:
   surface3: "#2B2E2F"
   surface4: "#383B3D"
   textPrimary: "#E0E4E6"
-  textSecondary: "#979B9E"
-  textMuted: "#858A8C"
+  textSecondary: "#A3A8AB"
+  textMuted: "#949A9D"
   onColor: "#FFFFFF"
   purple: "#8B5CF6"
 typography:
@@ -88,7 +88,7 @@ spacing:
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
-    textColor: "{colors.onColor}"
+    textColor: "{colors.base}"
     typography: "{typography.control}"
     rounded: "{rounded.md}"
     padding: "4px 12px"
@@ -170,8 +170,8 @@ Use the existing token system instead of hardcoded color values. Extend `src/css
 - **Hull Black** (#0D0E0F): page foundation, and the darkest surface in the system.
 - **Stacked Surfaces** (#141516 through #383B3D): five steps of UI depth, from primary app surfaces to hover and selected states.
 - **Readout White** (#E0E4E6): primary content text.
-- **Supporting Gray** (#979B9E): metadata and secondary text.
-- **Muted Gray** (#858A8C): tertiary text, overlines, and fine print.
+- **Supporting Gray** (#A3A8AB): metadata and secondary text.
+- **Muted Gray** (#949A9D): tertiary text, overlines, and fine print.
 
 ### Named Rules
 
@@ -221,7 +221,7 @@ Page structure uses the shared utilities in `design-tokens.css`: `.xy-page-conte
 
 Spacing comes from the `--xy-space-*` scale (2px through 64px, including a 12px `base` step). The toolbar height is fixed at 50px via `--xy-toolbar-height`.
 
-**Breakpoints are currently ad-hoc.** The codebase contains more than twenty distinct `max-width` values, of which only 599px and 1023px align with Quasar's own scale. There is no breakpoint token. New work should prefer Quasar's breakpoints (599 / 1023 / 1439 / 1919) rather than adding another one-off value.
+**Breakpoints follow Quasar's scale.** Use `max-width: 599px` for phones and `max-width: 1023px` for tablets and narrow desktops (Quasar's own steps, with 1439 / 1919 for wide layouts). `max-width: 480px` and `360px` remain as deliberate small-phone tweaks only. There is no breakpoint token; do not add a new one-off value.
 
 ### Named Rules
 
@@ -277,7 +277,7 @@ The UI should feel technical and crisp. Radii are modest and always drawn from t
 
 - **Shape:** modestly rounded (6px, `--xy-radius-md`).
 - **Typography:** Exo 2 at weight 600, no text transform.
-- **Primary:** Command Blue background with white text, 4px 12px padding. Reserved for the next most important action on the screen.
+- **Primary:** Command Blue background with `--xy-text-on-bright` (Hull Black) text at 5.25:1, 4px 12px padding. Reserved for the next most important action on the screen.
 - **Secondary:** `--xy-surface-2` background with primary text.
 - **Icons:** use a familiar symbol where one exists; icon-only controls require a tooltip.
 
@@ -295,7 +295,7 @@ Cards are for repeated items, modals, and genuinely framed tools. For dashboards
 ### Inputs / Fields
 
 - **Style:** `--xy-surface-0` background, 6px radius, 8px 12px padding, body-small type.
-- **Focus:** border shifts to `--xy-border-active`; the focus ring uses `--xy-accent-hover`.
+- **Focus:** border shifts to `--xy-border-active`; keyboard focus adds the same 2px `--xy-focus-ring` outline buttons use, so the ring is never a 1px tint alone.
 - **Labels:** explicit and always present. Helper text explains consequences rather than repeating the label.
 
 ### Toolbar / Navigation

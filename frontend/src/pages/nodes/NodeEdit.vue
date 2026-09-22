@@ -1,8 +1,6 @@
 <template>
-  <q-page>
-    <div class="row justify-center q-pa-md">
-      <node-form :existing-node-id="nodeID"></node-form>
-    </div>
+  <q-page class="xy-page-content">
+    <node-form :existing-node-id="nodeID"></node-form>
   </q-page>
 </template>
 

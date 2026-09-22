@@ -4791,15 +4791,17 @@ func (x *NodeResourceSnapshot) GetRecordedAt() *timestamppb.Timestamp {
 
 // MetricsHistoryPoint is a single data point in a node metrics time series.
 type MetricsHistoryPoint struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp       *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	CpuPercent      float64                `protobuf:"fixed64,2,opt,name=cpu_percent,json=cpuPercent,proto3" json:"cpu_percent,omitempty"`
-	MemoryPercent   float64                `protobuf:"fixed64,3,opt,name=memory_percent,json=memoryPercent,proto3" json:"memory_percent,omitempty"`
-	DiskPercent     float64                `protobuf:"fixed64,4,opt,name=disk_percent,json=diskPercent,proto3" json:"disk_percent,omitempty"`
-	MemoryUsedBytes int64                  `protobuf:"varint,5,opt,name=memory_used_bytes,json=memoryUsedBytes,proto3" json:"memory_used_bytes,omitempty"`
-	DiskUsedBytes   int64                  `protobuf:"varint,6,opt,name=disk_used_bytes,json=diskUsedBytes,proto3" json:"disk_used_bytes,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp              *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	CpuPercent             float64                `protobuf:"fixed64,2,opt,name=cpu_percent,json=cpuPercent,proto3" json:"cpu_percent,omitempty"`
+	MemoryPercent          float64                `protobuf:"fixed64,3,opt,name=memory_percent,json=memoryPercent,proto3" json:"memory_percent,omitempty"`
+	DiskPercent            float64                `protobuf:"fixed64,4,opt,name=disk_percent,json=diskPercent,proto3" json:"disk_percent,omitempty"`
+	MemoryUsedBytes        int64                  `protobuf:"varint,5,opt,name=memory_used_bytes,json=memoryUsedBytes,proto3" json:"memory_used_bytes,omitempty"`
+	DiskUsedBytes          int64                  `protobuf:"varint,6,opt,name=disk_used_bytes,json=diskUsedBytes,proto3" json:"disk_used_bytes,omitempty"`
+	GameServerCount        int32                  `protobuf:"varint,7,opt,name=game_server_count,json=gameServerCount,proto3" json:"game_server_count,omitempty"`
+	RunningGameServerCount int32                  `protobuf:"varint,8,opt,name=running_game_server_count,json=runningGameServerCount,proto3" json:"running_game_server_count,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *MetricsHistoryPoint) Reset() {
@@ -4870,6 +4872,20 @@ func (x *MetricsHistoryPoint) GetMemoryUsedBytes() int64 {
 func (x *MetricsHistoryPoint) GetDiskUsedBytes() int64 {
 	if x != nil {
 		return x.DiskUsedBytes
+	}
+	return 0
+}
+
+func (x *MetricsHistoryPoint) GetGameServerCount() int32 {
+	if x != nil {
+		return x.GameServerCount
+	}
+	return 0
+}
+
+func (x *MetricsHistoryPoint) GetRunningGameServerCount() int32 {
+	if x != nil {
+		return x.RunningGameServerCount
 	}
 	return 0
 }
@@ -8238,7 +8254,7 @@ const file_shared_proto_rawDesc = "" +
 	"user_count\x18\n" +
 	" \x01(\x05R\tuserCount\x12;\n" +
 	"\vrecorded_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"recordedAt\"\x8e\x02\n" +
+	"recordedAt\"\xf5\x02\n" +
 	"\x13MetricsHistoryPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1f\n" +
 	"\vcpu_percent\x18\x02 \x01(\x01R\n" +
@@ -8246,7 +8262,9 @@ const file_shared_proto_rawDesc = "" +
 	"\x0ememory_percent\x18\x03 \x01(\x01R\rmemoryPercent\x12!\n" +
 	"\fdisk_percent\x18\x04 \x01(\x01R\vdiskPercent\x12*\n" +
 	"\x11memory_used_bytes\x18\x05 \x01(\x03R\x0fmemoryUsedBytes\x12&\n" +
-	"\x0fdisk_used_bytes\x18\x06 \x01(\x03R\rdiskUsedBytes\"\x8d\"\n" +
+	"\x0fdisk_used_bytes\x18\x06 \x01(\x03R\rdiskUsedBytes\x12*\n" +
+	"\x11game_server_count\x18\a \x01(\x05R\x0fgameServerCount\x129\n" +
+	"\x19running_game_server_count\x18\b \x01(\x05R\x16runningGameServerCount\"\x8d\"\n" +
 	"\x1dGameServerMetricsHistoryPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1f\n" +
 	"\vcpu_percent\x18\x02 \x01(\x01R\n" +

@@ -107,7 +107,7 @@ function emitUpdate() {
 .advanced-fields {
   margin-top: var(--xy-space-md);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   overflow: hidden;
   background-color: var(--xy-surface-1);
 }
@@ -117,7 +117,7 @@ function emitUpdate() {
 }
 
 .advanced-title {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
 }
@@ -129,8 +129,8 @@ function emitUpdate() {
 .advanced-banner {
   background-color: var(--xy-warning-bg);
   border: 1px solid var(--xy-warning-border);
-  border-radius: 6px;
-  font-size: 0.75rem;
+  border-radius: var(--xy-radius-md);
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-secondary);
 }
 
@@ -141,7 +141,7 @@ function emitUpdate() {
 }
 
 .advanced-section {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   padding: var(--xy-space-xs) 0;
 }
 
@@ -159,7 +159,7 @@ function emitUpdate() {
 .advanced-equals {
   flex-shrink: 0;
   font-family: var(--xy-font-mono);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .advanced-value {
@@ -167,6 +167,6 @@ function emitUpdate() {
 }
 
 .advanced-input-text {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 </style>

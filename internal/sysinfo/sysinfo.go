@@ -3,6 +3,8 @@ package sysinfo
 
 import (
 	"runtime"
+	"sync"
+	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
@@ -69,10 +71,7 @@ func CollectSystemInfo() (*SystemInfo, error) {
 func CollectResourceSnapshot() (*ResourceSnapshot, error) {
 	snapshot := &ResourceSnapshot{}
 
-	cpuPercents, errCPU := cpu.Percent(0, false)
-	if errCPU == nil && len(cpuPercents) > 0 {
-		snapshot.CPUPercent = cpuPercents[0]
-	}
+	snapshot.CPUPercent = sampleCPUPercent()
 
 	memInfo, errMem := mem.VirtualMemory()
 	if errMem == nil {
@@ -89,4 +88,61 @@ func CollectResourceSnapshot() (*ResourceSnapshot, error) {
 	}
 
 	return snapshot, nil
+}
+
+// cpuSampleWindow is the shortest interval a CPU reading may span. Callers
+// that arrive faster than this (the websocket loop and the metrics recorder
+// share one process) receive the previous reading instead of a delta so short
+// it rounds to 0% or 100%.
+const cpuSampleWindow = 2 * time.Second
+
+var cpuSampler struct {
+	mu      sync.Mutex
+	primed  bool
+	last    cpu.TimesStat
+	lastAt  time.Time
+	percent float64
+}
+
+// sampleCPUPercent returns host CPU utilisation over the window since the
+// previous reading, independent of how many callers share the process.
+func sampleCPUPercent() float64 {
+	times, errTimes := cpu.Times(false)
+	if errTimes != nil || len(times) == 0 {
+		return 0
+	}
+	now := time.Now()
+
+	cpuSampler.mu.Lock()
+	defer cpuSampler.mu.Unlock()
+	if !cpuSampler.primed {
+		cpuSampler.primed = true
+		cpuSampler.last = times[0]
+		cpuSampler.lastAt = now
+		return 0
+	}
+	if now.Sub(cpuSampler.lastAt) < cpuSampleWindow {
+		return cpuSampler.percent
+	}
+	if percent, ok := cpuBusyPercent(cpuSampler.last, times[0]); ok {
+		cpuSampler.percent = percent
+	}
+	cpuSampler.last = times[0]
+	cpuSampler.lastAt = now
+	return cpuSampler.percent
+}
+
+// cpuBusyPercent computes the busy share of CPU time between two readings.
+func cpuBusyPercent(previous, current cpu.TimesStat) (float64, bool) {
+	totalDelta := cpuTotal(current) - cpuTotal(previous)
+	if totalDelta <= 0 {
+		return 0, false
+	}
+	idleDelta := (current.Idle + current.Iowait) - (previous.Idle + previous.Iowait)
+	busy := (totalDelta - idleDelta) / totalDelta * 100
+	return min(max(busy, 0), 100), true
+}
+
+func cpuTotal(t cpu.TimesStat) float64 {
+	return t.User + t.System + t.Idle + t.Nice + t.Iowait + t.Irq + t.Softirq + t.Steal + t.Guest + t.GuestNice
 }

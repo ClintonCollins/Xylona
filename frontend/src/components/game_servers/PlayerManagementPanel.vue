@@ -463,7 +463,7 @@ defineExpose({ loadPlayerManagement })
       </q-card>
     </template>
 
-    <q-dialog v-model="confirmDialogOpen" persistent>
+    <q-dialog v-model="confirmDialogOpen" aria-labelledby="players-panel-dialog-title" persistent>
       <q-card class="players-panel__dialog">
         <q-card-section class="players-panel__dialog-heading">
           <q-avatar
@@ -471,7 +471,7 @@ defineExpose({ loadPlayerManagement })
             :icon="pendingDefinition?.icon || 'admin_panel_settings'"
             :text-color="actionTextColor(pendingDefinition)" />
           <div>
-            <div class="players-panel__dialog-title">
+            <div id="players-panel-dialog-title" class="players-panel__dialog-title">
               {{ pendingDefinition?.label || 'Player action' }} {{ pendingTarget }}?
             </div>
           </div>
@@ -553,7 +553,7 @@ defineExpose({ loadPlayerManagement })
 .players-panel__dialog-title {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
-  font-size: 1.1rem;
+  font-size: var(--xy-font-size-lg);
 }
 
 .players-panel__card-copy {

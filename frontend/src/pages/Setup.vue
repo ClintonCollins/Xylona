@@ -47,6 +47,7 @@
       <q-input
         v-model="username"
         :rules="[(val: string) => !!val || 'Username is required']"
+        aria-required="true"
         autofocus
         autocomplete="username"
         color="primary"
@@ -66,6 +67,7 @@
       <q-input
         v-model="password"
         :rules="[(val: string) => !!val || 'Password is required']"
+        aria-required="true"
         :type="showPassword ? 'text' : 'password'"
         autocomplete="new-password"
         class="q-mt-md"
@@ -91,6 +93,7 @@
       <q-input
         v-model="confirmPassword"
         :rules="confirmRules"
+        aria-required="true"
         :type="showPassword ? 'text' : 'password'"
         autocomplete="new-password"
         class="q-mt-md"

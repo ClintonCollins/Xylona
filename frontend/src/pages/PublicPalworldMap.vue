@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 
-import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import { GetPublicPalworldMapRequestSchema, type PalworldMapView } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
+
+const PalworldLiveMap = defineAsyncComponent(
+  () => import('@/components/palworld/PalworldLiveMap.vue'),
+)
 
 const props = defineProps<{ identifier: string }>()
 const pollIntervalMs = 5_000
@@ -162,7 +165,7 @@ onUnmounted(() => {
   color: var(--xy-text-secondary);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599px) {
   .public-palworld-map {
     padding: var(--xy-space-xs);
   }

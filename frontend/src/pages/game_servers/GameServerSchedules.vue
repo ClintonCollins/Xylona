@@ -6,6 +6,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
 import cronstrue from 'cronstrue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { formatTimestamp as formatTimestampUtil } from '@/utils/format-timestamp'
@@ -353,6 +354,7 @@ function confirmDelete(task: ScheduledTask): void {
     </page-header>
 
     <q-table
+      aria-label="Scheduled tasks"
       :columns="columns"
       :grid="mobileGrid"
       :loading="loading"
@@ -361,8 +363,13 @@ function confirmDelete(task: ScheduledTask): void {
       class="xy-standalone-table"
       flat
       hide-pagination
-      no-data-label="No scheduled tasks yet. Create one to automate server actions."
       row-key="id">
+      <template #no-data>
+        <empty-state
+          description="Create one to automate server actions."
+          icon="schedule"
+          title="No scheduled tasks yet" />
+      </template>
       <template #item="props">
         <q-card bordered class="schedule-card" flat>
           <q-card-section class="schedule-card__header">
@@ -382,6 +389,7 @@ function confirmDelete(task: ScheduledTask): void {
                 !props.row.enabled &&
                 !backupOverview.operationsAllowed
               "
+              :aria-label="`Enable ${props.row.name}`"
               :model-value="props.row.enabled"
               color="positive"
               dense
@@ -501,6 +509,7 @@ function confirmDelete(task: ScheduledTask): void {
                 !props.row.enabled &&
                 !backupOverview.operationsAllowed
               "
+              :aria-label="`Enable ${props.row.name}`"
               :model-value="props.row.enabled"
               color="positive"
               @update:model-value="toggleEnabled(props.row)" />
@@ -627,7 +636,7 @@ function confirmDelete(task: ScheduledTask): void {
 .schedule-card__type {
   margin-top: var(--xy-space-xs);
   color: var(--xy-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .schedule-card__details {
@@ -642,7 +651,7 @@ function confirmDelete(task: ScheduledTask): void {
 
 .schedule-card__label {
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -675,7 +684,7 @@ function confirmDelete(task: ScheduledTask): void {
   color: var(--xy-text-primary);
   background: var(--xy-danger-bg);
   border: 1px solid var(--xy-danger-border);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   overflow-wrap: anywhere;
 }
 
@@ -706,7 +715,7 @@ function confirmDelete(task: ScheduledTask): void {
   gap: var(--xy-space-sm);
   color: var(--xy-text-secondary);
   font-family: var(--xy-font-mono);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .schedule-history-list__message {

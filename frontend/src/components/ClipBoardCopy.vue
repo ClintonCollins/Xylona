@@ -73,6 +73,6 @@ async function copyValue(value: string) {
 .clipboard-tooltip {
   font-family: var(--xy-font-brand);
   font-weight: 400;
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
 }
 </style>

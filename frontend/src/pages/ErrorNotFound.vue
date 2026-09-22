@@ -67,7 +67,7 @@ function goBack() {
   margin: var(--xy-space-sm) auto 0;
   max-width: 32rem;
   color: var(--xy-text-secondary);
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   line-height: 1.6;
 }
 

@@ -1,11 +1,10 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
-import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
 import SevenDaysToDieWorldOverview from '@/components/seven_days_to_die/SevenDaysToDieWorldOverview.vue'
 import {
   GetGameServerRequestSchema,
@@ -19,6 +18,10 @@ import {
   SevenDaysToDieWebAPIValueState,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
+
+const SevenDaysToDieLiveMap = defineAsyncComponent(
+  () => import('@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'),
+)
 
 const mapPollIntervalMilliseconds = 5_000
 const statusPollIntervalMilliseconds = 30_000

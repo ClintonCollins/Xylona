@@ -219,6 +219,7 @@
 
         <q-table
           v-else-if="updates.length > 0"
+          aria-label="Available updates"
           :columns="updateColumns"
           :grid="mobileGrid"
           :rows="updates"
@@ -369,6 +370,7 @@
 
         <q-table
           v-else-if="terminalJobs.length > 0"
+          aria-label="Update history"
           :columns="historyColumns"
           :grid="mobileGrid"
           :rows="terminalJobs"

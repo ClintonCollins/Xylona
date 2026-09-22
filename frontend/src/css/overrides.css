@@ -216,7 +216,8 @@ a.q-item:hover {
 }
 
 .q-field:has(:focus-visible) .q-field__control {
-  box-shadow: 0 0 0 1px var(--xy-border-active);
+  outline: 2px solid var(--xy-focus-ring);
+  outline-offset: 2px;
 }
 
 /* ---- Focus Helper ---- */

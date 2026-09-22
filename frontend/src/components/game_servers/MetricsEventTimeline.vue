@@ -173,7 +173,7 @@ const kindLabels: Record<MetricsTimelineEvent['kind'], string> = {
   text-align: center;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599px) {
   .metrics-timeline__event-header {
     display: block;
   }

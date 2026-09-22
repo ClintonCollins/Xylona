@@ -491,12 +491,12 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import MetricTimeSeriesChart, {
-  type MetricChartBand,
-  type MetricChartEvent,
-  type MetricChartSeries,
+import type {
+  MetricChartBand,
+  MetricChartEvent,
+  MetricChartSeries,
 } from '@/components/game_servers/MetricTimeSeriesChart.vue'
 import MetricsEventTimeline from '@/components/game_servers/MetricsEventTimeline.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
@@ -520,6 +520,10 @@ import {
   formatMetricRate,
 } from './metrics-format'
 import { useGameServerMetrics } from './useGameServerMetrics'
+
+const MetricTimeSeriesChart = defineAsyncComponent(
+  () => import('@/components/game_servers/MetricTimeSeriesChart.vue'),
+)
 
 type MetricsViewMode = 'lanes' | 'grid'
 
@@ -1471,7 +1475,7 @@ function formatFps(value: number | null): string {
   color: var(--xy-text-secondary);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1023px) {
   .metrics-current {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1489,13 +1493,13 @@ function formatFps(value: number | null): string {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .metrics-recorder {
     --metric-lane-gutter: 148px;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 599px) {
   .metrics-page {
     padding: var(--xy-space-md);
   }
@@ -1514,7 +1518,7 @@ function formatFps(value: number | null): string {
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 599px) {
   .metrics-current {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -1348,7 +1348,7 @@ defineExpose({
   color: var(--xy-text-secondary);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .console-commands-layout {
     grid-template-columns: 1fr;
   }
@@ -1381,7 +1381,7 @@ defineExpose({
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 599px) {
   .console-commands-heading {
     flex-wrap: wrap;
   }

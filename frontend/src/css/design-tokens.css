@@ -15,8 +15,8 @@
 
   /* ---- Text ---- */
   --xy-text-primary: #e0e4e6;
-  --xy-text-secondary: #979b9e;
-  --xy-text-muted: #858a8c;
+  --xy-text-secondary: #a3a8ab;
+  --xy-text-muted: #949a9d;
   --xy-text-on-bright: var(--xy-base);
   --xy-text-on-secondary: #000000;
   --xy-text-on-dark: #ffffff;

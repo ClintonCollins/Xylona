@@ -9,6 +9,7 @@ import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 
 import BackupRestoreDialog from '@/components/game_servers/BackupRestoreDialog.vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import type {
   BackupProgress,
@@ -867,6 +868,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </q-card-section>
       <q-separator />
       <q-table
+        aria-label="Backups"
         :columns="columns"
         :grid="mobileGrid"
         :loading="loading"
@@ -875,8 +877,13 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         class="xy-standalone-table"
         flat
         hide-pagination
-        no-data-label="No backups yet. Manual and scheduled backups will appear here."
         row-key="id">
+        <template #no-data>
+          <empty-state
+            description="Manual and scheduled backups will appear here."
+            icon="backup"
+            title="No backups yet" />
+        </template>
         <template #item="props">
           <q-card
             bordered
@@ -1053,10 +1060,15 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       :loading="restoringBackupId !== ''"
       @restore="restoreBackup" />
 
-    <q-dialog v-model="showUploadBackupDialog" persistent>
+    <q-dialog
+      v-model="showUploadBackupDialog"
+      aria-labelledby="upload-backup-dialog-title"
+      persistent>
       <q-card class="backups-page__upload-dialog" data-testid="upload-backup-dialog">
         <q-card-section>
-          <h2 class="backups-page__section-title">Upload Backup Archive</h2>
+          <h2 id="upload-backup-dialog-title" class="backups-page__section-title">
+            Upload Backup Archive
+          </h2>
           <div class="backups-page__section-copy">
             Import a `.zip` backup into this server's managed backup history so it can be restored
             later from this page.
@@ -1152,7 +1164,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 .backups-page__section-title {
   font-family: var(--xy-font-display);
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
   margin: 0;
 }
@@ -1180,7 +1192,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   border-radius: var(--xy-radius-pill);
   background: color-mix(in srgb, var(--xy-surface-2) 78%, transparent);
   color: var(--xy-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.2;
 }
 
@@ -1225,7 +1237,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 .backups-page__mobile-fields span {
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1239,7 +1251,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 .backups-page__mobile-fields em {
   color: var(--xy-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-style: normal;
   overflow-wrap: anywhere;
 }
@@ -1276,7 +1288,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 .backups-page__live-title {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
-  font-size: 0.95rem;
+  font-size: var(--xy-font-size-base);
   line-height: 1.3;
 }
 
@@ -1287,7 +1299,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   white-space: nowrap;
   color: color-mix(in srgb, var(--xy-text-secondary) 92%, var(--xy-accent) 8%);
   font-family: var(--xy-font-body);
-  font-size: 0.88rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .backups-page__live-meta {
@@ -1296,7 +1308,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   align-items: center;
   gap: 0.45rem 0.85rem;
   color: var(--xy-text-muted);
-  font-size: 0.86rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.35;
 }
 
@@ -1309,7 +1321,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   border-radius: var(--xy-radius-pill);
   background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
   color: color-mix(in srgb, var(--xy-warning) 78%, var(--xy-text-primary));
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1344,7 +1356,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 .backups-page__status-copy,
 .backups-page__source-copy {
   color: var(--xy-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.35;
 }
 
@@ -1417,7 +1429,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 .backups-page__upload-file {
   color: var(--xy-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .backups-page__upload-progress {
@@ -1428,10 +1440,10 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
 .backups-page__upload-error {
   color: var(--xy-danger);
-  font-size: 0.9rem;
+  font-size: var(--xy-font-size-sm);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .backups-page__section-header {
     flex-direction: column;
     align-items: flex-start;

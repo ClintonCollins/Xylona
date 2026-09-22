@@ -5,24 +5,22 @@
     </div>
 
     <template v-else>
-      <div class="schema-settings">
-        <div class="schema-settings-copy">
-          <h2 class="schema-settings-title font-display">File Behavior</h2>
-          <div class="schema-settings-description text-xy-secondary">
-            Control how this config file is handled before the server starts.
-          </div>
-        </div>
-        <q-toggle
-          v-model="generateBeforeStart"
-          color="primary"
-          data-test="generate-toggle"
-          label="Create on first start if missing">
-          <q-tooltip>
-            Create this config file from schema defaults when it does not exist and the server
-            starts
-          </q-tooltip>
-        </q-toggle>
-      </div>
+      <page-header
+        subtitle="Control how this config file is handled before the server starts."
+        title="File Behavior">
+        <template #actions>
+          <q-toggle
+            v-model="generateBeforeStart"
+            color="primary"
+            data-test="generate-toggle"
+            label="Create on first start if missing">
+            <q-tooltip>
+              Create this config file from schema defaults when it does not exist and the server
+              starts
+            </q-tooltip>
+          </q-toggle>
+        </template>
+      </page-header>
 
       <config-schema-editor
         :file-path="filePath"
@@ -45,6 +43,7 @@ import {
   UpdateGameConfigSchemasRequestSchema,
 } from '@/proto/xylona_pb'
 import ConfigSchemaEditor from '@/components/games/ConfigSchemaEditor.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 
 interface SchemaProperty {
   type?: string
@@ -175,28 +174,5 @@ async function handleSave(updatedSchema: JsonSchema) {
   align-items: center;
   justify-content: center;
   height: 300px;
-}
-
-.schema-settings {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--xy-space-md);
-  padding: var(--xy-space-md);
-  margin-bottom: var(--xy-space-md);
-  border: 1px solid var(--xy-border);
-  border-radius: 10px;
-  background: var(--xy-surface-1);
-}
-
-.schema-settings-title {
-  font-size: 0.95rem;
-  color: var(--xy-text-primary);
-  margin: 0;
-}
-
-.schema-settings-description {
-  font-size: 0.8rem;
-  margin-top: 2px;
 }
 </style>

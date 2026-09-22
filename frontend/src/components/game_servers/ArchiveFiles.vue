@@ -35,7 +35,8 @@
                 name="archive-name"
                 outlined
                 placeholder="example-archive"
-                :rules="[validateArchiveName]" />
+                :rules="[validateArchiveName]"
+                aria-required="true" />
             </div>
           </div>
         </q-card-section>

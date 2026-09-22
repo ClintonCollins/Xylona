@@ -32,7 +32,8 @@
                 label="Name"
                 name="fileName"
                 outlined
-                :rules="[validateName]" />
+                :rules="[validateName]"
+                aria-required="true" />
             </div>
           </div>
         </q-card-section>

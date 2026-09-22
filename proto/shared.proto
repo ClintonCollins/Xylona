@@ -474,6 +474,8 @@ message MetricsHistoryPoint {
   double disk_percent = 4;
   int64 memory_used_bytes = 5;
   int64 disk_used_bytes = 6;
+  int32 game_server_count = 7;
+  int32 running_game_server_count = 8;
 }
 
 enum GameServerMetricsCollectionStatus {

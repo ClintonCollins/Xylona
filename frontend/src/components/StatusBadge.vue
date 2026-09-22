@@ -9,19 +9,50 @@
 import { Status } from '@/proto/shared_pb'
 import { computed, PropType } from 'vue'
 
+/**
+ * A page-local lifecycle phase the backend status cannot express: a stop that
+ * is in flight, or a start that failed and left the server offline.
+ */
+export type StatusBadgePhase = 'stopping' | 'failed'
+
 const props = defineProps({
   status: {
     type: Number as PropType<Status>,
     default: Status.UNKNOWN,
   },
+  phase: {
+    type: String as PropType<StatusBadgePhase>,
+    default: undefined,
+  },
+})
+
+const tone = computed<'success' | 'danger' | 'warning' | 'neutral'>(() => {
+  if (props.phase === 'stopping') return 'warning'
+  if (props.phase === 'failed') return 'danger'
+  switch (props.status) {
+    case Status.ONLINE:
+      return 'success'
+    case Status.OFFLINE:
+      return 'danger'
+    case Status.PRE_START:
+    case Status.UPDATING:
+    case Status.INSTALLING:
+      return 'warning'
+    default:
+      return 'neutral'
+  }
 })
 
 const label = computed(() => {
+  if (props.phase === 'stopping') return 'Stopping'
+  if (props.phase === 'failed') return 'Start failed'
   switch (props.status) {
     case Status.ONLINE:
       return 'Online'
     case Status.OFFLINE:
       return 'Offline'
+    case Status.PRE_START:
+      return 'Starting'
     case Status.UPDATING:
       return 'Updating'
     case Status.INSTALLING:
@@ -31,33 +62,8 @@ const label = computed(() => {
   }
 })
 
-const badgeClass = computed(() => {
-  switch (props.status) {
-    case Status.ONLINE:
-      return 'badge-success'
-    case Status.OFFLINE:
-      return 'badge-danger'
-    case Status.UPDATING:
-    case Status.INSTALLING:
-      return 'badge-warning'
-    default:
-      return 'badge-neutral'
-  }
-})
-
-const dotClass = computed(() => {
-  switch (props.status) {
-    case Status.ONLINE:
-      return 'dot-success'
-    case Status.OFFLINE:
-      return 'dot-danger'
-    case Status.UPDATING:
-    case Status.INSTALLING:
-      return 'dot-warning'
-    default:
-      return 'dot-neutral'
-  }
-})
+const badgeClass = computed(() => `badge-${tone.value}`)
+const dotClass = computed(() => `dot-${tone.value}`)
 </script>
 
 <style scoped>
@@ -75,6 +81,7 @@ const dotClass = computed(() => {
 }
 
 .status-dot {
+  position: relative;
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
@@ -89,24 +96,32 @@ const dotClass = computed(() => {
 
 .dot-success {
   background-color: var(--xy-success);
-  box-shadow: 0 0 6px var(--xy-success);
+}
+
+.dot-success::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 3px solid var(--xy-success);
+  opacity: 0.5;
   animation: pulse-success 2s ease-in-out infinite;
 }
 
 @keyframes pulse-success {
   0%,
   100% {
-    opacity: 1;
-    box-shadow: 0 0 6px var(--xy-success);
+    opacity: 0.5;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.7;
-    box-shadow: 0 0 2px var(--xy-success);
+    opacity: 0.15;
+    transform: scale(0.6);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dot-success {
+  .dot-success::after {
     animation: none;
   }
 }

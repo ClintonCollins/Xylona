@@ -1,8 +1,6 @@
 <template>
-  <q-page>
-    <div class="row justify-center q-pa-md">
-      <node-form></node-form>
-    </div>
+  <q-page class="xy-page-content">
+    <node-form></node-form>
   </q-page>
 </template>
 

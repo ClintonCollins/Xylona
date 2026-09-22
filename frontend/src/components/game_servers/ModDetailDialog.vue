@@ -1,6 +1,7 @@
 <template>
   <q-dialog
     :model-value="show"
+    aria-labelledby="mod-detail-dialog-title"
     maximized
     transition-hide="slide-down"
     transition-show="slide-up"
@@ -41,7 +42,7 @@
 
             <div class="mod-detail-meta">
               <div class="mod-detail-title-row">
-                <h2 class="mod-detail-name">{{ details.name }}</h2>
+                <h2 id="mod-detail-dialog-title" class="mod-detail-name">{{ details.name }}</h2>
                 <span
                   :style="sourceBadgeStyle(details.source)"
                   :title="sourceDisplayName(details.source)"
@@ -104,8 +105,7 @@
                 v-for="cat in details.categories"
                 :key="cat"
                 :label="cat"
-                color="grey-9"
-                text-color="grey-4" />
+                class="bg-xy-surface-3 text-xy-secondary" />
             </div>
 
             <!-- Dependencies -->
@@ -506,7 +506,7 @@ function isSafeHref(href: string): boolean {
 .mod-detail-icon-wrapper {
   width: 64px;
   height: 64px;
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -523,7 +523,7 @@ function isSafeHref(href: string): boolean {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: var(--xy-font-size-xl);
   font-weight: 700;
   color: var(--xy-text-on-color);
 }
@@ -540,14 +540,14 @@ function isSafeHref(href: string): boolean {
 }
 
 .mod-detail-name {
-  font-size: 1.2rem;
+  font-size: var(--xy-font-size-xl);
   font-weight: 600;
   color: var(--xy-text-primary);
   margin: 0;
 }
 
 .mod-detail-author {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   margin-bottom: var(--xy-space-xs);
 }
 
@@ -562,7 +562,7 @@ function isSafeHref(href: string): boolean {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 /* ---- Tabs ---- */
@@ -590,7 +590,7 @@ function isSafeHref(href: string): boolean {
 }
 
 .mod-detail-section-title {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -616,10 +616,10 @@ function isSafeHref(href: string): boolean {
   gap: 4px;
   padding: 2px 8px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
   background-color: var(--xy-surface-2);
   color: var(--xy-text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .dep-required {
@@ -628,14 +628,14 @@ function isSafeHref(href: string): boolean {
 }
 
 .dep-required-label {
-  font-size: 0.6rem;
+  font-size: var(--xy-font-size-2xs);
   text-transform: uppercase;
   color: var(--xy-warning);
   font-weight: 600;
 }
 
 .mod-detail-body {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.6;
   color: var(--xy-text-secondary);
 }
@@ -660,7 +660,7 @@ function isSafeHref(href: string): boolean {
 .mod-detail-body :deep(code) {
   background-color: var(--xy-surface-2);
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--xy-radius-sm);
   font-size: 0.85em;
 }
 
@@ -705,17 +705,17 @@ function isSafeHref(href: string): boolean {
 }
 
 .mod-version-string {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 500;
   color: var(--xy-text-primary);
 }
 
 .mod-version-game {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .mod-version-date {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .mod-version-meta {
@@ -725,12 +725,12 @@ function isSafeHref(href: string): boolean {
 }
 
 .mod-version-size {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .mod-version-changelog {
   flex-basis: 100%;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   padding-left: var(--xy-space-md);
   max-height: 3.6em;
   overflow: hidden;
@@ -772,14 +772,14 @@ function isSafeHref(href: string): boolean {
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 4px;
-  font-size: 0.7rem;
+  border-radius: var(--xy-radius-sm);
+  font-size: var(--xy-font-size-2xs);
   font-weight: 700;
   flex-shrink: 0;
 }
 
 /* ---- Mobile ---- */
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .mod-detail-header {
     padding: var(--xy-space-sm) var(--xy-space-md);
   }
@@ -790,7 +790,7 @@ function isSafeHref(href: string): boolean {
   }
 
   .mod-detail-name {
-    font-size: 1rem;
+    font-size: var(--xy-font-size-base);
   }
 
   .mod-version-info {

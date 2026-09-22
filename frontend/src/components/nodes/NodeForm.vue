@@ -1,11 +1,9 @@
 <template>
-  <q-card class="full-width">
-    <q-card-section>
-      <div class="text-h6" v-text="existingNodeId ? 'Edit Node' : 'Add Remote Node'"></div>
-    </q-card-section>
+  <div class="node-form">
+    <page-header :title="existingNodeId ? 'Edit Node' : 'Add Remote Node'" />
 
-    <q-card-section v-if="existingNodeId">
-      <q-form class="q-pa-lg" @submit.prevent="updateNode">
+    <div v-if="existingNodeId">
+      <q-form @submit.prevent="updateNode">
         <div class="row wrap q-col-gutter-md">
           <q-input
             v-model="node.name"
@@ -23,16 +21,18 @@
             placeholder="https://node.example.com:9500"
             type="url"></q-input>
         </div>
-        <div v-if="errorMessage" class="text-negative q-mt-md">{{ errorMessage }}</div>
+        <div v-if="errorMessage" class="text-negative q-mt-md" role="alert">
+          {{ errorMessage }}
+        </div>
         <div class="row q-mt-md">
           <q-btn flat label="Cancel" @click="cancel"></q-btn>
           <q-space />
           <q-btn :loading="formSubmitting" color="primary" label="Save" type="submit"></q-btn>
         </div>
       </q-form>
-    </q-card-section>
+    </div>
 
-    <q-card-section v-else>
+    <div v-else>
       <div class="text-body2 q-mb-md">
         Adding a node is a two-step process:
         <ol>
@@ -58,6 +58,7 @@
           </div>
           <q-input
             :model-value="generatedJoinCommand"
+            aria-label="Node join command"
             dense
             filled
             readonly
@@ -67,12 +68,12 @@
         </q-card-section>
       </q-card>
 
-      <div v-if="errorMessage" class="text-negative q-mt-md">{{ errorMessage }}</div>
+      <div v-if="errorMessage" class="text-negative q-mt-md" role="alert">{{ errorMessage }}</div>
       <div class="row q-mt-md">
         <q-btn flat label="Back" @click="cancel"></q-btn>
       </div>
-    </q-card-section>
-  </q-card>
+    </div>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -90,6 +91,7 @@ import {
   GetNodeRequestSchema,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
+import PageHeader from '@/components/shared/PageHeader.vue'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -202,4 +204,8 @@ async function copyCommand() {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.node-form {
+  max-width: 720px;
+}
+</style>

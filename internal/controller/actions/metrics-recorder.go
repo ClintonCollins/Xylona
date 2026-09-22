@@ -185,6 +185,10 @@ func (mr *MetricsRecorder) recordAllNodeMetrics() {
 			continue
 		}
 
+		if errSeen := mr.db.UpdateNodeLastSeen(nodeID, now); errSeen != nil {
+			log.Warn().Err(errSeen).Str("node_id", nodeID).Msg("MetricsRecorder: failed to stamp node last_seen_at")
+		}
+
 		// Node-level metrics row.
 		runningCount := 0
 		for _, ps := range snap.Processes {

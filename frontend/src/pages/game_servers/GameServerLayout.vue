@@ -1,6 +1,6 @@
 <template>
   <div class="q-page game-server-page" :class="{ 'q-layout-padding': windowWidth > 1024 }">
-    <q-card class="full-width game-server-card">
+    <div class="full-width game-server-card">
       <q-tabs
         v-if="layoutTabs.length > 0"
         :dense="windowWidth <= 767"
@@ -27,7 +27,7 @@
       <div class="game-server-content">
         <router-view :key="gameServerRouteKey"></router-view>
       </div>
-    </q-card>
+    </div>
   </div>
 </template>
 
@@ -238,6 +238,7 @@ async function enforceRouteAccess() {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  background: var(--xy-surface-1);
 }
 .game-server-content {
   display: flex;
@@ -270,11 +271,7 @@ async function enforceRouteAccess() {
   }
 }
 
-@media (max-width: 767px) {
-  .game-server-card {
-    border-radius: 0;
-  }
-
+@media (max-width: 599px) {
   .game-server-tabs {
     min-height: 3rem;
     border-bottom: 1px solid var(--xy-border);

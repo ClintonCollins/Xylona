@@ -279,7 +279,8 @@ onMounted(async () => {
           label="Page title"
           maxlength="80"
           outlined
-          :rules="[(value: string) => value.trim().length > 0 || 'Enter a page title']" />
+          :rules="[(value: string) => value.trim().length > 0 || 'Enter a page title']"
+          aria-required="true" />
 
         <q-input
           v-model="publicIdentifier"

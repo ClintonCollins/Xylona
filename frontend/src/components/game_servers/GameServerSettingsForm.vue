@@ -149,6 +149,7 @@
             <q-input
               v-model="gameServer.name"
               :rules="serverNameRules"
+              aria-required="true"
               class="col-12 col-md-6"
               data-testid="editable-name"
               label="Server Name *"
@@ -162,6 +163,7 @@
               v-model="gameServer.gameId"
               :options="availableGames"
               :rules="gameRules"
+              aria-required="true"
               class="col-12 col-md-6"
               data-testid="editable-game"
               emit-value
@@ -192,6 +194,7 @@
               v-model="gameServer.userId"
               :options="availableUsers"
               :rules="ownerRules"
+              aria-required="true"
               class="col-12 col-md-4"
               data-testid="editable-owner"
               emit-value
@@ -205,6 +208,7 @@
               v-model="gameServer.nodeId"
               :options="nodes"
               :rules="nodeRules"
+              aria-required="true"
               class="col-12 col-md-4"
               data-testid="editable-node"
               emit-value
@@ -219,6 +223,7 @@
               v-model="gameServer.ip"
               :options="availableIPs"
               :rules="ipRules"
+              aria-required="true"
               class="col-12 col-md-4"
               data-testid="editable-ip"
               label="IP Address *"
@@ -245,6 +250,7 @@
             <q-input
               v-model.number="portModel"
               :rules="portRules"
+              aria-required="true"
               class="col-12 col-sm-6"
               data-testid="editable-port"
               label="Port *"
@@ -255,6 +261,7 @@
             <q-input
               v-model.number="queryPortModel"
               :rules="queryPortRules"
+              aria-required="true"
               class="col-12 col-sm-6"
               data-testid="editable-query-port"
               label="Query Port *"
@@ -440,6 +447,7 @@
                 <div class="environment-panel-header">
                   <div class="environment-panel-title">Variables</div>
                   <q-btn
+                    aria-label="Add environment variable"
                     color="primary"
                     data-testid="add-environment-row"
                     dense
@@ -476,6 +484,7 @@
                     label="Value"
                     outlined />
                   <q-btn
+                    :aria-label="`Remove environment variable ${index + 1}`"
                     color="negative"
                     data-testid="remove-environment-row"
                     dense
@@ -520,6 +529,7 @@
                     </div>
                   </div>
                   <q-btn
+                    :aria-label="`Clear secret ${secret.name}`"
                     color="negative"
                     data-testid="clear-secret-environment"
                     dense
@@ -571,6 +581,7 @@
             <q-input
               v-model.number="setPlayersModel"
               :rules="setPlayersRules"
+              aria-required="true"
               class="col-12 col-sm-6 col-lg-4"
               data-testid="editable-set-players"
               label="Set Players *"
@@ -582,6 +593,7 @@
               v-if="canEditProvisioning"
               v-model.number="maxPlayersModel"
               :rules="maxPlayersRules"
+              aria-required="true"
               class="col-12 col-sm-6 col-lg-4"
               data-testid="editable-max-players"
               label="Max Players *"
@@ -595,6 +607,7 @@
               :error="showMaxMemoryStateError"
               :error-message="maxMemoryStateMessage"
               :rules="maxMemoryRules"
+              aria-required="true"
               class="col-12 col-lg-4"
               data-testid="editable-max-memory"
               label="Max Memory MB *"
@@ -629,6 +642,7 @@
               v-if="gameServer.autoRestartEnabled"
               v-model.number="autoRestartMaxRetriesModel"
               :rules="autoRestartMaxRetriesRules"
+              aria-required="true"
               class="col-12 col-sm-6"
               data-testid="auto-restart-max-retries"
               hint="Maximum restart attempts before giving up (resets after 5 min of stable uptime)."
@@ -641,6 +655,7 @@
               v-if="gameServer.autoRestartEnabled"
               v-model.number="autoRestartCooldownModel"
               :rules="autoRestartCooldownRules"
+              aria-required="true"
               class="col-12 col-sm-6"
               data-testid="auto-restart-cooldown"
               hint="Initial delay before first retry. Doubles with each subsequent attempt."
@@ -1534,7 +1549,7 @@ async function submitGameServer() {
 
 .environment-panel-title {
   color: var(--xy-text-emphasis-soft);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1572,7 +1587,7 @@ async function submitGameServer() {
 .secret-environment-name {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-mono);
-  font-size: 0.88rem;
+  font-size: var(--xy-font-size-sm);
   overflow-wrap: anywhere;
 }
 
@@ -1587,7 +1602,7 @@ async function submitGameServer() {
   align-items: start;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .admin-interface-password-editor,
   .environment-row,
   .secret-environment-editor {

@@ -161,6 +161,7 @@
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selectedGameServers"
+        aria-label="Game servers"
         :columns="columns"
         :filter="search"
         :grid="$q.screen.lt.lg"
@@ -285,7 +286,16 @@
             <router-link :to="'/game-servers/' + props.row.id + '/console'" class="table-link">
               {{ props.row.displayName }}
             </router-link>
-            <q-badge v-if="props.row.isStale" class="q-ml-xs" color="warning" label="stale" />
+            <q-badge v-if="props.row.isStale" class="q-ml-xs" color="warning" label="stale">
+              <span class="xy-visually-hidden">
+                : node {{ props.row.nodeName }} has not reported recently, so this status may be out
+                of date.
+              </span>
+              <q-tooltip>
+                Node {{ props.row.nodeName }} has not reported recently. This status may be out of
+                date.
+              </q-tooltip>
+            </q-badge>
           </q-td>
         </template>
         <template #body-cell-status="props">
@@ -392,33 +402,22 @@
           </q-td>
         </template>
         <template #no-data>
-          <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon
-              class="q-mb-sm text-xy-muted"
-              :name="search.trim().length > 0 ? 'search_off' : 'dns'"
-              size="3rem" />
-            <div class="text-subtitle1">
-              {{ search.trim().length > 0 ? 'No matching game servers' : 'No game servers' }}
-            </div>
-            <div class="server-empty-state-copy text-caption text-xy-muted">
-              <template v-if="search.trim().length > 0">
-                No game servers match “{{ search.trim() }}”.
-              </template>
-              <template v-else>Create a game server to get started.</template>
-            </div>
-            <q-btn
-              v-if="search.trim().length > 0"
-              class="q-mt-md"
-              flat
-              label="Clear search"
-              @click="search = ''" />
-            <q-btn
-              v-else-if="showCreateButton"
-              class="q-mt-md"
-              color="primary"
-              label="Create Game Server"
-              to="/game-servers/create" />
-          </div>
+          <empty-state
+            :icon="search.trim().length > 0 ? 'search_off' : 'dns'"
+            :title="search.trim().length > 0 ? 'No matching game servers' : 'No game servers'">
+            <template v-if="search.trim().length > 0">
+              No game servers match “{{ search.trim() }}”.
+            </template>
+            <template v-else>Create a game server to get started.</template>
+            <template v-if="search.trim().length > 0 || showCreateButton" #actions>
+              <q-btn
+                v-if="search.trim().length > 0"
+                flat
+                label="Clear search"
+                @click="search = ''" />
+              <q-btn v-else color="primary" label="Create Game Server" to="/game-servers/create" />
+            </template>
+          </empty-state>
         </template>
       </q-table>
     </div>
@@ -446,6 +445,7 @@ import {
 } from '@/utils/shared'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import GameServerStatusPageSettingsPanel from '@/components/game_servers/GameServerStatusPageSettingsPanel.vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -1619,7 +1619,7 @@ const columns = ref([
 
 .server-resource-usage .q-icon {
   color: var(--xy-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .server-table-actions,
@@ -1637,19 +1637,19 @@ const columns = ref([
 
 .version-text {
   font-family: var(--xy-font-mono);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-secondary);
 }
 
 .version-arrow {
   color: var(--xy-warning);
   margin: 0 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .version-new {
   font-family: var(--xy-font-mono);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-warning);
   font-weight: 600;
 }
@@ -1754,12 +1754,6 @@ const columns = ref([
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-.server-empty-state-copy {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  text-align: center;
 }
 
 .server-mobile-actions {

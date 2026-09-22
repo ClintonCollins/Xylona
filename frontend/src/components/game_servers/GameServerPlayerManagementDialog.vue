@@ -47,7 +47,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 .pm-dialog__title {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
-  font-size: 1.1rem;
+  font-size: var(--xy-font-size-lg);
 }
 
 .pm-dialog__subtitle {

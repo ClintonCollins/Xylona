@@ -41,14 +41,14 @@
     <div v-else-if="isOnline" class="roster__empty">The roster is not available for this game.</div>
     <div v-else class="roster__empty">The roster appears while the server is online.</div>
 
-    <q-dialog v-model="confirmOpen" persistent>
+    <q-dialog v-model="confirmOpen" aria-labelledby="roster-dialog-title" persistent>
       <q-card class="roster__dialog">
         <q-card-section class="roster__dialog-heading">
           <q-avatar
             :color="pendingDefinition?.color || 'primary'"
             :icon="pendingDefinition?.icon || 'admin_panel_settings'"
             :text-color="dialogTextColor" />
-          <div class="roster__dialog-title">
+          <div id="roster-dialog-title" class="roster__dialog-title">
             {{ pendingDefinition?.label || 'Player action' }} {{ pendingName }}?
           </div>
         </q-card-section>
@@ -379,7 +379,7 @@ onBeforeUnmount(() => {
 .roster__dialog-title {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
-  font-size: 1.1rem;
+  font-size: var(--xy-font-size-lg);
 }
 
 .roster__dialog-copy {

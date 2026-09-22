@@ -128,7 +128,7 @@ function clearResult(): void {
         <div class="row items-center q-gutter-sm q-mb-sm">
           <q-icon color="positive" name="check_circle" size="sm" />
           <span class="text-subtitle1 text-weight-medium">{{ lookupResult.name }}</span>
-          <q-badge :label="'AppID: ' + lookupResult.appId" color="grey-8" />
+          <q-badge :label="'AppID: ' + lookupResult.appId" class="bg-xy-surface-3" />
         </div>
 
         <div class="row q-gutter-md text-body2" style="color: var(--xy-text-secondary)">
@@ -162,7 +162,7 @@ function clearResult(): void {
     <!-- Common AppID examples -->
     <div class="q-mt-md text-caption" style="color: var(--xy-text-muted)">
       <strong>Common AppIDs:</strong>
-      <span
+      <button
         v-for="example in [
           { id: '896660', name: 'Valheim' },
           { id: '294420', name: '7 Days to Die' },
@@ -173,9 +173,10 @@ function clearResult(): void {
         ]"
         :key="example.id"
         class="example-chip"
+        type="button"
         @click="lookupExample(example.id)">
         {{ example.name }} ({{ example.id }})
-      </span>
+      </button>
     </div>
   </div>
 </template>
@@ -192,9 +193,12 @@ function clearResult(): void {
 
 .example-chip {
   display: inline-block;
+  border: none;
+  color: inherit;
+  font: inherit;
   padding: 2px 8px;
   margin: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
   background: var(--xy-surface-2);
   cursor: pointer;
   transition: background 0.15s;

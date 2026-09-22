@@ -465,6 +465,10 @@ onUnmounted(() => {
   line-height: var(--xy-line-height-tight);
 }
 
+.public-status-state h2 {
+  font-size: var(--xy-font-size-lg);
+}
+
 .public-status-header p,
 .public-server-row p,
 .public-status-state p {
@@ -798,7 +802,7 @@ onUnmounted(() => {
   padding: var(--xy-space-xs) var(--xy-space-base);
   color: var(--xy-text-primary);
   background: var(--xy-success-bg-faint);
-  border-radius: var(--xy-radius-pill);
+  border-radius: var(--xy-radius-md);
   font-size: var(--xy-font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -105,17 +105,17 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
 }
 
 .downstream-impact__title {
-  font-size: 0.95rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 
 .downstream-impact__copy {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .downstream-impact__empty {
   padding: 0.9rem;
-  border-radius: 12px;
+  border-radius: var(--xy-radius-xl);
   border: 1px dashed var(--xy-border);
   background: color-mix(in srgb, var(--xy-surface-0) 84%, transparent);
 }
@@ -132,11 +132,15 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
   align-items: center;
   min-height: 1.7rem;
   padding: 0.12rem 0.55rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
   background: color-mix(in srgb, var(--xy-surface-1) 72%, transparent);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   white-space: nowrap;
+}
+
+.downstream-impact__toggle {
+  border-radius: var(--xy-radius-md);
 }
 
 .downstream-impact__summary-pill--customized {
@@ -164,7 +168,7 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
   gap: var(--xy-space-md);
   min-height: 34px;
   padding: 0.38rem 0.6rem;
-  border-radius: 9px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
   background: color-mix(in srgb, var(--xy-surface-0) 62%, transparent);
 }
@@ -175,7 +179,7 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .downstream-impact__detail {
@@ -184,10 +188,10 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
   align-items: center;
   min-height: 1.4rem;
   padding: 0.06rem 0.42rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
   background: color-mix(in srgb, var(--xy-surface-1) 72%, transparent);
-  font-size: 0.68rem;
+  font-size: var(--xy-font-size-2xs);
   white-space: nowrap;
 }
 
@@ -221,7 +225,7 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
   background: color-mix(in srgb, var(--xy-accent) 10%, var(--xy-surface-0) 90%);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .downstream-impact__summary {
     gap: 0.35rem;
   }
@@ -236,7 +240,7 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
   }
 
   .downstream-impact__detail {
-    font-size: 0.68rem;
+    font-size: var(--xy-font-size-2xs);
   }
 }
 </style>

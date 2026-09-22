@@ -1,11 +1,9 @@
 <template>
-  <q-page>
-    <div class="row justify-center q-pa-md">
-      <game-form
-        ref="formRef"
-        :copy-game-id="copyGameId"
-        :existing-game-id="existingGameId"></game-form>
-    </div>
+  <q-page class="xy-page-content">
+    <game-form
+      ref="formRef"
+      :copy-game-id="copyGameId"
+      :existing-game-id="existingGameId"></game-form>
   </q-page>
 </template>
 

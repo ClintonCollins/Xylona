@@ -1,10 +1,15 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
 
 import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
 import { SevenDaysToDieMapViewSchema, SevenDaysToDieWebAPIValueState } from '@/proto/xylona_pb'
 import PublicSevenDaysToDieMap from './PublicSevenDaysToDieMap.vue'
+
+// The page loads the live map through defineAsyncComponent, so shallowMount's default stub has
+// no props. Stub it with the real prop list so props() keeps working.
+const LiveMapStub = defineComponent({ props: SevenDaysToDieLiveMap.props, render: () => null })
 
 const mocks = vi.hoisted(() => ({ getPublicMap: vi.fn() }))
 
@@ -39,7 +44,7 @@ describe('PublicSevenDaysToDieMap', () => {
 
     const wrapper = shallowMount(PublicSevenDaysToDieMap, {
       props: { identifier: 'shared-map' },
-      global: { stubs: { SevenDaysToDieWorldOverview: false } },
+      global: { stubs: { SevenDaysToDieWorldOverview: false, SevenDaysToDieLiveMap: LiveMapStub } },
     })
     await flushPromises()
 
@@ -52,7 +57,7 @@ describe('PublicSevenDaysToDieMap', () => {
     expect(overview.text()).toContain('0 online · 1 known')
     expect(overview.text()).toContain('10,240 × 10,240')
     expect(overview.text()).toContain('Not supported by this WebAPI')
-    expect(wrapper.getComponent(SevenDaysToDieLiveMap).props('view')).toEqual(publicView)
+    expect(wrapper.getComponent(LiveMapStub).props('view')).toEqual(publicView)
 
     wrapper.unmount()
   })

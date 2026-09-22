@@ -742,7 +742,7 @@ function onInputKeydown(event: KeyboardEvent): void {
   background: var(--xy-surface-2);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .console-command-input {
     padding: var(--xy-space-sm);
   }

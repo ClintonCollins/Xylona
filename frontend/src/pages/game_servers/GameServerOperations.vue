@@ -2071,7 +2071,7 @@ function resultIcon(classification: GameOperationResultClassification) {
 
 .availability-summary > .q-icon {
   margin-top: 0.125rem;
-  font-size: 1.25rem;
+  font-size: var(--xy-font-size-xl);
 }
 
 .availability-summary p {
@@ -2600,7 +2600,7 @@ function resultIcon(classification: GameOperationResultClassification) {
 }
 
 .catalog-selection__media .q-icon {
-  font-size: 1.75rem;
+  font-size: var(--xy-font-size-2xl);
 }
 
 .catalog-selection__copy {
@@ -2676,7 +2676,7 @@ function resultIcon(classification: GameOperationResultClassification) {
 
 .control-panel__header > .q-icon {
   color: var(--xy-accent-hover);
-  font-size: 1.5rem;
+  font-size: var(--xy-font-size-xl);
 }
 
 .control-field,

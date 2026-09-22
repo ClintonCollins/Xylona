@@ -30,6 +30,7 @@
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selected"
+        aria-label="Users"
         :columns="columns"
         :filter="search"
         :grid="$q.screen.lt.md"
@@ -128,19 +129,14 @@
           </q-td>
         </template>
         <template #no-data>
-          <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon class="q-mb-sm text-xy-muted" name="people" size="3rem" />
-            <div class="text-subtitle1">{{ search ? 'No matching users' : 'No users yet' }}</div>
-            <div class="text-caption text-xy-muted">
-              {{ search ? 'Try a different search.' : 'Create a user to get started.' }}
-            </div>
-            <q-btn
-              v-if="!search"
-              class="q-mt-md"
-              color="primary"
-              label="Add user"
-              to="/admin/users/create" />
-          </div>
+          <empty-state
+            :description="search ? 'Try a different search.' : 'Create a user to get started.'"
+            :title="search ? 'No matching users' : 'No users yet'"
+            icon="people">
+            <template v-if="!search" #actions>
+              <q-btn color="primary" label="Add user" to="/admin/users/create" />
+            </template>
+          </empty-state>
         </template>
       </q-table>
     </div>
@@ -159,6 +155,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
 import { formatDate } from '@/utils/format-timestamp'

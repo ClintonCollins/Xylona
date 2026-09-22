@@ -145,11 +145,11 @@ async function copyCommand() {
   gap: 10px;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--xy-accent) 18%, var(--xy-border) 82%);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--xy-accent) 3.5%, transparent), transparent),
     var(--xy-surface-1);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--xy-base) 36%, transparent);
+  box-shadow: var(--xy-shadow-xl);
 }
 
 .resolved-preview__header {
@@ -169,7 +169,7 @@ async function copyCommand() {
   gap: var(--xy-space-sm);
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
-  font-size: 0.92rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.25;
 }
 
@@ -180,10 +180,10 @@ async function copyCommand() {
 .resolved-preview__title strong {
   padding: 2px 8px;
   border: 1px solid color-mix(in srgb, var(--xy-accent) 18%, var(--xy-border) 82%);
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   color: var(--xy-text-secondary);
   font-family: var(--xy-font-mono);
-  font-size: 0.68rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -191,14 +191,14 @@ async function copyCommand() {
 .resolved-preview__copy {
   margin-top: 2px;
   max-width: 56ch;
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.35;
 }
 
 .resolved-preview__shell {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--xy-accent) 16%, var(--xy-border) 84%);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--xy-accent) 2%, var(--xy-base) 98%);
 }
 
@@ -213,7 +213,7 @@ async function copyCommand() {
   background: color-mix(in srgb, var(--xy-surface-0) 84%, transparent);
   color: var(--xy-text-muted);
   font-family: var(--xy-font-mono);
-  font-size: 0.66rem;
+  font-size: var(--xy-font-size-2xs);
   text-transform: uppercase;
 }
 
@@ -229,7 +229,7 @@ async function copyCommand() {
 .resolved-preview__shell-dots span {
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   background: var(--xy-border-hover);
 }
 
@@ -254,7 +254,7 @@ async function copyCommand() {
   overflow-y: hidden;
   color: var(--xy-text-primary);
   font-family: var(--xy-font-mono);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.6;
   white-space: pre;
   overflow-wrap: normal;
@@ -267,7 +267,7 @@ async function copyCommand() {
   padding: 10px 12px;
   color: var(--xy-text-muted);
   font-family: var(--xy-font-mono);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .resolved-preview__prompt {
@@ -312,14 +312,14 @@ async function copyCommand() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-secondary);
 }
 
 .resolved-preview__legend-dot {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
 }
 
 .resolved-preview__legend-dot--system {
@@ -339,7 +339,7 @@ async function copyCommand() {
   background: var(--xy-syntax-green);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .resolved-preview__header {
     align-items: stretch;
     gap: var(--xy-space-sm);
@@ -360,7 +360,7 @@ async function copyCommand() {
 
   .resolved-preview__command {
     min-height: 2.7rem;
-    font-size: 0.76rem;
+    font-size: var(--xy-font-size-xs);
   }
 }
 </style>

@@ -144,6 +144,7 @@
             <div class="game-default-env-title font-display">Default Environment</div>
           </div>
           <q-btn
+            aria-label="Add environment variable"
             color="primary"
             data-testid="add-default-environment-row"
             dense
@@ -199,6 +200,7 @@
               label="Value"
               outlined />
             <q-btn
+              :aria-label="`Remove environment variable ${index + 1}`"
               color="negative"
               data-testid="remove-default-environment-row"
               dense

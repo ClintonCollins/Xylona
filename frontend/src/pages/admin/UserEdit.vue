@@ -1,71 +1,63 @@
 <template>
-  <q-page>
-    <div class="row justify-center q-pa-md">
-      <q-card class="full-width">
-        <q-card-section>
-          <div class="row">
-            <div class="text-h6">Edit User</div>
+  <q-page class="xy-page-content">
+    <page-header title="Edit user" />
+    <div class="user-form">
+      <q-form>
+        <div class="column q-gutter-y-md">
+          <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
+            <q-input
+              v-model="userName"
+              class="col-12 col-xl-6"
+              label="Username"
+              outlined
+              type="text"></q-input>
+            <q-input
+              v-model="email"
+              class="col-12 col-xl-6"
+              label="Email"
+              outlined
+              type="email"></q-input>
+            <q-input
+              v-model="firstName"
+              class="col-12 col-xl-6"
+              label="First Name"
+              outlined
+              type="text"></q-input>
+            <q-input
+              v-model="lastName"
+              class="col-12 col-xl-6"
+              label="Last Name"
+              outlined
+              type="text"></q-input>
           </div>
-        </q-card-section>
-        <q-card-section>
-          <q-form>
-            <div class="column q-gutter-y-md">
-              <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-                <q-input
-                  v-model="userName"
-                  class="col-12 col-xl-6"
-                  label="Username"
-                  outlined
-                  type="text"></q-input>
-                <q-input
-                  v-model="email"
-                  class="col-12 col-xl-6"
-                  label="Email"
-                  outlined
-                  type="email"></q-input>
-                <q-input
-                  v-model="firstName"
-                  class="col-12 col-xl-6"
-                  label="First Name"
-                  outlined
-                  type="text"></q-input>
-                <q-input
-                  v-model="lastName"
-                  class="col-12 col-xl-6"
-                  label="Last Name"
-                  outlined
-                  type="text"></q-input>
-              </div>
 
-              <div class="row q-col-gutter-x-sm full-width">
-                <q-toggle v-model="superUser" class="col-12 col-xl-2" label="Super User"></q-toggle>
-              </div>
+          <div class="row q-col-gutter-x-sm full-width">
+            <q-toggle v-model="superUser" class="col-12 col-xl-2" label="Super User"></q-toggle>
+          </div>
 
-              <q-separator></q-separator>
+          <q-separator></q-separator>
 
-              <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-                <q-input
-                  v-model="password"
-                  class="col-12 col-xl-6"
-                  label="New Password (Optional)"
-                  outlined
-                  type="password"></q-input>
-                <q-input
-                  v-model="confirmPassword"
-                  class="col-12 col-xl-6"
-                  label="Confirm Password"
-                  outlined
-                  type="password"></q-input>
-              </div>
-            </div>
-          </q-form>
-        </q-card-section>
-        <q-separator></q-separator>
-        <q-card-actions align="right" class="q-pa-md">
-          <q-btn flat label="Cancel" @click="router.push({ path: '/admin/users' })"></q-btn>
-          <q-btn :loading="submitting" color="primary" label="Save" @click="submit"></q-btn>
-        </q-card-actions>
-      </q-card>
+          <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
+            <q-input
+              v-model="password"
+              class="col-12 col-xl-6"
+              label="New Password (Optional)"
+              outlined
+              type="password"></q-input>
+            <q-input
+              v-model="confirmPassword"
+              class="col-12 col-xl-6"
+              label="Confirm Password"
+              outlined
+              type="password"></q-input>
+          </div>
+        </div>
+      </q-form>
+      <q-separator class="q-my-md"></q-separator>
+      <div class="row justify-end q-gutter-sm">
+        <q-btn flat label="Cancel" @click="router.push({ path: '/admin/users' })"></q-btn>
+        <q-btn :loading="submitting" color="primary" label="Save" @click="submit"></q-btn>
+      </div>
     </div>
   </q-page>
 </template>
@@ -83,6 +75,7 @@ import {
   UpdateUserRequestSchema,
   User,
 } from '@/proto/xylona_pb'
+import PageHeader from '@/components/shared/PageHeader.vue'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -207,4 +200,8 @@ async function submit() {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.user-form {
+  max-width: 720px;
+}
+</style>

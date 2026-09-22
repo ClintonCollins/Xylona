@@ -510,13 +510,13 @@ defineExpose({
 
 .change-dialog-title {
   font-family: var(--xy-font-display);
-  font-size: 1.05rem;
+  font-size: var(--xy-font-size-lg);
   font-weight: 700;
   color: var(--xy-text-primary);
 }
 
 .change-dialog-subtitle {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-muted);
   margin-top: 0.2rem;
 }
@@ -542,12 +542,12 @@ defineExpose({
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   background: color-mix(in srgb, var(--xy-accent) 16%, transparent);
 }
 
 .dialog-current-label {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--xy-text-muted);
@@ -571,7 +571,7 @@ defineExpose({
 
 .dialog-toggle-hint {
   margin-top: 0.35rem;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
 }
 
@@ -583,7 +583,7 @@ defineExpose({
   background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--xy-warning) 22%, transparent);
   color: var(--xy-text-secondary);
-  font-size: 0.84rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .dialog-warning-icon {

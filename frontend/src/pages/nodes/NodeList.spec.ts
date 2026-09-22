@@ -81,6 +81,15 @@ vi.mock('@/utils/persisted-ref', () => ({
   usePersistedRef: <T>(_: string, initialValue: T) => ref(initialValue),
 }))
 
+vi.mock('vue-router', async () => {
+  const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
+  return {
+    ...actual,
+    useRoute: () => ({ params: {}, path: '/nodes' }),
+    useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  }
+})
+
 const globalStubs = {
   stubs: {
     'q-page': { template: '<div><slot /></div>' },
@@ -443,25 +452,5 @@ describe('NodeList', () => {
 
     expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(42)
     wrapper.unmount()
-  })
-
-  it('maps node health status to badge labels and colors', async () => {
-    mocks.listNodes.mockResolvedValueOnce({ nodes: [] })
-
-    const wrapper = mount(NodeList, { global: globalStubs })
-    await flushPromises()
-
-    const healthBadgeFor = (
-      wrapper.vm as unknown as {
-        healthBadgeFor: (node: { healthStatus: string }) => { color: string; label: string }
-      }
-    ).healthBadgeFor
-
-    expect(healthBadgeFor({ healthStatus: 'healthy' }).label).toBe('Healthy')
-    expect(healthBadgeFor({ healthStatus: 'healthy' }).color).toBe('positive')
-    expect(healthBadgeFor({ healthStatus: 'offline' }).label).toBe('Offline')
-    expect(healthBadgeFor({ healthStatus: 'offline' }).color).toBe('negative')
-    expect(healthBadgeFor({ healthStatus: 'disabled' }).label).toBe('Disabled')
-    expect(healthBadgeFor({ healthStatus: 'disabled' }).color).toBe('warning')
   })
 })

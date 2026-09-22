@@ -1,14 +1,17 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
 
-import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
 import SevenDaysToDieWorldOverview from '@/components/seven_days_to_die/SevenDaysToDieWorldOverview.vue'
 import {
   GetPublicSevenDaysToDieMapRequestSchema,
   type SevenDaysToDieMapView,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
+
+const SevenDaysToDieLiveMap = defineAsyncComponent(
+  () => import('@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'),
+)
 
 const props = defineProps<{ identifier: string }>()
 const pollIntervalMilliseconds = 5_000
@@ -109,7 +112,7 @@ onBeforeUnmount(() => {
 .public-seven-days-map__brand {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
-  font-size: 1.25rem;
+  font-size: var(--xy-font-size-xl);
   letter-spacing: 0.05em;
 }
 
@@ -186,7 +189,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599px) {
   .public-seven-days-map {
     padding: var(--xy-space-xs);
   }

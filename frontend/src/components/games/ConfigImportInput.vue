@@ -11,6 +11,7 @@
       <q-input
         v-model="content"
         :maxlength="MAX_CONTENT_LENGTH"
+        aria-label="Sample config content"
         dense
         input-class="font-mono import-textarea"
         outlined
@@ -193,14 +194,14 @@ defineExpose({ content })
 
 .import-drop-zone :deep(.import-textarea) {
   min-height: 160px;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.4;
 }
 
 .drop-active {
   outline: 2px dashed var(--xy-accent);
   outline-offset: -2px;
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
 }
 
 .drop-overlay {
@@ -212,9 +213,9 @@ defineExpose({ content })
   justify-content: center;
   gap: var(--xy-space-xs);
   background-color: var(--xy-accent-muted);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   color: var(--xy-accent);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 500;
   pointer-events: none;
 }
@@ -229,7 +230,7 @@ defineExpose({ content })
   align-items: center;
   flex-wrap: wrap;
   gap: var(--xy-space-xs);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   padding: var(--xy-space-xs) 0;
 }
 
@@ -242,7 +243,7 @@ defineExpose({ content })
 }
 
 .alt-format-btn {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   text-transform: none;
 }
 </style>

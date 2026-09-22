@@ -196,17 +196,17 @@ function closeComposer() {
 }
 
 .blocklist-editor__title {
-  font-size: 0.95rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 
 .blocklist-editor__copy {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .blocklist-editor__empty {
   padding: 0.95rem;
-  border-radius: 12px;
+  border-radius: var(--xy-radius-xl);
   border: 1px dashed var(--xy-border);
   background: color-mix(in srgb, var(--xy-surface-0) 84%, transparent);
 }
@@ -226,12 +226,12 @@ function closeComposer() {
 }
 
 .blocklist-editor__count {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: color-mix(in srgb, var(--xy-accent) 12%, var(--xy-text-secondary) 88%);
 }
 
 .blocklist-editor__toolbar-note {
-  font-size: 0.73rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1.35;
 }
 
@@ -243,7 +243,7 @@ function closeComposer() {
   gap: 8px;
   min-height: 2rem;
   padding: 0.32rem 0.72rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 30%, var(--xy-border));
   background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0) 92%);
   color: color-mix(in srgb, var(--xy-accent) 34%, var(--xy-text-primary) 66%);
@@ -285,7 +285,7 @@ function closeComposer() {
   align-items: start;
   gap: 0.6rem;
   padding: 0.52rem 0.6rem;
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 10%, var(--xy-border) 90%);
   background: color-mix(in srgb, var(--xy-accent) 2%, var(--xy-surface-0) 98%);
 }
@@ -297,10 +297,10 @@ function closeComposer() {
   min-width: 1.7rem;
   min-height: 1.7rem;
   padding: 0 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 30%, var(--xy-border));
   background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-1) 92%);
-  font-size: 0.66rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--xy-accent) 58%, var(--xy-text-primary) 42%);
@@ -350,7 +350,7 @@ function closeComposer() {
   display: grid;
   gap: 0.7rem;
   padding: 0.82rem;
-  border-radius: 12px;
+  border-radius: var(--xy-radius-xl);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 38%, var(--xy-border));
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--xy-accent) 5%, transparent), transparent 48%),
@@ -387,11 +387,11 @@ function closeComposer() {
 
 .blocklist-editor__composer-title {
   color: var(--xy-text-primary);
-  font-size: 0.92rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .blocklist-editor__composer-copy {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .blocklist-editor__composer-fields {
@@ -406,7 +406,7 @@ function closeComposer() {
   gap: 0.65rem;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .blocklist-editor__toolbar {
     flex-direction: column;
     align-items: stretch;

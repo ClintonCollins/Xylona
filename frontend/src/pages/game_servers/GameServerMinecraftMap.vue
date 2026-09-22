@@ -315,7 +315,7 @@ onBeforeUnmount(() => {
   border-radius: var(--xy-radius-md);
   color: var(--xy-accent);
   background: color-mix(in srgb, var(--q-primary) 12%, var(--xy-surface-3));
-  font-size: 25px;
+  font-size: var(--xy-font-size-xl);
 }
 
 .minecraft-map-page__heading span,
@@ -430,7 +430,7 @@ onBeforeUnmount(() => {
   gap: var(--xy-space-xs);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   .minecraft-map-page {
     padding: var(--xy-space-md);
   }

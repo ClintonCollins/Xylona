@@ -732,15 +732,18 @@ func NodeProtoToModel(nodeProto *xylona.Node) *models.Node {
 // NodeModelToProto converts a node database model to a protobuf message. Fields
 // outside the hub-spoke Node model are left at their protobuf zero values.
 func NodeModelToProto(nodeModel *models.Node) *xylona.Node {
-	return &xylona.Node{
-		Id:         nodeModel.ID,
-		Name:       nodeModel.Name,
-		BaseUrl:    nodeModel.ListenURL,
-		Enabled:    nodeModel.Enabled,
-		LastSeenAt: timestamppb.New(nodeModel.LastSeenAt.GetOr(time.Time{})),
-		CreatedAt:  timestamppb.New(nodeModel.CreatedAt),
-		UpdatedAt:  timestamppb.New(nodeModel.UpdatedAt),
+	proto := &xylona.Node{
+		Id:        nodeModel.ID,
+		Name:      nodeModel.Name,
+		BaseUrl:   nodeModel.ListenURL,
+		Enabled:   nodeModel.Enabled,
+		CreatedAt: timestamppb.New(nodeModel.CreatedAt),
+		UpdatedAt: timestamppb.New(nodeModel.UpdatedAt),
 	}
+	if lastSeen, ok := nodeModel.LastSeenAt.Get(); ok && !lastSeen.IsZero() {
+		proto.LastSeenAt = timestamppb.New(lastSeen)
+	}
+	return proto
 }
 
 // NodeModelToSetter converts a node model to a bob setter.

@@ -109,6 +109,7 @@
                     <q-select
                       v-model="scope.value"
                       :options="formatOptions"
+                      aria-label="Config format"
                       autofocus
                       dense
                       emit-value
@@ -342,7 +343,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   margin-bottom: var(--xy-space-md);
   padding: clamp(16px, 1.8vw, 22px);
   border: 1px solid color-mix(in srgb, var(--xy-primary) 12%, var(--xy-border) 88%);
-  border-radius: 16px;
+  border-radius: var(--xy-radius-xl);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--xy-primary) 5%, transparent), transparent 58%),
     var(--xy-surface-0);
@@ -357,12 +358,12 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 }
 
 .schema-list-title {
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 
 .schema-list-copy {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.55;
 }
 
@@ -375,7 +376,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 }
 
 .schema-list-summary {
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   white-space: nowrap;
 }
 
@@ -385,18 +386,18 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   gap: 0.85rem;
   padding: clamp(18px, 2vw, 24px);
   border: 1px dashed color-mix(in srgb, var(--xy-primary) 14%, var(--xy-border) 86%);
-  border-radius: 14px;
+  border-radius: var(--xy-radius-xl);
   background-color: var(--xy-surface-0);
 }
 
 .schema-list-empty-title {
-  font-size: 0.96rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 
 .schema-list-empty-copy {
   max-width: 40rem;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.55;
 }
 
@@ -420,16 +421,16 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   min-width: 2.1rem;
   min-height: 2.1rem;
   padding: 0 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid color-mix(in srgb, var(--xy-primary) 20%, var(--xy-border) 80%);
   background: color-mix(in srgb, var(--xy-surface-1) 88%, transparent);
-  font-size: 0.74rem;
+  font-size: var(--xy-font-size-xs);
   color: color-mix(in srgb, var(--xy-primary) 40%, var(--xy-text-primary) 60%);
 }
 
 .schema-list-empty-step-copy {
   padding-top: 0.25rem;
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.5;
   color: var(--xy-text-secondary);
 }
@@ -442,7 +443,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 
 .schema-category-panel {
   border: 1px solid var(--xy-border);
-  border-radius: 14px;
+  border-radius: var(--xy-radius-xl);
   background: var(--xy-surface-0);
   overflow: hidden;
 }
@@ -476,10 +477,10 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   align-items: center;
   min-height: 1.8rem;
   padding: 0.22rem 0.62rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid var(--xy-border);
   background: color-mix(in srgb, var(--xy-surface-1) 90%, transparent);
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--xy-text-muted);
@@ -498,7 +499,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 }
 
 .category-label {
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--xy-text-secondary);
@@ -518,7 +519,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 }
 
 .schema-file-path {
-  font-size: 0.84rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-primary);
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -537,15 +538,15 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   align-items: center;
   min-height: 1.7rem;
   padding: 0.16rem 0.52rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid color-mix(in srgb, var(--xy-border) 88%, transparent);
   background: color-mix(in srgb, var(--xy-surface-1) 82%, transparent);
   color: var(--xy-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .schema-gen-badge {
-  font-size: 0.58rem;
+  font-size: var(--xy-font-size-2xs);
   margin-left: 0;
 }
 
@@ -562,7 +563,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   min-height: 1.9rem;
   padding: 0.22rem 0.7rem;
   border: 1px solid color-mix(in srgb, var(--xy-primary) 10%, var(--xy-border) 90%);
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   background: color-mix(in srgb, var(--xy-primary) 6%, var(--xy-surface-1) 94%);
   color: var(--xy-text-secondary);
   cursor: pointer;
@@ -589,7 +590,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 }
 
 .schema-format-action {
-  font-size: 0.68rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
 }
 
@@ -608,7 +609,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   min-height: 36px;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   .schema-list-overview {
     align-items: flex-start;
     flex-direction: column;

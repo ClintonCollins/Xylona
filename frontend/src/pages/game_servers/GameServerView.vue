@@ -1,7 +1,7 @@
 <template>
   <div class="identity-bar">
     <div class="identity-bar-left">
-      <span class="identity-bar-name">{{ gameServer.name }}</span>
+      <h1 class="identity-bar-name">{{ gameServer.name }}</h1>
       <span class="identity-bar-detail">
         <span>{{ gameServer.gameName }}</span>
         <template v-if="hasSoftwareOptions && !softwareNameRedundant">
@@ -25,7 +25,44 @@
       </span>
     </div>
     <div class="identity-bar-spacer"></div>
-    <status-badge :status="gameServer.status" />
+    <span role="status" aria-live="polite">
+      <status-badge :phase="statusBadgePhase" :status="gameServer.status" />
+    </span>
+  </div>
+
+  <div v-if="lastStartFailure" class="start-failure" role="alert">
+    <q-icon aria-hidden="true" class="start-failure__icon" name="report_problem" />
+    <div class="start-failure__body">
+      <span class="start-failure__title">
+        Start failed at {{ formatFailureTime(lastStartFailure.at) }}
+      </span>
+      <span class="start-failure__message">{{ lastStartFailure.message }}</span>
+    </div>
+    <div class="start-failure__actions">
+      <q-btn
+        v-if="hasConsoleOutput"
+        dense
+        flat
+        label="Show output"
+        no-caps
+        @click="revealConsoleOutput" />
+      <q-btn
+        :disable="disableStartButton || !hasPermission('game_server.start')"
+        :loading="startingServer"
+        color="primary"
+        dense
+        label="Start again"
+        no-caps
+        unelevated
+        @click="startGameServer" />
+      <q-btn
+        aria-label="Dismiss start failure"
+        dense
+        flat
+        icon="close"
+        round
+        @click="lastStartFailure = null" />
+    </div>
   </div>
 
   <div :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
@@ -71,6 +108,9 @@
           <div class="sidebar-section-label">Controls</div>
           <div class="server-controls">
             <q-btn
+              :aria-label="
+                hasPermission('game_server.start') ? undefined : 'Start (requires start permission)'
+              "
               :disable="disableStartButton || !hasPermission('game_server.start')"
               :loading="startingServer"
               color="positive"
@@ -84,6 +124,9 @@
               </q-tooltip>
             </q-btn>
             <q-btn
+              :aria-label="
+                hasPermission('game_server.stop') ? undefined : 'Stop (requires stop permission)'
+              "
               :disable="disableStopButton || !hasPermission('game_server.stop')"
               :loading="stoppingServer"
               color="negative"
@@ -98,6 +141,11 @@
             </q-btn>
             <q-btn
               v-if="showUpdateButton"
+              :aria-label="
+                hasPermission('game_server.settings')
+                  ? undefined
+                  : 'Update (requires settings permission)'
+              "
               :disable="disableUpdateButton || !hasPermission('game_server.settings')"
               :loading="updatingServer"
               class="update-server-btn"
@@ -758,6 +806,7 @@ import { useGameServerMetricsPreview } from './useGameServerMetricsPreview'
 import { useGameServerQueryStatusVersion } from './useGameServerQueryStatusVersion'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { resolveConsoleStreamChunk } from './console-stream-sequence'
+import { detectStartFailure, formatFailureTime, type StartFailure } from './start-failure'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -815,6 +864,12 @@ function setPlayerRailCollapsed(collapsed: boolean): void {
   }
 }
 
+function revealConsoleOutput() {
+  const el = consoleScrollArea.value?.$el as HTMLElement | undefined
+  el?.scrollIntoView({ block: 'nearest' })
+  scrollConsoleToBottom()
+}
+
 function scrollConsoleToBottom() {
   const el = consoleScrollArea.value?.$el as HTMLElement | undefined
   const container = el?.querySelector('.q-scrollarea__container') as HTMLElement | null
@@ -842,6 +897,8 @@ const {
 
 const startingServer = ref(false)
 const stoppingServer = ref(false)
+const lastStartFailure = ref<StartFailure | null>(null)
+const lifecycleIntents = { startRequestedAt: 0, stopRequestedAt: 0 }
 const serverStatusFresh = ref(false)
 const sendingConsoleInput = ref(false)
 const consoleStreamState = ref<'loading' | 'ready' | 'reconnecting' | 'error'>('loading')
@@ -908,6 +965,11 @@ const {
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
 const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)
+const statusBadgePhase = computed(() => {
+  if (stoppingServer.value) return 'stopping'
+  if (lastStartFailure.value && isServerOffline.value) return 'failed'
+  return undefined
+})
 const unlistedPlayerCount = computed(() =>
   Math.max(currentPlayerCount.value - onlinePlayers.value.length, 0),
 )
@@ -1505,16 +1567,21 @@ async function startGameServer() {
   }
   const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
   startingServer.value = true
+  lastStartFailure.value = null
+  lifecycleIntents.startRequestedAt = Date.now()
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().startGameServer(request)
   } catch (e) {
     console.error(e)
     void loadReadiness()
+    const message = ConnectErrorToString(ConnectError.from(e))
+    lastStartFailure.value = { at: Date.now(), message }
+    lifecycleIntents.startRequestedAt = 0
     $q.notify({
       type: 'xylona-error',
       position: 'top-right',
-      caption: 'Failed to start game server: ' + ConnectErrorToString(ConnectError.from(e)),
+      caption: 'Failed to start game server: ' + message,
       icon: 'report_problem',
     })
   } finally {
@@ -1563,6 +1630,7 @@ async function stopGameServer() {
   }
   const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
   stoppingServer.value = true
+  lifecycleIntents.stopRequestedAt = Date.now()
   try {
     request.serverId = gameServerId.value
     await GetXylonaClient().stopGameServer(request)
@@ -1795,6 +1863,11 @@ function onServerStatus(serverID: string, _serverName: string, status: Status) {
     lastConsoleSequence.value = 0n
     receivedConsoleReset.value = false
   }
+  const failure = detectStartFailure(status, lifecycleIntents, Date.now())
+  if (failure !== undefined) {
+    lastStartFailure.value = failure
+    lifecycleIntents.startRequestedAt = 0
+  }
   gameServer.value = create(GameServerSchema, {
     ...gameServer.value,
     status,
@@ -1909,6 +1982,60 @@ async function sendGameServerInput() {
   flex-shrink: 0;
 }
 
+.start-failure {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-base);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  background: var(--xy-danger-bg);
+  border-bottom: 1px solid var(--xy-danger-border);
+  flex-shrink: 0;
+}
+
+.start-failure__icon {
+  flex-shrink: 0;
+  font-size: var(--xy-font-size-lg);
+  color: var(--xy-danger);
+}
+
+.start-failure__body {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--xy-space-sm);
+  row-gap: var(--xy-space-2xs);
+  min-width: 0;
+  flex: 1;
+  font-size: var(--xy-font-size-sm);
+}
+
+.start-failure__title {
+  font-weight: 600;
+  color: var(--xy-text-primary);
+}
+
+.start-failure__message {
+  color: var(--xy-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.start-failure__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  flex-shrink: 0;
+}
+
+@media (max-width: 599px) {
+  .start-failure {
+    flex-wrap: wrap;
+  }
+
+  .start-failure__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 .identity-bar-left {
   display: flex;
   flex-direction: column;
@@ -1917,9 +2044,12 @@ async function sendGameServerInput() {
 }
 
 .identity-bar-name {
+  margin: 0;
   font-family: var(--xy-font-display);
   font-size: var(--xy-font-size-lg);
   font-weight: 700;
+  line-height: inherit;
+  letter-spacing: normal;
   color: var(--xy-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -2429,7 +2559,6 @@ async function sendGameServerInput() {
   border-radius: var(--xy-radius-sm);
   transform-origin: left center;
   transition: transform 0.8s var(--xy-ease-standard);
-  will-change: transform;
 }
 
 .fill-low {
@@ -2763,6 +2892,7 @@ async function sendGameServerInput() {
   background: var(--xy-surface-0);
   border-left: 1px solid var(--xy-border);
   overflow: hidden;
+  /* Animates layout width on purpose: the rail collapses to 44px and the console must reflow with it. */
   transition: width 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
@@ -2899,7 +3029,7 @@ async function sendGameServerInput() {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .identity-bar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;

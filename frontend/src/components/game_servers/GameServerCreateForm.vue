@@ -23,6 +23,7 @@
           <q-input
             v-model="gameServer.name"
             :rules="serverNameRules"
+            aria-required="true"
             autofocus
             class="col-12 col-md-6"
             label="Server Name *"
@@ -35,6 +36,7 @@
             v-model="gameServer.gameId"
             :options="availableGames"
             :rules="gameRules"
+            aria-required="true"
             class="col-12 col-md-6"
             emit-value
             label="Game *"
@@ -60,6 +62,7 @@
             v-model="gameServer.userId"
             :options="availableUsers"
             :rules="ownerRules"
+            aria-required="true"
             class="col-12 col-md-4"
             emit-value
             label="Owner *"
@@ -72,6 +75,7 @@
             v-model="gameServer.nodeId"
             :options="nodes"
             :rules="nodeRules"
+            aria-required="true"
             class="col-12 col-md-4"
             emit-value
             label="Node *"
@@ -85,6 +89,7 @@
             v-model="gameServer.ip"
             :options="availableIPs"
             :rules="ipRules"
+            aria-required="true"
             class="col-12 col-md-4"
             label="IP Address *"
             lazy-rules
@@ -108,6 +113,7 @@
             :error="showPortAvailabilityError"
             :error-message="portAvailabilityErrorMessage"
             :rules="portRules"
+            aria-required="true"
             class="col-12 col-sm-6"
             label="Port *"
             lazy-rules
@@ -117,6 +123,7 @@
           <q-input
             v-model.number="queryPortModel"
             :rules="queryPortRules"
+            aria-required="true"
             class="col-12 col-sm-6"
             label="Query Port *"
             lazy-rules
@@ -146,6 +153,7 @@
             v-if="isStarboundGame"
             v-model="steamAccountName"
             :rules="steamAccountNameRules"
+            aria-required="true"
             autocomplete="off"
             class="col-12 col-lg-6"
             hint="Use an account that owns Starbound. Enter its password and any Steam Guard code only in the install console after deploy; Xylona does not store them."
@@ -170,6 +178,7 @@
           <q-input
             v-model.number="setPlayersModel"
             :rules="setPlayersRules"
+            aria-required="true"
             class="col-12 col-sm-6 col-lg-4"
             label="Set Players *"
             lazy-rules
@@ -179,6 +188,7 @@
           <q-input
             v-model.number="maxPlayersModel"
             :rules="maxPlayersRules"
+            aria-required="true"
             class="col-12 col-sm-6 col-lg-4"
             label="Max Players *"
             lazy-rules
@@ -189,6 +199,7 @@
             v-if="isMinecraftGame"
             v-model.number="maxMemoryModel"
             :rules="maxMemoryRules"
+            aria-required="true"
             class="col-12 col-lg-4"
             label="Max Memory MB *"
             lazy-rules

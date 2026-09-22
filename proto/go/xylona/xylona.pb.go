@@ -10187,6 +10187,7 @@ type GetNodeMetricsHistoryRequest struct {
 	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	Since         *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`
 	Until         *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=until,proto3" json:"until,omitempty"`
+	MaxPoints     int32                  `protobuf:"varint,4,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -10242,11 +10243,19 @@ func (x *GetNodeMetricsHistoryRequest) GetUntil() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetNodeMetricsHistoryRequest) GetMaxPoints() int32 {
+	if x != nil {
+		return x.MaxPoints
+	}
+	return 0
+}
+
 type GetNodeMetricsHistoryResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Points        []*MetricsHistoryPoint `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Points                []*MetricsHistoryPoint `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"`
+	SampleIntervalSeconds int32                  `protobuf:"varint,2,opt,name=sample_interval_seconds,json=sampleIntervalSeconds,proto3" json:"sample_interval_seconds,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *GetNodeMetricsHistoryResponse) Reset() {
@@ -10284,6 +10293,13 @@ func (x *GetNodeMetricsHistoryResponse) GetPoints() []*MetricsHistoryPoint {
 		return x.Points
 	}
 	return nil
+}
+
+func (x *GetNodeMetricsHistoryResponse) GetSampleIntervalSeconds() int32 {
+	if x != nil {
+		return x.SampleIntervalSeconds
+	}
+	return 0
 }
 
 type GetGameServerMetricsHistoryRequest struct {
@@ -23013,13 +23029,16 @@ const file_xylona_proto_rawDesc = "" +
 	"systemInfo\x128\n" +
 	"\bsnapshot\x18\x03 \x01(\v2\x1c.xylona.NodeResourceSnapshotR\bsnapshot\"R\n" +
 	"\x1cGetDashboardOverviewResponse\x122\n" +
-	"\x05nodes\x18\x01 \x03(\v2\x1c.xylona.DashboardNodeSummaryR\x05nodes\"\x9b\x01\n" +
+	"\x05nodes\x18\x01 \x03(\v2\x1c.xylona.DashboardNodeSummaryR\x05nodes\"\xba\x01\n" +
 	"\x1cGetNodeMetricsHistoryRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x120\n" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x120\n" +
-	"\x05until\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05until\"T\n" +
+	"\x05until\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x05until\x12\x1d\n" +
+	"\n" +
+	"max_points\x18\x04 \x01(\x05R\tmaxPoints\"\x8c\x01\n" +
 	"\x1dGetNodeMetricsHistoryResponse\x123\n" +
-	"\x06points\x18\x01 \x03(\v2\x1b.xylona.MetricsHistoryPointR\x06points\"\xcd\x01\n" +
+	"\x06points\x18\x01 \x03(\v2\x1b.xylona.MetricsHistoryPointR\x06points\x126\n" +
+	"\x17sample_interval_seconds\x18\x02 \x01(\x05R\x15sampleIntervalSeconds\"\xcd\x01\n" +
 	"\"GetGameServerMetricsHistoryRequest\x12$\n" +
 	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\x120\n" +
 	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x120\n" +

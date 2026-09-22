@@ -801,7 +801,7 @@ onBeforeUnmount(() => {
             <strong>Map key</strong>
             <span><q-icon color="accent" name="person" /> Online player</span>
             <span><q-icon name="history" /> Last-known player</span>
-            <span><q-icon color="purple" name="edit_location" /> Map note</span>
+            <span><q-icon name="edit_location" style="color: var(--xy-purple)" /> Map note</span>
             <span v-if="!loadError && view?.hostileState === availableState"
               ><q-icon color="negative" name="warning" /> Hostile</span
             >
@@ -1401,7 +1401,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   .seven-days-map {
     min-height: 480px;
     border-right: 0;

@@ -1557,7 +1557,6 @@ onBeforeUnmount(() => {
   opacity: 0;
   pointer-events: none;
   transform: translateX(calc(-100% - var(--xy-space-lg)));
-  backdrop-filter: blur(10px);
   transition:
     opacity var(--xy-transition-fast),
     transform var(--xy-transition-base);
@@ -1649,7 +1648,6 @@ onBeforeUnmount(() => {
 .palworld-live-map__actor:focus-visible {
   color: var(--xy-text-primary);
   background: var(--xy-surface-2);
-  outline: none;
 }
 
 .palworld-live-map__layer--active {
@@ -1708,7 +1706,6 @@ onBeforeUnmount(() => {
 .palworld-live-map__more-layers:focus-visible {
   color: var(--xy-text-primary);
   background: var(--xy-surface-2);
-  outline: none;
 }
 
 .palworld-live-map__more-layers span:nth-child(2) {
@@ -1879,7 +1876,6 @@ onBeforeUnmount(() => {
 .palworld-live-map__guild-heading button:focus-visible {
   color: var(--xy-text-primary);
   border-color: var(--xy-accent);
-  outline: none;
 }
 
 .palworld-live-map__guild-command dl {
@@ -2118,7 +2114,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--xy-border-hover);
   border-radius: var(--xy-radius-xl);
   box-shadow: var(--xy-shadow-md);
-  backdrop-filter: blur(10px);
 }
 
 .palworld-live-map__summaries,
@@ -2158,12 +2153,11 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font: inherit;
   font-size: var(--xy-font-size-xs);
-  backdrop-filter: blur(8px);
 }
 
 .palworld-live-map__summary-chip > .q-icon {
   color: var(--actor-color, var(--xy-accent));
-  font-size: 18px;
+  font-size: var(--xy-font-size-lg);
 }
 
 .palworld-live-map__summary-chip strong {
@@ -2200,7 +2194,6 @@ onBeforeUnmount(() => {
   box-shadow: var(--xy-shadow-sm);
   font-family: var(--xy-font-mono);
   font-size: var(--xy-font-size-xs);
-  backdrop-filter: blur(8px);
 }
 
 .palworld-live-map__health small {
@@ -2249,7 +2242,7 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   margin-top: 1px;
   color: var(--xy-warning);
-  font-size: 16px;
+  font-size: var(--xy-font-size-base);
 }
 
 .palworld-live-map__toolbar-action {
@@ -2275,7 +2268,7 @@ onBeforeUnmount(() => {
 }
 
 .palworld-live-map__status > .q-icon {
-  font-size: 22px;
+  font-size: var(--xy-font-size-xl);
 }
 
 .palworld-live-map__status div {
@@ -2329,10 +2322,9 @@ onBeforeUnmount(() => {
 
 .palworld-live-map__map-layers button:hover,
 .palworld-live-map__map-layers button:focus-visible,
-.palworld-live-map__map-layer--active {
-  color: var(--xy-text-primary) !important;
-  background: var(--xy-surface-3) !important;
-  outline: none;
+.palworld-live-map__map-layers .palworld-live-map__map-layer--active {
+  color: var(--xy-text-primary);
+  background: var(--xy-surface-3);
 }
 
 .palworld-live-map__toolbar-actions {
@@ -2387,7 +2379,7 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--actor-color) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--actor-color) 45%, transparent);
   border-radius: var(--xy-radius-lg);
-  font-size: 22px;
+  font-size: var(--xy-font-size-xl);
 }
 
 .palworld-live-map__footer {
@@ -2408,7 +2400,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .palworld-live-map {
     min-height: 500px;
   }
@@ -2435,7 +2427,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   .palworld-live-map {
     min-height: 440px;
     height: calc(100dvh - 300px);
@@ -2561,7 +2553,7 @@ onBeforeUnmount(() => {
 
 .palworld-map-cluster .material-icons {
   color: var(--actor-color);
-  font-size: 18px;
+  font-size: var(--xy-font-size-lg);
 }
 
 /* A merge replaces pills that would have stacked, so it borrows their weight
@@ -2653,7 +2645,7 @@ onBeforeUnmount(() => {
   width: 26px;
   height: 26px;
   color: var(--actor-color);
-  font-size: 17px;
+  font-size: var(--xy-font-size-lg);
   background: color-mix(in srgb, var(--actor-color) 13%, transparent);
   border: 1px solid color-mix(in srgb, var(--actor-color) 42%, transparent);
   border-radius: var(--xy-radius-pill);
@@ -2781,7 +2773,7 @@ onBeforeUnmount(() => {
   border-top-color: var(--xy-border-strong);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   .palworld-live-map .leaflet-top.leaflet-left {
     top: 170px;
     right: var(--xy-space-sm);

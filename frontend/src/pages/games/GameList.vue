@@ -35,6 +35,7 @@
       <q-table
         v-model:pagination="initialPagination"
         v-model:selected="selected"
+        aria-label="Games"
         :columns="columns"
         :filter="search"
         :grid="$q.screen.lt.md"
@@ -180,19 +181,14 @@
           </q-td>
         </template>
         <template #no-data>
-          <div class="full-width column items-center q-pa-lg text-xy-secondary">
-            <q-icon class="q-mb-sm text-xy-muted" name="sports_esports" size="3rem" />
-            <div class="text-subtitle1">{{ search ? 'No matching games' : 'No games yet' }}</div>
-            <div class="text-caption text-xy-muted">
-              {{ search ? 'Try a different search.' : 'Add a game to get started.' }}
-            </div>
-            <q-btn
-              v-if="!search"
-              class="q-mt-md"
-              color="primary"
-              label="Add game"
-              to="/games/new" />
-          </div>
+          <empty-state
+            :description="search ? 'Try a different search.' : 'Add a game to get started.'"
+            :title="search ? 'No matching games' : 'No games yet'"
+            icon="sports_esports">
+            <template v-if="!search" #actions>
+              <q-btn color="primary" label="Add game" to="/games/new" />
+            </template>
+          </empty-state>
         </template>
       </q-table>
     </div>
@@ -210,6 +206,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { usePersistedRef } from '@/utils/persisted-ref'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import GameDeleteDialog from '@/components/games/GameDeleteDialog.vue'
 import GameImportDialog from '@/components/games/GameImportDialog.vue'

@@ -69,13 +69,13 @@ defineProps<{
   flex-direction: column;
   gap: 4px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-raised-subtle);
 }
 
 .readonly-provisioning-label {
-  font-size: 0.74rem;
+  font-size: var(--xy-font-size-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--xy-text-emphasis-soft);

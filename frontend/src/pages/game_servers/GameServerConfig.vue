@@ -1,5 +1,5 @@
 <template>
-  <div class="config-page">
+  <div class="config-page xy-page-content">
     <page-header class="config-page-header" title="Configuration" />
 
     <!-- Loading state -->
@@ -388,7 +388,6 @@ function handleUpdateAdvanced(fields: AdvancedField[]) {
 }
 
 .config-page-header {
-  padding: var(--xy-space-md) var(--xy-space-md) 0;
   margin-bottom: var(--xy-space-sm);
 }
 
@@ -432,7 +431,7 @@ function handleUpdateAdvanced(fields: AdvancedField[]) {
   font-size: 0.9rem;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .config-layout {
     flex-direction: column;
   }

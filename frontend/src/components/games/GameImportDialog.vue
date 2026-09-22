@@ -456,7 +456,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 
 .game-import-dialog__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   line-height: 1.2;
   color: var(--xy-text-primary);
 }
@@ -477,7 +477,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 .game-import-dialog__changes,
 .game-import-dialog__impact {
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: var(--xy-surface-0);
   padding: var(--xy-space-md);
 }
@@ -533,7 +533,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 
 .game-import-dialog__change-section {
   color: var(--xy-accent);
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -544,7 +544,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
   gap: var(--xy-space-md);
   align-items: center;
   border: 1px solid color-mix(in srgb, var(--xy-border) 78%, transparent);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   background: color-mix(in srgb, var(--xy-surface-1) 72%, transparent);
   padding: var(--xy-space-sm);
 }
@@ -565,7 +565,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
   display: block;
   margin-top: 2px;
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   overflow-wrap: anywhere;
 }
 
@@ -579,7 +579,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 .game-import-dialog__change-value span {
   display: block;
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .game-import-dialog__change-value strong {
@@ -632,19 +632,19 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 
 .xy-banner-negative {
   border: 1px solid color-mix(in srgb, var(--xy-danger) 35%, var(--xy-border));
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-0));
   color: var(--xy-text-primary);
 }
 
 .xy-banner-warning {
   border: 1px solid color-mix(in srgb, var(--xy-warning) 35%, var(--xy-border));
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--xy-warning) 10%, var(--xy-surface-0));
   color: var(--xy-text-primary);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 599px) {
   .game-import-dialog__change-row {
     grid-template-columns: 1fr;
   }

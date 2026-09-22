@@ -214,6 +214,11 @@ const routes: RouteRecordRaw[] = [
         beforeEnter: requireSuperUser,
       },
       {
+        path: '/nodes/:id',
+        component: () => import('pages/nodes/NodeList.vue'),
+        beforeEnter: requireSuperUser,
+      },
+      {
         path: '/nodes/:id/edit',
         component: () => import('pages/nodes/NodeEdit.vue'),
         beforeEnter: requireSuperUser,

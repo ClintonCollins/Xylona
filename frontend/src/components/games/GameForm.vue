@@ -724,7 +724,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   padding: calc(var(--xy-space-sm) + 2px) var(--xy-space-lg) calc(var(--xy-space-xs) + 2px);
   background: var(--xy-surface-1);
   border-bottom: 1px solid var(--xy-border);
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--xy-radius-lg) var(--xy-radius-lg) 0 0;
   position: sticky;
   top: var(--xy-toolbar-height);
   z-index: 10;
@@ -761,7 +761,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-radius: 18px;
+  border-radius: var(--xy-radius-xl);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
   box-shadow: var(--xy-shadow-md);
@@ -790,7 +790,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .runtime-policy-eyebrow {
-  font-size: 0.74rem;
+  font-size: var(--xy-font-size-xs);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--xy-accent);
@@ -798,7 +798,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .runtime-policy-summary-line {
   max-width: 38rem;
-  font-size: 0.84rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.45;
   color: color-mix(in srgb, var(--xy-accent) 12%, var(--xy-text-secondary) 88%);
 }
@@ -817,11 +817,11 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: 0.42rem;
   min-height: 2.15rem;
   padding: 0.38rem 0.42rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: none;
   background: transparent;
   color: var(--xy-accent);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   cursor: pointer;
   transition: color var(--xy-transition-fast);
 }
@@ -919,7 +919,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: 0.75rem;
   padding: 1rem;
   border: 1px solid var(--xy-border);
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
   background: var(--xy-surface-1);
 }
 
@@ -931,7 +931,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .game-default-env-title {
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--xy-accent);
@@ -959,11 +959,11 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .runtime-policy-subhead {
   color: var(--xy-text-primary);
-  font-size: 0.88rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .runtime-policy-subcopy {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.4;
 }
 
@@ -973,7 +973,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   justify-content: space-between;
   gap: 0.9rem;
   padding: 0.8rem 0.85rem;
-  border-radius: 12px;
+  border-radius: var(--xy-radius-xl);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 16%, var(--xy-border) 84%);
   background: color-mix(in srgb, var(--xy-accent) 3%, var(--xy-surface-1) 97%);
 }
@@ -994,17 +994,17 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .runtime-policy-switch-title {
   color: var(--xy-text-primary);
-  font-size: 0.92rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
 }
 
 .runtime-policy-switch-note {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.4;
 }
 
 .runtime-policy-mini-note {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1.4;
 }
 
@@ -1031,15 +1031,15 @@ async function saveDefaultEnvironment(): Promise<void> {
   align-items: center;
   min-height: 1.75rem;
   padding: 0.16rem 0.58rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 32%, var(--xy-border));
   background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-1) 92%);
   color: color-mix(in srgb, var(--xy-accent) 24%, var(--xy-text-primary) 76%);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   white-space: nowrap;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .runtime-policy-toggle {
     flex-direction: column;
     gap: 0.85rem;
@@ -1067,7 +1067,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .game-form-breadcrumbs {
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1;
 }
 
@@ -1104,7 +1104,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .game-form-title {
   margin: 0;
-  font-size: 1.12rem;
+  font-size: var(--xy-font-size-lg);
   font-weight: 600;
   line-height: 1.1;
   color: var(--xy-text-primary);
@@ -1146,7 +1146,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   margin: 0.75rem 0;
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--xy-warning);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   background: var(--xy-surface-1);
 }
 
@@ -1161,13 +1161,13 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .diverged-banner-title {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
 }
 
 .diverged-banner-caption {
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
 }
 
@@ -1175,7 +1175,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   flex-shrink: 0;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 599px) {
   .game-form-diverged-banner {
     flex-wrap: wrap;
   }
@@ -1186,7 +1186,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 .game-form-body {
   padding: var(--xy-space-xs) var(--xy-space-lg) var(--xy-space-lg);
   background: var(--xy-surface-1);
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 var(--xy-radius-lg) var(--xy-radius-lg);
 }
 
 .game-form-tabs-panel {
@@ -1234,7 +1234,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .game-form-tab__label {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   letter-spacing: 0.04em;
   text-transform: none;
 }
@@ -1285,7 +1285,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: var(--xy-space-lg);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .overview-metadata {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--xy-space-md);
@@ -1302,13 +1302,13 @@ async function saveDefaultEnvironment(): Promise<void> {
 .game-form-wrapper .section-bar {
   width: 3px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: var(--xy-radius-sm);
   flex-shrink: 0;
 }
 
 .game-form-wrapper .section-title {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-secondary);
   letter-spacing: 0.06em;
@@ -1338,7 +1338,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .feature-group-label {
-  font-size: 0.62rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1356,7 +1356,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: var(--xy-space-xs);
   min-height: 44px;
   padding: 10px 14px;
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-0);
   cursor: pointer;
@@ -1366,7 +1366,7 @@ async function saveDefaultEnvironment(): Promise<void> {
     color var(--xy-transition-fast),
     opacity var(--xy-transition-fast);
   color: var(--xy-text-muted);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-family: inherit;
   line-height: 1.2;
   opacity: 0.7;
@@ -1406,18 +1406,18 @@ async function saveDefaultEnvironment(): Promise<void> {
 /* ---- Platform Tabs ---- */
 
 .platform-empty {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   padding: var(--xy-space-md);
   text-align: center;
   background: var(--xy-surface-0);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid var(--xy-border);
 }
 
 .platform-tabs {
   display: inline-flex;
   background: var(--xy-surface-0);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   padding: 3px;
   gap: 2px;
   margin-bottom: var(--xy-space-md);
@@ -1430,11 +1430,11 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: 6px;
   min-height: 44px;
   padding: 6px 16px;
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
   transition:
     background var(--xy-transition-fast),
@@ -1474,7 +1474,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 .cmd-block {
   background: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   overflow: hidden;
   transition: border-color var(--xy-transition-fast);
 }
@@ -1505,7 +1505,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .cmd-label {
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1513,20 +1513,20 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .cmd-badge {
-  font-size: 0.6rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.04em;
   border: 1px solid var(--xy-border);
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--xy-radius-sm);
 }
 
 .cmd-type-select {
   appearance: none;
   background: var(--xy-surface-2);
   border: 1px solid var(--xy-border);
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
   color: var(--xy-text-secondary);
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
   min-height: 32px;
   padding: 2px 24px 2px 8px;
   cursor: pointer;
@@ -1568,7 +1568,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .cmd-type-label {
-  font-size: 0.6rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1586,7 +1586,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   right: 0;
   bottom: 0;
   padding: 10px 12px;
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
@@ -1601,7 +1601,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   border: none;
   color: transparent;
   caret-color: var(--xy-text-primary);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   padding: 10px 12px;
   resize: vertical;
   outline: none;
@@ -1627,7 +1627,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .cmd-internal {
   padding: 10px 12px;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-muted);
   font-style: italic;
 }
@@ -1640,7 +1640,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 /* ---- Section Help Text ---- */
 
 .section-help {
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   margin-top: calc(var(--xy-space-md) * -0.5);
   margin-bottom: var(--xy-space-md);
   line-height: 1.5;
@@ -1668,7 +1668,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 .mods-rail-intro,
 .mods-rail-signal {
   padding: clamp(14px, 1.6vw, 18px);
-  border-radius: 14px;
+  border-radius: var(--xy-radius-xl);
   border: 1px solid color-mix(in srgb, var(--xy-info) 15%, var(--xy-border) 85%);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--xy-info) 7%, transparent), transparent 64%),
@@ -1679,7 +1679,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 .mods-rail-signal-label {
   display: inline-flex;
   align-items: center;
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--xy-info) 58%, var(--xy-text-secondary) 42%);
@@ -1688,14 +1688,14 @@ async function saveDefaultEnvironment(): Promise<void> {
 .mods-rail-title {
   margin-top: 0.5rem;
   color: var(--xy-text-primary);
-  font-size: 0.98rem;
+  font-size: var(--xy-font-size-base);
   line-height: 1.28;
 }
 
 .mods-rail-copy,
 .mods-rail-signal-copy {
   margin-top: 0.45rem;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.55;
 }
 
@@ -1711,7 +1711,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .mods-workspace-card {
   min-height: 100%;
-  border-radius: 16px;
+  border-radius: var(--xy-radius-xl);
   border-color: color-mix(in srgb, var(--xy-info) 12%, var(--xy-border) 88%);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--xy-info) 4%, transparent), transparent 36%),
@@ -1733,11 +1733,11 @@ async function saveDefaultEnvironment(): Promise<void> {
   align-items: center;
   min-height: 1.95rem;
   padding: 0.28rem 0.72rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid var(--xy-border);
   background: color-mix(in srgb, var(--xy-surface-1) 86%, transparent);
   color: var(--xy-text-secondary);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1;
 }
 
@@ -1759,13 +1759,13 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .variant-mod-name {
   min-width: 6rem;
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
 }
 
 .variant-mod-none {
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   font-style: italic;
 }
 
@@ -1781,12 +1781,12 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: 0.65rem;
   padding: 0.9rem 1rem;
   border: 1px dashed color-mix(in srgb, var(--xy-info) 22%, var(--xy-border) 78%);
-  border-radius: 14px;
+  border-radius: var(--xy-radius-xl);
   background: color-mix(in srgb, var(--xy-info) 4%, var(--xy-surface-1) 96%);
 }
 
 .mods-quickstart-title {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--xy-info) 42%, var(--xy-text-primary) 58%);
@@ -1794,7 +1794,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .mods-quickstart-copy,
 .mods-next-step {
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.55;
 }
 
@@ -1818,23 +1818,23 @@ async function saveDefaultEnvironment(): Promise<void> {
   min-width: 2.1rem;
   min-height: 2.1rem;
   padding: 0 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid color-mix(in srgb, var(--xy-info) 22%, var(--xy-border) 78%);
   background: color-mix(in srgb, var(--xy-surface-0) 84%, transparent);
-  font-size: 0.74rem;
+  font-size: var(--xy-font-size-xs);
   color: color-mix(in srgb, var(--xy-info) 48%, var(--xy-text-primary) 52%);
 }
 
 .mods-quickstart-step-copy {
   padding-top: 0.25rem;
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.5;
   color: var(--xy-text-secondary);
 }
 
 .mods-next-step {
   padding: 0.82rem 0.95rem;
-  border-radius: 12px;
+  border-radius: var(--xy-radius-xl);
   border: 1px solid color-mix(in srgb, var(--xy-info) 18%, var(--xy-border) 82%);
   background: color-mix(in srgb, var(--xy-info) 5%, var(--xy-surface-1) 95%);
 }
@@ -1854,7 +1854,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   padding: var(--xy-space-md);
   background: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
 }
 
 .typed-config-header {
@@ -1865,12 +1865,12 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .typed-config-title {
-  font-size: 0.94rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 
 .typed-config-copy {
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.45;
   margin-top: 0.15rem;
 }
@@ -1889,7 +1889,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   padding: var(--xy-space-md);
   background: var(--xy-surface-0);
   border: 1px dashed var(--xy-border);
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
   line-height: 1.55;
 }
 
@@ -1897,18 +1897,18 @@ async function saveDefaultEnvironment(): Promise<void> {
   padding: var(--xy-space-sm);
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
 }
 
 .typed-subtitle {
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   .game-form-header {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--xy-space-sm);
@@ -1925,7 +1925,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   }
 
   .game-form-title {
-    font-size: 1.04rem;
+    font-size: var(--xy-font-size-lg);
     line-height: 1.15;
   }
 
@@ -1947,7 +1947,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   }
 
   .game-form-tab__label {
-    font-size: 0.76rem;
+    font-size: var(--xy-font-size-xs);
   }
 
   .feature-groups {
@@ -1995,7 +1995,7 @@ async function saveDefaultEnvironment(): Promise<void> {
 
   .cmd-type-select {
     min-height: 40px;
-    font-size: 0.72rem;
+    font-size: var(--xy-font-size-xs);
     padding-inline: 10px;
   }
 }

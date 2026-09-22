@@ -221,7 +221,7 @@ function getAbbreviation(path: string): string {
 }
 
 .sidebar-title {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
   letter-spacing: 0.02em;
@@ -253,7 +253,7 @@ function getAbbreviation(path: string): string {
   align-items: center;
   gap: var(--xy-space-xs);
   padding: var(--xy-space-xs) var(--xy-space-md);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -271,7 +271,7 @@ function getAbbreviation(path: string): string {
   padding: var(--xy-space-xs) var(--xy-space-md);
   min-height: 44px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   transition:
     background-color var(--xy-transition-fast),
     border-color var(--xy-transition-fast);
@@ -301,21 +301,21 @@ function getAbbreviation(path: string): string {
 }
 
 .file-name {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-primary);
 }
 
 .file-meta {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
 }
 
 .file-badge {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .no-files {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   text-align: center;
 }
 
@@ -337,7 +337,7 @@ function getAbbreviation(path: string): string {
   width: 44px;
   height: 44px;
   min-height: 44px;
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   color: var(--xy-text-secondary);
   border: 1px solid transparent;
   transition:
@@ -361,7 +361,7 @@ function getAbbreviation(path: string): string {
 }
 
 .collapsed-abbr {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
 }
 
@@ -375,7 +375,7 @@ function getAbbreviation(path: string): string {
 }
 
 /* Mobile: horizontal scrollable file strip */
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .config-sidebar {
     border-right: none;
     border-bottom: 1px solid var(--xy-border);
@@ -428,7 +428,7 @@ function getAbbreviation(path: string): string {
     min-width: 140px;
     max-width: 200px;
     border-color: transparent;
-    border-radius: 6px;
+    border-radius: var(--xy-radius-md);
     background-color: var(--xy-surface-0);
   }
 

@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent } from 'vue'
 
 import {
   SevenDaysToDieMapViewSchema,
@@ -10,6 +11,10 @@ import {
 } from '@/proto/xylona_pb'
 import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
 import GameServerSevenDaysToDieMap from './GameServerSevenDaysToDieMap.vue'
+
+// The page loads the live map through defineAsyncComponent, so shallowMount's default stub has
+// no props. Stub it with the real prop list so props() keeps working.
+const LiveMapStub = defineComponent({ props: SevenDaysToDieLiveMap.props, render: () => null })
 
 const mocks = vi.hoisted(() => ({
   getGameServer: vi.fn(),
@@ -90,7 +95,7 @@ function mountPage() {
   return shallowMount(GameServerSevenDaysToDieMap, {
     global: {
       renderStubDefaultSlot: true,
-      stubs: { SevenDaysToDieWorldOverview: false },
+      stubs: { SevenDaysToDieWorldOverview: false, SevenDaysToDieLiveMap: LiveMapStub },
     },
   })
 }
@@ -148,7 +153,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     expect(wrapper.text()).not.toContain('Capability details')
     expect(wrapper.find('[data-testid="install-land-claim-helper"]').exists()).toBe(true)
 
-    const map = wrapper.getComponent(SevenDaysToDieLiveMap)
+    const map = wrapper.getComponent(LiveMapStub)
     expect(map.props('configurationPath')).toBe('/game-servers/server-1/configuration')
     expect(
       map.element.compareDocumentPosition(overview.element) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -424,7 +429,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     mocks.getMap.mockReturnValueOnce(new Promise((resolve) => (resolveMap = resolve)))
     mocks.getStatus.mockReturnValueOnce(new Promise((resolve) => (resolveStatus = resolve)))
 
-    const map = wrapper.getComponent(SevenDaysToDieLiveMap)
+    const map = wrapper.getComponent(LiveMapStub)
     map.vm.$emit('refresh')
     await Promise.resolve()
     expect(map.props('refreshing')).toBe(true)
@@ -480,13 +485,13 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
 
     const wrapper = mountPage()
     await flushPromises()
-    let mapProps = wrapper.getComponent(SevenDaysToDieLiveMap).props('view')
+    let mapProps = wrapper.getComponent(LiveMapStub).props('view')
     expect(mapProps.players).toHaveLength(1)
     expect(mapProps.hostiles).toHaveLength(1)
 
     await vi.advanceTimersByTimeAsync(5_000)
     await flushPromises()
-    mapProps = wrapper.getComponent(SevenDaysToDieLiveMap).props('view')
+    mapProps = wrapper.getComponent(LiveMapStub).props('view')
     const unavailable =
       SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_UNAVAILABLE
     expect(mapProps.players).toHaveLength(1)

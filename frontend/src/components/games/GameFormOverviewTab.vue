@@ -14,6 +14,7 @@
             v-model="game.id"
             :disable="existingGame"
             :rules="idRules"
+            aria-required="true"
             class="col-12 col-sm-6"
             hint="ID of the game all lowercase. e.g: minecraft"
             label="Unique ID *"
@@ -24,6 +25,7 @@
           <q-input
             v-model="game.name"
             :rules="nameRules"
+            aria-required="true"
             class="col-12 col-sm-6"
             hint="Name of the game. e.g: Minecraft"
             label="Name *"
@@ -43,6 +45,7 @@
           <q-input
             v-model.number="defaultPort"
             :rules="portRules"
+            aria-required="true"
             class="col-12 col-sm-4"
             hint="Default server port. e.g: 25565"
             label="Default Port *"
@@ -53,6 +56,7 @@
           <q-input
             v-model.number="defaultQueryPort"
             :rules="portRules"
+            aria-required="true"
             class="col-12 col-sm-4"
             hint="Default server query port. e.g: 25565"
             label="Default Query Port *"
@@ -228,9 +232,7 @@
         <div class="cmd-block cmd-block--windows">
           <div class="cmd-header">
             <span class="cmd-label">STOP COMMAND</span>
-            <q-badge class="cmd-badge font-mono" color="transparent" text-color="grey-6">
-              stdin
-            </q-badge>
+            <q-badge class="cmd-badge font-mono text-xy-muted" color="transparent"> stdin </q-badge>
           </div>
           <div class="cmd-input-wrap">
             <div
@@ -396,9 +398,7 @@
         <div class="cmd-block cmd-block--linux">
           <div class="cmd-header">
             <span class="cmd-label">STOP COMMAND</span>
-            <q-badge class="cmd-badge font-mono" color="transparent" text-color="grey-6">
-              stdin
-            </q-badge>
+            <q-badge class="cmd-badge font-mono text-xy-muted" color="transparent"> stdin </q-badge>
           </div>
           <div class="cmd-input-wrap">
             <div

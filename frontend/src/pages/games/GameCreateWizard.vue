@@ -211,7 +211,7 @@ function platformText(): string {
           <div class="wizard-step-header">
             <q-btn
               aria-label="Back to selection"
-              color="grey-5"
+              class="text-xy-muted"
               flat
               icon="arrow_back"
               round
@@ -230,7 +230,7 @@ function platformText(): string {
           <div class="wizard-step-header">
             <q-btn
               aria-label="Back to search"
-              color="grey-5"
+              class="text-xy-muted"
               flat
               icon="arrow_back"
               round
@@ -345,7 +345,7 @@ function platformText(): string {
 
 .wizard-title {
   font-family: var(--xy-font-display);
-  font-size: 1.75rem;
+  font-size: var(--xy-font-size-2xl);
   font-weight: 700;
   color: var(--xy-text-primary);
   margin: 0 0 var(--xy-space-sm) 0;
@@ -354,7 +354,7 @@ function platformText(): string {
 
 .wizard-subtitle {
   color: var(--xy-text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--xy-font-size-sm);
   text-align: center;
   margin: 0 0 var(--xy-space-xl) 0;
 }
@@ -368,7 +368,7 @@ function platformText(): string {
 
 .wizard-step-title {
   font-family: var(--xy-font-display);
-  font-size: 1.35rem;
+  font-size: var(--xy-font-size-xl);
   font-weight: 700;
   color: var(--xy-text-primary);
   margin: 0;
@@ -381,7 +381,7 @@ function platformText(): string {
   gap: var(--xy-space-md);
 }
 
-@media (max-width: 500px) {
+@media (max-width: 599px) {
   .selection-cards {
     grid-template-columns: 1fr;
   }
@@ -395,7 +395,7 @@ function platformText(): string {
   padding: var(--xy-space-xl) var(--xy-space-lg);
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   cursor: pointer;
   transition:
     border-color var(--xy-transition-base),
@@ -423,13 +423,13 @@ function platformText(): string {
 
   &__title {
     font-family: var(--xy-font-display);
-    font-size: 1.1rem;
+    font-size: var(--xy-font-size-lg);
     font-weight: 700;
     color: var(--xy-text-primary);
   }
 
   &__description {
-    font-size: 0.85rem;
+    font-size: var(--xy-font-size-sm);
     color: var(--xy-text-secondary);
     line-height: 1.4;
   }
@@ -462,7 +462,7 @@ function platformText(): string {
 .preview-card {
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   padding: var(--xy-space-lg);
 
   &__header {
@@ -476,7 +476,7 @@ function platformText(): string {
 
   &__app-id {
     font-family: var(--xy-font-mono);
-    font-size: 0.85rem;
+    font-size: var(--xy-font-size-sm);
     color: var(--xy-text-secondary);
   }
 
@@ -492,19 +492,19 @@ function platformText(): string {
   }
 
   &__label {
-    font-size: 0.85rem;
+    font-size: var(--xy-font-size-sm);
     color: var(--xy-text-secondary);
   }
 
   &__value {
-    font-size: 0.9rem;
+    font-size: var(--xy-font-size-sm);
     color: var(--xy-text-primary);
     display: flex;
     align-items: center;
 
     &.mono {
       font-family: var(--xy-font-mono);
-      font-size: 0.82rem;
+      font-size: var(--xy-font-size-sm);
     }
   }
 }
@@ -515,7 +515,7 @@ function platformText(): string {
   margin-top: var(--xy-space-md);
   padding: var(--xy-space-sm);
   background: var(--xy-accent-muted);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
 }
 
 .preview-actions {

@@ -12,6 +12,7 @@
           <q-input
             v-model="entry.path"
             :rules="[(val: string) => !!val || 'Path is required']"
+            aria-required="true"
             dense
             hint="Relative to server directory, e.g. server.properties"
             label="File Path"
@@ -22,6 +23,7 @@
             v-model="entry.format"
             :options="formatOptions"
             :rules="[(val: string) => !!val || 'Format is required']"
+            aria-required="true"
             dense
             emit-value
             label="Format"
@@ -32,6 +34,7 @@
           <q-input
             v-model="entry.category"
             :rules="[(val: string) => !!val || 'Category is required']"
+            aria-required="true"
             dense
             hint="Group related files together, e.g. Core, Plugins"
             label="Category"
@@ -75,6 +78,7 @@
             <q-option-group
               v-model="xmlKeyMode.mode"
               :options="xmlModeOptions"
+              aria-label="XML key mode"
               color="primary"
               dense
               inline
@@ -86,6 +90,7 @@
               <q-input
                 v-model="xmlKeyMode.element"
                 :rules="[(val: string) => !!val || 'Element name is required for attributes mode']"
+                aria-required="true"
                 dense
                 hint="e.g. property"
                 label="Element Name"
@@ -318,14 +323,14 @@ async function handleSubmit() {
 .xml-options {
   padding: var(--xy-space-sm);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background-color: var(--xy-surface-0);
 }
 
 .import-section {
   padding: var(--xy-space-sm);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background-color: var(--xy-surface-0);
 }
 

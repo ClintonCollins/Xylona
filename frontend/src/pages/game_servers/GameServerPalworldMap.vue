@@ -2,11 +2,10 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
-import PalworldLiveMap from '@/components/palworld/PalworldLiveMap.vue'
 import {
   GetPalworldMapRequestSchema,
   InstallPalworldMapTilesRequestSchema,
@@ -16,6 +15,10 @@ import {
   type PalworldMapView,
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+
+const PalworldLiveMap = defineAsyncComponent(
+  () => import('@/components/palworld/PalworldLiveMap.vue'),
+)
 
 const pollIntervalMs = 5_000
 const defaultLayer = (): PalworldMapLayer =>
@@ -415,7 +418,7 @@ onUnmounted(() => {
   color: var(--xy-accent);
   background: var(--xy-accent-muted);
   border-radius: var(--xy-radius-lg);
-  font-size: 21px;
+  font-size: var(--xy-font-size-xl);
 }
 
 .palworld-map-page__header h1 {
@@ -490,7 +493,7 @@ onUnmounted(() => {
   gap: var(--xy-space-md);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 599px) {
   .palworld-map-page {
     padding: var(--xy-space-sm);
   }

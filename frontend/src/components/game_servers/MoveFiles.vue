@@ -27,6 +27,7 @@
                 new-value-mode="add-unique"
                 outlined
                 :rules="[validateDestination]"
+                aria-required="true"
                 use-input>
                 <template #prepend>
                   <q-icon name="folder" />

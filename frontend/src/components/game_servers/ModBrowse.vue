@@ -106,13 +106,11 @@
     </div>
 
     <!-- Empty: no results -->
-    <div v-else-if="hasSearched && results.length === 0" class="browse-empty">
-      <q-icon aria-hidden="true" class="text-xy-muted" name="search_off" size="3rem" />
-      <div class="browse-empty-title text-xy-secondary">No mods found</div>
-      <div class="browse-empty-subtitle text-xy-muted">
-        Try a different search term or source filter.
-      </div>
-    </div>
+    <empty-state
+      v-else-if="hasSearched && results.length === 0"
+      description="Try a different search term or source filter."
+      icon="search_off"
+      title="No mods found" />
 
     <!-- Results grid -->
     <div v-else-if="results.length > 0" class="browse-grid-scroll">
@@ -219,7 +217,6 @@
           :model-value="currentPage"
           active-color="primary"
           active-design="unelevated"
-          active-text-color="white"
           aria-label="Page navigation"
           boundary-links
           class="browse-pagination"
@@ -246,6 +243,7 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -621,21 +619,21 @@ function formatRelativeDate(dateStr: string): string {
   justify-content: center;
   width: 16px;
   height: 16px;
-  border-radius: 3px;
-  font-size: 0.6rem;
+  border-radius: var(--xy-radius-sm);
+  font-size: var(--xy-font-size-2xs);
   font-weight: 700;
   margin-right: 4px;
   flex-shrink: 0;
 }
 
 .source-chip-name {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 /* ---- Reset filters ---- */
 .reset-filters-btn {
   color: var(--xy-text-muted);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .reset-filters-btn:hover {
@@ -665,23 +663,13 @@ function formatRelativeDate(dateStr: string): string {
 }
 
 /* ---- Loading / Empty states ---- */
-.browse-loading,
-.browse-empty {
+.browse-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--xy-space-sm);
   padding: var(--xy-space-2xl) var(--xy-space-md);
-}
-
-.browse-empty-title {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.browse-empty-subtitle {
-  font-size: 0.8rem;
 }
 
 /* ---- Grid scroll ---- */
@@ -703,7 +691,7 @@ function formatRelativeDate(dateStr: string): string {
 
 .browse-grid-scroll::-webkit-scrollbar-thumb {
   background: var(--xy-surface-4);
-  border-radius: 3px;
+  border-radius: var(--xy-radius-sm);
 }
 
 /* ---- Grid ---- */
@@ -734,7 +722,7 @@ function formatRelativeDate(dateStr: string): string {
 }
 
 .browse-result-count {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   white-space: nowrap;
 }
 
@@ -776,15 +764,11 @@ function formatRelativeDate(dateStr: string): string {
   cursor: pointer;
 }
 
-.mod-card-details:focus-visible {
-  outline: none;
-}
-
 /* ---- Card icon ---- */
 .mod-card-icon-wrapper {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   overflow: hidden;
   flex-shrink: 0;
   margin-bottom: var(--xy-space-sm);
@@ -802,7 +786,7 @@ function formatRelativeDate(dateStr: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: var(--xy-font-size-xl);
   font-weight: 700;
   color: var(--xy-text-on-color);
 }
@@ -821,7 +805,7 @@ function formatRelativeDate(dateStr: string): string {
 }
 
 .mod-card-name {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
   white-space: nowrap;
@@ -832,12 +816,12 @@ function formatRelativeDate(dateStr: string): string {
 }
 
 .mod-card-author {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   margin-bottom: var(--xy-space-xs);
 }
 
 .mod-card-desc {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -857,8 +841,8 @@ function formatRelativeDate(dateStr: string): string {
 .mod-card-category {
   display: inline-block;
   padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 0.6rem;
+  border-radius: var(--xy-radius-sm);
+  font-size: var(--xy-font-size-2xs);
   font-weight: 500;
   background-color: var(--xy-surface-3);
   color: var(--xy-text-muted);
@@ -887,7 +871,7 @@ function formatRelativeDate(dateStr: string): string {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 /* ---- Source badge ---- */
@@ -897,8 +881,8 @@ function formatRelativeDate(dateStr: string): string {
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  font-size: 0.65rem;
+  border-radius: var(--xy-radius-sm);
+  font-size: var(--xy-font-size-2xs);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -908,7 +892,7 @@ function formatRelativeDate(dateStr: string): string {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-success);
   font-weight: 500;
 }
@@ -922,12 +906,12 @@ function formatRelativeDate(dateStr: string): string {
   background-color: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-1));
   border-top: 1px solid var(--xy-danger);
   color: var(--xy-danger);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   flex-shrink: 0;
 }
 
 /* ---- Mobile ---- */
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .browse-toolbar {
     padding: var(--xy-space-xs) var(--xy-space-sm);
   }

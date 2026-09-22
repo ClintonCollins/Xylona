@@ -184,7 +184,7 @@ onBeforeUnmount(() => {
   color: var(--xy-text-secondary);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599px) {
   .public-minecraft-map {
     padding: var(--xy-space-xs);
   }

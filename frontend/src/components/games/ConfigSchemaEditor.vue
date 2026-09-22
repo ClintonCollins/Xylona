@@ -3,7 +3,14 @@
     <!-- Header -->
     <div class="editor-header">
       <div class="editor-header-info">
-        <q-btn dense flat icon="arrow_back" round size="sm" @click="$emit('back')" />
+        <q-btn
+          aria-label="Back"
+          dense
+          flat
+          icon="arrow_back"
+          round
+          size="sm"
+          @click="$emit('back')" />
         <div>
           <div class="editor-title font-display">Schema Editor</div>
           <div class="editor-subtitle text-xy-secondary font-mono">{{ filePath }}</div>
@@ -37,6 +44,7 @@
             :model-value-indeterminate="
               selectedFields.length > 0 && selectedFields.length < visibleFields.length
             "
+            aria-label="Select all fields"
             class="select-all-checkbox"
             dense
             size="sm"
@@ -87,6 +95,7 @@
       <div v-if="fields.length > 0" class="schema-search">
         <q-input
           v-model="searchQuery"
+          aria-label="Search fields"
           class="schema-search-input"
           clearable
           dense
@@ -135,6 +144,7 @@
         </span>
         <q-input
           v-model="bulkGroupName"
+          aria-label="Group name"
           class="bulk-group-input"
           dense
           outlined
@@ -205,8 +215,13 @@
             <div
               :class="{ dragging: draggedGroup === group.name }"
               :draggable="group.name !== ''"
+              :aria-expanded="isGroupExpanded(group.name)"
               class="schema-group-header"
+              role="button"
+              tabindex="0"
               @click="toggleGroupExpand(group.name)"
+              @keydown.enter.prevent="toggleGroupExpand(group.name)"
+              @keydown.space.prevent="toggleGroupExpand(group.name)"
               @dragend="onGroupDragEnd"
               @dragstart="onGroupDragStart($event, group.name)">
               <q-icon
@@ -267,6 +282,7 @@
                   name="drag_indicator"
                   size="xs" />
                 <q-checkbox
+                  :aria-label="`Select ${field.name}`"
                   :model-value="isFieldSelected(field)"
                   class="field-select-checkbox"
                   dense
@@ -288,10 +304,12 @@
       </div>
 
       <!-- Import Fields Dialog — teleports to body at runtime -->
-      <q-dialog v-model="showImportDialog">
+      <q-dialog v-model="showImportDialog" aria-labelledby="schema-import-dialog-title">
         <q-card class="import-dialog">
           <q-card-section class="dialog-header">
-            <div class="text-h6 font-display">Import Fields from Sample</div>
+            <div id="schema-import-dialog-title" class="text-h6 font-display">
+              Import Fields from Sample
+            </div>
           </q-card-section>
           <q-separator />
           <q-card-section>
@@ -1140,13 +1158,13 @@ function handleSave() {
 }
 
 .editor-title {
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   font-weight: 600;
   color: var(--xy-text-primary);
 }
 
 .editor-subtitle {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   overflow-wrap: anywhere;
 }
 
@@ -1160,7 +1178,7 @@ function handleSave() {
 
 .mode-toggle {
   border: 1px solid var(--xy-border);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
 }
 
 /* Form builder */
@@ -1184,7 +1202,7 @@ function handleSave() {
 }
 
 .field-count {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .toolbar-actions {
@@ -1227,13 +1245,13 @@ function handleSave() {
 }
 
 .schema-search-count {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   white-space: nowrap;
 }
 
 .schema-filter-toggle {
   border: 1px solid var(--xy-border);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   flex-shrink: 0;
 }
 
@@ -1247,7 +1265,7 @@ function handleSave() {
 }
 
 .schema-group-title {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1255,7 +1273,7 @@ function handleSave() {
 }
 
 .schema-group-count {
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .schema-group-content {
@@ -1272,13 +1290,13 @@ function handleSave() {
   padding: var(--xy-space-sm) var(--xy-space-md);
   margin-bottom: var(--xy-space-sm);
   border: 1px solid var(--xy-accent);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background-color: var(--xy-accent-muted);
   flex-wrap: wrap;
 }
 
 .selection-count {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1318,7 +1336,7 @@ function handleSave() {
   align-items: center;
   gap: var(--xy-space-xs);
   padding: var(--xy-space-xs) var(--xy-space-md);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   border-bottom: 1px solid var(--xy-border);
 }
 
@@ -1407,10 +1425,10 @@ function handleSave() {
 .schema-field-group.drag-over-group {
   outline: 2px dashed var(--xy-accent);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .editor-header {
     align-items: flex-start;
     flex-direction: column;

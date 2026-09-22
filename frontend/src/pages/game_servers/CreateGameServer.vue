@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md">
+  <q-page class="xy-page-content">
     <game-server-create-form v-if="readyToRender" />
   </q-page>
 </template>

@@ -130,7 +130,7 @@ function getArchiveName(archivePath: string): string {
     linear-gradient(180deg, color-mix(in srgb, var(--xy-accent) 8%, transparent), transparent 40%),
     var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-  border-radius: 1rem;
+  border-radius: var(--xy-radius-xl);
 }
 
 .backup-restore-dialog__header {
@@ -139,7 +139,7 @@ function getArchiveName(archivePath: string): string {
 
 .backup-restore-dialog__title {
   font-family: var(--xy-font-display);
-  font-size: 1.1rem;
+  font-size: var(--xy-font-size-lg);
   color: var(--xy-text-primary);
 }
 
@@ -168,12 +168,12 @@ function getArchiveName(archivePath: string): string {
 .backup-restore-dialog__option {
   background: var(--xy-surface-2);
   border-color: var(--xy-border);
-  border-radius: 0.875rem;
+  border-radius: var(--xy-radius-xl);
 }
 
 .backup-restore-dialog__option-title {
   font-family: var(--xy-font-display);
-  font-size: 0.95rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 

@@ -1,8 +1,13 @@
 <template>
-  <q-dialog :model-value="show" @update:model-value="onDialogChange">
+  <q-dialog
+    :model-value="show"
+    aria-labelledby="similar-arg-dialog-title"
+    @update:model-value="onDialogChange">
     <q-card class="similar-arg-dialog">
       <q-card-section class="similar-arg-dialog__header">
-        <div class="font-display similar-arg-dialog__title">Possible duplicate argument</div>
+        <div id="similar-arg-dialog-title" class="font-display similar-arg-dialog__title">
+          Possible duplicate argument
+        </div>
         <div class="text-xy-secondary similar-arg-dialog__copy">
           Xylona found another argument with the same prefix. Choose whether to replace it or keep
           both.
@@ -73,12 +78,12 @@ function onDialogChange(value: boolean) {
 }
 
 .similar-arg-dialog__title {
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 
 .similar-arg-dialog__copy {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.45;
 }
 
@@ -93,13 +98,13 @@ function onDialogChange(value: boolean) {
   flex-direction: column;
   gap: var(--xy-space-xs);
   padding: var(--xy-space-sm);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
 }
 
 .similar-arg-dialog__label {
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--xy-text-muted);

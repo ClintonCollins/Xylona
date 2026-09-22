@@ -46,9 +46,10 @@ onMounted(resolveMap)
   <main v-else class="public-map-state">
     <q-spinner v-if="loading" color="primary" size="42px" />
     <template v-else>
+      <div class="public-map-state__brand">Xylona</div>
       <q-icon name="link_off" size="48px" />
       <h1>This map link is not available</h1>
-      <p>It may be unknown, replaced, or disabled by the server administrator.</p>
+      <p>The link may be incomplete, disabled, or no longer current.</p>
     </template>
   </main>
 </template>
@@ -65,6 +66,13 @@ onMounted(resolveMap)
   color: var(--xy-text-primary);
   background: var(--xy-base);
   text-align: center;
+}
+
+.public-map-state__brand {
+  color: var(--xy-accent);
+  font-family: var(--xy-font-brand);
+  font-size: var(--xy-font-size-xl);
+  line-height: var(--xy-line-height-tight);
 }
 
 .public-map-state h1 {

@@ -1,6 +1,6 @@
 <template>
   <q-page class="xy-page-content">
-    <div v-if="!detailNode">
+    <div v-if="!detailNodeId">
       <page-header title="Nodes">
         <div class="text-caption text-xy-secondary">
           {{ rows.length }} {{ rows.length === 1 ? 'node' : 'nodes' }}
@@ -39,9 +39,18 @@
         </div>
         <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="fetchAll" />
       </div>
+      <div
+        v-if="!websocketStateAuthoritative"
+        class="list-notice"
+        role="status"
+        aria-live="polite">
+        <q-icon name="sync" size="sm" />
+        <span>Live metrics are paused while the controller connection is re-established.</span>
+      </div>
       <div>
         <q-table
           v-model:pagination="initialPagination"
+          aria-label="Nodes"
           :columns="columns"
           :filter="search"
           :grid="$q.screen.lt.md"
@@ -59,8 +68,8 @@
                     {{ props.row.name || 'Unnamed node' }}
                   </button>
                   <q-badge
-                    :color="healthBadgeFor(props.row).color"
-                    :label="healthBadgeFor(props.row).label" />
+                    :color="nodeHealthBadge(props.row).color"
+                    :label="nodeHealthBadge(props.row).label" />
                 </q-card-section>
 
                 <q-card-section class="node-mobile-metrics">
@@ -86,14 +95,14 @@
                 </q-card-section>
 
                 <q-card-section class="node-mobile-meta">
-                  <span>Version {{ getNodeVersion(props.row.id) || 'not reported' }}</span>
-                  <span>
-                    Last seen
-                    {{
-                      props.row.lastSeenAt?.seconds
-                        ? formatTimestamp(props.row.lastSeenAt)
-                        : 'never'
-                    }}
+                  <span :title="getNodeVersion(props.row.id)"
+                    >Version
+                    <span class="font-mono">{{
+                      splitNodeVersion(getNodeVersion(props.row.id)).short || 'not reported'
+                    }}</span></span
+                  >
+                  <span :title="lastSeenAbsolute(props.row)">
+                    Last seen {{ lastSeenRelative(props.row) }}
                   </span>
                 </q-card-section>
 
@@ -141,8 +150,8 @@
           <template #body-cell-health="props">
             <q-td :props="props">
               <q-badge
-                :color="healthBadgeFor(props.row).color"
-                :label="healthBadgeFor(props.row).label" />
+                :color="nodeHealthBadge(props.row).color"
+                :label="nodeHealthBadge(props.row).label" />
             </q-td>
           </template>
           <template #body-cell-cpu="props">
@@ -151,7 +160,9 @@
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="3rem" />
               </template>
               <template v-else-if="getSnapshot(props.row.id)">
-                <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.cpuPercent)">
+                <span
+                  :class="'text-' + metricColor(getSnapshot(props.row.id)!.cpuPercent)"
+                  class="font-mono">
                   {{ Math.round(getSnapshot(props.row.id)!.cpuPercent) }}%
                 </span>
               </template>
@@ -164,7 +175,9 @@
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="5rem" />
               </template>
               <template v-else-if="getSnapshot(props.row.id)">
-                <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.memoryPercent)">
+                <span
+                  :class="'text-' + metricColor(getSnapshot(props.row.id)!.memoryPercent)"
+                  class="font-mono">
                   {{ Math.round(getSnapshot(props.row.id)!.memoryPercent) }}%
                 </span>
                 <span class="text-caption text-xy-muted q-ml-xs">
@@ -180,7 +193,9 @@
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="5rem" />
               </template>
               <template v-else-if="getSnapshot(props.row.id)">
-                <span :class="'text-' + metricColor(getSnapshot(props.row.id)!.diskPercent)">
+                <span
+                  :class="'text-' + metricColor(getSnapshot(props.row.id)!.diskPercent)"
+                  class="font-mono">
                   {{ Math.round(getSnapshot(props.row.id)!.diskPercent) }}%
                 </span>
                 <span class="text-caption text-xy-muted q-ml-xs">
@@ -205,17 +220,6 @@
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
-          <template #body-cell-users="props">
-            <q-td :props="props">
-              <template v-if="shouldShowMetricSkeleton(props.row.id)">
-                <q-skeleton class="node-list__metric-skeleton" type="text" width="2.5rem" />
-              </template>
-              <template v-else-if="getSnapshot(props.row.id)">
-                {{ getSnapshot(props.row.id)!.userCount }}
-              </template>
-              <span v-else class="text-xy-muted">&mdash;</span>
-            </q-td>
-          </template>
           <template #body-cell-version="props">
             <q-td :props="props">
               <q-skeleton
@@ -227,15 +231,18 @@
                 v-else-if="getNodeVersion(props.row.id)"
                 :title="getNodeVersion(props.row.id)"
                 class="node-version">
-                {{ getNodeVersion(props.row.id) }}
+                {{ splitNodeVersion(getNodeVersion(props.row.id)).short }}
+                <small v-if="splitNodeVersion(getNodeVersion(props.row.id)).build">
+                  {{ splitNodeVersion(getNodeVersion(props.row.id)).build }}
+                </small>
               </span>
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
           <template #body-cell-lastSync="props">
             <q-td :props="props">
-              <span v-if="props.row.lastSeenAt?.seconds">
-                {{ formatTimestamp(props.row.lastSeenAt) }}
+              <span v-if="nodeLastSeenMs(props.row) !== null" :title="lastSeenAbsolute(props.row)">
+                {{ lastSeenRelative(props.row) }}
               </span>
               <span v-else class="text-xy-muted">Never</span>
             </q-td>
@@ -274,41 +281,32 @@
             </q-td>
           </template>
           <template #no-data>
-            <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon class="q-mb-sm text-xy-muted" name="dns" size="3rem" />
-              <div class="text-subtitle1">{{ search ? 'No matching nodes' : 'No nodes yet' }}</div>
-              <div class="text-caption text-xy-muted">
-                {{
-                  search
-                    ? 'Try a different search.'
-                    : 'Add a remote node to start managing another host.'
-                }}
-              </div>
-              <q-btn
-                v-if="!search"
-                class="q-mt-md"
-                color="primary"
-                label="Add node"
-                to="/nodes/add" />
-            </div>
+            <empty-state
+              :description="
+                search
+                  ? 'Try a different search.'
+                  : 'Add a remote node to start managing another host.'
+              "
+              :title="search ? 'No matching nodes' : 'No nodes yet'"
+              icon="dns">
+              <template v-if="!search" #actions>
+                <q-btn color="primary" label="Add node" to="/nodes/add" />
+              </template>
+            </empty-state>
           </template>
         </q-table>
       </div>
     </div>
 
-    <div v-if="detailNode">
+    <div v-if="detailNodeId">
       <div class="xy-page-header">
         <div class="row items-center">
-          <q-btn
-            aria-label="Back to nodes"
-            dense
-            flat
-            icon="arrow_back"
-            round
-            @click="detailNode = null" />
-          <div class="text-h6 q-ml-sm">{{ detailNode.name || 'Node Details' }}</div>
+          <q-btn aria-label="Back to nodes" dense flat icon="arrow_back" round to="/nodes" />
+          <h1 class="xy-page-title q-ml-sm">
+            {{ detailNode?.name || (loading ? 'Loading node…' : 'Node not found') }}
+          </h1>
         </div>
-        <div class="xy-page-actions">
+        <div v-if="detailNode" class="xy-page-actions">
           <q-btn
             :to="{ path: '/admin/updates', query: { nodeId: detailNode.id } }"
             dense
@@ -333,9 +331,20 @@
       </div>
 
       <node-detail-panel
+        v-if="detailNode"
+        :key="detailNode.id"
         :node="detailNode"
         :snapshot="getSnapshot(detailNode.id)"
         :system-info="getNodeSummary(detailNode.id)?.systemInfo" />
+      <empty-state
+        v-else-if="!loading"
+        description="It may have been removed, or the link is out of date."
+        icon="dns"
+        title="This node is no longer listed">
+        <template #actions>
+          <q-btn color="primary" label="Back to nodes" to="/nodes" />
+        </template>
+      </empty-state>
     </div>
 
     <q-dialog v-model="showDeleteDialog" aria-labelledby="dialog-title">
@@ -364,6 +373,7 @@ import { usePersistedRef } from '@/utils/persisted-ref'
 import { Notify, useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   bytesToSize,
   ConnectErrorToString,
@@ -378,11 +388,16 @@ import {
   ListNodesRequestSchema,
   RemoveNodeRequestSchema,
 } from '@/proto/xylona_pb'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
+import { nodeHealthBadge, nodeLastSeenMs, splitNodeVersion } from '@/components/nodes/node-display'
+import { formatMetricAge } from '@/pages/game_servers/metrics-format'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 const $q = useQuasar()
+const route = useRoute()
+const router = useRouter()
 const rows = ref([] as Node[])
 const loading: Ref<boolean> = ref(false)
 const loadError = ref('')
@@ -390,7 +405,8 @@ const metricsLoading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteDialog = ref(false)
 const selectedNodeForDelete = ref<Node | null>(null)
-const detailNode = ref<Node | null>(null)
+const nowMs = ref(Date.now())
+let clockTimer: ReturnType<typeof setInterval> | null = null
 const dashboardSummaries = ref<DashboardNodeSummary[]>([])
 const liveSnapshots = ref<Map<string, NodeResourceSnapshot>>(new Map())
 const dashboardSnapshotsFresh = ref(false)
@@ -414,6 +430,14 @@ const totalUsers = computed(() =>
   rows.value.reduce((sum, n) => sum + (getSnapshot(n.id)?.userCount ?? 0), 0),
 )
 
+const detailNodeId = computed(() => {
+  const id = route.params.id
+  return typeof id === 'string' && id !== '' ? id : ''
+})
+const detailNode = computed(
+  () => rows.value.find((node) => node.id === detailNodeId.value) ?? null,
+)
+
 function getNodeSummary(nodeId: string): DashboardNodeSummary | undefined {
   return dashboardSummaries.value.find((s) => s.node?.id === nodeId)
 }
@@ -431,19 +455,6 @@ function getSnapshot(nodeId: string): NodeResourceSnapshot | undefined {
 
 function getNodeVersion(nodeId: string): string | undefined {
   return getNodeSummary(nodeId)?.systemInfo?.xylonaVersion
-}
-
-function healthBadgeFor(node: Node): { color: string; label: string } {
-  if (node.healthStatus === 'offline') {
-    return { color: 'negative', label: 'Offline' }
-  }
-  if (node.healthStatus === 'disabled') {
-    return { color: 'warning', label: 'Disabled' }
-  }
-  if (node.healthStatus === 'healthy') {
-    return { color: 'positive', label: 'Healthy' }
-  }
-  return { color: 'grey-6', label: 'Unknown' }
 }
 
 function metricColor(percent: number): string {
@@ -497,6 +508,7 @@ onMounted(async () => {
   XylonaEventBus.on('nodeMetrics', onNodeMetrics)
   XylonaEventBus.on('websocketConnected', handleWebsocketReconnect)
   XylonaEventBus.on('websocketDisconnected', handleWebsocketDisconnect)
+  clockTimer = setInterval(() => (nowMs.value = Date.now()), 10_000)
   await fetchAll()
 })
 
@@ -506,6 +518,7 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('nodeMetrics', onNodeMetrics)
   XylonaEventBus.off('websocketConnected', handleWebsocketReconnect)
   XylonaEventBus.off('websocketDisconnected', handleWebsocketDisconnect)
+  if (clockTimer) clearInterval(clockTimer)
 })
 
 async function fetchAll() {
@@ -570,14 +583,18 @@ function formatMetric(value?: number): string {
   return value === undefined ? '—' : `${Math.round(value)}%`
 }
 
-function formatTimestamp(ts: { seconds: bigint }): string {
-  if (!ts || !ts.seconds) return 'Never'
-  const date = new Date(Number(ts.seconds) * 1000)
-  return date.toLocaleString()
+function lastSeenRelative(node: Node): string {
+  const seenMs = nodeLastSeenMs(node)
+  return seenMs === null ? 'never' : formatMetricAge(seenMs, nowMs.value)
+}
+
+function lastSeenAbsolute(node: Node): string {
+  const seenMs = nodeLastSeenMs(node)
+  return seenMs === null ? 'Never seen' : new Date(seenMs).toLocaleString()
 }
 
 function openDetail(node: Node) {
-  detailNode.value = node
+  void router.push(`/nodes/${node.id}`)
 }
 
 function deleteNodeAction(node: Node) {
@@ -593,7 +610,7 @@ async function confirmDelete() {
     )
     showDeleteDialog.value = false
     if (detailNode.value?.id === selectedNodeForDelete.value.id) {
-      detailNode.value = null
+      await router.replace('/nodes')
     }
     selectedNodeForDelete.value = null
     await fetchAll()
@@ -655,13 +672,6 @@ const columns = ref([
     sortable: true,
   },
   {
-    name: 'users',
-    label: 'Users',
-    align: 'left' as const,
-    field: (row: Node) => getSnapshot(row.id)?.userCount ?? -1,
-    sortable: true,
-  },
-  {
     name: 'version',
     label: 'Version',
     align: 'left' as const,
@@ -698,12 +708,27 @@ const columns = ref([
 }
 
 .node-version {
-  display: inline-block;
-  overflow: hidden;
-  max-width: 14rem;
-  text-overflow: ellipsis;
-  vertical-align: bottom;
+  font-family: var(--xy-font-mono);
   white-space: nowrap;
+}
+
+.node-version small {
+  margin-left: var(--xy-space-xs);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+}
+
+.list-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+  background: var(--xy-warning-bg-faint);
+  border: 1px solid var(--xy-warning-border-soft);
+  border-radius: var(--xy-radius-md);
 }
 
 .list-error {

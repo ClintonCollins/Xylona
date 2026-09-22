@@ -254,6 +254,7 @@
                 :min="field.minimum ?? undefined"
                 :model-value="getFieldValue(field)"
                 :rules="getNumberRules(field)"
+                :aria-required="field.required"
                 class="inline-input"
                 dense
                 input-class="font-mono"
@@ -272,6 +273,7 @@
                 :maxlength="field.maxLength ?? undefined"
                 :model-value="getFieldValue(field)"
                 :rules="getStringRules(field)"
+                :aria-required="field.required"
                 class="inline-input"
                 dense
                 input-class="font-mono"
@@ -808,7 +810,7 @@ watch(
 }
 
 .editor-file-name {
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   font-weight: 700;
   color: var(--xy-text-primary);
   overflow: hidden;
@@ -825,23 +827,23 @@ watch(
 }
 
 .editor-meta-text {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .editor-category-badge {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .editor-modified-count {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 700;
   color: var(--xy-warning);
   background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
   padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
 }
 
 .modified-dot {
@@ -910,7 +912,7 @@ watch(
   gap: 0.5rem;
   padding: 0.65rem 1.5rem;
   font-family: var(--xy-font-display);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 500;
   color: var(--xy-text-muted);
   background: none;
@@ -934,7 +936,7 @@ watch(
 .group-tab:focus-visible {
   outline: 2px solid var(--xy-primary);
   outline-offset: -2px;
-  border-radius: 2px;
+  border-radius: var(--xy-radius-sm);
 }
 
 .group-tab.active {
@@ -954,12 +956,12 @@ watch(
 }
 
 .tab-count {
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 700;
   background: var(--xy-surface-3);
   color: var(--xy-text-muted);
   padding: 0.15rem 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   min-width: 1.4rem;
   text-align: center;
 }
@@ -979,8 +981,7 @@ watch(
   background: var(--xy-primary);
   opacity: 0;
   pointer-events: none;
-  will-change: transform, width;
-  border-radius: 1px 1px 0 0;
+  border-radius: var(--xy-radius-sm) var(--xy-radius-sm) 0 0;
 }
 
 /* ---- Validation banner ---- */
@@ -988,8 +989,8 @@ watch(
   margin: var(--xy-space-sm) var(--xy-space-md) 0;
   background-color: var(--xy-danger-bg);
   border: 1px solid var(--xy-danger-border);
-  border-radius: 6px;
-  font-size: 0.75rem;
+  border-radius: var(--xy-radius-md);
+  font-size: var(--xy-font-size-xs);
 }
 
 .validation-error-item {
@@ -1063,13 +1064,13 @@ watch(
 
 .table-scroll::-webkit-scrollbar-thumb {
   background: var(--xy-surface-4);
-  border-radius: 3px;
+  border-radius: var(--xy-radius-sm);
 }
 
 .no-fields {
   text-align: center;
   padding: var(--xy-space-xl);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 /* ---- Settings table ---- */
@@ -1119,7 +1120,7 @@ watch(
 
 .group-header-title {
   font-family: var(--xy-font-display);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1128,12 +1129,12 @@ watch(
 
 .group-header-count {
   font-family: var(--xy-font-mono);
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   color: var(--group-accent, var(--xy-text-muted));
   opacity: 0.7;
   padding: 0.1rem 0.45rem;
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
 }
 
 .setting-row {
@@ -1187,7 +1188,7 @@ watch(
 }
 
 .setting-key {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
   width: 40%;
@@ -1197,14 +1198,14 @@ watch(
 }
 
 .setting-description {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
   line-height: 1.4;
   margin-top: 3px;
 }
 
 .managed-badge {
-  font-size: 0.6rem;
+  font-size: var(--xy-font-size-2xs);
   margin-left: 0.4rem;
   vertical-align: middle;
 }
@@ -1224,14 +1225,14 @@ watch(
   gap: 0.35rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid color-mix(in srgb, var(--xy-accent) 35%, transparent);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0));
 }
 
 .managed-state-label {
   display: inline-flex;
   align-items: center;
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1239,14 +1240,14 @@ watch(
 }
 
 .managed-value {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-primary);
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
 .managed-source-hint {
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .inline-toggle {
@@ -1256,7 +1257,7 @@ watch(
 }
 
 .toggle-label {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
   transition: color var(--xy-transition-fast);
 }
@@ -1273,7 +1274,7 @@ watch(
 .inline-input :deep(.q-field__control) {
   background-color: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
 }
 
 .inline-input :deep(.q-field__control:hover) {
@@ -1291,7 +1292,7 @@ watch(
 }
 
 .managed-source-hint {
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .managed-source-label {
@@ -1321,7 +1322,7 @@ watch(
 }
 
 /* ---- Mobile ---- */
-@media (max-width: 767px) {
+@media (max-width: 599px) {
   .editor-header {
     flex-wrap: wrap;
     padding: var(--xy-space-xs) var(--xy-space-sm);
@@ -1329,7 +1330,7 @@ watch(
   }
 
   .editor-file-name {
-    font-size: 0.8rem;
+    font-size: var(--xy-font-size-sm);
   }
 
   .editor-controls {

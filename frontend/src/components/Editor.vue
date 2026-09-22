@@ -60,7 +60,6 @@ import { onMounted, onUnmounted, ref } from 'vue'
 
 type IStandaloneCodeEditor = MonacoEditor.IStandaloneCodeEditor
 
-
 const $q = useQuasar()
 
 const props = defineProps({
@@ -236,7 +235,7 @@ async function saveFile() {
 .editor-container {
   height: clamp(200px, 55dvh, 70dvh);
   border: 0.1rem solid var(--xy-surface-3);
-  border-radius: 0.3rem;
+  border-radius: var(--xy-radius-md);
 }
 
 .editor-select {
@@ -252,7 +251,7 @@ async function saveFile() {
   color: var(--xy-text-primary);
   background: var(--xy-danger-bg);
   border: 1px solid var(--xy-danger-border);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   overflow-wrap: anywhere;
 }
 

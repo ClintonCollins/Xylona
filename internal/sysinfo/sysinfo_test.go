@@ -2,6 +2,8 @@ package sysinfo
 
 import (
 	"testing"
+
+	"github.com/shirou/gopsutil/v4/cpu"
 )
 
 func TestCollectSystemInfo(t *testing.T) {
@@ -36,5 +38,20 @@ func TestCollectResourceSnapshot(t *testing.T) {
 	}
 	if snapshot.MemoryTotal == 0 {
 		t.Error("CollectResourceSnapshot() MemoryTotal should be > 0")
+	}
+}
+
+func TestCPUBusyPercent(t *testing.T) {
+	previous := cpu.TimesStat{User: 100, System: 50, Idle: 850}
+	current := cpu.TimesStat{User: 130, System: 60, Idle: 910}
+	percent, ok := cpuBusyPercent(previous, current)
+	if !ok {
+		t.Fatal("cpuBusyPercent() ok = false, want true")
+	}
+	if percent != 40 {
+		t.Errorf("cpuBusyPercent() = %v, want 40", percent)
+	}
+	if _, ok := cpuBusyPercent(current, current); ok {
+		t.Error("cpuBusyPercent() with no elapsed time should not be ok")
 	}
 }

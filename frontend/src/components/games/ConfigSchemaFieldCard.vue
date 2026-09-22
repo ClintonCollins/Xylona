@@ -325,21 +325,21 @@ function emitUpdate() {
 }
 
 .field-card-key {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
 }
 
 .field-type-badge {
-  font-size: 0.55rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .field-managed-badge {
-  font-size: 0.55rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .field-card-label {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

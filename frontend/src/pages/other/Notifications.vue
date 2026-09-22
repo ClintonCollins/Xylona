@@ -30,6 +30,7 @@
             @click="openChannelDialog(null)" />
         </div>
         <q-table
+          aria-label="Notification channels"
           :columns="channelColumns"
           :grid="$q.screen.lt.md"
           :loading="channelsLoading"
@@ -156,17 +157,14 @@
             </q-td>
           </template>
           <template #no-data>
-            <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon class="q-mb-sm text-xy-muted" name="notifications_off" size="3rem" />
-              <div class="text-subtitle1">No notification channels</div>
-              <div class="text-caption text-xy-muted">
-                {{
-                  hasAlertsManage
-                    ? 'Add a channel to start receiving alerts.'
-                    : 'Notification channels will appear here once a user with alert management access creates them.'
-                }}
-              </div>
-            </div>
+            <empty-state
+              :description="
+                hasAlertsManage
+                  ? 'Add a channel to start receiving alerts.'
+                  : 'Notification channels will appear here once a user with alert management access creates them.'
+              "
+              icon="notifications_off"
+              title="No notification channels" />
           </template>
         </q-table>
       </q-tab-panel>
@@ -187,6 +185,7 @@
             outlined />
         </div>
         <q-table
+          aria-label="Alert rules"
           :columns="ruleColumns"
           :grid="$q.screen.lt.md"
           :loading="rulesLoading"
@@ -308,13 +307,10 @@
             </q-td>
           </template>
           <template #no-data>
-            <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon class="q-mb-sm text-xy-muted" name="rule" size="3rem" />
-              <div class="text-subtitle1">No alert rules</div>
-              <div class="text-caption text-xy-muted">
-                Create alert rules from individual game server pages.
-              </div>
-            </div>
+            <empty-state
+              description="Create alert rules from individual game server pages."
+              icon="rule"
+              title="No alert rules" />
           </template>
         </q-table>
       </q-tab-panel>
@@ -335,6 +331,7 @@
             outlined />
         </div>
         <q-table
+          aria-label="Alert history"
           :columns="historyColumns"
           :grid="$q.screen.lt.md"
           :loading="historyLoading"
@@ -413,13 +410,10 @@
             </q-td>
           </template>
           <template #no-data>
-            <div class="full-width column items-center q-pa-lg text-xy-secondary">
-              <q-icon class="q-mb-sm text-xy-muted" name="history" size="3rem" />
-              <div class="text-subtitle1">No alert history</div>
-              <div class="text-caption text-xy-muted">
-                Alert events will appear here once rules are triggered.
-              </div>
-            </div>
+            <empty-state
+              description="Alert events will appear here once rules are triggered."
+              icon="history"
+              title="No alert history" />
           </template>
         </q-table>
         <div v-if="historyHasMore" class="row justify-center q-mt-md">
@@ -451,6 +445,7 @@
           <q-input
             v-model="channelForm.name"
             :rules="[(val: string) => !!val || 'Name is required']"
+            aria-required="true"
             aria-label="Channel name"
             class="q-mb-md"
             dense
@@ -474,6 +469,7 @@
             v-if="isWebhookType(channelForm.channelType)"
             v-model="channelForm.webhookUrl"
             :rules="[(val: string) => !!val || 'Webhook URL is required']"
+            aria-required="true"
             aria-label="Webhook URL"
             class="q-mb-md"
             dense
@@ -485,6 +481,7 @@
             <q-input
               v-model="channelForm.emailTo"
               :rules="[(val: string) => !!val || 'Email is required']"
+              aria-required="true"
               aria-label="Recipient email address"
               class="q-mb-md"
               dense
@@ -730,6 +727,7 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import type {
   AlertHistoryEntry,
@@ -1876,7 +1874,7 @@ onMounted(async () => {
 
 .threshold-advanced__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: var(--xy-space-md);
   padding-inline: var(--xy-space-md);
   padding-bottom: var(--xy-space-md);

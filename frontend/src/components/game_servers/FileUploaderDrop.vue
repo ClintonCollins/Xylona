@@ -60,7 +60,7 @@
             v-if="uploader.files.size > 0"
             :icon="tabClearAll"
             aria-label="Clear all files"
-            class="text-white bg-alert-brighter"
+            class="text-xy-primary bg-alert-brighter"
             @click="uploader.removeQueuedFiles()">
             <q-tooltip>Clear All</q-tooltip>
           </q-btn>
@@ -80,7 +80,7 @@
             v-if="uploader.queuedFilesCount > 0 && uploader.canUpload"
             :icon="tabOutlineUpload"
             aria-label="Upload all files"
-            class="text-white bg-success-darker"
+            class="text-xy-primary bg-success-darker"
             @click="uploader.upload()">
             <q-tooltip>Upload Files</q-tooltip>
           </q-btn>

@@ -91,7 +91,7 @@
   </section>
 </template>
 
-<script lang="ts" setup>
+<script lang="ts" setup generic="TSample extends MetricChartSample">
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import {
   Chart as ChartJS,
@@ -118,10 +118,16 @@ import {
 
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
-export interface MetricChartSeries {
+// The chart only needs a timestamp per sample; every value comes through a
+// series selector, so any page can plot its own sample shape.
+export interface MetricChartSample {
+  timestampMs: number
+}
+
+export interface MetricChartSeries<TSample extends MetricChartSample = MetricSample> {
   label: string
   colorToken: string
-  value: (sample: MetricSample) => number | null
+  value: (sample: TSample) => number | null
   dashed?: boolean
 }
 
@@ -142,8 +148,8 @@ const props = withDefaults(
     title: string
     description: string
     emptyLabel: string
-    samples: MetricSample[]
-    series: MetricChartSeries[]
+    samples: TSample[]
+    series: MetricChartSeries<TSample>[]
     summary: MetricSummary
     formatValue: (value: number | null) => string
     rangeDurationMs: number
@@ -202,7 +208,7 @@ const coverageLabel = computed(() => {
   return `${(props.summary.coverageRatio * 100).toFixed(0)}% · ${props.summary.sampleCount} samples`
 })
 
-const hoveredSample = computed<MetricSample | null>(() => {
+const hoveredSample = computed<TSample | null>(() => {
   const hovered = hoveredMetricTimestampMs.value
   if (hovered === null) return null
   return props.samples.find((sample) => sample.timestampMs === hovered) ?? null
@@ -664,7 +670,7 @@ onBeforeUnmount(() => {
   font-size: var(--xy-font-size-xs);
 }
 
-@media (max-width: 520px) {
+@media (max-width: 599px) {
   .metric-chart__header {
     align-items: baseline;
   }

@@ -311,7 +311,7 @@ function notifyError(message: string) {
 .access-panel {
   background-color: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   padding: var(--xy-space-md);
   animation: panel-enter calc(var(--xy-animation-duration) * 0.3s) cubic-bezier(0.16, 1, 0.3, 1)
     both;
@@ -326,7 +326,7 @@ function notifyError(message: string) {
   display: flex;
   align-items: center;
   font-family: var(--xy-font-display);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -340,7 +340,7 @@ function notifyError(message: string) {
 
 .grant-list {
   background-color: var(--xy-surface-1);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
 }
 
 .grant-item {
@@ -357,7 +357,7 @@ function notifyError(message: string) {
 
 .role-badge {
   font-family: var(--xy-font-mono);
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.02em;
 }
 

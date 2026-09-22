@@ -1,13 +1,14 @@
 <template>
   <q-dialog
     :model-value="show"
+    aria-labelledby="mod-install-dialog-title"
     persistent
     @update:model-value="(val: boolean) => emit('update:show', val)">
     <q-card class="mod-install-dialog">
       <q-card-section class="mod-install-header">
         <div class="mod-install-title">
           <q-icon aria-hidden="true" color="primary" name="download" size="sm" />
-          <h3>Install Mod</h3>
+          <h3 id="mod-install-dialog-title">Install Mod</h3>
         </div>
       </q-card-section>
 
@@ -160,7 +161,7 @@ function formatBytes(bytes: number): string {
 
 .mod-install-title h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   font-weight: 600;
   color: var(--xy-text-primary);
 }
@@ -184,13 +185,13 @@ function formatBytes(bytes: number): string {
 }
 
 .mod-install-label {
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   min-width: 60px;
   flex-shrink: 0;
 }
 
 .mod-install-value {
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-primary);
 }
 
@@ -201,7 +202,7 @@ function formatBytes(bytes: number): string {
 }
 
 .mod-install-deps-title {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -248,18 +249,18 @@ function formatBytes(bytes: number): string {
 }
 
 .dep-name {
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-primary);
   overflow-wrap: anywhere;
 }
 
 .dep-tag {
-  font-size: 0.6rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--xy-radius-sm);
 }
 
 .dep-tag--required {
@@ -276,7 +277,7 @@ function formatBytes(bytes: number): string {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   color: var(--xy-success);
   font-weight: 500;
   flex-shrink: 0;
@@ -288,7 +289,7 @@ function formatBytes(bytes: number): string {
 }
 
 /* ---- Mobile ---- */
-@media (max-width: 500px) {
+@media (max-width: 599px) {
   .mod-install-dialog {
     width: calc(100vw - 1rem);
     max-height: calc(100vh - 1rem);

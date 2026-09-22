@@ -143,7 +143,7 @@
 
             <div class="template-editor__command-footer">
               <span class="template-editor__command-hint">
-                Click an argument to edit it. Drag to reorder.
+                Click an argument to edit it. Drag or use the arrow buttons to reorder.
               </span>
               <div class="template-editor__command-tools">
                 <button
@@ -243,6 +243,7 @@
 
       <q-dialog
         :model-value="dialogOpen"
+        aria-labelledby="start-args-template-dialog-title"
         transition-hide="fade"
         transition-show="fade"
         @update:model-value="handleDialogModelChange">
@@ -252,7 +253,11 @@
               <p class="template-editor__eyebrow">
                 {{ dialogMode === 'add' ? 'Add Argument' : 'Edit Argument' }}
               </p>
-              <h3 class="template-editor__dialog-title font-display">{{ dialogTitle }}</h3>
+              <h3
+                id="start-args-template-dialog-title"
+                class="template-editor__dialog-title font-display">
+                {{ dialogTitle }}
+              </h3>
               <p class="template-editor__dialog-copy text-xy-secondary">{{ dialogSubtitle }}</p>
               <div v-if="dialogMode === 'edit'" class="template-editor__dialog-hero">
                 <span
@@ -1020,7 +1025,7 @@ function createBlockId() {
     box-shadow: var(--xy-shadow-2xl);
   }
   50% {
-    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--xy-shadow-xl);
   }
 }
 
@@ -1047,14 +1052,14 @@ function createBlockId() {
   gap: var(--xy-space-sm);
   padding: var(--xy-space-lg);
   border: 1px dashed var(--xy-border);
-  border-radius: 14px;
+  border-radius: var(--xy-radius-xl);
   background: var(--xy-surface-0);
 }
 
 .platform-tabs {
   display: inline-flex;
   background: var(--xy-surface-0);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   padding: 3px;
   gap: 2px;
 }
@@ -1066,11 +1071,11 @@ function createBlockId() {
   gap: 6px;
   min-height: 44px;
   padding: 6px 16px;
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   color: var(--xy-text-muted);
   transition:
     background var(--xy-transition-fast),
@@ -1106,7 +1111,7 @@ function createBlockId() {
   gap: var(--xy-space-md);
   padding: clamp(16px, 1.7vw, 22px);
   border: 1px solid var(--xy-border);
-  border-radius: 18px;
+  border-radius: var(--xy-radius-xl);
   background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
   box-shadow: var(--xy-shadow-md);
 }
@@ -1152,7 +1157,7 @@ function createBlockId() {
 .template-editor__eyebrow {
   margin: 0;
   font-family: var(--xy-font-display);
-  font-size: 0.74rem;
+  font-size: var(--xy-font-size-xs);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--xy-accent);
@@ -1163,7 +1168,7 @@ function createBlockId() {
 .template-editor__advanced-meta,
 .template-editor__dialog-copy {
   color: var(--xy-text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.45;
 }
 
@@ -1190,7 +1195,7 @@ function createBlockId() {
   gap: 8px;
   min-height: 38px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-0);
   color: var(--xy-text-secondary);
@@ -1223,11 +1228,11 @@ function createBlockId() {
 .template-editor__toggle-indicator {
   min-height: 2.15rem;
   padding: 0.38rem 0.42rem;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: none;
   background: transparent;
   color: var(--xy-accent);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .template-editor__toggle-indicator:hover {
@@ -1261,7 +1266,7 @@ function createBlockId() {
   gap: 8px;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--template-editor-platform) 18%, var(--xy-border) 82%);
-  border-radius: 16px;
+  border-radius: var(--xy-radius-xl);
   background:
     linear-gradient(
       180deg,
@@ -1274,7 +1279,7 @@ function createBlockId() {
 
 .template-editor__terminal-label {
   font-family: var(--xy-font-display);
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--template-editor-platform) 72%, var(--xy-text-secondary) 28%);
@@ -1301,7 +1306,7 @@ function createBlockId() {
 
 .template-editor__command-hint {
   color: var(--xy-text-muted);
-  font-size: 0.74rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1.4;
 }
 
@@ -1309,7 +1314,7 @@ function createBlockId() {
   flex: 0 0 auto;
   color: var(--template-editor-platform);
   font-family: var(--xy-font-display);
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   animation: template-editor-prompt-pulse 2.8s ease-in-out infinite;
 }
 
@@ -1323,10 +1328,10 @@ function createBlockId() {
   min-height: 36px;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--template-editor-platform) 14%, var(--xy-border) 86%);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--template-editor-platform) 4%, var(--xy-surface-1) 96%);
   color: var(--xy-text-primary);
-  font-size: 0.79rem;
+  font-size: var(--xy-font-size-sm);
   outline: none;
   transition:
     border-color var(--xy-transition-fast),
@@ -1354,7 +1359,7 @@ function createBlockId() {
   min-height: 32px;
   padding: 0 7px;
   border: 1px solid color-mix(in srgb, var(--template-editor-chip-accent) 12%, var(--xy-border) 88%);
-  border-radius: 4px;
+  border-radius: var(--xy-radius-sm);
   background: color-mix(
     in srgb,
     var(--template-editor-chip-accent) 0.8%,
@@ -1444,7 +1449,7 @@ function createBlockId() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.77rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .template-editor__empty-chip {
@@ -1455,7 +1460,7 @@ function createBlockId() {
   flex: 0 0 auto;
   width: 12px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   background: color-mix(in srgb, var(--template-editor-platform) 76%, transparent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--template-editor-platform) 14%, transparent);
 }
@@ -1473,7 +1478,7 @@ function createBlockId() {
 .template-editor__dialog-title {
   margin: 0;
   color: var(--xy-text-primary);
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
 }
 
 .template-editor__dialog-hero {
@@ -1491,11 +1496,10 @@ function createBlockId() {
   min-height: 34px;
   padding: 0 0.75rem;
   border: 1px solid color-mix(in srgb, var(--template-editor-chip-accent) 16%, var(--xy-border) 84%);
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--template-editor-chip-accent) 3%, var(--xy-surface-0) 97%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 32px -28px color-mix(in srgb, var(--template-editor-chip-accent) 36%, transparent);
+  box-shadow: 0 18px 32px -28px
+    color-mix(in srgb, var(--template-editor-chip-accent) 36%, transparent);
   color: var(--template-editor-chip-text);
 }
 
@@ -1504,7 +1508,7 @@ function createBlockId() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.79rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .template-editor__toggle-indicator {
@@ -1544,7 +1548,7 @@ function createBlockId() {
   min-height: 36px;
   padding: 0 10px;
   border: 1px solid var(--xy-border);
-  border-radius: 9px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--xy-surface-0) 76%, transparent);
   color: inherit;
   cursor: pointer;
@@ -1553,7 +1557,7 @@ function createBlockId() {
 
 .template-editor__order {
   color: color-mix(in srgb, var(--template-editor-platform) 44%, var(--xy-text-muted) 56%);
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
 }
 
 .template-editor__sequence-preview {
@@ -1562,7 +1566,7 @@ function createBlockId() {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--xy-text-primary);
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .template-editor__state {
@@ -1571,11 +1575,11 @@ function createBlockId() {
   justify-content: center;
   min-height: 24px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-0);
   color: var(--xy-text-secondary);
-  font-size: 0.64rem;
+  font-size: var(--xy-font-size-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1584,7 +1588,7 @@ function createBlockId() {
   display: inline-grid;
   grid-template-rows: 1fr 1fr;
   border: 1px solid color-mix(in srgb, var(--template-editor-platform) 16%, var(--xy-border) 84%);
-  border-radius: 9px;
+  border-radius: var(--xy-radius-lg);
   overflow: hidden;
   background: color-mix(in srgb, var(--template-editor-platform) 3%, var(--xy-surface-0) 97%);
 }
@@ -1645,7 +1649,7 @@ function createBlockId() {
 
 .template-editor__dialog {
   width: min(560px, calc(100vw - 32px));
-  border-radius: 18px;
+  border-radius: var(--xy-radius-xl);
   background: var(--xy-surface-1);
   color: var(--xy-text-primary);
   animation: template-editor-dialog-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1659,7 +1663,7 @@ function createBlockId() {
 ::view-transition-old(runtime-arg-focus),
 ::view-transition-new(runtime-arg-focus) {
   height: 100%;
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
 }
 
 .template-editor-panel-enter-active,
@@ -1688,7 +1692,7 @@ function createBlockId() {
   gap: var(--xy-space-md);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .template-editor__toolbar,
   .template-editor__advanced-toggle,
   .template-editor__dialog-head,

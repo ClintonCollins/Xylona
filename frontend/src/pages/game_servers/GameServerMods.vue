@@ -494,7 +494,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 </script>
 
 <template>
-  <div class="mods-page">
+  <div class="mods-page xy-page-content">
     <page-header class="mods-page-header" title="Mods" />
     <q-tabs
       v-model="activeTab"
@@ -607,7 +607,6 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 }
 
 .mods-page-header {
-  padding: var(--xy-space-md) var(--xy-space-md) 0;
   margin-bottom: var(--xy-space-sm);
 }
 

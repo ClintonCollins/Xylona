@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
 .toolbar-brand {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
-  font-size: 1.25rem;
+  font-size: var(--xy-font-size-xl);
   letter-spacing: 0.05em;
   text-decoration: none;
 }
@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
 }
 
 .nav-section-label {
-  font-size: 0.65rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;

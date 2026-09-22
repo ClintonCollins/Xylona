@@ -20,7 +20,8 @@
                 label="New name"
                 name="newFileName"
                 outlined
-                :rules="[validateName]" />
+                :rules="[validateName]"
+                aria-required="true" />
             </div>
           </div>
         </q-card-section>

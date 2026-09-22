@@ -231,25 +231,35 @@ func (xs *XylonaService) GetNodeMetricsHistory(_ context.Context, request *conne
 		nodeID = xs.nodeRegistry.SelfID()
 	}
 
+	maxPoints := int(request.Msg.GetMaxPoints())
+	if maxPoints <= 0 {
+		maxPoints = defaultNodeMetricsMaxPoints
+	}
+	maxPoints = min(maxPoints, maximumNodeMetricsMaxPoints)
+
 	rows, errQuery := xs.db.GetNodeMetricsHistory(nodeID, since, until)
 	if errQuery != nil {
 		return nil, internalErrf("failed to query node metrics history")
 	}
+	rows, sampleInterval := downsampleNodeMetricsRows(rows, since, until, maxPoints)
 
 	var points []*xylona.MetricsHistoryPoint
 	for _, row := range rows {
 		points = append(points, &xylona.MetricsHistoryPoint{
-			Timestamp:       timestamppb.New(row.RecordedAt),
-			CpuPercent:      row.CPUPercent,
-			MemoryPercent:   row.MemoryPercent,
-			DiskPercent:     row.DiskPercent,
-			MemoryUsedBytes: row.MemoryUsedBytes,
-			DiskUsedBytes:   row.DiskUsedBytes,
+			Timestamp:              timestamppb.New(row.RecordedAt),
+			CpuPercent:             row.CPUPercent,
+			MemoryPercent:          row.MemoryPercent,
+			DiskPercent:            row.DiskPercent,
+			MemoryUsedBytes:        row.MemoryUsedBytes,
+			DiskUsedBytes:          row.DiskUsedBytes,
+			GameServerCount:        helpers.ClampInt32FromInt(row.GameServerCount),
+			RunningGameServerCount: helpers.ClampInt32FromInt(row.RunningGameServerCount),
 		})
 	}
 
 	return connect.NewResponse(&xylona.GetNodeMetricsHistoryResponse{
-		Points: points,
+		Points:                points,
+		SampleIntervalSeconds: sampleInterval,
 	}), nil
 }
 

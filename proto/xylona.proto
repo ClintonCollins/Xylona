@@ -1138,10 +1138,12 @@ message GetNodeMetricsHistoryRequest {
   string node_id = 1;
   google.protobuf.Timestamp since = 2;
   google.protobuf.Timestamp until = 3;
+  int32 max_points = 4;
 }
 
 message GetNodeMetricsHistoryResponse {
   repeated MetricsHistoryPoint points = 1;
+  int32 sample_interval_seconds = 2;
 }
 
 message GetGameServerMetricsHistoryRequest {

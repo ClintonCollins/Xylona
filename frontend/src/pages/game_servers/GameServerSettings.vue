@@ -1,10 +1,10 @@
 <template>
-  <q-card-section>
+  <div class="xy-page-content">
     <game-server-settings-form
       v-if="canEditProvisioning !== undefined"
       :can-edit-provisioning="canEditProvisioning"
       :game-server-id="gameServerID"></game-server-settings-form>
-  </q-card-section>
+  </div>
 </template>
 
 <script lang="ts" setup>

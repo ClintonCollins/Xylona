@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
     linear-gradient(180deg, var(--xy-accent-glow-soft), transparent 55%), var(--xy-surface-1);
   border: 1px solid var(--xy-border);
   border-bottom: 1px solid var(--xy-border);
-  border-radius: 10px 10px 0 0;
+  border-radius: var(--xy-radius-lg) var(--xy-radius-lg) 0 0;
   position: sticky;
   top: var(--xy-header-stack-height, 50px);
   z-index: 10;
@@ -181,7 +181,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .breadcrumb-link {
@@ -208,7 +208,7 @@ onBeforeUnmount(() => {
 
 .server-form-subtitle {
   max-width: 64ch;
-  font-size: 0.9rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.6;
   color: var(--xy-text-secondary);
 }
@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
   border-top: none;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 var(--xy-radius-lg) var(--xy-radius-lg);
 }
 
 .server-form-body {
@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
   border-top: none;
-  border-radius: 0 0 10px 10px;
+  border-radius: 0 0 var(--xy-radius-lg) var(--xy-radius-lg);
 }
 
 .server-form-shell--compact .server-form-body {
@@ -256,7 +256,7 @@ onBeforeUnmount(() => {
 
 .server-form-guidance {
   margin-bottom: var(--xy-space-sm);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.45;
 }
 
@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
 }
 
 .server-form-shell .section-title {
-  font-size: 0.88rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-emphasis-soft);
   letter-spacing: 0.04em;
@@ -318,7 +318,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 7px;
+  border-radius: var(--xy-radius-md);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-0);
 }
@@ -369,7 +369,7 @@ onBeforeUnmount(() => {
 }
 
 .deployment-review-title {
-  font-size: 0.88rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
 }
 
 .deployment-review-subtitle {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.45;
 }
 
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 14px 16px;
   border: 1px solid var(--xy-success-border-soft);
-  border-radius: 10px;
+  border-radius: var(--xy-radius-lg);
   background:
     linear-gradient(180deg, var(--xy-success-bg-soft), transparent 65%),
     var(--xy-surface-raised-soft);
@@ -402,7 +402,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid var(--xy-success-border-softer);
   color: var(--xy-success);
   background: var(--xy-success-bg-soft);
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
 }
 
 .deployment-ready-label {
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -426,7 +426,7 @@ onBeforeUnmount(() => {
 
 .deployment-ready-value {
   color: var(--xy-text-primary);
-  font-size: 0.94rem;
+  font-size: var(--xy-font-size-base);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -434,7 +434,7 @@ onBeforeUnmount(() => {
 .deployment-review-dot {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--xy-radius-pill);
   flex-shrink: 0;
   background: var(--xy-warning);
 }
@@ -446,7 +446,7 @@ onBeforeUnmount(() => {
   padding: 12px 14px;
   background: var(--xy-surface-raised-subtle);
   border: 1px solid var(--xy-border);
-  border-radius: 9px;
+  border-radius: var(--xy-radius-lg);
 }
 
 .deployment-summary-item--warning {
@@ -459,7 +459,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: var(--xy-surface-overlay-soft);
   border: 1px solid var(--xy-border);
   color: var(--xy-text-secondary);
@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
 }
 
 .deployment-summary-label {
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
   line-height: 1.2;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -488,7 +488,7 @@ onBeforeUnmount(() => {
 
 .deployment-summary-value {
   color: var(--xy-text-primary);
-  font-size: 0.9rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.4;
   overflow-wrap: anywhere;
 }

@@ -422,6 +422,7 @@ async function handleSubmit(): Promise<void> {
         <q-input
           v-model="form.name"
           :rules="[(v: string) => !!v.trim() || 'Name is required']"
+          aria-required="true"
           class="q-mb-md"
           dense
           label="Name"
@@ -452,6 +453,7 @@ async function handleSubmit(): Promise<void> {
           v-if="showConsoleCommand"
           v-model="form.consoleCommand"
           :rules="[(v: string) => !!v.trim() || 'Console command is required']"
+          aria-required="true"
           class="q-mb-md"
           dense
           label="Console Command"
@@ -565,6 +567,7 @@ async function handleSubmit(): Promise<void> {
             <q-input
               v-model="form.cronExpression"
               :rules="[(v: string) => !!v.trim() || 'Cron expression is required']"
+              aria-required="true"
               class="q-mb-sm"
               dense
               hint="5-field format: minute hour day month weekday"
@@ -647,7 +650,7 @@ async function handleSubmit(): Promise<void> {
 }
 
 .schedule-section-label {
-  font-size: 0.7rem;
+  font-size: var(--xy-font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -670,7 +673,7 @@ async function handleSubmit(): Promise<void> {
 }
 
 .time-separator {
-  font-size: 1.25rem;
+  font-size: var(--xy-font-size-xl);
   font-weight: 600;
   color: var(--xy-text-muted);
   line-height: 1;
@@ -689,8 +692,8 @@ async function handleSubmit(): Promise<void> {
   min-width: 0;
   flex: 1 1 50px;
   padding: 4px 6px;
-  font-size: 0.78rem;
-  border-radius: 6px;
+  font-size: var(--xy-font-size-sm);
+  border-radius: var(--xy-radius-md);
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
@@ -715,7 +718,7 @@ async function handleSubmit(): Promise<void> {
 
 .advanced-toggle-btn {
   color: var(--xy-text-muted);
-  font-size: 0.78rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .advanced-toggle-btn:hover {
@@ -728,9 +731,9 @@ async function handleSubmit(): Promise<void> {
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   background-color: var(--xy-surface-2);
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-secondary);
   margin-bottom: 16px;
   overflow-wrap: anywhere;

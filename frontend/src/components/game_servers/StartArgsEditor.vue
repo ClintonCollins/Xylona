@@ -132,10 +132,17 @@
         @click="openAddDialog" />
     </div>
 
-    <q-dialog :model-value="dialogOpen" @update:model-value="onDialogModelChange">
+    <q-dialog
+      :model-value="dialogOpen"
+      aria-labelledby="start-args-editor-dialog-title"
+      @update:model-value="onDialogModelChange">
       <q-card class="start-args-editor__dialog">
         <q-card-section>
-          <div class="font-display start-args-editor__dialog-title">{{ dialogTitle }}</div>
+          <div
+            id="start-args-editor-dialog-title"
+            class="font-display start-args-editor__dialog-title">
+            {{ dialogTitle }}
+          </div>
           <div class="text-xy-secondary start-args-editor__dialog-copy">
             Use one line per token. Tokens are passed exactly as written without shell splitting.
           </div>
@@ -150,7 +157,7 @@
             label="Tokens"
             outlined
             type="textarea" />
-          <q-banner v-if="formError" class="bg-negative text-white rounded-borders" dense>
+          <q-banner v-if="formError" class="bg-negative text-xy-primary rounded-borders" dense>
             {{ formError }}
           </q-banner>
         </q-card-section>
@@ -529,7 +536,7 @@ function createPatchId() {
   gap: var(--xy-space-lg);
   padding: var(--xy-space-lg);
   border: 1px solid var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
 }
 
@@ -542,7 +549,7 @@ function createPatchId() {
 }
 
 .start-args-editor__title {
-  font-size: 1.02rem;
+  font-size: var(--xy-font-size-base);
   line-height: 1.25;
   color: var(--xy-text-primary);
 }
@@ -550,7 +557,7 @@ function createPatchId() {
 .start-args-editor__copy {
   max-width: 56ch;
   margin-top: 4px;
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   line-height: 1.45;
 }
 
@@ -560,7 +567,7 @@ function createPatchId() {
   gap: 8px;
   max-width: min(100%, 28rem);
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 14%, var(--xy-border) 86%);
   background: color-mix(in srgb, var(--xy-accent) 4%, var(--xy-surface-0) 96%);
   color: var(--xy-text-secondary);
@@ -623,10 +630,10 @@ function createPatchId() {
   min-height: 88px;
   padding: var(--xy-space-lg);
   border: 1px dashed var(--xy-border);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: color-mix(in srgb, var(--xy-surface-0) 82%, transparent);
   color: var(--xy-text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .start-args-editor__row {
@@ -635,7 +642,7 @@ function createPatchId() {
   align-items: flex-start;
   gap: var(--xy-space-md);
   padding: var(--xy-space-md);
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   border: 1px solid var(--xy-border);
   background: color-mix(in srgb, var(--xy-surface-0) 74%, var(--xy-surface-1) 26%);
   transition:
@@ -654,11 +661,11 @@ function createPatchId() {
   justify-content: center;
   min-height: 2rem;
   border: 1px solid color-mix(in srgb, var(--xy-accent) 18%, var(--xy-border) 82%);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   background: color-mix(in srgb, var(--xy-accent) 4%, var(--xy-surface-0) 96%);
   color: color-mix(in srgb, var(--xy-accent) 68%, var(--xy-text-secondary) 32%);
   font-family: var(--xy-font-mono);
-  font-size: 0.76rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .start-args-editor__row-main {
@@ -677,14 +684,14 @@ function createPatchId() {
 }
 
 .start-args-editor__label {
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
   color: var(--xy-text-secondary);
 }
 
 .start-args-editor__tokens,
 .start-args-editor__previous {
   font-family: var(--xy-font-mono);
-  font-size: 0.83rem;
+  font-size: var(--xy-font-size-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -693,7 +700,7 @@ function createPatchId() {
   display: block;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--xy-border) 74%, transparent);
-  border-radius: 6px;
+  border-radius: var(--xy-radius-md);
   background: color-mix(in srgb, var(--xy-base) 72%, var(--xy-surface-0) 28%);
   color: var(--xy-text-primary);
   line-height: 1.45;
@@ -718,19 +725,19 @@ function createPatchId() {
 
 .start-args-editor__dialog {
   width: min(640px, calc(100vw - 32px));
-  border-radius: 8px;
+  border-radius: var(--xy-radius-lg);
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
 }
 
 .start-args-editor__dialog-title {
-  font-size: 1rem;
+  font-size: var(--xy-font-size-base);
   color: var(--xy-text-primary);
 }
 
 .start-args-editor__dialog-copy {
   margin-top: 4px;
-  font-size: 0.82rem;
+  font-size: var(--xy-font-size-sm);
 }
 
 .start-args-editor__dialog-body {
@@ -768,7 +775,7 @@ function createPatchId() {
   border-color: var(--xy-syntax-green-border);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599px) {
   .start-args-editor__base-editor {
     grid-template-columns: 1fr;
   }

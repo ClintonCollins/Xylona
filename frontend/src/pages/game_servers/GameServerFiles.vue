@@ -1,5 +1,5 @@
 <template>
-  <q-card-section class="files-page-section">
+  <div class="files-page-section xy-page-content">
     <page-header class="files-page-header" title="Files" />
     <file-uploader-drop
       v-model:file-uploader-dialog="fileUploaderDialog"
@@ -538,7 +538,7 @@
         </q-menu>
       </div>
     </file-uploader-drop>
-  </q-card-section>
+  </div>
   <q-dialog
     v-model="urlUploadDialog"
     aria-labelledby="url-upload-title"
@@ -595,7 +595,12 @@
       </q-form>
     </q-card>
   </q-dialog>
-  <q-dialog v-model="editorModal" backdrop-filter="blur(6px) brightness(15%)" no-shake persistent>
+  <q-dialog
+    v-model="editorModal"
+    :aria-label="`Edit ${editorFilename}`"
+    backdrop-filter="blur(6px) brightness(15%)"
+    no-shake
+    persistent>
     <editor
       v-model:code-input="editorFileContent"
       :file-name="editorFilename"
