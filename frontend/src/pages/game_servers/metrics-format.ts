@@ -1,3 +1,5 @@
+import { formatTimestamp } from '@/utils/format-timestamp'
+
 const byteUnits = ['B', 'KB', 'MB', 'GB', 'TB'] as const
 
 export function formatMetricBytes(value: number | null, fractionDigits = 1): string {
@@ -24,13 +26,7 @@ export function formatMetricNumber(value: number | null, fractionDigits = 1): st
 
 export function formatMetricTimestamp(timestampMs: number | null): string {
   if (timestampMs === null || !Number.isFinite(timestampMs)) return 'Unknown'
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(timestampMs)
+  return formatTimestamp(new Date(timestampMs), 'Unknown')
 }
 
 const dayMs = 24 * 60 * 60 * 1000
@@ -38,12 +34,13 @@ const dayMs = 24 * 60 * 60 * 1000
 // Axis and ruler labels follow the span the data actually covers, not the selected
 // range: a 7d range holding two days of samples must not print the same date five times.
 export function formatMetricAxisTime(timestampMs: number, spanMs: number): string {
+  // 24-hour like every other timestamp in the app (formatTimestamp).
   const options: Intl.DateTimeFormatOptions =
     spanMs >= 7 * dayMs
       ? { month: 'short', day: 'numeric' }
       : spanMs >= dayMs
-        ? { weekday: 'short', hour: 'numeric' }
-        : { hour: 'numeric', minute: '2-digit' }
+        ? { weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+        : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
   return new Intl.DateTimeFormat(undefined, options).format(timestampMs)
 }
 

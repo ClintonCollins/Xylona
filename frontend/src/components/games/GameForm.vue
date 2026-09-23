@@ -587,8 +587,9 @@ onBeforeUnmount(() => {
 })
 
 function handleCancel() {
-  // The onBeforeRouteLeave guard handles the unsaved changes prompt
-  router.back()
+  // The onBeforeRouteLeave guard handles the unsaved changes prompt. An explicit
+  // parent route keeps Cancel inside Xylona when the form was opened in a new tab.
+  void router.push('/games')
 }
 
 async function exportCurrentGame(): Promise<void> {
@@ -785,11 +786,14 @@ async function saveDefaultEnvironment(): Promise<void> {
   min-width: 0;
 }
 
-.runtime-policy-eyebrow {
-  font-size: var(--xy-font-size-xs);
-  letter-spacing: 0.18em;
+/* Same heading treatment as .section-title on the other editor tabs. */
+.runtime-policy-eyebrow,
+.game-default-env-title {
+  font-size: var(--xy-font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--xy-accent);
+  color: var(--xy-text-secondary);
 }
 
 .runtime-policy-summary-line {
@@ -924,13 +928,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-.game-default-env-title {
-  font-size: var(--xy-font-size-sm);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--xy-accent);
 }
 
 .game-default-env-empty {
@@ -1293,13 +1290,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   align-items: center;
   gap: var(--xy-space-sm);
   margin-bottom: var(--xy-space-md);
-}
-
-.game-form-wrapper .section-bar {
-  width: 3px;
-  height: 16px;
-  border-radius: var(--xy-radius-sm);
-  flex-shrink: 0;
 }
 
 .game-form-wrapper .section-title {

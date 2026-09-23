@@ -24,7 +24,7 @@
               v-if="canEditFiles"
               :disable="!canMutateFiles"
               :dense="$q.screen.gt.xs"
-              color="positive"
+              flat
               icon="upload"
               label="Upload"
               @click="fileUploaderDialog = true" />

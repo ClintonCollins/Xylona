@@ -2,15 +2,14 @@
   <!-- Mods -->
   <section class="form-section form-section--last">
     <div class="section-header">
-      <span class="section-bar" style="background-color: var(--xy-info)"></span>
-      <h2 class="section-title font-display">Mods</h2>
+      <h2 class="section-title">Mods</h2>
       <span class="section-line"></span>
     </div>
     <div :class="game.modProfile ? 'mods-layout' : 'mods-layout-single'">
       <!-- Sidebar only visible when mods are enabled -->
       <aside v-if="game.modProfile" class="mods-rail">
         <div class="mods-rail-intro">
-          <span class="mods-rail-eyebrow font-display">Setup Guide</span>
+          <span class="mods-rail-eyebrow">Setup Guide</span>
           <div class="mods-rail-title font-display">
             Define how servers pull mods beyond the base install.
           </div>

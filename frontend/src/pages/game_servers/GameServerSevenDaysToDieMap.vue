@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 
 import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import SevenDaysToDieWorldOverview from '@/components/seven_days_to_die/SevenDaysToDieWorldOverview.vue'
 import {
   GetGameServerRequestSchema,
@@ -310,16 +311,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="seven-days-map-page">
-    <header class="seven-days-map-page__header">
-      <div class="seven-days-map-page__heading">
-        <span class="seven-days-map-page__heading-icon"><q-icon name="map" /></span>
-        <div class="seven-days-map-page__heading-copy">
-          <h1>Live world map</h1>
-          <p>7 Days to Die player positions and world activity.</p>
-        </div>
-      </div>
-      <div v-if="canManage" class="seven-days-map-page__actions">
+  <div class="seven-days-map-page xy-page-content">
+    <page-header
+      class="seven-days-map-page__header"
+      subtitle="7 Days to Die. Player positions and world activity."
+      title="Live Map">
+      <template v-if="canManage" #actions>
         <q-btn
           aria-label="Install or repair land claim support"
           data-testid="install-land-claim-helper"
@@ -336,15 +333,15 @@ onBeforeUnmount(() => {
         </q-btn>
         <q-btn
           aria-label="Open public map link settings"
-          color="primary"
+          flat
           icon="share"
           no-caps
           @click="shareOpen = true">
           <span class="seven-days-map-page__share-label">Public link</span>
           <q-tooltip>Public map link</q-tooltip>
         </q-btn>
-      </div>
-    </header>
+      </template>
+    </page-header>
 
     <seven-days-to-die-live-map
       class="seven-days-map-page__map"
@@ -377,58 +374,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: var(--xy-space-md);
   min-height: 0;
-  padding: var(--xy-space-md);
   color: var(--xy-text-primary);
 }
 
 .seven-days-map-page__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--xy-space-lg);
-}
-
-.seven-days-map-page__heading {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-base);
-}
-
-.seven-days-map-page__heading-icon {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 auto;
-  place-items: center;
-  color: var(--xy-accent);
-  background: var(--xy-accent-muted);
-  border: 1px solid var(--xy-accent-border);
-  border-radius: var(--xy-radius-md);
-}
-
-.seven-days-map-page__heading-copy {
-  display: grid;
-  gap: var(--xy-space-2xs);
-  min-width: 0;
-}
-
-.seven-days-map-page__heading-copy h1 {
-  margin: 0;
-  font-family: var(--xy-font-heading);
-  font-weight: 500;
-  font-size: var(--xy-font-size-xl);
-  line-height: var(--xy-line-height-tight);
-  white-space: nowrap;
-}
-
-.seven-days-map-page__heading-copy p {
-  margin: 0;
-  color: var(--xy-text-secondary);
-}
-
-.seven-days-map-page__actions {
-  display: flex;
-  gap: var(--xy-space-sm);
+  margin-bottom: 0;
 }
 
 .seven-days-map-page__map {
@@ -464,19 +414,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 599px) {
-  .seven-days-map-page {
-    padding: var(--xy-space-sm) 0 0;
-  }
-
-  .seven-days-map-page__header {
-    align-items: flex-start;
-    padding: 0 var(--xy-space-sm);
-  }
-
-  .seven-days-map-page__heading-copy p {
-    display: none;
-  }
-
   .seven-days-map-page__share-label {
     display: none;
   }

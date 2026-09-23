@@ -58,6 +58,7 @@
           </span>
           <q-btn
             v-if="fields.length > 0"
+            aria-label="Expand all fields"
             class="text-xy-muted"
             dense
             flat
@@ -69,6 +70,7 @@
           </q-btn>
           <q-btn
             v-if="fields.length > 0"
+            aria-label="Collapse all fields"
             class="text-xy-muted"
             dense
             flat
@@ -153,6 +155,7 @@
           <template #append>
             <q-btn
               :disable="!bulkGroupName.trim()"
+              aria-label="Apply group"
               color="primary"
               dense
               flat
@@ -239,6 +242,7 @@
               <div class="schema-group-actions" @click.stop>
                 <q-btn
                   v-if="group.name"
+                  :aria-label="`Move group ${group.displayName} up`"
                   class="text-xy-muted group-move-btn"
                   dense
                   flat
@@ -250,6 +254,7 @@
                 </q-btn>
                 <q-btn
                   v-if="group.name"
+                  :aria-label="`Move group ${group.displayName} down`"
                   class="text-xy-muted group-move-btn"
                   dense
                   flat

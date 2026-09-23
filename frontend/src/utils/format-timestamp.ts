@@ -56,3 +56,9 @@ export function formatTimestamp(
 export function formatDate(input: Timestamp | Date | undefined, fallback: string = ''): string {
   return formatWith(dateFormatter, input, fallback, false)
 }
+
+/** Formats the time of day with the same 24-hour clock as formatTimestamp. */
+export function formatTime(input: Timestamp | Date | undefined, fallback: string = ''): string {
+  const full = formatTimestamp(input)
+  return full === '' ? fallback : full.slice(full.lastIndexOf(' ') + 1)
+}

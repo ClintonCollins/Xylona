@@ -112,6 +112,7 @@
                 :label="`Update to ${mod.latestVersion}`"
                 color="primary"
                 dense
+                flat
                 icon="upgrade"
                 no-caps
                 size="sm"

@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router'
 
 import { notifyError, notifySuccess } from '@/api/notifications'
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import {
   GetPalworldMapRequestSchema,
   InstallPalworldMapTilesRequestSchema,
@@ -190,26 +191,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="palworld-map-page">
-    <header class="palworld-map-page__header">
-      <div class="palworld-map-page__heading">
-        <span class="palworld-map-page__heading-icon"><q-icon name="public" /></span>
-        <div>
-          <h1>Live world map</h1>
-          <p>{{ mapDescription }}</p>
-        </div>
-      </div>
-      <div v-if="canManage" class="palworld-map-page__actions">
-        <q-btn dense flat icon="map" label="Map imagery" no-caps @click="openSettings" />
-        <q-btn
-          color="primary"
-          dense
-          icon="ios_share"
-          label="Public link"
-          no-caps
-          @click="shareOpen = true" />
-      </div>
-    </header>
+  <div class="palworld-map-page xy-page-content">
+    <page-header class="palworld-map-page__header" :subtitle="mapDescription" title="Live Map">
+      <template v-if="canManage" #actions>
+        <q-btn flat icon="map" label="Map imagery" no-caps @click="openSettings" />
+        <q-btn flat icon="share" label="Public link" no-caps @click="shareOpen = true" />
+      </template>
+    </page-header>
 
     <palworld-live-map
       :load-error="loadError"
@@ -371,61 +359,19 @@ onUnmounted(() => {
   min-height: 0;
   flex-direction: column;
   gap: var(--xy-space-base);
-  padding: var(--xy-space-base) var(--xy-space-md) var(--xy-space-md);
   overflow: hidden;
 }
 
-.palworld-map-page__header,
+.palworld-map-page__header {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
 .palworld-map-dialog__heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--xy-space-md);
-}
-
-.palworld-map-page__header {
-  flex: 0 0 auto;
-  min-height: 52px;
-}
-
-.palworld-map-page__heading {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-base);
-  min-width: 0;
-}
-
-.palworld-map-page__heading-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
-  color: var(--xy-accent);
-  background: var(--xy-accent-muted);
-  border-radius: var(--xy-radius-lg);
-  font-size: var(--xy-font-size-xl);
-}
-
-.palworld-map-page__header h1 {
-  margin: 0;
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-heading);
-  font-size: var(--xy-font-size-xl);
-  line-height: var(--xy-line-height-tight);
-}
-
-.palworld-map-page__header p {
-  margin: var(--xy-space-xs) 0 0;
-  color: var(--xy-text-secondary);
-  font-size: var(--xy-font-size-sm);
-}
-
-.palworld-map-page__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--xy-space-sm);
 }
 
 .palworld-map-dialog {
@@ -481,25 +427,12 @@ onUnmounted(() => {
 }
 
 @media (max-width: 599px) {
-  .palworld-map-page {
-    padding: var(--xy-space-sm);
-  }
-
   .palworld-map-dialog__local-tiles {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
   .palworld-map-dialog__local-tiles .q-btn {
     grid-column: 1 / -1;
-  }
-
-  .palworld-map-page__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .palworld-map-page__actions {
-    width: 100%;
   }
 
   .palworld-map-dialog__grid {

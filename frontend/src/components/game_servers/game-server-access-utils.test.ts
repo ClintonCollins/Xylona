@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { formatProtoTimestamp } from './game-server-access-utils'
 
 describe('formatProtoTimestamp', () => {
-  it('formats a valid timestamp', () => {
+  it('formats a valid timestamp with the app-wide 24-hour format', () => {
     const value = formatProtoTimestamp({ seconds: BigInt(1700000000) })
-    expect(value).not.toBe('Unknown time')
+    expect(value).toMatch(/^[A-Z][a-z]{2} \d{1,2}, 2023 \d{2}:\d{2}:\d{2}$/)
   })
 
   it('returns unknown time for missing value', () => {

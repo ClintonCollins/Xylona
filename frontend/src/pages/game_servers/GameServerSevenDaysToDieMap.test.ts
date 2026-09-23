@@ -95,7 +95,11 @@ function mountPage() {
   return shallowMount(GameServerSevenDaysToDieMap, {
     global: {
       renderStubDefaultSlot: true,
-      stubs: { SevenDaysToDieWorldOverview: false, SevenDaysToDieLiveMap: LiveMapStub },
+      stubs: {
+        PageHeader: false,
+        SevenDaysToDieWorldOverview: false,
+        SevenDaysToDieLiveMap: LiveMapStub,
+      },
     },
   })
 }

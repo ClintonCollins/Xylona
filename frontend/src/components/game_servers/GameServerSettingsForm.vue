@@ -115,7 +115,7 @@
       <div class="settings-panel">
         <header class="settings-panel-heading">
           <div>
-            <h2 class="settings-panel-title font-display">
+            <h2 class="xy-section-title">
               {{ settingsCategoryDetails[activeCategory].title }}
             </h2>
             <p>{{ settingsCategoryDetails[activeCategory].description }}</p>
@@ -134,7 +134,7 @@
           class="form-section"
           data-settings-category="general">
           <div class="section-header">
-            <span class="section-icon section-icon--accent">
+            <span class="section-icon">
               <q-icon name="badge" size="14px" />
             </span>
             <span class="section-title">Identity</span>
@@ -183,7 +183,7 @@
           class="form-section form-section--last"
           data-settings-category="general">
           <div class="section-header">
-            <span class="section-icon section-icon--primary">
+            <span class="section-icon">
               <q-icon name="hub" size="14px" />
             </span>
             <span class="section-title">Placement</span>
@@ -240,7 +240,7 @@
           class="form-section"
           data-settings-category="network">
           <div class="section-header">
-            <span class="section-icon section-icon--success">
+            <span class="section-icon">
               <q-icon name="lan" size="14px" />
             </span>
             <span class="section-title">Networking</span>
@@ -300,7 +300,7 @@
           class="form-section form-section--last"
           data-settings-category="network">
           <div class="section-header">
-            <span class="section-icon section-icon--muted">
+            <span class="section-icon">
               <q-icon name="terminal" size="14px" />
             </span>
             <span class="section-title">Launch</span>
@@ -324,14 +324,6 @@
           class="form-section form-section--last"
           data-settings-category="admin"
           data-testid="admin-interface-settings-section">
-          <div class="section-header">
-            <span class="section-icon section-icon--warning">
-              <q-icon name="admin_panel_settings" size="14px" />
-            </span>
-            <span class="section-title">Remote Administration</span>
-            <span class="section-line"></span>
-          </div>
-
           <div
             v-if="adminInterfaceLoading"
             class="text-caption text-muted"
@@ -406,14 +398,6 @@
           class="form-section form-section--last"
           data-settings-category="environment"
           data-testid="environment-settings-section">
-          <div class="section-header">
-            <span class="section-icon section-icon--accent">
-              <q-icon name="key" size="14px" />
-            </span>
-            <span class="section-title">Environment</span>
-            <span class="section-line"></span>
-          </div>
-
           <div
             v-if="environmentLoading"
             class="text-caption text-muted"
@@ -571,7 +555,7 @@
           class="form-section"
           data-settings-category="capacity">
           <div class="section-header">
-            <span class="section-icon section-icon--warning">
+            <span class="section-icon">
               <q-icon name="memory" size="14px" />
             </span>
             <span class="section-title">Capacity</span>
@@ -625,7 +609,7 @@
           data-settings-category="capacity"
           data-testid="auto-restart-section">
           <div class="section-header">
-            <span class="section-icon section-icon--success">
+            <span class="section-icon">
               <q-icon name="restart_alt" size="14px" />
             </span>
             <span class="section-title">Auto-Restart</span>
@@ -673,14 +657,6 @@
           class="form-section form-section--last"
           data-settings-category="backups"
           data-testid="backup-settings-section">
-          <div class="section-header">
-            <span class="section-icon section-icon--primary">
-              <q-icon name="backup" size="14px" />
-            </span>
-            <span class="section-title">Backup Settings</span>
-            <span class="section-line"></span>
-          </div>
-
           <div
             v-if="backupSettingsLoading"
             class="text-caption text-muted"
@@ -994,7 +970,7 @@ async function revealFirstInvalidCategory() {
 }
 
 async function cancel() {
-  router.back()
+  await router.push(`/game-servers/${props.gameServerId}/console`)
 }
 
 async function initializeAdminInterface() {
@@ -1438,15 +1414,6 @@ async function submitGameServer() {
   gap: var(--xy-space-md);
   padding-bottom: var(--xy-space-md);
   border-bottom: 1px solid var(--xy-border);
-}
-
-.settings-panel-title {
-  margin: 0;
-  color: var(--xy-text-primary);
-  font-size: var(--xy-font-size-lg);
-  font-weight: 600;
-  letter-spacing: 0.015em;
-  line-height: var(--xy-line-height-tight);
 }
 
 .settings-panel-heading p {

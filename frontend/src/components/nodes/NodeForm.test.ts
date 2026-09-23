@@ -108,4 +108,16 @@ describe('NodeForm', () => {
     expect(mocks.copy).toHaveBeenCalledWith(expectedCommand)
     expect(mocks.notifySuccess).toHaveBeenCalledWith('Node join command copied to clipboard')
   })
+
+  it('leaves the add form for the node list instead of browser history', async () => {
+    const wrapper = mount(NodeForm, { global: globalStubs })
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Back')
+      ?.trigger('click')
+
+    expect(mocks.routerPush).toHaveBeenCalledWith('/nodes')
+    expect(mocks.routerBack).not.toHaveBeenCalled()
+  })
 })

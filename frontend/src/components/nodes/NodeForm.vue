@@ -127,7 +127,7 @@ onMounted(async () => {
 })
 
 async function cancel() {
-  router.back()
+  await router.push(props.existingNodeId ? `/nodes/${props.existingNodeId}` : '/nodes')
 }
 
 async function getNodeDetails() {

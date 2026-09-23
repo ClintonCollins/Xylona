@@ -37,6 +37,7 @@ import {
   type PalworldMapCluster,
 } from '@/pages/game_servers/palworld-map'
 import { palworldShapeMarker } from './palworld-shape-marker'
+import { formatTimestamp } from '@/utils/format-timestamp'
 
 const props = withDefaults(
   defineProps<{
@@ -290,7 +291,7 @@ const collectedTitle = computed(() => {
   if (collectedAt === undefined) {
     return ''
   }
-  return timestampDate(collectedAt).toLocaleString()
+  return formatTimestamp(collectedAt)
 })
 
 // Resolving a token forces a style recalculation, and markers resolve one every

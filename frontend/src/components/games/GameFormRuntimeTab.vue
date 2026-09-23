@@ -38,14 +38,14 @@
           type="button"
           @click="toggleRuntimePolicy">
           <div class="runtime-policy-toggle-copy">
-            <span class="runtime-policy-eyebrow font-display">Runtime Guardrails</span>
+            <span class="runtime-policy-eyebrow">Runtime Guardrails</span>
             <span class="runtime-policy-summary-line text-xy-secondary">
               {{ runtimePolicySummary.join(' · ') }}
             </span>
           </div>
 
           <div class="runtime-policy-header-actions">
-            <span class="runtime-policy-toggle-indicator font-display">
+            <span class="runtime-policy-toggle-indicator">
               {{ runtimePolicyExpanded ? 'Hide details' : 'Review guardrails' }}
               <q-icon
                 :name="runtimePolicyExpanded ? 'expand_less' : 'expand_more'"
@@ -69,7 +69,7 @@
               <div class="runtime-policy-subsection runtime-policy-subsection--reserved">
                 <div class="runtime-policy-card-head">
                   <div class="runtime-policy-card-copy">
-                    <div class="runtime-policy-subhead font-display">Reserved arguments</div>
+                    <div class="runtime-policy-subhead">Reserved arguments</div>
                     <div class="runtime-policy-subcopy text-xy-muted">
                       Protect flags that inherited servers should never override.
                     </div>
@@ -90,7 +90,7 @@
                 <div class="runtime-policy-subsection runtime-policy-subsection--owner">
                   <div class="runtime-policy-rail-head">
                     <div class="runtime-policy-card-copy">
-                      <div class="runtime-policy-subhead font-display">Owner edits</div>
+                      <div class="runtime-policy-subhead">Owner edits</div>
                       <div class="runtime-policy-subcopy text-xy-muted">
                         Only editable arguments can be tuned downstream.
                       </div>
@@ -114,7 +114,7 @@
                   class="runtime-policy-subsection runtime-policy-subsection--impact">
                   <div class="runtime-policy-card-head runtime-policy-card-head--stacked">
                     <div class="runtime-policy-card-copy">
-                      <div class="runtime-policy-subhead font-display">Affected servers</div>
+                      <div class="runtime-policy-subhead">Affected servers</div>
                       <div class="runtime-policy-subcopy text-xy-muted">
                         Review inherited servers before saving.
                       </div>
@@ -141,7 +141,7 @@
         data-testid="game-default-environment-section">
         <div class="game-default-env-header">
           <div>
-            <div class="game-default-env-title font-display">Default Environment</div>
+            <div class="game-default-env-title">Default Environment</div>
           </div>
           <q-btn
             aria-label="Add environment variable"

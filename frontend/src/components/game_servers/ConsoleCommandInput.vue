@@ -595,7 +595,7 @@ function onInputKeydown(event: KeyboardEvent): void {
 
 .console-command-menu__title {
   color: var(--xy-text-primary);
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
 }

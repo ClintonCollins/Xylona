@@ -175,7 +175,7 @@
         <q-btn class="text-xy-secondary" flat label="Close" @click="uploader.close()" />
         <q-btn
           :disable="!uploader.canUpload || uploader.queuedFilesCount <= 0"
-          class="bg-success"
+          color="primary"
           label="Upload"
           @click="uploader.upload()" />
       </q-card-actions>

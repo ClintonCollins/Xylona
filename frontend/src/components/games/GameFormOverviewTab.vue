@@ -5,8 +5,7 @@
     <div class="overview-metadata">
       <div class="overview-metadata-group">
         <div class="section-header">
-          <span class="section-bar" style="background-color: var(--xy-accent)"></span>
-          <h2 class="section-title font-display">Identity</h2>
+          <h2 class="section-title">Identity</h2>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -37,8 +36,7 @@
       </div>
       <div class="overview-metadata-group">
         <div class="section-header">
-          <span class="section-bar" style="background-color: var(--xy-primary)"></span>
-          <h2 class="section-title font-display">Networking</h2>
+          <h2 class="section-title">Networking</h2>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -79,13 +77,12 @@
   <!-- Features -->
   <section class="form-section">
     <div class="section-header">
-      <span class="section-bar" style="background-color: var(--xy-success)"></span>
-      <h2 class="section-title font-display">Features</h2>
+      <h2 class="section-title">Features</h2>
       <span class="section-line"></span>
     </div>
     <div class="feature-groups">
       <div class="feature-group">
-        <span class="feature-group-label text-xy-muted font-display">Platform</span>
+        <span class="feature-group-label text-xy-muted">Platform</span>
         <div class="feature-chips">
           <button
             :aria-pressed="game.windowsSupport"
@@ -108,7 +105,7 @@
         </div>
       </div>
       <div class="feature-group">
-        <span class="feature-group-label text-xy-muted font-display">Steam</span>
+        <span class="feature-group-label text-xy-muted">Steam</span>
         <div class="feature-chips">
           <button
             :aria-pressed="game.usesSteamcmd"
@@ -133,7 +130,7 @@
         </div>
       </div>
       <div class="feature-group">
-        <span class="feature-group-label text-xy-muted font-display">Network</span>
+        <span class="feature-group-label text-xy-muted">Network</span>
         <div class="feature-chips">
           <button
             :aria-pressed="game.bindsToAllIps"
@@ -161,8 +158,7 @@
   <!-- Platform Commands -->
   <section class="form-section form-section--last">
     <div class="section-header">
-      <span class="section-bar" style="background-color: var(--xy-warning)"></span>
-      <h2 class="section-title font-display">Install &amp; Update</h2>
+      <h2 class="section-title">Install &amp; Update</h2>
       <span class="section-line"></span>
     </div>
 

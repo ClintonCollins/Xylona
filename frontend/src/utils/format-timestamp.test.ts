@@ -1,7 +1,7 @@
 import { timestampFromDate } from '@bufbuild/protobuf/wkt'
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatTimestamp } from './format-timestamp'
+import { formatDate, formatTime, formatTimestamp } from './format-timestamp'
 
 describe('formatTimestamp', () => {
   it.each([
@@ -69,5 +69,14 @@ describe('formatTimestamp', () => {
     } else {
       expect(formatDate(input, fallback)).toBe(want)
     }
+  })
+
+  it.each([
+    { name: 'uses the 24-hour clock', input: new Date(2026, 2, 5, 17, 32, 10), want: '17:32:10' },
+    { name: 'pads the morning hour', input: new Date(2026, 6, 21, 9, 8, 7), want: '09:08:07' },
+    { name: 'returns the fallback for undefined', input: undefined, want: '-' },
+    { name: 'returns the fallback for an invalid date', input: new Date('x'), want: '-' },
+  ])('formatTime $name', ({ input, want }) => {
+    expect(formatTime(input, '-')).toBe(want)
   })
 })

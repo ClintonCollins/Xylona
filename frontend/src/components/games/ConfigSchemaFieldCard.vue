@@ -34,6 +34,7 @@
       </div>
       <div class="field-card-actions" @click.stop>
         <q-btn
+          :aria-label="`Move ${field.key} up`"
           class="text-xy-muted"
           dense
           flat
@@ -44,6 +45,7 @@
           <q-tooltip>Move up</q-tooltip>
         </q-btn>
         <q-btn
+          :aria-label="`Move ${field.key} down`"
           class="text-xy-muted"
           dense
           flat
@@ -53,7 +55,15 @@
           @click="$emit('move-down')">
           <q-tooltip>Move down</q-tooltip>
         </q-btn>
-        <q-btn color="negative" dense flat icon="delete" round size="sm" @click="$emit('remove')">
+        <q-btn
+          :aria-label="`Remove ${field.key}`"
+          color="negative"
+          dense
+          flat
+          icon="delete"
+          round
+          size="sm"
+          @click="$emit('remove')">
           <q-tooltip>Remove field</q-tooltip>
         </q-btn>
       </div>

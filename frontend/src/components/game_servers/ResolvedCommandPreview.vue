@@ -162,7 +162,7 @@ async function copyCommand() {
   align-items: center;
   gap: var(--xy-space-sm);
   color: var(--xy-text-primary);
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-sm);
   line-height: 1.25;
 }
