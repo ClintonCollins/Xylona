@@ -236,7 +236,10 @@ import {
 import { AllNodeMetrics, AllServersMetrics, GameServerMetrics } from '@/proto/websocket_pb'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { createServerMetricsSubscriptions } from '@/utils/server-metrics-subscriptions'
-import { websocketStateAuthoritative } from '@/utils/websocket-connection'
+import {
+  websocketConnectingQuietly,
+  websocketStateAuthoritative,
+} from '@/utils/websocket-connection'
 import {
   getMetricsRangeOption,
   getMetricsRangeRequest,
@@ -335,7 +338,7 @@ const lastSeenLabel = computed(() => {
 })
 
 const liveState = computed(() => {
-  if (!websocketStateAuthoritative.value) {
+  if (!websocketStateAuthoritative.value && !websocketConnectingQuietly.value) {
     return {
       label: 'Paused',
       detail: 'reconnecting to controller',

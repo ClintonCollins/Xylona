@@ -6,7 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NodeResourceSnapshotSchema, NodeSchema } from '@/proto/shared_pb'
 import { AllNodeMetricsSchema } from '@/proto/websocket_pb'
 import { DashboardNodeSummarySchema } from '@/proto/xylona_pb'
-import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
+import {
+  restartConnectingNoticeDelay,
+  setWebsocketConnectionStatus,
+} from '@/utils/websocket-connection'
 import NodeList from './NodeList.vue'
 
 const mocks = vi.hoisted(() => {
@@ -451,6 +454,21 @@ describe('NodeList', () => {
     await flushPromises()
 
     expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(42)
+    wrapper.unmount()
+  })
+
+  it('keeps the paused notice hidden while a fresh connection is quiet', async () => {
+    mocks.listNodes.mockResolvedValueOnce({ nodes: [] })
+    setWebsocketConnectionStatus('connecting')
+    restartConnectingNoticeDelay()
+
+    const wrapper = mount(NodeList, { global: globalStubs })
+    await flushPromises()
+    expect(wrapper.find('.list-notice').exists()).toBe(false)
+
+    setWebsocketConnectionStatus('reconnecting')
+    await flushPromises()
+    expect(wrapper.find('.list-notice').exists()).toBe(true)
     wrapper.unmount()
   })
 })

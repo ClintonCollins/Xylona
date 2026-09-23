@@ -39,7 +39,11 @@
         </div>
         <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="fetchAll" />
       </div>
-      <div v-if="!websocketStateAuthoritative" class="list-notice" role="status" aria-live="polite">
+      <div
+        v-if="!websocketStateAuthoritative && !websocketConnectingQuietly"
+        class="list-notice"
+        role="status"
+        aria-live="polite">
         <q-icon name="sync" size="sm" />
         <span>Live metrics are paused while the controller connection is re-established.</span>
       </div>
@@ -398,7 +402,10 @@ import {
 } from '@/components/nodes/node-display'
 import { formatMetricAge } from '@/pages/game_servers/metrics-format'
 import { formatTimestamp } from '@/utils/format-timestamp'
-import { websocketStateAuthoritative } from '@/utils/websocket-connection'
+import {
+  websocketConnectingQuietly,
+  websocketStateAuthoritative,
+} from '@/utils/websocket-connection'
 
 const $q = useQuasar()
 const route = useRoute()

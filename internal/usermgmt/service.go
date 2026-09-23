@@ -332,13 +332,9 @@ func (s *Service) Delete(input DeleteInput) error {
 	return nil
 }
 
-// RevokeAllSessions deletes every session for the user. Used after password
-// changes, superuser demotion, and explicit logout-all-devices requests.
-func (s *Service) RevokeAllSessions(userID string) error {
-	return s.revokeSessions(userID, ``)
-}
-
-// revokeSessions deletes every session for the user except keepSessionID.
+// revokeSessions deletes every session for the user except keepSessionID; an
+// empty keepSessionID revokes them all. Used after password changes and
+// superuser demotion.
 func (s *Service) revokeSessions(userID string, keepSessionID string) error {
 	trimmedID := strings.TrimSpace(userID)
 	if trimmedID == "" {
