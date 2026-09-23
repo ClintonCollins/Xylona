@@ -6,16 +6,23 @@ import { GameServerMetricsSchema } from '@/proto/websocket_pb'
 import {
   calculateMetricCapacity,
   deriveMetricsViewState,
+  deriveServerHealth,
   getMetricsRangeRequest,
   getMetricsSubscriptionTransition,
   hasCompleteVolumeCapacity,
+  latestQuerySample,
   LatestRequestGuard,
   metricsCollectionStatus,
   mergeMetricHistoryWithLiveTail,
   summarizeMetric,
   type MetricSample,
 } from './game-server-metrics'
-import { normalizeLiveMetricPoint, normalizeMetricPoint } from './useGameServerMetrics'
+import { formatMetricAxisTime } from './metrics-format'
+import {
+  lifecycleEventText,
+  normalizeLiveMetricPoint,
+  normalizeMetricPoint,
+} from './useGameServerMetrics'
 
 function sample(overrides: Partial<MetricSample> = {}): MetricSample {
   return {
@@ -529,5 +536,102 @@ describe('game server metrics helpers', () => {
     ])
     expect(refreshed[1]?.cpuAverage).toBe(38)
     expect(refreshed[2]?.cpuAverage).toBe(44)
+  })
+})
+
+describe('memory health against the Java heap limit', () => {
+  it.each([
+    { heapRatio: 1.31, level: 'ok', label: 'Nominal' },
+    { heapRatio: 1.5, level: 'warn', label: '150% of heap limit' },
+    { heapRatio: 2.1, level: 'danger', label: '210% of heap limit' },
+  ])('rates resident memory at $heapRatio x the heap as $level', ({ heapRatio, level, label }) => {
+    const capacity = calculateMetricCapacity({
+      processRssBytes: 1000 * heapRatio,
+      configuredTargetBytes: 1000,
+      nodeUsedBytes: null,
+      nodeTotalBytes: null,
+    })
+    const health = deriveServerHealth({ latestSample: null, querySample: null, capacity })
+    expect(health.memory).toEqual({ level, label })
+  })
+})
+
+describe('latestQuerySample', () => {
+  const liveWithoutQuery = sample({
+    timestampMs: 1_030_000,
+    source: 'live',
+    querySupported: null,
+    querySuccess: null,
+    queryCheckedAtMs: null,
+  })
+
+  it('skips live samples that carry no query fields', () => {
+    const recorded = sample({ querySuccess: false })
+    expect(latestQuerySample([recorded, liveWithoutQuery], 1_030_000)).toBe(recorded)
+  })
+
+  it('drops a query result older than three collection intervals', () => {
+    const recorded = sample()
+    expect(latestQuerySample([recorded, liveWithoutQuery], 1_000_000 + 3 * 60_000 + 1)).toBeNull()
+  })
+
+  it('keeps query health failing while live samples arrive', () => {
+    const querySample = latestQuerySample(
+      [sample({ querySuccess: false }), liveWithoutQuery],
+      1_030_000,
+    )
+    const capacity = calculateMetricCapacity({
+      processRssBytes: null,
+      configuredTargetBytes: null,
+      nodeUsedBytes: null,
+      nodeTotalBytes: null,
+    })
+    const health = deriveServerHealth({ latestSample: liveWithoutQuery, querySample, capacity })
+    expect(health.query).toEqual({ level: 'warn', label: 'Query failing' })
+  })
+})
+
+describe('lifecycleEventText', () => {
+  it('reads statuses as sentences and shows Windows exit statuses in hex', () => {
+    expect(
+      lifecycleEventText({
+        status: 'OFFLINE',
+        previousStatus: 'ONLINE',
+        intentionalStop: true,
+        exitCode: -1073741510,
+      }),
+    ).toEqual({
+      title: 'Server went offline',
+      detail: 'Online → Offline · intentional · exit 0xC000013A',
+    })
+    expect(
+      lifecycleEventText({
+        status: 'ONLINE',
+        previousStatus: '',
+        intentionalStop: false,
+        exitCode: undefined,
+      }),
+    ).toEqual({ title: 'Server came online', detail: 'Online' })
+    expect(
+      lifecycleEventText({
+        status: 'OFFLINE',
+        previousStatus: '',
+        intentionalStop: false,
+        exitCode: 1,
+      }).detail,
+    ).toBe('Offline · exit 1')
+  })
+})
+
+describe('formatMetricAxisTime', () => {
+  it('picks the label format from the data span, not the selected range', () => {
+    const timestamp = Date.UTC(2026, 8, 21, 18, 0)
+    const hourMinute = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+    const weekdayHour = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric' })
+    const monthDay = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+    const day = 24 * 60 * 60 * 1000
+    expect(formatMetricAxisTime(timestamp, 2 * 60 * 60 * 1000)).toBe(hourMinute.format(timestamp))
+    expect(formatMetricAxisTime(timestamp, 2 * day)).toBe(weekdayHour.format(timestamp))
+    expect(formatMetricAxisTime(timestamp, 8 * day)).toBe(monthDay.format(timestamp))
   })
 })

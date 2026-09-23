@@ -37,7 +37,7 @@
         v-if="showMemory"
         class="readonly-provisioning-item"
         data-testid="readonly-max-memory">
-        <span class="readonly-provisioning-label">Max Memory</span>
+        <span class="readonly-provisioning-label">Java heap limit</span>
         <span class="readonly-provisioning-value">{{ memory }}</span>
       </article>
     </div>

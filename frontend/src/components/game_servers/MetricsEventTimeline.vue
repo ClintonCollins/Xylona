@@ -5,7 +5,9 @@
         <h2 id="metrics-timeline-title">Lifecycle & operations</h2>
         <p>Restarts, status changes, backups, and updates recorded in this range.</p>
       </div>
-      <span class="font-mono">{{ events.length }} events</span>
+      <span class="font-mono"
+        >{{ events.length }} {{ events.length === 1 ? 'event' : 'events' }}</span
+      >
     </header>
 
     <ol v-if="events.length > 0" class="metrics-timeline__list">

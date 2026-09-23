@@ -127,15 +127,15 @@ export function validateMaxMemory(value: number | string | bigint | null | undef
   const numericValue = toFiniteNumber(value)
 
   if (numericValue === undefined) {
-    return 'Max Memory MB is required'
+    return 'Java heap limit is required'
   }
 
   if (!Number.isInteger(numericValue)) {
-    return 'Max Memory MB must be a whole number'
+    return 'Java heap limit must be a whole number'
   }
 
   if (numericValue < 128) {
-    return 'Max Memory MB must be at least 128'
+    return 'Java heap limit must be at least 128 MB'
   }
 
   return true
@@ -150,10 +150,10 @@ export function describeMinecraftMemoryState(
   }
 
   switch (validationResult) {
-    case 'Max Memory MB is required':
-      return 'Set a RAM limit for this Minecraft server before saving changes.'
-    case 'Max Memory MB must be a whole number':
-      return 'Use a whole number for the Minecraft RAM limit.'
+    case 'Java heap limit is required':
+      return 'Set a Java heap limit for this Minecraft server before saving changes.'
+    case 'Java heap limit must be a whole number':
+      return 'Use a whole number of MB for the Java heap limit.'
     default:
       return 'Minecraft servers need at least 128 MB before you can save changes.'
   }

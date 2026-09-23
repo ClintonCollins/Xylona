@@ -260,13 +260,43 @@ export interface ServerHealth {
 
 const cpuWarnPercent = 85
 const cpuDangerPercent = 95
-const memoryWarnRatio = 0.85
-const memoryDangerRatio = 0.95
 const volumeWarnPercent = 80
 const volumeDangerPercent = 92
 
+// max_memory_mb only reaches a game as the JVM's -Xms/-Xmx heap size (it is never
+// enforced as a process limit), and a JVM's resident memory always sits above its
+// heap: metaspace, thread stacks and direct buffers live outside it. RSS over the
+// heap limit is normal, so only well above it is worth a warning.
+export const heapWarnRatio = 1.5
+export const heapDangerRatio = 2
+
+export function heapMemoryLevel(ratio: number | null): MetricHealthLevel {
+  if (ratio === null || !Number.isFinite(ratio)) return 'unknown'
+  if (ratio >= heapDangerRatio) return 'danger'
+  if (ratio >= heapWarnRatio) return 'warn'
+  return 'ok'
+}
+
+// Live websocket samples carry no query fields, so query health and the player
+// caption come from the newest sample that does. The age limit keeps an old success
+// from standing in once queries stop being recorded.
+export function latestQuerySample(
+  samples: readonly MetricSample[],
+  nowMs = Date.now(),
+): MetricSample | null {
+  for (let index = samples.length - 1; index >= 0; index -= 1) {
+    const sample = samples[index]
+    if (!sample || (sample.querySupported === null && sample.querySuccess === null)) continue
+    const maxAgeMs = Math.max(sample.granularitySeconds * 3 * 1000, 2 * 60 * 1000)
+    const checkedAtMs = sample.queryCheckedAtMs ?? sample.timestampMs
+    return nowMs - checkedAtMs <= maxAgeMs ? sample : null
+  }
+  return null
+}
+
 export function deriveServerHealth(input: {
   latestSample: MetricSample | null
+  querySample: MetricSample | null
   capacity: MetricCapacity
 }): ServerHealth {
   const latest = input.latestSample
@@ -282,12 +312,13 @@ export function deriveServerHealth(input: {
   let memory: MetricHealth = { level: 'unknown', label: 'Unknown' }
   const targetRatio = input.capacity.configuredTargetRatio
   if (targetRatio !== null) {
-    const targetPercent = `${Math.round(targetRatio * 100)}% of target`
-    if (targetRatio >= memoryDangerRatio) memory = { level: 'danger', label: targetPercent }
-    else if (targetRatio >= memoryWarnRatio) memory = { level: 'warn', label: targetPercent }
-    else memory = { level: 'ok', label: 'Nominal' }
+    const level = heapMemoryLevel(targetRatio)
+    memory = {
+      level,
+      label: level === 'ok' ? 'Nominal' : `${Math.round(targetRatio * 100)}% of heap limit`,
+    }
   } else if (input.capacity.processRssBytes !== null) {
-    memory = { level: 'ok', label: 'No target set' }
+    memory = { level: 'ok', label: 'No limit set' }
   }
 
   let volume: MetricHealth = { level: 'unknown', label: 'Unavailable' }
@@ -300,9 +331,10 @@ export function deriveServerHealth(input: {
   }
 
   let query: MetricHealth = { level: 'unknown', label: 'Unknown' }
-  if (latest?.querySupported === false) query = { level: 'unknown', label: 'Not supported' }
-  else if (latest?.querySuccess === false) query = { level: 'warn', label: 'Query failing' }
-  else if (latest?.querySuccess === true) query = { level: 'ok', label: 'Healthy' }
+  const querySample = input.querySample
+  if (querySample?.querySupported === false) query = { level: 'unknown', label: 'Not supported' }
+  else if (querySample?.querySuccess === false) query = { level: 'warn', label: 'Query failing' }
+  else if (querySample?.querySuccess === true) query = { level: 'ok', label: 'Healthy' }
 
   const attention: ServerHealthAttentionItem[] = []
   if (cpu.level === 'warn' || cpu.level === 'danger') {

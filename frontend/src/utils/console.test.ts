@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseConsole } from './console'
+import { hidePalworldPollLines, parseConsole } from './console'
 
 describe('parseConsole', () => {
   it.each([
@@ -255,5 +255,24 @@ describe('parseConsole', () => {
     },
   ])('$name', ({ game, input, expected }) => {
     expect(parseConsole(game, input)).toBe(expected)
+  })
+})
+
+describe('hidePalworldPollLines', () => {
+  const poll = '[2026-09-22 18:21:14] [LOG] REST accessed endpoint /v1/api/metrics OK\n'
+
+  it('drops Xylona poll lines and the blank line after each', () => {
+    const input = `Game version is v0.6.0\n${poll}\n${poll}\nREST accessed endpoint /v1/api/kick OK\n`
+    expect(hidePalworldPollLines(input)).toEqual({
+      text: 'Game version is v0.6.0\nREST accessed endpoint /v1/api/kick OK\n',
+      afterPollLine: false,
+    })
+  })
+
+  it('carries the blank-line skip across streamed chunks', () => {
+    const first = hidePalworldPollLines(poll)
+    expect(first).toEqual({ text: '', afterPollLine: true })
+    expect(hidePalworldPollLines('\n', first.afterPollLine).text).toBe('')
+    expect(hidePalworldPollLines('\n', false).text).toBe('\n')
   })
 })

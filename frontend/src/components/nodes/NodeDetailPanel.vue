@@ -12,7 +12,9 @@
       <div class="node-strip__item">
         <span>Mode</span>
         <strong>{{ node.local ? 'Controller host' : 'Remote node' }}</strong>
-        <small class="font-mono">{{ node.local ? 'in-process' : node.baseUrl || 'no address' }}</small>
+        <small class="font-mono">{{
+          node.local ? 'in-process' : node.baseUrl || 'no address'
+        }}</small>
       </div>
       <div class="node-strip__item">
         <span>Agent</span>
@@ -24,7 +26,7 @@
         <strong class="font-mono">
           {{ snapshot ? `${snapshot.runningGameServerCount} / ${snapshot.gameServerCount}` : '—' }}
         </strong>
-        <small>{{ snapshot ? `running · ${snapshot.userCount} users` : 'no snapshot yet' }}</small>
+        <small>{{ serversDetail }}</small>
       </div>
       <div class="node-strip__item">
         <span>Live metrics</span>
@@ -40,6 +42,7 @@
       <q-btn-toggle
         v-model="selectedRange"
         aria-label="Select history time range"
+        class="xy-segmented-toggle"
         :options="rangeOptions"
         dense
         no-caps
@@ -58,13 +61,12 @@
       <metric-time-series-chart
         title="CPU"
         description="Host CPU utilisation."
-        empty-label="No CPU samples in this range."
+        :empty-label="historyError ? historyFailedLabel : 'No CPU samples in this range.'"
         :bands="cpuBands"
         :format-value="formatPercent"
         :health="cpuHealth"
         :lane-caption="cpuCaption"
         :lane-height="96"
-        :range-duration-ms="currentRange.durationMs"
         :samples="samples"
         :series="cpuSeries"
         :summary="cpuSummary"
@@ -73,13 +75,12 @@
       <metric-time-series-chart
         title="Memory"
         description="Host memory in use."
-        empty-label="No memory samples in this range."
+        :empty-label="historyError ? historyFailedLabel : 'No memory samples in this range.'"
         :bands="memoryBands"
         :format-value="formatBytes"
         :health="memoryHealth"
         :lane-caption="memoryCaption"
         :lane-height="96"
-        :range-duration-ms="currentRange.durationMs"
         :samples="samples"
         :series="memorySeries"
         :summary="memorySummary"
@@ -88,13 +89,13 @@
       <metric-time-series-chart
         title="Disk"
         description="Used space on the node's install volume."
-        empty-label="No disk samples in this range."
+        :empty-label="historyError ? historyFailedLabel : 'No disk samples in this range.'"
         :bands="diskBands"
         :format-value="formatBytes"
         :health="diskHealth"
         :lane-caption="diskCaption"
         :lane-height="96"
-        :range-duration-ms="currentRange.durationMs"
+        :lane-note="diskProjection"
         :samples="samples"
         :series="diskSeries"
         :summary="diskSummary"
@@ -103,11 +104,10 @@
       <metric-time-series-chart
         title="Servers"
         description="Running game servers against the total assigned to this node."
-        empty-label="No server counts in this range."
+        :empty-label="historyError ? historyFailedLabel : 'No server counts in this range.'"
         :format-value="formatWhole"
         lane-caption="running / assigned"
         :lane-height="64"
-        :range-duration-ms="currentRange.durationMs"
         :samples="samples"
         :series="serverSeries"
         :summary="serverSummary"
@@ -127,7 +127,8 @@
         :loading="serversLoading"
         :rows="nodeServers"
         :rows-per-page-options="[0]"
-        row-key="id">
+        row-key="id"
+        :grid="$q.screen.lt.sm">
         <template #body-cell-name="cell">
           <q-td :props="cell">
             <router-link class="table-link" :to="`/game-servers/${cell.row.id}`">
@@ -135,6 +136,24 @@
             </router-link>
             <span class="text-caption text-xy-muted q-ml-sm">{{ cell.row.gameName }}</span>
           </q-td>
+        </template>
+        <!-- Phones get one compact row per server instead of a sideways-scrolling table. -->
+        <template #item="item">
+          <div class="node-server-item col-12">
+            <div class="node-server-item__head">
+              <router-link class="table-link" :to="`/game-servers/${item.row.id}`">
+                {{ item.row.name }}
+              </router-link>
+              <status-badge :status="serverStatus(item.row)" />
+            </div>
+            <div class="node-server-item__meta">
+              <span>{{ item.row.gameName }}</span>
+              <span class="font-mono">
+                CPU {{ serverCpu(item.row) }} · Mem {{ serverMemory(item.row) }} · Up
+                {{ serverUptime(item.row) }}
+              </span>
+            </div>
+          </div>
         </template>
         <template #body-cell-status="cell">
           <q-td :props="cell">
@@ -204,16 +223,11 @@
 
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import { ConnectError } from '@connectrpc/connect'
 import { create } from '@bufbuild/protobuf'
 import { TimestampSchema } from '@bufbuild/protobuf/wkt'
-import {
-  GameServer,
-  Node,
-  NodeResourceSnapshot,
-  NodeSystemInfo,
-  Status,
-} from '@/proto/shared_pb'
+import { GameServer, Node, NodeResourceSnapshot, NodeSystemInfo, Status } from '@/proto/shared_pb'
 import {
   GetNodeMetricsHistoryRequestSchema,
   GetNodeSystemInfoRequestSchema,
@@ -221,6 +235,7 @@ import {
 } from '@/proto/xylona_pb'
 import { AllNodeMetrics, AllServersMetrics, GameServerMetrics } from '@/proto/websocket_pb'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { createServerMetricsSubscriptions } from '@/utils/server-metrics-subscriptions'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import {
   getMetricsRangeOption,
@@ -241,7 +256,15 @@ import MetricTimeSeriesChart, {
   type MetricChartSeries,
 } from '@/components/game_servers/MetricTimeSeriesChart.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { nodeHealthBadge, nodeLastSeenMs, splitNodeVersion } from './node-display'
+import {
+  nodeHealthBadge,
+  nodeLastSeenMs,
+  nodeResourceHealth,
+  nodeResourceThresholds,
+  projectDaysUntilDiskFull,
+  splitNodeVersion,
+  type NodeResource,
+} from './node-display'
 
 interface NodeSample {
   timestampMs: number
@@ -267,9 +290,13 @@ const currentRange = computed(
   () => rangeOptions.find((option) => option.value === selectedRange.value) ?? defaultRange,
 )
 
+const $q = useQuasar()
 const historyLoading = ref(false)
 const historyError = ref('')
+const historyFailedLabel = 'History could not be loaded for this range.'
 const historySamples = ref<NodeSample[]>([])
+// Disk growth is projected from its own week of history, whatever range is shown.
+const diskTrendSamples = ref<NodeSample[]>([])
 const liveTail = ref<NodeSample[]>([])
 const sampleIntervalSeconds = ref(0)
 const historyGuard = new LatestRequestGuard()
@@ -282,6 +309,7 @@ let clockTimer: ReturnType<typeof setInterval> | null = null
 
 const allServers = ref<GameServer[]>([])
 const serversLoading = ref(false)
+const metricsSubscriptions = createServerMetricsSubscriptions()
 const serverMetrics = ref<Map<string, GameServerMetrics>>(new Map())
 const serverStatuses = ref<Map<string, Status>>(new Map())
 
@@ -293,18 +321,33 @@ const version = computed(() =>
 )
 const os = computed(() => currentSystemInfo.value?.os || props.node.os || '')
 
+const serversDetail = computed(() => {
+  const snap = snapshot.value
+  if (!snap) return 'no snapshot yet'
+  return `running · ${snap.userCount} ${snap.userCount === 1 ? 'user' : 'users'}`
+})
+
 const lastSeenLabel = computed(() => {
   const seenMs = nodeLastSeenMs(props.node)
-  if (liveSnapshotAtMs.value !== null) return `seen ${formatMetricAge(liveSnapshotAtMs.value, nowMs.value)}`
+  if (liveSnapshotAtMs.value !== null)
+    return `seen ${formatMetricAge(liveSnapshotAtMs.value, nowMs.value)}`
   return seenMs === null ? 'never seen' : `seen ${formatMetricAge(seenMs, nowMs.value)}`
 })
 
 const liveState = computed(() => {
   if (!websocketStateAuthoritative.value) {
-    return { label: 'Paused', detail: 'reconnecting to controller', className: 'node-strip__live--paused' }
+    return {
+      label: 'Paused',
+      detail: 'reconnecting to controller',
+      className: 'node-strip__live--paused',
+    }
   }
   if (liveSnapshotAtMs.value === null) {
-    return { label: 'Waiting', detail: 'first snapshot pending', className: 'node-strip__live--waiting' }
+    return {
+      label: 'Waiting',
+      detail: 'first snapshot pending',
+      className: 'node-strip__live--waiting',
+    }
   }
   return {
     label: 'Streaming',
@@ -366,7 +409,11 @@ const diskSeries: MetricChartSeries<NodeSample>[] = [
   { label: 'Used', colorToken: '--xy-series-3', value: (sample) => sample.diskUsedBytes },
 ]
 const serverSeries: MetricChartSeries<NodeSample>[] = [
-  { label: 'Running', colorToken: '--xy-series-1', value: (sample) => sample.runningGameServerCount },
+  {
+    label: 'Running',
+    colorToken: '--xy-series-1',
+    value: (sample) => sample.runningGameServerCount,
+  },
   {
     label: 'Assigned',
     colorToken: '--xy-series-neutral',
@@ -380,37 +427,27 @@ const memorySummary = computed(() => summarize((sample) => sample.memoryUsedByte
 const diskSummary = computed(() => summarize((sample) => sample.diskUsedBytes))
 const serverSummary = computed(() => summarize((sample) => sample.runningGameServerCount))
 
-const cpuBands: MetricChartBand[] = [
-  { from: 85, to: 95 },
-  { from: 95, colorToken: '--xy-danger-bg-faint' },
-]
-const memoryBands = computed<MetricChartBand[]>(() =>
-  memoryTotalBytes.value
-    ? [
-        { from: memoryTotalBytes.value * 0.85, to: memoryTotalBytes.value * 0.95 },
-        { from: memoryTotalBytes.value * 0.95, colorToken: '--xy-danger-bg-faint' },
-      ]
-    : [],
-)
-const diskBands = computed<MetricChartBand[]>(() =>
-  diskTotalBytes.value
-    ? [
-        { from: diskTotalBytes.value * 0.8, to: diskTotalBytes.value * 0.92 },
-        { from: diskTotalBytes.value * 0.92, colorToken: '--xy-danger-bg-faint' },
-      ]
-    : [],
-)
-
-function thresholdHealth(percent: number | null, warn: number, danger: number): MetricHealth {
-  if (percent === null || !Number.isFinite(percent)) return { level: 'unknown', label: 'No data' }
-  if (percent >= danger) return { level: 'danger', label: 'Critical' }
-  if (percent >= warn) return { level: 'warn', label: 'High' }
-  return { level: 'ok', label: 'Nominal' }
+function thresholdBands(resource: NodeResource, total: number | null): MetricChartBand[] {
+  if (!total) return []
+  const { warn, danger } = nodeResourceThresholds[resource]
+  return [
+    { from: (total * warn) / 100, to: (total * danger) / 100 },
+    { from: (total * danger) / 100, colorToken: '--xy-danger-bg-faint' },
+  ]
 }
 
-const cpuHealth = computed(() => thresholdHealth(snapshot.value?.cpuPercent ?? null, 85, 95))
-const memoryHealth = computed(() => thresholdHealth(snapshot.value?.memoryPercent ?? null, 85, 95))
-const diskHealth = computed(() => thresholdHealth(snapshot.value?.diskPercent ?? null, 80, 92))
+const cpuBands = thresholdBands('cpu', 100)
+const memoryBands = computed(() => thresholdBands('memory', memoryTotalBytes.value))
+const diskBands = computed(() => thresholdBands('disk', diskTotalBytes.value))
+
+function resourceHealth(resource: NodeResource, percent: number | undefined): MetricHealth {
+  const { level, label } = nodeResourceHealth(resource, percent)
+  return { level, label }
+}
+
+const cpuHealth = computed(() => resourceHealth('cpu', snapshot.value?.cpuPercent))
+const memoryHealth = computed(() => resourceHealth('memory', snapshot.value?.memoryPercent))
+const diskHealth = computed(() => resourceHealth('disk', snapshot.value?.diskPercent))
 
 const cpuCaption = computed(() => {
   const threads = currentSystemInfo.value?.cpuThreads
@@ -418,24 +455,23 @@ const cpuCaption = computed(() => {
   if (!threads || percent === undefined) return ''
   return `≈ ${((percent / 100) * threads).toFixed(1)} of ${threads} threads`
 })
+function capacityCaption(percent: number | undefined, total: number | null): string {
+  if (!total) return ''
+  const share = percent === undefined ? '' : `${formatMetricPercent(percent, 0)} of `
+  return `${share}${formatMetricBytes(total)}`
+}
+
 const memoryCaption = computed(() =>
-  memoryTotalBytes.value ? `of ${formatMetricBytes(memoryTotalBytes.value)}` : '',
+  capacityCaption(snapshot.value?.memoryPercent, memoryTotalBytes.value),
+)
+const diskCaption = computed(() =>
+  capacityCaption(snapshot.value?.diskPercent, diskTotalBytes.value),
 )
 
-// ponytail: two-point slope over the visible range; a regression is only worth
-// it if operators start acting on the projection rather than reading it.
-const diskCaption = computed(() => {
-  const total = diskTotalBytes.value
-  const first = samples.value.at(0)
-  const last = samples.value.at(-1)
-  if (!total) return ''
-  const base = `of ${formatMetricBytes(total)}`
-  if (!first || !last || last.timestampMs - first.timestampMs < 60 * 60 * 1000) return base
-  const bytesPerMs = (last.diskUsedBytes - first.diskUsedBytes) / (last.timestampMs - first.timestampMs)
-  if (bytesPerMs <= 0) return base
-  const days = (total - last.diskUsedBytes) / bytesPerMs / (24 * 60 * 60 * 1000)
-  if (days > 365) return base
-  return `${base} · full in ~${days < 1 ? '<1' : Math.round(days)} d at this rate`
+const diskProjection = computed(() => {
+  const days = projectDaysUntilDiskFull(diskTrendSamples.value, diskTotalBytes.value)
+  if (days === null) return ''
+  return `Full in ~${days < 1 ? '<1' : Math.round(days)} d at this week's rate`
 })
 
 const intervalLabel = computed(() => {
@@ -474,7 +510,9 @@ function onNodeMetrics(metrics: AllNodeMetrics | undefined) {
   const atMs = snap.recordedAt?.seconds ? Number(snap.recordedAt.seconds) * 1000 : Date.now()
   liveSnapshot.value = snap
   liveSnapshotAtMs.value = atMs
-  const tail = liveTail.value.filter((sample) => sample.timestampMs >= atMs - currentRange.value.durationMs)
+  const tail = liveTail.value.filter(
+    (sample) => sample.timestampMs >= atMs - currentRange.value.durationMs,
+  )
   tail.push(snapshotToSample(snap, atMs))
   liveTail.value = tail
 }
@@ -503,9 +541,14 @@ function serverCpu(server: GameServer): string {
   const metric = serverMetrics.value.get(server.id)
   return metric?.metricsValid && metric.cpuValid ? formatMetricPercent(metric.cpuPercent) : '—'
 }
+function serverMemoryBytes(metric: GameServerMetrics | undefined): number | null {
+  if (!metric?.metricsValid) return null
+  const workingSet = Number(metric.memoryWorkingSetBytes)
+  return workingSet > 0 ? workingSet : Number(metric.memoryBytes)
+}
 function serverMemory(server: GameServer): string {
-  const metric = serverMetrics.value.get(server.id)
-  return metric?.metricsValid ? formatMetricBytes(Number(metric.memoryBytes)) : '—'
+  const bytes = serverMemoryBytes(serverMetrics.value.get(server.id))
+  return bytes === null ? '—' : formatMetricBytes(bytes)
 }
 function serverUptime(server: GameServer): string {
   const metric = serverMetrics.value.get(server.id)
@@ -517,12 +560,65 @@ function serverUptime(server: GameServer): string {
 }
 
 const serverColumns = [
-  { name: 'name', label: 'Server', align: 'left' as const, field: (row: GameServer) => row.name, sortable: true },
-  { name: 'status', label: 'Status', align: 'left' as const, field: (row: GameServer) => serverStatus(row), sortable: true },
-  { name: 'cpu', label: 'CPU', align: 'right' as const, field: (row: GameServer) => serverMetrics.value.get(row.id)?.cpuPercent ?? -1, sortable: true },
-  { name: 'memory', label: 'Memory', align: 'right' as const, field: (row: GameServer) => Number(serverMetrics.value.get(row.id)?.memoryBytes ?? -1), sortable: true },
-  { name: 'uptime', label: 'Uptime', align: 'right' as const, field: (row: GameServer) => Number(serverMetrics.value.get(row.id)?.uptimeSeconds ?? -1), sortable: true },
+  {
+    name: 'name',
+    label: 'Server',
+    align: 'left' as const,
+    field: (row: GameServer) => row.name,
+    sortable: true,
+  },
+  {
+    name: 'status',
+    label: 'Status',
+    align: 'left' as const,
+    field: (row: GameServer) => serverStatus(row),
+    sortable: true,
+  },
+  {
+    name: 'cpu',
+    label: 'CPU',
+    align: 'right' as const,
+    field: (row: GameServer) => serverMetrics.value.get(row.id)?.cpuPercent ?? -1,
+    sortable: true,
+  },
+  {
+    name: 'memory',
+    label: 'Memory',
+    align: 'right' as const,
+    field: (row: GameServer) => serverMemoryBytes(serverMetrics.value.get(row.id)) ?? -1,
+    sortable: true,
+  },
+  {
+    name: 'uptime',
+    label: 'Uptime',
+    align: 'right' as const,
+    field: (row: GameServer) => Number(serverMetrics.value.get(row.id)?.uptimeSeconds ?? -1),
+    sortable: true,
+  },
 ]
+
+async function loadHistory(sinceMs: number, untilMs: number, maxPoints: number) {
+  const resp = await GetXylonaClient().getNodeMetricsHistory(
+    create(GetNodeMetricsHistoryRequestSchema, {
+      nodeId: props.node.id,
+      since: create(TimestampSchema, { seconds: BigInt(Math.floor(sinceMs / 1000)) }),
+      until: create(TimestampSchema, { seconds: BigInt(Math.floor(untilMs / 1000)) }),
+      maxPoints,
+    }),
+  )
+  const points: NodeSample[] = resp.points.map((point) => ({
+    timestampMs: Number(point.timestamp?.seconds ?? 0n) * 1000,
+    cpuPercent: point.cpuPercent,
+    memoryPercent: point.memoryPercent,
+    memoryUsedBytes: Number(point.memoryUsedBytes),
+    diskPercent: point.diskPercent,
+    diskUsedBytes: Number(point.diskUsedBytes),
+    // Rows recorded before counts were stored come back as 0/0; treat that as unknown.
+    gameServerCount: point.gameServerCount > 0 ? point.gameServerCount : null,
+    runningGameServerCount: point.gameServerCount > 0 ? point.runningGameServerCount : null,
+  }))
+  return { points, sampleIntervalSeconds: resp.sampleIntervalSeconds }
+}
 
 async function fetchHistory() {
   const sequence = historyGuard.begin()
@@ -530,32 +626,28 @@ async function fetchHistory() {
   historyError.value = ''
   try {
     const range = getMetricsRangeRequest(selectedRange.value)
-    const resp = await GetXylonaClient().getNodeMetricsHistory(
-      create(GetNodeMetricsHistoryRequestSchema, {
-        nodeId: props.node.id,
-        since: create(TimestampSchema, { seconds: BigInt(Math.floor(range.sinceMs / 1000)) }),
-        until: create(TimestampSchema, { seconds: BigInt(Math.floor(range.untilMs / 1000)) }),
-        maxPoints: range.maxPoints,
-      }),
-    )
+    const history = await loadHistory(range.sinceMs, range.untilMs, range.maxPoints)
     if (!historyGuard.isCurrent(sequence)) return
-    historySamples.value = resp.points.map((point) => ({
-      timestampMs: Number(point.timestamp?.seconds ?? 0n) * 1000,
-      cpuPercent: point.cpuPercent,
-      memoryPercent: point.memoryPercent,
-      memoryUsedBytes: Number(point.memoryUsedBytes),
-      diskPercent: point.diskPercent,
-      diskUsedBytes: Number(point.diskUsedBytes),
-      // Rows recorded before counts were stored come back as 0/0; treat that as unknown.
-      gameServerCount: point.gameServerCount > 0 ? point.gameServerCount : null,
-      runningGameServerCount: point.gameServerCount > 0 ? point.runningGameServerCount : null,
-    }))
-    sampleIntervalSeconds.value = resp.sampleIntervalSeconds
+    historySamples.value = history.points
+    sampleIntervalSeconds.value = history.sampleIntervalSeconds
   } catch (err) {
     if (!historyGuard.isCurrent(sequence)) return
+    // Never leave the previous range drawn under the new selection.
+    historySamples.value = []
+    sampleIntervalSeconds.value = 0
     historyError.value = ConnectErrorToString(ConnectError.from(err))
   } finally {
     if (historyGuard.isCurrent(sequence)) historyLoading.value = false
+  }
+}
+
+async function fetchDiskTrend() {
+  const untilMs = Date.now()
+  try {
+    const history = await loadHistory(untilMs - 7 * 24 * 60 * 60 * 1000, untilMs, 168)
+    diskTrendSamples.value = history.points
+  } catch (err) {
+    console.error('Failed to fetch node disk trend:', ConnectError.from(err).message)
   }
 }
 
@@ -585,12 +677,25 @@ async function fetchServers() {
 
 watch(selectedRange, () => void fetchHistory())
 
+// The table's CPU, memory and uptime columns only fill while subscribed to each server.
+function syncServerSubscriptions() {
+  metricsSubscriptions.sync(nodeServers.value.map((server) => server.id))
+}
+watch(nodeServers, syncServerSubscriptions)
+
+function onWebsocketConnected() {
+  metricsSubscriptions.forget()
+  syncServerSubscriptions()
+}
+
 onMounted(async () => {
   XylonaEventBus.on('nodeMetrics', onNodeMetrics)
   XylonaEventBus.on('gameServerMetrics', onServerMetrics)
   XylonaEventBus.on('gameServerStatus', onServerStatus)
+  XylonaEventBus.on('websocketConnected', onWebsocketConnected)
+  XylonaEventBus.on('websocketDisconnected', metricsSubscriptions.forget)
   clockTimer = setInterval(() => (nowMs.value = Date.now()), 5000)
-  await Promise.all([fetchSystemInfo(), fetchHistory(), fetchServers()])
+  await Promise.all([fetchSystemInfo(), fetchHistory(), fetchDiskTrend(), fetchServers()])
 })
 
 onBeforeUnmount(() => {
@@ -598,6 +703,9 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('nodeMetrics', onNodeMetrics)
   XylonaEventBus.off('gameServerMetrics', onServerMetrics)
   XylonaEventBus.off('gameServerStatus', onServerStatus)
+  XylonaEventBus.off('websocketConnected', onWebsocketConnected)
+  XylonaEventBus.off('websocketDisconnected', metricsSubscriptions.forget)
+  metricsSubscriptions.clear()
   if (clockTimer) clearInterval(clockTimer)
 })
 </script>
@@ -621,6 +729,7 @@ onBeforeUnmount(() => {
   gap: var(--xy-space-2xs);
   min-width: 0;
   padding: var(--xy-space-base) var(--xy-space-md);
+  color: var(--xy-text-primary);
 }
 
 .node-strip__item + .node-strip__item {
@@ -648,7 +757,6 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--xy-space-xs);
   overflow: hidden;
-  color: var(--xy-text-primary);
   font-size: var(--xy-font-size-base);
   font-weight: 600;
   text-overflow: ellipsis;
@@ -739,6 +847,30 @@ onBeforeUnmount(() => {
   letter-spacing: 0.02em;
 }
 
+.node-server-item {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  border-bottom: 1px solid var(--xy-border);
+}
+
+.node-server-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm);
+  min-width: 0;
+}
+
+.node-server-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--xy-space-2xs) var(--xy-space-sm);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+}
+
 .node-section__empty {
   padding: var(--xy-space-md);
   color: var(--xy-text-muted);
@@ -817,16 +949,6 @@ onBeforeUnmount(() => {
 
   .node-strip__item:last-child:nth-child(odd) {
     grid-column: 1 / -1;
-  }
-
-  .node-lanes {
-    --metric-lane-gutter: 148px;
-  }
-
-  /* On a phone the number is the message; the min/max line and thread caption crowd it out. */
-  .node-lanes :deep(.metric-lane__aggregate),
-  .node-lanes :deep(.metric-lane__value small) {
-    display: none;
   }
 
   .node-system {

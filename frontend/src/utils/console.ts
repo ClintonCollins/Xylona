@@ -4,7 +4,6 @@ import { StringToColor } from '@/utils/shared'
 // exec()/test() call against a stateful regex must reset lastIndex first.
 const reURIMatch =
   /(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#/%=~_|$?!:,.]*\)|[A-Z0-9+&@#/%=~_|$])/gim
-const reServerStop = /Server stopped.+$/gim
 const reExitStatus = /^exit status [1-9]|^exit status 0.+$/gim
 const reInfo = /^INFO|INF/gm
 const reWarn = /^WARNING|WARN|WRN/gm
@@ -98,6 +97,31 @@ type MinecraftPlayer = {
 
 const minecraftPlayerMap: Map<string, MinecraftPlayer> = new Map<string, MinecraftPlayer>()
 
+// Palworld logs every REST call, including the status and live-map polls Xylona itself
+// makes every few seconds. Left in, they bury the server's own output and push startup
+// lines out of the console, so they are dropped along with the blank line Palworld
+// prints after each one. Operator actions (kick, ban, announce, ...) still show.
+const rePalworldXylonaPoll =
+  /REST accessed endpoint \/v1\/api\/(?:info|metrics|players|game-data) OK\s*$/i
+const reConsoleRawLine = /[^\n]*\n|[^\n]+/g
+
+export function hidePalworldPollLines(
+  raw: string,
+  afterPollLine = false,
+): { text: string; afterPollLine: boolean } {
+  let text = ''
+  for (const line of raw.match(reConsoleRawLine) ?? []) {
+    if (rePalworldXylonaPoll.test(line)) {
+      afterPollLine = true
+      continue
+    }
+    if (afterPollLine && line.trim() === '') continue
+    afterPollLine = false
+    text += line
+  }
+  return { text, afterPollLine }
+}
+
 function execRegex(regex: RegExp, data: string): RegExpExecArray | null {
   regex.lastIndex = 0
   return regex.exec(data)
@@ -107,7 +131,6 @@ export function parseConsole(game: string, data: string): string {
   data = data.replaceAll(reANSIEscape, '')
   data = data.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
   data = parseSteamCMDConsole(data)
-  data = data.replace(reServerStop, "<span class='text-red-5'>$&</span>")
   data = data.replace(reExitStatus, "<span class='text-red-5'>$&</span>")
   switch (game.toLowerCase()) {
     case 'minecraft':

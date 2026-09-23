@@ -106,7 +106,7 @@ const validationParityFixture: ValidationParityFixture = {
     {
       name: 'rejects limits below the minimum',
       value: 64,
-      expected: 'Max Memory MB must be at least 128',
+      expected: 'Java heap limit must be at least 128 MB',
     },
     {
       name: 'accepts a valid memory limit',
@@ -218,11 +218,11 @@ describe('validatePlayerCountAtMost', () => {
 
 describe('validateMaxMemory', () => {
   it('requires a value', () => {
-    expect(validateMaxMemory(undefined)).toBe('Max Memory MB is required')
+    expect(validateMaxMemory(undefined)).toBe('Java heap limit is required')
   })
 
   it('rejects values below the minimum', () => {
-    expect(validateMaxMemory(64)).toBe('Max Memory MB must be at least 128')
+    expect(validateMaxMemory(64)).toBe('Java heap limit must be at least 128 MB')
   })
 
   it('accepts valid memory limits', () => {
@@ -233,13 +233,13 @@ describe('validateMaxMemory', () => {
 describe('describeMinecraftMemoryState', () => {
   it('explains when the memory limit is missing', () => {
     expect(describeMinecraftMemoryState(undefined)).toBe(
-      'Set a RAM limit for this Minecraft server before saving changes.',
+      'Set a Java heap limit for this Minecraft server before saving changes.',
     )
   })
 
   it('explains when the memory limit is not a whole number', () => {
     expect(describeMinecraftMemoryState(512.5)).toBe(
-      'Use a whole number for the Minecraft RAM limit.',
+      'Use a whole number of MB for the Java heap limit.',
     )
   })
 
