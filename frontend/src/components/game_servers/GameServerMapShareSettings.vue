@@ -11,6 +11,7 @@ import {
   UpdateGameServerMapShareSettingsRequestSchema,
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 
 const props = defineProps<{ gameServerId: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -43,6 +44,15 @@ const publicURL = computed(() =>
   settings.value ? `${window.location.origin}${settings.value.publicPath}` : '',
 )
 const savedLinkEnabled = computed(() => settings.value?.enabled === true)
+const { confirmDiscard } = useUnsavedChangesGuard(dirty)
+
+async function requestClose(): Promise<void> {
+  if (await confirmDiscard('Your public map link changes have not been saved. Discard them?')) {
+    emit('close')
+  }
+}
+
+defineExpose({ requestClose })
 
 function applySettings(next: GameServerMapShareSettings): void {
   settings.value = next
@@ -125,7 +135,7 @@ onMounted(loadSettings)
         flat
         icon="close"
         round
-        @click="emit('close')" />
+        @click="requestClose" />
     </q-card-section>
     <q-separator />
 

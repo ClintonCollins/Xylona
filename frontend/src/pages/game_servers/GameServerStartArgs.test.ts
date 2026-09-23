@@ -40,6 +40,8 @@ const mocks = vi.hoisted(() => {
   return {
     eventBus,
     superUser: false,
+    dialog: vi.fn(),
+    leaveGuard: undefined as undefined | (() => boolean | Promise<boolean>),
     getGameServer: vi.fn(),
     listNodes: vi.fn(),
     notify: vi.fn(),
@@ -53,7 +55,7 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
-    useQuasar: () => ({ notify: mocks.notify }),
+    useQuasar: () => ({ dialog: mocks.dialog, notify: mocks.notify }),
   }
 })
 
@@ -67,6 +69,9 @@ vi.mock('@/api/notifications', () => ({
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { id: 'server-1' } }),
   useRouter: () => ({ replace: vi.fn() }),
+  onBeforeRouteLeave: (guard: () => boolean | Promise<boolean>) => {
+    mocks.leaveGuard = guard
+  },
 }))
 
 vi.mock('@/stores/xylona', () => ({
@@ -128,6 +133,37 @@ describe('GameServerStartArgs', () => {
     mocks.startGameServer.mockReset()
     mocks.stopGameServer.mockReset()
     mocks.updateGameServerStartArgs.mockReset()
+    mocks.dialog.mockReset()
+  })
+
+  it('asks before leaving with an unsaved draft', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.OFFLINE) }),
+    )
+    mocks.dialog.mockReturnValue({
+      onOk() {
+        return this
+      },
+      onCancel(handler: () => void) {
+        handler()
+        return this
+      },
+      onDismiss() {
+        return this
+      },
+    })
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    expect(await mocks.leaveGuard?.()).toBe(true)
+
+    wrapper
+      .getComponent({ name: 'StartArgsEditor' })
+      .vm.$emit('update:base-command-override', './draft.sh')
+    await flushPromises()
+
+    expect(await mocks.leaveGuard?.()).toBe(false)
+    expect(mocks.dialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Unsaved Changes' }))
   })
 
   it('saves, stops, waits for offline, and starts through supported RPCs', async () => {

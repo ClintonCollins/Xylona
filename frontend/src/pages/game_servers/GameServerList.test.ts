@@ -152,6 +152,16 @@ const QBtnStub = defineComponent({
   template: '<button>{{ label }}</button>',
 })
 
+const statusPanelRequestClose = vi.fn()
+const StatusPanelStub = defineComponent({
+  name: 'StatusPanelStub',
+  emits: ['close'],
+  setup(_props, { expose }) {
+    expose({ requestClose: statusPanelRequestClose })
+  },
+  template: '<aside data-test="status-panel" />',
+})
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
@@ -327,11 +337,30 @@ describe('GameServerList', () => {
           'router-link': { template: '<a><slot /></a>' },
           'delete-game-server-dialog': true,
           StatusBadge: true,
+          GameServerStatusPageSettingsPanel: StatusPanelStub,
           'q-btn': QBtnStub,
         },
       },
     })
   }
+
+  it('closes the public status page panel through its discard check', async () => {
+    statusPanelRequestClose.mockReset()
+    const wrapper = mountList(false)
+    await flushPromises()
+    const toggle = () => {
+      const button = wrapper.findAll('button').find((b) => b.text() === 'Public status page')
+      if (!button) throw new Error('missing Public status page button')
+      return button.trigger('click')
+    }
+
+    await toggle()
+    expect(wrapper.find('[data-test="status-panel"]').exists()).toBe(true)
+
+    await toggle()
+    expect(statusPanelRequestClose).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="status-panel"]').exists()).toBe(true)
+  })
 
   it.each(['item', 'body-cell-actions'] as const)(
     'renders lifecycle controls in order and starts the server from the %s layout',

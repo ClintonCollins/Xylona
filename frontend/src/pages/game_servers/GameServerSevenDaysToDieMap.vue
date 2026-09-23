@@ -41,6 +41,15 @@ const canManage = ref(false)
 const canConfigure = ref(false)
 const permissionsLoaded = ref(false)
 const shareOpen = ref(false)
+const shareSettings = ref<InstanceType<typeof GameServerMapShareSettings> | null>(null)
+
+async function onShareDialogToggle(open: boolean) {
+  if (open || !shareSettings.value) {
+    shareOpen.value = open
+    return
+  }
+  await shareSettings.value.requestClose()
+}
 const currentStatus = shallowRef<SevenDaysToDieWebAPIStatus | null>(null)
 const lastAvailableStatus = shallowRef<SevenDaysToDieWebAPIStatus | null>(null)
 const statusLoading = ref(true)
@@ -361,8 +370,13 @@ onBeforeUnmount(() => {
       :status-presentation="statusPresentation"
       :view="mapView" />
 
-    <q-dialog v-model="shareOpen">
-      <game-server-map-share-settings :game-server-id="gameServerID" @close="shareOpen = false" />
+    <!-- Backdrop clicks and Esc ask the settings first so unsaved edits get the discard prompt.
+         Route changes are left to the settings' own leave guard, so it never asks twice. -->
+    <q-dialog :model-value="shareOpen" no-route-dismiss @update:model-value="onShareDialogToggle">
+      <game-server-map-share-settings
+        ref="shareSettings"
+        :game-server-id="gameServerID"
+        @close="shareOpen = false" />
     </q-dialog>
   </div>
 </template>

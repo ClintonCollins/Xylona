@@ -142,6 +142,7 @@ import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/s
 import { resolveStartArgsPlatform } from './start-args-platform'
 import { notifySuccess } from '@/api/notifications'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -302,6 +303,7 @@ const resolvedTokenCount = computed(() =>
 )
 
 const isDirty = computed(() => draftChangeCount.value > 0)
+useUnsavedChangesGuard(isDirty)
 
 const platformWarning = computed(() => {
   if (selectedPlatform.value === null) {
