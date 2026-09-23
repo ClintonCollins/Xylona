@@ -386,6 +386,9 @@ func TestListGameServerOperations(t *testing.T) {
 		assertPublicOperationFieldOption(t, setPermission, "command", "saveworld", "")
 		assertPublicOperationFieldOption(t, setPermission, "command", "teleport", "")
 		assertPublicOperationFieldOption(t, setPermission, "command", "version", "")
+		if !response.Msg.GetOnlinePlayersKnown() {
+			t.Fatal("online_players_known = false after a successful player query")
+		}
 		for _, field := range teleport.GetFields() {
 			if field.GetId() != "destination" {
 				continue
@@ -396,6 +399,41 @@ func TestListGameServerOperations(t *testing.T) {
 			return
 		}
 		t.Fatal("teleport destination field was not listed")
+	})
+
+	t.Run("online state stays unknown when the player query does not answer", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			playerData bool
+			players    *node.SevenDaysToDiePlayers
+			errPlayers error
+		}{
+			{name: "player data unsupported", playerData: false, players: &node.SevenDaysToDiePlayers{State: node.SevenDaysToDieWebAPIValueStateAvailable}},
+			{name: "player query failed", playerData: true, errPlayers: errors.New("web api unreachable")},
+			{name: "player query not available", playerData: true, players: &node.SevenDaysToDiePlayers{State: node.SevenDaysToDieWebAPIValueStatePermissionDenied}},
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				fixture, _, client := newPrivateReadGateFixture(t)
+				client.RuntimeCapabilitiesResult.GameOperations = allGameOperationSupport()
+				client.QuerySevenDaysToDieWebAPIStatusResult = &node.SevenDaysToDieWebAPIStatus{
+					ConnectionState: node.SevenDaysToDieWebAPIConnectionStateAvailable,
+					Capabilities:    node.SevenDaysToDieWebAPICapabilities{PlayerData: test.playerData, CommandExecution: true},
+				}
+				client.QuerySevenDaysToDiePlayersResult = test.players
+				client.QuerySevenDaysToDiePlayersErr = test.errPlayers
+				request := connect.NewRequest(&xylona.ListGameServerOperationsRequest{GameServerId: "server-local-1"})
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+				response, errList := fixture.service.ListGameServerOperations(t.Context(), request)
+				if errList != nil {
+					t.Fatalf("ListGameServerOperations() error = %v", errList)
+				}
+				if response.Msg.GetOnlinePlayersKnown() {
+					t.Fatal("online_players_known = true without a live player list")
+				}
+			})
+		}
 	})
 }
 

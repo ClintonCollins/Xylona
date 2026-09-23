@@ -7,6 +7,7 @@ import {
   ExecuteGameServerOperationRequestSchema,
   GameOperationValueSchema,
   GameOperationResultClassification,
+  GameOperationRisk,
   type GameOperationDescriptor,
   type GameOperationResult,
   type ValheimAccessList,
@@ -86,13 +87,12 @@ async function refreshStoredList() {
   await refresh()
   emit('refresh')
 }
-// Banning is the harshest change and removals take access away; the rest grant or restore it.
+// Same rule as the 7 Days to Die workbench's riskButtonClass: routine runs at once, caution opens
+// a review (amber), irreversible is destructive (red). Every stored-access change is caution.
 function actionColor(operation: GameOperationDescriptor) {
-  if (operation.id === 'valheim.access.bans.add') return 'negative'
-  if (operation.id.endsWith('.remove') && operation.id !== 'valheim.access.bans.remove') {
-    return 'warning'
-  }
-  return 'primary'
+  if (operation.risk === GameOperationRisk.ROUTINE) return 'primary'
+  if (operation.risk === GameOperationRisk.IRREVERSIBLE) return 'negative'
+  return 'warning'
 }
 function confirmChange(operation: GameOperationDescriptor) {
   const values = { player: player.value, expected_revision: snapshot.value?.revision ?? '' }

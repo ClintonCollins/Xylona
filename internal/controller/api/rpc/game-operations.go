@@ -122,7 +122,7 @@ func (xs *XylonaService) ListGameServerOperations(
 	var onlinePlayerOptions []*xylona.GameOperationFieldOption
 	if environment.status.Capabilities.PlayerData {
 		var errPlayers error
-		onlinePlayerOptions, errPlayers = gameOperationPlayerOptions(ctx, environment.access)
+		onlinePlayerOptions, response.OnlinePlayersKnown, errPlayers = gameOperationPlayerOptions(ctx, environment.access)
 		if errPlayers != nil {
 			return nil, errPlayers
 		}
@@ -666,10 +666,13 @@ func playerActionOperationResult(operationName string, errAction error) node.Gam
 	}
 }
 
+// gameOperationPlayerOptions returns the online players and whether the game server
+// actually answered; a failed or unavailable query leaves online state unknown rather
+// than reporting everyone offline.
 func gameOperationPlayerOptions(
 	ctx context.Context,
 	access sevenDaysToDiePrivateReadAccess,
-) ([]*xylona.GameOperationFieldOption, error) {
+) ([]*xylona.GameOperationFieldOption, bool, error) {
 	players, errPlayers := access.client.QuerySevenDaysToDiePlayers(ctx, node.SevenDaysToDiePlayersQueryRequest{
 		WorkingDirectory: access.workingDirectory,
 		TokenName:        access.tokenName,
@@ -677,12 +680,13 @@ func gameOperationPlayerOptions(
 	})
 	if errPlayers != nil {
 		if errors.Is(errPlayers, context.Canceled) || errors.Is(errPlayers, context.DeadlineExceeded) {
-			return nil, connect.NewError(contextConnectCode(errPlayers), errPlayers)
+			return nil, false, connect.NewError(contextConnectCode(errPlayers), errPlayers)
 		}
-		return nil, nil
+		log.Warn().Err(errPlayers).Msg("failed to query online players for game operations")
+		return nil, false, nil
 	}
 	if players == nil || players.State != node.SevenDaysToDieWebAPIValueStateAvailable {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	options := make([]*xylona.GameOperationFieldOption, 0, len(players.Players))
@@ -710,7 +714,7 @@ func gameOperationPlayerOptions(
 			Description: strings.Join(identities, " · "),
 		})
 	}
-	return options, nil
+	return options, true, nil
 }
 
 func publicGameOperation(

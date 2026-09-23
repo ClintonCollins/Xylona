@@ -315,12 +315,17 @@ const commonOperations = [
   ]),
 ]
 
-async function mountOperations(operations = commonOperations) {
+function operationsResponse(operations: GameOperationDescriptor[], onlinePlayersKnown = true) {
+  return create(ListGameServerOperationsResponseSchema, {
+    gameServerName: 'Test Server',
+    operations,
+    onlinePlayersKnown,
+  })
+}
+
+async function mountOperations(operations = commonOperations, onlinePlayersKnown = true) {
   mocks.listGameServerOperations.mockResolvedValue(
-    create(ListGameServerOperationsResponseSchema, {
-      gameServerName: 'Test Server',
-      operations,
-    }),
+    operationsResponse(operations, onlinePlayersKnown),
   )
   const wrapper = mount(GameServerOperations, {
     global: {
@@ -552,26 +557,104 @@ describe('GameServerOperations', () => {
     ).not.toHaveProperty('disabled')
   })
 
-  it('does not call a saved player offline without live player data', async () => {
-    mocks.getSevenDaysToDieWebAPIStatus.mockResolvedValue(
-      create(GetSevenDaysToDieWebAPIStatusResponseSchema, {
-        status: create(SevenDaysToDieWebAPIStatusSchema, {}),
-      }),
-    )
+  it('re-checks an offline player and enables in-game actions once they join', async () => {
+    vi.useFakeTimers()
+    try {
+      const kickOperations = (onlinePlayers: string[]) => {
+        const destination = playerIdentityField('destination', 'Destination player')
+        destination.options = destination.options.filter((option) =>
+          onlinePlayers.includes(option.value),
+        )
+        return [
+          moderationOperation('player_moderation.kick', 'Kick player', GameOperationRisk.CAUTION),
+          operation(
+            'player_assistance.teleport_to_player',
+            'Teleport player',
+            GameOperationRisk.CAUTION,
+            [playerIdentityField(), destination],
+          ),
+        ]
+      }
+      const wrapper = await mountOperations(kickOperations(['Steam_PLAYER_1']))
+      await selectPanel(wrapper, 'player_moderation.kick')
+      await wrapper
+        .get<HTMLInputElement>('[data-testid="player-identity"]')
+        .setValue('Steam_PLAYER_2')
+      await flushPromises()
+
+      // Choosing an offline player re-reads the player list at once instead of trusting the load.
+      expect(mocks.listGameServerOperations).toHaveBeenCalledTimes(2)
+      expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Offline')
+      expect(
+        wrapper.get<HTMLButtonElement>('[data-testid="kick-player"]').attributes(),
+      ).toHaveProperty('disabled')
+
+      // The player joins; the next poll sees them and Kick works without a reload.
+      mocks.listGameServerOperations.mockResolvedValue(
+        operationsResponse(kickOperations(['Steam_PLAYER_1', 'Steam_PLAYER_2'])),
+      )
+      await vi.advanceTimersByTimeAsync(30_000)
+      await flushPromises()
+      expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Online')
+      expect(wrapper.text()).not.toContain('This player is offline.')
+      expect(
+        wrapper.get<HTMLButtonElement>('[data-testid="kick-player"]').attributes(),
+      ).not.toHaveProperty('disabled')
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops blocking actions when the player list cannot be re-read', async () => {
     const destination = playerIdentityField('destination', 'Destination player')
     destination.options = []
     const wrapper = await mountOperations([
+      moderationOperation('player_moderation.kick', 'Kick player', GameOperationRisk.CAUTION),
       operation(
         'player_assistance.teleport_to_player',
         'Teleport player',
         GameOperationRisk.CAUTION,
         [playerIdentityField(), destination],
       ),
-      operation('player_assistance.give_experience', 'Give experience', GameOperationRisk.CAUTION, [
-        playerIdentityField(),
-        integerField('experience', 'Experience', '1000', 1000000),
-      ]),
     ])
+    mocks.listGameServerOperations.mockRejectedValue(new Error('offline'))
+    await selectPanel(wrapper, 'player_moderation.kick')
+    await wrapper
+      .get<HTMLInputElement>('[data-testid="player-identity"]')
+      .setValue('Steam_PLAYER_2')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Known player')
+    expect(
+      wrapper.get<HTMLButtonElement>('[data-testid="kick-player"]').attributes(),
+    ).not.toHaveProperty('disabled')
+  })
+
+  it('does not call a saved player offline when the player query did not answer', async () => {
+    const destination = playerIdentityField('destination', 'Destination player')
+    destination.options = []
+    const wrapper = await mountOperations(
+      [
+        operation(
+          'player_assistance.teleport_to_player',
+          'Teleport player',
+          GameOperationRisk.CAUTION,
+          [playerIdentityField(), destination],
+        ),
+        operation(
+          'player_assistance.give_experience',
+          'Give experience',
+          GameOperationRisk.CAUTION,
+          [playerIdentityField(), integerField('experience', 'Experience', '1000', 1000000)],
+        ),
+      ],
+      false,
+    )
+    const labels = wrapper
+      .findAll('#teleport-player-identities option')
+      .map((option) => option.attributes('label'))
+    expect(labels).toEqual(['Player One', 'Player Two'])
     await wrapper
       .get<HTMLInputElement>('[data-testid="player-identity"]')
       .setValue('Steam_PLAYER_2')

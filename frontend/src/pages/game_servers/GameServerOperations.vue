@@ -198,6 +198,7 @@ const defaultWorkbenchState: WorkbenchState = {
 
 const route = useRoute()
 const operations = ref<GameOperationDescriptor[]>([])
+const onlinePlayersKnown = ref(false)
 const gameServerName = ref('')
 const gameID = ref('')
 const isValheim = computed(
@@ -245,6 +246,7 @@ const operationResult = ref<HTMLElement | null>(null)
 const activeTaskSection = ref<HTMLElement | null>(null)
 let worldStatusPollTimer: ReturnType<typeof setInterval> | undefined
 let worldStatusRequestInFlight = false
+let playerOptionsRequestInFlight = false
 
 const gameServerID = computed(() => {
   const id = route.params.id
@@ -375,11 +377,10 @@ const onlinePlayers = computed(
 const onlinePlayerValues = computed(
   () => new Set(onlinePlayers.value.map((player) => player.value)),
 )
-// Who is online comes from the teleport destinations, which the server fills only from live player data.
+// Who is online comes from the teleport destinations, which are the live player list only when
+// the server says its player query answered; otherwise online state is unknown, not "offline".
 const playerOnlineStateKnown = computed(
-  () =>
-    operationByID.value.has('player_assistance.teleport_to_player') &&
-    worldStatus.value?.capabilities?.playerData === true,
+  () => onlinePlayersKnown.value && operationByID.value.has('player_assistance.teleport_to_player'),
 )
 const selectedPlayer = computed(() => {
   const value = playerIdentity.value.trim()
@@ -409,18 +410,26 @@ const selectedPlayer = computed(() => {
 })
 const teleportPlayers = computed(() =>
   knownPlayers.value.map((player) => ({
-    label: onlinePlayerValues.value.has(player.value) ? player.label : `${player.label} (offline)`,
+    label:
+      !playerOnlineStateKnown.value || onlinePlayerValues.value.has(player.value)
+        ? player.label
+        : `${player.label} (offline)`,
     value: player.value,
   })),
 )
 const destinationPlayerIsKnownOffline = computed(() => {
   const destination = destinationPlayerIdentity.value.trim()
   return (
+    playerOnlineStateKnown.value &&
     destination !== '' &&
     knownPlayers.value.some((player) => player.value === destination) &&
     !onlinePlayerValues.value.has(destination)
   )
 })
+// Offline state disables in-game actions, so re-check it instead of trusting the load-time list.
+const playerStateBlocksAction = computed(
+  () => selectedPlayer.value?.offline === true || destinationPlayerIsKnownOffline.value,
+)
 const itemOptions = computed(() => operationCatalogOptions(['player_assistance.give_item'], 'item'))
 const selectedItem = computed(() => {
   const value = itemName.value.trim()
@@ -510,8 +519,15 @@ onMounted(() => {
   void loadLifecycleState().then(() => {
     if (isValheim.value) return
     void loadWorldStatus()
-    worldStatusPollTimer = setInterval(() => void loadWorldStatus(), worldStatusPollMilliseconds)
+    worldStatusPollTimer = setInterval(() => {
+      void loadWorldStatus()
+      if (playerStateBlocksAction.value) void refreshPlayerOptions()
+    }, worldStatusPollMilliseconds)
   })
+})
+
+watch(playerStateBlocksAction, (blocked) => {
+  if (blocked) void refreshPlayerOptions()
 })
 
 watch(
@@ -541,11 +557,7 @@ async function loadOperations() {
   loading.value = operations.value.length === 0
   loadError.value = ''
   try {
-    const response = await GetXylonaClient().listGameServerOperations(
-      create(ListGameServerOperationsRequestSchema, { gameServerId: gameServerID.value }),
-    )
-    gameServerName.value = response.gameServerName
-    operations.value = response.operations
+    await fetchOperations()
     ensureActiveOperation()
     openLinkedOperation()
   } catch {
@@ -553,6 +565,29 @@ async function loadOperations() {
       'The administration controls could not be loaded. Check the server connection and retry.'
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchOperations() {
+  const response = await GetXylonaClient().listGameServerOperations(
+    create(ListGameServerOperationsRequestSchema, { gameServerId: gameServerID.value }),
+  )
+  gameServerName.value = response.gameServerName
+  operations.value = response.operations
+  onlinePlayersKnown.value = response.onlinePlayersKnown
+}
+
+// Re-reads who is online without moving the operator off the panel they are using.
+async function refreshPlayerOptions() {
+  if (playerOptionsRequestInFlight) return
+  playerOptionsRequestInFlight = true
+  try {
+    await fetchOperations()
+  } catch {
+    // Without a fresh list, stop claiming anyone is offline rather than block actions on old data.
+    onlinePlayersKnown.value = false
+  } finally {
+    playerOptionsRequestInFlight = false
   }
 }
 
@@ -1458,13 +1493,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <button
               class="action-button"
               :class="operationButtonClass(activeOperationID)"
-              :data-testid="
-                activeOperationID === 'player_moderation.ban'
-                  ? 'ban-player'
-                  : activeOperationID === 'player_moderation.unban'
-                    ? 'unban-player'
-                    : undefined
-              "
+              :data-testid="`${activeOperationID.replace('player_moderation.', '')}-player`"
               :disabled="operationDisabled(activeOperationID, playerIdentity.trim() !== '')"
               type="button"
               @click="playerOperation(activeOperationID)">

@@ -160,7 +160,7 @@ test('executes direct administration controls by keyboard on mobile through visi
   await expect(page.getByRole('option', { name: /Player One/ })).toBeVisible()
   await playerPicker.fill('EOS_PLAYER_2')
   await expect(page.getByTestId('selected-player')).toContainText('Player Two')
-  // Without teleport destinations there is no live player data, so online state is unknown.
+  // The listing does not report a live player query, so online state is unknown.
   await expect(page.getByTestId('selected-player')).toContainText('Known player')
   const addAdministrator = page.getByTestId('add-administrator')
   await addAdministrator.focus()
