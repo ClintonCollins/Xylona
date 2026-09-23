@@ -79,7 +79,18 @@ func ResolveTokens(tokens []string, vars map[string]string) []string {
 	return resolved
 }
 
+// PlayerLimit is the player count the game runs with: Set Players, or Max
+// Players when Set Players is 0. Max Players is only the ceiling for Set Players.
+func PlayerLimit(gs *models.GameServer) int64 {
+	if gs.SetPlayers > 0 {
+		return gs.SetPlayers
+	}
+	return gs.MaxPlayers
+}
+
 // BuildVarsFromGameServer creates a variable map from a game server instance.
+// MAX_PLAYERS and SET_PLAYERS both resolve to PlayerLimit, so every definition
+// passes the game the limit the server admin chose.
 func BuildVarsFromGameServer(gs *models.GameServer) map[string]string {
 	return map[string]string{
 		"IP":                gs.IP,
@@ -88,13 +99,13 @@ func BuildVarsFromGameServer(gs *models.GameServer) map[string]string {
 		"PORT_PLUS_2":       strconv.FormatInt(gs.Port+2, 10),
 		"QUERY_PORT":        strconv.FormatInt(gs.QueryPort, 10),
 		"QUERY_PORT_PLUS_1": strconv.FormatInt(gs.QueryPort+1, 10),
-		"MAX_PLAYERS":       fmt.Sprintf("%d", gs.MaxPlayers),
+		"MAX_PLAYERS":       strconv.FormatInt(PlayerLimit(gs), 10),
 		"SERVER_NAME":       gs.Name,
 		"INSTALL_DIR":       gs.Directory,
 		"SERVER_ID":         gs.ID,
 		"BACKUP_DIR":        gs.BackupDirectory,
 		"MAX_MEMORY_MB":     fmt.Sprintf("%d", gs.MaxMemoryMB),
-		"SET_PLAYERS":       fmt.Sprintf("%d", gs.SetPlayers),
+		"SET_PLAYERS":       strconv.FormatInt(PlayerLimit(gs), 10),
 		"SERVER_EXECUTABLE": gs.ServerExecutable.GetOr(""),
 	}
 }

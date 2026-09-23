@@ -111,7 +111,7 @@ vi.mock('./useGameServerFormState', async () => {
         ownerRules: [],
         portModel: 25565,
         portRules: [],
-        provisioningCapacity: '32 max / start 0',
+        provisioningCapacity: '32 of 32 players',
         provisioningConnection: '127.0.0.1:25565',
         queryPortModel: 25565,
         queryPortRules: [],

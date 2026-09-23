@@ -1,6 +1,7 @@
 package placeholder
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -28,7 +29,7 @@ func TestBuildVarsFromGameServer(t *testing.T) {
 		"PORT_PLUS_2":       "27017",
 		"QUERY_PORT":        "27016",
 		"QUERY_PORT_PLUS_1": "27017",
-		"MAX_PLAYERS":       "32",
+		"MAX_PLAYERS":       "24",
 		"SERVER_NAME":       "My Server",
 		"INSTALL_DIR":       "/opt/gameservers/test",
 		"SERVER_ID":         "test-server-1",
@@ -204,5 +205,32 @@ func TestResolveTokens(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("ResolveTokens()[%d] = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+func TestPlayerLimit(t *testing.T) {
+	tests := []struct {
+		name       string
+		setPlayers int64
+		maxPlayers int64
+		want       int64
+	}{
+		{name: "set players below max", setPlayers: 24, maxPlayers: 32, want: 24},
+		{name: "set players equal to max", setPlayers: 32, maxPlayers: 32, want: 32},
+		{name: "unset set players falls back to max", setPlayers: 0, maxPlayers: 32, want: 32},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gs := &models.GameServer{SetPlayers: tt.setPlayers, MaxPlayers: tt.maxPlayers}
+			if got := PlayerLimit(gs); got != tt.want {
+				t.Errorf("PlayerLimit() = %d, want %d", got, tt.want)
+			}
+			vars := BuildVarsFromGameServer(gs)
+			for _, key := range []string{"MAX_PLAYERS", "SET_PLAYERS"} {
+				if got, want := vars[key], strconv.FormatInt(tt.want, 10); got != want {
+					t.Errorf("BuildVarsFromGameServer()[%q] = %q, want %q", key, got, want)
+				}
+			}
+		})
 	}
 }

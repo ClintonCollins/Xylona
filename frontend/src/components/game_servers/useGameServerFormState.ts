@@ -135,6 +135,9 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     },
   ]
 
+  // Players the game runs with: Set Players, or Max Players when Set Players is 0.
+  const playerLimitValue = computed(() => setPlayersModel.value || maxPlayersModel.value || 0)
+
   const maxMemoryStateMessage = computed(() =>
     isMinecraftGame.value ? (describeMinecraftMemoryState(maxMemoryModel.value) ?? '') : '',
   )
@@ -167,8 +170,8 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     {
       label: 'Capacity',
       value: isMinecraftGame.value
-        ? `${maxPlayersModel.value || 0} slots / ${maxMemoryModel.value || 0} MB`
-        : `${maxPlayersModel.value || 0} slots / start ${setPlayersModel.value || 0}`,
+        ? `${playerLimitValue.value} of ${maxPlayersModel.value || 0} players / ${maxMemoryModel.value || 0} MB`
+        : `${playerLimitValue.value} of ${maxPlayersModel.value || 0} players`,
       icon: 'memory',
       warning:
         maxPlayersModel.value <= 0 ||
@@ -183,8 +186,8 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   const deploymentReady = computed(() => deploymentWarningItems.value.length === 0)
   const deploymentReadyText = computed(() => {
     const capacitySummary = isMinecraftGame.value
-      ? `${maxPlayersModel.value || 0} slots, ${maxMemoryModel.value || 0} MB`
-      : `${maxPlayersModel.value || 0} slots`
+      ? `${playerLimitValue.value} players, ${maxMemoryModel.value || 0} MB`
+      : `${playerLimitValue.value} players`
 
     return `${trimmedServerName.value} for ${selectedGameName.value} on ${selectedNodeName.value} at ${selectedIPLabel.value}:${portModel.value || 0} with ${capacitySummary}`
   })
@@ -196,7 +199,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   )
 
   const provisioningCapacity = computed(
-    () => `${maxPlayersModel.value || 0} max / start ${setPlayersModel.value || 0}`,
+    () => `${playerLimitValue.value} of ${maxPlayersModel.value || 0} players`,
   )
   const serverExecutableSummary = computed(() => {
     const executable = gameServer.value.serverExecutable?.trim() ?? ''
@@ -230,11 +233,11 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     (value: number | string | bigint | null | undefined) =>
       validatePlayerCount(value, 'Max Players', { minimum: 1 }),
   ]
-  // Official definitions pass {{MAX_PLAYERS}} to the game; {{SET_PLAYERS}} is only for custom commands.
-  const maxPlayersHint = 'Slot count passed to the game as {{MAX_PLAYERS}}.'
+  // The game runs with Set Players; Max Players only caps it (Go: placeholder.PlayerLimit).
+  const maxPlayersHint = 'The most players Set Players can be raised to.'
   const setPlayersHint = computed(
     () =>
-      `Only used by commands that include {{SET_PLAYERS}}. At most ${maxPlayersModel.value || 0}.`,
+      `Player limit the game runs with. At most ${maxPlayersModel.value || 0}; 0 uses Max Players.`,
   )
   const maxMemoryRules = [
     (value: number | string | bigint | null | undefined) => validateMaxMemory(value),

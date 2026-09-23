@@ -16,6 +16,7 @@ import (
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/pkg/cfgparse"
 	"github.com/ClintonCollins/Xylona/pkg/cfgschema"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
@@ -264,7 +265,7 @@ func getGameServerConfigFile(
 		IP:         gameServer.IP,
 		Port:       gameServer.Port,
 		QueryPort:  gameServer.QueryPort,
-		MaxPlayers: gameServer.MaxPlayers,
+		MaxPlayers: placeholder.PlayerLimit(gameServer),
 	})
 
 	// Match fields.
@@ -398,7 +399,7 @@ func updateGameServerConfigFile(
 		IP:         gameServer.IP,
 		Port:       gameServer.Port,
 		QueryPort:  gameServer.QueryPort,
-		MaxPlayers: gameServer.MaxPlayers,
+		MaxPlayers: placeholder.PlayerLimit(gameServer),
 	})
 
 	// Convert proto fields to service types.
@@ -684,7 +685,7 @@ func generateGameServerConfigFile(
 		IP:         gameServer.IP,
 		Port:       gameServer.Port,
 		QueryPort:  gameServer.QueryPort,
-		MaxPlayers: gameServer.MaxPlayers,
+		MaxPlayers: placeholder.PlayerLimit(gameServer),
 	})
 
 	stagingDir, errMkdirTemp := os.MkdirTemp("", "xylona-config-generate-*")

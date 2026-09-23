@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildPlaceholderVars,
+  playerLimit,
   resolveStartCommandBase,
   resolveStartArgs,
   type StartArgBlock,
@@ -109,5 +110,19 @@ describe('resolveStartCommandBase', () => {
     ['%GAMESERVER_SET_PLAYERS%', '12'],
   ])('resolves legacy placeholder %s', (placeholder, expected) => {
     expect(resolveStartCommandBase(placeholder, variables)).toBe(expected)
+  })
+})
+
+describe('playerLimit', () => {
+  it.each([
+    ['Set Players below Max Players', 24n, 32n, 24n],
+    ['Set Players equal to Max Players', 32n, 32n, 32n],
+    ['unset Set Players falls back to Max Players', 0n, 32n, 32n],
+  ])('%s', (_, setMaxPlayers, maxPlayers, want) => {
+    expect(playerLimit({ setMaxPlayers, maxPlayers })).toBe(want)
+    expect(buildPlaceholderVars({ setMaxPlayers, maxPlayers })).toMatchObject({
+      MAX_PLAYERS: String(want),
+      SET_PLAYERS: String(want),
+    })
   })
 })

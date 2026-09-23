@@ -148,6 +148,13 @@ export function serializeStartArgBlocklist(blocklist: StartArgBlocklistEntry[]):
   return JSON.stringify(blocklist)
 }
 
+/** Player count the game runs with: Set Players, or Max Players when Set Players is 0 (Go: placeholder.PlayerLimit). */
+export function playerLimit(
+  gameServer: Pick<Partial<GameServer>, 'setMaxPlayers' | 'maxPlayers'> | null | undefined,
+): bigint {
+  return gameServer?.setMaxPlayers || gameServer?.maxPlayers || 0n
+}
+
 export function buildPlaceholderVars(gameServer: Partial<GameServer> | null | undefined) {
   const port = gameServer?.port ?? 0n
   const queryPort = gameServer?.queryPort ?? 0n
@@ -161,11 +168,11 @@ export function buildPlaceholderVars(gameServer: Partial<GameServer> | null | un
     QUERY_PORT: String(queryPort),
     QUERY_PORT_PLUS_1: String(queryPort + 1n),
     MAX_MEMORY_MB: String(gameServer?.maxMemoryMb ?? 0n),
-    MAX_PLAYERS: String(gameServer?.maxPlayers ?? 0n),
+    MAX_PLAYERS: String(playerLimit(gameServer)),
     SERVER_NAME: gameServer?.name ?? '',
     INSTALL_DIR: gameServer?.directory ?? '',
     BACKUP_DIR: gameServer?.backupDirectory ?? '',
-    SET_PLAYERS: String(gameServer?.setMaxPlayers ?? 0n),
+    SET_PLAYERS: String(playerLimit(gameServer)),
     SERVER_EXECUTABLE: gameServer?.serverExecutable ?? '',
   }
 }

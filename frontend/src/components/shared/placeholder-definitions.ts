@@ -29,7 +29,12 @@ export const placeholders: PlaceholderDefinition[] = [
     label: 'Game Server Memory (MB)',
     description: "The game server's configured memory limit in megabytes",
   },
-  { key: 'MAX_PLAYERS', label: 'Max Players', description: 'Maximum player count' },
+  {
+    key: 'MAX_PLAYERS',
+    label: 'Player Limit',
+    description:
+      'Player limit the game runs with: Set Players, or Max Players when Set Players is 0',
+  },
   { key: 'SERVER_NAME', label: 'Server Name', description: "The game server's display name" },
   { key: 'RCON_PORT', label: 'RCON Port', description: 'The RCON port' },
   { key: 'RCON_PASSWORD', label: 'RCON Password', description: 'The RCON password' },
@@ -100,7 +105,7 @@ export const managedSourceLabels: Record<string, string> = {
   'xylona.local_console_enabled': 'Local Management Console',
   'xylona.local_console_password': 'Local-only Console Password',
   'game_server.max_memory_mb': 'Game Server Memory (MB)',
-  'game_server.max_players': 'Max Players',
+  'game_server.max_players': 'Player Limit',
   'game_server.server_name': 'Server Name',
   'game_server.rcon_port': 'RCON Port',
   'game_server.rcon_password': 'RCON Password',

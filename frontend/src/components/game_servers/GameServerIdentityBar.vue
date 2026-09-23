@@ -191,6 +191,7 @@ import { notifyConnectError } from '@/api/notifications'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GameServerPlayerManagementDialog from '@/components/game_servers/GameServerPlayerManagementDialog.vue'
 import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRoster.vue'
+import { playerLimit } from '@/components/game_servers/start-args'
 import {
   type GameServer,
   RestartGameServerRequestSchema,
@@ -284,7 +285,7 @@ const statusBadgePhase = computed(() => {
 
 // Without a query reply (e.g. offline Valheim) show the configured limit, as the server list does.
 const displayedMaxPlayerCount = computed(
-  () => maxPlayerCount.value || Number(server.value.maxPlayers),
+  () => maxPlayerCount.value || Number(playerLimit(server.value)),
 )
 const playerCountUnknown = computed(
   () => server.value.gameId === 'valheim' && isServerOnline.value && !queryFresh.value,

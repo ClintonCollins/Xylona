@@ -23,6 +23,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -356,7 +357,7 @@ func projectPublicGameServerStatusPage(
 			Name:              server.Name,
 			Status:            statusFor(server),
 			ConnectionAddress: effectiveGameServerAddress(server),
-			MaxPlayerCount:    uint32FromInt64(server.MaxPlayers),
+			MaxPlayerCount:    uint32FromInt64(placeholder.PlayerLimit(server)),
 			RosterState:       xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE,
 			Version:           version,
 		}

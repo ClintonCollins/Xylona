@@ -1,5 +1,6 @@
 import { Status, type Node, type VersionInfo } from '@/proto/shared_pb'
 import type { AggregatedGameServer } from '@/proto/xylona_pb'
+import { playerLimit } from '@/components/game_servers/start-args'
 
 export interface DisplayRow {
   compositeId: string
@@ -54,7 +55,7 @@ export function buildDisplayRows(
         effectivePermissions: [...(localServer.effectivePermissions ?? [])],
         canUpdate: localServer.resolvedHasUpdate,
         currentPlayers: Number(localServer.currentPlayerCount),
-        maxPlayers: Number(localServer.setMaxPlayers || localServer.maxPlayers),
+        maxPlayers: Number(playerLimit(localServer)),
         cpuPercent: null,
         memoryBytes: null,
         memoryPercent: null,

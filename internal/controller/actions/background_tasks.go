@@ -13,6 +13,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/internal/versiontracker"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/pkg/query"
@@ -72,11 +73,11 @@ func defaultServerQuery(gs *models.GameServer, queryType xylona.ServerQuery_Type
 	}
 	switch queryType {
 	case xylona.ServerQuery_Minecraft:
-		out.Minecraft = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+		out.Minecraft = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gs))}
 	case xylona.ServerQuery_Source:
-		out.Source = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+		out.Source = &xylona.SourceQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gs))}
 	case xylona.ServerQuery_Palworld:
-		out.Palworld = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+		out.Palworld = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gs))}
 	}
 	return out
 }
@@ -194,7 +195,7 @@ func (inst *Instance) queryRemoteGameServer(ctx context.Context, gs *models.Game
 		Kind:       nodeQueryKind(queryType),
 		IP:         gs.IP,
 		QueryPort:  gameServerQueryPort(gs),
-		MaxPlayers: gs.MaxPlayers,
+		MaxPlayers: placeholder.PlayerLimit(gs),
 	}
 	if queryType == xylona.ServerQuery_Palworld {
 		username, password, errCredentials := inst.palworldQueryCredentials(gs)
@@ -336,7 +337,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 					if err != nil {
 						log.Debug().Err(err).Str("server", gs.Name).Msg("Failed to query minecraft server")
 						inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
-						info = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+						info = &xylona.MinecraftQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gs))}
 					} else {
 						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, &xylona.ServerQuery{Type: queryType, Minecraft: info})
 					}
@@ -411,7 +412,7 @@ func (inst *Instance) queryGameServers(ctx context.Context, gameServers []*model
 					if errQuery != nil {
 						log.Debug().Err(errQuery).Str("server", gs.Name).Msg("Failed to query Palworld server")
 						inst.recordFailedGameServerQuery(gs.ID, queryType, startedAt)
-						info = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(gs.MaxPlayers)}
+						info = &xylona.PalworldQueryInfo{MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gs))}
 					} else {
 						inst.recordSuccessfulGameServerQuery(gs.ID, queryType, startedAt, &xylona.ServerQuery{Type: queryType, Palworld: info})
 					}

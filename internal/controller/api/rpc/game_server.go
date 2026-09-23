@@ -19,6 +19,7 @@ import (
 	xylonadb "github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -1030,14 +1031,14 @@ func (xs *XylonaService) QueryGameServer(_ context.Context, request *connect.Req
 			ServerId:   gameServer.ID,
 			ServerName: gameServer.Name,
 			Type:       queryType,
-			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers)},
+			Minecraft:  &xylona.MinecraftQueryInfo{NumberOfPlayers: 0, MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gameServer))},
 			Source: &xylona.SourceQueryInfo{
 				Players:    0,
-				MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers),
+				MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gameServer)),
 			},
 			Palworld: &xylona.PalworldQueryInfo{
 				Players:    0,
-				MaxPlayers: helpers.ClampUint32FromInt64(gameServer.MaxPlayers),
+				MaxPlayers: helpers.ClampUint32FromInt64(placeholder.PlayerLimit(gameServer)),
 			},
 		}}
 		return connect.NewResponse(resp), nil

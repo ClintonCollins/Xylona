@@ -871,7 +871,7 @@ func (inst *Instance) runConfigPreStartWithConsolePassword(
 		IP:                     gameServer.IP,
 		Port:                   gameServer.Port,
 		QueryPort:              gameServer.QueryPort,
-		MaxPlayers:             gameServer.MaxPlayers,
+		MaxPlayers:             placeholder.PlayerLimit(gameServer),
 		LocalConsoleConfigured: true,
 		LocalConsoleEnabled:    localConsoleEnabled,
 		LocalConsolePort:       gameServer.QueryPort + 1,

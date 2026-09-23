@@ -659,6 +659,7 @@ import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRo
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
 import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
+import { playerLimit } from '@/components/game_servers/start-args'
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { notifySuccess } from '@/api/notifications'
@@ -910,7 +911,7 @@ const {
 
 // Without a query reply (e.g. offline Valheim) show the configured limit, as the server list does.
 const displayedMaxPlayerCount = computed(
-  () => maxPlayerCount.value || Number(gameServer.value.maxPlayers),
+  () => maxPlayerCount.value || Number(playerLimit(gameServer.value)),
 )
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const showLiveMetrics = computed(() => isServerOnline.value && metricsReceived.value)

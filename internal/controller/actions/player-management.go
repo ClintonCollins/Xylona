@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -146,7 +147,7 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		Kind:       profile.queryKind,
 		IP:         gameServer.IP,
 		QueryPort:  gameServerQueryPort(gameServer),
-		MaxPlayers: gameServer.MaxPlayers,
+		MaxPlayers: placeholder.PlayerLimit(gameServer),
 	}
 	if profile.queryKind == node.GameServerQueryKindUnknown || management.Status != xylona.Status_ONLINE {
 		return management, nil

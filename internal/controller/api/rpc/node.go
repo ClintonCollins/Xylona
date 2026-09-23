@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
+	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -187,8 +188,7 @@ func (xs *XylonaService) remoteSummaryFromGameServer(
 		IpAddress:      gameServer.IP,
 		Port:           gameServer.Port,
 		QueryPort:      gameServer.QueryPort,
-		// Max Players is the slot count passed to the game; Set Players only feeds {{SET_PLAYERS}}.
-		MaxPlayers:     gameServer.MaxPlayers,
+		MaxPlayers:     placeholder.PlayerLimit(gameServer),
 		CurrentPlayers: 0,
 		MapName:        gameServer.Map,
 		Version:        gameServer.Version,
