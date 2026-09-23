@@ -29,6 +29,10 @@ const mocks = vi.hoisted(() => ({
   listNodes: vi.fn(),
   listUsers: vi.fn(),
   listIPs: vi.fn(),
+  editGameServer: vi.fn(),
+  dialog: vi.fn(),
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
 }))
 
 vi.mock('@/api/game-server-provisioning', () => ({
@@ -53,7 +57,7 @@ vi.mock('@/utils/shared', async () => {
       clearGameServerSecretEnv: mocks.clearGameServerSecretEnv,
       setGameServerAdminInterfacePassword: mocks.setGameServerAdminInterfacePassword,
       updateBackupSettings: mocks.updateBackupSettings,
-      editGameServer: vi.fn(),
+      editGameServer: mocks.editGameServer,
     }),
   }
 })
@@ -63,13 +67,15 @@ vi.mock('quasar', async () => {
   return {
     ...actual,
     useQuasar: () => ({
+      dialog: mocks.dialog,
       notify: vi.fn(),
     }),
   }
 })
 
 vi.mock('@/api/notifications', () => ({
-  notifySuccess: vi.fn(),
+  notifyError: mocks.notifyError,
+  notifySuccess: mocks.notifySuccess,
   notifyWarning: vi.fn(),
 }))
 
@@ -77,6 +83,7 @@ vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
   return {
     ...actual,
+    onBeforeRouteLeave: vi.fn(),
     useRouter: () => ({
       back: vi.fn(),
       push: vi.fn(),
@@ -132,6 +139,7 @@ function mountSettingsForm(canEditProvisioning: boolean) {
           props: ['label', 'disable'],
         },
         'q-icon': true,
+        'q-tooltip': true,
         'q-spinner-dots': true,
         'q-inner-loading': true,
         'q-toggle': { template: '<input type="checkbox" />' },
@@ -140,6 +148,22 @@ function mountSettingsForm(canEditProvisioning: boolean) {
       },
     },
   })
+}
+
+type SettingsWrapper = ReturnType<typeof mountSettingsForm>
+
+function saveButton(wrapper: SettingsWrapper) {
+  return wrapper.get<HTMLButtonElement>('.server-form-save-btn')
+}
+
+function emitInput(wrapper: SettingsWrapper, testId: string, value: string) {
+  const input = wrapper
+    .findAllComponents(QInputStub)
+    .find((candidate) => candidate.attributes('data-testid') === testId)
+  if (!input) {
+    throw new Error(`missing input ${testId}`)
+  }
+  input.vm.$emit('update:modelValue', value)
 }
 
 describe('GameServerSettingsForm', () => {
@@ -166,6 +190,10 @@ describe('GameServerSettingsForm', () => {
     mocks.listNodes.mockReset()
     mocks.listUsers.mockReset()
     mocks.listIPs.mockReset()
+    mocks.editGameServer.mockReset()
+    mocks.dialog.mockReset()
+    mocks.notifyError.mockReset()
+    mocks.notifySuccess.mockReset()
     qFormValidate.mockReset()
     qFormValidate.mockResolvedValue(true)
 
@@ -274,7 +302,17 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="dns-binding-settings-section"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="readonly-provisioning"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="backup-settings-enabled"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(true)
+    // One Save covers every section: no per-section primary buttons remain.
+    for (const testId of [
+      'save-backup-settings',
+      'save-environment-settings',
+      'save-admin-interface-password',
+    ]) {
+      expect(wrapper.find(`[data-testid="${testId}"]`).exists()).toBe(false)
+    }
+    expect(saveButton(wrapper).text()).toContain('Save changes')
+    expect(saveButton(wrapper).element.disabled).toBe(true)
+    expect(wrapper.get('[data-testid="settings-save-state"]').text()).toBe('All changes saved')
   })
 
   it('requires unsupported enabled backups to be disabled before saving', async () => {
@@ -312,12 +350,18 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.get('[data-testid="backup-settings-unsupported"]').text()).toContain(
       'Backups are not supported on this platform.',
     )
-    expect(
-      (wrapper.get('[data-testid="save-backup-settings"]').element as HTMLButtonElement).disabled,
-    ).toBe(true)
+    emitInput(wrapper, 'backup-settings-directory', 'D:\\backups')
+    await flushPromises()
+    await saveButton(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(mocks.updateBackupSettings).not.toHaveBeenCalled()
+    expect(mocks.notifyError).toHaveBeenCalledWith(
+      expect.stringContaining('Backup policy: Turn off Enable Backups'),
+    )
   })
 
-  it('enables Save Backup Settings only for a changed retention of at least one', async () => {
+  it('tracks backup edits against the saved policy and marks the category', async () => {
     mocks.getGameServer.mockResolvedValue(
       create(GameServerSchema, {
         id: 'server-local-1',
@@ -332,22 +376,104 @@ describe('GameServerSettingsForm', () => {
     const wrapper = mountSettingsForm(true)
     await flushPromises()
 
-    const saveDisabled = () =>
-      (wrapper.get('[data-testid="save-backup-settings"]').element as HTMLButtonElement).disabled
-    const maxBackups = wrapper
-      .findAllComponents(QInputStub)
-      .find((input) => input.attributes('data-testid') === 'backup-settings-max-backups')
-    expect(maxBackups).toBeDefined()
+    const backupsDirty = () =>
+      wrapper.find('[data-testid="settings-category-backups-dirty"]').exists()
+    expect(saveButton(wrapper).element.disabled).toBe(true)
+    expect(backupsDirty()).toBe(false)
 
-    expect(saveDisabled()).toBe(true)
-
-    maxBackups?.vm.$emit('update:modelValue', '3')
+    emitInput(wrapper, 'backup-settings-max-backups', '3')
     await flushPromises()
-    expect(saveDisabled()).toBe(false)
+    expect(saveButton(wrapper).element.disabled).toBe(false)
+    expect(backupsDirty()).toBe(true)
 
-    maxBackups?.vm.$emit('update:modelValue', '0')
+    emitInput(wrapper, 'backup-settings-max-backups', '10')
     await flushPromises()
-    expect(saveDisabled()).toBe(true)
+    expect(saveButton(wrapper).element.disabled).toBe(true)
+    expect(backupsDirty()).toBe(false)
+  })
+
+  it('saves every changed section with one Save and reports failures per section', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-local-1',
+        name: 'Local One',
+        userId: 'user-owner',
+        gameId: 'minecraft',
+        nodeId: 'node-local',
+        ip: create(IPSchema, { address: '127.0.0.1' }),
+        port: 25565n,
+        queryPort: 25565n,
+        setMaxPlayers: 20n,
+        maxPlayers: 20n,
+        maxMemoryMb: 1024n,
+      }),
+    )
+    mocks.editGameServer.mockResolvedValue({})
+    mocks.updateGameServerEnvironment.mockRejectedValue(new Error('env rejected'))
+    mocks.updateBackupSettings.mockResolvedValue({})
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+
+    emitInput(wrapper, 'editable-name', 'Renamed')
+    emitInput(wrapper, 'backup-settings-max-backups', '4')
+    await wrapper.get('[data-testid="add-environment-row"]').trigger('click')
+    await flushPromises()
+    for (const category of ['general', 'environment', 'backups']) {
+      expect(wrapper.find(`[data-testid="settings-category-${category}-dirty"]`).exists()).toBe(
+        true,
+      )
+    }
+
+    await saveButton(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(mocks.editGameServer).toHaveBeenCalledTimes(1)
+    expect(mocks.editGameServer.mock.calls[0]?.[0]?.gameServer?.name).toBe('Renamed')
+    expect(mocks.updateGameServerEnvironment).toHaveBeenCalledTimes(1)
+    expect(mocks.updateBackupSettings).toHaveBeenCalledTimes(1)
+    expect(mocks.notifySuccess).not.toHaveBeenCalled()
+    expect(mocks.notifyError).toHaveBeenCalledWith(
+      'Server settings, Backup policy saved. Not saved: Environment: env rejected',
+    )
+    expect(wrapper.find('[data-testid="settings-category-general-dirty"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="settings-category-environment-dirty"]').exists()).toBe(true)
+  })
+
+  it('asks before clearing a secret', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, { id: 'server-local-1', name: 'Local One', gameId: 'minecraft' }),
+    )
+    mocks.getGameServerEnvironment.mockResolvedValue({
+      serverEnv: [],
+      secretEnv: [{ name: 'API_TOKEN', configured: true }],
+      validationIssues: [],
+    })
+    const confirmations: Array<() => void> = []
+    mocks.dialog.mockImplementation(() => ({
+      onOk(handler: () => void) {
+        confirmations.push(handler)
+        return this
+      },
+    }))
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+    await wrapper.get('[data-testid="clear-secret-environment"]').trigger('click')
+
+    expect(mocks.dialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Clear secret API_TOKEN?',
+        message: expect.stringContaining("can't be recovered"),
+      }),
+    )
+    expect(mocks.clearGameServerSecretEnv).not.toHaveBeenCalled()
+
+    confirmations[0]?.()
+    await flushPromises()
+    expect(mocks.clearGameServerSecretEnv).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'server-local-1', name: 'API_TOKEN' }),
+    )
   })
 
   it('shows read-only provisioning context and only editable operational fields for non-superusers', async () => {
@@ -411,7 +537,7 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="save-backup-settings"]').exists()).toBe(false)
   })
 
-  it('marks environment edits as separately unsaved', async () => {
+  it('marks environment edits as unsaved in the rail and panel heading', async () => {
     mocks.getGameServer.mockResolvedValue(
       create(GameServerSchema, {
         id: 'server-local-1',
@@ -434,12 +560,15 @@ describe('GameServerSettingsForm', () => {
     const wrapper = mountSettingsForm(true)
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="environment-unsaved-warning"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('Save Environment')
+    expect(wrapper.text()).not.toContain('Save Environment')
+    expect(wrapper.find('[data-testid="settings-category-environment-dirty"]').exists()).toBe(false)
 
+    await wrapper.get('[data-testid="settings-category-environment"]').trigger('click')
     await wrapper.get('[data-testid="add-environment-row"]').trigger('click')
 
-    expect(wrapper.find('[data-testid="environment-unsaved-warning"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="settings-category-environment-dirty"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="settings-save-state"]').text()).toBe('Unsaved changes')
+    expect(saveButton(wrapper).element.disabled).toBe(false)
   })
 
   it('hides minecraft memory context when the server is not minecraft', async () => {
@@ -497,6 +626,7 @@ describe('GameServerSettingsForm', () => {
         remoteAccess: true,
         remoteAccessNote: 'Remote Telnet is enabled.',
         transportSecurityNote: 'Telnet is not encrypted.',
+        portField: 'query_port',
       }),
     })
 
@@ -505,6 +635,9 @@ describe('GameServerSettingsForm', () => {
 
     expect(wrapper.get('[data-testid="admin-interface-settings-section"]').text()).toContain(
       'Telnet',
+    )
+    expect(wrapper.get('[data-testid="admin-interface-port-source"]').text()).toBe(
+      'Port set by Query Port',
     )
     expect(wrapper.get('[data-testid="admin-interface-endpoint"]').text()).toContain(
       '192.0.2.10:26904',
@@ -549,9 +682,11 @@ describe('GameServerSettingsForm', () => {
       'display: none',
     )
 
+    emitInput(wrapper, 'editable-port', '0')
+    await flushPromises()
     wrapper.get('[data-testid="editable-port"]').element.classList.add('q-field--error')
     qFormValidate.mockResolvedValueOnce(false)
-    await wrapper.get('.server-form-save-btn').trigger('click')
+    await saveButton(wrapper).trigger('click')
     await flushPromises()
 
     expect(
@@ -560,5 +695,38 @@ describe('GameServerSettingsForm', () => {
     expect(
       wrapper.get('[data-settings-category="network"]').attributes('style') ?? '',
     ).not.toContain('display: none')
+    expect(mocks.editGameServer).not.toHaveBeenCalled()
+  })
+
+  it('names the admin port under the port field it follows', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-local-1',
+        name: 'Palworld',
+        gameId: 'palworld',
+        ip: create(IPSchema, { address: '127.0.0.1' }),
+        port: 8211n,
+        queryPort: 8212n,
+      }),
+    )
+    mocks.getGameServerAdminInterface.mockResolvedValueOnce({
+      adminInterface: create(GameServerAdminInterfaceSchema, {
+        supported: true,
+        transport: 'REST',
+        port: 8212n,
+        portField: 'query_port',
+      }),
+    })
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="editable-query-port"]').attributes('hint')).toBe(
+      'Also the remote admin (REST) port.',
+    )
+    expect(wrapper.get('[data-testid="editable-port"]').attributes('hint')).toBeUndefined()
+    expect(
+      wrapper.get('[data-testid="admin-interface-port-source"]').text().replace(/\s+/g, ' '),
+    ).toBe('Port set by Query Port in Network & Launch')
   })
 })

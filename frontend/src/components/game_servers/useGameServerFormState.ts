@@ -230,6 +230,12 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     (value: number | string | bigint | null | undefined) =>
       validatePlayerCount(value, 'Max Players', { minimum: 1 }),
   ]
+  // Official definitions pass {{MAX_PLAYERS}} to the game; {{SET_PLAYERS}} is only for custom commands.
+  const maxPlayersHint = 'Slot count passed to the game as {{MAX_PLAYERS}}.'
+  const setPlayersHint = computed(
+    () =>
+      `Only used by commands that include {{SET_PLAYERS}}. At most ${maxPlayersModel.value || 0}.`,
+  )
   const maxMemoryRules = [
     (value: number | string | bigint | null | undefined) => validateMaxMemory(value),
   ]
@@ -255,6 +261,17 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   function onGameSelected(gameId: string) {
     const selectedGame = gamesMap.value.get(gameId)
     if (!selectedGame) {
+      return
+    }
+
+    if (isEditing.value) {
+      // An existing server keeps its ports, players and memory: the new game's defaults
+      // would silently overwrite fields on tabs the operator isn't looking at.
+      gameServer.value.gameId = selectedGame.id
+      gameServer.value.gameName = selectedGame.name
+      if (selectedGame.id === 'minecraft' && gameServer.value.maxMemoryMb === 0n) {
+        gameServer.value.maxMemoryMb = 1024n
+      }
       return
     }
 
@@ -516,6 +533,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     maxMemoryModel,
     maxMemoryRules,
     maxMemoryStateMessage,
+    maxPlayersHint,
     maxPlayersModel,
     maxPlayersRules,
     nodeRules,
@@ -535,6 +553,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     selectedOwnerName,
     serverExecutableSummary,
     serverNameRules,
+    setPlayersHint,
     setPlayersModel,
     setPlayersRules,
     showMaxMemoryStateError,

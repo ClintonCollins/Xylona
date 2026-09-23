@@ -1,7 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, nextTick, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { Status } from '@/proto/shared_pb'
 import GameServerSettingsForm from './GameServerSettingsForm.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -18,11 +19,14 @@ const mocks = vi.hoisted(() => ({
   updateBackupSettings: vi.fn(),
   initialize: vi.fn(),
   notify: vi.fn(),
+  notifyError: vi.fn(),
   notifySuccess: vi.fn(),
   push: vi.fn(),
   resetSubmissionState: vi.fn(),
   startSubmitting: vi.fn(),
   validateBeforeSave: vi.fn(),
+  gameServer: undefined as undefined | Ref<Record<string, unknown>>,
+  serverStatus: undefined as Status | undefined,
 }))
 
 vi.mock('@/utils/shared', async () => {
@@ -55,6 +59,7 @@ vi.mock('quasar', async () => {
 })
 
 vi.mock('@/api/notifications', () => ({
+  notifyError: mocks.notifyError,
   notifySuccess: mocks.notifySuccess,
 }))
 
@@ -62,6 +67,7 @@ vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
   return {
     ...actual,
+    onBeforeRouteLeave: vi.fn(),
     useRouter: () => ({
       back: mocks.back,
       push: mocks.push,
@@ -69,79 +75,96 @@ vi.mock('vue-router', async () => {
   }
 })
 
-vi.mock('./useGameServerFormState', () => ({
-  useGameServerFormState: () => ({
-    availableGames: [],
-    availableIPs: [],
-    availableUsers: [],
-    formRef: null,
-    formSubmitting: false,
-    gameRules: [],
-    gameServer: {
-      value: {
+vi.mock('./useGameServerFormState', async () => {
+  const { ref } = await import('vue')
+  return {
+    useGameServerFormState: () => {
+      mocks.gameServer = ref({
         id: 'server-local-1',
         name: 'Minecraft Server',
         gameId: 'minecraft',
         serverExecutable: 'paper.jar',
-      },
+        status: mocks.serverStatus,
+      })
+      return {
+        availableGames: [],
+        availableIPs: [],
+        availableUsers: [],
+        formRef: null,
+        formSubmitting: false,
+        gameRules: [],
+        gameServer: mocks.gameServer,
+        initialize: mocks.initialize,
+        ipRules: [],
+        isMinecraftGame: true,
+        loading: false,
+        maxMemoryModel: 1024,
+        maxMemoryRules: [],
+        maxMemoryStateMessage: '',
+        maxPlayersHint: '',
+        maxPlayersModel: 32,
+        maxPlayersRules: [],
+        nodeRules: [],
+        nodes: [],
+        onGameSelected: vi.fn(),
+        ownerRules: [],
+        portModel: 25565,
+        portRules: [],
+        provisioningCapacity: '32 max / start 0',
+        provisioningConnection: '127.0.0.1:25565',
+        queryPortModel: 25565,
+        queryPortRules: [],
+        resetSubmissionState: mocks.resetSubmissionState,
+        selectedGameName: 'Minecraft',
+        selectedNodeName: 'Local Node',
+        selectedOwnerName: 'owner',
+        serverExecutableSummary: 'paper.jar',
+        serverNameRules: [],
+        setPlayersHint: '',
+        setPlayersModel: 0,
+        setPlayersRules: [],
+        showMaxMemoryStateError: false,
+        startSubmitting: mocks.startSubmitting,
+        validateBeforeSave: mocks.validateBeforeSave,
+      }
     },
-    initialize: mocks.initialize,
-    ipRules: [],
-    isMinecraftGame: true,
-    loading: false,
-    maxMemoryModel: 1024,
-    maxMemoryRules: [],
-    maxMemoryStateMessage: '',
-    maxPlayersModel: 32,
-    maxPlayersRules: [],
-    nodeRules: [],
-    nodes: [],
-    onGameSelected: vi.fn(),
-    ownerRules: [],
-    portModel: 25565,
-    portRules: [],
-    provisioningCapacity: '32 max / start 0',
-    provisioningConnection: '127.0.0.1:25565',
-    queryPortModel: 25565,
-    queryPortRules: [],
-    resetSubmissionState: mocks.resetSubmissionState,
-    selectedGameName: 'Minecraft',
-    selectedNodeName: 'Local Node',
-    selectedOwnerName: 'owner',
-    serverExecutableSummary: 'paper.jar',
-    serverNameRules: [],
-    setPlayersModel: 0,
-    setPlayersRules: [],
-    showMaxMemoryStateError: false,
-    startSubmitting: mocks.startSubmitting,
-    validateBeforeSave: mocks.validateBeforeSave,
-  }),
-}))
+  }
+})
 
 const GameServerFormShellStub = defineComponent({
   emits: ['cancel', 'save'],
   template: '<button data-testid="save" @click="$emit(\'save\')">Save</button>',
 })
 
+async function mountAndRename() {
+  const wrapper = mount(GameServerSettingsForm, {
+    props: {
+      canEditProvisioning: true,
+      gameServerId: 'server-local-1',
+    },
+    global: {
+      stubs: {
+        GameServerFormShell: GameServerFormShellStub,
+      },
+    },
+  })
+  await flushPromises()
+  if (!mocks.gameServer) {
+    throw new Error('expected the form state to be created')
+  }
+  mocks.gameServer.value.name = 'Renamed Server'
+  await nextTick()
+  return wrapper
+}
+
 describe('GameServerSettingsForm submit flow', () => {
   beforeEach(() => {
-    mocks.back.mockReset()
-    mocks.editGameServer.mockReset()
-    mocks.getGameServerAdminInterface.mockReset()
-    mocks.getGameServerEnvironment.mockReset()
-    mocks.getGameServerBackupOverview.mockReset()
-    mocks.getBackupSettings.mockReset()
-    mocks.updateGameServerEnvironment.mockReset()
-    mocks.setGameServerSecretEnv.mockReset()
-    mocks.clearGameServerSecretEnv.mockReset()
-    mocks.setGameServerAdminInterfacePassword.mockReset()
-    mocks.updateBackupSettings.mockReset()
-    mocks.initialize.mockReset()
-    mocks.notify.mockReset()
-    mocks.push.mockReset()
-    mocks.resetSubmissionState.mockReset()
-    mocks.startSubmitting.mockReset()
-    mocks.validateBeforeSave.mockReset()
+    Object.values(mocks).forEach((mock) => {
+      if (typeof mock === 'function' && 'mockReset' in mock) {
+        mock.mockReset()
+      }
+    })
+    mocks.serverStatus = undefined
     mocks.validateBeforeSave.mockResolvedValue(true)
     mocks.editGameServer.mockResolvedValue({ gameServer: { id: 'server-local-1' } })
     mocks.getGameServerBackupOverview.mockResolvedValue({
@@ -172,76 +195,55 @@ describe('GameServerSettingsForm submit flow', () => {
     mocks.getGameServerAdminInterface.mockResolvedValue({
       adminInterface: { supported: false },
     })
-    mocks.updateGameServerEnvironment.mockResolvedValue({
-      serverEnv: [],
-      effectiveEnv: [],
-      validationIssues: [],
-    })
-    mocks.setGameServerSecretEnv.mockResolvedValue({
-      secretEnv: [],
-      validationIssues: [],
-    })
-    mocks.clearGameServerSecretEnv.mockResolvedValue({
-      secretEnv: [],
-      validationIssues: [],
-    })
-    mocks.updateBackupSettings.mockResolvedValue({
-      settings: {
-        backupsEnabled: true,
-        backupsSupported: true,
-        backupDirectory: 'C:\\\\backups',
-        maxBackups: 10n,
-      },
-    })
   })
 
-  it('notifies success without redirecting after save', async () => {
+  it('does nothing when no section changed', async () => {
     const wrapper = mount(GameServerSettingsForm, {
-      props: {
-        canEditProvisioning: true,
-        gameServerId: 'server-local-1',
-      },
-      global: {
-        stubs: {
-          GameServerFormShell: GameServerFormShellStub,
-          GameServerDnsBindingSettings: true,
-        },
-      },
+      props: { canEditProvisioning: true, gameServerId: 'server-local-1' },
+      global: { stubs: { GameServerFormShell: GameServerFormShellStub } },
     })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="save"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.validateBeforeSave).not.toHaveBeenCalled()
+    expect(mocks.editGameServer).not.toHaveBeenCalled()
+    expect(mocks.notifySuccess).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { status: Status.OFFLINE, message: 'Server settings saved.' },
+    { status: Status.ONLINE, message: 'Server settings saved. Restart the server to apply.' },
+  ])('saves changed server settings without redirecting ($status)', async ({ status, message }) => {
+    mocks.serverStatus = status
+    const wrapper = await mountAndRename()
 
     await wrapper.get('[data-testid="save"]').trigger('click')
     await flushPromises()
 
     expect(mocks.editGameServer).toHaveBeenCalledTimes(1)
     expect(mocks.push).not.toHaveBeenCalled()
-    expect(mocks.notifySuccess).toHaveBeenCalledWith('Server settings saved successfully.')
+    expect(mocks.notifySuccess).toHaveBeenCalledWith(message)
+
+    // The saved state is the new baseline, so a second Save sends nothing.
+    await wrapper.get('[data-testid="save"]').trigger('click')
+    await flushPromises()
+    expect(mocks.editGameServer).toHaveBeenCalledTimes(1)
   })
 
   it('notifies the user when save fails', async () => {
     mocks.editGameServer.mockRejectedValue(new Error('boom'))
-
-    const wrapper = mount(GameServerSettingsForm, {
-      props: {
-        canEditProvisioning: true,
-        gameServerId: 'server-local-1',
-      },
-      global: {
-        stubs: {
-          GameServerFormShell: GameServerFormShellStub,
-        },
-      },
-    })
+    const wrapper = await mountAndRename()
 
     await wrapper.get('[data-testid="save"]').trigger('click')
     await flushPromises()
 
     expect(mocks.push).not.toHaveBeenCalled()
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-error',
-        caption: expect.stringContaining('Failed to save game server:'),
-      }),
+    expect(mocks.notifyError).toHaveBeenCalledWith(
+      expect.stringContaining('Not saved: Server settings:'),
     )
+    expect(mocks.notifyError).toHaveBeenCalledWith(expect.stringContaining('boom'))
     expect(mocks.resetSubmissionState).toHaveBeenCalledTimes(1)
   })
 })

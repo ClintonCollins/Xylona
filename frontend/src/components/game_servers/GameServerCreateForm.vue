@@ -19,7 +19,7 @@
           <span class="section-title">Identity</span>
           <span class="section-line"></span>
         </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+        <div class="row q-col-gutter-md">
           <q-input
             v-model="gameServer.name"
             :rules="serverNameRules"
@@ -57,7 +57,7 @@
           <span class="section-title">Placement</span>
           <span class="section-line"></span>
         </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+        <div class="row q-col-gutter-md">
           <q-select
             v-model="gameServer.userId"
             :options="availableUsers"
@@ -107,7 +107,7 @@
           <span class="section-title">Networking</span>
           <span class="section-line"></span>
         </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+        <div class="row q-col-gutter-md">
           <q-input
             v-model.number="portModel"
             :error="showPortAvailabilityError"
@@ -141,7 +141,7 @@
           <span class="section-title">Launch</span>
           <span class="section-line"></span>
         </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+        <div class="row q-col-gutter-md">
           <q-input
             v-model="gameServer.serverExecutable"
             class="col-12 col-lg-6"
@@ -174,9 +174,10 @@
           <span class="section-title">Capacity</span>
           <span class="section-line"></span>
         </div>
-        <div class="row q-col-gutter-md q-gutter-y-md full-width">
+        <div class="row q-col-gutter-md">
           <q-input
             v-model.number="setPlayersModel"
+            :hint="setPlayersHint"
             :rules="setPlayersRules"
             aria-required="true"
             class="col-12 col-sm-6 col-lg-4"
@@ -187,6 +188,7 @@
             type="number" />
           <q-input
             v-model.number="maxPlayersModel"
+            :hint="maxPlayersHint"
             :rules="maxPlayersRules"
             aria-required="true"
             class="col-12 col-sm-6 col-lg-4"
@@ -298,6 +300,7 @@ const {
   loading,
   maxMemoryModel,
   maxMemoryRules,
+  maxPlayersHint,
   maxPlayersModel,
   maxPlayersRules,
   nodeRules,
@@ -311,6 +314,7 @@ const {
   resetSubmissionState,
   selectedGame,
   serverNameRules,
+  setPlayersHint,
   setPlayersModel,
   setPlayersRules,
   startSubmitting,

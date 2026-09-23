@@ -14,7 +14,7 @@
 
     <template v-else>
       <q-banner class="manual-only-note" rounded>
-        Saving stores only the relative name. DNS changes only when you choose
+        Save changes stores only the relative name. DNS changes only when you choose
         <strong>Sync now</strong>.
       </q-banner>
 
@@ -69,16 +69,7 @@
 
       <div class="dns-binding-actions q-mt-lg">
         <q-btn
-          :disable="!dirty || !formValid"
-          :loading="saving"
-          color="primary"
-          data-testid="save-dns-binding"
-          icon="save"
-          label="Save binding"
-          no-caps
-          @click="save" />
-        <q-btn
-          :disable="!configured || dirty"
+          :disable="!configured || dirty || saving"
           :loading="syncing"
           data-testid="sync-dns-binding"
           icon="sync"
@@ -99,7 +90,11 @@
       </div>
       <div class="save-state q-mt-sm" aria-live="polite">
         {{
-          dirty ? 'Unsaved binding changes' : configured ? 'Binding saved' : 'No binding configured'
+          dirty
+            ? 'Unsaved binding changes. Save changes before syncing.'
+            : configured
+              ? 'Binding saved'
+              : 'No binding configured'
         }}
       </div>
     </template>
@@ -193,8 +188,13 @@ async function loadBinding(): Promise<void> {
   }
 }
 
+// The settings form's Save calls this and reports failures, so errors are rethrown.
 async function save(): Promise<void> {
-  if (!dirty.value || !formValid.value) return
+  if (!dirty.value) return
+  if (!formValid.value) {
+    relativeNameError.value = 'Enter a relative record name, or use Remove binding.'
+    throw new Error(relativeNameError.value)
+  }
   saving.value = true
   actionError.value = ''
   try {
@@ -206,7 +206,6 @@ async function save(): Promise<void> {
     )
     if (!response.binding) throw new Error('The saved DNS binding response was empty.')
     applyBinding(response.binding)
-    notifySuccess('DNS binding saved. No DNS record was changed.')
   } catch (unknownError: unknown) {
     const error = ConnectError.from(unknownError)
     if (error.code === Code.InvalidArgument) {
@@ -214,6 +213,7 @@ async function save(): Promise<void> {
     } else {
       actionError.value = ConnectErrorToString(error)
     }
+    throw error
   } finally {
     saving.value = false
   }
@@ -308,6 +308,8 @@ function sanitizedError(error: unknown): string {
 }
 
 onMounted(loadBinding)
+
+defineExpose({ dirty, save })
 </script>
 
 <style scoped>
