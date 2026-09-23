@@ -7,6 +7,7 @@ import {
   ExecuteGameServerOperationRequestSchema,
   GameOperationValueSchema,
   GameOperationResultClassification,
+  GameOperationRisk,
   type GameOperationDescriptor,
   type GameOperationResult,
   type ValheimAccessList,
@@ -50,6 +51,23 @@ const classification = computed(() =>
       ? 'Accepted but unverified: refresh before another change'
       : 'Failed',
 )
+const resultBannerClass = computed(() => {
+  switch (result.value?.classification) {
+    case GameOperationResultClassification.CONFIRMED:
+      return 'xy-banner-info'
+    case GameOperationResultClassification.ACCEPTED_BUT_UNVERIFIED:
+      return 'xy-banner-warning'
+    default:
+      return 'xy-banner-negative'
+  }
+})
+const actionUnavailableReasons = computed(() => [
+  ...new Set(
+    actions.value
+      .filter((action) => !action.available && action.availabilityReasonText !== '')
+      .map((action) => action.availabilityReasonText),
+  ),
+])
 watch(
   kind,
   () => {
@@ -69,13 +87,23 @@ async function refreshStoredList() {
   await refresh()
   emit('refresh')
 }
+// Same rule as the 7 Days to Die workbench's riskButtonClass: routine runs at once, caution opens
+// a review (amber), irreversible is destructive (red). Every stored-access change is caution.
+function actionColor(operation: GameOperationDescriptor) {
+  if (operation.risk === GameOperationRisk.ROUTINE) return 'primary'
+  if (operation.risk === GameOperationRisk.IRREVERSIBLE) return 'negative'
+  return 'warning'
+}
 function confirmChange(operation: GameOperationDescriptor) {
   const values = { player: player.value, expected_revision: snapshot.value?.revision ?? '' }
+  const review = operation.review
   $q.dialog({
-    title: operation.name,
-    message: `Identity: ${values.player}. This changes the stored ${kind.value} list. Applies on next start; in-game enforcement and empty permitted-list behavior are not verified. ${operation.summary}`,
+    title: review?.title || operation.name,
+    message: [review?.effect || operation.summary, `Identity: ${values.player}.`, review?.caution]
+      .filter(Boolean)
+      .join(' '),
     cancel: { flat: true, label: 'Cancel' },
-    ok: { color: 'warning', label: 'Confirm stored change' },
+    ok: { color: actionColor(operation), label: operation.name, unelevated: true },
   }).onOk(() => void execute(operation, values))
 }
 async function execute(operation: GameOperationDescriptor, values: Record<string, string> = {}) {
@@ -137,14 +165,14 @@ async function execute(operation: GameOperationDescriptor, values: Record<string
       }}</span>
     </div>
     <p v-if="!listOperation">This list is unavailable for your permissions or node capabilities.</p>
-    <p v-if="error" role="alert">{{ error }}</p>
-    <div v-if="result" role="status">
+    <p v-if="error" class="valheim-access__banner xy-banner-negative" role="alert">{{ error }}</p>
+    <div v-if="result" class="valheim-access__banner" :class="resultBannerClass" role="status">
       <strong>{{ classification }}</strong>
       <p>{{ result.message }}</p>
     </div>
     <template v-if="snapshot">
-      <p v-if="snapshot.missing">No stored file exists yet.</p>
-      <p v-else-if="snapshot.identities.length === 0">
+      <p v-if="snapshot.missing" class="valheim-access__muted">No stored file exists yet.</p>
+      <p v-else-if="snapshot.identities.length === 0" class="valheim-access__muted">
         The stored list contains no recognized identities. Empty permitted-list behavior is not
         verified.
       </p>
@@ -154,7 +182,9 @@ async function execute(operation: GameOperationDescriptor, values: Record<string
         label="Search stored identities"
         clearable
         @clear="search = ''" />
-      <p>{{ identities.length }} of {{ snapshot.identities.length }} stored identities</p>
+      <p class="valheim-access__muted">
+        {{ identities.length }} of {{ snapshot.identities.length }} stored identities
+      </p>
       <ul class="valheim-access__identities">
         <li v-for="identity in identities" :key="identity">
           <code>{{ identity }}</code
@@ -181,16 +211,22 @@ async function execute(operation: GameOperationDescriptor, values: Record<string
         label="Exact platform identity"
         hint="Use the case-sensitive Steam_ followed by 17 digits. Display names are not account identities."
         :disable="busy" />
-      <div v-for="action in actions" :key="action.id">
+      <div class="valheim-access__actions">
         <q-btn
-          outline
+          v-for="action in actions"
+          :key="action.id"
+          :color="actionColor(action)"
           :label="action.name"
+          no-caps
+          unelevated
           :disable="
             busy || !action.available || !snapshot?.revision || !/^Steam_[0-9]{17}$/.test(player)
           "
           @click="confirmChange(action)" />
-        <p v-if="!action.available">{{ action.availabilityReasonText }}</p>
       </div>
+      <p v-for="reason in actionUnavailableReasons" :key="reason" class="valheim-access__muted">
+        {{ reason }}
+      </p>
     </template>
   </section>
 </template>
@@ -200,10 +236,26 @@ async function execute(operation: GameOperationDescriptor, values: Record<string
   display: grid;
   gap: var(--xy-space-md);
   min-width: 0;
+  padding: var(--xy-space-md);
   overflow-wrap: anywhere;
+  background: var(--xy-surface-1);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-lg);
 }
 .valheim-access p {
   margin: 0;
+}
+.valheim-access__muted {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
+}
+.valheim-access__banner {
+  padding: var(--xy-space-sm) var(--xy-space-base);
+}
+.valheim-access__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
 }
 .valheim-access__identities {
   max-height: 20rem;

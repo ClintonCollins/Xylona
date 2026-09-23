@@ -1911,6 +1911,10 @@ message ListGameServerOperationsRequest {
 message ListGameServerOperationsResponse {
   string game_server_name = 1;
   repeated GameOperationDescriptor operations = 2;
+  // True only when the game server answered a live player query, so the teleport
+  // destination options are exactly the players who are online. False when the
+  // query is unsupported or failed, and online state is then unknown.
+  bool online_players_known = 3;
 }
 
 message GameOperationValue {

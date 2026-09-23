@@ -49,10 +49,11 @@
       <article
         v-for="(block, index) in displayBlocks"
         :key="block.id"
+        :class="{ 'start-args-editor__row--removed': block.provenance === 'removed' }"
         :data-testid="`arg-row-${block.id}`"
         class="start-args-editor__row"
         role="listitem">
-        <div class="start-args-editor__sequence">{{ formatSequence(index) }}</div>
+        <div class="start-args-editor__sequence">{{ sequenceLabels[index] }}</div>
         <div class="start-args-editor__row-main">
           <div class="start-args-editor__row-meta">
             <q-badge :class="badgeClass(block.provenance)" :label="badgeLabel(block.provenance)" />
@@ -99,7 +100,18 @@
             size="sm"
             @click="resetBlock(block)" />
           <q-btn
-            v-if="canMoveUp(index, block)"
+            v-if="canRestore(block)"
+            :aria-label="`Restore ${block.label || 'argument'}`"
+            :data-testid="`restore-${block.id}`"
+            dense
+            flat
+            icon="undo"
+            label="Restore"
+            no-caps
+            size="sm"
+            @click="resetBlock(block)" />
+          <q-btn
+            v-if="canMove(block, -1)"
             :data-testid="`move-up-${block.id}`"
             :title="`Move ${block.label || 'argument'} up`"
             aria-label="Move argument up"
@@ -107,9 +119,9 @@
             flat
             icon="arrow_upward"
             size="sm"
-            @click="moveAddedBlock(index, -1)" />
+            @click="moveAddedBlock(block, -1)" />
           <q-btn
-            v-if="canMoveDown(index, block)"
+            v-if="canMove(block, 1)"
             :data-testid="`move-down-${block.id}`"
             :title="`Move ${block.label || 'argument'} down`"
             aria-label="Move argument down"
@@ -117,7 +129,7 @@
             flat
             icon="arrow_downward"
             size="sm"
-            @click="moveAddedBlock(index, 1)" />
+            @click="moveAddedBlock(block, 1)" />
         </div>
       </article>
     </div>
@@ -236,6 +248,17 @@ const formState = reactive({
 const displayBlocks = computed(
   () => resolveStartArgs(props.template, props.patches, {}).resolvedBlocks,
 )
+// Blocks that are part of the launch command; removed rows stay listed only to restore them.
+const liveBlocks = computed(() =>
+  displayBlocks.value.filter((block) => block.provenance !== 'removed'),
+)
+// Number only the blocks that launch, so the sequence matches argv order.
+const sequenceLabels = computed(() => {
+  let count = 0
+  return displayBlocks.value.map((block) =>
+    block.provenance === 'removed' ? '–' : String(++count).padStart(2, '0'),
+  )
+})
 const pendingSimilarTokens = computed(() => pendingSimilar.value?.tokens ?? [])
 const dialogTitle = computed(() =>
   dialogMode.value === 'add' ? 'Add argument block' : 'Edit argument block',
@@ -255,17 +278,15 @@ function badgeLabel(provenance: ResolvedStartArgBlock['provenance']) {
       return 'Edited'
     case 'added':
       return 'Added'
+    case 'removed':
+      return 'Removed'
     default:
       return 'Default'
   }
 }
 
-function formatSequence(index: number) {
-  return String(index + 1).padStart(2, '0')
-}
-
 function canEdit(block: ResolvedStartArgBlock) {
-  if (!props.allowEditing) {
+  if (!props.allowEditing || block.provenance === 'removed') {
     return false
   }
 
@@ -279,7 +300,7 @@ function canEdit(block: ResolvedStartArgBlock) {
 }
 
 function canRemove(block: ResolvedStartArgBlock) {
-  if (!props.allowEditing) {
+  if (!props.allowEditing || block.provenance === 'removed') {
     return false
   }
 
@@ -299,18 +320,25 @@ function canReset(block: ResolvedStartArgBlock) {
   )
 }
 
+function canRestore(block: ResolvedStartArgBlock) {
+  return (
+    props.allowEditing &&
+    block.provenance === 'removed' &&
+    (block.ownership === 'editable' ||
+      (props.allowProtectedEditing && block.ownership === 'locked'))
+  )
+}
+
 function updateBaseCommandOverride(value: string | number | null) {
   emit('update:base-command-override', String(value ?? ''))
 }
 
-function canMoveUp(index: number, block: ResolvedStartArgBlock) {
-  return props.allowEditing && block.provenance === 'added' && index > 0
-}
-
-function canMoveDown(index: number, block: ResolvedStartArgBlock) {
-  return (
-    props.allowEditing && block.provenance === 'added' && index < displayBlocks.value.length - 1
-  )
+function canMove(block: ResolvedStartArgBlock, direction: -1 | 1) {
+  if (!props.allowEditing || block.provenance !== 'added') {
+    return false
+  }
+  const index = liveBlocks.value.findIndex((entry) => entry.id === block.id)
+  return direction < 0 ? index > 0 : index < liveBlocks.value.length - 1
 }
 
 function openAddDialog() {
@@ -343,7 +371,14 @@ function onDialogModelChange(value: boolean) {
 }
 
 function removeBlock(block: ResolvedStartArgBlock) {
-  const nextPatches = clonePatches(props.patches).filter((patch) => patch.id !== block.id)
+  // Arguments added after this block would vanish with it, so move them to the block before it.
+  const index = liveBlocks.value.findIndex((entry) => entry.id === block.id)
+  const previousId = index > 0 ? (liveBlocks.value[index - 1]?.id ?? null) : null
+  const nextPatches = clonePatches(props.patches)
+    .filter((patch) => patch.id !== block.id)
+    .map((patch) =>
+      patch.op === 'add' && patch.afterId === block.id ? { ...patch, afterId: previousId } : patch,
+    )
   if (block.provenance === 'added') {
     emit('update:patches', nextPatches)
     return
@@ -364,15 +399,16 @@ function resetBlock(block: ResolvedStartArgBlock) {
   )
 }
 
-function moveAddedBlock(index: number, direction: -1 | 1) {
-  const block = displayBlocks.value[index]
-  if (!block || block.provenance !== 'added') {
+function moveAddedBlock(block: ResolvedStartArgBlock, direction: -1 | 1) {
+  const index = liveBlocks.value.findIndex((entry) => entry.id === block.id)
+  if (index < 0 || block.provenance !== 'added') {
     return
   }
 
-  const reordered = displayBlocks.value.filter((entry) => entry.id !== block.id)
+  // Anchor to a block that launches: an argument placed after a removed block would not be emitted.
+  const reordered = liveBlocks.value.filter((entry) => entry.id !== block.id)
   const targetIndex = Math.max(0, Math.min(reordered.length, index + direction))
-  const newAfterId = targetIndex === 0 ? null : reordered[targetIndex - 1].id
+  const newAfterId = targetIndex === 0 ? null : (reordered[targetIndex - 1]?.id ?? null)
 
   const nextPatches = clonePatches(props.patches).map((patch) =>
     patch.id === block.id ? { ...patch, afterId: newAfterId } : patch,
@@ -394,7 +430,7 @@ function saveDialog() {
   }
 
   if (dialogMode.value === 'add') {
-    const similar = findSimilarArg(tokens, displayBlocks.value)
+    const similar = findSimilarArg(tokens, liveBlocks.value)
 
     if (similar) {
       const canReplaceSimilar =
@@ -411,7 +447,7 @@ function saveDialog() {
 
       pendingSimilar.value = createPendingSimilarAction(
         createPatchId(),
-        displayBlocks.value.at(-1)?.id ?? null,
+        liveBlocks.value.at(-1)?.id ?? null,
         formState.label.trim(),
         tokens,
       )
@@ -423,7 +459,7 @@ function saveDialog() {
 
     const nextPatches = applyAddAction(clonePatches(props.patches), {
       id: createPatchId(),
-      afterId: displayBlocks.value.at(-1)?.id ?? null,
+      afterId: liveBlocks.value.at(-1)?.id ?? null,
       label: formState.label.trim(),
       tokens,
       mode: 'add',
@@ -682,12 +718,13 @@ function createPatchId() {
   color: var(--xy-text-secondary);
 }
 
+/* break-all wraps long tokens mid-string instead of first breaking after a leading hyphen. */
 .start-args-editor__tokens,
 .start-args-editor__previous {
   font-family: var(--xy-font-mono);
   font-size: var(--xy-font-size-sm);
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .start-args-editor__tokens {
@@ -750,11 +787,27 @@ function createPatchId() {
   border-color: var(--xy-syntax-purple-border);
 }
 
-.start-args-editor__badge--locked,
-.start-args-editor__badge--edited {
+.start-args-editor__badge--locked {
   color: var(--xy-syntax-amber);
   background: var(--xy-syntax-amber-bg);
   border-color: var(--xy-syntax-amber-border);
+}
+
+.start-args-editor__badge--edited {
+  color: var(--xy-syntax-pink);
+  background: var(--xy-syntax-pink-bg);
+  border-color: var(--xy-syntax-pink-border);
+}
+
+.start-args-editor__badge--removed {
+  color: var(--xy-text-secondary);
+  background: var(--xy-surface-2);
+  border-color: var(--xy-border);
+}
+
+.start-args-editor__row--removed .start-args-editor__tokens {
+  color: var(--xy-text-muted);
+  text-decoration: line-through;
 }
 
 .start-args-editor__badge--default {
@@ -778,11 +831,19 @@ function createPatchId() {
     grid-column: auto;
   }
 
+  /* The sequence chip keeps its size beside the row; actions drop below the tokens. */
   .start-args-editor__row {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--xy-space-sm);
+    padding: var(--xy-space-base);
+  }
+
+  .start-args-editor__sequence {
+    min-width: 2rem;
   }
 
   .start-args-editor__actions {
+    grid-column: 2;
     justify-content: flex-start;
     min-width: 0;
   }

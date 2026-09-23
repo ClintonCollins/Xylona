@@ -124,23 +124,24 @@ import {
   serializeStartArgsPatches,
   type StartArgPatch,
 } from '@/components/game_servers/start-args'
-import {
-  StartGameServerRequestSchema,
-  GameServerSchema,
-  Status,
-  StopGameServerRequestSchema,
-} from '@/proto/shared_pb'
+import { GameServerSchema, RestartGameServerRequestSchema, Status } from '@/proto/shared_pb'
 import {
   GetGameServerRequestSchema,
   type GetGameServerResponse,
   ListNodesRequestSchema,
   type ListNodesResponse,
+  QueryGameServerRequestSchema,
   UpdateGameServerStartArgsRequestSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
-import { isServerRunning } from './server-list-actions'
+import {
+  askLifecycleConfirmation,
+  buildLifecycleConfirmation,
+  isServerRunning,
+} from './server-list-actions'
 import { resolveStartArgsPlatform } from './start-args-platform'
+import { queryInfoPlayerSnapshot } from './useGameServerQueryStatusVersion'
 import { notifySuccess } from '@/api/notifications'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
@@ -214,12 +215,10 @@ const canEditStartArgs = computed(
   () => effectiveAllowEditing.value && selectedPlatform.value !== null,
 )
 
+// Empty permissions mean unknown (cache fallback); the backend enforces restart permission.
 const hasRestartPermissions = computed(() => {
   const permissions = gameServer.value?.effectivePermissions ?? []
-  return (
-    permissions.length === 0 ||
-    (permissions.includes('game_server.start') && permissions.includes('game_server.stop'))
-  )
+  return permissions.length === 0 || permissions.includes('game_server.restart')
 })
 
 const restartStateAuthoritative = computed(
@@ -240,7 +239,7 @@ const restartUnavailableReason = computed(() => {
     return 'Waiting for authoritative server status'
   }
   if (!hasRestartPermissions.value) {
-    return 'Requires start and stop permissions'
+    return 'Requires restart permission'
   }
   if (gameServer.value === undefined || !isServerRunning(gameServer.value.status)) {
     return 'The server must be running to restart'
@@ -440,10 +439,37 @@ async function saveOnly() {
 }
 
 async function saveAndRestart() {
-  if (!restartStateAuthoritative.value) {
+  if (!restartStateAuthoritative.value || !gameServer.value) {
     return
   }
-  await savePatches(true)
+
+  // Same players-online confirmation as the server bar's Restart.
+  restarting.value = true
+  const playerCount = await onlinePlayerCount()
+  restarting.value = false
+  const confirmed = await askLifecycleConfirmation(
+    $q,
+    buildLifecycleConfirmation('restart', [
+      { displayName: gameServer.value.name || 'this server', playerCount },
+    ]),
+  )
+  if (confirmed) {
+    await savePatches(true)
+  }
+}
+
+// null means the count is unknown; like the server bar, the restart then asks first.
+async function onlinePlayerCount(): Promise<number | null> {
+  try {
+    const response = await GetXylonaClient().queryGameServer(
+      create(QueryGameServerRequestSchema, { serverId: gameServerId.value }),
+    )
+    const snapshot = response.queryInfo ? queryInfoPlayerSnapshot(response.queryInfo) : null
+    return snapshot?.responded ? snapshot.playerCount : null
+  } catch (unknownError: unknown) {
+    console.error(unknownError)
+    return null
+  }
 }
 
 async function savePatches(restartAfterSave: boolean) {
@@ -484,13 +510,9 @@ async function savePatches(restartAfterSave: boolean) {
     startArgsSaved = true
 
     if (restartAfterSave) {
-      const client = GetXylonaClient()
-      await client.stopGameServer(
-        create(StopGameServerRequestSchema, { serverId: gameServerId.value }),
-      )
-      await waitForServerOffline()
-      await client.startGameServer(
-        create(StartGameServerRequestSchema, { serverId: gameServerId.value }),
+      // One server-side restart holds the lifecycle lock and waits for the stop itself.
+      await GetXylonaClient().restartGameServer(
+        create(RestartGameServerRequestSchema, { serverId: gameServerId.value }),
       )
       notifySuccess('Start command saved and server restarted.')
       return
@@ -511,30 +533,6 @@ async function savePatches(restartAfterSave: boolean) {
     saving.value = false
     restarting.value = false
   }
-}
-
-async function waitForServerOffline() {
-  const timeoutAt = Date.now() + 30_000
-  while (Date.now() < timeoutAt) {
-    const response = await GetXylonaClient().getGameServer(
-      create(GetGameServerRequestSchema, { id: gameServerId.value }),
-    )
-    if (!response.gameServer) {
-      throw new Error('Game server details were unavailable while waiting for shutdown')
-    }
-
-    gameServer.value = response.gameServer
-    if (response.gameServer.status === Status.OFFLINE) {
-      return
-    }
-    if (response.gameServer.status === Status.UNKNOWN) {
-      throw new Error('Game server status became unavailable while waiting for shutdown')
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 500))
-  }
-
-  throw new Error('Timed out waiting for the game server to stop')
 }
 
 function resetAll() {
@@ -648,21 +646,55 @@ function resetAll() {
 }
 
 @media (max-width: 599px) {
+  /* The bottom padding keeps the last rows clear of the fixed action bar. */
   .start-args-page {
-    padding: var(--xy-space-md);
+    padding: var(--xy-space-md) var(--xy-space-md) calc(var(--xy-space-md) + 4rem);
   }
 
-  .start-args-page :deep(.xy-page-actions),
+  /* Reset All, Save & Restart and Save stay in reach from any row as one bottom bar. */
+  .start-args-page :deep(.xy-page-actions) {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--xy-z-sticky);
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: var(--xy-space-xs);
+    padding: var(--xy-space-sm) var(--xy-space-md)
+      max(var(--xy-space-sm), env(safe-area-inset-bottom));
+    background: var(--xy-surface-1);
+    border-top: 1px solid var(--xy-border);
+  }
+
+  /* Text-only buttons keep all three on one row at phone widths. */
   .start-args-page :deep(.xy-page-actions .q-btn) {
-    width: 100%;
+    padding-inline: var(--xy-space-sm);
   }
 
+  .start-args-page :deep(.xy-page-actions .q-btn .q-icon) {
+    display: none;
+  }
+
+  /* One row: the token count is already in the preview header. */
   .start-args-page__status-strip {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .start-args-page__status-item {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding: var(--xy-space-sm) var(--xy-space-base);
+  }
+
+  .start-args-page__status-item:last-child,
+  .start-args-page__status-icon {
+    display: none;
+  }
+
+  /* The wrapped preview scrolls with the page instead of pinning a quarter of the screen. */
   .start-args-page__preview-rail {
-    top: var(--xy-space-xs);
+    position: static;
   }
 }
 </style>

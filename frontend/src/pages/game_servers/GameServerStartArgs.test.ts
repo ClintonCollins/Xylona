@@ -2,10 +2,19 @@ import { create } from '@bufbuild/protobuf'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { GameSchema, GameServerSchema, NodeSchema, Status } from '@/proto/shared_pb'
+import {
+  GameSchema,
+  GameServerSchema,
+  NodeSchema,
+  ServerQuery_Type,
+  ServerQuerySchema,
+  SourceQueryInfoSchema,
+  Status,
+} from '@/proto/shared_pb'
 import {
   GetGameServerResponseSchema,
   ListNodesResponseSchema,
+  QueryGameServerResponseSchema,
   UpdateGameServerStartArgsResponseSchema,
 } from '@/proto/xylona_pb'
 import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
@@ -45,8 +54,8 @@ const mocks = vi.hoisted(() => {
     getGameServer: vi.fn(),
     listNodes: vi.fn(),
     notify: vi.fn(),
-    startGameServer: vi.fn(),
-    stopGameServer: vi.fn(),
+    queryGameServer: vi.fn(),
+    restartGameServer: vi.fn(),
     updateGameServerStartArgs: vi.fn(),
   }
 })
@@ -89,8 +98,8 @@ vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
     getGameServer: mocks.getGameServer,
     listNodes: mocks.listNodes,
-    startGameServer: mocks.startGameServer,
-    stopGameServer: mocks.stopGameServer,
+    queryGameServer: mocks.queryGameServer,
+    restartGameServer: mocks.restartGameServer,
     updateGameServerStartArgs: mocks.updateGameServerStartArgs,
   }),
   XylonaEventBus: mocks.eventBus,
@@ -103,7 +112,8 @@ function buildGameServer(status: Status, baseCommandOverride = '', startArgsPatc
     status,
     baseCommandOverride,
     startArgsPatches,
-    effectivePermissions: ['game_server.settings', 'game_server.start', 'game_server.stop'],
+    name: 'Survival',
+    effectivePermissions: ['game_server.settings', 'game_server.restart'],
     game: create(GameSchema, {
       allowStartArgEditing: true,
       linuxBaseCommand: '{{INSTALL_DIR}}/server',
@@ -131,8 +141,8 @@ describe('GameServerStartArgs', () => {
     mocks.getGameServer.mockReset()
     mocks.listNodes.mockReset()
     mocks.notify.mockReset()
-    mocks.startGameServer.mockReset()
-    mocks.stopGameServer.mockReset()
+    mocks.queryGameServer.mockReset()
+    mocks.restartGameServer.mockReset()
     mocks.updateGameServerStartArgs.mockReset()
     mocks.dialog.mockReset()
   })
@@ -167,45 +177,70 @@ describe('GameServerStartArgs', () => {
     expect(mocks.dialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Unsaved Changes' }))
   })
 
-  it('saves, stops, waits for offline, and starts through supported RPCs', async () => {
+  function queryWithPlayers(players: number) {
+    return create(QueryGameServerResponseSchema, {
+      queryInfo: create(ServerQuerySchema, {
+        type: ServerQuery_Type.Source,
+        source: create(SourceQueryInfoSchema, { players }),
+      }),
+    })
+  }
+
+  function answerRestartDialog(confirm: boolean) {
+    mocks.dialog.mockReturnValue({
+      onOk(handler: () => void) {
+        if (confirm) handler()
+        return this
+      },
+      onDismiss(handler: () => void) {
+        handler()
+        return this
+      },
+    })
+  }
+
+  it.each([
+    { name: 'restarts at once with nobody online', players: 0, confirm: true, asked: false },
+    { name: 'restarts once the operator confirms', players: 2, confirm: true, asked: true },
+    { name: 'saves nothing when the operator cancels', players: 2, confirm: false, asked: true },
+  ])('Save & Restart $name', async ({ players, confirm, asked }) => {
     const onlineServer = buildGameServer(Status.ONLINE, './custom-start.sh')
-    const offlineServer = buildGameServer(Status.OFFLINE, './custom-start.sh')
-    mocks.getGameServer
-      .mockResolvedValueOnce(create(GetGameServerResponseSchema, { gameServer: onlineServer }))
-      .mockResolvedValueOnce(create(GetGameServerResponseSchema, { gameServer: offlineServer }))
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: onlineServer }),
+    )
+    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(players))
     mocks.updateGameServerStartArgs.mockResolvedValue(
       create(UpdateGameServerStartArgsResponseSchema, { gameServer: onlineServer }),
     )
-    mocks.stopGameServer.mockResolvedValue({})
-    mocks.startGameServer.mockResolvedValue({})
+    mocks.restartGameServer.mockResolvedValue({})
+    answerRestartDialog(confirm)
 
     const wrapper = shallowMount(GameServerStartArgs)
     await flushPromises()
+    await (wrapper.vm as unknown as { saveAndRestart: () => Promise<void> }).saveAndRestart()
 
-    const viewModel = wrapper.vm as unknown as {
-      saveAndRestart: () => Promise<void>
+    expect(mocks.dialog).toHaveBeenCalledTimes(asked ? 1 : 0)
+    if (asked) {
+      expect(mocks.dialog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Restart Survival?',
+          message: '2 players are online and will be disconnected while the server restarts.',
+        }),
+      )
     }
-    await viewModel.saveAndRestart()
-
-    expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(1)
+    if (!confirm) {
+      expect(mocks.updateGameServerStartArgs).not.toHaveBeenCalled()
+      expect(mocks.restartGameServer).not.toHaveBeenCalled()
+      return
+    }
     expect(mocks.updateGameServerStartArgs).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serverId: 'server-1',
-        baseCommandOverride: './custom-start.sh',
-      }),
+      expect.objectContaining({ serverId: 'server-1', baseCommandOverride: './custom-start.sh' }),
     )
-    expect(mocks.stopGameServer).toHaveBeenCalledWith(
-      expect.objectContaining({ serverId: 'server-1' }),
-    )
-    expect(mocks.getGameServer).toHaveBeenCalledTimes(2)
-    expect(mocks.startGameServer).toHaveBeenCalledWith(
+    expect(mocks.restartGameServer).toHaveBeenCalledWith(
       expect.objectContaining({ serverId: 'server-1' }),
     )
     expect(mocks.updateGameServerStartArgs.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.stopGameServer.mock.invocationCallOrder[0] ?? 0,
-    )
-    expect(mocks.stopGameServer.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.startGameServer.mock.invocationCallOrder[0] ?? 0,
+      mocks.restartGameServer.mock.invocationCallOrder[0] ?? 0,
     )
     expect(mocks.notify).toHaveBeenCalledWith('Start command saved and server restarted.')
   })

@@ -1,3 +1,5 @@
+import type { QVueGlobals } from 'quasar'
+
 import { Status } from '@/proto/shared_pb'
 import type { DisplayRow } from './server-list-cache'
 
@@ -102,4 +104,38 @@ export function buildLifecycleConfirmation(
     confirmLabel: `${actionLabel} servers`,
     confirmColor,
   }
+}
+
+/** Shows a lifecycle confirmation when one is needed; resolves true when the action may go ahead. */
+export function askLifecycleConfirmation(
+  $q: Pick<QVueGlobals, 'dialog'>,
+  confirmation: LifecycleConfirmation | null,
+): Promise<boolean> {
+  if (confirmation === null) {
+    return Promise.resolve(true)
+  }
+
+  return new Promise((resolve) => {
+    let settled = false
+    $q.dialog({
+      title: confirmation.title,
+      message: confirmation.message,
+      cancel: true,
+      persistent: true,
+      ok: {
+        label: confirmation.confirmLabel,
+        color: confirmation.confirmColor,
+        unelevated: true,
+      },
+    })
+      .onOk(() => {
+        settled = true
+        resolve(true)
+      })
+      .onDismiss(() => {
+        if (!settled) {
+          resolve(false)
+        }
+      })
+  })
 }

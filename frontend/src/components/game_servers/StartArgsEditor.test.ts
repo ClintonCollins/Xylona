@@ -170,6 +170,40 @@ describe('StartArgsEditor', () => {
     expect(wrapper.find('[data-testid="move-up-added-arg"]').exists()).toBe(true)
   })
 
+  it('keeps a removed block as a restorable row outside the launch sequence', async () => {
+    const wrapper = createWrapper([{ id: 'editable-arg', op: 'remove', afterId: null }])
+
+    const row = wrapper.get('[data-testid="arg-row-editable-arg"]')
+    expect(row.text()).toContain('Removed')
+    expect(row.get('.start-args-editor__sequence').text()).toBe('–')
+    expect(row.find('[data-testid="edit-editable-arg"]').exists()).toBe(false)
+    expect(row.find('[data-testid="remove-editable-arg"]').exists()).toBe(false)
+
+    await row.get('[data-testid="restore-editable-arg"]').trigger('click')
+    expect(wrapper.emitted('update:patches')?.at(-1)?.[0]).toEqual([])
+  })
+
+  it('restores removed locked blocks only for privileged users', () => {
+    const patches: StartArgPatch[] = [{ id: 'locked-arg', op: 'remove', afterId: null }]
+
+    expect(createWrapper(patches).find('[data-testid="restore-locked-arg"]').exists()).toBe(false)
+    expect(
+      createWrapper(patches, true, true).find('[data-testid="restore-locked-arg"]').exists(),
+    ).toBe(true)
+  })
+
+  it('keeps arguments added after a block when that block is removed', async () => {
+    const wrapper = createWrapper([
+      { id: 'added-arg', op: 'add', tokens: ['--extra'], afterId: 'editable-arg' },
+    ])
+
+    await wrapper.get('[data-testid="remove-editable-arg"]').trigger('click')
+    expect(wrapper.emitted('update:patches')?.at(-1)?.[0]).toEqual([
+      { id: 'added-arg', op: 'add', tokens: ['--extra'], afterId: 'locked-arg' },
+      { id: 'editable-arg', op: 'remove', afterId: null },
+    ])
+  })
+
   it('hides editing actions when allowEditing is false', () => {
     const wrapper = createWrapper([], false)
 

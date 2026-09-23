@@ -266,7 +266,7 @@ func (n *Node) ExecuteGameOperation(ctx context.Context, request GameOperationRe
 			continue
 		}
 		if request.OperationID == gameintegrations.OperationIDRemoveAdministrator {
-			return failedGameOperationWithDetails("The server still reports administrator access for the selected Player.", details)
+			return failedGameOperationWithDetails("The server still reports administrator access for the selected player.", details)
 		}
 		if user.PermissionLevel == values.permissionLevel {
 			return GameOperationResult{
@@ -307,7 +307,7 @@ func sevenDaysToDieCommandOperationForRequest(
 		)
 		return operation, true
 	case gameintegrations.OperationIDMessagePlayer:
-		operation.name = "Send private Player message"
+		operation.name = "Send private player message"
 		operation.command = "sayplayer"
 		textValues, failure := validateCommandOperationTextValues(values, "player", "message")
 		if failure != "" {
@@ -336,7 +336,7 @@ func sevenDaysToDieCommandOperationForRequest(
 		operation.parameters = quotedPlayer + " " + quotedMessage
 		return operation, true
 	case gameintegrations.OperationIDTeleportPlayer:
-		operation.name = "Teleport Player"
+		operation.name = "Teleport player"
 		operation.command = "teleportplayer"
 		textValues, failure := validateCommandOperationTextValues(values, "player", "destination")
 		if failure != "" {
@@ -348,7 +348,7 @@ func sevenDaysToDieCommandOperationForRequest(
 			operation.validationFail = failure
 			return operation, true
 		}
-		destination, failure := playerCommandOperationArgument(textValues["destination"], "Destination Player")
+		destination, failure := playerCommandOperationArgument(textValues["destination"], "Destination player")
 		if failure != "" {
 			operation.validationFail = failure
 			return operation, true
@@ -465,7 +465,7 @@ func giveItemCommandOperation(values []GameOperationValue) sevenDaysToDieCommand
 func giveExperienceCommandOperation(values []GameOperationValue) sevenDaysToDieCommandOperation {
 	operation := sevenDaysToDieCommandOperation{name: "Give experience", command: "givexp"}
 	if len(values) != 2 {
-		operation.validationFail = "Give experience requires one Player and an experience amount."
+		operation.validationFail = "Give experience requires one player and an experience amount."
 		return operation
 	}
 	var player string
@@ -1221,7 +1221,7 @@ func validateRemoveAdministratorValues(values []GameOperationValue) (string, str
 		if len(values) == 0 {
 			return "", "Player identity is required."
 		}
-		return "", "Remove administrator accepts only one Player identity."
+		return "", "Remove administrator accepts only one player identity."
 	}
 	value := values[0]
 	if value.StringValue == nil || value.IntegerValue != nil || value.BooleanValue != nil ||

@@ -113,6 +113,16 @@ const spawnEventOperationIDs = [
   'world_events.spawn_wandering_horde',
 ] as const
 const worldEventOperationIDs = [...spawnEventOperationIDs, 'world_events.set_weather'] as const
+// These only reach a player who is in the game; ban, unban, allowlist and admin changes work offline.
+const onlinePlayerOperationIDs = new Set([
+  'player_moderation.kick',
+  'player_assistance.teleport_to_player',
+  'player_assistance.give_item',
+  'player_assistance.give_experience',
+  'player_assistance.apply_buff',
+  'player_assistance.remove_buff',
+  'communication.message_player',
+])
 const sharedOperationPanelDefinitions: OperationPanelDefinition[] = [
   {
     id: 'player-access',
@@ -188,6 +198,7 @@ const defaultWorkbenchState: WorkbenchState = {
 
 const route = useRoute()
 const operations = ref<GameOperationDescriptor[]>([])
+const onlinePlayersKnown = ref(false)
 const gameServerName = ref('')
 const gameID = ref('')
 const isValheim = computed(
@@ -232,8 +243,10 @@ const startingServer = ref(false)
 const startRequested = ref(false)
 const startError = ref('')
 const operationResult = ref<HTMLElement | null>(null)
+const activeTaskSection = ref<HTMLElement | null>(null)
 let worldStatusPollTimer: ReturnType<typeof setInterval> | undefined
 let worldStatusRequestInFlight = false
+let playerOptionsRequestInFlight = false
 
 const gameServerID = computed(() => {
   const id = route.params.id
@@ -364,6 +377,11 @@ const onlinePlayers = computed(
 const onlinePlayerValues = computed(
   () => new Set(onlinePlayers.value.map((player) => player.value)),
 )
+// Who is online comes from the teleport destinations, which are the live player list only when
+// the server says its player query answered; otherwise online state is unknown, not "offline".
+const playerOnlineStateKnown = computed(
+  () => onlinePlayersKnown.value && operationByID.value.has('player_assistance.teleport_to_player'),
+)
 const selectedPlayer = computed(() => {
   const value = playerIdentity.value.trim()
   if (value === '') return null
@@ -375,28 +393,43 @@ const selectedPlayer = computed(() => {
     initials = `${words.at(0)?.at(0) ?? ''}${words.at(-1)?.at(0) ?? ''}`
   }
   initials = initials.toUpperCase()
+  const known = option !== undefined
+  const online = known && onlinePlayerValues.value.has(value)
+  let status = 'Manual identity'
+  if (known)
+    status = playerOnlineStateKnown.value ? (online ? 'Online' : 'Offline') : 'Known player'
   return {
     initials,
-    known: option !== undefined,
+    known,
     label,
-    online: option !== undefined && onlinePlayerValues.value.has(value),
+    offline: known && playerOnlineStateKnown.value && !online,
+    online,
+    status,
     value,
   }
 })
 const teleportPlayers = computed(() =>
   knownPlayers.value.map((player) => ({
-    label: onlinePlayerValues.value.has(player.value) ? player.label : `${player.label} (offline)`,
+    label:
+      !playerOnlineStateKnown.value || onlinePlayerValues.value.has(player.value)
+        ? player.label
+        : `${player.label} (offline)`,
     value: player.value,
   })),
 )
 const destinationPlayerIsKnownOffline = computed(() => {
   const destination = destinationPlayerIdentity.value.trim()
   return (
+    playerOnlineStateKnown.value &&
     destination !== '' &&
     knownPlayers.value.some((player) => player.value === destination) &&
     !onlinePlayerValues.value.has(destination)
   )
 })
+// Offline state disables in-game actions, so re-check it instead of trusting the load-time list.
+const playerStateBlocksAction = computed(
+  () => selectedPlayer.value?.offline === true || destinationPlayerIsKnownOffline.value,
+)
 const itemOptions = computed(() => operationCatalogOptions(['player_assistance.give_item'], 'item'))
 const selectedItem = computed(() => {
   const value = itemName.value.trim()
@@ -419,6 +452,15 @@ const buffOptions = computed(() =>
 const commandOptions = computed(() =>
   operationCatalogOptions(commandPermissionOperationIDs, 'command'),
 )
+const offlinePlayerNotice = computed(() =>
+  selectedPlayer.value?.offline &&
+  activeOperationPanel.value?.operationIDs.some(
+    (operationID) =>
+      onlinePlayerOperationIDs.has(operationID) && operationByID.value.has(operationID),
+  )
+    ? 'This player is offline. Actions that reach them in game stay disabled until they join.'
+    : '',
+)
 const activeAvailabilityNotice = computed(() => activeOperationPanelUnavailableReason.value)
 const availabilityNotices = computed(() => [
   ...new Set(
@@ -439,12 +481,18 @@ const pendingValues = computed(() => {
   if (!pending) return []
   // Name the target first so a ban or wipe can't be confirmed against the wrong server.
   return [
-    { label: 'Server', value: gameServerName.value },
-    ...pending.operation.fields.map((field) => ({
-      label: field.label,
-      value: displayValue(field, pending.values[field.id]),
-    })),
-  ].filter((entry) => entry.value !== '')
+    { label: 'Server', value: gameServerName.value, identity: '' },
+    ...pending.operation.fields.map((field) => {
+      const value = pending.values[field.id]
+      if (field.type !== GameOperationFieldType.PLAYER_IDENTITY) {
+        return { label: field.label, value: displayValue(field, value), identity: '' }
+      }
+      // Name the player once, and set the ID to confirm in mono.
+      const identity = value === undefined ? '' : String(value)
+      const name = field.options.find((option) => option.value === identity)?.label ?? ''
+      return { label: field.label, value: name === identity ? '' : name, identity }
+    }),
+  ].filter((entry) => entry.value !== '' || entry.identity !== '')
 })
 const worldTimeLabel = computed(() => {
   const status = worldStatus.value
@@ -471,8 +519,15 @@ onMounted(() => {
   void loadLifecycleState().then(() => {
     if (isValheim.value) return
     void loadWorldStatus()
-    worldStatusPollTimer = setInterval(() => void loadWorldStatus(), worldStatusPollMilliseconds)
+    worldStatusPollTimer = setInterval(() => {
+      void loadWorldStatus()
+      if (playerStateBlocksAction.value) void refreshPlayerOptions()
+    }, worldStatusPollMilliseconds)
   })
+})
+
+watch(playerStateBlocksAction, (blocked) => {
+  if (blocked) void refreshPlayerOptions()
 })
 
 watch(
@@ -502,11 +557,7 @@ async function loadOperations() {
   loading.value = operations.value.length === 0
   loadError.value = ''
   try {
-    const response = await GetXylonaClient().listGameServerOperations(
-      create(ListGameServerOperationsRequestSchema, { gameServerId: gameServerID.value }),
-    )
-    gameServerName.value = response.gameServerName
-    operations.value = response.operations
+    await fetchOperations()
     ensureActiveOperation()
     openLinkedOperation()
   } catch {
@@ -514,6 +565,29 @@ async function loadOperations() {
       'The administration controls could not be loaded. Check the server connection and retry.'
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchOperations() {
+  const response = await GetXylonaClient().listGameServerOperations(
+    create(ListGameServerOperationsRequestSchema, { gameServerId: gameServerID.value }),
+  )
+  gameServerName.value = response.gameServerName
+  operations.value = response.operations
+  onlinePlayersKnown.value = response.onlinePlayersKnown
+}
+
+// Re-reads who is online without moving the operator off the panel they are using.
+async function refreshPlayerOptions() {
+  if (playerOptionsRequestInFlight) return
+  playerOptionsRequestInFlight = true
+  try {
+    await fetchOperations()
+  } catch {
+    // Without a fresh list, stop claiming anyone is offline rather than block actions on old data.
+    onlinePlayersKnown.value = false
+  } finally {
+    playerOptionsRequestInFlight = false
   }
 }
 
@@ -622,6 +696,14 @@ function selectOperation(operationID: string) {
   activeOperationID.value = operationID
   activeCategory.value = operationCategory(operationID)
   formError.value = ''
+}
+
+async function openOperationPanel(operationID: string) {
+  selectOperation(operationID)
+  // In the one-column layout the form sits below the finder, so bring it into view.
+  if (!window.matchMedia?.('(max-width: 1023px)').matches) return
+  await nextTick()
+  activeTaskSection.value?.scrollIntoView?.({ block: 'start' })
 }
 
 function ensureActiveOperation() {
@@ -769,9 +851,29 @@ function riskLabel(risk: GameOperationRisk) {
   return risk === GameOperationRisk.ROUTINE ? 'Routine' : 'Review required'
 }
 
+/** Button style from the operation's risk: routine runs at once, caution opens a review, irreversible is destructive. */
+function riskButtonClass(
+  risk: GameOperationRisk | undefined,
+  routineClass = 'action-button--quiet',
+) {
+  if (risk === GameOperationRisk.ROUTINE) return routineClass
+  if (risk === GameOperationRisk.IRREVERSIBLE) return 'action-button--danger'
+  return 'action-button--warning'
+}
+
+function operationButtonClass(operationID: string) {
+  return riskButtonClass(operationByID.value.get(operationID)?.risk)
+}
+
 function operationDisabled(operationID: string, inputReady = true) {
   const operation = operationByID.value.get(operationID)
-  return !operation || !operation.available || !inputReady || isExecuting(operationID)
+  return (
+    !operation ||
+    !operation.available ||
+    !inputReady ||
+    isExecuting(operationID) ||
+    (onlinePlayerOperationIDs.has(operationID) && selectedPlayer.value?.offline === true)
+  )
 }
 
 function fieldError(field: GameOperationField, value: OperationValue | undefined) {
@@ -897,9 +999,6 @@ function setExactWorldTime() {
 function displayValue(field: GameOperationField, value: OperationValue | undefined) {
   if (value === undefined || value === '') return ''
   const option = field.options.find((candidate) => candidate.value === String(value))
-  if (field.type === GameOperationFieldType.PLAYER_IDENTITY && option) {
-    return `${option.label} (${option.value})`
-  }
   return option?.label ?? String(value)
 }
 
@@ -989,10 +1088,9 @@ function resultLabel(classification: GameOperationResultClassification) {
   }
 }
 
+// The backend says what it could and could not verify; keep that wording.
 function resultMessage(result: GameOperationResult) {
-  return result.classification === GameOperationResultClassification.ACCEPTED_BUT_UNVERIFIED
-    ? 'The command was sent to the game server.'
-    : result.message
+  return result.message.trim() || 'The command was sent to the game server.'
 }
 
 function resultIcon(classification: GameOperationResultClassification) {
@@ -1012,9 +1110,9 @@ function resultIcon(classification: GameOperationResultClassification) {
     <page-header
       icon="admin_panel_settings"
       :subtitle="
-        'Find one structured server task and execute it with confidence for ' +
-        (gameServerName || 'this server') +
-        '.'
+        isValheim
+          ? `Review and change the stored administrator, ban and permitted lists for ${gameServerName || 'this server'}.`
+          : `Find one structured server task and execute it with confidence for ${gameServerName || 'this server'}.`
       "
       title="Operations workbench" />
 
@@ -1161,7 +1259,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             class="operation-button"
             :data-testid="`operation-option-${panel.id}`"
             type="button"
-            @click="selectOperation(panel.operationID)">
+            @click="openOperationPanel(panel.operationID)">
             <span>
               <strong>{{ panel.label }}</strong>
               <small>{{ panel.detail }}</small>
@@ -1176,6 +1274,7 @@ function resultIcon(classification: GameOperationResultClassification) {
 
       <section
         v-if="activeOperation && activeOperationPanel"
+        ref="activeTaskSection"
         class="active-task"
         aria-labelledby="active-operation-title">
         <header class="active-task__header">
@@ -1183,7 +1282,13 @@ function resultIcon(classification: GameOperationResultClassification) {
             <h2 id="active-operation-title">{{ activeOperationPanel.label }}</h2>
             <p>{{ activeOperationPanel.summary }}</p>
           </div>
-          <span class="risk-badge">{{ riskLabel(activeOperationPanelRisk) }}</span>
+          <span
+            class="risk-badge"
+            :class="{
+              'risk-badge--routine': activeOperationPanelRisk === GameOperationRisk.ROUTINE,
+            }"
+            >{{ riskLabel(activeOperationPanelRisk) }}</span
+          >
         </header>
 
         <p
@@ -1210,7 +1315,9 @@ function resultIcon(classification: GameOperationResultClassification) {
               selectedPlayer.initials
             }}</span>
             <span class="player-identity__copy">
-              <strong>{{ selectedPlayer.label }}</strong>
+              <strong v-if="selectedPlayer.label !== selectedPlayer.value">{{
+                selectedPlayer.label
+              }}</strong>
               <code>{{ selectedPlayer.value }}</code>
             </span>
             <span
@@ -1220,15 +1327,12 @@ function resultIcon(classification: GameOperationResultClassification) {
                 'player-identity__status--manual': !selectedPlayer.known,
               }">
               <span aria-hidden="true" class="player-identity__status-dot"></span>
-              {{
-                selectedPlayer.known
-                  ? selectedPlayer.online
-                    ? 'Online'
-                    : 'Offline'
-                  : 'Manual identity'
-              }}
+              {{ selectedPlayer.status }}
             </span>
           </div>
+          <p v-if="offlinePlayerNotice" class="player-context__notice" role="status">
+            {{ offlinePlayerNotice }}
+          </p>
         </div>
 
         <div
@@ -1284,6 +1388,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <div class="form-actions">
               <button
                 class="action-button"
+                :class="operationButtonClass('player_access.add_administrator')"
                 data-testid="add-administrator"
                 :disabled="
                   operationDisabled('player_access.add_administrator', playerIdentity.trim() !== '')
@@ -1302,7 +1407,8 @@ function resultIcon(classification: GameOperationResultClassification) {
             </div>
             <div class="form-actions">
               <button
-                class="action-button action-button--warning"
+                class="action-button"
+                :class="operationButtonClass('player_access.remove_administrator')"
                 data-testid="remove-administrator"
                 :disabled="
                   operationDisabled(
@@ -1333,6 +1439,7 @@ function resultIcon(classification: GameOperationResultClassification) {
               <button
                 v-if="operationByID.has('player_access.allowlist_add')"
                 class="action-button"
+                :class="operationButtonClass('player_access.allowlist_add')"
                 data-testid="allowlist-add"
                 :disabled="
                   operationDisabled('player_access.allowlist_add', playerIdentity.trim() !== '')
@@ -1347,7 +1454,8 @@ function resultIcon(classification: GameOperationResultClassification) {
               </button>
               <button
                 v-if="operationByID.has('player_access.allowlist_remove')"
-                class="action-button action-button--warning"
+                class="action-button"
+                :class="operationButtonClass('player_access.allowlist_remove')"
                 data-testid="allowlist-remove"
                 :disabled="
                   operationDisabled('player_access.allowlist_remove', playerIdentity.trim() !== '')
@@ -1384,18 +1492,8 @@ function resultIcon(classification: GameOperationResultClassification) {
           <div class="form-actions">
             <button
               class="action-button"
-              :class="
-                activeOperationID === 'player_moderation.ban'
-                  ? 'action-button--danger'
-                  : 'action-button--warning'
-              "
-              :data-testid="
-                activeOperationID === 'player_moderation.ban'
-                  ? 'ban-player'
-                  : activeOperationID === 'player_moderation.unban'
-                    ? 'unban-player'
-                    : undefined
-              "
+              :class="operationButtonClass(activeOperationID)"
+              :data-testid="`${activeOperationID.replace('player_moderation.', '')}-player`"
               :disabled="operationDisabled(activeOperationID, playerIdentity.trim() !== '')"
               type="button"
               @click="playerOperation(activeOperationID)">
@@ -1430,6 +1528,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <div class="form-actions">
               <button
                 class="action-button"
+                :class="operationButtonClass('player_assistance.teleport_to_player')"
                 data-testid="teleport-player"
                 :disabled="
                   operationDisabled(
@@ -1466,6 +1565,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <div class="form-actions">
               <button
                 class="action-button"
+                :class="operationButtonClass('player_assistance.give_experience')"
                 data-testid="give-experience"
                 :disabled="
                   operationDisabled(
@@ -1538,6 +1638,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <div class="form-actions">
               <button
                 class="action-button"
+                :class="operationButtonClass('player_assistance.give_item')"
                 data-testid="give-item"
                 :disabled="
                   operationDisabled(
@@ -1571,6 +1672,7 @@ function resultIcon(classification: GameOperationResultClassification) {
               <button
                 v-if="operationByID.has('player_assistance.apply_buff')"
                 class="action-button"
+                :class="operationButtonClass('player_assistance.apply_buff')"
                 data-testid="apply-buff"
                 :disabled="
                   operationDisabled(
@@ -1588,7 +1690,8 @@ function resultIcon(classification: GameOperationResultClassification) {
               </button>
               <button
                 v-if="operationByID.has('player_assistance.remove_buff')"
-                class="action-button action-button--warning"
+                class="action-button"
+                :class="operationButtonClass('player_assistance.remove_buff')"
                 data-testid="remove-buff"
                 :disabled="
                   operationDisabled(
@@ -1663,6 +1766,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <button
               v-if="operationByID.has('permissions.set_command_permission')"
               class="action-button"
+              :class="operationButtonClass('permissions.set_command_permission')"
               data-testid="set-command-permission"
               :disabled="
                 operationDisabled('permissions.set_command_permission', commandName.trim() !== '')
@@ -1677,7 +1781,8 @@ function resultIcon(classification: GameOperationResultClassification) {
             </button>
             <button
               v-if="operationByID.has('permissions.reset_command_permission')"
-              class="action-button action-button--warning"
+              class="action-button"
+              :class="operationButtonClass('permissions.reset_command_permission')"
               data-testid="reset-command-permission"
               :disabled="
                 operationDisabled('permissions.reset_command_permission', commandName.trim() !== '')
@@ -1712,6 +1817,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <button
               v-if="operationByID.has('communication.message_player')"
               class="action-button"
+              :class="operationButtonClass('communication.message_player')"
               data-testid="message-player"
               :disabled="
                 operationDisabled(
@@ -1729,7 +1835,8 @@ function resultIcon(classification: GameOperationResultClassification) {
             </button>
             <button
               v-if="operationByID.has('communication.broadcast_message')"
-              class="action-button action-button--warning"
+              class="action-button"
+              :class="operationButtonClass('communication.broadcast_message')"
               data-testid="broadcast-message"
               :disabled="
                 operationDisabled('communication.broadcast_message', message.trim() !== '')
@@ -1763,6 +1870,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <div class="form-actions">
               <button
                 class="action-button"
+                :class="operationButtonClass('world_events.set_weather')"
                 data-testid="set-weather"
                 :disabled="operationDisabled('world_events.set_weather')"
                 type="button"
@@ -1782,6 +1890,7 @@ function resultIcon(classification: GameOperationResultClassification) {
             <div class="form-actions">
               <button
                 class="action-button"
+                :class="operationButtonClass('server_control.save_world')"
                 data-testid="save-world"
                 :disabled="operationDisabled('server_control.save_world')"
                 type="button"
@@ -1800,7 +1909,8 @@ function resultIcon(classification: GameOperationResultClassification) {
             </div>
             <div class="button-cluster">
               <button
-                class="action-button action-button--quiet"
+                class="action-button"
+                :class="operationButtonClass('server_control.set_game_time')"
                 data-testid="set-day"
                 :disabled="operationDisabled('server_control.set_game_time')"
                 type="button"
@@ -1808,7 +1918,8 @@ function resultIcon(classification: GameOperationResultClassification) {
                 Set day
               </button>
               <button
-                class="action-button action-button--quiet"
+                class="action-button"
+                :class="operationButtonClass('server_control.set_game_time')"
                 data-testid="set-night"
                 :disabled="operationDisabled('server_control.set_game_time')"
                 type="button"
@@ -1848,6 +1959,7 @@ function resultIcon(classification: GameOperationResultClassification) {
               /></label>
               <button
                 class="action-button"
+                :class="operationButtonClass('server_control.set_game_time')"
                 data-testid="set-exact-world-time"
                 :disabled="operationDisabled('server_control.set_game_time', exactWorldTimeReady())"
                 type="button"
@@ -1871,6 +1983,7 @@ function resultIcon(classification: GameOperationResultClassification) {
               >
               <button
                 class="action-button"
+                :class="operationButtonClass('server_control.set_temperature_unit')"
                 data-testid="set-temperature-unit"
                 :disabled="operationDisabled('server_control.set_temperature_unit')"
                 type="button"
@@ -1895,7 +2008,8 @@ function resultIcon(classification: GameOperationResultClassification) {
             <button
               v-for="operation in spawnEventOperations"
               :key="operation.id"
-              class="action-button action-button--warning"
+              class="action-button"
+              :class="riskButtonClass(operation.risk)"
               :data-testid="
                 operation.id === 'world_events.spawn_airdrop'
                   ? 'spawn-airdrop'
@@ -1955,7 +2069,12 @@ function resultIcon(classification: GameOperationResultClassification) {
           <dl v-if="pendingValues.length > 0" class="confirmation-values">
             <template v-for="entry in pendingValues" :key="entry.label">
               <dt>{{ entry.label }}</dt>
-              <dd>{{ entry.value }}</dd>
+              <dd>
+                {{ entry.value }}
+                <code v-if="entry.identity" class="confirmation-values__identity">{{
+                  entry.identity
+                }}</code>
+              </dd>
             </template>
           </dl>
           <p v-if="pendingOperation.operation.review?.caution" class="confirmation-caution">
@@ -1972,11 +2091,7 @@ function resultIcon(classification: GameOperationResultClassification) {
           </button>
           <button
             class="action-button"
-            :class="
-              pendingOperation.operation.risk === GameOperationRisk.IRREVERSIBLE
-                ? 'action-button--danger'
-                : 'action-button--warning'
-            "
+            :class="riskButtonClass(pendingOperation.operation.risk, '')"
             data-testid="confirm-operation"
             type="button"
             @click="confirmPendingOperation">
@@ -2259,6 +2374,13 @@ function resultIcon(classification: GameOperationResultClassification) {
   border-radius: var(--xy-radius-pill);
 }
 
+/* Routine actions run straight away; keep amber for panels that open a review. */
+.risk-badge--routine {
+  color: var(--xy-text-secondary);
+  background: var(--xy-surface-2);
+  border-color: var(--xy-border);
+}
+
 .active-task__unavailable {
   padding: var(--xy-space-base);
   margin: var(--xy-space-base) 0 0;
@@ -2429,9 +2551,10 @@ function resultIcon(classification: GameOperationResultClassification) {
   overflow: clip;
 }
 
+/* The server layout scroller already starts below the header, so stick to its top. */
 .player-context {
   position: sticky;
-  top: var(--xy-header-stack-height, var(--xy-toolbar-height));
+  top: 0;
   z-index: var(--xy-z-sticky);
   display: grid;
   grid-template-columns: minmax(16rem, 1fr) minmax(18rem, auto);
@@ -2484,6 +2607,19 @@ function resultIcon(classification: GameOperationResultClassification) {
   color: var(--xy-text-muted);
   font-family: var(--xy-font-mono);
   font-size: var(--xy-font-size-xs);
+}
+
+/* A player whose name is their ID shows the ID once, as the primary line. */
+.player-identity__copy code:only-child {
+  color: var(--xy-text-primary);
+  font-size: var(--xy-font-size-sm);
+}
+
+.player-context__notice {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--xy-warning-hover);
+  font-size: var(--xy-font-size-sm);
 }
 
 .player-identity__status,
@@ -3008,6 +3144,11 @@ function resultIcon(classification: GameOperationResultClassification) {
   overflow-wrap: anywhere;
 }
 
+.confirmation-values__identity {
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
+}
+
 .confirmation-caution {
   display: flex;
   gap: var(--xy-space-sm);
@@ -3035,6 +3176,12 @@ function resultIcon(classification: GameOperationResultClassification) {
     scroll-snap-type: x proximity;
   }
 
+  /* Four short categories fit on two rows at most, so none is cut off. */
+  .category-list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
   .category-button,
   .operation-button {
     flex: 0 0 auto;
@@ -3060,10 +3207,6 @@ function resultIcon(classification: GameOperationResultClassification) {
   .assistance-form,
   .exact-time-fields {
     grid-template-columns: 1fr;
-  }
-
-  .player-context {
-    top: var(--xy-header-stack-height, var(--xy-toolbar-height));
   }
 
   .player-identity__status,
@@ -3122,18 +3265,6 @@ function resultIcon(classification: GameOperationResultClassification) {
 
   .recovery-panel__permission {
     text-align: left;
-  }
-
-  .form-actions {
-    position: sticky;
-    bottom: 0;
-    z-index: var(--xy-z-sticky);
-    margin: var(--xy-space-base) calc(var(--xy-space-md) * -1) calc(var(--xy-space-md) * -1);
-    padding: var(--xy-space-sm) var(--xy-space-md)
-      max(var(--xy-space-sm), env(safe-area-inset-bottom));
-    background: var(--xy-surface-1);
-    border-top: 1px solid var(--xy-border);
-    box-shadow: var(--xy-shadow-sticky-lg);
   }
 
   .button-cluster,

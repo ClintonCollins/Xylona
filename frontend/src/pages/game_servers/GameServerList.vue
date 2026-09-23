@@ -483,6 +483,7 @@ import { type AllServersMetrics } from '@/proto/websocket_pb'
 import { buildDisplayRows, type DisplayRow } from './server-list-cache'
 import { queryInfoPlayerSnapshot } from './useGameServerQueryStatusVersion'
 import {
+  askLifecycleConfirmation,
   buildLifecycleConfirmation,
   canRestartServer,
   canStartServer,
@@ -1183,44 +1184,20 @@ async function confirmUpdateServers(servers: DisplayRow[]): Promise<boolean> {
   })
 }
 
-async function confirmLifecycleServers(
+function confirmLifecycleServers(
   action: LifecycleConfirmAction,
   servers: DisplayRow[],
 ): Promise<boolean> {
-  const confirmation = buildLifecycleConfirmation(
-    action,
-    servers.map((server) => ({
-      displayName: server.displayName,
-      playerCount: getPlayerCounts(server).current,
-    })),
+  return askLifecycleConfirmation(
+    $q,
+    buildLifecycleConfirmation(
+      action,
+      servers.map((server) => ({
+        displayName: server.displayName,
+        playerCount: getPlayerCounts(server).current,
+      })),
+    ),
   )
-  if (confirmation === null) {
-    return true
-  }
-
-  return new Promise((resolve) => {
-    let settled = false
-    $q.dialog({
-      title: confirmation.title,
-      message: confirmation.message,
-      cancel: true,
-      persistent: true,
-      ok: {
-        label: confirmation.confirmLabel,
-        color: confirmation.confirmColor,
-        unelevated: true,
-      },
-    })
-      .onOk(() => {
-        settled = true
-        resolve(true)
-      })
-      .onDismiss(() => {
-        if (!settled) {
-          resolve(false)
-        }
-      })
-  })
 }
 
 function setPendingActions(servers: DisplayRow[], action?: ServerAction) {

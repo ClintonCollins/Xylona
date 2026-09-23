@@ -42,9 +42,18 @@ test('mobile stored access requires exact identity and review; join password sta
       json: {
         operations: ['list', 'add'].map((action) => ({
           id: `valheim.access.administrators.${action}`,
-          name: action === 'add' ? 'Add administrator' : 'List administrators',
+          name: action === 'add' ? 'Add administrator' : 'Read administrators',
           available: true,
           fields: action === 'add' ? [{ id: 'player' }, { id: 'expected_revision' }] : [],
+          review:
+            action === 'add'
+              ? {
+                  title: 'Review add administrator',
+                  effect:
+                    'The identity will be added to the stored administrator list. The change applies the next time the server starts.',
+                  caution: 'In-game enforcement is not verified.',
+                }
+              : undefined,
         })),
       },
     }),
@@ -73,9 +82,11 @@ test('mobile stored access requires exact identity and review; join password sta
   ).toBeDisabled()
   await access.getByLabel('Exact platform identity').fill('Steam_76561198000000002')
   await access.getByRole('button', { name: 'Add administrator', exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('Steam_76561198000000002')
-  await expect(page.getByRole('dialog')).toContainText('Applies on next start')
-  await page.getByRole('button', { name: 'Confirm stored change' }).click()
+  const review = page.getByRole('dialog')
+  await expect(review).toContainText('Review add administrator')
+  await expect(review).toContainText('Steam_76561198000000002')
+  await expect(review).toContainText('applies the next time the server starts')
+  await review.getByRole('button', { name: 'Add administrator', exact: true }).click()
   await expect(access).toContainText('Confirmed: stored file read back')
   await expect.poll(() => changes.at(-1)?.operationId).toBe('valheim.access.administrators.add')
   expect(changes.at(-1)).toMatchObject({

@@ -160,11 +160,13 @@ test('executes direct administration controls by keyboard on mobile through visi
   await expect(page.getByRole('option', { name: /Player One/ })).toBeVisible()
   await playerPicker.fill('EOS_PLAYER_2')
   await expect(page.getByTestId('selected-player')).toContainText('Player Two')
-  await expect(page.getByTestId('selected-player')).toContainText('Offline')
+  // The listing does not report a live player query, so online state is unknown.
+  await expect(page.getByTestId('selected-player')).toContainText('Known player')
   const addAdministrator = page.getByTestId('add-administrator')
   await addAdministrator.focus()
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('dialog')).toContainText('Player Two (EOS_PLAYER_2)')
+  await expect(page.getByRole('dialog')).toContainText('Player Two')
+  await expect(page.locator('.confirmation-values__identity')).toHaveText('EOS_PLAYER_2')
   await page.getByTestId('confirm-operation').focus()
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('operation-result')).toContainText('Confirmed')
@@ -225,9 +227,8 @@ test('executes direct administration controls by keyboard on mobile through visi
     'Set temperature unit — Command issued',
   )
   await expect(page.getByTestId('operation-result')).toContainText(
-    'The command was sent to the game server.',
+    'The server accepted Set temperature unit, but read-back was unavailable.',
   )
-  await expect(page.getByTestId('operation-result')).not.toContainText('read-back')
   expect(requests.map((request) => request.operationId)).toEqual([
     'player_access.add_administrator',
     'player_access.add_administrator',
@@ -241,13 +242,14 @@ test('executes direct administration controls by keyboard on mobile through visi
     `/game-servers/${state.gameServerId}/operations?operation=player_moderation.kick&player=EOS_PLAYER_2`,
   )
   await expect(page.getByRole('dialog')).toContainText('Review Kick Player')
-  await expect(page.getByRole('dialog')).toContainText('Player Two (EOS_PLAYER_2)')
+  await expect(page.getByRole('dialog')).toContainText('Player Two')
+  await expect(page.locator('.confirmation-values__identity')).toHaveText('EOS_PLAYER_2')
   await page.getByTestId('confirm-operation').click()
 
   await expect.poll(() => requests.length).toBe(6)
   await expect(page.getByTestId('operation-result')).toContainText('Kick Player — Command issued')
   await expect(page.getByTestId('operation-result')).toContainText(
-    'The command was sent to the game server.',
+    'The server accepted Kick Player, but read-back was unavailable.',
   )
   expect(requests[0]).toMatchObject({
     gameServerId: state.gameServerId,
@@ -354,9 +356,8 @@ test('executes communication controls without exposing information commands', as
     'Send server announcement — Command issued',
   )
   await expect(page.getByTestId('operation-result')).toContainText(
-    'The command was sent to the game server.',
+    'The announcement was accepted, but delivery could not be verified.',
   )
-  await expect(page.getByTestId('operation-result')).not.toContainText('verified')
   expect(requests[0]).toMatchObject({
     operationId: 'communication.broadcast_message',
     values: [{ fieldId: 'message', value: { case: 'stringValue', value: 'Server restart soon' } }],

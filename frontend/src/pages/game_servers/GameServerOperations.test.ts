@@ -17,6 +17,7 @@ import {
   GetSevenDaysToDieWebAPIStatusResponseSchema,
   ListGameServerOperationsResponseSchema,
   SevenDaysToDieGameTimeSchema,
+  SevenDaysToDieWebAPICapabilitiesSchema,
   SevenDaysToDieWebAPIStatusSchema,
   SevenDaysToDieWebAPIValueState,
 } from '@/proto/xylona_pb'
@@ -314,12 +315,17 @@ const commonOperations = [
   ]),
 ]
 
-async function mountOperations(operations = commonOperations) {
+function operationsResponse(operations: GameOperationDescriptor[], onlinePlayersKnown = true) {
+  return create(ListGameServerOperationsResponseSchema, {
+    gameServerName: 'Test Server',
+    operations,
+    onlinePlayersKnown,
+  })
+}
+
+async function mountOperations(operations = commonOperations, onlinePlayersKnown = true) {
   mocks.listGameServerOperations.mockResolvedValue(
-    create(ListGameServerOperationsResponseSchema, {
-      gameServerName: 'Test Server',
-      operations,
-    }),
+    operationsResponse(operations, onlinePlayersKnown),
   )
   const wrapper = mount(GameServerOperations, {
     global: {
@@ -369,6 +375,7 @@ describe('GameServerOperations', () => {
     mocks.getSevenDaysToDieWebAPIStatus.mockResolvedValue(
       create(GetSevenDaysToDieWebAPIStatusResponseSchema, {
         status: create(SevenDaysToDieWebAPIStatusSchema, {
+          capabilities: create(SevenDaysToDieWebAPICapabilitiesSchema, { playerData: true }),
           worldTimeState:
             SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE,
           worldTime: create(SevenDaysToDieGameTimeSchema, { day: 42, hour: 7, minute: 5 }),
@@ -502,6 +509,190 @@ describe('GameServerOperations', () => {
 
     await input.setValue('Steam_MANUAL')
     expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Manual identity')
+    // A manual identity is its own label, so the ID is shown once.
+    expect(wrapper.find('.player-identity__copy strong').exists()).toBe(false)
+    expect(wrapper.get('.player-identity__copy code').text()).toBe('Steam_MANUAL')
+  })
+
+  it('disables in-game actions for an offline player but keeps offline-safe ones', async () => {
+    const destination = playerIdentityField('destination', 'Destination player')
+    destination.options = destination.options.filter((option) => option.value === 'Steam_PLAYER_1')
+    const wrapper = await mountOperations([
+      moderationOperation('player_moderation.kick', 'Kick player', GameOperationRisk.CAUTION),
+      moderationOperation('player_moderation.ban', 'Ban player', GameOperationRisk.CAUTION),
+      operation(
+        'player_assistance.teleport_to_player',
+        'Teleport player',
+        GameOperationRisk.CAUTION,
+        [playerIdentityField(), destination],
+      ),
+      operation('player_assistance.give_experience', 'Give experience', GameOperationRisk.CAUTION, [
+        playerIdentityField(),
+        integerField('experience', 'Experience', '1000', 1000000),
+      ]),
+    ])
+    await selectPanel(wrapper, 'player-assistance')
+    await wrapper
+      .get<HTMLInputElement>('[data-testid="player-identity"]')
+      .setValue('Steam_PLAYER_2')
+
+    expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Offline')
+    expect(wrapper.text()).toContain('This player is offline.')
+    expect(
+      wrapper.get<HTMLButtonElement>('[data-testid="give-experience"]').attributes(),
+    ).toHaveProperty('disabled')
+
+    await selectPanel(wrapper, 'player_moderation.ban')
+    expect(wrapper.text()).not.toContain('This player is offline.')
+    expect(
+      wrapper.get<HTMLButtonElement>('[data-testid="ban-player"]').attributes(),
+    ).not.toHaveProperty('disabled')
+
+    await wrapper
+      .get<HTMLInputElement>('[data-testid="player-identity"]')
+      .setValue('Steam_PLAYER_1')
+    await selectPanel(wrapper, 'player-assistance')
+    expect(
+      wrapper.get<HTMLButtonElement>('[data-testid="give-experience"]').attributes(),
+    ).not.toHaveProperty('disabled')
+  })
+
+  it('re-checks an offline player and enables in-game actions once they join', async () => {
+    vi.useFakeTimers()
+    try {
+      const kickOperations = (onlinePlayers: string[]) => {
+        const destination = playerIdentityField('destination', 'Destination player')
+        destination.options = destination.options.filter((option) =>
+          onlinePlayers.includes(option.value),
+        )
+        return [
+          moderationOperation('player_moderation.kick', 'Kick player', GameOperationRisk.CAUTION),
+          operation(
+            'player_assistance.teleport_to_player',
+            'Teleport player',
+            GameOperationRisk.CAUTION,
+            [playerIdentityField(), destination],
+          ),
+        ]
+      }
+      const wrapper = await mountOperations(kickOperations(['Steam_PLAYER_1']))
+      await selectPanel(wrapper, 'player_moderation.kick')
+      await wrapper
+        .get<HTMLInputElement>('[data-testid="player-identity"]')
+        .setValue('Steam_PLAYER_2')
+      await flushPromises()
+
+      // Choosing an offline player re-reads the player list at once instead of trusting the load.
+      expect(mocks.listGameServerOperations).toHaveBeenCalledTimes(2)
+      expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Offline')
+      expect(
+        wrapper.get<HTMLButtonElement>('[data-testid="kick-player"]').attributes(),
+      ).toHaveProperty('disabled')
+
+      // The player joins; the next poll sees them and Kick works without a reload.
+      mocks.listGameServerOperations.mockResolvedValue(
+        operationsResponse(kickOperations(['Steam_PLAYER_1', 'Steam_PLAYER_2'])),
+      )
+      await vi.advanceTimersByTimeAsync(30_000)
+      await flushPromises()
+      expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Online')
+      expect(wrapper.text()).not.toContain('This player is offline.')
+      expect(
+        wrapper.get<HTMLButtonElement>('[data-testid="kick-player"]').attributes(),
+      ).not.toHaveProperty('disabled')
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops blocking actions when the player list cannot be re-read', async () => {
+    const destination = playerIdentityField('destination', 'Destination player')
+    destination.options = []
+    const wrapper = await mountOperations([
+      moderationOperation('player_moderation.kick', 'Kick player', GameOperationRisk.CAUTION),
+      operation(
+        'player_assistance.teleport_to_player',
+        'Teleport player',
+        GameOperationRisk.CAUTION,
+        [playerIdentityField(), destination],
+      ),
+    ])
+    mocks.listGameServerOperations.mockRejectedValue(new Error('offline'))
+    await selectPanel(wrapper, 'player_moderation.kick')
+    await wrapper
+      .get<HTMLInputElement>('[data-testid="player-identity"]')
+      .setValue('Steam_PLAYER_2')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Known player')
+    expect(
+      wrapper.get<HTMLButtonElement>('[data-testid="kick-player"]').attributes(),
+    ).not.toHaveProperty('disabled')
+  })
+
+  it('does not call a saved player offline when the player query did not answer', async () => {
+    const destination = playerIdentityField('destination', 'Destination player')
+    destination.options = []
+    const wrapper = await mountOperations(
+      [
+        operation(
+          'player_assistance.teleport_to_player',
+          'Teleport player',
+          GameOperationRisk.CAUTION,
+          [playerIdentityField(), destination],
+        ),
+        operation(
+          'player_assistance.give_experience',
+          'Give experience',
+          GameOperationRisk.CAUTION,
+          [playerIdentityField(), integerField('experience', 'Experience', '1000', 1000000)],
+        ),
+      ],
+      false,
+    )
+    const labels = wrapper
+      .findAll('#teleport-player-identities option')
+      .map((option) => option.attributes('label'))
+    expect(labels).toEqual(['Player One', 'Player Two'])
+    await wrapper
+      .get<HTMLInputElement>('[data-testid="player-identity"]')
+      .setValue('Steam_PLAYER_2')
+
+    expect(wrapper.get('[data-testid="selected-player"]').text()).toContain('Known player')
+    expect(
+      wrapper.get<HTMLButtonElement>('[data-testid="give-experience"]').attributes(),
+    ).not.toHaveProperty('disabled')
+  })
+
+  it('styles each action by its risk so routine and review actions look different', async () => {
+    const wrapper = await mountOperations()
+
+    await wrapper.get('[data-testid="operation-category-access"]').trigger('click')
+    expect(wrapper.get('[data-testid="allowlist-add"]').classes()).toContain('action-button--quiet')
+    expect(wrapper.get('[data-testid="allowlist-remove"]').classes()).toContain(
+      'action-button--warning',
+    )
+    expect(wrapper.get('.risk-badge').text()).toBe('Review required')
+
+    await wrapper.get('[data-testid="operation-category-messages"]').trigger('click')
+    expect(wrapper.get('.risk-badge').text()).toBe('Routine')
+    expect(wrapper.get('.risk-badge').classes()).toContain('risk-badge--routine')
+    expect(wrapper.get('[data-testid="broadcast-message"]').classes()).toContain(
+      'action-button--quiet',
+    )
+
+    await wrapper.get('[data-testid="operation-category-players"]').trigger('click')
+    await selectPanel(wrapper, 'player_moderation.ban')
+    await wrapper
+      .get<HTMLInputElement>('[data-testid="player-identity"]')
+      .setValue('Steam_PLAYER_1')
+    const ban = wrapper.get<HTMLButtonElement>('[data-testid="ban-player"]')
+    expect(ban.classes()).toContain('action-button--warning')
+    await ban.trigger('click')
+    expect(wrapper.get('[data-testid="confirm-operation"]').classes()).toContain(
+      'action-button--warning',
+    )
   })
 
   it('previews a selected server item and distinguishes manual exact names', async () => {
@@ -562,6 +753,7 @@ describe('GameServerOperations', () => {
       wrapper.get<HTMLButtonElement>('[data-testid="teleport-player"]').attributes(),
     ).toHaveProperty('disabled')
 
+    // An offline source can't be moved either.
     await wrapper
       .get<HTMLInputElement>('[data-testid="player-identity"]')
       .setValue('Steam_PLAYER_2')
@@ -569,6 +761,12 @@ describe('GameServerOperations', () => {
       .get<HTMLInputElement>('[data-testid="teleport-destination"]')
       .setValue('Steam_PLAYER_1')
     expect(wrapper.text()).not.toContain('This saved player is offline.')
+    expect(wrapper.text()).toContain('This player is offline.')
+    expect(
+      wrapper.get<HTMLButtonElement>('[data-testid="teleport-player"]').attributes(),
+    ).toHaveProperty('disabled')
+
+    await wrapper.get<HTMLInputElement>('[data-testid="player-identity"]').setValue('Steam_MANUAL')
     expect(
       wrapper.get<HTMLButtonElement>('[data-testid="teleport-player"]').attributes(),
     ).not.toHaveProperty('disabled')
@@ -586,7 +784,8 @@ describe('GameServerOperations', () => {
     )
     expect(wrapper.get('#active-operation-title').text()).toBe('Player access')
     expect(wrapper.text()).toContain('Review administrator access')
-    expect(wrapper.text()).toContain('Player One (Steam_PLAYER_1)')
+    expect(wrapper.get('.confirmation-values').text()).toContain('Player One')
+    expect(wrapper.get('.confirmation-values__identity').text()).toBe('Steam_PLAYER_1')
   })
 
   it('reviews a protected action and submits typed values once confirmed', async () => {
@@ -647,8 +846,10 @@ describe('GameServerOperations', () => {
     expect(wrapper.find('[data-testid="confirm-operation"]').exists()).toBe(false)
     const result = wrapper.get('[data-testid="operation-result"]').text()
     expect(result).toContain('Save world — Command issued')
-    expect(result).toContain('The command was sent to the game server.')
-    expect(result).not.toContain('verified')
+    // The backend's own wording says what could not be verified.
+    expect(result).toContain(
+      'The server accepted the command, but completion could not be verified.',
+    )
   })
 
   it('groups spawn world events without changing their operation identities', async () => {

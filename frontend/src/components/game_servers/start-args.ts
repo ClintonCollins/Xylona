@@ -2,7 +2,7 @@ import type { GameServer } from '@/proto/shared_pb'
 
 export type StartArgOwnership = 'system' | 'locked' | 'editable'
 export type StartArgPatchOp = 'edit' | 'remove' | 'add'
-export type StartArgProvenance = 'system' | 'locked' | 'default' | 'edited' | 'added'
+export type StartArgProvenance = 'system' | 'locked' | 'default' | 'edited' | 'added' | 'removed'
 
 export interface StartArgBlock {
   id: string
@@ -264,7 +264,18 @@ export function resolveStartArgs(
   emitAnchoredAdds('')
 
   for (const block of orderedTemplate) {
+    // Removed blocks stay listed so the editor can restore them, but add no argv tokens.
+    // Like the backend, arguments anchored after a removed block are not emitted.
     if (removedIds.has(block.id)) {
+      resolvedBlocks.push({
+        id: block.id,
+        ownership: block.ownership,
+        tokens: [...block.tokens],
+        resolvedTokens: [],
+        label: block.label,
+        managedSource: block.managedSource,
+        provenance: 'removed',
+      })
       continue
     }
 
@@ -371,6 +382,23 @@ export function joinTokensInput(tokens: string[]): string {
 
 export function formatTokensInline(tokens: string[]): string {
   return tokens.join(' ')
+}
+
+/** One argv token as it would be typed: quoted when it is empty or holds whitespace. */
+export function formatCommandToken(token: string): string {
+  if (token !== '' && !/\s/u.test(token)) {
+    return token
+  }
+
+  return `"${token.replaceAll('"', '\\"')}"`
+}
+
+/** Splits text into literal runs and the `{{KEY}}` placeholders only Xylona can fill in at launch. */
+export function splitUnresolvedPlaceholders(text: string): { text: string; unresolved: boolean }[] {
+  return text
+    .split(/(\{\{[A-Z_]+\}\})/u)
+    .filter((part) => part !== '')
+    .map((part) => ({ text: part, unresolved: /^\{\{[A-Z_]+\}\}$/u.test(part) }))
 }
 
 export function clonePatches(patches: StartArgPatch[]): StartArgPatch[] {
@@ -521,7 +549,9 @@ function resolveToken(token: string, vars: Record<string, string>): string {
     resolved = resolved.replaceAll(placeholder, vars[key] ?? '')
   }
 
-  return resolved.replace(/\{\{([A-Z_]+)\}\}/gu, (_match, key: string) => vars[key] ?? '')
+  // Placeholders the browser doesn't know (secrets, RCON and Web API settings) stay visible
+  // instead of blanking, so the preview never suggests they are missing.
+  return resolved.replace(/\{\{([A-Z_]+)\}\}/gu, (match, key: string) => vars[key] ?? match)
 }
 
 function cloneTemplate(template: StartArgBlock[]): StartArgBlock[] {

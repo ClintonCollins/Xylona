@@ -8,7 +8,7 @@
           <strong>{{ tokenCountLabel }}</strong>
         </div>
         <div class="resolved-preview__copy text-xy-secondary">
-          Exact command after placeholders resolve. Updates as you edit.
+          Command after placeholders resolve. Updates as you edit.
         </div>
       </div>
       <q-btn
@@ -37,12 +37,18 @@
         aria-label="Resolved launch command"
         class="resolved-preview__command"
         ><span class="resolved-preview__prompt">$</span
-        ><span
-          v-for="segment in commandSegments"
-          :key="segment.key"
-          :class="segmentClass(segment.provenance)"
-          class="resolved-preview__segment"
-          >{{ segment.value }}</span
+        ><template v-for="segment in commandSegments" :key="segment.key"
+          >{{ ' '
+          }}<span :class="segmentClass(segment.provenance)" class="resolved-preview__segment"
+            ><template v-for="(part, partIndex) in segment.parts" :key="partIndex"
+              ><span
+                v-if="part.unresolved"
+                class="resolved-preview__unresolved"
+                :title="`${part.text} is filled in when the server starts`"
+                >‹set at launch›</span
+              ><template v-else>{{ part.text }}</template></template
+            ></span
+          ></template
         ></code
       >
       <div v-else class="resolved-preview__empty">No resolved launch command yet.</div>
@@ -56,6 +62,10 @@
         <span :class="legendDotClass(item.provenance)" class="resolved-preview__legend-dot"></span>
         {{ item.label }}
       </span>
+      <span v-if="hasUnresolved" class="resolved-preview__legend-item">
+        <span class="resolved-preview__unresolved">‹set at launch›</span>
+        Filled in by Xylona when the server starts
+      </span>
     </div>
   </section>
 </template>
@@ -65,7 +75,12 @@ import { computed } from 'vue'
 import { copyToClipboard } from 'quasar'
 
 import { notifySuccess } from '@/api/notifications'
-import type { ResolvedStartArgBlock, StartArgProvenance } from './start-args'
+import {
+  formatCommandToken,
+  splitUnresolvedPlaceholders,
+  type ResolvedStartArgBlock,
+  type StartArgProvenance,
+} from './start-args'
 
 type CommandSegmentProvenance = StartArgProvenance | 'base'
 
@@ -87,30 +102,32 @@ const commandSegments = computed(() => {
     key: string
     provenance: CommandSegmentProvenance
     value: string
+    parts: ReturnType<typeof splitUnresolvedPlaceholders>
   }> = []
+  const push = (key: string, provenance: CommandSegmentProvenance, token: string) => {
+    const value = formatCommandToken(token)
+    segments.push({ key, provenance, value, parts: splitUnresolvedPlaceholders(value) })
+  }
 
   if (props.baseCommand !== '') {
-    segments.push({
-      key: 'base-command',
-      provenance: 'base',
-      value: props.baseCommand,
-    })
+    push('base-command', 'base', props.baseCommand)
   }
 
   for (const block of props.resolvedBlocks) {
     for (const [tokenIndex, token] of block.resolvedTokens.entries()) {
-      segments.push({
-        key: `${block.id}-${tokenIndex}`,
-        provenance: block.provenance,
-        value: token,
-      })
+      push(`${block.id}-${tokenIndex}`, block.provenance, token)
     }
   }
 
   return segments
 })
 
+// Copy keeps unresolved `{{KEY}}` placeholders so the copied command shows what still needs a value.
 const fullCommand = computed(() => commandSegments.value.map((segment) => segment.value).join(' '))
+
+const hasUnresolved = computed(() =>
+  commandSegments.value.some((segment) => segment.parts.some((part) => part.unresolved)),
+)
 
 const commandPartCount = computed(() => commandSegments.value.length)
 
@@ -269,9 +286,16 @@ async function copyCommand() {
   font-family: var(--xy-font-display);
 }
 
-.resolved-preview__segment::before {
-  content: ' ';
+/* A token never wraps inside itself, even when quoted with spaces; lines break between tokens. */
+.resolved-preview__segment {
+  white-space: pre;
+}
+
+.resolved-preview__unresolved {
   color: var(--xy-text-muted);
+  font-family: var(--xy-font-mono);
+  font-style: italic;
+  white-space: nowrap;
 }
 
 .resolved-preview__segment--base {
@@ -283,9 +307,15 @@ async function copyCommand() {
   color: var(--xy-syntax-purple);
 }
 
-.resolved-preview__segment--locked,
-.resolved-preview__segment--edited {
+.resolved-preview__segment--locked {
   color: var(--xy-syntax-amber);
+}
+
+/* Edited tokens get their own colour and an underline, so they don't read by colour alone. */
+.resolved-preview__segment--edited {
+  color: var(--xy-syntax-pink);
+  text-decoration: underline dotted;
+  text-underline-offset: 0.25em;
 }
 
 .resolved-preview__segment--default {
@@ -320,9 +350,12 @@ async function copyCommand() {
   background: var(--xy-syntax-purple);
 }
 
-.resolved-preview__legend-dot--locked,
-.resolved-preview__legend-dot--edited {
+.resolved-preview__legend-dot--locked {
   background: var(--xy-syntax-amber);
+}
+
+.resolved-preview__legend-dot--edited {
+  background: var(--xy-syntax-pink);
 }
 
 .resolved-preview__legend-dot--default {
@@ -343,8 +376,7 @@ async function copyCommand() {
     flex-wrap: wrap;
   }
 
-  .resolved-preview__copy,
-  .resolved-preview__legend {
+  .resolved-preview__copy {
     display: none;
   }
 
@@ -352,9 +384,11 @@ async function copyCommand() {
     min-height: 28px;
   }
 
+  /* Phones show the whole command, wrapped between tokens, instead of a sideways strip. */
   .resolved-preview__command {
     min-height: 2.7rem;
     font-size: var(--xy-font-size-xs);
+    white-space: pre-wrap;
   }
 }
 </style>

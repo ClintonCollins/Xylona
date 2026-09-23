@@ -122,7 +122,7 @@ func (xs *XylonaService) ListGameServerOperations(
 	var onlinePlayerOptions []*xylona.GameOperationFieldOption
 	if environment.status.Capabilities.PlayerData {
 		var errPlayers error
-		onlinePlayerOptions, errPlayers = gameOperationPlayerOptions(ctx, environment.access)
+		onlinePlayerOptions, response.OnlinePlayersKnown, errPlayers = gameOperationPlayerOptions(ctx, environment.access)
 		if errPlayers != nil {
 			return nil, errPlayers
 		}
@@ -419,7 +419,7 @@ func gameOperationAvailability(
 		if !environment.capabilities.PlayerActions {
 			return operationAvailability{
 				reason: xylona.GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_NODE_UNSUPPORTED,
-				text:   "Update the node to a version that supports typed 7 Days to Die Player actions.",
+				text:   "Update the node to a version that supports typed 7 Days to Die player actions.",
 			}
 		}
 		if !environment.playerActionsConfigured {
@@ -641,23 +641,23 @@ func playerActionOperationResult(operationName string, errAction error) node.Gam
 	if errAction == nil {
 		return node.GameOperationResult{
 			Classification:   node.GameOperationResultAcceptedButUnverified,
-			Message:          operationName + " was accepted by the server console, but the final Player state could not be verified.",
+			Message:          operationName + " was accepted by the server console, but the final player state could not be verified.",
 			TransportDetails: details,
 		}
 	}
 
-	message := "The server node could not complete the Player action."
+	message := "The server node could not complete the player action."
 	switch {
 	case errors.Is(errAction, node.ErrInvalidPlayerAction):
-		message = "The Player identity or reason was rejected by the node."
+		message = "The player identity or reason was rejected by the node."
 	case errors.Is(errAction, node.ErrPlayerActionUnsupported):
-		message = "This Player action is not supported by the game server."
+		message = "This player action is not supported by the game server."
 	case errors.Is(errAction, node.ErrProcessNotFound):
 		message = "The game server process is not running."
 	case errors.Is(errAction, node.ErrConsoleInputUnavailable):
 		message = "The game server console input is unavailable."
 	case errors.Is(errAction, node.ErrPlayerActionUnavailable):
-		message = "The game server could not complete the Player action."
+		message = "The game server could not complete the player action."
 	}
 	return node.GameOperationResult{
 		Classification:   node.GameOperationResultFailed,
@@ -666,10 +666,13 @@ func playerActionOperationResult(operationName string, errAction error) node.Gam
 	}
 }
 
+// gameOperationPlayerOptions returns the online players and whether the game server
+// actually answered; a failed or unavailable query leaves online state unknown rather
+// than reporting everyone offline.
 func gameOperationPlayerOptions(
 	ctx context.Context,
 	access sevenDaysToDiePrivateReadAccess,
-) ([]*xylona.GameOperationFieldOption, error) {
+) ([]*xylona.GameOperationFieldOption, bool, error) {
 	players, errPlayers := access.client.QuerySevenDaysToDiePlayers(ctx, node.SevenDaysToDiePlayersQueryRequest{
 		WorkingDirectory: access.workingDirectory,
 		TokenName:        access.tokenName,
@@ -677,12 +680,13 @@ func gameOperationPlayerOptions(
 	})
 	if errPlayers != nil {
 		if errors.Is(errPlayers, context.Canceled) || errors.Is(errPlayers, context.DeadlineExceeded) {
-			return nil, connect.NewError(contextConnectCode(errPlayers), errPlayers)
+			return nil, false, connect.NewError(contextConnectCode(errPlayers), errPlayers)
 		}
-		return nil, nil
+		log.Warn().Err(errPlayers).Msg("failed to query online players for game operations")
+		return nil, false, nil
 	}
 	if players == nil || players.State != node.SevenDaysToDieWebAPIValueStateAvailable {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	options := make([]*xylona.GameOperationFieldOption, 0, len(players.Players))
@@ -710,7 +714,7 @@ func gameOperationPlayerOptions(
 			Description: strings.Join(identities, " · "),
 		})
 	}
-	return options, nil
+	return options, true, nil
 }
 
 func publicGameOperation(

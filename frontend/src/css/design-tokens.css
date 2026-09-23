@@ -159,6 +159,9 @@
   --xy-syntax-green: #b7f5c5;
   --xy-syntax-green-bg: rgba(34, 197, 94, 0.18);
   --xy-syntax-green-border: rgba(34, 197, 94, 0.3);
+  --xy-syntax-pink: #ffc4e6;
+  --xy-syntax-pink-bg: rgba(236, 72, 153, 0.18);
+  --xy-syntax-pink-border: rgba(236, 72, 153, 0.34);
 
   /* ---- Text on Color ---- */
   --xy-text-on-color: var(--xy-text-on-dark);

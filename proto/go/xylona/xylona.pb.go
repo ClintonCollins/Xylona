@@ -17559,8 +17559,12 @@ type ListGameServerOperationsResponse struct {
 	state          protoimpl.MessageState     `protogen:"open.v1"`
 	GameServerName string                     `protobuf:"bytes,1,opt,name=game_server_name,json=gameServerName,proto3" json:"game_server_name,omitempty"`
 	Operations     []*GameOperationDescriptor `protobuf:"bytes,2,rep,name=operations,proto3" json:"operations,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// True only when the game server answered a live player query, so the teleport
+	// destination options are exactly the players who are online. False when the
+	// query is unsupported or failed, and online state is then unknown.
+	OnlinePlayersKnown bool `protobuf:"varint,3,opt,name=online_players_known,json=onlinePlayersKnown,proto3" json:"online_players_known,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ListGameServerOperationsResponse) Reset() {
@@ -17605,6 +17609,13 @@ func (x *ListGameServerOperationsResponse) GetOperations() []*GameOperationDescr
 		return x.Operations
 	}
 	return nil
+}
+
+func (x *ListGameServerOperationsResponse) GetOnlinePlayersKnown() bool {
+	if x != nil {
+		return x.OnlinePlayersKnown
+	}
+	return false
 }
 
 type GameOperationValue struct {
@@ -23597,12 +23608,13 @@ const file_xylona_proto_rawDesc = "" +
 	"\x13availability_reason\x18\f \x01(\x0e2'.xylona.GameOperationAvailabilityReasonR\x12availabilityReason\x128\n" +
 	"\x18availability_reason_text\x18\r \x01(\tR\x16availabilityReasonText\"G\n" +
 	"\x1fListGameServerOperationsRequest\x12$\n" +
-	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\"\x8d\x01\n" +
+	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\"\xbf\x01\n" +
 	" ListGameServerOperationsResponse\x12(\n" +
 	"\x10game_server_name\x18\x01 \x01(\tR\x0egameServerName\x12?\n" +
 	"\n" +
 	"operations\x18\x02 \x03(\v2\x1f.xylona.GameOperationDescriptorR\n" +
-	"operations\"\xab\x01\n" +
+	"operations\x120\n" +
+	"\x14online_players_known\x18\x03 \x01(\bR\x12onlinePlayersKnown\"\xab\x01\n" +
 	"\x12GameOperationValue\x12\x19\n" +
 	"\bfield_id\x18\x01 \x01(\tR\afieldId\x12#\n" +
 	"\fstring_value\x18\x02 \x01(\tH\x00R\vstringValue\x12%\n" +
