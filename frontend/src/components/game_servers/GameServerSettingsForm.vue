@@ -355,6 +355,30 @@
             Loading environment...
           </div>
 
+          <!-- Without a loaded baseline, edits can't be diffed or saved, so offer Retry instead of the grid. -->
+          <q-banner
+            v-else-if="environmentLoadError"
+            class="xy-banner-negative"
+            data-testid="environment-load-error"
+            dense
+            inline-actions
+            role="alert">
+            <template #avatar>
+              <q-icon name="sync_problem" />
+            </template>
+            <strong>Environment could not be loaded.</strong> {{ environmentLoadError }}
+            <template #action>
+              <q-btn
+                aria-label="Retry loading environment"
+                data-testid="environment-load-retry"
+                flat
+                icon="refresh"
+                label="Retry"
+                no-caps
+                @click="initializeEnvironmentSettings" />
+            </template>
+          </q-banner>
+
           <template v-else>
             <q-banner
               v-if="environmentIssues.length > 0"
@@ -610,6 +634,28 @@
             Loading backup settings...
           </div>
 
+          <q-banner
+            v-else-if="backupSettingsLoadError"
+            class="xy-banner-negative"
+            data-testid="backup-settings-load-error"
+            dense
+            inline-actions
+            role="alert">
+            <template #avatar>
+              <q-icon name="sync_problem" />
+            </template>
+            <strong>Backup settings could not be loaded.</strong> {{ backupSettingsLoadError }}
+            <template #action>
+              <q-btn
+                aria-label="Retry loading backup settings"
+                flat
+                icon="refresh"
+                label="Retry"
+                no-caps
+                @click="initializeBackupSettings" />
+            </template>
+          </q-banner>
+
           <template v-else>
             <q-banner
               v-if="!backupSettings.backupsSupported"
@@ -822,10 +868,12 @@ const dnsBindingSettings = ref<InstanceType<typeof GameServerDnsBindingSettings>
 const backupSettings = ref<BackupSettings>(create(BackupSettingsSchema))
 const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
 const backupSettingsLoading = ref(true)
+const backupSettingsLoadError = ref('')
 const environmentRows = ref<EnvironmentVariable[]>([])
 const environmentSnapshot = ref('')
 const environmentIssues = ref<EnvironmentValidationIssue[]>([])
 const environmentLoading = ref(true)
+const environmentLoadError = ref('')
 const adminInterface = ref<GameServerAdminInterface>(create(GameServerAdminInterfaceSchema))
 const adminInterfaceLoading = ref(true)
 const adminInterfacePassword = ref('')
@@ -1117,6 +1165,7 @@ async function saveAdminInterfacePassword() {
 
 async function initializeBackupSettings() {
   backupSettingsLoading.value = true
+  backupSettingsLoadError.value = ''
 
   try {
     const [overviewResponse, settingsResponse] = await Promise.all([
@@ -1145,12 +1194,8 @@ async function initializeBackupSettings() {
     }
     backupSettingsSnapshot.value = serializeBackupSettings(backupSettings.value)
   } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to load backup settings: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    backupSettingsSnapshot.value = ''
+    backupSettingsLoadError.value = ConnectErrorToString(ConnectError.from(e))
   } finally {
     backupSettingsLoading.value = false
   }
@@ -1158,6 +1203,7 @@ async function initializeBackupSettings() {
 
 async function initializeEnvironmentSettings() {
   environmentLoading.value = true
+  environmentLoadError.value = ''
 
   try {
     const response = await GetXylonaClient().getGameServerEnvironment(
@@ -1171,12 +1217,7 @@ async function initializeEnvironmentSettings() {
     environmentIssues.value = response.validationIssues
     secretEnvironmentStates.value = response.secretEnv
   } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to load environment: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    environmentLoadError.value = ConnectErrorToString(ConnectError.from(e))
   } finally {
     environmentLoading.value = false
   }

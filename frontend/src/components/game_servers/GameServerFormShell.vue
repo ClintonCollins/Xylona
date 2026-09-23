@@ -284,7 +284,8 @@ onBeforeUnmount(() => {
     display: none;
   }
 
-  .server-form-body {
+  /* Scoped under the shell so it beats the base .server-form-body rule further down. */
+  .server-form-shell .server-form-body {
     padding: var(--xy-space-md);
   }
 }

@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   dialog: vi.fn(),
 }))
 
-vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }))
+vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn(), onBeforeRouteUpdate: vi.fn() }))
 
 vi.mock('@/utils/shared', () => ({
   ConnectErrorToString: (error: Error) => error.message,

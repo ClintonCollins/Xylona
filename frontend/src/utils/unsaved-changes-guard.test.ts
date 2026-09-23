@@ -7,6 +7,8 @@ import { useUnsavedChangesGuard } from './unsaved-changes-guard'
 const mocks = vi.hoisted(() => ({
   dialog: vi.fn(),
   leaveGuard: undefined as undefined | (() => boolean | Promise<boolean>),
+  updateGuard: undefined as
+    undefined | ((to: { path: string }, from: { path: string }) => boolean | Promise<boolean>),
 }))
 
 vi.mock('quasar', async () => {
@@ -17,6 +19,11 @@ vi.mock('quasar', async () => {
 vi.mock('vue-router', () => ({
   onBeforeRouteLeave: (guard: () => boolean | Promise<boolean>) => {
     mocks.leaveGuard = guard
+  },
+  onBeforeRouteUpdate: (
+    guard: (to: { path: string }, from: { path: string }) => boolean | Promise<boolean>,
+  ) => {
+    mocks.updateGuard = guard
   },
 }))
 
@@ -59,6 +66,7 @@ describe('useUnsavedChangesGuard', () => {
   beforeEach(() => {
     mocks.dialog.mockReset()
     mocks.leaveGuard = undefined
+    mocks.updateGuard = undefined
   })
 
   it('lets a clean form leave without asking', async () => {
@@ -79,6 +87,31 @@ describe('useUnsavedChangesGuard', () => {
     expect(mocks.dialog).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Unsaved Changes', persistent: true }),
     )
+  })
+
+  it('asks when the same page opens for another server, not on a query-only change', async () => {
+    answerDialog('cancel')
+    mountGuard(true)
+
+    await expect(
+      Promise.resolve(
+        mocks.updateGuard?.(
+          { path: '/game-servers/a/settings' },
+          { path: '/game-servers/a/settings' },
+        ),
+      ),
+    ).resolves.toBe(true)
+    expect(mocks.dialog).not.toHaveBeenCalled()
+
+    await expect(
+      Promise.resolve(
+        mocks.updateGuard?.(
+          { path: '/game-servers/b/settings' },
+          { path: '/game-servers/a/settings' },
+        ),
+      ),
+    ).resolves.toBe(false)
+    expect(mocks.dialog).toHaveBeenCalledOnce()
   })
 
   it('uses a custom message for in-page discards', async () => {

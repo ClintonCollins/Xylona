@@ -84,6 +84,7 @@ vi.mock('vue-router', async () => {
   return {
     ...actual,
     onBeforeRouteLeave: vi.fn(),
+    onBeforeRouteUpdate: vi.fn(),
     useRouter: () => ({
       back: vi.fn(),
       push: vi.fn(),
@@ -131,7 +132,7 @@ function mountSettingsForm(canEditProvisioning: boolean) {
     global: {
       stubs: {
         'q-form': QFormStub,
-        'q-banner': { template: '<div v-bind="$attrs"><slot /></div>' },
+        'q-banner': { template: '<div v-bind="$attrs"><slot /><slot name="action" /></div>' },
         'q-input': QInputStub,
         'q-select': QSelectStub,
         'q-btn': {
@@ -569,6 +570,28 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="settings-category-environment-dirty"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="settings-save-state"]').text()).toBe('Unsaved changes')
     expect(saveButton(wrapper).element.disabled).toBe(false)
+  })
+
+  it('offers Retry instead of an editable grid when the environment fails to load', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, { id: 'server-local-1', name: 'Local One', gameId: 'minecraft' }),
+    )
+    mocks.getGameServerEnvironment.mockRejectedValueOnce(new Error('environment unavailable'))
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+    await wrapper.get('[data-testid="settings-category-environment"]').trigger('click')
+
+    expect(wrapper.get('[data-testid="environment-load-error"]').text()).toContain(
+      'environment unavailable',
+    )
+    expect(wrapper.find('[data-testid="add-environment-row"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="environment-load-retry"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="environment-load-error"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="add-environment-row"]').exists()).toBe(true)
   })
 
   it('hides minecraft memory context when the server is not minecraft', async () => {

@@ -68,6 +68,7 @@ vi.mock('vue-router', async () => {
   return {
     ...actual,
     onBeforeRouteLeave: vi.fn(),
+    onBeforeRouteUpdate: vi.fn(),
     useRouter: () => ({
       back: mocks.back,
       push: mocks.push,

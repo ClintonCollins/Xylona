@@ -72,6 +72,7 @@ vi.mock('vue-router', () => ({
   onBeforeRouteLeave: (guard: () => boolean | Promise<boolean>) => {
     mocks.leaveGuard = guard
   },
+  onBeforeRouteUpdate: vi.fn(),
 }))
 
 vi.mock('@/stores/xylona', () => ({
