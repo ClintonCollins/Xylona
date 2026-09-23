@@ -17,6 +17,7 @@ import GameServerSevenDaysToDieMap from './GameServerSevenDaysToDieMap.vue'
 const LiveMapStub = defineComponent({ props: SevenDaysToDieLiveMap.props, render: () => null })
 
 const mocks = vi.hoisted(() => ({
+  dialog: vi.fn(),
   getGameServer: vi.fn(),
   getMap: vi.fn(),
   getStatus: vi.fn(),
@@ -37,6 +38,11 @@ vi.mock('@/utils/shared', () => ({
     installSevenDaysToDieLandClaimsMod: mocks.installLandClaims,
   }),
 }))
+
+vi.mock('quasar', async () => {
+  const actual = await vi.importActual<typeof import('quasar')>('quasar')
+  return { ...actual, useQuasar: () => ({ dialog: mocks.dialog }) }
+})
 
 vi.mock('@/api/notifications', () => ({
   notifyConnectError: mocks.notifyConnectError,
@@ -112,6 +118,10 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     mocks.getMap.mockReset().mockResolvedValue({ map: worldMap })
     mocks.getStatus.mockReset().mockResolvedValue({ status: availableStatus })
     mocks.installLandClaims.mockReset().mockResolvedValue({})
+    // Confirm every install prompt immediately.
+    mocks.dialog.mockReset().mockImplementation(() => ({
+      onOk: (confirm: () => void) => confirm(),
+    }))
     mocks.notifyConnectError.mockReset()
     mocks.notifySuccess.mockReset()
   })
@@ -325,6 +335,7 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     await installButton.trigger('click')
     await installButton.trigger('click')
 
+    expect(mocks.dialog.mock.calls[0]?.[0].message).toContain('next time the server starts')
     expect(mocks.installLandClaims).toHaveBeenCalledTimes(1)
     expect(mocks.installLandClaims.mock.calls[0]?.[0].gameServerId).toBe('server-1')
 

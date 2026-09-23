@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { create } from '@bufbuild/protobuf'
+import { clone, create, equals } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
+import { useQuasar } from 'quasar'
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -22,6 +23,8 @@ const PalworldLiveMap = defineAsyncComponent(
 )
 
 const pollIntervalMs = 5_000
+// Tiles installed by "Install / repair" are served from this controller path.
+const managedTilePathPrefix = '/palworld-map-tiles/'
 const defaultLayer = (): PalworldMapLayer =>
   create(PalworldMapLayerSchema, {
     id: 'world',
@@ -39,6 +42,7 @@ const defaultLayer = (): PalworldMapLayer =>
     maxY: 900_000,
   })
 
+const $q = useQuasar()
 const route = useRoute()
 // Each poll replaces the view wholesale, so deep reactivity would only re-proxy
 // every actor in the snapshot for nothing.
@@ -50,6 +54,8 @@ const shareOpen = ref(false)
 const savingSettings = ref(false)
 const installingTiles = ref(false)
 const layerForm = ref<PalworldMapLayer>(defaultLayer())
+const layerFormOriginal = ref<PalworldMapLayer>(defaultLayer())
+const customSourceOpen = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | undefined
 
 const gameServerID = computed(() => {
@@ -57,6 +63,21 @@ const gameServerID = computed(() => {
   return Array.isArray(id) ? (id[0] ?? '') : String(id ?? '')
 })
 const canManage = computed(() => mapView.value?.canManageShare ?? false)
+const configuredLayers = computed(() => mapView.value?.layers ?? [])
+const managedTilesActive = computed(
+  () =>
+    configuredLayers.value.length > 0 &&
+    configuredLayers.value.every((layer) =>
+      layer.tileUrlTemplate.startsWith(managedTilePathPrefix),
+    ),
+)
+const configuredLayerNames = computed(() =>
+  configuredLayers.value.map((layer) => layer.label || layer.id).join(' and '),
+)
+const showCustomForm = computed(() => !managedTilesActive.value || customSourceOpen.value)
+const settingsChanged = computed(
+  () => !equals(PalworldMapLayerSchema, layerForm.value, layerFormOriginal.value),
+)
 const mapDescription = computed(() => {
   if (!mapView.value?.available) {
     return 'Palworld · live position tracking'
@@ -87,18 +108,28 @@ async function loadMap(): Promise<void> {
 }
 
 function openSettings(): void {
-  const configured = mapView.value?.layers[0]
-  layerForm.value = configured ? create(PalworldMapLayerSchema, configured) : defaultLayer()
+  // Managed tiles are shown as the active source; the custom form then starts
+  // from the default alignment instead of prefilling one managed layer.
+  const configured = managedTilesActive.value ? undefined : configuredLayers.value[0]
+  layerForm.value = configured ? clone(PalworldMapLayerSchema, configured) : defaultLayer()
+  layerFormOriginal.value = clone(PalworldMapLayerSchema, layerForm.value)
+  customSourceOpen.value = false
   settingsOpen.value = true
 }
 
 async function saveSettings(): Promise<void> {
+  // A custom source replaces managed tiles; otherwise only the edited layer
+  // changes and every other configured layer is kept.
+  const layers =
+    managedTilesActive.value || configuredLayers.value.length === 0
+      ? [layerForm.value]
+      : configuredLayers.value.map((layer, index) => (index === 0 ? layerForm.value : layer))
   savingSettings.value = true
   try {
     const response = await GetXylonaClient().updatePalworldMapConfig(
       create(UpdatePalworldMapConfigRequestSchema, {
         gameServerId: gameServerID.value,
-        layers: [layerForm.value],
+        layers,
       }),
     )
     if (mapView.value !== null) {
@@ -122,10 +153,6 @@ async function installLocalTiles(): Promise<void> {
     if (mapView.value !== null) {
       mapView.value.layers = response.layers
     }
-    const configured = response.layers[0]
-    if (configured !== undefined) {
-      layerForm.value = create(PalworldMapLayerSchema, configured)
-    }
     settingsOpen.value = false
     notifySuccess('Palpagos and World Tree tiles are installed and served by Xylona.')
   } catch (unknownError: unknown) {
@@ -133,6 +160,19 @@ async function installLocalTiles(): Promise<void> {
   } finally {
     installingTiles.value = false
   }
+}
+
+function confirmRemoveImagery(): void {
+  const layerCount = configuredLayers.value.length
+  $q.dialog({
+    title: 'Use the coordinate grid?',
+    message: `This removes ${layerCount === 1 ? 'the' : `all ${layerCount}`} map imagery ${layerCount === 1 ? 'layer' : 'layers'} (${configuredLayerNames.value}) from this server's map, including its public link. You can install or add imagery again later.`,
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { color: 'negative', label: 'Remove imagery' },
+    persistent: true,
+  }).onOk(() => {
+    void removeImagery()
+  })
 }
 
 async function removeImagery(): Promise<void> {
@@ -220,10 +260,17 @@ onUnmounted(() => {
 
         <q-card-section class="palworld-map-dialog__fields">
           <section class="palworld-map-dialog__local-tiles">
-            <q-icon color="accent" name="download_for_offline" size="32px" />
+            <q-icon
+              color="accent"
+              :name="managedTilesActive ? 'check_circle' : 'download_for_offline'"
+              size="32px" />
             <div>
               <strong>Palworld 1.0 local tiles</strong>
-              <span>
+              <span v-if="managedTilesActive">
+                Active source: {{ configuredLayerNames }}, hosted by Xylona for private and public
+                maps.
+              </span>
+              <span v-else>
                 Install or repair the Palpagos and World Tree layers. Xylona downloads them once,
                 stores them beside the controller database, and hosts them for private and public
                 maps.
@@ -231,111 +278,126 @@ onUnmounted(() => {
             </div>
             <q-btn
               :loading="installingTiles"
-              color="primary"
               label="Install / repair"
               no-caps
+              outline
               @click="installLocalTiles" />
           </section>
 
-          <div class="palworld-map-dialog__custom-heading">
-            <q-separator />
-            <span>Custom tile source</span>
-          </div>
+          <q-btn
+            v-if="!showCustomForm"
+            class="palworld-map-dialog__custom-toggle"
+            flat
+            icon="tune"
+            label="Use a custom tile source instead"
+            no-caps
+            @click="customSourceOpen = true" />
 
-          <q-input v-model="layerForm.label" dense label="Map label" outlined />
-          <q-input
-            v-model="layerForm.tileUrlTemplate"
-            dense
-            hint="Must contain {z}, {x}, and {y}"
-            label="Tile URL template"
-            outlined />
-          <q-input v-model="layerForm.attribution" dense label="Attribution" outlined />
-
-          <q-expansion-item icon="tune" label="Coordinate alignment">
-            <div class="palworld-map-dialog__grid q-pt-md">
-              <q-input
-                v-model.number="layerForm.minZoom"
-                dense
-                label="Min zoom"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.maxZoom"
-                dense
-                label="Max zoom"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.tileSize"
-                dense
-                label="Tile size"
-                outlined
-                type="number" />
-              <span aria-hidden="true" />
-              <q-input
-                v-model.number="layerForm.transformA"
-                dense
-                label="Transform A"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.transformB"
-                dense
-                label="Transform B"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.transformC"
-                dense
-                label="Transform C"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.transformD"
-                dense
-                label="Transform D"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.minX"
-                dense
-                label="Minimum X"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.maxX"
-                dense
-                label="Maximum X"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.minY"
-                dense
-                label="Minimum Y"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="layerForm.maxY"
-                dense
-                label="Maximum Y"
-                outlined
-                type="number" />
+          <template v-if="showCustomForm">
+            <div class="palworld-map-dialog__custom-heading">
+              <q-separator />
+              <span>Custom tile source</span>
             </div>
-          </q-expansion-item>
+            <div v-if="managedTilesActive" class="palworld-map-dialog__custom-note">
+              Saving a custom source replaces the Xylona-hosted layers.
+            </div>
+
+            <q-input v-model="layerForm.label" dense label="Map label" outlined />
+            <q-input
+              v-model="layerForm.tileUrlTemplate"
+              dense
+              hint="Must contain {z}, {x}, and {y}"
+              label="Tile URL template"
+              outlined />
+            <q-input v-model="layerForm.attribution" dense label="Attribution" outlined />
+
+            <q-expansion-item icon="tune" label="Coordinate alignment">
+              <div class="palworld-map-dialog__grid q-pt-md">
+                <q-input
+                  v-model.number="layerForm.minZoom"
+                  dense
+                  label="Min zoom"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.maxZoom"
+                  dense
+                  label="Max zoom"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.tileSize"
+                  dense
+                  label="Tile size"
+                  outlined
+                  type="number" />
+                <span aria-hidden="true" />
+                <q-input
+                  v-model.number="layerForm.transformA"
+                  dense
+                  label="Transform A"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.transformB"
+                  dense
+                  label="Transform B"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.transformC"
+                  dense
+                  label="Transform C"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.transformD"
+                  dense
+                  label="Transform D"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.minX"
+                  dense
+                  label="Minimum X"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.maxX"
+                  dense
+                  label="Maximum X"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.minY"
+                  dense
+                  label="Minimum Y"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model.number="layerForm.maxY"
+                  dense
+                  label="Maximum Y"
+                  outlined
+                  type="number" />
+              </div>
+            </q-expansion-item>
+          </template>
         </q-card-section>
 
         <q-card-actions align="between">
           <q-btn
-            :disable="mapView?.layers.length === 0"
+            :disable="configuredLayers.length === 0"
             :loading="savingSettings"
             color="negative"
             flat
             label="Use coordinate grid"
             no-caps
-            @click="removeImagery" />
+            @click="confirmRemoveImagery" />
           <div class="row q-gutter-sm">
             <q-btn v-close-popup flat label="Cancel" no-caps />
             <q-btn
+              :disable="!showCustomForm || !settingsChanged"
               :loading="savingSettings"
               color="primary"
               label="Save"
@@ -409,6 +471,15 @@ onUnmounted(() => {
 
 .palworld-map-dialog__local-tiles span,
 .palworld-map-dialog__custom-heading span {
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+}
+
+.palworld-map-dialog__custom-toggle {
+  justify-self: start;
+}
+
+.palworld-map-dialog__custom-note {
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-sm);
 }
