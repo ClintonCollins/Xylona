@@ -11,6 +11,17 @@ const timestampFormatter = new Intl.DateTimeFormat('en-US', {
   hour12: false,
 })
 
+const zonedTimestampFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+  timeZoneName: 'short',
+})
+
 const dateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
@@ -38,7 +49,8 @@ function formatWith(
   if (!includeTime) {
     return dateText
   }
-  return `${dateText} ${parts['hour']}:${parts['minute']}:${parts['second']}`
+  const text = `${dateText} ${parts['hour']}:${parts['minute']}:${parts['second']}`
+  return parts['timeZoneName'] ? `${text} ${parts['timeZoneName']}` : text
 }
 
 /**
@@ -50,6 +62,14 @@ export function formatTimestamp(
   fallback: string = '',
 ): string {
   return formatWith(timestampFormatter, input, fallback, true)
+}
+
+/** Formats like formatTimestamp and appends the browser's short zone name, such as "CDT". */
+export function formatTimestampWithZone(
+  input: Timestamp | Date | undefined,
+  fallback: string = '',
+): string {
+  return formatWith(zonedTimestampFormatter, input, fallback, true)
 }
 
 /** Formats a protobuf Timestamp or JS Date as a date-only label. */

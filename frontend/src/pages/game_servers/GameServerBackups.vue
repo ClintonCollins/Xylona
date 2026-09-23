@@ -124,7 +124,11 @@ const scheduleShortcutLabel = computed(() => {
   return 'Create Scheduled Backup'
 })
 
-const scheduledBackupsLink = computed(() => `/game-servers/${gameServerId.value}/schedules`)
+// With no backup schedule yet, the shortcut opens the create form on Backup.
+const scheduledBackupsLink = computed(() => ({
+  path: `/game-servers/${gameServerId.value}/schedules`,
+  query: overview.value.scheduledBackupCount > 0 ? {} : { create: 'backup' },
+}))
 const storedBackups = computed(() =>
   backups.value.filter((backup) => backup.status === GameServerBackupStatus.COMPLETED),
 )

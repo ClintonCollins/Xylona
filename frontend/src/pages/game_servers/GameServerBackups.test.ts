@@ -234,7 +234,7 @@ function mountBackups() {
         BackupRestoreDialog: BackupRestoreDialogStub,
         'router-link': {
           props: ['to'],
-          template: '<a class="router-link-stub" :data-to="String(to)"><slot /></a>',
+          template: '<a class="router-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
         },
       },
     },
@@ -273,6 +273,10 @@ describe('GameServerBackups', () => {
 
     expect(wrapper.text()).toContain('Backups are disabled for this server')
     expect(wrapper.text()).toContain('Create Scheduled Backup')
+    expect(JSON.parse(wrapper.get('.router-link-stub').attributes('data-to') ?? '')).toEqual({
+      path: '/game-servers/test-server-123/schedules',
+      query: { create: 'backup' },
+    })
     expect(wrapper.text()).not.toContain('Backup Settings')
   })
 
