@@ -350,7 +350,88 @@ describe('GameServerAlerts', () => {
       wrapper
         .findAll('.q-table-row .q-toggle-stub')
         .map((toggle) => toggle.attributes('aria-label')),
-    ).toEqual(['Enable CPU Threshold alert: >= 90%', 'Enable Status Change alert'])
+    ).toEqual(['Enable CPU Threshold alert: >= 90%', 'Enable Status Change alert: Any status'])
+  })
+
+  it('keeps the rule dialog open when saving fails and ignores a second click', async () => {
+    setupDefaultMocks({ channels: [makeChannel()] })
+    let rejectCreate: (reason: unknown) => void = () => undefined
+    mocks.createAlertRule.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectCreate = reject
+      }),
+    )
+
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    type AlertsVM = {
+      openCreateDialog: () => void
+      saveRule: () => Promise<void>
+      showRuleDialog: boolean
+      savingRule: boolean
+    }
+    const vm = wrapper.vm as unknown as AlertsVM
+    vm.openCreateDialog()
+
+    const firstSave = vm.saveRule()
+    await vm.saveRule()
+    expect(vm.savingRule).toBe(true)
+    rejectCreate(new Error('channel rejected'))
+    await firstSave
+    await flushPromises()
+
+    expect(mocks.createAlertRule).toHaveBeenCalledTimes(1)
+    expect(mocks.notifyConnectError).toHaveBeenCalledTimes(1)
+    expect(vm.showRuleDialog).toBe(true)
+    expect(vm.savingRule).toBe(false)
+    expect(mocks.listAlertRules).toHaveBeenCalledTimes(1)
+  })
+
+  it('requires at least one status for a status change rule', async () => {
+    setupDefaultMocks({ channels: [makeChannel()] })
+
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    type AlertsVM = {
+      openCreateDialog: () => void
+      ruleForm: { eventType: AlertEventType }
+      statusCheckboxes: { ONLINE: boolean; OFFLINE: boolean }
+      canSaveRule: boolean
+    }
+    const vm = wrapper.vm as unknown as AlertsVM
+    vm.openCreateDialog()
+    vm.ruleForm.eventType = AlertEventType.STATUS_CHANGE
+    vm.statusCheckboxes.ONLINE = false
+    vm.statusCheckboxes.OFFLINE = false
+    await flushPromises()
+
+    expect(vm.canSaveRule).toBe(false)
+    expect(wrapper.text()).toContain('Select at least one status')
+
+    vm.statusCheckboxes.OFFLINE = true
+    expect(vm.canSaveRule).toBe(true)
+  })
+
+  it('describes alert history details instead of showing raw event data', async () => {
+    setupDefaultMocks({
+      entries: [
+        makeHistoryEntry({
+          eventType: AlertEventType.CPU_THRESHOLD,
+          eventData: '{"current_value":92.345,"threshold":90,"direction":"entered"}',
+        }),
+      ],
+    })
+
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    type Column = { name: string; field: (row: AlertHistoryEntry) => string }
+    type AlertsVM = { historyColumns: Column[]; alertHistory: AlertHistoryEntry[] }
+    const vm = wrapper.vm as unknown as AlertsVM
+    const details = vm.historyColumns.find((column) => column.name === 'eventData')
+    expect(details?.field(vm.alertHistory[0] as AlertHistoryEntry)).toBe('92.3% (threshold 90%)')
   })
 
   it('shows a load error instead of empty states when loading rules fails', async () => {
