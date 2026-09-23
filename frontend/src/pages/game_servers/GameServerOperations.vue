@@ -1005,7 +1005,7 @@ function resultIcon(classification: GameOperationResultClassification) {
 <template>
   <div class="operations-page xy-page-content">
     <page-header
-      icon="manage_accounts"
+      icon="admin_panel_settings"
       :subtitle="
         'Find one structured server task and execute it with confidence for ' +
         (gameServerName || 'this server') +
@@ -1092,7 +1092,7 @@ function resultIcon(classification: GameOperationResultClassification) {
           remain available after startup.
         </p>
         <p v-if="startRequested" class="recovery-panel__success" role="status">
-          Start requested. Open Overview to follow the lifecycle state.
+          Start requested. Open the console to follow startup.
         </p>
         <p v-if="startError" class="recovery-panel__error" role="alert">{{ startError }}</p>
       </div>
@@ -1108,8 +1108,8 @@ function resultIcon(classification: GameOperationResultClassification) {
         </button>
         <router-link
           class="action-button action-button--quiet"
-          :to="`/game-servers/${gameServerID}`">
-          Open Overview
+          :to="`/game-servers/${gameServerID}/console`">
+          Open console
         </router-link>
         <p v-if="!canStartServer" class="recovery-panel__permission">
           Starting this game server requires start permission.

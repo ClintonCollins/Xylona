@@ -2,8 +2,24 @@ import { describe, expect, it } from 'vitest'
 import {
   GAME_SERVER_TAB_GROUPS,
   buildGameServerTabs,
+  countTabsThatFit,
   getUnauthorizedRedirect,
 } from './game-server-layout-tabs'
+
+describe('countTabsThatFit', () => {
+  // Four 100px tabs; the More menu needs 90px.
+  const edges = [100, 200, 300, 400]
+
+  it.each([
+    { label: 'no tabs', edges: [], available: 500, want: 0 },
+    { label: 'everything fits', edges, available: 400, want: 4 },
+    { label: 'room for three plus More', edges, available: 399, want: 3 },
+    { label: 'More pushes out a second tab', edges, available: 350, want: 2 },
+    { label: 'only More fits', edges, available: 80, want: 0 },
+  ])('$label', ({ edges: rightEdges, available, want }) => {
+    expect(countTabsThatFit(rightEdges, available, 90)).toBe(want)
+  })
+})
 
 describe('buildGameServerTabs', () => {
   const serverID = 'test-server'

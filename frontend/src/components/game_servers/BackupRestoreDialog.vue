@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { GameServerBackup } from '@/proto/shared_pb'
 import { BackupRestoreMode } from '@/proto/shared_pb'
+import { useGameServerName } from '@/pages/game_servers/game-server-context'
 
 const props = defineProps<{
   modelValue: boolean
@@ -12,6 +13,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   restore: [mode: BackupRestoreMode]
 }>()
+
+const serverName = useGameServerName()
 
 function closeDialog(): void {
   if (props.loading) {
@@ -56,8 +59,8 @@ function getArchiveName(archivePath: string): string {
           Restore Backup
         </div>
         <div class="backup-restore-dialog__subtitle">
-          Choose how {{ getArchiveName(backup?.archivePath ?? '') }} should be applied to the
-          current server directory.
+          Choose how {{ getArchiveName(backup?.archivePath ?? '') }} should be applied to
+          {{ serverName ? `${serverName}'s` : 'the current' }} server directory.
         </div>
       </q-card-section>
 

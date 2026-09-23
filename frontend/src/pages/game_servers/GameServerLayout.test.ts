@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { defineComponent, h, nextTick } from 'vue'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -85,6 +86,8 @@ describe('GameServerLayout', () => {
     await nextTick()
 
     expect(viewModel.gameServerRouteKey).toBe('server-b')
+    // The section page waits for the new server to load before it mounts.
+    await flushPromises()
     const routerView = wrapper.findComponent(RouterViewStub)
     expect(routerView.vm.$.vnode.key).toBe('server-b')
   })
@@ -198,6 +201,35 @@ describe('GameServerLayout', () => {
     mocks.replace.mockClear()
     await viewModel.enforceRouteAccess()
     expect(mocks.replace).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { label: 'deleted', code: Code.NotFound },
+    { label: 'forbidden', code: Code.PermissionDenied },
+  ])('shows not found and never mounts the section page for a $label server', async ({ code }) => {
+    mocks.getGameServer.mockRejectedValue(new ConnectError('missing', code))
+
+    const wrapper = shallowMount(GameServerLayout, {
+      global: { stubs: { 'router-view': RouterViewStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.findComponent(RouterViewStub).exists()).toBe(false)
+    expect(wrapper.find('empty-state-stub').attributes('title')).toBe('Game server not found')
+    expect(wrapper.find('game-server-identity-bar-stub').exists()).toBe(false)
+    expect(document.title).toBe('Game server not found · Xylona')
+  })
+
+  it('still mounts the section page when the server cannot be read for another reason', async () => {
+    mocks.getGameServer.mockRejectedValue(new ConnectError('down', Code.Unavailable))
+
+    const wrapper = shallowMount(GameServerLayout, {
+      global: { stubs: { 'router-view': RouterViewStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('empty-state-stub').exists()).toBe(false)
+    expect(wrapper.findComponent(RouterViewStub).exists()).toBe(true)
   })
 })
 

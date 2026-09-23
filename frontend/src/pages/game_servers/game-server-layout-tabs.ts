@@ -80,8 +80,7 @@ export function buildGameServerTabs(
       tabs.push({
         name: 'Start Command',
         to: `${basePath}/start-command`,
-        icon: 'terminal',
-
+        icon: 'rocket_launch',
         group: 'Configure',
         requiredPermission: 'game_server.settings',
       })
@@ -213,4 +212,25 @@ export function getUnauthorizedRedirect(
   }
 
   return null
+}
+
+/**
+ * How many leading tabs fit in `available` px. `rightEdges[i]` is where tab i
+ * ends, measured from the start of the first tab. When not every tab fits,
+ * room is kept for the trailing "More" menu that holds the rest.
+ */
+export function countTabsThatFit(
+  rightEdges: number[],
+  available: number,
+  moreMenuWidth: number,
+): number {
+  const total = rightEdges.length
+  if (total === 0 || (rightEdges[total - 1] ?? 0) <= available) {
+    return total
+  }
+  let fitting = total - 1
+  while (fitting > 0 && (rightEdges[fitting - 1] ?? 0) + moreMenuWidth > available) {
+    fitting--
+  }
+  return fitting
 }

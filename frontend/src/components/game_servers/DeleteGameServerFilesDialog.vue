@@ -12,7 +12,9 @@
         <q-form class="q-pa-lg">
           <div class="row wrap q-col-gutter-md justify-between">
             <p>
-              Are you sure you want to delete the following files/directories?
+              Are you sure you want to delete the following files/directories{{
+                serverName ? ` from ${serverName}` : ''
+              }}?
               <span class="text-bold">This action cannot be undone.</span>
             </p>
             <q-scroll-area class="delete-files-list">
@@ -60,10 +62,12 @@ import {
   GetXylonaClient,
 } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { useGameServerName } from '@/pages/game_servers/game-server-context'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { Ref, ref } from 'vue'
 
 const $q = useQuasar()
+const serverName = useGameServerName()
 
 const props = defineProps({
   gameServerID: {
