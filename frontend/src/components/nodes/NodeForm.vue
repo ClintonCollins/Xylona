@@ -13,6 +13,7 @@
             outlined
             type="text"></q-input>
           <q-input
+            v-if="!node.local"
             v-model="node.baseUrl"
             class="col-12 col-xl-6"
             hint="HTTPS URL the controller uses to reach this node"
@@ -20,6 +21,9 @@
             outlined
             placeholder="https://node.example.com:9500"
             type="url"></q-input>
+          <p v-else class="col-12 col-xl-6 local-node-note">
+            Runs inside the controller, so it needs no listen URL.
+          </p>
         </div>
         <div v-if="errorMessage" class="text-negative q-mt-md" role="alert">
           {{ errorMessage }}
@@ -106,6 +110,12 @@ const props = defineProps({
 })
 
 const node = ref(create(NodeSchema, {}))
+const savedNode = ref({ name: '', baseUrl: '' })
+const isDirty = computed(
+  () => node.value.name !== savedNode.value.name || node.value.baseUrl !== savedNode.value.baseUrl,
+)
+
+defineExpose({ isDirty })
 const formSubmitting = ref(false)
 const errorMessage = ref('')
 const generatedPairingKey = ref('')
@@ -139,6 +149,7 @@ async function getNodeDetails() {
       return
     }
     node.value = response.node
+    savedNode.value = { name: response.node.name, baseUrl: response.node.baseUrl }
   } catch (e) {
     if (e instanceof ConnectError) {
       errorMessage.value = connectErrorToString(e)
@@ -156,6 +167,7 @@ async function updateNode() {
   request.node = node.value
   try {
     await GetXylonaClient().editNode(request)
+    savedNode.value = { name: node.value.name, baseUrl: node.value.baseUrl }
     await router.push('/nodes')
   } catch (e) {
     if (e instanceof ConnectError) {
@@ -205,5 +217,11 @@ async function copyCommand() {
 <style scoped>
 .node-form {
   max-width: 720px;
+}
+
+.local-node-note {
+  margin: 0;
+  padding-top: var(--xy-space-md);
+  color: var(--xy-text-secondary);
 }
 </style>

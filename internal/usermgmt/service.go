@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -314,7 +316,33 @@ func (s *Service) Delete(input DeleteInput) error {
 		return ErrCannotDeleteSelf
 	}
 
-	errDeleteUser := s.db.DeleteUser(userID)
+	// Schedules cascade with their creator; owned servers would fail the
+	// delete on a foreign key, so name them instead.
+	impact, errImpact := s.db.GetUserDeletionImpact(userID)
+	if errImpact != nil {
+		return fmt.Errorf(`usermgmt: check user deletion impact: %w`, errImpact)
+	}
+	if len(impact.OwnedGameServers) > 0 {
+		names := make([]string, len(impact.OwnedGameServers))
+		for i, gameServer := range impact.OwnedGameServers {
+			names[i] = gameServer.Name
+		}
+		return fmt.Errorf(`%w: transfer ownership of %s first`, ErrUserOwnsGameServers, quotedList(names))
+	}
+
+	// Access the user granted to others moves to the acting admin so those
+	// users keep it. Deletes without an acting admin (CLI, admin IPC) have
+	// nobody to credit, so the grants still block them.
+	reassignGrantsTo := input.ActingUserID
+	if reassignGrantsTo == userID {
+		reassignGrantsTo = ``
+	}
+	if len(impact.GrantsGiven) > 0 && reassignGrantsTo == `` {
+		return fmt.Errorf(`%w: remove the access they granted on %s from the Access tab first`,
+			ErrUserGaveAccess, quotedList(grantServerNames(impact.GrantsGiven)))
+	}
+
+	errDeleteUser := s.db.DeleteUser(userID, reassignGrantsTo)
 	if errDeleteUser != nil {
 		if errors.Is(errDeleteUser, sql.ErrNoRows) {
 			return ErrUserNotFound
@@ -326,6 +354,48 @@ func (s *Service) Delete(input DeleteInput) error {
 	}
 
 	return nil
+}
+
+// DeletionImpact reports the schedules that deleting the user also deletes,
+// the owned game servers that block the delete, and the access they granted
+// to others.
+func (s *Service) DeletionImpact(id string) (*db.UserDeletionImpact, error) {
+	userID := strings.TrimSpace(id)
+	if userID == `` {
+		return nil, ErrUserIDRequired
+	}
+
+	_, errGetUser := s.db.GetUserByID(userID)
+	if errGetUser != nil {
+		return nil, mapUserLookupError(errGetUser)
+	}
+
+	impact, errImpact := s.db.GetUserDeletionImpact(userID)
+	if errImpact != nil {
+		return nil, fmt.Errorf(`usermgmt: user deletion impact: %w`, errImpact)
+	}
+	return impact, nil
+}
+
+// grantServerNames returns the distinct server names of grants ordered by
+// server name.
+func grantServerNames(grants []db.UserAccessGrant) []string {
+	names := make([]string, len(grants))
+	for i, grant := range grants {
+		names[i] = grant.GameServerName
+		if names[i] == `` {
+			names[i] = `all game servers`
+		}
+	}
+	return slices.Compact(names)
+}
+
+func quotedList(values []string) string {
+	quoted := make([]string, len(values))
+	for i, value := range values {
+		quoted[i] = strconv.Quote(value)
+	}
+	return strings.Join(quoted, `, `)
 }
 
 // RevokeAllSessions deletes every session for the user. Used after password

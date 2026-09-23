@@ -6,7 +6,7 @@
     persistent>
     <q-card class="game-delete-dialog">
       <q-card-section>
-        <div id="dialog-title" class="text-h6 font-display text-error">Delete Game</div>
+        <div id="dialog-title" class="text-h6 font-display text-negative">Delete Game</div>
       </q-card-section>
       <q-card-section class="game-delete-dialog__body">
         <p>Are you sure you want to delete {{ game.name }}?</p>

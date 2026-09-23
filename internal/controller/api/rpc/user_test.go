@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -96,6 +97,18 @@ func TestUserManagementRequiresSuperUser(t *testing.T) {
 
 				_, errDeleteUser := fixture.service.DeleteUser(context.Background(), request)
 				return errDeleteUser
+			},
+		},
+		{
+			name: "user deletion impact",
+			call: func(t *testing.T, userID string) error {
+				request := connect.NewRequest(&xylona.GetUserDeletionImpactRequest{Id: "user-owner"})
+				if userID != "" {
+					addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, userID)
+				}
+
+				_, errImpact := fixture.service.GetUserDeletionImpact(context.Background(), request)
+				return errImpact
 			},
 		},
 	}
@@ -330,6 +343,34 @@ func TestDeleteUser(t *testing.T) {
 	_, errGetUser := fixture.conn.GetUserByID(createdUser.GetId())
 	if !errors.Is(errGetUser, sql.ErrNoRows) {
 		t.Errorf("GetUserByID() error = %v, want %v", errGetUser, sql.ErrNoRows)
+	}
+}
+
+func TestDeleteUserExplainsOwnedGameServers(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	impactRequest := connect.NewRequest(&xylona.GetUserDeletionImpactRequest{Id: "user-owner"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, impactRequest, "user-admin")
+	impact, errImpact := fixture.service.GetUserDeletionImpact(context.Background(), impactRequest)
+	if errImpact != nil {
+		t.Fatalf("GetUserDeletionImpact() error = %v", errImpact)
+	}
+	owned := impact.Msg.GetOwnedGameServers()
+	if len(owned) != 1 || owned[0].GetId() != "server-local-1" || owned[0].GetName() != "Local One" {
+		t.Fatalf("OwnedGameServers = %v, want server-local-1 Local One", owned)
+	}
+
+	deleteRequest := connect.NewRequest(&xylona.DeleteUserRequest{Id: "user-owner"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, deleteRequest, "user-admin")
+	_, errDeleteUser := fixture.service.DeleteUser(context.Background(), deleteRequest)
+	if connect.CodeOf(errDeleteUser) != connect.CodeFailedPrecondition {
+		t.Fatalf("DeleteUser() error = %v, want failed precondition", errDeleteUser)
+	}
+	var connectErr *connect.Error
+	if !errors.As(errDeleteUser, &connectErr) || !strings.Contains(connectErr.Message(), `transfer ownership of "Local One" first`) {
+		t.Errorf("DeleteUser() message = %v, want it to name the owned server", errDeleteUser)
 	}
 }
 

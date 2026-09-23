@@ -1,124 +1,135 @@
 import { create } from '@bufbuild/protobuf'
-import { mount } from '@vue/test-utils'
+import { Code, ConnectError } from '@connectrpc/connect'
+import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { UserSchema } from '@/proto/xylona_pb'
+import { GetUserDeletionImpactResponseSchema, UserSchema } from '@/proto/xylona_pb'
 import UserDeleteDialog from './UserDeleteDialog.vue'
 
 const mocks = vi.hoisted(() => ({
-  notify: vi.fn(),
+  notifySuccess: vi.fn(),
   deleteUser: vi.fn(),
+  getUserDeletionImpact: vi.fn(),
 }))
 
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({
-      notify: mocks.notify,
-    }),
-  }
-})
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+}))
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
     deleteUser: mocks.deleteUser,
+    getUserDeletionImpact: mocks.getUserDeletionImpact,
   }),
 }))
 
-describe('UserDeleteDialog', () => {
-  afterEach(() => {
-    mocks.notify.mockReset()
-    mocks.deleteUser.mockReset()
-  })
-
-  it('renders user name and emits submit=false on successful delete', async () => {
-    mocks.deleteUser.mockResolvedValueOnce({})
-
-    const user = create(UserSchema, {
-      id: 'user-1',
-      userName: 'user-one',
-    })
-
-    const wrapper = mount(UserDeleteDialog, {
-      props: {
-        user,
-        showDialog: true,
-      },
-      global: {
-        stubs: {
-          'q-dialog': { template: '<div><slot /></div>' },
-          'q-card': { template: '<div><slot /></div>' },
-          'q-card-section': { template: '<div><slot /></div>' },
-          'q-card-actions': { template: '<div><slot /></div>' },
-          'q-btn': {
-            props: ['label'],
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')">{{ label }}</button>',
-          },
+function mountDialog(userName: string) {
+  return mount(UserDeleteDialog, {
+    props: {
+      user: create(UserSchema, { id: `id-${userName}`, userName }),
+      showDialog: true,
+    },
+    global: {
+      stubs: {
+        'q-dialog': { template: '<div><slot /></div>' },
+        'q-card': { template: '<div><slot /></div>' },
+        'q-card-section': { template: '<div><slot /></div>' },
+        'q-card-actions': { template: '<div><slot /></div>' },
+        'q-banner': { template: '<div role="alert"><slot /></div>' },
+        'q-spinner': true,
+        'router-link': { props: ['to'], template: '<a :href="to"><slot /></a>' },
+        'q-btn': {
+          props: ['label'],
+          emits: ['click'],
+          template: '<button @click="$emit(\'click\')">{{ label }}</button>',
         },
       },
-    })
+    },
+  })
+}
 
+function deleteButton(wrapper: ReturnType<typeof mountDialog>) {
+  return wrapper.findAll('button').find((button) => button.text() === 'Delete')
+}
+
+describe('UserDeleteDialog', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('lists the schedules that go with the user, then deletes', async () => {
+    mocks.getUserDeletionImpact.mockResolvedValueOnce(
+      create(GetUserDeletionImpactResponseSchema, {
+        schedules: [{ gameServerId: 'gs-1', gameServerName: 'Valheim', name: 'Nightly backup' }],
+      }),
+    )
+    mocks.deleteUser.mockResolvedValueOnce({})
+
+    const wrapper = mountDialog('user-one')
+    await flushPromises()
+
+    expect(mocks.getUserDeletionImpact).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'id-user-one' }),
+    )
     expect(wrapper.text()).toContain('user-one')
+    expect(wrapper.text()).toContain('This schedule they created will be deleted too')
+    expect(wrapper.text()).toContain('Valheim · Nightly backup')
 
-    const buttons = wrapper.findAll('button')
-    const confirmButton = buttons[1]
-    if (!confirmButton) {
-      throw new Error('expected confirm button to exist')
-    }
-    await confirmButton.trigger('click')
-    await Promise.resolve()
+    await deleteButton(wrapper)?.trigger('click')
+    await flushPromises()
 
     expect(mocks.deleteUser).toHaveBeenCalledTimes(1)
     expect(wrapper.emitted('submit')).toEqual([[false]])
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-success',
-      }),
-    )
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('user-one deleted successfully', {
+      timeout: 5000,
+    })
   })
 
-  it('emits submit=true when delete fails', async () => {
-    mocks.deleteUser.mockRejectedValueOnce(new Error('delete failed'))
-
-    const user = create(UserSchema, {
-      id: 'user-2',
-      userName: 'user-two',
-    })
-
-    const wrapper = mount(UserDeleteDialog, {
-      props: {
-        user,
-        showDialog: true,
-      },
-      global: {
-        stubs: {
-          'q-dialog': { template: '<div><slot /></div>' },
-          'q-card': { template: '<div><slot /></div>' },
-          'q-card-section': { template: '<div><slot /></div>' },
-          'q-card-actions': { template: '<div><slot /></div>' },
-          'q-btn': {
-            props: ['label'],
-            emits: ['click'],
-            template: '<button @click="$emit(\'click\')">{{ label }}</button>',
-          },
-        },
-      },
-    })
-
-    const buttons = wrapper.findAll('button')
-    const confirmButton = buttons[1]
-    if (!confirmButton) {
-      throw new Error('expected confirm button to exist')
-    }
-    await confirmButton.trigger('click')
-    await Promise.resolve()
-
-    expect(wrapper.emitted('submit')).toEqual([[true]])
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-error',
+  it('names owned servers instead of offering Delete', async () => {
+    mocks.getUserDeletionImpact.mockResolvedValueOnce(
+      create(GetUserDeletionImpactResponseSchema, {
+        ownedGameServers: [{ id: 'gs-1', name: 'Valheim' }],
       }),
     )
+
+    const wrapper = mountDialog('owner')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain("can't be deleted yet")
+    expect(wrapper.find('a[href="/game-servers/gs-1/settings"]').text()).toBe('Valheim')
+    expect(deleteButton(wrapper)).toBeUndefined()
+  })
+
+  it('says the access the user gave others stays, and still offers Delete', async () => {
+    mocks.getUserDeletionImpact.mockResolvedValueOnce(
+      create(GetUserDeletionImpactResponseSchema, {
+        grantsGiven: [{ gameServerId: 'gs-2', gameServerName: 'Rust', userName: 'friend' }],
+      }),
+    )
+
+    const wrapper = mountDialog('grantor')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('will show as granted by you')
+    expect(wrapper.find('a[href="/game-servers/gs-2/access"]').text()).toBe('Rust')
+    expect(wrapper.text()).toContain('friend on')
+    expect(deleteButton(wrapper)).toBeDefined()
+  })
+
+  it('shows the server message in the dialog when delete fails', async () => {
+    mocks.getUserDeletionImpact.mockResolvedValueOnce(
+      create(GetUserDeletionImpactResponseSchema, {}),
+    )
+    mocks.deleteUser.mockRejectedValueOnce(
+      new ConnectError('cannot remove the last super user', Code.FailedPrecondition),
+    )
+
+    const wrapper = mountDialog('user-two')
+    await flushPromises()
+    await deleteButton(wrapper)?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.emitted('submit')).toEqual([[true]])
+    expect(wrapper.find('[role="alert"]').text()).toBe('cannot remove the last super user')
+    expect(mocks.notifySuccess).not.toHaveBeenCalled()
   })
 })

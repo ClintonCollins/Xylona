@@ -88,6 +88,9 @@ const (
 	XylonaUpdateUserProcedure = "/xylona.Xylona/UpdateUser"
 	// XylonaDeleteUserProcedure is the fully-qualified name of the Xylona's DeleteUser RPC.
 	XylonaDeleteUserProcedure = "/xylona.Xylona/DeleteUser"
+	// XylonaGetUserDeletionImpactProcedure is the fully-qualified name of the Xylona's
+	// GetUserDeletionImpact RPC.
+	XylonaGetUserDeletionImpactProcedure = "/xylona.Xylona/GetUserDeletionImpact"
 	// XylonaListRolesProcedure is the fully-qualified name of the Xylona's ListRoles RPC.
 	XylonaListRolesProcedure = "/xylona.Xylona/ListRoles"
 	// XylonaListPermissionsProcedure is the fully-qualified name of the Xylona's ListPermissions RPC.
@@ -517,6 +520,7 @@ type XylonaClient interface {
 	GetUser(context.Context, *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error)
 	UpdateUser(context.Context, *connect.Request[xylona.UpdateUserRequest]) (*connect.Response[xylona.UpdateUserResponse], error)
 	DeleteUser(context.Context, *connect.Request[xylona.DeleteUserRequest]) (*connect.Response[xylona.DeleteUserResponse], error)
+	GetUserDeletionImpact(context.Context, *connect.Request[xylona.GetUserDeletionImpactRequest]) (*connect.Response[xylona.GetUserDeletionImpactResponse], error)
 	ListRoles(context.Context, *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error)
 	ListPermissions(context.Context, *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error)
 	CreateRole(context.Context, *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error)
@@ -842,6 +846,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaDeleteUserProcedure,
 			connect.WithSchema(xylonaMethods.ByName("DeleteUser")),
+			connect.WithClientOptions(opts...),
+		),
+		getUserDeletionImpact: connect.NewClient[xylona.GetUserDeletionImpactRequest, xylona.GetUserDeletionImpactResponse](
+			httpClient,
+			baseURL+XylonaGetUserDeletionImpactProcedure,
+			connect.WithSchema(xylonaMethods.ByName("GetUserDeletionImpact")),
 			connect.WithClientOptions(opts...),
 		),
 		listRoles: connect.NewClient[xylona.ListRolesRequest, xylona.ListRolesResponse](
@@ -1767,6 +1777,7 @@ type xylonaClient struct {
 	getUser                                 *connect.Client[xylona.GetUserDetailsRequest, xylona.GetUserDetailsResponse]
 	updateUser                              *connect.Client[xylona.UpdateUserRequest, xylona.UpdateUserResponse]
 	deleteUser                              *connect.Client[xylona.DeleteUserRequest, xylona.DeleteUserResponse]
+	getUserDeletionImpact                   *connect.Client[xylona.GetUserDeletionImpactRequest, xylona.GetUserDeletionImpactResponse]
 	listRoles                               *connect.Client[xylona.ListRolesRequest, xylona.ListRolesResponse]
 	listPermissions                         *connect.Client[xylona.ListPermissionsRequest, xylona.ListPermissionsResponse]
 	createRole                              *connect.Client[xylona.CreateRoleRequest, xylona.CreateRoleResponse]
@@ -2036,6 +2047,11 @@ func (c *xylonaClient) UpdateUser(ctx context.Context, req *connect.Request[xylo
 // DeleteUser calls xylona.Xylona.DeleteUser.
 func (c *xylonaClient) DeleteUser(ctx context.Context, req *connect.Request[xylona.DeleteUserRequest]) (*connect.Response[xylona.DeleteUserResponse], error) {
 	return c.deleteUser.CallUnary(ctx, req)
+}
+
+// GetUserDeletionImpact calls xylona.Xylona.GetUserDeletionImpact.
+func (c *xylonaClient) GetUserDeletionImpact(ctx context.Context, req *connect.Request[xylona.GetUserDeletionImpactRequest]) (*connect.Response[xylona.GetUserDeletionImpactResponse], error) {
+	return c.getUserDeletionImpact.CallUnary(ctx, req)
 }
 
 // ListRoles calls xylona.Xylona.ListRoles.
@@ -2813,6 +2829,7 @@ type XylonaHandler interface {
 	GetUser(context.Context, *connect.Request[xylona.GetUserDetailsRequest]) (*connect.Response[xylona.GetUserDetailsResponse], error)
 	UpdateUser(context.Context, *connect.Request[xylona.UpdateUserRequest]) (*connect.Response[xylona.UpdateUserResponse], error)
 	DeleteUser(context.Context, *connect.Request[xylona.DeleteUserRequest]) (*connect.Response[xylona.DeleteUserResponse], error)
+	GetUserDeletionImpact(context.Context, *connect.Request[xylona.GetUserDeletionImpactRequest]) (*connect.Response[xylona.GetUserDeletionImpactResponse], error)
 	ListRoles(context.Context, *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error)
 	ListPermissions(context.Context, *connect.Request[xylona.ListPermissionsRequest]) (*connect.Response[xylona.ListPermissionsResponse], error)
 	CreateRole(context.Context, *connect.Request[xylona.CreateRoleRequest]) (*connect.Response[xylona.CreateRoleResponse], error)
@@ -3134,6 +3151,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaDeleteUserProcedure,
 		svc.DeleteUser,
 		connect.WithSchema(xylonaMethods.ByName("DeleteUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaGetUserDeletionImpactHandler := connect.NewUnaryHandler(
+		XylonaGetUserDeletionImpactProcedure,
+		svc.GetUserDeletionImpact,
+		connect.WithSchema(xylonaMethods.ByName("GetUserDeletionImpact")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaListRolesHandler := connect.NewUnaryHandler(
@@ -4080,6 +4103,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaUpdateUserHandler.ServeHTTP(w, r)
 		case XylonaDeleteUserProcedure:
 			xylonaDeleteUserHandler.ServeHTTP(w, r)
+		case XylonaGetUserDeletionImpactProcedure:
+			xylonaGetUserDeletionImpactHandler.ServeHTTP(w, r)
 		case XylonaListRolesProcedure:
 			xylonaListRolesHandler.ServeHTTP(w, r)
 		case XylonaListPermissionsProcedure:
@@ -4481,6 +4506,10 @@ func (UnimplementedXylonaHandler) UpdateUser(context.Context, *connect.Request[x
 
 func (UnimplementedXylonaHandler) DeleteUser(context.Context, *connect.Request[xylona.DeleteUserRequest]) (*connect.Response[xylona.DeleteUserResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.DeleteUser is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) GetUserDeletionImpact(context.Context, *connect.Request[xylona.GetUserDeletionImpactRequest]) (*connect.Response[xylona.GetUserDeletionImpactResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.GetUserDeletionImpact is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) ListRoles(context.Context, *connect.Request[xylona.ListRolesRequest]) (*connect.Response[xylona.ListRolesResponse], error) {

@@ -255,6 +255,47 @@ describe('SystemUpdates', () => {
     expect(wrapper.find('#active-update-jobs-title').exists()).toBe(false)
   })
 
+  it('says a current target is up to date instead of blocked', async () => {
+    mocks.checkSystemUpdates.mockResolvedValue({
+      updates: [
+        controllerAvailability({
+          currentVersion: '2.0.0',
+          updateAvailable: false,
+          updateable: false,
+        }),
+        // The backend fills the latest version before it tries the node.
+        controllerAvailability({
+          component: SystemUpdateComponent.NODE,
+          nodeId: 'remote-node',
+          currentVersion: '',
+          updateAvailable: false,
+          updateable: false,
+          reason: 'node "remote-node" is not currently reachable',
+        }),
+        controllerAvailability({
+          component: SystemUpdateComponent.NODE,
+          nodeId: 'release-failed-node',
+          latestVersion: '',
+          updateAvailable: false,
+          updateable: false,
+          reason: 'release lookup failed',
+        }),
+      ],
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+    const vm = viewModel(wrapper)
+
+    const reasons = Object.fromEntries(
+      vm.updates.map((update) => [update.nodeId || 'controller', vm.targetActionReason(update)]),
+    )
+    expect(reasons).toEqual({
+      controller: 'Already up to date.',
+      'remote-node': 'node "remote-node" is not currently reachable',
+      'release-failed-node': 'release lookup failed',
+    })
+  })
+
   it('keeps the idle layout stable while a Resync is pending', async () => {
     const wrapper = mountPage()
     await flushPromises()

@@ -1,6 +1,6 @@
 <template>
   <q-page class="xy-page-content">
-    <node-form :existing-node-id="nodeID"></node-form>
+    <node-form ref="formRef" :existing-node-id="nodeID"></node-form>
   </q-page>
 </template>
 
@@ -8,9 +8,11 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import NodeForm from '@/components/nodes/NodeForm.vue'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 
 const route = useRoute()
 const nodeID = ref(route.params.id)
-</script>
+const formRef = ref<InstanceType<typeof NodeForm> | null>(null)
 
-<style scoped></style>
+useUnsavedChangesGuard(() => formRef.value?.isDirty ?? false)
+</script>

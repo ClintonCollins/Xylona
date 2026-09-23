@@ -124,7 +124,10 @@ func mapUserManagementError(err error) error {
 		return connect.NewError(connect.CodeAlreadyExists, err)
 	case errors.Is(err, usermgmt.ErrUserNotFound):
 		return connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, usermgmt.ErrLastSuperUser), errors.Is(err, usermgmt.ErrCannotDeleteSelf):
+	case errors.Is(err, usermgmt.ErrLastSuperUser),
+		errors.Is(err, usermgmt.ErrCannotDeleteSelf),
+		errors.Is(err, usermgmt.ErrUserOwnsGameServers),
+		errors.Is(err, usermgmt.ErrUserGaveAccess):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, usermgmt.ErrUserNameRequired),
 		errors.Is(err, usermgmt.ErrEmailRequired),

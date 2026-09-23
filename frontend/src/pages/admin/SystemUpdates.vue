@@ -262,7 +262,7 @@
                 </div>
               </q-card-section>
 
-              <q-card-actions align="right">
+              <q-card-actions v-if="props.row.updateAvailable" align="right">
                 <q-btn
                   :disable="targetActionDisabled(props.row)"
                   :loading="preflightTargetKey === props.row.targetKey"
@@ -1654,6 +1654,14 @@ function targetActionReason(update: UpdateRow): string {
   }
   if (activeTargetKeys.value.has(update.targetKey)) {
     return 'An update is already active for this target.'
+  }
+  if (!update.updateAvailable) {
+    // Only a target whose current and latest versions are both known is up to
+    // date; otherwise the reason says why the check failed (an unreachable
+    // node still gets the release's latest version).
+    return update.currentVersion && update.latestVersion
+      ? 'Already up to date.'
+      : update.reason || 'Version unknown.'
   }
   if (!update.updateable) return update.reason || 'This target is not updateable.'
   if (!websocketBrowserOnline.value) {

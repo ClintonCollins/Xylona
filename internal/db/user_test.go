@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -16,7 +17,7 @@ func TestDeleteUser(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "user-delete.sqlite")
 	seedRBACFixture(t, conn)
 
-	errDeleteUser := conn.DeleteUser("user-other")
+	errDeleteUser := conn.DeleteUser("user-other", "")
 	if errDeleteUser != nil {
 		t.Fatalf("DeleteUser() error = %v", errDeleteUser)
 	}
@@ -31,7 +32,7 @@ func TestDeleteUserMissingUser(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "user-delete-missing.sqlite")
 	seedRBACFixture(t, conn)
 
-	errDeleteUser := conn.DeleteUser("user-does-not-exist")
+	errDeleteUser := conn.DeleteUser("user-does-not-exist", "")
 	if !errors.Is(errDeleteUser, sql.ErrNoRows) {
 		t.Errorf("DeleteUser() error = %v, want %v", errDeleteUser, sql.ErrNoRows)
 	}
@@ -52,7 +53,7 @@ func TestDeleteUserCascadesRoleAssignments(t *testing.T) {
 		t.Fatalf("CreateUserRoleAssignment() error = %v", errCreateAssignment)
 	}
 
-	errDeleteUser := conn.DeleteUser("user-other")
+	errDeleteUser := conn.DeleteUser("user-other", "")
 	if errDeleteUser != nil {
 		t.Fatalf("DeleteUser() error = %v", errDeleteUser)
 	}
@@ -60,6 +61,30 @@ func TestDeleteUserCascadesRoleAssignments(t *testing.T) {
 	_, errGetAssignment := conn.GetUserRoleAssignmentByID("assignment-user-delete-cascade")
 	if !errors.Is(errGetAssignment, sql.ErrNoRows) {
 		t.Errorf("GetUserRoleAssignmentByID() error = %v, want %v", errGetAssignment, sql.ErrNoRows)
+	}
+}
+
+func TestDeleteUserReassignsAccessGrants(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-delete-reassign.sqlite")
+	seedRBACFixture(t, conn)
+
+	errCreateAssignment := conn.CreateUserRoleAssignment(
+		"assignment-granted-by-deleted", "user-owner", "viewer", "server-local-1", "user-other")
+	if errCreateAssignment != nil {
+		t.Fatalf("CreateUserRoleAssignment() error = %v", errCreateAssignment)
+	}
+
+	errDeleteUser := conn.DeleteUser("user-other", "user-admin")
+	if errDeleteUser != nil {
+		t.Fatalf("DeleteUser() error = %v", errDeleteUser)
+	}
+
+	assignment, errGetAssignment := conn.GetUserRoleAssignmentByID("assignment-granted-by-deleted")
+	if errGetAssignment != nil {
+		t.Fatalf("GetUserRoleAssignmentByID() error = %v, want the grant kept", errGetAssignment)
+	}
+	if assignment.GrantedBy != "user-admin" {
+		t.Errorf("GrantedBy = %q, want %q", assignment.GrantedBy, "user-admin")
 	}
 }
 
@@ -311,5 +336,67 @@ func TestUpdateUser(t *testing.T) {
 	}
 	if fetched.LastName != "Name" {
 		t.Errorf("GetUserByID().LastName = %q, want %q", fetched.LastName, "Name")
+	}
+}
+
+func TestGetUserDeletionImpact(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-deletion-impact.sqlite")
+	seedRBACFixture(t, conn)
+
+	schedule, errSchedule := conn.InsertScheduledTask(
+		"server-local-1", "user-other", "Nightly backup", "backup", "0 3 * * *", "UTC", "", true)
+	if errSchedule != nil {
+		t.Fatalf("InsertScheduledTask() error = %v", errSchedule)
+	}
+	// Two roles for user-other on one server still list them once.
+	for _, grant := range []struct{ id, userID, roleID string }{
+		{"grant-to-other", "user-other", "viewer"},
+		{"grant-to-other-operator", "user-other", "operator"},
+		{"grant-to-self", "user-owner", "viewer"},
+	} {
+		errGrant := conn.CreateUserRoleAssignment(grant.id, grant.userID, grant.roleID, "server-local-1", "user-owner")
+		if errGrant != nil {
+			t.Fatalf("CreateUserRoleAssignment(%s) error = %v", grant.id, errGrant)
+		}
+	}
+
+	tests := []struct {
+		name   string
+		userID string
+		want   UserDeletionImpact
+	}{
+		{
+			name:   "schedule creator",
+			userID: "user-other",
+			want: UserDeletionImpact{Schedules: []UserDeletionSchedule{{
+				ID: schedule.ID, GameServerID: "server-local-1", GameServerName: "Local One", Name: "Nightly backup",
+			}}},
+		},
+		{
+			name:   "owner who granted access to someone else",
+			userID: "user-owner",
+			want: UserDeletionImpact{
+				OwnedGameServers: []UserDeletionGameServer{{ID: "server-local-1", Name: "Local One"}},
+				GrantsGiven: []UserAccessGrant{{
+					GameServerID: "server-local-1", GameServerName: "Local One", UserName: "other",
+				}},
+			},
+		},
+		{
+			name:   "user with nothing attached",
+			userID: "user-admin",
+			want:   UserDeletionImpact{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			impact, errImpact := conn.GetUserDeletionImpact(tt.userID)
+			if errImpact != nil {
+				t.Fatalf("GetUserDeletionImpact() error = %v", errImpact)
+			}
+			if !reflect.DeepEqual(*impact, tt.want) {
+				t.Errorf("GetUserDeletionImpact() = %+v, want %+v", *impact, tt.want)
+			}
+		})
 	}
 }

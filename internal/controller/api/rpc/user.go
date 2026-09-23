@@ -119,8 +119,14 @@ func (xs *XylonaService) DeleteUser(_ context.Context, request *connect.Request[
 		return nil, errRequireSuperUser
 	}
 
+	userID := strings.TrimSpace(request.Msg.GetId())
+	impact, errImpact := xs.userManagementService().DeletionImpact(userID)
+	if errImpact != nil {
+		return nil, mapUserManagementError(errImpact)
+	}
+
 	errDeleteUser := xs.userManagementService().Delete(usermgmt.DeleteInput{
-		ID:                strings.TrimSpace(request.Msg.GetId()),
+		ID:                userID,
 		ActingUserID:      actingUser.ID,
 		PreventSelfDelete: true,
 	})
@@ -128,7 +134,52 @@ func (xs *XylonaService) DeleteUser(_ context.Context, request *connect.Request[
 		return nil, mapUserManagementError(errDeleteUser)
 	}
 
+	// The user's schedules cascaded with the row; stop their cron jobs too.
+	if xs.taskScheduler != nil {
+		for _, schedule := range impact.Schedules {
+			xs.taskScheduler.RemoveTask(schedule.ID)
+		}
+	}
+
 	return connect.NewResponse(&xylona.DeleteUserResponse{}), nil
+}
+
+// GetUserDeletionImpact lists the schedules that deleting a user also deletes,
+// the owned game servers that block the delete, and the access they granted to
+// others, which moves to the acting admin.
+func (xs *XylonaService) GetUserDeletionImpact(_ context.Context, request *connect.Request[xylona.GetUserDeletionImpactRequest]) (*connect.Response[xylona.GetUserDeletionImpactResponse], error) {
+	_, errRequireSuperUser := xs.requireSuperUserForUserManagement(request.Header())
+	if errRequireSuperUser != nil {
+		return nil, errRequireSuperUser
+	}
+
+	impact, errImpact := xs.userManagementService().DeletionImpact(request.Msg.GetId())
+	if errImpact != nil {
+		return nil, mapUserManagementError(errImpact)
+	}
+
+	response := &xylona.GetUserDeletionImpactResponse{}
+	for _, gameServer := range impact.OwnedGameServers {
+		response.OwnedGameServers = append(response.OwnedGameServers, &xylona.UserDeletionGameServer{
+			Id:   gameServer.ID,
+			Name: gameServer.Name,
+		})
+	}
+	for _, schedule := range impact.Schedules {
+		response.Schedules = append(response.Schedules, &xylona.UserDeletionSchedule{
+			GameServerId:   schedule.GameServerID,
+			GameServerName: schedule.GameServerName,
+			Name:           schedule.Name,
+		})
+	}
+	for _, grant := range impact.GrantsGiven {
+		response.GrantsGiven = append(response.GrantsGiven, &xylona.UserAccessGrantGiven{
+			GameServerId:   grant.GameServerID,
+			GameServerName: grant.GameServerName,
+			UserName:       grant.UserName,
+		})
+	}
+	return connect.NewResponse(response), nil
 }
 
 func (xs *XylonaService) requireSuperUserForUserManagement(header http.Header) (*models.User, error) {
@@ -149,7 +200,10 @@ func mapUserManagementError(err error) error {
 		return connect.NewError(connect.CodeAlreadyExists, err)
 	case errors.Is(err, usermgmt.ErrUserNotFound):
 		return notFoundErr()
-	case errors.Is(err, usermgmt.ErrLastSuperUser), errors.Is(err, usermgmt.ErrCannotDeleteSelf):
+	case errors.Is(err, usermgmt.ErrLastSuperUser),
+		errors.Is(err, usermgmt.ErrCannotDeleteSelf),
+		errors.Is(err, usermgmt.ErrUserOwnsGameServers),
+		errors.Is(err, usermgmt.ErrUserGaveAccess):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, usermgmt.ErrUserNameRequired),
 		errors.Is(err, usermgmt.ErrEmailRequired),

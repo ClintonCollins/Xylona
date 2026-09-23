@@ -170,21 +170,173 @@ func (c *Connection) CountSuperUsers() (int, error) {
 	return count, nil
 }
 
-// DeleteUser deletes a user by ID.
-func (c *Connection) DeleteUser(id string) error {
-	user, errGetUser := models.Users.Query(models.SelectWhere.Users.ID.EQ(id)).One(c.ctx, c.DB)
-	if errGetUser != nil {
-		if !errors.Is(errGetUser, sql.ErrNoRows) {
-			log.Error().Err(errGetUser).Str("user_id", id).Msg("Error querying user for delete")
+// DeleteUser deletes a user by ID. When reassignGrantsTo is set, access the
+// user granted to other users is credited to that user in the same
+// transaction, so those users keep it.
+func (c *Connection) DeleteUser(id string, reassignGrantsTo string) error {
+	tx, errBegin := c.SQLDb.BeginTx(c.ctx, nil)
+	if errBegin != nil {
+		return fmt.Errorf("begin delete user transaction: %w", errBegin)
+	}
+	committed := false
+	defer rollbackTxIfNeeded(tx, &committed, "user delete")
+
+	if reassignGrantsTo != "" {
+		_, errReassign := tx.ExecContext(c.ctx,
+			`update user_role_assignment set granted_by = ? where granted_by = ? and user_id <> ?`,
+			reassignGrantsTo, id, id)
+		if errReassign != nil {
+			log.Error().Err(errReassign).Str("user_id", id).Msg("Error reassigning access grants for user delete")
+			return fmt.Errorf("reassign access grants: %w", errReassign)
 		}
-		return fmt.Errorf("get user for delete: %w", errGetUser)
 	}
 
-	errDeleteUser := models.UserSlice{user}.DeleteAll(c.ctx, c.DB)
+	result, errDeleteUser := tx.ExecContext(c.ctx, `delete from user where id = ?`, id)
 	if errDeleteUser != nil {
 		log.Error().Err(errDeleteUser).Str("user_id", id).Msg("Error deleting user")
 		return fmt.Errorf("delete user: %w", errDeleteUser)
 	}
+	deleted, errRows := result.RowsAffected()
+	if errRows != nil {
+		return fmt.Errorf("count deleted users: %w", errRows)
+	}
+	if deleted == 0 {
+		return fmt.Errorf("get user for delete: %w", sql.ErrNoRows)
+	}
 
+	errCommit := tx.Commit()
+	if errCommit != nil {
+		return fmt.Errorf("commit delete user transaction: %w", errCommit)
+	}
+	committed = true
 	return nil
+}
+
+// UserDeletionSchedule is a scheduled task that is deleted along with the user
+// who created it.
+type UserDeletionSchedule struct {
+	ID             string
+	GameServerID   string
+	GameServerName string
+	Name           string
+}
+
+// UserDeletionGameServer is a game server that blocks deleting its owner.
+type UserDeletionGameServer struct {
+	ID   string
+	Name string
+}
+
+// UserAccessGrant is game server access one user granted to another. An empty
+// game server means the grant covers every game server.
+type UserAccessGrant struct {
+	GameServerID   string
+	GameServerName string
+	UserName       string
+}
+
+// UserDeletionImpact lists what deleting a user removes, blocks it, or moves
+// to the admin who deletes them.
+type UserDeletionImpact struct {
+	Schedules        []UserDeletionSchedule
+	OwnedGameServers []UserDeletionGameServer
+	GrantsGiven      []UserAccessGrant
+}
+
+// GetUserDeletionImpact returns the schedules that cascade with the user, the
+// owned game servers that block the delete, and the access they granted to
+// others.
+func (c *Connection) GetUserDeletionImpact(userID string) (*UserDeletionImpact, error) {
+	impact := &UserDeletionImpact{}
+
+	scheduleRows, errSchedules := c.queryStringRows(
+		`select st.id, st.game_server_id, gs.name, st.name
+		 from scheduled_task st
+		 join game_server gs on gs.id = st.game_server_id
+		 where st.created_by = ?
+		 order by gs.name, st.name`,
+		userID,
+	)
+	if errSchedules != nil {
+		return nil, fmt.Errorf("get schedules for user deletion: %w", errSchedules)
+	}
+	for _, row := range scheduleRows {
+		impact.Schedules = append(impact.Schedules, UserDeletionSchedule{
+			ID: row[0], GameServerID: row[1], GameServerName: row[2], Name: row[3],
+		})
+	}
+
+	serverRows, errServers := c.queryStringRows(
+		`select id, name from game_server where user_id = ? order by name`,
+		userID,
+	)
+	if errServers != nil {
+		return nil, fmt.Errorf("get owned game servers for user deletion: %w", errServers)
+	}
+	for _, row := range serverRows {
+		impact.OwnedGameServers = append(impact.OwnedGameServers, UserDeletionGameServer{ID: row[0], Name: row[1]})
+	}
+
+	// Grants the user gave themselves cascade with them; grants to others
+	// outlive them. Distinct because a user can hold several roles on one
+	// server.
+	grantRows, errGrants := c.queryStringRows(
+		`select distinct coalesce(gs.id, ''), coalesce(gs.name, ''), u.user_name
+		 from user_role_assignment ura
+		 join user u on u.id = ura.user_id
+		 left join game_server gs on gs.id = ura.game_server_id
+		 where ura.granted_by = ? and ura.user_id <> ?
+		 order by gs.name, u.user_name`,
+		userID, userID,
+	)
+	if errGrants != nil {
+		return nil, fmt.Errorf("get access grants for user deletion: %w", errGrants)
+	}
+	for _, row := range grantRows {
+		impact.GrantsGiven = append(impact.GrantsGiven, UserAccessGrant{
+			GameServerID: row[0], GameServerName: row[1], UserName: row[2],
+		})
+	}
+
+	return impact, nil
+}
+
+// queryStringRows runs a query whose columns are all text and returns each row
+// as a slice of column values.
+func (c *Connection) queryStringRows(query string, args ...any) ([][]string, error) {
+	rows, errQuery := c.SQLDb.QueryContext(c.ctx, query, args...)
+	if errQuery != nil {
+		return nil, fmt.Errorf("query: %w", errQuery)
+	}
+	defer func() {
+		errClose := rows.Close()
+		if errClose != nil {
+			log.Warn().Err(errClose).Msg("Failed to close query rows")
+		}
+	}()
+
+	columns, errColumns := rows.Columns()
+	if errColumns != nil {
+		return nil, fmt.Errorf("read columns: %w", errColumns)
+	}
+
+	var result [][]string
+	for rows.Next() {
+		values := make([]string, len(columns))
+		targets := make([]any, len(values))
+		for i := range values {
+			targets[i] = &values[i]
+		}
+		errScan := rows.Scan(targets...)
+		if errScan != nil {
+			return nil, fmt.Errorf("scan row: %w", errScan)
+		}
+		result = append(result, values)
+	}
+	errRows := rows.Err()
+	if errRows != nil {
+		return nil, fmt.Errorf("iterate rows: %w", errRows)
+	}
+
+	return result, nil
 }
