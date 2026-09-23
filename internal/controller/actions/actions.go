@@ -583,7 +583,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 	var redactValues []string
 	adminInput := gameServerAdminInput{}
 	adminInterfacePassword := ""
-	configureAdminInput, disableManagedConsole, errConfigureAdminInput := inst.shouldConfigureAdminInput(gameServer)
+	configureAdminInput, disableManagedConsole, errConfigureAdminInput := shouldConfigureAdminInput(inst.db, gameServer)
 	if errConfigureAdminInput != nil {
 		inst.reportStartFailure(gameServer, "Admin console configuration failed: "+errConfigureAdminInput.Error())
 		return nil, startConfigurationError("admin console configuration failed", errConfigureAdminInput)
@@ -831,17 +831,10 @@ func (inst *Instance) runConfigPreStartWithConsolePassword(
 	}
 	localConsoleEnabled := strings.TrimSpace(localConsolePassword) != ""
 	if !localConsoleEnabled {
-		managedSourcesToRemove := []string{
-			"xylona.local_console_port",
-			"xylona.local_console_password",
-		}
-		if !disableManagedConsole {
-			managedSourcesToRemove = append(managedSourcesToRemove, "xylona.local_console_enabled")
-		}
 		var errWithoutConsole error
 		schemasJSON, errWithoutConsole = cfgschema.WithoutManagedSources(
 			schemasJSON,
-			managedSourcesToRemove...,
+			UnmanagedLocalConsoleSources(localConsoleEnabled, disableManagedConsole)...,
 		)
 		if errWithoutConsole != nil {
 			return fmt.Errorf("actions: preserve disabled local console config: %w", errWithoutConsole)

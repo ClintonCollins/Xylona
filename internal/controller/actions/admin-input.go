@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/ClintonCollins/Xylona/internal/admininterface"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
@@ -39,7 +41,7 @@ type gameServerAdminInput struct {
 	managedConfigRequired bool
 }
 
-func (inst *Instance) shouldConfigureAdminInput(gameServer *models.GameServer) (bool, bool, error) {
+func shouldConfigureAdminInput(database *db.Connection, gameServer *models.GameServer) (bool, bool, error) {
 	if gameServer != nil && gameServer.GameID == palworldGameID {
 		return true, false, nil
 	}
@@ -49,11 +51,45 @@ func (inst *Instance) shouldConfigureAdminInput(gameServer *models.GameServer) (
 	if gameServer.GameID != minecraftGameID {
 		return true, false, nil
 	}
-	settings, errSettings := inst.db.GetGameServerMinecraftMap(gameServer.ID)
+	settings, errSettings := database.GetGameServerMinecraftMap(gameServer.ID)
 	if errSettings != nil {
 		return false, false, fmt.Errorf("actions: get Minecraft map settings for local console: %w", errSettings)
 	}
 	return settings.Enabled, !settings.Enabled && settings.AcceptedAt.Valid, nil
+}
+
+// LocalConsoleState reports how the next start manages the local console
+// config: enabled when Xylona sets a local console password for the game,
+// and forceDisabled when managed config must switch the console off.
+func LocalConsoleState(database *db.Connection, gameServer *models.GameServer) (bool, bool, error) {
+	configure, forceDisabled, errConfigure := shouldConfigureAdminInput(database, gameServer)
+	if errConfigure != nil || !configure {
+		return false, forceDisabled, errConfigure
+	}
+	// Only whether the game takes a local console password matters here, so
+	// any non-empty password stands in for the stored one.
+	input, errInput := newGameServerAdminInput(gameServer, "placeholder", nil)
+	if errInput != nil {
+		// Start fails on this error before any console is set up.
+		log.Debug().Err(errInput).Str("game_server_id", gameServer.ID).
+			Msg("Local console is unavailable with the current server settings")
+		return false, forceDisabled, nil
+	}
+	return input.localConsolePassword != "", forceDisabled, nil
+}
+
+// UnmanagedLocalConsoleSources lists the local console sources a start leaves
+// to the config file: all of them while the console is off, except the
+// enabled flag when managed config must switch the console off.
+func UnmanagedLocalConsoleSources(enabled bool, forceDisabled bool) []string {
+	if enabled {
+		return nil
+	}
+	sources := []string{"xylona.local_console_port", "xylona.local_console_password"}
+	if !forceDisabled {
+		sources = append(sources, "xylona.local_console_enabled")
+	}
+	return sources
 }
 
 func newGameServerAdminInput(
