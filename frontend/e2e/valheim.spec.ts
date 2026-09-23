@@ -63,7 +63,8 @@ test('mobile stored access requires exact identity and review; join password sta
     })
   })
   await gotoAppPage(page, `/game-servers/${serverId}/operations`)
-  await expect(page.getByRole('tab', { name: 'Operations', exact: true })).toBeVisible()
+  // Phones pick the section from a select that names the current one.
+  await expect(page.getByRole('combobox', { name: 'Section' })).toHaveValue('Operations')
   const access = page.getByRole('region', { name: 'Stored Valheim access' })
   await expect(access).toContainText('In-game enforcement is not verified')
   await access.getByLabel('Exact platform identity').fill('Display name')

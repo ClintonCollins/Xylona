@@ -1403,6 +1403,7 @@ async function saveCoreSettings() {
 
   await GetXylonaClient().editGameServer(request)
   savedCoreSnapshot.value = coreSnapshot(gameServer.value)
+  XylonaEventBus.emit('gameServerEdited', props.gameServerId)
   await initializeAdminInterface()
 }
 

@@ -26,6 +26,9 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
   const consoleLines = ref<ConsoleLine[]>([])
   const consoleTruncated = ref(false)
   const consoleAutoScroll = ref(storage?.getItem(autoScrollStorageKey) !== 'false')
+  // Scrolling up to read pauses following without touching the saved setting.
+  const consoleScrolledAway = ref(false)
+  const unseenConsoleOutput = ref(false)
   const serverInput = ref('')
   const consoleHistory = ref<string[]>([])
   const consoleHistoryCurrentIndex = ref(0)
@@ -64,9 +67,7 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     consoleLines.value = trimmedConsole.lines
     consoleTruncated.value = trimmedConsole.truncated
 
-    if (consoleAutoScroll.value) {
-      void nextTick(options.scrollToBottom)
-    }
+    followNewOutput()
   }
 
   function scheduleConsoleFlush() {
@@ -106,9 +107,7 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
       consoleTruncated.value = true
     }
 
-    if (consoleAutoScroll.value) {
-      void nextTick(options.scrollToBottom)
-    }
+    followNewOutput()
   }
 
   // Injects a panel-generated roster marker (from query snapshot diffing)
@@ -126,16 +125,32 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
       consoleTruncated.value = true
     }
 
-    if (consoleAutoScroll.value) {
+    followNewOutput()
+  }
+
+  function followNewOutput() {
+    if (consoleAutoScroll.value && !consoleScrolledAway.value) {
       void nextTick(options.scrollToBottom)
+      return
     }
+    unseenConsoleOutput.value = true
+  }
+
+  function setConsoleScrolledAway(away: boolean) {
+    consoleScrolledAway.value = away
+    if (!away) unseenConsoleOutput.value = false
+  }
+
+  function jumpToLatestOutput() {
+    setConsoleScrolledAway(false)
+    void nextTick(options.scrollToBottom)
   }
 
   function toggleConsoleAutoScroll() {
     consoleAutoScroll.value = !consoleAutoScroll.value
     storage?.setItem(autoScrollStorageKey, String(consoleAutoScroll.value))
     if (consoleAutoScroll.value) {
-      void nextTick(options.scrollToBottom)
+      jumpToLatestOutput()
     }
   }
 
@@ -175,11 +190,14 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     consoleAutoScroll,
     consoleLines,
     consoleTruncated,
+    jumpToLatestOutput,
     navigateConsoleInputHistory,
     recordConsoleInput,
     replaceConsoleOutput,
     serverInput,
+    setConsoleScrolledAway,
     toggleConsoleAutoScroll,
+    unseenConsoleOutput,
   }
 }
 

@@ -418,7 +418,7 @@ test('starts an authoritatively stopped server from Operations when permitted', 
   ).toBeVisible()
   await page.getByTestId('start-server').click()
   await expect(page.getByTestId('start-server')).toHaveText('Start requested')
-  await expect(page.getByText('Open Overview to follow the lifecycle state.')).toBeVisible()
+  await expect(page.getByText('Start requested. Open the console to follow startup.')).toBeVisible()
   expect(startRequest).toMatchObject({ serverId: state.gameServerId })
 
   await page.unrouteAll({ behavior: 'wait' })

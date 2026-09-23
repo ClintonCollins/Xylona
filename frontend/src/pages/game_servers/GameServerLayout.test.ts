@@ -1,10 +1,13 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { defineComponent, h, nextTick } from 'vue'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GameSchema, GameServerSchema } from '@/proto/shared_pb'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import { GetGameServerResponseSchema } from '@/proto/xylona_pb'
+import { XylonaEventBus } from '@/utils/shared'
 
 import GameServerLayout from './GameServerLayout.vue'
 
@@ -17,12 +20,16 @@ const mocks = vi.hoisted(() => ({
   checkUserAuthenticated: vi.fn(),
   getGameServer: vi.fn(),
   replace: vi.fn(),
-  route: null as unknown as { path: string; params: { id: string } },
+  route: null as unknown as { path: string; params: { id: string }; meta: { title?: string } },
 }))
 
 vi.mock('vue-router', async () => {
   const { reactive } = await vi.importActual<typeof import('vue')>('vue')
-  mocks.route = reactive({ path: '/game-servers/server-a/console', params: { id: 'server-a' } })
+  mocks.route = reactive({
+    path: '/game-servers/server-a/console',
+    params: { id: 'server-a' },
+    meta: { title: 'Console' },
+  })
   return {
     useRoute: () => mocks.route,
     useRouter: () => ({ replace: mocks.replace }),
@@ -85,6 +92,8 @@ describe('GameServerLayout', () => {
     await nextTick()
 
     expect(viewModel.gameServerRouteKey).toBe('server-b')
+    // The section page waits for the new server to load before it mounts.
+    await flushPromises()
     const routerView = wrapper.findComponent(RouterViewStub)
     expect(routerView.vm.$.vnode.key).toBe('server-b')
   })
@@ -199,18 +208,104 @@ describe('GameServerLayout', () => {
     await viewModel.enforceRouteAccess()
     expect(mocks.replace).not.toHaveBeenCalled()
   })
+
+  it.each([
+    { label: 'deleted', code: Code.NotFound },
+    { label: 'forbidden', code: Code.PermissionDenied },
+  ])('shows not found and never mounts the section page for a $label server', async ({ code }) => {
+    mocks.getGameServer.mockRejectedValue(new ConnectError('missing', code))
+
+    const wrapper = shallowMount(GameServerLayout, {
+      global: { stubs: { 'router-view': RouterViewStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.findComponent(RouterViewStub).exists()).toBe(false)
+    expect(wrapper.find('empty-state-stub').attributes('title')).toBe('Game server not found')
+    expect(wrapper.findComponent(EmptyState).props('titleTag')).toBe('h1')
+    expect(wrapper.find('game-server-identity-bar-stub').exists()).toBe(false)
+    expect(document.title).toBe('Game server not found · Xylona')
+  })
+
+  it('keeps the tabs and the section when a reconnect re-read fails', async () => {
+    mocks.route.path = '/game-servers/server-a/files'
+    mocks.getGameServer.mockResolvedValue(
+      buildGameServerResponse('server-a', ['game_server.console', 'game_server.files.view']),
+    )
+    const wrapper = shallowMount(GameServerLayout, {
+      global: { stubs: { 'router-view': RouterViewStub } },
+    })
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as { layoutTabs: Array<{ name: string }> }
+    const tabNames = viewModel.layoutTabs.map((tab) => tab.name)
+    expect(tabNames).toContain('Files')
+    // Layouts mounted by earlier tests also react to the route change above.
+    mocks.replace.mockClear()
+
+    mocks.getGameServer.mockRejectedValue(new ConnectError('blip', Code.Unavailable))
+    busHandler('websocketConnected')()
+    await flushPromises()
+
+    expect(viewModel.layoutTabs.map((tab) => tab.name)).toEqual(tabNames)
+    expect(mocks.replace).not.toHaveBeenCalled()
+    expect(wrapper.findComponent(RouterViewStub).exists()).toBe(true)
+  })
+
+  it('re-reads the server after a section page edits it', async () => {
+    shallowMount(GameServerLayout, {
+      global: { stubs: { 'router-view': RouterViewStub } },
+    })
+    await flushPromises()
+    mocks.getGameServer.mockResolvedValue(
+      buildGameServerResponse('server-a', ['game_server.console'], 'Renamed'),
+    )
+
+    expect(document.title).toBe('Test Server · Console · Xylona')
+
+    busHandler('gameServerEdited')('server-b')
+    await flushPromises()
+    expect(document.title).toBe('Test Server · Console · Xylona')
+
+    busHandler('gameServerEdited')('server-a')
+    await flushPromises()
+    expect(document.title).toBe('Renamed · Console · Xylona')
+  })
+
+  it('still mounts the section page when the server cannot be read for another reason', async () => {
+    mocks.getGameServer.mockRejectedValue(new ConnectError('down', Code.Unavailable))
+
+    const wrapper = shallowMount(GameServerLayout, {
+      global: { stubs: { 'router-view': RouterViewStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('empty-state-stub').exists()).toBe(false)
+    expect(wrapper.findComponent(RouterViewStub).exists()).toBe(true)
+  })
 })
 
-function buildGameServerResponse(serverID: string) {
+function buildGameServerResponse(
+  serverID: string,
+  permissions = ['game_server.console'],
+  name = 'Test Server',
+) {
   return create(GetGameServerResponseSchema, {
     gameServer: create(GameServerSchema, {
       id: serverID,
+      name,
       userId: 'user-1',
       gameId: 'palworld',
-      effectivePermissions: ['game_server.console'],
+      effectivePermissions: permissions,
       game: create(GameSchema, { allowStartArgEditing: true }),
     }),
   })
+}
+
+/** The last handler the layout registered on the (mocked) event bus. */
+function busHandler(event: string): (...args: unknown[]) => void {
+  const call = vi.mocked(XylonaEventBus.on).mock.calls.findLast(([name]) => name === event)
+  if (call === undefined) throw new Error(`no ${event} handler`)
+  return call[1] as (...args: unknown[]) => void
 }
 
 function createDeferred<T>() {

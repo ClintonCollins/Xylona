@@ -605,6 +605,7 @@ describe('GameServerOperations', () => {
     await wrapper.get<HTMLButtonElement>('[data-testid="add-administrator"]').trigger('click')
 
     expect(wrapper.text()).toContain('Review administrator access')
+    expect(wrapper.get('.confirmation-values').text()).toContain('ServerTest Server')
     await wrapper.get<HTMLButtonElement>('[data-testid="confirm-operation"]').trigger('click')
     await flushPromises()
 
@@ -1041,7 +1042,7 @@ describe('GameServerOperations', () => {
     resolveStart?.()
     await flushPromises()
     expect(start.text()).toBe('Start requested')
-    expect(wrapper.text()).toContain('Open Overview to follow the lifecycle state.')
+    expect(wrapper.text()).toContain('Start requested. Open the console to follow startup.')
   })
 
   it.each([
@@ -1065,7 +1066,7 @@ describe('GameServerOperations', () => {
       await flushPromises()
     }
     expect(wrapper.text()).toContain(testCase.expected)
-    expect(wrapper.text()).toContain('Open Overview')
+    expect(wrapper.text()).toContain('Open console')
   })
 
   it('persists only non-sensitive workbench preferences per server', async () => {

@@ -1,76 +1,13 @@
 <template>
-  <div class="identity-bar">
-    <div class="identity-bar-left">
-      <h1 class="identity-bar-name">{{ gameServer.name }}</h1>
-      <span class="identity-bar-detail">
-        <span>{{ gameServer.gameName }}</span>
-        <template v-if="hasSoftwareOptions && !softwareNameRedundant">
-          <span class="identity-bar-sep">&middot;</span>
-          <span class="identity-bar-running">on</span>
-          <span>{{ softwareDisplayName }}</span>
-        </template>
-        <template v-if="displayVersion && hasSoftwareOptions">
-          <span
-            :class="{ 'version-outdated': versionDisplay.updateAvailable }"
-            class="identity-bar-version">
-            {{ displayVersion }}
-            <span v-if="versionDisplay.updateAvailable" class="xy-visually-hidden">
-              — update available: {{ versionDisplay.latestVersion }}
-            </span>
-            <q-tooltip v-if="versionDisplay.updateAvailable">
-              Update available: {{ versionDisplay.latestVersion }}
-            </q-tooltip>
-          </span>
-        </template>
-      </span>
-    </div>
-    <div class="identity-bar-spacer"></div>
-    <span role="status" aria-live="polite">
-      <status-badge :phase="statusBadgePhase" :status="gameServer.status" />
-    </span>
-  </div>
-
-  <div v-if="lastStartFailure" class="start-failure" role="alert">
-    <q-icon aria-hidden="true" class="start-failure__icon" name="report_problem" />
-    <div class="start-failure__body">
-      <span class="start-failure__title">
-        Start failed at {{ formatFailureTime(lastStartFailure.at) }}
-      </span>
-      <span class="start-failure__message">{{ lastStartFailure.message }}</span>
-    </div>
-    <div class="start-failure__actions">
-      <q-btn
-        v-if="hasConsoleOutput"
-        dense
-        flat
-        label="Show output"
-        no-caps
-        @click="revealConsoleOutput" />
-      <q-btn
-        :disable="disableStartButton || !hasPermission('game_server.start')"
-        :loading="startingServer"
-        color="primary"
-        dense
-        label="Start again"
-        no-caps
-        unelevated
-        @click="startGameServer" />
-      <q-btn
-        aria-label="Dismiss start failure"
-        dense
-        flat
-        icon="close"
-        round
-        @click="lastStartFailure = null" />
-    </div>
-  </div>
-
   <div :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
+    <!-- The layout's identity bar shows the name; this keeps the page's heading. -->
+    <h1 class="xy-visually-hidden">{{ serverName ? `${serverName} console` : 'Console' }}</h1>
+    <q-resize-observer @resize="onMainAreaResize" />
     <div
       :class="{ 'sidebar-backdrop-visible': !sidebarCollapsed }"
       aria-hidden="true"
       class="sidebar-backdrop"
-      @click="sidebarCollapsed = true"></div>
+      @click="sidebarDrawerOpen = false"></div>
 
     <!-- Sidebar -->
     <aside
@@ -87,7 +24,7 @@
           flat
           icon="close"
           round
-          @click="sidebarCollapsed = true" />
+          @click="sidebarDrawerOpen = false" />
       </div>
       <div class="sidebar-header">
         <span class="sidebar-header__label">Server details</span>
@@ -98,73 +35,11 @@
           flat
           icon="first_page"
           square
-          @click="setSidebarCollapsed(true)">
+          @click="setSidePanelOpen('sidebar', false)">
           <q-tooltip>Collapse server details</q-tooltip>
         </q-btn>
       </div>
       <div class="sidebar-content">
-        <!-- Controls -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-label">Controls</div>
-          <div class="server-controls">
-            <q-btn
-              :aria-label="
-                hasPermission('game_server.start') ? undefined : 'Start (requires start permission)'
-              "
-              :disable="disableStartButton || !hasPermission('game_server.start')"
-              :loading="startingServer"
-              color="positive"
-              label="Start"
-              @click="startGameServer">
-              <q-tooltip v-if="!hasPermission('game_server.start')">
-                Requires start permission
-              </q-tooltip>
-              <q-tooltip v-else-if="!serverStateAuthoritative">
-                Waiting for authoritative server status
-              </q-tooltip>
-            </q-btn>
-            <q-btn
-              :aria-label="
-                hasPermission('game_server.stop') ? undefined : 'Stop (requires stop permission)'
-              "
-              :disable="disableStopButton || !hasPermission('game_server.stop')"
-              :loading="stoppingServer"
-              color="negative"
-              label="Stop"
-              @click="stopGameServer">
-              <q-tooltip v-if="!hasPermission('game_server.stop')">
-                Requires stop permission
-              </q-tooltip>
-              <q-tooltip v-else-if="!serverStateAuthoritative">
-                Waiting for authoritative server status
-              </q-tooltip>
-            </q-btn>
-            <q-btn
-              v-if="showUpdateButton"
-              :aria-label="
-                hasPermission('game_server.settings')
-                  ? undefined
-                  : 'Update (requires settings permission)'
-              "
-              :disable="disableUpdateButton || !hasPermission('game_server.settings')"
-              :loading="updatingServer"
-              class="update-server-btn"
-              color="primary"
-              label="Update"
-              @click="updateGameServer">
-              <q-tooltip v-if="!hasPermission('game_server.settings')">
-                Requires settings permission
-              </q-tooltip>
-              <q-tooltip v-else-if="!serverStateAuthoritative">
-                Waiting for authoritative server status
-              </q-tooltip>
-            </q-btn>
-          </div>
-          <div v-if="!serverStateAuthoritative" class="controls-hint" role="status">
-            Waiting for server status — controls are paused until it is confirmed.
-          </div>
-        </div>
-
         <div v-if="readinessVisible" class="sidebar-section">
           <div class="sidebar-section-label">Readiness</div>
           <div class="readiness-list">
@@ -285,7 +160,9 @@
         </div>
 
         <!-- Version -->
-        <div v-if="showVersionSection || hasSoftwareOptions" class="sidebar-section">
+        <div
+          v-if="showVersionSection || hasSoftwareOptions || showUpdateButton"
+          class="sidebar-section">
           <div class="sidebar-section-label">Version</div>
           <div class="version-list">
             <div v-if="hasSoftwareOptions" class="version-item">
@@ -321,6 +198,30 @@
               <span v-if="versionMetaText" class="version-meta">{{ versionMetaText }}</span>
             </div>
           </div>
+          <q-btn
+            v-if="showUpdateButton"
+            :aria-label="
+              hasPermission('game_server.settings')
+                ? undefined
+                : 'Update (requires settings permission)'
+            "
+            :disable="disableUpdateButton || !hasPermission('game_server.settings')"
+            :loading="updatingServer"
+            class="update-server-btn"
+            color="primary"
+            dense
+            icon="system_update_alt"
+            label="Update"
+            no-caps
+            outline
+            @click="updateGameServer">
+            <q-tooltip v-if="!hasPermission('game_server.settings')">
+              Requires settings permission
+            </q-tooltip>
+            <q-tooltip v-else-if="!serverStateAuthoritative">
+              Waiting for authoritative server status
+            </q-tooltip>
+          </q-btn>
         </div>
 
         <!-- Connection -->
@@ -451,7 +352,7 @@
         flat
         icon="last_page"
         square
-        @click="setSidebarCollapsed(false)">
+        @click="setSidePanelOpen('sidebar', true)">
         <q-tooltip>Expand server details</q-tooltip>
       </q-btn>
       <span class="sidebar-mini__label">Details</span>
@@ -484,25 +385,25 @@
         <span v-else class="console-topbar__label">Console</span>
         <span class="console-topbar__spacer"></span>
         <q-btn
-          v-if="$q.screen.lt.md"
-          aria-label="Show server details"
-          class="console-toolbar-btn"
+          v-if="isNarrow"
+          :aria-expanded="sidebarDrawerOpen ? 'true' : 'false'"
+          class="console-toolbar-btn console-details-btn"
           dense
           flat
           icon="info_outline"
+          label="Details"
+          no-caps
           square
-          @click="sidebarCollapsed = !sidebarCollapsed">
-          <q-tooltip>Server details</q-tooltip>
-        </q-btn>
+          @click="sidebarDrawerOpen = !sidebarDrawerOpen" />
         <q-btn
           :aria-label="consoleAutoScroll ? 'Disable auto scroll' : 'Enable auto scroll'"
           :aria-pressed="consoleAutoScroll ? 'true' : 'false'"
           :class="{ 'console-toolbar-btn-off': !consoleAutoScroll }"
+          :icon="consoleAutoScroll ? 'keyboard_double_arrow_down' : 'pause'"
           :text-color="consoleAutoScroll ? 'info' : undefined"
           class="console-toolbar-btn console-autoscroll-btn"
           dense
           flat
-          icon="vertical_align_bottom"
           label="Auto Scroll"
           no-caps
           square
@@ -565,52 +466,66 @@
             <div class="offline-text">
               {{ isServerStatusUnknown ? 'Server status unavailable' : 'Server is offline' }}
             </div>
-            <div class="offline-hint">
-              {{
-                isServerStatusUnknown
-                  ? 'Lifecycle controls are paused until status is confirmed'
-                  : 'Press Start to launch the server'
-              }}
-            </div>
+            <div class="offline-hint">{{ offlineHint }}</div>
+            <q-btn
+              v-if="!isServerStatusUnknown && setupBlocksStart"
+              class="offline-details-btn"
+              dense
+              flat
+              icon="info_outline"
+              label="Show details"
+              no-caps
+              @click="openDetails" />
           </div>
         </div>
       </template>
       <template v-else>
-        <q-scroll-area id="consoleContainer" ref="consoleScrollArea" class="console-scroll-area">
-          <div
-            v-if="
-              (isServerOffline || isServerStatusUnknown) &&
-              !updateInProgress &&
-              !softwareOperationInProgress
-            "
-            class="console-status-banner">
-            {{ isServerStatusUnknown ? 'Server status unavailable.' : 'Server offline.' }}
-          </div>
-          <div v-if="consoleTruncated" class="console-truncated-notice">
-            Earlier output truncated
-          </div>
-          <div v-if="filteredConsoleEmpty" class="console-filter-empty" role="status">
-            <span>
-              No {{ activeFilterLabel.toLowerCase() }} lines in the current buffer — showing 0 of
-              {{ consoleLines.length }}.
-            </span>
-            <button
-              class="console-filter-empty__reset"
-              type="button"
-              @click="consoleFeedFilter = 'all'">
-              Show all
-            </button>
-          </div>
-          <!-- eslint-disable vue/no-v-html -- authenticated game-server output is an accepted trust boundary -->
-          <code
-            id="consoleCodeEl"
-            aria-label="Game server console output"
-            class="q-pb-md"
-            role="log">
-            <span v-for="line in visibleConsoleLines" :key="line.id" v-html="line.html"></span>
-          </code>
-          <!-- eslint-enable vue/no-v-html -->
-        </q-scroll-area>
+        <div class="console-output-area" @scroll.capture="onConsoleScroll">
+          <q-scroll-area id="consoleContainer" ref="consoleScrollArea" class="console-scroll-area">
+            <div
+              v-if="
+                (isServerOffline || isServerStatusUnknown) &&
+                !updateInProgress &&
+                !softwareOperationInProgress
+              "
+              class="console-status-banner">
+              {{ isServerStatusUnknown ? 'Server status unavailable.' : 'Server offline.' }}
+            </div>
+            <div v-if="consoleTruncated" class="console-truncated-notice">
+              Earlier output truncated
+            </div>
+            <div v-if="filteredConsoleEmpty" class="console-filter-empty" role="status">
+              <span>
+                No {{ activeFilterLabel.toLowerCase() }} lines in the current buffer — showing 0 of
+                {{ consoleLines.length }}.
+              </span>
+              <button
+                class="console-filter-empty__reset"
+                type="button"
+                @click="consoleFeedFilter = 'all'">
+                Show all
+              </button>
+            </div>
+            <!-- eslint-disable vue/no-v-html -- authenticated game-server output is an accepted trust boundary -->
+            <code
+              id="consoleCodeEl"
+              aria-label="Game server console output"
+              class="q-pb-md"
+              role="log">
+              <span v-for="line in visibleConsoleLines" :key="line.id" v-html="line.html"></span>
+            </code>
+            <!-- eslint-enable vue/no-v-html -->
+          </q-scroll-area>
+          <button
+            v-if="unseenConsoleOutput"
+            class="console-jump"
+            type="button"
+            @click="jumpToLatestOutput">
+            New output
+            <q-icon aria-hidden="true" name="arrow_downward" />
+            Jump to latest
+          </button>
+        </div>
       </template>
 
       <console-command-input
@@ -665,7 +580,7 @@
               flat
               icon="last_page"
               square
-              @click="setPlayerRailCollapsed(true)">
+              @click="setSidePanelOpen('players', false)">
               <q-tooltip>Collapse player panel</q-tooltip>
             </q-btn>
           </span>
@@ -700,7 +615,7 @@
           flat
           icon="first_page"
           square
-          @click="setPlayerRailCollapsed(false)">
+          @click="setSidePanelOpen('players', true)">
           <q-tooltip>Expand player panel</q-tooltip>
         </q-btn>
         <span class="player-rail__mini-count font-mono">
@@ -738,7 +653,6 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
-import StatusBadge from '@/components/StatusBadge.vue'
 import ConsoleCommandInput from '@/components/game_servers/ConsoleCommandInput.vue'
 import GameServerPlayerManagementDialog from '@/components/game_servers/GameServerPlayerManagementDialog.vue'
 import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRoster.vue'
@@ -756,11 +670,7 @@ import {
   ReadGameServerOutputResponse,
   SendGameServerInputRequest,
   SendGameServerInputRequestSchema,
-  StartGameServerRequest,
-  StartGameServerRequestSchema,
   Status,
-  StopGameServerRequest,
-  StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
 import type { GameServerReadinessItem, HytaleProfile, UpdateProgress } from '@/proto/xylona_pb'
 import {
@@ -782,7 +692,6 @@ import {
 } from '@/proto/xylona_pb'
 import { ConnectError } from '@connectrpc/connect'
 import { canShowUpdateButton } from './game-server-update-capability'
-import { buildLifecycleConfirmation, type LifecycleConfirmation } from './server-list-actions'
 import {
   applyUpdateProgress,
   buildUpdateStepLabels,
@@ -817,10 +726,12 @@ import { useGameServerMetricsPreview } from './useGameServerMetricsPreview'
 import { useGameServerQueryStatusVersion } from './useGameServerQueryStatusVersion'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { resolveConsoleStreamChunk } from './console-stream-sequence'
-import { detectStartFailure, formatFailureTime, type StartFailure } from './start-failure'
+import { fitConsoleSidePanels, type ConsoleSidePanel } from './console-side-panels'
+import { useGameServerName } from './game-server-context'
 
 const $q = useQuasar()
 const route = useRoute()
+const serverName = useGameServerName()
 const gameServer: Ref<GameServer> = ref(create(GameServerSchema)) as Ref<GameServer>
 const gameServerId: Ref<string> = ref(
   route.params.id instanceof Array ? route.params.id[0] : route.params.id,
@@ -829,56 +740,62 @@ const consoleScrollArea = ref<QScrollArea | null>(null)
 const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>(null)
 const consoleExpanded = ref(false)
 
-const sidebarStorageKey = 'xylona_console_sidebar'
-const sidebarCollapsed = ref(readSidebarCollapsed())
-
-function readSidebarCollapsed(): boolean {
-  if (window.innerWidth < 1024) return true
-  try {
-    return window.localStorage.getItem(sidebarStorageKey) === 'collapsed'
-  } catch {
-    return false
-  }
+// Below Quasar's md breakpoint server details is an overlay drawer and the
+// players live in the identity bar, so neither squeezes the console.
+const isNarrow = computed(() => $q.screen.lt.md)
+const sidebarDrawerOpen = ref(false)
+const sidePanelStorageKeys: Record<ConsoleSidePanel, string> = {
+  sidebar: 'xylona_console_sidebar',
+  players: 'xylona_console_player_rail',
 }
-
-function setSidebarCollapsed(collapsed: boolean): void {
-  sidebarCollapsed.value = collapsed
-  try {
-    window.localStorage.setItem(sidebarStorageKey, collapsed ? 'collapsed' : 'open')
-  } catch {
-    // Persisting the preference is best-effort.
-  }
-}
-
-const playerRailStorageKey = 'xylona_console_player_rail'
-const playerRailCollapsed = ref(readPlayerRailCollapsed())
+// What the user asked for; only their own clicks are saved.
+const wantedSidePanels = ref({
+  sidebar: readSidePanelPreference('sidebar'),
+  players: readSidePanelPreference('players'),
+})
+const lastOpenedSidePanel = ref<ConsoleSidePanel | null>(null)
+const mainAreaWidth = ref(Number.POSITIVE_INFINITY)
+const openSidePanels = computed(() =>
+  fitConsoleSidePanels(mainAreaWidth.value, wantedSidePanels.value, lastOpenedSidePanel.value),
+)
+const sidebarCollapsed = computed(() =>
+  isNarrow.value ? !sidebarDrawerOpen.value : !openSidePanels.value.sidebar,
+)
+const playerRailCollapsed = computed(() => !openSidePanels.value.players)
 const playerManagementOpen = ref(false)
 
 function openPlayerManagement(): void {
   if (gameServer.value.gameId !== '7_days_to_die') playerManagementOpen.value = true
 }
 
-function readPlayerRailCollapsed(): boolean {
+function readSidePanelPreference(panel: ConsoleSidePanel): boolean {
   try {
-    return window.localStorage.getItem(playerRailStorageKey) === 'collapsed'
+    return window.localStorage.getItem(sidePanelStorageKeys[panel]) !== 'collapsed'
   } catch {
-    return false
+    return true
   }
 }
 
-function setPlayerRailCollapsed(collapsed: boolean): void {
-  playerRailCollapsed.value = collapsed
+function setSidePanelOpen(panel: ConsoleSidePanel, open: boolean): void {
+  wantedSidePanels.value = { ...wantedSidePanels.value, [panel]: open }
+  lastOpenedSidePanel.value = open ? panel : null
   try {
-    window.localStorage.setItem(playerRailStorageKey, collapsed ? 'collapsed' : 'open')
+    window.localStorage.setItem(sidePanelStorageKeys[panel], open ? 'open' : 'collapsed')
   } catch {
     // Persisting the preference is best-effort.
   }
 }
 
-function revealConsoleOutput() {
-  const el = consoleScrollArea.value?.$el as HTMLElement | undefined
-  el?.scrollIntoView({ block: 'nearest' })
-  scrollConsoleToBottom()
+function onMainAreaResize({ width }: { width: number }): void {
+  mainAreaWidth.value = width
+}
+
+function openDetails(): void {
+  if (isNarrow.value) {
+    sidebarDrawerOpen.value = true
+    return
+  }
+  setSidePanelOpen('sidebar', true)
 }
 
 function scrollConsoleToBottom() {
@@ -889,6 +806,22 @@ function scrollConsoleToBottom() {
   }
 }
 
+// Following pauses once the reader scrolls this far above the newest line.
+const followThresholdPx = 40
+
+function onConsoleScroll(event: Event) {
+  const container = event.target
+  if (
+    !(container instanceof HTMLElement) ||
+    !container.classList.contains('q-scrollarea__container')
+  ) {
+    return
+  }
+  setConsoleScrolledAway(
+    container.scrollHeight - container.clientHeight - container.scrollTop > followThresholdPx,
+  )
+}
+
 const {
   appendConsoleOutput,
   appendPlayerEvent,
@@ -896,20 +829,19 @@ const {
   consoleAutoScroll,
   consoleLines,
   consoleTruncated,
+  jumpToLatestOutput,
   navigateConsoleInputHistory,
   recordConsoleInput,
   replaceConsoleOutput,
   serverInput,
+  setConsoleScrolledAway,
   toggleConsoleAutoScroll: toggleAutoScroll,
+  unseenConsoleOutput,
 } = useGameServerConsoleState({
   gameID: computed(() => gameServer.value.gameId),
   scrollToBottom: scrollConsoleToBottom,
 })
 
-const startingServer = ref(false)
-const stoppingServer = ref(false)
-const lastStartFailure = ref<StartFailure | null>(null)
-const lifecycleIntents = { startRequestedAt: 0, stopRequestedAt: 0 }
 const serverStatusFresh = ref(false)
 const sendingConsoleInput = ref(false)
 const consoleStreamState = ref<'loading' | 'ready' | 'reconnecting' | 'error'>('loading')
@@ -984,11 +916,6 @@ const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const showLiveMetrics = computed(() => isServerOnline.value && metricsReceived.value)
 const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
 const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)
-const statusBadgePhase = computed(() => {
-  if (stoppingServer.value) return 'stopping'
-  if (lastStartFailure.value && isServerOffline.value) return 'failed'
-  return undefined
-})
 const unlistedPlayerCount = computed(() =>
   Math.max(currentPlayerCount.value - onlinePlayers.value.length, 0),
 )
@@ -1102,6 +1029,12 @@ const visibleReadinessItems = computed(() =>
           hasPermission('game_server.settings'))),
   ),
 )
+const setupBlocksStart = computed(() => visibleReadinessItems.value.some((item) => item.blocking))
+const offlineHint = computed(() => {
+  if (isServerStatusUnknown.value) return 'Lifecycle controls are paused until status is confirmed'
+  if (setupBlocksStart.value) return 'Finish the setup steps in Details before starting'
+  return 'Press Start to launch the server'
+})
 const readinessVisible = computed(
   () => readinessLoading.value || visibleReadinessItems.value.length > 0,
 )
@@ -1128,14 +1061,6 @@ function onEscapeKey(e: KeyboardEvent) {
   }
 }
 
-const disableStartButton = computed(() => {
-  return !serverStateAuthoritative.value || gameServer.value.status !== Status.OFFLINE
-})
-
-const disableStopButton = computed(() => {
-  return !serverStateAuthoritative.value || gameServer.value.status !== Status.ONLINE
-})
-
 const disableUpdateButton = computed(() => {
   return (
     !serverStateAuthoritative.value ||
@@ -1160,12 +1085,6 @@ const hasSoftwareOptions = computed(() => {
 const showChangeButton = computed(() => {
   if (!hasPermission('game_server.settings')) return false
   return (gameServer.value.game?.variants?.length ?? 0) > 1
-})
-
-const softwareNameRedundant = computed(() => {
-  const swName = softwareDisplayName.value.toLowerCase()
-  const gameName = gameServer.value.gameName.toLowerCase()
-  return swName === gameName || gameName.includes(swName) || swName.includes(gameName)
 })
 
 const versionDisplay = computed(() => {
@@ -1266,6 +1185,7 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('websocketDisconnected', onWebsocketDisconnect)
   XylonaEventBus.off('gameServerConsoleOutput', onServerConsoleOutput)
   XylonaEventBus.off('gameServerStatus', onServerStatus)
+  XylonaEventBus.off('gameServerStartRejected', onStartRejected)
 })
 
 function unsubscribeConsoleOutputStream() {
@@ -1555,90 +1475,9 @@ function readinessLabel(kind: string): string {
   return 'Setup'
 }
 
-async function startGameServer() {
-  if (!serverStateAuthoritative.value) {
-    return
-  }
-  const request: StartGameServerRequest = create(StartGameServerRequestSchema, {})
-  startingServer.value = true
-  lastStartFailure.value = null
-  lifecycleIntents.startRequestedAt = Date.now()
-  try {
-    request.serverId = gameServerId.value
-    await GetXylonaClient().startGameServer(request)
-  } catch (e) {
-    console.error(e)
-    void loadReadiness()
-    const message = ConnectErrorToString(ConnectError.from(e))
-    lastStartFailure.value = { at: Date.now(), message }
-    lifecycleIntents.startRequestedAt = 0
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to start game server: ' + message,
-      icon: 'report_problem',
-    })
-  } finally {
-    startingServer.value = false
-  }
-}
-
-function confirmLifecycleAction(confirmation: LifecycleConfirmation): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    let settled = false
-    $q.dialog({
-      title: confirmation.title,
-      message: confirmation.message,
-      cancel: true,
-      persistent: true,
-      ok: {
-        label: confirmation.confirmLabel,
-        color: confirmation.confirmColor,
-        unelevated: true,
-      },
-    })
-      .onOk(() => {
-        settled = true
-        resolve(true)
-      })
-      .onDismiss(() => {
-        if (!settled) {
-          resolve(false)
-        }
-      })
-  })
-}
-
-async function stopGameServer() {
-  if (!serverStateAuthoritative.value) {
-    return
-  }
-  const stopConfirmation = buildLifecycleConfirmation('stop', [
-    { displayName: gameServer.value.name, playerCount: currentPlayerCount.value },
-  ])
-  if (stopConfirmation !== null) {
-    const confirmed = await confirmLifecycleAction(stopConfirmation)
-    if (!confirmed) {
-      return
-    }
-  }
-  const request: StopGameServerRequest = create(StopGameServerRequestSchema, {})
-  stoppingServer.value = true
-  lifecycleIntents.stopRequestedAt = Date.now()
-  try {
-    request.serverId = gameServerId.value
-    await GetXylonaClient().stopGameServer(request)
-  } catch (e) {
-    console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to stop game server: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
-  } finally {
-    stoppingServer.value = false
-  }
+// A rejected Start from the identity bar often means a setup blocker.
+function onStartRejected(serverID: string) {
+  if (serverID === gameServerId.value) void loadReadiness()
 }
 
 function resetUpdateSteps() {
@@ -1675,6 +1514,7 @@ function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
 }
 
 async function handleSoftwareChanged() {
+  XylonaEventBus.emit('gameServerEdited', gameServerId.value)
   await getGameServerDetails()
   if (hasConsoleOutput.value) {
     return
@@ -1857,11 +1697,6 @@ function onServerStatus(serverID: string, _serverName: string, status: Status) {
     lastConsoleSequence.value = 0n
     receivedConsoleReset.value = false
   }
-  const failure = detectStartFailure(status, lifecycleIntents, Date.now())
-  if (failure !== undefined) {
-    lastStartFailure.value = failure
-    lifecycleIntents.startRequestedAt = 0
-  }
   gameServer.value = create(GameServerSchema, {
     ...gameServer.value,
     status,
@@ -1914,6 +1749,7 @@ function streamGameServerOutput() {
   // Stream game server output.
   XylonaEventBus.on('gameServerConsoleOutput', onServerConsoleOutput)
   XylonaEventBus.on('gameServerStatus', onServerStatus)
+  XylonaEventBus.on('gameServerStartRejected', onStartRejected)
 
   // Listen for update progress events before any initial websocket request so
   // an early send failure cannot skip the listener registration.
@@ -1965,125 +1801,6 @@ async function sendGameServerInput() {
 </script>
 
 <style scoped>
-/* ===== Identity Bar ===== */
-.identity-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-md);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  background: var(--xy-surface-1);
-  border-bottom: 1px solid var(--xy-border);
-  flex-shrink: 0;
-}
-
-.start-failure {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-base);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  background: var(--xy-danger-bg);
-  border-bottom: 1px solid var(--xy-danger-border);
-  flex-shrink: 0;
-}
-
-.start-failure__icon {
-  flex-shrink: 0;
-  font-size: var(--xy-font-size-lg);
-  color: var(--xy-danger);
-}
-
-.start-failure__body {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: var(--xy-space-sm);
-  row-gap: var(--xy-space-2xs);
-  min-width: 0;
-  flex: 1;
-  font-size: var(--xy-font-size-sm);
-}
-
-.start-failure__title {
-  font-weight: 600;
-  color: var(--xy-text-primary);
-}
-
-.start-failure__message {
-  color: var(--xy-text-secondary);
-  overflow-wrap: anywhere;
-}
-
-.start-failure__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-xs);
-  flex-shrink: 0;
-}
-
-@media (max-width: 599px) {
-  .start-failure {
-    flex-wrap: wrap;
-  }
-
-  .start-failure__actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-
-.identity-bar-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.identity-bar-name {
-  margin: 0;
-  font-family: var(--xy-font-display);
-  font-size: var(--xy-font-size-lg);
-  font-weight: 700;
-  line-height: inherit;
-  letter-spacing: normal;
-  color: var(--xy-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.identity-bar-detail {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: var(--xy-font-size-xs);
-  color: var(--xy-text-secondary);
-  flex-wrap: wrap;
-}
-
-.identity-bar-sep {
-  color: var(--xy-text-muted);
-  opacity: 0.5;
-}
-
-.identity-bar-running {
-  font-style: italic;
-  color: var(--xy-text-muted);
-}
-
-.identity-bar-version {
-  font-family: var(--xy-font-mono);
-  font-size: var(--xy-font-size-2xs);
-  color: var(--xy-text-muted);
-}
-
-.identity-bar-version.version-outdated {
-  color: var(--xy-accent);
-  cursor: help;
-}
-
-.identity-bar-spacer {
-  flex: 1;
-}
-
 /* ===== Main Area ===== */
 .main-area {
   flex: 1;
@@ -2138,20 +1855,6 @@ async function sendGameServerInput() {
   text-transform: uppercase;
   color: var(--xy-text-muted);
   margin-bottom: var(--xy-space-xs);
-}
-
-/* ===== Controls ===== */
-.server-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--xy-space-sm);
-}
-
-.controls-hint {
-  margin-top: var(--xy-space-sm);
-  color: var(--xy-text-muted);
-  font-size: var(--xy-font-size-xs);
-  line-height: 1.35;
 }
 
 .readiness-list {
@@ -2259,6 +1962,10 @@ async function sendGameServerInput() {
 }
 
 /* Version section */
+.update-server-btn {
+  margin-top: var(--xy-space-sm);
+}
+
 .version-list {
   display: flex;
   flex-direction: column;
@@ -2621,7 +2328,8 @@ async function sendGameServerInput() {
   transition: opacity var(--xy-transition-fast);
 }
 
-.console-autoscroll-btn {
+.console-autoscroll-btn,
+.console-details-btn {
   padding-inline: var(--xy-space-sm);
 }
 
@@ -2661,6 +2369,44 @@ async function sendGameServerInput() {
 }
 
 /* Console output scroll area */
+.console-output-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.console-jump {
+  position: absolute;
+  bottom: var(--xy-space-md);
+  left: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  padding: var(--xy-space-xs) var(--xy-space-base);
+  border: 1px solid var(--xy-border-active);
+  border-radius: var(--xy-radius-pill);
+  background: var(--xy-surface-3);
+  box-shadow: var(--xy-shadow-md);
+  color: var(--xy-text-primary);
+  cursor: pointer;
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-xs);
+  font-weight: 600;
+  transform: translateX(-50%);
+}
+
+.console-jump:hover {
+  background: var(--xy-surface-4);
+}
+
+.console-jump:focus-visible {
+  outline: 2px solid var(--xy-focus-ring);
+  outline-offset: 2px;
+}
+
 .console-scroll-area {
   flex: 1;
   min-height: 0;
@@ -2811,6 +2557,10 @@ async function sendGameServerInput() {
 .offline-hint {
   font-size: var(--xy-font-size-xs);
   opacity: 0.6;
+}
+
+.offline-details-btn {
+  margin-top: var(--xy-space-sm);
 }
 
 /* ===== Fullscreen Console ===== */
@@ -2968,14 +2718,6 @@ async function sendGameServerInput() {
 
 /* ===== Mobile ===== */
 @media (max-width: 1023px) {
-  .identity-bar {
-    flex-wrap: wrap;
-  }
-
-  .identity-bar-name {
-    font-size: var(--xy-font-size-base);
-  }
-
   .sidebar-backdrop {
     display: block;
     position: absolute;
@@ -3041,21 +2783,6 @@ async function sendGameServerInput() {
 }
 
 @media (max-width: 599px) {
-  .identity-bar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--xy-space-sm);
-    padding: var(--xy-space-sm) var(--xy-space-base);
-  }
-
-  .identity-bar-spacer {
-    display: none;
-  }
-
-  .identity-bar-detail {
-    gap: var(--xy-space-xs);
-  }
-
   .console-topbar {
     min-height: 3rem;
   }

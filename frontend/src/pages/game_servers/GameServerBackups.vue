@@ -37,8 +37,10 @@ import { bytesToSize, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
 import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import { formatTimestamp } from '@/utils/format-timestamp'
+import { useGameServerName } from './game-server-context'
 
 const $q = useQuasar()
+const serverName = useGameServerName()
 const route = useRoute()
 const gameServerId = computed(() => String(route.params.id ?? ''))
 const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
@@ -445,9 +447,10 @@ async function restoreBackup(mode: BackupRestoreMode): Promise<void> {
 }
 
 function confirmDelete(backup: GameServerBackup): void {
+  const history = serverName.value ? `${serverName.value}'s backup history` : 'backup history'
   $q.dialog({
     title: 'Delete Backup',
-    message: `Delete ${archiveFileName(backup.archivePath)} from disk and backup history?`,
+    message: `Delete ${archiveFileName(backup.archivePath)} from disk and ${history}?`,
     cancel: { flat: true, label: 'Cancel' },
     ok: { color: 'negative', label: 'Delete' },
     persistent: true,

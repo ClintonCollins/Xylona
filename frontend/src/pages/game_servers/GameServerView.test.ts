@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 
 import {
   GameSchema,
@@ -366,62 +367,45 @@ describe('GameServerView', () => {
     },
   )
 
-  it.each([
-    {
-      label: 'confirms before stopping when players are online',
-      currentPlayerCount: 3,
-      dialogChoice: 'ok' as const,
-      wantDialog: true,
-      wantStopped: true,
-    },
-    {
-      label: 'aborts the stop when the player confirm is cancelled',
-      currentPlayerCount: 3,
-      dialogChoice: 'dismiss' as const,
-      wantDialog: true,
-      wantStopped: false,
-    },
-    {
-      label: 'stops immediately when no players are online',
-      currentPlayerCount: 0,
-      dialogChoice: 'ok' as const,
-      wantDialog: false,
-      wantStopped: true,
-    },
-  ])('$label', async ({ currentPlayerCount, dialogChoice, wantDialog, wantStopped }) => {
-    mocks.queryState.currentPlayerCount = currentPlayerCount
-    mocks.queryState.maxPlayerCount = 20
-    mocks.dialogChoice.value = dialogChoice
-    mocks.getGameServer.mockResolvedValue(
-      create(GetGameServerResponseSchema, {
-        gameServer: buildOnlineGameServer(),
-      }),
-    )
+  it('re-reads readiness when the identity bar reports a rejected start', async () => {
     mocks.readGameServerOutput.mockResolvedValue(
       create(ReadGameServerOutputResponseSchema, { output: '' }),
     )
-    mocks.stopGameServer.mockResolvedValue({})
+
+    mountView()
+    await flushPromises()
+    expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(1)
+
+    mocks.eventBus.emit('gameServerStartRejected', 'another-server')
+    mocks.eventBus.emit('gameServerStartRejected', 'server-remote-1')
+    await flushPromises()
+
+    expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(2)
+  })
+
+  it('folds side panels to fit the console without saving, and keeps the one the user opens', async () => {
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
 
     const wrapper = mountView()
     await flushPromises()
-
     const viewModel = wrapper.vm as unknown as {
-      stopGameServer: () => Promise<void>
+      onMainAreaResize: (size: { width: number }) => void
     }
-    await viewModel.stopGameServer()
 
-    if (wantDialog) {
-      expect(mocks.dialog).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Stop Remote Minecraft?',
-          message: '3 players are online and will be disconnected.',
-          ok: expect.objectContaining({ label: 'Stop server', color: 'negative' }),
-        }),
-      )
-    } else {
-      expect(mocks.dialog).not.toHaveBeenCalled()
-    }
-    expect(mocks.stopGameServer).toHaveBeenCalledTimes(wantStopped ? 1 : 0)
+    // 1280px window with the nav drawer open: both panels would leave ~430px.
+    viewModel.onMainAreaResize({ width: 983 })
+    await nextTick()
+    expect(wrapper.get('.player-rail').classes()).toContain('collapsed')
+    expect(wrapper.get('.sidebar').classes()).not.toContain('collapsed')
+    expect(localStorage.setItem).not.toHaveBeenCalled()
+
+    await wrapper.get('[aria-label="Expand player panel"]').trigger('click')
+    expect(wrapper.get('.player-rail').classes()).not.toContain('collapsed')
+    expect(wrapper.get('.sidebar').classes()).toContain('collapsed')
+    expect(localStorage.setItem).toHaveBeenCalledTimes(1)
+    expect(localStorage.setItem).toHaveBeenCalledWith('xylona_console_player_rail', 'open')
   })
 
   it('shows offline players copy and the configured limit for an offline Valheim server', async () => {

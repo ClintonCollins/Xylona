@@ -17,6 +17,10 @@
       <q-card-section class="mod-install-body">
         <!-- Mod info summary -->
         <div class="mod-install-summary">
+          <div v-if="serverName" class="mod-install-detail">
+            <span class="mod-install-label text-xy-muted">Server</span>
+            <span class="mod-install-value">{{ serverName }}</span>
+          </div>
           <div class="mod-install-detail">
             <span class="mod-install-label text-xy-muted">Mod</span>
             <span class="mod-install-value">{{ modName }}</span>
@@ -80,6 +84,7 @@
 
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
+import { useGameServerName } from '@/pages/game_servers/game-server-context'
 import type { InstalledMod, ModDependency } from '@/proto/shared_pb'
 
 interface Props {
@@ -97,6 +102,8 @@ const emit = defineEmits<{
   'update:show': [value: boolean]
   confirm: [selectedDeps: string[]]
 }>()
+
+const serverName = useGameServerName()
 
 interface DepItem {
   sourceId: string

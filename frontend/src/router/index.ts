@@ -6,6 +6,7 @@ import {
   createWebHistory,
 } from 'vue-router'
 
+import { setPageTitle } from '@/utils/page-title'
 import routes from './routes'
 
 /*
@@ -32,6 +33,15 @@ export default route(function (/* { store, ssrContext } */) {
     // quasar.conf.js -> build -> vueRouterMode
     // quasar.conf.js -> build -> publicPath
     history: createHistory(process.env.VUE_ROUTER_BASE),
+  })
+
+  // Pages that know a more specific name (a server, a public map) refine this
+  // after it runs. A failed navigation (the active tab clicked again, a guard
+  // abort) never reached `to`, so it keeps the refined title.
+  Router.afterEach((to, _from, failure) => {
+    if (!failure) {
+      setPageTitle(to.meta.title)
+    }
   })
 
   return Router

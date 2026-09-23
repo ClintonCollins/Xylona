@@ -1,15 +1,22 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { GetPublicMinecraftMapRequestSchema, type MinecraftMapView } from '@/proto/xylona_pb'
+import { setPageTitle } from '@/utils/page-title'
 import { GetXylonaClient } from '@/utils/shared'
 
 const props = defineProps<{ identifier: string }>()
 const pollIntervalMilliseconds = 10_000
 const viewerRefreshMilliseconds = 45 * 60 * 1_000
 const mapView = ref<MinecraftMapView | null>(null)
+watch(
+  () => mapView.value?.gameServerName,
+  (name) => {
+    if (name) setPageTitle(`${name} live map`)
+  },
+)
 const viewerURL = ref('')
 const viewerURLSetAt = ref(0)
 const loading = ref(false)
