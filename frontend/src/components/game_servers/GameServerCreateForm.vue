@@ -201,7 +201,8 @@
             :rules="maxMemoryRules"
             aria-required="true"
             class="col-12 col-lg-4"
-            label="Max Memory MB *"
+            hint="Passed to -Xms and -Xmx. The JVM always uses more memory than its heap."
+            label="Java heap limit (MB) *"
             lazy-rules
             outlined
             reactive-rules

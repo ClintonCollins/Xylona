@@ -106,6 +106,7 @@ type Instance struct {
 	gameServerStatuses    map[string]xylona.Status
 	gameServerStatusMutex sync.RWMutex
 	palworldMaps          map[string]PalworldMapState
+	palworldMapViewedAt   map[string]time.Time
 	palworldMapsMutex     sync.RWMutex
 	queryTelemetry        gameServerQueryTelemetryStore
 	db                    *db.Connection
@@ -185,6 +186,7 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 		serverQueriesMutex:   &sync.RWMutex{},
 		gameServerStatuses:   make(map[string]xylona.Status),
 		palworldMaps:         make(map[string]PalworldMapState),
+		palworldMapViewedAt:  make(map[string]time.Time),
 		db:                   database,
 		modManager:           modMgr,
 		versionState:         versionState,

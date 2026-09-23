@@ -64,3 +64,29 @@ func TestPalworldMapState(t *testing.T) {
 		t.Fatalf("offline state = %+v", stale)
 	}
 }
+
+func TestPalworldMapViewedGatesWorldPolling(t *testing.T) {
+	inst := newTestInstance(t)
+	now := time.Now()
+	if inst.palworldMapViewed("palworld-1", now) {
+		t.Fatal("palworldMapViewed() = true before any viewer read the map")
+	}
+
+	inst.GetPalworldMapState("palworld-1")
+
+	tests := []struct {
+		name string
+		at   time.Time
+		want bool
+	}{
+		{name: "right after a read", at: time.Now(), want: true},
+		{name: "after the viewer window", at: time.Now().Add(palworldMapViewerWindow + time.Second), want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := inst.palworldMapViewed("palworld-1", test.at); got != test.want {
+				t.Fatalf("palworldMapViewed() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}

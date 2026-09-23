@@ -74,6 +74,7 @@
           :title="`min ${formatValue(summary.minimum)} · avg ${formatValue(summary.average)} · max ${formatValue(summary.maximum)}`">
           min {{ formatValue(summary.minimum) }} · max {{ formatValue(summary.maximum) }}
         </div>
+        <div v-if="laneNote" class="metric-lane__note">{{ laneNote }}</div>
       </div>
       <div class="metric-lane__plot" :style="{ height: `${laneHeight}px` }">
         <div v-if="hasValues" :aria-describedby="summaryId" class="metric-lane__visual" role="img">
@@ -115,6 +116,7 @@ import {
   hoveredMetricTimestampMs,
   nearestSampleTimestampMs,
 } from '@/pages/game_servers/metrics-crosshair'
+import { formatMetricAxisTime } from '@/pages/game_servers/metrics-format'
 
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
@@ -152,13 +154,13 @@ const props = withDefaults(
     series: MetricChartSeries<TSample>[]
     summary: MetricSummary
     formatValue: (value: number | null) => string
-    rangeDurationMs: number
     yAxisMaximum?: number
     events?: MetricChartEvent[]
     bands?: MetricChartBand[]
     variant?: 'card' | 'lane'
     laneHeight?: number
     laneCaption?: string
+    laneNote?: string
     health?: MetricHealth
   }>(),
   {
@@ -168,6 +170,7 @@ const props = withDefaults(
     variant: 'card',
     laneHeight: 64,
     laneCaption: '',
+    laneNote: '',
     health: undefined,
   },
 )
@@ -190,13 +193,9 @@ function cssToken(token: string): string {
 }
 
 function formatAxisTime(timestamp: number): string {
-  const options: Intl.DateTimeFormatOptions =
-    props.rangeDurationMs >= 7 * 24 * 60 * 60 * 1000
-      ? { month: 'short', day: 'numeric' }
-      : props.rangeDurationMs >= 24 * 60 * 60 * 1000
-        ? { weekday: 'short', hour: 'numeric' }
-        : { hour: 'numeric', minute: '2-digit' }
-  return new Intl.DateTimeFormat(undefined, options).format(timestamp)
+  const first = props.samples[0]?.timestampMs ?? timestamp
+  const last = props.samples[props.samples.length - 1]?.timestampMs ?? timestamp
+  return formatMetricAxisTime(timestamp, last - first)
 }
 
 const hasValues = computed(() =>
@@ -247,18 +246,29 @@ function tokenToRgba(token: string, alpha: number): string {
 const chartData = computed<ChartData<'line', { x: number; y: number | null }[]>>(() => ({
   datasets: props.series.map((series, index) => {
     const filled = index === 0 && !series.dashed
+    const data = props.samples.map((sample) => ({
+      x: sample.timestampMs,
+      y: series.value(sample),
+    }))
+    const color = cssToken(series.colorToken)
     return {
       label: series.label,
-      data: props.samples.map((sample) => ({
-        x: sample.timestampMs,
-        y: series.value(sample),
-      })),
-      borderColor: cssToken(series.colorToken),
+      data,
+      borderColor: color,
       backgroundColor: filled ? tokenToRgba(series.colorToken, 0.07) : 'transparent',
       fill: filled ? 'origin' : false,
       borderDash: series.dashed ? [5, 4] : undefined,
       borderWidth: series.dashed ? 1 : 2,
-      pointRadius: 0,
+      // A value with gaps on both sides has no segment to draw, so it gets a dot.
+      pointRadius: data.map((point, pointIndex) =>
+        point.y !== null &&
+        (data[pointIndex - 1]?.y ?? null) === null &&
+        (data[pointIndex + 1]?.y ?? null) === null
+          ? 2.5
+          : 0,
+      ),
+      pointBackgroundColor: color,
+      pointBorderWidth: 0,
       pointHitRadius: 8,
       spanGaps: false,
       tension: 0.2,
@@ -651,6 +661,12 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.metric-lane__note {
+  color: var(--xy-warning-hover);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+}
+
 .metric-lane__plot {
   position: relative;
   min-width: 0;
@@ -673,6 +689,21 @@ onBeforeUnmount(() => {
 @media (max-width: 599px) {
   .metric-chart__header {
     align-items: baseline;
+  }
+
+  /* A 208px plot beside a 148px gutter truncates every label; stack them instead. */
+  .metric-chart--lane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .metric-lane__gutter {
+    border-right: 0;
+    padding-bottom: 0;
+  }
+
+  .metric-lane__name {
+    flex-wrap: wrap;
+    gap: var(--xy-space-2xs) var(--xy-space-sm);
   }
 
   .metric-chart__summary {

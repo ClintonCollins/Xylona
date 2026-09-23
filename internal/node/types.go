@@ -9,6 +9,8 @@ import (
 	"maps"
 	"strings"
 	"time"
+
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
 // Sentinel errors returned by node operations.
@@ -1044,6 +1046,23 @@ type NodeSnapshot struct {
 
 	Processes []ProcessSnapshot
 	Collected time.Time
+}
+
+// RunningGameServerCount counts running, installing or updating processes whose ID
+// is one of gameServerIDs. Companion processes such as the BlueMap renderer share
+// the supervisor but are not game servers, so they never count.
+func (s *NodeSnapshot) RunningGameServerCount(gameServerIDs map[string]struct{}) int {
+	count := 0
+	for _, process := range s.Processes {
+		if _, isGameServer := gameServerIDs[process.ID]; !isGameServer {
+			continue
+		}
+		switch process.Status {
+		case xylona.Status_ONLINE.String(), xylona.Status_INSTALLING.String(), xylona.Status_UPDATING.String():
+			count++
+		}
+	}
+	return count
 }
 
 // ConsoleChunk is a slice of buffered console output for a process.

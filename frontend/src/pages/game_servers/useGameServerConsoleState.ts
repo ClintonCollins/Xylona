@@ -1,6 +1,6 @@
 import { nextTick, ref, type Ref } from 'vue'
 
-import { parseConsole } from '@/utils/console'
+import { hidePalworldPollLines, parseConsole } from '@/utils/console'
 
 import { splitConsoleChunk, trimConsoleLines, type ConsoleLine } from './console-buffer'
 import {
@@ -33,9 +33,17 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
   let consoleLineIdCounter = 0
   let pendingConsoleChunks: string[] = []
   let consoleRafId: number | null = null
+  let afterPalworldPollLine = false
+
+  function withoutPollLines(rawOutput: string, continued: boolean): string {
+    if (options.gameID.value.toLowerCase() !== 'palworld') return rawOutput
+    const filtered = hidePalworldPollLines(rawOutput, continued && afterPalworldPollLine)
+    afterPalworldPollLine = filtered.afterPollLine
+    return filtered.text
+  }
 
   function appendConsoleOutput(rawOutput: string) {
-    const parsed = parseConsole(options.gameID.value, rawOutput)
+    const parsed = parseConsole(options.gameID.value, withoutPollLines(rawOutput, true))
     if (parsed.length === 0) return
 
     pendingConsoleChunks.push(parsed)
@@ -46,7 +54,7 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     cancelPendingConsoleFlush()
 
     const classifier = getConsoleFeedClassifier(options.gameID.value)
-    const parsed = parseConsole(options.gameID.value, rawOutput)
+    const parsed = parseConsole(options.gameID.value, withoutPollLines(rawOutput, false))
     const replacementLines = splitConsoleChunk(parsed).map((lineHtml) => ({
       id: consoleLineIdCounter++,
       html: lineHtml,

@@ -12,7 +12,13 @@ import (
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
-const palworldMapPollInterval = 5 * time.Second
+const (
+	palworldMapPollInterval = 5 * time.Second
+	// palworldMapViewerWindow is how long a map read keeps the world poll alive.
+	// Both map pages re-read every five seconds while visible, and Palworld logs
+	// every REST call to the console, so nobody watching means no polling.
+	palworldMapViewerWindow = 30 * time.Second
+)
 
 // PalworldMapState is the latest controller-cached map state for one server.
 // A failed or offline poll preserves the last snapshot and marks it stale at
@@ -25,11 +31,13 @@ type PalworldMapState struct {
 	UnavailableReason string
 }
 
-// GetPalworldMapState returns a defensive copy of the latest cached state.
+// GetPalworldMapState returns a defensive copy of the latest cached state and
+// marks the map as viewed, which keeps the background world poll running.
 func (inst *Instance) GetPalworldMapState(gameServerID string) PalworldMapState {
-	inst.palworldMapsMutex.RLock()
+	inst.palworldMapsMutex.Lock()
 	state, exists := inst.palworldMaps[gameServerID]
-	inst.palworldMapsMutex.RUnlock()
+	inst.palworldMapViewedAt[gameServerID] = time.Now()
+	inst.palworldMapsMutex.Unlock()
 	if !exists {
 		return PalworldMapState{
 			ServerID:          gameServerID,
@@ -95,6 +103,16 @@ func (inst *Instance) queryOnePalworldMap(ctx context.Context, gameServer *model
 			ServerName:        gameServer.Name,
 			ServerOnline:      false,
 			UnavailableReason: "The game server is offline. Showing the last snapshot when available.",
+		})
+		return
+	}
+
+	if !inst.palworldMapViewed(gameServer.ID, time.Now()) {
+		inst.storePalworldMapState(PalworldMapState{
+			ServerID:          gameServer.ID,
+			ServerName:        gameServer.Name,
+			ServerOnline:      true,
+			UnavailableReason: "Refreshing the live map snapshot.",
 		})
 		return
 	}
@@ -176,6 +194,13 @@ func (inst *Instance) logPalworldMapPartial(gameServerID string, snapshot *node.
 		Str("source", snapshot.Source).
 		Str("reason", snapshot.PartialReason).
 		Msg("Palworld live map fell back to player positions")
+}
+
+func (inst *Instance) palworldMapViewed(gameServerID string, now time.Time) bool {
+	inst.palworldMapsMutex.RLock()
+	viewedAt, viewed := inst.palworldMapViewedAt[gameServerID]
+	inst.palworldMapsMutex.RUnlock()
+	return viewed && now.Sub(viewedAt) <= palworldMapViewerWindow
 }
 
 func (inst *Instance) storePalworldMapState(next PalworldMapState) {

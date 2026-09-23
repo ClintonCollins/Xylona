@@ -145,6 +145,22 @@ a.q-item:hover {
   opacity: 0.6 !important;
 }
 
+/* Compact segmented toggle for toolbars (metrics and node history ranges).
+   Quasar's dense sizing reads cramped at the edges and oversized in height. */
+.xy-segmented-toggle {
+  flex: 0 0 auto;
+}
+
+.xy-segmented-toggle .q-btn {
+  min-height: 28px;
+  padding: 2px 10px;
+  font-size: var(--xy-font-size-xs);
+}
+
+.xy-segmented-toggle .q-btn .q-icon {
+  font-size: 16px;
+}
+
 /* ---- Menus (select dropdowns, context menus) ---- */
 .body--dark .q-menu {
   background-color: var(--xy-surface-1);

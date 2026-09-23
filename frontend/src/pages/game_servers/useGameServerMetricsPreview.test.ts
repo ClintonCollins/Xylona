@@ -59,6 +59,7 @@ interface MetricsOverrides {
   memoryBytes?: bigint
   memoryWorkingSetBytes?: bigint
   memoryPercent?: number
+  metricsValid?: boolean
   numberOfThreads?: number
   uptimeSeconds?: bigint
 }
@@ -347,6 +348,47 @@ describe('useGameServerMetricsPreview', () => {
       await nextTick()
 
       expect(wrapper.vm.metricsUptimeSeconds).toBe(61)
+    },
+  )
+
+  it('keeps placeholders until a valid sample arrives and again after the server stops', async () => {
+    const wrapper = mountHarness()
+    expect(wrapper.vm.metricsReceived).toBe(false)
+
+    XylonaEventBus.emit('gameServerMetrics', makeAllMetrics('server-1', { metricsValid: false }))
+    await nextTick()
+    expect(wrapper.vm.metricsReceived).toBe(false)
+
+    XylonaEventBus.emit('gameServerMetrics', makeAllMetrics('server-1', { metricsValid: true }))
+    await nextTick()
+    expect(wrapper.vm.metricsReceived).toBe(true)
+
+    wrapper.vm.gameServer.status = Status.OFFLINE
+    await nextTick()
+    expect(wrapper.vm.metricsReceived).toBe(false)
+  })
+
+  it.each([
+    { heapRatio: 1.31, barClass: 'fill-low', barRatio: 0.655 },
+    { heapRatio: 1.5, barClass: 'fill-mid', barRatio: 0.75 },
+    { heapRatio: 2.5, barClass: 'fill-high', barRatio: 1 },
+  ])(
+    'treats resident memory at $heapRatio x the Java heap limit as $barClass',
+    async ({ heapRatio, barClass, barRatio }) => {
+      const wrapper = mountHarness()
+      const heapBytes = 4096 * 1024 * 1024
+
+      XylonaEventBus.emit(
+        'gameServerMetrics',
+        makeAllMetrics('server-1', {
+          memoryWorkingSetBytes: BigInt(Math.round(heapBytes * heapRatio)),
+        }),
+      )
+      await nextTick()
+
+      expect(wrapper.vm.memoryBarClass).toBe(barClass)
+      expect(wrapper.vm.metricsMemoryBarRatio).toBeCloseTo(barRatio, 3)
+      expect(wrapper.vm.metricsHeapMarkerRatio).toBe(0.5)
     },
   )
 

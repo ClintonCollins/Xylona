@@ -1,9 +1,10 @@
 import { create, toJsonString } from '@bufbuild/protobuf'
-import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { type GameServer, Status } from '@/proto/shared_pb'
 import { Request, Request_Type, RequestSchema, type AllServersMetrics } from '@/proto/websocket_pb'
 import { GetOrCreateXylonaWebsocketClient, XylonaEventBus } from '@/utils/shared'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
+import { heapDangerRatio, heapMemoryLevel } from './game-server-metrics'
 
 interface UseGameServerMetricsPreviewOptions {
   gameServer: Ref<GameServer>
@@ -55,15 +56,26 @@ export function useGameServerMetricsPreview({
   const metricsIoWriteRate = ref(0)
   const metricsConnections = ref(0)
   const metricsUptimeSeconds = ref(0)
+  // Values stay placeholders until a valid sample for this run arrives, so a fresh
+  // start never shows zeros or the previous run's numbers as if they were live.
+  const metricsReceived = ref(false)
+  const metricsDiskValid = ref(false)
   let uptimeTicker: ReturnType<typeof setInterval> | null = null
   let metricsSubscriptionActive = false
   let metricsPreviewUnmounted = false
 
+  // max_memory_mb is the Java heap limit (-Xmx); resident memory normally sits above it.
   const metricsMaxMemory = computed(() => Number(gameServer.value.maxMemoryMb) * 1024 * 1024)
   const metricsMemoryRatio = computed(() => {
     if (metricsMaxMemory.value <= 0) return 0
-    return Math.min(metricsMemory.value / metricsMaxMemory.value, 1)
+    return metricsMemory.value / metricsMaxMemory.value
   })
+  // The bar spans twice the heap limit, so the heap marker sits at its midpoint and
+  // the bar only fills when memory reaches the danger threshold.
+  const metricsMemoryBarRatio = computed(() =>
+    Math.min(Math.max(metricsMemoryRatio.value / heapDangerRatio, 0), 1),
+  )
+  const metricsHeapMarkerRatio = 1 / heapDangerRatio
 
   const cpuBarClass = computed(() => {
     if (metricsCpu.value >= 80) return 'fill-high'
@@ -72,8 +84,9 @@ export function useGameServerMetricsPreview({
   })
 
   const memoryBarClass = computed(() => {
-    if (metricsMemoryRatio.value >= 0.8) return 'fill-high'
-    if (metricsMemoryRatio.value >= 0.5) return 'fill-mid'
+    const level = heapMemoryLevel(metricsMemoryRatio.value)
+    if (level === 'danger') return 'fill-high'
+    if (level === 'warn') return 'fill-mid'
     return 'fill-low'
   })
 
@@ -94,7 +107,16 @@ export function useGameServerMetricsPreview({
     metricsIoWriteRate.value = serverMetrics.ioWriteRate
     metricsConnections.value = serverMetrics.connectionCount
     metricsUptimeSeconds.value = Number(serverMetrics.uptimeSeconds)
+    metricsDiskValid.value = serverMetrics.diskValid
+    metricsReceived.value = serverMetrics.metricsValid
   }
+
+  watch(
+    () => gameServer.value.status,
+    (status) => {
+      if (status !== Status.ONLINE) metricsReceived.value = false
+    },
+  )
 
   function sendMetricsSubscriptionRequest(type: Request_Type): boolean {
     const ws = GetOrCreateXylonaWebsocketClient()
@@ -191,10 +213,14 @@ export function useGameServerMetricsPreview({
     metricsDisk,
     metricsIoReadRate,
     metricsIoWriteRate,
+    metricsDiskValid,
+    metricsHeapMarkerRatio,
     metricsMaxMemory,
     metricsMemory,
+    metricsMemoryBarRatio,
     metricsMemoryPercent,
     metricsMemoryRatio,
+    metricsReceived,
     metricsThreads,
     metricsUptimeSeconds,
     startMetricsPreviewLifecycle,

@@ -1,7 +1,51 @@
 import { describe, expect, it } from 'vitest'
 import { create } from '@bufbuild/protobuf'
 import { TimestampSchema } from '@bufbuild/protobuf/wkt'
-import { nodeHealthBadge, nodeLastSeenMs, splitNodeVersion } from './node-display'
+import {
+  nodeHealthBadge,
+  nodeLastSeenMs,
+  nodeResourceHealth,
+  projectDaysUntilDiskFull,
+  splitNodeVersion,
+} from './node-display'
+
+describe('projectDaysUntilDiskFull', () => {
+  const hour = 60 * 60 * 1000
+  const growing = (hours: number, bytesPerHour: number) =>
+    Array.from({ length: hours + 1 }, (_, index) => ({
+      timestampMs: index * hour,
+      diskUsedBytes: 1000 + index * bytesPerHour,
+    }))
+
+  it('projects from the trend across at least a day of samples', () => {
+    // Ends at 1480 bytes growing 240 bytes/day, so 2400 bytes of headroom last 10 days.
+    const samples = growing(48, 10)
+    const total = 1480 + 10 * 24 * 10
+    expect(projectDaysUntilDiskFull(samples, total)).toBeCloseTo(10, 5)
+  })
+
+  it('stays quiet for short spans, shrinking or flat usage, and far-off dates', () => {
+    expect(projectDaysUntilDiskFull(growing(6, 10), 2000)).toBeNull()
+    expect(projectDaysUntilDiskFull(growing(48, 0), 2000)).toBeNull()
+    expect(projectDaysUntilDiskFull(growing(48, -5), 2000)).toBeNull()
+    expect(projectDaysUntilDiskFull(growing(48, 10), 1480 + 10 * 24 * 60)).toBeNull()
+    expect(projectDaysUntilDiskFull(growing(48, 10), null)).toBeNull()
+  })
+})
+
+describe('nodeResourceHealth', () => {
+  it.each([
+    { resource: 'memory' as const, percent: 53, level: 'ok' },
+    { resource: 'disk' as const, percent: 69, level: 'ok' },
+    { resource: 'cpu' as const, percent: 85, level: 'warn' },
+    { resource: 'disk' as const, percent: 80, level: 'warn' },
+    { resource: 'memory' as const, percent: 95, level: 'danger' },
+    { resource: 'disk' as const, percent: 92, level: 'danger' },
+    { resource: 'cpu' as const, percent: undefined, level: 'unknown' },
+  ])('rates $resource at $percent% as $level', ({ resource, percent, level }) => {
+    expect(nodeResourceHealth(resource, percent).level).toBe(level)
+  })
+})
 
 describe('splitNodeVersion', () => {
   it('separates the semver from the build hash', () => {

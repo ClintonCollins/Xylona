@@ -474,10 +474,10 @@ func (c *Connection) RollupNodeMetricsToHourly(cutoff time.Time) error {
 			node_id,
 			AVG(cpu_percent),
 			AVG(memory_percent),
-			AVG(memory_used_bytes),
+			CAST(ROUND(AVG(memory_used_bytes)) AS INTEGER),
 			MAX(memory_total_bytes),
 			AVG(disk_percent),
-			AVG(disk_used_bytes),
+			CAST(ROUND(AVG(disk_used_bytes)) AS INTEGER),
 			MAX(disk_total_bytes),
 			MAX(game_server_count),
 			MAX(running_game_server_count),
@@ -551,12 +551,12 @@ func (c *Connection) RollupGameServerMetricsToHourly(cutoff time.Time) error {
 			game_server_id,
 			COALESCE(SUM(cpu_percent * cpu_valid_sample_count) /
 				NULLIF(SUM(cpu_valid_sample_count), 0), AVG(cpu_percent), 0),
-			COALESCE(SUM(memory_bytes * available_sample_count) /
-				NULLIF(SUM(available_sample_count), 0), AVG(memory_bytes), 0),
+			CAST(ROUND(COALESCE(SUM(memory_bytes * available_sample_count) /
+				NULLIF(SUM(available_sample_count), 0), AVG(memory_bytes), 0)) AS INTEGER),
 			COALESCE(SUM(memory_percent * available_sample_count) /
 				NULLIF(SUM(available_sample_count), 0), AVG(memory_percent), 0),
-			COALESCE(SUM(disk_usage_bytes * volume_valid_sample_count) /
-				NULLIF(SUM(volume_valid_sample_count), 0), AVG(disk_usage_bytes), 0),
+			CAST(ROUND(COALESCE(SUM(disk_usage_bytes * volume_valid_sample_count) /
+				NULLIF(SUM(volume_valid_sample_count), 0), AVG(disk_usage_bytes), 0)) AS INTEGER),
 			COALESCE(SUM(io_read_rate * io_valid_sample_count) /
 				NULLIF(SUM(io_valid_sample_count), 0), AVG(io_read_rate), 0),
 			COALESCE(SUM(io_write_rate * io_valid_sample_count) /

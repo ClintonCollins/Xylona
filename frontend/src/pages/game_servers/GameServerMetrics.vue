@@ -7,7 +7,7 @@
         </span>
         <span>{{ viewState.detail }}</span>
       </div>
-      <div v-if="samples.length > 0" aria-label="Health attention summary" class="metrics-triage">
+      <div v-if="hasProcessData" aria-label="Health attention summary" class="metrics-triage">
         <span class="metrics-triage__label">Attention</span>
         <button
           v-for="item in health.attention"
@@ -19,11 +19,9 @@
           <span aria-hidden="true">{{ item.level === 'danger' ? '●' : '▲' }}</span>
           {{ item.label }}
         </button>
-        <span class="metrics-triage__chip metrics-triage__chip--ok">
+        <span v-if="health.nominalCount > 0" class="metrics-triage__chip metrics-triage__chip--ok">
           <span aria-hidden="true">✓</span>
-          {{
-            health.attention.length === 0 ? 'All metrics nominal' : `${health.nominalCount} nominal`
-          }}
+          {{ nominalChipLabel }}
         </span>
       </div>
       <template #actions>
@@ -46,6 +44,7 @@
         <q-btn-toggle
           v-model="selectedRange"
           aria-label="Select metrics time range"
+          class="xy-segmented-toggle"
           :options="metricsRangeOptions"
           dense
           no-caps
@@ -53,6 +52,7 @@
         <q-btn-toggle
           v-model="viewMode"
           aria-label="Select metrics view mode"
+          class="xy-segmented-toggle"
           :options="viewModeOptions"
           dense
           no-caps
@@ -98,12 +98,21 @@
     </template>
 
     <section
-      v-else-if="samples.length === 0 && error === ''"
+      v-else-if="!hasProcessData && error === ''"
       class="metrics-empty"
       aria-labelledby="metrics-empty-title">
-      <q-icon aria-hidden="true" name="show_chart" size="40px" />
-      <h2 id="metrics-empty-title">No telemetry in this range</h2>
-      <p>
+      <q-icon
+        aria-hidden="true"
+        :name="offlineWholeRange ? 'power_off' : 'show_chart'"
+        size="40px" />
+      <h2 id="metrics-empty-title">
+        {{ offlineWholeRange ? 'Server offline for this range' : 'No telemetry in this range' }}
+      </h2>
+      <p v-if="offlineWholeRange">
+        This server was offline for the whole range, so there is no process telemetry to plot. Start
+        the server or try a longer range to see earlier runs.
+      </p>
+      <p v-else>
         Metrics are recorded while the server and its assigned node are reachable. Try a longer
         range or start the server to collect new samples.
       </p>
@@ -118,7 +127,7 @@
       </div>
     </section>
 
-    <template v-else-if="samples.length > 0">
+    <template v-else-if="hasProcessData">
       <section aria-label="Current server health" class="metrics-current">
         <div class="metrics-current__item">
           <span>Process CPU</span>
@@ -142,14 +151,12 @@
         </div>
         <div class="metrics-current__item">
           <span>Node RAM available</span>
-          <strong class="font-mono">
-            {{ formatMetricBytes(currentCapacity.nodeAvailableBytes) }} /
-            {{ formatMetricBytes(currentCapacity.nodeTotalBytes) }}
-          </strong>
+          <strong class="font-mono">{{
+            formatMetricBytes(currentCapacity.nodeAvailableBytes)
+          }}</strong>
           <small>
-            Process uses
+            of {{ formatMetricBytes(currentCapacity.nodeTotalBytes) }} · process uses
             {{ formatMetricPercent(ratioToPercent(currentCapacity.nodeProcessShareRatio)) }}
-            of node RAM
           </small>
         </div>
         <div
@@ -184,6 +191,7 @@
           <div class="metrics-recorder__ruler">
             <span class="metrics-recorder__ruler-label">Flight recorder</span>
             <div class="metrics-recorder__ruler-track">
+              <q-resize-observer @resize="rulerTrackWidth = $event.width" />
               <span
                 v-for="tick in rulerTicks"
                 :key="tick.percent"
@@ -201,8 +209,8 @@
                 ]"
                 class="metrics-recorder__event font-mono"
                 :style="{ left: `${event.percent}%` }"
-                :title="event.title">
-                {{ event.title }}
+                :title="event.detail">
+                {{ event.label }}
               </span>
               <span
                 v-if="rulerFlag"
@@ -225,7 +233,6 @@
               :health="health.cpu"
               :lane-caption="cpuCoreEquivalent"
               :lane-height="96"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="cpuSeries"
               :summary="cpuSummary"
@@ -234,7 +241,7 @@
             <metric-time-series-chart
               id="metrics-panel-memory"
               title="Memory"
-              description="Resident memory compared with the configured server target."
+              :description="memoryDescription"
               empty-label="Process memory was not recorded in this range."
               :bands="memoryBands"
               :events="chartEvents"
@@ -242,7 +249,6 @@
               :health="health.memory"
               :lane-caption="memoryLaneCaption"
               :lane-height="96"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="memorySeries"
               :summary="memorySummary"
@@ -256,7 +262,6 @@
               :format-value="formatWholeNumber"
               :lane-caption="playerLaneCaption"
               :lane-height="64"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="playerSeries"
               :summary="playerSummary"
@@ -272,20 +277,18 @@
               :health="health.query"
               lane-caption="gap = failed query"
               :lane-height="64"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="querySeries"
               :summary="querySummary"
               variant="lane" />
             <metric-time-series-chart
               title="Disk I/O"
-              description="Process read and write throughput per second."
+              description="Process read plus write throughput per second."
               empty-label="Disk I/O rates are unavailable for this platform or range."
               :events="chartEvents"
               :format-value="formatMetricRate"
-              lane-caption="read / write"
+              :lane-caption="ioLaneCaption"
               :lane-height="64"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="ioSeries"
               :summary="ioSummary"
@@ -298,7 +301,6 @@
               :events="chartEvents"
               :format-value="formatFps"
               :lane-height="64"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="fpsSeries"
               :summary="fpsSummary"
@@ -311,7 +313,6 @@
               :events="chartEvents"
               :format-value="formatMilliseconds"
               :lane-height="64"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="frameTimeSeries"
               :summary="frameTimeSummary"
@@ -323,7 +324,6 @@
               :events="chartEvents"
               :format-value="formatMetricBytes"
               :lane-height="44"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="storageSeries"
               :summary="storageSummary"
@@ -335,7 +335,6 @@
               :events="chartEvents"
               :format-value="formatWholeNumber"
               :lane-height="44"
-              :range-duration-ms="currentRange.durationMs"
               :samples="samples"
               :series="connectionSeries"
               :summary="connectionSummary"
@@ -361,7 +360,6 @@
                 :bands="cpuBands"
                 :events="chartEvents"
                 :format-value="formatMetricPercent"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="cpuSeries"
                 :summary="cpuSummary"
@@ -369,12 +367,11 @@
               <metric-time-series-chart
                 id="metrics-panel-memory"
                 title="Process memory"
-                description="Resident memory (RSS) compared with the configured server target."
+                :description="memoryDescription"
                 empty-label="Process memory was not recorded in this range."
                 :bands="memoryBands"
                 :events="chartEvents"
                 :format-value="formatMetricBytes"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="memorySeries"
                 :summary="memorySummary" />
@@ -393,17 +390,15 @@
                 empty-label="The directory size scan has not completed."
                 :events="chartEvents"
                 :format-value="formatMetricBytes"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="storageSeries"
                 :summary="storageSummary" />
               <metric-time-series-chart
                 title="Disk I/O rate"
-                description="Process read and write throughput per second."
+                description="Process read and write throughput per second; the headline value is read plus write."
                 empty-label="Disk I/O rates are unavailable for this platform or range."
                 :events="chartEvents"
                 :format-value="formatMetricRate"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="ioSeries"
                 :summary="ioSummary" />
@@ -413,7 +408,6 @@
                 empty-label="Connection counts are unavailable for this platform or range."
                 :events="chartEvents"
                 :format-value="formatWholeNumber"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="connectionSeries"
                 :summary="connectionSummary" />
@@ -436,7 +430,6 @@
                 :empty-label="playerEmptyLabel"
                 :events="chartEvents"
                 :format-value="formatWholeNumber"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="playerSeries"
                 :summary="playerSummary" />
@@ -448,7 +441,6 @@
                 :empty-label="queryEmptyLabel"
                 :events="chartEvents"
                 :format-value="formatMilliseconds"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="querySeries"
                 :summary="querySummary" />
@@ -459,7 +451,6 @@
                 empty-label="No FPS telemetry in this range."
                 :events="chartEvents"
                 :format-value="formatFps"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="fpsSeries"
                 :summary="fpsSummary" />
@@ -470,7 +461,6 @@
                 empty-label="No frame-time telemetry in this range."
                 :events="chartEvents"
                 :format-value="formatMilliseconds"
-                :range-duration-ms="currentRange.durationMs"
                 :samples="samples"
                 :series="frameTimeSeries"
                 :summary="frameTimeSummary" />
@@ -484,9 +474,9 @@
           </section>
         </div>
       </transition>
-
-      <metrics-event-timeline :events="timeline" />
     </template>
+
+    <metrics-event-timeline v-if="hasProcessData || timeline.length > 0" :events="timeline" />
   </main>
 </template>
 
@@ -501,11 +491,16 @@ import type {
 import MetricsEventTimeline from '@/components/game_servers/MetricsEventTimeline.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import {
+  clusterRulerLabels,
   deriveServerHealth,
   getMetricsRangeOption,
+  heapDangerRatio,
+  heapWarnRatio,
   hasCompleteVolumeCapacity,
   isMetricsRangeKey,
+  metricsCollectionStatus,
   metricsRangeOptions,
+  rulerAnchor,
   summarizeMetric,
   type MetricHealthLevel,
   type MetricSample,
@@ -514,12 +509,14 @@ import {
 import { hoveredMetricTimestampMs } from './metrics-crosshair'
 import {
   formatMetricAge,
+  formatMetricAxisTime,
   formatMetricBytes,
   formatMetricNumber,
   formatMetricPercent,
   formatMetricRate,
+  formatMetricTimestamp,
 } from './metrics-format'
-import { useGameServerMetrics } from './useGameServerMetrics'
+import { useGameServerMetrics, type MetricsTimelineEvent } from './useGameServerMetrics'
 
 const MetricTimeSeriesChart = defineAsyncComponent(
   () => import('@/components/game_servers/MetricTimeSeriesChart.vue'),
@@ -573,6 +570,7 @@ const {
   fetchMetrics,
   latestSample,
   loading,
+  queryHealthSample,
   resolution,
   sampleIntervalSeconds,
   samples,
@@ -625,8 +623,33 @@ const nextLongerRange = computed(() => {
 })
 
 const health = computed(() =>
-  deriveServerHealth({ latestSample: latestSample.value, capacity: currentCapacity.value }),
+  deriveServerHealth({
+    latestSample: latestSample.value,
+    querySample: queryHealthSample.value,
+    capacity: currentCapacity.value,
+  }),
 )
+
+// Offline samples still count as samples, so "has data" means some process telemetry.
+const hasProcessData = computed(() =>
+  samples.value.some((sample) => sample.availableSampleCount > 0),
+)
+const offlineWholeRange = computed(
+  () =>
+    samples.value.length > 0 &&
+    samples.value.every(
+      (sample) => sample.collectionStatus === metricsCollectionStatus.serverOffline,
+    ),
+)
+
+// "All" only when every health cell is nominal; unknown cells are not nominal.
+const nominalChipLabel = computed(() => {
+  const { attention, nominalCount, cpu, memory, volume, query } = health.value
+  const total = [cpu, memory, volume, query].length
+  return attention.length === 0 && nominalCount === total
+    ? 'All metrics nominal'
+    : `${nominalCount} nominal`
+})
 
 function healthGlyph(level: MetricHealthLevel): string {
   if (level === 'danger') return '●'
@@ -690,10 +713,15 @@ const storageSummary = summary(
   (sample) => sample.diskUsageMaximum,
   (sample) => sample.volumeValidSampleCount,
 )
+function sumNullable(left: number | null, right: number | null): number | null {
+  return left === null && right === null ? null : (left ?? 0) + (right ?? 0)
+}
+
+// Read plus write, so a write-heavy world save or backup shows up in the headline value.
 const ioSummary = summary(
-  (sample) => sample.ioReadAverage,
-  (sample) => sample.ioReadMinimum,
-  (sample) => sample.ioReadMaximum,
+  (sample) => sumNullable(sample.ioReadAverage, sample.ioWriteAverage),
+  (sample) => sumNullable(sample.ioReadMinimum, sample.ioWriteMinimum),
+  (sample) => sumNullable(sample.ioReadMaximum, sample.ioWriteMaximum),
   (sample) => sample.ioValidSampleCount,
 )
 const connectionSummary = summary(
@@ -739,7 +767,7 @@ const cpuSeries: MetricChartSeries[] = [
 const memorySeries: MetricChartSeries[] = [
   { label: 'RSS', colorToken: '--xy-series-2', value: (sample) => sample.memoryRssAverage },
   {
-    label: 'Configured target',
+    label: 'Java heap limit',
     colorToken: '--xy-series-limit',
     value: (sample) => sample.configuredMemoryBytes,
     dashed: true,
@@ -753,6 +781,12 @@ const storageSeries: MetricChartSeries[] = [
   },
 ]
 const ioSeries: MetricChartSeries[] = [
+  {
+    label: 'Read + write',
+    colorToken: '--xy-series-neutral',
+    value: (sample) => sumNullable(sample.ioReadAverage, sample.ioWriteAverage),
+    dashed: true,
+  },
   { label: 'Read', colorToken: '--xy-series-1', value: (sample) => sample.ioReadAverage },
   { label: 'Write', colorToken: '--xy-series-2', value: (sample) => sample.ioWriteAverage },
 ]
@@ -811,9 +845,12 @@ const frameTimeSeries: MetricChartSeries[] = [
 const cpuBands: MetricChartBand[] = [{ from: 85, to: 100 }]
 
 const memoryBands = computed<MetricChartBand[]>(() => {
-  const target = currentCapacity.value.configuredTargetBytes
-  if (target === null || target <= 0) return []
-  return [{ from: target * 0.85, to: target }]
+  const heap = currentCapacity.value.configuredTargetBytes
+  if (heap === null || heap <= 0) return []
+  return [
+    { from: heap * heapWarnRatio, to: heap * heapDangerRatio },
+    { from: heap * heapDangerRatio, colorToken: '--xy-danger-bg-faint' },
+  ]
 })
 
 const chartEvents = computed<MetricChartEvent[]>(() => {
@@ -838,44 +875,69 @@ const sampleTimeSpan = computed(() => {
   return { minMs: first.timestampMs, maxMs: last.timestampMs }
 })
 
-function formatRulerTime(timestampMs: number): string {
-  const options: Intl.DateTimeFormatOptions =
-    currentRange.value.durationMs >= 7 * 24 * 60 * 60 * 1000
-      ? { month: 'short', day: 'numeric' }
-      : currentRange.value.durationMs >= 24 * 60 * 60 * 1000
-        ? { weekday: 'short', hour: 'numeric' }
-        : { hour: 'numeric', minute: '2-digit' }
-  return new Intl.DateTimeFormat(undefined, options).format(timestampMs)
-}
+const rulerTrackWidth = ref(0)
+// Event labels are capped at this width in CSS; ticks need roughly the same room.
+const rulerLabelWidthPx = 152
 
 // Elements near the track edges anchor inward so they never clip outside it.
-function rulerEdge(percent: number): 'start' | 'end' | null {
-  if (percent <= 8) return 'start'
-  if (percent >= 92) return 'end'
-  return null
+function rulerEdge(percent: number, halfWidthPx: number): 'start' | 'end' | null {
+  const width = rulerTrackWidth.value
+  if (width <= 0) return percent <= 8 ? 'start' : percent >= 92 ? 'end' : null
+  return rulerAnchor((percent / 100) * width, width, halfWidthPx)
 }
 
 const rulerTicks = computed(() => {
   const span = sampleTimeSpan.value
   if (!span) return []
-  return [0, 0.25, 0.5, 0.75, 1].map((fraction) => ({
+  const width = rulerTrackWidth.value
+  const fractions =
+    width === 0 || width >= 480 ? [0, 0.25, 0.5, 0.75, 1] : width >= 260 ? [0, 0.5, 1] : [0, 1]
+  return fractions.map((fraction) => ({
     percent: fraction * 100,
-    edge: rulerEdge(fraction * 100),
-    label: formatRulerTime(span.minMs + fraction * (span.maxMs - span.minMs)),
+    edge: rulerEdge(fraction * 100, 40),
+    label: formatMetricAxisTime(
+      span.minMs + fraction * (span.maxMs - span.minMs),
+      span.maxMs - span.minMs,
+    ),
   }))
 })
 
+const toneRank: Record<MetricsTimelineEvent['tone'], number> = {
+  neutral: 0,
+  positive: 1,
+  warning: 2,
+  negative: 3,
+}
+
+// Events whose labels would overlap collapse into one "N events" marker whose
+// tooltip lists them, so neighbouring labels never draw over each other.
 const rulerEvents = computed(() => {
   const span = sampleTimeSpan.value
   if (!span) return []
-  return chartEvents.value.map((event, index) => {
-    const percent = ((event.timestampMs - span.minMs) / (span.maxMs - span.minMs)) * 100
+  // Until the track is measured, assume a laptop-width track.
+  const width = rulerTrackWidth.value || 1000
+  const positioned = [...chartEvents.value]
+    .sort((a, b) => a.timestampMs - b.timestampMs)
+    .map((event) => ({
+      event,
+      x: ((event.timestampMs - span.minMs) / (span.maxMs - span.minMs)) * width,
+    }))
+  return clusterRulerLabels(positioned, width, rulerLabelWidthPx, 8).map((cluster) => {
+    const events = cluster.items.map((item) => item.event)
+    const tone = events.reduce<MetricChartEvent['tone']>(
+      (worst, event) => (toneRank[event.tone] > toneRank[worst] ? event.tone : worst),
+      'neutral',
+    )
+    const percent = (cluster.x / width) * 100
     return {
-      key: `${event.timestampMs}-${index}`,
+      key: `${percent}-${events.length}`,
       percent,
-      edge: rulerEdge(percent),
-      tone: event.tone,
-      title: event.title,
+      edge: cluster.anchor,
+      tone,
+      label: events.length === 1 ? (events[0]?.title ?? '') : `${events.length} events`,
+      detail: events
+        .map((event) => `${formatMetricTimestamp(event.timestampMs)} · ${event.title}`)
+        .join('\n'),
     }
   })
 })
@@ -887,7 +949,7 @@ const rulerFlag = computed(() => {
   const percent = ((hovered - span.minMs) / (span.maxMs - span.minMs)) * 100
   return {
     percent,
-    edge: rulerEdge(percent),
+    edge: rulerEdge(percent, 40),
     label: new Intl.DateTimeFormat(undefined, {
       hour: 'numeric',
       minute: '2-digit',
@@ -903,60 +965,69 @@ const cpuCoreEquivalent = computed(() => {
   return `${((sample.cpuAverage / 100) * sample.nodeCpuCores).toFixed(2)} core equivalent`
 })
 
-const memoryCellValue = computed(() => {
-  const rss = formatMetricBytes(currentCapacity.value.processRssBytes)
-  const target = currentCapacity.value.configuredTargetBytes
-  if (target === null || target <= 0) return rss
-  return `${rss} / ${formatMetricBytes(target)}`
-})
+const memoryDescription = computed(() =>
+  (currentCapacity.value.configuredTargetBytes ?? 0) > 0
+    ? "Resident memory (RSS) against the Java heap limit; a JVM's RSS normally sits above its heap."
+    : 'Resident memory (RSS) of the server process.',
+)
+
+// The value is the resident memory alone; the heap limit is context, not a ceiling.
+const memoryCellValue = computed(() => formatMetricBytes(currentCapacity.value.processRssBytes))
 
 const memoryCellDetail = computed(() => {
+  const heap = currentCapacity.value.configuredTargetBytes
   const ratio = currentCapacity.value.configuredTargetRatio
-  if (ratio === null) return 'No memory target configured'
-  return `${formatMetricPercent(ratio * 100)} of configured target`
+  if (heap === null || heap <= 0) return 'No memory limit configured'
+  const share = ratio === null ? '' : ` · ${formatMetricPercent(ratio * 100, 0)}`
+  return `Java heap limit ${formatMetricBytes(heap)}${share}`
 })
 
 const memoryLaneCaption = computed(() => {
-  const target = currentCapacity.value.configuredTargetBytes
-  if (target === null || target <= 0) return 'no target'
-  return `target ${formatMetricBytes(target)}`
+  const heap = currentCapacity.value.configuredTargetBytes
+  if (heap === null || heap <= 0) return 'no limit set'
+  return `heap limit ${formatMetricBytes(heap)}`
+})
+
+const ioLaneCaption = computed(() => {
+  const sample = [...samples.value]
+    .reverse()
+    .find((candidate) => candidate.ioReadAverage !== null || candidate.ioWriteAverage !== null)
+  if (!sample) return 'read + write'
+  return `R ${formatMetricRate(sample.ioReadAverage)} · W ${formatMetricRate(sample.ioWriteAverage)}`
 })
 
 const playerLaneCaption = computed(() => {
-  const capacity = latestSample.value?.playerCapacity
+  const capacity = queryHealthSample.value?.playerCapacity
   return capacity === null || capacity === undefined ? '' : `capacity ${capacity}`
 })
 
 const queryCellValue = computed(() => {
-  const sample = latestSample.value
-  if (!sample || sample.querySupported === false) return 'Not supported'
-  const latency = formatMilliseconds(sample.queryDurationAverage)
-  const players =
-    sample.playerAverage === null
-      ? ''
-      : ` · ${Math.round(sample.playerAverage)}${sample.playerCapacity === null ? '' : `/${sample.playerCapacity}`}`
-  return `${latency}${players}`
+  const sample = queryHealthSample.value
+  if (sample?.querySupported === false) return 'Not supported'
+  return formatMilliseconds(sample?.queryDurationAverage ?? null)
 })
 
 const queryCellDetail = computed(() => {
-  const sample = latestSample.value
-  if (!sample || sample.querySupported === false) return 'No supported query protocol'
-  return 'Latency · players online'
+  const sample = queryHealthSample.value
+  if (sample?.querySupported === false) return 'No supported query protocol'
+  if (!sample || sample.playerAverage === null) return 'Latency · players unknown'
+  const capacity = sample.playerCapacity === null ? '' : `/${sample.playerCapacity}`
+  return `Latency · ${Math.round(sample.playerAverage)}${capacity} players online`
 })
 
 const volumeCapacityLabel = computed(() => {
   const sample = latestSample.value
   if (!hasCompleteVolumeCapacity(sample)) return 'Unavailable'
-  return `${formatMetricBytes(sample.volumeFreeBytes)} free / ${formatMetricBytes(sample.volumeTotalBytes)}`
+  return `${formatMetricBytes(sample.volumeFreeBytes)} free`
 })
 
 const volumeFreshness = computed(() => {
   const sample = latestSample.value
   if (!hasCompleteVolumeCapacity(sample)) return 'Volume capacity unavailable'
-  return `${formatMetricPercent(sample.volumePercent)} used · measured ${formatMetricAge(sample.diskMeasuredAtMs, nowMs.value)}`
+  return `of ${formatMetricBytes(sample.volumeTotalBytes)} · ${formatMetricPercent(sample.volumePercent, 0)} used · measured ${formatMetricAge(sample.diskMeasuredAtMs, nowMs.value)}`
 })
 
-const querySupported = computed(() => latestSample.value?.querySupported !== false)
+const querySupported = computed(() => queryHealthSample.value?.querySupported !== false)
 
 const hasFpsData = computed(() => samples.value.some((sample) => sample.serverFpsAverage !== null))
 
@@ -974,13 +1045,13 @@ const unsupportedRows = computed(() => {
 })
 
 const playerEmptyLabel = computed(() =>
-  latestSample.value?.querySupported === false
+  queryHealthSample.value?.querySupported === false
     ? 'This game does not expose player counts through a supported query protocol.'
     : 'No successful player query was recorded in this range.',
 )
 
 const queryEmptyLabel = computed(() =>
-  latestSample.value?.querySupported === false
+  queryHealthSample.value?.querySupported === false
     ? 'This game does not have a supported query protocol.'
     : 'No successful query latency sample was recorded in this range.',
 )
@@ -1129,22 +1200,6 @@ function formatFps(value: number | null): string {
   flex-wrap: wrap;
 }
 
-.metrics-toolbar :deep(.q-btn-group) {
-  flex: 0 0 auto;
-}
-
-/* Quasar's default button/icon sizing reads oversized next to the 12px
-   toolbar metadata; scale the segmented controls to the toolbar. */
-.metrics-toolbar__controls :deep(.q-btn) {
-  min-height: 28px;
-  padding: 2px 10px;
-  font-size: var(--xy-font-size-xs);
-}
-
-.metrics-toolbar__controls :deep(.q-btn .q-icon) {
-  font-size: 16px;
-}
-
 .metrics-toolbar__metadata {
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1241,8 +1296,10 @@ function formatFps(value: number | null): string {
 .metrics-current__item strong {
   display: block;
   margin: var(--xy-space-xs) 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
   color: var(--xy-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--xy-font-size-lg);
   font-weight: 600;
 }
@@ -1373,18 +1430,10 @@ function formatFps(value: number | null): string {
   white-space: nowrap;
 }
 
-.metrics-recorder__anchor--start {
-  transform: translateX(var(--xy-space-xs));
-}
-
-.metrics-recorder__anchor--end {
-  transform: translateX(calc(-100% - var(--xy-space-xs)));
-}
-
 .metrics-recorder__event {
   position: absolute;
   top: var(--xy-space-xs);
-  max-width: 160px;
+  max-width: 152px;
   overflow: hidden;
   padding: 0 var(--xy-space-sm);
   transform: translateX(-50%);
@@ -1428,6 +1477,15 @@ function formatFps(value: number | null): string {
   font-weight: 600;
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* After the tick, event and flag rules so the edge anchoring overrides their centring. */
+.metrics-recorder__anchor--start {
+  transform: translateX(var(--xy-space-xs));
+}
+
+.metrics-recorder__anchor--end {
+  transform: translateX(calc(-100% - var(--xy-space-xs)));
 }
 
 .metrics-recorder__lanes > .metric-chart--lane + .metric-chart--lane {
@@ -1521,6 +1579,19 @@ function formatFps(value: number | null): string {
 @media (max-width: 599px) {
   .metrics-current {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Lanes stack their label above the plot on phones, so the ruler spans the plot width. */
+  .metrics-recorder__ruler {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .metrics-recorder__ruler-label {
+    display: none;
+  }
+
+  .metrics-recorder__ruler-track {
+    border-left: 0;
   }
 
   .metrics-current__item:nth-child(even) {

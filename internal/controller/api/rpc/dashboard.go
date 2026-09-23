@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
@@ -86,23 +87,23 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 		return nil, internalErrf(fmt.Sprintf("failed to collect resource snapshot: %v", errSnap))
 	}
 
-	gsCount := 0
-	allServers, _ := xs.db.GetAllGameServers()
+	// The running count is derived from these IDs, so a failed listing would
+	// report 0 running rather than just 0 assigned: fail instead of guessing.
+	allServers, errServers := xs.db.GetAllGameServers()
+	if errServers != nil {
+		log.Error().Err(errServers).Str("node_id", nodeID).Msg("Failed to list game servers for node resource snapshot")
+		return nil, internalErrf("failed to list game servers")
+	}
+	gameServerIDs := map[string]struct{}{}
 	for _, gs := range allServers {
 		if gs.NodeID == nodeID {
-			gsCount++
+			gameServerIDs[gs.ID] = struct{}{}
 		}
 	}
-	runningCount := 0
-	for _, ps := range snap.Processes {
-		switch ps.Status {
-		case xylona.Status_ONLINE.String(),
-			xylona.Status_INSTALLING.String(),
-			xylona.Status_UPDATING.String():
-			runningCount++
-		}
+	userCount, errUserCount := xs.db.CountUsers()
+	if errUserCount != nil {
+		log.Warn().Err(errUserCount).Str("node_id", nodeID).Msg("Failed to count users for node resource snapshot")
 	}
-	userCount, _ := xs.db.CountUsers()
 
 	return connect.NewResponse(&xylona.GetNodeResourceSnapshotResponse{
 		Snapshot: &xylona.NodeResourceSnapshot{
@@ -113,8 +114,8 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 			DiskPercent:            snap.DiskPercent,
 			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
 			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        helpers.ClampInt32FromInt(gsCount),
-			RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+			GameServerCount:        helpers.ClampInt32FromInt(len(gameServerIDs)),
+			RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(gameServerIDs)),
 			UserCount:              helpers.ClampInt32FromInt(userCount),
 			RecordedAt:             timestamppb.Now(),
 		},
@@ -143,16 +144,22 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 	selfNodeID := xs.selfNodeID()
 	runtimeState := xs.collectNodeRuntimeState(ctx, allNodes)
 
-	serverCountsByNodeID := map[string]int{}
+	serverIDsByNodeID := map[string]map[string]struct{}{}
 	allServers, errServers := xs.db.GetAllGameServers()
-	if errServers == nil {
+	if errServers != nil {
+		log.Warn().Err(errServers).Msg("Failed to list game servers for dashboard overview; server counts will read 0")
+	} else {
 		for _, gameServer := range allServers {
-			serverCountsByNodeID[gameServer.NodeID]++
+			if serverIDsByNodeID[gameServer.NodeID] == nil {
+				serverIDsByNodeID[gameServer.NodeID] = map[string]struct{}{}
+			}
+			serverIDsByNodeID[gameServer.NodeID][gameServer.ID] = struct{}{}
 		}
 	}
 
 	userCount, errUserCount := xs.db.CountUsers()
 	if errUserCount != nil {
+		log.Warn().Err(errUserCount).Msg("Failed to count users for dashboard overview")
 		userCount = 0
 	}
 
@@ -180,14 +187,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			XylonaVersion:    snap.XylonaVersion,
 		}
 
-		runningCount := 0
-		for _, ps := range snap.Processes {
-			if ps.Status == xylona.Status_ONLINE.String() ||
-				ps.Status == xylona.Status_INSTALLING.String() ||
-				ps.Status == xylona.Status_UPDATING.String() {
-				runningCount++
-			}
-		}
+		nodeServerIDs := serverIDsByNodeID[nodeRow.ID]
 
 		summary.Snapshot = &xylona.NodeResourceSnapshot{
 			CpuPercent:             snap.CPUPercent,
@@ -197,8 +197,8 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			DiskPercent:            snap.DiskPercent,
 			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
 			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        helpers.ClampInt32FromInt(serverCountsByNodeID[nodeRow.ID]),
-			RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+			GameServerCount:        helpers.ClampInt32FromInt(len(nodeServerIDs)),
+			RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(nodeServerIDs)),
 			UserCount:              helpers.ClampInt32FromInt(userCount),
 		}
 

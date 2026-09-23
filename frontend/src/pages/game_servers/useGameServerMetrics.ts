@@ -32,6 +32,7 @@ import {
   deriveMetricsViewState,
   getMetricsRangeRequest,
   getMetricsSubscriptionTransition,
+  latestQuerySample,
   LatestRequestGuard,
   mergeMetricSamples,
   mergeMetricHistoryWithLiveTail,
@@ -198,23 +199,65 @@ function lifecycleTone(event: GameServerLifecycleHistoryEvent): MetricsTimelineE
   return 'warning'
 }
 
+const statusLabels: Record<string, string> = {
+  ONLINE: 'Online',
+  OFFLINE: 'Offline',
+  INSTALLING: 'Installing',
+  UPDATING: 'Updating',
+  PRE_START: 'Starting',
+  UNKNOWN: 'Unknown',
+}
+
+const statusEventTitles: Record<string, string> = {
+  ONLINE: 'Server came online',
+  OFFLINE: 'Server went offline',
+  INSTALLING: 'Install started',
+  UPDATING: 'Update started',
+  PRE_START: 'Server starting',
+}
+
+function statusLabel(status: string): string {
+  return statusLabels[status.toUpperCase()] ?? status
+}
+
+// Windows exit statuses are NTSTATUS values (0xC000013A is the Ctrl+C exit a stop
+// sends); the node carries them as their int32 bit pattern, so show those in hex.
+export function formatExitCode(exitCode: number): string {
+  return exitCode < -1 ? `0x${(exitCode >>> 0).toString(16).toUpperCase()}` : String(exitCode)
+}
+
+export function lifecycleEventText(
+  event: Pick<
+    GameServerLifecycleHistoryEvent,
+    'status' | 'previousStatus' | 'intentionalStop' | 'exitCode'
+  >,
+): { title: string; detail: string } {
+  const detailParts = [
+    event.previousStatus !== ''
+      ? `${statusLabel(event.previousStatus)} → ${statusLabel(event.status)}`
+      : statusLabel(event.status),
+    event.intentionalStop ? 'intentional' : '',
+    event.exitCode !== undefined ? `exit ${formatExitCode(event.exitCode)}` : '',
+  ].filter(Boolean)
+  return {
+    title: statusEventTitles[event.status.toUpperCase()] ?? 'Server status changed',
+    detail: detailParts.join(' · '),
+  }
+}
+
 function normalizeTimeline(
   lifecycleEvents: readonly GameServerLifecycleHistoryEvent[],
   operationEvents: readonly GameServerOperationHistoryEvent[],
 ): MetricsTimelineEvent[] {
   const lifecycle = lifecycleEvents.map((raw) => {
     const event = raw
-    const detailParts = [
-      event.previousStatus !== '' ? `${event.previousStatus} to ${event.status}` : event.status,
-      event.intentionalStop ? 'intentional' : '',
-      event.exitCode !== undefined ? `exit ${event.exitCode}` : '',
-    ].filter(Boolean)
+    const text = lifecycleEventText(event)
     return {
       id: event.id,
       timestampMs: timestampToMs(event.observedAt) ?? 0,
       kind: 'lifecycle' as const,
-      title: `Server ${event.status || 'status changed'}`,
-      detail: detailParts.join(' · '),
+      title: text.title,
+      detail: text.detail,
       tone: lifecycleTone(event),
     }
   })
@@ -371,6 +414,7 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
 
   const rangeRequest = computed(() => getMetricsRangeRequest(selectedRange.value))
   const latestSample = computed(() => samples.value[samples.value.length - 1] ?? null)
+  const queryHealthSample = computed(() => latestQuerySample(samples.value))
   const viewState = computed(() =>
     deriveMetricsViewState({
       loading: loading.value,
@@ -585,6 +629,7 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
     latestSample,
     loading,
     mixedResolution,
+    queryHealthSample,
     resolution,
     sampleIntervalSeconds,
     samples,

@@ -71,15 +71,22 @@
                 <q-card-section class="node-mobile-metrics">
                   <div>
                     <span>CPU</span>
-                    <strong>{{ formatMetric(getSnapshot(props.row.id)?.cpuPercent) }}</strong>
+                    <strong :class="metricClass('cpu', getSnapshot(props.row.id)?.cpuPercent)">
+                      {{ formatMetric(getSnapshot(props.row.id)?.cpuPercent, 'cpu') }}
+                    </strong>
                   </div>
                   <div>
                     <span>Memory</span>
-                    <strong>{{ formatMetric(getSnapshot(props.row.id)?.memoryPercent) }}</strong>
+                    <strong
+                      :class="metricClass('memory', getSnapshot(props.row.id)?.memoryPercent)">
+                      {{ formatMetric(getSnapshot(props.row.id)?.memoryPercent, 'memory') }}
+                    </strong>
                   </div>
                   <div>
                     <span>Disk</span>
-                    <strong>{{ formatMetric(getSnapshot(props.row.id)?.diskPercent) }}</strong>
+                    <strong :class="metricClass('disk', getSnapshot(props.row.id)?.diskPercent)">
+                      {{ formatMetric(getSnapshot(props.row.id)?.diskPercent, 'disk') }}
+                    </strong>
                   </div>
                   <div>
                     <span>Servers</span>
@@ -157,9 +164,9 @@
               </template>
               <template v-else-if="getSnapshot(props.row.id)">
                 <span
-                  :class="'text-' + metricColor(getSnapshot(props.row.id)!.cpuPercent)"
+                  :class="metricClass('cpu', getSnapshot(props.row.id)!.cpuPercent)"
                   class="font-mono">
-                  {{ Math.round(getSnapshot(props.row.id)!.cpuPercent) }}%
+                  {{ formatMetric(getSnapshot(props.row.id)!.cpuPercent, 'cpu') }}
                 </span>
               </template>
               <span v-else class="text-xy-muted">&mdash;</span>
@@ -172,9 +179,9 @@
               </template>
               <template v-else-if="getSnapshot(props.row.id)">
                 <span
-                  :class="'text-' + metricColor(getSnapshot(props.row.id)!.memoryPercent)"
+                  :class="metricClass('memory', getSnapshot(props.row.id)!.memoryPercent)"
                   class="font-mono">
-                  {{ Math.round(getSnapshot(props.row.id)!.memoryPercent) }}%
+                  {{ formatMetric(getSnapshot(props.row.id)!.memoryPercent, 'memory') }}
                 </span>
                 <span class="text-caption text-xy-muted q-ml-xs">
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.memoryUsedBytes)) }}
@@ -190,9 +197,9 @@
               </template>
               <template v-else-if="getSnapshot(props.row.id)">
                 <span
-                  :class="'text-' + metricColor(getSnapshot(props.row.id)!.diskPercent)"
+                  :class="metricClass('disk', getSnapshot(props.row.id)!.diskPercent)"
                   class="font-mono">
-                  {{ Math.round(getSnapshot(props.row.id)!.diskPercent) }}%
+                  {{ formatMetric(getSnapshot(props.row.id)!.diskPercent, 'disk') }}
                 </span>
                 <span class="text-caption text-xy-muted q-ml-xs">
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.diskUsedBytes)) }}
@@ -387,7 +394,13 @@ import {
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
-import { nodeHealthBadge, nodeLastSeenMs, splitNodeVersion } from '@/components/nodes/node-display'
+import {
+  nodeHealthBadge,
+  nodeLastSeenMs,
+  nodeResourceHealth,
+  splitNodeVersion,
+  type NodeResource,
+} from '@/components/nodes/node-display'
 import { formatMetricAge } from '@/pages/game_servers/metrics-format'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
@@ -422,8 +435,9 @@ const totalServers = computed(() =>
 const runningServers = computed(() =>
   rows.value.reduce((sum, n) => sum + (getSnapshot(n.id)?.runningGameServerCount ?? 0), 0),
 )
+// Every snapshot reports the controller-wide user count, so take it once, not per node.
 const totalUsers = computed(() =>
-  rows.value.reduce((sum, n) => sum + (getSnapshot(n.id)?.userCount ?? 0), 0),
+  rows.value.reduce((max, n) => Math.max(max, getSnapshot(n.id)?.userCount ?? 0), 0),
 )
 
 const detailNodeId = computed(() => {
@@ -451,10 +465,11 @@ function getNodeVersion(nodeId: string): string | undefined {
   return getNodeSummary(nodeId)?.systemInfo?.xylonaVersion
 }
 
-function metricColor(percent: number): string {
-  if (percent >= 80) return 'negative'
-  if (percent >= 50) return 'warning'
-  return 'positive'
+function metricClass(resource: NodeResource, percent: number | undefined): string {
+  const level = nodeResourceHealth(resource, percent).level
+  if (level === 'danger') return 'text-negative'
+  if (level === 'warn') return 'text-warning'
+  return ''
 }
 
 function shouldShowMetricSkeleton(nodeId: string): boolean {
@@ -573,8 +588,11 @@ async function fetchAll() {
   }
 }
 
-function formatMetric(value?: number): string {
-  return value === undefined ? '—' : `${Math.round(value)}%`
+// The glyph keeps a high or critical reading distinguishable without its colour.
+function formatMetric(value: number | undefined, resource: NodeResource): string {
+  if (value === undefined) return '—'
+  const glyph = nodeResourceHealth(resource, value).glyph
+  return `${glyph ? `${glyph} ` : ''}${Math.round(value)}%`
 }
 
 function lastSeenRelative(node: Node): string {

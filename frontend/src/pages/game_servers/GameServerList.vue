@@ -435,17 +435,13 @@
 </template>
 
 <script lang="ts" setup>
-import { create, toJsonString } from '@bufbuild/protobuf'
+import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
-import {
-  ConnectErrorToString,
-  GetOrCreateXylonaWebsocketClient,
-  GetXylonaClient,
-  XylonaEventBus,
-} from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { createServerMetricsSubscriptions } from '@/utils/server-metrics-subscriptions'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import GameServerStatusPageSettingsPanel from '@/components/game_servers/GameServerStatusPageSettingsPanel.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
@@ -474,7 +470,7 @@ import {
   UpdateGameServerRequestSchema,
   type UpdateProgress,
 } from '@/proto/xylona_pb'
-import { type AllServersMetrics, Request, Request_Type, RequestSchema } from '@/proto/websocket_pb'
+import { type AllServersMetrics } from '@/proto/websocket_pb'
 import { buildDisplayRows, type DisplayRow } from './server-list-cache'
 import {
   buildLifecycleConfirmation,
@@ -534,7 +530,7 @@ let loadSequence = 0
 let initialLoadComplete = false
 let reconnectRefreshQueued = false
 let serverListUnmounted = false
-const subscribedMetricsServerIDs = new Set<string>()
+const metricsSubscriptions = createServerMetricsSubscriptions()
 type BufferedLiveServerState = {
   status?: Status
   version?: string
@@ -782,59 +778,6 @@ function applyServerMetrics(metrics: AllServersMetrics) {
   resourceUsageByServerID.value = nextUsage
 }
 
-function sendMetricsSubscription(serverID: string, type: Request_Type): boolean {
-  const websocket = GetOrCreateXylonaWebsocketClient()
-  if (!websocket.isOpen()) {
-    return false
-  }
-
-  const request: Request = create(RequestSchema, {
-    gameServerId: serverID,
-    type,
-  })
-  websocket.send(toJsonString(RequestSchema, request))
-  return true
-}
-
-function syncMetricsSubscriptions(serverIDs: string[]) {
-  const desiredServerIDs = new Set(serverIDs)
-  for (const serverID of subscribedMetricsServerIDs) {
-    if (desiredServerIDs.has(serverID)) {
-      continue
-    }
-    try {
-      sendMetricsSubscription(serverID, Request_Type.UnsubscribeServerMetrics)
-    } catch (error) {
-      console.error('Failed to unsubscribe from server metrics', error)
-    }
-    subscribedMetricsServerIDs.delete(serverID)
-  }
-
-  for (const serverID of desiredServerIDs) {
-    if (subscribedMetricsServerIDs.has(serverID)) {
-      continue
-    }
-    try {
-      if (sendMetricsSubscription(serverID, Request_Type.SubscribeServerMetrics)) {
-        subscribedMetricsServerIDs.add(serverID)
-      }
-    } catch (error) {
-      console.error('Failed to subscribe to server metrics', error)
-    }
-  }
-}
-
-function clearMetricsSubscriptions() {
-  for (const serverID of subscribedMetricsServerIDs) {
-    try {
-      sendMetricsSubscription(serverID, Request_Type.UnsubscribeServerMetrics)
-    } catch (error) {
-      console.error('Failed to unsubscribe from server metrics', error)
-    }
-  }
-  subscribedMetricsServerIDs.clear()
-}
-
 function applyNodesResponse(nodes: Node[]) {
   nodesByID.value = new Map(nodes.map((node) => [node.id, node]))
 }
@@ -921,7 +864,7 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('gameServersQueryInfo', applyServerQueryInfo)
   XylonaEventBus.off('gameServerMetrics', applyServerMetrics)
   XylonaEventBus.off('gameServerUpdateProgress', handleGameServerUpdateProgress)
-  clearMetricsSubscriptions()
+  metricsSubscriptions.clear()
 })
 
 async function getGameServers() {
@@ -941,7 +884,7 @@ async function getGameServers() {
 
       const servers = applyBufferedLiveServerStateToServers(response.servers)
       aggregatedServers.value = servers
-      syncMetricsSubscriptions(
+      metricsSubscriptions.sync(
         buildDisplayRows(servers, nodesByID.value)
           .filter((server) => hasPermission(server, 'game_server.metrics'))
           .map((server) => server.id),
@@ -1014,7 +957,7 @@ function watchWebsocketReconnects() {
 
 function handleWebsocketDisconnect() {
   serverStatusSnapshotFresh.value = false
-  subscribedMetricsServerIDs.clear()
+  metricsSubscriptions.forget()
   playerCountsByServerID.value = new Map()
   resourceUsageByServerID.value = new Map()
   updateStepsByServerID.clear()

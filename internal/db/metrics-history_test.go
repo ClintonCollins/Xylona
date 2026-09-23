@@ -679,6 +679,46 @@ func TestRollupNodeMetricsToHourlyHandlesLegacyRecordedAt(t *testing.T) {
 	}
 }
 
+func TestRollupNodeMetricsToHourlyStoresIntegerByteAverages(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "metrics-history-node-bytes.sqlite")
+	seedRBACFixture(t, conn)
+
+	for index, sample := range []struct{ memory, disk int64 }{{1000, 7}, {1001, 8}} {
+		errInsert := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
+			ID:               fmt.Sprintf("node-bytes-%d", index),
+			NodeID:           "node-local",
+			MemoryUsedBytes:  sample.memory,
+			MemoryTotalBytes: 2048,
+			DiskUsedBytes:    sample.disk,
+			DiskTotalBytes:   16,
+			RecordedAt:       time.Date(2026, time.April, 10, 18, 10+index*20, 0, 0, time.UTC),
+		})
+		if errInsert != nil {
+			t.Fatalf("InsertNodeMetricsHistory(%d) error = %v", index, errInsert)
+		}
+	}
+
+	errRollup := conn.RollupNodeMetricsToHourly(time.Date(2026, time.April, 10, 20, 0, 0, 0, time.UTC))
+	if errRollup != nil {
+		t.Fatalf("RollupNodeMetricsToHourly() error = %v", errRollup)
+	}
+
+	rows, errHistory := conn.GetNodeMetricsHistory(
+		"node-local",
+		time.Date(2026, time.April, 10, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, time.April, 11, 0, 0, 0, 0, time.UTC),
+	)
+	if errHistory != nil {
+		t.Fatalf("GetNodeMetricsHistory() error = %v", errHistory)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("GetNodeMetricsHistory() len = %d, want 1", len(rows))
+	}
+	if rows[0].MemoryUsedBytes != 1001 || rows[0].DiskUsedBytes != 8 {
+		t.Fatalf("rolled-up bytes = (%d memory, %d disk), want (1001, 8)", rows[0].MemoryUsedBytes, rows[0].DiskUsedBytes)
+	}
+}
+
 func insertLegacyGameServerMetricsHistoryRow(
 	t *testing.T,
 	conn *Connection,

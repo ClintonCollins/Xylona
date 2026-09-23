@@ -33,6 +33,20 @@ export function formatMetricTimestamp(timestampMs: number | null): string {
   }).format(timestampMs)
 }
 
+const dayMs = 24 * 60 * 60 * 1000
+
+// Axis and ruler labels follow the span the data actually covers, not the selected
+// range: a 7d range holding two days of samples must not print the same date five times.
+export function formatMetricAxisTime(timestampMs: number, spanMs: number): string {
+  const options: Intl.DateTimeFormatOptions =
+    spanMs >= 7 * dayMs
+      ? { month: 'short', day: 'numeric' }
+      : spanMs >= dayMs
+        ? { weekday: 'short', hour: 'numeric' }
+        : { hour: 'numeric', minute: '2-digit' }
+  return new Intl.DateTimeFormat(undefined, options).format(timestampMs)
+}
+
 export function formatMetricAge(timestampMs: number | null, nowMs = Date.now()): string {
   if (timestampMs === null || !Number.isFinite(timestampMs)) return 'Unknown age'
   const ageSeconds = Math.max(Math.round((nowMs - timestampMs) / 1000), 0)

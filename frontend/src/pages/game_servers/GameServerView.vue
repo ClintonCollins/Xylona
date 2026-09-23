@@ -341,7 +341,7 @@
         <!-- Resource Usage -->
         <div class="sidebar-section">
           <div class="sidebar-section-label">Resource Usage</div>
-          <div :class="{ 'metrics-offline': !isServerOnline }" class="metrics-preview">
+          <div :class="{ 'metrics-offline': !showLiveMetrics }" class="metrics-preview">
             <!-- Compute -->
             <div class="metrics-group">
               <div class="metrics-group-label">Compute</div>
@@ -350,23 +350,23 @@
                   <span class="ml"
                     >CPU
                     <span class="metric-detail"
-                      >({{ isServerOnline ? metricsCpuCores : '--' }} cores)</span
+                      >({{ showLiveMetrics ? metricsCpuCores : '--' }} cores)</span
                     ></span
                   >
-                  <span class="mv">{{ isServerOnline ? metricsCpu.toFixed(1) + '%' : '--' }}</span>
+                  <span class="mv">{{ showLiveMetrics ? metricsCpu.toFixed(1) + '%' : '--' }}</span>
                 </div>
                 <div class="metric-bar">
                   <div
                     :class="cpuBarClass"
                     :style="{
-                      transform: `scaleX(${isServerOnline ? Math.min(Math.max(metricsCpu / 100, 0), 1) : 0})`,
+                      transform: `scaleX(${showLiveMetrics ? Math.min(Math.max(metricsCpu / 100, 0), 1) : 0})`,
                     }"
                     class="metric-bar-fill"></div>
                 </div>
               </div>
               <div class="metric-row">
                 <span class="ml">Threads</span>
-                <span class="mv">{{ isServerOnline ? metricsThreads : '--' }}</span>
+                <span class="mv">{{ showLiveMetrics ? metricsThreads : '--' }}</span>
               </div>
             </div>
 
@@ -376,26 +376,29 @@
               <div>
                 <div class="metric-row">
                   <span class="ml">Memory</span>
-                  <span class="mv">
-                    <template v-if="isServerOnline">
-                      {{ bytesToSize(metricsMemory) }}
-                      <template v-if="metricsMaxMemory > 0">
-                        / {{ bytesToSize(metricsMaxMemory) }}
-                      </template>
-                    </template>
-                    <template v-else>--</template>
-                  </span>
+                  <span class="mv">{{ showLiveMetrics ? bytesToSize(metricsMemory) : '--' }}</span>
                 </div>
-                <div v-if="metricsMaxMemory > 0" class="metric-bar">
+                <div
+                  v-if="metricsMaxMemory > 0"
+                  class="metric-bar metric-bar--marked"
+                  :title="`Java heap limit ${bytesToSize(metricsMaxMemory)}`">
                   <div
                     :class="memoryBarClass"
                     :style="{
-                      transform: `scaleX(${isServerOnline ? Math.min(Math.max(metricsMemoryRatio, 0), 1) : 0})`,
+                      transform: `scaleX(${showLiveMetrics ? metricsMemoryBarRatio : 0})`,
                     }"
                     class="metric-bar-fill"></div>
+                  <span
+                    aria-hidden="true"
+                    class="metric-bar-marker"
+                    :style="{ left: `${metricsHeapMarkerRatio * 100}%` }"></span>
                 </div>
               </div>
-              <div v-if="isServerOnline && metricsMemoryPercent > 0" class="metric-row">
+              <div v-if="metricsMaxMemory > 0" class="metric-row">
+                <span class="ml">Java heap limit</span>
+                <span class="mv">{{ bytesToSize(metricsMaxMemory) }}</span>
+              </div>
+              <div v-if="showLiveMetrics && metricsMemoryPercent > 0" class="metric-row">
                 <span class="ml">System RAM</span>
                 <span class="mv">{{ metricsMemoryPercent.toFixed(1) }}%</span>
               </div>
@@ -406,15 +409,19 @@
               <div class="metrics-group-label">Storage</div>
               <div class="metric-row">
                 <span class="ml">Disk Usage</span>
-                <span class="mv">{{ isServerOnline ? bytesToSize(metricsDisk) : '--' }}</span>
+                <span class="mv">{{
+                  showLiveMetrics && metricsDiskValid ? bytesToSize(metricsDisk) : '--'
+                }}</span>
               </div>
               <div class="metric-row">
                 <span class="ml">I/O Read</span>
-                <span class="mv">{{ isServerOnline ? formatRate(metricsIoReadRate) : '--' }}</span>
+                <span class="mv">{{ showLiveMetrics ? formatRate(metricsIoReadRate) : '--' }}</span>
               </div>
               <div class="metric-row">
                 <span class="ml">I/O Write</span>
-                <span class="mv">{{ isServerOnline ? formatRate(metricsIoWriteRate) : '--' }}</span>
+                <span class="mv">{{
+                  showLiveMetrics ? formatRate(metricsIoWriteRate) : '--'
+                }}</span>
               </div>
             </div>
 
@@ -423,11 +430,11 @@
               <div class="metrics-group-label">Network</div>
               <div class="metric-row">
                 <span class="ml">Connections</span>
-                <span class="mv">{{ isServerOnline ? metricsConnections : '--' }}</span>
+                <span class="mv">{{ showLiveMetrics ? metricsConnections : '--' }}</span>
               </div>
               <div class="metric-row">
                 <span class="ml">Uptime</span>
-                <span class="mv">{{ isServerOnline ? formattedUptime : '--' }}</span>
+                <span class="mv">{{ showLiveMetrics ? formattedUptime : '--' }}</span>
               </div>
             </div>
           </div>
@@ -940,12 +947,15 @@ const {
   metricsCpu,
   metricsCpuCores,
   metricsDisk,
+  metricsDiskValid,
+  metricsHeapMarkerRatio,
   metricsIoReadRate,
   metricsIoWriteRate,
   metricsMaxMemory,
   metricsMemory,
+  metricsMemoryBarRatio,
   metricsMemoryPercent,
-  metricsMemoryRatio,
+  metricsReceived,
   metricsThreads,
   startMetricsPreviewLifecycle,
 } = useGameServerMetricsPreview({
@@ -970,6 +980,7 @@ const displayedMaxPlayerCount = computed(
   () => maxPlayerCount.value || Number(gameServer.value.maxPlayers),
 )
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
+const showLiveMetrics = computed(() => isServerOnline.value && metricsReceived.value)
 const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
 const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)
 const statusBadgePhase = computed(() => {
@@ -2558,6 +2569,21 @@ async function sendGameServerInput() {
   border-radius: var(--xy-radius-sm);
   margin-top: 3px;
   overflow: hidden;
+}
+
+.metric-bar--marked {
+  position: relative;
+  overflow: visible;
+}
+
+.metric-bar-marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--xy-text-secondary);
+  border-radius: var(--xy-radius-sm);
 }
 
 .metric-bar-fill {
