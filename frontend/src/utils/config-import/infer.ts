@@ -53,28 +53,38 @@ export function coerceValue(value: unknown, type: FieldType): unknown {
   return value
 }
 
+const TITLE_ACRONYMS = new Set(['API', 'HP', 'ID', 'IP', 'PVE', 'PVP', 'RCON', 'XP'])
+const TITLE_JOINERS = new Set(['a', 'an', 'and', 'for', 'in', 'of', 'on', 'or', 'the', 'to'])
+
 /**
  * Convert a group name to a display-friendly Title Case label.
  * Unlike keyToTitle, this processes ALL segments of a dot-path.
  * e.g., "server.network" -> "Server Network". A name that already has spaces
- * is a label the schema author wrote ("Guilds and Bases") and is kept as is,
- * and acronyms such as PvP or RCON stay intact.
+ * is a label the schema author wrote ("Guilds and Bases") and is not split
+ * further. Words are capitalized except lowercase joiners such as "and";
+ * mixed-case acronyms such as PvP or RCON stay intact. An all-caps name such
+ * as GAME_SETTINGS is title-cased, keeping only known acronyms upper case.
  */
 export function groupToTitle(group: string): string {
-  if (/\s/.test(group.trim())) return group.trim()
-
-  return group
-    .split('.')
-    .map((segment) =>
-      segment
+  const name = group.trim()
+  const shouting = !/[a-z]/.test(name)
+  const words = /\s/.test(name)
+    ? name.split(/\s+/)
+    : name
         .replace(/([a-z]{2,})([A-Z])/g, '$1 $2')
         .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-        .replace(/[-_]+/g, ' ')
-        .trim()
-        .split(/\s+/)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' '),
-    )
+        .split(/[-_.\s]+/)
+
+  return words
+    .filter(Boolean)
+    .map((w, i) => {
+      if (shouting) {
+        if (TITLE_ACRONYMS.has(w)) return w
+        w = w.toLowerCase()
+      }
+      if (i > 0 && TITLE_JOINERS.has(w)) return w
+      return w.charAt(0).toUpperCase() + w.slice(1)
+    })
     .join(' ')
 }
 

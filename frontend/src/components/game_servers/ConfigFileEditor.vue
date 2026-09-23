@@ -291,6 +291,7 @@
                 :id="fieldId(field.key)"
                 :aria-label="field.title || field.key"
                 :aria-required="field.required"
+                :autocomplete="isSecretConfigKey(field.key) ? 'new-password' : 'off'"
                 :error="serverError(field.key) !== undefined ? true : undefined"
                 :error-message="serverError(field.key)"
                 :maxlength="field.maxLength ?? undefined"

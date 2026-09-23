@@ -10,6 +10,7 @@ import {
 } from '@/proto/xylona_pb'
 import type { AdvancedField, ConfigFieldData, ConfigValidationError } from '@/proto/xylona_pb'
 
+import ConfigAdvancedFields from './ConfigAdvancedFields.vue'
 import ConfigFileEditor from './ConfigFileEditor.vue'
 
 const ButtonStub = defineComponent({
@@ -35,7 +36,8 @@ const InputStub = defineComponent({
   },
   emits: ['update:modelValue'],
   template: `<div class="input-stub" :data-error="errorMessage">
-      <input :aria-label="$attrs['aria-label']" :type="type" :value="modelValue"
+      <input :aria-label="$attrs['aria-label']" :autocomplete="$attrs.autocomplete" :type="type"
+        :value="modelValue"
         @input="$emit('update:modelValue', $event.target.value)" />
       <slot name="append" />
     </div>`,
@@ -227,10 +229,34 @@ describe('ConfigFileEditor', () => {
 
     const input = () => wrapper.find('[data-test="config-row-ServerPassword"] input')
     expect(input().attributes('type')).toBe('password')
+    // Keeps password managers from saving or autofilling game secrets.
+    expect(input().attributes('autocomplete')).toBe('new-password')
 
     await wrapper.find('[data-test="config-row-ServerPassword"] button').trigger('click')
 
     expect(input().attributes('type')).toBe('text')
+  })
+
+  it('masks secret advanced values without looking like a login', () => {
+    const wrapper = mount(ConfigAdvancedFields, {
+      props: {
+        fields: [create(AdvancedFieldSchema, { key: 'management-server-secret', value: 's3cret' })],
+      },
+      global: {
+        stubs: {
+          QBanner: { template: '<div><slot /></div>' },
+          QBtn: ButtonStub,
+          QExpansionItem: { template: '<div><slot /></div>' },
+          QIcon: true,
+          QInput: InputStub,
+          QTooltip: true,
+        },
+      },
+    })
+
+    const inputs = wrapper.findAll('[data-test="advanced-row-management-server-secret"] input')
+    expect(inputs.map((i) => i.attributes('autocomplete'))).toEqual(['off', 'new-password'])
+    expect(inputs[1]?.attributes('type')).toBe('password')
   })
 
   it('shows numbers without the zero padding and ignores equal numbers', async () => {

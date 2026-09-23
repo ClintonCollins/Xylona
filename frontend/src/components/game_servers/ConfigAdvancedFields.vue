@@ -44,6 +44,7 @@
               <q-input
                 v-model="field.key"
                 :aria-label="`Field key: ${field.key}`"
+                autocomplete="off"
                 class="advanced-key"
                 dense
                 input-class="font-mono advanced-input-text"
@@ -54,6 +55,7 @@
               <q-input
                 v-model="field.value"
                 :aria-label="`Value for ${field.key}`"
+                :autocomplete="isSecretConfigKey(field.key) ? 'new-password' : 'off'"
                 :type="isSecretConfigKey(field.key) && !revealed.has(index) ? 'password' : 'text'"
                 class="advanced-value"
                 dense

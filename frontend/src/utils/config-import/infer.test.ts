@@ -70,6 +70,12 @@ describe('groupToTitle', () => {
     ['RCONSettings', 'RCON Settings'],
     ['maxHP', 'Max HP'],
     ['Guilds and Bases', 'Guilds and Bases'],
+    ['network settings', 'Network Settings'],
+    ['items_and_structures', 'Items and Structures'],
+    ['GAME_SETTINGS', 'Game Settings'],
+    ['SERVER', 'Server'],
+    ['RCON', 'RCON'],
+    ['  ', ''],
   ])('formats %s', (input, want) => {
     expect(groupToTitle(input)).toBe(want)
   })
