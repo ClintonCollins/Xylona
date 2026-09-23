@@ -67,8 +67,9 @@ vi.mock('@/utils/shared', () => ({
 
 // Mock vue-router
 const mockReplace = vi.fn()
+const mockRoute: { query: Record<string, string> } = { query: {} }
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ query: {} }),
+  useRoute: () => mockRoute,
   useRouter: () => ({ replace: mockReplace }),
 }))
 
@@ -177,6 +178,7 @@ describe('ModBrowse', () => {
     mockSearchMods.mockReset()
     mockGetModCategories.mockReset()
     mockReplace.mockReset()
+    mockRoute.query = {}
     // Default: return empty results for initial load
     mockSearchMods.mockResolvedValue({ results: [], totalCount: 0 })
     mockGetModCategories.mockResolvedValue({ categories: [] })
@@ -370,6 +372,16 @@ describe('ModBrowse', () => {
       expect(mockSearchMods).toHaveBeenCalledTimes(1)
     })
     expect(mockSearchMods.mock.calls[0][0].gameVersion).toBe('1.21.4')
+  })
+
+  it('keeps an explicit All Versions choice when it remounts', async () => {
+    mockRoute.query = { version: 'all' }
+    mountBrowse({ availableVersions: ['1.21.4', '1.20.6'], defaultGameVersion: '1.21.4' })
+
+    await vi.waitFor(() => {
+      expect(mockSearchMods).toHaveBeenCalledTimes(1)
+    })
+    expect(mockSearchMods.mock.calls[0][0].gameVersion).toBe('')
   })
 
   it('shows "No mods found" when search returns empty results', async () => {

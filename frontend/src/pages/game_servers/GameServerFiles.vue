@@ -44,7 +44,10 @@
             <q-badge v-else class="file-read-only-badge" label="Read only" outline />
           </div>
           <div v-if="selectedFiles.length > 0" class="file-toolbar-selection">
-            <span class="file-selection-count"> {{ selectedFiles.length }} selected </span>
+            <span class="file-selection-count">
+              {{ selectedFiles.length }}
+              <span :class="{ 'xy-visually-hidden': !$q.screen.gt.xs }">selected</span>
+            </span>
             <q-btn
               v-if="selectedDirectory || editableSelectedFile"
               :aria-label="selectedDirectory ? 'Open selected folder' : 'Edit selected file'"
@@ -66,8 +69,9 @@
               @click="downloadSelectedFiles">
               <q-tooltip>Download</q-tooltip>
             </q-btn>
+            <!-- On phones, Rename, Archive and Extract move to More so the bar fits at 360px. -->
             <q-btn
-              v-if="renameButtonEnabled"
+              v-if="renameButtonEnabled && $q.screen.gt.xs"
               aria-label="Rename selected item"
               dense
               flat
@@ -87,7 +91,7 @@
               <q-tooltip>Move</q-tooltip>
             </q-btn>
             <q-btn
-              v-if="zipButtonEnabled"
+              v-if="zipButtonEnabled && $q.screen.gt.xs"
               aria-label="Archive selected items"
               dense
               flat
@@ -97,7 +101,7 @@
               <q-tooltip>Archive</q-tooltip>
             </q-btn>
             <q-btn
-              v-if="extractButtonEnabled"
+              v-if="extractButtonEnabled && $q.screen.gt.xs"
               aria-label="Extract selected archive"
               dense
               flat
@@ -118,7 +122,16 @@
               <q-tooltip>Delete</q-tooltip>
             </q-btn>
             <q-btn
+              v-if="!$q.screen.gt.xs"
+              aria-label="More actions for the selection"
+              dense
+              flat
+              icon="more_vert"
+              round
+              @click.stop="openSelectionMenu" />
+            <q-btn
               aria-label="Clear selection"
+              class="file-selection-clear"
               dense
               flat
               icon="close"
@@ -610,6 +623,7 @@
       :full-file-path="editorFilePath"
       :game-server-id="gameServerId"
       @close="editorModal = false"
+      @saved="refreshFileList"
       @submit="editorSaved"></editor>
   </q-dialog>
   <archive-files
@@ -1191,6 +1205,11 @@ function openItemContextMenu(event: Event, entry: xylonaFile) {
     selectedFiles.value = [entry]
   }
   selectionAnchorName = entry.name
+  contextMenuIsBackground.value = false
+  contextMenu.value?.show?.(event)
+}
+
+function openSelectionMenu(event: Event) {
   contextMenuIsBackground.value = false
   contextMenu.value?.show?.(event)
 }
@@ -2032,6 +2051,8 @@ async function getGameServerDetails() {
 
   .file-toolbar-selection {
     flex: 1 1 auto;
+    /* Round buttons already space their icons; no gap keeps the bar within 360px. */
+    gap: 0;
     min-width: 0;
     overflow-x: auto;
     padding-inline-start: 0;
@@ -2039,9 +2060,25 @@ async function getGameServerDetails() {
     scrollbar-width: thin;
   }
 
+  /* Only the number shows on phones, so every action fits at 360px. */
   .file-selection-count {
     flex: 0 0 auto;
-    padding-inline-end: var(--xy-space-xs);
+    min-width: 1.5rem;
+    margin-inline-end: var(--xy-space-xs);
+    padding-inline: var(--xy-space-xs);
+    color: var(--xy-text-primary);
+    font-weight: 600;
+    text-align: center;
+    background: var(--xy-surface-3);
+    border-radius: var(--xy-radius-pill);
+  }
+
+  /* Clear is also the way back to Create/Upload, so it never scrolls away. */
+  .file-selection-clear {
+    position: sticky;
+    inset-inline-end: 0;
+    flex: 0 0 auto;
+    background: var(--xy-surface-2);
   }
 
   .file-navigation-buttons {

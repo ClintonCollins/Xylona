@@ -26,6 +26,10 @@ import {
 import {
   formatSevenDaysToDieCoordinate,
   initialSevenDaysToDieMapView,
+  sevenDaysToDieTileHasTerrain,
+  sevenDaysToDieTileHint,
+  type SevenDaysToDieTileHint,
+  type SevenDaysToDieTileState,
   sevenDaysToDieTileURL,
 } from '@/pages/game_servers/seven-days-to-die-map'
 import { formatTime, formatTimestamp } from '@/utils/format-timestamp'
@@ -160,36 +164,33 @@ const mapStatus = computed(() => {
   }
   return { label: 'Live world', icon: 'sensors', tone: 'success' }
 })
-// 7 Days to Die renders only terrain players have explored, so fresh worlds
-// return fully transparent tiles. Track what the visible tiles contain to
-// tell "nothing explored here yet" apart from tiles that failed to load.
-type TileState = 'terrain' | 'empty' | 'error'
-const tileStates = new Map<string, TileState>()
-const tileSummary = ref({ terrain: 0, empty: 0, error: 0 })
-const visibleTilesUnexplored = computed(
-  () =>
-    tileSummary.value.empty > 0 && tileSummary.value.terrain === 0 && tileSummary.value.error === 0,
-)
-const tileLoadFailed = computed(() => tileSummary.value.error > 0)
+// Track what each loaded tile contains to tell "nothing explored here yet"
+// apart from tiles that failed to load.
+const tileStates = new Map<string, { coords: L.Coords; state: SevenDaysToDieTileState }>()
+const tileHint = ref<SevenDaysToDieTileHint>('')
 let tileCanvas: HTMLCanvasElement | null = null
 
-function recordTileState(coordinates: L.Coords, state?: TileState): void {
+function recordTileState(coordinates: L.Coords, state?: SevenDaysToDieTileState): void {
   const key = `${coordinates.z}/${coordinates.x}/${coordinates.y}`
   if (state === undefined) {
     tileStates.delete(key)
   } else {
-    tileStates.set(key, state)
+    tileStates.set(key, { coords: coordinates, state })
   }
-  const summary = { terrain: 0, empty: 0, error: 0 }
-  for (const tileState of tileStates.values()) {
-    summary[tileState]++
-  }
-  tileSummary.value = summary
+  updateTileHint()
+}
+
+// Leaflet keeps a buffer of off-screen tiles; only tiles in view count.
+function updateTileHint(): void {
+  const inView = Array.from(tileStates.values())
+    .filter((tile) => tileLayer?.isTileInView(tile.coords) ?? true)
+    .map((tile) => tile.state)
+  tileHint.value = sevenDaysToDieTileHint(inView)
 }
 
 function resetTileStates(): void {
   tileStates.clear()
-  tileSummary.value = { terrain: 0, empty: 0, error: 0 }
+  tileHint.value = ''
 }
 
 function tileHasTerrain(image: HTMLImageElement): boolean {
@@ -204,13 +205,9 @@ function tileHasTerrain(image: HTMLImageElement): boolean {
   try {
     context.clearRect(0, 0, tileCanvas.width, tileCanvas.height)
     context.drawImage(image, 0, 0)
-    const pixels = context.getImageData(0, 0, tileCanvas.width, tileCanvas.height).data
-    for (let alpha = 3; alpha < pixels.length; alpha += 4) {
-      if (pixels[alpha] !== 0) {
-        return true
-      }
-    }
-    return false
+    return sevenDaysToDieTileHasTerrain(
+      context.getImageData(0, 0, tileCanvas.width, tileCanvas.height).data,
+    )
   } catch {
     return true
   }
@@ -241,6 +238,18 @@ class AuthorizedTileLayer extends L.GridLayer {
 
     this.loadTile(coordinates, image, done)
     return image
+  }
+
+  isTileInView(coordinates: L.Coords): boolean {
+    const map = this._map as LeafletMap | undefined
+    if (!map) {
+      return true
+    }
+    // Tile pixels at the tile's zoom, scaled to the map's current zoom.
+    const scale = map.getZoomScale(map.getZoom(), coordinates.z)
+    const tileSize = this.getTileSize().multiplyBy(scale)
+    const topLeft = L.point(coordinates.x, coordinates.y).scaleBy(tileSize)
+    return map.getPixelBounds().intersects(L.bounds(topLeft, topLeft.add(tileSize)))
   }
 
   refreshPlayerTiles(map: LeafletMap, players: readonly SevenDaysToDieMapPlayer[]): void {
@@ -610,6 +619,7 @@ async function initializeMap(): Promise<void> {
     updateWhenIdle: false,
   })
   tileLayer.on('tileunload', (event: L.TileEvent) => recordTileState(event.coords))
+  map.on('moveend', updateTileHint)
   tileLayer.addTo(map)
   lastFullTileRefreshAt = Date.now()
   playerLayer = L.layerGroup().addTo(map)
@@ -929,13 +939,13 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        v-if="view?.enabled && (tileLoadFailed || visibleTilesUnexplored)"
+        v-if="view?.enabled && tileHint !== ''"
         class="seven-days-map__tile-hint"
         data-testid="tile-hint"
         role="status">
-        <q-icon :name="tileLoadFailed ? 'error_outline' : 'explore'" />
+        <q-icon :name="tileHint === 'error' ? 'error_outline' : 'explore'" />
         {{
-          tileLoadFailed
+          tileHint === 'error'
             ? 'Some map tiles could not be loaded. Refresh to try again.'
             : 'Nothing explored here yet. The map fills in as players explore.'
         }}

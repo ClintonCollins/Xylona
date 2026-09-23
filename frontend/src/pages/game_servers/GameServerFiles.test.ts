@@ -22,6 +22,7 @@ const virtualScrollStub = {
 
 const mocks = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
+  dialog: vi.fn(),
   gameServerFilesDownloadFromURL: vi.fn(),
   getGameServer: vi.fn(),
   listDirectoryFiles: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock('quasar', async () => {
     ...actual,
     copyToClipboard: mocks.copyToClipboard,
     useQuasar: () => ({
+      dialog: mocks.dialog,
       loading: { hide: vi.fn(), show: vi.fn() },
       notify: mocks.notify,
       platform: { has: { touch: false }, is: { mobile: false } },
@@ -78,6 +80,7 @@ describe('GameServerFiles', () => {
     mocks.gameServerFilesDownloadFromURL.mockReset()
     mocks.listDirectoryFiles.mockReset()
     mocks.copyToClipboard.mockReset()
+    mocks.dialog.mockReset()
     mocks.notify.mockReset()
     vi.unstubAllGlobals()
     window.location.hash = ''
@@ -555,6 +558,96 @@ describe('GameServerFiles', () => {
 
     expect(viewModel.fileUploaderDialog).toBe(true)
     expect(uploaderWrapper.text()).toContain('upload failed')
+    wrapper.unmount()
+  })
+
+  it('offers a download instead of opening oversized or binary files in the editor', async () => {
+    const largeLog = create(FileSchema, { name: 'latest.txt', size: 6n * 1024n * 1024n })
+    const config = create(FileSchema, { name: 'server.cfg', size: 64n })
+    mocks.listDirectoryFiles.mockResolvedValue(
+      create(ListDirectoryFilesResponseSchema, { files: [largeLog, config] }),
+    )
+    mocks.dialog.mockReturnValue({ onOk: vi.fn() })
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('level-name=world\u0000\u0001'),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const wrapper = shallowMount(GameServerFiles)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      clickFile: (file: XylonaFile) => Promise<void>
+      editorModal: boolean
+    }
+
+    await viewModel.clickFile(largeLog)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(mocks.dialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('latest.txt is 6 MB') }),
+    )
+
+    await viewModel.clickFile(config)
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(mocks.dialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('looks like a binary file') }),
+    )
+    expect(viewModel.editorModal).toBe(false)
+    wrapper.unmount()
+  })
+
+  const listStubs = {
+    FileUploaderDrop: { template: '<div><slot /></div>' },
+    QCardSection: { template: '<div><slot /></div>' },
+    QList: { template: '<div><slot /></div>' },
+    QVirtualScroll: virtualScrollStub,
+  }
+
+  it('lists the last good directory again after a failed first load', async () => {
+    window.history.replaceState(null, '', '#missing')
+    // Answer by path: a hashchange left over from an earlier test can list the start folder twice.
+    mocks.listDirectoryFiles.mockImplementation((request: { path: string }) =>
+      request.path === 'missing'
+        ? Promise.reject(new Error('node unavailable'))
+        : Promise.resolve(
+            create(ListDirectoryFilesResponseSchema, {
+              files: [create(FileSchema, { name: 'server.cfg' })],
+            }),
+          ),
+    )
+
+    const wrapper = shallowMount(GameServerFiles, { global: { stubs: listStubs } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Could not load this directory')
+    const viewModel = wrapper.vm as unknown as { returnToLoadedDirectory: () => void }
+
+    viewModel.returnToLoadedDirectory()
+    await flushPromises()
+
+    expect(mocks.listDirectoryFiles).toHaveBeenLastCalledWith(expect.objectContaining({ path: '' }))
+    expect(wrapper.text()).not.toContain('Could not load this directory')
+    expect(wrapper.findAll('[data-file-row]').map((row) => row.text())).toEqual([
+      expect.stringContaining('server.cfg'),
+    ])
+    wrapper.unmount()
+  })
+
+  it('keeps the parent row above empty and no-match states in a subfolder', async () => {
+    window.history.replaceState(null, '', '#config')
+    mocks.listDirectoryFiles.mockResolvedValue(
+      create(ListDirectoryFilesResponseSchema, {
+        files: [create(FileSchema, { name: 'alpha.cfg' })],
+      }),
+    )
+
+    const wrapper = shallowMount(GameServerFiles, { global: { stubs: listStubs } })
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as { filterQuery: string }
+    viewModel.filterQuery = 'zeta'
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No matching files')
+    expect(wrapper.findAll('[data-file-row]').map((row) => row.text())).toEqual(['..'])
     wrapper.unmount()
   })
 })

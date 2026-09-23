@@ -381,6 +381,7 @@ function syncQueryParams(): void {
     gameVersionFilter: gameVersionFilter.value,
     categoryFilter: categoryFilter.value,
     currentPage: currentPage.value,
+    defaultGameVersion: props.defaultGameVersion,
   })
   void router.replace({ query })
 }

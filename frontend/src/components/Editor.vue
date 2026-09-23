@@ -47,7 +47,7 @@
         color="primary"
         label="Save"
         no-caps
-        @click="saveFile">
+        @click="saveFile({ close: true })">
         <q-tooltip>Save ({{ $q.platform.is.mac ? '⌘S' : 'Ctrl+S' }})</q-tooltip>
       </q-btn>
     </q-card-actions>
@@ -98,7 +98,8 @@ const editorOptions = ref([
   { label: 'High Contrast Black', value: 'hc-black' },
 ])
 
-const emit = defineEmits(['submit', 'close'])
+// submit: saved from the Save button, close the editor. saved: saved in place with Ctrl/Cmd+S.
+const emit = defineEmits(['submit', 'saved', 'close'])
 
 const codeInput = defineModel('codeInput', {
   type: String,
@@ -198,7 +199,7 @@ async function initializeEditor() {
       codeInput.value = editor.getValue()
     })
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      void saveFile()
+      void saveFile({ close: false })
     })
   } catch (error) {
     console.error(error)
@@ -219,7 +220,7 @@ function requestClose() {
   }).onOk(() => emit('close'))
 }
 
-async function saveFile() {
+async function saveFile({ close }: { close: boolean }) {
   if (saving.value) {
     return
   }
@@ -240,7 +241,7 @@ async function saveFile() {
       position: 'top',
       timeout: 3000,
     })
-    emit('submit')
+    emit(close ? 'submit' : 'saved')
   } catch (err) {
     console.error(err)
     saveError.value =

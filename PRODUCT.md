@@ -106,6 +106,6 @@ The following `v-html` usages are intentional and should not be flagged as XSS i
 - `frontend/src/pages/game_servers/GameServerView.vue`: formatted output from the operator's authenticated game server; this source is an explicit trust boundary.
 - `frontend/src/components/ClipBoardCopy.vue`: styled tooltip HTML from application-controlled props.
 - `frontend/src/components/games/GameFormOverviewTab.vue`: command previews produced by `highlightCommand()`, which escapes command text before adding syntax-highlighting spans.
-- `frontend/src/components/game_servers/ModDetailDialog.vue`: third-party mod descriptions rendered by `renderModDescription()` in `frontend/src/utils/mod-description.ts`, which converts Markdown with `marked` and then sanitizes the HTML with DOMPurify and an explicit allowlist (no images, no event handlers, only safe link schemes) before rendering.
+- `frontend/src/components/game_servers/ModDetailDialog.vue`: third-party mod descriptions rendered by `renderModDescription()` in `frontend/src/utils/mod-description.ts`, which converts Markdown with `marked` and then sanitizes the HTML with DOMPurify and an explicit allowlist (no images, no event handlers, only absolute `http(s)`, `mailto:` and `tel:` links; web links open in a new tab with `rel="noopener noreferrer nofollow"`, and links left with no text are removed) before rendering.
 
 Treat new or materially changed `v-html` as trust-boundary work. Escape or sanitize untrusted content before rendering it.

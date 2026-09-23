@@ -14,8 +14,10 @@ const props = withDefaults(
     currentSizeBytes?: bigint
     /** Why a restore cannot start right now, such as the server running. */
     blockedReason?: string
+    /** Why this server cannot take the safety backup, such as backups being disabled. */
+    backupUnavailableReason?: string
   }>(),
-  { loading: false, currentSizeBytes: undefined, blockedReason: '' },
+  { loading: false, currentSizeBytes: undefined, blockedReason: '', backupUnavailableReason: '' },
 )
 
 const emit = defineEmits<{
@@ -24,13 +26,14 @@ const emit = defineEmits<{
 }>()
 
 // On by default every time the dialog opens: the user decided the safety
-// backup is opt-out, not opt-in.
-const backupFirst = ref(true)
+// backup is opt-out, not opt-in. When the server cannot take a backup the
+// option starts off, so the default path does not fail after the dialog closes.
+const backupFirst = ref(props.backupUnavailableReason === '')
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      backupFirst.value = true
+      backupFirst.value = props.backupUnavailableReason === ''
     }
   },
 )
@@ -102,11 +105,16 @@ function getArchiveName(archivePath: string): string {
           <q-checkbox
             v-model="backupFirst"
             data-testid="restore-backup-first"
-            :disable="loading"
+            :disable="loading || backupUnavailableReason !== ''"
             :label="backupFirstLabel" />
           <div class="backup-restore-dialog__option-copy">
-            Saved as a manual backup that is never auto-pruned, so this restore can be undone. The
-            restore starts when it finishes.
+            <template v-if="backupUnavailableReason">
+              Unavailable: {{ backupUnavailableReason }}
+            </template>
+            <template v-else>
+              Saved as a manual backup that is never auto-pruned, so this restore can be undone. The
+              restore starts when it finishes.
+            </template>
           </div>
           <q-banner v-if="!backupFirst" class="xy-banner-warning" dense rounded>
             <template #avatar>

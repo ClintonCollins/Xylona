@@ -30,3 +30,37 @@ export function sevenDaysToDieTileURL(template: string, coordinates: Coords): st
 export function formatSevenDaysToDieCoordinate(value: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
 }
+
+// 7 Days to Die renders only terrain players have explored, so tiles of
+// unexplored land are fully transparent rather than missing.
+export type SevenDaysToDieTileState = 'terrain' | 'empty' | 'error'
+export type SevenDaysToDieTileHint = '' | 'unexplored' | 'error'
+
+/** Whether RGBA pixel data has any pixel that is not fully transparent. */
+export function sevenDaysToDieTileHasTerrain(rgba: ArrayLike<number>): boolean {
+  for (let alpha = 3; alpha < rgba.length; alpha += 4) {
+    if (rgba[alpha] !== 0) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Load errors win; "unexplored" only when every tile in view is empty. */
+export function sevenDaysToDieTileHint(
+  states: Iterable<SevenDaysToDieTileState>,
+): SevenDaysToDieTileHint {
+  let hasEmpty = false
+  let hasTerrain = false
+  for (const state of states) {
+    if (state === 'error') {
+      return 'error'
+    }
+    if (state === 'terrain') {
+      hasTerrain = true
+    } else {
+      hasEmpty = true
+    }
+  }
+  return hasEmpty && !hasTerrain ? 'unexplored' : ''
+}

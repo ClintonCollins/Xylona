@@ -174,6 +174,10 @@ const serverRunning = computed(
 const restoreBlockedReason = computed(() =>
   serverRunning.value ? 'Stop the server to restore' : '',
 )
+// The pre-restore backup runs the same checks as Create Backup.
+const safetyBackupUnavailableReason = computed(() =>
+  overview.value.operationsAllowed ? '' : stateAlertMessage.value,
+)
 
 const showStateAlert = computed(() => {
   // A failed load leaves the empty default overview, which would read as "disabled".
@@ -1114,6 +1118,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     <backup-restore-dialog
       v-model="showRestoreDialog"
       :backup="restoreTarget"
+      :backup-unavailable-reason="safetyBackupUnavailableReason"
       :blocked-reason="restoreBlockedReason"
       :current-size-bytes="gameServer?.diskUsageBytes ?? 0n"
       :loading="restoringBackupId !== ''"

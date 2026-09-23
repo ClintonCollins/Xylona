@@ -95,13 +95,25 @@ function stripUnsafeAttributes(node: ParentNode): void {
       }
     }
 
+    if (element.tagName === 'A') {
+      // Badge links lose their image above and would be unnamed tab stops.
+      if (element.textContent?.trim() === '') {
+        element.remove()
+        continue
+      }
+      // External links must not navigate the Xylona tab away.
+      if (/^https?:\/\//i.test(element.getAttribute('href')?.trim() ?? '')) {
+        element.setAttribute('target', '_blank')
+        element.setAttribute('rel', 'noopener noreferrer nofollow')
+      }
+    }
+
     stripUnsafeAttributes(element)
   }
 }
 
+// Relative and fragment links would resolve against Xylona, not the registry.
 function isSafeHref(href: string): boolean {
   const trimmedHref = href.trim().toLowerCase()
-  return ['#', '/', 'http://', 'https://', 'mailto:', 'tel:'].some((prefix) =>
-    trimmedHref.startsWith(prefix),
-  )
+  return ['http://', 'https://', 'mailto:', 'tel:'].some((prefix) => trimmedHref.startsWith(prefix))
 }

@@ -54,6 +54,25 @@ describe('renderModDescription', () => {
     expect(html).not.toContain('javascript:')
   })
 
+  it('opens external links in a new tab and drops links that cannot work here', () => {
+    const container = render(
+      [
+        'Intro paragraph.',
+        '',
+        'Read [the docs](https://example.com/docs), [a page](/wiki/page), [a heading](#usage) and',
+        '[![Discord](https://img.example.com/discord.svg)](https://discord.example.com).',
+      ].join('\n'),
+    )
+    const links = Array.from(container.querySelectorAll('a'))
+
+    expect(links).toHaveLength(3)
+    expect(links[0].getAttribute('href')).toBe('https://example.com/docs')
+    expect(links[0].getAttribute('target')).toBe('_blank')
+    expect(links[0].getAttribute('rel')).toBe('noopener noreferrer nofollow')
+    expect(links.slice(1).map((link) => link.hasAttribute('href'))).toEqual([false, false])
+    expect(container.innerHTML).not.toContain('discord.example.com')
+  })
+
   it('renders plain summaries as text and empty input as nothing', () => {
     expect(render('Adds proximity voice chat.').textContent?.trim()).toBe(
       'Adds proximity voice chat.',

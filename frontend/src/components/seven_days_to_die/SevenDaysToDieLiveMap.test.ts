@@ -56,6 +56,7 @@ vi.mock('leaflet', () => {
   const map = {
     fitBounds: leafletMocks.fitBounds,
     invalidateSize: vi.fn(),
+    on: vi.fn(),
     panTo: leafletMocks.panTo,
     project: vi.fn(() => ({
       unscaleBy: vi.fn(() => ({

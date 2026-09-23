@@ -3,6 +3,10 @@ export const PAGE_SIZE_OPTIONS = [12, 20, 40, 60] as const
 export const PAGE_SIZE_STORAGE_KEY = 'xylona-mod-browse-page-size'
 export const DEFAULT_PAGE_SIZE = 20
 
+// An explicit "All Versions" choice, kept in the URL so the server's game
+// version is not reapplied as the default on remount or back/forward.
+export const ALL_VERSIONS_QUERY_VALUE = 'all'
+
 const MANAGED_QUERY_KEYS = new Set(['q', 'sort', 'source', 'version', 'categories', 'page'])
 
 export type ModBrowseSortValue = (typeof VALID_SORT_VALUES)[number]
@@ -25,6 +29,8 @@ export interface ModBrowseQueryState {
   gameVersionFilter: string
   categoryFilter: string[]
   currentPage: number
+  /** The version preselected when the URL names none. */
+  defaultGameVersion?: string
 }
 
 export function isModBrowseSortValue(value: string): value is ModBrowseSortValue {
@@ -72,7 +78,7 @@ export function parseModBrowseQuery(query: ModBrowseQuery): ParsedModBrowseQuery
   }
 
   const rawVersion = query['version']
-  if (typeof rawVersion === 'string') {
+  if (typeof rawVersion === 'string' && rawVersion !== ALL_VERSIONS_QUERY_VALUE) {
     result.gameVersionFilter = rawVersion
   }
 
@@ -125,6 +131,8 @@ export function buildModBrowseQuery(
   }
   if (state.gameVersionFilter !== '') {
     nextQuery['version'] = state.gameVersionFilter
+  } else if (state.defaultGameVersion) {
+    nextQuery['version'] = ALL_VERSIONS_QUERY_VALUE
   }
   if (state.categoryFilter.length > 0) {
     nextQuery['categories'] = state.categoryFilter

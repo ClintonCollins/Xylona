@@ -12,10 +12,10 @@ const stubs = {
   'q-banner': { template: '<div class="q-banner-stub"><slot /></div>' },
   'q-icon': { template: '<i />' },
   'q-checkbox': {
-    props: ['modelValue', 'label'],
+    props: ['modelValue', 'label', 'disable'],
     emits: ['update:modelValue'],
     template:
-      '<label>{{ label }}<input type="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', !modelValue)" /></label>',
+      '<label>{{ label }}<input type="checkbox" :checked="modelValue" :disabled="disable" @change="$emit(\'update:modelValue\', !modelValue)" /></label>',
   },
   'q-btn': {
     props: ['label', 'disable'],
@@ -52,6 +52,19 @@ describe('BackupRestoreDialog', () => {
       [BackupRestoreMode.OVERLAY, true],
       [BackupRestoreMode.EXACT, false],
     ])
+  })
+
+  it('restores without a safety backup when the server cannot take one', async () => {
+    const wrapper = mountDialog({ backupUnavailableReason: 'Backups are disabled for this server' })
+
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    expect(checkbox.attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Backups are disabled for this server')
+    expect(wrapper.text()).toContain('There is no way back.')
+
+    await button(wrapper, 'Restore As Overlay').trigger('click')
+    expect(wrapper.emitted('restore')).toEqual([[BackupRestoreMode.OVERLAY, false]])
   })
 
   it('explains and blocks a restore while the server is running', () => {
