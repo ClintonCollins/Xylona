@@ -59,6 +59,7 @@ import {
   GameServerFilesDecompressionRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { bytesToSize, GetRelativeFilePath, GetXylonaClientCallback } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { ref } from 'vue'
 import { GameServerFilesExtractProgress } from '@/proto/shared_pb'
 
@@ -162,7 +163,7 @@ async function extractFiles() {
         resetExtractProgress()
         console.error(err)
         $q.notify({
-          caption: `Error extracting files. ${err.message}`,
+          caption: `Error extracting files. ${connectErrorMessage(err)}`,
           type: 'xylona-error',
           position: 'top',
           timeout: 5000,

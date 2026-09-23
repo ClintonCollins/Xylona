@@ -91,6 +91,7 @@ import {
   GetNodeRequestSchema,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
+import { connectErrorToString } from '@/api/connect-errors'
 import PageHeader from '@/components/shared/PageHeader.vue'
 
 const router = useRouter()
@@ -140,7 +141,7 @@ async function getNodeDetails() {
     node.value = response.node
   } catch (e) {
     if (e instanceof ConnectError) {
-      errorMessage.value = e.message
+      errorMessage.value = connectErrorToString(e)
     } else {
       errorMessage.value = 'Failed to load node details'
     }
@@ -158,7 +159,7 @@ async function updateNode() {
     await router.push('/nodes')
   } catch (e) {
     if (e instanceof ConnectError) {
-      errorMessage.value = e.message
+      errorMessage.value = connectErrorToString(e)
     } else {
       errorMessage.value = 'Failed to update node'
     }
@@ -180,7 +181,7 @@ async function generateJoinToken() {
     generatedControllerURL.value = response.baseUrl.trim() || panelURL
   } catch (e) {
     if (e instanceof ConnectError) {
-      errorMessage.value = e.message
+      errorMessage.value = connectErrorToString(e)
     } else {
       errorMessage.value = 'Failed to generate join token'
     }

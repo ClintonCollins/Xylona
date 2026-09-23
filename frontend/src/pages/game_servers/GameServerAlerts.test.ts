@@ -332,22 +332,25 @@ describe('GameServerAlerts', () => {
   })
 
   it('labels rule toggles by event type and condition', async () => {
-    setupDefaultMocks()
-    const wrapper = mountAlerts()
-    await flushPromises()
-    const vm = wrapper.vm as unknown as { ruleToggleLabel: (rule: AlertRule) => string }
-
-    expect(
-      vm.ruleToggleLabel(
+    setupDefaultMocks({
+      channels: [makeChannel()],
+      rules: [
         makeRule({
+          id: 'rule-cpu',
           eventType: AlertEventType.CPU_THRESHOLD,
           condition: JSON.stringify({ operator: '>=', value: 90 }),
         }),
-      ),
-    ).toBe('Enable CPU Threshold alert: >= 90%')
-    expect(vm.ruleToggleLabel(makeRule({ eventType: AlertEventType.STATUS_CHANGE }))).toBe(
-      'Enable Status Change alert',
-    )
+        makeRule({ id: 'rule-status', eventType: AlertEventType.STATUS_CHANGE }),
+      ],
+    })
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    expect(
+      wrapper
+        .findAll('.q-table-row .q-toggle-stub')
+        .map((toggle) => toggle.attributes('aria-label')),
+    ).toEqual(['Enable CPU Threshold alert: >= 90%', 'Enable Status Change alert'])
   })
 
   it('shows error notification when loading rules fails', async () => {

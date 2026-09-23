@@ -84,6 +84,7 @@ import {
   bytesToSize,
   GetXylonaClientCallback,
 } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -219,7 +220,7 @@ async function archiveFiles() {
         resetArchiveProgress()
         console.error(err)
         $q.notify({
-          caption: `Error archiving files. ${err.message}`,
+          caption: `Error archiving files. ${connectErrorMessage(err)}`,
           type: 'xylona-error',
           position: 'top',
           timeout: 3000,

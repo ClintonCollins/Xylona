@@ -63,6 +63,7 @@ import { useQuasar } from 'quasar'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { GetXylonaClient } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { CreateUserRequest, CreateUserRequestSchema } from '@/proto/xylona_pb'
 import PageHeader from '@/components/shared/PageHeader.vue'
 
@@ -129,9 +130,8 @@ async function submit() {
     })
     await router.push({ path: '/admin/users' })
   } catch (unknownError: unknown) {
-    const err = unknownError as Error
     $q.notify({
-      caption: `Error creating user ${err.message}`,
+      caption: `Error creating user: ${connectErrorMessage(unknownError)}`,
       type: 'xylona-error',
       position: 'top',
       timeout: 5000,

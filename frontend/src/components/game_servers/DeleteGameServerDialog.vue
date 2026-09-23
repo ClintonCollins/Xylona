@@ -48,6 +48,7 @@
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { GetXylonaClient } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { PropType, ref } from 'vue'
 import {
   GameServer,
@@ -137,7 +138,7 @@ async function deleteGameServers() {
 
 function deleteFailureMessage(error: unknown): string {
   if (error instanceof Error && error.message !== '') {
-    return error.message
+    return connectErrorMessage(error)
   }
   if (typeof error === 'string' && error !== '') {
     return error

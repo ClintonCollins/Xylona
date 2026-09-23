@@ -160,6 +160,7 @@ vi.mock('./useGameServerQueryStatusVersion', async () => {
       maxPlayerCount: ref(mocks.queryState.maxPlayerCount),
       onlinePlayers: ref([...mocks.queryState.onlinePlayers]),
       playerListSupported: ref(mocks.queryState.playerListSupported),
+      queryFresh: ref(false),
       queryGameServer: mocks.queryGameServer,
       startQueryStatusVersionLifecycle: mocks.startQueryStatusVersionLifecycle,
     }),
@@ -417,6 +418,27 @@ describe('GameServerView', () => {
       expect(mocks.dialog).not.toHaveBeenCalled()
     }
     expect(mocks.stopGameServer).toHaveBeenCalledTimes(wantStopped ? 1 : 0)
+  })
+
+  it('shows offline players copy and the configured limit for an offline Valheim server', async () => {
+    const gameServer = buildGameServer()
+    gameServer.gameId = 'valheim'
+    gameServer.maxPlayers = 10n
+    mocks.getGameServer.mockResolvedValue(create(GetGameServerResponseSchema, { gameServer }))
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('No fresh successful query has been received.')
+    const roster = wrapper.get('.roster')
+    expect(roster.text()).toContain('Players appear while the server is online.')
+    expect(roster.get('.roster__count').text()).toBe('0 / 10')
+
+    await wrapper.get('[aria-label="Collapse player panel"]').trigger('click')
+    expect(wrapper.get('.player-rail__mini-count').text()).toBe('0/10')
   })
 
   it('routes 7DTD Player management to Operations instead of the superseded dialog', async () => {

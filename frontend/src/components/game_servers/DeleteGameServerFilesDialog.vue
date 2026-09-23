@@ -59,6 +59,7 @@ import {
   getIconFromFilenameExtension,
   GetXylonaClient,
 } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { Ref, ref } from 'vue'
 
@@ -131,7 +132,7 @@ function deleteFailure(err: unknown) {
   $q.notify({
     message:
       err instanceof Error
-        ? `Could not delete the selected items. ${err.message}`
+        ? `Could not delete the selected items. ${connectErrorMessage(err)}`
         : 'Could not delete the selected items. Try again.',
     type: 'xylona-error',
     position: 'top',

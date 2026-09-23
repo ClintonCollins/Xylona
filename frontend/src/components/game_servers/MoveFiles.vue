@@ -59,6 +59,7 @@ import {
   GameServerFilesMoveRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { GetPathSeparator, GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { computed, ref, Ref } from 'vue'
 
 const props = defineProps({
@@ -150,7 +151,7 @@ async function moveFiles() {
     $q.notify({
       caption:
         err instanceof Error
-          ? `Could not move the selected items. ${err.message}`
+          ? `Could not move the selected items. ${connectErrorMessage(err)}`
           : 'Could not move the selected items. Try again.',
       type: 'xylona-error',
       position: 'top',
