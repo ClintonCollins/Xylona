@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -17,30 +17,6 @@ const selectedApp = ref<{ appId: string; name: string } | null>(null)
 const details = ref<SteamAppDetails | null>(null)
 const detailsLoading = ref(false)
 const detailsError = ref('')
-
-// Cookie handling
-const COOKIE_NAME = 'xylona_always_advanced'
-const alwaysAdvanced = ref(false)
-
-function readCookie(): boolean {
-  return document.cookie.includes(`${COOKIE_NAME}=true`)
-}
-
-function writeCookie(value: boolean): void {
-  const maxAge = 365 * 24 * 3600
-  document.cookie = `${COOKIE_NAME}=${value}; path=/; max-age=${maxAge}`
-}
-
-function onAlwaysAdvancedChange(value: boolean): void {
-  alwaysAdvanced.value = value
-  writeCookie(value)
-}
-
-onMounted(() => {
-  if (readCookie()) {
-    void router.push('/games/create')
-  }
-})
 
 // Helpers
 function stripDedicatedServer(name: string): string {
@@ -127,10 +103,6 @@ function continueToForm(): void {
     usesSteamcmd: true,
     windowsSupport: details.value?.windowsSupport ?? false,
     linuxSupport: details.value?.linuxSupport ?? false,
-    installCommand:
-      'steamcmd +force_install_dir {{INSTALL_DIR}} +login anonymous +app_update {{STEAM_APPID}} validate +quit',
-    updateCommand:
-      'steamcmd +force_install_dir {{INSTALL_DIR}} +login anonymous +app_update {{STEAM_APPID}} validate +quit',
     linuxBaseCommand: launchConfigForPlatform('linux')?.executable || '',
     windowsBaseCommand: launchConfigForPlatform('windows')?.executable || '',
     linuxStartArgsTemplate: '',
@@ -196,14 +168,6 @@ function platformText(): string {
               <div class="selection-card__description">Manual setup for any game server</div>
             </button>
           </div>
-
-          <div class="wizard-footer">
-            <q-toggle
-              :model-value="alwaysAdvanced"
-              color="accent"
-              label="Always use advanced mode"
-              @update:model-value="onAlwaysAdvancedChange" />
-          </div>
         </div>
 
         <!-- Step: SteamCMD Search -->
@@ -216,9 +180,11 @@ function platformText(): string {
               icon="arrow_back"
               round
               @click="goBackToSelect" />
-            <h2 class="wizard-step-title">Search Steam Apps</h2>
+            <h2 class="wizard-step-title">Look Up Steam AppID</h2>
           </div>
-          <p class="wizard-subtitle">Find your game server on Steam to auto-fill configuration.</p>
+          <p class="wizard-subtitle">
+            Look up the game's dedicated server on Steam to fill in its details.
+          </p>
 
           <div class="search-wrapper">
             <steam-app-search @select="onAppSelected" />
@@ -431,13 +397,6 @@ function platformText(): string {
     color: var(--xy-text-secondary);
     line-height: 1.4;
   }
-}
-
-/* Footer */
-.wizard-footer {
-  display: flex;
-  justify-content: center;
-  margin-top: var(--xy-space-xl);
 }
 
 /* Search */
