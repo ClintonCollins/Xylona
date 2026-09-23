@@ -148,7 +148,7 @@
       <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="getGameServers" />
     </div>
     <div
-      v-else-if="!lifecycleStateAuthoritative && !loading"
+      v-else-if="!lifecycleStateAuthoritative && !loading && !websocketConnectingQuietly"
       class="server-list-notice"
       role="status">
       <q-icon name="sync" size="sm" />
@@ -486,7 +486,10 @@ import {
 } from './server-list-actions'
 import { useUserAuthStore } from '@/stores/xylona'
 import { resolveCanonicalVersionDisplay } from './version-display'
-import { websocketStateAuthoritative } from '@/utils/websocket-connection'
+import {
+  websocketConnectingQuietly,
+  websocketStateAuthoritative,
+} from '@/utils/websocket-connection'
 import { formatMetricBytes } from './metrics-format'
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
 import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'

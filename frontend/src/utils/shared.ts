@@ -48,6 +48,7 @@ import { connectErrorToString } from '@/api/connect-errors'
 import { currentPagePath, loginPath } from './login-redirect'
 import { ReconnectingWebSocket } from './websocket'
 import {
+  restartConnectingNoticeDelay,
   setWebsocketBrowserOnline,
   setWebsocketConnectionStatus,
   websocketBrowserOnline,
@@ -179,9 +180,10 @@ export function reconnectControllerWebsocket(): void {
 
 function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket: boolean) {
   if (isControllerSocket) {
-    if (!navigator.onLine) {
-      transitionControllerConnection('disconnected')
-    }
+    // A fresh socket (first load, or signing in again) is connecting, not
+    // disconnected, and stays quiet until the connection is overdue.
+    restartConnectingNoticeDelay()
+    transitionControllerConnection(navigator.onLine ? 'connecting' : 'disconnected')
   }
 
   apiWebsocket.onopen = (_event) => {
