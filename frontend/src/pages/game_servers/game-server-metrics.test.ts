@@ -5,6 +5,7 @@ import { GameServerMetricsHistoryPointSchema } from '@/proto/shared_pb'
 import { GameServerMetricsSchema } from '@/proto/websocket_pb'
 import {
   calculateMetricCapacity,
+  clusterRulerLabels,
   deriveMetricsViewState,
   deriveServerHealth,
   getMetricsRangeRequest,
@@ -633,5 +634,34 @@ describe('formatMetricAxisTime', () => {
     expect(formatMetricAxisTime(timestamp, 2 * 60 * 60 * 1000)).toBe(hourMinute.format(timestamp))
     expect(formatMetricAxisTime(timestamp, 2 * day)).toBe(weekdayHour.format(timestamp))
     expect(formatMetricAxisTime(timestamp, 8 * day)).toBe(monthDay.format(timestamp))
+  })
+})
+
+describe('clusterRulerLabels', () => {
+  const layout = (xs: number[], width = 800) =>
+    clusterRulerLabels(
+      xs.map((x) => ({ x })),
+      width,
+      152,
+      8,
+    ).map((cluster) => ({ x: cluster.x, anchor: cluster.anchor, count: cluster.items.length }))
+
+  it('keeps labels apart when their rendered boxes do not overlap', () => {
+    expect(layout([100, 400])).toEqual([
+      { x: 100, anchor: null, count: 1 },
+      { x: 400, anchor: null, count: 1 },
+    ])
+  })
+
+  it('merges an end-anchored label into a neighbour it would slide over', () => {
+    // 630 renders at [554, 706]; 795 anchors to the end at [639, 791].
+    expect(layout([630, 795])).toEqual([{ x: 630, anchor: null, count: 2 }])
+  })
+
+  it('anchors a lone label inward at either edge', () => {
+    expect(layout([10, 795])).toEqual([
+      { x: 10, anchor: 'start', count: 1 },
+      { x: 795, anchor: 'end', count: 1 },
+    ])
   })
 })

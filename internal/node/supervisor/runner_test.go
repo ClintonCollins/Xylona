@@ -1176,21 +1176,45 @@ func TestExtractExitCode(t *testing.T) {
 	}
 }
 
-func TestExitCodeInt32(t *testing.T) {
+func TestProcessExitDetails(t *testing.T) {
+	errExit := errors.New("exit status")
 	tests := []struct {
-		name string
-		code int
-		want int
+		name          string
+		errWait       error
+		rawCode       int
+		intentional   bool
+		wantCode      int
+		wantKnown     bool
+		wantLifecycle int
+		wantText      string
 	}{
-		{name: "zero", code: 0, want: 0},
-		{name: "ordinary failure", code: 1, want: 1},
-		{name: "unix signal sentinel", code: -1, want: -1},
-		{name: "windows STATUS_CONTROL_C_EXIT", code: 0xC000013A, want: -1073741510},
+		{name: "clean exit", rawCode: 0, wantCode: 0, wantKnown: true, wantText: "0"},
+		{name: "ordinary failure", errWait: errExit, rawCode: 1, wantCode: 1, wantKnown: true, wantLifecycle: 1, wantText: "1"},
+		{name: "unix signal sentinel", errWait: errExit, rawCode: -1, wantCode: -1, wantKnown: false, wantLifecycle: -1, wantText: "-1"},
+		{
+			name: "windows access violation crash", errWait: errExit, rawCode: 0xC0000005,
+			wantCode: -1073741819, wantKnown: true, wantLifecycle: -1073741819, wantText: "0xC0000005",
+		},
+		{
+			name: "windows STATUS_CONTROL_C_EXIT on intentional stop", errWait: errExit, rawCode: 0xC000013A, intentional: true,
+			wantCode: -1073741510, wantKnown: true, wantLifecycle: -1073741510, wantText: "0xC000013A",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := exitCodeInt32(test.code); got != test.want {
-				t.Errorf("exitCodeInt32(%d) = %d, want %d", test.code, got, test.want)
+			code, known := processExitDetails(test.errWait, test.rawCode)
+			if code != test.wantCode || known != test.wantKnown {
+				t.Fatalf("processExitDetails(%d) = (%d, %t), want (%d, %t)", test.rawCode, code, known, test.wantCode, test.wantKnown)
+			}
+			command := &Command{}
+			command.intentionalStop.Store(test.intentional)
+			lifecycleCode, lifecycleKnown := lifecycleExitDetails(command, test.errWait, code, known)
+			wantLifecycleKnown := known || (test.errWait != nil && !test.intentional)
+			if lifecycleCode != test.wantLifecycle || lifecycleKnown != wantLifecycleKnown {
+				t.Fatalf("lifecycleExitDetails = (%d, %t), want (%d, %t)", lifecycleCode, lifecycleKnown, test.wantLifecycle, wantLifecycleKnown)
+			}
+			if got := formatExitCode(code); got != test.wantText {
+				t.Errorf("formatExitCode(%d) = %q, want %q", code, got, test.wantText)
 			}
 		})
 	}

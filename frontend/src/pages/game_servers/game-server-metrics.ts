@@ -569,3 +569,42 @@ export function summarizeMetric(
     sampleCount,
   }
 }
+
+export type RulerAnchor = 'start' | 'end' | null
+
+// Anchored ruler labels sit this far from their marker (CSS --xy-space-xs).
+const rulerAnchorOffsetPx = 4
+
+/** Anchors a label inward when centring it on x would clip outside the track. */
+export function rulerAnchor(x: number, trackWidth: number, halfWidth: number): RulerAnchor {
+  if (x < halfWidth) return 'start'
+  if (x > trackWidth - halfWidth) return 'end'
+  return null
+}
+
+/**
+ * Groups ruler markers (sorted by x, in px) whose labels would overlap. It compares
+ * each label's rendered interval after edge anchoring, so an edge-anchored label can't
+ * slide over a neighbour that clustering kept separate.
+ */
+export function clusterRulerLabels<T extends { x: number }>(
+  items: T[],
+  trackWidth: number,
+  labelWidth: number,
+  gap: number,
+): { x: number; anchor: RulerAnchor; items: T[] }[] {
+  const clusters: { x: number; anchor: RulerAnchor; right: number; items: T[] }[] = []
+  for (const item of items) {
+    const anchor = rulerAnchor(item.x, trackWidth, labelWidth / 2)
+    const left =
+      anchor === 'start'
+        ? item.x + rulerAnchorOffsetPx
+        : anchor === 'end'
+          ? item.x - rulerAnchorOffsetPx - labelWidth
+          : item.x - labelWidth / 2
+    const last = clusters[clusters.length - 1]
+    if (last && left < last.right + gap) last.items.push(item)
+    else clusters.push({ x: item.x, anchor, right: left + labelWidth, items: [item] })
+  }
+  return clusters.map(({ x, anchor, items }) => ({ x, anchor, items }))
+}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
@@ -86,14 +87,23 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 		return nil, internalErrf(fmt.Sprintf("failed to collect resource snapshot: %v", errSnap))
 	}
 
+	// The running count is derived from these IDs, so a failed listing would
+	// report 0 running rather than just 0 assigned: fail instead of guessing.
+	allServers, errServers := xs.db.GetAllGameServers()
+	if errServers != nil {
+		log.Error().Err(errServers).Str("node_id", nodeID).Msg("Failed to list game servers for node resource snapshot")
+		return nil, internalErrf("failed to list game servers")
+	}
 	gameServerIDs := map[string]struct{}{}
-	allServers, _ := xs.db.GetAllGameServers()
 	for _, gs := range allServers {
 		if gs.NodeID == nodeID {
 			gameServerIDs[gs.ID] = struct{}{}
 		}
 	}
-	userCount, _ := xs.db.CountUsers()
+	userCount, errUserCount := xs.db.CountUsers()
+	if errUserCount != nil {
+		log.Warn().Err(errUserCount).Str("node_id", nodeID).Msg("Failed to count users for node resource snapshot")
+	}
 
 	return connect.NewResponse(&xylona.GetNodeResourceSnapshotResponse{
 		Snapshot: &xylona.NodeResourceSnapshot{
@@ -136,7 +146,9 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 
 	serverIDsByNodeID := map[string]map[string]struct{}{}
 	allServers, errServers := xs.db.GetAllGameServers()
-	if errServers == nil {
+	if errServers != nil {
+		log.Warn().Err(errServers).Msg("Failed to list game servers for dashboard overview; server counts will read 0")
+	} else {
 		for _, gameServer := range allServers {
 			if serverIDsByNodeID[gameServer.NodeID] == nil {
 				serverIDsByNodeID[gameServer.NodeID] = map[string]struct{}{}
@@ -147,6 +159,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 
 	userCount, errUserCount := xs.db.CountUsers()
 	if errUserCount != nil {
+		log.Warn().Err(errUserCount).Msg("Failed to count users for dashboard overview")
 		userCount = 0
 	}
 

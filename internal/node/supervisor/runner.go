@@ -402,18 +402,17 @@ func (inst *Instance) startAndWaitForJob(
 	}
 
 	var errWait error
-	var exitCode int
-	var exitCodeKnown bool
+	var rawExitCode int
 	if currentPTYCMD != nil {
 		stopCancellationWatch := watchPseudoTerminalCancellation(command.processCtx, currentPTYCMD)
 		errWait = currentPTYCMD.Wait()
 		stopCancellationWatch()
-		exitCode = extractProcessExitCode(currentPTYCMD.ProcessState, errWait)
+		rawExitCode = extractProcessExitCode(currentPTYCMD.ProcessState, errWait)
 	} else {
 		errWait = currentCMD.Wait()
-		exitCode = extractExitCode(currentCMD, errWait)
+		rawExitCode = extractExitCode(currentCMD, errWait)
 	}
-	exitCodeKnown = errWait == nil || exitCode >= 0
+	exitCode, exitCodeKnown := processExitDetails(errWait, rawExitCode)
 	lifecycleExitCode, lifecycleExitCodeKnown := lifecycleExitDetails(command, errWait, exitCode, exitCodeKnown)
 	if currentPTY != nil {
 		if drainBeforeClose {
@@ -449,6 +448,14 @@ func (inst *Instance) startAndWaitForJob(
 
 	log.Debug().Str("Game Server ID", command.ID).Msg("Game server stopped.")
 	command.finalizeExecution(processGeneration, lifecycleExitCode, lifecycleExitCodeKnown, false, commandEndFunc)
+}
+
+// processExitDetails decides whether the raw OS exit code is known before wrapping it
+// into int32, so Windows NTSTATUS exits (0xC0000005 and friends) stay known even
+// though they become negative. Only the raw -1 sentinel (Unix signal, or no exit
+// status at all) is unknown.
+func processExitDetails(errWait error, rawExitCode int) (int, bool) {
+	return exitCodeInt32(rawExitCode), errWait == nil || rawExitCode >= 0
 }
 
 func lifecycleExitDetails(command *Command, errWait error, exitCode int, exitCodeKnown bool) (int, bool) {
@@ -510,7 +517,7 @@ func reportUnexpectedProcessExit(command *Command, errWait error, exitCode int, 
 	if exitCodeKnown && exitCode != 0 {
 		log.Warn().Str("Game Server ID", command.ID).Int("exit_code", exitCode).Msg("Game server process crashed")
 		command.sendJobNotification(formatXylonaMessage(
-			fmt.Sprintf("Game server process exited unexpectedly with code %d.", exitCode),
+			fmt.Sprintf("Game server process exited unexpectedly with code %s.", formatExitCode(exitCode)),
 		))
 		publishProcessCrash(command, exitCode)
 		return
@@ -1090,16 +1097,25 @@ func exitCodeInt32(code int) int {
 	return int(int32(uint32(code))) //nolint:gosec // intentional 32-bit reinterpretation of the OS exit status
 }
 
+// formatExitCode shows wrapped Windows NTSTATUS codes (anything below the -1 sentinel)
+// in hex, the form operators look them up by, and every other code in decimal.
+func formatExitCode(code int) string {
+	if code < -1 {
+		return fmt.Sprintf("0x%X", uint32(code)) //nolint:gosec // intentional 32-bit reinterpretation of the OS exit status
+	}
+	return strconv.Itoa(code)
+}
+
 func extractProcessExitCode(processState *os.ProcessState, err error) int {
 	if err == nil {
 		return 0
 	}
 	if processState != nil {
-		return exitCodeInt32(processState.ExitCode())
+		return processState.ExitCode()
 	}
 	exitErr, isExitErr := errors.AsType[*exec.ExitError](err)
 	if isExitErr {
-		return exitCodeInt32(exitErr.ExitCode())
+		return exitErr.ExitCode()
 	}
 	// If we can't determine the exit code but there was an error, assume non-zero.
 	return -1

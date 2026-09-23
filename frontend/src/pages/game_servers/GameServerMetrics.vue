@@ -226,7 +226,7 @@
               id="metrics-panel-cpu"
               title="CPU"
               description="Host-normalized process CPU."
-              :empty-label="laneEmptyLabel('CPU collection is not available for this range.')"
+              empty-label="CPU collection is not available for this range."
               :bands="cpuBands"
               :events="chartEvents"
               :format-value="formatMetricPercent"
@@ -242,7 +242,7 @@
               id="metrics-panel-memory"
               title="Memory"
               :description="memoryDescription"
-              :empty-label="laneEmptyLabel('Process memory was not recorded in this range.')"
+              empty-label="Process memory was not recorded in this range."
               :bands="memoryBands"
               :events="chartEvents"
               :format-value="formatMetricBytes"
@@ -284,9 +284,7 @@
             <metric-time-series-chart
               title="Disk I/O"
               description="Process read plus write throughput per second."
-              :empty-label="
-                laneEmptyLabel('Disk I/O rates are unavailable for this platform or range.')
-              "
+              empty-label="Disk I/O rates are unavailable for this platform or range."
               :events="chartEvents"
               :format-value="formatMetricRate"
               :lane-caption="ioLaneCaption"
@@ -322,7 +320,7 @@
             <metric-time-series-chart
               title="Directory size"
               description="Measured server files on disk."
-              :empty-label="laneEmptyLabel('The directory size scan has not completed.')"
+              empty-label="The directory size scan has not completed."
               :events="chartEvents"
               :format-value="formatMetricBytes"
               :lane-height="44"
@@ -333,9 +331,7 @@
             <metric-time-series-chart
               title="Connections"
               description="Open process network connections."
-              :empty-label="
-                laneEmptyLabel('Connection counts are unavailable for this platform or range.')
-              "
+              empty-label="Connection counts are unavailable for this platform or range."
               :events="chartEvents"
               :format-value="formatWholeNumber"
               :lane-height="44"
@@ -495,6 +491,7 @@ import type {
 import MetricsEventTimeline from '@/components/game_servers/MetricsEventTimeline.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import {
+  clusterRulerLabels,
   deriveServerHealth,
   getMetricsRangeOption,
   heapDangerRatio,
@@ -503,6 +500,7 @@ import {
   isMetricsRangeKey,
   metricsCollectionStatus,
   metricsRangeOptions,
+  rulerAnchor,
   summarizeMetric,
   type MetricHealthLevel,
   type MetricSample,
@@ -643,15 +641,6 @@ const offlineWholeRange = computed(
       (sample) => sample.collectionStatus === metricsCollectionStatus.serverOffline,
     ),
 )
-const rangeHasOfflineSamples = computed(() =>
-  samples.value.some((sample) => sample.collectionStatus === metricsCollectionStatus.serverOffline),
-)
-
-function laneEmptyLabel(label: string): string {
-  return rangeHasOfflineSamples.value
-    ? 'Server offline for part of this range; nothing was recorded here.'
-    : label
-}
 
 // "All" only when every health cell is nominal; unknown cells are not nominal.
 const nominalChipLabel = computed(() => {
@@ -894,10 +883,7 @@ const rulerLabelWidthPx = 152
 function rulerEdge(percent: number, halfWidthPx: number): 'start' | 'end' | null {
   const width = rulerTrackWidth.value
   if (width <= 0) return percent <= 8 ? 'start' : percent >= 92 ? 'end' : null
-  const x = (percent / 100) * width
-  if (x < halfWidthPx) return 'start'
-  if (x > width - halfWidthPx) return 'end'
-  return null
+  return rulerAnchor((percent / 100) * width, width, halfWidthPx)
 }
 
 const rulerTicks = computed(() => {
@@ -923,35 +909,33 @@ const toneRank: Record<MetricsTimelineEvent['tone'], number> = {
   negative: 3,
 }
 
-// Events closer together than a label collapse into one "N events" marker whose
+// Events whose labels would overlap collapse into one "N events" marker whose
 // tooltip lists them, so neighbouring labels never draw over each other.
 const rulerEvents = computed(() => {
   const span = sampleTimeSpan.value
   if (!span) return []
-  const minGapPercent =
-    rulerTrackWidth.value > 0 ? ((rulerLabelWidthPx + 8) / rulerTrackWidth.value) * 100 : 12
-  const clusters: { percent: number; events: MetricChartEvent[] }[] = []
-  for (const event of [...chartEvents.value].sort((a, b) => a.timestampMs - b.timestampMs)) {
-    const percent = ((event.timestampMs - span.minMs) / (span.maxMs - span.minMs)) * 100
-    const last = clusters[clusters.length - 1]
-    if (last && percent - last.percent < minGapPercent) last.events.push(event)
-    else clusters.push({ percent, events: [event] })
-  }
-  return clusters.map((cluster) => {
-    const tone = cluster.events.reduce<MetricChartEvent['tone']>(
+  // Until the track is measured, assume a laptop-width track.
+  const width = rulerTrackWidth.value || 1000
+  const positioned = [...chartEvents.value]
+    .sort((a, b) => a.timestampMs - b.timestampMs)
+    .map((event) => ({
+      event,
+      x: ((event.timestampMs - span.minMs) / (span.maxMs - span.minMs)) * width,
+    }))
+  return clusterRulerLabels(positioned, width, rulerLabelWidthPx, 8).map((cluster) => {
+    const events = cluster.items.map((item) => item.event)
+    const tone = events.reduce<MetricChartEvent['tone']>(
       (worst, event) => (toneRank[event.tone] > toneRank[worst] ? event.tone : worst),
       'neutral',
     )
+    const percent = (cluster.x / width) * 100
     return {
-      key: `${cluster.percent}-${cluster.events.length}`,
-      percent: cluster.percent,
-      edge: rulerEdge(cluster.percent, rulerLabelWidthPx / 2),
+      key: `${percent}-${events.length}`,
+      percent,
+      edge: cluster.anchor,
       tone,
-      label:
-        cluster.events.length === 1
-          ? (cluster.events[0]?.title ?? '')
-          : `${cluster.events.length} events`,
-      detail: cluster.events
+      label: events.length === 1 ? (events[0]?.title ?? '') : `${events.length} events`,
+      detail: events
         .map((event) => `${formatMetricTimestamp(event.timestampMs)} · ${event.title}`)
         .join('\n'),
     }
@@ -965,7 +949,7 @@ const rulerFlag = computed(() => {
   const percent = ((hovered - span.minMs) / (span.maxMs - span.minMs)) * 100
   return {
     percent,
-    edge: rulerEdge(percent),
+    edge: rulerEdge(percent, 40),
     label: new Intl.DateTimeFormat(undefined, {
       hour: 'numeric',
       minute: '2-digit',
