@@ -91,7 +91,7 @@ const validationParityFixture: ValidationParityFixture = {
       maximumLabel: 'Max Players',
       value: 12,
       maximum: 10,
-      expected: 'Set Players cannot exceed Max Players',
+      expected: 'Set Players cannot exceed Max Players (10)',
     },
     {
       name: 'accepts values within the related maximum',
@@ -207,7 +207,7 @@ describe('validatePlayerCountAtMost', () => {
 
   it('rejects values above the related maximum', () => {
     expect(validatePlayerCountAtMost(40, 'Set Players', 20, 'Max Players')).toBe(
-      'Set Players cannot exceed Max Players',
+      'Set Players cannot exceed Max Players (20)',
     )
   })
 

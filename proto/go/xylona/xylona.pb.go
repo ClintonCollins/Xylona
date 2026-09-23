@@ -5546,8 +5546,12 @@ type GameServerAdminInterface struct {
 	RemoteAccess          bool                   `protobuf:"varint,7,opt,name=remote_access,json=remoteAccess,proto3" json:"remote_access,omitempty"`
 	RemoteAccessNote      string                 `protobuf:"bytes,8,opt,name=remote_access_note,json=remoteAccessNote,proto3" json:"remote_access_note,omitempty"`
 	TransportSecurityNote string                 `protobuf:"bytes,9,opt,name=transport_security_note,json=transportSecurityNote,proto3" json:"transport_security_note,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// The game server setting the admin port follows, "port" or "query_port",
+	// and the offset added to it.
+	PortField     string `protobuf:"bytes,10,opt,name=port_field,json=portField,proto3" json:"port_field,omitempty"`
+	PortOffset    int64  `protobuf:"varint,11,opt,name=port_offset,json=portOffset,proto3" json:"port_offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GameServerAdminInterface) Reset() {
@@ -5641,6 +5645,20 @@ func (x *GameServerAdminInterface) GetTransportSecurityNote() string {
 		return x.TransportSecurityNote
 	}
 	return ""
+}
+
+func (x *GameServerAdminInterface) GetPortField() string {
+	if x != nil {
+		return x.PortField
+	}
+	return ""
+}
+
+func (x *GameServerAdminInterface) GetPortOffset() int64 {
+	if x != nil {
+		return x.PortOffset
+	}
+	return 0
 }
 
 type GetGameServerAdminInterfaceRequest struct {
@@ -22717,7 +22735,7 @@ const file_xylona_proto_rawDesc = "" +
 	" ClearGameServerSecretEnvResponse\x12E\n" +
 	"\n" +
 	"secret_env\x18\x01 \x03(\v2&.xylona.SecretEnvironmentVariableStateR\tsecretEnv\x12O\n" +
-	"\x11validation_issues\x18\x02 \x03(\v2\".xylona.EnvironmentValidationIssueR\x10validationIssues\"\xe5\x02\n" +
+	"\x11validation_issues\x18\x02 \x03(\v2\".xylona.EnvironmentValidationIssueR\x10validationIssues\"\xa5\x03\n" +
 	"\x18GameServerAdminInterface\x12\x1c\n" +
 	"\tsupported\x18\x01 \x01(\bR\tsupported\x12\x1c\n" +
 	"\ttransport\x18\x02 \x01(\tR\ttransport\x12!\n" +
@@ -22727,7 +22745,12 @@ const file_xylona_proto_rawDesc = "" +
 	"\x13password_configured\x18\x06 \x01(\bR\x12passwordConfigured\x12#\n" +
 	"\rremote_access\x18\a \x01(\bR\fremoteAccess\x12,\n" +
 	"\x12remote_access_note\x18\b \x01(\tR\x10remoteAccessNote\x126\n" +
-	"\x17transport_security_note\x18\t \x01(\tR\x15transportSecurityNote\"A\n" +
+	"\x17transport_security_note\x18\t \x01(\tR\x15transportSecurityNote\x12\x1d\n" +
+	"\n" +
+	"port_field\x18\n" +
+	" \x01(\tR\tportField\x12\x1f\n" +
+	"\vport_offset\x18\v \x01(\x03R\n" +
+	"portOffset\"A\n" +
 	"\"GetGameServerAdminInterfaceRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\"p\n" +
 	"#GetGameServerAdminInterfaceResponse\x12I\n" +

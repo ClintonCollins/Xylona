@@ -2,130 +2,55 @@
   <game-server-form-shell
     :form-submitting="formSubmitting"
     :loading="loading"
-    :save-disabled="loading"
+    :save-disabled="loading || !hasSaveableChanges"
     :subtitle="settingsSubtitle"
     class="settings-form-shell"
     header-title="Server Settings"
     loading-text="Loading server settings..."
-    save-label="Save server"
+    save-label="Save changes"
+    submitting-label="Saving changes..."
     test-id="settings-form-shell"
     @cancel="cancel"
-    @save="submitGameServer">
+    @save="saveAllChanges">
     <q-form ref="formRef" class="server-form-layout settings-workspace" greedy>
       <nav aria-label="Settings categories" class="settings-category-rail">
-        <div class="settings-category-group">Server</div>
-        <button
-          :aria-current="activeCategory === 'general' ? 'page' : undefined"
-          :class="{ 'is-active': activeCategory === 'general' }"
-          class="settings-category-button"
-          data-testid="settings-category-general"
-          type="button"
-          @click="selectSettingsCategory('general')">
-          <q-icon name="badge" size="18px" />
-          <span>
-            General
-            <small>Identity & placement</small>
-          </span>
-        </button>
-        <button
-          v-if="canEditProvisioning"
-          :aria-current="activeCategory === 'network' ? 'page' : undefined"
-          :class="{ 'is-active': activeCategory === 'network' }"
-          class="settings-category-button"
-          data-testid="settings-category-network"
-          type="button"
-          @click="selectSettingsCategory('network')">
-          <q-icon name="lan" size="18px" />
-          <span>
-            Network & Launch
-            <small>Ports & executable</small>
-          </span>
-        </button>
-        <button
-          v-if="canEditProvisioning"
-          :aria-current="activeCategory === 'dns' ? 'page' : undefined"
-          :class="{ 'is-active': activeCategory === 'dns' }"
-          class="settings-category-button"
-          data-testid="settings-category-dns"
-          type="button"
-          @click="selectSettingsCategory('dns')">
-          <q-icon name="dns" size="18px" />
-          <span>
-            DNS
-            <small>Manual record sync</small>
-          </span>
-        </button>
-        <button
-          :aria-current="activeCategory === 'capacity' ? 'page' : undefined"
-          :class="{ 'is-active': activeCategory === 'capacity' }"
-          class="settings-category-button"
-          data-testid="settings-category-capacity"
-          type="button"
-          @click="selectSettingsCategory('capacity')">
-          <q-icon name="memory" size="18px" />
-          <span>
-            Capacity
-            <small>Players & recovery</small>
-          </span>
-        </button>
-
-        <div class="settings-category-group">Operations</div>
-        <button
-          v-if="adminInterface.supported"
-          :aria-current="activeCategory === 'admin' ? 'page' : undefined"
-          :class="{ 'is-active': activeCategory === 'admin' }"
-          class="settings-category-button"
-          data-testid="settings-category-admin"
-          type="button"
-          @click="selectSettingsCategory('admin')">
-          <q-icon name="admin_panel_settings" size="18px" />
-          <span>
-            Remote Admin
-            <small>Credentials & access</small>
-          </span>
-        </button>
-        <button
-          :aria-current="activeCategory === 'environment' ? 'page' : undefined"
-          :class="{ 'is-active': activeCategory === 'environment' }"
-          class="settings-category-button"
-          data-testid="settings-category-environment"
-          type="button"
-          @click="selectSettingsCategory('environment')">
-          <q-icon name="key" size="18px" />
-          <span>
-            Environment
-            <small>Variables & secrets</small>
-          </span>
-        </button>
-        <button
-          :aria-current="activeCategory === 'backups' ? 'page' : undefined"
-          :class="{ 'is-active': activeCategory === 'backups' }"
-          class="settings-category-button"
-          data-testid="settings-category-backups"
-          type="button"
-          @click="selectSettingsCategory('backups')">
-          <q-icon name="backup" size="18px" />
-          <span>
-            Backups
-            <small>Storage & retention</small>
-          </span>
-        </button>
+        <template v-for="{ group, categories } in categoryGroups" :key="group">
+          <div class="settings-category-group">{{ group }}</div>
+          <button
+            v-for="category in categories"
+            :key="category"
+            :aria-current="activeCategory === category ? 'page' : undefined"
+            :class="{ 'is-active': activeCategory === category }"
+            :data-testid="`settings-category-${category}`"
+            class="settings-category-button"
+            type="button"
+            @click="selectSettingsCategory(category)">
+            <q-icon :name="settingsCategories[category].icon" size="18px" />
+            <span>
+              {{ settingsCategories[category].label }}
+              <small>{{ settingsCategories[category].caption }}</small>
+            </span>
+            <span
+              v-if="dirtyCategories.has(category)"
+              :data-testid="`settings-category-${category}-dirty`"
+              class="settings-category-dirty">
+              <span class="xy-visually-hidden">Unsaved changes</span>
+            </span>
+          </button>
+        </template>
       </nav>
 
       <div class="settings-panel">
         <header class="settings-panel-heading">
           <div>
-            <h2 class="xy-section-title">
-              {{ settingsCategoryDetails[activeCategory].title }}
-            </h2>
-            <p>{{ settingsCategoryDetails[activeCategory].description }}</p>
+            <h2 class="xy-section-title">{{ settingsCategories[activeCategory].title }}</h2>
+            <p>{{ settingsCategories[activeCategory].description }}</p>
           </div>
           <span
-            :class="{
-              'settings-scope--separate': settingsCategoryDetails[activeCategory].separate,
-            }"
-            class="settings-scope">
-            {{ settingsCategoryDetails[activeCategory].scope }}
+            :class="{ 'settings-scope--dirty': dirtyCategories.has(activeCategory) }"
+            class="settings-scope"
+            data-testid="settings-save-state">
+            {{ dirtyCategories.has(activeCategory) ? 'Unsaved changes' : 'All changes saved' }}
           </span>
         </header>
 
@@ -140,12 +65,7 @@
             <span class="section-title">Identity</span>
             <span class="section-line"></span>
           </div>
-          <join-password-settings
-            v-if="gameServer.gameId === 'valheim'"
-            :server-id="gameServerId"
-            :can-edit="gameServer.effectivePermissions.includes('game_server.settings')"
-            class="q-mb-lg full-width" />
-          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div class="row q-col-gutter-md">
             <q-input
               v-model="gameServer.name"
               :rules="serverNameRules"
@@ -167,6 +87,7 @@
               class="col-12 col-md-6"
               data-testid="editable-game"
               emit-value
+              hint="Keeps installed files, ports and capacity. Stop the server before changing it."
               label="Game *"
               lazy-rules
               map-options
@@ -180,7 +101,8 @@
         <section
           v-if="canEditProvisioning"
           v-show="activeCategory === 'general'"
-          class="form-section form-section--last"
+          :class="{ 'form-section--last': !showJoinPassword }"
+          class="form-section"
           data-settings-category="general">
           <div class="section-header">
             <span class="section-icon">
@@ -189,7 +111,7 @@
             <span class="section-title">Placement</span>
             <span class="section-line"></span>
           </div>
-          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div class="row q-col-gutter-md">
             <q-select
               v-model="gameServer.userId"
               :options="availableUsers"
@@ -212,6 +134,7 @@
               class="col-12 col-md-4"
               data-testid="editable-node"
               emit-value
+              hint="Installed files don't move to the new node. Stop the server first."
               label="Node *"
               lazy-rules
               map-options
@@ -234,6 +157,29 @@
           </div>
         </section>
 
+        <game-server-provisioning-context
+          v-if="!canEditProvisioning"
+          v-show="activeCategory === 'general'"
+          :capacity="provisioningCapacity"
+          :class="{ 'form-section--last': !showJoinPassword }"
+          :connection="provisioningConnection"
+          :executable="serverExecutableSummary"
+          :game="selectedGameName"
+          :memory="`${maxMemoryModel || 0} MB`"
+          :node="selectedNodeName"
+          :owner="selectedOwnerName"
+          :show-memory="isMinecraftGame"
+          class="settings-panel-content" />
+
+        <join-password-settings
+          v-if="showJoinPassword"
+          v-show="activeCategory === 'general'"
+          ref="joinPasswordSettings"
+          :can-edit="gameServer.effectivePermissions.includes('game_server.settings')"
+          :server-id="gameServerId"
+          class="form-section--last"
+          data-settings-category="general" />
+
         <section
           v-if="canEditProvisioning"
           v-show="activeCategory === 'network'"
@@ -246,9 +192,10 @@
             <span class="section-title">Networking</span>
             <span class="section-line"></span>
           </div>
-          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div class="row q-col-gutter-md">
             <q-input
               v-model.number="portModel"
+              :hint="adminPortHint('port')"
               :rules="portRules"
               aria-required="true"
               class="col-12 col-sm-6"
@@ -260,6 +207,7 @@
               type="number" />
             <q-input
               v-model.number="queryPortModel"
+              :hint="adminPortHint('query_port')"
               :rules="queryPortRules"
               aria-required="true"
               class="col-12 col-sm-6"
@@ -274,28 +222,6 @@
 
         <section
           v-if="canEditProvisioning"
-          v-show="activeCategory === 'dns'"
-          class="form-section form-section--last"
-          data-settings-category="dns"
-          data-testid="dns-binding-settings-section">
-          <game-server-dns-binding-settings :game-server-id="gameServerId" />
-        </section>
-
-        <game-server-provisioning-context
-          v-if="!canEditProvisioning"
-          v-show="activeCategory === 'general'"
-          class="settings-panel-content"
-          :capacity="provisioningCapacity"
-          :connection="provisioningConnection"
-          :executable="serverExecutableSummary"
-          :game="selectedGameName"
-          :memory="`${maxMemoryModel || 0} MB`"
-          :node="selectedNodeName"
-          :owner="selectedOwnerName"
-          :show-memory="isMinecraftGame" />
-
-        <section
-          v-if="canEditProvisioning"
           v-show="activeCategory === 'network'"
           class="form-section form-section--last"
           data-settings-category="network">
@@ -306,7 +232,7 @@
             <span class="section-title">Launch</span>
             <span class="section-line"></span>
           </div>
-          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div class="row q-col-gutter-md">
             <q-input
               v-model="gameServer.serverExecutable"
               class="col-12 col-lg-6"
@@ -316,6 +242,17 @@
               outlined
               type="text" />
           </div>
+        </section>
+
+        <section
+          v-if="canEditProvisioning"
+          v-show="activeCategory === 'dns'"
+          class="form-section form-section--last"
+          data-settings-category="dns"
+          data-testid="dns-binding-settings-section">
+          <game-server-dns-binding-settings
+            ref="dnsBindingSettings"
+            :game-server-id="gameServerId" />
         </section>
 
         <section
@@ -335,23 +272,42 @@
             <div class="admin-interface-summary">
               <div>
                 <div class="text-caption text-muted">Interface</div>
-                <div class="text-body2 text-primary">{{ adminInterface.transport }}</div>
+                <div class="text-body2 text-xy-primary">{{ adminInterface.transport }}</div>
               </div>
               <div>
                 <div class="text-caption text-muted">Endpoint</div>
                 <div
-                  class="text-body2 text-primary font-mono"
+                  class="text-body2 text-xy-primary font-mono"
                   data-testid="admin-interface-endpoint">
                   {{ adminInterfaceEndpoint }}
+                </div>
+                <div
+                  v-if="adminPortSource"
+                  class="text-caption text-muted"
+                  data-testid="admin-interface-port-source">
+                  Port set by {{ adminPortSource }}
+                  <template v-if="canEditProvisioning">
+                    in
+                    <button
+                      class="settings-inline-link"
+                      type="button"
+                      @click="selectSettingsCategory('network')">
+                      Network & Launch
+                    </button>
+                  </template>
                 </div>
               </div>
               <div v-if="adminInterface.username">
                 <div class="text-caption text-muted">Username</div>
-                <div class="text-body2 text-primary font-mono">{{ adminInterface.username }}</div>
+                <div class="text-body2 text-xy-primary font-mono">
+                  {{ adminInterface.username }}
+                </div>
               </div>
               <div>
                 <div class="text-caption text-muted">Password</div>
-                <div class="text-body2 text-primary" data-testid="admin-interface-password-status">
+                <div
+                  class="text-body2 text-xy-primary"
+                  data-testid="admin-interface-password-status">
                   {{
                     adminInterface.passwordConfigured ? 'Configured' : 'Generated on first start'
                   }}
@@ -375,24 +331,15 @@
               {{ adminInterface.transportSecurityNote }}
             </q-banner>
 
-            <div class="admin-interface-password-editor q-mt-md">
-              <q-input
-                v-model="adminInterfacePassword"
-                autocomplete="new-password"
-                data-testid="admin-interface-password"
-                hint="8–128 printable characters; spaces, double quotes, and backslashes are not supported."
-                label="New Admin Interface Password"
-                outlined
-                type="password" />
-              <q-btn
-                :disable="adminInterfacePassword.length === 0"
-                :loading="adminInterfaceSaving"
-                color="primary"
-                data-testid="save-admin-interface-password"
-                label="Update Password"
-                no-caps
-                @click="saveAdminInterfacePassword" />
-            </div>
+            <q-input
+              v-model="adminInterfacePassword"
+              autocomplete="new-password"
+              class="admin-interface-password q-mt-md"
+              data-testid="admin-interface-password"
+              hint="8–128 printable characters; spaces, double quotes, and backslashes are not supported. Save changes applies it."
+              label="New Admin Interface Password"
+              outlined
+              type="password" />
           </template>
         </section>
 
@@ -408,6 +355,30 @@
             Loading environment...
           </div>
 
+          <!-- Without a loaded baseline, edits can't be diffed or saved, so offer Retry instead of the grid. -->
+          <q-banner
+            v-else-if="environmentLoadError"
+            class="xy-banner-negative"
+            data-testid="environment-load-error"
+            dense
+            inline-actions
+            role="alert">
+            <template #avatar>
+              <q-icon name="sync_problem" />
+            </template>
+            <strong>Environment could not be loaded.</strong> {{ environmentLoadError }}
+            <template #action>
+              <q-btn
+                aria-label="Retry loading environment"
+                data-testid="environment-load-retry"
+                flat
+                icon="refresh"
+                label="Retry"
+                no-caps
+                @click="initializeEnvironmentSettings" />
+            </template>
+          </q-banner>
+
           <template v-else>
             <q-banner
               v-if="environmentIssues.length > 0"
@@ -418,15 +389,6 @@
               <div v-for="issue in environmentIssues" :key="issue.name + issue.message">
                 {{ issue.message }}
               </div>
-            </q-banner>
-            <q-banner
-              v-if="environmentDirty"
-              class="q-mb-md"
-              data-testid="environment-unsaved-warning"
-              dense
-              rounded>
-              Unsaved environment changes. Save Environment applies them separately from server
-              settings.
             </q-banner>
 
             <div class="environment-grid">
@@ -441,7 +403,12 @@
                     flat
                     icon="add"
                     round
-                    @click="addEnvironmentRow" />
+                    @click="addEnvironmentRow">
+                    <q-tooltip>Add variable</q-tooltip>
+                  </q-btn>
+                </div>
+                <div class="environment-panel-note text-caption text-muted">
+                  Saved with Save changes.
                 </div>
 
                 <div
@@ -460,14 +427,12 @@
                     v-model="row.name"
                     class="environment-name-input"
                     data-testid="environment-name"
-                    dense
                     label="Name"
                     outlined />
                   <q-input
                     v-model="row.value"
                     class="environment-value-input"
                     data-testid="environment-value"
-                    dense
                     label="Value"
                     outlined />
                   <q-btn
@@ -478,23 +443,18 @@
                     flat
                     icon="delete"
                     round
-                    @click="removeEnvironmentRow(index)" />
-                </div>
-
-                <div class="environment-actions">
-                  <q-btn
-                    :loading="environmentSaving"
-                    color="primary"
-                    data-testid="save-environment-settings"
-                    label="Save Environment"
-                    no-caps
-                    @click="saveEnvironmentSettings" />
+                    @click="removeEnvironmentRow(index)">
+                    <q-tooltip>Remove variable</q-tooltip>
+                  </q-btn>
                 </div>
               </div>
 
               <div class="environment-panel">
                 <div class="environment-panel-header">
                   <div class="environment-panel-title">Secrets</div>
+                </div>
+                <div class="environment-panel-note text-caption text-muted">
+                  Encrypted and write-only. Set Secret and Clear apply immediately.
                 </div>
 
                 <div
@@ -517,35 +477,40 @@
                   </div>
                   <q-btn
                     :aria-label="`Clear secret ${secret.name}`"
+                    :disable="secretEnvironmentSaving"
                     color="negative"
                     data-testid="clear-secret-environment"
                     dense
                     flat
                     icon="delete"
                     round
-                    @click="clearSecretEnvironment(secret.name)" />
+                    @click="confirmClearSecretEnvironment(secret.name)">
+                    <q-tooltip>Clear secret</q-tooltip>
+                  </q-btn>
                 </div>
 
                 <div class="secret-environment-editor">
                   <q-input
                     v-model="secretEnvironmentName"
                     data-testid="secret-environment-name"
-                    dense
                     label="Name"
                     outlined />
                   <q-input
                     v-model="secretEnvironmentValue"
+                    autocomplete="new-password"
                     data-testid="secret-environment-value"
-                    dense
                     label="Value"
                     outlined
                     type="password" />
                   <q-btn
+                    :disable="!secretEnvironmentName.trim() || !secretEnvironmentValue"
                     :loading="secretEnvironmentSaving"
                     color="primary"
                     data-testid="set-secret-environment"
                     label="Set Secret"
                     no-caps
+                    no-wrap
+                    outline
                     @click="setSecretEnvironment" />
                 </div>
               </div>
@@ -564,9 +529,10 @@
             <span class="section-title">Capacity</span>
             <span class="section-line"></span>
           </div>
-          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div class="row q-col-gutter-md">
             <q-input
               v-model.number="setPlayersModel"
+              :hint="setPlayersHint"
               :rules="setPlayersRules"
               aria-required="true"
               class="col-12 col-sm-6 col-lg-4"
@@ -579,6 +545,7 @@
             <q-input
               v-if="canEditProvisioning"
               v-model.number="maxPlayersModel"
+              :hint="maxPlayersHint"
               :rules="maxPlayersRules"
               aria-required="true"
               class="col-12 col-sm-6 col-lg-4"
@@ -618,7 +585,7 @@
             <span class="section-title">Auto-Restart</span>
             <span class="section-line"></span>
           </div>
-          <div class="row q-col-gutter-md q-gutter-y-md full-width">
+          <div class="row q-col-gutter-md">
             <div class="col-12">
               <q-toggle
                 v-model="gameServer.autoRestartEnabled"
@@ -667,6 +634,28 @@
             Loading backup settings...
           </div>
 
+          <q-banner
+            v-else-if="backupSettingsLoadError"
+            class="xy-banner-negative"
+            data-testid="backup-settings-load-error"
+            dense
+            inline-actions
+            role="alert">
+            <template #avatar>
+              <q-icon name="sync_problem" />
+            </template>
+            <strong>Backup settings could not be loaded.</strong> {{ backupSettingsLoadError }}
+            <template #action>
+              <q-btn
+                aria-label="Retry loading backup settings"
+                flat
+                icon="refresh"
+                label="Retry"
+                no-caps
+                @click="initializeBackupSettings" />
+            </template>
+          </q-banner>
+
           <template v-else>
             <q-banner
               v-if="!backupSettings.backupsSupported"
@@ -677,9 +666,7 @@
               Existing backups remain available from the Backups page.
             </q-banner>
 
-            <div
-              v-if="backupOverview.canManageSettings"
-              class="row q-col-gutter-md q-gutter-y-md full-width">
+            <div v-if="backupOverview.canManageSettings" class="row q-col-gutter-md">
               <div class="col-12">
                 <q-toggle
                   :model-value="backupSettings.backupsEnabled"
@@ -694,7 +681,6 @@
                 :model-value="backupSettings.backupDirectory"
                 class="col-12 col-lg-8"
                 data-testid="backup-settings-directory"
-                dense
                 label="Backup Directory"
                 outlined
                 @update:model-value="backupSettings.backupDirectory = $event" />
@@ -704,7 +690,6 @@
                 :model-value="String(backupSettings.maxBackups)"
                 class="col-12 col-sm-6 col-lg-4"
                 data-testid="backup-settings-max-backups"
-                dense
                 error-message="Keep at least 1 automated backup."
                 hint="Older automated backups beyond this count are deleted. Manual backups are kept."
                 label="Max Automated Backups"
@@ -719,32 +704,20 @@
                 data-testid="backup-settings-default-directory">
                 Default backup directory: {{ backupSettings.defaultBackupDirectory }}
               </div>
-
-              <div class="col-12 row justify-end">
-                <q-btn
-                  :disable="backupSettingsSaveBlocked"
-                  :loading="backupSettingsSaving"
-                  color="primary"
-                  data-testid="save-backup-settings"
-                  label="Save Backup Settings"
-                  no-caps
-                  @click="saveBackupSettings" />
-              </div>
             </div>
 
-            <div
-              v-else
-              class="row q-col-gutter-md q-gutter-y-sm full-width"
-              data-testid="backup-settings-readonly">
+            <div v-else class="row q-col-gutter-md" data-testid="backup-settings-readonly">
               <div class="col-12 col-md-6">
                 <div class="text-caption text-muted">Status</div>
-                <div class="text-body2 text-primary">
+                <div class="text-body2 text-xy-primary">
                   {{ formatBackupEnabled(backupSettings.backupsEnabled) }}
                 </div>
               </div>
               <div class="col-12 col-md-6">
                 <div class="text-caption text-muted">Max Automated Backups</div>
-                <div class="text-body2 text-primary">{{ String(backupSettings.maxBackups) }}</div>
+                <div class="text-body2 text-xy-primary">
+                  {{ String(backupSettings.maxBackups) }}
+                </div>
               </div>
             </div>
           </template>
@@ -758,11 +731,13 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { notifySuccess } from '@/api/notifications'
+import { connectErrorMessage } from '@/api/connect-errors'
+import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { notifyError, notifySuccess } from '@/api/notifications'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerDnsBindingSettings from './GameServerDNSBindingSettings.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
@@ -773,6 +748,7 @@ import type {
   BackupSettings,
   EnvironmentValidationIssue,
   EnvironmentVariable,
+  GameServer,
   GameServerBackupOverview,
   SecretEnvironmentVariableState,
 } from '@/proto/shared_pb'
@@ -783,6 +759,7 @@ import {
   EditGameServerRequestSchema,
   EnvironmentVariableSchema,
   GameServerBackupOverviewSchema,
+  Status,
 } from '@/proto/shared_pb'
 import {
   ClearGameServerSecretEnvRequestSchema,
@@ -804,75 +781,108 @@ const props = defineProps<{
 
 type SettingsCategory =
   'general' | 'network' | 'dns' | 'capacity' | 'admin' | 'environment' | 'backups'
+type CoreCategory = 'general' | 'network' | 'capacity'
 
-const settingsCategoryDetails: Record<
+interface SettingsSection {
+  category: SettingsCategory
+  label: string
+  dirty: boolean
+  appliesOnRestart: boolean
+  save: () => Promise<void>
+}
+
+const settingsCategories: Record<
   SettingsCategory,
-  { description: string; scope: string; separate: boolean; title: string }
+  {
+    caption: string
+    description: string
+    group: 'Server' | 'Operations'
+    icon: string
+    label: string
+    title: string
+  }
 > = {
   general: {
+    label: 'General',
+    caption: 'Identity & placement',
+    icon: 'badge',
+    group: 'Server',
     title: 'General',
     description: "The server's identity and where it runs.",
-    scope: 'Saved with server',
-    separate: false,
   },
   network: {
+    label: 'Network & Launch',
+    caption: 'Ports & executable',
+    icon: 'lan',
+    group: 'Server',
     title: 'Network & Launch',
     description: 'Connection endpoints and process override.',
-    scope: 'Saved with server',
-    separate: false,
   },
   dns: {
+    label: 'DNS',
+    caption: 'Manual record sync',
+    icon: 'dns',
+    group: 'Server',
     title: 'DNS Binding',
     description: 'Manually synchronize one DNS name to this game server.',
-    scope: 'Separate actions',
-    separate: true,
   },
   capacity: {
+    label: 'Capacity',
+    caption: 'Players & recovery',
+    icon: 'memory',
+    group: 'Server',
     title: 'Capacity & Recovery',
     description: 'Player limits and automatic restart behavior.',
-    scope: 'Saved with server',
-    separate: false,
   },
   admin: {
+    label: 'Remote Admin',
+    caption: 'Credentials & access',
+    icon: 'admin_panel_settings',
+    group: 'Operations',
     title: 'Remote Administration',
     description: 'Remote access credentials for this game server.',
-    scope: 'Separate action',
-    separate: true,
   },
   environment: {
+    label: 'Environment',
+    caption: 'Variables & secrets',
+    icon: 'key',
+    group: 'Operations',
     title: 'Environment',
     description: 'Runtime variables and encrypted secrets.',
-    scope: 'Separate save',
-    separate: true,
   },
   backups: {
+    label: 'Backups',
+    caption: 'Storage & retention',
+    icon: 'backup',
+    group: 'Operations',
     title: 'Backup Policy',
     description: 'Storage location and automated retention.',
-    scope: 'Separate save',
-    separate: true,
   },
 }
 
 const router = useRouter()
 const $q = useQuasar()
 const activeCategory = ref<SettingsCategory>('general')
+const joinPasswordSettings = ref<InstanceType<typeof JoinPasswordSettings> | null>(null)
+const dnsBindingSettings = ref<InstanceType<typeof GameServerDnsBindingSettings> | null>(null)
 const backupSettings = ref<BackupSettings>(create(BackupSettingsSchema))
 const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
 const backupSettingsLoading = ref(true)
-const backupSettingsSaving = ref(false)
+const backupSettingsLoadError = ref('')
 const environmentRows = ref<EnvironmentVariable[]>([])
 const environmentSnapshot = ref('')
 const environmentIssues = ref<EnvironmentValidationIssue[]>([])
 const environmentLoading = ref(true)
-const environmentSaving = ref(false)
+const environmentLoadError = ref('')
 const adminInterface = ref<GameServerAdminInterface>(create(GameServerAdminInterfaceSchema))
 const adminInterfaceLoading = ref(true)
 const adminInterfacePassword = ref('')
-const adminInterfaceSaving = ref(false)
 const secretEnvironmentStates = ref<SecretEnvironmentVariableState[]>([])
 const secretEnvironmentName = ref('')
 const secretEnvironmentValue = ref('')
 const secretEnvironmentSaving = ref(false)
+const savedCoreSnapshot = ref<Record<CoreCategory, string> | null>(null)
+const liveStatus = ref<Status>()
 const environmentDirty = computed(() => {
   if (!environmentSnapshot.value) {
     return false
@@ -882,17 +892,24 @@ const environmentDirty = computed(() => {
 })
 const backupEnableBlocked = computed(() => !backupSettings.value.backupsSupported)
 const backupSettingsSnapshot = ref('')
-const backupSettingsSaveBlocked = computed(
+const backupSettingsDirty = computed(
   () =>
-    (backupEnableBlocked.value && backupSettings.value.backupsEnabled) ||
-    backupSettings.value.maxBackups < 1n ||
-    serializeBackupSettings(backupSettings.value) === backupSettingsSnapshot.value,
+    backupSettingsSnapshot.value !== '' &&
+    serializeBackupSettings(backupSettings.value) !== backupSettingsSnapshot.value,
 )
 const adminInterfaceEndpoint = computed(() => {
   const address = adminInterface.value.bindAddress
   const displayAddress =
     address.includes(':') && !address.startsWith('[') ? `[${address}]` : address
   return `${displayAddress}:${adminInterface.value.port.toString()}`
+})
+const adminPortSource = computed(() => {
+  const { supported, portField, portOffset } = adminInterface.value
+  if (!supported || !portField) {
+    return ''
+  }
+  const field = portField === 'query_port' ? 'Query Port' : 'Port'
+  return portOffset > 0n ? `${field} + ${portOffset}` : field
 })
 
 const {
@@ -914,6 +931,7 @@ const {
   maxMemoryModel,
   maxMemoryRules,
   maxMemoryStateMessage,
+  maxPlayersHint,
   maxPlayersModel,
   maxPlayersRules,
   nodeRules,
@@ -932,6 +950,7 @@ const {
   selectedOwnerName,
   serverExecutableSummary,
   serverNameRules,
+  setPlayersHint,
   setPlayersModel,
   setPlayersRules,
   showMaxMemoryStateError,
@@ -945,15 +964,146 @@ const {
 const settingsSubtitle = computed(
   () => `${gameServer.value.name || 'Game server'} · ${selectedGameName.value}`,
 )
+const showJoinPassword = computed(() => gameServer.value.gameId === 'valheim')
+const categoryGroups = computed(() => {
+  const visible = (Object.keys(settingsCategories) as SettingsCategory[]).filter((category) => {
+    if (category === 'network' || category === 'dns') {
+      return props.canEditProvisioning
+    }
+    if (category === 'admin') {
+      return adminInterface.value.supported
+    }
+    return true
+  })
+
+  return (['Server', 'Operations'] as const).map((group) => ({
+    group,
+    categories: visible.filter((category) => settingsCategories[category].group === group),
+  }))
+})
+
+const coreDirtyCategories = computed<CoreCategory[]>(() => {
+  const saved = savedCoreSnapshot.value
+  if (!saved) {
+    return []
+  }
+
+  const current = coreSnapshot(gameServer.value)
+  return (Object.keys(current) as CoreCategory[]).filter(
+    (category) => current[category] !== saved[category],
+  )
+})
+
+// Sections that keep their own RPC; the header Save commits each one that changed.
+const separateSections = computed<SettingsSection[]>(() => [
+  {
+    category: 'general',
+    label: 'Join password',
+    dirty: joinPasswordSettings.value?.dirty === true,
+    appliesOnRestart: true,
+    save: async () => joinPasswordSettings.value?.save(),
+  },
+  {
+    category: 'dns',
+    label: 'DNS binding',
+    dirty: dnsBindingSettings.value?.dirty === true,
+    appliesOnRestart: false,
+    save: async () => dnsBindingSettings.value?.save(),
+  },
+  {
+    category: 'admin',
+    label: 'Admin password',
+    dirty: adminInterfacePassword.value.length > 0,
+    appliesOnRestart: true,
+    save: saveAdminInterfacePassword,
+  },
+  {
+    category: 'environment',
+    label: 'Environment',
+    dirty: environmentDirty.value,
+    appliesOnRestart: true,
+    save: saveEnvironmentSettings,
+  },
+  {
+    category: 'backups',
+    label: 'Backup policy',
+    dirty: backupSettingsDirty.value,
+    appliesOnRestart: false,
+    save: saveBackupSettings,
+  },
+])
+
+const dirtyCategories = computed(
+  () =>
+    new Set<SettingsCategory>([
+      ...coreDirtyCategories.value,
+      ...separateSections.value
+        .filter((section) => section.dirty)
+        .map((section) => section.category),
+    ]),
+)
+const hasSaveableChanges = computed(() => dirtyCategories.value.size > 0)
+const serverRunning = computed(() => {
+  const status = liveStatus.value ?? gameServer.value.status
+  return status === Status.ONLINE || status === Status.PRE_START
+})
+
+// A typed secret value is not part of Save changes, but leaving would still lose it.
+useUnsavedChangesGuard(() => hasSaveableChanges.value || secretEnvironmentValue.value !== '')
 
 onMounted(async () => {
+  XylonaEventBus.on('gameServerStatus', onServerStatus)
   await initialize()
+  savedCoreSnapshot.value = coreSnapshot(gameServer.value)
   await Promise.all([
     initializeAdminInterface(),
     initializeBackupSettings(),
     initializeEnvironmentSettings(),
   ])
 })
+
+onBeforeUnmount(() => {
+  XylonaEventBus.off('gameServerStatus', onServerStatus)
+})
+
+function onServerStatus(serverID: string, _serverName: string, status: Status) {
+  if (serverID === props.gameServerId) {
+    liveStatus.value = status
+  }
+}
+
+function coreSnapshot(server: GameServer): Record<CoreCategory, string> {
+  const serialize = (values: unknown[]) => JSON.stringify(values.map((value) => String(value)))
+  return {
+    general: serialize([
+      server.name,
+      server.gameId,
+      server.userId,
+      server.nodeId,
+      server.ip?.address,
+    ]),
+    network: serialize([server.port, server.queryPort, server.serverExecutable]),
+    capacity: serialize([
+      server.setMaxPlayers,
+      server.maxPlayers,
+      server.maxMemoryMb,
+      server.autoRestartEnabled,
+      server.autoRestartMaxRetries,
+      server.autoRestartCooldownSeconds,
+    ]),
+  }
+}
+
+function adminPortHint(field: 'port' | 'query_port'): string | undefined {
+  const { supported, portField, portOffset, transport } = adminInterface.value
+  if (!supported || portField !== field) {
+    return undefined
+  }
+
+  return portOffset > 0n
+    ? `Remote admin (${transport}) uses this port + ${portOffset}.`
+    : `Also the remote admin (${transport}) port.`
+}
 
 function selectSettingsCategory(category: SettingsCategory) {
   activeCategory.value = category
@@ -1001,35 +1151,21 @@ async function initializeAdminInterface() {
 }
 
 async function saveAdminInterfacePassword() {
-  adminInterfaceSaving.value = true
-
-  try {
-    const response = await GetXylonaClient().setGameServerAdminInterfacePassword(
-      create(SetGameServerAdminInterfacePasswordRequestSchema, {
-        serverId: props.gameServerId,
-        password: adminInterfacePassword.value,
-      }),
-    )
-    if (response.adminInterface) {
-      adminInterface.value = create(GameServerAdminInterfaceSchema, response.adminInterface)
-    }
-    adminInterfacePassword.value = ''
-    notifySuccess('Admin interface password updated. Restart the game server to apply it.')
-  } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption:
-        'Failed to save admin interface password: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
-  } finally {
-    adminInterfaceSaving.value = false
+  const response = await GetXylonaClient().setGameServerAdminInterfacePassword(
+    create(SetGameServerAdminInterfacePasswordRequestSchema, {
+      serverId: props.gameServerId,
+      password: adminInterfacePassword.value,
+    }),
+  )
+  if (response.adminInterface) {
+    adminInterface.value = create(GameServerAdminInterfaceSchema, response.adminInterface)
   }
+  adminInterfacePassword.value = ''
 }
 
 async function initializeBackupSettings() {
   backupSettingsLoading.value = true
+  backupSettingsLoadError.value = ''
 
   try {
     const [overviewResponse, settingsResponse] = await Promise.all([
@@ -1058,12 +1194,8 @@ async function initializeBackupSettings() {
     }
     backupSettingsSnapshot.value = serializeBackupSettings(backupSettings.value)
   } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to load backup settings: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    backupSettingsSnapshot.value = ''
+    backupSettingsLoadError.value = ConnectErrorToString(ConnectError.from(e))
   } finally {
     backupSettingsLoading.value = false
   }
@@ -1071,6 +1203,7 @@ async function initializeBackupSettings() {
 
 async function initializeEnvironmentSettings() {
   environmentLoading.value = true
+  environmentLoadError.value = ''
 
   try {
     const response = await GetXylonaClient().getGameServerEnvironment(
@@ -1084,12 +1217,7 @@ async function initializeEnvironmentSettings() {
     environmentIssues.value = response.validationIssues
     secretEnvironmentStates.value = response.secretEnv
   } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to load environment: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    environmentLoadError.value = ConnectErrorToString(ConnectError.from(e))
   } finally {
     environmentLoading.value = false
   }
@@ -1126,36 +1254,23 @@ function removeEnvironmentRow(index: number): void {
 }
 
 async function saveEnvironmentSettings() {
-  environmentSaving.value = true
-  try {
-    const envVars = environmentRows.value.map((row) =>
-      create(EnvironmentVariableSchema, {
-        name: row.name.trim(),
-        value: row.value,
-      }),
-    )
+  const envVars = environmentRows.value.map((row) =>
+    create(EnvironmentVariableSchema, {
+      name: row.name.trim(),
+      value: row.value,
+    }),
+  )
 
-    const response = await GetXylonaClient().updateGameServerEnvironment(
-      create(UpdateGameServerEnvironmentRequestSchema, {
-        serverId: props.gameServerId,
-        envVars,
-      }),
-    )
+  const response = await GetXylonaClient().updateGameServerEnvironment(
+    create(UpdateGameServerEnvironmentRequestSchema, {
+      serverId: props.gameServerId,
+      envVars,
+    }),
+  )
 
-    environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
-    commitEnvironmentSnapshot()
-    environmentIssues.value = response.validationIssues
-    notifySuccess('Environment variables saved successfully.')
-  } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to save environment: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
-  } finally {
-    environmentSaving.value = false
-  }
+  environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
+  commitEnvironmentSnapshot()
+  environmentIssues.value = response.validationIssues
 }
 
 async function setSecretEnvironment() {
@@ -1183,6 +1298,16 @@ async function setSecretEnvironment() {
   } finally {
     secretEnvironmentSaving.value = false
   }
+}
+
+function confirmClearSecretEnvironment(name: string) {
+  $q.dialog({
+    title: `Clear secret ${name}?`,
+    message: "The value can't be recovered. The server keeps using it until it restarts.",
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { color: 'negative', label: 'Clear secret' },
+    persistent: true,
+  }).onOk(() => void clearSecretEnvironment(name))
 }
 
 async function clearSecretEnvironment(name: string) {
@@ -1248,65 +1373,87 @@ function updateBackupsEnabled(enabled: boolean): void {
 }
 
 async function saveBackupSettings() {
-  backupSettingsSaving.value = true
-  try {
-    const response = await GetXylonaClient().updateBackupSettings(
-      create(UpdateBackupSettingsRequestSchema, {
-        gameServerId: props.gameServerId,
-        backupsEnabled: backupSettings.value.backupsEnabled,
-        backupDirectory: backupSettings.value.backupDirectory,
-        maxBackups: backupSettings.value.maxBackups,
-      }),
-    )
-
-    if (response.settings) {
-      backupSettings.value = create(BackupSettingsSchema, response.settings)
-    }
-
-    await initializeBackupSettings()
-    notifySuccess('Backup settings saved successfully.')
-  } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to save backup settings: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
-  } finally {
-    backupSettingsSaving.value = false
+  if (backupEnableBlocked.value && backupSettings.value.backupsEnabled) {
+    throw new Error('Turn off Enable Backups; new backups are unavailable for this server.')
   }
+  if (backupSettings.value.maxBackups < 1n) {
+    throw new Error('Keep at least 1 automated backup.')
+  }
+
+  const response = await GetXylonaClient().updateBackupSettings(
+    create(UpdateBackupSettingsRequestSchema, {
+      gameServerId: props.gameServerId,
+      backupsEnabled: backupSettings.value.backupsEnabled,
+      backupDirectory: backupSettings.value.backupDirectory,
+      maxBackups: backupSettings.value.maxBackups,
+    }),
+  )
+
+  if (response.settings) {
+    backupSettings.value = create(BackupSettingsSchema, response.settings)
+  }
+
+  await initializeBackupSettings()
 }
 
-async function submitGameServer() {
-  const formValid = await validateBeforeSave(
-    'Complete the required fields before saving this server.',
-  )
-  if (!formValid) {
+async function saveCoreSettings() {
+  const request: EditGameServerRequest = create(EditGameServerRequestSchema, {})
+  request.serverId = props.gameServerId
+  request.gameServer = gameServer.value
+
+  await GetXylonaClient().editGameServer(request)
+  savedCoreSnapshot.value = coreSnapshot(gameServer.value)
+  await initializeAdminInterface()
+}
+
+async function saveAllChanges() {
+  const coreDirty = coreDirtyCategories.value.length > 0
+  if (
+    coreDirty &&
+    !(await validateBeforeSave('Complete the required fields before saving this server.'))
+  ) {
     await revealFirstInvalidCategory()
     return
   }
 
+  const pending: Array<Omit<SettingsSection, 'category' | 'dirty'>> = [
+    ...(coreDirty
+      ? [{ label: 'Server settings', appliesOnRestart: true, save: saveCoreSettings }]
+      : []),
+    ...separateSections.value.filter((section) => section.dirty),
+  ]
+  if (pending.length === 0) {
+    return
+  }
+  const saved: string[] = []
+  const failed: string[] = []
+  let restartNeeded = false
+
   startSubmitting()
-
   try {
-    const request: EditGameServerRequest = create(EditGameServerRequestSchema, {})
-    request.serverId = props.gameServerId
-    request.gameServer = gameServer.value
-
-    await GetXylonaClient().editGameServer(request)
-    await initializeAdminInterface()
-    notifySuccess('Server settings saved successfully.')
-  } catch (e) {
-    console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to save game server: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    // One section at a time: later sections (the join password) validate against saved ones.
+    for (const section of pending) {
+      try {
+        await section.save()
+        saved.push(section.label)
+        restartNeeded ||= section.appliesOnRestart
+      } catch (e) {
+        console.error(e)
+        failed.push(`${section.label}: ${connectErrorMessage(e)}`)
+      }
+    }
   } finally {
     resetSubmissionState()
   }
+
+  const savedText = saved.length > 0 ? `${saved.join(', ')} saved.` : ''
+  if (failed.length > 0) {
+    notifyError(`${savedText} Not saved: ${failed.join('; ')}`.trim())
+    return
+  }
+  notifySuccess(
+    restartNeeded && serverRunning.value ? `${savedText} Restart the server to apply.` : savedText,
+  )
 }
 </script>
 
@@ -1315,13 +1462,21 @@ async function submitGameServer() {
   --xy-header-stack-height: 0px;
 }
 
+/* The workspace is the one frame under the header; the shell body adds none. */
+.settings-form-shell :deep(.server-form-body) {
+  padding: 0;
+  background: none;
+  border: none;
+}
+
 .settings-workspace {
   display: grid;
   grid-template-columns: minmax(180px, 210px) minmax(0, 1fr);
   overflow: hidden;
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-  border-radius: var(--xy-radius-xl);
+  border-top: none;
+  border-radius: 0 0 var(--xy-radius-lg) var(--xy-radius-lg);
 }
 
 .settings-category-rail {
@@ -1393,7 +1548,7 @@ async function submitGameServer() {
   color: var(--xy-accent);
 }
 
-.settings-category-button > span {
+.settings-category-button > span:not(.settings-category-dirty) {
   display: flex;
   flex-direction: column;
   gap: var(--xy-space-2xs);
@@ -1407,6 +1562,15 @@ async function submitGameServer() {
   color: var(--xy-text-muted);
   font-size: var(--xy-font-size-2xs);
   font-weight: 400;
+}
+
+.settings-category-dirty {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  background: var(--xy-warning);
+  border-radius: var(--xy-radius-pill);
 }
 
 .settings-panel-heading {
@@ -1438,10 +1602,10 @@ async function submitGameServer() {
   line-height: var(--xy-line-height-tight);
 }
 
-.settings-scope--separate {
-  color: var(--xy-accent-hover);
-  background: var(--xy-accent-muted);
-  border-color: var(--xy-accent-border-soft);
+.settings-scope--dirty {
+  color: var(--xy-warning-hover);
+  background: var(--xy-warning-bg-faint);
+  border-color: var(--xy-warning-border);
 }
 
 .settings-panel {
@@ -1471,23 +1635,35 @@ async function submitGameServer() {
   border-color: var(--xy-border-hover);
 }
 
+.settings-inline-link {
+  padding: 0;
+  color: var(--xy-primary);
+  background: none;
+  border: none;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.settings-inline-link:focus-visible {
+  outline: 2px solid var(--xy-focus-ring);
+  outline-offset: 2px;
+}
+
 .admin-interface-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--xy-space-md);
 }
 
-.admin-interface-password-editor {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
-  gap: var(--xy-space-sm);
-  align-items: start;
+.admin-interface-password {
+  max-width: 480px;
 }
 
 .environment-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  gap: var(--xy-space-md);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: var(--xy-space-lg);
 }
 
 .environment-panel {
@@ -1502,6 +1678,8 @@ async function submitGameServer() {
   align-items: center;
   justify-content: space-between;
   gap: var(--xy-space-sm);
+  /* Same height with or without the add button, so both column headings line up. */
+  min-height: 40px;
 }
 
 .environment-panel-title {
@@ -1520,12 +1698,7 @@ async function submitGameServer() {
   display: grid;
   grid-template-columns: minmax(120px, 0.7fr) minmax(160px, 1fr) auto;
   gap: var(--xy-space-sm);
-  align-items: start;
-}
-
-.environment-actions {
-  display: flex;
-  justify-content: flex-end;
+  align-items: center;
 }
 
 .secret-environment-row {
@@ -1556,17 +1729,15 @@ async function submitGameServer() {
   display: grid;
   grid-template-columns: minmax(120px, 0.8fr) minmax(160px, 1fr) auto;
   gap: var(--xy-space-sm);
-  align-items: start;
+  align-items: center;
 }
 
 @media (max-width: 599px) {
-  .admin-interface-password-editor,
   .environment-row,
   .secret-environment-editor {
     grid-template-columns: 1fr;
   }
 
-  .admin-interface-password-editor :deep(.q-btn),
   .environment-row :deep(.q-btn),
   .secret-environment-editor :deep(.q-btn) {
     justify-self: flex-start;
@@ -1578,19 +1749,15 @@ async function submitGameServer() {
     grid-template-columns: 1fr;
   }
 
+  /* Wrap instead of scrolling sideways so every category stays visible. */
   .settings-category-rail {
     grid-column: 1;
     position: static;
     flex-direction: row;
-    overflow-x: auto;
+    flex-wrap: wrap;
     padding: var(--xy-space-xs);
     border-right: 0;
     border-bottom: 1px solid var(--xy-border);
-    scrollbar-width: none;
-  }
-
-  .settings-category-rail::-webkit-scrollbar {
-    display: none;
   }
 
   .settings-category-group {
@@ -1600,10 +1767,15 @@ async function submitGameServer() {
   .settings-category-button {
     flex: 0 0 auto;
     width: auto;
+    padding: var(--xy-space-sm);
   }
 
   .settings-category-button small {
     display: none;
+  }
+
+  .settings-category-dirty {
+    margin-left: 0;
   }
 
   .settings-panel {
@@ -1612,16 +1784,6 @@ async function submitGameServer() {
 }
 
 @media (max-width: 599px) {
-  :deep(.server-form-header) {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  :deep(.server-form-header-actions) {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
   .settings-panel-heading {
     flex-direction: column;
     gap: var(--xy-space-sm);

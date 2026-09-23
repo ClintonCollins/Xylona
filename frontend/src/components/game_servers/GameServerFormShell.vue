@@ -226,6 +226,70 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--xy-success) 22%, transparent);
 }
 
+/* Phones: the title sits beside Cancel and Save with the breadcrumb above and the
+   subtitle below. Once the header sticks, those drop away and the title keeps one line,
+   so the stuck header stays under 64px. */
+@media (max-width: 599px) {
+  .server-form-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'crumbs crumbs'
+      'title actions'
+      'subtitle subtitle';
+    align-items: center;
+    gap: 0 var(--xy-space-sm);
+    padding: var(--xy-space-sm) var(--xy-space-md);
+  }
+
+  .server-form-header-left {
+    display: contents;
+  }
+
+  .server-form-breadcrumbs {
+    grid-area: crumbs;
+    margin-bottom: var(--xy-space-xs);
+  }
+
+  .server-form-header .server-form-title {
+    grid-area: title;
+    font-size: var(--xy-font-size-lg);
+  }
+
+  .server-form-header.is-stuck .server-form-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .server-form-subtitle {
+    grid-area: subtitle;
+    margin-top: var(--xy-space-xs);
+    line-height: var(--xy-line-height-base);
+  }
+
+  .server-form-header-actions {
+    grid-area: actions;
+    gap: var(--xy-space-xs);
+    padding-top: 0;
+  }
+
+  .server-form-header-actions .q-btn {
+    padding-right: var(--xy-space-sm);
+    padding-left: var(--xy-space-sm);
+  }
+
+  .server-form-header.is-stuck .server-form-breadcrumbs,
+  .server-form-header.is-stuck .server-form-subtitle {
+    display: none;
+  }
+
+  /* Scoped under the shell so it beats the base .server-form-body rule further down. */
+  .server-form-shell .server-form-body {
+    padding: var(--xy-space-md);
+  }
+}
+
 .server-form-loading {
   display: flex;
   flex-direction: column;

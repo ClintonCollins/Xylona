@@ -59,8 +59,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { onBeforeRouteLeave, useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
@@ -84,6 +84,7 @@ import ConfigFileSidebar from '@/components/game_servers/ConfigFileSidebar.vue'
 import ConfigFileEditor from '@/components/game_servers/ConfigFileEditor.vue'
 import SevenDaysToDieSandboxInspector from '@/components/game_servers/SevenDaysToDieSandboxInspector.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 import {
   buildCategoryColorMap,
   CATEGORY_COLORS,
@@ -104,37 +105,7 @@ const editorRef = ref<InstanceType<typeof ConfigFileEditor> | null>(null)
 
 const editorHasChanges = computed(() => editorRef.value?.hasChanges ?? false)
 
-function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (editorHasChanges.value) {
-    e.preventDefault()
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('beforeunload', onBeforeUnload)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', onBeforeUnload)
-})
-
-onBeforeRouteLeave(() => {
-  if (!editorHasChanges.value) {
-    return true
-  }
-  return new Promise<boolean>((resolve) => {
-    $q.dialog({
-      title: 'Unsaved Changes',
-      message: 'You have unsaved changes. Are you sure you want to leave?',
-      cancel: { flat: true, label: 'Stay' },
-      ok: { color: 'negative', label: 'Discard Changes' },
-      persistent: true,
-    })
-      .onOk(() => resolve(true))
-      .onCancel(() => resolve(false))
-      .onDismiss(() => resolve(false))
-  })
-})
+const { confirmDiscard } = useUnsavedChangesGuard(editorHasChanges)
 
 const loading = ref(true)
 const saving = ref(false)
@@ -229,20 +200,11 @@ async function handleFileSelect(path: string, isMissing: boolean) {
   }
 
   // Guard against switching files with unsaved changes
-  if (editorHasChanges.value && path !== selectedFilePath.value) {
-    const confirmed = await new Promise<boolean>((resolve) => {
-      $q.dialog({
-        title: 'Unsaved Changes',
-        message: 'You have unsaved changes. Discard them and switch files?',
-        cancel: { flat: true, label: 'Stay' },
-        ok: { color: 'negative', label: 'Discard Changes' },
-        persistent: true,
-      })
-        .onOk(() => resolve(true))
-        .onCancel(() => resolve(false))
-        .onDismiss(() => resolve(false))
-    })
-    if (!confirmed) return
+  if (
+    path !== selectedFilePath.value &&
+    !(await confirmDiscard('You have unsaved changes. Discard them and switch files?'))
+  ) {
+    return
   }
 
   selectedFilePath.value = path

@@ -128,7 +128,7 @@
           icon="public"
           label="Public status page"
           no-caps
-          @click="showStatusPageSettings = !showStatusPageSettings" />
+          @click="toggleStatusPageSettings" />
         <q-btn
           v-if="showCreateButton && displayRows.length > 0"
           :disable="loading"
@@ -425,6 +425,7 @@
     </div>
     <game-server-status-page-settings-panel
       v-if="showStatusPageSettings"
+      ref="statusPageSettingsPanel"
       @close="showStatusPageSettings = false" />
     <delete-game-server-dialog
       v-model:show-dialog="showDeleteGameServerDialog"
@@ -502,6 +503,18 @@ const loading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteGameServerDialog = ref(false)
 const showStatusPageSettings = ref(false)
+const statusPageSettingsPanel = ref<InstanceType<typeof GameServerStatusPageSettingsPanel> | null>(
+  null,
+)
+
+async function toggleStatusPageSettings() {
+  if (!showStatusPageSettings.value) {
+    showStatusPageSettings.value = true
+    return
+  }
+  // Closing goes through the panel so unsaved edits get the discard prompt.
+  await statusPageSettingsPanel.value?.requestClose()
+}
 const selectedGameServers = ref([] as DisplayRow[])
 type ServerAction = 'start' | 'stop' | 'restart' | 'update'
 const serverActions: readonly {

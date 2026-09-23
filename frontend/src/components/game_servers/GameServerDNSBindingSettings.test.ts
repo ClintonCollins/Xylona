@@ -89,12 +89,17 @@ describe('GameServerDNSBindingSettings', () => {
     expect(wrapper.text()).toContain('play.example.com')
     expect(wrapper.find('.private-address-warning').exists()).toBe(true)
 
+    // The settings form's Save commits the binding through the exposed save().
+    const settings = wrapper.vm as unknown as { dirty: boolean; save: () => Promise<void> }
     await wrapper.get('[data-testid="dns-relative-name"]').setValue('game')
-    await wrapper.get('[data-testid="save-dns-binding"]').trigger('click')
+    expect(settings.dirty).toBe(true)
+    expect(wrapper.get('[data-testid="sync-dns-binding"]').attributes('disable')).toBe('true')
+    await settings.save()
     await flushPromises()
     expect(mocks.setBinding).toHaveBeenCalledWith(
       expect.objectContaining({ gameServerId: 'server-1', relativeName: 'game' }),
     )
+    expect(settings.dirty).toBe(false)
     expect(mocks.syncBinding).not.toHaveBeenCalled()
 
     await wrapper.get('[data-testid="sync-dns-binding"]').trigger('click')
@@ -118,6 +123,25 @@ describe('GameServerDNSBindingSettings', () => {
     expect(mocks.removeBinding).toHaveBeenCalledWith(
       expect.objectContaining({ gameServerId: 'server-1' }),
     )
+  })
+
+  it('reports an empty name and rejected saves to the settings Save', async () => {
+    mocks.setBinding.mockRejectedValue(new ConnectError('zone unavailable', Code.Unavailable))
+    const wrapper = shallowMount(GameServerDNSBindingSettings, {
+      props: { gameServerId: 'server-1' },
+      global: { stubs: { 'q-input': QInputStub } },
+    })
+    await flushPromises()
+    const settings = wrapper.vm as unknown as { save: () => Promise<void> }
+
+    await wrapper.get('[data-testid="dns-relative-name"]').setValue('  ')
+    await expect(settings.save()).rejects.toThrow('Enter a relative record name')
+    expect(mocks.setBinding).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid="dns-relative-name"]').setValue('game')
+    await expect(settings.save()).rejects.toThrow('zone unavailable')
+    await flushPromises()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
   })
 
   it('distinguishes a retained previous record from ownership of the desired record', async () => {

@@ -187,7 +187,8 @@ func (xs *XylonaService) remoteSummaryFromGameServer(
 		IpAddress:      gameServer.IP,
 		Port:           gameServer.Port,
 		QueryPort:      gameServer.QueryPort,
-		MaxPlayers:     gameServer.SetPlayers,
+		// Max Players is the slot count passed to the game; Set Players only feeds {{SET_PLAYERS}}.
+		MaxPlayers:     gameServer.MaxPlayers,
 		CurrentPlayers: 0,
 		MapName:        gameServer.Map,
 		Version:        gameServer.Version,

@@ -778,8 +778,9 @@ func TestListAggregatedGameServersIncludesRemoteRows(t *testing.T) {
 	if remoteSummary.GetCurrentPlayers() != 0 {
 		t.Fatalf("remote summary current_players = %d, want 0 without live query telemetry", remoteSummary.GetCurrentPlayers())
 	}
-	if remoteSummary.GetMaxPlayers() != 12 {
-		t.Fatalf("remote summary max_players = %d, want configured capacity 12", remoteSummary.GetMaxPlayers())
+	// The fixture stores set_players 12 and max_players 20; the game is given max_players.
+	if remoteSummary.GetMaxPlayers() != 20 {
+		t.Fatalf("remote summary max_players = %d, want max players 20", remoteSummary.GetMaxPlayers())
 	}
 	if !remoteSummary.GetLastRemoteUpdate().AsTime().Equal(collectedAt) {
 		t.Fatalf("remote summary last_remote_update = %v, want %v", remoteSummary.GetLastRemoteUpdate().AsTime(), collectedAt)

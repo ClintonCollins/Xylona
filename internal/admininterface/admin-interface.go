@@ -17,11 +17,21 @@ const (
 	TransportREST   = "REST"
 )
 
+// Game server settings an administration port can follow.
+const (
+	PortFieldPort      = "port"
+	PortFieldQueryPort = "query_port"
+)
+
 // Profile describes one game's management endpoint and encrypted password
 // storage location. Password values are never included in this structure.
 type Profile struct {
-	Transport             string
-	Port                  int64
+	Transport string
+	Port      int64
+	// PortField names the game server setting Port follows, and PortOffset
+	// is added to it, so the UI can say which field moves the endpoint.
+	PortField             string
+	PortOffset            int64
 	Username              string
 	BindToGameServerIP    bool
 	SecretKind            string
@@ -41,56 +51,57 @@ func Lookup(gameID string, port int64, queryPort int64) (Profile, bool) {
 	switch strings.TrimSpace(gameID) {
 	case "minecraft":
 		profile.Transport = TransportRCON
-		profile.Port = queryPort + 1
+		profile.PortField = PortFieldQueryPort
+		profile.PortOffset = 1
 		profile.BindToGameServerIP = true
 		profile.RemoteAccessNote = "Minecraft RCON uses the port immediately after the configured query port."
 		profile.TransportSecurityNote = "Minecraft RCON traffic is not encrypted; protect the port with a firewall or private network."
 	case "7_days_to_die":
 		profile.Transport = TransportTelnet
-		profile.Port = queryPort
+		profile.PortField = PortFieldQueryPort
 		profile.RemoteAccessNote = "7 Days to Die accepts remote Telnet connections when a password is configured."
 		profile.TransportSecurityNote = "Telnet traffic, including the password and commands, is not encrypted."
 	case "counter_strike_2", "garrys_mod", "team_fortress_2":
 		profile.Transport = TransportRCON
-		profile.Port = port
+		profile.PortField = PortFieldPort
 		profile.BindToGameServerIP = true
 		profile.RemoteAccessNote = "RCON shares the game server's configured bind address and port."
 		profile.TransportSecurityNote = "Source RCON traffic is not encrypted."
 	case "factorio":
 		profile.Transport = TransportRCON
-		profile.Port = queryPort
+		profile.PortField = PortFieldQueryPort
 		profile.BindToGameServerIP = true
 		profile.RemoteAccessNote = "RCON is explicitly bound to the game server IP on its query port."
 		profile.TransportSecurityNote = "RCON traffic is not encrypted."
 	case "rust":
 		profile.Transport = TransportRCON
-		profile.Port = queryPort
+		profile.PortField = PortFieldQueryPort
 		profile.BindToGameServerIP = true
-		profile.RemoteAccessNote = "WebRCON is explicitly bound to the game server IP on its configured RCON port."
+		profile.RemoteAccessNote = "WebRCON is explicitly bound to the game server IP on its query port."
 		profile.TransportSecurityNote = "Use a firewall or private network when exposing WebRCON."
 	case "v_rising":
 		profile.Transport = TransportRCON
-		profile.Port = queryPort
+		profile.PortField = PortFieldQueryPort
 		profile.BindToGameServerIP = true
 		profile.RemoteAccessNote = "RCON is explicitly bound to the game server IP on its query port."
 		profile.TransportSecurityNote = "RCON traffic is not encrypted."
 	case "conan_exiles":
 		profile.Transport = TransportRCON
-		profile.Port = queryPort
+		profile.PortField = PortFieldQueryPort
 		profile.BindToGameServerIP = true
 		profile.RemoteAccessNote = "RCON uses the game server's configured multihome address."
 		profile.TransportSecurityNote = "RCON traffic is not encrypted."
 	case "palworld":
 		profile.Transport = TransportREST
-		profile.Port = queryPort
+		profile.PortField = PortFieldQueryPort
 		profile.Username = "admin"
 		profile.SecretKind = db.GameServerSecretKindPalworldREST
 		profile.SecretName = db.GameServerSecretNamePalworldRESTPassword
-		profile.RemoteAccessNote = "The Palworld REST API listens on the configured REST port."
+		profile.RemoteAccessNote = "The Palworld REST API listens on the query port."
 		profile.TransportSecurityNote = "Palworld's REST API uses HTTP Basic authentication without TLS."
 	case "satisfactory":
 		profile.Transport = TransportREST
-		profile.Port = port
+		profile.PortField = PortFieldPort
 		profile.BindToGameServerIP = true
 		profile.RemoteAccessNote = "The HTTPS API shares the game server's configured address and main port."
 		profile.TransportSecurityNote = "Satisfactory uses HTTPS and may present a self-signed certificate."
@@ -98,6 +109,10 @@ func Lookup(gameID string, port int64, queryPort int64) (Profile, bool) {
 		return Profile{}, false
 	}
 
+	profile.Port = queryPort + profile.PortOffset
+	if profile.PortField == PortFieldPort {
+		profile.Port = port + profile.PortOffset
+	}
 	return profile, true
 }
 

@@ -28,7 +28,7 @@ func validateGameServerPlayerCountAtMost(value int64, label string, maximum *int
 	}
 
 	if value > *maximum {
-		return invalidArg(fmt.Sprintf("%s cannot exceed %s", label, maximumLabel))
+		return invalidArg(fmt.Sprintf("%s cannot exceed %s (%d)", label, maximumLabel, *maximum))
 	}
 
 	return nil

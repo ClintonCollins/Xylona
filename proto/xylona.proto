@@ -653,6 +653,10 @@ message GameServerAdminInterface {
   bool remote_access = 7;
   string remote_access_note = 8;
   string transport_security_note = 9;
+  // The game server setting the admin port follows, "port" or "query_port",
+  // and the offset added to it.
+  string port_field = 10;
+  int64 port_offset = 11;
 }
 
 message GetGameServerAdminInterfaceRequest {

@@ -10,7 +10,10 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
   notify: vi.fn(),
+  dialog: vi.fn(),
 }))
+
+vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn(), onBeforeRouteUpdate: vi.fn() }))
 
 vi.mock('@/utils/shared', () => ({
   ConnectErrorToString: (error: Error) => error.message,
@@ -25,7 +28,7 @@ vi.mock('quasar', async () => {
   return {
     ...actual,
     copyToClipboard: vi.fn(),
-    useQuasar: () => ({ notify: mocks.notify }),
+    useQuasar: () => ({ dialog: mocks.dialog, notify: mocks.notify }),
   }
 })
 
@@ -48,7 +51,40 @@ describe('GameServerMapShareSettings', () => {
     mocks.getSettings.mockReset()
     mocks.updateSettings.mockReset()
     mocks.notify.mockReset()
+    mocks.dialog.mockReset()
     mocks.getSettings.mockResolvedValue({ settings })
+  })
+
+  it('closes a clean dialog at once and asks before discarding edits', async () => {
+    mocks.dialog.mockReturnValue({
+      onOk() {
+        return this
+      },
+      onCancel(handler: () => void) {
+        handler()
+        return this
+      },
+      onDismiss() {
+        return this
+      },
+    })
+    const wrapper = shallowMount(GameServerMapShareSettings, {
+      props: { gameServerId: 'server-1' },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      publicIdentifier: string
+      requestClose: () => Promise<void>
+    }
+
+    await vm.requestClose()
+    expect(mocks.dialog).not.toHaveBeenCalled()
+    expect(wrapper.emitted('close')).toHaveLength(1)
+
+    vm.publicIdentifier = 'Edited_Map'
+    await vm.requestClose()
+    expect(mocks.dialog).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
   it('saves a renamed or disabled canonical link', async () => {

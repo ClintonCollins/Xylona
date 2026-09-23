@@ -142,6 +142,9 @@
         <div class="game-default-env-header">
           <div>
             <div class="game-default-env-title">Default Environment</div>
+            <div class="text-caption text-xy-muted">
+              Servers of this game launch with these unless they set their own. Saved with Save.
+            </div>
           </div>
           <q-btn
             aria-label="Add environment variable"
@@ -151,7 +154,9 @@
             flat
             icon="add"
             round
-            @click="addDefaultEnvRow" />
+            @click="addDefaultEnvRow">
+            <q-tooltip>Add variable</q-tooltip>
+          </q-btn>
         </div>
 
         <div
@@ -207,17 +212,9 @@
               flat
               icon="delete"
               round
-              @click="removeDefaultEnvRow(index)" />
-          </div>
-
-          <div class="game-default-env-actions">
-            <q-btn
-              :loading="defaultEnvSaving"
-              color="primary"
-              data-testid="save-default-environment"
-              label="Save Default Environment"
-              no-caps
-              @click="saveDefaultEnvironment" />
+              @click="removeDefaultEnvRow(index)">
+              <q-tooltip>Remove variable</q-tooltip>
+            </q-btn>
           </div>
         </template>
       </section>
@@ -280,9 +277,7 @@ const {
   defaultEnvRows,
   defaultEnvIssues,
   defaultEnvLoading,
-  defaultEnvSaving,
   addDefaultEnvRow,
   removeDefaultEnvRow,
-  saveDefaultEnvironment,
 } = ctx
 </script>

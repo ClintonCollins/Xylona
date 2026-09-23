@@ -98,7 +98,8 @@ test('mobile stored access requires exact identity and review; join password sta
   await expect(password).toHaveAttribute('type', 'password')
   await expect(password).toHaveValue('')
   await password.fill('New-test-password')
-  await page.getByRole('button', { name: 'Replace password' }).click()
+  // The settings header Save commits the join password with every other changed section.
+  await page.getByRole('button', { name: 'Save changes' }).click()
   const settings = page.getByRole('region', { name: 'Join password', exact: true })
   await expect(settings).toContainText('Join password configured. Applies on next start.')
   await expect(settings).not.toContainText('New-test-password')
@@ -109,9 +110,10 @@ test('mobile stored access requires exact identity and review; join password sta
   )
   const cleared = page.waitForRequest('**/xylona.Xylona/ClearJoinPassword')
   await settings.getByRole('button', { name: 'Disable password protection' }).click()
+  await page.getByRole('button', { name: 'Disable protection', exact: true }).click()
   expect((await cleared).postDataJSON()).toEqual({ serverId })
   await expect(settings).toContainText('Password protection disabled. Applies on next start.')
-  await expect(settings.getByRole('button', { name: 'Set password', exact: true })).toBeVisible()
+  await expect(settings).toContainText('Open')
 })
 
 test('Valheim retains the installed inventory and Thunderstore browser', async ({

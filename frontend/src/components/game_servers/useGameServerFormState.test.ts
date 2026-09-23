@@ -3,7 +3,7 @@ import { create } from '@bufbuild/protobuf'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { GameSchema, IPSchema, NodeSchema } from '@/proto/shared_pb'
+import { GameSchema, GameServerSchema, IPSchema, NodeSchema } from '@/proto/shared_pb'
 
 import { useGameServerFormState } from './useGameServerFormState'
 
@@ -167,5 +167,61 @@ describe('useGameServerFormState', () => {
     expect(state.availableIPs.value.map((ip) => ip.address)).toEqual(['10.0.0.20', '198.51.100.20'])
     expect(state.gameServer.value.nodeId).toBe('node-remote-b')
     expect(state.gameServer.value.ip?.address).toBe('198.51.100.20')
+  })
+
+  it.each([
+    { name: 'a new server takes the game defaults', existingGameServerId: undefined, port: 7777n },
+    { name: 'an existing server keeps its values', existingGameServerId: 'server-1', port: 25565n },
+  ])('changing the game: $name', async ({ existingGameServerId, port }) => {
+    mocks.listGames.mockResolvedValue({
+      games: [
+        create(GameSchema, { id: 'minecraft', name: 'Minecraft', defaultPort: 25565n }),
+        create(GameSchema, {
+          id: 'terraria',
+          name: 'Terraria',
+          defaultPort: 7777n,
+          defaultQueryPort: 7778n,
+          defaultMaxPlayers: 8n,
+        }),
+      ],
+      options: [
+        { label: 'Minecraft', value: 'minecraft' },
+        { label: 'Terraria', value: 'terraria' },
+      ],
+    })
+    mocks.listIPs.mockResolvedValue([create(IPSchema, { address: '127.0.0.1' })])
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-1',
+        gameId: 'minecraft',
+        nodeId: 'node-local',
+        port: 25565n,
+        queryPort: 25566n,
+        maxPlayers: 20n,
+        setMaxPlayers: 20n,
+        maxMemoryMb: 2048n,
+      }),
+    )
+
+    let state!: ReturnType<typeof useGameServerFormState>
+    mount(
+      defineComponent({
+        async setup() {
+          state = useGameServerFormState({ existingGameServerId, loadProvisioningOptions: true })
+          await state.initialize()
+          return () => null
+        },
+      }),
+    )
+    await flushPromises()
+    if (!existingGameServerId) {
+      state.gameServer.value.port = 25565n
+    }
+
+    state.gameServer.value.gameId = 'terraria'
+    state.onGameSelected('terraria')
+
+    expect(state.gameServer.value.gameName).toBe('Terraria')
+    expect(state.gameServer.value.port).toBe(port)
   })
 })

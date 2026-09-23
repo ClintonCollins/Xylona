@@ -117,7 +117,7 @@ export function validatePlayerCountAtMost(
   }
 
   if (numericValue > numericMaximum) {
-    return `${label} cannot exceed ${maximumLabel}`
+    return `${label} cannot exceed ${maximumLabel} (${numericMaximum})`
   }
 
   return true

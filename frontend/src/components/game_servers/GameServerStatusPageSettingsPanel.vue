@@ -15,6 +15,7 @@ import {
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 
 const emit = defineEmits<{ close: [] }>()
 const $q = useQuasar()
@@ -117,30 +118,20 @@ async function loadSettings(nextOwnerID = ownerID.value) {
   }
 }
 
-function confirmDiscard(): Promise<boolean> {
-  if (!dirty.value) return Promise.resolve(true)
-  return new Promise((resolve) => {
-    $q.dialog({
-      title: 'Discard unsaved changes?',
-      message: 'Your status page changes have not been saved.',
-      cancel: true,
-      persistent: true,
-      ok: { label: 'Discard', color: 'negative' },
-    })
-      .onOk(() => resolve(true))
-      .onCancel(() => resolve(false))
-      .onDismiss(() => resolve(false))
-  })
-}
+const { confirmDiscard } = useUnsavedChangesGuard(dirty)
 
 async function changeOwner(nextOwnerID: string) {
-  if (!(await confirmDiscard())) return
+  if (!(await confirmDiscard('Your status page changes have not been saved. Discard them?'))) return
   await loadSettings(nextOwnerID)
 }
 
 async function requestClose() {
-  if (await confirmDiscard()) emit('close')
+  if (await confirmDiscard('Your status page changes have not been saved. Discard them?')) {
+    emit('close')
+  }
 }
+
+defineExpose({ requestClose })
 
 async function save() {
   if (!settings.value || !formValid.value) return

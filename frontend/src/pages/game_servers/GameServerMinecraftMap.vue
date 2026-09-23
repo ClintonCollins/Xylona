@@ -24,6 +24,15 @@ const loading = ref(false)
 const loadError = ref(false)
 const settingsOpen = ref(false)
 const shareOpen = ref(false)
+const shareSettings = ref<InstanceType<typeof GameServerMapShareSettings> | null>(null)
+
+async function onShareDialogToggle(open: boolean) {
+  if (open || !shareSettings.value) {
+    shareOpen.value = open
+    return
+  }
+  await shareSettings.value.requestClose()
+}
 const savingSettings = ref(false)
 const settingsForm = reactive({ enabled: false, worldName: 'world', accepted: false })
 let pollTimer: ReturnType<typeof setInterval> | undefined
@@ -247,8 +256,13 @@ onBeforeUnmount(() => {
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="shareOpen">
-      <game-server-map-share-settings :game-server-id="gameServerID" @close="shareOpen = false" />
+    <!-- Backdrop clicks and Esc ask the settings first so unsaved edits get the discard prompt.
+         Route changes are left to the settings' own leave guard, so it never asks twice. -->
+    <q-dialog :model-value="shareOpen" no-route-dismiss @update:model-value="onShareDialogToggle">
+      <game-server-map-share-settings
+        ref="shareSettings"
+        :game-server-id="gameServerID"
+        @close="shareOpen = false" />
     </q-dialog>
   </div>
 </template>
