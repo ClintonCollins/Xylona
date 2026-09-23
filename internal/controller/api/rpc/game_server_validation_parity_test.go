@@ -138,7 +138,7 @@ func makeValidationParityFixture() validationParityFixture {
 				MaximumLabel: `Max Players`,
 				Value:        12,
 				Maximum:      int64Ptr(10),
-				Expected:     `Set Players cannot exceed Max Players`,
+				Expected:     `Set Players cannot exceed Max Players (10)`,
 			},
 			{
 				Name:         `accepts values within the related maximum`,
