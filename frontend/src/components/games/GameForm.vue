@@ -16,8 +16,21 @@
           </ol>
         </nav>
         <h1 class="game-form-title font-display">{{ formTitle }}</h1>
+        <div
+          v-if="definitionStatus"
+          :title="definitionStatus"
+          class="game-form-status"
+          data-testid="game-form-status">
+          {{ definitionStatus }}
+        </div>
       </div>
       <div class="game-form-header-actions">
+        <span
+          v-if="showOfficialSaveNote"
+          class="game-form-save-note"
+          data-testid="game-form-official-save-note">
+          Saving local edits stops official updates for this game.
+        </span>
         <router-link
           v-if="!existingGame && !copyGame"
           class="game-form-guided-link text-caption"
@@ -364,6 +377,32 @@ const { loading, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
     saveDefaultEnvironment,
   })
 const restoringOfficial = ref(false)
+
+const editingSavedGame = computed(() => existingGame.value && !copyGame.value)
+
+// "Official definition · Used by 1 game server (Minecraft Dev Server)", so the operator
+// knows what an edit affects before saving it.
+const definitionStatus = computed(() => {
+  if (!editingSavedGame.value || loading.value) {
+    return ''
+  }
+
+  const source = game.value.xylonaOfficial ? 'Official definition' : 'Custom definition'
+  const servers = downstreamImpactServers.value.map((server) => server.name)
+  if (servers.length === 0) {
+    return `${source} · Not used by any game server`
+  }
+  const plural = servers.length === 1 ? '' : 's'
+  return `${source} · Used by ${servers.length} game server${plural} (${servers.join(', ')})`
+})
+
+const showOfficialSaveNote = computed(
+  () =>
+    editingSavedGame.value &&
+    game.value.xylonaOfficial &&
+    !game.value.officialDefinitionDiverged &&
+    isDirty.value,
+)
 
 const showDivergedBanner = computed(() => {
   return (
@@ -1096,6 +1135,21 @@ async function saveDefaultEnvironment(): Promise<void> {
   letter-spacing: 0.02em;
 }
 
+.game-form-status {
+  overflow: hidden;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-form-save-note {
+  max-width: 22rem;
+  color: var(--xy-warning);
+  font-size: var(--xy-font-size-xs);
+  line-height: 1.35;
+}
+
 .game-form-guided-link {
   color: var(--xy-accent);
   margin-right: 8px;
@@ -1264,9 +1318,10 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 /* ---- Overview Metadata Strip ---- */
 
+/* Identity has two fields and Networking three, so 2fr / 3fr gives every field the same width. */
 .overview-metadata {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   gap: var(--xy-space-lg);
 }
 
@@ -1916,8 +1971,11 @@ async function saveDefaultEnvironment(): Promise<void> {
     padding-inline: var(--xy-space-xs);
   }
 
+  /* Wrap the tabs so every section, Config Files included, stays visible on a phone. */
   .game-form-tabs {
-    gap: var(--xy-space-sm);
+    flex-wrap: wrap;
+    min-width: 0;
+    gap: 0 var(--xy-space-md);
   }
 
   .game-form-tab {

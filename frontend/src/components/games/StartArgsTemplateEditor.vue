@@ -119,6 +119,12 @@
                       class="template-editor__arg-chip-handle"
                       name="drag_indicator"
                       size="16px" />
+                    <q-icon
+                      v-if="block.ownership === 'locked'"
+                      aria-hidden="true"
+                      class="template-editor__arg-chip-lock"
+                      name="lock"
+                      size="14px" />
                     <span class="template-editor__arg-chip-text font-mono">{{
                       previewChipText(block)
                     }}</span>
@@ -142,9 +148,28 @@
             </div>
 
             <div class="template-editor__command-footer">
-              <span class="template-editor__command-hint">
-                Click an argument to edit it. Drag or use the arrow buttons to reorder.
-              </span>
+              <div class="template-editor__command-help">
+                <span class="template-editor__command-hint">
+                  Click an argument to edit it. Drag or use the arrow buttons to reorder.
+                </span>
+                <span class="template-editor__legend" data-testid="start-args-legend">
+                  <span
+                    class="template-editor__legend-item template-editor__arg-chip--system"
+                    title="Xylona fills it in from the server's settings">
+                    <span class="template-editor__legend-dot"></span>System
+                  </span>
+                  <span
+                    class="template-editor__legend-item template-editor__arg-chip--locked"
+                    title="Only admins can change it on a server">
+                    <q-icon aria-hidden="true" name="lock" size="12px" />Locked
+                  </span>
+                  <span
+                    class="template-editor__legend-item template-editor__arg-chip--editable"
+                    title="Server owners can change it">
+                    <span class="template-editor__legend-dot"></span>Editable
+                  </span>
+                </span>
+              </div>
               <div class="template-editor__command-tools">
                 <button
                   :disabled="!canResetOrder"
@@ -1312,6 +1337,34 @@ function createBlockId() {
   line-height: 1.4;
 }
 
+.template-editor__command-help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-xs);
+  min-width: 0;
+}
+
+.template-editor__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs) var(--xy-space-md);
+  font-size: var(--xy-font-size-xs);
+}
+
+.template-editor__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  color: var(--template-editor-chip-text);
+}
+
+.template-editor__legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--xy-radius-pill);
+  background: var(--template-editor-chip-accent);
+}
+
 .template-editor__prompt {
   flex: 0 0 auto;
   color: var(--template-editor-platform);
@@ -1410,9 +1463,15 @@ function createBlockId() {
   );
 }
 
+/* Locked is a permission, not a fault: neutral, with a lock icon instead of red. */
 .template-editor__arg-chip--locked {
-  --template-editor-chip-accent: var(--xy-danger);
-  --template-editor-chip-text: color-mix(in srgb, var(--xy-danger) 52%, var(--xy-text-primary) 48%);
+  --template-editor-chip-accent: var(--xy-text-muted);
+  --template-editor-chip-text: var(--xy-text-secondary);
+}
+
+.template-editor__arg-chip-lock {
+  flex: 0 0 auto;
+  color: var(--xy-text-muted);
 }
 
 .template-editor__arg-chip--editable {
@@ -1638,9 +1697,9 @@ function createBlockId() {
 }
 
 .template-editor__state--locked {
-  border-color: color-mix(in srgb, var(--xy-danger) 34%, var(--xy-border) 66%);
-  background: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-0) 90%);
-  color: color-mix(in srgb, var(--xy-danger) 72%, var(--xy-text-primary) 28%);
+  border-color: var(--xy-border-hover);
+  background: var(--xy-surface-2);
+  color: var(--xy-text-secondary);
 }
 
 .template-editor__state--editable {
@@ -1751,11 +1810,11 @@ function createBlockId() {
     padding-block: 8px;
   }
 
+  /* Arguments stay on one line (full value in the tooltip and edit dialog) rather than
+     breaking mid-flag into misleading fragments. */
   .template-editor__arg-chip-text {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-    word-break: break-word;
+    min-width: 0;
+    text-align: left;
   }
 
   .template-editor__command-hint {
