@@ -638,6 +638,11 @@ async function restartGameServer(): Promise<void> {
     padding: var(--xy-space-sm) var(--xy-space-base);
   }
 
+  /* Phones drop the game/version line: name + status on one row, controls on the next. */
+  .identity-bar-detail {
+    display: none;
+  }
+
   .identity-bar-actions {
     grid-column: 1 / -1;
     justify-content: space-between;
