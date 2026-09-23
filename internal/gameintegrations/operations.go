@@ -1,6 +1,9 @@
 package gameintegrations
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 const (
 	// PlayerIdentityPattern is the native platform-prefixed identity shape accepted by built-in operations.
@@ -148,7 +151,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 		{
 			ID:           OperationIDAddAdministrator,
 			Name:         "Add administrator",
-			Summary:      "Grant a Player an explicit native permission level.",
+			Summary:      "Grant a player an explicit native permission level.",
 			Category:     "Player access",
 			PermissionID: "game_server.players.manage",
 			Risk:         OperationRiskCaution,
@@ -161,7 +164,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 				{
 					ID:                "player",
 					Label:             "Player",
-					Description:       "Choose a known Player or enter a stable platform identity.",
+					Description:       "Choose a known player or enter a stable platform identity.",
 					Type:              OperationFieldPlayerIdentity,
 					Required:          true,
 					AllowManual:       true,
@@ -170,7 +173,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 				{
 					ID:              "permission_level",
 					Label:           "Permission level",
-					Description:     "Lower native values grant more access; 0 is maximum and 1000 is the default Player level.",
+					Description:     "Lower native values grant more access; 0 is maximum and 1000 is the default player level.",
 					Type:            OperationFieldInteger,
 					Required:        true,
 					DefaultValue:    "0",
@@ -179,14 +182,14 @@ var operationsByGame = map[string][]OperationDescriptor{
 					MaxValue:        new(int32(1000)),
 					Options: []OperationFieldOption{
 						{Label: "Maximum permission", Value: "0", Description: "Native level 0"},
-						{Label: "Default Player level", Value: "1000", Description: "Native level 1000"},
+						{Label: "Default player level", Value: "1000", Description: "Native level 1000"},
 					},
 				},
 			},
 			Review: OperationReview{
 				Title:   "Review administrator access",
-				Effect:  "The selected Player will be added as an administrator at the chosen native permission level.",
-				Caution: "Lower permission levels grant more access. Confirm the Player identity and exact value before execution.",
+				Effect:  "The selected player will be added as an administrator at the chosen native permission level.",
+				Caution: "Lower permission levels grant more access. Confirm the player identity and exact value before execution.",
 			},
 			NativeCapability: OperationNativeCapabilityGamePermissions,
 			Concurrency: OperationConcurrency{
@@ -197,7 +200,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 		{
 			ID:           OperationIDRemoveAdministrator,
 			Name:         "Remove administrator",
-			Summary:      "Remove a Player's explicit native permission level.",
+			Summary:      "Remove a player's explicit native permission level.",
 			Category:     "Player access",
 			PermissionID: "game_server.players.manage",
 			Risk:         OperationRiskCaution,
@@ -210,7 +213,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 				{
 					ID:                "player",
 					Label:             "Player",
-					Description:       "Choose a known Player or enter a stable platform identity.",
+					Description:       "Choose a known player or enter a stable platform identity.",
 					Type:              OperationFieldPlayerIdentity,
 					Required:          true,
 					AllowManual:       true,
@@ -219,8 +222,8 @@ var operationsByGame = map[string][]OperationDescriptor{
 			},
 			Review: OperationReview{
 				Title:   "Review administrator removal",
-				Effect:  "The selected Player's explicit administrator permission will be removed.",
-				Caution: "Confirm the stable Player identity before removing administrator access.",
+				Effect:  "The selected player's explicit administrator permission will be removed.",
+				Caution: "Confirm the stable player identity before removing administrator access.",
 			},
 			NativeCapability: OperationNativeCapabilityGamePermissions,
 			Concurrency: OperationConcurrency{
@@ -262,7 +265,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 					MaxValue:        new(int32(1000)),
 					Options: []OperationFieldOption{
 						{Label: "Maximum permission", Value: "0", Description: "Native level 0"},
-						{Label: "Default Player level", Value: "1000", Description: "Native level 1000"},
+						{Label: "Default player level", Value: "1000", Description: "Native level 1000"},
 					},
 				},
 			},
@@ -313,77 +316,77 @@ var operationsByGame = map[string][]OperationDescriptor{
 		},
 		playerActionOperation(
 			OperationIDKickPlayer,
-			"Kick Player",
-			"Disconnect a Player from the game server.",
+			"Kick player",
+			"Disconnect a player from the game server.",
 			"Player moderation",
 			OperationRiskCaution,
-			"The selected Player will be disconnected from the game server.",
+			"The selected player will be disconnected from the game server.",
 			"The game accepts an optional reason, but does not provide authoritative state read-back.",
 			true,
 		),
 		playerActionOperation(
 			OperationIDBanPlayer,
-			"Ban Player",
-			"Permanently block a Player from joining the game server.",
+			"Ban player",
+			"Permanently block a player from joining the game server.",
 			"Player moderation",
 			OperationRiskCaution,
-			"The selected Player will be permanently banned using the existing 0-minute native duration.",
-			"Confirm the Player identity. The game accepts an optional reason but does not provide authoritative state read-back.",
+			"The selected player will be banned permanently.",
+			"Confirm the player identity. The game accepts an optional reason but does not provide authoritative state read-back.",
 			true,
 		),
 		playerActionOperation(
 			OperationIDUnbanPlayer,
-			"Unban Player",
-			"Remove a Player ban.",
+			"Unban player",
+			"Remove a player ban.",
 			"Player moderation",
 			OperationRiskRoutine,
-			"The selected Player will be removed from the game server ban list.",
+			"The selected player will be removed from the game server ban list.",
 			"The game does not provide authoritative state read-back for this action.",
 			false,
 		),
 		playerActionOperation(
 			OperationIDAllowlistAdd,
 			"Add to allowlist",
-			"Allow a Player to join an allowlisted game server.",
+			"Allow a player to join an allowlisted game server.",
 			"Player access",
 			OperationRiskRoutine,
-			"The selected Player will be added to the game server allowlist.",
+			"The selected player will be added to the game server allowlist.",
 			"The game does not provide authoritative state read-back for this action.",
 			false,
 		),
 		playerActionOperation(
 			OperationIDAllowlistRemove,
 			"Remove from allowlist",
-			"Remove a Player from the game server allowlist.",
+			"Remove a player from the game server allowlist.",
 			"Player access",
 			OperationRiskCaution,
-			"The selected Player will be removed from the game server allowlist.",
-			"Confirm the Player identity. The game does not provide authoritative state read-back for this action.",
+			"The selected player will be removed from the game server allowlist.",
+			"Confirm the player identity. The game does not provide authoritative state read-back for this action.",
 			false,
 		),
 		commandOperation(
 			OperationIDTeleportPlayer,
-			"Teleport Player",
-			"Move one online Player to another online Player.",
+			"Teleport player",
+			"Move one online player to another online player.",
 			"Player assistance",
 			[]OperationField{
-				playerIdentityOperationField("player", "Player", "Choose the Player to move."),
-				playerIdentityOperationField("destination", "Destination Player", "Choose the online Player to use as the destination."),
+				playerIdentityOperationField("player", "Player", "Choose the player to move."),
+				playerIdentityOperationField("destination", "Destination player", "Choose the online player to use as the destination."),
 			},
 			OperationReview{
-				Title:   "Review Player teleport",
-				Effect:  "The selected Player will be moved to the destination Player's current location.",
-				Caution: "Both Players must be online. Confirm the source and destination before execution.",
+				Title:   "Review player teleport",
+				Effect:  "The selected player will be moved to the destination player's current location.",
+				Caution: "Both players must be online. Confirm the source and destination before execution.",
 			},
 			OperationConcurrency{Lock: "player_assistance", TargetField: "player"},
 		),
 		commandOperation(
 			OperationIDGiveItem,
 			"Give item",
-			"Drop a stack of an exact item definition in front of a Player.",
+			"Drop a stack of an exact item definition in front of a player.",
 			"Player assistance",
 			[]OperationField{
-				playerIdentityOperationField("player", "Player", "Choose the Player who should receive the item."),
+				playerIdentityOperationField("player", "Player", "Choose the player who should receive the item."),
 				{
 					ID:                "item",
 					Label:             "Item",
@@ -407,7 +410,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 			},
 			OperationReview{
 				Title:   "Review item grant",
-				Effect:  "The chosen item stack will be dropped in front of the selected Player.",
+				Effect:  "The chosen item stack will be dropped in front of the selected player.",
 				Caution: "The item name must exactly match a server item definition.",
 			},
 			OperationConcurrency{Lock: "player_assistance", TargetField: "player"},
@@ -415,10 +418,10 @@ var operationsByGame = map[string][]OperationDescriptor{
 		commandOperation(
 			OperationIDGiveExperience,
 			"Give experience",
-			"Grant experience points to a Player.",
+			"Grant experience points to a player.",
 			"Player assistance",
 			[]OperationField{
-				playerIdentityOperationField("player", "Player", "Choose the Player who should receive experience."),
+				playerIdentityOperationField("player", "Player", "Choose the player who should receive experience."),
 				{
 					ID:              "experience",
 					Label:           "Experience",
@@ -433,20 +436,20 @@ var operationsByGame = map[string][]OperationDescriptor{
 			},
 			OperationReview{
 				Title:   "Review experience grant",
-				Effect:  "The selected Player will receive the chosen amount of experience.",
-				Caution: "Experience changes Player progression and cannot be automatically reversed.",
+				Effect:  "The selected player will receive the chosen amount of experience.",
+				Caution: "Experience changes player progression and cannot be automatically reversed.",
 			},
 			OperationConcurrency{Lock: "player_assistance", TargetField: "player"},
 		),
 		commandOperation(
 			OperationIDApplyBuff,
 			"Apply buff",
-			"Apply an exact game buff to a Player.",
+			"Apply an exact game buff to a player.",
 			"Player assistance",
-			playerBuffOperationFields("Apply the buff to this Player."),
+			playerBuffOperationFields("Apply the buff to this player."),
 			OperationReview{
 				Title:   "Review buff application",
-				Effect:  "The exact buff will be applied to the selected Player.",
+				Effect:  "The exact buff will be applied to the selected player.",
 				Caution: "The buff name must exactly match a server buff definition.",
 			},
 			OperationConcurrency{Lock: "player_assistance", TargetField: "player"},
@@ -454,12 +457,12 @@ var operationsByGame = map[string][]OperationDescriptor{
 		commandOperation(
 			OperationIDRemoveBuff,
 			"Remove buff",
-			"Remove an exact game buff from a Player.",
+			"Remove an exact game buff from a player.",
 			"Player assistance",
-			playerBuffOperationFields("Remove the buff from this Player."),
+			playerBuffOperationFields("Remove the buff from this player."),
 			OperationReview{
 				Title:   "Review buff removal",
-				Effect:  "The exact buff will be removed from the selected Player.",
+				Effect:  "The exact buff will be removed from the selected player.",
 				Caution: "The buff name must exactly match an active server buff definition.",
 			},
 			OperationConcurrency{Lock: "player_assistance", TargetField: "player"},
@@ -486,7 +489,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 			OperationReview{
 				Title:   "Review wandering horde",
 				Effect:  "The game server will spawn one wandering horde.",
-				Caution: "This can immediately endanger online Players and cannot be automatically reversed.",
+				Caution: "This can immediately endanger online players and cannot be automatically reversed.",
 			},
 			OperationConcurrency{Lock: "world_events"},
 		),
@@ -513,7 +516,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 			OperationReview{
 				Title:   "Review weather change",
 				Effect:  "The active world weather will change to the selected state.",
-				Caution: "Weather changes affect every online Player.",
+				Caution: "Weather changes affect every online player.",
 			},
 			OperationConcurrency{Lock: "world_events"},
 		),
@@ -598,7 +601,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 			Review: OperationReview{
 				Title:   "Review world time change",
 				Effect:  "The selected game server's world clock will move to the chosen time.",
-				Caution: "Changing world time can affect active Players and time-dependent game events.",
+				Caution: "Changing world time can affect active players and time-dependent game events.",
 			},
 			NativeCapability: OperationNativeCapabilityCommand,
 			Concurrency: OperationConcurrency{
@@ -620,7 +623,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 			},
 			Review: OperationReview{
 				Title:   "Review server shutdown",
-				Effect:  "The selected game server will stop and disconnect all active Players.",
+				Effect:  "The selected game server will stop and disconnect all active players.",
 				Caution: "This immediately ends the running server process. Start it again from Xylona when you are ready.",
 			},
 			NativeCapability: OperationNativeCapabilityCommand,
@@ -631,7 +634,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 		{
 			ID:                       OperationIDBroadcastMessage,
 			Name:                     "Send server announcement",
-			Summary:                  "Broadcast an announcement to every connected Player.",
+			Summary:                  "Broadcast an announcement to every connected player.",
 			Category:                 "Communication",
 			PermissionID:             "game_server.console",
 			Risk:                     OperationRiskRoutine,
@@ -640,21 +643,21 @@ var operationsByGame = map[string][]OperationDescriptor{
 				{
 					ID:          "message",
 					Label:       "Announcement",
-					Description: "Enter the message every connected Player should receive.",
+					Description: "Enter the message every connected player should receive.",
 					Type:        OperationFieldText,
 					Required:    true,
 				},
 			},
 			Review: OperationReview{
 				Title:  "Review server announcement",
-				Effect: "The announcement will be sent to every connected Player.",
+				Effect: "The announcement will be sent to every connected player.",
 			},
 			NativeCapability: OperationNativeCapabilityCommand,
 		},
 		{
 			ID:                       OperationIDMessagePlayer,
-			Name:                     "Send private Player message",
-			Summary:                  "Deliver a private message to one Player.",
+			Name:                     "Send private player message",
+			Summary:                  "Deliver a private message to one player.",
 			Category:                 "Communication",
 			PermissionID:             "game_server.console",
 			Risk:                     OperationRiskRoutine,
@@ -663,7 +666,7 @@ var operationsByGame = map[string][]OperationDescriptor{
 				{
 					ID:                "player",
 					Label:             "Player",
-					Description:       "Choose a known Player or enter a stable platform identity.",
+					Description:       "Choose a known player or enter a stable platform identity.",
 					Type:              OperationFieldPlayerIdentity,
 					Required:          true,
 					AllowManual:       true,
@@ -672,14 +675,14 @@ var operationsByGame = map[string][]OperationDescriptor{
 				{
 					ID:          "message",
 					Label:       "Message",
-					Description: "Enter the private message this Player should receive.",
+					Description: "Enter the private message this player should receive.",
 					Type:        OperationFieldText,
 					Required:    true,
 				},
 			},
 			Review: OperationReview{
 				Title:  "Review private message",
-				Effect: "The message will be sent only to the selected Player.",
+				Effect: "The message will be sent only to the selected player.",
 			},
 			NativeCapability: OperationNativeCapabilityCommand,
 		},
@@ -861,7 +864,7 @@ func playerActionOperation(
 		{
 			ID:                "player",
 			Label:             "Player",
-			Description:       "Choose a known Player or enter the platform, cross-platform, or entity ID accepted by the game.",
+			Description:       "Choose a known player or enter the platform, cross-platform, or entity ID accepted by the game.",
 			Type:              OperationFieldPlayerIdentity,
 			Required:          true,
 			AllowManual:       true,
@@ -887,11 +890,11 @@ func playerActionOperation(
 		AvailabilityRequirements: []string{
 			"Server online",
 			"Node supports game operations",
-			"Node supports typed 7 Days to Die Player actions",
+			"Node supports typed 7 Days to Die player actions",
 		},
 		Fields: fields,
 		Review: OperationReview{
-			Title:   "Review " + name,
+			Title:   "Review " + strings.ToLower(name),
 			Effect:  effect,
 			Caution: caution,
 		},

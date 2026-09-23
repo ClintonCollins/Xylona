@@ -419,7 +419,7 @@ func gameOperationAvailability(
 		if !environment.capabilities.PlayerActions {
 			return operationAvailability{
 				reason: xylona.GameOperationAvailabilityReason_GAME_OPERATION_AVAILABILITY_REASON_NODE_UNSUPPORTED,
-				text:   "Update the node to a version that supports typed 7 Days to Die Player actions.",
+				text:   "Update the node to a version that supports typed 7 Days to Die player actions.",
 			}
 		}
 		if !environment.playerActionsConfigured {
@@ -641,23 +641,23 @@ func playerActionOperationResult(operationName string, errAction error) node.Gam
 	if errAction == nil {
 		return node.GameOperationResult{
 			Classification:   node.GameOperationResultAcceptedButUnverified,
-			Message:          operationName + " was accepted by the server console, but the final Player state could not be verified.",
+			Message:          operationName + " was accepted by the server console, but the final player state could not be verified.",
 			TransportDetails: details,
 		}
 	}
 
-	message := "The server node could not complete the Player action."
+	message := "The server node could not complete the player action."
 	switch {
 	case errors.Is(errAction, node.ErrInvalidPlayerAction):
-		message = "The Player identity or reason was rejected by the node."
+		message = "The player identity or reason was rejected by the node."
 	case errors.Is(errAction, node.ErrPlayerActionUnsupported):
-		message = "This Player action is not supported by the game server."
+		message = "This player action is not supported by the game server."
 	case errors.Is(errAction, node.ErrProcessNotFound):
 		message = "The game server process is not running."
 	case errors.Is(errAction, node.ErrConsoleInputUnavailable):
 		message = "The game server console input is unavailable."
 	case errors.Is(errAction, node.ErrPlayerActionUnavailable):
-		message = "The game server could not complete the Player action."
+		message = "The game server could not complete the player action."
 	}
 	return node.GameOperationResult{
 		Classification:   node.GameOperationResultFailed,
