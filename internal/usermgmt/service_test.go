@@ -309,6 +309,104 @@ func TestDeleteUserAllowsRemovingSuperUserWhenAnotherSuperUserExists(t *testing.
 	}
 }
 
+func TestDeleteUserNamesBlockersAndDeletesSchedules(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		userID      string
+		wantErr     error
+		wantMessage string
+	}{
+		{
+			name:        "owner must transfer their game servers first",
+			userID:      `user-owner`,
+			wantErr:     ErrUserOwnsGameServers,
+			wantMessage: `transfer ownership of "Blocked Server" first`,
+		},
+		{
+			name:        "grantor must remove the access they gave first",
+			userID:      `user-grantor`,
+			wantErr:     ErrUserGaveAccess,
+			wantMessage: `remove the access they granted on "Blocked Server"`,
+		},
+		{
+			name:   "schedule creator is deleted with their schedules",
+			userID: `user-scheduler`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			conn := newUserMgmtTestConnection(t, `usermgmt-delete-blockers.sqlite`)
+			scheduleID := seedUserDeletionFixture(t, conn)
+			service := NewService(conn)
+
+			errDelete := service.Delete(DeleteInput{ID: tt.userID})
+			if tt.wantErr != nil {
+				if !errors.Is(errDelete, tt.wantErr) {
+					t.Fatalf(`Delete() error = %v, want %v`, errDelete, tt.wantErr)
+				}
+				if !strings.Contains(errDelete.Error(), tt.wantMessage) {
+					t.Fatalf(`Delete() error = %q, want it to contain %q`, errDelete.Error(), tt.wantMessage)
+				}
+				_, errGetUser := conn.GetUserByID(tt.userID)
+				if errGetUser != nil {
+					t.Fatalf(`GetUserByID() error = %v, want blocked user kept`, errGetUser)
+				}
+				return
+			}
+
+			if errDelete != nil {
+				t.Fatalf(`Delete() error = %v`, errDelete)
+			}
+			_, errGetTask := conn.GetScheduledTaskByID(scheduleID)
+			if !errors.Is(errGetTask, sql.ErrNoRows) {
+				t.Fatalf(`GetScheduledTaskByID() error = %v, want schedule deleted with its creator`, errGetTask)
+			}
+		})
+	}
+}
+
+// seedUserDeletionFixture creates a game server owned by user-owner, access to
+// it that user-grantor gave user-scheduler, and a schedule user-scheduler
+// created. It returns the schedule ID.
+func seedUserDeletionFixture(t *testing.T, conn *db.Connection) string {
+	t.Helper()
+
+	exec := func(query string, args ...any) {
+		t.Helper()
+		_, errExec := conn.SQLDb.ExecContext(t.Context(), query, args...)
+		if errExec != nil {
+			t.Fatalf(`seed %q: %v`, query, errExec)
+		}
+	}
+
+	now := time.Now().UTC()
+	for _, id := range []string{`user-owner`, `user-grantor`, `user-scheduler`} {
+		exec(`insert into user (id, user_name, email, first_name, last_name, password_hash, super_user, last_login_at, created_at, updated_at)
+			values (?, ?, ?, '', '', 'hash', 0, ?, ?, ?)`, id, id, id+`@example.com`, now, now, now)
+	}
+	exec(`insert into node (id, name, listen_url, enabled) values ('node-delete', 'Node', '', 1)`)
+	exec(`insert into ip (address, usable, external, node_id) values ('127.0.0.1', 1, 0, 'node-delete')`)
+	exec(`insert into game (id, name, default_port, default_query_port, default_max_players, windows_support)
+		values ('usermgmt-game', 'Game', 27015, 27015, 10, 1)`)
+	exec(`insert into game_server
+		(id, user_id, name, game_id, status, set_players, max_players, map, ip, port, query_port, directory, node_id, start_args_patches)
+		values ('server-blocked', 'user-owner', 'Blocked Server', 'usermgmt-game', 'OFFLINE', 10, 10, '', '127.0.0.1', 27015, 27015, '/tmp/blocked', 'node-delete', '[]')`)
+
+	errGrant := conn.CreateUserRoleAssignment(`grant-blocked`, `user-scheduler`, `viewer`, `server-blocked`, `user-grantor`)
+	if errGrant != nil {
+		t.Fatalf(`CreateUserRoleAssignment() error = %v`, errGrant)
+	}
+	task, errTask := conn.InsertScheduledTask(`server-blocked`, `user-scheduler`, `Nightly`, `backup`, `0 3 * * *`, `UTC`, ``, true)
+	if errTask != nil {
+		t.Fatalf(`InsertScheduledTask() error = %v`, errTask)
+	}
+	return task.ID
+}
+
 func TestUpdateUserAllowsDemotingSuperUserWhenAnotherSuperUserExists(t *testing.T) {
 	t.Parallel()
 

@@ -124,6 +124,14 @@ func TestDeleteNodeByID(t *testing.T) {
 	if errInsert != nil {
 		t.Fatalf("InsertNode() error = %v", errInsert)
 	}
+	// An IP row left behind after the node's last game server was deleted
+	// must not block removing the node.
+	_, errInsertIP := conn.SQLDb.ExecContext(t.Context(),
+		`insert into ip (address, usable, external, node_id) values (?, ?, ?, ?)`,
+		"10.0.0.3", true, false, "node-delete")
+	if errInsertIP != nil {
+		t.Fatalf("insert ip error = %v", errInsertIP)
+	}
 
 	errDelete := conn.DeleteNodeByID("node-delete")
 	if errDelete != nil {
@@ -133,6 +141,39 @@ func TestDeleteNodeByID(t *testing.T) {
 	_, errGet := conn.GetNodeByID("node-delete")
 	if !errors.Is(errGet, sql.ErrNoRows) {
 		t.Errorf("GetNodeByID() after delete error = %v, want %v", errGet, sql.ErrNoRows)
+	}
+	ips, errGetIPs := conn.GetIPsByNodeID("node-delete")
+	if errGetIPs != nil {
+		t.Fatalf("GetIPsByNodeID() error = %v", errGetIPs)
+	}
+	if len(ips) != 0 {
+		t.Errorf("GetIPsByNodeID() after delete len = %d, want 0", len(ips))
+	}
+}
+
+func TestDeleteNodeByIDRefusesWhileGameServersRemain(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "node-delete-in-use.sqlite")
+	seedRBACFixture(t, conn)
+
+	errDelete := conn.DeleteNodeByID("node-local")
+	var inUse *NodeInUseError
+	if !errors.As(errDelete, &inUse) {
+		t.Fatalf("DeleteNodeByID() error = %v, want *NodeInUseError", errDelete)
+	}
+	if inUse.GameServerCount != 1 {
+		t.Errorf("GameServerCount = %d, want 1", inUse.GameServerCount)
+	}
+
+	_, errGet := conn.GetNodeByID("node-local")
+	if errGet != nil {
+		t.Errorf("GetNodeByID() after refused delete error = %v", errGet)
+	}
+	ips, errGetIPs := conn.GetIPsByNodeID("node-local")
+	if errGetIPs != nil {
+		t.Fatalf("GetIPsByNodeID() error = %v", errGetIPs)
+	}
+	if len(ips) != 1 {
+		t.Errorf("GetIPsByNodeID() after refused delete len = %d, want 1", len(ips))
 	}
 }
 

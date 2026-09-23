@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -381,6 +382,69 @@ func TestRemoveNodeUnregistersLiveClient(t *testing.T) {
 	_, errGetAfter := registry.Get("node-remote")
 	if !errors.Is(errGetAfter, noderegistry.ErrNodeNotRegistered) {
 		t.Fatalf("Get(node-remote) after remove error = %v, want %v", errGetAfter, noderegistry.ErrNodeNotRegistered)
+	}
+}
+
+func TestRemoveNodeRequiresMovingItsGameServers(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	_, errMove := fixture.conn.SQLDb.ExecContext(t.Context(),
+		`update game_server set node_id = 'node-remote' where id = 'server-local-1'`)
+	if errMove != nil {
+		t.Fatalf("move game server to remote node: %v", errMove)
+	}
+
+	remove := func() error {
+		request := connect.NewRequest(&xylona.RemoveNodeRequest{NodeId: "node-remote"})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+		_, errRemove := fixture.service.RemoveNode(t.Context(), request)
+		return errRemove
+	}
+
+	errRemove := remove()
+	var connectErr *connect.Error
+	if !errors.As(errRemove, &connectErr) || connectErr.Code() != connect.CodeFailedPrecondition {
+		t.Fatalf("RemoveNode() error = %v, want failed precondition", errRemove)
+	}
+	if connectErr.Message() != "move or delete the 1 game server on this node first" {
+		t.Errorf("RemoveNode() message = %q", connectErr.Message())
+	}
+
+	// With the server gone, the node's leftover IP row must not block removal.
+	_, errDeleteServer := fixture.conn.SQLDb.ExecContext(t.Context(), `delete from game_server where id = 'server-local-1'`)
+	if errDeleteServer != nil {
+		t.Fatalf("delete game server: %v", errDeleteServer)
+	}
+	errRemove = remove()
+	if errRemove != nil {
+		t.Fatalf("RemoveNode() after moving servers error = %v", errRemove)
+	}
+	_, errGet := fixture.conn.GetNodeByID("node-remote")
+	if !errors.Is(errGet, sql.ErrNoRows) {
+		t.Fatalf("GetNodeByID(node-remote) error = %v, want %v", errGet, sql.ErrNoRows)
+	}
+}
+
+func TestEditNodeIgnoresListenURLForEmbeddedSelfNode(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.EditNodeRequest{Node: &xylona.Node{
+		Id:      "node-local",
+		Name:    "Controller",
+		BaseUrl: "https://typed-by-mistake.example.com",
+	}})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+
+	_, errEdit := fixture.service.EditNode(t.Context(), request)
+	if errEdit != nil {
+		t.Fatalf("EditNode() error = %v", errEdit)
+	}
+	selfNode, errGet := fixture.conn.GetNodeByID("node-local")
+	if errGet != nil {
+		t.Fatalf("GetNodeByID() error = %v", errGet)
+	}
+	if selfNode.Name != "Controller" || selfNode.ListenURL != "" {
+		t.Errorf("node = {Name: %q, ListenURL: %q}, want {Controller, empty}", selfNode.Name, selfNode.ListenURL)
 	}
 }
 

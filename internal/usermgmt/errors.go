@@ -25,4 +25,9 @@ var (
 	ErrLastSuperUser = errors.New(`cannot remove the last super user`)
 	// ErrCannotDeleteSelf reports that an RPC-scoped self-delete was attempted.
 	ErrCannotDeleteSelf = errors.New(`cannot delete your own user`)
+	// ErrUserOwnsGameServers reports that a user to delete still owns game servers.
+	ErrUserOwnsGameServers = errors.New(`user owns game servers`)
+	// ErrUserGaveAccess reports that a user to delete granted game server access
+	// to other users.
+	ErrUserGaveAccess = errors.New(`user granted game server access to other users`)
 )

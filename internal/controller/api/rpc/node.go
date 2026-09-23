@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
+	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/placeholder"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
@@ -117,7 +118,13 @@ func (xs *XylonaService) RemoveNode(_ context.Context, request *connect.Request[
 
 	errDelete := xs.db.DeleteNodeByID(nodeID)
 	if errDelete != nil {
-		return nil, connect.NewError(connect.CodeInternal, errDelete)
+		if inUse, ok := errors.AsType[*db.NodeInUseError](errDelete); ok {
+			return nil, connect.NewError(connect.CodeFailedPrecondition,
+				fmt.Errorf("move or delete the %s on this node first",
+					pluralCount(inUse.GameServerCount, "game server", "game servers")))
+		}
+		log.Error().Err(errDelete).Str("node_id", nodeID).Msg("Failed to remove node")
+		return nil, internalErrf("failed to remove node")
 	}
 	if xs.nodeRegistry != nil {
 		xs.nodeRegistry.Remove(nodeID)
@@ -140,6 +147,10 @@ func (xs *XylonaService) EditNode(ctx context.Context, request *connect.Request[
 		return nil, connect.NewError(contextConnectCode(errContext), fmt.Errorf("edit node: %w", errContext))
 	}
 	nodeModel := protomap.NodeProtoToModel(request.Msg.GetNode())
+	if nodeModel.ID == xs.selfNodeID() {
+		// The in-process node is reached directly, never over a listen URL.
+		nodeModel.ListenURL = ""
+	}
 	node, err := xs.db.UpdateNode(nodeModel, protomap.NodeModelToSetter(nodeModel))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

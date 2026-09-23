@@ -36,6 +36,7 @@ service Xylona {
   rpc GetUser (GetUserDetailsRequest) returns (GetUserDetailsResponse) {}
   rpc UpdateUser (UpdateUserRequest) returns (UpdateUserResponse) {}
   rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse) {}
+  rpc GetUserDeletionImpact (GetUserDeletionImpactRequest) returns (GetUserDeletionImpactResponse) {}
   rpc ListRoles (ListRolesRequest) returns (ListRolesResponse) {}
   rpc ListPermissions (ListPermissionsRequest) returns (ListPermissionsResponse) {}
   rpc CreateRole (CreateRoleRequest) returns (CreateRoleResponse) {}
@@ -418,6 +419,38 @@ message DeleteUserRequest {
 }
 
 message DeleteUserResponse {}
+
+message GetUserDeletionImpactRequest {
+  string id = 1;
+}
+
+// A schedule the user created. Deleting the user deletes it too.
+message UserDeletionSchedule {
+  string game_server_id = 1;
+  string game_server_name = 2;
+  string name = 3;
+}
+
+message UserDeletionGameServer {
+  string id = 1;
+  string name = 2;
+}
+
+// Game server access the user granted to someone else.
+message UserAccessGrantGiven {
+  // Both empty for a grant that covers every game server.
+  string game_server_id = 1;
+  string game_server_name = 2;
+  string user_name = 3;
+}
+
+message GetUserDeletionImpactResponse {
+  repeated UserDeletionSchedule schedules = 1;
+  // Ownership must move to another user before the user can be deleted.
+  repeated UserDeletionGameServer owned_game_servers = 2;
+  // These grants must be removed before the user can be deleted.
+  repeated UserAccessGrantGiven grants_given = 3;
+}
 
 enum NotificationEvent {
   SERVER_STARTED = 0;

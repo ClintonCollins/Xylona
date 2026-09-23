@@ -99,12 +99,47 @@ func (c *Connection) UpdateNodeLastSeen(id string, at time.Time) error {
 	return nil
 }
 
-// DeleteNodeByID deletes a node by ID.
+// NodeInUseError reports that a node still has game servers assigned to it.
+type NodeInUseError struct {
+	GameServerCount int
+}
+
+func (e *NodeInUseError) Error() string {
+	return fmt.Sprintf("node has %d game servers assigned", e.GameServerCount)
+}
+
+// DeleteNodeByID deletes a node and its leftover IP rows. It returns a
+// *NodeInUseError while game servers are still assigned to the node.
 func (c *Connection) DeleteNodeByID(id string) error {
-	nodes := models.NodeSlice{&models.Node{ID: id}}
-	errWrap := nodes.DeleteAll(c.ctx, c.DB)
-	if errWrap != nil {
-		return fmt.Errorf("delete node by ID: %w", errWrap)
+	tx, errBegin := c.SQLDb.BeginTx(c.ctx, nil)
+	if errBegin != nil {
+		return fmt.Errorf("begin node delete: %w", errBegin)
 	}
+	committed := false
+	defer rollbackTxIfNeeded(tx, &committed, "node delete")
+
+	var gameServerCount int
+	errCount := tx.QueryRowContext(c.ctx, `select count(*) from game_server where node_id = ?`, id).Scan(&gameServerCount)
+	if errCount != nil {
+		return fmt.Errorf("count game servers on node: %w", errCount)
+	}
+	if gameServerCount > 0 {
+		return &NodeInUseError{GameServerCount: gameServerCount}
+	}
+
+	_, errDeleteIPs := tx.ExecContext(c.ctx, `delete from ip where node_id = ?`, id)
+	if errDeleteIPs != nil {
+		return fmt.Errorf("delete node IPs: %w", errDeleteIPs)
+	}
+	_, errDeleteNode := tx.ExecContext(c.ctx, `delete from node where id = ?`, id)
+	if errDeleteNode != nil {
+		return fmt.Errorf("delete node by ID: %w", errDeleteNode)
+	}
+
+	errCommit := tx.Commit()
+	if errCommit != nil {
+		return fmt.Errorf("commit node delete: %w", errCommit)
+	}
+	committed = true
 	return nil
 }

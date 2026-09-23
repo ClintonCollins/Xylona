@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -311,5 +312,65 @@ func TestUpdateUser(t *testing.T) {
 	}
 	if fetched.LastName != "Name" {
 		t.Errorf("GetUserByID().LastName = %q, want %q", fetched.LastName, "Name")
+	}
+}
+
+func TestGetUserDeletionImpact(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "user-deletion-impact.sqlite")
+	seedRBACFixture(t, conn)
+
+	schedule, errSchedule := conn.InsertScheduledTask(
+		"server-local-1", "user-other", "Nightly backup", "backup", "0 3 * * *", "UTC", "", true)
+	if errSchedule != nil {
+		t.Fatalf("InsertScheduledTask() error = %v", errSchedule)
+	}
+	for _, grant := range []struct{ id, userID string }{
+		{"grant-to-other", "user-other"},
+		{"grant-to-self", "user-owner"},
+	} {
+		errGrant := conn.CreateUserRoleAssignment(grant.id, grant.userID, "viewer", "server-local-1", "user-owner")
+		if errGrant != nil {
+			t.Fatalf("CreateUserRoleAssignment(%s) error = %v", grant.id, errGrant)
+		}
+	}
+
+	tests := []struct {
+		name   string
+		userID string
+		want   UserDeletionImpact
+	}{
+		{
+			name:   "schedule creator",
+			userID: "user-other",
+			want: UserDeletionImpact{Schedules: []UserDeletionSchedule{{
+				ID: schedule.ID, GameServerID: "server-local-1", GameServerName: "Local One", Name: "Nightly backup",
+			}}},
+		},
+		{
+			name:   "owner who granted access to someone else",
+			userID: "user-owner",
+			want: UserDeletionImpact{
+				OwnedGameServers: []UserDeletionGameServer{{ID: "server-local-1", Name: "Local One"}},
+				GrantsGiven: []UserAccessGrant{{
+					GameServerID: "server-local-1", GameServerName: "Local One", UserName: "other",
+				}},
+			},
+		},
+		{
+			name:   "user with nothing attached",
+			userID: "user-admin",
+			want:   UserDeletionImpact{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			impact, errImpact := conn.GetUserDeletionImpact(tt.userID)
+			if errImpact != nil {
+				t.Fatalf("GetUserDeletionImpact() error = %v", errImpact)
+			}
+			if !reflect.DeepEqual(*impact, tt.want) {
+				t.Errorf("GetUserDeletionImpact() = %+v, want %+v", *impact, tt.want)
+			}
+		})
 	}
 }
