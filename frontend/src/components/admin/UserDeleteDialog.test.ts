@@ -84,11 +84,10 @@ describe('UserDeleteDialog', () => {
     })
   })
 
-  it('names owned servers and access grants instead of offering Delete', async () => {
+  it('names owned servers instead of offering Delete', async () => {
     mocks.getUserDeletionImpact.mockResolvedValueOnce(
       create(GetUserDeletionImpactResponseSchema, {
         ownedGameServers: [{ id: 'gs-1', name: 'Valheim' }],
-        grantsGiven: [{ gameServerId: 'gs-2', gameServerName: 'Rust', userName: 'friend' }],
       }),
     )
 
@@ -97,9 +96,23 @@ describe('UserDeleteDialog', () => {
 
     expect(wrapper.text()).toContain("can't be deleted yet")
     expect(wrapper.find('a[href="/game-servers/gs-1/settings"]').text()).toBe('Valheim')
+    expect(deleteButton(wrapper)).toBeUndefined()
+  })
+
+  it('says the access the user gave others stays, and still offers Delete', async () => {
+    mocks.getUserDeletionImpact.mockResolvedValueOnce(
+      create(GetUserDeletionImpactResponseSchema, {
+        grantsGiven: [{ gameServerId: 'gs-2', gameServerName: 'Rust', userName: 'friend' }],
+      }),
+    )
+
+    const wrapper = mountDialog('grantor')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('will show as granted by you')
     expect(wrapper.find('a[href="/game-servers/gs-2/access"]').text()).toBe('Rust')
     expect(wrapper.text()).toContain('friend on')
-    expect(deleteButton(wrapper)).toBeUndefined()
+    expect(deleteButton(wrapper)).toBeDefined()
   })
 
   it('shows the server message in the dialog when delete fails', async () => {

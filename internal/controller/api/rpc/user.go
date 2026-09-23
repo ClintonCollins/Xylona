@@ -145,7 +145,8 @@ func (xs *XylonaService) DeleteUser(_ context.Context, request *connect.Request[
 }
 
 // GetUserDeletionImpact lists the schedules that deleting a user also deletes,
-// and the owned game servers and access grants that block the delete.
+// the owned game servers that block the delete, and the access they granted to
+// others, which moves to the acting admin.
 func (xs *XylonaService) GetUserDeletionImpact(_ context.Context, request *connect.Request[xylona.GetUserDeletionImpactRequest]) (*connect.Response[xylona.GetUserDeletionImpactResponse], error) {
 	_, errRequireSuperUser := xs.requireSuperUserForUserManagement(request.Header())
 	if errRequireSuperUser != nil {

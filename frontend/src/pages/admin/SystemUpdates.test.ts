@@ -263,13 +263,22 @@ describe('SystemUpdates', () => {
           updateAvailable: false,
           updateable: false,
         }),
+        // The backend fills the latest version before it tries the node.
         controllerAvailability({
           component: SystemUpdateComponent.NODE,
           nodeId: 'remote-node',
+          currentVersion: '',
+          updateAvailable: false,
+          updateable: false,
+          reason: 'node "remote-node" is not currently reachable',
+        }),
+        controllerAvailability({
+          component: SystemUpdateComponent.NODE,
+          nodeId: 'release-failed-node',
           latestVersion: '',
           updateAvailable: false,
           updateable: false,
-          reason: 'node is offline',
+          reason: 'release lookup failed',
         }),
       ],
     })
@@ -277,9 +286,14 @@ describe('SystemUpdates', () => {
     await flushPromises()
     const vm = viewModel(wrapper)
 
-    const [controller, node] = vm.updates
-    expect(controller && vm.targetActionReason(controller)).toBe('Already up to date.')
-    expect(node && vm.targetActionReason(node)).toBe('node is offline')
+    const reasons = Object.fromEntries(
+      vm.updates.map((update) => [update.nodeId || 'controller', vm.targetActionReason(update)]),
+    )
+    expect(reasons).toEqual({
+      controller: 'Already up to date.',
+      'remote-node': 'node "remote-node" is not currently reachable',
+      'release-failed-node': 'release lookup failed',
+    })
   })
 
   it('keeps the idle layout stable while a Resync is pending', async () => {

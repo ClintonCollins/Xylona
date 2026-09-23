@@ -32,22 +32,6 @@
               </li>
             </ul>
           </div>
-          <div v-if="impact?.grantsGiven.length" class="user-delete-group">
-            <p>Remove the access they gave other users from each server's Access tab first:</p>
-            <ul>
-              <li
-                v-for="grant in impact.grantsGiven"
-                :key="`${grant.gameServerId}:${grant.userName}`">
-                {{ grant.userName }} on
-                <router-link
-                  v-if="grant.gameServerId"
-                  :to="`/game-servers/${grant.gameServerId}/access`">
-                  {{ grant.gameServerName }}
-                </router-link>
-                <template v-else>every game server</template>
-              </li>
-            </ul>
-          </div>
         </template>
 
         <template v-else>
@@ -67,6 +51,22 @@
                 v-for="schedule in impact.schedules"
                 :key="`${schedule.gameServerId}:${schedule.name}`">
                 {{ schedule.gameServerName }} &middot; {{ schedule.name }}
+              </li>
+            </ul>
+          </div>
+          <div v-if="impact?.grantsGiven.length" class="user-delete-group">
+            <p>Access they gave other users stays and will show as granted by you:</p>
+            <ul>
+              <li
+                v-for="grant in impact.grantsGiven"
+                :key="`${grant.gameServerId}:${grant.userName}`">
+                {{ grant.userName }} on
+                <router-link
+                  v-if="grant.gameServerId"
+                  :to="`/game-servers/${grant.gameServerId}/access`">
+                  {{ grant.gameServerName }}
+                </router-link>
+                <template v-else>every game server</template>
               </li>
             </ul>
           </div>
@@ -125,11 +125,9 @@ const impactError = ref('')
 const deleting = ref(false)
 const deleteError = ref('')
 
-// Owned servers and access given to others fail the delete, so the dialog
-// names them instead of offering a Delete that cannot succeed.
-const blocked = computed(
-  () => (impact.value?.ownedGameServers.length ?? 0) + (impact.value?.grantsGiven.length ?? 0) > 0,
-)
+// Owned servers fail the delete, so the dialog names them instead of offering
+// a Delete that cannot succeed.
+const blocked = computed(() => (impact.value?.ownedGameServers.length ?? 0) > 0)
 
 watch(
   () => [showDialog.value, props.user?.id] as const,

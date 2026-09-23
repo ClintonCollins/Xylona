@@ -170,22 +170,45 @@ func (c *Connection) CountSuperUsers() (int, error) {
 	return count, nil
 }
 
-// DeleteUser deletes a user by ID.
-func (c *Connection) DeleteUser(id string) error {
-	user, errGetUser := models.Users.Query(models.SelectWhere.Users.ID.EQ(id)).One(c.ctx, c.DB)
-	if errGetUser != nil {
-		if !errors.Is(errGetUser, sql.ErrNoRows) {
-			log.Error().Err(errGetUser).Str("user_id", id).Msg("Error querying user for delete")
+// DeleteUser deletes a user by ID. When reassignGrantsTo is set, access the
+// user granted to other users is credited to that user in the same
+// transaction, so those users keep it.
+func (c *Connection) DeleteUser(id string, reassignGrantsTo string) error {
+	tx, errBegin := c.SQLDb.BeginTx(c.ctx, nil)
+	if errBegin != nil {
+		return fmt.Errorf("begin delete user transaction: %w", errBegin)
+	}
+	committed := false
+	defer rollbackTxIfNeeded(tx, &committed, "user delete")
+
+	if reassignGrantsTo != "" {
+		_, errReassign := tx.ExecContext(c.ctx,
+			`update user_role_assignment set granted_by = ? where granted_by = ? and user_id <> ?`,
+			reassignGrantsTo, id, id)
+		if errReassign != nil {
+			log.Error().Err(errReassign).Str("user_id", id).Msg("Error reassigning access grants for user delete")
+			return fmt.Errorf("reassign access grants: %w", errReassign)
 		}
-		return fmt.Errorf("get user for delete: %w", errGetUser)
 	}
 
-	errDeleteUser := models.UserSlice{user}.DeleteAll(c.ctx, c.DB)
+	result, errDeleteUser := tx.ExecContext(c.ctx, `delete from user where id = ?`, id)
 	if errDeleteUser != nil {
 		log.Error().Err(errDeleteUser).Str("user_id", id).Msg("Error deleting user")
 		return fmt.Errorf("delete user: %w", errDeleteUser)
 	}
+	deleted, errRows := result.RowsAffected()
+	if errRows != nil {
+		return fmt.Errorf("count deleted users: %w", errRows)
+	}
+	if deleted == 0 {
+		return fmt.Errorf("get user for delete: %w", sql.ErrNoRows)
+	}
 
+	errCommit := tx.Commit()
+	if errCommit != nil {
+		return fmt.Errorf("commit delete user transaction: %w", errCommit)
+	}
+	committed = true
 	return nil
 }
 
@@ -212,15 +235,17 @@ type UserAccessGrant struct {
 	UserName       string
 }
 
-// UserDeletionImpact lists what deleting a user removes and what blocks it.
+// UserDeletionImpact lists what deleting a user removes, blocks it, or moves
+// to the admin who deletes them.
 type UserDeletionImpact struct {
 	Schedules        []UserDeletionSchedule
 	OwnedGameServers []UserDeletionGameServer
 	GrantsGiven      []UserAccessGrant
 }
 
-// GetUserDeletionImpact returns the schedules that cascade with the user, and
-// the owned game servers and grants to others that block the delete.
+// GetUserDeletionImpact returns the schedules that cascade with the user, the
+// owned game servers that block the delete, and the access they granted to
+// others.
 func (c *Connection) GetUserDeletionImpact(userID string) (*UserDeletionImpact, error) {
 	impact := &UserDeletionImpact{}
 
@@ -252,10 +277,11 @@ func (c *Connection) GetUserDeletionImpact(userID string) (*UserDeletionImpact, 
 		impact.OwnedGameServers = append(impact.OwnedGameServers, UserDeletionGameServer{ID: row[0], Name: row[1]})
 	}
 
-	// Grants the user gave themselves cascade with them, so only grants to
-	// others block the delete.
+	// Grants the user gave themselves cascade with them; grants to others
+	// outlive them. Distinct because a user can hold several roles on one
+	// server.
 	grantRows, errGrants := c.queryStringRows(
-		`select coalesce(gs.id, ''), coalesce(gs.name, ''), u.user_name
+		`select distinct coalesce(gs.id, ''), coalesce(gs.name, ''), u.user_name
 		 from user_role_assignment ura
 		 join user u on u.id = ura.user_id
 		 left join game_server gs on gs.id = ura.game_server_id

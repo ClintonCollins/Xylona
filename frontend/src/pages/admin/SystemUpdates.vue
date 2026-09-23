@@ -1656,8 +1656,12 @@ function targetActionReason(update: UpdateRow): string {
     return 'An update is already active for this target.'
   }
   if (!update.updateAvailable) {
-    // Without a known latest version, the reason says why the check failed.
-    return update.latestVersion ? 'Already up to date.' : update.reason || 'No update found.'
+    // Only a target whose current and latest versions are both known is up to
+    // date; otherwise the reason says why the check failed (an unreachable
+    // node still gets the release's latest version).
+    return update.currentVersion && update.latestVersion
+      ? 'Already up to date.'
+      : update.reason || 'Version unknown.'
   }
   if (!update.updateable) return update.reason || 'This target is not updateable.'
   if (!websocketBrowserOnline.value) {

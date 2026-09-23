@@ -998,7 +998,7 @@ export type GetUserDeletionImpactResponse = Message<"xylona.GetUserDeletionImpac
   ownedGameServers: UserDeletionGameServer[];
 
   /**
-   * These grants must be removed before the user can be deleted.
+   * Deleting the user credits these grants to the admin who deletes them.
    *
    * @generated from field: repeated xylona.UserAccessGrantGiven grants_given = 3;
    */

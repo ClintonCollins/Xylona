@@ -448,7 +448,7 @@ message GetUserDeletionImpactResponse {
   repeated UserDeletionSchedule schedules = 1;
   // Ownership must move to another user before the user can be deleted.
   repeated UserDeletionGameServer owned_game_servers = 2;
-  // These grants must be removed before the user can be deleted.
+  // Deleting the user credits these grants to the admin who deletes them.
   repeated UserAccessGrantGiven grants_given = 3;
 }
 

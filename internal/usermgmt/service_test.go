@@ -313,10 +313,11 @@ func TestDeleteUserNamesBlockersAndDeletesSchedules(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		userID      string
-		wantErr     error
-		wantMessage string
+		name         string
+		userID       string
+		actingUserID string
+		wantErr      error
+		wantMessage  string
 	}{
 		{
 			name:        "owner must transfer their game servers first",
@@ -325,10 +326,15 @@ func TestDeleteUserNamesBlockersAndDeletesSchedules(t *testing.T) {
 			wantMessage: `transfer ownership of "Blocked Server" first`,
 		},
 		{
-			name:        "grantor must remove the access they gave first",
+			name:        "grantor without an acting admin must remove the access they gave first",
 			userID:      `user-grantor`,
 			wantErr:     ErrUserGaveAccess,
 			wantMessage: `remove the access they granted on "Blocked Server"`,
+		},
+		{
+			name:         "grantor deleted by an admin hands the access they gave to the admin",
+			userID:       `user-grantor`,
+			actingUserID: `user-admin`,
 		},
 		{
 			name:   "schedule creator is deleted with their schedules",
@@ -343,7 +349,7 @@ func TestDeleteUserNamesBlockersAndDeletesSchedules(t *testing.T) {
 			scheduleID := seedUserDeletionFixture(t, conn)
 			service := NewService(conn)
 
-			errDelete := service.Delete(DeleteInput{ID: tt.userID})
+			errDelete := service.Delete(DeleteInput{ID: tt.userID, ActingUserID: tt.actingUserID})
 			if tt.wantErr != nil {
 				if !errors.Is(errDelete, tt.wantErr) {
 					t.Fatalf(`Delete() error = %v, want %v`, errDelete, tt.wantErr)
@@ -362,16 +368,25 @@ func TestDeleteUserNamesBlockersAndDeletesSchedules(t *testing.T) {
 				t.Fatalf(`Delete() error = %v`, errDelete)
 			}
 			_, errGetTask := conn.GetScheduledTaskByID(scheduleID)
-			if !errors.Is(errGetTask, sql.ErrNoRows) {
-				t.Fatalf(`GetScheduledTaskByID() error = %v, want schedule deleted with its creator`, errGetTask)
+			if deleted := errors.Is(errGetTask, sql.ErrNoRows); deleted != (tt.userID == `user-scheduler`) {
+				t.Fatalf(`GetScheduledTaskByID() error = %v, want schedule deleted only with its creator`, errGetTask)
+			}
+			if tt.actingUserID != `` {
+				grant, errGrant := conn.GetUserRoleAssignmentByID(`grant-blocked`)
+				if errGrant != nil {
+					t.Fatalf(`GetUserRoleAssignmentByID() error = %v, want the grant kept`, errGrant)
+				}
+				if grant.GrantedBy != tt.actingUserID {
+					t.Fatalf(`GrantedBy = %q, want %q`, grant.GrantedBy, tt.actingUserID)
+				}
 			}
 		})
 	}
 }
 
 // seedUserDeletionFixture creates a game server owned by user-owner, access to
-// it that user-grantor gave user-scheduler, and a schedule user-scheduler
-// created. It returns the schedule ID.
+// it that user-grantor gave user-scheduler, a schedule user-scheduler created,
+// and user-admin with nothing attached. It returns the schedule ID.
 func seedUserDeletionFixture(t *testing.T, conn *db.Connection) string {
 	t.Helper()
 
@@ -384,7 +399,7 @@ func seedUserDeletionFixture(t *testing.T, conn *db.Connection) string {
 	}
 
 	now := time.Now().UTC()
-	for _, id := range []string{`user-owner`, `user-grantor`, `user-scheduler`} {
+	for _, id := range []string{`user-owner`, `user-grantor`, `user-scheduler`, `user-admin`} {
 		exec(`insert into user (id, user_name, email, first_name, last_name, password_hash, super_user, last_login_at, created_at, updated_at)
 			values (?, ?, ?, '', '', 'hash', 0, ?, ?, ?)`, id, id, id+`@example.com`, now, now, now)
 	}

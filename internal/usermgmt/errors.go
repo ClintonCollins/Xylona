@@ -28,6 +28,6 @@ var (
 	// ErrUserOwnsGameServers reports that a user to delete still owns game servers.
 	ErrUserOwnsGameServers = errors.New(`user owns game servers`)
 	// ErrUserGaveAccess reports that a user to delete granted game server access
-	// to other users.
+	// to other users and no acting admin can take those grants over.
 	ErrUserGaveAccess = errors.New(`user granted game server access to other users`)
 )

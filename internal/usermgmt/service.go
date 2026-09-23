@@ -316,8 +316,8 @@ func (s *Service) Delete(input DeleteInput) error {
 		return ErrCannotDeleteSelf
 	}
 
-	// Schedules cascade with their creator; owned servers and grants to
-	// others would fail the delete on a foreign key, so name them instead.
+	// Schedules cascade with their creator; owned servers would fail the
+	// delete on a foreign key, so name them instead.
 	impact, errImpact := s.db.GetUserDeletionImpact(userID)
 	if errImpact != nil {
 		return fmt.Errorf(`usermgmt: check user deletion impact: %w`, errImpact)
@@ -329,12 +329,20 @@ func (s *Service) Delete(input DeleteInput) error {
 		}
 		return fmt.Errorf(`%w: transfer ownership of %s first`, ErrUserOwnsGameServers, quotedList(names))
 	}
-	if len(impact.GrantsGiven) > 0 {
+
+	// Access the user granted to others moves to the acting admin so those
+	// users keep it. Deletes without an acting admin (CLI, admin IPC) have
+	// nobody to credit, so the grants still block them.
+	reassignGrantsTo := input.ActingUserID
+	if reassignGrantsTo == userID {
+		reassignGrantsTo = ``
+	}
+	if len(impact.GrantsGiven) > 0 && reassignGrantsTo == `` {
 		return fmt.Errorf(`%w: remove the access they granted on %s from the Access tab first`,
 			ErrUserGaveAccess, quotedList(grantServerNames(impact.GrantsGiven)))
 	}
 
-	errDeleteUser := s.db.DeleteUser(userID)
+	errDeleteUser := s.db.DeleteUser(userID, reassignGrantsTo)
 	if errDeleteUser != nil {
 		if errors.Is(errDeleteUser, sql.ErrNoRows) {
 			return ErrUserNotFound
@@ -349,7 +357,8 @@ func (s *Service) Delete(input DeleteInput) error {
 }
 
 // DeletionImpact reports the schedules that deleting the user also deletes,
-// and the owned game servers and access grants that block the delete.
+// the owned game servers that block the delete, and the access they granted
+// to others.
 func (s *Service) DeletionImpact(id string) (*db.UserDeletionImpact, error) {
 	userID := strings.TrimSpace(id)
 	if userID == `` {

@@ -3539,7 +3539,7 @@ type GetUserDeletionImpactResponse struct {
 	Schedules []*UserDeletionSchedule `protobuf:"bytes,1,rep,name=schedules,proto3" json:"schedules,omitempty"`
 	// Ownership must move to another user before the user can be deleted.
 	OwnedGameServers []*UserDeletionGameServer `protobuf:"bytes,2,rep,name=owned_game_servers,json=ownedGameServers,proto3" json:"owned_game_servers,omitempty"`
-	// These grants must be removed before the user can be deleted.
+	// Deleting the user credits these grants to the admin who deletes them.
 	GrantsGiven   []*UserAccessGrantGiven `protobuf:"bytes,3,rep,name=grants_given,json=grantsGiven,proto3" json:"grants_given,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
