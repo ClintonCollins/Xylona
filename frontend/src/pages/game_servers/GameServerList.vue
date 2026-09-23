@@ -1566,10 +1566,9 @@ const columns = ref([
 
 /* Long build strings wrap instead of pushing row actions off-screen. */
 .server-list-main :deep(.server-version-cell) {
-  min-width: 7rem;
+  min-width: 10rem;
   max-width: 14rem;
   white-space: normal;
-  overflow-wrap: anywhere;
 }
 
 .version-text {

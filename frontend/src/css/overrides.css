@@ -151,10 +151,11 @@ a.q-item:hover {
   border-color: var(--xy-info-border);
 }
 
-/* Neutral tag for labels that are not status (local, Official, User...). */
-.q-badge.xy-badge-neutral {
-  color: var(--xy-text-secondary);
-  background-color: var(--xy-surface-3);
+/* Grey badges are the neutral tag for labels that are not status
+   (local, Official, User, Current...): use color="grey-8". */
+.q-badge[class*='bg-grey'] {
+  color: var(--xy-text-secondary) !important;
+  background-color: var(--xy-surface-3) !important;
   border-color: var(--xy-border);
 }
 
