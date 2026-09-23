@@ -12,7 +12,9 @@
       <div class="node-strip__item">
         <span>Mode</span>
         <strong>{{ node.local ? 'Controller host' : 'Remote node' }}</strong>
-        <small class="font-mono">{{ node.local ? 'in-process' : node.baseUrl || 'no address' }}</small>
+        <small class="font-mono">{{
+          node.local ? 'in-process' : node.baseUrl || 'no address'
+        }}</small>
       </div>
       <div class="node-strip__item">
         <span>Agent</span>
@@ -207,13 +209,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { create } from '@bufbuild/protobuf'
 import { TimestampSchema } from '@bufbuild/protobuf/wkt'
-import {
-  GameServer,
-  Node,
-  NodeResourceSnapshot,
-  NodeSystemInfo,
-  Status,
-} from '@/proto/shared_pb'
+import { GameServer, Node, NodeResourceSnapshot, NodeSystemInfo, Status } from '@/proto/shared_pb'
 import {
   GetNodeMetricsHistoryRequestSchema,
   GetNodeSystemInfoRequestSchema,
@@ -295,16 +291,25 @@ const os = computed(() => currentSystemInfo.value?.os || props.node.os || '')
 
 const lastSeenLabel = computed(() => {
   const seenMs = nodeLastSeenMs(props.node)
-  if (liveSnapshotAtMs.value !== null) return `seen ${formatMetricAge(liveSnapshotAtMs.value, nowMs.value)}`
+  if (liveSnapshotAtMs.value !== null)
+    return `seen ${formatMetricAge(liveSnapshotAtMs.value, nowMs.value)}`
   return seenMs === null ? 'never seen' : `seen ${formatMetricAge(seenMs, nowMs.value)}`
 })
 
 const liveState = computed(() => {
   if (!websocketStateAuthoritative.value) {
-    return { label: 'Paused', detail: 'reconnecting to controller', className: 'node-strip__live--paused' }
+    return {
+      label: 'Paused',
+      detail: 'reconnecting to controller',
+      className: 'node-strip__live--paused',
+    }
   }
   if (liveSnapshotAtMs.value === null) {
-    return { label: 'Waiting', detail: 'first snapshot pending', className: 'node-strip__live--waiting' }
+    return {
+      label: 'Waiting',
+      detail: 'first snapshot pending',
+      className: 'node-strip__live--waiting',
+    }
   }
   return {
     label: 'Streaming',
@@ -366,7 +371,11 @@ const diskSeries: MetricChartSeries<NodeSample>[] = [
   { label: 'Used', colorToken: '--xy-series-3', value: (sample) => sample.diskUsedBytes },
 ]
 const serverSeries: MetricChartSeries<NodeSample>[] = [
-  { label: 'Running', colorToken: '--xy-series-1', value: (sample) => sample.runningGameServerCount },
+  {
+    label: 'Running',
+    colorToken: '--xy-series-1',
+    value: (sample) => sample.runningGameServerCount,
+  },
   {
     label: 'Assigned',
     colorToken: '--xy-series-neutral',
@@ -431,7 +440,8 @@ const diskCaption = computed(() => {
   if (!total) return ''
   const base = `of ${formatMetricBytes(total)}`
   if (!first || !last || last.timestampMs - first.timestampMs < 60 * 60 * 1000) return base
-  const bytesPerMs = (last.diskUsedBytes - first.diskUsedBytes) / (last.timestampMs - first.timestampMs)
+  const bytesPerMs =
+    (last.diskUsedBytes - first.diskUsedBytes) / (last.timestampMs - first.timestampMs)
   if (bytesPerMs <= 0) return base
   const days = (total - last.diskUsedBytes) / bytesPerMs / (24 * 60 * 60 * 1000)
   if (days > 365) return base
@@ -474,7 +484,9 @@ function onNodeMetrics(metrics: AllNodeMetrics | undefined) {
   const atMs = snap.recordedAt?.seconds ? Number(snap.recordedAt.seconds) * 1000 : Date.now()
   liveSnapshot.value = snap
   liveSnapshotAtMs.value = atMs
-  const tail = liveTail.value.filter((sample) => sample.timestampMs >= atMs - currentRange.value.durationMs)
+  const tail = liveTail.value.filter(
+    (sample) => sample.timestampMs >= atMs - currentRange.value.durationMs,
+  )
   tail.push(snapshotToSample(snap, atMs))
   liveTail.value = tail
 }
@@ -517,11 +529,41 @@ function serverUptime(server: GameServer): string {
 }
 
 const serverColumns = [
-  { name: 'name', label: 'Server', align: 'left' as const, field: (row: GameServer) => row.name, sortable: true },
-  { name: 'status', label: 'Status', align: 'left' as const, field: (row: GameServer) => serverStatus(row), sortable: true },
-  { name: 'cpu', label: 'CPU', align: 'right' as const, field: (row: GameServer) => serverMetrics.value.get(row.id)?.cpuPercent ?? -1, sortable: true },
-  { name: 'memory', label: 'Memory', align: 'right' as const, field: (row: GameServer) => Number(serverMetrics.value.get(row.id)?.memoryBytes ?? -1), sortable: true },
-  { name: 'uptime', label: 'Uptime', align: 'right' as const, field: (row: GameServer) => Number(serverMetrics.value.get(row.id)?.uptimeSeconds ?? -1), sortable: true },
+  {
+    name: 'name',
+    label: 'Server',
+    align: 'left' as const,
+    field: (row: GameServer) => row.name,
+    sortable: true,
+  },
+  {
+    name: 'status',
+    label: 'Status',
+    align: 'left' as const,
+    field: (row: GameServer) => serverStatus(row),
+    sortable: true,
+  },
+  {
+    name: 'cpu',
+    label: 'CPU',
+    align: 'right' as const,
+    field: (row: GameServer) => serverMetrics.value.get(row.id)?.cpuPercent ?? -1,
+    sortable: true,
+  },
+  {
+    name: 'memory',
+    label: 'Memory',
+    align: 'right' as const,
+    field: (row: GameServer) => Number(serverMetrics.value.get(row.id)?.memoryBytes ?? -1),
+    sortable: true,
+  },
+  {
+    name: 'uptime',
+    label: 'Uptime',
+    align: 'right' as const,
+    field: (row: GameServer) => Number(serverMetrics.value.get(row.id)?.uptimeSeconds ?? -1),
+    sortable: true,
+  },
 ]
 
 async function fetchHistory() {
