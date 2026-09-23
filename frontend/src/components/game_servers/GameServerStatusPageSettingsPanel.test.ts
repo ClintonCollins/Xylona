@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
   notify: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyError: vi.fn(),
 }))
 
 vi.mock('@/utils/shared', () => ({
@@ -36,6 +38,11 @@ vi.mock('quasar', async () => {
   }
 })
 
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyError: mocks.notifyError,
+}))
+
 describe('GameServerStatusPageSettingsPanel', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -45,7 +52,8 @@ describe('GameServerStatusPageSettingsPanel', () => {
     mocks.copyToClipboard.mockResolvedValue(undefined)
     mocks.getSettings.mockReset()
     mocks.updateSettings.mockReset()
-    mocks.notify.mockReset()
+    mocks.notifySuccess.mockReset()
+    mocks.notifyError.mockReset()
   })
 
   it('submits the complete owner-level settings in one update', async () => {
@@ -108,9 +116,7 @@ describe('GameServerStatusPageSettingsPanel', () => {
         ],
       }),
     )
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Status page settings saved' }),
-    )
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Status page settings saved')
 
     mocks.updateSettings.mockRejectedValueOnce(
       new ConnectError('Connection address must be a valid host and port.', Code.InvalidArgument),
@@ -143,45 +149,36 @@ describe('GameServerStatusPageSettingsPanel', () => {
     expect(mocks.copyToClipboard).toHaveBeenCalledWith(
       `${window.location.origin}/status/Owner_Page`,
     )
-    expect(mocks.notify).toHaveBeenCalledWith({
-      type: 'positive',
-      message: 'Public link copied',
-    })
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Public link copied')
 
     mocks.copyToClipboard.mockReset()
     mocks.copyToClipboard.mockResolvedValue(undefined)
-    mocks.notify.mockReset()
+    mocks.notifySuccess.mockReset()
+    mocks.notifyError.mockReset()
     await vm.copyPublicAPIURL()
 
     expect(mocks.copyToClipboard).toHaveBeenCalledWith(
       `${window.location.origin}/api/public/status-pages/Owner_Page`,
     )
-    expect(mocks.notify).toHaveBeenCalledWith({
-      type: 'positive',
-      message: 'JSON endpoint copied',
-    })
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('JSON endpoint copied')
 
     mocks.copyToClipboard.mockReset()
     mocks.copyToClipboard.mockResolvedValue(undefined)
-    mocks.notify.mockReset()
+    mocks.notifySuccess.mockReset()
+    mocks.notifyError.mockReset()
     await vm.copyPublicEventsURL()
 
     expect(mocks.copyToClipboard).toHaveBeenCalledWith(
       `${window.location.origin}/api/public/status-pages/Owner_Page/events`,
     )
-    expect(mocks.notify).toHaveBeenCalledWith({
-      type: 'positive',
-      message: 'Live endpoint copied',
-    })
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Live endpoint copied')
 
-    mocks.notify.mockReset()
+    mocks.notifySuccess.mockReset()
+    mocks.notifyError.mockReset()
     mocks.copyToClipboard.mockRejectedValueOnce(new Error('copy failed'))
     await vm.copyPublicEventsURL()
 
-    expect(mocks.notify).toHaveBeenCalledWith({
-      type: 'negative',
-      message: 'Could not copy the live endpoint.',
-    })
+    expect(mocks.notifyError).toHaveBeenCalledWith('Could not copy the live endpoint.')
   })
 
   it('counts Unicode characters for public detail limits', async () => {

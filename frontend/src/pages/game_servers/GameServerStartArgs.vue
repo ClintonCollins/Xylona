@@ -40,15 +40,11 @@
     </div>
 
     <div v-else class="start-args-page__body">
-      <q-banner
-        v-if="!effectiveAllowEditing"
-        class="start-args-page__warning"
-        inline-actions
-        rounded>
+      <q-banner v-if="!effectiveAllowEditing" class="xy-banner-warning" inline-actions rounded>
         Start command editing is disabled for this game definition.
       </q-banner>
 
-      <q-banner v-if="platformWarning" class="start-args-page__warning" inline-actions rounded>
+      <q-banner v-if="platformWarning" class="xy-banner-warning" inline-actions rounded>
         {{ platformWarning }}
       </q-banner>
 
@@ -144,6 +140,7 @@ import {
 import { useUserAuthStore } from '@/stores/xylona'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { resolveStartArgsPlatform } from './start-args-platform'
+import { notifySuccess } from '@/api/notifications'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 const $q = useQuasar()
@@ -492,21 +489,11 @@ async function savePatches(restartAfterSave: boolean) {
       await client.startGameServer(
         create(StartGameServerRequestSchema, { serverId: gameServerId.value }),
       )
-      $q.notify({
-        type: 'positive',
-        position: 'top',
-        caption: 'Start command saved and server restarted.',
-        icon: 'task_alt',
-      })
+      notifySuccess('Start command saved and server restarted.')
       return
     }
 
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Start command saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Start command saved successfully.')
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
     $q.notify({
@@ -649,12 +636,6 @@ function resetAll() {
 
 .start-args-page__editor-column {
   min-width: 0;
-}
-
-.start-args-page__warning {
-  background: var(--xy-warning-bg-soft);
-  border: 1px solid var(--xy-warning-border);
-  color: var(--xy-text-primary);
 }
 
 @media (max-width: 1023px) {

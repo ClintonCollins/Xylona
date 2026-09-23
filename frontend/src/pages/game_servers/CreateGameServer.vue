@@ -7,14 +7,13 @@
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
 
+import { notifyWarning } from '@/api/notifications'
 import GameServerCreateForm from '@/components/game_servers/GameServerCreateForm.vue'
 import { useUserAuthStore } from '@/stores/xylona'
 
 const authStore = useUserAuthStore()
 const router = useRouter()
-const $q = useQuasar()
 const readyToRender = ref(false)
 
 onMounted(async () => {
@@ -26,12 +25,7 @@ onMounted(async () => {
   }
 
   if (!user?.superUser) {
-    $q.notify({
-      type: 'warning',
-      position: 'top',
-      caption: 'Only superusers can create game servers.',
-      icon: 'report_problem',
-    })
+    notifyWarning('Only superusers can create game servers.')
     await router.replace('/game-servers')
     return
   }

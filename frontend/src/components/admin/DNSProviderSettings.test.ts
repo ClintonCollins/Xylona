@@ -34,13 +34,9 @@ vi.mock('@/utils/shared', () => ({
   }),
 }))
 
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual<typeof import('quasar')>('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({ notify: mocks.notify }),
-  }
-})
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notify,
+}))
 
 describe('DNSProviderSettings', () => {
   beforeEach(() => {
@@ -103,9 +99,7 @@ describe('DNSProviderSettings', () => {
       (wrapper.get('[data-testid="cloudflare-api-token"]').element as HTMLInputElement).value,
     ).toBe('')
     expect(wrapper.text()).not.toContain('top-secret-token')
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'DNS provider connection tested and activated.' }),
-    )
+    expect(mocks.notify).toHaveBeenCalledWith('DNS provider connection tested and activated.')
   })
 
   it('keeps the stored Route 53 static-key mode when loading the active connection', async () => {

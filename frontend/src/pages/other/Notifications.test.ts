@@ -155,6 +155,7 @@ function mountNotifications(permissionIds: string[] = ['alerts.manage']) {
           template: '<div class="q-tab-stub" :data-tab-name="name">{{ label }}</div>',
         },
         'q-separator': { template: '<hr />' },
+        'q-banner': { template: '<div class="q-banner-stub"><slot /><slot name="action" /></div>' },
         'q-tab-panels': {
           props: ['modelValue'],
           template: '<div class="q-tab-panels-stub"><slot /></div>',
@@ -251,20 +252,18 @@ describe('Notifications', () => {
     expect(wrapper.text()).not.toContain('Test delivery')
   })
 
-  it('shows error notification on failed channel load', async () => {
+  it('shows a load error instead of an empty channel list on failed channel load', async () => {
     mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
     mocks.listNotificationChannels.mockRejectedValueOnce(new Error('network failure'))
     mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
     mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
 
-    mountNotifications()
+    const wrapper = mountNotifications()
     await flushPromises()
 
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-error',
-      }),
-    )
+    expect(wrapper.text()).toContain('Failed to load channels')
+    expect(wrapper.text()).toContain('network failure')
+    expect(wrapper.text()).not.toContain('No notification channels')
   })
 
   it('hides channel management actions for history-only users', async () => {

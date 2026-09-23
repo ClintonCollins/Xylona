@@ -4,6 +4,7 @@ import type { QForm } from 'quasar'
 import { useQuasar } from 'quasar'
 
 import { buildXylonaErrorNotification, connectErrorMessage } from '@/api/connect-errors'
+import { notifyWarning } from '@/api/notifications'
 import {
   getGameServer,
   listGames,
@@ -267,12 +268,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
 
     const formValid = (await formRef.value?.validate()) ?? true
     if (!formValid) {
-      $q.notify({
-        type: 'warning',
-        position: 'top',
-        caption: invalidMessage,
-        icon: 'report_problem',
-      })
+      notifyWarning(invalidMessage)
       return false
     }
 

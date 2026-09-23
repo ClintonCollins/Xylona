@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
-import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
+import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
@@ -40,6 +41,8 @@ const activeTab = ref<'rules' | 'history'>('rules')
 
 // Rules state
 const rulesLoading = ref(true)
+// Set when the page's own data cannot be read, so empty states never stand in for an outage.
+const loadError = ref('')
 const alertRules = ref<AlertRule[]>([])
 
 // History state
@@ -53,6 +56,7 @@ const historyPageSize = 100
 
 // Channels for dropdown
 const channels = ref<NotificationChannel[]>([])
+const channelsLoaded = ref(false)
 
 // Dialog state
 const showRuleDialog = ref(false)
@@ -413,7 +417,12 @@ function buildConditionJson(): string {
   return ''
 }
 
-onMounted(async () => {
+onMounted(loadPage)
+
+async function loadPage(): Promise<void> {
+  loadError.value = ''
+  rulesLoading.value = true
+  historyLoading.value = true
   await loadChannels()
   const loadedServerNodeID = await loadServerNodeID()
   if (!loadedServerNodeID) {
@@ -423,7 +432,7 @@ onMounted(async () => {
   }
   await loadRules()
   await loadHistory()
-})
+}
 
 async function loadServerNodeID(): Promise<boolean> {
   try {
@@ -433,13 +442,13 @@ async function loadServerNodeID(): Promise<boolean> {
     const response = await GetXylonaClient().getGameServer(request)
     const nodeID = response.gameServer?.nodeId ?? ''
     if (nodeID === '') {
-      notifyError('Failed to determine the game server node for alerts')
+      loadError.value = 'The game server node for alerts could not be determined.'
       return false
     }
     gameServerNodeId.value = nodeID
     return true
   } catch (unknownErr: unknown) {
-    notifyConnectError(unknownErr)
+    loadError.value = connectErrorMessage(unknownErr)
     return false
   }
 }
@@ -449,8 +458,9 @@ async function loadChannels(): Promise<void> {
     const request = create(ListNotificationChannelsRequestSchema, {})
     const response = await GetXylonaClient().listNotificationChannels(request)
     channels.value = response.channels
+    channelsLoaded.value = true
   } catch (unknownErr: unknown) {
-    notifyConnectError(unknownErr)
+    loadError.value = connectErrorMessage(unknownErr)
   }
 }
 
@@ -464,7 +474,7 @@ async function loadRules(): Promise<void> {
     const response = await GetXylonaClient().listAlertRules(request)
     alertRules.value = response.rules
   } catch (unknownErr: unknown) {
-    notifyConnectError(unknownErr)
+    loadError.value = connectErrorMessage(unknownErr)
   } finally {
     rulesLoading.value = false
   }
@@ -488,7 +498,7 @@ async function loadHistory(append: boolean = false): Promise<void> {
     }
     historyHasMore.value = response.entries.length === historyPageSize
   } catch (unknownErr: unknown) {
-    notifyConnectError(unknownErr)
+    loadError.value = connectErrorMessage(unknownErr)
   } finally {
     historyLoading.value = false
   }
@@ -627,6 +637,21 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 <template>
   <div class="alerts-page xy-page-content">
     <page-header class="alerts-page-header" title="Alerts" />
+    <q-banner v-if="loadError" class="xy-banner-negative q-mb-md" dense inline-actions role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Alerts could not be loaded.</strong> {{ loadError }}
+      <template #action>
+        <q-btn
+          aria-label="Retry loading alerts"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="loadPage" />
+      </template>
+    </q-banner>
     <q-tabs
       v-model="activeTab"
       active-color="primary"
@@ -646,8 +671,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
       <q-tab-panel name="rules">
         <div class="q-pa-md">
           <div class="row items-center q-mb-md">
-            <q-icon class="q-mr-sm" color="primary" name="notifications" size="sm" />
-            <div class="text-h6">Alert Rules</div>
+            <h2 class="xy-section-title">Alert Rules</h2>
             <q-space />
             <q-btn
               v-if="hasAlertsManage"
@@ -664,15 +688,15 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           </div>
 
           <q-banner
-            v-if="channels.length === 0 && !rulesLoading"
-            class="q-mb-md bg-warning text-dark"
-            rounded>
+            v-if="channelsLoaded && channels.length === 0 && !rulesLoading"
+            class="q-mb-md xy-banner-warning"
+            dense>
             <template #avatar>
-              <q-icon color="dark" name="warning" />
+              <q-icon name="warning_amber" size="sm" />
             </template>
             No notification channels configured.
             <template v-if="hasAlertsManage">
-              <router-link class="text-dark text-weight-bold" to="/notifications">
+              <router-link class="text-weight-bold" to="/notifications">
                 Create a notification channel
               </router-link>
               before adding alert rules.
@@ -696,6 +720,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             row-key="id">
             <template #no-data>
               <empty-state
+                v-if="!rulesLoading && !loadError"
                 icon="notifications_off"
                 title="No alert rules configured for this server" />
             </template>
@@ -719,7 +744,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
                     @update:model-value="toggleRuleEnabled(props.row)" />
                   <q-badge
                     v-else
-                    :color="props.row.enabled ? 'positive' : 'negative'"
+                    :color="props.row.enabled ? 'positive' : 'grey-8'"
                     :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
                 </q-card-section>
 
@@ -756,7 +781,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
                   @update:model-value="toggleRuleEnabled(props.row)" />
                 <q-badge
                   v-else
-                  :color="props.row.enabled ? 'positive' : 'negative'"
+                  :color="props.row.enabled ? 'positive' : 'grey-8'"
                   :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
               </q-td>
             </template>
@@ -794,8 +819,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
       <q-tab-panel name="history">
         <div class="q-pa-md">
           <div class="row items-center q-mb-md">
-            <q-icon class="q-mr-sm" color="primary" name="history" size="sm" />
-            <div class="text-h6">Alert History</div>
+            <h2 class="xy-section-title">Alert History</h2>
             <q-space />
             <q-select
               v-model="historyEventTypeFilter"
@@ -807,7 +831,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               map-options
               outlined
               style="min-width: 200px" />
-            <q-btn aria-label="Refresh history" flat icon="refresh" @click="loadHistory">
+            <q-btn aria-label="Refresh history" flat icon="refresh" @click="loadHistory()">
               <q-tooltip>Refresh</q-tooltip>
             </q-btn>
           </div>
@@ -823,7 +847,10 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             flat
             row-key="id">
             <template #no-data>
-              <empty-state icon="history" title="No alert history for this server" />
+              <empty-state
+                v-if="!historyLoading && !loadError"
+                icon="history"
+                title="No alert history for this server" />
             </template>
             <template #item="props">
               <q-card bordered class="alerts-mobile-card" flat>

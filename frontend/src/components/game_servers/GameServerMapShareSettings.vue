@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { copyToClipboard, useQuasar } from 'quasar'
+import { copyToClipboard } from 'quasar'
 import { computed, onMounted, ref } from 'vue'
 
+import { notifyError, notifySuccess } from '@/api/notifications'
 import {
   type GameServerMapShareSettings,
   GetOrCreateGameServerMapShareSettingsRequestSchema,
@@ -13,7 +14,6 @@ import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 const props = defineProps<{ gameServerId: string }>()
 const emit = defineEmits<{ close: [] }>()
-const quasar = useQuasar()
 const identifierPattern = /^[A-Za-z0-9_-]{3,64}$/
 
 const settings = ref<GameServerMapShareSettings | null>(null)
@@ -83,16 +83,13 @@ async function save(): Promise<void> {
     )
     if (!response.settings) throw new Error('The saved map link settings response was empty.')
     applySettings(response.settings)
-    quasar.notify({ type: 'positive', message: 'Public map link settings saved.' })
+    notifySuccess('Public map link settings saved.')
   } catch (unknownError: unknown) {
     const connectError = ConnectError.from(unknownError)
     if (connectError.code === Code.AlreadyExists) {
       identifierError.value = 'This public identifier is unavailable. Choose another.'
     } else {
-      quasar.notify({
-        type: 'negative',
-        message: ConnectErrorToString(connectError),
-      })
+      notifyError(ConnectErrorToString(connectError))
     }
   } finally {
     saving.value = false
@@ -102,10 +99,10 @@ async function save(): Promise<void> {
 async function copyPublicLink(): Promise<void> {
   try {
     await copyToClipboard(publicURL.value)
-    quasar.notify({ type: 'positive', message: 'Public map link copied.' })
+    notifySuccess('Public map link copied.')
   } catch (unknownError: unknown) {
     console.error(unknownError)
-    quasar.notify({ type: 'negative', message: 'Could not copy the public map link.' })
+    notifyError('Could not copy the public map link.')
   }
 }
 
@@ -187,7 +184,7 @@ onMounted(loadSettings)
           </div>
         </div>
 
-        <q-banner class="map-share-settings__warning" rounded>
+        <q-banner class="xy-banner-warning" rounded>
           <template #avatar><q-icon color="warning" name="warning_amber" /></template>
           Anyone who knows or guesses this identifier can view the live map. Search indexing is
           blocked, but the link is not private.
@@ -280,12 +277,6 @@ onMounted(loadSettings)
 .map-share-settings__link > div {
   display: flex;
   gap: var(--xy-space-sm);
-}
-
-.map-share-settings__warning {
-  color: var(--xy-text-secondary);
-  background: var(--xy-warning-bg-faint);
-  border: 1px solid var(--xy-warning-border);
 }
 
 .map-share-settings__state {

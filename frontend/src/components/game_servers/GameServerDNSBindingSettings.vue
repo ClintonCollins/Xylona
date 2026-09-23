@@ -54,13 +54,16 @@
         </div>
       </div>
 
-      <q-banner v-if="binding?.privateAddress" class="private-address-warning q-mt-md" rounded>
+      <q-banner
+        v-if="binding?.privateAddress"
+        class="private-address-warning xy-banner-warning q-mt-md"
+        rounded>
         <template #avatar><q-icon color="warning" name="warning_amber" /></template>
         <strong>Private address:</strong> {{ binding.bindAddress }} may not be reachable from the
         public internet.
       </q-banner>
 
-      <q-banner v-if="actionError" class="dns-binding-error q-mt-md" role="alert" rounded>
+      <q-banner v-if="actionError" class="xy-banner-negative q-mt-md" role="alert" rounded>
         {{ actionError }}
       </q-banner>
 
@@ -119,6 +122,7 @@ import {
   SetDNSBindingRequestSchema,
   SyncDNSBindingRequestSchema,
 } from '@/proto/xylona_pb'
+import { notifySuccess } from '@/api/notifications'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 const props = defineProps<{ gameServerId: string }>()
@@ -202,7 +206,7 @@ async function save(): Promise<void> {
     )
     if (!response.binding) throw new Error('The saved DNS binding response was empty.')
     applyBinding(response.binding)
-    $q.notify({ type: 'positive', message: 'DNS binding saved. No DNS record was changed.' })
+    notifySuccess('DNS binding saved. No DNS record was changed.')
   } catch (unknownError: unknown) {
     const error = ConnectError.from(unknownError)
     if (error.code === Code.InvalidArgument) {
@@ -231,7 +235,7 @@ async function sync(): Promise<void> {
       [DNSSyncResult.DNS_SYNC_RESULT_UPDATED]: 'DNS record updated.',
       [DNSSyncResult.DNS_SYNC_RESULT_UNCHANGED]: 'DNS record is already current.',
     }
-    $q.notify({ type: 'positive', message: messages[response.result] })
+    notifySuccess(messages[response.result])
   } catch (unknownError: unknown) {
     const error = ConnectError.from(unknownError)
     actionError.value = ConnectErrorToString(error)
@@ -262,10 +266,7 @@ async function adopt(): Promise<void> {
     )
     if (!response.binding) throw new Error('The adopted DNS binding response was empty.')
     applyBinding(response.binding)
-    $q.notify({
-      type: 'positive',
-      message: 'Existing DNS record adopted without changing it.',
-    })
+    notifySuccess('Existing DNS record adopted without changing it.')
   } catch (unknownError: unknown) {
     actionError.value = sanitizedError(unknownError)
   } finally {
@@ -294,7 +295,7 @@ async function remove(): Promise<void> {
     binding.value = undefined
     relativeName.value = ''
     savedRelativeName.value = ''
-    $q.notify({ type: 'positive', message: 'Local DNS binding removed. DNS records remain.' })
+    notifySuccess('Local DNS binding removed. DNS records remain.')
   } catch (unknownError: unknown) {
     actionError.value = sanitizedError(unknownError)
   } finally {
@@ -347,18 +348,6 @@ onMounted(loadBinding)
   overflow-wrap: anywhere;
   color: var(--xy-text-primary);
   font-family: var(--xy-font-mono);
-}
-
-.private-address-warning {
-  color: var(--xy-text-secondary);
-  background: var(--xy-warning-bg-faint);
-  border: 1px solid var(--xy-warning-border);
-}
-
-.dns-binding-error {
-  color: var(--xy-text-primary);
-  background: var(--xy-error-bg-faint);
-  border: 1px solid var(--xy-error-border);
 }
 
 .dns-binding-actions {

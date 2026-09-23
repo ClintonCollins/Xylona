@@ -29,7 +29,6 @@
     <div>
       <q-table
         v-model:pagination="initialPagination"
-        v-model:selected="selected"
         aria-label="Users"
         :columns="columns"
         :filter="search"
@@ -39,16 +38,11 @@
         class="xy-standalone-table"
         flat
         hide-header-in-grid
-        row-key="id"
-        selection="multiple">
+        row-key="id">
         <template #item="props">
           <div class="user-grid-item col-12 col-sm-6">
             <q-card class="user-mobile-card" flat>
               <q-card-section class="user-mobile-header">
-                <q-checkbox
-                  v-model="props.selected"
-                  :aria-label="`Select ${props.row.userName}`"
-                  dense />
                 <div class="user-mobile-identity">
                   <router-link :to="`/admin/users/${props.row.id}/edit`" class="user-mobile-name">
                     {{ props.row.userName }}
@@ -57,9 +51,7 @@
                     [props.row.firstName, props.row.lastName].filter(Boolean).join(' ')
                   }}</span>
                 </div>
-                <q-badge
-                  :color="props.row.superUser ? 'warning' : 'grey-8'"
-                  :label="props.row.superUser ? 'Administrator' : 'User'" />
+                <q-badge color="grey-8" :label="roleLabel(props.row)" />
               </q-card-section>
 
               <q-card-section class="user-mobile-details">
@@ -103,33 +95,37 @@
         </template>
         <template #body-cell-superUser="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.superUser" color="positive" name="check" size="md" />
-            <q-icon v-else color="negative" name="close" size="md" />
+            <q-badge color="grey-8" :label="roleLabel(props.row)" />
           </q-td>
         </template>
         <template #body-cell-actions="props">
           <q-td :props="props">
-            <div class="q-gutter-xs">
-              <router-link :to="'/admin/users/' + props.row.id + '/edit'">
-                <q-btn :icon="tabSettings" aria-label="Edit user" class="text-main-brighter" flat>
-                  <q-tooltip>Edit user</q-tooltip>
-                </q-btn>
-              </router-link>
-              <span>
-                <q-btn
-                  :icon="tabTrash"
-                  aria-label="Delete user"
-                  class="text-error-brighter"
-                  flat
-                  @click="deleteUserAction(props.row)">
-                  <q-tooltip>Delete user</q-tooltip>
-                </q-btn>
-              </span>
+            <div class="xy-row-actions">
+              <q-btn
+                :to="'/admin/users/' + props.row.id + '/edit'"
+                :aria-label="`Edit ${props.row.userName}`"
+                dense
+                flat
+                icon="edit"
+                round>
+                <q-tooltip>Edit user</q-tooltip>
+              </q-btn>
+              <q-btn
+                :aria-label="`Delete ${props.row.userName}`"
+                class="text-error-brighter"
+                dense
+                flat
+                icon="delete"
+                round
+                @click="deleteUserAction(props.row)">
+                <q-tooltip>Delete user</q-tooltip>
+              </q-btn>
             </div>
           </q-td>
         </template>
         <template #no-data>
           <empty-state
+            v-if="!loading && !loadError"
             :description="search ? 'Try a different search.' : 'Create a user to get started.'"
             :title="search ? 'No matching users' : 'No users yet'"
             icon="people">
@@ -153,7 +149,6 @@ import { Timestamp } from '@bufbuild/protobuf/wkt'
 import { usePersistedRef } from '@/utils/persisted-ref'
 import { ConnectError } from '@connectrpc/connect'
 import { Notify, useQuasar } from 'quasar'
-import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { onMounted, Ref, ref } from 'vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
@@ -212,6 +207,10 @@ function formatCreatedAt(createdAt?: Timestamp): string {
   return formatDate(createdAt)
 }
 
+function roleLabel(user: User): string {
+  return user.superUser ? 'Super user' : 'User'
+}
+
 async function deleteUserAction(user: User) {
   selectedActionUser.value = user
   showUserDeleteDialog.value = true
@@ -223,7 +222,6 @@ async function deleteUserSubmitted(error: unknown | boolean) {
   }
 }
 
-const selected = ref([])
 const columns = ref([
   {
     name: 'userName',
@@ -256,16 +254,19 @@ const columns = ref([
   },
   {
     name: 'superUser',
-    label: 'Super User',
+    label: 'Role',
     align: 'left',
-    field: (row: { superUser: boolean }) => row.superUser,
+    field: (row: User) => roleLabel(row),
     sortable: true,
   },
   {
     name: 'createdAt',
     label: 'Created At',
     align: 'left',
-    field: (row: { createdAt?: Timestamp }) => formatCreatedAt(row.createdAt),
+    // Sort by the instant, not by the formatted month name.
+    field: (row: User) => Number(row.createdAt?.seconds ?? 0),
+    format: (_value: number, row: User) => formatCreatedAt(row.createdAt),
+    classes: 'xy-num',
     sortable: true,
   },
   {
@@ -273,6 +274,8 @@ const columns = ref([
     label: '',
     align: 'center',
     field: () => '',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ])
 </script>

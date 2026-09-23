@@ -6,6 +6,8 @@ import NodeForm from './NodeForm.vue'
 const mocks = vi.hoisted(() => ({
   copy: vi.fn(),
   notify: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyError: vi.fn(),
   routerBack: vi.fn(),
   routerPush: vi.fn(),
   generateNodePairingObject: vi.fn(),
@@ -21,6 +23,11 @@ vi.mock('quasar', async () => {
     }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyError: mocks.notifyError,
+}))
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
@@ -99,9 +106,6 @@ describe('NodeForm', () => {
     await flushPromises()
 
     expect(mocks.copy).toHaveBeenCalledWith(expectedCommand)
-    expect(mocks.notify).toHaveBeenCalledWith({
-      type: 'positive',
-      message: 'Node join command copied to clipboard',
-    })
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Node join command copied to clipboard')
   })
 })

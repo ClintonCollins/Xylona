@@ -191,4 +191,23 @@ describe('GameServerSchedules', () => {
     expect(wrapper.text()).toContain('Failed')
     expect(mocks.getScheduledTaskLogs).not.toHaveBeenCalled()
   })
+
+  it('shows a load error instead of an empty schedule list when loading fails', async () => {
+    mocks.listScheduledTasks.mockRejectedValueOnce(new Error('node unreachable'))
+    mocks.getBackupOverview.mockResolvedValue(create(GetGameServerBackupOverviewResponseSchema, {}))
+
+    const wrapper = shallowMount(GameServerSchedules, {
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          QTable: { template: '<div><slot name="no-data" /></div>' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Scheduled tasks could not be loaded.')
+    expect(wrapper.text()).toContain('node unreachable')
+    expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
+  })
 })

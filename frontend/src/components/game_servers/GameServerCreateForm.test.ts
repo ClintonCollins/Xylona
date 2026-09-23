@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   createGameServer: vi.fn(),
   initialize: vi.fn(),
   notify: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyWarning: vi.fn(),
   push: vi.fn(),
   resetSubmissionState: vi.fn(),
   startSubmitting: vi.fn(),
@@ -47,6 +49,11 @@ vi.mock('quasar', async () => {
     }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyWarning: mocks.notifyWarning,
+}))
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -150,6 +157,8 @@ describe('GameServerCreateForm submit flow', () => {
     mocks.createGameServer.mockReset()
     mocks.initialize.mockReset()
     mocks.notify.mockReset()
+    mocks.notifySuccess.mockReset()
+    mocks.notifyWarning.mockReset()
     mocks.push.mockReset()
     mocks.resetSubmissionState.mockReset()
     mocks.startSubmitting.mockReset()
@@ -186,12 +195,7 @@ describe('GameServerCreateForm submit flow', () => {
 
     expect(mocks.createGameServer).toHaveBeenCalledTimes(1)
     expect(mocks.push).toHaveBeenCalledWith('/game-servers/server-created-1/console')
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'positive',
-        caption: 'Game server created successfully.',
-      }),
-    )
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Game server created successfully.')
   })
 
   it('notifies the user when create fails', async () => {
@@ -243,11 +247,7 @@ describe('GameServerCreateForm submit flow', () => {
     await flushPromises()
 
     expect(mocks.createGameServer).not.toHaveBeenCalled()
-    expect(mocks.notify).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'positive',
-      }),
-    )
+    expect(mocks.notifySuccess).not.toHaveBeenCalled()
     expect(mocks.resetSubmissionState).not.toHaveBeenCalled()
   })
 
@@ -327,11 +327,8 @@ describe('GameServerCreateForm submit flow', () => {
       }),
     ])
     expect(request).not.toHaveProperty('password')
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'positive',
-        caption: 'Server created. Complete Steam sign-in in the install console.',
-      }),
+    expect(mocks.notifySuccess).toHaveBeenCalledWith(
+      'Server created. Complete Steam sign-in in the install console.',
     )
   })
 })

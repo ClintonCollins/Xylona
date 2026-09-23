@@ -15,11 +15,7 @@
             <q-icon name="search" />
           </template>
         </q-input>
-        <q-btn
-          color="secondary"
-          icon="upload_file"
-          label="Import JSON"
-          @click="showGameImportDialog = true" />
+        <q-btn flat icon="upload_file" label="Import JSON" @click="showGameImportDialog = true" />
         <q-btn color="primary" label="Add game" to="/games/new" />
       </template>
     </page-header>
@@ -34,7 +30,6 @@
     <div>
       <q-table
         v-model:pagination="initialPagination"
-        v-model:selected="selected"
         aria-label="Games"
         :columns="columns"
         :filter="search"
@@ -44,22 +39,17 @@
         class="xy-standalone-table"
         flat
         hide-header-in-grid
-        row-key="id"
-        selection="multiple">
+        row-key="id">
         <template #item="props">
           <div class="game-grid-item col-12 col-sm-6">
             <q-card class="game-mobile-card" flat>
               <q-card-section class="game-mobile-header">
-                <q-checkbox
-                  v-model="props.selected"
-                  :aria-label="`Select ${props.row.name}`"
-                  dense />
                 <div class="game-mobile-identity">
                   <router-link :to="`/games/${props.row.id}/edit`" class="game-mobile-name">
                     {{ props.row.name }}
                   </router-link>
                   <q-badge
-                    :color="props.row.xylonaOfficial ? 'positive' : 'grey-8'"
+                    color="grey-8"
                     :label="props.row.xylonaOfficial ? 'Official' : 'Custom'" />
                 </div>
               </q-card-section>
@@ -67,11 +57,11 @@
               <q-card-section class="game-mobile-details">
                 <div>
                   <span>Game port</span>
-                  <strong>{{ props.row.defaultPort || 'Not set' }}</strong>
+                  <strong class="xy-num">{{ props.row.defaultPort || 'Not set' }}</strong>
                 </div>
                 <div>
                   <span>Query port</span>
-                  <strong>{{ props.row.defaultQueryPort || 'Not set' }}</strong>
+                  <strong class="xy-num">{{ props.row.defaultQueryPort || 'Not set' }}</strong>
                 </div>
                 <div>
                   <span>Windows</span>
@@ -127,61 +117,67 @@
         </template>
         <template #body-cell-xylona_official="props">
           <q-td :props="props">
-            <q-badge
-              :color="props.row.xylonaOfficial ? 'positive' : 'grey-8'"
-              :label="props.row.xylonaOfficial ? 'Official' : 'Custom'" />
+            <q-badge color="grey-8" :label="props.row.xylonaOfficial ? 'Official' : 'Custom'" />
           </q-td>
         </template>
         <template #body-cell-windows_support="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.windowsSupport" color="positive" name="check" size="md" />
-            <q-icon v-else color="negative" name="close" size="md" />
+            <q-icon v-if="props.row.windowsSupport" aria-label="Supported" name="check" size="sm" />
+            <span v-else aria-label="Not supported" class="text-xy-muted" role="img">—</span>
           </q-td>
         </template>
         <template #body-cell-linux_support="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.linuxSupport" color="positive" name="check" size="md" />
-            <q-icon v-else color="negative" name="close" size="md" />
+            <q-icon v-if="props.row.linuxSupport" aria-label="Supported" name="check" size="sm" />
+            <span v-else aria-label="Not supported" class="text-xy-muted" role="img">—</span>
           </q-td>
         </template>
         <template #body-cell-actions="props">
           <q-td :props="props">
-            <div class="q-gutter-xs">
-              <router-link :to="'/games/' + props.row.id + '/edit'">
-                <q-btn :icon="tabSettings" aria-label="Edit game" class="text-main-brighter" flat>
-                  <q-tooltip>Edit game</q-tooltip>
-                </q-btn>
-              </router-link>
-              <router-link :to="'/games/' + props.row.id + '/copy'">
-                <q-btn :icon="tabCopy" aria-label="Copy game" class="text-success-brighter" flat>
-                  <q-tooltip>Copy game</q-tooltip>
-                </q-btn>
-              </router-link>
-              <span>
-                <q-btn
-                  aria-label="Export game JSON"
-                  class="text-xy-accent"
-                  flat
-                  icon="file_download"
-                  @click="exportGameAction(props.row)">
-                  <q-tooltip>Export game JSON</q-tooltip>
-                </q-btn>
-              </span>
-              <span>
-                <q-btn
-                  :icon="tabTrash"
-                  aria-label="Delete game"
-                  class="text-error-brighter"
-                  flat
-                  @click="deleteGameAction(props.row)">
-                  <q-tooltip>Delete game</q-tooltip>
-                </q-btn>
-              </span>
+            <div class="xy-row-actions">
+              <q-btn
+                :to="'/games/' + props.row.id + '/edit'"
+                :aria-label="`Edit ${props.row.name}`"
+                dense
+                flat
+                icon="edit"
+                round>
+                <q-tooltip>Edit game</q-tooltip>
+              </q-btn>
+              <q-btn
+                :to="'/games/' + props.row.id + '/copy'"
+                :aria-label="`Copy ${props.row.name}`"
+                dense
+                flat
+                icon="content_copy"
+                round>
+                <q-tooltip>Copy game</q-tooltip>
+              </q-btn>
+              <q-btn
+                :aria-label="`Export ${props.row.name} as JSON`"
+                dense
+                flat
+                icon="file_download"
+                round
+                @click="exportGameAction(props.row)">
+                <q-tooltip>Export game JSON</q-tooltip>
+              </q-btn>
+              <q-btn
+                :aria-label="`Delete ${props.row.name}`"
+                class="text-error-brighter"
+                dense
+                flat
+                icon="delete"
+                round
+                @click="deleteGameAction(props.row)">
+                <q-tooltip>Delete game</q-tooltip>
+              </q-btn>
             </div>
           </q-td>
         </template>
         <template #no-data>
           <empty-state
+            v-if="!loading && !loadError"
             :description="search ? 'Try a different search.' : 'Add a game to get started.'"
             :title="search ? 'No matching games' : 'No games yet'"
             icon="sports_esports">
@@ -211,7 +207,6 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import GameDeleteDialog from '@/components/games/GameDeleteDialog.vue'
 import GameImportDialog from '@/components/games/GameImportDialog.vue'
 import { exportGameDefinitionJSON } from '@/components/games/game-definition-json'
-import { tabCopy, tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { onMounted, Ref, ref } from 'vue'
@@ -301,7 +296,6 @@ async function gameImported(gameID: string) {
   }
 }
 
-const selected = ref([])
 const columns = ref([
   {
     name: 'name',
@@ -320,28 +314,30 @@ const columns = ref([
   },
   {
     name: 'default_port',
-    label: 'Default Port',
+    label: 'Port',
+    classes: 'xy-num',
     align: 'left',
     field: (row: { defaultPort: number }) => row.defaultPort,
     sortable: true,
   },
   {
     name: 'default_query_port',
-    label: 'Default Query Port',
+    label: 'Query Port',
+    classes: 'xy-num',
     align: 'left',
     field: (row: { defaultQueryPort: number }) => row.defaultQueryPort,
     sortable: true,
   },
   {
     name: 'windows_support',
-    label: 'Windows Support',
+    label: 'Windows',
     align: 'left',
     field: (row: { windowsSupport: boolean }) => row.windowsSupport,
     sortable: true,
   },
   {
     name: 'linux_support',
-    label: 'Linux Support',
+    label: 'Linux',
     align: 'left',
     field: (row: { linuxSupport: boolean }) => row.linuxSupport,
     sortable: true,
@@ -351,6 +347,8 @@ const columns = ref([
     label: '',
     align: 'center',
     field: () => '',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ])
 </script>

@@ -691,10 +691,9 @@
           <template v-else>
             <q-banner
               v-if="!backupSettings.backupsSupported"
-              class="col-12 bg-warning text-dark q-mb-md"
+              class="col-12 xy-banner-warning q-mb-md"
               data-testid="backup-settings-unsupported"
-              dense
-              rounded>
+              dense>
               {{ backupSettings.disabledReason || 'New backups are unavailable for this server.' }}
               Existing backups remain available from the Backups page.
             </q-banner>
@@ -784,6 +783,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { notifySuccess } from '@/api/notifications'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerDnsBindingSettings from './GameServerDNSBindingSettings.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
@@ -1035,12 +1035,7 @@ async function saveAdminInterfacePassword() {
       adminInterface.value = create(GameServerAdminInterfaceSchema, response.adminInterface)
     }
     adminInterfacePassword.value = ''
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Admin interface password updated. Restart the game server to apply it.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Admin interface password updated. Restart the game server to apply it.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1171,12 +1166,7 @@ async function saveEnvironmentSettings() {
     environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
     commitEnvironmentSnapshot()
     environmentIssues.value = response.validationIssues
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Environment variables saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Environment variables saved successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1203,12 +1193,7 @@ async function setSecretEnvironment() {
     secretEnvironmentStates.value = response.secretEnv
     environmentIssues.value = response.validationIssues
     secretEnvironmentValue.value = ''
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Secret saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Secret saved successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1233,12 +1218,7 @@ async function clearSecretEnvironment(name: string) {
 
     secretEnvironmentStates.value = response.secretEnv
     environmentIssues.value = response.validationIssues
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Secret cleared successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Secret cleared successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1305,12 +1285,7 @@ async function saveBackupSettings() {
     }
 
     await initializeBackupSettings()
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Backup settings saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Backup settings saved successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1341,12 +1316,7 @@ async function submitGameServer() {
 
     await GetXylonaClient().editGameServer(request)
     await initializeAdminInterface()
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Server settings saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Server settings saved successfully.')
   } catch (e) {
     console.error(e)
     $q.notify({

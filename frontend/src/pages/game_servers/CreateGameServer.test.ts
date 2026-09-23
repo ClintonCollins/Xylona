@@ -32,6 +32,13 @@ vi.mock('quasar', async () => {
   }
 })
 
+// Every toast goes through the shared helpers; record them on one mock.
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notify,
+  notifyError: mocks.notify,
+  notifyWarning: mocks.notify,
+}))
+
 describe('CreateGameServer page', () => {
   beforeEach(() => {
     setActivePinia(createPinia())

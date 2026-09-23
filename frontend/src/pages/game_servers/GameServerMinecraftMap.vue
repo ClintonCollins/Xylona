@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { notifyError, notifySuccess, notifyWarning } from '@/api/notifications'
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
 import {
   GetMinecraftMapRequestSchema,
@@ -16,7 +16,6 @@ import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 const pollIntervalMilliseconds = 5_000
 const viewerRefreshMilliseconds = 45 * 60 * 1_000
 const route = useRoute()
-const quasar = useQuasar()
 const mapView = ref<MinecraftMapView | null>(null)
 const viewerURL = ref('')
 const viewerURLSetAt = ref(0)
@@ -94,7 +93,7 @@ function openSettings(): void {
 
 async function saveSettings(): Promise<void> {
   if (settingsForm.enabled && !mapView.value?.bluemapDownloadAccepted && !settingsForm.accepted) {
-    quasar.notify({ type: 'warning', message: 'Accept the BlueMap resource download to continue.' })
+    notifyWarning('Accept the BlueMap resource download to continue.')
     return
   }
   savingSettings.value = true
@@ -112,18 +111,14 @@ async function saveSettings(): Promise<void> {
       viewerURL.value = ''
     }
     settingsOpen.value = false
-    quasar.notify({
-      type: 'positive',
-      message: settingsForm.enabled
+    notifySuccess(
+      settingsForm.enabled
         ? 'Minecraft live map enabled. Restart the server once to activate live player positions.'
         : 'Minecraft live map disabled.',
-    })
+    )
     await loadMap()
   } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
+    notifyError(ConnectErrorToString(ConnectError.from(unknownError)))
   } finally {
     savingSettings.value = false
   }

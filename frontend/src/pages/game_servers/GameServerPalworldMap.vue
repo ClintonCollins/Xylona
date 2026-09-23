@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { notifyError, notifySuccess } from '@/api/notifications'
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
 import {
   GetPalworldMapRequestSchema,
@@ -39,7 +39,6 @@ const defaultLayer = (): PalworldMapLayer =>
   })
 
 const route = useRoute()
-const quasar = useQuasar()
 // Each poll replaces the view wholesale, so deep reactivity would only re-proxy
 // every actor in the snapshot for nothing.
 const mapView = shallowRef<PalworldMapView | null>(null)
@@ -105,12 +104,9 @@ async function saveSettings(): Promise<void> {
       mapView.value.layers = response.layers
     }
     settingsOpen.value = false
-    quasar.notify({ type: 'positive', message: 'Map imagery settings saved.' })
+    notifySuccess('Map imagery settings saved.')
   } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
+    notifyError(ConnectErrorToString(ConnectError.from(unknownError)))
   } finally {
     savingSettings.value = false
   }
@@ -130,15 +126,9 @@ async function installLocalTiles(): Promise<void> {
       layerForm.value = create(PalworldMapLayerSchema, configured)
     }
     settingsOpen.value = false
-    quasar.notify({
-      type: 'positive',
-      message: 'Palpagos and World Tree tiles are installed and served by Xylona.',
-    })
+    notifySuccess('Palpagos and World Tree tiles are installed and served by Xylona.')
   } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
+    notifyError(ConnectErrorToString(ConnectError.from(unknownError)))
   } finally {
     installingTiles.value = false
   }
@@ -157,12 +147,9 @@ async function removeImagery(): Promise<void> {
       mapView.value.layers = response.layers
     }
     settingsOpen.value = false
-    quasar.notify({ type: 'positive', message: 'Map imagery removed. Using the coordinate grid.' })
+    notifySuccess('Map imagery removed. Using the coordinate grid.')
   } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
+    notifyError(ConnectErrorToString(ConnectError.from(unknownError)))
   } finally {
     savingSettings.value = false
   }

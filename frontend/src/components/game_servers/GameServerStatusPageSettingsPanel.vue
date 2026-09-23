@@ -4,6 +4,7 @@ import { Code, ConnectError } from '@connectrpc/connect'
 import { computed, onMounted, ref } from 'vue'
 import { copyToClipboard, useQuasar } from 'quasar'
 
+import { notifyError, notifySuccess } from '@/api/notifications'
 import {
   GameServerStatusPageConnectionAddressSchema,
   type GameServerStatusPageSettings,
@@ -165,7 +166,7 @@ async function save() {
     )
     if (!response.settings) throw new Error('The saved status page settings response was empty.')
     applySettings(response.settings)
-    $q.notify({ type: 'positive', message: 'Status page settings saved' })
+    notifySuccess('Status page settings saved')
   } catch (error: unknown) {
     const connectError = ConnectError.from(error)
     if (connectError.code === Code.AlreadyExists) {
@@ -183,27 +184,27 @@ async function save() {
 async function copyPublicLink() {
   try {
     await copyToClipboard(publicURL.value)
-    $q.notify({ type: 'positive', message: 'Public link copied' })
+    notifySuccess('Public link copied')
   } catch {
-    $q.notify({ type: 'negative', message: 'Could not copy the public link.' })
+    notifyError('Could not copy the public link.')
   }
 }
 
 async function copyPublicAPIURL() {
   try {
     await copyToClipboard(publicAPIURL.value)
-    $q.notify({ type: 'positive', message: 'JSON endpoint copied' })
+    notifySuccess('JSON endpoint copied')
   } catch {
-    $q.notify({ type: 'negative', message: 'Could not copy the JSON endpoint.' })
+    notifyError('Could not copy the JSON endpoint.')
   }
 }
 
 async function copyPublicEventsURL() {
   try {
     await copyToClipboard(publicEventsURL.value)
-    $q.notify({ type: 'positive', message: 'Live endpoint copied' })
+    notifySuccess('Live endpoint copied')
   } catch {
-    $q.notify({ type: 'negative', message: 'Could not copy the live endpoint.' })
+    notifyError('Could not copy the live endpoint.')
   }
 }
 

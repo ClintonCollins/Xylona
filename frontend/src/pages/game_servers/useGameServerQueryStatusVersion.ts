@@ -123,7 +123,7 @@ export function useGameServerQueryStatusVersion({
       console.error(error)
       $q.notify({
         type: 'xylona-error',
-        position: 'top-right',
+        position: 'top',
         caption: 'Failed to query game server: ' + ConnectErrorToString(ConnectError.from(error)),
         icon: 'report_problem',
       })

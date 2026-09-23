@@ -1,6 +1,21 @@
 <template>
   <q-page class="xy-page-content">
     <page-header title="Notifications" />
+    <q-banner v-if="loadError" class="xy-banner-negative q-mb-md" dense inline-actions role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      {{ loadError }}
+      <template #action>
+        <q-btn
+          aria-label="Retry loading notifications"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="loadPage" />
+      </template>
+    </q-banner>
 
     <q-tabs
       v-model="activeTab"
@@ -63,7 +78,7 @@
                   @update:model-value="toggleChannelEnabled(props.row)" />
                 <q-badge
                   v-else
-                  :color="props.row.enabled ? 'positive' : 'negative'"
+                  :color="props.row.enabled ? 'positive' : 'grey-8'"
                   :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
               </q-card-section>
 
@@ -120,7 +135,7 @@
                 @update:model-value="toggleChannelEnabled(props.row)" />
               <q-badge
                 v-else
-                :color="props.row.enabled ? 'positive' : 'negative'"
+                :color="props.row.enabled ? 'positive' : 'grey-8'"
                 :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
             </q-td>
           </template>
@@ -158,6 +173,7 @@
           </template>
           <template #no-data>
             <empty-state
+              v-if="!channelsLoading && !loadError"
               :description="
                 hasAlertsManage
                   ? 'Add a channel to start receiving alerts.'
@@ -220,7 +236,7 @@
                   @update:model-value="toggleRuleEnabled(props.row)" />
                 <q-badge
                   v-else
-                  :color="props.row.enabled ? 'positive' : 'negative'"
+                  :color="props.row.enabled ? 'positive' : 'grey-8'"
                   :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
               </q-card-section>
 
@@ -279,7 +295,7 @@
                 @update:model-value="toggleRuleEnabled(props.row)" />
               <q-badge
                 v-else
-                :color="props.row.enabled ? 'positive' : 'negative'"
+                :color="props.row.enabled ? 'positive' : 'grey-8'"
                 :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
             </q-td>
           </template>
@@ -308,6 +324,7 @@
           </template>
           <template #no-data>
             <empty-state
+              v-if="!rulesLoading && !loadError"
               description="Create alert rules from individual game server pages."
               icon="rule"
               title="No alert rules" />
@@ -411,6 +428,7 @@
           </template>
           <template #no-data>
             <empty-state
+              v-if="!historyLoading && !loadError"
               description="Alert events will appear here once rules are triggered."
               icon="history"
               title="No alert history" />
@@ -790,6 +808,8 @@ function resolveServerName(serverId: string | undefined): string {
 // ─── Channels ────────────────────────────────────────────────────────────────
 const channels = ref<NotificationChannel[]>([])
 const channelsLoading = ref(false)
+// Set when a list cannot be read, so its empty state never stands in for an outage.
+const loadError = ref('')
 
 const channelColumns = [
   {
@@ -836,13 +856,8 @@ async function loadChannels(): Promise<void> {
     )
     channels.value = response.channels
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Failed to load channels: ' + ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    loadError.value =
+      'Failed to load channels: ' + ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     channelsLoading.value = false
   }
@@ -1213,13 +1228,8 @@ async function loadRules(): Promise<void> {
     const response = await GetXylonaClient().listAlertRules(create(ListAlertRulesRequestSchema, {}))
     rules.value = response.rules
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Failed to load alert rules: ' + ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    loadError.value =
+      'Failed to load alert rules: ' + ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     rulesLoading.value = false
   }
@@ -1640,13 +1650,8 @@ async function loadHistory(append: boolean = false): Promise<void> {
     }
     historyHasMore.value = response.entries.length === historyPageSize
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Failed to load alert history: ' + ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    loadError.value =
+      'Failed to load alert history: ' + ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     historyLoading.value = false
   }
@@ -1814,9 +1819,12 @@ function deliveryStatusColor(status: DeliveryStatus): string {
 }
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
-onMounted(async () => {
+async function loadPage(): Promise<void> {
+  loadError.value = ''
   await Promise.all([loadGameServers(), loadChannels(), loadRules(), loadHistory()])
-})
+}
+
+onMounted(loadPage)
 </script>
 
 <style scoped>

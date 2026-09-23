@@ -62,8 +62,9 @@
 
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { copyToClipboard, useQuasar } from 'quasar'
+import { copyToClipboard } from 'quasar'
 
+import { notifySuccess } from '@/api/notifications'
 import type { ResolvedStartArgBlock, StartArgProvenance } from './start-args'
 
 type CommandSegmentProvenance = StartArgProvenance | 'base'
@@ -72,8 +73,6 @@ const props = defineProps<{
   baseCommand: string
   resolvedBlocks: ResolvedStartArgBlock[]
 }>()
-
-const $q = useQuasar()
 
 const legendItems: Array<{ provenance: StartArgProvenance; label: string }> = [
   { provenance: 'system', label: 'System' },
@@ -129,12 +128,7 @@ function legendDotClass(provenance: StartArgProvenance) {
 
 async function copyCommand() {
   await copyToClipboard(fullCommand.value)
-  $q.notify({
-    type: 'positive',
-    position: 'top',
-    caption: 'Resolved command copied to clipboard.',
-    icon: 'task_alt',
-  })
+  notifySuccess('Resolved command copied to clipboard.')
 }
 </script>
 

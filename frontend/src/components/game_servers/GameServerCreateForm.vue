@@ -267,6 +267,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { notifySuccess, notifyWarning } from '@/api/notifications'
 import GameServerFormShell from './GameServerFormShell.vue'
 import { useGameServerPortAvailability } from './useGameServerPortAvailability'
 import { useGameServerFormState } from './useGameServerFormState'
@@ -412,12 +413,7 @@ async function submitGameServer() {
 
   const portsAvailable = await ensurePortAvailabilityBeforeSave()
   if (!portsAvailable) {
-    $q.notify({
-      type: 'warning',
-      position: 'top',
-      caption: portAvailabilityMessage.value,
-      icon: 'report_problem',
-    })
+    notifyWarning(portAvailabilityMessage.value)
     return
   }
 
@@ -437,14 +433,11 @@ async function submitGameServer() {
 
     const response = await GetXylonaClient().createGameServer(request)
     await router.push(`/game-servers/${response.gameServer?.id}/console`)
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: isStarboundGame.value
+    notifySuccess(
+      isStarboundGame.value
         ? 'Server created. Complete Steam sign-in in the install console.'
         : 'Game server created successfully.',
-      icon: 'task_alt',
-    })
+    )
   } catch (e) {
     console.error(e)
     $q.notify({

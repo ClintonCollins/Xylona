@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
   getStatusPage: vi.fn(),
   notify: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyError: vi.fn(),
 }))
 
 vi.mock('@/api/connect-client', () => ({
@@ -35,6 +37,11 @@ vi.mock('quasar', async () => {
     useQuasar: () => ({ notify: mocks.notify }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyError: mocks.notifyError,
+}))
 
 class FakeEventSource {
   static instances: FakeEventSource[] = []
@@ -68,7 +75,8 @@ describe('PublicGameServerStatusPage', () => {
     mocks.copyToClipboard.mockReset()
     mocks.copyToClipboard.mockResolvedValue(undefined)
     mocks.getStatusPage.mockReset()
-    mocks.notify.mockReset()
+    mocks.notifySuccess.mockReset()
+    mocks.notifyError.mockReset()
   })
 
   afterEach(() => {
@@ -228,10 +236,7 @@ describe('PublicGameServerStatusPage', () => {
     mocks.copyToClipboard.mockRejectedValueOnce(new Error('copy failed'))
     await vm.copyAddress(create(PublicGameServerStatusSchema, { id: 'server-2' }))
 
-    expect(mocks.notify).toHaveBeenCalledWith({
-      type: 'negative',
-      message: 'Could not copy the connection address.',
-    })
+    expect(mocks.notifyError).toHaveBeenCalledWith('Could not copy the connection address.')
     wrapper.unmount()
   })
 })

@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   updateBackupSettings: vi.fn(),
   initialize: vi.fn(),
   notify: vi.fn(),
+  notifySuccess: vi.fn(),
   push: vi.fn(),
   resetSubmissionState: vi.fn(),
   startSubmitting: vi.fn(),
@@ -52,6 +53,10 @@ vi.mock('quasar', async () => {
     }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+}))
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -209,12 +214,7 @@ describe('GameServerSettingsForm submit flow', () => {
 
     expect(mocks.editGameServer).toHaveBeenCalledTimes(1)
     expect(mocks.push).not.toHaveBeenCalled()
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'positive',
-        caption: 'Server settings saved successfully.',
-      }),
-    )
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Server settings saved successfully.')
   })
 
   it('notifies the user when save fails', async () => {

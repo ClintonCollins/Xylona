@@ -131,6 +131,12 @@ vi.mock('quasar', async () => {
   }
 })
 
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notify,
+  notifyError: mocks.notify,
+  notifySuccess: mocks.notify,
+}))
+
 vi.mock('@/utils/persisted-ref', () => ({
   usePersistedRef: <T>(_key: string, initialValue: T) => ref(initialValue),
 }))

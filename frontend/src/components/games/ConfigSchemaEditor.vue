@@ -350,7 +350,7 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useQuasar } from 'quasar'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
 import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
@@ -395,7 +395,6 @@ const emit = defineEmits<{
   back: []
 }>()
 
-const $q = useQuasar()
 const showImportDialog = ref(false)
 const pendingImport = ref<ImportDetectionResult | null>(null)
 
@@ -1052,11 +1051,9 @@ function applyImport() {
   showImportDialog.value = false
   pendingImport.value = null
 
-  $q.notify({
-    type: 'positive',
-    message: `Added ${added} new field${added !== 1 ? 's' : ''}${skipped > 0 ? `, ${skipped} already existed (skipped)` : ''}`,
-    position: 'bottom',
-  })
+  notifySuccess(
+    `Added ${added} new field${added !== 1 ? 's' : ''}${skipped > 0 ? `, ${skipped} already existed (skipped)` : ''}`,
+  )
 }
 
 /**
@@ -1114,12 +1111,7 @@ function handleSave() {
 
       // Block saving arrays or non-objects
       if (Array.isArray(raw) || typeof raw !== 'object' || raw === null) {
-        $q.notify({
-          type: 'xylona-error',
-          caption: 'Schema must be a JSON object with "type" and "properties", not an array.',
-          position: 'top',
-          timeout: 5000,
-        })
+        notifyError('Schema must be a JSON object with "type" and "properties", not an array.')
         return
       }
 

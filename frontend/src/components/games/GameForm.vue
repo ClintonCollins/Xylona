@@ -171,6 +171,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { QForm, useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, provide, ref, Ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { notifySuccess } from '@/api/notifications'
 import {
   CommandType,
   EnvironmentValidationIssue,
@@ -686,12 +687,7 @@ async function saveDefaultEnvironment(): Promise<void> {
     defaultEnvRows.value = cloneEnvironmentVariables(response.defaultEnv)
     defaultEnvIssues.value = response.validationIssues
     commitDefaultEnvSnapshot()
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Default environment saved.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Default environment saved.')
   } catch (unknownError: unknown) {
     $q.notify({
       type: 'xylona-error',
