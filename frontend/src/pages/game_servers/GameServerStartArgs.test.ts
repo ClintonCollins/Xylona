@@ -177,11 +177,11 @@ describe('GameServerStartArgs', () => {
     expect(mocks.dialog).toHaveBeenCalledWith(expect.objectContaining({ title: 'Unsaved Changes' }))
   })
 
-  function queryWithPlayers(players: number) {
+  function queryWithPlayers(players: number, responded = true) {
     return create(QueryGameServerResponseSchema, {
       queryInfo: create(ServerQuerySchema, {
         type: ServerQuery_Type.Source,
-        source: create(SourceQueryInfoSchema, { players }),
+        source: create(SourceQueryInfoSchema, { players, responded }),
       }),
     })
   }
@@ -199,16 +199,44 @@ describe('GameServerStartArgs', () => {
     })
   }
 
+  const twoOnline = '2 players are online and will be disconnected while the server restarts.'
+  const unknownOnline =
+    'Player count unknown — anyone connected will be disconnected while the server restarts.'
   it.each([
-    { name: 'restarts at once with nobody online', players: 0, confirm: true, asked: false },
-    { name: 'restarts once the operator confirms', players: 2, confirm: true, asked: true },
-    { name: 'saves nothing when the operator cancels', players: 2, confirm: false, asked: true },
-  ])('Save & Restart $name', async ({ players, confirm, asked }) => {
+    {
+      name: 'restarts at once with nobody online',
+      players: 0,
+      responded: true,
+      confirm: true,
+      message: null,
+    },
+    {
+      name: 'restarts once the operator confirms',
+      players: 2,
+      responded: true,
+      confirm: true,
+      message: twoOnline,
+    },
+    {
+      name: 'saves nothing when the operator cancels',
+      players: 2,
+      responded: true,
+      confirm: false,
+      message: twoOnline,
+    },
+    {
+      name: 'asks first when the query did not answer',
+      players: 0,
+      responded: false,
+      confirm: true,
+      message: unknownOnline,
+    },
+  ])('Save & Restart $name', async ({ players, responded, confirm, message }) => {
     const onlineServer = buildGameServer(Status.ONLINE, './custom-start.sh')
     mocks.getGameServer.mockResolvedValue(
       create(GetGameServerResponseSchema, { gameServer: onlineServer }),
     )
-    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(players))
+    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(players, responded))
     mocks.updateGameServerStartArgs.mockResolvedValue(
       create(UpdateGameServerStartArgsResponseSchema, { gameServer: onlineServer }),
     )
@@ -219,13 +247,10 @@ describe('GameServerStartArgs', () => {
     await flushPromises()
     await (wrapper.vm as unknown as { saveAndRestart: () => Promise<void> }).saveAndRestart()
 
-    expect(mocks.dialog).toHaveBeenCalledTimes(asked ? 1 : 0)
-    if (asked) {
+    expect(mocks.dialog).toHaveBeenCalledTimes(message === null ? 0 : 1)
+    if (message !== null) {
       expect(mocks.dialog).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Restart Survival?',
-          message: '2 players are online and will be disconnected while the server restarts.',
-        }),
+        expect.objectContaining({ title: 'Restart Survival?', message }),
       )
     }
     if (!confirm) {
