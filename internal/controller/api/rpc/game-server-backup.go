@@ -524,7 +524,7 @@ func (xs *XylonaService) DeleteGameServerBackup(
 
 // RestoreGameServerBackup restores a backup archive onto a game server.
 func (xs *XylonaService) RestoreGameServerBackup(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.RestoreGameServerBackupRequest],
 ) (*connect.Response[xylona.RestoreGameServerBackupResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -560,6 +560,13 @@ func (xs *XylonaService) RestoreGameServerBackup(
 		return nil, errGetBackup
 	}
 
+	if request.Msg.GetBackupCurrentFilesFirst() {
+		errSnapshot := xs.backupBeforeRestore(ctx, gameServer, user.ID)
+		if errSnapshot != nil {
+			return nil, errSnapshot
+		}
+	}
+
 	errRestore := xs.actionsInst.RestoreGameServerBackup(gameServer, backup.ID, request.Msg.GetRestoreMode())
 	if errRestore != nil {
 		userMessage, isUserFacing := actions.BackupRestoreUserFacingMessage(errRestore)
@@ -576,4 +583,30 @@ func (xs *XylonaService) RestoreGameServerBackup(
 	}
 
 	return connect.NewResponse(&xylona.RestoreGameServerBackupResponse{}), nil
+}
+
+// backupBeforeRestore takes the optional safety backup that lets an operator
+// undo a restore. A failure stops the restore before any file changes.
+func (xs *XylonaService) backupBeforeRestore(ctx context.Context, gameServer *models.GameServer, userID string) error {
+	operationsAllowed, disabledReason := xs.backupOperationsAllowed(ctx, gameServer)
+	if !operationsAllowed {
+		return connect.NewError(
+			connect.CodeFailedPrecondition,
+			fmt.Errorf("could not back up current files, so the restore did not start: %s", disabledReason),
+		)
+	}
+
+	_, errBackup := xs.actionsInst.BackupBeforeRestore(gameServer, userID)
+	if errBackup == nil {
+		return nil
+	}
+	userMessage, isUserFacing := actions.BackupRestoreUserFacingMessage(errBackup)
+	if isUserFacing {
+		return connect.NewError(connect.CodeFailedPrecondition, errors.New(userMessage))
+	}
+	log.Error().
+		Err(errBackup).
+		Str("game_server_id", gameServer.ID).
+		Msg("Pre-restore backup failed")
+	return connect.NewError(connect.CodeInternal, errors.New("could not back up current files, so the restore did not start"))
 }

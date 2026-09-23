@@ -16524,12 +16524,15 @@ func (*DeleteGameServerBackupResponse) Descriptor() ([]byte, []int) {
 }
 
 type RestoreGameServerBackupRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	GameServerId  string                 `protobuf:"bytes,1,opt,name=game_server_id,json=gameServerId,proto3" json:"game_server_id,omitempty"`
-	BackupId      string                 `protobuf:"bytes,2,opt,name=backup_id,json=backupId,proto3" json:"backup_id,omitempty"`
-	RestoreMode   BackupRestoreMode      `protobuf:"varint,3,opt,name=restore_mode,json=restoreMode,proto3,enum=xylona.BackupRestoreMode" json:"restore_mode,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	GameServerId string                 `protobuf:"bytes,1,opt,name=game_server_id,json=gameServerId,proto3" json:"game_server_id,omitempty"`
+	BackupId     string                 `protobuf:"bytes,2,opt,name=backup_id,json=backupId,proto3" json:"backup_id,omitempty"`
+	RestoreMode  BackupRestoreMode      `protobuf:"varint,3,opt,name=restore_mode,json=restoreMode,proto3,enum=xylona.BackupRestoreMode" json:"restore_mode,omitempty"`
+	// Archive the current server directory as a retention-exempt manual backup
+	// before the restore touches any files.
+	BackupCurrentFilesFirst bool `protobuf:"varint,4,opt,name=backup_current_files_first,json=backupCurrentFilesFirst,proto3" json:"backup_current_files_first,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *RestoreGameServerBackupRequest) Reset() {
@@ -16581,6 +16584,13 @@ func (x *RestoreGameServerBackupRequest) GetRestoreMode() BackupRestoreMode {
 		return x.RestoreMode
 	}
 	return BackupRestoreMode_BACKUP_RESTORE_MODE_UNSPECIFIED
+}
+
+func (x *RestoreGameServerBackupRequest) GetBackupCurrentFilesFirst() bool {
+	if x != nil {
+		return x.BackupCurrentFilesFirst
+	}
+	return false
 }
 
 type RestoreGameServerBackupResponse struct {
@@ -23463,11 +23473,12 @@ const file_xylona_proto_rawDesc = "" +
 	"\x1dDeleteGameServerBackupRequest\x12$\n" +
 	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\x12\x1b\n" +
 	"\tbackup_id\x18\x02 \x01(\tR\bbackupId\" \n" +
-	"\x1eDeleteGameServerBackupResponse\"\xa1\x01\n" +
+	"\x1eDeleteGameServerBackupResponse\"\xde\x01\n" +
 	"\x1eRestoreGameServerBackupRequest\x12$\n" +
 	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\x12\x1b\n" +
 	"\tbackup_id\x18\x02 \x01(\tR\bbackupId\x12<\n" +
-	"\frestore_mode\x18\x03 \x01(\x0e2\x19.xylona.BackupRestoreModeR\vrestoreMode\"!\n" +
+	"\frestore_mode\x18\x03 \x01(\x0e2\x19.xylona.BackupRestoreModeR\vrestoreMode\x12;\n" +
+	"\x1abackup_current_files_first\x18\x04 \x01(\bR\x17backupCurrentFilesFirst\"!\n" +
 	"\x1fRestoreGameServerBackupResponse\"\xce\x02\n" +
 	"&GameServerPlayerManagementCapabilities\x12+\n" +
 	"\x11actions_supported\x18\x01 \x01(\bR\x10actionsSupported\x12-\n" +

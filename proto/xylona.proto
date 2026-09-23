@@ -1753,6 +1753,9 @@ message RestoreGameServerBackupRequest {
   string game_server_id = 1;
   string backup_id = 2;
   BackupRestoreMode restore_mode = 3;
+  // Archive the current server directory as a retention-exempt manual backup
+  // before the restore touches any files.
+  bool backup_current_files_first = 4;
 }
 
 message RestoreGameServerBackupResponse {}

@@ -18,12 +18,15 @@ import {
   GameServerBackupSchema,
   GameServerBackupStatus,
   GameServerBackupTriggerSource,
+  GameServerSchema,
+  Status,
 } from '@/proto/shared_pb'
 import GameServerBackups from './GameServerBackups.vue'
 
 const mocks = vi.hoisted(() => ({
   notify: vi.fn(),
   dialog: vi.fn(),
+  getGameServer: vi.fn(),
   getGameServerBackupOverview: vi.fn(),
   getBackupSettings: vi.fn(),
   listGameServerBackups: vi.fn(),
@@ -63,6 +66,7 @@ vi.mock('quasar', async () => {
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
+    getGameServer: mocks.getGameServer,
     getGameServerBackupOverview: mocks.getGameServerBackupOverview,
     getBackupSettings: mocks.getBackupSettings,
     listGameServerBackups: mocks.listGameServerBackups,
@@ -135,14 +139,25 @@ const QInputStub = defineComponent({
     '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 })
 
+const QFileStub = defineComponent({
+  name: 'QFileStub',
+  props: {
+    modelValue: { type: Object, default: null },
+  },
+  emits: ['update:modelValue'],
+  template:
+    '<input v-bind="$attrs" type="file" @change="$emit(\'update:modelValue\', $event.target.files[0] ?? null)" />',
+})
+
 const BackupRestoreDialogStub = defineComponent({
   name: 'BackupRestoreDialogStub',
   props: {
     modelValue: { type: Boolean, default: false },
+    blockedReason: { type: String, default: '' },
   },
   emits: ['update:modelValue', 'restore'],
   template: `<div v-if="modelValue" class="backup-restore-dialog-stub">
-    <button data-testid="confirm-restore-backup" @click="$emit('restore', 1)">Confirm Restore</button>
+    <button data-testid="confirm-restore-backup" @click="$emit('restore', 1, true)">Confirm Restore</button>
   </div>`,
 })
 
@@ -220,6 +235,7 @@ function mountBackups() {
         'q-card-actions': { template: '<div class="q-card-actions-stub"><slot /></div>' },
         'q-card-section': { template: '<div class="q-card-section-stub"><slot /></div>' },
         'q-dialog': QDialogStub,
+        'q-file': QFileStub,
         'q-icon': { template: '<i class="q-icon-stub" />' },
         'q-input': QInputStub,
         'q-linear-progress': {
@@ -248,6 +264,9 @@ describe('GameServerBackups', () => {
     })
     mocks.getBackupSettings.mockResolvedValue({
       settings: makeBackupSettings(),
+    })
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: create(GameServerSchema, { id: 'test-server-123', status: Status.OFFLINE }),
     })
     mocks.uploadFormData.mockReset()
   })
@@ -336,7 +355,7 @@ describe('GameServerBackups', () => {
       '2 backups stored',
     )
     expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
-      '1 automated retained · 5 per node',
+      '1 automated retained · keeps newest 5 scheduled',
     )
     expect(wrapper.get('[data-testid="backup-history-summary"]').text()).toContain(
       '1 failed attempt',
@@ -650,5 +669,49 @@ describe('GameServerBackups', () => {
 
     expect(wrapper.text()).toContain('invalid zip archive')
     expect(wrapper.find('[data-testid="upload-backup-dialog"]').exists()).toBe(true)
+  })
+
+  it('blocks restore and warns before backing up while the server is running', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: create(GameServerSchema, { id: 'test-server-123', status: Status.ONLINE }),
+    })
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({ overview: makeOverview() })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [makeBackup()] })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    const restoreButton = wrapper.get(
+      'button[aria-label="Restore backup: Stop the server to restore"]',
+    )
+    expect((restoreButton.element as HTMLButtonElement).disabled).toBe(true)
+
+    await wrapper.get('[data-testid="open-create-backup-dialog"]').trigger('click')
+    expect(mocks.dialog.mock.calls[0][0].message).toContain('The server is running')
+
+    const statusHandler = mocks.eventOn.mock.calls.find(
+      ([eventName]) => eventName === 'gameServerStatus',
+    )?.[1] as ((id: string, name: string, status: Status) => void) | undefined
+    statusHandler?.('test-server-123', 'Test', Status.OFFLINE)
+    await flushPromises()
+
+    expect(
+      (wrapper.get('button[aria-label="Restore backup"]').element as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
+
+  it('asks for a safety backup when the restore dialog says so', async () => {
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({ overview: makeOverview() })
+    mocks.listGameServerBackups.mockResolvedValue({ backups: [makeBackup()] })
+    mocks.restoreGameServerBackup.mockResolvedValueOnce({})
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="Restore backup"]').trigger('click')
+    await wrapper.get('[data-testid="confirm-restore-backup"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.restoreGameServerBackup.mock.calls[0][0].backupCurrentFilesFirst).toBe(true)
   })
 })

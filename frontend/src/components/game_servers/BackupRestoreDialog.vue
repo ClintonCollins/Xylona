@@ -1,17 +1,45 @@
 <script lang="ts" setup>
+import { computed, ref, watch } from 'vue'
+
 import type { GameServerBackup } from '@/proto/shared_pb'
 import { BackupRestoreMode } from '@/proto/shared_pb'
+import { bytesToSize } from '@/utils/shared'
 
-const props = defineProps<{
-  modelValue: boolean
-  backup: GameServerBackup | null
-  loading?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    backup: GameServerBackup | null
+    loading?: boolean
+    /** Size of the current server directory, when known, to estimate the safety backup. */
+    currentSizeBytes?: bigint
+    /** Why a restore cannot start right now, such as the server running. */
+    blockedReason?: string
+  }>(),
+  { loading: false, currentSizeBytes: undefined, blockedReason: '' },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  restore: [mode: BackupRestoreMode]
+  restore: [mode: BackupRestoreMode, backupCurrentFilesFirst: boolean]
 }>()
+
+// On by default every time the dialog opens: the user decided the safety
+// backup is opt-out, not opt-in.
+const backupFirst = ref(true)
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) {
+      backupFirst.value = true
+    }
+  },
+)
+
+const backupFirstLabel = computed(() =>
+  props.currentSizeBytes !== undefined && props.currentSizeBytes > 0n
+    ? `Back up current files first (about ${bytesToSize(Number(props.currentSizeBytes))})`
+    : 'Back up current files first',
+)
 
 function closeDialog(): void {
   if (props.loading) {
@@ -22,11 +50,11 @@ function closeDialog(): void {
 }
 
 function emitRestore(mode: BackupRestoreMode): void {
-  if (props.loading) {
+  if (props.loading || props.blockedReason !== '') {
     return
   }
 
-  emit('restore', mode)
+  emit('restore', mode, backupFirst.value)
 }
 
 function getArchiveName(archivePath: string): string {
@@ -62,13 +90,32 @@ function getArchiveName(archivePath: string): string {
       </q-card-section>
 
       <q-card-section class="backup-restore-dialog__body">
-        <q-banner class="backup-restore-dialog__banner" dense rounded>
+        <q-banner v-if="blockedReason" class="xy-banner-warning" dense rounded>
           <template #avatar>
-            <q-icon color="warning" name="warning" />
+            <q-icon name="warning" />
           </template>
-          Restore replaces live files on disk. The server must already be offline before restore can
-          start.
+          {{ blockedReason }}. Restore replaces live files on disk, so it only runs while the server
+          is offline.
         </q-banner>
+
+        <div class="backup-restore-dialog__safety">
+          <q-checkbox
+            v-model="backupFirst"
+            data-testid="restore-backup-first"
+            :disable="loading"
+            :label="backupFirstLabel" />
+          <div class="backup-restore-dialog__option-copy">
+            Saved as a manual backup that is never auto-pruned, so this restore can be undone. The
+            restore starts when it finishes.
+          </div>
+          <q-banner v-if="!backupFirst" class="xy-banner-warning" dense rounded>
+            <template #avatar>
+              <q-icon name="warning" />
+            </template>
+            Without a backup, the current worlds, configs and mods are overwritten, and Exact
+            Restore also deletes files that are not in the archive. There is no way back.
+          </q-banner>
+        </div>
 
         <div class="backup-restore-dialog__option-list">
           <q-card bordered class="backup-restore-dialog__option" flat>
@@ -81,6 +128,7 @@ function getArchiveName(archivePath: string): string {
             </q-card-section>
             <q-card-actions align="right">
               <q-btn
+                :disable="blockedReason !== ''"
                 :loading="loading"
                 color="primary"
                 label="Restore As Overlay"
@@ -99,6 +147,7 @@ function getArchiveName(archivePath: string): string {
             </q-card-section>
             <q-card-actions align="right">
               <q-btn
+                :disable="blockedReason !== ''"
                 :loading="loading"
                 color="warning"
                 label="Restore Exactly"
@@ -155,9 +204,9 @@ function getArchiveName(archivePath: string): string {
   gap: 1rem;
 }
 
-.backup-restore-dialog__banner {
-  background: color-mix(in srgb, var(--xy-warning) 12%, var(--xy-surface-2));
-  color: var(--xy-text-primary);
+.backup-restore-dialog__safety {
+  display: grid;
+  gap: var(--xy-space-sm);
 }
 
 .backup-restore-dialog__option-list {
