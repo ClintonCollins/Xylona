@@ -35,6 +35,7 @@
           flat
           icon="group"
           no-caps
+          no-wrap
           @click="playersOpen = true">
           <span class="identity-bar-players__count">{{ playerCountLabel }}</span>
           <q-tooltip>Players</q-tooltip>
@@ -49,6 +50,7 @@
             icon="play_arrow"
             label="Start"
             no-caps
+            no-wrap
             outline
             @click="startGameServer">
             <q-tooltip v-if="lifecycleHint('game_server.start')">
@@ -64,6 +66,7 @@
             icon="restart_alt"
             label="Restart"
             no-caps
+            no-wrap
             outline
             @click="restartGameServer">
             <q-tooltip v-if="lifecycleHint('game_server.restart')">
@@ -79,6 +82,7 @@
             icon="stop"
             label="Stop"
             no-caps
+            no-wrap
             outline
             @click="stopGameServer">
             <q-tooltip v-if="lifecycleHint('game_server.stop')">
@@ -647,10 +651,13 @@ async function restartGameServer(): Promise<void> {
     grid-column: 1 / -1;
     justify-content: space-between;
     margin-left: 0;
+    container-type: inline-size;
   }
 
   .identity-bar-lifecycle .q-btn {
     min-height: 44px;
+    min-width: 44px;
+    padding-inline: var(--xy-space-xs);
   }
 
   .identity-bar-players {
@@ -664,6 +671,19 @@ async function restartGameServer(): Promise<void> {
   .start-failure__actions {
     width: 100%;
     justify-content: flex-end;
+  }
+}
+
+/* Narrow phones: labelled controls plus a 3-digit player count overflow the row,
+   so the controls go icon-only (their aria-labels still name them). */
+@container (max-width: 360px) {
+  /* !important: Quasar's .block utility is display: block !important. */
+  .identity-bar-lifecycle .q-btn :deep(.block) {
+    display: none !important;
+  }
+
+  .identity-bar-lifecycle .q-btn :deep(.on-left) {
+    margin-right: 0;
   }
 }
 </style>
