@@ -41,8 +41,15 @@ const activeTab = ref<'rules' | 'history'>('rules')
 
 // Rules state
 const rulesLoading = ref(true)
-// Set when the page's own data cannot be read, so empty states never stand in for an outage.
-const loadError = ref('')
+// Each loader owns its error and clears it on success, so a later refresh that works
+// removes the banner and an empty state never stands in for an outage.
+const nodeError = ref('')
+const channelsError = ref('')
+const rulesError = ref('')
+const historyError = ref('')
+const loadError = computed(
+  () => nodeError.value || rulesError.value || historyError.value || channelsError.value,
+)
 const alertRules = ref<AlertRule[]>([])
 
 // History state
@@ -420,7 +427,6 @@ function buildConditionJson(): string {
 onMounted(loadPage)
 
 async function loadPage(): Promise<void> {
-  loadError.value = ''
   rulesLoading.value = true
   historyLoading.value = true
   await loadChannels()
@@ -442,13 +448,14 @@ async function loadServerNodeID(): Promise<boolean> {
     const response = await GetXylonaClient().getGameServer(request)
     const nodeID = response.gameServer?.nodeId ?? ''
     if (nodeID === '') {
-      loadError.value = 'The game server node for alerts could not be determined.'
+      nodeError.value = 'The game server node for alerts could not be determined.'
       return false
     }
     gameServerNodeId.value = nodeID
+    nodeError.value = ''
     return true
   } catch (unknownErr: unknown) {
-    loadError.value = connectErrorMessage(unknownErr)
+    nodeError.value = connectErrorMessage(unknownErr)
     return false
   }
 }
@@ -459,8 +466,9 @@ async function loadChannels(): Promise<void> {
     const response = await GetXylonaClient().listNotificationChannels(request)
     channels.value = response.channels
     channelsLoaded.value = true
+    channelsError.value = ''
   } catch (unknownErr: unknown) {
-    loadError.value = connectErrorMessage(unknownErr)
+    channelsError.value = connectErrorMessage(unknownErr)
   }
 }
 
@@ -473,8 +481,9 @@ async function loadRules(): Promise<void> {
     })
     const response = await GetXylonaClient().listAlertRules(request)
     alertRules.value = response.rules
+    rulesError.value = ''
   } catch (unknownErr: unknown) {
-    loadError.value = connectErrorMessage(unknownErr)
+    rulesError.value = connectErrorMessage(unknownErr)
   } finally {
     rulesLoading.value = false
   }
@@ -497,8 +506,9 @@ async function loadHistory(append: boolean = false): Promise<void> {
       alertHistory.value = response.entries
     }
     historyHasMore.value = response.entries.length === historyPageSize
+    historyError.value = ''
   } catch (unknownErr: unknown) {
-    loadError.value = connectErrorMessage(unknownErr)
+    historyError.value = connectErrorMessage(unknownErr)
   } finally {
     historyLoading.value = false
   }
@@ -644,6 +654,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
       <strong>Alerts could not be loaded.</strong> {{ loadError }}
       <template #action>
         <q-btn
+          :loading="rulesLoading || historyLoading"
           aria-label="Retry loading alerts"
           flat
           icon="refresh"
@@ -720,7 +731,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             row-key="id">
             <template #no-data>
               <empty-state
-                v-if="!rulesLoading && !loadError"
+                v-if="!rulesLoading && !rulesError && !nodeError"
                 icon="notifications_off"
                 title="No alert rules configured for this server" />
             </template>
@@ -848,7 +859,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             row-key="id">
             <template #no-data>
               <empty-state
-                v-if="!historyLoading && !loadError"
+                v-if="!historyLoading && !historyError && !nodeError"
                 icon="history"
                 title="No alert history for this server" />
             </template>

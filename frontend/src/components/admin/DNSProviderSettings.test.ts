@@ -17,6 +17,11 @@ const QMenuStub = defineComponent({
   template: '<div v-bind="$attrs"><slot /></div>',
 })
 
+const QBannerStub = defineComponent({
+  inheritAttrs: false,
+  template: '<div v-bind="$attrs"><slot /><slot name="action" /></div>',
+})
+
 const QInputStub = defineComponent({
   inheritAttrs: false,
   props: ['modelValue'],
@@ -130,5 +135,23 @@ describe('DNSProviderSettings', () => {
     expect(permissionGuidance).toContain('route53:ListHostedZones')
     expect(permissionGuidance).toContain('Resource: *')
     expect(permissionGuidance).toContain('Exact zone entry does not need it')
+  })
+
+  it('shows the load error with Retry instead of a "not configured" status', async () => {
+    mocks.getConnection.mockRejectedValueOnce(new Error('controller unreachable'))
+
+    const wrapper = shallowMount(DNSProviderSettings, {
+      global: { stubs: { 'q-banner': QBannerStub, 'q-input': QInputStub, 'q-menu': QMenuStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('.dns-status-strip').exists()).toBe(false)
+    expect(wrapper.text()).toContain('controller unreachable')
+
+    await wrapper.get('[aria-label="Retry loading the DNS provider connection"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.getConnection).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('.dns-status-strip').exists()).toBe(true)
   })
 })

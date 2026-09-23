@@ -365,10 +365,13 @@
             </q-banner>
             <q-banner
               v-if="adminInterface.transportSecurityNote"
-              class="q-mt-sm"
+              class="q-mt-sm xy-banner-warning"
               data-testid="admin-interface-security-note"
               dense
               rounded>
+              <template #avatar>
+                <q-icon name="warning_amber" size="sm" />
+              </template>
               {{ adminInterface.transportSecurityNote }}
             </q-banner>
 

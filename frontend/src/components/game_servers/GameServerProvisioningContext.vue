@@ -4,7 +4,7 @@
       <span class="section-icon">
         <q-icon name="hub" size="14px" />
       </span>
-      <span class="section-title font-display">Provisioning</span>
+      <span class="section-title">Provisioning</span>
       <span class="section-line"></span>
     </div>
 

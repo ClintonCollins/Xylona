@@ -46,8 +46,23 @@
         </div>
       </div>
 
+      <q-banner v-if="grantsLoadError" class="xy-banner-negative" dense inline-actions role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>Access grants could not be loaded.</strong> {{ grantsLoadError }}
+        <template #action>
+          <q-btn
+            aria-label="Retry loading access grants"
+            flat
+            icon="refresh"
+            label="Retry"
+            no-caps
+            @click="loadData" />
+        </template>
+      </q-banner>
       <empty-state
-        v-if="localGrants.length === 0"
+        v-else-if="localGrants.length === 0"
         description="Grant users access to this server using the form above."
         icon="shield"
         title="No access grants" />
@@ -139,6 +154,7 @@ const revokingLocalGrantID = ref('')
 const roles = ref<Role[]>([])
 const localUsers = ref<{ id: string; userName: string; email: string }[]>([])
 const localGrants = ref<GameServerAccessGrant[]>([])
+const grantsLoadError = ref('')
 
 const selectedLocalUserID = ref('')
 const selectedLocalRoleID = ref('')
@@ -201,8 +217,9 @@ async function loadLocalGrants() {
       create(ListGameServerAccessGrantsRequestSchema, { gameServerId: gameServerID.value }),
     )
     localGrants.value = response.grants ? [...response.grants] : []
+    grantsLoadError.value = ''
   } catch (unknownError: unknown) {
-    notifyError(`Failed to load access grants: ${connectErrorMessage(unknownError)}`)
+    grantsLoadError.value = connectErrorMessage(unknownError)
   }
 }
 

@@ -18,7 +18,7 @@ import {
   summarizeMetric,
   type MetricSample,
 } from './game-server-metrics'
-import { formatMetricAxisTime } from './metrics-format'
+import { formatMetricAxisTime, formatMetricTimestamp } from './metrics-format'
 import {
   lifecycleEventText,
   normalizeLiveMetricPoint,
@@ -644,6 +644,8 @@ describe('formatMetricAxisTime', () => {
     expect(formatMetricAxisTime(timestamp, 2 * day)).toBe(weekdayHour.format(timestamp))
     expect(formatMetricAxisTime(timestamp, 8 * day)).toBe(monthDay.format(timestamp))
     expect(formatMetricAxisTime(timestamp, 2 * 60 * 60 * 1000)).not.toMatch(/AM|PM/)
+    // The chart tooltip title uses the same 24-hour clock as the axis beside it.
+    expect(formatMetricTimestamp(timestamp)).not.toMatch(/AM|PM/)
   })
 })
 

@@ -490,6 +490,7 @@ import type {
 } from '@/components/game_servers/MetricTimeSeriesChart.vue'
 import MetricsEventTimeline from '@/components/game_servers/MetricsEventTimeline.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import { formatTime } from '@/utils/format-timestamp'
 import {
   clusterRulerLabels,
   deriveServerHealth,
@@ -950,11 +951,7 @@ const rulerFlag = computed(() => {
   return {
     percent,
     edge: rulerEdge(percent, 40),
-    label: new Intl.DateTimeFormat(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(hovered),
+    label: formatTime(new Date(hovered)),
   }
 })
 

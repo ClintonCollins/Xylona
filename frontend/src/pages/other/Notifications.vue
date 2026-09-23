@@ -8,6 +8,7 @@
       {{ loadError }}
       <template #action>
         <q-btn
+          :loading="channelsLoading || rulesLoading || historyLoading"
           aria-label="Retry loading notifications"
           flat
           icon="refresh"
@@ -173,7 +174,7 @@
           </template>
           <template #no-data>
             <empty-state
-              v-if="!channelsLoading && !loadError"
+              v-if="!channelsLoading && !channelsError"
               :description="
                 hasAlertsManage
                   ? 'Add a channel to start receiving alerts.'
@@ -324,7 +325,7 @@
           </template>
           <template #no-data>
             <empty-state
-              v-if="!rulesLoading && !loadError"
+              v-if="!rulesLoading && !rulesError"
               description="Create alert rules from individual game server pages."
               icon="rule"
               title="No alert rules" />
@@ -428,7 +429,7 @@
           </template>
           <template #no-data>
             <empty-state
-              v-if="!historyLoading && !loadError"
+              v-if="!historyLoading && !historyError"
               description="Alert events will appear here once rules are triggered."
               icon="history"
               title="No alert history" />
@@ -808,8 +809,9 @@ function resolveServerName(serverId: string | undefined): string {
 // ─── Channels ────────────────────────────────────────────────────────────────
 const channels = ref<NotificationChannel[]>([])
 const channelsLoading = ref(false)
-// Set when a list cannot be read, so its empty state never stands in for an outage.
-const loadError = ref('')
+// Each list owns its load error and clears it on success, so its empty state never
+// stands in for an outage and a later refresh that works removes the banner.
+const channelsError = ref('')
 
 const channelColumns = [
   {
@@ -855,8 +857,9 @@ async function loadChannels(): Promise<void> {
       create(ListNotificationChannelsRequestSchema, {}),
     )
     channels.value = response.channels
+    channelsError.value = ''
   } catch (unknownErr: unknown) {
-    loadError.value =
+    channelsError.value =
       'Failed to load channels: ' + ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     channelsLoading.value = false
@@ -1171,6 +1174,7 @@ async function testChannel(channel: NotificationChannel): Promise<void> {
 // ─── Alert Rules ─────────────────────────────────────────────────────────────
 const rules = ref<AlertRule[]>([])
 const rulesLoading = ref(false)
+const rulesError = ref('')
 const rulesEventFilter = ref<AlertEventType | null>(null)
 
 const filteredRules = computed(() => {
@@ -1227,8 +1231,9 @@ async function loadRules(): Promise<void> {
   try {
     const response = await GetXylonaClient().listAlertRules(create(ListAlertRulesRequestSchema, {}))
     rules.value = response.rules
+    rulesError.value = ''
   } catch (unknownErr: unknown) {
-    loadError.value =
+    rulesError.value =
       'Failed to load alert rules: ' + ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     rulesLoading.value = false
@@ -1578,6 +1583,7 @@ async function saveRule(): Promise<void> {
 // ─── Alert History ───────────────────────────────────────────────────────────
 const historyEntries = ref<AlertHistoryEntry[]>([])
 const historyLoading = ref(false)
+const historyError = ref('')
 const historyEventFilter = ref<AlertEventType | null>(null)
 const historyPageSize = 50
 const historyHasMore = ref(false)
@@ -1649,8 +1655,9 @@ async function loadHistory(append: boolean = false): Promise<void> {
       historyEntries.value = response.entries
     }
     historyHasMore.value = response.entries.length === historyPageSize
+    historyError.value = ''
   } catch (unknownErr: unknown) {
-    loadError.value =
+    historyError.value =
       'Failed to load alert history: ' + ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     historyLoading.value = false
@@ -1819,8 +1826,9 @@ function deliveryStatusColor(status: DeliveryStatus): string {
 }
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
+const loadError = computed(() => channelsError.value || rulesError.value || historyError.value)
+
 async function loadPage(): Promise<void> {
-  loadError.value = ''
   await Promise.all([loadGameServers(), loadChannels(), loadRules(), loadHistory()])
 }
 
