@@ -1,8 +1,13 @@
 <template>
   <q-card class="xylona-editor">
     <q-card-section>
-      <div class="q-pa-md">
-        <div class="row justify-end q-gutter-md">
+      <div class="editor-header">
+        <div class="editor-file">
+          <q-icon aria-hidden="true" name="description" size="sm" />
+          <span class="editor-path" :title="fullFilePath">{{ fullFilePath }}</span>
+          <span v-if="dirty" class="editor-dirty">Unsaved changes</span>
+        </div>
+        <div class="editor-options">
           <q-select
             v-model="editorTheme"
             :options="editorOptions"
@@ -35,13 +40,16 @@
     </q-card-section>
 
     <q-card-actions align="right">
-      <q-btn v-close-popup :disable="saving" color="neutral" flat label="Cancel" />
+      <q-btn :disable="saving" flat label="Cancel" no-caps @click="requestClose" />
       <q-btn
         :disable="saving"
         :loading="saving"
-        class="q-btn bg-main"
+        color="primary"
         label="Save"
-        @click="saveFile" />
+        no-caps
+        @click="saveFile">
+        <q-tooltip>Save ({{ $q.platform.is.mac ? '⌘S' : 'Ctrl+S' }})</q-tooltip>
+      </q-btn>
     </q-card-actions>
   </q-card>
 </template>
@@ -56,7 +64,7 @@ import loadCustomEditorSettings, {
 } from '@/components/editor/editor'
 import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
 import { uploadFormData } from '@/utils/upload'
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 type IStandaloneCodeEditor = MonacoEditor.IStandaloneCodeEditor
 
@@ -90,12 +98,14 @@ const editorOptions = ref([
   { label: 'High Contrast Black', value: 'hc-black' },
 ])
 
-const emit = defineEmits(['submit'])
+const emit = defineEmits(['submit', 'close'])
 
 const codeInput = defineModel('codeInput', {
   type: String,
   default: '',
 })
+const savedContent = ref(codeInput.value)
+const dirty = computed(() => codeInput.value !== savedContent.value)
 
 let editor: IStandaloneCodeEditor | null = null
 const editorContainer = ref(null)
@@ -187,9 +197,26 @@ async function initializeEditor() {
       }
       codeInput.value = editor.getValue()
     })
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      void saveFile()
+    })
   } catch (error) {
     console.error(error)
   }
+}
+
+function requestClose() {
+  if (!dirty.value) {
+    emit('close')
+    return
+  }
+  $q.dialog({
+    title: 'Unsaved Changes',
+    message: `You have unsaved changes to ${props.fileName}. Discard them and close the editor?`,
+    cancel: { flat: true, label: 'Keep editing' },
+    ok: { color: 'negative', label: 'Discard Changes' },
+    persistent: true,
+  }).onOk(() => emit('close'))
 }
 
 async function saveFile() {
@@ -206,6 +233,7 @@ async function saveFile() {
     formData.append('path', directory)
     formData.append('file', new File([codeInput.value], props.fileName))
     await uploadFormData('/api/file/upload', formData)
+    savedContent.value = codeInput.value
     $q.notify({
       caption: `File ${props.fileName} saved successfully.`,
       type: 'xylona-success',
@@ -238,8 +266,48 @@ async function saveFile() {
   border-radius: var(--xy-radius-md);
 }
 
+.editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm) var(--xy-space-md);
+  margin-bottom: var(--xy-space-md);
+}
+
+.editor-file {
+  display: flex;
+  flex: 1 1 16rem;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  min-width: 0;
+  color: var(--xy-text-secondary);
+}
+
+.editor-path {
+  overflow: hidden;
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  font-size: var(--xy-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-dirty {
+  flex-shrink: 0;
+  color: var(--xy-warning);
+  font-size: var(--xy-font-size-xs);
+}
+
+.editor-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+}
+
 .editor-select {
   width: 15rem;
+  max-width: 100%;
 }
 
 .editor-save-error {
@@ -258,6 +326,5 @@ async function saveFile() {
 .xylona-editor {
   min-width: min(60vw, 100%) !important;
   min-height: min(70vh, 80dvh) !important;
-  font-family: var(--xy-font-mono) !important;
 }
 </style>

@@ -8,10 +8,12 @@
     @drop="props.targetElement && dragDropEvent($event, props.targetElement)">
     <slot></slot>
   </section>
+  <!-- Persistent while uploading: closing would reset the queue without aborting it. -->
   <q-dialog
     v-model="fileUploaderDialog"
     aria-labelledby="dialog-title"
     backdrop-filter="brightness(25%)"
+    :persistent="uploader.isUploading"
     @hide="uploader.close()">
     <q-card
       id="fileUploaderCard"
@@ -22,8 +24,12 @@
       @drop="dragDropEvent($event, 'fileUploaderCard')">
       <q-card-section>
         <div id="dialog-title" class="text-h6">Upload files</div>
-        <div class="text-body2 text-xy-secondary q-mb-md">
+        <div class="text-body2 text-xy-secondary">
           Choose files or a folder from your computer, or drag and drop them here.
+        </div>
+        <div class="text-caption text-xy-secondary q-mb-md">
+          Destination:
+          <span class="file-upload-destination">{{ destination }}</span>
         </div>
         <div class="file-picker-actions q-mb-md">
           <input
@@ -49,13 +55,14 @@
             outline
             @click="filePicker?.click()" />
           <q-btn
-            flat
+            color="primary"
             icon="drive_folder_upload"
             label="Choose folder"
             no-caps
+            outline
             @click="folderPicker?.click()" />
         </div>
-        <q-toolbar class="bg-xy-surface-2 q-py-sm">
+        <q-toolbar v-if="uploader.files.size > 0 || addingFiles" class="bg-xy-surface-2 q-py-sm">
           <q-btn
             v-if="uploader.files.size > 0"
             :icon="tabClearAll"
@@ -97,7 +104,11 @@
           </q-btn>
         </q-toolbar>
 
-        <div class="file-uploader">
+        <div v-if="uploader.files.size === 0 && !addingFiles" class="file-upload-empty">
+          <q-icon aria-hidden="true" name="upload_file" size="2rem" />
+          <span>Drop files or folders here</span>
+        </div>
+        <div v-else class="file-uploader">
           <q-list separator>
             <q-item
               v-for="file in uploader.files.values()"
@@ -172,7 +183,12 @@
         </div>
       </q-card-section>
       <q-card-actions align="right" class="">
-        <q-btn class="text-xy-secondary" flat label="Close" @click="uploader.close()" />
+        <q-btn
+          class="text-xy-secondary"
+          :disable="uploader.isUploading"
+          flat
+          label="Close"
+          @click="uploader.close()" />
         <q-btn
           :disable="!uploader.canUpload || uploader.queuedFilesCount <= 0"
           color="primary"
@@ -222,6 +238,10 @@ const props = defineProps({
   targetElement: {
     type: HTMLElement,
     default: null,
+  },
+  destination: {
+    type: String,
+    default: '',
   },
 })
 
@@ -742,9 +762,27 @@ function getUploaderFilePath(file: File): string {
 
 <style>
 .file-uploader {
-  height: 50vh;
+  max-height: 50vh;
   overflow: auto;
   font-family: var(--xy-font-mono);
+}
+
+.file-upload-destination {
+  color: var(--xy-text-primary);
+  font-family: var(--xy-font-mono);
+  overflow-wrap: anywhere;
+}
+
+.file-upload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--xy-space-sm);
+  min-height: 8rem;
+  color: var(--xy-text-muted);
+  border: 1px dashed var(--xy-border-hover);
+  border-radius: var(--xy-radius-lg);
 }
 
 .file-picker-actions {
@@ -775,8 +813,7 @@ function getUploaderFilePath(file: File): string {
 
 @media (max-width: 599px) {
   .file-uploader {
-    height: 34vh;
-    min-height: 12rem;
+    max-height: 34vh;
   }
 
   .fileUploaderDialogCard {

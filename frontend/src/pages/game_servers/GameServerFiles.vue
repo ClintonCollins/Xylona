@@ -3,6 +3,7 @@
     <page-header class="files-page-header" title="Files" />
     <file-uploader-drop
       v-model:file-uploader-dialog="fileUploaderDialog"
+      :destination="uploadDestination"
       :game-server-id="gameServerId"
       :path="loadedPath"
       :path-separator="pathSeparator"
@@ -10,7 +11,7 @@
       :upload-u-r-l="uploadURL"
       @uploaded-files="listDirectoryFiles(loadedPath)">
       <div ref="fileListContainer" class="file-list-container">
-        <div class="file-toolbar">
+        <div :class="{ 'file-toolbar--selecting': selectedFiles.length > 0 }" class="file-toolbar">
           <div class="file-toolbar-primary">
             <q-btn
               v-if="canEditFiles"
@@ -45,6 +46,16 @@
           <div v-if="selectedFiles.length > 0" class="file-toolbar-selection">
             <span class="file-selection-count"> {{ selectedFiles.length }} selected </span>
             <q-btn
+              v-if="selectedDirectory || editableSelectedFile"
+              :aria-label="selectedDirectory ? 'Open selected folder' : 'Edit selected file'"
+              dense
+              flat
+              :icon="selectedDirectory ? 'folder_open' : 'edit_document'"
+              round
+              @click="openSelectedEntry">
+              <q-tooltip>{{ selectedDirectory ? 'Open' : 'Edit' }}</q-tooltip>
+            </q-btn>
+            <q-btn
               v-if="downloadButtonEnabled"
               aria-label="Download selected files"
               dense
@@ -60,7 +71,7 @@
               aria-label="Rename selected item"
               dense
               flat
-              icon="edit"
+              icon="drive_file_rename_outline"
               round
               @click="renameFilesDialog = true">
               <q-tooltip>Rename</q-tooltip>
@@ -297,109 +308,113 @@
                 @click="returnToLoadedDirectory" />
             </div>
           </div>
-          <div
-            v-else-if="loadedPath === '' && directories.length === 0 && files.length === 0"
-            class="file-empty-state">
-            <q-icon class="text-xy-muted q-mb-sm" name="folder_open" size="3rem" />
-            <div class="text-subtitle1 text-xy-secondary">This directory is empty</div>
-            <div class="text-caption text-xy-muted q-mt-xs">
-              {{
-                canEditFiles
-                  ? 'Upload files or create something new.'
-                  : 'There are no files to view.'
-              }}
-            </div>
-          </div>
-          <div v-else-if="displayedEntries.length === 0" class="file-empty-state">
-            <q-icon class="text-xy-muted q-mb-sm" name="search_off" size="3rem" />
-            <div class="text-subtitle1 text-xy-secondary">No matching files</div>
-            <div class="text-caption text-xy-muted q-mt-xs">
-              Nothing in this folder matches “{{ filterQuery }}”.
-            </div>
-            <q-btn
-              class="q-mt-md"
-              flat
-              icon="close"
-              label="Clear filter"
-              @click="filterQuery = ''" />
-          </div>
-          <q-virtual-scroll
-            v-else
-            id="file-list"
-            ref="fileVirtualScroll"
-            class="file-list-scroll"
-            :items="displayedEntries"
-            role="rowgroup"
-            :virtual-scroll-item-size="$q.screen.lt.sm ? 52 : 32">
-            <template #default="{ item: entry, index: entryIndex }">
-              <div
-                :key="entry.name"
-                :aria-label="entryAriaLabel(entry)"
-                :class="fileIsSelectedClass(entry)"
-                class="file-list-body-row"
-                :data-file-index="entryIndex"
-                data-file-row
-                role="row"
-                :tabindex="entryTabIndex(entry, entryIndex)"
-                @click="selectEntryFromPointer(entry, $event)"
-                @contextmenu.prevent.stop="openItemContextMenu($event, entry)"
-                @dblclick.prevent="openEntryFromDoubleClick(entry, $event)"
-                @focus="focusedEntryName = entry.name"
-                @keydown.down.prevent="focusEntryRow(entryIndex + 1)"
-                @keydown.enter.prevent="openEntry(entry)"
-                @keydown.home.prevent="focusEntryRow(0)"
-                @keydown.end.prevent="focusEntryRow(displayedEntries.length - 1)"
-                @keydown.up.prevent="focusEntryRow(entryIndex - 1)"
-                @keydown.space.prevent="toggleEntrySelection(entry)">
-                <div class="file-list-select-cell" role="cell">
-                  <q-checkbox
-                    v-if="!isParentDirectory(entry)"
-                    :aria-label="`Select ${entry.name}`"
-                    :model-value="isFileSelected(entry)"
-                    size="sm"
-                    @click.stop
-                    @update:model-value="toggleEntrySelection(entry)" />
-                </div>
-                <div class="file-list-name-cell" role="cell">
-                  <q-icon
-                    :class="entry.isDirectory ? 'text-warning' : undefined"
-                    :name="
-                      entry.isDirectory ? tabFolderFilled : getIconFromFilenameExtension(entry.name)
-                    "
-                    :style="
-                      entry.isDirectory
-                        ? undefined
-                        : `color:${getColorFromFilenameExtension(entry.name)}`
-                    "
-                    size="sm" />
-                  <div class="file-entry-name-block">
-                    <span class="file-name">{{ entry.name }}</span>
-                    <span v-if="!isParentDirectory(entry)" class="file-entry-meta">
-                      {{ bytesToSize(Number(entry.size)) }} ·
-                      {{ formatTimestamp(entry.lastModified) }}
-                    </span>
+          <template v-else>
+            <!-- In a subfolder the '..' row stays above the empty and no-match states. -->
+            <q-virtual-scroll
+              v-if="displayedEntries.length > 0"
+              id="file-list"
+              ref="fileVirtualScroll"
+              :class="{ 'file-list-scroll--parent-only': selectableEntries.length === 0 }"
+              class="file-list-scroll"
+              :items="displayedEntries"
+              role="rowgroup"
+              :virtual-scroll-item-size="$q.screen.lt.sm ? 52 : 32">
+              <template #default="{ item: entry, index: entryIndex }">
+                <div
+                  :key="entry.name"
+                  :aria-label="entryAriaLabel(entry)"
+                  :class="fileIsSelectedClass(entry)"
+                  class="file-list-body-row"
+                  :data-file-index="entryIndex"
+                  data-file-row
+                  role="row"
+                  :tabindex="entryTabIndex(entry, entryIndex)"
+                  @click="selectEntryFromPointer(entry, $event)"
+                  @contextmenu.prevent.stop="openItemContextMenu($event, entry)"
+                  @dblclick.prevent="openEntryFromDoubleClick(entry, $event)"
+                  @focus="focusedEntryName = entry.name"
+                  @keydown.down.prevent="focusEntryRow(entryIndex + 1)"
+                  @keydown.enter.prevent="openEntry(entry)"
+                  @keydown.home.prevent="focusEntryRow(0)"
+                  @keydown.end.prevent="focusEntryRow(displayedEntries.length - 1)"
+                  @keydown.up.prevent="focusEntryRow(entryIndex - 1)"
+                  @keydown.space.prevent="toggleEntrySelection(entry)">
+                  <div class="file-list-select-cell" role="cell">
+                    <q-checkbox
+                      v-if="!isParentDirectory(entry)"
+                      :aria-label="`Select ${entry.name}`"
+                      :model-value="isFileSelected(entry)"
+                      size="sm"
+                      @click.stop
+                      @update:model-value="toggleEntrySelection(entry)" />
+                  </div>
+                  <div class="file-list-name-cell" role="cell">
+                    <q-icon
+                      :class="entry.isDirectory ? 'text-warning' : undefined"
+                      :name="
+                        entry.isDirectory
+                          ? tabFolderFilled
+                          : getIconFromFilenameExtension(entry.name)
+                      "
+                      :style="
+                        entry.isDirectory
+                          ? undefined
+                          : `color:${getColorFromFilenameExtension(entry.name)}`
+                      "
+                      size="sm" />
+                    <div class="file-entry-name-block">
+                      <span class="file-name">{{ entry.name }}</span>
+                      <span v-if="!isParentDirectory(entry)" class="file-entry-meta">
+                        {{ bytesToSize(Number(entry.size)) }} ·
+                        {{ formatTimestamp(entry.lastModified) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="file-list-size-cell" role="cell">
+                    {{ isParentDirectory(entry) ? '' : bytesToSize(Number(entry.size)) }}
+                  </div>
+                  <div class="file-list-modified-cell" role="cell">
+                    {{ isParentDirectory(entry) ? '' : formatTimestamp(entry.lastModified) }}
+                  </div>
+                  <div class="file-list-menu-cell" role="cell">
+                    <q-btn
+                      v-if="!isParentDirectory(entry)"
+                      :aria-label="`Actions for ${entry.name}`"
+                      class="file-row-menu"
+                      dense
+                      flat
+                      icon="more_vert"
+                      round
+                      @click.stop="openItemContextMenu($event, entry)" />
                   </div>
                 </div>
-                <div class="file-list-size-cell" role="cell">
-                  {{ isParentDirectory(entry) ? '' : bytesToSize(Number(entry.size)) }}
-                </div>
-                <div class="file-list-modified-cell" role="cell">
-                  {{ isParentDirectory(entry) ? '' : formatTimestamp(entry.lastModified) }}
-                </div>
-                <div class="file-list-menu-cell" role="cell">
-                  <q-btn
-                    v-if="!isParentDirectory(entry)"
-                    :aria-label="`Actions for ${entry.name}`"
-                    class="file-row-menu"
-                    dense
-                    flat
-                    icon="more_vert"
-                    round
-                    @click.stop="openItemContextMenu($event, entry)" />
-                </div>
+              </template>
+            </q-virtual-scroll>
+            <div v-if="directories.length === 0 && files.length === 0" class="file-empty-state">
+              <q-icon class="text-xy-muted q-mb-sm" name="folder_open" size="3rem" />
+              <div class="text-subtitle1 text-xy-secondary">This directory is empty</div>
+              <div class="text-caption text-xy-muted q-mt-xs">
+                {{
+                  canEditFiles
+                    ? 'Upload files or create something new.'
+                    : 'There are no files to view.'
+                }}
               </div>
-            </template>
-          </q-virtual-scroll>
+            </div>
+            <div v-else-if="selectableEntries.length === 0" class="file-empty-state">
+              <q-icon class="text-xy-muted q-mb-sm" name="search_off" size="3rem" />
+              <div class="text-subtitle1 text-xy-secondary">No matching files</div>
+              <div class="text-caption text-xy-muted q-mt-xs">
+                Nothing in this folder matches “{{ filterQuery }}”.
+              </div>
+              <q-btn
+                class="q-mt-md"
+                flat
+                icon="close"
+                label="Clear filter"
+                @click="filterQuery = ''" />
+            </div>
+          </template>
         </div>
 
         <q-menu ref="contextMenu" no-parent-event touch-position>
@@ -554,7 +569,7 @@
             type="url" />
           <div class="text-caption text-xy-secondary">
             Destination:
-            <span class="file-url-upload-target">{{ urlUploadDestination }}</span>
+            <span class="file-url-upload-target">{{ uploadDestination }}</span>
           </div>
           <div
             v-if="urlUploadError"
@@ -594,6 +609,7 @@
       :file-name="editorFilename"
       :full-file-path="editorFilePath"
       :game-server-id="gameServerId"
+      @close="editorModal = false"
       @submit="editorSaved"></editor>
   </q-dialog>
   <archive-files
@@ -696,6 +712,7 @@ import {
   GetXylonaClient,
 } from '@/utils/shared'
 import { formatTimestamp } from '@/utils/format-timestamp'
+import { isEditableFileName, MAX_EDITABLE_FILE_BYTES } from '@/components/game_servers/file-editing'
 import { useRoute } from 'vue-router'
 import { GetGameServerRequest, GetGameServerRequestSchema } from '@/proto/xylona_pb'
 
@@ -766,23 +783,6 @@ const moveFilesDialog: Ref<boolean> = ref(false)
 const deleteFilesDialog: Ref<boolean> = ref(false)
 
 const allowedExtractExtensions: string[] = ['.zip', '.zst', '.gz', '.bz2', '.xz', '.7z']
-const allowedFileEditExtensions: string[] = [
-  '.txt',
-  '.cfg',
-  '.json',
-  '.xml',
-  '.yml',
-  '.yaml',
-  '.ini',
-  '.log',
-  '.properties',
-  '.sh',
-  '.ps1',
-  '.bat',
-  '.py',
-  '.js',
-  '.ts',
-]
 
 const pathSeparator = computed(() => {
   if (gameServer.value.directory.indexOf('\\') !== -1) {
@@ -801,7 +801,7 @@ const directoryActionsEnabled = computed(
 
 const canMutateFiles = computed(() => canEditFiles.value && directoryActionsEnabled.value)
 
-const urlUploadDestination = computed(() => {
+const uploadDestination = computed(() => {
   const root = gameServer.value.directory.endsWith(pathSeparator.value)
     ? gameServer.value.directory.slice(0, -1)
     : gameServer.value.directory
@@ -1039,8 +1039,7 @@ function isFileSelected(file: xylonaFile): boolean {
 }
 
 function isEditableFile(file: xylonaFile): boolean {
-  const extension = file.name.substring(file.name.lastIndexOf('.')).toLocaleLowerCase()
-  return allowedFileEditExtensions.includes(extension)
+  return isEditableFileName(file.name)
 }
 
 function isExtractableFile(file: xylonaFile): boolean {
@@ -1234,10 +1233,28 @@ async function clickFile(file: xylonaFile) {
     return
   }
   if (canEditFiles.value && isEditableFile(file)) {
+    if (Number(file.size) > MAX_EDITABLE_FILE_BYTES) {
+      offerDownloadInsteadOfEditing(
+        file.name,
+        `is ${bytesToSize(Number(file.size))} and the editor opens files up to ${bytesToSize(MAX_EDITABLE_FILE_BYTES)}`,
+      )
+      return
+    }
     await readFileOctetStream(file.name)
     return
   }
   await downloadGameServerFile(file.name)
+}
+
+function offerDownloadInsteadOfEditing(fileName: string, reason: string) {
+  $q.dialog({
+    title: 'Download instead?',
+    message: `${fileName} ${reason}, so it will not open in the editor.`,
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { color: 'primary', label: 'Download' },
+  }).onOk(() => {
+    void downloadGameServerFile(fileName)
+  })
 }
 
 function updatePathFromInput() {
@@ -1473,12 +1490,9 @@ function retryDirectoryLoad() {
 }
 
 function returnToLoadedDirectory() {
-  clearSelection()
-  path.value = loadedPath.value
-  directoryError.value = ''
-  directoryLoading.value = false
-  pathEditing.value = false
-  syncLocationHash(loadedPath.value)
+  // After a failed first load nothing was ever listed, so reload rather than
+  // showing an empty root that reads like data loss.
+  void listDirectoryFiles(loadedPath.value, navigationHistoryIndex.value < 0 ? 'replace' : 'none')
 }
 
 function setSort(nextSortKey: SortKey) {
@@ -1558,6 +1572,11 @@ async function readFileOctetStream(fileName: string) {
     }
     const data = await response.text()
     if (loadedPath.value !== operationPath || path.value !== operationPath) {
+      return
+    }
+    // Extensionless names are assumed to be text; a NUL byte says otherwise.
+    if (data.includes('\u0000')) {
+      offerDownloadInsteadOfEditing(fileName, 'looks like a binary file')
       return
     }
     editorFilename.value = fileName
@@ -1859,6 +1878,10 @@ async function getGameServerDetails() {
   overflow: auto;
 }
 
+.file-list-scroll--parent-only {
+  flex: 0 0 auto;
+}
+
 .file-list-body-row {
   min-height: 2rem;
   padding: 0 var(--xy-space-xs);
@@ -1929,10 +1952,17 @@ async function getGameServerDetails() {
 }
 
 .file-list-body-row:hover .file-row-menu,
-.file-list-body-row:focus-within .file-row-menu,
-:global(.touch) .file-row-menu {
+.file-list-body-row:focus-within .file-row-menu {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Touch screens have no hover, so the row menu is always shown there. */
+@media (hover: none) {
+  .file-row-menu {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .file-context-menu {
@@ -1988,18 +2018,30 @@ async function getGameServerDetails() {
 }
 
 @media (max-width: 599px) {
+  /* Selection actions replace the Create/Upload row instead of adding a row,
+     so the list never jumps under the thumb while ticking files. */
+  .file-toolbar {
+    flex-wrap: nowrap;
+    /* Matches the Create/Upload row so swapping rows keeps the list still. */
+    min-height: 3.3rem;
+  }
+
+  .file-toolbar--selecting .file-toolbar-primary {
+    display: none;
+  }
+
   .file-toolbar-selection {
-    flex: 1 1 100%;
-    flex-wrap: wrap;
-    padding-top: var(--xy-space-xs);
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
     padding-inline-start: 0;
-    border-top: 1px solid var(--xy-border);
     border-inline-start: 0;
+    scrollbar-width: thin;
   }
 
   .file-selection-count {
-    flex: 1 0 100%;
-    padding-block: var(--xy-space-xs);
+    flex: 0 0 auto;
+    padding-inline-end: var(--xy-space-xs);
   }
 
   .file-navigation-buttons {
