@@ -664,7 +664,10 @@
           </span>
         </div>
         <div class="player-rail__body">
-          <p v-if="gameServer.gameId === 'valheim' && !queryFresh" role="status" class="q-pa-md">
+          <p
+            v-if="gameServer.gameId === 'valheim' && isServerOnline && !queryFresh"
+            role="status"
+            class="q-ma-none text-caption text-xy-muted">
             Player count and names unavailable. No fresh successful query has been received.
           </p>
           <game-server-player-roster
@@ -675,7 +678,7 @@
             :current-player-count="currentPlayerCount"
             :game-server-id="gameServerId"
             :is-online="isServerOnline"
-            :max-player-count="maxPlayerCount"
+            :max-player-count="displayedMaxPlayerCount"
             :native-identifiers-required="gameServer.gameId === '7_days_to_die'"
             :player-list-supported="playerListSupported"
             :player-names="onlinePlayers"
@@ -695,9 +698,9 @@
         </q-btn>
         <span class="player-rail__mini-count font-mono">
           {{
-            gameServer.gameId === 'valheim' && !queryFresh
+            gameServer.gameId === 'valheim' && isServerOnline && !queryFresh
               ? 'Unknown'
-              : `${currentPlayerCount}/${maxPlayerCount}`
+              : `${currentPlayerCount}/${displayedMaxPlayerCount}`
           }}
         </span>
       </template>
@@ -962,6 +965,10 @@ const {
   gameServerId,
 })
 
+// Without a query reply (e.g. offline Valheim) show the configured limit, as the server list does.
+const displayedMaxPlayerCount = computed(
+  () => maxPlayerCount.value || Number(gameServer.value.maxPlayers),
+)
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
 const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)
@@ -2733,6 +2740,8 @@ async function sendGameServerInput() {
 
 .console-scroll-area :deep(#consoleCodeEl) {
   white-space: pre-wrap;
+  /* Break long paths/URLs so they can't widen the content past the clipped edge. */
+  overflow-wrap: anywhere;
 }
 
 .console-scroll-area :deep(.q-scrollarea__content) {

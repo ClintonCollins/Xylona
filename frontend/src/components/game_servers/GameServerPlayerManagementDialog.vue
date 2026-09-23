@@ -5,7 +5,7 @@
         <div>
           <div class="pm-dialog__title">Player management</div>
           <div class="pm-dialog__subtitle">
-            Roster actions and identifier-based administration for this server.
+            Online player actions and identifier-based administration for this server.
           </div>
         </div>
         <q-btn v-close-popup aria-label="Close player management" dense flat icon="close" round />

@@ -57,11 +57,11 @@ const rosterAvailable = computed(
 const rosterStateText = computed(() => {
   switch (rosterState.value) {
     case GameServerPlayerManagementRosterState.UNSUPPORTED:
-      return 'Native player roster is not supported by this server.'
+      return 'This server does not report its online players.'
     case GameServerPlayerManagementRosterState.PERMISSION_DENIED:
-      return 'Native player roster access was denied by the game server.'
+      return 'The game server denied access to its player list.'
     default:
-      return 'Native player roster is unavailable. Retry after confirming the WebAPI is reachable.'
+      return 'The player list is unavailable. Retry after confirming the WebAPI is reachable.'
   }
 })
 const supportedActionDefinitions = computed(() =>
@@ -287,21 +287,21 @@ defineExpose({ loadPlayerManagement })
     </q-banner>
 
     <template v-else-if="loading && management === null">
-      <q-card class="players-panel__card">
+      <section class="players-panel__section">
         <q-card-section>
           <q-skeleton class="q-mb-md" height="28px" type="rect" width="180px" />
           <q-skeleton class="q-mb-sm" type="text" />
           <q-skeleton class="q-mb-sm" type="text" />
           <q-skeleton type="text" width="70%" />
         </q-card-section>
-      </q-card>
+      </section>
     </template>
 
     <template v-else-if="management !== null">
-      <q-card class="players-panel__card">
+      <section class="players-panel__section">
         <q-card-section class="players-panel__summary">
           <div>
-            <div class="players-panel__card-title">Live roster</div>
+            <div class="players-panel__card-title">Online players</div>
             <div class="players-panel__card-copy">
               {{ players.length }} {{ players.length === 1 ? 'player' : 'players' }} reported
             </div>
@@ -330,7 +330,8 @@ defineExpose({ loadPlayerManagement })
         <q-card-section v-if="!isOnline">
           <q-banner class="players-panel__banner players-panel__banner--warning" dense rounded>
             <template #avatar><q-icon color="warning" name="power_settings_new" /></template>
-            Start the game server to query its roster or perform player actions.
+            Players appear while the server is online. Start the game server to perform player
+            actions.
           </q-banner>
         </q-card-section>
         <q-card-section v-else-if="!capabilities?.actionsSupported">
@@ -349,21 +350,24 @@ defineExpose({ loadPlayerManagement })
           </q-banner>
         </q-card-section>
 
-        <q-card-section v-if="rosterAvailable && players.length === 0" class="players-panel__empty">
+        <q-card-section
+          v-if="isOnline && rosterAvailable && players.length === 0"
+          class="players-panel__empty">
           <q-icon name="group_off" size="42px" />
-          <div class="players-panel__empty-title">No players reported</div>
+          <div class="players-panel__empty-title">No players online</div>
           <div>
             {{
               nativeRoster
-                ? 'The native player roster is currently empty.'
-                : isOnline
-                  ? 'The server query returned an empty roster.'
-                  : 'The roster will appear after the server starts.'
+                ? 'The game server reports no connected players.'
+                : 'The server query returned no players.'
             }}
           </div>
         </q-card-section>
 
-        <q-list v-else-if="rosterAvailable" class="players-panel__roster" separator>
+        <q-list
+          v-else-if="rosterAvailable && players.length > 0"
+          class="players-panel__roster"
+          separator>
           <q-item
             v-for="player in players"
             :key="
@@ -419,14 +423,14 @@ defineExpose({ loadPlayerManagement })
             </q-item-section>
           </q-item>
         </q-list>
-      </q-card>
+      </section>
 
-      <q-card v-if="supportedActionDefinitions.length > 0" class="players-panel__card">
+      <section v-if="supportedActionDefinitions.length > 0" class="players-panel__section">
         <q-card-section>
           <div class="players-panel__card-title">Manage by {{ identifierLabel.toLowerCase() }}</div>
           <div class="players-panel__card-copy">
-            Use this for offline players, unbans, and allowlist changes that are not represented in
-            the live roster.
+            Use this for offline players, unbans, and allowlist changes that are not in the online
+            players list.
           </div>
         </q-card-section>
         <q-card-section class="players-panel__manual-form">
@@ -460,7 +464,7 @@ defineExpose({ loadPlayerManagement })
             :text-color="actionTextColor(manualAction)"
             @click="openManualPlayerAction" />
         </q-card-section>
-      </q-card>
+      </section>
     </template>
 
     <q-dialog v-model="confirmDialogOpen" aria-labelledby="players-panel-dialog-title" persistent>
@@ -529,10 +533,10 @@ defineExpose({ loadPlayerManagement })
   color: var(--xy-text-primary);
 }
 
-.players-panel__card {
-  overflow: hidden;
-  border: 1px solid var(--xy-border);
-  background: var(--xy-surface-1);
+/* Sections sit unframed inside the player management dialog card. */
+.players-panel__section + .players-panel__section {
+  padding-top: var(--xy-space-lg);
+  border-top: 1px solid var(--xy-border);
 }
 
 .players-panel__summary,

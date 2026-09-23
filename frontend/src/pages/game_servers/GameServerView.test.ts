@@ -290,7 +290,7 @@ describe('GameServerView', () => {
 
   it.each([
     {
-      label: 'supported roster with all names',
+      label: 'supported player list with all names',
       currentPlayerCount: 2,
       onlinePlayers: ['Alex', 'Steve'],
       playerListSupported: true,
@@ -298,7 +298,7 @@ describe('GameServerView', () => {
       expectedMessage: '',
     },
     {
-      label: 'supported roster with a partial sample',
+      label: 'supported player list with a partial sample',
       currentPlayerCount: 3,
       onlinePlayers: ['Alex'],
       playerListSupported: true,
@@ -306,7 +306,7 @@ describe('GameServerView', () => {
       expectedMessage: '2 more players not reported',
     },
     {
-      label: 'supported empty roster',
+      label: 'supported empty player list',
       currentPlayerCount: 0,
       onlinePlayers: [],
       playerListSupported: true,
@@ -314,12 +314,12 @@ describe('GameServerView', () => {
       expectedMessage: 'No players online',
     },
     {
-      label: 'unsupported roster',
+      label: 'unsupported player list',
       currentPlayerCount: 4,
       onlinePlayers: [],
       playerListSupported: false,
       expectedNames: [],
-      expectedMessage: 'The roster is not available for this game.',
+      expectedMessage: 'Player names are not available for this game.',
     },
   ])(
     'renders player names only for an online server with a $label',

@@ -38,8 +38,10 @@
         reported
       </div>
     </template>
-    <div v-else-if="isOnline" class="roster__empty">The roster is not available for this game.</div>
-    <div v-else class="roster__empty">The roster appears while the server is online.</div>
+    <div v-else-if="isOnline" class="roster__empty">
+      Player names are not available for this game.
+    </div>
+    <div v-else class="roster__empty">Players appear while the server is online.</div>
 
     <q-dialog v-model="confirmOpen" aria-labelledby="roster-dialog-title" persistent>
       <q-card class="roster__dialog">

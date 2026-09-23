@@ -157,6 +157,34 @@ describe('PublicGameServerStatusPage', () => {
     expect(document.title).toBe(initialDocumentTitle)
   })
 
+  it("offers the Who's online toggle only for online servers", async () => {
+    mocks.getStatusPage.mockResolvedValue({
+      page: create(PublicGameServerStatusPageSchema, {
+        title: 'Owner fleet',
+        servers: [
+          {
+            id: 'server-1',
+            name: 'Alpha',
+            status: Status.ONLINE,
+            rosterState: GameServerStatusPageRosterState.AVAILABLE,
+          },
+          {
+            id: 'server-2',
+            name: 'Beta',
+            status: Status.OFFLINE,
+            rosterState: GameServerStatusPageRosterState.AVAILABLE,
+          },
+        ],
+      }),
+    })
+    const wrapper = shallowMount(PublicGameServerStatusPage)
+    await flushPromises()
+
+    expect(wrapper.find('[aria-label="Show Alpha online players"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Show Beta online players"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('copies connection addresses with the fallback and reports failures', async () => {
     mocks.getStatusPage.mockResolvedValue({
       page: create(PublicGameServerStatusPageSchema, {
