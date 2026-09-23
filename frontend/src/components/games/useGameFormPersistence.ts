@@ -198,7 +198,12 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
     })
 
     try {
-      await GetXylonaClient().editGame(request)
+      const response = await GetXylonaClient().editGame(request)
+      // Editing an official game marks it diverged on the server; pick that up so the save
+      // note and diverged banner reflect it without a reload.
+      if (response.game) {
+        options.game.value.officialDefinitionDiverged = response.game.officialDefinitionDiverged
+      }
       options.savedSuccessfully.value = true
       options.captureRuntimeBaselineFromCurrentState()
       options.commitFormSnapshot()

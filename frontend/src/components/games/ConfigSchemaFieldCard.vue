@@ -226,6 +226,8 @@ import { reactive, ref, watch } from 'vue'
 import { managedSourceOptions } from '@/components/shared/placeholder-definitions'
 
 export interface SchemaFieldModel {
+  // Client-only row identity, so editing the Key does not remount the card. Never saved.
+  id: number
   key: string
   title: string
   type: string

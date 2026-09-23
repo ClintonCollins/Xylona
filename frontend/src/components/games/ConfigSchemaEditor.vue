@@ -2,7 +2,7 @@
   <div class="schema-editor">
     <div class="editor-header">
       <q-btn-toggle
-        v-model="mode"
+        :model-value="mode"
         :options="[
           { label: 'Form Builder', value: 'form' },
           { label: 'Raw JSON', value: 'json' },
@@ -11,7 +11,8 @@
         class="xy-segmented-toggle"
         dense
         no-caps
-        toggle-color="primary" />
+        toggle-color="primary"
+        @update:model-value="switchMode" />
     </div>
 
     <!-- Form Builder Mode -->
@@ -242,8 +243,8 @@
             </div>
             <div v-show="isGroupExpanded(group.name)" class="schema-group-content">
               <div
-                v-for="(field, index) in group.fields"
-                :key="field.key || index"
+                v-for="field in group.fields"
+                :key="field.id"
                 :class="{
                   dragging: draggedField === field,
                   'drag-over-above': dragOverField === field && dragOverPosition === 'above',
@@ -382,6 +383,7 @@ const monacoContainer = ref<HTMLElement | null>(null)
 const groupOrder = ref<string[]>([])
 
 let monacoEditor: unknown = null
+let nextFieldId = 0
 
 // Dirty tracking: the form's schema against the last loaded or saved one, plus any
 // Raw JSON edits that have not been synced back to the form yet.
@@ -408,32 +410,31 @@ onMounted(() => {
 
 watch(() => props.schema, loadSchema)
 
-// Sync between modes
-watch(mode, async (newMode) => {
-  if (newMode === 'json') {
-    const schema = fieldsToSchema()
-    const jsonStr = JSON.stringify(schema, null, 2)
-    jsonText.value = jsonStr
-    jsonStartText.value = jsonStr
-    await nextTick()
-    const monaco = await loadMonacoRuntime('json')
-    await initMonaco(monaco, jsonStr)
-  } else {
-    // Sync from JSON back to form
+// Sync between modes. Invalid Raw JSON keeps the JSON view open so its edits are not lost.
+async function switchMode(newMode: 'form' | 'json') {
+  if (newMode === mode.value) return
+
+  if (newMode === 'form') {
     if (monacoEditor) {
-      const editor = monacoEditor as import('monaco-editor').editor.IStandaloneCodeEditor
-      const jsonStr = editor.getValue()
-      try {
-        const parsed = JSON.parse(jsonStr) as JsonSchema
-        fields.value = schemaToFields(parsed)
-        jsonValid.value = true
-      } catch {
-        // Keep existing fields if JSON is invalid
+      if (!jsonValid.value) {
+        notifyError('Fix the JSON errors before switching to the form.')
+        return
       }
+      fields.value = schemaToFields(JSON.parse(jsonText.value) as JsonSchema)
       disposeMonaco()
     }
+    mode.value = 'form'
+    return
   }
-})
+
+  const jsonStr = JSON.stringify(fieldsToSchema(), null, 2)
+  jsonText.value = jsonStr
+  jsonStartText.value = jsonStr
+  mode.value = 'json'
+  await nextTick()
+  const monaco = await loadMonacoRuntime('json')
+  await initMonaco(monaco, jsonStr)
+}
 
 onUnmounted(() => {
   disposeMonaco()
@@ -447,6 +448,7 @@ function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
   groupOrder.value = schema['x-groups'] ? [...schema['x-groups']] : []
 
   const result = Object.entries(schema.properties).map(([key, prop], index) => ({
+    id: nextFieldId++,
     key,
     title: prop.title || '',
     type: prop.type || 'string',
@@ -553,6 +555,7 @@ function fieldsToSchema(): JsonSchema {
 function addField() {
   const maxOrder = fields.value.reduce((max, f) => Math.max(max, f.order), -1)
   fields.value.push({
+    id: nextFieldId++,
     key: '',
     title: '',
     type: 'string',
@@ -1000,6 +1003,7 @@ function handleImportDetection(result: ImportDetectionResult) {
 
 function importedFieldToFieldModel(field: ImportedField): SchemaFieldModel {
   return {
+    id: nextFieldId++,
     key: field.key,
     title: field.title,
     type: field.type,

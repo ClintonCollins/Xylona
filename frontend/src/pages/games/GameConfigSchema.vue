@@ -114,7 +114,8 @@ interface ConfigSchemaEntry {
   path: string
   format: string
   category: string
-  generate_before_start: boolean
+  // Some official entries leave this out; missing means false.
+  generate_before_start?: boolean
   schema?: JsonSchema
   [key: string]: unknown
 }
@@ -137,7 +138,8 @@ const entry = computed<ConfigSchemaEntry | undefined>(() => allSchemas.value[fil
 const isDirty = computed(
   () =>
     (editorRef.value?.isDirty ?? false) ||
-    (entry.value !== undefined && generateBeforeStart.value !== entry.value.generate_before_start),
+    (entry.value !== undefined &&
+      generateBeforeStart.value !== (entry.value.generate_before_start ?? false)),
 )
 
 useUnsavedChangesGuard(isDirty)
@@ -161,7 +163,7 @@ async function loadSchema() {
       : []
     if (entry.value) {
       schema.value = entry.value.schema || { type: 'object', properties: {} }
-      generateBeforeStart.value = entry.value.generate_before_start
+      generateBeforeStart.value = entry.value.generate_before_start ?? false
     }
   } catch (unknownErr: unknown) {
     loadError.value = ConnectErrorToString(ConnectError.from(unknownErr))

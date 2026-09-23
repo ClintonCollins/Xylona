@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent, ref } from 'vue'
+import { defineComponent, ref, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GameConfigSchema from './GameConfigSchema.vue'
 
@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   notifySuccess: vi.fn(),
   notifyError: vi.fn(),
   notifyConnectError: vi.fn(),
+  useUnsavedChangesGuard: vi.fn(),
   fileIndex: '0',
 }))
 
@@ -27,7 +28,7 @@ vi.mock('vue-router', async () => {
 })
 
 vi.mock('@/utils/unsaved-changes-guard', () => ({
-  useUnsavedChangesGuard: vi.fn(),
+  useUnsavedChangesGuard: mocks.useUnsavedChangesGuard,
 }))
 
 vi.mock('@/api/notifications', () => ({
@@ -153,5 +154,26 @@ describe('GameConfigSchema', () => {
     expect(wrapper.find('[data-test="editor"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="save-schema"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/games/minecraft/edit"]').exists()).toBe(true)
+  })
+
+  it('treats a missing file behavior as off, so toggling it back is not an unsaved change', async () => {
+    mocks.getGameConfigSchemas.mockResolvedValue({
+      configSchemasJson: JSON.stringify([
+        { path: 'serverconfig.xml', format: 'xml', category: 'Core', schema: { type: 'object' } },
+      ]),
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const isDirty = mocks.useUnsavedChangesGuard.mock.calls[0]?.[0] as Ref<boolean>
+    const toggle = wrapper.get('[data-test="generate-toggle"]')
+    expect(toggle.text()).toBe('false')
+    expect(isDirty.value).toBe(false)
+
+    await toggle.trigger('click')
+    expect(isDirty.value).toBe(true)
+
+    await toggle.trigger('click')
+    expect(isDirty.value).toBe(false)
   })
 })

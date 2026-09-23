@@ -1,8 +1,51 @@
-import { defineComponent, nextTick } from 'vue'
-import { shallowMount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { defineComponent, nextTick, onMounted } from 'vue'
+import { flushPromises, shallowMount } from '@vue/test-utils'
+import { describe, expect, it, vi } from 'vitest'
 
 import ConfigSchemaEditor from './ConfigSchemaEditor.vue'
+
+const mocks = vi.hoisted(() => {
+  // A stand-in Monaco editor: the test edits `value` and fires the change listener.
+  const editor = {
+    value: '',
+    onChange: () => {},
+    getValue: () => editor.value,
+    onDidChangeModelContent: (listener: () => void) => {
+      editor.onChange = listener
+    },
+    dispose: vi.fn(),
+  }
+  return {
+    editor,
+    notifyError: vi.fn(),
+    monaco: {
+      editor: {
+        create: (_container: unknown, options: { value: string }) => {
+          editor.value = options.value
+          return editor
+        },
+      },
+    },
+  }
+})
+
+vi.mock('@/components/editor/monaco-runtime', () => ({
+  loadMonacoRuntime: async () => mocks.monaco,
+}))
+
+vi.mock('@/api/notifications', () => ({
+  notifyError: mocks.notifyError,
+  notifySuccess: vi.fn(),
+}))
+
+const QBtnToggleStub = defineComponent({
+  props: {
+    options: { type: Array as () => { label: string; value: string }[], default: () => [] },
+  },
+  emits: ['update:modelValue'],
+  template:
+    '<div><button v-for="option in options" :key="option.value" :data-mode="option.value" @click="$emit(\'update:modelValue\', option.value)">{{ option.label }}</button></div>',
+})
 
 const QBtnStub = defineComponent({
   name: 'QBtnStub',
@@ -158,5 +201,64 @@ describe('ConfigSchemaEditor managed sources', () => {
       schema: { type: 'object', properties: { motd: { type: 'string' } } },
     })
     expect(wrapper.vm.isDirty).toBe(false)
+  })
+
+  it('keeps a field card mounted while its key is edited', async () => {
+    const mounted = vi.fn()
+    const RenamingFieldCardStub = defineComponent({
+      props: { modelValue: { type: Object, required: true } },
+      emits: ['update:modelValue'],
+      setup() {
+        onMounted(mounted)
+      },
+      template:
+        '<div data-testid="field-card" @click="$emit(\'update:modelValue\', { ...modelValue, key: modelValue.key + \'x\' })">{{ modelValue.key }}</div>',
+    })
+    const wrapper = shallowMount(ConfigSchemaEditor, {
+      props: { schema: { type: 'object', properties: { motd: { type: 'string' } } } },
+      global: { stubs: { 'q-btn': QBtnStub, ConfigSchemaFieldCard: RenamingFieldCardStub } },
+    })
+    await nextTick()
+    expect(mounted).toHaveBeenCalledTimes(1)
+
+    await wrapper.get('[data-testid="field-card"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="field-card"]').text()).toBe('motdx')
+    expect(mounted).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays in Raw JSON with the edits when the JSON is invalid', async () => {
+    const wrapper = shallowMount(ConfigSchemaEditor, {
+      props: { schema: { type: 'object', properties: { motd: { type: 'string' } } } },
+      global: { stubs: { 'q-btn-toggle': QBtnToggleStub } },
+    })
+    await nextTick()
+
+    await wrapper.get('[data-mode="json"]').trigger('click')
+    await flushPromises()
+    mocks.editor.value = '{ "type": "object", "properties": {'
+    mocks.editor.onChange()
+
+    await wrapper.get('[data-mode="form"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.notifyError).toHaveBeenCalledWith(
+      'Fix the JSON errors before switching to the form.',
+    )
+    expect(wrapper.find('.json-editor').exists()).toBe(true)
+    expect(mocks.editor.dispose).not.toHaveBeenCalled()
+    expect(wrapper.vm.isDirty).toBe(true)
+
+    // Valid JSON switches back and becomes the form.
+    mocks.editor.value =
+      '{ "type": "object", "properties": { "level-name": { "type": "string" } } }'
+    mocks.editor.onChange()
+    await wrapper.get('[data-mode="form"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.json-editor').exists()).toBe(false)
+    expect(mocks.editor.dispose).toHaveBeenCalledTimes(1)
+    expect(Object.keys(wrapper.vm.buildSchema()?.properties ?? {})).toEqual(['level-name'])
   })
 })
