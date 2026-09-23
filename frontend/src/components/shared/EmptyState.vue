@@ -1,7 +1,7 @@
 <template>
   <div class="xy-empty-state" role="status">
     <q-icon aria-hidden="true" class="xy-empty-state__icon" :name="icon" size="3rem" />
-    <p class="xy-empty-state__title">{{ title }}</p>
+    <component :is="titleTag ?? 'p'" class="xy-empty-state__title">{{ title }}</component>
     <p v-if="description || $slots.default" class="xy-empty-state__copy">
       <slot>{{ description }}</slot>
     </p>
@@ -17,6 +17,8 @@ defineProps<{
   icon: string
   title: string
   description?: string
+  /** `h1` when the empty state stands in for the whole page, so it keeps a heading. */
+  titleTag?: 'p' | 'h1'
 }>()
 </script>
 
@@ -40,6 +42,8 @@ defineProps<{
   margin: 0;
   font-size: var(--xy-font-size-base);
   font-weight: 600;
+  line-height: var(--xy-line-height-base);
+  letter-spacing: normal;
   color: var(--xy-text-primary);
 }
 

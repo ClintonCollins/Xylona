@@ -1,5 +1,7 @@
 <template>
   <div :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
+    <!-- The layout's identity bar shows the name; this keeps the page's heading. -->
+    <h1 class="xy-visually-hidden">{{ serverName ? `${serverName} console` : 'Console' }}</h1>
     <q-resize-observer @resize="onMainAreaResize" />
     <div
       :class="{ 'sidebar-backdrop-visible': !sidebarCollapsed }"
@@ -725,9 +727,11 @@ import { useGameServerQueryStatusVersion } from './useGameServerQueryStatusVersi
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { resolveConsoleStreamChunk } from './console-stream-sequence'
 import { fitConsoleSidePanels, type ConsoleSidePanel } from './console-side-panels'
+import { useGameServerName } from './game-server-context'
 
 const $q = useQuasar()
 const route = useRoute()
+const serverName = useGameServerName()
 const gameServer: Ref<GameServer> = ref(create(GameServerSchema)) as Ref<GameServer>
 const gameServerId: Ref<string> = ref(
   route.params.id instanceof Array ? route.params.id[0] : route.params.id,
@@ -1510,6 +1514,7 @@ function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
 }
 
 async function handleSoftwareChanged() {
+  XylonaEventBus.emit('gameServerEdited', gameServerId.value)
   await getGameServerDetails()
   if (hasConsoleOutput.value) {
     return

@@ -36,9 +36,12 @@ export default route(function (/* { store, ssrContext } */) {
   })
 
   // Pages that know a more specific name (a server, a public map) refine this
-  // after it runs.
-  Router.afterEach((to) => {
-    setPageTitle(to.meta.title)
+  // after it runs. A failed navigation (the active tab clicked again, a guard
+  // abort) never reached `to`, so it keeps the refined title.
+  Router.afterEach((to, _from, failure) => {
+    if (!failure) {
+      setPageTitle(to.meta.title)
+    }
   })
 
   return Router

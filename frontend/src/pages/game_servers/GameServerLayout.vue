@@ -6,7 +6,8 @@
         class="game-server-missing"
         description="It may have been deleted, or you may not have access to it."
         icon="dns"
-        title="Game server not found">
+        title="Game server not found"
+        title-tag="h1">
         <template #actions>
           <q-btn
             color="primary"
@@ -209,6 +210,7 @@ let tabConfigurationSequence = 0
 onMounted(async () => {
   XylonaEventBus.on('serverSoftwareInstall', handleServerSoftwareInstall)
   XylonaEventBus.on('websocketConnected', refreshServer)
+  XylonaEventBus.on('gameServerEdited', handleGameServerEdited)
   void document.fonts?.ready.then(fitTabs)
   const configured = await configureTabs()
   if (configured) {
@@ -250,9 +252,17 @@ function handleServerSoftwareInstall(
   }
 }
 
+// A rename or software change on a section page must reach the bar and title.
+function handleGameServerEdited(gameServerId: string) {
+  if (gameServerId === getServerID()) {
+    refreshServer()
+  }
+}
+
 onUnmounted(() => {
   XylonaEventBus.off('serverSoftwareInstall', handleServerSoftwareInstall)
   XylonaEventBus.off('websocketConnected', refreshServer)
+  XylonaEventBus.off('gameServerEdited', handleGameServerEdited)
 })
 
 function getServerID(): string {
@@ -287,6 +297,7 @@ async function configureTabs() {
   let hasOperations = false
   let loadedServer: GameServer | null = gameServer.value
   let missing = false
+  let transientError = false
 
   if (currentUser) {
     try {
@@ -322,11 +333,17 @@ async function configureTabs() {
     } catch (unknownError: unknown) {
       const err = ConnectError.from(unknownError)
       missing = err.code === Code.NotFound || err.code === Code.PermissionDenied
+      transientError = !missing
       console.error(err)
     }
   }
 
   if (configurationSequence !== tabConfigurationSequence || serverID !== getServerID()) {
+    return false
+  }
+  // A failed re-read (a blip after a reconnect) keeps the last good tabs and
+  // permissions instead of bouncing the user to Console.
+  if (transientError && loadedServerID.value === serverID) {
     return false
   }
 

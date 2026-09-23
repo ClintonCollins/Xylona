@@ -761,7 +761,7 @@ import { useQuasar } from 'quasar'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { notifySuccess } from '@/api/notifications'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerDnsBindingSettings from './GameServerDNSBindingSettings.vue'
@@ -1294,6 +1294,7 @@ async function submitGameServer() {
     request.gameServer = gameServer.value
 
     await GetXylonaClient().editGameServer(request)
+    XylonaEventBus.emit('gameServerEdited', props.gameServerId)
     await initializeAdminInterface()
     notifySuccess('Server settings saved successfully.')
   } catch (e) {

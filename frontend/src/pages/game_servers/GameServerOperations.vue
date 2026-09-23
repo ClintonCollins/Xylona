@@ -437,9 +437,14 @@ const confirmationOpen = computed({
 const pendingValues = computed(() => {
   const pending = pendingOperation.value
   if (!pending) return []
-  return pending.operation.fields
-    .map((field) => ({ label: field.label, value: displayValue(field, pending.values[field.id]) }))
-    .filter((entry) => entry.value !== '')
+  // Name the target first so a ban or wipe can't be confirmed against the wrong server.
+  return [
+    { label: 'Server', value: gameServerName.value },
+    ...pending.operation.fields.map((field) => ({
+      label: field.label,
+      value: displayValue(field, pending.values[field.id]),
+    })),
+  ].filter((entry) => entry.value !== '')
 })
 const worldTimeLabel = computed(() => {
   const status = worldStatus.value
