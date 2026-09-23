@@ -90,6 +90,25 @@ describe('connect-client', () => {
     expect(mocks.assign).toHaveBeenCalledWith('/login?reason=session-expired')
   })
 
+  it('returns to the page that was open when the session expired', async () => {
+    const { createXylonaTransport } = await import('./connect-client')
+
+    window.history.replaceState({}, '', '/game-servers/abc/files?path=config')
+    mocks.createConnectTransport.mockReturnValue({ kind: 'transport' })
+    mocks.fetch.mockResolvedValue(new Response(null, { status: 401 }))
+    createXylonaTransport()
+
+    const transportCall = mocks.createConnectTransport.mock.calls[0]
+    if (!transportCall) {
+      throw new Error('expected createConnectTransport to be called')
+    }
+    await transportCall[0].fetch('/rpc/files')
+
+    expect(mocks.assign).toHaveBeenCalledWith(
+      '/login?reason=session-expired&redirect=%2Fgame-servers%2Fabc%2Ffiles%3Fpath%3Dconfig',
+    )
+  })
+
   it('does not redirect an unauthenticated request from the login page', async () => {
     const { createXylonaTransport } = await import('./connect-client')
 

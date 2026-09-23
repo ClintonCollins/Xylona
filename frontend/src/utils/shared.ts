@@ -45,6 +45,7 @@ import { EventBus } from 'quasar'
 
 import { getXylonaClient, getXylonaClientCallback } from '@/api/connect-client'
 import { connectErrorToString } from '@/api/connect-errors'
+import { currentPagePath, loginPath } from './login-redirect'
 import { ReconnectingWebSocket } from './websocket'
 import {
   setWebsocketBrowserOnline,
@@ -213,7 +214,7 @@ function setupWebsocket(apiWebsocket: ReconnectingWebSocket, isControllerSocket:
     if (isControllerSocket && event.code === SESSION_EXPIRED_CLOSE_CODE) {
       DisposeXylonaWebsocketClients()
       if (window.location.pathname !== '/login' && window.location.pathname !== '/setup') {
-        window.location.assign('/login?reason=session-expired')
+        window.location.assign(loginPath(currentPagePath(), 'session-expired'))
       }
       return
     }

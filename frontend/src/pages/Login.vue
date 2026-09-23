@@ -79,6 +79,7 @@ import AuthPageShell from '@/components/shared/AuthPageShell.vue'
 import { LoginRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { useUserAuthStore } from '@/stores/xylona'
+import { safeReturnPath } from '@/utils/login-redirect'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -107,7 +108,7 @@ async function login() {
       return
     }
     userAuthStore.setUser(response.user)
-    await router.push({ path: '/' })
+    await router.push(safeReturnPath(route.query['redirect']))
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
     let caption = ConnectErrorToString(err)
