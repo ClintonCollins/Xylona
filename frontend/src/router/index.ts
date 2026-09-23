@@ -6,6 +6,7 @@ import {
   createWebHistory,
 } from 'vue-router'
 
+import { setPageTitle } from '@/utils/page-title'
 import routes from './routes'
 
 /*
@@ -32,6 +33,12 @@ export default route(function (/* { store, ssrContext } */) {
     // quasar.conf.js -> build -> vueRouterMode
     // quasar.conf.js -> build -> publicPath
     history: createHistory(process.env.VUE_ROUTER_BASE),
+  })
+
+  // Pages that know a more specific name (a server, a public map) refine this
+  // after it runs.
+  Router.afterEach((to) => {
+    setPageTitle(to.meta.title)
   })
 
   return Router

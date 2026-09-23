@@ -1,12 +1,13 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import SevenDaysToDieWorldOverview from '@/components/seven_days_to_die/SevenDaysToDieWorldOverview.vue'
 import {
   GetPublicSevenDaysToDieMapRequestSchema,
   type SevenDaysToDieMapView,
 } from '@/proto/xylona_pb'
+import { setPageTitle } from '@/utils/page-title'
 import { GetXylonaClient } from '@/utils/shared'
 
 const SevenDaysToDieLiveMap = defineAsyncComponent(
@@ -16,6 +17,12 @@ const SevenDaysToDieLiveMap = defineAsyncComponent(
 const props = defineProps<{ identifier: string }>()
 const pollIntervalMilliseconds = 5_000
 const mapView = ref<SevenDaysToDieMapView | null>(null)
+watch(
+  () => mapView.value?.gameServerName,
+  (name) => {
+    if (name) setPageTitle(`${name} live map`)
+  },
+)
 const loading = ref(false)
 const invalidLink = ref(false)
 const loadError = ref(false)

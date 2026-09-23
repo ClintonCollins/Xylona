@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 
 import { GetPublicPalworldMapRequestSchema, type PalworldMapView } from '@/proto/xylona_pb'
+import { setPageTitle } from '@/utils/page-title'
 import { GetXylonaClient } from '@/utils/shared'
 
 const PalworldLiveMap = defineAsyncComponent(
@@ -14,6 +15,12 @@ const pollIntervalMs = 5_000
 // Each poll replaces the view wholesale, so deep reactivity would only re-proxy
 // every actor in the snapshot for nothing.
 const mapView = shallowRef<PalworldMapView | null>(null)
+watch(
+  () => mapView.value?.serverName,
+  (name) => {
+    if (name) setPageTitle(`${name} live map`)
+  },
+)
 const loading = ref(false)
 const invalidLink = ref(false)
 const loadError = ref(false)
