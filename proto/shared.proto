@@ -144,6 +144,10 @@ message Game {
   int64 official_definition_schema_version = 89;
   bool official_definition_diverged = 90;
   repeated GameConsoleCommand console_commands = 91;
+  // RE2 pattern for the console line a started server prints once it accepts
+  // players; it reports Starting until then. Empty waits for the first
+  // answered query instead, or reports Online at spawn without one.
+  string ready_log_pattern = 92;
 }
 
 message SteamApp {

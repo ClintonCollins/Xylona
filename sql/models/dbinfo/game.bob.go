@@ -411,6 +411,15 @@ var Games = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
+		ReadyLogPattern: column{
+			Name:      "ready_log_pattern",
+			DBType:    "TEXT",
+			Default:   "''",
+			Comment:   "",
+			Nullable:  false,
+			Generated: false,
+			AutoIncr:  false,
+		},
 	},
 	Indexes: gameIndexes{
 		SqliteAutoindexGame1: index{
@@ -482,11 +491,12 @@ type gameColumns struct {
 	LinuxAllowBackups                 column
 	WindowsAllowBackups               column
 	ConsoleCommands                   column
+	ReadyLogPattern                   column
 }
 
 func (c gameColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.BindsToAllIps, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware, c.LinuxStartArgsTemplate, c.WindowsStartArgsTemplate, c.LinuxBaseCommand, c.WindowsBaseCommand, c.StartArgBlocklist, c.AllowStartArgEditing, c.OfficialDefinitionHash, c.OfficialDefinitionSource, c.OfficialDefinitionSchemaVersion, c.OfficialDefinitionDiverged, c.DefaultEnvVars, c.LinuxAllowBackups, c.WindowsAllowBackups, c.ConsoleCommands,
+		c.ID, c.Name, c.DefaultPort, c.DefaultQueryPort, c.DefaultMaxPlayers, c.RequireDedicatedIP, c.UsesSourceQuery, c.UsesSteamcmd, c.SteamAppID, c.RequiresSteamGameServerLoginToken, c.LinuxSupport, c.LinuxStopCommand, c.LinuxInstallCommand, c.LinuxInstallCommandType, c.LinuxUpdateCommand, c.LinuxUpdateCommandType, c.LinuxWorkingDirectory, c.WindowsSupport, c.WindowsStopCommand, c.WindowsInstallCommand, c.WindowsInstallCommandType, c.WindowsUpdateCommand, c.WindowsUpdateCommandType, c.WindowsWorkingDirectory, c.BindsToAllIps, c.CreatedAt, c.UpdatedAt, c.XylonaOfficial, c.ConfigSchemas, c.ServerSoftware, c.LinuxStartArgsTemplate, c.WindowsStartArgsTemplate, c.LinuxBaseCommand, c.WindowsBaseCommand, c.StartArgBlocklist, c.AllowStartArgEditing, c.OfficialDefinitionHash, c.OfficialDefinitionSource, c.OfficialDefinitionSchemaVersion, c.OfficialDefinitionDiverged, c.DefaultEnvVars, c.LinuxAllowBackups, c.WindowsAllowBackups, c.ConsoleCommands, c.ReadyLogPattern,
 	}
 }
 

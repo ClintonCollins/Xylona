@@ -338,6 +338,17 @@ func (s *nodeServiceServer) StartProcess(ctx context.Context, req *connect.Reque
 			PreviousPasswords: slices.Clone(restInput.GetPreviousPasswords()),
 		}
 	}
+	readiness := msg.GetReadiness()
+	if readiness != nil {
+		cfg.Readiness = &node.ProcessReadiness{
+			LogPattern: readiness.GetLogPattern(),
+			Timeout:    time.Duration(readiness.GetTimeoutSeconds()) * time.Second,
+		}
+		if query := readiness.GetQuery(); query != nil {
+			queryReq := nodeGameServerQueryRequestFromProto(query)
+			cfg.Readiness.Query = &queryReq
+		}
+	}
 	if msg.GetInternalCommand() {
 		// Internal commands dispatch to a registered Game implementation
 		// (see internal/gameintegrations). The supervisor needs a *models.GameServer
@@ -912,14 +923,7 @@ func (s *nodeServiceServer) QueryGameServer(ctx context.Context, req *connect.Re
 	if s.n == nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("node not initialized"))
 	}
-	result, errQuery := s.n.QueryGameServer(ctx, node.GameServerQueryRequest{
-		Kind:       nodeGameServerQueryKindFromProto(req.Msg.GetKind()),
-		IP:         req.Msg.GetIp(),
-		QueryPort:  req.Msg.GetQueryPort(),
-		MaxPlayers: req.Msg.GetMaxPlayers(),
-		Username:   req.Msg.GetUsername(),
-		Password:   req.Msg.GetPassword(),
-	})
+	result, errQuery := s.n.QueryGameServer(ctx, nodeGameServerQueryRequestFromProto(req.Msg))
 	if errQuery != nil {
 		return nil, translate(errQuery)
 	}
@@ -929,6 +933,17 @@ func (s *nodeServiceServer) QueryGameServer(ctx context.Context, req *connect.Re
 		Source:    sourceQueryToProto(result.Source),
 		Palworld:  palworldQueryToProto(result.Palworld),
 	}), nil
+}
+
+func nodeGameServerQueryRequestFromProto(msg *nodeprotov1.QueryGameServerRequest) node.GameServerQueryRequest {
+	return node.GameServerQueryRequest{
+		Kind:       nodeGameServerQueryKindFromProto(msg.GetKind()),
+		IP:         msg.GetIp(),
+		QueryPort:  msg.GetQueryPort(),
+		MaxPlayers: msg.GetMaxPlayers(),
+		Username:   msg.GetUsername(),
+		Password:   msg.GetPassword(),
+	}
 }
 
 func (s *nodeServiceServer) QueryPalworldMap(ctx context.Context, req *connect.Request[nodeprotov1.QueryPalworldMapRequest]) (*connect.Response[nodeprotov1.QueryPalworldMapResponse], error) {

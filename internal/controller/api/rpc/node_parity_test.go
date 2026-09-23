@@ -559,6 +559,90 @@ func TestRestartGameServerRejectsActiveUpdateOperation(t *testing.T) {
 	}
 }
 
+// Restart accepts a server that is still starting up; only a stopped one is refused.
+func TestRestartGameServerRunningStatusGate(t *testing.T) {
+	cases := []struct {
+		status        xylona.Status
+		wantCode      connect.Code
+		wantStopCalls int
+	}{
+		// The stop fails, so reaching it shows the status gate let the restart through.
+		{status: xylona.Status_PRE_START, wantCode: connect.CodeUnavailable, wantStopCalls: 1},
+		{status: xylona.Status_ONLINE, wantCode: connect.CodeUnavailable, wantStopCalls: 1},
+		{status: xylona.Status_OFFLINE, wantCode: connect.CodeFailedPrecondition},
+	}
+	for _, tc := range cases {
+		t.Run(tc.status.String(), func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			insertRemoteNodeForParityTests(t, fixture, "node-remote")
+			insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+
+			remoteClient := &nodeclient.FakeNodeClient{
+				NodeID:                   "node-remote",
+				SnapshotResult:           &node.NodeSnapshot{OS: "linux"},
+				StopProcessErr:           errors.New("node connection lost"),
+				GetProcessSnapshotResult: &node.ProcessSnapshot{ID: "server-remote-1", Status: tc.status.String()},
+				GetProcessSnapshotFound:  true,
+			}
+			registry := testParityRegistry(
+				&nodeclient.FakeNodeClient{NodeID: "node-local", SnapshotResult: &node.NodeSnapshot{OS: "linux"}},
+				remoteClient,
+			)
+			configureLifecycleActionsForParityTests(t, fixture, registry)
+
+			request := connect.NewRequest(&xylona.RestartGameServerRequest{ServerId: "server-remote-1"})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+			_, errRestart := fixture.service.RestartGameServer(t.Context(), request)
+			if connect.CodeOf(errRestart) != tc.wantCode {
+				t.Fatalf("RestartGameServer() code = %v, want %v (error %v)", connect.CodeOf(errRestart), tc.wantCode, errRestart)
+			}
+			if len(remoteClient.StopProcessCalls) != tc.wantStopCalls {
+				t.Fatalf("StopProcess call count = %d, want %d", len(remoteClient.StopProcessCalls), tc.wantStopCalls)
+			}
+		})
+	}
+}
+
+// Before its first query, a game with a query reads as not answered yet, and a
+// game without one reads as never reporting players (Unknown).
+func TestQueryGameServerFallbackReportsQuerySupport(t *testing.T) {
+	cases := []struct {
+		gameID   string
+		wantType xylona.ServerQuery_Type
+	}{
+		{gameID: "minecraft", wantType: xylona.ServerQuery_Minecraft},
+		{gameID: "rust", wantType: xylona.ServerQuery_Source},
+		{gameID: "terraria", wantType: xylona.ServerQuery_Unknown},
+	}
+	for _, tc := range cases {
+		t.Run(tc.gameID, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			insertRemoteNodeForParityTests(t, fixture, "node-remote")
+			insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+			_, errGame := fixture.conn.SQLDb.ExecContext(t.Context(),
+				`update game_server set game_id = ? where id = ?`, tc.gameID, "server-remote-1")
+			if errGame != nil {
+				t.Fatalf("set game error = %v", errGame)
+			}
+			registry := testParityRegistry(
+				&nodeclient.FakeNodeClient{NodeID: "node-local"},
+				&nodeclient.FakeNodeClient{NodeID: "node-remote"},
+			)
+			configureLifecycleActionsForParityTests(t, fixture, registry)
+
+			request := connect.NewRequest(&xylona.QueryGameServerRequest{ServerId: "server-remote-1"})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+			response, errQuery := fixture.service.QueryGameServer(t.Context(), request)
+			if errQuery != nil {
+				t.Fatalf("QueryGameServer() error = %v", errQuery)
+			}
+			if got := response.Msg.GetQueryInfo().GetType(); got != tc.wantType {
+				t.Fatalf("QueryGameServer() type = %v, want %v", got, tc.wantType)
+			}
+		})
+	}
+}
+
 func TestRemoveGameServerPreservesRecordWhenShutdownOrCleanupFails(t *testing.T) {
 	cases := []struct {
 		name                 string

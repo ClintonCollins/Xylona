@@ -230,6 +230,12 @@ func ValidateModel(game *models.Game) []string {
 		validationErrors = append(validationErrors, fmt.Sprintf("update config: %v", errConfig))
 	}
 
+	// The node compiles it at start, so a bad pattern must be refused here.
+	_, errReadyPattern := regexp.Compile(game.ReadyLogPattern)
+	if errReadyPattern != nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("ready log pattern: %v", errReadyPattern))
+	}
+
 	return validationErrors
 }
 
@@ -686,6 +692,10 @@ func canonicalGameJSONValue(raw json.RawMessage) (any, error) {
 	gameObject, ok := gameBody.(map[string]any)
 	if !ok {
 		return nil, errors.New("game must be a JSON object")
+	}
+	// Unset fields added after a definition was hashed keep its hash stable.
+	if gameObject["readyLogPattern"] == "" {
+		delete(gameObject, "readyLogPattern")
 	}
 
 	consoleCommandsValue, hasConsoleCommands := gameObject["consoleCommands"]

@@ -29,6 +29,8 @@ export interface QueryPlayerSnapshot {
   playerCapacity: number
   players: string[]
   playerListSupported: boolean
+  /** False for the placeholder the controller stores when the game did not answer. */
+  responded: boolean
 }
 
 export function queryInfoPlayerSnapshot(queryInfo: ServerQuery): QueryPlayerSnapshot | null {
@@ -41,6 +43,7 @@ export function queryInfoPlayerSnapshot(queryInfo: ServerQuery): QueryPlayerSnap
         playerCapacity: minecraftQuery.maxPlayers,
         players: [...minecraftQuery.playerList],
         playerListSupported: true,
+        responded: minecraftQuery.responded,
       }
     }
     case ServerQuery_Type.Source: {
@@ -51,6 +54,7 @@ export function queryInfoPlayerSnapshot(queryInfo: ServerQuery): QueryPlayerSnap
         playerCapacity: sourceQuery.maxPlayers,
         players: [...sourceQuery.playerList],
         playerListSupported: sourceQuery.playerListSupported,
+        responded: sourceQuery.responded,
       }
     }
     case ServerQuery_Type.Palworld: {
@@ -61,6 +65,7 @@ export function queryInfoPlayerSnapshot(queryInfo: ServerQuery): QueryPlayerSnap
         playerCapacity: palworldQuery.maxPlayers,
         players: [...palworldQuery.playerList],
         playerListSupported: true,
+        responded: palworldQuery.responded,
       }
     }
     default:
@@ -77,33 +82,47 @@ export function useGameServerQueryStatusVersion({
   const maxPlayerCount = ref(0)
   const onlinePlayers = ref<string[]>([])
   const playerListSupported = ref(false)
-  const queryReceivedAt = ref(0)
-  const now = ref(Date.now())
+  // The controller pushes query results only when they change, so the latest
+  // one stays current until a new one (or a failed placeholder) replaces it.
+  const queryResponded = ref(false)
+  /** False when the game has no player query at all, so its count is never known. */
+  const querySupported = ref(true)
   const queryFresh = computed(
     () =>
       gameServer.value.status === Status.ONLINE &&
       websocketStateAuthoritative.value &&
-      queryReceivedAt.value > 0 &&
-      now.value - queryReceivedAt.value < 30_000,
+      queryResponded.value,
   )
-  let freshnessTimer: ReturnType<typeof setInterval> | undefined
+  /** Players online, or null while the server is up but its count is unknown. */
+  const playerCount = computed<number | null>(() => {
+    if (gameServer.value.status !== Status.ONLINE) return 0
+    return queryFresh.value ? currentPlayerCount.value : null
+  })
+  /** Why playerCount is null, for the players panel. */
+  const unknownPlayersMessage = computed(() =>
+    querySupported.value
+      ? 'Player count and names unavailable. The game has not answered a player query.'
+      : 'This game does not report its player count or names.',
+  )
   let lifecycleStarted = false
   let lifecycleUnmounted = false
 
   function applyQueryInfo(queryInfo: ServerQuery) {
-    if (gameServer.value.gameId === 'valheim' && !queryInfo.source?.responded) {
-      queryReceivedAt.value = 0
-      onlinePlayers.value = []
-      playerListSupported.value = false
-      return
-    }
+    querySupported.value = queryInfo.type !== ServerQuery_Type.Unknown
     const snapshot = queryInfoPlayerSnapshot(queryInfo)
     if (snapshot === null) {
       return
     }
+    if (!snapshot.responded) {
+      queryResponded.value = false
+      currentPlayerCount.value = 0
+      maxPlayerCount.value = snapshot.playerCapacity
+      onlinePlayers.value = []
+      playerListSupported.value = false
+      return
+    }
 
-    queryReceivedAt.value = Date.now()
-    now.value = Date.now()
+    queryResponded.value = true
     currentPlayerCount.value = snapshot.playerCount
     maxPlayerCount.value = snapshot.playerCapacity
     onlinePlayers.value = snapshot.players
@@ -119,7 +138,7 @@ export function useGameServerQueryStatusVersion({
         applyQueryInfo(response.queryInfo)
       }
     } catch (error) {
-      queryReceivedAt.value = 0
+      queryResponded.value = false
       console.error(error)
       $q.notify({
         type: 'xylona-error',
@@ -162,9 +181,6 @@ export function useGameServerQueryStatusVersion({
     }
 
     lifecycleStarted = true
-    freshnessTimer = setInterval(() => {
-      now.value = Date.now()
-    }, 1000)
     XylonaEventBus.on('gameServersQueryInfo', onServerQueryInfo)
     XylonaEventBus.on('gameServerStatus', onServerStatusUpdate)
     XylonaEventBus.on('gameServerVersion', onServerVersionUpdate)
@@ -176,7 +192,6 @@ export function useGameServerQueryStatusVersion({
     }
 
     lifecycleStarted = false
-    clearInterval(freshnessTimer)
     XylonaEventBus.off('gameServersQueryInfo', onServerQueryInfo)
     XylonaEventBus.off('gameServerStatus', onServerStatusUpdate)
     XylonaEventBus.off('gameServerVersion', onServerVersionUpdate)
@@ -189,6 +204,7 @@ export function useGameServerQueryStatusVersion({
 
   return {
     queryFresh,
+    playerCount,
     currentPlayerCount,
     maxPlayerCount,
     onlinePlayers,
@@ -196,6 +212,7 @@ export function useGameServerQueryStatusVersion({
     onServerStatusUpdate,
     onServerVersionUpdate,
     playerListSupported,
+    unknownPlayersMessage,
     queryGameServer,
     startQueryStatusVersionLifecycle,
     stopQueryStatusVersionLifecycle,

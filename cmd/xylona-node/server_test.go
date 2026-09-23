@@ -873,6 +873,50 @@ func TestNodeServiceServerLaunchEnvReachesChild(t *testing.T) {
 	t.Fatalf("console output = %q, want launch env value", chunk.Data)
 }
 
+func TestNodeServiceServerHoldsStartInPreStartUntilReady(t *testing.T) {
+	t.Parallel()
+
+	const secret = "test-secret"
+	const processID = "srv-readiness"
+	url, fingerprint := newTestServer(t, secret)
+	client, errNew := nodeclient.NewGRPCClient("node", url, fingerprint, secret)
+	if errNew != nil {
+		t.Fatalf("NewGRPCClient: %v", errNew)
+	}
+
+	baseCommand, args := launchEnvEchoCommand("XYLONA_READINESS_TEST_UNSET")
+	errStart := client.StartProcess(t.Context(), node.ProcessConfig{
+		ID:               processID,
+		BaseCommand:      baseCommand,
+		Args:             args,
+		WorkingDirectory: t.TempDir(),
+		Readiness:        &node.ProcessReadiness{LogPattern: "never printed", Timeout: time.Second},
+	}, xylona.Status_ONLINE)
+	if errStart != nil {
+		t.Fatalf("StartProcess: %v", errStart)
+	}
+	defer func() {
+		errStop := client.StopProcess(context.Background(), processID, "")
+		if errStop != nil && !errors.Is(errStop, node.ErrProcessNotFound) {
+			t.Logf("StopProcess after readiness test: %v", errStop)
+		}
+	}()
+
+	snapshot, found, errSnapshot := client.GetProcessSnapshot(t.Context(), processID)
+	if errSnapshot != nil || !found || snapshot.Status != xylona.Status_PRE_START.String() {
+		t.Fatalf("snapshot right after start = %+v, %v, %v; want PRE_START", snapshot, found, errSnapshot)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		snapshot, _, errSnapshot = client.GetProcessSnapshot(t.Context(), processID)
+		if errSnapshot == nil && snapshot != nil && snapshot.Status == xylona.Status_ONLINE.String() {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("snapshot after readiness timeout = %+v, want ONLINE", snapshot)
+}
+
 func TestTranslateLaunchEnvironmentValidationError(t *testing.T) {
 	errValidation := launchenv.NewValidationError([]launchenv.ValidationIssue{{
 		Name:    "JDK_JAVA_OPTIONS",

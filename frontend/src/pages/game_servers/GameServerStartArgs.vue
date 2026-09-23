@@ -139,6 +139,7 @@ import {
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { isServerRunning } from './server-list-actions'
 import { resolveStartArgsPlatform } from './start-args-platform'
 import { notifySuccess } from '@/api/notifications'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
@@ -226,7 +227,7 @@ const restartStateAuthoritative = computed(
     websocketStateAuthoritative.value &&
     serverStatusFresh.value &&
     gameServer.value !== undefined &&
-    gameServer.value.status === Status.ONLINE &&
+    isServerRunning(gameServer.value.status) &&
     hasRestartPermissions.value,
 )
 
@@ -241,8 +242,8 @@ const restartUnavailableReason = computed(() => {
   if (!hasRestartPermissions.value) {
     return 'Requires start and stop permissions'
   }
-  if (gameServer.value?.status !== Status.ONLINE) {
-    return 'The server must be online to restart'
+  if (gameServer.value === undefined || !isServerRunning(gameServer.value.status)) {
+    return 'The server must be running to restart'
   }
   return ''
 })

@@ -118,6 +118,9 @@ type PreparedCommand struct {
 	// SuppressStatusEvents keeps companion tasks out of game-server status
 	// listeners, broadcasts, and alert evaluation.
 	SuppressStatusEvents bool
+	// Readiness, when set on an ONLINE start, reports PRE_START from spawn
+	// until the game is ready for players.
+	Readiness *Readiness
 }
 
 func (imt inputType) String() string {
@@ -229,9 +232,13 @@ func (inst *Instance) startAndWaitForJob(
 	outputDone <-chan struct{},
 ) {
 	command.RLock()
+	processCtx := command.processCtx
 	processCtxCancel := command.processCtxCancel
 	processGeneration := command.processGeneration
 	inputMethodType := command.inputMethod.Type
+	startedStatus := command.status
+	readiness := command.readiness
+	readyWatch := command.readyWatch.Load()
 	command.RUnlock()
 	defer closeTelnetConnectionForGeneration(command, processGeneration, inputMethodType)
 	defer processCtxCancel()
@@ -394,7 +401,10 @@ func (inst *Instance) startAndWaitForJob(
 	}
 	log.Debug().Str("Command ID", command.ID).Str("executable", executable).
 		Int("argument_count", argumentCount).Msg("Command started")
-	command.sendJobStatusNotification(xylona.Status_OFFLINE, command.status)
+	command.sendJobStatusNotification(xylona.Status_OFFLINE, startedStatus)
+	if startedStatus == xylona.Status_PRE_START {
+		go command.awaitReadiness(processCtx, processGeneration, readiness, readyWatch)
+	}
 
 	// Run after startup function if it exists.
 	if command.runAfterStartup != nil {
@@ -533,7 +543,8 @@ func reportUnexpectedProcessExit(command *Command, errWait error, exitCode int, 
 }
 
 func publishProcessCrash(command *Command, exitCode int) {
-	if command.Status() != xylona.Status_ONLINE {
+	status := command.Status()
+	if status != xylona.Status_ONLINE && status != xylona.Status_PRE_START {
 		return
 	}
 	eb := eventbus.Get()
@@ -624,7 +635,7 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 		defer close(outputDone)
 		newCommand.readJobOut()
 	}()
-	if newCommand.status == xylona.Status_ONLINE {
+	if newCommand.status == xylona.Status_ONLINE || newCommand.status == xylona.Status_PRE_START {
 		newCommand.sendJobNotification(formatXylonaMessage("Starting server..."))
 	}
 	startupResult := make(chan error, 1)

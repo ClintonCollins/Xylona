@@ -49,6 +49,28 @@ func (ws *WebSocket) listenForLocalGameServerStatusChanges(statusChanged <-chan 
 	}
 }
 
+func (ws *WebSocket) subscribeGameServerStopping() {
+	eb := eventbus.Get()
+	stopping := eb.SubscribeReliable(eventbus.TopicGameServerStopping)
+	defer eb.Unsubscribe(eventbus.TopicGameServerStopping, stopping)
+	for {
+		select {
+		case <-ws.ctx.Done():
+			return
+		case data, ok := <-stopping:
+			if !ok {
+				return
+			}
+			event, isStopping := data.(eventbus.GameServerStoppingEvent)
+			if !isStopping {
+				log.Error().Msg("Failed to cast stopping event to GameServerStoppingEvent")
+				continue
+			}
+			ws.broadcastGameServerStopping(event.ServerID, event.Stopping)
+		}
+	}
+}
+
 func (ws *WebSocket) listenForGameServerRemoved(s *melody.Session) {
 	eb := eventbus.Get()
 	serverRemoved := eb.Subscribe(eventbus.TopicGameServerRemoved)

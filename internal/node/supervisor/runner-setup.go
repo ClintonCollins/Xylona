@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -41,6 +42,12 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 	if preparedCommand.InternalCommand {
 		internalLaunchEnv = maps.Clone(preparedCommand.LaunchEnv)
 	}
+	status := preparedCommand.Status
+	var readiness *Readiness
+	if status == xylona.Status_ONLINE && preparedCommand.Readiness != nil && !preparedCommand.InternalCommand {
+		status = xylona.Status_PRE_START
+		readiness = preparedCommand.Readiness
+	}
 	processCtx, processCtxCancel := context.WithCancel(inst.ctx)
 	gameServerName := preparedCommand.GameServerName
 	if gameServerName == "" && preparedCommand.InternalGameServer != nil {
@@ -60,7 +67,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 		newCommand.Args = append([]string(nil), preparedCommand.Args...)
 		newCommand.gameServerName = gameServerName
 		newCommand.unixStartedAt = time.Now().Unix()
-		newCommand.status = preparedCommand.Status
+		newCommand.status = status
+		newCommand.readiness = readiness
 		newCommand.serviceID = preparedCommand.ServiceID
 		if !preserveBufferedOutputOnReuse {
 			newCommand.outputListenersLock.Lock()
@@ -95,7 +103,8 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 			nodeID:               preparedCommand.NodeID,
 			stopTimeout:          preparedCommand.StopTimeout,
 			unixStartedAt:        time.Now().Unix(),
-			status:               preparedCommand.Status,
+			status:               status,
+			readiness:            readiness,
 			serviceID:            preparedCommand.ServiceID,
 			RWMutex:              &sync.RWMutex{},
 			stdInWriter:          &bytes.Buffer{},
@@ -120,6 +129,11 @@ func (inst *Instance) initNewCommand(preparedCommand PreparedCommand, persistent
 	}
 	clear(newCommand.redactValues)
 	newCommand.redactValues = redactValues
+	var readyPattern *regexp.Regexp
+	if readiness != nil {
+		readyPattern = readiness.LogPattern
+	}
+	newCommand.readyWatch.Store(newReadinessWatch(readyPattern))
 	return newCommand
 }
 

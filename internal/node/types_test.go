@@ -8,6 +8,7 @@ import (
 func TestNodeSnapshotRunningGameServerCount(t *testing.T) {
 	snapshot := &NodeSnapshot{Processes: []ProcessSnapshot{
 		{ID: "srv-online", Status: "ONLINE"},
+		{ID: "srv-starting", Status: "PRE_START"},
 		{ID: "srv-installing", Status: "INSTALLING"},
 		{ID: "srv-updating", Status: "UPDATING"},
 		{ID: "srv-offline", Status: "OFFLINE"},
@@ -15,7 +16,7 @@ func TestNodeSnapshotRunningGameServerCount(t *testing.T) {
 		{ID: minecraftMapProcessID("srv-online"), Status: "ONLINE"},
 	}}
 	gameServerIDs := map[string]struct{}{
-		"srv-online": {}, "srv-installing": {}, "srv-updating": {}, "srv-offline": {},
+		"srv-online": {}, "srv-starting": {}, "srv-installing": {}, "srv-updating": {}, "srv-offline": {},
 	}
 
 	tests := []struct {
@@ -23,7 +24,7 @@ func TestNodeSnapshotRunningGameServerCount(t *testing.T) {
 		ids  map[string]struct{}
 		want int
 	}{
-		{name: "counts only this node's running game servers", ids: gameServerIDs, want: 3},
+		{name: "counts only this node's running game servers", ids: gameServerIDs, want: 4},
 		{name: "no game servers", ids: nil, want: 0},
 	}
 	for _, test := range tests {

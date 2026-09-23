@@ -72,6 +72,8 @@ let livenessGraceTimer: ReturnType<typeof setTimeout> | null = null
 
 type XylonaEventBusEvents = {
   gameServerStatus: (gameServerId: string, gameServerName: string, status: Status) => void
+  /** The controller asked this server to stop (true), or that request failed (false). */
+  gameServerStopping: (gameServerId: string, stopping: boolean) => void
   /** A Start request from the page was rejected before the server launched. */
   gameServerStartRejected: (gameServerId: string) => void
   /** The page changed a server's name, software or settings; readers of it should reload. */
@@ -378,6 +380,14 @@ function demoteControllerConnection(): void {
   )
 }
 
+// Query info is pushed only when a server's result changes, so a view that
+// mounts between pushes starts from the last one.
+let latestServersQueryInfo: AllServersQueryInfo | undefined
+
+export function getLatestServersQueryInfo(): AllServersQueryInfo | undefined {
+  return latestServersQueryInfo
+}
+
 export function dispatchWebsocketMessage(out: Message): boolean {
   switch (out.type) {
     case Message_Type.GameServerStatus: {
@@ -388,6 +398,17 @@ export function dispatchWebsocketMessage(out: Message): boolean {
           statusUpdate.gameServerId,
           statusUpdate.gameServerName,
           statusUpdate.status,
+        )
+      }
+      return true
+    }
+    case Message_Type.GameServerStopping: {
+      const stoppingUpdate = out.gameServerStoppingUpdate
+      if (stoppingUpdate) {
+        XylonaEventBus.emit(
+          'gameServerStopping',
+          stoppingUpdate.gameServerId,
+          stoppingUpdate.stopping,
         )
       }
       return true
@@ -420,6 +441,7 @@ export function dispatchWebsocketMessage(out: Message): boolean {
     }
     case Message_Type.ServerQueries:
       if (out.allServersQueryInfo) {
+        latestServersQueryInfo = out.allServersQueryInfo
         XylonaEventBus.emit('gameServersQueryInfo', out.allServersQueryInfo)
       }
       return true

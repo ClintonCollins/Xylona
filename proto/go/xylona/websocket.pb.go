@@ -80,7 +80,7 @@ func (x Request_Type) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Request_Type.Descriptor instead.
 func (Request_Type) EnumDescriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{3, 0}
+	return file_websocket_proto_rawDescGZIP(), []int{4, 0}
 }
 
 type Message_Type int32
@@ -98,6 +98,7 @@ const (
 	Message_GameServerVersion        Message_Type = 9
 	Message_GameServerBackupProgress Message_Type = 10
 	Message_SystemUpdateProgress     Message_Type = 11
+	Message_GameServerStopping       Message_Type = 12
 )
 
 // Enum value maps for Message_Type.
@@ -115,6 +116,7 @@ var (
 		9:  "GameServerVersion",
 		10: "GameServerBackupProgress",
 		11: "SystemUpdateProgress",
+		12: "GameServerStopping",
 	}
 	Message_Type_value = map[string]int32{
 		"Unknown":                  0,
@@ -129,6 +131,7 @@ var (
 		"GameServerVersion":        9,
 		"GameServerBackupProgress": 10,
 		"SystemUpdateProgress":     11,
+		"GameServerStopping":       12,
 	}
 )
 
@@ -156,7 +159,7 @@ func (x Message_Type) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Message_Type.Descriptor instead.
 func (Message_Type) EnumDescriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{7, 0}
+	return file_websocket_proto_rawDescGZIP(), []int{8, 0}
 }
 
 type GameServerConsoleOutput struct {
@@ -300,6 +303,61 @@ func (x *GameServerStatusUpdate) GetGameServerName() string {
 	return ""
 }
 
+// GameServerStoppingUpdate says the controller asked a server to stop and is
+// waiting for its process to exit. The next status update ends the phase;
+// stopping = false ends it early when the stop request failed.
+type GameServerStoppingUpdate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GameServerId  string                 `protobuf:"bytes,1,opt,name=game_server_id,json=gameServerId,proto3" json:"game_server_id,omitempty"`
+	Stopping      bool                   `protobuf:"varint,2,opt,name=stopping,proto3" json:"stopping,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GameServerStoppingUpdate) Reset() {
+	*x = GameServerStoppingUpdate{}
+	mi := &file_websocket_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GameServerStoppingUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GameServerStoppingUpdate) ProtoMessage() {}
+
+func (x *GameServerStoppingUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_websocket_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GameServerStoppingUpdate.ProtoReflect.Descriptor instead.
+func (*GameServerStoppingUpdate) Descriptor() ([]byte, []int) {
+	return file_websocket_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GameServerStoppingUpdate) GetGameServerId() string {
+	if x != nil {
+		return x.GameServerId
+	}
+	return ""
+}
+
+func (x *GameServerStoppingUpdate) GetStopping() bool {
+	if x != nil {
+		return x.Stopping
+	}
+	return false
+}
+
 type GameServerVersionUpdate struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	GameServerId  string                 `protobuf:"bytes,1,opt,name=game_server_id,json=gameServerId,proto3" json:"game_server_id,omitempty"`
@@ -311,7 +369,7 @@ type GameServerVersionUpdate struct {
 
 func (x *GameServerVersionUpdate) Reset() {
 	*x = GameServerVersionUpdate{}
-	mi := &file_websocket_proto_msgTypes[2]
+	mi := &file_websocket_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +381,7 @@ func (x *GameServerVersionUpdate) String() string {
 func (*GameServerVersionUpdate) ProtoMessage() {}
 
 func (x *GameServerVersionUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_websocket_proto_msgTypes[2]
+	mi := &file_websocket_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -336,7 +394,7 @@ func (x *GameServerVersionUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerVersionUpdate.ProtoReflect.Descriptor instead.
 func (*GameServerVersionUpdate) Descriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{2}
+	return file_websocket_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GameServerVersionUpdate) GetGameServerId() string {
@@ -370,7 +428,7 @@ type Request struct {
 
 func (x *Request) Reset() {
 	*x = Request{}
-	mi := &file_websocket_proto_msgTypes[3]
+	mi := &file_websocket_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +440,7 @@ func (x *Request) String() string {
 func (*Request) ProtoMessage() {}
 
 func (x *Request) ProtoReflect() protoreflect.Message {
-	mi := &file_websocket_proto_msgTypes[3]
+	mi := &file_websocket_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +453,7 @@ func (x *Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Request.ProtoReflect.Descriptor instead.
 func (*Request) Descriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{3}
+	return file_websocket_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Request) GetGameServerId() string {
@@ -443,7 +501,7 @@ type GameServerMetrics struct {
 
 func (x *GameServerMetrics) Reset() {
 	*x = GameServerMetrics{}
-	mi := &file_websocket_proto_msgTypes[4]
+	mi := &file_websocket_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -455,7 +513,7 @@ func (x *GameServerMetrics) String() string {
 func (*GameServerMetrics) ProtoMessage() {}
 
 func (x *GameServerMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_websocket_proto_msgTypes[4]
+	mi := &file_websocket_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -468,7 +526,7 @@ func (x *GameServerMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerMetrics.ProtoReflect.Descriptor instead.
 func (*GameServerMetrics) Descriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{4}
+	return file_websocket_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GameServerMetrics) GetCpuPercent() float64 {
@@ -641,7 +699,7 @@ type AllServersMetrics struct {
 
 func (x *AllServersMetrics) Reset() {
 	*x = AllServersMetrics{}
-	mi := &file_websocket_proto_msgTypes[5]
+	mi := &file_websocket_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -653,7 +711,7 @@ func (x *AllServersMetrics) String() string {
 func (*AllServersMetrics) ProtoMessage() {}
 
 func (x *AllServersMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_websocket_proto_msgTypes[5]
+	mi := &file_websocket_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -666,7 +724,7 @@ func (x *AllServersMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllServersMetrics.ProtoReflect.Descriptor instead.
 func (*AllServersMetrics) Descriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{5}
+	return file_websocket_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *AllServersMetrics) GetServers() map[string]*GameServerMetrics {
@@ -685,7 +743,7 @@ type AllNodeMetrics struct {
 
 func (x *AllNodeMetrics) Reset() {
 	*x = AllNodeMetrics{}
-	mi := &file_websocket_proto_msgTypes[6]
+	mi := &file_websocket_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -697,7 +755,7 @@ func (x *AllNodeMetrics) String() string {
 func (*AllNodeMetrics) ProtoMessage() {}
 
 func (x *AllNodeMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_websocket_proto_msgTypes[6]
+	mi := &file_websocket_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -710,7 +768,7 @@ func (x *AllNodeMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllNodeMetrics.ProtoReflect.Descriptor instead.
 func (*AllNodeMetrics) Descriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{6}
+	return file_websocket_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *AllNodeMetrics) GetNodes() map[string]*NodeResourceSnapshot {
@@ -734,13 +792,14 @@ type Message struct {
 	GameServerVersionUpdate     *GameServerVersionUpdate     `protobuf:"bytes,10,opt,name=game_server_version_update,json=gameServerVersionUpdate,proto3,oneof" json:"game_server_version_update,omitempty"`
 	BackupProgress              *BackupProgress              `protobuf:"bytes,11,opt,name=backup_progress,json=backupProgress,proto3,oneof" json:"backup_progress,omitempty"`
 	SystemUpdateProgress        *SystemUpdateProgress        `protobuf:"bytes,12,opt,name=system_update_progress,json=systemUpdateProgress,proto3,oneof" json:"system_update_progress,omitempty"`
+	GameServerStoppingUpdate    *GameServerStoppingUpdate    `protobuf:"bytes,13,opt,name=game_server_stopping_update,json=gameServerStoppingUpdate,proto3,oneof" json:"game_server_stopping_update,omitempty"`
 	unknownFields               protoimpl.UnknownFields
 	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_websocket_proto_msgTypes[7]
+	mi := &file_websocket_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -752,7 +811,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_websocket_proto_msgTypes[7]
+	mi := &file_websocket_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -765,7 +824,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{7}
+	return file_websocket_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Message) GetType() Message_Type {
@@ -852,6 +911,13 @@ func (x *Message) GetSystemUpdateProgress() *SystemUpdateProgress {
 	return nil
 }
 
+func (x *Message) GetGameServerStoppingUpdate() *GameServerStoppingUpdate {
+	if x != nil {
+		return x.GameServerStoppingUpdate
+	}
+	return nil
+}
+
 type ServerSoftwareInstallUpdate struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	GameServerId   string                 `protobuf:"bytes,1,opt,name=game_server_id,json=gameServerId,proto3" json:"game_server_id,omitempty"`
@@ -865,7 +931,7 @@ type ServerSoftwareInstallUpdate struct {
 
 func (x *ServerSoftwareInstallUpdate) Reset() {
 	*x = ServerSoftwareInstallUpdate{}
-	mi := &file_websocket_proto_msgTypes[8]
+	mi := &file_websocket_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -877,7 +943,7 @@ func (x *ServerSoftwareInstallUpdate) String() string {
 func (*ServerSoftwareInstallUpdate) ProtoMessage() {}
 
 func (x *ServerSoftwareInstallUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_websocket_proto_msgTypes[8]
+	mi := &file_websocket_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -890,7 +956,7 @@ func (x *ServerSoftwareInstallUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerSoftwareInstallUpdate.ProtoReflect.Descriptor instead.
 func (*ServerSoftwareInstallUpdate) Descriptor() ([]byte, []int) {
-	return file_websocket_proto_rawDescGZIP(), []int{8}
+	return file_websocket_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ServerSoftwareInstallUpdate) GetGameServerId() string {
@@ -943,7 +1009,10 @@ const file_websocket_proto_rawDesc = "" +
 	"\x16GameServerStatusUpdate\x12$\n" +
 	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\x12&\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x0e.xylona.StatusR\x06status\x12(\n" +
-	"\x10game_server_name\x18\x03 \x01(\tR\x0egameServerName\"\x91\x01\n" +
+	"\x10game_server_name\x18\x03 \x01(\tR\x0egameServerName\"\\\n" +
+	"\x18GameServerStoppingUpdate\x12$\n" +
+	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\x12\x1a\n" +
+	"\bstopping\x18\x02 \x01(\bR\bstopping\"\x91\x01\n" +
 	"\x17GameServerVersionUpdate\x12$\n" +
 	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x126\n" +
@@ -998,7 +1067,7 @@ const file_websocket_proto_rawDesc = "" +
 	"\n" +
 	"NodesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
-	"\x05value\x18\x02 \x01(\v2\x1c.xylona.NodeResourceSnapshotR\x05value:\x028\x01\"\xcf\v\n" +
+	"\x05value\x18\x02 \x01(\v2\x1c.xylona.NodeResourceSnapshotR\x05value:\x028\x01\"\xed\f\n" +
 	"\aMessage\x12(\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x14.xylona.Message.TypeR\x04type\x12a\n" +
 	"\x1agame_server_console_output\x18\x02 \x01(\v2\x1f.xylona.GameServerConsoleOutputH\x00R\x17gameServerConsoleOutput\x88\x01\x01\x12^\n" +
@@ -1012,7 +1081,9 @@ const file_websocket_proto_rawDesc = "" +
 	"\x1agame_server_version_update\x18\n" +
 	" \x01(\v2\x1f.xylona.GameServerVersionUpdateH\aR\x17gameServerVersionUpdate\x88\x01\x01\x12D\n" +
 	"\x0fbackup_progress\x18\v \x01(\v2\x16.xylona.BackupProgressH\bR\x0ebackupProgress\x88\x01\x01\x12W\n" +
-	"\x16system_update_progress\x18\f \x01(\v2\x1c.xylona.SystemUpdateProgressH\tR\x14systemUpdateProgress\x88\x01\x01\"\x8c\x02\n" +
+	"\x16system_update_progress\x18\f \x01(\v2\x1c.xylona.SystemUpdateProgressH\tR\x14systemUpdateProgress\x88\x01\x01\x12d\n" +
+	"\x1bgame_server_stopping_update\x18\r \x01(\v2 .xylona.GameServerStoppingUpdateH\n" +
+	"R\x18gameServerStoppingUpdate\x88\x01\x01\"\xa4\x02\n" +
 	"\x04Type\x12\v\n" +
 	"\aUnknown\x10\x00\x12\x15\n" +
 	"\x11GameServerConsole\x10\x01\x12\x14\n" +
@@ -1026,7 +1097,8 @@ const file_websocket_proto_rawDesc = "" +
 	"\x11GameServerVersion\x10\t\x12\x1c\n" +
 	"\x18GameServerBackupProgress\x10\n" +
 	"\x12\x18\n" +
-	"\x14SystemUpdateProgress\x10\vB\x1d\n" +
+	"\x14SystemUpdateProgress\x10\v\x12\x16\n" +
+	"\x12GameServerStopping\x10\fB\x1d\n" +
 	"\x1b_game_server_console_outputB\x1c\n" +
 	"\x1a_game_server_status_updateB\x19\n" +
 	"\x17_all_servers_query_infoB\x16\n" +
@@ -1036,7 +1108,8 @@ const file_websocket_proto_rawDesc = "" +
 	"\x10_update_progressB\x1d\n" +
 	"\x1b_game_server_version_updateB\x12\n" +
 	"\x10_backup_progressB\x19\n" +
-	"\x17_system_update_progress\"\xbc\x01\n" +
+	"\x17_system_update_progressB\x1e\n" +
+	"\x1c_game_server_stopping_update\"\xbc\x01\n" +
 	"\x1bServerSoftwareInstallUpdate\x12$\n" +
 	"\x0egame_server_id\x18\x01 \x01(\tR\fgameServerId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n" +
@@ -1058,58 +1131,60 @@ func file_websocket_proto_rawDescGZIP() []byte {
 }
 
 var file_websocket_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_websocket_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_websocket_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_websocket_proto_goTypes = []any{
 	(Request_Type)(0),                      // 0: xylona.Request.Type
 	(Message_Type)(0),                      // 1: xylona.Message.Type
 	(*GameServerConsoleOutput)(nil),        // 2: xylona.GameServerConsoleOutput
 	(*GameServerStatusUpdate)(nil),         // 3: xylona.GameServerStatusUpdate
-	(*GameServerVersionUpdate)(nil),        // 4: xylona.GameServerVersionUpdate
-	(*Request)(nil),                        // 5: xylona.Request
-	(*GameServerMetrics)(nil),              // 6: xylona.GameServerMetrics
-	(*AllServersMetrics)(nil),              // 7: xylona.AllServersMetrics
-	(*AllNodeMetrics)(nil),                 // 8: xylona.AllNodeMetrics
-	(*Message)(nil),                        // 9: xylona.Message
-	(*ServerSoftwareInstallUpdate)(nil),    // 10: xylona.ServerSoftwareInstallUpdate
-	nil,                                    // 11: xylona.AllServersMetrics.ServersEntry
-	nil,                                    // 12: xylona.AllNodeMetrics.NodesEntry
-	(Status)(0),                            // 13: xylona.Status
-	(*VersionInfo)(nil),                    // 14: xylona.VersionInfo
-	(*timestamppb.Timestamp)(nil),          // 15: google.protobuf.Timestamp
-	(GameServerMetricsCollectionStatus)(0), // 16: xylona.GameServerMetricsCollectionStatus
-	(*AllServersQueryInfo)(nil),            // 17: xylona.AllServersQueryInfo
-	(*UpdateProgress)(nil),                 // 18: xylona.UpdateProgress
-	(*BackupProgress)(nil),                 // 19: xylona.BackupProgress
-	(*SystemUpdateProgress)(nil),           // 20: xylona.SystemUpdateProgress
-	(*NodeResourceSnapshot)(nil),           // 21: xylona.NodeResourceSnapshot
+	(*GameServerStoppingUpdate)(nil),       // 4: xylona.GameServerStoppingUpdate
+	(*GameServerVersionUpdate)(nil),        // 5: xylona.GameServerVersionUpdate
+	(*Request)(nil),                        // 6: xylona.Request
+	(*GameServerMetrics)(nil),              // 7: xylona.GameServerMetrics
+	(*AllServersMetrics)(nil),              // 8: xylona.AllServersMetrics
+	(*AllNodeMetrics)(nil),                 // 9: xylona.AllNodeMetrics
+	(*Message)(nil),                        // 10: xylona.Message
+	(*ServerSoftwareInstallUpdate)(nil),    // 11: xylona.ServerSoftwareInstallUpdate
+	nil,                                    // 12: xylona.AllServersMetrics.ServersEntry
+	nil,                                    // 13: xylona.AllNodeMetrics.NodesEntry
+	(Status)(0),                            // 14: xylona.Status
+	(*VersionInfo)(nil),                    // 15: xylona.VersionInfo
+	(*timestamppb.Timestamp)(nil),          // 16: google.protobuf.Timestamp
+	(GameServerMetricsCollectionStatus)(0), // 17: xylona.GameServerMetricsCollectionStatus
+	(*AllServersQueryInfo)(nil),            // 18: xylona.AllServersQueryInfo
+	(*UpdateProgress)(nil),                 // 19: xylona.UpdateProgress
+	(*BackupProgress)(nil),                 // 20: xylona.BackupProgress
+	(*SystemUpdateProgress)(nil),           // 21: xylona.SystemUpdateProgress
+	(*NodeResourceSnapshot)(nil),           // 22: xylona.NodeResourceSnapshot
 }
 var file_websocket_proto_depIdxs = []int32{
-	13, // 0: xylona.GameServerStatusUpdate.status:type_name -> xylona.Status
-	14, // 1: xylona.GameServerVersionUpdate.version_info:type_name -> xylona.VersionInfo
+	14, // 0: xylona.GameServerStatusUpdate.status:type_name -> xylona.Status
+	15, // 1: xylona.GameServerVersionUpdate.version_info:type_name -> xylona.VersionInfo
 	0,  // 2: xylona.Request.type:type_name -> xylona.Request.Type
-	15, // 3: xylona.GameServerMetrics.disk_measured_at:type_name -> google.protobuf.Timestamp
-	15, // 4: xylona.GameServerMetrics.collected_at:type_name -> google.protobuf.Timestamp
-	16, // 5: xylona.GameServerMetrics.collection_status:type_name -> xylona.GameServerMetricsCollectionStatus
-	11, // 6: xylona.AllServersMetrics.servers:type_name -> xylona.AllServersMetrics.ServersEntry
-	12, // 7: xylona.AllNodeMetrics.nodes:type_name -> xylona.AllNodeMetrics.NodesEntry
+	16, // 3: xylona.GameServerMetrics.disk_measured_at:type_name -> google.protobuf.Timestamp
+	16, // 4: xylona.GameServerMetrics.collected_at:type_name -> google.protobuf.Timestamp
+	17, // 5: xylona.GameServerMetrics.collection_status:type_name -> xylona.GameServerMetricsCollectionStatus
+	12, // 6: xylona.AllServersMetrics.servers:type_name -> xylona.AllServersMetrics.ServersEntry
+	13, // 7: xylona.AllNodeMetrics.nodes:type_name -> xylona.AllNodeMetrics.NodesEntry
 	1,  // 8: xylona.Message.type:type_name -> xylona.Message.Type
 	2,  // 9: xylona.Message.game_server_console_output:type_name -> xylona.GameServerConsoleOutput
 	3,  // 10: xylona.Message.game_server_status_update:type_name -> xylona.GameServerStatusUpdate
-	17, // 11: xylona.Message.all_servers_query_info:type_name -> xylona.AllServersQueryInfo
-	7,  // 12: xylona.Message.all_servers_metrics:type_name -> xylona.AllServersMetrics
-	8,  // 13: xylona.Message.all_node_metrics:type_name -> xylona.AllNodeMetrics
-	10, // 14: xylona.Message.server_software_install_update:type_name -> xylona.ServerSoftwareInstallUpdate
-	18, // 15: xylona.Message.update_progress:type_name -> xylona.UpdateProgress
-	4,  // 16: xylona.Message.game_server_version_update:type_name -> xylona.GameServerVersionUpdate
-	19, // 17: xylona.Message.backup_progress:type_name -> xylona.BackupProgress
-	20, // 18: xylona.Message.system_update_progress:type_name -> xylona.SystemUpdateProgress
-	6,  // 19: xylona.AllServersMetrics.ServersEntry.value:type_name -> xylona.GameServerMetrics
-	21, // 20: xylona.AllNodeMetrics.NodesEntry.value:type_name -> xylona.NodeResourceSnapshot
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	18, // 11: xylona.Message.all_servers_query_info:type_name -> xylona.AllServersQueryInfo
+	8,  // 12: xylona.Message.all_servers_metrics:type_name -> xylona.AllServersMetrics
+	9,  // 13: xylona.Message.all_node_metrics:type_name -> xylona.AllNodeMetrics
+	11, // 14: xylona.Message.server_software_install_update:type_name -> xylona.ServerSoftwareInstallUpdate
+	19, // 15: xylona.Message.update_progress:type_name -> xylona.UpdateProgress
+	5,  // 16: xylona.Message.game_server_version_update:type_name -> xylona.GameServerVersionUpdate
+	20, // 17: xylona.Message.backup_progress:type_name -> xylona.BackupProgress
+	21, // 18: xylona.Message.system_update_progress:type_name -> xylona.SystemUpdateProgress
+	4,  // 19: xylona.Message.game_server_stopping_update:type_name -> xylona.GameServerStoppingUpdate
+	7,  // 20: xylona.AllServersMetrics.ServersEntry.value:type_name -> xylona.GameServerMetrics
+	22, // 21: xylona.AllNodeMetrics.NodesEntry.value:type_name -> xylona.NodeResourceSnapshot
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_websocket_proto_init() }
@@ -1120,15 +1195,15 @@ func file_websocket_proto_init() {
 	file_xylona_proto_init()
 	file_shared_proto_init()
 	file_websocket_proto_msgTypes[0].OneofWrappers = []any{}
-	file_websocket_proto_msgTypes[3].OneofWrappers = []any{}
-	file_websocket_proto_msgTypes[7].OneofWrappers = []any{}
+	file_websocket_proto_msgTypes[4].OneofWrappers = []any{}
+	file_websocket_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_websocket_proto_rawDesc), len(file_websocket_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

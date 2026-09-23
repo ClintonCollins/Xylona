@@ -106,6 +106,38 @@ func TestRemoteEventBridgeRepublishesUnknownExitCrashOnce(t *testing.T) {
 	}
 }
 
+// A server that exits while still starting up has crashed too.
+func TestRemoteEventBridgeRepublishesCrashWhileStarting(t *testing.T) {
+	bus := eventbus.Get()
+	crashEvents := bus.SubscribeReliable(eventbus.TopicGameServerCrashed)
+	defer bus.Unsubscribe(eventbus.TopicGameServerCrashed, crashEvents)
+	statusEvents := bus.SubscribeReliable(eventbus.TopicGameServerStatusChanged)
+	defer bus.Unsubscribe(eventbus.TopicGameServerStatusChanged, statusEvents)
+	bridge := &RemoteEventBridge{bus: bus}
+	event := node.Event{
+		Type:               node.EventTypeProcessStatus,
+		ProcessID:          "server-starting-crash",
+		OldStatus:          xylona.Status_PRE_START.String(),
+		Status:             xylona.Status_OFFLINE.String(),
+		ExecutionID:        "execution-starting-crash",
+		TransitionSequence: 2,
+		ExitCode:           1,
+		ExitCodeKnown:      true,
+	}
+
+	bridge.republish("node-remote", event, make(map[string]string), make(map[string]processLifecycleCursor))
+	<-statusEvents
+	select {
+	case rawCrash := <-crashEvents:
+		crash, ok := rawCrash.(eventbus.ServerCrashedEvent)
+		if !ok || crash.ServerID != event.ProcessID || crash.ExitCode != 1 {
+			t.Fatalf("starting crash = %+v", rawCrash)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("exit during PRE_START was not republished as a crash")
+	}
+}
+
 func TestRemoteEventBridgeDoesNotTreatOperationFailureAsGameServerCrash(t *testing.T) {
 	bus := eventbus.Get()
 	crashEvents := bus.SubscribeReliable(eventbus.TopicGameServerCrashed)

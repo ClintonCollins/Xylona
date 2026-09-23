@@ -71,6 +71,7 @@ type Game struct {
 	LinuxAllowBackups                 bool             `db:"linux_allow_backups" `
 	WindowsAllowBackups               bool             `db:"windows_allow_backups" `
 	ConsoleCommands                   string           `db:"console_commands" `
+	ReadyLogPattern                   string           `db:"ready_log_pattern" `
 
 	R gameR `db:"-" `
 
@@ -103,7 +104,7 @@ type gameRLoaded struct {
 
 func buildGameColumns(tableName string) gameColumns {
 	columnsExpr := expr.NewColumnsExpr(
-		"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing", "official_definition_hash", "official_definition_source", "official_definition_schema_version", "official_definition_diverged", "default_env_vars", "linux_allow_backups", "windows_allow_backups", "console_commands",
+		"id", "name", "default_port", "default_query_port", "default_max_players", "require_dedicated_ip", "uses_source_query", "uses_steamcmd", "steam_app_id", "requires_steam_game_server_login_token", "linux_support", "linux_stop_command", "linux_install_command", "linux_install_command_type", "linux_update_command", "linux_update_command_type", "linux_working_directory", "windows_support", "windows_stop_command", "windows_install_command", "windows_install_command_type", "windows_update_command", "windows_update_command_type", "windows_working_directory", "binds_to_all_ips", "created_at", "updated_at", "xylona_official", "config_schemas", "server_software", "linux_start_args_template", "windows_start_args_template", "linux_base_command", "windows_base_command", "start_arg_blocklist", "allow_start_arg_editing", "official_definition_hash", "official_definition_source", "official_definition_schema_version", "official_definition_diverged", "default_env_vars", "linux_allow_backups", "windows_allow_backups", "console_commands", "ready_log_pattern",
 	)
 
 	if tableName != "" {
@@ -157,6 +158,7 @@ func buildGameColumns(tableName string) gameColumns {
 		LinuxAllowBackups:                 buildGameColumn(tableName, "linux_allow_backups"),
 		WindowsAllowBackups:               buildGameColumn(tableName, "windows_allow_backups"),
 		ConsoleCommands:                   buildGameColumn(tableName, "console_commands"),
+		ReadyLogPattern:                   buildGameColumn(tableName, "ready_log_pattern"),
 	}
 }
 
@@ -207,6 +209,7 @@ type gameColumns struct {
 	LinuxAllowBackups                 gameColumn
 	WindowsAllowBackups               gameColumn
 	ConsoleCommands                   gameColumn
+	ReadyLogPattern                   gameColumn
 }
 
 // Alias returns the current table alias for the columns set.
@@ -296,10 +299,11 @@ type GameSetter struct {
 	LinuxAllowBackups                 omit.Val[bool]       `db:"linux_allow_backups" `
 	WindowsAllowBackups               omit.Val[bool]       `db:"windows_allow_backups" `
 	ConsoleCommands                   omit.Val[string]     `db:"console_commands" `
+	ReadyLogPattern                   omit.Val[string]     `db:"ready_log_pattern" `
 }
 
 func (s GameSetter) SetColumns() []string {
-	vals := make([]string, 0, 44)
+	vals := make([]string, 0, 45)
 	if s.ID.IsValue() {
 		vals = append(vals, "id")
 	}
@@ -431,6 +435,9 @@ func (s GameSetter) SetColumns() []string {
 	}
 	if s.ConsoleCommands.IsValue() {
 		vals = append(vals, "console_commands")
+	}
+	if s.ReadyLogPattern.IsValue() {
+		vals = append(vals, "ready_log_pattern")
 	}
 	return vals
 }
@@ -567,6 +574,9 @@ func (s GameSetter) Overwrite(t *Game) {
 	}
 	if s.ConsoleCommands.IsValue() {
 		t.ConsoleCommands = s.ConsoleCommands.MustGet()
+	}
+	if s.ReadyLogPattern.IsValue() {
+		t.ReadyLogPattern = s.ReadyLogPattern.MustGet()
 	}
 }
 
@@ -894,6 +904,13 @@ func (s *GameSetter) Apply(q *dialect.InsertQuery) {
 				}
 				return sqlite.Arg(s.ConsoleCommands.MustGet()).WriteSQL(ctx, w, d, start)
 			}))
+		case "ready_log_pattern":
+			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
+				if s.ReadyLogPattern.IsUnset() {
+					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
+				}
+				return sqlite.Arg(s.ReadyLogPattern.MustGet()).WriteSQL(ctx, w, d, start)
+			}))
 		}
 	}
 
@@ -905,7 +922,7 @@ func (s GameSetter) UpdateMod() bob.Mod[*dialect.UpdateQuery] {
 }
 
 func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
-	exprs := make([]bob.Expression, 0, 44)
+	exprs := make([]bob.Expression, 0, 45)
 
 	if s.ID.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
@@ -1215,6 +1232,13 @@ func (s GameSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
+	if s.ReadyLogPattern.IsValue() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "ready_log_pattern")...),
+			sqlite.Arg(s.ReadyLogPattern),
+		}})
+	}
+
 	return exprs
 }
 
@@ -1225,7 +1249,7 @@ func gameScanMapper(ctx context.Context, cols []string) (scan.BeforeFunc, func(a
 		idx int
 		dst func(o *Game) any
 	}
-	targets := make([]target, 0, 44)
+	targets := make([]target, 0, 45)
 	for i, col := range cols {
 		switch col {
 		case "id":
@@ -1316,6 +1340,8 @@ func gameScanMapper(ctx context.Context, cols []string) (scan.BeforeFunc, func(a
 			targets = append(targets, target{i, func(o *Game) any { return &o.WindowsAllowBackups }})
 		case "console_commands":
 			targets = append(targets, target{i, func(o *Game) any { return &o.ConsoleCommands }})
+		case "ready_log_pattern":
+			targets = append(targets, target{i, func(o *Game) any { return &o.ReadyLogPattern }})
 		}
 	}
 
@@ -1696,6 +1722,7 @@ type gameWhere[Q sqlite.Filterable] struct {
 	LinuxAllowBackups                 sqlite.WhereMod[Q, bool]
 	WindowsAllowBackups               sqlite.WhereMod[Q, bool]
 	ConsoleCommands                   sqlite.WhereMod[Q, string]
+	ReadyLogPattern                   sqlite.WhereMod[Q, string]
 	R                                 gameWhereR[Q]
 }
 
@@ -1750,6 +1777,7 @@ func buildGameWhere[Q sqlite.Filterable](cols gameColumns) gameWhere[Q] {
 		LinuxAllowBackups:                 sqlite.Where[Q, bool](cols.LinuxAllowBackups.Expression),
 		WindowsAllowBackups:               sqlite.Where[Q, bool](cols.WindowsAllowBackups.Expression),
 		ConsoleCommands:                   sqlite.Where[Q, string](cols.ConsoleCommands.Expression),
+		ReadyLogPattern:                   sqlite.Where[Q, string](cols.ReadyLogPattern.Expression),
 		R:                                 gameWhereR[Q]{cols: cols},
 	}
 }
@@ -1823,6 +1851,7 @@ type gamePreloadBuf struct {
 	LinuxAllowBackups                 null.Val[bool]
 	WindowsAllowBackups               null.Val[bool]
 	ConsoleCommands                   null.Val[string]
+	ReadyLogPattern                   null.Val[string]
 }
 
 // gameScanMapperNullable maps the preloaded game
@@ -1837,7 +1866,7 @@ func gameScanMapperNullable(prefix string) scan.Mapper[*Game] {
 			idx int
 			dst func(b *gamePreloadBuf) any
 		}
-		targets := make([]target, 0, 44)
+		targets := make([]target, 0, 45)
 		for i, col := range cols {
 			name, ok := strings.CutPrefix(col, prefix)
 			if !ok {
@@ -1932,6 +1961,8 @@ func gameScanMapperNullable(prefix string) scan.Mapper[*Game] {
 				targets = append(targets, target{i, func(b *gamePreloadBuf) any { return &b.WindowsAllowBackups }})
 			case "console_commands":
 				targets = append(targets, target{i, func(b *gamePreloadBuf) any { return &b.ConsoleCommands }})
+			case "ready_log_pattern":
+				targets = append(targets, target{i, func(b *gamePreloadBuf) any { return &b.ReadyLogPattern }})
 			}
 		}
 
@@ -1997,7 +2028,8 @@ func gameScanMapperNullable(prefix string) scan.Mapper[*Game] {
 					!(buf.DefaultEnvVars.IsValue()) &&
 					!(buf.LinuxAllowBackups.IsValue()) &&
 					!(buf.WindowsAllowBackups.IsValue()) &&
-					!(buf.ConsoleCommands.IsValue()) {
+					!(buf.ConsoleCommands.IsValue()) &&
+					!(buf.ReadyLogPattern.IsValue()) {
 					return nil, nil
 				}
 
@@ -2125,6 +2157,9 @@ func gameScanMapperNullable(prefix string) scan.Mapper[*Game] {
 				}
 				if buf.ConsoleCommands.IsValue() {
 					o.ConsoleCommands = buf.ConsoleCommands.MustGet()
+				}
+				if buf.ReadyLogPattern.IsValue() {
+					o.ReadyLogPattern = buf.ReadyLogPattern.MustGet()
 				}
 				return o, nil
 			}

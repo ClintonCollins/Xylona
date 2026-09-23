@@ -10,10 +10,10 @@ import { Status } from '@/proto/shared_pb'
 import { computed, PropType } from 'vue'
 
 /**
- * A page-local lifecycle phase the backend status cannot express: a stop that
+ * A lifecycle phase the backend status cannot express: a stop or restart that
  * is in flight, or a start that failed and left the server offline.
  */
-export type StatusBadgePhase = 'stopping' | 'failed'
+export type StatusBadgePhase = 'stopping' | 'restarting' | 'failed'
 
 const props = defineProps({
   status: {
@@ -27,7 +27,7 @@ const props = defineProps({
 })
 
 const tone = computed<'success' | 'danger' | 'warning' | 'neutral'>(() => {
-  if (props.phase === 'stopping') return 'warning'
+  if (props.phase === 'stopping' || props.phase === 'restarting') return 'warning'
   if (props.phase === 'failed') return 'danger'
   switch (props.status) {
     case Status.ONLINE:
@@ -45,6 +45,7 @@ const tone = computed<'success' | 'danger' | 'warning' | 'neutral'>(() => {
 
 const label = computed(() => {
   if (props.phase === 'stopping') return 'Stopping'
+  if (props.phase === 'restarting') return 'Restarting'
   if (props.phase === 'failed') return 'Start failed'
   switch (props.status) {
     case Status.ONLINE:

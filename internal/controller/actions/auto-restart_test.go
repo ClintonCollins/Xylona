@@ -317,6 +317,11 @@ func TestOnStatusChangedRestartsOnlyOnlineProcesses(t *testing.T) {
 			wantAttempts: 1,
 		},
 		{
+			name:         "server crashed while starting",
+			oldStatus:    "PRE_START",
+			wantAttempts: 1,
+		},
+		{
 			name:      "installer",
 			oldStatus: "INSTALLING",
 		},

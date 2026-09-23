@@ -21,7 +21,7 @@ const hydrationWindowMs = 1_500
 const shortToastTimeoutMs = 3_000
 const localIntentTtlMs = 30_000
 const activeUpdateTtlMs = 10 * 60 * 1000
-// A server that comes back online this soon after stopping was restarted.
+// A server that starts again this soon after stopping is being restarted.
 const restartWindowMs = 60_000
 
 let initialized = false
@@ -34,6 +34,9 @@ const activeUpdateTimersByServer = new Map<string, ReturnType<typeof setTimeout>
 const localIntentTimersByKey = new Map<string, ReturnType<typeof setTimeout>>()
 const updateStepsByServer = new Map<string, ReturnType<typeof buildUpdateSteps>>()
 const stoppedToastByServer = new Map<string, { dismiss: () => void; at: number }>()
+// Restarts whose Starting phase began inside the restart window; readiness can
+// take minutes, so the window is judged when the server starts, not when it is ready.
+const restartingServers = new Set<string>()
 
 function enterHydrationWindow(): void {
   hydrating = true
@@ -162,18 +165,30 @@ function handleGameServerStatus(serverID: string, serverName: string, status: St
     return
   }
 
+  if (status === Status.PRE_START) {
+    const stopped = stoppedToastByServer.get(serverID)
+    if (stopped && Date.now() - stopped.at <= restartWindowMs) {
+      restartingServers.add(serverID)
+    }
+    return
+  }
+  // Started means ready for players, so the toast waits for ONLINE, not PRE_START.
   if (status === Status.ONLINE) {
     const stopped = stoppedToastByServer.get(serverID)
     stoppedToastByServer.delete(serverID)
-    if (stopped && Date.now() - stopped.at <= restartWindowMs) {
+    const restarted =
+      restartingServers.delete(serverID) ||
+      (stopped !== undefined && Date.now() - stopped.at <= restartWindowMs)
+    if (restarted) {
       // One restart, one toast: replace the stop toast instead of stacking a second one.
-      stopped.dismiss()
+      stopped?.dismiss()
       showServerToast('xylona-success', serverName, 'Server restarted')
       return
     }
     showServerToast('xylona-success', serverName, 'Server started')
   }
   if (status === Status.OFFLINE) {
+    restartingServers.delete(serverID)
     const dismiss = showServerToast('xylona-info', serverName, 'Server stopped')
     stoppedToastByServer.set(serverID, { dismiss, at: Date.now() })
   }
@@ -377,4 +392,5 @@ export function resetGameServerNotificationServiceForTests(): void {
   localIntentTimersByKey.clear()
   updateStepsByServer.clear()
   stoppedToastByServer.clear()
+  restartingServers.clear()
 }

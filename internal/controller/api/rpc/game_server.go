@@ -700,8 +700,8 @@ func (xs *XylonaService) RestartGameServer(ctx context.Context, request *connect
 	if errStatus != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("confirm game server status before restart: %w", errStatus))
 	}
-	if status != xylona.Status_ONLINE {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server must be online to restart"))
+	if status != xylona.Status_ONLINE && status != xylona.Status_PRE_START {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server must be running to restart"))
 	}
 	errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
 	if errStop != nil {
@@ -1025,6 +1025,15 @@ func (xs *XylonaService) QueryGameServer(_ context.Context, request *connect.Req
 		case "palworld":
 			queryType = xylona.ServerQuery_Palworld
 		default:
+			if gameServer.R.Game == nil || !gameServer.R.Game.UsesSourceQuery {
+				// Unknown tells the UI this game never reports players, rather
+				// than that it has not answered yet.
+				return connect.NewResponse(&xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{
+					ServerId:   gameServer.ID,
+					ServerName: gameServer.Name,
+					Type:       xylona.ServerQuery_Unknown,
+				}}), nil
+			}
 			queryType = xylona.ServerQuery_Source
 		}
 		resp := &xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{

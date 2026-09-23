@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:4bcb2568c0135eb052fbdffd5191c8f8b9f586d95a0758a3441b6d699a61cdfb",
+  "content_hash": "sha256:017a163a60533f16efe9c3fb76cb5f2e2c41a2f92221200cc49e152ff2a1bd47",
   "game": {
     "id": "factorio",
     "name": "Factorio",
@@ -52,6 +52,7 @@
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false,
+    "readyLogPattern": "changing state from\\(CreatingGame\\) to\\(InGame\\)",
     "consoleCommands": [
       {"command":"/help","syntax":"/help [command]","summary":"Shows command help.","category":"Discovery","aliases":["/h"],"keywords":["commands","documentation"],"arguments":[{"name":"command","description":"Command to describe.","valueType":"command"}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Factorio multiplayer console; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
       {"command":"/players","syntax":"/players [online|count]","summary":"Lists players or player counts.","category":"Players","aliases":["/p"],"keywords":["players","online"],"arguments":[{"name":"mode","description":"Optional listing mode.","valueType":"enum","suggestedValues":["online","count"]}],"documentationUrl":"https://wiki.factorio.com/Console","availability":"Factorio multiplayer console; retain the slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},

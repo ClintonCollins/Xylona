@@ -12,8 +12,9 @@ const mocks = vi.hoisted(() => ({
   dialogChoice: { value: 'ok' as 'ok' | 'dismiss' },
   dialog: vi.fn(),
   emit: vi.fn(),
+  getGameServerReadiness: vi.fn(),
   notifyConnectError: vi.fn(),
-  playerCount: 0,
+  playerCount: 0 as number | null,
   push: vi.fn(),
   restartGameServer: vi.fn(),
   startGameServer: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock('@/api/notifications', () => ({ notifyConnectError: mocks.notifyConnectE
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
+    getGameServerReadiness: mocks.getGameServerReadiness,
     restartGameServer: mocks.restartGameServer,
     startGameServer: mocks.startGameServer,
     stopGameServer: mocks.stopGameServer,
@@ -48,10 +50,12 @@ vi.mock('@/pages/game_servers/useGameServerQueryStatusVersion', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
   return {
     useGameServerQueryStatusVersion: () => ({
-      currentPlayerCount: ref(mocks.playerCount),
+      currentPlayerCount: ref(mocks.playerCount ?? 0),
+      playerCount: ref(mocks.playerCount),
       maxPlayerCount: ref(20),
       onlinePlayers: ref([]),
       playerListSupported: ref(true),
+      unknownPlayersMessage: ref('Player count and names unavailable.'),
       queryFresh: ref(true),
       queryGameServer: vi.fn(),
       startQueryStatusVersionLifecycle: vi.fn(),
@@ -99,6 +103,7 @@ describe('GameServerIdentityBar', () => {
       }
       return chain
     })
+    mocks.getGameServerReadiness.mockResolvedValue({ items: [] })
     mocks.startGameServer.mockResolvedValue({})
     mocks.stopGameServer.mockResolvedValue({})
     mocks.restartGameServer.mockResolvedValue({})
@@ -112,7 +117,7 @@ describe('GameServerIdentityBar', () => {
   it.each([
     { status: Status.OFFLINE, start: true, restart: false, stop: false },
     { status: Status.ONLINE, start: false, restart: true, stop: true },
-    { status: Status.STARTING, start: false, restart: false, stop: false },
+    { status: Status.PRE_START, start: false, restart: true, stop: true },
     { status: Status.UNKNOWN, start: false, restart: false, stop: false },
   ])('enables only the lifecycle actions status $status allows', ({ status, ...want }) => {
     const wrapper = mountBar(status)
@@ -155,6 +160,14 @@ describe('GameServerIdentityBar', () => {
       playerCount: 1,
       dialogChoice: 'ok' as const,
       wantDialog: { title: 'Restart Survival?', label: 'Restart server' },
+      wantCalls: 1,
+    },
+    {
+      label: 'confirms a stop when the player count is unknown',
+      action: 'Stop',
+      playerCount: null,
+      dialogChoice: 'ok' as const,
+      wantDialog: { title: 'Stop Survival?', label: 'Stop server' },
       wantCalls: 1,
     },
     {
@@ -201,5 +214,36 @@ describe('GameServerIdentityBar', () => {
     expect(wrapper.get('.start-failure').text()).toContain('accept the EULA first')
     expect(mocks.emit).toHaveBeenCalledWith('gameServerStartRejected', 'server-1')
     expect(button(wrapper, 'Show output').attributes('to')).toBe('/game-servers/server-1/console')
+  })
+
+  it('disables Start and names the setup step that blocks it', async () => {
+    mocks.getGameServerReadiness.mockResolvedValue({
+      items: [
+        {
+          kind: 'dragonwilds_config',
+          required: true,
+          blocking: true,
+          complete: false,
+          message: 'Set the Owner ID.',
+        },
+      ],
+    })
+    const wrapper = mountBar(Status.OFFLINE)
+    await flushPromises()
+
+    const start = button(wrapper, 'Start')
+    expect(start.attributes('disable')).toBe('true')
+    expect(start.attributes('aria-label')).toBe(
+      'Start (blocked until Dragonwilds configuration is finished)',
+    )
+    // The hint sits beside the button, since a disabled button gets no hover.
+    expect(start.element.parentElement?.textContent).toContain(
+      'Dragonwilds configuration: Set the Owner ID.',
+    )
+    // Touch screens get no tooltip, so the reason and the fix sit under the bar too.
+    expect(wrapper.get('.identity-bar-blocker').text()).toContain('Set the Owner ID.')
+    expect(button(wrapper, 'Open Configuration').attributes('to')).toBe(
+      '/game-servers/server-1/configuration',
+    )
   })
 })

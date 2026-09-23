@@ -148,6 +148,8 @@ type Command struct {
 	exitCodeKnown                 bool
 	statusEventHook               func(eventbus.StatusChangedEvent)
 	suppressStatusEvents          bool
+	readiness                     *Readiness
+	readyWatch                    atomic.Pointer[readinessWatch]
 	// Metrics fields (transient, not persisted to DB)
 	cpuPercent           float64
 	cpuCores             int32

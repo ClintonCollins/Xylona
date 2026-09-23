@@ -190,7 +190,9 @@
                   </router-link>
                   <span>{{ props.row.gameName }}</span>
                 </div>
-                <status-badge :status="props.row.statusEnum" />
+                <status-badge
+                  :phase="getStatusBadgePhase(props.row)"
+                  :status="props.row.statusEnum" />
               </q-card-section>
 
               <q-separator />
@@ -303,7 +305,9 @@
         </template>
         <template #body-cell-status="props">
           <q-td :props="props">
-            <status-badge :status="props.row.statusEnum"></status-badge>
+            <status-badge
+              :phase="getStatusBadgePhase(props.row)"
+              :status="props.row.statusEnum"></status-badge>
           </q-td>
         </template>
         <template #body-cell-players="props">
@@ -440,18 +444,23 @@ import { useQuasar } from 'quasar'
 import { tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
-import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import {
+  ConnectErrorToString,
+  getLatestServersQueryInfo,
+  GetXylonaClient,
+  XylonaEventBus,
+} from '@/utils/shared'
+import { isServerStopping } from '@/utils/game-server-stopping'
 import { createServerMetricsSubscriptions } from '@/utils/server-metrics-subscriptions'
 import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
 import GameServerStatusPageSettingsPanel from '@/components/game_servers/GameServerStatusPageSettingsPanel.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
-import StatusBadge from '@/components/StatusBadge.vue'
+import StatusBadge, { type StatusBadgePhase } from '@/components/StatusBadge.vue'
 import {
   type AllServersQueryInfo,
   Node,
-  ServerQuery_Type,
   StartGameServerRequest,
   StartGameServerRequestSchema,
   Status,
@@ -472,6 +481,7 @@ import {
 } from '@/proto/xylona_pb'
 import { type AllServersMetrics } from '@/proto/websocket_pb'
 import { buildDisplayRows, type DisplayRow } from './server-list-cache'
+import { queryInfoPlayerSnapshot } from './useGameServerQueryStatusVersion'
 import {
   buildLifecycleConfirmation,
   canRestartServer,
@@ -482,6 +492,7 @@ import {
   getStartableServers,
   getStoppableServers,
   getUpdateableServers,
+  isServerRunning,
   type LifecycleConfirmAction,
 } from './server-list-actions'
 import { useUserAuthStore } from '@/stores/xylona'
@@ -528,7 +539,8 @@ const serverActions: readonly {
   { name: 'stop', label: 'Stop', color: 'negative', icon: 'stop' },
   { name: 'update', label: 'Update', color: 'accent', icon: 'system_update_alt' },
 ]
-type ServerPlayerCounts = { current: number; max: number }
+// current is null while a server is up but has not answered its player query.
+type ServerPlayerCounts = { current: number | null; max: number }
 type ServerResourceUsage = {
   cpuPercent: number | null
   memoryBytes: number | null
@@ -566,10 +578,12 @@ const onlineServerCount = computed(
   () => displayRows.value.filter((server) => server.statusEnum === Status.ONLINE).length,
 )
 
+// Servers with an unknown count are left out rather than counted as empty.
 const totalPlayerCounts = computed(() => {
   return displayRows.value.reduce(
     (total, server) => {
       const counts = getPlayerCounts(server)
+      if (counts.current === null) return total
       total.current += counts.current
       total.max += counts.max
       return total
@@ -626,9 +640,17 @@ function canRunServerAction(server: DisplayRow, action: ServerAction): boolean {
     case 'start':
       return canStartServer(server.statusEnum) && hasPermission(server, 'game_server.start')
     case 'stop':
-      return canStopServer(server.statusEnum) && hasPermission(server, 'game_server.stop')
+      return (
+        canStopServer(server.statusEnum) &&
+        !isServerStopping(server.id, server.statusEnum) &&
+        hasPermission(server, 'game_server.stop')
+      )
     case 'restart':
-      return canRestartServer(server.statusEnum) && hasPermission(server, 'game_server.restart')
+      return (
+        canRestartServer(server.statusEnum) &&
+        !isServerStopping(server.id, server.statusEnum) &&
+        hasPermission(server, 'game_server.restart')
+      )
     case 'update':
       return canUpdateServer(server) && hasPermission(server, 'game_server.settings')
   }
@@ -659,12 +681,18 @@ function getServerActionTooltip(server: DisplayRow, action: ServerAction): strin
   if (action === 'start' && server.statusEnum !== Status.OFFLINE) {
     return 'Start is available when the server is offline'
   }
-  if ((action === 'stop' || action === 'restart') && server.statusEnum !== Status.ONLINE) {
-    return `${action === 'stop' ? 'Stop' : 'Restart'} is available when the server is online`
+  if (
+    (action === 'stop' || action === 'restart') &&
+    isServerStopping(server.id, server.statusEnum)
+  ) {
+    return 'The server is stopping'
+  }
+  if ((action === 'stop' || action === 'restart') && !isServerRunning(server.statusEnum)) {
+    return `${action === 'stop' ? 'Stop' : 'Restart'} is available when the server is running`
   }
   if (
     action === 'update' &&
-    server.statusEnum !== Status.ONLINE &&
+    !isServerRunning(server.statusEnum) &&
     server.statusEnum !== Status.OFFLINE
   ) {
     return 'Update is unavailable while another operation is running'
@@ -673,29 +701,38 @@ function getServerActionTooltip(server: DisplayRow, action: ServerAction): strin
   return `${action[0]?.toUpperCase()}${action.slice(1)} ${server.displayName}`
 }
 
+// Live counts and usage come from the websocket feed, so a list refresh after a
+// lifecycle action does not blank them the way it pauses the controls.
 function getPlayerCounts(server: DisplayRow): ServerPlayerCounts {
-  const liveCounts = lifecycleStateAuthoritative.value
+  const liveCounts = websocketStateAuthoritative.value
     ? playerCountsByServerID.value.get(server.id)
     : undefined
-  return {
-    current:
-      server.statusEnum === Status.ONLINE && lifecycleStateAuthoritative.value
-        ? (liveCounts?.current ?? server.currentPlayers ?? 0)
-        : 0,
-    max: liveCounts?.max || server.maxPlayers || 0,
+  const max = liveCounts?.max || server.maxPlayers || 0
+  if (server.statusEnum !== Status.ONLINE || !websocketStateAuthoritative.value) {
+    return { current: 0, max }
   }
+  // No answered query means the count is unknown, not zero.
+  return { current: liveCounts?.current ?? null, max }
 }
 
 function getPlayerCountLabel(server: DisplayRow): string {
   const counts = getPlayerCounts(server)
-  return counts.max > 0 ? `${counts.current} / ${counts.max}` : `${counts.current}`
+  const current = counts.current ?? 'Unknown'
+  return counts.max > 0 ? `${current} / ${counts.max}` : `${current}`
+}
+
+function getStatusBadgePhase(server: DisplayRow): StatusBadgePhase | undefined {
+  const pendingAction = pendingActionByServerID.value.get(server.id)
+  if (pendingAction === 'restart') return 'restarting'
+  if (pendingAction === 'stop' || isServerStopping(server.id, server.statusEnum)) return 'stopping'
+  return undefined
 }
 
 function getResourceUsage(server: DisplayRow): ServerResourceUsage {
   if (
-    !lifecycleStateAuthoritative.value ||
+    !websocketStateAuthoritative.value ||
     !hasPermission(server, 'game_server.metrics') ||
-    server.statusEnum !== Status.ONLINE
+    !isServerRunning(server.statusEnum)
   ) {
     return { cpuPercent: null, memoryBytes: null, memoryPercent: null }
   }
@@ -732,31 +769,12 @@ function applyServerQueryInfo(queryInfo: AllServersQueryInfo) {
       nextCounts.delete(serverID)
       continue
     }
-    switch (serverQuery.type) {
-      case ServerQuery_Type.Minecraft:
-        if (serverQuery.minecraft) {
-          nextCounts.set(serverID, {
-            current: serverQuery.minecraft.numberOfPlayers,
-            max: serverQuery.minecraft.maxPlayers,
-          })
-        }
-        break
-      case ServerQuery_Type.Source:
-        if (serverQuery.source) {
-          nextCounts.set(serverID, {
-            current: serverQuery.source.players,
-            max: serverQuery.source.maxPlayers,
-          })
-        }
-        break
-      case ServerQuery_Type.Palworld:
-        if (serverQuery.palworld) {
-          nextCounts.set(serverID, {
-            current: serverQuery.palworld.players,
-            max: serverQuery.palworld.maxPlayers,
-          })
-        }
-        break
+    const snapshot = queryInfoPlayerSnapshot(serverQuery)
+    if (snapshot !== null) {
+      nextCounts.set(serverID, {
+        current: snapshot.responded ? snapshot.playerCount : null,
+        max: snapshot.playerCapacity,
+      })
     }
   }
   playerCountsByServerID.value = nextCounts
@@ -766,7 +784,7 @@ function applyServerMetrics(metrics: AllServersMetrics) {
   const nextUsage = new Map(resourceUsageByServerID.value)
   for (const [serverID, serverMetrics] of Object.entries(metrics.servers)) {
     const server = displayRows.value.find((row) => row.id === serverID)
-    if (!server || server.statusEnum !== Status.ONLINE) {
+    if (!server || !isServerRunning(server.statusEnum)) {
       nextUsage.delete(serverID)
       continue
     }
@@ -863,6 +881,8 @@ onMounted(async () => {
   if (serverListUnmounted) {
     return
   }
+  const latestQueryInfo = getLatestServersQueryInfo()
+  if (latestQueryInfo !== undefined) applyServerQueryInfo(latestQueryInfo)
   initialLoadComplete = true
   runQueuedReconnectRefresh()
 })
@@ -883,7 +903,7 @@ onBeforeUnmount(() => {
 async function getGameServers() {
   const loadID = ++loadSequence
   serverStatusSnapshotFresh.value = false
-  aggregatedServers.value = null
+  // Keep the current rows on screen until the response replaces them.
   bufferedLiveServerStateByID.clear()
   loading.value = true
   const xylonaClient = GetXylonaClient()
@@ -1039,7 +1059,8 @@ function setServerStatus(serverID: string, serverStatus: Status) {
     const nextPlayerCounts = new Map(playerCountsByServerID.value)
     nextPlayerCounts.delete(serverID)
     playerCountsByServerID.value = nextPlayerCounts
-
+  }
+  if (!isServerRunning(serverStatus)) {
     const nextResourceUsage = new Map(resourceUsageByServerID.value)
     nextResourceUsage.delete(serverID)
     resourceUsageByServerID.value = nextResourceUsage
@@ -1129,7 +1150,7 @@ function getEligibleServers(action: ServerAction, servers: DisplayRow[]): Displa
 }
 
 async function confirmUpdateServers(servers: DisplayRow[]): Promise<boolean> {
-  const runningCount = servers.filter((server) => server.statusEnum === Status.ONLINE).length
+  const runningCount = servers.filter((server) => isServerRunning(server.statusEnum)).length
   if (runningCount === 0) {
     return true
   }
@@ -1360,7 +1381,7 @@ const columns = ref([
     label: 'Players',
     required: true,
     align: 'left' as const,
-    field: (row: DisplayRow) => getPlayerCounts(row).current,
+    field: (row: DisplayRow) => getPlayerCounts(row).current ?? -1,
     sortable: true,
   },
   {

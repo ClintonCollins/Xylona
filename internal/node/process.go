@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -66,6 +67,14 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		StopTimeout:          normalized.StopTimeout,
 		LaunchEnv:            normalized.LaunchEnv,
 		SuppressStatusEvents: normalized.SuppressStatusEvents,
+	}
+
+	if normalized.Readiness != nil && status == xylona.Status_ONLINE {
+		readiness, errReadiness := n.supervisorReadiness(*normalized.Readiness)
+		if errReadiness != nil {
+			return nil, errReadiness
+		}
+		prepared.Readiness = readiness
 	}
 
 	if normalized.RuntimeMode != "" {
@@ -157,6 +166,25 @@ func (n *Node) StartProcess(config ProcessConfig, status xylona.Status) (*superv
 		return nil, fmt.Errorf("node: start process: %w", errStart)
 	}
 	return cmd, nil
+}
+
+func (n *Node) supervisorReadiness(readiness ProcessReadiness) (*supervisor.Readiness, error) {
+	out := &supervisor.Readiness{Timeout: readiness.Timeout}
+	if readiness.LogPattern != "" {
+		pattern, errCompile := regexp.Compile(readiness.LogPattern)
+		if errCompile != nil {
+			return nil, fmt.Errorf("node: compile readiness log pattern: %w", errCompile)
+		}
+		out.LogPattern = pattern
+	}
+	if readiness.Query != nil {
+		query := *readiness.Query
+		out.Probe = func(ctx context.Context) bool {
+			result, errQuery := n.QueryGameServer(ctx, query)
+			return errQuery == nil && result.Responded()
+		}
+	}
+	return out, nil
 }
 
 func supervisorRCONProtocol(protocol RCONProtocol) (supervisor.RCONProtocol, error) {

@@ -127,6 +127,7 @@ import {
 } from './game-server-layout-tabs'
 import type { GameServerLayoutTab } from './game-server-layout-tabs'
 import { gameServerNameKey } from './game-server-context'
+import { createGameServerReadiness, gameServerReadinessKey } from './game-server-readiness'
 import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -148,6 +149,11 @@ provide(
 const serverReady = computed(
   () => !serverMissing.value && loadedServerID.value === gameServerRouteKey.value,
 )
+// Start in the identity bar and the console's setup list read the same checks.
+const readiness = createGameServerReadiness(
+  computed(() => (serverMissing.value ? '' : loadedServerID.value)),
+)
+provide(gameServerReadinessKey, readiness)
 
 // Room for the trailing "More" menu when not every tab fits.
 const moreMenuWidth = 96
@@ -223,6 +229,8 @@ watch(
   (nextRoute, previousRoute) => {
     if (nextRoute.serverID === previousRoute.serverID) {
       void enforceRouteAccess()
+      // Setup is often finished on another section, such as Configuration.
+      void readiness.reload()
       return
     }
     refreshServer()

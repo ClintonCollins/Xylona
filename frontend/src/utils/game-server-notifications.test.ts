@@ -155,6 +155,25 @@ describe('game-server-notifications', () => {
     })
   })
 
+  it('waits for readiness before the started toast and keeps a slow restart a restart', () => {
+    mocks.notifyCreate.mockReturnValue(vi.fn())
+    initGameServerNotificationService()
+    mocks.eventBus.emit('websocketConnected')
+    emitStatus('server-1', 'Alpha', Status.OFFLINE)
+    vi.advanceTimersByTime(2_000)
+
+    emitStatus('server-1', 'Alpha', Status.PRE_START)
+    expect(mocks.notifyCreate).not.toHaveBeenCalled()
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
+    expectLatestToast({ type: 'xylona-success', caption: 'Alpha — Server started' })
+
+    emitStatus('server-1', 'Alpha', Status.OFFLINE)
+    emitStatus('server-1', 'Alpha', Status.PRE_START)
+    vi.advanceTimersByTime(180_000)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
+    expectLatestToast({ type: 'xylona-success', caption: 'Alpha — Server restarted' })
+  })
+
   it('does not emit a started toast from a local update lifecycle intent', () => {
     recordLifecycleIntent('server-1', 'update')
 

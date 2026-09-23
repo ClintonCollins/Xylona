@@ -24,6 +24,7 @@ func TestGameServerModelStatusToProtoStatusCases(t *testing.T) {
 		{name: "UNKNOWN uppercase", input: "UNKNOWN", want: xylona.Status_UNKNOWN},
 		{name: "INSTALLING uppercase", input: "INSTALLING", want: xylona.Status_INSTALLING},
 		{name: "UPDATING uppercase", input: "UPDATING", want: xylona.Status_UPDATING},
+		{name: "PRE_START uppercase", input: "PRE_START", want: xylona.Status_PRE_START},
 		{name: "online lowercase", input: "online", want: xylona.Status_ONLINE},
 		{name: "offline lowercase", input: "offline", want: xylona.Status_OFFLINE},
 		{name: "unknown lowercase", input: "unknown", want: xylona.Status_UNKNOWN},
@@ -374,6 +375,7 @@ func TestGameModelToProto(t *testing.T) {
 		UsesSteamcmd:                      true,
 		SteamAppID:                        "294420",
 		XylonaOfficial:                    true,
+		ReadyLogPattern:                   `Done \(`,
 	}
 
 	got := GameModelToProto(input)
@@ -432,6 +434,9 @@ func TestGameModelToProto(t *testing.T) {
 	if !got.GetXylonaOfficial() {
 		t.Errorf("XylonaOfficial = %v, want true", got.GetXylonaOfficial())
 	}
+	if got.GetReadyLogPattern() != `Done \(` {
+		t.Errorf("ReadyLogPattern = %q, want %q", got.GetReadyLogPattern(), `Done \(`)
+	}
 }
 
 func TestGameProtoToModel(t *testing.T) {
@@ -457,6 +462,7 @@ func TestGameProtoToModel(t *testing.T) {
 		RequiresSteamGameServerLoginToken: true,
 		UsesSteamcmd:                      true,
 		SteamAppid:                        "294420",
+		ReadyLogPattern:                   " Game server connected ",
 	}
 
 	got := GameProtoToModel(input)
@@ -493,6 +499,9 @@ func TestGameProtoToModel(t *testing.T) {
 	}
 	if !got.CreatedAt.Equal(now) {
 		t.Errorf("CreatedAt = %v, want %v", got.CreatedAt, now)
+	}
+	if got.ReadyLogPattern != "Game server connected" {
+		t.Errorf("ReadyLogPattern = %q, want trimmed %q", got.ReadyLogPattern, "Game server connected")
 	}
 }
 

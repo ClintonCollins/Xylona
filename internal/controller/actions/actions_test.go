@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/ClintonCollins/Xylona/internal/eventbus"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
 	"github.com/ClintonCollins/Xylona/internal/noderegistry"
@@ -136,5 +138,65 @@ func TestUpdateGameServerFailsClosedWhenRuntimeStatusUnavailable(t *testing.T) {
 	}
 	if len(client.StartProcessCalls) != 0 {
 		t.Fatalf("StartProcess call count = %d, want 0", len(client.StartProcessCalls))
+	}
+}
+
+func TestStopGameServerAnnouncesStoppingOnlyForRunningServers(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  string
+		stopErr error
+		want    []bool
+	}{
+		{name: "online server", status: "ONLINE", want: []bool{true}},
+		{name: "starting server", status: "PRE_START", want: []bool{true}},
+		{name: "failed stop ends the phase", status: "ONLINE", stopErr: errors.New("node unavailable"), want: []bool{true, false}},
+		{name: "offline server", status: "OFFLINE"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := &nodeclient.FakeNodeClient{
+				NodeID:                   "node-remote",
+				SnapshotResult:           &node.NodeSnapshot{OS: "linux"},
+				GetProcessSnapshotResult: &node.ProcessSnapshot{ID: "stop-" + test.name, Status: test.status},
+				GetProcessSnapshotFound:  true,
+				StopProcessErr:           test.stopErr,
+			}
+			registry := noderegistry.New("node-local", &nodeclient.FakeNodeClient{NodeID: "node-local"})
+			registry.Register(client)
+			inst := &Instance{ctx: context.Background(), nodeRegistry: registry}
+			gameServer := &models.GameServer{ID: "stop-" + test.name, NodeID: "node-remote"}
+			gameServer.R.Game = &models.Game{}
+
+			bus := eventbus.Get()
+			events := bus.SubscribeReliable(eventbus.TopicGameServerStopping)
+			defer bus.Unsubscribe(eventbus.TopicGameServerStopping, events)
+
+			errStop := inst.StopGameServer(t.Context(), gameServer)
+			if !errors.Is(errStop, test.stopErr) {
+				t.Fatalf("StopGameServer() error = %v, want %v", errStop, test.stopErr)
+			}
+			var got []bool
+			for {
+				select {
+				case raw := <-events:
+					event, _ := raw.(eventbus.GameServerStoppingEvent)
+					if event.ServerID == gameServer.ID {
+						got = append(got, event.Stopping)
+					}
+					continue
+				case <-time.After(100 * time.Millisecond):
+				}
+				break
+			}
+			if len(got) != len(test.want) {
+				t.Fatalf("stopping events = %v, want %v", got, test.want)
+			}
+			for index := range got {
+				if got[index] != test.want[index] {
+					t.Fatalf("stopping events = %v, want %v", got, test.want)
+				}
+			}
+		})
 	}
 }

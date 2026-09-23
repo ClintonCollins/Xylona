@@ -1,10 +1,11 @@
 import { create, toJsonString } from '@bufbuild/protobuf'
 import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
-import { type GameServer, Status } from '@/proto/shared_pb'
+import { type GameServer } from '@/proto/shared_pb'
 import { Request, Request_Type, RequestSchema, type AllServersMetrics } from '@/proto/websocket_pb'
 import { GetOrCreateXylonaWebsocketClient, XylonaEventBus } from '@/utils/shared'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { heapDangerRatio, heapMemoryLevel } from './game-server-metrics'
+import { isServerRunning } from './server-list-actions'
 
 interface UseGameServerMetricsPreviewOptions {
   gameServer: Ref<GameServer>
@@ -114,7 +115,7 @@ export function useGameServerMetricsPreview({
   watch(
     () => gameServer.value.status,
     (status) => {
-      if (status !== Status.ONLINE) metricsReceived.value = false
+      if (!isServerRunning(status)) metricsReceived.value = false
     },
   )
 
@@ -184,7 +185,7 @@ export function useGameServerMetricsPreview({
     uptimeTicker = setInterval(() => {
       if (
         websocketStateAuthoritative.value &&
-        gameServer.value.status === Status.ONLINE &&
+        isServerRunning(gameServer.value.status) &&
         metricsUptimeSeconds.value > 0
       ) {
         metricsUptimeSeconds.value++
