@@ -168,7 +168,7 @@ func TestWebSocketCloseScopes(t *testing.T) {
 		t.Fatal("CloseSession() did not cancel the connection console stream")
 	}
 
-	ws.CloseUser("user-1")
+	ws.CloseUser("user-1", "")
 	expectPolicyViolationClose(t, clientB)
 
 	ws.CloseAll()

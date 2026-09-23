@@ -50,6 +50,9 @@ type UpdateInput struct {
 	LastName  *string `json:"last_name,omitempty"`
 	Password  *string `json:"password,omitempty"`
 	SuperUser *bool   `json:"superuser,omitempty"`
+	// KeepSessionID stays signed in when the update revokes the user's
+	// sessions, so users who change their own password are not signed out.
+	KeepSessionID string `json:"-"`
 }
 
 // DeleteInput describes a local user deletion request.
@@ -62,7 +65,7 @@ type DeleteInput struct {
 // Service applies shared local user-management rules on top of the DB layer.
 type Service struct {
 	db                *db.Connection
-	sessionsRevokedFn func(userID string)
+	sessionsRevokedFn func(userID string, keepSessionID string)
 }
 
 // NewService creates a shared user-management service.
@@ -71,8 +74,9 @@ func NewService(database *db.Connection) *Service {
 }
 
 // SetSessionsRevokedHandler sets the callback invoked after a user's sessions
-// are deleted or the user account is removed.
-func (s *Service) SetSessionsRevokedHandler(handler func(userID string)) {
+// are deleted or the user account is removed. keepSessionID, when not empty,
+// is the one session that stays signed in.
+func (s *Service) SetSessionsRevokedHandler(handler func(userID string, keepSessionID string)) {
 	s.sessionsRevokedFn = handler
 }
 
@@ -264,7 +268,7 @@ func (s *Service) Update(input UpdateInput) (*User, error) {
 	}
 
 	if shouldRevokeSessions(targetUser.SuperUser, input) {
-		errRevoke := s.RevokeAllSessions(userID)
+		errRevoke := s.revokeSessions(userID, input.KeepSessionID)
 		if errRevoke != nil {
 			return nil, fmt.Errorf("usermgmt: revoke sessions after user update: %w", errRevoke)
 		}
@@ -322,7 +326,7 @@ func (s *Service) Delete(input DeleteInput) error {
 		return fmt.Errorf(`usermgmt: delete user: %w`, errDeleteUser)
 	}
 	if s.sessionsRevokedFn != nil {
-		s.sessionsRevokedFn(userID)
+		s.sessionsRevokedFn(userID, ``)
 	}
 
 	return nil
@@ -331,16 +335,21 @@ func (s *Service) Delete(input DeleteInput) error {
 // RevokeAllSessions deletes every session for the user. Used after password
 // changes, superuser demotion, and explicit logout-all-devices requests.
 func (s *Service) RevokeAllSessions(userID string) error {
+	return s.revokeSessions(userID, ``)
+}
+
+// revokeSessions deletes every session for the user except keepSessionID.
+func (s *Service) revokeSessions(userID string, keepSessionID string) error {
 	trimmedID := strings.TrimSpace(userID)
 	if trimmedID == "" {
 		return ErrUserIDRequired
 	}
-	_, errRevoke := s.db.DeleteUserSessionsByUserID(trimmedID)
+	_, errRevoke := s.db.DeleteUserSessionsByUserID(trimmedID, keepSessionID)
 	if errRevoke != nil {
-		return fmt.Errorf("usermgmt: revoke all sessions: %w", errRevoke)
+		return fmt.Errorf("usermgmt: revoke sessions: %w", errRevoke)
 	}
 	if s.sessionsRevokedFn != nil {
-		s.sessionsRevokedFn(trimmedID)
+		s.sessionsRevokedFn(trimmedID, keepSessionID)
 	}
 	return nil
 }

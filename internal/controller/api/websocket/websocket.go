@@ -194,8 +194,9 @@ func (ws *WebSocket) CloseSession(sessionID string) {
 	ws.closeConnections(connections)
 }
 
-// CloseUser closes every websocket authenticated as userID.
-func (ws *WebSocket) CloseUser(userID string) {
+// CloseUser closes every websocket authenticated as userID, except those of
+// keepSessionID when it is not empty.
+func (ws *WebSocket) CloseUser(userID string, keepSessionID string) {
 	if ws == nil || userID == "" {
 		return
 	}
@@ -204,6 +205,9 @@ func (ws *WebSocket) CloseUser(userID string) {
 	userConnections := ws.userWebsocketConnections[userID]
 	connections := make([]*connection, 0, len(userConnections))
 	for _, conn := range userConnections {
+		if keepSessionID != "" && conn.sessionID == keepSessionID {
+			continue
+		}
 		connections = append(connections, conn)
 	}
 	ws.userWebsocketConnectionsLock.RUnlock()

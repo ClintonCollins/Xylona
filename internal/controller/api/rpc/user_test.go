@@ -310,6 +310,101 @@ func TestUpdateUserPreventsDemotingLastSuperUser(t *testing.T) {
 	}
 }
 
+func TestChangePassword(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		signedIn        bool
+		currentPassword string
+		newPassword     string
+		wantCode        connect.Code
+		wantChanged     bool
+	}{
+		{
+			name:            "signed out",
+			currentPassword: "password123",
+			newPassword:     "new-password-123",
+			wantCode:        connect.CodeUnauthenticated,
+		},
+		{
+			name:            "wrong current password",
+			signedIn:        true,
+			currentPassword: "not-my-password",
+			newPassword:     "new-password-123",
+			wantCode:        connect.CodeInvalidArgument,
+		},
+		{
+			name:            "blank new password",
+			signedIn:        true,
+			currentPassword: "password123",
+			newPassword:     "   ",
+			wantCode:        connect.CodeInvalidArgument,
+		},
+		{
+			name:            "changes password and keeps this session",
+			signedIn:        true,
+			currentPassword: "password123",
+			newPassword:     "new-password-123",
+			wantChanged:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture := newRBACRPCFixture(t)
+			user := createUserForRPCUserTests(t, fixture, "change-password", false)
+			otherDevice := connect.NewRequest(&xylona.CheckUserAuthenticatedRequest{})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, otherDevice, user.GetId())
+
+			request := connect.NewRequest(&xylona.ChangePasswordRequest{
+				CurrentPassword: tt.currentPassword,
+				NewPassword:     tt.newPassword,
+			})
+			if tt.signedIn {
+				addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, user.GetId())
+			}
+
+			_, errChange := fixture.service.ChangePassword(context.Background(), request)
+			if tt.wantChanged && errChange != nil {
+				t.Fatalf("ChangePassword() error = %v", errChange)
+			}
+			if !tt.wantChanged && connect.CodeOf(errChange) != tt.wantCode {
+				t.Fatalf("ChangePassword() code = %v, want %v (err = %v)", connect.CodeOf(errChange), tt.wantCode, errChange)
+			}
+
+			userModel, errGetUser := fixture.conn.GetUserByID(user.GetId())
+			if errGetUser != nil {
+				t.Fatalf("GetUserByID() error = %v", errGetUser)
+			}
+			wantPassword := "password123"
+			if tt.wantChanged {
+				wantPassword = tt.newPassword
+			}
+			match, errVerify := passwordhash.Verify(userModel.PasswordHash, wantPassword)
+			if errVerify != nil || !match {
+				t.Fatalf("password hash does not match %q (err = %v)", wantPassword, errVerify)
+			}
+
+			_, errOtherDevice := fixture.service.getUserFromHeader(otherDevice.Header())
+			if tt.wantChanged && errOtherDevice == nil {
+				t.Error("other device session still valid after password change, want revoked")
+			}
+			if !tt.wantChanged && errOtherDevice != nil {
+				t.Errorf("other device session revoked after failed change: %v", errOtherDevice)
+			}
+			if tt.signedIn {
+				_, errThisSession := fixture.service.getUserFromHeader(request.Header())
+				if errThisSession != nil {
+					t.Errorf("this session was signed out: %v", errThisSession)
+				}
+			}
+		})
+	}
+}
+
 func TestDeleteUser(t *testing.T) {
 	t.Parallel()
 

@@ -7,9 +7,12 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/api/gatekeeper"
 	"github.com/ClintonCollins/Xylona/internal/usermgmt"
+	"github.com/ClintonCollins/Xylona/pkg/passwordhash"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
@@ -110,6 +113,41 @@ func (xs *XylonaService) UpdateUser(_ context.Context, request *connect.Request[
 	return connect.NewResponse(&xylona.UpdateUserResponse{
 		User: userManagementUserToProto(updatedUser),
 	}), nil
+}
+
+// ChangePassword changes the signed-in user's own password after checking the
+// current one. It signs out the user's other sessions and keeps this one.
+func (xs *XylonaService) ChangePassword(_ context.Context, request *connect.Request[xylona.ChangePasswordRequest]) (*connect.Response[xylona.ChangePasswordResponse], error) {
+	sessionCookies, errGetSession := gatekeeper.GetSessionFromHeader(request.Header())
+	if errGetSession != nil {
+		return nil, unauthenticated()
+	}
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+
+	passwordMatches, errVerify := passwordhash.Verify(user.PasswordHash, request.Msg.GetCurrentPassword())
+	if errVerify != nil {
+		log.Warn().Err(errVerify).Str("user_id", user.ID).Msg("Failed to verify current password for password change")
+	}
+	if errVerify != nil || !passwordMatches {
+		// Not Unauthenticated: the session is valid, and the web client treats a
+		// 401 as an expired session and signs the browser out.
+		return nil, invalidArg(`current password is incorrect`)
+	}
+
+	newPassword := request.Msg.GetNewPassword()
+	_, errUpdate := xs.userManagementService().Update(usermgmt.UpdateInput{
+		ID:            user.ID,
+		Password:      &newPassword,
+		KeepSessionID: sessionCookies.SessionID,
+	})
+	if errUpdate != nil {
+		return nil, mapUserManagementError(errUpdate)
+	}
+
+	return connect.NewResponse(&xylona.ChangePasswordResponse{}), nil
 }
 
 // DeleteUser deletes a local user account.

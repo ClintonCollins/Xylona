@@ -289,7 +289,7 @@ func TestDeleteUserAllowsRemovingSuperUserWhenAnotherSuperUserExists(t *testing.
 
 	service := NewService(conn)
 	revokedUserID := ""
-	service.SetSessionsRevokedHandler(func(userID string) {
+	service.SetSessionsRevokedHandler(func(userID string, _ string) {
 		revokedUserID = userID
 	})
 
@@ -369,7 +369,7 @@ func TestUpdateUserPasswordRevokesSessions(t *testing.T) {
 
 	service := NewService(conn)
 	revokedUserID := ""
-	service.SetSessionsRevokedHandler(func(userID string) {
+	service.SetSessionsRevokedHandler(func(userID string, _ string) {
 		revokedUserID = userID
 	})
 	password := "new-password-123"
@@ -387,6 +387,50 @@ func TestUpdateUserPasswordRevokesSessions(t *testing.T) {
 	}
 	if revokedUserID != createdUser.ID {
 		t.Fatalf("revoked user ID = %q, want %q", revokedUserID, createdUser.ID)
+	}
+}
+
+func TestUpdateUserPasswordKeepsRequestedSession(t *testing.T) {
+	t.Parallel()
+
+	conn := newUserMgmtTestConnection(t, "usermgmt-keep-session.sqlite")
+	createdUser := seedUserMgmtUser(t, conn, userMgmtSeedUser{
+		id:        "user-keep-session",
+		userName:  "keep-session",
+		email:     "keep-session@example.com",
+		firstName: "Keep",
+		lastName:  "Session",
+		password:  "old-password-123",
+		superUser: false,
+	})
+	createUserMgmtSession(t, conn, "session-current", createdUser.ID)
+	createUserMgmtSession(t, conn, "session-other-device", createdUser.ID)
+
+	service := NewService(conn)
+	keptSessionID := ""
+	service.SetSessionsRevokedHandler(func(_ string, keepSessionID string) {
+		keptSessionID = keepSessionID
+	})
+	password := "new-password-123"
+	errUpdateUser := mustNoUserResult(service.Update(UpdateInput{
+		ID:            createdUser.ID,
+		Password:      &password,
+		KeepSessionID: "session-current",
+	}))
+	if errUpdateUser != nil {
+		t.Fatalf("Update() error = %v", errUpdateUser)
+	}
+
+	_, errGetCurrent := conn.GetUserSession("session-current")
+	if errGetCurrent != nil {
+		t.Fatalf("GetUserSession(current) error = %v, want kept session", errGetCurrent)
+	}
+	_, errGetOther := conn.GetUserSession("session-other-device")
+	if !errors.Is(errGetOther, sql.ErrNoRows) {
+		t.Fatalf("GetUserSession(other) error = %v, want revoked session", errGetOther)
+	}
+	if keptSessionID != "session-current" {
+		t.Fatalf("handler keepSessionID = %q, want %q", keptSessionID, "session-current")
 	}
 }
 
@@ -416,7 +460,7 @@ func TestUpdateUserDemotionRevokesSessions(t *testing.T) {
 
 	service := NewService(conn)
 	revokedUserID := ""
-	service.SetSessionsRevokedHandler(func(userID string) {
+	service.SetSessionsRevokedHandler(func(userID string, _ string) {
 		revokedUserID = userID
 	})
 	demote := false
@@ -454,7 +498,7 @@ func TestUpdateUserNameKeepsSessions(t *testing.T) {
 
 	service := NewService(conn)
 	revokedUserID := ""
-	service.SetSessionsRevokedHandler(func(userID string) {
+	service.SetSessionsRevokedHandler(func(userID string, _ string) {
 		revokedUserID = userID
 	})
 	firstName := "Updated"

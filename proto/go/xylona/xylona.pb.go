@@ -2399,6 +2399,95 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_xylona_proto_rawDescGZIP(), []int{16}
 }
 
+// ChangePasswordRequest changes the signed-in user's own password.
+type ChangePasswordRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	CurrentPassword string                 `protobuf:"bytes,1,opt,name=current_password,json=currentPassword,proto3" json:"current_password,omitempty"`
+	NewPassword     string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ChangePasswordRequest) Reset() {
+	*x = ChangePasswordRequest{}
+	mi := &file_xylona_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordRequest) ProtoMessage() {}
+
+func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
+func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ChangePasswordRequest) GetCurrentPassword() string {
+	if x != nil {
+		return x.CurrentPassword
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+type ChangePasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordResponse) Reset() {
+	*x = ChangePasswordResponse{}
+	mi := &file_xylona_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordResponse) ProtoMessage() {}
+
+func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
+func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{18}
+}
+
 type CheckUserAuthenticatedRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2407,7 +2496,7 @@ type CheckUserAuthenticatedRequest struct {
 
 func (x *CheckUserAuthenticatedRequest) Reset() {
 	*x = CheckUserAuthenticatedRequest{}
-	mi := &file_xylona_proto_msgTypes[17]
+	mi := &file_xylona_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2419,7 +2508,7 @@ func (x *CheckUserAuthenticatedRequest) String() string {
 func (*CheckUserAuthenticatedRequest) ProtoMessage() {}
 
 func (x *CheckUserAuthenticatedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[17]
+	mi := &file_xylona_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2432,7 +2521,7 @@ func (x *CheckUserAuthenticatedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckUserAuthenticatedRequest.ProtoReflect.Descriptor instead.
 func (*CheckUserAuthenticatedRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{17}
+	return file_xylona_proto_rawDescGZIP(), []int{19}
 }
 
 type CheckUserAuthenticatedResponse struct {
@@ -2446,7 +2535,7 @@ type CheckUserAuthenticatedResponse struct {
 
 func (x *CheckUserAuthenticatedResponse) Reset() {
 	*x = CheckUserAuthenticatedResponse{}
-	mi := &file_xylona_proto_msgTypes[18]
+	mi := &file_xylona_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2458,7 +2547,7 @@ func (x *CheckUserAuthenticatedResponse) String() string {
 func (*CheckUserAuthenticatedResponse) ProtoMessage() {}
 
 func (x *CheckUserAuthenticatedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[18]
+	mi := &file_xylona_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2471,7 +2560,7 @@ func (x *CheckUserAuthenticatedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckUserAuthenticatedResponse.ProtoReflect.Descriptor instead.
 func (*CheckUserAuthenticatedResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{18}
+	return file_xylona_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CheckUserAuthenticatedResponse) GetAuthenticated() bool {
@@ -2503,7 +2592,7 @@ type ListGameServersRequest struct {
 
 func (x *ListGameServersRequest) Reset() {
 	*x = ListGameServersRequest{}
-	mi := &file_xylona_proto_msgTypes[19]
+	mi := &file_xylona_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2515,7 +2604,7 @@ func (x *ListGameServersRequest) String() string {
 func (*ListGameServersRequest) ProtoMessage() {}
 
 func (x *ListGameServersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[19]
+	mi := &file_xylona_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2528,7 +2617,7 @@ func (x *ListGameServersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGameServersRequest.ProtoReflect.Descriptor instead.
 func (*ListGameServersRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{19}
+	return file_xylona_proto_rawDescGZIP(), []int{21}
 }
 
 type ListGameServersResponse struct {
@@ -2540,7 +2629,7 @@ type ListGameServersResponse struct {
 
 func (x *ListGameServersResponse) Reset() {
 	*x = ListGameServersResponse{}
-	mi := &file_xylona_proto_msgTypes[20]
+	mi := &file_xylona_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2552,7 +2641,7 @@ func (x *ListGameServersResponse) String() string {
 func (*ListGameServersResponse) ProtoMessage() {}
 
 func (x *ListGameServersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[20]
+	mi := &file_xylona_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2565,7 +2654,7 @@ func (x *ListGameServersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGameServersResponse.ProtoReflect.Descriptor instead.
 func (*ListGameServersResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{20}
+	return file_xylona_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListGameServersResponse) GetGameServers() []*GameServer {
@@ -2583,7 +2672,7 @@ type ListGamesRequest struct {
 
 func (x *ListGamesRequest) Reset() {
 	*x = ListGamesRequest{}
-	mi := &file_xylona_proto_msgTypes[21]
+	mi := &file_xylona_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2595,7 +2684,7 @@ func (x *ListGamesRequest) String() string {
 func (*ListGamesRequest) ProtoMessage() {}
 
 func (x *ListGamesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[21]
+	mi := &file_xylona_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2608,7 +2697,7 @@ func (x *ListGamesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGamesRequest.ProtoReflect.Descriptor instead.
 func (*ListGamesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{21}
+	return file_xylona_proto_rawDescGZIP(), []int{23}
 }
 
 type ListGamesResponse struct {
@@ -2620,7 +2709,7 @@ type ListGamesResponse struct {
 
 func (x *ListGamesResponse) Reset() {
 	*x = ListGamesResponse{}
-	mi := &file_xylona_proto_msgTypes[22]
+	mi := &file_xylona_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2632,7 +2721,7 @@ func (x *ListGamesResponse) String() string {
 func (*ListGamesResponse) ProtoMessage() {}
 
 func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[22]
+	mi := &file_xylona_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2645,7 +2734,7 @@ func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGamesResponse.ProtoReflect.Descriptor instead.
 func (*ListGamesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{22}
+	return file_xylona_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListGamesResponse) GetGames() []*Game {
@@ -2664,7 +2753,7 @@ type GetGameRequest struct {
 
 func (x *GetGameRequest) Reset() {
 	*x = GetGameRequest{}
-	mi := &file_xylona_proto_msgTypes[23]
+	mi := &file_xylona_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2676,7 +2765,7 @@ func (x *GetGameRequest) String() string {
 func (*GetGameRequest) ProtoMessage() {}
 
 func (x *GetGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[23]
+	mi := &file_xylona_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2689,7 +2778,7 @@ func (x *GetGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameRequest.ProtoReflect.Descriptor instead.
 func (*GetGameRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{23}
+	return file_xylona_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetGameRequest) GetId() string {
@@ -2708,7 +2797,7 @@ type GetGameResponse struct {
 
 func (x *GetGameResponse) Reset() {
 	*x = GetGameResponse{}
-	mi := &file_xylona_proto_msgTypes[24]
+	mi := &file_xylona_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2720,7 +2809,7 @@ func (x *GetGameResponse) String() string {
 func (*GetGameResponse) ProtoMessage() {}
 
 func (x *GetGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[24]
+	mi := &file_xylona_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2733,7 +2822,7 @@ func (x *GetGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameResponse.ProtoReflect.Descriptor instead.
 func (*GetGameResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{24}
+	return file_xylona_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetGameResponse) GetGame() *Game {
@@ -2752,7 +2841,7 @@ type GetGameServerRequest struct {
 
 func (x *GetGameServerRequest) Reset() {
 	*x = GetGameServerRequest{}
-	mi := &file_xylona_proto_msgTypes[25]
+	mi := &file_xylona_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2764,7 +2853,7 @@ func (x *GetGameServerRequest) String() string {
 func (*GetGameServerRequest) ProtoMessage() {}
 
 func (x *GetGameServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[25]
+	mi := &file_xylona_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2777,7 +2866,7 @@ func (x *GetGameServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{25}
+	return file_xylona_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetGameServerRequest) GetId() string {
@@ -2796,7 +2885,7 @@ type GetGameServerResponse struct {
 
 func (x *GetGameServerResponse) Reset() {
 	*x = GetGameServerResponse{}
-	mi := &file_xylona_proto_msgTypes[26]
+	mi := &file_xylona_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2808,7 +2897,7 @@ func (x *GetGameServerResponse) String() string {
 func (*GetGameServerResponse) ProtoMessage() {}
 
 func (x *GetGameServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[26]
+	mi := &file_xylona_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2821,7 +2910,7 @@ func (x *GetGameServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{26}
+	return file_xylona_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetGameServerResponse) GetGameServer() *GameServer {
@@ -2847,7 +2936,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_xylona_proto_msgTypes[27]
+	mi := &file_xylona_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2859,7 +2948,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[27]
+	mi := &file_xylona_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2872,7 +2961,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{27}
+	return file_xylona_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *User) GetId() string {
@@ -2939,7 +3028,7 @@ type ListUsersRequest struct {
 
 func (x *ListUsersRequest) Reset() {
 	*x = ListUsersRequest{}
-	mi := &file_xylona_proto_msgTypes[28]
+	mi := &file_xylona_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2951,7 +3040,7 @@ func (x *ListUsersRequest) String() string {
 func (*ListUsersRequest) ProtoMessage() {}
 
 func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[28]
+	mi := &file_xylona_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2964,7 +3053,7 @@ func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
 func (*ListUsersRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{28}
+	return file_xylona_proto_rawDescGZIP(), []int{30}
 }
 
 type ListUsersResponse struct {
@@ -2976,7 +3065,7 @@ type ListUsersResponse struct {
 
 func (x *ListUsersResponse) Reset() {
 	*x = ListUsersResponse{}
-	mi := &file_xylona_proto_msgTypes[29]
+	mi := &file_xylona_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2988,7 +3077,7 @@ func (x *ListUsersResponse) String() string {
 func (*ListUsersResponse) ProtoMessage() {}
 
 func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[29]
+	mi := &file_xylona_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3001,7 +3090,7 @@ func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{29}
+	return file_xylona_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListUsersResponse) GetUsers() []*User {
@@ -3020,7 +3109,7 @@ type GetUserDetailsRequest struct {
 
 func (x *GetUserDetailsRequest) Reset() {
 	*x = GetUserDetailsRequest{}
-	mi := &file_xylona_proto_msgTypes[30]
+	mi := &file_xylona_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3032,7 +3121,7 @@ func (x *GetUserDetailsRequest) String() string {
 func (*GetUserDetailsRequest) ProtoMessage() {}
 
 func (x *GetUserDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[30]
+	mi := &file_xylona_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3045,7 +3134,7 @@ func (x *GetUserDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserDetailsRequest.ProtoReflect.Descriptor instead.
 func (*GetUserDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{30}
+	return file_xylona_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetUserDetailsRequest) GetId() string {
@@ -3064,7 +3153,7 @@ type GetUserDetailsResponse struct {
 
 func (x *GetUserDetailsResponse) Reset() {
 	*x = GetUserDetailsResponse{}
-	mi := &file_xylona_proto_msgTypes[31]
+	mi := &file_xylona_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3076,7 +3165,7 @@ func (x *GetUserDetailsResponse) String() string {
 func (*GetUserDetailsResponse) ProtoMessage() {}
 
 func (x *GetUserDetailsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[31]
+	mi := &file_xylona_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3089,7 +3178,7 @@ func (x *GetUserDetailsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserDetailsResponse.ProtoReflect.Descriptor instead.
 func (*GetUserDetailsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{31}
+	return file_xylona_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetUserDetailsResponse) GetUser() *User {
@@ -3114,7 +3203,7 @@ type UpdateUserRequest struct {
 
 func (x *UpdateUserRequest) Reset() {
 	*x = UpdateUserRequest{}
-	mi := &file_xylona_proto_msgTypes[32]
+	mi := &file_xylona_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3126,7 +3215,7 @@ func (x *UpdateUserRequest) String() string {
 func (*UpdateUserRequest) ProtoMessage() {}
 
 func (x *UpdateUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[32]
+	mi := &file_xylona_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3139,7 +3228,7 @@ func (x *UpdateUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateUserRequest.ProtoReflect.Descriptor instead.
 func (*UpdateUserRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{32}
+	return file_xylona_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *UpdateUserRequest) GetId() string {
@@ -3200,7 +3289,7 @@ type UpdateUserResponse struct {
 
 func (x *UpdateUserResponse) Reset() {
 	*x = UpdateUserResponse{}
-	mi := &file_xylona_proto_msgTypes[33]
+	mi := &file_xylona_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3212,7 +3301,7 @@ func (x *UpdateUserResponse) String() string {
 func (*UpdateUserResponse) ProtoMessage() {}
 
 func (x *UpdateUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[33]
+	mi := &file_xylona_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3225,7 +3314,7 @@ func (x *UpdateUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateUserResponse.ProtoReflect.Descriptor instead.
 func (*UpdateUserResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{33}
+	return file_xylona_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *UpdateUserResponse) GetUser() *User {
@@ -3244,7 +3333,7 @@ type DeleteUserRequest struct {
 
 func (x *DeleteUserRequest) Reset() {
 	*x = DeleteUserRequest{}
-	mi := &file_xylona_proto_msgTypes[34]
+	mi := &file_xylona_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3256,7 +3345,7 @@ func (x *DeleteUserRequest) String() string {
 func (*DeleteUserRequest) ProtoMessage() {}
 
 func (x *DeleteUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[34]
+	mi := &file_xylona_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3269,7 +3358,7 @@ func (x *DeleteUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteUserRequest.ProtoReflect.Descriptor instead.
 func (*DeleteUserRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{34}
+	return file_xylona_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *DeleteUserRequest) GetId() string {
@@ -3287,7 +3376,7 @@ type DeleteUserResponse struct {
 
 func (x *DeleteUserResponse) Reset() {
 	*x = DeleteUserResponse{}
-	mi := &file_xylona_proto_msgTypes[35]
+	mi := &file_xylona_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3299,7 +3388,7 @@ func (x *DeleteUserResponse) String() string {
 func (*DeleteUserResponse) ProtoMessage() {}
 
 func (x *DeleteUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[35]
+	mi := &file_xylona_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3312,7 +3401,7 @@ func (x *DeleteUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteUserResponse.ProtoReflect.Descriptor instead.
 func (*DeleteUserResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{35}
+	return file_xylona_proto_rawDescGZIP(), []int{37}
 }
 
 type NotificationStreamRequest struct {
@@ -3323,7 +3412,7 @@ type NotificationStreamRequest struct {
 
 func (x *NotificationStreamRequest) Reset() {
 	*x = NotificationStreamRequest{}
-	mi := &file_xylona_proto_msgTypes[36]
+	mi := &file_xylona_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3335,7 +3424,7 @@ func (x *NotificationStreamRequest) String() string {
 func (*NotificationStreamRequest) ProtoMessage() {}
 
 func (x *NotificationStreamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[36]
+	mi := &file_xylona_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3348,7 +3437,7 @@ func (x *NotificationStreamRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotificationStreamRequest.ProtoReflect.Descriptor instead.
 func (*NotificationStreamRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{36}
+	return file_xylona_proto_rawDescGZIP(), []int{38}
 }
 
 type NotificationStreamResponse struct {
@@ -3363,7 +3452,7 @@ type NotificationStreamResponse struct {
 
 func (x *NotificationStreamResponse) Reset() {
 	*x = NotificationStreamResponse{}
-	mi := &file_xylona_proto_msgTypes[37]
+	mi := &file_xylona_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3375,7 +3464,7 @@ func (x *NotificationStreamResponse) String() string {
 func (*NotificationStreamResponse) ProtoMessage() {}
 
 func (x *NotificationStreamResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[37]
+	mi := &file_xylona_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3388,7 +3477,7 @@ func (x *NotificationStreamResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotificationStreamResponse.ProtoReflect.Descriptor instead.
 func (*NotificationStreamResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{37}
+	return file_xylona_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *NotificationStreamResponse) GetEvent() NotificationEvent {
@@ -3429,7 +3518,7 @@ type GetUpdateTargetsRequest struct {
 
 func (x *GetUpdateTargetsRequest) Reset() {
 	*x = GetUpdateTargetsRequest{}
-	mi := &file_xylona_proto_msgTypes[38]
+	mi := &file_xylona_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3441,7 +3530,7 @@ func (x *GetUpdateTargetsRequest) String() string {
 func (*GetUpdateTargetsRequest) ProtoMessage() {}
 
 func (x *GetUpdateTargetsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[38]
+	mi := &file_xylona_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3454,7 +3543,7 @@ func (x *GetUpdateTargetsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUpdateTargetsRequest.ProtoReflect.Descriptor instead.
 func (*GetUpdateTargetsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{38}
+	return file_xylona_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetUpdateTargetsRequest) GetGameServerId() string {
@@ -3481,7 +3570,7 @@ type GetUpdateTargetsResponse struct {
 
 func (x *GetUpdateTargetsResponse) Reset() {
 	*x = GetUpdateTargetsResponse{}
-	mi := &file_xylona_proto_msgTypes[39]
+	mi := &file_xylona_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3493,7 +3582,7 @@ func (x *GetUpdateTargetsResponse) String() string {
 func (*GetUpdateTargetsResponse) ProtoMessage() {}
 
 func (x *GetUpdateTargetsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[39]
+	mi := &file_xylona_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3506,7 +3595,7 @@ func (x *GetUpdateTargetsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUpdateTargetsResponse.ProtoReflect.Descriptor instead.
 func (*GetUpdateTargetsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{39}
+	return file_xylona_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GetUpdateTargetsResponse) GetTargets() []*UpdateTargetOption {
@@ -3532,7 +3621,7 @@ type ListIPsRequest struct {
 
 func (x *ListIPsRequest) Reset() {
 	*x = ListIPsRequest{}
-	mi := &file_xylona_proto_msgTypes[40]
+	mi := &file_xylona_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3544,7 +3633,7 @@ func (x *ListIPsRequest) String() string {
 func (*ListIPsRequest) ProtoMessage() {}
 
 func (x *ListIPsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[40]
+	mi := &file_xylona_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3557,7 +3646,7 @@ func (x *ListIPsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIPsRequest.ProtoReflect.Descriptor instead.
 func (*ListIPsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{40}
+	return file_xylona_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListIPsRequest) GetNodeId() string {
@@ -3576,7 +3665,7 @@ type ListIPsResponse struct {
 
 func (x *ListIPsResponse) Reset() {
 	*x = ListIPsResponse{}
-	mi := &file_xylona_proto_msgTypes[41]
+	mi := &file_xylona_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3588,7 +3677,7 @@ func (x *ListIPsResponse) String() string {
 func (*ListIPsResponse) ProtoMessage() {}
 
 func (x *ListIPsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[41]
+	mi := &file_xylona_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3601,7 +3690,7 @@ func (x *ListIPsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIPsResponse.ProtoReflect.Descriptor instead.
 func (*ListIPsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{41}
+	return file_xylona_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListIPsResponse) GetIps() []*IP {
@@ -3620,7 +3709,7 @@ type AddIPRequest struct {
 
 func (x *AddIPRequest) Reset() {
 	*x = AddIPRequest{}
-	mi := &file_xylona_proto_msgTypes[42]
+	mi := &file_xylona_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3632,7 +3721,7 @@ func (x *AddIPRequest) String() string {
 func (*AddIPRequest) ProtoMessage() {}
 
 func (x *AddIPRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[42]
+	mi := &file_xylona_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3645,7 +3734,7 @@ func (x *AddIPRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddIPRequest.ProtoReflect.Descriptor instead.
 func (*AddIPRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{42}
+	return file_xylona_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *AddIPRequest) GetIp() *IP {
@@ -3663,7 +3752,7 @@ type AddIPResponse struct {
 
 func (x *AddIPResponse) Reset() {
 	*x = AddIPResponse{}
-	mi := &file_xylona_proto_msgTypes[43]
+	mi := &file_xylona_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3675,7 +3764,7 @@ func (x *AddIPResponse) String() string {
 func (*AddIPResponse) ProtoMessage() {}
 
 func (x *AddIPResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[43]
+	mi := &file_xylona_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3688,7 +3777,7 @@ func (x *AddIPResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddIPResponse.ProtoReflect.Descriptor instead.
 func (*AddIPResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{43}
+	return file_xylona_proto_rawDescGZIP(), []int{45}
 }
 
 type RemoveIPRequest struct {
@@ -3700,7 +3789,7 @@ type RemoveIPRequest struct {
 
 func (x *RemoveIPRequest) Reset() {
 	*x = RemoveIPRequest{}
-	mi := &file_xylona_proto_msgTypes[44]
+	mi := &file_xylona_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3712,7 +3801,7 @@ func (x *RemoveIPRequest) String() string {
 func (*RemoveIPRequest) ProtoMessage() {}
 
 func (x *RemoveIPRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[44]
+	mi := &file_xylona_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3725,7 +3814,7 @@ func (x *RemoveIPRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveIPRequest.ProtoReflect.Descriptor instead.
 func (*RemoveIPRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{44}
+	return file_xylona_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *RemoveIPRequest) GetIp() *IP {
@@ -3743,7 +3832,7 @@ type RemoveIPResponse struct {
 
 func (x *RemoveIPResponse) Reset() {
 	*x = RemoveIPResponse{}
-	mi := &file_xylona_proto_msgTypes[45]
+	mi := &file_xylona_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3755,7 +3844,7 @@ func (x *RemoveIPResponse) String() string {
 func (*RemoveIPResponse) ProtoMessage() {}
 
 func (x *RemoveIPResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[45]
+	mi := &file_xylona_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3768,7 +3857,7 @@ func (x *RemoveIPResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveIPResponse.ProtoReflect.Descriptor instead.
 func (*RemoveIPResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{45}
+	return file_xylona_proto_rawDescGZIP(), []int{47}
 }
 
 type AddGameRequest struct {
@@ -3780,7 +3869,7 @@ type AddGameRequest struct {
 
 func (x *AddGameRequest) Reset() {
 	*x = AddGameRequest{}
-	mi := &file_xylona_proto_msgTypes[46]
+	mi := &file_xylona_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3792,7 +3881,7 @@ func (x *AddGameRequest) String() string {
 func (*AddGameRequest) ProtoMessage() {}
 
 func (x *AddGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[46]
+	mi := &file_xylona_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3805,7 +3894,7 @@ func (x *AddGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddGameRequest.ProtoReflect.Descriptor instead.
 func (*AddGameRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{46}
+	return file_xylona_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *AddGameRequest) GetGame() *Game {
@@ -3825,7 +3914,7 @@ type AddGameResponse struct {
 
 func (x *AddGameResponse) Reset() {
 	*x = AddGameResponse{}
-	mi := &file_xylona_proto_msgTypes[47]
+	mi := &file_xylona_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3837,7 +3926,7 @@ func (x *AddGameResponse) String() string {
 func (*AddGameResponse) ProtoMessage() {}
 
 func (x *AddGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[47]
+	mi := &file_xylona_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3850,7 +3939,7 @@ func (x *AddGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddGameResponse.ProtoReflect.Descriptor instead.
 func (*AddGameResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{47}
+	return file_xylona_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *AddGameResponse) GetGame() *Game {
@@ -3877,7 +3966,7 @@ type EditGameRequest struct {
 
 func (x *EditGameRequest) Reset() {
 	*x = EditGameRequest{}
-	mi := &file_xylona_proto_msgTypes[48]
+	mi := &file_xylona_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3889,7 +3978,7 @@ func (x *EditGameRequest) String() string {
 func (*EditGameRequest) ProtoMessage() {}
 
 func (x *EditGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[48]
+	mi := &file_xylona_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3902,7 +3991,7 @@ func (x *EditGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditGameRequest.ProtoReflect.Descriptor instead.
 func (*EditGameRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{48}
+	return file_xylona_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *EditGameRequest) GetGameId() string {
@@ -3928,7 +4017,7 @@ type EditGameResponse struct {
 
 func (x *EditGameResponse) Reset() {
 	*x = EditGameResponse{}
-	mi := &file_xylona_proto_msgTypes[49]
+	mi := &file_xylona_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3940,7 +4029,7 @@ func (x *EditGameResponse) String() string {
 func (*EditGameResponse) ProtoMessage() {}
 
 func (x *EditGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[49]
+	mi := &file_xylona_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3953,7 +4042,7 @@ func (x *EditGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditGameResponse.ProtoReflect.Descriptor instead.
 func (*EditGameResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{49}
+	return file_xylona_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *EditGameResponse) GetGame() *Game {
@@ -3976,7 +4065,7 @@ type UpdateGameStartArgsTemplateRequest struct {
 
 func (x *UpdateGameStartArgsTemplateRequest) Reset() {
 	*x = UpdateGameStartArgsTemplateRequest{}
-	mi := &file_xylona_proto_msgTypes[50]
+	mi := &file_xylona_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3988,7 +4077,7 @@ func (x *UpdateGameStartArgsTemplateRequest) String() string {
 func (*UpdateGameStartArgsTemplateRequest) ProtoMessage() {}
 
 func (x *UpdateGameStartArgsTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[50]
+	mi := &file_xylona_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4001,7 +4090,7 @@ func (x *UpdateGameStartArgsTemplateRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateGameStartArgsTemplateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameStartArgsTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{50}
+	return file_xylona_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *UpdateGameStartArgsTemplateRequest) GetGameId() string {
@@ -4048,7 +4137,7 @@ type UpdateGameStartArgsTemplateResponse struct {
 
 func (x *UpdateGameStartArgsTemplateResponse) Reset() {
 	*x = UpdateGameStartArgsTemplateResponse{}
-	mi := &file_xylona_proto_msgTypes[51]
+	mi := &file_xylona_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4060,7 +4149,7 @@ func (x *UpdateGameStartArgsTemplateResponse) String() string {
 func (*UpdateGameStartArgsTemplateResponse) ProtoMessage() {}
 
 func (x *UpdateGameStartArgsTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[51]
+	mi := &file_xylona_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4073,7 +4162,7 @@ func (x *UpdateGameStartArgsTemplateResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateGameStartArgsTemplateResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameStartArgsTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{51}
+	return file_xylona_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *UpdateGameStartArgsTemplateResponse) GetGame() *Game {
@@ -4093,7 +4182,7 @@ type UpdateGameStartArgBlocklistRequest struct {
 
 func (x *UpdateGameStartArgBlocklistRequest) Reset() {
 	*x = UpdateGameStartArgBlocklistRequest{}
-	mi := &file_xylona_proto_msgTypes[52]
+	mi := &file_xylona_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4105,7 +4194,7 @@ func (x *UpdateGameStartArgBlocklistRequest) String() string {
 func (*UpdateGameStartArgBlocklistRequest) ProtoMessage() {}
 
 func (x *UpdateGameStartArgBlocklistRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[52]
+	mi := &file_xylona_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4118,7 +4207,7 @@ func (x *UpdateGameStartArgBlocklistRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateGameStartArgBlocklistRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameStartArgBlocklistRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{52}
+	return file_xylona_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *UpdateGameStartArgBlocklistRequest) GetGameId() string {
@@ -4144,7 +4233,7 @@ type UpdateGameStartArgBlocklistResponse struct {
 
 func (x *UpdateGameStartArgBlocklistResponse) Reset() {
 	*x = UpdateGameStartArgBlocklistResponse{}
-	mi := &file_xylona_proto_msgTypes[53]
+	mi := &file_xylona_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4156,7 +4245,7 @@ func (x *UpdateGameStartArgBlocklistResponse) String() string {
 func (*UpdateGameStartArgBlocklistResponse) ProtoMessage() {}
 
 func (x *UpdateGameStartArgBlocklistResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[53]
+	mi := &file_xylona_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4169,7 +4258,7 @@ func (x *UpdateGameStartArgBlocklistResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateGameStartArgBlocklistResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameStartArgBlocklistResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{53}
+	return file_xylona_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *UpdateGameStartArgBlocklistResponse) GetGame() *Game {
@@ -4188,7 +4277,7 @@ type RemoveGameRequest struct {
 
 func (x *RemoveGameRequest) Reset() {
 	*x = RemoveGameRequest{}
-	mi := &file_xylona_proto_msgTypes[54]
+	mi := &file_xylona_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4200,7 +4289,7 @@ func (x *RemoveGameRequest) String() string {
 func (*RemoveGameRequest) ProtoMessage() {}
 
 func (x *RemoveGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[54]
+	mi := &file_xylona_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4213,7 +4302,7 @@ func (x *RemoveGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveGameRequest.ProtoReflect.Descriptor instead.
 func (*RemoveGameRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{54}
+	return file_xylona_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *RemoveGameRequest) GetGameId() string {
@@ -4231,7 +4320,7 @@ type RemoveGameResponse struct {
 
 func (x *RemoveGameResponse) Reset() {
 	*x = RemoveGameResponse{}
-	mi := &file_xylona_proto_msgTypes[55]
+	mi := &file_xylona_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4243,7 +4332,7 @@ func (x *RemoveGameResponse) String() string {
 func (*RemoveGameResponse) ProtoMessage() {}
 
 func (x *RemoveGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[55]
+	mi := &file_xylona_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4256,7 +4345,7 @@ func (x *RemoveGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveGameResponse.ProtoReflect.Descriptor instead.
 func (*RemoveGameResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{55}
+	return file_xylona_proto_rawDescGZIP(), []int{57}
 }
 
 type ImportGameRequest struct {
@@ -4269,7 +4358,7 @@ type ImportGameRequest struct {
 
 func (x *ImportGameRequest) Reset() {
 	*x = ImportGameRequest{}
-	mi := &file_xylona_proto_msgTypes[56]
+	mi := &file_xylona_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4281,7 +4370,7 @@ func (x *ImportGameRequest) String() string {
 func (*ImportGameRequest) ProtoMessage() {}
 
 func (x *ImportGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[56]
+	mi := &file_xylona_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4294,7 +4383,7 @@ func (x *ImportGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportGameRequest.ProtoReflect.Descriptor instead.
 func (*ImportGameRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{56}
+	return file_xylona_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ImportGameRequest) GetGameDefinitionJson() string {
@@ -4324,7 +4413,7 @@ type GameImportChange struct {
 
 func (x *GameImportChange) Reset() {
 	*x = GameImportChange{}
-	mi := &file_xylona_proto_msgTypes[57]
+	mi := &file_xylona_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4336,7 +4425,7 @@ func (x *GameImportChange) String() string {
 func (*GameImportChange) ProtoMessage() {}
 
 func (x *GameImportChange) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[57]
+	mi := &file_xylona_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4349,7 +4438,7 @@ func (x *GameImportChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameImportChange.ProtoReflect.Descriptor instead.
 func (*GameImportChange) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{57}
+	return file_xylona_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *GameImportChange) GetSection() string {
@@ -4406,7 +4495,7 @@ type ImportGameResponse struct {
 
 func (x *ImportGameResponse) Reset() {
 	*x = ImportGameResponse{}
-	mi := &file_xylona_proto_msgTypes[58]
+	mi := &file_xylona_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4418,7 +4507,7 @@ func (x *ImportGameResponse) String() string {
 func (*ImportGameResponse) ProtoMessage() {}
 
 func (x *ImportGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[58]
+	mi := &file_xylona_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4431,7 +4520,7 @@ func (x *ImportGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportGameResponse.ProtoReflect.Descriptor instead.
 func (*ImportGameResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{58}
+	return file_xylona_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ImportGameResponse) GetGame() *Game {
@@ -4520,7 +4609,7 @@ type ResetGameToOfficialDefinitionRequest struct {
 
 func (x *ResetGameToOfficialDefinitionRequest) Reset() {
 	*x = ResetGameToOfficialDefinitionRequest{}
-	mi := &file_xylona_proto_msgTypes[59]
+	mi := &file_xylona_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4532,7 +4621,7 @@ func (x *ResetGameToOfficialDefinitionRequest) String() string {
 func (*ResetGameToOfficialDefinitionRequest) ProtoMessage() {}
 
 func (x *ResetGameToOfficialDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[59]
+	mi := &file_xylona_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4545,7 +4634,7 @@ func (x *ResetGameToOfficialDefinitionRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ResetGameToOfficialDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*ResetGameToOfficialDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{59}
+	return file_xylona_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ResetGameToOfficialDefinitionRequest) GetGameId() string {
@@ -4564,7 +4653,7 @@ type ResetGameToOfficialDefinitionResponse struct {
 
 func (x *ResetGameToOfficialDefinitionResponse) Reset() {
 	*x = ResetGameToOfficialDefinitionResponse{}
-	mi := &file_xylona_proto_msgTypes[60]
+	mi := &file_xylona_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4576,7 +4665,7 @@ func (x *ResetGameToOfficialDefinitionResponse) String() string {
 func (*ResetGameToOfficialDefinitionResponse) ProtoMessage() {}
 
 func (x *ResetGameToOfficialDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[60]
+	mi := &file_xylona_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4589,7 +4678,7 @@ func (x *ResetGameToOfficialDefinitionResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ResetGameToOfficialDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*ResetGameToOfficialDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{60}
+	return file_xylona_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ResetGameToOfficialDefinitionResponse) GetGame() *Game {
@@ -4608,7 +4697,7 @@ type ExportGameRequest struct {
 
 func (x *ExportGameRequest) Reset() {
 	*x = ExportGameRequest{}
-	mi := &file_xylona_proto_msgTypes[61]
+	mi := &file_xylona_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4620,7 +4709,7 @@ func (x *ExportGameRequest) String() string {
 func (*ExportGameRequest) ProtoMessage() {}
 
 func (x *ExportGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[61]
+	mi := &file_xylona_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4633,7 +4722,7 @@ func (x *ExportGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportGameRequest.ProtoReflect.Descriptor instead.
 func (*ExportGameRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{61}
+	return file_xylona_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ExportGameRequest) GetGameId() string {
@@ -4653,7 +4742,7 @@ type ExportGameResponse struct {
 
 func (x *ExportGameResponse) Reset() {
 	*x = ExportGameResponse{}
-	mi := &file_xylona_proto_msgTypes[62]
+	mi := &file_xylona_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4665,7 +4754,7 @@ func (x *ExportGameResponse) String() string {
 func (*ExportGameResponse) ProtoMessage() {}
 
 func (x *ExportGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[62]
+	mi := &file_xylona_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4678,7 +4767,7 @@ func (x *ExportGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportGameResponse.ProtoReflect.Descriptor instead.
 func (*ExportGameResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{62}
+	return file_xylona_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ExportGameResponse) GetGameDefinitionJson() string {
@@ -4705,7 +4794,7 @@ type UpdateGameServerRequest struct {
 
 func (x *UpdateGameServerRequest) Reset() {
 	*x = UpdateGameServerRequest{}
-	mi := &file_xylona_proto_msgTypes[63]
+	mi := &file_xylona_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4717,7 +4806,7 @@ func (x *UpdateGameServerRequest) String() string {
 func (*UpdateGameServerRequest) ProtoMessage() {}
 
 func (x *UpdateGameServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[63]
+	mi := &file_xylona_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4730,7 +4819,7 @@ func (x *UpdateGameServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameServerRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{63}
+	return file_xylona_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *UpdateGameServerRequest) GetServerId() string {
@@ -4755,7 +4844,7 @@ type UpdateGameServerResponse struct {
 
 func (x *UpdateGameServerResponse) Reset() {
 	*x = UpdateGameServerResponse{}
-	mi := &file_xylona_proto_msgTypes[64]
+	mi := &file_xylona_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4767,7 +4856,7 @@ func (x *UpdateGameServerResponse) String() string {
 func (*UpdateGameServerResponse) ProtoMessage() {}
 
 func (x *UpdateGameServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[64]
+	mi := &file_xylona_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4780,7 +4869,7 @@ func (x *UpdateGameServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameServerResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{64}
+	return file_xylona_proto_rawDescGZIP(), []int{66}
 }
 
 type UpdateGameServerStartArgsRequest struct {
@@ -4794,7 +4883,7 @@ type UpdateGameServerStartArgsRequest struct {
 
 func (x *UpdateGameServerStartArgsRequest) Reset() {
 	*x = UpdateGameServerStartArgsRequest{}
-	mi := &file_xylona_proto_msgTypes[65]
+	mi := &file_xylona_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4806,7 +4895,7 @@ func (x *UpdateGameServerStartArgsRequest) String() string {
 func (*UpdateGameServerStartArgsRequest) ProtoMessage() {}
 
 func (x *UpdateGameServerStartArgsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[65]
+	mi := &file_xylona_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4819,7 +4908,7 @@ func (x *UpdateGameServerStartArgsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameServerStartArgsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerStartArgsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{65}
+	return file_xylona_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *UpdateGameServerStartArgsRequest) GetServerId() string {
@@ -4852,7 +4941,7 @@ type UpdateGameServerStartArgsResponse struct {
 
 func (x *UpdateGameServerStartArgsResponse) Reset() {
 	*x = UpdateGameServerStartArgsResponse{}
-	mi := &file_xylona_proto_msgTypes[66]
+	mi := &file_xylona_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4864,7 +4953,7 @@ func (x *UpdateGameServerStartArgsResponse) String() string {
 func (*UpdateGameServerStartArgsResponse) ProtoMessage() {}
 
 func (x *UpdateGameServerStartArgsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[66]
+	mi := &file_xylona_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4877,7 +4966,7 @@ func (x *UpdateGameServerStartArgsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use UpdateGameServerStartArgsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerStartArgsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{66}
+	return file_xylona_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *UpdateGameServerStartArgsResponse) GetGameServer() *GameServer {
@@ -4896,7 +4985,7 @@ type GetGameEnvironmentRequest struct {
 
 func (x *GetGameEnvironmentRequest) Reset() {
 	*x = GetGameEnvironmentRequest{}
-	mi := &file_xylona_proto_msgTypes[67]
+	mi := &file_xylona_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4908,7 +4997,7 @@ func (x *GetGameEnvironmentRequest) String() string {
 func (*GetGameEnvironmentRequest) ProtoMessage() {}
 
 func (x *GetGameEnvironmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[67]
+	mi := &file_xylona_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4921,7 +5010,7 @@ func (x *GetGameEnvironmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameEnvironmentRequest.ProtoReflect.Descriptor instead.
 func (*GetGameEnvironmentRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{67}
+	return file_xylona_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *GetGameEnvironmentRequest) GetGameId() string {
@@ -4941,7 +5030,7 @@ type GetGameEnvironmentResponse struct {
 
 func (x *GetGameEnvironmentResponse) Reset() {
 	*x = GetGameEnvironmentResponse{}
-	mi := &file_xylona_proto_msgTypes[68]
+	mi := &file_xylona_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4953,7 +5042,7 @@ func (x *GetGameEnvironmentResponse) String() string {
 func (*GetGameEnvironmentResponse) ProtoMessage() {}
 
 func (x *GetGameEnvironmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[68]
+	mi := &file_xylona_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4966,7 +5055,7 @@ func (x *GetGameEnvironmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameEnvironmentResponse.ProtoReflect.Descriptor instead.
 func (*GetGameEnvironmentResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{68}
+	return file_xylona_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *GetGameEnvironmentResponse) GetDefaultEnv() []*EnvironmentVariable {
@@ -4993,7 +5082,7 @@ type UpdateGameEnvironmentRequest struct {
 
 func (x *UpdateGameEnvironmentRequest) Reset() {
 	*x = UpdateGameEnvironmentRequest{}
-	mi := &file_xylona_proto_msgTypes[69]
+	mi := &file_xylona_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5005,7 +5094,7 @@ func (x *UpdateGameEnvironmentRequest) String() string {
 func (*UpdateGameEnvironmentRequest) ProtoMessage() {}
 
 func (x *UpdateGameEnvironmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[69]
+	mi := &file_xylona_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5018,7 +5107,7 @@ func (x *UpdateGameEnvironmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameEnvironmentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameEnvironmentRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{69}
+	return file_xylona_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *UpdateGameEnvironmentRequest) GetGameId() string {
@@ -5045,7 +5134,7 @@ type UpdateGameEnvironmentResponse struct {
 
 func (x *UpdateGameEnvironmentResponse) Reset() {
 	*x = UpdateGameEnvironmentResponse{}
-	mi := &file_xylona_proto_msgTypes[70]
+	mi := &file_xylona_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5057,7 +5146,7 @@ func (x *UpdateGameEnvironmentResponse) String() string {
 func (*UpdateGameEnvironmentResponse) ProtoMessage() {}
 
 func (x *UpdateGameEnvironmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[70]
+	mi := &file_xylona_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5070,7 +5159,7 @@ func (x *UpdateGameEnvironmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameEnvironmentResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameEnvironmentResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{70}
+	return file_xylona_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UpdateGameEnvironmentResponse) GetDefaultEnv() []*EnvironmentVariable {
@@ -5096,7 +5185,7 @@ type GetGameServerEnvironmentRequest struct {
 
 func (x *GetGameServerEnvironmentRequest) Reset() {
 	*x = GetGameServerEnvironmentRequest{}
-	mi := &file_xylona_proto_msgTypes[71]
+	mi := &file_xylona_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5108,7 +5197,7 @@ func (x *GetGameServerEnvironmentRequest) String() string {
 func (*GetGameServerEnvironmentRequest) ProtoMessage() {}
 
 func (x *GetGameServerEnvironmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[71]
+	mi := &file_xylona_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5121,7 +5210,7 @@ func (x *GetGameServerEnvironmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerEnvironmentRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerEnvironmentRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{71}
+	return file_xylona_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *GetGameServerEnvironmentRequest) GetServerId() string {
@@ -5144,7 +5233,7 @@ type GetGameServerEnvironmentResponse struct {
 
 func (x *GetGameServerEnvironmentResponse) Reset() {
 	*x = GetGameServerEnvironmentResponse{}
-	mi := &file_xylona_proto_msgTypes[72]
+	mi := &file_xylona_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5156,7 +5245,7 @@ func (x *GetGameServerEnvironmentResponse) String() string {
 func (*GetGameServerEnvironmentResponse) ProtoMessage() {}
 
 func (x *GetGameServerEnvironmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[72]
+	mi := &file_xylona_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5169,7 +5258,7 @@ func (x *GetGameServerEnvironmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerEnvironmentResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerEnvironmentResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{72}
+	return file_xylona_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *GetGameServerEnvironmentResponse) GetGameDefaultEnv() []*EnvironmentVariable {
@@ -5217,7 +5306,7 @@ type UpdateGameServerEnvironmentRequest struct {
 
 func (x *UpdateGameServerEnvironmentRequest) Reset() {
 	*x = UpdateGameServerEnvironmentRequest{}
-	mi := &file_xylona_proto_msgTypes[73]
+	mi := &file_xylona_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5229,7 +5318,7 @@ func (x *UpdateGameServerEnvironmentRequest) String() string {
 func (*UpdateGameServerEnvironmentRequest) ProtoMessage() {}
 
 func (x *UpdateGameServerEnvironmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[73]
+	mi := &file_xylona_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5242,7 +5331,7 @@ func (x *UpdateGameServerEnvironmentRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateGameServerEnvironmentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerEnvironmentRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{73}
+	return file_xylona_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *UpdateGameServerEnvironmentRequest) GetServerId() string {
@@ -5270,7 +5359,7 @@ type UpdateGameServerEnvironmentResponse struct {
 
 func (x *UpdateGameServerEnvironmentResponse) Reset() {
 	*x = UpdateGameServerEnvironmentResponse{}
-	mi := &file_xylona_proto_msgTypes[74]
+	mi := &file_xylona_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5282,7 +5371,7 @@ func (x *UpdateGameServerEnvironmentResponse) String() string {
 func (*UpdateGameServerEnvironmentResponse) ProtoMessage() {}
 
 func (x *UpdateGameServerEnvironmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[74]
+	mi := &file_xylona_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5295,7 +5384,7 @@ func (x *UpdateGameServerEnvironmentResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateGameServerEnvironmentResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerEnvironmentResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{74}
+	return file_xylona_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *UpdateGameServerEnvironmentResponse) GetServerEnv() []*EnvironmentVariable {
@@ -5330,7 +5419,7 @@ type SetGameServerSecretEnvRequest struct {
 
 func (x *SetGameServerSecretEnvRequest) Reset() {
 	*x = SetGameServerSecretEnvRequest{}
-	mi := &file_xylona_proto_msgTypes[75]
+	mi := &file_xylona_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5342,7 +5431,7 @@ func (x *SetGameServerSecretEnvRequest) String() string {
 func (*SetGameServerSecretEnvRequest) ProtoMessage() {}
 
 func (x *SetGameServerSecretEnvRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[75]
+	mi := &file_xylona_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5355,7 +5444,7 @@ func (x *SetGameServerSecretEnvRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetGameServerSecretEnvRequest.ProtoReflect.Descriptor instead.
 func (*SetGameServerSecretEnvRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{75}
+	return file_xylona_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *SetGameServerSecretEnvRequest) GetServerId() string {
@@ -5389,7 +5478,7 @@ type SetGameServerSecretEnvResponse struct {
 
 func (x *SetGameServerSecretEnvResponse) Reset() {
 	*x = SetGameServerSecretEnvResponse{}
-	mi := &file_xylona_proto_msgTypes[76]
+	mi := &file_xylona_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5401,7 +5490,7 @@ func (x *SetGameServerSecretEnvResponse) String() string {
 func (*SetGameServerSecretEnvResponse) ProtoMessage() {}
 
 func (x *SetGameServerSecretEnvResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[76]
+	mi := &file_xylona_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5414,7 +5503,7 @@ func (x *SetGameServerSecretEnvResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetGameServerSecretEnvResponse.ProtoReflect.Descriptor instead.
 func (*SetGameServerSecretEnvResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{76}
+	return file_xylona_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *SetGameServerSecretEnvResponse) GetSecretEnv() []*SecretEnvironmentVariableState {
@@ -5441,7 +5530,7 @@ type ClearGameServerSecretEnvRequest struct {
 
 func (x *ClearGameServerSecretEnvRequest) Reset() {
 	*x = ClearGameServerSecretEnvRequest{}
-	mi := &file_xylona_proto_msgTypes[77]
+	mi := &file_xylona_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5453,7 +5542,7 @@ func (x *ClearGameServerSecretEnvRequest) String() string {
 func (*ClearGameServerSecretEnvRequest) ProtoMessage() {}
 
 func (x *ClearGameServerSecretEnvRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[77]
+	mi := &file_xylona_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5466,7 +5555,7 @@ func (x *ClearGameServerSecretEnvRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearGameServerSecretEnvRequest.ProtoReflect.Descriptor instead.
 func (*ClearGameServerSecretEnvRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{77}
+	return file_xylona_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *ClearGameServerSecretEnvRequest) GetServerId() string {
@@ -5493,7 +5582,7 @@ type ClearGameServerSecretEnvResponse struct {
 
 func (x *ClearGameServerSecretEnvResponse) Reset() {
 	*x = ClearGameServerSecretEnvResponse{}
-	mi := &file_xylona_proto_msgTypes[78]
+	mi := &file_xylona_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5505,7 +5594,7 @@ func (x *ClearGameServerSecretEnvResponse) String() string {
 func (*ClearGameServerSecretEnvResponse) ProtoMessage() {}
 
 func (x *ClearGameServerSecretEnvResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[78]
+	mi := &file_xylona_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5518,7 +5607,7 @@ func (x *ClearGameServerSecretEnvResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearGameServerSecretEnvResponse.ProtoReflect.Descriptor instead.
 func (*ClearGameServerSecretEnvResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{78}
+	return file_xylona_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *ClearGameServerSecretEnvResponse) GetSecretEnv() []*SecretEnvironmentVariableState {
@@ -5556,7 +5645,7 @@ type GameServerAdminInterface struct {
 
 func (x *GameServerAdminInterface) Reset() {
 	*x = GameServerAdminInterface{}
-	mi := &file_xylona_proto_msgTypes[79]
+	mi := &file_xylona_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5568,7 +5657,7 @@ func (x *GameServerAdminInterface) String() string {
 func (*GameServerAdminInterface) ProtoMessage() {}
 
 func (x *GameServerAdminInterface) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[79]
+	mi := &file_xylona_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5581,7 +5670,7 @@ func (x *GameServerAdminInterface) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerAdminInterface.ProtoReflect.Descriptor instead.
 func (*GameServerAdminInterface) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{79}
+	return file_xylona_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *GameServerAdminInterface) GetSupported() bool {
@@ -5670,7 +5759,7 @@ type GetGameServerAdminInterfaceRequest struct {
 
 func (x *GetGameServerAdminInterfaceRequest) Reset() {
 	*x = GetGameServerAdminInterfaceRequest{}
-	mi := &file_xylona_proto_msgTypes[80]
+	mi := &file_xylona_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5682,7 +5771,7 @@ func (x *GetGameServerAdminInterfaceRequest) String() string {
 func (*GetGameServerAdminInterfaceRequest) ProtoMessage() {}
 
 func (x *GetGameServerAdminInterfaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[80]
+	mi := &file_xylona_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5695,7 +5784,7 @@ func (x *GetGameServerAdminInterfaceRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetGameServerAdminInterfaceRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerAdminInterfaceRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{80}
+	return file_xylona_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *GetGameServerAdminInterfaceRequest) GetServerId() string {
@@ -5714,7 +5803,7 @@ type GetGameServerAdminInterfaceResponse struct {
 
 func (x *GetGameServerAdminInterfaceResponse) Reset() {
 	*x = GetGameServerAdminInterfaceResponse{}
-	mi := &file_xylona_proto_msgTypes[81]
+	mi := &file_xylona_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5726,7 +5815,7 @@ func (x *GetGameServerAdminInterfaceResponse) String() string {
 func (*GetGameServerAdminInterfaceResponse) ProtoMessage() {}
 
 func (x *GetGameServerAdminInterfaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[81]
+	mi := &file_xylona_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5739,7 +5828,7 @@ func (x *GetGameServerAdminInterfaceResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GetGameServerAdminInterfaceResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerAdminInterfaceResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{81}
+	return file_xylona_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *GetGameServerAdminInterfaceResponse) GetAdminInterface() *GameServerAdminInterface {
@@ -5759,7 +5848,7 @@ type SetGameServerAdminInterfacePasswordRequest struct {
 
 func (x *SetGameServerAdminInterfacePasswordRequest) Reset() {
 	*x = SetGameServerAdminInterfacePasswordRequest{}
-	mi := &file_xylona_proto_msgTypes[82]
+	mi := &file_xylona_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5771,7 +5860,7 @@ func (x *SetGameServerAdminInterfacePasswordRequest) String() string {
 func (*SetGameServerAdminInterfacePasswordRequest) ProtoMessage() {}
 
 func (x *SetGameServerAdminInterfacePasswordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[82]
+	mi := &file_xylona_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5784,7 +5873,7 @@ func (x *SetGameServerAdminInterfacePasswordRequest) ProtoReflect() protoreflect
 
 // Deprecated: Use SetGameServerAdminInterfacePasswordRequest.ProtoReflect.Descriptor instead.
 func (*SetGameServerAdminInterfacePasswordRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{82}
+	return file_xylona_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *SetGameServerAdminInterfacePasswordRequest) GetServerId() string {
@@ -5810,7 +5899,7 @@ type SetGameServerAdminInterfacePasswordResponse struct {
 
 func (x *SetGameServerAdminInterfacePasswordResponse) Reset() {
 	*x = SetGameServerAdminInterfacePasswordResponse{}
-	mi := &file_xylona_proto_msgTypes[83]
+	mi := &file_xylona_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5822,7 +5911,7 @@ func (x *SetGameServerAdminInterfacePasswordResponse) String() string {
 func (*SetGameServerAdminInterfacePasswordResponse) ProtoMessage() {}
 
 func (x *SetGameServerAdminInterfacePasswordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[83]
+	mi := &file_xylona_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5835,7 +5924,7 @@ func (x *SetGameServerAdminInterfacePasswordResponse) ProtoReflect() protoreflec
 
 // Deprecated: Use SetGameServerAdminInterfacePasswordResponse.ProtoReflect.Descriptor instead.
 func (*SetGameServerAdminInterfacePasswordResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{83}
+	return file_xylona_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *SetGameServerAdminInterfacePasswordResponse) GetAdminInterface() *GameServerAdminInterface {
@@ -5859,7 +5948,7 @@ type GameServerReadinessItem struct {
 
 func (x *GameServerReadinessItem) Reset() {
 	*x = GameServerReadinessItem{}
-	mi := &file_xylona_proto_msgTypes[84]
+	mi := &file_xylona_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5871,7 +5960,7 @@ func (x *GameServerReadinessItem) String() string {
 func (*GameServerReadinessItem) ProtoMessage() {}
 
 func (x *GameServerReadinessItem) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[84]
+	mi := &file_xylona_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5884,7 +5973,7 @@ func (x *GameServerReadinessItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerReadinessItem.ProtoReflect.Descriptor instead.
 func (*GameServerReadinessItem) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{84}
+	return file_xylona_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *GameServerReadinessItem) GetKind() string {
@@ -5938,7 +6027,7 @@ type GetGameServerReadinessRequest struct {
 
 func (x *GetGameServerReadinessRequest) Reset() {
 	*x = GetGameServerReadinessRequest{}
-	mi := &file_xylona_proto_msgTypes[85]
+	mi := &file_xylona_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5950,7 +6039,7 @@ func (x *GetGameServerReadinessRequest) String() string {
 func (*GetGameServerReadinessRequest) ProtoMessage() {}
 
 func (x *GetGameServerReadinessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[85]
+	mi := &file_xylona_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5963,7 +6052,7 @@ func (x *GetGameServerReadinessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerReadinessRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerReadinessRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{85}
+	return file_xylona_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *GetGameServerReadinessRequest) GetServerId() string {
@@ -5982,7 +6071,7 @@ type GetGameServerReadinessResponse struct {
 
 func (x *GetGameServerReadinessResponse) Reset() {
 	*x = GetGameServerReadinessResponse{}
-	mi := &file_xylona_proto_msgTypes[86]
+	mi := &file_xylona_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5994,7 +6083,7 @@ func (x *GetGameServerReadinessResponse) String() string {
 func (*GetGameServerReadinessResponse) ProtoMessage() {}
 
 func (x *GetGameServerReadinessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[86]
+	mi := &file_xylona_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6007,7 +6096,7 @@ func (x *GetGameServerReadinessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerReadinessResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerReadinessResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{86}
+	return file_xylona_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *GetGameServerReadinessResponse) GetItems() []*GameServerReadinessItem {
@@ -6026,7 +6115,7 @@ type AcceptMinecraftEulaRequest struct {
 
 func (x *AcceptMinecraftEulaRequest) Reset() {
 	*x = AcceptMinecraftEulaRequest{}
-	mi := &file_xylona_proto_msgTypes[87]
+	mi := &file_xylona_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6038,7 +6127,7 @@ func (x *AcceptMinecraftEulaRequest) String() string {
 func (*AcceptMinecraftEulaRequest) ProtoMessage() {}
 
 func (x *AcceptMinecraftEulaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[87]
+	mi := &file_xylona_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6051,7 +6140,7 @@ func (x *AcceptMinecraftEulaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptMinecraftEulaRequest.ProtoReflect.Descriptor instead.
 func (*AcceptMinecraftEulaRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{87}
+	return file_xylona_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *AcceptMinecraftEulaRequest) GetServerId() string {
@@ -6070,7 +6159,7 @@ type AcceptMinecraftEulaResponse struct {
 
 func (x *AcceptMinecraftEulaResponse) Reset() {
 	*x = AcceptMinecraftEulaResponse{}
-	mi := &file_xylona_proto_msgTypes[88]
+	mi := &file_xylona_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6082,7 +6171,7 @@ func (x *AcceptMinecraftEulaResponse) String() string {
 func (*AcceptMinecraftEulaResponse) ProtoMessage() {}
 
 func (x *AcceptMinecraftEulaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[88]
+	mi := &file_xylona_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6095,7 +6184,7 @@ func (x *AcceptMinecraftEulaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptMinecraftEulaResponse.ProtoReflect.Descriptor instead.
 func (*AcceptMinecraftEulaResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{88}
+	return file_xylona_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *AcceptMinecraftEulaResponse) GetItems() []*GameServerReadinessItem {
@@ -6115,7 +6204,7 @@ type SetSteamGSLTRequest struct {
 
 func (x *SetSteamGSLTRequest) Reset() {
 	*x = SetSteamGSLTRequest{}
-	mi := &file_xylona_proto_msgTypes[89]
+	mi := &file_xylona_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6127,7 +6216,7 @@ func (x *SetSteamGSLTRequest) String() string {
 func (*SetSteamGSLTRequest) ProtoMessage() {}
 
 func (x *SetSteamGSLTRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[89]
+	mi := &file_xylona_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6140,7 +6229,7 @@ func (x *SetSteamGSLTRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSteamGSLTRequest.ProtoReflect.Descriptor instead.
 func (*SetSteamGSLTRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{89}
+	return file_xylona_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *SetSteamGSLTRequest) GetServerId() string {
@@ -6166,7 +6255,7 @@ type SetSteamGSLTResponse struct {
 
 func (x *SetSteamGSLTResponse) Reset() {
 	*x = SetSteamGSLTResponse{}
-	mi := &file_xylona_proto_msgTypes[90]
+	mi := &file_xylona_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6178,7 +6267,7 @@ func (x *SetSteamGSLTResponse) String() string {
 func (*SetSteamGSLTResponse) ProtoMessage() {}
 
 func (x *SetSteamGSLTResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[90]
+	mi := &file_xylona_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6191,7 +6280,7 @@ func (x *SetSteamGSLTResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSteamGSLTResponse.ProtoReflect.Descriptor instead.
 func (*SetSteamGSLTResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{90}
+	return file_xylona_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *SetSteamGSLTResponse) GetItems() []*GameServerReadinessItem {
@@ -6210,7 +6299,7 @@ type ClearSteamGSLTRequest struct {
 
 func (x *ClearSteamGSLTRequest) Reset() {
 	*x = ClearSteamGSLTRequest{}
-	mi := &file_xylona_proto_msgTypes[91]
+	mi := &file_xylona_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6222,7 +6311,7 @@ func (x *ClearSteamGSLTRequest) String() string {
 func (*ClearSteamGSLTRequest) ProtoMessage() {}
 
 func (x *ClearSteamGSLTRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[91]
+	mi := &file_xylona_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6235,7 +6324,7 @@ func (x *ClearSteamGSLTRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearSteamGSLTRequest.ProtoReflect.Descriptor instead.
 func (*ClearSteamGSLTRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{91}
+	return file_xylona_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *ClearSteamGSLTRequest) GetServerId() string {
@@ -6254,7 +6343,7 @@ type ClearSteamGSLTResponse struct {
 
 func (x *ClearSteamGSLTResponse) Reset() {
 	*x = ClearSteamGSLTResponse{}
-	mi := &file_xylona_proto_msgTypes[92]
+	mi := &file_xylona_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6266,7 +6355,7 @@ func (x *ClearSteamGSLTResponse) String() string {
 func (*ClearSteamGSLTResponse) ProtoMessage() {}
 
 func (x *ClearSteamGSLTResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[92]
+	mi := &file_xylona_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6279,7 +6368,7 @@ func (x *ClearSteamGSLTResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearSteamGSLTResponse.ProtoReflect.Descriptor instead.
 func (*ClearSteamGSLTResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{92}
+	return file_xylona_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *ClearSteamGSLTResponse) GetItems() []*GameServerReadinessItem {
@@ -6299,7 +6388,7 @@ type HytaleProfile struct {
 
 func (x *HytaleProfile) Reset() {
 	*x = HytaleProfile{}
-	mi := &file_xylona_proto_msgTypes[93]
+	mi := &file_xylona_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6311,7 +6400,7 @@ func (x *HytaleProfile) String() string {
 func (*HytaleProfile) ProtoMessage() {}
 
 func (x *HytaleProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[93]
+	mi := &file_xylona_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6324,7 +6413,7 @@ func (x *HytaleProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HytaleProfile.ProtoReflect.Descriptor instead.
 func (*HytaleProfile) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{93}
+	return file_xylona_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *HytaleProfile) GetUuid() string {
@@ -6350,7 +6439,7 @@ type StartHytaleDeviceAuthRequest struct {
 
 func (x *StartHytaleDeviceAuthRequest) Reset() {
 	*x = StartHytaleDeviceAuthRequest{}
-	mi := &file_xylona_proto_msgTypes[94]
+	mi := &file_xylona_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6362,7 +6451,7 @@ func (x *StartHytaleDeviceAuthRequest) String() string {
 func (*StartHytaleDeviceAuthRequest) ProtoMessage() {}
 
 func (x *StartHytaleDeviceAuthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[94]
+	mi := &file_xylona_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6375,7 +6464,7 @@ func (x *StartHytaleDeviceAuthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartHytaleDeviceAuthRequest.ProtoReflect.Descriptor instead.
 func (*StartHytaleDeviceAuthRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{94}
+	return file_xylona_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *StartHytaleDeviceAuthRequest) GetServerId() string {
@@ -6399,7 +6488,7 @@ type StartHytaleDeviceAuthResponse struct {
 
 func (x *StartHytaleDeviceAuthResponse) Reset() {
 	*x = StartHytaleDeviceAuthResponse{}
-	mi := &file_xylona_proto_msgTypes[95]
+	mi := &file_xylona_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6411,7 +6500,7 @@ func (x *StartHytaleDeviceAuthResponse) String() string {
 func (*StartHytaleDeviceAuthResponse) ProtoMessage() {}
 
 func (x *StartHytaleDeviceAuthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[95]
+	mi := &file_xylona_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6424,7 +6513,7 @@ func (x *StartHytaleDeviceAuthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartHytaleDeviceAuthResponse.ProtoReflect.Descriptor instead.
 func (*StartHytaleDeviceAuthResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{95}
+	return file_xylona_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *StartHytaleDeviceAuthResponse) GetFlowId() string {
@@ -6478,7 +6567,7 @@ type PollHytaleDeviceAuthRequest struct {
 
 func (x *PollHytaleDeviceAuthRequest) Reset() {
 	*x = PollHytaleDeviceAuthRequest{}
-	mi := &file_xylona_proto_msgTypes[96]
+	mi := &file_xylona_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6490,7 +6579,7 @@ func (x *PollHytaleDeviceAuthRequest) String() string {
 func (*PollHytaleDeviceAuthRequest) ProtoMessage() {}
 
 func (x *PollHytaleDeviceAuthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[96]
+	mi := &file_xylona_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6503,7 +6592,7 @@ func (x *PollHytaleDeviceAuthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollHytaleDeviceAuthRequest.ProtoReflect.Descriptor instead.
 func (*PollHytaleDeviceAuthRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{96}
+	return file_xylona_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *PollHytaleDeviceAuthRequest) GetFlowId() string {
@@ -6525,7 +6614,7 @@ type PollHytaleDeviceAuthResponse struct {
 
 func (x *PollHytaleDeviceAuthResponse) Reset() {
 	*x = PollHytaleDeviceAuthResponse{}
-	mi := &file_xylona_proto_msgTypes[97]
+	mi := &file_xylona_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6537,7 +6626,7 @@ func (x *PollHytaleDeviceAuthResponse) String() string {
 func (*PollHytaleDeviceAuthResponse) ProtoMessage() {}
 
 func (x *PollHytaleDeviceAuthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[97]
+	mi := &file_xylona_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6550,7 +6639,7 @@ func (x *PollHytaleDeviceAuthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollHytaleDeviceAuthResponse.ProtoReflect.Descriptor instead.
 func (*PollHytaleDeviceAuthResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{97}
+	return file_xylona_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *PollHytaleDeviceAuthResponse) GetStatus() string {
@@ -6592,7 +6681,7 @@ type SelectHytaleProfileRequest struct {
 
 func (x *SelectHytaleProfileRequest) Reset() {
 	*x = SelectHytaleProfileRequest{}
-	mi := &file_xylona_proto_msgTypes[98]
+	mi := &file_xylona_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6604,7 +6693,7 @@ func (x *SelectHytaleProfileRequest) String() string {
 func (*SelectHytaleProfileRequest) ProtoMessage() {}
 
 func (x *SelectHytaleProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[98]
+	mi := &file_xylona_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6617,7 +6706,7 @@ func (x *SelectHytaleProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectHytaleProfileRequest.ProtoReflect.Descriptor instead.
 func (*SelectHytaleProfileRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{98}
+	return file_xylona_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *SelectHytaleProfileRequest) GetServerId() string {
@@ -6650,7 +6739,7 @@ type SelectHytaleProfileResponse struct {
 
 func (x *SelectHytaleProfileResponse) Reset() {
 	*x = SelectHytaleProfileResponse{}
-	mi := &file_xylona_proto_msgTypes[99]
+	mi := &file_xylona_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6662,7 +6751,7 @@ func (x *SelectHytaleProfileResponse) String() string {
 func (*SelectHytaleProfileResponse) ProtoMessage() {}
 
 func (x *SelectHytaleProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[99]
+	mi := &file_xylona_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6675,7 +6764,7 @@ func (x *SelectHytaleProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectHytaleProfileResponse.ProtoReflect.Descriptor instead.
 func (*SelectHytaleProfileResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{99}
+	return file_xylona_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *SelectHytaleProfileResponse) GetItems() []*GameServerReadinessItem {
@@ -6694,7 +6783,7 @@ type ClearHytaleAccountRequest struct {
 
 func (x *ClearHytaleAccountRequest) Reset() {
 	*x = ClearHytaleAccountRequest{}
-	mi := &file_xylona_proto_msgTypes[100]
+	mi := &file_xylona_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6706,7 +6795,7 @@ func (x *ClearHytaleAccountRequest) String() string {
 func (*ClearHytaleAccountRequest) ProtoMessage() {}
 
 func (x *ClearHytaleAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[100]
+	mi := &file_xylona_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6719,7 +6808,7 @@ func (x *ClearHytaleAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearHytaleAccountRequest.ProtoReflect.Descriptor instead.
 func (*ClearHytaleAccountRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{100}
+	return file_xylona_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *ClearHytaleAccountRequest) GetServerId() string {
@@ -6738,7 +6827,7 @@ type ClearHytaleAccountResponse struct {
 
 func (x *ClearHytaleAccountResponse) Reset() {
 	*x = ClearHytaleAccountResponse{}
-	mi := &file_xylona_proto_msgTypes[101]
+	mi := &file_xylona_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6750,7 +6839,7 @@ func (x *ClearHytaleAccountResponse) String() string {
 func (*ClearHytaleAccountResponse) ProtoMessage() {}
 
 func (x *ClearHytaleAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[101]
+	mi := &file_xylona_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6763,7 +6852,7 @@ func (x *ClearHytaleAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearHytaleAccountResponse.ProtoReflect.Descriptor instead.
 func (*ClearHytaleAccountResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{101}
+	return file_xylona_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *ClearHytaleAccountResponse) GetItems() []*GameServerReadinessItem {
@@ -6785,7 +6874,7 @@ type SetServerVariantRequest struct {
 
 func (x *SetServerVariantRequest) Reset() {
 	*x = SetServerVariantRequest{}
-	mi := &file_xylona_proto_msgTypes[102]
+	mi := &file_xylona_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6797,7 +6886,7 @@ func (x *SetServerVariantRequest) String() string {
 func (*SetServerVariantRequest) ProtoMessage() {}
 
 func (x *SetServerVariantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[102]
+	mi := &file_xylona_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6810,7 +6899,7 @@ func (x *SetServerVariantRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetServerVariantRequest.ProtoReflect.Descriptor instead.
 func (*SetServerVariantRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{102}
+	return file_xylona_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *SetServerVariantRequest) GetGameServerId() string {
@@ -6852,7 +6941,7 @@ type SetServerVariantResponse struct {
 
 func (x *SetServerVariantResponse) Reset() {
 	*x = SetServerVariantResponse{}
-	mi := &file_xylona_proto_msgTypes[103]
+	mi := &file_xylona_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6864,7 +6953,7 @@ func (x *SetServerVariantResponse) String() string {
 func (*SetServerVariantResponse) ProtoMessage() {}
 
 func (x *SetServerVariantResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[103]
+	mi := &file_xylona_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6877,7 +6966,7 @@ func (x *SetServerVariantResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetServerVariantResponse.ProtoReflect.Descriptor instead.
 func (*SetServerVariantResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{103}
+	return file_xylona_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *SetServerVariantResponse) GetGameServer() *GameServer {
@@ -6910,7 +6999,7 @@ type GetVariantOperationStatusRequest struct {
 
 func (x *GetVariantOperationStatusRequest) Reset() {
 	*x = GetVariantOperationStatusRequest{}
-	mi := &file_xylona_proto_msgTypes[104]
+	mi := &file_xylona_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6922,7 +7011,7 @@ func (x *GetVariantOperationStatusRequest) String() string {
 func (*GetVariantOperationStatusRequest) ProtoMessage() {}
 
 func (x *GetVariantOperationStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[104]
+	mi := &file_xylona_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6935,7 +7024,7 @@ func (x *GetVariantOperationStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVariantOperationStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetVariantOperationStatusRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{104}
+	return file_xylona_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *GetVariantOperationStatusRequest) GetGameServerId() string {
@@ -6956,7 +7045,7 @@ type GetVariantOperationStatusResponse struct {
 
 func (x *GetVariantOperationStatusResponse) Reset() {
 	*x = GetVariantOperationStatusResponse{}
-	mi := &file_xylona_proto_msgTypes[105]
+	mi := &file_xylona_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6968,7 +7057,7 @@ func (x *GetVariantOperationStatusResponse) String() string {
 func (*GetVariantOperationStatusResponse) ProtoMessage() {}
 
 func (x *GetVariantOperationStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[105]
+	mi := &file_xylona_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6981,7 +7070,7 @@ func (x *GetVariantOperationStatusResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetVariantOperationStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetVariantOperationStatusResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{105}
+	return file_xylona_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *GetVariantOperationStatusResponse) GetStatus() string {
@@ -7014,7 +7103,7 @@ type ReinstallGameServerRequest struct {
 
 func (x *ReinstallGameServerRequest) Reset() {
 	*x = ReinstallGameServerRequest{}
-	mi := &file_xylona_proto_msgTypes[106]
+	mi := &file_xylona_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7026,7 +7115,7 @@ func (x *ReinstallGameServerRequest) String() string {
 func (*ReinstallGameServerRequest) ProtoMessage() {}
 
 func (x *ReinstallGameServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[106]
+	mi := &file_xylona_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7039,7 +7128,7 @@ func (x *ReinstallGameServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReinstallGameServerRequest.ProtoReflect.Descriptor instead.
 func (*ReinstallGameServerRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{106}
+	return file_xylona_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *ReinstallGameServerRequest) GetServerId() string {
@@ -7058,7 +7147,7 @@ type ReinstallGameServerResponse struct {
 
 func (x *ReinstallGameServerResponse) Reset() {
 	*x = ReinstallGameServerResponse{}
-	mi := &file_xylona_proto_msgTypes[107]
+	mi := &file_xylona_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7070,7 +7159,7 @@ func (x *ReinstallGameServerResponse) String() string {
 func (*ReinstallGameServerResponse) ProtoMessage() {}
 
 func (x *ReinstallGameServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[107]
+	mi := &file_xylona_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7083,7 +7172,7 @@ func (x *ReinstallGameServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReinstallGameServerResponse.ProtoReflect.Descriptor instead.
 func (*ReinstallGameServerResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{107}
+	return file_xylona_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *ReinstallGameServerResponse) GetGameServer() *GameServer {
@@ -7102,7 +7191,7 @@ type BackupGameServerRequest struct {
 
 func (x *BackupGameServerRequest) Reset() {
 	*x = BackupGameServerRequest{}
-	mi := &file_xylona_proto_msgTypes[108]
+	mi := &file_xylona_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7114,7 +7203,7 @@ func (x *BackupGameServerRequest) String() string {
 func (*BackupGameServerRequest) ProtoMessage() {}
 
 func (x *BackupGameServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[108]
+	mi := &file_xylona_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7127,7 +7216,7 @@ func (x *BackupGameServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupGameServerRequest.ProtoReflect.Descriptor instead.
 func (*BackupGameServerRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{108}
+	return file_xylona_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *BackupGameServerRequest) GetServerId() string {
@@ -7145,7 +7234,7 @@ type BackupGameServerResponse struct {
 
 func (x *BackupGameServerResponse) Reset() {
 	*x = BackupGameServerResponse{}
-	mi := &file_xylona_proto_msgTypes[109]
+	mi := &file_xylona_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7157,7 +7246,7 @@ func (x *BackupGameServerResponse) String() string {
 func (*BackupGameServerResponse) ProtoMessage() {}
 
 func (x *BackupGameServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[109]
+	mi := &file_xylona_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7170,7 +7259,7 @@ func (x *BackupGameServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackupGameServerResponse.ProtoReflect.Descriptor instead.
 func (*BackupGameServerResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{109}
+	return file_xylona_proto_rawDescGZIP(), []int{111}
 }
 
 type QueryGameServerRequest struct {
@@ -7182,7 +7271,7 @@ type QueryGameServerRequest struct {
 
 func (x *QueryGameServerRequest) Reset() {
 	*x = QueryGameServerRequest{}
-	mi := &file_xylona_proto_msgTypes[110]
+	mi := &file_xylona_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7194,7 +7283,7 @@ func (x *QueryGameServerRequest) String() string {
 func (*QueryGameServerRequest) ProtoMessage() {}
 
 func (x *QueryGameServerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[110]
+	mi := &file_xylona_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7207,7 +7296,7 @@ func (x *QueryGameServerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryGameServerRequest.ProtoReflect.Descriptor instead.
 func (*QueryGameServerRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{110}
+	return file_xylona_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *QueryGameServerRequest) GetServerId() string {
@@ -7226,7 +7315,7 @@ type QueryGameServerResponse struct {
 
 func (x *QueryGameServerResponse) Reset() {
 	*x = QueryGameServerResponse{}
-	mi := &file_xylona_proto_msgTypes[111]
+	mi := &file_xylona_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7238,7 +7327,7 @@ func (x *QueryGameServerResponse) String() string {
 func (*QueryGameServerResponse) ProtoMessage() {}
 
 func (x *QueryGameServerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[111]
+	mi := &file_xylona_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7251,7 +7340,7 @@ func (x *QueryGameServerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryGameServerResponse.ProtoReflect.Descriptor instead.
 func (*QueryGameServerResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{111}
+	return file_xylona_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *QueryGameServerResponse) GetQueryInfo() *ServerQuery {
@@ -7270,7 +7359,7 @@ type GetNodeRequest struct {
 
 func (x *GetNodeRequest) Reset() {
 	*x = GetNodeRequest{}
-	mi := &file_xylona_proto_msgTypes[112]
+	mi := &file_xylona_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7282,7 +7371,7 @@ func (x *GetNodeRequest) String() string {
 func (*GetNodeRequest) ProtoMessage() {}
 
 func (x *GetNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[112]
+	mi := &file_xylona_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7295,7 +7384,7 @@ func (x *GetNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{112}
+	return file_xylona_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *GetNodeRequest) GetNodeId() string {
@@ -7314,7 +7403,7 @@ type GetNodeResponse struct {
 
 func (x *GetNodeResponse) Reset() {
 	*x = GetNodeResponse{}
-	mi := &file_xylona_proto_msgTypes[113]
+	mi := &file_xylona_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7326,7 +7415,7 @@ func (x *GetNodeResponse) String() string {
 func (*GetNodeResponse) ProtoMessage() {}
 
 func (x *GetNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[113]
+	mi := &file_xylona_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7339,7 +7428,7 @@ func (x *GetNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeResponse.ProtoReflect.Descriptor instead.
 func (*GetNodeResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{113}
+	return file_xylona_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *GetNodeResponse) GetNode() *Node {
@@ -7357,7 +7446,7 @@ type ListNodesRequest struct {
 
 func (x *ListNodesRequest) Reset() {
 	*x = ListNodesRequest{}
-	mi := &file_xylona_proto_msgTypes[114]
+	mi := &file_xylona_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7369,7 +7458,7 @@ func (x *ListNodesRequest) String() string {
 func (*ListNodesRequest) ProtoMessage() {}
 
 func (x *ListNodesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[114]
+	mi := &file_xylona_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7382,7 +7471,7 @@ func (x *ListNodesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodesRequest.ProtoReflect.Descriptor instead.
 func (*ListNodesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{114}
+	return file_xylona_proto_rawDescGZIP(), []int{116}
 }
 
 type ListNodesResponse struct {
@@ -7394,7 +7483,7 @@ type ListNodesResponse struct {
 
 func (x *ListNodesResponse) Reset() {
 	*x = ListNodesResponse{}
-	mi := &file_xylona_proto_msgTypes[115]
+	mi := &file_xylona_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7406,7 +7495,7 @@ func (x *ListNodesResponse) String() string {
 func (*ListNodesResponse) ProtoMessage() {}
 
 func (x *ListNodesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[115]
+	mi := &file_xylona_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7419,7 +7508,7 @@ func (x *ListNodesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodesResponse.ProtoReflect.Descriptor instead.
 func (*ListNodesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{115}
+	return file_xylona_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *ListNodesResponse) GetNodes() []*Node {
@@ -7441,7 +7530,7 @@ type GenerateNodePairingObjectRequest struct {
 
 func (x *GenerateNodePairingObjectRequest) Reset() {
 	*x = GenerateNodePairingObjectRequest{}
-	mi := &file_xylona_proto_msgTypes[116]
+	mi := &file_xylona_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7453,7 +7542,7 @@ func (x *GenerateNodePairingObjectRequest) String() string {
 func (*GenerateNodePairingObjectRequest) ProtoMessage() {}
 
 func (x *GenerateNodePairingObjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[116]
+	mi := &file_xylona_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7466,7 +7555,7 @@ func (x *GenerateNodePairingObjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateNodePairingObjectRequest.ProtoReflect.Descriptor instead.
 func (*GenerateNodePairingObjectRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{116}
+	return file_xylona_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *GenerateNodePairingObjectRequest) GetTargetUrl() string {
@@ -7489,7 +7578,7 @@ type GenerateNodePairingObjectResponse struct {
 
 func (x *GenerateNodePairingObjectResponse) Reset() {
 	*x = GenerateNodePairingObjectResponse{}
-	mi := &file_xylona_proto_msgTypes[117]
+	mi := &file_xylona_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7501,7 +7590,7 @@ func (x *GenerateNodePairingObjectResponse) String() string {
 func (*GenerateNodePairingObjectResponse) ProtoMessage() {}
 
 func (x *GenerateNodePairingObjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[117]
+	mi := &file_xylona_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7514,7 +7603,7 @@ func (x *GenerateNodePairingObjectResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GenerateNodePairingObjectResponse.ProtoReflect.Descriptor instead.
 func (*GenerateNodePairingObjectResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{117}
+	return file_xylona_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *GenerateNodePairingObjectResponse) GetBaseUrl() string {
@@ -7540,7 +7629,7 @@ type RemoveNodeRequest struct {
 
 func (x *RemoveNodeRequest) Reset() {
 	*x = RemoveNodeRequest{}
-	mi := &file_xylona_proto_msgTypes[118]
+	mi := &file_xylona_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7552,7 +7641,7 @@ func (x *RemoveNodeRequest) String() string {
 func (*RemoveNodeRequest) ProtoMessage() {}
 
 func (x *RemoveNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[118]
+	mi := &file_xylona_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7565,7 +7654,7 @@ func (x *RemoveNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveNodeRequest.ProtoReflect.Descriptor instead.
 func (*RemoveNodeRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{118}
+	return file_xylona_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *RemoveNodeRequest) GetNodeId() string {
@@ -7584,7 +7673,7 @@ type RemoveNodeResponse struct {
 
 func (x *RemoveNodeResponse) Reset() {
 	*x = RemoveNodeResponse{}
-	mi := &file_xylona_proto_msgTypes[119]
+	mi := &file_xylona_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7596,7 +7685,7 @@ func (x *RemoveNodeResponse) String() string {
 func (*RemoveNodeResponse) ProtoMessage() {}
 
 func (x *RemoveNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[119]
+	mi := &file_xylona_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7609,7 +7698,7 @@ func (x *RemoveNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveNodeResponse.ProtoReflect.Descriptor instead.
 func (*RemoveNodeResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{119}
+	return file_xylona_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *RemoveNodeResponse) GetNode() *Node {
@@ -7628,7 +7717,7 @@ type EditNodeRequest struct {
 
 func (x *EditNodeRequest) Reset() {
 	*x = EditNodeRequest{}
-	mi := &file_xylona_proto_msgTypes[120]
+	mi := &file_xylona_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7640,7 +7729,7 @@ func (x *EditNodeRequest) String() string {
 func (*EditNodeRequest) ProtoMessage() {}
 
 func (x *EditNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[120]
+	mi := &file_xylona_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7653,7 +7742,7 @@ func (x *EditNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditNodeRequest.ProtoReflect.Descriptor instead.
 func (*EditNodeRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{120}
+	return file_xylona_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *EditNodeRequest) GetNode() *Node {
@@ -7672,7 +7761,7 @@ type EditNodeResponse struct {
 
 func (x *EditNodeResponse) Reset() {
 	*x = EditNodeResponse{}
-	mi := &file_xylona_proto_msgTypes[121]
+	mi := &file_xylona_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7684,7 +7773,7 @@ func (x *EditNodeResponse) String() string {
 func (*EditNodeResponse) ProtoMessage() {}
 
 func (x *EditNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[121]
+	mi := &file_xylona_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7697,7 +7786,7 @@ func (x *EditNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditNodeResponse.ProtoReflect.Descriptor instead.
 func (*EditNodeResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{121}
+	return file_xylona_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *EditNodeResponse) GetNode() *Node {
@@ -7729,7 +7818,7 @@ type SystemUpdateAvailability struct {
 
 func (x *SystemUpdateAvailability) Reset() {
 	*x = SystemUpdateAvailability{}
-	mi := &file_xylona_proto_msgTypes[122]
+	mi := &file_xylona_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7741,7 +7830,7 @@ func (x *SystemUpdateAvailability) String() string {
 func (*SystemUpdateAvailability) ProtoMessage() {}
 
 func (x *SystemUpdateAvailability) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[122]
+	mi := &file_xylona_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7754,7 +7843,7 @@ func (x *SystemUpdateAvailability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemUpdateAvailability.ProtoReflect.Descriptor instead.
 func (*SystemUpdateAvailability) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{122}
+	return file_xylona_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *SystemUpdateAvailability) GetComponent() SystemUpdateComponent {
@@ -7882,7 +7971,7 @@ type SystemUpdateJob struct {
 
 func (x *SystemUpdateJob) Reset() {
 	*x = SystemUpdateJob{}
-	mi := &file_xylona_proto_msgTypes[123]
+	mi := &file_xylona_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7894,7 +7983,7 @@ func (x *SystemUpdateJob) String() string {
 func (*SystemUpdateJob) ProtoMessage() {}
 
 func (x *SystemUpdateJob) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[123]
+	mi := &file_xylona_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7907,7 +7996,7 @@ func (x *SystemUpdateJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemUpdateJob.ProtoReflect.Descriptor instead.
 func (*SystemUpdateJob) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{123}
+	return file_xylona_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *SystemUpdateJob) GetId() string {
@@ -8059,7 +8148,7 @@ type SystemUpdateJobEvent struct {
 
 func (x *SystemUpdateJobEvent) Reset() {
 	*x = SystemUpdateJobEvent{}
-	mi := &file_xylona_proto_msgTypes[124]
+	mi := &file_xylona_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8071,7 +8160,7 @@ func (x *SystemUpdateJobEvent) String() string {
 func (*SystemUpdateJobEvent) ProtoMessage() {}
 
 func (x *SystemUpdateJobEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[124]
+	mi := &file_xylona_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8084,7 +8173,7 @@ func (x *SystemUpdateJobEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemUpdateJobEvent.ProtoReflect.Descriptor instead.
 func (*SystemUpdateJobEvent) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{124}
+	return file_xylona_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *SystemUpdateJobEvent) GetId() string {
@@ -8160,7 +8249,7 @@ type SystemUpdateProgress struct {
 
 func (x *SystemUpdateProgress) Reset() {
 	*x = SystemUpdateProgress{}
-	mi := &file_xylona_proto_msgTypes[125]
+	mi := &file_xylona_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8172,7 +8261,7 @@ func (x *SystemUpdateProgress) String() string {
 func (*SystemUpdateProgress) ProtoMessage() {}
 
 func (x *SystemUpdateProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[125]
+	mi := &file_xylona_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8185,7 +8274,7 @@ func (x *SystemUpdateProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemUpdateProgress.ProtoReflect.Descriptor instead.
 func (*SystemUpdateProgress) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{125}
+	return file_xylona_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *SystemUpdateProgress) GetJobId() string {
@@ -8261,7 +8350,7 @@ type CheckSystemUpdatesRequest struct {
 
 func (x *CheckSystemUpdatesRequest) Reset() {
 	*x = CheckSystemUpdatesRequest{}
-	mi := &file_xylona_proto_msgTypes[126]
+	mi := &file_xylona_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8273,7 +8362,7 @@ func (x *CheckSystemUpdatesRequest) String() string {
 func (*CheckSystemUpdatesRequest) ProtoMessage() {}
 
 func (x *CheckSystemUpdatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[126]
+	mi := &file_xylona_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8286,7 +8375,7 @@ func (x *CheckSystemUpdatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckSystemUpdatesRequest.ProtoReflect.Descriptor instead.
 func (*CheckSystemUpdatesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{126}
+	return file_xylona_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *CheckSystemUpdatesRequest) GetNodeId() string {
@@ -8312,7 +8401,7 @@ type CheckSystemUpdatesResponse struct {
 
 func (x *CheckSystemUpdatesResponse) Reset() {
 	*x = CheckSystemUpdatesResponse{}
-	mi := &file_xylona_proto_msgTypes[127]
+	mi := &file_xylona_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8324,7 +8413,7 @@ func (x *CheckSystemUpdatesResponse) String() string {
 func (*CheckSystemUpdatesResponse) ProtoMessage() {}
 
 func (x *CheckSystemUpdatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[127]
+	mi := &file_xylona_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8337,7 +8426,7 @@ func (x *CheckSystemUpdatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckSystemUpdatesResponse.ProtoReflect.Descriptor instead.
 func (*CheckSystemUpdatesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{127}
+	return file_xylona_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *CheckSystemUpdatesResponse) GetUpdates() []*SystemUpdateAvailability {
@@ -8359,7 +8448,7 @@ type StartSystemUpdateRequest struct {
 
 func (x *StartSystemUpdateRequest) Reset() {
 	*x = StartSystemUpdateRequest{}
-	mi := &file_xylona_proto_msgTypes[128]
+	mi := &file_xylona_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8371,7 +8460,7 @@ func (x *StartSystemUpdateRequest) String() string {
 func (*StartSystemUpdateRequest) ProtoMessage() {}
 
 func (x *StartSystemUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[128]
+	mi := &file_xylona_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8384,7 +8473,7 @@ func (x *StartSystemUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSystemUpdateRequest.ProtoReflect.Descriptor instead.
 func (*StartSystemUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{128}
+	return file_xylona_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *StartSystemUpdateRequest) GetComponent() SystemUpdateComponent {
@@ -8424,7 +8513,7 @@ type StartSystemUpdateResponse struct {
 
 func (x *StartSystemUpdateResponse) Reset() {
 	*x = StartSystemUpdateResponse{}
-	mi := &file_xylona_proto_msgTypes[129]
+	mi := &file_xylona_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8436,7 +8525,7 @@ func (x *StartSystemUpdateResponse) String() string {
 func (*StartSystemUpdateResponse) ProtoMessage() {}
 
 func (x *StartSystemUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[129]
+	mi := &file_xylona_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8449,7 +8538,7 @@ func (x *StartSystemUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSystemUpdateResponse.ProtoReflect.Descriptor instead.
 func (*StartSystemUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{129}
+	return file_xylona_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *StartSystemUpdateResponse) GetJob() *SystemUpdateJob {
@@ -8469,7 +8558,7 @@ type ListSystemUpdateJobsRequest struct {
 
 func (x *ListSystemUpdateJobsRequest) Reset() {
 	*x = ListSystemUpdateJobsRequest{}
-	mi := &file_xylona_proto_msgTypes[130]
+	mi := &file_xylona_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8481,7 +8570,7 @@ func (x *ListSystemUpdateJobsRequest) String() string {
 func (*ListSystemUpdateJobsRequest) ProtoMessage() {}
 
 func (x *ListSystemUpdateJobsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[130]
+	mi := &file_xylona_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8494,7 +8583,7 @@ func (x *ListSystemUpdateJobsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSystemUpdateJobsRequest.ProtoReflect.Descriptor instead.
 func (*ListSystemUpdateJobsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{130}
+	return file_xylona_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *ListSystemUpdateJobsRequest) GetLimit() int32 {
@@ -8520,7 +8609,7 @@ type ListSystemUpdateJobsResponse struct {
 
 func (x *ListSystemUpdateJobsResponse) Reset() {
 	*x = ListSystemUpdateJobsResponse{}
-	mi := &file_xylona_proto_msgTypes[131]
+	mi := &file_xylona_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8532,7 +8621,7 @@ func (x *ListSystemUpdateJobsResponse) String() string {
 func (*ListSystemUpdateJobsResponse) ProtoMessage() {}
 
 func (x *ListSystemUpdateJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[131]
+	mi := &file_xylona_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8545,7 +8634,7 @@ func (x *ListSystemUpdateJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSystemUpdateJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListSystemUpdateJobsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{131}
+	return file_xylona_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *ListSystemUpdateJobsResponse) GetJobs() []*SystemUpdateJob {
@@ -8564,7 +8653,7 @@ type GetSystemUpdateJobRequest struct {
 
 func (x *GetSystemUpdateJobRequest) Reset() {
 	*x = GetSystemUpdateJobRequest{}
-	mi := &file_xylona_proto_msgTypes[132]
+	mi := &file_xylona_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8576,7 +8665,7 @@ func (x *GetSystemUpdateJobRequest) String() string {
 func (*GetSystemUpdateJobRequest) ProtoMessage() {}
 
 func (x *GetSystemUpdateJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[132]
+	mi := &file_xylona_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8589,7 +8678,7 @@ func (x *GetSystemUpdateJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSystemUpdateJobRequest.ProtoReflect.Descriptor instead.
 func (*GetSystemUpdateJobRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{132}
+	return file_xylona_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *GetSystemUpdateJobRequest) GetJobId() string {
@@ -8609,7 +8698,7 @@ type GetSystemUpdateJobResponse struct {
 
 func (x *GetSystemUpdateJobResponse) Reset() {
 	*x = GetSystemUpdateJobResponse{}
-	mi := &file_xylona_proto_msgTypes[133]
+	mi := &file_xylona_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8621,7 +8710,7 @@ func (x *GetSystemUpdateJobResponse) String() string {
 func (*GetSystemUpdateJobResponse) ProtoMessage() {}
 
 func (x *GetSystemUpdateJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[133]
+	mi := &file_xylona_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8634,7 +8723,7 @@ func (x *GetSystemUpdateJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSystemUpdateJobResponse.ProtoReflect.Descriptor instead.
 func (*GetSystemUpdateJobResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{133}
+	return file_xylona_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *GetSystemUpdateJobResponse) GetJob() *SystemUpdateJob {
@@ -8683,7 +8772,7 @@ type RemoteServerSummary struct {
 
 func (x *RemoteServerSummary) Reset() {
 	*x = RemoteServerSummary{}
-	mi := &file_xylona_proto_msgTypes[134]
+	mi := &file_xylona_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8695,7 +8784,7 @@ func (x *RemoteServerSummary) String() string {
 func (*RemoteServerSummary) ProtoMessage() {}
 
 func (x *RemoteServerSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[134]
+	mi := &file_xylona_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8708,7 +8797,7 @@ func (x *RemoteServerSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteServerSummary.ProtoReflect.Descriptor instead.
 func (*RemoteServerSummary) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{134}
+	return file_xylona_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *RemoteServerSummary) GetId() string {
@@ -8886,7 +8975,7 @@ type AggregatedGameServer struct {
 
 func (x *AggregatedGameServer) Reset() {
 	*x = AggregatedGameServer{}
-	mi := &file_xylona_proto_msgTypes[135]
+	mi := &file_xylona_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8898,7 +8987,7 @@ func (x *AggregatedGameServer) String() string {
 func (*AggregatedGameServer) ProtoMessage() {}
 
 func (x *AggregatedGameServer) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[135]
+	mi := &file_xylona_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8911,7 +9000,7 @@ func (x *AggregatedGameServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregatedGameServer.ProtoReflect.Descriptor instead.
 func (*AggregatedGameServer) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{135}
+	return file_xylona_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *AggregatedGameServer) GetIsLocal() bool {
@@ -8943,7 +9032,7 @@ type ListAggregatedGameServersRequest struct {
 
 func (x *ListAggregatedGameServersRequest) Reset() {
 	*x = ListAggregatedGameServersRequest{}
-	mi := &file_xylona_proto_msgTypes[136]
+	mi := &file_xylona_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8955,7 +9044,7 @@ func (x *ListAggregatedGameServersRequest) String() string {
 func (*ListAggregatedGameServersRequest) ProtoMessage() {}
 
 func (x *ListAggregatedGameServersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[136]
+	mi := &file_xylona_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8968,7 +9057,7 @@ func (x *ListAggregatedGameServersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAggregatedGameServersRequest.ProtoReflect.Descriptor instead.
 func (*ListAggregatedGameServersRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{136}
+	return file_xylona_proto_rawDescGZIP(), []int{138}
 }
 
 type ListAggregatedGameServersResponse struct {
@@ -8980,7 +9069,7 @@ type ListAggregatedGameServersResponse struct {
 
 func (x *ListAggregatedGameServersResponse) Reset() {
 	*x = ListAggregatedGameServersResponse{}
-	mi := &file_xylona_proto_msgTypes[137]
+	mi := &file_xylona_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8992,7 +9081,7 @@ func (x *ListAggregatedGameServersResponse) String() string {
 func (*ListAggregatedGameServersResponse) ProtoMessage() {}
 
 func (x *ListAggregatedGameServersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[137]
+	mi := &file_xylona_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9005,7 +9094,7 @@ func (x *ListAggregatedGameServersResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListAggregatedGameServersResponse.ProtoReflect.Descriptor instead.
 func (*ListAggregatedGameServersResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{137}
+	return file_xylona_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *ListAggregatedGameServersResponse) GetServers() []*AggregatedGameServer {
@@ -9023,7 +9112,7 @@ type ListRolesRequest struct {
 
 func (x *ListRolesRequest) Reset() {
 	*x = ListRolesRequest{}
-	mi := &file_xylona_proto_msgTypes[138]
+	mi := &file_xylona_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9035,7 +9124,7 @@ func (x *ListRolesRequest) String() string {
 func (*ListRolesRequest) ProtoMessage() {}
 
 func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[138]
+	mi := &file_xylona_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9048,7 +9137,7 @@ func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesRequest.ProtoReflect.Descriptor instead.
 func (*ListRolesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{138}
+	return file_xylona_proto_rawDescGZIP(), []int{140}
 }
 
 type ListRolesResponse struct {
@@ -9060,7 +9149,7 @@ type ListRolesResponse struct {
 
 func (x *ListRolesResponse) Reset() {
 	*x = ListRolesResponse{}
-	mi := &file_xylona_proto_msgTypes[139]
+	mi := &file_xylona_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9072,7 +9161,7 @@ func (x *ListRolesResponse) String() string {
 func (*ListRolesResponse) ProtoMessage() {}
 
 func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[139]
+	mi := &file_xylona_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9085,7 +9174,7 @@ func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesResponse.ProtoReflect.Descriptor instead.
 func (*ListRolesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{139}
+	return file_xylona_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *ListRolesResponse) GetRoles() []*Role {
@@ -9108,7 +9197,7 @@ type Role struct {
 
 func (x *Role) Reset() {
 	*x = Role{}
-	mi := &file_xylona_proto_msgTypes[140]
+	mi := &file_xylona_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9120,7 +9209,7 @@ func (x *Role) String() string {
 func (*Role) ProtoMessage() {}
 
 func (x *Role) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[140]
+	mi := &file_xylona_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9133,7 +9222,7 @@ func (x *Role) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Role.ProtoReflect.Descriptor instead.
 func (*Role) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{140}
+	return file_xylona_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *Role) GetId() string {
@@ -9182,7 +9271,7 @@ type Permission struct {
 
 func (x *Permission) Reset() {
 	*x = Permission{}
-	mi := &file_xylona_proto_msgTypes[141]
+	mi := &file_xylona_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9194,7 +9283,7 @@ func (x *Permission) String() string {
 func (*Permission) ProtoMessage() {}
 
 func (x *Permission) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[141]
+	mi := &file_xylona_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9207,7 +9296,7 @@ func (x *Permission) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Permission.ProtoReflect.Descriptor instead.
 func (*Permission) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{141}
+	return file_xylona_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *Permission) GetId() string {
@@ -9239,7 +9328,7 @@ type ListPermissionsRequest struct {
 
 func (x *ListPermissionsRequest) Reset() {
 	*x = ListPermissionsRequest{}
-	mi := &file_xylona_proto_msgTypes[142]
+	mi := &file_xylona_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9251,7 +9340,7 @@ func (x *ListPermissionsRequest) String() string {
 func (*ListPermissionsRequest) ProtoMessage() {}
 
 func (x *ListPermissionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[142]
+	mi := &file_xylona_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9264,7 +9353,7 @@ func (x *ListPermissionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPermissionsRequest.ProtoReflect.Descriptor instead.
 func (*ListPermissionsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{142}
+	return file_xylona_proto_rawDescGZIP(), []int{144}
 }
 
 type ListPermissionsResponse struct {
@@ -9276,7 +9365,7 @@ type ListPermissionsResponse struct {
 
 func (x *ListPermissionsResponse) Reset() {
 	*x = ListPermissionsResponse{}
-	mi := &file_xylona_proto_msgTypes[143]
+	mi := &file_xylona_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9288,7 +9377,7 @@ func (x *ListPermissionsResponse) String() string {
 func (*ListPermissionsResponse) ProtoMessage() {}
 
 func (x *ListPermissionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[143]
+	mi := &file_xylona_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9301,7 +9390,7 @@ func (x *ListPermissionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPermissionsResponse.ProtoReflect.Descriptor instead.
 func (*ListPermissionsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{143}
+	return file_xylona_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *ListPermissionsResponse) GetPermissions() []*Permission {
@@ -9322,7 +9411,7 @@ type CreateRoleRequest struct {
 
 func (x *CreateRoleRequest) Reset() {
 	*x = CreateRoleRequest{}
-	mi := &file_xylona_proto_msgTypes[144]
+	mi := &file_xylona_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9334,7 +9423,7 @@ func (x *CreateRoleRequest) String() string {
 func (*CreateRoleRequest) ProtoMessage() {}
 
 func (x *CreateRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[144]
+	mi := &file_xylona_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9347,7 +9436,7 @@ func (x *CreateRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRoleRequest.ProtoReflect.Descriptor instead.
 func (*CreateRoleRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{144}
+	return file_xylona_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *CreateRoleRequest) GetName() string {
@@ -9380,7 +9469,7 @@ type CreateRoleResponse struct {
 
 func (x *CreateRoleResponse) Reset() {
 	*x = CreateRoleResponse{}
-	mi := &file_xylona_proto_msgTypes[145]
+	mi := &file_xylona_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9392,7 +9481,7 @@ func (x *CreateRoleResponse) String() string {
 func (*CreateRoleResponse) ProtoMessage() {}
 
 func (x *CreateRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[145]
+	mi := &file_xylona_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9405,7 +9494,7 @@ func (x *CreateRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRoleResponse.ProtoReflect.Descriptor instead.
 func (*CreateRoleResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{145}
+	return file_xylona_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *CreateRoleResponse) GetRole() *Role {
@@ -9424,7 +9513,7 @@ type DeleteRoleRequest struct {
 
 func (x *DeleteRoleRequest) Reset() {
 	*x = DeleteRoleRequest{}
-	mi := &file_xylona_proto_msgTypes[146]
+	mi := &file_xylona_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9436,7 +9525,7 @@ func (x *DeleteRoleRequest) String() string {
 func (*DeleteRoleRequest) ProtoMessage() {}
 
 func (x *DeleteRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[146]
+	mi := &file_xylona_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9449,7 +9538,7 @@ func (x *DeleteRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRoleRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{146}
+	return file_xylona_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *DeleteRoleRequest) GetRoleId() string {
@@ -9467,7 +9556,7 @@ type DeleteRoleResponse struct {
 
 func (x *DeleteRoleResponse) Reset() {
 	*x = DeleteRoleResponse{}
-	mi := &file_xylona_proto_msgTypes[147]
+	mi := &file_xylona_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9479,7 +9568,7 @@ func (x *DeleteRoleResponse) String() string {
 func (*DeleteRoleResponse) ProtoMessage() {}
 
 func (x *DeleteRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[147]
+	mi := &file_xylona_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9492,7 +9581,7 @@ func (x *DeleteRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRoleResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{147}
+	return file_xylona_proto_rawDescGZIP(), []int{149}
 }
 
 type ListGameServerAccessGrantsRequest struct {
@@ -9504,7 +9593,7 @@ type ListGameServerAccessGrantsRequest struct {
 
 func (x *ListGameServerAccessGrantsRequest) Reset() {
 	*x = ListGameServerAccessGrantsRequest{}
-	mi := &file_xylona_proto_msgTypes[148]
+	mi := &file_xylona_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9516,7 +9605,7 @@ func (x *ListGameServerAccessGrantsRequest) String() string {
 func (*ListGameServerAccessGrantsRequest) ProtoMessage() {}
 
 func (x *ListGameServerAccessGrantsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[148]
+	mi := &file_xylona_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9529,7 +9618,7 @@ func (x *ListGameServerAccessGrantsRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListGameServerAccessGrantsRequest.ProtoReflect.Descriptor instead.
 func (*ListGameServerAccessGrantsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{148}
+	return file_xylona_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *ListGameServerAccessGrantsRequest) GetGameServerId() string {
@@ -9548,7 +9637,7 @@ type ListGameServerAccessGrantsResponse struct {
 
 func (x *ListGameServerAccessGrantsResponse) Reset() {
 	*x = ListGameServerAccessGrantsResponse{}
-	mi := &file_xylona_proto_msgTypes[149]
+	mi := &file_xylona_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9560,7 +9649,7 @@ func (x *ListGameServerAccessGrantsResponse) String() string {
 func (*ListGameServerAccessGrantsResponse) ProtoMessage() {}
 
 func (x *ListGameServerAccessGrantsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[149]
+	mi := &file_xylona_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9573,7 +9662,7 @@ func (x *ListGameServerAccessGrantsResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListGameServerAccessGrantsResponse.ProtoReflect.Descriptor instead.
 func (*ListGameServerAccessGrantsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{149}
+	return file_xylona_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *ListGameServerAccessGrantsResponse) GetGrants() []*GameServerAccessGrant {
@@ -9600,7 +9689,7 @@ type GameServerAccessGrant struct {
 
 func (x *GameServerAccessGrant) Reset() {
 	*x = GameServerAccessGrant{}
-	mi := &file_xylona_proto_msgTypes[150]
+	mi := &file_xylona_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9612,7 +9701,7 @@ func (x *GameServerAccessGrant) String() string {
 func (*GameServerAccessGrant) ProtoMessage() {}
 
 func (x *GameServerAccessGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[150]
+	mi := &file_xylona_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9625,7 +9714,7 @@ func (x *GameServerAccessGrant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerAccessGrant.ProtoReflect.Descriptor instead.
 func (*GameServerAccessGrant) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{150}
+	return file_xylona_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *GameServerAccessGrant) GetId() string {
@@ -9702,7 +9791,7 @@ type GrantGameServerAccessRequest struct {
 
 func (x *GrantGameServerAccessRequest) Reset() {
 	*x = GrantGameServerAccessRequest{}
-	mi := &file_xylona_proto_msgTypes[151]
+	mi := &file_xylona_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9714,7 +9803,7 @@ func (x *GrantGameServerAccessRequest) String() string {
 func (*GrantGameServerAccessRequest) ProtoMessage() {}
 
 func (x *GrantGameServerAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[151]
+	mi := &file_xylona_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9727,7 +9816,7 @@ func (x *GrantGameServerAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantGameServerAccessRequest.ProtoReflect.Descriptor instead.
 func (*GrantGameServerAccessRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{151}
+	return file_xylona_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *GrantGameServerAccessRequest) GetGameServerId() string {
@@ -9760,7 +9849,7 @@ type GrantGameServerAccessResponse struct {
 
 func (x *GrantGameServerAccessResponse) Reset() {
 	*x = GrantGameServerAccessResponse{}
-	mi := &file_xylona_proto_msgTypes[152]
+	mi := &file_xylona_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9772,7 +9861,7 @@ func (x *GrantGameServerAccessResponse) String() string {
 func (*GrantGameServerAccessResponse) ProtoMessage() {}
 
 func (x *GrantGameServerAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[152]
+	mi := &file_xylona_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9785,7 +9874,7 @@ func (x *GrantGameServerAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GrantGameServerAccessResponse.ProtoReflect.Descriptor instead.
 func (*GrantGameServerAccessResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{152}
+	return file_xylona_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *GrantGameServerAccessResponse) GetGrant() *GameServerAccessGrant {
@@ -9805,7 +9894,7 @@ type RevokeGameServerAccessRequest struct {
 
 func (x *RevokeGameServerAccessRequest) Reset() {
 	*x = RevokeGameServerAccessRequest{}
-	mi := &file_xylona_proto_msgTypes[153]
+	mi := &file_xylona_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9817,7 +9906,7 @@ func (x *RevokeGameServerAccessRequest) String() string {
 func (*RevokeGameServerAccessRequest) ProtoMessage() {}
 
 func (x *RevokeGameServerAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[153]
+	mi := &file_xylona_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9830,7 +9919,7 @@ func (x *RevokeGameServerAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeGameServerAccessRequest.ProtoReflect.Descriptor instead.
 func (*RevokeGameServerAccessRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{153}
+	return file_xylona_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *RevokeGameServerAccessRequest) GetGrantId() string {
@@ -9855,7 +9944,7 @@ type RevokeGameServerAccessResponse struct {
 
 func (x *RevokeGameServerAccessResponse) Reset() {
 	*x = RevokeGameServerAccessResponse{}
-	mi := &file_xylona_proto_msgTypes[154]
+	mi := &file_xylona_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9867,7 +9956,7 @@ func (x *RevokeGameServerAccessResponse) String() string {
 func (*RevokeGameServerAccessResponse) ProtoMessage() {}
 
 func (x *RevokeGameServerAccessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[154]
+	mi := &file_xylona_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9880,7 +9969,7 @@ func (x *RevokeGameServerAccessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeGameServerAccessResponse.ProtoReflect.Descriptor instead.
 func (*RevokeGameServerAccessResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{154}
+	return file_xylona_proto_rawDescGZIP(), []int{156}
 }
 
 type GetNodeSystemInfoRequest struct {
@@ -9892,7 +9981,7 @@ type GetNodeSystemInfoRequest struct {
 
 func (x *GetNodeSystemInfoRequest) Reset() {
 	*x = GetNodeSystemInfoRequest{}
-	mi := &file_xylona_proto_msgTypes[155]
+	mi := &file_xylona_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9904,7 +9993,7 @@ func (x *GetNodeSystemInfoRequest) String() string {
 func (*GetNodeSystemInfoRequest) ProtoMessage() {}
 
 func (x *GetNodeSystemInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[155]
+	mi := &file_xylona_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9917,7 +10006,7 @@ func (x *GetNodeSystemInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeSystemInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeSystemInfoRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{155}
+	return file_xylona_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *GetNodeSystemInfoRequest) GetNodeId() string {
@@ -9936,7 +10025,7 @@ type GetNodeSystemInfoResponse struct {
 
 func (x *GetNodeSystemInfoResponse) Reset() {
 	*x = GetNodeSystemInfoResponse{}
-	mi := &file_xylona_proto_msgTypes[156]
+	mi := &file_xylona_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9948,7 +10037,7 @@ func (x *GetNodeSystemInfoResponse) String() string {
 func (*GetNodeSystemInfoResponse) ProtoMessage() {}
 
 func (x *GetNodeSystemInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[156]
+	mi := &file_xylona_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9961,7 +10050,7 @@ func (x *GetNodeSystemInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeSystemInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetNodeSystemInfoResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{156}
+	return file_xylona_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *GetNodeSystemInfoResponse) GetSystemInfo() *NodeSystemInfo {
@@ -9980,7 +10069,7 @@ type GetNodeResourceSnapshotRequest struct {
 
 func (x *GetNodeResourceSnapshotRequest) Reset() {
 	*x = GetNodeResourceSnapshotRequest{}
-	mi := &file_xylona_proto_msgTypes[157]
+	mi := &file_xylona_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9992,7 +10081,7 @@ func (x *GetNodeResourceSnapshotRequest) String() string {
 func (*GetNodeResourceSnapshotRequest) ProtoMessage() {}
 
 func (x *GetNodeResourceSnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[157]
+	mi := &file_xylona_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10005,7 +10094,7 @@ func (x *GetNodeResourceSnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeResourceSnapshotRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeResourceSnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{157}
+	return file_xylona_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *GetNodeResourceSnapshotRequest) GetNodeId() string {
@@ -10024,7 +10113,7 @@ type GetNodeResourceSnapshotResponse struct {
 
 func (x *GetNodeResourceSnapshotResponse) Reset() {
 	*x = GetNodeResourceSnapshotResponse{}
-	mi := &file_xylona_proto_msgTypes[158]
+	mi := &file_xylona_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10036,7 +10125,7 @@ func (x *GetNodeResourceSnapshotResponse) String() string {
 func (*GetNodeResourceSnapshotResponse) ProtoMessage() {}
 
 func (x *GetNodeResourceSnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[158]
+	mi := &file_xylona_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10049,7 +10138,7 @@ func (x *GetNodeResourceSnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeResourceSnapshotResponse.ProtoReflect.Descriptor instead.
 func (*GetNodeResourceSnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{158}
+	return file_xylona_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *GetNodeResourceSnapshotResponse) GetSnapshot() *NodeResourceSnapshot {
@@ -10067,7 +10156,7 @@ type GetDashboardOverviewRequest struct {
 
 func (x *GetDashboardOverviewRequest) Reset() {
 	*x = GetDashboardOverviewRequest{}
-	mi := &file_xylona_proto_msgTypes[159]
+	mi := &file_xylona_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10079,7 +10168,7 @@ func (x *GetDashboardOverviewRequest) String() string {
 func (*GetDashboardOverviewRequest) ProtoMessage() {}
 
 func (x *GetDashboardOverviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[159]
+	mi := &file_xylona_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10092,7 +10181,7 @@ func (x *GetDashboardOverviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDashboardOverviewRequest.ProtoReflect.Descriptor instead.
 func (*GetDashboardOverviewRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{159}
+	return file_xylona_proto_rawDescGZIP(), []int{161}
 }
 
 // DashboardNodeSummary combines node info with live resource snapshot.
@@ -10107,7 +10196,7 @@ type DashboardNodeSummary struct {
 
 func (x *DashboardNodeSummary) Reset() {
 	*x = DashboardNodeSummary{}
-	mi := &file_xylona_proto_msgTypes[160]
+	mi := &file_xylona_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10119,7 +10208,7 @@ func (x *DashboardNodeSummary) String() string {
 func (*DashboardNodeSummary) ProtoMessage() {}
 
 func (x *DashboardNodeSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[160]
+	mi := &file_xylona_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10132,7 +10221,7 @@ func (x *DashboardNodeSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardNodeSummary.ProtoReflect.Descriptor instead.
 func (*DashboardNodeSummary) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{160}
+	return file_xylona_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *DashboardNodeSummary) GetNode() *Node {
@@ -10165,7 +10254,7 @@ type GetDashboardOverviewResponse struct {
 
 func (x *GetDashboardOverviewResponse) Reset() {
 	*x = GetDashboardOverviewResponse{}
-	mi := &file_xylona_proto_msgTypes[161]
+	mi := &file_xylona_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10177,7 +10266,7 @@ func (x *GetDashboardOverviewResponse) String() string {
 func (*GetDashboardOverviewResponse) ProtoMessage() {}
 
 func (x *GetDashboardOverviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[161]
+	mi := &file_xylona_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10190,7 +10279,7 @@ func (x *GetDashboardOverviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDashboardOverviewResponse.ProtoReflect.Descriptor instead.
 func (*GetDashboardOverviewResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{161}
+	return file_xylona_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *GetDashboardOverviewResponse) GetNodes() []*DashboardNodeSummary {
@@ -10212,7 +10301,7 @@ type GetNodeMetricsHistoryRequest struct {
 
 func (x *GetNodeMetricsHistoryRequest) Reset() {
 	*x = GetNodeMetricsHistoryRequest{}
-	mi := &file_xylona_proto_msgTypes[162]
+	mi := &file_xylona_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10224,7 +10313,7 @@ func (x *GetNodeMetricsHistoryRequest) String() string {
 func (*GetNodeMetricsHistoryRequest) ProtoMessage() {}
 
 func (x *GetNodeMetricsHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[162]
+	mi := &file_xylona_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10237,7 +10326,7 @@ func (x *GetNodeMetricsHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeMetricsHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeMetricsHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{162}
+	return file_xylona_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *GetNodeMetricsHistoryRequest) GetNodeId() string {
@@ -10278,7 +10367,7 @@ type GetNodeMetricsHistoryResponse struct {
 
 func (x *GetNodeMetricsHistoryResponse) Reset() {
 	*x = GetNodeMetricsHistoryResponse{}
-	mi := &file_xylona_proto_msgTypes[163]
+	mi := &file_xylona_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10290,7 +10379,7 @@ func (x *GetNodeMetricsHistoryResponse) String() string {
 func (*GetNodeMetricsHistoryResponse) ProtoMessage() {}
 
 func (x *GetNodeMetricsHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[163]
+	mi := &file_xylona_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10303,7 +10392,7 @@ func (x *GetNodeMetricsHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeMetricsHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetNodeMetricsHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{163}
+	return file_xylona_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *GetNodeMetricsHistoryResponse) GetPoints() []*MetricsHistoryPoint {
@@ -10332,7 +10421,7 @@ type GetGameServerMetricsHistoryRequest struct {
 
 func (x *GetGameServerMetricsHistoryRequest) Reset() {
 	*x = GetGameServerMetricsHistoryRequest{}
-	mi := &file_xylona_proto_msgTypes[164]
+	mi := &file_xylona_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10344,7 +10433,7 @@ func (x *GetGameServerMetricsHistoryRequest) String() string {
 func (*GetGameServerMetricsHistoryRequest) ProtoMessage() {}
 
 func (x *GetGameServerMetricsHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[164]
+	mi := &file_xylona_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10357,7 +10446,7 @@ func (x *GetGameServerMetricsHistoryRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetGameServerMetricsHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerMetricsHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{164}
+	return file_xylona_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *GetGameServerMetricsHistoryRequest) GetGameServerId() string {
@@ -10402,7 +10491,7 @@ type GetGameServerMetricsHistoryResponse struct {
 
 func (x *GetGameServerMetricsHistoryResponse) Reset() {
 	*x = GetGameServerMetricsHistoryResponse{}
-	mi := &file_xylona_proto_msgTypes[165]
+	mi := &file_xylona_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10414,7 +10503,7 @@ func (x *GetGameServerMetricsHistoryResponse) String() string {
 func (*GetGameServerMetricsHistoryResponse) ProtoMessage() {}
 
 func (x *GetGameServerMetricsHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[165]
+	mi := &file_xylona_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10427,7 +10516,7 @@ func (x *GetGameServerMetricsHistoryResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GetGameServerMetricsHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerMetricsHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{165}
+	return file_xylona_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *GetGameServerMetricsHistoryResponse) GetPoints() []*GameServerMetricsHistoryPoint {
@@ -10487,7 +10576,7 @@ type ConfigFileInfo struct {
 
 func (x *ConfigFileInfo) Reset() {
 	*x = ConfigFileInfo{}
-	mi := &file_xylona_proto_msgTypes[166]
+	mi := &file_xylona_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10499,7 +10588,7 @@ func (x *ConfigFileInfo) String() string {
 func (*ConfigFileInfo) ProtoMessage() {}
 
 func (x *ConfigFileInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[166]
+	mi := &file_xylona_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10512,7 +10601,7 @@ func (x *ConfigFileInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigFileInfo.ProtoReflect.Descriptor instead.
 func (*ConfigFileInfo) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{166}
+	return file_xylona_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *ConfigFileInfo) GetPath() string {
@@ -10591,7 +10680,7 @@ type ConfigFieldData struct {
 
 func (x *ConfigFieldData) Reset() {
 	*x = ConfigFieldData{}
-	mi := &file_xylona_proto_msgTypes[167]
+	mi := &file_xylona_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10603,7 +10692,7 @@ func (x *ConfigFieldData) String() string {
 func (*ConfigFieldData) ProtoMessage() {}
 
 func (x *ConfigFieldData) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[167]
+	mi := &file_xylona_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10616,7 +10705,7 @@ func (x *ConfigFieldData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigFieldData.ProtoReflect.Descriptor instead.
 func (*ConfigFieldData) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{167}
+	return file_xylona_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *ConfigFieldData) GetKey() string {
@@ -10763,7 +10852,7 @@ type AdvancedField struct {
 
 func (x *AdvancedField) Reset() {
 	*x = AdvancedField{}
-	mi := &file_xylona_proto_msgTypes[168]
+	mi := &file_xylona_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10775,7 +10864,7 @@ func (x *AdvancedField) String() string {
 func (*AdvancedField) ProtoMessage() {}
 
 func (x *AdvancedField) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[168]
+	mi := &file_xylona_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10788,7 +10877,7 @@ func (x *AdvancedField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvancedField.ProtoReflect.Descriptor instead.
 func (*AdvancedField) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{168}
+	return file_xylona_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *AdvancedField) GetKey() string {
@@ -10822,7 +10911,7 @@ type ConfigValidationError struct {
 
 func (x *ConfigValidationError) Reset() {
 	*x = ConfigValidationError{}
-	mi := &file_xylona_proto_msgTypes[169]
+	mi := &file_xylona_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10834,7 +10923,7 @@ func (x *ConfigValidationError) String() string {
 func (*ConfigValidationError) ProtoMessage() {}
 
 func (x *ConfigValidationError) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[169]
+	mi := &file_xylona_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10847,7 +10936,7 @@ func (x *ConfigValidationError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigValidationError.ProtoReflect.Descriptor instead.
 func (*ConfigValidationError) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{169}
+	return file_xylona_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *ConfigValidationError) GetField() string {
@@ -10873,7 +10962,7 @@ type GetGameServerConfigFilesRequest struct {
 
 func (x *GetGameServerConfigFilesRequest) Reset() {
 	*x = GetGameServerConfigFilesRequest{}
-	mi := &file_xylona_proto_msgTypes[170]
+	mi := &file_xylona_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10885,7 +10974,7 @@ func (x *GetGameServerConfigFilesRequest) String() string {
 func (*GetGameServerConfigFilesRequest) ProtoMessage() {}
 
 func (x *GetGameServerConfigFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[170]
+	mi := &file_xylona_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10898,7 +10987,7 @@ func (x *GetGameServerConfigFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerConfigFilesRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerConfigFilesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{170}
+	return file_xylona_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *GetGameServerConfigFilesRequest) GetGameServerId() string {
@@ -10918,7 +11007,7 @@ type GetGameServerConfigFilesResponse struct {
 
 func (x *GetGameServerConfigFilesResponse) Reset() {
 	*x = GetGameServerConfigFilesResponse{}
-	mi := &file_xylona_proto_msgTypes[171]
+	mi := &file_xylona_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10930,7 +11019,7 @@ func (x *GetGameServerConfigFilesResponse) String() string {
 func (*GetGameServerConfigFilesResponse) ProtoMessage() {}
 
 func (x *GetGameServerConfigFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[171]
+	mi := &file_xylona_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10943,7 +11032,7 @@ func (x *GetGameServerConfigFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerConfigFilesResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerConfigFilesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{171}
+	return file_xylona_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *GetGameServerConfigFilesResponse) GetConfigFiles() []*ConfigFileInfo {
@@ -10970,7 +11059,7 @@ type GetGameServerConfigFileRequest struct {
 
 func (x *GetGameServerConfigFileRequest) Reset() {
 	*x = GetGameServerConfigFileRequest{}
-	mi := &file_xylona_proto_msgTypes[172]
+	mi := &file_xylona_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10982,7 +11071,7 @@ func (x *GetGameServerConfigFileRequest) String() string {
 func (*GetGameServerConfigFileRequest) ProtoMessage() {}
 
 func (x *GetGameServerConfigFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[172]
+	mi := &file_xylona_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10995,7 +11084,7 @@ func (x *GetGameServerConfigFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerConfigFileRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerConfigFileRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{172}
+	return file_xylona_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *GetGameServerConfigFileRequest) GetGameServerId() string {
@@ -11025,7 +11114,7 @@ type GetGameServerConfigFileResponse struct {
 
 func (x *GetGameServerConfigFileResponse) Reset() {
 	*x = GetGameServerConfigFileResponse{}
-	mi := &file_xylona_proto_msgTypes[173]
+	mi := &file_xylona_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11037,7 +11126,7 @@ func (x *GetGameServerConfigFileResponse) String() string {
 func (*GetGameServerConfigFileResponse) ProtoMessage() {}
 
 func (x *GetGameServerConfigFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[173]
+	mi := &file_xylona_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11050,7 +11139,7 @@ func (x *GetGameServerConfigFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameServerConfigFileResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerConfigFileResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{173}
+	return file_xylona_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *GetGameServerConfigFileResponse) GetFields() []*ConfigFieldData {
@@ -11100,7 +11189,7 @@ type UpdateGameServerConfigFileRequest struct {
 
 func (x *UpdateGameServerConfigFileRequest) Reset() {
 	*x = UpdateGameServerConfigFileRequest{}
-	mi := &file_xylona_proto_msgTypes[174]
+	mi := &file_xylona_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11112,7 +11201,7 @@ func (x *UpdateGameServerConfigFileRequest) String() string {
 func (*UpdateGameServerConfigFileRequest) ProtoMessage() {}
 
 func (x *UpdateGameServerConfigFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[174]
+	mi := &file_xylona_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11125,7 +11214,7 @@ func (x *UpdateGameServerConfigFileRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use UpdateGameServerConfigFileRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerConfigFileRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{174}
+	return file_xylona_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *UpdateGameServerConfigFileRequest) GetGameServerId() string {
@@ -11166,7 +11255,7 @@ type UpdateGameServerConfigFileResponse struct {
 
 func (x *UpdateGameServerConfigFileResponse) Reset() {
 	*x = UpdateGameServerConfigFileResponse{}
-	mi := &file_xylona_proto_msgTypes[175]
+	mi := &file_xylona_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11178,7 +11267,7 @@ func (x *UpdateGameServerConfigFileResponse) String() string {
 func (*UpdateGameServerConfigFileResponse) ProtoMessage() {}
 
 func (x *UpdateGameServerConfigFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[175]
+	mi := &file_xylona_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11191,7 +11280,7 @@ func (x *UpdateGameServerConfigFileResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateGameServerConfigFileResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerConfigFileResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{175}
+	return file_xylona_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *UpdateGameServerConfigFileResponse) GetErrors() []*ConfigValidationError {
@@ -11218,7 +11307,7 @@ type GenerateGameServerConfigFileRequest struct {
 
 func (x *GenerateGameServerConfigFileRequest) Reset() {
 	*x = GenerateGameServerConfigFileRequest{}
-	mi := &file_xylona_proto_msgTypes[176]
+	mi := &file_xylona_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11230,7 +11319,7 @@ func (x *GenerateGameServerConfigFileRequest) String() string {
 func (*GenerateGameServerConfigFileRequest) ProtoMessage() {}
 
 func (x *GenerateGameServerConfigFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[176]
+	mi := &file_xylona_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11243,7 +11332,7 @@ func (x *GenerateGameServerConfigFileRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GenerateGameServerConfigFileRequest.ProtoReflect.Descriptor instead.
 func (*GenerateGameServerConfigFileRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{176}
+	return file_xylona_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *GenerateGameServerConfigFileRequest) GetGameServerId() string {
@@ -11269,7 +11358,7 @@ type GenerateGameServerConfigFileResponse struct {
 
 func (x *GenerateGameServerConfigFileResponse) Reset() {
 	*x = GenerateGameServerConfigFileResponse{}
-	mi := &file_xylona_proto_msgTypes[177]
+	mi := &file_xylona_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11281,7 +11370,7 @@ func (x *GenerateGameServerConfigFileResponse) String() string {
 func (*GenerateGameServerConfigFileResponse) ProtoMessage() {}
 
 func (x *GenerateGameServerConfigFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[177]
+	mi := &file_xylona_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11294,7 +11383,7 @@ func (x *GenerateGameServerConfigFileResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use GenerateGameServerConfigFileResponse.ProtoReflect.Descriptor instead.
 func (*GenerateGameServerConfigFileResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{177}
+	return file_xylona_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *GenerateGameServerConfigFileResponse) GetSuccess() bool {
@@ -11313,7 +11402,7 @@ type GetGameConfigSchemasRequest struct {
 
 func (x *GetGameConfigSchemasRequest) Reset() {
 	*x = GetGameConfigSchemasRequest{}
-	mi := &file_xylona_proto_msgTypes[178]
+	mi := &file_xylona_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11325,7 +11414,7 @@ func (x *GetGameConfigSchemasRequest) String() string {
 func (*GetGameConfigSchemasRequest) ProtoMessage() {}
 
 func (x *GetGameConfigSchemasRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[178]
+	mi := &file_xylona_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11338,7 +11427,7 @@ func (x *GetGameConfigSchemasRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameConfigSchemasRequest.ProtoReflect.Descriptor instead.
 func (*GetGameConfigSchemasRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{178}
+	return file_xylona_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *GetGameConfigSchemasRequest) GetGameId() string {
@@ -11357,7 +11446,7 @@ type GetGameConfigSchemasResponse struct {
 
 func (x *GetGameConfigSchemasResponse) Reset() {
 	*x = GetGameConfigSchemasResponse{}
-	mi := &file_xylona_proto_msgTypes[179]
+	mi := &file_xylona_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11369,7 +11458,7 @@ func (x *GetGameConfigSchemasResponse) String() string {
 func (*GetGameConfigSchemasResponse) ProtoMessage() {}
 
 func (x *GetGameConfigSchemasResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[179]
+	mi := &file_xylona_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11382,7 +11471,7 @@ func (x *GetGameConfigSchemasResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameConfigSchemasResponse.ProtoReflect.Descriptor instead.
 func (*GetGameConfigSchemasResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{179}
+	return file_xylona_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *GetGameConfigSchemasResponse) GetConfigSchemasJson() string {
@@ -11402,7 +11491,7 @@ type UpdateGameConfigSchemasRequest struct {
 
 func (x *UpdateGameConfigSchemasRequest) Reset() {
 	*x = UpdateGameConfigSchemasRequest{}
-	mi := &file_xylona_proto_msgTypes[180]
+	mi := &file_xylona_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11414,7 +11503,7 @@ func (x *UpdateGameConfigSchemasRequest) String() string {
 func (*UpdateGameConfigSchemasRequest) ProtoMessage() {}
 
 func (x *UpdateGameConfigSchemasRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[180]
+	mi := &file_xylona_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11427,7 +11516,7 @@ func (x *UpdateGameConfigSchemasRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameConfigSchemasRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameConfigSchemasRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{180}
+	return file_xylona_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *UpdateGameConfigSchemasRequest) GetGameId() string {
@@ -11454,7 +11543,7 @@ type UpdateGameConfigSchemasResponse struct {
 
 func (x *UpdateGameConfigSchemasResponse) Reset() {
 	*x = UpdateGameConfigSchemasResponse{}
-	mi := &file_xylona_proto_msgTypes[181]
+	mi := &file_xylona_proto_msgTypes[183]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11466,7 +11555,7 @@ func (x *UpdateGameConfigSchemasResponse) String() string {
 func (*UpdateGameConfigSchemasResponse) ProtoMessage() {}
 
 func (x *UpdateGameConfigSchemasResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[181]
+	mi := &file_xylona_proto_msgTypes[183]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11479,7 +11568,7 @@ func (x *UpdateGameConfigSchemasResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameConfigSchemasResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameConfigSchemasResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{181}
+	return file_xylona_proto_rawDescGZIP(), []int{183}
 }
 
 func (x *UpdateGameConfigSchemasResponse) GetSuccess() bool {
@@ -11505,7 +11594,7 @@ type SearchSteamAppsRequest struct {
 
 func (x *SearchSteamAppsRequest) Reset() {
 	*x = SearchSteamAppsRequest{}
-	mi := &file_xylona_proto_msgTypes[182]
+	mi := &file_xylona_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11517,7 +11606,7 @@ func (x *SearchSteamAppsRequest) String() string {
 func (*SearchSteamAppsRequest) ProtoMessage() {}
 
 func (x *SearchSteamAppsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[182]
+	mi := &file_xylona_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11530,7 +11619,7 @@ func (x *SearchSteamAppsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchSteamAppsRequest.ProtoReflect.Descriptor instead.
 func (*SearchSteamAppsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{182}
+	return file_xylona_proto_rawDescGZIP(), []int{184}
 }
 
 func (x *SearchSteamAppsRequest) GetQuery() string {
@@ -11549,7 +11638,7 @@ type SearchSteamAppsResponse struct {
 
 func (x *SearchSteamAppsResponse) Reset() {
 	*x = SearchSteamAppsResponse{}
-	mi := &file_xylona_proto_msgTypes[183]
+	mi := &file_xylona_proto_msgTypes[185]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11561,7 +11650,7 @@ func (x *SearchSteamAppsResponse) String() string {
 func (*SearchSteamAppsResponse) ProtoMessage() {}
 
 func (x *SearchSteamAppsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[183]
+	mi := &file_xylona_proto_msgTypes[185]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11574,7 +11663,7 @@ func (x *SearchSteamAppsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchSteamAppsResponse.ProtoReflect.Descriptor instead.
 func (*SearchSteamAppsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{183}
+	return file_xylona_proto_rawDescGZIP(), []int{185}
 }
 
 func (x *SearchSteamAppsResponse) GetApps() []*SteamApp {
@@ -11593,7 +11682,7 @@ type GetSteamAppDetailsRequest struct {
 
 func (x *GetSteamAppDetailsRequest) Reset() {
 	*x = GetSteamAppDetailsRequest{}
-	mi := &file_xylona_proto_msgTypes[184]
+	mi := &file_xylona_proto_msgTypes[186]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11605,7 +11694,7 @@ func (x *GetSteamAppDetailsRequest) String() string {
 func (*GetSteamAppDetailsRequest) ProtoMessage() {}
 
 func (x *GetSteamAppDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[184]
+	mi := &file_xylona_proto_msgTypes[186]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11618,7 +11707,7 @@ func (x *GetSteamAppDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSteamAppDetailsRequest.ProtoReflect.Descriptor instead.
 func (*GetSteamAppDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{184}
+	return file_xylona_proto_rawDescGZIP(), []int{186}
 }
 
 func (x *GetSteamAppDetailsRequest) GetAppId() string {
@@ -11638,7 +11727,7 @@ type GetSteamAppDetailsResponse struct {
 
 func (x *GetSteamAppDetailsResponse) Reset() {
 	*x = GetSteamAppDetailsResponse{}
-	mi := &file_xylona_proto_msgTypes[185]
+	mi := &file_xylona_proto_msgTypes[187]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11650,7 +11739,7 @@ func (x *GetSteamAppDetailsResponse) String() string {
 func (*GetSteamAppDetailsResponse) ProtoMessage() {}
 
 func (x *GetSteamAppDetailsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[185]
+	mi := &file_xylona_proto_msgTypes[187]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11663,7 +11752,7 @@ func (x *GetSteamAppDetailsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSteamAppDetailsResponse.ProtoReflect.Descriptor instead.
 func (*GetSteamAppDetailsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{185}
+	return file_xylona_proto_rawDescGZIP(), []int{187}
 }
 
 func (x *GetSteamAppDetailsResponse) GetDetails() *SteamAppDetails {
@@ -11697,7 +11786,7 @@ type SearchModsRequest struct {
 
 func (x *SearchModsRequest) Reset() {
 	*x = SearchModsRequest{}
-	mi := &file_xylona_proto_msgTypes[186]
+	mi := &file_xylona_proto_msgTypes[188]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11709,7 +11798,7 @@ func (x *SearchModsRequest) String() string {
 func (*SearchModsRequest) ProtoMessage() {}
 
 func (x *SearchModsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[186]
+	mi := &file_xylona_proto_msgTypes[188]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11722,7 +11811,7 @@ func (x *SearchModsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchModsRequest.ProtoReflect.Descriptor instead.
 func (*SearchModsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{186}
+	return file_xylona_proto_rawDescGZIP(), []int{188}
 }
 
 func (x *SearchModsRequest) GetGameServerId() string {
@@ -11791,7 +11880,7 @@ type SearchModsResponse struct {
 
 func (x *SearchModsResponse) Reset() {
 	*x = SearchModsResponse{}
-	mi := &file_xylona_proto_msgTypes[187]
+	mi := &file_xylona_proto_msgTypes[189]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11803,7 +11892,7 @@ func (x *SearchModsResponse) String() string {
 func (*SearchModsResponse) ProtoMessage() {}
 
 func (x *SearchModsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[187]
+	mi := &file_xylona_proto_msgTypes[189]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11816,7 +11905,7 @@ func (x *SearchModsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchModsResponse.ProtoReflect.Descriptor instead.
 func (*SearchModsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{187}
+	return file_xylona_proto_rawDescGZIP(), []int{189}
 }
 
 func (x *SearchModsResponse) GetResults() []*ModSearchResult {
@@ -11844,7 +11933,7 @@ type GetModDetailsRequest struct {
 
 func (x *GetModDetailsRequest) Reset() {
 	*x = GetModDetailsRequest{}
-	mi := &file_xylona_proto_msgTypes[188]
+	mi := &file_xylona_proto_msgTypes[190]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11856,7 +11945,7 @@ func (x *GetModDetailsRequest) String() string {
 func (*GetModDetailsRequest) ProtoMessage() {}
 
 func (x *GetModDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[188]
+	mi := &file_xylona_proto_msgTypes[190]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11869,7 +11958,7 @@ func (x *GetModDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModDetailsRequest.ProtoReflect.Descriptor instead.
 func (*GetModDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{188}
+	return file_xylona_proto_rawDescGZIP(), []int{190}
 }
 
 func (x *GetModDetailsRequest) GetGameServerId() string {
@@ -11902,7 +11991,7 @@ type GetModDetailsResponse struct {
 
 func (x *GetModDetailsResponse) Reset() {
 	*x = GetModDetailsResponse{}
-	mi := &file_xylona_proto_msgTypes[189]
+	mi := &file_xylona_proto_msgTypes[191]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11914,7 +12003,7 @@ func (x *GetModDetailsResponse) String() string {
 func (*GetModDetailsResponse) ProtoMessage() {}
 
 func (x *GetModDetailsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[189]
+	mi := &file_xylona_proto_msgTypes[191]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11927,7 +12016,7 @@ func (x *GetModDetailsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModDetailsResponse.ProtoReflect.Descriptor instead.
 func (*GetModDetailsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{189}
+	return file_xylona_proto_rawDescGZIP(), []int{191}
 }
 
 func (x *GetModDetailsResponse) GetDetails() *ModDetails {
@@ -11949,7 +12038,7 @@ type GetModVersionsRequest struct {
 
 func (x *GetModVersionsRequest) Reset() {
 	*x = GetModVersionsRequest{}
-	mi := &file_xylona_proto_msgTypes[190]
+	mi := &file_xylona_proto_msgTypes[192]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11961,7 +12050,7 @@ func (x *GetModVersionsRequest) String() string {
 func (*GetModVersionsRequest) ProtoMessage() {}
 
 func (x *GetModVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[190]
+	mi := &file_xylona_proto_msgTypes[192]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11974,7 +12063,7 @@ func (x *GetModVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModVersionsRequest.ProtoReflect.Descriptor instead.
 func (*GetModVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{190}
+	return file_xylona_proto_rawDescGZIP(), []int{192}
 }
 
 func (x *GetModVersionsRequest) GetGameServerId() string {
@@ -12014,7 +12103,7 @@ type GetModVersionsResponse struct {
 
 func (x *GetModVersionsResponse) Reset() {
 	*x = GetModVersionsResponse{}
-	mi := &file_xylona_proto_msgTypes[191]
+	mi := &file_xylona_proto_msgTypes[193]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12026,7 +12115,7 @@ func (x *GetModVersionsResponse) String() string {
 func (*GetModVersionsResponse) ProtoMessage() {}
 
 func (x *GetModVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[191]
+	mi := &file_xylona_proto_msgTypes[193]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12039,7 +12128,7 @@ func (x *GetModVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModVersionsResponse.ProtoReflect.Descriptor instead.
 func (*GetModVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{191}
+	return file_xylona_proto_rawDescGZIP(), []int{193}
 }
 
 func (x *GetModVersionsResponse) GetVersions() []*ModVersion {
@@ -12061,7 +12150,7 @@ type InstallModRequest struct {
 
 func (x *InstallModRequest) Reset() {
 	*x = InstallModRequest{}
-	mi := &file_xylona_proto_msgTypes[192]
+	mi := &file_xylona_proto_msgTypes[194]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12073,7 +12162,7 @@ func (x *InstallModRequest) String() string {
 func (*InstallModRequest) ProtoMessage() {}
 
 func (x *InstallModRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[192]
+	mi := &file_xylona_proto_msgTypes[194]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12086,7 +12175,7 @@ func (x *InstallModRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstallModRequest.ProtoReflect.Descriptor instead.
 func (*InstallModRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{192}
+	return file_xylona_proto_rawDescGZIP(), []int{194}
 }
 
 func (x *InstallModRequest) GetGameServerId() string {
@@ -12126,7 +12215,7 @@ type InstallModResponse struct {
 
 func (x *InstallModResponse) Reset() {
 	*x = InstallModResponse{}
-	mi := &file_xylona_proto_msgTypes[193]
+	mi := &file_xylona_proto_msgTypes[195]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12138,7 +12227,7 @@ func (x *InstallModResponse) String() string {
 func (*InstallModResponse) ProtoMessage() {}
 
 func (x *InstallModResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[193]
+	mi := &file_xylona_proto_msgTypes[195]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12151,7 +12240,7 @@ func (x *InstallModResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstallModResponse.ProtoReflect.Descriptor instead.
 func (*InstallModResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{193}
+	return file_xylona_proto_rawDescGZIP(), []int{195}
 }
 
 func (x *InstallModResponse) GetInstalledMod() *InstalledMod {
@@ -12171,7 +12260,7 @@ type UninstallModRequest struct {
 
 func (x *UninstallModRequest) Reset() {
 	*x = UninstallModRequest{}
-	mi := &file_xylona_proto_msgTypes[194]
+	mi := &file_xylona_proto_msgTypes[196]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12183,7 +12272,7 @@ func (x *UninstallModRequest) String() string {
 func (*UninstallModRequest) ProtoMessage() {}
 
 func (x *UninstallModRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[194]
+	mi := &file_xylona_proto_msgTypes[196]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12196,7 +12285,7 @@ func (x *UninstallModRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UninstallModRequest.ProtoReflect.Descriptor instead.
 func (*UninstallModRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{194}
+	return file_xylona_proto_rawDescGZIP(), []int{196}
 }
 
 func (x *UninstallModRequest) GetGameServerId() string {
@@ -12221,7 +12310,7 @@ type UninstallModResponse struct {
 
 func (x *UninstallModResponse) Reset() {
 	*x = UninstallModResponse{}
-	mi := &file_xylona_proto_msgTypes[195]
+	mi := &file_xylona_proto_msgTypes[197]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12233,7 +12322,7 @@ func (x *UninstallModResponse) String() string {
 func (*UninstallModResponse) ProtoMessage() {}
 
 func (x *UninstallModResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[195]
+	mi := &file_xylona_proto_msgTypes[197]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12246,7 +12335,7 @@ func (x *UninstallModResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UninstallModResponse.ProtoReflect.Descriptor instead.
 func (*UninstallModResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{195}
+	return file_xylona_proto_rawDescGZIP(), []int{197}
 }
 
 type UpdateModRequest struct {
@@ -12260,7 +12349,7 @@ type UpdateModRequest struct {
 
 func (x *UpdateModRequest) Reset() {
 	*x = UpdateModRequest{}
-	mi := &file_xylona_proto_msgTypes[196]
+	mi := &file_xylona_proto_msgTypes[198]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12272,7 +12361,7 @@ func (x *UpdateModRequest) String() string {
 func (*UpdateModRequest) ProtoMessage() {}
 
 func (x *UpdateModRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[196]
+	mi := &file_xylona_proto_msgTypes[198]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12285,7 +12374,7 @@ func (x *UpdateModRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateModRequest.ProtoReflect.Descriptor instead.
 func (*UpdateModRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{196}
+	return file_xylona_proto_rawDescGZIP(), []int{198}
 }
 
 func (x *UpdateModRequest) GetGameServerId() string {
@@ -12318,7 +12407,7 @@ type UpdateModResponse struct {
 
 func (x *UpdateModResponse) Reset() {
 	*x = UpdateModResponse{}
-	mi := &file_xylona_proto_msgTypes[197]
+	mi := &file_xylona_proto_msgTypes[199]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12330,7 +12419,7 @@ func (x *UpdateModResponse) String() string {
 func (*UpdateModResponse) ProtoMessage() {}
 
 func (x *UpdateModResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[197]
+	mi := &file_xylona_proto_msgTypes[199]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12343,7 +12432,7 @@ func (x *UpdateModResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateModResponse.ProtoReflect.Descriptor instead.
 func (*UpdateModResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{197}
+	return file_xylona_proto_rawDescGZIP(), []int{199}
 }
 
 func (x *UpdateModResponse) GetInstalledMod() *InstalledMod {
@@ -12362,7 +12451,7 @@ type ListInstalledModsRequest struct {
 
 func (x *ListInstalledModsRequest) Reset() {
 	*x = ListInstalledModsRequest{}
-	mi := &file_xylona_proto_msgTypes[198]
+	mi := &file_xylona_proto_msgTypes[200]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12374,7 +12463,7 @@ func (x *ListInstalledModsRequest) String() string {
 func (*ListInstalledModsRequest) ProtoMessage() {}
 
 func (x *ListInstalledModsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[198]
+	mi := &file_xylona_proto_msgTypes[200]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12387,7 +12476,7 @@ func (x *ListInstalledModsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInstalledModsRequest.ProtoReflect.Descriptor instead.
 func (*ListInstalledModsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{198}
+	return file_xylona_proto_rawDescGZIP(), []int{200}
 }
 
 func (x *ListInstalledModsRequest) GetGameServerId() string {
@@ -12406,7 +12495,7 @@ type ListInstalledModsResponse struct {
 
 func (x *ListInstalledModsResponse) Reset() {
 	*x = ListInstalledModsResponse{}
-	mi := &file_xylona_proto_msgTypes[199]
+	mi := &file_xylona_proto_msgTypes[201]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12418,7 +12507,7 @@ func (x *ListInstalledModsResponse) String() string {
 func (*ListInstalledModsResponse) ProtoMessage() {}
 
 func (x *ListInstalledModsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[199]
+	mi := &file_xylona_proto_msgTypes[201]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12431,7 +12520,7 @@ func (x *ListInstalledModsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInstalledModsResponse.ProtoReflect.Descriptor instead.
 func (*ListInstalledModsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{199}
+	return file_xylona_proto_rawDescGZIP(), []int{201}
 }
 
 func (x *ListInstalledModsResponse) GetInstalledMods() []*InstalledMod {
@@ -12454,7 +12543,7 @@ type SevenDaysToDieReportedMod struct {
 
 func (x *SevenDaysToDieReportedMod) Reset() {
 	*x = SevenDaysToDieReportedMod{}
-	mi := &file_xylona_proto_msgTypes[200]
+	mi := &file_xylona_proto_msgTypes[202]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12466,7 +12555,7 @@ func (x *SevenDaysToDieReportedMod) String() string {
 func (*SevenDaysToDieReportedMod) ProtoMessage() {}
 
 func (x *SevenDaysToDieReportedMod) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[200]
+	mi := &file_xylona_proto_msgTypes[202]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12479,7 +12568,7 @@ func (x *SevenDaysToDieReportedMod) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieReportedMod.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieReportedMod) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{200}
+	return file_xylona_proto_rawDescGZIP(), []int{202}
 }
 
 func (x *SevenDaysToDieReportedMod) GetName() string {
@@ -12526,7 +12615,7 @@ type GetSevenDaysToDieReportedModsRequest struct {
 
 func (x *GetSevenDaysToDieReportedModsRequest) Reset() {
 	*x = GetSevenDaysToDieReportedModsRequest{}
-	mi := &file_xylona_proto_msgTypes[201]
+	mi := &file_xylona_proto_msgTypes[203]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12538,7 +12627,7 @@ func (x *GetSevenDaysToDieReportedModsRequest) String() string {
 func (*GetSevenDaysToDieReportedModsRequest) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieReportedModsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[201]
+	mi := &file_xylona_proto_msgTypes[203]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12551,7 +12640,7 @@ func (x *GetSevenDaysToDieReportedModsRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use GetSevenDaysToDieReportedModsRequest.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieReportedModsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{201}
+	return file_xylona_proto_rawDescGZIP(), []int{203}
 }
 
 func (x *GetSevenDaysToDieReportedModsRequest) GetGameServerId() string {
@@ -12572,7 +12661,7 @@ type GetSevenDaysToDieReportedModsResponse struct {
 
 func (x *GetSevenDaysToDieReportedModsResponse) Reset() {
 	*x = GetSevenDaysToDieReportedModsResponse{}
-	mi := &file_xylona_proto_msgTypes[202]
+	mi := &file_xylona_proto_msgTypes[204]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12584,7 +12673,7 @@ func (x *GetSevenDaysToDieReportedModsResponse) String() string {
 func (*GetSevenDaysToDieReportedModsResponse) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieReportedModsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[202]
+	mi := &file_xylona_proto_msgTypes[204]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12597,7 +12686,7 @@ func (x *GetSevenDaysToDieReportedModsResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use GetSevenDaysToDieReportedModsResponse.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieReportedModsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{202}
+	return file_xylona_proto_rawDescGZIP(), []int{204}
 }
 
 func (x *GetSevenDaysToDieReportedModsResponse) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -12632,7 +12721,7 @@ type SetModAutoUpdateRequest struct {
 
 func (x *SetModAutoUpdateRequest) Reset() {
 	*x = SetModAutoUpdateRequest{}
-	mi := &file_xylona_proto_msgTypes[203]
+	mi := &file_xylona_proto_msgTypes[205]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12644,7 +12733,7 @@ func (x *SetModAutoUpdateRequest) String() string {
 func (*SetModAutoUpdateRequest) ProtoMessage() {}
 
 func (x *SetModAutoUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[203]
+	mi := &file_xylona_proto_msgTypes[205]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12657,7 +12746,7 @@ func (x *SetModAutoUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModAutoUpdateRequest.ProtoReflect.Descriptor instead.
 func (*SetModAutoUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{203}
+	return file_xylona_proto_rawDescGZIP(), []int{205}
 }
 
 func (x *SetModAutoUpdateRequest) GetGameServerId() string {
@@ -12690,7 +12779,7 @@ type SetModAutoUpdateResponse struct {
 
 func (x *SetModAutoUpdateResponse) Reset() {
 	*x = SetModAutoUpdateResponse{}
-	mi := &file_xylona_proto_msgTypes[204]
+	mi := &file_xylona_proto_msgTypes[206]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12702,7 +12791,7 @@ func (x *SetModAutoUpdateResponse) String() string {
 func (*SetModAutoUpdateResponse) ProtoMessage() {}
 
 func (x *SetModAutoUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[204]
+	mi := &file_xylona_proto_msgTypes[206]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12715,7 +12804,7 @@ func (x *SetModAutoUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModAutoUpdateResponse.ProtoReflect.Descriptor instead.
 func (*SetModAutoUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{204}
+	return file_xylona_proto_rawDescGZIP(), []int{206}
 }
 
 func (x *SetModAutoUpdateResponse) GetInstalledMod() *InstalledMod {
@@ -12736,7 +12825,7 @@ type SetModEnabledRequest struct {
 
 func (x *SetModEnabledRequest) Reset() {
 	*x = SetModEnabledRequest{}
-	mi := &file_xylona_proto_msgTypes[205]
+	mi := &file_xylona_proto_msgTypes[207]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12748,7 +12837,7 @@ func (x *SetModEnabledRequest) String() string {
 func (*SetModEnabledRequest) ProtoMessage() {}
 
 func (x *SetModEnabledRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[205]
+	mi := &file_xylona_proto_msgTypes[207]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12761,7 +12850,7 @@ func (x *SetModEnabledRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModEnabledRequest.ProtoReflect.Descriptor instead.
 func (*SetModEnabledRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{205}
+	return file_xylona_proto_rawDescGZIP(), []int{207}
 }
 
 func (x *SetModEnabledRequest) GetGameServerId() string {
@@ -12794,7 +12883,7 @@ type SetModEnabledResponse struct {
 
 func (x *SetModEnabledResponse) Reset() {
 	*x = SetModEnabledResponse{}
-	mi := &file_xylona_proto_msgTypes[206]
+	mi := &file_xylona_proto_msgTypes[208]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12806,7 +12895,7 @@ func (x *SetModEnabledResponse) String() string {
 func (*SetModEnabledResponse) ProtoMessage() {}
 
 func (x *SetModEnabledResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[206]
+	mi := &file_xylona_proto_msgTypes[208]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12819,7 +12908,7 @@ func (x *SetModEnabledResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModEnabledResponse.ProtoReflect.Descriptor instead.
 func (*SetModEnabledResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{206}
+	return file_xylona_proto_rawDescGZIP(), []int{208}
 }
 
 func (x *SetModEnabledResponse) GetInstalledMod() *InstalledMod {
@@ -12840,7 +12929,7 @@ type PinModVersionRequest struct {
 
 func (x *PinModVersionRequest) Reset() {
 	*x = PinModVersionRequest{}
-	mi := &file_xylona_proto_msgTypes[207]
+	mi := &file_xylona_proto_msgTypes[209]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12852,7 +12941,7 @@ func (x *PinModVersionRequest) String() string {
 func (*PinModVersionRequest) ProtoMessage() {}
 
 func (x *PinModVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[207]
+	mi := &file_xylona_proto_msgTypes[209]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12865,7 +12954,7 @@ func (x *PinModVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PinModVersionRequest.ProtoReflect.Descriptor instead.
 func (*PinModVersionRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{207}
+	return file_xylona_proto_rawDescGZIP(), []int{209}
 }
 
 func (x *PinModVersionRequest) GetGameServerId() string {
@@ -12898,7 +12987,7 @@ type PinModVersionResponse struct {
 
 func (x *PinModVersionResponse) Reset() {
 	*x = PinModVersionResponse{}
-	mi := &file_xylona_proto_msgTypes[208]
+	mi := &file_xylona_proto_msgTypes[210]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12910,7 +12999,7 @@ func (x *PinModVersionResponse) String() string {
 func (*PinModVersionResponse) ProtoMessage() {}
 
 func (x *PinModVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[208]
+	mi := &file_xylona_proto_msgTypes[210]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12923,7 +13012,7 @@ func (x *PinModVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PinModVersionResponse.ProtoReflect.Descriptor instead.
 func (*PinModVersionResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{208}
+	return file_xylona_proto_rawDescGZIP(), []int{210}
 }
 
 func (x *PinModVersionResponse) GetInstalledMod() *InstalledMod {
@@ -12942,7 +13031,7 @@ type GetModCategoriesRequest struct {
 
 func (x *GetModCategoriesRequest) Reset() {
 	*x = GetModCategoriesRequest{}
-	mi := &file_xylona_proto_msgTypes[209]
+	mi := &file_xylona_proto_msgTypes[211]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12954,7 +13043,7 @@ func (x *GetModCategoriesRequest) String() string {
 func (*GetModCategoriesRequest) ProtoMessage() {}
 
 func (x *GetModCategoriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[209]
+	mi := &file_xylona_proto_msgTypes[211]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12967,7 +13056,7 @@ func (x *GetModCategoriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModCategoriesRequest.ProtoReflect.Descriptor instead.
 func (*GetModCategoriesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{209}
+	return file_xylona_proto_rawDescGZIP(), []int{211}
 }
 
 func (x *GetModCategoriesRequest) GetGameServerId() string {
@@ -12986,7 +13075,7 @@ type GetModCategoriesResponse struct {
 
 func (x *GetModCategoriesResponse) Reset() {
 	*x = GetModCategoriesResponse{}
-	mi := &file_xylona_proto_msgTypes[210]
+	mi := &file_xylona_proto_msgTypes[212]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12998,7 +13087,7 @@ func (x *GetModCategoriesResponse) String() string {
 func (*GetModCategoriesResponse) ProtoMessage() {}
 
 func (x *GetModCategoriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[210]
+	mi := &file_xylona_proto_msgTypes[212]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13011,7 +13100,7 @@ func (x *GetModCategoriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModCategoriesResponse.ProtoReflect.Descriptor instead.
 func (*GetModCategoriesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{210}
+	return file_xylona_proto_rawDescGZIP(), []int{212}
 }
 
 func (x *GetModCategoriesResponse) GetCategories() []string {
@@ -13034,7 +13123,7 @@ type UpdateProgress struct {
 
 func (x *UpdateProgress) Reset() {
 	*x = UpdateProgress{}
-	mi := &file_xylona_proto_msgTypes[211]
+	mi := &file_xylona_proto_msgTypes[213]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13046,7 +13135,7 @@ func (x *UpdateProgress) String() string {
 func (*UpdateProgress) ProtoMessage() {}
 
 func (x *UpdateProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[211]
+	mi := &file_xylona_proto_msgTypes[213]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13059,7 +13148,7 @@ func (x *UpdateProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProgress.ProtoReflect.Descriptor instead.
 func (*UpdateProgress) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{211}
+	return file_xylona_proto_rawDescGZIP(), []int{213}
 }
 
 func (x *UpdateProgress) GetGameServerId() string {
@@ -13106,7 +13195,7 @@ type GetVersionInfoRequest struct {
 
 func (x *GetVersionInfoRequest) Reset() {
 	*x = GetVersionInfoRequest{}
-	mi := &file_xylona_proto_msgTypes[212]
+	mi := &file_xylona_proto_msgTypes[214]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13118,7 +13207,7 @@ func (x *GetVersionInfoRequest) String() string {
 func (*GetVersionInfoRequest) ProtoMessage() {}
 
 func (x *GetVersionInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[212]
+	mi := &file_xylona_proto_msgTypes[214]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13131,7 +13220,7 @@ func (x *GetVersionInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVersionInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetVersionInfoRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{212}
+	return file_xylona_proto_rawDescGZIP(), []int{214}
 }
 
 func (x *GetVersionInfoRequest) GetGameServerId() string {
@@ -13150,7 +13239,7 @@ type GetVersionInfoResponse struct {
 
 func (x *GetVersionInfoResponse) Reset() {
 	*x = GetVersionInfoResponse{}
-	mi := &file_xylona_proto_msgTypes[213]
+	mi := &file_xylona_proto_msgTypes[215]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13162,7 +13251,7 @@ func (x *GetVersionInfoResponse) String() string {
 func (*GetVersionInfoResponse) ProtoMessage() {}
 
 func (x *GetVersionInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[213]
+	mi := &file_xylona_proto_msgTypes[215]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13175,7 +13264,7 @@ func (x *GetVersionInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVersionInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetVersionInfoResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{213}
+	return file_xylona_proto_rawDescGZIP(), []int{215}
 }
 
 func (x *GetVersionInfoResponse) GetVersionInfo() *VersionInfo {
@@ -13194,7 +13283,7 @@ type CheckForUpdateRequest struct {
 
 func (x *CheckForUpdateRequest) Reset() {
 	*x = CheckForUpdateRequest{}
-	mi := &file_xylona_proto_msgTypes[214]
+	mi := &file_xylona_proto_msgTypes[216]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13206,7 +13295,7 @@ func (x *CheckForUpdateRequest) String() string {
 func (*CheckForUpdateRequest) ProtoMessage() {}
 
 func (x *CheckForUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[214]
+	mi := &file_xylona_proto_msgTypes[216]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13219,7 +13308,7 @@ func (x *CheckForUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckForUpdateRequest.ProtoReflect.Descriptor instead.
 func (*CheckForUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{214}
+	return file_xylona_proto_rawDescGZIP(), []int{216}
 }
 
 func (x *CheckForUpdateRequest) GetGameServerId() string {
@@ -13238,7 +13327,7 @@ type CheckForUpdateResponse struct {
 
 func (x *CheckForUpdateResponse) Reset() {
 	*x = CheckForUpdateResponse{}
-	mi := &file_xylona_proto_msgTypes[215]
+	mi := &file_xylona_proto_msgTypes[217]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13250,7 +13339,7 @@ func (x *CheckForUpdateResponse) String() string {
 func (*CheckForUpdateResponse) ProtoMessage() {}
 
 func (x *CheckForUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[215]
+	mi := &file_xylona_proto_msgTypes[217]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13263,7 +13352,7 @@ func (x *CheckForUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckForUpdateResponse.ProtoReflect.Descriptor instead.
 func (*CheckForUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{215}
+	return file_xylona_proto_rawDescGZIP(), []int{217}
 }
 
 func (x *CheckForUpdateResponse) GetVersionInfo() *VersionInfo {
@@ -13282,7 +13371,7 @@ type SetDummyUpdateFailureRequest struct {
 
 func (x *SetDummyUpdateFailureRequest) Reset() {
 	*x = SetDummyUpdateFailureRequest{}
-	mi := &file_xylona_proto_msgTypes[216]
+	mi := &file_xylona_proto_msgTypes[218]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13294,7 +13383,7 @@ func (x *SetDummyUpdateFailureRequest) String() string {
 func (*SetDummyUpdateFailureRequest) ProtoMessage() {}
 
 func (x *SetDummyUpdateFailureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[216]
+	mi := &file_xylona_proto_msgTypes[218]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13307,7 +13396,7 @@ func (x *SetDummyUpdateFailureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDummyUpdateFailureRequest.ProtoReflect.Descriptor instead.
 func (*SetDummyUpdateFailureRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{216}
+	return file_xylona_proto_rawDescGZIP(), []int{218}
 }
 
 func (x *SetDummyUpdateFailureRequest) GetSimulateFailure() bool {
@@ -13325,7 +13414,7 @@ type SetDummyUpdateFailureResponse struct {
 
 func (x *SetDummyUpdateFailureResponse) Reset() {
 	*x = SetDummyUpdateFailureResponse{}
-	mi := &file_xylona_proto_msgTypes[217]
+	mi := &file_xylona_proto_msgTypes[219]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13337,7 +13426,7 @@ func (x *SetDummyUpdateFailureResponse) String() string {
 func (*SetDummyUpdateFailureResponse) ProtoMessage() {}
 
 func (x *SetDummyUpdateFailureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[217]
+	mi := &file_xylona_proto_msgTypes[219]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13350,7 +13439,7 @@ func (x *SetDummyUpdateFailureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDummyUpdateFailureResponse.ProtoReflect.Descriptor instead.
 func (*SetDummyUpdateFailureResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{217}
+	return file_xylona_proto_rawDescGZIP(), []int{219}
 }
 
 type CreateNotificationChannelRequest struct {
@@ -13365,7 +13454,7 @@ type CreateNotificationChannelRequest struct {
 
 func (x *CreateNotificationChannelRequest) Reset() {
 	*x = CreateNotificationChannelRequest{}
-	mi := &file_xylona_proto_msgTypes[218]
+	mi := &file_xylona_proto_msgTypes[220]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13377,7 +13466,7 @@ func (x *CreateNotificationChannelRequest) String() string {
 func (*CreateNotificationChannelRequest) ProtoMessage() {}
 
 func (x *CreateNotificationChannelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[218]
+	mi := &file_xylona_proto_msgTypes[220]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13390,7 +13479,7 @@ func (x *CreateNotificationChannelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNotificationChannelRequest.ProtoReflect.Descriptor instead.
 func (*CreateNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{218}
+	return file_xylona_proto_rawDescGZIP(), []int{220}
 }
 
 func (x *CreateNotificationChannelRequest) GetName() string {
@@ -13430,7 +13519,7 @@ type CreateNotificationChannelResponse struct {
 
 func (x *CreateNotificationChannelResponse) Reset() {
 	*x = CreateNotificationChannelResponse{}
-	mi := &file_xylona_proto_msgTypes[219]
+	mi := &file_xylona_proto_msgTypes[221]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13442,7 +13531,7 @@ func (x *CreateNotificationChannelResponse) String() string {
 func (*CreateNotificationChannelResponse) ProtoMessage() {}
 
 func (x *CreateNotificationChannelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[219]
+	mi := &file_xylona_proto_msgTypes[221]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13455,7 +13544,7 @@ func (x *CreateNotificationChannelResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CreateNotificationChannelResponse.ProtoReflect.Descriptor instead.
 func (*CreateNotificationChannelResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{219}
+	return file_xylona_proto_rawDescGZIP(), []int{221}
 }
 
 func (x *CreateNotificationChannelResponse) GetChannel() *NotificationChannel {
@@ -13477,7 +13566,7 @@ type UpdateNotificationChannelRequest struct {
 
 func (x *UpdateNotificationChannelRequest) Reset() {
 	*x = UpdateNotificationChannelRequest{}
-	mi := &file_xylona_proto_msgTypes[220]
+	mi := &file_xylona_proto_msgTypes[222]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13489,7 +13578,7 @@ func (x *UpdateNotificationChannelRequest) String() string {
 func (*UpdateNotificationChannelRequest) ProtoMessage() {}
 
 func (x *UpdateNotificationChannelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[220]
+	mi := &file_xylona_proto_msgTypes[222]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13502,7 +13591,7 @@ func (x *UpdateNotificationChannelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateNotificationChannelRequest.ProtoReflect.Descriptor instead.
 func (*UpdateNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{220}
+	return file_xylona_proto_rawDescGZIP(), []int{222}
 }
 
 func (x *UpdateNotificationChannelRequest) GetId() string {
@@ -13542,7 +13631,7 @@ type UpdateNotificationChannelResponse struct {
 
 func (x *UpdateNotificationChannelResponse) Reset() {
 	*x = UpdateNotificationChannelResponse{}
-	mi := &file_xylona_proto_msgTypes[221]
+	mi := &file_xylona_proto_msgTypes[223]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13554,7 +13643,7 @@ func (x *UpdateNotificationChannelResponse) String() string {
 func (*UpdateNotificationChannelResponse) ProtoMessage() {}
 
 func (x *UpdateNotificationChannelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[221]
+	mi := &file_xylona_proto_msgTypes[223]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13567,7 +13656,7 @@ func (x *UpdateNotificationChannelResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use UpdateNotificationChannelResponse.ProtoReflect.Descriptor instead.
 func (*UpdateNotificationChannelResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{221}
+	return file_xylona_proto_rawDescGZIP(), []int{223}
 }
 
 func (x *UpdateNotificationChannelResponse) GetChannel() *NotificationChannel {
@@ -13586,7 +13675,7 @@ type DeleteNotificationChannelRequest struct {
 
 func (x *DeleteNotificationChannelRequest) Reset() {
 	*x = DeleteNotificationChannelRequest{}
-	mi := &file_xylona_proto_msgTypes[222]
+	mi := &file_xylona_proto_msgTypes[224]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13598,7 +13687,7 @@ func (x *DeleteNotificationChannelRequest) String() string {
 func (*DeleteNotificationChannelRequest) ProtoMessage() {}
 
 func (x *DeleteNotificationChannelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[222]
+	mi := &file_xylona_proto_msgTypes[224]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13611,7 +13700,7 @@ func (x *DeleteNotificationChannelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNotificationChannelRequest.ProtoReflect.Descriptor instead.
 func (*DeleteNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{222}
+	return file_xylona_proto_rawDescGZIP(), []int{224}
 }
 
 func (x *DeleteNotificationChannelRequest) GetId() string {
@@ -13629,7 +13718,7 @@ type DeleteNotificationChannelResponse struct {
 
 func (x *DeleteNotificationChannelResponse) Reset() {
 	*x = DeleteNotificationChannelResponse{}
-	mi := &file_xylona_proto_msgTypes[223]
+	mi := &file_xylona_proto_msgTypes[225]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13641,7 +13730,7 @@ func (x *DeleteNotificationChannelResponse) String() string {
 func (*DeleteNotificationChannelResponse) ProtoMessage() {}
 
 func (x *DeleteNotificationChannelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[223]
+	mi := &file_xylona_proto_msgTypes[225]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13654,7 +13743,7 @@ func (x *DeleteNotificationChannelResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use DeleteNotificationChannelResponse.ProtoReflect.Descriptor instead.
 func (*DeleteNotificationChannelResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{223}
+	return file_xylona_proto_rawDescGZIP(), []int{225}
 }
 
 type ListNotificationChannelsRequest struct {
@@ -13665,7 +13754,7 @@ type ListNotificationChannelsRequest struct {
 
 func (x *ListNotificationChannelsRequest) Reset() {
 	*x = ListNotificationChannelsRequest{}
-	mi := &file_xylona_proto_msgTypes[224]
+	mi := &file_xylona_proto_msgTypes[226]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13677,7 +13766,7 @@ func (x *ListNotificationChannelsRequest) String() string {
 func (*ListNotificationChannelsRequest) ProtoMessage() {}
 
 func (x *ListNotificationChannelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[224]
+	mi := &file_xylona_proto_msgTypes[226]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13690,7 +13779,7 @@ func (x *ListNotificationChannelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotificationChannelsRequest.ProtoReflect.Descriptor instead.
 func (*ListNotificationChannelsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{224}
+	return file_xylona_proto_rawDescGZIP(), []int{226}
 }
 
 type ListNotificationChannelsResponse struct {
@@ -13702,7 +13791,7 @@ type ListNotificationChannelsResponse struct {
 
 func (x *ListNotificationChannelsResponse) Reset() {
 	*x = ListNotificationChannelsResponse{}
-	mi := &file_xylona_proto_msgTypes[225]
+	mi := &file_xylona_proto_msgTypes[227]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13714,7 +13803,7 @@ func (x *ListNotificationChannelsResponse) String() string {
 func (*ListNotificationChannelsResponse) ProtoMessage() {}
 
 func (x *ListNotificationChannelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[225]
+	mi := &file_xylona_proto_msgTypes[227]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13727,7 +13816,7 @@ func (x *ListNotificationChannelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotificationChannelsResponse.ProtoReflect.Descriptor instead.
 func (*ListNotificationChannelsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{225}
+	return file_xylona_proto_rawDescGZIP(), []int{227}
 }
 
 func (x *ListNotificationChannelsResponse) GetChannels() []*NotificationChannel {
@@ -13746,7 +13835,7 @@ type TestNotificationChannelRequest struct {
 
 func (x *TestNotificationChannelRequest) Reset() {
 	*x = TestNotificationChannelRequest{}
-	mi := &file_xylona_proto_msgTypes[226]
+	mi := &file_xylona_proto_msgTypes[228]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13758,7 +13847,7 @@ func (x *TestNotificationChannelRequest) String() string {
 func (*TestNotificationChannelRequest) ProtoMessage() {}
 
 func (x *TestNotificationChannelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[226]
+	mi := &file_xylona_proto_msgTypes[228]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13771,7 +13860,7 @@ func (x *TestNotificationChannelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestNotificationChannelRequest.ProtoReflect.Descriptor instead.
 func (*TestNotificationChannelRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{226}
+	return file_xylona_proto_rawDescGZIP(), []int{228}
 }
 
 func (x *TestNotificationChannelRequest) GetId() string {
@@ -13791,7 +13880,7 @@ type TestNotificationChannelResponse struct {
 
 func (x *TestNotificationChannelResponse) Reset() {
 	*x = TestNotificationChannelResponse{}
-	mi := &file_xylona_proto_msgTypes[227]
+	mi := &file_xylona_proto_msgTypes[229]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13803,7 +13892,7 @@ func (x *TestNotificationChannelResponse) String() string {
 func (*TestNotificationChannelResponse) ProtoMessage() {}
 
 func (x *TestNotificationChannelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[227]
+	mi := &file_xylona_proto_msgTypes[229]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13816,7 +13905,7 @@ func (x *TestNotificationChannelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestNotificationChannelResponse.ProtoReflect.Descriptor instead.
 func (*TestNotificationChannelResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{227}
+	return file_xylona_proto_rawDescGZIP(), []int{229}
 }
 
 func (x *TestNotificationChannelResponse) GetSuccess() bool {
@@ -13841,7 +13930,7 @@ type GetLocalSMTPStatusRequest struct {
 
 func (x *GetLocalSMTPStatusRequest) Reset() {
 	*x = GetLocalSMTPStatusRequest{}
-	mi := &file_xylona_proto_msgTypes[228]
+	mi := &file_xylona_proto_msgTypes[230]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13853,7 +13942,7 @@ func (x *GetLocalSMTPStatusRequest) String() string {
 func (*GetLocalSMTPStatusRequest) ProtoMessage() {}
 
 func (x *GetLocalSMTPStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[228]
+	mi := &file_xylona_proto_msgTypes[230]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13866,7 +13955,7 @@ func (x *GetLocalSMTPStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLocalSMTPStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetLocalSMTPStatusRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{228}
+	return file_xylona_proto_rawDescGZIP(), []int{230}
 }
 
 type GetLocalSMTPStatusResponse struct {
@@ -13878,7 +13967,7 @@ type GetLocalSMTPStatusResponse struct {
 
 func (x *GetLocalSMTPStatusResponse) Reset() {
 	*x = GetLocalSMTPStatusResponse{}
-	mi := &file_xylona_proto_msgTypes[229]
+	mi := &file_xylona_proto_msgTypes[231]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13890,7 +13979,7 @@ func (x *GetLocalSMTPStatusResponse) String() string {
 func (*GetLocalSMTPStatusResponse) ProtoMessage() {}
 
 func (x *GetLocalSMTPStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[229]
+	mi := &file_xylona_proto_msgTypes[231]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13903,7 +13992,7 @@ func (x *GetLocalSMTPStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLocalSMTPStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetLocalSMTPStatusResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{229}
+	return file_xylona_proto_rawDescGZIP(), []int{231}
 }
 
 func (x *GetLocalSMTPStatusResponse) GetConfigured() bool {
@@ -13928,7 +14017,7 @@ type CreateAlertRuleRequest struct {
 
 func (x *CreateAlertRuleRequest) Reset() {
 	*x = CreateAlertRuleRequest{}
-	mi := &file_xylona_proto_msgTypes[230]
+	mi := &file_xylona_proto_msgTypes[232]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13940,7 +14029,7 @@ func (x *CreateAlertRuleRequest) String() string {
 func (*CreateAlertRuleRequest) ProtoMessage() {}
 
 func (x *CreateAlertRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[230]
+	mi := &file_xylona_proto_msgTypes[232]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13953,7 +14042,7 @@ func (x *CreateAlertRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAlertRuleRequest.ProtoReflect.Descriptor instead.
 func (*CreateAlertRuleRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{230}
+	return file_xylona_proto_rawDescGZIP(), []int{232}
 }
 
 func (x *CreateAlertRuleRequest) GetServerId() string {
@@ -14014,7 +14103,7 @@ type CreateAlertRuleResponse struct {
 
 func (x *CreateAlertRuleResponse) Reset() {
 	*x = CreateAlertRuleResponse{}
-	mi := &file_xylona_proto_msgTypes[231]
+	mi := &file_xylona_proto_msgTypes[233]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14026,7 +14115,7 @@ func (x *CreateAlertRuleResponse) String() string {
 func (*CreateAlertRuleResponse) ProtoMessage() {}
 
 func (x *CreateAlertRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[231]
+	mi := &file_xylona_proto_msgTypes[233]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14039,7 +14128,7 @@ func (x *CreateAlertRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAlertRuleResponse.ProtoReflect.Descriptor instead.
 func (*CreateAlertRuleResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{231}
+	return file_xylona_proto_rawDescGZIP(), []int{233}
 }
 
 func (x *CreateAlertRuleResponse) GetRule() *AlertRule {
@@ -14065,7 +14154,7 @@ type UpdateAlertRuleRequest struct {
 
 func (x *UpdateAlertRuleRequest) Reset() {
 	*x = UpdateAlertRuleRequest{}
-	mi := &file_xylona_proto_msgTypes[232]
+	mi := &file_xylona_proto_msgTypes[234]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14077,7 +14166,7 @@ func (x *UpdateAlertRuleRequest) String() string {
 func (*UpdateAlertRuleRequest) ProtoMessage() {}
 
 func (x *UpdateAlertRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[232]
+	mi := &file_xylona_proto_msgTypes[234]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14090,7 +14179,7 @@ func (x *UpdateAlertRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAlertRuleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAlertRuleRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{232}
+	return file_xylona_proto_rawDescGZIP(), []int{234}
 }
 
 func (x *UpdateAlertRuleRequest) GetId() string {
@@ -14158,7 +14247,7 @@ type UpdateAlertRuleResponse struct {
 
 func (x *UpdateAlertRuleResponse) Reset() {
 	*x = UpdateAlertRuleResponse{}
-	mi := &file_xylona_proto_msgTypes[233]
+	mi := &file_xylona_proto_msgTypes[235]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14170,7 +14259,7 @@ func (x *UpdateAlertRuleResponse) String() string {
 func (*UpdateAlertRuleResponse) ProtoMessage() {}
 
 func (x *UpdateAlertRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[233]
+	mi := &file_xylona_proto_msgTypes[235]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14183,7 +14272,7 @@ func (x *UpdateAlertRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAlertRuleResponse.ProtoReflect.Descriptor instead.
 func (*UpdateAlertRuleResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{233}
+	return file_xylona_proto_rawDescGZIP(), []int{235}
 }
 
 func (x *UpdateAlertRuleResponse) GetRule() *AlertRule {
@@ -14202,7 +14291,7 @@ type DeleteAlertRuleRequest struct {
 
 func (x *DeleteAlertRuleRequest) Reset() {
 	*x = DeleteAlertRuleRequest{}
-	mi := &file_xylona_proto_msgTypes[234]
+	mi := &file_xylona_proto_msgTypes[236]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14214,7 +14303,7 @@ func (x *DeleteAlertRuleRequest) String() string {
 func (*DeleteAlertRuleRequest) ProtoMessage() {}
 
 func (x *DeleteAlertRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[234]
+	mi := &file_xylona_proto_msgTypes[236]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14227,7 +14316,7 @@ func (x *DeleteAlertRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAlertRuleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAlertRuleRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{234}
+	return file_xylona_proto_rawDescGZIP(), []int{236}
 }
 
 func (x *DeleteAlertRuleRequest) GetId() string {
@@ -14245,7 +14334,7 @@ type DeleteAlertRuleResponse struct {
 
 func (x *DeleteAlertRuleResponse) Reset() {
 	*x = DeleteAlertRuleResponse{}
-	mi := &file_xylona_proto_msgTypes[235]
+	mi := &file_xylona_proto_msgTypes[237]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14257,7 +14346,7 @@ func (x *DeleteAlertRuleResponse) String() string {
 func (*DeleteAlertRuleResponse) ProtoMessage() {}
 
 func (x *DeleteAlertRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[235]
+	mi := &file_xylona_proto_msgTypes[237]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14270,7 +14359,7 @@ func (x *DeleteAlertRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAlertRuleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteAlertRuleResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{235}
+	return file_xylona_proto_rawDescGZIP(), []int{237}
 }
 
 type ListAlertRulesRequest struct {
@@ -14283,7 +14372,7 @@ type ListAlertRulesRequest struct {
 
 func (x *ListAlertRulesRequest) Reset() {
 	*x = ListAlertRulesRequest{}
-	mi := &file_xylona_proto_msgTypes[236]
+	mi := &file_xylona_proto_msgTypes[238]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14295,7 +14384,7 @@ func (x *ListAlertRulesRequest) String() string {
 func (*ListAlertRulesRequest) ProtoMessage() {}
 
 func (x *ListAlertRulesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[236]
+	mi := &file_xylona_proto_msgTypes[238]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14308,7 +14397,7 @@ func (x *ListAlertRulesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertRulesRequest.ProtoReflect.Descriptor instead.
 func (*ListAlertRulesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{236}
+	return file_xylona_proto_rawDescGZIP(), []int{238}
 }
 
 func (x *ListAlertRulesRequest) GetServerId() string {
@@ -14334,7 +14423,7 @@ type ListAlertRulesResponse struct {
 
 func (x *ListAlertRulesResponse) Reset() {
 	*x = ListAlertRulesResponse{}
-	mi := &file_xylona_proto_msgTypes[237]
+	mi := &file_xylona_proto_msgTypes[239]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14346,7 +14435,7 @@ func (x *ListAlertRulesResponse) String() string {
 func (*ListAlertRulesResponse) ProtoMessage() {}
 
 func (x *ListAlertRulesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[237]
+	mi := &file_xylona_proto_msgTypes[239]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14359,7 +14448,7 @@ func (x *ListAlertRulesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlertRulesResponse.ProtoReflect.Descriptor instead.
 func (*ListAlertRulesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{237}
+	return file_xylona_proto_rawDescGZIP(), []int{239}
 }
 
 func (x *ListAlertRulesResponse) GetRules() []*AlertRule {
@@ -14381,7 +14470,7 @@ type GetAlertHistoryRequest struct {
 
 func (x *GetAlertHistoryRequest) Reset() {
 	*x = GetAlertHistoryRequest{}
-	mi := &file_xylona_proto_msgTypes[238]
+	mi := &file_xylona_proto_msgTypes[240]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14393,7 +14482,7 @@ func (x *GetAlertHistoryRequest) String() string {
 func (*GetAlertHistoryRequest) ProtoMessage() {}
 
 func (x *GetAlertHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[238]
+	mi := &file_xylona_proto_msgTypes[240]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14406,7 +14495,7 @@ func (x *GetAlertHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAlertHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetAlertHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{238}
+	return file_xylona_proto_rawDescGZIP(), []int{240}
 }
 
 func (x *GetAlertHistoryRequest) GetServerId() string {
@@ -14446,7 +14535,7 @@ type GetAlertHistoryResponse struct {
 
 func (x *GetAlertHistoryResponse) Reset() {
 	*x = GetAlertHistoryResponse{}
-	mi := &file_xylona_proto_msgTypes[239]
+	mi := &file_xylona_proto_msgTypes[241]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14458,7 +14547,7 @@ func (x *GetAlertHistoryResponse) String() string {
 func (*GetAlertHistoryResponse) ProtoMessage() {}
 
 func (x *GetAlertHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[239]
+	mi := &file_xylona_proto_msgTypes[241]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14471,7 +14560,7 @@ func (x *GetAlertHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAlertHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetAlertHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{239}
+	return file_xylona_proto_rawDescGZIP(), []int{241}
 }
 
 func (x *GetAlertHistoryResponse) GetEntries() []*AlertHistoryEntry {
@@ -14489,7 +14578,7 @@ type GetSystemSMTPConfigRequest struct {
 
 func (x *GetSystemSMTPConfigRequest) Reset() {
 	*x = GetSystemSMTPConfigRequest{}
-	mi := &file_xylona_proto_msgTypes[240]
+	mi := &file_xylona_proto_msgTypes[242]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14501,7 +14590,7 @@ func (x *GetSystemSMTPConfigRequest) String() string {
 func (*GetSystemSMTPConfigRequest) ProtoMessage() {}
 
 func (x *GetSystemSMTPConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[240]
+	mi := &file_xylona_proto_msgTypes[242]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14514,7 +14603,7 @@ func (x *GetSystemSMTPConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSystemSMTPConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetSystemSMTPConfigRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{240}
+	return file_xylona_proto_rawDescGZIP(), []int{242}
 }
 
 type GetSystemSMTPConfigResponse struct {
@@ -14530,7 +14619,7 @@ type GetSystemSMTPConfigResponse struct {
 
 func (x *GetSystemSMTPConfigResponse) Reset() {
 	*x = GetSystemSMTPConfigResponse{}
-	mi := &file_xylona_proto_msgTypes[241]
+	mi := &file_xylona_proto_msgTypes[243]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14542,7 +14631,7 @@ func (x *GetSystemSMTPConfigResponse) String() string {
 func (*GetSystemSMTPConfigResponse) ProtoMessage() {}
 
 func (x *GetSystemSMTPConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[241]
+	mi := &file_xylona_proto_msgTypes[243]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14555,7 +14644,7 @@ func (x *GetSystemSMTPConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSystemSMTPConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetSystemSMTPConfigResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{241}
+	return file_xylona_proto_rawDescGZIP(), []int{243}
 }
 
 func (x *GetSystemSMTPConfigResponse) GetConfig() *SystemSMTPConfig {
@@ -14602,7 +14691,7 @@ type SetSystemSMTPConfigRequest struct {
 
 func (x *SetSystemSMTPConfigRequest) Reset() {
 	*x = SetSystemSMTPConfigRequest{}
-	mi := &file_xylona_proto_msgTypes[242]
+	mi := &file_xylona_proto_msgTypes[244]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14614,7 +14703,7 @@ func (x *SetSystemSMTPConfigRequest) String() string {
 func (*SetSystemSMTPConfigRequest) ProtoMessage() {}
 
 func (x *SetSystemSMTPConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[242]
+	mi := &file_xylona_proto_msgTypes[244]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14627,7 +14716,7 @@ func (x *SetSystemSMTPConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSystemSMTPConfigRequest.ProtoReflect.Descriptor instead.
 func (*SetSystemSMTPConfigRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{242}
+	return file_xylona_proto_rawDescGZIP(), []int{244}
 }
 
 func (x *SetSystemSMTPConfigRequest) GetConfig() *SystemSMTPConfig {
@@ -14645,7 +14734,7 @@ type SetSystemSMTPConfigResponse struct {
 
 func (x *SetSystemSMTPConfigResponse) Reset() {
 	*x = SetSystemSMTPConfigResponse{}
-	mi := &file_xylona_proto_msgTypes[243]
+	mi := &file_xylona_proto_msgTypes[245]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14657,7 +14746,7 @@ func (x *SetSystemSMTPConfigResponse) String() string {
 func (*SetSystemSMTPConfigResponse) ProtoMessage() {}
 
 func (x *SetSystemSMTPConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[243]
+	mi := &file_xylona_proto_msgTypes[245]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14670,7 +14759,7 @@ func (x *SetSystemSMTPConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSystemSMTPConfigResponse.ProtoReflect.Descriptor instead.
 func (*SetSystemSMTPConfigResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{243}
+	return file_xylona_proto_rawDescGZIP(), []int{245}
 }
 
 type TestSystemSMTPRequest struct {
@@ -14682,7 +14771,7 @@ type TestSystemSMTPRequest struct {
 
 func (x *TestSystemSMTPRequest) Reset() {
 	*x = TestSystemSMTPRequest{}
-	mi := &file_xylona_proto_msgTypes[244]
+	mi := &file_xylona_proto_msgTypes[246]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14694,7 +14783,7 @@ func (x *TestSystemSMTPRequest) String() string {
 func (*TestSystemSMTPRequest) ProtoMessage() {}
 
 func (x *TestSystemSMTPRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[244]
+	mi := &file_xylona_proto_msgTypes[246]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14707,7 +14796,7 @@ func (x *TestSystemSMTPRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestSystemSMTPRequest.ProtoReflect.Descriptor instead.
 func (*TestSystemSMTPRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{244}
+	return file_xylona_proto_rawDescGZIP(), []int{246}
 }
 
 func (x *TestSystemSMTPRequest) GetToAddress() string {
@@ -14727,7 +14816,7 @@ type TestSystemSMTPResponse struct {
 
 func (x *TestSystemSMTPResponse) Reset() {
 	*x = TestSystemSMTPResponse{}
-	mi := &file_xylona_proto_msgTypes[245]
+	mi := &file_xylona_proto_msgTypes[247]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14739,7 +14828,7 @@ func (x *TestSystemSMTPResponse) String() string {
 func (*TestSystemSMTPResponse) ProtoMessage() {}
 
 func (x *TestSystemSMTPResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[245]
+	mi := &file_xylona_proto_msgTypes[247]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14752,7 +14841,7 @@ func (x *TestSystemSMTPResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestSystemSMTPResponse.ProtoReflect.Descriptor instead.
 func (*TestSystemSMTPResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{245}
+	return file_xylona_proto_rawDescGZIP(), []int{247}
 }
 
 func (x *TestSystemSMTPResponse) GetSuccess() bool {
@@ -14780,7 +14869,7 @@ type BeginGoogleMailOAuthRequest struct {
 
 func (x *BeginGoogleMailOAuthRequest) Reset() {
 	*x = BeginGoogleMailOAuthRequest{}
-	mi := &file_xylona_proto_msgTypes[246]
+	mi := &file_xylona_proto_msgTypes[248]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14792,7 +14881,7 @@ func (x *BeginGoogleMailOAuthRequest) String() string {
 func (*BeginGoogleMailOAuthRequest) ProtoMessage() {}
 
 func (x *BeginGoogleMailOAuthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[246]
+	mi := &file_xylona_proto_msgTypes[248]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14805,7 +14894,7 @@ func (x *BeginGoogleMailOAuthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BeginGoogleMailOAuthRequest.ProtoReflect.Descriptor instead.
 func (*BeginGoogleMailOAuthRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{246}
+	return file_xylona_proto_rawDescGZIP(), []int{248}
 }
 
 func (x *BeginGoogleMailOAuthRequest) GetClientId() string {
@@ -14838,7 +14927,7 @@ type BeginGoogleMailOAuthResponse struct {
 
 func (x *BeginGoogleMailOAuthResponse) Reset() {
 	*x = BeginGoogleMailOAuthResponse{}
-	mi := &file_xylona_proto_msgTypes[247]
+	mi := &file_xylona_proto_msgTypes[249]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14850,7 +14939,7 @@ func (x *BeginGoogleMailOAuthResponse) String() string {
 func (*BeginGoogleMailOAuthResponse) ProtoMessage() {}
 
 func (x *BeginGoogleMailOAuthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[247]
+	mi := &file_xylona_proto_msgTypes[249]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14863,7 +14952,7 @@ func (x *BeginGoogleMailOAuthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BeginGoogleMailOAuthResponse.ProtoReflect.Descriptor instead.
 func (*BeginGoogleMailOAuthResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{247}
+	return file_xylona_proto_rawDescGZIP(), []int{249}
 }
 
 func (x *BeginGoogleMailOAuthResponse) GetAuthorizationUrl() string {
@@ -14881,7 +14970,7 @@ type DisconnectGoogleMailRequest struct {
 
 func (x *DisconnectGoogleMailRequest) Reset() {
 	*x = DisconnectGoogleMailRequest{}
-	mi := &file_xylona_proto_msgTypes[248]
+	mi := &file_xylona_proto_msgTypes[250]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14893,7 +14982,7 @@ func (x *DisconnectGoogleMailRequest) String() string {
 func (*DisconnectGoogleMailRequest) ProtoMessage() {}
 
 func (x *DisconnectGoogleMailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[248]
+	mi := &file_xylona_proto_msgTypes[250]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14906,7 +14995,7 @@ func (x *DisconnectGoogleMailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisconnectGoogleMailRequest.ProtoReflect.Descriptor instead.
 func (*DisconnectGoogleMailRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{248}
+	return file_xylona_proto_rawDescGZIP(), []int{250}
 }
 
 type DisconnectGoogleMailResponse struct {
@@ -14917,7 +15006,7 @@ type DisconnectGoogleMailResponse struct {
 
 func (x *DisconnectGoogleMailResponse) Reset() {
 	*x = DisconnectGoogleMailResponse{}
-	mi := &file_xylona_proto_msgTypes[249]
+	mi := &file_xylona_proto_msgTypes[251]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14929,7 +15018,7 @@ func (x *DisconnectGoogleMailResponse) String() string {
 func (*DisconnectGoogleMailResponse) ProtoMessage() {}
 
 func (x *DisconnectGoogleMailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[249]
+	mi := &file_xylona_proto_msgTypes[251]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14942,7 +15031,7 @@ func (x *DisconnectGoogleMailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisconnectGoogleMailResponse.ProtoReflect.Descriptor instead.
 func (*DisconnectGoogleMailResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{249}
+	return file_xylona_proto_rawDescGZIP(), []int{251}
 }
 
 type DNSProviderConnectionInput struct {
@@ -14960,7 +15049,7 @@ type DNSProviderConnectionInput struct {
 
 func (x *DNSProviderConnectionInput) Reset() {
 	*x = DNSProviderConnectionInput{}
-	mi := &file_xylona_proto_msgTypes[250]
+	mi := &file_xylona_proto_msgTypes[252]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14972,7 +15061,7 @@ func (x *DNSProviderConnectionInput) String() string {
 func (*DNSProviderConnectionInput) ProtoMessage() {}
 
 func (x *DNSProviderConnectionInput) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[250]
+	mi := &file_xylona_proto_msgTypes[252]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14985,7 +15074,7 @@ func (x *DNSProviderConnectionInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSProviderConnectionInput.ProtoReflect.Descriptor instead.
 func (*DNSProviderConnectionInput) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{250}
+	return file_xylona_proto_rawDescGZIP(), []int{252}
 }
 
 func (x *DNSProviderConnectionInput) GetProvider() DNSProviderKind {
@@ -15050,7 +15139,7 @@ type DNSProviderConnection struct {
 
 func (x *DNSProviderConnection) Reset() {
 	*x = DNSProviderConnection{}
-	mi := &file_xylona_proto_msgTypes[251]
+	mi := &file_xylona_proto_msgTypes[253]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15062,7 +15151,7 @@ func (x *DNSProviderConnection) String() string {
 func (*DNSProviderConnection) ProtoMessage() {}
 
 func (x *DNSProviderConnection) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[251]
+	mi := &file_xylona_proto_msgTypes[253]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15075,7 +15164,7 @@ func (x *DNSProviderConnection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSProviderConnection.ProtoReflect.Descriptor instead.
 func (*DNSProviderConnection) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{251}
+	return file_xylona_proto_rawDescGZIP(), []int{253}
 }
 
 func (x *DNSProviderConnection) GetProvider() DNSProviderKind {
@@ -15123,7 +15212,7 @@ type DNSProviderZone struct {
 
 func (x *DNSProviderZone) Reset() {
 	*x = DNSProviderZone{}
-	mi := &file_xylona_proto_msgTypes[252]
+	mi := &file_xylona_proto_msgTypes[254]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15135,7 +15224,7 @@ func (x *DNSProviderZone) String() string {
 func (*DNSProviderZone) ProtoMessage() {}
 
 func (x *DNSProviderZone) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[252]
+	mi := &file_xylona_proto_msgTypes[254]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15148,7 +15237,7 @@ func (x *DNSProviderZone) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSProviderZone.ProtoReflect.Descriptor instead.
 func (*DNSProviderZone) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{252}
+	return file_xylona_proto_rawDescGZIP(), []int{254}
 }
 
 func (x *DNSProviderZone) GetId() string {
@@ -15173,7 +15262,7 @@ type GetDNSProviderConnectionRequest struct {
 
 func (x *GetDNSProviderConnectionRequest) Reset() {
 	*x = GetDNSProviderConnectionRequest{}
-	mi := &file_xylona_proto_msgTypes[253]
+	mi := &file_xylona_proto_msgTypes[255]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15185,7 +15274,7 @@ func (x *GetDNSProviderConnectionRequest) String() string {
 func (*GetDNSProviderConnectionRequest) ProtoMessage() {}
 
 func (x *GetDNSProviderConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[253]
+	mi := &file_xylona_proto_msgTypes[255]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15198,7 +15287,7 @@ func (x *GetDNSProviderConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDNSProviderConnectionRequest.ProtoReflect.Descriptor instead.
 func (*GetDNSProviderConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{253}
+	return file_xylona_proto_rawDescGZIP(), []int{255}
 }
 
 type GetDNSProviderConnectionResponse struct {
@@ -15211,7 +15300,7 @@ type GetDNSProviderConnectionResponse struct {
 
 func (x *GetDNSProviderConnectionResponse) Reset() {
 	*x = GetDNSProviderConnectionResponse{}
-	mi := &file_xylona_proto_msgTypes[254]
+	mi := &file_xylona_proto_msgTypes[256]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15223,7 +15312,7 @@ func (x *GetDNSProviderConnectionResponse) String() string {
 func (*GetDNSProviderConnectionResponse) ProtoMessage() {}
 
 func (x *GetDNSProviderConnectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[254]
+	mi := &file_xylona_proto_msgTypes[256]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15236,7 +15325,7 @@ func (x *GetDNSProviderConnectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDNSProviderConnectionResponse.ProtoReflect.Descriptor instead.
 func (*GetDNSProviderConnectionResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{254}
+	return file_xylona_proto_rawDescGZIP(), []int{256}
 }
 
 func (x *GetDNSProviderConnectionResponse) GetConnection() *DNSProviderConnection {
@@ -15262,7 +15351,7 @@ type ListDNSProviderZonesRequest struct {
 
 func (x *ListDNSProviderZonesRequest) Reset() {
 	*x = ListDNSProviderZonesRequest{}
-	mi := &file_xylona_proto_msgTypes[255]
+	mi := &file_xylona_proto_msgTypes[257]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15274,7 +15363,7 @@ func (x *ListDNSProviderZonesRequest) String() string {
 func (*ListDNSProviderZonesRequest) ProtoMessage() {}
 
 func (x *ListDNSProviderZonesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[255]
+	mi := &file_xylona_proto_msgTypes[257]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15287,7 +15376,7 @@ func (x *ListDNSProviderZonesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDNSProviderZonesRequest.ProtoReflect.Descriptor instead.
 func (*ListDNSProviderZonesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{255}
+	return file_xylona_proto_rawDescGZIP(), []int{257}
 }
 
 func (x *ListDNSProviderZonesRequest) GetCandidate() *DNSProviderConnectionInput {
@@ -15306,7 +15395,7 @@ type ListDNSProviderZonesResponse struct {
 
 func (x *ListDNSProviderZonesResponse) Reset() {
 	*x = ListDNSProviderZonesResponse{}
-	mi := &file_xylona_proto_msgTypes[256]
+	mi := &file_xylona_proto_msgTypes[258]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15318,7 +15407,7 @@ func (x *ListDNSProviderZonesResponse) String() string {
 func (*ListDNSProviderZonesResponse) ProtoMessage() {}
 
 func (x *ListDNSProviderZonesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[256]
+	mi := &file_xylona_proto_msgTypes[258]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15331,7 +15420,7 @@ func (x *ListDNSProviderZonesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDNSProviderZonesResponse.ProtoReflect.Descriptor instead.
 func (*ListDNSProviderZonesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{256}
+	return file_xylona_proto_rawDescGZIP(), []int{258}
 }
 
 func (x *ListDNSProviderZonesResponse) GetZones() []*DNSProviderZone {
@@ -15350,7 +15439,7 @@ type SetDNSProviderConnectionRequest struct {
 
 func (x *SetDNSProviderConnectionRequest) Reset() {
 	*x = SetDNSProviderConnectionRequest{}
-	mi := &file_xylona_proto_msgTypes[257]
+	mi := &file_xylona_proto_msgTypes[259]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15362,7 +15451,7 @@ func (x *SetDNSProviderConnectionRequest) String() string {
 func (*SetDNSProviderConnectionRequest) ProtoMessage() {}
 
 func (x *SetDNSProviderConnectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[257]
+	mi := &file_xylona_proto_msgTypes[259]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15375,7 +15464,7 @@ func (x *SetDNSProviderConnectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDNSProviderConnectionRequest.ProtoReflect.Descriptor instead.
 func (*SetDNSProviderConnectionRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{257}
+	return file_xylona_proto_rawDescGZIP(), []int{259}
 }
 
 func (x *SetDNSProviderConnectionRequest) GetCandidate() *DNSProviderConnectionInput {
@@ -15394,7 +15483,7 @@ type SetDNSProviderConnectionResponse struct {
 
 func (x *SetDNSProviderConnectionResponse) Reset() {
 	*x = SetDNSProviderConnectionResponse{}
-	mi := &file_xylona_proto_msgTypes[258]
+	mi := &file_xylona_proto_msgTypes[260]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15406,7 +15495,7 @@ func (x *SetDNSProviderConnectionResponse) String() string {
 func (*SetDNSProviderConnectionResponse) ProtoMessage() {}
 
 func (x *SetDNSProviderConnectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[258]
+	mi := &file_xylona_proto_msgTypes[260]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15419,7 +15508,7 @@ func (x *SetDNSProviderConnectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDNSProviderConnectionResponse.ProtoReflect.Descriptor instead.
 func (*SetDNSProviderConnectionResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{258}
+	return file_xylona_proto_rawDescGZIP(), []int{260}
 }
 
 func (x *SetDNSProviderConnectionResponse) GetConnection() *DNSProviderConnection {
@@ -15438,7 +15527,7 @@ type ListScheduledTasksRequest struct {
 
 func (x *ListScheduledTasksRequest) Reset() {
 	*x = ListScheduledTasksRequest{}
-	mi := &file_xylona_proto_msgTypes[259]
+	mi := &file_xylona_proto_msgTypes[261]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15450,7 +15539,7 @@ func (x *ListScheduledTasksRequest) String() string {
 func (*ListScheduledTasksRequest) ProtoMessage() {}
 
 func (x *ListScheduledTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[259]
+	mi := &file_xylona_proto_msgTypes[261]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15463,7 +15552,7 @@ func (x *ListScheduledTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListScheduledTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListScheduledTasksRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{259}
+	return file_xylona_proto_rawDescGZIP(), []int{261}
 }
 
 func (x *ListScheduledTasksRequest) GetGameServerId() string {
@@ -15483,7 +15572,7 @@ type ListScheduledTasksResponse struct {
 
 func (x *ListScheduledTasksResponse) Reset() {
 	*x = ListScheduledTasksResponse{}
-	mi := &file_xylona_proto_msgTypes[260]
+	mi := &file_xylona_proto_msgTypes[262]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15495,7 +15584,7 @@ func (x *ListScheduledTasksResponse) String() string {
 func (*ListScheduledTasksResponse) ProtoMessage() {}
 
 func (x *ListScheduledTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[260]
+	mi := &file_xylona_proto_msgTypes[262]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15508,7 +15597,7 @@ func (x *ListScheduledTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListScheduledTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListScheduledTasksResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{260}
+	return file_xylona_proto_rawDescGZIP(), []int{262}
 }
 
 func (x *ListScheduledTasksResponse) GetTasks() []*ScheduledTask {
@@ -15540,7 +15629,7 @@ type CreateScheduledTaskRequest struct {
 
 func (x *CreateScheduledTaskRequest) Reset() {
 	*x = CreateScheduledTaskRequest{}
-	mi := &file_xylona_proto_msgTypes[261]
+	mi := &file_xylona_proto_msgTypes[263]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15552,7 +15641,7 @@ func (x *CreateScheduledTaskRequest) String() string {
 func (*CreateScheduledTaskRequest) ProtoMessage() {}
 
 func (x *CreateScheduledTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[261]
+	mi := &file_xylona_proto_msgTypes[263]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15565,7 +15654,7 @@ func (x *CreateScheduledTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateScheduledTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateScheduledTaskRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{261}
+	return file_xylona_proto_rawDescGZIP(), []int{263}
 }
 
 func (x *CreateScheduledTaskRequest) GetGameServerId() string {
@@ -15626,7 +15715,7 @@ type CreateScheduledTaskResponse struct {
 
 func (x *CreateScheduledTaskResponse) Reset() {
 	*x = CreateScheduledTaskResponse{}
-	mi := &file_xylona_proto_msgTypes[262]
+	mi := &file_xylona_proto_msgTypes[264]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15638,7 +15727,7 @@ func (x *CreateScheduledTaskResponse) String() string {
 func (*CreateScheduledTaskResponse) ProtoMessage() {}
 
 func (x *CreateScheduledTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[262]
+	mi := &file_xylona_proto_msgTypes[264]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15651,7 +15740,7 @@ func (x *CreateScheduledTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateScheduledTaskResponse.ProtoReflect.Descriptor instead.
 func (*CreateScheduledTaskResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{262}
+	return file_xylona_proto_rawDescGZIP(), []int{264}
 }
 
 func (x *CreateScheduledTaskResponse) GetTask() *ScheduledTask {
@@ -15676,7 +15765,7 @@ type UpdateScheduledTaskRequest struct {
 
 func (x *UpdateScheduledTaskRequest) Reset() {
 	*x = UpdateScheduledTaskRequest{}
-	mi := &file_xylona_proto_msgTypes[263]
+	mi := &file_xylona_proto_msgTypes[265]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15688,7 +15777,7 @@ func (x *UpdateScheduledTaskRequest) String() string {
 func (*UpdateScheduledTaskRequest) ProtoMessage() {}
 
 func (x *UpdateScheduledTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[263]
+	mi := &file_xylona_proto_msgTypes[265]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15701,7 +15790,7 @@ func (x *UpdateScheduledTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateScheduledTaskRequest.ProtoReflect.Descriptor instead.
 func (*UpdateScheduledTaskRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{263}
+	return file_xylona_proto_rawDescGZIP(), []int{265}
 }
 
 func (x *UpdateScheduledTaskRequest) GetId() string {
@@ -15762,7 +15851,7 @@ type UpdateScheduledTaskResponse struct {
 
 func (x *UpdateScheduledTaskResponse) Reset() {
 	*x = UpdateScheduledTaskResponse{}
-	mi := &file_xylona_proto_msgTypes[264]
+	mi := &file_xylona_proto_msgTypes[266]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15774,7 +15863,7 @@ func (x *UpdateScheduledTaskResponse) String() string {
 func (*UpdateScheduledTaskResponse) ProtoMessage() {}
 
 func (x *UpdateScheduledTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[264]
+	mi := &file_xylona_proto_msgTypes[266]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15787,7 +15876,7 @@ func (x *UpdateScheduledTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateScheduledTaskResponse.ProtoReflect.Descriptor instead.
 func (*UpdateScheduledTaskResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{264}
+	return file_xylona_proto_rawDescGZIP(), []int{266}
 }
 
 func (x *UpdateScheduledTaskResponse) GetTask() *ScheduledTask {
@@ -15806,7 +15895,7 @@ type DeleteScheduledTaskRequest struct {
 
 func (x *DeleteScheduledTaskRequest) Reset() {
 	*x = DeleteScheduledTaskRequest{}
-	mi := &file_xylona_proto_msgTypes[265]
+	mi := &file_xylona_proto_msgTypes[267]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15818,7 +15907,7 @@ func (x *DeleteScheduledTaskRequest) String() string {
 func (*DeleteScheduledTaskRequest) ProtoMessage() {}
 
 func (x *DeleteScheduledTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[265]
+	mi := &file_xylona_proto_msgTypes[267]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15831,7 +15920,7 @@ func (x *DeleteScheduledTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteScheduledTaskRequest.ProtoReflect.Descriptor instead.
 func (*DeleteScheduledTaskRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{265}
+	return file_xylona_proto_rawDescGZIP(), []int{267}
 }
 
 func (x *DeleteScheduledTaskRequest) GetId() string {
@@ -15849,7 +15938,7 @@ type DeleteScheduledTaskResponse struct {
 
 func (x *DeleteScheduledTaskResponse) Reset() {
 	*x = DeleteScheduledTaskResponse{}
-	mi := &file_xylona_proto_msgTypes[266]
+	mi := &file_xylona_proto_msgTypes[268]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15861,7 +15950,7 @@ func (x *DeleteScheduledTaskResponse) String() string {
 func (*DeleteScheduledTaskResponse) ProtoMessage() {}
 
 func (x *DeleteScheduledTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[266]
+	mi := &file_xylona_proto_msgTypes[268]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15874,7 +15963,7 @@ func (x *DeleteScheduledTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteScheduledTaskResponse.ProtoReflect.Descriptor instead.
 func (*DeleteScheduledTaskResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{266}
+	return file_xylona_proto_rawDescGZIP(), []int{268}
 }
 
 type GetScheduledTaskLogsRequest struct {
@@ -15888,7 +15977,7 @@ type GetScheduledTaskLogsRequest struct {
 
 func (x *GetScheduledTaskLogsRequest) Reset() {
 	*x = GetScheduledTaskLogsRequest{}
-	mi := &file_xylona_proto_msgTypes[267]
+	mi := &file_xylona_proto_msgTypes[269]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15900,7 +15989,7 @@ func (x *GetScheduledTaskLogsRequest) String() string {
 func (*GetScheduledTaskLogsRequest) ProtoMessage() {}
 
 func (x *GetScheduledTaskLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[267]
+	mi := &file_xylona_proto_msgTypes[269]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15913,7 +16002,7 @@ func (x *GetScheduledTaskLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetScheduledTaskLogsRequest.ProtoReflect.Descriptor instead.
 func (*GetScheduledTaskLogsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{267}
+	return file_xylona_proto_rawDescGZIP(), []int{269}
 }
 
 func (x *GetScheduledTaskLogsRequest) GetScheduledTaskId() string {
@@ -15946,7 +16035,7 @@ type GetScheduledTaskLogsResponse struct {
 
 func (x *GetScheduledTaskLogsResponse) Reset() {
 	*x = GetScheduledTaskLogsResponse{}
-	mi := &file_xylona_proto_msgTypes[268]
+	mi := &file_xylona_proto_msgTypes[270]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15958,7 +16047,7 @@ func (x *GetScheduledTaskLogsResponse) String() string {
 func (*GetScheduledTaskLogsResponse) ProtoMessage() {}
 
 func (x *GetScheduledTaskLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[268]
+	mi := &file_xylona_proto_msgTypes[270]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15971,7 +16060,7 @@ func (x *GetScheduledTaskLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetScheduledTaskLogsResponse.ProtoReflect.Descriptor instead.
 func (*GetScheduledTaskLogsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{268}
+	return file_xylona_proto_rawDescGZIP(), []int{270}
 }
 
 func (x *GetScheduledTaskLogsResponse) GetLogs() []*ScheduledTaskLog {
@@ -15990,7 +16079,7 @@ type GetGameServerBackupOverviewRequest struct {
 
 func (x *GetGameServerBackupOverviewRequest) Reset() {
 	*x = GetGameServerBackupOverviewRequest{}
-	mi := &file_xylona_proto_msgTypes[269]
+	mi := &file_xylona_proto_msgTypes[271]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16002,7 +16091,7 @@ func (x *GetGameServerBackupOverviewRequest) String() string {
 func (*GetGameServerBackupOverviewRequest) ProtoMessage() {}
 
 func (x *GetGameServerBackupOverviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[269]
+	mi := &file_xylona_proto_msgTypes[271]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16015,7 +16104,7 @@ func (x *GetGameServerBackupOverviewRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetGameServerBackupOverviewRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerBackupOverviewRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{269}
+	return file_xylona_proto_rawDescGZIP(), []int{271}
 }
 
 func (x *GetGameServerBackupOverviewRequest) GetGameServerId() string {
@@ -16034,7 +16123,7 @@ type GetGameServerBackupOverviewResponse struct {
 
 func (x *GetGameServerBackupOverviewResponse) Reset() {
 	*x = GetGameServerBackupOverviewResponse{}
-	mi := &file_xylona_proto_msgTypes[270]
+	mi := &file_xylona_proto_msgTypes[272]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16046,7 +16135,7 @@ func (x *GetGameServerBackupOverviewResponse) String() string {
 func (*GetGameServerBackupOverviewResponse) ProtoMessage() {}
 
 func (x *GetGameServerBackupOverviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[270]
+	mi := &file_xylona_proto_msgTypes[272]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16059,7 +16148,7 @@ func (x *GetGameServerBackupOverviewResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GetGameServerBackupOverviewResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerBackupOverviewResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{270}
+	return file_xylona_proto_rawDescGZIP(), []int{272}
 }
 
 func (x *GetGameServerBackupOverviewResponse) GetOverview() *GameServerBackupOverview {
@@ -16078,7 +16167,7 @@ type GetBackupSettingsRequest struct {
 
 func (x *GetBackupSettingsRequest) Reset() {
 	*x = GetBackupSettingsRequest{}
-	mi := &file_xylona_proto_msgTypes[271]
+	mi := &file_xylona_proto_msgTypes[273]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16090,7 +16179,7 @@ func (x *GetBackupSettingsRequest) String() string {
 func (*GetBackupSettingsRequest) ProtoMessage() {}
 
 func (x *GetBackupSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[271]
+	mi := &file_xylona_proto_msgTypes[273]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16103,7 +16192,7 @@ func (x *GetBackupSettingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBackupSettingsRequest.ProtoReflect.Descriptor instead.
 func (*GetBackupSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{271}
+	return file_xylona_proto_rawDescGZIP(), []int{273}
 }
 
 func (x *GetBackupSettingsRequest) GetGameServerId() string {
@@ -16122,7 +16211,7 @@ type GetBackupSettingsResponse struct {
 
 func (x *GetBackupSettingsResponse) Reset() {
 	*x = GetBackupSettingsResponse{}
-	mi := &file_xylona_proto_msgTypes[272]
+	mi := &file_xylona_proto_msgTypes[274]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16134,7 +16223,7 @@ func (x *GetBackupSettingsResponse) String() string {
 func (*GetBackupSettingsResponse) ProtoMessage() {}
 
 func (x *GetBackupSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[272]
+	mi := &file_xylona_proto_msgTypes[274]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16147,7 +16236,7 @@ func (x *GetBackupSettingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBackupSettingsResponse.ProtoReflect.Descriptor instead.
 func (*GetBackupSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{272}
+	return file_xylona_proto_rawDescGZIP(), []int{274}
 }
 
 func (x *GetBackupSettingsResponse) GetSettings() *BackupSettings {
@@ -16169,7 +16258,7 @@ type UpdateBackupSettingsRequest struct {
 
 func (x *UpdateBackupSettingsRequest) Reset() {
 	*x = UpdateBackupSettingsRequest{}
-	mi := &file_xylona_proto_msgTypes[273]
+	mi := &file_xylona_proto_msgTypes[275]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16181,7 +16270,7 @@ func (x *UpdateBackupSettingsRequest) String() string {
 func (*UpdateBackupSettingsRequest) ProtoMessage() {}
 
 func (x *UpdateBackupSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[273]
+	mi := &file_xylona_proto_msgTypes[275]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16194,7 +16283,7 @@ func (x *UpdateBackupSettingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBackupSettingsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBackupSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{273}
+	return file_xylona_proto_rawDescGZIP(), []int{275}
 }
 
 func (x *UpdateBackupSettingsRequest) GetGameServerId() string {
@@ -16234,7 +16323,7 @@ type UpdateBackupSettingsResponse struct {
 
 func (x *UpdateBackupSettingsResponse) Reset() {
 	*x = UpdateBackupSettingsResponse{}
-	mi := &file_xylona_proto_msgTypes[274]
+	mi := &file_xylona_proto_msgTypes[276]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16246,7 +16335,7 @@ func (x *UpdateBackupSettingsResponse) String() string {
 func (*UpdateBackupSettingsResponse) ProtoMessage() {}
 
 func (x *UpdateBackupSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[274]
+	mi := &file_xylona_proto_msgTypes[276]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16259,7 +16348,7 @@ func (x *UpdateBackupSettingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBackupSettingsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateBackupSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{274}
+	return file_xylona_proto_rawDescGZIP(), []int{276}
 }
 
 func (x *UpdateBackupSettingsResponse) GetSettings() *BackupSettings {
@@ -16278,7 +16367,7 @@ type ListGameServerBackupsRequest struct {
 
 func (x *ListGameServerBackupsRequest) Reset() {
 	*x = ListGameServerBackupsRequest{}
-	mi := &file_xylona_proto_msgTypes[275]
+	mi := &file_xylona_proto_msgTypes[277]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16290,7 +16379,7 @@ func (x *ListGameServerBackupsRequest) String() string {
 func (*ListGameServerBackupsRequest) ProtoMessage() {}
 
 func (x *ListGameServerBackupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[275]
+	mi := &file_xylona_proto_msgTypes[277]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16303,7 +16392,7 @@ func (x *ListGameServerBackupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGameServerBackupsRequest.ProtoReflect.Descriptor instead.
 func (*ListGameServerBackupsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{275}
+	return file_xylona_proto_rawDescGZIP(), []int{277}
 }
 
 func (x *ListGameServerBackupsRequest) GetGameServerId() string {
@@ -16322,7 +16411,7 @@ type ListGameServerBackupsResponse struct {
 
 func (x *ListGameServerBackupsResponse) Reset() {
 	*x = ListGameServerBackupsResponse{}
-	mi := &file_xylona_proto_msgTypes[276]
+	mi := &file_xylona_proto_msgTypes[278]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16334,7 +16423,7 @@ func (x *ListGameServerBackupsResponse) String() string {
 func (*ListGameServerBackupsResponse) ProtoMessage() {}
 
 func (x *ListGameServerBackupsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[276]
+	mi := &file_xylona_proto_msgTypes[278]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16347,7 +16436,7 @@ func (x *ListGameServerBackupsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGameServerBackupsResponse.ProtoReflect.Descriptor instead.
 func (*ListGameServerBackupsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{276}
+	return file_xylona_proto_rawDescGZIP(), []int{278}
 }
 
 func (x *ListGameServerBackupsResponse) GetBackups() []*GameServerBackup {
@@ -16367,7 +16456,7 @@ type CreateGameServerBackupRequest struct {
 
 func (x *CreateGameServerBackupRequest) Reset() {
 	*x = CreateGameServerBackupRequest{}
-	mi := &file_xylona_proto_msgTypes[277]
+	mi := &file_xylona_proto_msgTypes[279]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16379,7 +16468,7 @@ func (x *CreateGameServerBackupRequest) String() string {
 func (*CreateGameServerBackupRequest) ProtoMessage() {}
 
 func (x *CreateGameServerBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[277]
+	mi := &file_xylona_proto_msgTypes[279]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16392,7 +16481,7 @@ func (x *CreateGameServerBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGameServerBackupRequest.ProtoReflect.Descriptor instead.
 func (*CreateGameServerBackupRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{277}
+	return file_xylona_proto_rawDescGZIP(), []int{279}
 }
 
 func (x *CreateGameServerBackupRequest) GetGameServerId() string {
@@ -16418,7 +16507,7 @@ type CreateGameServerBackupResponse struct {
 
 func (x *CreateGameServerBackupResponse) Reset() {
 	*x = CreateGameServerBackupResponse{}
-	mi := &file_xylona_proto_msgTypes[278]
+	mi := &file_xylona_proto_msgTypes[280]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16430,7 +16519,7 @@ func (x *CreateGameServerBackupResponse) String() string {
 func (*CreateGameServerBackupResponse) ProtoMessage() {}
 
 func (x *CreateGameServerBackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[278]
+	mi := &file_xylona_proto_msgTypes[280]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16443,7 +16532,7 @@ func (x *CreateGameServerBackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGameServerBackupResponse.ProtoReflect.Descriptor instead.
 func (*CreateGameServerBackupResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{278}
+	return file_xylona_proto_rawDescGZIP(), []int{280}
 }
 
 func (x *CreateGameServerBackupResponse) GetBackup() *GameServerBackup {
@@ -16463,7 +16552,7 @@ type DeleteGameServerBackupRequest struct {
 
 func (x *DeleteGameServerBackupRequest) Reset() {
 	*x = DeleteGameServerBackupRequest{}
-	mi := &file_xylona_proto_msgTypes[279]
+	mi := &file_xylona_proto_msgTypes[281]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16475,7 +16564,7 @@ func (x *DeleteGameServerBackupRequest) String() string {
 func (*DeleteGameServerBackupRequest) ProtoMessage() {}
 
 func (x *DeleteGameServerBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[279]
+	mi := &file_xylona_proto_msgTypes[281]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16488,7 +16577,7 @@ func (x *DeleteGameServerBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGameServerBackupRequest.ProtoReflect.Descriptor instead.
 func (*DeleteGameServerBackupRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{279}
+	return file_xylona_proto_rawDescGZIP(), []int{281}
 }
 
 func (x *DeleteGameServerBackupRequest) GetGameServerId() string {
@@ -16513,7 +16602,7 @@ type DeleteGameServerBackupResponse struct {
 
 func (x *DeleteGameServerBackupResponse) Reset() {
 	*x = DeleteGameServerBackupResponse{}
-	mi := &file_xylona_proto_msgTypes[280]
+	mi := &file_xylona_proto_msgTypes[282]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16525,7 +16614,7 @@ func (x *DeleteGameServerBackupResponse) String() string {
 func (*DeleteGameServerBackupResponse) ProtoMessage() {}
 
 func (x *DeleteGameServerBackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[280]
+	mi := &file_xylona_proto_msgTypes[282]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16538,7 +16627,7 @@ func (x *DeleteGameServerBackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGameServerBackupResponse.ProtoReflect.Descriptor instead.
 func (*DeleteGameServerBackupResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{280}
+	return file_xylona_proto_rawDescGZIP(), []int{282}
 }
 
 type RestoreGameServerBackupRequest struct {
@@ -16555,7 +16644,7 @@ type RestoreGameServerBackupRequest struct {
 
 func (x *RestoreGameServerBackupRequest) Reset() {
 	*x = RestoreGameServerBackupRequest{}
-	mi := &file_xylona_proto_msgTypes[281]
+	mi := &file_xylona_proto_msgTypes[283]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16567,7 +16656,7 @@ func (x *RestoreGameServerBackupRequest) String() string {
 func (*RestoreGameServerBackupRequest) ProtoMessage() {}
 
 func (x *RestoreGameServerBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[281]
+	mi := &file_xylona_proto_msgTypes[283]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16580,7 +16669,7 @@ func (x *RestoreGameServerBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreGameServerBackupRequest.ProtoReflect.Descriptor instead.
 func (*RestoreGameServerBackupRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{281}
+	return file_xylona_proto_rawDescGZIP(), []int{283}
 }
 
 func (x *RestoreGameServerBackupRequest) GetGameServerId() string {
@@ -16619,7 +16708,7 @@ type RestoreGameServerBackupResponse struct {
 
 func (x *RestoreGameServerBackupResponse) Reset() {
 	*x = RestoreGameServerBackupResponse{}
-	mi := &file_xylona_proto_msgTypes[282]
+	mi := &file_xylona_proto_msgTypes[284]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16631,7 +16720,7 @@ func (x *RestoreGameServerBackupResponse) String() string {
 func (*RestoreGameServerBackupResponse) ProtoMessage() {}
 
 func (x *RestoreGameServerBackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[282]
+	mi := &file_xylona_proto_msgTypes[284]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16644,7 +16733,7 @@ func (x *RestoreGameServerBackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreGameServerBackupResponse.ProtoReflect.Descriptor instead.
 func (*RestoreGameServerBackupResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{282}
+	return file_xylona_proto_rawDescGZIP(), []int{284}
 }
 
 type GameServerPlayerManagementCapabilities struct {
@@ -16660,7 +16749,7 @@ type GameServerPlayerManagementCapabilities struct {
 
 func (x *GameServerPlayerManagementCapabilities) Reset() {
 	*x = GameServerPlayerManagementCapabilities{}
-	mi := &file_xylona_proto_msgTypes[283]
+	mi := &file_xylona_proto_msgTypes[285]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16672,7 +16761,7 @@ func (x *GameServerPlayerManagementCapabilities) String() string {
 func (*GameServerPlayerManagementCapabilities) ProtoMessage() {}
 
 func (x *GameServerPlayerManagementCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[283]
+	mi := &file_xylona_proto_msgTypes[285]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16685,7 +16774,7 @@ func (x *GameServerPlayerManagementCapabilities) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use GameServerPlayerManagementCapabilities.ProtoReflect.Descriptor instead.
 func (*GameServerPlayerManagementCapabilities) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{283}
+	return file_xylona_proto_rawDescGZIP(), []int{285}
 }
 
 func (x *GameServerPlayerManagementCapabilities) GetActionsSupported() bool {
@@ -16746,7 +16835,7 @@ type GameServerManagementPlayer struct {
 
 func (x *GameServerManagementPlayer) Reset() {
 	*x = GameServerManagementPlayer{}
-	mi := &file_xylona_proto_msgTypes[284]
+	mi := &file_xylona_proto_msgTypes[286]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16758,7 +16847,7 @@ func (x *GameServerManagementPlayer) String() string {
 func (*GameServerManagementPlayer) ProtoMessage() {}
 
 func (x *GameServerManagementPlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[284]
+	mi := &file_xylona_proto_msgTypes[286]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16771,7 +16860,7 @@ func (x *GameServerManagementPlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerManagementPlayer.ProtoReflect.Descriptor instead.
 func (*GameServerManagementPlayer) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{284}
+	return file_xylona_proto_rawDescGZIP(), []int{286}
 }
 
 func (x *GameServerManagementPlayer) GetName() string {
@@ -16888,7 +16977,7 @@ type GetGameServerPlayerManagementRequest struct {
 
 func (x *GetGameServerPlayerManagementRequest) Reset() {
 	*x = GetGameServerPlayerManagementRequest{}
-	mi := &file_xylona_proto_msgTypes[285]
+	mi := &file_xylona_proto_msgTypes[287]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16900,7 +16989,7 @@ func (x *GetGameServerPlayerManagementRequest) String() string {
 func (*GetGameServerPlayerManagementRequest) ProtoMessage() {}
 
 func (x *GetGameServerPlayerManagementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[285]
+	mi := &file_xylona_proto_msgTypes[287]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16913,7 +17002,7 @@ func (x *GetGameServerPlayerManagementRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use GetGameServerPlayerManagementRequest.ProtoReflect.Descriptor instead.
 func (*GetGameServerPlayerManagementRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{285}
+	return file_xylona_proto_rawDescGZIP(), []int{287}
 }
 
 func (x *GetGameServerPlayerManagementRequest) GetGameServerId() string {
@@ -16935,7 +17024,7 @@ type GetGameServerPlayerManagementResponse struct {
 
 func (x *GetGameServerPlayerManagementResponse) Reset() {
 	*x = GetGameServerPlayerManagementResponse{}
-	mi := &file_xylona_proto_msgTypes[286]
+	mi := &file_xylona_proto_msgTypes[288]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16947,7 +17036,7 @@ func (x *GetGameServerPlayerManagementResponse) String() string {
 func (*GetGameServerPlayerManagementResponse) ProtoMessage() {}
 
 func (x *GetGameServerPlayerManagementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[286]
+	mi := &file_xylona_proto_msgTypes[288]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16960,7 +17049,7 @@ func (x *GetGameServerPlayerManagementResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use GetGameServerPlayerManagementResponse.ProtoReflect.Descriptor instead.
 func (*GetGameServerPlayerManagementResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{286}
+	return file_xylona_proto_rawDescGZIP(), []int{288}
 }
 
 func (x *GetGameServerPlayerManagementResponse) GetCapabilities() *GameServerPlayerManagementCapabilities {
@@ -17003,7 +17092,7 @@ type PerformGameServerPlayerActionRequest struct {
 
 func (x *PerformGameServerPlayerActionRequest) Reset() {
 	*x = PerformGameServerPlayerActionRequest{}
-	mi := &file_xylona_proto_msgTypes[287]
+	mi := &file_xylona_proto_msgTypes[289]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17015,7 +17104,7 @@ func (x *PerformGameServerPlayerActionRequest) String() string {
 func (*PerformGameServerPlayerActionRequest) ProtoMessage() {}
 
 func (x *PerformGameServerPlayerActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[287]
+	mi := &file_xylona_proto_msgTypes[289]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17028,7 +17117,7 @@ func (x *PerformGameServerPlayerActionRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use PerformGameServerPlayerActionRequest.ProtoReflect.Descriptor instead.
 func (*PerformGameServerPlayerActionRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{287}
+	return file_xylona_proto_rawDescGZIP(), []int{289}
 }
 
 func (x *PerformGameServerPlayerActionRequest) GetGameServerId() string {
@@ -17067,7 +17156,7 @@ type PerformGameServerPlayerActionResponse struct {
 
 func (x *PerformGameServerPlayerActionResponse) Reset() {
 	*x = PerformGameServerPlayerActionResponse{}
-	mi := &file_xylona_proto_msgTypes[288]
+	mi := &file_xylona_proto_msgTypes[290]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17079,7 +17168,7 @@ func (x *PerformGameServerPlayerActionResponse) String() string {
 func (*PerformGameServerPlayerActionResponse) ProtoMessage() {}
 
 func (x *PerformGameServerPlayerActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[288]
+	mi := &file_xylona_proto_msgTypes[290]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17092,7 +17181,7 @@ func (x *PerformGameServerPlayerActionResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use PerformGameServerPlayerActionResponse.ProtoReflect.Descriptor instead.
 func (*PerformGameServerPlayerActionResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{288}
+	return file_xylona_proto_rawDescGZIP(), []int{290}
 }
 
 type GameOperationFieldOption struct {
@@ -17109,7 +17198,7 @@ type GameOperationFieldOption struct {
 
 func (x *GameOperationFieldOption) Reset() {
 	*x = GameOperationFieldOption{}
-	mi := &file_xylona_proto_msgTypes[289]
+	mi := &file_xylona_proto_msgTypes[291]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17121,7 +17210,7 @@ func (x *GameOperationFieldOption) String() string {
 func (*GameOperationFieldOption) ProtoMessage() {}
 
 func (x *GameOperationFieldOption) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[289]
+	mi := &file_xylona_proto_msgTypes[291]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17134,7 +17223,7 @@ func (x *GameOperationFieldOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationFieldOption.ProtoReflect.Descriptor instead.
 func (*GameOperationFieldOption) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{289}
+	return file_xylona_proto_rawDescGZIP(), []int{291}
 }
 
 func (x *GameOperationFieldOption) GetLabel() string {
@@ -17199,7 +17288,7 @@ type GameOperationField struct {
 
 func (x *GameOperationField) Reset() {
 	*x = GameOperationField{}
-	mi := &file_xylona_proto_msgTypes[290]
+	mi := &file_xylona_proto_msgTypes[292]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17211,7 +17300,7 @@ func (x *GameOperationField) String() string {
 func (*GameOperationField) ProtoMessage() {}
 
 func (x *GameOperationField) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[290]
+	mi := &file_xylona_proto_msgTypes[292]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17224,7 +17313,7 @@ func (x *GameOperationField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationField.ProtoReflect.Descriptor instead.
 func (*GameOperationField) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{290}
+	return file_xylona_proto_rawDescGZIP(), []int{292}
 }
 
 func (x *GameOperationField) GetId() string {
@@ -17322,7 +17411,7 @@ type GameOperationReview struct {
 
 func (x *GameOperationReview) Reset() {
 	*x = GameOperationReview{}
-	mi := &file_xylona_proto_msgTypes[291]
+	mi := &file_xylona_proto_msgTypes[293]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17334,7 +17423,7 @@ func (x *GameOperationReview) String() string {
 func (*GameOperationReview) ProtoMessage() {}
 
 func (x *GameOperationReview) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[291]
+	mi := &file_xylona_proto_msgTypes[293]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17347,7 +17436,7 @@ func (x *GameOperationReview) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationReview.ProtoReflect.Descriptor instead.
 func (*GameOperationReview) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{291}
+	return file_xylona_proto_rawDescGZIP(), []int{293}
 }
 
 func (x *GameOperationReview) GetTitle() string {
@@ -17392,7 +17481,7 @@ type GameOperationDescriptor struct {
 
 func (x *GameOperationDescriptor) Reset() {
 	*x = GameOperationDescriptor{}
-	mi := &file_xylona_proto_msgTypes[292]
+	mi := &file_xylona_proto_msgTypes[294]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17404,7 +17493,7 @@ func (x *GameOperationDescriptor) String() string {
 func (*GameOperationDescriptor) ProtoMessage() {}
 
 func (x *GameOperationDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[292]
+	mi := &file_xylona_proto_msgTypes[294]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17417,7 +17506,7 @@ func (x *GameOperationDescriptor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationDescriptor.ProtoReflect.Descriptor instead.
 func (*GameOperationDescriptor) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{292}
+	return file_xylona_proto_rawDescGZIP(), []int{294}
 }
 
 func (x *GameOperationDescriptor) GetId() string {
@@ -17520,7 +17609,7 @@ type ListGameServerOperationsRequest struct {
 
 func (x *ListGameServerOperationsRequest) Reset() {
 	*x = ListGameServerOperationsRequest{}
-	mi := &file_xylona_proto_msgTypes[293]
+	mi := &file_xylona_proto_msgTypes[295]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17532,7 +17621,7 @@ func (x *ListGameServerOperationsRequest) String() string {
 func (*ListGameServerOperationsRequest) ProtoMessage() {}
 
 func (x *ListGameServerOperationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[293]
+	mi := &file_xylona_proto_msgTypes[295]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17545,7 +17634,7 @@ func (x *ListGameServerOperationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGameServerOperationsRequest.ProtoReflect.Descriptor instead.
 func (*ListGameServerOperationsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{293}
+	return file_xylona_proto_rawDescGZIP(), []int{295}
 }
 
 func (x *ListGameServerOperationsRequest) GetGameServerId() string {
@@ -17565,7 +17654,7 @@ type ListGameServerOperationsResponse struct {
 
 func (x *ListGameServerOperationsResponse) Reset() {
 	*x = ListGameServerOperationsResponse{}
-	mi := &file_xylona_proto_msgTypes[294]
+	mi := &file_xylona_proto_msgTypes[296]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17577,7 +17666,7 @@ func (x *ListGameServerOperationsResponse) String() string {
 func (*ListGameServerOperationsResponse) ProtoMessage() {}
 
 func (x *ListGameServerOperationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[294]
+	mi := &file_xylona_proto_msgTypes[296]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17590,7 +17679,7 @@ func (x *ListGameServerOperationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGameServerOperationsResponse.ProtoReflect.Descriptor instead.
 func (*ListGameServerOperationsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{294}
+	return file_xylona_proto_rawDescGZIP(), []int{296}
 }
 
 func (x *ListGameServerOperationsResponse) GetGameServerName() string {
@@ -17622,7 +17711,7 @@ type GameOperationValue struct {
 
 func (x *GameOperationValue) Reset() {
 	*x = GameOperationValue{}
-	mi := &file_xylona_proto_msgTypes[295]
+	mi := &file_xylona_proto_msgTypes[297]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17634,7 +17723,7 @@ func (x *GameOperationValue) String() string {
 func (*GameOperationValue) ProtoMessage() {}
 
 func (x *GameOperationValue) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[295]
+	mi := &file_xylona_proto_msgTypes[297]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17647,7 +17736,7 @@ func (x *GameOperationValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationValue.ProtoReflect.Descriptor instead.
 func (*GameOperationValue) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{295}
+	return file_xylona_proto_rawDescGZIP(), []int{297}
 }
 
 func (x *GameOperationValue) GetFieldId() string {
@@ -17723,7 +17812,7 @@ type GameOperationTransportDetails struct {
 
 func (x *GameOperationTransportDetails) Reset() {
 	*x = GameOperationTransportDetails{}
-	mi := &file_xylona_proto_msgTypes[296]
+	mi := &file_xylona_proto_msgTypes[298]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17735,7 +17824,7 @@ func (x *GameOperationTransportDetails) String() string {
 func (*GameOperationTransportDetails) ProtoMessage() {}
 
 func (x *GameOperationTransportDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[296]
+	mi := &file_xylona_proto_msgTypes[298]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17748,7 +17837,7 @@ func (x *GameOperationTransportDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationTransportDetails.ProtoReflect.Descriptor instead.
 func (*GameOperationTransportDetails) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{296}
+	return file_xylona_proto_rawDescGZIP(), []int{298}
 }
 
 func (x *GameOperationTransportDetails) GetMethod() string {
@@ -17777,7 +17866,7 @@ type GameOperationResult struct {
 
 func (x *GameOperationResult) Reset() {
 	*x = GameOperationResult{}
-	mi := &file_xylona_proto_msgTypes[297]
+	mi := &file_xylona_proto_msgTypes[299]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17789,7 +17878,7 @@ func (x *GameOperationResult) String() string {
 func (*GameOperationResult) ProtoMessage() {}
 
 func (x *GameOperationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[297]
+	mi := &file_xylona_proto_msgTypes[299]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17802,7 +17891,7 @@ func (x *GameOperationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameOperationResult.ProtoReflect.Descriptor instead.
 func (*GameOperationResult) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{297}
+	return file_xylona_proto_rawDescGZIP(), []int{299}
 }
 
 func (x *GameOperationResult) GetClassification() GameOperationResultClassification {
@@ -17846,7 +17935,7 @@ type ValheimAccessList struct {
 
 func (x *ValheimAccessList) Reset() {
 	*x = ValheimAccessList{}
-	mi := &file_xylona_proto_msgTypes[298]
+	mi := &file_xylona_proto_msgTypes[300]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17858,7 +17947,7 @@ func (x *ValheimAccessList) String() string {
 func (*ValheimAccessList) ProtoMessage() {}
 
 func (x *ValheimAccessList) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[298]
+	mi := &file_xylona_proto_msgTypes[300]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17871,7 +17960,7 @@ func (x *ValheimAccessList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValheimAccessList.ProtoReflect.Descriptor instead.
 func (*ValheimAccessList) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{298}
+	return file_xylona_proto_rawDescGZIP(), []int{300}
 }
 
 func (x *ValheimAccessList) GetListKind() string {
@@ -17920,7 +18009,7 @@ type ExecuteGameServerOperationRequest struct {
 
 func (x *ExecuteGameServerOperationRequest) Reset() {
 	*x = ExecuteGameServerOperationRequest{}
-	mi := &file_xylona_proto_msgTypes[299]
+	mi := &file_xylona_proto_msgTypes[301]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17932,7 +18021,7 @@ func (x *ExecuteGameServerOperationRequest) String() string {
 func (*ExecuteGameServerOperationRequest) ProtoMessage() {}
 
 func (x *ExecuteGameServerOperationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[299]
+	mi := &file_xylona_proto_msgTypes[301]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17945,7 +18034,7 @@ func (x *ExecuteGameServerOperationRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ExecuteGameServerOperationRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteGameServerOperationRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{299}
+	return file_xylona_proto_rawDescGZIP(), []int{301}
 }
 
 func (x *ExecuteGameServerOperationRequest) GetGameServerId() string {
@@ -17978,7 +18067,7 @@ type ExecuteGameServerOperationResponse struct {
 
 func (x *ExecuteGameServerOperationResponse) Reset() {
 	*x = ExecuteGameServerOperationResponse{}
-	mi := &file_xylona_proto_msgTypes[300]
+	mi := &file_xylona_proto_msgTypes[302]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17990,7 +18079,7 @@ func (x *ExecuteGameServerOperationResponse) String() string {
 func (*ExecuteGameServerOperationResponse) ProtoMessage() {}
 
 func (x *ExecuteGameServerOperationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[300]
+	mi := &file_xylona_proto_msgTypes[302]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18003,7 +18092,7 @@ func (x *ExecuteGameServerOperationResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ExecuteGameServerOperationResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteGameServerOperationResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{300}
+	return file_xylona_proto_rawDescGZIP(), []int{302}
 }
 
 func (x *ExecuteGameServerOperationResponse) GetResult() *GameOperationResult {
@@ -18025,7 +18114,7 @@ type GameServerMapShareSettings struct {
 
 func (x *GameServerMapShareSettings) Reset() {
 	*x = GameServerMapShareSettings{}
-	mi := &file_xylona_proto_msgTypes[301]
+	mi := &file_xylona_proto_msgTypes[303]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18037,7 +18126,7 @@ func (x *GameServerMapShareSettings) String() string {
 func (*GameServerMapShareSettings) ProtoMessage() {}
 
 func (x *GameServerMapShareSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[301]
+	mi := &file_xylona_proto_msgTypes[303]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18050,7 +18139,7 @@ func (x *GameServerMapShareSettings) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameServerMapShareSettings.ProtoReflect.Descriptor instead.
 func (*GameServerMapShareSettings) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{301}
+	return file_xylona_proto_rawDescGZIP(), []int{303}
 }
 
 func (x *GameServerMapShareSettings) GetGameServerId() string {
@@ -18090,7 +18179,7 @@ type GetOrCreateGameServerMapShareSettingsRequest struct {
 
 func (x *GetOrCreateGameServerMapShareSettingsRequest) Reset() {
 	*x = GetOrCreateGameServerMapShareSettingsRequest{}
-	mi := &file_xylona_proto_msgTypes[302]
+	mi := &file_xylona_proto_msgTypes[304]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18102,7 +18191,7 @@ func (x *GetOrCreateGameServerMapShareSettingsRequest) String() string {
 func (*GetOrCreateGameServerMapShareSettingsRequest) ProtoMessage() {}
 
 func (x *GetOrCreateGameServerMapShareSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[302]
+	mi := &file_xylona_proto_msgTypes[304]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18115,7 +18204,7 @@ func (x *GetOrCreateGameServerMapShareSettingsRequest) ProtoReflect() protorefle
 
 // Deprecated: Use GetOrCreateGameServerMapShareSettingsRequest.ProtoReflect.Descriptor instead.
 func (*GetOrCreateGameServerMapShareSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{302}
+	return file_xylona_proto_rawDescGZIP(), []int{304}
 }
 
 func (x *GetOrCreateGameServerMapShareSettingsRequest) GetGameServerId() string {
@@ -18134,7 +18223,7 @@ type GetOrCreateGameServerMapShareSettingsResponse struct {
 
 func (x *GetOrCreateGameServerMapShareSettingsResponse) Reset() {
 	*x = GetOrCreateGameServerMapShareSettingsResponse{}
-	mi := &file_xylona_proto_msgTypes[303]
+	mi := &file_xylona_proto_msgTypes[305]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18146,7 +18235,7 @@ func (x *GetOrCreateGameServerMapShareSettingsResponse) String() string {
 func (*GetOrCreateGameServerMapShareSettingsResponse) ProtoMessage() {}
 
 func (x *GetOrCreateGameServerMapShareSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[303]
+	mi := &file_xylona_proto_msgTypes[305]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18159,7 +18248,7 @@ func (x *GetOrCreateGameServerMapShareSettingsResponse) ProtoReflect() protorefl
 
 // Deprecated: Use GetOrCreateGameServerMapShareSettingsResponse.ProtoReflect.Descriptor instead.
 func (*GetOrCreateGameServerMapShareSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{303}
+	return file_xylona_proto_rawDescGZIP(), []int{305}
 }
 
 func (x *GetOrCreateGameServerMapShareSettingsResponse) GetSettings() *GameServerMapShareSettings {
@@ -18180,7 +18269,7 @@ type UpdateGameServerMapShareSettingsRequest struct {
 
 func (x *UpdateGameServerMapShareSettingsRequest) Reset() {
 	*x = UpdateGameServerMapShareSettingsRequest{}
-	mi := &file_xylona_proto_msgTypes[304]
+	mi := &file_xylona_proto_msgTypes[306]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18192,7 +18281,7 @@ func (x *UpdateGameServerMapShareSettingsRequest) String() string {
 func (*UpdateGameServerMapShareSettingsRequest) ProtoMessage() {}
 
 func (x *UpdateGameServerMapShareSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[304]
+	mi := &file_xylona_proto_msgTypes[306]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18205,7 +18294,7 @@ func (x *UpdateGameServerMapShareSettingsRequest) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use UpdateGameServerMapShareSettingsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerMapShareSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{304}
+	return file_xylona_proto_rawDescGZIP(), []int{306}
 }
 
 func (x *UpdateGameServerMapShareSettingsRequest) GetGameServerId() string {
@@ -18238,7 +18327,7 @@ type UpdateGameServerMapShareSettingsResponse struct {
 
 func (x *UpdateGameServerMapShareSettingsResponse) Reset() {
 	*x = UpdateGameServerMapShareSettingsResponse{}
-	mi := &file_xylona_proto_msgTypes[305]
+	mi := &file_xylona_proto_msgTypes[307]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18250,7 +18339,7 @@ func (x *UpdateGameServerMapShareSettingsResponse) String() string {
 func (*UpdateGameServerMapShareSettingsResponse) ProtoMessage() {}
 
 func (x *UpdateGameServerMapShareSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[305]
+	mi := &file_xylona_proto_msgTypes[307]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18263,7 +18352,7 @@ func (x *UpdateGameServerMapShareSettingsResponse) ProtoReflect() protoreflect.M
 
 // Deprecated: Use UpdateGameServerMapShareSettingsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameServerMapShareSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{305}
+	return file_xylona_proto_rawDescGZIP(), []int{307}
 }
 
 func (x *UpdateGameServerMapShareSettingsResponse) GetSettings() *GameServerMapShareSettings {
@@ -18282,7 +18371,7 @@ type ResolvePublicGameServerMapRequest struct {
 
 func (x *ResolvePublicGameServerMapRequest) Reset() {
 	*x = ResolvePublicGameServerMapRequest{}
-	mi := &file_xylona_proto_msgTypes[306]
+	mi := &file_xylona_proto_msgTypes[308]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18294,7 +18383,7 @@ func (x *ResolvePublicGameServerMapRequest) String() string {
 func (*ResolvePublicGameServerMapRequest) ProtoMessage() {}
 
 func (x *ResolvePublicGameServerMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[306]
+	mi := &file_xylona_proto_msgTypes[308]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18307,7 +18396,7 @@ func (x *ResolvePublicGameServerMapRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ResolvePublicGameServerMapRequest.ProtoReflect.Descriptor instead.
 func (*ResolvePublicGameServerMapRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{306}
+	return file_xylona_proto_rawDescGZIP(), []int{308}
 }
 
 func (x *ResolvePublicGameServerMapRequest) GetPublicIdentifier() string {
@@ -18326,7 +18415,7 @@ type ResolvePublicGameServerMapResponse struct {
 
 func (x *ResolvePublicGameServerMapResponse) Reset() {
 	*x = ResolvePublicGameServerMapResponse{}
-	mi := &file_xylona_proto_msgTypes[307]
+	mi := &file_xylona_proto_msgTypes[309]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18338,7 +18427,7 @@ func (x *ResolvePublicGameServerMapResponse) String() string {
 func (*ResolvePublicGameServerMapResponse) ProtoMessage() {}
 
 func (x *ResolvePublicGameServerMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[307]
+	mi := &file_xylona_proto_msgTypes[309]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18351,7 +18440,7 @@ func (x *ResolvePublicGameServerMapResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ResolvePublicGameServerMapResponse.ProtoReflect.Descriptor instead.
 func (*ResolvePublicGameServerMapResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{307}
+	return file_xylona_proto_rawDescGZIP(), []int{309}
 }
 
 func (x *ResolvePublicGameServerMapResponse) GetKind() GameServerMapKind {
@@ -18381,7 +18470,7 @@ type DNSBinding struct {
 
 func (x *DNSBinding) Reset() {
 	*x = DNSBinding{}
-	mi := &file_xylona_proto_msgTypes[308]
+	mi := &file_xylona_proto_msgTypes[310]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18393,7 +18482,7 @@ func (x *DNSBinding) String() string {
 func (*DNSBinding) ProtoMessage() {}
 
 func (x *DNSBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[308]
+	mi := &file_xylona_proto_msgTypes[310]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18406,7 +18495,7 @@ func (x *DNSBinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSBinding.ProtoReflect.Descriptor instead.
 func (*DNSBinding) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{308}
+	return file_xylona_proto_rawDescGZIP(), []int{310}
 }
 
 func (x *DNSBinding) GetGameServerId() string {
@@ -18502,7 +18591,7 @@ type GetDNSBindingRequest struct {
 
 func (x *GetDNSBindingRequest) Reset() {
 	*x = GetDNSBindingRequest{}
-	mi := &file_xylona_proto_msgTypes[309]
+	mi := &file_xylona_proto_msgTypes[311]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18514,7 +18603,7 @@ func (x *GetDNSBindingRequest) String() string {
 func (*GetDNSBindingRequest) ProtoMessage() {}
 
 func (x *GetDNSBindingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[309]
+	mi := &file_xylona_proto_msgTypes[311]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18527,7 +18616,7 @@ func (x *GetDNSBindingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDNSBindingRequest.ProtoReflect.Descriptor instead.
 func (*GetDNSBindingRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{309}
+	return file_xylona_proto_rawDescGZIP(), []int{311}
 }
 
 func (x *GetDNSBindingRequest) GetGameServerId() string {
@@ -18547,7 +18636,7 @@ type GetDNSBindingResponse struct {
 
 func (x *GetDNSBindingResponse) Reset() {
 	*x = GetDNSBindingResponse{}
-	mi := &file_xylona_proto_msgTypes[310]
+	mi := &file_xylona_proto_msgTypes[312]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18559,7 +18648,7 @@ func (x *GetDNSBindingResponse) String() string {
 func (*GetDNSBindingResponse) ProtoMessage() {}
 
 func (x *GetDNSBindingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[310]
+	mi := &file_xylona_proto_msgTypes[312]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18572,7 +18661,7 @@ func (x *GetDNSBindingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDNSBindingResponse.ProtoReflect.Descriptor instead.
 func (*GetDNSBindingResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{310}
+	return file_xylona_proto_rawDescGZIP(), []int{312}
 }
 
 func (x *GetDNSBindingResponse) GetBinding() *DNSBinding {
@@ -18599,7 +18688,7 @@ type SetDNSBindingRequest struct {
 
 func (x *SetDNSBindingRequest) Reset() {
 	*x = SetDNSBindingRequest{}
-	mi := &file_xylona_proto_msgTypes[311]
+	mi := &file_xylona_proto_msgTypes[313]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18611,7 +18700,7 @@ func (x *SetDNSBindingRequest) String() string {
 func (*SetDNSBindingRequest) ProtoMessage() {}
 
 func (x *SetDNSBindingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[311]
+	mi := &file_xylona_proto_msgTypes[313]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18624,7 +18713,7 @@ func (x *SetDNSBindingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDNSBindingRequest.ProtoReflect.Descriptor instead.
 func (*SetDNSBindingRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{311}
+	return file_xylona_proto_rawDescGZIP(), []int{313}
 }
 
 func (x *SetDNSBindingRequest) GetGameServerId() string {
@@ -18650,7 +18739,7 @@ type SetDNSBindingResponse struct {
 
 func (x *SetDNSBindingResponse) Reset() {
 	*x = SetDNSBindingResponse{}
-	mi := &file_xylona_proto_msgTypes[312]
+	mi := &file_xylona_proto_msgTypes[314]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18662,7 +18751,7 @@ func (x *SetDNSBindingResponse) String() string {
 func (*SetDNSBindingResponse) ProtoMessage() {}
 
 func (x *SetDNSBindingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[312]
+	mi := &file_xylona_proto_msgTypes[314]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18675,7 +18764,7 @@ func (x *SetDNSBindingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetDNSBindingResponse.ProtoReflect.Descriptor instead.
 func (*SetDNSBindingResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{312}
+	return file_xylona_proto_rawDescGZIP(), []int{314}
 }
 
 func (x *SetDNSBindingResponse) GetBinding() *DNSBinding {
@@ -18694,7 +18783,7 @@ type RemoveDNSBindingRequest struct {
 
 func (x *RemoveDNSBindingRequest) Reset() {
 	*x = RemoveDNSBindingRequest{}
-	mi := &file_xylona_proto_msgTypes[313]
+	mi := &file_xylona_proto_msgTypes[315]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18706,7 +18795,7 @@ func (x *RemoveDNSBindingRequest) String() string {
 func (*RemoveDNSBindingRequest) ProtoMessage() {}
 
 func (x *RemoveDNSBindingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[313]
+	mi := &file_xylona_proto_msgTypes[315]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18719,7 +18808,7 @@ func (x *RemoveDNSBindingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveDNSBindingRequest.ProtoReflect.Descriptor instead.
 func (*RemoveDNSBindingRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{313}
+	return file_xylona_proto_rawDescGZIP(), []int{315}
 }
 
 func (x *RemoveDNSBindingRequest) GetGameServerId() string {
@@ -18737,7 +18826,7 @@ type RemoveDNSBindingResponse struct {
 
 func (x *RemoveDNSBindingResponse) Reset() {
 	*x = RemoveDNSBindingResponse{}
-	mi := &file_xylona_proto_msgTypes[314]
+	mi := &file_xylona_proto_msgTypes[316]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18749,7 +18838,7 @@ func (x *RemoveDNSBindingResponse) String() string {
 func (*RemoveDNSBindingResponse) ProtoMessage() {}
 
 func (x *RemoveDNSBindingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[314]
+	mi := &file_xylona_proto_msgTypes[316]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18762,7 +18851,7 @@ func (x *RemoveDNSBindingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveDNSBindingResponse.ProtoReflect.Descriptor instead.
 func (*RemoveDNSBindingResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{314}
+	return file_xylona_proto_rawDescGZIP(), []int{316}
 }
 
 type SyncDNSBindingRequest struct {
@@ -18774,7 +18863,7 @@ type SyncDNSBindingRequest struct {
 
 func (x *SyncDNSBindingRequest) Reset() {
 	*x = SyncDNSBindingRequest{}
-	mi := &file_xylona_proto_msgTypes[315]
+	mi := &file_xylona_proto_msgTypes[317]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18786,7 +18875,7 @@ func (x *SyncDNSBindingRequest) String() string {
 func (*SyncDNSBindingRequest) ProtoMessage() {}
 
 func (x *SyncDNSBindingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[315]
+	mi := &file_xylona_proto_msgTypes[317]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18799,7 +18888,7 @@ func (x *SyncDNSBindingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncDNSBindingRequest.ProtoReflect.Descriptor instead.
 func (*SyncDNSBindingRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{315}
+	return file_xylona_proto_rawDescGZIP(), []int{317}
 }
 
 func (x *SyncDNSBindingRequest) GetGameServerId() string {
@@ -18819,7 +18908,7 @@ type SyncDNSBindingResponse struct {
 
 func (x *SyncDNSBindingResponse) Reset() {
 	*x = SyncDNSBindingResponse{}
-	mi := &file_xylona_proto_msgTypes[316]
+	mi := &file_xylona_proto_msgTypes[318]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18831,7 +18920,7 @@ func (x *SyncDNSBindingResponse) String() string {
 func (*SyncDNSBindingResponse) ProtoMessage() {}
 
 func (x *SyncDNSBindingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[316]
+	mi := &file_xylona_proto_msgTypes[318]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18844,7 +18933,7 @@ func (x *SyncDNSBindingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncDNSBindingResponse.ProtoReflect.Descriptor instead.
 func (*SyncDNSBindingResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{316}
+	return file_xylona_proto_rawDescGZIP(), []int{318}
 }
 
 func (x *SyncDNSBindingResponse) GetBinding() *DNSBinding {
@@ -18870,7 +18959,7 @@ type AdoptDNSBindingRecordRequest struct {
 
 func (x *AdoptDNSBindingRecordRequest) Reset() {
 	*x = AdoptDNSBindingRecordRequest{}
-	mi := &file_xylona_proto_msgTypes[317]
+	mi := &file_xylona_proto_msgTypes[319]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18882,7 +18971,7 @@ func (x *AdoptDNSBindingRecordRequest) String() string {
 func (*AdoptDNSBindingRecordRequest) ProtoMessage() {}
 
 func (x *AdoptDNSBindingRecordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[317]
+	mi := &file_xylona_proto_msgTypes[319]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18895,7 +18984,7 @@ func (x *AdoptDNSBindingRecordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdoptDNSBindingRecordRequest.ProtoReflect.Descriptor instead.
 func (*AdoptDNSBindingRecordRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{317}
+	return file_xylona_proto_rawDescGZIP(), []int{319}
 }
 
 func (x *AdoptDNSBindingRecordRequest) GetGameServerId() string {
@@ -18914,7 +19003,7 @@ type AdoptDNSBindingRecordResponse struct {
 
 func (x *AdoptDNSBindingRecordResponse) Reset() {
 	*x = AdoptDNSBindingRecordResponse{}
-	mi := &file_xylona_proto_msgTypes[318]
+	mi := &file_xylona_proto_msgTypes[320]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18926,7 +19015,7 @@ func (x *AdoptDNSBindingRecordResponse) String() string {
 func (*AdoptDNSBindingRecordResponse) ProtoMessage() {}
 
 func (x *AdoptDNSBindingRecordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[318]
+	mi := &file_xylona_proto_msgTypes[320]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18939,7 +19028,7 @@ func (x *AdoptDNSBindingRecordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdoptDNSBindingRecordResponse.ProtoReflect.Descriptor instead.
 func (*AdoptDNSBindingRecordResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{318}
+	return file_xylona_proto_rawDescGZIP(), []int{320}
 }
 
 func (x *AdoptDNSBindingRecordResponse) GetBinding() *DNSBinding {
@@ -18974,7 +19063,7 @@ type PalworldMapActor struct {
 
 func (x *PalworldMapActor) Reset() {
 	*x = PalworldMapActor{}
-	mi := &file_xylona_proto_msgTypes[319]
+	mi := &file_xylona_proto_msgTypes[321]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18986,7 +19075,7 @@ func (x *PalworldMapActor) String() string {
 func (*PalworldMapActor) ProtoMessage() {}
 
 func (x *PalworldMapActor) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[319]
+	mi := &file_xylona_proto_msgTypes[321]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18999,7 +19088,7 @@ func (x *PalworldMapActor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapActor.ProtoReflect.Descriptor instead.
 func (*PalworldMapActor) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{319}
+	return file_xylona_proto_rawDescGZIP(), []int{321}
 }
 
 func (x *PalworldMapActor) GetKey() string {
@@ -19144,7 +19233,7 @@ type PalworldMapLayer struct {
 
 func (x *PalworldMapLayer) Reset() {
 	*x = PalworldMapLayer{}
-	mi := &file_xylona_proto_msgTypes[320]
+	mi := &file_xylona_proto_msgTypes[322]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19156,7 +19245,7 @@ func (x *PalworldMapLayer) String() string {
 func (*PalworldMapLayer) ProtoMessage() {}
 
 func (x *PalworldMapLayer) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[320]
+	mi := &file_xylona_proto_msgTypes[322]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19169,7 +19258,7 @@ func (x *PalworldMapLayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapLayer.ProtoReflect.Descriptor instead.
 func (*PalworldMapLayer) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{320}
+	return file_xylona_proto_rawDescGZIP(), []int{322}
 }
 
 func (x *PalworldMapLayer) GetId() string {
@@ -19300,7 +19389,7 @@ type PalworldMapView struct {
 
 func (x *PalworldMapView) Reset() {
 	*x = PalworldMapView{}
-	mi := &file_xylona_proto_msgTypes[321]
+	mi := &file_xylona_proto_msgTypes[323]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19312,7 +19401,7 @@ func (x *PalworldMapView) String() string {
 func (*PalworldMapView) ProtoMessage() {}
 
 func (x *PalworldMapView) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[321]
+	mi := &file_xylona_proto_msgTypes[323]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19325,7 +19414,7 @@ func (x *PalworldMapView) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapView.ProtoReflect.Descriptor instead.
 func (*PalworldMapView) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{321}
+	return file_xylona_proto_rawDescGZIP(), []int{323}
 }
 
 func (x *PalworldMapView) GetServerName() string {
@@ -19442,7 +19531,7 @@ type GetPalworldMapRequest struct {
 
 func (x *GetPalworldMapRequest) Reset() {
 	*x = GetPalworldMapRequest{}
-	mi := &file_xylona_proto_msgTypes[322]
+	mi := &file_xylona_proto_msgTypes[324]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19454,7 +19543,7 @@ func (x *GetPalworldMapRequest) String() string {
 func (*GetPalworldMapRequest) ProtoMessage() {}
 
 func (x *GetPalworldMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[322]
+	mi := &file_xylona_proto_msgTypes[324]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19467,7 +19556,7 @@ func (x *GetPalworldMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPalworldMapRequest.ProtoReflect.Descriptor instead.
 func (*GetPalworldMapRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{322}
+	return file_xylona_proto_rawDescGZIP(), []int{324}
 }
 
 func (x *GetPalworldMapRequest) GetGameServerId() string {
@@ -19486,7 +19575,7 @@ type GetPalworldMapResponse struct {
 
 func (x *GetPalworldMapResponse) Reset() {
 	*x = GetPalworldMapResponse{}
-	mi := &file_xylona_proto_msgTypes[323]
+	mi := &file_xylona_proto_msgTypes[325]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19498,7 +19587,7 @@ func (x *GetPalworldMapResponse) String() string {
 func (*GetPalworldMapResponse) ProtoMessage() {}
 
 func (x *GetPalworldMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[323]
+	mi := &file_xylona_proto_msgTypes[325]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19511,7 +19600,7 @@ func (x *GetPalworldMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPalworldMapResponse.ProtoReflect.Descriptor instead.
 func (*GetPalworldMapResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{323}
+	return file_xylona_proto_rawDescGZIP(), []int{325}
 }
 
 func (x *GetPalworldMapResponse) GetMap() *PalworldMapView {
@@ -19531,7 +19620,7 @@ type UpdatePalworldMapConfigRequest struct {
 
 func (x *UpdatePalworldMapConfigRequest) Reset() {
 	*x = UpdatePalworldMapConfigRequest{}
-	mi := &file_xylona_proto_msgTypes[324]
+	mi := &file_xylona_proto_msgTypes[326]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19543,7 +19632,7 @@ func (x *UpdatePalworldMapConfigRequest) String() string {
 func (*UpdatePalworldMapConfigRequest) ProtoMessage() {}
 
 func (x *UpdatePalworldMapConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[324]
+	mi := &file_xylona_proto_msgTypes[326]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19556,7 +19645,7 @@ func (x *UpdatePalworldMapConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePalworldMapConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePalworldMapConfigRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{324}
+	return file_xylona_proto_rawDescGZIP(), []int{326}
 }
 
 func (x *UpdatePalworldMapConfigRequest) GetGameServerId() string {
@@ -19582,7 +19671,7 @@ type UpdatePalworldMapConfigResponse struct {
 
 func (x *UpdatePalworldMapConfigResponse) Reset() {
 	*x = UpdatePalworldMapConfigResponse{}
-	mi := &file_xylona_proto_msgTypes[325]
+	mi := &file_xylona_proto_msgTypes[327]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19594,7 +19683,7 @@ func (x *UpdatePalworldMapConfigResponse) String() string {
 func (*UpdatePalworldMapConfigResponse) ProtoMessage() {}
 
 func (x *UpdatePalworldMapConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[325]
+	mi := &file_xylona_proto_msgTypes[327]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19607,7 +19696,7 @@ func (x *UpdatePalworldMapConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePalworldMapConfigResponse.ProtoReflect.Descriptor instead.
 func (*UpdatePalworldMapConfigResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{325}
+	return file_xylona_proto_rawDescGZIP(), []int{327}
 }
 
 func (x *UpdatePalworldMapConfigResponse) GetLayers() []*PalworldMapLayer {
@@ -19626,7 +19715,7 @@ type InstallPalworldMapTilesRequest struct {
 
 func (x *InstallPalworldMapTilesRequest) Reset() {
 	*x = InstallPalworldMapTilesRequest{}
-	mi := &file_xylona_proto_msgTypes[326]
+	mi := &file_xylona_proto_msgTypes[328]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19638,7 +19727,7 @@ func (x *InstallPalworldMapTilesRequest) String() string {
 func (*InstallPalworldMapTilesRequest) ProtoMessage() {}
 
 func (x *InstallPalworldMapTilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[326]
+	mi := &file_xylona_proto_msgTypes[328]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19651,7 +19740,7 @@ func (x *InstallPalworldMapTilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstallPalworldMapTilesRequest.ProtoReflect.Descriptor instead.
 func (*InstallPalworldMapTilesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{326}
+	return file_xylona_proto_rawDescGZIP(), []int{328}
 }
 
 func (x *InstallPalworldMapTilesRequest) GetGameServerId() string {
@@ -19670,7 +19759,7 @@ type InstallPalworldMapTilesResponse struct {
 
 func (x *InstallPalworldMapTilesResponse) Reset() {
 	*x = InstallPalworldMapTilesResponse{}
-	mi := &file_xylona_proto_msgTypes[327]
+	mi := &file_xylona_proto_msgTypes[329]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19682,7 +19771,7 @@ func (x *InstallPalworldMapTilesResponse) String() string {
 func (*InstallPalworldMapTilesResponse) ProtoMessage() {}
 
 func (x *InstallPalworldMapTilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[327]
+	mi := &file_xylona_proto_msgTypes[329]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19695,7 +19784,7 @@ func (x *InstallPalworldMapTilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstallPalworldMapTilesResponse.ProtoReflect.Descriptor instead.
 func (*InstallPalworldMapTilesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{327}
+	return file_xylona_proto_rawDescGZIP(), []int{329}
 }
 
 func (x *InstallPalworldMapTilesResponse) GetLayers() []*PalworldMapLayer {
@@ -19714,7 +19803,7 @@ type GetPublicPalworldMapRequest struct {
 
 func (x *GetPublicPalworldMapRequest) Reset() {
 	*x = GetPublicPalworldMapRequest{}
-	mi := &file_xylona_proto_msgTypes[328]
+	mi := &file_xylona_proto_msgTypes[330]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19726,7 +19815,7 @@ func (x *GetPublicPalworldMapRequest) String() string {
 func (*GetPublicPalworldMapRequest) ProtoMessage() {}
 
 func (x *GetPublicPalworldMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[328]
+	mi := &file_xylona_proto_msgTypes[330]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19739,7 +19828,7 @@ func (x *GetPublicPalworldMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublicPalworldMapRequest.ProtoReflect.Descriptor instead.
 func (*GetPublicPalworldMapRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{328}
+	return file_xylona_proto_rawDescGZIP(), []int{330}
 }
 
 func (x *GetPublicPalworldMapRequest) GetPublicIdentifier() string {
@@ -19758,7 +19847,7 @@ type GetPublicPalworldMapResponse struct {
 
 func (x *GetPublicPalworldMapResponse) Reset() {
 	*x = GetPublicPalworldMapResponse{}
-	mi := &file_xylona_proto_msgTypes[329]
+	mi := &file_xylona_proto_msgTypes[331]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19770,7 +19859,7 @@ func (x *GetPublicPalworldMapResponse) String() string {
 func (*GetPublicPalworldMapResponse) ProtoMessage() {}
 
 func (x *GetPublicPalworldMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[329]
+	mi := &file_xylona_proto_msgTypes[331]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19783,7 +19872,7 @@ func (x *GetPublicPalworldMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublicPalworldMapResponse.ProtoReflect.Descriptor instead.
 func (*GetPublicPalworldMapResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{329}
+	return file_xylona_proto_rawDescGZIP(), []int{331}
 }
 
 func (x *GetPublicPalworldMapResponse) GetMap() *PalworldMapView {
@@ -19804,7 +19893,7 @@ type SevenDaysToDieMapVector struct {
 
 func (x *SevenDaysToDieMapVector) Reset() {
 	*x = SevenDaysToDieMapVector{}
-	mi := &file_xylona_proto_msgTypes[330]
+	mi := &file_xylona_proto_msgTypes[332]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19816,7 +19905,7 @@ func (x *SevenDaysToDieMapVector) String() string {
 func (*SevenDaysToDieMapVector) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapVector) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[330]
+	mi := &file_xylona_proto_msgTypes[332]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19829,7 +19918,7 @@ func (x *SevenDaysToDieMapVector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapVector.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapVector) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{330}
+	return file_xylona_proto_rawDescGZIP(), []int{332}
 }
 
 func (x *SevenDaysToDieMapVector) GetX() float64 {
@@ -19866,7 +19955,7 @@ type SevenDaysToDieMapPlayer struct {
 
 func (x *SevenDaysToDieMapPlayer) Reset() {
 	*x = SevenDaysToDieMapPlayer{}
-	mi := &file_xylona_proto_msgTypes[331]
+	mi := &file_xylona_proto_msgTypes[333]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19878,7 +19967,7 @@ func (x *SevenDaysToDieMapPlayer) String() string {
 func (*SevenDaysToDieMapPlayer) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapPlayer) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[331]
+	mi := &file_xylona_proto_msgTypes[333]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19891,7 +19980,7 @@ func (x *SevenDaysToDieMapPlayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapPlayer.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapPlayer) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{331}
+	return file_xylona_proto_rawDescGZIP(), []int{333}
 }
 
 func (x *SevenDaysToDieMapPlayer) GetId() string {
@@ -19944,7 +20033,7 @@ type SevenDaysToDieMapMarker struct {
 
 func (x *SevenDaysToDieMapMarker) Reset() {
 	*x = SevenDaysToDieMapMarker{}
-	mi := &file_xylona_proto_msgTypes[332]
+	mi := &file_xylona_proto_msgTypes[334]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19956,7 +20045,7 @@ func (x *SevenDaysToDieMapMarker) String() string {
 func (*SevenDaysToDieMapMarker) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapMarker) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[332]
+	mi := &file_xylona_proto_msgTypes[334]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19969,7 +20058,7 @@ func (x *SevenDaysToDieMapMarker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapMarker.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapMarker) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{332}
+	return file_xylona_proto_rawDescGZIP(), []int{334}
 }
 
 func (x *SevenDaysToDieMapMarker) GetId() string {
@@ -20034,7 +20123,7 @@ type SevenDaysToDieLandClaim struct {
 
 func (x *SevenDaysToDieLandClaim) Reset() {
 	*x = SevenDaysToDieLandClaim{}
-	mi := &file_xylona_proto_msgTypes[333]
+	mi := &file_xylona_proto_msgTypes[335]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20046,7 +20135,7 @@ func (x *SevenDaysToDieLandClaim) String() string {
 func (*SevenDaysToDieLandClaim) ProtoMessage() {}
 
 func (x *SevenDaysToDieLandClaim) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[333]
+	mi := &file_xylona_proto_msgTypes[335]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20059,7 +20148,7 @@ func (x *SevenDaysToDieLandClaim) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieLandClaim.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieLandClaim) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{333}
+	return file_xylona_proto_rawDescGZIP(), []int{335}
 }
 
 func (x *SevenDaysToDieLandClaim) GetOwnerId() string {
@@ -20107,7 +20196,7 @@ type SevenDaysToDieMapEntity struct {
 
 func (x *SevenDaysToDieMapEntity) Reset() {
 	*x = SevenDaysToDieMapEntity{}
-	mi := &file_xylona_proto_msgTypes[334]
+	mi := &file_xylona_proto_msgTypes[336]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20119,7 +20208,7 @@ func (x *SevenDaysToDieMapEntity) String() string {
 func (*SevenDaysToDieMapEntity) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[334]
+	mi := &file_xylona_proto_msgTypes[336]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20132,7 +20221,7 @@ func (x *SevenDaysToDieMapEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapEntity.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapEntity) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{334}
+	return file_xylona_proto_rawDescGZIP(), []int{336}
 }
 
 func (x *SevenDaysToDieMapEntity) GetName() string {
@@ -20161,7 +20250,7 @@ type SevenDaysToDieMapBloodMoon struct {
 
 func (x *SevenDaysToDieMapBloodMoon) Reset() {
 	*x = SevenDaysToDieMapBloodMoon{}
-	mi := &file_xylona_proto_msgTypes[335]
+	mi := &file_xylona_proto_msgTypes[337]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20173,7 +20262,7 @@ func (x *SevenDaysToDieMapBloodMoon) String() string {
 func (*SevenDaysToDieMapBloodMoon) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapBloodMoon) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[335]
+	mi := &file_xylona_proto_msgTypes[337]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20186,7 +20275,7 @@ func (x *SevenDaysToDieMapBloodMoon) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapBloodMoon.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapBloodMoon) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{335}
+	return file_xylona_proto_rawDescGZIP(), []int{337}
 }
 
 func (x *SevenDaysToDieMapBloodMoon) GetGameTime() *SevenDaysToDieGameTime {
@@ -20249,7 +20338,7 @@ type SevenDaysToDieMapView struct {
 
 func (x *SevenDaysToDieMapView) Reset() {
 	*x = SevenDaysToDieMapView{}
-	mi := &file_xylona_proto_msgTypes[336]
+	mi := &file_xylona_proto_msgTypes[338]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20261,7 +20350,7 @@ func (x *SevenDaysToDieMapView) String() string {
 func (*SevenDaysToDieMapView) ProtoMessage() {}
 
 func (x *SevenDaysToDieMapView) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[336]
+	mi := &file_xylona_proto_msgTypes[338]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20274,7 +20363,7 @@ func (x *SevenDaysToDieMapView) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieMapView.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieMapView) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{336}
+	return file_xylona_proto_rawDescGZIP(), []int{338}
 }
 
 func (x *SevenDaysToDieMapView) GetGameServerId() string {
@@ -20454,7 +20543,7 @@ type GetSevenDaysToDieMapRequest struct {
 
 func (x *GetSevenDaysToDieMapRequest) Reset() {
 	*x = GetSevenDaysToDieMapRequest{}
-	mi := &file_xylona_proto_msgTypes[337]
+	mi := &file_xylona_proto_msgTypes[339]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20466,7 +20555,7 @@ func (x *GetSevenDaysToDieMapRequest) String() string {
 func (*GetSevenDaysToDieMapRequest) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[337]
+	mi := &file_xylona_proto_msgTypes[339]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20479,7 +20568,7 @@ func (x *GetSevenDaysToDieMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSevenDaysToDieMapRequest.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieMapRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{337}
+	return file_xylona_proto_rawDescGZIP(), []int{339}
 }
 
 func (x *GetSevenDaysToDieMapRequest) GetGameServerId() string {
@@ -20498,7 +20587,7 @@ type GetSevenDaysToDieMapResponse struct {
 
 func (x *GetSevenDaysToDieMapResponse) Reset() {
 	*x = GetSevenDaysToDieMapResponse{}
-	mi := &file_xylona_proto_msgTypes[338]
+	mi := &file_xylona_proto_msgTypes[340]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20510,7 +20599,7 @@ func (x *GetSevenDaysToDieMapResponse) String() string {
 func (*GetSevenDaysToDieMapResponse) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[338]
+	mi := &file_xylona_proto_msgTypes[340]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20523,7 +20612,7 @@ func (x *GetSevenDaysToDieMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSevenDaysToDieMapResponse.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieMapResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{338}
+	return file_xylona_proto_rawDescGZIP(), []int{340}
 }
 
 func (x *GetSevenDaysToDieMapResponse) GetMap() *SevenDaysToDieMapView {
@@ -20543,7 +20632,7 @@ type UpdateSevenDaysToDieMapNotesRequest struct {
 
 func (x *UpdateSevenDaysToDieMapNotesRequest) Reset() {
 	*x = UpdateSevenDaysToDieMapNotesRequest{}
-	mi := &file_xylona_proto_msgTypes[339]
+	mi := &file_xylona_proto_msgTypes[341]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20555,7 +20644,7 @@ func (x *UpdateSevenDaysToDieMapNotesRequest) String() string {
 func (*UpdateSevenDaysToDieMapNotesRequest) ProtoMessage() {}
 
 func (x *UpdateSevenDaysToDieMapNotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[339]
+	mi := &file_xylona_proto_msgTypes[341]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20568,7 +20657,7 @@ func (x *UpdateSevenDaysToDieMapNotesRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateSevenDaysToDieMapNotesRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSevenDaysToDieMapNotesRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{339}
+	return file_xylona_proto_rawDescGZIP(), []int{341}
 }
 
 func (x *UpdateSevenDaysToDieMapNotesRequest) GetGameServerId() string {
@@ -20594,7 +20683,7 @@ type UpdateSevenDaysToDieMapNotesResponse struct {
 
 func (x *UpdateSevenDaysToDieMapNotesResponse) Reset() {
 	*x = UpdateSevenDaysToDieMapNotesResponse{}
-	mi := &file_xylona_proto_msgTypes[340]
+	mi := &file_xylona_proto_msgTypes[342]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20606,7 +20695,7 @@ func (x *UpdateSevenDaysToDieMapNotesResponse) String() string {
 func (*UpdateSevenDaysToDieMapNotesResponse) ProtoMessage() {}
 
 func (x *UpdateSevenDaysToDieMapNotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[340]
+	mi := &file_xylona_proto_msgTypes[342]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20619,7 +20708,7 @@ func (x *UpdateSevenDaysToDieMapNotesResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use UpdateSevenDaysToDieMapNotesResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSevenDaysToDieMapNotesResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{340}
+	return file_xylona_proto_rawDescGZIP(), []int{342}
 }
 
 func (x *UpdateSevenDaysToDieMapNotesResponse) GetMarkers() []*SevenDaysToDieMapMarker {
@@ -20638,7 +20727,7 @@ type GetPublicSevenDaysToDieMapRequest struct {
 
 func (x *GetPublicSevenDaysToDieMapRequest) Reset() {
 	*x = GetPublicSevenDaysToDieMapRequest{}
-	mi := &file_xylona_proto_msgTypes[341]
+	mi := &file_xylona_proto_msgTypes[343]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20650,7 +20739,7 @@ func (x *GetPublicSevenDaysToDieMapRequest) String() string {
 func (*GetPublicSevenDaysToDieMapRequest) ProtoMessage() {}
 
 func (x *GetPublicSevenDaysToDieMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[341]
+	mi := &file_xylona_proto_msgTypes[343]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20663,7 +20752,7 @@ func (x *GetPublicSevenDaysToDieMapRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetPublicSevenDaysToDieMapRequest.ProtoReflect.Descriptor instead.
 func (*GetPublicSevenDaysToDieMapRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{341}
+	return file_xylona_proto_rawDescGZIP(), []int{343}
 }
 
 func (x *GetPublicSevenDaysToDieMapRequest) GetPublicIdentifier() string {
@@ -20682,7 +20771,7 @@ type GetPublicSevenDaysToDieMapResponse struct {
 
 func (x *GetPublicSevenDaysToDieMapResponse) Reset() {
 	*x = GetPublicSevenDaysToDieMapResponse{}
-	mi := &file_xylona_proto_msgTypes[342]
+	mi := &file_xylona_proto_msgTypes[344]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20694,7 +20783,7 @@ func (x *GetPublicSevenDaysToDieMapResponse) String() string {
 func (*GetPublicSevenDaysToDieMapResponse) ProtoMessage() {}
 
 func (x *GetPublicSevenDaysToDieMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[342]
+	mi := &file_xylona_proto_msgTypes[344]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20707,7 +20796,7 @@ func (x *GetPublicSevenDaysToDieMapResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetPublicSevenDaysToDieMapResponse.ProtoReflect.Descriptor instead.
 func (*GetPublicSevenDaysToDieMapResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{342}
+	return file_xylona_proto_rawDescGZIP(), []int{344}
 }
 
 func (x *GetPublicSevenDaysToDieMapResponse) GetMap() *SevenDaysToDieMapView {
@@ -20738,7 +20827,7 @@ type MinecraftMapView struct {
 
 func (x *MinecraftMapView) Reset() {
 	*x = MinecraftMapView{}
-	mi := &file_xylona_proto_msgTypes[343]
+	mi := &file_xylona_proto_msgTypes[345]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20750,7 +20839,7 @@ func (x *MinecraftMapView) String() string {
 func (*MinecraftMapView) ProtoMessage() {}
 
 func (x *MinecraftMapView) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[343]
+	mi := &file_xylona_proto_msgTypes[345]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20763,7 +20852,7 @@ func (x *MinecraftMapView) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MinecraftMapView.ProtoReflect.Descriptor instead.
 func (*MinecraftMapView) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{343}
+	return file_xylona_proto_rawDescGZIP(), []int{345}
 }
 
 func (x *MinecraftMapView) GetGameServerId() string {
@@ -20866,7 +20955,7 @@ type GetMinecraftMapRequest struct {
 
 func (x *GetMinecraftMapRequest) Reset() {
 	*x = GetMinecraftMapRequest{}
-	mi := &file_xylona_proto_msgTypes[344]
+	mi := &file_xylona_proto_msgTypes[346]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20878,7 +20967,7 @@ func (x *GetMinecraftMapRequest) String() string {
 func (*GetMinecraftMapRequest) ProtoMessage() {}
 
 func (x *GetMinecraftMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[344]
+	mi := &file_xylona_proto_msgTypes[346]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20891,7 +20980,7 @@ func (x *GetMinecraftMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMinecraftMapRequest.ProtoReflect.Descriptor instead.
 func (*GetMinecraftMapRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{344}
+	return file_xylona_proto_rawDescGZIP(), []int{346}
 }
 
 func (x *GetMinecraftMapRequest) GetGameServerId() string {
@@ -20910,7 +20999,7 @@ type GetMinecraftMapResponse struct {
 
 func (x *GetMinecraftMapResponse) Reset() {
 	*x = GetMinecraftMapResponse{}
-	mi := &file_xylona_proto_msgTypes[345]
+	mi := &file_xylona_proto_msgTypes[347]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20922,7 +21011,7 @@ func (x *GetMinecraftMapResponse) String() string {
 func (*GetMinecraftMapResponse) ProtoMessage() {}
 
 func (x *GetMinecraftMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[345]
+	mi := &file_xylona_proto_msgTypes[347]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20935,7 +21024,7 @@ func (x *GetMinecraftMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMinecraftMapResponse.ProtoReflect.Descriptor instead.
 func (*GetMinecraftMapResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{345}
+	return file_xylona_proto_rawDescGZIP(), []int{347}
 }
 
 func (x *GetMinecraftMapResponse) GetMap() *MinecraftMapView {
@@ -20957,7 +21046,7 @@ type UpdateMinecraftMapConfigRequest struct {
 
 func (x *UpdateMinecraftMapConfigRequest) Reset() {
 	*x = UpdateMinecraftMapConfigRequest{}
-	mi := &file_xylona_proto_msgTypes[346]
+	mi := &file_xylona_proto_msgTypes[348]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20969,7 +21058,7 @@ func (x *UpdateMinecraftMapConfigRequest) String() string {
 func (*UpdateMinecraftMapConfigRequest) ProtoMessage() {}
 
 func (x *UpdateMinecraftMapConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[346]
+	mi := &file_xylona_proto_msgTypes[348]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20982,7 +21071,7 @@ func (x *UpdateMinecraftMapConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMinecraftMapConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMinecraftMapConfigRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{346}
+	return file_xylona_proto_rawDescGZIP(), []int{348}
 }
 
 func (x *UpdateMinecraftMapConfigRequest) GetGameServerId() string {
@@ -21022,7 +21111,7 @@ type UpdateMinecraftMapConfigResponse struct {
 
 func (x *UpdateMinecraftMapConfigResponse) Reset() {
 	*x = UpdateMinecraftMapConfigResponse{}
-	mi := &file_xylona_proto_msgTypes[347]
+	mi := &file_xylona_proto_msgTypes[349]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21034,7 +21123,7 @@ func (x *UpdateMinecraftMapConfigResponse) String() string {
 func (*UpdateMinecraftMapConfigResponse) ProtoMessage() {}
 
 func (x *UpdateMinecraftMapConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[347]
+	mi := &file_xylona_proto_msgTypes[349]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21047,7 +21136,7 @@ func (x *UpdateMinecraftMapConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMinecraftMapConfigResponse.ProtoReflect.Descriptor instead.
 func (*UpdateMinecraftMapConfigResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{347}
+	return file_xylona_proto_rawDescGZIP(), []int{349}
 }
 
 func (x *UpdateMinecraftMapConfigResponse) GetMap() *MinecraftMapView {
@@ -21066,7 +21155,7 @@ type GetPublicMinecraftMapRequest struct {
 
 func (x *GetPublicMinecraftMapRequest) Reset() {
 	*x = GetPublicMinecraftMapRequest{}
-	mi := &file_xylona_proto_msgTypes[348]
+	mi := &file_xylona_proto_msgTypes[350]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21078,7 +21167,7 @@ func (x *GetPublicMinecraftMapRequest) String() string {
 func (*GetPublicMinecraftMapRequest) ProtoMessage() {}
 
 func (x *GetPublicMinecraftMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[348]
+	mi := &file_xylona_proto_msgTypes[350]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21091,7 +21180,7 @@ func (x *GetPublicMinecraftMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublicMinecraftMapRequest.ProtoReflect.Descriptor instead.
 func (*GetPublicMinecraftMapRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{348}
+	return file_xylona_proto_rawDescGZIP(), []int{350}
 }
 
 func (x *GetPublicMinecraftMapRequest) GetPublicIdentifier() string {
@@ -21110,7 +21199,7 @@ type GetPublicMinecraftMapResponse struct {
 
 func (x *GetPublicMinecraftMapResponse) Reset() {
 	*x = GetPublicMinecraftMapResponse{}
-	mi := &file_xylona_proto_msgTypes[349]
+	mi := &file_xylona_proto_msgTypes[351]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21122,7 +21211,7 @@ func (x *GetPublicMinecraftMapResponse) String() string {
 func (*GetPublicMinecraftMapResponse) ProtoMessage() {}
 
 func (x *GetPublicMinecraftMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[349]
+	mi := &file_xylona_proto_msgTypes[351]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21135,7 +21224,7 @@ func (x *GetPublicMinecraftMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPublicMinecraftMapResponse.ProtoReflect.Descriptor instead.
 func (*GetPublicMinecraftMapResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{349}
+	return file_xylona_proto_rawDescGZIP(), []int{351}
 }
 
 func (x *GetPublicMinecraftMapResponse) GetMap() *MinecraftMapView {
@@ -21160,7 +21249,7 @@ type PalworldMapHealth struct {
 
 func (x *PalworldMapHealth) Reset() {
 	*x = PalworldMapHealth{}
-	mi := &file_xylona_proto_msgTypes[350]
+	mi := &file_xylona_proto_msgTypes[352]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21172,7 +21261,7 @@ func (x *PalworldMapHealth) String() string {
 func (*PalworldMapHealth) ProtoMessage() {}
 
 func (x *PalworldMapHealth) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[350]
+	mi := &file_xylona_proto_msgTypes[352]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21185,7 +21274,7 @@ func (x *PalworldMapHealth) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PalworldMapHealth.ProtoReflect.Descriptor instead.
 func (*PalworldMapHealth) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{350}
+	return file_xylona_proto_rawDescGZIP(), []int{352}
 }
 
 func (x *PalworldMapHealth) GetServerFps() float64 {
@@ -21248,7 +21337,7 @@ type SevenDaysToDieGameTime struct {
 
 func (x *SevenDaysToDieGameTime) Reset() {
 	*x = SevenDaysToDieGameTime{}
-	mi := &file_xylona_proto_msgTypes[351]
+	mi := &file_xylona_proto_msgTypes[353]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21260,7 +21349,7 @@ func (x *SevenDaysToDieGameTime) String() string {
 func (*SevenDaysToDieGameTime) ProtoMessage() {}
 
 func (x *SevenDaysToDieGameTime) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[351]
+	mi := &file_xylona_proto_msgTypes[353]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21273,7 +21362,7 @@ func (x *SevenDaysToDieGameTime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieGameTime.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieGameTime) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{351}
+	return file_xylona_proto_rawDescGZIP(), []int{353}
 }
 
 func (x *SevenDaysToDieGameTime) GetDay() int32 {
@@ -21316,7 +21405,7 @@ type SevenDaysToDieWebAPICapabilities struct {
 
 func (x *SevenDaysToDieWebAPICapabilities) Reset() {
 	*x = SevenDaysToDieWebAPICapabilities{}
-	mi := &file_xylona_proto_msgTypes[352]
+	mi := &file_xylona_proto_msgTypes[354]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21328,7 +21417,7 @@ func (x *SevenDaysToDieWebAPICapabilities) String() string {
 func (*SevenDaysToDieWebAPICapabilities) ProtoMessage() {}
 
 func (x *SevenDaysToDieWebAPICapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[352]
+	mi := &file_xylona_proto_msgTypes[354]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21341,7 +21430,7 @@ func (x *SevenDaysToDieWebAPICapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieWebAPICapabilities.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieWebAPICapabilities) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{352}
+	return file_xylona_proto_rawDescGZIP(), []int{354}
 }
 
 func (x *SevenDaysToDieWebAPICapabilities) GetPlayerData() bool {
@@ -21439,7 +21528,7 @@ type SevenDaysToDieWebAPIStatus struct {
 
 func (x *SevenDaysToDieWebAPIStatus) Reset() {
 	*x = SevenDaysToDieWebAPIStatus{}
-	mi := &file_xylona_proto_msgTypes[353]
+	mi := &file_xylona_proto_msgTypes[355]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21451,7 +21540,7 @@ func (x *SevenDaysToDieWebAPIStatus) String() string {
 func (*SevenDaysToDieWebAPIStatus) ProtoMessage() {}
 
 func (x *SevenDaysToDieWebAPIStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[353]
+	mi := &file_xylona_proto_msgTypes[355]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21464,7 +21553,7 @@ func (x *SevenDaysToDieWebAPIStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieWebAPIStatus.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieWebAPIStatus) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{353}
+	return file_xylona_proto_rawDescGZIP(), []int{355}
 }
 
 func (x *SevenDaysToDieWebAPIStatus) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -21546,7 +21635,7 @@ type GetSevenDaysToDieWebAPIStatusRequest struct {
 
 func (x *GetSevenDaysToDieWebAPIStatusRequest) Reset() {
 	*x = GetSevenDaysToDieWebAPIStatusRequest{}
-	mi := &file_xylona_proto_msgTypes[354]
+	mi := &file_xylona_proto_msgTypes[356]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21558,7 +21647,7 @@ func (x *GetSevenDaysToDieWebAPIStatusRequest) String() string {
 func (*GetSevenDaysToDieWebAPIStatusRequest) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieWebAPIStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[354]
+	mi := &file_xylona_proto_msgTypes[356]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21571,7 +21660,7 @@ func (x *GetSevenDaysToDieWebAPIStatusRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use GetSevenDaysToDieWebAPIStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieWebAPIStatusRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{354}
+	return file_xylona_proto_rawDescGZIP(), []int{356}
 }
 
 func (x *GetSevenDaysToDieWebAPIStatusRequest) GetGameServerId() string {
@@ -21590,7 +21679,7 @@ type GetSevenDaysToDieWebAPIStatusResponse struct {
 
 func (x *GetSevenDaysToDieWebAPIStatusResponse) Reset() {
 	*x = GetSevenDaysToDieWebAPIStatusResponse{}
-	mi := &file_xylona_proto_msgTypes[355]
+	mi := &file_xylona_proto_msgTypes[357]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21602,7 +21691,7 @@ func (x *GetSevenDaysToDieWebAPIStatusResponse) String() string {
 func (*GetSevenDaysToDieWebAPIStatusResponse) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieWebAPIStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[355]
+	mi := &file_xylona_proto_msgTypes[357]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21615,7 +21704,7 @@ func (x *GetSevenDaysToDieWebAPIStatusResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use GetSevenDaysToDieWebAPIStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieWebAPIStatusResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{355}
+	return file_xylona_proto_rawDescGZIP(), []int{357}
 }
 
 func (x *GetSevenDaysToDieWebAPIStatusResponse) GetStatus() *SevenDaysToDieWebAPIStatus {
@@ -21639,7 +21728,7 @@ type SevenDaysToDieSandboxSetting struct {
 
 func (x *SevenDaysToDieSandboxSetting) Reset() {
 	*x = SevenDaysToDieSandboxSetting{}
-	mi := &file_xylona_proto_msgTypes[356]
+	mi := &file_xylona_proto_msgTypes[358]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21651,7 +21740,7 @@ func (x *SevenDaysToDieSandboxSetting) String() string {
 func (*SevenDaysToDieSandboxSetting) ProtoMessage() {}
 
 func (x *SevenDaysToDieSandboxSetting) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[356]
+	mi := &file_xylona_proto_msgTypes[358]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21664,7 +21753,7 @@ func (x *SevenDaysToDieSandboxSetting) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SevenDaysToDieSandboxSetting.ProtoReflect.Descriptor instead.
 func (*SevenDaysToDieSandboxSetting) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{356}
+	return file_xylona_proto_rawDescGZIP(), []int{358}
 }
 
 func (x *SevenDaysToDieSandboxSetting) GetKey() string {
@@ -21718,7 +21807,7 @@ type GetSevenDaysToDieSandboxSettingsRequest struct {
 
 func (x *GetSevenDaysToDieSandboxSettingsRequest) Reset() {
 	*x = GetSevenDaysToDieSandboxSettingsRequest{}
-	mi := &file_xylona_proto_msgTypes[357]
+	mi := &file_xylona_proto_msgTypes[359]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21730,7 +21819,7 @@ func (x *GetSevenDaysToDieSandboxSettingsRequest) String() string {
 func (*GetSevenDaysToDieSandboxSettingsRequest) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieSandboxSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[357]
+	mi := &file_xylona_proto_msgTypes[359]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21743,7 +21832,7 @@ func (x *GetSevenDaysToDieSandboxSettingsRequest) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use GetSevenDaysToDieSandboxSettingsRequest.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieSandboxSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{357}
+	return file_xylona_proto_rawDescGZIP(), []int{359}
 }
 
 func (x *GetSevenDaysToDieSandboxSettingsRequest) GetGameServerId() string {
@@ -21768,7 +21857,7 @@ type GetSevenDaysToDieSandboxSettingsResponse struct {
 
 func (x *GetSevenDaysToDieSandboxSettingsResponse) Reset() {
 	*x = GetSevenDaysToDieSandboxSettingsResponse{}
-	mi := &file_xylona_proto_msgTypes[358]
+	mi := &file_xylona_proto_msgTypes[360]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21780,7 +21869,7 @@ func (x *GetSevenDaysToDieSandboxSettingsResponse) String() string {
 func (*GetSevenDaysToDieSandboxSettingsResponse) ProtoMessage() {}
 
 func (x *GetSevenDaysToDieSandboxSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[358]
+	mi := &file_xylona_proto_msgTypes[360]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21793,7 +21882,7 @@ func (x *GetSevenDaysToDieSandboxSettingsResponse) ProtoReflect() protoreflect.M
 
 // Deprecated: Use GetSevenDaysToDieSandboxSettingsResponse.ProtoReflect.Descriptor instead.
 func (*GetSevenDaysToDieSandboxSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{358}
+	return file_xylona_proto_rawDescGZIP(), []int{360}
 }
 
 func (x *GetSevenDaysToDieSandboxSettingsResponse) GetConnectionState() SevenDaysToDieWebAPIConnectionState {
@@ -21854,7 +21943,7 @@ type InstallSevenDaysToDieLandClaimsModRequest struct {
 
 func (x *InstallSevenDaysToDieLandClaimsModRequest) Reset() {
 	*x = InstallSevenDaysToDieLandClaimsModRequest{}
-	mi := &file_xylona_proto_msgTypes[359]
+	mi := &file_xylona_proto_msgTypes[361]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21866,7 +21955,7 @@ func (x *InstallSevenDaysToDieLandClaimsModRequest) String() string {
 func (*InstallSevenDaysToDieLandClaimsModRequest) ProtoMessage() {}
 
 func (x *InstallSevenDaysToDieLandClaimsModRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[359]
+	mi := &file_xylona_proto_msgTypes[361]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21879,7 +21968,7 @@ func (x *InstallSevenDaysToDieLandClaimsModRequest) ProtoReflect() protoreflect.
 
 // Deprecated: Use InstallSevenDaysToDieLandClaimsModRequest.ProtoReflect.Descriptor instead.
 func (*InstallSevenDaysToDieLandClaimsModRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{359}
+	return file_xylona_proto_rawDescGZIP(), []int{361}
 }
 
 func (x *InstallSevenDaysToDieLandClaimsModRequest) GetGameServerId() string {
@@ -21897,7 +21986,7 @@ type InstallSevenDaysToDieLandClaimsModResponse struct {
 
 func (x *InstallSevenDaysToDieLandClaimsModResponse) Reset() {
 	*x = InstallSevenDaysToDieLandClaimsModResponse{}
-	mi := &file_xylona_proto_msgTypes[360]
+	mi := &file_xylona_proto_msgTypes[362]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21909,7 +21998,7 @@ func (x *InstallSevenDaysToDieLandClaimsModResponse) String() string {
 func (*InstallSevenDaysToDieLandClaimsModResponse) ProtoMessage() {}
 
 func (x *InstallSevenDaysToDieLandClaimsModResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[360]
+	mi := &file_xylona_proto_msgTypes[362]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21922,7 +22011,7 @@ func (x *InstallSevenDaysToDieLandClaimsModResponse) ProtoReflect() protoreflect
 
 // Deprecated: Use InstallSevenDaysToDieLandClaimsModResponse.ProtoReflect.Descriptor instead.
 func (*InstallSevenDaysToDieLandClaimsModResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{360}
+	return file_xylona_proto_rawDescGZIP(), []int{362}
 }
 
 type GetSetupStatusRequest struct {
@@ -21933,7 +22022,7 @@ type GetSetupStatusRequest struct {
 
 func (x *GetSetupStatusRequest) Reset() {
 	*x = GetSetupStatusRequest{}
-	mi := &file_xylona_proto_msgTypes[361]
+	mi := &file_xylona_proto_msgTypes[363]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21945,7 +22034,7 @@ func (x *GetSetupStatusRequest) String() string {
 func (*GetSetupStatusRequest) ProtoMessage() {}
 
 func (x *GetSetupStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[361]
+	mi := &file_xylona_proto_msgTypes[363]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21958,7 +22047,7 @@ func (x *GetSetupStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSetupStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetSetupStatusRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{361}
+	return file_xylona_proto_rawDescGZIP(), []int{363}
 }
 
 type GetSetupStatusResponse struct {
@@ -21970,7 +22059,7 @@ type GetSetupStatusResponse struct {
 
 func (x *GetSetupStatusResponse) Reset() {
 	*x = GetSetupStatusResponse{}
-	mi := &file_xylona_proto_msgTypes[362]
+	mi := &file_xylona_proto_msgTypes[364]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -21982,7 +22071,7 @@ func (x *GetSetupStatusResponse) String() string {
 func (*GetSetupStatusResponse) ProtoMessage() {}
 
 func (x *GetSetupStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[362]
+	mi := &file_xylona_proto_msgTypes[364]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21995,7 +22084,7 @@ func (x *GetSetupStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSetupStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetSetupStatusResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{362}
+	return file_xylona_proto_rawDescGZIP(), []int{364}
 }
 
 func (x *GetSetupStatusResponse) GetNeeded() bool {
@@ -22017,7 +22106,7 @@ type CompleteSetupRequest struct {
 
 func (x *CompleteSetupRequest) Reset() {
 	*x = CompleteSetupRequest{}
-	mi := &file_xylona_proto_msgTypes[363]
+	mi := &file_xylona_proto_msgTypes[365]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22029,7 +22118,7 @@ func (x *CompleteSetupRequest) String() string {
 func (*CompleteSetupRequest) ProtoMessage() {}
 
 func (x *CompleteSetupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[363]
+	mi := &file_xylona_proto_msgTypes[365]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22042,7 +22131,7 @@ func (x *CompleteSetupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteSetupRequest.ProtoReflect.Descriptor instead.
 func (*CompleteSetupRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{363}
+	return file_xylona_proto_rawDescGZIP(), []int{365}
 }
 
 func (x *CompleteSetupRequest) GetUserName() string {
@@ -22082,7 +22171,7 @@ type CompleteSetupResponse struct {
 
 func (x *CompleteSetupResponse) Reset() {
 	*x = CompleteSetupResponse{}
-	mi := &file_xylona_proto_msgTypes[364]
+	mi := &file_xylona_proto_msgTypes[366]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22094,7 +22183,7 @@ func (x *CompleteSetupResponse) String() string {
 func (*CompleteSetupResponse) ProtoMessage() {}
 
 func (x *CompleteSetupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[364]
+	mi := &file_xylona_proto_msgTypes[366]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22107,7 +22196,7 @@ func (x *CompleteSetupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteSetupResponse.ProtoReflect.Descriptor instead.
 func (*CompleteSetupResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{364}
+	return file_xylona_proto_rawDescGZIP(), []int{366}
 }
 
 func (x *CompleteSetupResponse) GetUser() *User {
@@ -22128,7 +22217,7 @@ type JoinPasswordState struct {
 
 func (x *JoinPasswordState) Reset() {
 	*x = JoinPasswordState{}
-	mi := &file_xylona_proto_msgTypes[365]
+	mi := &file_xylona_proto_msgTypes[367]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22140,7 +22229,7 @@ func (x *JoinPasswordState) String() string {
 func (*JoinPasswordState) ProtoMessage() {}
 
 func (x *JoinPasswordState) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[365]
+	mi := &file_xylona_proto_msgTypes[367]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22153,7 +22242,7 @@ func (x *JoinPasswordState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinPasswordState.ProtoReflect.Descriptor instead.
 func (*JoinPasswordState) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{365}
+	return file_xylona_proto_rawDescGZIP(), []int{367}
 }
 
 func (x *JoinPasswordState) GetSupported() bool {
@@ -22186,7 +22275,7 @@ type GetJoinPasswordStateRequest struct {
 
 func (x *GetJoinPasswordStateRequest) Reset() {
 	*x = GetJoinPasswordStateRequest{}
-	mi := &file_xylona_proto_msgTypes[366]
+	mi := &file_xylona_proto_msgTypes[368]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22198,7 +22287,7 @@ func (x *GetJoinPasswordStateRequest) String() string {
 func (*GetJoinPasswordStateRequest) ProtoMessage() {}
 
 func (x *GetJoinPasswordStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[366]
+	mi := &file_xylona_proto_msgTypes[368]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22211,7 +22300,7 @@ func (x *GetJoinPasswordStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJoinPasswordStateRequest.ProtoReflect.Descriptor instead.
 func (*GetJoinPasswordStateRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{366}
+	return file_xylona_proto_rawDescGZIP(), []int{368}
 }
 
 func (x *GetJoinPasswordStateRequest) GetServerId() string {
@@ -22230,7 +22319,7 @@ type GetJoinPasswordStateResponse struct {
 
 func (x *GetJoinPasswordStateResponse) Reset() {
 	*x = GetJoinPasswordStateResponse{}
-	mi := &file_xylona_proto_msgTypes[367]
+	mi := &file_xylona_proto_msgTypes[369]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22242,7 +22331,7 @@ func (x *GetJoinPasswordStateResponse) String() string {
 func (*GetJoinPasswordStateResponse) ProtoMessage() {}
 
 func (x *GetJoinPasswordStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[367]
+	mi := &file_xylona_proto_msgTypes[369]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22255,7 +22344,7 @@ func (x *GetJoinPasswordStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJoinPasswordStateResponse.ProtoReflect.Descriptor instead.
 func (*GetJoinPasswordStateResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{367}
+	return file_xylona_proto_rawDescGZIP(), []int{369}
 }
 
 func (x *GetJoinPasswordStateResponse) GetState() *JoinPasswordState {
@@ -22275,7 +22364,7 @@ type SetJoinPasswordRequest struct {
 
 func (x *SetJoinPasswordRequest) Reset() {
 	*x = SetJoinPasswordRequest{}
-	mi := &file_xylona_proto_msgTypes[368]
+	mi := &file_xylona_proto_msgTypes[370]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22287,7 +22376,7 @@ func (x *SetJoinPasswordRequest) String() string {
 func (*SetJoinPasswordRequest) ProtoMessage() {}
 
 func (x *SetJoinPasswordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[368]
+	mi := &file_xylona_proto_msgTypes[370]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22300,7 +22389,7 @@ func (x *SetJoinPasswordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetJoinPasswordRequest.ProtoReflect.Descriptor instead.
 func (*SetJoinPasswordRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{368}
+	return file_xylona_proto_rawDescGZIP(), []int{370}
 }
 
 func (x *SetJoinPasswordRequest) GetServerId() string {
@@ -22326,7 +22415,7 @@ type SetJoinPasswordResponse struct {
 
 func (x *SetJoinPasswordResponse) Reset() {
 	*x = SetJoinPasswordResponse{}
-	mi := &file_xylona_proto_msgTypes[369]
+	mi := &file_xylona_proto_msgTypes[371]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22338,7 +22427,7 @@ func (x *SetJoinPasswordResponse) String() string {
 func (*SetJoinPasswordResponse) ProtoMessage() {}
 
 func (x *SetJoinPasswordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[369]
+	mi := &file_xylona_proto_msgTypes[371]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22351,7 +22440,7 @@ func (x *SetJoinPasswordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetJoinPasswordResponse.ProtoReflect.Descriptor instead.
 func (*SetJoinPasswordResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{369}
+	return file_xylona_proto_rawDescGZIP(), []int{371}
 }
 
 func (x *SetJoinPasswordResponse) GetState() *JoinPasswordState {
@@ -22370,7 +22459,7 @@ type ClearJoinPasswordRequest struct {
 
 func (x *ClearJoinPasswordRequest) Reset() {
 	*x = ClearJoinPasswordRequest{}
-	mi := &file_xylona_proto_msgTypes[370]
+	mi := &file_xylona_proto_msgTypes[372]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22382,7 +22471,7 @@ func (x *ClearJoinPasswordRequest) String() string {
 func (*ClearJoinPasswordRequest) ProtoMessage() {}
 
 func (x *ClearJoinPasswordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[370]
+	mi := &file_xylona_proto_msgTypes[372]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22395,7 +22484,7 @@ func (x *ClearJoinPasswordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearJoinPasswordRequest.ProtoReflect.Descriptor instead.
 func (*ClearJoinPasswordRequest) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{370}
+	return file_xylona_proto_rawDescGZIP(), []int{372}
 }
 
 func (x *ClearJoinPasswordRequest) GetServerId() string {
@@ -22414,7 +22503,7 @@ type ClearJoinPasswordResponse struct {
 
 func (x *ClearJoinPasswordResponse) Reset() {
 	*x = ClearJoinPasswordResponse{}
-	mi := &file_xylona_proto_msgTypes[371]
+	mi := &file_xylona_proto_msgTypes[373]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -22426,7 +22515,7 @@ func (x *ClearJoinPasswordResponse) String() string {
 func (*ClearJoinPasswordResponse) ProtoMessage() {}
 
 func (x *ClearJoinPasswordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xylona_proto_msgTypes[371]
+	mi := &file_xylona_proto_msgTypes[373]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -22439,7 +22528,7 @@ func (x *ClearJoinPasswordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearJoinPasswordResponse.ProtoReflect.Descriptor instead.
 func (*ClearJoinPasswordResponse) Descriptor() ([]byte, []int) {
-	return file_xylona_proto_rawDescGZIP(), []int{371}
+	return file_xylona_proto_rawDescGZIP(), []int{373}
 }
 
 func (x *ClearJoinPasswordResponse) GetState() *JoinPasswordState {
@@ -22545,7 +22634,11 @@ const file_xylona_proto_rawDesc = "" +
 	"\x05error\x18\x02 \x01(\x0e2\r.xylona.ErrorH\x00R\x05error\x88\x01\x01B\b\n" +
 	"\x06_error\"\x0f\n" +
 	"\rLogoutRequest\"\x10\n" +
-	"\x0eLogoutResponse\"\x1f\n" +
+	"\x0eLogoutResponse\"e\n" +
+	"\x15ChangePasswordRequest\x12)\n" +
+	"\x10current_password\x18\x01 \x01(\tR\x0fcurrentPassword\x12!\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x18\n" +
+	"\x16ChangePasswordResponse\"\x1f\n" +
 	"\x1dCheckUserAuthenticatedRequest\"\x8f\x01\n" +
 	"\x1eCheckUserAuthenticatedResponse\x12$\n" +
 	"\rauthenticated\x18\x01 \x01(\bR\rauthenticated\x12 \n" +
@@ -24143,7 +24236,7 @@ const file_xylona_proto_rawDesc = "" +
 	"6SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_UNSPECIFIED\x10\x00\x124\n" +
 	"0SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MATCH\x10\x01\x127\n" +
 	"3SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH\x10\x02\x124\n" +
-	"0SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE\x10\x032Є\x01\n" +
+	"0SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE\x10\x032\xa3\x85\x01\n" +
 	"\x06Xylona\x12<\n" +
 	"\aAddGame\x12\x16.xylona.AddGameRequest\x1a\x17.xylona.AddGameResponse\"\x00\x12?\n" +
 	"\bEditGame\x12\x17.xylona.EditGameRequest\x1a\x18.xylona.EditGameResponse\"\x00\x12x\n" +
@@ -24165,6 +24258,7 @@ const file_xylona_proto_rawDesc = "" +
 	"\x05Login\x12\x14.xylona.LoginRequest\x1a\x15.xylona.LoginResponse\"\x00\x129\n" +
 	"\x06Logout\x12\x15.xylona.LogoutRequest\x1a\x16.xylona.LogoutResponse\"\x00\x12i\n" +
 	"\x16CheckUserAuthenticated\x12%.xylona.CheckUserAuthenticatedRequest\x1a&.xylona.CheckUserAuthenticatedResponse\"\x00\x12Q\n" +
+	"\x0eChangePassword\x12\x1d.xylona.ChangePasswordRequest\x1a\x1e.xylona.ChangePasswordResponse\"\x00\x12Q\n" +
 	"\x0eGetSetupStatus\x12\x1d.xylona.GetSetupStatusRequest\x1a\x1e.xylona.GetSetupStatusResponse\"\x00\x12N\n" +
 	"\rCompleteSetup\x12\x1c.xylona.CompleteSetupRequest\x1a\x1d.xylona.CompleteSetupResponse\"\x00\x12E\n" +
 	"\n" +
@@ -24343,7 +24437,7 @@ func file_xylona_proto_rawDescGZIP() []byte {
 }
 
 var file_xylona_proto_enumTypes = make([]protoimpl.EnumInfo, 23)
-var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 372)
+var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 374)
 var file_xylona_proto_goTypes = []any{
 	(GameServerStatusPageRosterState)(0),                    // 0: xylona.GameServerStatusPageRosterState
 	(NotificationEvent)(0),                                  // 1: xylona.NotificationEvent
@@ -24385,1053 +24479,1057 @@ var file_xylona_proto_goTypes = []any{
 	(*CreateUserResponse)(nil),                              // 37: xylona.CreateUserResponse
 	(*LogoutRequest)(nil),                                   // 38: xylona.LogoutRequest
 	(*LogoutResponse)(nil),                                  // 39: xylona.LogoutResponse
-	(*CheckUserAuthenticatedRequest)(nil),                   // 40: xylona.CheckUserAuthenticatedRequest
-	(*CheckUserAuthenticatedResponse)(nil),                  // 41: xylona.CheckUserAuthenticatedResponse
-	(*ListGameServersRequest)(nil),                          // 42: xylona.ListGameServersRequest
-	(*ListGameServersResponse)(nil),                         // 43: xylona.ListGameServersResponse
-	(*ListGamesRequest)(nil),                                // 44: xylona.ListGamesRequest
-	(*ListGamesResponse)(nil),                               // 45: xylona.ListGamesResponse
-	(*GetGameRequest)(nil),                                  // 46: xylona.GetGameRequest
-	(*GetGameResponse)(nil),                                 // 47: xylona.GetGameResponse
-	(*GetGameServerRequest)(nil),                            // 48: xylona.GetGameServerRequest
-	(*GetGameServerResponse)(nil),                           // 49: xylona.GetGameServerResponse
-	(*User)(nil),                                            // 50: xylona.User
-	(*ListUsersRequest)(nil),                                // 51: xylona.ListUsersRequest
-	(*ListUsersResponse)(nil),                               // 52: xylona.ListUsersResponse
-	(*GetUserDetailsRequest)(nil),                           // 53: xylona.GetUserDetailsRequest
-	(*GetUserDetailsResponse)(nil),                          // 54: xylona.GetUserDetailsResponse
-	(*UpdateUserRequest)(nil),                               // 55: xylona.UpdateUserRequest
-	(*UpdateUserResponse)(nil),                              // 56: xylona.UpdateUserResponse
-	(*DeleteUserRequest)(nil),                               // 57: xylona.DeleteUserRequest
-	(*DeleteUserResponse)(nil),                              // 58: xylona.DeleteUserResponse
-	(*NotificationStreamRequest)(nil),                       // 59: xylona.NotificationStreamRequest
-	(*NotificationStreamResponse)(nil),                      // 60: xylona.NotificationStreamResponse
-	(*GetUpdateTargetsRequest)(nil),                         // 61: xylona.GetUpdateTargetsRequest
-	(*GetUpdateTargetsResponse)(nil),                        // 62: xylona.GetUpdateTargetsResponse
-	(*ListIPsRequest)(nil),                                  // 63: xylona.ListIPsRequest
-	(*ListIPsResponse)(nil),                                 // 64: xylona.ListIPsResponse
-	(*AddIPRequest)(nil),                                    // 65: xylona.AddIPRequest
-	(*AddIPResponse)(nil),                                   // 66: xylona.AddIPResponse
-	(*RemoveIPRequest)(nil),                                 // 67: xylona.RemoveIPRequest
-	(*RemoveIPResponse)(nil),                                // 68: xylona.RemoveIPResponse
-	(*AddGameRequest)(nil),                                  // 69: xylona.AddGameRequest
-	(*AddGameResponse)(nil),                                 // 70: xylona.AddGameResponse
-	(*EditGameRequest)(nil),                                 // 71: xylona.EditGameRequest
-	(*EditGameResponse)(nil),                                // 72: xylona.EditGameResponse
-	(*UpdateGameStartArgsTemplateRequest)(nil),              // 73: xylona.UpdateGameStartArgsTemplateRequest
-	(*UpdateGameStartArgsTemplateResponse)(nil),             // 74: xylona.UpdateGameStartArgsTemplateResponse
-	(*UpdateGameStartArgBlocklistRequest)(nil),              // 75: xylona.UpdateGameStartArgBlocklistRequest
-	(*UpdateGameStartArgBlocklistResponse)(nil),             // 76: xylona.UpdateGameStartArgBlocklistResponse
-	(*RemoveGameRequest)(nil),                               // 77: xylona.RemoveGameRequest
-	(*RemoveGameResponse)(nil),                              // 78: xylona.RemoveGameResponse
-	(*ImportGameRequest)(nil),                               // 79: xylona.ImportGameRequest
-	(*GameImportChange)(nil),                                // 80: xylona.GameImportChange
-	(*ImportGameResponse)(nil),                              // 81: xylona.ImportGameResponse
-	(*ResetGameToOfficialDefinitionRequest)(nil),            // 82: xylona.ResetGameToOfficialDefinitionRequest
-	(*ResetGameToOfficialDefinitionResponse)(nil),           // 83: xylona.ResetGameToOfficialDefinitionResponse
-	(*ExportGameRequest)(nil),                               // 84: xylona.ExportGameRequest
-	(*ExportGameResponse)(nil),                              // 85: xylona.ExportGameResponse
-	(*UpdateGameServerRequest)(nil),                         // 86: xylona.UpdateGameServerRequest
-	(*UpdateGameServerResponse)(nil),                        // 87: xylona.UpdateGameServerResponse
-	(*UpdateGameServerStartArgsRequest)(nil),                // 88: xylona.UpdateGameServerStartArgsRequest
-	(*UpdateGameServerStartArgsResponse)(nil),               // 89: xylona.UpdateGameServerStartArgsResponse
-	(*GetGameEnvironmentRequest)(nil),                       // 90: xylona.GetGameEnvironmentRequest
-	(*GetGameEnvironmentResponse)(nil),                      // 91: xylona.GetGameEnvironmentResponse
-	(*UpdateGameEnvironmentRequest)(nil),                    // 92: xylona.UpdateGameEnvironmentRequest
-	(*UpdateGameEnvironmentResponse)(nil),                   // 93: xylona.UpdateGameEnvironmentResponse
-	(*GetGameServerEnvironmentRequest)(nil),                 // 94: xylona.GetGameServerEnvironmentRequest
-	(*GetGameServerEnvironmentResponse)(nil),                // 95: xylona.GetGameServerEnvironmentResponse
-	(*UpdateGameServerEnvironmentRequest)(nil),              // 96: xylona.UpdateGameServerEnvironmentRequest
-	(*UpdateGameServerEnvironmentResponse)(nil),             // 97: xylona.UpdateGameServerEnvironmentResponse
-	(*SetGameServerSecretEnvRequest)(nil),                   // 98: xylona.SetGameServerSecretEnvRequest
-	(*SetGameServerSecretEnvResponse)(nil),                  // 99: xylona.SetGameServerSecretEnvResponse
-	(*ClearGameServerSecretEnvRequest)(nil),                 // 100: xylona.ClearGameServerSecretEnvRequest
-	(*ClearGameServerSecretEnvResponse)(nil),                // 101: xylona.ClearGameServerSecretEnvResponse
-	(*GameServerAdminInterface)(nil),                        // 102: xylona.GameServerAdminInterface
-	(*GetGameServerAdminInterfaceRequest)(nil),              // 103: xylona.GetGameServerAdminInterfaceRequest
-	(*GetGameServerAdminInterfaceResponse)(nil),             // 104: xylona.GetGameServerAdminInterfaceResponse
-	(*SetGameServerAdminInterfacePasswordRequest)(nil),      // 105: xylona.SetGameServerAdminInterfacePasswordRequest
-	(*SetGameServerAdminInterfacePasswordResponse)(nil),     // 106: xylona.SetGameServerAdminInterfacePasswordResponse
-	(*GameServerReadinessItem)(nil),                         // 107: xylona.GameServerReadinessItem
-	(*GetGameServerReadinessRequest)(nil),                   // 108: xylona.GetGameServerReadinessRequest
-	(*GetGameServerReadinessResponse)(nil),                  // 109: xylona.GetGameServerReadinessResponse
-	(*AcceptMinecraftEulaRequest)(nil),                      // 110: xylona.AcceptMinecraftEulaRequest
-	(*AcceptMinecraftEulaResponse)(nil),                     // 111: xylona.AcceptMinecraftEulaResponse
-	(*SetSteamGSLTRequest)(nil),                             // 112: xylona.SetSteamGSLTRequest
-	(*SetSteamGSLTResponse)(nil),                            // 113: xylona.SetSteamGSLTResponse
-	(*ClearSteamGSLTRequest)(nil),                           // 114: xylona.ClearSteamGSLTRequest
-	(*ClearSteamGSLTResponse)(nil),                          // 115: xylona.ClearSteamGSLTResponse
-	(*HytaleProfile)(nil),                                   // 116: xylona.HytaleProfile
-	(*StartHytaleDeviceAuthRequest)(nil),                    // 117: xylona.StartHytaleDeviceAuthRequest
-	(*StartHytaleDeviceAuthResponse)(nil),                   // 118: xylona.StartHytaleDeviceAuthResponse
-	(*PollHytaleDeviceAuthRequest)(nil),                     // 119: xylona.PollHytaleDeviceAuthRequest
-	(*PollHytaleDeviceAuthResponse)(nil),                    // 120: xylona.PollHytaleDeviceAuthResponse
-	(*SelectHytaleProfileRequest)(nil),                      // 121: xylona.SelectHytaleProfileRequest
-	(*SelectHytaleProfileResponse)(nil),                     // 122: xylona.SelectHytaleProfileResponse
-	(*ClearHytaleAccountRequest)(nil),                       // 123: xylona.ClearHytaleAccountRequest
-	(*ClearHytaleAccountResponse)(nil),                      // 124: xylona.ClearHytaleAccountResponse
-	(*SetServerVariantRequest)(nil),                         // 125: xylona.SetServerVariantRequest
-	(*SetServerVariantResponse)(nil),                        // 126: xylona.SetServerVariantResponse
-	(*GetVariantOperationStatusRequest)(nil),                // 127: xylona.GetVariantOperationStatusRequest
-	(*GetVariantOperationStatusResponse)(nil),               // 128: xylona.GetVariantOperationStatusResponse
-	(*ReinstallGameServerRequest)(nil),                      // 129: xylona.ReinstallGameServerRequest
-	(*ReinstallGameServerResponse)(nil),                     // 130: xylona.ReinstallGameServerResponse
-	(*BackupGameServerRequest)(nil),                         // 131: xylona.BackupGameServerRequest
-	(*BackupGameServerResponse)(nil),                        // 132: xylona.BackupGameServerResponse
-	(*QueryGameServerRequest)(nil),                          // 133: xylona.QueryGameServerRequest
-	(*QueryGameServerResponse)(nil),                         // 134: xylona.QueryGameServerResponse
-	(*GetNodeRequest)(nil),                                  // 135: xylona.GetNodeRequest
-	(*GetNodeResponse)(nil),                                 // 136: xylona.GetNodeResponse
-	(*ListNodesRequest)(nil),                                // 137: xylona.ListNodesRequest
-	(*ListNodesResponse)(nil),                               // 138: xylona.ListNodesResponse
-	(*GenerateNodePairingObjectRequest)(nil),                // 139: xylona.GenerateNodePairingObjectRequest
-	(*GenerateNodePairingObjectResponse)(nil),               // 140: xylona.GenerateNodePairingObjectResponse
-	(*RemoveNodeRequest)(nil),                               // 141: xylona.RemoveNodeRequest
-	(*RemoveNodeResponse)(nil),                              // 142: xylona.RemoveNodeResponse
-	(*EditNodeRequest)(nil),                                 // 143: xylona.EditNodeRequest
-	(*EditNodeResponse)(nil),                                // 144: xylona.EditNodeResponse
-	(*SystemUpdateAvailability)(nil),                        // 145: xylona.SystemUpdateAvailability
-	(*SystemUpdateJob)(nil),                                 // 146: xylona.SystemUpdateJob
-	(*SystemUpdateJobEvent)(nil),                            // 147: xylona.SystemUpdateJobEvent
-	(*SystemUpdateProgress)(nil),                            // 148: xylona.SystemUpdateProgress
-	(*CheckSystemUpdatesRequest)(nil),                       // 149: xylona.CheckSystemUpdatesRequest
-	(*CheckSystemUpdatesResponse)(nil),                      // 150: xylona.CheckSystemUpdatesResponse
-	(*StartSystemUpdateRequest)(nil),                        // 151: xylona.StartSystemUpdateRequest
-	(*StartSystemUpdateResponse)(nil),                       // 152: xylona.StartSystemUpdateResponse
-	(*ListSystemUpdateJobsRequest)(nil),                     // 153: xylona.ListSystemUpdateJobsRequest
-	(*ListSystemUpdateJobsResponse)(nil),                    // 154: xylona.ListSystemUpdateJobsResponse
-	(*GetSystemUpdateJobRequest)(nil),                       // 155: xylona.GetSystemUpdateJobRequest
-	(*GetSystemUpdateJobResponse)(nil),                      // 156: xylona.GetSystemUpdateJobResponse
-	(*RemoteServerSummary)(nil),                             // 157: xylona.RemoteServerSummary
-	(*AggregatedGameServer)(nil),                            // 158: xylona.AggregatedGameServer
-	(*ListAggregatedGameServersRequest)(nil),                // 159: xylona.ListAggregatedGameServersRequest
-	(*ListAggregatedGameServersResponse)(nil),               // 160: xylona.ListAggregatedGameServersResponse
-	(*ListRolesRequest)(nil),                                // 161: xylona.ListRolesRequest
-	(*ListRolesResponse)(nil),                               // 162: xylona.ListRolesResponse
-	(*Role)(nil),                                            // 163: xylona.Role
-	(*Permission)(nil),                                      // 164: xylona.Permission
-	(*ListPermissionsRequest)(nil),                          // 165: xylona.ListPermissionsRequest
-	(*ListPermissionsResponse)(nil),                         // 166: xylona.ListPermissionsResponse
-	(*CreateRoleRequest)(nil),                               // 167: xylona.CreateRoleRequest
-	(*CreateRoleResponse)(nil),                              // 168: xylona.CreateRoleResponse
-	(*DeleteRoleRequest)(nil),                               // 169: xylona.DeleteRoleRequest
-	(*DeleteRoleResponse)(nil),                              // 170: xylona.DeleteRoleResponse
-	(*ListGameServerAccessGrantsRequest)(nil),               // 171: xylona.ListGameServerAccessGrantsRequest
-	(*ListGameServerAccessGrantsResponse)(nil),              // 172: xylona.ListGameServerAccessGrantsResponse
-	(*GameServerAccessGrant)(nil),                           // 173: xylona.GameServerAccessGrant
-	(*GrantGameServerAccessRequest)(nil),                    // 174: xylona.GrantGameServerAccessRequest
-	(*GrantGameServerAccessResponse)(nil),                   // 175: xylona.GrantGameServerAccessResponse
-	(*RevokeGameServerAccessRequest)(nil),                   // 176: xylona.RevokeGameServerAccessRequest
-	(*RevokeGameServerAccessResponse)(nil),                  // 177: xylona.RevokeGameServerAccessResponse
-	(*GetNodeSystemInfoRequest)(nil),                        // 178: xylona.GetNodeSystemInfoRequest
-	(*GetNodeSystemInfoResponse)(nil),                       // 179: xylona.GetNodeSystemInfoResponse
-	(*GetNodeResourceSnapshotRequest)(nil),                  // 180: xylona.GetNodeResourceSnapshotRequest
-	(*GetNodeResourceSnapshotResponse)(nil),                 // 181: xylona.GetNodeResourceSnapshotResponse
-	(*GetDashboardOverviewRequest)(nil),                     // 182: xylona.GetDashboardOverviewRequest
-	(*DashboardNodeSummary)(nil),                            // 183: xylona.DashboardNodeSummary
-	(*GetDashboardOverviewResponse)(nil),                    // 184: xylona.GetDashboardOverviewResponse
-	(*GetNodeMetricsHistoryRequest)(nil),                    // 185: xylona.GetNodeMetricsHistoryRequest
-	(*GetNodeMetricsHistoryResponse)(nil),                   // 186: xylona.GetNodeMetricsHistoryResponse
-	(*GetGameServerMetricsHistoryRequest)(nil),              // 187: xylona.GetGameServerMetricsHistoryRequest
-	(*GetGameServerMetricsHistoryResponse)(nil),             // 188: xylona.GetGameServerMetricsHistoryResponse
-	(*ConfigFileInfo)(nil),                                  // 189: xylona.ConfigFileInfo
-	(*ConfigFieldData)(nil),                                 // 190: xylona.ConfigFieldData
-	(*AdvancedField)(nil),                                   // 191: xylona.AdvancedField
-	(*ConfigValidationError)(nil),                           // 192: xylona.ConfigValidationError
-	(*GetGameServerConfigFilesRequest)(nil),                 // 193: xylona.GetGameServerConfigFilesRequest
-	(*GetGameServerConfigFilesResponse)(nil),                // 194: xylona.GetGameServerConfigFilesResponse
-	(*GetGameServerConfigFileRequest)(nil),                  // 195: xylona.GetGameServerConfigFileRequest
-	(*GetGameServerConfigFileResponse)(nil),                 // 196: xylona.GetGameServerConfigFileResponse
-	(*UpdateGameServerConfigFileRequest)(nil),               // 197: xylona.UpdateGameServerConfigFileRequest
-	(*UpdateGameServerConfigFileResponse)(nil),              // 198: xylona.UpdateGameServerConfigFileResponse
-	(*GenerateGameServerConfigFileRequest)(nil),             // 199: xylona.GenerateGameServerConfigFileRequest
-	(*GenerateGameServerConfigFileResponse)(nil),            // 200: xylona.GenerateGameServerConfigFileResponse
-	(*GetGameConfigSchemasRequest)(nil),                     // 201: xylona.GetGameConfigSchemasRequest
-	(*GetGameConfigSchemasResponse)(nil),                    // 202: xylona.GetGameConfigSchemasResponse
-	(*UpdateGameConfigSchemasRequest)(nil),                  // 203: xylona.UpdateGameConfigSchemasRequest
-	(*UpdateGameConfigSchemasResponse)(nil),                 // 204: xylona.UpdateGameConfigSchemasResponse
-	(*SearchSteamAppsRequest)(nil),                          // 205: xylona.SearchSteamAppsRequest
-	(*SearchSteamAppsResponse)(nil),                         // 206: xylona.SearchSteamAppsResponse
-	(*GetSteamAppDetailsRequest)(nil),                       // 207: xylona.GetSteamAppDetailsRequest
-	(*GetSteamAppDetailsResponse)(nil),                      // 208: xylona.GetSteamAppDetailsResponse
-	(*SearchModsRequest)(nil),                               // 209: xylona.SearchModsRequest
-	(*SearchModsResponse)(nil),                              // 210: xylona.SearchModsResponse
-	(*GetModDetailsRequest)(nil),                            // 211: xylona.GetModDetailsRequest
-	(*GetModDetailsResponse)(nil),                           // 212: xylona.GetModDetailsResponse
-	(*GetModVersionsRequest)(nil),                           // 213: xylona.GetModVersionsRequest
-	(*GetModVersionsResponse)(nil),                          // 214: xylona.GetModVersionsResponse
-	(*InstallModRequest)(nil),                               // 215: xylona.InstallModRequest
-	(*InstallModResponse)(nil),                              // 216: xylona.InstallModResponse
-	(*UninstallModRequest)(nil),                             // 217: xylona.UninstallModRequest
-	(*UninstallModResponse)(nil),                            // 218: xylona.UninstallModResponse
-	(*UpdateModRequest)(nil),                                // 219: xylona.UpdateModRequest
-	(*UpdateModResponse)(nil),                               // 220: xylona.UpdateModResponse
-	(*ListInstalledModsRequest)(nil),                        // 221: xylona.ListInstalledModsRequest
-	(*ListInstalledModsResponse)(nil),                       // 222: xylona.ListInstalledModsResponse
-	(*SevenDaysToDieReportedMod)(nil),                       // 223: xylona.SevenDaysToDieReportedMod
-	(*GetSevenDaysToDieReportedModsRequest)(nil),            // 224: xylona.GetSevenDaysToDieReportedModsRequest
-	(*GetSevenDaysToDieReportedModsResponse)(nil),           // 225: xylona.GetSevenDaysToDieReportedModsResponse
-	(*SetModAutoUpdateRequest)(nil),                         // 226: xylona.SetModAutoUpdateRequest
-	(*SetModAutoUpdateResponse)(nil),                        // 227: xylona.SetModAutoUpdateResponse
-	(*SetModEnabledRequest)(nil),                            // 228: xylona.SetModEnabledRequest
-	(*SetModEnabledResponse)(nil),                           // 229: xylona.SetModEnabledResponse
-	(*PinModVersionRequest)(nil),                            // 230: xylona.PinModVersionRequest
-	(*PinModVersionResponse)(nil),                           // 231: xylona.PinModVersionResponse
-	(*GetModCategoriesRequest)(nil),                         // 232: xylona.GetModCategoriesRequest
-	(*GetModCategoriesResponse)(nil),                        // 233: xylona.GetModCategoriesResponse
-	(*UpdateProgress)(nil),                                  // 234: xylona.UpdateProgress
-	(*GetVersionInfoRequest)(nil),                           // 235: xylona.GetVersionInfoRequest
-	(*GetVersionInfoResponse)(nil),                          // 236: xylona.GetVersionInfoResponse
-	(*CheckForUpdateRequest)(nil),                           // 237: xylona.CheckForUpdateRequest
-	(*CheckForUpdateResponse)(nil),                          // 238: xylona.CheckForUpdateResponse
-	(*SetDummyUpdateFailureRequest)(nil),                    // 239: xylona.SetDummyUpdateFailureRequest
-	(*SetDummyUpdateFailureResponse)(nil),                   // 240: xylona.SetDummyUpdateFailureResponse
-	(*CreateNotificationChannelRequest)(nil),                // 241: xylona.CreateNotificationChannelRequest
-	(*CreateNotificationChannelResponse)(nil),               // 242: xylona.CreateNotificationChannelResponse
-	(*UpdateNotificationChannelRequest)(nil),                // 243: xylona.UpdateNotificationChannelRequest
-	(*UpdateNotificationChannelResponse)(nil),               // 244: xylona.UpdateNotificationChannelResponse
-	(*DeleteNotificationChannelRequest)(nil),                // 245: xylona.DeleteNotificationChannelRequest
-	(*DeleteNotificationChannelResponse)(nil),               // 246: xylona.DeleteNotificationChannelResponse
-	(*ListNotificationChannelsRequest)(nil),                 // 247: xylona.ListNotificationChannelsRequest
-	(*ListNotificationChannelsResponse)(nil),                // 248: xylona.ListNotificationChannelsResponse
-	(*TestNotificationChannelRequest)(nil),                  // 249: xylona.TestNotificationChannelRequest
-	(*TestNotificationChannelResponse)(nil),                 // 250: xylona.TestNotificationChannelResponse
-	(*GetLocalSMTPStatusRequest)(nil),                       // 251: xylona.GetLocalSMTPStatusRequest
-	(*GetLocalSMTPStatusResponse)(nil),                      // 252: xylona.GetLocalSMTPStatusResponse
-	(*CreateAlertRuleRequest)(nil),                          // 253: xylona.CreateAlertRuleRequest
-	(*CreateAlertRuleResponse)(nil),                         // 254: xylona.CreateAlertRuleResponse
-	(*UpdateAlertRuleRequest)(nil),                          // 255: xylona.UpdateAlertRuleRequest
-	(*UpdateAlertRuleResponse)(nil),                         // 256: xylona.UpdateAlertRuleResponse
-	(*DeleteAlertRuleRequest)(nil),                          // 257: xylona.DeleteAlertRuleRequest
-	(*DeleteAlertRuleResponse)(nil),                         // 258: xylona.DeleteAlertRuleResponse
-	(*ListAlertRulesRequest)(nil),                           // 259: xylona.ListAlertRulesRequest
-	(*ListAlertRulesResponse)(nil),                          // 260: xylona.ListAlertRulesResponse
-	(*GetAlertHistoryRequest)(nil),                          // 261: xylona.GetAlertHistoryRequest
-	(*GetAlertHistoryResponse)(nil),                         // 262: xylona.GetAlertHistoryResponse
-	(*GetSystemSMTPConfigRequest)(nil),                      // 263: xylona.GetSystemSMTPConfigRequest
-	(*GetSystemSMTPConfigResponse)(nil),                     // 264: xylona.GetSystemSMTPConfigResponse
-	(*SetSystemSMTPConfigRequest)(nil),                      // 265: xylona.SetSystemSMTPConfigRequest
-	(*SetSystemSMTPConfigResponse)(nil),                     // 266: xylona.SetSystemSMTPConfigResponse
-	(*TestSystemSMTPRequest)(nil),                           // 267: xylona.TestSystemSMTPRequest
-	(*TestSystemSMTPResponse)(nil),                          // 268: xylona.TestSystemSMTPResponse
-	(*BeginGoogleMailOAuthRequest)(nil),                     // 269: xylona.BeginGoogleMailOAuthRequest
-	(*BeginGoogleMailOAuthResponse)(nil),                    // 270: xylona.BeginGoogleMailOAuthResponse
-	(*DisconnectGoogleMailRequest)(nil),                     // 271: xylona.DisconnectGoogleMailRequest
-	(*DisconnectGoogleMailResponse)(nil),                    // 272: xylona.DisconnectGoogleMailResponse
-	(*DNSProviderConnectionInput)(nil),                      // 273: xylona.DNSProviderConnectionInput
-	(*DNSProviderConnection)(nil),                           // 274: xylona.DNSProviderConnection
-	(*DNSProviderZone)(nil),                                 // 275: xylona.DNSProviderZone
-	(*GetDNSProviderConnectionRequest)(nil),                 // 276: xylona.GetDNSProviderConnectionRequest
-	(*GetDNSProviderConnectionResponse)(nil),                // 277: xylona.GetDNSProviderConnectionResponse
-	(*ListDNSProviderZonesRequest)(nil),                     // 278: xylona.ListDNSProviderZonesRequest
-	(*ListDNSProviderZonesResponse)(nil),                    // 279: xylona.ListDNSProviderZonesResponse
-	(*SetDNSProviderConnectionRequest)(nil),                 // 280: xylona.SetDNSProviderConnectionRequest
-	(*SetDNSProviderConnectionResponse)(nil),                // 281: xylona.SetDNSProviderConnectionResponse
-	(*ListScheduledTasksRequest)(nil),                       // 282: xylona.ListScheduledTasksRequest
-	(*ListScheduledTasksResponse)(nil),                      // 283: xylona.ListScheduledTasksResponse
-	(*CreateScheduledTaskRequest)(nil),                      // 284: xylona.CreateScheduledTaskRequest
-	(*CreateScheduledTaskResponse)(nil),                     // 285: xylona.CreateScheduledTaskResponse
-	(*UpdateScheduledTaskRequest)(nil),                      // 286: xylona.UpdateScheduledTaskRequest
-	(*UpdateScheduledTaskResponse)(nil),                     // 287: xylona.UpdateScheduledTaskResponse
-	(*DeleteScheduledTaskRequest)(nil),                      // 288: xylona.DeleteScheduledTaskRequest
-	(*DeleteScheduledTaskResponse)(nil),                     // 289: xylona.DeleteScheduledTaskResponse
-	(*GetScheduledTaskLogsRequest)(nil),                     // 290: xylona.GetScheduledTaskLogsRequest
-	(*GetScheduledTaskLogsResponse)(nil),                    // 291: xylona.GetScheduledTaskLogsResponse
-	(*GetGameServerBackupOverviewRequest)(nil),              // 292: xylona.GetGameServerBackupOverviewRequest
-	(*GetGameServerBackupOverviewResponse)(nil),             // 293: xylona.GetGameServerBackupOverviewResponse
-	(*GetBackupSettingsRequest)(nil),                        // 294: xylona.GetBackupSettingsRequest
-	(*GetBackupSettingsResponse)(nil),                       // 295: xylona.GetBackupSettingsResponse
-	(*UpdateBackupSettingsRequest)(nil),                     // 296: xylona.UpdateBackupSettingsRequest
-	(*UpdateBackupSettingsResponse)(nil),                    // 297: xylona.UpdateBackupSettingsResponse
-	(*ListGameServerBackupsRequest)(nil),                    // 298: xylona.ListGameServerBackupsRequest
-	(*ListGameServerBackupsResponse)(nil),                   // 299: xylona.ListGameServerBackupsResponse
-	(*CreateGameServerBackupRequest)(nil),                   // 300: xylona.CreateGameServerBackupRequest
-	(*CreateGameServerBackupResponse)(nil),                  // 301: xylona.CreateGameServerBackupResponse
-	(*DeleteGameServerBackupRequest)(nil),                   // 302: xylona.DeleteGameServerBackupRequest
-	(*DeleteGameServerBackupResponse)(nil),                  // 303: xylona.DeleteGameServerBackupResponse
-	(*RestoreGameServerBackupRequest)(nil),                  // 304: xylona.RestoreGameServerBackupRequest
-	(*RestoreGameServerBackupResponse)(nil),                 // 305: xylona.RestoreGameServerBackupResponse
-	(*GameServerPlayerManagementCapabilities)(nil),          // 306: xylona.GameServerPlayerManagementCapabilities
-	(*GameServerManagementPlayer)(nil),                      // 307: xylona.GameServerManagementPlayer
-	(*GetGameServerPlayerManagementRequest)(nil),            // 308: xylona.GetGameServerPlayerManagementRequest
-	(*GetGameServerPlayerManagementResponse)(nil),           // 309: xylona.GetGameServerPlayerManagementResponse
-	(*PerformGameServerPlayerActionRequest)(nil),            // 310: xylona.PerformGameServerPlayerActionRequest
-	(*PerformGameServerPlayerActionResponse)(nil),           // 311: xylona.PerformGameServerPlayerActionResponse
-	(*GameOperationFieldOption)(nil),                        // 312: xylona.GameOperationFieldOption
-	(*GameOperationField)(nil),                              // 313: xylona.GameOperationField
-	(*GameOperationReview)(nil),                             // 314: xylona.GameOperationReview
-	(*GameOperationDescriptor)(nil),                         // 315: xylona.GameOperationDescriptor
-	(*ListGameServerOperationsRequest)(nil),                 // 316: xylona.ListGameServerOperationsRequest
-	(*ListGameServerOperationsResponse)(nil),                // 317: xylona.ListGameServerOperationsResponse
-	(*GameOperationValue)(nil),                              // 318: xylona.GameOperationValue
-	(*GameOperationTransportDetails)(nil),                   // 319: xylona.GameOperationTransportDetails
-	(*GameOperationResult)(nil),                             // 320: xylona.GameOperationResult
-	(*ValheimAccessList)(nil),                               // 321: xylona.ValheimAccessList
-	(*ExecuteGameServerOperationRequest)(nil),               // 322: xylona.ExecuteGameServerOperationRequest
-	(*ExecuteGameServerOperationResponse)(nil),              // 323: xylona.ExecuteGameServerOperationResponse
-	(*GameServerMapShareSettings)(nil),                      // 324: xylona.GameServerMapShareSettings
-	(*GetOrCreateGameServerMapShareSettingsRequest)(nil),    // 325: xylona.GetOrCreateGameServerMapShareSettingsRequest
-	(*GetOrCreateGameServerMapShareSettingsResponse)(nil),   // 326: xylona.GetOrCreateGameServerMapShareSettingsResponse
-	(*UpdateGameServerMapShareSettingsRequest)(nil),         // 327: xylona.UpdateGameServerMapShareSettingsRequest
-	(*UpdateGameServerMapShareSettingsResponse)(nil),        // 328: xylona.UpdateGameServerMapShareSettingsResponse
-	(*ResolvePublicGameServerMapRequest)(nil),               // 329: xylona.ResolvePublicGameServerMapRequest
-	(*ResolvePublicGameServerMapResponse)(nil),              // 330: xylona.ResolvePublicGameServerMapResponse
-	(*DNSBinding)(nil),                                      // 331: xylona.DNSBinding
-	(*GetDNSBindingRequest)(nil),                            // 332: xylona.GetDNSBindingRequest
-	(*GetDNSBindingResponse)(nil),                           // 333: xylona.GetDNSBindingResponse
-	(*SetDNSBindingRequest)(nil),                            // 334: xylona.SetDNSBindingRequest
-	(*SetDNSBindingResponse)(nil),                           // 335: xylona.SetDNSBindingResponse
-	(*RemoveDNSBindingRequest)(nil),                         // 336: xylona.RemoveDNSBindingRequest
-	(*RemoveDNSBindingResponse)(nil),                        // 337: xylona.RemoveDNSBindingResponse
-	(*SyncDNSBindingRequest)(nil),                           // 338: xylona.SyncDNSBindingRequest
-	(*SyncDNSBindingResponse)(nil),                          // 339: xylona.SyncDNSBindingResponse
-	(*AdoptDNSBindingRecordRequest)(nil),                    // 340: xylona.AdoptDNSBindingRecordRequest
-	(*AdoptDNSBindingRecordResponse)(nil),                   // 341: xylona.AdoptDNSBindingRecordResponse
-	(*PalworldMapActor)(nil),                                // 342: xylona.PalworldMapActor
-	(*PalworldMapLayer)(nil),                                // 343: xylona.PalworldMapLayer
-	(*PalworldMapView)(nil),                                 // 344: xylona.PalworldMapView
-	(*GetPalworldMapRequest)(nil),                           // 345: xylona.GetPalworldMapRequest
-	(*GetPalworldMapResponse)(nil),                          // 346: xylona.GetPalworldMapResponse
-	(*UpdatePalworldMapConfigRequest)(nil),                  // 347: xylona.UpdatePalworldMapConfigRequest
-	(*UpdatePalworldMapConfigResponse)(nil),                 // 348: xylona.UpdatePalworldMapConfigResponse
-	(*InstallPalworldMapTilesRequest)(nil),                  // 349: xylona.InstallPalworldMapTilesRequest
-	(*InstallPalworldMapTilesResponse)(nil),                 // 350: xylona.InstallPalworldMapTilesResponse
-	(*GetPublicPalworldMapRequest)(nil),                     // 351: xylona.GetPublicPalworldMapRequest
-	(*GetPublicPalworldMapResponse)(nil),                    // 352: xylona.GetPublicPalworldMapResponse
-	(*SevenDaysToDieMapVector)(nil),                         // 353: xylona.SevenDaysToDieMapVector
-	(*SevenDaysToDieMapPlayer)(nil),                         // 354: xylona.SevenDaysToDieMapPlayer
-	(*SevenDaysToDieMapMarker)(nil),                         // 355: xylona.SevenDaysToDieMapMarker
-	(*SevenDaysToDieLandClaim)(nil),                         // 356: xylona.SevenDaysToDieLandClaim
-	(*SevenDaysToDieMapEntity)(nil),                         // 357: xylona.SevenDaysToDieMapEntity
-	(*SevenDaysToDieMapBloodMoon)(nil),                      // 358: xylona.SevenDaysToDieMapBloodMoon
-	(*SevenDaysToDieMapView)(nil),                           // 359: xylona.SevenDaysToDieMapView
-	(*GetSevenDaysToDieMapRequest)(nil),                     // 360: xylona.GetSevenDaysToDieMapRequest
-	(*GetSevenDaysToDieMapResponse)(nil),                    // 361: xylona.GetSevenDaysToDieMapResponse
-	(*UpdateSevenDaysToDieMapNotesRequest)(nil),             // 362: xylona.UpdateSevenDaysToDieMapNotesRequest
-	(*UpdateSevenDaysToDieMapNotesResponse)(nil),            // 363: xylona.UpdateSevenDaysToDieMapNotesResponse
-	(*GetPublicSevenDaysToDieMapRequest)(nil),               // 364: xylona.GetPublicSevenDaysToDieMapRequest
-	(*GetPublicSevenDaysToDieMapResponse)(nil),              // 365: xylona.GetPublicSevenDaysToDieMapResponse
-	(*MinecraftMapView)(nil),                                // 366: xylona.MinecraftMapView
-	(*GetMinecraftMapRequest)(nil),                          // 367: xylona.GetMinecraftMapRequest
-	(*GetMinecraftMapResponse)(nil),                         // 368: xylona.GetMinecraftMapResponse
-	(*UpdateMinecraftMapConfigRequest)(nil),                 // 369: xylona.UpdateMinecraftMapConfigRequest
-	(*UpdateMinecraftMapConfigResponse)(nil),                // 370: xylona.UpdateMinecraftMapConfigResponse
-	(*GetPublicMinecraftMapRequest)(nil),                    // 371: xylona.GetPublicMinecraftMapRequest
-	(*GetPublicMinecraftMapResponse)(nil),                   // 372: xylona.GetPublicMinecraftMapResponse
-	(*PalworldMapHealth)(nil),                               // 373: xylona.PalworldMapHealth
-	(*SevenDaysToDieGameTime)(nil),                          // 374: xylona.SevenDaysToDieGameTime
-	(*SevenDaysToDieWebAPICapabilities)(nil),                // 375: xylona.SevenDaysToDieWebAPICapabilities
-	(*SevenDaysToDieWebAPIStatus)(nil),                      // 376: xylona.SevenDaysToDieWebAPIStatus
-	(*GetSevenDaysToDieWebAPIStatusRequest)(nil),            // 377: xylona.GetSevenDaysToDieWebAPIStatusRequest
-	(*GetSevenDaysToDieWebAPIStatusResponse)(nil),           // 378: xylona.GetSevenDaysToDieWebAPIStatusResponse
-	(*SevenDaysToDieSandboxSetting)(nil),                    // 379: xylona.SevenDaysToDieSandboxSetting
-	(*GetSevenDaysToDieSandboxSettingsRequest)(nil),         // 380: xylona.GetSevenDaysToDieSandboxSettingsRequest
-	(*GetSevenDaysToDieSandboxSettingsResponse)(nil),        // 381: xylona.GetSevenDaysToDieSandboxSettingsResponse
-	(*InstallSevenDaysToDieLandClaimsModRequest)(nil),       // 382: xylona.InstallSevenDaysToDieLandClaimsModRequest
-	(*InstallSevenDaysToDieLandClaimsModResponse)(nil),      // 383: xylona.InstallSevenDaysToDieLandClaimsModResponse
-	(*GetSetupStatusRequest)(nil),                           // 384: xylona.GetSetupStatusRequest
-	(*GetSetupStatusResponse)(nil),                          // 385: xylona.GetSetupStatusResponse
-	(*CompleteSetupRequest)(nil),                            // 386: xylona.CompleteSetupRequest
-	(*CompleteSetupResponse)(nil),                           // 387: xylona.CompleteSetupResponse
-	(*JoinPasswordState)(nil),                               // 388: xylona.JoinPasswordState
-	(*GetJoinPasswordStateRequest)(nil),                     // 389: xylona.GetJoinPasswordStateRequest
-	(*GetJoinPasswordStateResponse)(nil),                    // 390: xylona.GetJoinPasswordStateResponse
-	(*SetJoinPasswordRequest)(nil),                          // 391: xylona.SetJoinPasswordRequest
-	(*SetJoinPasswordResponse)(nil),                         // 392: xylona.SetJoinPasswordResponse
-	(*ClearJoinPasswordRequest)(nil),                        // 393: xylona.ClearJoinPasswordRequest
-	(*ClearJoinPasswordResponse)(nil),                       // 394: xylona.ClearJoinPasswordResponse
-	(Status)(0),                                             // 395: xylona.Status
-	(*timestamppb.Timestamp)(nil),                           // 396: google.protobuf.Timestamp
-	(Error)(0),                                              // 397: xylona.Error
-	(*GameServer)(nil),                                      // 398: xylona.GameServer
-	(*Game)(nil),                                            // 399: xylona.Game
-	(*UpdateTargetOption)(nil),                              // 400: xylona.UpdateTargetOption
-	(*IP)(nil),                                              // 401: xylona.IP
-	(*EnvironmentVariable)(nil),                             // 402: xylona.EnvironmentVariable
-	(*EnvironmentValidationIssue)(nil),                      // 403: xylona.EnvironmentValidationIssue
-	(*SecretEnvironmentVariableState)(nil),                  // 404: xylona.SecretEnvironmentVariableState
-	(*ServerQuery)(nil),                                     // 405: xylona.ServerQuery
-	(*Node)(nil),                                            // 406: xylona.Node
-	(*VersionInfo)(nil),                                     // 407: xylona.VersionInfo
-	(*NodeSystemInfo)(nil),                                  // 408: xylona.NodeSystemInfo
-	(*NodeResourceSnapshot)(nil),                            // 409: xylona.NodeResourceSnapshot
-	(*MetricsHistoryPoint)(nil),                             // 410: xylona.MetricsHistoryPoint
-	(*GameServerMetricsHistoryPoint)(nil),                   // 411: xylona.GameServerMetricsHistoryPoint
-	(*GameServerLifecycleHistoryEvent)(nil),                 // 412: xylona.GameServerLifecycleHistoryEvent
-	(*GameServerOperationHistoryEvent)(nil),                 // 413: xylona.GameServerOperationHistoryEvent
-	(GameServerMetricsResolution)(0),                        // 414: xylona.GameServerMetricsResolution
-	(*SteamApp)(nil),                                        // 415: xylona.SteamApp
-	(*SteamAppDetails)(nil),                                 // 416: xylona.SteamAppDetails
-	(*ModSearchResult)(nil),                                 // 417: xylona.ModSearchResult
-	(*ModDetails)(nil),                                      // 418: xylona.ModDetails
-	(*ModVersion)(nil),                                      // 419: xylona.ModVersion
-	(*InstalledMod)(nil),                                    // 420: xylona.InstalledMod
-	(NotificationChannelType)(0),                            // 421: xylona.NotificationChannelType
-	(*NotificationChannel)(nil),                             // 422: xylona.NotificationChannel
-	(AlertEventType)(0),                                     // 423: xylona.AlertEventType
-	(*AlertRule)(nil),                                       // 424: xylona.AlertRule
-	(*AlertHistoryEntry)(nil),                               // 425: xylona.AlertHistoryEntry
-	(*SystemSMTPConfig)(nil),                                // 426: xylona.SystemSMTPConfig
-	(*ScheduledTask)(nil),                                   // 427: xylona.ScheduledTask
-	(*ScheduledTaskLog)(nil),                                // 428: xylona.ScheduledTaskLog
-	(*GameServerBackupOverview)(nil),                        // 429: xylona.GameServerBackupOverview
-	(*BackupSettings)(nil),                                  // 430: xylona.BackupSettings
-	(*GameServerBackup)(nil),                                // 431: xylona.GameServerBackup
-	(BackupRestoreMode)(0),                                  // 432: xylona.BackupRestoreMode
-	(*GameServerPlayer)(nil),                                // 433: xylona.GameServerPlayer
-	(*CreateGameServerRequest)(nil),                         // 434: xylona.CreateGameServerRequest
-	(*EditGameServerRequest)(nil),                           // 435: xylona.EditGameServerRequest
-	(*RemoveGameServerRequest)(nil),                         // 436: xylona.RemoveGameServerRequest
-	(*StartGameServerRequest)(nil),                          // 437: xylona.StartGameServerRequest
-	(*StopGameServerRequest)(nil),                           // 438: xylona.StopGameServerRequest
-	(*RestartGameServerRequest)(nil),                        // 439: xylona.RestartGameServerRequest
-	(*ReadGameServerOutputRequest)(nil),                     // 440: xylona.ReadGameServerOutputRequest
-	(*SendGameServerInputRequest)(nil),                      // 441: xylona.SendGameServerInputRequest
-	(*ListDirectoryFilesRequest)(nil),                       // 442: xylona.ListDirectoryFilesRequest
-	(*GameServerFilesDeleteRequest)(nil),                    // 443: xylona.GameServerFilesDeleteRequest
-	(*GameServerFilesCompressionRequest)(nil),               // 444: xylona.GameServerFilesCompressionRequest
-	(*GameServerFilesDecompressionRequest)(nil),             // 445: xylona.GameServerFilesDecompressionRequest
-	(*GameServersFileDownloadFromURLRequest)(nil),           // 446: xylona.GameServersFileDownloadFromURLRequest
-	(*GameServerFileRenameRequest)(nil),                     // 447: xylona.GameServerFileRenameRequest
-	(*GameServerFilesMoveRequest)(nil),                      // 448: xylona.GameServerFilesMoveRequest
-	(*GameServersFileEditRequest)(nil),                      // 449: xylona.GameServersFileEditRequest
-	(*GameServerFileOrDirectoryCreateRequest)(nil),          // 450: xylona.GameServerFileOrDirectoryCreateRequest
-	(*CreateGameServerResponse)(nil),                        // 451: xylona.CreateGameServerResponse
-	(*EditGameServerResponse)(nil),                          // 452: xylona.EditGameServerResponse
-	(*RemoveGameServerResponse)(nil),                        // 453: xylona.RemoveGameServerResponse
-	(*StartGameServerResponse)(nil),                         // 454: xylona.StartGameServerResponse
-	(*StopGameServerResponse)(nil),                          // 455: xylona.StopGameServerResponse
-	(*RestartGameServerResponse)(nil),                       // 456: xylona.RestartGameServerResponse
-	(*ReadGameServerOutputResponse)(nil),                    // 457: xylona.ReadGameServerOutputResponse
-	(*SendGameServerInputResponse)(nil),                     // 458: xylona.SendGameServerInputResponse
-	(*ListDirectoryFilesResponse)(nil),                      // 459: xylona.ListDirectoryFilesResponse
-	(*GameServerFilesDeleteResponse)(nil),                   // 460: xylona.GameServerFilesDeleteResponse
-	(*GameServerFilesArchiveProgress)(nil),                  // 461: xylona.GameServerFilesArchiveProgress
-	(*GameServerFilesExtractProgress)(nil),                  // 462: xylona.GameServerFilesExtractProgress
-	(*GameServerFilesCompressionResponse)(nil),              // 463: xylona.GameServerFilesCompressionResponse
-	(*GameServerFilesDecompressionResponse)(nil),            // 464: xylona.GameServerFilesDecompressionResponse
-	(*GameServersFileDownloadFromURLResponse)(nil),          // 465: xylona.GameServersFileDownloadFromURLResponse
-	(*GameServerFileRenameResponse)(nil),                    // 466: xylona.GameServerFileRenameResponse
-	(*GameServerFilesMoveResponse)(nil),                     // 467: xylona.GameServerFilesMoveResponse
-	(*GameServersFileEditResponse)(nil),                     // 468: xylona.GameServersFileEditResponse
-	(*GameServerFileOrDirectoryCreateResponse)(nil),         // 469: xylona.GameServerFileOrDirectoryCreateResponse
+	(*ChangePasswordRequest)(nil),                           // 40: xylona.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil),                          // 41: xylona.ChangePasswordResponse
+	(*CheckUserAuthenticatedRequest)(nil),                   // 42: xylona.CheckUserAuthenticatedRequest
+	(*CheckUserAuthenticatedResponse)(nil),                  // 43: xylona.CheckUserAuthenticatedResponse
+	(*ListGameServersRequest)(nil),                          // 44: xylona.ListGameServersRequest
+	(*ListGameServersResponse)(nil),                         // 45: xylona.ListGameServersResponse
+	(*ListGamesRequest)(nil),                                // 46: xylona.ListGamesRequest
+	(*ListGamesResponse)(nil),                               // 47: xylona.ListGamesResponse
+	(*GetGameRequest)(nil),                                  // 48: xylona.GetGameRequest
+	(*GetGameResponse)(nil),                                 // 49: xylona.GetGameResponse
+	(*GetGameServerRequest)(nil),                            // 50: xylona.GetGameServerRequest
+	(*GetGameServerResponse)(nil),                           // 51: xylona.GetGameServerResponse
+	(*User)(nil),                                            // 52: xylona.User
+	(*ListUsersRequest)(nil),                                // 53: xylona.ListUsersRequest
+	(*ListUsersResponse)(nil),                               // 54: xylona.ListUsersResponse
+	(*GetUserDetailsRequest)(nil),                           // 55: xylona.GetUserDetailsRequest
+	(*GetUserDetailsResponse)(nil),                          // 56: xylona.GetUserDetailsResponse
+	(*UpdateUserRequest)(nil),                               // 57: xylona.UpdateUserRequest
+	(*UpdateUserResponse)(nil),                              // 58: xylona.UpdateUserResponse
+	(*DeleteUserRequest)(nil),                               // 59: xylona.DeleteUserRequest
+	(*DeleteUserResponse)(nil),                              // 60: xylona.DeleteUserResponse
+	(*NotificationStreamRequest)(nil),                       // 61: xylona.NotificationStreamRequest
+	(*NotificationStreamResponse)(nil),                      // 62: xylona.NotificationStreamResponse
+	(*GetUpdateTargetsRequest)(nil),                         // 63: xylona.GetUpdateTargetsRequest
+	(*GetUpdateTargetsResponse)(nil),                        // 64: xylona.GetUpdateTargetsResponse
+	(*ListIPsRequest)(nil),                                  // 65: xylona.ListIPsRequest
+	(*ListIPsResponse)(nil),                                 // 66: xylona.ListIPsResponse
+	(*AddIPRequest)(nil),                                    // 67: xylona.AddIPRequest
+	(*AddIPResponse)(nil),                                   // 68: xylona.AddIPResponse
+	(*RemoveIPRequest)(nil),                                 // 69: xylona.RemoveIPRequest
+	(*RemoveIPResponse)(nil),                                // 70: xylona.RemoveIPResponse
+	(*AddGameRequest)(nil),                                  // 71: xylona.AddGameRequest
+	(*AddGameResponse)(nil),                                 // 72: xylona.AddGameResponse
+	(*EditGameRequest)(nil),                                 // 73: xylona.EditGameRequest
+	(*EditGameResponse)(nil),                                // 74: xylona.EditGameResponse
+	(*UpdateGameStartArgsTemplateRequest)(nil),              // 75: xylona.UpdateGameStartArgsTemplateRequest
+	(*UpdateGameStartArgsTemplateResponse)(nil),             // 76: xylona.UpdateGameStartArgsTemplateResponse
+	(*UpdateGameStartArgBlocklistRequest)(nil),              // 77: xylona.UpdateGameStartArgBlocklistRequest
+	(*UpdateGameStartArgBlocklistResponse)(nil),             // 78: xylona.UpdateGameStartArgBlocklistResponse
+	(*RemoveGameRequest)(nil),                               // 79: xylona.RemoveGameRequest
+	(*RemoveGameResponse)(nil),                              // 80: xylona.RemoveGameResponse
+	(*ImportGameRequest)(nil),                               // 81: xylona.ImportGameRequest
+	(*GameImportChange)(nil),                                // 82: xylona.GameImportChange
+	(*ImportGameResponse)(nil),                              // 83: xylona.ImportGameResponse
+	(*ResetGameToOfficialDefinitionRequest)(nil),            // 84: xylona.ResetGameToOfficialDefinitionRequest
+	(*ResetGameToOfficialDefinitionResponse)(nil),           // 85: xylona.ResetGameToOfficialDefinitionResponse
+	(*ExportGameRequest)(nil),                               // 86: xylona.ExportGameRequest
+	(*ExportGameResponse)(nil),                              // 87: xylona.ExportGameResponse
+	(*UpdateGameServerRequest)(nil),                         // 88: xylona.UpdateGameServerRequest
+	(*UpdateGameServerResponse)(nil),                        // 89: xylona.UpdateGameServerResponse
+	(*UpdateGameServerStartArgsRequest)(nil),                // 90: xylona.UpdateGameServerStartArgsRequest
+	(*UpdateGameServerStartArgsResponse)(nil),               // 91: xylona.UpdateGameServerStartArgsResponse
+	(*GetGameEnvironmentRequest)(nil),                       // 92: xylona.GetGameEnvironmentRequest
+	(*GetGameEnvironmentResponse)(nil),                      // 93: xylona.GetGameEnvironmentResponse
+	(*UpdateGameEnvironmentRequest)(nil),                    // 94: xylona.UpdateGameEnvironmentRequest
+	(*UpdateGameEnvironmentResponse)(nil),                   // 95: xylona.UpdateGameEnvironmentResponse
+	(*GetGameServerEnvironmentRequest)(nil),                 // 96: xylona.GetGameServerEnvironmentRequest
+	(*GetGameServerEnvironmentResponse)(nil),                // 97: xylona.GetGameServerEnvironmentResponse
+	(*UpdateGameServerEnvironmentRequest)(nil),              // 98: xylona.UpdateGameServerEnvironmentRequest
+	(*UpdateGameServerEnvironmentResponse)(nil),             // 99: xylona.UpdateGameServerEnvironmentResponse
+	(*SetGameServerSecretEnvRequest)(nil),                   // 100: xylona.SetGameServerSecretEnvRequest
+	(*SetGameServerSecretEnvResponse)(nil),                  // 101: xylona.SetGameServerSecretEnvResponse
+	(*ClearGameServerSecretEnvRequest)(nil),                 // 102: xylona.ClearGameServerSecretEnvRequest
+	(*ClearGameServerSecretEnvResponse)(nil),                // 103: xylona.ClearGameServerSecretEnvResponse
+	(*GameServerAdminInterface)(nil),                        // 104: xylona.GameServerAdminInterface
+	(*GetGameServerAdminInterfaceRequest)(nil),              // 105: xylona.GetGameServerAdminInterfaceRequest
+	(*GetGameServerAdminInterfaceResponse)(nil),             // 106: xylona.GetGameServerAdminInterfaceResponse
+	(*SetGameServerAdminInterfacePasswordRequest)(nil),      // 107: xylona.SetGameServerAdminInterfacePasswordRequest
+	(*SetGameServerAdminInterfacePasswordResponse)(nil),     // 108: xylona.SetGameServerAdminInterfacePasswordResponse
+	(*GameServerReadinessItem)(nil),                         // 109: xylona.GameServerReadinessItem
+	(*GetGameServerReadinessRequest)(nil),                   // 110: xylona.GetGameServerReadinessRequest
+	(*GetGameServerReadinessResponse)(nil),                  // 111: xylona.GetGameServerReadinessResponse
+	(*AcceptMinecraftEulaRequest)(nil),                      // 112: xylona.AcceptMinecraftEulaRequest
+	(*AcceptMinecraftEulaResponse)(nil),                     // 113: xylona.AcceptMinecraftEulaResponse
+	(*SetSteamGSLTRequest)(nil),                             // 114: xylona.SetSteamGSLTRequest
+	(*SetSteamGSLTResponse)(nil),                            // 115: xylona.SetSteamGSLTResponse
+	(*ClearSteamGSLTRequest)(nil),                           // 116: xylona.ClearSteamGSLTRequest
+	(*ClearSteamGSLTResponse)(nil),                          // 117: xylona.ClearSteamGSLTResponse
+	(*HytaleProfile)(nil),                                   // 118: xylona.HytaleProfile
+	(*StartHytaleDeviceAuthRequest)(nil),                    // 119: xylona.StartHytaleDeviceAuthRequest
+	(*StartHytaleDeviceAuthResponse)(nil),                   // 120: xylona.StartHytaleDeviceAuthResponse
+	(*PollHytaleDeviceAuthRequest)(nil),                     // 121: xylona.PollHytaleDeviceAuthRequest
+	(*PollHytaleDeviceAuthResponse)(nil),                    // 122: xylona.PollHytaleDeviceAuthResponse
+	(*SelectHytaleProfileRequest)(nil),                      // 123: xylona.SelectHytaleProfileRequest
+	(*SelectHytaleProfileResponse)(nil),                     // 124: xylona.SelectHytaleProfileResponse
+	(*ClearHytaleAccountRequest)(nil),                       // 125: xylona.ClearHytaleAccountRequest
+	(*ClearHytaleAccountResponse)(nil),                      // 126: xylona.ClearHytaleAccountResponse
+	(*SetServerVariantRequest)(nil),                         // 127: xylona.SetServerVariantRequest
+	(*SetServerVariantResponse)(nil),                        // 128: xylona.SetServerVariantResponse
+	(*GetVariantOperationStatusRequest)(nil),                // 129: xylona.GetVariantOperationStatusRequest
+	(*GetVariantOperationStatusResponse)(nil),               // 130: xylona.GetVariantOperationStatusResponse
+	(*ReinstallGameServerRequest)(nil),                      // 131: xylona.ReinstallGameServerRequest
+	(*ReinstallGameServerResponse)(nil),                     // 132: xylona.ReinstallGameServerResponse
+	(*BackupGameServerRequest)(nil),                         // 133: xylona.BackupGameServerRequest
+	(*BackupGameServerResponse)(nil),                        // 134: xylona.BackupGameServerResponse
+	(*QueryGameServerRequest)(nil),                          // 135: xylona.QueryGameServerRequest
+	(*QueryGameServerResponse)(nil),                         // 136: xylona.QueryGameServerResponse
+	(*GetNodeRequest)(nil),                                  // 137: xylona.GetNodeRequest
+	(*GetNodeResponse)(nil),                                 // 138: xylona.GetNodeResponse
+	(*ListNodesRequest)(nil),                                // 139: xylona.ListNodesRequest
+	(*ListNodesResponse)(nil),                               // 140: xylona.ListNodesResponse
+	(*GenerateNodePairingObjectRequest)(nil),                // 141: xylona.GenerateNodePairingObjectRequest
+	(*GenerateNodePairingObjectResponse)(nil),               // 142: xylona.GenerateNodePairingObjectResponse
+	(*RemoveNodeRequest)(nil),                               // 143: xylona.RemoveNodeRequest
+	(*RemoveNodeResponse)(nil),                              // 144: xylona.RemoveNodeResponse
+	(*EditNodeRequest)(nil),                                 // 145: xylona.EditNodeRequest
+	(*EditNodeResponse)(nil),                                // 146: xylona.EditNodeResponse
+	(*SystemUpdateAvailability)(nil),                        // 147: xylona.SystemUpdateAvailability
+	(*SystemUpdateJob)(nil),                                 // 148: xylona.SystemUpdateJob
+	(*SystemUpdateJobEvent)(nil),                            // 149: xylona.SystemUpdateJobEvent
+	(*SystemUpdateProgress)(nil),                            // 150: xylona.SystemUpdateProgress
+	(*CheckSystemUpdatesRequest)(nil),                       // 151: xylona.CheckSystemUpdatesRequest
+	(*CheckSystemUpdatesResponse)(nil),                      // 152: xylona.CheckSystemUpdatesResponse
+	(*StartSystemUpdateRequest)(nil),                        // 153: xylona.StartSystemUpdateRequest
+	(*StartSystemUpdateResponse)(nil),                       // 154: xylona.StartSystemUpdateResponse
+	(*ListSystemUpdateJobsRequest)(nil),                     // 155: xylona.ListSystemUpdateJobsRequest
+	(*ListSystemUpdateJobsResponse)(nil),                    // 156: xylona.ListSystemUpdateJobsResponse
+	(*GetSystemUpdateJobRequest)(nil),                       // 157: xylona.GetSystemUpdateJobRequest
+	(*GetSystemUpdateJobResponse)(nil),                      // 158: xylona.GetSystemUpdateJobResponse
+	(*RemoteServerSummary)(nil),                             // 159: xylona.RemoteServerSummary
+	(*AggregatedGameServer)(nil),                            // 160: xylona.AggregatedGameServer
+	(*ListAggregatedGameServersRequest)(nil),                // 161: xylona.ListAggregatedGameServersRequest
+	(*ListAggregatedGameServersResponse)(nil),               // 162: xylona.ListAggregatedGameServersResponse
+	(*ListRolesRequest)(nil),                                // 163: xylona.ListRolesRequest
+	(*ListRolesResponse)(nil),                               // 164: xylona.ListRolesResponse
+	(*Role)(nil),                                            // 165: xylona.Role
+	(*Permission)(nil),                                      // 166: xylona.Permission
+	(*ListPermissionsRequest)(nil),                          // 167: xylona.ListPermissionsRequest
+	(*ListPermissionsResponse)(nil),                         // 168: xylona.ListPermissionsResponse
+	(*CreateRoleRequest)(nil),                               // 169: xylona.CreateRoleRequest
+	(*CreateRoleResponse)(nil),                              // 170: xylona.CreateRoleResponse
+	(*DeleteRoleRequest)(nil),                               // 171: xylona.DeleteRoleRequest
+	(*DeleteRoleResponse)(nil),                              // 172: xylona.DeleteRoleResponse
+	(*ListGameServerAccessGrantsRequest)(nil),               // 173: xylona.ListGameServerAccessGrantsRequest
+	(*ListGameServerAccessGrantsResponse)(nil),              // 174: xylona.ListGameServerAccessGrantsResponse
+	(*GameServerAccessGrant)(nil),                           // 175: xylona.GameServerAccessGrant
+	(*GrantGameServerAccessRequest)(nil),                    // 176: xylona.GrantGameServerAccessRequest
+	(*GrantGameServerAccessResponse)(nil),                   // 177: xylona.GrantGameServerAccessResponse
+	(*RevokeGameServerAccessRequest)(nil),                   // 178: xylona.RevokeGameServerAccessRequest
+	(*RevokeGameServerAccessResponse)(nil),                  // 179: xylona.RevokeGameServerAccessResponse
+	(*GetNodeSystemInfoRequest)(nil),                        // 180: xylona.GetNodeSystemInfoRequest
+	(*GetNodeSystemInfoResponse)(nil),                       // 181: xylona.GetNodeSystemInfoResponse
+	(*GetNodeResourceSnapshotRequest)(nil),                  // 182: xylona.GetNodeResourceSnapshotRequest
+	(*GetNodeResourceSnapshotResponse)(nil),                 // 183: xylona.GetNodeResourceSnapshotResponse
+	(*GetDashboardOverviewRequest)(nil),                     // 184: xylona.GetDashboardOverviewRequest
+	(*DashboardNodeSummary)(nil),                            // 185: xylona.DashboardNodeSummary
+	(*GetDashboardOverviewResponse)(nil),                    // 186: xylona.GetDashboardOverviewResponse
+	(*GetNodeMetricsHistoryRequest)(nil),                    // 187: xylona.GetNodeMetricsHistoryRequest
+	(*GetNodeMetricsHistoryResponse)(nil),                   // 188: xylona.GetNodeMetricsHistoryResponse
+	(*GetGameServerMetricsHistoryRequest)(nil),              // 189: xylona.GetGameServerMetricsHistoryRequest
+	(*GetGameServerMetricsHistoryResponse)(nil),             // 190: xylona.GetGameServerMetricsHistoryResponse
+	(*ConfigFileInfo)(nil),                                  // 191: xylona.ConfigFileInfo
+	(*ConfigFieldData)(nil),                                 // 192: xylona.ConfigFieldData
+	(*AdvancedField)(nil),                                   // 193: xylona.AdvancedField
+	(*ConfigValidationError)(nil),                           // 194: xylona.ConfigValidationError
+	(*GetGameServerConfigFilesRequest)(nil),                 // 195: xylona.GetGameServerConfigFilesRequest
+	(*GetGameServerConfigFilesResponse)(nil),                // 196: xylona.GetGameServerConfigFilesResponse
+	(*GetGameServerConfigFileRequest)(nil),                  // 197: xylona.GetGameServerConfigFileRequest
+	(*GetGameServerConfigFileResponse)(nil),                 // 198: xylona.GetGameServerConfigFileResponse
+	(*UpdateGameServerConfigFileRequest)(nil),               // 199: xylona.UpdateGameServerConfigFileRequest
+	(*UpdateGameServerConfigFileResponse)(nil),              // 200: xylona.UpdateGameServerConfigFileResponse
+	(*GenerateGameServerConfigFileRequest)(nil),             // 201: xylona.GenerateGameServerConfigFileRequest
+	(*GenerateGameServerConfigFileResponse)(nil),            // 202: xylona.GenerateGameServerConfigFileResponse
+	(*GetGameConfigSchemasRequest)(nil),                     // 203: xylona.GetGameConfigSchemasRequest
+	(*GetGameConfigSchemasResponse)(nil),                    // 204: xylona.GetGameConfigSchemasResponse
+	(*UpdateGameConfigSchemasRequest)(nil),                  // 205: xylona.UpdateGameConfigSchemasRequest
+	(*UpdateGameConfigSchemasResponse)(nil),                 // 206: xylona.UpdateGameConfigSchemasResponse
+	(*SearchSteamAppsRequest)(nil),                          // 207: xylona.SearchSteamAppsRequest
+	(*SearchSteamAppsResponse)(nil),                         // 208: xylona.SearchSteamAppsResponse
+	(*GetSteamAppDetailsRequest)(nil),                       // 209: xylona.GetSteamAppDetailsRequest
+	(*GetSteamAppDetailsResponse)(nil),                      // 210: xylona.GetSteamAppDetailsResponse
+	(*SearchModsRequest)(nil),                               // 211: xylona.SearchModsRequest
+	(*SearchModsResponse)(nil),                              // 212: xylona.SearchModsResponse
+	(*GetModDetailsRequest)(nil),                            // 213: xylona.GetModDetailsRequest
+	(*GetModDetailsResponse)(nil),                           // 214: xylona.GetModDetailsResponse
+	(*GetModVersionsRequest)(nil),                           // 215: xylona.GetModVersionsRequest
+	(*GetModVersionsResponse)(nil),                          // 216: xylona.GetModVersionsResponse
+	(*InstallModRequest)(nil),                               // 217: xylona.InstallModRequest
+	(*InstallModResponse)(nil),                              // 218: xylona.InstallModResponse
+	(*UninstallModRequest)(nil),                             // 219: xylona.UninstallModRequest
+	(*UninstallModResponse)(nil),                            // 220: xylona.UninstallModResponse
+	(*UpdateModRequest)(nil),                                // 221: xylona.UpdateModRequest
+	(*UpdateModResponse)(nil),                               // 222: xylona.UpdateModResponse
+	(*ListInstalledModsRequest)(nil),                        // 223: xylona.ListInstalledModsRequest
+	(*ListInstalledModsResponse)(nil),                       // 224: xylona.ListInstalledModsResponse
+	(*SevenDaysToDieReportedMod)(nil),                       // 225: xylona.SevenDaysToDieReportedMod
+	(*GetSevenDaysToDieReportedModsRequest)(nil),            // 226: xylona.GetSevenDaysToDieReportedModsRequest
+	(*GetSevenDaysToDieReportedModsResponse)(nil),           // 227: xylona.GetSevenDaysToDieReportedModsResponse
+	(*SetModAutoUpdateRequest)(nil),                         // 228: xylona.SetModAutoUpdateRequest
+	(*SetModAutoUpdateResponse)(nil),                        // 229: xylona.SetModAutoUpdateResponse
+	(*SetModEnabledRequest)(nil),                            // 230: xylona.SetModEnabledRequest
+	(*SetModEnabledResponse)(nil),                           // 231: xylona.SetModEnabledResponse
+	(*PinModVersionRequest)(nil),                            // 232: xylona.PinModVersionRequest
+	(*PinModVersionResponse)(nil),                           // 233: xylona.PinModVersionResponse
+	(*GetModCategoriesRequest)(nil),                         // 234: xylona.GetModCategoriesRequest
+	(*GetModCategoriesResponse)(nil),                        // 235: xylona.GetModCategoriesResponse
+	(*UpdateProgress)(nil),                                  // 236: xylona.UpdateProgress
+	(*GetVersionInfoRequest)(nil),                           // 237: xylona.GetVersionInfoRequest
+	(*GetVersionInfoResponse)(nil),                          // 238: xylona.GetVersionInfoResponse
+	(*CheckForUpdateRequest)(nil),                           // 239: xylona.CheckForUpdateRequest
+	(*CheckForUpdateResponse)(nil),                          // 240: xylona.CheckForUpdateResponse
+	(*SetDummyUpdateFailureRequest)(nil),                    // 241: xylona.SetDummyUpdateFailureRequest
+	(*SetDummyUpdateFailureResponse)(nil),                   // 242: xylona.SetDummyUpdateFailureResponse
+	(*CreateNotificationChannelRequest)(nil),                // 243: xylona.CreateNotificationChannelRequest
+	(*CreateNotificationChannelResponse)(nil),               // 244: xylona.CreateNotificationChannelResponse
+	(*UpdateNotificationChannelRequest)(nil),                // 245: xylona.UpdateNotificationChannelRequest
+	(*UpdateNotificationChannelResponse)(nil),               // 246: xylona.UpdateNotificationChannelResponse
+	(*DeleteNotificationChannelRequest)(nil),                // 247: xylona.DeleteNotificationChannelRequest
+	(*DeleteNotificationChannelResponse)(nil),               // 248: xylona.DeleteNotificationChannelResponse
+	(*ListNotificationChannelsRequest)(nil),                 // 249: xylona.ListNotificationChannelsRequest
+	(*ListNotificationChannelsResponse)(nil),                // 250: xylona.ListNotificationChannelsResponse
+	(*TestNotificationChannelRequest)(nil),                  // 251: xylona.TestNotificationChannelRequest
+	(*TestNotificationChannelResponse)(nil),                 // 252: xylona.TestNotificationChannelResponse
+	(*GetLocalSMTPStatusRequest)(nil),                       // 253: xylona.GetLocalSMTPStatusRequest
+	(*GetLocalSMTPStatusResponse)(nil),                      // 254: xylona.GetLocalSMTPStatusResponse
+	(*CreateAlertRuleRequest)(nil),                          // 255: xylona.CreateAlertRuleRequest
+	(*CreateAlertRuleResponse)(nil),                         // 256: xylona.CreateAlertRuleResponse
+	(*UpdateAlertRuleRequest)(nil),                          // 257: xylona.UpdateAlertRuleRequest
+	(*UpdateAlertRuleResponse)(nil),                         // 258: xylona.UpdateAlertRuleResponse
+	(*DeleteAlertRuleRequest)(nil),                          // 259: xylona.DeleteAlertRuleRequest
+	(*DeleteAlertRuleResponse)(nil),                         // 260: xylona.DeleteAlertRuleResponse
+	(*ListAlertRulesRequest)(nil),                           // 261: xylona.ListAlertRulesRequest
+	(*ListAlertRulesResponse)(nil),                          // 262: xylona.ListAlertRulesResponse
+	(*GetAlertHistoryRequest)(nil),                          // 263: xylona.GetAlertHistoryRequest
+	(*GetAlertHistoryResponse)(nil),                         // 264: xylona.GetAlertHistoryResponse
+	(*GetSystemSMTPConfigRequest)(nil),                      // 265: xylona.GetSystemSMTPConfigRequest
+	(*GetSystemSMTPConfigResponse)(nil),                     // 266: xylona.GetSystemSMTPConfigResponse
+	(*SetSystemSMTPConfigRequest)(nil),                      // 267: xylona.SetSystemSMTPConfigRequest
+	(*SetSystemSMTPConfigResponse)(nil),                     // 268: xylona.SetSystemSMTPConfigResponse
+	(*TestSystemSMTPRequest)(nil),                           // 269: xylona.TestSystemSMTPRequest
+	(*TestSystemSMTPResponse)(nil),                          // 270: xylona.TestSystemSMTPResponse
+	(*BeginGoogleMailOAuthRequest)(nil),                     // 271: xylona.BeginGoogleMailOAuthRequest
+	(*BeginGoogleMailOAuthResponse)(nil),                    // 272: xylona.BeginGoogleMailOAuthResponse
+	(*DisconnectGoogleMailRequest)(nil),                     // 273: xylona.DisconnectGoogleMailRequest
+	(*DisconnectGoogleMailResponse)(nil),                    // 274: xylona.DisconnectGoogleMailResponse
+	(*DNSProviderConnectionInput)(nil),                      // 275: xylona.DNSProviderConnectionInput
+	(*DNSProviderConnection)(nil),                           // 276: xylona.DNSProviderConnection
+	(*DNSProviderZone)(nil),                                 // 277: xylona.DNSProviderZone
+	(*GetDNSProviderConnectionRequest)(nil),                 // 278: xylona.GetDNSProviderConnectionRequest
+	(*GetDNSProviderConnectionResponse)(nil),                // 279: xylona.GetDNSProviderConnectionResponse
+	(*ListDNSProviderZonesRequest)(nil),                     // 280: xylona.ListDNSProviderZonesRequest
+	(*ListDNSProviderZonesResponse)(nil),                    // 281: xylona.ListDNSProviderZonesResponse
+	(*SetDNSProviderConnectionRequest)(nil),                 // 282: xylona.SetDNSProviderConnectionRequest
+	(*SetDNSProviderConnectionResponse)(nil),                // 283: xylona.SetDNSProviderConnectionResponse
+	(*ListScheduledTasksRequest)(nil),                       // 284: xylona.ListScheduledTasksRequest
+	(*ListScheduledTasksResponse)(nil),                      // 285: xylona.ListScheduledTasksResponse
+	(*CreateScheduledTaskRequest)(nil),                      // 286: xylona.CreateScheduledTaskRequest
+	(*CreateScheduledTaskResponse)(nil),                     // 287: xylona.CreateScheduledTaskResponse
+	(*UpdateScheduledTaskRequest)(nil),                      // 288: xylona.UpdateScheduledTaskRequest
+	(*UpdateScheduledTaskResponse)(nil),                     // 289: xylona.UpdateScheduledTaskResponse
+	(*DeleteScheduledTaskRequest)(nil),                      // 290: xylona.DeleteScheduledTaskRequest
+	(*DeleteScheduledTaskResponse)(nil),                     // 291: xylona.DeleteScheduledTaskResponse
+	(*GetScheduledTaskLogsRequest)(nil),                     // 292: xylona.GetScheduledTaskLogsRequest
+	(*GetScheduledTaskLogsResponse)(nil),                    // 293: xylona.GetScheduledTaskLogsResponse
+	(*GetGameServerBackupOverviewRequest)(nil),              // 294: xylona.GetGameServerBackupOverviewRequest
+	(*GetGameServerBackupOverviewResponse)(nil),             // 295: xylona.GetGameServerBackupOverviewResponse
+	(*GetBackupSettingsRequest)(nil),                        // 296: xylona.GetBackupSettingsRequest
+	(*GetBackupSettingsResponse)(nil),                       // 297: xylona.GetBackupSettingsResponse
+	(*UpdateBackupSettingsRequest)(nil),                     // 298: xylona.UpdateBackupSettingsRequest
+	(*UpdateBackupSettingsResponse)(nil),                    // 299: xylona.UpdateBackupSettingsResponse
+	(*ListGameServerBackupsRequest)(nil),                    // 300: xylona.ListGameServerBackupsRequest
+	(*ListGameServerBackupsResponse)(nil),                   // 301: xylona.ListGameServerBackupsResponse
+	(*CreateGameServerBackupRequest)(nil),                   // 302: xylona.CreateGameServerBackupRequest
+	(*CreateGameServerBackupResponse)(nil),                  // 303: xylona.CreateGameServerBackupResponse
+	(*DeleteGameServerBackupRequest)(nil),                   // 304: xylona.DeleteGameServerBackupRequest
+	(*DeleteGameServerBackupResponse)(nil),                  // 305: xylona.DeleteGameServerBackupResponse
+	(*RestoreGameServerBackupRequest)(nil),                  // 306: xylona.RestoreGameServerBackupRequest
+	(*RestoreGameServerBackupResponse)(nil),                 // 307: xylona.RestoreGameServerBackupResponse
+	(*GameServerPlayerManagementCapabilities)(nil),          // 308: xylona.GameServerPlayerManagementCapabilities
+	(*GameServerManagementPlayer)(nil),                      // 309: xylona.GameServerManagementPlayer
+	(*GetGameServerPlayerManagementRequest)(nil),            // 310: xylona.GetGameServerPlayerManagementRequest
+	(*GetGameServerPlayerManagementResponse)(nil),           // 311: xylona.GetGameServerPlayerManagementResponse
+	(*PerformGameServerPlayerActionRequest)(nil),            // 312: xylona.PerformGameServerPlayerActionRequest
+	(*PerformGameServerPlayerActionResponse)(nil),           // 313: xylona.PerformGameServerPlayerActionResponse
+	(*GameOperationFieldOption)(nil),                        // 314: xylona.GameOperationFieldOption
+	(*GameOperationField)(nil),                              // 315: xylona.GameOperationField
+	(*GameOperationReview)(nil),                             // 316: xylona.GameOperationReview
+	(*GameOperationDescriptor)(nil),                         // 317: xylona.GameOperationDescriptor
+	(*ListGameServerOperationsRequest)(nil),                 // 318: xylona.ListGameServerOperationsRequest
+	(*ListGameServerOperationsResponse)(nil),                // 319: xylona.ListGameServerOperationsResponse
+	(*GameOperationValue)(nil),                              // 320: xylona.GameOperationValue
+	(*GameOperationTransportDetails)(nil),                   // 321: xylona.GameOperationTransportDetails
+	(*GameOperationResult)(nil),                             // 322: xylona.GameOperationResult
+	(*ValheimAccessList)(nil),                               // 323: xylona.ValheimAccessList
+	(*ExecuteGameServerOperationRequest)(nil),               // 324: xylona.ExecuteGameServerOperationRequest
+	(*ExecuteGameServerOperationResponse)(nil),              // 325: xylona.ExecuteGameServerOperationResponse
+	(*GameServerMapShareSettings)(nil),                      // 326: xylona.GameServerMapShareSettings
+	(*GetOrCreateGameServerMapShareSettingsRequest)(nil),    // 327: xylona.GetOrCreateGameServerMapShareSettingsRequest
+	(*GetOrCreateGameServerMapShareSettingsResponse)(nil),   // 328: xylona.GetOrCreateGameServerMapShareSettingsResponse
+	(*UpdateGameServerMapShareSettingsRequest)(nil),         // 329: xylona.UpdateGameServerMapShareSettingsRequest
+	(*UpdateGameServerMapShareSettingsResponse)(nil),        // 330: xylona.UpdateGameServerMapShareSettingsResponse
+	(*ResolvePublicGameServerMapRequest)(nil),               // 331: xylona.ResolvePublicGameServerMapRequest
+	(*ResolvePublicGameServerMapResponse)(nil),              // 332: xylona.ResolvePublicGameServerMapResponse
+	(*DNSBinding)(nil),                                      // 333: xylona.DNSBinding
+	(*GetDNSBindingRequest)(nil),                            // 334: xylona.GetDNSBindingRequest
+	(*GetDNSBindingResponse)(nil),                           // 335: xylona.GetDNSBindingResponse
+	(*SetDNSBindingRequest)(nil),                            // 336: xylona.SetDNSBindingRequest
+	(*SetDNSBindingResponse)(nil),                           // 337: xylona.SetDNSBindingResponse
+	(*RemoveDNSBindingRequest)(nil),                         // 338: xylona.RemoveDNSBindingRequest
+	(*RemoveDNSBindingResponse)(nil),                        // 339: xylona.RemoveDNSBindingResponse
+	(*SyncDNSBindingRequest)(nil),                           // 340: xylona.SyncDNSBindingRequest
+	(*SyncDNSBindingResponse)(nil),                          // 341: xylona.SyncDNSBindingResponse
+	(*AdoptDNSBindingRecordRequest)(nil),                    // 342: xylona.AdoptDNSBindingRecordRequest
+	(*AdoptDNSBindingRecordResponse)(nil),                   // 343: xylona.AdoptDNSBindingRecordResponse
+	(*PalworldMapActor)(nil),                                // 344: xylona.PalworldMapActor
+	(*PalworldMapLayer)(nil),                                // 345: xylona.PalworldMapLayer
+	(*PalworldMapView)(nil),                                 // 346: xylona.PalworldMapView
+	(*GetPalworldMapRequest)(nil),                           // 347: xylona.GetPalworldMapRequest
+	(*GetPalworldMapResponse)(nil),                          // 348: xylona.GetPalworldMapResponse
+	(*UpdatePalworldMapConfigRequest)(nil),                  // 349: xylona.UpdatePalworldMapConfigRequest
+	(*UpdatePalworldMapConfigResponse)(nil),                 // 350: xylona.UpdatePalworldMapConfigResponse
+	(*InstallPalworldMapTilesRequest)(nil),                  // 351: xylona.InstallPalworldMapTilesRequest
+	(*InstallPalworldMapTilesResponse)(nil),                 // 352: xylona.InstallPalworldMapTilesResponse
+	(*GetPublicPalworldMapRequest)(nil),                     // 353: xylona.GetPublicPalworldMapRequest
+	(*GetPublicPalworldMapResponse)(nil),                    // 354: xylona.GetPublicPalworldMapResponse
+	(*SevenDaysToDieMapVector)(nil),                         // 355: xylona.SevenDaysToDieMapVector
+	(*SevenDaysToDieMapPlayer)(nil),                         // 356: xylona.SevenDaysToDieMapPlayer
+	(*SevenDaysToDieMapMarker)(nil),                         // 357: xylona.SevenDaysToDieMapMarker
+	(*SevenDaysToDieLandClaim)(nil),                         // 358: xylona.SevenDaysToDieLandClaim
+	(*SevenDaysToDieMapEntity)(nil),                         // 359: xylona.SevenDaysToDieMapEntity
+	(*SevenDaysToDieMapBloodMoon)(nil),                      // 360: xylona.SevenDaysToDieMapBloodMoon
+	(*SevenDaysToDieMapView)(nil),                           // 361: xylona.SevenDaysToDieMapView
+	(*GetSevenDaysToDieMapRequest)(nil),                     // 362: xylona.GetSevenDaysToDieMapRequest
+	(*GetSevenDaysToDieMapResponse)(nil),                    // 363: xylona.GetSevenDaysToDieMapResponse
+	(*UpdateSevenDaysToDieMapNotesRequest)(nil),             // 364: xylona.UpdateSevenDaysToDieMapNotesRequest
+	(*UpdateSevenDaysToDieMapNotesResponse)(nil),            // 365: xylona.UpdateSevenDaysToDieMapNotesResponse
+	(*GetPublicSevenDaysToDieMapRequest)(nil),               // 366: xylona.GetPublicSevenDaysToDieMapRequest
+	(*GetPublicSevenDaysToDieMapResponse)(nil),              // 367: xylona.GetPublicSevenDaysToDieMapResponse
+	(*MinecraftMapView)(nil),                                // 368: xylona.MinecraftMapView
+	(*GetMinecraftMapRequest)(nil),                          // 369: xylona.GetMinecraftMapRequest
+	(*GetMinecraftMapResponse)(nil),                         // 370: xylona.GetMinecraftMapResponse
+	(*UpdateMinecraftMapConfigRequest)(nil),                 // 371: xylona.UpdateMinecraftMapConfigRequest
+	(*UpdateMinecraftMapConfigResponse)(nil),                // 372: xylona.UpdateMinecraftMapConfigResponse
+	(*GetPublicMinecraftMapRequest)(nil),                    // 373: xylona.GetPublicMinecraftMapRequest
+	(*GetPublicMinecraftMapResponse)(nil),                   // 374: xylona.GetPublicMinecraftMapResponse
+	(*PalworldMapHealth)(nil),                               // 375: xylona.PalworldMapHealth
+	(*SevenDaysToDieGameTime)(nil),                          // 376: xylona.SevenDaysToDieGameTime
+	(*SevenDaysToDieWebAPICapabilities)(nil),                // 377: xylona.SevenDaysToDieWebAPICapabilities
+	(*SevenDaysToDieWebAPIStatus)(nil),                      // 378: xylona.SevenDaysToDieWebAPIStatus
+	(*GetSevenDaysToDieWebAPIStatusRequest)(nil),            // 379: xylona.GetSevenDaysToDieWebAPIStatusRequest
+	(*GetSevenDaysToDieWebAPIStatusResponse)(nil),           // 380: xylona.GetSevenDaysToDieWebAPIStatusResponse
+	(*SevenDaysToDieSandboxSetting)(nil),                    // 381: xylona.SevenDaysToDieSandboxSetting
+	(*GetSevenDaysToDieSandboxSettingsRequest)(nil),         // 382: xylona.GetSevenDaysToDieSandboxSettingsRequest
+	(*GetSevenDaysToDieSandboxSettingsResponse)(nil),        // 383: xylona.GetSevenDaysToDieSandboxSettingsResponse
+	(*InstallSevenDaysToDieLandClaimsModRequest)(nil),       // 384: xylona.InstallSevenDaysToDieLandClaimsModRequest
+	(*InstallSevenDaysToDieLandClaimsModResponse)(nil),      // 385: xylona.InstallSevenDaysToDieLandClaimsModResponse
+	(*GetSetupStatusRequest)(nil),                           // 386: xylona.GetSetupStatusRequest
+	(*GetSetupStatusResponse)(nil),                          // 387: xylona.GetSetupStatusResponse
+	(*CompleteSetupRequest)(nil),                            // 388: xylona.CompleteSetupRequest
+	(*CompleteSetupResponse)(nil),                           // 389: xylona.CompleteSetupResponse
+	(*JoinPasswordState)(nil),                               // 390: xylona.JoinPasswordState
+	(*GetJoinPasswordStateRequest)(nil),                     // 391: xylona.GetJoinPasswordStateRequest
+	(*GetJoinPasswordStateResponse)(nil),                    // 392: xylona.GetJoinPasswordStateResponse
+	(*SetJoinPasswordRequest)(nil),                          // 393: xylona.SetJoinPasswordRequest
+	(*SetJoinPasswordResponse)(nil),                         // 394: xylona.SetJoinPasswordResponse
+	(*ClearJoinPasswordRequest)(nil),                        // 395: xylona.ClearJoinPasswordRequest
+	(*ClearJoinPasswordResponse)(nil),                       // 396: xylona.ClearJoinPasswordResponse
+	(Status)(0),                                             // 397: xylona.Status
+	(*timestamppb.Timestamp)(nil),                           // 398: google.protobuf.Timestamp
+	(Error)(0),                                              // 399: xylona.Error
+	(*GameServer)(nil),                                      // 400: xylona.GameServer
+	(*Game)(nil),                                            // 401: xylona.Game
+	(*UpdateTargetOption)(nil),                              // 402: xylona.UpdateTargetOption
+	(*IP)(nil),                                              // 403: xylona.IP
+	(*EnvironmentVariable)(nil),                             // 404: xylona.EnvironmentVariable
+	(*EnvironmentValidationIssue)(nil),                      // 405: xylona.EnvironmentValidationIssue
+	(*SecretEnvironmentVariableState)(nil),                  // 406: xylona.SecretEnvironmentVariableState
+	(*ServerQuery)(nil),                                     // 407: xylona.ServerQuery
+	(*Node)(nil),                                            // 408: xylona.Node
+	(*VersionInfo)(nil),                                     // 409: xylona.VersionInfo
+	(*NodeSystemInfo)(nil),                                  // 410: xylona.NodeSystemInfo
+	(*NodeResourceSnapshot)(nil),                            // 411: xylona.NodeResourceSnapshot
+	(*MetricsHistoryPoint)(nil),                             // 412: xylona.MetricsHistoryPoint
+	(*GameServerMetricsHistoryPoint)(nil),                   // 413: xylona.GameServerMetricsHistoryPoint
+	(*GameServerLifecycleHistoryEvent)(nil),                 // 414: xylona.GameServerLifecycleHistoryEvent
+	(*GameServerOperationHistoryEvent)(nil),                 // 415: xylona.GameServerOperationHistoryEvent
+	(GameServerMetricsResolution)(0),                        // 416: xylona.GameServerMetricsResolution
+	(*SteamApp)(nil),                                        // 417: xylona.SteamApp
+	(*SteamAppDetails)(nil),                                 // 418: xylona.SteamAppDetails
+	(*ModSearchResult)(nil),                                 // 419: xylona.ModSearchResult
+	(*ModDetails)(nil),                                      // 420: xylona.ModDetails
+	(*ModVersion)(nil),                                      // 421: xylona.ModVersion
+	(*InstalledMod)(nil),                                    // 422: xylona.InstalledMod
+	(NotificationChannelType)(0),                            // 423: xylona.NotificationChannelType
+	(*NotificationChannel)(nil),                             // 424: xylona.NotificationChannel
+	(AlertEventType)(0),                                     // 425: xylona.AlertEventType
+	(*AlertRule)(nil),                                       // 426: xylona.AlertRule
+	(*AlertHistoryEntry)(nil),                               // 427: xylona.AlertHistoryEntry
+	(*SystemSMTPConfig)(nil),                                // 428: xylona.SystemSMTPConfig
+	(*ScheduledTask)(nil),                                   // 429: xylona.ScheduledTask
+	(*ScheduledTaskLog)(nil),                                // 430: xylona.ScheduledTaskLog
+	(*GameServerBackupOverview)(nil),                        // 431: xylona.GameServerBackupOverview
+	(*BackupSettings)(nil),                                  // 432: xylona.BackupSettings
+	(*GameServerBackup)(nil),                                // 433: xylona.GameServerBackup
+	(BackupRestoreMode)(0),                                  // 434: xylona.BackupRestoreMode
+	(*GameServerPlayer)(nil),                                // 435: xylona.GameServerPlayer
+	(*CreateGameServerRequest)(nil),                         // 436: xylona.CreateGameServerRequest
+	(*EditGameServerRequest)(nil),                           // 437: xylona.EditGameServerRequest
+	(*RemoveGameServerRequest)(nil),                         // 438: xylona.RemoveGameServerRequest
+	(*StartGameServerRequest)(nil),                          // 439: xylona.StartGameServerRequest
+	(*StopGameServerRequest)(nil),                           // 440: xylona.StopGameServerRequest
+	(*RestartGameServerRequest)(nil),                        // 441: xylona.RestartGameServerRequest
+	(*ReadGameServerOutputRequest)(nil),                     // 442: xylona.ReadGameServerOutputRequest
+	(*SendGameServerInputRequest)(nil),                      // 443: xylona.SendGameServerInputRequest
+	(*ListDirectoryFilesRequest)(nil),                       // 444: xylona.ListDirectoryFilesRequest
+	(*GameServerFilesDeleteRequest)(nil),                    // 445: xylona.GameServerFilesDeleteRequest
+	(*GameServerFilesCompressionRequest)(nil),               // 446: xylona.GameServerFilesCompressionRequest
+	(*GameServerFilesDecompressionRequest)(nil),             // 447: xylona.GameServerFilesDecompressionRequest
+	(*GameServersFileDownloadFromURLRequest)(nil),           // 448: xylona.GameServersFileDownloadFromURLRequest
+	(*GameServerFileRenameRequest)(nil),                     // 449: xylona.GameServerFileRenameRequest
+	(*GameServerFilesMoveRequest)(nil),                      // 450: xylona.GameServerFilesMoveRequest
+	(*GameServersFileEditRequest)(nil),                      // 451: xylona.GameServersFileEditRequest
+	(*GameServerFileOrDirectoryCreateRequest)(nil),          // 452: xylona.GameServerFileOrDirectoryCreateRequest
+	(*CreateGameServerResponse)(nil),                        // 453: xylona.CreateGameServerResponse
+	(*EditGameServerResponse)(nil),                          // 454: xylona.EditGameServerResponse
+	(*RemoveGameServerResponse)(nil),                        // 455: xylona.RemoveGameServerResponse
+	(*StartGameServerResponse)(nil),                         // 456: xylona.StartGameServerResponse
+	(*StopGameServerResponse)(nil),                          // 457: xylona.StopGameServerResponse
+	(*RestartGameServerResponse)(nil),                       // 458: xylona.RestartGameServerResponse
+	(*ReadGameServerOutputResponse)(nil),                    // 459: xylona.ReadGameServerOutputResponse
+	(*SendGameServerInputResponse)(nil),                     // 460: xylona.SendGameServerInputResponse
+	(*ListDirectoryFilesResponse)(nil),                      // 461: xylona.ListDirectoryFilesResponse
+	(*GameServerFilesDeleteResponse)(nil),                   // 462: xylona.GameServerFilesDeleteResponse
+	(*GameServerFilesArchiveProgress)(nil),                  // 463: xylona.GameServerFilesArchiveProgress
+	(*GameServerFilesExtractProgress)(nil),                  // 464: xylona.GameServerFilesExtractProgress
+	(*GameServerFilesCompressionResponse)(nil),              // 465: xylona.GameServerFilesCompressionResponse
+	(*GameServerFilesDecompressionResponse)(nil),            // 466: xylona.GameServerFilesDecompressionResponse
+	(*GameServersFileDownloadFromURLResponse)(nil),          // 467: xylona.GameServersFileDownloadFromURLResponse
+	(*GameServerFileRenameResponse)(nil),                    // 468: xylona.GameServerFileRenameResponse
+	(*GameServerFilesMoveResponse)(nil),                     // 469: xylona.GameServerFilesMoveResponse
+	(*GameServersFileEditResponse)(nil),                     // 470: xylona.GameServersFileEditResponse
+	(*GameServerFileOrDirectoryCreateResponse)(nil),         // 471: xylona.GameServerFileOrDirectoryCreateResponse
 }
 var file_xylona_proto_depIdxs = []int32{
 	23,  // 0: xylona.GameServerStatusPageSettings.servers:type_name -> xylona.GameServerStatusPageSettingsServer
 	24,  // 1: xylona.GetOrCreateGameServerStatusPageSettingsResponse.settings:type_name -> xylona.GameServerStatusPageSettings
 	27,  // 2: xylona.UpdateGameServerStatusPageSettingsRequest.connection_addresses:type_name -> xylona.GameServerStatusPageConnectionAddress
 	24,  // 3: xylona.UpdateGameServerStatusPageSettingsResponse.settings:type_name -> xylona.GameServerStatusPageSettings
-	395, // 4: xylona.PublicGameServerStatus.status:type_name -> xylona.Status
+	397, // 4: xylona.PublicGameServerStatus.status:type_name -> xylona.Status
 	0,   // 5: xylona.PublicGameServerStatus.roster_state:type_name -> xylona.GameServerStatusPageRosterState
-	396, // 6: xylona.PublicGameServerStatus.observed_at:type_name -> google.protobuf.Timestamp
+	398, // 6: xylona.PublicGameServerStatus.observed_at:type_name -> google.protobuf.Timestamp
 	30,  // 7: xylona.PublicGameServerStatusPage.servers:type_name -> xylona.PublicGameServerStatus
-	396, // 8: xylona.PublicGameServerStatusPage.generated_at:type_name -> google.protobuf.Timestamp
+	398, // 8: xylona.PublicGameServerStatusPage.generated_at:type_name -> google.protobuf.Timestamp
 	31,  // 9: xylona.GetPublicGameServerStatusPageResponse.page:type_name -> xylona.PublicGameServerStatusPage
-	50,  // 10: xylona.LoginResponse.user:type_name -> xylona.User
-	50,  // 11: xylona.CreateUserResponse.user:type_name -> xylona.User
-	397, // 12: xylona.CreateUserResponse.error:type_name -> xylona.Error
-	50,  // 13: xylona.CheckUserAuthenticatedResponse.user:type_name -> xylona.User
-	398, // 14: xylona.ListGameServersResponse.game_servers:type_name -> xylona.GameServer
-	399, // 15: xylona.ListGamesResponse.games:type_name -> xylona.Game
-	399, // 16: xylona.GetGameResponse.game:type_name -> xylona.Game
-	398, // 17: xylona.GetGameServerResponse.game_server:type_name -> xylona.GameServer
-	396, // 18: xylona.User.last_login:type_name -> google.protobuf.Timestamp
-	396, // 19: xylona.User.created_at:type_name -> google.protobuf.Timestamp
-	50,  // 20: xylona.ListUsersResponse.users:type_name -> xylona.User
-	50,  // 21: xylona.GetUserDetailsResponse.user:type_name -> xylona.User
-	50,  // 22: xylona.UpdateUserResponse.user:type_name -> xylona.User
+	52,  // 10: xylona.LoginResponse.user:type_name -> xylona.User
+	52,  // 11: xylona.CreateUserResponse.user:type_name -> xylona.User
+	399, // 12: xylona.CreateUserResponse.error:type_name -> xylona.Error
+	52,  // 13: xylona.CheckUserAuthenticatedResponse.user:type_name -> xylona.User
+	400, // 14: xylona.ListGameServersResponse.game_servers:type_name -> xylona.GameServer
+	401, // 15: xylona.ListGamesResponse.games:type_name -> xylona.Game
+	401, // 16: xylona.GetGameResponse.game:type_name -> xylona.Game
+	400, // 17: xylona.GetGameServerResponse.game_server:type_name -> xylona.GameServer
+	398, // 18: xylona.User.last_login:type_name -> google.protobuf.Timestamp
+	398, // 19: xylona.User.created_at:type_name -> google.protobuf.Timestamp
+	52,  // 20: xylona.ListUsersResponse.users:type_name -> xylona.User
+	52,  // 21: xylona.GetUserDetailsResponse.user:type_name -> xylona.User
+	52,  // 22: xylona.UpdateUserResponse.user:type_name -> xylona.User
 	1,   // 23: xylona.NotificationStreamResponse.event:type_name -> xylona.NotificationEvent
-	398, // 24: xylona.NotificationStreamResponse.game_server:type_name -> xylona.GameServer
-	400, // 25: xylona.GetUpdateTargetsResponse.targets:type_name -> xylona.UpdateTargetOption
-	401, // 26: xylona.ListIPsResponse.ips:type_name -> xylona.IP
-	401, // 27: xylona.AddIPRequest.ip:type_name -> xylona.IP
-	401, // 28: xylona.RemoveIPRequest.ip:type_name -> xylona.IP
-	399, // 29: xylona.AddGameRequest.game:type_name -> xylona.Game
-	399, // 30: xylona.AddGameResponse.game:type_name -> xylona.Game
-	397, // 31: xylona.AddGameResponse.error:type_name -> xylona.Error
-	399, // 32: xylona.EditGameRequest.game:type_name -> xylona.Game
-	399, // 33: xylona.EditGameResponse.game:type_name -> xylona.Game
-	399, // 34: xylona.UpdateGameStartArgsTemplateResponse.game:type_name -> xylona.Game
-	399, // 35: xylona.UpdateGameStartArgBlocklistResponse.game:type_name -> xylona.Game
+	400, // 24: xylona.NotificationStreamResponse.game_server:type_name -> xylona.GameServer
+	402, // 25: xylona.GetUpdateTargetsResponse.targets:type_name -> xylona.UpdateTargetOption
+	403, // 26: xylona.ListIPsResponse.ips:type_name -> xylona.IP
+	403, // 27: xylona.AddIPRequest.ip:type_name -> xylona.IP
+	403, // 28: xylona.RemoveIPRequest.ip:type_name -> xylona.IP
+	401, // 29: xylona.AddGameRequest.game:type_name -> xylona.Game
+	401, // 30: xylona.AddGameResponse.game:type_name -> xylona.Game
+	399, // 31: xylona.AddGameResponse.error:type_name -> xylona.Error
+	401, // 32: xylona.EditGameRequest.game:type_name -> xylona.Game
+	401, // 33: xylona.EditGameResponse.game:type_name -> xylona.Game
+	401, // 34: xylona.UpdateGameStartArgsTemplateResponse.game:type_name -> xylona.Game
+	401, // 35: xylona.UpdateGameStartArgBlocklistResponse.game:type_name -> xylona.Game
 	2,   // 36: xylona.ImportGameRequest.mode:type_name -> xylona.GameImportMode
-	399, // 37: xylona.ImportGameResponse.game:type_name -> xylona.Game
-	397, // 38: xylona.ImportGameResponse.error:type_name -> xylona.Error
-	80,  // 39: xylona.ImportGameResponse.changes:type_name -> xylona.GameImportChange
-	399, // 40: xylona.ResetGameToOfficialDefinitionResponse.game:type_name -> xylona.Game
-	398, // 41: xylona.UpdateGameServerStartArgsResponse.game_server:type_name -> xylona.GameServer
-	402, // 42: xylona.GetGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
-	403, // 43: xylona.GetGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	402, // 44: xylona.UpdateGameEnvironmentRequest.default_env:type_name -> xylona.EnvironmentVariable
-	402, // 45: xylona.UpdateGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
-	403, // 46: xylona.UpdateGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	402, // 47: xylona.GetGameServerEnvironmentResponse.game_default_env:type_name -> xylona.EnvironmentVariable
-	402, // 48: xylona.GetGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
-	402, // 49: xylona.GetGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
-	404, // 50: xylona.GetGameServerEnvironmentResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
-	403, // 51: xylona.GetGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	402, // 52: xylona.UpdateGameServerEnvironmentRequest.env_vars:type_name -> xylona.EnvironmentVariable
-	402, // 53: xylona.UpdateGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
-	402, // 54: xylona.UpdateGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
-	403, // 55: xylona.UpdateGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	404, // 56: xylona.SetGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
-	403, // 57: xylona.SetGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	404, // 58: xylona.ClearGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
-	403, // 59: xylona.ClearGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	102, // 60: xylona.GetGameServerAdminInterfaceResponse.admin_interface:type_name -> xylona.GameServerAdminInterface
-	102, // 61: xylona.SetGameServerAdminInterfacePasswordResponse.admin_interface:type_name -> xylona.GameServerAdminInterface
-	107, // 62: xylona.GetGameServerReadinessResponse.items:type_name -> xylona.GameServerReadinessItem
-	107, // 63: xylona.AcceptMinecraftEulaResponse.items:type_name -> xylona.GameServerReadinessItem
-	107, // 64: xylona.SetSteamGSLTResponse.items:type_name -> xylona.GameServerReadinessItem
-	107, // 65: xylona.ClearSteamGSLTResponse.items:type_name -> xylona.GameServerReadinessItem
-	116, // 66: xylona.PollHytaleDeviceAuthResponse.profiles:type_name -> xylona.HytaleProfile
-	107, // 67: xylona.SelectHytaleProfileResponse.items:type_name -> xylona.GameServerReadinessItem
-	107, // 68: xylona.ClearHytaleAccountResponse.items:type_name -> xylona.GameServerReadinessItem
-	398, // 69: xylona.SetServerVariantResponse.game_server:type_name -> xylona.GameServer
-	398, // 70: xylona.ReinstallGameServerResponse.game_server:type_name -> xylona.GameServer
-	405, // 71: xylona.QueryGameServerResponse.query_info:type_name -> xylona.ServerQuery
-	406, // 72: xylona.GetNodeResponse.node:type_name -> xylona.Node
-	406, // 73: xylona.ListNodesResponse.nodes:type_name -> xylona.Node
-	406, // 74: xylona.RemoveNodeResponse.node:type_name -> xylona.Node
-	406, // 75: xylona.EditNodeRequest.node:type_name -> xylona.Node
-	406, // 76: xylona.EditNodeResponse.node:type_name -> xylona.Node
+	401, // 37: xylona.ImportGameResponse.game:type_name -> xylona.Game
+	399, // 38: xylona.ImportGameResponse.error:type_name -> xylona.Error
+	82,  // 39: xylona.ImportGameResponse.changes:type_name -> xylona.GameImportChange
+	401, // 40: xylona.ResetGameToOfficialDefinitionResponse.game:type_name -> xylona.Game
+	400, // 41: xylona.UpdateGameServerStartArgsResponse.game_server:type_name -> xylona.GameServer
+	404, // 42: xylona.GetGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
+	405, // 43: xylona.GetGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	404, // 44: xylona.UpdateGameEnvironmentRequest.default_env:type_name -> xylona.EnvironmentVariable
+	404, // 45: xylona.UpdateGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
+	405, // 46: xylona.UpdateGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	404, // 47: xylona.GetGameServerEnvironmentResponse.game_default_env:type_name -> xylona.EnvironmentVariable
+	404, // 48: xylona.GetGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
+	404, // 49: xylona.GetGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
+	406, // 50: xylona.GetGameServerEnvironmentResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
+	405, // 51: xylona.GetGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	404, // 52: xylona.UpdateGameServerEnvironmentRequest.env_vars:type_name -> xylona.EnvironmentVariable
+	404, // 53: xylona.UpdateGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
+	404, // 54: xylona.UpdateGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
+	405, // 55: xylona.UpdateGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	406, // 56: xylona.SetGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
+	405, // 57: xylona.SetGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	406, // 58: xylona.ClearGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
+	405, // 59: xylona.ClearGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	104, // 60: xylona.GetGameServerAdminInterfaceResponse.admin_interface:type_name -> xylona.GameServerAdminInterface
+	104, // 61: xylona.SetGameServerAdminInterfacePasswordResponse.admin_interface:type_name -> xylona.GameServerAdminInterface
+	109, // 62: xylona.GetGameServerReadinessResponse.items:type_name -> xylona.GameServerReadinessItem
+	109, // 63: xylona.AcceptMinecraftEulaResponse.items:type_name -> xylona.GameServerReadinessItem
+	109, // 64: xylona.SetSteamGSLTResponse.items:type_name -> xylona.GameServerReadinessItem
+	109, // 65: xylona.ClearSteamGSLTResponse.items:type_name -> xylona.GameServerReadinessItem
+	118, // 66: xylona.PollHytaleDeviceAuthResponse.profiles:type_name -> xylona.HytaleProfile
+	109, // 67: xylona.SelectHytaleProfileResponse.items:type_name -> xylona.GameServerReadinessItem
+	109, // 68: xylona.ClearHytaleAccountResponse.items:type_name -> xylona.GameServerReadinessItem
+	400, // 69: xylona.SetServerVariantResponse.game_server:type_name -> xylona.GameServer
+	400, // 70: xylona.ReinstallGameServerResponse.game_server:type_name -> xylona.GameServer
+	407, // 71: xylona.QueryGameServerResponse.query_info:type_name -> xylona.ServerQuery
+	408, // 72: xylona.GetNodeResponse.node:type_name -> xylona.Node
+	408, // 73: xylona.ListNodesResponse.nodes:type_name -> xylona.Node
+	408, // 74: xylona.RemoveNodeResponse.node:type_name -> xylona.Node
+	408, // 75: xylona.EditNodeRequest.node:type_name -> xylona.Node
+	408, // 76: xylona.EditNodeResponse.node:type_name -> xylona.Node
 	3,   // 77: xylona.SystemUpdateAvailability.component:type_name -> xylona.SystemUpdateComponent
 	3,   // 78: xylona.SystemUpdateJob.component:type_name -> xylona.SystemUpdateComponent
 	4,   // 79: xylona.SystemUpdateJob.status:type_name -> xylona.SystemUpdateJobStatus
 	5,   // 80: xylona.SystemUpdateJob.phase:type_name -> xylona.SystemUpdatePhase
-	396, // 81: xylona.SystemUpdateJob.created_at:type_name -> google.protobuf.Timestamp
-	396, // 82: xylona.SystemUpdateJob.updated_at:type_name -> google.protobuf.Timestamp
-	396, // 83: xylona.SystemUpdateJob.started_at:type_name -> google.protobuf.Timestamp
-	396, // 84: xylona.SystemUpdateJob.completed_at:type_name -> google.protobuf.Timestamp
-	398, // 85: xylona.SystemUpdateJob.affected_game_servers:type_name -> xylona.GameServer
+	398, // 81: xylona.SystemUpdateJob.created_at:type_name -> google.protobuf.Timestamp
+	398, // 82: xylona.SystemUpdateJob.updated_at:type_name -> google.protobuf.Timestamp
+	398, // 83: xylona.SystemUpdateJob.started_at:type_name -> google.protobuf.Timestamp
+	398, // 84: xylona.SystemUpdateJob.completed_at:type_name -> google.protobuf.Timestamp
+	400, // 85: xylona.SystemUpdateJob.affected_game_servers:type_name -> xylona.GameServer
 	4,   // 86: xylona.SystemUpdateJobEvent.status:type_name -> xylona.SystemUpdateJobStatus
 	5,   // 87: xylona.SystemUpdateJobEvent.phase:type_name -> xylona.SystemUpdatePhase
-	396, // 88: xylona.SystemUpdateJobEvent.created_at:type_name -> google.protobuf.Timestamp
+	398, // 88: xylona.SystemUpdateJobEvent.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 89: xylona.SystemUpdateProgress.component:type_name -> xylona.SystemUpdateComponent
 	4,   // 90: xylona.SystemUpdateProgress.status:type_name -> xylona.SystemUpdateJobStatus
 	5,   // 91: xylona.SystemUpdateProgress.phase:type_name -> xylona.SystemUpdatePhase
-	145, // 92: xylona.CheckSystemUpdatesResponse.updates:type_name -> xylona.SystemUpdateAvailability
+	147, // 92: xylona.CheckSystemUpdatesResponse.updates:type_name -> xylona.SystemUpdateAvailability
 	3,   // 93: xylona.StartSystemUpdateRequest.component:type_name -> xylona.SystemUpdateComponent
-	146, // 94: xylona.StartSystemUpdateResponse.job:type_name -> xylona.SystemUpdateJob
-	146, // 95: xylona.ListSystemUpdateJobsResponse.jobs:type_name -> xylona.SystemUpdateJob
-	146, // 96: xylona.GetSystemUpdateJobResponse.job:type_name -> xylona.SystemUpdateJob
-	147, // 97: xylona.GetSystemUpdateJobResponse.events:type_name -> xylona.SystemUpdateJobEvent
-	395, // 98: xylona.RemoteServerSummary.status:type_name -> xylona.Status
-	396, // 99: xylona.RemoteServerSummary.last_remote_update:type_name -> google.protobuf.Timestamp
-	396, // 100: xylona.RemoteServerSummary.last_synced_at:type_name -> google.protobuf.Timestamp
-	407, // 101: xylona.RemoteServerSummary.version_info:type_name -> xylona.VersionInfo
-	398, // 102: xylona.AggregatedGameServer.local_server:type_name -> xylona.GameServer
-	157, // 103: xylona.AggregatedGameServer.remote_server:type_name -> xylona.RemoteServerSummary
-	158, // 104: xylona.ListAggregatedGameServersResponse.servers:type_name -> xylona.AggregatedGameServer
-	163, // 105: xylona.ListRolesResponse.roles:type_name -> xylona.Role
-	164, // 106: xylona.ListPermissionsResponse.permissions:type_name -> xylona.Permission
-	163, // 107: xylona.CreateRoleResponse.role:type_name -> xylona.Role
-	173, // 108: xylona.ListGameServerAccessGrantsResponse.grants:type_name -> xylona.GameServerAccessGrant
-	396, // 109: xylona.GameServerAccessGrant.created_at:type_name -> google.protobuf.Timestamp
-	173, // 110: xylona.GrantGameServerAccessResponse.grant:type_name -> xylona.GameServerAccessGrant
-	408, // 111: xylona.GetNodeSystemInfoResponse.system_info:type_name -> xylona.NodeSystemInfo
-	409, // 112: xylona.GetNodeResourceSnapshotResponse.snapshot:type_name -> xylona.NodeResourceSnapshot
-	406, // 113: xylona.DashboardNodeSummary.node:type_name -> xylona.Node
-	408, // 114: xylona.DashboardNodeSummary.system_info:type_name -> xylona.NodeSystemInfo
-	409, // 115: xylona.DashboardNodeSummary.snapshot:type_name -> xylona.NodeResourceSnapshot
-	183, // 116: xylona.GetDashboardOverviewResponse.nodes:type_name -> xylona.DashboardNodeSummary
-	396, // 117: xylona.GetNodeMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	396, // 118: xylona.GetNodeMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	410, // 119: xylona.GetNodeMetricsHistoryResponse.points:type_name -> xylona.MetricsHistoryPoint
-	396, // 120: xylona.GetGameServerMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	396, // 121: xylona.GetGameServerMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	411, // 122: xylona.GetGameServerMetricsHistoryResponse.points:type_name -> xylona.GameServerMetricsHistoryPoint
-	412, // 123: xylona.GetGameServerMetricsHistoryResponse.lifecycle_events:type_name -> xylona.GameServerLifecycleHistoryEvent
-	413, // 124: xylona.GetGameServerMetricsHistoryResponse.operation_events:type_name -> xylona.GameServerOperationHistoryEvent
-	414, // 125: xylona.GetGameServerMetricsHistoryResponse.resolution:type_name -> xylona.GameServerMetricsResolution
-	189, // 126: xylona.GetGameServerConfigFilesResponse.config_files:type_name -> xylona.ConfigFileInfo
-	190, // 127: xylona.GetGameServerConfigFileResponse.fields:type_name -> xylona.ConfigFieldData
-	191, // 128: xylona.GetGameServerConfigFileResponse.advanced_fields:type_name -> xylona.AdvancedField
-	190, // 129: xylona.UpdateGameServerConfigFileRequest.fields:type_name -> xylona.ConfigFieldData
-	191, // 130: xylona.UpdateGameServerConfigFileRequest.advanced_fields:type_name -> xylona.AdvancedField
-	192, // 131: xylona.UpdateGameServerConfigFileResponse.errors:type_name -> xylona.ConfigValidationError
-	415, // 132: xylona.SearchSteamAppsResponse.apps:type_name -> xylona.SteamApp
-	416, // 133: xylona.GetSteamAppDetailsResponse.details:type_name -> xylona.SteamAppDetails
-	417, // 134: xylona.SearchModsResponse.results:type_name -> xylona.ModSearchResult
-	418, // 135: xylona.GetModDetailsResponse.details:type_name -> xylona.ModDetails
-	419, // 136: xylona.GetModVersionsResponse.versions:type_name -> xylona.ModVersion
-	420, // 137: xylona.InstallModResponse.installed_mod:type_name -> xylona.InstalledMod
-	420, // 138: xylona.UpdateModResponse.installed_mod:type_name -> xylona.InstalledMod
-	420, // 139: xylona.ListInstalledModsResponse.installed_mods:type_name -> xylona.InstalledMod
+	148, // 94: xylona.StartSystemUpdateResponse.job:type_name -> xylona.SystemUpdateJob
+	148, // 95: xylona.ListSystemUpdateJobsResponse.jobs:type_name -> xylona.SystemUpdateJob
+	148, // 96: xylona.GetSystemUpdateJobResponse.job:type_name -> xylona.SystemUpdateJob
+	149, // 97: xylona.GetSystemUpdateJobResponse.events:type_name -> xylona.SystemUpdateJobEvent
+	397, // 98: xylona.RemoteServerSummary.status:type_name -> xylona.Status
+	398, // 99: xylona.RemoteServerSummary.last_remote_update:type_name -> google.protobuf.Timestamp
+	398, // 100: xylona.RemoteServerSummary.last_synced_at:type_name -> google.protobuf.Timestamp
+	409, // 101: xylona.RemoteServerSummary.version_info:type_name -> xylona.VersionInfo
+	400, // 102: xylona.AggregatedGameServer.local_server:type_name -> xylona.GameServer
+	159, // 103: xylona.AggregatedGameServer.remote_server:type_name -> xylona.RemoteServerSummary
+	160, // 104: xylona.ListAggregatedGameServersResponse.servers:type_name -> xylona.AggregatedGameServer
+	165, // 105: xylona.ListRolesResponse.roles:type_name -> xylona.Role
+	166, // 106: xylona.ListPermissionsResponse.permissions:type_name -> xylona.Permission
+	165, // 107: xylona.CreateRoleResponse.role:type_name -> xylona.Role
+	175, // 108: xylona.ListGameServerAccessGrantsResponse.grants:type_name -> xylona.GameServerAccessGrant
+	398, // 109: xylona.GameServerAccessGrant.created_at:type_name -> google.protobuf.Timestamp
+	175, // 110: xylona.GrantGameServerAccessResponse.grant:type_name -> xylona.GameServerAccessGrant
+	410, // 111: xylona.GetNodeSystemInfoResponse.system_info:type_name -> xylona.NodeSystemInfo
+	411, // 112: xylona.GetNodeResourceSnapshotResponse.snapshot:type_name -> xylona.NodeResourceSnapshot
+	408, // 113: xylona.DashboardNodeSummary.node:type_name -> xylona.Node
+	410, // 114: xylona.DashboardNodeSummary.system_info:type_name -> xylona.NodeSystemInfo
+	411, // 115: xylona.DashboardNodeSummary.snapshot:type_name -> xylona.NodeResourceSnapshot
+	185, // 116: xylona.GetDashboardOverviewResponse.nodes:type_name -> xylona.DashboardNodeSummary
+	398, // 117: xylona.GetNodeMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	398, // 118: xylona.GetNodeMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	412, // 119: xylona.GetNodeMetricsHistoryResponse.points:type_name -> xylona.MetricsHistoryPoint
+	398, // 120: xylona.GetGameServerMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	398, // 121: xylona.GetGameServerMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	413, // 122: xylona.GetGameServerMetricsHistoryResponse.points:type_name -> xylona.GameServerMetricsHistoryPoint
+	414, // 123: xylona.GetGameServerMetricsHistoryResponse.lifecycle_events:type_name -> xylona.GameServerLifecycleHistoryEvent
+	415, // 124: xylona.GetGameServerMetricsHistoryResponse.operation_events:type_name -> xylona.GameServerOperationHistoryEvent
+	416, // 125: xylona.GetGameServerMetricsHistoryResponse.resolution:type_name -> xylona.GameServerMetricsResolution
+	191, // 126: xylona.GetGameServerConfigFilesResponse.config_files:type_name -> xylona.ConfigFileInfo
+	192, // 127: xylona.GetGameServerConfigFileResponse.fields:type_name -> xylona.ConfigFieldData
+	193, // 128: xylona.GetGameServerConfigFileResponse.advanced_fields:type_name -> xylona.AdvancedField
+	192, // 129: xylona.UpdateGameServerConfigFileRequest.fields:type_name -> xylona.ConfigFieldData
+	193, // 130: xylona.UpdateGameServerConfigFileRequest.advanced_fields:type_name -> xylona.AdvancedField
+	194, // 131: xylona.UpdateGameServerConfigFileResponse.errors:type_name -> xylona.ConfigValidationError
+	417, // 132: xylona.SearchSteamAppsResponse.apps:type_name -> xylona.SteamApp
+	418, // 133: xylona.GetSteamAppDetailsResponse.details:type_name -> xylona.SteamAppDetails
+	419, // 134: xylona.SearchModsResponse.results:type_name -> xylona.ModSearchResult
+	420, // 135: xylona.GetModDetailsResponse.details:type_name -> xylona.ModDetails
+	421, // 136: xylona.GetModVersionsResponse.versions:type_name -> xylona.ModVersion
+	422, // 137: xylona.InstallModResponse.installed_mod:type_name -> xylona.InstalledMod
+	422, // 138: xylona.UpdateModResponse.installed_mod:type_name -> xylona.InstalledMod
+	422, // 139: xylona.ListInstalledModsResponse.installed_mods:type_name -> xylona.InstalledMod
 	20,  // 140: xylona.GetSevenDaysToDieReportedModsResponse.connection_state:type_name -> xylona.SevenDaysToDieWebAPIConnectionState
 	21,  // 141: xylona.GetSevenDaysToDieReportedModsResponse.state:type_name -> xylona.SevenDaysToDieWebAPIValueState
-	223, // 142: xylona.GetSevenDaysToDieReportedModsResponse.mods:type_name -> xylona.SevenDaysToDieReportedMod
-	420, // 143: xylona.SetModAutoUpdateResponse.installed_mod:type_name -> xylona.InstalledMod
-	420, // 144: xylona.SetModEnabledResponse.installed_mod:type_name -> xylona.InstalledMod
-	420, // 145: xylona.PinModVersionResponse.installed_mod:type_name -> xylona.InstalledMod
+	225, // 142: xylona.GetSevenDaysToDieReportedModsResponse.mods:type_name -> xylona.SevenDaysToDieReportedMod
+	422, // 143: xylona.SetModAutoUpdateResponse.installed_mod:type_name -> xylona.InstalledMod
+	422, // 144: xylona.SetModEnabledResponse.installed_mod:type_name -> xylona.InstalledMod
+	422, // 145: xylona.PinModVersionResponse.installed_mod:type_name -> xylona.InstalledMod
 	6,   // 146: xylona.UpdateProgress.step:type_name -> xylona.UpdateStep
 	7,   // 147: xylona.UpdateProgress.step_status:type_name -> xylona.StepStatus
-	407, // 148: xylona.GetVersionInfoResponse.version_info:type_name -> xylona.VersionInfo
-	407, // 149: xylona.CheckForUpdateResponse.version_info:type_name -> xylona.VersionInfo
-	421, // 150: xylona.CreateNotificationChannelRequest.channel_type:type_name -> xylona.NotificationChannelType
-	422, // 151: xylona.CreateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
-	422, // 152: xylona.UpdateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
-	422, // 153: xylona.ListNotificationChannelsResponse.channels:type_name -> xylona.NotificationChannel
-	423, // 154: xylona.CreateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
-	424, // 155: xylona.CreateAlertRuleResponse.rule:type_name -> xylona.AlertRule
-	423, // 156: xylona.UpdateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
-	424, // 157: xylona.UpdateAlertRuleResponse.rule:type_name -> xylona.AlertRule
-	424, // 158: xylona.ListAlertRulesResponse.rules:type_name -> xylona.AlertRule
-	425, // 159: xylona.GetAlertHistoryResponse.entries:type_name -> xylona.AlertHistoryEntry
-	426, // 160: xylona.GetSystemSMTPConfigResponse.config:type_name -> xylona.SystemSMTPConfig
-	426, // 161: xylona.SetSystemSMTPConfigRequest.config:type_name -> xylona.SystemSMTPConfig
+	409, // 148: xylona.GetVersionInfoResponse.version_info:type_name -> xylona.VersionInfo
+	409, // 149: xylona.CheckForUpdateResponse.version_info:type_name -> xylona.VersionInfo
+	423, // 150: xylona.CreateNotificationChannelRequest.channel_type:type_name -> xylona.NotificationChannelType
+	424, // 151: xylona.CreateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
+	424, // 152: xylona.UpdateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
+	424, // 153: xylona.ListNotificationChannelsResponse.channels:type_name -> xylona.NotificationChannel
+	425, // 154: xylona.CreateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
+	426, // 155: xylona.CreateAlertRuleResponse.rule:type_name -> xylona.AlertRule
+	425, // 156: xylona.UpdateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
+	426, // 157: xylona.UpdateAlertRuleResponse.rule:type_name -> xylona.AlertRule
+	426, // 158: xylona.ListAlertRulesResponse.rules:type_name -> xylona.AlertRule
+	427, // 159: xylona.GetAlertHistoryResponse.entries:type_name -> xylona.AlertHistoryEntry
+	428, // 160: xylona.GetSystemSMTPConfigResponse.config:type_name -> xylona.SystemSMTPConfig
+	428, // 161: xylona.SetSystemSMTPConfigRequest.config:type_name -> xylona.SystemSMTPConfig
 	8,   // 162: xylona.DNSProviderConnectionInput.provider:type_name -> xylona.DNSProviderKind
 	9,   // 163: xylona.DNSProviderConnectionInput.credential_mode:type_name -> xylona.DNSCredentialMode
 	8,   // 164: xylona.DNSProviderConnection.provider:type_name -> xylona.DNSProviderKind
 	9,   // 165: xylona.DNSProviderConnection.credential_mode:type_name -> xylona.DNSCredentialMode
-	274, // 166: xylona.GetDNSProviderConnectionResponse.connection:type_name -> xylona.DNSProviderConnection
-	273, // 167: xylona.ListDNSProviderZonesRequest.candidate:type_name -> xylona.DNSProviderConnectionInput
-	275, // 168: xylona.ListDNSProviderZonesResponse.zones:type_name -> xylona.DNSProviderZone
-	273, // 169: xylona.SetDNSProviderConnectionRequest.candidate:type_name -> xylona.DNSProviderConnectionInput
-	274, // 170: xylona.SetDNSProviderConnectionResponse.connection:type_name -> xylona.DNSProviderConnection
-	427, // 171: xylona.ListScheduledTasksResponse.tasks:type_name -> xylona.ScheduledTask
-	428, // 172: xylona.ListScheduledTasksResponse.latest_logs:type_name -> xylona.ScheduledTaskLog
-	427, // 173: xylona.CreateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
-	427, // 174: xylona.UpdateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
-	428, // 175: xylona.GetScheduledTaskLogsResponse.logs:type_name -> xylona.ScheduledTaskLog
-	429, // 176: xylona.GetGameServerBackupOverviewResponse.overview:type_name -> xylona.GameServerBackupOverview
-	430, // 177: xylona.GetBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
-	430, // 178: xylona.UpdateBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
-	431, // 179: xylona.ListGameServerBackupsResponse.backups:type_name -> xylona.GameServerBackup
-	431, // 180: xylona.CreateGameServerBackupResponse.backup:type_name -> xylona.GameServerBackup
-	432, // 181: xylona.RestoreGameServerBackupRequest.restore_mode:type_name -> xylona.BackupRestoreMode
+	276, // 166: xylona.GetDNSProviderConnectionResponse.connection:type_name -> xylona.DNSProviderConnection
+	275, // 167: xylona.ListDNSProviderZonesRequest.candidate:type_name -> xylona.DNSProviderConnectionInput
+	277, // 168: xylona.ListDNSProviderZonesResponse.zones:type_name -> xylona.DNSProviderZone
+	275, // 169: xylona.SetDNSProviderConnectionRequest.candidate:type_name -> xylona.DNSProviderConnectionInput
+	276, // 170: xylona.SetDNSProviderConnectionResponse.connection:type_name -> xylona.DNSProviderConnection
+	429, // 171: xylona.ListScheduledTasksResponse.tasks:type_name -> xylona.ScheduledTask
+	430, // 172: xylona.ListScheduledTasksResponse.latest_logs:type_name -> xylona.ScheduledTaskLog
+	429, // 173: xylona.CreateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
+	429, // 174: xylona.UpdateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
+	430, // 175: xylona.GetScheduledTaskLogsResponse.logs:type_name -> xylona.ScheduledTaskLog
+	431, // 176: xylona.GetGameServerBackupOverviewResponse.overview:type_name -> xylona.GameServerBackupOverview
+	432, // 177: xylona.GetBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
+	432, // 178: xylona.UpdateBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
+	433, // 179: xylona.ListGameServerBackupsResponse.backups:type_name -> xylona.GameServerBackup
+	433, // 180: xylona.CreateGameServerBackupResponse.backup:type_name -> xylona.GameServerBackup
+	434, // 181: xylona.RestoreGameServerBackupRequest.restore_mode:type_name -> xylona.BackupRestoreMode
 	10,  // 182: xylona.GameServerPlayerManagementCapabilities.supported_actions:type_name -> xylona.GameServerPlayerAction
 	11,  // 183: xylona.GameServerPlayerManagementCapabilities.roster_state:type_name -> xylona.GameServerPlayerManagementRosterState
-	306, // 184: xylona.GetGameServerPlayerManagementResponse.capabilities:type_name -> xylona.GameServerPlayerManagementCapabilities
-	433, // 185: xylona.GetGameServerPlayerManagementResponse.players:type_name -> xylona.GameServerPlayer
-	395, // 186: xylona.GetGameServerPlayerManagementResponse.status:type_name -> xylona.Status
-	307, // 187: xylona.GetGameServerPlayerManagementResponse.management_players:type_name -> xylona.GameServerManagementPlayer
+	308, // 184: xylona.GetGameServerPlayerManagementResponse.capabilities:type_name -> xylona.GameServerPlayerManagementCapabilities
+	435, // 185: xylona.GetGameServerPlayerManagementResponse.players:type_name -> xylona.GameServerPlayer
+	397, // 186: xylona.GetGameServerPlayerManagementResponse.status:type_name -> xylona.Status
+	309, // 187: xylona.GetGameServerPlayerManagementResponse.management_players:type_name -> xylona.GameServerManagementPlayer
 	10,  // 188: xylona.PerformGameServerPlayerActionRequest.action:type_name -> xylona.GameServerPlayerAction
 	13,  // 189: xylona.GameOperationField.type:type_name -> xylona.GameOperationFieldType
-	312, // 190: xylona.GameOperationField.options:type_name -> xylona.GameOperationFieldOption
+	314, // 190: xylona.GameOperationField.options:type_name -> xylona.GameOperationFieldOption
 	12,  // 191: xylona.GameOperationDescriptor.risk:type_name -> xylona.GameOperationRisk
-	313, // 192: xylona.GameOperationDescriptor.fields:type_name -> xylona.GameOperationField
-	314, // 193: xylona.GameOperationDescriptor.review:type_name -> xylona.GameOperationReview
+	315, // 192: xylona.GameOperationDescriptor.fields:type_name -> xylona.GameOperationField
+	316, // 193: xylona.GameOperationDescriptor.review:type_name -> xylona.GameOperationReview
 	14,  // 194: xylona.GameOperationDescriptor.availability_reason:type_name -> xylona.GameOperationAvailabilityReason
-	315, // 195: xylona.ListGameServerOperationsResponse.operations:type_name -> xylona.GameOperationDescriptor
+	317, // 195: xylona.ListGameServerOperationsResponse.operations:type_name -> xylona.GameOperationDescriptor
 	15,  // 196: xylona.GameOperationResult.classification:type_name -> xylona.GameOperationResultClassification
-	319, // 197: xylona.GameOperationResult.transport_details:type_name -> xylona.GameOperationTransportDetails
-	321, // 198: xylona.GameOperationResult.valheim_access_list:type_name -> xylona.ValheimAccessList
-	318, // 199: xylona.ExecuteGameServerOperationRequest.values:type_name -> xylona.GameOperationValue
-	320, // 200: xylona.ExecuteGameServerOperationResponse.result:type_name -> xylona.GameOperationResult
-	324, // 201: xylona.GetOrCreateGameServerMapShareSettingsResponse.settings:type_name -> xylona.GameServerMapShareSettings
-	324, // 202: xylona.UpdateGameServerMapShareSettingsResponse.settings:type_name -> xylona.GameServerMapShareSettings
+	321, // 197: xylona.GameOperationResult.transport_details:type_name -> xylona.GameOperationTransportDetails
+	323, // 198: xylona.GameOperationResult.valheim_access_list:type_name -> xylona.ValheimAccessList
+	320, // 199: xylona.ExecuteGameServerOperationRequest.values:type_name -> xylona.GameOperationValue
+	322, // 200: xylona.ExecuteGameServerOperationResponse.result:type_name -> xylona.GameOperationResult
+	326, // 201: xylona.GetOrCreateGameServerMapShareSettingsResponse.settings:type_name -> xylona.GameServerMapShareSettings
+	326, // 202: xylona.UpdateGameServerMapShareSettingsResponse.settings:type_name -> xylona.GameServerMapShareSettings
 	17,  // 203: xylona.ResolvePublicGameServerMapResponse.kind:type_name -> xylona.GameServerMapKind
 	18,  // 204: xylona.DNSBinding.record_type:type_name -> xylona.DNSRecordType
 	18,  // 205: xylona.DNSBinding.owned_record_type:type_name -> xylona.DNSRecordType
-	331, // 206: xylona.GetDNSBindingResponse.binding:type_name -> xylona.DNSBinding
-	331, // 207: xylona.SetDNSBindingResponse.binding:type_name -> xylona.DNSBinding
-	331, // 208: xylona.SyncDNSBindingResponse.binding:type_name -> xylona.DNSBinding
+	333, // 206: xylona.GetDNSBindingResponse.binding:type_name -> xylona.DNSBinding
+	333, // 207: xylona.SetDNSBindingResponse.binding:type_name -> xylona.DNSBinding
+	333, // 208: xylona.SyncDNSBindingResponse.binding:type_name -> xylona.DNSBinding
 	19,  // 209: xylona.SyncDNSBindingResponse.result:type_name -> xylona.DNSSyncResult
-	331, // 210: xylona.AdoptDNSBindingRecordResponse.binding:type_name -> xylona.DNSBinding
+	333, // 210: xylona.AdoptDNSBindingRecordResponse.binding:type_name -> xylona.DNSBinding
 	16,  // 211: xylona.PalworldMapActor.kind:type_name -> xylona.PalworldMapActorKind
-	396, // 212: xylona.PalworldMapView.collected_at:type_name -> google.protobuf.Timestamp
-	342, // 213: xylona.PalworldMapView.actors:type_name -> xylona.PalworldMapActor
-	343, // 214: xylona.PalworldMapView.layers:type_name -> xylona.PalworldMapLayer
-	373, // 215: xylona.PalworldMapView.health:type_name -> xylona.PalworldMapHealth
-	344, // 216: xylona.GetPalworldMapResponse.map:type_name -> xylona.PalworldMapView
-	343, // 217: xylona.UpdatePalworldMapConfigRequest.layers:type_name -> xylona.PalworldMapLayer
-	343, // 218: xylona.UpdatePalworldMapConfigResponse.layers:type_name -> xylona.PalworldMapLayer
-	343, // 219: xylona.InstallPalworldMapTilesResponse.layers:type_name -> xylona.PalworldMapLayer
-	344, // 220: xylona.GetPublicPalworldMapResponse.map:type_name -> xylona.PalworldMapView
-	353, // 221: xylona.SevenDaysToDieMapPlayer.position:type_name -> xylona.SevenDaysToDieMapVector
-	396, // 222: xylona.SevenDaysToDieMapPlayer.last_seen_at:type_name -> google.protobuf.Timestamp
-	353, // 223: xylona.SevenDaysToDieLandClaim.position:type_name -> xylona.SevenDaysToDieMapVector
-	353, // 224: xylona.SevenDaysToDieMapEntity.position:type_name -> xylona.SevenDaysToDieMapVector
-	374, // 225: xylona.SevenDaysToDieMapBloodMoon.game_time:type_name -> xylona.SevenDaysToDieGameTime
-	374, // 226: xylona.SevenDaysToDieMapBloodMoon.next_blood_moon:type_name -> xylona.SevenDaysToDieGameTime
-	374, // 227: xylona.SevenDaysToDieMapBloodMoon.next_blood_moon_end:type_name -> xylona.SevenDaysToDieGameTime
-	353, // 228: xylona.SevenDaysToDieMapView.map_size:type_name -> xylona.SevenDaysToDieMapVector
-	354, // 229: xylona.SevenDaysToDieMapView.players:type_name -> xylona.SevenDaysToDieMapPlayer
-	355, // 230: xylona.SevenDaysToDieMapView.markers:type_name -> xylona.SevenDaysToDieMapMarker
-	356, // 231: xylona.SevenDaysToDieMapView.claims:type_name -> xylona.SevenDaysToDieLandClaim
-	396, // 232: xylona.SevenDaysToDieMapView.collected_at:type_name -> google.protobuf.Timestamp
-	355, // 233: xylona.SevenDaysToDieMapView.native_markers:type_name -> xylona.SevenDaysToDieMapMarker
+	398, // 212: xylona.PalworldMapView.collected_at:type_name -> google.protobuf.Timestamp
+	344, // 213: xylona.PalworldMapView.actors:type_name -> xylona.PalworldMapActor
+	345, // 214: xylona.PalworldMapView.layers:type_name -> xylona.PalworldMapLayer
+	375, // 215: xylona.PalworldMapView.health:type_name -> xylona.PalworldMapHealth
+	346, // 216: xylona.GetPalworldMapResponse.map:type_name -> xylona.PalworldMapView
+	345, // 217: xylona.UpdatePalworldMapConfigRequest.layers:type_name -> xylona.PalworldMapLayer
+	345, // 218: xylona.UpdatePalworldMapConfigResponse.layers:type_name -> xylona.PalworldMapLayer
+	345, // 219: xylona.InstallPalworldMapTilesResponse.layers:type_name -> xylona.PalworldMapLayer
+	346, // 220: xylona.GetPublicPalworldMapResponse.map:type_name -> xylona.PalworldMapView
+	355, // 221: xylona.SevenDaysToDieMapPlayer.position:type_name -> xylona.SevenDaysToDieMapVector
+	398, // 222: xylona.SevenDaysToDieMapPlayer.last_seen_at:type_name -> google.protobuf.Timestamp
+	355, // 223: xylona.SevenDaysToDieLandClaim.position:type_name -> xylona.SevenDaysToDieMapVector
+	355, // 224: xylona.SevenDaysToDieMapEntity.position:type_name -> xylona.SevenDaysToDieMapVector
+	376, // 225: xylona.SevenDaysToDieMapBloodMoon.game_time:type_name -> xylona.SevenDaysToDieGameTime
+	376, // 226: xylona.SevenDaysToDieMapBloodMoon.next_blood_moon:type_name -> xylona.SevenDaysToDieGameTime
+	376, // 227: xylona.SevenDaysToDieMapBloodMoon.next_blood_moon_end:type_name -> xylona.SevenDaysToDieGameTime
+	355, // 228: xylona.SevenDaysToDieMapView.map_size:type_name -> xylona.SevenDaysToDieMapVector
+	356, // 229: xylona.SevenDaysToDieMapView.players:type_name -> xylona.SevenDaysToDieMapPlayer
+	357, // 230: xylona.SevenDaysToDieMapView.markers:type_name -> xylona.SevenDaysToDieMapMarker
+	358, // 231: xylona.SevenDaysToDieMapView.claims:type_name -> xylona.SevenDaysToDieLandClaim
+	398, // 232: xylona.SevenDaysToDieMapView.collected_at:type_name -> google.protobuf.Timestamp
+	357, // 233: xylona.SevenDaysToDieMapView.native_markers:type_name -> xylona.SevenDaysToDieMapMarker
 	21,  // 234: xylona.SevenDaysToDieMapView.native_marker_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
 	21,  // 235: xylona.SevenDaysToDieMapView.claims_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
-	358, // 236: xylona.SevenDaysToDieMapView.blood_moon:type_name -> xylona.SevenDaysToDieMapBloodMoon
+	360, // 236: xylona.SevenDaysToDieMapView.blood_moon:type_name -> xylona.SevenDaysToDieMapBloodMoon
 	21,  // 237: xylona.SevenDaysToDieMapView.blood_moon_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
-	357, // 238: xylona.SevenDaysToDieMapView.hostiles:type_name -> xylona.SevenDaysToDieMapEntity
+	359, // 238: xylona.SevenDaysToDieMapView.hostiles:type_name -> xylona.SevenDaysToDieMapEntity
 	21,  // 239: xylona.SevenDaysToDieMapView.hostile_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
-	357, // 240: xylona.SevenDaysToDieMapView.animals:type_name -> xylona.SevenDaysToDieMapEntity
+	359, // 240: xylona.SevenDaysToDieMapView.animals:type_name -> xylona.SevenDaysToDieMapEntity
 	21,  // 241: xylona.SevenDaysToDieMapView.animal_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
-	359, // 242: xylona.GetSevenDaysToDieMapResponse.map:type_name -> xylona.SevenDaysToDieMapView
-	355, // 243: xylona.UpdateSevenDaysToDieMapNotesRequest.markers:type_name -> xylona.SevenDaysToDieMapMarker
-	355, // 244: xylona.UpdateSevenDaysToDieMapNotesResponse.markers:type_name -> xylona.SevenDaysToDieMapMarker
-	359, // 245: xylona.GetPublicSevenDaysToDieMapResponse.map:type_name -> xylona.SevenDaysToDieMapView
-	366, // 246: xylona.GetMinecraftMapResponse.map:type_name -> xylona.MinecraftMapView
-	366, // 247: xylona.UpdateMinecraftMapConfigResponse.map:type_name -> xylona.MinecraftMapView
-	366, // 248: xylona.GetPublicMinecraftMapResponse.map:type_name -> xylona.MinecraftMapView
+	361, // 242: xylona.GetSevenDaysToDieMapResponse.map:type_name -> xylona.SevenDaysToDieMapView
+	357, // 243: xylona.UpdateSevenDaysToDieMapNotesRequest.markers:type_name -> xylona.SevenDaysToDieMapMarker
+	357, // 244: xylona.UpdateSevenDaysToDieMapNotesResponse.markers:type_name -> xylona.SevenDaysToDieMapMarker
+	361, // 245: xylona.GetPublicSevenDaysToDieMapResponse.map:type_name -> xylona.SevenDaysToDieMapView
+	368, // 246: xylona.GetMinecraftMapResponse.map:type_name -> xylona.MinecraftMapView
+	368, // 247: xylona.UpdateMinecraftMapConfigResponse.map:type_name -> xylona.MinecraftMapView
+	368, // 248: xylona.GetPublicMinecraftMapResponse.map:type_name -> xylona.MinecraftMapView
 	20,  // 249: xylona.SevenDaysToDieWebAPIStatus.connection_state:type_name -> xylona.SevenDaysToDieWebAPIConnectionState
-	375, // 250: xylona.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.SevenDaysToDieWebAPICapabilities
+	377, // 250: xylona.SevenDaysToDieWebAPIStatus.capabilities:type_name -> xylona.SevenDaysToDieWebAPICapabilities
 	21,  // 251: xylona.SevenDaysToDieWebAPIStatus.world_time_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
-	374, // 252: xylona.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.SevenDaysToDieGameTime
+	376, // 252: xylona.SevenDaysToDieWebAPIStatus.world_time:type_name -> xylona.SevenDaysToDieGameTime
 	21,  // 253: xylona.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
-	374, // 254: xylona.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.SevenDaysToDieGameTime
-	374, // 255: xylona.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.SevenDaysToDieGameTime
-	396, // 256: xylona.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
-	376, // 257: xylona.GetSevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.SevenDaysToDieWebAPIStatus
+	376, // 254: xylona.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.SevenDaysToDieGameTime
+	376, // 255: xylona.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.SevenDaysToDieGameTime
+	398, // 256: xylona.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
+	378, // 257: xylona.GetSevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.SevenDaysToDieWebAPIStatus
 	20,  // 258: xylona.GetSevenDaysToDieSandboxSettingsResponse.connection_state:type_name -> xylona.SevenDaysToDieWebAPIConnectionState
 	21,  // 259: xylona.GetSevenDaysToDieSandboxSettingsResponse.state:type_name -> xylona.SevenDaysToDieWebAPIValueState
 	22,  // 260: xylona.GetSevenDaysToDieSandboxSettingsResponse.comparison_state:type_name -> xylona.SevenDaysToDieSandboxComparisonState
-	379, // 261: xylona.GetSevenDaysToDieSandboxSettingsResponse.settings:type_name -> xylona.SevenDaysToDieSandboxSetting
-	396, // 262: xylona.GetSevenDaysToDieSandboxSettingsResponse.observed_at:type_name -> google.protobuf.Timestamp
-	50,  // 263: xylona.CompleteSetupResponse.user:type_name -> xylona.User
-	388, // 264: xylona.GetJoinPasswordStateResponse.state:type_name -> xylona.JoinPasswordState
-	388, // 265: xylona.SetJoinPasswordResponse.state:type_name -> xylona.JoinPasswordState
-	388, // 266: xylona.ClearJoinPasswordResponse.state:type_name -> xylona.JoinPasswordState
-	69,  // 267: xylona.Xylona.AddGame:input_type -> xylona.AddGameRequest
-	71,  // 268: xylona.Xylona.EditGame:input_type -> xylona.EditGameRequest
-	73,  // 269: xylona.Xylona.UpdateGameStartArgsTemplate:input_type -> xylona.UpdateGameStartArgsTemplateRequest
-	75,  // 270: xylona.Xylona.UpdateGameStartArgBlocklist:input_type -> xylona.UpdateGameStartArgBlocklistRequest
-	90,  // 271: xylona.Xylona.GetGameEnvironment:input_type -> xylona.GetGameEnvironmentRequest
-	92,  // 272: xylona.Xylona.UpdateGameEnvironment:input_type -> xylona.UpdateGameEnvironmentRequest
-	46,  // 273: xylona.Xylona.GetGame:input_type -> xylona.GetGameRequest
-	77,  // 274: xylona.Xylona.RemoveGame:input_type -> xylona.RemoveGameRequest
-	79,  // 275: xylona.Xylona.ImportGame:input_type -> xylona.ImportGameRequest
-	84,  // 276: xylona.Xylona.ExportGame:input_type -> xylona.ExportGameRequest
-	82,  // 277: xylona.Xylona.ResetGameToOfficialDefinition:input_type -> xylona.ResetGameToOfficialDefinitionRequest
-	44,  // 278: xylona.Xylona.ListGames:input_type -> xylona.ListGamesRequest
-	205, // 279: xylona.Xylona.SearchSteamApps:input_type -> xylona.SearchSteamAppsRequest
-	207, // 280: xylona.Xylona.GetSteamAppDetails:input_type -> xylona.GetSteamAppDetailsRequest
+	381, // 261: xylona.GetSevenDaysToDieSandboxSettingsResponse.settings:type_name -> xylona.SevenDaysToDieSandboxSetting
+	398, // 262: xylona.GetSevenDaysToDieSandboxSettingsResponse.observed_at:type_name -> google.protobuf.Timestamp
+	52,  // 263: xylona.CompleteSetupResponse.user:type_name -> xylona.User
+	390, // 264: xylona.GetJoinPasswordStateResponse.state:type_name -> xylona.JoinPasswordState
+	390, // 265: xylona.SetJoinPasswordResponse.state:type_name -> xylona.JoinPasswordState
+	390, // 266: xylona.ClearJoinPasswordResponse.state:type_name -> xylona.JoinPasswordState
+	71,  // 267: xylona.Xylona.AddGame:input_type -> xylona.AddGameRequest
+	73,  // 268: xylona.Xylona.EditGame:input_type -> xylona.EditGameRequest
+	75,  // 269: xylona.Xylona.UpdateGameStartArgsTemplate:input_type -> xylona.UpdateGameStartArgsTemplateRequest
+	77,  // 270: xylona.Xylona.UpdateGameStartArgBlocklist:input_type -> xylona.UpdateGameStartArgBlocklistRequest
+	92,  // 271: xylona.Xylona.GetGameEnvironment:input_type -> xylona.GetGameEnvironmentRequest
+	94,  // 272: xylona.Xylona.UpdateGameEnvironment:input_type -> xylona.UpdateGameEnvironmentRequest
+	48,  // 273: xylona.Xylona.GetGame:input_type -> xylona.GetGameRequest
+	79,  // 274: xylona.Xylona.RemoveGame:input_type -> xylona.RemoveGameRequest
+	81,  // 275: xylona.Xylona.ImportGame:input_type -> xylona.ImportGameRequest
+	86,  // 276: xylona.Xylona.ExportGame:input_type -> xylona.ExportGameRequest
+	84,  // 277: xylona.Xylona.ResetGameToOfficialDefinition:input_type -> xylona.ResetGameToOfficialDefinitionRequest
+	46,  // 278: xylona.Xylona.ListGames:input_type -> xylona.ListGamesRequest
+	207, // 279: xylona.Xylona.SearchSteamApps:input_type -> xylona.SearchSteamAppsRequest
+	209, // 280: xylona.Xylona.GetSteamAppDetails:input_type -> xylona.GetSteamAppDetailsRequest
 	34,  // 281: xylona.Xylona.Login:input_type -> xylona.LoginRequest
 	38,  // 282: xylona.Xylona.Logout:input_type -> xylona.LogoutRequest
-	40,  // 283: xylona.Xylona.CheckUserAuthenticated:input_type -> xylona.CheckUserAuthenticatedRequest
-	384, // 284: xylona.Xylona.GetSetupStatus:input_type -> xylona.GetSetupStatusRequest
-	386, // 285: xylona.Xylona.CompleteSetup:input_type -> xylona.CompleteSetupRequest
-	36,  // 286: xylona.Xylona.CreateUser:input_type -> xylona.CreateUserRequest
-	51,  // 287: xylona.Xylona.ListUsers:input_type -> xylona.ListUsersRequest
-	53,  // 288: xylona.Xylona.GetUser:input_type -> xylona.GetUserDetailsRequest
-	55,  // 289: xylona.Xylona.UpdateUser:input_type -> xylona.UpdateUserRequest
-	57,  // 290: xylona.Xylona.DeleteUser:input_type -> xylona.DeleteUserRequest
-	161, // 291: xylona.Xylona.ListRoles:input_type -> xylona.ListRolesRequest
-	165, // 292: xylona.Xylona.ListPermissions:input_type -> xylona.ListPermissionsRequest
-	167, // 293: xylona.Xylona.CreateRole:input_type -> xylona.CreateRoleRequest
-	169, // 294: xylona.Xylona.DeleteRole:input_type -> xylona.DeleteRoleRequest
-	171, // 295: xylona.Xylona.ListGameServerAccessGrants:input_type -> xylona.ListGameServerAccessGrantsRequest
-	174, // 296: xylona.Xylona.GrantGameServerAccess:input_type -> xylona.GrantGameServerAccessRequest
-	176, // 297: xylona.Xylona.RevokeGameServerAccess:input_type -> xylona.RevokeGameServerAccessRequest
-	63,  // 298: xylona.Xylona.ListIPs:input_type -> xylona.ListIPsRequest
-	65,  // 299: xylona.Xylona.AddIP:input_type -> xylona.AddIPRequest
-	67,  // 300: xylona.Xylona.RemoveIP:input_type -> xylona.RemoveIPRequest
-	434, // 301: xylona.Xylona.CreateGameServer:input_type -> xylona.CreateGameServerRequest
-	435, // 302: xylona.Xylona.EditGameServer:input_type -> xylona.EditGameServerRequest
-	436, // 303: xylona.Xylona.RemoveGameServer:input_type -> xylona.RemoveGameServerRequest
-	437, // 304: xylona.Xylona.StartGameServer:input_type -> xylona.StartGameServerRequest
-	438, // 305: xylona.Xylona.StopGameServer:input_type -> xylona.StopGameServerRequest
-	439, // 306: xylona.Xylona.RestartGameServer:input_type -> xylona.RestartGameServerRequest
-	440, // 307: xylona.Xylona.ReadGameServerOutput:input_type -> xylona.ReadGameServerOutputRequest
-	441, // 308: xylona.Xylona.SendGameServerInput:input_type -> xylona.SendGameServerInputRequest
-	48,  // 309: xylona.Xylona.GetGameServer:input_type -> xylona.GetGameServerRequest
-	86,  // 310: xylona.Xylona.UpdateGameServer:input_type -> xylona.UpdateGameServerRequest
-	88,  // 311: xylona.Xylona.UpdateGameServerStartArgs:input_type -> xylona.UpdateGameServerStartArgsRequest
-	94,  // 312: xylona.Xylona.GetGameServerEnvironment:input_type -> xylona.GetGameServerEnvironmentRequest
-	96,  // 313: xylona.Xylona.UpdateGameServerEnvironment:input_type -> xylona.UpdateGameServerEnvironmentRequest
-	98,  // 314: xylona.Xylona.SetGameServerSecretEnv:input_type -> xylona.SetGameServerSecretEnvRequest
-	100, // 315: xylona.Xylona.ClearGameServerSecretEnv:input_type -> xylona.ClearGameServerSecretEnvRequest
-	103, // 316: xylona.Xylona.GetGameServerAdminInterface:input_type -> xylona.GetGameServerAdminInterfaceRequest
-	105, // 317: xylona.Xylona.SetGameServerAdminInterfacePassword:input_type -> xylona.SetGameServerAdminInterfacePasswordRequest
-	108, // 318: xylona.Xylona.GetGameServerReadiness:input_type -> xylona.GetGameServerReadinessRequest
-	110, // 319: xylona.Xylona.AcceptMinecraftEula:input_type -> xylona.AcceptMinecraftEulaRequest
-	389, // 320: xylona.Xylona.GetJoinPasswordState:input_type -> xylona.GetJoinPasswordStateRequest
-	391, // 321: xylona.Xylona.SetJoinPassword:input_type -> xylona.SetJoinPasswordRequest
-	393, // 322: xylona.Xylona.ClearJoinPassword:input_type -> xylona.ClearJoinPasswordRequest
-	112, // 323: xylona.Xylona.SetSteamGSLT:input_type -> xylona.SetSteamGSLTRequest
-	114, // 324: xylona.Xylona.ClearSteamGSLT:input_type -> xylona.ClearSteamGSLTRequest
-	117, // 325: xylona.Xylona.StartHytaleDeviceAuth:input_type -> xylona.StartHytaleDeviceAuthRequest
-	119, // 326: xylona.Xylona.PollHytaleDeviceAuth:input_type -> xylona.PollHytaleDeviceAuthRequest
-	121, // 327: xylona.Xylona.SelectHytaleProfile:input_type -> xylona.SelectHytaleProfileRequest
-	123, // 328: xylona.Xylona.ClearHytaleAccount:input_type -> xylona.ClearHytaleAccountRequest
-	42,  // 329: xylona.Xylona.ListGameServers:input_type -> xylona.ListGameServersRequest
-	133, // 330: xylona.Xylona.QueryGameServer:input_type -> xylona.QueryGameServerRequest
-	25,  // 331: xylona.Xylona.GetOrCreateGameServerStatusPageSettings:input_type -> xylona.GetOrCreateGameServerStatusPageSettingsRequest
-	28,  // 332: xylona.Xylona.UpdateGameServerStatusPageSettings:input_type -> xylona.UpdateGameServerStatusPageSettingsRequest
-	32,  // 333: xylona.Xylona.GetPublicGameServerStatusPage:input_type -> xylona.GetPublicGameServerStatusPageRequest
-	325, // 334: xylona.Xylona.GetOrCreateGameServerMapShareSettings:input_type -> xylona.GetOrCreateGameServerMapShareSettingsRequest
-	327, // 335: xylona.Xylona.UpdateGameServerMapShareSettings:input_type -> xylona.UpdateGameServerMapShareSettingsRequest
-	329, // 336: xylona.Xylona.ResolvePublicGameServerMap:input_type -> xylona.ResolvePublicGameServerMapRequest
-	332, // 337: xylona.Xylona.GetDNSBinding:input_type -> xylona.GetDNSBindingRequest
-	334, // 338: xylona.Xylona.SetDNSBinding:input_type -> xylona.SetDNSBindingRequest
-	336, // 339: xylona.Xylona.RemoveDNSBinding:input_type -> xylona.RemoveDNSBindingRequest
-	338, // 340: xylona.Xylona.SyncDNSBinding:input_type -> xylona.SyncDNSBindingRequest
-	340, // 341: xylona.Xylona.AdoptDNSBindingRecord:input_type -> xylona.AdoptDNSBindingRecordRequest
-	308, // 342: xylona.Xylona.GetGameServerPlayerManagement:input_type -> xylona.GetGameServerPlayerManagementRequest
-	310, // 343: xylona.Xylona.PerformGameServerPlayerAction:input_type -> xylona.PerformGameServerPlayerActionRequest
-	316, // 344: xylona.Xylona.ListGameServerOperations:input_type -> xylona.ListGameServerOperationsRequest
-	322, // 345: xylona.Xylona.ExecuteGameServerOperation:input_type -> xylona.ExecuteGameServerOperationRequest
-	345, // 346: xylona.Xylona.GetPalworldMap:input_type -> xylona.GetPalworldMapRequest
-	347, // 347: xylona.Xylona.UpdatePalworldMapConfig:input_type -> xylona.UpdatePalworldMapConfigRequest
-	349, // 348: xylona.Xylona.InstallPalworldMapTiles:input_type -> xylona.InstallPalworldMapTilesRequest
-	351, // 349: xylona.Xylona.GetPublicPalworldMap:input_type -> xylona.GetPublicPalworldMapRequest
-	360, // 350: xylona.Xylona.GetSevenDaysToDieMap:input_type -> xylona.GetSevenDaysToDieMapRequest
-	382, // 351: xylona.Xylona.InstallSevenDaysToDieLandClaimsMod:input_type -> xylona.InstallSevenDaysToDieLandClaimsModRequest
-	377, // 352: xylona.Xylona.GetSevenDaysToDieWebAPIStatus:input_type -> xylona.GetSevenDaysToDieWebAPIStatusRequest
-	380, // 353: xylona.Xylona.GetSevenDaysToDieSandboxSettings:input_type -> xylona.GetSevenDaysToDieSandboxSettingsRequest
-	362, // 354: xylona.Xylona.UpdateSevenDaysToDieMapNotes:input_type -> xylona.UpdateSevenDaysToDieMapNotesRequest
-	364, // 355: xylona.Xylona.GetPublicSevenDaysToDieMap:input_type -> xylona.GetPublicSevenDaysToDieMapRequest
-	367, // 356: xylona.Xylona.GetMinecraftMap:input_type -> xylona.GetMinecraftMapRequest
-	369, // 357: xylona.Xylona.UpdateMinecraftMapConfig:input_type -> xylona.UpdateMinecraftMapConfigRequest
-	371, // 358: xylona.Xylona.GetPublicMinecraftMap:input_type -> xylona.GetPublicMinecraftMapRequest
-	61,  // 359: xylona.Xylona.GetUpdateTargets:input_type -> xylona.GetUpdateTargetsRequest
-	125, // 360: xylona.Xylona.SetServerVariant:input_type -> xylona.SetServerVariantRequest
-	127, // 361: xylona.Xylona.GetVariantOperationStatus:input_type -> xylona.GetVariantOperationStatusRequest
-	442, // 362: xylona.Xylona.ListDirectoryFiles:input_type -> xylona.ListDirectoryFilesRequest
-	443, // 363: xylona.Xylona.GameServerFilesDelete:input_type -> xylona.GameServerFilesDeleteRequest
-	444, // 364: xylona.Xylona.GameServerFilesArchive:input_type -> xylona.GameServerFilesCompressionRequest
-	445, // 365: xylona.Xylona.GameServerFilesExtract:input_type -> xylona.GameServerFilesDecompressionRequest
-	444, // 366: xylona.Xylona.GameServerFilesCompress:input_type -> xylona.GameServerFilesCompressionRequest
-	445, // 367: xylona.Xylona.GameServerFilesDecompress:input_type -> xylona.GameServerFilesDecompressionRequest
-	446, // 368: xylona.Xylona.GameServerFilesDownloadFromURL:input_type -> xylona.GameServersFileDownloadFromURLRequest
-	447, // 369: xylona.Xylona.GameServerFileRename:input_type -> xylona.GameServerFileRenameRequest
-	448, // 370: xylona.Xylona.GameServerFilesMove:input_type -> xylona.GameServerFilesMoveRequest
-	449, // 371: xylona.Xylona.GameServersFileEdit:input_type -> xylona.GameServersFileEditRequest
-	450, // 372: xylona.Xylona.GameServersFileOrDirectoryCreate:input_type -> xylona.GameServerFileOrDirectoryCreateRequest
-	135, // 373: xylona.Xylona.GetNode:input_type -> xylona.GetNodeRequest
-	137, // 374: xylona.Xylona.ListNodes:input_type -> xylona.ListNodesRequest
-	139, // 375: xylona.Xylona.GenerateNodePairingObject:input_type -> xylona.GenerateNodePairingObjectRequest
-	141, // 376: xylona.Xylona.RemoveNode:input_type -> xylona.RemoveNodeRequest
-	143, // 377: xylona.Xylona.EditNode:input_type -> xylona.EditNodeRequest
-	149, // 378: xylona.Xylona.CheckSystemUpdates:input_type -> xylona.CheckSystemUpdatesRequest
-	151, // 379: xylona.Xylona.StartSystemUpdate:input_type -> xylona.StartSystemUpdateRequest
-	153, // 380: xylona.Xylona.ListSystemUpdateJobs:input_type -> xylona.ListSystemUpdateJobsRequest
-	155, // 381: xylona.Xylona.GetSystemUpdateJob:input_type -> xylona.GetSystemUpdateJobRequest
-	201, // 382: xylona.Xylona.GetGameConfigSchemas:input_type -> xylona.GetGameConfigSchemasRequest
-	203, // 383: xylona.Xylona.UpdateGameConfigSchemas:input_type -> xylona.UpdateGameConfigSchemasRequest
-	193, // 384: xylona.Xylona.GetGameServerConfigFiles:input_type -> xylona.GetGameServerConfigFilesRequest
-	195, // 385: xylona.Xylona.GetGameServerConfigFile:input_type -> xylona.GetGameServerConfigFileRequest
-	197, // 386: xylona.Xylona.UpdateGameServerConfigFile:input_type -> xylona.UpdateGameServerConfigFileRequest
-	199, // 387: xylona.Xylona.GenerateGameServerConfigFile:input_type -> xylona.GenerateGameServerConfigFileRequest
-	159, // 388: xylona.Xylona.ListAggregatedGameServers:input_type -> xylona.ListAggregatedGameServersRequest
-	178, // 389: xylona.Xylona.GetNodeSystemInfo:input_type -> xylona.GetNodeSystemInfoRequest
-	180, // 390: xylona.Xylona.GetNodeResourceSnapshot:input_type -> xylona.GetNodeResourceSnapshotRequest
-	182, // 391: xylona.Xylona.GetDashboardOverview:input_type -> xylona.GetDashboardOverviewRequest
-	185, // 392: xylona.Xylona.GetNodeMetricsHistory:input_type -> xylona.GetNodeMetricsHistoryRequest
-	187, // 393: xylona.Xylona.GetGameServerMetricsHistory:input_type -> xylona.GetGameServerMetricsHistoryRequest
-	209, // 394: xylona.Xylona.SearchMods:input_type -> xylona.SearchModsRequest
-	211, // 395: xylona.Xylona.GetModDetails:input_type -> xylona.GetModDetailsRequest
-	213, // 396: xylona.Xylona.GetModVersions:input_type -> xylona.GetModVersionsRequest
-	215, // 397: xylona.Xylona.InstallMod:input_type -> xylona.InstallModRequest
-	217, // 398: xylona.Xylona.UninstallMod:input_type -> xylona.UninstallModRequest
-	219, // 399: xylona.Xylona.UpdateMod:input_type -> xylona.UpdateModRequest
-	221, // 400: xylona.Xylona.ListInstalledMods:input_type -> xylona.ListInstalledModsRequest
-	224, // 401: xylona.Xylona.GetSevenDaysToDieReportedMods:input_type -> xylona.GetSevenDaysToDieReportedModsRequest
-	226, // 402: xylona.Xylona.SetModAutoUpdate:input_type -> xylona.SetModAutoUpdateRequest
-	228, // 403: xylona.Xylona.SetModEnabled:input_type -> xylona.SetModEnabledRequest
-	230, // 404: xylona.Xylona.PinModVersion:input_type -> xylona.PinModVersionRequest
-	232, // 405: xylona.Xylona.GetModCategories:input_type -> xylona.GetModCategoriesRequest
-	235, // 406: xylona.Xylona.GetVersionInfo:input_type -> xylona.GetVersionInfoRequest
-	237, // 407: xylona.Xylona.CheckForUpdate:input_type -> xylona.CheckForUpdateRequest
-	239, // 408: xylona.Xylona.SetDummyUpdateFailure:input_type -> xylona.SetDummyUpdateFailureRequest
-	241, // 409: xylona.Xylona.CreateNotificationChannel:input_type -> xylona.CreateNotificationChannelRequest
-	243, // 410: xylona.Xylona.UpdateNotificationChannel:input_type -> xylona.UpdateNotificationChannelRequest
-	245, // 411: xylona.Xylona.DeleteNotificationChannel:input_type -> xylona.DeleteNotificationChannelRequest
-	247, // 412: xylona.Xylona.ListNotificationChannels:input_type -> xylona.ListNotificationChannelsRequest
-	249, // 413: xylona.Xylona.TestNotificationChannel:input_type -> xylona.TestNotificationChannelRequest
-	251, // 414: xylona.Xylona.GetLocalSMTPStatus:input_type -> xylona.GetLocalSMTPStatusRequest
-	253, // 415: xylona.Xylona.CreateAlertRule:input_type -> xylona.CreateAlertRuleRequest
-	255, // 416: xylona.Xylona.UpdateAlertRule:input_type -> xylona.UpdateAlertRuleRequest
-	257, // 417: xylona.Xylona.DeleteAlertRule:input_type -> xylona.DeleteAlertRuleRequest
-	259, // 418: xylona.Xylona.ListAlertRules:input_type -> xylona.ListAlertRulesRequest
-	261, // 419: xylona.Xylona.GetAlertHistory:input_type -> xylona.GetAlertHistoryRequest
-	263, // 420: xylona.Xylona.GetSystemSMTPConfig:input_type -> xylona.GetSystemSMTPConfigRequest
-	265, // 421: xylona.Xylona.SetSystemSMTPConfig:input_type -> xylona.SetSystemSMTPConfigRequest
-	267, // 422: xylona.Xylona.TestSystemSMTP:input_type -> xylona.TestSystemSMTPRequest
-	269, // 423: xylona.Xylona.BeginGoogleMailOAuth:input_type -> xylona.BeginGoogleMailOAuthRequest
-	271, // 424: xylona.Xylona.DisconnectGoogleMail:input_type -> xylona.DisconnectGoogleMailRequest
-	276, // 425: xylona.Xylona.GetDNSProviderConnection:input_type -> xylona.GetDNSProviderConnectionRequest
-	278, // 426: xylona.Xylona.ListDNSProviderZones:input_type -> xylona.ListDNSProviderZonesRequest
-	280, // 427: xylona.Xylona.SetDNSProviderConnection:input_type -> xylona.SetDNSProviderConnectionRequest
-	282, // 428: xylona.Xylona.ListScheduledTasks:input_type -> xylona.ListScheduledTasksRequest
-	284, // 429: xylona.Xylona.CreateScheduledTask:input_type -> xylona.CreateScheduledTaskRequest
-	286, // 430: xylona.Xylona.UpdateScheduledTask:input_type -> xylona.UpdateScheduledTaskRequest
-	288, // 431: xylona.Xylona.DeleteScheduledTask:input_type -> xylona.DeleteScheduledTaskRequest
-	290, // 432: xylona.Xylona.GetScheduledTaskLogs:input_type -> xylona.GetScheduledTaskLogsRequest
-	292, // 433: xylona.Xylona.GetGameServerBackupOverview:input_type -> xylona.GetGameServerBackupOverviewRequest
-	294, // 434: xylona.Xylona.GetBackupSettings:input_type -> xylona.GetBackupSettingsRequest
-	296, // 435: xylona.Xylona.UpdateBackupSettings:input_type -> xylona.UpdateBackupSettingsRequest
-	298, // 436: xylona.Xylona.ListGameServerBackups:input_type -> xylona.ListGameServerBackupsRequest
-	300, // 437: xylona.Xylona.CreateGameServerBackup:input_type -> xylona.CreateGameServerBackupRequest
-	302, // 438: xylona.Xylona.DeleteGameServerBackup:input_type -> xylona.DeleteGameServerBackupRequest
-	304, // 439: xylona.Xylona.RestoreGameServerBackup:input_type -> xylona.RestoreGameServerBackupRequest
-	70,  // 440: xylona.Xylona.AddGame:output_type -> xylona.AddGameResponse
-	72,  // 441: xylona.Xylona.EditGame:output_type -> xylona.EditGameResponse
-	74,  // 442: xylona.Xylona.UpdateGameStartArgsTemplate:output_type -> xylona.UpdateGameStartArgsTemplateResponse
-	76,  // 443: xylona.Xylona.UpdateGameStartArgBlocklist:output_type -> xylona.UpdateGameStartArgBlocklistResponse
-	91,  // 444: xylona.Xylona.GetGameEnvironment:output_type -> xylona.GetGameEnvironmentResponse
-	93,  // 445: xylona.Xylona.UpdateGameEnvironment:output_type -> xylona.UpdateGameEnvironmentResponse
-	47,  // 446: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
-	78,  // 447: xylona.Xylona.RemoveGame:output_type -> xylona.RemoveGameResponse
-	81,  // 448: xylona.Xylona.ImportGame:output_type -> xylona.ImportGameResponse
-	85,  // 449: xylona.Xylona.ExportGame:output_type -> xylona.ExportGameResponse
-	83,  // 450: xylona.Xylona.ResetGameToOfficialDefinition:output_type -> xylona.ResetGameToOfficialDefinitionResponse
-	45,  // 451: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
-	206, // 452: xylona.Xylona.SearchSteamApps:output_type -> xylona.SearchSteamAppsResponse
-	208, // 453: xylona.Xylona.GetSteamAppDetails:output_type -> xylona.GetSteamAppDetailsResponse
-	35,  // 454: xylona.Xylona.Login:output_type -> xylona.LoginResponse
-	39,  // 455: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
-	41,  // 456: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
-	385, // 457: xylona.Xylona.GetSetupStatus:output_type -> xylona.GetSetupStatusResponse
-	387, // 458: xylona.Xylona.CompleteSetup:output_type -> xylona.CompleteSetupResponse
-	37,  // 459: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
-	52,  // 460: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
-	54,  // 461: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
-	56,  // 462: xylona.Xylona.UpdateUser:output_type -> xylona.UpdateUserResponse
-	58,  // 463: xylona.Xylona.DeleteUser:output_type -> xylona.DeleteUserResponse
-	162, // 464: xylona.Xylona.ListRoles:output_type -> xylona.ListRolesResponse
-	166, // 465: xylona.Xylona.ListPermissions:output_type -> xylona.ListPermissionsResponse
-	168, // 466: xylona.Xylona.CreateRole:output_type -> xylona.CreateRoleResponse
-	170, // 467: xylona.Xylona.DeleteRole:output_type -> xylona.DeleteRoleResponse
-	172, // 468: xylona.Xylona.ListGameServerAccessGrants:output_type -> xylona.ListGameServerAccessGrantsResponse
-	175, // 469: xylona.Xylona.GrantGameServerAccess:output_type -> xylona.GrantGameServerAccessResponse
-	177, // 470: xylona.Xylona.RevokeGameServerAccess:output_type -> xylona.RevokeGameServerAccessResponse
-	64,  // 471: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
-	66,  // 472: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
-	68,  // 473: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
-	451, // 474: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
-	452, // 475: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
-	453, // 476: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
-	454, // 477: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
-	455, // 478: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
-	456, // 479: xylona.Xylona.RestartGameServer:output_type -> xylona.RestartGameServerResponse
-	457, // 480: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
-	458, // 481: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
-	49,  // 482: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
-	87,  // 483: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
-	89,  // 484: xylona.Xylona.UpdateGameServerStartArgs:output_type -> xylona.UpdateGameServerStartArgsResponse
-	95,  // 485: xylona.Xylona.GetGameServerEnvironment:output_type -> xylona.GetGameServerEnvironmentResponse
-	97,  // 486: xylona.Xylona.UpdateGameServerEnvironment:output_type -> xylona.UpdateGameServerEnvironmentResponse
-	99,  // 487: xylona.Xylona.SetGameServerSecretEnv:output_type -> xylona.SetGameServerSecretEnvResponse
-	101, // 488: xylona.Xylona.ClearGameServerSecretEnv:output_type -> xylona.ClearGameServerSecretEnvResponse
-	104, // 489: xylona.Xylona.GetGameServerAdminInterface:output_type -> xylona.GetGameServerAdminInterfaceResponse
-	106, // 490: xylona.Xylona.SetGameServerAdminInterfacePassword:output_type -> xylona.SetGameServerAdminInterfacePasswordResponse
-	109, // 491: xylona.Xylona.GetGameServerReadiness:output_type -> xylona.GetGameServerReadinessResponse
-	111, // 492: xylona.Xylona.AcceptMinecraftEula:output_type -> xylona.AcceptMinecraftEulaResponse
-	390, // 493: xylona.Xylona.GetJoinPasswordState:output_type -> xylona.GetJoinPasswordStateResponse
-	392, // 494: xylona.Xylona.SetJoinPassword:output_type -> xylona.SetJoinPasswordResponse
-	394, // 495: xylona.Xylona.ClearJoinPassword:output_type -> xylona.ClearJoinPasswordResponse
-	113, // 496: xylona.Xylona.SetSteamGSLT:output_type -> xylona.SetSteamGSLTResponse
-	115, // 497: xylona.Xylona.ClearSteamGSLT:output_type -> xylona.ClearSteamGSLTResponse
-	118, // 498: xylona.Xylona.StartHytaleDeviceAuth:output_type -> xylona.StartHytaleDeviceAuthResponse
-	120, // 499: xylona.Xylona.PollHytaleDeviceAuth:output_type -> xylona.PollHytaleDeviceAuthResponse
-	122, // 500: xylona.Xylona.SelectHytaleProfile:output_type -> xylona.SelectHytaleProfileResponse
-	124, // 501: xylona.Xylona.ClearHytaleAccount:output_type -> xylona.ClearHytaleAccountResponse
-	43,  // 502: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
-	134, // 503: xylona.Xylona.QueryGameServer:output_type -> xylona.QueryGameServerResponse
-	26,  // 504: xylona.Xylona.GetOrCreateGameServerStatusPageSettings:output_type -> xylona.GetOrCreateGameServerStatusPageSettingsResponse
-	29,  // 505: xylona.Xylona.UpdateGameServerStatusPageSettings:output_type -> xylona.UpdateGameServerStatusPageSettingsResponse
-	33,  // 506: xylona.Xylona.GetPublicGameServerStatusPage:output_type -> xylona.GetPublicGameServerStatusPageResponse
-	326, // 507: xylona.Xylona.GetOrCreateGameServerMapShareSettings:output_type -> xylona.GetOrCreateGameServerMapShareSettingsResponse
-	328, // 508: xylona.Xylona.UpdateGameServerMapShareSettings:output_type -> xylona.UpdateGameServerMapShareSettingsResponse
-	330, // 509: xylona.Xylona.ResolvePublicGameServerMap:output_type -> xylona.ResolvePublicGameServerMapResponse
-	333, // 510: xylona.Xylona.GetDNSBinding:output_type -> xylona.GetDNSBindingResponse
-	335, // 511: xylona.Xylona.SetDNSBinding:output_type -> xylona.SetDNSBindingResponse
-	337, // 512: xylona.Xylona.RemoveDNSBinding:output_type -> xylona.RemoveDNSBindingResponse
-	339, // 513: xylona.Xylona.SyncDNSBinding:output_type -> xylona.SyncDNSBindingResponse
-	341, // 514: xylona.Xylona.AdoptDNSBindingRecord:output_type -> xylona.AdoptDNSBindingRecordResponse
-	309, // 515: xylona.Xylona.GetGameServerPlayerManagement:output_type -> xylona.GetGameServerPlayerManagementResponse
-	311, // 516: xylona.Xylona.PerformGameServerPlayerAction:output_type -> xylona.PerformGameServerPlayerActionResponse
-	317, // 517: xylona.Xylona.ListGameServerOperations:output_type -> xylona.ListGameServerOperationsResponse
-	323, // 518: xylona.Xylona.ExecuteGameServerOperation:output_type -> xylona.ExecuteGameServerOperationResponse
-	346, // 519: xylona.Xylona.GetPalworldMap:output_type -> xylona.GetPalworldMapResponse
-	348, // 520: xylona.Xylona.UpdatePalworldMapConfig:output_type -> xylona.UpdatePalworldMapConfigResponse
-	350, // 521: xylona.Xylona.InstallPalworldMapTiles:output_type -> xylona.InstallPalworldMapTilesResponse
-	352, // 522: xylona.Xylona.GetPublicPalworldMap:output_type -> xylona.GetPublicPalworldMapResponse
-	361, // 523: xylona.Xylona.GetSevenDaysToDieMap:output_type -> xylona.GetSevenDaysToDieMapResponse
-	383, // 524: xylona.Xylona.InstallSevenDaysToDieLandClaimsMod:output_type -> xylona.InstallSevenDaysToDieLandClaimsModResponse
-	378, // 525: xylona.Xylona.GetSevenDaysToDieWebAPIStatus:output_type -> xylona.GetSevenDaysToDieWebAPIStatusResponse
-	381, // 526: xylona.Xylona.GetSevenDaysToDieSandboxSettings:output_type -> xylona.GetSevenDaysToDieSandboxSettingsResponse
-	363, // 527: xylona.Xylona.UpdateSevenDaysToDieMapNotes:output_type -> xylona.UpdateSevenDaysToDieMapNotesResponse
-	365, // 528: xylona.Xylona.GetPublicSevenDaysToDieMap:output_type -> xylona.GetPublicSevenDaysToDieMapResponse
-	368, // 529: xylona.Xylona.GetMinecraftMap:output_type -> xylona.GetMinecraftMapResponse
-	370, // 530: xylona.Xylona.UpdateMinecraftMapConfig:output_type -> xylona.UpdateMinecraftMapConfigResponse
-	372, // 531: xylona.Xylona.GetPublicMinecraftMap:output_type -> xylona.GetPublicMinecraftMapResponse
-	62,  // 532: xylona.Xylona.GetUpdateTargets:output_type -> xylona.GetUpdateTargetsResponse
-	126, // 533: xylona.Xylona.SetServerVariant:output_type -> xylona.SetServerVariantResponse
-	128, // 534: xylona.Xylona.GetVariantOperationStatus:output_type -> xylona.GetVariantOperationStatusResponse
-	459, // 535: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
-	460, // 536: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
-	461, // 537: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
-	462, // 538: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
-	463, // 539: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
-	464, // 540: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
-	465, // 541: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
-	466, // 542: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
-	467, // 543: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
-	468, // 544: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
-	469, // 545: xylona.Xylona.GameServersFileOrDirectoryCreate:output_type -> xylona.GameServerFileOrDirectoryCreateResponse
-	136, // 546: xylona.Xylona.GetNode:output_type -> xylona.GetNodeResponse
-	138, // 547: xylona.Xylona.ListNodes:output_type -> xylona.ListNodesResponse
-	140, // 548: xylona.Xylona.GenerateNodePairingObject:output_type -> xylona.GenerateNodePairingObjectResponse
-	142, // 549: xylona.Xylona.RemoveNode:output_type -> xylona.RemoveNodeResponse
-	144, // 550: xylona.Xylona.EditNode:output_type -> xylona.EditNodeResponse
-	150, // 551: xylona.Xylona.CheckSystemUpdates:output_type -> xylona.CheckSystemUpdatesResponse
-	152, // 552: xylona.Xylona.StartSystemUpdate:output_type -> xylona.StartSystemUpdateResponse
-	154, // 553: xylona.Xylona.ListSystemUpdateJobs:output_type -> xylona.ListSystemUpdateJobsResponse
-	156, // 554: xylona.Xylona.GetSystemUpdateJob:output_type -> xylona.GetSystemUpdateJobResponse
-	202, // 555: xylona.Xylona.GetGameConfigSchemas:output_type -> xylona.GetGameConfigSchemasResponse
-	204, // 556: xylona.Xylona.UpdateGameConfigSchemas:output_type -> xylona.UpdateGameConfigSchemasResponse
-	194, // 557: xylona.Xylona.GetGameServerConfigFiles:output_type -> xylona.GetGameServerConfigFilesResponse
-	196, // 558: xylona.Xylona.GetGameServerConfigFile:output_type -> xylona.GetGameServerConfigFileResponse
-	198, // 559: xylona.Xylona.UpdateGameServerConfigFile:output_type -> xylona.UpdateGameServerConfigFileResponse
-	200, // 560: xylona.Xylona.GenerateGameServerConfigFile:output_type -> xylona.GenerateGameServerConfigFileResponse
-	160, // 561: xylona.Xylona.ListAggregatedGameServers:output_type -> xylona.ListAggregatedGameServersResponse
-	179, // 562: xylona.Xylona.GetNodeSystemInfo:output_type -> xylona.GetNodeSystemInfoResponse
-	181, // 563: xylona.Xylona.GetNodeResourceSnapshot:output_type -> xylona.GetNodeResourceSnapshotResponse
-	184, // 564: xylona.Xylona.GetDashboardOverview:output_type -> xylona.GetDashboardOverviewResponse
-	186, // 565: xylona.Xylona.GetNodeMetricsHistory:output_type -> xylona.GetNodeMetricsHistoryResponse
-	188, // 566: xylona.Xylona.GetGameServerMetricsHistory:output_type -> xylona.GetGameServerMetricsHistoryResponse
-	210, // 567: xylona.Xylona.SearchMods:output_type -> xylona.SearchModsResponse
-	212, // 568: xylona.Xylona.GetModDetails:output_type -> xylona.GetModDetailsResponse
-	214, // 569: xylona.Xylona.GetModVersions:output_type -> xylona.GetModVersionsResponse
-	216, // 570: xylona.Xylona.InstallMod:output_type -> xylona.InstallModResponse
-	218, // 571: xylona.Xylona.UninstallMod:output_type -> xylona.UninstallModResponse
-	220, // 572: xylona.Xylona.UpdateMod:output_type -> xylona.UpdateModResponse
-	222, // 573: xylona.Xylona.ListInstalledMods:output_type -> xylona.ListInstalledModsResponse
-	225, // 574: xylona.Xylona.GetSevenDaysToDieReportedMods:output_type -> xylona.GetSevenDaysToDieReportedModsResponse
-	227, // 575: xylona.Xylona.SetModAutoUpdate:output_type -> xylona.SetModAutoUpdateResponse
-	229, // 576: xylona.Xylona.SetModEnabled:output_type -> xylona.SetModEnabledResponse
-	231, // 577: xylona.Xylona.PinModVersion:output_type -> xylona.PinModVersionResponse
-	233, // 578: xylona.Xylona.GetModCategories:output_type -> xylona.GetModCategoriesResponse
-	236, // 579: xylona.Xylona.GetVersionInfo:output_type -> xylona.GetVersionInfoResponse
-	238, // 580: xylona.Xylona.CheckForUpdate:output_type -> xylona.CheckForUpdateResponse
-	240, // 581: xylona.Xylona.SetDummyUpdateFailure:output_type -> xylona.SetDummyUpdateFailureResponse
-	242, // 582: xylona.Xylona.CreateNotificationChannel:output_type -> xylona.CreateNotificationChannelResponse
-	244, // 583: xylona.Xylona.UpdateNotificationChannel:output_type -> xylona.UpdateNotificationChannelResponse
-	246, // 584: xylona.Xylona.DeleteNotificationChannel:output_type -> xylona.DeleteNotificationChannelResponse
-	248, // 585: xylona.Xylona.ListNotificationChannels:output_type -> xylona.ListNotificationChannelsResponse
-	250, // 586: xylona.Xylona.TestNotificationChannel:output_type -> xylona.TestNotificationChannelResponse
-	252, // 587: xylona.Xylona.GetLocalSMTPStatus:output_type -> xylona.GetLocalSMTPStatusResponse
-	254, // 588: xylona.Xylona.CreateAlertRule:output_type -> xylona.CreateAlertRuleResponse
-	256, // 589: xylona.Xylona.UpdateAlertRule:output_type -> xylona.UpdateAlertRuleResponse
-	258, // 590: xylona.Xylona.DeleteAlertRule:output_type -> xylona.DeleteAlertRuleResponse
-	260, // 591: xylona.Xylona.ListAlertRules:output_type -> xylona.ListAlertRulesResponse
-	262, // 592: xylona.Xylona.GetAlertHistory:output_type -> xylona.GetAlertHistoryResponse
-	264, // 593: xylona.Xylona.GetSystemSMTPConfig:output_type -> xylona.GetSystemSMTPConfigResponse
-	266, // 594: xylona.Xylona.SetSystemSMTPConfig:output_type -> xylona.SetSystemSMTPConfigResponse
-	268, // 595: xylona.Xylona.TestSystemSMTP:output_type -> xylona.TestSystemSMTPResponse
-	270, // 596: xylona.Xylona.BeginGoogleMailOAuth:output_type -> xylona.BeginGoogleMailOAuthResponse
-	272, // 597: xylona.Xylona.DisconnectGoogleMail:output_type -> xylona.DisconnectGoogleMailResponse
-	277, // 598: xylona.Xylona.GetDNSProviderConnection:output_type -> xylona.GetDNSProviderConnectionResponse
-	279, // 599: xylona.Xylona.ListDNSProviderZones:output_type -> xylona.ListDNSProviderZonesResponse
-	281, // 600: xylona.Xylona.SetDNSProviderConnection:output_type -> xylona.SetDNSProviderConnectionResponse
-	283, // 601: xylona.Xylona.ListScheduledTasks:output_type -> xylona.ListScheduledTasksResponse
-	285, // 602: xylona.Xylona.CreateScheduledTask:output_type -> xylona.CreateScheduledTaskResponse
-	287, // 603: xylona.Xylona.UpdateScheduledTask:output_type -> xylona.UpdateScheduledTaskResponse
-	289, // 604: xylona.Xylona.DeleteScheduledTask:output_type -> xylona.DeleteScheduledTaskResponse
-	291, // 605: xylona.Xylona.GetScheduledTaskLogs:output_type -> xylona.GetScheduledTaskLogsResponse
-	293, // 606: xylona.Xylona.GetGameServerBackupOverview:output_type -> xylona.GetGameServerBackupOverviewResponse
-	295, // 607: xylona.Xylona.GetBackupSettings:output_type -> xylona.GetBackupSettingsResponse
-	297, // 608: xylona.Xylona.UpdateBackupSettings:output_type -> xylona.UpdateBackupSettingsResponse
-	299, // 609: xylona.Xylona.ListGameServerBackups:output_type -> xylona.ListGameServerBackupsResponse
-	301, // 610: xylona.Xylona.CreateGameServerBackup:output_type -> xylona.CreateGameServerBackupResponse
-	303, // 611: xylona.Xylona.DeleteGameServerBackup:output_type -> xylona.DeleteGameServerBackupResponse
-	305, // 612: xylona.Xylona.RestoreGameServerBackup:output_type -> xylona.RestoreGameServerBackupResponse
-	440, // [440:613] is the sub-list for method output_type
-	267, // [267:440] is the sub-list for method input_type
+	42,  // 283: xylona.Xylona.CheckUserAuthenticated:input_type -> xylona.CheckUserAuthenticatedRequest
+	40,  // 284: xylona.Xylona.ChangePassword:input_type -> xylona.ChangePasswordRequest
+	386, // 285: xylona.Xylona.GetSetupStatus:input_type -> xylona.GetSetupStatusRequest
+	388, // 286: xylona.Xylona.CompleteSetup:input_type -> xylona.CompleteSetupRequest
+	36,  // 287: xylona.Xylona.CreateUser:input_type -> xylona.CreateUserRequest
+	53,  // 288: xylona.Xylona.ListUsers:input_type -> xylona.ListUsersRequest
+	55,  // 289: xylona.Xylona.GetUser:input_type -> xylona.GetUserDetailsRequest
+	57,  // 290: xylona.Xylona.UpdateUser:input_type -> xylona.UpdateUserRequest
+	59,  // 291: xylona.Xylona.DeleteUser:input_type -> xylona.DeleteUserRequest
+	163, // 292: xylona.Xylona.ListRoles:input_type -> xylona.ListRolesRequest
+	167, // 293: xylona.Xylona.ListPermissions:input_type -> xylona.ListPermissionsRequest
+	169, // 294: xylona.Xylona.CreateRole:input_type -> xylona.CreateRoleRequest
+	171, // 295: xylona.Xylona.DeleteRole:input_type -> xylona.DeleteRoleRequest
+	173, // 296: xylona.Xylona.ListGameServerAccessGrants:input_type -> xylona.ListGameServerAccessGrantsRequest
+	176, // 297: xylona.Xylona.GrantGameServerAccess:input_type -> xylona.GrantGameServerAccessRequest
+	178, // 298: xylona.Xylona.RevokeGameServerAccess:input_type -> xylona.RevokeGameServerAccessRequest
+	65,  // 299: xylona.Xylona.ListIPs:input_type -> xylona.ListIPsRequest
+	67,  // 300: xylona.Xylona.AddIP:input_type -> xylona.AddIPRequest
+	69,  // 301: xylona.Xylona.RemoveIP:input_type -> xylona.RemoveIPRequest
+	436, // 302: xylona.Xylona.CreateGameServer:input_type -> xylona.CreateGameServerRequest
+	437, // 303: xylona.Xylona.EditGameServer:input_type -> xylona.EditGameServerRequest
+	438, // 304: xylona.Xylona.RemoveGameServer:input_type -> xylona.RemoveGameServerRequest
+	439, // 305: xylona.Xylona.StartGameServer:input_type -> xylona.StartGameServerRequest
+	440, // 306: xylona.Xylona.StopGameServer:input_type -> xylona.StopGameServerRequest
+	441, // 307: xylona.Xylona.RestartGameServer:input_type -> xylona.RestartGameServerRequest
+	442, // 308: xylona.Xylona.ReadGameServerOutput:input_type -> xylona.ReadGameServerOutputRequest
+	443, // 309: xylona.Xylona.SendGameServerInput:input_type -> xylona.SendGameServerInputRequest
+	50,  // 310: xylona.Xylona.GetGameServer:input_type -> xylona.GetGameServerRequest
+	88,  // 311: xylona.Xylona.UpdateGameServer:input_type -> xylona.UpdateGameServerRequest
+	90,  // 312: xylona.Xylona.UpdateGameServerStartArgs:input_type -> xylona.UpdateGameServerStartArgsRequest
+	96,  // 313: xylona.Xylona.GetGameServerEnvironment:input_type -> xylona.GetGameServerEnvironmentRequest
+	98,  // 314: xylona.Xylona.UpdateGameServerEnvironment:input_type -> xylona.UpdateGameServerEnvironmentRequest
+	100, // 315: xylona.Xylona.SetGameServerSecretEnv:input_type -> xylona.SetGameServerSecretEnvRequest
+	102, // 316: xylona.Xylona.ClearGameServerSecretEnv:input_type -> xylona.ClearGameServerSecretEnvRequest
+	105, // 317: xylona.Xylona.GetGameServerAdminInterface:input_type -> xylona.GetGameServerAdminInterfaceRequest
+	107, // 318: xylona.Xylona.SetGameServerAdminInterfacePassword:input_type -> xylona.SetGameServerAdminInterfacePasswordRequest
+	110, // 319: xylona.Xylona.GetGameServerReadiness:input_type -> xylona.GetGameServerReadinessRequest
+	112, // 320: xylona.Xylona.AcceptMinecraftEula:input_type -> xylona.AcceptMinecraftEulaRequest
+	391, // 321: xylona.Xylona.GetJoinPasswordState:input_type -> xylona.GetJoinPasswordStateRequest
+	393, // 322: xylona.Xylona.SetJoinPassword:input_type -> xylona.SetJoinPasswordRequest
+	395, // 323: xylona.Xylona.ClearJoinPassword:input_type -> xylona.ClearJoinPasswordRequest
+	114, // 324: xylona.Xylona.SetSteamGSLT:input_type -> xylona.SetSteamGSLTRequest
+	116, // 325: xylona.Xylona.ClearSteamGSLT:input_type -> xylona.ClearSteamGSLTRequest
+	119, // 326: xylona.Xylona.StartHytaleDeviceAuth:input_type -> xylona.StartHytaleDeviceAuthRequest
+	121, // 327: xylona.Xylona.PollHytaleDeviceAuth:input_type -> xylona.PollHytaleDeviceAuthRequest
+	123, // 328: xylona.Xylona.SelectHytaleProfile:input_type -> xylona.SelectHytaleProfileRequest
+	125, // 329: xylona.Xylona.ClearHytaleAccount:input_type -> xylona.ClearHytaleAccountRequest
+	44,  // 330: xylona.Xylona.ListGameServers:input_type -> xylona.ListGameServersRequest
+	135, // 331: xylona.Xylona.QueryGameServer:input_type -> xylona.QueryGameServerRequest
+	25,  // 332: xylona.Xylona.GetOrCreateGameServerStatusPageSettings:input_type -> xylona.GetOrCreateGameServerStatusPageSettingsRequest
+	28,  // 333: xylona.Xylona.UpdateGameServerStatusPageSettings:input_type -> xylona.UpdateGameServerStatusPageSettingsRequest
+	32,  // 334: xylona.Xylona.GetPublicGameServerStatusPage:input_type -> xylona.GetPublicGameServerStatusPageRequest
+	327, // 335: xylona.Xylona.GetOrCreateGameServerMapShareSettings:input_type -> xylona.GetOrCreateGameServerMapShareSettingsRequest
+	329, // 336: xylona.Xylona.UpdateGameServerMapShareSettings:input_type -> xylona.UpdateGameServerMapShareSettingsRequest
+	331, // 337: xylona.Xylona.ResolvePublicGameServerMap:input_type -> xylona.ResolvePublicGameServerMapRequest
+	334, // 338: xylona.Xylona.GetDNSBinding:input_type -> xylona.GetDNSBindingRequest
+	336, // 339: xylona.Xylona.SetDNSBinding:input_type -> xylona.SetDNSBindingRequest
+	338, // 340: xylona.Xylona.RemoveDNSBinding:input_type -> xylona.RemoveDNSBindingRequest
+	340, // 341: xylona.Xylona.SyncDNSBinding:input_type -> xylona.SyncDNSBindingRequest
+	342, // 342: xylona.Xylona.AdoptDNSBindingRecord:input_type -> xylona.AdoptDNSBindingRecordRequest
+	310, // 343: xylona.Xylona.GetGameServerPlayerManagement:input_type -> xylona.GetGameServerPlayerManagementRequest
+	312, // 344: xylona.Xylona.PerformGameServerPlayerAction:input_type -> xylona.PerformGameServerPlayerActionRequest
+	318, // 345: xylona.Xylona.ListGameServerOperations:input_type -> xylona.ListGameServerOperationsRequest
+	324, // 346: xylona.Xylona.ExecuteGameServerOperation:input_type -> xylona.ExecuteGameServerOperationRequest
+	347, // 347: xylona.Xylona.GetPalworldMap:input_type -> xylona.GetPalworldMapRequest
+	349, // 348: xylona.Xylona.UpdatePalworldMapConfig:input_type -> xylona.UpdatePalworldMapConfigRequest
+	351, // 349: xylona.Xylona.InstallPalworldMapTiles:input_type -> xylona.InstallPalworldMapTilesRequest
+	353, // 350: xylona.Xylona.GetPublicPalworldMap:input_type -> xylona.GetPublicPalworldMapRequest
+	362, // 351: xylona.Xylona.GetSevenDaysToDieMap:input_type -> xylona.GetSevenDaysToDieMapRequest
+	384, // 352: xylona.Xylona.InstallSevenDaysToDieLandClaimsMod:input_type -> xylona.InstallSevenDaysToDieLandClaimsModRequest
+	379, // 353: xylona.Xylona.GetSevenDaysToDieWebAPIStatus:input_type -> xylona.GetSevenDaysToDieWebAPIStatusRequest
+	382, // 354: xylona.Xylona.GetSevenDaysToDieSandboxSettings:input_type -> xylona.GetSevenDaysToDieSandboxSettingsRequest
+	364, // 355: xylona.Xylona.UpdateSevenDaysToDieMapNotes:input_type -> xylona.UpdateSevenDaysToDieMapNotesRequest
+	366, // 356: xylona.Xylona.GetPublicSevenDaysToDieMap:input_type -> xylona.GetPublicSevenDaysToDieMapRequest
+	369, // 357: xylona.Xylona.GetMinecraftMap:input_type -> xylona.GetMinecraftMapRequest
+	371, // 358: xylona.Xylona.UpdateMinecraftMapConfig:input_type -> xylona.UpdateMinecraftMapConfigRequest
+	373, // 359: xylona.Xylona.GetPublicMinecraftMap:input_type -> xylona.GetPublicMinecraftMapRequest
+	63,  // 360: xylona.Xylona.GetUpdateTargets:input_type -> xylona.GetUpdateTargetsRequest
+	127, // 361: xylona.Xylona.SetServerVariant:input_type -> xylona.SetServerVariantRequest
+	129, // 362: xylona.Xylona.GetVariantOperationStatus:input_type -> xylona.GetVariantOperationStatusRequest
+	444, // 363: xylona.Xylona.ListDirectoryFiles:input_type -> xylona.ListDirectoryFilesRequest
+	445, // 364: xylona.Xylona.GameServerFilesDelete:input_type -> xylona.GameServerFilesDeleteRequest
+	446, // 365: xylona.Xylona.GameServerFilesArchive:input_type -> xylona.GameServerFilesCompressionRequest
+	447, // 366: xylona.Xylona.GameServerFilesExtract:input_type -> xylona.GameServerFilesDecompressionRequest
+	446, // 367: xylona.Xylona.GameServerFilesCompress:input_type -> xylona.GameServerFilesCompressionRequest
+	447, // 368: xylona.Xylona.GameServerFilesDecompress:input_type -> xylona.GameServerFilesDecompressionRequest
+	448, // 369: xylona.Xylona.GameServerFilesDownloadFromURL:input_type -> xylona.GameServersFileDownloadFromURLRequest
+	449, // 370: xylona.Xylona.GameServerFileRename:input_type -> xylona.GameServerFileRenameRequest
+	450, // 371: xylona.Xylona.GameServerFilesMove:input_type -> xylona.GameServerFilesMoveRequest
+	451, // 372: xylona.Xylona.GameServersFileEdit:input_type -> xylona.GameServersFileEditRequest
+	452, // 373: xylona.Xylona.GameServersFileOrDirectoryCreate:input_type -> xylona.GameServerFileOrDirectoryCreateRequest
+	137, // 374: xylona.Xylona.GetNode:input_type -> xylona.GetNodeRequest
+	139, // 375: xylona.Xylona.ListNodes:input_type -> xylona.ListNodesRequest
+	141, // 376: xylona.Xylona.GenerateNodePairingObject:input_type -> xylona.GenerateNodePairingObjectRequest
+	143, // 377: xylona.Xylona.RemoveNode:input_type -> xylona.RemoveNodeRequest
+	145, // 378: xylona.Xylona.EditNode:input_type -> xylona.EditNodeRequest
+	151, // 379: xylona.Xylona.CheckSystemUpdates:input_type -> xylona.CheckSystemUpdatesRequest
+	153, // 380: xylona.Xylona.StartSystemUpdate:input_type -> xylona.StartSystemUpdateRequest
+	155, // 381: xylona.Xylona.ListSystemUpdateJobs:input_type -> xylona.ListSystemUpdateJobsRequest
+	157, // 382: xylona.Xylona.GetSystemUpdateJob:input_type -> xylona.GetSystemUpdateJobRequest
+	203, // 383: xylona.Xylona.GetGameConfigSchemas:input_type -> xylona.GetGameConfigSchemasRequest
+	205, // 384: xylona.Xylona.UpdateGameConfigSchemas:input_type -> xylona.UpdateGameConfigSchemasRequest
+	195, // 385: xylona.Xylona.GetGameServerConfigFiles:input_type -> xylona.GetGameServerConfigFilesRequest
+	197, // 386: xylona.Xylona.GetGameServerConfigFile:input_type -> xylona.GetGameServerConfigFileRequest
+	199, // 387: xylona.Xylona.UpdateGameServerConfigFile:input_type -> xylona.UpdateGameServerConfigFileRequest
+	201, // 388: xylona.Xylona.GenerateGameServerConfigFile:input_type -> xylona.GenerateGameServerConfigFileRequest
+	161, // 389: xylona.Xylona.ListAggregatedGameServers:input_type -> xylona.ListAggregatedGameServersRequest
+	180, // 390: xylona.Xylona.GetNodeSystemInfo:input_type -> xylona.GetNodeSystemInfoRequest
+	182, // 391: xylona.Xylona.GetNodeResourceSnapshot:input_type -> xylona.GetNodeResourceSnapshotRequest
+	184, // 392: xylona.Xylona.GetDashboardOverview:input_type -> xylona.GetDashboardOverviewRequest
+	187, // 393: xylona.Xylona.GetNodeMetricsHistory:input_type -> xylona.GetNodeMetricsHistoryRequest
+	189, // 394: xylona.Xylona.GetGameServerMetricsHistory:input_type -> xylona.GetGameServerMetricsHistoryRequest
+	211, // 395: xylona.Xylona.SearchMods:input_type -> xylona.SearchModsRequest
+	213, // 396: xylona.Xylona.GetModDetails:input_type -> xylona.GetModDetailsRequest
+	215, // 397: xylona.Xylona.GetModVersions:input_type -> xylona.GetModVersionsRequest
+	217, // 398: xylona.Xylona.InstallMod:input_type -> xylona.InstallModRequest
+	219, // 399: xylona.Xylona.UninstallMod:input_type -> xylona.UninstallModRequest
+	221, // 400: xylona.Xylona.UpdateMod:input_type -> xylona.UpdateModRequest
+	223, // 401: xylona.Xylona.ListInstalledMods:input_type -> xylona.ListInstalledModsRequest
+	226, // 402: xylona.Xylona.GetSevenDaysToDieReportedMods:input_type -> xylona.GetSevenDaysToDieReportedModsRequest
+	228, // 403: xylona.Xylona.SetModAutoUpdate:input_type -> xylona.SetModAutoUpdateRequest
+	230, // 404: xylona.Xylona.SetModEnabled:input_type -> xylona.SetModEnabledRequest
+	232, // 405: xylona.Xylona.PinModVersion:input_type -> xylona.PinModVersionRequest
+	234, // 406: xylona.Xylona.GetModCategories:input_type -> xylona.GetModCategoriesRequest
+	237, // 407: xylona.Xylona.GetVersionInfo:input_type -> xylona.GetVersionInfoRequest
+	239, // 408: xylona.Xylona.CheckForUpdate:input_type -> xylona.CheckForUpdateRequest
+	241, // 409: xylona.Xylona.SetDummyUpdateFailure:input_type -> xylona.SetDummyUpdateFailureRequest
+	243, // 410: xylona.Xylona.CreateNotificationChannel:input_type -> xylona.CreateNotificationChannelRequest
+	245, // 411: xylona.Xylona.UpdateNotificationChannel:input_type -> xylona.UpdateNotificationChannelRequest
+	247, // 412: xylona.Xylona.DeleteNotificationChannel:input_type -> xylona.DeleteNotificationChannelRequest
+	249, // 413: xylona.Xylona.ListNotificationChannels:input_type -> xylona.ListNotificationChannelsRequest
+	251, // 414: xylona.Xylona.TestNotificationChannel:input_type -> xylona.TestNotificationChannelRequest
+	253, // 415: xylona.Xylona.GetLocalSMTPStatus:input_type -> xylona.GetLocalSMTPStatusRequest
+	255, // 416: xylona.Xylona.CreateAlertRule:input_type -> xylona.CreateAlertRuleRequest
+	257, // 417: xylona.Xylona.UpdateAlertRule:input_type -> xylona.UpdateAlertRuleRequest
+	259, // 418: xylona.Xylona.DeleteAlertRule:input_type -> xylona.DeleteAlertRuleRequest
+	261, // 419: xylona.Xylona.ListAlertRules:input_type -> xylona.ListAlertRulesRequest
+	263, // 420: xylona.Xylona.GetAlertHistory:input_type -> xylona.GetAlertHistoryRequest
+	265, // 421: xylona.Xylona.GetSystemSMTPConfig:input_type -> xylona.GetSystemSMTPConfigRequest
+	267, // 422: xylona.Xylona.SetSystemSMTPConfig:input_type -> xylona.SetSystemSMTPConfigRequest
+	269, // 423: xylona.Xylona.TestSystemSMTP:input_type -> xylona.TestSystemSMTPRequest
+	271, // 424: xylona.Xylona.BeginGoogleMailOAuth:input_type -> xylona.BeginGoogleMailOAuthRequest
+	273, // 425: xylona.Xylona.DisconnectGoogleMail:input_type -> xylona.DisconnectGoogleMailRequest
+	278, // 426: xylona.Xylona.GetDNSProviderConnection:input_type -> xylona.GetDNSProviderConnectionRequest
+	280, // 427: xylona.Xylona.ListDNSProviderZones:input_type -> xylona.ListDNSProviderZonesRequest
+	282, // 428: xylona.Xylona.SetDNSProviderConnection:input_type -> xylona.SetDNSProviderConnectionRequest
+	284, // 429: xylona.Xylona.ListScheduledTasks:input_type -> xylona.ListScheduledTasksRequest
+	286, // 430: xylona.Xylona.CreateScheduledTask:input_type -> xylona.CreateScheduledTaskRequest
+	288, // 431: xylona.Xylona.UpdateScheduledTask:input_type -> xylona.UpdateScheduledTaskRequest
+	290, // 432: xylona.Xylona.DeleteScheduledTask:input_type -> xylona.DeleteScheduledTaskRequest
+	292, // 433: xylona.Xylona.GetScheduledTaskLogs:input_type -> xylona.GetScheduledTaskLogsRequest
+	294, // 434: xylona.Xylona.GetGameServerBackupOverview:input_type -> xylona.GetGameServerBackupOverviewRequest
+	296, // 435: xylona.Xylona.GetBackupSettings:input_type -> xylona.GetBackupSettingsRequest
+	298, // 436: xylona.Xylona.UpdateBackupSettings:input_type -> xylona.UpdateBackupSettingsRequest
+	300, // 437: xylona.Xylona.ListGameServerBackups:input_type -> xylona.ListGameServerBackupsRequest
+	302, // 438: xylona.Xylona.CreateGameServerBackup:input_type -> xylona.CreateGameServerBackupRequest
+	304, // 439: xylona.Xylona.DeleteGameServerBackup:input_type -> xylona.DeleteGameServerBackupRequest
+	306, // 440: xylona.Xylona.RestoreGameServerBackup:input_type -> xylona.RestoreGameServerBackupRequest
+	72,  // 441: xylona.Xylona.AddGame:output_type -> xylona.AddGameResponse
+	74,  // 442: xylona.Xylona.EditGame:output_type -> xylona.EditGameResponse
+	76,  // 443: xylona.Xylona.UpdateGameStartArgsTemplate:output_type -> xylona.UpdateGameStartArgsTemplateResponse
+	78,  // 444: xylona.Xylona.UpdateGameStartArgBlocklist:output_type -> xylona.UpdateGameStartArgBlocklistResponse
+	93,  // 445: xylona.Xylona.GetGameEnvironment:output_type -> xylona.GetGameEnvironmentResponse
+	95,  // 446: xylona.Xylona.UpdateGameEnvironment:output_type -> xylona.UpdateGameEnvironmentResponse
+	49,  // 447: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
+	80,  // 448: xylona.Xylona.RemoveGame:output_type -> xylona.RemoveGameResponse
+	83,  // 449: xylona.Xylona.ImportGame:output_type -> xylona.ImportGameResponse
+	87,  // 450: xylona.Xylona.ExportGame:output_type -> xylona.ExportGameResponse
+	85,  // 451: xylona.Xylona.ResetGameToOfficialDefinition:output_type -> xylona.ResetGameToOfficialDefinitionResponse
+	47,  // 452: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
+	208, // 453: xylona.Xylona.SearchSteamApps:output_type -> xylona.SearchSteamAppsResponse
+	210, // 454: xylona.Xylona.GetSteamAppDetails:output_type -> xylona.GetSteamAppDetailsResponse
+	35,  // 455: xylona.Xylona.Login:output_type -> xylona.LoginResponse
+	39,  // 456: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
+	43,  // 457: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
+	41,  // 458: xylona.Xylona.ChangePassword:output_type -> xylona.ChangePasswordResponse
+	387, // 459: xylona.Xylona.GetSetupStatus:output_type -> xylona.GetSetupStatusResponse
+	389, // 460: xylona.Xylona.CompleteSetup:output_type -> xylona.CompleteSetupResponse
+	37,  // 461: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
+	54,  // 462: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
+	56,  // 463: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
+	58,  // 464: xylona.Xylona.UpdateUser:output_type -> xylona.UpdateUserResponse
+	60,  // 465: xylona.Xylona.DeleteUser:output_type -> xylona.DeleteUserResponse
+	164, // 466: xylona.Xylona.ListRoles:output_type -> xylona.ListRolesResponse
+	168, // 467: xylona.Xylona.ListPermissions:output_type -> xylona.ListPermissionsResponse
+	170, // 468: xylona.Xylona.CreateRole:output_type -> xylona.CreateRoleResponse
+	172, // 469: xylona.Xylona.DeleteRole:output_type -> xylona.DeleteRoleResponse
+	174, // 470: xylona.Xylona.ListGameServerAccessGrants:output_type -> xylona.ListGameServerAccessGrantsResponse
+	177, // 471: xylona.Xylona.GrantGameServerAccess:output_type -> xylona.GrantGameServerAccessResponse
+	179, // 472: xylona.Xylona.RevokeGameServerAccess:output_type -> xylona.RevokeGameServerAccessResponse
+	66,  // 473: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
+	68,  // 474: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
+	70,  // 475: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
+	453, // 476: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
+	454, // 477: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
+	455, // 478: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
+	456, // 479: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
+	457, // 480: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
+	458, // 481: xylona.Xylona.RestartGameServer:output_type -> xylona.RestartGameServerResponse
+	459, // 482: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
+	460, // 483: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
+	51,  // 484: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
+	89,  // 485: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
+	91,  // 486: xylona.Xylona.UpdateGameServerStartArgs:output_type -> xylona.UpdateGameServerStartArgsResponse
+	97,  // 487: xylona.Xylona.GetGameServerEnvironment:output_type -> xylona.GetGameServerEnvironmentResponse
+	99,  // 488: xylona.Xylona.UpdateGameServerEnvironment:output_type -> xylona.UpdateGameServerEnvironmentResponse
+	101, // 489: xylona.Xylona.SetGameServerSecretEnv:output_type -> xylona.SetGameServerSecretEnvResponse
+	103, // 490: xylona.Xylona.ClearGameServerSecretEnv:output_type -> xylona.ClearGameServerSecretEnvResponse
+	106, // 491: xylona.Xylona.GetGameServerAdminInterface:output_type -> xylona.GetGameServerAdminInterfaceResponse
+	108, // 492: xylona.Xylona.SetGameServerAdminInterfacePassword:output_type -> xylona.SetGameServerAdminInterfacePasswordResponse
+	111, // 493: xylona.Xylona.GetGameServerReadiness:output_type -> xylona.GetGameServerReadinessResponse
+	113, // 494: xylona.Xylona.AcceptMinecraftEula:output_type -> xylona.AcceptMinecraftEulaResponse
+	392, // 495: xylona.Xylona.GetJoinPasswordState:output_type -> xylona.GetJoinPasswordStateResponse
+	394, // 496: xylona.Xylona.SetJoinPassword:output_type -> xylona.SetJoinPasswordResponse
+	396, // 497: xylona.Xylona.ClearJoinPassword:output_type -> xylona.ClearJoinPasswordResponse
+	115, // 498: xylona.Xylona.SetSteamGSLT:output_type -> xylona.SetSteamGSLTResponse
+	117, // 499: xylona.Xylona.ClearSteamGSLT:output_type -> xylona.ClearSteamGSLTResponse
+	120, // 500: xylona.Xylona.StartHytaleDeviceAuth:output_type -> xylona.StartHytaleDeviceAuthResponse
+	122, // 501: xylona.Xylona.PollHytaleDeviceAuth:output_type -> xylona.PollHytaleDeviceAuthResponse
+	124, // 502: xylona.Xylona.SelectHytaleProfile:output_type -> xylona.SelectHytaleProfileResponse
+	126, // 503: xylona.Xylona.ClearHytaleAccount:output_type -> xylona.ClearHytaleAccountResponse
+	45,  // 504: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
+	136, // 505: xylona.Xylona.QueryGameServer:output_type -> xylona.QueryGameServerResponse
+	26,  // 506: xylona.Xylona.GetOrCreateGameServerStatusPageSettings:output_type -> xylona.GetOrCreateGameServerStatusPageSettingsResponse
+	29,  // 507: xylona.Xylona.UpdateGameServerStatusPageSettings:output_type -> xylona.UpdateGameServerStatusPageSettingsResponse
+	33,  // 508: xylona.Xylona.GetPublicGameServerStatusPage:output_type -> xylona.GetPublicGameServerStatusPageResponse
+	328, // 509: xylona.Xylona.GetOrCreateGameServerMapShareSettings:output_type -> xylona.GetOrCreateGameServerMapShareSettingsResponse
+	330, // 510: xylona.Xylona.UpdateGameServerMapShareSettings:output_type -> xylona.UpdateGameServerMapShareSettingsResponse
+	332, // 511: xylona.Xylona.ResolvePublicGameServerMap:output_type -> xylona.ResolvePublicGameServerMapResponse
+	335, // 512: xylona.Xylona.GetDNSBinding:output_type -> xylona.GetDNSBindingResponse
+	337, // 513: xylona.Xylona.SetDNSBinding:output_type -> xylona.SetDNSBindingResponse
+	339, // 514: xylona.Xylona.RemoveDNSBinding:output_type -> xylona.RemoveDNSBindingResponse
+	341, // 515: xylona.Xylona.SyncDNSBinding:output_type -> xylona.SyncDNSBindingResponse
+	343, // 516: xylona.Xylona.AdoptDNSBindingRecord:output_type -> xylona.AdoptDNSBindingRecordResponse
+	311, // 517: xylona.Xylona.GetGameServerPlayerManagement:output_type -> xylona.GetGameServerPlayerManagementResponse
+	313, // 518: xylona.Xylona.PerformGameServerPlayerAction:output_type -> xylona.PerformGameServerPlayerActionResponse
+	319, // 519: xylona.Xylona.ListGameServerOperations:output_type -> xylona.ListGameServerOperationsResponse
+	325, // 520: xylona.Xylona.ExecuteGameServerOperation:output_type -> xylona.ExecuteGameServerOperationResponse
+	348, // 521: xylona.Xylona.GetPalworldMap:output_type -> xylona.GetPalworldMapResponse
+	350, // 522: xylona.Xylona.UpdatePalworldMapConfig:output_type -> xylona.UpdatePalworldMapConfigResponse
+	352, // 523: xylona.Xylona.InstallPalworldMapTiles:output_type -> xylona.InstallPalworldMapTilesResponse
+	354, // 524: xylona.Xylona.GetPublicPalworldMap:output_type -> xylona.GetPublicPalworldMapResponse
+	363, // 525: xylona.Xylona.GetSevenDaysToDieMap:output_type -> xylona.GetSevenDaysToDieMapResponse
+	385, // 526: xylona.Xylona.InstallSevenDaysToDieLandClaimsMod:output_type -> xylona.InstallSevenDaysToDieLandClaimsModResponse
+	380, // 527: xylona.Xylona.GetSevenDaysToDieWebAPIStatus:output_type -> xylona.GetSevenDaysToDieWebAPIStatusResponse
+	383, // 528: xylona.Xylona.GetSevenDaysToDieSandboxSettings:output_type -> xylona.GetSevenDaysToDieSandboxSettingsResponse
+	365, // 529: xylona.Xylona.UpdateSevenDaysToDieMapNotes:output_type -> xylona.UpdateSevenDaysToDieMapNotesResponse
+	367, // 530: xylona.Xylona.GetPublicSevenDaysToDieMap:output_type -> xylona.GetPublicSevenDaysToDieMapResponse
+	370, // 531: xylona.Xylona.GetMinecraftMap:output_type -> xylona.GetMinecraftMapResponse
+	372, // 532: xylona.Xylona.UpdateMinecraftMapConfig:output_type -> xylona.UpdateMinecraftMapConfigResponse
+	374, // 533: xylona.Xylona.GetPublicMinecraftMap:output_type -> xylona.GetPublicMinecraftMapResponse
+	64,  // 534: xylona.Xylona.GetUpdateTargets:output_type -> xylona.GetUpdateTargetsResponse
+	128, // 535: xylona.Xylona.SetServerVariant:output_type -> xylona.SetServerVariantResponse
+	130, // 536: xylona.Xylona.GetVariantOperationStatus:output_type -> xylona.GetVariantOperationStatusResponse
+	461, // 537: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
+	462, // 538: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
+	463, // 539: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
+	464, // 540: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
+	465, // 541: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
+	466, // 542: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
+	467, // 543: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
+	468, // 544: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
+	469, // 545: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
+	470, // 546: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
+	471, // 547: xylona.Xylona.GameServersFileOrDirectoryCreate:output_type -> xylona.GameServerFileOrDirectoryCreateResponse
+	138, // 548: xylona.Xylona.GetNode:output_type -> xylona.GetNodeResponse
+	140, // 549: xylona.Xylona.ListNodes:output_type -> xylona.ListNodesResponse
+	142, // 550: xylona.Xylona.GenerateNodePairingObject:output_type -> xylona.GenerateNodePairingObjectResponse
+	144, // 551: xylona.Xylona.RemoveNode:output_type -> xylona.RemoveNodeResponse
+	146, // 552: xylona.Xylona.EditNode:output_type -> xylona.EditNodeResponse
+	152, // 553: xylona.Xylona.CheckSystemUpdates:output_type -> xylona.CheckSystemUpdatesResponse
+	154, // 554: xylona.Xylona.StartSystemUpdate:output_type -> xylona.StartSystemUpdateResponse
+	156, // 555: xylona.Xylona.ListSystemUpdateJobs:output_type -> xylona.ListSystemUpdateJobsResponse
+	158, // 556: xylona.Xylona.GetSystemUpdateJob:output_type -> xylona.GetSystemUpdateJobResponse
+	204, // 557: xylona.Xylona.GetGameConfigSchemas:output_type -> xylona.GetGameConfigSchemasResponse
+	206, // 558: xylona.Xylona.UpdateGameConfigSchemas:output_type -> xylona.UpdateGameConfigSchemasResponse
+	196, // 559: xylona.Xylona.GetGameServerConfigFiles:output_type -> xylona.GetGameServerConfigFilesResponse
+	198, // 560: xylona.Xylona.GetGameServerConfigFile:output_type -> xylona.GetGameServerConfigFileResponse
+	200, // 561: xylona.Xylona.UpdateGameServerConfigFile:output_type -> xylona.UpdateGameServerConfigFileResponse
+	202, // 562: xylona.Xylona.GenerateGameServerConfigFile:output_type -> xylona.GenerateGameServerConfigFileResponse
+	162, // 563: xylona.Xylona.ListAggregatedGameServers:output_type -> xylona.ListAggregatedGameServersResponse
+	181, // 564: xylona.Xylona.GetNodeSystemInfo:output_type -> xylona.GetNodeSystemInfoResponse
+	183, // 565: xylona.Xylona.GetNodeResourceSnapshot:output_type -> xylona.GetNodeResourceSnapshotResponse
+	186, // 566: xylona.Xylona.GetDashboardOverview:output_type -> xylona.GetDashboardOverviewResponse
+	188, // 567: xylona.Xylona.GetNodeMetricsHistory:output_type -> xylona.GetNodeMetricsHistoryResponse
+	190, // 568: xylona.Xylona.GetGameServerMetricsHistory:output_type -> xylona.GetGameServerMetricsHistoryResponse
+	212, // 569: xylona.Xylona.SearchMods:output_type -> xylona.SearchModsResponse
+	214, // 570: xylona.Xylona.GetModDetails:output_type -> xylona.GetModDetailsResponse
+	216, // 571: xylona.Xylona.GetModVersions:output_type -> xylona.GetModVersionsResponse
+	218, // 572: xylona.Xylona.InstallMod:output_type -> xylona.InstallModResponse
+	220, // 573: xylona.Xylona.UninstallMod:output_type -> xylona.UninstallModResponse
+	222, // 574: xylona.Xylona.UpdateMod:output_type -> xylona.UpdateModResponse
+	224, // 575: xylona.Xylona.ListInstalledMods:output_type -> xylona.ListInstalledModsResponse
+	227, // 576: xylona.Xylona.GetSevenDaysToDieReportedMods:output_type -> xylona.GetSevenDaysToDieReportedModsResponse
+	229, // 577: xylona.Xylona.SetModAutoUpdate:output_type -> xylona.SetModAutoUpdateResponse
+	231, // 578: xylona.Xylona.SetModEnabled:output_type -> xylona.SetModEnabledResponse
+	233, // 579: xylona.Xylona.PinModVersion:output_type -> xylona.PinModVersionResponse
+	235, // 580: xylona.Xylona.GetModCategories:output_type -> xylona.GetModCategoriesResponse
+	238, // 581: xylona.Xylona.GetVersionInfo:output_type -> xylona.GetVersionInfoResponse
+	240, // 582: xylona.Xylona.CheckForUpdate:output_type -> xylona.CheckForUpdateResponse
+	242, // 583: xylona.Xylona.SetDummyUpdateFailure:output_type -> xylona.SetDummyUpdateFailureResponse
+	244, // 584: xylona.Xylona.CreateNotificationChannel:output_type -> xylona.CreateNotificationChannelResponse
+	246, // 585: xylona.Xylona.UpdateNotificationChannel:output_type -> xylona.UpdateNotificationChannelResponse
+	248, // 586: xylona.Xylona.DeleteNotificationChannel:output_type -> xylona.DeleteNotificationChannelResponse
+	250, // 587: xylona.Xylona.ListNotificationChannels:output_type -> xylona.ListNotificationChannelsResponse
+	252, // 588: xylona.Xylona.TestNotificationChannel:output_type -> xylona.TestNotificationChannelResponse
+	254, // 589: xylona.Xylona.GetLocalSMTPStatus:output_type -> xylona.GetLocalSMTPStatusResponse
+	256, // 590: xylona.Xylona.CreateAlertRule:output_type -> xylona.CreateAlertRuleResponse
+	258, // 591: xylona.Xylona.UpdateAlertRule:output_type -> xylona.UpdateAlertRuleResponse
+	260, // 592: xylona.Xylona.DeleteAlertRule:output_type -> xylona.DeleteAlertRuleResponse
+	262, // 593: xylona.Xylona.ListAlertRules:output_type -> xylona.ListAlertRulesResponse
+	264, // 594: xylona.Xylona.GetAlertHistory:output_type -> xylona.GetAlertHistoryResponse
+	266, // 595: xylona.Xylona.GetSystemSMTPConfig:output_type -> xylona.GetSystemSMTPConfigResponse
+	268, // 596: xylona.Xylona.SetSystemSMTPConfig:output_type -> xylona.SetSystemSMTPConfigResponse
+	270, // 597: xylona.Xylona.TestSystemSMTP:output_type -> xylona.TestSystemSMTPResponse
+	272, // 598: xylona.Xylona.BeginGoogleMailOAuth:output_type -> xylona.BeginGoogleMailOAuthResponse
+	274, // 599: xylona.Xylona.DisconnectGoogleMail:output_type -> xylona.DisconnectGoogleMailResponse
+	279, // 600: xylona.Xylona.GetDNSProviderConnection:output_type -> xylona.GetDNSProviderConnectionResponse
+	281, // 601: xylona.Xylona.ListDNSProviderZones:output_type -> xylona.ListDNSProviderZonesResponse
+	283, // 602: xylona.Xylona.SetDNSProviderConnection:output_type -> xylona.SetDNSProviderConnectionResponse
+	285, // 603: xylona.Xylona.ListScheduledTasks:output_type -> xylona.ListScheduledTasksResponse
+	287, // 604: xylona.Xylona.CreateScheduledTask:output_type -> xylona.CreateScheduledTaskResponse
+	289, // 605: xylona.Xylona.UpdateScheduledTask:output_type -> xylona.UpdateScheduledTaskResponse
+	291, // 606: xylona.Xylona.DeleteScheduledTask:output_type -> xylona.DeleteScheduledTaskResponse
+	293, // 607: xylona.Xylona.GetScheduledTaskLogs:output_type -> xylona.GetScheduledTaskLogsResponse
+	295, // 608: xylona.Xylona.GetGameServerBackupOverview:output_type -> xylona.GetGameServerBackupOverviewResponse
+	297, // 609: xylona.Xylona.GetBackupSettings:output_type -> xylona.GetBackupSettingsResponse
+	299, // 610: xylona.Xylona.UpdateBackupSettings:output_type -> xylona.UpdateBackupSettingsResponse
+	301, // 611: xylona.Xylona.ListGameServerBackups:output_type -> xylona.ListGameServerBackupsResponse
+	303, // 612: xylona.Xylona.CreateGameServerBackup:output_type -> xylona.CreateGameServerBackupResponse
+	305, // 613: xylona.Xylona.DeleteGameServerBackup:output_type -> xylona.DeleteGameServerBackupResponse
+	307, // 614: xylona.Xylona.RestoreGameServerBackup:output_type -> xylona.RestoreGameServerBackupResponse
+	441, // [441:615] is the sub-list for method output_type
+	267, // [267:441] is the sub-list for method input_type
 	267, // [267:267] is the sub-list for extension type_name
 	267, // [267:267] is the sub-list for extension extendee
 	0,   // [0:267] is the sub-list for field type_name
@@ -25448,31 +25546,31 @@ func file_xylona_proto_init() {
 	file_xylona_proto_msgTypes[4].OneofWrappers = []any{}
 	file_xylona_proto_msgTypes[7].OneofWrappers = []any{}
 	file_xylona_proto_msgTypes[14].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[47].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[58].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[167].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[230].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[49].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[60].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[169].OneofWrappers = []any{}
 	file_xylona_proto_msgTypes[232].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[236].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[234].OneofWrappers = []any{}
 	file_xylona_proto_msgTypes[238].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[261].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[240].OneofWrappers = []any{}
 	file_xylona_proto_msgTypes[263].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[284].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[287].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[290].OneofWrappers = []any{}
-	file_xylona_proto_msgTypes[295].OneofWrappers = []any{
+	file_xylona_proto_msgTypes[265].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[286].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[289].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[292].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[297].OneofWrappers = []any{
 		(*GameOperationValue_StringValue)(nil),
 		(*GameOperationValue_IntegerValue)(nil),
 		(*GameOperationValue_BooleanValue)(nil),
 	}
-	file_xylona_proto_msgTypes[353].OneofWrappers = []any{}
+	file_xylona_proto_msgTypes[355].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_xylona_proto_rawDesc), len(file_xylona_proto_rawDesc)),
 			NumEnums:      23,
-			NumMessages:   372,
+			NumMessages:   374,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

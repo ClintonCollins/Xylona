@@ -284,7 +284,7 @@ func TestGrantGameServerAccessAuthorizationAndShape(t *testing.T) {
 func TestRevokeGameServerAccessAuthorization(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	closedUserID := ""
-	fixture.service.closeUserSessions = func(userID string) {
+	fixture.service.closeUserSessions = func(userID string, _ string) {
 		closedUserID = userID
 	}
 
