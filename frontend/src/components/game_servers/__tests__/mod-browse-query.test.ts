@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  buildModBrowseQuery,
   clampModBrowsePage,
   DEFAULT_PAGE_SIZE,
   loadModBrowsePageSize,
@@ -171,6 +172,30 @@ describe('ModBrowse query param validation', () => {
     const parsed = parseModBrowseQuery({})
     expect(parsed.categoryFilter).toEqual([])
   })
+
+  it.each([
+    { filter: '', defaultVersion: '1.21.4', want: 'all' },
+    { filter: '', defaultVersion: '', want: undefined },
+    { filter: '1.20.6', defaultVersion: '1.21.4', want: '1.20.6' },
+  ])(
+    'writes version=$want for filter "$filter" with default "$defaultVersion"',
+    ({ filter, defaultVersion, want }) => {
+      const query = buildModBrowseQuery(
+        {},
+        {
+          searchQuery: '',
+          sortBy: 'downloads',
+          activeSource: '',
+          gameVersionFilter: filter,
+          categoryFilter: [],
+          currentPage: 1,
+          defaultGameVersion: defaultVersion,
+        },
+      )
+      expect(query['version']).toBe(want)
+      expect(parseModBrowseQuery(query).gameVersionFilter).toBe(filter)
+    },
+  )
 })
 
 describe('ModBrowse page clamping', () => {

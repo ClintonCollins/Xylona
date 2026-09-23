@@ -155,4 +155,54 @@ describe('ModDetailDialog', () => {
     expect(safeLink.exists()).toBe(true)
     expect(safeLink.text()).toBe('safe link')
   })
+
+  it('falls back to the summary and hides an empty author line', async () => {
+    mockGetModDetails.mockResolvedValue({
+      details: makeModDetails({ author: '', body: '', description: 'Keeps old clients online.' }),
+    })
+    mockGetModVersions.mockResolvedValue({ versions: [makeModVersion()] })
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('.mod-detail-body').text()).toContain('Keeps old clients online.')
+    })
+    expect(wrapper.find('.mod-detail-author').exists()).toBe(false)
+  })
+
+  it('selects the newest version that supports the server and emits it on install', async () => {
+    const snapshot = makeModVersion({
+      versionId: 'v3',
+      versionString: '3.0.0',
+      gameVersions: ['1.21.5'],
+    })
+    const compatible = makeModVersion({
+      versionId: 'v2',
+      versionString: '2.0.0',
+      gameVersions: ['1.20.4', '1.21.4'],
+    })
+    mockGetModDetails.mockResolvedValue({ details: makeModDetails() })
+    mockGetModVersions.mockResolvedValue({
+      versions: [snapshot, compatible, makeModVersion({ gameVersions: ['1.21.4'] })],
+    })
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ gameVersion: '1.21.4', show: true })
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.mod-version-match')).toHaveLength(2)
+    })
+    expect(wrapper.find('.mod-version-game').text()).toBe('1.21.5')
+
+    const installButton = wrapper.findAll('button').find((button) => button.text() === 'Install')
+    await installButton?.trigger('click')
+
+    expect(wrapper.emitted('install')?.[0]).toEqual([
+      'modrinth',
+      'abc123',
+      compatible,
+      'Sample Mod',
+    ])
+  })
 })

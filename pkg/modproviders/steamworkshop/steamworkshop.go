@@ -169,6 +169,11 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 		log.Warn().Err(errVersions).Str("sourceID", sourceID).Msg("steam workshop: failed to fetch versions for mod details")
 	}
 
+	var updatedAt time.Time
+	if detail.TimeUpdated > 0 {
+		updatedAt = time.Unix(detail.TimeUpdated, 0).UTC()
+	}
+
 	return &modproviders.ModDetails{
 		Source:      providerID,
 		SourceID:    detail.PublishedFileID,
@@ -179,6 +184,7 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 		Downloads:   detail.LifetimeSubscriptions,
 		Categories:  tags,
 		Versions:    versions,
+		UpdatedAt:   updatedAt,
 	}, nil
 }
 
@@ -196,6 +202,10 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, _ string, _
 
 	updatedAt := time.Unix(detail.TimeUpdated, 0).UTC()
 	versionStr := fmt.Sprintf("updated_%s", updatedAt.Format("20060102"))
+	var publishedAt time.Time
+	if detail.TimeUpdated > 0 {
+		publishedAt = updatedAt
+	}
 
 	return []modproviders.ModVersion{
 		{
@@ -206,6 +216,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, _ string, _
 			FileSize:      parseFileSize(detail.FileSize),
 			Dependencies:  []modproviders.ModDependency{},
 			Changelog:     fmt.Sprintf("Last updated: %s", updatedAt.Format(time.RFC3339)),
+			PublishedAt:   publishedAt,
 		},
 	}, nil
 }

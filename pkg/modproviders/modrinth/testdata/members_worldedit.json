@@ -1,0 +1,16 @@
+[
+  {
+    "team_id": "team-1",
+    "user": {"username": "contributor"},
+    "role": "Developer",
+    "is_owner": false,
+    "ordering": 0
+  },
+  {
+    "team_id": "team-1",
+    "user": {"username": "sk89q"},
+    "role": "Owner",
+    "is_owner": true,
+    "ordering": 1
+  }
+]

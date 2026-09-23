@@ -26,6 +26,10 @@ import {
 import {
   formatSevenDaysToDieCoordinate,
   initialSevenDaysToDieMapView,
+  sevenDaysToDieTileHasTerrain,
+  sevenDaysToDieTileHint,
+  type SevenDaysToDieTileHint,
+  type SevenDaysToDieTileState,
   sevenDaysToDieTileURL,
 } from '@/pages/game_servers/seven-days-to-die-map'
 import { formatTime, formatTimestamp } from '@/utils/format-timestamp'
@@ -160,6 +164,55 @@ const mapStatus = computed(() => {
   }
   return { label: 'Live world', icon: 'sensors', tone: 'success' }
 })
+// Track what each loaded tile contains to tell "nothing explored here yet"
+// apart from tiles that failed to load.
+const tileStates = new Map<string, { coords: L.Coords; state: SevenDaysToDieTileState }>()
+const tileHint = ref<SevenDaysToDieTileHint>('')
+let tileCanvas: HTMLCanvasElement | null = null
+
+function recordTileState(coordinates: L.Coords, state?: SevenDaysToDieTileState): void {
+  const key = `${coordinates.z}/${coordinates.x}/${coordinates.y}`
+  if (state === undefined) {
+    tileStates.delete(key)
+  } else {
+    tileStates.set(key, { coords: coordinates, state })
+  }
+  updateTileHint()
+}
+
+// Leaflet keeps a buffer of off-screen tiles; only tiles in view count.
+function updateTileHint(): void {
+  const inView = Array.from(tileStates.values())
+    .filter((tile) => tileLayer?.isTileInView(tile.coords) ?? true)
+    .map((tile) => tile.state)
+  tileHint.value = sevenDaysToDieTileHint(inView)
+}
+
+function resetTileStates(): void {
+  tileStates.clear()
+  tileHint.value = ''
+}
+
+function tileHasTerrain(image: HTMLImageElement): boolean {
+  tileCanvas ??= document.createElement('canvas')
+  tileCanvas.width = image.naturalWidth
+  tileCanvas.height = image.naturalHeight
+  const context = tileCanvas.getContext('2d', { willReadFrequently: true })
+  // When pixels cannot be read, assume terrain rather than claim the world is unexplored.
+  if (context === null || tileCanvas.width === 0 || tileCanvas.height === 0) {
+    return true
+  }
+  try {
+    context.clearRect(0, 0, tileCanvas.width, tileCanvas.height)
+    context.drawImage(image, 0, 0)
+    return sevenDaysToDieTileHasTerrain(
+      context.getImageData(0, 0, tileCanvas.width, tileCanvas.height).data,
+    )
+  } catch {
+    return true
+  }
+}
+
 const collectedLabel = computed(() => {
   const collectedAt = props.view?.collectedAt
   if (collectedAt === undefined) {
@@ -185,6 +238,18 @@ class AuthorizedTileLayer extends L.GridLayer {
 
     this.loadTile(coordinates, image, done)
     return image
+  }
+
+  isTileInView(coordinates: L.Coords): boolean {
+    const map = this._map as LeafletMap | undefined
+    if (!map) {
+      return true
+    }
+    // Tile pixels at the tile's zoom, scaled to the map's current zoom.
+    const scale = map.getZoomScale(map.getZoom(), coordinates.z)
+    const tileSize = this.getTileSize().multiplyBy(scale)
+    const topLeft = L.point(coordinates.x, coordinates.y).scaleBy(tileSize)
+    return map.getPixelBounds().intersects(L.bounds(topLeft, topLeft.add(tileSize)))
   }
 
   refreshPlayerTiles(map: LeafletMap, players: readonly SevenDaysToDieMapPlayer[]): void {
@@ -242,6 +307,7 @@ class AuthorizedTileLayer extends L.GridLayer {
           'load',
           () => {
             URL.revokeObjectURL(objectURL)
+            recordTileState(coordinates, tileHasTerrain(image) ? 'terrain' : 'empty')
             done?.(undefined, image)
           },
           { once: true },
@@ -250,6 +316,7 @@ class AuthorizedTileLayer extends L.GridLayer {
           'error',
           () => {
             URL.revokeObjectURL(objectURL)
+            recordTileState(coordinates, 'error')
             done?.(new Error('The map tile could not be decoded.'), image)
           },
           { once: true },
@@ -257,6 +324,7 @@ class AuthorizedTileLayer extends L.GridLayer {
         image.src = objectURL
       })
       .catch((error: unknown) => {
+        recordTileState(coordinates, 'error')
         done?.(
           error instanceof Error ? error : new Error('The map tile could not be loaded.'),
           image,
@@ -495,6 +563,7 @@ function teardownMap(): void {
   tileLayer = null
   playerLayer = null
   overlayLayer = null
+  resetTileStates()
   map?.remove()
   map = null
   initializedKey = ''
@@ -549,6 +618,8 @@ async function initializeMap(): Promise<void> {
     noWrap: true,
     updateWhenIdle: false,
   })
+  tileLayer.on('tileunload', (event: L.TileEvent) => recordTileState(event.coords))
+  map.on('moveend', updateTileHint)
   tileLayer.addTo(map)
   lastFullTileRefreshAt = Date.now()
   playerLayer = L.layerGroup().addTo(map)
@@ -798,6 +869,10 @@ onBeforeUnmount(() => {
             <span><q-icon color="accent" name="person" /> Online player</span>
             <span><q-icon name="history" /> Last-known player</span>
             <span><q-icon name="edit_location" style="color: var(--xy-purple)" /> Map note</span>
+            <span class="seven-days-map__legend-note"
+              ><q-icon name="explore" /> Only explored terrain is rendered; the map fills in as
+              players explore.</span
+            >
             <span v-if="!loadError && view?.hostileState === availableState"
               ><q-icon color="negative" name="warning" /> Hostile</span
             >
@@ -861,6 +936,19 @@ onBeforeUnmount(() => {
             label="Open configuration"
             no-caps />
         </div>
+      </div>
+
+      <div
+        v-if="view?.enabled && tileHint !== ''"
+        class="seven-days-map__tile-hint"
+        data-testid="tile-hint"
+        role="status">
+        <q-icon :name="tileHint === 'error' ? 'error_outline' : 'explore'" />
+        {{
+          tileHint === 'error'
+            ? 'Some map tiles could not be loaded. Refresh to try again.'
+            : 'Nothing explored here yet. The map fills in as players explore.'
+        }}
       </div>
 
       <div v-if="view?.stale && view.enabled" class="seven-days-map__stale-banner">
@@ -1197,6 +1285,32 @@ onBeforeUnmount(() => {
   gap: var(--xy-space-sm);
 }
 
+.seven-days-map__legend-note {
+  max-width: 32ch;
+  color: var(--xy-text-muted);
+}
+
+.seven-days-map__tile-hint {
+  position: absolute;
+  z-index: 505;
+  top: var(--xy-space-md);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  width: max-content;
+  max-width: calc(100% - 7rem);
+  padding: var(--xy-space-sm) var(--xy-space-base);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+  background: color-mix(in srgb, var(--xy-surface-1) 94%, transparent);
+  border: 1px solid var(--xy-border-hover);
+  border-radius: var(--xy-radius-md);
+  box-shadow: var(--xy-shadow-md);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
 .seven-days-map__stale-banner {
   position: absolute;
   z-index: 510;
@@ -1398,8 +1512,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 599px) {
+  /* Grow to toolbar + controls + the 450px map instead of clipping the map. */
   .seven-days-map {
-    min-height: 480px;
+    flex: none;
+    min-height: 0;
+    overflow: visible;
     border-right: 0;
     border-left: 0;
     border-radius: 0;

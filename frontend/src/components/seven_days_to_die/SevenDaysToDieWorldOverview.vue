@@ -200,6 +200,7 @@ function tacticalCountLabel(
         <div>
           <dt>Land claims</dt>
           <dd>{{ claimCountLabel }}</dd>
+          <slot name="claims-action" />
         </div>
         <div>
           <dt>Hostiles</dt>

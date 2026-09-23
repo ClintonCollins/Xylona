@@ -197,7 +197,9 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 599px) {
+  /* The map card grows to its content on phones, so the page scrolls. */
   .public-seven-days-map {
+    height: auto;
     padding: var(--xy-space-xs);
   }
 

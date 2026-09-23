@@ -1,5 +1,5 @@
 <template>
-  <div class="mod-browse">
+  <div :class="{ 'mod-browse--filters-open': filtersOpen }" class="mod-browse">
     <!-- Toolbar: search + source filters -->
     <div class="browse-toolbar">
       <q-input
@@ -16,6 +16,16 @@
           <q-icon aria-hidden="true" class="text-xy-muted" name="search" size="xs" />
         </template>
       </q-input>
+
+      <!-- Phones fold the secondary filters away so results get the screen. -->
+      <q-btn
+        :aria-expanded="filtersOpen"
+        class="browse-filters-toggle"
+        flat
+        icon="tune"
+        :label="activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'"
+        no-caps
+        @click="filtersOpen = !filtersOpen" />
 
       <q-select
         v-model="sortBy"
@@ -89,15 +99,22 @@
         v-if="availableCategories.length > 0"
         v-model="categoryFilter"
         :options="availableCategories"
-        aria-label="Filter by category"
         class="browse-category-select"
         dense
         emit-value
+        label="Categories"
         multiple
         outlined
-        placeholder="Categories"
         use-chips />
     </div>
+
+    <!-- Provider searches take seconds; keep the old results but mark them stale. -->
+    <q-linear-progress
+      v-if="loading && results.length > 0"
+      class="browse-progress"
+      color="primary"
+      indeterminate
+      size="2px" />
 
     <!-- Loading state -->
     <div v-if="loading && results.length === 0" class="browse-loading">
@@ -113,7 +130,11 @@
       title="No mods found" />
 
     <!-- Results grid -->
-    <div v-else-if="results.length > 0" class="browse-grid-scroll">
+    <div
+      v-else-if="results.length > 0"
+      :aria-busy="loading"
+      :class="{ 'browse-grid-scroll--stale': loading }"
+      class="browse-grid-scroll">
       <div class="browse-grid">
         <article
           v-for="mod in results"
@@ -189,11 +210,13 @@
               v-else
               color="primary"
               dense
+              :disable="installingKey !== '' && installingKey !== modKey(mod)"
               icon="add"
               label="Install"
+              :loading="installingKey === modKey(mod)"
               no-caps
               size="sm"
-              @click="onInstallClick($event, mod.source, mod.sourceId)" />
+              @click="onInstallClick($event, mod)" />
           </div>
         </article>
       </div>
@@ -276,13 +299,21 @@ interface Props {
   installedMods: InstalledMod[]
   sources: ModSource[]
   availableVersions?: string[]
+  /** The server's game version, preselected in the version filter. */
+  defaultGameVersion?: string
+  /** `source:sourceId` of the mod being installed, if any. */
+  installingKey?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  availableVersions: () => [],
+  defaultGameVersion: '',
+  installingKey: '',
+})
 
 const emit = defineEmits<{
   'view-details': [source: string, sourceId: string]
-  install: [source: string, sourceId: string]
+  install: [source: string, sourceId: string, name: string]
 }>()
 
 const route = useRoute()
@@ -305,11 +336,12 @@ const sortBy = ref<string>('downloads')
 const gameVersionFilter = ref('')
 const categoryFilter = ref<string[]>([])
 const availableCategories = ref<string[]>([])
+const filtersOpen = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 
 const versionSelectOptions = computed(() => {
-  const versions = props.availableVersions ?? []
+  const versions = props.availableVersions
   if (versions.length === 0) return []
   return [{ label: 'All Versions', value: '' }, ...versions.map((v) => ({ label: v, value: v }))]
 })
@@ -332,7 +364,8 @@ function initFromQuery(): void {
   searchQuery.value = parsed.searchQuery
   sortBy.value = parsed.sortBy
   activeSource.value = parsed.activeSource
-  gameVersionFilter.value = parsed.gameVersionFilter
+  gameVersionFilter.value =
+    route.query.version === undefined ? props.defaultGameVersion : parsed.gameVersionFilter
   categoryFilter.value = parsed.categoryFilter
   currentPage.value = parsed.currentPage
   void nextTick().then(() => {
@@ -348,6 +381,7 @@ function syncQueryParams(): void {
     gameVersionFilter: gameVersionFilter.value,
     categoryFilter: categoryFilter.value,
     currentPage: currentPage.value,
+    defaultGameVersion: props.defaultGameVersion,
   })
   void router.replace({ query })
 }
@@ -357,18 +391,26 @@ const hasActiveFilters = computed(() => {
     searchQuery.value.trim() !== '' ||
     sortBy.value !== 'downloads' ||
     activeSource.value !== '' ||
-    gameVersionFilter.value !== '' ||
+    gameVersionFilter.value !== props.defaultGameVersion ||
     categoryFilter.value.length > 0 ||
     currentPage.value !== 1
   )
 })
+
+const activeFilterCount = computed(
+  () =>
+    Number(sortBy.value !== 'downloads') +
+    Number(activeSource.value !== '') +
+    Number(gameVersionFilter.value !== '') +
+    categoryFilter.value.length,
+)
 
 function resetFilters(): void {
   suppressWatchSearch.value = true
   searchQuery.value = ''
   sortBy.value = 'downloads'
   activeSource.value = ''
-  gameVersionFilter.value = ''
+  gameVersionFilter.value = props.defaultGameVersion
   categoryFilter.value = []
   currentPage.value = 1
   suppressWatchSearch.value = false
@@ -387,6 +429,17 @@ watch(sortBy, () => {
     void resetAndSearch()
   }
 })
+
+// The server's version usually arrives after the first search; adopt it unless
+// the link already names a version.
+watch(
+  () => props.defaultGameVersion,
+  (version) => {
+    if (version !== '' && gameVersionFilter.value === '' && route.query.version === undefined) {
+      gameVersionFilter.value = version
+    }
+  },
+)
 
 watch(gameVersionFilter, () => {
   if (!suppressWatchSearch.value) {
@@ -534,11 +587,15 @@ async function loadCategories(): Promise<void> {
   }
 }
 
-function onInstallClick(event: Event | undefined, source: string, sourceId: string): void {
+function onInstallClick(event: Event | undefined, mod: ModSearchResult): void {
   if (event?.stopPropagation) {
     event.stopPropagation()
   }
-  emit('install', source, sourceId)
+  emit('install', mod.source, mod.sourceId, mod.name)
+}
+
+function modKey(mod: ModSearchResult): string {
+  return `${mod.source}:${mod.sourceId}`
 }
 
 function isModInstalled(source: string, sourceId: string): boolean {
@@ -679,6 +736,19 @@ function formatRelativeDate(dateStr: string): string {
   overflow-y: auto;
   padding: var(--xy-space-md);
   background-color: var(--xy-base);
+  transition: opacity var(--xy-transition-fast);
+}
+
+.browse-grid-scroll--stale {
+  opacity: 0.55;
+}
+
+.browse-progress {
+  flex-shrink: 0;
+}
+
+.browse-filters-toggle {
+  display: none;
 }
 
 /* ---- Grid ---- */
@@ -725,6 +795,7 @@ function formatRelativeDate(dateStr: string): string {
     background-color var(--xy-transition-fast),
     border-color var(--xy-transition-fast);
   width: 100%;
+  min-width: 0;
 }
 
 .mod-card:has(.mod-card-details:hover) {
@@ -899,13 +970,43 @@ function formatRelativeDate(dateStr: string): string {
 
 /* ---- Mobile ---- */
 @media (max-width: 599px) {
+  /* Results flow in the page scroll instead of a short inner scroller. */
+  .mod-browse {
+    height: auto;
+    overflow: visible;
+  }
+
+  .browse-grid-scroll {
+    flex: none;
+    overflow: visible;
+    padding: var(--xy-space-sm);
+  }
+
   .browse-toolbar {
+    flex-wrap: nowrap;
     padding: var(--xy-space-xs) var(--xy-space-sm);
+  }
+
+  .mod-browse--filters-open .browse-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .mod-browse:not(.mod-browse--filters-open) .browse-sort-select,
+  .mod-browse:not(.mod-browse--filters-open) .source-chips,
+  .mod-browse:not(.mod-browse--filters-open) .reset-filters-btn,
+  .mod-browse:not(.mod-browse--filters-open) .browse-filters {
+    display: none;
+  }
+
+  .browse-filters-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
   }
 
   .browse-search-input {
     max-width: none;
-    flex: 1 1 100%;
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   .browse-sort-select {
@@ -928,7 +1029,7 @@ function formatRelativeDate(dateStr: string): string {
   }
 
   .browse-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .browse-pagination-footer {

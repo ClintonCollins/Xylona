@@ -1,5 +1,6 @@
 import { shallowMount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 
 import FileUploaderDrop from './FileUploaderDrop.vue'
 
@@ -44,6 +45,31 @@ describe('FileUploaderDrop', () => {
       uploader: { files: Map<string, unknown> }
     }
     expect([...viewModel.uploader.files.keys()]).toEqual(['server.jar', 'world/level.dat'])
+    wrapper.unmount()
+  })
+
+  it('names the destination and cannot be dismissed mid-upload', async () => {
+    const wrapper = shallowMount(FileUploaderDrop, {
+      props: {
+        destination: '/srv/minecraft/mods',
+        fileUploaderDialog: true,
+        gameServerId: 'server-1',
+        path: 'mods',
+        pathSeparator: '/',
+        uploadURL: '/api/file/upload',
+      },
+      global: { renderStubDefaultSlot: true },
+    })
+
+    expect(wrapper.get('.file-upload-destination').text()).toBe('/srv/minecraft/mods')
+    const dialog = wrapper.findComponent({ name: 'QDialog' })
+    expect(dialog.props('persistent')).toBe(false)
+
+    const viewModel = wrapper.vm as unknown as { uploader: { isUploading: boolean } }
+    viewModel.uploader.isUploading = true
+    await nextTick()
+
+    expect(dialog.props('persistent')).toBe(true)
     wrapper.unmount()
   })
 })

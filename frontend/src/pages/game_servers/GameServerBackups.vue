@@ -13,6 +13,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import type {
   BackupProgress,
   BackupSettings,
+  GameServer,
   GameServerBackup,
   GameServerBackupOverview,
 } from '@/proto/shared_pb'
@@ -24,11 +25,13 @@ import {
   GameServerBackupOverviewSchema,
   GameServerBackupStatus,
   GameServerBackupTriggerSource,
+  Status,
 } from '@/proto/shared_pb'
 import {
   CreateGameServerBackupRequestSchema,
   DeleteGameServerBackupRequestSchema,
   GetBackupSettingsRequestSchema,
+  GetGameServerRequestSchema,
   GetGameServerBackupOverviewRequestSchema,
   ListGameServerBackupsRequestSchema,
   RestoreGameServerBackupRequestSchema,
@@ -62,6 +65,9 @@ const uploadProgress = ref(0)
 const uploadError = ref('')
 const uploadFile = ref<File | null>(null)
 const loadError = ref('')
+// Only the server's name, status and size matter here; a failed load leaves
+// the backend's own offline check as the guard.
+const gameServer = ref<GameServer | null>(null)
 const materializingBackupIds = new Set<string>()
 
 const columns = [
@@ -147,7 +153,7 @@ const backupStorageSummary = computed(
 )
 const backupRetentionSummary = computed(() => {
   if (Number.isFinite(maxBackups.value) && maxBackups.value > 0) {
-    return `${automatedBackupCount.value} automated retained · ${maxBackups.value} per node`
+    return `${automatedBackupCount.value} automated retained · keeps newest ${maxBackups.value} scheduled`
   }
 
   return `${automatedBackupCount.value} automated retained`
@@ -164,6 +170,16 @@ const createAllowed = computed(() => overview.value.operationsAllowed)
 const deleteAllowed = computed(() => true)
 const uploadAllowed = computed(() => overview.value.operationsAllowed)
 const uploadReady = computed(() => uploadFile.value !== null)
+const serverRunning = computed(
+  () => gameServer.value !== null && gameServer.value.status !== Status.OFFLINE,
+)
+const restoreBlockedReason = computed(() =>
+  serverRunning.value ? 'Stop the server to restore' : '',
+)
+// The pre-restore backup runs the same checks as Create Backup.
+const safetyBackupUnavailableReason = computed(() =>
+  overview.value.operationsAllowed ? '' : stateAlertMessage.value,
+)
 
 const showStateAlert = computed(() => {
   // A failed load leaves the empty default overview, which would read as "disabled".
@@ -271,14 +287,34 @@ const showLiveProgressStrip = computed(() => {
 
 onMounted(async () => {
   XylonaEventBus.on('gameServerBackupProgress', onBackupProgress)
+  XylonaEventBus.on('gameServerStatus', onServerStatus)
   await loadPage()
 })
 
 onUnmounted(() => {
   XylonaEventBus.off('gameServerBackupProgress', onBackupProgress)
+  XylonaEventBus.off('gameServerStatus', onServerStatus)
 })
 
+function onServerStatus(serverID: string, _serverName: string, status: Status): void {
+  if (serverID === gameServerId.value && gameServer.value !== null) {
+    gameServer.value = { ...gameServer.value, status }
+  }
+}
+
+async function loadGameServer(): Promise<void> {
+  try {
+    const response = await GetXylonaClient().getGameServer(
+      create(GetGameServerRequestSchema, { id: gameServerId.value }),
+    )
+    gameServer.value = response.gameServer ?? null
+  } catch (unknownErr: unknown) {
+    console.error(unknownErr)
+  }
+}
+
 async function loadPage(): Promise<void> {
+  void loadGameServer()
   loading.value = true
   loadError.value = ''
   try {
@@ -374,9 +410,14 @@ function onBackupProgress(progress: BackupProgress): void {
 }
 
 async function createBackup(): Promise<void> {
+  // Nothing asks the game to save first, so a running server can change files
+  // while they are being copied.
+  const runningWarning = serverRunning.value
+    ? ' The server is running, so files can change while they are copied. Stop it first for a consistent backup.'
+    : ''
   $q.dialog({
     title: 'Create Backup',
-    message: 'Name this manual backup. Leave it blank to use a timestamped archive name.',
+    message: `Name this manual backup. Leave it blank to use a timestamped archive name.${runningWarning}`,
     prompt: {
       model: '',
       type: 'text',
@@ -421,7 +462,10 @@ function openRestoreDialog(backup: GameServerBackup): void {
   showRestoreDialog.value = true
 }
 
-async function restoreBackup(mode: BackupRestoreMode): Promise<void> {
+async function restoreBackup(
+  mode: BackupRestoreMode,
+  backupCurrentFilesFirst: boolean,
+): Promise<void> {
   if (!restoreTarget.value) {
     return
   }
@@ -435,6 +479,7 @@ async function restoreBackup(mode: BackupRestoreMode): Promise<void> {
         gameServerId: gameServerId.value,
         backupId: backup.id,
         restoreMode: mode,
+        backupCurrentFilesFirst,
       }),
     )
     await loadBackups()
@@ -495,10 +540,7 @@ function resetUploadDialog(): void {
   uploadError.value = ''
 }
 
-function onUploadFileChange(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const selectedFile = input.files?.[0] ?? null
-  uploadFile.value = selectedFile
+function onUploadFileChange(): void {
   uploadError.value = ''
   uploadProgress.value = 0
 }
@@ -767,7 +809,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 <template>
   <div class="backups-page xy-page-content">
     <page-header
-      subtitle="Manual backups, restore history, and the shortcut into scheduled backup automation."
+      subtitle="Archives this server's directory as a .zip. Does not include Xylona's database or encryption key."
       title="Backups">
       <template #actions>
         <q-btn
@@ -939,14 +981,20 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
                 no-caps
                 rel="noopener"
                 target="_blank" />
-              <q-btn
-                :disable="props.row.status !== GameServerBackupStatus.COMPLETED"
-                :loading="restoringBackupId === props.row.id"
-                flat
-                icon="settings_backup_restore"
-                label="Restore"
-                no-caps
-                @click="openRestoreDialog(props.row)" />
+              <span class="backups-page__restore-action">
+                <q-btn
+                  :disable="
+                    props.row.status !== GameServerBackupStatus.COMPLETED ||
+                    restoreBlockedReason !== ''
+                  "
+                  :loading="restoringBackupId === props.row.id"
+                  flat
+                  icon="settings_backup_restore"
+                  label="Restore"
+                  no-caps
+                  @click="openRestoreDialog(props.row)" />
+                <q-tooltip v-if="restoreBlockedReason">{{ restoreBlockedReason }}</q-tooltip>
+              </span>
               <q-btn
                 :disable="!deleteAllowed"
                 :loading="deletingBackupId === props.row.id"
@@ -1032,17 +1080,26 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
                 target="_blank">
                 <q-tooltip>Download</q-tooltip>
               </q-btn>
-              <q-btn
-                :disable="props.row.status !== GameServerBackupStatus.COMPLETED"
-                :loading="restoringBackupId === props.row.id"
-                aria-label="Restore backup"
-                dense
-                flat
-                icon="settings_backup_restore"
-                round
-                @click="openRestoreDialog(props.row)">
-                <q-tooltip>Restore</q-tooltip>
-              </q-btn>
+              <!-- The wrapper keeps the tooltip reachable while the button is disabled. -->
+              <span class="backups-page__restore-action">
+                <q-btn
+                  :aria-label="
+                    restoreBlockedReason
+                      ? `Restore backup: ${restoreBlockedReason}`
+                      : 'Restore backup'
+                  "
+                  :disable="
+                    props.row.status !== GameServerBackupStatus.COMPLETED ||
+                    restoreBlockedReason !== ''
+                  "
+                  :loading="restoringBackupId === props.row.id"
+                  dense
+                  flat
+                  icon="settings_backup_restore"
+                  round
+                  @click="openRestoreDialog(props.row)" />
+                <q-tooltip>{{ restoreBlockedReason || 'Restore' }}</q-tooltip>
+              </span>
               <q-btn
                 :disable="!deleteAllowed"
                 :loading="deletingBackupId === props.row.id"
@@ -1064,6 +1121,9 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     <backup-restore-dialog
       v-model="showRestoreDialog"
       :backup="restoreTarget"
+      :backup-unavailable-reason="safetyBackupUnavailableReason"
+      :blocked-reason="restoreBlockedReason"
+      :current-size-bytes="gameServer?.diskUsageBytes ?? 0n"
       :loading="restoringBackupId !== ''"
       @restore="restoreBackup" />
 
@@ -1075,21 +1135,23 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         <q-card-section>
           <h2 id="upload-backup-dialog-title" class="xy-section-title">Upload Backup Archive</h2>
           <div class="backups-page__section-copy">
-            Import a `.zip` backup into this server's managed backup history so it can be restored
+            Import a .zip backup into this server's managed backup history so it can be restored
             later from this page.
           </div>
         </q-card-section>
         <q-card-section class="backups-page__upload-section">
-          <input
-            :disabled="uploadingBackup"
+          <q-file
+            v-model="uploadFile"
             accept=".zip,application/zip"
-            class="backups-page__upload-input"
             data-testid="upload-backup-file-input"
-            type="file"
-            @change="onUploadFileChange" />
-          <div v-if="uploadFile" class="backups-page__upload-file">
-            Selected archive: {{ uploadFile.name }}
-          </div>
+            :disable="uploadingBackup"
+            label="Backup archive (.zip)"
+            outlined
+            @update:model-value="onUploadFileChange">
+            <template #prepend>
+              <q-icon name="upload_file" />
+            </template>
+          </q-file>
           <div v-if="uploadingBackup || uploadProgress > 0" class="backups-page__upload-progress">
             <div class="backups-page__progress-meta">Uploading · {{ uploadProgress }}%</div>
             <q-linear-progress
@@ -1397,13 +1459,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   gap: 0.75rem;
 }
 
-.backups-page__upload-input {
-  color: var(--xy-text-primary);
-}
-
-.backups-page__upload-file {
-  color: var(--xy-text-muted);
-  font-size: var(--xy-font-size-sm);
+.backups-page__restore-action {
+  display: inline-flex;
 }
 
 .backups-page__upload-progress {

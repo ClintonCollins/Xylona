@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
+import { useQuasar } from 'quasar'
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -33,6 +34,7 @@ type StatusPresentation = {
   tone: 'neutral' | 'warning' | 'negative'
 }
 
+const $q = useQuasar()
 const route = useRoute()
 const mapView = ref<SevenDaysToDieMapView | null>(null)
 const loading = ref(false)
@@ -283,6 +285,18 @@ async function refreshLiveData(): Promise<void> {
   }
 }
 
+function confirmInstallLandClaimHelper(): void {
+  $q.dialog({
+    title: 'Install land claim support?',
+    message:
+      "Xylona writes its land claim helper mod to Mods/Xylona_LandClaims in this server's directory, replacing an older copy. The mod loads the next time the server starts.",
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { color: 'primary', label: 'Install' },
+  }).onOk(() => {
+    void installLandClaimHelper()
+  })
+}
+
 async function installLandClaimHelper(): Promise<void> {
   if (installingLandClaims.value) return
 
@@ -327,20 +341,6 @@ onBeforeUnmount(() => {
       title="Live Map">
       <template v-if="canManage" #actions>
         <q-btn
-          aria-label="Install or repair land claim support"
-          data-testid="install-land-claim-helper"
-          flat
-          icon="extension"
-          :loading="installingLandClaims"
-          no-caps
-          @click="installLandClaimHelper">
-          <span class="seven-days-map-page__claim-helper-label">Install / repair claims</span>
-          <q-tooltip
-            >Install or repair land claim support. It loads the next time the server
-            starts.</q-tooltip
-          >
-        </q-btn>
-        <q-btn
           aria-label="Open public map link settings"
           flat
           icon="share"
@@ -368,7 +368,22 @@ onBeforeUnmount(() => {
       :status="lastAvailableStatus"
       :status-loading="statusLoading"
       :status-presentation="statusPresentation"
-      :view="mapView" />
+      :view="mapView">
+      <!-- Sits beside the land claims fact it fixes, not in the page header. -->
+      <template v-if="canManage" #claims-action>
+        <q-btn
+          class="seven-days-map-page__claim-helper"
+          data-testid="install-land-claim-helper"
+          dense
+          flat
+          icon="extension"
+          :loading="installingLandClaims"
+          no-caps
+          @click="confirmInstallLandClaimHelper">
+          <span>Install / repair claims</span>
+        </q-btn>
+      </template>
+    </seven-days-to-die-world-overview>
 
     <!-- Backdrop clicks and Esc ask the settings first so unsaved edits get the discard prompt.
          Route changes are left to the settings' own leave guard, so it never asks twice. -->
@@ -397,6 +412,10 @@ onBeforeUnmount(() => {
 
 .seven-days-map-page__map {
   flex: 0 0 auto;
+}
+
+.seven-days-map-page__claim-helper {
+  justify-self: start;
 }
 
 @media (min-width: 1200px) {
@@ -429,10 +448,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 599px) {
   .seven-days-map-page__share-label {
-    display: none;
-  }
-
-  .seven-days-map-page__claim-helper-label {
     display: none;
   }
 }

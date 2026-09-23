@@ -87,6 +87,7 @@ type packageDetailsResponse struct {
 	DownloadCount       int64            `json:"download_count"`
 	DownloadURL         string           `json:"download_url"`
 	IconURL             string           `json:"icon_url"`
+	LastUpdated         string           `json:"last_updated"`
 	LatestVersionNumber string           `json:"latest_version_number"`
 	Name                string           `json:"name"`
 	Namespace           string           `json:"namespace"`
@@ -185,6 +186,11 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceIDValue string, para
 	}
 	versions := versionsFromResponses(versionResponses, &details)
 
+	updatedAt := providerhttp.ParseTimestamp(details.LastUpdated)
+	if updatedAt.IsZero() && len(versions) > 0 {
+		updatedAt = versions[0].PublishedAt
+	}
+
 	return &modproviders.ModDetails{
 		Source:      providerID,
 		SourceID:    sourceID(details.Namespace, details.Name),
@@ -196,6 +202,7 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceIDValue string, para
 		Categories:  categoryNames(details.Categories),
 		SourceURL:   p.packagePageURL(community, reference),
 		Versions:    versions,
+		UpdatedAt:   updatedAt,
 	}, nil
 }
 
@@ -341,6 +348,7 @@ func versionsFromResponses(responses []packageVersionResponse, details *packageD
 			VersionID:     response.VersionNumber,
 			VersionString: response.VersionNumber,
 			DownloadURL:   response.DownloadURL,
+			PublishedAt:   providerhttp.ParseTimestamp(response.DateTimeCreated),
 		}
 		if details != nil && response.VersionNumber == details.LatestVersionNumber {
 			version.FileSize = details.Size

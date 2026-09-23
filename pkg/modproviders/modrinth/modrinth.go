@@ -148,9 +148,21 @@ type modrinthProject struct {
 	} `json:"gallery"`
 	Categories []string `json:"categories"`
 	License    struct {
-		ID string `json:"id"`
+		ID   string `json:"id"`
+		Name string `json:"name"`
 	} `json:"license"`
 	SourceURL string `json:"source_url"`
+	Updated   string `json:"updated"`
+}
+
+// modrinthTeamMember maps an entry from the /project/{id}/members endpoint.
+type modrinthTeamMember struct {
+	Role     string `json:"role"`
+	IsOwner  bool   `json:"is_owner"`
+	Ordering int    `json:"ordering"`
+	User     struct {
+		Username string `json:"username"`
+	} `json:"user"`
 }
 
 // GetModDetails fetches full project metadata and its versions.
@@ -168,6 +180,15 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 		log.Warn().Err(errVersions).Str("sourceID", sourceID).Msg("modrinth: failed to fetch versions for mod details")
 	}
 
+	// The project endpoint carries no author, so read it from the team. A
+	// failure only costs the byline, not the details.
+	var members []modrinthTeamMember
+	membersEndpoint := fmt.Sprintf("%s/project/%s/members", p.baseURL, url.PathEscape(sourceID))
+	errMembers := p.getJSON(ctx, membersEndpoint, &members)
+	if errMembers != nil {
+		log.Warn().Err(errMembers).Str("sourceID", sourceID).Msg("modrinth: failed to fetch project members for mod details")
+	}
+
 	gallery := make([]string, 0, len(project.Gallery))
 	for _, g := range project.Gallery {
 		gallery = append(gallery, g.URL)
@@ -177,16 +198,53 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 		Source:        providerID,
 		SourceID:      project.Slug,
 		Name:          project.Title,
+		Author:        projectOwner(members),
 		Description:   project.Description,
 		Body:          project.Body,
 		IconURL:       project.IconURL,
 		Downloads:     project.Downloads,
 		GalleryImages: gallery,
 		Categories:    project.Categories,
-		License:       project.License.ID,
+		License:       licenseLabel(project.License.ID, project.License.Name),
 		SourceURL:     project.SourceURL,
 		Versions:      versions,
+		UpdatedAt:     providerhttp.ParseTimestamp(project.Updated),
 	}, nil
+}
+
+// projectOwner returns the owner's username, falling back to the first
+// member by team ordering.
+func projectOwner(members []modrinthTeamMember) string {
+	owner := ""
+	ownerOrdering := 0
+	for _, member := range members {
+		username := strings.TrimSpace(member.User.Username)
+		if username == "" {
+			continue
+		}
+		if member.IsOwner || strings.EqualFold(member.Role, "Owner") {
+			return username
+		}
+		if owner == "" || member.Ordering < ownerOrdering {
+			owner = username
+			ownerOrdering = member.Ordering
+		}
+	}
+	return owner
+}
+
+// licenseLabel keeps SPDX identifiers but replaces custom "LicenseRef-" IDs,
+// which are not meant for people, with the license name.
+func licenseLabel(id string, name string) string {
+	id = strings.TrimSpace(id)
+	name = strings.TrimSpace(name)
+	if !strings.HasPrefix(id, "LicenseRef-") {
+		return id
+	}
+	if name != "" {
+		return name
+	}
+	return strings.ReplaceAll(strings.TrimPrefix(id, "LicenseRef-"), "-", " ")
 }
 
 // --------------------------------------------------------------------------
@@ -215,6 +273,7 @@ type modrinthVersion struct {
 	Files         []modrinthVersionFile `json:"files"`
 	Dependencies  []modrinthDependency  `json:"dependencies"`
 	Changelog     string                `json:"changelog"`
+	DatePublished string                `json:"date_published"`
 }
 
 // GetVersions returns versions for the given project, optionally filtered to a specific game version.
@@ -268,6 +327,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 			FileHashSHA256: primaryFile.Hashes.SHA256,
 			Dependencies:   deps,
 			Changelog:      v.Changelog,
+			PublishedAt:    providerhttp.ParseTimestamp(v.DatePublished),
 		})
 	}
 	return versions, nil

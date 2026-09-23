@@ -34,9 +34,9 @@
     <!-- Empty state -->
     <empty-state
       v-else-if="installedMods.length === 0"
-      description="Browse available mods to get started."
+      :description="emptyDescription"
       icon="extension_off"
-      title="No mods installed" />
+      :title="emptyTitle" />
 
     <!-- No filter results -->
     <empty-state
@@ -53,7 +53,7 @@
             <th class="col-source">Source</th>
             <th class="col-version">Version</th>
             <th class="col-status">Status</th>
-            <th class="col-auto">Auto</th>
+            <th class="col-auto">Auto-update</th>
             <th class="col-actions">
               <span class="sr-only">Actions</span>
             </th>
@@ -80,6 +80,11 @@
                 <div class="mod-info">
                   <span class="mod-name">{{ mod.modName }}</span>
                   <span class="mod-author text-xy-muted">{{ mod.modAuthor }}</span>
+                  <!-- Phones hide the Version column, so the version rides under the name. -->
+                  <span class="mod-version-inline font-mono text-xy-muted">
+                    {{ mod.installedVersion }}
+                    <q-icon v-if="isPinned(mod)" aria-label="Pinned" name="push_pin" size="xs" />
+                  </span>
                 </div>
               </div>
             </td>
@@ -98,6 +103,13 @@
                 :class="{ 'version-text--update': mod.updateAvailable }"
                 class="version-text font-mono">
                 {{ mod.installedVersion }}
+              </span>
+              <span
+                v-if="isPinned(mod)"
+                class="pinned-tag"
+                :title="`Pinned to ${mod.pinnedVersion}. Update All and auto-update skip it.`">
+                <q-icon aria-hidden="true" name="push_pin" size="xs" />
+                Pinned
               </span>
             </td>
 
@@ -125,19 +137,14 @@
 
             <!-- Auto-update toggle -->
             <td class="col-auto">
-              <label
-                :aria-checked="Boolean(mod.autoUpdate)"
-                class="q-toggle auto-update-toggle"
-                role="switch">
-                <input
-                  :aria-label="`Auto-update ${mod.modName}`"
-                  :checked="Boolean(mod.autoUpdate)"
-                  type="checkbox"
-                  @change="emit('toggle-auto-update', mod.id, !mod.autoUpdate)" />
-                <span :class="{ 'toggle-track--active': mod.autoUpdate }" class="toggle-track">
-                  <span class="toggle-thumb" />
-                </span>
-              </label>
+              <q-toggle
+                :aria-label="`Auto-update ${mod.modName}`"
+                color="primary"
+                dense
+                :model-value="Boolean(mod.autoUpdate)"
+                @update:model-value="
+                  (enabled: boolean) => emit('toggle-auto-update', mod.id, enabled)
+                " />
             </td>
 
             <!-- Actions overflow menu -->
@@ -166,7 +173,21 @@
                       <q-item-section side>
                         <q-icon name="push_pin" size="xs" />
                       </q-item-section>
-                      <q-item-section>Pin Version</q-item-section>
+                      <q-item-section>
+                        {{ isPinned(mod) ? 'Unpin' : `Pin to ${mod.installedVersion}` }}
+                      </q-item-section>
+                    </q-item>
+                    <q-item
+                      v-close-popup
+                      class="mod-menu-auto-update"
+                      clickable
+                      @click="emit('toggle-auto-update', mod.id, !mod.autoUpdate)">
+                      <q-item-section side>
+                        <q-icon name="update" size="xs" />
+                      </q-item-section>
+                      <q-item-section>
+                        {{ mod.autoUpdate ? 'Turn off auto-update' : 'Turn on auto-update' }}
+                      </q-item-section>
                     </q-item>
                     <q-separator />
                     <q-item
@@ -199,9 +220,14 @@ import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-so
 interface Props {
   installedMods: InstalledMod[]
   loading: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  emptyTitle: 'No mods installed',
+  emptyDescription: 'Browse available mods to get started.',
+})
 
 const emit = defineEmits<{
   update: [modId: string]
@@ -226,6 +252,10 @@ const filteredMods = computed((): InstalledMod[] => {
 const updatesAvailable = computed((): number => {
   return props.installedMods.filter((mod) => mod.updateAvailable && mod.enabled).length
 })
+
+function isPinned(mod: InstalledMod): boolean {
+  return mod.pinnedVersion !== ''
+}
 
 function iconGradient(name: string): string {
   // Simple hash-based gradient from the mod name
@@ -352,8 +382,9 @@ function iconGradient(name: string): string {
 }
 
 .col-auto {
-  width: 60px;
+  width: 7rem;
   text-align: center;
+  white-space: nowrap;
 }
 
 .col-actions {
@@ -426,6 +457,28 @@ function iconGradient(name: string): string {
   color: var(--xy-text-primary);
 }
 
+.pinned-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-2xs);
+  margin-left: var(--xy-space-xs);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mod-version-inline {
+  display: none;
+  align-items: center;
+  gap: var(--xy-space-2xs);
+  font-size: var(--xy-font-size-2xs);
+}
+
+.mod-menu-auto-update {
+  display: none;
+}
+
 .version-text--update {
   color: var(--xy-warning);
   font-weight: 600;
@@ -472,57 +525,39 @@ function iconGradient(name: string): string {
     flex: 1 1 100%;
   }
 
+  /* The Version and Auto-update columns move under the name and into the
+     row menu so Status and the menu fit a phone without sideways scrolling. */
+  .mods-table {
+    table-layout: fixed;
+  }
+
+  .mods-table thead th,
+  .mod-row td {
+    padding: 0.45rem 0.5rem;
+  }
+
+  .col-mod {
+    min-width: 0;
+  }
+
+  .col-status {
+    width: 7.5rem;
+    white-space: normal;
+  }
+
+  .col-actions {
+    width: 2.75rem;
+  }
+
   .col-source,
+  .col-version,
   .col-auto {
     display: none;
   }
-}
 
-/* ---- Custom auto-update toggle ---- */
-.auto-update-toggle {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  position: relative;
-}
-
-.auto-update-toggle input[type='checkbox'] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-track {
-  display: inline-block;
-  width: 36px;
-  height: 14px;
-  border-radius: var(--xy-radius-md);
-  background-color: var(--xy-surface-4);
-  position: relative;
-  transition: background-color 0.2s ease;
-}
-
-.toggle-track--active {
-  background-color: color-mix(in srgb, var(--q-primary) 50%, transparent);
-}
-
-.toggle-thumb {
-  position: absolute;
-  top: -3px;
-  left: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: var(--xy-text-muted);
-  transition:
-    left 0.2s ease,
-    background-color 0.2s ease;
-  box-shadow: var(--xy-shadow-sm);
-}
-
-.toggle-track--active .toggle-thumb {
-  left: 16px;
-  background-color: var(--q-primary);
+  .mod-version-inline,
+  .mod-menu-auto-update {
+    display: flex;
+  }
 }
 </style>

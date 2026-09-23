@@ -7,7 +7,7 @@
     <q-card class="full-width">
       <q-form @submit.prevent="moveFiles">
         <q-card-section>
-          <div id="dialog-title" class="text-h6">Move files</div>
+          <div id="dialog-title" class="text-h6">{{ dialogTitle }}</div>
         </q-card-section>
         <q-card-section>
           <div class="q-pa-lg">
@@ -85,16 +85,22 @@ const props = defineProps({
   },
 })
 
+const dialogTitle = computed(() => {
+  const count = props.selectedFiles.length
+  const items = count === 1 ? '1 item' : `${count} items`
+  return `Move ${items} from ${props.path === '' ? 'the server root' : props.path}`
+})
+
+// A folder cannot be moved into itself, and '..' is the only way up.
 const moveOptions = computed(() => {
-  let options = props.neighboringDirectoriesInPath.filter((neighbor: string) => {
-    if (props.path === '') {
-      return neighbor !== '..'
-    }
-    return neighbor
-  })
-  options = options.sort((a: string, b: string) => {
-    return a.localeCompare(b)
-  })
+  const moving = new Set(props.selectedFiles.map((file: xylonaFile) => file.name))
+  const options = props.neighboringDirectoriesInPath
+    .filter((neighbor: string) => neighbor !== '..' && !moving.has(neighbor))
+    .sort((a: string, b: string) => a.localeCompare(b))
+    .map((neighbor: string) => ({ label: neighbor, value: neighbor }))
+  if (props.path !== '') {
+    options.unshift({ label: '.. (parent folder)', value: '..' })
+  }
   return options
 })
 
@@ -139,7 +145,7 @@ async function moveFiles() {
     await GetXylonaClient().gameServerFilesMove(request)
     emit('submit')
     $q.notify({
-      caption: `Files moved to ${destinationDirectory.value} successfully.`,
+      caption: `Moved to ${destinationDirectory.value === '..' ? 'the parent folder' : destinationDirectory.value}.`,
       type: 'xylona-success',
       position: 'top',
       timeout: 3000,

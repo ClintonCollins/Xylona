@@ -82,6 +82,7 @@ type hangarProject struct {
 	Stats       hangarProjectStats    `json:"stats"`
 	AvatarURL   string                `json:"avatarUrl"`
 	Settings    hangarProjectSettings `json:"settings"`
+	LastUpdated string                `json:"lastUpdated"`
 }
 
 type hangarPagination struct {
@@ -180,7 +181,7 @@ func (p *Provider) Search(ctx context.Context, query string, params modproviders
 			Description: proj.Description,
 			IconURL:     proj.AvatarURL,
 			Downloads:   proj.Stats.Downloads,
-			Categories:  proj.Settings.Tags,
+			Categories:  tagLabels(proj.Settings.Tags),
 		})
 	}
 	return modproviders.SearchResult{
@@ -221,9 +222,6 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 		}
 	}
 
-	tags := make([]string, 0, len(project.Settings.Tags))
-	tags = append(tags, project.Settings.Tags...)
-
 	return &modproviders.ModDetails{
 		Source:      providerID,
 		SourceID:    sourceID,
@@ -232,11 +230,28 @@ func (p *Provider) GetModDetails(ctx context.Context, sourceID string, params mo
 		Description: project.Description,
 		IconURL:     project.AvatarURL,
 		Downloads:   project.Stats.Downloads,
-		Categories:  tags,
+		Categories:  tagLabels(project.Settings.Tags),
 		License:     project.Settings.License.Name,
 		SourceURL:   sourceURL,
 		Versions:    versions,
+		UpdatedAt:   providerhttp.ParseTimestamp(project.LastUpdated),
 	}, nil
+}
+
+// tagLabels turns Hangar's enum tags ("SUPPORTS_FOLIA") into display labels
+// ("Supports Folia").
+func tagLabels(tags []string) []string {
+	labels := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		words := strings.Fields(strings.ToLower(strings.ReplaceAll(tag, "_", " ")))
+		for i, word := range words {
+			words[i] = strings.ToUpper(word[:1]) + word[1:]
+		}
+		if len(words) > 0 {
+			labels = append(labels, strings.Join(words, " "))
+		}
+	}
+	return labels
 }
 
 // --------------------------------------------------------------------------
@@ -289,6 +304,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 			FileHashSHA256: fileHashSHA256,
 			Dependencies:   deps,
 			Changelog:      v.Description,
+			PublishedAt:    providerhttp.ParseTimestamp(v.CreatedAt),
 		})
 	}
 	return versions, nil

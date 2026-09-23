@@ -1672,6 +1672,41 @@ func TestDeleteGameServerBackupCancelsPendingBackup(t *testing.T) {
 	}
 }
 
+func TestBackupBeforeRestoreArchivesCurrentFilesAsRetentionExemptBackup(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fixture := newBackupServiceFixture(t, inst)
+
+	errWrite := os.WriteFile(filepath.Join(fixture.gameServer.Directory, "world.txt"), []byte("current"), 0o600)
+	if errWrite != nil {
+		t.Fatalf("WriteFile(world.txt) error = %v", errWrite)
+	}
+
+	backup, errBackup := inst.BackupBeforeRestore(fixture.gameServer, fixture.userID)
+	if errBackup != nil {
+		t.Fatalf("BackupBeforeRestore() error = %v", errBackup)
+	}
+
+	if backup.Status != "completed" {
+		t.Fatalf("BackupBeforeRestore().Status = %q, want %q", backup.Status, "completed")
+	}
+	if backup.TriggerSource != "manual" || !backup.RetentionExempt {
+		t.Fatalf(
+			"BackupBeforeRestore() trigger = %q, retentionExempt = %v, want manual and exempt",
+			backup.TriggerSource,
+			backup.RetentionExempt,
+		)
+	}
+	if !strings.HasPrefix(filepath.Base(backup.ArchivePath), "pre-restore-") {
+		t.Fatalf("BackupBeforeRestore().ArchivePath base = %q, want prefix %q", filepath.Base(backup.ArchivePath), "pre-restore-")
+	}
+	entries := readBackupArchiveEntries(t, backup.ArchivePath)
+	if entries["world.txt"] != "current" {
+		t.Fatalf("pre-restore archive world.txt = %q, want %q", entries["world.txt"], "current")
+	}
+}
+
 func TestRestoreGameServerBackupAllowsHistoricalArchiveAfterBackupRootChange(t *testing.T) {
 	t.Parallel()
 

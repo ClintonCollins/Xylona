@@ -3,6 +3,7 @@ package providerhttp
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 )
@@ -73,6 +74,28 @@ func TestStringSliceParam(t *testing.T) {
 			got := StringSliceParam(test.params, "key")
 			if (got == nil) != (test.want == nil) || !slices.Equal(got, test.want) {
 				t.Errorf("StringSliceParam() = %#v, want %#v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestParseTimestamp(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  time.Time
+	}{
+		{name: "empty"},
+		{name: "malformed", value: "yesterday"},
+		{name: "utc", value: "2024-01-15T12:00:00Z", want: time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)},
+		{name: "fractional seconds", value: " 2024-01-15T12:00:00.5Z ", want: time.Date(2024, 1, 15, 12, 0, 0, 500000000, time.UTC)},
+		{name: "offset normalized to utc", value: "2024-01-15T14:00:00+02:00", want: time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ParseTimestamp(test.value)
+			if !got.Equal(test.want) {
+				t.Errorf("ParseTimestamp(%q) = %v, want %v", test.value, got, test.want)
 			}
 		})
 	}

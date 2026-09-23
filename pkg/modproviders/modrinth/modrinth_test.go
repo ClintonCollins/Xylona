@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 )
@@ -137,6 +138,7 @@ func TestGetModDetails_ReturnsFull(t *testing.T) {
 	srv := httptest.NewServer(fixtureHandler(t, map[string]string{
 		"/project/worldedit":         "project_worldedit.json",
 		"/project/worldedit/version": "versions_worldedit.json",
+		"/project/worldedit/members": "members_worldedit.json",
 	}))
 	defer srv.Close()
 
@@ -171,7 +173,89 @@ func TestGetModDetails_ReturnsFull(t *testing.T) {
 		t.Errorf("details.Categories len = %d, want 2", len(details.Categories))
 	}
 	if len(details.Versions) != 2 {
-		t.Errorf("details.Versions len = %d, want 2", len(details.Versions))
+		t.Fatalf("details.Versions len = %d, want 2", len(details.Versions))
+	}
+	if details.Author != "sk89q" {
+		t.Errorf("details.Author = %q, want %q", details.Author, "sk89q")
+	}
+	wantUpdated := time.Date(2024, 2, 3, 4, 5, 6, 789000000, time.UTC)
+	if !details.UpdatedAt.Equal(wantUpdated) {
+		t.Errorf("details.UpdatedAt = %v, want %v", details.UpdatedAt, wantUpdated)
+	}
+	wantPublished := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+	if !details.Versions[0].PublishedAt.Equal(wantPublished) {
+		t.Errorf("details.Versions[0].PublishedAt = %v, want %v", details.Versions[0].PublishedAt, wantPublished)
+	}
+	if !details.Versions[1].PublishedAt.IsZero() {
+		t.Errorf("details.Versions[1].PublishedAt = %v, want zero when the provider omits it", details.Versions[1].PublishedAt)
+	}
+}
+
+func TestGetModDetails_KeepsDetailsWhenMembersFail(t *testing.T) {
+	srv := httptest.NewServer(fixtureHandler(t, map[string]string{
+		"/project/worldedit":         "project_worldedit.json",
+		"/project/worldedit/version": "versions_worldedit.json",
+	}))
+	defer srv.Close()
+
+	details, errDetails := newTestProvider(srv).GetModDetails(context.Background(), "worldedit", nil)
+	if errDetails != nil {
+		t.Fatalf("GetModDetails() error = %v", errDetails)
+	}
+	if details.Author != "" {
+		t.Errorf("details.Author = %q, want empty when members cannot be loaded", details.Author)
+	}
+	if details.Name != "WorldEdit" {
+		t.Errorf("details.Name = %q, want %q", details.Name, "WorldEdit")
+	}
+}
+
+func TestProjectOwner(t *testing.T) {
+	member := func(username string, role string, isOwner bool, ordering int) modrinthTeamMember {
+		m := modrinthTeamMember{Role: role, IsOwner: isOwner, Ordering: ordering}
+		m.User.Username = username
+		return m
+	}
+	tests := []struct {
+		name    string
+		members []modrinthTeamMember
+		want    string
+	}{
+		{name: "owner flag", members: []modrinthTeamMember{member("dev", "Developer", false, 0), member("boss", "Maintainer", true, 1)}, want: "boss"},
+		{name: "owner role", members: []modrinthTeamMember{member("dev", "Developer", false, 0), member("boss", "owner", false, 1)}, want: "boss"},
+		{name: "lowest ordering fallback", members: []modrinthTeamMember{member("second", "Developer", false, 2), member("first", "Developer", false, 1)}, want: "first"},
+		{name: "blank usernames skipped", members: []modrinthTeamMember{member(" ", "Owner", true, 0)}, want: ""},
+		{name: "no members", members: nil, want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := projectOwner(tt.members)
+			if got != tt.want {
+				t.Errorf("projectOwner() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLicenseLabel(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		license string
+		want    string
+	}{
+		{name: "spdx id kept", id: "MIT", license: "MIT License", want: "MIT"},
+		{name: "custom id uses name", id: "LicenseRef-All-Rights-Reserved", license: "All Rights Reserved", want: "All Rights Reserved"},
+		{name: "custom id without name", id: "LicenseRef-All-Rights-Reserved", license: "", want: "All Rights Reserved"},
+		{name: "empty", id: "", license: "", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := licenseLabel(tt.id, tt.license)
+			if got != tt.want {
+				t.Errorf("licenseLabel(%q, %q) = %q, want %q", tt.id, tt.license, got, tt.want)
+			}
+		})
 	}
 }
 

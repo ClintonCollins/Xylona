@@ -471,83 +471,102 @@ func TestDeleteGameServerBackupRejectsDifferentNode(t *testing.T) {
 }
 
 func TestRestoreGameServerBackupAllowsHistoricalArchiveWithBlankCurrentBackupDirectory(t *testing.T) {
-	fixture := newRBACRPCFixture(t)
-
-	serverDir := filepath.Join(t.TempDir(), "server-local-1")
-	errMkdirServer := os.MkdirAll(serverDir, 0o750)
-	if errMkdirServer != nil {
-		t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+	tests := []struct {
+		name        string
+		backupFirst bool
+		wantCode    connect.Code
+		wantState   string
+	}{
+		{name: "restores without a safety backup", wantState: "after"},
+		// Backups are disabled here, so the safety backup cannot be taken and
+		// the restore must not touch the current files.
+		{name: "safety backup failure stops the restore", backupFirst: true, wantCode: connect.CodeFailedPrecondition, wantState: "before"},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
 
-	errWrite := os.WriteFile(filepath.Join(serverDir, "state.txt"), []byte("before"), 0o600)
-	if errWrite != nil {
-		t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
-	}
+			serverDir := filepath.Join(t.TempDir(), "server-local-1")
+			errMkdirServer := os.MkdirAll(serverDir, 0o750)
+			if errMkdirServer != nil {
+				t.Fatalf("MkdirAll(serverDir) error = %v", errMkdirServer)
+			}
 
-	archiveRoot := filepath.Join(t.TempDir(), "historical-backups")
-	archiveDir := filepath.Join(archiveRoot, "server-local-1")
-	errMkdirArchive := os.MkdirAll(archiveDir, 0o750)
-	if errMkdirArchive != nil {
-		t.Fatalf("MkdirAll(archiveDir) error = %v", errMkdirArchive)
-	}
+			errWrite := os.WriteFile(filepath.Join(serverDir, "state.txt"), []byte("before"), 0o600)
+			if errWrite != nil {
+				t.Fatalf("WriteFile(state.txt) error = %v", errWrite)
+			}
 
-	archivePath := filepath.Join(archiveDir, "restore.zip")
-	writeTestBackupZip(t, archivePath, map[string]string{
-		"state.txt": "after",
-	})
+			archiveRoot := filepath.Join(t.TempDir(), "historical-backups")
+			archiveDir := filepath.Join(archiveRoot, "server-local-1")
+			errMkdirArchive := os.MkdirAll(archiveDir, 0o750)
+			if errMkdirArchive != nil {
+				t.Fatalf("MkdirAll(archiveDir) error = %v", errMkdirArchive)
+			}
 
-	_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
-		ID:              omit.From("server-local-1"),
-		Directory:       omit.From(serverDir),
-		BackupsEnabled:  omit.From(false),
-		BackupDirectory: omit.From(""),
-		MaxBackups:      omit.From(int64(5)),
-	})
-	if errUpdateServer != nil {
-		t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
-	}
+			archivePath := filepath.Join(archiveDir, "restore.zip")
+			writeTestBackupZip(t, archivePath, map[string]string{
+				"state.txt": "after",
+			})
 
-	backup, errCreateBackup := fixture.conn.CreateGameServerBackup(db.CreateGameServerBackupParams{
-		GameServerID:    "server-local-1",
-		NodeID:          "node-local",
-		CreatedBy:       "user-owner",
-		TriggerSource:   "manual",
-		ArchivePath:     archivePath,
-		ArchiveRoot:     archiveRoot,
-		ArchiveFormat:   "zip",
-		Status:          "completed",
-		SizeBytes:       12,
-		RetentionExempt: true,
-		CreatedAt:       time.Date(2026, 4, 6, 10, 0, 0, 0, time.UTC),
-	})
-	if errCreateBackup != nil {
-		t.Fatalf("CreateGameServerBackup() error = %v", errCreateBackup)
-	}
+			_, errUpdateServer := fixture.conn.UpdateGameServer(fixture.conn.DB, &models.GameServerSetter{
+				ID:              omit.From("server-local-1"),
+				Directory:       omit.From(serverDir),
+				BackupsEnabled:  omit.From(false),
+				BackupDirectory: omit.From(""),
+				MaxBackups:      omit.From(int64(5)),
+			})
+			if errUpdateServer != nil {
+				t.Fatalf("UpdateGameServer() error = %v", errUpdateServer)
+			}
 
-	supervisorInst, errSupervisor := supervisor.New(context.Background())
-	if errSupervisor != nil {
-		t.Fatalf("supervisor.New() error = %v", errSupervisor)
-	}
-	fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
+			backup, errCreateBackup := fixture.conn.CreateGameServerBackup(db.CreateGameServerBackupParams{
+				GameServerID:    "server-local-1",
+				NodeID:          "node-local",
+				CreatedBy:       "user-owner",
+				TriggerSource:   "manual",
+				ArchivePath:     archivePath,
+				ArchiveRoot:     archiveRoot,
+				ArchiveFormat:   "zip",
+				Status:          "completed",
+				SizeBytes:       12,
+				RetentionExempt: true,
+				CreatedAt:       time.Date(2026, 4, 6, 10, 0, 0, 0, time.UTC),
+			})
+			if errCreateBackup != nil {
+				t.Fatalf("CreateGameServerBackup() error = %v", errCreateBackup)
+			}
 
-	request := connect.NewRequest(&xylona.RestoreGameServerBackupRequest{
-		GameServerId: "server-local-1",
-		BackupId:     backup.ID,
-		RestoreMode:  xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+			supervisorInst, errSupervisor := supervisor.New(context.Background())
+			if errSupervisor != nil {
+				t.Fatalf("supervisor.New() error = %v", errSupervisor)
+			}
+			fixture.service.actionsInst = newSupervisorBackedActionsInstance(context.Background(), t, fixture.conn, supervisorInst)
 
-	_, errRestore := fixture.service.RestoreGameServerBackup(context.Background(), request)
-	if errRestore != nil {
-		t.Fatalf("RestoreGameServerBackup() error = %v", errRestore)
-	}
+			request := connect.NewRequest(&xylona.RestoreGameServerBackupRequest{
+				GameServerId:            "server-local-1",
+				BackupId:                backup.ID,
+				RestoreMode:             xylona.BackupRestoreMode_BACKUP_RESTORE_MODE_OVERLAY,
+				BackupCurrentFilesFirst: tt.backupFirst,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
 
-	restoredContents, errRead := os.ReadFile(filepath.Join(serverDir, "state.txt"))
-	if errRead != nil {
-		t.Fatalf("ReadFile(state.txt) error = %v", errRead)
-	}
-	if string(restoredContents) != "after" {
-		t.Fatalf("state.txt = %q, want %q", string(restoredContents), "after")
+			_, errRestore := fixture.service.RestoreGameServerBackup(context.Background(), request)
+			if tt.wantCode == 0 && errRestore != nil {
+				t.Fatalf("RestoreGameServerBackup() error = %v", errRestore)
+			}
+			if tt.wantCode != 0 && connect.CodeOf(errRestore) != tt.wantCode {
+				t.Fatalf("RestoreGameServerBackup() code = %v (error %v), want %v", connect.CodeOf(errRestore), errRestore, tt.wantCode)
+			}
+
+			restoredContents, errRead := os.ReadFile(filepath.Join(serverDir, "state.txt"))
+			if errRead != nil {
+				t.Fatalf("ReadFile(state.txt) error = %v", errRead)
+			}
+			if string(restoredContents) != tt.wantState {
+				t.Fatalf("state.txt = %q, want %q", string(restoredContents), tt.wantState)
+			}
+		})
 	}
 }
 

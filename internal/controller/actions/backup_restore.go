@@ -42,6 +42,40 @@ func (inst *Instance) RestoreGameServerBackup(
 	return inst.restoreBackupArchiveWithNodeClient(gameServer, backup, archivePath, restoreMode)
 }
 
+// BackupBeforeRestore archives the current server directory as a
+// retention-exempt manual backup so a restore can be undone. It runs to
+// completion before returning and refuses to start while the server is
+// running, the same precondition the restore enforces.
+func (inst *Instance) BackupBeforeRestore(gameServer *models.GameServer, createdBy string) (*models.GameServerBackup, error) {
+	errValidate := validateBackupRestoreSettings(inst, gameServer)
+	if errValidate != nil {
+		return nil, errValidate
+	}
+
+	backupName := "pre-restore-" + backupNowFunc().UTC().Format("20060102T150405Z")
+	backup, errPrepare := inst.prepareBackup(gameServer, "manual", createdBy, true, backupName)
+	if errPrepare != nil {
+		return nil, fmt.Errorf("actions: prepare pre-restore backup: %w", errPrepare)
+	}
+
+	completedBackup, errComplete := inst.executeBackupCreate(inst.ctx, gameServer, backup)
+	if errComplete != nil {
+		return nil, fmt.Errorf("actions: create pre-restore backup: %w", errComplete)
+	}
+
+	inst.broadcastBackupProgress(
+		gameServer.ID,
+		gameServer.Name,
+		completedBackup.ID,
+		xylona.BackupProgressOperation_BACKUP_PROGRESS_OPERATION_CREATE,
+		xylona.BackupProgressPhase_BACKUP_PROGRESS_PHASE_COMPLETE,
+		100,
+		completedBackup.SizeBytes,
+		"Backup complete",
+	)
+	return completedBackup, nil
+}
+
 // restoreBackupArchiveWithNodeClient asks the owning node to extract its
 // node-local archive in place via NodeClient.ExtractBackupArchive.
 func (inst *Instance) restoreBackupArchiveWithNodeClient(

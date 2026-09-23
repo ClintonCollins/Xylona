@@ -15,7 +15,8 @@
     "dependencies": [
       {"project_id": "dep-project-1", "dependency_type": "required"}
     ],
-    "changelog": "Bug fixes and performance improvements."
+    "changelog": "Bug fixes and performance improvements.",
+    "date_published": "2024-01-15T12:00:00Z"
   },
   {
     "id": "version-def456",

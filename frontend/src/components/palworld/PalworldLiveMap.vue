@@ -2362,6 +2362,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
+  width: max-content;
   max-width: min(520px, calc(100% - 48px));
   padding: var(--xy-space-md);
   border-radius: var(--xy-radius-lg);
@@ -2369,8 +2370,9 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
+/* Below the toolbar and the actor filter chips, never over them. */
 .palworld-live-map__notice--overlay {
-  top: 84px;
+  top: 132px;
   transform: translateX(-50%);
 }
 
@@ -2470,6 +2472,14 @@ onBeforeUnmount(() => {
 
   .palworld-live-map--multiple-layers .palworld-live-map__summaries {
     top: 154px;
+  }
+
+  .palworld-live-map__notice--overlay {
+    top: 178px;
+  }
+
+  .palworld-live-map--multiple-layers .palworld-live-map__notice--overlay {
+    top: 210px;
   }
 
   .palworld-live-map__health {
