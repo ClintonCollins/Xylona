@@ -148,12 +148,30 @@ func (s *Scheduler) UpdateTask(task *models.ScheduledTask) error {
 	return nil
 }
 
-func (s *Scheduler) addJob(task *models.ScheduledTask) error {
-	// Build cron expression with timezone prefix when not UTC.
-	cronExpr := task.CronExpression
-	if task.Timezone != "" && task.Timezone != "UTC" {
-		cronExpr = fmt.Sprintf("CRON_TZ=%s %s", task.Timezone, task.CronExpression)
+// cronSpec returns the crontab the scheduler registers for a task. The zone is
+// always explicit: without it gocron falls back to the host's local zone, so a
+// task labeled UTC would run on the controller's wall clock instead.
+func cronSpec(cronExpression, timezone string) string {
+	if timezone == "" {
+		timezone = "UTC"
 	}
+	return fmt.Sprintf("CRON_TZ=%s %s", timezone, cronExpression)
+}
+
+// NextRun parses a schedule exactly as the scheduler does and returns its
+// first run after now. It fails for expressions the scheduler would reject,
+// including ones that never fire.
+func NextRun(cronExpression, timezone string, now time.Time) (time.Time, error) {
+	parser := gocron.NewDefaultCron(false)
+	errValid := parser.IsValid(cronSpec(cronExpression, timezone), time.UTC, now)
+	if errValid != nil {
+		return time.Time{}, fmt.Errorf("parse cron expression %q: %w", cronExpression, errValid)
+	}
+	return parser.Next(now), nil
+}
+
+func (s *Scheduler) addJob(task *models.ScheduledTask) error {
+	cronExpr := cronSpec(task.CronExpression, task.Timezone)
 
 	taskID := task.ID // capture for closure
 	j, errJob := s.scheduler.NewJob(

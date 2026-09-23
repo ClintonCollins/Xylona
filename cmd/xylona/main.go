@@ -20,6 +20,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	_ "time/tzdata" // Schedule zones must resolve on hosts with no zone database, such as Windows.
 
 	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"

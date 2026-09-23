@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -47,9 +48,15 @@ func scheduledTaskToProto(task *models.ScheduledTask, includeConsoleCommand bool
 		proto.LastRunAt = timestamppb.New(lastRunAt)
 	}
 
-	nextRunAt, nextRunAtSet := task.NextRunAt.Get()
-	if nextRunAtSet {
-		proto.NextRunAt = timestamppb.New(nextRunAt)
+	// The next run is derived from the schedule rather than stored, so it is
+	// never stale after an edit, a toggle or a missed run.
+	if task.Enabled != 0 {
+		nextRunAt, errNext := scheduler.NextRun(task.CronExpression, task.Timezone, time.Now())
+		if errNext != nil {
+			log.Warn().Err(errNext).Str("task_id", task.ID).Msg("Failed to compute next run for scheduled task")
+		} else {
+			proto.NextRunAt = timestamppb.New(nextRunAt)
+		}
 	}
 
 	return proto
@@ -134,20 +141,16 @@ func validateScheduledTaskInput(name, taskType, cronExpression, timezone, consol
 		return fmt.Errorf("invalid timezone: %s", timezone)
 	}
 
-	// Validate cron expression by attempting a trial parse via the scheduler
-	// helper. We use a simple heuristic: 5 space-separated fields.
-	fields := 0
-	inSpace := true
-	for _, c := range cronExpression {
-		if c == ' ' || c == '\t' {
-			inSpace = true
-		} else if inSpace {
-			fields++
-			inSpace = false
-		}
-	}
-	if fields != 5 {
+	if len(strings.Fields(cronExpression)) != 5 {
 		return errors.New("cron_expression must have exactly 5 fields (minute hour day month weekday)")
+	}
+
+	// Parse with the scheduler's own parser whether or not the task is
+	// enabled, so a disabled task can never be saved with a schedule that
+	// fails the moment it is switched on.
+	_, errCron := scheduler.NextRun(cronExpression, timezone, time.Now())
+	if errCron != nil {
+		return fmt.Errorf("invalid cron_expression: %w", errCron)
 	}
 
 	return nil
@@ -286,9 +289,8 @@ func (xs *XylonaService) CreateScheduledTask(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to create scheduled task"))
 	}
 
-	// Register with the scheduler if enabled. If AddTask fails (e.g. invalid
-	// cron expression that passed the heuristic field-count check), clean up
-	// the DB row and return an error so the client is not left with a
+	// Register with the scheduler if enabled. If AddTask still fails, clean
+	// up the DB row and return an error so the client is not left with a
 	// non-executing task.
 	if task.Enabled == 1 && xs.taskScheduler != nil {
 		errAdd := xs.taskScheduler.AddTask(task)
