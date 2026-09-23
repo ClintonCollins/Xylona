@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildPlaceholderVars,
+  formatCommandToken,
   playerLimit,
   resolveStartCommandBase,
   resolveStartArgs,
+  splitUnresolvedPlaceholders,
   type StartArgBlock,
   type StartArgPatch,
 } from './start-args'
@@ -124,5 +126,43 @@ describe('playerLimit', () => {
       MAX_PLAYERS: String(want),
       SET_PLAYERS: String(want),
     })
+  })
+})
+
+describe('command preview formatting', () => {
+  it.each([
+    ['-port', '-port'],
+    ['Valheim Test Server', '"Valheim Test Server"'],
+    ['', '""'],
+    ['say "hi" now', '"say \\"hi\\" now"'],
+  ])('formats %j as %s', (token, want) => {
+    expect(formatCommandToken(token)).toBe(want)
+  })
+
+  it('keeps placeholders the browser cannot resolve instead of blanking them', () => {
+    expect(resolveStartCommandBase('-token={{WEB_API_TOKEN}}', { PORT: '1' })).toBe(
+      '-token={{WEB_API_TOKEN}}',
+    )
+    expect(splitUnresolvedPlaceholders('-token={{WEB_API_TOKEN}}')).toEqual([
+      { text: '-token=', unresolved: false },
+      { text: '{{WEB_API_TOKEN}}', unresolved: true },
+    ])
+  })
+})
+
+describe('removed template blocks', () => {
+  const template: StartArgBlock[] = [
+    { id: 'heap', order: 1, ownership: 'editable', tokens: ['-Xmx2G'] },
+    { id: 'tail', order: 2, ownership: 'editable', tokens: ['nogui'] },
+  ]
+
+  it('stay listed as removed but add nothing to argv', () => {
+    const result = resolveStartArgs(template, [{ id: 'heap', op: 'remove' }], {})
+
+    expect(result.args).toEqual(['nogui'])
+    expect(result.resolvedBlocks.map((block) => [block.id, block.provenance])).toEqual([
+      ['heap', 'removed'],
+      ['tail', 'default'],
+    ])
   })
 })

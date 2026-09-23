@@ -200,6 +200,7 @@ import {
   StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
 import {
+  askLifecycleConfirmation,
   buildLifecycleConfirmation,
   type LifecycleConfirmAction,
 } from '@/pages/game_servers/server-list-actions'
@@ -366,31 +367,12 @@ onBeforeUnmount(() => {
 })
 
 function confirmLifecycleAction(action: LifecycleConfirmAction): Promise<boolean> {
-  const confirmation = buildLifecycleConfirmation(action, [
-    { displayName: server.value.name, playerCount: currentPlayerCount.value },
-  ])
-  if (confirmation === null) return Promise.resolve(true)
-  return new Promise<boolean>((resolve) => {
-    let settled = false
-    $q.dialog({
-      title: confirmation.title,
-      message: confirmation.message,
-      cancel: true,
-      persistent: true,
-      ok: {
-        label: confirmation.confirmLabel,
-        color: confirmation.confirmColor,
-        unelevated: true,
-      },
-    })
-      .onOk(() => {
-        settled = true
-        resolve(true)
-      })
-      .onDismiss(() => {
-        if (!settled) resolve(false)
-      })
-  })
+  return askLifecycleConfirmation(
+    $q,
+    buildLifecycleConfirmation(action, [
+      { displayName: server.value.name, playerCount: currentPlayerCount.value },
+    ]),
+  )
 }
 
 async function startGameServer(): Promise<void> {
