@@ -165,7 +165,7 @@ vi.mock('./useGameServerQueryStatusVersion', async () => {
       maxPlayerCount: ref(mocks.queryState.maxPlayerCount),
       onlinePlayers: ref([...mocks.queryState.onlinePlayers]),
       playerListSupported: ref(mocks.queryState.playerListSupported),
-      queryFresh: ref(false),
+      playerCount: ref(mocks.queryState.currentPlayerCount),
       queryGameServer: mocks.queryGameServer,
       startQueryStatusVersionLifecycle: mocks.startQueryStatusVersionLifecycle,
     }),
@@ -381,6 +381,34 @@ describe('GameServerView', () => {
     await flushPromises()
 
     expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(2)
+  })
+
+  it('names a start blocker in the offline placeholder and links config fixes', async () => {
+    mocks.getGameServerReadiness.mockResolvedValue({
+      items: [
+        {
+          kind: 'dragonwilds_config',
+          required: true,
+          blocking: true,
+          complete: false,
+          message: 'Set the Owner ID.',
+        },
+      ],
+    })
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.get('.offline-hint').text()).toBe(
+      'Start is blocked until Dragonwilds configuration is finished — see Details',
+    )
+    const configLink = wrapper
+      .findAll('q-btn-stub')
+      .find((button) => button.attributes('label') === 'Open Configuration')
+    expect(configLink?.attributes('to')).toBe('/game-servers/server-remote-1/configuration')
   })
 
   it('folds side panels to fit the console without saving, and keeps the one the user opens', async () => {

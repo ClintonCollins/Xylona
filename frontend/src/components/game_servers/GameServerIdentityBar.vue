@@ -29,7 +29,11 @@
       </span>
       <div class="identity-bar-actions">
         <q-btn
-          :aria-label="`${playerCountLabel} players online. Show players`"
+          :aria-label="
+            playerCountUnknown
+              ? 'Player count unknown. Show players'
+              : `${playerCountLabel} players online. Show players`
+          "
           class="identity-bar-players"
           dense
           flat
@@ -40,55 +44,57 @@
           <span class="identity-bar-players__count">{{ playerCountLabel }}</span>
           <q-tooltip>Players</q-tooltip>
         </q-btn>
+        <!-- Hints sit on a wrapper: a disabled button gets no hover, so its own tooltip never shows. -->
         <div aria-label="Server controls" class="identity-bar-lifecycle" role="group">
-          <q-btn
-            :aria-label="lifecycleAriaLabel('Start', 'game_server.start')"
-            :disable="!canStart"
-            :loading="startingServer"
-            color="positive"
-            dense
-            icon="play_arrow"
-            label="Start"
-            no-caps
-            no-wrap
-            outline
-            @click="startGameServer">
-            <q-tooltip v-if="lifecycleHint('game_server.start')">
-              {{ lifecycleHint('game_server.start') }}
-            </q-tooltip>
-          </q-btn>
-          <q-btn
-            :aria-label="lifecycleAriaLabel('Restart', 'game_server.restart')"
-            :disable="!canRestart"
-            :loading="restartingServer"
-            color="warning"
-            dense
-            icon="restart_alt"
-            label="Restart"
-            no-caps
-            no-wrap
-            outline
-            @click="restartGameServer">
+          <span class="identity-bar-control">
+            <q-btn
+              :aria-label="startAriaLabel"
+              :disable="!canStart"
+              :loading="startingServer"
+              color="positive"
+              dense
+              icon="play_arrow"
+              label="Start"
+              no-caps
+              no-wrap
+              outline
+              @click="startGameServer" />
+            <q-tooltip v-if="startHint">{{ startHint }}</q-tooltip>
+          </span>
+          <span class="identity-bar-control">
+            <q-btn
+              :aria-label="lifecycleAriaLabel('Restart', 'game_server.restart')"
+              :disable="!canRestart"
+              :loading="restartingServer"
+              color="warning"
+              dense
+              icon="restart_alt"
+              label="Restart"
+              no-caps
+              no-wrap
+              outline
+              @click="restartGameServer" />
             <q-tooltip v-if="lifecycleHint('game_server.restart')">
               {{ lifecycleHint('game_server.restart') }}
             </q-tooltip>
-          </q-btn>
-          <q-btn
-            :aria-label="lifecycleAriaLabel('Stop', 'game_server.stop')"
-            :disable="!canStop"
-            :loading="stoppingServer"
-            color="negative"
-            dense
-            icon="stop"
-            label="Stop"
-            no-caps
-            no-wrap
-            outline
-            @click="stopGameServer">
+          </span>
+          <span class="identity-bar-control">
+            <q-btn
+              :aria-label="lifecycleAriaLabel('Stop', 'game_server.stop')"
+              :disable="!canStop"
+              :loading="stoppingServer"
+              color="negative"
+              dense
+              icon="stop"
+              label="Stop"
+              no-caps
+              no-wrap
+              outline
+              @click="stopGameServer" />
             <q-tooltip v-if="lifecycleHint('game_server.stop')">
               {{ lifecycleHint('game_server.stop') }}
             </q-tooltip>
-          </q-btn>
+          </span>
         </div>
       </div>
     </div>
@@ -145,7 +151,7 @@
         </div>
         <div class="identity-players__body">
           <p v-if="playerCountUnknown" class="q-ma-none text-caption text-xy-muted" role="status">
-            Player count and names unavailable. No fresh successful query has been received.
+            Player count and names unavailable. The game has not answered a player query.
           </p>
           <game-server-player-roster
             v-else
@@ -200,7 +206,13 @@ import {
   StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
 import {
+  findStartBlocker,
+  readinessLabel,
+  useGameServerReadiness,
+} from '@/pages/game_servers/game-server-readiness'
+import {
   buildLifecycleConfirmation,
+  isServerRunning,
   type LifecycleConfirmAction,
 } from '@/pages/game_servers/server-list-actions'
 import {
@@ -210,6 +222,7 @@ import {
 } from '@/pages/game_servers/start-failure'
 import { useGameServerQueryStatusVersion } from '@/pages/game_servers/useGameServerQueryStatusVersion'
 import { resolveCanonicalVersionDisplay } from '@/pages/game_servers/version-display'
+import { isServerStopping } from '@/utils/game-server-stopping'
 import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
@@ -241,11 +254,13 @@ const {
   currentPlayerCount,
   maxPlayerCount,
   onlinePlayers,
+  playerCount,
   playerListSupported,
-  queryFresh,
   queryGameServer,
   startQueryStatusVersionLifecycle,
 } = useGameServerQueryStatusVersion({ gameServer: server, gameServerId })
+const readiness = useGameServerReadiness(gameServerId)
+const startBlocker = computed(() => findStartBlocker(readiness.items.value))
 
 const startingServer = ref(false)
 const stoppingServer = ref(false)
@@ -256,6 +271,10 @@ const playersOpen = ref(false)
 const playerManagementOpen = ref(false)
 
 const isServerOnline = computed(() => server.value.status === Status.ONLINE)
+// Starting servers can be stopped or restarted too; only players wait for Online.
+const isRunning = computed(() => isServerRunning(server.value.status))
+// A stop from any view, schedule or tab, not only this bar's own button.
+const isStopping = computed(() => stoppingServer.value || isServerStopping(server.value.id))
 const isSevenDays = computed(() => server.value.gameId === '7_days_to_die')
 const onConsole = computed(() => route.path.endsWith('/console'))
 const serverStateAuthoritative = computed(
@@ -268,28 +287,49 @@ const canStart = computed(
   () =>
     serverStateAuthoritative.value &&
     server.value.status === Status.OFFLINE &&
-    hasPermission('game_server.start'),
+    hasPermission('game_server.start') &&
+    startBlocker.value === undefined,
 )
 const canStop = computed(
-  () => serverStateAuthoritative.value && isServerOnline.value && hasPermission('game_server.stop'),
+  () =>
+    serverStateAuthoritative.value &&
+    isRunning.value &&
+    !isStopping.value &&
+    hasPermission('game_server.stop'),
 )
 const canRestart = computed(
   () =>
-    serverStateAuthoritative.value && isServerOnline.value && hasPermission('game_server.restart'),
+    serverStateAuthoritative.value &&
+    isRunning.value &&
+    !isStopping.value &&
+    hasPermission('game_server.restart'),
 )
 const statusBadgePhase = computed(() => {
-  if (stoppingServer.value) return 'stopping'
+  if (restartingServer.value) return 'restarting'
+  if (isStopping.value) return 'stopping'
   if (lastStartFailure.value && server.value.status === Status.OFFLINE) return 'failed'
   return undefined
+})
+const startHint = computed(() => {
+  const permissionOrStatusHint = lifecycleHint('game_server.start')
+  if (permissionOrStatusHint !== '') return permissionOrStatusHint
+  const blocker = startBlocker.value
+  if (blocker === undefined) return ''
+  return `Finish setup first — ${readinessLabel(blocker.kind)}: ${blocker.message}`
+})
+const startAriaLabel = computed(() => {
+  const blocker = startBlocker.value
+  if (hasPermission('game_server.start') && blocker !== undefined) {
+    return `Start (blocked until ${readinessLabel(blocker.kind)} is finished)`
+  }
+  return lifecycleAriaLabel('Start', 'game_server.start')
 })
 
 // Without a query reply (e.g. offline Valheim) show the configured limit, as the server list does.
 const displayedMaxPlayerCount = computed(
   () => maxPlayerCount.value || Number(playerLimit(server.value)),
 )
-const playerCountUnknown = computed(
-  () => server.value.gameId === 'valheim' && isServerOnline.value && !queryFresh.value,
-)
+const playerCountUnknown = computed(() => playerCount.value === null)
 const playerCountLabel = computed(() =>
   playerCountUnknown.value
     ? '?'
@@ -367,7 +407,7 @@ onBeforeUnmount(() => {
 
 function confirmLifecycleAction(action: LifecycleConfirmAction): Promise<boolean> {
   const confirmation = buildLifecycleConfirmation(action, [
-    { displayName: server.value.name, playerCount: currentPlayerCount.value },
+    { displayName: server.value.name, playerCount: playerCount.value },
   ])
   if (confirmation === null) return Promise.resolve(true)
   return new Promise<boolean>((resolve) => {
@@ -407,7 +447,7 @@ async function startGameServer(): Promise<void> {
     lifecycleIntents.startRequestedAt = 0
     lastStartFailure.value = { at: Date.now(), message: connectErrorMessage(error) }
     notifyConnectError(error, 'Failed to start game server')
-    // The console re-reads readiness so a blocker behind the rejection shows up.
+    // Readiness is re-read so a blocker behind the rejection disables Start.
     XylonaEventBus.emit('gameServerStartRejected', server.value.id)
   } finally {
     startingServer.value = false
@@ -536,6 +576,19 @@ async function restartGameServer(): Promise<void> {
 
 .identity-bar-lifecycle .q-btn {
   padding-inline: var(--xy-space-sm);
+}
+
+.identity-bar-control {
+  display: inline-flex;
+}
+
+/* Browsers send no hover to a disabled button; let it reach the wrapper's hint. */
+.identity-bar-control:has(.q-btn.disabled) {
+  cursor: not-allowed;
+}
+
+.identity-bar-control .q-btn.disabled {
+  pointer-events: none;
 }
 
 .identity-bar-hint {

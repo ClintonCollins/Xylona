@@ -1,8 +1,12 @@
 import { Status } from '@/proto/shared_pb'
 import { formatTime } from '@/utils/format-timestamp'
 
-/** How long after a Start request an OFFLINE transition still counts as that start failing. */
-export const startFailureWindowMs = 120_000
+/**
+ * How long after a Start request an OFFLINE transition still counts as that
+ * start failing. It covers the node's five-minute readiness wait: a server
+ * that exits while Starting never came online. Reaching ONLINE clears it.
+ */
+export const startFailureWindowMs = 360_000
 
 export interface StartFailure {
   at: number

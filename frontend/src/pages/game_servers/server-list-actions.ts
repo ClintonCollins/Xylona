@@ -1,22 +1,27 @@
 import { Status } from '@/proto/shared_pb'
 import type { DisplayRow } from './server-list-cache'
 
+/** Online, or started and not yet ready for players: the process is up either way. */
+export function isServerRunning(status: Status): boolean {
+  return status === Status.ONLINE || status === Status.PRE_START
+}
+
 export function canStartServer(status: Status): boolean {
   return status === Status.OFFLINE
 }
 
 export function canStopServer(status: Status): boolean {
-  return status === Status.ONLINE
+  return isServerRunning(status)
 }
 
 export function canRestartServer(status: Status): boolean {
-  return status === Status.ONLINE
+  return isServerRunning(status)
 }
 
 export function canUpdateServer(server: DisplayRow): boolean {
   return (
     Boolean(server.canUpdate) &&
-    (server.statusEnum === Status.ONLINE || server.statusEnum === Status.OFFLINE)
+    (isServerRunning(server.statusEnum) || server.statusEnum === Status.OFFLINE)
   )
 }
 
@@ -40,7 +45,8 @@ export type LifecycleConfirmAction = 'stop' | 'restart'
 
 export interface LifecycleImpact {
   displayName: string
-  playerCount: number
+  /** Null when the server is up but has not answered a player query. */
+  playerCount: number | null
 }
 
 export interface LifecycleConfirmation {
@@ -51,13 +57,18 @@ export interface LifecycleConfirmation {
 }
 
 // Risk-proportional confirmation: stop/restart run instantly when nobody is
-// online, and require one confirm naming the affected players otherwise.
+// online, and require one confirm naming the affected players otherwise. An
+// unknown player count is never treated as nobody.
 export function buildLifecycleConfirmation(
   action: LifecycleConfirmAction,
   servers: LifecycleImpact[],
 ): LifecycleConfirmation | null {
-  const totalPlayers = servers.reduce((total, server) => total + Math.max(server.playerCount, 0), 0)
-  if (totalPlayers === 0) {
+  const unknownCount = servers.filter((server) => server.playerCount === null).length
+  const totalPlayers = servers.reduce(
+    (total, server) => total + Math.max(server.playerCount ?? 0, 0),
+    0,
+  )
+  if (totalPlayers === 0 && unknownCount === 0) {
     return null
   }
 
@@ -67,25 +78,27 @@ export function buildLifecycleConfirmation(
 
   const singleServer = servers.length === 1 ? servers[0] : undefined
   if (singleServer !== undefined) {
-    const consequence =
-      action === 'stop'
-        ? 'online and will be disconnected.'
-        : 'online and will be disconnected while the server restarts.'
+    const restartSuffix = action === 'stop' ? '' : ' while the server restarts'
     return {
       title: `${actionLabel} ${singleServer.displayName}?`,
-      message: `${playerPhrase} ${consequence}`,
+      message:
+        unknownCount > 0
+          ? `Player count unknown — anyone connected will be disconnected${restartSuffix}.`
+          : `${playerPhrase} online and will be disconnected${restartSuffix}.`,
       confirmLabel: `${actionLabel} server`,
       confirmColor,
     }
   }
 
-  const consequence =
-    action === 'stop'
-      ? 'and will be disconnected.'
-      : 'and will be disconnected while the servers restart.'
+  const restartSuffix = action === 'stop' ? '' : ' while the servers restart'
+  let message = `${playerPhrase} online across ${servers.length} servers and will be disconnected${restartSuffix}.`
+  if (unknownCount > 0) {
+    const knownPlayers = totalPlayers > 0 ? `, and ${playerPhrase} online on the others` : ''
+    message = `Player count unknown on ${unknownCount} of ${servers.length} servers${knownPlayers} — anyone connected will be disconnected${restartSuffix}.`
+  }
   return {
     title: `${actionLabel} ${servers.length} servers?`,
-    message: `${playerPhrase} online across ${servers.length} servers ${consequence}`,
+    message,
     confirmLabel: `${actionLabel} servers`,
     confirmColor,
   }

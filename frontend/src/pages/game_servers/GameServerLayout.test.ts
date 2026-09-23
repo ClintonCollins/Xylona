@@ -44,7 +44,10 @@ vi.mock('@/stores/xylona', () => ({
 }))
 
 vi.mock('@/utils/shared', () => ({
-  GetXylonaClient: () => ({ getGameServer: mocks.getGameServer }),
+  GetXylonaClient: () => ({
+    getGameServer: mocks.getGameServer,
+    getGameServerReadiness: () => Promise.resolve({ items: [] }),
+  }),
   XylonaEventBus: {
     on: vi.fn(),
     off: vi.fn(),

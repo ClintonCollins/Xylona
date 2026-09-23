@@ -55,6 +55,20 @@
                 <div class="readiness-item-title">{{ readinessLabel(item.kind) }}</div>
                 <div class="readiness-item-message">{{ item.message }}</div>
                 <q-btn
+                  v-if="
+                    !item.complete &&
+                    isConfigReadinessItem(item) &&
+                    hasPermission('game_server.config')
+                  "
+                  :to="`/game-servers/${gameServerId}/configuration`"
+                  class="readiness-action"
+                  color="primary"
+                  dense
+                  icon="tune"
+                  label="Open Configuration"
+                  no-caps
+                  outline />
+                <q-btn
                   v-if="item.kind === 'minecraft_eula' && hasPermission('game_server.settings')"
                   :loading="acceptingMinecraftEula"
                   class="readiness-action"
@@ -586,11 +600,8 @@
           </span>
         </div>
         <div class="player-rail__body">
-          <p
-            v-if="gameServer.gameId === 'valheim' && isServerOnline && !queryFresh"
-            role="status"
-            class="q-ma-none text-caption text-xy-muted">
-            Player count and names unavailable. No fresh successful query has been received.
+          <p v-if="playerCount === null" role="status" class="q-ma-none text-caption text-xy-muted">
+            Player count and names unavailable. The game has not answered a player query.
           </p>
           <game-server-player-roster
             v-else
@@ -620,9 +631,7 @@
         </q-btn>
         <span class="player-rail__mini-count font-mono">
           {{
-            gameServer.gameId === 'valheim' && isServerOnline && !queryFresh
-              ? 'Unknown'
-              : `${currentPlayerCount}/${displayedMaxPlayerCount}`
+            playerCount === null ? 'Unknown' : `${currentPlayerCount}/${displayedMaxPlayerCount}`
           }}
         </span>
       </template>
@@ -673,14 +682,13 @@ import {
   SendGameServerInputRequestSchema,
   Status,
 } from '@/proto/shared_pb'
-import type { GameServerReadinessItem, HytaleProfile, UpdateProgress } from '@/proto/xylona_pb'
+import type { HytaleProfile, UpdateProgress } from '@/proto/xylona_pb'
 import {
   AcceptMinecraftEulaRequestSchema,
   ClearHytaleAccountRequestSchema,
   ClearSteamGSLTRequestSchema,
   GetGameServerRequest,
   GetGameServerRequestSchema,
-  GetGameServerReadinessRequestSchema,
   GetUpdateTargetsRequestSchema,
   PollHytaleDeviceAuthRequestSchema,
   SelectHytaleProfileRequestSchema,
@@ -729,6 +737,14 @@ import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { resolveConsoleStreamChunk } from './console-stream-sequence'
 import { fitConsoleSidePanels, type ConsoleSidePanel } from './console-side-panels'
 import { useGameServerName } from './game-server-context'
+import {
+  findStartBlocker,
+  isConfigReadinessItem,
+  readinessLabel,
+  useGameServerReadiness,
+} from './game-server-readiness'
+import { isServerRunning } from './server-list-actions'
+import { isServerStopping } from '@/utils/game-server-stopping'
 
 const $q = useQuasar()
 const route = useRoute()
@@ -853,8 +869,7 @@ const updatingServer = ref(false)
 const updateInProgress = ref(false)
 const updateSteps = ref<StepState[]>([])
 const softwareOperationInProgress = ref(false)
-const readinessItems = ref<GameServerReadinessItem[]>([])
-const readinessLoading = ref(false)
+const { items: readinessItems } = useGameServerReadiness(gameServerId)
 const acceptingMinecraftEula = ref(false)
 const steamGSLT = ref('')
 const savingSteamGSLT = ref(false)
@@ -897,7 +912,7 @@ const {
   gameServerId,
 })
 const {
-  queryFresh,
+  playerCount,
   currentPlayerCount,
   maxPlayerCount,
   onlinePlayers,
@@ -914,7 +929,10 @@ const displayedMaxPlayerCount = computed(
   () => maxPlayerCount.value || Number(playerLimit(gameServer.value)),
 )
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
-const showLiveMetrics = computed(() => isServerOnline.value && metricsReceived.value)
+// Started but not ready yet still has a live process: metrics and stdin work.
+const isServerProcessRunning = computed(() => isServerRunning(gameServer.value.status))
+const serverStopping = computed(() => isServerStopping(gameServerId.value))
+const showLiveMetrics = computed(() => isServerProcessRunning.value && metricsReceived.value)
 const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
 const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)
 const unlistedPlayerCount = computed(() =>
@@ -927,7 +945,8 @@ const serverStateAuthoritative = computed(
 const consoleInputDisabled = computed(
   () =>
     !hasPermission('game_server.console') ||
-    !isServerOnline.value ||
+    !isServerProcessRunning.value ||
+    serverStopping.value ||
     !serverStateAuthoritative.value ||
     sendingConsoleInput.value,
 )
@@ -937,6 +956,9 @@ const consoleInputDisabledReason = computed(() => {
   }
   if (isServerOffline.value && serverStateAuthoritative.value) {
     return 'Server offline — start it to send commands'
+  }
+  if (serverStopping.value) {
+    return 'Server is stopping — commands are closed'
   }
   if (!serverStateAuthoritative.value || isServerStatusUnknown.value) {
     return 'Waiting for server status — commands are paused'
@@ -1030,15 +1052,17 @@ const visibleReadinessItems = computed(() =>
           hasPermission('game_server.settings'))),
   ),
 )
-const setupBlocksStart = computed(() => visibleReadinessItems.value.some((item) => item.blocking))
+const startBlocker = computed(() => findStartBlocker(readinessItems.value))
+const setupBlocksStart = computed(() => startBlocker.value !== undefined)
 const offlineHint = computed(() => {
   if (isServerStatusUnknown.value) return 'Lifecycle controls are paused until status is confirmed'
-  if (setupBlocksStart.value) return 'Finish the setup steps in Details before starting'
+  if (startBlocker.value !== undefined) {
+    return `Start is blocked until ${readinessLabel(startBlocker.value.kind)} is finished — see Details`
+  }
   return 'Press Start to launch the server'
 })
-const readinessVisible = computed(
-  () => readinessLoading.value || visibleReadinessItems.value.length > 0,
-)
+// Readiness re-reads on focus and navigation, so a load alone must not flash an empty section.
+const readinessVisible = computed(() => visibleReadinessItems.value.length > 0)
 const hytaleVerificationLink = computed(
   () => hytaleVerificationUriComplete.value || hytaleVerificationUri.value,
 )
@@ -1165,7 +1189,6 @@ onMounted(async () => {
 
   void getGameServerDetails()
     .then(() => {
-      void loadReadiness()
       void retryConsoleOutput()
       startQueryStatusVersionLifecycle()
       startMetricsPreviewLifecycle()
@@ -1186,7 +1209,6 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('websocketDisconnected', onWebsocketDisconnect)
   XylonaEventBus.off('gameServerConsoleOutput', onServerConsoleOutput)
   XylonaEventBus.off('gameServerStatus', onServerStatus)
-  XylonaEventBus.off('gameServerStartRejected', onStartRejected)
 })
 
 function unsubscribeConsoleOutputStream() {
@@ -1247,21 +1269,6 @@ async function getGameServerDetails() {
       icon: 'report_problem',
     })
     return false
-  }
-}
-
-async function loadReadiness() {
-  readinessLoading.value = true
-  try {
-    const request = create(GetGameServerReadinessRequestSchema, {
-      serverId: gameServerId.value,
-    })
-    const response = await GetXylonaClient().getGameServerReadiness(request)
-    readinessItems.value = response.items
-  } catch (e) {
-    console.error(e)
-  } finally {
-    readinessLoading.value = false
   }
 }
 
@@ -1456,31 +1463,6 @@ async function clearHytaleAccount() {
   }
 }
 
-function readinessLabel(kind: string): string {
-  if (kind === 'valheim_runtime') return 'Valheim runtime'
-  if (kind === 'minecraft_eula') {
-    return 'Minecraft EULA'
-  }
-  if (kind === 'steam_gslt') {
-    return 'Steam GSLT'
-  }
-  if (kind === 'hytale_account') {
-    return 'Hytale account'
-  }
-  if (kind === 'sunkenland_world') {
-    return 'Sunkenland world'
-  }
-  if (kind === 'dragonwilds_config') {
-    return 'Dragonwilds configuration'
-  }
-  return 'Setup'
-}
-
-// A rejected Start from the identity bar often means a setup blocker.
-function onStartRejected(serverID: string) {
-  if (serverID === gameServerId.value) void loadReadiness()
-}
-
 function resetUpdateSteps() {
   updateSteps.value = buildUpdateSteps(
     gameServer.value.status,
@@ -1544,7 +1526,7 @@ async function updateGameServer() {
     return
   }
 
-  if (gameServer.value.status === Status.ONLINE) {
+  if (isServerProcessRunning.value) {
     const confirmed = await new Promise<boolean>((resolve) => {
       let settled = false
       $q.dialog({
@@ -1750,7 +1732,6 @@ function streamGameServerOutput() {
   // Stream game server output.
   XylonaEventBus.on('gameServerConsoleOutput', onServerConsoleOutput)
   XylonaEventBus.on('gameServerStatus', onServerStatus)
-  XylonaEventBus.on('gameServerStartRejected', onStartRejected)
 
   // Listen for update progress events before any initial websocket request so
   // an early send failure cannot skip the listener registration.

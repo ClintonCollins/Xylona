@@ -46,9 +46,10 @@ describe('server-list-actions', () => {
     }
   })
 
-  it('canStopServer returns true only for online status', () => {
+  it('canStopServer returns true only while the server process runs', () => {
     const tests = [
       { name: 'online', status: Status.ONLINE, want: true },
+      { name: 'starting', status: Status.PRE_START, want: true },
       { name: 'offline', status: Status.OFFLINE, want: false },
       { name: 'unknown', status: Status.UNKNOWN, want: false },
       { name: 'installing', status: Status.INSTALLING, want: false },
@@ -188,6 +189,33 @@ describe('server-list-actions', () => {
           message: '5 players are online across 3 servers and will be disconnected.',
           confirmLabel: 'Stop servers',
           confirmColor: 'negative',
+        },
+      },
+      {
+        name: 'stop single server with an unknown player count still confirms',
+        action: 'stop' as const,
+        servers: [{ displayName: 'Alpha', playerCount: null }],
+        want: {
+          title: 'Stop Alpha?',
+          message: 'Player count unknown — anyone connected will be disconnected.',
+          confirmLabel: 'Stop server',
+          confirmColor: 'negative',
+        },
+      },
+      {
+        name: 'bulk restart with an unknown count names it and the known players',
+        action: 'restart' as const,
+        servers: [
+          { displayName: 'Alpha', playerCount: 2 },
+          { displayName: 'Beta', playerCount: null },
+          { displayName: 'Gamma', playerCount: 0 },
+        ],
+        want: {
+          title: 'Restart 3 servers?',
+          message:
+            'Player count unknown on 1 of 3 servers, and 2 players are online on the others — anyone connected will be disconnected while the servers restart.',
+          confirmLabel: 'Restart servers',
+          confirmColor: 'warning',
         },
       },
       {

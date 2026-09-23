@@ -119,6 +119,19 @@ vi.mock('@/utils/shared', async () => {
   }
 })
 
+function emitPlayerCounts(countsByServerID: Record<string, number>) {
+  const servers = Object.fromEntries(
+    Object.entries(countsByServerID).map(([serverID, count]) => [
+      serverID,
+      {
+        type: ServerQuery_Type.Minecraft,
+        minecraft: { numberOfPlayers: count, maxPlayers: 10, playerList: [], responded: true },
+      },
+    ]),
+  )
+  mocks.eventBus.emit('gameServersQueryInfo', { servers })
+}
+
 vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
@@ -543,6 +556,18 @@ describe('GameServerList', () => {
       wantCalls: 0,
     },
     {
+      label: 'confirms a row stop when the player count is unknown',
+      action: 'stop' as const,
+      playerCount: null,
+      dialogChoice: 'ok' as const,
+      wantDialog: {
+        title: 'Stop Server A?',
+        message: 'Player count unknown — anyone connected will be disconnected.',
+        confirmColor: 'negative',
+      },
+      wantCalls: 1,
+    },
+    {
       label: 'stops a row immediately when no players are online',
       action: 'stop' as const,
       playerCount: 0n,
@@ -579,7 +604,6 @@ describe('GameServerList', () => {
             id: 'server-a',
             name: 'Server A',
             status: Status.ONLINE,
-            currentPlayerCount: playerCount,
             maxPlayers: 10n,
           }),
         }),
@@ -588,6 +612,8 @@ describe('GameServerList', () => {
     mocks.dialogChoice.value = dialogChoice
 
     const wrapper = mountList(true)
+    await flushPromises()
+    if (playerCount !== null) emitPlayerCounts({ 'server-a': Number(playerCount) })
     await flushPromises()
     const vm = wrapper.vm as unknown as {
       displayRows: DisplayRow[]
@@ -613,7 +639,45 @@ describe('GameServerList', () => {
     expect(actionMock).toHaveBeenCalledTimes(wantCalls)
   })
 
-  it('confirms a bulk stop once, naming total players and server count', async () => {
+  it('keeps the current rows on screen while a lifecycle refresh is in flight', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ status: Status.ONLINE }),
+        }),
+      ],
+    })
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      getGameServers: () => Promise<void>
+    }
+
+    let finishRefresh: (value: unknown) => void = () => {}
+    mocks.listAggregatedGameServers.mockReturnValue(
+      new Promise((resolve) => {
+        finishRefresh = resolve
+      }),
+    )
+    const refresh = vm.getGameServers()
+    await flushPromises()
+    expect(vm.displayRows.map((row) => row.id)).toEqual(['server-local'])
+
+    finishRefresh({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ status: Status.OFFLINE }),
+        }),
+      ],
+    })
+    await refresh
+    expect(vm.displayRows[0]?.statusEnum).toBe(Status.OFFLINE)
+  })
+
+  it('shows an in-flight stop or restart on the row badge and sums only known player counts', async () => {
     mocks.listAggregatedGameServers.mockResolvedValue({
       servers: [
         createProto(AggregatedGameServerSchema, {
@@ -622,7 +686,6 @@ describe('GameServerList', () => {
             id: 'server-a',
             name: 'Server A',
             status: Status.ONLINE,
-            currentPlayerCount: 2n,
             maxPlayers: 10n,
           }),
         }),
@@ -632,7 +695,61 @@ describe('GameServerList', () => {
             id: 'server-b',
             name: 'Server B',
             status: Status.ONLINE,
-            currentPlayerCount: 3n,
+            maxPlayers: 10n,
+          }),
+        }),
+      ],
+    })
+    let finishStop: (value: unknown) => void = () => {}
+    mocks.stopGameServer.mockReturnValue(
+      new Promise((resolve) => {
+        finishStop = resolve
+      }),
+    )
+    const wrapper = mountList(true)
+    await flushPromises()
+    emitPlayerCounts({ 'server-a': 0 })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      getStatusBadgePhase: (row: DisplayRow) => string | undefined
+      runServerAction: (action: 'stop', server: DisplayRow) => Promise<void>
+      totalPlayerCounts: { current: number; max: number }
+    }
+    const [serverA, serverB] = vm.displayRows
+    if (!serverA || !serverB) throw new Error('expected two rows')
+
+    // Server B has not answered its query: left out of the sum, not counted as 0 / 10.
+    expect(vm.totalPlayerCounts).toEqual({ current: 0, max: 10 })
+
+    const stopping = vm.runServerAction('stop', serverA)
+    await flushPromises()
+    expect(vm.getStatusBadgePhase(serverA)).toBe('stopping')
+    expect(vm.getStatusBadgePhase(serverB)).toBeUndefined()
+
+    finishStop({})
+    await stopping
+    expect(vm.getStatusBadgePhase(serverA)).toBeUndefined()
+  })
+
+  it('confirms a bulk stop once, naming total players and server count', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-a',
+            name: 'Server A',
+            status: Status.ONLINE,
+            maxPlayers: 10n,
+          }),
+        }),
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-b',
+            name: 'Server B',
+            status: Status.ONLINE,
             maxPlayers: 10n,
           }),
         }),
@@ -646,6 +763,8 @@ describe('GameServerList', () => {
       selectedGameServers: DisplayRow[]
       stopSelectedGameServers: () => Promise<void>
     }
+    emitPlayerCounts({ 'server-a': 2, 'server-b': 3 })
+    await flushPromises()
     vm.selectedGameServers = [...vm.displayRows]
 
     await vm.stopSelectedGameServers()
@@ -769,7 +888,7 @@ describe('GameServerList', () => {
       servers: {
         'server-local': {
           type: ServerQuery_Type.Minecraft,
-          minecraft: { numberOfPlayers: 4, maxPlayers: 20 },
+          minecraft: { numberOfPlayers: 4, maxPlayers: 20, playerList: [], responded: true },
         },
       },
     })
@@ -791,6 +910,7 @@ describe('GameServerList', () => {
     expect(vm.formatCpuUsage(row)).toBe('12.5%')
     expect(vm.formatMemoryUsage(row)).toBe('512.0 MB · 25.0%')
 
+    setWebsocketConnectionStatus('reconnecting')
     mocks.eventBus.emit('websocketDisconnected')
     await flushPromises()
 
@@ -827,7 +947,7 @@ describe('GameServerList', () => {
       servers: {
         'server-local': {
           type: ServerQuery_Type.Minecraft,
-          minecraft: { numberOfPlayers: 4, maxPlayers: 20 },
+          minecraft: { numberOfPlayers: 4, maxPlayers: 20, playerList: [], responded: true },
         },
       },
     })
@@ -852,7 +972,8 @@ describe('GameServerList', () => {
     if (!restartedRow) {
       throw new Error('expected the restarted server row')
     }
-    expect(vm.getPlayerCountLabel(restartedRow)).toBe('0 / 20')
+    // The new process has not answered its query yet, so its count is unknown.
+    expect(vm.getPlayerCountLabel(restartedRow)).toBe('Unknown / 20')
     expect(vm.formatCpuUsage(restartedRow)).toBe('—')
     expect(vm.formatMemoryUsage(restartedRow)).toBe('—')
   })

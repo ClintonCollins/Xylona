@@ -13,6 +13,7 @@ import {
 } from '@/proto/shared_pb'
 import { QueryGameServerResponseSchema } from '@/proto/xylona_pb'
 import { XylonaEventBus } from '@/utils/shared'
+import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
 
 const mocks = vi.hoisted(() => {
   const queryGameServer = vi.fn()
@@ -57,6 +58,7 @@ function makeMinecraftQueryResponse(
         numberOfPlayers: currentPlayers,
         maxPlayers,
         playerList,
+        responded: true,
       },
     },
   })
@@ -78,6 +80,7 @@ function makeSourceQueryResponse(
         maxPlayers,
         playerList,
         playerListSupported,
+        responded: currentPlayers > 0 || playerList.length > 0,
       },
     },
   })
@@ -119,6 +122,7 @@ function makeQueryInfoEvent(
             numberOfPlayers: currentPlayers,
             maxPlayers,
             playerList,
+            responded: true,
           },
         },
       },
@@ -154,6 +158,7 @@ function makeQueryInfoEvent(
           maxPlayers,
           playerList,
           playerListSupported: playerList.length > 0,
+          responded: true,
         },
       },
     },
@@ -167,6 +172,7 @@ async function loadComposable() {
 
 type HarnessVm = ComponentPublicInstance & {
   queryFresh: boolean
+  playerCount: number | null
   currentPlayerCount: number
   gameServer: ReturnType<typeof makeGameServer>
   maxPlayerCount: number
@@ -493,4 +499,21 @@ it('keeps failed Valheim queries unavailable', async () => {
   expect(vm.queryFresh).toBe(false)
   expect(vm.playerListSupported).toBe(false)
   unmountHarness(wrapper)
+})
+
+it.each([
+  { label: 'an answered query', responded: true, status: Status.ONLINE, want: 4 },
+  { label: 'a query the game did not answer', responded: false, status: Status.ONLINE, want: null },
+  { label: 'a server that is starting', responded: false, status: Status.PRE_START, want: 0 },
+])('reports the player count for $label', async ({ responded, status, want }) => {
+  setWebsocketConnectionStatus('connected')
+  const response = makeMinecraftQueryResponse(4, 20)
+  if (response.queryInfo?.minecraft) response.queryInfo.minecraft.responded = responded
+  mocks.queryGameServer.mockResolvedValue(response)
+  const wrapper = await mountHarness(status)
+  const vm = getHarnessVm(wrapper)
+  await vm.queryGameServer()
+  expect(vm.playerCount).toBe(want)
+  unmountHarness(wrapper)
+  setWebsocketConnectionStatus('connecting')
 })
