@@ -46,6 +46,9 @@ interface UseGameFormPersistenceOptions {
   syncStructuredStartArgsToGame: () => void
   syncActivePlatformFromGame: () => void
   commitFormSnapshot: () => void
+  // Default environment rows keep their own RPC; Save commits them when they changed.
+  defaultEnvDirty: Readonly<Ref<boolean>>
+  saveDefaultEnvironment: () => Promise<void>
 }
 
 export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
@@ -259,6 +262,9 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
     try {
       if (options.existingGame.value) {
         await updateExistingGame()
+        if (!options.copyGame.value && options.defaultEnvDirty.value) {
+          await options.saveDefaultEnvironment()
+        }
       } else {
         await addNewGame()
       }

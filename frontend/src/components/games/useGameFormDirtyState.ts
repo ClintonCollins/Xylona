@@ -75,17 +75,21 @@ export function useGameFormDirtyState(options: UseGameFormDirtyStateOptions) {
     initialDefaultEnvSnapshot.value = takeDefaultEnvSnapshot()
   }
 
+  const defaultEnvDirty = computed(
+    () =>
+      initialDefaultEnvSnapshot.value !== '' &&
+      takeDefaultEnvSnapshot() !== initialDefaultEnvSnapshot.value,
+  )
+
   const isDirty = computed(() => {
     const formDirty =
       initialFormSnapshot.value !== '' && takeFormSnapshot() !== initialFormSnapshot.value
-    const defaultEnvDirty =
-      initialDefaultEnvSnapshot.value !== '' &&
-      takeDefaultEnvSnapshot() !== initialDefaultEnvSnapshot.value
 
-    return formDirty || defaultEnvDirty
+    return formDirty || defaultEnvDirty.value
   })
 
   return {
+    defaultEnvDirty,
     isDirty,
     takeSnapshot,
     commitSnapshot,

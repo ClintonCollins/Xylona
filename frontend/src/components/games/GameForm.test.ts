@@ -726,7 +726,7 @@ describe('GameForm', () => {
     )
   })
 
-  it('saves game default environment through the dedicated RPC', async () => {
+  it('saves changed default environment rows with the header Save', async () => {
     mocks.getGame.mockResolvedValue({
       game: create(GameSchema, {
         id: 'minecraft',
@@ -757,20 +757,31 @@ describe('GameForm', () => {
     const wrapper = mountGameForm()
     await flushPromises()
 
+    mocks.editGame.mockResolvedValue({})
     await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
-    const saveButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().trim() === 'Save Default Environment')
-
-    expect(saveButton).toBeDefined()
+    expect(
+      wrapper
+        .findAll('button')
+        .some((button) => button.text().trim() === 'Save Default Environment'),
+    ).toBe(false)
+    const saveButton = wrapper.findAll('button').find((button) => button.text().trim() === 'Save')
     if (!saveButton) {
-      throw new Error('expected Save Default Environment button to exist')
+      throw new Error('expected the header Save button to exist')
     }
 
+    // Unchanged rows are not re-sent.
+    await saveButton.trigger('click')
+    await flushPromises()
+    expect(mocks.editGame).toHaveBeenCalledTimes(1)
+    expect(mocks.updateGameEnvironment).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid="add-default-environment-row"]').trigger('click')
+    expect(wrapper.findAll('[data-testid="game-default-environment-row"]')).toHaveLength(2)
     await saveButton.trigger('click')
     await flushPromises()
 
     expect(mocks.getGameEnvironment).toHaveBeenCalledTimes(1)
+    expect(mocks.editGame).toHaveBeenCalledTimes(2)
     expect(mocks.updateGameEnvironment).toHaveBeenCalledTimes(1)
     expect(mocks.updateGameEnvironment.mock.calls[0]?.[0]).toMatchObject({
       gameId: 'minecraft',

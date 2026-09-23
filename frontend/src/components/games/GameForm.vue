@@ -292,7 +292,6 @@ const configSchemas = ref<ConfigSchemaEntry[]>([])
 const defaultEnvRows = ref<EnvironmentVariable[]>([])
 const defaultEnvIssues = ref<EnvironmentValidationIssue[]>([])
 const defaultEnvLoading = ref(false)
-const defaultEnvSaving = ref(false)
 const {
   linuxStartArgsTemplate,
   windowsStartArgsTemplate,
@@ -306,7 +305,7 @@ const {
   syncStructuredStartArgsToGame,
 } = useGameFormStartArgsState(game)
 const downstreamImpactServers = ref<Array<{ name: string; patchCount: number }>>([])
-const { isDirty, commitSnapshot, commitFormSnapshot, commitDefaultEnvSnapshot } =
+const { defaultEnvDirty, isDirty, commitSnapshot, commitFormSnapshot, commitDefaultEnvSnapshot } =
   useGameFormDirtyState({
     game,
     defaultPort,
@@ -361,6 +360,8 @@ const { loading, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
     syncStructuredStartArgsToGame,
     syncActivePlatformFromGame,
     commitFormSnapshot,
+    defaultEnvDirty,
+    saveDefaultEnvironment,
   })
 const restoringOfficial = ref(false)
 
@@ -467,10 +468,8 @@ provide(gameFormContextKey, {
   defaultEnvRows,
   defaultEnvIssues,
   defaultEnvLoading,
-  defaultEnvSaving,
   addDefaultEnvRow,
   removeDefaultEnvRow,
-  saveDefaultEnvironment,
   modSourceOptions,
   managedModConfig,
   variantModSummaries,
@@ -671,7 +670,6 @@ async function saveDefaultEnvironment(): Promise<void> {
     return
   }
 
-  defaultEnvSaving.value = true
   try {
     const defaultEnv = defaultEnvRows.value.map((row) =>
       create(EnvironmentVariableSchema, {
@@ -698,8 +696,6 @@ async function saveDefaultEnvironment(): Promise<void> {
         ConnectErrorToString(ConnectError.from(unknownError)),
       icon: 'report_problem',
     })
-  } finally {
-    defaultEnvSaving.value = false
   }
 }
 </script>
@@ -939,11 +935,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   grid-template-columns: minmax(130px, 0.75fr) minmax(180px, 1fr) auto;
   gap: 0.65rem;
   align-items: center;
-}
-
-.game-default-env-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .runtime-policy-subsection--impact {

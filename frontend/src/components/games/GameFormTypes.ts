@@ -55,10 +55,8 @@ export interface GameFormContext {
   defaultEnvRows: Ref<EnvironmentVariable[]>
   defaultEnvIssues: Ref<EnvironmentValidationIssue[]>
   defaultEnvLoading: Ref<boolean>
-  defaultEnvSaving: Ref<boolean>
   addDefaultEnvRow: () => void
   removeDefaultEnvRow: (index: number) => void
-  saveDefaultEnvironment: () => Promise<void>
 
   modSourceOptions: Array<{ label: string; value: string }>
   managedModConfig: ComputedRef<boolean>

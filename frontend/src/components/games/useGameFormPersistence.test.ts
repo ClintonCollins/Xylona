@@ -78,8 +78,12 @@ function createState() {
   const syncStructuredStartArgsToGame = vi.fn()
   const syncActivePlatformFromGame = vi.fn()
   const commitFormSnapshot = vi.fn()
+  const defaultEnvDirty = ref(false)
+  const saveDefaultEnvironment = vi.fn().mockResolvedValue(undefined)
 
   return {
+    defaultEnvDirty,
+    saveDefaultEnvironment,
     formRef,
     game,
     gameID,
@@ -188,6 +192,21 @@ describe('useGameFormPersistence', () => {
     expect(state.captureRuntimeBaselineFromCurrentState).toHaveBeenCalledTimes(1)
     expect(state.commitFormSnapshot).toHaveBeenCalledTimes(1)
     expect(mocks.push).toHaveBeenCalledWith({ path: '/games/minecraft/edit' })
+  })
+
+  it.each([
+    { name: 'saves changed default environment rows', dirty: true, envSaves: 1 },
+    { name: 'skips unchanged default environment rows', dirty: false, envSaves: 0 },
+  ])('$name with the game Save', async ({ dirty, envSaves }) => {
+    const state = createState()
+    state.defaultEnvDirty.value = dirty
+    mocks.editGame.mockResolvedValue({})
+    const persistence = useGameFormPersistence(state)
+
+    await persistence.submit()
+
+    expect(mocks.editGame).toHaveBeenCalledTimes(1)
+    expect(state.saveDefaultEnvironment).toHaveBeenCalledTimes(envSaves)
   })
 
   it('saves schemas before navigating to the config schema editor', async () => {
