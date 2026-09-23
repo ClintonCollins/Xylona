@@ -9,7 +9,8 @@ import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
 import {
-  formatDuration,
+  formatAlertEventData,
+  formatCondition,
   isFiniteNonNegativeNumber,
   isNonNegativeInteger,
   readPositiveInteger,
@@ -67,6 +68,7 @@ const channelsLoaded = ref(false)
 
 // Dialog state
 const showRuleDialog = ref(false)
+const savingRule = ref(false)
 const editingRule = ref<AlertRule | null>(null)
 const ruleForm = ref({
   eventType: AlertEventType.CRASH,
@@ -188,10 +190,17 @@ const thresholdConditionValid = computed(() => {
   )
 })
 
+// An empty status list matches every transition, so a status rule needs at least one.
+const statusSelectionMissing = computed(
+  () =>
+    isStatusChangeType.value && !statusCheckboxes.value.ONLINE && !statusCheckboxes.value.OFFLINE,
+)
+
 const canSaveRule = computed(() => {
   return (
     ruleForm.value.notificationChannelId !== '' &&
-    (!isThresholdType.value || thresholdConditionValid.value)
+    (!isThresholdType.value || thresholdConditionValid.value) &&
+    !statusSelectionMissing.value
   )
 })
 
@@ -259,7 +268,7 @@ const historyColumns = computed(() => [
   {
     name: 'eventData',
     label: 'Details',
-    field: 'eventData',
+    field: (row: AlertHistoryEntry) => formatAlertEventData(row.eventType, row.eventData),
     align: 'left' as const,
   },
   {
@@ -282,50 +291,6 @@ const filteredHistory = computed(() => {
   }
   return alertHistory.value.filter((entry) => entry.eventType === historyEventTypeFilter.value)
 })
-
-function formatCondition(eventType: AlertEventType, condition: string): string {
-  if (!condition) {
-    if (eventType === AlertEventType.CRASH) {
-      return 'Any crash'
-    }
-    return '-'
-  }
-
-  try {
-    const parsed = JSON.parse(condition) as Record<string, unknown>
-
-    if ('operator' in parsed && 'value' in parsed) {
-      const unit = [
-        AlertEventType.CPU_THRESHOLD,
-        AlertEventType.MEMORY_THRESHOLD,
-        AlertEventType.DISK_THRESHOLD,
-      ].includes(eventType)
-        ? '%'
-        : ''
-      const parts = [`${String(parsed.operator)} ${String(parsed.value)}${unit}`]
-      const forSeconds = readPositiveInteger(parsed.for_seconds)
-      const cooldownSeconds = readPositiveInteger(parsed.cooldown_seconds)
-      const repeatSeconds = readPositiveInteger(parsed.repeat_seconds)
-
-      if (forSeconds > 0) parts.push(`for ${formatDuration(forSeconds)}`)
-      if (typeof parsed.recovery_value === 'number' && Number.isFinite(parsed.recovery_value)) {
-        parts.push(`recover at ${parsed.recovery_value}${unit}`)
-      }
-      if (cooldownSeconds > 0) parts.push(`${formatDuration(cooldownSeconds)} cooldown`)
-      if (repeatSeconds > 0) parts.push(`repeat ${formatDuration(repeatSeconds)}`)
-
-      return parts.join(' · ')
-    }
-
-    if ('statuses' in parsed && Array.isArray(parsed.statuses)) {
-      return (parsed.statuses as string[]).join(', ')
-    }
-  } catch {
-    // Not JSON; return raw
-  }
-
-  return condition
-}
 
 function ruleToggleLabel(rule: AlertRule): string {
   const label = `Enable ${eventTypeLabels[rule.eventType] ?? 'Unknown'} alert`
@@ -556,43 +521,34 @@ function openEditDialog(rule: AlertRule): void {
 
 async function saveRule(): Promise<void> {
   if (!hasAlertsManage.value) return
-  if (!canSaveRule.value) return
+  if (!canSaveRule.value || savingRule.value) return
 
-  const condition = buildConditionJson()
+  const rule = {
+    serverId: gameServerId.value,
+    serverNodeId: gameServerNodeId.value,
+    eventType: ruleForm.value.eventType,
+    notificationChannelId: ruleForm.value.notificationChannelId,
+    condition: buildConditionJson(),
+    enabled: ruleForm.value.enabled,
+  }
 
-  if (editingRule.value) {
-    // Update
-    try {
-      const request = create(UpdateAlertRuleRequestSchema, {
-        id: editingRule.value.id,
-        serverId: gameServerId.value,
-        serverNodeId: gameServerNodeId.value,
-        eventType: ruleForm.value.eventType,
-        notificationChannelId: ruleForm.value.notificationChannelId,
-        condition,
-        enabled: ruleForm.value.enabled,
-      })
-      await GetXylonaClient().updateAlertRule(request)
+  savingRule.value = true
+  try {
+    if (editingRule.value) {
+      await GetXylonaClient().updateAlertRule(
+        create(UpdateAlertRuleRequestSchema, { id: editingRule.value.id, ...rule }),
+      )
       notifySuccess('Alert rule updated')
-    } catch (unknownErr: unknown) {
-      notifyConnectError(unknownErr)
-    }
-  } else {
-    // Create
-    try {
-      const request = create(CreateAlertRuleRequestSchema, {
-        serverId: gameServerId.value,
-        serverNodeId: gameServerNodeId.value,
-        eventType: ruleForm.value.eventType,
-        notificationChannelId: ruleForm.value.notificationChannelId,
-        condition,
-        enabled: ruleForm.value.enabled,
-      })
-      await GetXylonaClient().createAlertRule(request)
+    } else {
+      await GetXylonaClient().createAlertRule(create(CreateAlertRuleRequestSchema, rule))
       notifySuccess('Alert rule created')
-    } catch (unknownErr: unknown) {
-      notifyConnectError(unknownErr)
     }
+  } catch (unknownErr: unknown) {
+    // Keep the dialog open so the input survives a failed save.
+    notifyConnectError(unknownErr)
+    return
+  } finally {
+    savingRule.value = false
   }
 
   showRuleDialog.value = false
@@ -646,7 +602,22 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
 <template>
   <div class="alerts-page xy-page-content">
-    <page-header class="alerts-page-header" title="Alerts" />
+    <page-header
+      class="alerts-page-header"
+      subtitle="Get notified when this server crashes, changes status, or crosses a threshold."
+      title="Alerts">
+      <template v-if="hasAlertsManage && activeTab === 'rules'" #actions>
+        <q-btn
+          :disable="channels.length === 0"
+          color="primary"
+          icon="add"
+          label="Create Rule"
+          no-caps
+          @click="openCreateDialog">
+          <q-tooltip v-if="channels.length === 0">Create a notification channel first</q-tooltip>
+        </q-btn>
+      </template>
+    </page-header>
     <q-banner v-if="loadError" class="xy-banner-negative q-mb-md" dense inline-actions role="alert">
       <template #avatar>
         <q-icon name="sync_problem" />
@@ -680,242 +651,220 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
     <q-tab-panels v-model="activeTab" animated class="alerts-panels">
       <!-- Alert Rules Panel -->
       <q-tab-panel name="rules">
-        <div class="q-pa-md">
-          <div class="row items-center q-mb-md">
-            <h2 class="xy-section-title">Alert Rules</h2>
-            <q-space />
-            <q-btn
-              v-if="hasAlertsManage"
-              :disable="channels.length === 0"
-              color="primary"
-              icon="add"
-              label="Create Rule"
-              no-caps
-              @click="openCreateDialog">
-              <q-tooltip v-if="channels.length === 0">
-                Create a notification channel first
-              </q-tooltip>
-            </q-btn>
-          </div>
+        <q-banner
+          v-if="channelsLoaded && channels.length === 0 && !rulesLoading"
+          class="q-mb-md xy-banner-warning"
+          dense>
+          <template #avatar>
+            <q-icon name="warning_amber" size="sm" />
+          </template>
+          No notification channels configured.
+          <template v-if="hasAlertsManage">
+            <router-link class="text-weight-bold" to="/notifications">
+              Create a notification channel
+            </router-link>
+            before adding alert rules.
+          </template>
+          <template v-else>
+            A user with alert management access must create a notification channel before alert
+            rules can be added.
+          </template>
+        </q-banner>
 
-          <q-banner
-            v-if="channelsLoaded && channels.length === 0 && !rulesLoading"
-            class="q-mb-md xy-banner-warning"
-            dense>
-            <template #avatar>
-              <q-icon name="warning_amber" size="sm" />
-            </template>
-            No notification channels configured.
-            <template v-if="hasAlertsManage">
-              <router-link class="text-weight-bold" to="/notifications">
-                Create a notification channel
-              </router-link>
-              before adding alert rules.
-            </template>
-            <template v-else>
-              A user with alert management access must create a notification channel before alert
-              rules can be added.
-            </template>
-          </q-banner>
-
-          <q-table
-            aria-label="Alert rules"
-            :columns="rulesColumns"
-            :grid="mobileGrid"
-            :loading="rulesLoading"
-            :pagination="{ rowsPerPage: 0 }"
-            :rows="alertRules"
-            class="xy-standalone-table"
-            flat
-            hide-pagination
-            row-key="id">
-            <template #no-data>
-              <empty-state
-                v-if="!rulesLoading && !rulesError && !nodeError"
-                icon="notifications_off"
-                title="No alert rules configured for this server" />
-            </template>
-            <template #item="props">
-              <q-card bordered class="alerts-mobile-card" flat>
-                <q-card-section class="alerts-mobile-card__header">
-                  <div>
-                    <div class="alerts-mobile-card__title">
-                      {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
-                    </div>
-                    <div class="text-caption text-xy-muted">
-                      {{ formatCondition(props.row.eventType, props.row.condition) }}
-                    </div>
+        <q-table
+          aria-label="Alert rules"
+          :columns="rulesColumns"
+          :grid="mobileGrid"
+          :loading="rulesLoading"
+          :pagination="{ rowsPerPage: 0 }"
+          :rows="alertRules"
+          class="xy-standalone-table"
+          flat
+          hide-pagination
+          row-key="id">
+          <template #no-data>
+            <empty-state
+              v-if="!rulesLoading && !rulesError && !nodeError"
+              icon="notifications_off"
+              title="No alert rules configured for this server" />
+          </template>
+          <template #item="props">
+            <q-card bordered class="alerts-mobile-card" flat>
+              <q-card-section class="alerts-mobile-card__header">
+                <div>
+                  <div class="alerts-mobile-card__title">
+                    {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
                   </div>
-                  <q-toggle
-                    v-if="hasAlertsManage"
-                    :aria-label="ruleToggleLabel(props.row)"
-                    :model-value="props.row.enabled"
-                    color="positive"
-                    dense
-                    @update:model-value="toggleRuleEnabled(props.row)" />
-                  <q-badge
-                    v-else
-                    :color="props.row.enabled ? 'positive' : 'grey-8'"
-                    :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
-                </q-card-section>
-
-                <q-card-section class="alerts-mobile-card__fields q-pt-none">
-                  <div>
-                    <span>Channel</span>
-                    <strong>{{
-                      channels.find((channel) => channel.id === props.row.notificationChannelId)
-                        ?.name ?? 'Unknown'
-                    }}</strong>
+                  <div class="text-caption text-xy-muted">
+                    {{ formatCondition(props.row.eventType, props.row.condition) }}
                   </div>
-                </q-card-section>
-
-                <q-card-actions v-if="hasAlertsManage" align="right">
-                  <q-btn flat icon="edit" label="Edit" no-caps @click="openEditDialog(props.row)" />
-                  <q-btn
-                    color="negative"
-                    flat
-                    icon="delete"
-                    label="Delete"
-                    no-caps
-                    @click="confirmDeleteRule(props.row)" />
-                </q-card-actions>
-              </q-card>
-            </template>
-
-            <template #body-cell-enabled="props">
-              <q-td :props="props">
+                </div>
                 <q-toggle
                   v-if="hasAlertsManage"
                   :aria-label="ruleToggleLabel(props.row)"
                   :model-value="props.row.enabled"
                   color="positive"
+                  dense
                   @update:model-value="toggleRuleEnabled(props.row)" />
                 <q-badge
                   v-else
                   :color="props.row.enabled ? 'positive' : 'grey-8'"
                   :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
-              </q-td>
-            </template>
+              </q-card-section>
 
-            <template #body-cell-actions="props">
-              <q-td :props="props">
-                <template v-if="hasAlertsManage">
-                  <q-btn
-                    aria-label="Edit rule"
-                    dense
-                    flat
-                    icon="edit"
-                    size="sm"
-                    @click="openEditDialog(props.row)">
-                    <q-tooltip>Edit</q-tooltip>
-                  </q-btn>
-                  <q-btn
-                    aria-label="Delete rule"
-                    color="negative"
-                    dense
-                    flat
-                    icon="delete"
-                    size="sm"
-                    @click="confirmDeleteRule(props.row)">
-                    <q-tooltip>Delete</q-tooltip>
-                  </q-btn>
-                </template>
-              </q-td>
-            </template>
-          </q-table>
-        </div>
+              <q-card-section class="alerts-mobile-card__fields q-pt-none">
+                <div>
+                  <span>Channel</span>
+                  <strong>{{
+                    channels.find((channel) => channel.id === props.row.notificationChannelId)
+                      ?.name ?? 'Unknown'
+                  }}</strong>
+                </div>
+              </q-card-section>
+
+              <q-card-actions v-if="hasAlertsManage" align="right">
+                <q-btn flat icon="edit" label="Edit" no-caps @click="openEditDialog(props.row)" />
+                <q-btn
+                  color="negative"
+                  flat
+                  icon="delete"
+                  label="Delete"
+                  no-caps
+                  @click="confirmDeleteRule(props.row)" />
+              </q-card-actions>
+            </q-card>
+          </template>
+
+          <template #body-cell-enabled="props">
+            <q-td :props="props">
+              <q-toggle
+                v-if="hasAlertsManage"
+                :aria-label="ruleToggleLabel(props.row)"
+                :model-value="props.row.enabled"
+                color="positive"
+                @update:model-value="toggleRuleEnabled(props.row)" />
+              <q-badge
+                v-else
+                :color="props.row.enabled ? 'positive' : 'grey-8'"
+                :label="props.row.enabled ? 'Enabled' : 'Disabled'" />
+            </q-td>
+          </template>
+
+          <template #body-cell-actions="props">
+            <q-td :props="props">
+              <template v-if="hasAlertsManage">
+                <q-btn
+                  aria-label="Edit rule"
+                  dense
+                  flat
+                  icon="edit"
+                  size="sm"
+                  @click="openEditDialog(props.row)">
+                  <q-tooltip>Edit</q-tooltip>
+                </q-btn>
+                <q-btn
+                  aria-label="Delete rule"
+                  color="negative"
+                  dense
+                  flat
+                  icon="delete"
+                  size="sm"
+                  @click="confirmDeleteRule(props.row)">
+                  <q-tooltip>Delete</q-tooltip>
+                </q-btn>
+              </template>
+            </q-td>
+          </template>
+        </q-table>
       </q-tab-panel>
 
       <!-- Alert History Panel -->
       <q-tab-panel name="history">
-        <div class="q-pa-md">
-          <div class="row items-center q-mb-md">
-            <h2 class="xy-section-title">Alert History</h2>
-            <q-space />
-            <q-select
-              v-model="historyEventTypeFilter"
-              :options="historyFilterOptions"
-              class="q-mr-sm"
-              dense
-              emit-value
-              label="Filter by event"
-              map-options
-              outlined
-              style="min-width: 200px" />
-            <q-btn aria-label="Refresh history" flat icon="refresh" @click="loadHistory()">
-              <q-tooltip>Refresh</q-tooltip>
-            </q-btn>
-          </div>
+        <div class="alerts-toolbar">
+          <q-select
+            v-model="historyEventTypeFilter"
+            :options="historyFilterOptions"
+            class="alerts-filter-select"
+            dense
+            emit-value
+            label="Filter by event"
+            map-options
+            outlined />
+          <q-btn aria-label="Refresh history" flat icon="refresh" @click="loadHistory()">
+            <q-tooltip>Refresh</q-tooltip>
+          </q-btn>
+        </div>
 
-          <q-table
-            aria-label="Alert history"
-            :columns="historyColumns"
-            :grid="mobileGrid"
-            :loading="historyLoading"
-            :pagination="{ page: historyPage, rowsPerPage: historyRowsPerPage }"
-            :rows="filteredHistory"
-            class="xy-standalone-table"
-            flat
-            row-key="id">
-            <template #no-data>
-              <empty-state
-                v-if="!historyLoading && !historyError && !nodeError"
-                icon="history"
-                title="No alert history for this server" />
-            </template>
-            <template #item="props">
-              <q-card bordered class="alerts-mobile-card" flat>
-                <q-card-section class="alerts-mobile-card__header">
-                  <div>
-                    <div class="alerts-mobile-card__title">
-                      {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
-                    </div>
-                    <div class="text-caption text-xy-muted">
-                      {{ formatTimestamp(props.row.createdAt) }}
-                    </div>
+        <q-table
+          aria-label="Alert history"
+          :columns="historyColumns"
+          :grid="mobileGrid"
+          :loading="historyLoading"
+          :pagination="{ page: historyPage, rowsPerPage: historyRowsPerPage }"
+          :rows="filteredHistory"
+          class="xy-standalone-table"
+          flat
+          row-key="id">
+          <template #no-data>
+            <empty-state
+              v-if="!historyLoading && !historyError && !nodeError"
+              icon="history"
+              title="No alert history for this server" />
+          </template>
+          <template #item="props">
+            <q-card bordered class="alerts-mobile-card" flat>
+              <q-card-section class="alerts-mobile-card__header">
+                <div>
+                  <div class="alerts-mobile-card__title">
+                    {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
                   </div>
-                  <q-badge
-                    :color="deliveryStatusColors[props.row.deliveryStatus] ?? 'grey'"
-                    :label="deliveryStatusLabels[props.row.deliveryStatus] ?? 'Unknown'" />
-                </q-card-section>
-
-                <q-card-section class="alerts-mobile-card__fields q-pt-none">
-                  <div>
-                    <span>Channel</span>
-                    <strong>{{ channelTypeLabels[props.row.channelType] ?? 'Unknown' }}</strong>
+                  <div class="text-caption text-xy-muted">
+                    {{ formatTimestamp(props.row.createdAt) }}
                   </div>
-                  <div>
-                    <span>Details</span>
-                    <strong>{{ props.row.eventData || '-' }}</strong>
-                  </div>
-                  <div v-if="props.row.deliveryError">
-                    <span>Delivery Error</span>
-                    <strong class="text-negative">{{ props.row.deliveryError }}</strong>
-                  </div>
-                </q-card-section>
-              </q-card>
-            </template>
-
-            <template #body-cell-deliveryStatus="props">
-              <q-td :props="props">
+                </div>
                 <q-badge
                   :color="deliveryStatusColors[props.row.deliveryStatus] ?? 'grey'"
                   :label="deliveryStatusLabels[props.row.deliveryStatus] ?? 'Unknown'" />
-                <q-tooltip v-if="props.row.deliveryError">
-                  {{ props.row.deliveryError }}
-                </q-tooltip>
-              </q-td>
-            </template>
-          </q-table>
-          <div v-if="historyHasMore" class="row justify-center q-mt-md">
-            <q-btn
-              :loading="historyLoading"
-              color="primary"
-              flat
-              label="Load More"
-              no-caps
-              @click="loadMoreHistory" />
-          </div>
+              </q-card-section>
+
+              <q-card-section class="alerts-mobile-card__fields q-pt-none">
+                <div>
+                  <span>Channel</span>
+                  <strong>{{ channelTypeLabels[props.row.channelType] ?? 'Unknown' }}</strong>
+                </div>
+                <div>
+                  <span>Details</span>
+                  <strong>{{
+                    formatAlertEventData(props.row.eventType, props.row.eventData)
+                  }}</strong>
+                </div>
+                <div v-if="props.row.deliveryError">
+                  <span>Delivery Error</span>
+                  <strong class="text-negative">{{ props.row.deliveryError }}</strong>
+                </div>
+              </q-card-section>
+            </q-card>
+          </template>
+
+          <template #body-cell-deliveryStatus="props">
+            <q-td :props="props">
+              <q-badge
+                :color="deliveryStatusColors[props.row.deliveryStatus] ?? 'grey'"
+                :label="deliveryStatusLabels[props.row.deliveryStatus] ?? 'Unknown'" />
+              <q-tooltip v-if="props.row.deliveryError">
+                {{ props.row.deliveryError }}
+              </q-tooltip>
+            </q-td>
+          </template>
+        </q-table>
+        <div v-if="historyHasMore" class="row justify-center q-mt-md">
+          <q-btn
+            :loading="historyLoading"
+            color="primary"
+            flat
+            label="Load More"
+            no-caps
+            @click="loadMoreHistory" />
         </div>
       </q-tab-panel>
     </q-tab-panels>
@@ -1031,10 +980,17 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           </q-expansion-item>
 
           <!-- Status change condition fields -->
-          <div v-if="isStatusChangeType" class="q-mb-md">
-            <div class="text-caption q-mb-xs">Trigger on status:</div>
+          <div
+            v-if="isStatusChangeType"
+            aria-labelledby="alert-rule-status-label"
+            class="q-mb-md"
+            role="group">
+            <div id="alert-rule-status-label" class="text-caption q-mb-xs">Trigger on status:</div>
             <q-checkbox v-model="statusCheckboxes.ONLINE" label="Online" />
             <q-checkbox v-model="statusCheckboxes.OFFLINE" label="Offline" />
+            <div v-if="statusSelectionMissing" class="text-caption text-negative" role="alert">
+              Select at least one status
+            </div>
           </div>
 
           <q-select
@@ -1055,6 +1011,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           <q-btn
             :disable="!canSaveRule"
             :label="editingRule ? 'Save' : 'Create'"
+            :loading="savingRule"
             color="primary"
             no-caps
             @click="saveRule" />
@@ -1087,6 +1044,23 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
   min-height: 0;
   overflow: auto;
   background-color: transparent;
+}
+
+/* The page well already pads the sides; the panels only add vertical rhythm. */
+.alerts-panels :deep(.q-tab-panel) {
+  padding: var(--xy-space-md) 0;
+}
+
+.alerts-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-md);
+}
+
+.alerts-filter-select {
+  min-width: 220px;
 }
 
 .alert-rule-dialog {

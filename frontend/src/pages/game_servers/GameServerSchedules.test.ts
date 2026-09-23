@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   listScheduledTasks: vi.fn(),
   mobile: true,
   notify: vi.fn(),
+  query: {} as Record<string, string>,
+  replace: vi.fn(),
 }))
 
 vi.mock('quasar', async () => {
@@ -37,7 +39,8 @@ vi.mock('quasar', async () => {
 })
 
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { id: 'server-1' } }),
+  useRoute: () => ({ params: { id: 'server-1' }, query: mocks.query }),
+  useRouter: () => ({ replace: mocks.replace }),
 }))
 
 vi.mock('@/utils/shared', () => ({
@@ -52,6 +55,8 @@ vi.mock('@/utils/shared', () => ({
 describe('GameServerSchedules', () => {
   afterEach(() => {
     mocks.mobile = true
+    mocks.query = {}
+    mocks.replace.mockReset()
     mocks.getBackupOverview.mockReset()
     mocks.getScheduledTaskLogs.mockReset()
     mocks.listScheduledTasks.mockReset()
@@ -190,6 +195,31 @@ describe('GameServerSchedules', () => {
     expect(wrapper.text()).toContain('Backup destination is unavailable.')
     expect(wrapper.text()).toContain('Failed')
     expect(mocks.getScheduledTaskLogs).not.toHaveBeenCalled()
+  })
+
+  it('opens the create form on the requested task type after loading', async () => {
+    mocks.query = { create: 'backup' }
+    mocks.listScheduledTasks.mockResolvedValue(create(ListScheduledTasksResponseSchema, {}))
+    mocks.getBackupOverview.mockResolvedValue(create(GetGameServerBackupOverviewResponseSchema, {}))
+
+    const wrapper = shallowMount(GameServerSchedules)
+    await flushPromises()
+
+    const form = wrapper.findComponent({ name: 'ScheduledTaskForm' })
+    expect(form.props('showDialog')).toBe(true)
+    expect(form.props('initialTaskType')).toBe('backup')
+    expect(mocks.replace).toHaveBeenCalledWith({ query: {} })
+  })
+
+  it('ignores an unknown create task type', async () => {
+    mocks.query = { create: 'format_disk' }
+    mocks.listScheduledTasks.mockResolvedValue(create(ListScheduledTasksResponseSchema, {}))
+    mocks.getBackupOverview.mockResolvedValue(create(GetGameServerBackupOverviewResponseSchema, {}))
+
+    const wrapper = shallowMount(GameServerSchedules)
+    await flushPromises()
+
+    expect(wrapper.findComponent({ name: 'ScheduledTaskForm' }).props('showDialog')).toBe(false)
   })
 
   it('shows a load error instead of an empty schedule list when loading fails', async () => {

@@ -3,7 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
-import cronstrue from 'cronstrue'
+import { describeCron, nextCronRun } from '@/utils/cron-schedule'
+import { formatTimestampWithZone } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
   CreateScheduledTaskRequestSchema,
@@ -15,6 +16,8 @@ const props = defineProps<{
   showDialog: boolean
   gameServerId: string
   existingTask?: ScheduledTask
+  // Task type a new schedule starts with, such as 'backup' from the Backups page.
+  initialTaskType?: string
   backupOperationsAllowed?: boolean
   backupDisabledReason?: string
 }>()
@@ -88,7 +91,22 @@ const monthDayOptions = Array.from({ length: 28 }, (_, i) => ({
 
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-const timezoneOptions = Intl.supportedValuesOf('timeZone')
+const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+// The browser's zone and UTC lead the list; the rest follow alphabetically.
+const timezoneOptions = [
+  ...new Set([browserTimeZone, 'UTC', ...Intl.supportedValuesOf('timeZone')]),
+]
+const filteredTimezones = ref(timezoneOptions)
+
+function filterTimezones(value: string, update: (callback: () => void) => void): void {
+  update(() => {
+    const needle = value.trim().toLowerCase().replace(/\s+/g, '_')
+    filteredTimezones.value = needle
+      ? timezoneOptions.filter((zone) => zone.toLowerCase().includes(needle))
+      : timezoneOptions
+  })
+}
 
 // ── State ────────────────────────────────────────────────────────────
 
@@ -96,8 +114,8 @@ const form = ref({
   name: '',
   taskType: 'restart',
   consoleCommand: '',
-  cronExpression: '0 * * * *',
-  timezone: 'UTC',
+  cronExpression: '',
+  timezone: browserTimeZone,
   enabled: true,
 })
 
@@ -105,9 +123,11 @@ const builder = ref<ScheduleBuilder>(defaultBuilder())
 
 const useAdvancedCron = ref(false)
 
+// New schedules start daily at 03:00 in the browser's zone, so a name and
+// Create never produces an hourly restart.
 function defaultBuilder(): ScheduleBuilder {
   return {
-    frequency: 'every_hours',
+    frequency: 'daily',
     minuteInterval: 5,
     hourInterval: 1,
     timeHour: 3,
@@ -150,63 +170,60 @@ const cronFromBuilder = computed((): string => {
   }
 })
 
-const cronPreview = computed(() => {
-  const expr = useAdvancedCron.value ? form.value.cronExpression : cronFromBuilder.value
-  if (!expr) return ''
-  try {
-    return cronstrue.toString(expr)
-  } catch {
-    return 'Invalid cron expression'
+const activeCron = computed(() =>
+  (useAdvancedCron.value ? form.value.cronExpression : cronFromBuilder.value).trim(),
+)
+const scheduleDescription = computed(() => describeCron(activeCron.value))
+const nextRun = computed(() => nextCronRun(activeCron.value, form.value.timezone))
+const nextRunLabel = computed(() => formatTimestampWithZone(nextRun.value ?? undefined))
+
+// One message drives both the preview and the Create button, so the preview
+// never describes a schedule that cannot be saved.
+const scheduleError = computed(() => {
+  if (
+    !useAdvancedCron.value &&
+    builder.value.frequency === 'weekly' &&
+    builder.value.weekdays.length === 0
+  ) {
+    return 'Select at least one day'
   }
+  if (!activeCron.value) return 'Enter a cron expression'
+  if (!form.value.timezone) return 'Choose a timezone'
+  if (!scheduleDescription.value || !nextRun.value) return 'Invalid cron expression'
+  return ''
 })
 
 const isFormValid = computed(() => {
   if (!form.value.name.trim()) return false
-  if (!form.value.timezone) return false
   if (showConsoleCommand.value && !form.value.consoleCommand.trim()) return false
   if (backupEnableBlocked.value && form.value.enabled) return false
-
-  if (useAdvancedCron.value) {
-    if (!form.value.cronExpression.trim()) return false
-  } else {
-    if (builder.value.frequency === 'weekly' && builder.value.weekdays.length === 0) {
-      return false
-    }
-  }
-  return true
+  return scheduleError.value === ''
 })
 
-// ── Builder ↔ Cron sync ─────────────────────────────────────────────
+// ── Builder ↔ Cron switch ───────────────────────────────────────────
 
-watch(cronFromBuilder, (expr) => {
+function toggleAdvancedCron(): void {
   if (!useAdvancedCron.value) {
-    form.value.cronExpression = expr
-  }
-})
-
-// When switching TO advanced, pre-fill the cron input
-// When switching FROM advanced, attempt to parse back into builder
-watch(useAdvancedCron, (advanced, wasAdvanced) => {
-  if (advanced && !wasAdvanced) {
     // Visual → Advanced: seed the text input with the builder's cron
     form.value.cronExpression = cronFromBuilder.value
-  } else if (!advanced && wasAdvanced) {
-    // Advanced → Visual: try to parse the user-entered cron
-    const parsed = parseCronToBuilder(form.value.cronExpression)
-    if (!parsed) {
-      // Can't represent it visually — stay in advanced
-      useAdvancedCron.value = true
-      $q.notify({
-        type: 'xylona-error',
-        caption: `This cron expression can't be represented in the visual builder`,
-        position: 'top',
-        timeout: 4000,
-      })
-    } else {
-      builder.value = parsed
-    }
+    useAdvancedCron.value = true
+    return
   }
-})
+
+  // Advanced → Visual: only when the expression fits the builder
+  const parsed = parseCronToBuilder(form.value.cronExpression)
+  if (!parsed) {
+    $q.notify({
+      type: 'xylona-error',
+      caption: `This cron expression can't be represented in the visual builder`,
+      position: 'top',
+      timeout: 4000,
+    })
+    return
+  }
+  builder.value = parsed
+  useAdvancedCron.value = false
+}
 
 // ── Cron parser (cron → builder) ─────────────────────────────────────
 
@@ -309,7 +326,11 @@ watch(
   () => props.showDialog,
   (visible) => {
     if (!visible) return
+    filteredTimezones.value = timezoneOptions
     if (props.existingTask) {
+      const parsed = parseCronToBuilder(props.existingTask.cronExpression)
+      useAdvancedCron.value = !parsed
+      builder.value = parsed ?? defaultBuilder()
       form.value = {
         name: props.existingTask.name,
         taskType: props.existingTask.taskType,
@@ -318,25 +339,17 @@ watch(
         timezone: props.existingTask.timezone,
         enabled: props.existingTask.enabled,
       }
-      const parsed = parseCronToBuilder(props.existingTask.cronExpression)
-      if (parsed) {
-        builder.value = parsed
-        useAdvancedCron.value = false
-      } else {
-        builder.value = defaultBuilder()
-        useAdvancedCron.value = true
-      }
     } else {
+      useAdvancedCron.value = false
+      builder.value = defaultBuilder()
       form.value = {
         name: '',
-        taskType: 'restart',
+        taskType: props.initialTaskType ?? 'restart',
         consoleCommand: '',
-        cronExpression: '0 * * * *',
-        timezone: 'UTC',
+        cronExpression: '',
+        timezone: browserTimeZone,
         enabled: true,
       }
-      builder.value = defaultBuilder()
-      useAdvancedCron.value = false
     }
   },
 )
@@ -528,10 +541,15 @@ async function handleSubmit(): Promise<void> {
             </div>
 
             <!-- Weekday picker (weekly) -->
-            <div v-if="builder.frequency === 'weekly'" class="weekday-row q-mb-sm">
+            <div
+              v-if="builder.frequency === 'weekly'"
+              aria-label="Days of the week"
+              class="weekday-row q-mb-sm"
+              role="group">
               <q-btn
                 v-for="(label, idx) in weekdayLabels"
                 :key="idx"
+                :aria-pressed="isWeekdayActive(idx) ? 'true' : 'false'"
                 :class="{ 'weekday-btn--active': isWeekdayActive(idx) }"
                 :color="isWeekdayActive(idx) ? 'primary' : undefined"
                 :label="label"
@@ -541,11 +559,6 @@ async function handleSubmit(): Promise<void> {
                 dense
                 no-caps
                 @click="toggleWeekday(idx)" />
-            </div>
-            <div
-              v-if="builder.frequency === 'weekly' && builder.weekdays.length === 0"
-              class="text-caption text-negative q-mb-sm">
-              Select at least one day
             </div>
 
             <!-- Day of month (monthly) -->
@@ -574,44 +587,55 @@ async function handleSubmit(): Promise<void> {
               outlined />
           </template>
 
+          <q-select
+            v-model="form.timezone"
+            :options="filteredTimezones"
+            class="q-mb-sm"
+            dense
+            fill-input
+            hide-selected
+            input-debounce="100"
+            label="Timezone"
+            outlined
+            use-input
+            @filter="filterTimezones">
+            <template #no-option>
+              <q-item>
+                <q-item-section class="text-xy-muted">No matching timezone</q-item-section>
+              </q-item>
+            </template>
+          </q-select>
+
           <!-- Advanced toggle -->
           <div class="advanced-toggle-row">
             <q-btn
               :icon="useAdvancedCron ? 'tune' : 'code'"
               :label="useAdvancedCron ? 'Use visual builder' : 'Advanced: cron expression'"
               class="advanced-toggle-btn"
-              dense
               flat
               no-caps
-              size="sm"
-              @click="useAdvancedCron = !useAdvancedCron" />
+              @click="toggleAdvancedCron" />
           </div>
 
           <!-- Schedule preview -->
           <div
-            :class="{ 'schedule-preview--invalid': cronPreview === 'Invalid cron expression' }"
-            class="schedule-preview">
-            <q-icon class="q-mr-xs" name="schedule" size="xs" />
-            {{ cronPreview || 'Configure a schedule above' }}
+            :class="{ 'schedule-preview--invalid': scheduleError }"
+            aria-live="polite"
+            class="schedule-preview"
+            data-testid="schedule-preview">
+            <q-icon class="schedule-preview__icon" name="schedule" size="xs" />
+            <div v-if="scheduleError">{{ scheduleError }}</div>
+            <div v-else>
+              <div>
+                {{ scheduleDescription }}
+                <span class="schedule-preview__zone">({{ form.timezone }})</span>
+              </div>
+              <div class="schedule-preview__next">
+                Next run <span class="xy-num">{{ nextRunLabel }}</span>
+              </div>
+            </div>
           </div>
         </div>
-
-        <q-select
-          v-model="form.timezone"
-          :options="timezoneOptions"
-          class="q-mb-md"
-          dense
-          input-debounce="100"
-          label="Timezone"
-          outlined
-          use-input
-          @filter="
-            (val: string, update: (fn: () => void) => void) => {
-              update(() => {
-                // Filtering handled by Quasar use-input
-              })
-            }
-          " />
 
         <q-toggle
           :disable="backupEnableBlocked && !form.enabled"
@@ -681,16 +705,16 @@ async function handleSubmit(): Promise<void> {
 
 /* ── Weekday Selector ─────────────────────────────────────────────── */
 
+/* Seven equal columns keep the week on one row at any width. */
 .weekday-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
-  flex-wrap: wrap;
 }
 
 .weekday-btn {
   min-width: 0;
-  flex: 1 1 50px;
-  padding: 4px 6px;
+  padding: 4px 2px;
   font-size: var(--xy-font-size-sm);
   border-radius: var(--xy-radius-md);
   transition:
@@ -716,7 +740,7 @@ async function handleSubmit(): Promise<void> {
 }
 
 .advanced-toggle-btn {
-  color: var(--xy-text-muted);
+  color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-sm);
 }
 
@@ -728,7 +752,8 @@ async function handleSubmit(): Promise<void> {
 
 .schedule-preview {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: var(--xy-space-sm);
   padding: 8px 12px;
   border-radius: var(--xy-radius-md);
   background-color: var(--xy-surface-2);
@@ -736,6 +761,20 @@ async function handleSubmit(): Promise<void> {
   color: var(--xy-text-secondary);
   margin-bottom: 16px;
   overflow-wrap: anywhere;
+}
+
+.schedule-preview__icon {
+  margin-top: 0.15em;
+}
+
+.schedule-preview__zone,
+.schedule-preview__next {
+  color: var(--xy-text-muted);
+}
+
+.schedule-preview__next {
+  margin-top: var(--xy-space-2xs);
+  font-size: var(--xy-font-size-xs);
 }
 
 .schedule-preview--invalid {

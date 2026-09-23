@@ -1,7 +1,12 @@
 import { timestampFromDate } from '@bufbuild/protobuf/wkt'
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatTime, formatTimestamp } from './format-timestamp'
+import {
+  formatDate,
+  formatTime,
+  formatTimestamp,
+  formatTimestampWithZone,
+} from './format-timestamp'
 
 describe('formatTimestamp', () => {
   it.each([
@@ -52,6 +57,16 @@ describe('formatTimestamp', () => {
 
   it('never emits AM/PM markers in the canonical format', () => {
     expect(formatTimestamp(new Date(2026, 2, 5, 17, 32, 10))).not.toMatch(/AM|PM/)
+  })
+
+  it('formatTimestampWithZone appends the browser zone', () => {
+    const input = new Date(2026, 6, 21, 9, 8, 7)
+    const zone = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
+      .formatToParts(input)
+      .find((part) => part.type === 'timeZoneName')?.value
+    expect(zone).toBeTruthy()
+    expect(formatTimestampWithZone(input)).toBe(`Jul 21, 2026 09:08:07 ${zone}`)
+    expect(formatTimestampWithZone(undefined, '-')).toBe('-')
   })
 
   it.each([

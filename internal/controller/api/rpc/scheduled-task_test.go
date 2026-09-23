@@ -453,3 +453,62 @@ func assignScheduledTaskRole(t *testing.T, fixture *rbacRPCFixture, userID strin
 		t.Fatalf("CreateUserRoleAssignment(%q, %q) error = %v", userID, roleID, errAssign)
 	}
 }
+
+func TestValidateScheduledTaskInputParsesCron(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		cron     string
+		timezone string
+		wantErr  bool
+	}{
+		{name: "daily", cron: "0 3 * * *", timezone: "UTC"},
+		{name: "weekdays in a named zone", cron: "30 2 * * 1-5", timezone: "America/Chicago"},
+		{name: "minute out of range", cron: "99 3 * * *", timezone: "UTC", wantErr: true},
+		{name: "weekday out of range", cron: "0 3 * * 7", timezone: "UTC", wantErr: true},
+		{name: "date that never exists", cron: "0 0 30 2 *", timezone: "UTC", wantErr: true},
+		{name: "too few fields", cron: "0 3 * *", timezone: "UTC", wantErr: true},
+		{name: "descriptor", cron: "@daily", timezone: "UTC", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			errValidate := validateScheduledTaskInput("Nightly", "restart", tt.cron, tt.timezone, "")
+			if (errValidate != nil) != tt.wantErr {
+				t.Fatalf("validateScheduledTaskInput(%q, %q) error = %v, wantErr %v", tt.cron, tt.timezone, errValidate, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCreateScheduledTaskRejectsInvalidCronWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRBACRPCFixture(t)
+
+	request := connect.NewRequest(&xylona.CreateScheduledTaskRequest{
+		GameServerId:   "server-local-1",
+		Name:           "Broken Restart",
+		TaskType:       "restart",
+		CronExpression: "99 3 * * *",
+		Timezone:       "UTC",
+		Enabled:        false,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+
+	_, errCreate := fixture.service.CreateScheduledTask(context.Background(), request)
+	if connect.CodeOf(errCreate) != connect.CodeInvalidArgument {
+		t.Fatalf("CreateScheduledTask(disabled, invalid cron) error = %v, want invalid argument", errCreate)
+	}
+
+	tasks, errList := fixture.conn.GetScheduledTasksByGameServerID("server-local-1")
+	if errList != nil {
+		t.Fatalf("GetScheduledTasksByGameServerID() error = %v", errList)
+	}
+	if len(tasks) != 0 {
+		t.Fatalf("GetScheduledTasksByGameServerID() = %d tasks, want 0", len(tasks))
+	}
+}

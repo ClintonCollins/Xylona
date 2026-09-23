@@ -1,15 +1,15 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
-import cronstrue from 'cronstrue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import { describeCron } from '@/utils/cron-schedule'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { formatTimestamp as formatTimestampUtil } from '@/utils/format-timestamp'
+import { formatTimestampWithZone } from '@/utils/format-timestamp'
 import {
   DeleteScheduledTaskRequestSchema,
   GetGameServerBackupOverviewRequestSchema,
@@ -23,6 +23,7 @@ import ScheduledTaskForm from '@/components/game_servers/ScheduledTaskForm.vue'
 
 const $q = useQuasar()
 const route = useRoute()
+const router = useRouter()
 const gameServerId = computed(() => route.params.id as string)
 const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 
@@ -38,6 +39,7 @@ const taskLogsLoading = ref(new Set<string>())
 // Dialog state
 const showFormDialog = ref(false)
 const editingTask = ref<ScheduledTask | undefined>(undefined)
+const createTaskType = ref<string | undefined>(undefined)
 
 const taskTypeLabels: Record<string, string> = {
   restart: 'Restart Server',
@@ -95,6 +97,8 @@ const columns = computed(() => [
     field: (row: ScheduledTask) => formatTimestamp(row.lastRunAt),
     align: 'left' as const,
     sortable: true,
+    sort: (_a: string, _b: string, rowA: ScheduledTask, rowB: ScheduledTask) =>
+      timestampMs(rowA.lastRunAt) - timestampMs(rowB.lastRunAt),
   },
   {
     name: 'nextRunAt',
@@ -102,6 +106,8 @@ const columns = computed(() => [
     field: (row: ScheduledTask) => formatTimestamp(row.nextRunAt),
     align: 'left' as const,
     sortable: true,
+    sort: (_a: string, _b: string, rowA: ScheduledTask, rowB: ScheduledTask) =>
+      timestampMs(rowA.nextRunAt) - timestampMs(rowB.nextRunAt),
   },
   {
     name: 'actions',
@@ -115,15 +121,17 @@ const columns = computed(() => [
 
 function formatCron(expression: string): string {
   if (!expression) return '-'
-  try {
-    return cronstrue.toString(expression)
-  } catch {
-    return expression
-  }
+  return describeCron(expression) ?? expression
 }
 
+// The run columns show formatted text, so they sort on the underlying time instead.
+function timestampMs(ts: Timestamp | undefined): number {
+  return ts ? timestampDate(ts).getTime() : 0
+}
+
+// Run times are shown in the browser's zone, so they carry its name.
 function formatTimestamp(ts: Timestamp | undefined): string {
-  return formatTimestampUtil(ts, '-')
+  return formatTimestampWithZone(ts, '-')
 }
 
 function latestLog(taskID: string): ScheduledTaskLog | undefined {
@@ -180,6 +188,13 @@ function logMessage(log: ScheduledTaskLog, task: ScheduledTask): string {
 
 onMounted(async () => {
   await loadTasks()
+  // Shortcuts such as the Backups page link here with ?create=backup. The
+  // dialog waits for the backup overview so it does not flash a false warning.
+  const requestedType = route.query['create']
+  if (typeof requestedType === 'string' && taskTypeLabels[requestedType]) {
+    void router.replace({ query: {} })
+    openCreateDialog(requestedType)
+  }
 })
 
 async function loadTasks(): Promise<void> {
@@ -253,8 +268,9 @@ function toggleTaskHistory(taskID: string, rowProps: { expand: boolean }): void 
   }
 }
 
-function openCreateDialog(): void {
+function openCreateDialog(taskType?: string): void {
   editingTask.value = undefined
+  createTaskType.value = taskType
   showFormDialog.value = true
 }
 
@@ -347,7 +363,12 @@ function confirmDelete(task: ScheduledTask): void {
   <div class="schedules-page xy-page-content">
     <page-header title="Scheduled Tasks">
       <template #actions>
-        <q-btn color="primary" icon="add" label="Add Schedule" no-caps @click="openCreateDialog" />
+        <q-btn
+          color="primary"
+          icon="add"
+          label="Add Schedule"
+          no-caps
+          @click="openCreateDialog()" />
       </template>
     </page-header>
 
@@ -622,6 +643,7 @@ function confirmDelete(task: ScheduledTask): void {
       :backup-operations-allowed="backupOverview.operationsAllowed"
       :existing-task="editingTask"
       :game-server-id="gameServerId"
+      :initial-task-type="createTaskType"
       :show-dialog="showFormDialog"
       @close="closeFormDialog"
       @submit="onFormSubmit" />

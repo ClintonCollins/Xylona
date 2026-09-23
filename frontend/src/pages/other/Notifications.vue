@@ -391,7 +391,9 @@
                 </div>
                 <div>
                   <span>Details</span>
-                  <strong>{{ props.row.eventData || '-' }}</strong>
+                  <strong>{{
+                    formatAlertEventData(props.row.eventType, props.row.eventData)
+                  }}</strong>
                 </div>
                 <div v-if="props.row.deliveryError">
                   <span>Delivery Error</span>
@@ -706,10 +708,19 @@
           </q-expansion-item>
 
           <!-- Status change condition fields -->
-          <div v-if="isStatusChangeType" class="q-mb-md">
-            <div class="text-caption q-mb-xs">Trigger on status:</div>
+          <div
+            v-if="isStatusChangeType"
+            aria-labelledby="notification-rule-status-label"
+            class="q-mb-md"
+            role="group">
+            <div id="notification-rule-status-label" class="text-caption q-mb-xs">
+              Trigger on status:
+            </div>
             <q-checkbox v-model="ruleForm.statusOnline" label="Online" />
             <q-checkbox v-model="ruleForm.statusOffline" label="Offline" />
+            <div v-if="statusSelectionMissing" class="text-caption text-negative" role="alert">
+              Select at least one status
+            </div>
           </div>
 
           <q-select
@@ -770,7 +781,8 @@ import {
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import {
-  formatDuration,
+  formatAlertEventData,
+  formatCondition,
   isFiniteNonNegativeNumber,
   isNonNegativeInteger,
   readPositiveInteger,
@@ -1410,10 +1422,16 @@ const thresholdConditionValid = computed(() => {
   )
 })
 
+// An empty status list matches every transition, so a status rule needs at least one.
+const statusSelectionMissing = computed(
+  () => isStatusChangeType.value && !ruleForm.value.statusOnline && !ruleForm.value.statusOffline,
+)
+
 const canSaveRule = computed(() => {
   return (
     ruleForm.value.notificationChannelId !== '' &&
-    (!isThresholdType.value || thresholdConditionValid.value)
+    (!isThresholdType.value || thresholdConditionValid.value) &&
+    !statusSelectionMissing.value
   )
 })
 
@@ -1633,7 +1651,7 @@ const historyColumns = [
     name: 'eventData',
     label: 'Details',
     align: 'left' as const,
-    field: (row: AlertHistoryEntry) => row.eventData || '-',
+    field: (row: AlertHistoryEntry) => formatAlertEventData(row.eventType, row.eventData),
     sortable: false,
     style: 'max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
   },
@@ -1750,53 +1768,6 @@ function eventTypeLabel(type: AlertEventType): string {
     default:
       return 'Unknown'
   }
-}
-
-function formatCondition(eventType: AlertEventType, condition: string): string {
-  if (!condition) {
-    if (eventType === AlertEventType.CRASH) {
-      return 'Any crash'
-    }
-    return '-'
-  }
-
-  try {
-    const parsed = JSON.parse(condition) as Record<string, unknown>
-
-    if ('operator' in parsed && 'value' in parsed) {
-      const unit = [
-        AlertEventType.CPU_THRESHOLD,
-        AlertEventType.MEMORY_THRESHOLD,
-        AlertEventType.DISK_THRESHOLD,
-        AlertEventType.NODE_CPU_THRESHOLD,
-        AlertEventType.NODE_MEMORY_THRESHOLD,
-        AlertEventType.NODE_DISK_THRESHOLD,
-      ].includes(eventType)
-        ? '%'
-        : ''
-      const parts = [`${String(parsed.operator)} ${String(parsed.value)}${unit}`]
-      const forSeconds = readPositiveInteger(parsed.for_seconds)
-      const cooldownSeconds = readPositiveInteger(parsed.cooldown_seconds)
-      const repeatSeconds = readPositiveInteger(parsed.repeat_seconds)
-
-      if (forSeconds > 0) parts.push(`for ${formatDuration(forSeconds)}`)
-      if (typeof parsed.recovery_value === 'number' && Number.isFinite(parsed.recovery_value)) {
-        parts.push(`recover at ${parsed.recovery_value}${unit}`)
-      }
-      if (cooldownSeconds > 0) parts.push(`${formatDuration(cooldownSeconds)} cooldown`)
-      if (repeatSeconds > 0) parts.push(`repeat ${formatDuration(repeatSeconds)}`)
-
-      return parts.join(' · ')
-    }
-
-    if ('statuses' in parsed && Array.isArray(parsed.statuses)) {
-      return (parsed.statuses as string[]).join(', ')
-    }
-  } catch {
-    // Not JSON; return raw
-  }
-
-  return condition
 }
 
 function deliveryStatusLabel(status: DeliveryStatus): string {
