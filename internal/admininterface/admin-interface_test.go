@@ -10,14 +10,16 @@ func TestLookup(t *testing.T) {
 		gameID        string
 		wantTransport string
 		wantPort      int64
+		wantField     string
+		wantOffset    int64
 		wantUsername  string
 		wantSupported bool
 	}{
-		{name: "7 Days to Die Telnet", gameID: "7_days_to_die", wantTransport: TransportTelnet, wantPort: 27016, wantSupported: true},
-		{name: "Source RCON uses game port", gameID: "counter_strike_2", wantTransport: TransportRCON, wantPort: 27015, wantSupported: true},
-		{name: "Palworld REST", gameID: "palworld", wantTransport: TransportREST, wantPort: 27016, wantUsername: "admin", wantSupported: true},
-		{name: "Satisfactory REST uses main port", gameID: "satisfactory", wantTransport: TransportREST, wantPort: 27015, wantSupported: true},
-		{name: "Minecraft RCON uses query port plus one", gameID: "minecraft", wantTransport: TransportRCON, wantPort: 27017, wantSupported: true},
+		{name: "7 Days to Die Telnet", gameID: "7_days_to_die", wantTransport: TransportTelnet, wantPort: 27016, wantField: PortFieldQueryPort, wantSupported: true},
+		{name: "Source RCON uses game port", gameID: "counter_strike_2", wantTransport: TransportRCON, wantPort: 27015, wantField: PortFieldPort, wantSupported: true},
+		{name: "Palworld REST", gameID: "palworld", wantTransport: TransportREST, wantPort: 27016, wantField: PortFieldQueryPort, wantUsername: "admin", wantSupported: true},
+		{name: "Satisfactory REST uses main port", gameID: "satisfactory", wantTransport: TransportREST, wantPort: 27015, wantField: PortFieldPort, wantSupported: true},
+		{name: "Minecraft RCON uses query port plus one", gameID: "minecraft", wantTransport: TransportRCON, wantPort: 27017, wantField: PortFieldQueryPort, wantOffset: 1, wantSupported: true},
 		{name: "unsupported game", gameID: "other"},
 	}
 
@@ -32,6 +34,7 @@ func TestLookup(t *testing.T) {
 				return
 			}
 			if profile.Transport != tc.wantTransport || profile.Port != tc.wantPort ||
+				profile.PortField != tc.wantField || profile.PortOffset != tc.wantOffset ||
 				profile.Username != tc.wantUsername || profile.SecretKind == "" || profile.SecretName == "" {
 				t.Fatalf("Lookup() profile = %+v", profile)
 			}

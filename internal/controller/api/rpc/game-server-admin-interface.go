@@ -112,6 +112,8 @@ func (xs *XylonaService) gameServerAdminInterfaceView(
 		RemoteAccess:          remoteAccess,
 		RemoteAccessNote:      profile.RemoteAccessNote,
 		TransportSecurityNote: profile.TransportSecurityNote,
+		PortField:             profile.PortField,
+		PortOffset:            profile.PortOffset,
 	}, nil
 }
 
