@@ -86,20 +86,11 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 		return nil, internalErrf(fmt.Sprintf("failed to collect resource snapshot: %v", errSnap))
 	}
 
-	gsCount := 0
+	gameServerIDs := map[string]struct{}{}
 	allServers, _ := xs.db.GetAllGameServers()
 	for _, gs := range allServers {
 		if gs.NodeID == nodeID {
-			gsCount++
-		}
-	}
-	runningCount := 0
-	for _, ps := range snap.Processes {
-		switch ps.Status {
-		case xylona.Status_ONLINE.String(),
-			xylona.Status_INSTALLING.String(),
-			xylona.Status_UPDATING.String():
-			runningCount++
+			gameServerIDs[gs.ID] = struct{}{}
 		}
 	}
 	userCount, _ := xs.db.CountUsers()
@@ -113,8 +104,8 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 			DiskPercent:            snap.DiskPercent,
 			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
 			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        helpers.ClampInt32FromInt(gsCount),
-			RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+			GameServerCount:        helpers.ClampInt32FromInt(len(gameServerIDs)),
+			RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(gameServerIDs)),
 			UserCount:              helpers.ClampInt32FromInt(userCount),
 			RecordedAt:             timestamppb.Now(),
 		},
@@ -143,11 +134,14 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 	selfNodeID := xs.selfNodeID()
 	runtimeState := xs.collectNodeRuntimeState(ctx, allNodes)
 
-	serverCountsByNodeID := map[string]int{}
+	serverIDsByNodeID := map[string]map[string]struct{}{}
 	allServers, errServers := xs.db.GetAllGameServers()
 	if errServers == nil {
 		for _, gameServer := range allServers {
-			serverCountsByNodeID[gameServer.NodeID]++
+			if serverIDsByNodeID[gameServer.NodeID] == nil {
+				serverIDsByNodeID[gameServer.NodeID] = map[string]struct{}{}
+			}
+			serverIDsByNodeID[gameServer.NodeID][gameServer.ID] = struct{}{}
 		}
 	}
 
@@ -180,14 +174,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			XylonaVersion:    snap.XylonaVersion,
 		}
 
-		runningCount := 0
-		for _, ps := range snap.Processes {
-			if ps.Status == xylona.Status_ONLINE.String() ||
-				ps.Status == xylona.Status_INSTALLING.String() ||
-				ps.Status == xylona.Status_UPDATING.String() {
-				runningCount++
-			}
-		}
+		nodeServerIDs := serverIDsByNodeID[nodeRow.ID]
 
 		summary.Snapshot = &xylona.NodeResourceSnapshot{
 			CpuPercent:             snap.CPUPercent,
@@ -197,8 +184,8 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			DiskPercent:            snap.DiskPercent,
 			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
 			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        helpers.ClampInt32FromInt(serverCountsByNodeID[nodeRow.ID]),
-			RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+			GameServerCount:        helpers.ClampInt32FromInt(len(nodeServerIDs)),
+			RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(nodeServerIDs)),
 			UserCount:              helpers.ClampInt32FromInt(userCount),
 		}
 

@@ -34,15 +34,6 @@ const (
 	InputTypeREST
 )
 
-var (
-	// MessageStartingServer is emitted when Xylona begins launching a server.
-	MessageStartingServer = formatXylonaMessage("Starting server...")
-	// MessageStoppingServer is emitted when Xylona begins stopping a server.
-	MessageStoppingServer = formatXylonaMessage("Stopping server...")
-	// MessageStoppedServer is emitted after a server has stopped.
-	MessageStoppedServer = formatXylonaMessage("Server stopped.")
-)
-
 // TelnetCredentials contains telnet connection settings for server input.
 type TelnetCredentials struct {
 	Port     int
@@ -186,7 +177,7 @@ func (c *Command) Stop(stopInputCommand string) {
 	if stopTimeout <= 0 {
 		stopTimeout = defaultStopTimeout
 	}
-	c.sendJobNotification(MessageStoppingServer)
+	c.sendJobNotification(formatXylonaMessage("Stopping server..."))
 	if stopInputCommand != "" {
 		log.Debug().Str("Game Server ID", c.ID).Str("Stop Input Command", stopInputCommand).Msg("Sending stop command")
 		errSend := c.sendInputForExecution(stopInputCommand, &processGeneration)
@@ -446,7 +437,11 @@ func (inst *Instance) startAndWaitForJob(
 	processCtxCancel()
 	closeTelnetConnectionForGeneration(command, processGeneration, inputMethodType)
 	if errWait != nil {
-		checkErrorAccessDenied(errWait, command)
+		// An intentional stop ends with a non-zero status by design (Windows reports
+		// STATUS_CONTROL_C_EXIT), so only surface the raw wait error for real failures.
+		if !command.IntentionalStop() {
+			checkErrorAccessDenied(errWait, command)
+		}
 		log.Debug().Err(errWait).Msg("Error waiting for command.")
 	}
 
@@ -623,7 +618,7 @@ func (inst *Instance) prepareCommandProcess(preparedCommand PreparedCommand) (*C
 		newCommand.readJobOut()
 	}()
 	if newCommand.status == xylona.Status_ONLINE {
-		newCommand.sendJobNotification(MessageStartingServer)
+		newCommand.sendJobNotification(formatXylonaMessage("Starting server..."))
 	}
 	startupResult := make(chan error, 1)
 	go inst.startAndWaitForJob(newCommand, preparedCommand.CallbackFunction, startupResult, outputDone)
@@ -1088,16 +1083,23 @@ func extractExitCode(cmd *exec.Cmd, err error) int {
 	return extractProcessExitCode(processState, err)
 }
 
+// exitCodeInt32 keeps an exit code's 32-bit pattern. Windows reports DWORD codes such
+// as NTSTATUS 0xC000013A above MaxInt32; wrapping them into int32 keeps them lossless
+// through the int32 node and API fields instead of clamping them to MaxInt32.
+func exitCodeInt32(code int) int {
+	return int(int32(uint32(code))) //nolint:gosec // intentional 32-bit reinterpretation of the OS exit status
+}
+
 func extractProcessExitCode(processState *os.ProcessState, err error) int {
 	if err == nil {
 		return 0
 	}
 	if processState != nil {
-		return processState.ExitCode()
+		return exitCodeInt32(processState.ExitCode())
 	}
 	exitErr, isExitErr := errors.AsType[*exec.ExitError](err)
 	if isExitErr {
-		return exitErr.ExitCode()
+		return exitCodeInt32(exitErr.ExitCode())
 	}
 	// If we can't determine the exit code but there was an error, assume non-zero.
 	return -1

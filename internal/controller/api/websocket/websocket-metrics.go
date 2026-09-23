@@ -27,16 +27,7 @@ const (
 
 // buildNodeResourceSnapshot converts a node.NodeSnapshot plus DB-derived counts
 // into the on-the-wire NodeResourceSnapshot shape the websocket broadcasts.
-func buildNodeResourceSnapshot(snap *node.NodeSnapshot, gsCount, userCount int) *xylona.NodeResourceSnapshot {
-	runningCount := 0
-	for _, ps := range snap.Processes {
-		switch ps.Status {
-		case xylona.Status_ONLINE.String(),
-			xylona.Status_INSTALLING.String(),
-			xylona.Status_UPDATING.String():
-			runningCount++
-		}
-	}
+func buildNodeResourceSnapshot(snap *node.NodeSnapshot, gameServerIDs map[string]struct{}, userCount int) *xylona.NodeResourceSnapshot {
 	return &xylona.NodeResourceSnapshot{
 		CpuPercent:             snap.CPUPercent,
 		MemoryPercent:          snap.MemoryPercent,
@@ -45,8 +36,8 @@ func buildNodeResourceSnapshot(snap *node.NodeSnapshot, gsCount, userCount int) 
 		DiskPercent:            snap.DiskPercent,
 		DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
 		DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-		GameServerCount:        helpers.ClampInt32FromInt(gsCount),
-		RunningGameServerCount: helpers.ClampInt32FromInt(runningCount),
+		GameServerCount:        helpers.ClampInt32FromInt(len(gameServerIDs)),
+		RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(gameServerIDs)),
 		UserCount:              helpers.ClampInt32FromInt(userCount),
 		RecordedAt:             timestamppb.Now(),
 	}
@@ -328,15 +319,18 @@ func (ws *WebSocket) collectAllNodeSnapshots(ctx context.Context) map[string]*xy
 		log.Warn().Err(errUsers).Msg("Failed to count users for websocket snapshot")
 	}
 
-	// Pre-compute game server counts per node so we do a single DB scan
+	// Pre-compute game server IDs per node so we do a single DB scan
 	// instead of one per registered node.
-	gsCountsByNode := make(map[string]int)
+	gsIDsByNode := make(map[string]map[string]struct{})
 	allServers, errAll := ws.db.GetAllGameServers()
 	if errAll != nil {
 		log.Warn().Err(errAll).Msg("websocket: failed to enumerate game servers for snapshot")
 	} else {
 		for _, gs := range allServers {
-			gsCountsByNode[gs.NodeID]++
+			if gsIDsByNode[gs.NodeID] == nil {
+				gsIDsByNode[gs.NodeID] = make(map[string]struct{})
+			}
+			gsIDsByNode[gs.NodeID][gs.ID] = struct{}{}
 		}
 	}
 
@@ -350,7 +344,7 @@ func (ws *WebSocket) collectAllNodeSnapshots(ctx context.Context) map[string]*xy
 				Msg("websocket: GetNodeSnapshot failed")
 			continue
 		}
-		out[nodeID] = buildNodeResourceSnapshot(result.snapshot, gsCountsByNode[nodeID], userCount)
+		out[nodeID] = buildNodeResourceSnapshot(result.snapshot, gsIDsByNode[nodeID], userCount)
 	}
 	return out
 }

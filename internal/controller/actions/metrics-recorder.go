@@ -190,16 +190,10 @@ func (mr *MetricsRecorder) recordAllNodeMetrics() {
 		}
 
 		// Node-level metrics row.
-		runningCount := 0
-		for _, ps := range snap.Processes {
-			if ps.Status == xylona.Status_ONLINE.String() ||
-				ps.Status == xylona.Status_INSTALLING.String() ||
-				ps.Status == xylona.Status_UPDATING.String() {
-				runningCount++
-			}
+		gameServerIDs := make(map[string]struct{}, len(serversByNode[nodeID]))
+		for _, gameServer := range serversByNode[nodeID] {
+			gameServerIDs[gameServer.ID] = struct{}{}
 		}
-
-		gameServerCount := len(serversByNode[nodeID])
 
 		row := &db.NodeMetricsRow{
 			ID:                     uuid.New().String(),
@@ -211,8 +205,8 @@ func (mr *MetricsRecorder) recordAllNodeMetrics() {
 			DiskPercent:            snap.DiskPercent,
 			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
 			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        gameServerCount,
-			RunningGameServerCount: runningCount,
+			GameServerCount:        len(gameServerIDs),
+			RunningGameServerCount: snap.RunningGameServerCount(gameServerIDs),
 			UserCount:              userCount,
 			RecordedAt:             now,
 		}

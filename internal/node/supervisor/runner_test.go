@@ -1176,6 +1176,26 @@ func TestExtractExitCode(t *testing.T) {
 	}
 }
 
+func TestExitCodeInt32(t *testing.T) {
+	tests := []struct {
+		name string
+		code int
+		want int
+	}{
+		{name: "zero", code: 0, want: 0},
+		{name: "ordinary failure", code: 1, want: 1},
+		{name: "unix signal sentinel", code: -1, want: -1},
+		{name: "windows STATUS_CONTROL_C_EXIT", code: 0xC000013A, want: -1073741510},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := exitCodeInt32(test.code); got != test.want {
+				t.Errorf("exitCodeInt32(%d) = %d, want %d", test.code, got, test.want)
+			}
+		})
+	}
+}
+
 func TestNodeIDThreadedThroughInitNewCommand(t *testing.T) {
 	ctx := t.Context()
 

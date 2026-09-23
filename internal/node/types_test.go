@@ -5,6 +5,36 @@ import (
 	"time"
 )
 
+func TestNodeSnapshotRunningGameServerCount(t *testing.T) {
+	snapshot := &NodeSnapshot{Processes: []ProcessSnapshot{
+		{ID: "srv-online", Status: "ONLINE"},
+		{ID: "srv-installing", Status: "INSTALLING"},
+		{ID: "srv-updating", Status: "UPDATING"},
+		{ID: "srv-offline", Status: "OFFLINE"},
+		{ID: "srv-other-node", Status: "ONLINE"},
+		{ID: minecraftMapProcessID("srv-online"), Status: "ONLINE"},
+	}}
+	gameServerIDs := map[string]struct{}{
+		"srv-online": {}, "srv-installing": {}, "srv-updating": {}, "srv-offline": {},
+	}
+
+	tests := []struct {
+		name string
+		ids  map[string]struct{}
+		want int
+	}{
+		{name: "counts only this node's running game servers", ids: gameServerIDs, want: 3},
+		{name: "no game servers", ids: nil, want: 0},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := snapshot.RunningGameServerCount(test.ids); got != test.want {
+				t.Fatalf("RunningGameServerCount() = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
+
 func TestProcessConfigNormalize(t *testing.T) {
 	tests := []struct {
 		name string

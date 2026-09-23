@@ -8,7 +8,7 @@ import (
 )
 
 func (c *Command) closeJobNotification() {
-	c.sendJobNotification(MessageStoppedServer)
+	c.sendJobNotification(formatXylonaMessage("Server stopped."))
 }
 
 func (c *Command) sendJobStatusNotification(oldStatus, newStatus xylona.Status) {
