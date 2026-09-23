@@ -266,17 +266,31 @@ func TestDeleteUserSessionsByUserID(t *testing.T) {
 		t.Fatalf("CreateUserSession(other) error = %v", errOtherSession)
 	}
 
-	deleted, errDelete := conn.DeleteUserSessionsByUserID("user-owner")
+	keptDeleted, errKeepDelete := conn.DeleteUserSessionsByUserID("user-owner", "session-owner-2")
+	if errKeepDelete != nil {
+		t.Fatalf("DeleteUserSessionsByUserID(keep) error = %v", errKeepDelete)
+	}
+	if keptDeleted != 1 {
+		t.Fatalf("DeleteUserSessionsByUserID(keep) deleted = %d, want 1", keptDeleted)
+	}
+	_, errGetKept := conn.GetUserSession("session-owner-2")
+	if errGetKept != nil {
+		t.Fatalf("GetUserSession(kept) error = %v", errGetKept)
+	}
+
+	deleted, errDelete := conn.DeleteUserSessionsByUserID("user-owner", "")
 	if errDelete != nil {
 		t.Fatalf("DeleteUserSessionsByUserID() error = %v", errDelete)
 	}
-	if deleted != 2 {
-		t.Fatalf("DeleteUserSessionsByUserID() deleted = %d, want 2", deleted)
+	if deleted != 1 {
+		t.Fatalf("DeleteUserSessionsByUserID() deleted = %d, want 1", deleted)
 	}
 
-	_, errGetOwner := conn.GetUserSession("session-owner-1")
-	if !errors.Is(errGetOwner, sql.ErrNoRows) {
-		t.Fatalf("GetUserSession(owner) error = %v, want %v", errGetOwner, sql.ErrNoRows)
+	for _, sessionID := range []string{"session-owner-1", "session-owner-2"} {
+		_, errGetOwner := conn.GetUserSession(sessionID)
+		if !errors.Is(errGetOwner, sql.ErrNoRows) {
+			t.Fatalf("GetUserSession(%s) error = %v, want %v", sessionID, errGetOwner, sql.ErrNoRows)
+		}
 	}
 	otherSession, errGetOther := conn.GetUserSession("session-other")
 	if errGetOther != nil {

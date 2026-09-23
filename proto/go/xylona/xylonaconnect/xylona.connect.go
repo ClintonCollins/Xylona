@@ -74,6 +74,8 @@ const (
 	// XylonaCheckUserAuthenticatedProcedure is the fully-qualified name of the Xylona's
 	// CheckUserAuthenticated RPC.
 	XylonaCheckUserAuthenticatedProcedure = "/xylona.Xylona/CheckUserAuthenticated"
+	// XylonaChangePasswordProcedure is the fully-qualified name of the Xylona's ChangePassword RPC.
+	XylonaChangePasswordProcedure = "/xylona.Xylona/ChangePassword"
 	// XylonaGetSetupStatusProcedure is the fully-qualified name of the Xylona's GetSetupStatus RPC.
 	XylonaGetSetupStatusProcedure = "/xylona.Xylona/GetSetupStatus"
 	// XylonaCompleteSetupProcedure is the fully-qualified name of the Xylona's CompleteSetup RPC.
@@ -513,6 +515,7 @@ type XylonaClient interface {
 	Login(context.Context, *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error)
 	CheckUserAuthenticated(context.Context, *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error)
+	ChangePassword(context.Context, *connect.Request[xylona.ChangePasswordRequest]) (*connect.Response[xylona.ChangePasswordResponse], error)
 	GetSetupStatus(context.Context, *connect.Request[xylona.GetSetupStatusRequest]) (*connect.Response[xylona.GetSetupStatusResponse], error)
 	CompleteSetup(context.Context, *connect.Request[xylona.CompleteSetupRequest]) (*connect.Response[xylona.CompleteSetupResponse], error)
 	CreateUser(context.Context, *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error)
@@ -804,6 +807,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			httpClient,
 			baseURL+XylonaCheckUserAuthenticatedProcedure,
 			connect.WithSchema(xylonaMethods.ByName("CheckUserAuthenticated")),
+			connect.WithClientOptions(opts...),
+		),
+		changePassword: connect.NewClient[xylona.ChangePasswordRequest, xylona.ChangePasswordResponse](
+			httpClient,
+			baseURL+XylonaChangePasswordProcedure,
+			connect.WithSchema(xylonaMethods.ByName("ChangePassword")),
 			connect.WithClientOptions(opts...),
 		),
 		getSetupStatus: connect.NewClient[xylona.GetSetupStatusRequest, xylona.GetSetupStatusResponse](
@@ -1770,6 +1779,7 @@ type xylonaClient struct {
 	login                                   *connect.Client[xylona.LoginRequest, xylona.LoginResponse]
 	logout                                  *connect.Client[xylona.LogoutRequest, xylona.LogoutResponse]
 	checkUserAuthenticated                  *connect.Client[xylona.CheckUserAuthenticatedRequest, xylona.CheckUserAuthenticatedResponse]
+	changePassword                          *connect.Client[xylona.ChangePasswordRequest, xylona.ChangePasswordResponse]
 	getSetupStatus                          *connect.Client[xylona.GetSetupStatusRequest, xylona.GetSetupStatusResponse]
 	completeSetup                           *connect.Client[xylona.CompleteSetupRequest, xylona.CompleteSetupResponse]
 	createUser                              *connect.Client[xylona.CreateUserRequest, xylona.CreateUserResponse]
@@ -2012,6 +2022,11 @@ func (c *xylonaClient) Logout(ctx context.Context, req *connect.Request[xylona.L
 // CheckUserAuthenticated calls xylona.Xylona.CheckUserAuthenticated.
 func (c *xylonaClient) CheckUserAuthenticated(ctx context.Context, req *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
 	return c.checkUserAuthenticated.CallUnary(ctx, req)
+}
+
+// ChangePassword calls xylona.Xylona.ChangePassword.
+func (c *xylonaClient) ChangePassword(ctx context.Context, req *connect.Request[xylona.ChangePasswordRequest]) (*connect.Response[xylona.ChangePasswordResponse], error) {
+	return c.changePassword.CallUnary(ctx, req)
 }
 
 // GetSetupStatus calls xylona.Xylona.GetSetupStatus.
@@ -2822,6 +2837,7 @@ type XylonaHandler interface {
 	Login(context.Context, *connect.Request[xylona.LoginRequest]) (*connect.Response[xylona.LoginResponse], error)
 	Logout(context.Context, *connect.Request[xylona.LogoutRequest]) (*connect.Response[xylona.LogoutResponse], error)
 	CheckUserAuthenticated(context.Context, *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error)
+	ChangePassword(context.Context, *connect.Request[xylona.ChangePasswordRequest]) (*connect.Response[xylona.ChangePasswordResponse], error)
 	GetSetupStatus(context.Context, *connect.Request[xylona.GetSetupStatusRequest]) (*connect.Response[xylona.GetSetupStatusResponse], error)
 	CompleteSetup(context.Context, *connect.Request[xylona.CompleteSetupRequest]) (*connect.Response[xylona.CompleteSetupResponse], error)
 	CreateUser(context.Context, *connect.Request[xylona.CreateUserRequest]) (*connect.Response[xylona.CreateUserResponse], error)
@@ -3109,6 +3125,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		XylonaCheckUserAuthenticatedProcedure,
 		svc.CheckUserAuthenticated,
 		connect.WithSchema(xylonaMethods.ByName("CheckUserAuthenticated")),
+		connect.WithHandlerOptions(opts...),
+	)
+	xylonaChangePasswordHandler := connect.NewUnaryHandler(
+		XylonaChangePasswordProcedure,
+		svc.ChangePassword,
+		connect.WithSchema(xylonaMethods.ByName("ChangePassword")),
 		connect.WithHandlerOptions(opts...),
 	)
 	xylonaGetSetupStatusHandler := connect.NewUnaryHandler(
@@ -4089,6 +4111,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaLogoutHandler.ServeHTTP(w, r)
 		case XylonaCheckUserAuthenticatedProcedure:
 			xylonaCheckUserAuthenticatedHandler.ServeHTTP(w, r)
+		case XylonaChangePasswordProcedure:
+			xylonaChangePasswordHandler.ServeHTTP(w, r)
 		case XylonaGetSetupStatusProcedure:
 			xylonaGetSetupStatusHandler.ServeHTTP(w, r)
 		case XylonaCompleteSetupProcedure:
@@ -4478,6 +4502,10 @@ func (UnimplementedXylonaHandler) Logout(context.Context, *connect.Request[xylon
 
 func (UnimplementedXylonaHandler) CheckUserAuthenticated(context.Context, *connect.Request[xylona.CheckUserAuthenticatedRequest]) (*connect.Response[xylona.CheckUserAuthenticatedResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.CheckUserAuthenticated is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) ChangePassword(context.Context, *connect.Request[xylona.ChangePasswordRequest]) (*connect.Response[xylona.ChangePasswordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.ChangePassword is not implemented"))
 }
 
 func (UnimplementedXylonaHandler) GetSetupStatus(context.Context, *connect.Request[xylona.GetSetupStatusRequest]) (*connect.Response[xylona.GetSetupStatusResponse], error) {

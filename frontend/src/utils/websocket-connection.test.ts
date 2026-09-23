@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  CONNECTING_NOTICE_DELAY_MS,
+  restartConnectingNoticeDelay,
   setWebsocketBrowserOnline,
   setWebsocketConnectionStatus,
   websocketBrowserOnline,
+  websocketConnectingQuietly,
   websocketConnectionEpoch,
   websocketStateAuthoritative,
 } from './websocket-connection'
@@ -29,6 +32,27 @@ describe('websocket connection state', () => {
     expect(websocketStateAuthoritative.value).toBe(false)
     setWebsocketConnectionStatus('connected')
     expect(websocketConnectionEpoch.value).toBe(initialEpoch + 2)
+  })
+
+  it('keeps a fresh connection quiet only while connecting and not yet overdue', () => {
+    vi.useFakeTimers()
+    try {
+      setWebsocketConnectionStatus('connecting')
+      restartConnectingNoticeDelay()
+      expect(websocketConnectingQuietly.value).toBe(true)
+
+      vi.advanceTimersByTime(CONNECTING_NOTICE_DELAY_MS - 1)
+      expect(websocketConnectingQuietly.value).toBe(true)
+      vi.advanceTimersByTime(1)
+      expect(websocketConnectingQuietly.value).toBe(false)
+
+      restartConnectingNoticeDelay()
+      expect(websocketConnectingQuietly.value).toBe(true)
+      setWebsocketConnectionStatus('reconnecting')
+      expect(websocketConnectingQuietly.value).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it.each([

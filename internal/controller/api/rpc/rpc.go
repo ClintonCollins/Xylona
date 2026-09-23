@@ -90,7 +90,7 @@ type XylonaService struct {
 	statusPageIdentifier           func() (string, error)
 	setupToken                     *firstsetup.Token
 	closeSession                   func(sessionID string)
-	closeUserSessions              func(userID string)
+	closeUserSessions              func(userID string, keepSessionID string)
 	closeAllSessions               func()
 }
 
@@ -220,7 +220,7 @@ func (xs *XylonaService) SetDummyTracker(dt *versiontracker.DummyTracker) {
 // after authentication or authorization state changes.
 func (xs *XylonaService) SetSessionRevocationHandlers(
 	closeSession func(sessionID string),
-	closeUserSessions func(userID string),
+	closeUserSessions func(userID string, keepSessionID string),
 	closeAllSessions func(),
 ) {
 	xs.closeSession = closeSession

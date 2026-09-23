@@ -29,6 +29,7 @@ service Xylona {
   rpc Login (LoginRequest) returns (LoginResponse) {}
   rpc Logout (LogoutRequest) returns (LogoutResponse) {}
   rpc CheckUserAuthenticated (CheckUserAuthenticatedRequest) returns (CheckUserAuthenticatedResponse) {}
+  rpc ChangePassword (ChangePasswordRequest) returns (ChangePasswordResponse) {}
   rpc GetSetupStatus (GetSetupStatusRequest) returns (GetSetupStatusResponse) {}
   rpc CompleteSetup (CompleteSetupRequest) returns (CompleteSetupResponse) {}
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse) {}
@@ -338,6 +339,14 @@ message CreateUserResponse {
 message LogoutRequest {}
 
 message LogoutResponse {}
+
+// ChangePasswordRequest changes the signed-in user's own password.
+message ChangePasswordRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+message ChangePasswordResponse {}
 
 message CheckUserAuthenticatedRequest {}
 

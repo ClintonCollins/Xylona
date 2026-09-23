@@ -92,12 +92,14 @@ func (c *Connection) DeleteUserSession(id string) error {
 	return nil
 }
 
-// DeleteUserSessionsByUserID deletes every session belonging to userID.
-func (c *Connection) DeleteUserSessionsByUserID(userID string) (int64, error) {
+// DeleteUserSessionsByUserID deletes every session belonging to userID except
+// keepSessionID; pass an empty keepSessionID to delete them all.
+func (c *Connection) DeleteUserSessionsByUserID(userID string, keepSessionID string) (int64, error) {
 	result, errExec := c.SQLDb.ExecContext(
 		c.ctx,
-		`DELETE FROM user_session WHERE user_id = ?`,
+		`DELETE FROM user_session WHERE user_id = ? AND id <> ?`,
 		userID,
+		keepSessionID,
 	)
 	if errExec != nil {
 		log.Error().Err(errExec).Str("user_id", userID).Msg("Error deleting user sessions")

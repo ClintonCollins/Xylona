@@ -274,7 +274,7 @@ func (xs *XylonaService) GrantGameServerAccess(_ context.Context, request *conne
 		return nil, errBuildGrant
 	}
 	if xs.closeUserSessions != nil {
-		xs.closeUserSessions(userID)
+		xs.closeUserSessions(userID, "")
 	}
 
 	return connect.NewResponse(&xylona.GrantGameServerAccessResponse{Grant: grant}), nil
@@ -313,7 +313,7 @@ func (xs *XylonaService) RevokeGameServerAccess(_ context.Context, request *conn
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to revoke access"))
 	}
 	if xs.closeUserSessions != nil {
-		xs.closeUserSessions(assignment.UserID)
+		xs.closeUserSessions(assignment.UserID, "")
 	}
 	return connect.NewResponse(&xylona.RevokeGameServerAccessResponse{}), nil
 }

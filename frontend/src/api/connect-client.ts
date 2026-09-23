@@ -7,6 +7,7 @@ import {
 import { createConnectTransport } from '@connectrpc/connect-web'
 
 import { Xylona } from '@/proto/xylona_pb'
+import { currentPagePath, loginPath } from '@/utils/login-redirect'
 
 const transportCache = new Map<string, ReturnType<typeof createConnectTransport>>()
 const unaryClientCache = new Map<string, Client<typeof Xylona>>()
@@ -31,7 +32,7 @@ export function createXylonaTransport(nodeAddress: string = window.location.host
         window.location.pathname !== '/setup'
       ) {
         sessionRedirecting = true
-        window.location.assign('/login?reason=session-expired')
+        window.location.assign(loginPath(currentPagePath(), 'session-expired'))
       }
       return response
     },

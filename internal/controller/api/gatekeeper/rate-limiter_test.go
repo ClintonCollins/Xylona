@@ -15,7 +15,7 @@ func TestAuthRateLimiter(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	for _, procedure := range []string{"CompleteSetup", "Login"} {
+	for _, procedure := range []string{"ChangePassword", "CompleteSetup", "Login"} {
 		t.Run("rate limits "+procedure+" after exceeding threshold", func(t *testing.T) {
 			handler := AuthRateLimiter()(okHandler)
 			var lastStatus int

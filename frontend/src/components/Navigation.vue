@@ -9,18 +9,38 @@
         </router-link>
       </q-toolbar-title>
 
-      <div class="toolbar-user">
-        <q-icon aria-hidden="true" name="account_circle" size="sm" />
-        <span>{{ user?.userName }}</span>
-      </div>
       <q-btn
-        aria-label="Logout"
-        class="q-ml-sm"
-        dense
+        :aria-label="`Account menu for ${user?.userName ?? 'this user'}`"
+        class="toolbar-account"
         flat
-        icon="logout"
-        round
-        @click="logoutUser" />
+        no-caps>
+        <q-icon aria-hidden="true" name="account_circle" size="sm" />
+        <span class="toolbar-account__name">{{ user?.userName }}</span>
+        <q-icon aria-hidden="true" name="arrow_drop_down" size="xs" />
+        <q-menu anchor="bottom right" self="top right" @hide="openRequestedDialog">
+          <q-list class="account-menu">
+            <q-item class="account-menu__identity">
+              <q-item-section>
+                <q-item-label caption>Signed in as</q-item-label>
+                <q-item-label class="account-menu__user">{{ user?.userName }}</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-separator />
+            <q-item v-close-popup clickable @click="changePasswordRequested = true">
+              <q-item-section avatar>
+                <q-icon name="lock_reset" />
+              </q-item-section>
+              <q-item-section>Change password</q-item-section>
+            </q-item>
+            <q-item v-close-popup clickable @click="logoutUser">
+              <q-item-section avatar>
+                <q-icon name="logout" />
+              </q-item-section>
+              <q-item-section>Sign out</q-item-section>
+            </q-item>
+          </q-list>
+        </q-menu>
+      </q-btn>
     </q-toolbar>
     <div
       v-if="connectionNotice"
@@ -96,16 +116,23 @@
       </q-list>
     </nav>
   </q-drawer>
+
+  <change-password-dialog v-model:show-dialog="showChangePassword" />
 </template>
 
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import type { User } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import { canViewAlerts } from '@/utils/alert-permissions'
 import { reconnectControllerWebsocket } from '@/utils/shared'
-import { websocketBrowserOnline, websocketConnectionStatus } from '@/utils/websocket-connection'
+import {
+  websocketBrowserOnline,
+  websocketConnectingQuietly,
+  websocketConnectionStatus,
+} from '@/utils/websocket-connection'
 
 const store = useUserAuthStore()
 const user = computed(() => store.user as User | null)
@@ -113,6 +140,16 @@ const canViewNotifications = computed(() => canViewAlerts(store.user, store.init
 const route = useRoute()
 const router = useRouter()
 const headerRef = ref<{ $el: HTMLElement } | null>(null)
+const showChangePassword = ref(false)
+const changePasswordRequested = ref(false)
+
+// The menu hands focus back to its button as it closes, so the dialog opens
+// only once the menu is gone; otherwise its first field would lose focus.
+function openRequestedDialog() {
+  if (!changePasswordRequested.value) return
+  changePasswordRequested.value = false
+  showChangePassword.value = true
+}
 
 let headerResizeObserver: ResizeObserver | null = null
 
@@ -131,12 +168,10 @@ interface NavItem {
   groupItems: NavItem[]
 }
 
+// Sub-pages such as /games/new or /admin/users/create are sibling routes, so
+// the router does not mark their section's link active on its own.
 function overrideActiveLink(link: string) {
-  const pathSplit = route.path.split('/')
-  if (pathSplit.length === 0) {
-    return false
-  }
-  return pathSplit[1] === 'game-servers' && link === '/game-servers'
+  return route.path === link || route.path.startsWith(`${link}/`)
 }
 
 const navLinks = computed((): NavItem[] => {
@@ -226,6 +261,9 @@ const connectionNotice = computed(() => {
 
   switch (websocketConnectionStatus.value) {
     case 'connecting':
+      if (websocketConnectingQuietly.value) {
+        return null
+      }
       return {
         icon: 'sync',
         title: 'Connecting to live updates',
@@ -294,18 +332,35 @@ onBeforeUnmount(() => {
   text-decoration: none;
 }
 
-.toolbar-user {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-xs);
+.toolbar-account {
   min-width: 0;
+  padding: 0 var(--xy-space-xs) 0 var(--xy-space-sm);
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-sm);
 }
 
-.toolbar-user span {
+.toolbar-account :deep(.q-btn__content) {
+  flex-wrap: nowrap;
+  gap: var(--xy-space-xs);
+  min-width: 0;
+}
+
+.toolbar-account__name {
   overflow: hidden;
   max-width: 12rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu {
+  min-width: 13rem;
+}
+
+.account-menu__user {
+  overflow: hidden;
+  max-width: 16rem;
+  color: var(--xy-text-primary);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -361,8 +416,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 599px) {
-  .toolbar-user span {
-    display: none;
+  .toolbar-account__name {
+    max-width: 6rem;
   }
 
   .live-connection-banner__copy {

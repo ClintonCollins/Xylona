@@ -13,6 +13,7 @@ import (
 var authRateLimitedRPCPaths = []string{
 	"/Login",
 	"/CompleteSetup",
+	"/ChangePassword",
 }
 
 var publicMapRPCPaths = []string{

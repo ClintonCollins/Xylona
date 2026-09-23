@@ -491,7 +491,7 @@ describe('controller websocket browser lifecycle', () => {
       getLifecycleSocket(0).triggerClose(4003, 'Session expired')
 
       expect(assign).toHaveBeenCalledOnce()
-      expect(assign).toHaveBeenCalledWith('/login?reason=session-expired')
+      expect(assign).toHaveBeenCalledWith('/login?reason=session-expired&redirect=%2Fdashboard')
       expect(websocketConnectionStatus.value).toBe('disconnected')
       vi.advanceTimersByTime(60_000)
       expect(FakeLifecycleWebSocket.instances).toHaveLength(1)

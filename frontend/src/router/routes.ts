@@ -2,6 +2,7 @@ import { RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
 import { useUserAuthStore } from '@/stores/xylona'
 import { CheckUserAuthenticatedResponse } from '@/proto/xylona_pb'
 import { canViewAlerts } from '@/utils/alert-permissions'
+import { loginPath } from '@/utils/login-redirect'
 import { fetchSetupStatus, unauthenticatedRedirect } from '@/utils/setup-status'
 import { legacyGameServerEditRedirect } from './game-server-route-helpers'
 
@@ -26,22 +27,22 @@ async function redirectForFirstRun(to: RouteLocationNormalized) {
   }
 }
 
-const requireSuperUser = async () => {
+const requireSuperUser = async (to: RouteLocationNormalized) => {
   const store = useUserAuthStore()
   const resp: CheckUserAuthenticatedResponse | null = await store.checkUserAuthenticated()
   if (!resp || !resp.user || !resp.authenticated) {
-    return { path: '/login' }
+    return loginPath(to.fullPath)
   }
   if (!resp.user.superUser) {
     return { path: '/' }
   }
 }
 
-const requireAlertAccess = async () => {
+const requireAlertAccess = async (to: RouteLocationNormalized) => {
   const store = useUserAuthStore()
   const resp: CheckUserAuthenticatedResponse | null = await store.checkUserAuthenticated()
   if (!resp || !resp.user || !resp.authenticated) {
-    return { path: '/login' }
+    return loginPath(to.fullPath)
   }
   if (!canViewAlerts(resp.user, resp)) {
     return { path: '/' }
@@ -98,7 +99,7 @@ const routes: RouteRecordRaw[] = [
         if (setupRedirect) {
           return setupRedirect
         }
-        return { path: '/login' }
+        return loginPath(to.fullPath)
       }
     },
     component: () => import('layouts/MainLayout.vue'),
