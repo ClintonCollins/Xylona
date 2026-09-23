@@ -27,13 +27,25 @@
         <div class="col-12 col-md-4">
           <q-select
             v-model="selectedLocalRoleID"
+            :hint="selectedRoleDescription"
             :options="roleOptions"
             aria-label="Local role"
             dense
             emit-value
             label="Role"
             map-options
-            outlined></q-select>
+            outlined>
+            <template #option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section>
+                  <q-item-label>{{ scope.opt.label }}</q-item-label>
+                  <q-item-label v-if="scope.opt.description" caption>
+                    {{ scope.opt.description }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
         </div>
         <div class="col-12 col-md-4">
           <q-btn
@@ -63,7 +75,7 @@
       </q-banner>
       <empty-state
         v-else-if="localGrants.length === 0"
-        description="Grant users access to this server using the form above."
+        description="The server owner and super users always have access. Grant other users a role with the form above."
         icon="shield"
         title="No access grants" />
       <q-list v-else aria-live="polite" bordered class="grant-list" separator>
@@ -164,8 +176,16 @@ const revokeTargetName = ref('')
 const revokeTargetGrantID = ref('')
 
 const roleOptions = computed(() => {
-  return roles.value.map((role) => ({ label: role.name, value: role.id }))
+  return roles.value.map((role) => ({
+    label: role.name,
+    value: role.id,
+    description: role.description,
+  }))
 })
+
+const selectedRoleDescription = computed(
+  () => roles.value.find((role) => role.id === selectedLocalRoleID.value)?.description || undefined,
+)
 
 const localUserOptions = computed(() => {
   return localUsers.value.map((user) => ({
