@@ -123,6 +123,8 @@ describe('game-server-notifications', () => {
     emitStatus('server-1', 'Alpha', Status.OFFLINE)
     expect(mocks.notifyCreate).toHaveBeenCalledTimes(1)
 
+    vi.advanceTimersByTime(61_000)
+
     emitStatus('server-1', 'Alpha', Status.ONLINE)
     expectLatestToast({
       type: 'xylona-success',
@@ -130,6 +132,27 @@ describe('game-server-notifications', () => {
     })
 
     expectAllToastsInTopRight()
+  })
+
+  it('replaces the stop toast with one restarted toast when the server comes straight back', () => {
+    initGameServerNotificationService()
+    mocks.eventBus.emit('websocketConnected')
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
+    vi.advanceTimersByTime(2_000)
+
+    const dismissStopped = vi.fn()
+    mocks.notifyCreate.mockReturnValueOnce(dismissStopped)
+    emitStatus('server-1', 'Alpha', Status.OFFLINE)
+    emitStatus('server-1', 'Alpha', Status.PRE_START)
+    vi.advanceTimersByTime(20_000)
+    emitStatus('server-1', 'Alpha', Status.ONLINE)
+
+    expect(dismissStopped).toHaveBeenCalledTimes(1)
+    expect(mocks.notifyCreate).toHaveBeenCalledTimes(2)
+    expectLatestToast({
+      type: 'xylona-success',
+      caption: 'Alpha — Server restarted',
+    })
   })
 
   it('does not emit a started toast from a local update lifecycle intent', () => {

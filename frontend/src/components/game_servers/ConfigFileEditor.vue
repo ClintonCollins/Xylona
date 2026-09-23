@@ -1054,19 +1054,6 @@ watch(
   padding-bottom: 5rem;
 }
 
-.table-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.table-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.table-scroll::-webkit-scrollbar-thumb {
-  background: var(--xy-surface-4);
-  border-radius: var(--xy-radius-sm);
-}
-
 .no-fields {
   text-align: center;
   padding: var(--xy-space-xl);

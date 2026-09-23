@@ -281,19 +281,6 @@ function iconGradient(name: string): string {
   background-color: var(--xy-base);
 }
 
-.mods-table-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.mods-table-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.mods-table-scroll::-webkit-scrollbar-thumb {
-  background: var(--xy-surface-4);
-  border-radius: var(--xy-radius-sm);
-}
-
 /* ---- Table ---- */
 .mods-table {
   width: 100%;

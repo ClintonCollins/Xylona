@@ -4,6 +4,27 @@
    No hardcoded colors — only token references.
    ========================================================================== */
 
+/* ---- Page text: Quasar's dark mode defaults to pure white ---- */
+body.body--dark,
+.q-dark {
+  color: var(--xy-text-primary);
+}
+
+/* ---- Scrollbars: thin token bars instead of OS light scrollbars ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--xy-surface-4) transparent;
+}
+
+/* ---- Tooltips ---- */
+.q-tooltip--style {
+  color: var(--xy-text-primary);
+  background: var(--xy-surface-4);
+  border: 1px solid var(--xy-border);
+  border-radius: var(--xy-radius-md);
+  font-size: var(--xy-font-size-sm);
+}
+
 /* ---- Navigation Items ---- */
 a.q-item {
   min-height: 44px;

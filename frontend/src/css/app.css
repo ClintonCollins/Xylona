@@ -116,6 +116,12 @@ a.table-link {
   padding-top: var(--xy-space-sm);
   padding-bottom: var(--xy-space-sm);
   background-color: var(--xy-surface-2);
+  box-shadow: var(--xy-shadow-xl);
+}
+
+/* Keep top toasts below the app header instead of over the account controls. */
+.q-notifications__list--top {
+  top: var(--xy-header-stack-height);
 }
 
 .xylona-notification .q-notification__message {
@@ -132,7 +138,8 @@ a.table-link {
 }
 
 .notification-success {
-  background-color: var(--xy-success-bg);
+  /* Tint over the opaque surface so page content never shows through. */
+  background-image: linear-gradient(var(--xy-success-bg), var(--xy-success-bg));
   border-color: var(--xy-success-border);
 }
 
@@ -142,7 +149,7 @@ a.table-link {
 }
 
 .notification-error {
-  background-color: var(--xy-danger-bg);
+  background-image: linear-gradient(var(--xy-danger-bg), var(--xy-danger-bg));
   border-color: var(--xy-danger-border);
 }
 
@@ -152,7 +159,7 @@ a.table-link {
 }
 
 .notification-alert {
-  background-color: var(--xy-warning-bg);
+  background-image: linear-gradient(var(--xy-warning-bg), var(--xy-warning-bg));
   border-color: var(--xy-warning-border);
 }
 
@@ -162,7 +169,7 @@ a.table-link {
 }
 
 .notification-info {
-  background-color: var(--xy-info-bg);
+  background-image: linear-gradient(var(--xy-info-bg), var(--xy-info-bg));
   border-color: var(--xy-info-border);
 }
 
