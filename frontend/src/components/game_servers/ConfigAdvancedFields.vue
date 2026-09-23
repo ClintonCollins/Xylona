@@ -1,5 +1,5 @@
 <template>
-  <div v-if="fields.length > 0" class="advanced-fields">
+  <div v-if="visibleRows.length > 0" class="advanced-fields">
     <q-expansion-item
       v-model="expanded"
       dense
@@ -7,12 +7,17 @@
       header-class="advanced-header">
       <template #header>
         <q-item-section avatar>
-          <q-icon aria-hidden="true" color="warning" name="code" size="sm" />
+          <q-icon aria-hidden="true" class="text-xy-muted" name="code" size="sm" />
         </q-item-section>
         <q-item-section>
-          <q-item-label class="advanced-title font-display"> Advanced Fields </q-item-label>
+          <q-item-label class="advanced-title">Advanced Fields</q-item-label>
           <q-item-label caption class="text-xy-muted">
-            {{ fields.length }} field{{ fields.length !== 1 ? 's' : '' }} not in schema
+            <template v-if="searching">
+              {{ visibleRows.length }} of {{ fields.length }} match
+            </template>
+            <template v-else>
+              {{ fields.length }} field{{ fields.length !== 1 ? 's' : '' }} not in schema
+            </template>
           </q-item-label>
         </q-item-section>
       </template>
@@ -27,7 +32,11 @@
         </q-banner>
 
         <div class="advanced-list">
-          <div v-for="(field, index) in localFields" :key="index" class="advanced-row">
+          <div
+            v-for="{ field, index } in visibleRows"
+            :key="index"
+            :data-test="`advanced-row-${field.key}`"
+            class="advanced-row">
             <div v-if="field.section" class="advanced-section font-mono text-xy-muted">
               [{{ field.section }}]
             </div>
@@ -35,6 +44,7 @@
               <q-input
                 v-model="field.key"
                 :aria-label="`Field key: ${field.key}`"
+                autocomplete="off"
                 class="advanced-key"
                 dense
                 input-class="font-mono advanced-input-text"
@@ -45,11 +55,26 @@
               <q-input
                 v-model="field.value"
                 :aria-label="`Value for ${field.key}`"
+                :autocomplete="isSecretConfigKey(field.key) ? 'new-password' : 'off'"
+                :type="isSecretConfigKey(field.key) && !revealed.has(index) ? 'password' : 'text'"
                 class="advanced-value"
                 dense
                 input-class="font-mono advanced-input-text"
                 outlined
                 @update:model-value="emitUpdate">
+                <template v-if="isSecretConfigKey(field.key)" #append>
+                  <q-btn
+                    :aria-label="revealed.has(index) ? 'Hide value' : 'Show value'"
+                    :aria-pressed="revealed.has(index)"
+                    :icon="revealed.has(index) ? 'visibility_off' : 'visibility'"
+                    dense
+                    flat
+                    round
+                    type="button"
+                    @click="toggleReveal(index)">
+                    <q-tooltip>{{ revealed.has(index) ? 'Hide value' : 'Show value' }}</q-tooltip>
+                  </q-btn>
+                </template>
               </q-input>
             </div>
           </div>
@@ -60,18 +85,24 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { AdvancedField } from '@/proto/xylona_pb'
+import { filterFields, isSecretConfigKey } from './config-field-helpers'
 
-const props = defineProps<{
-  fields: AdvancedField[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    fields: AdvancedField[]
+    search?: string
+  }>(),
+  { search: '' },
+)
 
 const emit = defineEmits<{
   update: [fields: AdvancedField[]]
 }>()
 
 const expanded = ref(false)
+const revealed = reactive(new Set<number>())
 
 interface LocalAdvancedField {
   key: string
@@ -84,6 +115,7 @@ const localFields = ref<LocalAdvancedField[]>([])
 watch(
   () => props.fields,
   (newFields) => {
+    revealed.clear()
     localFields.value = newFields.map((f) => ({
       key: f.key,
       value: f.value,
@@ -92,6 +124,27 @@ watch(
   },
   { immediate: true },
 )
+
+const searching = computed(() => props.search.trim() !== '')
+
+const visibleRows = computed(() => {
+  const rows = localFields.value.map((field, index) => ({ field, index }))
+  if (!searching.value) return rows
+  const matches = new Set(filterFields(localFields.value, props.search))
+  return rows.filter((row) => matches.has(row.field))
+})
+
+// A search that matches advanced fields opens the panel so the matches show.
+watch(
+  () => props.search,
+  () => {
+    if (searching.value && visibleRows.value.length > 0) expanded.value = true
+  },
+)
+
+function toggleReveal(index: number) {
+  if (!revealed.delete(index)) revealed.add(index)
+}
 
 function emitUpdate() {
   emit(

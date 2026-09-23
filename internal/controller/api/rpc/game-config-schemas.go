@@ -13,6 +13,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
 
+	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/internal/nodeclient"
@@ -259,14 +260,10 @@ func getGameServerConfigFile(
 	}
 
 	// Create resolver for managed fields.
-	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
-		Name:       gameServer.Name,
-		Directory:  gameServer.Directory,
-		IP:         gameServer.IP,
-		Port:       gameServer.Port,
-		QueryPort:  gameServer.QueryPort,
-		MaxPlayers: placeholder.PlayerLimit(gameServer),
-	})
+	resolver, errResolver := managedConfigResolver(dbInst, gameServer, schemaEntry)
+	if errResolver != nil {
+		return nil, errResolver
+	}
 
 	// Match fields.
 	result := cfgschema.MatchFields(parsed, schemaEntry.Schema, schemaEntry.ManagedFields, resolver)
@@ -393,14 +390,10 @@ func updateGameServerConfigFile(
 		return nil, internalErrf("unsupported format")
 	}
 
-	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
-		Name:       gameServer.Name,
-		Directory:  gameServer.Directory,
-		IP:         gameServer.IP,
-		Port:       gameServer.Port,
-		QueryPort:  gameServer.QueryPort,
-		MaxPlayers: placeholder.PlayerLimit(gameServer),
-	})
+	resolver, errResolver := managedConfigResolver(dbInst, gameServer, schemaEntry)
+	if errResolver != nil {
+		return nil, errResolver
+	}
 
 	// Convert proto fields to service types.
 	var fields []cfgschema.FieldData
@@ -679,14 +672,10 @@ func generateGameServerConfigFile(
 	}
 
 	// Get resolver.
-	resolver := cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
-		Name:       gameServer.Name,
-		Directory:  gameServer.Directory,
-		IP:         gameServer.IP,
-		Port:       gameServer.Port,
-		QueryPort:  gameServer.QueryPort,
-		MaxPlayers: placeholder.PlayerLimit(gameServer),
-	})
+	resolver, errResolver := managedConfigResolver(dbInst, gameServer, schemaEntry)
+	if errResolver != nil {
+		return nil, errResolver
+	}
 
 	stagingDir, errMkdirTemp := os.MkdirTemp("", "xylona-config-generate-*")
 	if errMkdirTemp != nil {
@@ -739,6 +728,34 @@ func configSchemasJSONForGeneration(schemaEntry *cfgschema.ConfigSchemaEntry) (s
 	}
 
 	return string(data), nil
+}
+
+// managedConfigResolver resolves managed config fields the way the next start
+// does: the local console settings follow actions.LocalConsoleState, and the
+// sources a start leaves to the file stop being managed in entry. The local
+// console password never leaves the controller, so it resolves empty.
+func managedConfigResolver(
+	dbInst *db.Connection,
+	gameServer *models.GameServer,
+	entry *cfgschema.ConfigSchemaEntry,
+) (cfgschema.ManagedFieldResolver, error) {
+	consoleEnabled, consoleForceDisabled, errConsole := actions.LocalConsoleState(dbInst, gameServer)
+	if errConsole != nil {
+		log.Error().Err(errConsole).Str("game_server_id", gameServer.ID).Msg("Failed to resolve local console config state")
+		return nil, internalErrf("failed to resolve local console settings")
+	}
+	cfgschema.RemoveManagedSources(entry, actions.UnmanagedLocalConsoleSources(consoleEnabled, consoleForceDisabled)...)
+	return cfgschema.GameServerSettingsResolver(cfgschema.GameServerSettings{
+		Name:                   gameServer.Name,
+		Directory:              gameServer.Directory,
+		IP:                     gameServer.IP,
+		Port:                   gameServer.Port,
+		QueryPort:              gameServer.QueryPort,
+		MaxPlayers:             placeholder.PlayerLimit(gameServer),
+		LocalConsoleConfigured: true,
+		LocalConsoleEnabled:    consoleEnabled,
+		LocalConsolePort:       gameServer.QueryPort + 1,
+	}), nil
 }
 
 func loadGameConfigSchemas(

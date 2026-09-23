@@ -1,7 +1,11 @@
 <template>
-  <form class="config-editor" @submit.prevent>
-    <!-- Sticky header -->
-    <div class="editor-header-sticky">
+  <form
+    ref="rootRef"
+    :style="{ '--editor-header-height': `${headerHeight}px` }"
+    class="config-editor"
+    @submit.prevent>
+    <!-- Sticky header: file, search, actions, group tabs -->
+    <div ref="headerRef" class="editor-header-sticky">
       <div class="editor-header">
         <div class="editor-header-info">
           <div class="editor-file-name font-mono">{{ filePath }}</div>
@@ -13,12 +17,28 @@
               class="editor-category-badge"
               outline />
             <span class="text-xy-muted editor-meta-text">{{ format }}</span>
+            <q-badge v-if="isMissing" color="warning" label="Missing" text-color="dark" />
             <span v-if="editedValues.size > 0" class="editor-modified-count">
               <span aria-hidden="true" class="modified-dot"></span>
               {{ editedValues.size }} modified
             </span>
           </div>
         </div>
+        <q-input
+          v-if="fields.length > 0 || advancedFields.length > 0"
+          v-model="searchQuery"
+          :placeholder="`Filter ${fields.length + advancedFields.length} settings...`"
+          aria-label="Search configuration fields"
+          class="search-input"
+          clearable
+          dense
+          outlined
+          @clear="searchQuery = ''"
+          @keydown.enter.prevent>
+          <template #prepend>
+            <q-icon aria-hidden="true" class="text-xy-muted" name="search" size="xs" />
+          </template>
+        </q-input>
         <div class="editor-header-actions">
           <q-btn
             v-if="isMissing"
@@ -27,29 +47,42 @@
             icon="note_add"
             label="Generate File"
             outline
-            size="sm"
             type="button"
             @click="$emit('generate')" />
-          <q-btn
-            v-else
-            :class="{ 'save-success': saveSuccess }"
-            :color="saveSuccess ? 'positive' : 'primary'"
-            :disable="!hasChanges && !saveSuccess"
-            :icon="saveSuccess ? 'check' : 'save'"
-            :label="saveSuccess ? 'Saved' : 'Save'"
-            :loading="saving"
-            class="save-btn"
-            size="sm"
-            type="button"
-            @click.prevent.stop="handleSave">
-            <q-tooltip>{{ hasChanges ? 'Save changes (Ctrl+S)' : 'No changes to save' }}</q-tooltip>
-          </q-btn>
+          <template v-else>
+            <q-btn
+              v-if="hasChanges"
+              :disable="saving"
+              class="discard-btn"
+              flat
+              label="Discard changes"
+              type="button"
+              @click="discardChanges" />
+            <q-btn
+              :class="{ 'save-success': saveSuccess }"
+              :color="saveSuccess ? 'positive' : 'primary'"
+              :disable="!canSave && !saveSuccess"
+              :icon="saveSuccess ? 'check' : 'save'"
+              :label="saveSuccess ? 'Saved' : 'Save'"
+              :loading="saving"
+              class="save-btn"
+              type="button"
+              @click.prevent.stop="handleSave">
+              <q-tooltip>{{ saveTooltip }}</q-tooltip>
+            </q-btn>
+          </template>
         </div>
       </div>
-      <q-separator class="editor-divider" />
 
       <!-- Scrollspy group tabs -->
-      <div v-if="allGroups.length > 1" ref="groupTabsRef" class="group-tabs" role="tablist">
+      <div
+        v-if="allGroups.length > 1"
+        ref="groupTabsRef"
+        :class="{ 'fade-start': tabsFadeStart, 'fade-end': tabsFadeEnd }"
+        class="group-tabs"
+        role="tablist"
+        @scroll.passive="updateTabsOverflow"
+        @wheel="scrollTabsWithWheel">
         <button
           v-for="group in allGroups"
           :key="group.name"
@@ -62,6 +95,7 @@
           :style="{ '--tab-accent': groupAccentColor(group.name) }"
           class="group-tab"
           role="tab"
+          type="button"
           @click="scrollToGroup(group.name)">
           {{ group.displayName }}
           <span class="tab-count">{{
@@ -83,33 +117,15 @@
           </template>
           <div class="validation-errors">
             <div v-for="(error, i) in validationErrors" :key="i" class="validation-error-item">
-              <strong>{{ error.field }}:</strong> {{ error.message }}
+              <strong>{{ fieldLabel(error.field) }}:</strong> {{ error.message }}
             </div>
           </div>
         </q-banner>
       </Transition>
-
-      <!-- Search controls -->
-      <div v-if="fields.length > 0" class="editor-controls">
-        <q-input
-          v-model="searchQuery"
-          :placeholder="`Filter ${fields.length} settings...`"
-          aria-label="Search configuration fields"
-          class="search-input"
-          clearable
-          dense
-          outlined
-          @clear="searchQuery = ''"
-          @keydown.enter.prevent>
-          <template #prepend>
-            <q-icon aria-hidden="true" class="text-xy-muted" name="search" size="xs" />
-          </template>
-        </q-input>
-      </div>
     </div>
 
-    <!-- Compact settings table -->
-    <div ref="tableScrollRef" class="table-scroll">
+    <!-- Settings list -->
+    <div class="settings-body">
       <div
         v-if="fields.length === 0 && advancedFields.length === 0"
         class="no-fields text-xy-muted">
@@ -120,47 +136,47 @@
       <div v-else-if="filteredFields.length === 0 && searchQuery" class="no-fields text-xy-muted">
         <q-icon class="q-mb-sm" name="search_off" size="28px" />
         <div>
-          No settings match "<strong class="text-xy-secondary">{{ searchQuery }}</strong
+          No {{ advancedMatchCount > 0 ? 'schema ' : '' }}settings match "<strong
+            class="text-xy-secondary"
+            >{{ searchQuery }}</strong
           >"
+        </div>
+        <div v-if="advancedMatchCount > 0" class="q-mt-xs" data-test="advanced-match-count">
+          {{ advancedMatchCount }} match{{ advancedMatchCount === 1 ? '' : 'es' }} in Advanced
+          Fields below
         </div>
         <q-btn
           class="q-mt-sm"
           dense
           flat
           label="Clear filter"
-          size="sm"
+          type="button"
           @click="searchQuery = ''" />
       </div>
 
-      <table v-else class="settings-table">
-        <template v-for="group in displayGroups" :key="group.name">
-          <!-- Sentinel for IntersectionObserver (invisible) -->
-          <tr class="group-sentinel-row">
-            <td colspan="2">
-              <div :id="`sentinel-${group.name}`" :data-group="group.name" class="group-sentinel" />
-            </td>
-          </tr>
-          <!-- Sticky group header -->
-          <tr :style="{ '--group-accent': groupAccentColor(group.name) }" class="group-header-row">
-            <td colspan="2">
-              <div class="group-header-inner">
-                <span class="group-header-title">{{ group.displayName }}</span>
-                <span class="group-header-count">{{ group.fields.length }}</span>
-              </div>
-            </td>
-          </tr>
-          <!-- Field rows -->
-          <tr
+      <div v-else class="settings-list">
+        <section
+          v-for="group in displayGroups"
+          :key="group.name"
+          :ref="(el) => setSectionRef(group.name, el as HTMLElement | null)"
+          :style="{ '--group-accent': groupAccentColor(group.name) }"
+          class="settings-group">
+          <div class="group-header">
+            <span class="group-header-title">{{ group.displayName }}</span>
+            <span class="group-header-count">{{ group.fields.length }}</span>
+          </div>
+          <div
             v-for="field in group.fields"
             :key="field.key"
             :class="{
               'setting-edited': editedValues.has(field.key),
+              'setting-invalid': serverError(field.key) !== undefined,
               'setting-managed': field.isManaged,
             }"
             :data-test="`config-row-${field.key}`"
             class="setting-row">
             <!-- Setting name -->
-            <td class="setting-key">
+            <div class="setting-key">
               <div class="setting-key-label">
                 {{ field.title || field.key }}
                 <q-badge v-if="field.isManaged" class="managed-badge" color="accent">
@@ -177,9 +193,9 @@
               <div v-if="field.description" class="setting-description">
                 {{ field.description }}
               </div>
-            </td>
+            </div>
             <!-- Setting value -->
-            <td class="setting-value">
+            <div class="setting-value">
               <!-- Managed: read-only with lock icon and source label -->
               <div
                 v-if="field.isManaged"
@@ -189,8 +205,8 @@
                   <q-icon class="q-mr-xs" color="accent" name="admin_panel_settings" size="12px" />
                   Managed by server settings
                 </div>
-                <span class="managed-value font-mono">
-                  {{ field.value || field.defaultValue }}
+                <span class="managed-value font-mono" data-test="managed-value">
+                  {{ managedDisplayValue(field) }}
                   <q-icon class="q-ml-xs" color="accent" name="lock" size="xs">
                     <q-tooltip
                       >Automatically set from server settings — edit it there instead</q-tooltip
@@ -225,6 +241,8 @@
                 v-else-if="field.enumOptions.length > 0"
                 :id="fieldId(field.key)"
                 :aria-label="field.title || field.key"
+                :error="serverError(field.key) !== undefined ? true : undefined"
+                :error-message="serverError(field.key)"
                 :model-value="getFieldValue(field)"
                 :options="enumFilteredOptions(field)"
                 class="inline-input"
@@ -246,15 +264,17 @@
 
               <!-- Number input -->
               <q-input
-                v-else-if="field.fieldType === 'integer' || field.fieldType === 'number'"
+                v-else-if="isNumberField(field)"
                 :id="fieldId(field.key)"
                 :aria-label="field.title || field.key"
+                :aria-required="field.required"
+                :error="serverError(field.key) !== undefined ? true : undefined"
+                :error-message="serverError(field.key)"
                 :hint="getNumberHint(field)"
                 :max="field.maximum ?? undefined"
                 :min="field.minimum ?? undefined"
                 :model-value="getFieldValue(field)"
-                :rules="getNumberRules(field)"
-                :aria-required="field.required"
+                :rules="fieldRules(field)"
                 class="inline-input"
                 dense
                 input-class="font-mono"
@@ -270,10 +290,16 @@
                 v-else
                 :id="fieldId(field.key)"
                 :aria-label="field.title || field.key"
+                :aria-required="field.required"
+                :autocomplete="isSecretConfigKey(field.key) ? 'new-password' : 'off'"
+                :error="serverError(field.key) !== undefined ? true : undefined"
+                :error-message="serverError(field.key)"
                 :maxlength="field.maxLength ?? undefined"
                 :model-value="getFieldValue(field)"
-                :rules="getStringRules(field)"
-                :aria-required="field.required"
+                :rules="fieldRules(field)"
+                :type="
+                  isSecretConfigKey(field.key) && !revealedKeys.has(field.key) ? 'password' : 'text'
+                "
                 class="inline-input"
                 dense
                 input-class="font-mono"
@@ -281,14 +307,39 @@
                 @keydown.enter.prevent
                 @update:model-value="
                   (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
-                " />
-            </td>
-          </tr>
-        </template>
-      </table>
+                ">
+                <template v-if="isSecretConfigKey(field.key)" #append>
+                  <q-btn
+                    :aria-label="revealedKeys.has(field.key) ? 'Hide value' : 'Show value'"
+                    :aria-pressed="revealedKeys.has(field.key)"
+                    :icon="revealedKeys.has(field.key) ? 'visibility_off' : 'visibility'"
+                    dense
+                    flat
+                    round
+                    type="button"
+                    @click="toggleReveal(field.key)">
+                    <q-tooltip>{{
+                      revealedKeys.has(field.key) ? 'Hide value' : 'Show value'
+                    }}</q-tooltip>
+                  </q-btn>
+                </template>
+              </q-input>
 
-      <!-- Advanced fields (below table) -->
-      <config-advanced-fields :fields="advancedFields" @update="handleAdvancedUpdate" />
+              <div
+                v-if="field.fieldType === 'boolean' && serverError(field.key) !== undefined"
+                class="setting-error">
+                {{ serverError(field.key) }}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Advanced fields (below the schema fields) -->
+      <config-advanced-fields
+        :fields="advancedFields"
+        :search="searchQuery"
+        @update="handleAdvancedUpdate" />
     </div>
   </form>
 </template>
@@ -298,7 +349,12 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import type { AdvancedField, ConfigFieldData, ConfigValidationError } from '@/proto/xylona_pb'
 import { getManagedSourceLabel } from '@/components/shared/placeholder-definitions'
 import ConfigAdvancedFields from './ConfigAdvancedFields.vue'
-import { filterFields, groupFields } from './config-field-helpers'
+import {
+  filterFields,
+  groupFields,
+  isSecretConfigKey,
+  trimNumberPadding,
+} from './config-field-helpers'
 
 const props = defineProps<{
   filePath: string
@@ -315,12 +371,16 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [fieldValues: Map<string, string>]
+  discard: []
   generate: []
   updateAdvanced: [fields: AdvancedField[]]
 }>()
 
 // Track local edits as key → value overrides
 const editedValues = reactive(new Map<string, string>())
+// The values of the last save attempt; server errors describe these values.
+const submittedValues = reactive(new Map<string, string>())
+const revealedKeys = reactive(new Set<string>())
 const advancedChanged = ref(false)
 const saveSuccess = ref(false)
 let saveSuccessTimer = 0
@@ -329,7 +389,7 @@ let saveSuccessTimer = 0
 function onKeyDown(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault()
-    if (hasChanges.value && !props.saving) {
+    if (canSave.value) {
       handleSave()
     }
   }
@@ -340,11 +400,13 @@ const searchQuery = ref('')
 
 const hasChanges = computed(() => editedValues.size > 0 || advancedChanged.value)
 
-defineExpose({ hasChanges })
-
 const filteredFields = computed(() => {
   return filterFields([...props.fields], searchQuery.value)
 })
+
+const advancedMatchCount = computed(() =>
+  searchQuery.value.trim() ? filterFields([...props.advancedFields], searchQuery.value).length : 0,
+)
 
 const displayGroups = computed(() => {
   return groupFields([...filteredFields.value])
@@ -367,7 +429,8 @@ watch(
     // If the current active group still exists, keep it
     if (oldGroupKey && groups.some((g) => g.name === activeGroup.value)) return
 
-    activeGroup.value = groups[0].name
+    activeGroup.value = groups[0]?.name ?? ''
+    void nextTick(updateTabsOverflow)
   },
   { immediate: true },
 )
@@ -392,24 +455,125 @@ const GROUP_ACCENT_COLORS = [
 const groupAccentMap = computed(() => {
   const map = new Map<string, string>()
   for (let i = 0; i < allGroups.value.length; i++) {
-    map.set(allGroups.value[i].name, GROUP_ACCENT_COLORS[i % GROUP_ACCENT_COLORS.length])
+    map.set(
+      allGroups.value[i]?.name ?? '',
+      GROUP_ACCENT_COLORS[i % GROUP_ACCENT_COLORS.length] ?? '',
+    )
   }
   return map
 })
 
 function groupAccentColor(groupName: string): string {
-  return groupAccentMap.value.get(groupName) || GROUP_ACCENT_COLORS[0]
+  return groupAccentMap.value.get(groupName) || GROUP_ACCENT_COLORS[0] || ''
 }
 
-// ---- Spring-physics tab indicator ----
+// ---- Validation ----
+const serverErrors = computed(() => {
+  const messages = new Map<string, string>()
+  for (const error of props.validationErrors) {
+    if (!messages.has(error.field)) messages.set(error.field, error.message)
+  }
+  return messages
+})
+
+/** The server's error for a field, until the operator changes the value it was about. */
+function serverError(key: string): string | undefined {
+  const message = serverErrors.value.get(key)
+  if (message === undefined || editedValues.get(key) !== submittedValues.get(key)) {
+    return undefined
+  }
+  return message
+}
+
+function fieldLabel(key: string): string {
+  return props.fields.find((field) => field.key === key)?.title || key
+}
+
+const invalidFieldCount = computed(
+  () =>
+    props.fields.filter(
+      (field) =>
+        editedValues.has(field.key) &&
+        fieldRules(field).some((rule) => rule(getFieldValue(field)) !== true),
+    ).length,
+)
+
+const canSave = computed(() => hasChanges.value && !props.saving && invalidFieldCount.value === 0)
+
+const saveTooltip = computed(() => {
+  if (invalidFieldCount.value > 0) {
+    const count = invalidFieldCount.value
+    return `Fix ${count} invalid setting${count === 1 ? '' : 's'} before saving`
+  }
+  return hasChanges.value ? 'Save changes (Ctrl+S)' : 'No changes to save'
+})
+
+// ---- Sticky header height ----
+const rootRef = ref<HTMLElement | null>(null)
+const headerRef = ref<HTMLElement | null>(null)
+const headerHeight = ref(0)
+let headerObserver: ResizeObserver | undefined
+
+// The page scrolls inside the server layout's content area, not the window.
+let scroller: HTMLElement | Window = window
+
+function findScroller(el: HTMLElement): HTMLElement | Window {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node)
+    if (overflowY === 'auto' || overflowY === 'scroll') return node
+  }
+  return window
+}
+
+function scrollingElement(): Element | null {
+  return scroller instanceof Window ? document.scrollingElement : scroller
+}
+
+// ---- Group tabs: spring indicator, overflow fades, reveal active tab ----
 const groupTabsRef = ref<HTMLElement | null>(null)
 const tabIndicatorRef = ref<HTMLElement | null>(null)
 const tabRefs = new Map<string, HTMLElement>()
-const prefersReducedMotion = ref(false)
+const tabsFadeStart = ref(false)
+const tabsFadeEnd = ref(false)
 
 function setTabRef(name: string, el: HTMLElement | null) {
   if (el) tabRefs.set(name, el)
   else tabRefs.delete(name)
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function updateTabsOverflow() {
+  const tabs = groupTabsRef.value
+  if (!tabs) return
+  tabsFadeStart.value = tabs.scrollLeft > 1
+  tabsFadeEnd.value = tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 1
+}
+
+// A vertical wheel over the strip scrolls it sideways until it reaches an end.
+function scrollTabsWithWheel(event: WheelEvent) {
+  const tabs = groupTabsRef.value
+  if (!tabs || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+  const maxLeft = tabs.scrollWidth - tabs.clientWidth
+  const nextLeft = Math.min(maxLeft, Math.max(0, tabs.scrollLeft + event.deltaY))
+  if (nextLeft === tabs.scrollLeft) return
+  event.preventDefault()
+  tabs.scrollLeft = nextLeft
+}
+
+function revealTab(groupName: string) {
+  const tab = tabRefs.get(groupName)
+  const tabs = groupTabsRef.value
+  if (!tab || !tabs) return
+  const left = tab.offsetLeft
+  const right = left + tab.offsetWidth
+  if (left < tabs.scrollLeft) {
+    tabs.scrollLeft = left
+  } else if (right > tabs.scrollLeft + tabs.clientWidth) {
+    tabs.scrollLeft = right - tabs.clientWidth
+  }
 }
 
 // Spring solver state
@@ -438,30 +602,18 @@ function solveSpring(
 
 function moveTabIndicator(groupName: string) {
   const tab = tabRefs.get(groupName)
-  const container = groupTabsRef.value
   const indicator = tabIndicatorRef.value
-  if (!tab || !container || !indicator) return
+  if (!tab || !indicator) return
 
-  const containerRect = container.getBoundingClientRect()
-  const tabRect = tab.getBoundingClientRect()
-  const targetLeft = tabRect.left - containerRect.left + container.scrollLeft
-  const targetWidth = tabRect.width
+  const targetLeft = tab.offsetLeft
+  const targetWidth = tab.offsetWidth
 
-  // First render: snap instantly, no spring
-  if (!indicatorInitialized) {
+  // First render or reduced motion: snap, no spring
+  if (!indicatorInitialized || prefersReducedMotion()) {
     indicatorInitialized = true
     springLeftPos = targetLeft
     springWidthPos = targetWidth
     indicator.style.opacity = '1'
-    indicator.style.transform = `translateX(${targetLeft}px)`
-    indicator.style.width = `${targetWidth}px`
-    return
-  }
-
-  // Reduced motion: snap
-  if (prefersReducedMotion.value) {
-    springLeftPos = targetLeft
-    springWidthPos = targetWidth
     indicator.style.transform = `translateX(${targetLeft}px)`
     indicator.style.width = `${targetWidth}px`
     return
@@ -514,93 +666,94 @@ function moveTabIndicator(groupName: string) {
   springAnimId = requestAnimationFrame(step)
 }
 
-// Animate indicator when active group changes
+// Animate the indicator and keep the active tab in view when the group changes
 watch(activeGroup, (groupName) => {
   if (groupName) {
-    void nextTick(() => moveTabIndicator(groupName))
+    void nextTick(() => {
+      revealTab(groupName)
+      moveTabIndicator(groupName)
+    })
   }
 })
 
-// Scrollspy
-const tableScrollRef = ref<HTMLElement | null>(null)
+// ---- Scrollspy ----
+const sectionRefs = new Map<string, HTMLElement>()
 let scrollSpySuppressed = false
+let scrollSpyTimer = 0
 let scrollRafId = 0
 
+function setSectionRef(name: string, el: HTMLElement | null) {
+  if (el) sectionRefs.set(name, el)
+  else sectionRefs.delete(name)
+}
+
 function scrollToGroup(groupName: string) {
-  const scrollRoot = tableScrollRef.value
-  const sentinel = document.getElementById(`sentinel-${groupName}`)
-  if (!scrollRoot || !sentinel) return
+  const section = sectionRefs.get(groupName)
+  if (!section) return
 
   // Set active immediately and suppress scrollspy during smooth scroll
   activeGroup.value = groupName
   scrollSpySuppressed = true
 
-  const containerTop = scrollRoot.getBoundingClientRect().top
-  const sentinelTop = sentinel.getBoundingClientRect().top
-  const offset = sentinelTop - containerTop + scrollRoot.scrollTop
+  const reducedMotion = prefersReducedMotion()
+  // scroll-margin-top keeps the section clear of the sticky header
+  section.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'instant' : 'smooth' })
 
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  scrollRoot.scrollTo({ top: offset, behavior: reducedMotion ? 'instant' : 'smooth' })
-
-  // Re-enable scrollspy after scroll settles
-  if (reducedMotion) {
-    scrollSpySuppressed = false
-  } else {
-    // Wait for smooth scroll to finish (~400ms typical)
-    setTimeout(() => {
+  clearTimeout(scrollSpyTimer)
+  scrollSpyTimer = window.setTimeout(
+    () => {
       scrollSpySuppressed = false
-    }, 500)
-  }
+    },
+    reducedMotion ? 0 : 500,
+  )
+}
+
+function scrolledToEnd(): boolean {
+  const el = scrollingElement()
+  return el !== null && el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 2
 }
 
 function updateActiveGroupFromScroll() {
   cancelAnimationFrame(scrollRafId)
   scrollRafId = requestAnimationFrame(() => {
-    const scrollRoot = tableScrollRef.value
-    if (!scrollRoot) return
+    const header = headerRef.value
+    const groups = displayGroups.value
+    if (scrollSpySuppressed || !header || groups.length === 0) return
 
-    if (scrollSpySuppressed) return
-
-    const containerTop = scrollRoot.getBoundingClientRect().top
-    let currentGroup = ''
-
-    const sentinels = scrollRoot.querySelectorAll('.group-sentinel')
-    for (const sentinel of sentinels) {
-      const sentinelTop = sentinel.getBoundingClientRect().top
-      if (sentinelTop <= containerTop + 10) {
-        const groupName = sentinel.getAttribute('data-group')
-        if (groupName) {
-          currentGroup = groupName
+    // A group is current once its section reaches the bottom of the sticky
+    // header, where its own header pins. At the end of the page the last group
+    // wins, since short final groups can never reach the top.
+    let current = groups[0]?.name ?? ''
+    if (scrolledToEnd()) {
+      current = groups[groups.length - 1]?.name ?? current
+    } else {
+      const threshold = header.getBoundingClientRect().bottom + 1
+      for (const group of groups) {
+        const section = sectionRefs.get(group.name)
+        if (section && section.getBoundingClientRect().top <= threshold) {
+          current = group.name
         }
       }
     }
-
-    if (currentGroup) {
-      activeGroup.value = currentGroup
-    } else if (displayGroups.value.length > 0) {
-      activeGroup.value = displayGroups.value[0].name
-    }
+    activeGroup.value = current
   })
 }
 
-function setupScrollspy() {
-  const scrollRoot = tableScrollRef.value
-  if (!scrollRoot) return
-
-  scrollRoot.addEventListener('scroll', updateActiveGroupFromScroll, { passive: true })
+function measureHeader() {
+  headerHeight.value = headerRef.value?.offsetHeight ?? 0
+  updateTabsOverflow()
 }
 
 // Reset edits when file changes
 watch(
   () => props.filePath,
   () => {
-    editedValues.clear()
-    advancedChanged.value = false
+    resetEdits()
+    revealedKeys.clear()
     searchQuery.value = ''
-    // Reset scroll position
-    if (tableScrollRef.value) {
-      tableScrollRef.value.scrollTop = 0
-    }
+    // Start the new file at the top of the page
+    const el = scrollingElement()
+    if (el) el.scrollTop = 0
     // Reset tab indicator so it snaps to new position
     indicatorInitialized = false
     springLeftVel = 0
@@ -610,10 +763,14 @@ watch(
 
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
-  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (rootRef.value) scroller = findScroller(rootRef.value)
+  scroller.addEventListener('scroll', updateActiveGroupFromScroll, { passive: true })
+  if (typeof ResizeObserver !== 'undefined' && headerRef.value) {
+    headerObserver = new ResizeObserver(measureHeader)
+    headerObserver.observe(headerRef.value)
+  }
   void nextTick(() => {
-    setupScrollspy()
-    // Initialize tab indicator position
+    measureHeader()
     if (activeGroup.value) {
       moveTabIndicator(activeGroup.value)
     }
@@ -622,11 +779,12 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown)
+  scroller.removeEventListener('scroll', updateActiveGroupFromScroll)
+  headerObserver?.disconnect()
   cancelAnimationFrame(springAnimId)
+  cancelAnimationFrame(scrollRafId)
   clearTimeout(saveSuccessTimer)
-  if (tableScrollRef.value) {
-    tableScrollRef.value.removeEventListener('scroll', updateActiveGroupFromScroll)
-  }
+  clearTimeout(scrollSpyTimer)
 })
 
 function enumSelectOptions(field: ConfigFieldData) {
@@ -660,22 +818,51 @@ function enumFilter(field: ConfigFieldData, val: string, update: (fn: () => void
   })
 }
 
+function isNumberField(field: ConfigFieldData): boolean {
+  return field.fieldType === 'integer' || field.fieldType === 'number'
+}
+
+function originalValue(field: ConfigFieldData): string {
+  const value = field.value || field.defaultValue
+  return isNumberField(field) ? trimNumberPadding(value) : value
+}
+
 function getFieldValue(field: ConfigFieldData): string {
-  const edited = editedValues.get(field.key)
-  if (edited !== undefined) {
-    return edited
-  }
-  return field.value || field.defaultValue
+  return editedValues.get(field.key) ?? originalValue(field)
 }
 
 function setFieldValue(key: string, value: string) {
-  const original = props.fields.find((f) => f.key === key)
-  const originalValue = original ? original.value || original.defaultValue : ''
-  if (value === originalValue) {
+  const field = props.fields.find((f) => f.key === key)
+  const original = field ? originalValue(field) : ''
+  const unchanged =
+    value === original ||
+    (field !== undefined &&
+      isNumberField(field) &&
+      value !== '' &&
+      original !== '' &&
+      Number(value) === Number(original))
+  if (unchanged) {
     editedValues.delete(key)
   } else {
     editedValues.set(key, value)
   }
+}
+
+const maskedValue = '••••••••'
+
+function managedDisplayValue(field: ConfigFieldData): string {
+  if (isSecretConfigKey(field.key) || isSecretConfigKey(field.managedSource)) {
+    return maskedValue
+  }
+  const value = field.value || field.defaultValue
+  if (field.fieldType === 'boolean') {
+    return value === 'true' ? 'Enabled' : 'Disabled'
+  }
+  return value
+}
+
+function toggleReveal(key: string) {
+  if (!revealedKeys.delete(key)) revealedKeys.add(key)
 }
 
 function getNumberHint(field: ConfigFieldData): string | undefined {
@@ -693,30 +880,29 @@ function getNumberHint(field: ConfigFieldData): string | undefined {
   return undefined
 }
 
-function getNumberRules(field: ConfigFieldData): ((val: string) => true | string)[] {
-  const rules: ((val: string) => true | string)[] = []
-  if (field.required) {
-    rules.push((val: string) => (val !== '' && val !== undefined && val !== null) || 'Required')
-  }
-  if (field.minimum !== undefined) {
-    const min = Number(field.minimum)
-    rules.push((val: string) => Number(val) >= min || `Minimum: ${min}`)
-  }
-  if (field.maximum !== undefined) {
-    const max = Number(field.maximum)
-    rules.push((val: string) => Number(val) <= max || `Maximum: ${max}`)
-  }
-  return rules
-}
+type FieldRule = (val: string) => true | string
 
-function getStringRules(field: ConfigFieldData): ((val: string) => true | string)[] {
-  const rules: ((val: string) => true | string)[] = []
-  if (field.required) {
-    rules.push((val: string) => (val !== '' && val !== undefined && val !== null) || 'Required')
+function fieldRules(field: ConfigFieldData): FieldRule[] {
+  if (field.isManaged || field.fieldType === 'boolean' || field.enumOptions.length > 0) {
+    return []
   }
-  if (field.maxLength) {
+  const rules: FieldRule[] = []
+  if (field.required) {
+    rules.push((val) => (val !== '' && val !== undefined && val !== null) || 'Required')
+  }
+  // Empty optional values are left out of the file, so limits skip them.
+  if (isNumberField(field)) {
+    if (field.minimum !== undefined) {
+      const min = Number(field.minimum)
+      rules.push((val) => val === '' || Number(val) >= min || `Minimum: ${min}`)
+    }
+    if (field.maximum !== undefined) {
+      const max = Number(field.maximum)
+      rules.push((val) => val === '' || Number(val) <= max || `Maximum: ${max}`)
+    }
+  } else if (field.maxLength) {
     const max = field.maxLength
-    rules.push((val: string) => !val || val.length <= max || `Maximum ${max} characters`)
+    rules.push((val) => !val || val.length <= max || `Maximum ${max} characters`)
   }
   return rules
 }
@@ -730,82 +916,81 @@ function handleAdvancedUpdate(fields: AdvancedField[]) {
   emit('updateAdvanced', fields)
 }
 
-let savedScrollTop = 0
-
 function handleSave() {
-  // Save scroll position before the async save cycle replaces the fields prop
-  savedScrollTop = tableScrollRef.value?.scrollTop ?? 0
-
-  const fieldValues = new Map<string, string>()
+  if (!canSave.value) return
+  submittedValues.clear()
   for (const [key, value] of editedValues) {
-    fieldValues.set(key, value)
+    submittedValues.set(key, value)
   }
-  emit('save', fieldValues)
+  // Edits stay until the parent confirms the save with confirmSaved().
+  emit('save', new Map(editedValues))
+}
+
+function resetEdits() {
   editedValues.clear()
+  submittedValues.clear()
   advancedChanged.value = false
 }
 
-// Suppress scrollspy while saving to prevent the active group from resetting
-// when the fields prop is replaced and the table DOM re-renders.
-watch(
-  () => props.saving,
-  (saving, wasSaving) => {
-    if (saving && !wasSaving) {
-      scrollSpySuppressed = true
-    }
-    if (wasSaving && !saving) {
-      // Restore scroll position and re-enable scrollspy after Vue re-renders
-      void nextTick(() => {
-        const scrollRoot = tableScrollRef.value
-        if (scrollRoot && savedScrollTop > 0) {
-          scrollRoot.scrollTop = savedScrollTop
-        }
-        // Also re-position the tab indicator since tab refs may have been recreated
-        if (activeGroup.value) {
-          moveTabIndicator(activeGroup.value)
-        }
-        setTimeout(() => {
-          scrollSpySuppressed = false
-        }, 100)
-      })
-      // Flash success state
-      if (props.validationErrors.length === 0) {
-        clearTimeout(saveSuccessTimer)
-        saveSuccess.value = true
-        saveSuccessTimer = window.setTimeout(() => {
-          saveSuccess.value = false
-        }, 2000)
-      }
-    }
-  },
-)
+function discardChanges() {
+  resetEdits()
+  emit('discard')
+}
+
+/** Called by the parent once the server accepted the save and the file reloaded. */
+function confirmSaved() {
+  // Edits made while the save was in flight stay pending.
+  for (const [key, value] of submittedValues) {
+    if (editedValues.get(key) === value) editedValues.delete(key)
+  }
+  submittedValues.clear()
+  advancedChanged.value = false
+  clearTimeout(saveSuccessTimer)
+  saveSuccess.value = true
+  saveSuccessTimer = window.setTimeout(() => {
+    saveSuccess.value = false
+  }, 2000)
+}
+
+defineExpose({ hasChanges, confirmSaved })
 </script>
 
 <style scoped>
 .config-editor {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
 }
 
-/* ---- Fixed header area (flex-shrink: 0 keeps it in place while table scrolls) ---- */
+/* ---- Sticky header: stays under the server tabs while the page scrolls ---- */
 .editor-header-sticky {
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 6;
   background-color: var(--xy-surface-1);
+  border-bottom: 1px solid var(--xy-border);
 }
 
 .editor-header {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
   padding: var(--xy-space-md) var(--xy-space-md) var(--xy-space-sm);
-  gap: var(--xy-space-md);
+  gap: var(--xy-space-sm) var(--xy-space-md);
 }
 
+/* A zero basis keeps the file name, search and actions on one row until the
+   name has shrunk to its minimum. */
 .editor-header-info {
-  min-width: 0;
-  flex: 1;
+  min-width: 6rem;
+  flex: 1 1 0;
+}
+
+.editor-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  flex-shrink: 0;
 }
 
 .editor-file-name {
@@ -820,8 +1005,9 @@ watch(
 
 .editor-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--xy-space-sm);
+  gap: var(--xy-space-xs) var(--xy-space-sm);
   margin-top: var(--xy-space-xs);
 }
 
@@ -843,6 +1029,7 @@ watch(
   background: color-mix(in srgb, var(--xy-warning) 10%, transparent);
   padding: 0.15rem 0.5rem;
   border-radius: var(--xy-radius-sm);
+  white-space: nowrap;
 }
 
 .modified-dot {
@@ -887,18 +1074,46 @@ watch(
   }
 }
 
-.editor-divider {
-  background-color: var(--xy-border);
+/* ---- Search ---- */
+.search-input {
+  flex: 0 1 13rem;
+  min-width: 10rem;
+}
+
+.search-input :deep(.q-field__control) {
+  background-color: var(--xy-surface-0);
+}
+
+.search-input :deep(.q-field--focused .q-field__control) {
+  border-color: var(--xy-primary);
 }
 
 /* ---- Scrollspy group tabs ---- */
 .group-tabs {
+  --fade-start: 0px;
+  --fade-end: 0px;
   display: flex;
   overflow-x: auto;
   scrollbar-width: none;
-  border-bottom: 1px solid var(--xy-border);
+  border-top: 1px solid var(--xy-border);
   background: var(--xy-surface-0);
   position: relative;
+  /* Edge fades show more tabs sit past the visible strip. */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black var(--fade-start),
+    black calc(100% - var(--fade-end)),
+    transparent 100%
+  );
+}
+
+.group-tabs.fade-start {
+  --fade-start: 40px;
+}
+
+.group-tabs.fade-end {
+  --fade-end: 40px;
 }
 
 .group-tabs::-webkit-scrollbar {
@@ -985,7 +1200,9 @@ watch(
 
 /* ---- Validation banner ---- */
 .validation-banner {
-  margin: var(--xy-space-sm) var(--xy-space-md) 0;
+  margin: var(--xy-space-sm) var(--xy-space-md);
+  max-height: 8rem;
+  overflow-y: auto;
   background-color: var(--xy-danger-bg);
   border: 1px solid var(--xy-danger-border);
   border-radius: var(--xy-radius-md);
@@ -1010,47 +1227,17 @@ watch(
   from {
     opacity: 0;
     transform: translateY(-8px);
-    max-height: 0;
-    margin-top: 0;
   }
   to {
     opacity: 1;
     transform: translateY(0);
-    max-height: 200px;
-    margin-top: var(--xy-space-sm);
   }
 }
 
-/* ---- Search controls ---- */
-.editor-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-xs);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-}
-
-.search-input {
-  flex: 1;
-  max-width: 400px;
-}
-
-.search-input :deep(.q-field__control) {
-  background-color: var(--xy-surface-0);
-}
-
-.search-input :deep(.q-field--focused .q-field__control) {
-  border-color: var(--xy-primary);
-}
-
-/* ---- Table scroll container (darker bg for contrast against header) ---- */
-.table-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+/* ---- Settings list (darker bg for contrast against header) ---- */
+.settings-body {
   background-color: var(--xy-base);
-  /* Extra bottom padding ensures last rows are reachable even if
-     the container height is slightly clipped by Quasar's layout. */
-  padding-bottom: 5rem;
+  padding-bottom: var(--xy-space-md);
 }
 
 .no-fields {
@@ -1059,49 +1246,30 @@ watch(
   font-size: var(--xy-font-size-sm);
 }
 
-/* ---- Settings table ---- */
-.settings-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Each group is its own sticky context, so the incoming group header pushes the
+   previous one out instead of stacking under it. */
+.settings-group {
+  scroll-margin-top: var(--editor-header-height, 0px);
 }
 
-.group-sentinel-row {
-  height: 0;
-  border: none;
+.settings-group + .settings-group {
+  margin-top: var(--xy-space-lg);
 }
 
-.group-sentinel-row td {
-  padding: 0;
-  border: none;
-}
-
-.group-sentinel {
-  height: 1px;
-}
-
-/* Section divider: add visual gap above every group header that follows a setting row.
-   The sentinel row sits between groups, so target it when preceded by a setting row. */
-.setting-row + .group-sentinel-row td {
-  padding-top: 24px;
-  background: var(--xy-base);
-}
-
-.group-header-row td {
-  padding: 0;
-  background: var(--xy-surface-1);
-  border-bottom: 1px solid var(--xy-border);
+.group-header {
   position: sticky;
-  top: 0;
+  top: var(--editor-header-height, 0px);
   z-index: 5;
-}
-
-.group-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.65rem 1rem 0.5rem;
   border: 1px solid color-mix(in srgb, var(--group-accent, var(--xy-primary)) 28%, var(--xy-border));
-  background-color: color-mix(in srgb, var(--group-accent, var(--xy-primary)) 5%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--group-accent, var(--xy-primary)) 5%,
+    var(--xy-surface-1)
+  );
 }
 
 .group-header-title {
@@ -1124,6 +1292,12 @@ watch(
 }
 
 .setting-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) 3fr;
+  align-items: center;
+  column-gap: var(--xy-space-lg);
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--xy-border);
   transition:
     background-color var(--xy-transition-fast),
     outline-color var(--xy-transition-fast);
@@ -1131,9 +1305,7 @@ watch(
   outline-offset: -1px;
 }
 
-/* Subtle alternating rows for scan-ability.
-   Uses :nth-child(… of .setting-row) to count only setting rows,
-   ignoring sentinel/header rows interleaved in the table. */
+/* Subtle alternating rows for scan-ability. */
 .setting-row:nth-child(even of .setting-row) {
   background-color: color-mix(in srgb, var(--xy-surface-0) 60%, transparent);
 }
@@ -1148,15 +1320,9 @@ watch(
   outline-color: var(--xy-primary);
 }
 
-.setting-row td {
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--xy-border);
-  vertical-align: middle;
-}
-
 /* When a description is present, top-align so the value stays paired with the label */
-.setting-row:has(.setting-description) td {
-  vertical-align: top;
+.setting-row:has(.setting-description) {
+  align-items: start;
   padding-top: 0.6rem;
 }
 
@@ -1169,6 +1335,11 @@ watch(
   outline-color: var(--xy-warning);
 }
 
+.setting-invalid,
+.setting-invalid:hover {
+  outline-color: var(--xy-danger-border);
+}
+
 .setting-managed {
   background-color: color-mix(in srgb, var(--xy-accent) 4%, transparent);
 }
@@ -1177,8 +1348,7 @@ watch(
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
-  width: 40%;
-  min-width: 160px;
+  min-width: 0;
   overflow-wrap: break-word;
   word-break: break-word;
 }
@@ -1202,13 +1372,19 @@ watch(
 }
 
 .setting-value {
-  width: 60%;
+  min-width: 0;
+}
+
+.setting-error {
+  margin-top: var(--xy-space-xs);
+  font-size: var(--xy-font-size-xs);
+  color: var(--xy-danger);
 }
 
 .managed-field-display {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 2px;
   padding: 0.55rem 0.7rem;
   border: 1px solid color-mix(in srgb, var(--xy-accent) 35%, transparent);
   border-radius: var(--xy-radius-lg);
@@ -1233,7 +1409,13 @@ watch(
 }
 
 .managed-source-hint {
-  font-size: var(--xy-font-size-xs);
+  font-size: var(--xy-font-size-2xs);
+}
+
+.managed-source-label {
+  color: var(--xy-accent);
+  font-style: normal;
+  font-weight: 500;
 }
 
 .inline-toggle {
@@ -1271,27 +1453,10 @@ watch(
   border-color: var(--xy-primary);
 }
 
-.managed-field-display {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.managed-source-hint {
-  font-size: var(--xy-font-size-2xs);
-}
-
-.managed-source-label {
-  color: var(--xy-accent);
-  font-style: normal;
-  font-weight: 500;
-}
-
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .setting-row,
   .group-tab,
-  .file-item,
   .inline-input :deep(.q-field__control) {
     transition-duration: 0.01ms !important;
   }
@@ -1310,40 +1475,30 @@ watch(
 /* ---- Mobile ---- */
 @media (max-width: 599px) {
   .editor-header {
-    flex-wrap: wrap;
-    padding: var(--xy-space-xs) var(--xy-space-sm);
-    gap: var(--xy-space-sm);
+    padding: var(--xy-space-sm);
   }
 
   .editor-file-name {
     font-size: var(--xy-font-size-sm);
   }
 
-  .editor-controls {
-    padding: var(--xy-space-xs) var(--xy-space-sm) 0;
-  }
-
   .search-input {
-    max-width: none;
+    order: 3;
+    flex-basis: 100%;
   }
 
   .validation-banner {
-    margin: var(--xy-space-xs) var(--xy-space-sm) 0;
+    margin: var(--xy-space-xs) var(--xy-space-sm);
   }
 
-  .setting-row td {
-    display: block;
-    width: 100%;
+  .group-tab {
+    padding: 0.55rem 1rem;
   }
 
-  .setting-key {
-    width: 100%;
-    padding-bottom: 0.15rem;
-  }
-
-  .setting-value {
-    width: 100%;
-    padding-top: 0;
+  .setting-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.15rem;
+    padding: 0.5rem var(--xy-space-sm);
   }
 
   .inline-input {

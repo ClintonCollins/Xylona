@@ -238,35 +238,40 @@ func WithoutManagedSources(schemasJSON string, sources ...string) (string, error
 	if errParse != nil {
 		return "", errParse
 	}
-	removed := make(map[string]struct{}, len(sources))
-	for _, source := range sources {
-		removed[normalizeManagedSource(source)] = struct{}{}
-	}
 	for entryIndex := range entries {
-		entry := &entries[entryIndex]
-		for key, source := range entry.ManagedFields {
-			_, shouldRemove := removed[normalizeManagedSource(source)]
-			if shouldRemove {
-				delete(entry.ManagedFields, key)
-			}
-		}
-		for key, property := range entry.Schema.Properties {
-			if property.Managed == nil {
-				continue
-			}
-			_, shouldRemove := removed[normalizeManagedSource(property.Managed.Source)]
-			if !shouldRemove {
-				continue
-			}
-			property.Managed = nil
-			entry.Schema.Properties[key] = property
-		}
+		RemoveManagedSources(&entries[entryIndex], sources...)
 	}
 	encoded, errMarshal := json.Marshal(entries)
 	if errMarshal != nil {
 		return "", fmt.Errorf("marshal config schemas without managed sources: %w", errMarshal)
 	}
 	return string(encoded), nil
+}
+
+// RemoveManagedSources removes selected managed ownership rules from one
+// parsed schema entry, leaving those fields to the config file.
+func RemoveManagedSources(entry *ConfigSchemaEntry, sources ...string) {
+	removed := make(map[string]struct{}, len(sources))
+	for _, source := range sources {
+		removed[normalizeManagedSource(source)] = struct{}{}
+	}
+	for key, source := range entry.ManagedFields {
+		_, shouldRemove := removed[normalizeManagedSource(source)]
+		if shouldRemove {
+			delete(entry.ManagedFields, key)
+		}
+	}
+	for key, property := range entry.Schema.Properties {
+		if property.Managed == nil {
+			continue
+		}
+		_, shouldRemove := removed[normalizeManagedSource(property.Managed.Source)]
+		if !shouldRemove {
+			continue
+		}
+		property.Managed = nil
+		entry.Schema.Properties[key] = property
+	}
 }
 
 // ServerSettingsResolver creates a ManagedFieldResolver from server settings.

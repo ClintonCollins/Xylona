@@ -177,7 +177,7 @@ func TestEnsureAdminInputSupportedRequiresPalworldRESTProtocol(t *testing.T) {
 func TestShouldConfigureAdminInputPreservesPalworldRESTSetup(t *testing.T) {
 	t.Parallel()
 
-	configure, disableManagedConsole, errConfigure := (&Instance{}).shouldConfigureAdminInput(&models.GameServer{
+	configure, disableManagedConsole, errConfigure := shouldConfigureAdminInput(nil, &models.GameServer{
 		GameID: palworldGameID,
 	})
 	if errConfigure != nil {
