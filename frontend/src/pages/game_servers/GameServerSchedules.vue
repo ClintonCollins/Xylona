@@ -97,6 +97,8 @@ const columns = computed(() => [
     field: (row: ScheduledTask) => formatTimestamp(row.lastRunAt),
     align: 'left' as const,
     sortable: true,
+    sort: (_a: string, _b: string, rowA: ScheduledTask, rowB: ScheduledTask) =>
+      timestampMs(rowA.lastRunAt) - timestampMs(rowB.lastRunAt),
   },
   {
     name: 'nextRunAt',
@@ -104,6 +106,8 @@ const columns = computed(() => [
     field: (row: ScheduledTask) => formatTimestamp(row.nextRunAt),
     align: 'left' as const,
     sortable: true,
+    sort: (_a: string, _b: string, rowA: ScheduledTask, rowB: ScheduledTask) =>
+      timestampMs(rowA.nextRunAt) - timestampMs(rowB.nextRunAt),
   },
   {
     name: 'actions',
@@ -118,6 +122,11 @@ const columns = computed(() => [
 function formatCron(expression: string): string {
   if (!expression) return '-'
   return describeCron(expression) ?? expression
+}
+
+// The run columns show formatted text, so they sort on the underlying time instead.
+function timestampMs(ts: Timestamp | undefined): number {
+  return ts ? timestampDate(ts).getTime() : 0
 }
 
 // Run times are shown in the browser's zone, so they carry its name.

@@ -35,8 +35,20 @@ function thresholdUnit(eventType: AlertEventType): string {
   return percentEventTypes.includes(eventType) ? '%' : ''
 }
 
-/** Turns a server status name such as PRE_START into "Pre Start". */
-export function alertStatusLabel(status: string): string {
+// Matches the wording of StatusBadge so alerts name statuses the way the rest of the app does.
+const statusLabels: Record<string, string> = {
+  ONLINE: 'Online',
+  OFFLINE: 'Offline',
+  PRE_START: 'Starting',
+  INSTALLING: 'Installing',
+  UPDATING: 'Updating',
+  UNKNOWN: 'Unknown',
+}
+
+/** Names a server status such as PRE_START ("Starting"); unknown names are title-cased. */
+function alertStatusLabel(status: string): string {
+  const known = statusLabels[status]
+  if (known) return known
   return status
     .toLowerCase()
     .split('_')
