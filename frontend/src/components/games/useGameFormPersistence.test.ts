@@ -209,7 +209,7 @@ describe('useGameFormPersistence', () => {
     expect(state.saveDefaultEnvironment).toHaveBeenCalledTimes(envSaves)
   })
 
-  it('saves schemas before navigating to the config schema editor', async () => {
+  it('opens the config schema editor without saving or marking the form clean', async () => {
     const state = createState()
     state.configSchemas.value = [
       {
@@ -221,18 +221,10 @@ describe('useGameFormPersistence', () => {
     ]
     const persistence = useGameFormPersistence(state)
 
-    mocks.updateGameConfigSchemas.mockResolvedValue({})
-
     await persistence.navigateToSchemaEditor(2)
 
-    expect(mocks.updateGameConfigSchemas).toHaveBeenCalledTimes(1)
-    expect(mocks.updateGameConfigSchemas.mock.calls[0]?.[0]).toMatchObject({
-      gameId: 'minecraft',
-    })
-    expect(mocks.updateGameConfigSchemas.mock.calls[0]?.[0]?.configSchemasJson).toContain(
-      '"path":"server.properties"',
-    )
-    expect(state.commitFormSnapshot).toHaveBeenCalledTimes(1)
+    expect(mocks.updateGameConfigSchemas).not.toHaveBeenCalled()
+    expect(state.commitFormSnapshot).not.toHaveBeenCalled()
     expect(mocks.push).toHaveBeenCalledWith({ path: '/games/minecraft/config-schema/2' })
   })
 })

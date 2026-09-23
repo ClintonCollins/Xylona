@@ -76,6 +76,7 @@ export interface GameFormContext {
 
   configSchemas: Ref<ConfigSchemaEntry[]>
   navigateToSchemaEditor: (fileIndex: number) => Promise<void>
+  isDirty: ComputedRef<boolean>
 
   managedTypedConfig: ComputedRef<boolean>
 }

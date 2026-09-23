@@ -1,13 +1,16 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
+import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GameConfigSchema from './GameConfigSchema.vue'
 
 const mocks = vi.hoisted(() => ({
+  getGame: vi.fn(),
   getGameConfigSchemas: vi.fn(),
   updateGameConfigSchemas: vi.fn(),
-  back: vi.fn(),
-  notify: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyError: vi.fn(),
+  notifyConnectError: vi.fn(),
+  fileIndex: '0',
 }))
 
 vi.mock('vue-router', async () => {
@@ -17,41 +20,44 @@ vi.mock('vue-router', async () => {
     useRoute: () => ({
       params: {
         id: 'minecraft',
-        fileIndex: '0',
+        fileIndex: mocks.fileIndex,
       },
-    }),
-    useRouter: () => ({
-      back: mocks.back,
     }),
   }
 })
+
+vi.mock('@/utils/unsaved-changes-guard', () => ({
+  useUnsavedChangesGuard: vi.fn(),
+}))
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyError: mocks.notifyError,
+  notifyConnectError: mocks.notifyConnectError,
+}))
 
 vi.mock('@/utils/shared', async () => {
   const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
   return {
     ...actual,
     GetXylonaClient: () => ({
+      getGame: mocks.getGame,
       getGameConfigSchemas: mocks.getGameConfigSchemas,
       updateGameConfigSchemas: mocks.updateGameConfigSchemas,
     }),
   }
 })
 
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual<typeof import('quasar')>('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({
-      notify: mocks.notify,
-    }),
-  }
-})
-
 const ConfigSchemaEditorStub = defineComponent({
   name: 'ConfigSchemaEditor',
-  emits: ['save', 'back'],
-  template:
-    "<button data-test=\"editor-save\" @click=\"$emit('save', { type: 'object', properties: { motd: { type: 'string' } } })\">Save</button>",
+  setup(_, { expose }) {
+    expose({
+      isDirty: ref(false),
+      buildSchema: () => ({ type: 'object', properties: { motd: { type: 'string' } } }),
+    })
+    return {}
+  },
+  template: '<div data-test="editor" />',
 })
 
 const QToggleStub = defineComponent({
@@ -67,15 +73,39 @@ const QToggleStub = defineComponent({
     '<button data-test="generate-toggle" @click="$emit(\'update:modelValue\', !modelValue)">{{ modelValue }}</button>',
 })
 
+const QBtnStub = defineComponent({
+  name: 'QBtn',
+  props: { label: { type: String, default: '' } },
+  emits: ['click'],
+  template: '<button v-bind="$attrs" @click="$emit(\'click\')">{{ label }}</button>',
+})
+
+function mountPage() {
+  return mount(GameConfigSchema, {
+    global: {
+      stubs: {
+        ConfigSchemaEditor: ConfigSchemaEditorStub,
+        EmptyState: {
+          props: ['title', 'description'],
+          template:
+            '<div data-test="empty-state">{{ title }} {{ description }}<slot name="actions" /></div>',
+        },
+        RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
+        'q-spinner-dots': true,
+        'q-banner': true,
+        'q-toggle': QToggleStub,
+        'q-btn': QBtnStub,
+        'q-icon': true,
+      },
+    },
+  })
+}
+
 describe('GameConfigSchema', () => {
   beforeEach(() => {
-    mocks.getGameConfigSchemas.mockReset()
-    mocks.updateGameConfigSchemas.mockReset()
-    mocks.back.mockReset()
-    mocks.notify.mockReset()
-  })
-
-  it('saves generate_before_start changes from the config-schema page', async () => {
+    vi.clearAllMocks()
+    mocks.fileIndex = '0'
+    mocks.getGame.mockResolvedValue({ game: { id: 'minecraft', name: 'Minecraft' } })
     mocks.getGameConfigSchemas.mockResolvedValue({
       configSchemasJson: JSON.stringify([
         {
@@ -94,28 +124,34 @@ describe('GameConfigSchema', () => {
       success: true,
       validationErrors: [],
     })
+  })
 
-    const wrapper = mount(GameConfigSchema, {
-      global: {
-        stubs: {
-          ConfigSchemaEditor: ConfigSchemaEditorStub,
-          'q-spinner-dots': true,
-          'q-toggle': QToggleStub,
-          'q-icon': true,
-          'q-tooltip': true,
-        },
-      },
-    })
-
+  it('names the game and file, and saves the schema with the file behavior', async () => {
+    const wrapper = mountPage()
     await flushPromises()
 
+    expect(wrapper.get('nav').text()).toContain('Minecraft')
+    expect(wrapper.get('nav').text()).toContain('server.properties')
+
     await wrapper.get('[data-test="generate-toggle"]').trigger('click')
-    await wrapper.get('[data-test="editor-save"]').trigger('click')
+    await wrapper.get('[data-test="save-schema"]').trigger('click')
     await flushPromises()
 
     expect(mocks.updateGameConfigSchemas).toHaveBeenCalledTimes(1)
-    expect(mocks.updateGameConfigSchemas.mock.calls[0]?.[0].configSchemasJson).toContain(
-      '"generate_before_start":true',
-    )
+    const saved = mocks.updateGameConfigSchemas.mock.calls[0]?.[0].configSchemasJson
+    expect(saved).toContain('"generate_before_start":true')
+    expect(saved).toContain('"motd"')
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('Schema saved successfully')
+  })
+
+  it('shows a way back instead of a blank editor for a missing file', async () => {
+    mocks.fileIndex = '5'
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="empty-state"]').text()).toContain('Config file not found')
+    expect(wrapper.find('[data-test="editor"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="save-schema"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/games/minecraft/edit"]').exists()).toBe(true)
   })
 })

@@ -13,7 +13,9 @@
           :name="expanded ? 'expand_less' : 'expand_more'"
           class="text-xy-muted expand-icon"
           size="sm" />
-        <span class="field-card-key font-mono">{{ field.key || '(unnamed)' }}</span>
+        <span :title="field.key" class="field-card-key font-mono">{{
+          field.key || '(unnamed)'
+        }}</span>
         <q-badge
           v-if="field.type"
           :label="field.type"
@@ -317,6 +319,7 @@ function emitUpdate() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--xy-space-sm);
   cursor: pointer;
   padding: var(--xy-space-sm) var(--xy-space-md);
   user-select: none;
@@ -335,9 +338,30 @@ function emitUpdate() {
 }
 
 .field-card-key {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
+}
+
+.field-card-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+/* Phones: the key keeps the first line and the badges wrap under it, clear of the actions. */
+@media (max-width: 599px) {
+  .field-card-summary {
+    flex-wrap: wrap;
+    row-gap: var(--xy-space-xs);
+  }
+
+  .field-card-key {
+    flex: 1 1 calc(100% - var(--xy-space-xl));
+  }
 }
 
 .field-type-badge {

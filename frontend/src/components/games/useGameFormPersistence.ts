@@ -11,7 +11,6 @@ import {
   EditGameRequestSchema,
   GetGameRequestSchema,
   ListGameServersRequestSchema,
-  UpdateGameConfigSchemasRequestSchema,
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { notifyWarning } from '@/api/notifications'
@@ -149,38 +148,14 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
     }
   }
 
-  async function persistConfigSchemasBeforeNavigation(gameId: string): Promise<boolean> {
-    try {
-      const request = create(UpdateGameConfigSchemasRequestSchema, {
-        gameId,
-        configSchemasJson: JSON.stringify(options.configSchemas.value),
-      })
-      await GetXylonaClient().updateGameConfigSchemas(request)
-      return true
-    } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: `Failed to save schemas before editing: ${ConnectErrorToString(err)}`,
-        position: 'top',
-        timeout: 5000,
-      })
-      return false
-    }
-  }
-
+  // The schema editor works on the saved game, so nothing is saved on the way there: the
+  // Config Files tab only offers it while the form is clean, and the leave guard covers the rest.
   async function navigateToSchemaEditor(fileIndex: number) {
     const id = options.existingGame.value ? options.gameID.value : ''
     if (!id) {
       return
     }
 
-    const saved = await persistConfigSchemasBeforeNavigation(id)
-    if (!saved) {
-      return
-    }
-
-    options.commitFormSnapshot()
     await router.push({ path: `/games/${id}/config-schema/${fileIndex}` })
   }
 

@@ -31,7 +31,6 @@ describe('ConfigSchemaEditor managed sources', () => {
   it('maps backend managed source keys to the frontend option values', async () => {
     const wrapper = shallowMount(ConfigSchemaEditor, {
       props: {
-        filePath: 'server.properties',
         schema: {
           type: 'object',
           properties: {
@@ -77,7 +76,6 @@ describe('ConfigSchemaEditor managed sources', () => {
   it('converts frontend managed source values back to backend keys when saving', async () => {
     const wrapper = shallowMount(ConfigSchemaEditor, {
       props: {
-        filePath: 'server.properties',
         schema: {
           type: 'object',
           properties: {
@@ -113,15 +111,52 @@ describe('ConfigSchemaEditor managed sources', () => {
       },
     })
 
-    await wrapper.get('[data-label="Save Schema"]').trigger('click')
-
-    const emitted = wrapper.emitted('save')
-    expect(emitted).toBeTruthy()
-
-    const savedSchema = emitted?.[0]?.[0] as {
+    await nextTick()
+    const savedSchema = wrapper.vm.buildSchema() as {
       properties: Record<string, { 'x-managed'?: { source: string } }>
     }
 
     expect(savedSchema.properties['server-port']?.['x-managed']?.source).toBe('game_server.port')
+  })
+
+  it('tracks unsaved edits against the loaded schema', async () => {
+    const RemovableFieldCardStub = defineComponent({
+      emits: ['remove'],
+      template: '<div data-testid="field-card" @click="$emit(\'remove\')"></div>',
+    })
+    const wrapper = shallowMount(ConfigSchemaEditor, {
+      props: {
+        schema: {
+          type: 'object',
+          properties: {
+            motd: { type: 'string', title: 'MOTD', default: 'Hello' },
+            'max-players': { type: 'integer', default: 20 },
+          },
+          required: ['motd'],
+        },
+      },
+      global: {
+        stubs: {
+          'q-btn': QBtnStub,
+          ConfigSchemaFieldCard: RemovableFieldCardStub,
+        },
+      },
+    })
+
+    await nextTick()
+    expect(wrapper.vm.isDirty).toBe(false)
+
+    // An unnamed new field is not saved, so it is not an unsaved change yet.
+    await wrapper.get('[data-label="Add Field"]').trigger('click')
+    expect(wrapper.vm.isDirty).toBe(false)
+
+    await wrapper.get('[data-testid="field-card"]').trigger('click')
+    expect(wrapper.vm.isDirty).toBe(true)
+
+    // A newly loaded (or just saved) schema is the new clean baseline.
+    await wrapper.setProps({
+      schema: { type: 'object', properties: { motd: { type: 'string' } } },
+    })
+    expect(wrapper.vm.isDirty).toBe(false)
   })
 })

@@ -482,6 +482,7 @@ provide(gameFormContextKey, {
   getModSourceConfig,
   configSchemas,
   navigateToSchemaEditor,
+  isDirty,
   managedTypedConfig,
 } satisfies GameFormContext)
 
