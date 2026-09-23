@@ -64,6 +64,7 @@ func importGameChanges(existing *models.Game, imported *models.Game) ([]*xylona.
 	builder.addString("General", "Steam app ID", "game.steamAppid", existing.SteamAppID, imported.SteamAppID)
 	builder.addBool("General", "Requires Steam GSLT", "game.requiresSteamGameServerLoginToken", existing.RequiresSteamGameServerLoginToken, imported.RequiresSteamGameServerLoginToken)
 	builder.addBool("General", "Allow start argument editing", "game.allowStartArgEditing", existing.AllowStartArgEditing, imported.AllowStartArgEditing)
+	builder.addString("General", "Ready log pattern", "game.readyLogPattern", existing.ReadyLogPattern, imported.ReadyLogPattern)
 
 	builder.addBool("Linux", "Linux support", "game.linuxSupport", existing.LinuxSupport, imported.LinuxSupport)
 	builder.addString("Linux", "Stop command", "game.linuxStopCommand", existing.LinuxStopCommand, imported.LinuxStopCommand)

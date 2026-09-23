@@ -55,6 +55,7 @@ vi.mock('@/pages/game_servers/useGameServerQueryStatusVersion', async () => {
       maxPlayerCount: ref(20),
       onlinePlayers: ref([]),
       playerListSupported: ref(true),
+      unknownPlayersMessage: ref('Player count and names unavailable.'),
       queryFresh: ref(true),
       queryGameServer: vi.fn(),
       startQueryStatusVersionLifecycle: vi.fn(),
@@ -238,6 +239,11 @@ describe('GameServerIdentityBar', () => {
     // The hint sits beside the button, since a disabled button gets no hover.
     expect(start.element.parentElement?.textContent).toContain(
       'Dragonwilds configuration: Set the Owner ID.',
+    )
+    // Touch screens get no tooltip, so the reason and the fix sit under the bar too.
+    expect(wrapper.get('.identity-bar-blocker').text()).toContain('Set the Owner ID.')
+    expect(button(wrapper, 'Open Configuration').attributes('to')).toBe(
+      '/game-servers/server-1/configuration',
     )
   })
 })

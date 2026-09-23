@@ -694,39 +694,44 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 }
 
 func TestRegistryServerMetricsProviderPreservesValidityAndDiskPercent(t *testing.T) {
-	registry := noderegistry.New("node-a", &nodeclient.FakeNodeClient{
-		NodeID: "node-a",
-		SnapshotResult: &node.NodeSnapshot{
-			Processes: []node.ProcessSnapshot{
-				{
-					ID:             "server-a",
-					Status:         xylona.Status_ONLINE.String(),
-					CPUPercent:     65,
-					CPUValid:       true,
-					MetricsValid:   true,
-					MemoryPercent:  45,
-					DiskPercent:    75,
-					DiskTotalBytes: 100,
-					DiskValid:      true,
+	// A server still starting up (PRE_START) has a live process and real metrics.
+	for _, status := range []xylona.Status{xylona.Status_ONLINE, xylona.Status_PRE_START} {
+		t.Run(status.String(), func(t *testing.T) {
+			registry := noderegistry.New("node-a", &nodeclient.FakeNodeClient{
+				NodeID: "node-a",
+				SnapshotResult: &node.NodeSnapshot{
+					Processes: []node.ProcessSnapshot{
+						{
+							ID:             "server-a",
+							Status:         status.String(),
+							CPUPercent:     65,
+							CPUValid:       true,
+							MetricsValid:   true,
+							MemoryPercent:  45,
+							DiskPercent:    75,
+							DiskTotalBytes: 100,
+							DiskValid:      true,
+						},
+					},
 				},
-			},
-		},
-	})
-	provider := &registryServerMetricsProvider{
-		ctx:      context.Background(),
-		registry: registry,
-	}
+			})
+			provider := &registryServerMetricsProvider{
+				ctx:      context.Background(),
+				registry: registry,
+			}
 
-	snapshots := provider.ListServerMetrics()
-	if len(snapshots) != 1 {
-		t.Fatalf("ListServerMetrics() len = %d, want 1", len(snapshots))
-	}
-	snapshot := snapshots[0]
-	if !snapshot.cpuValid || !snapshot.memoryValid || !snapshot.diskValid {
-		t.Fatalf("validity = cpu:%t memory:%t disk:%t, want all true", snapshot.cpuValid, snapshot.memoryValid, snapshot.diskValid)
-	}
-	if snapshot.diskPercent != 75 {
-		t.Fatalf("disk percent = %v, want 75", snapshot.diskPercent)
+			snapshots := provider.ListServerMetrics()
+			if len(snapshots) != 1 {
+				t.Fatalf("ListServerMetrics() len = %d, want 1", len(snapshots))
+			}
+			snapshot := snapshots[0]
+			if !snapshot.cpuValid || !snapshot.memoryValid || !snapshot.diskValid {
+				t.Fatalf("validity = cpu:%t memory:%t disk:%t, want all true", snapshot.cpuValid, snapshot.memoryValid, snapshot.diskValid)
+			}
+			if snapshot.diskPercent != 75 {
+				t.Fatalf("disk percent = %v, want 75", snapshot.diskPercent)
+			}
+		})
 	}
 }
 

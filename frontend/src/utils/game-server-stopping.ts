@@ -7,8 +7,17 @@ import { XylonaEventBus } from '@/utils/shared'
 // another tab, a schedule or an update.
 const stoppingServerIds = reactive(new Set<string>())
 
-export function isServerStopping(serverId: string): boolean {
-  return stoppingServerIds.has(serverId)
+function isRunning(status: Status): boolean {
+  return status === Status.ONLINE || status === Status.PRE_START
+}
+
+/**
+ * Takes the view's status because the stop announcement and the exit travel
+ * separately: a fast exit, or a stop that finds the process already gone, can
+ * leave the id here after the server is Offline.
+ */
+export function isServerStopping(serverId: string, status: Status): boolean {
+  return isRunning(status) && stoppingServerIds.has(serverId)
 }
 
 XylonaEventBus.on('gameServerStopping', (serverId, stopping) => {
@@ -21,7 +30,7 @@ XylonaEventBus.on('gameServerStopping', (serverId, stopping) => {
 
 // The process leaving ONLINE/PRE_START ends the stop.
 XylonaEventBus.on('gameServerStatus', (serverId, _serverName, status) => {
-  if (status !== Status.ONLINE && status !== Status.PRE_START) {
+  if (!isRunning(status)) {
     stoppingServerIds.delete(serverId)
   }
 })

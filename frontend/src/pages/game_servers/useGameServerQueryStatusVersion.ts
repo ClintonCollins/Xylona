@@ -85,6 +85,8 @@ export function useGameServerQueryStatusVersion({
   // The controller pushes query results only when they change, so the latest
   // one stays current until a new one (or a failed placeholder) replaces it.
   const queryResponded = ref(false)
+  /** False when the game has no player query at all, so its count is never known. */
+  const querySupported = ref(true)
   const queryFresh = computed(
     () =>
       gameServer.value.status === Status.ONLINE &&
@@ -96,10 +98,17 @@ export function useGameServerQueryStatusVersion({
     if (gameServer.value.status !== Status.ONLINE) return 0
     return queryFresh.value ? currentPlayerCount.value : null
   })
+  /** Why playerCount is null, for the players panel. */
+  const unknownPlayersMessage = computed(() =>
+    querySupported.value
+      ? 'Player count and names unavailable. The game has not answered a player query.'
+      : 'This game does not report its player count or names.',
+  )
   let lifecycleStarted = false
   let lifecycleUnmounted = false
 
   function applyQueryInfo(queryInfo: ServerQuery) {
+    querySupported.value = queryInfo.type !== ServerQuery_Type.Unknown
     const snapshot = queryInfoPlayerSnapshot(queryInfo)
     if (snapshot === null) {
       return
@@ -203,6 +212,7 @@ export function useGameServerQueryStatusVersion({
     onServerStatusUpdate,
     onServerVersionUpdate,
     playerListSupported,
+    unknownPlayersMessage,
     queryGameServer,
     startQueryStatusVersionLifecycle,
     stopQueryStatusVersionLifecycle,

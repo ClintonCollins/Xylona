@@ -1619,8 +1619,12 @@ type Game struct {
 	OfficialDefinitionSchemaVersion   int64                  `protobuf:"varint,89,opt,name=official_definition_schema_version,json=officialDefinitionSchemaVersion,proto3" json:"official_definition_schema_version,omitempty"`
 	OfficialDefinitionDiverged        bool                   `protobuf:"varint,90,opt,name=official_definition_diverged,json=officialDefinitionDiverged,proto3" json:"official_definition_diverged,omitempty"`
 	ConsoleCommands                   []*GameConsoleCommand  `protobuf:"bytes,91,rep,name=console_commands,json=consoleCommands,proto3" json:"console_commands,omitempty"`
-	unknownFields                     protoimpl.UnknownFields
-	sizeCache                         protoimpl.SizeCache
+	// RE2 pattern for the console line a started server prints once it accepts
+	// players; it reports Starting until then. Empty waits for the first
+	// answered query instead, or reports Online at spawn without one.
+	ReadyLogPattern string `protobuf:"bytes,92,opt,name=ready_log_pattern,json=readyLogPattern,proto3" json:"ready_log_pattern,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Game) Reset() {
@@ -2001,6 +2005,13 @@ func (x *Game) GetConsoleCommands() []*GameConsoleCommand {
 		return x.ConsoleCommands
 	}
 	return nil
+}
+
+func (x *Game) GetReadyLogPattern() string {
+	if x != nil {
+		return x.ReadyLogPattern
+	}
+	return ""
 }
 
 type SteamApp struct {
@@ -7905,7 +7916,7 @@ const file_shared_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12%\n" +
 	"\x0elatest_version\x18\x04 \x01(\tR\rlatestVersion\x12\x1f\n" +
 	"\vis_selected\x18\x05 \x01(\bR\n" +
-	"isSelected\"\xff\x16\n" +
+	"isSelected\"\xab\x17\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -7961,7 +7972,8 @@ const file_shared_proto_rawDesc = "" +
 	"\x1aofficial_definition_source\x18X \x01(\tR\x18officialDefinitionSource\x12K\n" +
 	"\"official_definition_schema_version\x18Y \x01(\x03R\x1fofficialDefinitionSchemaVersion\x12@\n" +
 	"\x1cofficial_definition_diverged\x18Z \x01(\bR\x1aofficialDefinitionDiverged\x12E\n" +
-	"\x10console_commands\x18[ \x03(\v2\x1a.xylona.GameConsoleCommandR\x0fconsoleCommandsJ\x04\b\b\x10\tJ\x04\b\r\x10\x0eJ\x04\b\x0f\x10\x10J\x04\b\x14\x10\x15J\x04\bG\x10HR\x13linux_start_commandR\x1elinux_configuration_file_pathsR\x15windows_start_commandR windows_configuration_file_pathsR\x0fserver_software\"5\n" +
+	"\x10console_commands\x18[ \x03(\v2\x1a.xylona.GameConsoleCommandR\x0fconsoleCommands\x12*\n" +
+	"\x11ready_log_pattern\x18\\ \x01(\tR\x0freadyLogPatternJ\x04\b\b\x10\tJ\x04\b\r\x10\x0eJ\x04\b\x0f\x10\x10J\x04\b\x14\x10\x15J\x04\bG\x10HR\x13linux_start_commandR\x1elinux_configuration_file_pathsR\x15windows_start_commandR windows_configuration_file_pathsR\x0fserver_software\"5\n" +
 	"\bSteamApp\x12\x15\n" +
 	"\x06app_id\x18\x01 \x01(\tR\x05appId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\x9d\x02\n" +

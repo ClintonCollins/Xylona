@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:df0f619f9bc0ebe7e8e3026890c557158c01851d656ce1f5bea64ac935c140d3",
+  "content_hash": "sha256:6c8da26061c63bad77ae8a6d2295a64a4ba94c5f5d93a649e22a7a727b1beb14",
   "game": {
     "id": "minecraft",
     "name": "Minecraft",
@@ -52,6 +52,7 @@
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false,
+    "readyLogPattern": "Done \\([0-9.,]+s\\)!",
     "consoleCommands": [
       {"command":"help","syntax":"help [page|command]","summary":"Lists available commands or command help.","category":"Discovery","aliases":["?"],"keywords":["commands","documentation"],"arguments":[{"name":"page or command","description":"Help page number or command name.","valueType":"number or command"}],"examples":[{"command":"help stop","description":"Show help for stop."}],"documentationUrl":"https://minecraft.wiki/w/Commands/help","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
       {"command":"list","syntax":"list [uuids]","summary":"Lists connected players.","category":"Players","keywords":["players","online"],"documentationUrl":"https://minecraft.wiki/w/Commands/list","availability":"Java dedicated-server console; no leading slash.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},

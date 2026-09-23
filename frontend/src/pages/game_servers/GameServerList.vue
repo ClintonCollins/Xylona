@@ -642,13 +642,13 @@ function canRunServerAction(server: DisplayRow, action: ServerAction): boolean {
     case 'stop':
       return (
         canStopServer(server.statusEnum) &&
-        !isServerStopping(server.id) &&
+        !isServerStopping(server.id, server.statusEnum) &&
         hasPermission(server, 'game_server.stop')
       )
     case 'restart':
       return (
         canRestartServer(server.statusEnum) &&
-        !isServerStopping(server.id) &&
+        !isServerStopping(server.id, server.statusEnum) &&
         hasPermission(server, 'game_server.restart')
       )
     case 'update':
@@ -681,7 +681,10 @@ function getServerActionTooltip(server: DisplayRow, action: ServerAction): strin
   if (action === 'start' && server.statusEnum !== Status.OFFLINE) {
     return 'Start is available when the server is offline'
   }
-  if ((action === 'stop' || action === 'restart') && isServerStopping(server.id)) {
+  if (
+    (action === 'stop' || action === 'restart') &&
+    isServerStopping(server.id, server.statusEnum)
+  ) {
     return 'The server is stopping'
   }
   if ((action === 'stop' || action === 'restart') && !isServerRunning(server.statusEnum)) {
@@ -721,7 +724,7 @@ function getPlayerCountLabel(server: DisplayRow): string {
 function getStatusBadgePhase(server: DisplayRow): StatusBadgePhase | undefined {
   const pendingAction = pendingActionByServerID.value.get(server.id)
   if (pendingAction === 'restart') return 'restarting'
-  if (pendingAction === 'stop' || isServerStopping(server.id)) return 'stopping'
+  if (pendingAction === 'stop' || isServerStopping(server.id, server.statusEnum)) return 'stopping'
   return undefined
 }
 

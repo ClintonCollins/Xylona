@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:ee28bc93490f71c4c5c0763d00fa979a7b7d1e55778cbaa45d263c71451fa83c",
+  "content_hash": "sha256:13c0804b07775394ec7bc5b9f7928025ccf9c844c25aeeb7c96e2163515672af",
   "game": {
     "id": "terraria",
     "name": "Terraria",
@@ -52,6 +52,7 @@
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false,
+    "readyLogPattern": "Server started",
     "consoleCommands": [
       {"command":"help","syntax":"help","summary":"List dedicated-server console commands.","description":"Displays the server's available console commands.","category":"Information","aliases":[],"keywords":["commands","documentation"],"arguments":[],"examples":[{"command":"help","description":"Show the available commands."}],"notes":["Do not prefix with a forward slash in the server console."],"documentationUrl":"https://terraria.wiki.gg/wiki/Dedicated_Server","availability":"Dedicated server console","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
       {"command":"playing","syntax":"playing","summary":"List connected players.","description":"Shows the players currently on the server.","category":"Players","aliases":[],"keywords":["players","list","online"],"arguments":[],"examples":[{"command":"playing","description":"Print the connected-player list."}],"notes":["In game chat, this command can be used as /playing."],"documentationUrl":"https://terraria.wiki.gg/wiki/Dedicated_Server","availability":"Dedicated server console","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},

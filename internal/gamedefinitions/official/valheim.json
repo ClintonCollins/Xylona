@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:9268ec505827ef2bc91e5b68f913985cc3eba4ba30dc80cd8e8a78d780bd1b16",
+  "content_hash": "sha256:c95edfbdeaf7bca67ae98dfeff8043eb670a8241cdd412f9e836eade3961cebc",
   "game": {
     "id": "valheim",
     "name": "Valheim",
@@ -52,6 +52,7 @@
     "officialDefinitionSource": "",
     "officialDefinitionSchemaVersion": "0",
     "officialDefinitionDiverged": false,
+    "readyLogPattern": "Game server connected",
     "consoleCommands": [
       {"command":"kick","syntax":"kick <playername>","summary":"Kick a player from the server.","description":"Disconnects the named player from the Valheim dedicated server.","category":"Moderation","aliases":[],"keywords":["player","disconnect","moderation"],"arguments":[{"name":"playername","description":"Name of the player to kick.","required":true,"repeatable":false,"valueType":"player-name","suggestedValues":[],"defaultValue":""}],"examples":[{"command":"kick ExamplePlayer","description":"Disconnect ExamplePlayer."}],"notes":["Run from the in-game admin console. Native server stdin is not a supported command transport."],"documentationUrl":"https://steamcommunity.com/app/892970/discussions/0/3103511914702452041/","availability":"Authorized in-game client admin console; unavailable through native server input","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
       {"command":"ban","syntax":"ban <playername>","summary":"Ban a player from the server.","description":"Bans the named player from the Valheim dedicated server.","category":"Moderation","aliases":[],"keywords":["player","ban","moderation"],"arguments":[{"name":"playername","description":"Name of the player to ban.","required":true,"repeatable":false,"valueType":"player-name","suggestedValues":[],"defaultValue":""}],"examples":[{"command":"ban ExamplePlayer","description":"Ban ExamplePlayer."}],"notes":["Run from the in-game admin console. Native server stdin is not a supported command transport."],"documentationUrl":"https://steamcommunity.com/app/892970/discussions/0/3103511914702452041/","availability":"Authorized in-game client admin console; unavailable through native server input","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"},

@@ -313,6 +313,7 @@ func GameModelToProto(gameModel *models.Game) *xylona.Game {
 		WindowsInstallType:                windowsInstallType,
 		WindowsUpdateType:                 windowsUpdateType,
 		ConsoleCommands:                   consoleCommands,
+		ReadyLogPattern:                   gameModel.ReadyLogPattern,
 	}
 }
 
@@ -388,6 +389,7 @@ func GameProtoToModel(gameProto *xylona.Game) *models.Game {
 		OfficialDefinitionDiverged:        gameProto.GetOfficialDefinitionDiverged(),
 		DefaultEnvVars:                    "[]",
 		ConsoleCommands:                   consoleCommands,
+		ReadyLogPattern:                   strings.TrimSpace(gameProto.GetReadyLogPattern()),
 	}
 
 	gameConfig := updateproviders.GameConfig{
@@ -461,6 +463,7 @@ func GameModelToGameSetter(gameModel *models.Game) *models.GameSetter {
 		OfficialDefinitionDiverged:        omit.From(gameModel.OfficialDefinitionDiverged),
 		DefaultEnvVars:                    omit.From(gameModel.DefaultEnvVars),
 		ConsoleCommands:                   omit.From(gameModel.ConsoleCommands),
+		ReadyLogPattern:                   omit.From(gameModel.ReadyLogPattern),
 		CreatedAt:                         omit.From(time.Now()),
 		UpdatedAt:                         omit.From(time.Now()),
 	}

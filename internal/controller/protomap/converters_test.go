@@ -375,6 +375,7 @@ func TestGameModelToProto(t *testing.T) {
 		UsesSteamcmd:                      true,
 		SteamAppID:                        "294420",
 		XylonaOfficial:                    true,
+		ReadyLogPattern:                   `Done \(`,
 	}
 
 	got := GameModelToProto(input)
@@ -433,6 +434,9 @@ func TestGameModelToProto(t *testing.T) {
 	if !got.GetXylonaOfficial() {
 		t.Errorf("XylonaOfficial = %v, want true", got.GetXylonaOfficial())
 	}
+	if got.GetReadyLogPattern() != `Done \(` {
+		t.Errorf("ReadyLogPattern = %q, want %q", got.GetReadyLogPattern(), `Done \(`)
+	}
 }
 
 func TestGameProtoToModel(t *testing.T) {
@@ -458,6 +462,7 @@ func TestGameProtoToModel(t *testing.T) {
 		RequiresSteamGameServerLoginToken: true,
 		UsesSteamcmd:                      true,
 		SteamAppid:                        "294420",
+		ReadyLogPattern:                   " Game server connected ",
 	}
 
 	got := GameProtoToModel(input)
@@ -494,6 +499,9 @@ func TestGameProtoToModel(t *testing.T) {
 	}
 	if !got.CreatedAt.Equal(now) {
 		t.Errorf("CreatedAt = %v, want %v", got.CreatedAt, now)
+	}
+	if got.ReadyLogPattern != "Game server connected" {
+		t.Errorf("ReadyLogPattern = %q, want trimmed %q", got.ReadyLogPattern, "Game server connected")
 	}
 }
 

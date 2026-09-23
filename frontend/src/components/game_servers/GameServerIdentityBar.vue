@@ -102,6 +102,23 @@
     <div v-if="!serverStateAuthoritative" class="identity-bar-hint" role="status">
       Waiting for server status — controls are paused until it is confirmed.
     </div>
+    <!-- Spelled out, not only a tooltip: touch screens never show the disabled Start's hint. -->
+    <div
+      v-else-if="startBlockedVisible"
+      class="identity-bar-hint identity-bar-blocker"
+      role="status">
+      <q-icon aria-hidden="true" class="identity-bar-blocker__icon" name="report_problem" />
+      <span class="identity-bar-blocker__text">{{ startHint }}</span>
+      <q-btn
+        v-if="blockerFixedInConfiguration"
+        :to="`/game-servers/${server.id}/configuration`"
+        color="primary"
+        dense
+        flat
+        icon="tune"
+        label="Open Configuration"
+        no-caps />
+    </div>
 
     <div v-if="lastStartFailure" class="start-failure" role="alert">
       <q-icon aria-hidden="true" class="start-failure__icon" name="report_problem" />
@@ -151,7 +168,7 @@
         </div>
         <div class="identity-players__body">
           <p v-if="playerCountUnknown" class="q-ma-none text-caption text-xy-muted" role="status">
-            Player count and names unavailable. The game has not answered a player query.
+            {{ unknownPlayersMessage }}
           </p>
           <game-server-player-roster
             v-else
@@ -207,6 +224,7 @@ import {
 } from '@/proto/shared_pb'
 import {
   findStartBlocker,
+  isConfigReadinessItem,
   readinessLabel,
   useGameServerReadiness,
 } from '@/pages/game_servers/game-server-readiness'
@@ -256,6 +274,7 @@ const {
   onlinePlayers,
   playerCount,
   playerListSupported,
+  unknownPlayersMessage,
   queryGameServer,
   startQueryStatusVersionLifecycle,
 } = useGameServerQueryStatusVersion({ gameServer: server, gameServerId })
@@ -274,7 +293,9 @@ const isServerOnline = computed(() => server.value.status === Status.ONLINE)
 // Starting servers can be stopped or restarted too; only players wait for Online.
 const isRunning = computed(() => isServerRunning(server.value.status))
 // A stop from any view, schedule or tab, not only this bar's own button.
-const isStopping = computed(() => stoppingServer.value || isServerStopping(server.value.id))
+const isStopping = computed(
+  () => stoppingServer.value || isServerStopping(server.value.id, server.value.status),
+)
 const isSevenDays = computed(() => server.value.gameId === '7_days_to_die')
 const onConsole = computed(() => route.path.endsWith('/console'))
 const serverStateAuthoritative = computed(
@@ -317,6 +338,19 @@ const startHint = computed(() => {
   if (blocker === undefined) return ''
   return `Finish setup first — ${readinessLabel(blocker.kind)}: ${blocker.message}`
 })
+const startBlockedVisible = computed(
+  () =>
+    startBlocker.value !== undefined &&
+    server.value.status === Status.OFFLINE &&
+    hasPermission('game_server.start'),
+)
+const blockerFixedInConfiguration = computed(
+  () =>
+    startBlocker.value !== undefined &&
+    isConfigReadinessItem(startBlocker.value) &&
+    hasPermission('game_server.config') &&
+    !route.path.endsWith('/configuration'),
+)
 const startAriaLabel = computed(() => {
   const blocker = startBlocker.value
   if (hasPermission('game_server.start') && blocker !== undefined) {
@@ -595,6 +629,26 @@ async function restartGameServer(): Promise<void> {
   padding: 0 var(--xy-space-md) var(--xy-space-sm);
   color: var(--xy-text-muted);
   font-size: var(--xy-font-size-xs);
+}
+
+.identity-bar-blocker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--xy-space-xs);
+  color: var(--xy-text-secondary);
+}
+
+.identity-bar-blocker__icon {
+  flex-shrink: 0;
+  font-size: var(--xy-font-size-sm);
+  color: var(--xy-warning);
+}
+
+.identity-bar-blocker__text {
+  flex: 1 1 16rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .start-failure {

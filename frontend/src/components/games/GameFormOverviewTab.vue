@@ -153,6 +153,16 @@
         </div>
       </div>
     </div>
+    <q-input
+      v-model.trim="game.readyLogPattern"
+      autocomplete="off"
+      class="q-mt-md"
+      hint="Regex for the console line printed once players can join, e.g. Server started. Servers show Starting until it matches. Leave empty to use the first answered query instead."
+      input-class="font-mono"
+      label="Ready log pattern"
+      outlined
+      spellcheck="false"
+      type="text" />
   </section>
 
   <!-- Platform Commands -->

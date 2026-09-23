@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -960,76 +961,154 @@ func TestSyncOfficialDefinitionsSkipsUnchangedOfficialRows(t *testing.T) {
 	}
 }
 
-func TestSyncOfficialDefinitionsUpgradesPreConsoleCommandRows(t *testing.T) {
-	conn := dbtest.NewMigratedSchemaConnection(t, "definition-sync-pre-console-commands.sqlite")
+// Rows synced before a definition field existed hash without it, so the next
+// sync must treat them as clean and fill the field in.
+func TestSyncOfficialDefinitionsUpgradesPreFeatureRows(t *testing.T) {
+	tests := []struct {
+		name      string
+		gameID    string
+		jsonField string
+		clear     func(*models.Game)
+		populated func(*models.Game) bool
+	}{
+		{
+			name:      "console commands",
+			gameID:    "minecraft",
+			jsonField: "consoleCommands",
+			clear:     func(game *models.Game) { game.ConsoleCommands = "[]" },
+			populated: func(game *models.Game) bool { return game.ConsoleCommands != "[]" },
+		},
+		{
+			name:      "ready log pattern",
+			gameID:    "valheim",
+			jsonField: "readyLogPattern",
+			clear:     func(game *models.Game) { game.ReadyLogPattern = "" },
+			populated: func(game *models.Game) bool { return game.ReadyLogPattern != "" },
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn := dbtest.NewMigratedSchemaConnection(t, "definition-sync-pre-feature.sqlite")
 
+			definitions, errLoad := gamedefinitions.LoadBundled()
+			if errLoad != nil {
+				t.Fatalf("LoadBundled() error = %v", errLoad)
+			}
+			var definition *gamedefinitions.ParsedDefinition
+			for _, candidate := range definitions {
+				if candidate.Model.ID == test.gameID {
+					definition = candidate
+					break
+				}
+			}
+			if definition == nil {
+				t.Fatalf("%s bundled definition was not loaded", test.gameID)
+			}
+
+			preFeatureDocument := definition.Document
+			var preFeatureGame map[string]any
+			errGame := json.Unmarshal(preFeatureDocument.Game, &preFeatureGame)
+			if errGame != nil {
+				t.Fatalf("unmarshal %s game definition: %v", test.gameID, errGame)
+			}
+			delete(preFeatureGame, test.jsonField)
+			preFeatureGameJSON, errMarshal := json.Marshal(preFeatureGame)
+			if errMarshal != nil {
+				t.Fatalf("marshal pre-feature %s game definition: %v", test.gameID, errMarshal)
+			}
+			preFeatureDocument.Game = preFeatureGameJSON
+			preFeatureHash, errHash := gamedefinitions.HashDocument(preFeatureDocument)
+			if errHash != nil {
+				t.Fatalf("HashDocument() error = %v", errHash)
+			}
+			if preFeatureHash == definition.Hash {
+				t.Fatalf("pre-feature %s hash equals the bundled hash", test.gameID)
+			}
+
+			preFeatureModel := *definition.Model
+			test.clear(&preFeatureModel)
+			preFeatureModel.OfficialDefinitionHash = preFeatureHash
+			preFeatureModel.OfficialDefinitionDiverged = false
+			_, errInsert := conn.InsertGame(conn.DB, gamedefinitions.GameSetterForModel(&preFeatureModel))
+			if errInsert != nil {
+				t.Fatalf("InsertGame() error = %v", errInsert)
+			}
+
+			result, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
+			if errSync != nil {
+				t.Fatalf("SyncOfficialDefinitions() error = %v", errSync)
+			}
+			if result.Updated != 1 {
+				t.Fatalf("SyncOfficialDefinitions().Updated = %d, want 1", result.Updated)
+			}
+			if result.Diverged != 0 {
+				t.Fatalf("SyncOfficialDefinitions().Diverged = %d, want 0", result.Diverged)
+			}
+
+			updated, errUpdated := conn.GetGameByID(test.gameID)
+			if errUpdated != nil {
+				t.Fatalf("GetGameByID() after sync error = %v", errUpdated)
+			}
+			if !test.populated(updated) {
+				t.Fatalf("%s was not populated during official definition sync", test.jsonField)
+			}
+			if updated.OfficialDefinitionHash != definition.Hash {
+				t.Fatalf("OfficialDefinitionHash = %q, want %q", updated.OfficialDefinitionHash, definition.Hash)
+			}
+			if updated.OfficialDefinitionDiverged {
+				t.Fatal("OfficialDefinitionDiverged = true, want false")
+			}
+		})
+	}
+}
+
+func TestOfficialReadyLogPatternsMatchGameOutput(t *testing.T) {
 	definitions, errLoad := gamedefinitions.LoadBundled()
 	if errLoad != nil {
 		t.Fatalf("LoadBundled() error = %v", errLoad)
 	}
-	var minecraftDefinition *gamedefinitions.ParsedDefinition
+	patterns := map[string]*regexp.Regexp{}
 	for _, definition := range definitions {
-		if definition.Model.ID == "minecraft" {
-			minecraftDefinition = definition
-			break
+		if definition.Model.ReadyLogPattern != "" {
+			patterns[definition.Model.ID] = regexp.MustCompile(definition.Model.ReadyLogPattern)
 		}
 	}
-	if minecraftDefinition == nil {
-		t.Fatal("Minecraft bundled definition was not loaded")
-	}
 
-	preFeatureDocument := minecraftDefinition.Document
-	var preFeatureGame map[string]any
-	errGame := json.Unmarshal(preFeatureDocument.Game, &preFeatureGame)
-	if errGame != nil {
-		t.Fatalf("unmarshal Minecraft game definition: %v", errGame)
+	tests := []struct {
+		gameID string
+		line   string
+		want   bool
+	}{
+		{gameID: "minecraft", line: `[12:01:02 INFO]: Done (7.512s)! For help, type "help"`, want: true},
+		{gameID: "minecraft", line: `[Server thread/INFO]: Done (12,4s)! For help, type "help"`, want: true},
+		{gameID: "minecraft", line: `[12:00:58 INFO]: Preparing spawn area: 84%`, want: false},
+		{gameID: "valheim", line: `09/22/2026 18:01:02: Game server connected`, want: true},
+		{gameID: "valheim", line: `09/22/2026 18:00:40: Steam game server initialized`, want: false},
+		{gameID: "terraria", line: `: Server started`, want: true},
+		{gameID: "terraria", line: `Listening on port 7777`, want: false},
+		{gameID: "factorio", line: `   2.105 Info ServerMultiplayerManager.cpp:807: updateTick(0) changing state from(CreatingGame) to(InGame)`, want: true},
+		{gameID: "factorio", line: `   1.950 Info ServerMultiplayerManager.cpp:807: updateTick(4294967295) changing state from(Ready) to(PreparedToHostGame)`, want: false},
 	}
-	delete(preFeatureGame, "consoleCommands")
-	preFeatureGameJSON, errMarshal := json.Marshal(preFeatureGame)
-	if errMarshal != nil {
-		t.Fatalf("marshal pre-feature Minecraft game definition: %v", errMarshal)
+	for _, test := range tests {
+		pattern := patterns[test.gameID]
+		if pattern == nil {
+			t.Errorf("%s has no ready log pattern", test.gameID)
+			continue
+		}
+		if got := pattern.MatchString(test.line); got != test.want {
+			t.Errorf("%s pattern on %q = %v, want %v", test.gameID, test.line, got, test.want)
+		}
 	}
-	preFeatureDocument.Game = preFeatureGameJSON
-	preFeatureHash, errHash := gamedefinitions.HashDocument(preFeatureDocument)
-	if errHash != nil {
-		t.Fatalf("HashDocument() error = %v", errHash)
-	}
-	if preFeatureHash == minecraftDefinition.Hash {
-		t.Fatal("pre-feature Minecraft hash equals populated command catalog hash")
-	}
+}
 
-	preFeatureModel := *minecraftDefinition.Model
-	preFeatureModel.ConsoleCommands = "[]"
-	preFeatureModel.OfficialDefinitionHash = preFeatureHash
-	preFeatureModel.OfficialDefinitionDiverged = false
-	_, errInsert := conn.InsertGame(conn.DB, gamedefinitions.GameSetterForModel(&preFeatureModel))
-	if errInsert != nil {
-		t.Fatalf("InsertGame() error = %v", errInsert)
-	}
+func TestValidateModelRejectsInvalidReadyLogPattern(t *testing.T) {
+	game := &models.Game{ID: "custom", Name: "Custom", DefaultEnvVars: "[]", ConsoleCommands: "[]", ReadyLogPattern: `Done (`}
 
-	result, errSync := gamedefinitions.SyncOfficialDefinitions(conn)
-	if errSync != nil {
-		t.Fatalf("SyncOfficialDefinitions() error = %v", errSync)
-	}
-	if result.Updated != 1 {
-		t.Fatalf("SyncOfficialDefinitions().Updated = %d, want 1", result.Updated)
-	}
-	if result.Diverged != 0 {
-		t.Fatalf("SyncOfficialDefinitions().Diverged = %d, want 0", result.Diverged)
-	}
-
-	updated, errUpdated := conn.GetGameByID("minecraft")
-	if errUpdated != nil {
-		t.Fatalf("GetGameByID() after sync error = %v", errUpdated)
-	}
-	if updated.ConsoleCommands == "[]" {
-		t.Fatal("ConsoleCommands were not populated during official definition sync")
-	}
-	if updated.OfficialDefinitionHash != minecraftDefinition.Hash {
-		t.Fatalf("OfficialDefinitionHash = %q, want %q", updated.OfficialDefinitionHash, minecraftDefinition.Hash)
-	}
-	if updated.OfficialDefinitionDiverged {
-		t.Fatal("OfficialDefinitionDiverged = true, want false")
+	validationErrors := gamedefinitions.ValidateModel(game)
+	if !slices.ContainsFunc(validationErrors, func(validationError string) bool {
+		return strings.HasPrefix(validationError, "ready log pattern:")
+	}) {
+		t.Fatalf("ValidateModel() errors = %v, want ready log pattern error", validationErrors)
 	}
 }
 

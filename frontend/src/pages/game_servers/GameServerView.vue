@@ -601,7 +601,7 @@
         </div>
         <div class="player-rail__body">
           <p v-if="playerCount === null" role="status" class="q-ma-none text-caption text-xy-muted">
-            Player count and names unavailable. The game has not answered a player query.
+            {{ unknownPlayersMessage }}
           </p>
           <game-server-player-roster
             v-else
@@ -917,6 +917,7 @@ const {
   maxPlayerCount,
   onlinePlayers,
   playerListSupported,
+  unknownPlayersMessage,
   queryGameServer,
   startQueryStatusVersionLifecycle,
 } = useGameServerQueryStatusVersion({
@@ -931,7 +932,7 @@ const displayedMaxPlayerCount = computed(
 const isServerOnline = computed(() => gameServer.value.status === Status.ONLINE)
 // Started but not ready yet still has a live process: metrics and stdin work.
 const isServerProcessRunning = computed(() => isServerRunning(gameServer.value.status))
-const serverStopping = computed(() => isServerStopping(gameServerId.value))
+const serverStopping = computed(() => isServerStopping(gameServerId.value, gameServer.value.status))
 const showLiveMetrics = computed(() => isServerProcessRunning.value && metricsReceived.value)
 const isServerOffline = computed(() => gameServer.value.status === Status.OFFLINE)
 const isServerStatusUnknown = computed(() => gameServer.value.status === Status.UNKNOWN)

@@ -166,6 +166,7 @@ vi.mock('./useGameServerQueryStatusVersion', async () => {
       onlinePlayers: ref([...mocks.queryState.onlinePlayers]),
       playerListSupported: ref(mocks.queryState.playerListSupported),
       playerCount: ref(mocks.queryState.currentPlayerCount),
+      unknownPlayersMessage: ref('Player count and names unavailable.'),
       queryGameServer: mocks.queryGameServer,
       startQueryStatusVersionLifecycle: mocks.startQueryStatusVersionLifecycle,
     }),

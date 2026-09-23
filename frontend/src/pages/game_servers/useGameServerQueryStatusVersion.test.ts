@@ -178,6 +178,7 @@ type HarnessVm = ComponentPublicInstance & {
   maxPlayerCount: number
   onlinePlayers: string[]
   playerListSupported: boolean
+  unknownPlayersMessage: string
   queryGameServer: () => Promise<void>
   startQueryStatusVersionLifecycle: () => void
 }
@@ -514,6 +515,24 @@ it.each([
   const vm = getHarnessVm(wrapper)
   await vm.queryGameServer()
   expect(vm.playerCount).toBe(want)
+  unmountHarness(wrapper)
+  setWebsocketConnectionStatus('connecting')
+})
+
+it('explains an unknown count by whether the game has a player query at all', async () => {
+  setWebsocketConnectionStatus('connected')
+  mocks.queryGameServer.mockResolvedValue(
+    create(QueryGameServerResponseSchema, {
+      queryInfo: { serverId: 'server-1', type: ServerQuery_Type.Unknown },
+    }),
+  )
+  const wrapper = await mountHarness()
+  const vm = getHarnessVm(wrapper)
+  expect(vm.unknownPlayersMessage).toContain('has not answered a player query')
+
+  await vm.queryGameServer()
+  expect(vm.playerCount).toBeNull()
+  expect(vm.unknownPlayersMessage).toBe('This game does not report its player count or names.')
   unmountHarness(wrapper)
   setWebsocketConnectionStatus('connecting')
 })

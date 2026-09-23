@@ -228,21 +228,24 @@ func TestWaitForServerOnlineReturnsFalseWhenContextCanceled(t *testing.T) {
 }
 
 func TestWaitForServerOnlineReturnsTrueWhenServerComesOnline(t *testing.T) {
-	ctx := context.Background()
-	attempts := 0
-
-	restarted := waitForServerOnline(ctx, func() (xylona.Status, bool) {
-		attempts++
-		if attempts < 3 {
-			return xylona.Status_OFFLINE, true
-		}
-		return xylona.Status_ONLINE, true
-	}, 5, time.Millisecond)
-	if !restarted {
-		t.Fatal("waitForServerOnline() = false, want true once server reports ONLINE")
-	}
-	if attempts != 3 {
-		t.Fatalf("status lookup attempts = %d, want 3", attempts)
+	// A server still waiting for readiness (PRE_START) is running again.
+	for _, running := range []xylona.Status{xylona.Status_ONLINE, xylona.Status_PRE_START} {
+		t.Run(running.String(), func(t *testing.T) {
+			attempts := 0
+			restarted := waitForServerOnline(context.Background(), func() (xylona.Status, bool) {
+				attempts++
+				if attempts < 3 {
+					return xylona.Status_OFFLINE, true
+				}
+				return running, true
+			}, 5, time.Millisecond)
+			if !restarted {
+				t.Fatalf("waitForServerOnline() = false, want true once server reports %s", running)
+			}
+			if attempts != 3 {
+				t.Fatalf("status lookup attempts = %d, want 3", attempts)
+			}
+		})
 	}
 }
 

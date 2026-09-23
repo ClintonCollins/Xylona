@@ -1025,6 +1025,15 @@ func (xs *XylonaService) QueryGameServer(_ context.Context, request *connect.Req
 		case "palworld":
 			queryType = xylona.ServerQuery_Palworld
 		default:
+			if gameServer.R.Game == nil || !gameServer.R.Game.UsesSourceQuery {
+				// Unknown tells the UI this game never reports players, rather
+				// than that it has not answered yet.
+				return connect.NewResponse(&xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{
+					ServerId:   gameServer.ID,
+					ServerName: gameServer.Name,
+					Type:       xylona.ServerQuery_Unknown,
+				}}), nil
+			}
 			queryType = xylona.ServerQuery_Source
 		}
 		resp := &xylona.QueryGameServerResponse{QueryInfo: &xylona.ServerQuery{
