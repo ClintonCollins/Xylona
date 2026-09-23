@@ -353,18 +353,38 @@ describe('GameServerAlerts', () => {
     ).toEqual(['Enable CPU Threshold alert: >= 90%', 'Enable Status Change alert'])
   })
 
-  it('shows error notification when loading rules fails', async () => {
+  it('shows a load error instead of empty states when loading rules fails', async () => {
+    mocks.getGameServer.mockResolvedValueOnce({
+      gameServer: { id: 'test-server-123', nodeId: 'node-local' },
+    })
     mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [] })
     mocks.listAlertRules.mockRejectedValueOnce(new Error('load rules failed'))
     mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
 
-    mountAlerts()
+    const wrapper = mountAlerts()
     await flushPromises()
 
-    expect(mocks.notifyConnectError).toHaveBeenCalledWith(expect.any(Error))
+    expect(wrapper.text()).toContain('Alerts could not be loaded.')
+    expect(wrapper.text()).toContain('load rules failed')
+    expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
   })
 
-  it('shows error notification when loading history fails', async () => {
+  it('does not claim there are no channels when channels fail to load', async () => {
+    mocks.getGameServer.mockResolvedValueOnce({
+      gameServer: { id: 'test-server-123', nodeId: 'node-local' },
+    })
+    mocks.listNotificationChannels.mockRejectedValueOnce(new Error('channels unavailable'))
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
+    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
+
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('channels unavailable')
+    expect(wrapper.text()).not.toContain('No notification channels configured')
+  })
+
+  it('shows a load error when loading history fails', async () => {
     mocks.getGameServer.mockResolvedValueOnce({
       gameServer: {
         id: 'test-server-123',
@@ -375,10 +395,10 @@ describe('GameServerAlerts', () => {
     mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
     mocks.getAlertHistory.mockRejectedValueOnce(new Error('load history failed'))
 
-    mountAlerts()
+    const wrapper = mountAlerts()
     await flushPromises()
 
-    expect(mocks.notifyConnectError).toHaveBeenCalledWith(expect.any(Error))
+    expect(wrapper.text()).toContain('load history failed')
   })
 
   it('creates a rule with the current server node id', async () => {

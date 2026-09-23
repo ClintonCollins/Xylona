@@ -116,7 +116,7 @@ import {
   hoveredMetricTimestampMs,
   nearestSampleTimestampMs,
 } from '@/pages/game_servers/metrics-crosshair'
-import { formatMetricAxisTime } from '@/pages/game_servers/metrics-format'
+import { formatMetricAxisTime, formatMetricTimestamp } from '@/pages/game_servers/metrics-format'
 
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
@@ -407,15 +407,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
       callbacks: {
         title: (items) => {
           const timestamp = items[0]?.parsed.x
-          return timestamp === undefined
-            ? ''
-            : new Intl.DateTimeFormat(undefined, {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                second: '2-digit',
-              }).format(timestamp)
+          return timestamp === undefined ? '' : formatMetricTimestamp(timestamp)
         },
         label: (context) => `${context.dataset.label}: ${props.formatValue(context.parsed.y)}`,
       },

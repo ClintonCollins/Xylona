@@ -1,11 +1,12 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { notifyError, notifySuccess, notifyWarning } from '@/api/notifications'
 import GameServerMapShareSettings from '@/components/game_servers/GameServerMapShareSettings.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import {
   GetMinecraftMapRequestSchema,
   UpdateMinecraftMapConfigRequestSchema,
@@ -16,7 +17,6 @@ import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 const pollIntervalMilliseconds = 5_000
 const viewerRefreshMilliseconds = 45 * 60 * 1_000
 const route = useRoute()
-const quasar = useQuasar()
 const mapView = ref<MinecraftMapView | null>(null)
 const viewerURL = ref('')
 const viewerURLSetAt = ref(0)
@@ -94,7 +94,7 @@ function openSettings(): void {
 
 async function saveSettings(): Promise<void> {
   if (settingsForm.enabled && !mapView.value?.bluemapDownloadAccepted && !settingsForm.accepted) {
-    quasar.notify({ type: 'warning', message: 'Accept the BlueMap resource download to continue.' })
+    notifyWarning('Accept the BlueMap resource download to continue.')
     return
   }
   savingSettings.value = true
@@ -112,18 +112,14 @@ async function saveSettings(): Promise<void> {
       viewerURL.value = ''
     }
     settingsOpen.value = false
-    quasar.notify({
-      type: 'positive',
-      message: settingsForm.enabled
+    notifySuccess(
+      settingsForm.enabled
         ? 'Minecraft live map enabled. Restart the server once to activate live player positions.'
         : 'Minecraft live map disabled.',
-    })
+    )
     await loadMap()
   } catch (unknownError: unknown) {
-    quasar.notify({
-      type: 'negative',
-      message: ConnectErrorToString(ConnectError.from(unknownError)),
-    })
+    notifyError(ConnectErrorToString(ConnectError.from(unknownError)))
   } finally {
     savingSettings.value = false
   }
@@ -140,37 +136,24 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="minecraft-map-page">
-    <header class="minecraft-map-page__header">
-      <div class="minecraft-map-page__heading">
-        <span class="minecraft-map-page__heading-icon"><q-icon name="public" /></span>
-        <div>
-          <span>Minecraft · BlueMap</span>
-          <h1>Live world map</h1>
-          <p>Rendered terrain with live player positions across vanilla and modded servers.</p>
-        </div>
-      </div>
-      <div class="minecraft-map-page__actions">
-        <q-badge :color="statusTone" rounded :label="statusLabel" />
+  <div class="minecraft-map-page xy-page-content">
+    <page-header
+      class="minecraft-map-page__header"
+      subtitle="Minecraft · BlueMap. Rendered terrain with live player positions."
+      title="Live Map">
+      <template #actions>
+        <q-badge :color="statusTone" :label="statusLabel" />
+        <q-btn v-if="canManage" flat icon="tune" label="Map setup" no-caps @click="openSettings" />
         <q-btn
           v-if="canManage"
-          dense
-          flat
-          icon="tune"
-          label="Map setup"
-          no-caps
-          @click="openSettings" />
-        <q-btn
-          v-if="canManage"
-          color="primary"
-          dense
           :disable="!mapView?.enabled"
-          icon="ios_share"
+          flat
+          icon="share"
           label="Public link"
           no-caps
           @click="shareOpen = true" />
-      </div>
-    </header>
+      </template>
+    </page-header>
 
     <section v-if="viewerURL" class="minecraft-map-page__viewer-shell">
       <iframe
@@ -277,48 +260,18 @@ onBeforeUnmount(() => {
   min-height: 0;
   flex-direction: column;
   gap: var(--xy-space-md);
-  padding: var(--xy-space-lg);
-  background:
-    radial-gradient(
-      circle at 12% 0%,
-      color-mix(in srgb, var(--q-primary) 11%, transparent),
-      transparent 34%
-    ),
-    var(--xy-surface-1);
 }
 
-.minecraft-map-page__header,
-.minecraft-map-page__heading,
-.minecraft-map-page__actions,
+.minecraft-map-page__header {
+  margin-bottom: 0;
+}
+
 .minecraft-map-dialog__heading,
 .minecraft-map-dialog__provider {
   display: flex;
   align-items: center;
 }
 
-.minecraft-map-page__header {
-  justify-content: space-between;
-  gap: var(--xy-space-lg);
-}
-
-.minecraft-map-page__heading {
-  gap: var(--xy-space-md);
-}
-
-.minecraft-map-page__heading-icon {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--q-primary) 42%, var(--xy-border));
-  border-radius: var(--xy-radius-md);
-  color: var(--xy-accent);
-  background: color-mix(in srgb, var(--q-primary) 12%, var(--xy-surface-3));
-  font-size: var(--xy-font-size-xl);
-}
-
-.minecraft-map-page__heading span,
 .minecraft-map-dialog__heading span {
   color: var(--xy-text-muted);
   font-size: var(--xy-font-size-xs);
@@ -326,8 +279,7 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.minecraft-map-page h1,
-.minecraft-map-page h2,
+.minecraft-map-page__state h2,
 .minecraft-map-dialog h2 {
   margin: 0;
   color: var(--xy-text-primary);
@@ -337,22 +289,11 @@ onBeforeUnmount(() => {
   line-height: 1.2;
 }
 
-.minecraft-map-page h1 {
-  font-size: var(--xy-font-size-xl);
-}
-
-.minecraft-map-page__heading p,
 .minecraft-map-page__state p,
 .minecraft-map-dialog__provider span,
 .minecraft-map-dialog__fine-print {
   margin: 0;
   color: var(--xy-text-secondary);
-}
-
-.minecraft-map-page__actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--xy-space-sm);
 }
 
 .minecraft-map-page__viewer-shell {
@@ -433,20 +374,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 599px) {
-  .minecraft-map-page {
-    padding: var(--xy-space-md);
-  }
-
-  .minecraft-map-page__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .minecraft-map-page__actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
   .minecraft-map-page__viewer-shell,
   .minecraft-map-page__viewer {
     min-height: 460px;

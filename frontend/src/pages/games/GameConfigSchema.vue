@@ -25,7 +25,7 @@
       <config-schema-editor
         :file-path="filePath"
         :schema="schema"
-        @back="router.back()"
+        @back="router.push(`/games/${gameId}/edit`)"
         @save="handleSave" />
     </template>
   </div>

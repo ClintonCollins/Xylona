@@ -29,6 +29,13 @@ vi.mock('quasar', async () => {
   }
 })
 
+// Every toast goes through the shared helpers; record them on one mock.
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notify,
+  notifyError: mocks.notify,
+  notifyWarning: mocks.notify,
+}))
+
 const settings = create(GameServerMapShareSettingsSchema, {
   gameServerId: 'server-1',
   publicIdentifier: 'Live_Map',
@@ -74,9 +81,7 @@ describe('GameServerMapShareSettings', () => {
         enabled: false,
       }),
     )
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Public map link settings saved.' }),
-    )
+    expect(mocks.notify).toHaveBeenCalledWith('Public map link settings saved.')
   })
 
   it('blocks invalid identifiers and shows identifier conflicts inline', async () => {

@@ -24,7 +24,7 @@
               v-if="canEditFiles"
               :disable="!canMutateFiles"
               :dense="$q.screen.gt.xs"
-              color="positive"
+              flat
               icon="upload"
               label="Upload"
               @click="fileUploaderDialog = true" />
@@ -411,7 +411,7 @@
                 v-close-popup
                 clickable
                 @click="createFilesDialog = true">
-                <q-item-section avatar><q-icon color="primary" name="add" /></q-item-section>
+                <q-item-section avatar><q-icon name="add" /></q-item-section>
                 <q-item-section>Create…</q-item-section>
               </q-item>
               <q-item
@@ -419,16 +419,16 @@
                 v-close-popup
                 clickable
                 @click="fileUploaderDialog = true">
-                <q-item-section avatar><q-icon color="positive" name="upload" /></q-item-section>
+                <q-item-section avatar><q-icon name="upload" /></q-item-section>
                 <q-item-section>Upload</q-item-section>
               </q-item>
               <q-item v-if="canMutateFiles" v-close-popup clickable @click="openURLUploadDialog">
-                <q-item-section avatar><q-icon color="info" name="link" /></q-item-section>
+                <q-item-section avatar><q-icon name="link" /></q-item-section>
                 <q-item-section>Upload from URL</q-item-section>
               </q-item>
               <q-separator v-if="canMutateFiles" />
               <q-item v-close-popup clickable @click="refreshFileList">
-                <q-item-section avatar><q-icon color="info" name="refresh" /></q-item-section>
+                <q-item-section avatar><q-icon name="refresh" /></q-item-section>
                 <q-item-section>Refresh</q-item-section>
               </q-item>
               <q-item
@@ -436,17 +436,13 @@
                 v-close-popup
                 clickable
                 @click="selectAllFiles = true">
-                <q-item-section avatar
-                  ><q-icon color="secondary" name="select_all"
-                /></q-item-section>
+                <q-item-section avatar><q-icon name="select_all" /></q-item-section>
                 <q-item-section>Select all</q-item-section>
               </q-item>
             </template>
             <template v-else>
               <q-item v-if="selectedDirectory" v-close-popup clickable @click="openSelectedEntry">
-                <q-item-section avatar
-                  ><q-icon color="warning" name="folder_open"
-                /></q-item-section>
+                <q-item-section avatar><q-icon name="folder_open" /></q-item-section>
                 <q-item-section>Open</q-item-section>
               </q-item>
               <q-item
@@ -454,7 +450,7 @@
                 v-close-popup
                 clickable
                 @click="openSelectedEntry">
-                <q-item-section avatar><q-icon color="info" name="edit_document" /></q-item-section>
+                <q-item-section avatar><q-icon name="edit_document" /></q-item-section>
                 <q-item-section>Edit</q-item-section>
               </q-item>
               <q-item
@@ -462,21 +458,17 @@
                 v-close-popup
                 clickable
                 @click="downloadSelectedFiles">
-                <q-item-section avatar><q-icon color="positive" name="download" /></q-item-section>
+                <q-item-section avatar><q-icon name="download" /></q-item-section>
                 <q-item-section>Download</q-item-section>
               </q-item>
               <q-separator
                 v-if="selectedDirectory || editableSelectedFile || downloadButtonEnabled" />
               <q-item v-close-popup clickable @click="copySelectedPaths(true)">
-                <q-item-section avatar
-                  ><q-icon color="accent" name="content_copy"
-                /></q-item-section>
+                <q-item-section avatar><q-icon name="content_copy" /></q-item-section>
                 <q-item-section>Copy full path</q-item-section>
               </q-item>
               <q-item v-close-popup clickable @click="copySelectedPaths(false)">
-                <q-item-section avatar
-                  ><q-icon color="accent" name="content_copy"
-                /></q-item-section>
+                <q-item-section avatar><q-icon name="content_copy" /></q-item-section>
                 <q-item-section>Copy relative path</q-item-section>
               </q-item>
               <q-separator v-if="renameButtonEnabled || moveButtonEnabled || zipButtonEnabled" />
@@ -485,9 +477,7 @@
                 v-close-popup
                 clickable
                 @click="renameFilesDialog = true">
-                <q-item-section avatar
-                  ><q-icon color="primary" name="drive_file_rename_outline"
-                /></q-item-section>
+                <q-item-section avatar><q-icon name="drive_file_rename_outline" /></q-item-section>
                 <q-item-section>Rename</q-item-section>
               </q-item>
               <q-item
@@ -495,9 +485,7 @@
                 v-close-popup
                 clickable
                 @click="moveFilesDialog = true">
-                <q-item-section avatar
-                  ><q-icon color="secondary" name="drive_file_move"
-                /></q-item-section>
+                <q-item-section avatar><q-icon name="drive_file_move" /></q-item-section>
                 <q-item-section>Move</q-item-section>
               </q-item>
               <q-item
@@ -505,7 +493,7 @@
                 v-close-popup
                 clickable
                 @click="archiveFilesDialog = true">
-                <q-item-section avatar><q-icon color="warning" name="archive" /></q-item-section>
+                <q-item-section avatar><q-icon name="archive" /></q-item-section>
                 <q-item-section>Archive</q-item-section>
               </q-item>
               <q-item
@@ -513,7 +501,7 @@
                 v-close-popup
                 clickable
                 @click="extractFilesDialog = true">
-                <q-item-section avatar><q-icon color="positive" name="unarchive" /></q-item-section>
+                <q-item-section avatar><q-icon name="unarchive" /></q-item-section>
                 <q-item-section>Extract</q-item-section>
               </q-item>
               <q-separator v-if="deleteButtonEnabled" />

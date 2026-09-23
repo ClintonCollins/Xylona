@@ -58,6 +58,7 @@
           </span>
           <q-btn
             v-if="fields.length > 0"
+            aria-label="Expand all fields"
             class="text-xy-muted"
             dense
             flat
@@ -69,6 +70,7 @@
           </q-btn>
           <q-btn
             v-if="fields.length > 0"
+            aria-label="Collapse all fields"
             class="text-xy-muted"
             dense
             flat
@@ -153,6 +155,7 @@
           <template #append>
             <q-btn
               :disable="!bulkGroupName.trim()"
+              aria-label="Apply group"
               color="primary"
               dense
               flat
@@ -239,6 +242,7 @@
               <div class="schema-group-actions" @click.stop>
                 <q-btn
                   v-if="group.name"
+                  :aria-label="`Move group ${group.displayName} up`"
                   class="text-xy-muted group-move-btn"
                   dense
                   flat
@@ -250,6 +254,7 @@
                 </q-btn>
                 <q-btn
                   v-if="group.name"
+                  :aria-label="`Move group ${group.displayName} down`"
                   class="text-xy-muted group-move-btn"
                   dense
                   flat
@@ -350,7 +355,7 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useQuasar } from 'quasar'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
 import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
@@ -395,7 +400,6 @@ const emit = defineEmits<{
   back: []
 }>()
 
-const $q = useQuasar()
 const showImportDialog = ref(false)
 const pendingImport = ref<ImportDetectionResult | null>(null)
 
@@ -1052,11 +1056,9 @@ function applyImport() {
   showImportDialog.value = false
   pendingImport.value = null
 
-  $q.notify({
-    type: 'positive',
-    message: `Added ${added} new field${added !== 1 ? 's' : ''}${skipped > 0 ? `, ${skipped} already existed (skipped)` : ''}`,
-    position: 'bottom',
-  })
+  notifySuccess(
+    `Added ${added} new field${added !== 1 ? 's' : ''}${skipped > 0 ? `, ${skipped} already existed (skipped)` : ''}`,
+  )
 }
 
 /**
@@ -1114,12 +1116,7 @@ function handleSave() {
 
       // Block saving arrays or non-objects
       if (Array.isArray(raw) || typeof raw !== 'object' || raw === null) {
-        $q.notify({
-          type: 'xylona-error',
-          caption: 'Schema must be a JSON object with "type" and "properties", not an array.',
-          position: 'top',
-          timeout: 5000,
-        })
+        notifyError('Schema must be a JSON object with "type" and "properties", not an array.')
         return
       }
 

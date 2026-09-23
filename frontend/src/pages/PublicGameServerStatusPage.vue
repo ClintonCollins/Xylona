@@ -2,7 +2,7 @@
 import { create, fromJsonString } from '@bufbuild/protobuf'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { copyToClipboard, useQuasar } from 'quasar'
+import { copyToClipboard } from 'quasar'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -15,10 +15,10 @@ import {
   PublicGameServerStatusPageSchema,
 } from '@/proto/xylona_pb'
 import { getXylonaClient } from '@/api/connect-client'
+import { notifyError } from '@/api/notifications'
 import { formatMetricAge } from '@/pages/game_servers/metrics-format'
 
 const route = useRoute()
-const $q = useQuasar()
 const page = shallowRef<PublicGameServerStatusPage | null>(null)
 const loading = ref(true)
 const initialError = ref(false)
@@ -154,7 +154,7 @@ async function copyAddress(server: PublicGameServerStatus) {
   } catch {
     copiedServerID.value = ''
     copyAnnouncement.value = ''
-    $q.notify({ type: 'negative', message: 'Could not copy the connection address.' })
+    notifyError('Could not copy the connection address.')
   }
 }
 

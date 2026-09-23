@@ -1,133 +1,126 @@
 <template>
-  <q-inner-loading :showing="loading" label="Loading access data..." />
+  <div class="access-page xy-page-content">
+    <page-header subtitle="Give users a role on this server." title="Access">
+      <template #actions>
+        <q-btn :loading="loading" flat icon="refresh" label="Refresh" no-caps @click="loadData" />
+      </template>
+    </page-header>
 
-  <template v-if="!loading">
-    <q-card-section>
-      <div class="row items-center justify-between">
-        <div class="text-h6">
-          <q-icon class="text-xy-muted q-mr-xs" name="admin_panel_settings" size="sm" />
-          Access Management
+    <q-inner-loading :showing="loading" label="Loading access data..." />
+
+    <section v-if="!loading" aria-labelledby="access-grants-heading" class="access-panel">
+      <h2 id="access-grants-heading" class="xy-section-overline">
+        Access grants
+        <span v-if="localGrants.length > 0">· {{ localGrants.length }}</span>
+      </h2>
+      <div class="row q-col-gutter-md q-mb-md">
+        <div class="col-12 col-md-4">
+          <q-select
+            v-model="selectedLocalUserID"
+            :options="localUserOptions"
+            dense
+            emit-value
+            label="User"
+            map-options
+            outlined></q-select>
         </div>
-        <q-btn :loading="loading" flat icon="refresh" label="Refresh" @click="loadData"></q-btn>
+        <div class="col-12 col-md-4">
+          <q-select
+            v-model="selectedLocalRoleID"
+            :options="roleOptions"
+            aria-label="Local role"
+            dense
+            emit-value
+            label="Role"
+            map-options
+            outlined></q-select>
+        </div>
+        <div class="col-12 col-md-4">
+          <q-btn
+            :disable="!selectedLocalUserID || !selectedLocalRoleID"
+            :loading="grantingLocal"
+            class="full-width"
+            color="primary"
+            label="Grant Access"
+            @click="grantLocalAccess"></q-btn>
+        </div>
       </div>
-    </q-card-section>
 
-    <q-card-section class="q-pt-none">
-      <div class="access-panel access-panel--local">
-        <div class="access-section-header access-section-header--local">
-          <q-icon class="q-mr-xs" color="primary" name="person" size="xs" />
-          <span>Access Grants</span>
-          <q-badge
-            v-if="localGrants.length > 0"
-            :label="localGrants.length"
-            class="q-ml-sm"
-            color="primary" />
-        </div>
-        <div class="row q-col-gutter-md q-mb-md">
-          <div class="col-12 col-md-4">
-            <q-select
-              v-model="selectedLocalUserID"
-              :options="localUserOptions"
-              dense
-              emit-value
-              label="User"
-              map-options
-              outlined></q-select>
-          </div>
-          <div class="col-12 col-md-4">
-            <q-select
-              v-model="selectedLocalRoleID"
-              :options="roleOptions"
-              aria-label="Local role"
-              dense
-              emit-value
-              label="Role"
-              map-options
-              outlined></q-select>
-          </div>
-          <div class="col-12 col-md-4">
-            <q-btn
-              :disable="!selectedLocalUserID || !selectedLocalRoleID"
-              :loading="grantingLocal"
-              class="full-width"
-              color="primary"
-              label="Grant Access"
-              @click="grantLocalAccess"></q-btn>
-          </div>
-        </div>
-
-        <q-list aria-live="polite" bordered class="grant-list" separator>
-          <q-item v-if="localGrants.length === 0">
-            <q-item-section class="empty-state q-pa-lg">
-              <q-icon
-                class="q-mb-sm"
-                color="primary"
-                name="shield"
-                size="40px"
-                style="opacity: 0.3" />
-              <div class="text-xy-secondary text-body1">No access grants</div>
-              <div class="text-caption text-xy-muted">
-                Grant users access to this server using the form above.
-              </div>
+      <q-banner v-if="grantsLoadError" class="xy-banner-negative" dense inline-actions role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>Access grants could not be loaded.</strong> {{ grantsLoadError }}
+        <template #action>
+          <q-btn
+            aria-label="Retry loading access grants"
+            flat
+            icon="refresh"
+            label="Retry"
+            no-caps
+            @click="loadData" />
+        </template>
+      </q-banner>
+      <empty-state
+        v-else-if="localGrants.length === 0"
+        description="Grant users access to this server using the form above."
+        icon="shield"
+        title="No access grants" />
+      <q-list v-else aria-live="polite" bordered class="grant-list" separator>
+        <transition-group name="grant">
+          <q-item v-for="grant in localGrants" :key="grant.id" class="grant-item">
+            <q-item-section avatar>
+              <q-icon class="text-xy-muted" name="person" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="grant-username">{{ grant.userName }}</q-item-label>
+              <q-item-label caption>
+                <q-badge :label="grant.roleName" class="q-mr-xs" color="grey-8" />
+                Granted by {{ grant.grantedByUserName }} on
+                <span class="xy-num">{{ formatTimestamp(grant.createdAt) }}</span>
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-btn
+                :aria-label="`Revoke ${grant.userName}'s access`"
+                :loading="revokingLocalGrantID === grant.id"
+                color="negative"
+                flat
+                icon="delete"
+                label="Revoke"
+                no-caps
+                @click="confirmRevokeLocal(grant)"></q-btn>
             </q-item-section>
           </q-item>
-          <transition-group name="grant">
-            <q-item v-for="grant in localGrants" :key="grant.id" class="grant-item">
-              <q-item-section avatar>
-                <q-icon color="primary" name="person" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label class="grant-username">{{ grant.userName }}</q-item-label>
-                <q-item-label caption>
-                  <q-badge
-                    :label="grant.roleName"
-                    class="q-mr-xs role-badge"
-                    color="primary"
-                    outline />
-                  Granted by {{ grant.grantedByUserName }} on
-                  {{ formatTimestamp(grant.createdAt) }}
-                </q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-btn
-                  :loading="revokingLocalGrantID === grant.id"
-                  color="negative"
-                  flat
-                  icon="delete"
-                  label="Revoke"
-                  @click="confirmRevokeLocal(grant)"></q-btn>
-              </q-item-section>
-            </q-item>
-          </transition-group>
-        </q-list>
-      </div>
-    </q-card-section>
-  </template>
+        </transition-group>
+      </q-list>
+    </section>
 
-  <q-dialog v-model="revokeDialogVisible" aria-labelledby="revoke-dialog-title">
-    <q-card class="revoke-dialog" style="min-width: min(400px, 90vw)">
-      <q-card-section class="revoke-dialog-header">
-        <div class="row items-center no-wrap">
-          <q-icon class="q-mr-sm" color="negative" name="warning" size="sm" />
-          <div id="revoke-dialog-title" class="text-h6">Revoke Access</div>
-        </div>
-      </q-card-section>
-      <q-card-section class="q-pt-none">
-        Are you sure you want to revoke
-        <strong>{{ revokeTargetName }}</strong
-        >'s access? This action cannot be undone.
-      </q-card-section>
-      <q-card-actions align="right" class="q-pa-md">
-        <q-btn v-close-popup flat label="Cancel"></q-btn>
-        <q-btn
-          :loading="revokingLocalGrantID !== ''"
-          color="negative"
-          icon="delete"
-          label="Revoke Access"
-          @click="executeRevoke"></q-btn>
-      </q-card-actions>
-    </q-card>
-  </q-dialog>
+    <q-dialog v-model="revokeDialogVisible" aria-labelledby="revoke-dialog-title">
+      <q-card class="revoke-dialog" style="min-width: min(400px, 90vw)">
+        <q-card-section class="revoke-dialog-header">
+          <div class="row items-center no-wrap">
+            <q-icon class="q-mr-sm" color="negative" name="warning" size="sm" />
+            <div id="revoke-dialog-title" class="text-h6">Revoke Access</div>
+          </div>
+        </q-card-section>
+        <q-card-section class="q-pt-none">
+          Are you sure you want to revoke
+          <strong>{{ revokeTargetName }}</strong
+          >'s access? This action cannot be undone.
+        </q-card-section>
+        <q-card-actions align="right" class="q-pa-md">
+          <q-btn v-close-popup flat label="Cancel"></q-btn>
+          <q-btn
+            :loading="revokingLocalGrantID !== ''"
+            color="negative"
+            icon="delete"
+            label="Revoke Access"
+            @click="executeRevoke"></q-btn>
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -143,6 +136,8 @@ import {
   type Role,
 } from '@/proto/xylona_pb'
 import { formatProtoTimestamp } from '@/components/game_servers/game-server-access-utils'
+import EmptyState from '@/components/shared/EmptyState.vue'
+import PageHeader from '@/components/shared/PageHeader.vue'
 import { GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
 import { computed, onMounted, ref } from 'vue'
@@ -159,6 +154,7 @@ const revokingLocalGrantID = ref('')
 const roles = ref<Role[]>([])
 const localUsers = ref<{ id: string; userName: string; email: string }[]>([])
 const localGrants = ref<GameServerAccessGrant[]>([])
+const grantsLoadError = ref('')
 
 const selectedLocalUserID = ref('')
 const selectedLocalRoleID = ref('')
@@ -221,8 +217,9 @@ async function loadLocalGrants() {
       create(ListGameServerAccessGrantsRequestSchema, { gameServerId: gameServerID.value }),
     )
     localGrants.value = response.grants ? [...response.grants] : []
+    grantsLoadError.value = ''
   } catch (unknownError: unknown) {
-    notifyError(`Failed to load access grants: ${connectErrorMessage(unknownError)}`)
+    grantsLoadError.value = connectErrorMessage(unknownError)
   }
 }
 
@@ -303,6 +300,10 @@ function notifyError(message: string) {
   }
 }
 
+.access-page {
+  position: relative;
+}
+
 .access-panel {
   background-color: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
@@ -312,25 +313,9 @@ function notifyError(message: string) {
     both;
 }
 
-.access-panel--local {
-  background-color: color-mix(in srgb, var(--xy-primary) 4%, var(--xy-surface-0));
-  border-color: var(--xy-primary-border-soft);
-}
-
-.access-section-header {
-  display: flex;
-  align-items: center;
-  font-family: var(--xy-font-display);
-  font-size: var(--xy-font-size-sm);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--xy-text-secondary);
+.access-panel .xy-section-overline {
+  margin-top: 0;
   margin-bottom: var(--xy-space-md);
-}
-
-.access-section-header--local {
-  color: var(--xy-primary-hover);
 }
 
 .grant-list {
@@ -348,19 +333,6 @@ function notifyError(message: string) {
 
 .grant-username {
   font-weight: 500;
-}
-
-.role-badge {
-  font-family: var(--xy-font-mono);
-  font-size: var(--xy-font-size-2xs);
-  letter-spacing: 0.02em;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
 }
 
 .revoke-dialog-header {

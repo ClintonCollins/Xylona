@@ -1,7 +1,7 @@
 <template>
   <section aria-labelledby="dns-provider-heading" class="dns-provider-settings">
     <div class="xy-section-header q-mb-md">
-      <h2 id="dns-provider-heading" class="text-h6 q-my-none">DNS Provider</h2>
+      <h2 id="dns-provider-heading" class="xy-section-title">DNS Provider</h2>
       <p class="dns-provider-description">
         Authorize this controller to manage records in one existing authoritative zone.
       </p>
@@ -10,7 +10,8 @@
     <q-skeleton v-if="loading" height="18rem" type="rect" />
 
     <template v-else>
-      <div class="dns-status-strip" role="status">
+      <!-- An unread connection is not "not configured"; the error banner says what happened. -->
+      <div v-if="!loadError" class="dns-status-strip" role="status">
         <q-icon
           :color="configured ? 'positive' : 'warning'"
           :name="configured ? 'check_circle' : 'warning'"
@@ -31,8 +32,20 @@
         </div>
       </div>
 
-      <q-banner v-if="loadError" class="dns-error q-mt-md" role="alert" rounded>
+      <q-banner v-if="loadError" class="xy-banner-negative" dense inline-actions role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
         {{ loadError }}
+        <template #action>
+          <q-btn
+            aria-label="Retry loading the DNS provider connection"
+            flat
+            icon="refresh"
+            label="Retry"
+            no-caps
+            @click="loadConnection" />
+        </template>
       </q-banner>
 
       <q-btn-toggle
@@ -200,7 +213,7 @@
             @click="loadZones" />
         </div>
 
-        <q-banner v-if="zoneListError" class="dns-error q-mb-md" role="alert" rounded>
+        <q-banner v-if="zoneListError" class="xy-banner-negative q-mb-md" role="alert" rounded>
           {{ zoneListError }} Enter the exact zone name and ID instead.
         </q-banner>
 
@@ -238,7 +251,7 @@
           </div>
         </div>
 
-        <q-banner v-if="activationError" class="dns-error q-mt-md" role="alert" rounded>
+        <q-banner v-if="activationError" class="xy-banner-negative q-mt-md" role="alert" rounded>
           {{ activationError }}
         </q-banner>
 
@@ -262,9 +275,9 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
 import { computed, onMounted, ref } from 'vue'
 
+import { notifySuccess } from '@/api/notifications'
 import {
   DNSCredentialMode,
   type DNSProviderConnection,
@@ -277,7 +290,6 @@ import {
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
-const $q = useQuasar()
 const loading = ref(true)
 const listingZones = ref(false)
 const activating = ref(false)
@@ -443,10 +455,7 @@ async function activate(): Promise<void> {
     )
     if (!response.connection) throw new Error('The activated DNS connection response was empty.')
     applyConnection(response.connection)
-    $q.notify({
-      type: 'positive',
-      message: 'DNS provider connection tested and activated.',
-    })
+    notifySuccess('DNS provider connection tested and activated.')
   } catch (unknownError: unknown) {
     activationError.value = sanitizedError(unknownError)
   } finally {
@@ -579,12 +588,6 @@ onMounted(loadConnection)
   color: var(--xy-text-secondary);
   background: var(--xy-surface-0);
   border: 1px solid var(--xy-border);
-}
-
-.dns-error {
-  color: var(--xy-text-primary);
-  background: var(--xy-error-bg-faint);
-  border: 1px solid var(--xy-error-border);
 }
 
 @media (max-width: 599px) {

@@ -380,13 +380,12 @@ const filteredGroupCounts = computed(() => {
   return counts
 })
 
-// Stable accent colors for group headers — derived from the existing palette
+// Stable accent colors for group headers. No status colours: a green or amber
+// group header would read as "OK" or "modified".
 const GROUP_ACCENT_COLORS = [
   'var(--xy-primary)', // Blue
   'var(--xy-accent)', // Cyan
-  'var(--xy-success)', // Green
-  'var(--xy-warning)', // Amber
-  'var(--xy-secondary)', // Indigo
+  'var(--xy-purple)', // Violet
   'var(--xy-info)', // Teal
 ]
 
@@ -911,7 +910,7 @@ watch(
   align-items: center;
   gap: 0.5rem;
   padding: 0.65rem 1.5rem;
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-sm);
   font-weight: 500;
   color: var(--xy-text-muted);
@@ -1106,7 +1105,7 @@ watch(
 }
 
 .group-header-title {
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.1em;

@@ -630,20 +630,6 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
   gap: var(--xy-space-xs);
 }
 
-.xy-banner-negative {
-  border: 1px solid color-mix(in srgb, var(--xy-danger) 35%, var(--xy-border));
-  border-radius: var(--xy-radius-lg);
-  background: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-0));
-  color: var(--xy-text-primary);
-}
-
-.xy-banner-warning {
-  border: 1px solid color-mix(in srgb, var(--xy-warning) 35%, var(--xy-border));
-  border-radius: var(--xy-radius-lg);
-  background: color-mix(in srgb, var(--xy-warning) 10%, var(--xy-surface-0));
-  color: var(--xy-text-primary);
-}
-
 @media (max-width: 599px) {
   .game-import-dialog__change-row {
     grid-template-columns: 1fr;

@@ -18,7 +18,7 @@ import {
   summarizeMetric,
   type MetricSample,
 } from './game-server-metrics'
-import { formatMetricAxisTime } from './metrics-format'
+import { formatMetricAxisTime, formatMetricTimestamp } from './metrics-format'
 import {
   lifecycleEventText,
   normalizeLiveMetricPoint,
@@ -627,13 +627,25 @@ describe('lifecycleEventText', () => {
 describe('formatMetricAxisTime', () => {
   it('picks the label format from the data span, not the selected range', () => {
     const timestamp = Date.UTC(2026, 8, 21, 18, 0)
-    const hourMinute = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
-    const weekdayHour = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric' })
+    const hourMinute = new Intl.DateTimeFormat(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+    const weekdayHour = new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
     const monthDay = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
     const day = 24 * 60 * 60 * 1000
     expect(formatMetricAxisTime(timestamp, 2 * 60 * 60 * 1000)).toBe(hourMinute.format(timestamp))
     expect(formatMetricAxisTime(timestamp, 2 * day)).toBe(weekdayHour.format(timestamp))
     expect(formatMetricAxisTime(timestamp, 8 * day)).toBe(monthDay.format(timestamp))
+    expect(formatMetricAxisTime(timestamp, 2 * 60 * 60 * 1000)).not.toMatch(/AM|PM/)
+    // The chart tooltip title uses the same 24-hour clock as the axis beside it.
+    expect(formatMetricTimestamp(timestamp)).not.toMatch(/AM|PM/)
   })
 })
 

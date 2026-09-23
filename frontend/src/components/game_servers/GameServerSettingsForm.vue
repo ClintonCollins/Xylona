@@ -115,7 +115,7 @@
       <div class="settings-panel">
         <header class="settings-panel-heading">
           <div>
-            <h2 class="settings-panel-title font-display">
+            <h2 class="xy-section-title">
               {{ settingsCategoryDetails[activeCategory].title }}
             </h2>
             <p>{{ settingsCategoryDetails[activeCategory].description }}</p>
@@ -134,7 +134,7 @@
           class="form-section"
           data-settings-category="general">
           <div class="section-header">
-            <span class="section-icon section-icon--accent">
+            <span class="section-icon">
               <q-icon name="badge" size="14px" />
             </span>
             <span class="section-title">Identity</span>
@@ -183,7 +183,7 @@
           class="form-section form-section--last"
           data-settings-category="general">
           <div class="section-header">
-            <span class="section-icon section-icon--primary">
+            <span class="section-icon">
               <q-icon name="hub" size="14px" />
             </span>
             <span class="section-title">Placement</span>
@@ -240,7 +240,7 @@
           class="form-section"
           data-settings-category="network">
           <div class="section-header">
-            <span class="section-icon section-icon--success">
+            <span class="section-icon">
               <q-icon name="lan" size="14px" />
             </span>
             <span class="section-title">Networking</span>
@@ -300,7 +300,7 @@
           class="form-section form-section--last"
           data-settings-category="network">
           <div class="section-header">
-            <span class="section-icon section-icon--muted">
+            <span class="section-icon">
               <q-icon name="terminal" size="14px" />
             </span>
             <span class="section-title">Launch</span>
@@ -324,14 +324,6 @@
           class="form-section form-section--last"
           data-settings-category="admin"
           data-testid="admin-interface-settings-section">
-          <div class="section-header">
-            <span class="section-icon section-icon--warning">
-              <q-icon name="admin_panel_settings" size="14px" />
-            </span>
-            <span class="section-title">Remote Administration</span>
-            <span class="section-line"></span>
-          </div>
-
           <div
             v-if="adminInterfaceLoading"
             class="text-caption text-muted"
@@ -373,10 +365,13 @@
             </q-banner>
             <q-banner
               v-if="adminInterface.transportSecurityNote"
-              class="q-mt-sm"
+              class="q-mt-sm xy-banner-warning"
               data-testid="admin-interface-security-note"
               dense
               rounded>
+              <template #avatar>
+                <q-icon name="warning_amber" size="sm" />
+              </template>
               {{ adminInterface.transportSecurityNote }}
             </q-banner>
 
@@ -406,14 +401,6 @@
           class="form-section form-section--last"
           data-settings-category="environment"
           data-testid="environment-settings-section">
-          <div class="section-header">
-            <span class="section-icon section-icon--accent">
-              <q-icon name="key" size="14px" />
-            </span>
-            <span class="section-title">Environment</span>
-            <span class="section-line"></span>
-          </div>
-
           <div
             v-if="environmentLoading"
             class="text-caption text-muted"
@@ -571,7 +558,7 @@
           class="form-section"
           data-settings-category="capacity">
           <div class="section-header">
-            <span class="section-icon section-icon--warning">
+            <span class="section-icon">
               <q-icon name="memory" size="14px" />
             </span>
             <span class="section-title">Capacity</span>
@@ -625,7 +612,7 @@
           data-settings-category="capacity"
           data-testid="auto-restart-section">
           <div class="section-header">
-            <span class="section-icon section-icon--success">
+            <span class="section-icon">
               <q-icon name="restart_alt" size="14px" />
             </span>
             <span class="section-title">Auto-Restart</span>
@@ -673,14 +660,6 @@
           class="form-section form-section--last"
           data-settings-category="backups"
           data-testid="backup-settings-section">
-          <div class="section-header">
-            <span class="section-icon section-icon--primary">
-              <q-icon name="backup" size="14px" />
-            </span>
-            <span class="section-title">Backup Settings</span>
-            <span class="section-line"></span>
-          </div>
-
           <div
             v-if="backupSettingsLoading"
             class="text-caption text-muted"
@@ -691,10 +670,9 @@
           <template v-else>
             <q-banner
               v-if="!backupSettings.backupsSupported"
-              class="col-12 bg-warning text-dark q-mb-md"
+              class="col-12 xy-banner-warning q-mb-md"
               data-testid="backup-settings-unsupported"
-              dense
-              rounded>
+              dense>
               {{ backupSettings.disabledReason || 'New backups are unavailable for this server.' }}
               Existing backups remain available from the Backups page.
             </q-banner>
@@ -784,6 +762,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { notifySuccess } from '@/api/notifications'
 import GameServerFormShell from './GameServerFormShell.vue'
 import GameServerDnsBindingSettings from './GameServerDNSBindingSettings.vue'
 import GameServerProvisioningContext from './GameServerProvisioningContext.vue'
@@ -994,7 +973,7 @@ async function revealFirstInvalidCategory() {
 }
 
 async function cancel() {
-  router.back()
+  await router.push(`/game-servers/${props.gameServerId}/console`)
 }
 
 async function initializeAdminInterface() {
@@ -1035,12 +1014,7 @@ async function saveAdminInterfacePassword() {
       adminInterface.value = create(GameServerAdminInterfaceSchema, response.adminInterface)
     }
     adminInterfacePassword.value = ''
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Admin interface password updated. Restart the game server to apply it.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Admin interface password updated. Restart the game server to apply it.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1171,12 +1145,7 @@ async function saveEnvironmentSettings() {
     environmentRows.value = cloneEnvironmentVariables(response.serverEnv)
     commitEnvironmentSnapshot()
     environmentIssues.value = response.validationIssues
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Environment variables saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Environment variables saved successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1203,12 +1172,7 @@ async function setSecretEnvironment() {
     secretEnvironmentStates.value = response.secretEnv
     environmentIssues.value = response.validationIssues
     secretEnvironmentValue.value = ''
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Secret saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Secret saved successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1233,12 +1197,7 @@ async function clearSecretEnvironment(name: string) {
 
     secretEnvironmentStates.value = response.secretEnv
     environmentIssues.value = response.validationIssues
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Secret cleared successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Secret cleared successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1305,12 +1264,7 @@ async function saveBackupSettings() {
     }
 
     await initializeBackupSettings()
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Backup settings saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Backup settings saved successfully.')
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1341,12 +1295,7 @@ async function submitGameServer() {
 
     await GetXylonaClient().editGameServer(request)
     await initializeAdminInterface()
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: 'Server settings saved successfully.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Server settings saved successfully.')
   } catch (e) {
     console.error(e)
     $q.notify({
@@ -1468,15 +1417,6 @@ async function submitGameServer() {
   gap: var(--xy-space-md);
   padding-bottom: var(--xy-space-md);
   border-bottom: 1px solid var(--xy-border);
-}
-
-.settings-panel-title {
-  margin: 0;
-  color: var(--xy-text-primary);
-  font-size: var(--xy-font-size-lg);
-  font-weight: 600;
-  letter-spacing: 0.015em;
-  line-height: var(--xy-line-height-tight);
 }
 
 .settings-panel-heading p {

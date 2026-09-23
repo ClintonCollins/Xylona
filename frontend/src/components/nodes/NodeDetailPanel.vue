@@ -116,7 +116,7 @@
     </section>
 
     <section aria-labelledby="node-servers-title" class="node-section">
-      <h2 id="node-servers-title" class="node-section__title">Servers on this node</h2>
+      <h2 id="node-servers-title" class="xy-section-title">Servers on this node</h2>
       <q-table
         aria-label="Game servers on this node"
         class="xy-standalone-table"
@@ -182,7 +182,7 @@
     </section>
 
     <section aria-labelledby="node-system-title" class="node-section">
-      <h2 id="node-system-title" class="node-section__title">System</h2>
+      <h2 id="node-system-title" class="xy-section-title">System</h2>
       <dl v-if="currentSystemInfo" class="node-system">
         <div>
           <dt>CPU</dt>
@@ -836,15 +836,6 @@ onBeforeUnmount(() => {
 .node-section {
   display: grid;
   gap: var(--xy-space-sm);
-}
-
-.node-section__title {
-  margin: 0;
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-heading);
-  font-size: var(--xy-font-size-lg);
-  font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
 .node-server-item {

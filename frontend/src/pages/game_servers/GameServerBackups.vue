@@ -2,7 +2,6 @@
 import { create } from '@bufbuild/protobuf'
 import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import { timestampDate } from '@bufbuild/protobuf/wkt'
-import { ConnectError } from '@connectrpc/connect'
 import { UploadError, uploadFormData } from '@/utils/upload'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -34,7 +33,9 @@ import {
   ListGameServerBackupsRequestSchema,
   RestoreGameServerBackupRequestSchema,
 } from '@/proto/xylona_pb'
-import { bytesToSize, ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { bytesToSize, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import { formatTimestamp } from '@/utils/format-timestamp'
 
 const $q = useQuasar()
@@ -58,6 +59,7 @@ const uploadingBackup = ref(false)
 const uploadProgress = ref(0)
 const uploadError = ref('')
 const uploadFile = ref<File | null>(null)
+const loadError = ref('')
 const materializingBackupIds = new Set<string>()
 
 const columns = [
@@ -86,7 +88,7 @@ const columns = [
     field: (row: GameServerBackup) => formatBackupSize(row.sizeBytes),
     align: 'left' as const,
     sortable: true,
-    style: 'width: 8.5rem',
+    classes: 'xy-num',
   },
   {
     name: 'createdAt',
@@ -94,14 +96,15 @@ const columns = [
     field: (row: GameServerBackup) => formatCompletedTimestamp(row),
     align: 'left' as const,
     sortable: true,
-    style: 'width: 11rem',
+    classes: 'xy-num',
   },
   {
     name: 'actions',
     label: 'Actions',
     field: '',
     align: 'right' as const,
-    style: 'width: 7rem',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ]
 
@@ -161,7 +164,8 @@ const uploadAllowed = computed(() => overview.value.operationsAllowed)
 const uploadReady = computed(() => uploadFile.value !== null)
 
 const showStateAlert = computed(() => {
-  if (loading.value) {
+  // A failed load leaves the empty default overview, which would read as "disabled".
+  if (loading.value || loadError.value) {
     return false
   }
 
@@ -274,10 +278,11 @@ onUnmounted(() => {
 
 async function loadPage(): Promise<void> {
   loading.value = true
+  loadError.value = ''
   try {
     await Promise.all([loadOverview(), loadBackups(), loadBackupSettings()])
   } catch (unknownErr: unknown) {
-    notifyError('Failed to load backups', unknownErr)
+    loadError.value = connectErrorMessage(unknownErr)
   } finally {
     loading.value = false
   }
@@ -373,6 +378,7 @@ async function createBackup(): Promise<void> {
     prompt: {
       model: '',
       type: 'text',
+      label: 'Backup name (optional)',
       outlined: true,
     },
     cancel: { flat: true, label: 'Cancel' },
@@ -398,7 +404,7 @@ async function submitBackupCreate(backupName: string): Promise<void> {
       await loadBackups()
     }
   } catch (unknownErr: unknown) {
-    notifyError('Failed to create backup', unknownErr)
+    notifyConnectError(unknownErr, 'Failed to create backup')
   } finally {
     creatingBackup.value = false
   }
@@ -431,7 +437,7 @@ async function restoreBackup(mode: BackupRestoreMode): Promise<void> {
     )
     await loadBackups()
   } catch (unknownErr: unknown) {
-    notifyError('Failed to restore backup', unknownErr)
+    notifyConnectError(unknownErr, 'Failed to restore backup')
   } finally {
     restoringBackupId.value = ''
     restoreTarget.value = null
@@ -457,14 +463,9 @@ function confirmDelete(backup: GameServerBackup): void {
       clearBackupProgress(backup.id)
       backups.value = backups.value.filter((currentBackup) => currentBackup.id !== backup.id)
       await loadBackups()
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Backup deleted',
-        position: 'top-right',
-        timeout: 3000,
-      })
+      notifySuccess('Backup deleted')
     } catch (unknownErr: unknown) {
-      notifyError('Failed to delete backup', unknownErr)
+      notifyConnectError(unknownErr, 'Failed to delete backup')
     } finally {
       deletingBackupId.value = ''
     }
@@ -531,12 +532,7 @@ async function uploadBackup(): Promise<void> {
     showUploadBackupDialog.value = false
     resetUploadDialog()
     await loadBackups()
-    $q.notify({
-      type: 'xylona-success',
-      caption: 'Backup uploaded',
-      position: 'top-right',
-      timeout: 3000,
-    })
+    notifySuccess('Backup uploaded')
   } catch (unknownErr: unknown) {
     uploadError.value = formatUploadError(unknownErr)
   } finally {
@@ -554,16 +550,6 @@ function formatUploadError(unknownErr: unknown): string {
   }
 
   return 'Failed to upload backup archive.'
-}
-
-function notifyError(prefix: string, unknownErr: unknown): void {
-  const err = ConnectError.from(unknownErr)
-  $q.notify({
-    type: 'xylona-error',
-    caption: `${prefix}: ${ConnectErrorToString(err)}`,
-    position: 'top-right',
-    timeout: 5000,
-  })
 }
 
 function archiveFileName(archivePath: string): string {
@@ -784,8 +770,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         <q-btn
           :disable="loading || !uploadAllowed"
           :loading="uploadingBackup"
-          color="secondary"
           data-testid="open-upload-backup-dialog"
+          flat
           icon="upload_file"
           label="Upload Backup"
           no-caps
@@ -802,14 +788,27 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </template>
     </page-header>
 
-    <q-banner
-      v-if="showStateAlert"
-      :class="`backups-page__banner--${stateAlertColor}`"
-      class="backups-page__banner"
-      dense
-      rounded>
+    <q-banner v-if="loadError" class="xy-banner-negative" dense inline-actions role="alert">
       <template #avatar>
-        <q-icon :color="stateAlertColor" :name="stateAlertIcon" />
+        <q-icon name="sync_problem" />
+      </template>
+      <div class="backups-page__banner-title">Backups could not be loaded.</div>
+      <div class="backups-page__banner-copy">{{ loadError }}</div>
+      <template #action>
+        <q-btn
+          :loading="loading"
+          aria-label="Retry loading backups"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="loadPage" />
+      </template>
+    </q-banner>
+
+    <q-banner v-if="showStateAlert" :class="`xy-banner-${stateAlertColor}`" dense>
+      <template #avatar>
+        <q-icon :name="stateAlertIcon" />
       </template>
       <div class="backups-page__banner-title">{{ stateAlertTitle }}</div>
       <div class="backups-page__banner-copy">{{ stateAlertMessage }}</div>
@@ -818,7 +817,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     <q-card bordered class="backups-page__section" flat>
       <q-card-section class="backups-page__section-header">
         <div>
-          <h2 class="backups-page__section-title">Automated Backups</h2>
+          <h2 class="xy-section-title">Automated Backups</h2>
           <div class="backups-page__section-copy">
             {{ overview.scheduledBackupCount }} scheduled backup
             {{ overview.scheduledBackupCount === 1 ? 'task' : 'tasks' }} currently target this
@@ -850,7 +849,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     <q-card bordered class="backups-page__section" flat>
       <q-card-section class="backups-page__section-header">
         <div>
-          <h2 class="backups-page__section-title">Backup History</h2>
+          <h2 class="xy-section-title">Backup History</h2>
           <div class="backups-page__section-copy">
             Manual and scheduled backups appear here with restore and cleanup actions.
           </div>
@@ -880,6 +879,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         row-key="id">
         <template #no-data>
           <empty-state
+            v-if="!loading && !loadError"
             description="Manual and scheduled backups will appear here."
             icon="backup"
             title="No backups yet" />
@@ -926,15 +926,16 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
             </q-card-section>
 
             <q-card-actions align="right">
-              <a
+              <q-btn
                 v-if="props.row.status === GameServerBackupStatus.COMPLETED"
                 :data-testid="`download-backup-${props.row.id}`"
                 :href="backupDownloadHref(props.row)"
-                class="backups-page__download-link"
+                flat
+                icon="download"
+                label="Download"
+                no-caps
                 rel="noopener"
-                target="_blank">
-                <q-btn flat icon="download" label="Download" no-caps />
-              </a>
+                target="_blank" />
               <q-btn
                 :disable="props.row.status !== GameServerBackupStatus.COMPLETED"
                 :loading="restoringBackupId === props.row.id"
@@ -963,8 +964,10 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               class="backups-page__archive-cell">
               <div class="backups-page__archive-name">
                 {{ archiveFileName(props.row.archivePath) }}
+                <q-tooltip v-if="props.row.archivePath" class="font-mono">
+                  {{ props.row.archivePath }}
+                </q-tooltip>
               </div>
-              <div class="backups-page__archive-path">{{ props.row.archivePath }}</div>
             </div>
           </q-td>
         </template>
@@ -999,10 +1002,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
         </template>
 
         <template #body-cell-size="props">
-          <q-td
-            :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }"
-            :props="props"
-            class="backups-page__size-cell">
+          <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
             {{ formatBackupSize(props.row.sizeBytes) }}
           </q-td>
         </template>
@@ -1015,40 +1015,44 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 
         <template #body-cell-actions="props">
           <q-td :class="{ 'backups-page__cell--active': isActiveBackup(props.row) }" :props="props">
-            <a
-              v-if="props.row.status === GameServerBackupStatus.COMPLETED"
-              :data-testid="`download-backup-${props.row.id}`"
-              :href="backupDownloadHref(props.row)"
-              class="backups-page__download-link"
-              rel="noopener"
-              target="_blank">
-              <q-btn aria-label="Download backup" dense flat icon="download" size="sm">
+            <div class="xy-row-actions">
+              <q-btn
+                v-if="props.row.status === GameServerBackupStatus.COMPLETED"
+                :data-testid="`download-backup-${props.row.id}`"
+                :href="backupDownloadHref(props.row)"
+                aria-label="Download backup"
+                dense
+                flat
+                icon="download"
+                rel="noopener"
+                round
+                target="_blank">
                 <q-tooltip>Download</q-tooltip>
               </q-btn>
-            </a>
-            <q-btn
-              :disable="props.row.status !== GameServerBackupStatus.COMPLETED"
-              :loading="restoringBackupId === props.row.id"
-              aria-label="Restore backup"
-              dense
-              flat
-              icon="settings_backup_restore"
-              size="sm"
-              @click="openRestoreDialog(props.row)">
-              <q-tooltip>Restore</q-tooltip>
-            </q-btn>
-            <q-btn
-              :disable="!deleteAllowed"
-              :loading="deletingBackupId === props.row.id"
-              aria-label="Delete backup"
-              color="negative"
-              dense
-              flat
-              icon="delete"
-              size="sm"
-              @click="confirmDelete(props.row)">
-              <q-tooltip>Delete</q-tooltip>
-            </q-btn>
+              <q-btn
+                :disable="props.row.status !== GameServerBackupStatus.COMPLETED"
+                :loading="restoringBackupId === props.row.id"
+                aria-label="Restore backup"
+                dense
+                flat
+                icon="settings_backup_restore"
+                round
+                @click="openRestoreDialog(props.row)">
+                <q-tooltip>Restore</q-tooltip>
+              </q-btn>
+              <q-btn
+                :disable="!deleteAllowed"
+                :loading="deletingBackupId === props.row.id"
+                aria-label="Delete backup"
+                class="text-error-brighter"
+                dense
+                flat
+                icon="delete"
+                round
+                @click="confirmDelete(props.row)">
+                <q-tooltip>Delete</q-tooltip>
+              </q-btn>
+            </div>
           </q-td>
         </template>
       </q-table>
@@ -1066,9 +1070,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       persistent>
       <q-card class="backups-page__upload-dialog" data-testid="upload-backup-dialog">
         <q-card-section>
-          <h2 id="upload-backup-dialog-title" class="backups-page__section-title">
-            Upload Backup Archive
-          </h2>
+          <h2 id="upload-backup-dialog-title" class="xy-section-title">Upload Backup Archive</h2>
           <div class="backups-page__section-copy">
             Import a `.zip` backup into this server's managed backup history so it can be restored
             later from this page.
@@ -1125,19 +1127,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   gap: 1rem;
 }
 
-.backups-page__banner {
-  border: 1px solid var(--xy-border);
-  background: var(--xy-surface-1);
-}
-
-.backups-page__banner--negative {
-  background: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-1));
-}
-
-.backups-page__banner--warning {
-  background: color-mix(in srgb, var(--xy-warning) 12%, var(--xy-surface-1));
-}
-
 .backups-page__banner-title {
   font-family: var(--xy-font-display);
   color: var(--xy-text-primary);
@@ -1160,13 +1149,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.backups-page__section-title {
-  font-family: var(--xy-font-display);
-  font-size: var(--xy-font-size-base);
-  color: var(--xy-text-primary);
-  margin: 0;
 }
 
 .backups-page__section-copy {
@@ -1200,11 +1182,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   border-color: var(--xy-danger-border);
   background: var(--xy-danger-bg-faint);
   color: var(--xy-danger-hover);
-}
-
-.backups-page__download-link {
-  display: inline-flex;
-  text-decoration: none;
 }
 
 .backups-page__mobile-card {
@@ -1369,12 +1346,12 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   align-self: flex-start;
 }
 
+/* Opaque, so the sticky actions cell does not show rows scrolling beneath it. */
 .backups-page__cell--active {
-  background: color-mix(in srgb, var(--xy-accent) 5%, transparent);
+  background: color-mix(in srgb, var(--xy-accent) 5%, var(--xy-surface-0));
 }
 
 .backups-page__status-cell {
-  min-width: 15rem;
   max-width: 24rem;
 }
 
@@ -1383,12 +1360,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   min-width: 0;
   overflow-wrap: anywhere;
   white-space: normal;
-}
-
-.backups-page__size-cell {
-  min-width: 8.5rem;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 :deep(.xy-standalone-table th),
@@ -1477,10 +1448,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
-  }
-
-  .backups-page__status-cell {
-    min-width: 0;
   }
 }
 </style>

@@ -22,7 +22,7 @@
                 outlined
                 @update:model-value="archiveSuffix = ArchiveTypeToExtension(archiveType)">
                 <template #prepend>
-                  <q-icon name="event" />
+                  <q-icon name="folder_zip" />
                 </template>
               </q-select>
               <q-input

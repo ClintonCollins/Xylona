@@ -79,9 +79,10 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { copyToClipboard, useQuasar } from 'quasar'
+import { copyToClipboard } from 'quasar'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { notifySuccess } from '@/api/notifications'
 import { NodeSchema } from '@/proto/shared_pb'
 import {
   type EditNodeRequest,
@@ -95,7 +96,6 @@ import { connectErrorToString } from '@/api/connect-errors'
 import PageHeader from '@/components/shared/PageHeader.vue'
 
 const router = useRouter()
-const $q = useQuasar()
 
 const props = defineProps({
   existingNodeId: {
@@ -127,7 +127,7 @@ onMounted(async () => {
 })
 
 async function cancel() {
-  router.back()
+  await router.push(props.existingNodeId ? `/nodes/${props.existingNodeId}` : '/nodes')
 }
 
 async function getNodeDetails() {
@@ -198,10 +198,7 @@ function getPanelURL() {
 async function copyCommand() {
   if (generatedJoinCommand.value === '') return
   await copyToClipboard(generatedJoinCommand.value)
-  $q.notify({
-    type: 'positive',
-    message: 'Node join command copied to clipboard',
-  })
+  notifySuccess('Node join command copied to clipboard')
 }
 </script>
 

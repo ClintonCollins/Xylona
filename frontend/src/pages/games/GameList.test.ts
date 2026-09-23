@@ -141,7 +141,7 @@ describe('GameList', () => {
     const wrapper = mountGameList()
     await flushPromises()
 
-    await wrapper.get('[aria-label="Export game JSON"]').trigger('click')
+    await wrapper.get('[aria-label="Export Minecraft as JSON"]').trigger('click')
     await flushPromises()
 
     expect((mocks.exportGame.mock.calls[0][0] as ExportGameRequest).gameId).toBe('minecraft')

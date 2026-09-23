@@ -405,12 +405,66 @@
 
 /* Section divider with overline label */
 .xy-section-overline {
+  font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--xy-text-muted);
   margin-bottom: var(--xy-space-sm);
+}
+
+/* Second-level heading inside a page: one size, weight and face everywhere */
+.xy-section-title {
+  font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-lg);
+  font-weight: 700;
+  line-height: var(--xy-line-height-tight);
+  letter-spacing: 0.02em;
+  color: var(--xy-text-primary);
+  margin: 0;
+}
+
+/* Comparable numbers (ports, sizes, counts, times) in a column line up */
+.xy-num {
+  font-family: var(--xy-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inline banners: tinted, never solid, so a hint never looks like an outage */
+.xy-banner-warning,
+.xy-banner-negative,
+.xy-banner-info {
+  color: var(--xy-text-primary);
+  border: 1px solid;
+  border-radius: var(--xy-radius-lg);
+}
+
+.xy-banner-warning {
+  background: color-mix(in srgb, var(--xy-warning) 10%, var(--xy-surface-0));
+  border-color: var(--xy-warning-border);
+}
+
+.xy-banner-negative {
+  background: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-0));
+  border-color: var(--xy-danger-border);
+}
+
+.xy-banner-info {
+  background: color-mix(in srgb, var(--xy-info) 10%, var(--xy-surface-0));
+  border-color: var(--xy-info-border);
+}
+
+.xy-banner-warning .q-banner__avatar .q-icon {
+  color: var(--xy-warning);
+}
+
+.xy-banner-negative .q-banner__avatar .q-icon {
+  color: var(--xy-danger);
+}
+
+.xy-banner-info .q-banner__avatar .q-icon {
+  color: var(--xy-info);
 }
 
 /* Nav section divider */

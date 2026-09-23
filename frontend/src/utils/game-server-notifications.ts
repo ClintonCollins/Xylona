@@ -54,7 +54,7 @@ function showToast(
   return Notify.create({
     type,
     caption,
-    position: 'top-right',
+    position: 'top',
     timeout: isError ? 0 : shortToastTimeoutMs,
     actions: isError
       ? [

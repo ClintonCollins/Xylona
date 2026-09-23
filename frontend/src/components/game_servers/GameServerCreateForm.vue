@@ -13,10 +13,10 @@
     <q-form ref="formRef" class="server-form-layout" greedy>
       <section class="form-section">
         <div class="section-header">
-          <span class="section-icon section-icon--accent">
+          <span class="section-icon">
             <q-icon name="badge" size="14px" />
           </span>
-          <span class="section-title font-display">Identity</span>
+          <span class="section-title">Identity</span>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -51,10 +51,10 @@
 
       <section class="form-section">
         <div class="section-header">
-          <span class="section-icon section-icon--primary">
+          <span class="section-icon">
             <q-icon name="hub" size="14px" />
           </span>
-          <span class="section-title font-display">Placement</span>
+          <span class="section-title">Placement</span>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -101,10 +101,10 @@
 
       <section class="form-section">
         <div class="section-header">
-          <span class="section-icon section-icon--success">
+          <span class="section-icon">
             <q-icon name="lan" size="14px" />
           </span>
-          <span class="section-title font-display">Networking</span>
+          <span class="section-title">Networking</span>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -135,10 +135,10 @@
 
       <section class="form-section">
         <div class="section-header">
-          <span class="section-icon section-icon--muted">
+          <span class="section-icon">
             <q-icon name="terminal" size="14px" />
           </span>
-          <span class="section-title font-display">Launch</span>
+          <span class="section-title">Launch</span>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -168,10 +168,10 @@
 
       <section class="form-section form-section--last">
         <div class="section-header">
-          <span class="section-icon section-icon--warning">
+          <span class="section-icon">
             <q-icon name="memory" size="14px" />
           </span>
-          <span class="section-title font-display">Capacity</span>
+          <span class="section-title">Capacity</span>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md q-gutter-y-md full-width">
@@ -217,18 +217,18 @@
               <q-icon name="task_alt" size="16px" />
             </div>
             <div class="deployment-ready-content">
-              <span class="deployment-ready-label font-display">Ready to Deploy</span>
+              <span class="deployment-ready-label">Ready to Deploy</span>
               <span class="deployment-ready-value">{{ createDeploymentReadyText }}</span>
             </div>
           </div>
 
           <div v-else key="review" class="deployment-review">
             <div class="deployment-review-heading">
-              <span class="section-icon section-icon--muted">
+              <span class="section-icon">
                 <q-icon name="fact_check" size="14px" />
               </span>
               <div class="deployment-review-copy">
-                <span class="deployment-review-title font-display">
+                <span class="deployment-review-title">
                   Needs Attention
                   <span aria-hidden="true" class="deployment-review-dot"></span>
                 </span>
@@ -267,6 +267,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { notifySuccess, notifyWarning } from '@/api/notifications'
 import GameServerFormShell from './GameServerFormShell.vue'
 import { useGameServerPortAvailability } from './useGameServerPortAvailability'
 import { useGameServerFormState } from './useGameServerFormState'
@@ -399,7 +400,7 @@ onMounted(async () => {
 })
 
 async function cancel() {
-  router.back()
+  await router.push('/game-servers')
 }
 
 async function submitGameServer() {
@@ -412,12 +413,7 @@ async function submitGameServer() {
 
   const portsAvailable = await ensurePortAvailabilityBeforeSave()
   if (!portsAvailable) {
-    $q.notify({
-      type: 'warning',
-      position: 'top',
-      caption: portAvailabilityMessage.value,
-      icon: 'report_problem',
-    })
+    notifyWarning(portAvailabilityMessage.value)
     return
   }
 
@@ -437,14 +433,11 @@ async function submitGameServer() {
 
     const response = await GetXylonaClient().createGameServer(request)
     await router.push(`/game-servers/${response.gameServer?.id}/console`)
-    $q.notify({
-      type: 'positive',
-      position: 'top',
-      caption: isStarboundGame.value
+    notifySuccess(
+      isStarboundGame.value
         ? 'Server created. Complete Steam sign-in in the install console.'
         : 'Game server created successfully.',
-      icon: 'task_alt',
-    })
+    )
   } catch (e) {
     console.error(e)
     $q.notify({

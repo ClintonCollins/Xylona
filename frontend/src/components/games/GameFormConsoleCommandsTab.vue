@@ -1,13 +1,7 @@
 <template>
   <section class="form-section form-section--last console-commands-section">
     <div class="section-header console-commands-heading">
-      <span class="section-bar console-commands-section-bar"></span>
-      <div>
-        <h2 class="section-title font-display">Console Commands</h2>
-        <p class="console-commands-intro text-xy-muted">
-          Build the command reference shown to server administrators while they work in the console.
-        </p>
-      </div>
+      <h2 class="section-title">Console Commands</h2>
       <span class="section-line"></span>
       <q-btn
         color="primary"
@@ -17,6 +11,9 @@
         no-caps
         @click="addCommand" />
     </div>
+    <p class="console-commands-intro text-xy-muted">
+      Build the command reference shown to server administrators while they work in the console.
+    </p>
 
     <div
       v-if="validationErrors.length > 0"
@@ -916,16 +913,8 @@ defineExpose({
   min-width: 0;
 }
 
-.console-commands-heading {
-  align-items: flex-start;
-}
-
-.console-commands-section-bar {
-  background-color: var(--xy-accent);
-}
-
 .console-commands-intro {
-  margin: 4px 0 0;
+  margin: calc(-1 * var(--xy-space-sm)) 0 var(--xy-space-md);
   max-width: 68ch;
   font-size: var(--xy-font-size-sm);
 }

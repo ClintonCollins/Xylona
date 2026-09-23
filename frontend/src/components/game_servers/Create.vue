@@ -21,7 +21,7 @@
                 map-options
                 outlined>
                 <template #prepend>
-                  <q-icon name="event" />
+                  <q-icon name="note_add" />
                 </template>
               </q-select>
               <q-input

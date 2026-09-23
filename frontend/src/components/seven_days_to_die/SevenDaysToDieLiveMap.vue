@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { timestampDate } from '@bufbuild/protobuf/wkt'
 import L, { type DoneCallback, type Map as LeafletMap } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -29,6 +28,7 @@ import {
   initialSevenDaysToDieMapView,
   sevenDaysToDieTileURL,
 } from '@/pages/game_servers/seven-days-to-die-map'
+import { formatTime, formatTimestamp } from '@/utils/format-timestamp'
 
 const fullTileRefreshIntervalMilliseconds = 30_000
 const animalIcons = [
@@ -165,11 +165,7 @@ const collectedLabel = computed(() => {
   if (collectedAt === undefined) {
     return 'No snapshot received yet'
   }
-  return `Updated ${timestampDate(collectedAt).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })}`
+  return `Updated ${formatTime(collectedAt)}`
 })
 
 class AuthorizedTileLayer extends L.GridLayer {
@@ -314,7 +310,7 @@ function createPlayerPopup(player: SevenDaysToDieMapPlayer): HTMLElement {
   popup.append(name, state, coordinates)
   if (!player.online && player.lastSeenAt !== undefined) {
     const lastSeen = document.createElement('span')
-    lastSeen.textContent = `Seen ${timestampDate(player.lastSeenAt).toLocaleString()}`
+    lastSeen.textContent = `Seen ${formatTimestamp(player.lastSeenAt)}`
     popup.append(lastSeen)
   }
   return popup

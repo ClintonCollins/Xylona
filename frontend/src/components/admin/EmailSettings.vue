@@ -1,13 +1,29 @@
 <template>
   <section aria-labelledby="email-delivery-heading" class="email-settings">
     <div class="xy-section-header q-mb-md">
-      <h2 id="email-delivery-heading" class="text-h6 q-my-none">Email Delivery</h2>
+      <h2 id="email-delivery-heading" class="xy-section-title">Email Delivery</h2>
       <p class="email-settings-description">
         Send controller notifications through your own SMTP server or a connected Google account.
       </p>
     </div>
 
     <q-skeleton v-if="loading" height="18rem" type="rect" />
+
+    <q-banner v-else-if="loadError" class="xy-banner-negative" dense inline-actions role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Email settings could not be loaded.</strong> {{ loadError }}
+      <template #action>
+        <q-btn
+          aria-label="Retry loading email settings"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="loadConfig" />
+      </template>
+    </q-banner>
 
     <template v-else>
       <div class="email-status-strip" role="status">
@@ -266,13 +282,18 @@ import {
   TestSystemSMTPRequestSchema,
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { notifyError, notifyWarning } from '@/api/notifications'
+import { useUserAuthStore } from '@/stores/xylona'
 
 const googleCallbackPath = '/api/oauth/google/mail/callback'
 const $q = useQuasar()
+const authStore = useUserAuthStore()
 const route = useRoute()
 const router = useRouter()
 
 const loading = ref(false)
+// A failed read must not look like "not configured" over an empty form.
+const loadError = ref('')
 const saving = ref(false)
 const testing = ref(false)
 const connectingGoogle = ref(false)
@@ -384,18 +405,18 @@ async function handleGoogleRedirectResult(): Promise<void> {
     denied: 'Google authorization was cancelled',
     invalid_state: 'Google authorization expired or was already used. Please try again.',
   }
-  Notify.create({
-    type: result === 'denied' ? 'xylona-warning' : 'xylona-error',
-    position: 'top',
-    caption: captions[result] || 'Google authorization could not be completed',
-    timeout: 0,
-    closeBtn: 'Dismiss',
-    icon: result === 'denied' ? 'info' : 'report_problem',
-  })
+  const caption = captions[result] || 'Google authorization could not be completed'
+  const persistent = { timeout: 0, closeBtn: 'Dismiss' }
+  if (result === 'denied') {
+    notifyWarning(caption, persistent)
+  } else {
+    notifyError(caption, persistent)
+  }
 }
 
 async function loadConfig(): Promise<void> {
   loading.value = true
+  loadError.value = ''
   try {
     const response = await GetXylonaClient().getSystemSMTPConfig(
       create(GetSystemSMTPConfigRequestSchema, {}),
@@ -421,7 +442,7 @@ async function loadConfig(): Promise<void> {
     googleClientSecret.value = ''
     googleEmail.value = config.googleEmail
   } catch (unknownError: unknown) {
-    notifyConnectError(unknownError)
+    loadError.value = ConnectErrorToString(ConnectError.from(unknownError))
   } finally {
     loading.value = false
   }
@@ -514,12 +535,15 @@ async function disconnectGoogle(): Promise<void> {
 function testEmail(): void {
   $q.dialog({
     title: 'Send Test Email',
-    message: 'Enter the email address to send a test message to:',
+    message: 'Xylona sends a test message through the active provider.',
     prompt: {
-      model: '',
+      model: authStore.user?.email ?? '',
       type: 'email',
+      label: 'Recipient email address',
       outlined: true,
+      isValid: (value: string) => /^[^\s@]+@[^\s@]+$/.test(value.trim()),
     },
+    ok: { label: 'Send test email', noCaps: true, unelevated: true },
     cancel: true,
     persistent: false,
   }).onOk(async (email: string) => {
@@ -527,7 +551,7 @@ function testEmail(): void {
     try {
       const response = await GetXylonaClient().testSystemSMTP(
         create(TestSystemSMTPRequestSchema, {
-          toAddress: email,
+          toAddress: email.trim(),
         }),
       )
       if (response.success) {

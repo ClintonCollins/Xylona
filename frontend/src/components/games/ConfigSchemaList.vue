@@ -2,7 +2,6 @@
   <div class="config-schema-list">
     <div class="schema-list-overview">
       <div class="schema-list-overview-copy">
-        <div class="schema-list-title font-display">Configuration Files</div>
         <div class="schema-list-copy text-xy-muted">
           Map the files this game exposes to operators, then tune which ones are generated,
           editable, and backed by schema metadata.
@@ -355,11 +354,6 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   gap: 0.35rem;
   min-width: 0;
   max-width: 42rem;
-}
-
-.schema-list-title {
-  font-size: var(--xy-font-size-base);
-  color: var(--xy-text-primary);
 }
 
 .schema-list-copy {

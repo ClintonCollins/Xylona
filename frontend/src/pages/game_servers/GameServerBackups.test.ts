@@ -33,6 +33,13 @@ const mocks = vi.hoisted(() => ({
   eventOn: vi.fn(),
   eventOff: vi.fn(),
   uploadFormData: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyConnectError: vi.fn(),
+}))
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyConnectError: mocks.notifyConnectError,
 }))
 
 vi.mock('@/utils/upload', async () => {
@@ -200,7 +207,10 @@ function mountBackups() {
   return mount(GameServerBackups, {
     global: {
       stubs: {
-        'q-banner': { template: '<div class="q-banner-stub"><slot /><slot name="avatar" /></div>' },
+        'q-banner': {
+          template:
+            '<div class="q-banner-stub"><slot /><slot name="avatar" /><slot name="action" /></div>',
+        },
         'q-badge': {
           props: ['label'],
           template: '<span class="q-badge-stub">{{ label }}</span>',
@@ -264,6 +274,26 @@ describe('GameServerBackups', () => {
     expect(wrapper.text()).toContain('Backups are disabled for this server')
     expect(wrapper.text()).toContain('Create Scheduled Backup')
     expect(wrapper.text()).not.toContain('Backup Settings')
+  })
+
+  it('shows a load error with retry instead of an empty history when loading fails', async () => {
+    mocks.getGameServerBackupOverview.mockRejectedValueOnce(new Error('node unreachable'))
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
+
+    const wrapper = mountBackups()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Backups could not be loaded.')
+    expect(wrapper.text()).toContain('node unreachable')
+    expect(wrapper.text()).not.toContain('No backups yet')
+    expect(wrapper.text()).not.toContain('Backups are disabled for this server')
+
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({ overview: makeOverview() })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups: [] })
+    await wrapper.get('button[aria-label="Retry loading backups"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Backups could not be loaded.')
   })
 
   it('renders backup history and the manage scheduled shortcut', async () => {

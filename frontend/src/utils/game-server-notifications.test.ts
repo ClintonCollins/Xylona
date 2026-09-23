@@ -67,9 +67,9 @@ function expectLatestToast(partial: Record<string, unknown>) {
   expect(lastCall).toEqual(expect.objectContaining(partial))
 }
 
-function expectAllToastsInTopRight() {
+function expectAllToastsAtTop() {
   for (const [options] of mocks.notifyCreate.mock.calls) {
-    expect(options).toEqual(expect.objectContaining({ position: 'top-right' }))
+    expect(options).toEqual(expect.objectContaining({ position: 'top' }))
   }
 }
 
@@ -131,7 +131,7 @@ describe('game-server-notifications', () => {
       caption: 'Alpha — Server started',
     })
 
-    expectAllToastsInTopRight()
+    expectAllToastsAtTop()
   })
 
   it('replaces the stop toast with one restarted toast when the server comes straight back', () => {
@@ -192,7 +192,7 @@ describe('game-server-notifications', () => {
     })
 
     expect(mocks.notifyCreate).toHaveBeenCalledTimes(1)
-    expectAllToastsInTopRight()
+    expectAllToastsAtTop()
   })
 
   it('suppresses status toasts during updates and emits authoritative update toasts', () => {
@@ -237,7 +237,7 @@ describe('game-server-notifications', () => {
       caption: 'Alpha — Update completed',
     })
 
-    expectAllToastsInTopRight()
+    expectAllToastsAtTop()
   })
 
   it('recovers status toasts if an update never emits a terminal event', () => {
@@ -268,7 +268,7 @@ describe('game-server-notifications', () => {
       type: 'xylona-success',
       caption: 'Alpha — Server started',
     })
-    expectAllToastsInTopRight()
+    expectAllToastsAtTop()
   })
 
   it('emits terminal update failures for observer tabs too', () => {
@@ -300,7 +300,7 @@ describe('game-server-notifications', () => {
       caption: 'Alpha — Update failed: Disk full',
       timeout: 0,
     })
-    expectAllToastsInTopRight()
+    expectAllToastsAtTop()
   })
 
   it('emits backup, restore, and install toasts from payload-supplied names', () => {
@@ -363,7 +363,7 @@ describe('game-server-notifications', () => {
       timeout: 0,
     })
 
-    expectAllToastsInTopRight()
+    expectAllToastsAtTop()
   })
 
   it('falls back to result text when payloads omit the server name', () => {

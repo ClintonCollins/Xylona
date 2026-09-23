@@ -12,7 +12,7 @@
           <span class="breadcrumb-sep">/</span>
           <span class="breadcrumb-current">{{ breadcrumbLabel }}</span>
         </div>
-        <div class="server-form-title font-display">{{ headerTitle }}</div>
+        <h1 class="server-form-title font-display">{{ headerTitle }}</h1>
         <div v-if="!compactHeader && subtitle" class="server-form-subtitle text-xy-secondary">
           {{ subtitle }}
         </div>
@@ -199,6 +199,7 @@ onBeforeUnmount(() => {
 }
 
 .server-form-title {
+  margin: 0;
   font-size: clamp(1.28rem, 1.06rem + 0.8vw, 1.68rem);
   font-weight: 600;
   color: var(--xy-text-primary);
@@ -321,25 +322,7 @@ onBeforeUnmount(() => {
   border-radius: var(--xy-radius-md);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-0);
-}
-
-.server-form-shell .section-icon--accent {
-  color: var(--xy-accent);
-}
-
-.server-form-shell .section-icon--primary {
-  color: var(--xy-primary);
-}
-
-.server-form-shell .section-icon--success {
-  color: var(--xy-success);
-}
-
-.server-form-shell .section-icon--warning {
-  color: var(--xy-warning);
-}
-
-.server-form-shell .section-icon--muted {
+  /* One neutral treatment: status colours stay free for real warnings. */
   color: var(--xy-text-muted);
 }
 

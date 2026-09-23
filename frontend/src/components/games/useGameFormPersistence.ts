@@ -14,6 +14,7 @@ import {
   UpdateGameConfigSchemasRequestSchema,
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { notifyWarning } from '@/api/notifications'
 
 import { normalizeSteamAppID } from './game-form-normalization'
 import type { ConfigSchemaEntry } from './config-schema-types'
@@ -93,12 +94,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
     } catch (unknownErr: unknown) {
       options.downstreamImpactServers.value = []
       const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-warning',
-        caption: `Failed to load downstream impact: ${ConnectErrorToString(err)}`,
-        position: 'top',
-        timeout: 3500,
-      })
+      notifyWarning(`Failed to load downstream impact: ${ConnectErrorToString(err)}`)
     }
   }
 

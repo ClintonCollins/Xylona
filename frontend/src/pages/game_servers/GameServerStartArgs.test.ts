@@ -57,6 +57,13 @@ vi.mock('quasar', async () => {
   }
 })
 
+// Every toast goes through the shared helpers; record them on one mock.
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notify,
+  notifyError: mocks.notify,
+  notifyWarning: mocks.notify,
+}))
+
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { id: 'server-1' } }),
   useRouter: () => ({ replace: vi.fn() }),
@@ -163,9 +170,7 @@ describe('GameServerStartArgs', () => {
     expect(mocks.stopGameServer.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.startGameServer.mock.invocationCallOrder[0] ?? 0,
     )
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ caption: 'Start command saved and server restarted.' }),
-    )
+    expect(mocks.notify).toHaveBeenCalledWith('Start command saved and server restarted.')
   })
 
   it('shows the effective command read-only to ordinary users', async () => {

@@ -68,6 +68,11 @@ vi.mock('quasar', async () => {
   }
 })
 
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: vi.fn(),
+  notifyWarning: vi.fn(),
+}))
+
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
   return {

@@ -36,7 +36,7 @@
       </div>
     </div>
 
-    <q-banner v-if="!allowEditing" class="start-args-editor__banner" dense inline-actions rounded>
+    <q-banner v-if="!allowEditing" class="xy-banner-warning" dense inline-actions rounded>
       Start command editing is disabled for this game definition.
     </q-banner>
 
@@ -157,7 +157,7 @@
             label="Tokens"
             outlined
             type="textarea" />
-          <q-banner v-if="formError" class="bg-negative text-xy-primary rounded-borders" dense>
+          <q-banner v-if="formError" class="xy-banner-negative" dense role="alert">
             {{ formError }}
           </q-banner>
         </q-card-section>
@@ -609,12 +609,6 @@ function createPatchId() {
   color: var(--xy-text-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.start-args-editor__banner {
-  background: var(--xy-warning-bg-soft);
-  border: 1px solid var(--xy-warning-border);
-  color: var(--xy-text-primary);
 }
 
 .start-args-editor__list {

@@ -121,7 +121,7 @@
                     :to="`/nodes/${props.row.id}/edit`"
                     :aria-label="`Edit ${props.row.name || 'node'}`"
                     flat
-                    icon="settings">
+                    icon="edit">
                     <q-tooltip>Edit node</q-tooltip>
                   </q-btn>
                   <q-btn
@@ -183,7 +183,7 @@
                   class="font-mono">
                   {{ formatMetric(getSnapshot(props.row.id)!.memoryPercent, 'memory') }}
                 </span>
-                <span class="text-caption text-xy-muted q-ml-xs">
+                <span class="text-caption text-xy-muted xy-num q-ml-xs">
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.memoryUsedBytes)) }}
                 </span>
               </template>
@@ -201,7 +201,7 @@
                   class="font-mono">
                   {{ formatMetric(getSnapshot(props.row.id)!.diskPercent, 'disk') }}
                 </span>
-                <span class="text-caption text-xy-muted q-ml-xs">
+                <span class="text-caption text-xy-muted xy-num q-ml-xs">
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.diskUsedBytes)) }}
                 </span>
               </template>
@@ -213,13 +213,13 @@
               <template v-if="shouldShowMetricSkeleton(props.row.id)">
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="4rem" />
               </template>
-              <template v-else-if="getSnapshot(props.row.id)">
+              <span v-else-if="getSnapshot(props.row.id)" class="xy-num">
                 <span class="text-success">{{
                   getSnapshot(props.row.id)!.runningGameServerCount
                 }}</span>
                 /
                 {{ getSnapshot(props.row.id)!.gameServerCount }}
-              </template>
+              </span>
               <span v-else class="text-xy-muted">&mdash;</span>
             </q-td>
           </template>
@@ -252,31 +252,32 @@
           </template>
           <template #body-cell-actions="props">
             <q-td :props="props">
-              <div class="q-gutter-xs">
-                <router-link :to="'/nodes/' + props.row.id + '/edit'">
-                  <q-btn
-                    :icon="tabSettings"
-                    aria-label="Edit node"
-                    class="text-main-brighter"
-                    dense
-                    flat>
-                    <q-tooltip>Edit node</q-tooltip>
-                  </q-btn>
-                </router-link>
+              <div class="xy-row-actions">
                 <q-btn
-                  :to="{ path: '/admin/updates', query: { nodeId: props.row.id } }"
-                  aria-label="Update node"
+                  :to="'/nodes/' + props.row.id + '/edit'"
+                  :aria-label="`Edit ${props.row.name || 'node'}`"
                   dense
                   flat
-                  icon="system_update_alt">
+                  icon="edit"
+                  round>
+                  <q-tooltip>Edit node</q-tooltip>
+                </q-btn>
+                <q-btn
+                  :to="{ path: '/admin/updates', query: { nodeId: props.row.id } }"
+                  :aria-label="`Update ${props.row.name || 'node'}`"
+                  dense
+                  flat
+                  icon="system_update_alt"
+                  round>
                   <q-tooltip>Update node</q-tooltip>
                 </q-btn>
                 <q-btn
-                  :icon="tabTrash"
-                  aria-label="Delete node"
+                  :aria-label="`Remove ${props.row.name || 'node'}`"
                   class="text-error-brighter"
                   dense
                   flat
+                  icon="delete"
+                  round
                   @click="deleteNodeAction(props.row)">
                   <q-tooltip>Remove node</q-tooltip>
                 </q-btn>
@@ -285,6 +286,7 @@
           </template>
           <template #no-data>
             <empty-state
+              v-if="!loading && !loadError"
               :description="
                 search
                   ? 'Try a different search.'
@@ -316,16 +318,10 @@
             flat
             icon="system_update_alt"
             label="Update" />
+          <q-btn :to="'/nodes/' + detailNode.id + '/edit'" dense flat icon="edit" label="Edit" />
           <q-btn
-            :icon="tabSettings"
-            :to="'/nodes/' + detailNode.id + '/edit'"
-            class="text-main-brighter"
-            dense
-            flat
-            label="Edit" />
-          <q-btn
-            :icon="tabTrash"
             class="text-error-brighter"
+            icon="delete"
             dense
             flat
             label="Remove"
@@ -374,7 +370,6 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { usePersistedRef } from '@/utils/persisted-ref'
 import { Notify, useQuasar } from 'quasar'
-import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -402,6 +397,7 @@ import {
   type NodeResource,
 } from '@/components/nodes/node-display'
 import { formatMetricAge } from '@/pages/game_servers/metrics-format'
+import { formatTimestamp } from '@/utils/format-timestamp'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
 const $q = useQuasar()
@@ -602,7 +598,7 @@ function lastSeenRelative(node: Node): string {
 
 function lastSeenAbsolute(node: Node): string {
   const seenMs = nodeLastSeenMs(node)
-  return seenMs === null ? 'Never seen' : new Date(seenMs).toLocaleString()
+  return seenMs === null ? 'Never seen' : formatTimestamp(new Date(seenMs))
 }
 
 function openDetail(node: Node) {
@@ -697,7 +693,14 @@ const columns = ref([
     field: (row: Node) => row.lastSeenAt,
     sortable: false,
   },
-  { name: 'actions', label: '', align: 'center' as const, field: () => '' },
+  {
+    name: 'actions',
+    label: '',
+    align: 'center' as const,
+    field: () => '',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
+  },
 ])
 </script>
 

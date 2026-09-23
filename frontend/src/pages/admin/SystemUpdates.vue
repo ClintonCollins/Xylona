@@ -9,7 +9,7 @@
         <q-btn
           :disable="!websocketBrowserOnline"
           :loading="isRefreshing"
-          color="primary"
+          flat
           icon="sync"
           label="Resync"
           no-caps
@@ -75,9 +75,7 @@
         aria-labelledby="active-update-jobs-title">
         <div class="system-updates__section-header">
           <div>
-            <h2 id="active-update-jobs-title" class="system-updates__section-title">
-              Active updates
-            </h2>
+            <h2 id="active-update-jobs-title" class="xy-section-title">Active updates</h2>
           </div>
           <q-badge
             v-if="activeJobs.length > 0"
@@ -167,9 +165,7 @@
       <section class="system-updates__section" aria-labelledby="available-targets-title">
         <div class="system-updates__section-header">
           <div>
-            <h2 id="available-targets-title" class="system-updates__section-title">
-              Available targets
-            </h2>
+            <h2 id="available-targets-title" class="xy-section-title">Available targets</h2>
             <p>Review compatibility and affected game servers before starting an update.</p>
           </div>
           <span v-if="availabilityLastSyncedAt" class="system-updates__section-sync">
@@ -358,7 +354,7 @@
       <section class="system-updates__section" aria-labelledby="update-history-title">
         <div class="system-updates__section-header">
           <div>
-            <h2 id="update-history-title" class="system-updates__section-title">Update history</h2>
+            <h2 id="update-history-title" class="xy-section-title">Update history</h2>
             <p>Completed controller and node update attempts.</p>
           </div>
         </div>
@@ -548,6 +544,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import PageHeader from '@/components/shared/PageHeader.vue'
+import {
+  formatTime as formatAppTime,
+  formatTimestamp as formatAppTimestamp,
+} from '@/utils/format-timestamp'
 import type { GameServer, Node } from '@/proto/shared_pb'
 import {
   CheckSystemUpdatesRequestSchema,
@@ -1748,10 +1748,7 @@ function timestampMilliseconds(timestamp: { seconds: bigint; nanos?: number } | 
 function formatTimestamp(timestamp: { seconds: bigint; nanos?: number } | undefined): string {
   const milliseconds = timestampMilliseconds(timestamp)
   if (!milliseconds) return 'Unknown time'
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(milliseconds)
+  return formatAppTimestamp(new Date(milliseconds), 'Unknown time')
 }
 
 function formatJobLastUpdate(job: SystemUpdateJob): string {
@@ -1759,18 +1756,11 @@ function formatJobLastUpdate(job: SystemUpdateJob): string {
   const liveAt = progressOverlays.value.get(job.id)?.receivedAt ?? 0
   const milliseconds = Math.max(persistedAt, liveAt)
   if (!milliseconds) return 'Unknown time'
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(milliseconds)
+  return formatAppTimestamp(new Date(milliseconds), 'Unknown time')
 }
 
 function formatTime(milliseconds: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(milliseconds)
+  return formatAppTime(new Date(milliseconds))
 }
 
 function errorMessage(unknownError: unknown): string {
@@ -1918,14 +1908,6 @@ function reloadInterface(): void {
   justify-content: space-between;
   gap: var(--xy-space-md);
   margin-bottom: var(--xy-space-base);
-}
-
-.system-updates__section-title {
-  margin: 0;
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-heading);
-  font-size: var(--xy-font-size-lg);
-  line-height: var(--xy-line-height-tight);
 }
 
 .system-updates__section-header p {

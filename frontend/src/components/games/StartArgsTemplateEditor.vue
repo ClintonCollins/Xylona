@@ -1154,13 +1154,15 @@ function createBlockId() {
   min-width: 0;
 }
 
+/* Matches the game editor's .section-title so every tab heads sections alike. */
 .template-editor__eyebrow {
   margin: 0;
-  font-family: var(--xy-font-display);
-  font-size: var(--xy-font-size-xs);
-  letter-spacing: 0.18em;
+  font-family: var(--xy-font-body);
+  font-size: var(--xy-font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--xy-accent);
+  color: var(--xy-text-secondary);
 }
 
 .template-editor__toolbar-meta,
@@ -1278,7 +1280,7 @@ function createBlockId() {
 }
 
 .template-editor__terminal-label {
-  font-family: var(--xy-font-display);
+  font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;

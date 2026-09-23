@@ -747,6 +747,7 @@ import type { StepState } from '@/components/game_servers/UpdateProgressPanel.ty
 import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
 import { QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
+import { notifySuccess } from '@/api/notifications'
 import {
   GameServer,
   GameServerSchema,
@@ -1320,7 +1321,7 @@ async function getGameServerDetails() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1351,17 +1352,12 @@ async function acceptMinecraftEula() {
     })
     const response = await GetXylonaClient().acceptMinecraftEula(request)
     readinessItems.value = response.items
-    $q.notify({
-      type: 'positive',
-      position: 'top-right',
-      caption: 'Minecraft EULA accepted.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Minecraft EULA accepted.')
   } catch (e) {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to accept Minecraft EULA: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1380,17 +1376,12 @@ async function saveSteamGSLT() {
     const response = await GetXylonaClient().setSteamGSLT(request)
     readinessItems.value = response.items
     steamGSLT.value = ''
-    $q.notify({
-      type: 'positive',
-      position: 'top-right',
-      caption: 'Steam GSLT saved.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Steam GSLT saved.')
   } catch (e) {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to save Steam GSLT: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1408,17 +1399,12 @@ async function clearSteamGSLT() {
     const response = await GetXylonaClient().clearSteamGSLT(request)
     readinessItems.value = response.items
     steamGSLT.value = ''
-    $q.notify({
-      type: 'positive',
-      position: 'top-right',
-      caption: 'Steam GSLT cleared.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Steam GSLT cleared.')
   } catch (e) {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to clear Steam GSLT: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1453,7 +1439,7 @@ async function startHytaleDeviceAuth() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption:
         'Failed to start Hytale authorization: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
@@ -1482,7 +1468,7 @@ async function pollHytaleDeviceAuth() {
       resetHytaleFlow()
       $q.notify({
         type: 'xylona-error',
-        position: 'top-right',
+        position: 'top',
         caption: response.message || 'Hytale authorization was not completed.',
         icon: 'report_problem',
       })
@@ -1491,7 +1477,7 @@ async function pollHytaleDeviceAuth() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption:
         'Failed to check Hytale authorization: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
@@ -1512,17 +1498,12 @@ async function selectHytaleProfile() {
     const response = await GetXylonaClient().selectHytaleProfile(request)
     readinessItems.value = response.items
     resetHytaleFlow()
-    $q.notify({
-      type: 'positive',
-      position: 'top-right',
-      caption: 'Hytale account linked.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Hytale account linked.')
   } catch (e) {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to link Hytale account: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1540,17 +1521,12 @@ async function clearHytaleAccount() {
     const response = await GetXylonaClient().clearHytaleAccount(request)
     readinessItems.value = response.items
     resetHytaleFlow()
-    $q.notify({
-      type: 'positive',
-      position: 'top-right',
-      caption: 'Hytale account link cleared.',
-      icon: 'task_alt',
-    })
+    notifySuccess('Hytale account link cleared.')
   } catch (e) {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to clear Hytale account: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1598,7 +1574,7 @@ async function startGameServer() {
     lifecycleIntents.startRequestedAt = 0
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to start game server: ' + message,
       icon: 'report_problem',
     })
@@ -1656,7 +1632,7 @@ async function stopGameServer() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to stop game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1691,7 +1667,7 @@ function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
   if (event.status === 'failed') {
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: `Variant change to ${buildSoftwareOperationLabel(event)} failed: ${event.error || 'unknown error'}`,
       icon: 'report_problem',
     })
@@ -1798,7 +1774,7 @@ async function updateGameServer() {
   if (canSelectSteamBranch(gameServer.value) && !steamBranchSelection.metadataAvailable) {
     $q.notify({
       type: 'xylona-info',
-      position: 'top-right',
+      position: 'top',
       caption: 'Update target metadata is unavailable. Updating with the current target.',
       icon: 'report_problem',
     })
@@ -1818,7 +1794,7 @@ async function updateGameServer() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to update game server: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })
@@ -1978,7 +1954,7 @@ async function sendGameServerInput() {
     console.error(e)
     $q.notify({
       type: 'xylona-error',
-      position: 'top-right',
+      position: 'top',
       caption: 'Failed to send command: ' + ConnectErrorToString(ConnectError.from(e)),
       icon: 'report_problem',
     })

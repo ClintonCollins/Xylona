@@ -1,4 +1,5 @@
 import { Status } from '@/proto/shared_pb'
+import { formatTime } from '@/utils/format-timestamp'
 
 /** How long after a Start request an OFFLINE transition still counts as that start failing. */
 export const startFailureWindowMs = 120_000
@@ -46,5 +47,5 @@ export function detectStartFailure(
 }
 
 export function formatFailureTime(at: number): string {
-  return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatTime(new Date(at))
 }

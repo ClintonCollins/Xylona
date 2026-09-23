@@ -285,7 +285,7 @@ async function applyVariant(): Promise<void> {
     $q.notify({
       type: 'xylona-error',
       caption: message,
-      position: 'top-right',
+      position: 'top',
       timeout: 5000,
     })
   } finally {

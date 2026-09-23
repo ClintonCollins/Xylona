@@ -96,6 +96,35 @@ describe('UserList', () => {
     expect(wrapper.find('[data-test="q-table-row-count"]').text()).toBe('2')
   })
 
+  it('sorts Created At by instant and labels roles the same on every layout', async () => {
+    mocks.listUsers.mockResolvedValueOnce({ users: [] })
+    const wrapper = mount(UserList, { global: globalStubs })
+    await flushPromises()
+
+    type Column = {
+      name: string
+      field: (row: unknown) => unknown
+      format?: (value: unknown, row: unknown) => string
+    }
+    const columns = (wrapper.vm as unknown as { columns: Column[] }).columns
+    const column = (name: string): Column => {
+      const found = columns.find((candidate) => candidate.name === name)
+      if (!found) throw new Error(`missing column ${name}`)
+      return found
+    }
+    const createdAt = column('createdAt')
+    const role = column('superUser')
+
+    const april = create(UserSchema, { createdAt: { seconds: 1776686400n, nanos: 0 } })
+    const august = create(UserSchema, { createdAt: { seconds: 1786060800n, nanos: 0 } })
+    expect(createdAt.field(april)).toBeLessThan(createdAt.field(august) as number)
+    expect(createdAt.field(create(UserSchema, {}))).toBe(0)
+    expect(createdAt.format?.(createdAt.field(april), april)).toBe('Apr 20, 2026')
+
+    expect(role.field(create(UserSchema, { superUser: true }))).toBe('Super user')
+    expect(role.field(create(UserSchema, { superUser: false }))).toBe('User')
+  })
+
   it('shows loading state while fetching', async () => {
     let resolveRequest!: (value: unknown) => void
     mocks.listUsers.mockReturnValueOnce(

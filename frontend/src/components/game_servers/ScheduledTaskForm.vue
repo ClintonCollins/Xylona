@@ -441,10 +441,9 @@ async function handleSubmit(): Promise<void> {
 
         <q-banner
           v-if="backupEnableBlocked"
-          class="bg-warning text-dark q-mb-md"
+          class="xy-banner-warning q-mb-md"
           data-testid="backup-schedule-unsupported"
-          dense
-          rounded>
+          dense>
           {{ backupDisabledReason || 'New backup schedules are unavailable for this server.' }}
           Disable this task or choose another task type before saving.
         </q-banner>

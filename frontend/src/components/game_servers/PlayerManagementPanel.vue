@@ -278,7 +278,7 @@ defineExpose({ loadPlayerManagement })
 
 <template>
   <div class="players-panel">
-    <q-banner v-if="loadError" class="players-panel__banner players-panel__banner--danger" rounded>
+    <q-banner v-if="loadError" class="xy-banner-negative" rounded>
       <template #avatar><q-icon color="negative" name="cloud_off" /></template>
       Player management could not be loaded from the server's node.
       <template #action>
@@ -328,14 +328,14 @@ defineExpose({ loadPlayerManagement })
         <q-separator />
 
         <q-card-section v-if="!isOnline">
-          <q-banner class="players-panel__banner players-panel__banner--warning" dense rounded>
+          <q-banner class="xy-banner-warning" dense rounded>
             <template #avatar><q-icon color="warning" name="power_settings_new" /></template>
             Players appear while the server is online. Start the game server to perform player
             actions.
           </q-banner>
         </q-card-section>
         <q-card-section v-else-if="!capabilities?.actionsSupported">
-          <q-banner class="players-panel__banner players-panel__banner--info" dense rounded>
+          <q-banner class="xy-banner-info" dense rounded>
             <template #avatar><q-icon color="info" name="visibility" /></template>
             {{
               capabilities?.unavailableReason || 'Player actions are not available for this game.'
@@ -344,7 +344,7 @@ defineExpose({ loadPlayerManagement })
         </q-card-section>
 
         <q-card-section v-if="isOnline && nativeRoster && !rosterAvailable">
-          <q-banner class="players-panel__banner players-panel__banner--warning" dense rounded>
+          <q-banner class="xy-banner-warning" dense rounded>
             <template #avatar><q-icon color="warning" name="person_off" /></template>
             {{ rosterStateText }}
           </q-banner>
@@ -562,26 +562,6 @@ defineExpose({ loadPlayerManagement })
 
 .players-panel__card-copy {
   margin-top: var(--xy-space-xs);
-}
-
-.players-panel__banner {
-  border: 1px solid var(--xy-border);
-  background: var(--xy-surface-2);
-}
-
-.players-panel__banner--danger {
-  border-color: var(--xy-danger-border);
-  background: var(--xy-danger-bg);
-}
-
-.players-panel__banner--warning {
-  border-color: var(--xy-warning-border);
-  background: var(--xy-warning-bg);
-}
-
-.players-panel__banner--info {
-  border-color: var(--xy-info-border);
-  background: var(--xy-info-bg);
 }
 
 .players-panel__empty {

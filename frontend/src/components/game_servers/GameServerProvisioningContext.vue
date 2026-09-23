@@ -1,10 +1,10 @@
 <template>
   <section class="form-section" data-testid="readonly-provisioning">
     <div class="section-header">
-      <span class="section-icon section-icon--primary">
+      <span class="section-icon">
         <q-icon name="hub" size="14px" />
       </span>
-      <span class="section-title font-display">Provisioning</span>
+      <span class="section-title">Provisioning</span>
       <span class="section-line"></span>
     </div>
 

@@ -245,11 +245,9 @@ function platformText(): string {
           </div>
 
           <!-- Error state (non-blocking) -->
-          <q-banner
-            v-if="detailsError && !detailsLoading"
-            class="q-mb-md bg-warning text-dark rounded-borders">
+          <q-banner v-if="detailsError && !detailsLoading" class="q-mb-md xy-banner-warning" dense>
             <template #avatar>
-              <q-icon color="dark" name="warning_amber" />
+              <q-icon name="warning_amber" size="sm" />
             </template>
             {{ detailsError }}
           </q-banner>

@@ -1,8 +1,7 @@
 <template>
   <section class="form-section form-section--last">
     <div class="section-header">
-      <span class="section-bar" style="background-color: var(--xy-purple)"></span>
-      <h2 class="section-title font-display">Configuration Files</h2>
+      <h2 class="section-title">Configuration Files</h2>
       <span class="section-line"></span>
     </div>
     <config-schema-list

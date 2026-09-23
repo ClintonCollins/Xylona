@@ -259,7 +259,7 @@
                   :to="`/game-servers/${props.row.id}/configuration`"
                   :aria-label="`Configure ${props.row.displayName}`"
                   flat
-                  icon="settings">
+                  icon="tune">
                   <q-tooltip>Configure {{ props.row.displayName }}</q-tooltip>
                 </q-btn>
                 <q-btn
@@ -346,9 +346,8 @@
           <q-td :props="props">
             <span>{{ props.row.nodeName }}</span>
             <q-badge
-              :class="{ 'badge-remote': !props.row.isLocal }"
               class="q-ml-xs"
-              :color="props.row.isLocal ? 'positive' : undefined"
+              color="grey-8"
               :label="props.row.isLocal ? 'local' : 'remote'" />
           </q-td>
         </template>
@@ -374,11 +373,10 @@
               <q-separator vertical />
               <q-btn
                 :to="'/game-servers/' + props.row.id + '/configuration'"
-                :icon="tabSettings"
                 :aria-label="`Configure ${props.row.displayName}`"
-                class="text-main-brighter"
                 dense
                 flat
+                icon="tune"
                 round>
                 <q-tooltip>Configure {{ props.row.displayName }}</q-tooltip>
               </q-btn>
@@ -406,6 +404,7 @@
         </template>
         <template #no-data>
           <empty-state
+            v-if="!loading && !serverListError"
             :icon="search.trim().length > 0 ? 'search_off' : 'dns'"
             :title="search.trim().length > 0 ? 'No matching game servers' : 'No game servers'">
             <template v-if="search.trim().length > 0">
@@ -437,7 +436,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
-import { tabSettings, tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
+import { tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
@@ -489,6 +488,7 @@ import { resolveCanonicalVersionDisplay } from './version-display'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { formatMetricBytes } from './metrics-format'
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import { applyUpdateProgress, buildUpdateSteps, isUpdateProgressTerminal } from './update-progress'
 
 const aggregatedServers = ref<AggregatedGameServer[] | null>(null)
@@ -899,12 +899,7 @@ async function getGameServers() {
 
       console.error(reason)
       serverListError.value = ConnectErrorToString(ConnectError.from(reason))
-      $q.notify({
-        type: 'xylona-error',
-        position: 'top-right',
-        caption: 'Failed to load game servers: ' + ConnectErrorToString(ConnectError.from(reason)),
-        icon: 'report_problem',
-      })
+      notifyConnectError(reason, 'Failed to load game servers')
     })
     .finally(() => {
       if (loadID !== loadSequence) {
@@ -928,12 +923,7 @@ async function getGameServers() {
       }
 
       console.error(reason)
-      $q.notify({
-        type: 'xylona-error',
-        position: 'top-right',
-        caption: 'Failed to load nodes: ' + ConnectErrorToString(ConnectError.from(reason)),
-        icon: 'report_problem',
-      })
+      notifyConnectError(reason, 'Failed to load nodes')
       nodesByID.value = new Map()
     })
 
@@ -1299,22 +1289,17 @@ async function runServerActions(
     const details = failedResults
       .map((result) => `${result.server.displayName}: ${result.error}`)
       .join('; ')
-    $q.notify({
-      caption: `Could not ${action} ${failedResults.length === 1 ? 'server' : 'servers'}: ${details}`,
-      type: 'xylona-error',
-      position: 'top-right',
-      timeout: 7000,
-    })
+    notifyError(
+      `Could not ${action} ${failedResults.length === 1 ? 'server' : 'servers'}: ${details}`,
+      { timeout: 7000 },
+    )
   } else if (servers.length > 1 || action === 'update') {
-    $q.notify({
-      caption:
-        action === 'update'
-          ? `Update started for ${servers.length === 1 ? servers[0]?.displayName : `${servers.length} servers`}.`
-          : `${action[0]?.toUpperCase()}${action.slice(1)} requested for ${servers.length} servers.`,
-      type: 'positive',
-      position: 'top-right',
-      timeout: 3500,
-    })
+    notifySuccess(
+      action === 'update'
+        ? `Update started for ${servers.length === 1 ? servers[0]?.displayName : `${servers.length} servers`}.`
+        : `${action[0]?.toUpperCase()}${action.slice(1)} requested for ${servers.length} servers.`,
+      { timeout: 3500 },
+    )
   }
 
   void getGameServers()
@@ -1395,6 +1380,7 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => getDisplayVersion(row),
+    classes: 'server-version-cell',
     sortable: false,
   },
   {
@@ -1410,6 +1396,8 @@ const columns = ref([
     label: '',
     align: 'center' as const,
     field: () => '',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ])
 </script>
@@ -1527,11 +1515,6 @@ const columns = ref([
   overflow-wrap: anywhere;
 }
 
-.badge-remote {
-  background-color: var(--xy-surface-4);
-  color: var(--xy-text-secondary);
-}
-
 .server-player-count {
   display: inline-flex;
   align-items: center;
@@ -1579,6 +1562,13 @@ const columns = ref([
 .server-table-actions > .q-separator {
   height: 1.75rem;
   margin-inline: var(--xy-space-xs);
+}
+
+/* Long build strings wrap instead of pushing row actions off-screen. */
+.server-list-main :deep(.server-version-cell) {
+  min-width: 10rem;
+  max-width: 14rem;
+  white-space: normal;
 }
 
 .version-text {

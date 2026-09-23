@@ -27,6 +27,7 @@ const gameServerId = computed(() => route.params.id as string)
 const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 
 const loading = ref(true)
+const loadError = ref('')
 const tasks = ref<ScheduledTask[]>([])
 const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
 const latestTaskLogsByID = ref<Record<string, ScheduledTaskLog>>({})
@@ -107,6 +108,8 @@ const columns = computed(() => [
     label: 'Actions',
     field: '',
     align: 'right' as const,
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ])
 
@@ -205,14 +208,9 @@ async function loadTasks(): Promise<void> {
     }
     taskLogsByID.value = {}
     taskLogErrorsByID.value = {}
+    loadError.value = ''
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    loadError.value = ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     loading.value = false
   }
@@ -353,6 +351,23 @@ function confirmDelete(task: ScheduledTask): void {
       </template>
     </page-header>
 
+    <q-banner v-if="loadError" class="xy-banner-negative q-mb-md" dense inline-actions role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Scheduled tasks could not be loaded.</strong> {{ loadError }}
+      <template #action>
+        <q-btn
+          :loading="loading"
+          aria-label="Retry loading scheduled tasks"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="loadTasks" />
+      </template>
+    </q-banner>
+
     <q-table
       aria-label="Scheduled tasks"
       :columns="columns"
@@ -366,6 +381,7 @@ function confirmDelete(task: ScheduledTask): void {
       row-key="id">
       <template #no-data>
         <empty-state
+          v-if="!loading && !loadError"
           description="Create one to automate server actions."
           icon="schedule"
           title="No scheduled tasks yet" />
@@ -515,47 +531,54 @@ function confirmDelete(task: ScheduledTask): void {
               @update:model-value="toggleEnabled(props.row)" />
           </q-td>
           <q-td key="lastResult" :props="props">
-            <span v-if="latestLog(props.row.id)" class="schedule-latest-result">
+            <span
+              v-if="latestLog(props.row.id)"
+              class="schedule-latest-result schedule-latest-result--clamped">
               <q-badge
                 :color="statusColor(latestLog(props.row.id)?.status ?? '')"
                 :label="statusLabel(latestLog(props.row.id)?.status ?? '')" />
               <span>{{ logMessage(latestLog(props.row.id)!, props.row) }}</span>
+              <q-tooltip max-width="32rem">
+                {{ logMessage(latestLog(props.row.id)!, props.row) }}
+              </q-tooltip>
             </span>
             <span v-else class="text-xy-muted">No runs recorded</span>
           </q-td>
           <q-td key="lastRunAt" :props="props">{{ formatTimestamp(props.row.lastRunAt) }}</q-td>
           <q-td key="nextRunAt" :props="props">{{ formatTimestamp(props.row.nextRunAt) }}</q-td>
           <q-td key="actions" :props="props">
-            <q-btn
-              :aria-controls="`task-history-${props.row.id}`"
-              :aria-expanded="props.expand"
-              :icon="props.expand ? 'expand_less' : 'history'"
-              aria-label="Toggle execution history"
-              dense
-              flat
-              size="sm"
-              @click="toggleTaskHistory(props.row.id, props)">
-              <q-tooltip>{{ props.expand ? 'Hide history' : 'Show history' }}</q-tooltip>
-            </q-btn>
-            <q-btn
-              aria-label="Edit task"
-              dense
-              flat
-              icon="edit"
-              size="sm"
-              @click="openEditDialog(props.row)">
-              <q-tooltip>Edit</q-tooltip>
-            </q-btn>
-            <q-btn
-              aria-label="Delete task"
-              color="negative"
-              dense
-              flat
-              icon="delete"
-              size="sm"
-              @click="confirmDelete(props.row)">
-              <q-tooltip>Delete</q-tooltip>
-            </q-btn>
+            <div class="xy-row-actions">
+              <q-btn
+                :aria-controls="`task-history-${props.row.id}`"
+                :aria-expanded="props.expand"
+                :aria-label="`Execution history for ${props.row.name}`"
+                :icon="props.expand ? 'expand_less' : 'history'"
+                dense
+                flat
+                round
+                @click="toggleTaskHistory(props.row.id, props)">
+                <q-tooltip>{{ props.expand ? 'Hide history' : 'Show history' }}</q-tooltip>
+              </q-btn>
+              <q-btn
+                :aria-label="`Edit ${props.row.name}`"
+                dense
+                flat
+                icon="edit"
+                round
+                @click="openEditDialog(props.row)">
+                <q-tooltip>Edit</q-tooltip>
+              </q-btn>
+              <q-btn
+                :aria-label="`Delete ${props.row.name}`"
+                class="text-error-brighter"
+                dense
+                flat
+                icon="delete"
+                round
+                @click="confirmDelete(props.row)">
+                <q-tooltip>Delete</q-tooltip>
+              </q-btn>
+            </div>
           </q-td>
         </q-tr>
         <q-tr v-show="props.expand" :id="`task-history-${props.row.id}`" :props="props">
@@ -668,6 +691,19 @@ function confirmDelete(task: ScheduledTask): void {
 .schedule-latest-result > span:last-child {
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+/* In the table the message stays on one line; the tooltip carries the rest. */
+.schedule-latest-result--clamped {
+  align-items: center;
+  max-width: 20rem;
+}
+
+.schedule-latest-result--clamped > span:last-of-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .schedule-history-state,
