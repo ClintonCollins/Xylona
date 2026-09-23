@@ -32,6 +32,8 @@ func GameServerModelStatusToProtoStatus(status string) xylona.Status {
 		return xylona.Status_INSTALLING
 	case xylona.Status_UPDATING.String():
 		return xylona.Status_UPDATING
+	case xylona.Status_PRE_START.String():
+		return xylona.Status_PRE_START
 	}
 
 	if len(status) == 1 {

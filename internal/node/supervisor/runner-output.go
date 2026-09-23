@@ -83,6 +83,7 @@ func (c *Command) scanJobOutput(
 			}
 			log.Debug().Str("ID", c.ID).Str(logField, output).Msg("Output")
 			c.sendJobNotification(output)
+			c.observeReadyLine(output)
 			return true
 		}
 	})
@@ -110,6 +111,7 @@ func (c *Command) readTelnetOutput(telnetConnection *telnet.Conn, processDone <-
 		default:
 		}
 		c.sendJobNotification(telnetOut)
+		c.observeReadyLine(telnetOut)
 		return true
 	})
 	log.Debug().Str("Game Server ID", c.ID).Msg("Telnet listener stopped")

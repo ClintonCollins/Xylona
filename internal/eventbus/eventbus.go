@@ -14,11 +14,21 @@ var (
 
 // Core event bus topics and buffer settings.
 const (
-	TopicGameServerCreated = "game_server_created"
-	TopicGameServerRemoved = "game_server_removed"
+	TopicGameServerCreated  = "game_server_created"
+	TopicGameServerRemoved  = "game_server_removed"
+	TopicGameServerStopping = "game_server_stopping"
 
 	ReliableBufferSize = 1024
 )
+
+// GameServerStoppingEvent is published when the controller asks a running
+// server to stop (Stopping true), and again when that request fails
+// (Stopping false). The process's own OFFLINE transition ends a stop that
+// succeeds.
+type GameServerStoppingEvent struct {
+	ServerID string
+	Stopping bool
+}
 
 // EventBus manages topic subscriptions and message delivery.
 type EventBus struct {

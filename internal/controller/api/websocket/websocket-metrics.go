@@ -661,6 +661,31 @@ func (ws *WebSocket) broadcastGameServerStatus(serverID string, serverName strin
 	}
 }
 
+func (ws *WebSocket) broadcastGameServerStopping(serverID string, stopping bool) {
+	out := &xylona.Message{
+		Type: xylona.Message_GameServerStopping,
+		GameServerStoppingUpdate: &xylona.GameServerStoppingUpdate{
+			GameServerId: serverID,
+			Stopping:     stopping,
+		},
+	}
+	byteOut, errMarshal := protojson.Marshal(out)
+	if errMarshal != nil {
+		log.Error().Err(errMarshal).Msg("Failed to marshal game server stopping update")
+		return
+	}
+
+	for _, conn := range ws.gameServerConnectionsWithAccess(serverID) {
+		if conn.melodySession.IsClosed() {
+			continue
+		}
+		errWrite := conn.melodySession.Write(byteOut)
+		if errWrite != nil {
+			log.Debug().Err(errWrite).Msg("Failed to write game server stopping update to WebSocket")
+		}
+	}
+}
+
 // BroadcastRemoteServerStatus sends a status update for a remote server to all connected WebSocket clients.
 func (ws *WebSocket) BroadcastRemoteServerStatus(serverID string, serverName string, status xylona.Status) {
 	ws.broadcastGameServerStatus(serverID, serverName, status)

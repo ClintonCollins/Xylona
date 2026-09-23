@@ -169,6 +169,7 @@ func NewInstance(
 	m.HandleDisconnect(inst.handleDisconnect)
 	m.HandleMessage(inst.handleMessage)
 	go inst.subscribeLocalGameServerStatusChanges()
+	go inst.subscribeGameServerStopping()
 	return inst, inst.handleRequest
 }
 

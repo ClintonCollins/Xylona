@@ -700,8 +700,8 @@ func (xs *XylonaService) RestartGameServer(ctx context.Context, request *connect
 	if errStatus != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("confirm game server status before restart: %w", errStatus))
 	}
-	if status != xylona.Status_ONLINE {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server must be online to restart"))
+	if status != xylona.Status_ONLINE && status != xylona.Status_PRE_START {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server must be running to restart"))
 	}
 	errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
 	if errStop != nil {

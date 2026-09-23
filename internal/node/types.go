@@ -113,6 +113,11 @@ type ProcessConfig struct {
 	// lifecycle broadcasts and alert evaluation while retaining supervision.
 	SuppressStatusEvents bool
 
+	// Readiness, when set on an ONLINE start, reports PRE_START from spawn
+	// until the game is ready for players. Remote nodes that predate it
+	// report ONLINE at spawn.
+	Readiness *ProcessReadiness
+
 	// InputTelnet, when non-zero, configures the process to receive console
 	// input over telnet (used by games like 7 Days to Die that don't accept
 	// stdin). Remote controllers must verify the node's TelnetInput runtime
@@ -146,6 +151,17 @@ type ProcessConfig struct {
 	// Typed as interface{} to avoid pulling the models package into
 	// internal/node; the in-process client type-asserts.
 	InternalGameServer any
+}
+
+// ProcessReadiness lists the signals that move a started game server from
+// PRE_START to ONLINE. Whichever arrives first wins; Timeout (default five
+// minutes) reports ONLINE when neither does.
+type ProcessReadiness struct {
+	// LogPattern is a regular expression matched against each console line.
+	LogPattern string
+	// Query is probed from the node until the game answers it.
+	Query   *GameServerQueryRequest
+	Timeout time.Duration
 }
 
 // TelnetInput configures telnet-based console input for a process.
@@ -957,6 +973,20 @@ type GameServerQueryResult struct {
 	Palworld  *PalworldQueryInfo
 }
 
+// Responded reports whether the game answered the probe.
+func (r GameServerQueryResult) Responded() bool {
+	switch r.Kind {
+	case GameServerQueryKindMinecraft:
+		return r.Minecraft != nil && r.Minecraft.Responded
+	case GameServerQueryKindSource:
+		return r.Source != nil && r.Source.Responded
+	case GameServerQueryKindPalworld:
+		return r.Palworld != nil && r.Palworld.Responded
+	default:
+		return false
+	}
+}
+
 // IsConfigured reports whether the policy has any fields worth checking. If
 // both fields are empty the node will skip the protected-path check.
 func (p ProtectionPolicy) IsConfigured() bool {
@@ -1048,7 +1078,7 @@ type NodeSnapshot struct {
 	Collected time.Time
 }
 
-// RunningGameServerCount counts running, installing or updating processes whose ID
+// RunningGameServerCount counts running, starting, installing or updating processes whose ID
 // is one of gameServerIDs. Companion processes such as the BlueMap renderer share
 // the supervisor but are not game servers, so they never count.
 func (s *NodeSnapshot) RunningGameServerCount(gameServerIDs map[string]struct{}) int {
@@ -1058,7 +1088,8 @@ func (s *NodeSnapshot) RunningGameServerCount(gameServerIDs map[string]struct{})
 			continue
 		}
 		switch process.Status {
-		case xylona.Status_ONLINE.String(), xylona.Status_INSTALLING.String(), xylona.Status_UPDATING.String():
+		case xylona.Status_ONLINE.String(), xylona.Status_PRE_START.String(),
+			xylona.Status_INSTALLING.String(), xylona.Status_UPDATING.String():
 			count++
 		}
 	}

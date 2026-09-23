@@ -1481,6 +1481,11 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 			"XYLONA_TEST_TOKEN": "secret-value",
 		},
 		InputTelnet: &node.TelnetInput{Port: 8081, Password: t.Name()},
+		Readiness: &node.ProcessReadiness{
+			LogPattern: `Done \(`,
+			Query:      &node.GameServerQueryRequest{Kind: node.GameServerQueryKindMinecraft, IP: "127.0.0.1", QueryPort: 25565},
+			Timeout:    90 * time.Second,
+		},
 	}
 	errStart := client.StartProcess(t.Context(), cfg, xylona.Status_ONLINE)
 	if errStart != nil {
@@ -1507,6 +1512,12 @@ func TestGRPCClientStartProcessSendsNormalizedRequest(t *testing.T) {
 	}
 	if got.GetTelnetInput().GetPort() != 8081 || got.GetTelnetInput().GetPassword() != t.Name() {
 		t.Fatalf("telnet input = %+v", got.GetTelnetInput())
+	}
+	readiness := got.GetReadiness()
+	if readiness.GetLogPattern() != `Done \(` || readiness.GetTimeoutSeconds() != 90 ||
+		readiness.GetQuery().GetKind() != nodeprotov1.GameServerQueryKind_GAME_SERVER_QUERY_KIND_MINECRAFT ||
+		readiness.GetQuery().GetQueryPort() != 25565 {
+		t.Fatalf("readiness = %+v", readiness)
 	}
 }
 

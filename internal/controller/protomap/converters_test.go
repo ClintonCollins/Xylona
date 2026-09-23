@@ -24,6 +24,7 @@ func TestGameServerModelStatusToProtoStatusCases(t *testing.T) {
 		{name: "UNKNOWN uppercase", input: "UNKNOWN", want: xylona.Status_UNKNOWN},
 		{name: "INSTALLING uppercase", input: "INSTALLING", want: xylona.Status_INSTALLING},
 		{name: "UPDATING uppercase", input: "UPDATING", want: xylona.Status_UPDATING},
+		{name: "PRE_START uppercase", input: "PRE_START", want: xylona.Status_PRE_START},
 		{name: "online lowercase", input: "online", want: xylona.Status_ONLINE},
 		{name: "offline lowercase", input: "offline", want: xylona.Status_OFFLINE},
 		{name: "unknown lowercase", input: "unknown", want: xylona.Status_UNKNOWN},

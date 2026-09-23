@@ -231,6 +231,15 @@ func (c *GRPCNodeClient) StartProcess(ctx context.Context, cfg node.ProcessConfi
 			PreviousPasswords: slices.Clone(cfg.InputREST.PreviousPasswords),
 		}
 	}
+	if cfg.Readiness != nil {
+		msg.Readiness = &nodeprotov1.ProcessReadiness{
+			LogPattern:     cfg.Readiness.LogPattern,
+			TimeoutSeconds: int64(cfg.Readiness.Timeout / time.Second),
+		}
+		if query := cfg.Readiness.Query; query != nil {
+			msg.Readiness.Query = queryGameServerRequestToProto(*query)
+		}
+	}
 	req := newReq(c, msg)
 
 	_, errRPC := c.connectClient.StartProcess(ctx, req)
@@ -743,14 +752,7 @@ func (c *GRPCNodeClient) ProbeInstalledVersion(ctx context.Context, probe node.I
 
 // QueryGameServer invokes the QueryGameServer RPC.
 func (c *GRPCNodeClient) QueryGameServer(ctx context.Context, queryReq node.GameServerQueryRequest) (node.GameServerQueryResult, error) {
-	req := newReq(c, &nodeprotov1.QueryGameServerRequest{
-		Kind:       gameServerQueryKindToProto(queryReq.Kind),
-		Ip:         queryReq.IP,
-		QueryPort:  queryReq.QueryPort,
-		MaxPlayers: queryReq.MaxPlayers,
-		Username:   queryReq.Username,
-		Password:   queryReq.Password,
-	})
+	req := newReq(c, queryGameServerRequestToProto(queryReq))
 	resp, errRPC := c.connectClient.QueryGameServer(ctx, req)
 	if errRPC != nil {
 		return node.GameServerQueryResult{}, translateError("query game server", errRPC)
@@ -761,6 +763,17 @@ func (c *GRPCNodeClient) QueryGameServer(ctx context.Context, queryReq node.Game
 		Source:    sourceQueryFromProto(resp.Msg.GetSource()),
 		Palworld:  palworldQueryFromProto(resp.Msg.GetPalworld()),
 	}, nil
+}
+
+func queryGameServerRequestToProto(queryReq node.GameServerQueryRequest) *nodeprotov1.QueryGameServerRequest {
+	return &nodeprotov1.QueryGameServerRequest{
+		Kind:       gameServerQueryKindToProto(queryReq.Kind),
+		Ip:         queryReq.IP,
+		QueryPort:  queryReq.QueryPort,
+		MaxPlayers: queryReq.MaxPlayers,
+		Username:   queryReq.Username,
+		Password:   queryReq.Password,
+	}
 }
 
 // QueryPalworldMap invokes the dedicated sanitized live-map RPC.

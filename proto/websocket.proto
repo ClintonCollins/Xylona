@@ -25,6 +25,14 @@ message GameServerStatusUpdate {
   string game_server_name = 3;
 }
 
+// GameServerStoppingUpdate says the controller asked a server to stop and is
+// waiting for its process to exit. The next status update ends the phase;
+// stopping = false ends it early when the stop request failed.
+message GameServerStoppingUpdate {
+  string game_server_id = 1;
+  bool stopping = 2;
+}
+
 message GameServerVersionUpdate {
   string game_server_id = 1;
   string version = 2;
@@ -93,6 +101,7 @@ message Message {
     GameServerVersion = 9;
     GameServerBackupProgress = 10;
     SystemUpdateProgress = 11;
+    GameServerStopping = 12;
   }
   Type type = 1;
   optional GameServerConsoleOutput game_server_console_output = 2;
@@ -106,6 +115,7 @@ message Message {
   optional GameServerVersionUpdate game_server_version_update = 10;
   optional BackupProgress backup_progress = 11;
   optional SystemUpdateProgress system_update_progress = 12;
+  optional GameServerStoppingUpdate game_server_stopping_update = 13;
 }
 
 message ServerSoftwareInstallUpdate {

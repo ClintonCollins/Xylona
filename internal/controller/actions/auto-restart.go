@@ -115,7 +115,7 @@ func (inst *Instance) onStatusChanged(event eventbus.StatusChangedEvent) {
 	}
 
 	oldStatus := strings.ToUpper(strings.TrimSpace(event.OldStatus))
-	if oldStatus != xylona.Status_ONLINE.String() {
+	if oldStatus != xylona.Status_ONLINE.String() && oldStatus != xylona.Status_PRE_START.String() {
 		log.Debug().
 			Str("game_server_id", event.ServerID).
 			Str("old_status", oldStatus).

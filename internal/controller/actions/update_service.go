@@ -824,8 +824,10 @@ func waitForServerOnline(
 		default:
 		}
 
+		// A server still starting up is running again; readiness can take
+		// minutes and must not read as a failed restart.
 		status, ok := statusLookup()
-		if ok && status == xylona.Status_ONLINE {
+		if ok && (status == xylona.Status_ONLINE || status == xylona.Status_PRE_START) {
 			return true
 		}
 		if i == attempts-1 {

@@ -105,6 +105,7 @@ func (r *registryServerMetricsProvider) ListServerMetrics() []serverMetricsSnaps
 		}
 		for _, ps := range snap.Processes {
 			processStatusCanHaveMetrics := ps.Status == xylona.Status_ONLINE.String() ||
+				ps.Status == xylona.Status_PRE_START.String() ||
 				ps.Status == xylona.Status_INSTALLING.String() ||
 				ps.Status == xylona.Status_UPDATING.String()
 			metricsValid := processStatusCanHaveMetrics && ps.MetricsValid

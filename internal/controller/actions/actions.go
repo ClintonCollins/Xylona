@@ -702,6 +702,7 @@ func (inst *Instance) StartGameServer(gameServer *models.GameServer) (*StartGame
 		cfg.StopTimeout = 120 * time.Second
 	}
 	adminInput.apply(&cfg)
+	cfg.Readiness = inst.startReadiness(gameServer)
 
 	launchEnvRequired := startLaunchEnvRequired(normalLaunchEnv, secretLaunchEnvStates) || readiness.RequiresLaunchEnv(gameServer)
 	errLaunchEnvSupported := inst.ensureLaunchEnvSupported(client, launchEnvRequired)
@@ -1019,8 +1020,17 @@ func (inst *Instance) StopGameServer(ctx context.Context, gameServer *models.Gam
 		return fmt.Errorf("actions: stop game server: resolve node client: %w", errClient)
 	}
 
+	// Every view shows the stop, not just the one that asked for it.
+	status := inst.currentProcessStatus(gameServer)
+	announceStopping := status == xylona.Status_ONLINE || status == xylona.Status_PRE_START
+	if announceStopping {
+		publishGameServerStopping(gameServer.ID, true)
+	}
 	errStop := client.StopProcess(ctx, gameServer.ID, gameStopCommand(gameServer.R.Game, nodeOS))
 	if errStop != nil {
+		if announceStopping {
+			publishGameServerStopping(gameServer.ID, false)
+		}
 		if errors.Is(errStop, node.ErrProcessNotFound) || errors.Is(errStop, os.ErrNotExist) {
 			inst.intentionalStops.clear(gameServer.ID)
 			return nil
@@ -1029,6 +1039,13 @@ func (inst *Instance) StopGameServer(ctx context.Context, gameServer *models.Gam
 		return fmt.Errorf("actions: stop game server process on node %q: %w", gameServer.NodeID, errStop)
 	}
 	return nil
+}
+
+func publishGameServerStopping(gameServerID string, stopping bool) {
+	eventbus.Get().Publish(eventbus.TopicGameServerStopping, eventbus.GameServerStoppingEvent{
+		ServerID: gameServerID,
+		Stopping: stopping,
+	})
 }
 
 // UpdateGameServer starts the configured update flow for a game server.

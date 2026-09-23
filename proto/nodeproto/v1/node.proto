@@ -206,6 +206,21 @@ message StartProcessRequest {
   repeated string redact_values = 19;
   string game_id = 20;
   string runtime_mode = 21;
+  // readiness, when set on an ONLINE start, keeps the process in PRE_START
+  // until the game is ready for players. Older nodes ignore it and report
+  // ONLINE at spawn.
+  ProcessReadiness readiness = 22;
+}
+
+// ProcessReadiness lists the signals that move a started game server from
+// PRE_START to ONLINE. Whichever arrives first wins.
+message ProcessReadiness {
+  // log_pattern is a regular expression matched against each console line.
+  string log_pattern = 1;
+  // query is probed from the node until the game answers it.
+  QueryGameServerRequest query = 2;
+  // timeout_seconds bounds the wait; the node reports ONLINE when it expires.
+  int64 timeout_seconds = 3;
 }
 
 message TelnetInput {
