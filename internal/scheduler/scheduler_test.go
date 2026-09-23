@@ -1,8 +1,11 @@
 package scheduler
 
 import (
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
 func TestNextRun(t *testing.T) {
@@ -67,6 +70,50 @@ func TestNextRun(t *testing.T) {
 			}
 			if !got.Equal(tt.want) {
 				t.Fatalf("NextRun(%q, %q) = %v, want %v", tt.cron, tt.timezone, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUTCTasksOffHostClock(t *testing.T) {
+	t.Parallel()
+
+	london, errLoad := time.LoadLocation("Europe/London")
+	if errLoad != nil {
+		t.Fatalf("LoadLocation(Europe/London) error = %v", errLoad)
+	}
+	winter := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	tasks := []*models.ScheduledTask{
+		{Name: "utc restart", Timezone: "UTC"},
+		{Name: "unset zone", Timezone: ""},
+		{Name: "chicago backup", Timezone: "America/Chicago"},
+	}
+
+	tests := []struct {
+		name  string
+		local *time.Location
+		want  []string
+	}{
+		{name: "UTC host keeps its run times", local: time.UTC, want: nil},
+		{
+			name:  "offset host lists UTC tasks",
+			local: time.FixedZone("CDT", -5*60*60),
+			want:  []string{"utc restart", "unset zone"},
+		},
+		{
+			name:  "host on UTC only in winter still lists them",
+			local: london,
+			want:  []string{"utc restart", "unset zone"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := utcTasksOffHostClock(tasks, tt.local, winter)
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("utcTasksOffHostClock() = %v, want %v", got, tt.want)
 			}
 		})
 	}

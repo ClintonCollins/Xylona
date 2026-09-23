@@ -98,6 +98,12 @@ func (s *Scheduler) Start() error {
 		}
 	}
 
+	shifted := utcTasksOffHostClock(tasks, time.Local, time.Now())
+	if len(shifted) > 0 {
+		log.Warn().Strs("tasks", shifted).
+			Msg("Scheduled tasks set to UTC now run on UTC. Earlier versions ran them on this host's local clock, so check that their run times are still right")
+	}
+
 	s.scheduler.Start()
 
 	go s.backgroundLogPruner()
@@ -156,6 +162,25 @@ func cronSpec(cronExpression, timezone string) string {
 		timezone = "UTC"
 	}
 	return fmt.Sprintf("CRON_TZ=%s %s", timezone, cronExpression)
+}
+
+// utcTasksOffHostClock names the tasks set to UTC when the host clock is not
+// UTC at some point in the year. Before cronSpec made the zone explicit these
+// ran on the host's local clock, so after an upgrade they fire at a different
+// wall-clock time.
+func utcTasksOffHostClock(tasks []*models.ScheduledTask, local *time.Location, now time.Time) []string {
+	_, offsetNow := now.In(local).Zone()
+	_, offsetLater := now.AddDate(0, 6, 0).In(local).Zone()
+	if offsetNow == 0 && offsetLater == 0 {
+		return nil
+	}
+	var names []string
+	for _, task := range tasks {
+		if task.Timezone == "" || task.Timezone == "UTC" {
+			names = append(names, task.Name)
+		}
+	}
+	return names
 }
 
 // NextRun parses a schedule exactly as the scheduler does and returns its
