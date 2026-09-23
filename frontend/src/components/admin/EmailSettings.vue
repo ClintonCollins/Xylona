@@ -43,7 +43,6 @@
         aria-label="Email delivery provider"
         class="provider-toggle q-mt-lg"
         no-caps
-        outline
         spread
         toggle-color="primary"
         unelevated />
@@ -160,99 +159,114 @@
           </div>
         </div>
 
-        <div class="google-setup q-mt-lg">
-          <h4 class="text-subtitle2 q-my-none">Google Cloud setup</h4>
-          <ol>
-            <li>
-              Create or select a Google Cloud project and
-              <a
-                href="https://console.cloud.google.com/apis/library/gmail.googleapis.com"
-                rel="noopener noreferrer"
-                target="_blank"
-                >enable the Gmail API</a
-              >.
-            </li>
-            <li>
-              Configure the OAuth consent screen. Add the account as a test user while testing; for
-              durable unattended delivery, publish the app because Testing refresh tokens expire
-              after seven days. External apps may also need Google OAuth verification before
-              production use.
-            </li>
-            <li>
-              Create an OAuth client with application type <strong>Web application</strong> and add
-              the redirect URI below exactly.
-            </li>
-          </ol>
+        <q-btn
+          v-if="googleConnected"
+          :aria-expanded="googleSetupOpen ? 'true' : 'false'"
+          aria-controls="google-setup-details"
+          class="q-mt-md"
+          dense
+          flat
+          :icon="googleSetupOpen ? 'expand_less' : 'expand_more'"
+          :label="googleSetupOpen ? 'Hide Google Cloud setup' : 'Show Google Cloud setup'"
+          no-caps
+          @click="googleSetupOpen = !googleSetupOpen" />
 
-          <q-input
-            :model-value="googleRedirectURI"
-            aria-label="Google OAuth redirect URI"
-            class="redirect-uri-field"
-            dense
-            label="Authorized Redirect URI"
-            outlined
-            readonly>
-            <template #append>
-              <q-btn
-                aria-label="Copy Google OAuth redirect URI"
+        <div v-show="!googleConnected || googleSetupOpen" id="google-setup-details">
+          <div class="google-setup q-mt-lg">
+            <h4 class="text-subtitle2 q-my-none">Google Cloud setup</h4>
+            <ol>
+              <li>
+                Create or select a Google Cloud project and
+                <a
+                  href="https://console.cloud.google.com/apis/library/gmail.googleapis.com"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                  >enable the Gmail API</a
+                >.
+              </li>
+              <li>
+                Configure the OAuth consent screen. Add the account as a test user while testing;
+                for durable unattended delivery, publish the app because Testing refresh tokens
+                expire after seven days. External apps may also need Google OAuth verification
+                before production use.
+              </li>
+              <li>
+                Create an OAuth client with application type <strong>Web application</strong> and
+                add the redirect URI below exactly.
+              </li>
+            </ol>
+
+            <q-input
+              :model-value="googleRedirectURI"
+              aria-label="Google OAuth redirect URI"
+              class="redirect-uri-field"
+              dense
+              label="Authorized Redirect URI"
+              outlined
+              readonly>
+              <template #append>
+                <q-btn
+                  aria-label="Copy Google OAuth redirect URI"
+                  dense
+                  flat
+                  icon="content_copy"
+                  round
+                  @click="copyRedirectURI" />
+              </template>
+            </q-input>
+            <div v-if="!googleRedirectSecure" class="redirect-warning q-mt-sm" role="alert">
+              <q-icon aria-hidden="true" name="warning" />
+              Google requires HTTPS redirect URIs except on localhost.
+            </div>
+          </div>
+
+          <div class="row q-col-gutter-md q-mt-sm">
+            <div class="col-12">
+              <q-input
+                v-model="googleClientID"
+                aria-label="Google OAuth client ID"
+                autocomplete="off"
                 dense
-                flat
-                icon="content_copy"
-                round
-                @click="copyRedirectURI" />
-            </template>
-          </q-input>
-          <div v-if="!googleRedirectSecure" class="redirect-warning q-mt-sm" role="alert">
-            <q-icon aria-hidden="true" name="warning" />
-            Google requires HTTPS redirect URIs except on localhost.
-          </div>
-        </div>
-
-        <div class="row q-col-gutter-md q-mt-sm">
-          <div class="col-12">
-            <q-input
-              v-model="googleClientID"
-              aria-label="Google OAuth client ID"
-              autocomplete="off"
-              dense
-              label="OAuth Client ID"
-              outlined
-              placeholder="000000000000-example.apps.googleusercontent.com" />
-          </div>
-          <div class="col-12">
-            <q-input
-              v-model="googleClientSecret"
-              :hint="
-                googleClientSecretConfigured
-                  ? 'A client secret is stored. Leave blank to keep it.'
-                  : 'Stored encrypted after Google authorization succeeds.'
-              "
-              aria-label="Google OAuth client secret"
-              autocomplete="new-password"
-              dense
-              label="OAuth Client Secret"
-              outlined
-              type="password" />
+                label="OAuth Client ID"
+                outlined
+                placeholder="000000000000-example.apps.googleusercontent.com" />
+            </div>
+            <div class="col-12">
+              <q-input
+                v-model="googleClientSecret"
+                :hint="
+                  googleClientSecretConfigured
+                    ? 'A client secret is stored. Leave blank to keep it.'
+                    : 'Stored encrypted after Google authorization succeeds.'
+                "
+                aria-label="Google OAuth client secret"
+                autocomplete="new-password"
+                dense
+                label="OAuth Client Secret"
+                outlined
+                type="password" />
+            </div>
           </div>
         </div>
 
         <div class="provider-actions q-mt-lg">
           <q-btn
+            v-if="googleActive"
+            :loading="testing"
+            color="primary"
+            label="Send Test Email"
+            no-caps
+            unelevated
+            @click="testEmail" />
+          <q-btn
+            :color="googleActive ? undefined : 'primary'"
             :disable="!googleRedirectSecure || !googleCredentialsReady"
             :loading="connectingGoogle"
-            color="primary"
             icon="login"
             :label="googleConnected ? 'Reconnect Google' : 'Connect Google'"
             no-caps
+            :outline="googleActive"
             @click="beginGoogleConnection" />
-          <q-btn
-            v-if="googleConnected"
-            :disable="activeProvider !== SystemEmailProvider.GOOGLE"
-            :loading="testing"
-            label="Send Test Email"
-            no-caps
-            outline
-            @click="testEmail" />
           <q-btn
             v-if="googleConnected"
             :loading="disconnectingGoogle"
@@ -316,6 +330,9 @@ const googleClientSecret = ref('')
 const googleClientSecretConfigured = ref(false)
 const googleConnected = ref(false)
 const googleEmail = ref('')
+const googleSetupOpen = ref(false)
+// Whether the saved SMTP settings could take over, not the unsaved form.
+const storedManualReady = ref(false)
 
 const providerOptions = [
   { label: 'Manual SMTP', value: 'smtp', icon: 'dns' },
@@ -342,6 +359,19 @@ const googleRedirectSecure = computed(() => {
   if (typeof window === 'undefined') return false
   if (window.location.protocol === 'https:') return true
   return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+})
+
+const googleActive = computed(
+  () => googleConnected.value && activeProvider.value === SystemEmailProvider.GOOGLE,
+)
+
+const googleDisconnectOutcome = computed(() => {
+  if (activeProvider.value === SystemEmailProvider.SMTP)
+    return 'Email delivery stays on Manual SMTP.'
+  if (activeProvider.value !== SystemEmailProvider.GOOGLE) return ''
+  return storedManualReady.value
+    ? 'Email delivery switches to Manual SMTP.'
+    : 'Email notifications will stop until you configure a provider.'
 })
 
 const googleCredentialsReady = computed(
@@ -441,6 +471,7 @@ async function loadConfig(): Promise<void> {
     storedGoogleClientID.value = config.googleClientId
     googleClientSecret.value = ''
     googleEmail.value = config.googleEmail
+    storedManualReady.value = manualConfigured.value
   } catch (unknownError: unknown) {
     loadError.value = ConnectErrorToString(ConnectError.from(unknownError))
   } finally {
@@ -468,6 +499,7 @@ async function saveManualSMTP(): Promise<void> {
     activeProvider.value = SystemEmailProvider.SMTP
     hasExistingPassword.value = true
     password.value = ''
+    storedManualReady.value = true
     Notify.create({
       type: 'xylona-success',
       position: 'top',
@@ -501,10 +533,9 @@ async function beginGoogleConnection(): Promise<void> {
 function confirmGoogleDisconnect(): void {
   $q.dialog({
     title: 'Disconnect Google account?',
-    message:
-      'Xylona will revoke its Google access and remove the stored refresh token. Email delivery may switch back to saved SMTP settings.',
-    cancel: true,
-    persistent: false,
+    message: `Xylona will revoke its Google access and remove the stored refresh token. ${googleDisconnectOutcome.value}`,
+    cancel: { flat: true, label: 'Cancel' },
+    persistent: true,
     ok: {
       label: 'Disconnect',
       color: 'negative',

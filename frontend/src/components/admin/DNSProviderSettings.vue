@@ -54,7 +54,6 @@
         aria-label="DNS provider"
         class="provider-toggle q-mt-lg"
         no-caps
-        outline
         spread
         toggle-color="primary"
         unelevated
@@ -471,18 +470,26 @@ onMounted(loadConnection)
 </script>
 
 <style scoped>
+/* Matches EmailSettings, the section above it on Controller Settings. */
 .dns-provider-settings {
-  max-width: 960px;
+  max-width: 68rem;
   margin-top: var(--xy-space-xl);
 }
 
 .dns-provider-description,
 .provider-copy,
 .action-note {
-  max-width: 72ch;
+  max-width: 70ch;
   margin: var(--xy-space-xs) 0 0;
   color: var(--xy-text-secondary);
+}
+
+.action-note {
   font-size: var(--xy-font-size-sm);
+}
+
+.provider-toggle {
+  width: min(100%, 34rem);
 }
 
 .dns-status-strip,
@@ -495,8 +502,8 @@ onMounted(loadConnection)
 .dns-status-strip {
   display: flex;
   align-items: center;
-  gap: var(--xy-space-base);
-  padding: var(--xy-space-md);
+  gap: var(--xy-space-sm);
+  padding: var(--xy-space-base) var(--xy-space-md);
 }
 
 .dns-status-title {
@@ -506,12 +513,12 @@ onMounted(loadConnection)
 
 .dns-status-detail {
   color: var(--xy-text-secondary);
-  font-size: var(--xy-font-size-xs);
+  font-size: var(--xy-font-size-sm);
   overflow-wrap: anywhere;
 }
 
 .dns-provider-panel {
-  padding: var(--xy-space-md);
+  padding: var(--xy-space-lg);
 }
 
 .provider-title {
@@ -541,8 +548,9 @@ onMounted(loadConnection)
   color: var(--xy-text-secondary);
 }
 
+/* No fixed width: on a phone the menu is narrower than 27rem, so the content wraps inside it. */
 .permission-help-content {
-  width: min(27rem, calc(100vw - var(--xy-space-xl)));
+  max-width: min(27rem, calc(100vw - var(--xy-space-xl)));
   padding: var(--xy-space-md);
 }
 
@@ -591,6 +599,10 @@ onMounted(loadConnection)
 }
 
 @media (max-width: 599px) {
+  .dns-provider-panel {
+    padding: var(--xy-space-md);
+  }
+
   .zone-heading,
   .provider-actions {
     align-items: stretch;

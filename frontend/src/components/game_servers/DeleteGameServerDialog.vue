@@ -6,7 +6,7 @@
     persistent>
     <q-card>
       <q-card-section>
-        <div id="dialog-title" class="text-h6 text-error">Delete Game Server</div>
+        <div id="dialog-title" class="text-h6 text-negative">Delete Game Server</div>
       </q-card-section>
       <q-card-section>
         <div class="row wrap q-col-gutter-md justify-between">
@@ -14,7 +14,7 @@
             Are you sure you want to delete
             {{ gameServers.length === 1 ? 'this game server' : 'these game servers' }}?
             <br />
-            <span class="text-info">{{ gameServers.map((gs) => gs.name).join(', ') }}</span>
+            <span class="text-weight-bold">{{ gameServers.map((gs) => gs.name).join(', ') }}</span>
             <br />
             <br />
             <span class="text-warning">

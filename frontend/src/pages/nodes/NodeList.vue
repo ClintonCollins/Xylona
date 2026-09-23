@@ -126,12 +126,13 @@
                   </q-btn>
                   <q-btn
                     :to="{ path: '/admin/updates', query: { nodeId: props.row.id } }"
-                    :aria-label="`Update ${props.row.name || 'node'}`"
+                    :aria-label="`Check ${props.row.name || 'node'} for updates`"
                     flat
                     icon="system_update_alt">
-                    <q-tooltip>Update node</q-tooltip>
+                    <q-tooltip>Check for updates</q-tooltip>
                   </q-btn>
                   <q-btn
+                    v-if="!props.row.local"
                     :aria-label="`Remove ${props.row.name || 'node'}`"
                     class="text-error-brighter"
                     flat
@@ -264,14 +265,15 @@
                 </q-btn>
                 <q-btn
                   :to="{ path: '/admin/updates', query: { nodeId: props.row.id } }"
-                  :aria-label="`Update ${props.row.name || 'node'}`"
+                  :aria-label="`Check ${props.row.name || 'node'} for updates`"
                   dense
                   flat
                   icon="system_update_alt"
                   round>
-                  <q-tooltip>Update node</q-tooltip>
+                  <q-tooltip>Check for updates</q-tooltip>
                 </q-btn>
                 <q-btn
+                  v-if="!props.row.local"
                   :aria-label="`Remove ${props.row.name || 'node'}`"
                   class="text-error-brighter"
                   dense
@@ -317,9 +319,10 @@
             dense
             flat
             icon="system_update_alt"
-            label="Update" />
+            label="Updates" />
           <q-btn :to="'/nodes/' + detailNode.id + '/edit'" dense flat icon="edit" label="Edit" />
           <q-btn
+            v-if="!detailNode.local"
             class="text-error-brighter"
             icon="delete"
             dense
@@ -346,19 +349,38 @@
       </empty-state>
     </div>
 
-    <q-dialog v-model="showDeleteDialog" aria-labelledby="dialog-title">
-      <q-card>
+    <q-dialog v-model="showDeleteDialog" aria-labelledby="node-remove-dialog-title" persistent>
+      <q-card class="node-remove-dialog">
         <q-card-section>
-          <div id="dialog-title" class="text-h6">Remove Node</div>
+          <div id="node-remove-dialog-title" class="text-h6 text-negative">Remove Node</div>
         </q-card-section>
         <q-card-section>
-          Are you sure you want to remove the node
-          <strong>{{ selectedNodeForDelete?.name || selectedNodeForDelete?.baseUrl }}</strong
-          >? This will also remove all cached remote server data from this node.
+          <p class="q-mb-none">
+            Are you sure you want to remove the node
+            <strong>{{ selectedNodeForDelete?.name || selectedNodeForDelete?.baseUrl }}</strong
+            >? This will also remove all cached remote server data from this node.
+          </p>
+          <q-banner
+            v-if="selectedNodeServerCount > 0"
+            class="xy-banner-negative q-mt-md"
+            dense
+            role="alert">
+            {{ serverCountLabel(selectedNodeServerCount) }} still on this node. Move or delete
+            {{ selectedNodeServerCount === 1 ? 'it' : 'them' }} before removing the node.
+          </q-banner>
+          <q-banner v-if="removeError" class="xy-banner-negative q-mt-md" dense role="alert">
+            {{ removeError }}
+          </q-banner>
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn v-close-popup flat label="Cancel" />
-          <q-btn color="negative" flat label="Remove" @click="confirmDelete" />
+          <q-btn :disable="removing" flat label="Cancel" @click="showDeleteDialog = false" />
+          <q-btn
+            :disable="selectedNodeServerCount > 0"
+            :loading="removing"
+            color="negative"
+            label="Remove"
+            unelevated
+            @click="confirmDelete" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -410,6 +432,14 @@ const metricsLoading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteDialog = ref(false)
 const selectedNodeForDelete = ref<Node | null>(null)
+const removing = ref(false)
+const removeError = ref('')
+// Known once metrics load; the server refuses the removal either way.
+const selectedNodeServerCount = computed(() =>
+  selectedNodeForDelete.value
+    ? (getSnapshot(selectedNodeForDelete.value.id)?.gameServerCount ?? 0)
+    : 0,
+)
 const nowMs = ref(Date.now())
 let clockTimer: ReturnType<typeof setInterval> | null = null
 const dashboardSummaries = ref<DashboardNodeSummary[]>([])
@@ -607,11 +637,18 @@ function openDetail(node: Node) {
 
 function deleteNodeAction(node: Node) {
   selectedNodeForDelete.value = node
+  removeError.value = ''
   showDeleteDialog.value = true
 }
 
+function serverCountLabel(count: number): string {
+  return count === 1 ? '1 game server is' : `${count} game servers are`
+}
+
 async function confirmDelete() {
-  if (!selectedNodeForDelete.value) return
+  if (!selectedNodeForDelete.value || removing.value) return
+  removing.value = true
+  removeError.value = ''
   try {
     await GetXylonaClient().removeNode(
       create(RemoveNodeRequestSchema, { nodeId: selectedNodeForDelete.value.id }),
@@ -623,16 +660,9 @@ async function confirmDelete() {
     selectedNodeForDelete.value = null
     await fetchAll()
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    Notify.create({
-      type: 'xylona-error',
-      position: 'top',
-      caption: ConnectErrorToString(err),
-      timeout: 0,
-      closeBtn: 'Dismiss',
-      icon: 'report_problem',
-    })
-    console.error(err.message)
+    removeError.value = ConnectErrorToString(ConnectError.from(unknownError))
+  } finally {
+    removing.value = false
   }
 }
 
@@ -712,6 +742,10 @@ const columns = ref([
 .badge-auto {
   background-color: var(--xy-accent);
   color: var(--xy-base);
+}
+
+.node-remove-dialog {
+  width: min(30rem, 100%);
 }
 
 .node-list__metric-skeleton {

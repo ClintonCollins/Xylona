@@ -6,7 +6,7 @@
     persistent>
     <q-card class="delete-files-dialog">
       <q-card-section>
-        <div id="dialog-title" class="text-h6 text-error">Delete Files</div>
+        <div id="dialog-title" class="text-h6 text-negative">Delete Files</div>
       </q-card-section>
       <q-card-section>
         <q-form class="q-pa-lg">

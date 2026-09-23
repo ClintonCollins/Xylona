@@ -6,7 +6,7 @@
     persistent>
     <q-card>
       <q-card-section>
-        <div id="dialog-title" class="text-h6 text-error">Delete Game</div>
+        <div id="dialog-title" class="text-h6 text-negative">Delete Game</div>
       </q-card-section>
       <q-card-section>
         <div class="row wrap q-col-gutter-md justify-between">

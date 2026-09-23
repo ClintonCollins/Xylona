@@ -1,6 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { create } from '@bufbuild/protobuf'
+import { NodeSchema } from '@/proto/shared_pb'
 import NodeForm from './NodeForm.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -11,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   routerBack: vi.fn(),
   routerPush: vi.fn(),
   generateNodePairingObject: vi.fn(),
+  getNode: vi.fn(),
 }))
 
 vi.mock('quasar', async () => {
@@ -39,6 +42,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
     generateNodePairingObject: mocks.generateNodePairingObject,
+    getNode: mocks.getNode,
   }),
 }))
 
@@ -107,6 +111,21 @@ describe('NodeForm', () => {
 
     expect(mocks.copy).toHaveBeenCalledWith(expectedCommand)
     expect(mocks.notifySuccess).toHaveBeenCalledWith('Node join command copied to clipboard')
+  })
+
+  it('replaces the Listen URL with a note for the in-process controller node', async () => {
+    mocks.getNode.mockResolvedValueOnce({
+      node: create(NodeSchema, { id: 'node-local', name: 'Controller', local: true }),
+    })
+
+    const wrapper = mount(NodeForm, {
+      global: globalStubs,
+      props: { existingNodeId: 'node-local' },
+    })
+    await flushPromises()
+
+    expect(wrapper.findAll('textarea')).toHaveLength(1)
+    expect(wrapper.text()).toContain('Runs inside the controller, so it needs no listen URL.')
   })
 
   it('leaves the add form for the node list instead of browser history', async () => {

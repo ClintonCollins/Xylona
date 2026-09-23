@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     listNodes: vi.fn(),
+    removeNode: vi.fn(),
     getDashboardOverview: vi.fn().mockResolvedValue({ nodes: [] }),
     getOrCreateWebsocketClient: vi.fn(),
     eventBus: {
@@ -56,6 +58,7 @@ vi.mock('@/utils/shared', async () => {
     ...actual,
     GetXylonaClient: () => ({
       listNodes: mocks.listNodes,
+      removeNode: mocks.removeNode,
       getDashboardOverview: mocks.getDashboardOverview,
     }),
     GetOrCreateXylonaWebsocketClient: mocks.getOrCreateWebsocketClient,
@@ -451,6 +454,43 @@ describe('NodeList', () => {
     await flushPromises()
 
     expect(viewModel.getSnapshot('node-1')?.cpuPercent).toBe(42)
+    wrapper.unmount()
+  })
+
+  it('keeps a refused removal in the dialog with the server message', async () => {
+    const remote = create(NodeSchema, { id: 'node-2', name: 'Remote Node', local: false })
+    mocks.listNodes.mockResolvedValueOnce({ nodes: [remote] })
+    mocks.getDashboardOverview.mockResolvedValue({
+      nodes: [
+        create(DashboardNodeSummarySchema, {
+          node: remote,
+          snapshot: create(NodeResourceSnapshotSchema, { gameServerCount: 2 }),
+        }),
+      ],
+    })
+    mocks.removeNode.mockRejectedValueOnce(
+      new ConnectError(
+        'move or delete the 2 game servers on this node first',
+        Code.FailedPrecondition,
+      ),
+    )
+
+    const wrapper = mount(NodeList, { global: globalStubs })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      deleteNodeAction: (node: unknown) => void
+      confirmDelete: () => Promise<void>
+      selectedNodeServerCount: number
+      removeError: string
+      showDeleteDialog: boolean
+    }
+
+    vm.deleteNodeAction(remote)
+    expect(vm.selectedNodeServerCount).toBe(2)
+    await vm.confirmDelete()
+
+    expect(vm.removeError).toBe('move or delete the 2 game servers on this node first')
+    expect(vm.showDeleteDialog).toBe(true)
     wrapper.unmount()
   })
 })

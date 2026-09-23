@@ -255,6 +255,33 @@ describe('SystemUpdates', () => {
     expect(wrapper.find('#active-update-jobs-title').exists()).toBe(false)
   })
 
+  it('says a current target is up to date instead of blocked', async () => {
+    mocks.checkSystemUpdates.mockResolvedValue({
+      updates: [
+        controllerAvailability({
+          currentVersion: '2.0.0',
+          updateAvailable: false,
+          updateable: false,
+        }),
+        controllerAvailability({
+          component: SystemUpdateComponent.NODE,
+          nodeId: 'remote-node',
+          latestVersion: '',
+          updateAvailable: false,
+          updateable: false,
+          reason: 'node is offline',
+        }),
+      ],
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+    const vm = viewModel(wrapper)
+
+    const [controller, node] = vm.updates
+    expect(controller && vm.targetActionReason(controller)).toBe('Already up to date.')
+    expect(node && vm.targetActionReason(node)).toBe('node is offline')
+  })
+
   it('keeps the idle layout stable while a Resync is pending', async () => {
     const wrapper = mountPage()
     await flushPromises()

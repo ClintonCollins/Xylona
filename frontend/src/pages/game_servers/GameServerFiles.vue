@@ -306,7 +306,7 @@
             aria-live="assertive"
             class="file-directory-state"
             role="alert">
-            <q-icon class="text-error" name="folder_off" size="2.5rem" />
+            <q-icon class="text-negative" name="folder_off" size="2.5rem" />
             <div class="text-subtitle1 text-xy-primary">Could not load this directory</div>
             <div class="file-directory-error text-caption text-xy-secondary">
               {{ directoryError }}
