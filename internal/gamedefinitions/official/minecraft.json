@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:58eec8693f5bf03fb384d29ab6796215917642a7d996613fe2cff916b9967412",
+  "content_hash": "sha256:df0f619f9bc0ebe7e8e3026890c557158c01851d656ce1f5bea64ac935c140d3",
   "game": {
     "id": "minecraft",
     "name": "Minecraft",
@@ -481,7 +481,7 @@
       "reason": "Java agents can modify server behavior unpredictably"
     },
     {
-      "pattern": "-Dlog4j2\\\\.",
+      "pattern": "-Dlog4j2\\.",
       "reason": "Log4j settings are security-managed by the game definition"
     }
   ],

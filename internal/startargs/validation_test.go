@@ -258,6 +258,20 @@ func TestValidateServerUpdate(t *testing.T) {
 			},
 			wantErrText: `blocked start argument "-Xmx32G": memory limit`,
 		},
+		{
+			name: "definition's own literal token is not blocked",
+			config: ServerConfig{
+				Definition: testDefinition(template, `[{"pattern":"^-safe","reason":"definition managed"}]`),
+			},
+		},
+		{
+			name: "operator copy of a definition-managed flag is blocked",
+			config: ServerConfig{
+				Definition:  testDefinition(template, `[{"pattern":"^-safe","reason":"definition managed"}]`),
+				PatchesJSON: `[{"id":"extra","op":"add","tokens":["-safe=false"],"afterId":"heap"}]`,
+			},
+			wantErrText: `blocked start argument "-safe=false": definition managed`,
+		},
 	}
 
 	for _, tt := range tests {

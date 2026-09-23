@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:64cf392431d676196df2ca1700c12acf04a9d3c9454f8f0869672f326a12fdbb",
+  "content_hash": "sha256:c3c25d655957588c70a1fe9ab5833da05ca9ccb843a28b6107fd71e2fe47cf90",
   "game": {
     "id": "runescape_dragonwilds",
     "name": "RuneScape: Dragonwilds",
@@ -57,69 +57,11 @@
   "config_schemas": [
     {
       "path": "RSDragonwilds/Saved/Config/Linux/DedicatedServer.ini",
-      "format": "ini",
-      "category": "Linux Server",
-      "generate_before_start": true,
-      "managed_fields": {
-        "ServerName": "game_server.server_name"
+      "platform_paths": {
+        "windows": "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini"
       },
-      "schema": {
-        "type": "object",
-        "x-groups": [
-          "Identity",
-          "Access"
-        ],
-        "properties": {
-          "OwnerId": {
-            "type": "string",
-            "title": "Owner ID",
-            "description": "RuneScape: Dragonwilds Player ID from the in-game settings menu.",
-            "default": "",
-            "required": true,
-            "x-group": "Identity",
-            "x-order": 0
-          },
-          "ServerName": {
-            "type": "string",
-            "title": "Server name",
-            "default": "My Dragonwilds Server",
-            "required": true,
-            "x-group": "Identity",
-            "x-order": 1,
-            "x-managed": {
-              "source": "game_server.server_name"
-            }
-          },
-          "DefaultWorldName": {
-            "type": "string",
-            "title": "Default world name",
-            "default": "MyWorld",
-            "required": true,
-            "x-group": "Identity",
-            "x-order": 2
-          },
-          "AdminPassword": {
-            "type": "string",
-            "title": "Admin password",
-            "default": "",
-            "required": true,
-            "x-group": "Access",
-            "x-order": 0
-          },
-          "WorldPassword": {
-            "type": "string",
-            "title": "World password",
-            "default": "",
-            "x-group": "Access",
-            "x-order": 1
-          }
-        }
-      }
-    },
-    {
-      "path": "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini",
       "format": "ini",
-      "category": "Windows Server",
+      "category": "Server",
       "generate_before_start": true,
       "managed_fields": {
         "ServerName": "game_server.server_name"

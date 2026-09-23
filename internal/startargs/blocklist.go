@@ -4,6 +4,7 @@ package startargs
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type compiledBlocklist struct {
@@ -40,12 +41,17 @@ func compileBlocklist(entries []BlocklistEntry) (*compiledBlocklist, error) {
 	return compiled, nil
 }
 
-func (bl *compiledBlocklist) validate(tokens []string) *blocklistViolation {
+// validate returns the first token that matches the blocklist, skipping
+// trusted tokens the game definition spells out itself.
+func (bl *compiledBlocklist) validate(tokens []string, trusted map[string]struct{}) *blocklistViolation {
 	if bl == nil {
 		return nil
 	}
 
 	for _, token := range tokens {
+		if _, ok := trusted[token]; ok {
+			continue
+		}
 		for _, entry := range bl.entries {
 			if !entry.regex.MatchString(token) {
 				continue
@@ -59,4 +65,20 @@ func (bl *compiledBlocklist) validate(tokens []string) *blocklistViolation {
 	}
 
 	return nil
+}
+
+// definitionTokens returns the template tokens a game definition writes out
+// literally. The blocklist guards against operator overrides, so a
+// definition's own argument (such as Minecraft's locked Log4j fix) never blocks
+// its start. Tokens that take a placeholder value stay subject to the blocklist.
+func definitionTokens(template []ArgBlock) map[string]struct{} {
+	tokens := make(map[string]struct{})
+	for _, block := range template {
+		for _, token := range block.Tokens {
+			if !strings.Contains(token, "{{") && !strings.Contains(token, "%GAMESERVER_") {
+				tokens[token] = struct{}{}
+			}
+		}
+	}
+	return tokens
 }
