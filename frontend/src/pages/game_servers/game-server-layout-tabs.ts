@@ -6,7 +6,6 @@ export interface GameServerLayoutTab {
   name: string
   to: string
   icon: string
-  exact: boolean
   group: GameServerTabGroup
   requiredPermission?: string
 }
@@ -27,7 +26,7 @@ export function buildGameServerTabs(
   const has = (perm: string) => permissions.includes(perm)
 
   const tabs: GameServerLayoutTab[] = [
-    { name: 'Console', to: `${basePath}/console`, icon: 'terminal', exact: true, group: 'Operate' },
+    { name: 'Console', to: `${basePath}/console`, icon: 'terminal', group: 'Operate' },
   ]
 
   if (hasOperations && GAME_OPERATION_PERMISSIONS.some(has)) {
@@ -35,7 +34,6 @@ export function buildGameServerTabs(
       name: 'Operations',
       to: `${basePath}/operations`,
       icon: 'admin_panel_settings',
-      exact: true,
       group: 'Operate',
     })
   }
@@ -45,7 +43,6 @@ export function buildGameServerTabs(
       name: 'Map',
       to: `${basePath}/map`,
       icon: 'public',
-      exact: true,
       group: 'Operate',
       requiredPermission: 'game_server.view',
     })
@@ -56,7 +53,6 @@ export function buildGameServerTabs(
       name: 'Configuration',
       to: `${basePath}/configuration`,
       icon: 'tune',
-      exact: true,
       group: 'Configure',
       requiredPermission: 'game_server.config',
     })
@@ -66,7 +62,6 @@ export function buildGameServerTabs(
       name: 'Files',
       to: `${basePath}/files`,
       icon: 'folder',
-      exact: true,
       group: 'Configure',
       requiredPermission: 'game_server.files.view',
     })
@@ -76,7 +71,6 @@ export function buildGameServerTabs(
       name: 'Metrics',
       to: `${basePath}/metrics`,
       icon: 'show_chart',
-      exact: true,
       group: 'Operate',
       requiredPermission: 'game_server.metrics',
     })
@@ -87,7 +81,7 @@ export function buildGameServerTabs(
         name: 'Start Command',
         to: `${basePath}/start-command`,
         icon: 'terminal',
-        exact: true,
+
         group: 'Configure',
         requiredPermission: 'game_server.settings',
       })
@@ -96,7 +90,6 @@ export function buildGameServerTabs(
       name: 'Settings',
       to: `${basePath}/settings`,
       icon: 'settings',
-      exact: true,
       group: 'Configure',
       requiredPermission: 'game_server.settings',
     })
@@ -106,7 +99,6 @@ export function buildGameServerTabs(
       name: 'Mods',
       to: `${basePath}/mods`,
       icon: 'extension',
-      exact: true,
       group: 'Configure',
       requiredPermission: 'game_server.mods',
     })
@@ -116,7 +108,6 @@ export function buildGameServerTabs(
       name: 'Schedules',
       to: `${basePath}/schedules`,
       icon: 'schedule',
-      exact: true,
       group: 'Automate',
       requiredPermission: 'game_server.scheduled_tasks',
     })
@@ -126,7 +117,6 @@ export function buildGameServerTabs(
       name: 'Backups',
       to: `${basePath}/backups`,
       icon: 'archive',
-      exact: true,
       group: 'Automate',
       requiredPermission: 'game_server.backup',
     })
@@ -136,7 +126,6 @@ export function buildGameServerTabs(
       name: 'Alerts',
       to: `${basePath}/alerts`,
       icon: 'notifications',
-      exact: true,
       group: 'Automate',
     })
   }
@@ -145,7 +134,6 @@ export function buildGameServerTabs(
       name: 'Access',
       to: `${basePath}/access`,
       icon: 'manage_accounts',
-      exact: true,
       group: 'Access',
     })
   }

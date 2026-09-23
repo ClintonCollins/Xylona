@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
         <q-separator />
         <q-card-section class="minecraft-map-dialog__content">
           <div class="minecraft-map-dialog__provider">
-            <q-icon color="accent" name="deployed_code" size="34px" />
+            <q-icon color="accent" name="view_in_ar" size="34px" />
             <div>
               <strong>BlueMap companion</strong>
               <span>
@@ -332,7 +332,9 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--xy-text-primary);
   font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-lg);
   font-weight: 500;
+  line-height: 1.2;
 }
 
 .minecraft-map-page h1 {

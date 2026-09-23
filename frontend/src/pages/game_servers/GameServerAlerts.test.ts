@@ -331,6 +331,25 @@ describe('GameServerAlerts', () => {
     expect(tableRows.length).toBeGreaterThanOrEqual(1)
   })
 
+  it('labels rule toggles by event type and condition', async () => {
+    setupDefaultMocks()
+    const wrapper = mountAlerts()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { ruleToggleLabel: (rule: AlertRule) => string }
+
+    expect(
+      vm.ruleToggleLabel(
+        makeRule({
+          eventType: AlertEventType.CPU_THRESHOLD,
+          condition: JSON.stringify({ operator: '>=', value: 90 }),
+        }),
+      ),
+    ).toBe('Enable CPU Threshold alert: >= 90%')
+    expect(vm.ruleToggleLabel(makeRule({ eventType: AlertEventType.STATUS_CHANGE }))).toBe(
+      'Enable Status Change alert',
+    )
+  })
+
   it('shows error notification when loading rules fails', async () => {
     mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [] })
     mocks.listAlertRules.mockRejectedValueOnce(new Error('load rules failed'))

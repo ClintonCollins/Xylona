@@ -8,7 +8,8 @@ export function connectErrorToString(err: ConnectError): string {
     case Code.Unavailable:
       return 'Unable to connect to Xylona backend.'
     default:
-      return err.message
+      // rawMessage drops the "[code] " prefix that err.message carries.
+      return err.rawMessage
   }
 }
 

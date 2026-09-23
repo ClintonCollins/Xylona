@@ -14,17 +14,16 @@ describe('connect-errors', () => {
     ).toBe('Unable to connect to Xylona backend.')
   })
 
-  it('returns the original message for other error codes', () => {
-    expect(
-      connectErrorToString({ code: Code.NotFound, message: 'missing resource' } as ConnectError),
-    ).toBe('missing resource')
+  it('returns the message without the RPC code prefix for other error codes', () => {
+    const err = new ConnectError('missing resource', Code.NotFound)
+    expect(err.message).toBe('[not_found] missing resource')
+    expect(connectErrorToString(err)).toBe('missing resource')
   })
 
   it('formats raw unknown errors through ConnectError.from and prefixes when requested', () => {
-    const fromSpy = vi.spyOn(ConnectError, 'from').mockReturnValue({
-      code: Code.InvalidArgument,
-      message: 'invalid request',
-    } as ConnectError)
+    const fromSpy = vi
+      .spyOn(ConnectError, 'from')
+      .mockReturnValue(new ConnectError('invalid request', Code.InvalidArgument))
 
     expect(connectErrorMessage(new Error('boom'), 'Failed to save')).toBe(
       'Failed to save: invalid request',

@@ -343,7 +343,7 @@ const columns = ref([
     name: 'linux_support',
     label: 'Linux Support',
     align: 'left',
-    field: (row: { windowsSupport: boolean }) => row.windowsSupport,
+    field: (row: { linuxSupport: boolean }) => row.linuxSupport,
     sortable: true,
   },
   {

@@ -18,7 +18,6 @@
           v-for="(tab, index) in layoutTabs"
           :key="tab.name"
           :class="{ 'game-server-tab--group-start': isGroupStart(index) }"
-          :exact="tab.exact"
           :icon="tab.icon"
           :label="tab.name"
           :to="tab.to" />
