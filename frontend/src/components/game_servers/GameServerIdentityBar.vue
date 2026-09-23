@@ -107,8 +107,10 @@
       v-else-if="startBlockedVisible"
       class="identity-bar-hint identity-bar-blocker"
       role="status">
-      <q-icon aria-hidden="true" class="identity-bar-blocker__icon" name="report_problem" />
-      <span class="identity-bar-blocker__text">{{ startHint }}</span>
+      <span class="identity-bar-blocker__text">
+        <q-icon aria-hidden="true" class="identity-bar-blocker__icon" name="report_problem" />
+        {{ startHint }}
+      </span>
       <q-btn
         v-if="blockerFixedInConfiguration"
         :to="`/game-servers/${server.id}/configuration`"
@@ -331,19 +333,20 @@ const statusBadgePhase = computed(() => {
   if (lastStartFailure.value && server.value.status === Status.OFFLINE) return 'failed'
   return undefined
 })
-const startHint = computed(() => {
-  const permissionOrStatusHint = lifecycleHint('game_server.start')
-  if (permissionOrStatusHint !== '') return permissionOrStatusHint
-  const blocker = startBlocker.value
-  if (blocker === undefined) return ''
-  return `Finish setup first — ${readinessLabel(blocker.kind)}: ${blocker.message}`
-})
+// A setup blocker only explains Start while the server is offline; a running one is not startable anyway.
 const startBlockedVisible = computed(
   () =>
     startBlocker.value !== undefined &&
     server.value.status === Status.OFFLINE &&
     hasPermission('game_server.start'),
 )
+const startHint = computed(() => {
+  const permissionOrStatusHint = lifecycleHint('game_server.start')
+  if (permissionOrStatusHint !== '') return permissionOrStatusHint
+  const blocker = startBlocker.value
+  if (!startBlockedVisible.value || blocker === undefined) return ''
+  return `Finish setup first — ${readinessLabel(blocker.kind)}: ${blocker.message}`
+})
 const blockerFixedInConfiguration = computed(
   () =>
     startBlocker.value !== undefined &&
@@ -353,7 +356,7 @@ const blockerFixedInConfiguration = computed(
 )
 const startAriaLabel = computed(() => {
   const blocker = startBlocker.value
-  if (hasPermission('game_server.start') && blocker !== undefined) {
+  if (startBlockedVisible.value && blocker !== undefined) {
     return `Start (blocked until ${readinessLabel(blocker.kind)} is finished)`
   }
   return lifecycleAriaLabel('Start', 'game_server.start')
@@ -639,8 +642,10 @@ async function restartGameServer(): Promise<void> {
   color: var(--xy-text-secondary);
 }
 
+/* Inline in the text, so it stays beside the first line when a phone wraps the reason. */
 .identity-bar-blocker__icon {
-  flex-shrink: 0;
+  margin-right: var(--xy-space-xs);
+  vertical-align: -0.15em;
   font-size: var(--xy-font-size-sm);
   color: var(--xy-warning);
 }
