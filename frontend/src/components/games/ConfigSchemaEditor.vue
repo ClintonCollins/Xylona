@@ -1,37 +1,19 @@
 <template>
   <div class="schema-editor">
-    <!-- Header -->
     <div class="editor-header">
-      <div class="editor-header-info">
-        <q-btn
-          aria-label="Back"
-          dense
-          flat
-          icon="arrow_back"
-          round
-          size="sm"
-          @click="$emit('back')" />
-        <div>
-          <div class="editor-title font-display">Schema Editor</div>
-          <div class="editor-subtitle text-xy-secondary font-mono">{{ filePath }}</div>
-        </div>
-      </div>
-      <div class="editor-header-actions">
-        <q-btn-toggle
-          v-model="mode"
-          :options="[
-            { label: 'Form Builder', value: 'form' },
-            { label: 'Raw JSON', value: 'json' },
-          ]"
-          class="mode-toggle"
-          dense
-          flat
-          toggle-color="primary" />
-        <q-btn color="primary" icon="save" label="Save Schema" size="sm" @click="handleSave" />
-      </div>
+      <q-btn-toggle
+        :model-value="mode"
+        :options="[
+          { label: 'Form Builder', value: 'form' },
+          { label: 'Raw JSON', value: 'json' },
+        ]"
+        aria-label="Editor view"
+        class="xy-segmented-toggle"
+        dense
+        no-caps
+        toggle-color="primary"
+        @update:model-value="switchMode" />
     </div>
-
-    <q-separator />
 
     <!-- Form Builder Mode -->
     <div v-if="mode === 'form'" class="form-builder">
@@ -83,13 +65,20 @@
         </div>
         <div class="toolbar-actions">
           <q-btn
-            color="accent"
+            dense
+            flat
             icon="upload_file"
             label="Import Fields"
-            outline
-            size="sm"
+            no-caps
             @click="showImportDialog = true" />
-          <q-btn color="primary" icon="add" label="Add Field" outline size="sm" @click="addField" />
+          <q-btn
+            color="primary"
+            dense
+            icon="add"
+            label="Add Field"
+            no-caps
+            outline
+            @click="addField" />
         </div>
       </div>
 
@@ -115,12 +104,11 @@
             { label: 'Managed', value: 'managed' },
             { label: 'Unmanaged', value: 'unmanaged' },
           ]"
-          class="schema-filter-toggle"
+          aria-label="Filter by managed state"
+          class="xy-segmented-toggle"
           dense
-          flat
           no-caps
-          size="xs"
-          toggle-color="accent" />
+          toggle-color="primary" />
         <q-btn-toggle
           v-model="requiredFilter"
           :options="[
@@ -128,12 +116,11 @@
             { label: 'Required', value: 'required' },
             { label: 'Optional', value: 'optional' },
           ]"
-          class="schema-filter-toggle"
+          aria-label="Filter by required state"
+          class="xy-segmented-toggle"
           dense
-          flat
           no-caps
-          size="xs"
-          toggle-color="accent" />
+          toggle-color="primary" />
         <span v-if="hasActiveFilters" class="text-xy-muted schema-search-count">
           {{ filteredFields.length }} / {{ fields.length }}
         </span>
@@ -182,20 +169,8 @@
             </q-list>
           </q-menu>
         </q-input>
-        <q-btn
-          class="text-xy-muted"
-          dense
-          flat
-          label="Clear group"
-          size="xs"
-          @click="clearBulkGroup" />
-        <q-btn
-          class="text-xy-muted"
-          dense
-          flat
-          label="Deselect all"
-          size="xs"
-          @click="selectedFields = []" />
+        <q-btn dense flat label="Clear group" no-caps @click="clearBulkGroup" />
+        <q-btn dense flat label="Deselect all" no-caps @click="selectedFields = []" />
       </div>
 
       <div v-if="fields.length === 0" class="form-builder-empty">
@@ -268,8 +243,8 @@
             </div>
             <div v-show="isGroupExpanded(group.name)" class="schema-group-content">
               <div
-                v-for="(field, index) in group.fields"
-                :key="field.key || index"
+                v-for="field in group.fields"
+                :key="field.id"
                 :class="{
                   dragging: draggedField === field,
                   'drag-over-above': dragOverField === field && dragOverPosition === 'above',
@@ -391,13 +366,7 @@ interface JsonSchema {
 }
 
 const props = defineProps<{
-  filePath: string
   schema: JsonSchema
-}>()
-
-const emit = defineEmits<{
-  save: [schema: JsonSchema]
-  back: []
 }>()
 
 const showImportDialog = ref(false)
@@ -414,43 +383,58 @@ const monacoContainer = ref<HTMLElement | null>(null)
 const groupOrder = ref<string[]>([])
 
 let monacoEditor: unknown = null
+let nextFieldId = 0
 
-// Convert schema to field models on init
-onMounted(() => {
-  fields.value = schemaToFields(props.schema)
-})
-
-watch(
-  () => props.schema,
-  (newSchema) => {
-    fields.value = schemaToFields(newSchema)
-  },
+// Dirty tracking: the form's schema against the last loaded or saved one, plus any
+// Raw JSON edits that have not been synced back to the form yet.
+const savedSchemaJson = ref('')
+const jsonText = ref('')
+const jsonStartText = ref('')
+const isDirty = computed(
+  () =>
+    JSON.stringify(fieldsToSchema()) !== savedSchemaJson.value ||
+    (mode.value === 'json' && jsonText.value !== jsonStartText.value),
 )
 
-// Sync between modes
-watch(mode, async (newMode) => {
-  if (newMode === 'json') {
-    const schema = fieldsToSchema()
-    const jsonStr = JSON.stringify(schema, null, 2)
-    await nextTick()
-    const monaco = await loadMonacoRuntime('json')
-    await initMonaco(monaco, jsonStr)
-  } else {
-    // Sync from JSON back to form
+// Loading a schema (on mount, or after the page saves one) resets the clean baseline.
+function loadSchema(schema: JsonSchema) {
+  fields.value = schemaToFields(schema)
+  selectedFields.value = []
+  savedSchemaJson.value = JSON.stringify(fieldsToSchema())
+  jsonStartText.value = jsonText.value
+}
+
+onMounted(() => {
+  loadSchema(props.schema)
+})
+
+watch(() => props.schema, loadSchema)
+
+// Sync between modes. Invalid Raw JSON keeps the JSON view open so its edits are not lost.
+async function switchMode(newMode: 'form' | 'json') {
+  if (newMode === mode.value) return
+
+  if (newMode === 'form') {
     if (monacoEditor) {
-      const editor = monacoEditor as import('monaco-editor').editor.IStandaloneCodeEditor
-      const jsonStr = editor.getValue()
-      try {
-        const parsed = JSON.parse(jsonStr) as JsonSchema
-        fields.value = schemaToFields(parsed)
-        jsonValid.value = true
-      } catch {
-        // Keep existing fields if JSON is invalid
+      if (!jsonValid.value) {
+        notifyError('Fix the JSON errors before switching to the form.')
+        return
       }
+      fields.value = schemaToFields(JSON.parse(jsonText.value) as JsonSchema)
       disposeMonaco()
     }
+    mode.value = 'form'
+    return
   }
-})
+
+  const jsonStr = JSON.stringify(fieldsToSchema(), null, 2)
+  jsonText.value = jsonStr
+  jsonStartText.value = jsonStr
+  mode.value = 'json'
+  await nextTick()
+  const monaco = await loadMonacoRuntime('json')
+  await initMonaco(monaco, jsonStr)
+}
 
 onUnmounted(() => {
   disposeMonaco()
@@ -464,6 +448,7 @@ function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
   groupOrder.value = schema['x-groups'] ? [...schema['x-groups']] : []
 
   const result = Object.entries(schema.properties).map(([key, prop], index) => ({
+    id: nextFieldId++,
     key,
     title: prop.title || '',
     type: prop.type || 'string',
@@ -509,9 +494,6 @@ function fieldsToSchema(): JsonSchema {
     const field = fields.value[i]
     if (!field.key) continue
 
-    // Assign order from current position.
-    field.order = i
-
     const prop: SchemaProperty = {
       type: field.type || 'string',
     }
@@ -551,7 +533,8 @@ function fieldsToSchema(): JsonSchema {
     if (field.group) {
       prop['x-group'] = field.group.toLowerCase()
     }
-    prop['x-order'] = field.order
+    // The saved order is the field's current position.
+    prop['x-order'] = i
     if (field.required) {
       required.push(field.key)
     }
@@ -572,6 +555,7 @@ function fieldsToSchema(): JsonSchema {
 function addField() {
   const maxOrder = fields.value.reduce((max, f) => Math.max(max, f.order), -1)
   fields.value.push({
+    id: nextFieldId++,
     key: '',
     title: '',
     type: 'string',
@@ -919,7 +903,8 @@ async function initMonaco(monaco: typeof import('monaco-editor'), content: strin
 
     const editor = monacoEditor as import('monaco-editor').editor.IStandaloneCodeEditor
     editor.onDidChangeModelContent(() => {
-      validateJson(editor.getValue())
+      jsonText.value = editor.getValue()
+      validateJson(jsonText.value)
     })
     validateJson(content)
   } catch {
@@ -1018,6 +1003,7 @@ function handleImportDetection(result: ImportDetectionResult) {
 
 function importedFieldToFieldModel(field: ImportedField): SchemaFieldModel {
   return {
+    id: nextFieldId++,
     key: field.key,
     title: field.title,
     type: field.type,
@@ -1108,28 +1094,30 @@ function normalizeSchema(schema: JsonSchema): JsonSchema {
   return normalized
 }
 
-function handleSave() {
-  if (mode.value === 'json' && monacoEditor) {
-    const editor = monacoEditor as import('monaco-editor').editor.IStandaloneCodeEditor
-    try {
-      const raw: unknown = JSON.parse(editor.getValue())
-
-      // Block saving arrays or non-objects
-      if (Array.isArray(raw) || typeof raw !== 'object' || raw === null) {
-        notifyError('Schema must be a JSON object with "type" and "properties", not an array.')
-        return
-      }
-
-      const parsed = normalizeSchema(raw as JsonSchema)
-      emit('save', parsed)
-    } catch {
-      // Don't save invalid JSON
-      return
-    }
-  } else {
-    emit('save', fieldsToSchema())
+/** The schema to save, or null (after telling the user why) when the Raw JSON is invalid. */
+function buildSchema(): JsonSchema | null {
+  if (mode.value !== 'json' || !monacoEditor) {
+    return fieldsToSchema()
   }
+
+  let raw: unknown
+  try {
+    raw = JSON.parse(jsonText.value)
+  } catch {
+    notifyError('Fix the JSON errors before saving.')
+    return null
+  }
+
+  // Block saving arrays or non-objects
+  if (Array.isArray(raw) || typeof raw !== 'object' || raw === null) {
+    notifyError('Schema must be a JSON object with "type" and "properties", not an array.')
+    return null
+  }
+
+  return normalizeSchema(raw as JsonSchema)
 }
+
+defineExpose({ buildSchema, isDirty })
 </script>
 
 <style scoped>
@@ -1140,42 +1128,7 @@ function handleSave() {
 }
 
 .editor-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  gap: var(--xy-space-md);
-}
-
-.editor-header-info {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-sm);
-  min-width: 0;
-}
-
-.editor-title {
-  font-size: var(--xy-font-size-base);
-  font-weight: 600;
-  color: var(--xy-text-primary);
-}
-
-.editor-subtitle {
-  font-size: var(--xy-font-size-xs);
-  overflow-wrap: anywhere;
-}
-
-.editor-header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-sm);
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.mode-toggle {
-  border: 1px solid var(--xy-border);
-  border-radius: var(--xy-radius-md);
+  padding: var(--xy-space-sm) var(--xy-space-md) 0;
 }
 
 /* Form builder */
@@ -1244,12 +1197,6 @@ function handleSave() {
 .schema-search-count {
   font-size: var(--xy-font-size-xs);
   white-space: nowrap;
-}
-
-.schema-filter-toggle {
-  border: 1px solid var(--xy-border);
-  border-radius: var(--xy-radius-md);
-  flex-shrink: 0;
 }
 
 .schema-group-header {
@@ -1426,16 +1373,6 @@ function handleSave() {
 }
 
 @media (max-width: 599px) {
-  .editor-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .editor-header-actions,
-  .mode-toggle {
-    width: 100%;
-  }
-
   .toolbar-actions {
     width: 100%;
     flex-wrap: wrap;
@@ -1452,7 +1389,6 @@ function handleSave() {
   }
 
   .schema-search-input,
-  .schema-filter-toggle,
   .bulk-group-input {
     max-width: none;
     width: 100%;

@@ -160,7 +160,7 @@
                     <q-tooltip>{{
                       props.canEditSchemas
                         ? 'Edit schema'
-                        : 'Save the game first to edit config schemas.'
+                        : 'Save your changes first to edit schemas.'
                     }}</q-tooltip>
                   </q-btn>
                   <q-btn

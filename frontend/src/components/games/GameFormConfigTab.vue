@@ -6,7 +6,7 @@
     </div>
     <config-schema-list
       v-model="configSchemas"
-      :can-edit-schemas="existingGame"
+      :can-edit-schemas="existingGame && !isDirty"
       @edit-schema="navigateToSchemaEditor" />
   </section>
 </template>
@@ -19,5 +19,6 @@ import { gameFormContextKey } from './GameFormTypes'
 const ctx = inject(gameFormContextKey)
 if (!ctx) throw new Error('GameFormConfigTab must be used inside GameForm')
 
-const { configSchemas, existingGame, navigateToSchemaEditor } = ctx
+// The schema editor edits the saved game, so it opens only while the form has no unsaved edits.
+const { configSchemas, existingGame, isDirty, navigateToSchemaEditor } = ctx
 </script>

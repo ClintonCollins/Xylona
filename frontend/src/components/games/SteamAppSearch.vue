@@ -2,7 +2,8 @@
 import { ref } from 'vue'
 import { GetXylonaClient } from '@/utils/shared'
 import { create } from '@bufbuild/protobuf'
-import { GetSteamAppDetailsRequestSchema } from '@/proto/xylona_pb'
+import { GetSteamAppDetailsRequestSchema, ListGamesRequestSchema } from '@/proto/xylona_pb'
+import type { Game } from '@/proto/shared_pb'
 
 const emit = defineEmits<{
   (e: 'select', value: { appId: string; name: string }): void
@@ -19,10 +20,18 @@ const lookupResult = ref<{
   linuxSupport: boolean
   installDirectory: string
 } | null>(null)
+// Games already in the catalog with the looked-up AppID, so the wizard does not create a duplicate.
+const catalogMatches = ref<Game[]>([])
 
-function lookupExample(id: string) {
-  appIdInput.value = id
-  void lookupAppId()
+async function findCatalogMatches(appId: string): Promise<Game[]> {
+  try {
+    const response = await GetXylonaClient().listGames(create(ListGamesRequestSchema, {}))
+    return response.games.filter((game) => game.steamAppid.trim() === appId)
+  } catch (err: unknown) {
+    // The catalog check only prevents duplicates; the lookup itself still works without it.
+    console.error('Game catalog check failed:', err)
+    return []
+  }
 }
 
 async function lookupAppId(): Promise<void> {
@@ -34,11 +43,16 @@ async function lookupAppId(): Promise<void> {
   loading.value = true
   lookupError.value = ''
   lookupResult.value = null
+  catalogMatches.value = []
 
   try {
     const client = GetXylonaClient()
     const req = create(GetSteamAppDetailsRequestSchema, { appId: trimmed })
-    const response = await client.getSteamAppDetails(req)
+    const [response, matches] = await Promise.all([
+      client.getSteamAppDetails(req),
+      findCatalogMatches(trimmed),
+    ])
+    catalogMatches.value = matches
 
     if (!response.detailsAvailable || !response.details) {
       lookupError.value = `No information found for AppID ${trimmed}. Check the ID and try again.`
@@ -75,6 +89,7 @@ function clearResult(): void {
   lookupResult.value = null
   lookupError.value = ''
   appIdInput.value = ''
+  catalogMatches.value = []
 }
 </script>
 
@@ -105,7 +120,7 @@ function clearResult(): void {
         class="col"
         label="Dedicated Server AppID"
         outlined
-        placeholder="e.g. 896660 (Valheim), 294420 (7DTD)"
+        placeholder="e.g. 896660"
         type="number"
         @keydown.enter="lookupAppId">
         <template #prepend>
@@ -147,9 +162,36 @@ function clearResult(): void {
         </div>
       </q-card-section>
 
+      <q-card-section v-if="catalogMatches.length > 0" class="q-pt-none">
+        <q-banner
+          v-for="match in catalogMatches"
+          :key="match.id"
+          class="xy-banner-info catalog-match"
+          data-test="catalog-match"
+          dense>
+          <template #avatar>
+            <q-icon name="inventory_2" size="sm" />
+          </template>
+          Already in your catalog: <strong>{{ match.name }}</strong> ({{
+            match.xylonaOfficial ? 'Official' : 'Custom'
+          }})
+          <template #action>
+            <q-btn
+              :to="`/games/${match.id}/edit`"
+              color="primary"
+              dense
+              flat
+              label="Open"
+              no-caps />
+            <q-btn :to="`/games/${match.id}/copy`" dense flat label="Copy" no-caps />
+          </template>
+        </q-banner>
+      </q-card-section>
+
       <q-card-actions align="right">
         <q-btn color="negative" dense flat label="Clear" no-caps @click="clearResult" />
         <q-btn
+          v-if="catalogMatches.length === 0"
           color="primary"
           dense
           label="Use This Server"
@@ -158,26 +200,6 @@ function clearResult(): void {
           @click="confirmSelection" />
       </q-card-actions>
     </q-card>
-
-    <!-- Common AppID examples -->
-    <div class="q-mt-md text-caption" style="color: var(--xy-text-muted)">
-      <strong>Common AppIDs:</strong>
-      <button
-        v-for="example in [
-          { id: '896660', name: 'Valheim' },
-          { id: '294420', name: '7 Days to Die' },
-          { id: '376030', name: 'ARK: SE' },
-          { id: '232250', name: 'TF2' },
-          { id: '740', name: 'CS2' },
-          { id: '2394010', name: 'Palworld' },
-        ]"
-        :key="example.id"
-        class="example-chip"
-        type="button"
-        @click="lookupExample(example.id)">
-        {{ example.name }} ({{ example.id }})
-      </button>
-    </div>
   </div>
 </template>
 
@@ -191,21 +213,7 @@ function clearResult(): void {
   border-color: var(--xy-border);
 }
 
-.example-chip {
-  display: inline-block;
-  border: none;
-  color: inherit;
-  font: inherit;
-  padding: 2px 8px;
-  margin: 2px 4px;
-  border-radius: var(--xy-radius-sm);
-  background: var(--xy-surface-2);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.example-chip:hover {
-  background: var(--xy-accent);
-  color: var(--xy-text-emphasis-strong);
+.catalog-match + .catalog-match {
+  margin-top: var(--xy-space-sm);
 }
 </style>

@@ -27,10 +27,7 @@
     </div>
 
     <div class="blocklist-editor__rows">
-      <article
-        v-for="(entry, index) in blocklist"
-        :key="`${entry.pattern}-${index}`"
-        class="blocklist-editor__row">
+      <article v-for="(entry, index) in blocklist" :key="index" class="blocklist-editor__row">
         <div class="font-display blocklist-editor__row-title">
           {{ String(index + 1).padStart(2, '0') }}
         </div>

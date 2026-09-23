@@ -45,8 +45,8 @@
             :rules="portRules"
             aria-required="true"
             class="col-12 col-sm-4"
-            hint="Default server port. e.g: 25565"
-            label="Default Port *"
+            hint="Default for new servers"
+            label="Game port *"
             lazy-rules
             outlined
             reactive-rules
@@ -56,8 +56,8 @@
             :rules="portRules"
             aria-required="true"
             class="col-12 col-sm-4"
-            hint="Default server query port. e.g: 25565"
-            label="Default Query Port *"
+            hint="Default for new servers"
+            label="Query port *"
             lazy-rules
             outlined
             reactive-rules
@@ -65,7 +65,7 @@
           <q-input
             v-model="game.steamAppid"
             class="col-12 col-sm-4"
-            hint="Steam AppID if it's available on steamcmd. e.g: 294420"
+            hint="For SteamCMD games"
             label="Steam App ID"
             outlined
             type="number" />

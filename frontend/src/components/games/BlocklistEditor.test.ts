@@ -64,4 +64,24 @@ describe('BlocklistEditor', () => {
     const removeButton = wrapper.get('.blocklist-editor__row button')
     expect(removeButton.attributes('aria-label')).toBe('Remove blocklist pattern')
   })
+
+  it('keeps the row mounted while its pattern is edited, so focus stays in the field', async () => {
+    const wrapper = mount(BlocklistEditor, {
+      props: {
+        blocklist: [{ pattern: '-agentlib:', reason: 'No agents' }],
+      },
+      global: {
+        stubs: {
+          'q-btn': QBtnStub,
+          'q-input': QInputStub,
+          'q-icon': true,
+        },
+      },
+    })
+
+    const rowBefore = wrapper.get('.blocklist-editor__row').element
+    await wrapper.setProps({ blocklist: [{ pattern: '-agentlib:x', reason: 'No agents' }] })
+
+    expect(wrapper.get('.blocklist-editor__row').element).toBe(rowBefore)
+  })
 })

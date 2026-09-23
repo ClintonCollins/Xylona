@@ -142,7 +142,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'games/:id/config-schema/:fileIndex',
         component: () => import('pages/games/GameConfigSchema.vue'),
-        meta: { title: 'File behavior' },
+        meta: { title: 'Config schema' },
       },
       {
         path: 'game-servers/create',

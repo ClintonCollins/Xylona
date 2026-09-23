@@ -848,4 +848,83 @@ describe('GameForm', () => {
 
     expect(wrapper.vm.isDirty).toBe(true)
   })
+
+  it('says an official game is shared by its servers and that saving ends official updates', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        xylonaOfficial: true,
+      }),
+    })
+    mocks.listGameServers.mockResolvedValue({
+      gameServers: [
+        { gameId: 'minecraft', name: 'Minecraft Dev Server', startArgsPatches: '' },
+        { gameId: 'valheim', name: 'Viking Server', startArgsPatches: '' },
+      ],
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="game-form-status"]').text()).toBe(
+      'Official definition · Used by 1 game server (Minecraft Dev Server)',
+    )
+    expect(wrapper.find('[data-testid="game-form-official-save-note"]').exists()).toBe(false)
+
+    const context = wrapper.vm.$.provides[gameFormContextKey as symbol] as {
+      game: { value: { name: string } }
+    }
+    context.game.value.name = 'Minecraft (edited)'
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="game-form-official-save-note"]').text()).toBe(
+      'Saving local edits stops official updates for this game.',
+    )
+  })
+
+  it('picks up the diverged flag from the save so later edits skip the official save note', async () => {
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft',
+        linuxSupport: true,
+        xylonaOfficial: true,
+      }),
+    })
+    mocks.editGame.mockResolvedValue({
+      game: create(GameSchema, {
+        id: 'minecraft',
+        name: 'Minecraft (edited)',
+        xylonaOfficial: true,
+        officialDefinitionDiverged: true,
+      }),
+    })
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    const context = wrapper.vm.$.provides[gameFormContextKey as symbol] as {
+      game: { value: { name: string } }
+    }
+    context.game.value.name = 'Minecraft (edited)'
+    await flushPromises()
+    expect(wrapper.find('[data-testid="game-form-diverged-banner"]').exists()).toBe(false)
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text().trim() === 'Save')
+    if (!saveButton) {
+      throw new Error('expected Save button to exist')
+    }
+    await saveButton.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="game-form-diverged-banner"]').exists()).toBe(true)
+
+    context.game.value.name = 'Minecraft (edited again)'
+    await flushPromises()
+
+    expect(wrapper.vm.isDirty).toBe(true)
+    expect(wrapper.find('[data-testid="game-form-official-save-note"]').exists()).toBe(false)
+  })
 })

@@ -1,6 +1,6 @@
 import { nextTick, type Ref } from 'vue'
 
-import type { Game } from '@/proto/shared_pb'
+import { CommandType, type Game } from '@/proto/shared_pb'
 
 interface GameCreateWizardState {
   name?: string
@@ -9,8 +9,6 @@ interface GameCreateWizardState {
   usesSteamcmd?: boolean
   windowsSupport?: boolean
   linuxSupport?: boolean
-  installCommand?: string
-  updateCommand?: string
   linuxBaseCommand?: string
   windowsBaseCommand?: string
   linuxStartArgsTemplate?: string
@@ -51,21 +49,16 @@ export function useGameFormNewGameSetup(options: UseGameFormNewGameSetupOptions)
     options.game.value.windowsSupport = wizardState.windowsSupport ?? false
     options.game.value.linuxSupport = wizardState.linuxSupport ?? false
 
-    if (wizardState.installCommand) {
+    // A SteamCMD game installs and updates through SteamCMD on each supported platform;
+    // syncSimpleGameConfig then builds the commands from the Steam AppID.
+    if (options.game.value.usesSteamcmd) {
       if (options.game.value.linuxSupport) {
-        options.game.value.linuxInstallCommand = wizardState.installCommand
+        options.game.value.linuxInstallType = CommandType.STEAMCMD
+        options.game.value.linuxUpdateType = CommandType.STEAMCMD
       }
       if (options.game.value.windowsSupport) {
-        options.game.value.windowsInstallCommand = wizardState.installCommand
-      }
-    }
-
-    if (wizardState.updateCommand) {
-      if (options.game.value.linuxSupport) {
-        options.game.value.linuxUpdateCommand = wizardState.updateCommand
-      }
-      if (options.game.value.windowsSupport) {
-        options.game.value.windowsUpdateCommand = wizardState.updateCommand
+        options.game.value.windowsInstallType = CommandType.STEAMCMD
+        options.game.value.windowsUpdateType = CommandType.STEAMCMD
       }
     }
 
