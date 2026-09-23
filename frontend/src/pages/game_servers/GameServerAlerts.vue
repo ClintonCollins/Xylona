@@ -316,6 +316,12 @@ function formatCondition(eventType: AlertEventType, condition: string): string {
   return condition
 }
 
+function ruleToggleLabel(rule: AlertRule): string {
+  const label = `Enable ${eventTypeLabels[rule.eventType] ?? 'Unknown'} alert`
+  const condition = formatCondition(rule.eventType, rule.condition)
+  return condition === '-' ? label : `${label}: ${condition}`
+}
+
 function recoveryValidationMessage(value: unknown): string {
   if (value === null || value === undefined || value === '') return ''
   if (!isFiniteNonNegativeNumber(value)) return 'Use a number that is 0 or greater'
@@ -706,7 +712,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
                   </div>
                   <q-toggle
                     v-if="hasAlertsManage"
-                    :aria-label="`Enable ${props.row.name}`"
+                    :aria-label="ruleToggleLabel(props.row)"
                     :model-value="props.row.enabled"
                     color="positive"
                     dense
@@ -744,7 +750,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               <q-td :props="props">
                 <q-toggle
                   v-if="hasAlertsManage"
-                  :aria-label="`Enable ${props.row.name}`"
+                  :aria-label="ruleToggleLabel(props.row)"
                   :model-value="props.row.enabled"
                   color="positive"
                   @update:model-value="toggleRuleEnabled(props.row)" />

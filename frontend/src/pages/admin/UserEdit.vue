@@ -68,6 +68,7 @@ import { useQuasar } from 'quasar'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { GetXylonaClient } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import {
   GetUserDetailsRequest,
   GetUserDetailsRequestSchema,
@@ -124,9 +125,8 @@ async function getUser() {
     }
     hydrateForm(response.user)
   } catch (unknownError: unknown) {
-    const err = unknownError as Error
     $q.notify({
-      caption: `Error loading user ${err.message}`,
+      caption: `Error loading user: ${connectErrorMessage(unknownError)}`,
       type: 'xylona-error',
       position: 'top',
       timeout: 5000,
@@ -187,9 +187,8 @@ async function submit() {
     })
     await router.push({ path: '/admin/users' })
   } catch (unknownError: unknown) {
-    const err = unknownError as Error
     $q.notify({
-      caption: `Error updating user ${err.message}`,
+      caption: `Error updating user: ${connectErrorMessage(unknownError)}`,
       type: 'xylona-error',
       position: 'top',
       timeout: 5000,

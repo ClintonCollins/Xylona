@@ -5,6 +5,9 @@
    ========================================================================== */
 
 :root {
+  /* Dark native controls: scrollbars, date pickers, form widgets. */
+  color-scheme: dark;
+
   /* ---- Primitive Palette: Surfaces (cool-tinted) ---- */
   --xy-base: #0d0e0f;
   --xy-surface-0: #141516;
@@ -272,7 +275,8 @@
   color: var(--xy-text-secondary);
 }
 
-.text-xy-muted {
+.text-xy-muted,
+.text-muted {
   color: var(--xy-text-muted);
 }
 

@@ -132,7 +132,6 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import {
   type GameServerAccessGrant,
@@ -145,6 +144,7 @@ import {
 } from '@/proto/xylona_pb'
 import { formatProtoTimestamp } from '@/components/game_servers/game-server-access-utils'
 import { GetXylonaClient } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -198,8 +198,7 @@ async function loadRoles() {
     const response = await xylonaClient.listRoles(create(ListRolesRequestSchema, {}))
     roles.value = response.roles ? [...response.roles] : []
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    notifyError(`Failed to load roles: ${err.message}`)
+    notifyError(`Failed to load roles: ${connectErrorMessage(unknownError)}`)
   }
 }
 
@@ -212,8 +211,7 @@ async function loadLocalUsers() {
       email: user.email,
     }))
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    notifyError(`Failed to load users: ${err.message}`)
+    notifyError(`Failed to load users: ${connectErrorMessage(unknownError)}`)
   }
 }
 
@@ -224,8 +222,7 @@ async function loadLocalGrants() {
     )
     localGrants.value = response.grants ? [...response.grants] : []
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    notifyError(`Failed to load access grants: ${err.message}`)
+    notifyError(`Failed to load access grants: ${connectErrorMessage(unknownError)}`)
   }
 }
 
@@ -246,8 +243,7 @@ async function grantLocalAccess() {
     selectedLocalRoleID.value = ''
     await loadLocalGrants()
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    notifyError(`Failed to grant access: ${err.message}`)
+    notifyError(`Failed to grant access: ${connectErrorMessage(unknownError)}`)
   } finally {
     grantingLocal.value = false
   }
@@ -264,8 +260,7 @@ async function revokeLocalAccess(grantID: string) {
     )
     await loadLocalGrants()
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    notifyError(`Failed to revoke access: ${err.message}`)
+    notifyError(`Failed to revoke access: ${connectErrorMessage(unknownError)}`)
   } finally {
     revokingLocalGrantID.value = ''
   }

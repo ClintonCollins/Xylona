@@ -312,6 +312,39 @@ describe('GameServerSettingsForm', () => {
     ).toBe(true)
   })
 
+  it('enables Save Backup Settings only for a changed retention of at least one', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, {
+        id: 'server-local-1',
+        name: 'Local One',
+        userId: 'user-owner',
+        gameId: 'minecraft',
+        nodeId: 'node-local',
+        ip: create(IPSchema, { address: '127.0.0.1' }),
+      }),
+    )
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+
+    const saveDisabled = () =>
+      (wrapper.get('[data-testid="save-backup-settings"]').element as HTMLButtonElement).disabled
+    const maxBackups = wrapper
+      .findAllComponents(QInputStub)
+      .find((input) => input.attributes('data-testid') === 'backup-settings-max-backups')
+    expect(maxBackups).toBeDefined()
+
+    expect(saveDisabled()).toBe(true)
+
+    maxBackups?.vm.$emit('update:modelValue', '3')
+    await flushPromises()
+    expect(saveDisabled()).toBe(false)
+
+    maxBackups?.vm.$emit('update:modelValue', '0')
+    await flushPromises()
+    expect(saveDisabled()).toBe(true)
+  })
+
   it('shows read-only provisioning context and only editable operational fields for non-superusers', async () => {
     mocks.getGameServerBackupOverview.mockResolvedValueOnce({
       overview: create(GameServerBackupOverviewSchema, {

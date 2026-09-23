@@ -681,19 +681,6 @@ function formatRelativeDate(dateStr: string): string {
   background-color: var(--xy-base);
 }
 
-.browse-grid-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.browse-grid-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.browse-grid-scroll::-webkit-scrollbar-thumb {
-  background: var(--xy-surface-4);
-  border-radius: var(--xy-radius-sm);
-}
-
 /* ---- Grid ---- */
 .browse-grid {
   display: grid;

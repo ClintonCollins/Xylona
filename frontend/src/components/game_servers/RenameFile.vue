@@ -47,6 +47,7 @@ import {
   GameServerFileRenameRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { ref, Ref, watch } from 'vue'
 
 const props = defineProps({
@@ -118,7 +119,7 @@ async function renameFile() {
     $q.notify({
       caption:
         err instanceof Error
-          ? `Could not rename the file or directory. ${err.message}`
+          ? `Could not rename the file or directory. ${connectErrorMessage(err)}`
           : 'Could not rename the file or directory. Try again.',
       type: 'xylona-error',
       position: 'top',

@@ -63,7 +63,7 @@ const stubs = {
   'q-item-section': { template: '<div><slot/></div>' },
   'q-item-label': { template: '<div><slot/></div>' },
   'q-separator': { template: '<hr/>' },
-  'q-skeleton': { template: '<div>Loading player roster</div>' },
+  'q-skeleton': { template: '<div>Loading players</div>' },
   'q-tooltip': { template: '<span><slot/></span>' },
 }
 
@@ -111,37 +111,44 @@ describe('PlayerManagementPanel', () => {
   })
 
   it.each([
-    [GameServerPlayerManagementRosterState.UNSUPPORTED, 'Native player roster is not supported'],
+    [
+      GameServerPlayerManagementRosterState.UNSUPPORTED,
+      'This server does not report its online players',
+    ],
     [
       GameServerPlayerManagementRosterState.PERMISSION_DENIED,
-      'Native player roster access was denied',
+      'The game server denied access to its player list',
     ],
-    [GameServerPlayerManagementRosterState.UNAVAILABLE, 'Native player roster is unavailable'],
-  ])('renders roster state %s while leaving manual actions enabled', async (state, expected) => {
-    mocks.getManagement.mockResolvedValue(response(state))
-    const wrapper = await mountPanel()
+    [GameServerPlayerManagementRosterState.UNAVAILABLE, 'The player list is unavailable'],
+  ])(
+    'renders player list state %s while leaving manual actions enabled',
+    async (state, expected) => {
+      mocks.getManagement.mockResolvedValue(response(state))
+      const wrapper = await mountPanel()
 
-    expect(wrapper.text()).toContain(expected)
-    expect(wrapper.text()).toContain('Manage by platform, cross-platform, or entity id')
-    expect(wrapper.get('select').attributes('disabled')).toBeUndefined()
-    expect(wrapper.get('input').attributes('disabled')).toBeUndefined()
-    wrapper.unmount()
-  })
+      expect(wrapper.text()).toContain(expected)
+      expect(wrapper.text()).toContain('Manage by platform, cross-platform, or entity id')
+      expect(wrapper.get('select').attributes('disabled')).toBeUndefined()
+      expect(wrapper.get('input').attributes('disabled')).toBeUndefined()
+      wrapper.unmount()
+    },
+  )
 
-  it('distinguishes offline and a confirmed empty roster', async () => {
+  it('distinguishes offline and a confirmed empty player list', async () => {
     mocks.getManagement.mockResolvedValueOnce(
-      response(GameServerPlayerManagementRosterState.UNAVAILABLE, { status: Status.OFFLINE }),
+      response(GameServerPlayerManagementRosterState.AVAILABLE, { status: Status.OFFLINE }),
     )
     const offline = await mountPanel()
-    expect(offline.text()).toContain('Start the game server to query its roster')
+    expect(offline.text()).toContain('Players appear while the server is online')
+    expect(offline.text()).not.toContain('No players online')
     offline.unmount()
 
     mocks.getManagement.mockResolvedValueOnce(
       response(GameServerPlayerManagementRosterState.AVAILABLE),
     )
     const empty = await mountPanel()
-    expect(empty.text()).toContain('No players reported')
-    expect(empty.text()).toContain('The native player roster is currently empty')
+    expect(empty.text()).toContain('No players online')
+    expect(empty.text()).toContain('The game server reports no connected players')
     empty.unmount()
   })
 
@@ -198,7 +205,7 @@ describe('PlayerManagementPanel', () => {
     wrapper.unmount()
   })
 
-  it('preserves non-native roster wording and identifier presentation', async () => {
+  it('preserves non-native player wording and identifier presentation', async () => {
     const player = create(GameServerManagementPlayerSchema, {
       name: 'Alex',
       actionIdentifier: 'Alex',
@@ -209,7 +216,7 @@ describe('PlayerManagementPanel', () => {
     const minecraft = await mountPanel()
 
     expect(minecraft.text()).toContain('Alex')
-    expect(minecraft.text()).not.toContain('Native player roster')
+    expect(minecraft.text()).not.toContain('does not report its online players')
     expect(minecraft.text()).not.toContain('Action ID: Alex')
     minecraft.unmount()
 
@@ -222,8 +229,8 @@ describe('PlayerManagementPanel', () => {
     const palworld = await mountPanel()
 
     expect(palworld.text()).toContain('Palworld REST API credentials are not configured')
-    expect(palworld.text()).toContain('The server query returned an empty roster')
-    expect(palworld.text()).not.toContain('Native player roster')
+    expect(palworld.text()).toContain('The server query returned no players')
+    expect(palworld.text()).not.toContain('reports no connected players')
     palworld.unmount()
   })
 

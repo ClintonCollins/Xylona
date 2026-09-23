@@ -98,7 +98,6 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
@@ -109,6 +108,7 @@ import {
   SetServerVariantRequestSchema,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import type { ServerSoftwareOperationEvent } from './ServerSoftwareSelector.types'
 
 interface Props {
@@ -278,13 +278,13 @@ async function applyVariant(): Promise<void> {
     emitOperationState('complete', selectedVariantId.value)
     emit('software-changed')
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
+    const message = connectErrorMessage(unknownError)
     showChangeDialog.value = false
     installStatus.value = 'failed'
-    emitOperationState('failed', selectedVariantId.value, err.message)
+    emitOperationState('failed', selectedVariantId.value, message)
     $q.notify({
       type: 'xylona-error',
-      caption: err.message,
+      caption: message,
       position: 'top-right',
       timeout: 5000,
     })

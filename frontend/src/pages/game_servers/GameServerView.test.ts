@@ -160,6 +160,7 @@ vi.mock('./useGameServerQueryStatusVersion', async () => {
       maxPlayerCount: ref(mocks.queryState.maxPlayerCount),
       onlinePlayers: ref([...mocks.queryState.onlinePlayers]),
       playerListSupported: ref(mocks.queryState.playerListSupported),
+      queryFresh: ref(false),
       queryGameServer: mocks.queryGameServer,
       startQueryStatusVersionLifecycle: mocks.startQueryStatusVersionLifecycle,
     }),
@@ -290,7 +291,7 @@ describe('GameServerView', () => {
 
   it.each([
     {
-      label: 'supported roster with all names',
+      label: 'supported player list with all names',
       currentPlayerCount: 2,
       onlinePlayers: ['Alex', 'Steve'],
       playerListSupported: true,
@@ -298,7 +299,7 @@ describe('GameServerView', () => {
       expectedMessage: '',
     },
     {
-      label: 'supported roster with a partial sample',
+      label: 'supported player list with a partial sample',
       currentPlayerCount: 3,
       onlinePlayers: ['Alex'],
       playerListSupported: true,
@@ -306,7 +307,7 @@ describe('GameServerView', () => {
       expectedMessage: '2 more players not reported',
     },
     {
-      label: 'supported empty roster',
+      label: 'supported empty player list',
       currentPlayerCount: 0,
       onlinePlayers: [],
       playerListSupported: true,
@@ -314,12 +315,12 @@ describe('GameServerView', () => {
       expectedMessage: 'No players online',
     },
     {
-      label: 'unsupported roster',
+      label: 'unsupported player list',
       currentPlayerCount: 4,
       onlinePlayers: [],
       playerListSupported: false,
       expectedNames: [],
-      expectedMessage: 'The roster is not available for this game.',
+      expectedMessage: 'Player names are not available for this game.',
     },
   ])(
     'renders player names only for an online server with a $label',
@@ -417,6 +418,27 @@ describe('GameServerView', () => {
       expect(mocks.dialog).not.toHaveBeenCalled()
     }
     expect(mocks.stopGameServer).toHaveBeenCalledTimes(wantStopped ? 1 : 0)
+  })
+
+  it('shows offline players copy and the configured limit for an offline Valheim server', async () => {
+    const gameServer = buildGameServer()
+    gameServer.gameId = 'valheim'
+    gameServer.maxPlayers = 10n
+    mocks.getGameServer.mockResolvedValue(create(GetGameServerResponseSchema, { gameServer }))
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('No fresh successful query has been received.')
+    const roster = wrapper.get('.roster')
+    expect(roster.text()).toContain('Players appear while the server is online.')
+    expect(roster.get('.roster__count').text()).toBe('0 / 10')
+
+    await wrapper.get('[aria-label="Collapse player panel"]').trigger('click')
+    expect(wrapper.get('.player-rail__mini-count').text()).toBe('0/10')
   })
 
   it('routes 7DTD Player management to Operations instead of the superseded dialog', async () => {

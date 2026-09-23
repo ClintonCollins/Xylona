@@ -171,7 +171,7 @@ async function save() {
     if (connectError.code === Code.AlreadyExists) {
       identifierError.value = 'This public identifier is unavailable. Choose another.'
     } else if (connectError.code === Code.InvalidArgument) {
-      addressError.value = connectError.message
+      addressError.value = ConnectErrorToString(connectError)
     } else {
       $q.notify({ type: 'xylona-error', caption: ConnectErrorToString(connectError) })
     }

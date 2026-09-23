@@ -611,6 +611,69 @@ func TestMinecraftDefinitionOffersServerSoftwareVariants(t *testing.T) {
 	}
 }
 
+func bundledGame(t *testing.T, id string) *models.Game {
+	t.Helper()
+	definitions, errLoad := gamedefinitions.LoadBundled()
+	if errLoad != nil {
+		t.Fatalf("LoadBundled() error = %v", errLoad)
+	}
+	for _, definition := range definitions {
+		if definition.Model.ID == id {
+			return definition.Model
+		}
+	}
+	t.Fatalf("bundled %s definition not found", id)
+	return nil
+}
+
+func TestMinecraftBlocklistGuardsLog4jSettings(t *testing.T) {
+	minecraft := bundledGame(t, "minecraft")
+	definition := startargs.DefinitionConfig{
+		LinuxTemplateJSON:   minecraft.LinuxStartArgsTemplate.GetOr(""),
+		LinuxBaseCommand:    minecraft.LinuxBaseCommand,
+		WindowsTemplateJSON: minecraft.WindowsStartArgsTemplate.GetOr(""),
+		WindowsBaseCommand:  minecraft.WindowsBaseCommand,
+		BlocklistJSON:       minecraft.StartArgBlocklist,
+	}
+
+	for _, goos := range []string{"linux", "windows"} {
+		t.Run(goos, func(t *testing.T) {
+			_, errResolve := startargs.ResolveServer(startargs.ServerConfig{Definition: definition, GOOS: goos})
+			if errResolve != nil {
+				t.Fatalf("ResolveServer() with the definition's own Log4j flag error = %v", errResolve)
+			}
+
+			errValidate := startargs.ValidateServerUpdate(startargs.ServerConfig{
+				Definition:  definition,
+				GOOS:        goos,
+				PatchesJSON: `[{"id":"override","op":"add","tokens":["-Dlog4j2.formatMsgNoLookups=false"]}]`,
+			})
+			if errValidate == nil || !strings.Contains(errValidate.Error(), "blocked start argument") {
+				t.Fatalf("ValidateServerUpdate() error = %v, want the Log4j override blocked", errValidate)
+			}
+		})
+	}
+}
+
+func TestDragonwildsConfigSchemaResolvesByPlatform(t *testing.T) {
+	dragonwilds := bundledGame(t, "runescape_dragonwilds")
+	entries, errParse := cfgschema.ParseConfigSchemas(dragonwilds.ConfigSchemas.GetOr(""))
+	if errParse != nil {
+		t.Fatalf("ParseConfigSchemas() error = %v", errParse)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("config schema count = %d, want 1 so each node shows only the file it reads", len(entries))
+	}
+	for platform, wantPath := range map[string]string{
+		"linux":   "RSDragonwilds/Saved/Config/Linux/DedicatedServer.ini",
+		"windows": "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini",
+	} {
+		if got := cfgschema.ResolvePlatformPath(entries[0], platform); got != wantPath {
+			t.Errorf("%s path = %q, want %q", platform, got, wantPath)
+		}
+	}
+}
+
 func TestLoadBundledDefinitions(t *testing.T) {
 	definitions, errLoad := gamedefinitions.LoadBundled()
 	if errLoad != nil {

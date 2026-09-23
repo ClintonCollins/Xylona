@@ -29,6 +29,7 @@ import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
 import { PropType } from 'vue'
 import { GetXylonaClient } from '@/utils/shared'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { DeleteUserRequest, DeleteUserRequestSchema, User } from '@/proto/xylona_pb'
 
 const props = defineProps({
@@ -68,9 +69,8 @@ async function deleteUser() {
     showDialog.value = false
     emit('submit', false)
   } catch (unknownError: unknown) {
-    const err = unknownError as Error
     $q.notify({
-      caption: `Error deleting user ${err.message}`,
+      caption: `Error deleting user: ${connectErrorMessage(unknownError)}`,
       type: 'xylona-error',
       position: 'top',
       timeout: 5000,

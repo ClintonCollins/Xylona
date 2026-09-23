@@ -721,12 +721,15 @@
                 @update:model-value="backupSettings.backupDirectory = $event" />
 
               <q-input
+                :error="backupSettings.maxBackups < 1n"
                 :model-value="String(backupSettings.maxBackups)"
                 class="col-12 col-sm-6 col-lg-4"
                 data-testid="backup-settings-max-backups"
                 dense
+                error-message="Keep at least 1 automated backup."
+                hint="Older automated backups beyond this count are deleted. Manual backups are kept."
                 label="Max Automated Backups"
-                min="0"
+                min="1"
                 outlined
                 type="number"
                 @update:model-value="updateBackupMaxBackups($event)" />
@@ -898,8 +901,12 @@ const environmentDirty = computed(() => {
   return serializeEnvironmentRows(environmentRows.value) !== environmentSnapshot.value
 })
 const backupEnableBlocked = computed(() => !backupSettings.value.backupsSupported)
+const backupSettingsSnapshot = ref('')
 const backupSettingsSaveBlocked = computed(
-  () => backupEnableBlocked.value && backupSettings.value.backupsEnabled,
+  () =>
+    (backupEnableBlocked.value && backupSettings.value.backupsEnabled) ||
+    backupSettings.value.maxBackups < 1n ||
+    serializeBackupSettings(backupSettings.value) === backupSettingsSnapshot.value,
 )
 const adminInterfaceEndpoint = computed(() => {
   const address = adminInterface.value.bindAddress
@@ -1074,6 +1081,7 @@ async function initializeBackupSettings() {
     } else {
       backupSettings.value = create(BackupSettingsSchema)
     }
+    backupSettingsSnapshot.value = serializeBackupSettings(backupSettings.value)
   } catch (e) {
     $q.notify({
       type: 'xylona-error',
@@ -1247,6 +1255,14 @@ function formatSecretUpdatedAt(secret: SecretEnvironmentVariableState): string {
     return 'Not configured'
   }
   return formatProtoTimestamp(secret.updatedAt)
+}
+
+function serializeBackupSettings(settings: BackupSettings): string {
+  return JSON.stringify([
+    settings.backupsEnabled,
+    settings.backupDirectory,
+    settings.maxBackups.toString(),
+  ])
 }
 
 function updateBackupMaxBackups(value: string | number | null): void {

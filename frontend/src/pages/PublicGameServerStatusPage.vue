@@ -195,6 +195,13 @@ function playerLabel(server: PublicGameServerStatus): string {
   return server.status === Status.OFFLINE ? 'Unavailable while offline' : 'Player count unavailable'
 }
 
+function showOnlinePlayersToggle(server: PublicGameServerStatus): boolean {
+  return (
+    server.status === Status.ONLINE &&
+    server.rosterState !== GameServerStatusPageRosterState.UNSPECIFIED
+  )
+}
+
 function rosterLabel(server: PublicGameServerStatus): string {
   if (server.rosterState === GameServerStatusPageRosterState.UNSUPPORTED) {
     return 'Player names are not supported by this game.'
@@ -351,13 +358,13 @@ onUnmounted(() => {
                   </span>
                 </div>
                 <q-btn
-                  v-if="server.rosterState !== GameServerStatusPageRosterState.UNSPECIFIED"
+                  v-if="showOnlinePlayersToggle(server)"
                   class="public-server-row__action public-server-row__roster-action"
                   :aria-expanded="expandedServerIDs.has(server.id)"
-                  :aria-label="`${expandedServerIDs.has(server.id) ? 'Hide' : 'Show'} ${server.name} player roster`"
+                  :aria-label="`${expandedServerIDs.has(server.id) ? 'Hide' : 'Show'} ${server.name} online players`"
                   flat
                   :icon-right="expandedServerIDs.has(server.id) ? 'expand_less' : 'expand_more'"
-                  label="Players"
+                  label="Who's online"
                   no-caps
                   @click="toggleRoster(server.id)" />
               </div>
@@ -385,8 +392,10 @@ onUnmounted(() => {
                 View public map
               </a>
             </div>
-            <div v-if="expandedServerIDs.has(server.id)" class="public-server-row__roster">
-              <span class="public-server-row__label">Player roster</span>
+            <div
+              v-if="showOnlinePlayersToggle(server) && expandedServerIDs.has(server.id)"
+              class="public-server-row__roster">
+              <span class="public-server-row__label">Online players</span>
               <p v-if="rosterLabel(server)">{{ rosterLabel(server) }}</p>
               <ul v-else class="public-roster-list">
                 <li v-for="playerName in server.playerNames" :key="playerName">{{ playerName }}</li>

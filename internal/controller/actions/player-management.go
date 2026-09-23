@@ -372,7 +372,7 @@ func playerManagementProfileForServer(gameServer *models.GameServer) playerManag
 	if gameServer.R.Game != nil && gameServer.R.Game.UsesSourceQuery {
 		return playerManagementProfile{
 			queryKind:         node.GameServerQueryKindSource,
-			unavailableReason: "This game exposes a read-only player roster, but not a stable identifier for safe player actions.",
+			unavailableReason: "This game reports its online players read-only, but has no stable identifier for safe player actions.",
 		}
 	}
 	return playerManagementProfile{unavailableReason: "Player management is not supported for this game."}

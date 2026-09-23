@@ -46,7 +46,7 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 			return nil, connect.NewError(contextConnectCode(errManagement), fmt.Errorf("get player management: %w", errManagement))
 		}
 		if errors.Is(errManagement, node.ErrPlayerActionUnavailable) {
-			return nil, connect.NewError(connect.CodeUnavailable, errors.New("player roster is unavailable"))
+			return nil, connect.NewError(connect.CodeUnavailable, errors.New("player list is unavailable"))
 		}
 		log.Warn().Err(errManagement).Str("game_server_id", gameServer.ID).Msg("Failed to get player management")
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("player management is unavailable"))

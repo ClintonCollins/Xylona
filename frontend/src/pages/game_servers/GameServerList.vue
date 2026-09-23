@@ -281,6 +281,9 @@
             </q-card>
           </div>
         </template>
+        <template #body-selection="scope">
+          <q-checkbox v-model="scope.selected" :aria-label="`Select ${scope.row.displayName}`" />
+        </template>
         <template #body-cell-name="props">
           <q-td :props="props">
             <router-link :to="'/game-servers/' + props.row.id + '/console'" class="table-link">

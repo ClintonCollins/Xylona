@@ -93,7 +93,7 @@ func ValidateDefinition(config DefinitionConfig) error {
 		return errShared
 	}
 
-	errBlocklist := validateBlocklist(config.BlocklistJSON, nil)
+	errBlocklist := validateBlocklist(config.BlocklistJSON, nil, nil)
 	if errBlocklist != nil {
 		return fmt.Errorf("start arg blocklist: %w", errBlocklist)
 	}
@@ -142,7 +142,7 @@ func ValidateServerUpdate(config ServerConfig) error {
 	}
 
 	args := resolveArgs(template, patches, config.Variables)
-	errBlocklist := validateBlocklist(target.blocklistJSON, args)
+	errBlocklist := validateBlocklist(target.blocklistJSON, args, definitionTokens(template))
 	if errBlocklist != nil {
 		return errBlocklist
 	}
@@ -173,7 +173,7 @@ func ResolveServer(config ServerConfig) (ResolvedCommand, error) {
 	}
 
 	args := resolveArgs(template, patches, config.Variables)
-	errBlocklist := validateBlocklist(target.blocklistJSON, args)
+	errBlocklist := validateBlocklist(target.blocklistJSON, args, definitionTokens(template))
 	if errBlocklist != nil {
 		return ResolvedCommand{}, errBlocklist
 	}
@@ -373,7 +373,7 @@ func equalOptionalString(left *string, right *string) bool {
 	return *left == *right
 }
 
-func validateBlocklist(blocklistJSON string, args []string) error {
+func validateBlocklist(blocklistJSON string, args []string, trusted map[string]struct{}) error {
 	entries, errParse := ParseBlocklist(blocklistJSON)
 	if errParse != nil {
 		return fmt.Errorf("parse start arg blocklist: %w", errParse)
@@ -384,7 +384,7 @@ func validateBlocklist(blocklistJSON string, args []string) error {
 		return fmt.Errorf("compile start arg blocklist: %w", errCompile)
 	}
 
-	violation := blocklist.validate(args)
+	violation := blocklist.validate(args, trusted)
 	if violation != nil {
 		return fmt.Errorf("blocked start argument %q: %s", violation.token, violation.reason)
 	}

@@ -39,11 +39,7 @@
         </div>
         <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="fetchAll" />
       </div>
-      <div
-        v-if="!websocketStateAuthoritative"
-        class="list-notice"
-        role="status"
-        aria-live="polite">
+      <div v-if="!websocketStateAuthoritative" class="list-notice" role="status" aria-live="polite">
         <q-icon name="sync" size="sm" />
         <span>Live metrics are paused while the controller connection is re-established.</span>
       </div>
@@ -434,9 +430,7 @@ const detailNodeId = computed(() => {
   const id = route.params.id
   return typeof id === 'string' && id !== '' ? id : ''
 })
-const detailNode = computed(
-  () => rows.value.find((node) => node.id === detailNodeId.value) ?? null,
-)
+const detailNode = computed(() => rows.value.find((node) => node.id === detailNodeId.value) ?? null)
 
 function getNodeSummary(nodeId: string): DashboardNodeSummary | undefined {
   return dashboardSummaries.value.find((s) => s.node?.id === nodeId)

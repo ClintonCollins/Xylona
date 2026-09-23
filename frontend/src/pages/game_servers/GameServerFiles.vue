@@ -1426,7 +1426,7 @@ async function listDirectoryFiles(
         return false
       }
       console.error(`Error listing directory files: ${err.code} ${err.message}`)
-      directoryError.value = err.message || 'The directory listing request failed.'
+      directoryError.value = ConnectErrorToString(err) || 'The directory listing request failed.'
       return false
     }
     console.error(err)
