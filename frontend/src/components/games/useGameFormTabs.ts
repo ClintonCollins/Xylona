@@ -51,6 +51,11 @@ function readActiveFormTabFromHistory(): GameFormTabID {
   return isGameFormTabID(historyTab) ? historyTab : 'overview'
 }
 
+/** History state for a router push that opens the game editor on tabID. */
+export function gameFormTabHistoryState(tabID: GameFormTabID): Record<string, GameFormTabID> {
+  return { [gameFormTabHistoryStateKey]: tabID }
+}
+
 function persistActiveFormTabToHistory(tabID: GameFormTabID): void {
   if (typeof window === 'undefined') {
     return

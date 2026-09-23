@@ -56,20 +56,23 @@ export function coerceValue(value: unknown, type: FieldType): unknown {
 /**
  * Convert a group name to a display-friendly Title Case label.
  * Unlike keyToTitle, this processes ALL segments of a dot-path.
- * e.g., "server.network" -> "Server Network"
+ * e.g., "server.network" -> "Server Network". A name that already has spaces
+ * is a label the schema author wrote ("Guilds and Bases") and is kept as is,
+ * and acronyms such as PvP or RCON stay intact.
  */
 export function groupToTitle(group: string): string {
-  if (!group) return ''
+  if (/\s/.test(group.trim())) return group.trim()
 
   return group
     .split('.')
     .map((segment) =>
       segment
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/([a-z]{2,})([A-Z])/g, '$1 $2')
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
         .replace(/[-_]+/g, ' ')
         .trim()
         .split(/\s+/)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' '),
     )
     .join(' ')

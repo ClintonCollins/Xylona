@@ -1,4 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -6,6 +7,8 @@ import {
   SevenDaysToDieWebAPIConnectionState,
   SevenDaysToDieWebAPIValueState,
 } from '@/proto/xylona_pb'
+
+import { useUserAuthStore } from '@/stores/xylona'
 
 import GameServerConfig from './GameServerConfig.vue'
 
@@ -27,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   generateGameServerConfigFile: vi.fn(),
   getSevenDaysToDieSandboxSettings: vi.fn(),
   getGameServer: vi.fn(),
+  confirmSaved: vi.fn(),
 }))
 
 vi.mock('quasar', async () => {
@@ -68,16 +72,40 @@ function mountConfig() {
       stubs: {
         'q-icon': { template: '<i />' },
         'q-spinner-dots': { template: '<div class="spinner-stub" />' },
+        'q-banner': { template: '<div><slot /><slot name="action" /></div>' },
+        'q-btn': {
+          props: ['label'],
+          emits: ['click'],
+          template: `<button @click="$emit('click')">{{ label }}</button>`,
+        },
         ConfigFileSidebar: { template: '<div class="sidebar-stub" />' },
         ConfigFileEditor: {
           name: 'ConfigFileEditor',
-          props: ['fields', 'saving'],
-          emits: ['save'],
+          props: ['fields', 'saving', 'validationErrors'],
+          emits: ['save', 'discard'],
+          methods: { confirmSaved: mocks.confirmSaved },
           template: '<div class="editor-stub" />',
         },
       },
     },
   })
+}
+
+const oneConfigFile = [
+  { path: 'server.properties', category: 'Server', format: 'properties', existsOnDisk: true },
+]
+
+async function mountWithFile() {
+  mocks.routeState.current = { params: { id: 'server-12' } }
+  mocks.getGameServerConfigFiles.mockResolvedValue({ configFiles: oneConfigFile })
+  mocks.getGameServerConfigFile.mockResolvedValue({
+    fields: [{ key: 'motd', value: 'Hello' }],
+    advancedFields: [],
+  })
+  mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: 'minecraft' } })
+  const wrapper = mountConfig()
+  await flushPromises()
+  return wrapper
 }
 
 function createDeferred<T>() {
@@ -90,6 +118,7 @@ function createDeferred<T>() {
 
 describe('GameServerConfig', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     mocks.routeState.current = undefined
     mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: '7_days_to_die' } })
   })
@@ -103,6 +132,7 @@ describe('GameServerConfig', () => {
     mocks.generateGameServerConfigFile.mockReset()
     mocks.getSevenDaysToDieSandboxSettings.mockReset()
     mocks.getGameServer.mockReset()
+    mocks.confirmSaved.mockReset()
   })
 
   it('renders the Configuration page title', async () => {
@@ -219,5 +249,88 @@ describe('GameServerConfig', () => {
       reloadedFields,
     )
     expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('saving')).toBe(false)
+  })
+
+  it.each([
+    {
+      name: 'a rejected save keeps the edits and shows the errors',
+      update: () =>
+        mocks.updateGameServerConfigFile.mockResolvedValue({
+          success: false,
+          errors: [{ field: 'motd', message: 'Too long' }],
+        }),
+      errors: [{ field: 'motd', message: 'Too long' }],
+    },
+    {
+      name: 'a failed request keeps the edits',
+      update: () => mocks.updateGameServerConfigFile.mockRejectedValue(new Error('offline')),
+      errors: [],
+    },
+  ])('$name', async ({ update, errors }) => {
+    const wrapper = await mountWithFile()
+    update()
+
+    wrapper.findComponent({ name: 'ConfigFileEditor' }).vm.$emit('save', new Map([['motd', 'x']]))
+    await flushPromises()
+
+    expect(mocks.confirmSaved).not.toHaveBeenCalled()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('validationErrors')).toEqual(
+      errors,
+    )
+  })
+
+  it('confirms the save to the editor once the file has reloaded', async () => {
+    const wrapper = await mountWithFile()
+    mocks.updateGameServerConfigFile.mockResolvedValue({ success: true, errors: [] })
+
+    wrapper.findComponent({ name: 'ConfigFileEditor' }).vm.$emit('save', new Map([['motd', 'x']]))
+    await flushPromises()
+
+    expect(mocks.confirmSaved).toHaveBeenCalledTimes(1)
+    expect(mocks.getGameServerConfigFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('offers Retry when the config files fail to load', async () => {
+    mocks.routeState.current = { params: { id: 'server-12' } }
+    mocks.getGameServerConfigFiles.mockRejectedValueOnce(new Error('unavailable'))
+    const wrapper = mountConfig()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="config-load-error"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('No config files for this game yet')
+
+    mocks.getGameServerConfigFiles.mockResolvedValue({ configFiles: oneConfigFile })
+    mocks.getGameServerConfigFile.mockResolvedValue({ fields: [], advancedFields: [] })
+    await wrapper.find('[data-test="config-load-error"] button').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="config-load-error"]').exists()).toBe(false)
+    expect(wrapper.find('.editor-stub').exists()).toBe(true)
+  })
+
+  it('shows a file load failure with Retry instead of an empty editor', async () => {
+    mocks.routeState.current = { params: { id: 'server-12' } }
+    mocks.getGameServerConfigFiles.mockResolvedValue({ configFiles: oneConfigFile })
+    mocks.getGameServerConfigFile.mockRejectedValueOnce(new Error('node offline'))
+    const wrapper = mountConfig()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="config-file-load-error"]').exists()).toBe(true)
+    expect(wrapper.find('.editor-stub').exists()).toBe(false)
+  })
+
+  it.each([
+    { name: 'links superusers to the game editor', superUser: true, linked: true },
+    { name: 'leaves other users without the link', superUser: false, linked: false },
+  ])('$name when the game has no config files', async ({ superUser, linked }) => {
+    useUserAuthStore().user = { superUser } as never
+    mocks.routeState.current = { params: { id: 'server-12' } }
+    mocks.getGameServerConfigFiles.mockResolvedValue({ configFiles: [] })
+    mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: 'valheim' } })
+    const wrapper = mountConfig()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No config files for this game yet')
+    expect(wrapper.find('[data-test="config-edit-game"]').exists()).toBe(linked)
   })
 })

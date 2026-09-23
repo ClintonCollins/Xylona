@@ -66,6 +66,10 @@ describe('groupToTitle', () => {
     ['network', 'Network'],
     ['', ''],
     ['serverNetwork', 'Server Network'],
+    ['PvP', 'PvP'],
+    ['RCONSettings', 'RCON Settings'],
+    ['maxHP', 'Max HP'],
+    ['Guilds and Bases', 'Guilds and Bases'],
   ])('formats %s', (input, want) => {
     expect(groupToTitle(input)).toBe(want)
   })

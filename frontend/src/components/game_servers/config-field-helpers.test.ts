@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { filterFields, groupFields } from './config-field-helpers'
+import {
+  filterFields,
+  groupFields,
+  isSecretConfigKey,
+  trimNumberPadding,
+} from './config-field-helpers'
 
 function makeField(key: string, group: string, title = '', value = '') {
   return { key, group, title, value }
@@ -145,5 +150,34 @@ describe('filterFields', () => {
     },
   ])('$name', ({ fields, query, wantKeys }) => {
     expect(filterFields(fields, query).map((field) => field.key)).toEqual(wantKeys)
+  })
+})
+
+describe('isSecretConfigKey', () => {
+  it.each([
+    ['management-server-secret', true],
+    ['management-server-tls-keystore-password', true],
+    ['rcon.password', true],
+    ['xylona.local_console_password', true],
+    ['steam_gslt', true],
+    ['difficulty', false],
+    ['view-distance', false],
+  ])('%s -> %s', (key, want) => {
+    expect(isSecretConfigKey(key)).toBe(want)
+  })
+})
+
+describe('trimNumberPadding', () => {
+  it.each([
+    ['1.000000', '1'],
+    ['30.000000', '30'],
+    ['0.100000', '0.1'],
+    ['-2.50', '-2.5'],
+    ['1.25', '1.25'],
+    ['42', '42'],
+    ['', ''],
+    ['abc.000', 'abc.000'],
+  ])('%s -> %s', (value, want) => {
+    expect(trimNumberPadding(value)).toBe(want)
   })
 })

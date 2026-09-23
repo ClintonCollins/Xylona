@@ -101,7 +101,7 @@ export function groupFields<T extends { key: string; group: string }>(
  * Filter fields by search query, matching on key, title, or value.
  * Case-insensitive substring match. Empty query returns all fields.
  */
-export function filterFields<T extends { key: string; title: string; value: string }>(
+export function filterFields<T extends { key: string; title?: string; value: string }>(
   fields: T[],
   query: string,
 ): T[] {
@@ -110,7 +110,17 @@ export function filterFields<T extends { key: string; title: string; value: stri
   return fields.filter(
     (f) =>
       f.key.toLowerCase().includes(lower) ||
-      f.title.toLowerCase().includes(lower) ||
+      (f.title ?? '').toLowerCase().includes(lower) ||
       f.value.toLowerCase().includes(lower),
   )
+}
+
+/** Keys (or managed sources) whose values are credentials, shown masked. */
+export function isSecretConfigKey(key: string): boolean {
+  return /password|passwd|secret|token|gslt/i.test(key)
+}
+
+/** Drops the zero padding config files give decimals: "1.000000" reads "1". */
+export function trimNumberPadding(value: string): string {
+  return value.replace(/^(-?\d+)(?:\.0+|(\.\d*?[1-9])0+)$/, '$1$2')
 }

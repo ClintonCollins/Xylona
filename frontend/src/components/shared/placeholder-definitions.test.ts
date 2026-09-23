@@ -8,5 +8,6 @@ describe('local console managed source labels', () => {
     expect(getManagedSourceLabel('xylona.local_console_password')).toBe(
       'Local-only Console Password',
     )
+    expect(getManagedSourceLabel('xylona.local_console_port')).toBe('Local Console Port')
   })
 })

@@ -161,15 +161,16 @@ function getAbbreviation(path: string): string {
 </script>
 
 <style scoped>
+/* Stays in view while the settings beside it scroll the page. */
 .config-sidebar {
   background-color: var(--xy-surface-1);
   border-right: 1px solid var(--xy-border);
-  height: 100%;
   display: flex;
   flex-direction: column;
   width: 260px;
   overflow: hidden;
-  position: relative;
+  position: sticky;
+  top: 0;
   flex-shrink: 0;
 }
 
@@ -374,79 +375,10 @@ function getAbbreviation(path: string): string {
   }
 }
 
-/* Mobile: horizontal scrollable file strip */
+/* Phones pick the file from a select above the editor instead. */
 @media (max-width: 599px) {
   .config-sidebar {
-    border-right: none;
-    border-bottom: 1px solid var(--xy-border);
-    height: auto;
-    width: 100%;
-    transition: none;
-  }
-
-  .sidebar-expanded {
-    width: 100%;
-    min-width: unset;
-    opacity: 1;
-    position: static;
-    pointer-events: auto;
-  }
-
-  .sidebar-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--xy-space-xs) var(--xy-space-md);
-  }
-
-  .collapse-btn {
-    position: static;
-  }
-
-  .sidebar-content {
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 0 var(--xy-space-xs) var(--xy-space-xs);
-  }
-
-  .category-group {
-    margin-bottom: 0;
-  }
-
-  .category-header {
     display: none;
-  }
-
-  .category-files {
-    display: flex;
-    flex-direction: row;
-    gap: var(--xy-space-xs);
-  }
-
-  .file-item {
-    flex-shrink: 0;
-    min-width: 140px;
-    max-width: 200px;
-    border-color: transparent;
-    border-radius: var(--xy-radius-md);
-    background-color: var(--xy-surface-0);
-  }
-
-  .file-active {
-    border-color: var(--xy-primary);
-    background-color: var(--xy-surface-2);
-  }
-
-  /* Hide collapsed state on mobile — always show expanded strip */
-  .sidebar-collapsed {
-    display: none;
-  }
-
-  .config-sidebar.collapsed .sidebar-expanded {
-    display: flex;
-    opacity: 1;
-    position: static;
-    pointer-events: auto;
   }
 }
 </style>
