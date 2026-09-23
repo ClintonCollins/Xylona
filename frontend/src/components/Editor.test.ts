@@ -38,18 +38,18 @@ describe('Editor', () => {
     const viewModel = wrapper.vm as unknown as {
       codeInput: string
       saveError: string
-      saveFile: () => Promise<void>
+      saveFile: (options: { close: boolean }) => Promise<void>
     }
 
     mocks.uploadFormData.mockRejectedValueOnce(new Error('node unavailable'))
-    await viewModel.saveFile()
+    await viewModel.saveFile({ close: true })
 
     expect(wrapper.emitted('submit')).toBeUndefined()
     expect(viewModel.codeInput).toBe('server-port=25565')
     expect(viewModel.saveError).toContain('node unavailable')
 
     mocks.uploadFormData.mockResolvedValueOnce(undefined)
-    await viewModel.saveFile()
+    await viewModel.saveFile({ close: true })
 
     expect(wrapper.emitted('submit')).toHaveLength(1)
     expect(viewModel.codeInput).toBe('server-port=25565')
@@ -65,6 +65,13 @@ describe('Editor', () => {
     const savedFile = savedForm.get('file')
     expect(savedFile).toBeInstanceOf(File)
     expect((savedFile as File).name).toBe('server.properties')
+
+    // Ctrl/Cmd+S saves in place: it reports 'saved' and keeps the editor open.
+    mocks.uploadFormData.mockResolvedValueOnce(undefined)
+    await viewModel.saveFile({ close: false })
+
+    expect(wrapper.emitted('submit')).toHaveLength(1)
+    expect(wrapper.emitted('saved')).toHaveLength(1)
 
     wrapper.unmount()
   })
