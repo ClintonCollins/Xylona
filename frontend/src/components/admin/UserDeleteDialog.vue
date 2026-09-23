@@ -4,21 +4,88 @@
     aria-labelledby="user-delete-dialog-title"
     backdrop-filter="brightness(15%)"
     persistent>
-    <q-card>
+    <q-card class="user-delete-dialog">
       <q-card-section>
-        <div id="user-delete-dialog-title" class="text-h6 text-error">Delete User</div>
+        <div id="user-delete-dialog-title" class="text-h6 text-negative">Delete User</div>
       </q-card-section>
-      <q-card-section>
-        <div class="row wrap q-col-gutter-md justify-between">
-          <p>
-            Are you sure you want to delete {{ user?.userName }}?
-            <span class="text-bold">This action cannot be undone.</span>
-          </p>
+      <q-card-section class="user-delete-body">
+        <div v-if="loadingImpact" class="user-delete-loading" role="status">
+          <q-spinner color="primary" size="1.25rem" />
+          Checking what {{ user?.userName }} owns…
         </div>
+
+        <q-banner v-else-if="impactError" class="xy-banner-negative" dense role="alert">
+          Could not check what {{ user?.userName }} owns. {{ impactError }}
+        </q-banner>
+
+        <template v-else-if="blocked">
+          <p>
+            <strong>{{ user?.userName }}</strong> can't be deleted yet.
+          </p>
+          <div v-if="impact?.ownedGameServers.length" class="user-delete-group">
+            <p>Change the owner of these game servers in their Settings first:</p>
+            <ul>
+              <li v-for="gameServer in impact.ownedGameServers" :key="gameServer.id">
+                <router-link :to="`/game-servers/${gameServer.id}/settings`">
+                  {{ gameServer.name }}
+                </router-link>
+              </li>
+            </ul>
+          </div>
+          <div v-if="impact?.grantsGiven.length" class="user-delete-group">
+            <p>Remove the access they gave other users from each server's Access tab first:</p>
+            <ul>
+              <li
+                v-for="grant in impact.grantsGiven"
+                :key="`${grant.gameServerId}:${grant.userName}`">
+                {{ grant.userName }} on
+                <router-link
+                  v-if="grant.gameServerId"
+                  :to="`/game-servers/${grant.gameServerId}/access`">
+                  {{ grant.gameServerName }}
+                </router-link>
+                <template v-else>every game server</template>
+              </li>
+            </ul>
+          </div>
+        </template>
+
+        <template v-else>
+          <p>
+            Are you sure you want to delete <strong>{{ user?.userName }}</strong
+            >? <strong>This action cannot be undone.</strong>
+          </p>
+          <div
+            v-if="impact?.schedules.length"
+            class="user-delete-group xy-banner-warning user-delete-schedules">
+            <p>
+              {{ impact.schedules.length === 1 ? 'This schedule' : 'These schedules' }} they created
+              will be deleted too:
+            </p>
+            <ul>
+              <li
+                v-for="schedule in impact.schedules"
+                :key="`${schedule.gameServerId}:${schedule.name}`">
+                {{ schedule.gameServerName }} &middot; {{ schedule.name }}
+              </li>
+            </ul>
+          </div>
+        </template>
+
+        <q-banner v-if="deleteError" class="xy-banner-negative q-mt-md" dense role="alert">
+          {{ deleteError }}
+        </q-banner>
       </q-card-section>
       <q-card-actions align="right">
-        <q-btn color="neutral" flat label="Cancel" @click="showDialog = false" />
-        <q-btn class="bg-error" label="Delete" @click="deleteUser" />
+        <q-btn :disable="deleting" flat label="Cancel" @click="showDialog = false" />
+        <q-btn
+          v-if="!blocked"
+          :disable="loadingImpact || impactError !== ''"
+          :loading="deleting"
+          color="negative"
+          label="Delete"
+          unelevated
+          @click="deleteUser" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -26,11 +93,16 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { PropType } from 'vue'
+import { computed, PropType, ref, watch } from 'vue'
 import { GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
-import { DeleteUserRequest, DeleteUserRequestSchema, User } from '@/proto/xylona_pb'
+import { notifySuccess } from '@/api/notifications'
+import {
+  DeleteUserRequestSchema,
+  GetUserDeletionImpactRequestSchema,
+  type GetUserDeletionImpactResponse,
+  User,
+} from '@/proto/xylona_pb'
 
 const props = defineProps({
   user: {
@@ -39,7 +111,6 @@ const props = defineProps({
   },
 })
 
-const $q = useQuasar()
 const emit = defineEmits<{
   submit: [error: boolean]
 }>()
@@ -48,36 +119,99 @@ const showDialog = defineModel<boolean>('showDialog', {
   default: false,
 })
 
+const impact = ref<GetUserDeletionImpactResponse | null>(null)
+const loadingImpact = ref(false)
+const impactError = ref('')
+const deleting = ref(false)
+const deleteError = ref('')
+
+// Owned servers and access given to others fail the delete, so the dialog
+// names them instead of offering a Delete that cannot succeed.
+const blocked = computed(
+  () => (impact.value?.ownedGameServers.length ?? 0) + (impact.value?.grantsGiven.length ?? 0) > 0,
+)
+
+watch(
+  () => [showDialog.value, props.user?.id] as const,
+  ([open, userID]) => {
+    if (open && userID) {
+      void loadImpact(userID)
+    }
+  },
+  { immediate: true },
+)
+
+async function loadImpact(userID: string) {
+  impact.value = null
+  impactError.value = ''
+  deleteError.value = ''
+  loadingImpact.value = true
+  try {
+    const response = await GetXylonaClient().getUserDeletionImpact(
+      create(GetUserDeletionImpactRequestSchema, { id: userID }),
+    )
+    if (props.user?.id === userID) {
+      impact.value = response
+    }
+  } catch (unknownError: unknown) {
+    impactError.value = connectErrorMessage(unknownError)
+  } finally {
+    loadingImpact.value = false
+  }
+}
+
 async function deleteUser() {
   if (!props.user) {
     emit('submit', true)
     return
   }
 
-  const request: DeleteUserRequest = create(DeleteUserRequestSchema, {
-    id: props.user.id,
-  })
-
+  deleting.value = true
+  deleteError.value = ''
   try {
-    await GetXylonaClient().deleteUser(request)
-    $q.notify({
-      caption: `${props.user.userName} deleted successfully`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
+    await GetXylonaClient().deleteUser(create(DeleteUserRequestSchema, { id: props.user.id }))
+    notifySuccess(`${props.user.userName} deleted successfully`, { timeout: 5000 })
     showDialog.value = false
     emit('submit', false)
   } catch (unknownError: unknown) {
-    $q.notify({
-      caption: `Error deleting user: ${connectErrorMessage(unknownError)}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    deleteError.value = connectErrorMessage(unknownError)
     emit('submit', true)
+  } finally {
+    deleting.value = false
   }
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+.user-delete-dialog {
+  width: min(32rem, 100%);
+}
+
+.user-delete-body p {
+  margin: 0;
+}
+
+.user-delete-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-sm);
+  color: var(--xy-text-secondary);
+}
+
+.user-delete-group {
+  margin-top: var(--xy-space-md);
+}
+
+.user-delete-group ul {
+  margin: var(--xy-space-xs) 0 0;
+  padding-left: var(--xy-space-lg);
+}
+
+.user-delete-group a {
+  color: var(--xy-primary);
+}
+
+.user-delete-schedules {
+  padding: var(--xy-space-sm) var(--xy-space-md);
+}
+</style>

@@ -1,86 +1,93 @@
 <template>
   <q-page class="xy-page-content">
-    <page-header title="Edit user" />
-    <div class="user-form">
-      <q-form>
-        <div class="column q-gutter-y-md">
-          <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-            <q-input
-              v-model="userName"
-              class="col-12 col-xl-6"
-              label="Username"
-              outlined
-              type="text"></q-input>
-            <q-input
-              v-model="email"
-              class="col-12 col-xl-6"
-              label="Email"
-              outlined
-              type="email"></q-input>
-            <q-input
-              v-model="firstName"
-              class="col-12 col-xl-6"
-              label="First Name"
-              outlined
-              type="text"></q-input>
-            <q-input
-              v-model="lastName"
-              class="col-12 col-xl-6"
-              label="Last Name"
-              outlined
-              type="text"></q-input>
-          </div>
-
-          <div class="row q-col-gutter-x-sm full-width">
-            <q-toggle v-model="superUser" class="col-12 col-xl-2" label="Super User"></q-toggle>
-          </div>
-
-          <q-separator></q-separator>
-
-          <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-            <q-input
-              v-model="password"
-              class="col-12 col-xl-6"
-              label="New Password (Optional)"
-              outlined
-              type="password"></q-input>
-            <q-input
-              v-model="confirmPassword"
-              class="col-12 col-xl-6"
-              label="Confirm Password"
-              outlined
-              type="password"></q-input>
-          </div>
+    <q-form greedy @submit="submit">
+      <page-header title="Edit user">
+        <template #actions>
+          <q-btn :disable="submitting" flat label="Cancel" to="/admin/users" />
+          <q-btn
+            :disable="!loaded"
+            :loading="submitting"
+            color="primary"
+            label="Save changes"
+            type="submit" />
+        </template>
+      </page-header>
+      <div class="user-form">
+        <div class="user-form-grid">
+          <q-input
+            v-model="userName"
+            :rules="[requiredRule('Username')]"
+            aria-required="true"
+            autocomplete="off"
+            label="Username *"
+            lazy-rules
+            outlined
+            type="text" />
+          <q-input
+            v-model="email"
+            :rules="[requiredRule('Email')]"
+            aria-required="true"
+            autocomplete="off"
+            label="Email *"
+            lazy-rules
+            outlined
+            type="email" />
+          <q-input v-model="firstName" autocomplete="off" label="First Name" outlined type="text" />
+          <q-input v-model="lastName" autocomplete="off" label="Last Name" outlined type="text" />
         </div>
-      </q-form>
-      <q-separator class="q-my-md"></q-separator>
-      <div class="row justify-end q-gutter-sm">
-        <q-btn flat label="Cancel" @click="router.push({ path: '/admin/users' })"></q-btn>
-        <q-btn :loading="submitting" color="primary" label="Save" @click="submit"></q-btn>
+
+        <q-toggle v-model="superUser" aria-describedby="super-user-hint" label="Super User" />
+        <p id="super-user-hint" class="user-form-hint">
+          Super users control every server, node, user and setting. Other users see only servers you
+          grant them from each server's Access tab.
+          <template v-if="loadedSuperUser">
+            Turning this off signs {{ editingSelf ? 'you' : 'this user' }} out of all sessions.
+          </template>
+        </p>
+
+        <q-separator class="q-my-lg" />
+
+        <div class="user-form-grid">
+          <q-input
+            v-model="password"
+            autocomplete="new-password"
+            :hint="
+              editingSelf
+                ? 'Saving a new password signs you out of all sessions, including this one.'
+                : 'Saving a new password signs this user out of all sessions.'
+            "
+            label="New Password (Optional)"
+            outlined
+            type="password" />
+          <q-input
+            v-model="confirmPassword"
+            :rules="[matchesPasswordRule(() => password)]"
+            autocomplete="new-password"
+            label="Confirm Password"
+            lazy-rules
+            outlined
+            type="password" />
+        </div>
       </div>
-    </div>
+    </q-form>
   </q-page>
 </template>
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { useQuasar } from 'quasar'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { GetXylonaClient } from '@/utils/shared'
-import { connectErrorMessage } from '@/api/connect-errors'
-import {
-  GetUserDetailsRequest,
-  GetUserDetailsRequestSchema,
-  UpdateUserRequest,
-  UpdateUserRequestSchema,
-  User,
-} from '@/proto/xylona_pb'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
+import { GetUserDetailsRequestSchema, UpdateUserRequestSchema, User } from '@/proto/xylona_pb'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import { useUserAuthStore } from '@/stores/xylona'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
+import { matchesPasswordRule, requiredRule } from './user-form-rules'
 
-const $q = useQuasar()
 const route = useRoute()
 const router = useRouter()
+const authStore = useUserAuthStore()
 
 const userID = ref('')
 const userName = ref('')
@@ -91,19 +98,33 @@ const superUser = ref(false)
 const password = ref('')
 const confirmPassword = ref('')
 const submitting = ref(false)
+const loaded = ref(false)
+const loadedSuperUser = ref(false)
+const savedSnapshot = ref('')
 
-function showValidationError(message: string) {
-  $q.notify({
-    caption: message,
-    type: 'xylona-error',
-    position: 'top',
-    timeout: 5000,
-  })
+const editingSelf = computed(() => userID.value !== '' && userID.value === authStore.user?.id)
+
+function formSnapshot(): string {
+  return JSON.stringify([
+    userName.value,
+    email.value,
+    firstName.value,
+    lastName.value,
+    superUser.value,
+  ])
 }
+
+useUnsavedChangesGuard(
+  () =>
+    loaded.value &&
+    (formSnapshot() !== savedSnapshot.value ||
+      password.value !== '' ||
+      confirmPassword.value !== ''),
+)
 
 onMounted(async () => {
   if (typeof route.params.id !== 'string' || route.params.id.trim() === '') {
-    showValidationError('User ID is required')
+    notifyError('User ID is required')
     await router.push({ path: '/admin/users' })
     return
   }
@@ -113,24 +134,18 @@ onMounted(async () => {
 })
 
 async function getUser() {
-  const request: GetUserDetailsRequest = create(GetUserDetailsRequestSchema, {
-    id: userID.value,
-  })
   try {
-    const response = await GetXylonaClient().getUser(request)
+    const response = await GetXylonaClient().getUser(
+      create(GetUserDetailsRequestSchema, { id: userID.value }),
+    )
     if (!response.user) {
-      showValidationError('User not found')
+      notifyError('User not found')
       await router.push({ path: '/admin/users' })
       return
     }
     hydrateForm(response.user)
   } catch (unknownError: unknown) {
-    $q.notify({
-      caption: `Error loading user: ${connectErrorMessage(unknownError)}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownError, 'Error loading user')
     await router.push({ path: '/admin/users' })
   }
 }
@@ -141,30 +156,17 @@ function hydrateForm(user: User) {
   firstName.value = user.firstName
   lastName.value = user.lastName
   superUser.value = user.superUser
+  loadedSuperUser.value = user.superUser
+  savedSnapshot.value = formSnapshot()
+  loaded.value = true
 }
 
 async function submit() {
-  if (submitting.value) {
+  if (submitting.value || !loaded.value) {
     return
   }
 
-  if (userName.value.trim() === '') {
-    showValidationError('Username is required')
-    return
-  }
-  if (email.value.trim() === '') {
-    showValidationError('Email is required')
-    return
-  }
-  if (
-    (password.value !== '' || confirmPassword.value !== '') &&
-    password.value !== confirmPassword.value
-  ) {
-    showValidationError('Passwords do not match')
-    return
-  }
-
-  const request: UpdateUserRequest = create(UpdateUserRequestSchema, {
+  const request = create(UpdateUserRequestSchema, {
     id: userID.value,
     userName: userName.value.trim(),
     email: email.value.trim(),
@@ -175,24 +177,26 @@ async function submit() {
   if (password.value.trim() !== '') {
     request.password = password.value
   }
+  // The server revokes every session of a user whose password changes or who
+  // stops being a super user.
+  const signsOutSelf =
+    editingSelf.value && (request.password !== '' || (loadedSuperUser.value && !superUser.value))
 
   submitting.value = true
   try {
     await GetXylonaClient().updateUser(request)
-    $q.notify({
-      caption: `${request.userName} updated successfully`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
+    savedSnapshot.value = formSnapshot()
+    password.value = ''
+    confirmPassword.value = ''
+    if (signsOutSelf) {
+      await authStore.logout()
+      await router.push({ path: '/login', query: { reason: 'account-changed' } })
+      return
+    }
+    notifySuccess(`${request.userName} updated successfully`, { timeout: 5000 })
     await router.push({ path: '/admin/users' })
   } catch (unknownError: unknown) {
-    $q.notify({
-      caption: `Error updating user: ${connectErrorMessage(unknownError)}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownError, 'Error updating user')
   } finally {
     submitting.value = false
   }
@@ -202,5 +206,25 @@ async function submit() {
 <style scoped>
 .user-form {
   max-width: 720px;
+}
+
+.user-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--xy-space-md);
+  row-gap: var(--xy-space-xs);
+}
+
+.user-form-hint {
+  max-width: 70ch;
+  margin: var(--xy-space-2xs) 0 0;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+}
+
+@media (max-width: 599px) {
+  .user-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

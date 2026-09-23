@@ -1,10 +1,12 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UserSchema } from '@/proto/xylona_pb'
+import { useUserAuthStore } from '@/stores/xylona'
 import UserList from './UserList.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -63,6 +65,7 @@ const globalStubs = {
 
 describe('UserList', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     mocks.listUsers.mockReset()
     mocks.notifyCreate.mockReset()
   })
@@ -123,6 +126,24 @@ describe('UserList', () => {
 
     expect(role.field(create(UserSchema, { superUser: true }))).toBe('Super user')
     expect(role.field(create(UserSchema, { superUser: false }))).toBe('User')
+  })
+
+  it('explains why the signed-in user cannot delete their own account', async () => {
+    mocks.listUsers.mockResolvedValueOnce({ users: [] })
+    useUserAuthStore().setUser(create(UserSchema, { id: 'user-me', userName: 'me' }))
+    const wrapper = mount(UserList, { global: globalStubs })
+    await flushPromises()
+
+    const vm = wrapper.vm as unknown as {
+      isSignedInUser: (user: unknown) => boolean
+      deleteTooltip: (user: unknown) => string
+    }
+    const me = create(UserSchema, { id: 'user-me' })
+    const other = create(UserSchema, { id: 'user-other' })
+    expect(vm.isSignedInUser(me)).toBe(true)
+    expect(vm.deleteTooltip(me)).toBe("You can't delete your own account")
+    expect(vm.isSignedInUser(other)).toBe(false)
+    expect(vm.deleteTooltip(other)).toBe('Delete user')
   })
 
   it('shows loading state while fetching', async () => {

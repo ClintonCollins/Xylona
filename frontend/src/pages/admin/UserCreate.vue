@@ -1,73 +1,76 @@
 <template>
   <q-page class="xy-page-content">
-    <page-header title="Create user" />
-    <div class="user-form">
-      <q-form>
-        <div class="column q-gutter-y-md">
-          <div class="row q-col-gutter-md q-gutter-y-md justify-between full-width">
-            <q-input
-              v-model="userName"
-              class="col-12 col-xl-6"
-              label="Username"
-              outlined
-              type="text"></q-input>
-            <q-input
-              v-model="email"
-              class="col-12 col-xl-6"
-              label="Email"
-              outlined
-              type="email"></q-input>
-            <q-input
-              v-model="password"
-              class="col-12 col-xl-6"
-              label="Password"
-              outlined
-              type="password"></q-input>
-            <q-input
-              v-model="confirmPassword"
-              class="col-12 col-xl-6"
-              label="Confirm Password"
-              outlined
-              type="password"></q-input>
-            <q-input
-              v-model="firstName"
-              class="col-12 col-xl-6"
-              label="First Name"
-              outlined
-              type="text"></q-input>
-            <q-input
-              v-model="lastName"
-              class="col-12 col-xl-6"
-              label="Last Name"
-              outlined
-              type="text"></q-input>
-          </div>
-
-          <div class="row q-col-gutter-x-sm full-width">
-            <q-toggle v-model="superUser" class="col-12 col-xl-2" label="Super User"></q-toggle>
-          </div>
+    <q-form greedy @submit="submit">
+      <page-header title="Create user">
+        <template #actions>
+          <q-btn :disable="submitting" flat label="Cancel" to="/admin/users" />
+          <q-btn :loading="submitting" color="primary" label="Create user" type="submit" />
+        </template>
+      </page-header>
+      <div class="user-form">
+        <div class="user-form-grid">
+          <q-input
+            v-model="userName"
+            :rules="[requiredRule('Username')]"
+            aria-required="true"
+            autocomplete="off"
+            autofocus
+            label="Username *"
+            lazy-rules
+            outlined
+            type="text" />
+          <q-input
+            v-model="email"
+            :rules="[requiredRule('Email')]"
+            aria-required="true"
+            autocomplete="off"
+            label="Email *"
+            lazy-rules
+            outlined
+            type="email" />
+          <q-input
+            v-model="password"
+            :rules="[requiredRule('Password')]"
+            aria-required="true"
+            autocomplete="new-password"
+            label="Password *"
+            lazy-rules
+            outlined
+            type="password" />
+          <q-input
+            v-model="confirmPassword"
+            :rules="[matchesPasswordRule(() => password)]"
+            aria-required="true"
+            autocomplete="new-password"
+            label="Confirm Password *"
+            lazy-rules
+            outlined
+            type="password" />
+          <q-input v-model="firstName" autocomplete="off" label="First Name" outlined type="text" />
+          <q-input v-model="lastName" autocomplete="off" label="Last Name" outlined type="text" />
         </div>
-      </q-form>
-      <q-separator class="q-my-md"></q-separator>
-      <div class="row justify-end q-gutter-sm">
-        <q-btn flat label="Cancel" @click="router.push({ path: '/admin/users' })"></q-btn>
-        <q-btn :loading="submitting" color="primary" label="Create User" @click="submit"></q-btn>
+
+        <q-toggle v-model="superUser" aria-describedby="super-user-hint" label="Super User" />
+        <p id="super-user-hint" class="user-form-hint">
+          Super users control every server, node, user and setting. Other users see only servers you
+          grant them from each server's Access tab.
+        </p>
       </div>
-    </div>
+    </q-form>
   </q-page>
 </template>
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { useQuasar } from 'quasar'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { GetXylonaClient } from '@/utils/shared'
-import { connectErrorMessage } from '@/api/connect-errors'
-import { CreateUserRequest, CreateUserRequestSchema } from '@/proto/xylona_pb'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
+import { CreateUserRequestSchema } from '@/proto/xylona_pb'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
+import { matchesPasswordRule, requiredRule } from './user-form-rules'
 
-const $q = useQuasar()
 const router = useRouter()
 
 const userName = ref('')
@@ -78,39 +81,23 @@ const firstName = ref('')
 const lastName = ref('')
 const superUser = ref(false)
 const submitting = ref(false)
+const created = ref(false)
 
-function showValidationError(message: string) {
-  $q.notify({
-    caption: message,
-    type: 'xylona-error',
-    position: 'top',
-    timeout: 5000,
-  })
-}
+useUnsavedChangesGuard(
+  () =>
+    !created.value &&
+    (superUser.value ||
+      [userName, email, password, confirmPassword, firstName, lastName].some(
+        (field) => field.value !== '',
+      )),
+)
 
 async function submit() {
   if (submitting.value) {
     return
   }
 
-  if (userName.value.trim() === '') {
-    showValidationError('Username is required')
-    return
-  }
-  if (email.value.trim() === '') {
-    showValidationError('Email is required')
-    return
-  }
-  if (password.value.trim() === '') {
-    showValidationError('Password is required')
-    return
-  }
-  if (password.value !== confirmPassword.value) {
-    showValidationError('Passwords do not match')
-    return
-  }
-
-  const request: CreateUserRequest = create(CreateUserRequestSchema, {
+  const request = create(CreateUserRequestSchema, {
     userName: userName.value.trim(),
     email: email.value.trim(),
     password: password.value,
@@ -122,20 +109,11 @@ async function submit() {
   submitting.value = true
   try {
     await GetXylonaClient().createUser(request)
-    $q.notify({
-      caption: `${request.userName} created successfully`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
+    created.value = true
+    notifySuccess(`${request.userName} created successfully`, { timeout: 5000 })
     await router.push({ path: '/admin/users' })
   } catch (unknownError: unknown) {
-    $q.notify({
-      caption: `Error creating user: ${connectErrorMessage(unknownError)}`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownError, 'Error creating user')
   } finally {
     submitting.value = false
   }
@@ -145,5 +123,25 @@ async function submit() {
 <style scoped>
 .user-form {
   max-width: 720px;
+}
+
+.user-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--xy-space-md);
+  row-gap: var(--xy-space-xs);
+}
+
+.user-form-hint {
+  max-width: 70ch;
+  margin: var(--xy-space-2xs) 0 0;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
+}
+
+@media (max-width: 599px) {
+  .user-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

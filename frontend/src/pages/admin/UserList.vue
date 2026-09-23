@@ -77,10 +77,11 @@
                 <q-btn
                   :aria-label="`Delete ${props.row.userName}`"
                   class="text-error-brighter"
+                  :disable="isSignedInUser(props.row)"
                   flat
                   icon="delete"
                   @click="deleteUserAction(props.row)">
-                  <q-tooltip>Delete user</q-tooltip>
+                  <q-tooltip>{{ deleteTooltip(props.row) }}</q-tooltip>
                 </q-btn>
               </q-card-actions>
             </q-card>
@@ -113,12 +114,13 @@
               <q-btn
                 :aria-label="`Delete ${props.row.userName}`"
                 class="text-error-brighter"
+                :disable="isSignedInUser(props.row)"
                 dense
                 flat
                 icon="delete"
                 round
                 @click="deleteUserAction(props.row)">
-                <q-tooltip>Delete user</q-tooltip>
+                <q-tooltip>{{ deleteTooltip(props.row) }}</q-tooltip>
               </q-btn>
             </div>
           </q-td>
@@ -153,6 +155,7 @@ import { onMounted, Ref, ref } from 'vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
+import { useUserAuthStore } from '@/stores/xylona'
 import { formatDate } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
@@ -163,6 +166,7 @@ import {
 } from '@/proto/xylona_pb'
 
 const $q = useQuasar()
+const authStore = useUserAuthStore()
 const rows = ref([] as User[])
 const loading: Ref<boolean> = ref(false)
 const loadError = ref('')
@@ -209,6 +213,14 @@ function formatCreatedAt(createdAt?: Timestamp): string {
 
 function roleLabel(user: User): string {
   return user.superUser ? 'Super user' : 'User'
+}
+
+function isSignedInUser(user: User): boolean {
+  return user.id === authStore.user?.id
+}
+
+function deleteTooltip(user: User): string {
+  return isSignedInUser(user) ? "You can't delete your own account" : 'Delete user'
 }
 
 async function deleteUserAction(user: User) {

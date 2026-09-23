@@ -9,9 +9,8 @@
         <h1 id="login-title" class="auth-title">Sign in to Xylona</h1>
         <p id="login-help" class="auth-help">
           {{
-            route.query.reason === 'session-expired'
-              ? 'Your session expired. Sign in again to continue.'
-              : 'Use your panel credentials to access the servers and tools assigned to you.'
+            signInReasons[String(route.query.reason)] ??
+            'Use your panel credentials to access the servers and tools assigned to you.'
           }}
         </p>
       </div>
@@ -89,6 +88,11 @@ const showPassword = ref(false)
 const loggingIn = ref(false)
 const loginError = ref('')
 const userAuthStore = useUserAuthStore()
+
+const signInReasons: Record<string, string> = {
+  'session-expired': 'Your session expired. Sign in again to continue.',
+  'account-changed': 'Your account changed, so every session was signed out. Sign in again.',
+}
 
 const $q = useQuasar()
 
