@@ -93,10 +93,20 @@ const QUASAR_STUBS = {
   'q-icon': { props: ['name', 'size', 'color'], template: '<i />' },
   'q-spinner': { template: '<div class="q-spinner-stub" />' },
   'q-btn': {
-    props: ['label', 'icon', 'color', 'disable', 'outline', 'unelevated', 'dense', 'size'],
+    props: [
+      'label',
+      'icon',
+      'color',
+      'disable',
+      'loading',
+      'outline',
+      'unelevated',
+      'dense',
+      'size',
+    ],
     emits: ['click'],
     template:
-      '<button :disabled="disable" @click.stop="$emit(\'click\')">{{ label }}<slot /></button>',
+      '<button :data-loading="Boolean(loading)" :disabled="disable" @click.stop="$emit(\'click\')">{{ label }}<slot /></button>',
   },
   'q-select': {
     props: ['modelValue', 'options', 'multiple', 'useChips'],
@@ -120,6 +130,9 @@ function mountBrowse(
     gameServerId: string
     installedMods: InstalledMod[]
     sources: { id: string; searchParams: Record<string, unknown> }[]
+    availableVersions: string[]
+    defaultGameVersion: string
+    installingKey: string
   }> = {},
 ): VueWrapper {
   return mount(ModBrowse, {
@@ -325,7 +338,38 @@ describe('ModBrowse', () => {
     // The install event should have been emitted (may also emit view-details due to bubbling in stubs)
     const emitted = wrapper.emitted('install') ?? []
     expect(emitted.length).toBeGreaterThanOrEqual(1)
-    expect(emitted[0]).toEqual(['modrinth', 'xyz789'])
+    expect(emitted[0]).toEqual(['modrinth', 'xyz789', 'Sodium'])
+  })
+
+  it('locks the other Install buttons while one mod installs', async () => {
+    mockSearchMods.mockResolvedValue({
+      results: [
+        makeSearchResult({ sourceId: 'abc', name: 'Fabric API' }),
+        makeSearchResult({ sourceId: 'def', name: 'Sodium' }),
+      ],
+      totalCount: 2,
+    })
+
+    const wrapper = mountBrowse({ installingKey: 'modrinth:abc' })
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.mod-card')).toHaveLength(2)
+    })
+    const installButtons = wrapper.findAll('.mod-card-footer button')
+    expect(installButtons.map((button) => button.attributes('data-loading'))).toEqual([
+      'true',
+      'false',
+    ])
+    expect(installButtons.map((button) => button.attributes('disabled'))).toEqual([undefined, ''])
+  })
+
+  it("searches with the server's game version preselected", async () => {
+    mountBrowse({ availableVersions: ['1.21.4', '1.20.6'], defaultGameVersion: '1.21.4' })
+
+    await vi.waitFor(() => {
+      expect(mockSearchMods).toHaveBeenCalledTimes(1)
+    })
+    expect(mockSearchMods.mock.calls[0][0].gameVersion).toBe('1.21.4')
   })
 
   it('shows "No mods found" when search returns empty results', async () => {

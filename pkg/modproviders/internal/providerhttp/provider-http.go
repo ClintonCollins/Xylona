@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -155,4 +157,14 @@ func IntParam(params modproviders.SearchParams, key string, defaultValue int) in
 func StringSliceParam(params modproviders.SearchParams, key string) []string {
 	s, _ := params[key].([]string)
 	return s
+}
+
+// ParseTimestamp parses an RFC 3339 provider timestamp, returning the zero
+// time when the value is missing or malformed so callers can omit it.
+func ParseTimestamp(value string) time.Time {
+	parsed, errParse := time.Parse(time.RFC3339, strings.TrimSpace(value))
+	if errParse != nil {
+		return time.Time{}
+	}
+	return parsed.UTC()
 }

@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { UpdateProviderKind } from '@/proto/shared_pb'
 import {
   SevenDaysToDieWebAPIConnectionState,
   SevenDaysToDieWebAPIValueState,
@@ -48,9 +49,15 @@ const PanelStub = defineComponent({
 const InstalledModsTableStub = defineComponent({
   props: {
     installedMods: { type: Array, default: () => [] },
+    emptyDescription: { type: String, default: '' },
   },
-  template: '<div data-testid="managed-mods">managed:{{ installedMods.length }}</div>',
+  template:
+    '<div data-testid="managed-mods">managed:{{ installedMods.length }} {{ emptyDescription }}</div>',
 })
+
+const minecraftSources = {
+  sources: [{ id: 'modrinth', searchParamsJson: '{}' }],
+}
 
 const reportedModsResponse = {
   connectionState:
@@ -118,7 +125,7 @@ describe('GameServerMods reported mods', () => {
     ])
     expect((wrapper.vm as unknown as { activeTab: string }).activeTab).toBe('browse')
     expect(wrapper.find('[data-testid="managed-mods"]').exists()).toBe(true)
-    browser.vm.$emit('install', 'thunderstore', 'Example-Mod')
+    browser.vm.$emit('install', 'thunderstore', 'Example-Mod', 'Example Mod')
     await flushPromises()
 
     expect(mocks.installMod).toHaveBeenCalledWith(
@@ -231,7 +238,7 @@ describe('GameServerMods reported mods', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="managed-mods"]').text()).toBe('managed:1')
+    expect(wrapper.get('[data-testid="managed-mods"]').text()).toContain('managed:1')
     expect(wrapper.text()).toContain('Reported mods are currently unavailable.')
   })
 
@@ -248,12 +255,55 @@ describe('GameServerMods reported mods', () => {
   })
 
   it('keeps the existing browse default for non-7DTD servers', async () => {
-    mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: 'minecraft' } })
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { gameId: 'minecraft', resolvedModProfile: minecraftSources },
+    })
     const wrapper = mountPage()
     await flushPromises()
 
     expect((wrapper.vm as unknown as { activeTab: string }).activeTab).toBe('browse')
     expect(mocks.getReportedMods).not.toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('Reported by game server')
+  })
+
+  it('stays on Installed and points to Files when the game has no mod sources', async () => {
+    mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: 'minecraft' } })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { activeTab: string }).activeTab).toBe('installed')
+    expect(wrapper.findComponent({ name: 'ModBrowse' }).exists()).toBe(false)
+    expect(wrapper.text()).toContain('Install mods manually through Files.')
+  })
+
+  it("installs the newest version that supports the server's game version", async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: {
+        gameId: 'minecraft',
+        name: 'Survival',
+        resolvedModProfile: minecraftSources,
+        resolvedUpdateProvider: { kind: UpdateProviderKind.PAPERMC },
+      },
+    })
+    mocks.getUpdateTargets.mockResolvedValue({
+      targets: [
+        { id: '1.21.5', label: '1.21.5', isSelected: false },
+        { id: '1.21.4', label: '1.21.4', isSelected: true },
+      ],
+    })
+    mocks.getModVersions.mockResolvedValue({ versions: [{ versionId: 'v9', dependencies: [] }] })
+    mocks.installMod.mockResolvedValue({})
+    const wrapper = mountPage()
+    await flushPromises()
+
+    const browser = wrapper.getComponent({ name: 'ModBrowse' })
+    expect(browser.props('defaultGameVersion')).toBe('1.21.4')
+    browser.vm.$emit('install', 'modrinth', 'simple-voice-chat', 'Simple Voice Chat')
+    await flushPromises()
+
+    expect(mocks.getModVersions).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: 'simple-voice-chat', gameVersion: '1.21.4' }),
+    )
+    expect(mocks.installMod).toHaveBeenCalledWith(expect.objectContaining({ versionId: 'v9' }))
   })
 })

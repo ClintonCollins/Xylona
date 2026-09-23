@@ -21,7 +21,7 @@ import {
   UninstallModRequestSchema,
   UpdateModRequestSchema,
 } from '@/proto/xylona_pb'
-import type { InstalledMod, ModVersion } from '@/proto/shared_pb'
+import { type InstalledMod, type ModVersion, UpdateProviderKind } from '@/proto/shared_pb'
 import InstalledModsTable from '@/components/game_servers/InstalledModsTable.vue'
 import ModBrowse from '@/components/game_servers/ModBrowse.vue'
 import ModDetailDialog from '@/components/game_servers/ModDetailDialog.vue'
@@ -45,6 +45,12 @@ const reportedModsResponse = ref({
   mods: [] as SevenDaysToDieReportedMod[],
 })
 
+const serverName = ref('')
+// The server's game version (Paper/Mojang targets), used to pick compatible mod versions.
+const serverGameVersion = ref('')
+// `source:sourceId` of the mod currently being installed.
+const installingKey = ref('')
+
 // Detail dialog state
 const showDetailDialog = ref(false)
 const detailSource = ref('')
@@ -67,6 +73,16 @@ const modSources = ref<{ id: string; searchParams: Record<string, unknown> }[]>(
 
 // Available game versions for the browse version filter.
 const availableVersions = ref<string[]>([])
+
+const hasModSources = computed(() => modSources.value.length > 0)
+const installedEmptyTitle = computed(() =>
+  isSevenDaysToDie.value ? 'No Xylona-managed mods' : 'No mods installed',
+)
+const installedEmptyDescription = computed(() =>
+  hasModSources.value
+    ? 'Browse available mods to get started.'
+    : 'Xylona has no mod sources for this game. Install mods manually through Files.',
+)
 
 const detailIsInstalled = computed(() => {
   return installedMods.value.some(
@@ -121,7 +137,7 @@ onMounted(async () => {
   await installedModsPromise
 
   // Keep 7 Days to Die on Installed so its native inventory remains visible.
-  if (!isSevenDaysToDie.value && installedMods.value.length === 0) {
+  if (!isSevenDaysToDie.value && installedMods.value.length === 0 && hasModSources.value) {
     activeTab.value = 'browse'
   }
 })
@@ -148,6 +164,7 @@ async function loadGameServerConfig(): Promise<void> {
     const gs = response.gameServer
     if (!gs) return
 
+    serverName.value = gs.name
     isValheim.value = gs.gameId === 'valheim'
     isSevenDaysToDie.value = gs.gameId === '7_days_to_die'
 
@@ -159,7 +176,10 @@ async function loadGameServerConfig(): Promise<void> {
       })) ?? []
 
     if (gs.selectedVariantId || gs.resolvedUpdateProvider) {
-      void loadAvailableVersions()
+      const providerKind = gs.resolvedUpdateProvider?.kind
+      void loadAvailableVersions(
+        providerKind === UpdateProviderKind.PAPERMC || providerKind === UpdateProviderKind.MOJANG,
+      )
     }
   } catch (unknownErr: unknown) {
     console.error('Failed to load game server config:', unknownErr)
@@ -184,13 +204,19 @@ async function loadReportedMods(): Promise<void> {
   }
 }
 
-async function loadAvailableVersions(): Promise<void> {
+async function loadAvailableVersions(targetsAreGameVersions: boolean): Promise<void> {
   try {
     const request = create(GetUpdateTargetsRequestSchema, {
       gameServerId,
     })
     const response = await GetXylonaClient().getUpdateTargets(request)
     availableVersions.value = response.targets.map((target) => target.label || target.id)
+    // Steam targets are branches, not game versions, so only Paper and Mojang
+    // targets describe what mods must support.
+    const selected = response.targets.find((target) => target.isSelected)
+    if (targetsAreGameVersions && selected) {
+      serverGameVersion.value = selected.label || selected.id
+    }
   } catch {
     // Non-critical — silently ignore
   }
@@ -237,6 +263,7 @@ async function handleUninstall(modId: string): Promise<void> {
 }
 
 async function handleToggleAutoUpdate(modId: string, enabled: boolean): Promise<void> {
+  const modName = installedMods.value.find((m) => m.id === modId)?.modName ?? 'this mod'
   // Optimistically replace the mod object to trigger Vue reactivity.
   const idx = installedMods.value.findIndex((m) => m.id === modId)
   if (idx !== -1) {
@@ -255,6 +282,7 @@ async function handleToggleAutoUpdate(modId: string, enabled: boolean): Promise<
       enabled,
     })
     await GetXylonaClient().setModAutoUpdate(request)
+    notifySuccess(`Auto-update turned ${enabled ? 'on' : 'off'} for ${modName}`)
   } catch (unknownErr: unknown) {
     notifyConnectError(unknownErr)
     // Revert on failure
@@ -352,91 +380,104 @@ function handleViewDetails(source: string, sourceId: string): void {
   showDetailDialog.value = true
 }
 
-async function handleInstallFromBrowse(source: string, sourceId: string): Promise<void> {
-  // Fetch versions to get the latest version info and dependencies
+function modKey(source: string, sourceId: string): string {
+  return `${source}:${sourceId}`
+}
+
+async function handleInstallFromBrowse(
+  source: string,
+  sourceId: string,
+  name: string,
+): Promise<void> {
+  if (installingKey.value !== '') return
+  installingKey.value = modKey(source, sourceId)
   try {
+    // Only versions that support this server's game version are candidates.
     const request = create(GetModVersionsRequestSchema, {
       gameServerId,
       source,
       sourceId,
+      gameVersion: serverGameVersion.value,
     })
     const response = await GetXylonaClient().getModVersions(request)
 
     if (response.versions.length === 0) {
-      notifyError('No versions available for this mod')
+      notifyError(
+        serverGameVersion.value
+          ? `No version of ${name} supports ${serverGameVersion.value}. Open the mod to choose a version.`
+          : `No versions are available for ${name}.`,
+      )
       return
     }
 
     const latestVersion = response.versions[0]
 
-    if (isValheim.value) {
-      await directInstall(source, sourceId, latestVersion.versionId)
-      return
-    }
-
-    // If there are no new dependencies, install directly without showing
-    // the confirmation dialog to reduce friction.
+    // Without new dependencies there is nothing to confirm, so install directly.
     const hasNewDeps = latestVersion.dependencies.some(
       (dep) => !installedMods.value.some((m) => m.sourceId === dep.sourceId),
     )
-    if (!hasNewDeps) {
-      await directInstall(source, sourceId, latestVersion.versionId)
+    if (isValheim.value || !hasNewDeps) {
+      await installMod(source, sourceId, latestVersion.versionId, name)
       return
     }
 
-    openInstallDialog(source, sourceId, latestVersion)
+    openInstallDialog(source, sourceId, name, latestVersion)
   } catch (unknownErr: unknown) {
     notifyConnectError(unknownErr)
+  } finally {
+    installingKey.value = ''
   }
 }
 
-async function directInstall(source: string, sourceId: string, versionId: string): Promise<void> {
-  try {
-    const request = create(InstallModRequestSchema, {
-      gameServerId,
-      source,
-      sourceId,
-      versionId,
-    })
-    await GetXylonaClient().installMod(request)
-    notifySuccess('Mod installed successfully')
-    await loadInstalledMods()
-  } catch (unknownErr: unknown) {
-    notifyConnectError(unknownErr)
-  }
+async function installMod(
+  source: string,
+  sourceId: string,
+  versionId: string,
+  name: string,
+): Promise<void> {
+  const request = create(InstallModRequestSchema, {
+    gameServerId,
+    source,
+    sourceId,
+    versionId,
+  })
+  await GetXylonaClient().installMod(request)
+  notifySuccess(`${name} installed. It takes effect the next time the server starts.`)
+  await loadInstalledMods()
 }
 
 async function handleInstallFromDetail(
   source: string,
   sourceId: string,
-  versionId: string,
+  version: ModVersion,
+  name: string,
 ): Promise<void> {
-  showDetailDialog.value = false
-
-  if (isValheim.value) {
-    await directInstall(source, sourceId, versionId)
+  if (!isValheim.value) {
+    showDetailDialog.value = false
+    openInstallDialog(source, sourceId, name, version)
     return
   }
 
-  // Fetch versions to get dependency info for the selected version
+  // Valheim installs directly; the dialog stays open with Install loading.
+  if (installingKey.value !== '') return
+  installingKey.value = modKey(source, sourceId)
   try {
-    const request = create(GetModVersionsRequestSchema, {
-      gameServerId,
-      source,
-      sourceId,
-    })
-    const response = await GetXylonaClient().getModVersions(request)
-    const version = response.versions.find((v) => v.versionId === versionId)
-    if (version) {
-      openInstallDialog(source, sourceId, version)
-    }
+    await installMod(source, sourceId, version.versionId, name)
+    showDetailDialog.value = false
   } catch (unknownErr: unknown) {
     notifyConnectError(unknownErr)
+  } finally {
+    installingKey.value = ''
   }
 }
 
-function openInstallDialog(source: string, sourceId: string, version: ModVersion): void {
-  installModName.value = sourceId
+function openInstallDialog(
+  source: string,
+  sourceId: string,
+  name: string,
+  version: ModVersion,
+): void {
+  installModName.value = name
   installModVersion.value = version.versionString
   installFileSize.value = Number(version.fileSize)
   installDeps.value = version.dependencies.map((dep) => ({
@@ -457,6 +498,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 
   const { source, sourceId, versionId } = pendingInstall.value
   showInstallDialog.value = false
+  installingKey.value = modKey(source, sourceId)
 
   try {
     // Install the main mod
@@ -483,19 +525,25 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
       }
     }
 
-    notifySuccess('Mod installed successfully')
+    notifySuccess(
+      `${installModName.value} installed. It takes effect the next time the server starts.`,
+    )
     await loadInstalledMods()
   } catch (unknownErr: unknown) {
     notifyConnectError(unknownErr)
   } finally {
     pendingInstall.value = null
+    installingKey.value = ''
   }
 }
 </script>
 
 <template>
   <div class="mods-page xy-page-content">
-    <page-header class="mods-page-header" title="Mods" />
+    <page-header
+      class="mods-page-header"
+      subtitle="Mod changes take effect the next time the server starts."
+      title="Mods" />
     <q-tabs
       v-model="activeTab"
       active-color="primary"
@@ -505,7 +553,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
       indicator-color="primary"
       narrow-indicator>
       <q-tab label="Installed" name="installed" />
-      <q-tab label="Browse" name="browse" />
+      <q-tab v-if="hasModSources" label="Browse" name="browse" />
     </q-tabs>
 
     <q-separator />
@@ -515,11 +563,14 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
         <div :class="{ 'installed-sources--reported': isSevenDaysToDie }" class="installed-sources">
           <section
             :aria-labelledby="isSevenDaysToDie ? 'managed-mods-heading' : undefined"
+            :class="{ 'managed-mods-source--empty': !loading && installedMods.length === 0 }"
             class="managed-mods-source">
             <h2 v-if="isSevenDaysToDie" id="managed-mods-heading" class="mod-source-heading">
               Xylona-managed
             </h2>
             <installed-mods-table
+              :empty-description="installedEmptyDescription"
+              :empty-title="installedEmptyTitle"
               :installed-mods="installedMods"
               :loading="loading"
               @uninstall="handleUninstall"
@@ -565,11 +616,13 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
         </div>
       </q-tab-panel>
 
-      <q-tab-panel name="browse">
+      <q-tab-panel v-if="hasModSources" name="browse">
         <mod-browse
           :available-versions="availableVersions"
+          :default-game-version="serverGameVersion"
           :game-server-id="gameServerId"
           :installed-mods="installedMods"
+          :installing-key="installingKey"
           :sources="modSources"
           @install="handleInstallFromBrowse"
           @view-details="handleViewDetails" />
@@ -580,6 +633,8 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
     <mod-detail-dialog
       v-model:show="showDetailDialog"
       :game-server-id="gameServerId"
+      :game-version="serverGameVersion"
+      :installing="installingKey === modKey(detailSource, detailSourceId)"
       :is-installed="detailIsInstalled"
       :source="detailSource"
       :source-id="detailSourceId"
@@ -593,6 +648,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
       :installed-mods="installedMods"
       :mod-name="installModName"
       :mod-version="installModVersion"
+      :server-name="serverName"
       @confirm="handleInstallConfirm" />
   </div>
 </template>
@@ -659,6 +715,12 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 .installed-sources--reported .managed-mods-source {
   height: min(45vh, 28rem);
   min-height: 16rem;
+}
+
+/* An empty managed list only needs room for its empty state. */
+.installed-sources--reported .managed-mods-source--empty {
+  height: auto;
+  min-height: 0;
 }
 
 .mod-source-heading {
@@ -748,6 +810,19 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 }
 
 @media (max-width: 599px) {
+  /* Phones scroll the whole page rather than short nested panels. */
+  .mods-page {
+    flex: 1 0 auto;
+    overflow: visible;
+  }
+
+  .mods-panels,
+  .mods-panels :deep(.q-panel.scroll),
+  .mods-panels :deep(.q-tab-panel) {
+    flex: none;
+    overflow: visible !important;
+  }
+
   .reported-mods-grid {
     padding: var(--xy-space-sm);
   }

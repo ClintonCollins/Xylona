@@ -21,6 +21,10 @@
             <span class="mod-install-label text-xy-muted">Mod</span>
             <span class="mod-install-value">{{ modName }}</span>
           </div>
+          <div v-if="serverName" class="mod-install-detail">
+            <span class="mod-install-label text-xy-muted">Server</span>
+            <span class="mod-install-value">{{ serverName }}</span>
+          </div>
           <div class="mod-install-detail">
             <span class="mod-install-label text-xy-muted">Version</span>
             <span class="mod-install-value font-mono">{{ modVersion }}</span>
@@ -89,9 +93,10 @@ interface Props {
   fileSize: number
   dependencies: ModDependency[]
   installedMods: InstalledMod[]
+  serverName?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { serverName: '' })
 
 const emit = defineEmits<{
   'update:show': [value: boolean]

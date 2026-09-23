@@ -209,4 +209,17 @@ describe('InstalledModsTable', () => {
     expect(wrapper.text()).toContain('No mods match')
     expect(wrapper.findAll('.mod-row')).toHaveLength(0)
   })
+
+  it.each([
+    { pinnedVersion: '', wantTag: false, wantMenu: 'Pin to 0.90.0' },
+    { pinnedVersion: '0.90.0', wantTag: true, wantMenu: 'Unpin' },
+  ])(
+    'labels the pin action by state (pinned "$pinnedVersion")',
+    ({ pinnedVersion, wantTag, wantMenu }) => {
+      const wrapper = mountTable([makeMod({ pinnedVersion })])
+
+      expect(wrapper.find('.pinned-tag').exists()).toBe(wantTag)
+      expect(wrapper.find('.q-menu-stub').text()).toContain(wantMenu)
+    },
+  )
 })

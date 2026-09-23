@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"time"
 )
 
 // MaxModDownloadSize is the maximum number of bytes allowed for a single mod
@@ -78,6 +79,7 @@ type ModDetails struct {
 	License       string
 	SourceURL     string
 	Versions      []ModVersion
+	UpdatedAt     time.Time // zero when the provider does not report it
 }
 
 // ModVersion represents a specific version of a mod.
@@ -91,6 +93,7 @@ type ModVersion struct {
 	FileHashSHA1   string
 	Dependencies   []ModDependency
 	Changelog      string
+	PublishedAt    time.Time // zero when the provider does not report it
 }
 
 // ModDependency represents a mod dependency.

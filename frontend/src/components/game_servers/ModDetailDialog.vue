@@ -50,7 +50,9 @@
                   {{ sourceLabel(details.source) }}
                 </span>
               </div>
-              <div class="mod-detail-author text-xy-muted">by {{ details.author }}</div>
+              <div v-if="details.author" class="mod-detail-author text-xy-muted">
+                by {{ details.author }}
+              </div>
               <div class="mod-detail-stats">
                 <span class="mod-detail-stat text-xy-muted">
                   <q-icon aria-hidden="true" name="download" size="xs" />
@@ -123,9 +125,9 @@
               </div>
             </div>
 
-            <!-- Body (markdown) -->
-            <!-- eslint-disable-next-line vue/no-v-html -- Mod description HTML comes from third-party registries, so we sanitize it before rendering. -->
-            <div class="mod-detail-body" v-html="sanitizedBody"></div>
+            <!-- Body: Modrinth sends Markdown; the others only have a summary. -->
+            <!-- eslint-disable-next-line vue/no-v-html -- renderModDescription converts and sanitizes third-party Markdown/HTML before rendering. -->
+            <div class="mod-detail-body" v-html="descriptionHtml"></div>
           </q-tab-panel>
 
           <!-- Versions tab -->
@@ -136,6 +138,9 @@
               style="text-align: center; padding: 2rem">
               No versions available.
             </div>
+            <p v-else-if="gameVersion" class="mod-version-hint text-xy-muted">
+              Newest first. Versions marked “Supports {{ gameVersion }}” match this server.
+            </p>
             <div
               v-for="ver in versions"
               :key="ver.versionId"
@@ -143,8 +148,12 @@
               class="mod-version-row">
               <div class="mod-version-info">
                 <span class="mod-version-string font-mono">{{ ver.versionString }}</span>
+                <span v-if="supportsServer(ver)" class="mod-version-match">
+                  <q-icon aria-hidden="true" name="check_circle" size="xs" />
+                  Supports {{ gameVersion }}
+                </span>
                 <span v-if="ver.gameVersions.length > 0" class="mod-version-game text-xy-muted">
-                  {{ ver.gameVersions.slice(0, 3).join(', ') }}
+                  {{ newestFirst(ver.gameVersions).slice(0, 3).join(', ') }}
                   <template v-if="ver.gameVersions.length > 3">
                     +{{ ver.gameVersions.length - 3 }} more
                   </template>
@@ -158,9 +167,12 @@
                   {{ formatBytes(ver.fileSize) }}
                 </span>
                 <q-btn
-                  :color="selectedVersionId === ver.versionId ? 'positive' : 'primary'"
+                  :aria-pressed="selectedVersionId === ver.versionId"
+                  :flat="selectedVersionId !== ver.versionId"
                   :icon="selectedVersionId === ver.versionId ? 'check' : undefined"
                   :label="selectedVersionId === ver.versionId ? 'Selected' : 'Select'"
+                  :outline="selectedVersionId === ver.versionId"
+                  color="primary"
                   dense
                   no-caps
                   size="sm"
@@ -228,6 +240,7 @@
           <q-btn
             v-else
             :disable="!selectedVersionId"
+            :loading="installing"
             color="primary"
             icon="download"
             label="Install"
@@ -241,13 +254,13 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
-import createDOMPurify from 'dompurify'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import type { ModDependency, ModDetails, ModVersion } from '@/proto/shared_pb'
 import { GetModDetailsRequestSchema, GetModVersionsRequestSchema } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { renderModDescription } from '@/utils/mod-description'
 import {
   formatDownloads,
   iconGradient,
@@ -262,13 +275,16 @@ interface Props {
   source: string
   sourceId: string
   isInstalled: boolean
+  /** The server's game version, used to pick and mark compatible versions. */
+  gameVersion?: string
+  installing?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { gameVersion: '', installing: false })
 
 const emit = defineEmits<{
   'update:show': [value: boolean]
-  install: [source: string, sourceId: string, versionId: string]
+  install: [source: string, sourceId: string, version: ModVersion, name: string]
 }>()
 
 const loading = ref(false)
@@ -285,34 +301,11 @@ const versionOptions = computed(() =>
   })),
 )
 
-const domPurify = createDOMPurify(window)
-
-const modDescriptionSanitizeConfig = {
-  ALLOWED_TAGS: [
-    'a',
-    'blockquote',
-    'br',
-    'code',
-    'em',
-    'h1',
-    'h2',
-    'h3',
-    'li',
-    'ol',
-    'p',
-    'pre',
-    'strong',
-    'ul',
-  ],
-  ALLOWED_ATTR: ['href', 'title'],
-  FORBID_TAGS: ['iframe', 'img', 'object', 'script', 'style'],
-}
-const modDescriptionAllowedTags = new Set(modDescriptionSanitizeConfig.ALLOWED_TAGS)
-
-const sanitizedBody = computed(() => {
-  const body = details.value?.body ?? ''
-  return sanitizeModDescription(body)
-})
+// Providers without a long-form body (Hangar, Thunderstore) still have the
+// summary the browse card showed.
+const descriptionHtml = computed(() =>
+  renderModDescription(details.value?.body || details.value?.description || ''),
+)
 
 const currentVersionDeps = computed((): ModDependency[] => {
   if (!selectedVersionId.value) return []
@@ -363,9 +356,10 @@ async function loadDetails(): Promise<void> {
     details.value = detailsResp.details
     versions.value = versionsResp.versions
 
-    // Auto-select latest version
-    if (versions.value.length > 0) {
-      selectedVersionId.value = versions.value[0].versionId
+    // Versions arrive newest first: prefer the newest one this server supports.
+    const preferred = versions.value.find(supportsServer) ?? versions.value[0]
+    if (preferred) {
+      selectedVersionId.value = preferred.versionId
     }
   } catch (err: unknown) {
     if (err instanceof ConnectError) {
@@ -379,8 +373,17 @@ async function loadDetails(): Promise<void> {
 }
 
 function handleInstall(): void {
-  if (!selectedVersionId.value) return
-  emit('install', props.source, props.sourceId, selectedVersionId.value)
+  const version = versions.value.find((v) => v.versionId === selectedVersionId.value)
+  if (!version) return
+  emit('install', props.source, props.sourceId, version, details.value?.name || props.sourceId)
+}
+
+function supportsServer(version: ModVersion): boolean {
+  return props.gameVersion !== '' && version.gameVersions.includes(props.gameVersion)
+}
+
+function newestFirst(gameVersions: string[]): string[] {
+  return [...gameVersions].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
 }
 
 // --- Display helpers ---
@@ -397,70 +400,6 @@ function formatDate(ts: Timestamp | undefined): string {
   if (!ts) return ''
   const date = new Date(Number(ts.seconds) * 1000)
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
-function sanitizeModDescription(body: string): string {
-  const clean = domPurify.sanitize(body, modDescriptionSanitizeConfig)
-  const template = document.createElement('template')
-  template.innerHTML = clean
-  stripUnsafeModBodyElements(template.content)
-  stripUnsafeModBodyAttributes(template.content)
-  return template.innerHTML
-}
-
-function stripUnsafeModBodyElements(node: ParentNode): void {
-  for (const child of Array.from(node.childNodes)) {
-    if (child.nodeType !== Node.ELEMENT_NODE) {
-      continue
-    }
-
-    const element = child as HTMLElement
-    if (!modDescriptionAllowedTags.has(element.tagName.toLowerCase())) {
-      const parent = element.parentNode
-      if (!parent) {
-        continue
-      }
-
-      while (element.firstChild) {
-        parent.insertBefore(element.firstChild, element)
-      }
-
-      element.remove()
-      continue
-    }
-
-    stripUnsafeModBodyElements(element)
-  }
-}
-
-function stripUnsafeModBodyAttributes(node: ParentNode): void {
-  for (const child of Array.from(node.childNodes)) {
-    if (child.nodeType !== Node.ELEMENT_NODE) {
-      continue
-    }
-
-    const element = child as HTMLElement
-    for (const attr of Array.from(element.attributes)) {
-      const attrName = attr.name.toLowerCase()
-      if (attrName.startsWith('on')) {
-        element.removeAttribute(attr.name)
-        continue
-      }
-
-      if (element.tagName === 'A' && attrName === 'href' && !isSafeHref(attr.value)) {
-        element.removeAttribute(attr.name)
-      }
-    }
-
-    stripUnsafeModBodyAttributes(element)
-  }
-}
-
-function isSafeHref(href: string): boolean {
-  const trimmedHref = href.trim().toLowerCase()
-  return ['#', '/', 'http://', 'https://', 'mailto:', 'tel:'].some((prefix) =>
-    trimmedHref.startsWith(prefix),
-  )
 }
 </script>
 
@@ -638,23 +577,44 @@ function isSafeHref(href: string): boolean {
   font-size: var(--xy-font-size-sm);
   line-height: 1.6;
   color: var(--xy-text-secondary);
+  overflow-wrap: anywhere;
 }
 
-.mod-detail-body :deep(img) {
+.mod-detail-body :deep(table) {
+  display: block;
   max-width: 100%;
-  border-radius: var(--xy-radius-md);
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.mod-detail-body :deep(th),
+.mod-detail-body :deep(td) {
+  padding: var(--xy-space-xs) var(--xy-space-sm);
+  border: 1px solid var(--xy-border);
+  text-align: left;
 }
 
 .mod-detail-body :deep(a) {
   color: var(--xy-primary);
 }
 
-.mod-detail-body :deep(h1),
-.mod-detail-body :deep(h2),
-.mod-detail-body :deep(h3) {
+.mod-detail-body :deep(:is(h1, h2, h3, h4, h5, h6)) {
   color: var(--xy-text-primary);
   margin-top: 1em;
   margin-bottom: 0.5em;
+  font-size: var(--xy-font-size-base);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+/* Quasar's global heading sizes are for page titles, not third-party prose. */
+.mod-detail-body :deep(h1) {
+  font-size: var(--xy-font-size-xl);
+}
+
+.mod-detail-body :deep(h2) {
+  font-size: var(--xy-font-size-lg);
 }
 
 .mod-detail-body :deep(code) {
@@ -712,6 +672,22 @@ function isSafeHref(href: string): boolean {
 
 .mod-version-game {
   font-size: var(--xy-font-size-2xs);
+}
+
+.mod-version-hint {
+  margin: 0;
+  padding: var(--xy-space-xs) var(--xy-space-md) var(--xy-space-sm);
+  font-size: var(--xy-font-size-xs);
+}
+
+.mod-version-match {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-2xs);
+  color: var(--xy-success);
+  font-size: var(--xy-font-size-2xs);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .mod-version-date {

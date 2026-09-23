@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ClintonCollins/Xylona/pkg/modproviders"
 )
@@ -177,11 +178,40 @@ func TestGetModDetails_ReturnsFull(t *testing.T) {
 	if details.SourceURL != "https://github.com/enginehub/WorldEdit" {
 		t.Errorf("details.SourceURL = %q, want %q", details.SourceURL, "https://github.com/enginehub/WorldEdit")
 	}
-	if len(details.Categories) != 2 {
-		t.Errorf("details.Categories len = %d, want 2", len(details.Categories))
+	wantCategories := []string{"World Management", "Supports Folia"}
+	if strings.Join(details.Categories, "|") != strings.Join(wantCategories, "|") {
+		t.Errorf("details.Categories = %v, want %v", details.Categories, wantCategories)
+	}
+	wantUpdated := time.Date(2024, 2, 1, 8, 30, 0, 0, time.UTC)
+	if !details.UpdatedAt.Equal(wantUpdated) {
+		t.Errorf("details.UpdatedAt = %v, want %v", details.UpdatedAt, wantUpdated)
 	}
 	if len(details.Versions) != 2 {
-		t.Errorf("details.Versions len = %d, want 2", len(details.Versions))
+		t.Fatalf("details.Versions len = %d, want 2", len(details.Versions))
+	}
+	wantPublished := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+	if !details.Versions[0].PublishedAt.Equal(wantPublished) {
+		t.Errorf("details.Versions[0].PublishedAt = %v, want %v", details.Versions[0].PublishedAt, wantPublished)
+	}
+}
+
+func TestTagLabels(t *testing.T) {
+	tests := []struct {
+		name string
+		tags []string
+		want []string
+	}{
+		{name: "enum tags", tags: []string{"SUPPORTS_FOLIA", "ADDON"}, want: []string{"Supports Folia", "Addon"}},
+		{name: "blank tag dropped", tags: []string{"", "_"}, want: []string{}},
+		{name: "nil", tags: nil, want: []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tagLabels(tt.tags)
+			if strings.Join(got, "|") != strings.Join(tt.want, "|") || len(got) != len(tt.want) {
+				t.Errorf("tagLabels(%v) = %v, want %v", tt.tags, got, tt.want)
+			}
+		})
 	}
 }
 

@@ -10,8 +10,9 @@
     "stars": 1200
   },
   "avatarUrl": "https://hangar.papermc.io/api/v1/projects/EngineHub/WorldEdit/icon",
+  "lastUpdated": "2024-02-01T08:30:00Z",
   "settings": {
-    "tags": ["WORLD_MANAGEMENT", "UTILITY"],
+    "tags": ["WORLD_MANAGEMENT", "SUPPORTS_FOLIA"],
     "links": [
       {
         "type": "SOURCE",

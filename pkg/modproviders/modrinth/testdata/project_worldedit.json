@@ -11,6 +11,7 @@
     {"url": "https://cdn.modrinth.com/data/worldedit/gallery/screenshot2.png"}
   ],
   "categories": ["utility", "world-management"],
-  "license": {"id": "lgpl-3"},
-  "source_url": "https://github.com/enginehub/WorldEdit"
+  "license": {"id": "lgpl-3", "name": "GNU Lesser General Public License v3"},
+  "source_url": "https://github.com/enginehub/WorldEdit",
+  "updated": "2024-02-03T04:05:06.789Z"
 }

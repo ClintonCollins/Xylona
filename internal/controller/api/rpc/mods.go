@@ -13,6 +13,7 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/controller/protomap"
 	"github.com/ClintonCollins/Xylona/internal/modmanager"
@@ -137,7 +138,16 @@ func modVersionToProto(v modproviders.ModVersion) *xylona.ModVersion {
 		FileSize:      v.FileSize,
 		Dependencies:  deps,
 		Changelog:     v.Changelog,
+		PublishedAt:   optionalTimestamp(v.PublishedAt),
 	}
+}
+
+// optionalTimestamp leaves a timestamp unset when the provider did not report it.
+func optionalTimestamp(value time.Time) *timestamppb.Timestamp {
+	if value.IsZero() {
+		return nil
+	}
+	return timestamppb.New(value)
 }
 
 // modDetailsToProto converts a provider mod details to proto.
@@ -160,6 +170,7 @@ func modDetailsToProto(d *modproviders.ModDetails) *xylona.ModDetails {
 		License:       d.License,
 		SourceUrl:     d.SourceURL,
 		Versions:      versions,
+		UpdatedAt:     optionalTimestamp(d.UpdatedAt),
 	}
 }
 
