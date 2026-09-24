@@ -28,6 +28,11 @@ export const nodeResourceThresholds: Record<NodeResource, { warn: number; danger
   disk: { warn: 80, danger: 92 },
 }
 
+// What the node's disk reading measures: the backend reads usage of the path "/", which on
+// Windows resolves to the root of the drive holding the process's working directory.
+export const nodeDiskVolume =
+  "the volume mounted at / (on Windows, the drive holding the node's working directory)"
+
 export interface NodeResourceHealth {
   level: 'ok' | 'warn' | 'danger' | 'unknown'
   label: string

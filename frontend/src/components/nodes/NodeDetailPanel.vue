@@ -88,7 +88,7 @@
         :y-axis-maximum="memoryTotalBytes ?? undefined" />
       <metric-time-series-chart
         title="Disk"
-        description="Used space on the node's install volume."
+        :description="`Used space on ${nodeDiskVolume}.`"
         :empty-label="historyError ? historyFailedLabel : 'No disk samples in this range.'"
         :bands="diskBands"
         :format-value="formatBytes"
@@ -260,6 +260,7 @@ import MetricTimeSeriesChart, {
 } from '@/components/game_servers/MetricTimeSeriesChart.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {
+  nodeDiskVolume,
   nodeHealthBadge,
   nodeLastSeenMs,
   nodeResourceHealth,
