@@ -40,6 +40,8 @@ test.describe('Critical game server workflows', () => {
     const stopButton = page.getByRole('button', { name: /^Stop$/i }).first()
     await expect(stopButton).toBeEnabled({ timeout: 10_000 })
     await stopButton.click()
+    // The dummy server never reports players, so Stop asks before it acts.
+    await page.getByRole('dialog').getByRole('button', { name: 'Stop server' }).click()
     await waitForControlState(page, 'start-enabled:stop-disabled')
 
     const startButton = page.getByRole('button', { name: /^Start$/i }).first()
@@ -66,10 +68,12 @@ test.describe('Critical game server workflows', () => {
       .first()
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await dialog.getByLabel('Name').fill(fileName)
-    await dialog.getByRole('button', { name: 'Submit' }).click()
+    await dialog.getByRole('button', { name: 'Create' }).click()
 
     await expect(dialog).not.toBeVisible({ timeout: 10_000 })
-    await expect(page.locator(`[data-file-name="${fileName}"]`)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('row').filter({ hasText: fileName })).toBeVisible({
+      timeout: 10_000,
+    })
   })
 
   test('can create, restore, and delete a backup through the running API', async ({ page }) => {
