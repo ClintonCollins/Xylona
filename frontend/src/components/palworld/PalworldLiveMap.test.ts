@@ -757,7 +757,7 @@ describe('PalworldLiveMap', () => {
     })
   })
 
-  it('flies to the focus zoom when an actor is picked from the base roster', async () => {
+  it('flies to the focus zoom when an actor is picked from the base pal list', async () => {
     const guild = { guildKey: 'guild-1', guildName: 'Skyforge' }
     const wrapper = mountMap([
       actor('base-1', 'North Camp', 100, 200, PalworldMapActorKind.BASE, guild),

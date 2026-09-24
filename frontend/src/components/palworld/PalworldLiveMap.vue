@@ -148,7 +148,7 @@ const filteredActors = computed(() => {
 const selectedActor = computed(() => actorsByKey.value.get(selectedActorKey.value) ?? null)
 // Base workers sit on top of their base, so drawing one marker each buried the
 // base name under a stack of dots. The count rides on the base pill instead and
-// the roster still lists every worker.
+// the actor list still shows every worker.
 const baseWorkerAssignment = computed(() => assignPalworldBaseWorkers(actors.value))
 const mappedActors = computed(() => {
   if (!visibleKinds.value[PalworldMapActorKind.BASE_WORKER]) {
@@ -1442,13 +1442,13 @@ onBeforeUnmount(() => {
           </div>
 
           <template v-if="actors.length > 0">
-            <div class="palworld-live-map__roster-heading">
+            <div class="palworld-live-map__actor-list-heading">
               <span>Visible actors</span>
               <span>{{ filteredActors.length.toLocaleString() }}</span>
             </div>
             <q-virtual-scroll
               v-if="filteredActors.length > 0"
-              class="palworld-live-map__roster"
+              class="palworld-live-map__actor-list"
               :items="filteredActors"
               :virtual-scroll-item-size="54">
               <template #default="{ item: actor }">
@@ -1476,7 +1476,7 @@ onBeforeUnmount(() => {
                 </button>
               </template>
             </q-virtual-scroll>
-            <div v-else class="palworld-live-map__roster-empty">
+            <div v-else class="palworld-live-map__actor-list-empty">
               <q-icon name="filter_alt_off" size="24px" />
               <strong>No matching actors</strong>
               <span>Change the search or enable another actor type.</span>
@@ -1484,7 +1484,7 @@ onBeforeUnmount(() => {
           </template>
           <div
             v-else
-            class="palworld-live-map__roster-empty palworld-live-map__roster-empty--world">
+            class="palworld-live-map__actor-list-empty palworld-live-map__actor-list-empty--world">
             <q-icon name="sensors_off" size="28px" />
             <strong>{{
               view?.partial ? 'No players reported' : 'No world actors reported'
@@ -1605,7 +1605,7 @@ onBeforeUnmount(() => {
 
 .palworld-live-map__rail-copy,
 .palworld-live-map__actor-copy span,
-.palworld-live-map__roster-empty span {
+.palworld-live-map__actor-list-empty span {
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-xs);
 }
@@ -1713,7 +1713,7 @@ onBeforeUnmount(() => {
   font-family: var(--xy-font-mono);
 }
 
-.palworld-live-map__roster-heading {
+.palworld-live-map__actor-list-heading {
   display: flex;
   justify-content: space-between;
   padding: var(--xy-space-sm) var(--xy-space-md);
@@ -2009,7 +2009,7 @@ onBeforeUnmount(() => {
   grid-column: 1 / -1;
 }
 
-.palworld-live-map__roster {
+.palworld-live-map__actor-list {
   flex: 1;
   min-height: 0;
 }
@@ -2045,7 +2045,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.palworld-live-map__roster-empty {
+.palworld-live-map__actor-list-empty {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -2057,16 +2057,16 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.palworld-live-map__roster-empty--world {
+.palworld-live-map__actor-list-empty--world {
   margin: auto 0;
   padding-block: var(--xy-space-lg);
 }
 
-.palworld-live-map__roster-empty--world .q-icon {
+.palworld-live-map__actor-list-empty--world .q-icon {
   color: var(--xy-accent);
 }
 
-.palworld-live-map__roster-empty strong {
+.palworld-live-map__actor-list-empty strong {
   color: var(--xy-text-primary);
 }
 
@@ -2499,11 +2499,11 @@ onBeforeUnmount(() => {
     max-width: calc(100% - 2 * var(--xy-space-sm));
   }
 
-  .palworld-live-map__roster-empty--world {
+  .palworld-live-map__actor-list-empty--world {
     padding-block: var(--xy-space-base);
   }
 
-  .palworld-live-map__roster-empty--world span {
+  .palworld-live-map__actor-list-empty--world span {
     display: none;
   }
 

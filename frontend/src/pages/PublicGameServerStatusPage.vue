@@ -158,7 +158,7 @@ async function copyAddress(server: PublicGameServerStatus) {
   }
 }
 
-function toggleRoster(serverID: string) {
+function toggleOnlinePlayers(serverID: string) {
   const next = new Set(expandedServerIDs.value)
   if (next.has(serverID)) next.delete(serverID)
   else next.add(serverID)
@@ -202,7 +202,7 @@ function showOnlinePlayersToggle(server: PublicGameServerStatus): boolean {
   )
 }
 
-function rosterLabel(server: PublicGameServerStatus): string {
+function onlinePlayersLabel(server: PublicGameServerStatus): string {
   if (server.rosterState === GameServerStatusPageRosterState.UNSUPPORTED) {
     return 'Player names are not supported by this game.'
   }
@@ -359,14 +359,14 @@ onUnmounted(() => {
                 </div>
                 <q-btn
                   v-if="showOnlinePlayersToggle(server)"
-                  class="public-server-row__action public-server-row__roster-action"
+                  class="public-server-row__action public-server-row__players-action"
                   :aria-expanded="expandedServerIDs.has(server.id)"
                   :aria-label="`${expandedServerIDs.has(server.id) ? 'Hide' : 'Show'} ${server.name} online players`"
                   flat
                   :icon-right="expandedServerIDs.has(server.id) ? 'expand_less' : 'expand_more'"
                   label="Who's online"
                   no-caps
-                  @click="toggleRoster(server.id)" />
+                  @click="toggleOnlinePlayers(server.id)" />
               </div>
             </div>
             <div
@@ -394,10 +394,10 @@ onUnmounted(() => {
             </div>
             <div
               v-if="showOnlinePlayersToggle(server) && expandedServerIDs.has(server.id)"
-              class="public-server-row__roster">
+              class="public-server-row__players">
               <span class="public-server-row__label">Online players</span>
-              <p v-if="rosterLabel(server)">{{ rosterLabel(server) }}</p>
-              <ul v-else class="public-roster-list">
+              <p v-if="onlinePlayersLabel(server)">{{ onlinePlayersLabel(server) }}</p>
+              <ul v-else class="public-player-list">
                 <li v-for="playerName in server.playerNames" :key="playerName">{{ playerName }}</li>
               </ul>
             </div>
@@ -719,7 +719,7 @@ onUnmounted(() => {
   background: var(--xy-success-bg);
 }
 
-.public-server-row__roster-action {
+.public-server-row__players-action {
   color: var(--xy-text-secondary);
   border-radius: var(--xy-radius-md);
   transition:
@@ -727,20 +727,20 @@ onUnmounted(() => {
     background-color var(--xy-transition-fast);
 }
 
-.public-server-row__roster-action:hover,
-.public-server-row__roster-action[aria-expanded='true'] {
+.public-server-row__players-action:hover,
+.public-server-row__players-action[aria-expanded='true'] {
   color: var(--xy-accent-hover);
   background: var(--xy-accent-muted);
 }
 
-.public-server-row__roster {
+.public-server-row__players {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
   gap: var(--xy-space-md);
   padding: var(--xy-space-md);
   background: var(--xy-surface-0);
   border-top: 1px solid var(--xy-border);
-  animation: public-roster-reveal 180ms var(--xy-ease-standard);
+  animation: public-players-reveal 180ms var(--xy-ease-standard);
 }
 
 .public-server-row__details {
@@ -790,14 +790,14 @@ onUnmounted(() => {
   background: var(--xy-primary-muted);
 }
 
-@keyframes public-roster-reveal {
+@keyframes public-players-reveal {
   from {
     opacity: 0.85;
     transform: translateY(calc(var(--xy-space-2xs) * -1));
   }
 }
 
-.public-roster-list {
+.public-player-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--xy-space-sm) var(--xy-space-md);
@@ -806,7 +806,7 @@ onUnmounted(() => {
   list-style: none;
 }
 
-.public-roster-list li {
+.public-player-list li {
   overflow: hidden;
   padding: var(--xy-space-xs) var(--xy-space-base);
   color: var(--xy-text-primary);
@@ -817,7 +817,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.public-roster-list li::before {
+.public-player-list li::before {
   display: inline-block;
   width: 6px;
   height: 6px;
@@ -899,7 +899,7 @@ onUnmounted(() => {
     gap: var(--xy-space-sm);
   }
 
-  .public-server-row__roster {
+  .public-server-row__players {
     grid-template-columns: 1fr;
   }
 
@@ -908,13 +908,13 @@ onUnmounted(() => {
     gap: var(--xy-space-base);
   }
 
-  .public-roster-list {
+  .public-player-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .public-server-row__roster {
+  .public-server-row__players {
     animation: none;
   }
 }

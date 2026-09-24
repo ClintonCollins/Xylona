@@ -172,7 +172,7 @@
           <p v-if="playerCountUnknown" class="q-ma-none text-caption text-xy-muted" role="status">
             {{ unknownPlayersMessage }}
           </p>
-          <game-server-player-roster
+          <game-server-player-list
             v-else
             :can-manage-players="
               server.gameId !== 'valheim' && hasPermission('game_server.players.manage')
@@ -215,7 +215,7 @@ import { connectErrorMessage } from '@/api/connect-errors'
 import { notifyConnectError } from '@/api/notifications'
 import StatusBadge from '@/components/StatusBadge.vue'
 import GameServerPlayerManagementDialog from '@/components/game_servers/GameServerPlayerManagementDialog.vue'
-import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRoster.vue'
+import GameServerPlayerList from '@/components/game_servers/GameServerPlayerList.vue'
 import { playerLimit } from '@/components/game_servers/start-args'
 import {
   type GameServer,

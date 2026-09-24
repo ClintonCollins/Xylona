@@ -1,19 +1,21 @@
 <template>
-  <div class="roster">
-    <div class="roster__summary">
-      <span class="roster__count font-mono">{{ currentPlayerCount }} / {{ maxPlayerCount }}</span>
+  <div class="player-list">
+    <div class="player-list__summary">
+      <span class="player-list__count font-mono"
+        >{{ currentPlayerCount }} / {{ maxPlayerCount }}</span
+      >
     </div>
 
     <template v-if="isOnline && playerListSupported">
-      <ul v-if="playerNames.length > 0" aria-label="Online players" class="roster__list">
+      <ul v-if="playerNames.length > 0" aria-label="Online players" class="player-list__items">
         <li
           v-for="(name, index) in playerNames"
           :key="`${name}-${index}`"
-          :class="{ 'roster__row--new': recentlyJoined.has(name) }"
-          class="roster__row">
-          <q-icon aria-hidden="true" class="roster__icon" name="person" size="1rem" />
-          <span :title="name" class="roster__name">{{ name }}</span>
-          <span v-if="rowActions(name).length > 0" class="roster__actions">
+          :class="{ 'player-list__row--new': recentlyJoined.has(name) }"
+          class="player-list__row">
+          <q-icon aria-hidden="true" class="player-list__icon" name="person" size="1rem" />
+          <span :title="name" class="player-list__name">{{ name }}</span>
+          <span v-if="rowActions(name).length > 0" class="player-list__actions">
             <q-btn
               v-for="definition in rowActions(name)"
               :key="definition.action"
@@ -30,31 +32,31 @@
           </span>
         </li>
       </ul>
-      <div v-else class="roster__empty">
+      <div v-else class="player-list__empty">
         {{ currentPlayerCount > 0 ? 'Player names unavailable' : 'No players online' }}
       </div>
-      <div v-if="playerNames.length > 0 && unlistedPlayerCount > 0" class="roster__note">
+      <div v-if="playerNames.length > 0 && unlistedPlayerCount > 0" class="player-list__note">
         {{ unlistedPlayerCount }} more {{ unlistedPlayerCount === 1 ? 'player' : 'players' }} not
         reported
       </div>
     </template>
-    <div v-else-if="isOnline" class="roster__empty">
+    <div v-else-if="isOnline" class="player-list__empty">
       Player names are not available for this game.
     </div>
-    <div v-else class="roster__empty">Players appear while the server is online.</div>
+    <div v-else class="player-list__empty">Players appear while the server is online.</div>
 
-    <q-dialog v-model="confirmOpen" aria-labelledby="roster-dialog-title" persistent>
-      <q-card class="roster__dialog">
-        <q-card-section class="roster__dialog-heading">
+    <q-dialog v-model="confirmOpen" aria-labelledby="player-list-dialog-title" persistent>
+      <q-card class="player-list__dialog">
+        <q-card-section class="player-list__dialog-heading">
           <q-avatar
             :color="pendingDefinition?.color || 'primary'"
             :icon="pendingDefinition?.icon || 'admin_panel_settings'"
             :text-color="dialogTextColor" />
-          <div id="roster-dialog-title" class="roster__dialog-title">
+          <div id="player-list-dialog-title" class="player-list__dialog-title">
             {{ pendingDefinition?.label || 'Player action' }} {{ pendingName }}?
           </div>
         </q-card-section>
-        <q-card-section class="roster__dialog-copy">
+        <q-card-section class="player-list__dialog-copy">
           {{ pendingDefinition?.description }} This action is sent immediately through the game
           server's native management protocol.
         </q-card-section>
@@ -97,7 +99,7 @@ import {
   type GetGameServerPlayerManagementResponse,
 } from '@/proto/xylona_pb'
 import { GetXylonaClient } from '@/utils/shared'
-import { diffRoster } from '@/pages/game_servers/console-feed'
+import { diffPlayers } from '@/pages/game_servers/console-feed'
 import {
   getQuickPlayerActionDefinitions,
   type PlayerActionDefinition,
@@ -174,7 +176,7 @@ async function loadManagement(): Promise<void> {
     )
   } catch {
     // Quick actions are a progressive enhancement on the console page; the
-    // roster itself keeps rendering from live query data.
+    // player list itself keeps rendering from live query data.
     management.value = null
   }
 }
@@ -256,7 +258,7 @@ watch(
 watch(
   () => props.playerNames,
   (next, previous) => {
-    const diff = diffRoster(previous ?? [], next)
+    const diff = diffPlayers(previous ?? [], next)
     if (diff.joined.length === 0 && diff.left.length === 0) return
 
     for (const name of diff.joined) {
@@ -282,25 +284,25 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.roster {
+.player-list {
   display: grid;
   gap: var(--xy-space-xs);
 }
 
-.roster__summary {
+.player-list__summary {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--xy-space-sm);
 }
 
-.roster__count {
+.player-list__count {
   color: var(--xy-text-primary);
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
 }
 
-.roster__list {
+.player-list__items {
   display: grid;
   gap: var(--xy-space-2xs);
   padding: 0;
@@ -308,7 +310,7 @@ onBeforeUnmount(() => {
   list-style: none;
 }
 
-.roster__row {
+.player-list__row {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
@@ -317,15 +319,15 @@ onBeforeUnmount(() => {
   border-radius: var(--xy-radius-sm);
 }
 
-.roster__row:hover {
+.player-list__row:hover {
   background: var(--xy-surface-2);
 }
 
-.roster__row--new {
-  animation: roster-join-flash calc(1.6s * var(--xy-animation-duration)) ease-out;
+.player-list__row--new {
+  animation: player-list-join-flash calc(1.6s * var(--xy-animation-duration)) ease-out;
 }
 
-@keyframes roster-join-flash {
+@keyframes player-list-join-flash {
   0% {
     background: var(--xy-success-bg);
   }
@@ -335,12 +337,12 @@ onBeforeUnmount(() => {
   }
 }
 
-.roster__icon {
+.player-list__icon {
   flex: 0 0 auto;
   color: var(--xy-accent-hover);
 }
 
-.roster__name {
+.player-list__name {
   min-width: 0;
   overflow: hidden;
   color: var(--xy-text-primary);
@@ -349,42 +351,42 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.roster__actions {
+.player-list__actions {
   display: none;
   flex: 0 0 auto;
   margin-left: auto;
 }
 
-.roster__row:hover .roster__actions,
-.roster__row:focus-within .roster__actions {
+.player-list__row:hover .player-list__actions,
+.player-list__row:focus-within .player-list__actions {
   display: inline-flex;
 }
 
-.roster__empty,
-.roster__note {
+.player-list__empty,
+.player-list__note {
   color: var(--xy-text-muted);
   font-size: var(--xy-font-size-xs);
 }
 
-.roster__dialog {
+.player-list__dialog {
   width: min(480px, calc(100vw - 32px));
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-1);
 }
 
-.roster__dialog-heading {
+.player-list__dialog-heading {
   display: flex;
   align-items: center;
   gap: var(--xy-space-md);
 }
 
-.roster__dialog-title {
+.player-list__dialog-title {
   color: var(--xy-text-primary);
   font-family: var(--xy-font-display);
   font-size: var(--xy-font-size-lg);
 }
 
-.roster__dialog-copy {
+.player-list__dialog-copy {
   max-width: 60ch;
   color: var(--xy-text-muted);
 }

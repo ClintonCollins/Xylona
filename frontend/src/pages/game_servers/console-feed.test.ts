@@ -5,7 +5,7 @@ import {
   classifyConsoleLine,
   consoleLineMatchesFilter,
   consoleLinePlainText,
-  diffRoster,
+  diffPlayers,
   getConsoleFeedClassifier,
   getConsoleFeedFilterOptions,
   type ConsoleFeedFilter,
@@ -144,7 +144,7 @@ describe('consoleLineMatchesFilter', () => {
   })
 })
 
-describe('diffRoster', () => {
+describe('diffPlayers', () => {
   const cases: {
     name: string
     previous: string[]
@@ -164,7 +164,7 @@ describe('diffRoster', () => {
   ]
 
   it.each(cases)('$name', ({ previous, next, want }) => {
-    expect(diffRoster(previous, next)).toEqual(want)
+    expect(diffPlayers(previous, next)).toEqual(want)
   })
 })
 

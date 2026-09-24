@@ -214,8 +214,8 @@ function mountView() {
         'q-input': {
           template: '<input />',
         },
-        // Render the real roster so the view's player wiring stays covered.
-        GameServerPlayerRoster: false,
+        // Render the real player list so the view's player wiring stays covered.
+        GameServerPlayerList: false,
         ClipBoardCopy: { template: '<div><slot /></div>' },
         StatusBadge: { template: '<div><slot /></div>' },
         ServerSoftwareSelector: {
@@ -353,17 +353,19 @@ describe('GameServerView', () => {
       const wrapper = mountView()
       await flushPromises()
 
-      const roster = wrapper.find('.roster')
-      expect(roster.exists()).toBe(true)
-      expect(roster.find('.roster__list').exists()).toBe(
+      const playerList = wrapper.find('.player-list')
+      expect(playerList.exists()).toBe(true)
+      expect(playerList.find('.player-list__items').exists()).toBe(
         playerListSupported && expectedNames.length > 0,
       )
-      expect(wrapper.findAll('.roster__name').map((player) => player.text())).toEqual(expectedNames)
+      expect(wrapper.findAll('.player-list__name').map((player) => player.text())).toEqual(
+        expectedNames,
+      )
       if (expectedMessage === '') {
-        expect(wrapper.find('.roster__empty').exists()).toBe(false)
-        expect(wrapper.find('.roster__note').exists()).toBe(false)
+        expect(wrapper.find('.player-list__empty').exists()).toBe(false)
+        expect(wrapper.find('.player-list__note').exists()).toBe(false)
       } else {
-        expect(roster.text()).toContain(expectedMessage)
+        expect(playerList.text()).toContain(expectedMessage)
       }
     },
   )
@@ -450,9 +452,9 @@ describe('GameServerView', () => {
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('No fresh successful query has been received.')
-    const roster = wrapper.get('.roster')
-    expect(roster.text()).toContain('Players appear while the server is online.')
-    expect(roster.get('.roster__count').text()).toBe('0 / 10')
+    const playerList = wrapper.get('.player-list')
+    expect(playerList.text()).toContain('Players appear while the server is online.')
+    expect(playerList.get('.player-list__count').text()).toBe('0 / 10')
 
     await wrapper.get('[aria-label="Collapse player panel"]').trigger('click')
     expect(wrapper.get('.player-rail__mini-count').text()).toBe('0/10')
