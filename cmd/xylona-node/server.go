@@ -249,7 +249,8 @@ func clampToInt32(v int) int32 {
 // nodeSnapshotFromProto (internal/nodeclient/grpc.go).
 func nodeSnapshotToProto(snap *node.NodeSnapshot) *nodeprotov1.NodeSnapshot {
 	if snap == nil {
-		return &nodeprotov1.NodeSnapshot{}
+		// An empty proto would read as "every metric available at 0%".
+		return &nodeprotov1.NodeSnapshot{CpuUnavailable: true, MemoryUnavailable: true, DiskUnavailable: true}
 	}
 	processes := make([]*nodeprotov1.ProcessSnapshot, 0, len(snap.Processes))
 	for _, p := range snap.Processes {

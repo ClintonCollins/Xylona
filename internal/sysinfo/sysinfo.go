@@ -98,7 +98,7 @@ func CollectResourceSnapshot() (*ResourceSnapshot, error) {
 		snapshot.DiskPercent = diskInfo.UsedPercent
 		snapshot.DiskUsed = diskInfo.Used
 		snapshot.DiskTotal = diskInfo.Total
-		snapshot.DiskValid = true
+		snapshot.DiskValid = diskInfo.Total > 0
 	}
 
 	return snapshot, nil
@@ -151,6 +151,7 @@ func (s *cpuSampler) sample(current cpu.TimesStat, now time.Time) (float64, bool
 	if now.Sub(s.lastAt) < cpuSampleWindow {
 		return s.percent, s.valid
 	}
+	// A window whose counters didn't advance keeps the last good reading.
 	if percent, ok := cpuBusyPercent(s.last, current); ok {
 		s.percent = percent
 		s.valid = true
