@@ -11,7 +11,12 @@ import { GameSchema, GameServerSchema, IPSchema } from '@/proto/shared_pb'
 
 const mocks = vi.hoisted(() => ({
   listGameServers: vi.fn(),
+  notifyConnectError: vi.fn(),
   suggestGameServerPorts: vi.fn(),
+}))
+
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notifyConnectError,
 }))
 
 vi.mock('@/api/game-server-provisioning', () => ({
@@ -257,6 +262,7 @@ describe('useGameServerPortAvailability', () => {
     mocks.listGameServers.mockReset()
     mocks.listGameServers.mockResolvedValue({ gameServers: [] })
     mocks.suggestGameServerPorts.mockReset()
+    mocks.notifyConnectError.mockReset()
   })
 
   function mountComposable(
@@ -305,7 +311,9 @@ describe('useGameServerPortAvailability', () => {
     })
     expect(gameServer.value.port).toBe(2458n)
     expect(gameServer.value.queryPort).toBe(2459n)
-    expect(state.portSuggestionNote.value).toContain('Port 2456 is already used')
+    expect(state.portSuggestionNote.value).toContain(
+      `Port 2456 or one of the ports this game also needs is taken`,
+    )
 
     // A typed port clears the note and is never replaced when the IP changes.
     gameServer.value.port = 30000n
@@ -342,7 +350,32 @@ describe('useGameServerPortAvailability', () => {
       expect.objectContaining({ port: 25566n, queryPort: 25566n }),
     )
     expect(gameServer.value.port).toBe(25567n)
-    expect(state.portSuggestionNote.value).toContain('Port 25566 is already used')
+    expect(state.portSuggestionNote.value).toContain(
+      `Port 25566 or one of the ports this game also needs is taken`,
+    )
+  })
+
+  it('tells the operator when a requested free port lookup fails', async () => {
+    const failure = new Error('no free port')
+    mocks.suggestGameServerPorts.mockRejectedValue(failure)
+    const selectedGame = ref(
+      create(GameSchema, { id: 'minecraft', defaultPort: 25565n, defaultQueryPort: 25565n }),
+    )
+    const gameServer = ref(
+      create(GameServerSchema, {
+        nodeId: 'node-local',
+        ip: create(IPSchema, { address: '10.0.0.5' }),
+        port: 25566n,
+        queryPort: 25566n,
+      }),
+    )
+
+    const state = mountComposable(gameServer, selectedGame)
+    await flushPromises()
+    await state.fillNextFreePorts()
+
+    expect(mocks.notifyConnectError).toHaveBeenCalledWith(failure, 'Could not find a free port')
+    expect(gameServer.value.port).toBe(25566n)
   })
 
   afterEach(() => {

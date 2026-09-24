@@ -330,7 +330,6 @@ describe('GameServerList', () => {
           'q-skeleton': true,
           'q-separator': { template: '<span />' },
           'q-toolbar': { template: '<div><slot /></div>' },
-          'q-resize-observer': true,
           'q-select': true,
           'q-menu': { template: '<div><slot /></div>' },
           'q-list': { template: '<div><slot /></div>' },
@@ -855,6 +854,10 @@ describe('GameServerList', () => {
       selectedGameServers: DisplayRow[]
       deleteTargets: Array<{ id: string; name: string; directory?: string }>
       openDeleteDialog: (rows: DisplayRow[]) => void
+      deleteGameServerSubmitted: (result: {
+        succeeded: Array<{ id: string; name: string }>
+        failed: Array<{ id: string; name: string; error: string }>
+      }) => Promise<void>
     }
     const [serverA, serverB] = vm.displayRows
     if (!serverA || !serverB) throw new Error('expected two rows')
@@ -866,6 +869,18 @@ describe('GameServerList', () => {
     expect(vm.deleteTargets).toEqual([
       expect.objectContaining({ id: 'server-a', name: 'Server A', directory: '/srv/a' }),
     ])
+    expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
+
+    // A deleted server leaves the selection even when the refetch fails and its row stays.
+    vm.selectedGameServers = [serverA, serverB]
+    mocks.listAggregatedGameServers.mockRejectedValueOnce(new Error('offline'))
+    await vm.deleteGameServerSubmitted({
+      succeeded: [{ id: 'server-a', name: 'Server A' }],
+      failed: [],
+    })
+    await flushPromises()
+
+    expect(vm.displayRows.map((row) => row.id)).toContain('server-a')
     expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
   })
 

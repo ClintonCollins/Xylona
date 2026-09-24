@@ -71,7 +71,6 @@
       </span>
     </div>
     <div class="server-list-main">
-      <q-resize-observer @resize="listWidth = $event.width" />
       <div
         v-if="selectedGameServers.length > 0"
         aria-label="Selected game server actions"
@@ -671,15 +670,14 @@ const selectedServersForAction = computed((): Record<ServerAction, DisplayRow[]>
 // Bulk buttons drop their "Start 2" labels below 1024px; Delete always keeps its label.
 const compactSelectionBar = computed(() => $q.screen.lt.md)
 
-// Cards whenever the list itself is narrower than the table needs (below about 1410px
-// with the drawer open, or beside the status page panel). Measuring the list rather than
-// the window keeps a page scrollbar from flipping a 1440px window to cards.
-// ponytail: fixed threshold; revisit when the table's columns change.
-const TABLE_MIN_WIDTH = 1100
-const listWidth = ref(0)
-const gridMode = computed(() =>
-  listWidth.value > 0 ? listWidth.value < TABLE_MIN_WIDTH : $q.screen.lt.lg,
-)
+// Cards below Quasar's lg step (1440px). A media query counts the page scrollbar in the
+// width, so a scrollbar can't flip a 1440px window to cards the way $q.screen.lt.lg did.
+const belowLargeQuery =
+  typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 1439px)') : null
+const gridMode = ref(belowLargeQuery?.matches ?? false)
+function syncGridMode(event: MediaQueryListEvent) {
+  gridMode.value = event.matches
+}
 
 // The card grid has no table header, so it gets its own select-all and sort controls.
 const serverTable = ref<{ computedRows: DisplayRow[] } | null>(null)
@@ -968,6 +966,7 @@ function applyBufferedLiveServerStateToServers(
 }
 
 onMounted(async () => {
+  belowLargeQuery?.addEventListener('change', syncGridMode)
   watchServerStatusChanges()
   watchServerVersionChanges()
   watchWebsocketReconnects()
@@ -994,6 +993,7 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('gameServersQueryInfo', applyServerQueryInfo)
   XylonaEventBus.off('gameServerMetrics', applyServerMetrics)
   XylonaEventBus.off('gameServerUpdateProgress', handleGameServerUpdateProgress)
+  belowLargeQuery?.removeEventListener('change', syncGridMode)
   metricsSubscriptions.clear()
 })
 
@@ -1148,9 +1148,13 @@ async function deleteGameServerSubmitted(result: {
   if (result.succeeded.length > 0) {
     await getGameServers()
   }
-  // Keep the rest of the selection; only servers that are gone leave it.
+  // Keep the rest of the selection; deleted servers leave it even if the refetch was
+  // superseded or failed and the rows are still showing.
   const keptKeys = new Set(selectedGameServers.value.map((row) => row.compositeId))
-  selectedGameServers.value = displayRows.value.filter((row) => keptKeys.has(row.compositeId))
+  const deletedIDs = new Set(result.succeeded.map((server) => server.id))
+  selectedGameServers.value = displayRows.value.filter(
+    (row) => keptKeys.has(row.compositeId) && !deletedIDs.has(row.id),
+  )
 }
 
 function setServerStatus(serverID: string, serverStatus: Status) {
