@@ -89,7 +89,10 @@ describe('DeleteGameServerDialog', () => {
     expect(wrapper.text()).toContain('Backup archives stay on disk')
 
     await checkbox.setValue(true)
-    expect(wrapper.text()).toContain('Their backup archives are permanently deleted first')
+    expect(wrapper.text()).toContain(
+      'Their backup archives are permanently deleted before their folders.',
+    )
+    expect(wrapper.text()).toContain('its server is kept but stays stopped')
     expect(wrapper.text()).not.toContain('Backup archives stay on disk')
 
     await findButton(wrapper, 'Delete 2 servers').trigger('click')
@@ -99,6 +102,28 @@ describe('DeleteGameServerDialog', () => {
       expect.objectContaining({ serverId: 'server-1', deleteBackups: true }),
       expect.objectContaining({ serverId: 'server-2', deleteBackups: true }),
     ])
+  })
+
+  it('uses singular copy for one server and describes the option by its summary', async () => {
+    mocks.listGameServerBackups.mockResolvedValue({ backups: [{ sizeBytes: 24n }] })
+    const wrapper = mount(DeleteGameServerDialog, {
+      props: {
+        gameServers: [{ id: 'server-1', name: 'Alpha', canDeleteBackups: true }],
+        showDialog: true,
+      },
+      global: { stubs },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Also delete its backups')
+    const describedBy = wrapper.get('label').attributes('aria-describedby')
+    expect(wrapper.get(`#${describedBy}`).text()).toBe('1 backup · 24 B')
+
+    await wrapper.get('input[type="checkbox"]').setValue(true)
+    expect(wrapper.text()).toContain(
+      'Its backup archives are permanently deleted before its folder.',
+    )
+    expect(wrapper.text()).toContain('the server is kept but stays stopped')
   })
 
   it('resets to keeping backups each time it opens', async () => {
@@ -140,7 +165,10 @@ describe('DeleteGameServerDialog', () => {
     await flushPromises()
 
     expect(wrapper.get<HTMLInputElement>('input[type="checkbox"]').element.disabled).toBe(true)
-    expect(wrapper.text()).toContain('Needs the backup permission on every selected server.')
+    const describedBy = wrapper.get('label').attributes('aria-describedby')
+    expect(wrapper.get(`#${describedBy}`).text()).toBe(
+      'Needs the backup permission on every selected server.',
+    )
     expect(mocks.listGameServerBackups).not.toHaveBeenCalled()
   })
 

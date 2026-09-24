@@ -34,8 +34,9 @@
           </li>
           <li v-if="deleteBackups">
             {{ gameServers.length === 1 ? 'Its' : 'Their' }} backup archives are permanently deleted
-            first. If one can't be deleted,
-            {{ gameServers.length === 1 ? 'the server' : 'its server' }} is kept.
+            before {{ gameServers.length === 1 ? 'its folder' : 'their folders' }}. If one can't be
+            deleted, {{ gameServers.length === 1 ? 'the server' : 'its server' }} is kept but stays
+            stopped, and archives already deleted stay deleted.
           </li>
           <li v-else>
             Backup archives stay on disk, but Xylona stops listing them. To keep one, download it
@@ -54,15 +55,24 @@
             v-model="deleteBackups"
             data-testid="delete-server-backups"
             dense
+            :aria-describedby="
+              !canDeleteBackups || backupSummary ? 'delete-server-backups-detail' : undefined
+            "
             :disable="deleting || !canDeleteBackups"
             :label="
               gameServers.length === 1 ? 'Also delete its backups' : 'Also delete their backups'
             " />
-          <div v-if="!canDeleteBackups" class="delete-server-backups__detail">
+          <div
+            v-if="!canDeleteBackups"
+            id="delete-server-backups-detail"
+            class="delete-server-backups__detail">
             Needs the backup permission on
             {{ gameServers.length === 1 ? 'this server' : 'every selected server' }}.
           </div>
-          <div v-else-if="backupSummary" class="delete-server-backups__detail">
+          <div
+            v-else-if="backupSummary"
+            id="delete-server-backups-detail"
+            class="delete-server-backups__detail">
             {{ backupSummary }}
           </div>
         </div>
