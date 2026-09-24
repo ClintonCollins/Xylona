@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -547,6 +548,12 @@ func webhookTestFailureMessage(errSend error) string {
 	}
 	if errors.Is(errSend, webhooks.ErrSSRFBlocked) {
 		return "The webhook URL points to a private or reserved address"
+	}
+	if dnsErr, ok := errors.AsType[*net.DNSError](errSend); ok {
+		return "Could not find the webhook host " + dnsErr.Name
+	}
+	if errors.Is(errSend, webhooks.ErrInvalidWebhookURL) {
+		return "The webhook URL is not valid"
 	}
 	if urlErr, ok := errors.AsType[*url.Error](errSend); ok {
 		return "Could not reach the webhook: " + urlErr.Err.Error()

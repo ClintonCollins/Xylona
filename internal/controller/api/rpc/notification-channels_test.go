@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"testing"
@@ -1035,14 +1036,11 @@ func TestTestNotificationChannel_Webhook(t *testing.T) {
 			wantError:   `The webhook responded with HTTP 404: {"message": "Unknown Webhook"}`,
 		},
 		{
-			name:        "unreachable target hides url",
+			name:        "mistyped host",
 			channelType: webhooks.ChannelTypeSlack,
-			sendErr: &webhooks.DeliveryError{Err: &url.Error{
-				Op:  "Post",
-				URL: hookURL,
-				Err: errors.New("dial tcp: lookup discrd.com: no such host"),
-			}},
-			wantError: "Could not reach the webhook: dial tcp: lookup discrd.com: no such host",
+			sendErr: fmt.Errorf("%w: DNS resolution failed: %w", webhooks.ErrInvalidWebhookURL,
+				&net.DNSError{Err: "no such host", Name: "discrd.com", IsNotFound: true}),
+			wantError: "Could not find the webhook host discrd.com",
 		},
 	}
 
@@ -1102,6 +1100,20 @@ func TestWebhookTestFailureMessage(t *testing.T) {
 			name: "private address",
 			err:  fmt.Errorf("%w: 10.0.0.5", webhooks.ErrSSRFBlocked),
 			want: "The webhook URL points to a private or reserved address",
+		},
+		{
+			name: "invalid url",
+			err:  fmt.Errorf("%w: unsupported scheme %q", webhooks.ErrInvalidWebhookURL, "ftp"),
+			want: "The webhook URL is not valid",
+		},
+		{
+			name: "unreachable target hides url",
+			err: &webhooks.DeliveryError{Err: &url.Error{
+				Op:  "Post",
+				URL: "https://discord.com/api/webhooks/1/abc",
+				Err: errors.New("dial tcp 162.159.135.232:443: connect: connection refused"),
+			}},
+			want: "Could not reach the webhook: dial tcp 162.159.135.232:443: connect: connection refused",
 		},
 		{
 			name: "other error",
