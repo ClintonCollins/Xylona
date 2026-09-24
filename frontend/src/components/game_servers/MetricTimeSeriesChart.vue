@@ -71,7 +71,7 @@
           <small v-if="laneCaption">{{ laneCaption }}</small>
         </div>
         <div
-          v-if="laneHeight >= 64"
+          v-if="laneHeight >= 64 && hasValues"
           class="metric-lane__aggregate font-mono"
           :title="`min ${formatValue(summary.minimum)} · avg ${formatValue(summary.average)} · max ${formatValue(summary.maximum)}`">
           min {{ formatValue(summary.minimum) }} · max {{ formatValue(summary.maximum) }}
@@ -641,10 +641,17 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* No reading is not a value: keep it muted so it never reads as a healthy number. */
+/* No reading is not a value: keep it muted so it never reads as a healthy number,
+   and give its caption, which says why, a line of its own in the narrow gutter. */
 .metric-lane__value--missing {
   color: var(--xy-text-muted);
   font-weight: 400;
+}
+
+.metric-lane__value--missing small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metric-lane__value small {

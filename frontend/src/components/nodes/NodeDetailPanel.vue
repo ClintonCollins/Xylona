@@ -61,7 +61,7 @@
       <metric-time-series-chart
         title="CPU"
         description="Host CPU utilisation."
-        :empty-label="historyError ? historyFailedLabel : 'No CPU samples in this range.'"
+        :empty-label="laneEmptyLabel('cpu')"
         :bands="cpuBands"
         :format-value="formatPercent"
         :health="cpuHealth"
@@ -75,7 +75,7 @@
       <metric-time-series-chart
         title="Memory"
         description="Host memory in use."
-        :empty-label="historyError ? historyFailedLabel : 'No memory samples in this range.'"
+        :empty-label="laneEmptyLabel('memory')"
         :bands="memoryBands"
         :format-value="formatReadingBytes"
         :health="memoryHealth"
@@ -89,7 +89,7 @@
       <metric-time-series-chart
         title="Disk"
         description="Used space on the node's install volume."
-        :empty-label="historyError ? historyFailedLabel : 'No disk samples in this range.'"
+        :empty-label="laneEmptyLabel('disk')"
         :bands="diskBands"
         :format-value="formatReadingBytes"
         :health="diskHealth"
@@ -490,6 +490,15 @@ const intervalLabel = computed(() => {
   if (seconds >= 60) return `${Math.round(seconds / 60)}m buckets`
   return `${seconds}s buckets`
 })
+
+// Samples with no value are readings the node couldn't take, not an empty range.
+function laneEmptyLabel(resource: NodeResource): string {
+  if (historyError.value) return historyFailedLabel
+  const name = resource === 'cpu' ? 'CPU' : resource
+  return samples.value.length > 0
+    ? `The node couldn't read its ${name} usage in this range.`
+    : `No ${name} samples in this range.`
+}
 
 // With samples on screen, a missing value is a reading the node couldn't take.
 function formatReading(value: number | null, format: (value: number | null) => string): string {
