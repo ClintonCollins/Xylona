@@ -1,13 +1,49 @@
 import { describe, expect, it } from 'vitest'
 import { create } from '@bufbuild/protobuf'
 import { TimestampSchema } from '@bufbuild/protobuf/wkt'
+import { NodeResourceSnapshotSchema } from '@/proto/shared_pb'
 import {
   nodeHealthBadge,
   nodeLastSeenMs,
+  nodeReadingValues,
   nodeResourceHealth,
+  nodeResourcePercent,
+  nodeResourceUnavailableReason,
   projectDaysUntilDiskFull,
   splitNodeVersion,
 } from './node-display'
+
+describe('node readings', () => {
+  const snapshot = create(NodeResourceSnapshotSchema, {
+    cpuPercent: 0,
+    cpuUnavailable: true,
+    memoryPercent: 40,
+    memoryUsedBytes: 400n,
+    diskPercent: 0,
+    diskUsedBytes: 0n,
+  })
+
+  it('turns a reading the node could not take into null, and keeps a real 0', () => {
+    expect(nodeReadingValues(snapshot)).toEqual({
+      cpuPercent: null,
+      memoryPercent: 40,
+      memoryUsedBytes: 400,
+      diskPercent: 0,
+      diskUsedBytes: 0,
+    })
+    expect(
+      nodeReadingValues({ ...snapshot, memoryUnavailable: true, diskUnavailable: true }),
+    ).toMatchObject({ memoryPercent: null, memoryUsedBytes: null, diskUsedBytes: null })
+  })
+
+  it('rates an unavailable reading as neither healthy nor critical', () => {
+    const percent = nodeResourcePercent(snapshot, 'cpu')
+    expect(percent).toBeNull()
+    expect(nodeResourceHealth('cpu', percent).level).toBe('unknown')
+    expect(nodeResourceUnavailableReason('cpu')).toBe("The node couldn't read its CPU usage.")
+    expect(nodeResourceUnavailableReason('disk')).toBe("The node couldn't read its disk usage.")
+  })
+})
 
 describe('projectDaysUntilDiskFull', () => {
   const hour = 60 * 60 * 1000
@@ -30,6 +66,13 @@ describe('projectDaysUntilDiskFull', () => {
     expect(projectDaysUntilDiskFull(growing(48, -5), 2000)).toBeNull()
     expect(projectDaysUntilDiskFull(growing(48, 10), 1480 + 10 * 24 * 60)).toBeNull()
     expect(projectDaysUntilDiskFull(growing(48, 10), null)).toBeNull()
+  })
+
+  it('projects past unavailable readings instead of reading them as an empty disk', () => {
+    const samples = growing(48, 10).map((sample, index) =>
+      index % 3 === 1 ? { ...sample, diskUsedBytes: null } : sample,
+    )
+    expect(projectDaysUntilDiskFull(samples, 1480 + 10 * 24 * 10)).toBeCloseTo(10, 5)
   })
 })
 

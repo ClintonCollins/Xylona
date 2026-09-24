@@ -1,4 +1,4 @@
-import type { Node } from '@/proto/shared_pb'
+import type { Node, NodeResourceSnapshot } from '@/proto/shared_pb'
 
 export interface NodeHealthBadge {
   color: string
@@ -47,16 +47,68 @@ export function nodeResourceHealth(
   return { level: 'ok', label: 'Nominal', glyph: '' }
 }
 
+// The readings a live snapshot or a history point carries. A flagged reading
+// is one the node could not take; its zeroed value is not a real 0%.
+export type NodeReadings = Pick<
+  NodeResourceSnapshot,
+  | 'cpuPercent'
+  | 'cpuUnavailable'
+  | 'memoryPercent'
+  | 'memoryUsedBytes'
+  | 'memoryUnavailable'
+  | 'diskPercent'
+  | 'diskUsedBytes'
+  | 'diskUnavailable'
+>
+
+export interface NodeReadingValues {
+  cpuPercent: number | null
+  memoryPercent: number | null
+  memoryUsedBytes: number | null
+  diskPercent: number | null
+  diskUsedBytes: number | null
+}
+
+// Null marks an unavailable reading, so charts draw a gap instead of a 0.
+export function nodeReadingValues(readings: NodeReadings): NodeReadingValues {
+  return {
+    cpuPercent: nodeResourcePercent(readings, 'cpu'),
+    memoryPercent: nodeResourcePercent(readings, 'memory'),
+    memoryUsedBytes: readings.memoryUnavailable ? null : Number(readings.memoryUsedBytes),
+    diskPercent: nodeResourcePercent(readings, 'disk'),
+    diskUsedBytes: readings.diskUnavailable ? null : Number(readings.diskUsedBytes),
+  }
+}
+
+export function nodeResourcePercent(readings: NodeReadings, resource: NodeResource): number | null {
+  switch (resource) {
+    case 'cpu':
+      return readings.cpuUnavailable ? null : readings.cpuPercent
+    case 'memory':
+      return readings.memoryUnavailable ? null : readings.memoryPercent
+    case 'disk':
+      return readings.diskUnavailable ? null : readings.diskPercent
+  }
+}
+
+export function nodeResourceUnavailableReason(resource: NodeResource): string {
+  return `The node couldn't read its ${resource === 'cpu' ? 'CPU' : resource} usage.`
+}
+
 const hourMs = 60 * 60 * 1000
 const dayMs = 24 * hourMs
 
 // Days until the disk fills at the least-squares growth rate of the given samples.
 // Needs a day of history so an hour of noise can't predict anything, and stays quiet
-// beyond ~30 days, where the estimate is too weak to act on.
+// beyond ~30 days, where the estimate is too weak to act on. Unavailable readings are skipped.
 export function projectDaysUntilDiskFull(
-  samples: readonly { timestampMs: number; diskUsedBytes: number }[],
+  allSamples: readonly { timestampMs: number; diskUsedBytes: number | null }[],
   totalBytes: number | null,
 ): number | null {
+  const samples = allSamples.filter(
+    (sample): sample is { timestampMs: number; diskUsedBytes: number } =>
+      sample.diskUsedBytes !== null,
+  )
   const first = samples[0]
   const last = samples[samples.length - 1]
   if (!totalBytes || !first || !last || last.timestampMs - first.timestampMs < dayMs) return null

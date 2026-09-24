@@ -73,23 +73,23 @@
                 </q-card-section>
 
                 <q-card-section class="node-mobile-metrics">
-                  <div>
-                    <span>CPU</span>
-                    <strong :class="metricClass('cpu', getSnapshot(props.row.id)?.cpuPercent)">
-                      {{ formatMetric(getSnapshot(props.row.id)?.cpuPercent, 'cpu') }}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Memory</span>
+                  <div v-for="metric in mobileMetrics" :key="metric.resource">
+                    <span>{{ metric.label }}</span>
                     <strong
-                      :class="metricClass('memory', getSnapshot(props.row.id)?.memoryPercent)">
-                      {{ formatMetric(getSnapshot(props.row.id)?.memoryPercent, 'memory') }}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Disk</span>
-                    <strong :class="metricClass('disk', getSnapshot(props.row.id)?.diskPercent)">
-                      {{ formatMetric(getSnapshot(props.row.id)?.diskPercent, 'disk') }}
+                      :class="
+                        metricClass(metric.resource, resourcePercent(props.row.id, metric.resource))
+                      ">
+                      <node-metric-unavailable
+                        v-if="resourcePercent(props.row.id, metric.resource) === null"
+                        :resource="metric.resource" />
+                      <template v-else>
+                        {{
+                          formatMetric(
+                            resourcePercent(props.row.id, metric.resource),
+                            metric.resource,
+                          )
+                        }}
+                      </template>
                     </strong>
                   </div>
                   <div>
@@ -167,11 +167,14 @@
               <template v-if="shouldShowMetricSkeleton(props.row.id)">
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="3rem" />
               </template>
+              <node-metric-unavailable
+                v-else-if="resourcePercent(props.row.id, 'cpu') === null"
+                resource="cpu" />
               <template v-else-if="getSnapshot(props.row.id)">
                 <span
-                  :class="metricClass('cpu', getSnapshot(props.row.id)!.cpuPercent)"
+                  :class="metricClass('cpu', resourcePercent(props.row.id, 'cpu'))"
                   class="font-mono">
-                  {{ formatMetric(getSnapshot(props.row.id)!.cpuPercent, 'cpu') }}
+                  {{ formatMetric(resourcePercent(props.row.id, 'cpu'), 'cpu') }}
                 </span>
               </template>
               <span v-else class="text-xy-muted">&mdash;</span>
@@ -182,11 +185,14 @@
               <template v-if="shouldShowMetricSkeleton(props.row.id)">
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="5rem" />
               </template>
+              <node-metric-unavailable
+                v-else-if="resourcePercent(props.row.id, 'memory') === null"
+                resource="memory" />
               <template v-else-if="getSnapshot(props.row.id)">
                 <span
-                  :class="metricClass('memory', getSnapshot(props.row.id)!.memoryPercent)"
+                  :class="metricClass('memory', resourcePercent(props.row.id, 'memory'))"
                   class="font-mono">
-                  {{ formatMetric(getSnapshot(props.row.id)!.memoryPercent, 'memory') }}
+                  {{ formatMetric(resourcePercent(props.row.id, 'memory'), 'memory') }}
                 </span>
                 <span class="text-caption text-xy-muted xy-num q-ml-xs">
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.memoryUsedBytes)) }}
@@ -200,11 +206,14 @@
               <template v-if="shouldShowMetricSkeleton(props.row.id)">
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="5rem" />
               </template>
+              <node-metric-unavailable
+                v-else-if="resourcePercent(props.row.id, 'disk') === null"
+                resource="disk" />
               <template v-else-if="getSnapshot(props.row.id)">
                 <span
-                  :class="metricClass('disk', getSnapshot(props.row.id)!.diskPercent)"
+                  :class="metricClass('disk', resourcePercent(props.row.id, 'disk'))"
                   class="font-mono">
-                  {{ formatMetric(getSnapshot(props.row.id)!.diskPercent, 'disk') }}
+                  {{ formatMetric(resourcePercent(props.row.id, 'disk'), 'disk') }}
                 </span>
                 <span class="text-caption text-xy-muted xy-num q-ml-xs">
                   {{ bytesToSize(Number(getSnapshot(props.row.id)!.diskUsedBytes)) }}
@@ -422,10 +431,12 @@ import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import NodeAlertRuleDialog from '@/components/nodes/NodeAlertRuleDialog.vue'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
+import NodeMetricUnavailable from '@/components/nodes/NodeMetricUnavailable.vue'
 import {
   nodeHealthBadge,
   nodeLastSeenMs,
   nodeResourceHealth,
+  nodeResourcePercent,
   splitNodeVersion,
   type NodeResource,
 } from '@/components/nodes/node-display'
@@ -506,7 +517,19 @@ function getNodeVersion(nodeId: string): string | undefined {
   return getNodeSummary(nodeId)?.systemInfo?.xylonaVersion
 }
 
-function metricClass(resource: NodeResource, percent: number | undefined): string {
+// Undefined before any snapshot arrives; null when the node couldn't take the reading.
+function resourcePercent(nodeId: string, resource: NodeResource): number | null | undefined {
+  const snapshot = getSnapshot(nodeId)
+  return snapshot ? nodeResourcePercent(snapshot, resource) : undefined
+}
+
+const mobileMetrics: { resource: NodeResource; label: string }[] = [
+  { resource: 'cpu', label: 'CPU' },
+  { resource: 'memory', label: 'Memory' },
+  { resource: 'disk', label: 'Disk' },
+]
+
+function metricClass(resource: NodeResource, percent: number | null | undefined): string {
   const level = nodeResourceHealth(resource, percent).level
   if (level === 'danger') return 'text-negative'
   if (level === 'warn') return 'text-warning'
@@ -630,8 +653,8 @@ async function fetchAll() {
 }
 
 // The glyph keeps a high or critical reading distinguishable without its colour.
-function formatMetric(value: number | undefined, resource: NodeResource): string {
-  if (value === undefined) return '—'
+function formatMetric(value: number | null | undefined, resource: NodeResource): string {
+  if (value === undefined || value === null) return '—'
   const glyph = nodeResourceHealth(resource, value).glyph
   return `${glyph ? `${glyph} ` : ''}${Math.round(value)}%`
 }
@@ -700,21 +723,21 @@ const columns = ref([
     name: 'cpu',
     label: 'CPU',
     align: 'left' as const,
-    field: (row: Node) => getSnapshot(row.id)?.cpuPercent ?? -1,
+    field: (row: Node) => resourcePercent(row.id, 'cpu') ?? -1,
     sortable: true,
   },
   {
     name: 'ram',
     label: 'RAM',
     align: 'left' as const,
-    field: (row: Node) => getSnapshot(row.id)?.memoryPercent ?? -1,
+    field: (row: Node) => resourcePercent(row.id, 'memory') ?? -1,
     sortable: true,
   },
   {
     name: 'disk',
     label: 'Disk',
     align: 'left' as const,
-    field: (row: Node) => getSnapshot(row.id)?.diskPercent ?? -1,
+    field: (row: Node) => resourcePercent(row.id, 'disk') ?? -1,
     sortable: true,
   },
   {

@@ -64,7 +64,9 @@
             {{ healthGlyph }} {{ health.label }}
           </span>
         </div>
-        <div class="metric-lane__value font-mono">
+        <div
+          class="metric-lane__value font-mono"
+          :class="{ 'metric-lane__value--missing': displayedValue === null }">
           {{ formatValue(displayedValue) }}
           <small v-if="laneCaption">{{ laneCaption }}</small>
         </div>
@@ -637,6 +639,12 @@ onBeforeUnmount(() => {
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* No reading is not a value: keep it muted so it never reads as a healthy number. */
+.metric-lane__value--missing {
+  color: var(--xy-text-muted);
+  font-weight: 400;
 }
 
 .metric-lane__value small {

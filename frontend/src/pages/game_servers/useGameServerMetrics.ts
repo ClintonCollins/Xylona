@@ -557,7 +557,10 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
   function onNodeMetrics(metrics: AllNodeMetrics): void {
     const nodeMetrics = metrics.nodes[gameServer.value.nodeId]
     if (!nodeMetrics) return
-    nodeMemoryUsedBytes.value = Number(nodeMetrics.memoryUsedBytes)
+    // A failed read reports 0 bytes; that is not a real reading of the node's memory.
+    nodeMemoryUsedBytes.value = nodeMetrics.memoryUnavailable
+      ? null
+      : Number(nodeMetrics.memoryUsedBytes)
     nodeMemoryTotalBytes.value = Number(nodeMetrics.memoryTotalBytes)
     if (liveProcessMetrics.value && rangeRequest.value.live)
       appendLiveMetrics(liveProcessMetrics.value)
