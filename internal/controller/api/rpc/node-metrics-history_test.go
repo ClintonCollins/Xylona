@@ -100,12 +100,17 @@ func TestNodeResourceSnapshotProtoFlagsUnavailableReadings(t *testing.T) {
 	}{
 		{
 			name:     "every reading taken",
-			snapshot: node.NodeSnapshot{CPUPercent: 12, CPUValid: true, MemoryValid: true, DiskValid: true},
+			snapshot: node.NodeSnapshot{CPUPercent: 12, CPUValid: true, TotalMemory: 1024, MemoryValid: true, DiskTotal: 100, DiskValid: true},
 		},
 		{
 			name:     "failed readings are flagged",
-			snapshot: node.NodeSnapshot{MemoryValid: true},
+			snapshot: node.NodeSnapshot{TotalMemory: 1024, MemoryValid: true, DiskTotal: 100},
 			wantCPU:  true, wantDisk: true,
+		},
+		{
+			name:       "older node zero totals are flagged",
+			snapshot:   node.NodeSnapshot{CPUValid: true, MemoryValid: true, DiskValid: true},
+			wantMemory: true, wantDisk: true,
 		},
 	}
 

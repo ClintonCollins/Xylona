@@ -235,12 +235,12 @@ func nodeMetricsRow(nodeID string, snap *node.NodeSnapshot, gameServerIDs map[st
 		ID:                     uuid.New().String(),
 		NodeID:                 nodeID,
 		CPUPercent:             sql.NullFloat64{Float64: snap.CPUPercent, Valid: snap.CPUValid},
-		MemoryPercent:          sql.NullFloat64{Float64: snap.MemoryPercent, Valid: snap.MemoryValid},
-		MemoryUsedBytes:        sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.MemoryUsed), Valid: snap.MemoryValid},
-		MemoryTotalBytes:       sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.TotalMemory), Valid: snap.MemoryValid},
-		DiskPercent:            sql.NullFloat64{Float64: snap.DiskPercent, Valid: snap.DiskValid},
-		DiskUsedBytes:          sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.DiskUsed), Valid: snap.DiskValid},
-		DiskTotalBytes:         sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.DiskTotal), Valid: snap.DiskValid},
+		MemoryPercent:          sql.NullFloat64{Float64: snap.MemoryPercent, Valid: snap.MemoryAvailable()},
+		MemoryUsedBytes:        sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.MemoryUsed), Valid: snap.MemoryAvailable()},
+		MemoryTotalBytes:       sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.TotalMemory), Valid: snap.MemoryAvailable()},
+		DiskPercent:            sql.NullFloat64{Float64: snap.DiskPercent, Valid: snap.DiskAvailable()},
+		DiskUsedBytes:          sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.DiskUsed), Valid: snap.DiskAvailable()},
+		DiskTotalBytes:         sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.DiskTotal), Valid: snap.DiskAvailable()},
 		GameServerCount:        len(gameServerIDs),
 		RunningGameServerCount: snap.RunningGameServerCount(gameServerIDs),
 		UserCount:              userCount,
@@ -347,9 +347,7 @@ func (mr *MetricsRecorder) gameServerMetricsRow(gameServer *models.GameServer, n
 		row.ConnectionCountMin = sql.NullInt64{Int64: row.ConnectionCount, Valid: true}
 		row.ConnectionCountMax = sql.NullInt64{Int64: row.ConnectionCount, Valid: true}
 	}
-	// Older nodes report memory as valid even after a failed read, so a zero
-	// total still marks the node reading unusable.
-	if snapshot.MemoryValid && snapshot.TotalMemory > 0 {
+	if snapshot.MemoryAvailable() {
 		row.NodeMemoryUsedBytes = sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snapshot.MemoryUsed), Valid: true}
 		row.NodeMemoryTotalBytes = sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snapshot.TotalMemory), Valid: true}
 	}

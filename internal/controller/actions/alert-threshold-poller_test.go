@@ -647,8 +647,10 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 		SnapshotResult: &node.NodeSnapshot{
 			CPUPercent:    61,
 			CPUValid:      true,
+			TotalMemory:   1024,
 			MemoryPercent: 62,
 			MemoryValid:   true,
+			DiskTotal:     100,
 			DiskPercent:   63,
 			DiskValid:     true,
 		},
@@ -657,10 +659,22 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 		NodeID: "node-b",
 		SnapshotResult: &node.NodeSnapshot{
 			CPUPercent:    71,
+			TotalMemory:   1024,
 			MemoryPercent: 72,
 			MemoryValid:   true,
+			DiskTotal:     100,
 			DiskPercent:   73,
 			DiskValid:     true,
+		},
+	})
+	// An older node never flags a failed read; its zero totals give it away.
+	registry.Register(&nodeclient.FakeNodeClient{
+		NodeID: "node-old",
+		SnapshotResult: &node.NodeSnapshot{
+			CPUPercent:  81,
+			CPUValid:    true,
+			MemoryValid: true,
+			DiskValid:   true,
 		},
 	})
 	registry.Register(&nodeclient.FakeNodeClient{
@@ -674,8 +688,8 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 	}
 
 	snapshots := provider.ListNodeMetrics()
-	if len(snapshots) != 2 {
-		t.Fatalf("ListNodeMetrics() len = %d, want 2", len(snapshots))
+	if len(snapshots) != 3 {
+		t.Fatalf("ListNodeMetrics() len = %d, want 3", len(snapshots))
 	}
 
 	seen := map[string]nodeMetricsSnapshot{}
@@ -699,6 +713,11 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 	wantB := nodeMetricsSnapshot{nodeID: "node-b", cpuPercent: 71, memoryPercent: 72, memoryValid: true, diskPercent: 73, diskValid: true}
 	if nodeB != wantB {
 		t.Fatalf("node-b metrics = %+v, want %+v (CPU unavailable)", nodeB, wantB)
+	}
+
+	wantOld := nodeMetricsSnapshot{nodeID: "node-old", cpuPercent: 81, cpuValid: true}
+	if nodeOld := seen["node-old"]; nodeOld != wantOld {
+		t.Fatalf("node-old metrics = %+v, want %+v (memory and disk unavailable)", nodeOld, wantOld)
 	}
 
 	_, ok = seen["node-failing"]

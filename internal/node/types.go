@@ -1101,6 +1101,18 @@ func (s *NodeSnapshot) RunningGameServerCount(gameServerIDs map[string]struct{})
 	return count
 }
 
+// MemoryAvailable reports whether the host memory reading is real. Older nodes
+// never flag a failed read, but one leaves the total at zero.
+func (s *NodeSnapshot) MemoryAvailable() bool {
+	return s.MemoryValid && s.TotalMemory > 0
+}
+
+// DiskAvailable reports whether the host disk reading is real, with the same
+// zero-total guard for older nodes.
+func (s *NodeSnapshot) DiskAvailable() bool {
+	return s.DiskValid && s.DiskTotal > 0
+}
+
 // ConsoleChunk is a slice of buffered console output for a process.
 type ConsoleChunk struct {
 	ProcessID   string

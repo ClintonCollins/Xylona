@@ -167,9 +167,9 @@ func (r *registryNodeMetricsProvider) ListNodeMetrics() []nodeMetricsSnapshot {
 			cpuPercent:    snap.CPUPercent,
 			cpuValid:      snap.CPUValid,
 			memoryPercent: snap.MemoryPercent,
-			memoryValid:   snap.MemoryValid,
+			memoryValid:   snap.MemoryAvailable(),
 			diskPercent:   snap.DiskPercent,
-			diskValid:     snap.DiskValid,
+			diskValid:     snap.DiskAvailable(),
 		})
 	}
 	return out

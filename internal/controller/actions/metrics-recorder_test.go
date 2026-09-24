@@ -446,6 +446,13 @@ func TestNodeMetricsRowStoresUnavailableReadingsAsNull(t *testing.T) {
 			},
 			wantMemory: true,
 		},
+		{
+			name: "older node zero totals are NULL",
+			snapshot: node.NodeSnapshot{
+				CPUPercent: 12, CPUValid: true, MemoryValid: true, DiskValid: true,
+			},
+			wantCPU: true,
+		},
 	}
 
 	for _, test := range tests {

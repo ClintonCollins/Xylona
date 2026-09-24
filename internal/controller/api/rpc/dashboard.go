@@ -127,8 +127,8 @@ func nodeResourceSnapshotProto(snap *node.NodeSnapshot, gameServerIDs map[string
 		UserCount:              helpers.ClampInt32FromInt(userCount),
 		RecordedAt:             timestamppb.Now(),
 		CpuUnavailable:         !snap.CPUValid,
-		MemoryUnavailable:      !snap.MemoryValid,
-		DiskUnavailable:        !snap.DiskValid,
+		MemoryUnavailable:      !snap.MemoryAvailable(),
+		DiskUnavailable:        !snap.DiskAvailable(),
 	}
 }
 
