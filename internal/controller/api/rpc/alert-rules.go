@@ -139,8 +139,9 @@ func alertHistoryToProto(h *models.AlertHistory) *xylona.AlertHistoryEntry {
 }
 
 // validateAlertRuleRequest performs shared validation for create and update
-// requests. It returns the extracted serverID, serverNodeID, and nodeID
-// strings (empty string when unset), or an error if validation fails.
+// requests, including the superuser-only rule for node event types. It returns
+// the extracted serverID, serverNodeID, and nodeID strings (empty string when
+// unset), or an error if validation fails.
 func (xs *XylonaService) validateAlertRuleRequest(
 	user *models.User,
 	eventType xylona.AlertEventType,
@@ -150,6 +151,12 @@ func (xs *XylonaService) validateAlertRuleRequest(
 	// Validate event_type != UNSPECIFIED
 	if eventType == xylona.AlertEventType_ALERT_EVENT_TYPE_UNSPECIFIED {
 		return "", "", "", invalidArg("event_type is required")
+	}
+
+	// Node alerts are only delivered to superusers (see CanDeliverNodeAlert),
+	// so a node rule owned by anyone else would never fire.
+	if isNodeEventType(eventType) && !user.SuperUser {
+		return "", "", "", permissionDenied("only superusers can create or edit node alert rules; node alerts are only sent to superusers")
 	}
 
 	// Validate notification_channel_id is not empty
