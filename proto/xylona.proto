@@ -278,9 +278,8 @@ message UpdateGameServerStatusPageSettingsResponse {
   GameServerStatusPageSettings settings = 1;
 }
 
-// The public status JSON API (/api/public/status-pages) exposes this enum's
-// value names and the field name below to third-party clients, so they keep
-// their original wording to avoid breaking those clients.
+// The public status JSON API (/api/public/status-pages) exposes these value
+// names to third-party clients, so they keep their original wording.
 enum GameServerStatusPageRosterState {
   GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED = 0;
   GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE = 1;
@@ -297,6 +296,8 @@ message PublicGameServerStatus {
   optional uint32 current_player_count = 6;
   uint32 max_player_count = 7;
   repeated string player_names = 8;
+  // Published as "rosterState" by the public status JSON API; renaming it
+  // would break third-party clients.
   GameServerStatusPageRosterState roster_state = 9;
   google.protobuf.Timestamp observed_at = 10;
   string version = 11;

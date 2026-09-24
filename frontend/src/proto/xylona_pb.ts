@@ -277,6 +277,9 @@ export type PublicGameServerStatus = Message<"xylona.PublicGameServerStatus"> & 
   playerNames: string[];
 
   /**
+   * Published as "rosterState" by the public status JSON API; renaming it
+   * would break third-party clients.
+   *
    * @generated from field: xylona.GameServerStatusPageRosterState roster_state = 9;
    */
   rosterState: GameServerStatusPageRosterState;
@@ -9590,9 +9593,8 @@ export const SuggestGameServerPortsResponseSchema: GenMessage<SuggestGameServerP
   messageDesc(file_xylona, 380);
 
 /**
- * The public status JSON API (/api/public/status-pages) exposes this enum's
- * value names and the field name below to third-party clients, so they keep
- * their original wording to avoid breaking those clients.
+ * The public status JSON API (/api/public/status-pages) exposes these value
+ * names to third-party clients, so they keep their original wording.
  *
  * @generated from enum xylona.GameServerStatusPageRosterState
  */

@@ -22,9 +22,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The public status JSON API (/api/public/status-pages) exposes this enum's
-// value names and the field name below to third-party clients, so they keep
-// their original wording to avoid breaking those clients.
+// The public status JSON API (/api/public/status-pages) exposes these value
+// names to third-party clients, so they keep their original wording.
 type GameServerStatusPageRosterState int32
 
 const (
@@ -1803,23 +1802,25 @@ func (x *UpdateGameServerStatusPageSettingsResponse) GetSettings() *GameServerSt
 }
 
 type PublicGameServerStatus struct {
-	state              protoimpl.MessageState          `protogen:"open.v1"`
-	Id                 string                          `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name               string                          `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	GameName           string                          `protobuf:"bytes,3,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`
-	Status             Status                          `protobuf:"varint,4,opt,name=status,proto3,enum=xylona.Status" json:"status,omitempty"`
-	ConnectionAddress  string                          `protobuf:"bytes,5,opt,name=connection_address,json=connectionAddress,proto3" json:"connection_address,omitempty"`
-	CurrentPlayerCount *uint32                         `protobuf:"varint,6,opt,name=current_player_count,json=currentPlayerCount,proto3,oneof" json:"current_player_count,omitempty"`
-	MaxPlayerCount     uint32                          `protobuf:"varint,7,opt,name=max_player_count,json=maxPlayerCount,proto3" json:"max_player_count,omitempty"`
-	PlayerNames        []string                        `protobuf:"bytes,8,rep,name=player_names,json=playerNames,proto3" json:"player_names,omitempty"`
-	RosterState        GameServerStatusPageRosterState `protobuf:"varint,9,opt,name=roster_state,json=rosterState,proto3,enum=xylona.GameServerStatusPageRosterState" json:"roster_state,omitempty"`
-	ObservedAt         *timestamppb.Timestamp          `protobuf:"bytes,10,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
-	Version            string                          `protobuf:"bytes,11,opt,name=version,proto3" json:"version,omitempty"`
-	PublicNote         *string                         `protobuf:"bytes,12,opt,name=public_note,json=publicNote,proto3,oneof" json:"public_note,omitempty"`
-	PublicPassword     *string                         `protobuf:"bytes,13,opt,name=public_password,json=publicPassword,proto3,oneof" json:"public_password,omitempty"`
-	PublicMapPath      *string                         `protobuf:"bytes,14,opt,name=public_map_path,json=publicMapPath,proto3,oneof" json:"public_map_path,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name               string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	GameName           string                 `protobuf:"bytes,3,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`
+	Status             Status                 `protobuf:"varint,4,opt,name=status,proto3,enum=xylona.Status" json:"status,omitempty"`
+	ConnectionAddress  string                 `protobuf:"bytes,5,opt,name=connection_address,json=connectionAddress,proto3" json:"connection_address,omitempty"`
+	CurrentPlayerCount *uint32                `protobuf:"varint,6,opt,name=current_player_count,json=currentPlayerCount,proto3,oneof" json:"current_player_count,omitempty"`
+	MaxPlayerCount     uint32                 `protobuf:"varint,7,opt,name=max_player_count,json=maxPlayerCount,proto3" json:"max_player_count,omitempty"`
+	PlayerNames        []string               `protobuf:"bytes,8,rep,name=player_names,json=playerNames,proto3" json:"player_names,omitempty"`
+	// Published as "rosterState" by the public status JSON API; renaming it
+	// would break third-party clients.
+	RosterState    GameServerStatusPageRosterState `protobuf:"varint,9,opt,name=roster_state,json=rosterState,proto3,enum=xylona.GameServerStatusPageRosterState" json:"roster_state,omitempty"`
+	ObservedAt     *timestamppb.Timestamp          `protobuf:"bytes,10,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	Version        string                          `protobuf:"bytes,11,opt,name=version,proto3" json:"version,omitempty"`
+	PublicNote     *string                         `protobuf:"bytes,12,opt,name=public_note,json=publicNote,proto3,oneof" json:"public_note,omitempty"`
+	PublicPassword *string                         `protobuf:"bytes,13,opt,name=public_password,json=publicPassword,proto3,oneof" json:"public_password,omitempty"`
+	PublicMapPath  *string                         `protobuf:"bytes,14,opt,name=public_map_path,json=publicMapPath,proto3,oneof" json:"public_map_path,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PublicGameServerStatus) Reset() {
