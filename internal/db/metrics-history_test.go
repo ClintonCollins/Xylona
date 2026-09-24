@@ -816,10 +816,14 @@ func TestRollupNodeMetricsToHourlyIgnoresUnavailableReadings(t *testing.T) {
 	}
 }
 
-// The rebuild drops NOT NULL without losing rows or the history index, and its
-// Down restores NOT NULL by turning unavailable readings back into 0.
+// The rebuild drops NOT NULL without losing rows or the history index, skips
+// rows whose node is gone, and its Down restores NOT NULL by turning
+// unavailable readings back into 0.
 func TestNodeMetricReadingsNullableMigrationRoundTrip(t *testing.T) {
-	const previousVersion = 20260923041416
+	const (
+		previousVersion = 20260923041416
+		nullableVersion = 20260924082413
+	)
 	dbPath := filepath.Join(t.TempDir(), "metrics-history-node-nullable-migration.sqlite")
 	conn, errConnection := NewConnection(context.Background(), dbPath)
 	if errConnection != nil {
@@ -843,12 +847,24 @@ func TestNodeMetricReadingsNullableMigrationRoundTrip(t *testing.T) {
 	}
 	seedRBACFixture(t, conn)
 	insertLegacyNodeMetricsHistoryRow(t, conn, "legacy", "node-local", 12, 1024, "2026-04-10 18:10:00")
+	insertOrphanNodeMetricsHistoryRow(t, conn, "orphan", "node-deleted")
+	if count := nodeMetricsHistoryCount(t, conn); count != 2 {
+		t.Fatalf("history rows before the migration = %d, want legacy and orphan", count)
+	}
 
-	_, errUp := migrate.ExecMax(conn.SQLDb, "sqlite3", source, migrate.Up, 1)
+	// Target the migration itself, so one merged later with an earlier
+	// timestamp is applied alongside it rather than instead of it.
+	_, errUp := migrate.ExecVersion(conn.SQLDb, "sqlite3", source, migrate.Up, nullableVersion)
 	if errUp != nil {
 		t.Fatalf("apply nullable migration: %v", errUp)
 	}
 	assertNodeMetricsSchema(t, conn, false)
+	if count := nodeMetricsHistoryCount(t, conn); count != 1 {
+		t.Fatalf("history rows after the migration = %d, want only the legacy row", count)
+	}
+	if rows := loadNodeMetricsSnapshots(t, conn, "node-local"); len(rows) != 1 || rows[0].cpuPercent != 12 {
+		t.Fatalf("rows after Up = %#v, want the legacy row copied", rows)
+	}
 	errInsert := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
 		ID:         "unavailable",
 		NodeID:     "node-local",
@@ -996,6 +1012,50 @@ func insertLegacyNodeMetricsHistoryRow(
 	if errExec != nil {
 		t.Fatalf("insert legacy node metrics history row: %v", errExec)
 	}
+}
+
+// insertOrphanNodeMetricsHistoryRow inserts a history row for a node that does
+// not exist, as a database written while foreign keys were off can hold.
+func insertOrphanNodeMetricsHistoryRow(t *testing.T, conn *Connection, id string, nodeID string) {
+	t.Helper()
+
+	// foreign_keys is per connection, so pin one to turn it off and back on.
+	sqlConn, errConn := conn.SQLDb.Conn(conn.ctx)
+	if errConn != nil {
+		t.Fatalf("reserve connection: %v", errConn)
+	}
+	defer func() {
+		_, errEnable := sqlConn.ExecContext(conn.ctx, `PRAGMA foreign_keys = ON`)
+		if errEnable != nil {
+			t.Errorf("re-enable foreign keys: %v", errEnable)
+		}
+		errClose := sqlConn.Close()
+		if errClose != nil {
+			t.Errorf("release connection: %v", errClose)
+		}
+	}()
+
+	_, errDisable := sqlConn.ExecContext(conn.ctx, `PRAGMA foreign_keys = OFF`)
+	if errDisable != nil {
+		t.Fatalf("disable foreign keys: %v", errDisable)
+	}
+	_, errExec := sqlConn.ExecContext(conn.ctx,
+		`INSERT INTO node_metrics_history (id, node_id, recorded_at) VALUES (?, ?, '2026-04-10 18:15:00')`,
+		id, nodeID,
+	)
+	if errExec != nil {
+		t.Fatalf("insert orphan node metrics history row: %v", errExec)
+	}
+}
+
+func nodeMetricsHistoryCount(t *testing.T, conn *Connection) int {
+	t.Helper()
+	var count int
+	errCount := conn.SQLDb.QueryRowContext(conn.ctx, `SELECT count(*) FROM node_metrics_history`).Scan(&count)
+	if errCount != nil {
+		t.Fatalf("count node metrics history rows: %v", errCount)
+	}
+	return count
 }
 
 func loadGameServerMetricsSnapshots(t *testing.T, conn *Connection, gameServerID string) []metricsHistorySnapshot {
