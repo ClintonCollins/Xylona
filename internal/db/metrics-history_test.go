@@ -619,13 +619,13 @@ func TestRollupNodeMetricsToHourlyHandlesLegacyRecordedAt(t *testing.T) {
 	errInsertCurrentA := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
 		ID:                     "node-current-a",
 		NodeID:                 "node-local",
-		CPUPercent:             40,
-		MemoryPercent:          20,
-		MemoryUsedBytes:        4096,
-		MemoryTotalBytes:       8192,
-		DiskPercent:            10,
-		DiskUsedBytes:          1000,
-		DiskTotalBytes:         2000,
+		CPUPercent:             validFloat64(40),
+		MemoryPercent:          validFloat64(20),
+		MemoryUsedBytes:        validInt64(4096),
+		MemoryTotalBytes:       validInt64(8192),
+		DiskPercent:            validFloat64(10),
+		DiskUsedBytes:          validInt64(1000),
+		DiskTotalBytes:         validInt64(2000),
 		GameServerCount:        2,
 		RunningGameServerCount: 1,
 		UserCount:              3,
@@ -638,13 +638,13 @@ func TestRollupNodeMetricsToHourlyHandlesLegacyRecordedAt(t *testing.T) {
 	errInsertCurrentB := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
 		ID:                     "node-current-b",
 		NodeID:                 "node-local",
-		CPUPercent:             60,
-		MemoryPercent:          30,
-		MemoryUsedBytes:        6144,
-		MemoryTotalBytes:       8192,
-		DiskPercent:            20,
-		DiskUsedBytes:          1200,
-		DiskTotalBytes:         2000,
+		CPUPercent:             validFloat64(60),
+		MemoryPercent:          validFloat64(30),
+		MemoryUsedBytes:        validInt64(6144),
+		MemoryTotalBytes:       validInt64(8192),
+		DiskPercent:            validFloat64(20),
+		DiskUsedBytes:          validInt64(1200),
+		DiskTotalBytes:         validInt64(2000),
 		GameServerCount:        4,
 		RunningGameServerCount: 3,
 		UserCount:              5,
@@ -687,10 +687,10 @@ func TestRollupNodeMetricsToHourlyStoresIntegerByteAverages(t *testing.T) {
 		errInsert := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
 			ID:               fmt.Sprintf("node-bytes-%d", index),
 			NodeID:           "node-local",
-			MemoryUsedBytes:  sample.memory,
-			MemoryTotalBytes: 2048,
-			DiskUsedBytes:    sample.disk,
-			DiskTotalBytes:   16,
+			MemoryUsedBytes:  validInt64(sample.memory),
+			MemoryTotalBytes: validInt64(2048),
+			DiskUsedBytes:    validInt64(sample.disk),
+			DiskTotalBytes:   validInt64(16),
 			RecordedAt:       time.Date(2026, time.April, 10, 18, 10+index*20, 0, 0, time.UTC),
 		})
 		if errInsert != nil {
@@ -714,9 +714,198 @@ func TestRollupNodeMetricsToHourlyStoresIntegerByteAverages(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("GetNodeMetricsHistory() len = %d, want 1", len(rows))
 	}
-	if rows[0].MemoryUsedBytes != 1001 || rows[0].DiskUsedBytes != 8 {
-		t.Fatalf("rolled-up bytes = (%d memory, %d disk), want (1001, 8)", rows[0].MemoryUsedBytes, rows[0].DiskUsedBytes)
+	if rows[0].MemoryUsedBytes != validInt64(1001) || rows[0].DiskUsedBytes != validInt64(8) {
+		t.Fatalf("rolled-up bytes = (%v memory, %v disk), want (1001, 8)", rows[0].MemoryUsedBytes, rows[0].DiskUsedBytes)
 	}
+}
+
+// A reading the node could not take is stored as NULL and read back as
+// invalid, never as a 0% that charts would plot.
+func TestNodeMetricsHistoryStoresUnavailableReadingsAsNull(t *testing.T) {
+	conn := newRBACMigratedConnection(t, "metrics-history-node-null.sqlite")
+	seedRBACFixture(t, conn)
+
+	recordedAt := time.Date(2026, time.April, 10, 18, 10, 0, 0, time.UTC)
+	errInsert := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
+		ID:               "node-partial",
+		NodeID:           "node-local",
+		MemoryPercent:    validFloat64(40),
+		MemoryUsedBytes:  validInt64(400),
+		MemoryTotalBytes: validInt64(1000),
+		RecordedAt:       recordedAt,
+	})
+	if errInsert != nil {
+		t.Fatalf("InsertNodeMetricsHistory() error = %v", errInsert)
+	}
+
+	var cpuNull, memoryNull, diskNull, diskUsedNull, diskTotalNull bool
+	errScan := conn.SQLDb.QueryRowContext(conn.ctx,
+		`SELECT cpu_percent IS NULL, memory_percent IS NULL, disk_percent IS NULL,
+			disk_used_bytes IS NULL, disk_total_bytes IS NULL
+		FROM node_metrics_history WHERE id = ?`, "node-partial",
+	).Scan(&cpuNull, &memoryNull, &diskNull, &diskUsedNull, &diskTotalNull)
+	if errScan != nil {
+		t.Fatalf("read stored row: %v", errScan)
+	}
+	if !cpuNull || memoryNull || !diskNull || !diskUsedNull || !diskTotalNull {
+		t.Fatalf("stored NULLs = (cpu %t, memory %t, disk %t/%t/%t), want (true, false, true/true/true)",
+			cpuNull, memoryNull, diskNull, diskUsedNull, diskTotalNull)
+	}
+
+	rows, errHistory := conn.GetNodeMetricsHistory("node-local", recordedAt, recordedAt.Add(time.Second))
+	if errHistory != nil {
+		t.Fatalf("GetNodeMetricsHistory() error = %v", errHistory)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("GetNodeMetricsHistory() len = %d, want 1", len(rows))
+	}
+	if rows[0].CPUPercent.Valid || rows[0].DiskUsedBytes.Valid || rows[0].MemoryPercent != validFloat64(40) {
+		t.Fatalf("read back cpu %v, disk used %v, memory %v; want invalid, invalid, 40",
+			rows[0].CPUPercent, rows[0].DiskUsedBytes, rows[0].MemoryPercent)
+	}
+}
+
+func TestRollupNodeMetricsToHourlyIgnoresUnavailableReadings(t *testing.T) {
+	tests := []struct {
+		name    string
+		samples []sql.NullFloat64
+		want    sql.NullFloat64
+	}{
+		{name: "all valid", samples: []sql.NullFloat64{validFloat64(20), validFloat64(40)}, want: validFloat64(30)},
+		{name: "unavailable samples are skipped", samples: []sql.NullFloat64{validFloat64(20), {}, {}}, want: validFloat64(20)},
+		{name: "no valid sample stays unavailable", samples: []sql.NullFloat64{{}, {}}, want: sql.NullFloat64{}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn := newRBACMigratedConnection(t, "metrics-history-node-rollup-null.sqlite")
+			seedRBACFixture(t, conn)
+			for index, sample := range test.samples {
+				errInsert := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
+					ID:          fmt.Sprintf("node-sample-%d", index),
+					NodeID:      "node-local",
+					CPUPercent:  sample,
+					DiskPercent: sample,
+					RecordedAt:  time.Date(2026, time.April, 10, 18, 10+index*10, 0, 0, time.UTC),
+				})
+				if errInsert != nil {
+					t.Fatalf("InsertNodeMetricsHistory(%d) error = %v", index, errInsert)
+				}
+			}
+
+			errRollup := conn.RollupNodeMetricsToHourly(time.Date(2026, time.April, 10, 20, 0, 0, 0, time.UTC))
+			if errRollup != nil {
+				t.Fatalf("RollupNodeMetricsToHourly() error = %v", errRollup)
+			}
+
+			rows, errHistory := conn.GetNodeMetricsHistory(
+				"node-local",
+				time.Date(2026, time.April, 10, 0, 0, 0, 0, time.UTC),
+				time.Date(2026, time.April, 11, 0, 0, 0, 0, time.UTC),
+			)
+			if errHistory != nil {
+				t.Fatalf("GetNodeMetricsHistory() error = %v", errHistory)
+			}
+			if len(rows) != 1 {
+				t.Fatalf("GetNodeMetricsHistory() len = %d, want 1 hourly row", len(rows))
+			}
+			if rows[0].CPUPercent != test.want || rows[0].DiskPercent != test.want {
+				t.Fatalf("hourly (cpu, disk) = (%v, %v), want %v", rows[0].CPUPercent, rows[0].DiskPercent, test.want)
+			}
+		})
+	}
+}
+
+// The rebuild drops NOT NULL without losing rows or the history index, and its
+// Down restores NOT NULL by turning unavailable readings back into 0.
+func TestNodeMetricReadingsNullableMigrationRoundTrip(t *testing.T) {
+	const previousVersion = 20260923041416
+	dbPath := filepath.Join(t.TempDir(), "metrics-history-node-nullable-migration.sqlite")
+	conn, errConnection := NewConnection(context.Background(), dbPath)
+	if errConnection != nil {
+		t.Fatalf("NewConnection() error = %v", errConnection)
+	}
+	t.Cleanup(func() {
+		errClose := conn.SQLDb.Close()
+		if errClose != nil {
+			t.Errorf("close test database: %v", errClose)
+		}
+	})
+	migrationsDir, errMigrationsDir := rbacMigrationsDir()
+	if errMigrationsDir != nil {
+		t.Fatalf("locate migrations: %v", errMigrationsDir)
+	}
+	source := &migrate.FileMigrationSource{Dir: migrationsDir}
+	setTableOnce.Do(func() { migrate.SetTable("migrations") })
+	_, errPrevious := migrate.ExecVersion(conn.SQLDb, "sqlite3", source, migrate.Up, previousVersion)
+	if errPrevious != nil {
+		t.Fatalf("migrate to previous version: %v", errPrevious)
+	}
+	seedRBACFixture(t, conn)
+	insertLegacyNodeMetricsHistoryRow(t, conn, "legacy", "node-local", 12, 1024, "2026-04-10 18:10:00")
+
+	_, errUp := migrate.ExecMax(conn.SQLDb, "sqlite3", source, migrate.Up, 1)
+	if errUp != nil {
+		t.Fatalf("apply nullable migration: %v", errUp)
+	}
+	assertNodeMetricsSchema(t, conn, false)
+	errInsert := conn.InsertNodeMetricsHistory(&NodeMetricsRow{
+		ID:         "unavailable",
+		NodeID:     "node-local",
+		RecordedAt: time.Date(2026, time.April, 10, 18, 20, 0, 0, time.UTC),
+	})
+	if errInsert != nil {
+		t.Fatalf("insert unavailable row: %v", errInsert)
+	}
+
+	_, errDown := migrate.ExecMax(conn.SQLDb, "sqlite3", source, migrate.Down, 1)
+	if errDown != nil {
+		t.Fatalf("roll back nullable migration: %v", errDown)
+	}
+	assertNodeMetricsSchema(t, conn, true)
+	rows := loadNodeMetricsSnapshots(t, conn, "node-local")
+	if len(rows) != 2 || rows[0].cpuPercent != 12 || rows[1].cpuPercent != 0 {
+		t.Fatalf("rows after Down = %#v, want legacy 12 and unavailable mapped to 0", rows)
+	}
+}
+
+func assertNodeMetricsSchema(t *testing.T, conn *Connection, wantNotNull bool) {
+	t.Helper()
+	var notNull bool
+	errColumn := conn.SQLDb.QueryRowContext(conn.ctx,
+		`SELECT "notnull" FROM pragma_table_info('node_metrics_history') WHERE name = 'cpu_percent'`,
+	).Scan(&notNull)
+	if errColumn != nil {
+		t.Fatalf("read cpu_percent column info: %v", errColumn)
+	}
+	if notNull != wantNotNull {
+		t.Fatalf("cpu_percent NOT NULL = %t, want %t", notNull, wantNotNull)
+	}
+	var indexCount, foreignKeyCount int
+	errIndex := conn.SQLDb.QueryRowContext(conn.ctx,
+		`SELECT count(*) FROM pragma_index_list('node_metrics_history') WHERE name = 'idx_node_metrics_node_time'`,
+	).Scan(&indexCount)
+	if errIndex != nil {
+		t.Fatalf("read node metrics indexes: %v", errIndex)
+	}
+	errForeignKey := conn.SQLDb.QueryRowContext(conn.ctx,
+		`SELECT count(*) FROM pragma_foreign_key_list('node_metrics_history')
+		WHERE "table" = 'node' AND "from" = 'node_id' AND on_delete = 'CASCADE'`,
+	).Scan(&foreignKeyCount)
+	if errForeignKey != nil {
+		t.Fatalf("read node metrics foreign keys: %v", errForeignKey)
+	}
+	if indexCount != 1 || foreignKeyCount != 1 {
+		t.Fatalf("history index = %d, node cascade foreign key = %d; want 1 and 1", indexCount, foreignKeyCount)
+	}
+}
+
+func validFloat64(value float64) sql.NullFloat64 {
+	return sql.NullFloat64{Float64: value, Valid: true}
+}
+
+func validInt64(value int64) sql.NullInt64 {
+	return sql.NullInt64{Int64: value, Valid: true}
 }
 
 func insertLegacyGameServerMetricsHistoryRow(

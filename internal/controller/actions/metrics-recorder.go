@@ -195,23 +195,7 @@ func (mr *MetricsRecorder) recordAllNodeMetrics() {
 			gameServerIDs[gameServer.ID] = struct{}{}
 		}
 
-		row := &db.NodeMetricsRow{
-			ID:                     uuid.New().String(),
-			NodeID:                 nodeID,
-			CPUPercent:             snap.CPUPercent,
-			MemoryPercent:          snap.MemoryPercent,
-			MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
-			MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.TotalMemory),
-			DiskPercent:            snap.DiskPercent,
-			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
-			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        len(gameServerIDs),
-			RunningGameServerCount: snap.RunningGameServerCount(gameServerIDs),
-			UserCount:              userCount,
-			RecordedAt:             now,
-		}
-
-		errInsert := mr.db.InsertNodeMetricsHistory(row)
+		errInsert := mr.db.InsertNodeMetricsHistory(nodeMetricsRow(nodeID, snap, gameServerIDs, userCount, now))
 		if errInsert != nil {
 			log.Error().Err(errInsert).Str("node_id", nodeID).
 				Msg("Failed to insert node metrics history")
@@ -241,6 +225,26 @@ func (mr *MetricsRecorder) recordAllNodeMetrics() {
 		for _, gameServer := range gameServers {
 			mr.insertGameServerMetricsRow(mr.unavailableGameServerMetricsRow(gameServer, nodeID, now, "node_unavailable"))
 		}
+	}
+}
+
+// nodeMetricsRow builds a node history row, storing each host reading the node
+// could not take as NULL so charts show a gap instead of a false 0%.
+func nodeMetricsRow(nodeID string, snap *node.NodeSnapshot, gameServerIDs map[string]struct{}, userCount int, recordedAt time.Time) *db.NodeMetricsRow {
+	return &db.NodeMetricsRow{
+		ID:                     uuid.New().String(),
+		NodeID:                 nodeID,
+		CPUPercent:             sql.NullFloat64{Float64: snap.CPUPercent, Valid: snap.CPUValid},
+		MemoryPercent:          sql.NullFloat64{Float64: snap.MemoryPercent, Valid: snap.MemoryValid},
+		MemoryUsedBytes:        sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.MemoryUsed), Valid: snap.MemoryValid},
+		MemoryTotalBytes:       sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.TotalMemory), Valid: snap.MemoryValid},
+		DiskPercent:            sql.NullFloat64{Float64: snap.DiskPercent, Valid: snap.DiskValid},
+		DiskUsedBytes:          sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.DiskUsed), Valid: snap.DiskValid},
+		DiskTotalBytes:         sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snap.DiskTotal), Valid: snap.DiskValid},
+		GameServerCount:        len(gameServerIDs),
+		RunningGameServerCount: snap.RunningGameServerCount(gameServerIDs),
+		UserCount:              userCount,
+		RecordedAt:             recordedAt,
 	}
 }
 
@@ -343,7 +347,9 @@ func (mr *MetricsRecorder) gameServerMetricsRow(gameServer *models.GameServer, n
 		row.ConnectionCountMin = sql.NullInt64{Int64: row.ConnectionCount, Valid: true}
 		row.ConnectionCountMax = sql.NullInt64{Int64: row.ConnectionCount, Valid: true}
 	}
-	if snapshot.TotalMemory > 0 {
+	// Older nodes report memory as valid even after a failed read, so a zero
+	// total still marks the node reading unusable.
+	if snapshot.MemoryValid && snapshot.TotalMemory > 0 {
 		row.NodeMemoryUsedBytes = sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snapshot.MemoryUsed), Valid: true}
 		row.NodeMemoryTotalBytes = sql.NullInt64{Int64: helpers.ClampInt64FromUint64(snapshot.TotalMemory), Valid: true}
 	}

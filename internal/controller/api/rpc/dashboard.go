@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/ClintonCollins/Xylona/internal/db"
+	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/pkg/helpers"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
@@ -106,20 +107,29 @@ func (xs *XylonaService) GetNodeResourceSnapshot(ctx context.Context, request *c
 	}
 
 	return connect.NewResponse(&xylona.GetNodeResourceSnapshotResponse{
-		Snapshot: &xylona.NodeResourceSnapshot{
-			CpuPercent:             snap.CPUPercent,
-			MemoryPercent:          snap.MemoryPercent,
-			MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
-			MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.TotalMemory),
-			DiskPercent:            snap.DiskPercent,
-			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
-			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        helpers.ClampInt32FromInt(len(gameServerIDs)),
-			RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(gameServerIDs)),
-			UserCount:              helpers.ClampInt32FromInt(userCount),
-			RecordedAt:             timestamppb.Now(),
-		},
+		Snapshot: nodeResourceSnapshotProto(snap, gameServerIDs, userCount),
 	}), nil
+}
+
+// nodeResourceSnapshotProto converts a node snapshot plus DB-derived counts
+// into the wire shape, flagging each host reading the node could not take.
+func nodeResourceSnapshotProto(snap *node.NodeSnapshot, gameServerIDs map[string]struct{}, userCount int) *xylona.NodeResourceSnapshot {
+	return &xylona.NodeResourceSnapshot{
+		CpuPercent:             snap.CPUPercent,
+		MemoryPercent:          snap.MemoryPercent,
+		MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
+		MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.TotalMemory),
+		DiskPercent:            snap.DiskPercent,
+		DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
+		DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
+		GameServerCount:        helpers.ClampInt32FromInt(len(gameServerIDs)),
+		RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(gameServerIDs)),
+		UserCount:              helpers.ClampInt32FromInt(userCount),
+		RecordedAt:             timestamppb.Now(),
+		CpuUnavailable:         !snap.CPUValid,
+		MemoryUnavailable:      !snap.MemoryValid,
+		DiskUnavailable:        !snap.DiskValid,
+	}
 }
 
 // GetDashboardOverview returns an overview of all registered nodes, pulling
@@ -187,21 +197,7 @@ func (xs *XylonaService) GetDashboardOverview(ctx context.Context, request *conn
 			XylonaVersion:    snap.XylonaVersion,
 		}
 
-		nodeServerIDs := serverIDsByNodeID[nodeRow.ID]
-
-		summary.Snapshot = &xylona.NodeResourceSnapshot{
-			CpuPercent:             snap.CPUPercent,
-			MemoryPercent:          snap.MemoryPercent,
-			MemoryUsedBytes:        helpers.ClampInt64FromUint64(snap.MemoryUsed),
-			MemoryTotalBytes:       helpers.ClampInt64FromUint64(snap.TotalMemory),
-			DiskPercent:            snap.DiskPercent,
-			DiskUsedBytes:          helpers.ClampInt64FromUint64(snap.DiskUsed),
-			DiskTotalBytes:         helpers.ClampInt64FromUint64(snap.DiskTotal),
-			GameServerCount:        helpers.ClampInt32FromInt(len(nodeServerIDs)),
-			RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(nodeServerIDs)),
-			UserCount:              helpers.ClampInt32FromInt(userCount),
-		}
-
+		summary.Snapshot = nodeResourceSnapshotProto(snap, serverIDsByNodeID[nodeRow.ID], userCount)
 		summaries = append(summaries, summary)
 	}
 
@@ -245,16 +241,7 @@ func (xs *XylonaService) GetNodeMetricsHistory(_ context.Context, request *conne
 
 	var points []*xylona.MetricsHistoryPoint
 	for _, row := range rows {
-		points = append(points, &xylona.MetricsHistoryPoint{
-			Timestamp:              timestamppb.New(row.RecordedAt),
-			CpuPercent:             row.CPUPercent,
-			MemoryPercent:          row.MemoryPercent,
-			DiskPercent:            row.DiskPercent,
-			MemoryUsedBytes:        row.MemoryUsedBytes,
-			DiskUsedBytes:          row.DiskUsedBytes,
-			GameServerCount:        helpers.ClampInt32FromInt(row.GameServerCount),
-			RunningGameServerCount: helpers.ClampInt32FromInt(row.RunningGameServerCount),
-		})
+		points = append(points, nodeMetricsHistoryPointProto(row))
 	}
 
 	return connect.NewResponse(&xylona.GetNodeMetricsHistoryResponse{

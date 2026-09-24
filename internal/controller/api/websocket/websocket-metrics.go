@@ -40,6 +40,9 @@ func buildNodeResourceSnapshot(snap *node.NodeSnapshot, gameServerIDs map[string
 		RunningGameServerCount: helpers.ClampInt32FromInt(snap.RunningGameServerCount(gameServerIDs)),
 		UserCount:              helpers.ClampInt32FromInt(userCount),
 		RecordedAt:             timestamppb.Now(),
+		CpuUnavailable:         !snap.CPUValid,
+		MemoryUnavailable:      !snap.MemoryValid,
+		DiskUnavailable:        !snap.DiskValid,
 	}
 }
 
@@ -262,8 +265,11 @@ func nodeSnapshotEqual(a, b *xylona.NodeResourceSnapshot) bool {
 		return a == b
 	}
 	return int64(a.GetCpuPercent()) == int64(b.GetCpuPercent()) &&
+		a.GetCpuUnavailable() == b.GetCpuUnavailable() &&
 		a.GetMemoryUsedBytes() == b.GetMemoryUsedBytes() &&
+		a.GetMemoryUnavailable() == b.GetMemoryUnavailable() &&
 		a.GetDiskUsedBytes() == b.GetDiskUsedBytes() &&
+		a.GetDiskUnavailable() == b.GetDiskUnavailable() &&
 		a.GetGameServerCount() == b.GetGameServerCount() &&
 		a.GetRunningGameServerCount() == b.GetRunningGameServerCount() &&
 		a.GetUserCount() == b.GetUserCount()

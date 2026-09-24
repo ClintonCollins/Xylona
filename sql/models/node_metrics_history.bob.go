@@ -9,7 +9,9 @@ import (
 	"io"
 	"time"
 
+	"github.com/aarondl/opt/null"
 	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
 	"github.com/stephenafamo/bob"
 	"github.com/stephenafamo/bob/dialect/sqlite"
 	"github.com/stephenafamo/bob/dialect/sqlite/dialect"
@@ -24,19 +26,19 @@ import (
 
 // NodeMetricsHistory is an object representing the database table.
 type NodeMetricsHistory struct {
-	ID                     string    `db:"id,pk" `
-	NodeID                 string    `db:"node_id" `
-	CPUPercent             float64   `db:"cpu_percent" `
-	MemoryPercent          float64   `db:"memory_percent" `
-	MemoryUsedBytes        int64     `db:"memory_used_bytes" `
-	MemoryTotalBytes       int64     `db:"memory_total_bytes" `
-	DiskPercent            float64   `db:"disk_percent" `
-	DiskUsedBytes          int64     `db:"disk_used_bytes" `
-	DiskTotalBytes         int64     `db:"disk_total_bytes" `
-	GameServerCount        int64     `db:"game_server_count" `
-	RunningGameServerCount int64     `db:"running_game_server_count" `
-	UserCount              int64     `db:"user_count" `
-	RecordedAt             time.Time `db:"recorded_at" `
+	ID                     string            `db:"id,pk" `
+	NodeID                 string            `db:"node_id" `
+	CPUPercent             null.Val[float64] `db:"cpu_percent" `
+	MemoryPercent          null.Val[float64] `db:"memory_percent" `
+	MemoryUsedBytes        null.Val[int64]   `db:"memory_used_bytes" `
+	MemoryTotalBytes       null.Val[int64]   `db:"memory_total_bytes" `
+	DiskPercent            null.Val[float64] `db:"disk_percent" `
+	DiskUsedBytes          null.Val[int64]   `db:"disk_used_bytes" `
+	DiskTotalBytes         null.Val[int64]   `db:"disk_total_bytes" `
+	GameServerCount        int64             `db:"game_server_count" `
+	RunningGameServerCount int64             `db:"running_game_server_count" `
+	UserCount              int64             `db:"user_count" `
+	RecordedAt             time.Time         `db:"recorded_at" `
 
 	R nodeMetricsHistoryR `db:"-" `
 }
@@ -154,19 +156,19 @@ func (c nodeMetricsHistoryColumn) ShouldOmitParens() bool {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type NodeMetricsHistorySetter struct {
-	ID                     omit.Val[string]    `db:"id,pk" `
-	NodeID                 omit.Val[string]    `db:"node_id" `
-	CPUPercent             omit.Val[float64]   `db:"cpu_percent" `
-	MemoryPercent          omit.Val[float64]   `db:"memory_percent" `
-	MemoryUsedBytes        omit.Val[int64]     `db:"memory_used_bytes" `
-	MemoryTotalBytes       omit.Val[int64]     `db:"memory_total_bytes" `
-	DiskPercent            omit.Val[float64]   `db:"disk_percent" `
-	DiskUsedBytes          omit.Val[int64]     `db:"disk_used_bytes" `
-	DiskTotalBytes         omit.Val[int64]     `db:"disk_total_bytes" `
-	GameServerCount        omit.Val[int64]     `db:"game_server_count" `
-	RunningGameServerCount omit.Val[int64]     `db:"running_game_server_count" `
-	UserCount              omit.Val[int64]     `db:"user_count" `
-	RecordedAt             omit.Val[time.Time] `db:"recorded_at" `
+	ID                     omit.Val[string]      `db:"id,pk" `
+	NodeID                 omit.Val[string]      `db:"node_id" `
+	CPUPercent             omitnull.Val[float64] `db:"cpu_percent" `
+	MemoryPercent          omitnull.Val[float64] `db:"memory_percent" `
+	MemoryUsedBytes        omitnull.Val[int64]   `db:"memory_used_bytes" `
+	MemoryTotalBytes       omitnull.Val[int64]   `db:"memory_total_bytes" `
+	DiskPercent            omitnull.Val[float64] `db:"disk_percent" `
+	DiskUsedBytes          omitnull.Val[int64]   `db:"disk_used_bytes" `
+	DiskTotalBytes         omitnull.Val[int64]   `db:"disk_total_bytes" `
+	GameServerCount        omit.Val[int64]       `db:"game_server_count" `
+	RunningGameServerCount omit.Val[int64]       `db:"running_game_server_count" `
+	UserCount              omit.Val[int64]       `db:"user_count" `
+	RecordedAt             omit.Val[time.Time]   `db:"recorded_at" `
 }
 
 func (s NodeMetricsHistorySetter) SetColumns() []string {
@@ -177,25 +179,25 @@ func (s NodeMetricsHistorySetter) SetColumns() []string {
 	if s.NodeID.IsValue() {
 		vals = append(vals, "node_id")
 	}
-	if s.CPUPercent.IsValue() {
+	if s.CPUPercent.IsValue() || s.CPUPercent.IsNull() {
 		vals = append(vals, "cpu_percent")
 	}
-	if s.MemoryPercent.IsValue() {
+	if s.MemoryPercent.IsValue() || s.MemoryPercent.IsNull() {
 		vals = append(vals, "memory_percent")
 	}
-	if s.MemoryUsedBytes.IsValue() {
+	if s.MemoryUsedBytes.IsValue() || s.MemoryUsedBytes.IsNull() {
 		vals = append(vals, "memory_used_bytes")
 	}
-	if s.MemoryTotalBytes.IsValue() {
+	if s.MemoryTotalBytes.IsValue() || s.MemoryTotalBytes.IsNull() {
 		vals = append(vals, "memory_total_bytes")
 	}
-	if s.DiskPercent.IsValue() {
+	if s.DiskPercent.IsValue() || s.DiskPercent.IsNull() {
 		vals = append(vals, "disk_percent")
 	}
-	if s.DiskUsedBytes.IsValue() {
+	if s.DiskUsedBytes.IsValue() || s.DiskUsedBytes.IsNull() {
 		vals = append(vals, "disk_used_bytes")
 	}
-	if s.DiskTotalBytes.IsValue() {
+	if s.DiskTotalBytes.IsValue() || s.DiskTotalBytes.IsNull() {
 		vals = append(vals, "disk_total_bytes")
 	}
 	if s.GameServerCount.IsValue() {
@@ -220,26 +222,26 @@ func (s NodeMetricsHistorySetter) Overwrite(t *NodeMetricsHistory) {
 	if s.NodeID.IsValue() {
 		t.NodeID = s.NodeID.MustGet()
 	}
-	if s.CPUPercent.IsValue() {
-		t.CPUPercent = s.CPUPercent.MustGet()
+	if s.CPUPercent.IsValue() || s.CPUPercent.IsNull() {
+		t.CPUPercent = s.CPUPercent.MustGetNull()
 	}
-	if s.MemoryPercent.IsValue() {
-		t.MemoryPercent = s.MemoryPercent.MustGet()
+	if s.MemoryPercent.IsValue() || s.MemoryPercent.IsNull() {
+		t.MemoryPercent = s.MemoryPercent.MustGetNull()
 	}
-	if s.MemoryUsedBytes.IsValue() {
-		t.MemoryUsedBytes = s.MemoryUsedBytes.MustGet()
+	if s.MemoryUsedBytes.IsValue() || s.MemoryUsedBytes.IsNull() {
+		t.MemoryUsedBytes = s.MemoryUsedBytes.MustGetNull()
 	}
-	if s.MemoryTotalBytes.IsValue() {
-		t.MemoryTotalBytes = s.MemoryTotalBytes.MustGet()
+	if s.MemoryTotalBytes.IsValue() || s.MemoryTotalBytes.IsNull() {
+		t.MemoryTotalBytes = s.MemoryTotalBytes.MustGetNull()
 	}
-	if s.DiskPercent.IsValue() {
-		t.DiskPercent = s.DiskPercent.MustGet()
+	if s.DiskPercent.IsValue() || s.DiskPercent.IsNull() {
+		t.DiskPercent = s.DiskPercent.MustGetNull()
 	}
-	if s.DiskUsedBytes.IsValue() {
-		t.DiskUsedBytes = s.DiskUsedBytes.MustGet()
+	if s.DiskUsedBytes.IsValue() || s.DiskUsedBytes.IsNull() {
+		t.DiskUsedBytes = s.DiskUsedBytes.MustGetNull()
 	}
-	if s.DiskTotalBytes.IsValue() {
-		t.DiskTotalBytes = s.DiskTotalBytes.MustGet()
+	if s.DiskTotalBytes.IsValue() || s.DiskTotalBytes.IsNull() {
+		t.DiskTotalBytes = s.DiskTotalBytes.MustGetNull()
 	}
 	if s.GameServerCount.IsValue() {
 		t.GameServerCount = s.GameServerCount.MustGet()
@@ -290,49 +292,49 @@ func (s *NodeMetricsHistorySetter) Apply(q *dialect.InsertQuery) {
 				if s.CPUPercent.IsUnset() {
 					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
 				}
-				return sqlite.Arg(s.CPUPercent.MustGet()).WriteSQL(ctx, w, d, start)
+				return sqlite.Arg(s.CPUPercent.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
 		case "memory_percent":
 			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 				if s.MemoryPercent.IsUnset() {
 					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
 				}
-				return sqlite.Arg(s.MemoryPercent.MustGet()).WriteSQL(ctx, w, d, start)
+				return sqlite.Arg(s.MemoryPercent.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
 		case "memory_used_bytes":
 			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 				if s.MemoryUsedBytes.IsUnset() {
 					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
 				}
-				return sqlite.Arg(s.MemoryUsedBytes.MustGet()).WriteSQL(ctx, w, d, start)
+				return sqlite.Arg(s.MemoryUsedBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
 		case "memory_total_bytes":
 			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 				if s.MemoryTotalBytes.IsUnset() {
 					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
 				}
-				return sqlite.Arg(s.MemoryTotalBytes.MustGet()).WriteSQL(ctx, w, d, start)
+				return sqlite.Arg(s.MemoryTotalBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
 		case "disk_percent":
 			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 				if s.DiskPercent.IsUnset() {
 					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
 				}
-				return sqlite.Arg(s.DiskPercent.MustGet()).WriteSQL(ctx, w, d, start)
+				return sqlite.Arg(s.DiskPercent.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
 		case "disk_used_bytes":
 			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 				if s.DiskUsedBytes.IsUnset() {
 					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
 				}
-				return sqlite.Arg(s.DiskUsedBytes.MustGet()).WriteSQL(ctx, w, d, start)
+				return sqlite.Arg(s.DiskUsedBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
 		case "disk_total_bytes":
 			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
 				if s.DiskTotalBytes.IsUnset() {
 					return sqlite.Arg(nil).WriteSQL(ctx, w, d, start)
 				}
-				return sqlite.Arg(s.DiskTotalBytes.MustGet()).WriteSQL(ctx, w, d, start)
+				return sqlite.Arg(s.DiskTotalBytes.MustGetNull()).WriteSQL(ctx, w, d, start)
 			}))
 		case "game_server_count":
 			vals = append(vals, bob.ExpressionFunc(func(ctx context.Context, w io.StringWriter, d bob.Dialect, start int) ([]any, error) {
@@ -389,49 +391,49 @@ func (s NodeMetricsHistorySetter) Expressions(prefix ...string) []bob.Expression
 		}})
 	}
 
-	if s.CPUPercent.IsValue() {
+	if s.CPUPercent.IsValue() || s.CPUPercent.IsNull() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "cpu_percent")...),
 			sqlite.Arg(s.CPUPercent),
 		}})
 	}
 
-	if s.MemoryPercent.IsValue() {
+	if s.MemoryPercent.IsValue() || s.MemoryPercent.IsNull() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "memory_percent")...),
 			sqlite.Arg(s.MemoryPercent),
 		}})
 	}
 
-	if s.MemoryUsedBytes.IsValue() {
+	if s.MemoryUsedBytes.IsValue() || s.MemoryUsedBytes.IsNull() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "memory_used_bytes")...),
 			sqlite.Arg(s.MemoryUsedBytes),
 		}})
 	}
 
-	if s.MemoryTotalBytes.IsValue() {
+	if s.MemoryTotalBytes.IsValue() || s.MemoryTotalBytes.IsNull() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "memory_total_bytes")...),
 			sqlite.Arg(s.MemoryTotalBytes),
 		}})
 	}
 
-	if s.DiskPercent.IsValue() {
+	if s.DiskPercent.IsValue() || s.DiskPercent.IsNull() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "disk_percent")...),
 			sqlite.Arg(s.DiskPercent),
 		}})
 	}
 
-	if s.DiskUsedBytes.IsValue() {
+	if s.DiskUsedBytes.IsValue() || s.DiskUsedBytes.IsNull() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "disk_used_bytes")...),
 			sqlite.Arg(s.DiskUsedBytes),
 		}})
 	}
 
-	if s.DiskTotalBytes.IsValue() {
+	if s.DiskTotalBytes.IsValue() || s.DiskTotalBytes.IsNull() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "disk_total_bytes")...),
 			sqlite.Arg(s.DiskTotalBytes),
@@ -823,13 +825,13 @@ type nodeMetricsHistoryWhere[Q sqlite.Filterable] struct {
 	cols                   nodeMetricsHistoryColumns
 	ID                     sqlite.WhereMod[Q, string]
 	NodeID                 sqlite.WhereMod[Q, string]
-	CPUPercent             sqlite.WhereMod[Q, float64]
-	MemoryPercent          sqlite.WhereMod[Q, float64]
-	MemoryUsedBytes        sqlite.WhereMod[Q, int64]
-	MemoryTotalBytes       sqlite.WhereMod[Q, int64]
-	DiskPercent            sqlite.WhereMod[Q, float64]
-	DiskUsedBytes          sqlite.WhereMod[Q, int64]
-	DiskTotalBytes         sqlite.WhereMod[Q, int64]
+	CPUPercent             sqlite.WhereNullMod[Q, float64]
+	MemoryPercent          sqlite.WhereNullMod[Q, float64]
+	MemoryUsedBytes        sqlite.WhereNullMod[Q, int64]
+	MemoryTotalBytes       sqlite.WhereNullMod[Q, int64]
+	DiskPercent            sqlite.WhereNullMod[Q, float64]
+	DiskUsedBytes          sqlite.WhereNullMod[Q, int64]
+	DiskTotalBytes         sqlite.WhereNullMod[Q, int64]
 	GameServerCount        sqlite.WhereMod[Q, int64]
 	RunningGameServerCount sqlite.WhereMod[Q, int64]
 	UserCount              sqlite.WhereMod[Q, int64]
@@ -846,13 +848,13 @@ func buildNodeMetricsHistoryWhere[Q sqlite.Filterable](cols nodeMetricsHistoryCo
 		cols:                   cols,
 		ID:                     sqlite.Where[Q, string](cols.ID.Expression),
 		NodeID:                 sqlite.Where[Q, string](cols.NodeID.Expression),
-		CPUPercent:             sqlite.Where[Q, float64](cols.CPUPercent.Expression),
-		MemoryPercent:          sqlite.Where[Q, float64](cols.MemoryPercent.Expression),
-		MemoryUsedBytes:        sqlite.Where[Q, int64](cols.MemoryUsedBytes.Expression),
-		MemoryTotalBytes:       sqlite.Where[Q, int64](cols.MemoryTotalBytes.Expression),
-		DiskPercent:            sqlite.Where[Q, float64](cols.DiskPercent.Expression),
-		DiskUsedBytes:          sqlite.Where[Q, int64](cols.DiskUsedBytes.Expression),
-		DiskTotalBytes:         sqlite.Where[Q, int64](cols.DiskTotalBytes.Expression),
+		CPUPercent:             sqlite.WhereNull[Q, float64](cols.CPUPercent.Expression),
+		MemoryPercent:          sqlite.WhereNull[Q, float64](cols.MemoryPercent.Expression),
+		MemoryUsedBytes:        sqlite.WhereNull[Q, int64](cols.MemoryUsedBytes.Expression),
+		MemoryTotalBytes:       sqlite.WhereNull[Q, int64](cols.MemoryTotalBytes.Expression),
+		DiskPercent:            sqlite.WhereNull[Q, float64](cols.DiskPercent.Expression),
+		DiskUsedBytes:          sqlite.WhereNull[Q, int64](cols.DiskUsedBytes.Expression),
+		DiskTotalBytes:         sqlite.WhereNull[Q, int64](cols.DiskTotalBytes.Expression),
 		GameServerCount:        sqlite.Where[Q, int64](cols.GameServerCount.Expression),
 		RunningGameServerCount: sqlite.Where[Q, int64](cols.RunningGameServerCount.Expression),
 		UserCount:              sqlite.Where[Q, int64](cols.UserCount.Expression),
