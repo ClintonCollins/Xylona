@@ -1609,6 +1609,46 @@ func TestDeleteGameServerBackupKeepsRowWhenRemoteNodeDoesNotConfirmArchiveRemova
 	}
 }
 
+func TestDeleteAllGameServerBackupsStopsOnceContextIsDone(t *testing.T) {
+	t.Parallel()
+
+	inst := newTestInstance(t)
+	fakeClient := &nodeclient.FakeNodeClient{NodeID: "node-backup"}
+	inst.embeddedNodeClient = fakeClient
+	fixture := newBackupServiceFixture(t, inst)
+
+	backup := fixture.createBackupRow(t, db.CreateGameServerBackupParams{
+		GameServerID:  fixture.gameServer.ID,
+		NodeID:        fixture.nodeID,
+		CreatedBy:     fixture.userID,
+		TriggerSource: "manual",
+		ArchivePath:   filepath.Join(fixture.backupRoot, fixture.gameServer.ID, "kept.zip"),
+		ArchiveRoot:   fixture.backupRoot,
+		ArchiveFormat: "zip",
+		Status:        "completed",
+		SizeBytes:     14,
+		CreatedAt:     time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC),
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	errDelete := inst.DeleteAllGameServerBackups(ctx, fixture.gameServer)
+	if !errors.Is(errDelete, context.Canceled) {
+		t.Fatalf("DeleteAllGameServerBackups() error = %v, want %v", errDelete, context.Canceled)
+	}
+	var errBackup *BackupDeleteError
+	if !errors.As(errDelete, &errBackup) || errBackup.Archive != "kept.zip" || errBackup.Deleted != 0 || errBackup.Total != 1 {
+		t.Fatalf("DeleteAllGameServerBackups() error = %#v, want kept.zip with 0 of 1 deleted", errDelete)
+	}
+	if len(fakeClient.DeleteFilesCalls) != 0 {
+		t.Fatalf("DeleteFiles calls = %v, want none", fakeClient.DeleteFilesCalls)
+	}
+	_, errGet := inst.db.GetGameServerBackupByID(backup.ID)
+	if errGet != nil {
+		t.Fatalf("GetGameServerBackupByID() error = %v", errGet)
+	}
+}
+
 func TestDeleteGameServerBackupCancelsPendingBackup(t *testing.T) {
 	inst := newTestInstance(t)
 	fixture := newBackupServiceFixture(t, inst)

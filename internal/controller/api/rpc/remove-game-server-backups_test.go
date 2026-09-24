@@ -31,6 +31,7 @@ func TestRemoveGameServerDeleteBackups(t *testing.T) {
 		deleteFilesResult []string
 		deleteFilesErr    error
 		wantCode          connect.Code
+		wantMessage       string
 		wantDeleteDirs    []string
 		wantStopped       bool
 		wantRemoved       bool
@@ -75,6 +76,17 @@ func TestRemoveGameServerDeleteBackups(t *testing.T) {
 			wantDeleteDirs: []string{archiveDir},
 			wantStopped:    true,
 			wantBackupRows: 2,
+		},
+		{
+			name:              "a backup failing part way keeps the server and reports progress",
+			userID:            "user-admin",
+			deleteBackups:     true,
+			deleteFilesResult: []string{"newer.zip"},
+			wantCode:          connect.CodeInternal,
+			wantMessage:       "the server was stopped but not removed: backup older.zip could not be deleted (1 of 2 were deleted)",
+			wantDeleteDirs:    []string{archiveDir, archiveDir},
+			wantStopped:       true,
+			wantBackupRows:    1,
 		},
 		{
 			name:           "a backup on another node refuses before stopping the server",
@@ -149,6 +161,10 @@ func TestRemoveGameServerDeleteBackups(t *testing.T) {
 			}
 			if tc.wantCode != 0 && connect.CodeOf(errRemove) != tc.wantCode {
 				t.Fatalf("RemoveGameServer() code = %v, want %v (error %v)", connect.CodeOf(errRemove), tc.wantCode, errRemove)
+			}
+			var connectErr *connect.Error
+			if tc.wantMessage != "" && (!errors.As(errRemove, &connectErr) || connectErr.Message() != tc.wantMessage) {
+				t.Fatalf("RemoveGameServer() error = %v, want message %q", errRemove, tc.wantMessage)
 			}
 
 			var deleteDirs []string
