@@ -1,7 +1,10 @@
 <template>
   <q-page
     class="server-list-page xy-page-content"
-    :class="{ 'server-list-page--with-settings': showStatusPageSettings }">
+    :class="{
+      'server-list-page--with-settings': showStatusPageSettings,
+      'server-list-page--selecting': selectedGameServers.length > 0,
+    }">
     <page-header class="server-list-header" title="Game Servers">
       <div class="server-list-summary">
         <span>{{ displayRows.length }} {{ displayRows.length === 1 ? 'server' : 'servers' }}</span>
@@ -13,100 +16,6 @@
         </template>
       </div>
       <template #actions>
-        <div class="server-selection-region">
-          <q-toolbar
-            v-if="selectedGameServers.length > 0"
-            aria-label="Selected game server actions"
-            class="server-selection-toolbar">
-            <div class="server-selection-toolbar__count">
-              <q-icon name="checklist" size="sm" />
-              <strong aria-hidden="true">
-                {{ selectedGameServers.length
-                }}<span class="server-selection-toolbar__count-label"> selected</span>
-              </strong>
-              <span class="xy-visually-hidden">{{ selectedGameServers.length }} selected</span>
-            </div>
-            <q-separator class="server-selection-toolbar__separator" vertical />
-            <q-btn
-              :aria-label="`Start ${selectedGameServersForStart.length} selected game servers`"
-              :disable="
-                !lifecycleStateAuthoritative || loading || selectedGameServersForStart.length < 1
-              "
-              color="positive"
-              dense
-              icon="play_arrow"
-              :label="`Start ${selectedGameServersForStart.length}`"
-              no-caps
-              outline
-              @click="startSelectedGameServers">
-              <q-tooltip>Start selected game servers</q-tooltip>
-            </q-btn>
-            <q-btn
-              :aria-label="`Restart ${selectedGameServersForRestart.length} selected game servers`"
-              :disable="
-                !lifecycleStateAuthoritative || loading || selectedGameServersForRestart.length < 1
-              "
-              color="warning"
-              dense
-              icon="restart_alt"
-              :label="`Restart ${selectedGameServersForRestart.length}`"
-              no-caps
-              outline
-              @click="restartSelectedGameServers">
-              <q-tooltip>Restart selected game servers</q-tooltip>
-            </q-btn>
-            <q-btn
-              :aria-label="`Stop ${selectedGameServersForStop.length} selected game servers`"
-              :disable="
-                !lifecycleStateAuthoritative || loading || selectedGameServersForStop.length < 1
-              "
-              color="negative"
-              dense
-              icon="stop"
-              :label="`Stop ${selectedGameServersForStop.length}`"
-              no-caps
-              outline
-              @click="stopSelectedGameServers">
-              <q-tooltip>Stop selected game servers</q-tooltip>
-            </q-btn>
-            <q-btn
-              :aria-label="`Update ${selectedGameServersForUpdate.length} selected game servers`"
-              :disable="
-                !lifecycleStateAuthoritative || loading || selectedGameServersForUpdate.length < 1
-              "
-              color="accent"
-              dense
-              icon="system_update_alt"
-              :label="`Update ${selectedGameServersForUpdate.length}`"
-              no-caps
-              outline
-              @click="updateSelectedGameServers">
-              <q-tooltip>Update selected game servers</q-tooltip>
-            </q-btn>
-            <q-separator class="server-selection-toolbar__separator" vertical />
-            <q-btn
-              :aria-label="`Remove ${selectedGameServers.length} selected game servers`"
-              :disable="!lifecycleStateAuthoritative || loading"
-              color="negative"
-              dense
-              flat
-              icon="delete_outline"
-              label="Remove"
-              no-caps
-              @click="deleteGameServerAction(null)">
-              <q-tooltip>Remove selected game servers</q-tooltip>
-            </q-btn>
-            <q-btn
-              aria-label="Clear server selection"
-              dense
-              flat
-              icon="close"
-              round
-              @click="selectedGameServers = []">
-              <q-tooltip>Clear selection</q-tooltip>
-            </q-btn>
-          </q-toolbar>
-        </div>
         <q-input
           v-if="displayRows.length > 0"
           v-model="search"
@@ -123,12 +32,16 @@
           </template>
         </q-input>
         <q-btn
+          :aria-label="$q.screen.xs ? 'Public status page' : undefined"
           :color="showStatusPageSettings ? 'primary' : undefined"
           flat
           icon="public"
-          label="Public status page"
+          :label="$q.screen.xs ? undefined : 'Public status page'"
           no-caps
-          @click="toggleStatusPageSettings" />
+          :round="$q.screen.xs"
+          @click="toggleStatusPageSettings">
+          <q-tooltip v-if="$q.screen.xs">Public status page</q-tooltip>
+        </q-btn>
         <q-btn
           v-if="showCreateButton && displayRows.length > 0"
           :disable="loading"
@@ -158,23 +71,108 @@
       </span>
     </div>
     <div class="server-list-main">
+      <div
+        v-if="selectedGameServers.length > 0"
+        aria-label="Selected game server actions"
+        class="server-selection-bar"
+        role="toolbar">
+        <div class="server-selection-bar__count">
+          <q-icon name="checklist" size="sm" />
+          <strong>{{ selectedGameServers.length }} selected</strong>
+        </div>
+        <div class="server-selection-bar__actions">
+          <q-btn
+            v-for="action in serverActions"
+            :key="action.name"
+            :aria-label="`${action.label} ${selectedServersForAction[action.name].length} selected game servers`"
+            :color="action.color"
+            :disable="
+              !lifecycleStateAuthoritative ||
+              loading ||
+              selectedServersForAction[action.name].length < 1
+            "
+            dense
+            :icon="action.icon"
+            :label="
+              compactSelectionBar
+                ? undefined
+                : `${action.label} ${selectedServersForAction[action.name].length}`
+            "
+            no-caps
+            outline
+            @click="runSelectedServerAction(action.name)">
+            <q-tooltip>{{ action.label }} selected game servers</q-tooltip>
+          </q-btn>
+          <q-btn
+            :aria-label="`Delete ${selectedGameServers.length} selected game servers`"
+            :disable="!lifecycleStateAuthoritative || loading"
+            class="server-selection-bar__delete"
+            color="negative"
+            dense
+            flat
+            icon="delete_outline"
+            :label="compactSelectionBar ? 'Delete' : `Delete ${selectedGameServers.length}`"
+            no-caps
+            @click="openDeleteDialog(selectedGameServers)">
+            <q-tooltip>Delete selected game servers</q-tooltip>
+          </q-btn>
+          <q-btn
+            aria-label="Clear server selection"
+            dense
+            flat
+            icon="close"
+            round
+            @click="selectedGameServers = []">
+            <q-tooltip>Clear selection</q-tooltip>
+          </q-btn>
+        </div>
+      </div>
+      <div v-if="gridMode && displayRows.length > 0" class="server-grid-controls">
+        <q-checkbox
+          :model-value="pageSelectionState"
+          dense
+          label="Select all"
+          @update:model-value="togglePageSelection" />
+        <div class="server-grid-controls__sort">
+          <q-select
+            v-model="gridSortBy"
+            :options="gridSortOptions"
+            class="server-grid-controls__sort-select"
+            dense
+            emit-value
+            label="Sort by"
+            map-options
+            options-dense
+            outlined />
+          <q-btn
+            :aria-label="initialPagination.descending ? 'Sort descending' : 'Sort ascending'"
+            :disable="!gridSortBy"
+            dense
+            flat
+            :icon="initialPagination.descending ? 'arrow_downward' : 'arrow_upward'"
+            round
+            @click="toggleSortDirection">
+            <q-tooltip>{{ initialPagination.descending ? 'Descending' : 'Ascending' }}</q-tooltip>
+          </q-btn>
+        </div>
+      </div>
       <q-table
+        ref="serverTable"
         v-model:pagination="initialPagination"
         v-model:selected="selectedGameServers"
         aria-label="Game servers"
         :columns="columns"
         :filter="search"
-        :grid="$q.screen.lt.lg"
+        :grid="gridMode"
         :loading="loading"
         :rows="displayRows"
         class="xy-standalone-table"
         flat
-        hide-header-in-grid
         hide-selected-banner
         row-key="compositeId"
         selection="multiple">
         <template #item="props">
-          <div class="server-grid-item col-12">
+          <div class="server-grid-item col-12 col-sm-6">
             <q-card class="server-mobile-card" flat>
               <q-card-section class="server-mobile-header">
                 <q-checkbox
@@ -185,7 +183,7 @@
                 <div class="server-mobile-identity">
                   <router-link
                     :to="`/game-servers/${props.row.id}/console`"
-                    class="server-mobile-name">
+                    class="table-link server-mobile-name">
                     {{ props.row.displayName }}
                   </router-link>
                   <span>{{ props.row.gameName }}</span>
@@ -207,7 +205,7 @@
                     <span class="server-mobile-label">CPU</span>
                     <strong>{{ formatCpuUsage(props.row) }}</strong>
                   </div>
-                  <div class="server-mobile-memory">
+                  <div>
                     <span class="server-mobile-label">Memory</span>
                     <strong>{{ formatMemoryUsage(props.row) }}</strong>
                   </div>
@@ -220,6 +218,15 @@
                   <div>
                     <span class="server-mobile-label">Version</span>
                     <strong>{{ getDisplayVersion(props.row) || 'Not reported' }}</strong>
+                    <span
+                      v-if="getVersionDisplay(props.row).updateAvailable"
+                      class="server-mobile-update">
+                      <span class="version-arrow" aria-hidden="true">→</span>
+                      <span class="xy-visually-hidden">Update available:</span>
+                      <span class="version-new">{{
+                        getVersionDisplay(props.row).latestVersion
+                      }}</span>
+                    </span>
                   </div>
                   <div v-if="props.row.userName">
                     <span class="server-mobile-label">Owner</span>
@@ -236,49 +243,68 @@
                 <q-btn
                   :to="`/game-servers/${props.row.id}/console`"
                   color="primary"
+                  dense
                   flat
                   icon="terminal"
                   label="Console"
                   no-caps />
-                <q-space />
-                <div class="server-lifecycle-actions">
+                <div class="server-mobile-row-actions">
+                  <div class="server-lifecycle-actions">
+                    <q-btn
+                      v-for="action in serverActions"
+                      :key="action.name"
+                      :aria-label="`${action.label} ${props.row.displayName}`"
+                      :disable="!canRunServerAction(props.row, action.name)"
+                      :loading="isServerActionPending(props.row, action.name)"
+                      :color="action.color"
+                      dense
+                      flat
+                      :icon="action.icon"
+                      round
+                      @click="runServerAction(action.name, props.row)">
+                      <q-tooltip>{{ getServerActionTooltip(props.row, action.name) }}</q-tooltip>
+                    </q-btn>
+                  </div>
+                  <!-- Configure and Delete sit in a menu so Delete is never beside Console. -->
                   <q-btn
-                    v-for="action in serverActions"
-                    :key="action.name"
-                    :aria-label="`${action.label} ${props.row.displayName}`"
-                    :disable="!canRunServerAction(props.row, action.name)"
-                    :loading="isServerActionPending(props.row, action.name)"
-                    :color="action.color"
+                    :aria-label="`More actions for ${props.row.displayName}`"
                     dense
                     flat
-                    :icon="action.icon"
-                    round
-                    @click="runServerAction(action.name, props.row)">
-                    <q-tooltip>{{ getServerActionTooltip(props.row, action.name) }}</q-tooltip>
+                    icon="more_vert"
+                    round>
+                    <q-tooltip>More actions</q-tooltip>
+                    <q-menu anchor="bottom right" self="top right">
+                      <q-list>
+                        <q-item
+                          v-close-popup
+                          class="server-card-menu-item"
+                          clickable
+                          :to="`/game-servers/${props.row.id}/configuration`">
+                          <q-item-section avatar>
+                            <q-icon name="tune" />
+                          </q-item-section>
+                          <q-item-section>Configure</q-item-section>
+                        </q-item>
+                        <q-item
+                          v-close-popup
+                          class="server-card-menu-item server-card-menu-item--danger"
+                          clickable
+                          :disable="!lifecycleStateAuthoritative"
+                          @click="openDeleteDialog([props.row])">
+                          <q-item-section avatar>
+                            <q-icon :name="tabTrash" />
+                          </q-item-section>
+                          <q-item-section>
+                            <q-item-label>Delete…</q-item-label>
+                            <q-item-label v-if="!lifecycleStateAuthoritative" caption>
+                              Waiting for live server status
+                            </q-item-label>
+                          </q-item-section>
+                        </q-item>
+                      </q-list>
+                    </q-menu>
                   </q-btn>
                 </div>
-                <q-btn
-                  :to="`/game-servers/${props.row.id}/configuration`"
-                  :aria-label="`Configure ${props.row.displayName}`"
-                  flat
-                  icon="tune">
-                  <q-tooltip>Configure {{ props.row.displayName }}</q-tooltip>
-                </q-btn>
-                <q-btn
-                  :aria-label="`Delete ${props.row.displayName}`"
-                  :disable="!lifecycleStateAuthoritative"
-                  class="text-error-brighter"
-                  flat
-                  icon="delete"
-                  @click="deleteGameServerAction(props.row)">
-                  <q-tooltip>
-                    {{
-                      lifecycleStateAuthoritative
-                        ? `Delete ${props.row.displayName}`
-                        : 'Waiting for authoritative server status'
-                    }}
-                  </q-tooltip>
-                </q-btn>
               </q-card-actions>
             </q-card>
           </div>
@@ -393,7 +419,7 @@
                   dense
                   flat
                   round
-                  @click="deleteGameServerAction(props.row)">
+                  @click="openDeleteDialog([props.row])">
                   <q-tooltip>
                     {{
                       lifecycleStateAuthoritative
@@ -430,10 +456,11 @@
     <game-server-status-page-settings-panel
       v-if="showStatusPageSettings"
       ref="statusPageSettingsPanel"
+      class="server-status-panel"
       @close="showStatusPageSettings = false" />
     <delete-game-server-dialog
       v-model:show-dialog="showDeleteGameServerDialog"
-      :game-servers="selectedServersForDelete"
+      :game-servers="deleteTargets"
       @submit="deleteGameServerSubmitted"></delete-game-server-dialog>
   </q-page>
 </template>
@@ -442,7 +469,7 @@
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
 import { tabTrash } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { ConnectError } from '@connectrpc/connect'
 import {
   ConnectErrorToString,
@@ -452,7 +479,9 @@ import {
 } from '@/utils/shared'
 import { isServerStopping } from '@/utils/game-server-stopping'
 import { createServerMetricsSubscriptions } from '@/utils/server-metrics-subscriptions'
-import DeleteGameServerDialog from '@/components/game_servers/DeleteGameServerDialog.vue'
+import DeleteGameServerDialog, {
+  type DeleteGameServerTarget,
+} from '@/components/game_servers/DeleteGameServerDialog.vue'
 import GameServerStatusPageSettingsPanel from '@/components/game_servers/GameServerStatusPageSettingsPanel.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
@@ -525,6 +554,12 @@ const statusPageSettingsPanel = ref<InstanceType<typeof GameServerStatusPageSett
 async function toggleStatusPageSettings() {
   if (!showStatusPageSettings.value) {
     showStatusPageSettings.value = true
+    // Below 1024px the panel renders under the whole list, so bring it into view.
+    if ($q.screen.lt.md) {
+      await nextTick()
+      const panel = statusPageSettingsPanel.value?.$el as HTMLElement | undefined
+      panel?.scrollIntoView({ block: 'start' })
+    }
     return
   }
   // Closing goes through the panel so unsaved edits get the discard prompt.
@@ -570,6 +605,8 @@ const bufferedLiveServerStateByID = new Map<string, BufferedLiveServerState>()
 const initialPagination = usePersistedRef('game-server-pagination', {
   rowsPerPage: 25,
   page: 1,
+  sortBy: null as string | null,
+  descending: false,
 })
 const authStore = useUserAuthStore()
 const showCreateButton = computed(() => authStore.user?.superUser ?? false)
@@ -596,9 +633,8 @@ const totalPlayerCounts = computed(() => {
   )
 })
 
-const selectedServersForDelete = computed(() => {
-  return selectedGameServers.value.map((s) => ({ id: s.id, name: s.displayName }))
-})
+// The dialog's own targets, so a row's Delete never replaces the multi-selection.
+const deleteTargets = ref<DeleteGameServerTarget[]>([])
 
 const selectedGameServersForStart = computed(() => {
   return getStartableServers(selectedGameServers.value).filter(
@@ -623,6 +659,61 @@ const selectedGameServersForUpdate = computed(() => {
     (server) => hasPermission(server, 'game_server.settings') && !isServerActionPending(server),
   )
 })
+
+const selectedServersForAction = computed((): Record<ServerAction, DisplayRow[]> => ({
+  start: selectedGameServersForStart.value,
+  restart: selectedGameServersForRestart.value,
+  stop: selectedGameServersForStop.value,
+  update: selectedGameServersForUpdate.value,
+}))
+
+// Bulk buttons drop their "Start 2" labels below 1024px; Delete always keeps its label.
+const compactSelectionBar = computed(() => $q.screen.lt.md)
+
+// Cards below Quasar's lg step (1440px). A media query counts the page scrollbar in the
+// width, so a scrollbar can't flip a 1440px window to cards the way $q.screen.lt.lg did.
+const belowLargeQuery =
+  typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 1439px)') : null
+const gridMode = ref(belowLargeQuery?.matches ?? false)
+function syncGridMode(event: MediaQueryListEvent) {
+  gridMode.value = event.matches
+}
+
+// The card grid has no table header, so it gets its own select-all and sort controls.
+const serverTable = ref<{ computedRows: DisplayRow[] } | null>(null)
+const pageSelectionState = computed((): boolean | null => {
+  const pageRows = serverTable.value?.computedRows ?? []
+  const selectedKeys = new Set(selectedGameServers.value.map((row) => row.compositeId))
+  const selectedOnPage = pageRows.filter((row) => selectedKeys.has(row.compositeId)).length
+  if (selectedOnPage === 0) return false
+  return selectedOnPage === pageRows.length ? true : null
+})
+
+function togglePageSelection() {
+  const pageRows = serverTable.value?.computedRows ?? []
+  const pageKeys = new Set(pageRows.map((row) => row.compositeId))
+  const others = selectedGameServers.value.filter((row) => !pageKeys.has(row.compositeId))
+  selectedGameServers.value = pageSelectionState.value === true ? others : [...others, ...pageRows]
+}
+
+const gridSortOptions = computed(() =>
+  columns.value
+    .filter((column) => 'sortable' in column && column.sortable)
+    .map((column) => ({ label: column.label, value: column.name })),
+)
+const gridSortBy = computed({
+  get: () => initialPagination.value.sortBy ?? null,
+  set: (sortBy: string | null) => {
+    initialPagination.value = { ...initialPagination.value, sortBy }
+  },
+})
+
+function toggleSortDirection() {
+  initialPagination.value = {
+    ...initialPagination.value,
+    descending: !initialPagination.value.descending,
+  }
+}
 
 function hasPermission(server: DisplayRow, permission: string): boolean {
   return (
@@ -875,6 +966,7 @@ function applyBufferedLiveServerStateToServers(
 }
 
 onMounted(async () => {
+  belowLargeQuery?.addEventListener('change', syncGridMode)
   watchServerStatusChanges()
   watchServerVersionChanges()
   watchWebsocketReconnects()
@@ -901,6 +993,7 @@ onBeforeUnmount(() => {
   XylonaEventBus.off('gameServersQueryInfo', applyServerQueryInfo)
   XylonaEventBus.off('gameServerMetrics', applyServerMetrics)
   XylonaEventBus.off('gameServerUpdateProgress', handleGameServerUpdateProgress)
+  belowLargeQuery?.removeEventListener('change', syncGridMode)
   metricsSubscriptions.clear()
 })
 
@@ -1034,13 +1127,16 @@ function handleGameServerUpdateProgress(progress: UpdateProgress) {
   void getGameServers()
 }
 
-async function deleteGameServerAction(row: DisplayRow | null) {
+function openDeleteDialog(rows: DisplayRow[]) {
   if (!lifecycleStateAuthoritative.value) {
     return
   }
-  if (row !== null) {
-    selectedGameServers.value = [row]
-  }
+  deleteTargets.value = rows.map((row) => ({
+    id: row.id,
+    name: row.displayName,
+    nodeName: row.nodeName,
+    directory: row.directory,
+  }))
   showDeleteGameServerDialog.value = true
 }
 
@@ -1052,8 +1148,13 @@ async function deleteGameServerSubmitted(result: {
   if (result.succeeded.length > 0) {
     await getGameServers()
   }
-  const failedIDs = new Set(result.failed.map((failure) => failure.id))
-  selectedGameServers.value = displayRows.value.filter((row) => failedIDs.has(row.id))
+  // Keep the rest of the selection; deleted servers leave it even if the refetch was
+  // superseded or failed and the rows are still showing.
+  const keptKeys = new Set(selectedGameServers.value.map((row) => row.compositeId))
+  const deletedIDs = new Set(result.succeeded.map((server) => server.id))
+  selectedGameServers.value = displayRows.value.filter(
+    (row) => keptKeys.has(row.compositeId) && !deletedIDs.has(row.id),
+  )
 }
 
 function setServerStatus(serverID: string, serverStatus: Status) {
@@ -1323,20 +1424,8 @@ async function runServerAction(action: ServerAction, server: DisplayRow) {
   await runServerActions(action, [server])
 }
 
-async function startSelectedGameServers() {
-  await runServerActions('start', selectedGameServersForStart.value, true)
-}
-
-async function stopSelectedGameServers() {
-  await runServerActions('stop', selectedGameServersForStop.value, true)
-}
-
-async function restartSelectedGameServers() {
-  await runServerActions('restart', selectedGameServersForRestart.value, true)
-}
-
-async function updateSelectedGameServers() {
-  await runServerActions('update', selectedGameServersForUpdate.value, true)
+async function runSelectedServerAction(action: ServerAction) {
+  await runServerActions(action, selectedServersForAction.value[action], true)
 }
 
 const columns = ref([
@@ -1346,6 +1435,8 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.displayName,
+    classes: 'server-name-cell',
+    headerClasses: 'server-name-cell',
     sortable: true,
   },
   {
@@ -1447,36 +1538,23 @@ const columns = ref([
   color: var(--xy-success-text-soft);
 }
 
-.server-list-header :deep(.xy-page-actions) {
-  flex: 1 1 0;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-  min-width: 0;
-  min-height: var(--xy-toolbar-height);
-}
-
-.server-selection-region {
+/* Bulk actions get their own full-width bar above the list, so they wrap
+   instead of being squeezed into the title row. */
+.server-selection-bar {
   display: flex;
-  flex: 1 1 0;
-  justify-content: flex-end;
-  min-width: 0;
-  min-height: var(--xy-toolbar-height);
-}
-
-.server-selection-toolbar {
-  width: auto;
-  max-width: 100%;
-  min-height: var(--xy-toolbar-height);
-  gap: var(--xy-space-xs);
-  padding-inline: var(--xy-space-sm);
-  overflow-x: auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm) var(--xy-space-md);
+  margin-bottom: var(--xy-space-md);
+  padding: var(--xy-space-sm) var(--xy-space-md);
   background: var(--xy-surface-2);
   border: 1px solid var(--xy-border-active);
   border-radius: var(--xy-radius-md);
   box-shadow: var(--xy-shadow-sm);
 }
 
-.server-selection-toolbar__count {
+.server-selection-bar__count {
   display: flex;
   align-items: center;
   gap: var(--xy-space-xs);
@@ -1484,13 +1562,43 @@ const columns = ref([
   white-space: nowrap;
 }
 
-.server-selection-toolbar__count .q-icon {
+.server-selection-bar__count .q-icon {
   color: var(--xy-accent);
 }
 
-.server-selection-toolbar__separator {
-  height: 1.75rem;
-  margin-inline: var(--xy-space-xs);
+.server-selection-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xy-space-xs);
+}
+
+.server-selection-bar__delete {
+  margin-left: var(--xy-space-sm);
+}
+
+.server-grid-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-sm) var(--xy-space-md);
+  margin-bottom: var(--xy-space-sm);
+  padding-inline: var(--xy-space-xs);
+}
+
+.server-grid-controls__sort {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-2xs);
+}
+
+.server-grid-controls__sort-select {
+  min-width: 10rem;
+}
+
+.server-status-panel {
+  scroll-margin-top: calc(var(--xy-header-stack-height) + var(--xy-space-md));
 }
 
 .server-list-error {
@@ -1578,6 +1686,38 @@ const columns = ref([
   margin-inline: var(--xy-space-xs);
 }
 
+/* The checkbox and Name stay pinned while the wide table scrolls sideways, so
+   the row an action belongs to is always in view (actions pin right). */
+.server-list-main :deep(.q-table .q-table--col-auto-width) {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 4.5rem;
+  min-width: 4.5rem;
+  background-color: var(--xy-surface-0);
+}
+
+.server-list-main :deep(.q-table .server-name-cell) {
+  position: sticky;
+  left: 4.5rem;
+  z-index: 1;
+  background-color: var(--xy-surface-0);
+  border-right: 1px solid var(--xy-border);
+}
+
+/* Long names wrap so the pinned column never takes over the scroll area. */
+.server-list-main :deep(.q-table td.server-name-cell) {
+  max-width: 16rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.server-list-main :deep(.q-table thead .q-table--col-auto-width),
+.server-list-main :deep(.q-table thead .server-name-cell) {
+  background-color: var(--xy-surface-2);
+}
+
 /* Long build strings wrap instead of pushing row actions off-screen. */
 .server-list-main :deep(.server-version-cell) {
   min-width: 10rem;
@@ -1609,11 +1749,14 @@ const columns = ref([
   font-style: italic;
 }
 
-.server-grid-item {
+/* :deep because the slot root loses the scope id when the table switches to cards. */
+.server-list-main :deep(.server-grid-item) {
   padding: var(--xy-space-xs);
 }
 
 .server-mobile-card {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
   background: var(--xy-surface-2);
@@ -1648,12 +1791,10 @@ const columns = ref([
   white-space: nowrap;
 }
 
+/* Same cyan Exo 2 name link as the table (.table-link), one step larger. */
 .server-mobile-name {
   display: -webkit-box;
-  color: var(--xy-text-primary);
-  font-family: var(--xy-font-heading);
-  font-size: var(--xy-font-size-lg);
-  font-weight: 600;
+  font-size: var(--xy-font-size-base);
   line-height: 1.25;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
@@ -1663,6 +1804,8 @@ const columns = ref([
 
 .server-mobile-details {
   display: grid;
+  flex: 1;
+  align-content: start;
   gap: var(--xy-space-md);
   padding: var(--xy-space-md);
 }
@@ -1672,14 +1815,25 @@ const columns = ref([
   gap: var(--xy-space-md);
 }
 
+/* Players and CPU take what they need, Memory the rest; the context row wraps
+   to two columns in narrow cards. */
 .server-mobile-health {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: auto auto minmax(0, 1fr);
 }
 
 .server-mobile-context {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
   padding-top: var(--xy-space-md);
   border-top: 1px solid var(--xy-border);
+}
+
+.server-mobile-update {
+  font-size: var(--xy-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.server-mobile-update .version-arrow {
+  margin-left: 0;
 }
 
 .server-mobile-detail-group > div {
@@ -1708,27 +1862,28 @@ const columns = ref([
 
 .server-mobile-actions {
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: var(--xy-space-xs);
   min-height: 3.5rem;
   padding: var(--xy-space-xs) var(--xy-space-sm);
   background: var(--xy-surface-3);
 }
 
-@media (max-width: 1919px) {
-  .server-selection-toolbar :deep(.q-btn__content > .block) {
-    display: none !important;
-  }
-
-  .server-selection-toolbar :deep(.q-icon.on-left) {
-    margin-right: 0;
-  }
+.q-item.server-card-menu-item {
+  min-height: 44px;
+  font-size: var(--xy-font-size-sm);
+  font-weight: 600;
 }
 
-@media (max-width: 1439px) {
-  .server-list-header :deep(.xy-page-actions) {
-    flex-basis: 100%;
-    width: 100%;
-  }
+.q-item.server-card-menu-item--danger {
+  color: var(--xy-danger-hover);
+}
+
+.server-mobile-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  margin-left: auto;
 }
 
 @media (max-width: 1023px) {
@@ -1739,45 +1894,39 @@ const columns = ref([
 }
 
 @media (max-width: 599px) {
+  /* The search box takes its own row under the title and page buttons. */
   .server-list-header :deep(.xy-page-actions) {
     width: 100%;
-    min-height: var(--xy-toolbar-height);
-    flex-wrap: nowrap;
+    justify-content: flex-end;
   }
 
-  .server-selection-toolbar {
-    gap: var(--xy-space-2xs);
-    padding-inline: var(--xy-space-xs);
+  .server-list-header :deep(.xy-search-input) {
+    flex: 1 1 100%;
+    order: 1;
   }
 
-  .server-selection-toolbar__separator {
-    display: none;
+  /* Bulk actions become a bottom bar in thumb reach; the padding keeps the last card clear. */
+  .server-list-page--selecting {
+    padding-bottom: calc(var(--xy-space-md) + 7rem);
   }
 
-  .server-selection-toolbar__count-label {
-    display: none;
+  .server-selection-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--xy-z-sticky);
+    margin: 0;
+    padding: var(--xy-space-sm) var(--xy-space-md)
+      max(var(--xy-space-sm), env(safe-area-inset-bottom));
+    background: var(--xy-surface-1);
+    border-width: 1px 0 0;
+    border-radius: 0;
+    box-shadow: var(--xy-shadow-sticky-lg);
   }
 
-  .server-grid-item {
+  .server-list-main :deep(.server-grid-item) {
     padding-inline: 0;
-  }
-
-  .server-mobile-health,
-  .server-mobile-context {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--xy-space-sm) var(--xy-space-md);
-  }
-
-  .server-mobile-memory {
-    grid-column: 1 / -1;
-  }
-
-  .server-mobile-actions > .q-space {
-    display: none;
-  }
-
-  .server-lifecycle-actions {
-    margin-left: auto;
   }
 }
 </style>

@@ -491,6 +491,9 @@ const (
 	// XylonaRestoreGameServerBackupProcedure is the fully-qualified name of the Xylona's
 	// RestoreGameServerBackup RPC.
 	XylonaRestoreGameServerBackupProcedure = "/xylona.Xylona/RestoreGameServerBackup"
+	// XylonaSuggestGameServerPortsProcedure is the fully-qualified name of the Xylona's
+	// SuggestGameServerPorts RPC.
+	XylonaSuggestGameServerPortsProcedure = "/xylona.Xylona/SuggestGameServerPorts"
 )
 
 // XylonaClient is a client for the xylona.Xylona service.
@@ -694,6 +697,8 @@ type XylonaClient interface {
 	CreateGameServerBackup(context.Context, *connect.Request[xylona.CreateGameServerBackupRequest]) (*connect.Response[xylona.CreateGameServerBackupResponse], error)
 	DeleteGameServerBackup(context.Context, *connect.Request[xylona.DeleteGameServerBackupRequest]) (*connect.Response[xylona.DeleteGameServerBackupResponse], error)
 	RestoreGameServerBackup(context.Context, *connect.Request[xylona.RestoreGameServerBackupRequest]) (*connect.Response[xylona.RestoreGameServerBackupResponse], error)
+	// Game server provisioning helpers
+	SuggestGameServerPorts(context.Context, *connect.Request[xylona.SuggestGameServerPortsRequest]) (*connect.Response[xylona.SuggestGameServerPortsResponse], error)
 }
 
 // NewXylonaClient constructs a client for the xylona.Xylona service. By default, it uses the
@@ -1757,6 +1762,12 @@ func NewXylonaClient(httpClient connect.HTTPClient, baseURL string, opts ...conn
 			connect.WithSchema(xylonaMethods.ByName("RestoreGameServerBackup")),
 			connect.WithClientOptions(opts...),
 		),
+		suggestGameServerPorts: connect.NewClient[xylona.SuggestGameServerPortsRequest, xylona.SuggestGameServerPortsResponse](
+			httpClient,
+			baseURL+XylonaSuggestGameServerPortsProcedure,
+			connect.WithSchema(xylonaMethods.ByName("SuggestGameServerPorts")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1937,6 +1948,7 @@ type xylonaClient struct {
 	createGameServerBackup                  *connect.Client[xylona.CreateGameServerBackupRequest, xylona.CreateGameServerBackupResponse]
 	deleteGameServerBackup                  *connect.Client[xylona.DeleteGameServerBackupRequest, xylona.DeleteGameServerBackupResponse]
 	restoreGameServerBackup                 *connect.Client[xylona.RestoreGameServerBackupRequest, xylona.RestoreGameServerBackupResponse]
+	suggestGameServerPorts                  *connect.Client[xylona.SuggestGameServerPortsRequest, xylona.SuggestGameServerPortsResponse]
 }
 
 // AddGame calls xylona.Xylona.AddGame.
@@ -2815,6 +2827,11 @@ func (c *xylonaClient) RestoreGameServerBackup(ctx context.Context, req *connect
 	return c.restoreGameServerBackup.CallUnary(ctx, req)
 }
 
+// SuggestGameServerPorts calls xylona.Xylona.SuggestGameServerPorts.
+func (c *xylonaClient) SuggestGameServerPorts(ctx context.Context, req *connect.Request[xylona.SuggestGameServerPortsRequest]) (*connect.Response[xylona.SuggestGameServerPortsResponse], error) {
+	return c.suggestGameServerPorts.CallUnary(ctx, req)
+}
+
 // XylonaHandler is an implementation of the xylona.Xylona service.
 type XylonaHandler interface {
 	// Game Operations
@@ -3016,6 +3033,8 @@ type XylonaHandler interface {
 	CreateGameServerBackup(context.Context, *connect.Request[xylona.CreateGameServerBackupRequest]) (*connect.Response[xylona.CreateGameServerBackupResponse], error)
 	DeleteGameServerBackup(context.Context, *connect.Request[xylona.DeleteGameServerBackupRequest]) (*connect.Response[xylona.DeleteGameServerBackupResponse], error)
 	RestoreGameServerBackup(context.Context, *connect.Request[xylona.RestoreGameServerBackupRequest]) (*connect.Response[xylona.RestoreGameServerBackupResponse], error)
+	// Game server provisioning helpers
+	SuggestGameServerPorts(context.Context, *connect.Request[xylona.SuggestGameServerPortsRequest]) (*connect.Response[xylona.SuggestGameServerPortsResponse], error)
 }
 
 // NewXylonaHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -4075,6 +4094,12 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 		connect.WithSchema(xylonaMethods.ByName("RestoreGameServerBackup")),
 		connect.WithHandlerOptions(opts...),
 	)
+	xylonaSuggestGameServerPortsHandler := connect.NewUnaryHandler(
+		XylonaSuggestGameServerPortsProcedure,
+		svc.SuggestGameServerPorts,
+		connect.WithSchema(xylonaMethods.ByName("SuggestGameServerPorts")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/xylona.Xylona/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case XylonaAddGameProcedure:
@@ -4427,6 +4452,8 @@ func NewXylonaHandler(svc XylonaHandler, opts ...connect.HandlerOption) (string,
 			xylonaDeleteGameServerBackupHandler.ServeHTTP(w, r)
 		case XylonaRestoreGameServerBackupProcedure:
 			xylonaRestoreGameServerBackupHandler.ServeHTTP(w, r)
+		case XylonaSuggestGameServerPortsProcedure:
+			xylonaSuggestGameServerPortsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -5134,4 +5161,8 @@ func (UnimplementedXylonaHandler) DeleteGameServerBackup(context.Context, *conne
 
 func (UnimplementedXylonaHandler) RestoreGameServerBackup(context.Context, *connect.Request[xylona.RestoreGameServerBackupRequest]) (*connect.Response[xylona.RestoreGameServerBackupResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.RestoreGameServerBackup is not implemented"))
+}
+
+func (UnimplementedXylonaHandler) SuggestGameServerPorts(context.Context, *connect.Request[xylona.SuggestGameServerPortsRequest]) (*connect.Response[xylona.SuggestGameServerPortsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("xylona.Xylona.SuggestGameServerPorts is not implemented"))
 }

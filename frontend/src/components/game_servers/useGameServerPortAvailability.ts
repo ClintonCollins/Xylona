@@ -3,6 +3,8 @@ import type { ComputedRef, Ref } from 'vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 
 import { GetXylonaClient } from '@/utils/shared'
+import { suggestGameServerPorts } from '@/api/game-server-provisioning'
+import { notifyConnectError } from '@/api/notifications'
 import type { Game, GameServer } from '@/proto/shared_pb'
 import { ListGameServersRequestSchema } from '@/proto/xylona_pb'
 
@@ -189,6 +191,84 @@ export function useGameServerPortAvailability(options: {
     }, PORT_CHECK_DEBOUNCE_MS)
   }
 
+  // The pair the form last filled in by itself, and the port it started from.
+  const autoPorts = ref<{ from: bigint; port: bigint; queryPort: bigint } | null>(null)
+  let suggestionToken = 0
+
+  function formHasPorts(pair: { port: bigint; queryPort: bigint }): boolean {
+    return (
+      options.gameServer.value.port === pair.port &&
+      options.gameServer.value.queryPort === pair.queryPort
+    )
+  }
+
+  // Fill in the first free pair at or after `from`, using the controller's own check.
+  async function applyNextFreePorts(
+    from: { port: bigint; queryPort: bigint },
+    userInitiated = false,
+  ): Promise<void> {
+    const { nodeId, ipAddress } = currentRequest.value
+    const gameId = options.selectedGame.value?.id ?? ''
+    if (!gameId || !nodeId || !ipAddress || from.port <= 0n) {
+      return
+    }
+
+    const token = ++suggestionToken
+    const requested = {
+      port: options.gameServer.value.port,
+      queryPort: options.gameServer.value.queryPort,
+    }
+    try {
+      const suggested = await suggestGameServerPorts({ nodeId, ipAddress, gameId, ...from })
+      // Drop stale answers and never overwrite ports typed while this was in flight.
+      if (token !== suggestionToken || !formHasPorts(requested)) {
+        return
+      }
+      options.gameServer.value.port = suggested.port
+      options.gameServer.value.queryPort = suggested.queryPort
+      autoPorts.value = { from: from.port, ...suggested }
+    } catch (error) {
+      // The operator asked for this, so say it failed; the automatic prefill stays quiet
+      // because the live check below still flags a taken port.
+      if (userInitiated) {
+        notifyConnectError(error, 'Could not find a free port')
+      } else {
+        console.error(error)
+      }
+    }
+  }
+
+  const portSuggestionNote = computed(() => {
+    const filled = autoPorts.value
+    if (filled === null || filled.port === filled.from || !formHasPorts(filled)) {
+      return ''
+    }
+    return `Port ${filled.from} or one of the ports this game also needs is taken on this node and IP, so the next free port was filled in.`
+  })
+
+  // Re-pick ports the form filled in when the game, node or IP changes; typed ports stay.
+  // Separate sources, so filling the ports in doesn't re-trigger this watcher.
+  watch(
+    [
+      () => options.enabled.value,
+      () => options.selectedGame.value?.id ?? '',
+      () => currentRequest.value.nodeId,
+      () => currentRequest.value.ipAddress,
+    ],
+    () => {
+      const game = options.selectedGame.value
+      if (!options.enabled.value || game === undefined) {
+        return
+      }
+      const defaults = { port: game.defaultPort, queryPort: game.defaultQueryPort }
+      const filled = autoPorts.value
+      if (formHasPorts(defaults) || (filled !== null && formHasPorts(filled))) {
+        void applyNextFreePorts(defaults)
+      }
+    },
+    { immediate: true },
+  )
+
   watch(
     () => [
       options.enabled.value,
@@ -209,11 +289,21 @@ export function useGameServerPortAvailability(options: {
 
   onUnmounted(() => {
     requestToken++
+    suggestionToken++
     clearDebounceTimer()
   })
 
   return {
     ensurePortAvailabilityBeforeSave: runAvailabilityCheck,
+    portSuggestionNote,
+    fillNextFreePorts: () =>
+      applyNextFreePorts(
+        {
+          port: options.gameServer.value.port,
+          queryPort: options.gameServer.value.queryPort,
+        },
+        true,
+      ),
     portAvailabilityBlocking: computed(() => portAvailabilityState.value === 'conflict'),
     portAvailabilityChecking: computed(() => portAvailabilityState.value === 'checking'),
     portAvailabilityMessage: computed(() => portAvailabilityMessage.value),

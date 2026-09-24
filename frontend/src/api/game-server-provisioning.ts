@@ -7,6 +7,7 @@ import {
   ListIPsRequestSchema,
   ListNodesRequestSchema,
   ListUsersRequestSchema,
+  SuggestGameServerPortsRequestSchema,
 } from '@/proto/xylona_pb'
 
 import { getXylonaClient } from './connect-client'
@@ -41,13 +42,28 @@ export async function listGames(
   const response = await client.listGames(create(ListGamesRequestSchema, {}))
   const games = response.games.slice()
 
+  // games keeps catalog order (the create form defaults to the first); the picker is alphabetical.
   return {
     games,
-    options: games.map((game) => ({
-      label: game.name,
-      value: game.id,
-    })),
+    options: games
+      .map((game) => ({
+        label: game.name,
+        value: game.id,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
   }
+}
+
+// The game/query pair CreateGameServer would assign, stepping past ports other
+// servers on the node already use (including each game's extra ports).
+export async function suggestGameServerPorts(
+  request: { nodeId: string; ipAddress: string; gameId: string; port: bigint; queryPort: bigint },
+  client: ProvisioningClient = getXylonaClient(),
+): Promise<{ port: bigint; queryPort: bigint }> {
+  const response = await client.suggestGameServerPorts(
+    create(SuggestGameServerPortsRequestSchema, request),
+  )
+  return { port: response.port, queryPort: response.queryPort }
 }
 
 export async function listNodes(client: ProvisioningClient = getXylonaClient()): Promise<Node[]> {

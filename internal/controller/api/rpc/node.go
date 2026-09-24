@@ -204,6 +204,7 @@ func (xs *XylonaService) remoteSummaryFromGameServer(
 		MapName:        gameServer.Map,
 		Version:        gameServer.Version,
 		IsStale:        state.err != nil,
+		Directory:      gameServer.Directory,
 	}
 	gameServerProto := protomap.GameServerModelToProto(gameServer, xs.versionState)
 	out.VersionInfo = gameServerProto.GetVersionInfo()

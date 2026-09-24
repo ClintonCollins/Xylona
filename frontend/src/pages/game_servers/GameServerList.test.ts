@@ -330,6 +330,12 @@ describe('GameServerList', () => {
           'q-skeleton': true,
           'q-separator': { template: '<span />' },
           'q-toolbar': { template: '<div><slot /></div>' },
+          'q-select': true,
+          'q-menu': { template: '<div><slot /></div>' },
+          'q-list': { template: '<div><slot /></div>' },
+          'q-item': { template: '<div><slot /></div>' },
+          'q-item-section': { template: '<div><slot /></div>' },
+          'q-item-label': { template: '<div><slot /></div>' },
           'q-table': defineComponent({
             name: 'QTableStub',
             setup: () => ({ rowSlot }),
@@ -484,11 +490,11 @@ describe('GameServerList', () => {
     const vm = wrapper.vm as unknown as {
       displayRows: DisplayRow[]
       selectedGameServers: DisplayRow[]
-      startSelectedGameServers: () => Promise<void>
+      runSelectedServerAction: (action: 'start') => Promise<void>
     }
     vm.selectedGameServers = [...vm.displayRows]
 
-    const action = vm.startSelectedGameServers()
+    const action = vm.runSelectedServerAction('start')
     await vi.waitFor(() => {
       expect(mocks.startGameServer).toHaveBeenCalledTimes(2)
     })
@@ -761,13 +767,13 @@ describe('GameServerList', () => {
     const vm = wrapper.vm as unknown as {
       displayRows: DisplayRow[]
       selectedGameServers: DisplayRow[]
-      stopSelectedGameServers: () => Promise<void>
+      runSelectedServerAction: (action: 'stop') => Promise<void>
     }
     emitPlayerCounts({ 'server-a': 2, 'server-b': 3 })
     await flushPromises()
     vm.selectedGameServers = [...vm.displayRows]
 
-    await vm.stopSelectedGameServers()
+    await vm.runSelectedServerAction('stop')
 
     expect(mocks.dialog).toHaveBeenCalledTimes(1)
     expect(mocks.dialog).toHaveBeenCalledWith(
@@ -780,7 +786,7 @@ describe('GameServerList', () => {
     expect(mocks.stopGameServer).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps page tools and bulk actions in the same action row', async () => {
+  it('shows bulk actions in their own bar above the list, not in the page header', async () => {
     mocks.listAggregatedGameServers.mockResolvedValue({
       servers: [
         createProto(AggregatedGameServerSchema, {
@@ -792,18 +798,7 @@ describe('GameServerList', () => {
 
     const wrapper = mountList(true)
     await flushPromises()
-    const pageActions = wrapper.find('.xy-page-actions')
-    const selectionRegion = wrapper.find('.server-selection-region')
-    expect(selectionRegion.exists()).toBe(true)
-    expect(selectionRegion.element.parentElement).toBe(pageActions.element)
-    expect(selectionRegion.find('.server-selection-toolbar').exists()).toBe(false)
-    expect(wrapper.find('.xy-search-input').exists()).toBe(true)
-    expect(
-      wrapper
-        .find('.xy-page-actions')
-        .findAll('button')
-        .some((button) => button.text() === 'Create Game Server'),
-    ).toBe(true)
+    expect(wrapper.find('.server-selection-bar').exists()).toBe(false)
 
     const vm = wrapper.vm as unknown as {
       displayRows: DisplayRow[]
@@ -812,14 +807,81 @@ describe('GameServerList', () => {
     vm.selectedGameServers = [...vm.displayRows]
     await flushPromises()
 
-    expect(selectionRegion.find('.server-selection-toolbar').exists()).toBe(true)
-    expect(wrapper.find('.xy-search-input').exists()).toBe(true)
-    const buttons = wrapper.findAll('button')
-    expect(buttons.some((button) => button.text() === 'Create Game Server')).toBe(true)
-    const stopButton = buttons.find((button) => button.text().startsWith('Stop'))
-    const restartButton = buttons.find((button) => button.text().startsWith('Restart'))
-    expect(stopButton?.attributes('color')).toBe('negative')
-    expect(restartButton?.attributes('color')).toBe('warning')
+    const bar = wrapper.find('.server-selection-bar')
+    expect(bar.exists()).toBe(true)
+    expect(wrapper.find('.xy-page-actions').find('.server-selection-bar').exists()).toBe(false)
+    expect(bar.element.parentElement).toBe(wrapper.find('.server-list-main').element)
+    expect(
+      wrapper
+        .find('.xy-page-actions')
+        .findAll('button')
+        .some((button) => button.text() === 'Create Game Server'),
+    ).toBe(true)
+    const buttons = bar.findAll('button')
+    expect(buttons.map((button) => button.text())).toEqual([
+      'Start 0',
+      'Restart 1',
+      'Stop 1',
+      'Update 0',
+      'Delete 1',
+      '',
+    ])
+    const deleteButton = buttons.find((button) => button.text() === 'Delete 1')
+    expect(deleteButton?.attributes('aria-label')).toBe('Delete 1 selected game servers')
+    expect(buttons.find((button) => button.text() === 'Stop 1')?.attributes('color')).toBe(
+      'negative',
+    )
+  })
+
+  it("opens a row's Delete without replacing the multi-selection", async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ id: 'server-a', name: 'Server A', directory: '/srv/a' }),
+        }),
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({ id: 'server-b', name: 'Server B' }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(true)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      selectedGameServers: DisplayRow[]
+      deleteTargets: Array<{ id: string; name: string; directory?: string }>
+      openDeleteDialog: (rows: DisplayRow[]) => void
+      deleteGameServerSubmitted: (result: {
+        succeeded: Array<{ id: string; name: string }>
+        failed: Array<{ id: string; name: string; error: string }>
+      }) => Promise<void>
+    }
+    const [serverA, serverB] = vm.displayRows
+    if (!serverA || !serverB) throw new Error('expected two rows')
+    vm.selectedGameServers = [serverB]
+
+    vm.openDeleteDialog([serverA])
+    await flushPromises()
+
+    expect(vm.deleteTargets).toEqual([
+      expect.objectContaining({ id: 'server-a', name: 'Server A', directory: '/srv/a' }),
+    ])
+    expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
+
+    // A deleted server leaves the selection even when the refetch fails and its row stays.
+    vm.selectedGameServers = [serverA, serverB]
+    mocks.listAggregatedGameServers.mockRejectedValueOnce(new Error('offline'))
+    await vm.deleteGameServerSubmitted({
+      succeeded: [{ id: 'server-a', name: 'Server A' }],
+      failed: [],
+    })
+    await flushPromises()
+
+    expect(vm.displayRows.map((row) => row.id)).toContain('server-a')
+    expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
   })
 
   it('keeps an update pending until terminal progress arrives', async () => {

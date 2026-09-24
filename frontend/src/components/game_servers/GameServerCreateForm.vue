@@ -7,7 +7,9 @@
     breadcrumb-label="New Server"
     guidance="Fields marked * are required."
     header-title="Create Game Server"
-    subtitle="Set the server route and limits. The footer only flags what still blocks save."
+    :save-label="$q.screen.xs ? 'Create' : 'Create server'"
+    submitting-label="Creating game server…"
+    subtitle="Choose a game and where it runs. Xylona installs it after you create it."
     @cancel="cancel"
     @save="submitGameServer">
     <q-form ref="formRef" class="server-form-layout" greedy>
@@ -27,25 +29,37 @@
             autofocus
             class="col-12 col-md-6"
             label="Server Name *"
-            lazy-rules
+            :lazy-rules="serverNameEdited ? true : 'ondemand'"
             maxlength="80"
             outlined
             reactive-rules
-            type="text" />
+            type="text"
+            @update:model-value="serverNameEdited = true" />
           <q-select
             v-model="gameServer.gameId"
-            :options="availableGames"
+            :options="filteredGames"
             :rules="gameRules"
             aria-required="true"
             class="col-12 col-md-6"
             emit-value
+            fill-input
+            hide-selected
+            input-debounce="0"
             label="Game *"
             lazy-rules
             map-options
             option-label="label"
             outlined
             reactive-rules
-            @update:model-value="onGameSelected" />
+            use-input
+            @filter="filterGames"
+            @update:model-value="onGameSelected">
+            <template #no-option>
+              <q-item>
+                <q-item-section class="text-xy-muted">No matching game</q-item-section>
+              </q-item>
+            </template>
+          </q-select>
         </div>
       </section>
 
@@ -111,7 +125,7 @@
           <q-input
             v-model.number="portModel"
             :error="showPortAvailabilityError"
-            :error-message="portAvailabilityErrorMessage"
+            :hint="portSuggestionNote || undefined"
             :rules="portRules"
             aria-required="true"
             class="col-12 col-sm-6"
@@ -119,7 +133,21 @@
             lazy-rules
             outlined
             reactive-rules
-            type="number" />
+            type="number">
+            <template #error>
+              <div class="port-conflict">
+                <span>{{ portAvailabilityMessage }}</span>
+                <q-btn
+                  class="port-conflict__action"
+                  color="primary"
+                  dense
+                  flat
+                  label="Use next free port"
+                  no-caps
+                  @click="fillNextFreePorts" />
+              </div>
+            </template>
+          </q-input>
           <q-input
             v-model.number="queryPortModel"
             :rules="queryPortRules"
@@ -282,14 +310,17 @@ import {
 const router = useRouter()
 const $q = useQuasar()
 const steamAccountName = ref('')
+// Server Name is autofocused: don't flag it as empty until the operator has typed in it or saves.
+const serverNameEdited = ref(false)
 
 const {
-  availableGames,
   availableIPs,
   availableUsers,
   deploymentReady,
   deploymentReadyText,
   deploymentWarningItems,
+  filterGames,
+  filteredGames,
   formRef,
   formSubmitting,
   gameRules,
@@ -325,11 +356,13 @@ const {
 
 const {
   ensurePortAvailabilityBeforeSave,
+  fillNextFreePorts,
   portAvailabilityBlocking,
   portAvailabilityChecking,
   portAvailabilityMessage,
   portAvailabilityState,
   portAvailabilityVisible,
+  portSuggestionNote,
 } = useGameServerPortAvailability({
   enabled: computed(() => !loading.value),
   gameServer,
@@ -358,9 +391,6 @@ const createDeploymentReady = computed(
     !portAvailabilityChecking.value,
 )
 const showPortAvailabilityError = computed(() => portAvailabilityBlocking.value)
-const portAvailabilityErrorMessage = computed(() =>
-  portAvailabilityBlocking.value ? portAvailabilityMessage.value : '',
-)
 
 const createDeploymentWarningItems = computed(() => {
   const warnings = [...deploymentWarningItems.value]
@@ -409,7 +439,7 @@ async function cancel() {
 
 async function submitGameServer() {
   const formValid = await validateBeforeSave(
-    'Complete the required fields before saving this server.',
+    'Complete the required fields before creating this server.',
   )
   if (!formValid) {
     return
@@ -455,3 +485,16 @@ async function submitGameServer() {
   }
 }
 </script>
+
+<style scoped>
+.port-conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xy-space-2xs) var(--xy-space-sm);
+}
+
+.port-conflict__action {
+  font-size: var(--xy-font-size-xs);
+}
+</style>
