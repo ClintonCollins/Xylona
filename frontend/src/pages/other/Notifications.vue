@@ -629,6 +629,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import AlertRuleDialog from '@/components/alerts/AlertRuleDialog.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
@@ -1044,30 +1045,20 @@ async function testChannel(channel: NotificationChannel): Promise<void> {
       create(TestNotificationChannelRequestSchema, { id: channel.id }),
     )
     if (response.success) {
-      $q.notify({
-        type: 'xylona-success',
+      notifySuccess('Check the channel for the test notification.', {
         message: `Test sent to ${channel.name}`,
-        caption: 'Check the channel for the test notification.',
-        position: 'top',
         timeout: 4000,
       })
       return
     }
 
-    $q.notify({
-      type: 'xylona-error',
+    notifyError(response.error || 'The channel did not accept the test notification.', {
       message: `Test to ${channel.name} failed`,
-      caption: response.error || 'The channel did not accept the test notification.',
-      position: 'top',
       timeout: 8000,
     })
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
+    notifyConnectError(unknownErr, undefined, {
       message: `Test to ${channel.name} failed`,
-      caption: ConnectErrorToString(err),
-      position: 'top',
       timeout: 8000,
     })
   } finally {

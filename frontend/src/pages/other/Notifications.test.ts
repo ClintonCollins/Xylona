@@ -265,32 +265,50 @@ describe('Notifications', () => {
     {
       name: 'success',
       response: { success: true, error: '' },
-      type: 'xylona-success',
+      helper: 'notifySuccess' as const,
       message: 'Test sent to Production Discord',
       caption: 'Check the channel for the test notification.',
     },
     {
       name: 'failure',
       response: { success: false, error: 'The webhook responded with HTTP 404' },
-      type: 'xylona-error',
+      helper: 'notifyError' as const,
       message: 'Test to Production Discord failed',
       caption: 'The webhook responded with HTTP 404',
     },
-  ])('tests a webhook channel and reports $name', async ({ response, type, message, caption }) => {
-    const channel = makeChannel({ name: 'Production Discord' })
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [channel] })
-    mocks.testNotificationChannel.mockResolvedValueOnce(response)
+  ])(
+    'tests a webhook channel and reports $name',
+    async ({ response, helper, message, caption }) => {
+      const channel = makeChannel({ name: 'Production Discord' })
+      mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [channel] })
+      mocks.testNotificationChannel.mockResolvedValueOnce(response)
+
+      const wrapper = mountNotifications()
+      await flushPromises()
+
+      await wrapper.get('button[aria-label="Test Production Discord channel"]').trigger('click')
+      await flushPromises()
+
+      expect(mocks.testNotificationChannel).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'chan-1' }),
+      )
+      expect(mocks[helper]).toHaveBeenCalledWith(caption, expect.objectContaining({ message }))
+      expect(mocks.notify).not.toHaveBeenCalled()
+    },
+  )
+
+  it('shows a load error instead of an empty channel list on failed channel load', async () => {
+    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
+    mocks.listNotificationChannels.mockRejectedValueOnce(new Error('network failure'))
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
+    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
 
     const wrapper = mountNotifications()
     await flushPromises()
 
-    await wrapper.get('button[aria-label="Test Production Discord channel"]').trigger('click')
-    await flushPromises()
-
-    expect(mocks.testNotificationChannel).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'chan-1' }),
-    )
-    expect(mocks.notify).toHaveBeenCalledWith(expect.objectContaining({ type, message, caption }))
+    expect(wrapper.text()).toContain('Failed to load channels')
+    expect(wrapper.text()).toContain('network failure')
+    expect(wrapper.text()).not.toContain('No notification channels')
   })
 
   it('hides channel management actions for history-only users', async () => {
