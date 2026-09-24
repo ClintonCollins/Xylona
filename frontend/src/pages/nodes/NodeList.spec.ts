@@ -497,6 +497,37 @@ describe('NodeList', () => {
     wrapper.unmount()
   })
 
+  it('treats a reading the node could not take as unavailable, not 0%', async () => {
+    const node = create(NodeSchema, { id: 'node-1', name: 'Local Node', local: true })
+    mocks.listNodes.mockResolvedValue({ nodes: [node] })
+
+    const wrapper = mount(NodeList, { global: globalStubs })
+    await flushPromises()
+    mocks.eventBus.emit(
+      'nodeMetrics',
+      create(AllNodeMetricsSchema, {
+        nodes: {
+          'node-1': create(NodeResourceSnapshotSchema, { cpuUnavailable: true, memoryPercent: 30 }),
+        },
+      }),
+    )
+
+    const vm = wrapper.vm as unknown as {
+      resourcePercent: (nodeId: string, resource: string) => number | null | undefined
+      formatMetric: (value: number | null | undefined, resource: string) => string
+      metricClass: (resource: string, value: number | null | undefined) => string
+      columns: { name: string; field: (row: unknown) => unknown }[]
+    }
+    expect(vm.resourcePercent('node-1', 'cpu')).toBeNull()
+    expect(vm.resourcePercent('node-1', 'memory')).toBe(30)
+    expect(vm.resourcePercent('node-2', 'cpu')).toBeUndefined()
+    expect(vm.metricClass('cpu', null)).toBe('')
+    expect(vm.formatMetric(null, 'cpu')).not.toContain('%')
+    // Sorts with the nodes that have no reading, not with idle ones.
+    expect(vm.columns.find((column) => column.name === 'cpu')?.field(node)).toBe(-1)
+    wrapper.unmount()
+  })
+
   it('keeps the paused notice hidden while a fresh connection is quiet', async () => {
     mocks.listNodes.mockResolvedValueOnce({ nodes: [] })
     setWebsocketConnectionStatus('connecting')

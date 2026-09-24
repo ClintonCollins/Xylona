@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"sort"
 	"strings"
 	"testing"
@@ -99,13 +100,13 @@ func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T)
 	errInsertMinuteA := conn.InsertNodeMetricsHistory(&db.NodeMetricsRow{
 		ID:                     "minute-a",
 		NodeID:                 "node-local",
-		CPUPercent:             10,
-		MemoryPercent:          20,
-		MemoryUsedBytes:        1000,
-		MemoryTotalBytes:       2000,
-		DiskPercent:            30,
-		DiskUsedBytes:          3000,
-		DiskTotalBytes:         4000,
+		CPUPercent:             validFloat64(10),
+		MemoryPercent:          validFloat64(20),
+		MemoryUsedBytes:        validInt64(1000),
+		MemoryTotalBytes:       validInt64(2000),
+		DiskPercent:            validFloat64(30),
+		DiskUsedBytes:          validInt64(3000),
+		DiskTotalBytes:         validInt64(4000),
 		GameServerCount:        1,
 		RunningGameServerCount: 1,
 		UserCount:              2,
@@ -118,13 +119,13 @@ func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T)
 	errInsertMinuteB := conn.InsertNodeMetricsHistory(&db.NodeMetricsRow{
 		ID:                     "minute-b",
 		NodeID:                 "node-local",
-		CPUPercent:             30,
-		MemoryPercent:          40,
-		MemoryUsedBytes:        2000,
-		MemoryTotalBytes:       2000,
-		DiskPercent:            50,
-		DiskUsedBytes:          3500,
-		DiskTotalBytes:         4000,
+		CPUPercent:             validFloat64(30),
+		MemoryPercent:          validFloat64(40),
+		MemoryUsedBytes:        validInt64(2000),
+		MemoryTotalBytes:       validInt64(2000),
+		DiskPercent:            validFloat64(50),
+		DiskUsedBytes:          validInt64(3500),
+		DiskTotalBytes:         validInt64(4000),
 		GameServerCount:        3,
 		RunningGameServerCount: 2,
 		UserCount:              4,
@@ -137,13 +138,13 @@ func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T)
 	errInsertSurvivingHourly := conn.InsertNodeMetricsHistory(&db.NodeMetricsRow{
 		ID:                     "hourly-surviving",
 		NodeID:                 "node-local",
-		CPUPercent:             50,
-		MemoryPercent:          60,
-		MemoryUsedBytes:        2500,
-		MemoryTotalBytes:       3000,
-		DiskPercent:            70,
-		DiskUsedBytes:          3600,
-		DiskTotalBytes:         4000,
+		CPUPercent:             validFloat64(50),
+		MemoryPercent:          validFloat64(60),
+		MemoryUsedBytes:        validInt64(2500),
+		MemoryTotalBytes:       validInt64(3000),
+		DiskPercent:            validFloat64(70),
+		DiskUsedBytes:          validInt64(3600),
+		DiskTotalBytes:         validInt64(4000),
 		GameServerCount:        5,
 		RunningGameServerCount: 4,
 		UserCount:              6,
@@ -156,13 +157,13 @@ func TestMetricsRecorderCleanupAndRollupPreservesHourlyNodeHistory(t *testing.T)
 	errInsertExpiredHourly := conn.InsertNodeMetricsHistory(&db.NodeMetricsRow{
 		ID:                     "hourly-expired",
 		NodeID:                 "node-local",
-		CPUPercent:             70,
-		MemoryPercent:          80,
-		MemoryUsedBytes:        2600,
-		MemoryTotalBytes:       3000,
-		DiskPercent:            90,
-		DiskUsedBytes:          3700,
-		DiskTotalBytes:         4000,
+		CPUPercent:             validFloat64(70),
+		MemoryPercent:          validFloat64(80),
+		MemoryUsedBytes:        validInt64(2600),
+		MemoryTotalBytes:       validInt64(3000),
+		DiskPercent:            validFloat64(90),
+		DiskUsedBytes:          validInt64(3700),
+		DiskTotalBytes:         validInt64(4000),
 		GameServerCount:        7,
 		RunningGameServerCount: 6,
 		UserCount:              8,
@@ -223,10 +224,10 @@ func TestMetricsRecorderCleanupAndRollupWaitsForCompleteHours(t *testing.T) {
 		errInsert := conn.InsertNodeMetricsHistory(&db.NodeMetricsRow{
 			ID:               id,
 			NodeID:           "node-local",
-			CPUPercent:       25,
-			MemoryPercent:    30,
-			MemoryUsedBytes:  1000,
-			MemoryTotalBytes: 2000,
+			CPUPercent:       validFloat64(25),
+			MemoryPercent:    validFloat64(30),
+			MemoryUsedBytes:  validInt64(1000),
+			MemoryTotalBytes: validInt64(2000),
 			RecordedAt:       recordedAt,
 		})
 		if errInsert != nil {
@@ -416,6 +417,112 @@ func TestMetricsRecorderPreservesMetricSpecificValidity(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A reading the node could not take reaches the history table as NULL, so the
+// charts show a gap instead of a false 0%.
+func TestNodeMetricsRowStoresUnavailableReadingsAsNull(t *testing.T) {
+	t.Parallel()
+
+	recordedAt := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name                          string
+		snapshot                      node.NodeSnapshot
+		wantCPU, wantMemory, wantDisk bool
+	}{
+		{
+			name: "valid readings are stored",
+			snapshot: node.NodeSnapshot{
+				CPUPercent: 12, CPUValid: true,
+				MemoryPercent: 50, MemoryUsed: 512, TotalMemory: 1024, MemoryValid: true,
+				DiskPercent: 10, DiskUsed: 10, DiskTotal: 100, DiskValid: true,
+			},
+			wantCPU: true, wantMemory: true, wantDisk: true,
+		},
+		{
+			name: "failed readings are NULL",
+			snapshot: node.NodeSnapshot{
+				MemoryPercent: 50, MemoryUsed: 512, TotalMemory: 1024, MemoryValid: true,
+			},
+			wantMemory: true,
+		},
+		{
+			name: "older node zero totals are NULL",
+			snapshot: node.NodeSnapshot{
+				CPUPercent: 12, CPUValid: true, MemoryValid: true, DiskValid: true,
+			},
+			wantCPU: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			conn := dbtest.NewMigratedConnection(t, "metrics-recorder-node-null.sqlite")
+			seedMetricsRecorderNodeFixture(t, conn)
+
+			errInsert := conn.InsertNodeMetricsHistory(nodeMetricsRow("node-local", &test.snapshot, nil, 1, recordedAt))
+			if errInsert != nil {
+				t.Fatalf("InsertNodeMetricsHistory() error = %v", errInsert)
+			}
+			rows, errHistory := conn.GetNodeMetricsHistory("node-local", recordedAt, recordedAt.Add(time.Second))
+			if errHistory != nil || len(rows) != 1 {
+				t.Fatalf("GetNodeMetricsHistory() = %d rows, error %v; want 1 row", len(rows), errHistory)
+			}
+			row := rows[0]
+			if row.CPUPercent.Valid != test.wantCPU {
+				t.Errorf("cpu stored = %v, want valid %t", row.CPUPercent, test.wantCPU)
+			}
+			if row.MemoryPercent.Valid != test.wantMemory || row.MemoryUsedBytes.Valid != test.wantMemory || row.MemoryTotalBytes.Valid != test.wantMemory {
+				t.Errorf("memory stored = (%v, %v, %v), want valid %t", row.MemoryPercent, row.MemoryUsedBytes, row.MemoryTotalBytes, test.wantMemory)
+			}
+			if row.DiskPercent.Valid != test.wantDisk || row.DiskUsedBytes.Valid != test.wantDisk || row.DiskTotalBytes.Valid != test.wantDisk {
+				t.Errorf("disk stored = (%v, %v, %v), want valid %t", row.DiskPercent, row.DiskUsedBytes, row.DiskTotalBytes, test.wantDisk)
+			}
+		})
+	}
+}
+
+// A game server row only carries node memory the node actually read.
+func TestGameServerMetricsRowNodeMemoryFollowsValidity(t *testing.T) {
+	t.Parallel()
+
+	recorder := &MetricsRecorder{config: DefaultMetricsRecorderConfig()}
+	gameServer := &models.GameServer{ID: "server-1", NodeID: "node-1"}
+	now := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name        string
+		memoryValid bool
+		totalMemory uint64
+		want        bool
+	}{
+		{name: "valid reading", memoryValid: true, totalMemory: 1024, want: true},
+		{name: "failed reading with a known total", memoryValid: false, totalMemory: 1024},
+		{name: "older node reporting a zero total", memoryValid: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			snapshot := &node.NodeSnapshot{Collected: now, MemoryUsed: 512, TotalMemory: test.totalMemory, MemoryValid: test.memoryValid}
+			row := recorder.gameServerMetricsRow(gameServer, "node-1", snapshot, &node.ProcessSnapshot{
+				ID:           "server-1",
+				Status:       xylona.Status_ONLINE.String(),
+				MetricsValid: true,
+			}, now)
+			if row.NodeMemoryUsedBytes.Valid != test.want || row.NodeMemoryTotalBytes.Valid != test.want {
+				t.Fatalf("node memory = (%v, %v), want valid %t", row.NodeMemoryUsedBytes, row.NodeMemoryTotalBytes, test.want)
+			}
+		})
+	}
+}
+
+func validFloat64(value float64) sql.NullFloat64 {
+	return sql.NullFloat64{Float64: value, Valid: true}
+}
+
+func validInt64(value int64) sql.NullInt64 {
+	return sql.NullInt64{Int64: value, Valid: true}
 }
 
 func assertQueryMetricsUnavailable(t *testing.T, row *db.GameServerMetricsRow) {

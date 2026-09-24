@@ -57,17 +57,18 @@ func parseOptionalMetricsTime(value sql.NullString) (*time.Time, error) {
 	return &parsed, nil
 }
 
-// NodeMetricsRow represents a row from the node_metrics_history table.
+// NodeMetricsRow represents a row from the node_metrics_history table. A host
+// reading the node could not take is NULL, never a stored 0.
 type NodeMetricsRow struct {
 	ID                     string
 	NodeID                 string
-	CPUPercent             float64
-	MemoryPercent          float64
-	MemoryUsedBytes        int64
-	MemoryTotalBytes       int64
-	DiskPercent            float64
-	DiskUsedBytes          int64
-	DiskTotalBytes         int64
+	CPUPercent             sql.NullFloat64
+	MemoryPercent          sql.NullFloat64
+	MemoryUsedBytes        sql.NullInt64
+	MemoryTotalBytes       sql.NullInt64
+	DiskPercent            sql.NullFloat64
+	DiskUsedBytes          sql.NullInt64
+	DiskTotalBytes         sql.NullInt64
 	GameServerCount        int
 	RunningGameServerCount int
 	UserCount              int
@@ -282,7 +283,12 @@ func (c *Connection) GetNodeMetricsHistory(nodeID string, since, until time.Time
 	if errQuery != nil {
 		return nil, fmt.Errorf("query node metrics history: %w", errQuery)
 	}
-	defer func() { _ = rows.Close() }()
+	defer func() {
+		errClose := rows.Close()
+		if errClose != nil {
+			log.Error().Err(errClose).Str("node_id", nodeID).Msg("Failed to close node metrics rows")
+		}
+	}()
 
 	var results []*NodeMetricsRow
 	for rows.Next() {
@@ -464,7 +470,8 @@ func (c *Connection) DeleteGameServerMetricsHistoryOlderThan(olderThan time.Time
 }
 
 // RollupNodeMetricsToHourly aggregates minute-granularity data older than cutoff into hourly averages,
-// then deletes the original minute-level rows.
+// then deletes the original minute-level rows. AVG and MAX skip unavailable (NULL) readings, so an
+// hour without a single valid reading of a metric stays NULL rather than becoming 0.
 func (c *Connection) RollupNodeMetricsToHourly(cutoff time.Time) error {
 	cutoffStr := fmtTime(cutoff)
 	insertQuery := fmt.Sprintf(

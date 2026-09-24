@@ -1214,7 +1214,7 @@ type NodeSnapshot struct {
 	// deployments don't incorrectly use the controller's paths.
 	DefaultInstallPath string `protobuf:"bytes,17,opt,name=default_install_path,json=defaultInstallPath,proto3" json:"default_install_path,omitempty"`
 	// *_unavailable mark a host reading the node could not take (read error,
-	// or CPU before a full sampling window); its value fields are then zero and
+	// or CPU before a full sampling window); its usage fields are then zero and
 	// must not be treated as a real 0%. Negative sense so snapshots from older
 	// nodes, which never set them, still read as available.
 	CpuUnavailable    bool `protobuf:"varint,18,opt,name=cpu_unavailable,json=cpuUnavailable,proto3" json:"cpu_unavailable,omitempty"`

@@ -513,6 +513,33 @@ describe('game server metrics helpers', () => {
     })
   })
 
+  it('copies node memory from history only until the node first reports', () => {
+    const liveNodeMemory = (used: number | null | undefined, total: number | null | undefined) =>
+      normalizeLiveMetricPoint(create(GameServerMetricsSchema, { metricsValid: true }), {
+        timestampMs: 2_000_000,
+        collectedAtMs: 2_000_000,
+        latest: sample({ nodeMemoryUsedBytes: 4096, nodeMemoryTotalBytes: 8192 }),
+        nodeMemoryUsedBytes: used,
+        nodeMemoryTotalBytes: total,
+        configuredMemoryBytes: null,
+        nodeId: 'node-1',
+      })
+
+    expect(liveNodeMemory(undefined, undefined)).toMatchObject({
+      nodeMemoryUsedBytes: 4096,
+      nodeMemoryTotalBytes: 8192,
+    })
+    // The node couldn't read its memory: an old reading must not pass for a current one.
+    expect(liveNodeMemory(null, null)).toMatchObject({
+      nodeMemoryUsedBytes: null,
+      nodeMemoryTotalBytes: null,
+    })
+    expect(liveNodeMemory(1024, 2048)).toMatchObject({
+      nodeMemoryUsedBytes: 1024,
+      nodeMemoryTotalBytes: 2048,
+    })
+  })
+
   it('preserves only the live tail newer than refreshed history', () => {
     const refreshed = mergeMetricHistoryWithLiveTail(
       [

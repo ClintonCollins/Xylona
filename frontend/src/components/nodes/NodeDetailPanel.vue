@@ -61,7 +61,7 @@
       <metric-time-series-chart
         title="CPU"
         description="Host CPU utilisation."
-        :empty-label="historyError ? historyFailedLabel : 'No CPU samples in this range.'"
+        :empty-label="laneEmptyLabel('cpu')"
         :bands="cpuBands"
         :format-value="formatPercent"
         :health="cpuHealth"
@@ -75,9 +75,9 @@
       <metric-time-series-chart
         title="Memory"
         description="Host memory in use."
-        :empty-label="historyError ? historyFailedLabel : 'No memory samples in this range.'"
+        :empty-label="laneEmptyLabel('memory')"
         :bands="memoryBands"
-        :format-value="formatBytes"
+        :format-value="formatReadingBytes"
         :health="memoryHealth"
         :lane-caption="memoryCaption"
         :lane-height="96"
@@ -89,9 +89,9 @@
       <metric-time-series-chart
         title="Disk"
         :description="`Used space on ${nodeDiskVolume}.`"
-        :empty-label="historyError ? historyFailedLabel : 'No disk samples in this range.'"
+        :empty-label="laneEmptyLabel('disk')"
         :bands="diskBands"
-        :format-value="formatBytes"
+        :format-value="formatReadingBytes"
         :health="diskHealth"
         :lane-caption="diskCaption"
         :lane-height="96"
@@ -263,20 +263,19 @@ import {
   nodeDiskVolume,
   nodeHealthBadge,
   nodeLastSeenMs,
+  nodeReadingValues,
   nodeResourceHealth,
+  nodeResourcePercent,
   nodeResourceThresholds,
   projectDaysUntilDiskFull,
   splitNodeVersion,
+  type NodeReadingValues,
   type NodeResource,
 } from './node-display'
 
-interface NodeSample {
+// A reading the node could not take is null, drawn as a gap rather than a 0.
+interface NodeSample extends NodeReadingValues {
   timestampMs: number
-  cpuPercent: number
-  memoryPercent: number
-  memoryUsedBytes: number
-  diskPercent: number
-  diskUsedBytes: number
   gameServerCount: number | null
   runningGameServerCount: number | null
 }
@@ -383,7 +382,6 @@ function summarize(select: (sample: NodeSample) => number | null): MetricSummary
   let maximum: number | null = null
   let total = 0
   let count = 0
-  let latest: number | null = null
   for (const sample of samples.value) {
     const value = select(sample)
     if (value === null || !Number.isFinite(value)) continue
@@ -391,10 +389,12 @@ function summarize(select: (sample: NodeSample) => number | null): MetricSummary
     maximum = maximum === null ? value : Math.max(maximum, value)
     total += value
     count += 1
-    latest = value
   }
+  // The newest sample, not the newest valid one: a failed latest reading reads as unavailable.
+  const lastSample = samples.value.at(-1)
+  const latest = lastSample ? select(lastSample) : null
   return {
-    latest,
+    latest: latest !== null && Number.isFinite(latest) ? latest : null,
     minimum,
     maximum,
     average: count > 0 ? total / count : null,
@@ -444,33 +444,40 @@ const cpuBands = thresholdBands('cpu', 100)
 const memoryBands = computed(() => thresholdBands('memory', memoryTotalBytes.value))
 const diskBands = computed(() => thresholdBands('disk', diskTotalBytes.value))
 
-function resourceHealth(resource: NodeResource, percent: number | undefined): MetricHealth {
-  const { level, label } = nodeResourceHealth(resource, percent)
+// Undefined before any snapshot arrives; null when the node couldn't take the reading.
+function livePercent(resource: NodeResource): number | null | undefined {
+  return snapshot.value ? nodeResourcePercent(snapshot.value, resource) : undefined
+}
+
+function resourceHealth(resource: NodeResource): MetricHealth {
+  const { level, label } = nodeResourceHealth(resource, livePercent(resource))
   return { level, label }
 }
 
-const cpuHealth = computed(() => resourceHealth('cpu', snapshot.value?.cpuPercent))
-const memoryHealth = computed(() => resourceHealth('memory', snapshot.value?.memoryPercent))
-const diskHealth = computed(() => resourceHealth('disk', snapshot.value?.diskPercent))
+// Short enough for the lane gutter, beside the lane's 'Unavailable' value.
+const unavailableCaption = "node couldn't read it"
+
+const cpuHealth = computed(() => resourceHealth('cpu'))
+const memoryHealth = computed(() => resourceHealth('memory'))
+const diskHealth = computed(() => resourceHealth('disk'))
 
 const cpuCaption = computed(() => {
   const threads = currentSystemInfo.value?.cpuThreads
-  const percent = snapshot.value?.cpuPercent
+  const percent = livePercent('cpu')
+  if (percent === null) return unavailableCaption
   if (!threads || percent === undefined) return ''
   return `≈ ${((percent / 100) * threads).toFixed(1)} of ${threads} threads`
 })
-function capacityCaption(percent: number | undefined, total: number | null): string {
+function capacityCaption(resource: NodeResource, total: number | null): string {
+  const percent = livePercent(resource)
+  if (percent === null) return unavailableCaption
   if (!total) return ''
   const share = percent === undefined ? '' : `${formatMetricPercent(percent, 0)} of `
   return `${share}${formatMetricBytes(total)}`
 }
 
-const memoryCaption = computed(() =>
-  capacityCaption(snapshot.value?.memoryPercent, memoryTotalBytes.value),
-)
-const diskCaption = computed(() =>
-  capacityCaption(snapshot.value?.diskPercent, diskTotalBytes.value),
-)
+const memoryCaption = computed(() => capacityCaption('memory', memoryTotalBytes.value))
+const diskCaption = computed(() => capacityCaption('disk', diskTotalBytes.value))
 
 const diskProjection = computed(() => {
   const days = projectDaysUntilDiskFull(diskTrendSamples.value, diskTotalBytes.value)
@@ -485,8 +492,24 @@ const intervalLabel = computed(() => {
   return `${seconds}s buckets`
 })
 
+// Samples with no value are readings the node couldn't take, not an empty range.
+function laneEmptyLabel(resource: NodeResource): string {
+  if (historyError.value) return historyFailedLabel
+  const name = resource === 'cpu' ? 'CPU' : resource
+  return samples.value.length > 0
+    ? `The node couldn't read its ${name} usage in this range.`
+    : `No ${name} samples in this range.`
+}
+
+// With samples on screen, a missing value is a reading the node couldn't take.
+function formatReading(value: number | null, format: (value: number | null) => string): string {
+  return value === null && samples.value.length > 0 ? 'Unavailable' : format(value)
+}
 function formatPercent(value: number | null): string {
-  return formatMetricPercent(value, 0)
+  return formatReading(value, (reading) => formatMetricPercent(reading, 0))
+}
+function formatReadingBytes(value: number | null): string {
+  return formatReading(value, formatMetricBytes)
 }
 function formatBytes(value: number | null): string {
   return formatMetricBytes(value)
@@ -498,11 +521,7 @@ function formatWhole(value: number | null): string {
 function snapshotToSample(snap: NodeResourceSnapshot, timestampMs: number): NodeSample {
   return {
     timestampMs,
-    cpuPercent: snap.cpuPercent,
-    memoryPercent: snap.memoryPercent,
-    memoryUsedBytes: Number(snap.memoryUsedBytes),
-    diskPercent: snap.diskPercent,
-    diskUsedBytes: Number(snap.diskUsedBytes),
+    ...nodeReadingValues(snap),
     gameServerCount: snap.gameServerCount,
     runningGameServerCount: snap.runningGameServerCount,
   }
@@ -612,11 +631,7 @@ async function loadHistory(sinceMs: number, untilMs: number, maxPoints: number) 
   )
   const points: NodeSample[] = resp.points.map((point) => ({
     timestampMs: Number(point.timestamp?.seconds ?? 0n) * 1000,
-    cpuPercent: point.cpuPercent,
-    memoryPercent: point.memoryPercent,
-    memoryUsedBytes: Number(point.memoryUsedBytes),
-    diskPercent: point.diskPercent,
-    diskUsedBytes: Number(point.diskUsedBytes),
+    ...nodeReadingValues(point),
     // Rows recorded before counts were stored come back as 0/0; treat that as unknown.
     gameServerCount: point.gameServerCount > 0 ? point.gameServerCount : null,
     runningGameServerCount: point.gameServerCount > 0 ? point.runningGameServerCount : null,

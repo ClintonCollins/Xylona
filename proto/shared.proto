@@ -470,6 +470,14 @@ message NodeResourceSnapshot {
   int32 running_game_server_count = 9;
   int32 user_count = 10;
   google.protobuf.Timestamp recorded_at = 11;
+
+  // *_unavailable mark a host reading the node could not take; that metric's
+  // usage fields are then zero and must be shown as unavailable, not 0%.
+  // Negative sense, matching nodeproto NodeSnapshot, so an unset flag means
+  // the reading is available.
+  bool cpu_unavailable = 12;
+  bool memory_unavailable = 13;
+  bool disk_unavailable = 14;
 }
 
 // MetricsHistoryPoint is a single data point in a node metrics time series.
@@ -482,6 +490,13 @@ message MetricsHistoryPoint {
   int64 disk_used_bytes = 6;
   int32 game_server_count = 7;
   int32 running_game_server_count = 8;
+
+  // *_unavailable mark a point with no valid reading of that metric (every
+  // sample in the bucket failed); its value fields are zero and should be
+  // drawn as a gap, not 0.
+  bool cpu_unavailable = 9;
+  bool memory_unavailable = 10;
+  bool disk_unavailable = 11;
 }
 
 enum GameServerMetricsCollectionStatus {

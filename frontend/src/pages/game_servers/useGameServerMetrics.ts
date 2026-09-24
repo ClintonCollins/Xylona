@@ -68,6 +68,15 @@ function valueWhen(valid: boolean, value: number | bigint): number | null {
   return valid ? Number(value) : null
 }
 
+// A live node reading is undefined until the node's first message, so history is
+// all there is; after that its null (the node couldn't read it) is the answer.
+function liveNodeReading(
+  live: number | null | undefined,
+  history: number | null | undefined,
+): number | null {
+  return live === undefined ? (history ?? null) : live
+}
+
 function validSampleCount(value: number, sampleCount: number): number {
   return Math.min(Math.max(value, 0), sampleCount)
 }
@@ -303,8 +312,8 @@ export function normalizeLiveMetricPoint(
     timestampMs: number
     collectedAtMs: number
     latest: MetricSample | null
-    nodeMemoryUsedBytes: number | null
-    nodeMemoryTotalBytes: number | null
+    nodeMemoryUsedBytes: number | null | undefined
+    nodeMemoryTotalBytes: number | null | undefined
     configuredMemoryBytes: number | null
     nodeId: string
   },
@@ -327,8 +336,14 @@ export function normalizeLiveMetricPoint(
     memoryPercentAverage: processAvailable ? metrics.memoryPercent : null,
     memoryPercentMinimum: processAvailable ? metrics.memoryPercent : null,
     memoryPercentMaximum: processAvailable ? metrics.memoryPercent : null,
-    nodeMemoryUsedBytes: input.nodeMemoryUsedBytes ?? input.latest?.nodeMemoryUsedBytes ?? null,
-    nodeMemoryTotalBytes: input.nodeMemoryTotalBytes ?? input.latest?.nodeMemoryTotalBytes ?? null,
+    nodeMemoryUsedBytes: liveNodeReading(
+      input.nodeMemoryUsedBytes,
+      input.latest?.nodeMemoryUsedBytes,
+    ),
+    nodeMemoryTotalBytes: liveNodeReading(
+      input.nodeMemoryTotalBytes,
+      input.latest?.nodeMemoryTotalBytes,
+    ),
     configuredMemoryBytes:
       input.configuredMemoryBytes ?? input.latest?.configuredMemoryBytes ?? null,
     diskUsageAverage: metrics.diskValid ? Number(metrics.diskUsageBytes) : null,
@@ -404,8 +419,8 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
   const resolution = ref('Automatic resolution')
   const sampleIntervalSeconds = ref(0)
   const mixedResolution = ref(false)
-  const nodeMemoryUsedBytes = ref<number | null>(null)
-  const nodeMemoryTotalBytes = ref<number | null>(null)
+  const nodeMemoryUsedBytes = ref<number | null | undefined>(undefined)
+  const nodeMemoryTotalBytes = ref<number | null | undefined>(undefined)
   const liveProcessMetrics = ref<GameServerMetrics | null>(null)
   const guard = new LatestRequestGuard()
   let historyRefreshTimer: ReturnType<typeof setInterval> | undefined
@@ -431,8 +446,8 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
         Number(gameServer.value.maxMemoryMb) > 0
           ? Number(gameServer.value.maxMemoryMb) * 1024 * 1024
           : (latest?.configuredMemoryBytes ?? null),
-      nodeUsedBytes: nodeMemoryUsedBytes.value ?? latest?.nodeMemoryUsedBytes ?? null,
-      nodeTotalBytes: nodeMemoryTotalBytes.value ?? latest?.nodeMemoryTotalBytes ?? null,
+      nodeUsedBytes: liveNodeReading(nodeMemoryUsedBytes.value, latest?.nodeMemoryUsedBytes),
+      nodeTotalBytes: liveNodeReading(nodeMemoryTotalBytes.value, latest?.nodeMemoryTotalBytes),
     })
   })
 
@@ -446,8 +461,8 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
     resolution.value = 'Automatic resolution'
     sampleIntervalSeconds.value = 0
     mixedResolution.value = false
-    nodeMemoryUsedBytes.value = null
-    nodeMemoryTotalBytes.value = null
+    nodeMemoryUsedBytes.value = undefined
+    nodeMemoryTotalBytes.value = undefined
     liveProcessMetrics.value = null
   }
 
@@ -557,8 +572,10 @@ export function useGameServerMetrics({ gameServerId, initialRange }: UseGameServ
   function onNodeMetrics(metrics: AllNodeMetrics): void {
     const nodeMetrics = metrics.nodes[gameServer.value.nodeId]
     if (!nodeMetrics) return
-    nodeMemoryUsedBytes.value = Number(nodeMetrics.memoryUsedBytes)
-    nodeMemoryTotalBytes.value = Number(nodeMetrics.memoryTotalBytes)
+    // A failed read reports 0 bytes; that is not a real reading of the node's memory.
+    const unavailable = nodeMetrics.memoryUnavailable
+    nodeMemoryUsedBytes.value = unavailable ? null : Number(nodeMetrics.memoryUsedBytes)
+    nodeMemoryTotalBytes.value = unavailable ? null : Number(nodeMetrics.memoryTotalBytes)
     if (liveProcessMetrics.value && rangeRequest.value.live)
       appendLiveMetrics(liveProcessMetrics.value)
   }

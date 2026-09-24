@@ -321,7 +321,7 @@ export type NodeSnapshot = Message<"xylona.node.v1.NodeSnapshot"> & {
 
   /**
    * *_unavailable mark a host reading the node could not take (read error,
-   * or CPU before a full sampling window); its value fields are then zero and
+   * or CPU before a full sampling window); its usage fields are then zero and
    * must not be treated as a real 0%. Negative sense so snapshots from older
    * nodes, which never set them, still read as available.
    *
