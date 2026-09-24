@@ -1060,12 +1060,17 @@ type NodeSnapshot struct {
 	Architecture  string
 	XylonaVersion string
 
+	// Each *Valid flag is true only when the node read that host metric; an
+	// invalid metric's values are zero, not a real 0%.
 	CPUPercent    float64
+	CPUValid      bool
 	MemoryUsed    uint64
 	MemoryPercent float64
+	MemoryValid   bool
 	DiskUsed      uint64
 	DiskTotal     uint64
 	DiskPercent   float64
+	DiskValid     bool
 
 	// DefaultInstallPath is the node-resolved root directory under which the
 	// controller should place managed game-server directories for this node.

@@ -1891,6 +1891,50 @@ func TestGRPCClientGetNodeSnapshotRoundTripsFields(t *testing.T) {
 		t.Fatalf("legacy offline process metric validity should default to unavailable: %+v", legacyOfflineProcess)
 	}
 }
+
+func TestGRPCClientGetNodeSnapshotHostMetricValidity(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		snapshot  *nodeprotov1.NodeSnapshot
+		wantValid [3]bool // cpu, memory, disk
+	}{
+		{
+			name:      "older node without availability flags stays valid",
+			snapshot:  &nodeprotov1.NodeSnapshot{CpuPercent: 12, MemoryPercent: 34, DiskPercent: 56},
+			wantValid: [3]bool{true, true, true},
+		},
+		{
+			name:      "cpu and disk unavailable",
+			snapshot:  &nodeprotov1.NodeSnapshot{CpuUnavailable: true, MemoryPercent: 34, DiskUnavailable: true},
+			wantValid: [3]bool{false, true, false},
+		},
+		{
+			name:      "memory unavailable",
+			snapshot:  &nodeprotov1.NodeSnapshot{CpuPercent: 12, MemoryUnavailable: true, DiskPercent: 56},
+			wantValid: [3]bool{true, false, true},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			url, fingerprint := newPinnedTestServer(t, &callRecorder{nodeSnapshot: test.snapshot})
+			client, errClient := nodeclient.NewGRPCClient("node", url, fingerprint, "s")
+			if errClient != nil {
+				t.Fatalf("NewGRPCClient: %v", errClient)
+			}
+
+			snap, errSnap := client.GetNodeSnapshot(t.Context())
+			if errSnap != nil {
+				t.Fatalf("GetNodeSnapshot: %v", errSnap)
+			}
+			got := [3]bool{snap.CPUValid, snap.MemoryValid, snap.DiskValid}
+			if got != test.wantValid {
+				t.Fatalf("valid (cpu, memory, disk) = %v, want %v", got, test.wantValid)
+			}
+		})
+	}
+}
 func TestGRPCClientListBindableIPsRoundTripsFields(t *testing.T) {
 	t.Parallel()
 	rec := &callRecorder{

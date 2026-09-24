@@ -512,6 +512,41 @@ func TestNodeServiceServerSevenDaysToDieQueriesDashboardDisabled(t *testing.T) {
 	})
 }
 
+func TestNodeSnapshotToProtoHostMetricAvailability(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name            string
+		snapshot        node.NodeSnapshot
+		wantUnavailable [3]bool // cpu, memory, disk
+	}{
+		{
+			name:            "all readings valid",
+			snapshot:        node.NodeSnapshot{CPUValid: true, MemoryValid: true, DiskValid: true},
+			wantUnavailable: [3]bool{false, false, false},
+		},
+		{
+			name:            "cpu and disk failed",
+			snapshot:        node.NodeSnapshot{MemoryValid: true},
+			wantUnavailable: [3]bool{true, false, true},
+		},
+		{
+			name:            "memory failed",
+			snapshot:        node.NodeSnapshot{CPUValid: true, DiskValid: true},
+			wantUnavailable: [3]bool{false, true, false},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			result := nodeSnapshotToProto(&test.snapshot)
+			got := [3]bool{result.GetCpuUnavailable(), result.GetMemoryUnavailable(), result.GetDiskUnavailable()}
+			if got != test.wantUnavailable {
+				t.Fatalf("unavailable (cpu, memory, disk) = %v, want %v", got, test.wantUnavailable)
+			}
+		})
+	}
+}
+
 func TestSevenDaysToDiePlayersToProtoPreservesOptionalZeroValues(t *testing.T) {
 	t.Parallel()
 	falseValue := false
