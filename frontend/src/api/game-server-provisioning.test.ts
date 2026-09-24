@@ -30,7 +30,7 @@ describe('game-server-provisioning api', () => {
     expect(client.getGameServer).toHaveBeenCalledTimes(1)
   })
 
-  it('shapes game list options for selects', async () => {
+  it('keeps games in catalog order and sorts the select options by name', async () => {
     client.listGames.mockResolvedValue({
       games: [
         create(GameSchema, { id: 'minecraft', name: 'Minecraft' }),
@@ -44,8 +44,8 @@ describe('game-server-provisioning api', () => {
         create(GameSchema, { id: 'factorio', name: 'Factorio' }),
       ],
       options: [
-        { label: 'Minecraft', value: 'minecraft' },
         { label: 'Factorio', value: 'factorio' },
+        { label: 'Minecraft', value: 'minecraft' },
       ],
     })
   })

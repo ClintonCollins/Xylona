@@ -81,20 +81,31 @@
             <q-select
               v-if="canEditProvisioning"
               v-model="gameServer.gameId"
-              :options="availableGames"
+              :options="filteredGames"
               :rules="gameRules"
               aria-required="true"
               class="col-12 col-md-6"
               data-testid="editable-game"
               emit-value
+              fill-input
+              hide-selected
               hint="Keeps installed files, ports and capacity. Stop the server before changing it."
+              input-debounce="0"
               label="Game *"
               lazy-rules
               map-options
               option-label="label"
               outlined
               reactive-rules
-              @update:model-value="onGameSelected" />
+              use-input
+              @filter="filterGames"
+              @update:model-value="onGameSelected">
+              <template #no-option>
+                <q-item>
+                  <q-item-section class="text-xy-muted">No matching game</q-item-section>
+                </q-item>
+              </template>
+            </q-select>
           </div>
         </section>
 
@@ -917,9 +928,10 @@ const {
   autoRestartCooldownRules,
   autoRestartMaxRetriesModel,
   autoRestartMaxRetriesRules,
-  availableGames,
   availableIPs,
   availableUsers,
+  filterGames,
+  filteredGames,
   formRef,
   formSubmitting,
   gameRules,

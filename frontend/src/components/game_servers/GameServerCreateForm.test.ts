@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   resetSubmissionState: vi.fn(),
   startSubmitting: vi.fn(),
   ensurePortAvailabilityBeforeSave: vi.fn(),
+  fillNextFreePorts: vi.fn(),
   validateBeforeSave: vi.fn(),
 }))
 
@@ -46,6 +47,7 @@ vi.mock('quasar', async () => {
     ...actual,
     useQuasar: () => ({
       notify: mocks.notify,
+      screen: { xs: false },
     }),
   }
 })
@@ -74,6 +76,8 @@ vi.mock('./useGameServerFormState', () => ({
     deploymentReady: ref(false),
     deploymentReadyText: ref(''),
     deploymentWarningItems: ref([]),
+    filterGames: vi.fn(),
+    filteredGames: ref([]),
     formRef: ref(null),
     formSubmitting: ref(false),
     gameRules: [],
@@ -107,11 +111,13 @@ vi.mock('./useGameServerFormState', () => ({
 vi.mock('./useGameServerPortAvailability', () => ({
   useGameServerPortAvailability: () => ({
     ensurePortAvailabilityBeforeSave: mocks.ensurePortAvailabilityBeforeSave,
+    fillNextFreePorts: mocks.fillNextFreePorts,
     portAvailabilityBlocking: portAvailabilityState.blocking,
     portAvailabilityChecking: portAvailabilityState.checking,
     portAvailabilityMessage: portAvailabilityState.message,
     portAvailabilityState: portAvailabilityState.state,
     portAvailabilityVisible: portAvailabilityState.visible,
+    portSuggestionNote: ref(''),
   }),
 }))
 
@@ -138,7 +144,19 @@ const QInputStub = defineComponent({
     },
   },
   template:
-    '<div class="q-input-stub" :data-label="label" :data-error="String(error)" :data-error-message="errorMessage"></div>',
+    '<div class="q-input-stub" :data-label="label" :data-error="String(error)" :data-error-message="errorMessage"><slot v-if="error" name="error" /></div>',
+})
+
+const QBtnStub = defineComponent({
+  name: 'QBtn',
+  props: {
+    label: {
+      type: String,
+      default: '',
+    },
+  },
+  emits: ['click'],
+  template: '<button class="q-btn-stub" @click="$emit(\'click\')">{{ label }}</button>',
 })
 
 const QSelectStub = defineComponent({
@@ -164,6 +182,7 @@ describe('GameServerCreateForm submit flow', () => {
     mocks.resetSubmissionState.mockReset()
     mocks.startSubmitting.mockReset()
     mocks.ensurePortAvailabilityBeforeSave.mockReset()
+    mocks.fillNextFreePorts.mockReset()
     mocks.validateBeforeSave.mockReset()
     portAvailabilityState.blocking.value = false
     portAvailabilityState.checking.value = false
@@ -274,7 +293,7 @@ describe('GameServerCreateForm submit flow', () => {
     expect(mocks.resetSubmissionState).not.toHaveBeenCalled()
   })
 
-  it('shows the live port conflict on the port input instead of a separate status row', () => {
+  it('shows the live port conflict on the port input with a next-free-port action', async () => {
     portAvailabilityState.blocking.value = true
     portAvailabilityState.message.value = 'Port 25565 is already in use on 216.177.177.228.'
     portAvailabilityState.state.value = 'conflict'
@@ -289,6 +308,8 @@ describe('GameServerCreateForm submit flow', () => {
           'q-input': QInputStub,
           QSelect: QSelectStub,
           'q-select': QSelectStub,
+          QBtn: QBtnStub,
+          'q-btn': QBtnStub,
         },
       },
     })
@@ -299,9 +320,11 @@ describe('GameServerCreateForm submit flow', () => {
 
     expect(portInput.exists()).toBe(true)
     expect(portInput.attributes('data-error')).toBe('true')
-    expect(portInput.attributes('data-error-message')).toBe(
-      'Port 25565 is already in use on 216.177.177.228.',
-    )
+    expect(portInput.text()).toContain('Port 25565 is already in use on 216.177.177.228.')
+
+    await portInput.get('button').trigger('click')
+    expect(portInput.get('button').text()).toBe('Use next free port')
+    expect(mocks.fillNextFreePorts).toHaveBeenCalledTimes(1)
   })
 
   it('shows a server executable field during provisioning', () => {

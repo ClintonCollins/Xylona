@@ -35,6 +35,13 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
 
   const gameServer = ref(create(GameServerSchema, {}))
   const availableGames = ref<ProvisioningOption[]>([])
+  const gameFilter = ref('')
+  const filteredGames = computed(() => {
+    const needle = gameFilter.value.trim().toLowerCase()
+    return needle
+      ? availableGames.value.filter((game) => game.label.toLowerCase().includes(needle))
+      : availableGames.value
+  })
   const availableUsers = ref<ProvisioningOption[]>([])
   const availableIPs = ref<Array<IP>>([])
   const gamesMap = ref(new Map<string, Game>())
@@ -261,6 +268,13 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     }
   }
 
+  // q-select @filter handler: type to narrow the game list.
+  function filterGames(value: string, update: (callback: () => void) => void) {
+    update(() => {
+      gameFilter.value = value
+    })
+  }
+
   function onGameSelected(gameId: string) {
     const selectedGame = gamesMap.value.get(gameId)
     if (!selectedGame) {
@@ -372,12 +386,8 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
         return
       }
 
-      const firstAvailableGame = availableGames.value[0]
-      if (!firstAvailableGame) {
-        return
-      }
-
-      const firstGame = gamesMap.value.get(firstAvailableGame.value)
+      // Default to the catalog's first game; the picker itself is alphabetical.
+      const firstGame = provisioningGames.games[0]
       if (!firstGame) {
         return
       }
@@ -524,6 +534,8 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     deploymentReady,
     deploymentReadyText,
     deploymentWarningItems,
+    filterGames,
+    filteredGames,
     formRef,
     formSubmitting,
     gameRules,
