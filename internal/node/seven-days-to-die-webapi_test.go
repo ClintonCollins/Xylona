@@ -619,7 +619,7 @@ func TestNodeQuerySevenDaysToDiePlayers(t *testing.T) {
 		wantState        SevenDaysToDieWebAPIValueState
 		wantCount        int
 	}{
-		{name: "confirmed empty roster", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":{"players":[]},"meta":{}}`, wantState: SevenDaysToDieWebAPIValueStateAvailable},
+		{name: "confirmed empty player list", master: fullSevenDaysToDieOpenAPI(), statusCode: http.StatusOK, body: `{"data":{"players":[]},"meta":{}}`, wantState: SevenDaysToDieWebAPIValueStateAvailable},
 		{name: "missing capability", master: "openapi: 3.1.0\ninfo:\n  version: '1'\npaths: {}\n", wantState: SevenDaysToDieWebAPIValueStateUnsupported},
 		{name: "discovery unauthorized", masterStatusCode: http.StatusUnauthorized, wantConnection: SevenDaysToDieWebAPIConnectionStateAuthenticationDenied, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
 		{name: "discovery forbidden", masterStatusCode: http.StatusForbidden, wantConnection: SevenDaysToDieWebAPIConnectionStateAuthenticationDenied, wantState: SevenDaysToDieWebAPIValueStateUnavailable},
@@ -690,7 +690,7 @@ func TestFirstSafeSevenDaysToDieActionID(t *testing.T) {
 		{name: "falls back after quote", identifiers: []string{`Steam_"100`, "EOS_200", "42"}, want: "EOS_200"},
 		{name: "falls back after backslash and control character", identifiers: []string{`Steam_\100`, "EOS_\n200", "42"}, want: "42"},
 		{name: "falls back after oversized identifier", identifiers: []string{strings.Repeat("x", maxPlayerActionIdentifierRunes+1), "EOS_200"}, want: "EOS_200"},
-		{name: "leaves unsafe roster read only", identifiers: []string{`Steam_"100`, `EOS_\200`, "\n"}},
+		{name: "leaves unsafe players read only", identifiers: []string{`Steam_"100`, `EOS_\200`, "\n"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

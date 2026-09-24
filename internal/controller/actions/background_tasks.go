@@ -246,13 +246,13 @@ func (inst *Instance) fillSevenDaysToDiePlayerNames(ctx context.Context, gameSer
 	client, errClient := inst.resolveNodeClient(gameServer.NodeID)
 	if errClient != nil {
 		log.Debug().Err(errClient).Str("server", gameServer.Name).Str("node_id", gameServer.NodeID).
-			Msg("Failed to resolve node client for 7 Days to Die player roster fallback")
+			Msg("Failed to resolve node client for 7 Days to Die player list fallback")
 		return
 	}
 	tokenName, tokenSecret, errCredentials := inst.SevenDaysToDieMapCredentials(gameServer)
 	if errCredentials != nil {
 		log.Debug().Err(errCredentials).Str("server", gameServer.Name).
-			Msg("Failed to load 7 Days to Die player roster fallback credentials")
+			Msg("Failed to load 7 Days to Die player list fallback credentials")
 		return
 	}
 	fallbackCtx, cancelFallback := context.WithTimeout(ctx, 2*time.Second)
@@ -264,7 +264,7 @@ func (inst *Instance) fillSevenDaysToDiePlayerNames(ctx context.Context, gameSer
 	})
 	if errQuery != nil {
 		log.Debug().Err(errQuery).Str("server", gameServer.Name).Str("node_id", gameServer.NodeID).
-			Msg("7 Days to Die player roster fallback unavailable")
+			Msg("7 Days to Die player list fallback unavailable")
 		return
 	}
 	fillSourcePlayerNamesFromSevenDaysToDieMap(source, snapshot)

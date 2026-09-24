@@ -778,7 +778,7 @@ type SevenDaysToDiePlayer struct {
 	Banned          *bool
 }
 
-// SevenDaysToDiePlayers is the bounded native player roster result.
+// SevenDaysToDiePlayers is the bounded native player list result.
 type SevenDaysToDiePlayers struct {
 	ConnectionState SevenDaysToDieWebAPIConnectionState
 	State           SevenDaysToDieWebAPIValueState

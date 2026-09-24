@@ -140,7 +140,7 @@ func (*Node) QuerySevenDaysToDieWebAPIStatus(ctx context.Context, req SevenDaysT
 	return status, nil
 }
 
-// QuerySevenDaysToDiePlayers returns the native management roster without
+// QuerySevenDaysToDiePlayers returns the native management player list without
 // exposing it through the broad game-server query path.
 func (*Node) QuerySevenDaysToDiePlayers(ctx context.Context, req SevenDaysToDiePlayersQueryRequest) (*SevenDaysToDiePlayers, error) {
 	access := newSevenDaysToDieNativeAccess(req.WorkingDirectory, req.TokenName, req.TokenSecret)

@@ -392,7 +392,7 @@ func projectPublicGameServerStatusPage(
 			if telemetry.PlayerCapacityValid {
 				publicServer.MaxPlayerCount = telemetry.PlayerCapacity
 			}
-			applyPublicRoster(publicServer, queryForServer(queries, server.ID), telemetry.QueryType)
+			applyPublicPlayers(publicServer, queryForServer(queries, server.ID), telemetry.QueryType)
 		case actions.GameServerQueryTelemetryStatusUnsupported:
 			publicServer.RosterState = xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED
 		}
@@ -423,7 +423,7 @@ func projectedPublicGameServerMapPath(server *models.GameServer, details db.Game
 	return "/maps/" + details.MapPublicIdentifier.String
 }
 
-func applyPublicRoster(publicServer *xylona.PublicGameServerStatus, query *xylona.ServerQuery, queryType xylona.ServerQuery_Type) {
+func applyPublicPlayers(publicServer *xylona.PublicGameServerStatus, query *xylona.ServerQuery, queryType xylona.ServerQuery_Type) {
 	if query == nil {
 		return
 	}
