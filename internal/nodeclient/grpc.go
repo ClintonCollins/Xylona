@@ -841,7 +841,7 @@ func (c *GRPCNodeClient) QuerySevenDaysToDieOperationMetadata(ctx context.Contex
 	return result, nil
 }
 
-// QuerySevenDaysToDiePlayers invokes the private native player-roster RPC.
+// QuerySevenDaysToDiePlayers invokes the private native player-list RPC.
 func (c *GRPCNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, playersReq node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error) {
 	req := newReq(c, &nodeprotov1.QuerySevenDaysToDiePlayersRequest{
 		WorkingDirectory: playersReq.WorkingDirectory,

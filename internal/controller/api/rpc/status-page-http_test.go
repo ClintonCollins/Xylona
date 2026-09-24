@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,6 +27,29 @@ func TestNewGameServerStatusPageHTTPHandlerAllowsMissingShell(t *testing.T) {
 	handler.StatusPage(response, request)
 	if response.Code != http.StatusInternalServerError {
 		t.Fatalf("missing shell status = %d, want %d", response.Code, http.StatusInternalServerError)
+	}
+}
+
+// Third-party clients read the public snapshot JSON by name, so the players
+// state keeps its published field and value names.
+func TestStatusPageSnapshotKeepsPublishedPlayersStateNames(t *testing.T) {
+	body, errMarshal := marshalStatusPageSnapshot(&xylona.PublicGameServerStatusPage{
+		Servers: []*xylona.PublicGameServerStatus{{
+			RosterState: xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE,
+		}},
+	})
+	if errMarshal != nil {
+		t.Fatalf("marshalStatusPageSnapshot() error = %v", errMarshal)
+	}
+	var page struct {
+		Servers []map[string]any `json:"servers"`
+	}
+	errUnmarshal := json.Unmarshal(body, &page)
+	if errUnmarshal != nil {
+		t.Fatalf("unmarshal snapshot: %v", errUnmarshal)
+	}
+	if len(page.Servers) != 1 || page.Servers[0]["rosterState"] != "GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE" {
+		t.Fatalf("snapshot = %s, want published rosterState name and value", body)
 	}
 }
 

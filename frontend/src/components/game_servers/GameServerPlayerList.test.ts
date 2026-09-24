@@ -7,7 +7,7 @@ import {
   GameServerPlayerAction,
   GetGameServerPlayerManagementResponseSchema,
 } from '@/proto/xylona_pb'
-import GameServerPlayerRoster from './GameServerPlayerRoster.vue'
+import GameServerPlayerList from './GameServerPlayerList.vue'
 
 const mocks = vi.hoisted(() => ({
   getManagement: vi.fn(),
@@ -31,8 +31,8 @@ vi.mock('@/api/notifications', () => ({
   notifySuccess: vi.fn(),
 }))
 
-async function mountRoster(nativeIdentifiersRequired: boolean, playerNames = ['Player One']) {
-  const wrapper = mount(GameServerPlayerRoster, {
+async function mountPlayerList(nativeIdentifiersRequired: boolean, playerNames = ['Player One']) {
+  const wrapper = mount(GameServerPlayerList, {
     props: {
       gameServerId: 'server-1',
       isOnline: true,
@@ -60,7 +60,7 @@ async function mountRoster(nativeIdentifiersRequired: boolean, playerNames = ['P
   return wrapper
 }
 
-describe('GameServerPlayerRoster', () => {
+describe('GameServerPlayerList', () => {
   beforeEach(() => {
     mocks.getManagement.mockReset().mockResolvedValue(
       create(GetGameServerPlayerManagementResponseSchema, {
@@ -80,7 +80,7 @@ describe('GameServerPlayerRoster', () => {
   })
 
   it('deep-links a 7DTD quick action with its authoritative Player identity', async () => {
-    const wrapper = await mountRoster(true)
+    const wrapper = await mountPlayerList(true)
 
     expect(mocks.getManagement).toHaveBeenCalledOnce()
     await wrapper.get('[aria-label="Kick Player One"]').trigger('click')
@@ -106,18 +106,18 @@ describe('GameServerPlayerRoster', () => {
         ],
       }),
     )
-    const wrapper = await mountRoster(true, ['Duplicated name', 'Duplicated name'])
+    const wrapper = await mountPlayerList(true, ['Duplicated name', 'Duplicated name'])
 
     expect(wrapper.find('[aria-label="Kick Duplicated name"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
   it('keeps non-7DTD console quick actions on the compatible player field', async () => {
-    const wrapper = await mountRoster(false)
+    const wrapper = await mountPlayerList(false)
     await wrapper.vm.$nextTick()
 
     expect(mocks.getManagement).toHaveBeenCalledOnce()
-    expect(wrapper.html()).toContain('roster__actions')
+    expect(wrapper.html()).toContain('player-list__actions')
     expect(wrapper.find('[aria-label="Kick Player One"]').exists()).toBe(true)
     wrapper.unmount()
   })

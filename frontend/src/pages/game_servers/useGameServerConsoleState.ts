@@ -110,7 +110,7 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     followNewOutput()
   }
 
-  // Injects a panel-generated roster marker (from query snapshot diffing)
+  // Injects a panel-generated player join/leave marker (from query snapshot diffing)
   // directly into the stream; it never passes through parseConsole.
   function appendPlayerEvent(event: PlayerFeedEvent) {
     consoleLines.value.push({

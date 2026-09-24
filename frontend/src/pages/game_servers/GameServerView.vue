@@ -603,7 +603,7 @@
           <p v-if="playerCount === null" role="status" class="q-ma-none text-caption text-xy-muted">
             {{ unknownPlayersMessage }}
           </p>
-          <game-server-player-roster
+          <game-server-player-list
             v-else
             :can-manage-players="
               gameServer.gameId !== 'valheim' && hasPermission('game_server.players.manage')
@@ -664,7 +664,7 @@ import { create } from '@bufbuild/protobuf'
 import ClipBoardCopy from '@/components/ClipBoardCopy.vue'
 import ConsoleCommandInput from '@/components/game_servers/ConsoleCommandInput.vue'
 import GameServerPlayerManagementDialog from '@/components/game_servers/GameServerPlayerManagementDialog.vue'
-import GameServerPlayerRoster from '@/components/game_servers/GameServerPlayerRoster.vue'
+import GameServerPlayerList from '@/components/game_servers/GameServerPlayerList.vue'
 import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSelector.vue'
 import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
@@ -725,7 +725,7 @@ import {
 import { canSelectSteamBranch, chooseSteamBranchForUpdate } from './steam-branch-update'
 import {
   consoleLineMatchesFilter,
-  diffRoster,
+  diffPlayers,
   getConsoleFeedClassifier,
   getConsoleFeedFilterOptions,
   type ConsoleFeedFilter,
@@ -1001,20 +1001,20 @@ watch(consoleFeedFilterOptions, (options) => {
   }
 })
 
-// Roster snapshots are diffed into join/leave markers in the console stream.
+// Player list snapshots are diffed into join/leave markers in the console stream.
 // The first snapshot after (re)connecting is the baseline, not a mass join.
-let rosterBaseline: string[] | null = null
+let playersBaseline: string[] | null = null
 watch(onlinePlayers, (next) => {
   if (!isServerOnline.value || !playerListSupported.value) {
-    rosterBaseline = null
+    playersBaseline = null
     return
   }
-  if (rosterBaseline === null) {
-    rosterBaseline = [...next]
+  if (playersBaseline === null) {
+    playersBaseline = [...next]
     return
   }
-  const rosterChanges = diffRoster(rosterBaseline, next)
-  for (const name of rosterChanges.joined) {
+  const playerChanges = diffPlayers(playersBaseline, next)
+  for (const name of playerChanges.joined) {
     appendPlayerEvent({
       type: 'join',
       name,
@@ -1022,7 +1022,7 @@ watch(onlinePlayers, (next) => {
       playerCapacity: maxPlayerCount.value,
     })
   }
-  for (const name of rosterChanges.left) {
+  for (const name of playerChanges.left) {
     appendPlayerEvent({
       type: 'leave',
       name,
@@ -1030,11 +1030,11 @@ watch(onlinePlayers, (next) => {
       playerCapacity: maxPlayerCount.value,
     })
   }
-  rosterBaseline = [...next]
+  playersBaseline = [...next]
 })
 
 watch(isServerOnline, (online) => {
-  if (!online) rosterBaseline = null
+  if (!online) playersBaseline = null
 })
 const showConsolePlaceholder = computed(
   () =>
@@ -2148,7 +2148,7 @@ async function sendGameServerInput() {
   font-size: var(--xy-font-size-2xs);
 }
 
-/* Panel-generated roster markers injected into the console stream */
+/* Panel-generated player join/leave markers injected into the console stream */
 .console-scroll-area :deep(.console-player-event) {
   display: block;
   padding: var(--xy-space-2xs) 0;

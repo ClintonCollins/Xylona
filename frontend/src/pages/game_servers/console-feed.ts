@@ -75,12 +75,12 @@ export function consoleLineMatchesFilter(
   return (kind ?? 'server') === filter
 }
 
-export interface RosterDiff {
+export interface PlayersDiff {
   joined: string[]
   left: string[]
 }
 
-export function diffRoster(previous: readonly string[], next: readonly string[]): RosterDiff {
+export function diffPlayers(previous: readonly string[], next: readonly string[]): PlayersDiff {
   const previousSet = new Set(previous)
   const nextSet = new Set(next)
   return {
@@ -105,7 +105,7 @@ export interface PlayerFeedEvent {
   playerCapacity: number
 }
 
-// Panel-generated marker line for roster changes detected by Xylona itself
+// Panel-generated marker line for player joins and leaves detected by Xylona itself
 // (query snapshot diffing), independent of any game log format.
 export function buildPlayerEventHtml(event: PlayerFeedEvent): string {
   const glyph = event.type === 'join' ? '⇢' : '⇠'

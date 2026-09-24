@@ -7,7 +7,7 @@ import {
   GameServerManagementPlayerSchema,
   type GameServerManagementPlayer,
   GameServerPlayerAction,
-  GameServerPlayerManagementRosterState,
+  GameServerPlayerManagementPlayersState,
   GetGameServerPlayerManagementResponseSchema,
 } from '@/proto/xylona_pb'
 import PlayerManagementPanel from './PlayerManagementPanel.vue'
@@ -68,7 +68,7 @@ const stubs = {
 }
 
 function response(
-  rosterState: GameServerPlayerManagementRosterState,
+  playersState: GameServerPlayerManagementPlayersState,
   options: {
     players?: GameServerManagementPlayer[]
     status?: Status
@@ -82,7 +82,7 @@ function response(
       unavailableReason: options.unavailableReason,
       identifierLabel: 'Platform, cross-platform, or entity ID',
       supportedActions: [GameServerPlayerAction.KICK],
-      rosterState,
+      playersState,
     },
     managementPlayers: options.players ?? [],
     status: options.status ?? Status.ONLINE,
@@ -112,14 +112,14 @@ describe('PlayerManagementPanel', () => {
 
   it.each([
     [
-      GameServerPlayerManagementRosterState.UNSUPPORTED,
+      GameServerPlayerManagementPlayersState.UNSUPPORTED,
       'This server does not report its online players',
     ],
     [
-      GameServerPlayerManagementRosterState.PERMISSION_DENIED,
+      GameServerPlayerManagementPlayersState.PERMISSION_DENIED,
       'The game server denied access to its player list',
     ],
-    [GameServerPlayerManagementRosterState.UNAVAILABLE, 'The player list is unavailable'],
+    [GameServerPlayerManagementPlayersState.UNAVAILABLE, 'The player list is unavailable'],
   ])(
     'renders player list state %s while leaving manual actions enabled',
     async (state, expected) => {
@@ -136,7 +136,7 @@ describe('PlayerManagementPanel', () => {
 
   it('distinguishes offline and a confirmed empty player list', async () => {
     mocks.getManagement.mockResolvedValueOnce(
-      response(GameServerPlayerManagementRosterState.AVAILABLE, { status: Status.OFFLINE }),
+      response(GameServerPlayerManagementPlayersState.AVAILABLE, { status: Status.OFFLINE }),
     )
     const offline = await mountPanel()
     expect(offline.text()).toContain('Players appear while the server is online')
@@ -144,7 +144,7 @@ describe('PlayerManagementPanel', () => {
     offline.unmount()
 
     mocks.getManagement.mockResolvedValueOnce(
-      response(GameServerPlayerManagementRosterState.AVAILABLE),
+      response(GameServerPlayerManagementPlayersState.AVAILABLE),
     )
     const empty = await mountPanel()
     expect(empty.text()).toContain('No players online')
@@ -171,7 +171,7 @@ describe('PlayerManagementPanel', () => {
       banned: false,
     })
     mocks.getManagement.mockResolvedValue(
-      response(GameServerPlayerManagementRosterState.AVAILABLE, { players: [player] }),
+      response(GameServerPlayerManagementPlayersState.AVAILABLE, { players: [player] }),
     )
     const wrapper = await mountPanel()
 
@@ -211,7 +211,7 @@ describe('PlayerManagementPanel', () => {
       actionIdentifier: 'Alex',
     })
     mocks.getManagement.mockResolvedValue(
-      response(GameServerPlayerManagementRosterState.UNSPECIFIED, { players: [player] }),
+      response(GameServerPlayerManagementPlayersState.UNSPECIFIED, { players: [player] }),
     )
     const minecraft = await mountPanel()
 
@@ -221,7 +221,7 @@ describe('PlayerManagementPanel', () => {
     minecraft.unmount()
 
     mocks.getManagement.mockResolvedValue(
-      response(GameServerPlayerManagementRosterState.UNSPECIFIED, {
+      response(GameServerPlayerManagementPlayersState.UNSPECIFIED, {
         actionsSupported: false,
         unavailableReason: 'Palworld REST API credentials are not configured for this server.',
       }),
@@ -237,7 +237,7 @@ describe('PlayerManagementPanel', () => {
   it('ignores retained offline native players when comparing live query events', async () => {
     vi.useFakeTimers()
     mocks.getManagement.mockResolvedValue(
-      response(GameServerPlayerManagementRosterState.AVAILABLE, {
+      response(GameServerPlayerManagementPlayersState.AVAILABLE, {
         players: [
           create(GameServerManagementPlayerSchema, { name: 'Alex', online: true }),
           create(GameServerManagementPlayerSchema, { name: 'Jamie', online: false }),

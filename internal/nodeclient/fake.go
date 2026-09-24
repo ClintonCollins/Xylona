@@ -661,7 +661,7 @@ func (f *FakeNodeClient) QuerySevenDaysToDieOperationMetadata(ctx context.Contex
 	return f.QuerySevenDaysToDieOperationMetadataResult, f.QuerySevenDaysToDieOperationMetadataErr
 }
 
-// QuerySevenDaysToDiePlayers records the call and returns the configured roster.
+// QuerySevenDaysToDiePlayers records the call and returns the configured players.
 func (f *FakeNodeClient) QuerySevenDaysToDiePlayers(ctx context.Context, req node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error) {
 	f.mu.Lock()
 	f.QuerySevenDaysToDiePlayersCalls = append(f.QuerySevenDaysToDiePlayersCalls, req)

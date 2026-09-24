@@ -81,7 +81,7 @@ func TestFillSourcePlayerNamesFromSevenDaysToDieMap(t *testing.T) {
 		wantSupported bool
 	}{
 		{
-			name:   "fills a blank A2S roster",
+			name:   "fills a blank A2S player list",
 			source: &xylona.SourceQueryInfo{Players: 1, PlayerListSupported: true},
 			snapshot: &node.SevenDaysToDieMapSnapshot{Players: []node.SevenDaysToDieMapPlayer{
 				{Name: "Alex", Online: true},
@@ -90,7 +90,7 @@ func TestFillSourcePlayerNamesFromSevenDaysToDieMap(t *testing.T) {
 			wantSupported: true,
 		},
 		{
-			name: "appends dashboard names to a partial A2S roster",
+			name: "appends dashboard names to a partial A2S player list",
 			source: &xylona.SourceQueryInfo{
 				Players:             3,
 				PlayerList:          []string{"Alyx"},
@@ -104,7 +104,7 @@ func TestFillSourcePlayerNamesFromSevenDaysToDieMap(t *testing.T) {
 			wantSupported: true,
 		},
 		{
-			name: "preserves a complete A2S roster",
+			name: "preserves a complete A2S player list",
 			source: &xylona.SourceQueryInfo{
 				Players:             1,
 				PlayerList:          []string{"Alyx"},
@@ -144,7 +144,7 @@ func TestFillSourcePlayerNamesFromSevenDaysToDieMap(t *testing.T) {
 	}
 }
 
-func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T) {
+func TestQueryGameServersFillsSevenDaysToDiePlayerListGapsFromDashboard(t *testing.T) {
 	inst := newTestInstance(t)
 	inst.db.SetEncryptionKey([]byte("01234567890123456789012345678901"))
 	_, errNode := inst.db.SQLDb.ExecContext(
@@ -170,15 +170,15 @@ func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T
 		`insert into user (id, user_name, email, first_name, last_name, password_hash, super_user, created_at, updated_at)
 		 values (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		 on conflict(id) do nothing`,
-		"user-roster", "owner", "owner@example.com", "Owner", "User", "hash", false,
+		"user-players", "owner", "owner@example.com", "Owner", "User", "hash", false,
 	)
 	if errUser != nil {
 		t.Fatalf("insert user setup error = %v", errUser)
 	}
 	directory := t.TempDir()
 	_, errServer := inst.db.InsertGameServer(inst.db.DB, &models.GameServerSetter{
-		ID:               omit.From("server-roster"),
-		UserID:           omit.From("user-roster"),
+		ID:               omit.From("server-players"),
+		UserID:           omit.From("user-players"),
 		Name:             omit.From("7DTD Server"),
 		GameID:           omit.From(sevenDaysToDieGameID),
 		Status:           omit.From(xylona.Status_ONLINE.String()),
@@ -199,7 +199,7 @@ func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T
 	remoteClient := &nodeclient.FakeNodeClient{
 		NodeID: "node-remote",
 		GetProcessSnapshotResult: &node.ProcessSnapshot{
-			ID:     "server-roster",
+			ID:     "server-players",
 			Status: xylona.Status_ONLINE.String(),
 		},
 		GetProcessSnapshotFound: true,
@@ -218,7 +218,7 @@ func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T
 	registry.Register(remoteClient)
 	inst.nodeRegistry = registry
 	gameServer := &models.GameServer{
-		ID:        "server-roster",
+		ID:        "server-players",
 		Name:      "7DTD Server",
 		GameID:    sevenDaysToDieGameID,
 		Directory: directory,
@@ -255,7 +255,7 @@ func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T
 	}
 	inst.queryGameServers(t.Context(), []*models.GameServer{gameServer})
 	if len(remoteClient.QuerySevenDaysToDieMapCalls) != 1 {
-		t.Fatalf("dashboard calls = %d, want no fallback for a complete A2S roster", len(remoteClient.QuerySevenDaysToDieMapCalls))
+		t.Fatalf("dashboard calls = %d, want no fallback for a complete A2S player list", len(remoteClient.QuerySevenDaysToDieMapCalls))
 	}
 
 	remoteClient.QueryGameServerResult.Source = &node.SourceQueryInfo{
@@ -270,7 +270,7 @@ func TestQueryGameServersFillsSevenDaysToDieRosterGapsFromDashboard(t *testing.T
 	result = inst.serverQueriesInfoMap[gameServer.ID]
 	inst.serverQueriesMutex.RUnlock()
 	if !slices.Equal(result.GetSource().GetPlayerList(), []string{"Alyx"}) {
-		t.Fatalf("player list after dashboard failure = %v, want preserved A2S roster", result.GetSource().GetPlayerList())
+		t.Fatalf("player list after dashboard failure = %v, want preserved A2S player list", result.GetSource().GetPlayerList())
 	}
 }
 

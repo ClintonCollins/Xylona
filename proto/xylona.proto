@@ -278,6 +278,8 @@ message UpdateGameServerStatusPageSettingsResponse {
   GameServerStatusPageSettings settings = 1;
 }
 
+// The public status JSON API (/api/public/status-pages) exposes these value
+// names to third-party clients, so they keep their original wording.
 enum GameServerStatusPageRosterState {
   GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED = 0;
   GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE = 1;
@@ -294,6 +296,8 @@ message PublicGameServerStatus {
   optional uint32 current_player_count = 6;
   uint32 max_player_count = 7;
   repeated string player_names = 8;
+  // Published as "rosterState" by the public status JSON API; renaming it
+  // would break third-party clients.
   GameServerStatusPageRosterState roster_state = 9;
   google.protobuf.Timestamp observed_at = 10;
   string version = 11;
@@ -1819,12 +1823,12 @@ enum GameServerPlayerAction {
   GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE = 5;
 }
 
-enum GameServerPlayerManagementRosterState {
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED = 0;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE = 1;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED = 2;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED = 3;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE = 4;
+enum GameServerPlayerManagementPlayersState {
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED = 0;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE = 1;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED = 2;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED = 3;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNAVAILABLE = 4;
 }
 
 message GameServerPlayerManagementCapabilities {
@@ -1832,7 +1836,7 @@ message GameServerPlayerManagementCapabilities {
   string unavailable_reason = 2;
   string identifier_label = 3;
   repeated GameServerPlayerAction supported_actions = 4;
-  GameServerPlayerManagementRosterState roster_state = 5;
+  GameServerPlayerManagementPlayersState players_state = 5;
 }
 
 message GameServerManagementPlayer {

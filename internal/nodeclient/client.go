@@ -156,7 +156,7 @@ type NodeClient interface {
 	// QuerySevenDaysToDieOperationMetadata reads offline-safe operation choices from server files.
 	QuerySevenDaysToDieOperationMetadata(ctx context.Context, req node.SevenDaysToDieOperationMetadataQueryRequest) (*node.SevenDaysToDieOperationMetadata, error)
 
-	// QuerySevenDaysToDiePlayers reads the private native management roster on the owning node.
+	// QuerySevenDaysToDiePlayers reads the private native management player list on the owning node.
 	QuerySevenDaysToDiePlayers(ctx context.Context, req node.SevenDaysToDiePlayersQueryRequest) (*node.SevenDaysToDiePlayers, error)
 
 	// QuerySevenDaysToDieReportedMods reads the private native loaded-mod list on the owning node.
