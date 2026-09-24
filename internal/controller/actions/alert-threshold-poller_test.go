@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -162,8 +163,11 @@ type fakeNodeMetricsProvider struct {
 	nodes         []nodeMetricsSnapshot
 	nodeID        string
 	cpuPercent    float64
+	cpuInvalid    bool
 	memoryPercent float64
+	memoryInvalid bool
 	diskPercent   float64
+	diskInvalid   bool
 	shouldErr     bool
 }
 
@@ -183,8 +187,11 @@ func (f *fakeNodeMetricsProvider) ListNodeMetrics() []nodeMetricsSnapshot {
 		{
 			nodeID:        f.nodeID,
 			cpuPercent:    f.cpuPercent,
+			cpuValid:      !f.cpuInvalid,
 			memoryPercent: f.memoryPercent,
+			memoryValid:   !f.memoryInvalid,
 			diskPercent:   f.diskPercent,
+			diskValid:     !f.diskInvalid,
 		},
 	}
 }
@@ -582,9 +589,9 @@ func TestThresholdPollerAllNodesRuleEvaluatesEveryNode(t *testing.T) {
 	serverProv := &fakeServerMetricsProvider{}
 	nodeProv := &fakeNodeMetricsProvider{
 		nodes: []nodeMetricsSnapshot{
-			{nodeID: "node-a", memoryPercent: 75.0},
-			{nodeID: "node-b", memoryPercent: 71.0},
-			{nodeID: "node-c", memoryPercent: 55.0},
+			{nodeID: "node-a", memoryPercent: 75.0, memoryValid: true},
+			{nodeID: "node-b", memoryPercent: 71.0, memoryValid: true},
+			{nodeID: "node-c", memoryPercent: 55.0, memoryValid: true},
 		},
 	}
 	playerProv := &fakePlayerCountProvider{counts: map[string]int{}}
@@ -639,8 +646,11 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 		NodeID: "node-a",
 		SnapshotResult: &node.NodeSnapshot{
 			CPUPercent:    61,
+			CPUValid:      true,
 			MemoryPercent: 62,
+			MemoryValid:   true,
 			DiskPercent:   63,
+			DiskValid:     true,
 		},
 	})
 	registry.Register(&nodeclient.FakeNodeClient{
@@ -648,7 +658,9 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 		SnapshotResult: &node.NodeSnapshot{
 			CPUPercent:    71,
 			MemoryPercent: 72,
+			MemoryValid:   true,
 			DiskPercent:   73,
+			DiskValid:     true,
 		},
 	})
 	registry.Register(&nodeclient.FakeNodeClient{
@@ -675,16 +687,18 @@ func TestRegistryNodeMetricsProviderListsEveryRegisteredNodeAndSkipsFailures(t *
 	if !ok {
 		t.Fatal("missing node-a metrics")
 	}
-	if nodeA.cpuPercent != 61 || nodeA.memoryPercent != 62 || nodeA.diskPercent != 63 {
-		t.Fatalf("node-a metrics = %+v, want cpu=61 memory=62 disk=63", nodeA)
+	wantA := nodeMetricsSnapshot{nodeID: "node-a", cpuPercent: 61, cpuValid: true, memoryPercent: 62, memoryValid: true, diskPercent: 63, diskValid: true}
+	if nodeA != wantA {
+		t.Fatalf("node-a metrics = %+v, want %+v", nodeA, wantA)
 	}
 
 	nodeB, ok := seen["node-b"]
 	if !ok {
 		t.Fatal("missing node-b metrics")
 	}
-	if nodeB.cpuPercent != 71 || nodeB.memoryPercent != 72 || nodeB.diskPercent != 73 {
-		t.Fatalf("node-b metrics = %+v, want cpu=71 memory=72 disk=73", nodeB)
+	wantB := nodeMetricsSnapshot{nodeID: "node-b", cpuPercent: 71, memoryPercent: 72, memoryValid: true, diskPercent: 73, diskValid: true}
+	if nodeB != wantB {
+		t.Fatalf("node-b metrics = %+v, want %+v (CPU unavailable)", nodeB, wantB)
 	}
 
 	_, ok = seen["node-failing"]
@@ -1078,6 +1092,133 @@ func TestThresholdPollerServerMetricValidityAndUnits(t *testing.T) {
 			}
 			if len(updates) != 0 {
 				t.Fatalf("updates = %+v, want no transition for unknown metric", updates)
+			}
+		})
+	}
+}
+
+// TestThresholdPollerNodeMetricValidity verifies that a host reading the node
+// could not take is skipped like an invalid server metric instead of being
+// evaluated as 0%.
+func TestThresholdPollerNodeMetricValidity(t *testing.T) {
+	tests := []struct {
+		name          string
+		eventType     string
+		topic         string
+		condition     string
+		nodeProv      *fakeNodeMetricsProvider
+		wasTriggered  bool
+		wantUpdates   []bool
+		wantDirection eventbus.ThresholdDirection
+	}{
+		{
+			name:         "invalid cpu keeps a triggered rule triggered",
+			eventType:    "ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD",
+			topic:        eventbus.TopicNodeCPUThreshold,
+			condition:    `{"operator":">=","value":80}`,
+			nodeProv:     &fakeNodeMetricsProvider{nodeID: "node-cpu-invalid", cpuInvalid: true},
+			wasTriggered: true,
+		},
+		{
+			name:          "valid cpu below threshold recovers a triggered rule",
+			eventType:     "ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD",
+			topic:         eventbus.TopicNodeCPUThreshold,
+			condition:     `{"operator":">=","value":80}`,
+			nodeProv:      &fakeNodeMetricsProvider{nodeID: "node-cpu-valid", cpuPercent: 10},
+			wasTriggered:  true,
+			wantUpdates:   []bool{false},
+			wantDirection: eventbus.ThresholdResolved,
+		},
+		{
+			name:      "invalid memory does not fire a below rule",
+			eventType: "ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD",
+			topic:     eventbus.TopicNodeMemoryThreshold,
+			condition: `{"operator":"<","value":10}`,
+			nodeProv:  &fakeNodeMetricsProvider{nodeID: "node-memory-invalid", memoryInvalid: true},
+		},
+		{
+			name:          "valid memory fires a below rule",
+			eventType:     "ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD",
+			topic:         eventbus.TopicNodeMemoryThreshold,
+			condition:     `{"operator":"<","value":10}`,
+			nodeProv:      &fakeNodeMetricsProvider{nodeID: "node-memory-valid", memoryPercent: 5},
+			wantUpdates:   []bool{true},
+			wantDirection: eventbus.ThresholdEntered,
+		},
+		{
+			name:      "invalid disk does not fire an at-or-below rule",
+			eventType: "ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD",
+			topic:     eventbus.TopicNodeDiskThreshold,
+			condition: `{"operator":"<=","value":10}`,
+			nodeProv:  &fakeNodeMetricsProvider{nodeID: "node-disk-invalid", diskInvalid: true},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			nodeID := tc.nodeProv.nodeID
+			ruleStore := newFakeAlertRuleStore()
+			stateStore := newFakeAlertStateStore()
+			rule := makeRule("rule-node-validity", tc.eventType, null.From(tc.condition), null.Val[string]{})
+			rule.NodeID = null.From(nodeID)
+			ruleStore.addRule(rule)
+
+			alertStateKey := stateStore.key(rule.ID, "node", nodeID, "")
+			if tc.wasTriggered {
+				stateStore.states[alertStateKey] = &models.AlertState{
+					ID:          alertStateKey,
+					AlertRuleID: rule.ID,
+					EntityType:  "node",
+					EntityID:    nodeID,
+					Triggered:   1,
+				}
+			}
+
+			bus := eventbus.Get()
+			sub := subscribeReliable(bus, tc.topic)
+			defer bus.Unsubscribe(tc.topic, sub)
+
+			poller := newThresholdPoller(ruleStore, stateStore, &fakeServerMetricsProvider{}, tc.nodeProv, nil, bus)
+			poller.runOnce()
+
+			stateStore.mu.Lock()
+			var updates []bool
+			for _, update := range stateStore.updateCalls {
+				updates = append(updates, update.triggered)
+			}
+			state, stateExists := stateStore.states[alertStateKey]
+			stateStore.mu.Unlock()
+
+			if !slices.Equal(updates, tc.wantUpdates) {
+				t.Fatalf("state updates = %v, want %v", updates, tc.wantUpdates)
+			}
+			wantTriggered := tc.wasTriggered
+			if len(tc.wantUpdates) > 0 {
+				wantTriggered = tc.wantUpdates[len(tc.wantUpdates)-1]
+			}
+			if gotTriggered := stateExists && state.Triggered != 0; gotTriggered != wantTriggered {
+				t.Fatalf("stored triggered = %v, want %v", gotTriggered, wantTriggered)
+			}
+
+			var directions []eventbus.ThresholdDirection
+		drain:
+			for {
+				select {
+				case msg := <-sub:
+					ev, ok := msg.(eventbus.NodeThresholdEvent)
+					if ok && ev.NodeID == nodeID {
+						directions = append(directions, ev.Direction)
+					}
+				default:
+					break drain
+				}
+			}
+			var wantDirections []eventbus.ThresholdDirection
+			if tc.wantDirection != "" {
+				wantDirections = []eventbus.ThresholdDirection{tc.wantDirection}
+			}
+			if !slices.Equal(directions, wantDirections) {
+				t.Fatalf("published directions = %v, want %v", directions, wantDirections)
 			}
 		})
 	}

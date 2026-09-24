@@ -36,11 +36,14 @@ func (n *Node) GetNodeSnapshot(_ context.Context) (*NodeSnapshot, error) {
 		XylonaVersion: systemInfo.XylonaVersion,
 
 		CPUPercent:    resource.CPUPercent,
+		CPUValid:      resource.CPUValid,
 		MemoryUsed:    resource.MemoryUsed,
 		MemoryPercent: resource.MemoryPercent,
+		MemoryValid:   resource.MemoryValid,
 		DiskUsed:      resource.DiskUsed,
 		DiskTotal:     resource.DiskTotal,
 		DiskPercent:   resource.DiskPercent,
+		DiskValid:     resource.DiskValid,
 
 		Collected: time.Now(),
 	}

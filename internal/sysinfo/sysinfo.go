@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"
@@ -26,15 +27,20 @@ type SystemInfo struct {
 	XylonaVersion string
 }
 
-// ResourceSnapshot contains a point-in-time resource usage snapshot.
+// ResourceSnapshot contains a point-in-time resource usage snapshot. Each
+// *Valid flag is true only when that reading succeeded; an invalid metric's
+// values are zero, not a real 0%.
 type ResourceSnapshot struct {
 	CPUPercent    float64
+	CPUValid      bool
 	MemoryPercent float64
 	MemoryUsed    uint64
 	MemoryTotal   uint64
+	MemoryValid   bool
 	DiskPercent   float64
 	DiskUsed      uint64
 	DiskTotal     uint64
+	DiskValid     bool
 }
 
 // CollectSystemInfo gathers static hardware and OS information.
@@ -71,20 +77,28 @@ func CollectSystemInfo() (*SystemInfo, error) {
 func CollectResourceSnapshot() (*ResourceSnapshot, error) {
 	snapshot := &ResourceSnapshot{}
 
-	snapshot.CPUPercent = sampleCPUPercent()
+	snapshot.CPUPercent, snapshot.CPUValid = sampleCPUPercent()
 
+	// Read failures log at debug: several loops sample every few seconds, and
+	// the validity flags already keep consumers from trusting the zeros.
 	memInfo, errMem := mem.VirtualMemory()
-	if errMem == nil {
+	if errMem != nil {
+		log.Debug().Err(errMem).Msg("sysinfo: read host memory usage failed; reporting memory unavailable")
+	} else {
 		snapshot.MemoryPercent = memInfo.UsedPercent
 		snapshot.MemoryUsed = memInfo.Used
 		snapshot.MemoryTotal = memInfo.Total
+		snapshot.MemoryValid = true
 	}
 
 	diskInfo, errDisk := disk.Usage("/")
-	if errDisk == nil {
+	if errDisk != nil {
+		log.Debug().Err(errDisk).Str("path", "/").Msg("sysinfo: read host disk usage failed; reporting disk unavailable")
+	} else {
 		snapshot.DiskPercent = diskInfo.UsedPercent
 		snapshot.DiskUsed = diskInfo.Used
 		snapshot.DiskTotal = diskInfo.Total
+		snapshot.DiskValid = diskInfo.Total > 0
 	}
 
 	return snapshot, nil
@@ -96,40 +110,55 @@ func CollectResourceSnapshot() (*ResourceSnapshot, error) {
 // it rounds to 0% or 100%.
 const cpuSampleWindow = 2 * time.Second
 
-var cpuSampler struct {
+// cpuSampler turns cumulative CPU times into a utilisation percentage.
+type cpuSampler struct {
 	mu      sync.Mutex
 	primed  bool
+	valid   bool
 	last    cpu.TimesStat
 	lastAt  time.Time
 	percent float64
 }
 
-// sampleCPUPercent returns host CPU utilisation over the window since the
-// previous reading, independent of how many callers share the process.
-func sampleCPUPercent() float64 {
-	times, errTimes := cpu.Times(false)
-	if errTimes != nil || len(times) == 0 {
-		return 0
-	}
-	now := time.Now()
+var hostCPUSampler cpuSampler
 
-	cpuSampler.mu.Lock()
-	defer cpuSampler.mu.Unlock()
-	if !cpuSampler.primed {
-		cpuSampler.primed = true
-		cpuSampler.last = times[0]
-		cpuSampler.lastAt = now
-		return 0
+// sampleCPUPercent returns host CPU utilisation over the window since the
+// previous reading, independent of how many callers share the process. The
+// bool is false when the read fails or no full window has completed yet.
+func sampleCPUPercent() (float64, bool) {
+	times, errTimes := cpu.Times(false)
+	if errTimes != nil {
+		log.Debug().Err(errTimes).Msg("sysinfo: read host CPU times failed; reporting CPU unavailable")
+		return 0, false
 	}
-	if now.Sub(cpuSampler.lastAt) < cpuSampleWindow {
-		return cpuSampler.percent
+	if len(times) == 0 {
+		log.Debug().Msg("sysinfo: host CPU times reading was empty; reporting CPU unavailable")
+		return 0, false
 	}
-	if percent, ok := cpuBusyPercent(cpuSampler.last, times[0]); ok {
-		cpuSampler.percent = percent
+	return hostCPUSampler.sample(times[0], time.Now())
+}
+
+// sample folds a cumulative CPU reading taken at now into the sampler.
+func (s *cpuSampler) sample(current cpu.TimesStat, now time.Time) (float64, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.primed {
+		s.primed = true
+		s.last = current
+		s.lastAt = now
+		return 0, false
 	}
-	cpuSampler.last = times[0]
-	cpuSampler.lastAt = now
-	return cpuSampler.percent
+	if now.Sub(s.lastAt) < cpuSampleWindow {
+		return s.percent, s.valid
+	}
+	// A window whose counters didn't advance keeps the last good reading.
+	if percent, ok := cpuBusyPercent(s.last, current); ok {
+		s.percent = percent
+		s.valid = true
+	}
+	s.last = current
+	s.lastAt = now
+	return s.percent, s.valid
 }
 
 // cpuBusyPercent computes the busy share of CPU time between two readings.

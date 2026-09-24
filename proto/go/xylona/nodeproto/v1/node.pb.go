@@ -1213,8 +1213,15 @@ type NodeSnapshot struct {
 	// computes it from its own OS + HOME/USERPROFILE env so hub-spoke
 	// deployments don't incorrectly use the controller's paths.
 	DefaultInstallPath string `protobuf:"bytes,17,opt,name=default_install_path,json=defaultInstallPath,proto3" json:"default_install_path,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// *_unavailable mark a host reading the node could not take (read error,
+	// or CPU before a full sampling window); its value fields are then zero and
+	// must not be treated as a real 0%. Negative sense so snapshots from older
+	// nodes, which never set them, still read as available.
+	CpuUnavailable    bool `protobuf:"varint,18,opt,name=cpu_unavailable,json=cpuUnavailable,proto3" json:"cpu_unavailable,omitempty"`
+	MemoryUnavailable bool `protobuf:"varint,19,opt,name=memory_unavailable,json=memoryUnavailable,proto3" json:"memory_unavailable,omitempty"`
+	DiskUnavailable   bool `protobuf:"varint,20,opt,name=disk_unavailable,json=diskUnavailable,proto3" json:"disk_unavailable,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *NodeSnapshot) Reset() {
@@ -1364,6 +1371,27 @@ func (x *NodeSnapshot) GetDefaultInstallPath() string {
 		return x.DefaultInstallPath
 	}
 	return ""
+}
+
+func (x *NodeSnapshot) GetCpuUnavailable() bool {
+	if x != nil {
+		return x.CpuUnavailable
+	}
+	return false
+}
+
+func (x *NodeSnapshot) GetMemoryUnavailable() bool {
+	if x != nil {
+		return x.MemoryUnavailable
+	}
+	return false
+}
+
+func (x *NodeSnapshot) GetDiskUnavailable() bool {
+	if x != nil {
+		return x.DiskUnavailable
+	}
+	return false
 }
 
 type BindableIP struct {
@@ -10305,7 +10333,7 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"_cpu_validB\x10\n" +
 	"\x0e_metrics_validB\v\n" +
 	"\t_io_validB\x19\n" +
-	"\x17_connection_count_valid\"\xf9\x04\n" +
+	"\x17_connection_count_valid\"\xfc\x05\n" +
 	"\fNodeSnapshot\x12\x1b\n" +
 	"\tcpu_model\x18\x01 \x01(\tR\bcpuModel\x12\x1b\n" +
 	"\tcpu_cores\x18\x02 \x01(\x05R\bcpuCores\x12\x1f\n" +
@@ -10329,7 +10357,10 @@ const file_nodeproto_v1_node_proto_rawDesc = "" +
 	"\fdisk_percent\x18\x0e \x01(\x01R\vdiskPercent\x12=\n" +
 	"\tprocesses\x18\x0f \x03(\v2\x1f.xylona.node.v1.ProcessSnapshotR\tprocesses\x128\n" +
 	"\tcollected\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tcollected\x120\n" +
-	"\x14default_install_path\x18\x11 \x01(\tR\x12defaultInstallPath\"Z\n" +
+	"\x14default_install_path\x18\x11 \x01(\tR\x12defaultInstallPath\x12'\n" +
+	"\x0fcpu_unavailable\x18\x12 \x01(\bR\x0ecpuUnavailable\x12-\n" +
+	"\x12memory_unavailable\x18\x13 \x01(\bR\x11memoryUnavailable\x12)\n" +
+	"\x10disk_unavailable\x18\x14 \x01(\bR\x0fdiskUnavailable\"Z\n" +
 	"\n" +
 	"BindableIP\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x16\n" +

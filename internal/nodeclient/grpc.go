@@ -2147,12 +2147,16 @@ func nodeSnapshotFromProto(snap *nodeprotov1.NodeSnapshot) *node.NodeSnapshot {
 		Architecture:  snap.GetArchitecture(),
 		XylonaVersion: snap.GetXylonaVersion(),
 
+		// Older nodes never send *_unavailable, so their readings stay valid.
 		CPUPercent:    snap.GetCpuPercent(),
+		CPUValid:      !snap.GetCpuUnavailable(),
 		MemoryUsed:    snap.GetMemoryUsed(),
 		MemoryPercent: snap.GetMemoryPercent(),
+		MemoryValid:   !snap.GetMemoryUnavailable(),
 		DiskUsed:      snap.GetDiskUsed(),
 		DiskTotal:     snap.GetDiskTotal(),
 		DiskPercent:   snap.GetDiskPercent(),
+		DiskValid:     !snap.GetDiskUnavailable(),
 
 		DefaultInstallPath: snap.GetDefaultInstallPath(),
 
