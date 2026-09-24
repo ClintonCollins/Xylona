@@ -33,7 +33,7 @@ vi.mock('@/api/notifications', () => ({
 
 const QSelectStub = defineComponent({
   name: 'QSelectStub',
-  props: ['modelValue', 'options', 'label'],
+  props: ['modelValue', 'options', 'label', 'displayValue'],
   emits: ['update:modelValue'],
   template: '<div class="q-select-stub" :data-label="label" />',
 })
@@ -442,5 +442,23 @@ describe('AlertRuleDialog', () => {
     await flushPromises()
     expect(select(wrapper, 'Notification Channel').props('modelValue')).toBe('chan-2')
     expect(mocks.listNotificationChannels).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows the channel name, never its ID, while editing a rule', async () => {
+    let resolveChannels: (value: unknown) => void = () => undefined
+    mocks.listNotificationChannels.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveChannels = resolve
+      }),
+    )
+    const wrapper = mountDialog({ rule: makeRule() })
+    const channelSelect = () => select(wrapper, 'Notification Channel')
+
+    expect(channelSelect().props('modelValue')).toBe('chan-1')
+    expect(channelSelect().props('displayValue')).toBe('Loading channels…')
+
+    resolveChannels({ channels: [{ id: 'chan-1', name: 'Ops' }] })
+    await flushPromises()
+    expect(channelSelect().props('displayValue')).toBe('Ops')
   })
 })

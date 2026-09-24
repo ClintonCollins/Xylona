@@ -144,6 +144,8 @@
 
         <q-select
           v-model="form.notificationChannelId"
+          :display-value="channelDisplay"
+          :loading="!channelsLoaded"
           :options="channels.map((channel) => ({ label: channel.name, value: channel.id }))"
           aria-label="Notification channel"
           class="q-mb-md"
@@ -215,7 +217,9 @@ const nodeScoped = computed(() =>
 )
 const eventTypeOptions = computed(() => {
   if (nodeScoped.value && authStore.user?.superUser !== true) return []
-  return allEventTypes.filter((option) => isNodeAlertEventType(option.value) === nodeScoped.value)
+  return alertEventTypeOptions.filter(
+    (option) => isNodeAlertEventType(option.value) === nodeScoped.value,
+  )
 })
 
 const thresholdOperators = [
@@ -346,6 +350,14 @@ const thresholdUnit = computed(() =>
   form.value.eventType === AlertEventType.PLAYER_COUNT_THRESHOLD ? 'players' : '%',
 )
 const thresholdHelp = computed(() => thresholdHelps[form.value.eventType] ?? '')
+
+// Without this the select shows the rule's raw channel ID until its channel is listed.
+const channelDisplay = computed(() => {
+  if (!channelsLoaded.value) return 'Loading channels…'
+  return (
+    channels.value.find((channel) => channel.id === form.value.notificationChannelId)?.name ?? ''
+  )
+})
 
 // An empty status list matches every transition, so a status rule needs at least one.
 const statusSelectionMissing = computed(
