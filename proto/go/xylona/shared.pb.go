@@ -4689,8 +4689,15 @@ type NodeResourceSnapshot struct {
 	RunningGameServerCount int32                  `protobuf:"varint,9,opt,name=running_game_server_count,json=runningGameServerCount,proto3" json:"running_game_server_count,omitempty"`
 	UserCount              int32                  `protobuf:"varint,10,opt,name=user_count,json=userCount,proto3" json:"user_count,omitempty"`
 	RecordedAt             *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=recorded_at,json=recordedAt,proto3" json:"recorded_at,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// *_unavailable mark a host reading the node could not take; that metric's
+	// value fields are then zero and must be shown as unavailable, not 0%.
+	// Negative sense, matching nodeproto NodeSnapshot, so an unset flag means
+	// the reading is available.
+	CpuUnavailable    bool `protobuf:"varint,12,opt,name=cpu_unavailable,json=cpuUnavailable,proto3" json:"cpu_unavailable,omitempty"`
+	MemoryUnavailable bool `protobuf:"varint,13,opt,name=memory_unavailable,json=memoryUnavailable,proto3" json:"memory_unavailable,omitempty"`
+	DiskUnavailable   bool `protobuf:"varint,14,opt,name=disk_unavailable,json=diskUnavailable,proto3" json:"disk_unavailable,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *NodeResourceSnapshot) Reset() {
@@ -4800,6 +4807,27 @@ func (x *NodeResourceSnapshot) GetRecordedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *NodeResourceSnapshot) GetCpuUnavailable() bool {
+	if x != nil {
+		return x.CpuUnavailable
+	}
+	return false
+}
+
+func (x *NodeResourceSnapshot) GetMemoryUnavailable() bool {
+	if x != nil {
+		return x.MemoryUnavailable
+	}
+	return false
+}
+
+func (x *NodeResourceSnapshot) GetDiskUnavailable() bool {
+	if x != nil {
+		return x.DiskUnavailable
+	}
+	return false
+}
+
 // MetricsHistoryPoint is a single data point in a node metrics time series.
 type MetricsHistoryPoint struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
@@ -4811,8 +4839,14 @@ type MetricsHistoryPoint struct {
 	DiskUsedBytes          int64                  `protobuf:"varint,6,opt,name=disk_used_bytes,json=diskUsedBytes,proto3" json:"disk_used_bytes,omitempty"`
 	GameServerCount        int32                  `protobuf:"varint,7,opt,name=game_server_count,json=gameServerCount,proto3" json:"game_server_count,omitempty"`
 	RunningGameServerCount int32                  `protobuf:"varint,8,opt,name=running_game_server_count,json=runningGameServerCount,proto3" json:"running_game_server_count,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// *_unavailable mark a point with no valid reading of that metric (every
+	// sample in the bucket failed); its value fields are zero and should be
+	// drawn as a gap, not 0.
+	CpuUnavailable    bool `protobuf:"varint,9,opt,name=cpu_unavailable,json=cpuUnavailable,proto3" json:"cpu_unavailable,omitempty"`
+	MemoryUnavailable bool `protobuf:"varint,10,opt,name=memory_unavailable,json=memoryUnavailable,proto3" json:"memory_unavailable,omitempty"`
+	DiskUnavailable   bool `protobuf:"varint,11,opt,name=disk_unavailable,json=diskUnavailable,proto3" json:"disk_unavailable,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *MetricsHistoryPoint) Reset() {
@@ -4899,6 +4933,27 @@ func (x *MetricsHistoryPoint) GetRunningGameServerCount() int32 {
 		return x.RunningGameServerCount
 	}
 	return 0
+}
+
+func (x *MetricsHistoryPoint) GetCpuUnavailable() bool {
+	if x != nil {
+		return x.CpuUnavailable
+	}
+	return false
+}
+
+func (x *MetricsHistoryPoint) GetMemoryUnavailable() bool {
+	if x != nil {
+		return x.MemoryUnavailable
+	}
+	return false
+}
+
+func (x *MetricsHistoryPoint) GetDiskUnavailable() bool {
+	if x != nil {
+		return x.DiskUnavailable
+	}
+	return false
 }
 
 // GameServerMetricsHistoryPoint is a single raw or aggregated point in a game server metrics time series.
@@ -8250,7 +8305,7 @@ const file_shared_proto_rawDesc = "" +
 	"\n" +
 	"os_version\x18\x06 \x01(\tR\tosVersion\x12\"\n" +
 	"\farchitecture\x18\a \x01(\tR\farchitecture\x12%\n" +
-	"\x0exylona_version\x18\b \x01(\tR\rxylonaVersion\"\xf0\x03\n" +
+	"\x0exylona_version\x18\b \x01(\tR\rxylonaVersion\"\xf3\x04\n" +
 	"\x14NodeResourceSnapshot\x12\x1f\n" +
 	"\vcpu_percent\x18\x01 \x01(\x01R\n" +
 	"cpuPercent\x12%\n" +
@@ -8266,7 +8321,10 @@ const file_shared_proto_rawDesc = "" +
 	"user_count\x18\n" +
 	" \x01(\x05R\tuserCount\x12;\n" +
 	"\vrecorded_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"recordedAt\"\xf5\x02\n" +
+	"recordedAt\x12'\n" +
+	"\x0fcpu_unavailable\x18\f \x01(\bR\x0ecpuUnavailable\x12-\n" +
+	"\x12memory_unavailable\x18\r \x01(\bR\x11memoryUnavailable\x12)\n" +
+	"\x10disk_unavailable\x18\x0e \x01(\bR\x0fdiskUnavailable\"\xf8\x03\n" +
 	"\x13MetricsHistoryPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1f\n" +
 	"\vcpu_percent\x18\x02 \x01(\x01R\n" +
@@ -8276,7 +8334,11 @@ const file_shared_proto_rawDesc = "" +
 	"\x11memory_used_bytes\x18\x05 \x01(\x03R\x0fmemoryUsedBytes\x12&\n" +
 	"\x0fdisk_used_bytes\x18\x06 \x01(\x03R\rdiskUsedBytes\x12*\n" +
 	"\x11game_server_count\x18\a \x01(\x05R\x0fgameServerCount\x129\n" +
-	"\x19running_game_server_count\x18\b \x01(\x05R\x16runningGameServerCount\"\x8d\"\n" +
+	"\x19running_game_server_count\x18\b \x01(\x05R\x16runningGameServerCount\x12'\n" +
+	"\x0fcpu_unavailable\x18\t \x01(\bR\x0ecpuUnavailable\x12-\n" +
+	"\x12memory_unavailable\x18\n" +
+	" \x01(\bR\x11memoryUnavailable\x12)\n" +
+	"\x10disk_unavailable\x18\v \x01(\bR\x0fdiskUnavailable\"\x8d\"\n" +
 	"\x1dGameServerMetricsHistoryPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1f\n" +
 	"\vcpu_percent\x18\x02 \x01(\x01R\n" +
