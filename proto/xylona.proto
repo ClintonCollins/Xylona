@@ -226,6 +226,9 @@ service Xylona {
   rpc CreateGameServerBackup (CreateGameServerBackupRequest) returns (CreateGameServerBackupResponse) {}
   rpc DeleteGameServerBackup (DeleteGameServerBackupRequest) returns (DeleteGameServerBackupResponse) {}
   rpc RestoreGameServerBackup (RestoreGameServerBackupRequest) returns (RestoreGameServerBackupResponse) {}
+
+  // Game server provisioning helpers
+  rpc SuggestGameServerPorts (SuggestGameServerPortsRequest) returns (SuggestGameServerPortsResponse) {}
 }
 
 message GameServerStatusPageSettingsServer {
@@ -1053,6 +1056,7 @@ message RemoteServerSummary {
   VersionInfo version_info = 21;
   repeated string effective_permissions = 22;
   bool resolved_has_update = 23;
+  string directory = 24;
 }
 
 // AggregatedGameServer represents either a local or remote server in the unified view.
@@ -2488,3 +2492,18 @@ message SetJoinPasswordRequest {
 message SetJoinPasswordResponse { JoinPasswordState state = 1; }
 message ClearJoinPasswordRequest { string server_id = 1; }
 message ClearJoinPasswordResponse { JoinPasswordState state = 1; }
+
+// SuggestGameServerPortsRequest asks for the first free game/query port pair
+// at or after port and query_port, using the check CreateGameServer applies.
+message SuggestGameServerPortsRequest {
+  string node_id = 1;
+  string ip_address = 2;
+  string game_id = 3;
+  int64 port = 4;
+  int64 query_port = 5;
+}
+
+message SuggestGameServerPortsResponse {
+  int64 port = 1;
+  int64 query_port = 2;
+}

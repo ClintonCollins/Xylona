@@ -9047,6 +9047,7 @@ type RemoteServerSummary struct {
 	VersionInfo          *VersionInfo           `protobuf:"bytes,21,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	EffectivePermissions []string               `protobuf:"bytes,22,rep,name=effective_permissions,json=effectivePermissions,proto3" json:"effective_permissions,omitempty"`
 	ResolvedHasUpdate    bool                   `protobuf:"varint,23,opt,name=resolved_has_update,json=resolvedHasUpdate,proto3" json:"resolved_has_update,omitempty"`
+	Directory            string                 `protobuf:"bytes,24,opt,name=directory,proto3" json:"directory,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -9240,6 +9241,13 @@ func (x *RemoteServerSummary) GetResolvedHasUpdate() bool {
 		return x.ResolvedHasUpdate
 	}
 	return false
+}
+
+func (x *RemoteServerSummary) GetDirectory() string {
+	if x != nil {
+		return x.Directory
+	}
+	return ""
 }
 
 // AggregatedGameServer represents either a local or remote server in the unified view.
@@ -22830,6 +22838,136 @@ func (x *ClearJoinPasswordResponse) GetState() *JoinPasswordState {
 	return nil
 }
 
+// SuggestGameServerPortsRequest asks for the first free game/query port pair
+// at or after port and query_port, using the check CreateGameServer applies.
+type SuggestGameServerPortsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	IpAddress     string                 `protobuf:"bytes,2,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
+	GameId        string                 `protobuf:"bytes,3,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	Port          int64                  `protobuf:"varint,4,opt,name=port,proto3" json:"port,omitempty"`
+	QueryPort     int64                  `protobuf:"varint,5,opt,name=query_port,json=queryPort,proto3" json:"query_port,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SuggestGameServerPortsRequest) Reset() {
+	*x = SuggestGameServerPortsRequest{}
+	mi := &file_xylona_proto_msgTypes[379]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SuggestGameServerPortsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SuggestGameServerPortsRequest) ProtoMessage() {}
+
+func (x *SuggestGameServerPortsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[379]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SuggestGameServerPortsRequest.ProtoReflect.Descriptor instead.
+func (*SuggestGameServerPortsRequest) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{379}
+}
+
+func (x *SuggestGameServerPortsRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *SuggestGameServerPortsRequest) GetIpAddress() string {
+	if x != nil {
+		return x.IpAddress
+	}
+	return ""
+}
+
+func (x *SuggestGameServerPortsRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *SuggestGameServerPortsRequest) GetPort() int64 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *SuggestGameServerPortsRequest) GetQueryPort() int64 {
+	if x != nil {
+		return x.QueryPort
+	}
+	return 0
+}
+
+type SuggestGameServerPortsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Port          int64                  `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
+	QueryPort     int64                  `protobuf:"varint,2,opt,name=query_port,json=queryPort,proto3" json:"query_port,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SuggestGameServerPortsResponse) Reset() {
+	*x = SuggestGameServerPortsResponse{}
+	mi := &file_xylona_proto_msgTypes[380]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SuggestGameServerPortsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SuggestGameServerPortsResponse) ProtoMessage() {}
+
+func (x *SuggestGameServerPortsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_xylona_proto_msgTypes[380]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SuggestGameServerPortsResponse.ProtoReflect.Descriptor instead.
+func (*SuggestGameServerPortsResponse) Descriptor() ([]byte, []int) {
+	return file_xylona_proto_rawDescGZIP(), []int{380}
+}
+
+func (x *SuggestGameServerPortsResponse) GetPort() int64 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *SuggestGameServerPortsResponse) GetQueryPort() int64 {
+	if x != nil {
+		return x.QueryPort
+	}
+	return 0
+}
+
 var File_xylona_proto protoreflect.FileDescriptor
 
 const file_xylona_proto_rawDesc = "" +
@@ -23361,7 +23499,7 @@ const file_xylona_proto_rawDesc = "" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"}\n" +
 	"\x1aGetSystemUpdateJobResponse\x12)\n" +
 	"\x03job\x18\x01 \x01(\v2\x17.xylona.SystemUpdateJobR\x03job\x124\n" +
-	"\x06events\x18\x02 \x03(\v2\x1c.xylona.SystemUpdateJobEventR\x06events\"\xde\x06\n" +
+	"\x06events\x18\x02 \x03(\v2\x1c.xylona.SystemUpdateJobEventR\x06events\"\xfc\x06\n" +
 	"\x13RemoteServerSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
 	"\x0esource_node_id\x18\x02 \x01(\tR\fsourceNodeId\x12\x17\n" +
@@ -23389,7 +23527,8 @@ const file_xylona_proto_rawDesc = "" +
 	"\bis_stale\x18\x14 \x01(\bR\aisStale\x126\n" +
 	"\fversion_info\x18\x15 \x01(\v2\x13.xylona.VersionInfoR\vversionInfo\x123\n" +
 	"\x15effective_permissions\x18\x16 \x03(\tR\x14effectivePermissions\x12.\n" +
-	"\x13resolved_has_update\x18\x17 \x01(\bR\x11resolvedHasUpdate\"\xaa\x01\n" +
+	"\x13resolved_has_update\x18\x17 \x01(\bR\x11resolvedHasUpdate\x12\x1c\n" +
+	"\tdirectory\x18\x18 \x01(\tR\tdirectory\"\xaa\x01\n" +
 	"\x14AggregatedGameServer\x12\x19\n" +
 	"\bis_local\x18\x01 \x01(\bR\aisLocal\x125\n" +
 	"\flocal_server\x18\x02 \x01(\v2\x12.xylona.GameServerR\vlocalServer\x12@\n" +
@@ -24387,7 +24526,19 @@ const file_xylona_proto_rawDesc = "" +
 	"\x18ClearJoinPasswordRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\"L\n" +
 	"\x19ClearJoinPasswordResponse\x12/\n" +
-	"\x05state\x18\x01 \x01(\v2\x19.xylona.JoinPasswordStateR\x05state*\xf7\x01\n" +
+	"\x05state\x18\x01 \x01(\v2\x19.xylona.JoinPasswordStateR\x05state\"\xa3\x01\n" +
+	"\x1dSuggestGameServerPortsRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1d\n" +
+	"\n" +
+	"ip_address\x18\x02 \x01(\tR\tipAddress\x12\x17\n" +
+	"\agame_id\x18\x03 \x01(\tR\x06gameId\x12\x12\n" +
+	"\x04port\x18\x04 \x01(\x03R\x04port\x12\x1d\n" +
+	"\n" +
+	"query_port\x18\x05 \x01(\x03R\tqueryPort\"S\n" +
+	"\x1eSuggestGameServerPortsResponse\x12\x12\n" +
+	"\x04port\x18\x01 \x01(\x03R\x04port\x12\x1d\n" +
+	"\n" +
+	"query_port\x18\x02 \x01(\x03R\tqueryPort*\xf7\x01\n" +
 	"\x1fGameServerStatusPageRosterState\x124\n" +
 	"0GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED\x10\x00\x122\n" +
 	".GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE\x10\x01\x124\n" +
@@ -24546,7 +24697,7 @@ const file_xylona_proto_rawDesc = "" +
 	"6SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_UNSPECIFIED\x10\x00\x124\n" +
 	"0SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MATCH\x10\x01\x127\n" +
 	"3SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_MISMATCH\x10\x02\x124\n" +
-	"0SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE\x10\x032\x8b\x86\x01\n" +
+	"0SEVEN_DAYS_TO_DIE_SANDBOX_COMPARISON_STATE_STALE\x10\x032\xf6\x86\x01\n" +
 	"\x06Xylona\x12<\n" +
 	"\aAddGame\x12\x16.xylona.AddGameRequest\x1a\x17.xylona.AddGameResponse\"\x00\x12?\n" +
 	"\bEditGame\x12\x17.xylona.EditGameRequest\x1a\x18.xylona.EditGameResponse\"\x00\x12x\n" +
@@ -24733,7 +24884,8 @@ const file_xylona_proto_rawDesc = "" +
 	"\x15ListGameServerBackups\x12$.xylona.ListGameServerBackupsRequest\x1a%.xylona.ListGameServerBackupsResponse\"\x00\x12i\n" +
 	"\x16CreateGameServerBackup\x12%.xylona.CreateGameServerBackupRequest\x1a&.xylona.CreateGameServerBackupResponse\"\x00\x12i\n" +
 	"\x16DeleteGameServerBackup\x12%.xylona.DeleteGameServerBackupRequest\x1a&.xylona.DeleteGameServerBackupResponse\"\x00\x12l\n" +
-	"\x17RestoreGameServerBackup\x12&.xylona.RestoreGameServerBackupRequest\x1a'.xylona.RestoreGameServerBackupResponse\"\x00B2Z0github.com/ClintonCollins/Xylona/proto/go/xylonab\x06proto3"
+	"\x17RestoreGameServerBackup\x12&.xylona.RestoreGameServerBackupRequest\x1a'.xylona.RestoreGameServerBackupResponse\"\x00\x12i\n" +
+	"\x16SuggestGameServerPorts\x12%.xylona.SuggestGameServerPortsRequest\x1a&.xylona.SuggestGameServerPortsResponse\"\x00B2Z0github.com/ClintonCollins/Xylona/proto/go/xylonab\x06proto3"
 
 var (
 	file_xylona_proto_rawDescOnce sync.Once
@@ -24748,7 +24900,7 @@ func file_xylona_proto_rawDescGZIP() []byte {
 }
 
 var file_xylona_proto_enumTypes = make([]protoimpl.EnumInfo, 23)
-var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 379)
+var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 381)
 var file_xylona_proto_goTypes = []any{
 	(GameServerStatusPageRosterState)(0),                    // 0: xylona.GameServerStatusPageRosterState
 	(NotificationEvent)(0),                                  // 1: xylona.NotificationEvent
@@ -25152,103 +25304,105 @@ var file_xylona_proto_goTypes = []any{
 	(*SetJoinPasswordResponse)(nil),                         // 399: xylona.SetJoinPasswordResponse
 	(*ClearJoinPasswordRequest)(nil),                        // 400: xylona.ClearJoinPasswordRequest
 	(*ClearJoinPasswordResponse)(nil),                       // 401: xylona.ClearJoinPasswordResponse
-	(Status)(0),                                             // 402: xylona.Status
-	(*timestamppb.Timestamp)(nil),                           // 403: google.protobuf.Timestamp
-	(Error)(0),                                              // 404: xylona.Error
-	(*GameServer)(nil),                                      // 405: xylona.GameServer
-	(*Game)(nil),                                            // 406: xylona.Game
-	(*UpdateTargetOption)(nil),                              // 407: xylona.UpdateTargetOption
-	(*IP)(nil),                                              // 408: xylona.IP
-	(*EnvironmentVariable)(nil),                             // 409: xylona.EnvironmentVariable
-	(*EnvironmentValidationIssue)(nil),                      // 410: xylona.EnvironmentValidationIssue
-	(*SecretEnvironmentVariableState)(nil),                  // 411: xylona.SecretEnvironmentVariableState
-	(*ServerQuery)(nil),                                     // 412: xylona.ServerQuery
-	(*Node)(nil),                                            // 413: xylona.Node
-	(*VersionInfo)(nil),                                     // 414: xylona.VersionInfo
-	(*NodeSystemInfo)(nil),                                  // 415: xylona.NodeSystemInfo
-	(*NodeResourceSnapshot)(nil),                            // 416: xylona.NodeResourceSnapshot
-	(*MetricsHistoryPoint)(nil),                             // 417: xylona.MetricsHistoryPoint
-	(*GameServerMetricsHistoryPoint)(nil),                   // 418: xylona.GameServerMetricsHistoryPoint
-	(*GameServerLifecycleHistoryEvent)(nil),                 // 419: xylona.GameServerLifecycleHistoryEvent
-	(*GameServerOperationHistoryEvent)(nil),                 // 420: xylona.GameServerOperationHistoryEvent
-	(GameServerMetricsResolution)(0),                        // 421: xylona.GameServerMetricsResolution
-	(*SteamApp)(nil),                                        // 422: xylona.SteamApp
-	(*SteamAppDetails)(nil),                                 // 423: xylona.SteamAppDetails
-	(*ModSearchResult)(nil),                                 // 424: xylona.ModSearchResult
-	(*ModDetails)(nil),                                      // 425: xylona.ModDetails
-	(*ModVersion)(nil),                                      // 426: xylona.ModVersion
-	(*InstalledMod)(nil),                                    // 427: xylona.InstalledMod
-	(NotificationChannelType)(0),                            // 428: xylona.NotificationChannelType
-	(*NotificationChannel)(nil),                             // 429: xylona.NotificationChannel
-	(AlertEventType)(0),                                     // 430: xylona.AlertEventType
-	(*AlertRule)(nil),                                       // 431: xylona.AlertRule
-	(*AlertHistoryEntry)(nil),                               // 432: xylona.AlertHistoryEntry
-	(*SystemSMTPConfig)(nil),                                // 433: xylona.SystemSMTPConfig
-	(*ScheduledTask)(nil),                                   // 434: xylona.ScheduledTask
-	(*ScheduledTaskLog)(nil),                                // 435: xylona.ScheduledTaskLog
-	(*GameServerBackupOverview)(nil),                        // 436: xylona.GameServerBackupOverview
-	(*BackupSettings)(nil),                                  // 437: xylona.BackupSettings
-	(*GameServerBackup)(nil),                                // 438: xylona.GameServerBackup
-	(BackupRestoreMode)(0),                                  // 439: xylona.BackupRestoreMode
-	(*GameServerPlayer)(nil),                                // 440: xylona.GameServerPlayer
-	(*CreateGameServerRequest)(nil),                         // 441: xylona.CreateGameServerRequest
-	(*EditGameServerRequest)(nil),                           // 442: xylona.EditGameServerRequest
-	(*RemoveGameServerRequest)(nil),                         // 443: xylona.RemoveGameServerRequest
-	(*StartGameServerRequest)(nil),                          // 444: xylona.StartGameServerRequest
-	(*StopGameServerRequest)(nil),                           // 445: xylona.StopGameServerRequest
-	(*RestartGameServerRequest)(nil),                        // 446: xylona.RestartGameServerRequest
-	(*ReadGameServerOutputRequest)(nil),                     // 447: xylona.ReadGameServerOutputRequest
-	(*SendGameServerInputRequest)(nil),                      // 448: xylona.SendGameServerInputRequest
-	(*ListDirectoryFilesRequest)(nil),                       // 449: xylona.ListDirectoryFilesRequest
-	(*GameServerFilesDeleteRequest)(nil),                    // 450: xylona.GameServerFilesDeleteRequest
-	(*GameServerFilesCompressionRequest)(nil),               // 451: xylona.GameServerFilesCompressionRequest
-	(*GameServerFilesDecompressionRequest)(nil),             // 452: xylona.GameServerFilesDecompressionRequest
-	(*GameServersFileDownloadFromURLRequest)(nil),           // 453: xylona.GameServersFileDownloadFromURLRequest
-	(*GameServerFileRenameRequest)(nil),                     // 454: xylona.GameServerFileRenameRequest
-	(*GameServerFilesMoveRequest)(nil),                      // 455: xylona.GameServerFilesMoveRequest
-	(*GameServersFileEditRequest)(nil),                      // 456: xylona.GameServersFileEditRequest
-	(*GameServerFileOrDirectoryCreateRequest)(nil),          // 457: xylona.GameServerFileOrDirectoryCreateRequest
-	(*CreateGameServerResponse)(nil),                        // 458: xylona.CreateGameServerResponse
-	(*EditGameServerResponse)(nil),                          // 459: xylona.EditGameServerResponse
-	(*RemoveGameServerResponse)(nil),                        // 460: xylona.RemoveGameServerResponse
-	(*StartGameServerResponse)(nil),                         // 461: xylona.StartGameServerResponse
-	(*StopGameServerResponse)(nil),                          // 462: xylona.StopGameServerResponse
-	(*RestartGameServerResponse)(nil),                       // 463: xylona.RestartGameServerResponse
-	(*ReadGameServerOutputResponse)(nil),                    // 464: xylona.ReadGameServerOutputResponse
-	(*SendGameServerInputResponse)(nil),                     // 465: xylona.SendGameServerInputResponse
-	(*ListDirectoryFilesResponse)(nil),                      // 466: xylona.ListDirectoryFilesResponse
-	(*GameServerFilesDeleteResponse)(nil),                   // 467: xylona.GameServerFilesDeleteResponse
-	(*GameServerFilesArchiveProgress)(nil),                  // 468: xylona.GameServerFilesArchiveProgress
-	(*GameServerFilesExtractProgress)(nil),                  // 469: xylona.GameServerFilesExtractProgress
-	(*GameServerFilesCompressionResponse)(nil),              // 470: xylona.GameServerFilesCompressionResponse
-	(*GameServerFilesDecompressionResponse)(nil),            // 471: xylona.GameServerFilesDecompressionResponse
-	(*GameServersFileDownloadFromURLResponse)(nil),          // 472: xylona.GameServersFileDownloadFromURLResponse
-	(*GameServerFileRenameResponse)(nil),                    // 473: xylona.GameServerFileRenameResponse
-	(*GameServerFilesMoveResponse)(nil),                     // 474: xylona.GameServerFilesMoveResponse
-	(*GameServersFileEditResponse)(nil),                     // 475: xylona.GameServersFileEditResponse
-	(*GameServerFileOrDirectoryCreateResponse)(nil),         // 476: xylona.GameServerFileOrDirectoryCreateResponse
+	(*SuggestGameServerPortsRequest)(nil),                   // 402: xylona.SuggestGameServerPortsRequest
+	(*SuggestGameServerPortsResponse)(nil),                  // 403: xylona.SuggestGameServerPortsResponse
+	(Status)(0),                                             // 404: xylona.Status
+	(*timestamppb.Timestamp)(nil),                           // 405: google.protobuf.Timestamp
+	(Error)(0),                                              // 406: xylona.Error
+	(*GameServer)(nil),                                      // 407: xylona.GameServer
+	(*Game)(nil),                                            // 408: xylona.Game
+	(*UpdateTargetOption)(nil),                              // 409: xylona.UpdateTargetOption
+	(*IP)(nil),                                              // 410: xylona.IP
+	(*EnvironmentVariable)(nil),                             // 411: xylona.EnvironmentVariable
+	(*EnvironmentValidationIssue)(nil),                      // 412: xylona.EnvironmentValidationIssue
+	(*SecretEnvironmentVariableState)(nil),                  // 413: xylona.SecretEnvironmentVariableState
+	(*ServerQuery)(nil),                                     // 414: xylona.ServerQuery
+	(*Node)(nil),                                            // 415: xylona.Node
+	(*VersionInfo)(nil),                                     // 416: xylona.VersionInfo
+	(*NodeSystemInfo)(nil),                                  // 417: xylona.NodeSystemInfo
+	(*NodeResourceSnapshot)(nil),                            // 418: xylona.NodeResourceSnapshot
+	(*MetricsHistoryPoint)(nil),                             // 419: xylona.MetricsHistoryPoint
+	(*GameServerMetricsHistoryPoint)(nil),                   // 420: xylona.GameServerMetricsHistoryPoint
+	(*GameServerLifecycleHistoryEvent)(nil),                 // 421: xylona.GameServerLifecycleHistoryEvent
+	(*GameServerOperationHistoryEvent)(nil),                 // 422: xylona.GameServerOperationHistoryEvent
+	(GameServerMetricsResolution)(0),                        // 423: xylona.GameServerMetricsResolution
+	(*SteamApp)(nil),                                        // 424: xylona.SteamApp
+	(*SteamAppDetails)(nil),                                 // 425: xylona.SteamAppDetails
+	(*ModSearchResult)(nil),                                 // 426: xylona.ModSearchResult
+	(*ModDetails)(nil),                                      // 427: xylona.ModDetails
+	(*ModVersion)(nil),                                      // 428: xylona.ModVersion
+	(*InstalledMod)(nil),                                    // 429: xylona.InstalledMod
+	(NotificationChannelType)(0),                            // 430: xylona.NotificationChannelType
+	(*NotificationChannel)(nil),                             // 431: xylona.NotificationChannel
+	(AlertEventType)(0),                                     // 432: xylona.AlertEventType
+	(*AlertRule)(nil),                                       // 433: xylona.AlertRule
+	(*AlertHistoryEntry)(nil),                               // 434: xylona.AlertHistoryEntry
+	(*SystemSMTPConfig)(nil),                                // 435: xylona.SystemSMTPConfig
+	(*ScheduledTask)(nil),                                   // 436: xylona.ScheduledTask
+	(*ScheduledTaskLog)(nil),                                // 437: xylona.ScheduledTaskLog
+	(*GameServerBackupOverview)(nil),                        // 438: xylona.GameServerBackupOverview
+	(*BackupSettings)(nil),                                  // 439: xylona.BackupSettings
+	(*GameServerBackup)(nil),                                // 440: xylona.GameServerBackup
+	(BackupRestoreMode)(0),                                  // 441: xylona.BackupRestoreMode
+	(*GameServerPlayer)(nil),                                // 442: xylona.GameServerPlayer
+	(*CreateGameServerRequest)(nil),                         // 443: xylona.CreateGameServerRequest
+	(*EditGameServerRequest)(nil),                           // 444: xylona.EditGameServerRequest
+	(*RemoveGameServerRequest)(nil),                         // 445: xylona.RemoveGameServerRequest
+	(*StartGameServerRequest)(nil),                          // 446: xylona.StartGameServerRequest
+	(*StopGameServerRequest)(nil),                           // 447: xylona.StopGameServerRequest
+	(*RestartGameServerRequest)(nil),                        // 448: xylona.RestartGameServerRequest
+	(*ReadGameServerOutputRequest)(nil),                     // 449: xylona.ReadGameServerOutputRequest
+	(*SendGameServerInputRequest)(nil),                      // 450: xylona.SendGameServerInputRequest
+	(*ListDirectoryFilesRequest)(nil),                       // 451: xylona.ListDirectoryFilesRequest
+	(*GameServerFilesDeleteRequest)(nil),                    // 452: xylona.GameServerFilesDeleteRequest
+	(*GameServerFilesCompressionRequest)(nil),               // 453: xylona.GameServerFilesCompressionRequest
+	(*GameServerFilesDecompressionRequest)(nil),             // 454: xylona.GameServerFilesDecompressionRequest
+	(*GameServersFileDownloadFromURLRequest)(nil),           // 455: xylona.GameServersFileDownloadFromURLRequest
+	(*GameServerFileRenameRequest)(nil),                     // 456: xylona.GameServerFileRenameRequest
+	(*GameServerFilesMoveRequest)(nil),                      // 457: xylona.GameServerFilesMoveRequest
+	(*GameServersFileEditRequest)(nil),                      // 458: xylona.GameServersFileEditRequest
+	(*GameServerFileOrDirectoryCreateRequest)(nil),          // 459: xylona.GameServerFileOrDirectoryCreateRequest
+	(*CreateGameServerResponse)(nil),                        // 460: xylona.CreateGameServerResponse
+	(*EditGameServerResponse)(nil),                          // 461: xylona.EditGameServerResponse
+	(*RemoveGameServerResponse)(nil),                        // 462: xylona.RemoveGameServerResponse
+	(*StartGameServerResponse)(nil),                         // 463: xylona.StartGameServerResponse
+	(*StopGameServerResponse)(nil),                          // 464: xylona.StopGameServerResponse
+	(*RestartGameServerResponse)(nil),                       // 465: xylona.RestartGameServerResponse
+	(*ReadGameServerOutputResponse)(nil),                    // 466: xylona.ReadGameServerOutputResponse
+	(*SendGameServerInputResponse)(nil),                     // 467: xylona.SendGameServerInputResponse
+	(*ListDirectoryFilesResponse)(nil),                      // 468: xylona.ListDirectoryFilesResponse
+	(*GameServerFilesDeleteResponse)(nil),                   // 469: xylona.GameServerFilesDeleteResponse
+	(*GameServerFilesArchiveProgress)(nil),                  // 470: xylona.GameServerFilesArchiveProgress
+	(*GameServerFilesExtractProgress)(nil),                  // 471: xylona.GameServerFilesExtractProgress
+	(*GameServerFilesCompressionResponse)(nil),              // 472: xylona.GameServerFilesCompressionResponse
+	(*GameServerFilesDecompressionResponse)(nil),            // 473: xylona.GameServerFilesDecompressionResponse
+	(*GameServersFileDownloadFromURLResponse)(nil),          // 474: xylona.GameServersFileDownloadFromURLResponse
+	(*GameServerFileRenameResponse)(nil),                    // 475: xylona.GameServerFileRenameResponse
+	(*GameServerFilesMoveResponse)(nil),                     // 476: xylona.GameServerFilesMoveResponse
+	(*GameServersFileEditResponse)(nil),                     // 477: xylona.GameServersFileEditResponse
+	(*GameServerFileOrDirectoryCreateResponse)(nil),         // 478: xylona.GameServerFileOrDirectoryCreateResponse
 }
 var file_xylona_proto_depIdxs = []int32{
 	23,  // 0: xylona.GameServerStatusPageSettings.servers:type_name -> xylona.GameServerStatusPageSettingsServer
 	24,  // 1: xylona.GetOrCreateGameServerStatusPageSettingsResponse.settings:type_name -> xylona.GameServerStatusPageSettings
 	27,  // 2: xylona.UpdateGameServerStatusPageSettingsRequest.connection_addresses:type_name -> xylona.GameServerStatusPageConnectionAddress
 	24,  // 3: xylona.UpdateGameServerStatusPageSettingsResponse.settings:type_name -> xylona.GameServerStatusPageSettings
-	402, // 4: xylona.PublicGameServerStatus.status:type_name -> xylona.Status
+	404, // 4: xylona.PublicGameServerStatus.status:type_name -> xylona.Status
 	0,   // 5: xylona.PublicGameServerStatus.roster_state:type_name -> xylona.GameServerStatusPageRosterState
-	403, // 6: xylona.PublicGameServerStatus.observed_at:type_name -> google.protobuf.Timestamp
+	405, // 6: xylona.PublicGameServerStatus.observed_at:type_name -> google.protobuf.Timestamp
 	30,  // 7: xylona.PublicGameServerStatusPage.servers:type_name -> xylona.PublicGameServerStatus
-	403, // 8: xylona.PublicGameServerStatusPage.generated_at:type_name -> google.protobuf.Timestamp
+	405, // 8: xylona.PublicGameServerStatusPage.generated_at:type_name -> google.protobuf.Timestamp
 	31,  // 9: xylona.GetPublicGameServerStatusPageResponse.page:type_name -> xylona.PublicGameServerStatusPage
 	52,  // 10: xylona.LoginResponse.user:type_name -> xylona.User
 	52,  // 11: xylona.CreateUserResponse.user:type_name -> xylona.User
-	404, // 12: xylona.CreateUserResponse.error:type_name -> xylona.Error
+	406, // 12: xylona.CreateUserResponse.error:type_name -> xylona.Error
 	52,  // 13: xylona.CheckUserAuthenticatedResponse.user:type_name -> xylona.User
-	405, // 14: xylona.ListGameServersResponse.game_servers:type_name -> xylona.GameServer
-	406, // 15: xylona.ListGamesResponse.games:type_name -> xylona.Game
-	406, // 16: xylona.GetGameResponse.game:type_name -> xylona.Game
-	405, // 17: xylona.GetGameServerResponse.game_server:type_name -> xylona.GameServer
-	403, // 18: xylona.User.last_login:type_name -> google.protobuf.Timestamp
-	403, // 19: xylona.User.created_at:type_name -> google.protobuf.Timestamp
+	407, // 14: xylona.ListGameServersResponse.game_servers:type_name -> xylona.GameServer
+	408, // 15: xylona.ListGamesResponse.games:type_name -> xylona.Game
+	408, // 16: xylona.GetGameResponse.game:type_name -> xylona.Game
+	407, // 17: xylona.GetGameServerResponse.game_server:type_name -> xylona.GameServer
+	405, // 18: xylona.User.last_login:type_name -> google.protobuf.Timestamp
+	405, // 19: xylona.User.created_at:type_name -> google.protobuf.Timestamp
 	52,  // 20: xylona.ListUsersResponse.users:type_name -> xylona.User
 	52,  // 21: xylona.GetUserDetailsResponse.user:type_name -> xylona.User
 	52,  // 22: xylona.UpdateUserResponse.user:type_name -> xylona.User
@@ -25256,42 +25410,42 @@ var file_xylona_proto_depIdxs = []int32{
 	63,  // 24: xylona.GetUserDeletionImpactResponse.owned_game_servers:type_name -> xylona.UserDeletionGameServer
 	64,  // 25: xylona.GetUserDeletionImpactResponse.grants_given:type_name -> xylona.UserAccessGrantGiven
 	1,   // 26: xylona.NotificationStreamResponse.event:type_name -> xylona.NotificationEvent
-	405, // 27: xylona.NotificationStreamResponse.game_server:type_name -> xylona.GameServer
-	407, // 28: xylona.GetUpdateTargetsResponse.targets:type_name -> xylona.UpdateTargetOption
-	408, // 29: xylona.ListIPsResponse.ips:type_name -> xylona.IP
-	408, // 30: xylona.AddIPRequest.ip:type_name -> xylona.IP
-	408, // 31: xylona.RemoveIPRequest.ip:type_name -> xylona.IP
-	406, // 32: xylona.AddGameRequest.game:type_name -> xylona.Game
-	406, // 33: xylona.AddGameResponse.game:type_name -> xylona.Game
-	404, // 34: xylona.AddGameResponse.error:type_name -> xylona.Error
-	406, // 35: xylona.EditGameRequest.game:type_name -> xylona.Game
-	406, // 36: xylona.EditGameResponse.game:type_name -> xylona.Game
-	406, // 37: xylona.UpdateGameStartArgsTemplateResponse.game:type_name -> xylona.Game
-	406, // 38: xylona.UpdateGameStartArgBlocklistResponse.game:type_name -> xylona.Game
+	407, // 27: xylona.NotificationStreamResponse.game_server:type_name -> xylona.GameServer
+	409, // 28: xylona.GetUpdateTargetsResponse.targets:type_name -> xylona.UpdateTargetOption
+	410, // 29: xylona.ListIPsResponse.ips:type_name -> xylona.IP
+	410, // 30: xylona.AddIPRequest.ip:type_name -> xylona.IP
+	410, // 31: xylona.RemoveIPRequest.ip:type_name -> xylona.IP
+	408, // 32: xylona.AddGameRequest.game:type_name -> xylona.Game
+	408, // 33: xylona.AddGameResponse.game:type_name -> xylona.Game
+	406, // 34: xylona.AddGameResponse.error:type_name -> xylona.Error
+	408, // 35: xylona.EditGameRequest.game:type_name -> xylona.Game
+	408, // 36: xylona.EditGameResponse.game:type_name -> xylona.Game
+	408, // 37: xylona.UpdateGameStartArgsTemplateResponse.game:type_name -> xylona.Game
+	408, // 38: xylona.UpdateGameStartArgBlocklistResponse.game:type_name -> xylona.Game
 	2,   // 39: xylona.ImportGameRequest.mode:type_name -> xylona.GameImportMode
-	406, // 40: xylona.ImportGameResponse.game:type_name -> xylona.Game
-	404, // 41: xylona.ImportGameResponse.error:type_name -> xylona.Error
+	408, // 40: xylona.ImportGameResponse.game:type_name -> xylona.Game
+	406, // 41: xylona.ImportGameResponse.error:type_name -> xylona.Error
 	87,  // 42: xylona.ImportGameResponse.changes:type_name -> xylona.GameImportChange
-	406, // 43: xylona.ResetGameToOfficialDefinitionResponse.game:type_name -> xylona.Game
-	405, // 44: xylona.UpdateGameServerStartArgsResponse.game_server:type_name -> xylona.GameServer
-	409, // 45: xylona.GetGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
-	410, // 46: xylona.GetGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	409, // 47: xylona.UpdateGameEnvironmentRequest.default_env:type_name -> xylona.EnvironmentVariable
-	409, // 48: xylona.UpdateGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
-	410, // 49: xylona.UpdateGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	409, // 50: xylona.GetGameServerEnvironmentResponse.game_default_env:type_name -> xylona.EnvironmentVariable
-	409, // 51: xylona.GetGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
-	409, // 52: xylona.GetGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
-	411, // 53: xylona.GetGameServerEnvironmentResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
-	410, // 54: xylona.GetGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	409, // 55: xylona.UpdateGameServerEnvironmentRequest.env_vars:type_name -> xylona.EnvironmentVariable
-	409, // 56: xylona.UpdateGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
-	409, // 57: xylona.UpdateGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
-	410, // 58: xylona.UpdateGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	411, // 59: xylona.SetGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
-	410, // 60: xylona.SetGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
-	411, // 61: xylona.ClearGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
-	410, // 62: xylona.ClearGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	408, // 43: xylona.ResetGameToOfficialDefinitionResponse.game:type_name -> xylona.Game
+	407, // 44: xylona.UpdateGameServerStartArgsResponse.game_server:type_name -> xylona.GameServer
+	411, // 45: xylona.GetGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
+	412, // 46: xylona.GetGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	411, // 47: xylona.UpdateGameEnvironmentRequest.default_env:type_name -> xylona.EnvironmentVariable
+	411, // 48: xylona.UpdateGameEnvironmentResponse.default_env:type_name -> xylona.EnvironmentVariable
+	412, // 49: xylona.UpdateGameEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	411, // 50: xylona.GetGameServerEnvironmentResponse.game_default_env:type_name -> xylona.EnvironmentVariable
+	411, // 51: xylona.GetGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
+	411, // 52: xylona.GetGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
+	413, // 53: xylona.GetGameServerEnvironmentResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
+	412, // 54: xylona.GetGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	411, // 55: xylona.UpdateGameServerEnvironmentRequest.env_vars:type_name -> xylona.EnvironmentVariable
+	411, // 56: xylona.UpdateGameServerEnvironmentResponse.server_env:type_name -> xylona.EnvironmentVariable
+	411, // 57: xylona.UpdateGameServerEnvironmentResponse.effective_env:type_name -> xylona.EnvironmentVariable
+	412, // 58: xylona.UpdateGameServerEnvironmentResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	413, // 59: xylona.SetGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
+	412, // 60: xylona.SetGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
+	413, // 61: xylona.ClearGameServerSecretEnvResponse.secret_env:type_name -> xylona.SecretEnvironmentVariableState
+	412, // 62: xylona.ClearGameServerSecretEnvResponse.validation_issues:type_name -> xylona.EnvironmentValidationIssue
 	109, // 63: xylona.GetGameServerAdminInterfaceResponse.admin_interface:type_name -> xylona.GameServerAdminInterface
 	109, // 64: xylona.SetGameServerAdminInterfacePasswordResponse.admin_interface:type_name -> xylona.GameServerAdminInterface
 	114, // 65: xylona.GetGameServerReadinessResponse.items:type_name -> xylona.GameServerReadinessItem
@@ -25301,26 +25455,26 @@ var file_xylona_proto_depIdxs = []int32{
 	123, // 69: xylona.PollHytaleDeviceAuthResponse.profiles:type_name -> xylona.HytaleProfile
 	114, // 70: xylona.SelectHytaleProfileResponse.items:type_name -> xylona.GameServerReadinessItem
 	114, // 71: xylona.ClearHytaleAccountResponse.items:type_name -> xylona.GameServerReadinessItem
-	405, // 72: xylona.SetServerVariantResponse.game_server:type_name -> xylona.GameServer
-	405, // 73: xylona.ReinstallGameServerResponse.game_server:type_name -> xylona.GameServer
-	412, // 74: xylona.QueryGameServerResponse.query_info:type_name -> xylona.ServerQuery
-	413, // 75: xylona.GetNodeResponse.node:type_name -> xylona.Node
-	413, // 76: xylona.ListNodesResponse.nodes:type_name -> xylona.Node
-	413, // 77: xylona.RemoveNodeResponse.node:type_name -> xylona.Node
-	413, // 78: xylona.EditNodeRequest.node:type_name -> xylona.Node
-	413, // 79: xylona.EditNodeResponse.node:type_name -> xylona.Node
+	407, // 72: xylona.SetServerVariantResponse.game_server:type_name -> xylona.GameServer
+	407, // 73: xylona.ReinstallGameServerResponse.game_server:type_name -> xylona.GameServer
+	414, // 74: xylona.QueryGameServerResponse.query_info:type_name -> xylona.ServerQuery
+	415, // 75: xylona.GetNodeResponse.node:type_name -> xylona.Node
+	415, // 76: xylona.ListNodesResponse.nodes:type_name -> xylona.Node
+	415, // 77: xylona.RemoveNodeResponse.node:type_name -> xylona.Node
+	415, // 78: xylona.EditNodeRequest.node:type_name -> xylona.Node
+	415, // 79: xylona.EditNodeResponse.node:type_name -> xylona.Node
 	3,   // 80: xylona.SystemUpdateAvailability.component:type_name -> xylona.SystemUpdateComponent
 	3,   // 81: xylona.SystemUpdateJob.component:type_name -> xylona.SystemUpdateComponent
 	4,   // 82: xylona.SystemUpdateJob.status:type_name -> xylona.SystemUpdateJobStatus
 	5,   // 83: xylona.SystemUpdateJob.phase:type_name -> xylona.SystemUpdatePhase
-	403, // 84: xylona.SystemUpdateJob.created_at:type_name -> google.protobuf.Timestamp
-	403, // 85: xylona.SystemUpdateJob.updated_at:type_name -> google.protobuf.Timestamp
-	403, // 86: xylona.SystemUpdateJob.started_at:type_name -> google.protobuf.Timestamp
-	403, // 87: xylona.SystemUpdateJob.completed_at:type_name -> google.protobuf.Timestamp
-	405, // 88: xylona.SystemUpdateJob.affected_game_servers:type_name -> xylona.GameServer
+	405, // 84: xylona.SystemUpdateJob.created_at:type_name -> google.protobuf.Timestamp
+	405, // 85: xylona.SystemUpdateJob.updated_at:type_name -> google.protobuf.Timestamp
+	405, // 86: xylona.SystemUpdateJob.started_at:type_name -> google.protobuf.Timestamp
+	405, // 87: xylona.SystemUpdateJob.completed_at:type_name -> google.protobuf.Timestamp
+	407, // 88: xylona.SystemUpdateJob.affected_game_servers:type_name -> xylona.GameServer
 	4,   // 89: xylona.SystemUpdateJobEvent.status:type_name -> xylona.SystemUpdateJobStatus
 	5,   // 90: xylona.SystemUpdateJobEvent.phase:type_name -> xylona.SystemUpdatePhase
-	403, // 91: xylona.SystemUpdateJobEvent.created_at:type_name -> google.protobuf.Timestamp
+	405, // 91: xylona.SystemUpdateJobEvent.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 92: xylona.SystemUpdateProgress.component:type_name -> xylona.SystemUpdateComponent
 	4,   // 93: xylona.SystemUpdateProgress.status:type_name -> xylona.SystemUpdateJobStatus
 	5,   // 94: xylona.SystemUpdateProgress.phase:type_name -> xylona.SystemUpdatePhase
@@ -25330,70 +25484,70 @@ var file_xylona_proto_depIdxs = []int32{
 	153, // 98: xylona.ListSystemUpdateJobsResponse.jobs:type_name -> xylona.SystemUpdateJob
 	153, // 99: xylona.GetSystemUpdateJobResponse.job:type_name -> xylona.SystemUpdateJob
 	154, // 100: xylona.GetSystemUpdateJobResponse.events:type_name -> xylona.SystemUpdateJobEvent
-	402, // 101: xylona.RemoteServerSummary.status:type_name -> xylona.Status
-	403, // 102: xylona.RemoteServerSummary.last_remote_update:type_name -> google.protobuf.Timestamp
-	403, // 103: xylona.RemoteServerSummary.last_synced_at:type_name -> google.protobuf.Timestamp
-	414, // 104: xylona.RemoteServerSummary.version_info:type_name -> xylona.VersionInfo
-	405, // 105: xylona.AggregatedGameServer.local_server:type_name -> xylona.GameServer
+	404, // 101: xylona.RemoteServerSummary.status:type_name -> xylona.Status
+	405, // 102: xylona.RemoteServerSummary.last_remote_update:type_name -> google.protobuf.Timestamp
+	405, // 103: xylona.RemoteServerSummary.last_synced_at:type_name -> google.protobuf.Timestamp
+	416, // 104: xylona.RemoteServerSummary.version_info:type_name -> xylona.VersionInfo
+	407, // 105: xylona.AggregatedGameServer.local_server:type_name -> xylona.GameServer
 	164, // 106: xylona.AggregatedGameServer.remote_server:type_name -> xylona.RemoteServerSummary
 	165, // 107: xylona.ListAggregatedGameServersResponse.servers:type_name -> xylona.AggregatedGameServer
 	170, // 108: xylona.ListRolesResponse.roles:type_name -> xylona.Role
 	171, // 109: xylona.ListPermissionsResponse.permissions:type_name -> xylona.Permission
 	170, // 110: xylona.CreateRoleResponse.role:type_name -> xylona.Role
 	180, // 111: xylona.ListGameServerAccessGrantsResponse.grants:type_name -> xylona.GameServerAccessGrant
-	403, // 112: xylona.GameServerAccessGrant.created_at:type_name -> google.protobuf.Timestamp
+	405, // 112: xylona.GameServerAccessGrant.created_at:type_name -> google.protobuf.Timestamp
 	180, // 113: xylona.GrantGameServerAccessResponse.grant:type_name -> xylona.GameServerAccessGrant
-	415, // 114: xylona.GetNodeSystemInfoResponse.system_info:type_name -> xylona.NodeSystemInfo
-	416, // 115: xylona.GetNodeResourceSnapshotResponse.snapshot:type_name -> xylona.NodeResourceSnapshot
-	413, // 116: xylona.DashboardNodeSummary.node:type_name -> xylona.Node
-	415, // 117: xylona.DashboardNodeSummary.system_info:type_name -> xylona.NodeSystemInfo
-	416, // 118: xylona.DashboardNodeSummary.snapshot:type_name -> xylona.NodeResourceSnapshot
+	417, // 114: xylona.GetNodeSystemInfoResponse.system_info:type_name -> xylona.NodeSystemInfo
+	418, // 115: xylona.GetNodeResourceSnapshotResponse.snapshot:type_name -> xylona.NodeResourceSnapshot
+	415, // 116: xylona.DashboardNodeSummary.node:type_name -> xylona.Node
+	417, // 117: xylona.DashboardNodeSummary.system_info:type_name -> xylona.NodeSystemInfo
+	418, // 118: xylona.DashboardNodeSummary.snapshot:type_name -> xylona.NodeResourceSnapshot
 	190, // 119: xylona.GetDashboardOverviewResponse.nodes:type_name -> xylona.DashboardNodeSummary
-	403, // 120: xylona.GetNodeMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	403, // 121: xylona.GetNodeMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	417, // 122: xylona.GetNodeMetricsHistoryResponse.points:type_name -> xylona.MetricsHistoryPoint
-	403, // 123: xylona.GetGameServerMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	403, // 124: xylona.GetGameServerMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	418, // 125: xylona.GetGameServerMetricsHistoryResponse.points:type_name -> xylona.GameServerMetricsHistoryPoint
-	419, // 126: xylona.GetGameServerMetricsHistoryResponse.lifecycle_events:type_name -> xylona.GameServerLifecycleHistoryEvent
-	420, // 127: xylona.GetGameServerMetricsHistoryResponse.operation_events:type_name -> xylona.GameServerOperationHistoryEvent
-	421, // 128: xylona.GetGameServerMetricsHistoryResponse.resolution:type_name -> xylona.GameServerMetricsResolution
+	405, // 120: xylona.GetNodeMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	405, // 121: xylona.GetNodeMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	419, // 122: xylona.GetNodeMetricsHistoryResponse.points:type_name -> xylona.MetricsHistoryPoint
+	405, // 123: xylona.GetGameServerMetricsHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	405, // 124: xylona.GetGameServerMetricsHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	420, // 125: xylona.GetGameServerMetricsHistoryResponse.points:type_name -> xylona.GameServerMetricsHistoryPoint
+	421, // 126: xylona.GetGameServerMetricsHistoryResponse.lifecycle_events:type_name -> xylona.GameServerLifecycleHistoryEvent
+	422, // 127: xylona.GetGameServerMetricsHistoryResponse.operation_events:type_name -> xylona.GameServerOperationHistoryEvent
+	423, // 128: xylona.GetGameServerMetricsHistoryResponse.resolution:type_name -> xylona.GameServerMetricsResolution
 	196, // 129: xylona.GetGameServerConfigFilesResponse.config_files:type_name -> xylona.ConfigFileInfo
 	197, // 130: xylona.GetGameServerConfigFileResponse.fields:type_name -> xylona.ConfigFieldData
 	198, // 131: xylona.GetGameServerConfigFileResponse.advanced_fields:type_name -> xylona.AdvancedField
 	197, // 132: xylona.UpdateGameServerConfigFileRequest.fields:type_name -> xylona.ConfigFieldData
 	198, // 133: xylona.UpdateGameServerConfigFileRequest.advanced_fields:type_name -> xylona.AdvancedField
 	199, // 134: xylona.UpdateGameServerConfigFileResponse.errors:type_name -> xylona.ConfigValidationError
-	422, // 135: xylona.SearchSteamAppsResponse.apps:type_name -> xylona.SteamApp
-	423, // 136: xylona.GetSteamAppDetailsResponse.details:type_name -> xylona.SteamAppDetails
-	424, // 137: xylona.SearchModsResponse.results:type_name -> xylona.ModSearchResult
-	425, // 138: xylona.GetModDetailsResponse.details:type_name -> xylona.ModDetails
-	426, // 139: xylona.GetModVersionsResponse.versions:type_name -> xylona.ModVersion
-	427, // 140: xylona.InstallModResponse.installed_mod:type_name -> xylona.InstalledMod
-	427, // 141: xylona.UpdateModResponse.installed_mod:type_name -> xylona.InstalledMod
-	427, // 142: xylona.ListInstalledModsResponse.installed_mods:type_name -> xylona.InstalledMod
+	424, // 135: xylona.SearchSteamAppsResponse.apps:type_name -> xylona.SteamApp
+	425, // 136: xylona.GetSteamAppDetailsResponse.details:type_name -> xylona.SteamAppDetails
+	426, // 137: xylona.SearchModsResponse.results:type_name -> xylona.ModSearchResult
+	427, // 138: xylona.GetModDetailsResponse.details:type_name -> xylona.ModDetails
+	428, // 139: xylona.GetModVersionsResponse.versions:type_name -> xylona.ModVersion
+	429, // 140: xylona.InstallModResponse.installed_mod:type_name -> xylona.InstalledMod
+	429, // 141: xylona.UpdateModResponse.installed_mod:type_name -> xylona.InstalledMod
+	429, // 142: xylona.ListInstalledModsResponse.installed_mods:type_name -> xylona.InstalledMod
 	20,  // 143: xylona.GetSevenDaysToDieReportedModsResponse.connection_state:type_name -> xylona.SevenDaysToDieWebAPIConnectionState
 	21,  // 144: xylona.GetSevenDaysToDieReportedModsResponse.state:type_name -> xylona.SevenDaysToDieWebAPIValueState
 	230, // 145: xylona.GetSevenDaysToDieReportedModsResponse.mods:type_name -> xylona.SevenDaysToDieReportedMod
-	427, // 146: xylona.SetModAutoUpdateResponse.installed_mod:type_name -> xylona.InstalledMod
-	427, // 147: xylona.SetModEnabledResponse.installed_mod:type_name -> xylona.InstalledMod
-	427, // 148: xylona.PinModVersionResponse.installed_mod:type_name -> xylona.InstalledMod
+	429, // 146: xylona.SetModAutoUpdateResponse.installed_mod:type_name -> xylona.InstalledMod
+	429, // 147: xylona.SetModEnabledResponse.installed_mod:type_name -> xylona.InstalledMod
+	429, // 148: xylona.PinModVersionResponse.installed_mod:type_name -> xylona.InstalledMod
 	6,   // 149: xylona.UpdateProgress.step:type_name -> xylona.UpdateStep
 	7,   // 150: xylona.UpdateProgress.step_status:type_name -> xylona.StepStatus
-	414, // 151: xylona.GetVersionInfoResponse.version_info:type_name -> xylona.VersionInfo
-	414, // 152: xylona.CheckForUpdateResponse.version_info:type_name -> xylona.VersionInfo
-	428, // 153: xylona.CreateNotificationChannelRequest.channel_type:type_name -> xylona.NotificationChannelType
-	429, // 154: xylona.CreateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
-	429, // 155: xylona.UpdateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
-	429, // 156: xylona.ListNotificationChannelsResponse.channels:type_name -> xylona.NotificationChannel
-	430, // 157: xylona.CreateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
-	431, // 158: xylona.CreateAlertRuleResponse.rule:type_name -> xylona.AlertRule
-	430, // 159: xylona.UpdateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
-	431, // 160: xylona.UpdateAlertRuleResponse.rule:type_name -> xylona.AlertRule
-	431, // 161: xylona.ListAlertRulesResponse.rules:type_name -> xylona.AlertRule
-	432, // 162: xylona.GetAlertHistoryResponse.entries:type_name -> xylona.AlertHistoryEntry
-	433, // 163: xylona.GetSystemSMTPConfigResponse.config:type_name -> xylona.SystemSMTPConfig
-	433, // 164: xylona.SetSystemSMTPConfigRequest.config:type_name -> xylona.SystemSMTPConfig
+	416, // 151: xylona.GetVersionInfoResponse.version_info:type_name -> xylona.VersionInfo
+	416, // 152: xylona.CheckForUpdateResponse.version_info:type_name -> xylona.VersionInfo
+	430, // 153: xylona.CreateNotificationChannelRequest.channel_type:type_name -> xylona.NotificationChannelType
+	431, // 154: xylona.CreateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
+	431, // 155: xylona.UpdateNotificationChannelResponse.channel:type_name -> xylona.NotificationChannel
+	431, // 156: xylona.ListNotificationChannelsResponse.channels:type_name -> xylona.NotificationChannel
+	432, // 157: xylona.CreateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
+	433, // 158: xylona.CreateAlertRuleResponse.rule:type_name -> xylona.AlertRule
+	432, // 159: xylona.UpdateAlertRuleRequest.event_type:type_name -> xylona.AlertEventType
+	433, // 160: xylona.UpdateAlertRuleResponse.rule:type_name -> xylona.AlertRule
+	433, // 161: xylona.ListAlertRulesResponse.rules:type_name -> xylona.AlertRule
+	434, // 162: xylona.GetAlertHistoryResponse.entries:type_name -> xylona.AlertHistoryEntry
+	435, // 163: xylona.GetSystemSMTPConfigResponse.config:type_name -> xylona.SystemSMTPConfig
+	435, // 164: xylona.SetSystemSMTPConfigRequest.config:type_name -> xylona.SystemSMTPConfig
 	8,   // 165: xylona.DNSProviderConnectionInput.provider:type_name -> xylona.DNSProviderKind
 	9,   // 166: xylona.DNSProviderConnectionInput.credential_mode:type_name -> xylona.DNSCredentialMode
 	8,   // 167: xylona.DNSProviderConnection.provider:type_name -> xylona.DNSProviderKind
@@ -25403,22 +25557,22 @@ var file_xylona_proto_depIdxs = []int32{
 	282, // 171: xylona.ListDNSProviderZonesResponse.zones:type_name -> xylona.DNSProviderZone
 	280, // 172: xylona.SetDNSProviderConnectionRequest.candidate:type_name -> xylona.DNSProviderConnectionInput
 	281, // 173: xylona.SetDNSProviderConnectionResponse.connection:type_name -> xylona.DNSProviderConnection
-	434, // 174: xylona.ListScheduledTasksResponse.tasks:type_name -> xylona.ScheduledTask
-	435, // 175: xylona.ListScheduledTasksResponse.latest_logs:type_name -> xylona.ScheduledTaskLog
-	434, // 176: xylona.CreateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
-	434, // 177: xylona.UpdateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
-	435, // 178: xylona.GetScheduledTaskLogsResponse.logs:type_name -> xylona.ScheduledTaskLog
-	436, // 179: xylona.GetGameServerBackupOverviewResponse.overview:type_name -> xylona.GameServerBackupOverview
-	437, // 180: xylona.GetBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
-	437, // 181: xylona.UpdateBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
-	438, // 182: xylona.ListGameServerBackupsResponse.backups:type_name -> xylona.GameServerBackup
-	438, // 183: xylona.CreateGameServerBackupResponse.backup:type_name -> xylona.GameServerBackup
-	439, // 184: xylona.RestoreGameServerBackupRequest.restore_mode:type_name -> xylona.BackupRestoreMode
+	436, // 174: xylona.ListScheduledTasksResponse.tasks:type_name -> xylona.ScheduledTask
+	437, // 175: xylona.ListScheduledTasksResponse.latest_logs:type_name -> xylona.ScheduledTaskLog
+	436, // 176: xylona.CreateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
+	436, // 177: xylona.UpdateScheduledTaskResponse.task:type_name -> xylona.ScheduledTask
+	437, // 178: xylona.GetScheduledTaskLogsResponse.logs:type_name -> xylona.ScheduledTaskLog
+	438, // 179: xylona.GetGameServerBackupOverviewResponse.overview:type_name -> xylona.GameServerBackupOverview
+	439, // 180: xylona.GetBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
+	439, // 181: xylona.UpdateBackupSettingsResponse.settings:type_name -> xylona.BackupSettings
+	440, // 182: xylona.ListGameServerBackupsResponse.backups:type_name -> xylona.GameServerBackup
+	440, // 183: xylona.CreateGameServerBackupResponse.backup:type_name -> xylona.GameServerBackup
+	441, // 184: xylona.RestoreGameServerBackupRequest.restore_mode:type_name -> xylona.BackupRestoreMode
 	10,  // 185: xylona.GameServerPlayerManagementCapabilities.supported_actions:type_name -> xylona.GameServerPlayerAction
 	11,  // 186: xylona.GameServerPlayerManagementCapabilities.roster_state:type_name -> xylona.GameServerPlayerManagementRosterState
 	313, // 187: xylona.GetGameServerPlayerManagementResponse.capabilities:type_name -> xylona.GameServerPlayerManagementCapabilities
-	440, // 188: xylona.GetGameServerPlayerManagementResponse.players:type_name -> xylona.GameServerPlayer
-	402, // 189: xylona.GetGameServerPlayerManagementResponse.status:type_name -> xylona.Status
+	442, // 188: xylona.GetGameServerPlayerManagementResponse.players:type_name -> xylona.GameServerPlayer
+	404, // 189: xylona.GetGameServerPlayerManagementResponse.status:type_name -> xylona.Status
 	314, // 190: xylona.GetGameServerPlayerManagementResponse.management_players:type_name -> xylona.GameServerManagementPlayer
 	10,  // 191: xylona.PerformGameServerPlayerActionRequest.action:type_name -> xylona.GameServerPlayerAction
 	13,  // 192: xylona.GameOperationField.type:type_name -> xylona.GameOperationFieldType
@@ -25444,7 +25598,7 @@ var file_xylona_proto_depIdxs = []int32{
 	19,  // 212: xylona.SyncDNSBindingResponse.result:type_name -> xylona.DNSSyncResult
 	338, // 213: xylona.AdoptDNSBindingRecordResponse.binding:type_name -> xylona.DNSBinding
 	16,  // 214: xylona.PalworldMapActor.kind:type_name -> xylona.PalworldMapActorKind
-	403, // 215: xylona.PalworldMapView.collected_at:type_name -> google.protobuf.Timestamp
+	405, // 215: xylona.PalworldMapView.collected_at:type_name -> google.protobuf.Timestamp
 	349, // 216: xylona.PalworldMapView.actors:type_name -> xylona.PalworldMapActor
 	350, // 217: xylona.PalworldMapView.layers:type_name -> xylona.PalworldMapLayer
 	380, // 218: xylona.PalworldMapView.health:type_name -> xylona.PalworldMapHealth
@@ -25454,7 +25608,7 @@ var file_xylona_proto_depIdxs = []int32{
 	350, // 222: xylona.InstallPalworldMapTilesResponse.layers:type_name -> xylona.PalworldMapLayer
 	351, // 223: xylona.GetPublicPalworldMapResponse.map:type_name -> xylona.PalworldMapView
 	360, // 224: xylona.SevenDaysToDieMapPlayer.position:type_name -> xylona.SevenDaysToDieMapVector
-	403, // 225: xylona.SevenDaysToDieMapPlayer.last_seen_at:type_name -> google.protobuf.Timestamp
+	405, // 225: xylona.SevenDaysToDieMapPlayer.last_seen_at:type_name -> google.protobuf.Timestamp
 	360, // 226: xylona.SevenDaysToDieLandClaim.position:type_name -> xylona.SevenDaysToDieMapVector
 	360, // 227: xylona.SevenDaysToDieMapEntity.position:type_name -> xylona.SevenDaysToDieMapVector
 	381, // 228: xylona.SevenDaysToDieMapBloodMoon.game_time:type_name -> xylona.SevenDaysToDieGameTime
@@ -25464,7 +25618,7 @@ var file_xylona_proto_depIdxs = []int32{
 	361, // 232: xylona.SevenDaysToDieMapView.players:type_name -> xylona.SevenDaysToDieMapPlayer
 	362, // 233: xylona.SevenDaysToDieMapView.markers:type_name -> xylona.SevenDaysToDieMapMarker
 	363, // 234: xylona.SevenDaysToDieMapView.claims:type_name -> xylona.SevenDaysToDieLandClaim
-	403, // 235: xylona.SevenDaysToDieMapView.collected_at:type_name -> google.protobuf.Timestamp
+	405, // 235: xylona.SevenDaysToDieMapView.collected_at:type_name -> google.protobuf.Timestamp
 	362, // 236: xylona.SevenDaysToDieMapView.native_markers:type_name -> xylona.SevenDaysToDieMapMarker
 	21,  // 237: xylona.SevenDaysToDieMapView.native_marker_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
 	21,  // 238: xylona.SevenDaysToDieMapView.claims_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
@@ -25488,13 +25642,13 @@ var file_xylona_proto_depIdxs = []int32{
 	21,  // 256: xylona.SevenDaysToDieWebAPIStatus.blood_moon_state:type_name -> xylona.SevenDaysToDieWebAPIValueState
 	381, // 257: xylona.SevenDaysToDieWebAPIStatus.next_blood_moon:type_name -> xylona.SevenDaysToDieGameTime
 	381, // 258: xylona.SevenDaysToDieWebAPIStatus.next_blood_moon_end:type_name -> xylona.SevenDaysToDieGameTime
-	403, // 259: xylona.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
+	405, // 259: xylona.SevenDaysToDieWebAPIStatus.observed_at:type_name -> google.protobuf.Timestamp
 	383, // 260: xylona.GetSevenDaysToDieWebAPIStatusResponse.status:type_name -> xylona.SevenDaysToDieWebAPIStatus
 	20,  // 261: xylona.GetSevenDaysToDieSandboxSettingsResponse.connection_state:type_name -> xylona.SevenDaysToDieWebAPIConnectionState
 	21,  // 262: xylona.GetSevenDaysToDieSandboxSettingsResponse.state:type_name -> xylona.SevenDaysToDieWebAPIValueState
 	22,  // 263: xylona.GetSevenDaysToDieSandboxSettingsResponse.comparison_state:type_name -> xylona.SevenDaysToDieSandboxComparisonState
 	386, // 264: xylona.GetSevenDaysToDieSandboxSettingsResponse.settings:type_name -> xylona.SevenDaysToDieSandboxSetting
-	403, // 265: xylona.GetSevenDaysToDieSandboxSettingsResponse.observed_at:type_name -> google.protobuf.Timestamp
+	405, // 265: xylona.GetSevenDaysToDieSandboxSettingsResponse.observed_at:type_name -> google.protobuf.Timestamp
 	52,  // 266: xylona.CompleteSetupResponse.user:type_name -> xylona.User
 	395, // 267: xylona.GetJoinPasswordStateResponse.state:type_name -> xylona.JoinPasswordState
 	395, // 268: xylona.SetJoinPasswordResponse.state:type_name -> xylona.JoinPasswordState
@@ -25535,14 +25689,14 @@ var file_xylona_proto_depIdxs = []int32{
 	70,  // 303: xylona.Xylona.ListIPs:input_type -> xylona.ListIPsRequest
 	72,  // 304: xylona.Xylona.AddIP:input_type -> xylona.AddIPRequest
 	74,  // 305: xylona.Xylona.RemoveIP:input_type -> xylona.RemoveIPRequest
-	441, // 306: xylona.Xylona.CreateGameServer:input_type -> xylona.CreateGameServerRequest
-	442, // 307: xylona.Xylona.EditGameServer:input_type -> xylona.EditGameServerRequest
-	443, // 308: xylona.Xylona.RemoveGameServer:input_type -> xylona.RemoveGameServerRequest
-	444, // 309: xylona.Xylona.StartGameServer:input_type -> xylona.StartGameServerRequest
-	445, // 310: xylona.Xylona.StopGameServer:input_type -> xylona.StopGameServerRequest
-	446, // 311: xylona.Xylona.RestartGameServer:input_type -> xylona.RestartGameServerRequest
-	447, // 312: xylona.Xylona.ReadGameServerOutput:input_type -> xylona.ReadGameServerOutputRequest
-	448, // 313: xylona.Xylona.SendGameServerInput:input_type -> xylona.SendGameServerInputRequest
+	443, // 306: xylona.Xylona.CreateGameServer:input_type -> xylona.CreateGameServerRequest
+	444, // 307: xylona.Xylona.EditGameServer:input_type -> xylona.EditGameServerRequest
+	445, // 308: xylona.Xylona.RemoveGameServer:input_type -> xylona.RemoveGameServerRequest
+	446, // 309: xylona.Xylona.StartGameServer:input_type -> xylona.StartGameServerRequest
+	447, // 310: xylona.Xylona.StopGameServer:input_type -> xylona.StopGameServerRequest
+	448, // 311: xylona.Xylona.RestartGameServer:input_type -> xylona.RestartGameServerRequest
+	449, // 312: xylona.Xylona.ReadGameServerOutput:input_type -> xylona.ReadGameServerOutputRequest
+	450, // 313: xylona.Xylona.SendGameServerInput:input_type -> xylona.SendGameServerInputRequest
 	50,  // 314: xylona.Xylona.GetGameServer:input_type -> xylona.GetGameServerRequest
 	93,  // 315: xylona.Xylona.UpdateGameServer:input_type -> xylona.UpdateGameServerRequest
 	95,  // 316: xylona.Xylona.UpdateGameServerStartArgs:input_type -> xylona.UpdateGameServerStartArgsRequest
@@ -25596,17 +25750,17 @@ var file_xylona_proto_depIdxs = []int32{
 	68,  // 364: xylona.Xylona.GetUpdateTargets:input_type -> xylona.GetUpdateTargetsRequest
 	132, // 365: xylona.Xylona.SetServerVariant:input_type -> xylona.SetServerVariantRequest
 	134, // 366: xylona.Xylona.GetVariantOperationStatus:input_type -> xylona.GetVariantOperationStatusRequest
-	449, // 367: xylona.Xylona.ListDirectoryFiles:input_type -> xylona.ListDirectoryFilesRequest
-	450, // 368: xylona.Xylona.GameServerFilesDelete:input_type -> xylona.GameServerFilesDeleteRequest
-	451, // 369: xylona.Xylona.GameServerFilesArchive:input_type -> xylona.GameServerFilesCompressionRequest
-	452, // 370: xylona.Xylona.GameServerFilesExtract:input_type -> xylona.GameServerFilesDecompressionRequest
-	451, // 371: xylona.Xylona.GameServerFilesCompress:input_type -> xylona.GameServerFilesCompressionRequest
-	452, // 372: xylona.Xylona.GameServerFilesDecompress:input_type -> xylona.GameServerFilesDecompressionRequest
-	453, // 373: xylona.Xylona.GameServerFilesDownloadFromURL:input_type -> xylona.GameServersFileDownloadFromURLRequest
-	454, // 374: xylona.Xylona.GameServerFileRename:input_type -> xylona.GameServerFileRenameRequest
-	455, // 375: xylona.Xylona.GameServerFilesMove:input_type -> xylona.GameServerFilesMoveRequest
-	456, // 376: xylona.Xylona.GameServersFileEdit:input_type -> xylona.GameServersFileEditRequest
-	457, // 377: xylona.Xylona.GameServersFileOrDirectoryCreate:input_type -> xylona.GameServerFileOrDirectoryCreateRequest
+	451, // 367: xylona.Xylona.ListDirectoryFiles:input_type -> xylona.ListDirectoryFilesRequest
+	452, // 368: xylona.Xylona.GameServerFilesDelete:input_type -> xylona.GameServerFilesDeleteRequest
+	453, // 369: xylona.Xylona.GameServerFilesArchive:input_type -> xylona.GameServerFilesCompressionRequest
+	454, // 370: xylona.Xylona.GameServerFilesExtract:input_type -> xylona.GameServerFilesDecompressionRequest
+	453, // 371: xylona.Xylona.GameServerFilesCompress:input_type -> xylona.GameServerFilesCompressionRequest
+	454, // 372: xylona.Xylona.GameServerFilesDecompress:input_type -> xylona.GameServerFilesDecompressionRequest
+	455, // 373: xylona.Xylona.GameServerFilesDownloadFromURL:input_type -> xylona.GameServersFileDownloadFromURLRequest
+	456, // 374: xylona.Xylona.GameServerFileRename:input_type -> xylona.GameServerFileRenameRequest
+	457, // 375: xylona.Xylona.GameServerFilesMove:input_type -> xylona.GameServerFilesMoveRequest
+	458, // 376: xylona.Xylona.GameServersFileEdit:input_type -> xylona.GameServersFileEditRequest
+	459, // 377: xylona.Xylona.GameServersFileOrDirectoryCreate:input_type -> xylona.GameServerFileOrDirectoryCreateRequest
 	142, // 378: xylona.Xylona.GetNode:input_type -> xylona.GetNodeRequest
 	144, // 379: xylona.Xylona.ListNodes:input_type -> xylona.ListNodesRequest
 	146, // 380: xylona.Xylona.GenerateNodePairingObject:input_type -> xylona.GenerateNodePairingObjectRequest
@@ -25674,183 +25828,185 @@ var file_xylona_proto_depIdxs = []int32{
 	307, // 442: xylona.Xylona.CreateGameServerBackup:input_type -> xylona.CreateGameServerBackupRequest
 	309, // 443: xylona.Xylona.DeleteGameServerBackup:input_type -> xylona.DeleteGameServerBackupRequest
 	311, // 444: xylona.Xylona.RestoreGameServerBackup:input_type -> xylona.RestoreGameServerBackupRequest
-	77,  // 445: xylona.Xylona.AddGame:output_type -> xylona.AddGameResponse
-	79,  // 446: xylona.Xylona.EditGame:output_type -> xylona.EditGameResponse
-	81,  // 447: xylona.Xylona.UpdateGameStartArgsTemplate:output_type -> xylona.UpdateGameStartArgsTemplateResponse
-	83,  // 448: xylona.Xylona.UpdateGameStartArgBlocklist:output_type -> xylona.UpdateGameStartArgBlocklistResponse
-	98,  // 449: xylona.Xylona.GetGameEnvironment:output_type -> xylona.GetGameEnvironmentResponse
-	100, // 450: xylona.Xylona.UpdateGameEnvironment:output_type -> xylona.UpdateGameEnvironmentResponse
-	49,  // 451: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
-	85,  // 452: xylona.Xylona.RemoveGame:output_type -> xylona.RemoveGameResponse
-	88,  // 453: xylona.Xylona.ImportGame:output_type -> xylona.ImportGameResponse
-	92,  // 454: xylona.Xylona.ExportGame:output_type -> xylona.ExportGameResponse
-	90,  // 455: xylona.Xylona.ResetGameToOfficialDefinition:output_type -> xylona.ResetGameToOfficialDefinitionResponse
-	47,  // 456: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
-	213, // 457: xylona.Xylona.SearchSteamApps:output_type -> xylona.SearchSteamAppsResponse
-	215, // 458: xylona.Xylona.GetSteamAppDetails:output_type -> xylona.GetSteamAppDetailsResponse
-	35,  // 459: xylona.Xylona.Login:output_type -> xylona.LoginResponse
-	39,  // 460: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
-	43,  // 461: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
-	41,  // 462: xylona.Xylona.ChangePassword:output_type -> xylona.ChangePasswordResponse
-	392, // 463: xylona.Xylona.GetSetupStatus:output_type -> xylona.GetSetupStatusResponse
-	394, // 464: xylona.Xylona.CompleteSetup:output_type -> xylona.CompleteSetupResponse
-	37,  // 465: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
-	54,  // 466: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
-	56,  // 467: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
-	58,  // 468: xylona.Xylona.UpdateUser:output_type -> xylona.UpdateUserResponse
-	60,  // 469: xylona.Xylona.DeleteUser:output_type -> xylona.DeleteUserResponse
-	65,  // 470: xylona.Xylona.GetUserDeletionImpact:output_type -> xylona.GetUserDeletionImpactResponse
-	169, // 471: xylona.Xylona.ListRoles:output_type -> xylona.ListRolesResponse
-	173, // 472: xylona.Xylona.ListPermissions:output_type -> xylona.ListPermissionsResponse
-	175, // 473: xylona.Xylona.CreateRole:output_type -> xylona.CreateRoleResponse
-	177, // 474: xylona.Xylona.DeleteRole:output_type -> xylona.DeleteRoleResponse
-	179, // 475: xylona.Xylona.ListGameServerAccessGrants:output_type -> xylona.ListGameServerAccessGrantsResponse
-	182, // 476: xylona.Xylona.GrantGameServerAccess:output_type -> xylona.GrantGameServerAccessResponse
-	184, // 477: xylona.Xylona.RevokeGameServerAccess:output_type -> xylona.RevokeGameServerAccessResponse
-	71,  // 478: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
-	73,  // 479: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
-	75,  // 480: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
-	458, // 481: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
-	459, // 482: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
-	460, // 483: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
-	461, // 484: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
-	462, // 485: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
-	463, // 486: xylona.Xylona.RestartGameServer:output_type -> xylona.RestartGameServerResponse
-	464, // 487: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
-	465, // 488: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
-	51,  // 489: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
-	94,  // 490: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
-	96,  // 491: xylona.Xylona.UpdateGameServerStartArgs:output_type -> xylona.UpdateGameServerStartArgsResponse
-	102, // 492: xylona.Xylona.GetGameServerEnvironment:output_type -> xylona.GetGameServerEnvironmentResponse
-	104, // 493: xylona.Xylona.UpdateGameServerEnvironment:output_type -> xylona.UpdateGameServerEnvironmentResponse
-	106, // 494: xylona.Xylona.SetGameServerSecretEnv:output_type -> xylona.SetGameServerSecretEnvResponse
-	108, // 495: xylona.Xylona.ClearGameServerSecretEnv:output_type -> xylona.ClearGameServerSecretEnvResponse
-	111, // 496: xylona.Xylona.GetGameServerAdminInterface:output_type -> xylona.GetGameServerAdminInterfaceResponse
-	113, // 497: xylona.Xylona.SetGameServerAdminInterfacePassword:output_type -> xylona.SetGameServerAdminInterfacePasswordResponse
-	116, // 498: xylona.Xylona.GetGameServerReadiness:output_type -> xylona.GetGameServerReadinessResponse
-	118, // 499: xylona.Xylona.AcceptMinecraftEula:output_type -> xylona.AcceptMinecraftEulaResponse
-	397, // 500: xylona.Xylona.GetJoinPasswordState:output_type -> xylona.GetJoinPasswordStateResponse
-	399, // 501: xylona.Xylona.SetJoinPassword:output_type -> xylona.SetJoinPasswordResponse
-	401, // 502: xylona.Xylona.ClearJoinPassword:output_type -> xylona.ClearJoinPasswordResponse
-	120, // 503: xylona.Xylona.SetSteamGSLT:output_type -> xylona.SetSteamGSLTResponse
-	122, // 504: xylona.Xylona.ClearSteamGSLT:output_type -> xylona.ClearSteamGSLTResponse
-	125, // 505: xylona.Xylona.StartHytaleDeviceAuth:output_type -> xylona.StartHytaleDeviceAuthResponse
-	127, // 506: xylona.Xylona.PollHytaleDeviceAuth:output_type -> xylona.PollHytaleDeviceAuthResponse
-	129, // 507: xylona.Xylona.SelectHytaleProfile:output_type -> xylona.SelectHytaleProfileResponse
-	131, // 508: xylona.Xylona.ClearHytaleAccount:output_type -> xylona.ClearHytaleAccountResponse
-	45,  // 509: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
-	141, // 510: xylona.Xylona.QueryGameServer:output_type -> xylona.QueryGameServerResponse
-	26,  // 511: xylona.Xylona.GetOrCreateGameServerStatusPageSettings:output_type -> xylona.GetOrCreateGameServerStatusPageSettingsResponse
-	29,  // 512: xylona.Xylona.UpdateGameServerStatusPageSettings:output_type -> xylona.UpdateGameServerStatusPageSettingsResponse
-	33,  // 513: xylona.Xylona.GetPublicGameServerStatusPage:output_type -> xylona.GetPublicGameServerStatusPageResponse
-	333, // 514: xylona.Xylona.GetOrCreateGameServerMapShareSettings:output_type -> xylona.GetOrCreateGameServerMapShareSettingsResponse
-	335, // 515: xylona.Xylona.UpdateGameServerMapShareSettings:output_type -> xylona.UpdateGameServerMapShareSettingsResponse
-	337, // 516: xylona.Xylona.ResolvePublicGameServerMap:output_type -> xylona.ResolvePublicGameServerMapResponse
-	340, // 517: xylona.Xylona.GetDNSBinding:output_type -> xylona.GetDNSBindingResponse
-	342, // 518: xylona.Xylona.SetDNSBinding:output_type -> xylona.SetDNSBindingResponse
-	344, // 519: xylona.Xylona.RemoveDNSBinding:output_type -> xylona.RemoveDNSBindingResponse
-	346, // 520: xylona.Xylona.SyncDNSBinding:output_type -> xylona.SyncDNSBindingResponse
-	348, // 521: xylona.Xylona.AdoptDNSBindingRecord:output_type -> xylona.AdoptDNSBindingRecordResponse
-	316, // 522: xylona.Xylona.GetGameServerPlayerManagement:output_type -> xylona.GetGameServerPlayerManagementResponse
-	318, // 523: xylona.Xylona.PerformGameServerPlayerAction:output_type -> xylona.PerformGameServerPlayerActionResponse
-	324, // 524: xylona.Xylona.ListGameServerOperations:output_type -> xylona.ListGameServerOperationsResponse
-	330, // 525: xylona.Xylona.ExecuteGameServerOperation:output_type -> xylona.ExecuteGameServerOperationResponse
-	353, // 526: xylona.Xylona.GetPalworldMap:output_type -> xylona.GetPalworldMapResponse
-	355, // 527: xylona.Xylona.UpdatePalworldMapConfig:output_type -> xylona.UpdatePalworldMapConfigResponse
-	357, // 528: xylona.Xylona.InstallPalworldMapTiles:output_type -> xylona.InstallPalworldMapTilesResponse
-	359, // 529: xylona.Xylona.GetPublicPalworldMap:output_type -> xylona.GetPublicPalworldMapResponse
-	368, // 530: xylona.Xylona.GetSevenDaysToDieMap:output_type -> xylona.GetSevenDaysToDieMapResponse
-	390, // 531: xylona.Xylona.InstallSevenDaysToDieLandClaimsMod:output_type -> xylona.InstallSevenDaysToDieLandClaimsModResponse
-	385, // 532: xylona.Xylona.GetSevenDaysToDieWebAPIStatus:output_type -> xylona.GetSevenDaysToDieWebAPIStatusResponse
-	388, // 533: xylona.Xylona.GetSevenDaysToDieSandboxSettings:output_type -> xylona.GetSevenDaysToDieSandboxSettingsResponse
-	370, // 534: xylona.Xylona.UpdateSevenDaysToDieMapNotes:output_type -> xylona.UpdateSevenDaysToDieMapNotesResponse
-	372, // 535: xylona.Xylona.GetPublicSevenDaysToDieMap:output_type -> xylona.GetPublicSevenDaysToDieMapResponse
-	375, // 536: xylona.Xylona.GetMinecraftMap:output_type -> xylona.GetMinecraftMapResponse
-	377, // 537: xylona.Xylona.UpdateMinecraftMapConfig:output_type -> xylona.UpdateMinecraftMapConfigResponse
-	379, // 538: xylona.Xylona.GetPublicMinecraftMap:output_type -> xylona.GetPublicMinecraftMapResponse
-	69,  // 539: xylona.Xylona.GetUpdateTargets:output_type -> xylona.GetUpdateTargetsResponse
-	133, // 540: xylona.Xylona.SetServerVariant:output_type -> xylona.SetServerVariantResponse
-	135, // 541: xylona.Xylona.GetVariantOperationStatus:output_type -> xylona.GetVariantOperationStatusResponse
-	466, // 542: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
-	467, // 543: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
-	468, // 544: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
-	469, // 545: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
-	470, // 546: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
-	471, // 547: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
-	472, // 548: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
-	473, // 549: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
-	474, // 550: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
-	475, // 551: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
-	476, // 552: xylona.Xylona.GameServersFileOrDirectoryCreate:output_type -> xylona.GameServerFileOrDirectoryCreateResponse
-	143, // 553: xylona.Xylona.GetNode:output_type -> xylona.GetNodeResponse
-	145, // 554: xylona.Xylona.ListNodes:output_type -> xylona.ListNodesResponse
-	147, // 555: xylona.Xylona.GenerateNodePairingObject:output_type -> xylona.GenerateNodePairingObjectResponse
-	149, // 556: xylona.Xylona.RemoveNode:output_type -> xylona.RemoveNodeResponse
-	151, // 557: xylona.Xylona.EditNode:output_type -> xylona.EditNodeResponse
-	157, // 558: xylona.Xylona.CheckSystemUpdates:output_type -> xylona.CheckSystemUpdatesResponse
-	159, // 559: xylona.Xylona.StartSystemUpdate:output_type -> xylona.StartSystemUpdateResponse
-	161, // 560: xylona.Xylona.ListSystemUpdateJobs:output_type -> xylona.ListSystemUpdateJobsResponse
-	163, // 561: xylona.Xylona.GetSystemUpdateJob:output_type -> xylona.GetSystemUpdateJobResponse
-	209, // 562: xylona.Xylona.GetGameConfigSchemas:output_type -> xylona.GetGameConfigSchemasResponse
-	211, // 563: xylona.Xylona.UpdateGameConfigSchemas:output_type -> xylona.UpdateGameConfigSchemasResponse
-	201, // 564: xylona.Xylona.GetGameServerConfigFiles:output_type -> xylona.GetGameServerConfigFilesResponse
-	203, // 565: xylona.Xylona.GetGameServerConfigFile:output_type -> xylona.GetGameServerConfigFileResponse
-	205, // 566: xylona.Xylona.UpdateGameServerConfigFile:output_type -> xylona.UpdateGameServerConfigFileResponse
-	207, // 567: xylona.Xylona.GenerateGameServerConfigFile:output_type -> xylona.GenerateGameServerConfigFileResponse
-	167, // 568: xylona.Xylona.ListAggregatedGameServers:output_type -> xylona.ListAggregatedGameServersResponse
-	186, // 569: xylona.Xylona.GetNodeSystemInfo:output_type -> xylona.GetNodeSystemInfoResponse
-	188, // 570: xylona.Xylona.GetNodeResourceSnapshot:output_type -> xylona.GetNodeResourceSnapshotResponse
-	191, // 571: xylona.Xylona.GetDashboardOverview:output_type -> xylona.GetDashboardOverviewResponse
-	193, // 572: xylona.Xylona.GetNodeMetricsHistory:output_type -> xylona.GetNodeMetricsHistoryResponse
-	195, // 573: xylona.Xylona.GetGameServerMetricsHistory:output_type -> xylona.GetGameServerMetricsHistoryResponse
-	217, // 574: xylona.Xylona.SearchMods:output_type -> xylona.SearchModsResponse
-	219, // 575: xylona.Xylona.GetModDetails:output_type -> xylona.GetModDetailsResponse
-	221, // 576: xylona.Xylona.GetModVersions:output_type -> xylona.GetModVersionsResponse
-	223, // 577: xylona.Xylona.InstallMod:output_type -> xylona.InstallModResponse
-	225, // 578: xylona.Xylona.UninstallMod:output_type -> xylona.UninstallModResponse
-	227, // 579: xylona.Xylona.UpdateMod:output_type -> xylona.UpdateModResponse
-	229, // 580: xylona.Xylona.ListInstalledMods:output_type -> xylona.ListInstalledModsResponse
-	232, // 581: xylona.Xylona.GetSevenDaysToDieReportedMods:output_type -> xylona.GetSevenDaysToDieReportedModsResponse
-	234, // 582: xylona.Xylona.SetModAutoUpdate:output_type -> xylona.SetModAutoUpdateResponse
-	236, // 583: xylona.Xylona.SetModEnabled:output_type -> xylona.SetModEnabledResponse
-	238, // 584: xylona.Xylona.PinModVersion:output_type -> xylona.PinModVersionResponse
-	240, // 585: xylona.Xylona.GetModCategories:output_type -> xylona.GetModCategoriesResponse
-	243, // 586: xylona.Xylona.GetVersionInfo:output_type -> xylona.GetVersionInfoResponse
-	245, // 587: xylona.Xylona.CheckForUpdate:output_type -> xylona.CheckForUpdateResponse
-	247, // 588: xylona.Xylona.SetDummyUpdateFailure:output_type -> xylona.SetDummyUpdateFailureResponse
-	249, // 589: xylona.Xylona.CreateNotificationChannel:output_type -> xylona.CreateNotificationChannelResponse
-	251, // 590: xylona.Xylona.UpdateNotificationChannel:output_type -> xylona.UpdateNotificationChannelResponse
-	253, // 591: xylona.Xylona.DeleteNotificationChannel:output_type -> xylona.DeleteNotificationChannelResponse
-	255, // 592: xylona.Xylona.ListNotificationChannels:output_type -> xylona.ListNotificationChannelsResponse
-	257, // 593: xylona.Xylona.TestNotificationChannel:output_type -> xylona.TestNotificationChannelResponse
-	259, // 594: xylona.Xylona.GetLocalSMTPStatus:output_type -> xylona.GetLocalSMTPStatusResponse
-	261, // 595: xylona.Xylona.CreateAlertRule:output_type -> xylona.CreateAlertRuleResponse
-	263, // 596: xylona.Xylona.UpdateAlertRule:output_type -> xylona.UpdateAlertRuleResponse
-	265, // 597: xylona.Xylona.DeleteAlertRule:output_type -> xylona.DeleteAlertRuleResponse
-	267, // 598: xylona.Xylona.ListAlertRules:output_type -> xylona.ListAlertRulesResponse
-	269, // 599: xylona.Xylona.GetAlertHistory:output_type -> xylona.GetAlertHistoryResponse
-	271, // 600: xylona.Xylona.GetSystemSMTPConfig:output_type -> xylona.GetSystemSMTPConfigResponse
-	273, // 601: xylona.Xylona.SetSystemSMTPConfig:output_type -> xylona.SetSystemSMTPConfigResponse
-	275, // 602: xylona.Xylona.TestSystemSMTP:output_type -> xylona.TestSystemSMTPResponse
-	277, // 603: xylona.Xylona.BeginGoogleMailOAuth:output_type -> xylona.BeginGoogleMailOAuthResponse
-	279, // 604: xylona.Xylona.DisconnectGoogleMail:output_type -> xylona.DisconnectGoogleMailResponse
-	284, // 605: xylona.Xylona.GetDNSProviderConnection:output_type -> xylona.GetDNSProviderConnectionResponse
-	286, // 606: xylona.Xylona.ListDNSProviderZones:output_type -> xylona.ListDNSProviderZonesResponse
-	288, // 607: xylona.Xylona.SetDNSProviderConnection:output_type -> xylona.SetDNSProviderConnectionResponse
-	290, // 608: xylona.Xylona.ListScheduledTasks:output_type -> xylona.ListScheduledTasksResponse
-	292, // 609: xylona.Xylona.CreateScheduledTask:output_type -> xylona.CreateScheduledTaskResponse
-	294, // 610: xylona.Xylona.UpdateScheduledTask:output_type -> xylona.UpdateScheduledTaskResponse
-	296, // 611: xylona.Xylona.DeleteScheduledTask:output_type -> xylona.DeleteScheduledTaskResponse
-	298, // 612: xylona.Xylona.GetScheduledTaskLogs:output_type -> xylona.GetScheduledTaskLogsResponse
-	300, // 613: xylona.Xylona.GetGameServerBackupOverview:output_type -> xylona.GetGameServerBackupOverviewResponse
-	302, // 614: xylona.Xylona.GetBackupSettings:output_type -> xylona.GetBackupSettingsResponse
-	304, // 615: xylona.Xylona.UpdateBackupSettings:output_type -> xylona.UpdateBackupSettingsResponse
-	306, // 616: xylona.Xylona.ListGameServerBackups:output_type -> xylona.ListGameServerBackupsResponse
-	308, // 617: xylona.Xylona.CreateGameServerBackup:output_type -> xylona.CreateGameServerBackupResponse
-	310, // 618: xylona.Xylona.DeleteGameServerBackup:output_type -> xylona.DeleteGameServerBackupResponse
-	312, // 619: xylona.Xylona.RestoreGameServerBackup:output_type -> xylona.RestoreGameServerBackupResponse
-	445, // [445:620] is the sub-list for method output_type
-	270, // [270:445] is the sub-list for method input_type
+	402, // 445: xylona.Xylona.SuggestGameServerPorts:input_type -> xylona.SuggestGameServerPortsRequest
+	77,  // 446: xylona.Xylona.AddGame:output_type -> xylona.AddGameResponse
+	79,  // 447: xylona.Xylona.EditGame:output_type -> xylona.EditGameResponse
+	81,  // 448: xylona.Xylona.UpdateGameStartArgsTemplate:output_type -> xylona.UpdateGameStartArgsTemplateResponse
+	83,  // 449: xylona.Xylona.UpdateGameStartArgBlocklist:output_type -> xylona.UpdateGameStartArgBlocklistResponse
+	98,  // 450: xylona.Xylona.GetGameEnvironment:output_type -> xylona.GetGameEnvironmentResponse
+	100, // 451: xylona.Xylona.UpdateGameEnvironment:output_type -> xylona.UpdateGameEnvironmentResponse
+	49,  // 452: xylona.Xylona.GetGame:output_type -> xylona.GetGameResponse
+	85,  // 453: xylona.Xylona.RemoveGame:output_type -> xylona.RemoveGameResponse
+	88,  // 454: xylona.Xylona.ImportGame:output_type -> xylona.ImportGameResponse
+	92,  // 455: xylona.Xylona.ExportGame:output_type -> xylona.ExportGameResponse
+	90,  // 456: xylona.Xylona.ResetGameToOfficialDefinition:output_type -> xylona.ResetGameToOfficialDefinitionResponse
+	47,  // 457: xylona.Xylona.ListGames:output_type -> xylona.ListGamesResponse
+	213, // 458: xylona.Xylona.SearchSteamApps:output_type -> xylona.SearchSteamAppsResponse
+	215, // 459: xylona.Xylona.GetSteamAppDetails:output_type -> xylona.GetSteamAppDetailsResponse
+	35,  // 460: xylona.Xylona.Login:output_type -> xylona.LoginResponse
+	39,  // 461: xylona.Xylona.Logout:output_type -> xylona.LogoutResponse
+	43,  // 462: xylona.Xylona.CheckUserAuthenticated:output_type -> xylona.CheckUserAuthenticatedResponse
+	41,  // 463: xylona.Xylona.ChangePassword:output_type -> xylona.ChangePasswordResponse
+	392, // 464: xylona.Xylona.GetSetupStatus:output_type -> xylona.GetSetupStatusResponse
+	394, // 465: xylona.Xylona.CompleteSetup:output_type -> xylona.CompleteSetupResponse
+	37,  // 466: xylona.Xylona.CreateUser:output_type -> xylona.CreateUserResponse
+	54,  // 467: xylona.Xylona.ListUsers:output_type -> xylona.ListUsersResponse
+	56,  // 468: xylona.Xylona.GetUser:output_type -> xylona.GetUserDetailsResponse
+	58,  // 469: xylona.Xylona.UpdateUser:output_type -> xylona.UpdateUserResponse
+	60,  // 470: xylona.Xylona.DeleteUser:output_type -> xylona.DeleteUserResponse
+	65,  // 471: xylona.Xylona.GetUserDeletionImpact:output_type -> xylona.GetUserDeletionImpactResponse
+	169, // 472: xylona.Xylona.ListRoles:output_type -> xylona.ListRolesResponse
+	173, // 473: xylona.Xylona.ListPermissions:output_type -> xylona.ListPermissionsResponse
+	175, // 474: xylona.Xylona.CreateRole:output_type -> xylona.CreateRoleResponse
+	177, // 475: xylona.Xylona.DeleteRole:output_type -> xylona.DeleteRoleResponse
+	179, // 476: xylona.Xylona.ListGameServerAccessGrants:output_type -> xylona.ListGameServerAccessGrantsResponse
+	182, // 477: xylona.Xylona.GrantGameServerAccess:output_type -> xylona.GrantGameServerAccessResponse
+	184, // 478: xylona.Xylona.RevokeGameServerAccess:output_type -> xylona.RevokeGameServerAccessResponse
+	71,  // 479: xylona.Xylona.ListIPs:output_type -> xylona.ListIPsResponse
+	73,  // 480: xylona.Xylona.AddIP:output_type -> xylona.AddIPResponse
+	75,  // 481: xylona.Xylona.RemoveIP:output_type -> xylona.RemoveIPResponse
+	460, // 482: xylona.Xylona.CreateGameServer:output_type -> xylona.CreateGameServerResponse
+	461, // 483: xylona.Xylona.EditGameServer:output_type -> xylona.EditGameServerResponse
+	462, // 484: xylona.Xylona.RemoveGameServer:output_type -> xylona.RemoveGameServerResponse
+	463, // 485: xylona.Xylona.StartGameServer:output_type -> xylona.StartGameServerResponse
+	464, // 486: xylona.Xylona.StopGameServer:output_type -> xylona.StopGameServerResponse
+	465, // 487: xylona.Xylona.RestartGameServer:output_type -> xylona.RestartGameServerResponse
+	466, // 488: xylona.Xylona.ReadGameServerOutput:output_type -> xylona.ReadGameServerOutputResponse
+	467, // 489: xylona.Xylona.SendGameServerInput:output_type -> xylona.SendGameServerInputResponse
+	51,  // 490: xylona.Xylona.GetGameServer:output_type -> xylona.GetGameServerResponse
+	94,  // 491: xylona.Xylona.UpdateGameServer:output_type -> xylona.UpdateGameServerResponse
+	96,  // 492: xylona.Xylona.UpdateGameServerStartArgs:output_type -> xylona.UpdateGameServerStartArgsResponse
+	102, // 493: xylona.Xylona.GetGameServerEnvironment:output_type -> xylona.GetGameServerEnvironmentResponse
+	104, // 494: xylona.Xylona.UpdateGameServerEnvironment:output_type -> xylona.UpdateGameServerEnvironmentResponse
+	106, // 495: xylona.Xylona.SetGameServerSecretEnv:output_type -> xylona.SetGameServerSecretEnvResponse
+	108, // 496: xylona.Xylona.ClearGameServerSecretEnv:output_type -> xylona.ClearGameServerSecretEnvResponse
+	111, // 497: xylona.Xylona.GetGameServerAdminInterface:output_type -> xylona.GetGameServerAdminInterfaceResponse
+	113, // 498: xylona.Xylona.SetGameServerAdminInterfacePassword:output_type -> xylona.SetGameServerAdminInterfacePasswordResponse
+	116, // 499: xylona.Xylona.GetGameServerReadiness:output_type -> xylona.GetGameServerReadinessResponse
+	118, // 500: xylona.Xylona.AcceptMinecraftEula:output_type -> xylona.AcceptMinecraftEulaResponse
+	397, // 501: xylona.Xylona.GetJoinPasswordState:output_type -> xylona.GetJoinPasswordStateResponse
+	399, // 502: xylona.Xylona.SetJoinPassword:output_type -> xylona.SetJoinPasswordResponse
+	401, // 503: xylona.Xylona.ClearJoinPassword:output_type -> xylona.ClearJoinPasswordResponse
+	120, // 504: xylona.Xylona.SetSteamGSLT:output_type -> xylona.SetSteamGSLTResponse
+	122, // 505: xylona.Xylona.ClearSteamGSLT:output_type -> xylona.ClearSteamGSLTResponse
+	125, // 506: xylona.Xylona.StartHytaleDeviceAuth:output_type -> xylona.StartHytaleDeviceAuthResponse
+	127, // 507: xylona.Xylona.PollHytaleDeviceAuth:output_type -> xylona.PollHytaleDeviceAuthResponse
+	129, // 508: xylona.Xylona.SelectHytaleProfile:output_type -> xylona.SelectHytaleProfileResponse
+	131, // 509: xylona.Xylona.ClearHytaleAccount:output_type -> xylona.ClearHytaleAccountResponse
+	45,  // 510: xylona.Xylona.ListGameServers:output_type -> xylona.ListGameServersResponse
+	141, // 511: xylona.Xylona.QueryGameServer:output_type -> xylona.QueryGameServerResponse
+	26,  // 512: xylona.Xylona.GetOrCreateGameServerStatusPageSettings:output_type -> xylona.GetOrCreateGameServerStatusPageSettingsResponse
+	29,  // 513: xylona.Xylona.UpdateGameServerStatusPageSettings:output_type -> xylona.UpdateGameServerStatusPageSettingsResponse
+	33,  // 514: xylona.Xylona.GetPublicGameServerStatusPage:output_type -> xylona.GetPublicGameServerStatusPageResponse
+	333, // 515: xylona.Xylona.GetOrCreateGameServerMapShareSettings:output_type -> xylona.GetOrCreateGameServerMapShareSettingsResponse
+	335, // 516: xylona.Xylona.UpdateGameServerMapShareSettings:output_type -> xylona.UpdateGameServerMapShareSettingsResponse
+	337, // 517: xylona.Xylona.ResolvePublicGameServerMap:output_type -> xylona.ResolvePublicGameServerMapResponse
+	340, // 518: xylona.Xylona.GetDNSBinding:output_type -> xylona.GetDNSBindingResponse
+	342, // 519: xylona.Xylona.SetDNSBinding:output_type -> xylona.SetDNSBindingResponse
+	344, // 520: xylona.Xylona.RemoveDNSBinding:output_type -> xylona.RemoveDNSBindingResponse
+	346, // 521: xylona.Xylona.SyncDNSBinding:output_type -> xylona.SyncDNSBindingResponse
+	348, // 522: xylona.Xylona.AdoptDNSBindingRecord:output_type -> xylona.AdoptDNSBindingRecordResponse
+	316, // 523: xylona.Xylona.GetGameServerPlayerManagement:output_type -> xylona.GetGameServerPlayerManagementResponse
+	318, // 524: xylona.Xylona.PerformGameServerPlayerAction:output_type -> xylona.PerformGameServerPlayerActionResponse
+	324, // 525: xylona.Xylona.ListGameServerOperations:output_type -> xylona.ListGameServerOperationsResponse
+	330, // 526: xylona.Xylona.ExecuteGameServerOperation:output_type -> xylona.ExecuteGameServerOperationResponse
+	353, // 527: xylona.Xylona.GetPalworldMap:output_type -> xylona.GetPalworldMapResponse
+	355, // 528: xylona.Xylona.UpdatePalworldMapConfig:output_type -> xylona.UpdatePalworldMapConfigResponse
+	357, // 529: xylona.Xylona.InstallPalworldMapTiles:output_type -> xylona.InstallPalworldMapTilesResponse
+	359, // 530: xylona.Xylona.GetPublicPalworldMap:output_type -> xylona.GetPublicPalworldMapResponse
+	368, // 531: xylona.Xylona.GetSevenDaysToDieMap:output_type -> xylona.GetSevenDaysToDieMapResponse
+	390, // 532: xylona.Xylona.InstallSevenDaysToDieLandClaimsMod:output_type -> xylona.InstallSevenDaysToDieLandClaimsModResponse
+	385, // 533: xylona.Xylona.GetSevenDaysToDieWebAPIStatus:output_type -> xylona.GetSevenDaysToDieWebAPIStatusResponse
+	388, // 534: xylona.Xylona.GetSevenDaysToDieSandboxSettings:output_type -> xylona.GetSevenDaysToDieSandboxSettingsResponse
+	370, // 535: xylona.Xylona.UpdateSevenDaysToDieMapNotes:output_type -> xylona.UpdateSevenDaysToDieMapNotesResponse
+	372, // 536: xylona.Xylona.GetPublicSevenDaysToDieMap:output_type -> xylona.GetPublicSevenDaysToDieMapResponse
+	375, // 537: xylona.Xylona.GetMinecraftMap:output_type -> xylona.GetMinecraftMapResponse
+	377, // 538: xylona.Xylona.UpdateMinecraftMapConfig:output_type -> xylona.UpdateMinecraftMapConfigResponse
+	379, // 539: xylona.Xylona.GetPublicMinecraftMap:output_type -> xylona.GetPublicMinecraftMapResponse
+	69,  // 540: xylona.Xylona.GetUpdateTargets:output_type -> xylona.GetUpdateTargetsResponse
+	133, // 541: xylona.Xylona.SetServerVariant:output_type -> xylona.SetServerVariantResponse
+	135, // 542: xylona.Xylona.GetVariantOperationStatus:output_type -> xylona.GetVariantOperationStatusResponse
+	468, // 543: xylona.Xylona.ListDirectoryFiles:output_type -> xylona.ListDirectoryFilesResponse
+	469, // 544: xylona.Xylona.GameServerFilesDelete:output_type -> xylona.GameServerFilesDeleteResponse
+	470, // 545: xylona.Xylona.GameServerFilesArchive:output_type -> xylona.GameServerFilesArchiveProgress
+	471, // 546: xylona.Xylona.GameServerFilesExtract:output_type -> xylona.GameServerFilesExtractProgress
+	472, // 547: xylona.Xylona.GameServerFilesCompress:output_type -> xylona.GameServerFilesCompressionResponse
+	473, // 548: xylona.Xylona.GameServerFilesDecompress:output_type -> xylona.GameServerFilesDecompressionResponse
+	474, // 549: xylona.Xylona.GameServerFilesDownloadFromURL:output_type -> xylona.GameServersFileDownloadFromURLResponse
+	475, // 550: xylona.Xylona.GameServerFileRename:output_type -> xylona.GameServerFileRenameResponse
+	476, // 551: xylona.Xylona.GameServerFilesMove:output_type -> xylona.GameServerFilesMoveResponse
+	477, // 552: xylona.Xylona.GameServersFileEdit:output_type -> xylona.GameServersFileEditResponse
+	478, // 553: xylona.Xylona.GameServersFileOrDirectoryCreate:output_type -> xylona.GameServerFileOrDirectoryCreateResponse
+	143, // 554: xylona.Xylona.GetNode:output_type -> xylona.GetNodeResponse
+	145, // 555: xylona.Xylona.ListNodes:output_type -> xylona.ListNodesResponse
+	147, // 556: xylona.Xylona.GenerateNodePairingObject:output_type -> xylona.GenerateNodePairingObjectResponse
+	149, // 557: xylona.Xylona.RemoveNode:output_type -> xylona.RemoveNodeResponse
+	151, // 558: xylona.Xylona.EditNode:output_type -> xylona.EditNodeResponse
+	157, // 559: xylona.Xylona.CheckSystemUpdates:output_type -> xylona.CheckSystemUpdatesResponse
+	159, // 560: xylona.Xylona.StartSystemUpdate:output_type -> xylona.StartSystemUpdateResponse
+	161, // 561: xylona.Xylona.ListSystemUpdateJobs:output_type -> xylona.ListSystemUpdateJobsResponse
+	163, // 562: xylona.Xylona.GetSystemUpdateJob:output_type -> xylona.GetSystemUpdateJobResponse
+	209, // 563: xylona.Xylona.GetGameConfigSchemas:output_type -> xylona.GetGameConfigSchemasResponse
+	211, // 564: xylona.Xylona.UpdateGameConfigSchemas:output_type -> xylona.UpdateGameConfigSchemasResponse
+	201, // 565: xylona.Xylona.GetGameServerConfigFiles:output_type -> xylona.GetGameServerConfigFilesResponse
+	203, // 566: xylona.Xylona.GetGameServerConfigFile:output_type -> xylona.GetGameServerConfigFileResponse
+	205, // 567: xylona.Xylona.UpdateGameServerConfigFile:output_type -> xylona.UpdateGameServerConfigFileResponse
+	207, // 568: xylona.Xylona.GenerateGameServerConfigFile:output_type -> xylona.GenerateGameServerConfigFileResponse
+	167, // 569: xylona.Xylona.ListAggregatedGameServers:output_type -> xylona.ListAggregatedGameServersResponse
+	186, // 570: xylona.Xylona.GetNodeSystemInfo:output_type -> xylona.GetNodeSystemInfoResponse
+	188, // 571: xylona.Xylona.GetNodeResourceSnapshot:output_type -> xylona.GetNodeResourceSnapshotResponse
+	191, // 572: xylona.Xylona.GetDashboardOverview:output_type -> xylona.GetDashboardOverviewResponse
+	193, // 573: xylona.Xylona.GetNodeMetricsHistory:output_type -> xylona.GetNodeMetricsHistoryResponse
+	195, // 574: xylona.Xylona.GetGameServerMetricsHistory:output_type -> xylona.GetGameServerMetricsHistoryResponse
+	217, // 575: xylona.Xylona.SearchMods:output_type -> xylona.SearchModsResponse
+	219, // 576: xylona.Xylona.GetModDetails:output_type -> xylona.GetModDetailsResponse
+	221, // 577: xylona.Xylona.GetModVersions:output_type -> xylona.GetModVersionsResponse
+	223, // 578: xylona.Xylona.InstallMod:output_type -> xylona.InstallModResponse
+	225, // 579: xylona.Xylona.UninstallMod:output_type -> xylona.UninstallModResponse
+	227, // 580: xylona.Xylona.UpdateMod:output_type -> xylona.UpdateModResponse
+	229, // 581: xylona.Xylona.ListInstalledMods:output_type -> xylona.ListInstalledModsResponse
+	232, // 582: xylona.Xylona.GetSevenDaysToDieReportedMods:output_type -> xylona.GetSevenDaysToDieReportedModsResponse
+	234, // 583: xylona.Xylona.SetModAutoUpdate:output_type -> xylona.SetModAutoUpdateResponse
+	236, // 584: xylona.Xylona.SetModEnabled:output_type -> xylona.SetModEnabledResponse
+	238, // 585: xylona.Xylona.PinModVersion:output_type -> xylona.PinModVersionResponse
+	240, // 586: xylona.Xylona.GetModCategories:output_type -> xylona.GetModCategoriesResponse
+	243, // 587: xylona.Xylona.GetVersionInfo:output_type -> xylona.GetVersionInfoResponse
+	245, // 588: xylona.Xylona.CheckForUpdate:output_type -> xylona.CheckForUpdateResponse
+	247, // 589: xylona.Xylona.SetDummyUpdateFailure:output_type -> xylona.SetDummyUpdateFailureResponse
+	249, // 590: xylona.Xylona.CreateNotificationChannel:output_type -> xylona.CreateNotificationChannelResponse
+	251, // 591: xylona.Xylona.UpdateNotificationChannel:output_type -> xylona.UpdateNotificationChannelResponse
+	253, // 592: xylona.Xylona.DeleteNotificationChannel:output_type -> xylona.DeleteNotificationChannelResponse
+	255, // 593: xylona.Xylona.ListNotificationChannels:output_type -> xylona.ListNotificationChannelsResponse
+	257, // 594: xylona.Xylona.TestNotificationChannel:output_type -> xylona.TestNotificationChannelResponse
+	259, // 595: xylona.Xylona.GetLocalSMTPStatus:output_type -> xylona.GetLocalSMTPStatusResponse
+	261, // 596: xylona.Xylona.CreateAlertRule:output_type -> xylona.CreateAlertRuleResponse
+	263, // 597: xylona.Xylona.UpdateAlertRule:output_type -> xylona.UpdateAlertRuleResponse
+	265, // 598: xylona.Xylona.DeleteAlertRule:output_type -> xylona.DeleteAlertRuleResponse
+	267, // 599: xylona.Xylona.ListAlertRules:output_type -> xylona.ListAlertRulesResponse
+	269, // 600: xylona.Xylona.GetAlertHistory:output_type -> xylona.GetAlertHistoryResponse
+	271, // 601: xylona.Xylona.GetSystemSMTPConfig:output_type -> xylona.GetSystemSMTPConfigResponse
+	273, // 602: xylona.Xylona.SetSystemSMTPConfig:output_type -> xylona.SetSystemSMTPConfigResponse
+	275, // 603: xylona.Xylona.TestSystemSMTP:output_type -> xylona.TestSystemSMTPResponse
+	277, // 604: xylona.Xylona.BeginGoogleMailOAuth:output_type -> xylona.BeginGoogleMailOAuthResponse
+	279, // 605: xylona.Xylona.DisconnectGoogleMail:output_type -> xylona.DisconnectGoogleMailResponse
+	284, // 606: xylona.Xylona.GetDNSProviderConnection:output_type -> xylona.GetDNSProviderConnectionResponse
+	286, // 607: xylona.Xylona.ListDNSProviderZones:output_type -> xylona.ListDNSProviderZonesResponse
+	288, // 608: xylona.Xylona.SetDNSProviderConnection:output_type -> xylona.SetDNSProviderConnectionResponse
+	290, // 609: xylona.Xylona.ListScheduledTasks:output_type -> xylona.ListScheduledTasksResponse
+	292, // 610: xylona.Xylona.CreateScheduledTask:output_type -> xylona.CreateScheduledTaskResponse
+	294, // 611: xylona.Xylona.UpdateScheduledTask:output_type -> xylona.UpdateScheduledTaskResponse
+	296, // 612: xylona.Xylona.DeleteScheduledTask:output_type -> xylona.DeleteScheduledTaskResponse
+	298, // 613: xylona.Xylona.GetScheduledTaskLogs:output_type -> xylona.GetScheduledTaskLogsResponse
+	300, // 614: xylona.Xylona.GetGameServerBackupOverview:output_type -> xylona.GetGameServerBackupOverviewResponse
+	302, // 615: xylona.Xylona.GetBackupSettings:output_type -> xylona.GetBackupSettingsResponse
+	304, // 616: xylona.Xylona.UpdateBackupSettings:output_type -> xylona.UpdateBackupSettingsResponse
+	306, // 617: xylona.Xylona.ListGameServerBackups:output_type -> xylona.ListGameServerBackupsResponse
+	308, // 618: xylona.Xylona.CreateGameServerBackup:output_type -> xylona.CreateGameServerBackupResponse
+	310, // 619: xylona.Xylona.DeleteGameServerBackup:output_type -> xylona.DeleteGameServerBackupResponse
+	312, // 620: xylona.Xylona.RestoreGameServerBackup:output_type -> xylona.RestoreGameServerBackupResponse
+	403, // 621: xylona.Xylona.SuggestGameServerPorts:output_type -> xylona.SuggestGameServerPortsResponse
+	446, // [446:622] is the sub-list for method output_type
+	270, // [270:446] is the sub-list for method input_type
 	270, // [270:270] is the sub-list for extension type_name
 	270, // [270:270] is the sub-list for extension extendee
 	0,   // [0:270] is the sub-list for field type_name
@@ -25891,7 +26047,7 @@ func file_xylona_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_xylona_proto_rawDesc), len(file_xylona_proto_rawDesc)),
 			NumEnums:      23,
-			NumMessages:   379,
+			NumMessages:   381,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

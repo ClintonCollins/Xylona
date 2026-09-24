@@ -247,6 +247,29 @@ func (xs *XylonaService) findAvailablePort(nodeID string, ip string, port int64,
 	}
 }
 
+// SuggestGameServerPorts returns the game/query port pair CreateGameServer
+// would assign, so the create form can prefill it instead of a taken default.
+func (xs *XylonaService) SuggestGameServerPorts(_ context.Context, request *connect.Request[xylona.SuggestGameServerPortsRequest]) (*connect.Response[xylona.SuggestGameServerPortsResponse], error) {
+	user, errUser := xs.getUserFromHeader(request.Header())
+	if errUser != nil {
+		return nil, unauthenticated()
+	}
+	if !user.SuperUser {
+		return nil, permissionDenied("only superusers can create game servers")
+	}
+	game, errGetGame := xs.db.GetGameByID(request.Msg.GetGameId())
+	if errGetGame != nil {
+		return nil, dbLookup(errGetGame)
+	}
+	port, queryPort, errFind := xs.findAvailablePort(
+		request.Msg.GetNodeId(), request.Msg.GetIpAddress(), request.Msg.GetPort(), request.Msg.GetQueryPort(), game, "",
+	)
+	if errFind != nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errFind)
+	}
+	return connect.NewResponse(&xylona.SuggestGameServerPortsResponse{Port: port, QueryPort: queryPort}), nil
+}
+
 func gameServerPortFootprint(gameID string, port int64, queryPort int64) []int64 {
 	ports := []int64{port}
 	if queryPort != port {

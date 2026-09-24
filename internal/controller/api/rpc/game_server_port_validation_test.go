@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/aarondl/opt/omit"
 
+	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
 
@@ -424,5 +426,56 @@ func TestFindAvailablePortValheim(t *testing.T) {
 	}
 	if !slices.Contains(gameServerPortFootprint("valheim", 2456, 27015), int64(2457)) {
 		t.Fatal("legacy mismatched query port must still reserve native adjacent port")
+	}
+}
+
+func TestSuggestGameServerPorts(t *testing.T) {
+	tests := []struct {
+		name          string
+		userID        string
+		wantCode      connect.Code
+		wantPort      int64
+		wantQueryPort int64
+	}{
+		{name: "steps past the taken Valheim pair", userID: "user-admin", wantPort: 2458, wantQueryPort: 2459},
+		{name: "requires a superuser", userID: "user-owner", wantCode: connect.CodePermissionDenied},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			seedAlternateNodeAndIP(t, fixture)
+			insertNodeScopedIPForParityTests(t, fixture, "node-local", "127.0.0.2")
+			insertPortValidationServer(t, fixture, "server-valheim-1", "Valheim", "valheim", 2456, 2457)
+
+			request := connect.NewRequest(&xylona.SuggestGameServerPortsRequest{
+				NodeId:    "node-local",
+				IpAddress: "127.0.0.2",
+				GameId:    "valheim",
+				Port:      2456,
+				QueryPort: 2457,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, test.userID)
+
+			response, errSuggest := fixture.service.SuggestGameServerPorts(context.Background(), request)
+			if test.wantCode != 0 {
+				if connect.CodeOf(errSuggest) != test.wantCode {
+					t.Fatalf("SuggestGameServerPorts() error = %v, want code %v", errSuggest, test.wantCode)
+				}
+				return
+			}
+			if errSuggest != nil {
+				t.Fatalf("SuggestGameServerPorts() error = %v", errSuggest)
+			}
+			if response.Msg.GetPort() != test.wantPort || response.Msg.GetQueryPort() != test.wantQueryPort {
+				t.Fatalf(
+					"SuggestGameServerPorts() = (%d, %d), want (%d, %d)",
+					response.Msg.GetPort(),
+					response.Msg.GetQueryPort(),
+					test.wantPort,
+					test.wantQueryPort,
+				)
+			}
+		})
 	}
 }
