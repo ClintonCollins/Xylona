@@ -243,8 +243,8 @@
 
               <q-card-section class="notification-mobile-card__fields q-pt-none">
                 <div>
-                  <span>Server</span>
-                  <strong>{{ resolveServerName(props.row.serverId) }}</strong>
+                  <span>Target</span>
+                  <strong>{{ resolveTargetName(props.row) }}</strong>
                 </div>
                 <div>
                   <span>Channel</span>
@@ -278,7 +278,7 @@
           </template>
           <template #body-cell-server="props">
             <q-td :props="props">
-              {{ resolveServerName(props.row.serverId) }}
+              {{ resolveTargetName(props.row) }}
             </q-td>
           </template>
           <template #body-cell-channelName="props">
@@ -326,9 +326,20 @@
           <template #no-data>
             <empty-state
               v-if="!rulesLoading && !rulesError"
-              description="Create alert rules from individual game server pages."
+              :description="rulesEmptyDescription"
               icon="rule"
-              title="No alert rules" />
+              title="No alert rules">
+              <template v-if="hasAlertsManage" #actions>
+                <q-btn flat icon="dns" label="Game servers" no-caps to="/game-servers" />
+                <q-btn
+                  v-if="isSuperUser"
+                  flat
+                  icon="device_hub"
+                  label="Nodes"
+                  no-caps
+                  to="/nodes" />
+              </template>
+            </empty-state>
           </template>
         </q-table>
       </q-tab-panel>
@@ -382,8 +393,8 @@
 
               <q-card-section class="notification-mobile-card__fields q-pt-none">
                 <div>
-                  <span>Server</span>
-                  <strong>{{ resolveServerName(props.row.serverId) }}</strong>
+                  <span>Target</span>
+                  <strong>{{ resolveTargetName(props.row) }}</strong>
                 </div>
                 <div>
                   <span>Channel</span>
@@ -409,7 +420,7 @@
           </template>
           <template #body-cell-server="props">
             <q-td :props="props">
-              {{ resolveServerName(props.row.serverId) }}
+              {{ resolveTargetName(props.row) }}
             </q-td>
           </template>
           <template #body-cell-channelType="props">
@@ -608,7 +619,7 @@
         <q-card-section class="q-pt-none">
           <q-select
             v-model="ruleForm.eventType"
-            :options="eventTypeOptions"
+            :options="ruleEventTypeOptions"
             aria-label="Event type"
             class="q-mb-md"
             dense
@@ -763,6 +774,7 @@ import type {
   AlertHistoryEntry,
   AlertRule,
   GameServer,
+  Node,
   NotificationChannel,
 } from '@/proto/shared_pb'
 import { AlertEventType, DeliveryStatus, NotificationChannelType } from '@/proto/shared_pb'
@@ -774,6 +786,7 @@ import {
   GetLocalSMTPStatusRequestSchema,
   ListAlertRulesRequestSchema,
   ListGameServersRequestSchema,
+  ListNodesRequestSchema,
   ListNotificationChannelsRequestSchema,
   TestNotificationChannelRequestSchema,
   UpdateAlertRuleRequestSchema,
@@ -788,18 +801,21 @@ import {
   readPositiveInteger,
 } from '@/utils/alert-conditions'
 import { canManageAlerts } from '@/utils/alert-permissions'
+import { alertTargetName, isNodeAlertEventType } from '@/utils/alert-scope'
 import { formatTimestamp } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
 const $q = useQuasar()
 const authStore = useUserAuthStore()
 const hasAlertsManage = computed(() => canManageAlerts(authStore.user, authStore.initialResponse))
+const isSuperUser = computed(() => authStore.user?.superUser === true)
 
 // ─── Tab state ───────────────────────────────────────────────────────────────
 const activeTab = ref<'channels' | 'rules' | 'history'>('channels')
 
-// ─── Game Servers (for name resolution) ─────────────────────────────────────
+// ─── Game Servers and Nodes (for name resolution) ───────────────────────────
 const gameServers = ref<GameServer[]>([])
+const nodes = ref<Node[]>([])
 
 async function loadGameServers(): Promise<void> {
   try {
@@ -812,10 +828,17 @@ async function loadGameServers(): Promise<void> {
   }
 }
 
-function resolveServerName(serverId: string | undefined): string {
-  if (!serverId) return 'All Servers'
-  const server = gameServers.value.find((gs) => gs.id === serverId)
-  return server ? server.name : serverId
+async function loadNodes(): Promise<void> {
+  try {
+    const response = await GetXylonaClient().listNodes(create(ListNodesRequestSchema, {}))
+    nodes.value = response.nodes
+  } catch {
+    // Non-critical -- name resolution falls back to the node id
+  }
+}
+
+function resolveTargetName(row: AlertRule | AlertHistoryEntry): string {
+  return alertTargetName(row, gameServers.value, nodes.value)
 }
 
 // ─── Channels ────────────────────────────────────────────────────────────────
@@ -1188,6 +1211,12 @@ const rules = ref<AlertRule[]>([])
 const rulesLoading = ref(false)
 const rulesError = ref('')
 const rulesEventFilter = ref<AlertEventType | null>(null)
+// Node pages are superuser-only, so only superusers are pointed at them.
+const rulesEmptyDescription = computed(() =>
+  isSuperUser.value
+    ? "Add rules from a game server's Alerts tab, or from a node's page for CPU, memory and disk."
+    : "Add rules from a game server's Alerts tab.",
+)
 
 const filteredRules = computed(() => {
   if (rulesEventFilter.value === null) return rules.value
@@ -1204,9 +1233,9 @@ const ruleColumns = [
   },
   {
     name: 'server',
-    label: 'Server',
+    label: 'Target',
     align: 'left' as const,
-    field: (row: AlertRule) => row.serverId || '',
+    field: (row: AlertRule) => resolveTargetName(row),
     sortable: false,
   },
   {
@@ -1373,6 +1402,12 @@ const isThresholdType = computed(() => {
 
 const isStatusChangeType = computed(() => {
   return ruleForm.value.eventType === AlertEventType.STATUS_CHANGE
+})
+
+// A rule stays on its node or server; the backend rejects a switch to the other scope.
+const ruleEventTypeOptions = computed(() => {
+  const nodeScoped = editingRule.value !== null && isNodeAlertEventType(editingRule.value.eventType)
+  return eventTypeOptions.filter((option) => isNodeAlertEventType(option.value) === nodeScoped)
 })
 
 const thresholdUnit = computed(() => {
@@ -1628,9 +1663,9 @@ const historyColumns = [
   },
   {
     name: 'server',
-    label: 'Server',
+    label: 'Target',
     align: 'left' as const,
-    field: (row: AlertHistoryEntry) => row.serverId || '',
+    field: (row: AlertHistoryEntry) => resolveTargetName(row),
     sortable: false,
   },
   {
@@ -1800,7 +1835,7 @@ function deliveryStatusColor(status: DeliveryStatus): string {
 const loadError = computed(() => channelsError.value || rulesError.value || historyError.value)
 
 async function loadPage(): Promise<void> {
-  await Promise.all([loadGameServers(), loadChannels(), loadRules(), loadHistory()])
+  await Promise.all([loadGameServers(), loadNodes(), loadChannels(), loadRules(), loadHistory()])
 }
 
 onMounted(loadPage)

@@ -343,6 +343,38 @@ describe('Notifications', () => {
     })
   })
 
+  it('offers only event types from the edited rule scope', async () => {
+    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [makeChannel()] })
+
+    const wrapper = mountNotifications()
+    await flushPromises()
+
+    type NotificationsVM = {
+      openRuleEditDialog: (rule: AlertRule) => void
+      ruleEventTypeOptions: { value: AlertEventType }[]
+    }
+    const vm = wrapper.vm as unknown as NotificationsVM
+    const offered = () => vm.ruleEventTypeOptions.map((option) => option.value)
+
+    vm.openRuleEditDialog(
+      makeRule({
+        serverId: undefined,
+        serverNodeId: undefined,
+        nodeId: 'node-1',
+        eventType: AlertEventType.NODE_DISK_THRESHOLD,
+      }),
+    )
+    expect(offered()).toEqual([
+      AlertEventType.NODE_CPU_THRESHOLD,
+      AlertEventType.NODE_MEMORY_THRESHOLD,
+      AlertEventType.NODE_DISK_THRESHOLD,
+    ])
+
+    vm.openRuleEditDialog(makeRule({ eventType: AlertEventType.CRASH }))
+    expect(offered()).not.toContain(AlertEventType.NODE_CPU_THRESHOLD)
+    expect(offered()).toContain(AlertEventType.PLAYER_COUNT_THRESHOLD)
+  })
+
   it('blocks invalid threshold timing and recovery values', async () => {
     mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
     mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [makeChannel()] })

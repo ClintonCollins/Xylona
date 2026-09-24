@@ -318,6 +318,7 @@
           </h1>
         </div>
         <div v-if="detailNode" class="xy-page-actions">
+          <q-btn dense flat icon="add_alert" label="Add alert" @click="showAlertDialog = true" />
           <q-btn
             :to="{ path: '/admin/updates', query: { nodeId: detailNode.id } }"
             dense
@@ -342,6 +343,11 @@
         :node="detailNode"
         :snapshot="getSnapshot(detailNode.id)"
         :system-info="getNodeSummary(detailNode.id)?.systemInfo" />
+      <node-alert-rule-dialog
+        v-if="detailNode"
+        v-model="showAlertDialog"
+        :node-id="detailNode.id"
+        :node-name="detailNode.name || 'Unnamed node'" />
       <empty-state
         v-else-if="!loading"
         description="It may have been removed, or the link is out of date."
@@ -414,6 +420,7 @@ import {
 } from '@/proto/xylona_pb'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
+import NodeAlertRuleDialog from '@/components/nodes/NodeAlertRuleDialog.vue'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
 import {
   nodeHealthBadge,
@@ -438,6 +445,7 @@ const loadError = ref('')
 const metricsLoading: Ref<boolean> = ref(false)
 const search: Ref<string> = ref('')
 const showDeleteDialog = ref(false)
+const showAlertDialog = ref(false)
 const selectedNodeForDelete = ref<Node | null>(null)
 const removing = ref(false)
 const removeError = ref('')
