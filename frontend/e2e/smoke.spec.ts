@@ -56,10 +56,15 @@ test.describe('Smoke navigation @smoke', () => {
     }
     let routedReconnects = 0
     let gateReconnects = false
+    let initialServerFrames = 0
 
     await page.routeWebSocket('**/api/websocket', async (websocketRoute) => {
       if (!gateReconnects) {
-        websocketRoute.connectToServer()
+        const server = websocketRoute.connectToServer()
+        server.onMessage((message) => {
+          initialServerFrames++
+          websocketRoute.send(message)
+        })
         return
       }
 
@@ -71,7 +76,10 @@ test.describe('Smoke navigation @smoke', () => {
     await gotoAppPage(page, '/game-servers')
 
     const banner = page.locator('.live-connection-banner')
-    await expect(banner).toHaveCount(0, { timeout: 15_000 })
+    // The banner also stays hidden during a fresh connection's quiet period, so
+    // wait for the controller to talk before gating reconnects.
+    await expect.poll(() => initialServerFrames, { timeout: 15_000 }).toBeGreaterThan(0)
+    await expect(banner).toHaveCount(0)
     gateReconnects = true
 
     try {
