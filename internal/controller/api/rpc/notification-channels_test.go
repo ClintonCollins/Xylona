@@ -1116,6 +1116,11 @@ func TestWebhookTestFailureMessage(t *testing.T) {
 			want: "Could not reach the webhook: dial tcp 162.159.135.232:443: connect: connection refused",
 		},
 		{
+			name: "transport failure from the sender",
+			err:  &webhooks.DeliveryError{Err: errors.New("dial tcp 162.159.135.232:443: connect: connection refused")},
+			want: "Could not reach the webhook: dial tcp 162.159.135.232:443: connect: connection refused",
+		},
+		{
 			name: "other error",
 			err:  errors.New("context deadline exceeded"),
 			want: "Could not reach the webhook: context deadline exceeded",
@@ -1311,6 +1316,30 @@ func TestTestNotificationChannel_EmailSendFailureReturnsMessage(t *testing.T) {
 	}
 	if testResp.Msg.GetError() != "connection refused" {
 		t.Errorf("error = %q, want %q", testResp.Msg.GetError(), "connection refused")
+	}
+}
+
+func TestTestNotificationChannel_UnsupportedTypeReturnsMessage(t *testing.T) {
+	fixture := newNotifChanFixture(t)
+
+	// Store an unknown type directly, as an older or newer build might have.
+	channel, errInsert := fixture.conn.InsertNotificationChannel("user-super", "legacy", "NOTIFICATION_CHANNEL_TYPE_PAGER", `{}`, true)
+	if errInsert != nil {
+		t.Fatalf("InsertNotificationChannel() error = %v", errInsert)
+	}
+
+	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: channel.ID})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+
+	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest != nil {
+		t.Fatalf("TestNotificationChannel() error = %v, want a failed test result", errTest)
+	}
+	if testResp.Msg.GetSuccess() {
+		t.Fatal("success = true, want false")
+	}
+	if want := "Test delivery is not supported for this channel type"; testResp.Msg.GetError() != want {
+		t.Errorf("error = %q, want %q", testResp.Msg.GetError(), want)
 	}
 }
 

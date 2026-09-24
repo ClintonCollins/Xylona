@@ -558,5 +558,8 @@ func webhookTestFailureMessage(errSend error) string {
 	if urlErr, ok := errors.AsType[*url.Error](errSend); ok {
 		return "Could not reach the webhook: " + urlErr.Err.Error()
 	}
+	if deliveryErr, ok := errors.AsType[*webhooks.DeliveryError](errSend); ok && deliveryErr.Err != nil {
+		return "Could not reach the webhook: " + deliveryErr.Err.Error()
+	}
 	return "Could not reach the webhook: " + errSend.Error()
 }

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -99,6 +100,9 @@ type DeliveryError struct {
 }
 
 func (e *DeliveryError) Error() string {
+	if e.StatusCode == 0 && e.Err != nil {
+		return fmt.Sprintf("webhooks: delivery failed: %v", e.Err)
+	}
 	if e.Err != nil {
 		return fmt.Sprintf("webhooks: delivery failed (status %d): %s: %v", e.StatusCode, e.Body, e.Err)
 	}
@@ -246,7 +250,7 @@ func (s *Sender) Send(ctx context.Context, channelType string, config ChannelCon
 
 		// Only retry on 5xx errors or context-independent transport errors.
 		var deliveryErr *DeliveryError
-		if errors.As(errSend, &deliveryErr) && deliveryErr.StatusCode < 500 {
+		if errors.As(errSend, &deliveryErr) && deliveryErr.StatusCode > 0 && deliveryErr.StatusCode < 500 {
 			// 4xx errors are not retryable.
 			return deliveryErr
 		}
@@ -286,7 +290,7 @@ func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) erro
 
 	req, errReq := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if errReq != nil {
-		return fmt.Errorf("webhooks: failed to create request: %w", errReq)
+		return fmt.Errorf("webhooks: failed to create request: %w", withoutURL(errReq))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -295,7 +299,7 @@ func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) erro
 		return &DeliveryError{
 			StatusCode: 0,
 			Body:       "",
-			Err:        errDo,
+			Err:        withoutURL(errDo),
 		}
 	}
 	defer func() {
@@ -316,8 +320,42 @@ func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) erro
 
 	return &DeliveryError{
 		StatusCode: resp.StatusCode,
-		Body:       string(respBody),
+		Body:       redactEchoedURL(string(respBody), req.URL),
 	}
+}
+
+// redactEchoedURL hides the target's path segments and query values in a
+// response body, because some webhook targets echo the request path, and the
+// secret token in it, in their error pages.
+func redactEchoedURL(body string, target *url.URL) string {
+	var secrets []string
+	for segment := range strings.SplitSeq(target.Path, "/") {
+		secrets = append(secrets, segment, url.PathEscape(segment))
+	}
+	for _, values := range target.Query() {
+		secrets = append(secrets, values...)
+	}
+	// Longest first, so a token is never left half-replaced by a shorter part.
+	slices.SortFunc(secrets, func(a, b string) int { return len(b) - len(a) })
+	for _, secret := range secrets {
+		// ponytail: parts under 8 characters (api, hooks) stay readable; a
+		// token that short would need a smarter scrubber.
+		if len(secret) >= 8 {
+			body = strings.ReplaceAll(body, secret, "[redacted]")
+		}
+	}
+	return body
+}
+
+// withoutURL drops the URL that *url.Error puts in its message, because a
+// webhook URL's path carries the channel's secret token and these errors end
+// up in alert history and API responses.
+func withoutURL(err error) error {
+	urlErr, ok := errors.AsType[*url.Error](err)
+	if !ok {
+		return err
+	}
+	return urlErr.Err
 }
 
 func redactWebhookLogURL(rawURL string) string {
@@ -377,7 +415,7 @@ func isPrivateOrReservedIP(ip net.IP) bool {
 func ValidateWebhookTarget(rawURL string) error {
 	parsedURL, errParse := url.Parse(rawURL)
 	if errParse != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, errParse)
+		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, withoutURL(errParse))
 	}
 
 	hostname := parsedURL.Hostname()
@@ -421,7 +459,7 @@ func ValidateChannelConfig(config ChannelConfig) error {
 	}
 	parsedURL, errParse := url.Parse(rawURL)
 	if errParse != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, errParse)
+		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, withoutURL(errParse))
 	}
 	scheme := strings.ToLower(parsedURL.Scheme)
 	if scheme != "http" && scheme != "https" {

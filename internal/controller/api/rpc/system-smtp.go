@@ -356,14 +356,14 @@ func (xs *XylonaService) TestSystemSMTP(
 	}
 
 	mailConfig := systemSMTPConfigToMailer(protoConfig)
+	// A failed send is a test result, not an RPC error: the client shows
+	// CodeUnavailable as "Unable to connect to Xylona backend".
 	errSend := xs.resolvedSendTestEmailFunc()(ctx, mailConfig, toAddress)
+	response := &xylona.TestSystemSMTPResponse{Success: errSend == nil}
 	if errSend != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, errSend)
+		response.Error = errSend.Error()
 	}
-
-	return connect.NewResponse(&xylona.TestSystemSMTPResponse{
-		Success: true,
-	}), nil
+	return connect.NewResponse(response), nil
 }
 
 // BeginGoogleMailOAuth starts a one-time, superuser-bound Google authorization flow.
