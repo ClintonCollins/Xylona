@@ -8,7 +8,7 @@ import { useRoute } from 'vue-router'
 
 import { Status } from '@/proto/shared_pb'
 import {
-  GameServerStatusPageRosterState,
+  GameServerStatusPagePlayersState,
   GetPublicGameServerStatusPageRequestSchema,
   type PublicGameServerStatus,
   type PublicGameServerStatusPage,
@@ -198,15 +198,15 @@ function playerLabel(server: PublicGameServerStatus): string {
 function showOnlinePlayersToggle(server: PublicGameServerStatus): boolean {
   return (
     server.status === Status.ONLINE &&
-    server.rosterState !== GameServerStatusPageRosterState.UNSPECIFIED
+    server.playersState !== GameServerStatusPagePlayersState.UNSPECIFIED
   )
 }
 
 function onlinePlayersLabel(server: PublicGameServerStatus): string {
-  if (server.rosterState === GameServerStatusPageRosterState.UNSUPPORTED) {
+  if (server.playersState === GameServerStatusPagePlayersState.UNSUPPORTED) {
     return 'Player names are not supported by this game.'
   }
-  if (server.rosterState === GameServerStatusPageRosterState.UNAVAILABLE) {
+  if (server.playersState === GameServerStatusPagePlayersState.UNAVAILABLE) {
     return 'Player names are temporarily unavailable.'
   }
   if (server.playerNames.length === 0) return 'No players are online.'

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Status } from '@/proto/shared_pb'
 import {
-  GameServerStatusPageRosterState,
+  GameServerStatusPagePlayersState,
   type PublicGameServerStatus,
   PublicGameServerStatusSchema,
   PublicGameServerStatusPageSchema,
@@ -102,7 +102,7 @@ describe('PublicGameServerStatusPage', () => {
           maxPlayerCount: 20,
           observedAt: timestampFromDate(new Date('2026-08-21T12:00:00Z')),
           playerNames: ['Alex'],
-          rosterState: GameServerStatusPageRosterState.AVAILABLE,
+          playersState: GameServerStatusPagePlayersState.AVAILABLE,
         },
       ],
     })
@@ -174,13 +174,13 @@ describe('PublicGameServerStatusPage', () => {
             id: 'server-1',
             name: 'Alpha',
             status: Status.ONLINE,
-            rosterState: GameServerStatusPageRosterState.AVAILABLE,
+            playersState: GameServerStatusPagePlayersState.AVAILABLE,
           },
           {
             id: 'server-2',
             name: 'Beta',
             status: Status.OFFLINE,
-            rosterState: GameServerStatusPageRosterState.AVAILABLE,
+            playersState: GameServerStatusPagePlayersState.AVAILABLE,
           },
         ],
       }),

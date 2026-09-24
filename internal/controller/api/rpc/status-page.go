@@ -358,7 +358,7 @@ func projectPublicGameServerStatusPage(
 			Status:            statusFor(server),
 			ConnectionAddress: effectiveGameServerAddress(server),
 			MaxPlayerCount:    uint32FromInt64(placeholder.PlayerLimit(server)),
-			RosterState:       xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE,
+			PlayersState:      xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE,
 			Version:           version,
 		}
 		details := detailsByServerID[server.ID]
@@ -394,7 +394,7 @@ func projectPublicGameServerStatusPage(
 			}
 			applyPublicPlayers(publicServer, queryForServer(queries, server.ID), telemetry.QueryType)
 		case actions.GameServerQueryTelemetryStatusUnsupported:
-			publicServer.RosterState = xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED
+			publicServer.PlayersState = xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSUPPORTED
 		}
 		publicServers = append(publicServers, publicServer)
 	}
@@ -431,7 +431,7 @@ func applyPublicPlayers(publicServer *xylona.PublicGameServerStatus, query *xylo
 	case xylona.ServerQuery_Minecraft:
 		info := query.GetMinecraft()
 		if info == nil || !info.GetResponded() || !info.GetPlayerListSupported() {
-			publicServer.RosterState = xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED
+			publicServer.PlayersState = xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSUPPORTED
 			return
 		}
 		publicServer.PlayerNames = slices.Clone(info.GetPlayerList())
@@ -448,10 +448,10 @@ func applyPublicPlayers(publicServer *xylona.PublicGameServerStatus, query *xylo
 		}
 		publicServer.PlayerNames = slices.Clone(info.GetPlayerList())
 	default:
-		publicServer.RosterState = xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED
+		publicServer.PlayersState = xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSUPPORTED
 		return
 	}
-	publicServer.RosterState = xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE
+	publicServer.PlayersState = xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE
 }
 
 func queryForServer(queries *xylona.AllServersQueryInfo, serverID string) *xylona.ServerQuery {
