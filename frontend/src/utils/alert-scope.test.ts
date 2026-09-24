@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest'
 
 import { AlertEventType } from '@/proto/shared_pb'
 
-import { alertTargetName, isNodeAlertEventType } from './alert-scope'
+import { alertEventTypeLabel, alertTargetName, isNodeAlertEventType } from './alert-scope'
+
+describe('alertEventTypeLabel', () => {
+  it.each([
+    { type: AlertEventType.CRASH, want: 'Server Crash' },
+    { type: AlertEventType.PLAYER_COUNT_THRESHOLD, want: 'Player Count Threshold' },
+    { type: AlertEventType.NODE_DISK_THRESHOLD, want: 'Node Disk Threshold' },
+    { type: AlertEventType.UNSPECIFIED, want: 'Unknown' },
+  ])('$type → $want', ({ type, want }) => {
+    expect(alertEventTypeLabel(type)).toBe(want)
+  })
+})
 
 describe('isNodeAlertEventType', () => {
   it.each([

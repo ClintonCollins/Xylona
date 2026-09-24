@@ -30,8 +30,12 @@ test.describe('Node alerts', () => {
     const dialog = page.locator('.q-dialog').filter({ hasText: 'Create Alert Rule' })
     await expect(dialog).toContainText(nodeName)
     await dialog.locator('.q-select').filter({ hasText: 'Event Type' }).click()
-    await expect(page.getByRole('option')).toHaveText(['Node CPU', 'Node Memory', 'Node Disk'])
-    await page.getByRole('option', { name: 'Node Disk' }).click()
+    await expect(page.getByRole('option')).toHaveText([
+      'Node CPU Threshold',
+      'Node Memory Threshold',
+      'Node Disk Threshold',
+    ])
+    await page.getByRole('option', { name: 'Node Disk Threshold' }).click()
     await dialog.locator('.q-select').filter({ hasText: 'Notification Channel' }).click()
     await page.getByRole('option', { name: channelName, exact: true }).click()
     await dialog.getByRole('button', { name: 'Create' }).click()
@@ -45,13 +49,17 @@ test.describe('Node alerts', () => {
     )
     const row = page
       .getByRole('row')
-      .filter({ hasText: 'Node Disk' })
+      .filter({ hasText: 'Node Disk Threshold' })
       .filter({ hasText: channelName })
     await expect(row).toContainText(nodeName)
     await expect(row).toContainText('>= 80%')
-    await row.getByRole('button', { name: 'Edit Node Disk alert rule' }).click()
+    await row.getByRole('button', { name: 'Edit Node Disk Threshold alert rule' }).click()
     const editDialog = page.locator('.q-dialog').filter({ hasText: 'Edit Alert Rule' })
     await editDialog.locator('.q-select').filter({ hasText: 'Event Type' }).click()
-    await expect(page.getByRole('option')).toHaveText(['Node CPU', 'Node Memory', 'Node Disk'])
+    await expect(page.getByRole('option')).toHaveText([
+      'Node CPU Threshold',
+      'Node Memory Threshold',
+      'Node Disk Threshold',
+    ])
   })
 })

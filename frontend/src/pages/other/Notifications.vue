@@ -191,7 +191,7 @@
         <div class="tab-toolbar">
           <q-select
             v-model="rulesEventFilter"
-            :options="eventTypeOptions"
+            :options="alertEventTypeOptions"
             aria-label="Filter alert rules by event type"
             class="filter-select"
             clearable
@@ -214,7 +214,7 @@
           row-key="id">
           <template #item="props">
             <q-card
-              :aria-label="`${eventTypeLabel(props.row.eventType)} alert rule`"
+              :aria-label="`${alertEventTypeLabel(props.row.eventType)} alert rule`"
               bordered
               class="notification-mobile-card"
               flat
@@ -222,7 +222,7 @@
               <q-card-section class="notification-mobile-card__header">
                 <div>
                   <div class="notification-mobile-card__title">
-                    {{ eventTypeLabel(props.row.eventType) }}
+                    {{ alertEventTypeLabel(props.row.eventType) }}
                   </div>
                   <div class="text-caption text-xy-muted">
                     {{ formatCondition(props.row.eventType, props.row.condition) }}
@@ -234,7 +234,7 @@
                 </div>
                 <q-toggle
                   v-else-if="hasAlertsManage"
-                  :aria-label="`Toggle ${eventTypeLabel(props.row.eventType)} rule enabled`"
+                  :aria-label="`Toggle ${alertEventTypeLabel(props.row.eventType)} rule enabled`"
                   :model-value="props.row.enabled"
                   color="positive"
                   dense
@@ -259,14 +259,14 @@
               <q-card-actions v-if="hasAlertsManage" align="right">
                 <q-btn
                   v-if="!ruleNeedsSuperUser(props.row)"
-                  :aria-label="`Edit ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  :aria-label="`Edit ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   flat
                   icon="edit"
                   label="Edit"
                   no-caps
                   @click="openRuleEditDialog(props.row)" />
                 <q-btn
-                  :aria-label="`Delete ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  :aria-label="`Delete ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   class="text-error-brighter"
                   flat
                   icon="delete"
@@ -278,7 +278,7 @@
           </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
+              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="primary" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -299,7 +299,7 @@
               </div>
               <q-toggle
                 v-else-if="hasAlertsManage"
-                :aria-label="`Toggle ${eventTypeLabel(props.row.eventType)} rule enabled`"
+                :aria-label="`Toggle ${alertEventTypeLabel(props.row.eventType)} rule enabled`"
                 :model-value="props.row.enabled"
                 color="positive"
                 @update:model-value="toggleRuleEnabled(props.row)" />
@@ -314,7 +314,7 @@
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
                   v-if="!ruleNeedsSuperUser(props.row)"
-                  :aria-label="`Edit ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  :aria-label="`Edit ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   dense
                   flat
                   icon="edit"
@@ -322,7 +322,7 @@
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
                 <q-btn
-                  :aria-label="`Delete ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  :aria-label="`Delete ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   class="text-error-brighter"
                   dense
                   flat
@@ -359,7 +359,7 @@
         <div class="tab-toolbar">
           <q-select
             v-model="historyEventFilter"
-            :options="eventTypeOptions"
+            :options="alertEventTypeOptions"
             aria-label="Filter alert history by event type"
             class="filter-select"
             clearable
@@ -382,7 +382,7 @@
           row-key="id">
           <template #item="props">
             <q-card
-              :aria-label="`${eventTypeLabel(props.row.eventType)} alert history entry`"
+              :aria-label="`${alertEventTypeLabel(props.row.eventType)} alert history entry`"
               bordered
               class="notification-mobile-card"
               flat
@@ -390,7 +390,7 @@
               <q-card-section class="notification-mobile-card__header">
                 <div>
                   <div class="notification-mobile-card__title">
-                    {{ eventTypeLabel(props.row.eventType) }}
+                    {{ alertEventTypeLabel(props.row.eventType) }}
                   </div>
                   <div class="text-caption text-xy-muted">
                     {{ formatTimestamp(props.row.createdAt, 'Unknown time') }}
@@ -425,7 +425,7 @@
           </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
+              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="primary" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -658,7 +658,12 @@ import {
 import { useUserAuthStore } from '@/stores/xylona'
 import { formatAlertEventData, formatCondition } from '@/utils/alert-conditions'
 import { canManageAlerts } from '@/utils/alert-permissions'
-import { alertTargetName, isNodeAlertEventType } from '@/utils/alert-scope'
+import {
+  alertEventTypeLabel,
+  alertEventTypeOptions,
+  alertTargetName,
+  isNodeAlertEventType,
+} from '@/utils/alert-scope'
 import { formatTimestamp } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
@@ -1182,7 +1187,7 @@ function confirmDeleteRule(rule: AlertRule): void {
 
   $q.dialog({
     title: 'Delete Alert Rule',
-    message: `Are you sure you want to delete this ${eventTypeLabel(rule.eventType)} alert rule?`,
+    message: `Are you sure you want to delete this ${alertEventTypeLabel(rule.eventType)} alert rule?`,
     cancel: { flat: true, label: 'Cancel' },
     ok: { color: 'negative', label: 'Delete' },
     persistent: true,
@@ -1355,43 +1360,6 @@ function channelTypeBadgeColor(type: NotificationChannelType): string {
       return 'teal'
     default:
       return 'grey'
-  }
-}
-
-const eventTypeOptions = [
-  { label: 'Crash', value: AlertEventType.CRASH },
-  { label: 'Status Change', value: AlertEventType.STATUS_CHANGE },
-  { label: 'CPU Threshold', value: AlertEventType.CPU_THRESHOLD },
-  { label: 'Memory Threshold', value: AlertEventType.MEMORY_THRESHOLD },
-  { label: 'Disk Threshold', value: AlertEventType.DISK_THRESHOLD },
-  { label: 'Player Count', value: AlertEventType.PLAYER_COUNT_THRESHOLD },
-  { label: 'Node CPU', value: AlertEventType.NODE_CPU_THRESHOLD },
-  { label: 'Node Memory', value: AlertEventType.NODE_MEMORY_THRESHOLD },
-  { label: 'Node Disk', value: AlertEventType.NODE_DISK_THRESHOLD },
-]
-
-function eventTypeLabel(type: AlertEventType): string {
-  switch (type) {
-    case AlertEventType.CRASH:
-      return 'Crash'
-    case AlertEventType.STATUS_CHANGE:
-      return 'Status Change'
-    case AlertEventType.CPU_THRESHOLD:
-      return 'CPU Threshold'
-    case AlertEventType.MEMORY_THRESHOLD:
-      return 'Memory Threshold'
-    case AlertEventType.DISK_THRESHOLD:
-      return 'Disk Threshold'
-    case AlertEventType.PLAYER_COUNT_THRESHOLD:
-      return 'Player Count'
-    case AlertEventType.NODE_CPU_THRESHOLD:
-      return 'Node CPU'
-    case AlertEventType.NODE_MEMORY_THRESHOLD:
-      return 'Node Memory'
-    case AlertEventType.NODE_DISK_THRESHOLD:
-      return 'Node Disk'
-    default:
-      return 'Unknown'
   }
 }
 

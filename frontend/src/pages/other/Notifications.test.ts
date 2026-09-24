@@ -356,9 +356,13 @@ describe('Notifications', () => {
     const row = wrapper.get('.q-table-row')
     expect(row.text()).toContain("Won't send")
     expect(row.text()).toContain('Node alerts only go to superusers.')
-    expect(row.find('button[aria-label="Edit Node Disk alert rule"]').exists()).toBe(false)
+    expect(row.find('button[aria-label="Edit Node Disk Threshold alert rule"]').exists()).toBe(
+      false,
+    )
     expect(row.find('.q-toggle-stub').exists()).toBe(false)
-    expect(row.find('button[aria-label="Delete Node Disk alert rule"]').exists()).toBe(true)
+    expect(row.find('button[aria-label="Delete Node Disk Threshold alert rule"]').exists()).toBe(
+      true,
+    )
   })
 
   it('lets a superuser edit a node rule in the shared dialog', async () => {
@@ -369,7 +373,7 @@ describe('Notifications', () => {
 
     const row = wrapper.get('.q-table-row')
     expect(row.text()).not.toContain("Won't send")
-    await row.get('button[aria-label="Edit Node Disk alert rule"]').trigger('click')
+    await row.get('button[aria-label="Edit Node Disk Threshold alert rule"]').trigger('click')
     await flushPromises()
 
     const dialog = wrapper.getComponent(AlertRuleDialog)

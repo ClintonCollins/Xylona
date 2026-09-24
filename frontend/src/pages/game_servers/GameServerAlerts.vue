@@ -11,6 +11,11 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import { useUserAuthStore } from '@/stores/xylona'
 import { formatAlertEventData, formatCondition } from '@/utils/alert-conditions'
 import { canManageAlerts } from '@/utils/alert-permissions'
+import {
+  alertEventTypeLabel,
+  alertEventTypeOptions,
+  isNodeAlertEventType,
+} from '@/utils/alert-scope'
 import { formatTimestamp } from '@/utils/format-timestamp'
 import { GetXylonaClient } from '@/utils/shared'
 import {
@@ -64,25 +69,10 @@ const channelsLoaded = ref(false)
 const showRuleDialog = ref(false)
 const editingRule = ref<AlertRule | null>(null)
 
-const eventTypeLabels: Record<number, string> = {
-  [AlertEventType.CRASH]: 'Server Crash',
-  [AlertEventType.STATUS_CHANGE]: 'Status Change',
-  [AlertEventType.CPU_THRESHOLD]: 'CPU Threshold',
-  [AlertEventType.MEMORY_THRESHOLD]: 'Memory Threshold',
-  [AlertEventType.DISK_THRESHOLD]: 'Disk Threshold',
-  [AlertEventType.PLAYER_COUNT_THRESHOLD]: 'Player Count Threshold',
-}
-
-const serverEventTypes = [
-  { label: 'Server Crash', value: AlertEventType.CRASH },
-  { label: 'Status Change', value: AlertEventType.STATUS_CHANGE },
-  { label: 'CPU Threshold', value: AlertEventType.CPU_THRESHOLD },
-  { label: 'Memory Threshold', value: AlertEventType.MEMORY_THRESHOLD },
-  { label: 'Disk Threshold', value: AlertEventType.DISK_THRESHOLD },
-  { label: 'Player Count Threshold', value: AlertEventType.PLAYER_COUNT_THRESHOLD },
+const historyFilterOptions = [
+  { label: 'All Events', value: null },
+  ...alertEventTypeOptions.filter((option) => !isNodeAlertEventType(option.value)),
 ]
-
-const historyFilterOptions = [{ label: 'All Events', value: null }, ...serverEventTypes]
 
 const channelTypeLabels: Record<number, string> = {
   [NotificationChannelType.WEBHOOK_DISCORD]: 'Discord',
@@ -107,7 +97,7 @@ const rulesColumns = computed(() => [
   {
     name: 'eventType',
     label: 'Event Type',
-    field: (row: AlertRule) => eventTypeLabels[row.eventType] ?? 'Unknown',
+    field: (row: AlertRule) => alertEventTypeLabel(row.eventType),
     align: 'left' as const,
     sortable: true,
   },
@@ -151,7 +141,7 @@ const historyColumns = computed(() => [
   {
     name: 'eventType',
     label: 'Event Type',
-    field: (row: AlertHistoryEntry) => eventTypeLabels[row.eventType] ?? 'Unknown',
+    field: (row: AlertHistoryEntry) => alertEventTypeLabel(row.eventType),
     align: 'left' as const,
   },
   {
@@ -182,7 +172,7 @@ const filteredHistory = computed(() => {
 })
 
 function ruleToggleLabel(rule: AlertRule): string {
-  const label = `Enable ${eventTypeLabels[rule.eventType] ?? 'Unknown'} alert`
+  const label = `Enable ${alertEventTypeLabel(rule.eventType)} alert`
   const condition = formatCondition(rule.eventType, rule.condition)
   return condition === '-' ? label : `${label}: ${condition}`
 }
@@ -296,7 +286,7 @@ function openEditDialog(rule: AlertRule): void {
 function confirmDeleteRule(rule: AlertRule): void {
   if (!hasAlertsManage.value) return
 
-  const label = eventTypeLabels[rule.eventType] ?? 'this rule'
+  const label = alertEventTypeLabel(rule.eventType)
   $q.dialog({
     title: 'Delete Alert Rule',
     message: `Are you sure you want to delete the "${label}" alert rule?`,
@@ -431,7 +421,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               <q-card-section class="alerts-mobile-card__header">
                 <div>
                   <div class="alerts-mobile-card__title">
-                    {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
+                    {{ alertEventTypeLabel(props.row.eventType) }}
                   </div>
                   <div class="text-caption text-xy-muted">
                     {{ formatCondition(props.row.eventType, props.row.condition) }}
@@ -554,7 +544,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               <q-card-section class="alerts-mobile-card__header">
                 <div>
                   <div class="alerts-mobile-card__title">
-                    {{ eventTypeLabels[props.row.eventType] ?? 'Unknown' }}
+                    {{ alertEventTypeLabel(props.row.eventType) }}
                   </div>
                   <div class="text-caption text-xy-muted">
                     {{ formatTimestamp(props.row.createdAt) }}

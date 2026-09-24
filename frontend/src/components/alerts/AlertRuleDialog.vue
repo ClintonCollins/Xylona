@@ -190,7 +190,7 @@ import {
   isNonNegativeInteger,
   readPositiveInteger,
 } from '@/utils/alert-conditions'
-import { isNodeAlertEventType } from '@/utils/alert-scope'
+import { alertEventTypeOptions, isNodeAlertEventType } from '@/utils/alert-scope'
 import { GetXylonaClient } from '@/utils/shared'
 
 // The one alert rule form. Editing keeps the rule's own server or node; creating targets
@@ -207,18 +207,6 @@ const open = defineModel<boolean>({ required: true })
 const emit = defineEmits<{ saved: [] }>()
 
 const authStore = useUserAuthStore()
-
-const allEventTypes = [
-  { label: 'Server Crash', value: AlertEventType.CRASH },
-  { label: 'Status Change', value: AlertEventType.STATUS_CHANGE },
-  { label: 'CPU Threshold', value: AlertEventType.CPU_THRESHOLD },
-  { label: 'Memory Threshold', value: AlertEventType.MEMORY_THRESHOLD },
-  { label: 'Disk Threshold', value: AlertEventType.DISK_THRESHOLD },
-  { label: 'Player Count Threshold', value: AlertEventType.PLAYER_COUNT_THRESHOLD },
-  { label: 'Node CPU', value: AlertEventType.NODE_CPU_THRESHOLD },
-  { label: 'Node Memory', value: AlertEventType.NODE_MEMORY_THRESHOLD },
-  { label: 'Node Disk', value: AlertEventType.NODE_DISK_THRESHOLD },
-]
 
 // A rule stays on its node or server (the backend rejects a switch), and node alerts are
 // only sent to superusers, so nobody else is offered a node event type.
