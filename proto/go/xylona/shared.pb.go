@@ -4690,7 +4690,7 @@ type NodeResourceSnapshot struct {
 	UserCount              int32                  `protobuf:"varint,10,opt,name=user_count,json=userCount,proto3" json:"user_count,omitempty"`
 	RecordedAt             *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=recorded_at,json=recordedAt,proto3" json:"recorded_at,omitempty"`
 	// *_unavailable mark a host reading the node could not take; that metric's
-	// value fields are then zero and must be shown as unavailable, not 0%.
+	// usage fields are then zero and must be shown as unavailable, not 0%.
 	// Negative sense, matching nodeproto NodeSnapshot, so an unset flag means
 	// the reading is available.
 	CpuUnavailable    bool `protobuf:"varint,12,opt,name=cpu_unavailable,json=cpuUnavailable,proto3" json:"cpu_unavailable,omitempty"`

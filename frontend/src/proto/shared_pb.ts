@@ -1918,7 +1918,7 @@ export type NodeResourceSnapshot = Message<"xylona.NodeResourceSnapshot"> & {
 
   /**
    * *_unavailable mark a host reading the node could not take; that metric's
-   * value fields are then zero and must be shown as unavailable, not 0%.
+   * usage fields are then zero and must be shown as unavailable, not 0%.
    * Negative sense, matching nodeproto NodeSnapshot, so an unset flag means
    * the reading is available.
    *
