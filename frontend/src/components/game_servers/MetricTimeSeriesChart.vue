@@ -66,7 +66,10 @@
         </div>
         <div
           class="metric-lane__value font-mono"
-          :class="{ 'metric-lane__value--missing': displayedValue === null }">
+          :class="{
+            'metric-lane__value--missing': displayedValue === null,
+            'metric-lane__value--stacked': summary.latest === null,
+          }">
           {{ formatValue(displayedValue) }}
           <small v-if="laneCaption">{{ laneCaption }}</small>
         </div>
@@ -641,14 +644,17 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* No reading is not a value: keep it muted so it never reads as a healthy number,
-   and give its caption, which says why, a line of its own in the narrow gutter. */
+/* No reading is not a value: keep it muted so it never reads as a healthy number.
+   Colour and weight only, so hovering a gap never changes the lane's height. */
 .metric-lane__value--missing {
   color: var(--xy-text-muted);
   font-weight: 400;
 }
 
-.metric-lane__value--missing small {
+/* With no latest reading the caption usually says why, so it gets a line of its
+   own in the narrow gutter. It follows the latest reading, never the hovered one,
+   so the crosshair shared across lanes can't make them jump. */
+.metric-lane__value--stacked small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
