@@ -22,6 +22,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// The public status JSON API (/api/public/status-pages) exposes this enum's
+// value names and the field name below to third-party clients, so they keep
+// their original wording to avoid breaking those clients.
 type GameServerStatusPageRosterState int32
 
 const (
@@ -652,58 +655,58 @@ func (GameServerPlayerAction) EnumDescriptor() ([]byte, []int) {
 	return file_xylona_proto_rawDescGZIP(), []int{10}
 }
 
-type GameServerPlayerManagementRosterState int32
+type GameServerPlayerManagementPlayersState int32
 
 const (
-	GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED       GameServerPlayerManagementRosterState = 0
-	GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE         GameServerPlayerManagementRosterState = 1
-	GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED       GameServerPlayerManagementRosterState = 2
-	GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED GameServerPlayerManagementRosterState = 3
-	GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE       GameServerPlayerManagementRosterState = 4
+	GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED       GameServerPlayerManagementPlayersState = 0
+	GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE         GameServerPlayerManagementPlayersState = 1
+	GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED       GameServerPlayerManagementPlayersState = 2
+	GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED GameServerPlayerManagementPlayersState = 3
+	GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNAVAILABLE       GameServerPlayerManagementPlayersState = 4
 )
 
-// Enum value maps for GameServerPlayerManagementRosterState.
+// Enum value maps for GameServerPlayerManagementPlayersState.
 var (
-	GameServerPlayerManagementRosterState_name = map[int32]string{
-		0: "GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED",
-		1: "GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE",
-		2: "GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED",
-		3: "GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED",
-		4: "GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE",
+	GameServerPlayerManagementPlayersState_name = map[int32]string{
+		0: "GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED",
+		1: "GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE",
+		2: "GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED",
+		3: "GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED",
+		4: "GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNAVAILABLE",
 	}
-	GameServerPlayerManagementRosterState_value = map[string]int32{
-		"GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED":       0,
-		"GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE":         1,
-		"GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED":       2,
-		"GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED": 3,
-		"GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE":       4,
+	GameServerPlayerManagementPlayersState_value = map[string]int32{
+		"GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED":       0,
+		"GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE":         1,
+		"GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED":       2,
+		"GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED": 3,
+		"GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNAVAILABLE":       4,
 	}
 )
 
-func (x GameServerPlayerManagementRosterState) Enum() *GameServerPlayerManagementRosterState {
-	p := new(GameServerPlayerManagementRosterState)
+func (x GameServerPlayerManagementPlayersState) Enum() *GameServerPlayerManagementPlayersState {
+	p := new(GameServerPlayerManagementPlayersState)
 	*p = x
 	return p
 }
 
-func (x GameServerPlayerManagementRosterState) String() string {
+func (x GameServerPlayerManagementPlayersState) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (GameServerPlayerManagementRosterState) Descriptor() protoreflect.EnumDescriptor {
+func (GameServerPlayerManagementPlayersState) Descriptor() protoreflect.EnumDescriptor {
 	return file_xylona_proto_enumTypes[11].Descriptor()
 }
 
-func (GameServerPlayerManagementRosterState) Type() protoreflect.EnumType {
+func (GameServerPlayerManagementPlayersState) Type() protoreflect.EnumType {
 	return &file_xylona_proto_enumTypes[11]
 }
 
-func (x GameServerPlayerManagementRosterState) Number() protoreflect.EnumNumber {
+func (x GameServerPlayerManagementPlayersState) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use GameServerPlayerManagementRosterState.Descriptor instead.
-func (GameServerPlayerManagementRosterState) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use GameServerPlayerManagementPlayersState.Descriptor instead.
+func (GameServerPlayerManagementPlayersState) EnumDescriptor() ([]byte, []int) {
 	return file_xylona_proto_rawDescGZIP(), []int{11}
 }
 
@@ -17026,12 +17029,12 @@ func (*RestoreGameServerBackupResponse) Descriptor() ([]byte, []int) {
 }
 
 type GameServerPlayerManagementCapabilities struct {
-	state             protoimpl.MessageState                `protogen:"open.v1"`
-	ActionsSupported  bool                                  `protobuf:"varint,1,opt,name=actions_supported,json=actionsSupported,proto3" json:"actions_supported,omitempty"`
-	UnavailableReason string                                `protobuf:"bytes,2,opt,name=unavailable_reason,json=unavailableReason,proto3" json:"unavailable_reason,omitempty"`
-	IdentifierLabel   string                                `protobuf:"bytes,3,opt,name=identifier_label,json=identifierLabel,proto3" json:"identifier_label,omitempty"`
-	SupportedActions  []GameServerPlayerAction              `protobuf:"varint,4,rep,packed,name=supported_actions,json=supportedActions,proto3,enum=xylona.GameServerPlayerAction" json:"supported_actions,omitempty"`
-	RosterState       GameServerPlayerManagementRosterState `protobuf:"varint,5,opt,name=roster_state,json=rosterState,proto3,enum=xylona.GameServerPlayerManagementRosterState" json:"roster_state,omitempty"`
+	state             protoimpl.MessageState                 `protogen:"open.v1"`
+	ActionsSupported  bool                                   `protobuf:"varint,1,opt,name=actions_supported,json=actionsSupported,proto3" json:"actions_supported,omitempty"`
+	UnavailableReason string                                 `protobuf:"bytes,2,opt,name=unavailable_reason,json=unavailableReason,proto3" json:"unavailable_reason,omitempty"`
+	IdentifierLabel   string                                 `protobuf:"bytes,3,opt,name=identifier_label,json=identifierLabel,proto3" json:"identifier_label,omitempty"`
+	SupportedActions  []GameServerPlayerAction               `protobuf:"varint,4,rep,packed,name=supported_actions,json=supportedActions,proto3,enum=xylona.GameServerPlayerAction" json:"supported_actions,omitempty"`
+	PlayersState      GameServerPlayerManagementPlayersState `protobuf:"varint,5,opt,name=players_state,json=playersState,proto3,enum=xylona.GameServerPlayerManagementPlayersState" json:"players_state,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -17094,11 +17097,11 @@ func (x *GameServerPlayerManagementCapabilities) GetSupportedActions() []GameSer
 	return nil
 }
 
-func (x *GameServerPlayerManagementCapabilities) GetRosterState() GameServerPlayerManagementRosterState {
+func (x *GameServerPlayerManagementCapabilities) GetPlayersState() GameServerPlayerManagementPlayersState {
 	if x != nil {
-		return x.RosterState
+		return x.PlayersState
 	}
-	return GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED
+	return GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED
 }
 
 type GameServerManagementPlayer struct {
@@ -24043,13 +24046,13 @@ const file_xylona_proto_rawDesc = "" +
 	"\tbackup_id\x18\x02 \x01(\tR\bbackupId\x12<\n" +
 	"\frestore_mode\x18\x03 \x01(\x0e2\x19.xylona.BackupRestoreModeR\vrestoreMode\x12;\n" +
 	"\x1abackup_current_files_first\x18\x04 \x01(\bR\x17backupCurrentFilesFirst\"!\n" +
-	"\x1fRestoreGameServerBackupResponse\"\xce\x02\n" +
+	"\x1fRestoreGameServerBackupResponse\"\xd1\x02\n" +
 	"&GameServerPlayerManagementCapabilities\x12+\n" +
 	"\x11actions_supported\x18\x01 \x01(\bR\x10actionsSupported\x12-\n" +
 	"\x12unavailable_reason\x18\x02 \x01(\tR\x11unavailableReason\x12)\n" +
 	"\x10identifier_label\x18\x03 \x01(\tR\x0fidentifierLabel\x12K\n" +
-	"\x11supported_actions\x18\x04 \x03(\x0e2\x1e.xylona.GameServerPlayerActionR\x10supportedActions\x12P\n" +
-	"\froster_state\x18\x05 \x01(\x0e2-.xylona.GameServerPlayerManagementRosterStateR\vrosterState\"\xf0\x04\n" +
+	"\x11supported_actions\x18\x04 \x03(\x0e2\x1e.xylona.GameServerPlayerActionR\x10supportedActions\x12S\n" +
+	"\rplayers_state\x18\x05 \x01(\x0e2..xylona.GameServerPlayerManagementPlayersStateR\fplayersState\"\xf0\x04\n" +
 	"\x1aGameServerManagementPlayer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
 	"\x11action_identifier\x18\x02 \x01(\tR\x10actionIdentifier\x12\x1b\n" +
@@ -24615,13 +24618,13 @@ const file_xylona_proto_rawDesc = "" +
 	"\x1dGAME_SERVER_PLAYER_ACTION_BAN\x10\x02\x12#\n" +
 	"\x1fGAME_SERVER_PLAYER_ACTION_UNBAN\x10\x03\x12+\n" +
 	"'GAME_SERVER_PLAYER_ACTION_ALLOWLIST_ADD\x10\x04\x12.\n" +
-	"*GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE\x10\x05*\xd7\x02\n" +
-	"%GameServerPlayerManagementRosterState\x12:\n" +
-	"6GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED\x10\x00\x128\n" +
-	"4GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE\x10\x01\x12:\n" +
-	"6GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED\x10\x02\x12@\n" +
-	"<GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED\x10\x03\x12:\n" +
-	"6GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE\x10\x04*\xa0\x01\n" +
+	"*GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE\x10\x05*\xdd\x02\n" +
+	"&GameServerPlayerManagementPlayersState\x12;\n" +
+	"7GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED\x10\x00\x129\n" +
+	"5GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE\x10\x01\x12;\n" +
+	"7GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED\x10\x02\x12A\n" +
+	"=GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED\x10\x03\x12;\n" +
+	"7GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNAVAILABLE\x10\x04*\xa0\x01\n" +
 	"\x11GameOperationRisk\x12#\n" +
 	"\x1fGAME_OPERATION_RISK_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bGAME_OPERATION_RISK_ROUTINE\x10\x01\x12\x1f\n" +
@@ -24913,7 +24916,7 @@ var file_xylona_proto_goTypes = []any{
 	(DNSProviderKind)(0),                                    // 8: xylona.DNSProviderKind
 	(DNSCredentialMode)(0),                                  // 9: xylona.DNSCredentialMode
 	(GameServerPlayerAction)(0),                             // 10: xylona.GameServerPlayerAction
-	(GameServerPlayerManagementRosterState)(0),              // 11: xylona.GameServerPlayerManagementRosterState
+	(GameServerPlayerManagementPlayersState)(0),             // 11: xylona.GameServerPlayerManagementPlayersState
 	(GameOperationRisk)(0),                                  // 12: xylona.GameOperationRisk
 	(GameOperationFieldType)(0),                             // 13: xylona.GameOperationFieldType
 	(GameOperationAvailabilityReason)(0),                    // 14: xylona.GameOperationAvailabilityReason
@@ -25569,7 +25572,7 @@ var file_xylona_proto_depIdxs = []int32{
 	440, // 183: xylona.CreateGameServerBackupResponse.backup:type_name -> xylona.GameServerBackup
 	441, // 184: xylona.RestoreGameServerBackupRequest.restore_mode:type_name -> xylona.BackupRestoreMode
 	10,  // 185: xylona.GameServerPlayerManagementCapabilities.supported_actions:type_name -> xylona.GameServerPlayerAction
-	11,  // 186: xylona.GameServerPlayerManagementCapabilities.roster_state:type_name -> xylona.GameServerPlayerManagementRosterState
+	11,  // 186: xylona.GameServerPlayerManagementCapabilities.players_state:type_name -> xylona.GameServerPlayerManagementPlayersState
 	313, // 187: xylona.GetGameServerPlayerManagementResponse.capabilities:type_name -> xylona.GameServerPlayerManagementCapabilities
 	442, // 188: xylona.GetGameServerPlayerManagementResponse.players:type_name -> xylona.GameServerPlayer
 	404, // 189: xylona.GetGameServerPlayerManagementResponse.status:type_name -> xylona.Status

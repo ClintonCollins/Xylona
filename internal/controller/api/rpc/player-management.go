@@ -14,7 +14,7 @@ import (
 
 const permissionPlayerManage = "game_server.players.manage"
 
-// GetGameServerPlayerManagement returns the permission-gated current roster
+// GetGameServerPlayerManagement returns the permission-gated current players
 // and the typed actions supported by the game and owning node.
 func (xs *XylonaService) GetGameServerPlayerManagement(
 	ctx context.Context,
@@ -91,7 +91,7 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 			UnavailableReason: management.UnavailableReason,
 			IdentifierLabel:   management.IdentifierLabel,
 			SupportedActions:  supportedActions,
-			RosterState:       publicPlayerManagementRosterState(management.RosterState),
+			PlayersState:      publicPlayerManagementPlayersState(management.PlayersState),
 		},
 		Players:           players,
 		Status:            management.Status,
@@ -99,18 +99,18 @@ func (xs *XylonaService) GetGameServerPlayerManagement(
 	}), nil
 }
 
-func publicPlayerManagementRosterState(state node.SevenDaysToDieWebAPIValueState) xylona.GameServerPlayerManagementRosterState {
+func publicPlayerManagementPlayersState(state node.SevenDaysToDieWebAPIValueState) xylona.GameServerPlayerManagementPlayersState {
 	switch state {
 	case node.SevenDaysToDieWebAPIValueStateAvailable:
-		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE
+		return xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE
 	case node.SevenDaysToDieWebAPIValueStateUnsupported:
-		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED
+		return xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED
 	case node.SevenDaysToDieWebAPIValueStatePermissionDenied:
-		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED
+		return xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED
 	case node.SevenDaysToDieWebAPIValueStateUnavailable:
-		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE
+		return xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNAVAILABLE
 	default:
-		return xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED
+		return xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED
 	}
 }
 

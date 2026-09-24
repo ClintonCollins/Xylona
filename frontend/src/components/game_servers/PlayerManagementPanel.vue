@@ -6,7 +6,7 @@ import { Status } from '@/proto/shared_pb'
 import type { AllServersQueryInfo } from '@/proto/websocket_pb'
 import {
   GameServerPlayerAction,
-  GameServerPlayerManagementRosterState,
+  GameServerPlayerManagementPlayersState,
   GetGameServerPlayerManagementRequestSchema,
   PerformGameServerPlayerActionRequestSchema,
   type GameServerManagementPlayer,
@@ -44,21 +44,22 @@ const actionReason = ref('')
 const capabilities = computed(() => management.value?.capabilities)
 const isOnline = computed(() => management.value?.status === Status.ONLINE)
 const players = computed(() => management.value?.managementPlayers ?? [])
-const rosterState = computed(
-  () => capabilities.value?.rosterState ?? GameServerPlayerManagementRosterState.UNSPECIFIED,
+const playersState = computed(
+  () => capabilities.value?.playersState ?? GameServerPlayerManagementPlayersState.UNSPECIFIED,
 )
-const nativeRoster = computed(
-  () => rosterState.value !== GameServerPlayerManagementRosterState.UNSPECIFIED,
+const nativePlayerList = computed(
+  () => playersState.value !== GameServerPlayerManagementPlayersState.UNSPECIFIED,
 )
-const rosterAvailable = computed(
+const playerListAvailable = computed(
   () =>
-    !nativeRoster.value || rosterState.value === GameServerPlayerManagementRosterState.AVAILABLE,
+    !nativePlayerList.value ||
+    playersState.value === GameServerPlayerManagementPlayersState.AVAILABLE,
 )
-const rosterStateText = computed(() => {
-  switch (rosterState.value) {
-    case GameServerPlayerManagementRosterState.UNSUPPORTED:
+const playersStateText = computed(() => {
+  switch (playersState.value) {
+    case GameServerPlayerManagementPlayersState.UNSUPPORTED:
       return 'This server does not report its online players.'
-    case GameServerPlayerManagementRosterState.PERMISSION_DENIED:
+    case GameServerPlayerManagementPlayersState.PERMISSION_DENIED:
       return 'The game server denied access to its player list.'
     default:
       return 'The player list is unavailable. Retry after confirming the WebAPI is reachable.'
@@ -122,7 +123,7 @@ function refresh(): void {
   void loadPlayerManagement()
 }
 
-// --- Live updates: the websocket already broadcasts roster and status
+// --- Live updates: the websocket already broadcasts player and status
 // changes for every server; when they disagree with what this panel shows,
 // re-pull the management view (which carries identifiers and capabilities).
 let liveRefreshTimer: ReturnType<typeof setTimeout> | undefined
@@ -141,14 +142,14 @@ function onServersQueryInfo(allServersQueryInfo: AllServersQueryInfo): void {
   const snapshot = queryInfoPlayerSnapshot(queryInfo)
   if (snapshot === null || !snapshot.playerListSupported) return
 
-  const comparedPlayers = nativeRoster.value
+  const comparedPlayers = nativePlayerList.value
     ? players.value.filter((player) => player.online === true)
     : players.value
   const knownNames = new Set(comparedPlayers.map((player) => player.name))
-  const rosterChanged =
+  const playersChanged =
     snapshot.players.length !== knownNames.size ||
     snapshot.players.some((name) => !knownNames.has(name))
-  if (rosterChanged) scheduleQuietRefresh()
+  if (playersChanged) scheduleQuietRefresh()
 }
 
 function onServerStatusUpdate(serverID: string, _serverName: string, serverStatus: Status): void {
@@ -256,11 +257,11 @@ function playerMetrics(player: GameServerManagementPlayer): { label: string; val
 function playerSecondaryText(player: GameServerManagementPlayer): string {
   if (
     player.actionIdentifier === '' ||
-    (!nativeRoster.value && player.actionIdentifier === player.name)
+    (!nativePlayerList.value && player.actionIdentifier === player.name)
   ) {
     return ''
   }
-  return nativeRoster.value ? `Action ID: ${player.actionIdentifier}` : player.actionIdentifier
+  return nativePlayerList.value ? `Action ID: ${player.actionIdentifier}` : player.actionIdentifier
 }
 
 function actionTextColor(definition: PlayerActionDefinition | null): string {
@@ -343,21 +344,21 @@ defineExpose({ loadPlayerManagement })
           </q-banner>
         </q-card-section>
 
-        <q-card-section v-if="isOnline && nativeRoster && !rosterAvailable">
+        <q-card-section v-if="isOnline && nativePlayerList && !playerListAvailable">
           <q-banner class="xy-banner-warning" dense rounded>
             <template #avatar><q-icon color="warning" name="person_off" /></template>
-            {{ rosterStateText }}
+            {{ playersStateText }}
           </q-banner>
         </q-card-section>
 
         <q-card-section
-          v-if="isOnline && rosterAvailable && players.length === 0"
+          v-if="isOnline && playerListAvailable && players.length === 0"
           class="players-panel__empty">
           <q-icon name="group_off" size="42px" />
           <div class="players-panel__empty-title">No players online</div>
           <div>
             {{
-              nativeRoster
+              nativePlayerList
                 ? 'The game server reports no connected players.'
                 : 'The server query returned no players.'
             }}
@@ -365,8 +366,8 @@ defineExpose({ loadPlayerManagement })
         </q-card-section>
 
         <q-list
-          v-else-if="rosterAvailable && players.length > 0"
-          class="players-panel__roster"
+          v-else-if="playerListAvailable && players.length > 0"
+          class="players-panel__list"
           separator>
           <q-item
             v-for="player in players"
@@ -390,7 +391,7 @@ defineExpose({ loadPlayerManagement })
                 {{ playerSecondaryText(player) }}
               </q-item-label>
               <div
-                v-if="nativeRoster && playerMetrics(player).length > 0"
+                v-if="nativePlayerList && playerMetrics(player).length > 0"
                 class="players-panel__metrics">
                 <span
                   v-for="metric in playerMetrics(player)"
@@ -578,7 +579,7 @@ defineExpose({ loadPlayerManagement })
   font-family: var(--xy-font-display);
 }
 
-.players-panel__roster {
+.players-panel__list {
   border-top: 1px solid var(--xy-border);
 }
 

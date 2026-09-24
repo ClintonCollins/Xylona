@@ -70,7 +70,7 @@ func TestGetPlayerManagement(t *testing.T) {
 			wantRuntimeCalls:   0,
 		},
 		{
-			name:               "Source roster stays read only",
+			name:               "Source player list stays read only",
 			gameServer:         sourcePlayerTestServer,
 			wantPlayers:        []node.SevenDaysToDiePlayer{{Name: "Gordon"}},
 			wantReasonContains: "read-only",
@@ -129,8 +129,8 @@ func TestGetPlayerManagement(t *testing.T) {
 			if tc.wantReasonContains != "" && !strings.Contains(management.UnavailableReason, tc.wantReasonContains) {
 				t.Fatalf("unavailable reason = %q, want containing %q", management.UnavailableReason, tc.wantReasonContains)
 			}
-			if management.RosterState != node.SevenDaysToDieWebAPIValueStateUnspecified {
-				t.Fatalf("RosterState = %v, want unspecified for non-7DTD roster", management.RosterState)
+			if management.PlayersState != node.SevenDaysToDieWebAPIValueStateUnspecified {
+				t.Fatalf("PlayersState = %v, want unspecified for non-7DTD players", management.PlayersState)
 			}
 			if client.RuntimeCapabilitiesCalls != tc.wantRuntimeCalls {
 				t.Fatalf("runtime capability calls = %d, want %d", client.RuntimeCapabilitiesCalls, tc.wantRuntimeCalls)
@@ -139,7 +139,7 @@ func TestGetPlayerManagement(t *testing.T) {
 	}
 }
 
-func TestGetPlayerManagementGatesNativeRosterCapabilities(t *testing.T) {
+func TestGetPlayerManagementGatesNativePlayerListCapabilities(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -151,7 +151,7 @@ func TestGetPlayerManagementGatesNativeRosterCapabilities(t *testing.T) {
 	}{
 		{
 			name:            "protocol 9 is unsupported",
-			protocolVersion: sevenDaysToDiePlayerRosterProtocol - 1,
+			protocolVersion: sevenDaysToDiePlayerListProtocol - 1,
 			wantState:       node.SevenDaysToDieWebAPIValueStateUnsupported,
 		},
 		{
@@ -187,11 +187,11 @@ func TestGetPlayerManagementGatesNativeRosterCapabilities(t *testing.T) {
 			if !errors.Is(errManagement, test.wantError) {
 				t.Fatalf("GetPlayerManagement() error = %v, want %v", errManagement, test.wantError)
 			}
-			if management.RosterState != test.wantState {
-				t.Fatalf("RosterState = %v, want %v", management.RosterState, test.wantState)
+			if management.PlayersState != test.wantState {
+				t.Fatalf("PlayersState = %v, want %v", management.PlayersState, test.wantState)
 			}
 			if client.RuntimeCapabilitiesCalls != 1 || len(client.QuerySevenDaysToDiePlayersCalls) != 0 {
-				t.Fatalf("runtime capability calls = %d, native roster calls = %d", client.RuntimeCapabilitiesCalls, len(client.QuerySevenDaysToDiePlayersCalls))
+				t.Fatalf("runtime capability calls = %d, native player list calls = %d", client.RuntimeCapabilitiesCalls, len(client.QuerySevenDaysToDiePlayersCalls))
 			}
 		})
 	}

@@ -278,6 +278,9 @@ message UpdateGameServerStatusPageSettingsResponse {
   GameServerStatusPageSettings settings = 1;
 }
 
+// The public status JSON API (/api/public/status-pages) exposes this enum's
+// value names and the field name below to third-party clients, so they keep
+// their original wording to avoid breaking those clients.
 enum GameServerStatusPageRosterState {
   GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED = 0;
   GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE = 1;
@@ -1819,12 +1822,12 @@ enum GameServerPlayerAction {
   GAME_SERVER_PLAYER_ACTION_ALLOWLIST_REMOVE = 5;
 }
 
-enum GameServerPlayerManagementRosterState {
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSPECIFIED = 0;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE = 1;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED = 2;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED = 3;
-  GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNAVAILABLE = 4;
+enum GameServerPlayerManagementPlayersState {
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSPECIFIED = 0;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE = 1;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED = 2;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED = 3;
+  GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNAVAILABLE = 4;
 }
 
 message GameServerPlayerManagementCapabilities {
@@ -1832,7 +1835,7 @@ message GameServerPlayerManagementCapabilities {
   string unavailable_reason = 2;
   string identifier_label = 3;
   repeated GameServerPlayerAction supported_actions = 4;
-  GameServerPlayerManagementRosterState roster_state = 5;
+  GameServerPlayerManagementPlayersState players_state = 5;
 }
 
 message GameServerManagementPlayer {

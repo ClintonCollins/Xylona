@@ -89,7 +89,7 @@ func TestPlayerManagementAuthorizationAndDispatch(t *testing.T) {
 	}
 }
 
-func TestSevenDaysToDiePlayerManagementUsesNativeRoster(t *testing.T) {
+func TestSevenDaysToDiePlayerManagementUsesNativePlayerList(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
 	setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
@@ -136,7 +136,7 @@ func TestSevenDaysToDiePlayerManagementUsesNativeRoster(t *testing.T) {
 	if call.WorkingDirectory != "/tmp/server-local-1" || call.TokenName == "" || call.TokenSecret == "" {
 		t.Fatal("native player query did not receive the node-local directory and credentials")
 	}
-	if response.Msg.GetCapabilities().GetRosterState() != xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_AVAILABLE ||
+	if response.Msg.GetCapabilities().GetPlayersState() != xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_AVAILABLE ||
 		!response.Msg.GetCapabilities().GetActionsSupported() {
 		t.Fatalf("capabilities = %+v", response.Msg.GetCapabilities())
 	}
@@ -162,7 +162,7 @@ func TestSevenDaysToDiePlayerManagementUsesNativeRoster(t *testing.T) {
 	}
 }
 
-func TestSevenDaysToDiePlayerManagementPreservesManualActionsWhenRosterFails(t *testing.T) {
+func TestSevenDaysToDiePlayerManagementPreservesManualActionsWhenPlayerListFails(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	fixture.conn.SetEncryptionKey([]byte("01234567890123456789012345678901"))
 	setSevenDaysToDieWebAPITestServer(t, fixture, xylona.Status_ONLINE.String(), "node-local")
@@ -188,12 +188,12 @@ func TestSevenDaysToDiePlayerManagementPreservesManualActionsWhenRosterFails(t *
 		t.Fatalf("GetGameServerPlayerManagement() error = %v", errGet)
 	}
 	capabilities := response.Msg.GetCapabilities()
-	if !capabilities.GetActionsSupported() || capabilities.GetRosterState() != xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_PERMISSION_DENIED {
+	if !capabilities.GetActionsSupported() || capabilities.GetPlayersState() != xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_PERMISSION_DENIED {
 		t.Fatalf("capabilities = %+v", capabilities)
 	}
 }
 
-func TestSevenDaysToDiePlayerManagementGatesLegacyNodeRoster(t *testing.T) {
+func TestSevenDaysToDiePlayerManagementGatesLegacyNodePlayerList(t *testing.T) {
 	tests := []struct {
 		name            string
 		protocolVersion int64
@@ -228,11 +228,11 @@ func TestSevenDaysToDiePlayerManagementGatesLegacyNodeRoster(t *testing.T) {
 				t.Fatalf("GetGameServerPlayerManagement() error = %v", errGet)
 			}
 			capabilities := response.Msg.GetCapabilities()
-			if capabilities.GetRosterState() != xylona.GameServerPlayerManagementRosterState_GAME_SERVER_PLAYER_MANAGEMENT_ROSTER_STATE_UNSUPPORTED {
-				t.Fatalf("capabilities = %+v, want unsupported roster", capabilities)
+			if capabilities.GetPlayersState() != xylona.GameServerPlayerManagementPlayersState_GAME_SERVER_PLAYER_MANAGEMENT_PLAYERS_STATE_UNSUPPORTED {
+				t.Fatalf("capabilities = %+v, want unsupported player list", capabilities)
 			}
 			if len(client.QuerySevenDaysToDiePlayersCalls) != 0 {
-				t.Fatalf("native roster calls = %d, want 0", len(client.QuerySevenDaysToDiePlayersCalls))
+				t.Fatalf("native player list calls = %d, want 0", len(client.QuerySevenDaysToDiePlayersCalls))
 			}
 		})
 	}

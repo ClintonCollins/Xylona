@@ -26,15 +26,15 @@ const (
 	rustGameID             = "rust"
 
 	expandedPlayerActionsProtocolVersion int64 = 4
-	sevenDaysToDiePlayerRosterProtocol   int64 = 10
+	sevenDaysToDiePlayerListProtocol     int64 = 10
 	managedAdminInputUnavailableReason         = "This game definition does not configure the managed admin console required for player actions."
 )
 
-// PlayerManagement describes the roster, runtime state, and typed actions
+// PlayerManagement describes the players, runtime state, and typed actions
 // available for one game server.
 type PlayerManagement struct {
 	Players           []node.SevenDaysToDiePlayer
-	RosterState       node.SevenDaysToDieWebAPIValueState
+	PlayersState      node.SevenDaysToDieWebAPIValueState
 	ActionsSupported  bool
 	UnavailableReason string
 	IdentifierLabel   string
@@ -51,7 +51,7 @@ type playerManagementProfile struct {
 }
 
 // GetPlayerManagement resolves node capabilities and actively queries the
-// owning node for the current roster. Stable player IDs stay on this
+// owning node for the current players. Stable player IDs stay on this
 // permission-gated path instead of entering the broad query WebSocket feed.
 func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *models.GameServer) (PlayerManagement, error) {
 	profile := playerManagementProfileForServer(gameServer)
@@ -97,7 +97,7 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 
 	if gameServer.GameID == sevenDaysToDieGameID {
 		if management.Status != xylona.Status_ONLINE {
-			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			management.PlayersState = node.SevenDaysToDieWebAPIValueStateUnavailable
 			return management, nil
 		}
 		if !runtimeCapabilitiesChecked {
@@ -105,19 +105,19 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		}
 		if errRuntimeCapabilities != nil {
 			if errors.Is(errRuntimeCapabilities, context.Canceled) || errors.Is(errRuntimeCapabilities, context.DeadlineExceeded) {
-				return management, fmt.Errorf("actions: get native player roster capabilities: %w", errRuntimeCapabilities)
+				return management, fmt.Errorf("actions: get native player list capabilities: %w", errRuntimeCapabilities)
 			}
-			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			management.PlayersState = node.SevenDaysToDieWebAPIValueStateUnavailable
 			return management, nil
 		}
-		if runtimeCapabilities.ProtocolVersion < sevenDaysToDiePlayerRosterProtocol {
-			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnsupported
+		if runtimeCapabilities.ProtocolVersion < sevenDaysToDiePlayerListProtocol {
+			management.PlayersState = node.SevenDaysToDieWebAPIValueStateUnsupported
 			return management, nil
 		}
 		tokenName, tokenSecret, errCredentials := inst.SevenDaysToDieMapCredentials(gameServer)
 		if errCredentials != nil {
-			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
-			return management, nil //nolint:nilerr // Credential failure is represented as an unavailable roster.
+			management.PlayersState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			return management, nil //nolint:nilerr // Credential failure is represented as an unavailable player list.
 		}
 		result, errQuery := client.QuerySevenDaysToDiePlayers(ctx, node.SevenDaysToDiePlayersQueryRequest{
 			WorkingDirectory: gameServer.Directory,
@@ -126,18 +126,18 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 		})
 		if errQuery != nil {
 			if errors.Is(errQuery, context.Canceled) || errors.Is(errQuery, context.DeadlineExceeded) {
-				return management, fmt.Errorf("actions: query native player roster: %w", errQuery)
+				return management, fmt.Errorf("actions: query native player list: %w", errQuery)
 			}
-			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			management.PlayersState = node.SevenDaysToDieWebAPIValueStateUnavailable
 			return management, nil
 		}
 		if result == nil {
-			management.RosterState = node.SevenDaysToDieWebAPIValueStateUnavailable
+			management.PlayersState = node.SevenDaysToDieWebAPIValueStateUnavailable
 			return management, nil
 		}
-		management.RosterState = result.State
+		management.PlayersState = result.State
 		if result.ConnectionState == node.SevenDaysToDieWebAPIConnectionStateAuthenticationDenied {
-			management.RosterState = node.SevenDaysToDieWebAPIValueStatePermissionDenied
+			management.PlayersState = node.SevenDaysToDieWebAPIValueStatePermissionDenied
 		}
 		management.Players = append(management.Players, result.Players...)
 		return management, nil
@@ -167,7 +167,7 @@ func (inst *Instance) GetPlayerManagement(ctx context.Context, gameServer *model
 	if errQuery != nil {
 		return management, errors.Join(
 			node.ErrPlayerActionUnavailable,
-			fmt.Errorf("actions: query player roster: %w", errQuery),
+			fmt.Errorf("actions: query player list: %w", errQuery),
 		)
 	}
 	management.Players = playersFromQueryResult(result)
