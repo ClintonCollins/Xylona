@@ -22,57 +22,55 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The public status JSON API (/api/public/status-pages) exposes these value
-// names to third-party clients, so they keep their original wording.
-type GameServerStatusPageRosterState int32
+type GameServerStatusPagePlayersState int32
 
 const (
-	GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED GameServerStatusPageRosterState = 0
-	GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE   GameServerStatusPageRosterState = 1
-	GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED GameServerStatusPageRosterState = 2
-	GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE GameServerStatusPageRosterState = 3
+	GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSPECIFIED GameServerStatusPagePlayersState = 0
+	GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE   GameServerStatusPagePlayersState = 1
+	GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSUPPORTED GameServerStatusPagePlayersState = 2
+	GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE GameServerStatusPagePlayersState = 3
 )
 
-// Enum value maps for GameServerStatusPageRosterState.
+// Enum value maps for GameServerStatusPagePlayersState.
 var (
-	GameServerStatusPageRosterState_name = map[int32]string{
-		0: "GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED",
-		1: "GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE",
-		2: "GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED",
-		3: "GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE",
+	GameServerStatusPagePlayersState_name = map[int32]string{
+		0: "GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSPECIFIED",
+		1: "GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE",
+		2: "GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSUPPORTED",
+		3: "GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE",
 	}
-	GameServerStatusPageRosterState_value = map[string]int32{
-		"GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED": 0,
-		"GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE":   1,
-		"GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED": 2,
-		"GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE": 3,
+	GameServerStatusPagePlayersState_value = map[string]int32{
+		"GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSPECIFIED": 0,
+		"GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE":   1,
+		"GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSUPPORTED": 2,
+		"GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE": 3,
 	}
 )
 
-func (x GameServerStatusPageRosterState) Enum() *GameServerStatusPageRosterState {
-	p := new(GameServerStatusPageRosterState)
+func (x GameServerStatusPagePlayersState) Enum() *GameServerStatusPagePlayersState {
+	p := new(GameServerStatusPagePlayersState)
 	*p = x
 	return p
 }
 
-func (x GameServerStatusPageRosterState) String() string {
+func (x GameServerStatusPagePlayersState) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (GameServerStatusPageRosterState) Descriptor() protoreflect.EnumDescriptor {
+func (GameServerStatusPagePlayersState) Descriptor() protoreflect.EnumDescriptor {
 	return file_xylona_proto_enumTypes[0].Descriptor()
 }
 
-func (GameServerStatusPageRosterState) Type() protoreflect.EnumType {
+func (GameServerStatusPagePlayersState) Type() protoreflect.EnumType {
 	return &file_xylona_proto_enumTypes[0]
 }
 
-func (x GameServerStatusPageRosterState) Number() protoreflect.EnumNumber {
+func (x GameServerStatusPagePlayersState) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use GameServerStatusPageRosterState.Descriptor instead.
-func (GameServerStatusPageRosterState) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use GameServerStatusPagePlayersState.Descriptor instead.
+func (GameServerStatusPagePlayersState) EnumDescriptor() ([]byte, []int) {
 	return file_xylona_proto_rawDescGZIP(), []int{0}
 }
 
@@ -1802,25 +1800,23 @@ func (x *UpdateGameServerStatusPageSettingsResponse) GetSettings() *GameServerSt
 }
 
 type PublicGameServerStatus struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name               string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	GameName           string                 `protobuf:"bytes,3,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`
-	Status             Status                 `protobuf:"varint,4,opt,name=status,proto3,enum=xylona.Status" json:"status,omitempty"`
-	ConnectionAddress  string                 `protobuf:"bytes,5,opt,name=connection_address,json=connectionAddress,proto3" json:"connection_address,omitempty"`
-	CurrentPlayerCount *uint32                `protobuf:"varint,6,opt,name=current_player_count,json=currentPlayerCount,proto3,oneof" json:"current_player_count,omitempty"`
-	MaxPlayerCount     uint32                 `protobuf:"varint,7,opt,name=max_player_count,json=maxPlayerCount,proto3" json:"max_player_count,omitempty"`
-	PlayerNames        []string               `protobuf:"bytes,8,rep,name=player_names,json=playerNames,proto3" json:"player_names,omitempty"`
-	// Published as "rosterState" by the public status JSON API; renaming it
-	// would break third-party clients.
-	RosterState    GameServerStatusPageRosterState `protobuf:"varint,9,opt,name=roster_state,json=rosterState,proto3,enum=xylona.GameServerStatusPageRosterState" json:"roster_state,omitempty"`
-	ObservedAt     *timestamppb.Timestamp          `protobuf:"bytes,10,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
-	Version        string                          `protobuf:"bytes,11,opt,name=version,proto3" json:"version,omitempty"`
-	PublicNote     *string                         `protobuf:"bytes,12,opt,name=public_note,json=publicNote,proto3,oneof" json:"public_note,omitempty"`
-	PublicPassword *string                         `protobuf:"bytes,13,opt,name=public_password,json=publicPassword,proto3,oneof" json:"public_password,omitempty"`
-	PublicMapPath  *string                         `protobuf:"bytes,14,opt,name=public_map_path,json=publicMapPath,proto3,oneof" json:"public_map_path,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state              protoimpl.MessageState           `protogen:"open.v1"`
+	Id                 string                           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name               string                           `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	GameName           string                           `protobuf:"bytes,3,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`
+	Status             Status                           `protobuf:"varint,4,opt,name=status,proto3,enum=xylona.Status" json:"status,omitempty"`
+	ConnectionAddress  string                           `protobuf:"bytes,5,opt,name=connection_address,json=connectionAddress,proto3" json:"connection_address,omitempty"`
+	CurrentPlayerCount *uint32                          `protobuf:"varint,6,opt,name=current_player_count,json=currentPlayerCount,proto3,oneof" json:"current_player_count,omitempty"`
+	MaxPlayerCount     uint32                           `protobuf:"varint,7,opt,name=max_player_count,json=maxPlayerCount,proto3" json:"max_player_count,omitempty"`
+	PlayerNames        []string                         `protobuf:"bytes,8,rep,name=player_names,json=playerNames,proto3" json:"player_names,omitempty"`
+	PlayersState       GameServerStatusPagePlayersState `protobuf:"varint,9,opt,name=players_state,json=playersState,proto3,enum=xylona.GameServerStatusPagePlayersState" json:"players_state,omitempty"`
+	ObservedAt         *timestamppb.Timestamp           `protobuf:"bytes,10,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	Version            string                           `protobuf:"bytes,11,opt,name=version,proto3" json:"version,omitempty"`
+	PublicNote         *string                          `protobuf:"bytes,12,opt,name=public_note,json=publicNote,proto3,oneof" json:"public_note,omitempty"`
+	PublicPassword     *string                          `protobuf:"bytes,13,opt,name=public_password,json=publicPassword,proto3,oneof" json:"public_password,omitempty"`
+	PublicMapPath      *string                          `protobuf:"bytes,14,opt,name=public_map_path,json=publicMapPath,proto3,oneof" json:"public_map_path,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *PublicGameServerStatus) Reset() {
@@ -1909,11 +1905,11 @@ func (x *PublicGameServerStatus) GetPlayerNames() []string {
 	return nil
 }
 
-func (x *PublicGameServerStatus) GetRosterState() GameServerStatusPageRosterState {
+func (x *PublicGameServerStatus) GetPlayersState() GameServerStatusPagePlayersState {
 	if x != nil {
-		return x.RosterState
+		return x.PlayersState
 	}
-	return GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED
+	return GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSPECIFIED
 }
 
 func (x *PublicGameServerStatus) GetObservedAt() *timestamppb.Timestamp {
@@ -23018,7 +23014,7 @@ const file_xylona_proto_rawDesc = "" +
 	"\aenabled\x18\x04 \x01(\bR\aenabled\x12`\n" +
 	"\x14connection_addresses\x18\x05 \x03(\v2-.xylona.GameServerStatusPageConnectionAddressR\x13connectionAddresses\"n\n" +
 	"*UpdateGameServerStatusPageSettingsResponse\x12@\n" +
-	"\bsettings\x18\x01 \x01(\v2$.xylona.GameServerStatusPageSettingsR\bsettings\"\xa9\x05\n" +
+	"\bsettings\x18\x01 \x01(\v2$.xylona.GameServerStatusPageSettingsR\bsettings\"\xac\x05\n" +
 	"\x16PublicGameServerStatus\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1b\n" +
@@ -23027,8 +23023,8 @@ const file_xylona_proto_rawDesc = "" +
 	"\x12connection_address\x18\x05 \x01(\tR\x11connectionAddress\x125\n" +
 	"\x14current_player_count\x18\x06 \x01(\rH\x00R\x12currentPlayerCount\x88\x01\x01\x12(\n" +
 	"\x10max_player_count\x18\a \x01(\rR\x0emaxPlayerCount\x12!\n" +
-	"\fplayer_names\x18\b \x03(\tR\vplayerNames\x12J\n" +
-	"\froster_state\x18\t \x01(\x0e2'.xylona.GameServerStatusPageRosterStateR\vrosterState\x12;\n" +
+	"\fplayer_names\x18\b \x03(\tR\vplayerNames\x12M\n" +
+	"\rplayers_state\x18\t \x01(\x0e2(.xylona.GameServerStatusPagePlayersStateR\fplayersState\x12;\n" +
 	"\vobserved_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"observedAt\x12\x18\n" +
@@ -24542,12 +24538,12 @@ const file_xylona_proto_rawDesc = "" +
 	"\x1eSuggestGameServerPortsResponse\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\x03R\x04port\x12\x1d\n" +
 	"\n" +
-	"query_port\x18\x02 \x01(\x03R\tqueryPort*\xf7\x01\n" +
-	"\x1fGameServerStatusPageRosterState\x124\n" +
-	"0GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSPECIFIED\x10\x00\x122\n" +
-	".GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE\x10\x01\x124\n" +
-	"0GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNSUPPORTED\x10\x02\x124\n" +
-	"0GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE\x10\x03*\xb3\x01\n" +
+	"query_port\x18\x02 \x01(\x03R\tqueryPort*\xfc\x01\n" +
+	" GameServerStatusPagePlayersState\x125\n" +
+	"1GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSPECIFIED\x10\x00\x123\n" +
+	"/GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE\x10\x01\x125\n" +
+	"1GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNSUPPORTED\x10\x02\x125\n" +
+	"1GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE\x10\x03*\xb3\x01\n" +
 	"\x11NotificationEvent\x12\x12\n" +
 	"\x0eSERVER_STARTED\x10\x00\x12\x12\n" +
 	"\x0eSERVER_STOPPED\x10\x01\x12\x13\n" +
@@ -24906,7 +24902,7 @@ func file_xylona_proto_rawDescGZIP() []byte {
 var file_xylona_proto_enumTypes = make([]protoimpl.EnumInfo, 23)
 var file_xylona_proto_msgTypes = make([]protoimpl.MessageInfo, 381)
 var file_xylona_proto_goTypes = []any{
-	(GameServerStatusPageRosterState)(0),                    // 0: xylona.GameServerStatusPageRosterState
+	(GameServerStatusPagePlayersState)(0),                   // 0: xylona.GameServerStatusPagePlayersState
 	(NotificationEvent)(0),                                  // 1: xylona.NotificationEvent
 	(GameImportMode)(0),                                     // 2: xylona.GameImportMode
 	(SystemUpdateComponent)(0),                              // 3: xylona.SystemUpdateComponent
@@ -25392,7 +25388,7 @@ var file_xylona_proto_depIdxs = []int32{
 	27,  // 2: xylona.UpdateGameServerStatusPageSettingsRequest.connection_addresses:type_name -> xylona.GameServerStatusPageConnectionAddress
 	24,  // 3: xylona.UpdateGameServerStatusPageSettingsResponse.settings:type_name -> xylona.GameServerStatusPageSettings
 	404, // 4: xylona.PublicGameServerStatus.status:type_name -> xylona.Status
-	0,   // 5: xylona.PublicGameServerStatus.roster_state:type_name -> xylona.GameServerStatusPageRosterState
+	0,   // 5: xylona.PublicGameServerStatus.players_state:type_name -> xylona.GameServerStatusPagePlayersState
 	405, // 6: xylona.PublicGameServerStatus.observed_at:type_name -> google.protobuf.Timestamp
 	30,  // 7: xylona.PublicGameServerStatusPage.servers:type_name -> xylona.PublicGameServerStatus
 	405, // 8: xylona.PublicGameServerStatusPage.generated_at:type_name -> google.protobuf.Timestamp

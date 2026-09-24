@@ -229,7 +229,7 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 		t.Fatalf("server order = %v", got)
 	}
 	minecraft := projectedServers[0]
-	if minecraft.CurrentPlayerCount == nil || minecraft.GetCurrentPlayerCount() != 0 || minecraft.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE {
+	if minecraft.CurrentPlayerCount == nil || minecraft.GetCurrentPlayerCount() != 0 || minecraft.GetPlayersState() != xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE {
 		t.Fatalf("Minecraft public state = %+v", minecraft)
 	}
 	if minecraft.GetVersion() != "Paper 1.21.1" {
@@ -239,11 +239,11 @@ func TestProjectPublicGameServerStatusPage(t *testing.T) {
 		t.Fatalf("Minecraft public details = %+v", minecraft)
 	}
 	source := projectedServers[1]
-	if source.CurrentPlayerCount == nil || source.GetCurrentPlayerCount() != 2 || source.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE {
+	if source.CurrentPlayerCount == nil || source.GetCurrentPlayerCount() != 2 || source.GetPlayersState() != xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE {
 		t.Fatalf("Source public state = %+v", source)
 	}
 	palworld := projectedServers[2]
-	if palworld.CurrentPlayerCount != nil || palworld.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE {
+	if palworld.CurrentPlayerCount != nil || palworld.GetPlayersState() != xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE {
 		t.Fatalf("Palworld public state = %+v", palworld)
 	}
 	if palworld.GetObservedAt() == nil || !palworld.GetObservedAt().AsTime().Equal(observedAt.Add(-5*time.Minute)) {
@@ -372,8 +372,8 @@ func TestPublicGameServerStatusValheimFreshness(t *testing.T) {
 			if (got.CurrentPlayerCount != nil) != test.wantCount {
 				t.Fatalf("count presence = %t, want %t", got.CurrentPlayerCount != nil, test.wantCount)
 			}
-			if !test.wantCount && (len(got.GetPlayerNames()) != 0 || got.GetRosterState() != xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_UNAVAILABLE) {
-				t.Fatalf("expired players = %v, state = %v", got.GetPlayerNames(), got.GetRosterState())
+			if !test.wantCount && (len(got.GetPlayerNames()) != 0 || got.GetPlayersState() != xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_UNAVAILABLE) {
+				t.Fatalf("expired players = %v, state = %v", got.GetPlayerNames(), got.GetPlayersState())
 			}
 			if got.PublicPassword != nil || !got.GetObservedAt().AsTime().Equal(observedAt) {
 				t.Fatal("projection changed explicit password or last observation")

@@ -30,12 +30,12 @@ func TestNewGameServerStatusPageHTTPHandlerAllowsMissingShell(t *testing.T) {
 	}
 }
 
-// Third-party clients read the public snapshot JSON by name, so the players
-// state keeps its published field and value names.
-func TestStatusPageSnapshotKeepsPublishedPlayersStateNames(t *testing.T) {
+// Third-party clients read the public snapshot JSON by name, so pin the
+// published field and value names of the players state.
+func TestStatusPageSnapshotPublishesPlayersState(t *testing.T) {
 	body, errMarshal := marshalStatusPageSnapshot(&xylona.PublicGameServerStatusPage{
 		Servers: []*xylona.PublicGameServerStatus{{
-			RosterState: xylona.GameServerStatusPageRosterState_GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE,
+			PlayersState: xylona.GameServerStatusPagePlayersState_GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE,
 		}},
 	})
 	if errMarshal != nil {
@@ -48,8 +48,8 @@ func TestStatusPageSnapshotKeepsPublishedPlayersStateNames(t *testing.T) {
 	if errUnmarshal != nil {
 		t.Fatalf("unmarshal snapshot: %v", errUnmarshal)
 	}
-	if len(page.Servers) != 1 || page.Servers[0]["rosterState"] != "GAME_SERVER_STATUS_PAGE_ROSTER_STATE_AVAILABLE" {
-		t.Fatalf("snapshot = %s, want published rosterState name and value", body)
+	if len(page.Servers) != 1 || page.Servers[0]["playersState"] != "GAME_SERVER_STATUS_PAGE_PLAYERS_STATE_AVAILABLE" {
+		t.Fatalf("snapshot = %s, want published playersState name and value", body)
 	}
 }
 
