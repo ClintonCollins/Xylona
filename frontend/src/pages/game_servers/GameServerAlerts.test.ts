@@ -353,67 +353,6 @@ describe('GameServerAlerts', () => {
     ).toEqual(['Enable CPU Threshold alert: >= 90%', 'Enable Status Change alert: Any status'])
   })
 
-  it('keeps the rule dialog open when saving fails and ignores a second click', async () => {
-    setupDefaultMocks({ channels: [makeChannel()] })
-    let rejectCreate: (reason: unknown) => void = () => undefined
-    mocks.createAlertRule.mockReturnValueOnce(
-      new Promise((_resolve, reject) => {
-        rejectCreate = reject
-      }),
-    )
-
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    type AlertsVM = {
-      openCreateDialog: () => void
-      saveRule: () => Promise<void>
-      showRuleDialog: boolean
-      savingRule: boolean
-    }
-    const vm = wrapper.vm as unknown as AlertsVM
-    vm.openCreateDialog()
-
-    const firstSave = vm.saveRule()
-    await vm.saveRule()
-    expect(vm.savingRule).toBe(true)
-    rejectCreate(new Error('channel rejected'))
-    await firstSave
-    await flushPromises()
-
-    expect(mocks.createAlertRule).toHaveBeenCalledTimes(1)
-    expect(mocks.notifyConnectError).toHaveBeenCalledTimes(1)
-    expect(vm.showRuleDialog).toBe(true)
-    expect(vm.savingRule).toBe(false)
-    expect(mocks.listAlertRules).toHaveBeenCalledTimes(1)
-  })
-
-  it('requires at least one status for a status change rule', async () => {
-    setupDefaultMocks({ channels: [makeChannel()] })
-
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    type AlertsVM = {
-      openCreateDialog: () => void
-      ruleForm: { eventType: AlertEventType }
-      statusCheckboxes: { ONLINE: boolean; OFFLINE: boolean }
-      canSaveRule: boolean
-    }
-    const vm = wrapper.vm as unknown as AlertsVM
-    vm.openCreateDialog()
-    vm.ruleForm.eventType = AlertEventType.STATUS_CHANGE
-    vm.statusCheckboxes.ONLINE = false
-    vm.statusCheckboxes.OFFLINE = false
-    await flushPromises()
-
-    expect(vm.canSaveRule).toBe(false)
-    expect(wrapper.text()).toContain('Select at least one status')
-
-    vm.statusCheckboxes.OFFLINE = true
-    expect(vm.canSaveRule).toBe(true)
-  })
-
   it('describes alert history details instead of showing raw event data', async () => {
     setupDefaultMocks({
       entries: [
@@ -489,7 +428,7 @@ describe('GameServerAlerts', () => {
         nodeId: 'node-local',
       },
     })
-    mocks.listNotificationChannels.mockResolvedValueOnce({
+    mocks.listNotificationChannels.mockResolvedValue({
       channels: [makeChannel()],
     })
     mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
@@ -507,6 +446,7 @@ describe('GameServerAlerts', () => {
       throw new Error('expected Create Rule button')
     }
     await createRuleButton.trigger('click')
+    await flushPromises()
 
     const dialogCreateButton = wrapper
       .findAll('button')
@@ -524,6 +464,8 @@ describe('GameServerAlerts', () => {
       }),
     )
     expect(mocks.notifySuccess).toHaveBeenCalledWith('Alert rule created')
+    // Saving reloads the rules list.
+    expect(mocks.listAlertRules).toHaveBeenCalledTimes(2)
   })
 
   it('loads more history when additional server entries are available', async () => {
@@ -584,125 +526,5 @@ describe('GameServerAlerts', () => {
     expect(wrapper.text()).not.toContain('Create Rule')
     expect(wrapper.text()).not.toContain('edit')
     expect(wrapper.text()).not.toContain('delete')
-  })
-
-  it('uses == as the stored equality operator value for threshold rules', async () => {
-    setupDefaultMocks({ channels: [makeChannel()] })
-
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    type AlertsVM = {
-      thresholdOperators: Array<{ label: string; value: string }>
-    }
-
-    const vm = wrapper.vm as unknown as AlertsVM
-    const equalityOperator = vm.thresholdOperators.find((operator) => operator.label === '=')
-    expect(equalityOperator?.value).toBe('==')
-  })
-
-  it('serializes meaningful advanced threshold behavior fields', async () => {
-    setupDefaultMocks({ channels: [makeChannel()] })
-    mocks.createAlertRule.mockResolvedValueOnce({})
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    type AlertsVM = {
-      openCreateDialog: () => void
-      saveRule: () => Promise<void>
-      ruleForm: { eventType: AlertEventType }
-      thresholdOperator: string
-      thresholdValue: number
-      thresholdForSeconds: number
-      thresholdRecoveryValue: number | null
-      thresholdCooldownSeconds: number
-      thresholdRepeatSeconds: number
-    }
-    const vm = wrapper.vm as unknown as AlertsVM
-    vm.openCreateDialog()
-    vm.ruleForm.eventType = AlertEventType.MEMORY_THRESHOLD
-    vm.thresholdOperator = '>='
-    vm.thresholdValue = 85
-    vm.thresholdForSeconds = 120
-    vm.thresholdRecoveryValue = 75
-    vm.thresholdCooldownSeconds = 300
-    vm.thresholdRepeatSeconds = 900
-
-    await vm.saveRule()
-    await flushPromises()
-
-    const request = mocks.createAlertRule.mock.calls[0]?.[0] as { condition: string }
-    expect(JSON.parse(request.condition)).toEqual({
-      operator: '>=',
-      value: 85,
-      for_seconds: 120,
-      recovery_value: 75,
-      cooldown_seconds: 300,
-      repeat_seconds: 900,
-    })
-  })
-
-  it('keeps legacy threshold rules operator/value-only when edited', async () => {
-    setupDefaultMocks({ channels: [makeChannel()] })
-    mocks.updateAlertRule.mockResolvedValueOnce({})
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    type AlertsVM = {
-      openEditDialog: (rule: AlertRule) => void
-      saveRule: () => Promise<void>
-      thresholdForSeconds: number
-      thresholdRecoveryValue: number | null
-      thresholdCooldownSeconds: number
-      thresholdRepeatSeconds: number
-    }
-    const vm = wrapper.vm as unknown as AlertsVM
-    vm.openEditDialog(
-      makeRule({
-        eventType: AlertEventType.CPU_THRESHOLD,
-        condition: JSON.stringify({ operator: '>=', value: 90 }),
-      }),
-    )
-
-    expect(vm.thresholdForSeconds).toBe(0)
-    expect(vm.thresholdRecoveryValue).toBeNull()
-    expect(vm.thresholdCooldownSeconds).toBe(0)
-    expect(vm.thresholdRepeatSeconds).toBe(0)
-
-    await vm.saveRule()
-    await flushPromises()
-
-    const request = mocks.updateAlertRule.mock.calls[0]?.[0] as { condition: string }
-    expect(JSON.parse(request.condition)).toEqual({ operator: '>=', value: 90 })
-  })
-
-  it('does not save a recovery threshold on the wrong side of the trigger', async () => {
-    setupDefaultMocks({ channels: [makeChannel()] })
-
-    const wrapper = mountAlerts()
-    await flushPromises()
-
-    type AlertsVM = {
-      openCreateDialog: () => void
-      saveRule: () => Promise<void>
-      ruleForm: { eventType: AlertEventType }
-      thresholdValue: number
-      thresholdRecoveryValue: number | null
-      canSaveRule: boolean
-    }
-    const vm = wrapper.vm as unknown as AlertsVM
-    vm.openCreateDialog()
-    vm.ruleForm.eventType = AlertEventType.CPU_THRESHOLD
-    vm.thresholdValue = 80
-    vm.thresholdRecoveryValue = 85
-
-    expect(vm.canSaveRule).toBe(false)
-    await vm.saveRule()
-
-    expect(mocks.createAlertRule).not.toHaveBeenCalled()
   })
 })

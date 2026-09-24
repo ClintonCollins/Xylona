@@ -191,7 +191,7 @@
         <div class="tab-toolbar">
           <q-select
             v-model="rulesEventFilter"
-            :options="eventTypeOptions"
+            :options="alertEventTypeOptions"
             aria-label="Filter alert rules by event type"
             class="filter-select"
             clearable
@@ -214,7 +214,7 @@
           row-key="id">
           <template #item="props">
             <q-card
-              :aria-label="`${eventTypeLabel(props.row.eventType)} alert rule`"
+              :aria-label="`${alertEventTypeLabel(props.row.eventType)} alert rule`"
               bordered
               class="notification-mobile-card"
               flat
@@ -222,15 +222,19 @@
               <q-card-section class="notification-mobile-card__header">
                 <div>
                   <div class="notification-mobile-card__title">
-                    {{ eventTypeLabel(props.row.eventType) }}
+                    {{ alertEventTypeLabel(props.row.eventType) }}
                   </div>
                   <div class="text-caption text-xy-muted">
                     {{ formatCondition(props.row.eventType, props.row.condition) }}
                   </div>
                 </div>
+                <div v-if="ruleNeedsSuperUser(props.row)" class="rule-not-sent">
+                  <q-badge color="warning" label="Won't send" />
+                  <span>{{ ruleNotSentReason }}</span>
+                </div>
                 <q-toggle
-                  v-if="hasAlertsManage"
-                  :aria-label="`Toggle ${eventTypeLabel(props.row.eventType)} rule enabled`"
+                  v-else-if="hasAlertsManage"
+                  :aria-label="`Toggle ${alertEventTypeLabel(props.row.eventType)} rule enabled`"
                   :model-value="props.row.enabled"
                   color="positive"
                   dense
@@ -254,14 +258,15 @@
 
               <q-card-actions v-if="hasAlertsManage" align="right">
                 <q-btn
-                  :aria-label="`Edit ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  v-if="!ruleNeedsSuperUser(props.row)"
+                  :aria-label="`Edit ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   flat
                   icon="edit"
                   label="Edit"
                   no-caps
                   @click="openRuleEditDialog(props.row)" />
                 <q-btn
-                  :aria-label="`Delete ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  :aria-label="`Delete ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   class="text-error-brighter"
                   flat
                   icon="delete"
@@ -273,7 +278,7 @@
           </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
+              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="primary" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -288,9 +293,13 @@
           </template>
           <template #body-cell-enabled="props">
             <q-td :props="props">
+              <div v-if="ruleNeedsSuperUser(props.row)" class="rule-not-sent">
+                <q-badge color="warning" label="Won't send" />
+                <span>{{ ruleNotSentReason }}</span>
+              </div>
               <q-toggle
-                v-if="hasAlertsManage"
-                :aria-label="`Toggle ${eventTypeLabel(props.row.eventType)} rule enabled`"
+                v-else-if="hasAlertsManage"
+                :aria-label="`Toggle ${alertEventTypeLabel(props.row.eventType)} rule enabled`"
                 :model-value="props.row.enabled"
                 color="positive"
                 @update:model-value="toggleRuleEnabled(props.row)" />
@@ -304,7 +313,8 @@
             <q-td :props="props">
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
-                  :aria-label="`Edit ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  v-if="!ruleNeedsSuperUser(props.row)"
+                  :aria-label="`Edit ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   dense
                   flat
                   icon="edit"
@@ -312,7 +322,7 @@
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
                 <q-btn
-                  :aria-label="`Delete ${eventTypeLabel(props.row.eventType)} alert rule`"
+                  :aria-label="`Delete ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   class="text-error-brighter"
                   dense
                   flat
@@ -349,7 +359,7 @@
         <div class="tab-toolbar">
           <q-select
             v-model="historyEventFilter"
-            :options="eventTypeOptions"
+            :options="alertEventTypeOptions"
             aria-label="Filter alert history by event type"
             class="filter-select"
             clearable
@@ -372,7 +382,7 @@
           row-key="id">
           <template #item="props">
             <q-card
-              :aria-label="`${eventTypeLabel(props.row.eventType)} alert history entry`"
+              :aria-label="`${alertEventTypeLabel(props.row.eventType)} alert history entry`"
               bordered
               class="notification-mobile-card"
               flat
@@ -380,7 +390,7 @@
               <q-card-section class="notification-mobile-card__header">
                 <div>
                   <div class="notification-mobile-card__title">
-                    {{ eventTypeLabel(props.row.eventType) }}
+                    {{ alertEventTypeLabel(props.row.eventType) }}
                   </div>
                   <div class="text-caption text-xy-muted">
                     {{ formatTimestamp(props.row.createdAt, 'Unknown time') }}
@@ -415,7 +425,7 @@
           </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge :label="eventTypeLabel(props.row.eventType)" color="primary" />
+              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="primary" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -605,161 +615,11 @@
       </q-card>
     </q-dialog>
 
-    <!-- Rule Edit Dialog -->
-    <q-dialog
+    <alert-rule-dialog
       v-if="hasAlertsManage"
       v-model="showRuleDialog"
-      aria-labelledby="notification-rule-dialog-title"
-      persistent>
-      <q-card class="rule-dialog-card">
-        <q-card-section>
-          <div id="notification-rule-dialog-title" class="text-h6">Edit Alert Rule</div>
-        </q-card-section>
-
-        <q-card-section class="q-pt-none">
-          <q-select
-            v-model="ruleForm.eventType"
-            :options="ruleEventTypeOptions"
-            aria-label="Event type"
-            class="q-mb-md"
-            dense
-            emit-value
-            label="Event Type"
-            map-options
-            outlined />
-
-          <!-- Threshold condition fields -->
-          <div v-if="isThresholdType" class="row q-gutter-sm q-mb-md">
-            <q-select
-              v-model="ruleForm.thresholdOperator"
-              :options="thresholdOperators"
-              aria-label="Threshold operator"
-              class="col-4"
-              dense
-              emit-value
-              label="Operator"
-              map-options
-              outlined />
-            <q-input
-              v-model.number="ruleForm.thresholdValue"
-              :rules="[
-                (value: unknown) =>
-                  isFiniteNonNegativeNumber(value) || 'Use a number that is 0 or greater',
-              ]"
-              :suffix="thresholdUnit"
-              aria-label="Threshold value"
-              class="col"
-              dense
-              label="Value"
-              outlined
-              type="number" />
-          </div>
-
-          <div v-if="isThresholdType" class="threshold-help q-mb-md" role="note">
-            {{ thresholdHelp }}
-          </div>
-
-          <q-expansion-item
-            v-if="isThresholdType"
-            class="threshold-advanced q-mb-md"
-            dense
-            expand-separator
-            icon="tune"
-            label="Advanced behavior">
-            <div class="threshold-advanced__grid q-pt-sm">
-              <q-input
-                v-model.number="ruleForm.thresholdForSeconds"
-                :rules="durationRules"
-                aria-label="Sustained duration in seconds"
-                dense
-                hint="0 triggers immediately"
-                label="Sustain for"
-                min="0"
-                outlined
-                step="1"
-                suffix="seconds"
-                type="number" />
-              <q-input
-                v-model.number="ruleForm.thresholdRecoveryValue"
-                :rules="recoveryRules"
-                :suffix="thresholdUnit"
-                aria-label="Recovery threshold"
-                clearable
-                dense
-                hint="Optional hysteresis threshold"
-                label="Recovery threshold"
-                min="0"
-                outlined
-                type="number" />
-              <q-input
-                v-model.number="ruleForm.thresholdCooldownSeconds"
-                :rules="durationRules"
-                aria-label="Cooldown duration in seconds"
-                dense
-                hint="0 allows the next alert immediately"
-                label="Cooldown"
-                min="0"
-                outlined
-                step="1"
-                suffix="seconds"
-                type="number" />
-              <q-input
-                v-model.number="ruleForm.thresholdRepeatSeconds"
-                :rules="durationRules"
-                aria-label="Repeat interval in seconds"
-                dense
-                hint="0 disables repeat notifications"
-                label="Repeat every"
-                min="0"
-                outlined
-                step="1"
-                suffix="seconds"
-                type="number" />
-            </div>
-          </q-expansion-item>
-
-          <!-- Status change condition fields -->
-          <div
-            v-if="isStatusChangeType"
-            aria-labelledby="notification-rule-status-label"
-            class="q-mb-md"
-            role="group">
-            <div id="notification-rule-status-label" class="text-caption q-mb-xs">
-              Trigger on status:
-            </div>
-            <q-checkbox v-model="ruleForm.statusOnline" label="Online" />
-            <q-checkbox v-model="ruleForm.statusOffline" label="Offline" />
-            <div v-if="statusSelectionMissing" class="text-caption text-negative" role="alert">
-              Select at least one status
-            </div>
-          </div>
-
-          <q-select
-            v-model="ruleForm.notificationChannelId"
-            :options="channels.map((c) => ({ label: c.name, value: c.id }))"
-            aria-label="Notification channel"
-            class="q-mb-md"
-            dense
-            emit-value
-            label="Notification Channel"
-            map-options
-            outlined />
-
-          <q-toggle v-model="ruleForm.enabled" label="Enabled" />
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" no-caps @click="showRuleDialog = false" />
-          <q-btn
-            :disable="!canSaveRule"
-            :loading="ruleSaving"
-            color="primary"
-            label="Save"
-            no-caps
-            @click="saveRule" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+      :rule="editingRule"
+      @saved="loadRules" />
   </q-page>
 </template>
 
@@ -768,6 +628,9 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
+import AlertRuleDialog from '@/components/alerts/AlertRuleDialog.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import type {
@@ -793,15 +656,14 @@ import {
   UpdateNotificationChannelRequestSchema,
 } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
-import {
-  formatAlertEventData,
-  formatCondition,
-  isFiniteNonNegativeNumber,
-  isNonNegativeInteger,
-  readPositiveInteger,
-} from '@/utils/alert-conditions'
+import { formatAlertEventData, formatCondition } from '@/utils/alert-conditions'
 import { canManageAlerts } from '@/utils/alert-permissions'
-import { alertTargetName, isNodeAlertEventType } from '@/utils/alert-scope'
+import {
+  alertEventTypeLabel,
+  alertEventTypeOptions,
+  alertTargetName,
+  isNodeAlertEventType,
+} from '@/utils/alert-scope'
 import { formatTimestamp } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 
@@ -811,7 +673,12 @@ const hasAlertsManage = computed(() => canManageAlerts(authStore.user, authStore
 const isSuperUser = computed(() => authStore.user?.superUser === true)
 
 // ─── Tab state ───────────────────────────────────────────────────────────────
-const activeTab = ref<'channels' | 'rules' | 'history'>('channels')
+// ?tab=rules or ?tab=history opens that tab; plain /notifications opens Channels.
+const route = useRoute()
+const requestedTab = route.query['tab']
+const activeTab = ref<'channels' | 'rules' | 'history'>(
+  requestedTab === 'rules' || requestedTab === 'history' ? requestedTab : 'channels',
+)
 
 // ─── Game Servers and Nodes (for name resolution) ───────────────────────────
 const gameServers = ref<GameServer[]>([])
@@ -1183,30 +1050,20 @@ async function testChannel(channel: NotificationChannel): Promise<void> {
       create(TestNotificationChannelRequestSchema, { id: channel.id }),
     )
     if (response.success) {
-      $q.notify({
-        type: 'xylona-success',
+      notifySuccess('Check the channel for the test notification.', {
         message: `Test sent to ${channel.name}`,
-        caption: 'Check the channel for the test notification.',
-        position: 'top',
         timeout: 4000,
       })
       return
     }
 
-    $q.notify({
-      type: 'xylona-error',
+    notifyError(response.error || 'The channel did not accept the test notification.', {
       message: `Test to ${channel.name} failed`,
-      caption: response.error || 'The channel did not accept the test notification.',
-      position: 'top',
       timeout: 8000,
     })
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
+    notifyConnectError(unknownErr, undefined, {
       message: `Test to ${channel.name} failed`,
-      caption: ConnectErrorToString(err),
-      position: 'top',
       timeout: 8000,
     })
   } finally {
@@ -1225,6 +1082,14 @@ const rulesEmptyDescription = computed(() =>
     ? "Add rules from a game server's Alerts tab, or from a node's page for CPU, memory and disk."
     : "Add rules from a game server's Alerts tab.",
 )
+
+// Node alerts are only sent to superusers, and only superusers may edit node rules. A node
+// rule a non-superuser created before that restriction stays listed with a note, so it can
+// still be found and deleted.
+const ruleNotSentReason = 'Node alerts only go to superusers.'
+function ruleNeedsSuperUser(rule: AlertRule): boolean {
+  return !isSuperUser.value && isNodeAlertEventType(rule.eventType)
+}
 
 const filteredRules = computed(() => {
   if (rulesEventFilter.value === null) return rules.value
@@ -1290,7 +1155,7 @@ async function loadRules(): Promise<void> {
 }
 
 async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
-  if (!hasAlertsManage.value) return
+  if (!hasAlertsManage.value || ruleNeedsSuperUser(rule)) return
 
   try {
     await GetXylonaClient().updateAlertRule(
@@ -1322,7 +1187,7 @@ function confirmDeleteRule(rule: AlertRule): void {
 
   $q.dialog({
     title: 'Delete Alert Rule',
-    message: `Are you sure you want to delete this ${eventTypeLabel(rule.eventType)} alert rule?`,
+    message: `Are you sure you want to delete this ${alertEventTypeLabel(rule.eventType)} alert rule?`,
     cancel: { flat: true, label: 'Cancel' },
     ok: { color: 'negative', label: 'Delete' },
     persistent: true,
@@ -1355,290 +1220,12 @@ function resolveChannelName(channelId: string): string {
 
 // ─── Rule Edit Dialog ────────────────────────────────────────────────────────
 const showRuleDialog = ref(false)
-const ruleSaving = ref(false)
 const editingRule = ref<AlertRule | null>(null)
 
-interface RuleForm {
-  eventType: AlertEventType
-  notificationChannelId: string
-  enabled: boolean
-  thresholdOperator: string
-  thresholdValue: number
-  thresholdForSeconds: number
-  thresholdRecoveryValue: number | null
-  thresholdCooldownSeconds: number
-  thresholdRepeatSeconds: number
-  thresholdNoDataSeconds: number
-  statusOnline: boolean
-  statusOffline: boolean
-}
-
-const ruleForm = ref<RuleForm>({
-  eventType: AlertEventType.CRASH,
-  notificationChannelId: '',
-  enabled: true,
-  thresholdOperator: '>=',
-  thresholdValue: 80,
-  thresholdForSeconds: 0,
-  thresholdRecoveryValue: null,
-  thresholdCooldownSeconds: 0,
-  thresholdRepeatSeconds: 0,
-  thresholdNoDataSeconds: 0,
-  statusOnline: true,
-  statusOffline: true,
-})
-
-const thresholdOperators = [
-  { label: '>=', value: '>=' },
-  { label: '>', value: '>' },
-  { label: '<=', value: '<=' },
-  { label: '<', value: '<' },
-  { label: '==', value: '==' },
-]
-
-const isThresholdType = computed(() => {
-  return [
-    AlertEventType.CPU_THRESHOLD,
-    AlertEventType.MEMORY_THRESHOLD,
-    AlertEventType.DISK_THRESHOLD,
-    AlertEventType.PLAYER_COUNT_THRESHOLD,
-    AlertEventType.NODE_CPU_THRESHOLD,
-    AlertEventType.NODE_MEMORY_THRESHOLD,
-    AlertEventType.NODE_DISK_THRESHOLD,
-  ].includes(ruleForm.value.eventType)
-})
-
-const isStatusChangeType = computed(() => {
-  return ruleForm.value.eventType === AlertEventType.STATUS_CHANGE
-})
-
-// A rule stays on its node or server; the backend rejects a switch to the other scope.
-const ruleEventTypeOptions = computed(() => {
-  const nodeScoped = editingRule.value !== null && isNodeAlertEventType(editingRule.value.eventType)
-  return eventTypeOptions.filter((option) => isNodeAlertEventType(option.value) === nodeScoped)
-})
-
-const thresholdUnit = computed(() => {
-  switch (ruleForm.value.eventType) {
-    case AlertEventType.CPU_THRESHOLD:
-    case AlertEventType.MEMORY_THRESHOLD:
-    case AlertEventType.DISK_THRESHOLD:
-    case AlertEventType.NODE_CPU_THRESHOLD:
-    case AlertEventType.NODE_MEMORY_THRESHOLD:
-    case AlertEventType.NODE_DISK_THRESHOLD:
-      return '%'
-    case AlertEventType.PLAYER_COUNT_THRESHOLD:
-      return 'players'
-    default:
-      return ''
-  }
-})
-
-const thresholdHelp = computed(() => {
-  switch (ruleForm.value.eventType) {
-    case AlertEventType.CPU_THRESHOLD:
-      return 'Process CPU normalized to the node host. Valid samples are evaluated; unavailable samples do not trigger alerts.'
-    case AlertEventType.MEMORY_THRESHOLD:
-      return 'Process RSS as a percentage of total node memory. Valid samples are evaluated; unavailable samples do not trigger alerts.'
-    case AlertEventType.DISK_THRESHOLD:
-      return 'Usage of the volume containing the server working directory. Valid samples are evaluated; unavailable samples do not trigger alerts.'
-    case AlertEventType.PLAYER_COUNT_THRESHOLD:
-      return 'Player count from the game query source. Unavailable or unsupported query samples do not trigger alerts.'
-    case AlertEventType.NODE_CPU_THRESHOLD:
-      return 'Total CPU usage reported by the node. Valid samples are evaluated; unavailable samples do not trigger alerts.'
-    case AlertEventType.NODE_MEMORY_THRESHOLD:
-      return 'Total used memory as a percentage of node memory. Valid samples are evaluated; unavailable samples do not trigger alerts.'
-    case AlertEventType.NODE_DISK_THRESHOLD:
-      return 'Usage of the node data volume. Valid samples are evaluated; unavailable samples do not trigger alerts.'
-    default:
-      return ''
-  }
-})
-
-const thresholdConditionValid = computed(() => {
-  return (
-    isFiniteNonNegativeNumber(ruleForm.value.thresholdValue) &&
-    isNonNegativeInteger(ruleForm.value.thresholdForSeconds) &&
-    isNonNegativeInteger(ruleForm.value.thresholdCooldownSeconds) &&
-    isNonNegativeInteger(ruleForm.value.thresholdRepeatSeconds) &&
-    recoveryValidationMessage(ruleForm.value.thresholdRecoveryValue) === ''
-  )
-})
-
-// An empty status list matches every transition, so a status rule needs at least one.
-const statusSelectionMissing = computed(
-  () => isStatusChangeType.value && !ruleForm.value.statusOnline && !ruleForm.value.statusOffline,
-)
-
-const canSaveRule = computed(() => {
-  return (
-    ruleForm.value.notificationChannelId !== '' &&
-    (!isThresholdType.value || thresholdConditionValid.value) &&
-    !statusSelectionMissing.value
-  )
-})
-
-const durationRules = [
-  (value: unknown) => isNonNegativeInteger(value) || 'Use a whole number of seconds, 0 or greater',
-]
-
-const recoveryRules = computed(() => [(value: unknown) => recoveryValidationMessage(value) || true])
-
 function openRuleEditDialog(rule: AlertRule): void {
-  if (!hasAlertsManage.value) return
-
+  if (!hasAlertsManage.value || ruleNeedsSuperUser(rule)) return
   editingRule.value = rule
-  ruleForm.value = {
-    eventType: rule.eventType,
-    notificationChannelId: rule.notificationChannelId,
-    enabled: rule.enabled,
-    thresholdOperator: '>=',
-    thresholdValue: 80,
-    thresholdForSeconds: 0,
-    thresholdRecoveryValue: null,
-    thresholdCooldownSeconds: 0,
-    thresholdRepeatSeconds: 0,
-    thresholdNoDataSeconds: 0,
-    statusOnline: true,
-    statusOffline: true,
-  }
-  parseConditionForEdit(rule.condition)
   showRuleDialog.value = true
-}
-
-function recoveryValidationMessage(value: unknown): string {
-  if (value === null || value === undefined || value === '') return ''
-  if (!isFiniteNonNegativeNumber(value)) return 'Use a number that is 0 or greater'
-
-  const recoveryValue = Number(value)
-  if (
-    ['>=', '>'].includes(ruleForm.value.thresholdOperator) &&
-    recoveryValue >= ruleForm.value.thresholdValue
-  ) {
-    return 'Recovery must be below the trigger value'
-  }
-  if (
-    ['<=', '<'].includes(ruleForm.value.thresholdOperator) &&
-    recoveryValue <= ruleForm.value.thresholdValue
-  ) {
-    return 'Recovery must be above the trigger value'
-  }
-  if (['==', '='].includes(ruleForm.value.thresholdOperator)) {
-    return 'Equality alerts cannot use a recovery threshold'
-  }
-  return ''
-}
-
-function parseConditionForEdit(condition: string): void {
-  if (!condition) return
-
-  try {
-    const parsed = JSON.parse(condition) as Record<string, unknown>
-
-    if ('operator' in parsed && 'value' in parsed) {
-      const parsedOperator = String(parsed.operator)
-      ruleForm.value.thresholdOperator = parsedOperator === '=' ? '==' : parsedOperator
-      ruleForm.value.thresholdValue = Number(parsed.value)
-      ruleForm.value.thresholdForSeconds = readPositiveInteger(parsed.for_seconds)
-      ruleForm.value.thresholdCooldownSeconds = readPositiveInteger(parsed.cooldown_seconds)
-      ruleForm.value.thresholdRepeatSeconds = readPositiveInteger(parsed.repeat_seconds)
-      ruleForm.value.thresholdNoDataSeconds = readPositiveInteger(parsed.no_data_seconds)
-
-      if (
-        typeof parsed.recovery_value === 'number' &&
-        Number.isFinite(parsed.recovery_value) &&
-        parsed.recovery_value >= 0
-      ) {
-        ruleForm.value.thresholdRecoveryValue = parsed.recovery_value
-      }
-    }
-
-    if ('statuses' in parsed && Array.isArray(parsed.statuses)) {
-      const statuses = parsed.statuses as string[]
-      ruleForm.value.statusOnline = statuses.includes('ONLINE')
-      ruleForm.value.statusOffline = statuses.includes('OFFLINE')
-    }
-  } catch {
-    // Ignore parse errors -- keep defaults
-  }
-}
-
-function buildRuleConditionJson(): string {
-  if (isThresholdType.value) {
-    const condition: Record<string, number | string> = {
-      operator: ruleForm.value.thresholdOperator,
-      value: ruleForm.value.thresholdValue,
-    }
-
-    if (ruleForm.value.thresholdForSeconds > 0) {
-      condition.for_seconds = ruleForm.value.thresholdForSeconds
-    }
-    if (ruleForm.value.thresholdRecoveryValue !== null) {
-      condition.recovery_value = ruleForm.value.thresholdRecoveryValue
-    }
-    if (ruleForm.value.thresholdCooldownSeconds > 0) {
-      condition.cooldown_seconds = ruleForm.value.thresholdCooldownSeconds
-    }
-    if (ruleForm.value.thresholdRepeatSeconds > 0) {
-      condition.repeat_seconds = ruleForm.value.thresholdRepeatSeconds
-    }
-    if (ruleForm.value.thresholdNoDataSeconds > 0) {
-      condition.no_data_seconds = ruleForm.value.thresholdNoDataSeconds
-    }
-
-    return JSON.stringify(condition)
-  }
-
-  if (isStatusChangeType.value) {
-    const statuses: string[] = []
-    if (ruleForm.value.statusOnline) statuses.push('ONLINE')
-    if (ruleForm.value.statusOffline) statuses.push('OFFLINE')
-    return JSON.stringify({ statuses })
-  }
-
-  return ''
-}
-
-async function saveRule(): Promise<void> {
-  if (!hasAlertsManage.value) return
-
-  if (!editingRule.value) return
-  if (!canSaveRule.value) return
-
-  ruleSaving.value = true
-  try {
-    const condition = buildRuleConditionJson()
-    await GetXylonaClient().updateAlertRule(
-      create(UpdateAlertRuleRequestSchema, {
-        id: editingRule.value.id,
-        serverId: editingRule.value.serverId,
-        serverNodeId: editingRule.value.serverNodeId,
-        nodeId: editingRule.value.nodeId,
-        eventType: ruleForm.value.eventType,
-        condition,
-        notificationChannelId: ruleForm.value.notificationChannelId,
-        enabled: ruleForm.value.enabled,
-      }),
-    )
-    $q.notify({
-      type: 'xylona-success',
-      caption: 'Alert rule updated',
-      position: 'top',
-      timeout: 3000,
-    })
-    showRuleDialog.value = false
-    await loadRules()
-  } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
-  } finally {
-    ruleSaving.value = false
-  }
 }
 
 // ─── Alert History ───────────────────────────────────────────────────────────
@@ -1776,43 +1363,6 @@ function channelTypeBadgeColor(type: NotificationChannelType): string {
   }
 }
 
-const eventTypeOptions = [
-  { label: 'Crash', value: AlertEventType.CRASH },
-  { label: 'Status Change', value: AlertEventType.STATUS_CHANGE },
-  { label: 'CPU Threshold', value: AlertEventType.CPU_THRESHOLD },
-  { label: 'Memory Threshold', value: AlertEventType.MEMORY_THRESHOLD },
-  { label: 'Disk Threshold', value: AlertEventType.DISK_THRESHOLD },
-  { label: 'Player Count', value: AlertEventType.PLAYER_COUNT_THRESHOLD },
-  { label: 'Node CPU', value: AlertEventType.NODE_CPU_THRESHOLD },
-  { label: 'Node Memory', value: AlertEventType.NODE_MEMORY_THRESHOLD },
-  { label: 'Node Disk', value: AlertEventType.NODE_DISK_THRESHOLD },
-]
-
-function eventTypeLabel(type: AlertEventType): string {
-  switch (type) {
-    case AlertEventType.CRASH:
-      return 'Crash'
-    case AlertEventType.STATUS_CHANGE:
-      return 'Status Change'
-    case AlertEventType.CPU_THRESHOLD:
-      return 'CPU Threshold'
-    case AlertEventType.MEMORY_THRESHOLD:
-      return 'Memory Threshold'
-    case AlertEventType.DISK_THRESHOLD:
-      return 'Disk Threshold'
-    case AlertEventType.PLAYER_COUNT_THRESHOLD:
-      return 'Player Count'
-    case AlertEventType.NODE_CPU_THRESHOLD:
-      return 'Node CPU'
-    case AlertEventType.NODE_MEMORY_THRESHOLD:
-      return 'Node Memory'
-    case AlertEventType.NODE_DISK_THRESHOLD:
-      return 'Node Disk'
-    default:
-      return 'Unknown'
-  }
-}
-
 function deliveryStatusLabel(status: DeliveryStatus): string {
   switch (status) {
     case DeliveryStatus.PENDING:
@@ -1881,33 +1431,14 @@ onMounted(loadPage)
   width: 100%;
 }
 
-.rule-dialog-card {
-  width: min(560px, calc(100vw - 2rem));
-  max-height: calc(100vh - 2rem);
-}
-
-.threshold-help {
-  max-width: 65ch;
-  color: var(--xy-text-secondary);
-  font-size: var(--xy-font-size-sm);
-  line-height: 1.5;
-}
-
-.threshold-advanced {
-  border: 1px solid var(--xy-border);
-  border-radius: var(--xy-radius-md);
-}
-
-.threshold-advanced :deep(.q-expansion-item__container > .q-item) {
-  min-height: 2.5rem;
-}
-
-.threshold-advanced__grid {
+.rule-not-sent {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: var(--xy-space-md);
-  padding-inline: var(--xy-space-md);
-  padding-bottom: var(--xy-space-md);
+  justify-items: center;
+  gap: var(--xy-space-2xs);
+  max-width: 14rem;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+  text-align: center;
 }
 
 .notification-mobile-card {
@@ -1972,15 +1503,6 @@ onMounted(loadPage)
 
   .channel-dialog-card {
     min-width: unset;
-  }
-
-  .rule-dialog-card {
-    width: calc(100vw - 1rem);
-    max-height: calc(100vh - 1rem);
-  }
-
-  .threshold-advanced__grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -12,10 +12,11 @@ import (
 )
 
 type alertRulesFixture struct {
-	conn         *db.Connection
-	service      *XylonaService
-	secureCookie *securecookie.SecureCookie
-	channelID    string // notification channel belonging to user-alerts
+	conn           *db.Connection
+	service        *XylonaService
+	secureCookie   *securecookie.SecureCookie
+	channelID      string // notification channel belonging to user-alerts
+	superChannelID string // notification channel belonging to user-super
 }
 
 func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
@@ -23,7 +24,7 @@ func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
 
 	conn := newRPCFixtureConnection(t, "alert-rules-rpc.sqlite")
 
-	channelID := seedAlertRulesFixture(t, conn)
+	channelID, superChannelID := seedAlertRulesFixture(t, conn)
 
 	secureCookieInst := securecookie.New(
 		[]byte("0123456789abcdef0123456789abcdef"),
@@ -37,10 +38,11 @@ func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
 	}
 
 	return &alertRulesFixture{
-		conn:         conn,
-		service:      service,
-		secureCookie: secureCookieInst,
-		channelID:    channelID,
+		conn:           conn,
+		service:        service,
+		secureCookie:   secureCookieInst,
+		channelID:      channelID,
+		superChannelID: superChannelID,
 	}
 }
 
@@ -51,9 +53,9 @@ func newAlertRulesFixture(t *testing.T) *alertRulesFixture {
 // - "user-alerts": non-super user with a global role carrying alerts.manage
 // - "user-noperm": non-super user with no alert permissions
 // - "server-local-1": a local game server owned by user-alerts
-// - a notification channel belonging to user-alerts (returned ID)
-// - a notification channel belonging to user-super (for cross-user tests).
-func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
+// - a notification channel belonging to user-alerts (first returned ID)
+// - a notification channel belonging to user-super (second returned ID).
+func seedAlertRulesFixture(t *testing.T, conn *db.Connection) (string, string) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -164,7 +166,7 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 	}
 
 	// Notification channel belonging to user-super (for cross-user tests)
-	_, errSuperChan := conn.InsertNotificationChannel(
+	superChannel, errSuperChan := conn.InsertNotificationChannel(
 		"user-super",
 		"Super Discord",
 		xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD.String(),
@@ -175,7 +177,7 @@ func seedAlertRulesFixture(t *testing.T, conn *db.Connection) string {
 		t.Fatalf("failed to insert super notification channel: %v", errSuperChan)
 	}
 
-	return channel.ID
+	return channel.ID, superChannel.ID
 }
 
 // ---------------------------------------------------------------------------
@@ -421,6 +423,7 @@ func TestCreateAlertRule_InvalidScopePairing(t *testing.T) {
 		serverNodeID *string
 		nodeID       *string
 		eventType    xylona.AlertEventType
+		superUser    bool
 	}{
 		{
 			name:      "server id without server node id",
@@ -440,10 +443,12 @@ func TestCreateAlertRule_InvalidScopePairing(t *testing.T) {
 			eventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_CRASH,
 		},
 		{
+			// Node event types are superuser-only, so the scope check needs a superuser.
 			name:         "node event with server scope",
 			serverID:     new("server-local-1"),
 			serverNodeID: new("node-local"),
 			eventType:    xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+			superUser:    true,
 		},
 		{
 			name:      "server event with node scope",
@@ -455,16 +460,20 @@ func TestCreateAlertRule_InvalidScopePairing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newAlertRulesFixture(t)
+			userID, channelID := "user-alerts", fixture.channelID
+			if tt.superUser {
+				userID, channelID = "user-super", fixture.superChannelID
+			}
 
 			req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
 				ServerId:              tt.serverID,
 				ServerNodeId:          tt.serverNodeID,
 				NodeId:                tt.nodeID,
 				EventType:             tt.eventType,
-				NotificationChannelId: fixture.channelID,
+				NotificationChannelId: channelID,
 				Enabled:               true,
 			})
-			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, userID)
 
 			_, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
 			if errCreate == nil {
@@ -619,53 +628,173 @@ func TestCreateAlertRule_ServerScoped(t *testing.T) {
 	}
 }
 
-func TestCreateAlertRule_NodeScoped(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		NodeId:                new("node-local"),
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
-		Condition:             ">95",
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	resp, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate != nil {
-		t.Fatalf("CreateAlertRule(node-scoped) error = %v", errCreate)
+// Node alerts are only delivered to superusers, so only superusers may create
+// node rules; anyone else would own a rule that never fires.
+func TestCreateAlertRule_NodeEvents(t *testing.T) {
+	tests := []struct {
+		name      string
+		superUser bool
+		nodeID    *string
+		eventType xylona.AlertEventType
+		wantCode  connect.Code // 0 means success
+	}{
+		{
+			name:      "superuser node-scoped rule",
+			superUser: true,
+			nodeID:    new("node-local"),
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+		},
+		{
+			// No node_id means "all nodes".
+			name:      "superuser all-nodes rule",
+			superUser: true,
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD,
+		},
+		{
+			name:      "non-superuser node-scoped rule",
+			nodeID:    new("node-local"),
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+			wantCode:  connect.CodePermissionDenied,
+		},
+		{
+			name:      "non-superuser all-nodes rule",
+			eventType: xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD,
+			wantCode:  connect.CodePermissionDenied,
+		},
 	}
-	rule := resp.Msg.GetRule()
-	if rule.NodeId == nil || rule.GetNodeId() != "node-local" {
-		t.Errorf("node_id = %v, want %q", rule.NodeId, "node-local")
-	}
-	if rule.ServerId != nil {
-		t.Errorf("server_id = %v, want nil", rule.ServerId)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newAlertRulesFixture(t)
+			userID, channelID := "user-alerts", fixture.channelID
+			if tt.superUser {
+				userID, channelID = "user-super", fixture.superChannelID
+			}
+
+			req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
+				NodeId:                tt.nodeID,
+				EventType:             tt.eventType,
+				Condition:             `{"operator":">=","value":90}`,
+				NotificationChannelId: channelID,
+				Enabled:               true,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, userID)
+
+			resp, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
+			if tt.wantCode != 0 {
+				if connect.CodeOf(errCreate) != tt.wantCode {
+					t.Fatalf("CreateAlertRule() error = %v, want code %v", errCreate, tt.wantCode)
+				}
+				rules, errList := fixture.conn.GetAlertRulesByUserID(userID)
+				if errList != nil {
+					t.Fatalf("GetAlertRulesByUserID() error = %v", errList)
+				}
+				if len(rules) != 0 {
+					t.Errorf("denied create stored %d rules, want 0", len(rules))
+				}
+				return
+			}
+			if errCreate != nil {
+				t.Fatalf("CreateAlertRule() error = %v", errCreate)
+			}
+			rule := resp.Msg.GetRule()
+			wantNodeID := ""
+			if tt.nodeID != nil {
+				wantNodeID = *tt.nodeID
+			}
+			if rule.GetNodeId() != wantNodeID {
+				t.Errorf("node_id = %q, want %q", rule.GetNodeId(), wantNodeID)
+			}
+			if rule.ServerId != nil {
+				t.Errorf("server_id = %v, want nil", rule.ServerId)
+			}
+		})
 	}
 }
 
-func TestCreateAlertRule_AllNodesNodeEvent(t *testing.T) {
-	fixture := newAlertRulesFixture(t)
-
-	// Node event with no node_id means "all nodes"
-	req := connect.NewRequest(&xylona.CreateAlertRuleRequest{
-		EventType:             xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD,
-		Condition:             ">80",
-		NotificationChannelId: fixture.channelID,
-		Enabled:               true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, "user-alerts")
-
-	resp, errCreate := fixture.service.CreateAlertRule(context.Background(), req)
-	if errCreate != nil {
-		t.Fatalf("CreateAlertRule(all-nodes) error = %v", errCreate)
+// Updates follow the same superuser-only rule, including for node rules a
+// non-superuser created before the rule existed.
+func TestUpdateAlertRule_NodeEvents(t *testing.T) {
+	tests := []struct {
+		name          string
+		superUser     bool
+		existingEvent xylona.AlertEventType
+		existingNode  string
+		nodeID        *string
+		eventType     xylona.AlertEventType
+		wantCode      connect.Code // 0 means success
+	}{
+		{
+			name:          "superuser edits a node rule",
+			superUser:     true,
+			existingEvent: xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+			existingNode:  "node-local",
+			nodeID:        new("node-local"),
+			eventType:     xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD,
+		},
+		{
+			name:          "non-superuser edits their legacy node rule",
+			existingEvent: xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+			existingNode:  "node-local",
+			nodeID:        new("node-local"),
+			eventType:     xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+			wantCode:      connect.CodePermissionDenied,
+		},
+		{
+			name:          "non-superuser turns a server rule into a node rule",
+			existingEvent: xylona.AlertEventType_ALERT_EVENT_TYPE_CPU_THRESHOLD,
+			eventType:     xylona.AlertEventType_ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD,
+			wantCode:      connect.CodePermissionDenied,
+		},
 	}
-	rule := resp.Msg.GetRule()
-	if rule.NodeId != nil {
-		t.Errorf("node_id = %v, want nil (all-nodes)", rule.NodeId)
-	}
-	if rule.ServerId != nil {
-		t.Errorf("server_id = %v, want nil", rule.ServerId)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newAlertRulesFixture(t)
+			userID, channelID := "user-alerts", fixture.channelID
+			if tt.superUser {
+				userID, channelID = "user-super", fixture.superChannelID
+			}
+
+			existing, errInsert := fixture.conn.InsertAlertRule(
+				userID, "", "", tt.existingNode, tt.existingEvent.String(),
+				`{"operator":">=","value":90}`, channelID, true,
+			)
+			if errInsert != nil {
+				t.Fatalf("InsertAlertRule() error = %v", errInsert)
+			}
+
+			req := connect.NewRequest(&xylona.UpdateAlertRuleRequest{
+				Id:                    existing.ID,
+				NodeId:                tt.nodeID,
+				EventType:             tt.eventType,
+				Condition:             `{"operator":">=","value":80}`,
+				NotificationChannelId: channelID,
+				Enabled:               true,
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, req, userID)
+
+			resp, errUpdate := fixture.service.UpdateAlertRule(context.Background(), req)
+			if tt.wantCode != 0 {
+				if connect.CodeOf(errUpdate) != tt.wantCode {
+					t.Fatalf("UpdateAlertRule() error = %v, want code %v", errUpdate, tt.wantCode)
+				}
+				stored, errGet := fixture.conn.GetAlertRuleByID(existing.ID)
+				if errGet != nil {
+					t.Fatalf("GetAlertRuleByID() error = %v", errGet)
+				}
+				if stored.EventType != tt.existingEvent.String() {
+					t.Errorf("denied update changed event type to %q", stored.EventType)
+				}
+				return
+			}
+			if errUpdate != nil {
+				t.Fatalf("UpdateAlertRule() error = %v", errUpdate)
+			}
+			if resp.Msg.GetRule().GetEventType() != tt.eventType {
+				t.Errorf("event_type = %v, want %v", resp.Msg.GetRule().GetEventType(), tt.eventType)
+			}
+		})
 	}
 }
 

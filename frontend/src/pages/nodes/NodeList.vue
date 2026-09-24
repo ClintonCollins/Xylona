@@ -343,11 +343,6 @@
         :node="detailNode"
         :snapshot="getSnapshot(detailNode.id)"
         :system-info="getNodeSummary(detailNode.id)?.systemInfo" />
-      <node-alert-rule-dialog
-        v-if="detailNode"
-        v-model="showAlertDialog"
-        :node-id="detailNode.id"
-        :node-name="detailNode.name || 'Unnamed node'" />
       <empty-state
         v-else-if="!loading"
         description="It may have been removed, or the link is out of date."
@@ -357,6 +352,11 @@
           <q-btn color="primary" label="Back to nodes" to="/nodes" />
         </template>
       </empty-state>
+      <alert-rule-dialog
+        v-if="detailNode"
+        v-model="showAlertDialog"
+        :node-id="detailNode.id"
+        :node-name="detailNode.name || 'Unnamed node'" />
     </div>
 
     <q-dialog v-model="showDeleteDialog" aria-labelledby="node-remove-dialog-title" persistent>
@@ -420,7 +420,7 @@ import {
 } from '@/proto/xylona_pb'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
-import NodeAlertRuleDialog from '@/components/nodes/NodeAlertRuleDialog.vue'
+import AlertRuleDialog from '@/components/alerts/AlertRuleDialog.vue'
 import NodeDetailPanel from '@/components/nodes/NodeDetailPanel.vue'
 import {
   nodeHealthBadge,

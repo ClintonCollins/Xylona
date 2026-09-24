@@ -12,10 +12,15 @@ import {
 } from '@/proto/shared_pb'
 import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
+import AlertRuleDialog from '@/components/alerts/AlertRuleDialog.vue'
 import Notifications from './Notifications.vue'
 
 const mocks = vi.hoisted(() => ({
+  route: { query: {} as Record<string, string> },
   notify: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyError: vi.fn(),
+  notifyConnectError: vi.fn(),
   listNotificationChannels: vi.fn(),
   listAlertRules: vi.fn(),
   getAlertHistory: vi.fn(),
@@ -41,6 +46,16 @@ vi.mock('quasar', async () => {
     }),
   }
 })
+
+vi.mock('vue-router', () => ({
+  useRoute: () => mocks.route,
+}))
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyError: mocks.notifyError,
+  notifyConnectError: mocks.notifyConnectError,
+}))
 
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
@@ -111,12 +126,12 @@ const QTableStub = defineComponent({
   </div>`,
 })
 
-function setAlertPermissions(permissionIds: string[] = ['alerts.manage']) {
+function setAlertPermissions(permissionIds: string[] = ['alerts.manage'], superUser = false) {
   const store = useUserAuthStore()
   const user = create(UserSchema, {
     id: 'user-1',
     userName: 'owner',
-    superUser: false,
+    superUser,
   })
   store.user = user
   store.initialFetch = true
@@ -127,7 +142,7 @@ function setAlertPermissions(permissionIds: string[] = ['alerts.manage']) {
   })
 }
 
-function mountNotifications(permissionIds: string[] = ['alerts.manage']) {
+function mountNotifications(permissionIds: string[] = ['alerts.manage'], superUser = false) {
   // Set up default resolved values before mounting
   if (!mocks.listGameServers.mock.lastCall) {
     mocks.listGameServers.mockResolvedValue({ gameServers: [] })
@@ -145,7 +160,7 @@ function mountNotifications(permissionIds: string[] = ['alerts.manage']) {
     mocks.getAlertHistory.mockResolvedValue({ entries: [] })
   }
 
-  setAlertPermissions(permissionIds)
+  setAlertPermissions(permissionIds, superUser)
 
   return mount(Notifications, {
     global: {
@@ -215,7 +230,9 @@ describe('Notifications', () => {
   })
 
   afterEach(() => {
-    Object.values(mocks).forEach((mock) => mock.mockReset())
+    const { route, ...fns } = mocks
+    route.query = {}
+    Object.values(fns).forEach((mock) => mock.mockReset())
   })
 
   it('loads channels on mount', async () => {
@@ -248,33 +265,37 @@ describe('Notifications', () => {
     {
       name: 'success',
       response: { success: true, error: '' },
-      type: 'xylona-success',
+      helper: 'notifySuccess' as const,
       message: 'Test sent to Production Discord',
       caption: 'Check the channel for the test notification.',
     },
     {
       name: 'failure',
       response: { success: false, error: 'The webhook responded with HTTP 404' },
-      type: 'xylona-error',
+      helper: 'notifyError' as const,
       message: 'Test to Production Discord failed',
       caption: 'The webhook responded with HTTP 404',
     },
-  ])('tests a webhook channel and reports $name', async ({ response, type, message, caption }) => {
-    const channel = makeChannel({ name: 'Production Discord' })
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [channel] })
-    mocks.testNotificationChannel.mockResolvedValueOnce(response)
+  ])(
+    'tests a webhook channel and reports $name',
+    async ({ response, helper, message, caption }) => {
+      const channel = makeChannel({ name: 'Production Discord' })
+      mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [channel] })
+      mocks.testNotificationChannel.mockResolvedValueOnce(response)
 
-    const wrapper = mountNotifications()
-    await flushPromises()
+      const wrapper = mountNotifications()
+      await flushPromises()
 
-    await wrapper.get('button[aria-label="Test Production Discord channel"]').trigger('click')
-    await flushPromises()
+      await wrapper.get('button[aria-label="Test Production Discord channel"]').trigger('click')
+      await flushPromises()
 
-    expect(mocks.testNotificationChannel).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'chan-1' }),
-    )
-    expect(mocks.notify).toHaveBeenCalledWith(expect.objectContaining({ type, message, caption }))
-  })
+      expect(mocks.testNotificationChannel).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'chan-1' }),
+      )
+      expect(mocks[helper]).toHaveBeenCalledWith(caption, expect.objectContaining({ message }))
+      expect(mocks.notify).not.toHaveBeenCalled()
+    },
+  )
 
   it('shows a load error instead of an empty channel list on failed channel load', async () => {
     mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
@@ -306,97 +327,58 @@ describe('Notifications', () => {
     expect(wrapper.text()).not.toContain('delete')
   })
 
-  it('parses and preserves extended threshold behavior when editing a rule', async () => {
-    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [makeChannel()] })
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
-    mocks.updateAlertRule.mockResolvedValueOnce({})
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-
+  it.each([
+    { name: 'opens Channels by default', query: {}, want: 'channels' },
+    { name: 'opens Alert Rules from ?tab=rules', query: { tab: 'rules' }, want: 'rules' },
+    { name: 'opens Alert History from ?tab=history', query: { tab: 'history' }, want: 'history' },
+    { name: 'ignores an unknown tab', query: { tab: 'nope' }, want: 'channels' },
+  ])('$name', async ({ query, want }) => {
+    mocks.route.query = query
     const wrapper = mountNotifications()
     await flushPromises()
 
-    type NotificationsVM = {
-      openRuleEditDialog: (rule: AlertRule) => void
-      saveRule: () => Promise<void>
-      ruleForm: {
-        thresholdForSeconds: number
-        thresholdRecoveryValue: number | null
-        thresholdCooldownSeconds: number
-        thresholdRepeatSeconds: number
-        thresholdNoDataSeconds: number
-      }
-    }
-    const vm = wrapper.vm as unknown as NotificationsVM
-    vm.openRuleEditDialog(
-      makeRule({
-        eventType: AlertEventType.MEMORY_THRESHOLD,
-        condition: JSON.stringify({
-          operator: '>=',
-          value: 85,
-          for_seconds: 120,
-          recovery_value: 75,
-          cooldown_seconds: 300,
-          repeat_seconds: 900,
-          no_data_seconds: 180,
-        }),
-      }),
-    )
-
-    expect(vm.ruleForm).toMatchObject({
-      thresholdForSeconds: 120,
-      thresholdRecoveryValue: 75,
-      thresholdCooldownSeconds: 300,
-      thresholdRepeatSeconds: 900,
-      thresholdNoDataSeconds: 180,
-    })
-
-    await vm.saveRule()
-    await flushPromises()
-
-    const request = mocks.updateAlertRule.mock.calls[0]?.[0] as { condition: string }
-    expect(JSON.parse(request.condition)).toEqual({
-      operator: '>=',
-      value: 85,
-      for_seconds: 120,
-      recovery_value: 75,
-      cooldown_seconds: 300,
-      repeat_seconds: 900,
-      no_data_seconds: 180,
-    })
+    expect((wrapper.vm as unknown as { activeTab: string }).activeTab).toBe(want)
   })
 
-  it('offers only event types from the edited rule scope', async () => {
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [makeChannel()] })
+  const nodeRule = makeRule({
+    serverId: undefined,
+    serverNodeId: undefined,
+    nodeId: 'node-1',
+    eventType: AlertEventType.NODE_DISK_THRESHOLD,
+  })
+
+  it('keeps a non-superuser node rule listed with a note, without edit or toggle', async () => {
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [nodeRule] })
 
     const wrapper = mountNotifications()
     await flushPromises()
 
-    type NotificationsVM = {
-      openRuleEditDialog: (rule: AlertRule) => void
-      ruleEventTypeOptions: { value: AlertEventType }[]
-    }
-    const vm = wrapper.vm as unknown as NotificationsVM
-    const offered = () => vm.ruleEventTypeOptions.map((option) => option.value)
-
-    vm.openRuleEditDialog(
-      makeRule({
-        serverId: undefined,
-        serverNodeId: undefined,
-        nodeId: 'node-1',
-        eventType: AlertEventType.NODE_DISK_THRESHOLD,
-      }),
+    const row = wrapper.get('.q-table-row')
+    expect(row.text()).toContain("Won't send")
+    expect(row.text()).toContain('Node alerts only go to superusers.')
+    expect(row.find('button[aria-label="Edit Node Disk Threshold alert rule"]').exists()).toBe(
+      false,
     )
-    expect(offered()).toEqual([
-      AlertEventType.NODE_CPU_THRESHOLD,
-      AlertEventType.NODE_MEMORY_THRESHOLD,
-      AlertEventType.NODE_DISK_THRESHOLD,
-    ])
+    expect(row.find('.q-toggle-stub').exists()).toBe(false)
+    expect(row.find('button[aria-label="Delete Node Disk Threshold alert rule"]').exists()).toBe(
+      true,
+    )
+  })
 
-    vm.openRuleEditDialog(makeRule({ eventType: AlertEventType.CRASH }))
-    expect(offered()).not.toContain(AlertEventType.NODE_CPU_THRESHOLD)
-    expect(offered()).toContain(AlertEventType.PLAYER_COUNT_THRESHOLD)
+  it('lets a superuser edit a node rule in the shared dialog', async () => {
+    mocks.listAlertRules.mockResolvedValueOnce({ rules: [nodeRule] })
+
+    const wrapper = mountNotifications(['alerts.manage'], true)
+    await flushPromises()
+
+    const row = wrapper.get('.q-table-row')
+    expect(row.text()).not.toContain("Won't send")
+    await row.get('button[aria-label="Edit Node Disk Threshold alert rule"]').trigger('click')
+    await flushPromises()
+
+    const dialog = wrapper.getComponent(AlertRuleDialog)
+    expect(dialog.props('rule')).toEqual(nodeRule)
+    expect(dialog.props('modelValue')).toBe(true)
   })
 
   it('names the watched node as the target of node rules and history', async () => {
@@ -420,34 +402,5 @@ describe('Notifications', () => {
 
     const targets = wrapper.findAll('.q-table-target').map((cell) => cell.text())
     expect(targets.filter((target) => target === 'Rack A')).toHaveLength(2)
-  })
-
-  it('blocks invalid threshold timing and recovery values', async () => {
-    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
-    mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [makeChannel()] })
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
-
-    const wrapper = mountNotifications()
-    await flushPromises()
-
-    type NotificationsVM = {
-      openRuleEditDialog: (rule: AlertRule) => void
-      saveRule: () => Promise<void>
-      ruleForm: {
-        thresholdForSeconds: number
-        thresholdRecoveryValue: number | null
-      }
-      canSaveRule: boolean
-    }
-    const vm = wrapper.vm as unknown as NotificationsVM
-    vm.openRuleEditDialog(makeRule())
-    vm.ruleForm.thresholdForSeconds = -1
-    vm.ruleForm.thresholdRecoveryValue = 90
-
-    expect(vm.canSaveRule).toBe(false)
-    await vm.saveRule()
-
-    expect(mocks.updateAlertRule).not.toHaveBeenCalled()
   })
 })
