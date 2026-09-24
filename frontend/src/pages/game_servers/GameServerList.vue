@@ -127,8 +127,14 @@
           </q-btn>
         </div>
       </div>
-      <div v-if="gridMode && displayRows.length > 0" class="server-grid-controls">
+      <!-- The table has its own select-all checkbox. Its sort controls show only below
+           1920px, where Game and Owner have no header to sort by. -->
+      <div
+        v-if="displayRows.length > 0"
+        class="server-grid-controls"
+        :class="{ 'server-grid-controls--table': !gridMode }">
         <q-checkbox
+          v-if="gridMode"
           :model-value="pageSelectionState"
           dense
           label="Select all"
@@ -689,7 +695,8 @@ function syncGridMode(event: MediaQueryListEvent) {
   gridMode.value = event.matches
 }
 
-// The card grid has no table header, so it gets its own select-all and sort controls.
+// The card grid has no table header, so it gets its own select-all and sort controls. The
+// table reuses the sort controls below 1920px, where Game and Owner lose their headers.
 const serverTable = ref<{ computedRows: DisplayRow[] } | null>(null)
 const pageSelectionState = computed((): boolean | null => {
   const pageRows = serverTable.value?.computedRows ?? []
@@ -1610,6 +1617,12 @@ const columns = ref([
   padding-inline: var(--xy-space-xs);
 }
 
+/* Over the table only the sort shows, on the right where it sits over the cards. */
+.server-grid-controls--table {
+  display: none;
+  justify-content: flex-end;
+}
+
 .server-grid-controls__sort {
   display: flex;
   align-items: center;
@@ -1774,6 +1787,11 @@ const columns = ref([
     display: none;
   }
 
+  /* Game and Owner have no header here, so they sort from the controls above. */
+  .server-grid-controls--table {
+    display: flex;
+  }
+
   .server-list-main :deep(.server-name-meta) {
     display: flex;
   }
@@ -1784,11 +1802,15 @@ const columns = ref([
   }
 
   .server-list-main :deep(.q-table td.server-name-cell) {
-    min-width: 10rem;
+    min-width: 9rem;
   }
 
   .server-list-main :deep(.server-version-cell) {
     min-width: 0;
+  }
+
+  .server-table-actions > .q-separator {
+    margin-inline: var(--xy-space-2xs);
   }
 
   /* The local/remote badge sits under the node name, like the Name cell's second line,

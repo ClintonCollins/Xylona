@@ -833,6 +833,31 @@ describe('GameServerList', () => {
     )
   })
 
+  it('keeps the sort controls over the table without a second select-all', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer(),
+        }),
+      ],
+    })
+    // At 1440px and up the list is a table rather than cards.
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList)
+
+    const wrapper = mountList(true)
+    await flushPromises()
+
+    const controls = wrapper.get('.server-grid-controls')
+    expect(controls.classes()).toContain('server-grid-controls--table')
+    expect(controls.find('q-select-stub').exists()).toBe(true)
+    expect(controls.find('q-checkbox-stub').exists()).toBe(false)
+  })
+
   it("opens a row's Delete without replacing the multi-selection", async () => {
     mocks.listAggregatedGameServers.mockResolvedValue({
       servers: [
