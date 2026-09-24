@@ -144,15 +144,16 @@
             map-options
             options-dense
             outlined />
+          <!-- The icon shows the current direction; the label says what a click does. -->
           <q-btn
-            :aria-label="initialPagination.descending ? 'Sort descending' : 'Sort ascending'"
+            :aria-label="sortDirectionAction"
             :disable="!gridSortBy"
             dense
             flat
             :icon="initialPagination.descending ? 'arrow_downward' : 'arrow_upward'"
             round
             @click="toggleSortDirection">
-            <q-tooltip>{{ initialPagination.descending ? 'Descending' : 'Ascending' }}</q-tooltip>
+            <q-tooltip>{{ sortDirectionAction }}</q-tooltip>
           </q-btn>
         </div>
       </div>
@@ -285,16 +286,17 @@
                           </q-item-section>
                           <q-item-section>Configure</q-item-section>
                         </q-item>
+                        <!-- On the sections: `.q-menu .q-item` outranks a utility on the item. -->
                         <q-item
                           v-close-popup
-                          class="server-card-menu-item server-card-menu-item--danger"
+                          class="server-card-menu-item"
                           clickable
                           :disable="!lifecycleStateAuthoritative"
                           @click="openDeleteDialog([props.row])">
-                          <q-item-section avatar>
+                          <q-item-section avatar class="text-error-brighter">
                             <q-icon :name="tabTrash" />
                           </q-item-section>
-                          <q-item-section>
+                          <q-item-section class="text-error-brighter">
                             <q-item-label>Delete…</q-item-label>
                             <q-item-label v-if="!lifecycleStateAuthoritative" caption>
                               Waiting for live server status
@@ -707,6 +709,10 @@ const gridSortBy = computed({
     initialPagination.value = { ...initialPagination.value, sortBy }
   },
 })
+
+const sortDirectionAction = computed(() =>
+  initialPagination.value.descending ? 'Sort ascending' : 'Sort descending',
+)
 
 function toggleSortDirection() {
   initialPagination.value = {
@@ -1874,10 +1880,6 @@ const columns = ref([
   min-height: 44px;
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
-}
-
-.q-item.server-card-menu-item--danger {
-  color: var(--xy-danger-hover);
 }
 
 .server-mobile-row-actions {
