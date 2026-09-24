@@ -329,6 +329,14 @@
                 date.
               </q-tooltip>
             </q-badge>
+            <!-- Below 1920px the Game and Owner columns fold into this line. -->
+            <div class="server-name-meta">
+              <span><span class="xy-visually-hidden">Game: </span>{{ props.row.gameName }}</span>
+              <span v-if="props.row.userName">
+                <q-icon name="person" />
+                <span class="xy-visually-hidden">Owner: </span>{{ props.row.userName }}
+              </span>
+            </div>
           </q-td>
         </template>
         <template #body-cell-status="props">
@@ -378,7 +386,7 @@
           <q-td :props="props">
             <span>{{ props.row.nodeName }}</span>
             <q-badge
-              class="q-ml-xs"
+              class="server-node-badge q-ml-xs"
               color="grey-8"
               :label="props.row.isLocal ? 'local' : 'remote'" />
           </q-td>
@@ -1476,6 +1484,8 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.gameName,
+    classes: 'server-col-wide',
+    headerClasses: 'server-col-wide',
     sortable: true,
   },
   {
@@ -1484,6 +1494,7 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.nodeName,
+    classes: 'server-node-cell',
     sortable: true,
   },
   {
@@ -1501,6 +1512,8 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.userName,
+    classes: 'server-col-wide',
+    headerClasses: 'server-col-wide',
     sortable: true,
   },
   {
@@ -1529,6 +1542,9 @@ const columns = ref([
 }
 
 .server-list-main {
+  /* The checkbox column's width, which is also where the pinned Name column starts. */
+  --server-select-width: 4.5rem;
+
   min-width: 0;
 }
 
@@ -1700,14 +1716,14 @@ const columns = ref([
   left: 0;
   z-index: 1;
   box-sizing: border-box;
-  width: 4.5rem;
-  min-width: 4.5rem;
+  width: var(--server-select-width);
+  min-width: var(--server-select-width);
   background-color: var(--xy-surface-0);
 }
 
 .server-list-main :deep(.q-table .server-name-cell) {
   position: sticky;
-  left: 4.5rem;
+  left: var(--server-select-width);
   z-index: 1;
   background-color: var(--xy-surface-0);
   border-right: 1px solid var(--xy-border);
@@ -1730,6 +1746,62 @@ const columns = ref([
   min-width: 10rem;
   max-width: 14rem;
   white-space: normal;
+}
+
+.server-list-main :deep(.server-name-meta) {
+  display: none;
+  flex-wrap: wrap;
+  gap: var(--xy-space-2xs) var(--xy-space-sm);
+  margin-top: var(--xy-space-2xs);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+}
+
+.server-list-main :deep(.server-name-meta .q-icon) {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
+}
+
+/* Below Quasar's xl step (1920px) the table sits beside the nav drawer in about 1126px
+   at 1440, so Game and Owner fold into the Name cell and cells get tighter. From 1920px
+   up the table keeps every column. */
+@media (max-width: 1919px) {
+  .server-list-main {
+    --server-select-width: 3.5rem;
+  }
+
+  .server-list-main :deep(.q-table .server-col-wide) {
+    display: none;
+  }
+
+  .server-list-main :deep(.server-name-meta) {
+    display: flex;
+  }
+
+  .server-list-main :deep(.q-table th),
+  .server-list-main :deep(.q-table td) {
+    padding-inline: var(--xy-space-sm);
+  }
+
+  .server-list-main :deep(.q-table td.server-name-cell) {
+    min-width: 10rem;
+  }
+
+  .server-list-main :deep(.server-version-cell) {
+    min-width: 0;
+  }
+
+  /* The local/remote badge sits under the node name, like the Name cell's second line,
+     and a long node name wraps instead of widening the table. */
+  .server-list-main :deep(.q-table td.server-node-cell) {
+    white-space: normal;
+  }
+
+  .server-list-main :deep(.server-node-badge) {
+    display: flex;
+    width: fit-content;
+    margin: var(--xy-space-2xs) 0 0;
+  }
 }
 
 .version-text {
