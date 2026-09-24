@@ -1322,8 +1322,7 @@ func TestTestNotificationChannel_EmailSendFailureReturnsMessage(t *testing.T) {
 func TestTestNotificationChannel_UnsupportedTypeReturnsMessage(t *testing.T) {
 	fixture := newNotifChanFixture(t)
 
-	// Create validates the type, so store an unknown one directly, as an
-	// older or newer build might have.
+	// Store an unknown type directly, as an older or newer build might have.
 	channel, errInsert := fixture.conn.InsertNotificationChannel("user-super", "legacy", "NOTIFICATION_CHANNEL_TYPE_PAGER", `{}`, true)
 	if errInsert != nil {
 		t.Fatalf("InsertNotificationChannel() error = %v", errInsert)

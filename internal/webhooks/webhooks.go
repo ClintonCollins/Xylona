@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -249,7 +250,7 @@ func (s *Sender) Send(ctx context.Context, channelType string, config ChannelCon
 
 		// Only retry on 5xx errors or context-independent transport errors.
 		var deliveryErr *DeliveryError
-		if errors.As(errSend, &deliveryErr) && deliveryErr.StatusCode < 500 {
+		if errors.As(errSend, &deliveryErr) && deliveryErr.StatusCode > 0 && deliveryErr.StatusCode < 500 {
 			// 4xx errors are not retryable.
 			return deliveryErr
 		}
@@ -319,8 +320,31 @@ func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) erro
 
 	return &DeliveryError{
 		StatusCode: resp.StatusCode,
-		Body:       string(respBody),
+		Body:       redactEchoedURL(string(respBody), req.URL),
 	}
+}
+
+// redactEchoedURL hides the target's path segments and query values in a
+// response body, because some webhook targets echo the request path, and the
+// secret token in it, in their error pages.
+func redactEchoedURL(body string, target *url.URL) string {
+	var secrets []string
+	for segment := range strings.SplitSeq(target.Path, "/") {
+		secrets = append(secrets, segment, url.PathEscape(segment))
+	}
+	for _, values := range target.Query() {
+		secrets = append(secrets, values...)
+	}
+	// Longest first, so a token is never left half-replaced by a shorter part.
+	slices.SortFunc(secrets, func(a, b string) int { return len(b) - len(a) })
+	for _, secret := range secrets {
+		// ponytail: parts under 8 characters (api, hooks) stay readable; a
+		// token that short would need a smarter scrubber.
+		if len(secret) >= 8 {
+			body = strings.ReplaceAll(body, secret, "[redacted]")
+		}
+	}
+	return body
 }
 
 // withoutURL drops the URL that *url.Error puts in its message, because a

@@ -516,19 +516,28 @@ func TestSend_ErrorsOmitWebhookURL(t *testing.T) {
 	closedURL := closed.URL + "/api/webhooks/1/" + token
 	closed.Close()
 
+	// Parallel subtests resume after this function returns, so the servers
+	// must close in Cleanup rather than defer.
 	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(500 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer slow.Close()
+	t.Cleanup(slow.Close)
+	echo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Cannot POST "+r.URL.Path+"?"+r.URL.RawQuery, http.StatusNotFound)
+	}))
+	t.Cleanup(echo.Close)
 
 	tests := []struct {
-		name string
-		url  string
+		name        string
+		url         string
+		wantTimeout bool
 	}{
 		{name: "connection refused", url: closedURL},
-		{name: "timeout", url: slow.URL + "/api/webhooks/1/" + token},
+		{name: "timeout", url: slow.URL + "/api/webhooks/1/" + token, wantTimeout: true},
 		{name: "unparsable url", url: "https://discord.com/api/webhooks/1/" + token + "/%zz"},
+		{name: "body echoes the path", url: echo.URL + "/webhook/" + token},
+		{name: "body echoes the query", url: echo.URL + "/hook?key=" + token},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -544,6 +553,9 @@ func TestSend_ErrorsOmitWebhookURL(t *testing.T) {
 			}
 			if strings.Contains(errSend.Error(), token) {
 				t.Errorf("Send() error = %q, must not contain the webhook token", errSend.Error())
+			}
+			if tt.wantTimeout && !errors.Is(errSend, context.DeadlineExceeded) {
+				t.Errorf("Send() error = %v, want it to match context.DeadlineExceeded", errSend)
 			}
 		})
 	}
@@ -574,6 +586,34 @@ func TestSend_DeliveryErrorDetails(t *testing.T) {
 	}
 	if deliveryErr.Body != `{"error": "invalid payload"}` {
 		t.Errorf("Body = %q, want %q", deliveryErr.Body, `{"error": "invalid payload"}`)
+	}
+}
+
+func TestSend_RetriesTransportErrors(t *testing.T) {
+	t.Parallel()
+
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		// Drop the connection without a response: a transport error, not a status.
+		conn, _, errHijack := http.NewResponseController(w).Hijack()
+		if errHijack != nil {
+			t.Errorf("Hijack() error = %v", errHijack)
+			return
+		}
+		errClose := conn.Close()
+		if errClose != nil {
+			t.Errorf("Close() error = %v", errClose)
+		}
+	}))
+	defer server.Close()
+
+	errSend := newTestSender().Send(context.Background(), ChannelTypeGeneric, ChannelConfig{URL: server.URL}, testEvent())
+	if errSend == nil {
+		t.Fatal("Send() error = nil, want a transport failure")
+	}
+	if got := attempts.Load(); got != 3 {
+		t.Errorf("attempts = %d, want 3", got)
 	}
 }
 
