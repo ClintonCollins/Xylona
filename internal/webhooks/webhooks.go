@@ -99,6 +99,9 @@ type DeliveryError struct {
 }
 
 func (e *DeliveryError) Error() string {
+	if e.StatusCode == 0 && e.Err != nil {
+		return fmt.Sprintf("webhooks: delivery failed: %v", e.Err)
+	}
 	if e.Err != nil {
 		return fmt.Sprintf("webhooks: delivery failed (status %d): %s: %v", e.StatusCode, e.Body, e.Err)
 	}
@@ -286,7 +289,7 @@ func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) erro
 
 	req, errReq := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if errReq != nil {
-		return fmt.Errorf("webhooks: failed to create request: %w", errReq)
+		return fmt.Errorf("webhooks: failed to create request: %w", withoutURL(errReq))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -295,7 +298,7 @@ func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) erro
 		return &DeliveryError{
 			StatusCode: 0,
 			Body:       "",
-			Err:        errDo,
+			Err:        withoutURL(errDo),
 		}
 	}
 	defer func() {
@@ -318,6 +321,17 @@ func (s *Sender) doPost(ctx context.Context, targetURL string, body []byte) erro
 		StatusCode: resp.StatusCode,
 		Body:       string(respBody),
 	}
+}
+
+// withoutURL drops the URL that *url.Error puts in its message, because a
+// webhook URL's path carries the channel's secret token and these errors end
+// up in alert history and API responses.
+func withoutURL(err error) error {
+	urlErr, ok := errors.AsType[*url.Error](err)
+	if !ok {
+		return err
+	}
+	return urlErr.Err
 }
 
 func redactWebhookLogURL(rawURL string) string {
@@ -377,7 +391,7 @@ func isPrivateOrReservedIP(ip net.IP) bool {
 func ValidateWebhookTarget(rawURL string) error {
 	parsedURL, errParse := url.Parse(rawURL)
 	if errParse != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, errParse)
+		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, withoutURL(errParse))
 	}
 
 	hostname := parsedURL.Hostname()
@@ -421,7 +435,7 @@ func ValidateChannelConfig(config ChannelConfig) error {
 	}
 	parsedURL, errParse := url.Parse(rawURL)
 	if errParse != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, errParse)
+		return fmt.Errorf("%w: %w", ErrInvalidWebhookURL, withoutURL(errParse))
 	}
 	scheme := strings.ToLower(parsedURL.Scheme)
 	if scheme != "http" && scheme != "https" {
