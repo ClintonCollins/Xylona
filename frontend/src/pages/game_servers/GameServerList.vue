@@ -127,8 +127,14 @@
           </q-btn>
         </div>
       </div>
-      <div v-if="gridMode && displayRows.length > 0" class="server-grid-controls">
+      <!-- The table has its own select-all checkbox. Its sort controls show only below
+           1920px, where Game and Owner have no header to sort by. -->
+      <div
+        v-if="displayRows.length > 0"
+        class="server-grid-controls"
+        :class="{ 'server-grid-controls--table': !gridMode }">
         <q-checkbox
+          v-if="gridMode"
           :model-value="pageSelectionState"
           dense
           label="Select all"
@@ -144,15 +150,16 @@
             map-options
             options-dense
             outlined />
+          <!-- The icon shows the current direction; the label says what a click does. -->
           <q-btn
-            :aria-label="initialPagination.descending ? 'Sort descending' : 'Sort ascending'"
+            :aria-label="sortDirectionAction"
             :disable="!gridSortBy"
             dense
             flat
             :icon="initialPagination.descending ? 'arrow_downward' : 'arrow_upward'"
             round
             @click="toggleSortDirection">
-            <q-tooltip>{{ initialPagination.descending ? 'Descending' : 'Ascending' }}</q-tooltip>
+            <q-tooltip>{{ sortDirectionAction }}</q-tooltip>
           </q-btn>
         </div>
       </div>
@@ -285,16 +292,17 @@
                           </q-item-section>
                           <q-item-section>Configure</q-item-section>
                         </q-item>
+                        <!-- On the sections: `.q-menu .q-item` outranks a utility on the item. -->
                         <q-item
                           v-close-popup
-                          class="server-card-menu-item server-card-menu-item--danger"
+                          class="server-card-menu-item"
                           clickable
                           :disable="!lifecycleStateAuthoritative"
                           @click="openDeleteDialog([props.row])">
-                          <q-item-section avatar>
+                          <q-item-section avatar class="text-error-brighter">
                             <q-icon :name="tabTrash" />
                           </q-item-section>
-                          <q-item-section>
+                          <q-item-section class="text-error-brighter">
                             <q-item-label>Delete…</q-item-label>
                             <q-item-label v-if="!lifecycleStateAuthoritative" caption>
                               Waiting for live server status
@@ -327,6 +335,14 @@
                 date.
               </q-tooltip>
             </q-badge>
+            <!-- Below 1920px the Game and Owner columns fold into this line. -->
+            <div class="server-name-meta">
+              <span><span class="xy-visually-hidden">Game: </span>{{ props.row.gameName }}</span>
+              <span v-if="props.row.userName">
+                <q-icon name="person" />
+                <span class="xy-visually-hidden">Owner: </span>{{ props.row.userName }}
+              </span>
+            </div>
           </q-td>
         </template>
         <template #body-cell-status="props">
@@ -376,7 +392,7 @@
           <q-td :props="props">
             <span>{{ props.row.nodeName }}</span>
             <q-badge
-              class="q-ml-xs"
+              class="server-node-badge q-ml-xs"
               color="grey-8"
               :label="props.row.isLocal ? 'local' : 'remote'" />
           </q-td>
@@ -679,7 +695,8 @@ function syncGridMode(event: MediaQueryListEvent) {
   gridMode.value = event.matches
 }
 
-// The card grid has no table header, so it gets its own select-all and sort controls.
+// The card grid has no table header, so it gets its own select-all and sort controls. The
+// table reuses the sort controls below 1920px, where Game and Owner lose their headers.
 const serverTable = ref<{ computedRows: DisplayRow[] } | null>(null)
 const pageSelectionState = computed((): boolean | null => {
   const pageRows = serverTable.value?.computedRows ?? []
@@ -707,6 +724,10 @@ const gridSortBy = computed({
     initialPagination.value = { ...initialPagination.value, sortBy }
   },
 })
+
+const sortDirectionAction = computed(() =>
+  initialPagination.value.descending ? 'Sort ascending' : 'Sort descending',
+)
 
 function toggleSortDirection() {
   initialPagination.value = {
@@ -1136,6 +1157,7 @@ function openDeleteDialog(rows: DisplayRow[]) {
     name: row.displayName,
     nodeName: row.nodeName,
     directory: row.directory,
+    canDeleteBackups: hasPermission(row, 'game_server.backup'),
   }))
   showDeleteGameServerDialog.value = true
 }
@@ -1469,6 +1491,8 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.gameName,
+    classes: 'server-col-wide',
+    headerClasses: 'server-col-wide',
     sortable: true,
   },
   {
@@ -1477,6 +1501,7 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.nodeName,
+    classes: 'server-node-cell',
     sortable: true,
   },
   {
@@ -1494,6 +1519,8 @@ const columns = ref([
     required: true,
     align: 'left' as const,
     field: (row: DisplayRow) => row.userName,
+    classes: 'server-col-wide',
+    headerClasses: 'server-col-wide',
     sortable: true,
   },
   {
@@ -1522,6 +1549,9 @@ const columns = ref([
 }
 
 .server-list-main {
+  /* The checkbox column's width, which is also where the pinned Name column starts. */
+  --server-select-width: 4.5rem;
+
   min-width: 0;
 }
 
@@ -1585,6 +1615,12 @@ const columns = ref([
   gap: var(--xy-space-sm) var(--xy-space-md);
   margin-bottom: var(--xy-space-sm);
   padding-inline: var(--xy-space-xs);
+}
+
+/* Over the table only the sort shows, on the right where it sits over the cards. */
+.server-grid-controls--table {
+  display: none;
+  justify-content: flex-end;
 }
 
 .server-grid-controls__sort {
@@ -1693,14 +1729,14 @@ const columns = ref([
   left: 0;
   z-index: 1;
   box-sizing: border-box;
-  width: 4.5rem;
-  min-width: 4.5rem;
+  width: var(--server-select-width);
+  min-width: var(--server-select-width);
   background-color: var(--xy-surface-0);
 }
 
 .server-list-main :deep(.q-table .server-name-cell) {
   position: sticky;
-  left: 4.5rem;
+  left: var(--server-select-width);
   z-index: 1;
   background-color: var(--xy-surface-0);
   border-right: 1px solid var(--xy-border);
@@ -1723,6 +1759,71 @@ const columns = ref([
   min-width: 10rem;
   max-width: 14rem;
   white-space: normal;
+}
+
+.server-list-main :deep(.server-name-meta) {
+  display: none;
+  flex-wrap: wrap;
+  gap: var(--xy-space-2xs) var(--xy-space-sm);
+  margin-top: var(--xy-space-2xs);
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
+}
+
+.server-list-main :deep(.server-name-meta .q-icon) {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
+}
+
+/* Below Quasar's xl step (1920px) the table sits beside the nav drawer in about 1126px
+   at 1440, so Game and Owner fold into the Name cell and cells get tighter. From 1920px
+   up the table keeps every column. */
+@media (max-width: 1919px) {
+  .server-list-main {
+    --server-select-width: 3.5rem;
+  }
+
+  .server-list-main :deep(.q-table .server-col-wide) {
+    display: none;
+  }
+
+  /* Game and Owner have no header here, so they sort from the controls above. */
+  .server-grid-controls--table {
+    display: flex;
+  }
+
+  .server-list-main :deep(.server-name-meta) {
+    display: flex;
+  }
+
+  .server-list-main :deep(.q-table th),
+  .server-list-main :deep(.q-table td) {
+    padding-inline: var(--xy-space-sm);
+  }
+
+  .server-list-main :deep(.q-table td.server-name-cell) {
+    min-width: 9rem;
+  }
+
+  .server-list-main :deep(.server-version-cell) {
+    min-width: 0;
+  }
+
+  .server-table-actions > .q-separator {
+    margin-inline: var(--xy-space-2xs);
+  }
+
+  /* The local/remote badge sits under the node name, like the Name cell's second line,
+     and a long node name wraps instead of widening the table. */
+  .server-list-main :deep(.q-table td.server-node-cell) {
+    white-space: normal;
+  }
+
+  .server-list-main :deep(.server-node-badge) {
+    display: flex;
+    width: fit-content;
+    margin: var(--xy-space-2xs) 0 0;
+  }
 }
 
 .version-text {
@@ -1873,10 +1974,6 @@ const columns = ref([
   min-height: 44px;
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
-}
-
-.q-item.server-card-menu-item--danger {
-  color: var(--xy-danger-hover);
 }
 
 .server-mobile-row-actions {

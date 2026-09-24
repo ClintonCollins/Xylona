@@ -191,11 +191,13 @@ export function useGameServerPortAvailability(options: {
     }, PORT_CHECK_DEBOUNCE_MS)
   }
 
-  // The pair the form last filled in by itself, and the port it started from.
-  const autoPorts = ref<{ from: bigint; port: bigint; queryPort: bigint } | null>(null)
+  type PortPair = { port: bigint; queryPort: bigint }
+  // The pair the form last filled in, the pair it started from, and whether that start was
+  // the operator's own port ("Use next free port") rather than the game default.
+  const autoPorts = ref<(PortPair & { from: PortPair; operatorStart: boolean }) | null>(null)
   let suggestionToken = 0
 
-  function formHasPorts(pair: { port: bigint; queryPort: bigint }): boolean {
+  function formHasPorts(pair: PortPair): boolean {
     return (
       options.gameServer.value.port === pair.port &&
       options.gameServer.value.queryPort === pair.queryPort
@@ -204,7 +206,8 @@ export function useGameServerPortAvailability(options: {
 
   // Fill in the first free pair at or after `from`, using the controller's own check.
   async function applyNextFreePorts(
-    from: { port: bigint; queryPort: bigint },
+    from: PortPair,
+    operatorStart: boolean,
     userInitiated = false,
   ): Promise<void> {
     const { nodeId, ipAddress } = currentRequest.value
@@ -226,7 +229,7 @@ export function useGameServerPortAvailability(options: {
       }
       options.gameServer.value.port = suggested.port
       options.gameServer.value.queryPort = suggested.queryPort
-      autoPorts.value = { from: from.port, ...suggested }
+      autoPorts.value = { from, operatorStart, ...suggested }
     } catch (error) {
       // The operator asked for this, so say it failed; the automatic prefill stays quiet
       // because the live check below still flags a taken port.
@@ -240,13 +243,14 @@ export function useGameServerPortAvailability(options: {
 
   const portSuggestionNote = computed(() => {
     const filled = autoPorts.value
-    if (filled === null || filled.port === filled.from || !formHasPorts(filled)) {
+    if (filled === null || filled.port === filled.from.port || !formHasPorts(filled)) {
       return ''
     }
-    return `Port ${filled.from} or one of the ports this game also needs is taken on this node and IP, so the next free port was filled in.`
+    return `Port ${filled.from.port} or one of the ports this game also needs is taken on this node and IP, so the next free port was filled in.`
   })
 
   // Re-pick ports the form filled in when the game, node or IP changes; typed ports stay.
+  // A pair moved by "Use next free port" re-picks from the operator's port, not the default.
   // Separate sources, so filling the ports in doesn't re-trigger this watcher.
   watch(
     [
@@ -262,8 +266,10 @@ export function useGameServerPortAvailability(options: {
       }
       const defaults = { port: game.defaultPort, queryPort: game.defaultQueryPort }
       const filled = autoPorts.value
-      if (formHasPorts(defaults) || (filled !== null && formHasPorts(filled))) {
-        void applyNextFreePorts(defaults)
+      if (filled !== null && filled.operatorStart && formHasPorts(filled)) {
+        void applyNextFreePorts(filled.from, true)
+      } else if (formHasPorts(defaults) || (filled !== null && formHasPorts(filled))) {
+        void applyNextFreePorts(defaults, false)
       }
     },
     { immediate: true },
@@ -302,6 +308,7 @@ export function useGameServerPortAvailability(options: {
           port: options.gameServer.value.port,
           queryPort: options.gameServer.value.queryPort,
         },
+        true,
         true,
       ),
     portAvailabilityBlocking: computed(() => portAvailabilityState.value === 'conflict'),

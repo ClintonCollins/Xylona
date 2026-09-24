@@ -833,6 +833,31 @@ describe('GameServerList', () => {
     )
   })
 
+  it('keeps the sort controls over the table without a second select-all', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer(),
+        }),
+      ],
+    })
+    // At 1440px and up the list is a table rather than cards.
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList)
+
+    const wrapper = mountList(true)
+    await flushPromises()
+
+    const controls = wrapper.get('.server-grid-controls')
+    expect(controls.classes()).toContain('server-grid-controls--table')
+    expect(controls.find('q-select-stub').exists()).toBe(true)
+    expect(controls.find('q-checkbox-stub').exists()).toBe(false)
+  })
+
   it("opens a row's Delete without replacing the multi-selection", async () => {
     mocks.listAggregatedGameServers.mockResolvedValue({
       servers: [
@@ -867,7 +892,12 @@ describe('GameServerList', () => {
     await flushPromises()
 
     expect(vm.deleteTargets).toEqual([
-      expect.objectContaining({ id: 'server-a', name: 'Server A', directory: '/srv/a' }),
+      expect.objectContaining({
+        id: 'server-a',
+        name: 'Server A',
+        directory: '/srv/a',
+        canDeleteBackups: true,
+      }),
     ])
     expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
 
@@ -882,6 +912,42 @@ describe('GameServerList', () => {
 
     expect(vm.displayRows.map((row) => row.id)).toContain('server-a')
     expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
+  })
+
+  it('offers to delete backups only where the user holds the backup permission', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-a',
+            effectivePermissions: ['game_server.delete', 'game_server.backup'],
+          }),
+        }),
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-b',
+            effectivePermissions: ['game_server.delete'],
+          }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(false)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      deleteTargets: Array<{ id: string; canDeleteBackups?: boolean }>
+      openDeleteDialog: (rows: DisplayRow[]) => void
+    }
+
+    vm.openDeleteDialog(vm.displayRows)
+
+    expect(vm.deleteTargets.map((target) => [target.id, target.canDeleteBackups])).toEqual([
+      ['server-a', true],
+      ['server-b', false],
+    ])
   })
 
   it('keeps an update pending until terminal progress arrives', async () => {

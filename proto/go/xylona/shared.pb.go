@@ -3367,8 +3367,10 @@ func (*RestartGameServerResponse) Descriptor() ([]byte, []int) {
 }
 
 type RemoveGameServerRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ServerId      string                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ServerId string                 `protobuf:"bytes,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	// Also delete the server's recorded backup archives. Requires game_server.backup.
+	DeleteBackups bool `protobuf:"varint,2,opt,name=delete_backups,json=deleteBackups,proto3" json:"delete_backups,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3408,6 +3410,13 @@ func (x *RemoveGameServerRequest) GetServerId() string {
 		return x.ServerId
 	}
 	return ""
+}
+
+func (x *RemoveGameServerRequest) GetDeleteBackups() bool {
+	if x != nil {
+		return x.DeleteBackups
+	}
+	return false
 }
 
 type RemoveGameServerResponse struct {
@@ -8105,9 +8114,10 @@ const file_shared_proto_rawDesc = "" +
 	"\x16StopGameServerResponse\"7\n" +
 	"\x18RestartGameServerRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\tR\bserverId\"\x1b\n" +
-	"\x19RestartGameServerResponse\"6\n" +
+	"\x19RestartGameServerResponse\"]\n" +
 	"\x17RemoveGameServerRequest\x12\x1b\n" +
-	"\tserver_id\x18\x01 \x01(\tR\bserverId\"\x1a\n" +
+	"\tserver_id\x18\x01 \x01(\tR\bserverId\x12%\n" +
+	"\x0edelete_backups\x18\x02 \x01(\bR\rdeleteBackups\"\x1a\n" +
 	"\x18RemoveGameServerResponse\"\xa3\x01\n" +
 	"\x17CreateGameServerRequest\x123\n" +
 	"\vgame_server\x18\x01 \x01(\v2\x12.xylona.GameServerR\n" +

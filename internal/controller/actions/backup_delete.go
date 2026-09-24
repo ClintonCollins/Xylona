@@ -1,12 +1,84 @@
 package actions
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/ClintonCollins/Xylona/internal/node"
 	"github.com/ClintonCollins/Xylona/sql/models"
 )
+
+// ErrBackupNotDeletable reports a recorded backup whose archive cannot be
+// deleted through the server's current node, such as one left on a node the
+// server has since moved away from.
+var ErrBackupNotDeletable = errors.New("backup cannot be deleted")
+
+// CheckGameServerBackupsDeletable reports whether every backup recorded for the
+// server can be deleted, so a removal can refuse before it stops the server.
+func (inst *Instance) CheckGameServerBackupsDeletable(gameServer *models.GameServer) error {
+	_, errBackups := inst.deletableGameServerBackups(gameServer)
+	return errBackups
+}
+
+// deletableGameServerBackups lists the server's recorded backups and checks each
+// archive path, so one bad row fails before any archive is deleted.
+func (inst *Instance) deletableGameServerBackups(gameServer *models.GameServer) ([]*models.GameServerBackup, error) {
+	backups, errList := listGameServerBackupsByGameServerID(inst.db, gameServer.ID)
+	if errList != nil {
+		return nil, fmt.Errorf("actions: list backups to delete: %w", errList)
+	}
+	for _, backup := range backups {
+		_, errPath := inst.resolveValidatedBackupArchivePath(gameServer, backup)
+		if errPath != nil {
+			return nil, fmt.Errorf("%w: %s: %w", ErrBackupNotDeletable, remotePathBase(backup.ArchivePath), errPath)
+		}
+	}
+	return backups, nil
+}
+
+// BackupDeleteError reports the backup archive that stopped
+// DeleteAllGameServerBackups and how many archives were deleted before it.
+type BackupDeleteError struct {
+	Archive string
+	Deleted int
+	Total   int
+	Err     error
+}
+
+func (e *BackupDeleteError) Error() string {
+	return fmt.Sprintf("actions: delete backup %s (%d of %d already deleted): %v", e.Archive, e.Deleted, e.Total, e.Err)
+}
+
+func (e *BackupDeleteError) Unwrap() error {
+	return e.Err
+}
+
+// DeleteAllGameServerBackups deletes every backup recorded for the server, only
+// ever touching each backup's own archive file. It stops before the next archive
+// once ctx is done, and a failure part way returns a *BackupDeleteError.
+func (inst *Instance) DeleteAllGameServerBackups(ctx context.Context, gameServer *models.GameServer) error {
+	backups, errBackups := inst.deletableGameServerBackups(gameServer)
+	if errBackups != nil {
+		return errBackups
+	}
+	for deleted, backup := range backups {
+		errDelete := ctx.Err()
+		if errDelete == nil {
+			errDelete = inst.DeleteGameServerBackup(gameServer, backup)
+		}
+		if errDelete != nil {
+			return &BackupDeleteError{
+				Archive: remotePathBase(backup.ArchivePath),
+				Deleted: deleted,
+				Total:   len(backups),
+				Err:     errDelete,
+			}
+		}
+	}
+	return nil
+}
 
 // DeleteGameServerBackup deletes a backup row and its archive when it belongs to the current server node.
 func (inst *Instance) DeleteGameServerBackup(gameServer *models.GameServer, backup *models.GameServerBackup) error {

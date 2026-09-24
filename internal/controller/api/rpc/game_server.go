@@ -508,8 +508,8 @@ func (xs *XylonaService) EditGameServer(ctx context.Context, request *connect.Re
 	return connect.NewResponse(&xylona.EditGameServerResponse{Game_Server: gameServerProto}), nil
 }
 
-// RemoveGameServer stops a game server, confirms it is offline, removes its
-// files, and only then deletes its database row.
+// RemoveGameServer stops a game server, confirms it is offline, deletes its
+// backups when asked, removes its files, and only then deletes its database row.
 func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.Request[xylona.RemoveGameServerRequest]) (*connect.Response[xylona.RemoveGameServerResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
 	if errUser != nil {
@@ -522,6 +522,19 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 	errPermission := xs.ensureLocalServerPermission(user, gameServer, "game_server.delete")
 	if errPermission != nil {
 		return nil, errPermission
+	}
+	deleteBackups := request.Msg.GetDeleteBackups()
+	if deleteBackups {
+		// Same permission the DeleteGameServerBackup RPC requires.
+		errBackupPermission := xs.ensureLocalServerPermission(user, gameServer, permissionBackup)
+		if errBackupPermission != nil {
+			return nil, errBackupPermission
+		}
+		// Refuse before stopping anything when a backup could not be deleted.
+		errDeletable := xs.actionsInst.CheckGameServerBackupsDeletable(gameServer)
+		if errDeletable != nil {
+			return nil, removeGameServerConnectError(errDeletable)
+		}
 	}
 	if gameServer.GameID == minecraftGameID {
 		mapSettings, errMapSettings := xs.db.GetGameServerMinecraftMap(gameServer.ID)
@@ -555,6 +568,15 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 	errConfirm := xs.waitForGameServerOffline(ctx, gameServer, 10*time.Second)
 	if errConfirm != nil {
 		return nil, errConfirm
+	}
+	// Backups go before the server's files and outside dnsMutationMu, since
+	// deleting one can wait on that backup's in-flight creation to cancel.
+	if deleteBackups {
+		errBackups := xs.actionsInst.DeleteAllGameServerBackups(ctx, gameServer)
+		if errBackups != nil {
+			log.Error().Err(errBackups).Str("game_server_id", gameServer.ID).Msg("Failed to delete backups before removing game server")
+			return nil, removeGameServerBackupsConnectError(errBackups)
+		}
 	}
 	xs.dnsMutationMu.Lock()
 	errRemove := xs.actionsInst.RemoveGameServer(ctx, gameServer)
@@ -627,6 +649,11 @@ func removeGameServerConnectError(err error) error {
 	if errors.Is(err, noderegistry.ErrNodeNotRegistered) {
 		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("remove game server: %w", err))
 	}
+	if errors.Is(err, actions.ErrBackupNotDeletable) {
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf(
+			"the server was not removed: %w. Uncheck 'Also delete its backups' to remove the server and keep them", err,
+		))
+	}
 	code := connect.CodeOf(err)
 	switch code {
 	case connect.CodeCanceled, connect.CodeDeadlineExceeded, connect.CodeUnavailable:
@@ -634,6 +661,23 @@ func removeGameServerConnectError(err error) error {
 	default:
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("remove game server: %w", err))
 	}
+}
+
+// removeGameServerBackupsConnectError tells the operator how far a removal's
+// backup deletion got, leaving the wrapped cause to the log.
+func removeGameServerBackupsConnectError(err error) error {
+	var errBackup *actions.BackupDeleteError
+	if !errors.As(err, &errBackup) {
+		return removeGameServerConnectError(err)
+	}
+	code := connect.CodeInternal
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		code = contextConnectCode(err)
+	}
+	return connect.NewError(code, fmt.Errorf(
+		"the server was stopped but not removed: backup %s could not be deleted (%d of %d were deleted)",
+		errBackup.Archive, errBackup.Deleted, errBackup.Total,
+	))
 }
 
 // StartGameServer starts a game server managed by the controller's embedded node.

@@ -353,6 +353,23 @@ describe('useGameServerPortAvailability', () => {
     expect(state.portSuggestionNote.value).toContain(
       `Port 25566 or one of the ports this game also needs is taken`,
     )
+
+    // A later node or IP change re-picks from the operator's port, not the game default.
+    mocks.suggestGameServerPorts.mockResolvedValue({ port: 25566n, queryPort: 25566n })
+    gameServer.value.ip = create(IPSchema, { address: '10.0.0.6' })
+    await flushPromises()
+    expect(mocks.suggestGameServerPorts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ipAddress: '10.0.0.6', port: 25566n, queryPort: 25566n }),
+    )
+    expect(gameServer.value.port).toBe(25566n)
+
+    mocks.suggestGameServerPorts.mockResolvedValue({ port: 25568n, queryPort: 25568n })
+    gameServer.value.nodeId = 'node-remote'
+    await flushPromises()
+    expect(mocks.suggestGameServerPorts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ nodeId: 'node-remote', port: 25566n, queryPort: 25566n }),
+    )
+    expect(gameServer.value.port).toBe(25568n)
   })
 
   it('tells the operator when a requested free port lookup fails', async () => {
