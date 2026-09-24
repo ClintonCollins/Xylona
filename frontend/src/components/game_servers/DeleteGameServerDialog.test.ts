@@ -1,8 +1,6 @@
-import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { GameServerSchema } from '@/proto/shared_pb'
 import DeleteGameServerDialog from './DeleteGameServerDialog.vue'
 
 const mocks = vi.hoisted(() => ({
@@ -22,10 +20,45 @@ vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({ removeGameServer: mocks.removeGameServer }),
 }))
 
+const stubs = {
+  'q-dialog': { template: '<div><slot /></div>' },
+  'q-card': { template: '<div><slot /></div>' },
+  'q-card-section': { template: '<div><slot /></div>' },
+  'q-card-actions': { template: '<div><slot /></div>' },
+  'q-btn': {
+    props: ['label', 'disable'],
+    emits: ['click'],
+    template: '<button :disabled="disable" @click="$emit(\'click\')">{{ label }}</button>',
+  },
+  'router-link': { props: ['to'], template: '<a :href="to"><slot /></a>' },
+}
+
 describe('DeleteGameServerDialog', () => {
   afterEach(() => {
     mocks.notify.mockReset()
     mocks.removeGameServer.mockReset()
+  })
+
+  it('says it stops the server and erases its folder on the node, and links to Backups', () => {
+    const wrapper = mount(DeleteGameServerDialog, {
+      props: {
+        gameServers: [
+          { id: 'server-1', name: 'Alpha', nodeName: 'Local Node', directory: '/srv/alpha' },
+        ],
+        showDialog: true,
+      },
+      global: { stubs },
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('Delete Game Server')
+    expect(text).toContain('/srv/alpha')
+    expect(text).toContain('on Local Node')
+    expect(text).toContain('worlds, saves, configs and mods')
+    expect(text).toContain('stops the server first if it is running')
+    expect(text).toContain('Backup archives stay on disk')
+    expect(wrapper.get('a').attributes('href')).toBe('/game-servers/server-1/backups')
+    expect(wrapper.findAll('button').map((button) => button.text())).toContain('Delete server')
   })
 
   it('continues after a failure, reports each result once, and ignores a double submit', async () => {
@@ -42,32 +75,22 @@ describe('DeleteGameServerDialog', () => {
     const wrapper = mount(DeleteGameServerDialog, {
       props: {
         gameServers: [
-          create(GameServerSchema, { id: 'server-1', name: 'Alpha' }),
-          create(GameServerSchema, { id: 'server-2', name: 'Bravo' }),
-          create(GameServerSchema, { id: 'server-3', name: 'Charlie' }),
+          { id: 'server-1', name: 'Alpha' },
+          { id: 'server-2', name: 'Bravo' },
+          { id: 'server-3', name: 'Charlie' },
         ],
         showDialog: true,
       },
-      global: {
-        stubs: {
-          'q-dialog': { template: '<div><slot /></div>' },
-          'q-card': { template: '<div><slot /></div>' },
-          'q-card-section': { template: '<div><slot /></div>' },
-          'q-card-actions': { template: '<div><slot /></div>' },
-          'q-btn': {
-            props: ['label', 'disable'],
-            emits: ['click'],
-            template: '<button :disabled="disable" @click="$emit(\'click\')">{{ label }}</button>',
-          },
-        },
-      },
+      global: { stubs },
     })
 
-    const deleteButton = wrapper.findAll('button').find((button) => button.text() === 'Delete')
+    const deleteButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Delete 3 servers')
     if (!deleteButton) {
       throw new Error('expected delete button')
     }
-    expect(wrapper.text()).toContain('DNS records remain at the provider')
+    expect(wrapper.text()).toContain('DNS records stay at the provider')
 
     await Promise.all([deleteButton.trigger('click'), deleteButton.trigger('click')])
     await flushPromises()

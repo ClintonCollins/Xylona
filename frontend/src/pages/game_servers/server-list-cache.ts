@@ -11,6 +11,7 @@ export interface DisplayRow {
   userName: string
   statusEnum: Status
   nodeName: string
+  directory?: string
   isStale: boolean
   sourceNodeId: string
   version: string
@@ -48,6 +49,7 @@ export function buildDisplayRows(
         userName: localServer.userName,
         statusEnum: localServer.status,
         nodeName,
+        directory: localServer.directory,
         isStale: false,
         sourceNodeId: '',
         version: localServer.version,
@@ -88,6 +90,7 @@ export function buildDisplayRows(
       userName: '',
       statusEnum: remoteServer.status,
       nodeName,
+      directory: remoteServer.directory,
       isStale: remoteServer.isStale,
       sourceNodeId: sourceNodeID,
       version: remoteServer.version,
