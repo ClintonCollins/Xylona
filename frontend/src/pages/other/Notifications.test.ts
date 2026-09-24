@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   listAlertRules: vi.fn(),
   getAlertHistory: vi.fn(),
   listGameServers: vi.fn(),
+  listNodes: vi.fn(),
   createNotificationChannel: vi.fn(),
   updateNotificationChannel: vi.fn(),
   deleteNotificationChannel: vi.fn(),
@@ -47,6 +48,7 @@ vi.mock('@/utils/shared', () => ({
     listAlertRules: mocks.listAlertRules,
     getAlertHistory: mocks.getAlertHistory,
     listGameServers: mocks.listGameServers,
+    listNodes: mocks.listNodes,
     createNotificationChannel: mocks.createNotificationChannel,
     updateNotificationChannel: mocks.updateNotificationChannel,
     deleteNotificationChannel: mocks.deleteNotificationChannel,
@@ -101,6 +103,7 @@ const QTableStub = defineComponent({
     <div v-if="rows.length === 0"><slot name="no-data" /></div>
     <div v-for="(row, i) in rows" :key="i" class="q-table-row">
       {{ JSON.stringify(row) }}
+      <span class="q-table-target"><slot name="body-cell-server" :row="row" /></span>
       <slot name="body-cell-enabled" :row="row" />
       <slot name="body-cell-actions" :row="row" />
     </div>
@@ -128,6 +131,9 @@ function mountNotifications(permissionIds: string[] = ['alerts.manage']) {
   // Set up default resolved values before mounting
   if (!mocks.listGameServers.mock.lastCall) {
     mocks.listGameServers.mockResolvedValue({ gameServers: [] })
+  }
+  if (!mocks.listNodes.mock.lastCall) {
+    mocks.listNodes.mockResolvedValue({ nodes: [] })
   }
   if (!mocks.listNotificationChannels.mock.lastCall) {
     mocks.listNotificationChannels.mockResolvedValue({ channels: [] })
@@ -373,6 +379,29 @@ describe('Notifications', () => {
     vm.openRuleEditDialog(makeRule({ eventType: AlertEventType.CRASH }))
     expect(offered()).not.toContain(AlertEventType.NODE_CPU_THRESHOLD)
     expect(offered()).toContain(AlertEventType.PLAYER_COUNT_THRESHOLD)
+  })
+
+  it('names the watched node as the target of node rules and history', async () => {
+    mocks.listNodes.mockResolvedValueOnce({ nodes: [{ id: 'node-1', name: 'Rack A' }] })
+    mocks.listAlertRules.mockResolvedValueOnce({
+      rules: [
+        makeRule({
+          serverId: undefined,
+          serverNodeId: undefined,
+          nodeId: 'node-1',
+          eventType: AlertEventType.NODE_DISK_THRESHOLD,
+        }),
+      ],
+    })
+    mocks.getAlertHistory.mockResolvedValueOnce({
+      entries: [{ id: 'hist-1', nodeId: 'node-1', eventType: AlertEventType.NODE_DISK_THRESHOLD }],
+    })
+
+    const wrapper = mountNotifications()
+    await flushPromises()
+
+    const targets = wrapper.findAll('.q-table-target').map((cell) => cell.text())
+    expect(targets.filter((target) => target === 'Rack A')).toHaveLength(2)
   })
 
   it('blocks invalid threshold timing and recovery values', async () => {
