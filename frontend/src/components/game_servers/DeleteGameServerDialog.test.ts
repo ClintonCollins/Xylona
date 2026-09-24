@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import DeleteGameServerDialog from './DeleteGameServerDialog.vue'
 
 const mocks = vi.hoisted(() => ({
+  listGameServerBackups: vi.fn(),
   notify: vi.fn(),
   removeGameServer: vi.fn(),
 }))
@@ -17,7 +18,11 @@ vi.mock('quasar', async () => {
 })
 
 vi.mock('@/utils/shared', () => ({
-  GetXylonaClient: () => ({ removeGameServer: mocks.removeGameServer }),
+  bytesToSize: (bytes: number) => `${bytes} B`,
+  GetXylonaClient: () => ({
+    listGameServerBackups: mocks.listGameServerBackups,
+    removeGameServer: mocks.removeGameServer,
+  }),
 }))
 
 const stubs = {
@@ -30,13 +35,113 @@ const stubs = {
     emits: ['click'],
     template: '<button :disabled="disable" @click="$emit(\'click\')">{{ label }}</button>',
   },
+  'q-checkbox': {
+    props: ['modelValue', 'label', 'disable'],
+    emits: ['update:modelValue'],
+    template:
+      '<label><input type="checkbox" :checked="modelValue" :disabled="disable" @change="$emit(\'update:modelValue\', $event.target.checked)" />{{ label }}</label>',
+  },
   'router-link': { props: ['to'], template: '<a :href="to"><slot /></a>' },
+}
+
+function findButton(wrapper: ReturnType<typeof mount>, label: string) {
+  const button = wrapper.findAll('button').find((candidate) => candidate.text() === label)
+  if (!button) {
+    throw new Error(`expected button ${label}`)
+  }
+  return button
 }
 
 describe('DeleteGameServerDialog', () => {
   afterEach(() => {
+    mocks.listGameServerBackups.mockReset()
     mocks.notify.mockReset()
     mocks.removeGameServer.mockReset()
+  })
+
+  it('keeps backups by default and deletes them for every server only when checked', async () => {
+    mocks.listGameServerBackups.mockImplementation((request: { gameServerId: string }) =>
+      Promise.resolve({
+        backups:
+          request.gameServerId === 'server-1'
+            ? [{ sizeBytes: 1000n }, { sizeBytes: 500n }]
+            : [{ sizeBytes: 24n }],
+      }),
+    )
+    mocks.removeGameServer.mockResolvedValue({})
+    const wrapper = mount(DeleteGameServerDialog, {
+      props: {
+        gameServers: [
+          { id: 'server-1', name: 'Alpha', canDeleteBackups: true },
+          { id: 'server-2', name: 'Bravo', canDeleteBackups: true },
+        ],
+        showDialog: true,
+      },
+      global: { stubs },
+    })
+    await flushPromises()
+
+    const checkbox = wrapper.get<HTMLInputElement>('input[type="checkbox"]')
+    expect(checkbox.element.checked).toBe(false)
+    expect(checkbox.element.disabled).toBe(false)
+    expect(wrapper.text()).toContain('Also delete their backups')
+    expect(wrapper.text()).toContain('3 backups · 1524 B')
+    expect(wrapper.text()).toContain('Backup archives stay on disk')
+
+    await checkbox.setValue(true)
+    expect(wrapper.text()).toContain('Their backup archives are permanently deleted first')
+    expect(wrapper.text()).not.toContain('Backup archives stay on disk')
+
+    await findButton(wrapper, 'Delete 2 servers').trigger('click')
+    await flushPromises()
+
+    expect(mocks.removeGameServer.mock.calls.map(([request]) => request)).toEqual([
+      expect.objectContaining({ serverId: 'server-1', deleteBackups: true }),
+      expect.objectContaining({ serverId: 'server-2', deleteBackups: true }),
+    ])
+  })
+
+  it('resets to keeping backups each time it opens', async () => {
+    mocks.listGameServerBackups.mockResolvedValue({ backups: [] })
+    mocks.removeGameServer.mockResolvedValue({})
+    const wrapper = mount(DeleteGameServerDialog, {
+      props: {
+        gameServers: [{ id: 'server-1', name: 'Alpha', canDeleteBackups: true }],
+        showDialog: true,
+      },
+      global: { stubs },
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('No backups recorded.')
+
+    await wrapper.get('input[type="checkbox"]').setValue(true)
+    await wrapper.setProps({ showDialog: false })
+    await wrapper.setProps({ showDialog: true })
+    await flushPromises()
+    await findButton(wrapper, 'Delete server').trigger('click')
+    await flushPromises()
+
+    expect(mocks.removeGameServer).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'server-1', deleteBackups: false }),
+    )
+  })
+
+  it('disables the option and says why without the backup permission', async () => {
+    const wrapper = mount(DeleteGameServerDialog, {
+      props: {
+        gameServers: [
+          { id: 'server-1', name: 'Alpha', canDeleteBackups: true },
+          { id: 'server-2', name: 'Bravo', canDeleteBackups: false },
+        ],
+        showDialog: true,
+      },
+      global: { stubs },
+    })
+    await flushPromises()
+
+    expect(wrapper.get<HTMLInputElement>('input[type="checkbox"]').element.disabled).toBe(true)
+    expect(wrapper.text()).toContain('Needs the backup permission on every selected server.')
+    expect(mocks.listGameServerBackups).not.toHaveBeenCalled()
   })
 
   it('says it stops the server and erases its folder on the node, and links to Backups', () => {

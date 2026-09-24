@@ -867,7 +867,12 @@ describe('GameServerList', () => {
     await flushPromises()
 
     expect(vm.deleteTargets).toEqual([
-      expect.objectContaining({ id: 'server-a', name: 'Server A', directory: '/srv/a' }),
+      expect.objectContaining({
+        id: 'server-a',
+        name: 'Server A',
+        directory: '/srv/a',
+        canDeleteBackups: true,
+      }),
     ])
     expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
 
@@ -882,6 +887,42 @@ describe('GameServerList', () => {
 
     expect(vm.displayRows.map((row) => row.id)).toContain('server-a')
     expect(vm.selectedGameServers.map((row) => row.id)).toEqual(['server-b'])
+  })
+
+  it('offers to delete backups only where the user holds the backup permission', async () => {
+    mocks.listAggregatedGameServers.mockResolvedValue({
+      servers: [
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-a',
+            effectivePermissions: ['game_server.delete', 'game_server.backup'],
+          }),
+        }),
+        createProto(AggregatedGameServerSchema, {
+          isLocal: true,
+          localServer: buildLocalServer({
+            id: 'server-b',
+            effectivePermissions: ['game_server.delete'],
+          }),
+        }),
+      ],
+    })
+
+    const wrapper = mountList(false)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      displayRows: DisplayRow[]
+      deleteTargets: Array<{ id: string; canDeleteBackups?: boolean }>
+      openDeleteDialog: (rows: DisplayRow[]) => void
+    }
+
+    vm.openDeleteDialog(vm.displayRows)
+
+    expect(vm.deleteTargets.map((target) => [target.id, target.canDeleteBackups])).toEqual([
+      ['server-a', true],
+      ['server-b', false],
+    ])
   })
 
   it('keeps an update pending until terminal progress arrives', async () => {

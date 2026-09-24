@@ -1310,8 +1310,10 @@ func (inst *Instance) ReadGameServerBuffer(ctx context.Context, gameServer *mode
 
 // RemoveGameServer deletes a server's files before deleting its database row.
 // File cleanup is mandatory so a node outage cannot orphan unmanaged server
-// files while the controller reports successful removal.
-func (inst *Instance) RemoveGameServer(ctx context.Context, gameServer *models.GameServer) error {
+// files while the controller reports successful removal. With deleteBackups it
+// first deletes every recorded backup archive, and any failure stops the
+// removal before the server's own files are touched.
+func (inst *Instance) RemoveGameServer(ctx context.Context, gameServer *models.GameServer, deleteBackups bool) error {
 	if gameServer == nil {
 		return errors.New("actions: remove game server: game server is nil")
 	}
@@ -1319,6 +1321,12 @@ func (inst *Instance) RemoveGameServer(ctx context.Context, gameServer *models.G
 		ctx = inst.actionContext()
 	}
 
+	if deleteBackups {
+		errBackups := inst.deleteAllGameServerBackups(gameServer)
+		if errBackups != nil {
+			return errBackups
+		}
+	}
 	errPurge := inst.PurgeAllGameServerFiles(ctx, gameServer)
 	if errPurge != nil {
 		return fmt.Errorf("actions: remove game server files: %w", errPurge)

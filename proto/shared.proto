@@ -315,6 +315,8 @@ message RestartGameServerResponse {}
 
 message RemoveGameServerRequest {
   string server_id = 1;
+  // Also delete the server's recorded backup archives. Requires game_server.backup.
+  bool delete_backups = 2;
 }
 message RemoveGameServerResponse {}
 

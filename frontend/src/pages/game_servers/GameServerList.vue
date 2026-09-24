@@ -1136,6 +1136,7 @@ function openDeleteDialog(rows: DisplayRow[]) {
     name: row.displayName,
     nodeName: row.nodeName,
     directory: row.directory,
+    canDeleteBackups: hasPermission(row, 'game_server.backup'),
   }))
   showDeleteGameServerDialog.value = true
 }

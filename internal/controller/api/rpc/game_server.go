@@ -523,6 +523,19 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 	if errPermission != nil {
 		return nil, errPermission
 	}
+	deleteBackups := request.Msg.GetDeleteBackups()
+	if deleteBackups {
+		// Same permission the DeleteGameServerBackup RPC requires.
+		errBackupPermission := xs.ensureLocalServerPermission(user, gameServer, permissionBackup)
+		if errBackupPermission != nil {
+			return nil, errBackupPermission
+		}
+		// Refuse before stopping anything when a backup could not be deleted.
+		errDeletable := xs.actionsInst.CheckGameServerBackupsDeletable(gameServer)
+		if errDeletable != nil {
+			return nil, removeGameServerConnectError(errDeletable)
+		}
+	}
 	if gameServer.GameID == minecraftGameID {
 		mapSettings, errMapSettings := xs.db.GetGameServerMinecraftMap(gameServer.ID)
 		if errMapSettings != nil {
@@ -557,7 +570,7 @@ func (xs *XylonaService) RemoveGameServer(ctx context.Context, request *connect.
 		return nil, errConfirm
 	}
 	xs.dnsMutationMu.Lock()
-	errRemove := xs.actionsInst.RemoveGameServer(ctx, gameServer)
+	errRemove := xs.actionsInst.RemoveGameServer(ctx, gameServer, deleteBackups)
 	xs.dnsMutationMu.Unlock()
 	if errRemove != nil {
 		return nil, removeGameServerConnectError(errRemove)
@@ -626,6 +639,9 @@ func removeGameServerConnectError(err error) error {
 	}
 	if errors.Is(err, noderegistry.ErrNodeNotRegistered) {
 		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("remove game server: %w", err))
+	}
+	if errors.Is(err, actions.ErrBackupNotDeletable) {
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("the server was not removed: %w", err))
 	}
 	code := connect.CodeOf(err)
 	switch code {

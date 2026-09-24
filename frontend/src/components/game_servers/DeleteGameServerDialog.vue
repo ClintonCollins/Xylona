@@ -32,7 +32,12 @@
             Xylona stops {{ gameServers.length === 1 ? 'the server' : 'each server' }} first if it
             is running, which disconnects its players.
           </li>
-          <li>
+          <li v-if="deleteBackups">
+            {{ gameServers.length === 1 ? 'Its' : 'Their' }} backup archives are permanently deleted
+            first. If one can't be deleted,
+            {{ gameServers.length === 1 ? 'the server' : 'its server' }} is kept.
+          </li>
+          <li v-else>
             Backup archives stay on disk, but Xylona stops listing them. To keep one, download it
             from
             <router-link
@@ -44,6 +49,23 @@
           </li>
           <li>DNS records stay at the provider after their local bindings are removed.</li>
         </ul>
+        <div class="delete-server-backups">
+          <q-checkbox
+            v-model="deleteBackups"
+            data-testid="delete-server-backups"
+            dense
+            :disable="deleting || !canDeleteBackups"
+            :label="
+              gameServers.length === 1 ? 'Also delete its backups' : 'Also delete their backups'
+            " />
+          <div v-if="!canDeleteBackups" class="delete-server-backups__detail">
+            Needs the backup permission on
+            {{ gameServers.length === 1 ? 'this server' : 'every selected server' }}.
+          </div>
+          <div v-else-if="backupSummary" class="delete-server-backups__detail">
+            {{ backupSummary }}
+          </div>
+        </div>
         <p class="text-weight-bold">This cannot be undone.</p>
       </q-card-section>
       <q-card-actions align="right">
@@ -70,16 +92,19 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
-import { GetXylonaClient } from '@/utils/shared'
+import { bytesToSize, GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
-import { PropType, ref } from 'vue'
+import { computed, PropType, ref, watch } from 'vue'
 import { RemoveGameServerRequest, RemoveGameServerRequestSchema } from '@/proto/shared_pb'
+import { ListGameServerBackupsRequestSchema } from '@/proto/xylona_pb'
 
 export interface DeleteGameServerTarget {
   id: string
   name: string
   nodeName?: string
   directory?: string
+  // Deleting backups also needs game_server.backup on the server.
+  canDeleteBackups?: boolean
 }
 
 const props = defineProps({
@@ -90,6 +115,16 @@ const props = defineProps({
 })
 
 const $q = useQuasar()
+
+// Keeping backups is the safe default, so the option starts unchecked on every open.
+const deleteBackups = ref(false)
+const canDeleteBackups = computed(
+  () =>
+    props.gameServers.length > 0 &&
+    props.gameServers.every((gameServer) => gameServer.canDeleteBackups === true),
+)
+const backupSummary = ref('')
+let backupSummaryToken = 0
 
 interface DeleteFailure {
   id: string
@@ -113,6 +148,40 @@ const showDialog = defineModel('showDialog', {
 
 const deleting = ref(false)
 
+watch(
+  showDialog,
+  async (open) => {
+    const token = ++backupSummaryToken
+    deleteBackups.value = false
+    backupSummary.value = ''
+    if (!open || !canDeleteBackups.value) {
+      return
+    }
+    try {
+      const responses = await Promise.all(
+        props.gameServers.map((gameServer) =>
+          GetXylonaClient().listGameServerBackups(
+            create(ListGameServerBackupsRequestSchema, { gameServerId: gameServer.id }),
+          ),
+        ),
+      )
+      if (token !== backupSummaryToken) {
+        return
+      }
+      const backups = responses.flatMap((response) => response.backups)
+      const sizeBytes = backups.reduce((total, backup) => total + backup.sizeBytes, 0n)
+      backupSummary.value =
+        backups.length === 0
+          ? 'No backups recorded.'
+          : `${backups.length} ${backups.length === 1 ? 'backup' : 'backups'} · ${bytesToSize(Number(sizeBytes))}`
+    } catch (error) {
+      // The count is only a hint; the option works without it.
+      console.error(error)
+    }
+  },
+  { immediate: true },
+)
+
 async function deleteGameServers() {
   if (deleting.value) {
     return
@@ -125,8 +194,10 @@ async function deleteGameServers() {
   }
 
   for (const gameServer of props.gameServers) {
-    const request: RemoveGameServerRequest = create(RemoveGameServerRequestSchema, {})
-    request.serverId = gameServer.id
+    const request: RemoveGameServerRequest = create(RemoveGameServerRequestSchema, {
+      serverId: gameServer.id,
+      deleteBackups: deleteBackups.value && canDeleteBackups.value,
+    })
     try {
       await GetXylonaClient().removeGameServer(request)
       result.succeeded.push({ id: gameServer.id, name: gameServer.name })
@@ -205,5 +276,17 @@ function deleteFailureMessage(error: unknown): string {
 
 .delete-server-consequences a {
   color: var(--xy-primary);
+}
+
+.delete-server-backups {
+  display: grid;
+  gap: var(--xy-space-2xs);
+  margin-bottom: var(--xy-space-md);
+}
+
+.delete-server-backups__detail {
+  padding-left: var(--xy-space-lg);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
 }
 </style>
