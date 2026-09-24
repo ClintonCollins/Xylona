@@ -238,18 +238,36 @@ describe('Notifications', () => {
     expect(wrapper.text()).toContain('Production Discord')
   })
 
-  it('does not show test delivery actions while the backend endpoint is a stub', async () => {
+  it.each([
+    {
+      name: 'success',
+      response: { success: true, error: '' },
+      type: 'xylona-success',
+      message: 'Test sent to Production Discord',
+      caption: 'Check the channel for the test notification.',
+    },
+    {
+      name: 'failure',
+      response: { success: false, error: 'The webhook responded with HTTP 404' },
+      type: 'xylona-error',
+      message: 'Test to Production Discord failed',
+      caption: 'The webhook responded with HTTP 404',
+    },
+  ])('tests a webhook channel and reports $name', async ({ response, type, message, caption }) => {
     const channel = makeChannel({ name: 'Production Discord' })
-    mocks.listGameServers.mockResolvedValueOnce({ gameServers: [] })
     mocks.listNotificationChannels.mockResolvedValueOnce({ channels: [channel] })
-    mocks.listAlertRules.mockResolvedValueOnce({ rules: [] })
-    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
+    mocks.testNotificationChannel.mockResolvedValueOnce(response)
 
     const wrapper = mountNotifications()
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('send')
-    expect(wrapper.text()).not.toContain('Test delivery')
+    await wrapper.get('button[aria-label="Test Production Discord channel"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.testNotificationChannel).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'chan-1' }),
+    )
+    expect(mocks.notify).toHaveBeenCalledWith(expect.objectContaining({ type, message, caption }))
   })
 
   it('shows a load error instead of an empty channel list on failed channel load', async () => {

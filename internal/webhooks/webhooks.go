@@ -67,6 +67,10 @@ const (
 	ChannelTypeGeneric = "NOTIFICATION_CHANNEL_TYPE_WEBHOOK_GENERIC"
 )
 
+// EventTypeTest marks a manual channel test rather than a real alert. It is
+// not an AlertEventType proto value and never appears in alert rules.
+const EventTypeTest = "ALERT_EVENT_TYPE_TEST"
+
 // ErrRateLimited is returned when the per-channel rate limit is exceeded.
 var ErrRateLimited = errors.New("webhooks: rate limit exceeded")
 
@@ -454,6 +458,7 @@ var eventTypeTitle = map[string]string{
 	"ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD":     "Node CPU Threshold Exceeded",
 	"ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD":  "Node Memory Threshold Exceeded",
 	"ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD":    "Node Disk Threshold Exceeded",
+	EventTypeTest:                             "Test Notification",
 }
 
 // EventTypeTitle returns a human-readable title for the given event type string.

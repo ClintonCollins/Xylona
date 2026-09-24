@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/securecookie"
 
+	"github.com/ClintonCollins/Xylona/internal/alerts"
 	"github.com/ClintonCollins/Xylona/internal/controller/actions"
 	"github.com/ClintonCollins/Xylona/internal/controller/readiness"
 	"github.com/ClintonCollins/Xylona/internal/db"
@@ -71,6 +72,7 @@ type XylonaService struct {
 	dummyTracker                   *versiontracker.DummyTracker
 	userService                    *usermgmt.Service
 	testEmailSendFunc              func(ctx context.Context, cfg *mailer.SMTPConfig, to string, subject string, body string) error
+	webhookTestSender              alerts.WebhookSender
 	googleMailOAuthMu              sync.Mutex
 	googleMailOAuthStates          map[string]googleMailOAuthState
 	googleMailExchangeFunc         googleMailExchangeFunc

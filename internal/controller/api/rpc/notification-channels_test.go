@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -12,6 +14,7 @@ import (
 
 	"github.com/ClintonCollins/Xylona/internal/db"
 	"github.com/ClintonCollins/Xylona/internal/mailer"
+	"github.com/ClintonCollins/Xylona/internal/webhooks"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
 )
 
@@ -998,34 +1001,122 @@ func TestTestNotificationChannel_InvalidLookup(t *testing.T) {
 	}
 }
 
-func TestTestNotificationChannel_WebhookNotImplemented(t *testing.T) {
-	fixture := newNotifChanFixture(t)
+type fakeWebhookTestSender struct {
+	err         error
+	channelType string
+	config      webhooks.ChannelConfig
+	event       webhooks.AlertEvent
+}
 
-	createReq := connect.NewRequest(&xylona.CreateNotificationChannelRequest{
-		Name:        "test-channel",
-		ChannelType: xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_WEBHOOK_DISCORD,
-		Config:      `{"url":"https://discord.com/api/webhooks/1/abc"}`,
-		Enabled:     true,
-	})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, createReq, "user-super")
+func (f *fakeWebhookTestSender) Send(_ context.Context, channelType string, config webhooks.ChannelConfig, event webhooks.AlertEvent) error {
+	f.channelType = channelType
+	f.config = config
+	f.event = event
+	return f.err
+}
 
-	createResp, errCreate := fixture.service.CreateNotificationChannel(context.Background(), createReq)
-	if errCreate != nil {
-		t.Fatalf("Create error = %v", errCreate)
+func TestTestNotificationChannel_Webhook(t *testing.T) {
+	const hookURL = "https://discord.com/api/webhooks/1/abc"
+
+	tests := []struct {
+		name        string
+		channelType string
+		sendErr     error
+		wantSuccess bool
+		wantError   string
+	}{
+		{name: "discord delivered", channelType: webhooks.ChannelTypeDiscord, wantSuccess: true},
+		{name: "slack delivered", channelType: webhooks.ChannelTypeSlack, wantSuccess: true},
+		{name: "generic delivered", channelType: webhooks.ChannelTypeGeneric, wantSuccess: true},
+		{
+			name:        "rejected by target",
+			channelType: webhooks.ChannelTypeDiscord,
+			sendErr:     &webhooks.DeliveryError{StatusCode: 404, Body: `{"message": "Unknown Webhook"}`},
+			wantError:   `The webhook responded with HTTP 404: {"message": "Unknown Webhook"}`,
+		},
+		{
+			name:        "unreachable target hides url",
+			channelType: webhooks.ChannelTypeSlack,
+			sendErr: &webhooks.DeliveryError{Err: &url.Error{
+				Op:  "Post",
+				URL: hookURL,
+				Err: errors.New("dial tcp: lookup discrd.com: no such host"),
+			}},
+			wantError: "Could not reach the webhook: dial tcp: lookup discrd.com: no such host",
+		},
 	}
 
-	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
-	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newNotifChanFixture(t)
+			sender := &fakeWebhookTestSender{err: tt.sendErr}
+			fixture.service.webhookTestSender = sender
 
-	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
-	if errTest != nil {
-		t.Fatalf("TestNotificationChannel error = %v", errTest)
+			channel, errInsert := fixture.conn.InsertNotificationChannel("user-super", "hook", tt.channelType, `{"url":"`+hookURL+`"}`, false)
+			if errInsert != nil {
+				t.Fatalf("InsertNotificationChannel() error = %v", errInsert)
+			}
+
+			testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: channel.ID})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
+
+			testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+			if errTest != nil {
+				t.Fatalf("TestNotificationChannel() error = %v", errTest)
+			}
+			if testResp.Msg.GetSuccess() != tt.wantSuccess {
+				t.Fatalf("success = %v, want %v (error %q)", testResp.Msg.GetSuccess(), tt.wantSuccess, testResp.Msg.GetError())
+			}
+			if testResp.Msg.GetError() != tt.wantError {
+				t.Errorf("error = %q, want %q", testResp.Msg.GetError(), tt.wantError)
+			}
+			if sender.channelType != tt.channelType || sender.config.URL != hookURL {
+				t.Errorf("sent to (%q, %q), want (%q, %q)", sender.channelType, sender.config.URL, tt.channelType, hookURL)
+			}
+			if sender.event.EventType != webhooks.EventTypeTest {
+				t.Errorf("event type = %q, want %q", sender.event.EventType, webhooks.EventTypeTest)
+			}
+		})
 	}
-	if testResp.Msg.GetSuccess() {
-		t.Errorf("Success = true, want false (not implemented)")
+}
+
+func TestWebhookTestFailureMessage(t *testing.T) {
+	longBody := strings.Repeat("é", 250)
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "http status without body",
+			err:  &webhooks.DeliveryError{StatusCode: 500},
+			want: "The webhook responded with HTTP 500",
+		},
+		{
+			name: "long body truncated on a rune boundary",
+			err:  &webhooks.DeliveryError{StatusCode: 400, Body: longBody},
+			want: "The webhook responded with HTTP 400: " + strings.Repeat("é", 200) + "…",
+		},
+		{
+			name: "private address",
+			err:  fmt.Errorf("%w: 10.0.0.5", webhooks.ErrSSRFBlocked),
+			want: "The webhook URL points to a private or reserved address",
+		},
+		{
+			name: "other error",
+			err:  errors.New("context deadline exceeded"),
+			want: "Could not reach the webhook: context deadline exceeded",
+		},
 	}
-	if testResp.Msg.GetError() == "" {
-		t.Errorf("Error message is empty, expected non-empty message")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := webhookTestFailureMessage(tt.err)
+			if got != tt.want {
+				t.Errorf("webhookTestFailureMessage() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -1199,15 +1290,15 @@ func TestTestNotificationChannel_EmailSendFailureReturnsMessage(t *testing.T) {
 	testReq := connect.NewRequest(&xylona.TestNotificationChannelRequest{Id: createResp.Msg.GetChannel().GetId()})
 	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, testReq, "user-super")
 
-	_, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
-	if errTest == nil {
-		t.Fatal("TestNotificationChannel() error = nil, want non-nil")
+	testResp, errTest := fixture.service.TestNotificationChannel(context.Background(), testReq)
+	if errTest != nil {
+		t.Fatalf("TestNotificationChannel() error = %v, want a failed test result", errTest)
 	}
-	if connect.CodeOf(errTest) != connect.CodeUnavailable {
-		t.Fatalf("TestNotificationChannel() code = %v, want %v", connect.CodeOf(errTest), connect.CodeUnavailable)
+	if testResp.Msg.GetSuccess() {
+		t.Fatal("success = true, want false")
 	}
-	if !strings.Contains(errTest.Error(), "connection refused") {
-		t.Errorf("error = %q, want to contain %q", errTest.Error(), "connection refused")
+	if testResp.Msg.GetError() != "connection refused" {
+		t.Errorf("error = %q, want %q", testResp.Msg.GetError(), "connection refused")
 	}
 }
 
