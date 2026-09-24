@@ -56,8 +56,11 @@ type serverMetricsSnapshot struct {
 type nodeMetricsSnapshot struct {
 	nodeID        string
 	cpuPercent    float64
+	cpuValid      bool
 	memoryPercent float64
+	memoryValid   bool
 	diskPercent   float64
+	diskValid     bool
 }
 
 // serverMetricsProvider abstracts listing running server metrics.
@@ -162,8 +165,11 @@ func (r *registryNodeMetricsProvider) ListNodeMetrics() []nodeMetricsSnapshot {
 		out = append(out, nodeMetricsSnapshot{
 			nodeID:        client.ID(),
 			cpuPercent:    snap.CPUPercent,
+			cpuValid:      snap.CPUValid,
 			memoryPercent: snap.MemoryPercent,
+			memoryValid:   snap.MemoryValid,
 			diskPercent:   snap.DiskPercent,
+			diskValid:     snap.DiskValid,
 		})
 	}
 	return out
@@ -623,21 +629,21 @@ func (p *thresholdPoller) evaluateNodeRules() {
 			"ALERT_EVENT_TYPE_NODE_CPU_THRESHOLD",
 			eventbus.TopicNodeCPUThreshold,
 			func(snap nodeMetricsSnapshot) (float64, bool) {
-				return snap.cpuPercent, true
+				return snap.cpuPercent, snap.cpuValid
 			},
 		},
 		{
 			"ALERT_EVENT_TYPE_NODE_MEMORY_THRESHOLD",
 			eventbus.TopicNodeMemoryThreshold,
 			func(snap nodeMetricsSnapshot) (float64, bool) {
-				return snap.memoryPercent, true
+				return snap.memoryPercent, snap.memoryValid
 			},
 		},
 		{
 			"ALERT_EVENT_TYPE_NODE_DISK_THRESHOLD",
 			eventbus.TopicNodeDiskThreshold,
 			func(snap nodeMetricsSnapshot) (float64, bool) {
-				return snap.diskPercent, true
+				return snap.diskPercent, snap.diskValid
 			},
 		},
 	}
