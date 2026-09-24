@@ -94,8 +94,8 @@
 
               <q-card-actions v-if="hasAlertsManage" align="right">
                 <q-btn
-                  v-if="props.row.channelType === NotificationChannelType.EMAIL"
                   :aria-label="`Test ${props.row.name} channel`"
+                  :loading="testingChannelIds.has(props.row.id)"
                   flat
                   icon="send"
                   label="Test"
@@ -144,8 +144,8 @@
             <q-td :props="props">
               <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
                 <q-btn
-                  v-if="props.row.channelType === NotificationChannelType.EMAIL"
                   :aria-label="`Test ${props.row.name} channel`"
+                  :loading="testingChannelIds.has(props.row.id)"
                   dense
                   flat
                   icon="send"
@@ -1174,7 +1174,10 @@ async function saveChannel(): Promise<void> {
   }
 }
 
+const testingChannelIds = ref(new Set<string>())
+
 async function testChannel(channel: NotificationChannel): Promise<void> {
+  testingChannelIds.value.add(channel.id)
   try {
     const response = await GetXylonaClient().testNotificationChannel(
       create(TestNotificationChannelRequestSchema, { id: channel.id }),
@@ -1182,27 +1185,32 @@ async function testChannel(channel: NotificationChannel): Promise<void> {
     if (response.success) {
       $q.notify({
         type: 'xylona-success',
-        caption: 'Test notification sent',
+        message: `Test sent to ${channel.name}`,
+        caption: 'Check the channel for the test notification.',
         position: 'top',
-        timeout: 3000,
+        timeout: 4000,
       })
       return
     }
 
     $q.notify({
       type: 'xylona-error',
-      caption: response.error || 'Test notification failed',
+      message: `Test to ${channel.name} failed`,
+      caption: response.error || 'The channel did not accept the test notification.',
       position: 'top',
-      timeout: 5000,
+      timeout: 8000,
     })
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
     $q.notify({
       type: 'xylona-error',
+      message: `Test to ${channel.name} failed`,
       caption: ConnectErrorToString(err),
       position: 'top',
-      timeout: 5000,
+      timeout: 8000,
     })
+  } finally {
+    testingChannelIds.value.delete(channel.id)
   }
 }
 

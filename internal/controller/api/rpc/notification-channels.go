@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/rs/zerolog/log"
@@ -449,17 +452,24 @@ func (xs *XylonaService) TestNotificationChannel(
 		return nil, connect.NewError(connect.CodeNotFound, errors.New("notification channel not found"))
 	}
 
-	if channel.ChannelType != xylona.NotificationChannelType_NOTIFICATION_CHANNEL_TYPE_EMAIL.String() {
+	isWebhook := channel.ChannelType == webhooks.ChannelTypeDiscord ||
+		channel.ChannelType == webhooks.ChannelTypeSlack ||
+		channel.ChannelType == webhooks.ChannelTypeGeneric
+	if !isWebhook && channel.ChannelType != alerts.ChannelTypeEmail {
 		return connect.NewResponse(&xylona.TestNotificationChannelResponse{
 			Success: false,
-			Error:   "test delivery not yet implemented",
+			Error:   "Test delivery is not supported for this channel type",
 		}), nil
 	}
 
 	limiterKey := user.ID + ":" + channel.ID
 	allowedByRateLimit := xs.getNotificationChannelTestLimiter().Allow(limiterKey)
 	if !allowedByRateLimit {
-		return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("test notification channel rate limit exceeded"))
+		return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("too many tests for this channel, try again in a few minutes"))
+	}
+
+	if isWebhook {
+		return connect.NewResponse(xs.testWebhookChannel(ctx, channel)), nil
 	}
 
 	emailConfig, errParse := alerts.ParseEmailChannelConfig(channel.Config)
@@ -486,11 +496,67 @@ func (xs *XylonaService) TestNotificationChannel(
 	}
 
 	errSend := xs.resolvedSendTestEmailFunc()(ctx, smtpCfg, emailConfig.To)
+	return connect.NewResponse(testDeliveryResult(errSend, error.Error)), nil
+}
+
+// testDeliveryResult reports a delivery failure as a failed test rather than
+// an RPC error, which the client would show as "Unable to connect to Xylona
+// backend".
+func testDeliveryResult(errSend error, describe func(error) string) *xylona.TestNotificationChannelResponse {
 	if errSend != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, errSend)
+		return &xylona.TestNotificationChannelResponse{Error: describe(errSend)}
+	}
+	return &xylona.TestNotificationChannelResponse{Success: true}
+}
+
+// testWebhookChannel posts a test event through the same sender, formatting
+// and SSRF checks that real alert deliveries use.
+func (xs *XylonaService) testWebhookChannel(ctx context.Context, channel *models.NotificationChannel) *xylona.TestNotificationChannelResponse {
+	var config webhooks.ChannelConfig
+	errUnmarshal := json.Unmarshal([]byte(channel.Config), &config)
+	if errUnmarshal != nil {
+		log.Error().Err(errUnmarshal).Str("notification_channel_id", channel.ID).Msg("failed to parse stored webhook config for test")
+		return &xylona.TestNotificationChannelResponse{Error: "The stored webhook config is not valid JSON"}
 	}
 
-	return connect.NewResponse(&xylona.TestNotificationChannelResponse{
-		Success: true,
-	}), nil
+	sender := xs.webhookTestSender
+	if sender == nil {
+		sender = webhooks.NewSender()
+	}
+	errSend := sender.Send(ctx, channel.ChannelType, config, webhooks.AlertEvent{
+		EventType: webhooks.EventTypeTest,
+		Message:   "This is a test notification from Xylona. If you can read this, the channel works.",
+		Severity:  webhooks.SeverityInfo,
+		Timestamp: time.Now(),
+	})
+	return testDeliveryResult(errSend, webhookTestFailureMessage)
+}
+
+// webhookTestFailureMessage describes a failed webhook test without echoing
+// the webhook URL, whose path usually carries the secret token.
+func webhookTestFailureMessage(errSend error) string {
+	if deliveryErr, ok := errors.AsType[*webhooks.DeliveryError](errSend); ok && deliveryErr.StatusCode > 0 {
+		message := fmt.Sprintf("The webhook responded with HTTP %d", deliveryErr.StatusCode)
+		body := strings.TrimSpace(deliveryErr.Body)
+		if runes := []rune(body); len(runes) > 200 {
+			body = string(runes[:200]) + "…"
+		}
+		if body != "" {
+			message += ": " + body
+		}
+		return message
+	}
+	if errors.Is(errSend, webhooks.ErrSSRFBlocked) {
+		return "The webhook URL points to a private or reserved address"
+	}
+	if dnsErr, ok := errors.AsType[*net.DNSError](errSend); ok {
+		return "Could not find the webhook host " + dnsErr.Name
+	}
+	if errors.Is(errSend, webhooks.ErrInvalidWebhookURL) {
+		return "The webhook URL is not valid"
+	}
+	if urlErr, ok := errors.AsType[*url.Error](errSend); ok {
+		return "Could not reach the webhook: " + urlErr.Err.Error()
+	}
+	return "Could not reach the webhook: " + errSend.Error()
 }
