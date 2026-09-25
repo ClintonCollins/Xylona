@@ -32,6 +32,7 @@
           </template>
         </q-input>
         <q-btn
+          :aria-expanded="showStatusPageSettings"
           :aria-label="$q.screen.xs ? 'Public status page' : undefined"
           :color="showStatusPageSettings ? 'primary' : undefined"
           flat

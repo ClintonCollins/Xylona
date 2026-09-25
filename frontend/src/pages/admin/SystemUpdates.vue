@@ -19,9 +19,9 @@
 
     <div
       :class="['system-updates__live-strip', `is-${liveStatus.tone}`]"
-      aria-label="System update status"
       data-test="live-status-strip">
-      <div class="system-updates__live-state">
+      <!-- Only the state is live; the sync time beside it changes on every sync. -->
+      <div class="system-updates__live-state" role="status">
         <q-icon :name="liveStatus.icon" size="sm" />
         <div>
           <strong>{{ liveStatus.title }}</strong>
@@ -79,24 +79,30 @@
           </div>
           <q-badge
             v-if="activeJobs.length > 0"
-            color="primary"
+            color="grey-8"
             :label="`${activeJobs.length} active`" />
         </div>
 
-        <div v-if="jobsError" class="system-updates__error" role="alert">
-          <q-icon name="sync_problem" size="sm" />
-          <div>
-            <strong>Update jobs could not be synchronized.</strong>
-            <span>{{ jobsError }}</span>
-          </div>
-          <q-btn
-            :loading="jobsLoading"
-            dense
-            flat
-            icon="refresh"
-            label="Retry"
-            @click="loadJobs()" />
-        </div>
+        <q-banner
+          v-if="jobsError"
+          class="xy-banner-negative q-mb-md"
+          dense
+          inline-actions
+          role="alert">
+          <template #avatar>
+            <q-icon name="sync_problem" />
+          </template>
+          <strong>Update jobs could not be synchronized.</strong> {{ jobsError }}
+          <template #action>
+            <q-btn
+              :loading="jobsLoading"
+              flat
+              icon="refresh"
+              label="Retry"
+              no-caps
+              @click="loadJobs()" />
+          </template>
+        </q-banner>
 
         <div v-if="jobsLoading && !jobsHasLoaded" class="system-updates__loading">
           <q-spinner color="primary" size="1.5rem" />
@@ -173,40 +179,48 @@
           </span>
         </div>
 
-        <div v-if="availabilityError" class="system-updates__error" role="alert">
-          <q-icon name="cloud_off" size="sm" />
-          <div>
-            <strong>Update availability could not be checked.</strong>
-            <span>{{ availabilityError }}</span>
-          </div>
-          <q-btn
-            :loading="availabilityLoading"
-            dense
-            flat
-            icon="refresh"
-            label="Retry"
-            @click="loadAvailability()" />
-        </div>
-
-        <div
-          v-if="contextError"
-          class="system-updates__error system-updates__error--warning"
+        <q-banner
+          v-if="availabilityError"
+          class="xy-banner-negative q-mb-md"
+          dense
+          inline-actions
           role="alert">
-          <q-icon name="warning_amber" size="sm" />
-          <div>
-            <strong>Affected game servers could not be verified.</strong>
-            <span
-              >{{ contextError }} Update actions stay disabled until this context is fresh.</span
-            >
-          </div>
-          <q-btn
-            :loading="contextLoading"
-            dense
-            flat
-            icon="refresh"
-            label="Retry"
-            @click="loadContext()" />
-        </div>
+          <template #avatar>
+            <q-icon name="cloud_off" />
+          </template>
+          <strong>Update availability could not be checked.</strong> {{ availabilityError }}
+          <template #action>
+            <q-btn
+              :loading="availabilityLoading"
+              flat
+              icon="refresh"
+              label="Retry"
+              no-caps
+              @click="loadAvailability()" />
+          </template>
+        </q-banner>
+
+        <q-banner
+          v-if="contextError"
+          class="xy-banner-warning q-mb-md"
+          dense
+          inline-actions
+          role="alert">
+          <template #avatar>
+            <q-icon name="warning_amber" />
+          </template>
+          <strong>Affected game servers could not be verified.</strong>
+          {{ contextError }} Update actions stay disabled until this context is fresh.
+          <template #action>
+            <q-btn
+              :loading="contextLoading"
+              flat
+              icon="refresh"
+              label="Retry"
+              no-caps
+              @click="loadContext()" />
+          </template>
+        </q-banner>
 
         <div v-if="availabilityLoading && !availabilityHasLoaded" class="system-updates__loading">
           <q-spinner color="primary" size="1.5rem" />
@@ -325,30 +339,31 @@
           </template>
           <template #body-cell-actions="props">
             <q-td :props="props">
-              <q-btn
-                :aria-label="`Update ${targetName(props.row)}`"
-                :disable="targetActionDisabled(props.row)"
-                :loading="preflightTargetKey === props.row.targetKey"
-                color="primary"
-                dense
-                flat
-                icon="system_update_alt"
-                @click="openConfirm(props.row)">
-                <q-tooltip>
-                  {{ targetActionReason(props.row) || 'Start update' }}
-                </q-tooltip>
-              </q-btn>
+              <div class="xy-row-actions">
+                <q-btn
+                  :aria-label="`Update ${targetName(props.row)}`"
+                  :disable="targetActionDisabled(props.row)"
+                  :loading="preflightTargetKey === props.row.targetKey"
+                  color="primary"
+                  dense
+                  flat
+                  icon="system_update_alt"
+                  round
+                  @click="openConfirm(props.row)">
+                  <q-tooltip>
+                    {{ targetActionReason(props.row) || 'Start update' }}
+                  </q-tooltip>
+                </q-btn>
+              </div>
             </q-td>
           </template>
         </q-table>
 
-        <div v-else-if="availabilityHasLoaded && !availabilityError" class="system-updates__empty">
-          <q-icon name="inventory_2" size="md" />
-          <div>
-            <strong>No update targets were returned</strong>
-            <span>Resync to check the controller and registered nodes again.</span>
-          </div>
-        </div>
+        <empty-state
+          v-else-if="availabilityHasLoaded && !availabilityError"
+          description="Resync to check the controller and registered nodes again."
+          icon="inventory_2"
+          title="No update targets were returned" />
       </section>
 
       <section class="system-updates__section" aria-labelledby="update-history-title">
@@ -445,13 +460,11 @@
           </template>
         </q-table>
 
-        <div v-else-if="jobsHasLoaded && !jobsError" class="system-updates__empty">
-          <q-icon name="history" size="md" />
-          <div>
-            <strong>No completed updates yet</strong>
-            <span>Successful and failed update jobs will be retained here.</span>
-          </div>
-        </div>
+        <empty-state
+          v-else-if="jobsHasLoaded && !jobsError"
+          description="Successful and failed update jobs will be retained here."
+          icon="history"
+          title="No completed updates yet" />
       </section>
     </div>
 
@@ -485,13 +498,12 @@
             starting them again.
           </p>
 
-          <div v-if="contextError" class="system-updates__error" role="alert">
-            <q-icon name="sync_problem" size="sm" />
-            <div>
-              <strong>Affected server context is unavailable.</strong>
-              <span>{{ contextError }}</span>
-            </div>
-          </div>
+          <q-banner v-if="contextError" class="xy-banner-negative" dense role="alert">
+            <template #avatar>
+              <q-icon name="sync_problem" />
+            </template>
+            <strong>Affected server context is unavailable.</strong> {{ contextError }}
+          </q-banner>
 
           <div v-else class="system-updates__affected">
             <div class="system-updates__affected-heading">
@@ -539,10 +551,12 @@
 <script setup lang="ts">
 import { create } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { Notify, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { notifyConnectError, notifyError, notifyInfo } from '@/api/notifications'
+import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import {
   formatTime as formatAppTime,
@@ -607,6 +621,8 @@ const START_REQUEST_TIMEOUT_MS = 20_000
 const route = useRoute()
 const $q = useQuasar()
 const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
+// Update failures stay up until dismissed; the operator must act on them.
+const stickyError = { timeout: 0, closeBtn: 'Dismiss', icon: 'report_problem' }
 
 const updates = ref<UpdateRow[]>([])
 const jobs = ref<SystemUpdateJob[]>([])
@@ -783,7 +799,14 @@ const updateColumns = [
   { name: 'version', label: 'Version', align: 'left' as const, field: 'latestVersion' },
   { name: 'status', label: 'State', align: 'left' as const, field: 'updateable' },
   { name: 'artifact', label: 'Artifact', align: 'left' as const, field: 'artifactName' },
-  { name: 'actions', label: '', align: 'center' as const, field: 'targetKey' },
+  {
+    name: 'actions',
+    label: '',
+    align: 'center' as const,
+    field: 'targetKey',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
+  },
 ]
 
 const historyColumns = [
@@ -1149,28 +1172,21 @@ async function startSelectedUpdate(): Promise<void> {
       if (recoveredJob) {
         confirmOpen.value = false
         selectedUpdate.value = null
-        Notify.create({
-          type: 'xylona-info',
-          position: 'top',
-          caption:
-            'The update request reached the controller. Its persisted job state was recovered.',
-          icon: 'sync',
-        })
+        notifyInfo(
+          'The update request reached the controller. Its persisted job state was recovered.',
+          { icon: 'sync' },
+        )
         return
       }
       if (!reconciled) {
-        Notify.create({
-          type: 'xylona-error',
-          position: 'top',
-          caption: 'The update request outcome is unknown. Resync update jobs before trying again.',
-          timeout: 0,
-          closeBtn: 'Dismiss',
-          icon: 'report_problem',
-        })
+        notifyError(
+          'The update request outcome is unknown. Resync update jobs before trying again.',
+          stickyError,
+        )
         return
       }
     }
-    notifyError(err)
+    notifyConnectError(err, undefined, stickyError)
   } finally {
     startPending.value = false
   }
@@ -1638,7 +1654,11 @@ function targetStateReason(update: UpdateRow): string {
   if (activeTargetKeys.value.has(update.targetKey)) {
     return 'An update job is already active for this target.'
   }
-  return update.reason
+  // A pending update that can't start says why inline, not only in the Update tooltip. Skipped
+  // while a refresh or start is in flight, so the caption doesn't flicker on every poll.
+  const busy = isRefreshing.value || Boolean(preflightTargetKey.value) || startPending.value
+  if (update.reason || !update.updateAvailable || busy) return update.reason
+  return targetActionReason(update)
 }
 
 function targetActionDisabled(update: UpdateRow): boolean {
@@ -1779,28 +1799,10 @@ function isAmbiguousStartError(error: ConnectError): boolean {
   return [Code.Canceled, Code.Unknown, Code.DeadlineExceeded, Code.Unavailable].includes(error.code)
 }
 
-function notifyError(unknownError: unknown): void {
-  Notify.create({
-    type: 'xylona-error',
-    position: 'top',
-    caption: errorMessage(unknownError),
-    timeout: 0,
-    closeBtn: 'Dismiss',
-    icon: 'report_problem',
-  })
-}
-
 function notifyPreflightUnavailable(
   message = 'Fresh target, job, and affected-server context is required before continuing.',
 ): void {
-  Notify.create({
-    type: 'xylona-error',
-    position: 'top',
-    caption: message,
-    timeout: 0,
-    closeBtn: 'Dismiss',
-    icon: 'report_problem',
-  })
+  notifyError(message, stickyError)
 }
 
 function reloadInterface(): void {
@@ -1832,9 +1834,7 @@ function reloadInterface(): void {
 
 .system-updates__live-strip,
 .system-updates__reload-banner,
-.system-updates__error,
-.system-updates__loading,
-.system-updates__empty {
+.system-updates__loading {
   display: flex;
   align-items: center;
   gap: var(--xy-space-base);
@@ -1871,9 +1871,7 @@ function reloadInterface(): void {
 }
 
 .system-updates__live-state > div,
-.system-updates__reload-banner > div:not(.system-updates__reload-actions),
-.system-updates__error > div,
-.system-updates__empty > div {
+.system-updates__reload-banner > div:not(.system-updates__reload-actions) {
   display: grid;
   gap: var(--xy-space-2xs);
   min-width: 0;
@@ -1881,8 +1879,6 @@ function reloadInterface(): void {
 
 .system-updates__live-state span,
 .system-updates__reload-banner span,
-.system-updates__error span,
-.system-updates__empty span,
 .system-updates__section-header p {
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-sm);
@@ -1923,36 +1919,12 @@ function reloadInterface(): void {
   max-width: 70ch;
 }
 
-.system-updates__error,
-.system-updates__loading,
-.system-updates__empty {
+.system-updates__loading {
+  min-height: var(--xy-space-3xl);
   margin-bottom: var(--xy-space-base);
   padding: var(--xy-space-base) var(--xy-space-md);
-}
-
-.system-updates__error {
-  background: var(--xy-danger-bg);
-  border: 1px solid var(--xy-danger-border);
-}
-
-.system-updates__error--warning {
-  background: var(--xy-warning-bg);
-  border-color: var(--xy-warning-border);
-}
-
-.system-updates__error .q-btn {
-  margin-inline-start: auto;
-}
-
-.system-updates__loading,
-.system-updates__empty {
-  min-height: var(--xy-space-3xl);
   background: var(--xy-surface-1);
   border: 1px solid var(--xy-border);
-}
-
-.system-updates__empty > .q-icon {
-  color: var(--xy-text-muted);
 }
 
 .system-updates__active-list {
@@ -2195,15 +2167,6 @@ function reloadInterface(): void {
 
   .system-updates__active-meta {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .system-updates__error {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .system-updates__error .q-btn {
-    margin-inline-start: 0;
   }
 
   .system-updates__dialog {

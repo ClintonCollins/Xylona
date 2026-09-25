@@ -353,6 +353,27 @@ describe('GameServerAlerts', () => {
     ).toEqual(['Enable CPU Threshold alert: >= 90%', 'Enable Status Change alert: Any status'])
   })
 
+  it('names row actions after their rule', async () => {
+    setupDefaultMocks({
+      channels: [makeChannel()],
+      rules: [makeRule({ id: 'rule-status', eventType: AlertEventType.STATUS_CHANGE })],
+    })
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    expect(
+      wrapper.findAll('.q-table-row .xy-row-actions button').map((b) => b.attributes('aria-label')),
+    ).toEqual(['Edit Status Change alert: Any status', 'Delete Status Change alert: Any status'])
+  })
+
+  it('shows a delivery error as text under its status', async () => {
+    setupDefaultMocks({ entries: [makeHistoryEntry({ deliveryError: 'webhook returned 404' })] })
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    expect(wrapper.find('.alerts-delivery-error').text()).toBe('webhook returned 404')
+  })
+
   it('describes alert history details instead of showing raw event data', async () => {
     setupDefaultMocks({
       entries: [

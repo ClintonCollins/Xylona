@@ -86,9 +86,9 @@ function getArchiveName(archivePath: string): string {
     @hide="closeDialog">
     <q-card class="backup-restore-dialog">
       <q-card-section class="backup-restore-dialog__header">
-        <div id="backup-restore-dialog-title" class="backup-restore-dialog__title">
+        <h2 id="backup-restore-dialog-title" class="backup-restore-dialog__title">
           Restore Backup
-        </div>
+        </h2>
         <div class="backup-restore-dialog__subtitle">
           Choose how {{ getArchiveName(backup?.archivePath ?? '') }} should be applied to
           {{ serverName ? `${serverName}'s` : 'the current' }} server directory.
@@ -128,44 +128,43 @@ function getArchiveName(archivePath: string): string {
           </q-banner>
         </div>
 
+        <!-- Divided rows, not cards: the dialog is already the card. -->
         <div class="backup-restore-dialog__option-list">
-          <q-card bordered class="backup-restore-dialog__option" flat>
-            <q-card-section>
-              <div class="backup-restore-dialog__option-title">Overlay Restore</div>
+          <div class="backup-restore-dialog__option">
+            <div>
+              <h3 class="backup-restore-dialog__option-title">Overlay Restore</h3>
               <div class="backup-restore-dialog__option-copy">
                 Restore the archived files over the current server directory and keep any extra
                 files that already exist on disk.
               </div>
-            </q-card-section>
-            <q-card-actions align="right">
-              <q-btn
-                :disable="blockedReason !== ''"
-                :loading="loading"
-                color="primary"
-                label="Restore As Overlay"
-                no-caps
-                @click="emitRestore(BackupRestoreMode.OVERLAY)" />
-            </q-card-actions>
-          </q-card>
+            </div>
+            <q-btn
+              :disable="blockedReason !== ''"
+              :loading="loading"
+              class="backup-restore-dialog__option-action"
+              color="primary"
+              label="Restore As Overlay"
+              no-caps
+              @click="emitRestore(BackupRestoreMode.OVERLAY)" />
+          </div>
 
-          <q-card bordered class="backup-restore-dialog__option" flat>
-            <q-card-section>
-              <div class="backup-restore-dialog__option-title">Exact Restore</div>
+          <div class="backup-restore-dialog__option">
+            <div>
+              <h3 class="backup-restore-dialog__option-title">Exact Restore</h3>
               <div class="backup-restore-dialog__option-copy">
                 Make the server directory match the backup exactly by removing files that are not in
                 the archive before applying the restore.
               </div>
-            </q-card-section>
-            <q-card-actions align="right">
-              <q-btn
-                :disable="blockedReason !== ''"
-                :loading="loading"
-                color="warning"
-                label="Restore Exactly"
-                no-caps
-                @click="emitRestore(BackupRestoreMode.EXACT)" />
-            </q-card-actions>
-          </q-card>
+            </div>
+            <q-btn
+              :disable="blockedReason !== ''"
+              :loading="loading"
+              class="backup-restore-dialog__option-action"
+              color="warning"
+              label="Restore Exactly"
+              no-caps
+              @click="emitRestore(BackupRestoreMode.EXACT)" />
+          </div>
         </div>
       </q-card-section>
 
@@ -198,8 +197,12 @@ function getArchiveName(archivePath: string): string {
 }
 
 .backup-restore-dialog__title {
+  margin: 0;
   font-family: var(--xy-font-display);
   font-size: var(--xy-font-size-lg);
+  font-weight: 400;
+  line-height: var(--xy-line-height-tight);
+  letter-spacing: normal;
   color: var(--xy-text-primary);
 }
 
@@ -222,18 +225,28 @@ function getArchiveName(archivePath: string): string {
 
 .backup-restore-dialog__option-list {
   display: grid;
-  gap: 1rem;
 }
 
 .backup-restore-dialog__option {
-  background: var(--xy-surface-2);
-  border-color: var(--xy-border);
-  border-radius: var(--xy-radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--xy-space-md);
+  padding: var(--xy-space-md) 0;
+  border-top: 1px solid var(--xy-border);
+}
+
+.backup-restore-dialog__option-action {
+  flex-shrink: 0;
 }
 
 .backup-restore-dialog__option-title {
+  margin: 0;
   font-family: var(--xy-font-display);
   font-size: var(--xy-font-size-base);
+  font-weight: 400;
+  line-height: var(--xy-line-height-tight);
+  letter-spacing: normal;
   color: var(--xy-text-primary);
 }
 
@@ -241,5 +254,12 @@ function getArchiveName(archivePath: string): string {
   margin-top: 0.35rem;
   color: var(--xy-text-muted);
   line-height: 1.5;
+}
+
+@media (max-width: 599px) {
+  .backup-restore-dialog__option {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

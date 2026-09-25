@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import { effectScope, ref } from 'vue'
 
 import { Status } from '@/proto/shared_pb'
+import { XylonaEventBus } from '@/utils/shared'
 
-import { detectStartFailure, processExitedMessage, startFailureWindowMs } from './start-failure'
+import {
+  createGameServerLifecycle,
+  detectStartFailure,
+  processExitedMessage,
+  startFailureWindowMs,
+} from './start-failure'
 
 describe('detectStartFailure', () => {
   const t0 = 1_000_000
@@ -46,5 +53,27 @@ describe('detectStartFailure', () => {
     expect(
       detectStartFailure(Status.PRE_START, { startRequestedAt: t0, stopRequestedAt: 0 }, t0 + 1),
     ).toBeUndefined()
+  })
+})
+
+describe('createGameServerLifecycle', () => {
+  it('records a failed start from a status event, whichever tab is open', () => {
+    const scope = effectScope()
+    const lifecycle = scope.run(() => createGameServerLifecycle(ref('server-1')))
+    if (!lifecycle) throw new Error('Expected the scope to run.')
+    lifecycle.intents.startRequestedAt = Date.now()
+
+    XylonaEventBus.emit('gameServerStatus', 'other-server', 'Other', Status.OFFLINE)
+    expect(lifecycle.lastStartFailure.value).toBeNull()
+
+    XylonaEventBus.emit('gameServerStatus', 'server-1', 'Mine', Status.OFFLINE)
+    expect(lifecycle.lastStartFailure.value?.message).toBe(processExitedMessage)
+    expect(lifecycle.intents.startRequestedAt).toBe(0)
+
+    scope.stop()
+    lifecycle.lastStartFailure.value = null
+    lifecycle.intents.startRequestedAt = Date.now()
+    XylonaEventBus.emit('gameServerStatus', 'server-1', 'Mine', Status.OFFLINE)
+    expect(lifecycle.lastStartFailure.value).toBeNull()
   })
 })

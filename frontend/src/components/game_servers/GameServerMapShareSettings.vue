@@ -124,7 +124,8 @@ onMounted(loadSettings)
 </script>
 
 <template>
-  <q-card class="map-share-settings" aria-labelledby="map-share-settings-title">
+  <!-- The q-dialog that wraps this card is named by the heading's id. -->
+  <q-card class="map-share-settings">
     <q-card-section class="map-share-settings__header">
       <div>
         <h2 id="map-share-settings-title">Public live map</h2>

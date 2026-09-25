@@ -15,7 +15,7 @@
             aria-required="true"
             dense
             hint="Relative to server directory, e.g. server.properties"
-            label="File Path"
+            label="File Path *"
             outlined>
           </q-input>
 
@@ -26,7 +26,7 @@
             aria-required="true"
             dense
             emit-value
-            label="Format"
+            label="Format *"
             map-options
             outlined>
           </q-select>
@@ -37,7 +37,7 @@
             aria-required="true"
             dense
             hint="Group related files together, e.g. Core, Plugins"
-            label="Category"
+            label="Category *"
             outlined>
             <template #append>
               <q-icon v-if="filteredCategories.length > 0" name="arrow_drop_down" />
@@ -93,7 +93,7 @@
                 aria-required="true"
                 dense
                 hint="e.g. property"
-                label="Element Name"
+                label="Element Name *"
                 outlined>
               </q-input>
               <q-input

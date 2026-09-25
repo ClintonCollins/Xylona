@@ -1,5 +1,5 @@
 <template>
-  <div class="config-schema-list">
+  <div ref="rootRef" class="config-schema-list">
     <div class="schema-list-overview">
       <div class="schema-list-overview-copy">
         <div class="schema-list-copy text-xy-muted">
@@ -25,7 +25,7 @@
       </div>
     </div>
 
-    <div v-if="configSchemas.length === 0" class="schema-list-empty">
+    <div v-if="configSchemas.length === 0 && !removed" class="schema-list-empty">
       <div class="schema-list-empty-title font-display">No configuration files defined yet.</div>
       <div class="schema-list-empty-copy text-xy-muted">
         Start with the file operators edit most often. Once it is mapped here, Xylona can give
@@ -33,19 +33,19 @@
       </div>
       <div class="schema-list-empty-steps">
         <div class="schema-list-empty-step">
-          <span class="schema-list-empty-step-index font-display">01</span>
+          <span class="schema-list-empty-step-index">01</span>
           <span class="schema-list-empty-step-copy"
             >Add the file path you want Xylona to manage.</span
           >
         </div>
         <div class="schema-list-empty-step">
-          <span class="schema-list-empty-step-index font-display">02</span>
+          <span class="schema-list-empty-step-index">02</span>
           <span class="schema-list-empty-step-copy"
             >Choose its format so parsing and previews work.</span
           >
         </div>
         <div class="schema-list-empty-step">
-          <span class="schema-list-empty-step-index font-display">03</span>
+          <span class="schema-list-empty-step-index">03</span>
           <span class="schema-list-empty-step-copy">
             Open the schema editor to mark managed fields, validation, and defaults.
           </span>
@@ -54,8 +54,11 @@
     </div>
 
     <div v-else class="schema-list-content">
+      <div v-if="!props.canEditSchemas" class="schema-list-copy text-xy-secondary">
+        Save changes to edit schemas.
+      </div>
       <div
-        v-for="[category, files] in groupedSchemaEntries"
+        v-for="{ category, rows, files } in groupedSchemaEntries"
         :key="category"
         class="schema-category">
         <div class="schema-category-panel">
@@ -81,101 +84,107 @@
           </div>
 
           <q-list class="schema-file-list" separator>
-            <q-item v-for="(schema, index) in files" :key="schema.path" class="schema-file-item">
-              <q-item-section avatar top>
-                <q-icon class="text-xy-secondary schema-file-icon" name="description" size="sm" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label class="font-mono schema-file-path">{{ schema.path }}</q-item-label>
-                <q-item-label caption class="schema-file-meta-row">
-                  <q-popup-edit
-                    v-slot="scope"
-                    v-model="schema.format"
-                    auto-save
-                    @save="
-                      (val: string) =>
-                        updateSchemaFormat(getGlobalIndex(String(category), index), val)
-                    ">
+            <template v-for="{ schema, index } in rows" :key="schema.path">
+              <removed-item-undo
+                v-if="index < 0"
+                :clear-on-save="removed?.clearOnSave"
+                :label="schema.path"
+                @dismiss="removed = null"
+                @undo="undoRemoveSchema" />
+              <q-item v-else class="schema-file-item">
+                <q-item-section avatar top>
+                  <q-icon class="text-xy-secondary schema-file-icon" name="description" size="sm" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="font-mono schema-file-path">{{ schema.path }}</q-item-label>
+                  <q-item-label caption class="schema-file-meta-row">
+                    <!-- q-popup-edit opens on a click of its parent, so the button is the trigger. -->
                     <button
-                      :data-testid="`config-schema-format-edit-${getGlobalIndex(String(category), index)}`"
-                      aria-label="Edit file format"
+                      :aria-label="`Edit format of ${schema.path}, currently ${schema.format}`"
+                      :data-testid="`config-schema-format-edit-${index}`"
                       class="schema-format-edit"
                       type="button">
                       <span class="schema-format-value">{{ schema.format }}</span>
                       <span class="schema-format-action">Edit format</span>
                       <q-icon class="format-edit-icon" name="edit" size="12px" />
+                      <q-popup-edit
+                        v-slot="scope"
+                        v-model="schema.format"
+                        auto-save
+                        @save="(val: string) => updateSchemaFormat(index, val)">
+                        <q-select
+                          v-model="scope.value"
+                          :options="formatOptions"
+                          aria-label="Config format"
+                          autofocus
+                          dense
+                          emit-value
+                          map-options
+                          outlined
+                          @update:model-value="scope.set" />
+                      </q-popup-edit>
                     </button>
-                    <q-select
-                      v-model="scope.value"
-                      :options="formatOptions"
-                      aria-label="Config format"
-                      autofocus
-                      dense
-                      emit-value
-                      map-options
-                      outlined
-                      @update:model-value="scope.set" />
-                  </q-popup-edit>
-                  <span v-if="getFieldCount(schema)" class="schema-file-stat">
-                    {{ getFieldCount(schema) }} fields
-                  </span>
-                  <span v-if="getManagedCount(schema)" class="schema-file-stat">
-                    {{ getManagedCount(schema) }} managed
-                  </span>
-                  <q-badge
-                    v-if="schema.generate_before_start"
-                    class="schema-gen-badge"
-                    color="info"
-                    label="gen-on-start"
-                    outline />
-                </q-item-label>
-              </q-item-section>
-              <q-item-section side top>
-                <div class="schema-file-actions">
-                  <q-btn
-                    :color="schema.generate_before_start ? 'info' : 'grey-6'"
-                    :icon="schema.generate_before_start ? 'toggle_on' : 'toggle_off'"
-                    aria-label="Toggle generate before start"
-                    class="schema-row-action"
-                    data-test="toggle-generate-before-start"
-                    flat
-                    round
-                    @click="toggleGenerateBeforeStart(getGlobalIndex(String(category), index))">
-                    <q-tooltip>
-                      {{
-                        schema.generate_before_start
-                          ? "Don't create this file automatically on first start"
-                          : 'Create this file automatically on first start if it is missing'
-                      }}
-                    </q-tooltip>
-                  </q-btn>
-                  <q-btn
-                    :disable="!props.canEditSchemas"
-                    aria-label="Edit schema"
-                    class="schema-row-action"
-                    flat
-                    icon="edit"
-                    round
-                    @click="$emit('editSchema', getGlobalIndex(String(category), index))">
-                    <q-tooltip>{{
-                      props.canEditSchemas
-                        ? 'Edit schema'
-                        : 'Save your changes first to edit schemas.'
-                    }}</q-tooltip>
-                  </q-btn>
-                  <q-btn
-                    aria-label="Remove schema"
-                    class="schema-row-action schema-row-action--destructive"
-                    color="negative"
-                    flat
-                    icon="delete"
-                    round
-                    @click="removeSchema(getGlobalIndex(String(category), index))">
-                    <q-tooltip>Remove</q-tooltip>
-                  </q-btn>
-                </div>
-              </q-item-section>
-            </q-item>
+                    <span v-if="getFieldCount(schema)" class="schema-file-stat">
+                      {{ getFieldCount(schema) }} fields
+                    </span>
+                    <span v-if="getManagedCount(schema)" class="schema-file-stat">
+                      {{ getManagedCount(schema) }} managed
+                    </span>
+                    <q-badge
+                      v-if="schema.generate_before_start"
+                      class="schema-gen-badge"
+                      color="grey-8"
+                      label="gen-on-start" />
+                  </q-item-label>
+                </q-item-section>
+                <q-item-section side top>
+                  <div class="schema-file-actions">
+                    <q-btn
+                      :aria-label="`Generate ${schema.path} before start`"
+                      :aria-pressed="schema.generate_before_start ? 'true' : 'false'"
+                      :color="schema.generate_before_start ? 'info' : 'grey-6'"
+                      :icon="schema.generate_before_start ? 'toggle_on' : 'toggle_off'"
+                      class="schema-row-action"
+                      data-test="toggle-generate-before-start"
+                      flat
+                      round
+                      @click="toggleGenerateBeforeStart(index)">
+                      <q-tooltip>
+                        {{
+                          schema.generate_before_start
+                            ? "Don't create this file automatically on first start"
+                            : 'Create this file automatically on first start if it is missing'
+                        }}
+                      </q-tooltip>
+                    </q-btn>
+                    <q-btn
+                      :aria-label="`Edit schema for ${schema.path}`"
+                      :disable="!props.canEditSchemas"
+                      class="schema-row-action"
+                      flat
+                      icon="edit"
+                      round
+                      @click="$emit('editSchema', index)">
+                      <q-tooltip>{{
+                        props.canEditSchemas
+                          ? 'Edit schema'
+                          : 'Save your changes first to edit schemas.'
+                      }}</q-tooltip>
+                    </q-btn>
+                    <q-btn
+                      :aria-label="`Remove ${schema.path}`"
+                      class="schema-row-action schema-row-action--destructive"
+                      color="negative"
+                      flat
+                      icon="delete"
+                      round
+                      @click="removeSchema(index)">
+                      <q-tooltip>Remove</q-tooltip>
+                    </q-btn>
+                  </div>
+                </q-item-section>
+              </q-item>
+            </template>
           </q-list>
         </div>
       </div>
@@ -189,9 +198,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, inject, nextTick, ref, shallowRef } from 'vue'
 import AddConfigFileDialog from './AddConfigFileDialog.vue'
 import type { ConfigSchemaEntry } from './config-schema-types'
+import { gameFormContextKey } from './GameFormTypes'
+import RemovedItemUndo from './RemovedItemUndo.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -211,6 +222,26 @@ const emit = defineEmits<{
 const configSchemas = computed(() => props.modelValue)
 
 const showAddDialog = ref(false)
+const rootRef = ref<HTMLElement | null>(null)
+const formIsDirty = inject(gameFormContextKey, null)?.isDirty
+
+// The most recent removal, with the path of the file before it.
+const removed = shallowRef<{
+  schema: ConfigSchemaEntry
+  index: number
+  after?: string
+  clearOnSave: boolean
+} | null>(null)
+
+// Undo puts the file back after the neighbour it had, or at its old index if that one is gone.
+const removedAt = computed(() => {
+  const removal = removed.value
+  if (!removal) {
+    return -1
+  }
+  const after = configSchemas.value.findIndex((schema) => schema.path === removal.after)
+  return after >= 0 ? after + 1 : Math.min(removal.index, configSchemas.value.length)
+})
 
 const CATEGORY_COLORS = [
   'var(--xy-category-1)',
@@ -234,19 +265,27 @@ const categoryColorMap = computed(() => {
   return map
 })
 
-const groupedSchemas = computed(() => {
-  const groups: Record<string, ConfigSchemaEntry[]> = {}
-  for (const schema of configSchemas.value) {
-    const cat = schema.category || 'Uncategorized'
+// Files by category. Each row keeps its index in the flat list; the removed file keeps its slot
+// as an undo row (index -1), so its category stays in place until the undo goes.
+const groupedSchemaEntries = computed(() => {
+  const rows = configSchemas.value.map((schema, index) => ({ schema, index }))
+  if (removed.value) {
+    rows.splice(removedAt.value, 0, { schema: removed.value.schema, index: -1 })
+  }
+  const groups: Record<string, typeof rows> = {}
+  for (const row of rows) {
+    const cat = row.schema.category || 'Uncategorized'
     if (!groups[cat]) {
       groups[cat] = []
     }
-    groups[cat].push(schema)
+    groups[cat].push(row)
   }
-  return groups
+  return Object.entries(groups).map(([category, rows]) => ({
+    category,
+    rows,
+    files: rows.filter(({ index }) => index >= 0).map(({ schema }) => schema),
+  }))
 })
-
-const groupedSchemaEntries = computed(() => Object.entries(groupedSchemas.value))
 const autoGeneratedCount = computed(
   () => configSchemas.value.filter((schema) => schema.generate_before_start).length,
 )
@@ -273,33 +312,46 @@ function getCategoryGeneratedCount(files: ConfigSchemaEntry[]): number {
   return files.filter((schema) => schema.generate_before_start).length
 }
 
-function getGlobalIndex(category: string, localIndex: number): number {
-  let seen = 0
-  for (let i = 0; i < configSchemas.value.length; i++) {
-    const cat = configSchemas.value[i].category || 'Uncategorized'
-    if (cat === category) {
-      if (seen === localIndex) {
-        return i
-      }
-      seen++
-    }
-  }
-  return -1
-}
-
+// One click removes the file and the next Save makes it permanent, so an undo row takes its place.
 function removeSchema(index: number) {
+  const schema = configSchemas.value[index]
+  if (!schema) return
+  const clearOnSave = formIsDirty?.value === false
+  const after = configSchemas.value[index - 1]?.path
   const updated = [...configSchemas.value]
   updated.splice(index, 1)
   emit('update:modelValue', updated)
+  removed.value = { schema, index, after, clearOnSave }
+}
+
+function undoRemoveSchema() {
+  const removal = removed.value
+  if (!removal) return
+  const at = removedAt.value
+  removed.value = null
+  emit('update:modelValue', [
+    ...configSchemas.value.slice(0, at),
+    removal.schema,
+    ...configSchemas.value.slice(at),
+  ])
+  // Format buttons render in grouped order, so find the restored file's place among them.
+  void nextTick(() => {
+    const position = groupedSchemaEntries.value
+      .flatMap(({ rows }) => rows)
+      .findIndex(({ index }) => index === at)
+    rootRef.value?.querySelectorAll<HTMLElement>('.schema-format-edit')[position]?.focus()
+  })
 }
 
 function handleAddSchema(entry: ConfigSchemaEntry) {
+  removed.value = null
   emit('update:modelValue', [...configSchemas.value, entry])
 }
 
 function toggleGenerateBeforeStart(globalIndex: number) {
   if (globalIndex === -1) return
 
+  removed.value = null
   const updated = [...configSchemas.value]
   updated[globalIndex] = {
     ...updated[globalIndex],
@@ -321,6 +373,7 @@ const formatOptions = [
 
 function updateSchemaFormat(globalIndex: number, newFormat: string) {
   if (globalIndex === -1) return
+  removed.value = null
   const updated = [...configSchemas.value]
   updated[globalIndex] = { ...updated[globalIndex], format: newFormat }
   if (newFormat !== 'xml') {
@@ -419,6 +472,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   border: 1px solid color-mix(in srgb, var(--xy-primary) 20%, var(--xy-border) 80%);
   background: color-mix(in srgb, var(--xy-surface-1) 88%, transparent);
   font-size: var(--xy-font-size-xs);
+  font-weight: 600;
   color: color-mix(in srgb, var(--xy-primary) 40%, var(--xy-text-primary) 60%);
 }
 
@@ -557,7 +611,7 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   min-height: 1.9rem;
   padding: 0.22rem 0.7rem;
   border: 1px solid color-mix(in srgb, var(--xy-primary) 10%, var(--xy-border) 90%);
-  border-radius: var(--xy-radius-pill);
+  border-radius: var(--xy-radius-md);
   background: color-mix(in srgb, var(--xy-primary) 6%, var(--xy-surface-1) 94%);
   color: var(--xy-text-secondary);
   cursor: pointer;
@@ -571,12 +625,6 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
   background-color: color-mix(in srgb, var(--xy-primary) 10%, var(--xy-surface-1) 90%);
   border-color: color-mix(in srgb, var(--xy-primary) 22%, var(--xy-border) 78%);
   color: var(--xy-text-primary);
-}
-
-.schema-format-edit:focus-visible {
-  outline: none;
-  border-color: var(--xy-primary);
-  box-shadow: 0 0 0 3px var(--xy-primary-bg-subtle);
 }
 
 .schema-format-value {
@@ -601,6 +649,10 @@ function updateSchemaFormat(globalIndex: number, newFormat: string) {
 .schema-row-action {
   min-width: 36px;
   min-height: 36px;
+}
+
+.schema-file-list > .removed-item-undo {
+  margin: var(--xy-space-xs) var(--xy-space-sm);
 }
 
 @media (max-width: 599px) {

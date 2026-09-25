@@ -90,7 +90,10 @@
             class="feature-chip"
             type="button"
             @click="game.windowsSupport = !game.windowsSupport">
-            <span class="feature-dot"></span>
+            <q-icon
+              :name="game.windowsSupport ? 'check_box' : 'check_box_outline_blank'"
+              class="feature-check"
+              size="18px" />
             <span class="feature-label">Windows Support</span>
           </button>
           <button
@@ -99,7 +102,10 @@
             class="feature-chip"
             type="button"
             @click="game.linuxSupport = !game.linuxSupport">
-            <span class="feature-dot"></span>
+            <q-icon
+              :name="game.linuxSupport ? 'check_box' : 'check_box_outline_blank'"
+              class="feature-check"
+              size="18px" />
             <span class="feature-label">Linux Support</span>
           </button>
         </div>
@@ -113,7 +119,10 @@
             class="feature-chip"
             type="button"
             @click="game.usesSteamcmd = !game.usesSteamcmd">
-            <span class="feature-dot"></span>
+            <q-icon
+              :name="game.usesSteamcmd ? 'check_box' : 'check_box_outline_blank'"
+              class="feature-check"
+              size="18px" />
             <span class="feature-label">Uses Steamcmd</span>
           </button>
           <button
@@ -124,7 +133,12 @@
             @click="
               game.requiresSteamGameServerLoginToken = !game.requiresSteamGameServerLoginToken
             ">
-            <span class="feature-dot"></span>
+            <q-icon
+              :name="
+                game.requiresSteamGameServerLoginToken ? 'check_box' : 'check_box_outline_blank'
+              "
+              class="feature-check"
+              size="18px" />
             <span class="feature-label">Steam Login Token Required</span>
           </button>
         </div>
@@ -138,7 +152,10 @@
             class="feature-chip"
             type="button"
             @click="game.bindsToAllIps = !game.bindsToAllIps">
-            <span class="feature-dot"></span>
+            <q-icon
+              :name="game.bindsToAllIps ? 'check_box' : 'check_box_outline_blank'"
+              class="feature-check"
+              size="18px" />
             <span class="feature-label">Binds to All IPs</span>
           </button>
           <button
@@ -147,7 +164,10 @@
             class="feature-chip"
             type="button"
             @click="game.usesSourceQuery = !game.usesSourceQuery">
-            <span class="feature-dot"></span>
+            <q-icon
+              :name="game.usesSourceQuery ? 'check_box' : 'check_box_outline_blank'"
+              class="feature-check"
+              size="18px" />
             <span class="feature-label">Uses Source Query</span>
           </button>
         </div>
@@ -203,7 +223,7 @@
             "
             name="desktop_windows"
             size="14px" />
-          <span class="font-display">Windows</span>
+          <span>Windows</span>
         </button>
         <button
           id="game-platform-tab-linux"
@@ -222,7 +242,7 @@
             "
             name="terminal"
             size="14px" />
-          <span class="font-display">Linux</span>
+          <span>Linux</span>
         </button>
       </div>
 
@@ -250,7 +270,8 @@
               aria-label="Windows stop command"
               class="cmd-textarea font-mono"
               placeholder="/stop"
-              rows="1"></textarea>
+              rows="1"
+              @scroll="syncHighlightScroll"></textarea>
           </div>
         </div>
 
@@ -309,7 +330,8 @@
               class="cmd-textarea font-mono"
               data-testid="windows-install-command"
               placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-              rows="2"></textarea>
+              rows="2"
+              @scroll="syncHighlightScroll"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.windowsInstallType, 'install') }}
@@ -371,7 +393,8 @@
               class="cmd-textarea font-mono"
               data-testid="windows-update-command"
               placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-              rows="2"></textarea>
+              rows="2"
+              @scroll="syncHighlightScroll"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.windowsUpdateType, 'update') }}
@@ -416,7 +439,8 @@
               aria-label="Linux stop command"
               class="cmd-textarea font-mono"
               placeholder="/stop"
-              rows="1"></textarea>
+              rows="1"
+              @scroll="syncHighlightScroll"></textarea>
           </div>
         </div>
 
@@ -475,7 +499,8 @@
               class="cmd-textarea font-mono"
               data-testid="linux-install-command"
               placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-              rows="2"></textarea>
+              rows="2"
+              @scroll="syncHighlightScroll"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.linuxInstallType, 'install') }}
@@ -537,7 +562,8 @@
               class="cmd-textarea font-mono"
               data-testid="linux-update-command"
               placeholder="steamcmd +login anonymous +force_install_dir ./server +app_update 294420 +quit"
-              rows="2"></textarea>
+              rows="2"
+              @scroll="syncHighlightScroll"></textarea>
           </div>
           <div v-else class="cmd-internal font-mono">
             {{ commandTypeSummary(game.linuxUpdateType, 'update') }}
@@ -586,6 +612,15 @@ const {
   commandTypeSummary,
   highlightCommand,
 } = ctx
+
+// The highlight layer sits behind the transparent textarea and must scroll with it.
+function syncHighlightScroll(event: Event) {
+  const textarea = event.target as HTMLTextAreaElement
+  const highlight = textarea.previousElementSibling
+  if (highlight instanceof HTMLElement) {
+    highlight.scrollTop = textarea.scrollTop
+  }
+}
 
 function onPlatformTabKeydown(event: KeyboardEvent, platform: 'windows' | 'linux') {
   let nextPlatform: 'windows' | 'linux'

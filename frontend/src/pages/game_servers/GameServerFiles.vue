@@ -312,7 +312,12 @@
               {{ directoryError }}
             </div>
             <div class="row q-gutter-sm q-mt-sm">
-              <q-btn color="primary" icon="refresh" label="Retry" @click="retryDirectoryLoad" />
+              <q-btn
+                color="primary"
+                icon="refresh"
+                label="Retry"
+                outline
+                @click="retryDirectoryLoad" />
               <q-btn
                 v-if="path !== loadedPath"
                 flat
@@ -555,11 +560,7 @@
       </div>
     </file-uploader-drop>
   </div>
-  <q-dialog
-    v-model="urlUploadDialog"
-    aria-labelledby="url-upload-title"
-    backdrop-filter="blur(6px) brightness(15%)"
-    persistent>
+  <q-dialog v-model="urlUploadDialog" aria-labelledby="url-upload-title" persistent>
     <q-card class="file-url-upload-dialog">
       <q-form @submit.prevent="submitURLUpload">
         <q-card-section>
@@ -611,12 +612,7 @@
       </q-form>
     </q-card>
   </q-dialog>
-  <q-dialog
-    v-model="editorModal"
-    :aria-label="`Edit ${editorFilename}`"
-    backdrop-filter="blur(6px) brightness(15%)"
-    no-shake
-    persistent>
+  <q-dialog v-model="editorModal" :aria-label="`Edit ${editorFilename}`" no-shake persistent>
     <editor
       v-model:code-input="editorFileContent"
       :file-name="editorFilename"
@@ -726,6 +722,7 @@ import {
   GetXylonaClient,
 } from '@/utils/shared'
 import { formatTimestamp } from '@/utils/format-timestamp'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { isEditableFileName, MAX_EDITABLE_FILE_BYTES } from '@/components/game_servers/file-editing'
 import { useRoute } from 'vue-router'
 import { GetGameServerRequest, GetGameServerRequestSchema } from '@/proto/xylona_pb'
@@ -1360,11 +1357,7 @@ async function submitURLUpload() {
     const fileName = response.filePath.split(/[\\/]/).pop() || 'File'
     urlUploadDialog.value = false
     urlUpload.value = ''
-    $q.notify({
-      message: `${fileName} uploaded from URL.`,
-      position: 'top',
-      type: 'xylona-success',
-    })
+    notifySuccess(`${fileName} uploaded from URL.`)
     if (loadedPath.value === operationPath && path.value === operationPath) {
       await listDirectoryFiles(operationPath, 'none')
     }
@@ -1553,18 +1546,12 @@ async function copySelectedPaths(fullPath: boolean) {
 
   try {
     await copyToClipboard(paths.join('\n'))
-    $q.notify({
-      message: `${fullPath ? 'Full' : 'Relative'} ${paths.length === 1 ? 'path' : 'paths'} copied.`,
-      position: 'top',
-      type: 'xylona-success',
-    })
+    notifySuccess(
+      `${fullPath ? 'Full' : 'Relative'} ${paths.length === 1 ? 'path' : 'paths'} copied.`,
+    )
   } catch (error) {
     console.error(error)
-    $q.notify({
-      message: 'Could not copy the selected paths.',
-      position: 'top',
-      type: 'xylona-error',
-    })
+    notifyError('Could not copy the selected paths.')
   }
 }
 
@@ -1604,12 +1591,7 @@ async function readFileOctetStream(fileName: string) {
     editorModal.value = true
   } catch (e) {
     console.error(e)
-    $q.notify({
-      caption: `Error reading file ${fileName}.`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyError(`Error reading file ${fileName}.`)
   } finally {
     $q.loading.hide()
   }
@@ -1674,12 +1656,7 @@ async function downloadGameServerFile(fileName: string, operationPath = loadedPa
     document.body.removeChild(downloadForm)
   } catch (e) {
     console.error(e)
-    $q.notify({
-      caption: `Error downloading file ${fileName}.`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyError(`Error downloading file ${fileName}.`)
   }
 }
 
@@ -2020,12 +1997,17 @@ async function getGameServerDetails() {
   .file-list-select-cell :deep(.q-checkbox__inner) {
     font-size: var(--xy-font-size-xl);
   }
+}
 
-  .file-row-menu {
-    width: 2rem;
-    min-width: 2rem;
-    height: 2rem;
-    min-height: 2rem;
+/* Compact for mouse rows only; any coarse pointer keeps the global 44px target. */
+@media (min-width: 600px) {
+  @media not all and (any-pointer: coarse) {
+    .file-row-menu {
+      width: 2rem;
+      min-width: 2rem;
+      height: 2rem;
+      min-height: 2rem;
+    }
   }
 }
 

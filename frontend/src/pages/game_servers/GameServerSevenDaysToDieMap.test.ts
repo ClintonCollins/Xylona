@@ -151,7 +151,8 @@ describe('GameServerSevenDaysToDieMap world overview', () => {
     await flushPromises()
 
     const overview = wrapper.get('[data-testid="world-overview"]')
-    expect(overview.attributes('aria-live')).toBe('polite')
+    // Polled facts are not a live region; only the Blood Moon starting is announced.
+    expect(overview.attributes('aria-live')).toBeUndefined()
     expect(overview.text()).toContain('Day 42, 13:07')
     expect(overview.text()).toContain('Inactive')
     expect(overview.text()).toContain('Day 49, 22:00')

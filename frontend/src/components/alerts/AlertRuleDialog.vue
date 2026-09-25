@@ -80,7 +80,6 @@
               <q-input
                 v-model.number="form.forSeconds"
                 :rules="durationRules"
-                aria-label="Sustained duration in seconds"
                 dense
                 hint="0 triggers immediately"
                 label="Sustain for"
@@ -93,7 +92,6 @@
                 v-model.number="form.recoveryValue"
                 :rules="[(value: unknown) => recoveryMessage(value) || true]"
                 :suffix="thresholdUnit"
-                aria-label="Recovery threshold"
                 clearable
                 dense
                 hint="Optional hysteresis threshold"
@@ -104,7 +102,6 @@
               <q-input
                 v-model.number="form.cooldownSeconds"
                 :rules="durationRules"
-                aria-label="Cooldown duration in seconds"
                 dense
                 hint="0 allows the next alert immediately"
                 label="Cooldown"
@@ -116,7 +113,6 @@
               <q-input
                 v-model.number="form.repeatSeconds"
                 :rules="durationRules"
-                aria-label="Repeat interval in seconds"
                 dense
                 hint="0 disables repeat notifications"
                 label="Repeat every"

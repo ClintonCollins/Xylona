@@ -1,6 +1,5 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
 import { nextTick, ref, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -13,7 +12,7 @@ import {
   ListGameServersRequestSchema,
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { notifyWarning } from '@/api/notifications'
+import { notifyConnectError, notifyError, notifySuccess, notifyWarning } from '@/api/notifications'
 
 import { normalizeSteamAppID } from './game-form-normalization'
 import type { ConfigSchemaEntry } from './config-schema-types'
@@ -51,9 +50,10 @@ interface UseGameFormPersistenceOptions {
 }
 
 export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
-  const $q = useQuasar()
   const router = useRouter()
   const loading = ref(false)
+  // Set when an edit or copy could not load its game, so the form is not shown blank and saveable.
+  const loadError = ref('')
   const submitting = ref(false)
 
   function syncConfigSchemas() {
@@ -102,6 +102,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
 
   async function loadGameDetails() {
     loading.value = true
+    loadError.value = ''
     const request = create(GetGameRequestSchema, {
       id: options.gameID.value,
     })
@@ -109,6 +110,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
     try {
       const response = await GetXylonaClient().getGame(request)
       if (response.game === undefined) {
+        loadError.value = 'Game not found.'
         return
       }
 
@@ -134,13 +136,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
 
       options.syncActivePlatformFromGame()
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: `Failed to load game: ${ConnectErrorToString(err)}`,
-        position: 'top',
-        timeout: 5000,
-      })
+      loadError.value = ConnectErrorToString(ConnectError.from(unknownErr))
     } finally {
       loading.value = false
       await nextTick()
@@ -171,24 +167,13 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
       options.savedSuccessfully.value = true
       options.captureRuntimeBaselineFromCurrentState()
       options.commitFormSnapshot()
-      $q.notify({
-        caption: `${options.game.value.name} added successfully`,
-        type: 'xylona-success',
-        position: 'top',
-        timeout: 5000,
-      })
+      notifySuccess(`${options.game.value.name} added successfully`)
 
       if (savedGameID) {
         await router.push({ path: `/games/${savedGameID}/edit` })
       }
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        caption: `Error adding game: ${ConnectErrorToString(err)}`,
-        type: 'xylona-error',
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr, 'Error adding game')
     }
   }
 
@@ -207,32 +192,16 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
       options.savedSuccessfully.value = true
       options.captureRuntimeBaselineFromCurrentState()
       options.commitFormSnapshot()
-      $q.notify({
-        caption: `${options.game.value.name} updated successfully`,
-        type: 'xylona-success',
-        position: 'top',
-        timeout: 5000,
-      })
+      notifySuccess(`${options.game.value.name} updated successfully`)
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        caption: `Error updating game: ${ConnectErrorToString(err)}`,
-        type: 'xylona-error',
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr, 'Error updating game')
     }
   }
 
   async function submit() {
     const valid = await options.formRef.value?.validate()
     if (!valid) {
-      $q.notify({
-        type: 'xylona-error',
-        caption: 'Please fix the validation errors before saving.',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifyError('Please fix the validation errors before saving.')
       return
     }
 
@@ -255,6 +224,7 @@ export function useGameFormPersistence(options: UseGameFormPersistenceOptions) {
 
   return {
     loading,
+    loadError,
     submitting,
     loadGameDetails,
     navigateToSchemaEditor,

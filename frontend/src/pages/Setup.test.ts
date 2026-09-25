@@ -59,6 +59,7 @@ const pageStubs = {
     emits: ['click'],
     template: '<button type="button" @click="$emit(\'click\')">{{ label }}<slot /></button>',
   },
+  'q-banner': { template: '<div><slot /></div>' },
   'q-icon': true,
   'q-tooltip': true,
 }

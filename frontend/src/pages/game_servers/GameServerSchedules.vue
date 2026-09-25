@@ -5,6 +5,7 @@ import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { Timestamp, timestampDate } from '@bufbuild/protobuf/wkt'
 import { useQuasar } from 'quasar'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { describeCron } from '@/utils/cron-schedule'
@@ -30,7 +31,12 @@ const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 const loading = ref(true)
 const loadError = ref('')
 const tasks = ref<ScheduledTask[]>([])
-const backupOverview = ref<GameServerBackupOverview>(create(GameServerBackupOverviewSchema))
+// null until the overview loads; a failed load says nothing about backups, and the
+// server still rejects backup schedules it can't run.
+const backupOverview = ref<GameServerBackupOverview | null>(null)
+const overviewError = ref('')
+const overviewLoading = ref(false)
+const backupsBlocked = computed(() => backupOverview.value?.operationsAllowed === false)
 const latestTaskLogsByID = ref<Record<string, ScheduledTaskLog>>({})
 const taskLogsByID = ref<Record<string, ScheduledTaskLog[]>>({})
 const taskLogErrorsByID = ref<Record<string, string>>({})
@@ -96,6 +102,7 @@ const columns = computed(() => [
     label: 'Last Run',
     field: (row: ScheduledTask) => formatTimestamp(row.lastRunAt),
     align: 'left' as const,
+    classes: 'font-mono',
     sortable: true,
     sort: (_a: string, _b: string, rowA: ScheduledTask, rowB: ScheduledTask) =>
       timestampMs(rowA.lastRunAt) - timestampMs(rowB.lastRunAt),
@@ -105,6 +112,7 @@ const columns = computed(() => [
     label: 'Next Run',
     field: (row: ScheduledTask) => formatTimestamp(row.nextRunAt),
     align: 'left' as const,
+    classes: 'font-mono',
     sortable: true,
     sort: (_a: string, _b: string, rowA: ScheduledTask, rowB: ScheduledTask) =>
       timestampMs(rowA.nextRunAt) - timestampMs(rowB.nextRunAt),
@@ -203,20 +211,11 @@ async function loadTasks(): Promise<void> {
     const request = create(ListScheduledTasksRequestSchema, {
       gameServerId: gameServerId.value,
     })
-    const [tasksResponse, overviewResponse] = await Promise.all([
+    const [tasksResponse] = await Promise.all([
       GetXylonaClient().listScheduledTasks(request),
-      GetXylonaClient()
-        .getGameServerBackupOverview(
-          create(GetGameServerBackupOverviewRequestSchema, {
-            gameServerId: gameServerId.value,
-          }),
-        )
-        .catch(() => undefined),
+      loadBackupOverview(),
     ])
     tasks.value = tasksResponse.tasks
-    backupOverview.value = overviewResponse?.overview
-      ? create(GameServerBackupOverviewSchema, overviewResponse.overview)
-      : create(GameServerBackupOverviewSchema)
     latestTaskLogsByID.value = {}
     for (const log of tasksResponse.latestLogs) {
       latestTaskLogsByID.value[log.scheduledTaskId] = log
@@ -228,6 +227,22 @@ async function loadTasks(): Promise<void> {
     loadError.value = ConnectErrorToString(ConnectError.from(unknownErr))
   } finally {
     loading.value = false
+  }
+}
+
+async function loadBackupOverview(): Promise<void> {
+  overviewLoading.value = true
+  try {
+    const response = await GetXylonaClient().getGameServerBackupOverview(
+      create(GetGameServerBackupOverviewRequestSchema, { gameServerId: gameServerId.value }),
+    )
+    backupOverview.value = create(GameServerBackupOverviewSchema, response.overview)
+    overviewError.value = ''
+  } catch (unknownErr: unknown) {
+    backupOverview.value = null
+    overviewError.value = ConnectErrorToString(ConnectError.from(unknownErr))
+  } finally {
+    overviewLoading.value = false
   }
 }
 
@@ -291,13 +306,8 @@ async function onFormSubmit(): Promise<void> {
 }
 
 async function toggleEnabled(task: ScheduledTask): Promise<void> {
-  if (task.taskType === 'backup' && !task.enabled && !backupOverview.value.operationsAllowed) {
-    $q.notify({
-      type: 'xylona-error',
-      caption: backupOverview.value.disabledReason || 'New backup schedules are unavailable.',
-      position: 'top',
-      timeout: 5000,
-    })
+  if (task.taskType === 'backup' && !task.enabled && backupsBlocked.value) {
+    notifyError(backupOverview.value?.disabledReason || 'New backup schedules are unavailable.')
     return
   }
 
@@ -316,13 +326,7 @@ async function toggleEnabled(task: ScheduledTask): Promise<void> {
     await GetXylonaClient().updateScheduledTask(request)
     await loadTasks()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   }
 }
 
@@ -339,21 +343,10 @@ function confirmDelete(task: ScheduledTask): void {
         id: task.id,
       })
       await GetXylonaClient().deleteScheduledTask(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Scheduled task deleted',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Scheduled task deleted')
       await loadTasks()
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr)
     }
   })
 }
@@ -421,11 +414,7 @@ function confirmDelete(task: ScheduledTask): void {
               </div>
             </div>
             <q-toggle
-              :disable="
-                props.row.taskType === 'backup' &&
-                !props.row.enabled &&
-                !backupOverview.operationsAllowed
-              "
+              :disable="props.row.taskType === 'backup' && !props.row.enabled && backupsBlocked"
               :aria-label="`Enable ${props.row.name}`"
               :model-value="props.row.enabled"
               color="positive"
@@ -446,11 +435,11 @@ function confirmDelete(task: ScheduledTask): void {
             </div>
             <div>
               <span class="schedule-card__label">Last Run</span>
-              <span>{{ formatTimestamp(props.row.lastRunAt) }}</span>
+              <span class="font-mono">{{ formatTimestamp(props.row.lastRunAt) }}</span>
             </div>
             <div>
               <span class="schedule-card__label">Next Run</span>
-              <span>{{ formatTimestamp(props.row.nextRunAt) }}</span>
+              <span class="font-mono">{{ formatTimestamp(props.row.nextRunAt) }}</span>
             </div>
             <div>
               <span class="schedule-card__label">Last Result</span>
@@ -513,8 +502,15 @@ function confirmDelete(task: ScheduledTask): void {
           </q-expansion-item>
 
           <q-card-actions align="right">
-            <q-btn flat icon="edit" label="Edit" no-caps @click="openEditDialog(props.row)" />
             <q-btn
+              :aria-label="`Edit ${props.row.name}`"
+              flat
+              icon="edit"
+              label="Edit"
+              no-caps
+              @click="openEditDialog(props.row)" />
+            <q-btn
+              :aria-label="`Delete ${props.row.name}`"
               color="negative"
               flat
               icon="delete"
@@ -541,11 +537,7 @@ function confirmDelete(task: ScheduledTask): void {
           <q-td key="timezone" :props="props">{{ props.row.timezone }}</q-td>
           <q-td key="enabled" :props="props">
             <q-toggle
-              :disable="
-                props.row.taskType === 'backup' &&
-                !props.row.enabled &&
-                !backupOverview.operationsAllowed
-              "
+              :disable="props.row.taskType === 'backup' && !props.row.enabled && backupsBlocked"
               :aria-label="`Enable ${props.row.name}`"
               :model-value="props.row.enabled"
               color="positive"
@@ -639,13 +631,16 @@ function confirmDelete(task: ScheduledTask): void {
     </q-table>
 
     <scheduled-task-form
-      :backup-disabled-reason="backupOverview.disabledReason"
-      :backup-operations-allowed="backupOverview.operationsAllowed"
+      :backup-disabled-reason="backupOverview?.disabledReason"
+      :backups-blocked="backupsBlocked"
+      :backup-overview-error="overviewError"
+      :backup-overview-loading="overviewLoading"
       :existing-task="editingTask"
       :game-server-id="gameServerId"
       :initial-task-type="createTaskType"
       :show-dialog="showFormDialog"
       @close="closeFormDialog"
+      @retry-backup-overview="loadBackupOverview"
       @submit="onFormSubmit" />
   </div>
 </template>

@@ -146,6 +146,7 @@ const mountOptions = {
     },
     stubs: {
       'q-badge': true,
+      'q-banner': passthrough('QBanner'),
       'q-btn': QBtnStub,
       'q-card': passthrough('QCard'),
       'q-card-actions': passthrough('QCardActions'),

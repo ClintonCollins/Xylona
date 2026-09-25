@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(25%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="full-width">
       <q-form @submit.prevent="extractFiles">
         <q-card-section>
@@ -53,13 +49,14 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
+import { QBtn, QCard, QCardSection, QDialog, QInput } from 'quasar'
 import {
   GameServerFilesDecompressionRequest,
   GameServerFilesDecompressionRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { bytesToSize, GetRelativeFilePath, GetXylonaClientCallback } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError, notifySuccess, notifyWarning } from '@/api/notifications'
 import { ref } from 'vue'
 import { GameServerFilesExtractProgress } from '@/proto/shared_pb'
 
@@ -94,8 +91,6 @@ const totalFiles = ref(0)
 const abortController = ref<AbortController | null>(null)
 const abortedExtract = ref(false)
 const fullDestinationPath = ref('')
-
-const $q = useQuasar()
 
 const showDialog = defineModel('showDialog', {
   type: Boolean,
@@ -151,31 +146,16 @@ async function extractFiles() {
         resetExtractStats()
         showDialog.value = false
         emit('submit')
-        $q.notify({
-          caption: `Files extraction aborted.`,
-          type: 'xylona-alert',
-          position: 'top',
-          timeout: 3000,
-        })
+        notifyWarning('Files extraction aborted.', { timeout: 3000 })
         return
       }
       if (err) {
         resetExtractProgress()
         console.error(err)
-        $q.notify({
-          caption: `Error extracting files. ${connectErrorMessage(err)}`,
-          type: 'xylona-error',
-          position: 'top',
-          timeout: 5000,
-        })
+        notifyError(`Error extracting files. ${connectErrorMessage(err)}`)
         return
       }
-      $q.notify({
-        caption: `Extracted ${totalFiles.value} files successfully.`,
-        type: 'xylona-success',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess(`Extracted ${totalFiles.value} files successfully.`)
       resetExtractStats()
       showDialog.value = false
       emit('submit')

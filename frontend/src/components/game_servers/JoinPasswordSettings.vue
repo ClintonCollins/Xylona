@@ -102,7 +102,7 @@ defineExpose({ dirty, save })
       <span class="section-icon">
         <q-icon name="lock" size="14px" />
       </span>
-      <span class="section-title">Join Password</span>
+      <h3 class="section-title">Join Password</h3>
       <q-badge
         v-if="state?.supported"
         :color="state.configured ? 'positive' : 'grey-8'"

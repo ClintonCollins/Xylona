@@ -715,7 +715,9 @@ watch(
   },
 )
 watch(players, syncPlayers, { deep: true })
-watch(() => props.view, syncOverlays, { deep: true })
+// Each poll delivers a new view object, so a reference watch is enough; a deep watch would
+// walk every claim, hostile and animal on each 5s snapshot.
+watch(() => props.view, syncOverlays)
 watch(() => props.loadError, syncOverlays)
 watch([showClaims, showHostiles, showAnimals], syncOverlays)
 onMounted(() => document.addEventListener('fullscreenchange', handleFullscreenChange))
@@ -1009,8 +1011,8 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: var(--xy-space-xs);
-  font-family: var(--xy-font-heading);
   font-size: var(--xy-font-size-sm);
+  font-weight: 600;
 }
 
 .seven-days-map__status[data-tone='success'] {
@@ -1022,7 +1024,7 @@ onBeforeUnmount(() => {
 }
 
 .seven-days-map__status[data-tone='danger'] {
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
 }
 
 .seven-days-map__status[data-tone='info'] {
@@ -1359,7 +1361,6 @@ onBeforeUnmount(() => {
 
 :deep(.seven-days-map__popup strong) {
   color: var(--xy-text-primary);
-  font-family: var(--xy-font-heading);
 }
 
 :deep(.seven-days-map__marker-shell) {
@@ -1500,7 +1501,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1440px) {
   .seven-days-map__map-data summary {
     min-width: 36px;
     justify-content: center;

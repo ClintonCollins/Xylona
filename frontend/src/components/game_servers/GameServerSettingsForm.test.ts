@@ -594,6 +594,31 @@ describe('GameServerSettingsForm', () => {
     expect(wrapper.find('[data-testid="add-environment-row"]').exists()).toBe(true)
   })
 
+  it('offers Retry instead of a blank, savable form when the server fails to load', async () => {
+    mocks.getGameServer.mockRejectedValueOnce(new Error('controller offline'))
+
+    const wrapper = mountSettingsForm(true)
+    await flushPromises()
+
+    const banner = wrapper.get('[data-testid="settings-load-error"]')
+    expect(banner.attributes('role')).toBe('alert')
+    expect(banner.text()).toContain('controller offline')
+    expect(wrapper.find('[data-testid="editable-name"]').exists()).toBe(false)
+    expect(saveButton(wrapper).element.disabled).toBe(true)
+
+    mocks.getGameServer.mockResolvedValue(
+      create(GameServerSchema, { id: 'server-local-1', name: 'Local One', gameId: 'minecraft' }),
+    )
+    await banner.get('button').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="settings-load-error"]').exists()).toBe(false)
+    expect(saveButton(wrapper).element.disabled).toBe(true)
+    emitInput(wrapper, 'editable-name', 'Renamed')
+    await flushPromises()
+    expect(saveButton(wrapper).element.disabled).toBe(false)
+  })
+
   it('hides minecraft memory context when the server is not minecraft', async () => {
     mocks.getGameServer.mockResolvedValue(
       create(GameServerSchema, {

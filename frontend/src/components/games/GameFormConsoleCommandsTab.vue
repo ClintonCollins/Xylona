@@ -9,23 +9,25 @@
         icon="add"
         label="Add Command"
         no-caps
+        outline
         @click="addCommand" />
     </div>
     <p class="console-commands-intro text-xy-muted">
       Build the command reference shown to server administrators while they work in the console.
     </p>
 
-    <div
+    <q-banner
       v-if="validationErrors.length > 0"
-      class="console-commands-validation"
+      class="xy-banner-negative q-mb-md"
       data-testid="console-command-validation"
+      dense
       role="alert">
-      <q-icon aria-hidden="true" name="error_outline" size="20px" />
-      <div>
-        <strong>Command catalog needs attention.</strong>
-        <span>{{ validationErrors[0]?.message }}</span>
-      </div>
-    </div>
+      <template #avatar>
+        <q-icon name="error_outline" />
+      </template>
+      <strong>Command catalog needs attention.</strong>
+      {{ validationErrors[0]?.message }}
+    </q-banner>
 
     <div class="console-commands-layout">
       <aside class="console-command-index" aria-label="Console command catalog">
@@ -51,44 +53,57 @@
           </q-input>
         </div>
 
-        <div v-if="game.consoleCommands.length === 0" class="console-command-index__empty">
+        <div
+          v-if="game.consoleCommands.length === 0 && !removed"
+          class="console-command-index__empty">
           <q-icon aria-hidden="true" name="terminal" size="24px" />
           <span>No commands yet</span>
           <small>Add the first documented server command.</small>
         </div>
 
-        <div v-else-if="filteredCommandEntries.length === 0" class="console-command-index__empty">
+        <div v-else-if="catalogEntries.length === 0" class="console-command-index__empty">
           <q-icon aria-hidden="true" name="search_off" size="24px" />
           <span>No matches</span>
           <small>Try a command, category, or summary.</small>
         </div>
 
-        <div v-else class="console-command-list" role="list">
-          <button
-            v-for="{ command, index } in filteredCommandEntries"
+        <div v-else ref="catalogRef" class="console-command-list" role="list">
+          <div
+            v-for="{ command, index } in catalogEntries"
             :key="index"
-            :aria-current="selectedCommand === command ? 'true' : undefined"
-            :class="{ 'console-command-list__item--active': selectedCommand === command }"
-            :data-testid="`console-command-list-item-${index}`"
-            class="console-command-list__item"
-            role="listitem"
-            type="button"
-            @click="selectCommand(command)">
-            <span class="console-command-list__main">
-              <code>{{ command.command.trim() || 'Untitled command' }}</code>
-              <span>{{ command.summary.trim() || 'No summary yet' }}</span>
-            </span>
-            <span class="console-command-list__meta">
-              <span v-if="command.category">{{ command.category }}</span>
-              <span :class="riskClass(command.risk)">{{ riskLabel(command.risk) }}</span>
-              <q-icon
-                v-if="commandHasValidationError(index)"
-                aria-label="Validation error"
-                class="console-command-list__error"
-                name="error_outline"
-                size="17px" />
-            </span>
-          </button>
+            class="console-command-list__entry"
+            role="listitem">
+            <removed-item-undo
+              v-if="index < 0"
+              :clear-on-save="removed?.clearOnSave"
+              :label="command.command.trim() || 'untitled command'"
+              @dismiss="removed = null"
+              @undo="undoRemoveCommand" />
+            <button
+              v-else
+              :aria-current="selectedCommand === command ? 'true' : undefined"
+              :class="{ 'console-command-list__item--active': selectedCommand === command }"
+              :data-testid="`console-command-list-item-${index}`"
+              class="console-command-list__item"
+              type="button"
+              @click="selectCommand(command)">
+              <span class="console-command-list__main">
+                <code>{{ command.command.trim() || 'Untitled command' }}</code>
+                <span>{{ command.summary.trim() || 'No summary yet' }}</span>
+              </span>
+              <span class="console-command-list__meta">
+                <span v-if="command.category">{{ command.category }}</span>
+                <span :class="riskClass(command.risk)">{{ riskLabel(command.risk) }}</span>
+                <span
+                  v-if="commandHasValidationError(index)"
+                  aria-label="Validation error"
+                  class="console-command-list__error"
+                  role="img">
+                  <q-icon name="error_outline" size="17px" />
+                </span>
+              </span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -141,7 +156,7 @@
         </div>
 
         <div class="console-command-preview" data-testid="console-command-preview">
-          <div class="console-command-preview__label font-display">Operator preview</div>
+          <div class="console-command-preview__label">Operator preview</div>
           <code class="console-command-preview__syntax">{{ previewSyntax }}</code>
           <div class="console-command-preview__summary">
             {{ selectedCommand.summary.trim() || 'Add a concise summary for this command.' }}
@@ -538,7 +553,13 @@
           Add documented administrative commands so operators can discover syntax and risk without
           leaving the server console.
         </p>
-        <q-btn color="primary" icon="add" label="Add first command" no-caps @click="addCommand" />
+        <q-btn
+          color="primary"
+          icon="add"
+          label="Add first command"
+          no-caps
+          outline
+          @click="addCommand" />
       </div>
     </div>
   </section>
@@ -547,7 +568,15 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { useFormChild } from 'quasar'
-import { computed, inject, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
+import {
+  computed,
+  inject,
+  nextTick,
+  ref,
+  shallowRef,
+  watch,
+  type ComponentPublicInstance,
+} from 'vue'
 
 import {
   GameConsoleCommandArgumentSchema,
@@ -558,6 +587,7 @@ import {
   type GameConsoleCommandArgument,
 } from '@/proto/shared_pb'
 import { gameFormContextKey } from './GameFormTypes'
+import RemovedItemUndo from './RemovedItemUndo.vue'
 
 type ValidationField = 'command' | 'documentationUrl' | 'argumentName' | 'exampleCommand'
 
@@ -575,9 +605,20 @@ interface Focusable {
 const ctx = inject(gameFormContextKey)
 if (!ctx) throw new Error('GameFormConsoleCommandsTab must be used inside GameForm')
 
-const { activeFormTab, game } = ctx
+const { activeFormTab, game, isDirty } = ctx
 const commandFilter = ref<string | null>('')
 const selectedCommand = ref<GameConsoleCommand | null>(null)
+const catalogRef = ref<HTMLElement | null>(null)
+
+// The most recent removal. Its negative id keys the undo row, so each removal mounts a fresh one.
+const removed = shallowRef<{
+  command: GameConsoleCommand
+  index: number
+  after?: GameConsoleCommand
+  clearOnSave: boolean
+  id: number
+} | null>(null)
+let removals = 0
 const validationAttempted = ref(false)
 const validationErrors = ref<CatalogValidationError[]>([])
 const editorRootRef = ref<HTMLElement | null>(null)
@@ -621,6 +662,33 @@ const filteredCommandEntries = computed(() => {
     })
 })
 
+// Undo puts the command back after the neighbour it had, or at its old index if that one is gone.
+const removedAt = computed(() => {
+  const removal = removed.value
+  if (!removal) {
+    return -1
+  }
+  const commands = game.value.consoleCommands
+  const after = removal.after ? commands.indexOf(removal.after) : -1
+  return after >= 0 ? after + 1 : Math.min(removal.index, commands.length)
+})
+
+// The catalog as shown: the removed command keeps its slot as an undo row, whatever the filter.
+const catalogEntries = computed(() => {
+  const entries = filteredCommandEntries.value
+  const removal = removed.value
+  if (!removal) {
+    return entries
+  }
+  const slot = entries.findIndex(({ index }) => index >= removedAt.value)
+  const at = slot < 0 ? entries.length : slot
+  return [
+    ...entries.slice(0, at),
+    { command: removal.command, index: -removal.id },
+    ...entries.slice(at),
+  ]
+})
+
 const previewSyntax = computed(() => {
   if (!selectedCommand.value) {
     return ''
@@ -652,6 +720,7 @@ function addCommand(): void {
   const command = create(GameConsoleCommandSchema, {
     risk: GameConsoleCommandRisk.NONE,
   })
+  removed.value = null
   game.value.consoleCommands.push(command)
   selectedCommand.value = command
   commandFilter.value = ''
@@ -662,18 +731,43 @@ function selectCommand(command: GameConsoleCommand): void {
   selectedCommand.value = command
 }
 
+// One click removes the whole entry and the next Save makes it permanent, so an undo row takes
+// its place in the catalog.
 function removeSelectedCommand(): void {
   const index = selectedCommandIndex.value
   if (index < 0) {
     return
   }
 
-  game.value.consoleCommands.splice(index, 1)
-  selectedCommand.value =
-    game.value.consoleCommands[index] ?? game.value.consoleCommands[index - 1] ?? null
+  const clearOnSave = !isDirty.value
+  const commands = game.value.consoleCommands
+  const [command] = commands.splice(index, 1)
+  selectedCommand.value = commands[index] ?? commands[index - 1] ?? null
+  removed.value = command
+    ? { command, index, after: commands[index - 1], clearOnSave, id: ++removals }
+    : null
+}
+
+function undoRemoveCommand(): void {
+  const removal = removed.value
+  if (!removal) {
+    return
+  }
+
+  const at = removedAt.value
+  removed.value = null
+  game.value.consoleCommands.splice(at, 0, removal.command)
+  selectedCommand.value = removal.command
+  void nextTick(() =>
+    (
+      catalogRef.value?.querySelector<HTMLElement>('[aria-current="true"]') ??
+      canonicalInputRef.value
+    )?.focus(),
+  )
 }
 
 function moveCommand(step: number): void {
+  removed.value = null
   const index = selectedCommandIndex.value
   moveItem(game.value.consoleCommands, index, step)
 }
@@ -905,6 +999,7 @@ useFormChild({
 defineExpose({
   validate,
   resetValidation,
+  validationErrors,
 })
 </script>
 
@@ -919,35 +1014,11 @@ defineExpose({
   font-size: var(--xy-font-size-sm);
 }
 
-.console-commands-validation {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin-bottom: 16px;
-  padding: 12px 14px;
-  color: var(--xy-danger-hover);
-  background: var(--xy-danger-bg-faint);
-  border: 1px solid var(--xy-danger-border);
-  border-radius: var(--xy-radius-md);
-}
-
-.console-commands-validation div {
-  display: grid;
-  gap: 2px;
-}
-
-.console-commands-validation span {
-  color: var(--xy-text-primary);
-}
-
 .console-commands-layout {
   display: grid;
   grid-template-columns: minmax(240px, 30%) minmax(0, 1fr);
   min-height: 620px;
   overflow: hidden;
-  background: var(--xy-surface-0);
-  border: 1px solid var(--xy-border);
-  border-radius: var(--xy-radius-lg);
 }
 
 .console-command-index {
@@ -980,6 +1051,14 @@ defineExpose({
 .console-command-list {
   max-height: 740px;
   overflow-y: auto;
+}
+
+.console-command-list__entry {
+  display: grid;
+}
+
+.console-command-list__entry > .removed-item-undo {
+  margin: var(--xy-space-xs) var(--xy-space-sm);
 }
 
 .console-command-list__item {
@@ -1045,6 +1124,7 @@ defineExpose({
 }
 
 .console-command-list__error {
+  display: inline-flex;
   margin-left: auto;
   color: var(--xy-danger-hover);
 }
@@ -1359,8 +1439,11 @@ defineExpose({
     overflow-y: hidden;
   }
 
-  .console-command-list__item {
+  .console-command-list__entry {
     flex: 0 0 230px;
+  }
+
+  .console-command-list__item {
     border-right: 1px solid var(--xy-border);
     border-bottom: 0;
   }

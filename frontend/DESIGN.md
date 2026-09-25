@@ -179,7 +179,9 @@ Use the existing token system instead of hardcoded color values. Extend `src/css
 
 **The Never-Pure-Black Rule.** The floor is `--xy-base` (#0D0E0F), never `#000`. Neutrals stay cool-tinted; a warm or fully desaturated gray reads as a different product.
 
-**The Series-Is-Not-Status Rule.** Time-series data uses `--xy-series-*`, not `--xy-chart-3` / `--xy-chart-4`. Red and amber are reserved for real state — threshold breaches and configured-limit lines — so an ordinary series like storage growth never plots in alarm colors.
+**The Text-Role Rule.** Command Blue and Fault Red are fill colours. As text they drop below 4.5:1 from `--xy-surface-2` up, so coloured text uses `--xy-primary-text` and `--xy-danger-text` (the lighter hover steps). `.text-primary` and `.text-negative` already map to them, so flat buttons, active tabs and inline errors are covered. Never dim text with `opacity`: use a text token, so contrast stays measurable.
+
+**The Series-Is-Not-Status Rule.** Time-series data uses `--xy-series-*`, not `--xy-chart-3` / `--xy-chart-4`. Red and amber are reserved for real state — threshold breaches and configured-limit lines — so an ordinary series like storage growth never plots in alarm colors. The same holds for `--xy-category-*`: config groups and mod sources use non-status hues (teal, indigo, fuchsia, violet, pink, orange alongside blue and cyan).
 
 ## Typography
 

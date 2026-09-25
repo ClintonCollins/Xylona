@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { flushPromises, shallowMount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 
 import SevenDaysToDieLiveMap from '@/components/seven_days_to_die/SevenDaysToDieLiveMap.vue'
@@ -18,7 +19,47 @@ vi.mock('@/utils/shared', () => ({
 }))
 
 describe('PublicSevenDaysToDieMap', () => {
-  beforeEach(() => mocks.getPublicMap.mockReset())
+  // A block body: a returned function would run as teardown and call the mock again.
+  beforeEach(() => {
+    mocks.getPublicMap.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it.each([
+    { code: Code.Unavailable, want: 'Map temporarily unavailable' },
+    { code: Code.NotFound, want: 'This map link is not available' },
+  ])('shows "$want" when the first load fails with code $code', async ({ code, want }) => {
+    mocks.getPublicMap.mockRejectedValue(new ConnectError('failed', code))
+    const wrapper = shallowMount(PublicSevenDaysToDieMap, {
+      props: { identifier: 'shared-map' },
+      global: { stubs: { SevenDaysToDieLiveMap: LiveMapStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(want)
+    expect(wrapper.findComponent(LiveMapStub).exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('stops polling once the link is revoked', async () => {
+    vi.useFakeTimers()
+    mocks.getPublicMap.mockRejectedValue(new ConnectError('gone', Code.NotFound))
+    const wrapper = shallowMount(PublicSevenDaysToDieMap, {
+      props: { identifier: 'shared-map' },
+      global: { stubs: { SevenDaysToDieLiveMap: LiveMapStub } },
+    })
+    await flushPromises()
+
+    await vi.advanceTimersByTimeAsync(30_000)
+    // Returning to the tab does not resume polling a revoked link either.
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(mocks.getPublicMap).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
 
   it('shows the shared world overview and passes tactical data to the live map', async () => {
     const available = SevenDaysToDieWebAPIValueState.SEVEN_DAYS_TO_DIE_WEB_API_VALUE_STATE_AVAILABLE

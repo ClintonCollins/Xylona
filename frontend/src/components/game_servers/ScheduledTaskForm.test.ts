@@ -10,9 +10,7 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
-    useQuasar: () => ({
-      notify: vi.fn(),
-    }),
+    Notify: { create: vi.fn() },
   }
 })
 
@@ -76,7 +74,7 @@ describe('ScheduledTaskForm', () => {
       props: {
         showDialog: false,
         gameServerId: 'server-1',
-        backupOperationsAllowed: false,
+        backupsBlocked: true,
         backupDisabledReason: 'Backups are not supported on this platform.',
         existingTask: create(ScheduledTaskSchema, {
           id: 'task-1',
@@ -111,6 +109,49 @@ describe('ScheduledTaskForm', () => {
     )
   })
 
+  it('leaves backup schedules savable with a Retry when availability is unknown', async () => {
+    const wrapper = mount(ScheduledTaskForm, {
+      props: {
+        showDialog: false,
+        gameServerId: 'server-1',
+        initialTaskType: 'backup',
+        backupOverviewError: 'backups offline',
+      },
+      global: {
+        stubs: {
+          'q-banner': {
+            template: '<div v-bind="$attrs"><slot /><slot name="action" /></div>',
+          },
+          'q-btn': {
+            props: ['label'],
+            emits: ['click'],
+            template: '<button @click="$emit(\'click\')">{{ label }}</button>',
+          },
+          'q-card': { template: '<div><slot /></div>' },
+          'q-card-actions': { template: '<div><slot /></div>' },
+          'q-card-section': { template: '<div><slot /></div>' },
+          'q-dialog': { template: '<div><slot /></div>' },
+          'q-icon': { template: '<i />' },
+          'q-input': { template: '<input />' },
+          'q-select': QSelectStub,
+          'q-toggle': { template: '<input type="checkbox" />' },
+        },
+      },
+    })
+    await wrapper.setProps({ showDialog: true })
+    const vm = wrapper.vm as unknown as { form: { name: string }; isFormValid: boolean }
+    vm.form.name = 'Nightly backup'
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="backup-schedule-unsupported"]').exists()).toBe(false)
+    const banner = wrapper.get('[data-testid="backup-schedule-overview-error"]')
+    expect(banner.text()).toContain('backups offline')
+    expect(vm.isFormValid).toBe(true)
+
+    await banner.get('button').trigger('click')
+    expect(wrapper.emitted('retryBackupOverview')).toHaveLength(1)
+  })
+
   describe('new schedules', () => {
     type FormVM = {
       form: { name: string; taskType: string; timezone: string; cronExpression: string }
@@ -126,7 +167,6 @@ describe('ScheduledTaskForm', () => {
           showDialog: false,
           gameServerId: 'server-1',
           initialTaskType,
-          backupOperationsAllowed: true,
         },
         global: {
           stubs: {

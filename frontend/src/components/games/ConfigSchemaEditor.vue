@@ -1,5 +1,5 @@
 <template>
-  <div class="schema-editor">
+  <div ref="rootRef" class="schema-editor">
     <div class="editor-header">
       <q-btn-toggle
         :model-value="mode"
@@ -173,7 +173,7 @@
         <q-btn dense flat label="Deselect all" no-caps @click="selectedFields = []" />
       </div>
 
-      <div v-if="fields.length === 0" class="form-builder-empty">
+      <div v-if="fields.length === 0 && !removedField" class="form-builder-empty">
         <q-icon class="text-xy-muted q-mb-md" name="playlist_add" size="48px" />
         <div class="text-xy-secondary">No fields defined yet</div>
         <div class="text-caption text-xy-muted q-mt-xs">
@@ -193,28 +193,29 @@
             <div
               :class="{ dragging: draggedGroup === group.name }"
               :draggable="group.name !== ''"
-              :aria-expanded="isGroupExpanded(group.name)"
               class="schema-group-header"
-              role="button"
-              tabindex="0"
-              @click="toggleGroupExpand(group.name)"
-              @keydown.enter.prevent="toggleGroupExpand(group.name)"
-              @keydown.space.prevent="toggleGroupExpand(group.name)"
               @dragend="onGroupDragEnd"
               @dragstart="onGroupDragStart($event, group.name)">
               <q-icon
                 v-if="group.name"
                 class="text-xy-muted drag-handle"
                 name="drag_indicator"
-                size="xs"
-                @click.stop />
-              <q-icon
-                :name="isGroupExpanded(group.name) ? 'expand_more' : 'chevron_right'"
-                class="text-xy-muted"
                 size="xs" />
-              <span class="schema-group-title">{{ group.displayName }}</span>
-              <span class="schema-group-count text-xy-muted">{{ group.fields.length }}</span>
-              <div class="schema-group-actions" @click.stop>
+              <button
+                :aria-expanded="isGroupExpanded(group.name)"
+                class="schema-group-toggle"
+                type="button"
+                @click="toggleGroupExpand(group.name)">
+                <q-icon
+                  :name="isGroupExpanded(group.name) ? 'expand_more' : 'chevron_right'"
+                  class="text-xy-muted"
+                  size="xs" />
+                <span class="schema-group-title">{{ group.displayName }}</span>
+                <span class="schema-group-count text-xy-muted">{{
+                  group.fields.filter((field) => field !== removedField?.field).length
+                }}</span>
+              </button>
+              <div class="schema-group-actions">
                 <q-btn
                   v-if="group.name"
                   :aria-label="`Move group ${group.displayName} up`"
@@ -242,42 +243,49 @@
               </div>
             </div>
             <div v-show="isGroupExpanded(group.name)" class="schema-group-content">
-              <div
-                v-for="field in group.fields"
-                :key="field.id"
-                :class="{
-                  dragging: draggedField === field,
-                  'drag-over-above': dragOverField === field && dragOverPosition === 'above',
-                  'drag-over-below': dragOverField === field && dragOverPosition === 'below',
-                }"
-                class="field-select-row"
-                draggable="true"
-                @dragend="onFieldDragEnd"
-                @dragleave="onFieldDragLeave"
-                @dragstart="onFieldDragStart($event, field, group.name)"
-                @dragover.prevent="onFieldDragOver($event, field, group.name)"
-                @drop.prevent="onFieldDrop(field, group.name)">
-                <q-icon
-                  class="text-xy-muted drag-handle field-drag-handle"
-                  name="drag_indicator"
-                  size="xs" />
-                <q-checkbox
-                  :aria-label="`Select ${field.name}`"
-                  :model-value="isFieldSelected(field)"
-                  class="field-select-checkbox"
-                  dense
-                  size="sm"
-                  @update:model-value="toggleFieldSelection(field)" />
-                <config-schema-field-card
-                  :available-groups="availableGroups"
-                  :force-expanded="forceExpanded"
-                  :model-value="field"
-                  class="field-select-card"
-                  @remove="removeFieldByRef(field)"
-                  @update:model-value="updateFieldByRef(field, $event)"
-                  @move-up="moveFieldUp(field)"
-                  @move-down="moveFieldDown(field)" />
-              </div>
+              <template v-for="field in group.fields" :key="field.id">
+                <removed-item-undo
+                  v-if="field === removedField?.field"
+                  :label="field.key || 'unnamed field'"
+                  @dismiss="removedField = null"
+                  @undo="undoRemoveField" />
+                <div
+                  v-else
+                  :class="{
+                    dragging: draggedField === field,
+                    'drag-over-above': dragOverField === field && dragOverPosition === 'above',
+                    'drag-over-below': dragOverField === field && dragOverPosition === 'below',
+                  }"
+                  :data-field-id="field.id"
+                  class="field-select-row"
+                  draggable="true"
+                  @dragend="onFieldDragEnd"
+                  @dragleave="onFieldDragLeave"
+                  @dragstart="onFieldDragStart($event, field, group.name)"
+                  @dragover.prevent="onFieldDragOver($event, field, group.name)"
+                  @drop.prevent="onFieldDrop(field, group.name)">
+                  <q-icon
+                    class="text-xy-muted drag-handle field-drag-handle"
+                    name="drag_indicator"
+                    size="xs" />
+                  <q-checkbox
+                    :aria-label="`Select ${field.name}`"
+                    :model-value="isFieldSelected(field)"
+                    class="field-select-checkbox"
+                    dense
+                    size="sm"
+                    @update:model-value="toggleFieldSelection(field)" />
+                  <config-schema-field-card
+                    :available-groups="availableGroups"
+                    :force-expanded="forceExpanded"
+                    :model-value="field"
+                    class="field-select-card"
+                    @remove="removeFieldByRef(field)"
+                    @update:model-value="updateFieldByRef(field, $event)"
+                    @move-up="moveFieldUp(field)"
+                    @move-down="moveFieldDown(field)" />
+                </div>
+              </template>
             </div>
           </div>
         </template>
@@ -329,12 +337,13 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import { notifyError, notifySuccess } from '@/api/notifications'
 import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
 import type { SchemaFieldModel } from './ConfigSchemaFieldCard.vue'
 import ConfigSchemaFieldCard from './ConfigSchemaFieldCard.vue'
 import ConfigImportInput from './ConfigImportInput.vue'
+import RemovedItemUndo from './RemovedItemUndo.vue'
 import {
   toBackendManagedSource,
   toFrontendManagedSource,
@@ -381,6 +390,22 @@ const jsonWarnings = ref<string[]>([])
 const jsonFieldCount = ref(0)
 const monacoContainer = ref<HTMLElement | null>(null)
 const groupOrder = ref<string[]>([])
+const rootRef = ref<HTMLElement | null>(null)
+
+// The most recent removal, with the id of the field before it.
+const removedField = shallowRef<{
+  field: SchemaFieldModel
+  index: number
+  afterId?: number
+} | null>(null)
+
+// Undo puts the field back after the neighbour it had, or at its old index if that one is gone.
+const removedFieldAt = computed(() => {
+  const removal = removedField.value
+  if (!removal) return -1
+  const after = fields.value.findIndex((field) => field.id === removal.afterId)
+  return after >= 0 ? after + 1 : Math.min(removal.index, fields.value.length)
+})
 
 let monacoEditor: unknown = null
 let nextFieldId = 0
@@ -398,6 +423,7 @@ const isDirty = computed(
 
 // Loading a schema (on mount, or after the page saves one) resets the clean baseline.
 function loadSchema(schema: JsonSchema) {
+  removedField.value = null
   fields.value = schemaToFields(schema)
   selectedFields.value = []
   savedSchemaJson.value = JSON.stringify(fieldsToSchema())
@@ -413,6 +439,7 @@ watch(() => props.schema, loadSchema)
 // Sync between modes. Invalid Raw JSON keeps the JSON view open so its edits are not lost.
 async function switchMode(newMode: 'form' | 'json') {
   if (newMode === mode.value) return
+  removedField.value = null
 
   if (newMode === 'form') {
     if (monacoEditor) {
@@ -553,6 +580,7 @@ function fieldsToSchema(): JsonSchema {
 }
 
 function addField() {
+  removedField.value = null
   const maxOrder = fields.value.reduce((max, f) => Math.max(max, f.order), -1)
   fields.value.push({
     id: nextFieldId++,
@@ -618,7 +646,18 @@ const filteredFields = computed(() => {
 
 const visibleFields = computed(() => filteredFields.value)
 
-const displayGroups = computed(() => groupFields(filteredFields.value, groupOrder.value))
+// The removed field keeps its slot, as an undo row, whatever the filters say.
+const displayGroups = computed(() => {
+  const removal = removedField.value
+  if (!removal) return groupFields(filteredFields.value, groupOrder.value)
+  const shown = new Set(filteredFields.value)
+  const at = removedFieldAt.value
+  const withRemoved = [...fields.value.slice(0, at), removal.field, ...fields.value.slice(at)]
+  return groupFields(
+    withRemoved.filter((field) => field === removal.field || shown.has(field)),
+    groupOrder.value,
+  )
+})
 
 // Group expand/collapse
 const expandedGroups = reactive(new Map<string, boolean>())
@@ -680,6 +719,7 @@ function selectBulkGroupSuggestion(g: string) {
 function applyBulkGroup() {
   const groupName = bulkGroupName.value.trim().toLowerCase()
   if (!groupName) return
+  removedField.value = null
 
   for (const field of selectedFields.value) {
     field.group = groupName
@@ -695,6 +735,7 @@ function applyBulkGroup() {
 }
 
 function clearBulkGroup() {
+  removedField.value = null
   for (const field of selectedFields.value) {
     field.group = ''
   }
@@ -703,20 +744,39 @@ function clearBulkGroup() {
 }
 
 function updateFieldByRef(original: SchemaFieldModel, updated: SchemaFieldModel) {
+  removedField.value = null
   const index = fields.value.indexOf(original)
   if (index !== -1) {
     fields.value[index] = updated
   }
 }
 
+// One click removes the field and the next Save makes it permanent, so an undo row takes its place.
 function removeFieldByRef(field: SchemaFieldModel) {
   const index = fields.value.indexOf(field)
   if (index !== -1) {
     fields.value.splice(index, 1)
+    removedField.value = { field, index, afterId: fields.value[index - 1]?.id }
   }
 }
 
+function undoRemoveField() {
+  const removal = removedField.value
+  if (!removal) return
+  const at = removedFieldAt.value
+  removedField.value = null
+  fields.value.splice(at, 0, removal.field)
+  void nextTick(() =>
+    rootRef.value
+      ?.querySelector<HTMLElement>(
+        `[data-field-id="${removal.field.id}"] .field-select-card button`,
+      )
+      ?.focus(),
+  )
+}
+
 function moveFieldUp(field: SchemaFieldModel) {
+  removedField.value = null
   const sameGroup = fields.value.filter((f) => f.group === field.group)
   const groupIdx = sameGroup.indexOf(field)
   if (groupIdx <= 0) return
@@ -730,6 +790,7 @@ function moveFieldUp(field: SchemaFieldModel) {
 }
 
 function moveFieldDown(field: SchemaFieldModel) {
+  removedField.value = null
   const sameGroup = fields.value.filter((f) => f.group === field.group)
   const groupIdx = sameGroup.indexOf(field)
   if (groupIdx < 0 || groupIdx >= sameGroup.length - 1) return
@@ -813,6 +874,7 @@ function onFieldDragLeave() {
 function onFieldDrop(targetField: SchemaFieldModel, targetGroup: string) {
   if (!draggedField.value || draggedField.value === targetField) return
   if (draggedFieldGroup.value !== targetGroup) return
+  removedField.value = null
 
   const fromIdx = fields.value.indexOf(draggedField.value)
   if (fromIdx === -1) return
@@ -1025,6 +1087,7 @@ function importedFieldToFieldModel(field: ImportedField): SchemaFieldModel {
 
 function applyImport() {
   if (!pendingImport.value?.fields) return
+  removedField.value = null
 
   const existingKeys = new Set(fields.value.map((f) => f.key))
   let added = 0
@@ -1204,8 +1267,19 @@ defineExpose({ buildSchema, isDirty })
   align-items: center;
   gap: var(--xy-space-xs);
   padding: var(--xy-space-xs) 0;
-  cursor: pointer;
   user-select: none;
+}
+
+.schema-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 .schema-group-title {
@@ -1293,7 +1367,7 @@ defineExpose({ buildSchema, isDirty })
 }
 
 .json-invalid {
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
 }
 
 .monaco-container {
@@ -1323,16 +1397,27 @@ defineExpose({ buildSchema, isDirty })
   transition: opacity var(--xy-transition-fast);
 }
 
-.schema-group-header:hover .group-move-btn {
+.schema-group-header:hover .group-move-btn,
+.schema-group-header:focus-within .group-move-btn {
   opacity: 1;
+}
+
+/* Touch has no hover: keep the move buttons visible, and the collapse toggle tappable. */
+@media (hover: none), (pointer: coarse), (any-pointer: coarse) {
+  .group-move-btn {
+    opacity: 1;
+  }
+
+  .schema-group-toggle {
+    min-height: 44px;
+  }
 }
 
 /* Drag-and-drop */
 .drag-handle {
   cursor: grab;
   flex-shrink: 0;
-  opacity: 0.4;
-  transition: opacity var(--xy-transition-fast);
+  transition: color var(--xy-transition-fast);
 }
 
 .drag-handle:active {
@@ -1341,7 +1426,7 @@ defineExpose({ buildSchema, isDirty })
 
 .schema-group-header:hover .drag-handle,
 .field-select-row:hover > .drag-handle {
-  opacity: 1;
+  color: var(--xy-text-secondary) !important;
 }
 
 .field-drag-handle {

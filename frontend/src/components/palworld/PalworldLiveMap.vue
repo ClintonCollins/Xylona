@@ -1091,12 +1091,10 @@ onBeforeUnmount(() => {
 
         <div
           class="palworld-live-map__status"
-          :class="`palworld-live-map__status--${mapStatus.tone}`"
-          role="status"
-          :aria-label="`${mapStatus.label}. ${collectedLabel}`">
+          :class="`palworld-live-map__status--${mapStatus.tone}`">
           <q-icon :name="mapStatus.icon" />
           <div>
-            <strong>{{ mapStatus.label }}</strong>
+            <strong role="status">{{ mapStatus.label }}</strong>
             <span :title="collectedTitle">{{ collectedLabel }}</span>
           </div>
         </div>
@@ -1225,7 +1223,7 @@ onBeforeUnmount(() => {
             @click="railOpen = false" />
         </div>
 
-        <div v-if="selectedActor !== null" class="palworld-live-map__selected" role="status">
+        <div v-if="selectedActor !== null" class="palworld-live-map__selected">
           <div class="palworld-live-map__selected-heading">
             <span
               class="palworld-live-map__selection-icon"
@@ -2172,7 +2170,12 @@ onBeforeUnmount(() => {
   color: var(--xy-text-primary);
   background: var(--xy-surface-3);
   border-color: color-mix(in srgb, var(--actor-color, var(--xy-accent)) 58%, var(--xy-border) 42%);
-  outline: none;
+}
+
+/* The chip strip scrolls, which clips an outer ring, so draw the ring inside the chip. */
+.palworld-live-map__summary-chip:focus-visible {
+  outline: 3px solid var(--xy-focus-ring);
+  outline-offset: -3px;
 }
 
 .palworld-live-map__health {
@@ -2353,7 +2356,7 @@ onBeforeUnmount(() => {
   z-index: var(--xy-z-drawer);
   color: var(--xy-text-secondary);
   background: var(--xy-surface-1);
-  border: 1px solid var(--xy-border-strong);
+  border: 1px solid var(--xy-border-hover);
 }
 
 .palworld-live-map__notice {
@@ -2757,7 +2760,7 @@ onBeforeUnmount(() => {
 .palworld-live-map .leaflet-control-zoom a {
   color: var(--xy-text-primary);
   background: var(--xy-surface-1);
-  border-color: var(--xy-border-strong);
+  border-color: var(--xy-border-hover);
 }
 
 .palworld-live-map .leaflet-top.leaflet-left {
@@ -2774,14 +2777,14 @@ onBeforeUnmount(() => {
 .palworld-live-map .leaflet-tooltip {
   color: var(--xy-text-primary);
   background: var(--xy-surface-1);
-  border: 1px solid var(--xy-border-strong);
+  border: 1px solid var(--xy-border-hover);
   border-radius: var(--xy-radius-md);
   box-shadow: var(--xy-shadow-md);
   font-family: var(--xy-font-body);
 }
 
 .palworld-live-map .leaflet-tooltip::before {
-  border-top-color: var(--xy-border-strong);
+  border-top-color: var(--xy-border-hover);
 }
 
 @media (max-width: 599px) {

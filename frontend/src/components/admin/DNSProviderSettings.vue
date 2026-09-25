@@ -99,12 +99,13 @@
           </p>
           <q-input
             v-model="cloudflareApiToken"
+            :aria-required="!canPreserveCredentials"
             :hint="secretHint('API token')"
+            :label="canPreserveCredentials ? 'API Token' : 'API Token *'"
             aria-label="Cloudflare API token"
             autocomplete="new-password"
             data-testid="cloudflare-api-token"
             dense
-            label="API Token"
             outlined
             type="password" />
         </div>
@@ -168,22 +169,24 @@
             <div class="col-12 col-md-6">
               <q-input
                 v-model="awsAccessKeyId"
+                :aria-required="!canPreserveCredentials"
                 :hint="secretHint('Access key ID')"
+                :label="canPreserveCredentials ? 'Access Key ID' : 'Access Key ID *'"
                 aria-label="AWS access key ID"
                 autocomplete="new-password"
                 dense
-                label="Access Key ID"
                 outlined
                 type="password" />
             </div>
             <div class="col-12 col-md-6">
               <q-input
                 v-model="awsSecretAccessKey"
+                :aria-required="!canPreserveCredentials"
                 :hint="secretHint('Secret access key')"
+                :label="canPreserveCredentials ? 'Secret Access Key' : 'Secret Access Key *'"
                 aria-label="AWS secret access key"
                 autocomplete="new-password"
                 dense
-                label="Secret Access Key"
                 outlined
                 type="password" />
             </div>
@@ -231,21 +234,21 @@
           <div class="col-12 col-md-6">
             <q-input
               v-model="zoneName"
-              aria-label="Authoritative zone name"
+              aria-required="true"
               data-testid="dns-zone-name"
               dense
-              label="Exact Zone Name"
+              label="Exact Zone Name *"
               outlined
               placeholder="example.com" />
           </div>
           <div class="col-12 col-md-6">
             <q-input
               v-model="zoneId"
-              aria-label="Provider zone ID"
+              aria-required="true"
               data-testid="dns-zone-id"
               dense
               input-class="font-mono"
-              label="Exact Zone ID"
+              label="Exact Zone ID *"
               outlined />
           </div>
         </div>
@@ -258,13 +261,19 @@
           <q-btn
             :disable="!formReady"
             :loading="activating"
-            color="primary"
             icon="verified"
             label="Test and activate"
             data-testid="activate-dns-provider"
             no-caps
+            outline
             @click="activate" />
-          <span class="action-note">Failed tests leave the active connection unchanged.</span>
+          <span class="action-note">
+            {{
+              formReady
+                ? 'Failed tests leave the active connection unchanged.'
+                : 'Fill in every field marked * to activate.'
+            }}
+          </span>
         </div>
       </div>
     </template>

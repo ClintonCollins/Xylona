@@ -4,7 +4,7 @@
       <span class="section-icon">
         <q-icon name="hub" size="14px" />
       </span>
-      <span class="section-title">Provisioning</span>
+      <h3 class="section-title">Provisioning</h3>
       <span class="section-line"></span>
     </div>
 
@@ -23,22 +23,22 @@
       </article>
       <article class="readonly-provisioning-item" data-testid="readonly-connection">
         <span class="readonly-provisioning-label">Connection</span>
-        <span class="readonly-provisioning-value">{{ connection }}</span>
+        <span class="readonly-provisioning-value font-mono">{{ connection }}</span>
       </article>
       <article class="readonly-provisioning-item" data-testid="readonly-capacity">
         <span class="readonly-provisioning-label">Capacity</span>
-        <span class="readonly-provisioning-value">{{ capacity }}</span>
+        <span class="readonly-provisioning-value xy-num">{{ capacity }}</span>
       </article>
       <article class="readonly-provisioning-item" data-testid="readonly-server-executable">
         <span class="readonly-provisioning-label">Executable</span>
-        <span class="readonly-provisioning-value">{{ executable }}</span>
+        <span class="readonly-provisioning-value font-mono">{{ executable }}</span>
       </article>
       <article
         v-if="showMemory"
         class="readonly-provisioning-item"
         data-testid="readonly-max-memory">
         <span class="readonly-provisioning-label">Java heap limit</span>
-        <span class="readonly-provisioning-value">{{ memory }}</span>
+        <span class="readonly-provisioning-value xy-num">{{ memory }}</span>
       </article>
     </div>
   </section>

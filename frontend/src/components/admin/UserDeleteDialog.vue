@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="user-delete-dialog-title"
-    backdrop-filter="brightness(15%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="user-delete-dialog-title" persistent>
     <q-card class="user-delete-dialog">
       <q-card-section>
         <div id="user-delete-dialog-title" class="text-h6 text-negative">Delete User</div>
@@ -206,7 +202,7 @@ async function deleteUser() {
 }
 
 .user-delete-group a {
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
 }
 
 .user-delete-schedules {

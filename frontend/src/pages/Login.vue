@@ -40,7 +40,6 @@
         <template #append>
           <q-btn
             :aria-label="showPassword ? 'Hide password' : 'Show password'"
-            :aria-pressed="showPassword"
             :icon="showPassword ? 'visibility_off' : 'visibility'"
             dense
             flat
@@ -51,10 +50,12 @@
           </q-btn>
         </template>
       </q-input>
-      <div v-if="loginError" class="auth-error rounded-borders q-mt-md" role="alert">
-        <q-icon name="report_problem" size="sm" />
-        <span>{{ loginError }}</span>
-      </div>
+      <q-banner v-if="loginError" class="xy-banner-negative q-mt-md" dense role="alert">
+        <template #avatar>
+          <q-icon name="report_problem" />
+        </template>
+        {{ loginError }}
+      </q-banner>
       <q-btn
         :disable="loggingIn"
         :loading="loggingIn"
@@ -70,7 +71,6 @@
 
 <script lang="ts" setup>
 import { Code, ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
 
 import { ref } from 'vue'
 import { create } from '@bufbuild/protobuf'
@@ -95,8 +95,6 @@ const signInReasons: Record<string, string> = {
   'account-changed': 'Your account changed, so every session was signed out. Sign in again.',
 }
 
-const $q = useQuasar()
-
 async function login() {
   if (loggingIn.value) return
   loginError.value = ''
@@ -108,30 +106,18 @@ async function login() {
     })
     const response = await GetXylonaClient().login(loginRequest)
     if (response.user === undefined) {
-      notifyLoginError('Invalid username or password')
+      loginError.value = 'Invalid username or password'
       return
     }
     userAuthStore.setUser(response.user)
     await router.push(safeReturnPath(route.query['redirect']))
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
-    let caption = ConnectErrorToString(err)
-    if (err.code === Code.Unauthenticated) {
-      caption = 'Invalid username or password'
-    }
-    notifyLoginError(caption)
+    // The inline alert announces the failure, so there is no toast as well.
+    loginError.value =
+      err.code === Code.Unauthenticated ? 'Invalid username or password' : ConnectErrorToString(err)
   } finally {
     loggingIn.value = false
   }
-}
-
-function notifyLoginError(message: string) {
-  loginError.value = message
-  $q.notify({
-    type: 'xylona-error',
-    position: 'top',
-    caption: message,
-    icon: 'report_problem',
-  })
 }
 </script>

@@ -15,12 +15,13 @@ describe('formatDownloads', () => {
 
 describe('iconGradient', () => {
   it.each([
-    { name: '', hue1: 0, hue2: 40 },
-    { name: 'abc', hue1: 234, hue2: 274 },
-    { name: '😀', hue1: 259, hue2: 299 },
-  ])('preserves the fallback colors for "$name"', ({ name, hue1, hue2 }) => {
+    { name: '', category: 1 },
+    { name: 'abc', category: 3 },
+    { name: '😀', category: 4 },
+  ])('picks a stable category token for "$name"', ({ name, category }) => {
+    const token = `var(--xy-category-${category})`
     expect(iconGradient(name)).toBe(
-      `linear-gradient(135deg, hsl(${hue1}, 60%, 40%), hsl(${hue2}, 60%, 30%))`,
+      `linear-gradient(135deg, color-mix(in srgb, ${token} 60%, var(--xy-base)), color-mix(in srgb, ${token} 40%, var(--xy-base)))`,
     )
   })
 })

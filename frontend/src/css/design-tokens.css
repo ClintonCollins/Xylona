@@ -49,6 +49,12 @@
   --xy-warning-darker: #d97706;
   --xy-primary-darker: #2563eb;
   --xy-purple: #8b5cf6;
+  /* Text roles: #3b82f6 and #ef4444 drop below 4.5:1 from surface-2 up,
+     so coloured text uses the lighter step (≥5.3:1 through surface-3). */
+  --xy-primary-text: var(--xy-primary-hover);
+  --xy-danger-text: var(--xy-danger-hover);
+  /* Dialog backdrop: the cool base, never pure black. */
+  --xy-scrim: rgba(13, 14, 15, 0.72);
   /* Outlines live map actor dots so they read against any terrain tile. */
   --xy-map-marker-halo: rgba(5, 8, 13, 0.88);
 
@@ -85,11 +91,13 @@
   --xy-platform-windows-hover: #2196f3;
   --xy-platform-linux: #e95420;
   --xy-platform-linux-hover: #ff6e40;
+  /* Categories never borrow status green, amber or red: a config group or mod
+     source must not read as a warning next to a real "Missing" badge. */
   --xy-category-1: var(--xy-primary);
-  --xy-category-2: var(--xy-success);
-  --xy-category-3: var(--xy-warning);
+  --xy-category-2: #2dd4bf;
+  --xy-category-3: #818cf8;
   --xy-category-4: var(--xy-purple);
-  --xy-category-5: var(--xy-danger);
+  --xy-category-5: #e879f9;
   --xy-category-6: var(--xy-info);
   --xy-category-7: #ec4899;
   --xy-category-8: #f97316;
@@ -202,7 +210,9 @@
   --xy-z-sticky: 10;
   --xy-z-drawer: 1000;
   --xy-z-overlay: 8000;
-  --xy-z-fullscreen: 9000;
+  /* Above the header and drawers, below Quasar dialogs and menus (6000): a Stop
+     confirmation opened from the fullscreen console must render on top. */
+  --xy-z-fullscreen: 5000;
   --xy-z-notification: 9500;
 
   /* ---- Animation Durations (used by keyframe animations) ---- */
@@ -441,6 +451,8 @@
   color: var(--xy-text-primary);
   border: 1px solid;
   border-radius: var(--xy-radius-lg);
+  /* Server errors carry unbroken paths and URLs; wrap them instead of overflowing. */
+  overflow-wrap: anywhere;
 }
 
 .xy-banner-warning {
@@ -502,5 +514,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Spinners and indeterminate bars mean "still working": keep them turning. */
+  .q-spinner-mat,
+  .q-spinner-mat .path,
+  .q-circular-progress--indeterminate .q-circular-progress__svg,
+  .q-circular-progress--indeterminate .q-circular-progress__circle,
+  .q-linear-progress__model--indeterminate::before,
+  .q-linear-progress__model--indeterminate::after {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
   }
 }

@@ -5,17 +5,15 @@ import DeleteGameServerDialog from './DeleteGameServerDialog.vue'
 
 const mocks = vi.hoisted(() => ({
   listGameServerBackups: vi.fn(),
-  notify: vi.fn(),
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
   removeGameServer: vi.fn(),
 }))
 
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual<typeof import('quasar')>('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({ notify: mocks.notify }),
-  }
-})
+vi.mock('@/api/notifications', () => ({
+  notifyError: mocks.notifyError,
+  notifySuccess: mocks.notifySuccess,
+}))
 
 vi.mock('@/utils/shared', () => ({
   bytesToSize: (bytes: number) => `${bytes} B`,
@@ -55,7 +53,8 @@ function findButton(wrapper: ReturnType<typeof mount>, label: string) {
 describe('DeleteGameServerDialog', () => {
   afterEach(() => {
     mocks.listGameServerBackups.mockReset()
-    mocks.notify.mockReset()
+    mocks.notifyError.mockReset()
+    mocks.notifySuccess.mockReset()
     mocks.removeGameServer.mockReset()
   })
 
@@ -240,15 +239,17 @@ describe('DeleteGameServerDialog', () => {
         },
       ],
     ])
-    expect(mocks.notify).toHaveBeenCalledTimes(1)
-    expect(mocks.notify).toHaveBeenCalledWith(
+    expect(mocks.notifySuccess).not.toHaveBeenCalled()
+    expect(mocks.notifyError).toHaveBeenCalledTimes(1)
+    expect(mocks.notifyError).toHaveBeenCalledWith(
+      expect.stringContaining('Deleted: Alpha'),
       expect.objectContaining({
-        caption: expect.stringContaining('Deleted: Alpha'),
         message: 'Deleted 1; 2 failed.',
-        type: 'xylona-error',
+        timeout: 0,
+        actions: [{ icon: 'close', 'aria-label': 'Dismiss' }],
       }),
     )
-    expect(mocks.notify.mock.calls[0]?.[0].caption).toContain('Failed: Bravo — node unavailable')
-    expect(mocks.notify.mock.calls[0]?.[0].caption).toContain('Failed: Charlie — permission denied')
+    expect(mocks.notifyError.mock.calls[0]?.[0]).toContain('Failed: Bravo — node unavailable')
+    expect(mocks.notifyError.mock.calls[0]?.[0]).toContain('Failed: Charlie — permission denied')
   })
 })

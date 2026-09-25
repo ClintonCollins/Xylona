@@ -10,11 +10,11 @@
               Control Panel
             </div>
           </div>
-          <main class="auth-content">
+          <div class="auth-content">
             <div class="auth-panel">
               <slot />
             </div>
-          </main>
+          </div>
         </div>
       </q-page>
     </q-page-container>
@@ -101,23 +101,14 @@
   line-height: 1.5;
 }
 
-.auth-panel :deep(.auth-error) {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-sm);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  color: var(--xy-danger-hover);
-  background: var(--xy-danger-bg);
-  border: 1px solid var(--xy-danger-border);
-}
-
 .auth-panel :deep(.auth-button) {
   font-family: var(--xy-font-control);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
 
-@media (max-width: 599px) {
+/* Two columns squeeze the form below about 1024px, so the brand stacks above it. */
+@media (max-width: 1023px) {
   .auth-layout {
     flex-direction: column;
     align-items: stretch;
@@ -140,7 +131,9 @@
     width: 100%;
     padding: 0;
   }
+}
 
+@media (max-width: 599px) {
   .auth-panel {
     padding: var(--xy-space-lg);
   }

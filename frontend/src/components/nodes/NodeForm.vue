@@ -3,6 +3,20 @@
     <page-header :title="existingNodeId ? 'Edit Node' : 'Add Remote Node'" />
 
     <div v-if="existingNodeId">
+      <q-banner
+        v-if="loadError"
+        class="xy-banner-negative q-mb-md"
+        dense
+        inline-actions
+        role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>Node details could not be loaded.</strong> {{ loadError }}
+        <template #action>
+          <q-btn flat icon="refresh" label="Retry" no-caps @click="getNodeDetails" />
+        </template>
+      </q-banner>
       <q-form @submit.prevent="updateNode">
         <div class="row wrap q-col-gutter-md">
           <q-input
@@ -31,7 +45,12 @@
         <div class="row q-mt-md">
           <q-btn flat label="Cancel" @click="cancel"></q-btn>
           <q-space />
-          <q-btn :loading="formSubmitting" color="primary" label="Save" type="submit"></q-btn>
+          <q-btn
+            :disable="!nodeLoaded"
+            :loading="formSubmitting"
+            color="primary"
+            label="Save"
+            type="submit"></q-btn>
         </div>
       </q-form>
     </div>
@@ -65,6 +84,7 @@
             aria-label="Node join command"
             dense
             filled
+            input-class="font-mono"
             readonly
             type="textarea"
             autogrow></q-input>
@@ -86,7 +106,7 @@ import { ConnectError } from '@connectrpc/connect'
 import { copyToClipboard } from 'quasar'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { notifySuccess } from '@/api/notifications'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { NodeSchema } from '@/proto/shared_pb'
 import {
   type EditNodeRequest,
@@ -118,6 +138,9 @@ const isDirty = computed(
 defineExpose({ isDirty })
 const formSubmitting = ref(false)
 const errorMessage = ref('')
+// Save stays disabled until the node loads, so a failed read can't save a blank form over it.
+const loadError = ref('')
+const nodeLoaded = ref(false)
 const generatedPairingKey = ref('')
 const generatedControllerURL = ref('')
 const pairingKeySubmitting = ref(false)
@@ -141,20 +164,23 @@ async function cancel() {
 }
 
 async function getNodeDetails() {
+  loadError.value = ''
   const request: GetNodeRequest = create(GetNodeRequestSchema, {})
   try {
     request.nodeId = props.existingNodeId
     const response = await GetXylonaClient().getNode(request)
     if (response.node === undefined) {
+      loadError.value = 'The controller returned no node.'
       return
     }
     node.value = response.node
     savedNode.value = { name: response.node.name, baseUrl: response.node.baseUrl }
+    nodeLoaded.value = true
   } catch (e) {
     if (e instanceof ConnectError) {
-      errorMessage.value = connectErrorToString(e)
+      loadError.value = connectErrorToString(e)
     } else {
-      errorMessage.value = 'Failed to load node details'
+      loadError.value = 'Failed to load node details'
     }
     console.error(e)
   }
@@ -209,8 +235,12 @@ function getPanelURL() {
 
 async function copyCommand() {
   if (generatedJoinCommand.value === '') return
-  await copyToClipboard(generatedJoinCommand.value)
-  notifySuccess('Node join command copied to clipboard')
+  try {
+    await copyToClipboard(generatedJoinCommand.value)
+    notifySuccess('Node join command copied to clipboard')
+  } catch {
+    notifyError('Could not copy the join command. Select it and copy it manually.')
+  }
 }
 </script>
 

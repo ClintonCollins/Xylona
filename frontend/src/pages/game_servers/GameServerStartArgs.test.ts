@@ -70,6 +70,7 @@ vi.mock('quasar', async () => {
 
 // Every toast goes through the shared helpers; record them on one mock.
 vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notify,
   notifySuccess: mocks.notify,
   notifyError: mocks.notify,
   notifyWarning: mocks.notify,
@@ -310,6 +311,46 @@ describe('GameServerStartArgs', () => {
     expect(viewModel.draftBaseCommandOverride).toBe('./custom-start.sh')
   })
 
+  it('offers Retry instead of the editor when the server fails to load', async () => {
+    mocks.getGameServer.mockRejectedValueOnce(new Error('controller offline'))
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="start-args-load-error"]').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'StartArgsEditor' }).exists()).toBe(false)
+
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.OFFLINE) }),
+    )
+    await (wrapper.vm as unknown as { initialize: () => Promise<void> }).initialize()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="start-args-load-error"]').exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'StartArgsEditor' }).exists()).toBe(true)
+  })
+
+  it('asks before Reset All discards the draft', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.OFFLINE) }),
+    )
+    mocks.dialog.mockReturnValue({ onOk: vi.fn() })
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as {
+      draftBaseCommandOverride: string
+      confirmResetAll: () => void
+    }
+    viewModel.draftBaseCommandOverride = './draft.sh'
+    viewModel.confirmResetAll()
+
+    expect(mocks.dialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Reset all start arguments?', focus: 'cancel' }),
+    )
+    expect(viewModel.draftBaseCommandOverride).toBe('./draft.sh')
+  })
+
   it('lets superusers reset every server override', async () => {
     mocks.superUser = true
     mocks.getGameServer.mockResolvedValue(
@@ -322,19 +363,43 @@ describe('GameServerStartArgs', () => {
       }),
     )
 
-    const wrapper = shallowMount(GameServerStartArgs)
+    mocks.dialog.mockReturnValue({ onOk: (handler: () => void) => handler() })
+
+    const wrapper = shallowMount(GameServerStartArgs, {
+      global: { stubs: { PageHeader: false } },
+    })
     await flushPromises()
     const editor = wrapper.getComponent({ name: 'StartArgsEditor' })
     const viewModel = wrapper.vm as unknown as {
       draftBaseCommandOverride: string
       draftPatches: Array<{ id: string }>
-      resetAll: () => void
     }
+    // The overrides are saved, so the draft is clean; Reset All must still be available.
+    const resetButton = wrapper
+      .findAllComponents({ name: 'QBtn' })
+      .find((button) => button.props('label') === 'Reset All')
 
     expect(editor.props('allowProtectedEditing')).toBe(true)
-    viewModel.resetAll()
+    expect(resetButton?.props('disable')).toBe(false)
+    await resetButton?.trigger('click')
+    expect(mocks.dialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Reset all start arguments?' }),
+    )
     expect(viewModel.draftPatches).toEqual([])
     expect(viewModel.draftBaseCommandOverride).toBe('')
+  })
+
+  it('offers Retry when the node list fails to load', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.OFFLINE) }),
+    )
+    mocks.listNodes.mockRejectedValueOnce(new Error('nodes unavailable'))
+
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="start-args-load-error"]').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'StartArgsEditor' }).exists()).toBe(false)
   })
 
   it('updates preview and dirty state when the base override changes', async () => {

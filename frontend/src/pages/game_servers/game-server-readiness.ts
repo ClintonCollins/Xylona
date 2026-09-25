@@ -5,7 +5,7 @@ import {
   GetGameServerReadinessRequestSchema,
   type GameServerReadinessItem,
 } from '@/proto/xylona_pb'
-import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 
 export interface GameServerReadiness {
   /** Latest setup checks; actions that return fresh items assign them here. */
@@ -13,7 +13,7 @@ export interface GameServerReadiness {
   reload: () => Promise<void>
 }
 
-/** Shared by the server layout so the identity bar and the console agree. */
+/** Shared by the server layout so every server page reads one copy. */
 export const gameServerReadinessKey: InjectionKey<GameServerReadiness> =
   Symbol('gameServerReadiness')
 
@@ -46,7 +46,7 @@ export function findStartBlocker(
 
 /**
  * Loads a server's readiness when the id is known and again whenever the page
- * regains focus or a start is rejected, since setup is often fixed elsewhere.
+ * regains focus, since setup is often fixed elsewhere.
  */
 export function createGameServerReadiness(serverId: Ref<string>): GameServerReadiness {
   const items = ref<GameServerReadinessItem[]>([])
@@ -66,10 +66,6 @@ export function createGameServerReadiness(serverId: Ref<string>): GameServerRead
     }
   }
 
-  function onStartRejected(rejectedServerId: string): void {
-    if (rejectedServerId === serverId.value) void reload()
-  }
-
   function onWindowFocus(): void {
     void reload()
   }
@@ -80,13 +76,11 @@ export function createGameServerReadiness(serverId: Ref<string>): GameServerRead
   })
 
   onMounted(() => {
-    XylonaEventBus.on('gameServerStartRejected', onStartRejected)
     window.addEventListener('focus', onWindowFocus)
     void reload()
   })
 
   onBeforeUnmount(() => {
-    XylonaEventBus.off('gameServerStartRejected', onStartRejected)
     window.removeEventListener('focus', onWindowFocus)
   })
 

@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(25%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="full-width">
       <q-form @submit.prevent="renameFile">
         <q-card-section>
@@ -41,13 +37,13 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { useQuasar } from 'quasar'
 import {
   GameServerFileRenameRequest,
   GameServerFileRenameRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { ref, Ref, watch } from 'vue'
 
 const props = defineProps({
@@ -71,8 +67,6 @@ const props = defineProps({
 
 const newFileName: Ref<string> = ref('')
 const submitting = ref(false)
-
-const $q = useQuasar()
 
 const showDialog = defineModel('showDialog', {
   type: Boolean,
@@ -106,25 +100,16 @@ async function renameFile() {
   try {
     await GetXylonaClient().gameServerFileRename(request)
     emit('submit')
-    $q.notify({
-      caption: `${props.oldFileName} renamed to ${newFileName.value} successfully.`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 5000,
-    })
+    notifySuccess(`${props.oldFileName} renamed to ${newFileName.value} successfully.`)
     showDialog.value = false
     newFileName.value = ''
   } catch (err: unknown) {
     console.error(err)
-    $q.notify({
-      caption:
-        err instanceof Error
-          ? `Could not rename the file or directory. ${connectErrorMessage(err)}`
-          : 'Could not rename the file or directory. Try again.',
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifyError(
+      err instanceof Error
+        ? `Could not rename the file or directory. ${connectErrorMessage(err)}`
+        : 'Could not rename the file or directory. Try again.',
+    )
   } finally {
     submitting.value = false
   }

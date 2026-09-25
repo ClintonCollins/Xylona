@@ -237,9 +237,13 @@ function formatBytes(bytes: number): string {
   background-color: var(--xy-surface-1);
 }
 
+/* The "installed" badge and disabled checkbox carry the state; a fade would fail contrast. */
 .dep-installed {
-  opacity: 0.6;
   cursor: default;
+}
+
+.dep-installed .dep-name {
+  color: var(--xy-text-secondary);
 }
 
 .dep-required {

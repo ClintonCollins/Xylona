@@ -1,19 +1,15 @@
 import { groupToTitle } from '@/utils/config-import'
 
-/**
- * Shared palette for category color assignment.
- * These mirror --xy-category-1 through --xy-category-8 from design-tokens.css
- * but are kept as hex for direct use in canvas/chart contexts.
- */
+/** Shared palette for category color assignment, from design-tokens.css. */
 export const CATEGORY_COLORS = [
-  '#3B82F6', // --xy-category-1 (primary / blue)
-  '#22C55E', // --xy-category-2 (success / green)
-  '#F59E0B', // --xy-category-3 (warning / amber)
-  '#8B5CF6', // --xy-category-4 (purple)
-  '#EF4444', // --xy-category-5 (danger / red)
-  '#06B6D4', // --xy-category-6 (info / cyan)
-  '#EC4899', // --xy-category-7 (pink)
-  '#F97316', // --xy-category-8 (orange)
+  'var(--xy-category-1)',
+  'var(--xy-category-2)',
+  'var(--xy-category-3)',
+  'var(--xy-category-4)',
+  'var(--xy-category-5)',
+  'var(--xy-category-6)',
+  'var(--xy-category-7)',
+  'var(--xy-category-8)',
 ]
 
 /**
@@ -24,7 +20,7 @@ export function buildCategoryColorMap(configFiles: { category: string }[]): Map<
   const map = new Map<string, string>()
   const categories = [...new Set(configFiles.map((f) => f.category || 'Uncategorized'))]
   categories.forEach((cat, i) => {
-    const color = CATEGORY_COLORS[i % CATEGORY_COLORS.length] ?? CATEGORY_COLORS[0] ?? '#3B82F6'
+    const color = CATEGORY_COLORS[i % CATEGORY_COLORS.length] ?? 'var(--xy-category-1)'
     map.set(cat, color)
   })
   return map

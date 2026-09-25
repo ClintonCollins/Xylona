@@ -27,15 +27,11 @@ vi.mock('@/utils/shared', async () => {
   }
 })
 
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual<typeof import('quasar')>('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({
-      notify: mocks.notify,
-    }),
-  }
-})
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notify,
+  notifyError: mocks.notify,
+  notifySuccess: mocks.notify,
+}))
 
 const QDialogStub = defineComponent({
   name: 'QDialogStub',

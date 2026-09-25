@@ -1,5 +1,8 @@
+import { inject, onScopeDispose, ref, watch, type InjectionKey, type Ref } from 'vue'
+
 import { Status } from '@/proto/shared_pb'
 import { formatTime } from '@/utils/format-timestamp'
+import { XylonaEventBus } from '@/utils/shared'
 
 /**
  * How long after a Start request an OFFLINE transition still counts as that
@@ -44,12 +47,58 @@ export function detectStartFailure(
   if (intents.stopRequestedAt >= intents.startRequestedAt) {
     return undefined
   }
-  // ponytail: only this page's own Start is tracked; a start issued from
-  // another tab that dies shows as a plain Offline. Track intents server-side
-  // if that matters.
+  // ponytail: only this workspace's own Start is tracked; a start issued from
+  // another browser tab that dies shows as a plain Offline. Track intents
+  // server-side if that matters.
   return { at: now, message: processExitedMessage }
 }
 
 export function formatFailureTime(at: number): string {
   return formatTime(new Date(at))
+}
+
+export interface GameServerLifecycle {
+  /** The last failed Start, shown until dismissed, retried, or the server comes online. */
+  lastStartFailure: Ref<StartFailure | null>
+  intents: LifecycleIntents
+  /** A Restart request from this workspace is in flight. */
+  restarting: Ref<boolean>
+}
+
+export const gameServerLifecycleKey: InjectionKey<GameServerLifecycle> =
+  Symbol('gameServerLifecycle')
+
+/**
+ * Start and Restart state for one server. The layout provides it, so a Start
+ * pressed on the console and a crash seen from Files land in the same place
+ * and the identity bar can say "Start failed" on every tab.
+ */
+export function createGameServerLifecycle(serverId: Ref<string>): GameServerLifecycle {
+  const lifecycle: GameServerLifecycle = {
+    lastStartFailure: ref(null),
+    intents: { startRequestedAt: 0, stopRequestedAt: 0 },
+    restarting: ref(false),
+  }
+
+  function onServerStatus(id: string, _name: string, status: Status): void {
+    if (id !== serverId.value) return
+    const failure = detectStartFailure(status, lifecycle.intents, Date.now())
+    if (failure === undefined) return
+    lifecycle.lastStartFailure.value = failure
+    lifecycle.intents.startRequestedAt = 0
+  }
+
+  XylonaEventBus.on('gameServerStatus', onServerStatus)
+  onScopeDispose(() => XylonaEventBus.off('gameServerStatus', onServerStatus))
+  watch(serverId, () => {
+    lifecycle.lastStartFailure.value = null
+    lifecycle.intents.startRequestedAt = 0
+    lifecycle.intents.stopRequestedAt = 0
+  })
+  return lifecycle
+}
+
+/** The layout's shared lifecycle state, or a local one when rendered on its own. */
+export function useGameServerLifecycle(serverId: Ref<string>): GameServerLifecycle {
+  return inject(gameServerLifecycleKey, null) ?? createGameServerLifecycle(serverId)
 }

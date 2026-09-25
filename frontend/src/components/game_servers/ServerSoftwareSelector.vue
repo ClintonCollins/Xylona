@@ -1,10 +1,6 @@
 <template>
   <div>
-    <q-dialog
-      v-model="showChangeDialog"
-      aria-labelledby="variant-change-title"
-      backdrop-filter="brightness(15%)"
-      persistent>
+    <q-dialog v-model="showChangeDialog" aria-labelledby="variant-change-title" persistent>
       <q-card class="change-dialog-card">
         <q-card-section class="change-dialog-header">
           <div id="variant-change-title" class="change-dialog-title">Change Variant</div>
@@ -22,7 +18,7 @@
               <div class="dialog-current-label">Currently active</div>
               <div>
                 <span class="dialog-current-value">{{ currentSoftwareDisplayName }}</span>
-                <span v-if="currentVersion" class="dialog-current-version">{{
+                <span v-if="currentVersion" class="dialog-current-version font-mono">{{
                   currentVersion
                 }}</span>
               </div>
@@ -98,7 +94,6 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { useQuasar } from 'quasar'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { UpdateProviderKind, type Variant } from '@/proto/shared_pb'
@@ -109,6 +104,7 @@ import {
 } from '@/proto/xylona_pb'
 import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError } from '@/api/notifications'
 import type { ServerSoftwareOperationEvent } from './ServerSoftwareSelector.types'
 
 interface Props {
@@ -134,8 +130,6 @@ const emit = defineEmits<{
   'software-changed': []
   'software-operation-state': [event: ServerSoftwareOperationEvent]
 }>()
-
-const $q = useQuasar()
 
 const selectedVariantId = ref('')
 const saving = ref(false)
@@ -282,12 +276,7 @@ async function applyVariant(): Promise<void> {
     showChangeDialog.value = false
     installStatus.value = 'failed'
     emitOperationState('failed', selectedVariantId.value, message)
-    $q.notify({
-      type: 'xylona-error',
-      caption: message,
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyError(message)
   } finally {
     saving.value = false
   }

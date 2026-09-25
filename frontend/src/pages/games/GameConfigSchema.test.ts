@@ -93,7 +93,7 @@ function mountPage() {
         },
         RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
         'q-spinner-dots': true,
-        'q-banner': true,
+        'q-banner': { template: '<div v-bind="$attrs"><slot /></div>' },
         'q-toggle': QToggleStub,
         'q-btn': QBtnStub,
         'q-icon': true,
@@ -143,6 +143,25 @@ describe('GameConfigSchema', () => {
     expect(saved).toContain('"generate_before_start":true')
     expect(saved).toContain('"motd"')
     expect(mocks.notifySuccess).toHaveBeenCalledWith('Schema saved successfully')
+  })
+
+  it('keeps server validation errors on screen until the next successful save', async () => {
+    mocks.updateGameConfigSchemas.mockResolvedValueOnce({
+      success: false,
+      validationErrors: ['motd: default must be a string'],
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.get('[data-test="save-schema"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="save-errors"]').text()).toContain(
+      'motd: default must be a string',
+    )
+
+    await wrapper.get('[data-test="save-schema"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="save-errors"]').exists()).toBe(false)
   })
 
   it('shows a way back instead of a blank editor for a missing file', async () => {

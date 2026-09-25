@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(25%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="full-width">
       <q-form @submit.prevent="createFileOrDirectory">
         <q-card-section>
@@ -29,7 +25,7 @@
                 aria-autocomplete="none"
                 autofocus
                 class="col-12"
-                label="Name"
+                label="Name *"
                 name="fileName"
                 outlined
                 :rules="[validateName]"
@@ -53,13 +49,14 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
+import { QBtn, QCard, QCardSection, QDialog, QInput } from 'quasar'
 import {
   GameServerFileOrDirectoryCreateRequest,
   GameServerFileOrDirectoryCreateRequestSchema,
 } from '@/proto/gameserver_files_operations_pb'
 import { GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError } from '@/api/notifications'
 import { ref, Ref } from 'vue'
 
 const props = defineProps({
@@ -84,8 +81,6 @@ const options = [
 const fileName: Ref<string> = ref('')
 const fileDirType: Ref<string> = ref('file')
 const submitting = ref(false)
-
-const $q = useQuasar()
 
 const showDialog = defineModel('showDialog', {
   type: Boolean,
@@ -121,15 +116,11 @@ async function createFileOrDirectory() {
     fileDirType.value = 'file'
   } catch (err: unknown) {
     console.error(err)
-    $q.notify({
-      caption:
-        err instanceof Error
-          ? `Could not create the file or directory. ${connectErrorMessage(err)}`
-          : 'Could not create the file or directory. Try again.',
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifyError(
+      err instanceof Error
+        ? `Could not create the file or directory. ${connectErrorMessage(err)}`
+        : 'Could not create the file or directory. Try again.',
+    )
   } finally {
     submitting.value = false
   }

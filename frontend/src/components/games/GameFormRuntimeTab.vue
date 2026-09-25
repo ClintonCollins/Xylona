@@ -169,10 +169,12 @@
         <template v-else>
           <q-banner
             v-if="defaultEnvIssues.length > 0"
-            class="q-mb-md"
+            class="xy-banner-warning q-mb-md"
             data-testid="game-default-environment-issues"
-            dense
-            rounded>
+            dense>
+            <template #avatar>
+              <q-icon name="warning_amber" />
+            </template>
             <div v-for="issue in defaultEnvIssues" :key="issue.name + issue.message">
               {{ issue.message }}
             </div>

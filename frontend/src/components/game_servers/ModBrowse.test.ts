@@ -119,6 +119,9 @@ const QUASAR_STUBS = {
     emits: ['update:modelValue'],
     template: '<div class="q-pagination-stub" />',
   },
+  'q-banner': {
+    template: '<div class="q-banner-stub" role="alert"><slot /><slot name="action" /></div>',
+  },
 } satisfies TestStubs
 
 const DEFAULT_SOURCES = [
@@ -392,6 +395,44 @@ describe('ModBrowse', () => {
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('No mods found')
     })
+  })
+
+  it('shows a retryable error instead of "No mods found" when the search fails', async () => {
+    mockSearchMods.mockRejectedValueOnce(new Error('provider down'))
+
+    const wrapper = mountBrowse()
+
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('Mod search failed.')
+    })
+    expect(wrapper.text()).not.toContain('No mods found')
+
+    await wrapper.get('[aria-label="Retry mod search"]').trigger('click')
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('No mods found')
+    })
+    expect(mockSearchMods).toHaveBeenCalledTimes(2)
+  })
+
+  it('exposes the selected source filter with aria-pressed', () => {
+    const wrapper = mountBrowse()
+
+    const pressed = wrapper.findAll('.source-chips button').map((b) => b.attributes('aria-pressed'))
+    expect(pressed).toEqual(['true', 'false', 'false'])
+  })
+
+  it('drops a pending debounced search when it unmounts', async () => {
+    const wrapper = mountBrowse()
+    await vi.waitFor(() => {
+      expect(mockSearchMods).toHaveBeenCalledTimes(1)
+    })
+
+    await wrapper.find('input').setValue('fabric')
+    wrapper.unmount()
+    await vi.advanceTimersByTimeAsync(350)
+
+    expect(mockSearchMods).toHaveBeenCalledTimes(1)
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 
   it('formats download counts correctly', async () => {

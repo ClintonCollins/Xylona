@@ -48,7 +48,7 @@ a.q-item {
 
 a.q-item:hover {
   border-color: var(--xy-border-hover);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--xy-surface-overlay-soft);
 }
 
 .q-item.q-router-link--active {
@@ -117,6 +117,16 @@ a.q-item:hover {
   color: var(--xy-text-on-bright) !important;
 }
 
+/* ---- Coloured text: flat/outline buttons, active tabs and inline text get
+   the text-role step so they stay readable on raised surfaces ---- */
+.text-primary {
+  color: var(--xy-primary-text) !important;
+}
+
+.text-negative {
+  color: var(--xy-danger-text) !important;
+}
+
 /* ---- Badges: one pill shape; status colours are tints like StatusBadge ---- */
 .q-badge {
   border: 1px solid transparent;
@@ -134,7 +144,7 @@ a.q-item:hover {
 
 .q-badge.bg-negative,
 .q-badge.bg-error {
-  color: var(--xy-danger-hover) !important;
+  color: var(--xy-danger-text) !important;
   background-color: var(--xy-danger-bg) !important;
   border-color: var(--xy-danger-border);
 }
@@ -302,7 +312,7 @@ a.q-item:hover {
 
 /* ---- Dialog Backdrop ---- */
 .q-dialog__backdrop {
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--xy-scrim);
 }
 
 /* ---- Drawer ---- */
@@ -320,6 +330,11 @@ a.q-item:hover {
 .q-btn:focus-visible {
   outline: 3px solid var(--xy-focus-ring) !important;
   outline-offset: 3px !important;
+}
+
+/* Drawer items span the scroll container edge to edge, which clips an outer ring. */
+.q-drawer a.q-item:focus-visible {
+  outline-offset: -3px;
 }
 
 /* Keep field focus on the visible shell instead of the nested native input. */
@@ -354,7 +369,10 @@ a.q-item:hover {
 }
 
 @media (pointer: coarse), (any-pointer: coarse) {
+  /* .q-btn.q-btn--dense matches Quasar's two-class dense/round sizing, which
+     otherwise wins and leaves row and toolbar icon buttons at 38px. */
   .q-btn,
+  .q-btn.q-btn--dense,
   .q-tab,
   .q-item,
   .q-checkbox,

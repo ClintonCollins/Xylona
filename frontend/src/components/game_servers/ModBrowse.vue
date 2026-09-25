@@ -39,6 +39,7 @@
 
       <div aria-label="Filter by source" class="source-chips" role="group">
         <q-btn
+          :aria-pressed="activeSource === ''"
           :class="{ 'chip-inactive': activeSource !== '' }"
           :color="activeSource === '' ? 'primary' : undefined"
           :outline="activeSource !== ''"
@@ -51,6 +52,7 @@
         <q-btn
           v-for="src in sources"
           :key="src.id"
+          :aria-pressed="activeSource === src.id"
           :class="{ 'chip-inactive': activeSource !== src.id }"
           :outline="activeSource !== src.id"
           :unelevated="activeSource === src.id"
@@ -122,6 +124,27 @@
       <span class="text-xy-muted">Loading mods...</span>
     </div>
 
+    <q-banner
+      v-else-if="errorMessage"
+      class="xy-banner-negative browse-error"
+      dense
+      inline-actions
+      role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Mod search failed.</strong> {{ errorMessage }}
+      <template #action>
+        <q-btn
+          aria-label="Retry mod search"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="performSearch()" />
+      </template>
+    </q-banner>
+
     <!-- Empty: no results -->
     <empty-state
       v-else-if="hasSearched && results.length === 0"
@@ -141,8 +164,10 @@
           :key="`${mod.source}-${mod.sourceId}`"
           class="mod-card"
           @click="emit('view-details', mod.source, mod.sourceId)">
+          <!-- Named by the mod, described by source, author and summary; one aria-label would hide them. -->
           <button
-            :aria-label="`View details for ${mod.name}`"
+            :aria-describedby="`${modCardId(mod)}-source ${modCardId(mod)}-author ${modCardId(mod)}-desc`"
+            :aria-labelledby="`${modCardId(mod)}-name`"
             class="mod-card-details"
             type="button">
             <!-- Icon -->
@@ -166,16 +191,24 @@
             <!-- Content -->
             <div class="mod-card-content">
               <div class="mod-card-header">
-                <span class="mod-card-name">{{ mod.name }}</span>
+                <span :id="`${modCardId(mod)}-name`" class="mod-card-name">{{ mod.name }}</span>
                 <span
                   :style="sourceBadgeStyle(mod.source)"
                   :title="sourceDisplayName(mod.source)"
+                  aria-hidden="true"
                   class="source-badge">
                   {{ sourceLabel(mod.source) }}
                 </span>
+                <span :id="`${modCardId(mod)}-source`" class="xy-visually-hidden">
+                  From {{ sourceDisplayName(mod.source) }}.
+                </span>
               </div>
-              <div class="mod-card-author text-xy-muted">by {{ mod.author }}</div>
-              <div class="mod-card-desc text-xy-secondary">{{ mod.description }}</div>
+              <div :id="`${modCardId(mod)}-author`" class="mod-card-author text-xy-muted">
+                by {{ mod.author }}
+              </div>
+              <div :id="`${modCardId(mod)}-desc`" class="mod-card-desc text-xy-secondary">
+                {{ mod.description }}
+              </div>
 
               <!-- Categories -->
               <div v-if="mod.categories.length > 0" class="mod-card-categories">
@@ -215,6 +248,7 @@
               label="Install"
               :loading="installingKey === modKey(mod)"
               no-caps
+              outline
               size="sm"
               @click="onInstallClick($event, mod)" />
           </div>
@@ -233,17 +267,18 @@
           map-options
           outlined />
 
+        <!-- Phones drop the first/last and prev/next arrows so five 44px targets fit at 375px. -->
         <q-pagination
           v-if="hasKnownTotalCount"
+          :boundary-links="!isPhone"
+          :direction-links="!isPhone"
           :max="totalPages"
-          :max-pages="7"
+          :max-pages="isPhone ? 3 : 7"
           :model-value="currentPage"
           active-color="primary"
           active-design="unelevated"
           aria-label="Page navigation"
-          boundary-links
           class="browse-pagination"
-          direction-links
           icon-first="first_page"
           icon-last="last_page"
           icon-next="chevron_right"
@@ -255,18 +290,13 @@
         </span>
       </div>
     </div>
-
-    <!-- Error banner -->
-    <div v-if="errorMessage" class="browse-error">
-      <q-icon aria-hidden="true" color="negative" name="error" size="sm" />
-      <span>{{ errorMessage }}</span>
-    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
+import { Screen } from 'quasar'
 import { useRoute, useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -339,6 +369,8 @@ const availableCategories = ref<string[]>([])
 const filtersOpen = ref(false)
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
+
+const isPhone = computed(() => Screen.lt.sm)
 
 const versionSelectOptions = computed(() => {
   const versions = props.availableVersions
@@ -422,6 +454,12 @@ onMounted(() => {
   initFromQuery()
   void performSearch()
   void loadCategories()
+})
+
+// A pending search must not router.replace onto whatever page comes next.
+onBeforeUnmount(() => {
+  clearTimeout(debounceTimer)
+  searchRequestId.value++
 })
 
 watch(sortBy, () => {
@@ -598,6 +636,11 @@ function modKey(mod: ModSearchResult): string {
   return `${mod.source}:${mod.sourceId}`
 }
 
+// Element ids for a card's label and description; ids can't hold spaces.
+function modCardId(mod: ModSearchResult): string {
+  return `mod-card-${mod.source}-${mod.sourceId}`.replace(/\s+/g, '-')
+}
+
 function isModInstalled(source: string, sourceId: string): boolean {
   return props.installedMods.some((mod) => mod.source === source && mod.sourceId === sourceId)
 }
@@ -667,7 +710,7 @@ function formatRelativeDate(dateStr: string): string {
 }
 
 .chip-inactive {
-  opacity: 0.7;
+  color: var(--xy-text-secondary);
 }
 
 .source-chip-badge {
@@ -736,11 +779,11 @@ function formatRelativeDate(dateStr: string): string {
   overflow-y: auto;
   padding: var(--xy-space-md);
   background-color: var(--xy-base);
-  transition: opacity var(--xy-transition-fast);
 }
 
+/* The progress bar and aria-busy say "refreshing"; fading the cards would drop their text below 4.5:1. */
 .browse-grid-scroll--stale {
-  opacity: 0.55;
+  cursor: progress;
 }
 
 .browse-progress {
@@ -773,9 +816,19 @@ function formatRelativeDate(dateStr: string): string {
   max-width: 160px;
 }
 
-.browse-pagination :deep(.q-btn) {
-  min-width: 32px;
-  min-height: 32px;
+/* Mouse only: with any coarse pointer the global 44px touch rule must win. */
+@media not all and (any-pointer: coarse) {
+  .browse-pagination :deep(.q-btn) {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+/* QPagination writes min-height: 0 inline, which beats the global 44px touch rule. */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .browse-pagination :deep(.q-btn) {
+    min-height: 44px !important;
+  }
 }
 
 .browse-result-count {
@@ -957,14 +1010,7 @@ function formatRelativeDate(dateStr: string): string {
 
 /* ---- Error banner ---- */
 .browse-error {
-  display: flex;
-  align-items: center;
-  gap: var(--xy-space-sm);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  background-color: color-mix(in srgb, var(--xy-danger) 10%, var(--xy-surface-1));
-  border-top: 1px solid var(--xy-danger);
-  color: var(--xy-danger);
-  font-size: var(--xy-font-size-sm);
+  margin: var(--xy-space-md);
   flex-shrink: 0;
 }
 

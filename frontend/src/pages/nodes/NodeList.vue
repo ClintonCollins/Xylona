@@ -31,14 +31,20 @@
           <q-btn color="primary" label="Add node" to="/nodes/add" />
         </template>
       </page-header>
-      <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
-        <q-icon name="sync_problem" size="sm" />
-        <div>
-          <strong>Nodes could not be loaded.</strong>
-          <span>{{ loadError }}</span>
-        </div>
-        <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="fetchAll" />
-      </div>
+      <q-banner
+        v-if="loadError"
+        class="xy-banner-negative q-mb-md"
+        dense
+        inline-actions
+        role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>Nodes could not be loaded.</strong> {{ loadError }}
+        <template #action>
+          <q-btn :loading="loading" flat icon="refresh" label="Retry" no-caps @click="fetchAll" />
+        </template>
+      </q-banner>
       <div
         v-if="!websocketStateAuthoritative && !websocketConnectingQuietly"
         class="list-notice"
@@ -228,9 +234,9 @@
                 <q-skeleton class="node-list__metric-skeleton" type="text" width="4rem" />
               </template>
               <span v-else-if="getSnapshot(props.row.id)" class="xy-num">
-                <span class="text-success">{{
-                  getSnapshot(props.row.id)!.runningGameServerCount
-                }}</span>
+                <span class="text-success"
+                  >{{ getSnapshot(props.row.id)!.runningGameServerCount }} running</span
+                >
                 /
                 {{ getSnapshot(props.row.id)!.gameServerCount }}
               </span>
@@ -310,7 +316,7 @@
               :title="search ? 'No matching nodes' : 'No nodes yet'"
               icon="dns">
               <template v-if="!search" #actions>
-                <q-btn color="primary" label="Add node" to="/nodes/add" />
+                <q-btn label="Add node" outline to="/nodes/add" />
               </template>
             </empty-state>
           </template>
@@ -323,7 +329,10 @@
         <div class="row items-center">
           <q-btn aria-label="Back to nodes" dense flat icon="arrow_back" round to="/nodes" />
           <h1 class="xy-page-title q-ml-sm">
-            {{ detailNode?.name || (loading ? 'Loading node…' : 'Node not found') }}
+            {{
+              detailNode?.name ||
+              (loading ? 'Loading node…' : loadError ? 'Node unavailable' : 'Node not found')
+            }}
           </h1>
         </div>
         <div v-if="detailNode" class="xy-page-actions">
@@ -346,6 +355,20 @@
         </div>
       </div>
 
+      <q-banner
+        v-if="loadError"
+        class="xy-banner-negative q-mb-md"
+        dense
+        inline-actions
+        role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>This node could not be loaded.</strong> {{ loadError }}
+        <template #action>
+          <q-btn :loading="loading" flat icon="refresh" label="Retry" no-caps @click="fetchAll" />
+        </template>
+      </q-banner>
       <node-detail-panel
         v-if="detailNode"
         :key="detailNode.id"
@@ -353,7 +376,7 @@
         :snapshot="getSnapshot(detailNode.id)"
         :system-info="getNodeSummary(detailNode.id)?.systemInfo" />
       <empty-state
-        v-else-if="!loading"
+        v-else-if="!loading && !loadError"
         description="It may have been removed, or the link is out of date."
         icon="dns"
         title="This node is no longer listed">
@@ -410,7 +433,7 @@
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
 import { usePersistedRef } from '@/utils/persisted-ref'
-import { Notify, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, Ref, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -630,15 +653,8 @@ async function fetchAll() {
       return
     }
     const err = ConnectError.from(unknownError)
+    // The inline banner already announces this, so no toast.
     loadError.value = ConnectErrorToString(err)
-    Notify.create({
-      type: 'xylona-error',
-      position: 'top',
-      caption: ConnectErrorToString(err),
-      timeout: 0,
-      closeBtn: 'Dismiss',
-      icon: 'report_problem',
-    })
     console.error(err.message)
   } finally {
     if (fetchID === fetchSequence) {
@@ -816,30 +832,6 @@ const columns = ref([
   background: var(--xy-warning-bg-faint);
   border: 1px solid var(--xy-warning-border-soft);
   border-radius: var(--xy-radius-md);
-}
-
-.list-error {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--xy-space-sm);
-  margin-bottom: var(--xy-space-md);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  color: var(--xy-text-primary);
-  background: var(--xy-danger-bg);
-  border: 1px solid var(--xy-danger-border);
-  border-radius: var(--xy-radius-md);
-}
-
-.list-error > div {
-  display: grid;
-  flex: 1;
-  gap: var(--xy-space-2xs);
-  min-width: 0;
-}
-
-.list-error span {
-  color: var(--xy-text-secondary);
-  overflow-wrap: anywhere;
 }
 
 .node-grid-item {

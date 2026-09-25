@@ -1,5 +1,5 @@
 <template>
-  <div class="xy-page-content">
+  <main class="xy-page-content">
     <div v-if="loading" class="schema-loading">
       <q-spinner-dots color="primary" size="40px" />
     </div>
@@ -43,6 +43,18 @@
             no-caps
             @click="handleSave" />
         </div>
+        <!-- Stays until the next successful save, beside the action that clears it. -->
+        <q-banner
+          v-if="saveErrors.length > 0"
+          class="xy-banner-negative schema-save-errors"
+          data-test="save-errors"
+          dense
+          role="alert">
+          <template #avatar>
+            <q-icon name="report_problem" />
+          </template>
+          <strong>The schema was not saved.</strong> {{ saveErrors.join(', ') }}
+        </q-banner>
       </header>
 
       <empty-state
@@ -71,7 +83,7 @@
         <config-schema-editor ref="editorRef" :schema="schema" />
       </template>
     </template>
-  </div>
+  </main>
 </template>
 
 <script lang="ts" setup>
@@ -79,7 +91,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import {
   GetGameConfigSchemasRequestSchema,
@@ -128,6 +140,7 @@ const gameEditPath = `/games/${gameId}/edit`
 const loading = ref(true)
 const loadError = ref('')
 const saving = ref(false)
+const saveErrors = ref<string[]>([])
 const gameName = ref(gameId)
 const schema = ref<JsonSchema>({ type: 'object', properties: {} })
 const generateBeforeStart = ref(false)
@@ -200,9 +213,10 @@ async function handleSave() {
       // Only a saved schema becomes the new clean baseline.
       allSchemas.value = nextSchemas
       schema.value = updatedSchema
+      saveErrors.value = []
       notifySuccess('Schema saved successfully')
     } else if (response.validationErrors.length > 0) {
-      notifyError(response.validationErrors.join(', '))
+      saveErrors.value = [...response.validationErrors]
     }
   } catch (unknownErr: unknown) {
     notifyConnectError(unknownErr, 'Failed to save schema')
@@ -289,6 +303,10 @@ async function handleSave() {
   display: flex;
   align-items: center;
   gap: var(--xy-space-sm);
+}
+
+.schema-save-errors {
+  flex-basis: 100%;
 }
 
 .schema-page-header__unsaved {

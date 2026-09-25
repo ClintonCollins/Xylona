@@ -80,10 +80,14 @@
                 <div class="mod-info">
                   <span class="mod-name">{{ mod.modName }}</span>
                   <span class="mod-author text-xy-muted">{{ mod.modAuthor }}</span>
-                  <!-- Phones hide the Version column, so the version rides under the name. -->
-                  <span class="mod-version-inline font-mono text-xy-muted">
-                    {{ mod.installedVersion }}
-                    <q-icon v-if="isPinned(mod)" aria-label="Pinned" name="push_pin" size="xs" />
+                  <!-- Phones hide the Version and Source columns, so both ride under the name. -->
+                  <span class="mod-version-inline text-xy-muted">
+                    <span class="font-mono">{{ mod.installedVersion }}</span>
+                    <template v-if="isPinned(mod)">
+                      <q-icon name="push_pin" size="xs" />
+                      <span class="xy-visually-hidden">Pinned</span>
+                    </template>
+                    <span>· {{ sourceDisplayName(mod.source) }}</span>
                   </span>
                 </div>
               </div>
@@ -215,7 +219,7 @@
 import { computed, ref } from 'vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import type { InstalledMod } from '@/proto/shared_pb'
-import { sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
+import { iconGradient, sourceBadgeStyle, sourceDisplayName, sourceLabel } from '@/utils/mod-sources'
 
 interface Props {
   installedMods: InstalledMod[]
@@ -255,17 +259,6 @@ const updatesAvailable = computed((): number => {
 
 function isPinned(mod: InstalledMod): boolean {
   return mod.pinnedVersion !== ''
-}
-
-function iconGradient(name: string): string {
-  // Simple hash-based gradient from the mod name
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const hue1 = Math.abs(hash) % 360
-  const hue2 = (hue1 + 40) % 360
-  return `linear-gradient(135deg, hsl(${hue1}, 60%, 40%), hsl(${hue2}, 60%, 30%))`
 }
 </script>
 
@@ -357,9 +350,11 @@ function iconGradient(name: string): string {
   background-color: var(--xy-warning-bg-faint);
 }
 
-/* Disabled row: reduced opacity */
-.mod-row--disabled {
-  opacity: 0.5;
+/* Disabled row: quieter text tokens, not opacity, so contrast stays measurable.
+   The Status column carries the "Disabled" label. */
+.mod-row--disabled .mod-name,
+.mod-row--disabled .version-text {
+  color: var(--xy-text-secondary);
 }
 
 /* ---- Column widths ---- */
@@ -545,8 +540,9 @@ function iconGradient(name: string): string {
     white-space: normal;
   }
 
+  /* A 44px touch target plus the 0.5rem cell padding on each side. */
   .col-actions {
-    width: 2.75rem;
+    width: calc(44px + 1rem);
   }
 
   .col-source,

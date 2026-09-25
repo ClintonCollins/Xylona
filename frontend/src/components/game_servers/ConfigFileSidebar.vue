@@ -3,7 +3,7 @@
     <!-- Expanded view -->
     <div :inert="isCollapsed && !isMobile ? true : undefined" class="sidebar-expanded">
       <div class="sidebar-header">
-        <div class="sidebar-title font-display">Config Files</div>
+        <div class="sidebar-title">Config Files</div>
         <q-btn
           v-if="!isMobile"
           aria-label="Collapse sidebar"
@@ -38,7 +38,7 @@
               v-for="file in files"
               :key="file.path"
               :active="selectedPath === file.path"
-              :class="{ 'file-missing': !file.existsOnDisk }"
+              :aria-current="selectedPath === file.path ? 'true' : undefined"
               active-class="file-active"
               class="file-item"
               clickable
@@ -91,6 +91,8 @@
         <q-btn
           v-for="file in configFiles"
           :key="file.path"
+          :aria-current="selectedPath === file.path ? 'true' : undefined"
+          :aria-label="fileLabel(file)"
           :class="{
             'collapsed-active': selectedPath === file.path,
             'collapsed-missing': !file.existsOnDisk,
@@ -99,8 +101,10 @@
           dense
           flat
           @click="$emit('select', file.path, !file.existsOnDisk)">
-          <span class="collapsed-abbr font-mono">{{ getAbbreviation(file.path) }}</span>
-          <q-tooltip>{{ file.path }}</q-tooltip>
+          <span aria-hidden="true" class="collapsed-abbr font-mono">{{
+            getAbbreviation(file.path)
+          }}</span>
+          <q-tooltip>{{ fileLabel(file) }}</q-tooltip>
         </q-btn>
       </div>
     </div>
@@ -150,6 +154,10 @@ function getCategoryColor(category: string): string {
 function getFileName(path: string): string {
   const parts = path.split('/')
   return parts[parts.length - 1]
+}
+
+function fileLabel(file: ConfigFileInfo): string {
+  return file.existsOnDisk ? file.path : `${file.path} (missing)`
 }
 
 function getAbbreviation(path: string): string {
@@ -225,7 +233,6 @@ function getAbbreviation(path: string): string {
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-primary);
-  letter-spacing: 0.02em;
 }
 
 .collapse-btn {
@@ -288,12 +295,8 @@ function getAbbreviation(path: string): string {
 }
 
 .file-active .file-name {
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
   font-weight: 600;
-}
-
-.file-missing {
-  opacity: 0.7;
 }
 
 .file-icon-section {
@@ -354,11 +357,12 @@ function getAbbreviation(path: string): string {
 .collapsed-active {
   background-color: color-mix(in srgb, var(--xy-primary) 12%, var(--xy-surface-2));
   border-color: var(--xy-primary);
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
 }
 
+/* Matches the warning icon the expanded list gives missing files. */
 .collapsed-missing {
-  opacity: 0.5;
+  color: var(--xy-warning);
 }
 
 .collapsed-abbr {

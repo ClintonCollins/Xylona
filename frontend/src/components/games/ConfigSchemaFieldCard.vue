@@ -1,14 +1,11 @@
 <template>
   <q-card bordered class="field-card" flat>
-    <q-card-section
-      :aria-expanded="expanded"
-      class="field-card-header"
-      role="button"
-      tabindex="0"
-      @click="expanded = !expanded"
-      @keydown.enter="expanded = !expanded"
-      @keydown.space.prevent="expanded = !expanded">
-      <div class="field-card-summary">
+    <q-card-section class="field-card-header">
+      <button
+        :aria-expanded="expanded"
+        class="field-card-summary"
+        type="button"
+        @click="expanded = !expanded">
         <q-icon
           :name="expanded ? 'expand_less' : 'expand_more'"
           class="text-xy-muted expand-icon"
@@ -33,8 +30,8 @@
           class="field-card-label text-xy-secondary">
           {{ field.title }}
         </span>
-      </div>
-      <div class="field-card-actions" @click.stop>
+      </button>
+      <div class="field-card-actions">
         <q-btn
           :aria-label="`Move ${field.key} up`"
           class="text-xy-muted"
@@ -79,7 +76,7 @@
             <div class="row q-col-gutter-sm">
               <q-input
                 v-model="field.key"
-                class="col-6"
+                class="col-12 col-sm-6"
                 dense
                 input-class="font-mono"
                 label="Key"
@@ -87,7 +84,7 @@
                 @update:model-value="emitUpdate" />
               <q-input
                 v-model="field.title"
-                class="col-6"
+                class="col-12 col-sm-6"
                 dense
                 label="Display Label"
                 outlined
@@ -98,7 +95,7 @@
               <q-select
                 v-model="field.type"
                 :options="typeOptions"
-                class="col-6"
+                class="col-12 col-sm-6"
                 dense
                 emit-value
                 label="Type"
@@ -107,7 +104,7 @@
                 @update:model-value="handleTypeChange" />
               <q-input
                 v-model="field.description"
-                class="col-6"
+                class="col-12 col-sm-6"
                 dense
                 label="Description"
                 outlined
@@ -322,7 +319,6 @@ function emitUpdate() {
   align-items: center;
   justify-content: space-between;
   gap: var(--xy-space-sm);
-  cursor: pointer;
   padding: var(--xy-space-sm) var(--xy-space-md);
   user-select: none;
 }
@@ -333,6 +329,13 @@ function emitUpdate() {
   gap: var(--xy-space-sm);
   flex: 1;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .expand-icon {
@@ -393,5 +396,12 @@ function emitUpdate() {
 
 .managed-source-select {
   min-width: 180px;
+}
+
+@media (max-width: 599px) {
+  .managed-source-select {
+    min-width: 0;
+    flex: 1;
+  }
 }
 </style>

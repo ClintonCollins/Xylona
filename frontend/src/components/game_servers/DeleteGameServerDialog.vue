@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(15%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="delete-server-dialog">
       <q-card-section>
         <div id="dialog-title" class="text-h6 text-negative">
@@ -101,9 +97,10 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
+import { QBtn, QCard, QCardSection, QDialog } from 'quasar'
 import { bytesToSize, GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { computed, PropType, ref, watch } from 'vue'
 import { RemoveGameServerRequest, RemoveGameServerRequestSchema } from '@/proto/shared_pb'
 import { ListGameServerBackupsRequestSchema } from '@/proto/xylona_pb'
@@ -123,8 +120,6 @@ const props = defineProps({
     required: true,
   },
 })
-
-const $q = useQuasar()
 
 // Keeping backups is the safe default, so the option starts unchecked on every open.
 const deleteBackups = ref(false)
@@ -225,18 +220,21 @@ async function deleteGameServers() {
     ...result.failed.map((failure) => `Failed: ${failure.name} — ${failure.error}`),
   ].join('\n')
 
-  $q.notify({
-    message:
-      result.failed.length === 0
-        ? `Deleted ${result.succeeded.length} game server${result.succeeded.length === 1 ? '' : 's'}.`
-        : `Deleted ${result.succeeded.length}; ${result.failed.length} failed.`,
-    caption: summary,
-    type: result.failed.length === 0 ? 'xylona-success' : 'xylona-error',
-    position: 'top',
-    timeout: result.failed.length === 0 ? 5000 : 0,
-    multiLine: true,
-    actions: result.failed.length === 0 ? undefined : [{ icon: 'close' }],
-  })
+  if (result.failed.length === 0) {
+    notifySuccess(summary, {
+      message: `Deleted ${result.succeeded.length} game server${result.succeeded.length === 1 ? '' : 's'}.`,
+      timeout: 5000,
+      multiLine: true,
+    })
+  } else {
+    // Failures stay until dismissed, so the operator can read every reason.
+    notifyError(summary, {
+      message: `Deleted ${result.succeeded.length}; ${result.failed.length} failed.`,
+      timeout: 0,
+      multiLine: true,
+      actions: [{ icon: 'close', 'aria-label': 'Dismiss' }],
+    })
+  }
 
   deleting.value = false
   showDialog.value = false
@@ -285,7 +283,7 @@ function deleteFailureMessage(error: unknown): string {
 }
 
 .delete-server-consequences a {
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
 }
 
 .delete-server-backups {

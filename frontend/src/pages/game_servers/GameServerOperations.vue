@@ -1125,9 +1125,13 @@ function resultIcon(classification: GameOperationResultClassification) {
         </div>
       </div>
       <div class="server-strip__readout">
-        <div class="server-strip__time" :aria-busy="worldStatusLoading" aria-live="polite">
+        <div class="server-strip__time" :aria-busy="worldStatusLoading">
           <q-spinner v-if="worldStatusLoading" color="primary" size="1.25rem" />
           <strong v-else>{{ worldTimeLabel }}</strong>
+          <!-- World time ticks on every poll, so only a failed load is announced. -->
+          <span aria-live="polite" class="xy-visually-hidden">{{
+            worldStatusError ? 'World time could not be loaded' : ''
+          }}</span>
           <button
             aria-label="Refresh world time"
             class="icon-button"
@@ -1229,7 +1233,7 @@ function resultIcon(classification: GameOperationResultClassification) {
           >
         </div>
         <label class="operation-search">
-          <span class="sr-only">Search operations</span>
+          <span class="xy-visually-hidden">Search operations</span>
           <q-icon aria-hidden="true" name="search" />
           <input
             v-model="operationSearch"
@@ -2535,18 +2539,6 @@ function resultIcon(classification: GameOperationResultClassification) {
   color: var(--xy-danger-hover);
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 .control-panel--players {
   overflow: clip;
 }
@@ -3156,7 +3148,7 @@ function resultIcon(classification: GameOperationResultClassification) {
   color: var(--xy-warning-hover) !important;
 }
 
-@media (max-width: 63.9375rem) {
+@media (max-width: 1023px) {
   .admin-console {
     grid-template-columns: 1fr;
     min-height: 0;
@@ -3194,7 +3186,7 @@ function resultIcon(classification: GameOperationResultClassification) {
   }
 }
 
-@media (max-width: 37.4375rem) {
+@media (max-width: 599px) {
   .server-strip,
   .control-row,
   .paired-fields,

@@ -7,17 +7,25 @@
     transition-show="slide-up"
     @update:model-value="(val: boolean) => emit('update:show', val)">
     <q-card class="mod-detail-dialog">
-      <!-- Loading -->
+      <!-- Loading and error keep a heading so aria-labelledby always resolves. -->
       <div v-if="loading" class="mod-detail-loading">
+        <h2 id="mod-detail-dialog-title" class="xy-visually-hidden">Mod details</h2>
         <q-spinner color="primary" size="2rem" />
         <span class="text-xy-muted">Loading mod details...</span>
+        <q-btn flat label="Close" no-caps @click="emit('update:show', false)" />
       </div>
 
       <!-- Error -->
       <div v-else-if="errorMessage" class="mod-detail-error">
         <q-icon aria-hidden="true" color="negative" name="error" size="2rem" />
+        <h2 id="mod-detail-dialog-title" class="mod-detail-error-title">
+          Mod details could not be loaded
+        </h2>
         <div class="text-xy-secondary">{{ errorMessage }}</div>
-        <q-btn color="primary" label="Close" no-caps @click="emit('update:show', false)" />
+        <div class="mod-detail-error-actions">
+          <q-btn flat label="Close" no-caps @click="emit('update:show', false)" />
+          <q-btn color="primary" icon="refresh" label="Retry" no-caps @click="loadDetails" />
+        </div>
       </div>
 
       <!-- Content -->
@@ -142,7 +150,7 @@
               Newest first. Versions marked “Supports {{ gameVersion }}” match this server.
             </p>
             <div
-              v-for="ver in versions"
+              v-for="ver in visibleVersions"
               :key="ver.versionId"
               :class="{ 'mod-version-row--selected': selectedVersionId === ver.versionId }"
               class="mod-version-row">
@@ -182,6 +190,14 @@
                 {{ ver.changelog }}
               </div>
             </div>
+            <q-btn
+              v-if="visibleVersions.length < versions.length"
+              class="mod-version-show-all"
+              color="primary"
+              flat
+              :label="`Show all ${versions.length} versions`"
+              no-caps
+              @click="showAllVersions = true" />
           </q-tab-panel>
 
           <!-- Gallery tab -->
@@ -256,9 +272,9 @@
 import { computed, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import type { Timestamp } from '@bufbuild/protobuf/wkt'
 import type { ModDependency, ModDetails, ModVersion } from '@/proto/shared_pb'
 import { GetModDetailsRequestSchema, GetModVersionsRequestSchema } from '@/proto/xylona_pb'
+import { formatDate } from '@/utils/format-timestamp'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { renderModDescription } from '@/utils/mod-description'
 import {
@@ -289,10 +305,18 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 const errorMessage = ref('')
+// Bumped per load and on close so a late response can't overwrite another mod.
+let detailsRequestId = 0
 const details = ref<ModDetails | undefined>(undefined)
 const versions = ref<ModVersion[]>([])
 const selectedVersionId = ref('')
 const activeTab = ref('description')
+// Popular mods ship hundreds of versions; render the newest until asked for all.
+const versionLimit = 20
+const showAllVersions = ref(false)
+const visibleVersions = computed(() =>
+  showAllVersions.value ? versions.value : versions.value.slice(0, versionLimit),
+)
 
 const versionOptions = computed(() =>
   versions.value.map((v) => ({
@@ -319,17 +343,21 @@ watch(
     if (isOpen && props.source && props.sourceId) {
       void loadDetails()
     } else if (!isOpen) {
-      // Reset state on close
+      // Reset state on close; a load still in flight must not fill the next mod.
+      detailsRequestId++
+      loading.value = false
       details.value = undefined
       versions.value = []
       selectedVersionId.value = ''
       activeTab.value = 'description'
       errorMessage.value = ''
+      showAllVersions.value = false
     }
   },
 )
 
 async function loadDetails(): Promise<void> {
+  const requestId = ++detailsRequestId
   loading.value = true
   errorMessage.value = ''
 
@@ -352,6 +380,9 @@ async function loadDetails(): Promise<void> {
         }),
       ),
     ])
+    if (requestId !== detailsRequestId) {
+      return
+    }
 
     details.value = detailsResp.details
     versions.value = versionsResp.versions
@@ -362,13 +393,18 @@ async function loadDetails(): Promise<void> {
       selectedVersionId.value = preferred.versionId
     }
   } catch (err: unknown) {
+    if (requestId !== detailsRequestId) {
+      return
+    }
     if (err instanceof ConnectError) {
       errorMessage.value = ConnectErrorToString(err)
     } else {
       errorMessage.value = 'Failed to load mod details.'
     }
   } finally {
-    loading.value = false
+    if (requestId === detailsRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -395,12 +431,6 @@ function formatBytes(bytes: bigint): string {
   const i = Math.floor(Math.log(num) / Math.log(1024))
   return `${(num / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`
 }
-
-function formatDate(ts: Timestamp | undefined): string {
-  if (!ts) return ''
-  const date = new Date(Number(ts.seconds) * 1000)
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
 </script>
 
 <style scoped>
@@ -423,6 +453,20 @@ function formatDate(ts: Timestamp | undefined): string {
   gap: var(--xy-space-md);
   padding: var(--xy-space-2xl);
   flex: 1;
+}
+
+.mod-detail-error-title {
+  margin: 0;
+  color: var(--xy-text-primary);
+  font-size: var(--xy-font-size-base);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.mod-detail-error-actions {
+  display: flex;
+  gap: var(--xy-space-sm);
 }
 
 /* ---- Header ---- */
@@ -595,7 +639,7 @@ function formatDate(ts: Timestamp | undefined): string {
 }
 
 .mod-detail-body :deep(a) {
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
 }
 
 .mod-detail-body :deep(:is(h1, h2, h3, h4, h5, h6)) {
@@ -702,6 +746,11 @@ function formatDate(ts: Timestamp | undefined): string {
 
 .mod-version-size {
   font-size: var(--xy-font-size-2xs);
+}
+
+.mod-version-show-all {
+  display: flex;
+  margin: var(--xy-space-sm) auto;
 }
 
 .mod-version-changelog {

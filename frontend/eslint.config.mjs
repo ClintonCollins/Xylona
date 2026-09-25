@@ -123,6 +123,32 @@ export default defineConfig(
     },
   },
 
+  // Toasts go through src/api/notifications.ts so type, timeout and position stay uniform.
+  {
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    ignores: [
+      'src/api/**',
+      'src/**/*.test.ts',
+      'src/stores/xylona.ts', // persistent first-load error built by api/connect-errors
+      'src/utils/game-server-notifications.ts', // keeps Notify.create's dismiss handle
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='notify']",
+          message:
+            'Use notifySuccess/notifyError/notifyWarning/notifyInfo from @/api/notifications.',
+        },
+        {
+          selector: "CallExpression[callee.object.name='Notify'][callee.property.name='create']",
+          message:
+            'Use notifySuccess/notifyError/notifyWarning/notifyInfo from @/api/notifications.',
+        },
+      ],
+    },
+  },
+
   // Vue-specific rule overrides
   {
     files: ['**/*.vue'],

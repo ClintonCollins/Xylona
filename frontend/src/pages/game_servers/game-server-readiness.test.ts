@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
 
 import { GameServerReadinessItemSchema } from '@/proto/xylona_pb'
-import { XylonaEventBus } from '@/utils/shared'
 
 import {
   createGameServerReadiness,
@@ -45,7 +44,7 @@ describe('game-server-readiness', () => {
     expect(isConfigReadinessItem(item({ kind: 'minecraft_eula' }))).toBe(false)
   })
 
-  it('reloads on mount, window focus and a rejected start for its own server', async () => {
+  it('reloads on mount and window focus until unmounted', async () => {
     mocks.getGameServerReadiness.mockResolvedValue({
       items: [item({ kind: 'minecraft_eula', blocking: true })],
     })
@@ -63,14 +62,12 @@ describe('game-server-readiness', () => {
     expect(readiness?.items.value).toHaveLength(1)
 
     window.dispatchEvent(new Event('focus'))
-    XylonaEventBus.emit('gameServerStartRejected', 'another-server')
-    XylonaEventBus.emit('gameServerStartRejected', 'server-1')
     await flushPromises()
-    expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(3)
+    expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(2)
 
     wrapper.unmount()
     window.dispatchEvent(new Event('focus'))
     await flushPromises()
-    expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(3)
+    expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(2)
   })
 })

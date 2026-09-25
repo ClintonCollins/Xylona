@@ -44,6 +44,12 @@ vi.mock('quasar', async () => {
   }
 })
 
+// Every toast goes through the shared helpers; record them on one mock.
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notify,
+  notifySuccess: mocks.notify,
+}))
+
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
   return {

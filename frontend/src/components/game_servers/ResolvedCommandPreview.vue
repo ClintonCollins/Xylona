@@ -283,7 +283,6 @@ async function copyCommand() {
 
 .resolved-preview__prompt {
   color: var(--xy-accent);
-  font-family: var(--xy-font-display);
 }
 
 /* A token never wraps inside itself, even when quoted with spaces; lines break between tokens. */

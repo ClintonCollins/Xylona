@@ -134,13 +134,29 @@ async function saveSettings(): Promise<void> {
   }
 }
 
-onMounted(() => {
+function stopPolling(): void {
+  if (pollTimer !== undefined) {
+    clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
+
+// Pause while the tab is hidden and catch up as soon as it is visible again.
+function handleVisibilityChange(): void {
+  stopPolling()
+  if (document.visibilityState === 'hidden') return
   void loadMap()
   pollTimer = setInterval(() => void loadMap(), pollIntervalMilliseconds)
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  handleVisibilityChange()
 })
 
 onBeforeUnmount(() => {
-  if (pollTimer !== undefined) clearInterval(pollTimer)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopPolling()
 })
 </script>
 
@@ -202,12 +218,12 @@ onBeforeUnmount(() => {
       <q-btn v-else-if="loadError" icon="refresh" label="Retry" no-caps outline @click="loadMap" />
     </section>
 
-    <q-dialog v-model="settingsOpen">
+    <q-dialog v-model="settingsOpen" aria-labelledby="minecraft-map-setup-title">
       <q-card class="minecraft-map-dialog">
         <q-card-section class="minecraft-map-dialog__heading">
           <div>
             <span>World renderer</span>
-            <h2>Minecraft map setup</h2>
+            <h2 id="minecraft-map-setup-title">Minecraft map setup</h2>
           </div>
           <q-btn v-close-popup aria-label="Close Minecraft map setup" flat icon="close" round />
         </q-card-section>
@@ -258,7 +274,11 @@ onBeforeUnmount(() => {
 
     <!-- Backdrop clicks and Esc ask the settings first so unsaved edits get the discard prompt.
          Route changes are left to the settings' own leave guard, so it never asks twice. -->
-    <q-dialog :model-value="shareOpen" no-route-dismiss @update:model-value="onShareDialogToggle">
+    <q-dialog
+      aria-labelledby="map-share-settings-title"
+      :model-value="shareOpen"
+      no-route-dismiss
+      @update:model-value="onShareDialogToggle">
       <game-server-map-share-settings
         ref="shareSettings"
         :game-server-id="gameServerID"
@@ -352,10 +372,10 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: var(--xy-space-sm);
   padding: var(--xy-space-sm) var(--xy-space-md);
-  border: 1px solid color-mix(in srgb, var(--q-warning) 30%, var(--xy-border));
+  border: 1px solid color-mix(in srgb, var(--xy-warning) 30%, var(--xy-border));
   border-radius: var(--xy-radius-md);
   color: var(--xy-text-secondary);
-  background: color-mix(in srgb, var(--q-warning) 8%, var(--xy-surface-2));
+  background: color-mix(in srgb, var(--xy-warning) 8%, var(--xy-surface-2));
   text-align: left;
 }
 

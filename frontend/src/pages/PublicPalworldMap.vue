@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 
 import { GetPublicPalworldMapRequestSchema, type PalworldMapView } from '@/proto/xylona_pb'
@@ -41,8 +42,12 @@ async function loadMap(): Promise<void> {
     loadError.value = false
   } catch (unknownError: unknown) {
     console.error(unknownError)
-    if (mapView.value === null) {
+    // Only NotFound means the link is gone; anything else is a temporary outage.
+    if (ConnectError.from(unknownError).code === Code.NotFound) {
+      mapView.value = null
       invalidLink.value = true
+      loadError.value = false
+      stopPolling()
     } else {
       loadError.value = true
     }
@@ -67,7 +72,8 @@ function startPolling() {
 }
 
 function handleVisibilityChange() {
-  if (document.visibilityState === 'hidden') {
+  // A revoked link (NotFound) stays gone, so it never resumes polling.
+  if (document.visibilityState === 'hidden' || invalidLink.value) {
     stopPolling()
     return
   }
@@ -88,17 +94,29 @@ onUnmounted(() => {
 <template>
   <main class="public-palworld-map">
     <header class="public-palworld-map__header">
-      <div class="public-palworld-map__brand">XYLONA</div>
+      <div class="public-palworld-map__brand">Xylona</div>
       <div class="public-palworld-map__title">
         <span>Palworld live map</span>
-        <strong>{{ mapView?.serverName || 'Shared server' }}</strong>
+        <h1>{{ mapView?.serverName || 'Shared server' }}</h1>
       </div>
     </header>
 
     <div v-if="invalidLink" class="public-palworld-map__invalid">
       <q-icon name="link_off" size="48px" />
-      <h1>This map link is not available</h1>
+      <h2>This map link is not available</h2>
       <p>It may be incomplete, expired, or revoked by the server administrator.</p>
+    </div>
+    <div v-else-if="loadError && mapView === null" class="public-palworld-map__invalid">
+      <q-icon name="cloud_off" size="48px" />
+      <h2>Map temporarily unavailable</h2>
+      <p>The map could not be reached. Try again in a moment.</p>
+      <q-btn
+        class="q-mt-md"
+        color="primary"
+        label="Retry"
+        :loading="loading"
+        no-caps
+        @click="loadMap" />
     </div>
     <palworld-live-map
       v-else
@@ -129,8 +147,8 @@ onUnmounted(() => {
 .public-palworld-map__brand {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
-  font-size: var(--xy-font-size-lg);
-  letter-spacing: 0.08em;
+  font-size: var(--xy-font-size-xl);
+  line-height: var(--xy-line-height-tight);
 }
 
 .public-palworld-map__title {
@@ -147,9 +165,12 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
-.public-palworld-map__title strong {
+.public-palworld-map__title h1 {
+  margin: 0;
   font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-base);
   font-weight: 500;
+  letter-spacing: normal;
 }
 
 .public-palworld-map__invalid {
@@ -160,7 +181,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.public-palworld-map__invalid h1 {
+.public-palworld-map__invalid h2 {
   margin: var(--xy-space-md) 0 var(--xy-space-sm);
   font-family: var(--xy-font-heading);
   font-size: var(--xy-font-size-xl);

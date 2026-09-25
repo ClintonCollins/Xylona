@@ -36,7 +36,14 @@ export default boot(async ({ app }) => {
 
   // Quasar colours plugin dialogs (Cancel, prompt inputs) caution amber in dark
   // mode. Default them to primary so a Cancel never reads as a warning.
+  // The plugin's role="dialog" has no name; unknown options fall through to it,
+  // so the visible title becomes its aria-label.
   const $q = app.config.globalProperties.$q
   const createDialog = $q.dialog
-  $q.dialog = Dialog.create = (opts: QDialogOptions) => createDialog({ color: 'primary', ...opts })
+  $q.dialog = Dialog.create = (opts: QDialogOptions) =>
+    createDialog({
+      color: 'primary',
+      ...(opts.title && !opts.html ? { 'aria-label': opts.title } : {}),
+      ...opts,
+    })
 })

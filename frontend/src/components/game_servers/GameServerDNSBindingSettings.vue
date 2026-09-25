@@ -9,7 +9,7 @@
       <q-icon name="sync_problem" size="32px" />
       <strong>DNS binding could not be loaded.</strong>
       <span>{{ loadError }}</span>
-      <q-btn color="primary" label="Try again" no-caps @click="loadBinding" />
+      <q-btn color="primary" label="Try again" no-caps outline @click="loadBinding" />
     </div>
 
     <template v-else>

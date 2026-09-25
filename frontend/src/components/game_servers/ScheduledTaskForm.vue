@@ -1,11 +1,10 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import { describeCron, nextCronRun } from '@/utils/cron-schedule'
 import { formatTimestampWithZone } from '@/utils/format-timestamp'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 import {
   CreateScheduledTaskRequestSchema,
   UpdateScheduledTaskRequestSchema,
@@ -18,16 +17,19 @@ const props = defineProps<{
   existingTask?: ScheduledTask
   // Task type a new schedule starts with, such as 'backup' from the Backups page.
   initialTaskType?: string
-  backupOperationsAllowed?: boolean
+  // True only when a loaded backup overview disallows backup operations.
+  backupsBlocked?: boolean
   backupDisabledReason?: string
+  backupOverviewError?: string
+  backupOverviewLoading?: boolean
 }>()
 
 const emit = defineEmits<{
   submit: []
   close: []
+  retryBackupOverview: []
 }>()
 
-const $q = useQuasar()
 const submitting = ref(false)
 
 // ── Task type options ────────────────────────────────────────────────
@@ -146,9 +148,7 @@ const dialogTitle = computed(() =>
 )
 
 const showConsoleCommand = computed(() => form.value.taskType === 'console_command')
-const backupEnableBlocked = computed(
-  () => form.value.taskType === 'backup' && props.backupOperationsAllowed === false,
-)
+const backupEnableBlocked = computed(() => form.value.taskType === 'backup' && props.backupsBlocked)
 
 const cronFromBuilder = computed((): string => {
   const b = builder.value
@@ -213,10 +213,7 @@ function toggleAdvancedCron(): void {
   // Advanced → Visual: only when the expression fits the builder
   const parsed = parseCronToBuilder(form.value.cronExpression)
   if (!parsed) {
-    $q.notify({
-      type: 'xylona-error',
-      caption: `This cron expression can't be represented in the visual builder`,
-      position: 'top',
+    notifyError(`This cron expression can't be represented in the visual builder`, {
       timeout: 4000,
     })
     return
@@ -379,12 +376,7 @@ async function handleSubmit(): Promise<void> {
         request.consoleCommand = form.value.consoleCommand.trim()
       }
       await GetXylonaClient().updateScheduledTask(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Scheduled task updated',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Scheduled task updated')
     } else {
       const request = create(CreateScheduledTaskRequestSchema, {
         gameServerId: props.gameServerId,
@@ -398,22 +390,11 @@ async function handleSubmit(): Promise<void> {
         request.consoleCommand = form.value.consoleCommand.trim()
       }
       await GetXylonaClient().createScheduledTask(request)
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Scheduled task created',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Scheduled task created')
     }
     emit('submit')
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     submitting.value = false
   }
@@ -428,7 +409,9 @@ async function handleSubmit(): Promise<void> {
     @update:model-value="emit('close')">
     <q-card class="scheduled-task-form-card">
       <q-card-section>
-        <div id="scheduled-task-dialog-title" class="text-h6 font-display">{{ dialogTitle }}</div>
+        <h2 id="scheduled-task-dialog-title" class="text-h6 font-display q-my-none">
+          {{ dialogTitle }}
+        </h2>
       </q-card-section>
 
       <q-card-section class="q-pt-none">
@@ -438,7 +421,7 @@ async function handleSubmit(): Promise<void> {
           aria-required="true"
           class="q-mb-md"
           dense
-          label="Name"
+          label="Name *"
           maxlength="80"
           outlined />
 
@@ -460,6 +443,25 @@ async function handleSubmit(): Promise<void> {
           {{ backupDisabledReason || 'New backup schedules are unavailable for this server.' }}
           Disable this task or choose another task type before saving.
         </q-banner>
+        <q-banner
+          v-else-if="form.taskType === 'backup' && backupOverviewError"
+          class="xy-banner-warning q-mb-md"
+          data-testid="backup-schedule-overview-error"
+          dense
+          inline-actions
+          role="alert">
+          <strong>Backup availability could not be checked.</strong> {{ backupOverviewError }}
+          <template #action>
+            <q-btn
+              :loading="backupOverviewLoading"
+              aria-label="Retry checking backup availability"
+              flat
+              icon="refresh"
+              label="Retry"
+              no-caps
+              @click="emit('retryBackupOverview')" />
+          </template>
+        </q-banner>
 
         <q-input
           v-if="showConsoleCommand"
@@ -468,7 +470,7 @@ async function handleSubmit(): Promise<void> {
           aria-required="true"
           class="q-mb-md"
           dense
-          label="Console Command"
+          label="Console Command *"
           outlined />
 
         <!-- ── Schedule Builder Section ────────────────────────── -->
@@ -583,7 +585,8 @@ async function handleSubmit(): Promise<void> {
               class="q-mb-sm"
               dense
               hint="5-field format: minute hour day month weekday"
-              label="Cron Expression"
+              input-class="font-mono"
+              label="Cron Expression *"
               outlined />
           </template>
 
@@ -778,7 +781,7 @@ async function handleSubmit(): Promise<void> {
 }
 
 .schedule-preview--invalid {
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
   background-color: var(--xy-danger-bg);
 }
 

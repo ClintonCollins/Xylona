@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -13,10 +13,19 @@ const router = useRouter()
 // Wizard state
 type WizardStep = 'select' | 'search' | 'preview'
 const step = ref<WizardStep>('select')
+const stepNumber = computed(() => ['select', 'search', 'preview'].indexOf(step.value) + 1)
+const wizardTitle = ref<HTMLElement | null>(null)
 const selectedApp = ref<{ appId: string; name: string } | null>(null)
 const details = ref<SteamAppDetails | null>(null)
 const detailsLoading = ref(false)
 const detailsError = ref('')
+
+// Changing step unmounts the focused control, so focus falls to <body>. Move it to the new
+// step's heading once the out-in transition has inserted it (the first step has only the h1).
+function focusStepHeading(el: Element): void {
+  const heading = el.querySelector<HTMLElement>('h2') ?? wizardTitle.value
+  heading?.focus()
+}
 
 // Helpers
 function stripDedicatedServer(name: string): string {
@@ -135,10 +144,14 @@ function platformText(): string {
 <template>
   <q-page class="wizard-page">
     <div class="wizard-container">
+      <h1 ref="wizardTitle" aria-describedby="wizard-progress" class="wizard-title" tabindex="-1">
+        Add a Game
+      </h1>
+      <p id="wizard-progress" class="wizard-progress">Step {{ stepNumber }} of 3</p>
+
       <!-- Step: Select type -->
-      <transition mode="out-in" name="wizard-fade">
+      <transition mode="out-in" name="wizard-fade" @after-enter="focusStepHeading">
         <div v-if="step === 'select'" key="select" class="wizard-step">
-          <h1 class="wizard-title">Add a Game</h1>
           <p class="wizard-subtitle">Choose how you want to set up your game server.</p>
 
           <div class="selection-cards">
@@ -180,7 +193,9 @@ function platformText(): string {
               icon="arrow_back"
               round
               @click="goBackToSelect" />
-            <h2 class="wizard-step-title">Look Up Steam AppID</h2>
+            <h2 aria-describedby="wizard-progress" class="wizard-step-title" tabindex="-1">
+              Look Up Steam AppID
+            </h2>
           </div>
           <p class="wizard-subtitle">
             Look up the game's dedicated server on Steam to fill in its details.
@@ -201,7 +216,9 @@ function platformText(): string {
               icon="arrow_back"
               round
               @click="goBackToSearch" />
-            <h2 class="wizard-step-title">Review Details</h2>
+            <h2 aria-describedby="wizard-progress" class="wizard-step-title" tabindex="-1">
+              Review Details
+            </h2>
           </div>
 
           <!-- Loading state -->
@@ -312,8 +329,21 @@ function platformText(): string {
   font-size: var(--xy-font-size-2xl);
   font-weight: 700;
   color: var(--xy-text-primary);
-  margin: 0 0 var(--xy-space-sm) 0;
+  margin: 0 0 var(--xy-space-xs) 0;
   text-align: center;
+}
+
+/* Programmatic focus targets after a step change, like #main-content. */
+.wizard-title:focus,
+.wizard-step-title:focus {
+  outline: none;
+}
+
+.wizard-progress {
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+  text-align: center;
+  margin: 0 0 var(--xy-space-lg) 0;
 }
 
 .wizard-subtitle {
@@ -441,6 +471,7 @@ function platformText(): string {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--xy-space-md);
     padding: var(--xy-space-sm) 0;
 
     & + & {
@@ -458,6 +489,8 @@ function platformText(): string {
     color: var(--xy-text-primary);
     display: flex;
     align-items: center;
+    min-width: 0;
+    overflow-wrap: anywhere;
 
     &.mono {
       font-family: var(--xy-font-mono);

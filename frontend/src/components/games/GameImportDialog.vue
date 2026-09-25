@@ -1,9 +1,11 @@
 <template>
-  <q-dialog v-model="dialogModel">
+  <q-dialog v-model="dialogModel" aria-labelledby="game-import-dialog-title">
     <q-card class="game-import-dialog">
       <q-card-section class="game-import-dialog__header">
         <div>
-          <h2 class="game-import-dialog__title font-display">Import Game JSON</h2>
+          <h2 id="game-import-dialog-title" class="game-import-dialog__title font-display">
+            Import Game JSON
+          </h2>
           <div class="text-caption text-xy-muted">Preview changes before applying them.</div>
         </div>
         <q-btn
@@ -39,7 +41,7 @@
               <div class="game-import-dialog__game-name">
                 {{ previewResponse.game?.name || previewResponse.importedGameId || 'Unnamed game' }}
               </div>
-              <div class="text-caption text-xy-secondary">
+              <div class="text-caption text-xy-secondary font-mono">
                 {{ previewResponse.game?.id || previewResponse.importedGameId }}
               </div>
             </div>
@@ -79,7 +81,7 @@
                 v-for="group in changeGroups"
                 :key="group.section"
                 class="game-import-dialog__change-group">
-                <div class="game-import-dialog__change-section font-display">
+                <div class="game-import-dialog__change-section">
                   {{ group.section }}
                 </div>
                 <div class="game-import-dialog__change-list">
@@ -147,7 +149,7 @@
               v-model="selectedMode"
               :disable="submitting"
               :options="importModeOptions"
-              color="secondary"
+              aria-label="Conflict action"
               no-caps
               toggle-color="primary"
               unelevated />
@@ -176,16 +178,15 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { computed, ref, watch } from 'vue'
-import { useQuasar } from 'quasar'
+import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import {
   GameImportMode,
   ImportGameRequestSchema,
   type GameImportChange,
   type ImportGameResponse,
 } from '@/proto/xylona_pb'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 
 type QFileValue = File | File[] | null
 interface ChangeGroup {
@@ -205,7 +206,6 @@ const emit = defineEmits<{
   imported: [gameID: string]
 }>()
 
-const $q = useQuasar()
 const selectedFile = ref<File | null>(null)
 const fileContent = ref('')
 const readError = ref('')
@@ -381,20 +381,12 @@ async function applyImport(): Promise<void> {
     previewResponse.value = response
 
     if (response.validationErrors.length > 0) {
-      $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption: 'Game JSON did not pass validation.',
-        icon: 'report_problem',
-      })
+      notifyError('Game JSON did not pass validation.', { icon: 'report_problem' })
       return
     }
 
     const importedGameID = response.importedGameId || response.game?.id || ''
-    $q.notify({
-      type: 'xylona-success',
-      position: 'top',
-      caption: `Imported ${response.game?.name || importedGameID || 'game definition'}.`,
+    notifySuccess(`Imported ${response.game?.name || importedGameID || 'game definition'}.`, {
       icon: 'check_circle',
     })
 
@@ -431,12 +423,7 @@ function resetPreviewState(): void {
 }
 
 function notifyImportFailure(captionPrefix: string, unknownError: unknown): void {
-  $q.notify({
-    type: 'xylona-error',
-    position: 'top',
-    caption: `${captionPrefix}: ${ConnectErrorToString(ConnectError.from(unknownError))}`,
-    icon: 'report_problem',
-  })
+  notifyConnectError(unknownError, captionPrefix, { icon: 'report_problem' })
 }
 </script>
 
@@ -534,6 +521,7 @@ function notifyImportFailure(captionPrefix: string, unknownError: unknown): void
 .game-import-dialog__change-section {
   color: var(--xy-accent);
   font-size: var(--xy-font-size-sm);
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
 }

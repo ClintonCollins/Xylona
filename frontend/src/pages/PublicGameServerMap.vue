@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -12,10 +13,14 @@ import PublicSevenDaysToDieMap from './PublicSevenDaysToDieMap.vue'
 const route = useRoute()
 const kind = ref(GameServerMapKind.UNSPECIFIED)
 const loading = ref(true)
+// Only NotFound means the link is gone; any other failure is worth a retry.
+const loadError = ref(false)
 
 const identifier = computed(() => String(route.params['identifier'] ?? ''))
 
 async function resolveMap(): Promise<void> {
+  loading.value = true
+  loadError.value = false
   try {
     const response = await GetXylonaClient().resolvePublicGameServerMap(
       create(ResolvePublicGameServerMapRequestSchema, {
@@ -23,8 +28,9 @@ async function resolveMap(): Promise<void> {
       }),
     )
     kind.value = response.kind
-  } catch {
+  } catch (unknownError: unknown) {
     kind.value = GameServerMapKind.UNSPECIFIED
+    loadError.value = ConnectError.from(unknownError).code !== Code.NotFound
   } finally {
     loading.value = false
   }
@@ -44,7 +50,17 @@ onMounted(resolveMap)
     v-else-if="!loading && kind === GameServerMapKind.MINECRAFT"
     :identifier="identifier" />
   <main v-else class="public-map-state">
-    <q-spinner v-if="loading" color="primary" size="42px" />
+    <div v-if="loading" role="status">
+      <q-spinner aria-hidden="true" color="primary" size="42px" />
+      <span class="xy-visually-hidden">Loading map</span>
+    </div>
+    <template v-else-if="loadError">
+      <div class="public-map-state__brand">Xylona</div>
+      <q-icon name="cloud_off" size="48px" />
+      <h1>Map temporarily unavailable</h1>
+      <p>The map could not be reached. Try again in a moment.</p>
+      <q-btn color="primary" label="Retry" no-caps @click="resolveMap" />
+    </template>
     <template v-else>
       <div class="public-map-state__brand">Xylona</div>
       <q-icon name="link_off" size="48px" />

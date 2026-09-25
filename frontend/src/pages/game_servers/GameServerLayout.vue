@@ -1,5 +1,5 @@
 <template>
-  <div class="q-page game-server-page" :class="{ 'q-layout-padding': windowWidth > 1024 }">
+  <main class="q-page game-server-page" :class="{ 'q-layout-padding': windowWidth > 1024 }">
     <div class="full-width game-server-card">
       <empty-state
         v-if="serverMissing"
@@ -106,7 +106,7 @@
         </div>
       </template>
     </div>
-  </div>
+  </main>
 </template>
 
 <script lang="ts" setup>
@@ -128,6 +128,7 @@ import {
 import type { GameServerLayoutTab } from './game-server-layout-tabs'
 import { gameServerNameKey } from './game-server-context'
 import { createGameServerReadiness, gameServerReadinessKey } from './game-server-readiness'
+import { createGameServerLifecycle, gameServerLifecycleKey } from './start-failure'
 import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -149,11 +150,12 @@ provide(
 const serverReady = computed(
   () => !serverMissing.value && loadedServerID.value === gameServerRouteKey.value,
 )
-// Start in the identity bar and the console's setup list read the same checks.
-const readiness = createGameServerReadiness(
-  computed(() => (serverMissing.value ? '' : loadedServerID.value)),
-)
+const layoutServerID = computed(() => (serverMissing.value ? '' : loadedServerID.value))
+// The console's Start and its setup list read the same checks.
+const readiness = createGameServerReadiness(layoutServerID)
 provide(gameServerReadinessKey, readiness)
+// Start failures and a Restart in flight reach the identity bar on every tab, not just the console.
+provide(gameServerLifecycleKey, createGameServerLifecycle(layoutServerID))
 
 // Room for the trailing "More" menu when not every tab fits.
 const moreMenuWidth = 96
@@ -479,7 +481,7 @@ async function enforceRouteAccess() {
 }
 
 .game-server-more--active {
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
   box-shadow: inset 0 -2px 0 var(--xy-primary);
 }
 

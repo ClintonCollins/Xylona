@@ -49,7 +49,7 @@
         </q-btn>
         <q-btn :disable="submitting" flat label="Cancel" @click="handleCancel" />
         <q-btn
-          :disable="loading"
+          :disable="loading || loadError !== ''"
           :loading="submitting"
           color="primary"
           label="Save"
@@ -58,27 +58,27 @@
     </div>
 
     <!-- Diverged official definition banner -->
-    <div
+    <q-banner
       v-if="showDivergedBanner"
-      class="game-form-diverged-banner"
-      data-testid="game-form-diverged-banner">
-      <q-icon class="diverged-banner-icon" name="difference" size="20px" />
-      <div class="diverged-banner-text">
-        <div class="diverged-banner-title">Modified from official definition</div>
-        <div class="diverged-banner-caption">
-          This game has local edits, so it no longer receives official definition updates.
-        </div>
-      </div>
-      <q-btn
-        :loading="restoringOfficial"
-        class="diverged-banner-btn"
-        color="primary"
-        dense
-        label="Restore official definition"
-        no-caps
-        outline
-        @click="confirmRestoreOfficial" />
-    </div>
+      class="xy-banner-warning q-my-md"
+      data-testid="game-form-diverged-banner"
+      dense>
+      <template #avatar>
+        <q-icon name="difference" />
+      </template>
+      <strong>Modified from official definition.</strong>
+      This game has local edits, so it no longer receives official definition updates.
+      <template #action>
+        <q-btn
+          :loading="restoringOfficial"
+          color="primary"
+          dense
+          label="Restore official definition"
+          no-caps
+          outline
+          @click="confirmRestoreOfficial" />
+      </template>
+    </q-banner>
 
     <!-- Loading state -->
     <div v-if="loading" class="game-form-loading">
@@ -87,7 +87,29 @@
     </div>
 
     <div v-else class="game-form-body">
-      <q-form ref="formRef">
+      <q-banner
+        v-if="loadError"
+        class="xy-banner-negative q-mt-md"
+        data-testid="game-form-load-error"
+        dense
+        inline-actions
+        role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>This game could not be loaded.</strong> {{ loadError }}
+        <template #action>
+          <q-btn
+            aria-label="Retry loading the game"
+            flat
+            icon="refresh"
+            label="Retry"
+            no-caps
+            @click="loadExistingGame" />
+        </template>
+      </q-banner>
+
+      <q-form v-else ref="formRef" greedy @validation-error="revealInvalidField">
         <div class="game-form-tabs-panel">
           <div class="game-form-tabs-shell">
             <div aria-label="Game editor sections" class="game-form-tabs" role="tablist">
@@ -96,22 +118,28 @@
                 :id="formTabID(tab.id)"
                 :key="tab.id"
                 :aria-controls="formTabPanelID(tab.id)"
+                :aria-describedby="activeFormTab === tab.id ? 'game-form-tab-copy' : undefined"
                 :aria-selected="activeFormTab === tab.id"
                 :class="{ 'game-form-tab--active': activeFormTab === tab.id }"
                 :data-testid="`game-form-tab-${tab.id}`"
                 :tabindex="activeFormTab === tab.id ? 0 : -1"
-                :title="tab.copy"
                 class="game-form-tab"
                 role="tab"
                 type="button"
                 @click="activeFormTab = tab.id"
                 @keydown="handleFormTabKeydown($event, tab.id)">
-                <span class="game-form-tab__label font-display">{{ tab.label }}</span>
+                <span class="game-form-tab__label">{{ tab.label }}</span>
+                <template v-if="tabsWithErrors.includes(tab.id)">
+                  <span aria-hidden="true" class="game-form-tab__error-dot"></span>
+                  <span class="xy-visually-hidden">, has errors</span>
+                </template>
               </button>
             </div>
           </div>
 
-          <!-- Tab descriptions available via tooltip on tab buttons -->
+          <p id="game-form-tab-copy" class="game-form-tab-copy" data-testid="game-form-tab-copy">
+            {{ activeFormTabCopy }}
+          </p>
         </div>
 
         <div
@@ -159,7 +187,7 @@
           class="game-form-tab-panel"
           data-testid="game-form-tab-panel-console-commands"
           role="tabpanel">
-          <game-form-console-commands-tab />
+          <game-form-console-commands-tab ref="consoleCommandsTabRef" />
         </div>
 
         <div
@@ -180,11 +208,19 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { QForm, useQuasar } from 'quasar'
-import { computed, onBeforeUnmount, onMounted, provide, ref, Ref } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  ref,
+  Ref,
+  type ComponentPublicInstance,
+} from 'vue'
 import { useRouter } from 'vue-router'
-import { notifySuccess } from '@/api/notifications'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import {
   CommandType,
   EnvironmentValidationIssue,
@@ -205,7 +241,7 @@ import GameFormRuntimeTab from './GameFormRuntimeTab.vue'
 import GameFormModsTab from './GameFormModsTab.vue'
 import GameFormConsoleCommandsTab from './GameFormConsoleCommandsTab.vue'
 import GameFormConfigTab from './GameFormConfigTab.vue'
-import { type GameFormContext, gameFormContextKey } from './GameFormTypes'
+import { type GameFormContext, gameFormContextKey, type GameFormTabID } from './GameFormTypes'
 import {
   applySimpleGameConfig,
   getCommandProcessorOptions,
@@ -222,7 +258,7 @@ import { useGameFormTabs } from './useGameFormTabs'
 import { useGameFormNewGameSetup } from './useGameFormNewGameSetup'
 import { useGameFormPersistence } from './useGameFormPersistence'
 import { exportGameDefinitionJSON } from './game-definition-json'
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
+import { GetXylonaClient } from '@/utils/shared'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -354,7 +390,7 @@ const { initializeNewGameForm } = useGameFormNewGameSetup({
   syncActivePlatformFromGame,
   commitSnapshot,
 })
-const { loading, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
+const { loading, loadError, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
   useGameFormPersistence({
     formRef,
     game,
@@ -377,13 +413,57 @@ const { loading, submitting, loadGameDetails, navigateToSchemaEditor, submit } =
     saveDefaultEnvironment,
   })
 const restoringOfficial = ref(false)
+const consoleCommandsTabRef = ref<InstanceType<typeof GameFormConsoleCommandsTab> | null>(null)
+const saveAttempted = ref(false)
+
+const activeFormTabCopy = computed(
+  () => formTabs.find((tab) => tab.id === activeFormTab.value)?.copy ?? '',
+)
+
+// Only Overview's fields carry QForm rules, so its error marker checks the same rules directly.
+const overviewValid = computed(
+  () =>
+    idRules.every((rule) => rule(game.value.id) === true) &&
+    nameRules.every((rule) => rule(game.value.name) === true) &&
+    portRules.every(
+      (rule) => rule(defaultPort.value) === true && rule(defaultQueryPort.value) === true,
+    ),
+)
+
+const tabsWithErrors = computed(() => {
+  const tabs: GameFormTabID[] = []
+  if (saveAttempted.value && !overviewValid.value) {
+    tabs.push('overview')
+  }
+  if ((consoleCommandsTabRef.value?.validationErrors.length ?? 0) > 0) {
+    tabs.push('console-commands')
+  }
+  return tabs
+})
+
+// QForm cannot focus a field inside an inert tab panel, so open the tab that owns the first
+// invalid field and focus it there.
+async function revealInvalidField(
+  field: ComponentPublicInstance & { focus?: () => void },
+): Promise<void> {
+  saveAttempted.value = true
+  const panelID = field.$el instanceof Element ? field.$el.closest('.game-form-tab-panel')?.id : ''
+  const tab = formTabs.find((candidate) => formTabPanelID(candidate.id) === panelID)
+  if (!tab) {
+    return
+  }
+
+  activeFormTab.value = tab.id
+  await nextTick()
+  field.focus?.()
+}
 
 const editingSavedGame = computed(() => existingGame.value && !copyGame.value)
 
 // "Official definition · Used by 1 game server (Minecraft Dev Server)", so the operator
 // knows what an edit affects before saving it.
 const definitionStatus = computed(() => {
-  if (!editingSavedGame.value || loading.value) {
+  if (!editingSavedGame.value || loading.value || loadError.value) {
     return ''
   }
 
@@ -434,21 +514,9 @@ async function restoreOfficialDefinition() {
     })
     await GetXylonaClient().resetGameToOfficialDefinition(request)
     await loadGameDetails()
-    $q.notify({
-      type: 'xylona-success',
-      position: 'top',
-      caption: 'Official definition restored.',
-      icon: 'check_circle',
-    })
+    notifySuccess('Official definition restored.')
   } catch (unknownError: unknown) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption:
-        'Failed to restore official definition: ' +
-        ConnectErrorToString(ConnectError.from(unknownError)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(unknownError, 'Failed to restore official definition')
   } finally {
     restoringOfficial.value = false
   }
@@ -561,13 +629,18 @@ function commandTypeSummary(commandType: CommandType, operation: 'install' | 'up
 // --- Command syntax highlighting ---
 
 function escapeHTML(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function highlightCommand(cmd: string): string {
   if (!cmd) return ''
   const escaped = escapeHTML(cmd)
-  return escaped.replace(/(\S+)/g, (token) => {
+  const highlighted = escaped.replace(/(\S+)/g, (token) => {
     // Flags: starts with - or + (JVM flags like -XX:+UseZGC)
     if (/^[-+]/.test(token)) {
       return `<span class="cmd-hl-flag">${token}</span>`
@@ -581,6 +654,9 @@ function highlightCommand(cmd: string): string {
     }
     return token
   })
+  // A textarea shows a line after a trailing newline; pre-wrap drops it unless it holds a
+  // character, which would leave the overlay one line short of the caret.
+  return cmd.endsWith('\n') ? `${highlighted} ` : highlighted
 }
 
 // --- Expose dirty state for route-level navigation guards ---
@@ -611,9 +687,7 @@ onMounted(async () => {
     gameID.value = props.copyGameId
   }
   if (existingGame.value || copyGame.value) {
-    await loadGameDetails()
-    await initializeGameDefaultEnvironment()
-    commitDefaultEnvSnapshot()
+    await loadExistingGame()
   } else {
     await initializeNewGameForm()
     resetDefaultEnvironment()
@@ -624,6 +698,12 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stickyObserver?.disconnect()
 })
+
+async function loadExistingGame(): Promise<void> {
+  await loadGameDetails()
+  await initializeGameDefaultEnvironment()
+  commitDefaultEnvSnapshot()
+}
 
 function handleCancel() {
   // The onBeforeRouteLeave guard handles the unsaved changes prompt. An explicit
@@ -638,19 +718,9 @@ async function exportCurrentGame(): Promise<void> {
 
   try {
     const fileName = await exportGameDefinitionJSON(gameID.value)
-    $q.notify({
-      type: 'xylona-success',
-      position: 'top',
-      caption: `Exported ${fileName}.`,
-      icon: 'check_circle',
-    })
+    notifySuccess(`Exported ${fileName}.`)
   } catch (unknownError: unknown) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to export game: ' + ConnectErrorToString(ConnectError.from(unknownError)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(unknownError, 'Failed to export game')
   }
 }
 
@@ -675,14 +745,7 @@ async function initializeGameDefaultEnvironment(): Promise<void> {
     defaultEnvRows.value = cloneEnvironmentVariables(response.defaultEnv)
     defaultEnvIssues.value = response.validationIssues
   } catch (unknownError: unknown) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption:
-        'Failed to load default environment: ' +
-        ConnectErrorToString(ConnectError.from(unknownError)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(unknownError, 'Failed to load default environment')
   } finally {
     defaultEnvLoading.value = false
   }
@@ -728,14 +791,7 @@ async function saveDefaultEnvironment(): Promise<void> {
     commitDefaultEnvSnapshot()
     notifySuccess('Default environment saved.')
   } catch (unknownError: unknown) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption:
-        'Failed to save default environment: ' +
-        ConnectErrorToString(ConnectError.from(unknownError)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(unknownError, 'Failed to save default environment')
   }
 }
 </script>
@@ -796,8 +852,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: 0;
   border-radius: var(--xy-radius-xl);
   border: 1px solid var(--xy-border);
-  background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
-  box-shadow: var(--xy-shadow-md);
   overflow: hidden;
 }
 
@@ -853,7 +907,7 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: 0.42rem;
   min-height: 2.15rem;
   padding: 0.38rem 0.42rem;
-  border-radius: var(--xy-radius-pill);
+  border-radius: var(--xy-radius-md);
   border: none;
   background: transparent;
   color: var(--xy-accent);
@@ -1176,50 +1230,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   min-height: 200px;
 }
 
-/* ---- Diverged official definition banner ---- */
-
-.game-form-diverged-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0.75rem 0;
-  padding: 0.6rem 0.9rem;
-  border: 1px solid var(--xy-warning);
-  border-radius: var(--xy-radius-md);
-  background: var(--xy-surface-1);
-}
-
-.diverged-banner-icon {
-  color: var(--xy-warning);
-  flex-shrink: 0;
-}
-
-.diverged-banner-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.diverged-banner-title {
-  font-size: var(--xy-font-size-sm);
-  font-weight: 600;
-  color: var(--xy-text-primary);
-}
-
-.diverged-banner-caption {
-  font-size: var(--xy-font-size-xs);
-  color: var(--xy-text-muted);
-}
-
-.diverged-banner-btn {
-  flex-shrink: 0;
-}
-
-@media (max-width: 599px) {
-  .game-form-diverged-banner {
-    flex-wrap: wrap;
-  }
-}
-
 /* ---- Body ---- */
 
 .game-form-body {
@@ -1273,9 +1283,23 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .game-form-tab__label {
+  font-family: var(--xy-font-control);
   font-size: var(--xy-font-size-sm);
-  letter-spacing: 0.04em;
-  text-transform: none;
+  font-weight: 600;
+}
+
+.game-form-tab__error-dot {
+  width: 8px;
+  height: 8px;
+  margin-left: var(--xy-space-xs);
+  border-radius: var(--xy-radius-pill);
+  background: var(--xy-danger);
+}
+
+.game-form-tab-copy {
+  margin: 0;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-sm);
 }
 
 .game-form-tab-panel {
@@ -1396,30 +1420,18 @@ async function saveDefaultEnvironment(): Promise<void> {
   transition:
     background var(--xy-transition-fast),
     border-color var(--xy-transition-fast),
-    color var(--xy-transition-fast),
-    opacity var(--xy-transition-fast);
+    color var(--xy-transition-fast);
   color: var(--xy-text-muted);
   font-size: var(--xy-font-size-sm);
   font-family: inherit;
   line-height: 1.2;
-  opacity: 0.7;
 }
 
 .feature-chip:hover {
   border-color: var(--xy-border-hover);
-  opacity: 1;
 }
 
-.feature-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--xy-text-muted);
-  opacity: 0.4;
-  transition:
-    background var(--xy-transition-fast),
-    opacity var(--xy-transition-fast),
-    box-shadow var(--xy-transition-fast);
+.feature-check {
   flex-shrink: 0;
 }
 
@@ -1427,13 +1439,10 @@ async function saveDefaultEnvironment(): Promise<void> {
   background: var(--xy-primary-bg-subtle);
   border-color: var(--xy-primary-border-soft);
   color: var(--xy-text-primary);
-  opacity: 1;
 }
 
-.feature-chip--active .feature-dot {
-  background: var(--xy-primary);
-  opacity: 1;
-  box-shadow: 0 0 6px var(--xy-primary-glow-soft);
+.feature-chip--active .feature-check {
+  color: var(--xy-primary-text);
 }
 
 /* ---- Platform Tabs ---- */
@@ -1563,10 +1572,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   min-height: 32px;
   padding: 2px 24px 2px 8px;
   cursor: pointer;
-  outline: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23979b9e' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
   transition:
     border-color var(--xy-transition-fast),
     color var(--xy-transition-fast),
@@ -1579,7 +1584,6 @@ async function saveDefaultEnvironment(): Promise<void> {
 
 .cmd-type-select:focus {
   border-color: var(--xy-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--xy-primary) 24%, transparent);
 }
 
 .cmd-type-select option {
@@ -1588,9 +1592,25 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 .cmd-type-group {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Token-coloured chevron for the native select (a mask, so it takes a CSS colour). */
+.cmd-type-group::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-color: var(--xy-text-muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='black' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  pointer-events: none;
 }
 
 .cmd-type-row {
@@ -1621,10 +1641,17 @@ async function saveDefaultEnvironment(): Promise<void> {
   padding: 10px 12px;
   font-size: var(--xy-font-size-sm);
   line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-all;
   pointer-events: none;
   overflow: hidden;
+}
+
+/* The highlight layer draws the textarea's text, so both must wrap and reserve the same width. */
+.cmd-highlight,
+.cmd-textarea {
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
 }
 
 .cmd-textarea {
@@ -1637,20 +1664,21 @@ async function saveDefaultEnvironment(): Promise<void> {
   font-size: var(--xy-font-size-sm);
   padding: 10px 12px;
   resize: vertical;
-  outline: none;
   line-height: 1.5;
   position: relative;
   z-index: 1;
   transition: box-shadow var(--xy-transition-fast);
 }
 
+/* Inset: the highlight wrapper clips anything drawn outside the textarea. */
 .cmd-textarea:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--xy-primary);
+  outline: 2px solid var(--xy-focus-ring);
+  outline-offset: -2px;
 }
 
 .cmd-textarea::placeholder {
   color: var(--xy-text-muted);
-  opacity: 0.5;
+  opacity: 1;
 }
 
 /* When textarea is empty, show placeholder text (not the highlight layer) */
@@ -1886,7 +1914,6 @@ async function saveDefaultEnvironment(): Promise<void> {
   gap: var(--xy-space-md);
   padding: var(--xy-space-md);
   background: var(--xy-surface-0);
-  border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-lg);
 }
 
@@ -1942,7 +1969,9 @@ async function saveDefaultEnvironment(): Promise<void> {
 }
 
 @media (max-width: 599px) {
+  /* Wrapped onto several rows the header is too tall to keep pinned on a phone. */
   .game-form-header {
+    position: static;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--xy-space-sm);
     padding: var(--xy-space-sm) var(--xy-space-md) calc(var(--xy-space-xs) + 2px);

@@ -873,9 +873,14 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
             server.
           </div>
         </div>
-        <router-link :to="scheduledBackupsLink" class="backups-page__schedule-link">
-          <q-btn :label="scheduleShortcutLabel" color="primary" icon="schedule" no-caps outline />
-        </router-link>
+        <q-btn
+          :label="scheduleShortcutLabel"
+          :to="scheduledBackupsLink"
+          class="backups-page__schedule-link"
+          color="primary"
+          icon="schedule"
+          no-caps
+          outline />
       </q-card-section>
     </q-card>
 
@@ -895,8 +900,9 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
       </div>
     </div>
 
-    <q-card bordered class="backups-page__section" flat>
-      <q-card-section class="backups-page__section-header">
+    <!-- An unframed band: the table carries its own frame, and phone rows are cards. -->
+    <section class="backups-page__history">
+      <div class="backups-page__section-header">
         <div>
           <h2 class="xy-section-title">Backup History</h2>
           <div class="backups-page__section-copy">
@@ -913,8 +919,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
             <div class="backups-page__summary-pill">{{ totalBackupSizeSummary }}</div>
           </div>
         </div>
-      </q-card-section>
-      <q-separator />
+      </div>
       <q-table
         aria-label="Backups"
         :columns="columns"
@@ -975,8 +980,15 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
             </q-card-section>
 
             <q-card-actions align="right">
+              <!-- Touch never shows a disabled button's tooltip, so the reason is spelled out. -->
+              <span
+                v-if="restoreBlockedReason && props.row.status === GameServerBackupStatus.COMPLETED"
+                class="text-caption text-xy-secondary">
+                {{ restoreBlockedReason }}
+              </span>
               <q-btn
                 v-if="props.row.status === GameServerBackupStatus.COMPLETED"
+                :aria-label="`Download ${archiveFileName(props.row.archivePath)}`"
                 :data-testid="`download-backup-${props.row.id}`"
                 :href="backupDownloadHref(props.row)"
                 flat
@@ -987,6 +999,11 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
                 target="_blank" />
               <span class="backups-page__restore-action">
                 <q-btn
+                  :aria-label="
+                    restoreBlockedReason
+                      ? `Restore ${archiveFileName(props.row.archivePath)}: ${restoreBlockedReason}`
+                      : `Restore ${archiveFileName(props.row.archivePath)}`
+                  "
                   :disable="
                     props.row.status !== GameServerBackupStatus.COMPLETED ||
                     restoreBlockedReason !== ''
@@ -1000,6 +1017,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
                 <q-tooltip v-if="restoreBlockedReason">{{ restoreBlockedReason }}</q-tooltip>
               </span>
               <q-btn
+                :aria-label="`Delete ${archiveFileName(props.row.archivePath)}`"
                 :disable="!deleteAllowed"
                 :loading="deletingBackupId === props.row.id"
                 color="negative"
@@ -1019,9 +1037,9 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               class="backups-page__archive-cell">
               <div class="backups-page__archive-name">
                 {{ archiveFileName(props.row.archivePath) }}
-                <q-tooltip v-if="props.row.archivePath" class="font-mono">
-                  {{ props.row.archivePath }}
-                </q-tooltip>
+              </div>
+              <div v-if="props.row.archivePath" class="backups-page__archive-path">
+                {{ props.row.archivePath }}
               </div>
             </div>
           </q-td>
@@ -1033,8 +1051,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               <q-badge
                 :label="formatSource(props.row.triggerSource)"
                 class="backups-page__meta-badge"
-                color="secondary"
-                outline />
+                color="grey-8" />
               <span v-if="sourceCopy(props.row)" class="backups-page__source-copy">
                 {{ sourceCopy(props.row) }}
               </span>
@@ -1074,8 +1091,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               <q-btn
                 v-if="props.row.status === GameServerBackupStatus.COMPLETED"
                 :data-testid="`download-backup-${props.row.id}`"
+                :aria-label="`Download ${archiveFileName(props.row.archivePath)}`"
                 :href="backupDownloadHref(props.row)"
-                aria-label="Download backup"
                 dense
                 flat
                 icon="download"
@@ -1089,8 +1106,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
                 <q-btn
                   :aria-label="
                     restoreBlockedReason
-                      ? `Restore backup: ${restoreBlockedReason}`
-                      : 'Restore backup'
+                      ? `Restore ${archiveFileName(props.row.archivePath)}: ${restoreBlockedReason}`
+                      : `Restore ${archiveFileName(props.row.archivePath)}`
                   "
                   :disable="
                     props.row.status !== GameServerBackupStatus.COMPLETED ||
@@ -1106,8 +1123,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               </span>
               <q-btn
                 :disable="!deleteAllowed"
+                :aria-label="`Delete ${archiveFileName(props.row.archivePath)}`"
                 :loading="deletingBackupId === props.row.id"
-                aria-label="Delete backup"
                 class="text-error-brighter"
                 dense
                 flat
@@ -1120,7 +1137,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
           </q-td>
         </template>
       </q-table>
-    </q-card>
+    </section>
 
     <backup-restore-dialog
       v-model="showRestoreDialog"
@@ -1149,6 +1166,8 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
             accept=".zip,application/zip"
             data-testid="upload-backup-file-input"
             :disable="uploadingBackup"
+            :error="uploadError !== ''"
+            :error-message="uploadError"
             label="Backup archive (.zip)"
             outlined
             @update:model-value="onUploadFileChange">
@@ -1165,7 +1184,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
               size="10px"
               track-color="dark" />
           </div>
-          <div v-if="uploadError" class="backups-page__upload-error">{{ uploadError }}</div>
         </q-card-section>
         <q-card-actions align="right">
           <q-btn
@@ -1226,8 +1244,10 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   line-height: 1.5;
 }
 
-.backups-page__schedule-link {
-  text-decoration: none;
+.backups-page__history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xy-space-md);
 }
 
 .backups-page__summary-row {
@@ -1320,8 +1340,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   height: 0.7rem;
   border-radius: var(--xy-radius-pill);
   background: var(--xy-accent);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--xy-accent) 34%, transparent);
-  animation: backups-page-live-pulse 1.6s ease-out infinite;
+  animation: backups-page-live-pulse 1.6s ease-in-out infinite;
 }
 
 .backups-page__live-copy {
@@ -1407,6 +1426,7 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
 }
 
 .backups-page__archive-path {
+  font-family: var(--xy-font-mono);
   overflow-wrap: anywhere;
 }
 
@@ -1436,20 +1456,23 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   vertical-align: top;
 }
 
+/* Transform and opacity only, so the pulse stays on the compositor. */
 @keyframes backups-page-live-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--xy-accent) 38%, transparent);
-    opacity: 0.95;
-  }
-
-  70% {
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--xy-accent) 0%, transparent);
-    opacity: 1;
-  }
-
+  0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--xy-accent) 0%, transparent);
-    opacity: 0.95;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(0.75);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backups-page__live-dot {
+    animation: none;
   }
 }
 
@@ -1471,11 +1494,6 @@ function formatProgressPhase(phase: BackupProgressPhase): string {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.backups-page__upload-error {
-  color: var(--xy-danger);
-  font-size: var(--xy-font-size-sm);
 }
 
 @media (max-width: 1023px) {

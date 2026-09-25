@@ -1,15 +1,7 @@
 import { shallowMount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import RenameFile from './RenameFile.vue'
-
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual<typeof import('quasar')>('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({ notify: vi.fn() }),
-  }
-})
 
 describe('RenameFile', () => {
   it('prefills the selected file name whenever the dialog opens', async () => {

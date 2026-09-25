@@ -46,6 +46,7 @@ const globalStubs = {
     'q-btn': true,
     'q-input': true,
     'q-icon': true,
+    'q-banner': { template: '<div><slot /><slot name="action" /></div>' },
     'q-td': { template: '<div><slot /></div>' },
     'q-tooltip': true,
     'router-link': { template: '<a><slot /></a>' },
@@ -144,6 +145,13 @@ describe('UserList', () => {
     expect(vm.deleteTooltip(me)).toBe("You can't delete your own account")
     expect(vm.isSignedInUser(other)).toBe(false)
     expect(vm.deleteTooltip(other)).toBe('Delete user')
+
+    await (
+      wrapper.vm as unknown as { deleteUserAction: (user: unknown) => Promise<void> }
+    ).deleteUserAction(me)
+    expect(mocks.notifyCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ caption: "You can't delete your own account" }),
+    )
   })
 
   it('shows loading state while fetching', async () => {
@@ -166,7 +174,7 @@ describe('UserList', () => {
     expect(wrapper.find('[data-test="q-table-loading"]').text()).toBe('false')
   })
 
-  it('shows error notification on API failure', async () => {
+  it('shows an inline error, without a duplicate toast, on API failure', async () => {
     const error = new ConnectError('failed to list users')
     mocks.listUsers.mockRejectedValueOnce(error)
 
@@ -174,12 +182,8 @@ describe('UserList', () => {
 
     await flushPromises()
 
-    expect(mocks.notifyCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-error',
-        position: 'top',
-      }),
-    )
+    expect(wrapper.get('[role="alert"]').text()).toContain('failed to list users')
+    expect(mocks.notifyCreate).not.toHaveBeenCalled()
     expect((wrapper.vm as unknown as { rows: unknown[] }).rows.length).toBe(0)
   })
 })

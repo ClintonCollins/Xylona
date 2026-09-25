@@ -1,22 +1,24 @@
 <template>
   <section class="sandbox-inspector" aria-labelledby="sandbox-inspector-title">
-    <button
-      class="sandbox-summary"
-      type="button"
-      :aria-expanded="expanded"
-      aria-controls="sandbox-inspector-content"
-      @click="toggleExpanded">
-      <span class="sandbox-summary-title">
-        <q-icon name="fact_check" size="20px" />
-        <span id="sandbox-inspector-title">Effective sandbox settings</span>
-      </span>
-      <span class="sandbox-status" :class="`sandbox-status--${status.tone}`">
-        <q-spinner v-if="loading" size="14px" />
-        <q-icon v-else :name="status.icon" size="16px" />
-        {{ status.label }}
-      </span>
-      <q-icon :name="expanded ? 'expand_less' : 'expand_more'" size="20px" />
-    </button>
+    <h2 class="sandbox-heading">
+      <button
+        class="sandbox-summary"
+        type="button"
+        :aria-expanded="expanded"
+        aria-controls="sandbox-inspector-content"
+        @click="toggleExpanded">
+        <span class="sandbox-summary-title">
+          <q-icon name="fact_check" size="20px" />
+          <span id="sandbox-inspector-title">Effective sandbox settings</span>
+        </span>
+        <span class="sandbox-status" :class="`sandbox-status--${status.tone}`">
+          <q-spinner v-if="loading" size="14px" />
+          <q-icon v-else :name="status.icon" size="16px" />
+          {{ status.label }}
+        </span>
+        <q-icon :name="expanded ? 'expand_less' : 'expand_more'" size="20px" />
+      </button>
+    </h2>
 
     <div v-if="expanded" id="sandbox-inspector-content" class="sandbox-content">
       <div class="sandbox-toolbar">
@@ -323,6 +325,12 @@ function displayValue(label: string, value: string): string {
   overflow: hidden;
 }
 
+.sandbox-heading {
+  margin: 0;
+  font: inherit;
+  letter-spacing: normal;
+}
+
 .sandbox-summary {
   width: 100%;
   min-height: 44px;
@@ -343,7 +351,7 @@ function displayValue(label: string, value: string): string {
   background: var(--xy-surface-2);
 }
 .sandbox-summary:focus-visible {
-  outline: 2px solid var(--q-primary);
+  outline: 2px solid var(--xy-focus-ring);
   outline-offset: -2px;
 }
 .sandbox-summary-title,
@@ -352,7 +360,7 @@ function displayValue(label: string, value: string): string {
 .sandbox-search {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--xy-space-sm);
 }
 .sandbox-summary-title {
   font-weight: 600;
@@ -362,13 +370,13 @@ function displayValue(label: string, value: string): string {
   font-weight: 600;
 }
 .sandbox-status--positive {
-  color: var(--q-positive);
+  color: var(--xy-success);
 }
 .sandbox-status--warning {
-  color: var(--q-warning);
+  color: var(--xy-warning);
 }
 .sandbox-status--negative {
-  color: var(--q-negative);
+  color: var(--xy-danger-text);
 }
 .sandbox-status--neutral {
   color: var(--xy-text-secondary);
@@ -395,7 +403,7 @@ function displayValue(label: string, value: string): string {
   flex: none;
   border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-sm);
-  padding: 5px 10px;
+  padding: var(--xy-space-xs) var(--xy-space-base);
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -418,7 +426,7 @@ function displayValue(label: string, value: string): string {
 }
 .sandbox-code-label {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: var(--xy-space-xs);
   color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-2xs);
   text-transform: uppercase;
@@ -436,12 +444,12 @@ function displayValue(label: string, value: string): string {
 .sandbox-search {
   flex: 1;
   min-width: 180px;
-  padding: 6px 10px;
+  padding: var(--xy-space-xs) var(--xy-space-sm);
   border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-sm);
 }
 .sandbox-search:focus-within {
-  outline: 2px solid var(--q-primary);
+  outline: 2px solid var(--xy-focus-ring);
   outline-offset: 1px;
 }
 .sandbox-search input {
@@ -468,7 +476,7 @@ table {
 }
 th,
 td {
-  padding: 8px;
+  padding: var(--xy-space-sm);
   border-bottom: 1px solid var(--xy-border);
   text-align: left;
   vertical-align: top;
@@ -479,7 +487,7 @@ th[scope='row'] {
 }
 th small {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--xy-space-2xs);
   color: var(--xy-text-secondary);
   font-weight: 400;
 }

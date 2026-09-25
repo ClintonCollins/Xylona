@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
+import { connectErrorMessage } from '@/api/connect-errors'
 import { notifyConnectError, notifyError, notifySuccess } from '@/api/notifications'
 import { GetXylonaClient } from '@/utils/shared'
 import {
@@ -35,6 +36,9 @@ const gameServerId = route.params.id as string
 const activeTab = ref<'installed' | 'browse'>('installed')
 const loading = ref(true)
 const installedMods = ref<InstalledMod[]>([])
+// Failed loads show a banner with Retry, so an outage never reads as "no mods" or "no sources".
+const installedError = ref('')
+const configError = ref('')
 const isSevenDaysToDie = ref(false)
 const isValheim = ref(false)
 const reportedModsLoading = ref(false)
@@ -77,11 +81,13 @@ const hasModSources = computed(() => modSources.value.length > 0)
 const installedEmptyTitle = computed(() =>
   isSevenDaysToDie.value ? 'No Xylona-managed mods' : 'No mods installed',
 )
-const installedEmptyDescription = computed(() =>
-  hasModSources.value
+const installedEmptyDescription = computed(() => {
+  // Unknown sources: the config banner explains, so don't claim there are none.
+  if (configError.value) return ''
+  return hasModSources.value
     ? 'Browse available mods to get started.'
-    : 'Xylona has no mod sources for this game. Install mods manually through Files.',
-)
+    : 'Xylona has no mod sources for this game. Install mods manually through Files.'
+})
 
 const detailIsInstalled = computed(() => {
   return installedMods.value.some(
@@ -136,7 +142,12 @@ onMounted(async () => {
   await installedModsPromise
 
   // Keep 7 Days to Die on Installed so its native inventory remains visible.
-  if (!isSevenDaysToDie.value && installedMods.value.length === 0 && hasModSources.value) {
+  if (
+    !isSevenDaysToDie.value &&
+    !installedError.value &&
+    installedMods.value.length === 0 &&
+    hasModSources.value
+  ) {
     activeTab.value = 'browse'
   }
 })
@@ -149,8 +160,9 @@ async function loadInstalledMods(): Promise<void> {
     })
     const response = await GetXylonaClient().listInstalledMods(request)
     installedMods.value = response.installedMods
+    installedError.value = ''
   } catch (unknownErr: unknown) {
-    notifyConnectError(unknownErr)
+    installedError.value = connectErrorMessage(unknownErr)
   } finally {
     loading.value = false
   }
@@ -160,6 +172,7 @@ async function loadGameServerConfig(): Promise<void> {
   try {
     const request = create(GetGameServerRequestSchema, { id: gameServerId })
     const response = await GetXylonaClient().getGameServer(request)
+    configError.value = ''
     const gs = response.gameServer
     if (!gs) return
 
@@ -180,7 +193,14 @@ async function loadGameServerConfig(): Promise<void> {
       )
     }
   } catch (unknownErr: unknown) {
-    console.error('Failed to load game server config:', unknownErr)
+    configError.value = connectErrorMessage(unknownErr)
+  }
+}
+
+async function retryConfig(): Promise<void> {
+  await loadGameServerConfig()
+  if (isSevenDaysToDie.value) {
+    await loadReportedMods()
   }
 }
 
@@ -542,6 +562,26 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
       class="mods-page-header"
       subtitle="Mod changes take effect the next time the server starts."
       title="Mods" />
+    <q-banner
+      v-if="configError"
+      class="xy-banner-negative q-mb-sm"
+      dense
+      inline-actions
+      role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Mod sources could not be loaded.</strong> {{ configError }}
+      <template #action>
+        <q-btn
+          aria-label="Retry loading mod sources"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="retryConfig" />
+      </template>
+    </q-banner>
     <q-tabs
       v-model="activeTab"
       active-color="primary"
@@ -566,7 +606,29 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
             <h2 v-if="isSevenDaysToDie" id="managed-mods-heading" class="mod-source-heading">
               Xylona-managed
             </h2>
+            <q-banner
+              v-if="installedError"
+              class="xy-banner-negative q-ma-md"
+              dense
+              inline-actions
+              role="alert">
+              <template #avatar>
+                <q-icon name="sync_problem" />
+              </template>
+              <strong>Installed mods could not be loaded.</strong> {{ installedError }}
+              <template #action>
+                <q-btn
+                  :loading="loading"
+                  aria-label="Retry loading installed mods"
+                  flat
+                  icon="refresh"
+                  label="Retry"
+                  no-caps
+                  @click="loadInstalledMods" />
+              </template>
+            </q-banner>
             <installed-mods-table
+              v-else
               :empty-description="installedEmptyDescription"
               :empty-title="installedEmptyTitle"
               :installed-mods="installedMods"
@@ -726,7 +788,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
   border-bottom: 1px solid var(--xy-border);
   background: var(--xy-surface-1);
   color: var(--xy-text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -772,7 +834,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 .reported-mod-title {
   margin: 0;
   color: var(--xy-text-primary);
-  font-size: 0.9rem;
+  font-size: var(--xy-font-size-sm);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -780,7 +842,7 @@ async function handleInstallConfirm(selectedDeps: string[]): Promise<void> {
 .reported-mod-name,
 .reported-mod-version,
 .reported-mod-author {
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
 }
 
 .reported-mod-name {

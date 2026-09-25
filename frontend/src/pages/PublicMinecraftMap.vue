@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import { GetPublicMinecraftMapRequestSchema, type MinecraftMapView } from '@/proto/xylona_pb'
 import { setPageTitle } from '@/utils/page-title'
@@ -10,7 +10,7 @@ import { GetXylonaClient } from '@/utils/shared'
 const props = defineProps<{ identifier: string }>()
 const pollIntervalMilliseconds = 10_000
 const viewerRefreshMilliseconds = 45 * 60 * 1_000
-const mapView = ref<MinecraftMapView | null>(null)
+const mapView = shallowRef<MinecraftMapView | null>(null)
 watch(
   () => mapView.value?.gameServerName,
   (name) => {
@@ -58,6 +58,7 @@ async function loadMap(): Promise<void> {
       assignViewerURL('')
       invalidLink.value = true
       loadError.value = false
+      stopPolling()
     } else {
       loadError.value = true
     }
@@ -66,30 +67,53 @@ async function loadMap(): Promise<void> {
   }
 }
 
-onMounted(() => {
+function stopPolling() {
+  if (pollTimer !== undefined) {
+    clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
+
+function startPolling() {
+  stopPolling()
   void loadMap()
   pollTimer = setInterval(() => void loadMap(), pollIntervalMilliseconds)
+}
+
+function handleVisibilityChange() {
+  // A revoked link (NotFound) stays gone, so it never resumes polling.
+  if (document.visibilityState === 'hidden' || invalidLink.value) {
+    stopPolling()
+    return
+  }
+  startPolling()
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  handleVisibilityChange()
 })
 
 onBeforeUnmount(() => {
-  if (pollTimer !== undefined) clearInterval(pollTimer)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopPolling()
 })
 </script>
 
 <template>
   <main class="public-minecraft-map">
     <header class="public-minecraft-map__header">
-      <div class="public-minecraft-map__brand">XYLONA</div>
+      <div class="public-minecraft-map__brand">Xylona</div>
       <div class="public-minecraft-map__title">
         <span>Minecraft live map</span>
-        <strong>{{ mapView?.gameServerName || 'Shared server' }}</strong>
+        <h1>{{ mapView?.gameServerName || 'Shared server' }}</h1>
       </div>
       <q-badge v-if="mapView?.available" color="positive" label="Live" rounded />
     </header>
 
     <section v-if="invalidLink" class="public-minecraft-map__state">
       <q-icon name="link_off" size="48px" />
-      <h1>This map link is not available</h1>
+      <h2>This map link is not available</h2>
       <p>It may be incomplete, replaced, or revoked by the server administrator.</p>
     </section>
     <section v-else-if="viewerURL" class="public-minecraft-map__viewer-shell">
@@ -103,7 +127,7 @@ onBeforeUnmount(() => {
     <section v-else class="public-minecraft-map__state">
       <q-spinner v-if="loading && mapView === null" color="primary" size="42px" />
       <q-icon v-else :name="loadError ? 'error_outline' : 'radar'" size="48px" />
-      <h1>{{ loadError ? 'Map temporarily unavailable' : 'Map is preparing' }}</h1>
+      <h2>{{ loadError ? 'Map temporarily unavailable' : 'Map is preparing' }}</h2>
       <p>{{ mapView?.statusMessage || 'Waiting for the shared world map…' }}</p>
     </section>
   </main>
@@ -131,8 +155,8 @@ onBeforeUnmount(() => {
 .public-minecraft-map__brand {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
-  font-size: var(--xy-font-size-lg);
-  letter-spacing: 0.08em;
+  font-size: var(--xy-font-size-xl);
+  line-height: var(--xy-line-height-tight);
 }
 
 .public-minecraft-map__title {
@@ -150,10 +174,16 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.public-minecraft-map__title strong,
-.public-minecraft-map__state h1 {
+.public-minecraft-map__title h1,
+.public-minecraft-map__state h2 {
   font-family: var(--xy-font-heading);
   font-weight: 500;
+}
+
+.public-minecraft-map__title h1 {
+  margin: 0;
+  font-size: var(--xy-font-size-base);
+  letter-spacing: normal;
 }
 
 .public-minecraft-map__viewer-shell {
@@ -180,7 +210,7 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.public-minecraft-map__state h1 {
+.public-minecraft-map__state h2 {
   margin: var(--xy-space-md) 0 var(--xy-space-sm);
   font-size: var(--xy-font-size-xl);
 }

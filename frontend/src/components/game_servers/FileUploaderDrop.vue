@@ -12,7 +12,6 @@
   <q-dialog
     v-model="fileUploaderDialog"
     aria-labelledby="dialog-title"
-    backdrop-filter="brightness(25%)"
     :persistent="uploader.isUploading"
     @hide="uploader.close()">
     <q-card
@@ -110,10 +109,7 @@
         </div>
         <div v-else class="file-uploader">
           <q-list separator>
-            <q-item
-              v-for="file in uploader.files.values()"
-              v-show="uploader.files.size <= maxNumberOfFilesToDisplay"
-              :key="file.key">
+            <q-item v-for="file in displayedFiles" :key="file.key">
               <q-item-section v-if="file.status === FileStatus.Queued" avatar>
                 <q-icon :name="tabDots" class="text-primary" size="lg" />
               </q-item-section>
@@ -203,7 +199,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, Ref } from 'vue'
+import { computed, ref, Ref } from 'vue'
 import { bytesToSize } from '@/utils/shared'
 import { uploadFormData } from '@/utils/upload'
 import {
@@ -549,6 +545,16 @@ class FileUploader {
 
 const uploader = ref(new FileUploader())
 
+// A dropped world folder can queue tens of thousands of files; mount only the first rows.
+const displayedFiles = computed(() => {
+  const files: uploaderFile[] = []
+  for (const file of uploader.value.files.values()) {
+    if (files.length === maxNumberOfFilesToDisplay) break
+    files.push(file)
+  }
+  return files
+})
+
 function handlePickerChange(event: Event) {
   const input = event.target as HTMLInputElement
   const selectedFiles = Array.from(input.files ?? [])
@@ -808,7 +814,7 @@ function getUploaderFilePath(file: File): string {
 }
 
 .file-container-drag-over {
-  border: 2px solid var(--q-primary) !important;
+  border: 2px solid var(--xy-primary) !important;
 }
 
 @media (max-width: 599px) {

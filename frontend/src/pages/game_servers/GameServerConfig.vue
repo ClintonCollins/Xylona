@@ -143,7 +143,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import type {
   AdvancedField,
@@ -173,7 +173,6 @@ import {
   CATEGORY_COLORS,
 } from '@/components/game_servers/config-field-helpers'
 
-const $q = useQuasar()
 const route = useRoute()
 const authStore = useUserAuthStore()
 
@@ -278,17 +277,11 @@ async function loadConfigFiles(showLoading = true) {
       await handleFileSelect(firstFile.path, !firstFile.existsOnDisk)
     }
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
     if (showLoading) {
-      loadError.value = ConnectErrorToString(err)
+      loadError.value = ConnectErrorToString(ConnectError.from(unknownErr))
     } else {
       // A background refresh keeps the list that is already on screen.
-      $q.notify({
-        type: 'xylona-error',
-        caption: ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr)
     }
   } finally {
     if (showLoading) {
@@ -375,12 +368,7 @@ async function handleSave(fieldValues: Map<string, string>) {
     if (response.success) {
       saved = true
       if (fieldValues.has('SandboxCode')) sandboxInspectorRefreshKey.value += 1
-      $q.notify({
-        type: 'xylona-success',
-        caption: `${selectedFilePath.value} saved successfully`,
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess(`${selectedFilePath.value} saved successfully`)
       // Reload the file to get fresh state
       await handleFileSelect(selectedFilePath.value, false)
       // Refresh file list to update exists status (without showing loading spinner)
@@ -389,13 +377,7 @@ async function handleSave(fieldValues: Map<string, string>) {
       validationErrors.value = response.errors
     }
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     saving.value = false
     // Edits clear only once the server accepted them; a failed save keeps them.
@@ -425,25 +407,14 @@ async function handleGenerate() {
     const response = await GetXylonaClient().generateGameServerConfigFile(request)
 
     if (response.success) {
-      $q.notify({
-        type: 'xylona-success',
-        caption: `${selectedFilePath.value} generated successfully`,
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess(`${selectedFilePath.value} generated successfully`)
       selectedFileIsMissing.value = false
       // Reload
       await handleFileSelect(selectedFilePath.value, false)
       await loadConfigFiles()
     }
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     generating.value = false
   }

@@ -9,10 +9,12 @@
     <template v-else-if="mode === 'error'">
       <div class="auth-header">
         <h1 class="auth-title">Unable to check setup</h1>
-        <div class="auth-error rounded-borders q-mt-md" role="alert">
-          <q-icon name="report_problem" size="sm" />
-          <span>{{ setupError }}</span>
-        </div>
+        <q-banner class="xy-banner-negative q-mt-md" dense role="alert">
+          <template #avatar>
+            <q-icon name="report_problem" />
+          </template>
+          {{ setupError }}
+        </q-banner>
       </div>
       <q-btn
         class="full-width auth-button"
@@ -79,7 +81,6 @@
         <template #append>
           <q-btn
             :aria-label="showPassword ? 'Hide password' : 'Show password'"
-            :aria-pressed="showPassword"
             :icon="showPassword ? 'visibility_off' : 'visibility'"
             dense
             flat
@@ -102,10 +103,12 @@
         lazy-rules
         name="confirm-password"
         outlined />
-      <div v-if="setupError" class="auth-error rounded-borders q-mt-md" role="alert">
-        <q-icon name="report_problem" size="sm" />
-        <span>{{ setupError }}</span>
-      </div>
+      <q-banner v-if="setupError" class="xy-banner-negative q-mt-md" dense role="alert">
+        <template #avatar>
+          <q-icon name="report_problem" />
+        </template>
+        {{ setupError }}
+      </q-banner>
       <q-btn
         :disable="submitting"
         :loading="submitting"
@@ -122,7 +125,6 @@
 <script lang="ts" setup>
 import { Code, ConnectError } from '@connectrpc/connect'
 import { create } from '@bufbuild/protobuf'
-import { useQuasar } from 'quasar'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -134,7 +136,6 @@ import { useUserAuthStore } from '@/stores/xylona'
 
 const route = useRoute()
 const router = useRouter()
-const $q = useQuasar()
 const userAuthStore = useUserAuthStore()
 
 const mode = ref<'loading' | 'error' | 'blocked' | 'form'>('loading')
@@ -190,31 +191,21 @@ async function submitSetup() {
       }),
     )
     if (response.user === undefined) {
-      notifySetupError('Setup did not return a user')
+      setupError.value = 'Setup did not return a user'
       return
     }
     userAuthStore.setUser(response.user)
     await router.push({ path: '/game-servers' })
   } catch (unknownErr: unknown) {
     const err = ConnectError.from(unknownErr)
-    let caption = ConnectErrorToString(err)
-    if (err.code === Code.PermissionDenied) {
-      caption = 'Setup requires a valid token. Copy the URL from the host log.'
-    }
-    notifySetupError(caption)
+    // The inline alert announces the failure, so there is no toast as well.
+    setupError.value =
+      err.code === Code.PermissionDenied
+        ? 'Setup requires a valid token. Copy the URL from the host log.'
+        : ConnectErrorToString(err)
   } finally {
     submitting.value = false
   }
-}
-
-function notifySetupError(message: string) {
-  setupError.value = message
-  $q.notify({
-    type: 'xylona-error',
-    position: 'top',
-    caption: message,
-    icon: 'report_problem',
-  })
 }
 </script>
 

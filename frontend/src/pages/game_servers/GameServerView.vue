@@ -1,5 +1,5 @@
 <template>
-  <div :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
+  <div ref="mainArea" :class="{ 'main-area-expanded': consoleExpanded }" class="main-area">
     <!-- The layout's identity bar shows the name; this keeps the page's heading. -->
     <h1 class="xy-visually-hidden">{{ serverName ? `${serverName} console` : 'Console' }}</h1>
     <q-resize-observer @resize="onMainAreaResize" />
@@ -14,10 +14,13 @@
       :aria-hidden="sidebarCollapsed"
       :class="{ collapsed: sidebarCollapsed }"
       :inert="sidebarCollapsed"
-      class="sidebar">
+      aria-label="Server details"
+      class="sidebar"
+      @keydown="trapDrawerFocus">
       <div class="sidebar-mobile-header">
         <span>Server details</span>
         <q-btn
+          ref="drawerCloseButton"
           aria-label="Hide server details"
           class="sidebar-mobile-close"
           dense
@@ -40,6 +43,42 @@
         </q-btn>
       </div>
       <div class="sidebar-content">
+        <!-- Controls -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-label">Controls</div>
+          <!-- Hints sit on a wrapper: a disabled button gets no hover, so its own tooltip never shows. -->
+          <div class="server-controls">
+            <span v-for="control in lifecycleControls" :key="control.label" class="server-control">
+              <!-- Outline, like the topbar copies: "Start again" stays the one filled action. -->
+              <q-btn
+                :aria-label="control.ariaLabel"
+                :color="control.color"
+                :disable="control.disable"
+                :label="control.label"
+                :loading="control.loading"
+                outline
+                @click="control.run" />
+              <q-tooltip v-if="control.hint">{{ control.hint }}</q-tooltip>
+            </span>
+            <span v-if="showUpdateButton" class="server-control">
+              <q-btn
+                :aria-label="lifecycleAriaLabel('Update', 'game_server.settings')"
+                :disable="disableUpdateButton || !hasPermission('game_server.settings')"
+                :loading="updatingServer"
+                color="primary"
+                label="Update"
+                outline
+                @click="updateGameServer" />
+              <q-tooltip v-if="lifecycleHint('game_server.settings')">
+                {{ lifecycleHint('game_server.settings') }}
+              </q-tooltip>
+            </span>
+          </div>
+          <div v-if="!serverStateAuthoritative" class="controls-hint" role="status">
+            Waiting for server status — controls are paused until it is confirmed.
+          </div>
+        </div>
+
         <div v-if="readinessVisible" class="sidebar-section">
           <div class="sidebar-section-label">Readiness</div>
           <div class="readiness-list">
@@ -75,7 +114,7 @@
                   color="primary"
                   dense
                   label="Accept EULA"
-                  unelevated
+                  outline
                   @click="acceptMinecraftEula" />
                 <div
                   v-if="item.kind === 'steam_gslt' && hasPermission('game_server.settings')"
@@ -95,7 +134,7 @@
                       color="primary"
                       dense
                       label="Save Token"
-                      unelevated
+                      outline
                       @click="saveSteamGSLT" />
                     <q-btn
                       v-if="item.complete"
@@ -116,7 +155,7 @@
                     color="primary"
                     dense
                     label="Link Account"
-                    unelevated
+                    outline
                     @click="startHytaleDeviceAuth" />
                   <div
                     v-if="hytaleFlowId !== '' && hytaleProfiles.length === 0"
@@ -156,7 +195,7 @@
                       color="primary"
                       dense
                       label="Use Profile"
-                      unelevated
+                      outline
                       @click="selectHytaleProfile" />
                   </div>
                   <q-btn
@@ -174,9 +213,7 @@
         </div>
 
         <!-- Version -->
-        <div
-          v-if="showVersionSection || hasSoftwareOptions || showUpdateButton"
-          class="sidebar-section">
+        <div v-if="showVersionSection || hasSoftwareOptions" class="sidebar-section">
           <div class="sidebar-section-label">Version</div>
           <div class="version-list">
             <div v-if="hasSoftwareOptions" class="version-item">
@@ -212,30 +249,6 @@
               <span v-if="versionMetaText" class="version-meta">{{ versionMetaText }}</span>
             </div>
           </div>
-          <q-btn
-            v-if="showUpdateButton"
-            :aria-label="
-              hasPermission('game_server.settings')
-                ? undefined
-                : 'Update (requires settings permission)'
-            "
-            :disable="disableUpdateButton || !hasPermission('game_server.settings')"
-            :loading="updatingServer"
-            class="update-server-btn"
-            color="primary"
-            dense
-            icon="system_update_alt"
-            label="Update"
-            no-caps
-            outline
-            @click="updateGameServer">
-            <q-tooltip v-if="!hasPermission('game_server.settings')">
-              Requires settings permission
-            </q-tooltip>
-            <q-tooltip v-else-if="!serverStateAuthoritative">
-              Waiting for authoritative server status
-            </q-tooltip>
-          </q-btn>
         </div>
 
         <!-- Connection -->
@@ -257,6 +270,13 @@
         <div class="sidebar-section">
           <div class="sidebar-section-label">Resource Usage</div>
           <div :class="{ 'metrics-offline': !showLiveMetrics }" class="metrics-preview">
+            <p v-if="!showLiveMetrics" class="metrics-offline-note">
+              {{
+                isServerProcessRunning
+                  ? 'Waiting for live metrics…'
+                  : 'No live metrics while the server is offline'
+              }}
+            </p>
             <!-- Compute -->
             <div class="metrics-group">
               <div class="metrics-group-label">Compute</div>
@@ -374,6 +394,34 @@
 
     <!-- Console wrapper -->
     <div :class="{ expanded: consoleExpanded }" class="console-wrapper">
+      <div v-if="lastStartFailure" class="start-failure" role="alert">
+        <q-icon aria-hidden="true" class="start-failure__icon" name="report_problem" />
+        <div class="start-failure__body">
+          <span class="start-failure__title">
+            Start failed at {{ formatFailureTime(lastStartFailure.at) }}
+          </span>
+          <span class="start-failure__message">{{ lastStartFailure.message }}</span>
+        </div>
+        <div class="start-failure__actions">
+          <q-btn
+            :disable="disableStartButton || !hasPermission('game_server.start')"
+            :loading="startingServer"
+            color="primary"
+            dense
+            label="Start again"
+            no-caps
+            unelevated
+            @click="startGameServer" />
+          <q-btn
+            aria-label="Dismiss start failure"
+            dense
+            flat
+            icon="close"
+            round
+            @click="dismissStartFailure" />
+        </div>
+      </div>
+
       <!-- Console toolbar -->
       <div class="console-topbar">
         <div
@@ -397,9 +445,32 @@
           </span>
         </div>
         <span v-else class="console-topbar__label">Console</span>
+        <!-- Whenever the details sidebar is out of view, lifecycle controls sit here instead. -->
+        <div
+          v-if="showTopbarControls"
+          aria-label="Server controls"
+          class="console-lifecycle"
+          role="group">
+          <span v-for="control in lifecycleControls" :key="control.label" class="server-control">
+            <q-btn
+              :aria-label="control.ariaLabel ?? control.label"
+              :color="control.color"
+              :disable="control.disable"
+              :icon="control.icon"
+              :label="control.label"
+              :loading="control.loading"
+              dense
+              no-caps
+              no-wrap
+              outline
+              @click="control.run" />
+            <q-tooltip>{{ control.hint || control.label }}</q-tooltip>
+          </span>
+        </div>
         <span class="console-topbar__spacer"></span>
         <q-btn
           v-if="isNarrow"
+          ref="detailsButton"
           :aria-expanded="sidebarDrawerOpen ? 'true' : 'false'"
           class="console-toolbar-btn console-details-btn"
           dense
@@ -408,13 +479,13 @@
           label="Details"
           no-caps
           square
-          @click="sidebarDrawerOpen = !sidebarDrawerOpen" />
+          @click="sidebarDrawerOpen ? (sidebarDrawerOpen = false) : openDetails()" />
         <q-btn
-          :aria-label="consoleAutoScroll ? 'Disable auto scroll' : 'Enable auto scroll'"
           :aria-pressed="consoleAutoScroll ? 'true' : 'false'"
           :class="{ 'console-toolbar-btn-off': !consoleAutoScroll }"
           :icon="consoleAutoScroll ? 'keyboard_double_arrow_down' : 'pause'"
           :text-color="consoleAutoScroll ? 'info' : undefined"
+          aria-label="Auto scroll"
           class="console-toolbar-btn console-autoscroll-btn"
           dense
           flat
@@ -442,6 +513,12 @@
           <q-tooltip>{{ consoleExpanded ? 'Exit fullscreen' : 'Fullscreen console' }}</q-tooltip>
         </q-btn>
       </div>
+      <div
+        v-if="showTopbarControls && !serverStateAuthoritative"
+        class="controls-hint controls-hint--topbar"
+        role="status">
+        Waiting for server status — controls are paused until it is confirmed.
+      </div>
 
       <div
         v-if="consoleStreamState !== 'ready' || consoleLoadError"
@@ -450,7 +527,7 @@
         }"
         class="console-stream-state"
         :role="consoleStreamState === 'error' || consoleLoadError ? 'alert' : 'status'"
-        aria-live="assertive">
+        aria-live="polite">
         <q-spinner
           v-if="consoleStreamState === 'loading' || consoleStreamState === 'reconnecting'"
           color="info"
@@ -520,10 +597,12 @@
                 Show all
               </button>
             </div>
+            <!-- A silent log: the throttled summary below speaks for it. -->
             <!-- eslint-disable vue/no-v-html -- authenticated game-server output is an accepted trust boundary -->
             <code
               id="consoleCodeEl"
               aria-label="Game server console output"
+              aria-live="off"
               class="q-pb-md"
               role="log">
               <span v-for="line in visibleConsoleLines" :key="line.id" v-html="line.html"></span>
@@ -541,6 +620,7 @@
           </button>
         </div>
       </template>
+      <span class="xy-visually-hidden" role="status">{{ consoleAnnouncement }}</span>
 
       <console-command-input
         v-model="serverInput"
@@ -669,18 +749,22 @@ import ServerSoftwareSelector from '@/components/game_servers/ServerSoftwareSele
 import type { StepState } from '@/components/game_servers/UpdateProgressPanel.types'
 import type { ServerSoftwareOperationEvent } from '@/components/game_servers/ServerSoftwareSelector.types'
 import { playerLimit } from '@/components/game_servers/start-args'
-import { QScrollArea, useQuasar } from 'quasar'
+import { type QBtn, QScrollArea, useQuasar } from 'quasar'
 import { tabMaximize } from 'quasar-extras-svg-icons/tabler-icons-v2'
-import { notifySuccess } from '@/api/notifications'
+import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyConnectError, notifyError, notifyInfo, notifySuccess } from '@/api/notifications'
 import {
   GameServer,
   GameServerSchema,
   ReadGameServerOutputRequest,
   ReadGameServerOutputRequestSchema,
   ReadGameServerOutputResponse,
+  RestartGameServerRequestSchema,
   SendGameServerInputRequest,
   SendGameServerInputRequestSchema,
+  StartGameServerRequestSchema,
   Status,
+  StopGameServerRequestSchema,
 } from '@/proto/shared_pb'
 import type { HytaleProfile, UpdateProgress } from '@/proto/xylona_pb'
 import {
@@ -699,7 +783,6 @@ import {
   UpdateGameServerRequestSchema,
   UpdateStep,
 } from '@/proto/xylona_pb'
-import { ConnectError } from '@connectrpc/connect'
 import { canShowUpdateButton } from './game-server-update-capability'
 import {
   applyUpdateProgress,
@@ -709,13 +792,12 @@ import {
 } from './update-progress'
 import {
   bytesToSize,
-  ConnectErrorToString,
   GetOrCreateXylonaWebsocketClient,
   GetXylonaClient,
   XylonaEventBus,
 } from '@/utils/shared'
 import { recordLifecycleIntent } from '@/utils/game-server-notifications'
-import { computed, onBeforeUnmount, onMounted, Ref, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, Ref, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   resolveCanonicalVersionDisplay,
@@ -743,7 +825,13 @@ import {
   readinessLabel,
   useGameServerReadiness,
 } from './game-server-readiness'
-import { isServerRunning } from './server-list-actions'
+import {
+  askLifecycleConfirmation,
+  buildLifecycleConfirmation,
+  isServerRunning,
+  type LifecycleConfirmAction,
+} from './server-list-actions'
+import { formatFailureTime, useGameServerLifecycle } from './start-failure'
 import { isServerStopping } from '@/utils/game-server-stopping'
 
 const $q = useQuasar()
@@ -755,12 +843,63 @@ const gameServerId: Ref<string> = ref(
 )
 const consoleScrollArea = ref<QScrollArea | null>(null)
 const softwareSelector = ref<InstanceType<typeof ServerSoftwareSelector> | null>(null)
+const mainArea = ref<HTMLElement | null>(null)
 const consoleExpanded = ref(false)
+
+// Fullscreen covers the whole app, so everything outside the view leaves the
+// tab order. Body-level portals (dialogs, menus, toasts) stay reachable.
+let inertBehindConsole: Element[] = []
+function setAppInertBehindConsole(inert: boolean): void {
+  for (const element of inertBehindConsole) element.removeAttribute('inert')
+  inertBehindConsole = []
+  if (!inert) return
+  for (let element = mainArea.value; element !== null; element = element.parentElement) {
+    const parent = element.parentElement
+    if (parent === null || parent === document.body) break
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling === element || sibling.hasAttribute('inert')) continue
+      sibling.setAttribute('inert', '')
+      inertBehindConsole.push(sibling)
+    }
+  }
+}
+watch(consoleExpanded, setAppInertBehindConsole)
 
 // Below Quasar's md breakpoint server details is an overlay drawer and the
 // players live in the identity bar, so neither squeezes the console.
 const isNarrow = computed(() => $q.screen.lt.md)
 const sidebarDrawerOpen = ref(false)
+const detailsButton = ref<QBtn | null>(null)
+const drawerCloseButton = ref<QBtn | null>(null)
+
+// Tab wraps inside the open drawer. The page behind is not made inert, so the
+// start-failure alert there is still announced.
+function trapDrawerFocus(event: KeyboardEvent): void {
+  if (event.key !== 'Tab' || !isNarrow.value || !sidebarDrawerOpen.value) return
+  const focusable = Array.from(
+    (event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => element.offsetParent !== null)
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (first === undefined || last === undefined) return
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+// The drawer takes focus while open and hands it back to Details on close.
+watch(sidebarDrawerOpen, async (open) => {
+  // The drawer stays inert until it renders open.
+  if (open) await nextTick()
+  const button = (open ? drawerCloseButton : detailsButton).value?.$el as HTMLElement | undefined
+  button?.focus()
+})
 const sidePanelStorageKeys: Record<ConsoleSidePanel, string> = {
   sidebar: 'xylona_console_sidebar',
   players: 'xylona_console_player_rail',
@@ -808,6 +947,8 @@ function onMainAreaResize({ width }: { width: number }): void {
 }
 
 function openDetails(): void {
+  // Details can't show over the fullscreen console, so leave fullscreen first.
+  consoleExpanded.value = false
   if (isNarrow.value) {
     sidebarDrawerOpen.value = true
     return
@@ -859,6 +1000,45 @@ const {
   scrollToBottom: scrollConsoleToBottom,
 })
 
+// The log is silent so a busy server never reads every line aloud; this
+// summary speaks for it at most once per interval. Line ids only grow.
+const consoleAnnounceIntervalMs = 5000
+const consoleAnnouncement = ref('')
+let announcedConsoleLineId = -1
+let consoleAnnounceTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(
+  () => consoleLines.value.at(-1)?.id,
+  () => {
+    consoleAnnounceTimer ??= setTimeout(announceNewConsoleLines, consoleAnnounceIntervalMs)
+  },
+)
+
+function announceNewConsoleLines(): void {
+  consoleAnnounceTimer = undefined
+  const lastLineId = consoleLines.value.at(-1)?.id ?? announcedConsoleLineId
+  const newLines = lastLineId - announcedConsoleLineId
+  announcedConsoleLineId = lastLineId
+  if (newLines <= 0) return
+  // Clear, then set after a flush: the same count twice must still change the region.
+  consoleAnnouncement.value = ''
+  void nextTick(() => {
+    consoleAnnouncement.value = `${newLines} new console ${newLines === 1 ? 'line' : 'lines'}`
+  })
+}
+
+const startingServer = ref(false)
+const stoppingServer = ref(false)
+// Shared with the identity bar, so "Start failed" and "Restarting" show on every tab.
+const {
+  lastStartFailure,
+  intents: lifecycleIntents,
+  restarting: restartingServer,
+} = useGameServerLifecycle(gameServerId)
+
+function dismissStartFailure(): void {
+  lastStartFailure.value = null
+}
 const serverStatusFresh = ref(false)
 const sendingConsoleInput = ref(false)
 const consoleStreamState = ref<'loading' | 'ready' | 'reconnecting' | 'error'>('loading')
@@ -869,7 +1049,7 @@ const updatingServer = ref(false)
 const updateInProgress = ref(false)
 const updateSteps = ref<StepState[]>([])
 const softwareOperationInProgress = ref(false)
-const { items: readinessItems } = useGameServerReadiness(gameServerId)
+const { items: readinessItems, reload: reloadReadiness } = useGameServerReadiness(gameServerId)
 const acceptingMinecraftEula = ref(false)
 const steamGSLT = ref('')
 const savingSteamGSLT = ref(false)
@@ -1082,10 +1262,86 @@ const connectionAddress = computed(() => {
 })
 
 function onEscapeKey(e: KeyboardEvent) {
-  if (e.key === 'Escape' && consoleExpanded.value) {
+  // A prevented Escape already closed something, such as the command menu.
+  if (e.key !== 'Escape' || e.defaultPrevented) return
+  if (consoleExpanded.value) {
     consoleExpanded.value = false
+    return
+  }
+  // Dialogs opened from the drawer are portaled out and close on their own Escape.
+  if (
+    isNarrow.value &&
+    sidebarDrawerOpen.value &&
+    e.target instanceof Node &&
+    mainArea.value?.contains(e.target)
+  ) {
+    sidebarDrawerOpen.value = false
   }
 }
+
+const disableStartButton = computed(
+  () =>
+    !serverStateAuthoritative.value || !isServerOffline.value || startBlocker.value !== undefined,
+)
+
+// Starting servers can be stopped or restarted too; a stop from any view closes both.
+const disableStopButton = computed(
+  () => !serverStateAuthoritative.value || !isServerProcessRunning.value || serverStopping.value,
+)
+
+const startHint = computed(() => {
+  const hint = lifecycleHint('game_server.start')
+  const blocker = startBlocker.value
+  if (hint !== '' || !isServerOffline.value || blocker === undefined) return hint
+  return `Finish setup first — ${readinessLabel(blocker.kind)}: ${blocker.message}`
+})
+
+const startAriaLabel = computed(() => {
+  const blocker = startBlocker.value
+  if (!hasPermission('game_server.start') || !isServerOffline.value || blocker === undefined) {
+    return lifecycleAriaLabel('Start', 'game_server.start')
+  }
+  return `Start (blocked until ${readinessLabel(blocker.kind)} is finished)`
+})
+
+// Rendered in the sidebar, and in the console topbar whenever the sidebar is out of view.
+const lifecycleControls = computed(() => [
+  {
+    label: 'Start',
+    icon: 'play_arrow',
+    color: 'positive',
+    ariaLabel: startAriaLabel.value,
+    disable: disableStartButton.value || !hasPermission('game_server.start'),
+    loading: startingServer.value,
+    hint: startHint.value,
+    run: startGameServer,
+  },
+  {
+    label: 'Restart',
+    icon: 'restart_alt',
+    color: 'warning',
+    ariaLabel: lifecycleAriaLabel('Restart', 'game_server.restart'),
+    disable:
+      disableStopButton.value || stoppingServer.value || !hasPermission('game_server.restart'),
+    loading: restartingServer.value,
+    hint: lifecycleHint('game_server.restart'),
+    run: restartGameServer,
+  },
+  {
+    label: 'Stop',
+    icon: 'stop',
+    color: 'negative',
+    ariaLabel: lifecycleAriaLabel('Stop', 'game_server.stop'),
+    disable:
+      disableStopButton.value || restartingServer.value || !hasPermission('game_server.stop'),
+    loading: stoppingServer.value,
+    hint: lifecycleHint('game_server.stop'),
+    run: stopGameServer,
+  },
+])
+const showTopbarControls = computed(
+  () => isNarrow.value || sidebarCollapsed.value || consoleExpanded.value,
+)
 
 const disableUpdateButton = computed(() => {
   return (
@@ -1181,6 +1437,16 @@ function hasPermission(perm: string): boolean {
   return perms.length === 0 || perms.includes(perm)
 }
 
+function lifecycleHint(perm: string): string {
+  if (!hasPermission(perm)) return `Requires ${perm.split('.').pop()} permission`
+  if (!serverStateAuthoritative.value) return 'Waiting for authoritative server status'
+  return ''
+}
+
+function lifecycleAriaLabel(label: string, perm: string): string | undefined {
+  return hasPermission(perm) ? undefined : `${label} (requires ${perm.split('.').pop()} permission)`
+}
+
 onMounted(async () => {
   document.addEventListener('keydown', onEscapeKey)
   versionClockTimer = setInterval(() => {
@@ -1199,6 +1465,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   cancelPendingConsoleFlush()
+  clearTimeout(consoleAnnounceTimer)
+  setAppInertBehindConsole(false)
   document.removeEventListener('keydown', onEscapeKey)
   if (versionClockTimer !== undefined) {
     clearInterval(versionClockTimer)
@@ -1263,12 +1531,7 @@ async function getGameServerDetails() {
       status: Status.UNKNOWN,
     })
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to load game server details: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to load game server details')
     return false
   }
 }
@@ -1284,12 +1547,7 @@ async function acceptMinecraftEula() {
     notifySuccess('Minecraft EULA accepted.')
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to accept Minecraft EULA: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to accept Minecraft EULA')
   } finally {
     acceptingMinecraftEula.value = false
   }
@@ -1308,12 +1566,7 @@ async function saveSteamGSLT() {
     notifySuccess('Steam GSLT saved.')
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to save Steam GSLT: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to save Steam GSLT')
   } finally {
     savingSteamGSLT.value = false
   }
@@ -1331,12 +1584,7 @@ async function clearSteamGSLT() {
     notifySuccess('Steam GSLT cleared.')
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to clear Steam GSLT: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to clear Steam GSLT')
   } finally {
     clearingSteamGSLT.value = false
   }
@@ -1366,13 +1614,7 @@ async function startHytaleDeviceAuth() {
     selectedHytaleProfile.value = ''
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption:
-        'Failed to start Hytale authorization: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to start Hytale authorization')
   } finally {
     startingHytaleAuth.value = false
   }
@@ -1395,22 +1637,11 @@ async function pollHytaleDeviceAuth() {
     }
     if (response.status === 'denied' || response.status === 'expired') {
       resetHytaleFlow()
-      $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption: response.message || 'Hytale authorization was not completed.',
-        icon: 'report_problem',
-      })
+      notifyError(response.message || 'Hytale authorization was not completed.')
     }
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption:
-        'Failed to check Hytale authorization: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to check Hytale authorization')
   } finally {
     pollingHytaleAuth.value = false
   }
@@ -1430,12 +1661,7 @@ async function selectHytaleProfile() {
     notifySuccess('Hytale account linked.')
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to link Hytale account: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to link Hytale account')
   } finally {
     selectingHytaleProfile.value = false
   }
@@ -1453,12 +1679,7 @@ async function clearHytaleAccount() {
     notifySuccess('Hytale account link cleared.')
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to clear Hytale account: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to clear Hytale account')
   } finally {
     clearingHytaleAccount.value = false
   }
@@ -1488,12 +1709,9 @@ function onSoftwareOperationState(event: ServerSoftwareOperationEvent) {
 
   softwareOperationInProgress.value = false
   if (event.status === 'failed') {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: `Variant change to ${buildSoftwareOperationLabel(event)} failed: ${event.error || 'unknown error'}`,
-      icon: 'report_problem',
-    })
+    notifyError(
+      `Variant change to ${buildSoftwareOperationLabel(event)} failed: ${event.error || 'unknown error'}`,
+    )
   }
 }
 
@@ -1519,6 +1737,71 @@ function onUpdateProgress(progress: UpdateProgress) {
     ) {
       void getGameServerDetails()
     }
+  }
+}
+
+async function startGameServer(): Promise<void> {
+  if (disableStartButton.value || !hasPermission('game_server.start')) return
+  startingServer.value = true
+  lastStartFailure.value = null
+  lifecycleIntents.startRequestedAt = Date.now()
+  try {
+    await GetXylonaClient().startGameServer(
+      create(StartGameServerRequestSchema, { serverId: gameServerId.value }),
+    )
+  } catch (error) {
+    console.error(error)
+    lifecycleIntents.startRequestedAt = 0
+    lastStartFailure.value = { at: Date.now(), message: connectErrorMessage(error) }
+    notifyConnectError(error, 'Failed to start game server')
+    // A rejected start often means a setup blocker; re-reading it disables Start.
+    void reloadReadiness()
+  } finally {
+    startingServer.value = false
+  }
+}
+
+function confirmLifecycleAction(action: LifecycleConfirmAction): Promise<boolean> {
+  return askLifecycleConfirmation(
+    $q,
+    buildLifecycleConfirmation(action, [
+      { displayName: gameServer.value.name, playerCount: playerCount.value },
+    ]),
+  )
+}
+
+async function stopGameServer(): Promise<void> {
+  if (disableStopButton.value || !hasPermission('game_server.stop')) return
+  if (!(await confirmLifecycleAction('stop'))) return
+  stoppingServer.value = true
+  lifecycleIntents.stopRequestedAt = Date.now()
+  try {
+    await GetXylonaClient().stopGameServer(
+      create(StopGameServerRequestSchema, { serverId: gameServerId.value }),
+    )
+  } catch (error) {
+    console.error(error)
+    notifyConnectError(error, 'Failed to stop game server')
+  } finally {
+    stoppingServer.value = false
+  }
+}
+
+async function restartGameServer(): Promise<void> {
+  if (disableStopButton.value || !hasPermission('game_server.restart')) return
+  if (!(await confirmLifecycleAction('restart'))) return
+  restartingServer.value = true
+  // The restart passes through Offline; that is not a failed start.
+  lifecycleIntents.stopRequestedAt = Date.now()
+  try {
+    await GetXylonaClient().restartGameServer(
+      create(RestartGameServerRequestSchema, { serverId: gameServerId.value }),
+    )
+  } catch (error) {
+    console.error(error)
+    notifyConnectError(error, 'Failed to restart game server')
+  } finally {
+    restartingServer.value = false
   }
 }
 
@@ -1596,12 +1879,7 @@ async function updateGameServer() {
     return
   }
   if (canSelectSteamBranch(gameServer.value) && !steamBranchSelection.metadataAvailable) {
-    $q.notify({
-      type: 'xylona-info',
-      position: 'top',
-      caption: 'Update target metadata is unavailable. Updating with the current target.',
-      icon: 'report_problem',
-    })
+    notifyInfo('Update target metadata is unavailable. Updating with the current target.')
   }
 
   const request: UpdateGameServerRequest = create(UpdateGameServerRequestSchema, {})
@@ -1616,12 +1894,7 @@ async function updateGameServer() {
   } catch (e) {
     updateInProgress.value = false
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to update game server: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to update game server')
   } finally {
     updatingServer.value = false
   }
@@ -1722,6 +1995,8 @@ function onServerConsoleOutput(
     consoleLoadError.value = ''
     consoleStreamState.value = 'ready'
     replaceConsoleOutput(output)
+    // A replay (first load, reconnect) re-sends history, not new output: count it as heard.
+    announcedConsoleLineId = consoleLines.value.at(-1)?.id ?? announcedConsoleLineId
     return
   }
 
@@ -1771,12 +2046,7 @@ async function sendGameServerInput() {
     recordConsoleInput()
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to send command: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to send command')
   } finally {
     sendingConsoleInput.value = false
   }
@@ -1809,6 +2079,7 @@ async function sendGameServerInput() {
   background: var(--xy-surface-0);
   border-right: 1px solid var(--xy-border);
   flex-shrink: 0;
+  /* Animates layout width on purpose, like the player rail: the console must reflow with it. */
   transition:
     width 0.25s cubic-bezier(0.25, 1, 0.5, 1),
     opacity 0.2s ease;
@@ -1838,6 +2109,41 @@ async function sendGameServerInput() {
   text-transform: uppercase;
   color: var(--xy-text-muted);
   margin-bottom: var(--xy-space-xs);
+}
+
+/* ===== Controls ===== */
+.server-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+}
+
+.server-control {
+  display: inline-flex;
+}
+
+/* Browsers send no hover to a disabled button; let it reach the wrapper's hint. */
+.server-control:has(.q-btn.disabled) {
+  cursor: not-allowed;
+}
+
+.server-control .q-btn.disabled {
+  pointer-events: none;
+}
+
+.controls-hint {
+  margin-top: var(--xy-space-sm);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-xs);
+  line-height: 1.35;
+}
+
+.controls-hint--topbar {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: var(--xy-space-xs) var(--xy-space-md);
+  background: var(--xy-surface-1);
+  border-bottom: 1px solid var(--xy-border);
 }
 
 .readiness-list {
@@ -1945,10 +2251,6 @@ async function sendGameServerInput() {
 }
 
 /* Version section */
-.update-server-btn {
-  margin-top: var(--xy-space-sm);
-}
-
 .version-list {
   display: flex;
   flex-direction: column;
@@ -2001,15 +2303,14 @@ async function sendGameServerInput() {
   animation: update-pulse 2.5s ease-in-out infinite;
 }
 
+/* Opacity only, so the pulse stays on the compositor; reduced motion stops it globally. */
 @keyframes update-pulse {
   0%,
   100% {
     opacity: 1;
-    box-shadow: 0 0 0 transparent;
   }
   50% {
     opacity: 0.6;
-    box-shadow: 0 0 6px var(--xy-warning-border);
   }
 }
 
@@ -2032,13 +2333,14 @@ async function sendGameServerInput() {
   font-size: var(--xy-font-size-2xs);
   font-weight: 500;
   cursor: pointer;
+  min-height: 24px;
   padding: 0.25rem 0.6rem;
   transition: all var(--xy-transition-fast);
 }
 
 .change-btn:hover {
   border-color: var(--xy-primary);
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
   background: var(--xy-primary-muted);
 }
 
@@ -2114,6 +2416,7 @@ async function sendGameServerInput() {
 }
 
 .console-feed-filter {
+  min-height: 24px;
   padding: 1px var(--xy-space-base);
   border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-pill);
@@ -2196,8 +2499,10 @@ async function sendGameServerInput() {
   margin-bottom: 0.1rem;
 }
 
-.metrics-offline {
-  opacity: 0.35;
+.metrics-offline-note {
+  margin: 0;
+  color: var(--xy-text-secondary);
+  font-size: var(--xy-font-size-xs);
 }
 
 .metrics-offline .metric-bar-fill {
@@ -2219,7 +2524,6 @@ async function sendGameServerInput() {
 .metric-detail {
   font-size: var(--xy-font-size-2xs);
   color: var(--xy-text-muted);
-  opacity: 0.7;
 }
 
 .metric-row .mv {
@@ -2282,6 +2586,49 @@ async function sendGameServerInput() {
 }
 
 /* Console toolbar */
+.start-failure {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-base);
+  padding: var(--xy-space-sm) var(--xy-space-md);
+  background: var(--xy-danger-bg);
+  border-bottom: 1px solid var(--xy-danger-border);
+  flex-shrink: 0;
+}
+
+.start-failure__icon {
+  flex-shrink: 0;
+  font-size: var(--xy-font-size-lg);
+  color: var(--xy-danger);
+}
+
+.start-failure__body {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--xy-space-sm);
+  row-gap: var(--xy-space-2xs);
+  min-width: 0;
+  flex: 1;
+  font-size: var(--xy-font-size-sm);
+}
+
+.start-failure__title {
+  font-weight: 600;
+  color: var(--xy-text-primary);
+}
+
+.start-failure__message {
+  color: var(--xy-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.start-failure__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  flex-shrink: 0;
+}
+
 .console-topbar {
   display: flex;
   align-items: center;
@@ -2305,10 +2652,20 @@ async function sendGameServerInput() {
   flex: 1;
 }
 
+/* With lifecycle controls the filters take their own row instead of squeezing them. */
+.console-topbar:has(.console-lifecycle) {
+  flex-wrap: wrap;
+}
+
+.console-lifecycle {
+  display: flex;
+  gap: var(--xy-space-xs);
+}
+
 .console-toolbar-btn {
   padding: var(--xy-space-xs);
-  opacity: 0.8;
-  transition: opacity var(--xy-transition-fast);
+  color: var(--xy-text-secondary);
+  transition: color var(--xy-transition-fast);
 }
 
 .console-autoscroll-btn,
@@ -2322,12 +2679,12 @@ async function sendGameServerInput() {
 }
 
 .console-toolbar-btn:hover {
-  opacity: 1;
+  color: var(--xy-text-primary);
 }
 
+/* Off reads through the pause icon and aria-pressed; the text stays readable. */
 .console-toolbar-btn-off {
-  opacity: 0.3;
-  color: var(--xy-text-muted);
+  color: var(--xy-text-secondary);
 }
 
 .console-stream-state {
@@ -2370,7 +2727,7 @@ async function sendGameServerInput() {
   gap: var(--xy-space-xs);
   padding: var(--xy-space-xs) var(--xy-space-base);
   border: 1px solid var(--xy-border-active);
-  border-radius: var(--xy-radius-pill);
+  border-radius: var(--xy-radius-md);
   background: var(--xy-surface-3);
   box-shadow: var(--xy-shadow-md);
   color: var(--xy-text-primary);
@@ -2448,6 +2805,7 @@ async function sendGameServerInput() {
 }
 
 .console-filter-empty__reset {
+  min-height: 24px;
   padding: var(--xy-space-2xs) var(--xy-space-sm);
   border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-sm);
@@ -2539,7 +2897,6 @@ async function sendGameServerInput() {
 
 .offline-hint {
   font-size: var(--xy-font-size-xs);
-  opacity: 0.6;
 }
 
 .offline-details-btn {
@@ -2692,6 +3049,16 @@ async function sendGameServerInput() {
   }
 }
 
+/* Native buttons miss the global coarse-pointer rule for q-btn. */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .change-btn,
+  .console-feed-filter,
+  .console-filter-empty__reset,
+  .console-jump {
+    min-height: 44px;
+  }
+}
+
 /* ===== Focus rings ===== */
 .change-btn:focus-visible,
 .console-toolbar-btn:focus-visible {
@@ -2747,7 +3114,7 @@ async function sendGameServerInput() {
     padding: 0 var(--xy-space-sm) 0 var(--xy-space-md);
     border-bottom: 1px solid var(--xy-border);
     color: var(--xy-text-primary);
-    font-family: var(--xy-font-display);
+    font-family: var(--xy-font-control);
     font-size: var(--xy-font-size-sm);
     font-weight: 600;
   }
@@ -2766,6 +3133,15 @@ async function sendGameServerInput() {
 }
 
 @media (max-width: 599px) {
+  .start-failure {
+    flex-wrap: wrap;
+  }
+
+  .start-failure__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   .console-topbar {
     min-height: 3rem;
   }
@@ -2773,13 +3149,23 @@ async function sendGameServerInput() {
   .console-toolbar-btn {
     min-width: 44px;
     min-height: 44px;
-    opacity: 0.8;
   }
 
   /* Icon-only below tablet; the aria-label and tooltip still name the action.
      !important counters Quasar's `.block { display: block !important }` utility. */
-  .console-autoscroll-btn :deep(.q-btn__content > span.block) {
+  .console-autoscroll-btn :deep(.q-btn__content > span.block),
+  .console-lifecycle :deep(.q-btn__content > span.block) {
     display: none !important;
+  }
+
+  .console-autoscroll-btn :deep(.q-icon.on-left),
+  .console-lifecycle :deep(.q-icon.on-left) {
+    margin-right: 0;
+  }
+
+  /* The section select already names the page; the controls need the room. */
+  .console-topbar:has(.console-lifecycle) .console-topbar__label {
+    display: none;
   }
 
   .console-stream-state {

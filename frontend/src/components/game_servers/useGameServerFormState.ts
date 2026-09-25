@@ -1,10 +1,9 @@
 import { create } from '@bufbuild/protobuf'
 import { computed, ref, watch } from 'vue'
 import type { QForm } from 'quasar'
-import { useQuasar } from 'quasar'
 
-import { buildXylonaErrorNotification, connectErrorMessage } from '@/api/connect-errors'
-import { notifyWarning } from '@/api/notifications'
+import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyConnectError, notifyWarning } from '@/api/notifications'
 import {
   getGameServer,
   listGames,
@@ -31,8 +30,6 @@ export interface GameServerFormStateOptions {
 }
 
 export function useGameServerFormState(options: GameServerFormStateOptions) {
-  const $q = useQuasar()
-
   const gameServer = ref(create(GameServerSchema, {}))
   const availableGames = ref<ProvisioningOption[]>([])
   const gameFilter = ref('')
@@ -48,6 +45,8 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
   const nodes = ref<Array<Node>>([])
 
   const loading = ref(true)
+  // Set when the existing server fails to load, so no form edits a blank server.
+  const loadError = ref('')
   const formSubmitting = ref(false)
   const formRef = ref<QForm | null>(null)
   let allowNodeIPRefresh = false
@@ -256,6 +255,9 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     try {
       if (options.existingGameServerId) {
         await getGameServerDetails()
+        if (loadError.value) {
+          return
+        }
       }
 
       if (options.loadProvisioningOptions) {
@@ -349,21 +351,18 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
       return
     }
 
+    loadError.value = ''
     try {
       const existingGameServer = await getGameServer(existingGameServerId)
       if (existingGameServer === undefined) {
+        loadError.value = 'The game server was not found.'
         return
       }
 
       gameServer.value = existingGameServer
     } catch (e) {
       console.error(e)
-      $q.notify({
-        ...buildXylonaErrorNotification(
-          connectErrorMessage(e, 'Failed to load game server details'),
-        ),
-        icon: 'report_problem',
-      })
+      loadError.value = connectErrorMessage(e)
     }
   }
 
@@ -395,10 +394,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
       applyGameDefaults(firstGame)
     } catch (e) {
       console.error(e)
-      $q.notify({
-        ...buildXylonaErrorNotification(connectErrorMessage(e, 'Failed to load games')),
-        icon: 'report_problem',
-      })
+      notifyConnectError(e, 'Failed to load games', { icon: 'report_problem' })
     }
   }
 
@@ -424,10 +420,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
       }
     } catch (unknownError: unknown) {
       console.error(unknownError)
-      $q.notify({
-        ...buildXylonaErrorNotification(connectErrorMessage(unknownError, 'Failed to load nodes')),
-        icon: 'report_problem',
-      })
+      notifyConnectError(unknownError, 'Failed to load nodes', { icon: 'report_problem' })
     }
   }
 
@@ -448,10 +441,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
       gameServer.value.userName = firstUser.label
     } catch (e) {
       console.error(e)
-      $q.notify({
-        ...buildXylonaErrorNotification(connectErrorMessage(e, 'Failed to load users')),
-        icon: 'report_problem',
-      })
+      notifyConnectError(e, 'Failed to load users', { icon: 'report_problem' })
     }
   }
 
@@ -503,10 +493,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
         return
       }
       console.error(e)
-      $q.notify({
-        ...buildXylonaErrorNotification(connectErrorMessage(e, 'Failed to load IP addresses')),
-        icon: 'report_problem',
-      })
+      notifyConnectError(e, 'Failed to load IP addresses', { icon: 'report_problem' })
     }
   }
 
@@ -544,6 +531,7 @@ export function useGameServerFormState(options: GameServerFormStateOptions) {
     ipRules,
     isEditing,
     isMinecraftGame,
+    loadError,
     loading,
     maxMemoryModel,
     maxMemoryRules,

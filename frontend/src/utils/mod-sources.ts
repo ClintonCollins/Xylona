@@ -3,21 +3,21 @@ export const SOURCE_BADGES: Record<
   string,
   { bg: string; fg: string; letter: string; name: string }
 > = {
-  modrinth: { bg: '#1BD96A', fg: 'var(--xy-base)', letter: 'M', name: 'Modrinth' },
-  hangar: { bg: '#2196F3', fg: 'var(--xy-base)', letter: 'H', name: 'Hangar' },
+  modrinth: { bg: 'var(--xy-category-2)', fg: 'var(--xy-base)', letter: 'M', name: 'Modrinth' },
+  hangar: { bg: 'var(--xy-category-1)', fg: 'var(--xy-base)', letter: 'H', name: 'Hangar' },
   thunderstore: {
-    bg: '#0066FF',
-    fg: 'var(--xy-text-on-color)',
+    bg: 'var(--xy-category-6)',
+    fg: 'var(--xy-base)',
     letter: 'T',
     name: 'Thunderstore',
   },
   steam_workshop: {
-    bg: '#1B2838',
-    fg: 'var(--xy-text-on-color)',
+    bg: 'var(--xy-surface-4)',
+    fg: 'var(--xy-text-primary)',
     letter: 'S',
     name: 'Steam Workshop',
   },
-  papermc: { bg: '#2196F3', fg: 'var(--xy-base)', letter: 'P', name: 'PaperMC' },
+  papermc: { bg: 'var(--xy-category-1)', fg: 'var(--xy-base)', letter: 'P', name: 'PaperMC' },
 }
 
 export function sourceBadgeStyle(source: string): Record<string, string> {
@@ -39,9 +39,9 @@ export function iconGradient(name: string): string {
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash)
   }
-  const hue1 = Math.abs(hash) % 360
-  const hue2 = (hue1 + 40) % 360
-  return `linear-gradient(135deg, hsl(${hue1}, 60%, 40%), hsl(${hue2}, 60%, 30%))`
+  // Mixed toward the base so the white initial stays above 5:1 on every category.
+  const category = `var(--xy-category-${(Math.abs(hash) % 8) + 1})`
+  return `linear-gradient(135deg, color-mix(in srgb, ${category} 60%, var(--xy-base)), color-mix(in srgb, ${category} 40%, var(--xy-base)))`
 }
 
 export function formatDownloads(downloads: bigint): string {

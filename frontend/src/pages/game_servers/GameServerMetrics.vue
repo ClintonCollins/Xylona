@@ -1,5 +1,5 @@
 <template>
-  <main class="metrics-page xy-page-content">
+  <div class="metrics-page xy-page-content">
     <page-header icon="insights" title="Performance & Health">
       <div aria-live="polite" class="metrics-page__status">
         <span :class="`metrics-state--${viewState.kind}`" class="metrics-state">
@@ -71,18 +71,21 @@
         <span v-if="currentRange.live" class="metrics-toolbar__live">
           <span aria-hidden="true" /> Live updates
         </span>
-        <span class="metrics-toolbar__hint"><kbd>V</kbd> switch view</span>
+        <span class="metrics-toolbar__hint"><kbd>Alt</kbd>+<kbd>V</kbd> switch view</span>
       </div>
     </section>
 
-    <q-banner
-      v-if="error !== ''"
-      class="metrics-inline-state metrics-inline-state--error"
-      role="alert">
-      <template #avatar><q-icon aria-hidden="true" name="error_outline" /></template>
+    <q-banner v-if="error !== ''" class="xy-banner-negative" dense inline-actions role="alert">
+      <template #avatar><q-icon aria-hidden="true" name="sync_problem" /></template>
       <strong>Metrics could not be loaded.</strong> {{ error }}
       <template #action>
-        <q-btn color="negative" flat label="Retry" no-caps @click="fetchMetrics" />
+        <q-btn
+          aria-label="Retry loading metrics"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="fetchMetrics" />
       </template>
     </q-banner>
 
@@ -477,7 +480,7 @@
     </template>
 
     <metrics-event-timeline v-if="hasProcessData || timeline.length > 0" :events="timeline" />
-  </main>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -592,14 +595,18 @@ watch([selectedRange, viewMode], ([range, view]) => {
 const nowMs = ref(Date.now())
 let nowTimer: ReturnType<typeof setInterval> | undefined
 
+// Alt+V rather than a bare "V" (WCAG 2.1.4). event.code keeps it working on macOS, where
+// Option+V reports a different key value.
 function onViewShortcut(event: KeyboardEvent): void {
-  if (event.key.toLowerCase() !== 'v' || event.metaKey || event.ctrlKey || event.altKey) return
+  if (event.code !== 'KeyV' || !event.altKey || event.metaKey || event.ctrlKey || event.shiftKey)
+    return
   const target = event.target as HTMLElement | null
   if (
     target &&
     (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
   )
     return
+  event.preventDefault()
   viewMode.value = viewMode.value === 'lanes' ? 'grid' : 'lanes'
 }
 
@@ -1228,28 +1235,11 @@ function formatFps(value: number | null): string {
   animation: metrics-live-pulse 2s var(--xy-ease-standard) infinite;
 }
 
+/* Opacity only, so the pulse stays on the compositor. */
 @keyframes metrics-live-pulse {
-  0% {
-    box-shadow: 0 0 0 0 var(--xy-success-border);
+  50% {
+    opacity: 0.35;
   }
-
-  70% {
-    box-shadow: 0 0 0 6px transparent;
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-.metrics-inline-state {
-  border: 1px solid var(--xy-danger-border);
-  border-radius: var(--xy-radius-lg);
-}
-
-.metrics-inline-state--error {
-  color: var(--xy-text-primary);
-  background: var(--xy-danger-bg);
 }
 
 .metrics-current {

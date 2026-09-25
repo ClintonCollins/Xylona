@@ -37,8 +37,8 @@
       <input ref="fileInput" hidden type="file" @change="handleFileSelect" />
     </div>
 
-    <!-- Detection status -->
-    <div v-if="content.trim()" class="import-status">
+    <!-- Detection status: v-show keeps the polite live region mounted so changes are announced -->
+    <div v-show="content.trim() || sizeError" class="import-status" role="status">
       <template v-if="detecting">
         <q-spinner-dots color="primary" size="16px" />
         <span class="text-xy-secondary">Detecting format...</span>
@@ -83,7 +83,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import type { ImportDetectionResult } from '@/utils/config-import'
 import { detectAndParse, parseWithFormat } from '@/utils/config-import'
 
@@ -108,6 +108,10 @@ function handleContentChange() {
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => runDetection(), 300)
 }
+
+onBeforeUnmount(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+})
 
 function runDetection() {
   const text = content.value.trim()

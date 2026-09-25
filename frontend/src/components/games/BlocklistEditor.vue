@@ -22,52 +22,60 @@
       </button>
     </div>
 
-    <div v-if="blocklist.length === 0" class="blocklist-editor__empty text-xy-muted">
+    <div v-if="blocklist.length === 0 && !removed" class="blocklist-editor__empty text-xy-muted">
       No protected arguments yet. Add a rule only for flags that should never be overridden.
     </div>
 
-    <div class="blocklist-editor__rows">
-      <article v-for="(entry, index) in blocklist" :key="index" class="blocklist-editor__row">
-        <div class="font-display blocklist-editor__row-title">
-          {{ String(index + 1).padStart(2, '0') }}
-        </div>
-        <div class="blocklist-editor__row-fields">
-          <q-input
-            :error="!isValidRegex(entry.pattern)"
-            :model-value="entry.pattern"
-            aria-label="Pattern"
-            class="blocklist-editor__field blocklist-editor__field--pattern"
+    <div ref="rowsRef" class="blocklist-editor__rows">
+      <template v-for="{ entry, index } in rows" :key="index">
+        <removed-item-undo
+          v-if="index < 0"
+          :clear-on-save="removed?.clearOnSave"
+          :label="entry.pattern.trim() || 'rule'"
+          @dismiss="removed = null"
+          @undo="undoRemove" />
+        <div v-else :aria-label="`Rule ${index + 1}`" class="blocklist-editor__row" role="group">
+          <div class="blocklist-editor__row-title">
+            {{ String(index + 1).padStart(2, '0') }}
+          </div>
+          <div class="blocklist-editor__row-fields">
+            <q-input
+              :error="!isValidRegex(entry.pattern)"
+              :model-value="entry.pattern"
+              class="blocklist-editor__field blocklist-editor__field--pattern"
+              dense
+              error-message="Invalid regex"
+              hide-bottom-space
+              label="Pattern"
+              outlined
+              placeholder="-javaagent:"
+              @update:model-value="updateEntry(index, 'pattern', String($event ?? ''))" />
+            <q-input
+              :model-value="entry.reason"
+              class="blocklist-editor__field blocklist-editor__field--reason"
+              dense
+              hide-bottom-space
+              label="Reason"
+              outlined
+              placeholder="Why this flag stays protected"
+              @update:model-value="updateEntry(index, 'reason', String($event ?? ''))" />
+          </div>
+          <q-btn
+            :aria-label="`Remove ${entry.pattern.trim() || `rule ${index + 1}`}`"
+            class="blocklist-editor__delete"
+            color="negative"
             dense
-            error-message="Invalid regex"
-            hide-bottom-space
-            outlined
-            placeholder="-javaagent:"
-            @update:model-value="updateEntry(index, 'pattern', String($event ?? ''))" />
-          <q-input
-            :model-value="entry.reason"
-            aria-label="Reason"
-            class="blocklist-editor__field blocklist-editor__field--reason"
-            dense
-            hide-bottom-space
-            outlined
-            placeholder="Why this flag stays protected"
-            @update:model-value="updateEntry(index, 'reason', String($event ?? ''))" />
+            flat
+            icon="delete"
+            round
+            @click="removeEntry(index)" />
         </div>
-        <q-btn
-          aria-label="Remove blocklist pattern"
-          class="blocklist-editor__delete"
-          color="negative"
-          dense
-          flat
-          icon="delete"
-          round
-          @click="removeEntry(index)" />
-      </article>
+      </template>
     </div>
 
     <div v-if="composerOpen" class="blocklist-editor__composer">
       <div class="blocklist-editor__composer-head">
-        <div class="font-display blocklist-editor__composer-title">Add protected argument</div>
+        <div class="blocklist-editor__composer-title">Add protected argument</div>
         <div class="text-xy-secondary blocklist-editor__composer-copy">
           Regex plus a short reason.
         </div>
@@ -76,29 +84,31 @@
         <q-input
           v-model="draftPattern"
           :error="draftPattern !== '' && !isValidRegex(draftPattern)"
-          aria-label="Pattern"
+          aria-required="true"
           class="blocklist-editor__field blocklist-editor__field--pattern"
           dense
           error-message="Invalid regex"
           hide-bottom-space
+          label="Pattern *"
           outlined
           placeholder="-javaagent:" />
         <q-input
           v-model="draftReason"
-          aria-label="Reason"
           class="blocklist-editor__field blocklist-editor__field--reason"
           dense
           hide-bottom-space
+          label="Reason"
           outlined
           placeholder="Why this flag stays protected" />
       </div>
       <div class="blocklist-editor__composer-actions">
-        <q-btn color="secondary" flat label="Cancel" no-caps @click="closeComposer" />
+        <q-btn flat label="Cancel" no-caps @click="closeComposer" />
         <q-btn
           :disable="draftPattern.trim() === '' || !isValidRegex(draftPattern)"
           color="accent"
           label="Add rule"
           no-caps
+          outline
           @click="addEntry" />
       </div>
     </div>
@@ -106,9 +116,11 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { computed, inject, nextTick, ref, shallowRef } from 'vue'
 
 import type { StartArgBlocklistEntry } from '@/components/game_servers/start-args'
+import { gameFormContextKey } from './GameFormTypes'
+import RemovedItemUndo from './RemovedItemUndo.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -127,18 +139,77 @@ const emit = defineEmits<{
 const draftPattern = ref('')
 const draftReason = ref('')
 const composerOpen = ref(false)
+const rowsRef = ref<HTMLElement | null>(null)
+const formIsDirty = inject(gameFormContextKey, null)?.isDirty
+
+// The most recent removal. Its negative id keys the undo row, so each removal mounts a fresh one.
+const removed = shallowRef<{
+  entry: StartArgBlocklistEntry
+  index: number
+  after?: StartArgBlocklistEntry
+  clearOnSave: boolean
+  id: number
+} | null>(null)
+let removals = 0
+
+// Undo puts the rule back after the neighbour it had, or at its old index if that one is gone.
+const removedAt = computed(() => {
+  const removal = removed.value
+  if (!removal) {
+    return -1
+  }
+  const after = removal.after ? props.blocklist.indexOf(removal.after) : -1
+  return after >= 0 ? after + 1 : Math.min(removal.index, props.blocklist.length)
+})
+
+// The rules as shown: the removed one keeps its slot as an undo row.
+const rows = computed(() => {
+  const rows = props.blocklist.map((entry, index) => ({ entry, index }))
+  if (removed.value) {
+    rows.splice(removedAt.value, 0, { entry: removed.value.entry, index: -removed.value.id })
+  }
+  return rows
+})
 
 function updateEntry(index: number, key: 'pattern' | 'reason', value: string) {
+  removed.value = null
   const nextBlocklist = props.blocklist.map((entry, currentIndex) =>
     currentIndex === index ? { ...entry, [key]: value } : entry,
   )
   emit('update:blocklist', nextBlocklist)
 }
 
+// One click removes the rule and the next Save makes it permanent, so an undo row takes its place.
 function removeEntry(index: number) {
+  const entry = props.blocklist[index]
+  if (!entry) {
+    return
+  }
+
+  const clearOnSave = formIsDirty?.value === false
+  const after = props.blocklist[index - 1]
   emit(
     'update:blocklist',
     props.blocklist.filter((_, currentIndex) => currentIndex !== index),
+  )
+  removed.value = { entry, index, after, clearOnSave, id: ++removals }
+}
+
+function undoRemove() {
+  const removal = removed.value
+  if (!removal) {
+    return
+  }
+
+  const at = removedAt.value
+  removed.value = null
+  emit('update:blocklist', [
+    ...props.blocklist.slice(0, at),
+    removal.entry,
+    ...props.blocklist.slice(at),
+  ])
+  void nextTick(() =>
+    rowsRef.value?.querySelectorAll('.blocklist-editor__row')[at]?.querySelector('input')?.focus(),
   )
 }
 
@@ -147,6 +218,7 @@ function addEntry() {
     return
   }
 
+  removed.value = null
   emit('update:blocklist', [
     ...props.blocklist,
     {
@@ -240,7 +312,7 @@ function closeComposer() {
   gap: 8px;
   min-height: 2rem;
   padding: 0.32rem 0.72rem;
-  border-radius: var(--xy-radius-pill);
+  border-radius: var(--xy-radius-md);
   border: 1px solid color-mix(in srgb, var(--xy-accent) 30%, var(--xy-border));
   background: color-mix(in srgb, var(--xy-accent) 8%, var(--xy-surface-0) 92%);
   color: color-mix(in srgb, var(--xy-accent) 34%, var(--xy-text-primary) 66%);
@@ -341,6 +413,17 @@ function closeComposer() {
 .blocklist-editor__row :deep(.q-btn) {
   min-height: 40px;
   min-width: 40px;
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .blocklist-editor__action {
+    min-height: 44px;
+  }
+
+  .blocklist-editor__row :deep(.q-btn) {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .blocklist-editor__composer {

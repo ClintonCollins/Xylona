@@ -315,21 +315,36 @@ async function installLandClaimHelper(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void loadPermissions()
+function stopPolling(): void {
+  if (mapPollTimer !== undefined) {
+    clearInterval(mapPollTimer)
+    mapPollTimer = undefined
+  }
+  if (statusPollTimer !== undefined) {
+    clearInterval(statusPollTimer)
+    statusPollTimer = undefined
+  }
+}
+
+// Pause while the tab is hidden and catch up as soon as it is visible again.
+function handleVisibilityChange(): void {
+  stopPolling()
+  if (document.visibilityState === 'hidden') return
   void loadMap()
   void loadStatus()
   mapPollTimer = setInterval(() => void loadMap(), mapPollIntervalMilliseconds)
   statusPollTimer = setInterval(() => void loadStatus(), statusPollIntervalMilliseconds)
+}
+
+onMounted(() => {
+  void loadPermissions()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  handleVisibilityChange()
 })
 
 onBeforeUnmount(() => {
-  if (mapPollTimer !== undefined) {
-    clearInterval(mapPollTimer)
-  }
-  if (statusPollTimer !== undefined) {
-    clearInterval(statusPollTimer)
-  }
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopPolling()
 })
 </script>
 
@@ -387,7 +402,11 @@ onBeforeUnmount(() => {
 
     <!-- Backdrop clicks and Esc ask the settings first so unsaved edits get the discard prompt.
          Route changes are left to the settings' own leave guard, so it never asks twice. -->
-    <q-dialog :model-value="shareOpen" no-route-dismiss @update:model-value="onShareDialogToggle">
+    <q-dialog
+      aria-labelledby="map-share-settings-title"
+      :model-value="shareOpen"
+      no-route-dismiss
+      @update:model-value="onShareDialogToggle">
       <game-server-map-share-settings
         ref="shareSettings"
         :game-server-id="gameServerID"
@@ -418,7 +437,7 @@ onBeforeUnmount(() => {
   justify-self: start;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1440px) {
   .seven-days-map-page {
     display: grid;
     flex: 1 0 auto;

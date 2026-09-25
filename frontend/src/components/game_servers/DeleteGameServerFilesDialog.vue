@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(25%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="delete-files-dialog">
       <q-card-section>
         <div id="dialog-title" class="text-h6 text-negative">Delete Files</div>
@@ -49,7 +45,7 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
+import { QBtn, QCard, QCardSection, QDialog } from 'quasar'
 import {
   File as XylonaFile,
   GameServerFilesDeleteRequest,
@@ -62,11 +58,11 @@ import {
   GetXylonaClient,
 } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { useGameServerName } from '@/pages/game_servers/game-server-context'
 import { tabFolderFilled } from 'quasar-extras-svg-icons/tabler-icons-v2'
 import { Ref, ref } from 'vue'
 
-const $q = useQuasar()
 const serverName = useGameServerName()
 
 const props = defineProps({
@@ -124,24 +120,15 @@ async function deleteFiles() {
 }
 
 function deleteSuccess(deletedFiles: string[]) {
-  $q.notify({
-    caption: `Deleted ${deletedFiles.length} files/directories successfully.`,
-    type: 'xylona-success',
-    position: 'top',
-    timeout: 3000,
-  })
+  notifySuccess(`Deleted ${deletedFiles.length} files/directories successfully.`)
 }
 
 function deleteFailure(err: unknown) {
-  $q.notify({
-    message:
-      err instanceof Error
-        ? `Could not delete the selected items. ${connectErrorMessage(err)}`
-        : 'Could not delete the selected items. Try again.',
-    type: 'xylona-error',
-    position: 'top',
-    timeout: 3000,
-  })
+  notifyError(
+    err instanceof Error
+      ? `Could not delete the selected items. ${connectErrorMessage(err)}`
+      : 'Could not delete the selected items. Try again.',
+  )
 }
 </script>
 

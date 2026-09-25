@@ -131,10 +131,19 @@ function clearResult(): void {
       <q-btn
         :disable="appIdInput.trim().length === 0"
         :loading="loading"
+        :outline="lookupResult !== null"
         color="primary"
         label="Look Up"
         unelevated
         @click="lookupAppId" />
+    </div>
+
+    <!-- Lookup errors are announced by the input's own alert; this announces a found app. -->
+    <div class="xy-visually-hidden" role="status">
+      <template v-if="lookupResult">
+        Found {{ lookupResult.name }}, AppID {{ lookupResult.appId }}.
+        <template v-if="catalogMatches.length > 0">Already in your catalog.</template>
+      </template>
     </div>
 
     <!-- Lookup Result -->
@@ -143,7 +152,7 @@ function clearResult(): void {
         <div class="row items-center q-gutter-sm q-mb-sm">
           <q-icon color="positive" name="check_circle" size="sm" />
           <span class="text-subtitle1 text-weight-medium">{{ lookupResult.name }}</span>
-          <q-badge :label="'AppID: ' + lookupResult.appId" class="bg-xy-surface-3" />
+          <q-badge :label="'AppID: ' + lookupResult.appId" class="bg-xy-surface-3 xy-num" />
         </div>
 
         <div class="row q-gutter-md text-body2" style="color: var(--xy-text-secondary)">

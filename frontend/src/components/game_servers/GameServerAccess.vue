@@ -13,6 +13,27 @@
         Access grants
         <span v-if="localGrants.length > 0">· {{ localGrants.length }}</span>
       </h2>
+      <q-banner
+        v-if="optionsLoadError"
+        class="xy-banner-negative q-mb-md"
+        data-testid="access-options-load-error"
+        dense
+        inline-actions
+        role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>Users and roles could not be loaded.</strong> {{ optionsLoadError }}
+        <template #action>
+          <q-btn
+            aria-label="Retry loading users and roles"
+            flat
+            icon="refresh"
+            label="Retry"
+            no-caps
+            @click="loadData" />
+        </template>
+      </q-banner>
       <div class="row q-col-gutter-md q-mb-md">
         <div class="col-12 col-md-4">
           <q-select
@@ -137,7 +158,6 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { useQuasar } from 'quasar'
 import {
   type GameServerAccessGrant,
   GrantGameServerAccessRequestSchema,
@@ -152,10 +172,10 @@ import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import { GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyConnectError } from '@/api/notifications'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
-const $q = useQuasar()
 const route = useRoute()
 const gameServerID = ref(route.params.id instanceof Array ? route.params.id[0] : route.params.id)
 
@@ -167,6 +187,7 @@ const roles = ref<Role[]>([])
 const localUsers = ref<{ id: string; userName: string; email: string }[]>([])
 const localGrants = ref<GameServerAccessGrant[]>([])
 const grantsLoadError = ref('')
+const optionsLoadError = ref('')
 
 const selectedLocalUserID = ref('')
 const selectedLocalRoleID = ref('')
@@ -203,31 +224,28 @@ onMounted(async () => {
 async function loadData() {
   loading.value = true
   try {
-    await Promise.all([loadRoles(), loadLocalUsers(), loadLocalGrants()])
+    await Promise.all([loadGrantOptions(), loadLocalGrants()])
   } finally {
     loading.value = false
   }
 }
 
-async function loadRoles() {
+// Granting needs both lists, so one failure blocks the form with one banner.
+async function loadGrantOptions() {
   try {
-    const response = await xylonaClient.listRoles(create(ListRolesRequestSchema, {}))
-    roles.value = response.roles ? [...response.roles] : []
-  } catch (unknownError: unknown) {
-    notifyError(`Failed to load roles: ${connectErrorMessage(unknownError)}`)
-  }
-}
-
-async function loadLocalUsers() {
-  try {
-    const response = await xylonaClient.listUsers(create(ListUsersRequestSchema, {}))
-    localUsers.value = (response.users ?? []).map((user) => ({
+    const [rolesResponse, usersResponse] = await Promise.all([
+      xylonaClient.listRoles(create(ListRolesRequestSchema, {})),
+      xylonaClient.listUsers(create(ListUsersRequestSchema, {})),
+    ])
+    roles.value = rolesResponse.roles ? [...rolesResponse.roles] : []
+    localUsers.value = (usersResponse.users ?? []).map((user) => ({
       id: user.id,
       userName: user.userName,
       email: user.email,
     }))
+    optionsLoadError.value = ''
   } catch (unknownError: unknown) {
-    notifyError(`Failed to load users: ${connectErrorMessage(unknownError)}`)
+    optionsLoadError.value = connectErrorMessage(unknownError)
   }
 }
 
@@ -260,7 +278,7 @@ async function grantLocalAccess() {
     selectedLocalRoleID.value = ''
     await loadLocalGrants()
   } catch (unknownError: unknown) {
-    notifyError(`Failed to grant access: ${connectErrorMessage(unknownError)}`)
+    notifyConnectError(unknownError, 'Failed to grant access')
   } finally {
     grantingLocal.value = false
   }
@@ -277,7 +295,7 @@ async function revokeLocalAccess(grantID: string) {
     )
     await loadLocalGrants()
   } catch (unknownError: unknown) {
-    notifyError(`Failed to revoke access: ${connectErrorMessage(unknownError)}`)
+    notifyConnectError(unknownError, 'Failed to revoke access')
   } finally {
     revokingLocalGrantID.value = ''
   }
@@ -296,15 +314,6 @@ async function executeRevoke() {
 
 function formatTimestamp(ts?: { seconds: bigint }) {
   return formatProtoTimestamp(ts)
-}
-
-function notifyError(message: string) {
-  $q.notify({
-    type: 'xylona-error',
-    position: 'top',
-    caption: message,
-    timeout: 5000,
-  })
 }
 </script>
 

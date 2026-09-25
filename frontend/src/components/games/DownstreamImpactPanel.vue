@@ -24,7 +24,11 @@
           </span>
         </div>
 
-        <button class="downstream-impact__toggle" type="button" @click="expanded = !expanded">
+        <button
+          :aria-expanded="expanded"
+          class="downstream-impact__toggle"
+          type="button"
+          @click="expanded = !expanded">
           {{ expanded ? 'Hide server list' : `Review ${servers.length} servers` }}
         </button>
       </div>
@@ -34,7 +38,11 @@
         aria-label="Affected servers"
         class="downstream-impact__list"
         role="list">
-        <article v-for="server in visibleServers" :key="server.name" class="downstream-impact__row">
+        <div
+          v-for="server in visibleServers"
+          :key="server.name"
+          class="downstream-impact__row"
+          role="listitem">
           <div :title="server.name" class="downstream-impact__name">{{ server.name }}</div>
           <div
             :class="
@@ -45,7 +53,7 @@
             class="downstream-impact__detail text-xy-secondary">
             {{ server.patchCount === 0 ? 'all defaults' : `${server.patchCount} customized` }}
           </div>
-        </article>
+        </div>
       </div>
     </div>
   </div>
@@ -218,6 +226,12 @@ const defaultServerCount = computed(() => props.servers.length - customizedServe
     border-color var(--xy-transition-fast),
     background var(--xy-transition-fast),
     color var(--xy-transition-fast);
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .downstream-impact__toggle {
+    min-height: 44px;
+  }
 }
 
 .downstream-impact__toggle:hover {

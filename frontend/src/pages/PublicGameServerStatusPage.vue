@@ -32,6 +32,7 @@ let eventSource: EventSource | undefined
 let pollTimer: ReturnType<typeof setInterval> | undefined
 let ageTimer: ReturnType<typeof setInterval> | undefined
 let copyResetTimer: ReturnType<typeof setTimeout> | undefined
+let unmounted = false
 const initialDocumentTitle = document.title
 
 const identifier = computed(() => String(route.params['identifier'] ?? ''))
@@ -103,6 +104,8 @@ async function loadSnapshot(): Promise<boolean> {
 }
 
 function connectEvents() {
+  // The first snapshot can resolve after the page is gone; don't open a stream nobody closes.
+  if (unmounted) return
   eventSource?.close()
   eventSource = new EventSource(
     `/api/public/status-pages/${encodeURIComponent(identifier.value)}/events`,
@@ -126,7 +129,16 @@ function connectEvents() {
 
 function startPolling() {
   if (pollTimer !== undefined || unavailable.value) return
-  pollTimer = setInterval(() => void loadSnapshot(), 15_000)
+  pollTimer = setInterval(() => void pollSnapshot(), 15_000)
+}
+
+async function pollSnapshot() {
+  if (!(await loadSnapshot())) return
+  // A non-200 response (e.g. a proxy 502 during a restart) closes the stream for good, so
+  // reopen it once polling reaches the controller again. connectEvents ignores unmounted pages.
+  // The notice clears on the stream's first snapshot, not here, so a stream endpoint that keeps
+  // failing leaves it up instead of flickering every poll.
+  if (!eventSource || eventSource.readyState === EventSource.CLOSED) connectEvents()
 }
 
 function stopPolling() {
@@ -219,6 +231,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  unmounted = true
   eventSource?.close()
   stopPolling()
   if (ageTimer !== undefined) clearInterval(ageTimer)
@@ -272,14 +285,12 @@ onUnmounted(() => {
         <q-btn color="primary" label="Try again" @click="retry" />
       </div>
       <template v-else-if="page">
-        <div
-          v-if="page.servers.length > 0"
-          class="public-status-summary"
-          aria-label="Server status summary">
+        <div v-if="page.servers.length > 0" class="public-status-summary">
           <div class="public-status-summary__availability">
             <q-icon name="dns" size="24px" aria-hidden="true" />
             <div>
-              <span class="public-status-summary__title">
+              <!-- The one live region for server data: it speaks when the online count changes. -->
+              <span class="public-status-summary__title" role="status">
                 {{ onlineCount }} of {{ page.servers.length }} servers online
               </span>
               <span class="public-status-summary__caption">
@@ -313,11 +324,7 @@ onUnmounted(() => {
               <div class="public-server-row__identity">
                 <h2>{{ server.name }}</h2>
                 <p>{{ server.gameName }}</p>
-                <span
-                  class="public-status"
-                  :class="statusClass(server.status)"
-                  role="status"
-                  :aria-label="`${server.name} status: ${statusLabel(server.status)}`">
+                <span class="public-status" :class="statusClass(server.status)">
                   {{ statusLabel(server.status) }}
                 </span>
               </div>
@@ -350,12 +357,7 @@ onUnmounted(() => {
               <div class="public-server-row__metrics">
                 <div>
                   <span class="public-server-row__label">Players</span>
-                  <span
-                    class="public-server-row__value"
-                    role="status"
-                    :aria-label="`${server.name} players: ${playerLabel(server)}`">
-                    {{ playerLabel(server) }}
-                  </span>
+                  <span class="public-server-row__value">{{ playerLabel(server) }}</span>
                 </div>
                 <q-btn
                   v-if="showOnlinePlayersToggle(server)"
@@ -372,6 +374,7 @@ onUnmounted(() => {
             <div
               v-if="server.publicNote || server.publicPassword || server.publicMapPath"
               class="public-server-row__details"
+              role="group"
               :aria-label="`${server.name} connection details`">
               <div v-if="server.publicNote" class="public-server-row__detail">
                 <span class="public-server-row__label">Note</span>

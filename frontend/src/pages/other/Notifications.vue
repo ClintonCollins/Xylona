@@ -66,9 +66,7 @@
               <q-card-section class="notification-mobile-card__header">
                 <div>
                   <div class="notification-mobile-card__title">{{ props.row.name }}</div>
-                  <q-badge
-                    :color="channelTypeBadgeColor(props.row.channelType)"
-                    :label="channelTypeLabel(props.row.channelType)" />
+                  <q-badge :label="channelTypeLabel(props.row.channelType)" color="grey-8" />
                 </div>
                 <q-toggle
                   v-if="hasAlertsManage"
@@ -121,9 +119,7 @@
           </template>
           <template #body-cell-channelType="props">
             <q-td :props="props">
-              <q-badge
-                :color="channelTypeBadgeColor(props.row.channelType)"
-                :label="channelTypeLabel(props.row.channelType)" />
+              <q-badge :label="channelTypeLabel(props.row.channelType)" color="grey-8" />
             </q-td>
           </template>
           <template #body-cell-enabled="props">
@@ -142,13 +138,14 @@
           </template>
           <template #body-cell-actions="props">
             <q-td :props="props">
-              <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
+              <div v-if="hasAlertsManage" class="xy-row-actions">
                 <q-btn
                   :aria-label="`Test ${props.row.name} channel`"
                   :loading="testingChannelIds.has(props.row.id)"
                   dense
                   flat
                   icon="send"
+                  round
                   @click="testChannel(props.row)">
                   <q-tooltip>Test</q-tooltip>
                 </q-btn>
@@ -157,6 +154,7 @@
                   dense
                   flat
                   icon="edit"
+                  round
                   @click="openChannelDialog(props.row)">
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
@@ -166,6 +164,7 @@
                   dense
                   flat
                   icon="delete"
+                  round
                   @click="confirmDeleteChannel(props.row)">
                   <q-tooltip>Delete</q-tooltip>
                 </q-btn>
@@ -278,7 +277,7 @@
           </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="primary" />
+              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="grey-8" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -311,13 +310,14 @@
           </template>
           <template #body-cell-actions="props">
             <q-td :props="props">
-              <div v-if="hasAlertsManage" class="q-gutter-xs row no-wrap items-center">
+              <div v-if="hasAlertsManage" class="xy-row-actions">
                 <q-btn
                   v-if="!ruleNeedsSuperUser(props.row)"
                   :aria-label="`Edit ${alertEventTypeLabel(props.row.eventType)} alert rule`"
                   dense
                   flat
                   icon="edit"
+                  round
                   @click="openRuleEditDialog(props.row)">
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
@@ -327,6 +327,7 @@
                   dense
                   flat
                   icon="delete"
+                  round
                   @click="confirmDeleteRule(props.row)">
                   <q-tooltip>Delete</q-tooltip>
                 </q-btn>
@@ -425,7 +426,7 @@
           </template>
           <template #body-cell-eventType="props">
             <q-td :props="props">
-              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="primary" />
+              <q-badge :label="alertEventTypeLabel(props.row.eventType)" color="grey-8" />
             </q-td>
           </template>
           <template #body-cell-server="props">
@@ -435,9 +436,7 @@
           </template>
           <template #body-cell-channelType="props">
             <q-td :props="props">
-              <q-badge
-                :color="channelTypeBadgeColor(props.row.channelType)"
-                :label="channelTypeLabel(props.row.channelType)" />
+              <q-badge :label="channelTypeLabel(props.row.channelType)" color="grey-8" />
             </q-td>
           </template>
           <template #body-cell-deliveryStatus="props">
@@ -445,9 +444,9 @@
               <q-badge
                 :color="deliveryStatusColor(props.row.deliveryStatus)"
                 :label="deliveryStatusLabel(props.row.deliveryStatus)" />
-              <q-tooltip v-if="props.row.deliveryError">
+              <div v-if="props.row.deliveryError" class="delivery-error text-caption text-negative">
                 {{ props.row.deliveryError }}
-              </q-tooltip>
+              </div>
             </q-td>
           </template>
           <template #no-data>
@@ -477,141 +476,165 @@
       aria-labelledby="notification-channel-dialog-title"
       persistent>
       <q-card class="channel-dialog-card">
-        <q-card-section>
-          <div id="notification-channel-dialog-title" class="text-h6">
-            {{ editingChannel ? 'Edit Channel' : 'Add Channel' }}
-          </div>
-        </q-card-section>
+        <q-form greedy @submit="saveChannel">
+          <q-card-section>
+            <div id="notification-channel-dialog-title" class="text-h6">
+              {{ editingChannel ? 'Edit Channel' : 'Add Channel' }}
+            </div>
+          </q-card-section>
 
-        <q-card-section class="q-pt-none">
-          <q-input
-            v-model="channelForm.name"
-            :rules="[(val: string) => !!val || 'Name is required']"
-            aria-required="true"
-            aria-label="Channel name"
-            class="q-mb-md"
-            dense
-            label="Name"
-            outlined />
-
-          <q-select
-            v-model="channelForm.channelType"
-            :disable="!!editingChannel"
-            :options="channelTypeOptions"
-            aria-label="Channel type"
-            class="q-mb-md"
-            dense
-            emit-value
-            label="Channel Type"
-            map-options
-            outlined />
-
-          <!-- Webhook config -->
-          <q-input
-            v-if="isWebhookType(channelForm.channelType)"
-            v-model="channelForm.webhookUrl"
-            :rules="[(val: string) => !!val || 'Webhook URL is required']"
-            aria-required="true"
-            aria-label="Webhook URL"
-            class="q-mb-md"
-            dense
-            label="Webhook URL"
-            outlined />
-
-          <!-- Email config -->
-          <template v-if="channelForm.channelType === NotificationChannelType.EMAIL">
+          <q-card-section class="q-pt-none">
             <q-input
-              v-model="channelForm.emailTo"
-              :rules="[(val: string) => !!val || 'Email is required']"
+              v-model="channelForm.name"
+              :rules="[(val: string) => !!val || 'Name is required']"
               aria-required="true"
-              aria-label="Recipient email address"
+              aria-label="Channel name"
               class="q-mb-md"
               dense
-              label="Recipient Email"
+              label="Name *"
+              lazy-rules
               outlined />
+
             <q-select
-              v-model="channelForm.smtpSource"
-              :options="smtpSourceOptions"
-              aria-label="Email delivery source"
+              v-model="channelForm.channelType"
+              :disable="!!editingChannel"
+              :options="channelTypeOptions"
+              aria-label="Channel type"
               class="q-mb-md"
               dense
               emit-value
-              label="Email Delivery"
+              label="Channel Type"
               map-options
               outlined />
-            <div v-if="channelForm.smtpSource === 'controller'" class="q-mb-md">
-              <q-badge
-                :color="controllerEmailConfigured ? 'positive' : 'warning'"
-                :label="
-                  controllerEmailConfigured
-                    ? 'Controller email configured'
-                    : 'Controller email not configured'
-                " />
-              <div class="text-caption text-xy-secondary q-mt-sm">
-                Delivery provider and sender come from Admin -> Controller Settings.
-              </div>
-            </div>
-            <template v-else>
-              <q-input
-                v-model="channelForm.smtpHost"
-                aria-label="SMTP host"
-                class="q-mb-md"
-                dense
-                label="SMTP Host"
-                outlined />
-              <q-input
-                v-model.number="channelForm.smtpPort"
-                aria-label="SMTP port"
-                class="q-mb-md"
-                dense
-                label="SMTP Port"
-                outlined
-                type="number" />
-              <q-input
-                v-model="channelForm.smtpUser"
-                aria-label="SMTP username"
-                class="q-mb-md"
-                dense
-                label="SMTP Username"
-                outlined />
-              <q-input
-                v-model="channelForm.smtpPassword"
-                :hint="
-                  channelForm.hasExistingSmtpPassword
-                    ? 'Leave blank to keep the current password.'
-                    : undefined
-                "
-                aria-label="SMTP password"
-                class="q-mb-md"
-                dense
-                label="SMTP Password"
-                outlined
-                type="password" />
-              <q-input
-                v-model="channelForm.smtpFrom"
-                aria-label="SMTP from address"
-                class="q-mb-md"
-                dense
-                label="SMTP From Address"
-                outlined />
-              <q-toggle
-                v-model="channelForm.smtpTLSEnabled"
-                aria-label="SMTP TLS enabled"
-                class="q-mb-md"
-                label="TLS Enabled" />
-            </template>
-          </template>
-        </q-card-section>
 
-        <q-card-actions align="right">
-          <q-btn flat label="Cancel" no-caps @click="showChannelDialog = false" />
-          <q-btn
-            :label="editingChannel ? 'Save' : 'Create'"
-            :loading="channelSaving"
-            color="primary"
-            no-caps
-            @click="saveChannel" />
-        </q-card-actions>
+            <!-- Webhook config -->
+            <!-- The URL carries the webhook's secret token, so it stays masked until revealed. -->
+            <q-input
+              v-if="isWebhookType(channelForm.channelType)"
+              v-model="channelForm.webhookUrl"
+              :rules="[(val: string) => !!val || 'Webhook URL is required']"
+              :type="showWebhookUrl ? 'text' : 'password'"
+              aria-required="true"
+              aria-label="Webhook URL"
+              autocomplete="new-password"
+              class="q-mb-md"
+              dense
+              label="Webhook URL *"
+              lazy-rules
+              outlined>
+              <template #append>
+                <q-btn
+                  :aria-label="showWebhookUrl ? 'Hide webhook URL' : 'Show webhook URL'"
+                  :icon="showWebhookUrl ? 'visibility_off' : 'visibility'"
+                  dense
+                  flat
+                  round
+                  type="button"
+                  @click="showWebhookUrl = !showWebhookUrl">
+                  <q-tooltip>{{
+                    showWebhookUrl ? 'Hide webhook URL' : 'Show webhook URL'
+                  }}</q-tooltip>
+                </q-btn>
+              </template>
+            </q-input>
+
+            <!-- Email config -->
+            <template v-if="channelForm.channelType === NotificationChannelType.EMAIL">
+              <q-input
+                v-model="channelForm.emailTo"
+                :rules="[(val: string) => !!val || 'Email is required']"
+                aria-required="true"
+                aria-label="Recipient email address"
+                class="q-mb-md"
+                dense
+                label="Recipient Email *"
+                lazy-rules
+                outlined />
+              <q-select
+                v-model="channelForm.smtpSource"
+                :options="smtpSourceOptions"
+                aria-label="Email delivery source"
+                class="q-mb-md"
+                dense
+                emit-value
+                label="Email Delivery"
+                map-options
+                outlined />
+              <div v-if="channelForm.smtpSource === 'controller'" class="q-mb-md">
+                <q-badge
+                  :color="controllerEmailConfigured ? 'positive' : 'warning'"
+                  :label="
+                    controllerEmailConfigured
+                      ? 'Controller email configured'
+                      : 'Controller email not configured'
+                  " />
+                <div class="text-caption text-xy-secondary q-mt-sm">
+                  Delivery provider and sender come from Admin -> Controller Settings.
+                </div>
+              </div>
+              <template v-else>
+                <q-input
+                  v-model="channelForm.smtpHost"
+                  aria-label="SMTP host"
+                  class="q-mb-md"
+                  dense
+                  label="SMTP Host"
+                  outlined />
+                <q-input
+                  v-model.number="channelForm.smtpPort"
+                  aria-label="SMTP port"
+                  class="q-mb-md"
+                  dense
+                  label="SMTP Port"
+                  outlined
+                  type="number" />
+                <q-input
+                  v-model="channelForm.smtpUser"
+                  aria-label="SMTP username"
+                  class="q-mb-md"
+                  dense
+                  label="SMTP Username"
+                  outlined />
+                <q-input
+                  v-model="channelForm.smtpPassword"
+                  :hint="
+                    channelForm.hasExistingSmtpPassword
+                      ? 'Leave blank to keep the current password.'
+                      : undefined
+                  "
+                  aria-label="SMTP password"
+                  autocomplete="new-password"
+                  class="q-mb-md"
+                  dense
+                  label="SMTP Password"
+                  outlined
+                  type="password" />
+                <q-input
+                  v-model="channelForm.smtpFrom"
+                  aria-label="SMTP from address"
+                  class="q-mb-md"
+                  dense
+                  label="SMTP From Address"
+                  outlined />
+                <q-toggle
+                  v-model="channelForm.smtpTLSEnabled"
+                  aria-label="SMTP TLS enabled"
+                  class="q-mb-md"
+                  label="TLS Enabled" />
+              </template>
+            </template>
+          </q-card-section>
+
+          <q-card-actions align="right">
+            <q-btn flat label="Cancel" no-caps @click="showChannelDialog = false" />
+            <q-btn
+              :label="editingChannel ? 'Save' : 'Create'"
+              :loading="channelSaving"
+              color="primary"
+              no-caps
+              type="submit" />
+          </q-card-actions>
+        </q-form>
       </q-card>
     </q-dialog>
 
@@ -749,6 +772,8 @@ const channelColumns = [
     label: '',
     align: 'center' as const,
     field: () => '',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ]
 
@@ -782,13 +807,7 @@ async function toggleChannelEnabled(channel: NotificationChannel): Promise<void>
     )
     await loadChannels()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Failed to update channel: ' + ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr, 'Failed to update channel')
   }
 }
 
@@ -806,21 +825,10 @@ function confirmDeleteChannel(channel: NotificationChannel): void {
       await GetXylonaClient().deleteNotificationChannel(
         create(DeleteNotificationChannelRequestSchema, { id: channel.id }),
       )
-      $q.notify({
-        type: 'xylona-success',
-        caption: `Channel "${channel.name}" deleted`,
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess(`Channel "${channel.name}" deleted`)
       await loadChannels()
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: 'Failed to delete channel: ' + ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr, 'Failed to delete channel')
     }
   })
 }
@@ -830,6 +838,7 @@ const showChannelDialog = ref(false)
 const channelSaving = ref(false)
 const editingChannel = ref<NotificationChannel | null>(null)
 const controllerEmailConfigured = ref(false)
+const showWebhookUrl = ref(false)
 
 type SMTPSource = 'controller' | 'custom'
 
@@ -898,6 +907,7 @@ function openChannelDialog(channel: NotificationChannel | null): void {
   if (!hasAlertsManage.value) return
 
   editingChannel.value = channel
+  showWebhookUrl.value = false
   if (channel) {
     channelForm.value.name = channel.name
     channelForm.value.channelType = channel.channelType
@@ -966,27 +976,15 @@ function buildConfigJson(): string {
 }
 
 async function saveChannel(): Promise<void> {
+  // The q-form validates the required fields before it emits submit.
   if (!hasAlertsManage.value) return
-
-  if (!channelForm.value.name) {
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Channel name is required',
-      position: 'top',
-      timeout: 3000,
-    })
-    return
-  }
 
   if (
     channelForm.value.channelType === NotificationChannelType.EMAIL &&
     channelForm.value.smtpSource === 'controller' &&
     !controllerEmailConfigured.value
   ) {
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Controller email is not configured in Admin -> Controller Settings',
-      position: 'top',
+    notifyError('Controller email is not configured in Admin -> Controller Settings', {
       timeout: 3000,
     })
     return
@@ -1004,12 +1002,7 @@ async function saveChannel(): Promise<void> {
           enabled: channelForm.value.enabled,
         }),
       )
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Channel updated',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Channel updated')
     } else {
       await GetXylonaClient().createNotificationChannel(
         create(CreateNotificationChannelRequestSchema, {
@@ -1019,23 +1012,12 @@ async function saveChannel(): Promise<void> {
           enabled: channelForm.value.enabled,
         }),
       )
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Channel created',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Channel created')
     }
     showChannelDialog.value = false
     await loadChannels()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr)
   } finally {
     channelSaving.value = false
   }
@@ -1137,6 +1119,8 @@ const ruleColumns = [
     label: '',
     align: 'center' as const,
     field: () => '',
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ]
 
@@ -1172,13 +1156,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
     )
     await loadRules()
   } catch (unknownErr: unknown) {
-    const err = ConnectError.from(unknownErr)
-    $q.notify({
-      type: 'xylona-error',
-      caption: 'Failed to update rule: ' + ConnectErrorToString(err),
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyConnectError(unknownErr, 'Failed to update rule')
   }
 }
 
@@ -1194,21 +1172,10 @@ function confirmDeleteRule(rule: AlertRule): void {
   }).onOk(async () => {
     try {
       await GetXylonaClient().deleteAlertRule(create(DeleteAlertRuleRequestSchema, { id: rule.id }))
-      $q.notify({
-        type: 'xylona-success',
-        caption: 'Alert rule deleted',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Alert rule deleted')
       await loadRules()
     } catch (unknownErr: unknown) {
-      const err = ConnectError.from(unknownErr)
-      $q.notify({
-        type: 'xylona-error',
-        caption: 'Failed to delete alert rule: ' + ConnectErrorToString(err),
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyConnectError(unknownErr, 'Failed to delete alert rule')
     }
   })
 }
@@ -1283,7 +1250,7 @@ const historyColumns = [
     align: 'left' as const,
     field: (row: AlertHistoryEntry) => formatAlertEventData(row.eventType, row.eventData),
     sortable: false,
-    style: 'max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
+    style: 'min-width: 16rem; white-space: normal;',
   },
 ]
 
@@ -1345,21 +1312,6 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return 'Email'
     default:
       return 'Unknown'
-  }
-}
-
-function channelTypeBadgeColor(type: NotificationChannelType): string {
-  switch (type) {
-    case NotificationChannelType.WEBHOOK_DISCORD:
-      return 'purple'
-    case NotificationChannelType.WEBHOOK_SLACK:
-      return 'orange'
-    case NotificationChannelType.WEBHOOK_GENERIC:
-      return 'blue-grey'
-    case NotificationChannelType.EMAIL:
-      return 'teal'
-    default:
-      return 'grey'
   }
 }
 
@@ -1466,14 +1418,20 @@ onMounted(loadPage)
   gap: var(--xy-space-sm);
 }
 
+.delivery-error {
+  max-width: 16rem;
+  margin: var(--xy-space-2xs) auto 0;
+  white-space: normal;
+}
+
 .notification-mobile-card__fields > div {
   display: grid;
-  gap: 0.15rem;
+  gap: var(--xy-space-2xs);
 }
 
 .notification-mobile-card__fields span {
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;

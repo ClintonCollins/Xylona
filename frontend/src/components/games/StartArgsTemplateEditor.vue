@@ -37,7 +37,7 @@
             "
             :name="platform === 'windows' ? 'desktop_windows' : 'terminal'"
             size="14px" />
-          <span class="font-display">{{ platformLabel(platform) }}</span>
+          <span>{{ platformLabel(platform) }}</span>
         </button>
       </div>
 
@@ -69,6 +69,7 @@
                 icon="add"
                 label="Add argument"
                 no-caps
+                outline
                 @click="openAddDialog" />
             </div>
           </div>
@@ -120,10 +121,10 @@
                       name="drag_indicator"
                       size="16px" />
                     <q-icon
-                      v-if="block.ownership === 'locked'"
+                      v-if="block.ownership !== 'editable'"
+                      :name="ownershipIcon(block.ownership)"
                       aria-hidden="true"
-                      class="template-editor__arg-chip-lock"
-                      name="lock"
+                      class="template-editor__arg-chip-glyph"
                       size="14px" />
                     <span class="template-editor__arg-chip-text font-mono">{{
                       previewChipText(block)
@@ -156,12 +157,12 @@
                   <span
                     class="template-editor__legend-item template-editor__arg-chip--system"
                     title="Xylona fills it in from the server's settings">
-                    <span class="template-editor__legend-dot"></span>System
+                    <q-icon aria-hidden="true" :name="ownershipIcon('system')" size="12px" />System
                   </span>
                   <span
                     class="template-editor__legend-item template-editor__arg-chip--locked"
                     title="Only admins can change it on a server">
-                    <q-icon aria-hidden="true" name="lock" size="12px" />Locked
+                    <q-icon aria-hidden="true" :name="ownershipIcon('locked')" size="12px" />Locked
                   </span>
                   <span
                     class="template-editor__legend-item template-editor__arg-chip--editable"
@@ -207,7 +208,7 @@
                 {{ argumentCountLabel(currentTemplate.length) }} · fallback ordering
               </span>
             </span>
-            <span class="template-editor__toggle-indicator font-display">
+            <span class="template-editor__toggle-indicator">
               {{ isAdvancedExpanded ? 'Hide details' : 'Order details' }}
               <q-icon :name="isAdvancedExpanded ? 'expand_less' : 'expand_more'" size="18px" />
             </span>
@@ -218,12 +219,13 @@
             aria-label="Advanced launch sequence inspector"
             class="template-editor__sequence-list"
             role="list">
-            <article
+            <div
               v-for="(block, index) in currentTemplate"
               :key="block.id"
               :class="{ 'template-editor__sequence-row--selected': selectedBlockID === block.id }"
               :data-testid="`advanced-row-${block.id}`"
-              class="template-editor__sequence-row">
+              class="template-editor__sequence-row"
+              role="listitem">
               <button
                 :aria-label="inventorySelectAriaLabel(block, index)"
                 :aria-pressed="String(selectedBlockID === block.id)"
@@ -261,7 +263,7 @@
                   </button>
                 </div>
               </div>
-            </article>
+            </div>
           </div>
         </section>
       </div>
@@ -651,7 +653,7 @@ function previewChipClass(block: StartArgBlock, index: number) {
 }
 
 function previewSegmentAriaLabel(block: StartArgBlock, index: number) {
-  return `Edit argument ${index + 1}: ${previewChipTitle(block)}`
+  return `Edit argument ${index + 1}: ${previewChipTitle(block)} (${ownershipLabel(block.ownership)})`
 }
 
 function viewTransitionStyleForChip(blockID: string) {
@@ -678,6 +680,10 @@ function ownershipLabel(ownership: StartArgOwnership) {
   if (ownership === 'system') return 'System'
   if (ownership === 'locked') return 'Locked'
   return 'Editable'
+}
+
+function ownershipIcon(ownership: StartArgOwnership) {
+  return ownership === 'locked' ? 'lock' : 'settings'
 }
 
 function ownershipPillClass(ownership: StartArgOwnership) {
@@ -1021,18 +1027,6 @@ function createBlockId() {
   gap: var(--xy-space-md);
 }
 
-@keyframes template-editor-prompt-pulse {
-  0%,
-  100% {
-    text-shadow: 0 0 12px color-mix(in srgb, var(--template-editor-platform) 14%, transparent);
-    opacity: 0.92;
-  }
-  50% {
-    text-shadow: 0 0 24px color-mix(in srgb, var(--template-editor-platform) 28%, transparent);
-    opacity: 1;
-  }
-}
-
 @keyframes template-editor-dialog-in {
   from {
     opacity: 0;
@@ -1041,16 +1035,6 @@ function createBlockId() {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes template-editor-shell-glow {
-  0%,
-  100% {
-    box-shadow: var(--xy-shadow-2xl);
-  }
-  50% {
-    box-shadow: var(--xy-shadow-xl);
   }
 }
 
@@ -1138,7 +1122,13 @@ function createBlockId() {
   border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-xl);
   background: var(--xy-surface-gradient-subtle), var(--xy-surface-1);
-  box-shadow: var(--xy-shadow-md);
+}
+
+/* The command shell carries the frame, so the preview card around it stays an unframed band. */
+.template-editor__card--preview {
+  padding: 0;
+  border: none;
+  background: none;
 }
 
 .template-editor__card--advanced {
@@ -1222,7 +1212,7 @@ function createBlockId() {
   gap: 8px;
   min-height: 38px;
   padding: 0 14px;
-  border-radius: var(--xy-radius-pill);
+  border-radius: var(--xy-radius-md);
   border: 1px solid var(--xy-border);
   background: var(--xy-surface-0);
   color: var(--xy-text-secondary);
@@ -1255,7 +1245,7 @@ function createBlockId() {
 .template-editor__toggle-indicator {
   min-height: 2.15rem;
   padding: 0.38rem 0.42rem;
-  border-radius: var(--xy-radius-pill);
+  border-radius: var(--xy-radius-md);
   border: none;
   background: transparent;
   color: var(--xy-accent);
@@ -1297,11 +1287,10 @@ function createBlockId() {
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--template-editor-platform) 5%, rgba(255, 255, 255, 0.02)),
+      color-mix(in srgb, var(--template-editor-platform) 5%, transparent),
       transparent 35%
     ),
     color-mix(in srgb, var(--template-editor-platform) 2%, var(--xy-surface-0) 98%);
-  animation: template-editor-shell-glow 4.6s ease-in-out infinite;
 }
 
 .template-editor__terminal-label {
@@ -1370,7 +1359,6 @@ function createBlockId() {
   color: var(--template-editor-platform);
   font-family: var(--xy-font-display);
   font-size: var(--xy-font-size-base);
-  animation: template-editor-prompt-pulse 2.8s ease-in-out infinite;
 }
 
 .template-editor__base-command {
@@ -1387,10 +1375,7 @@ function createBlockId() {
   background: color-mix(in srgb, var(--template-editor-platform) 4%, var(--xy-surface-1) 96%);
   color: var(--xy-text-primary);
   font-size: var(--xy-font-size-sm);
-  outline: none;
-  transition:
-    border-color var(--xy-transition-fast),
-    box-shadow var(--xy-transition-fast);
+  transition: border-color var(--xy-transition-fast);
 }
 
 .template-editor__base-command-input::placeholder {
@@ -1399,7 +1384,14 @@ function createBlockId() {
 
 .template-editor__base-command-input:focus {
   border-color: color-mix(in srgb, var(--template-editor-platform) 56%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--template-editor-platform) 16%, transparent);
+}
+
+/* The global 3px focus ring drawn inside the element, so the command line's overflow clip
+   can't cut it on wrapped rows. */
+.template-editor__base-command-input:focus-visible,
+.template-editor__arg-chip:focus-visible,
+.template-editor__empty-chip:focus-visible {
+  outline-offset: -3px;
 }
 
 .template-editor__arg-chip,
@@ -1424,9 +1416,7 @@ function createBlockId() {
   cursor: pointer;
   transition:
     border-color var(--xy-transition-fast),
-    background var(--xy-transition-fast),
-    box-shadow var(--xy-transition-fast),
-    filter var(--xy-transition-fast);
+    background var(--xy-transition-fast);
 }
 
 .template-editor__arg-chip:hover,
@@ -1437,7 +1427,6 @@ function createBlockId() {
     var(--template-editor-chip-accent) 1.5%,
     var(--xy-surface-0) 98.5%
   );
-  filter: brightness(1.04);
 }
 
 .template-editor__arg-chip {
@@ -1446,12 +1435,6 @@ function createBlockId() {
 
 .template-editor__arg-chip:active {
   cursor: grabbing;
-}
-
-.template-editor__arg-chip:focus-visible,
-.template-editor__empty-chip:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--template-editor-chip-accent) 18%, transparent);
 }
 
 .template-editor__arg-chip--system {
@@ -1469,9 +1452,8 @@ function createBlockId() {
   --template-editor-chip-text: var(--xy-text-secondary);
 }
 
-.template-editor__arg-chip-lock {
+.template-editor__arg-chip-glyph {
   flex: 0 0 auto;
-  color: var(--xy-text-muted);
 }
 
 .template-editor__arg-chip--editable {
@@ -1674,9 +1656,7 @@ function createBlockId() {
 
 @media (prefers-reduced-motion: reduce) {
   .template-editor-panel-enter-active,
-  .template-editor-panel-leave-active,
-  .template-editor__command-shell,
-  .template-editor__prompt {
+  .template-editor-panel-leave-active {
     animation: none;
   }
 
@@ -1818,14 +1798,6 @@ function createBlockId() {
   }
 
   .template-editor__command-hint {
-    display: none;
-  }
-
-  .template-editor__sequence-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .template-editor__state {
     display: none;
   }
 

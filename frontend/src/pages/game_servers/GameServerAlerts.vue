@@ -127,6 +127,8 @@ const rulesColumns = computed(() => [
     label: 'Actions',
     field: '',
     align: 'right' as const,
+    classes: 'xy-col-actions',
+    headerClasses: 'xy-col-actions',
   },
 ])
 
@@ -171,10 +173,15 @@ const filteredHistory = computed(() => {
   return alertHistory.value.filter((entry) => entry.eventType === historyEventTypeFilter.value)
 })
 
-function ruleToggleLabel(rule: AlertRule): string {
-  const label = `Enable ${alertEventTypeLabel(rule.eventType)} alert`
+// Rules have no name of their own, so row controls name them by event and condition.
+function ruleName(rule: AlertRule): string {
+  const label = `${alertEventTypeLabel(rule.eventType)} alert`
   const condition = formatCondition(rule.eventType, rule.condition)
   return condition === '-' ? label : `${label}: ${condition}`
+}
+
+function ruleToggleLabel(rule: AlertRule): string {
+  return `Enable ${ruleName(rule)}`
 }
 
 onMounted(loadPage)
@@ -451,8 +458,15 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               </q-card-section>
 
               <q-card-actions v-if="hasAlertsManage" align="right">
-                <q-btn flat icon="edit" label="Edit" no-caps @click="openEditDialog(props.row)" />
                 <q-btn
+                  :aria-label="`Edit ${ruleName(props.row)}`"
+                  flat
+                  icon="edit"
+                  label="Edit"
+                  no-caps
+                  @click="openEditDialog(props.row)" />
+                <q-btn
+                  :aria-label="`Delete ${ruleName(props.row)}`"
                   color="negative"
                   flat
                   icon="delete"
@@ -480,27 +494,27 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
           <template #body-cell-actions="props">
             <q-td :props="props">
-              <template v-if="hasAlertsManage">
+              <div v-if="hasAlertsManage" class="xy-row-actions">
                 <q-btn
-                  aria-label="Edit rule"
+                  :aria-label="`Edit ${ruleName(props.row)}`"
                   dense
                   flat
                   icon="edit"
-                  size="sm"
+                  round
                   @click="openEditDialog(props.row)">
                   <q-tooltip>Edit</q-tooltip>
                 </q-btn>
                 <q-btn
-                  aria-label="Delete rule"
+                  :aria-label="`Delete ${ruleName(props.row)}`"
                   color="negative"
                   dense
                   flat
                   icon="delete"
-                  size="sm"
+                  round
                   @click="confirmDeleteRule(props.row)">
                   <q-tooltip>Delete</q-tooltip>
                 </q-btn>
-              </template>
+              </div>
             </q-td>
           </template>
         </q-table>
@@ -579,9 +593,9 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
               <q-badge
                 :color="deliveryStatusColors[props.row.deliveryStatus] ?? 'grey'"
                 :label="deliveryStatusLabels[props.row.deliveryStatus] ?? 'Unknown'" />
-              <q-tooltip v-if="props.row.deliveryError">
+              <div v-if="props.row.deliveryError" class="alerts-delivery-error text-negative">
                 {{ props.row.deliveryError }}
-              </q-tooltip>
+              </div>
             </q-td>
           </template>
         </q-table>
@@ -678,9 +692,17 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
   gap: 0.15rem;
 }
 
+.alerts-delivery-error {
+  max-width: 32ch;
+  margin: var(--xy-space-2xs) auto 0;
+  font-size: var(--xy-font-size-xs);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .alerts-mobile-card__fields span {
   color: var(--xy-text-muted);
-  font-size: 0.72rem;
+  font-size: var(--xy-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;

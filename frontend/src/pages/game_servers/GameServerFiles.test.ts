@@ -26,7 +26,8 @@ const mocks = vi.hoisted(() => ({
   gameServerFilesDownloadFromURL: vi.fn(),
   getGameServer: vi.fn(),
   listDirectoryFiles: vi.fn(),
-  notify: vi.fn(),
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
 }))
 
 vi.mock('quasar', async () => {
@@ -37,12 +38,16 @@ vi.mock('quasar', async () => {
     useQuasar: () => ({
       dialog: mocks.dialog,
       loading: { hide: vi.fn(), show: vi.fn() },
-      notify: mocks.notify,
       platform: { has: { touch: false }, is: { mobile: false } },
       screen: { gt: { xs: true }, lt: { sm: false } },
     }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifyError: mocks.notifyError,
+  notifySuccess: mocks.notifySuccess,
+}))
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { id: 'server-1' } }),
@@ -81,7 +86,8 @@ describe('GameServerFiles', () => {
     mocks.listDirectoryFiles.mockReset()
     mocks.copyToClipboard.mockReset()
     mocks.dialog.mockReset()
-    mocks.notify.mockReset()
+    mocks.notifyError.mockReset()
+    mocks.notifySuccess.mockReset()
     vi.unstubAllGlobals()
     window.location.hash = ''
   })
@@ -170,9 +176,7 @@ describe('GameServerFiles', () => {
 
     expect(viewModel.editorModal).toBe(false)
     expect(readResponseBody).not.toHaveBeenCalled()
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ caption: 'Error reading file server.cfg.' }),
-    )
+    expect(mocks.notifyError).toHaveBeenCalledWith('Error reading file server.cfg.')
     wrapper.unmount()
   })
 
@@ -500,9 +504,7 @@ describe('GameServerFiles', () => {
       }),
     )
     expect(viewModel.urlUploadDialog).toBe(false)
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'server.jar uploaded from URL.' }),
-    )
+    expect(mocks.notifySuccess).toHaveBeenCalledWith('server.jar uploaded from URL.')
     wrapper.unmount()
   })
 

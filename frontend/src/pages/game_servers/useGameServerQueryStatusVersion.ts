@@ -13,9 +13,8 @@ import {
   type QueryGameServerRequest,
   type QueryGameServerResponse,
 } from '@/proto/xylona_pb'
-import { ConnectError } from '@connectrpc/connect'
-import { useQuasar } from 'quasar'
-import { ConnectErrorToString, GetXylonaClient, XylonaEventBus } from '@/utils/shared'
+import { notifyConnectError } from '@/api/notifications'
+import { GetXylonaClient, XylonaEventBus } from '@/utils/shared'
 
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 
@@ -77,7 +76,6 @@ export function useGameServerQueryStatusVersion({
   gameServer,
   gameServerId,
 }: UseGameServerQueryStatusVersionOptions) {
-  const $q = useQuasar()
   const currentPlayerCount = ref(0)
   const maxPlayerCount = ref(0)
   const onlinePlayers = ref<string[]>([])
@@ -140,12 +138,7 @@ export function useGameServerQueryStatusVersion({
     } catch (error) {
       queryResponded.value = false
       console.error(error)
-      $q.notify({
-        type: 'xylona-error',
-        position: 'top',
-        caption: 'Failed to query game server: ' + ConnectErrorToString(ConnectError.from(error)),
-        icon: 'report_problem',
-      })
+      notifyConnectError(error, 'Failed to query game server', { icon: 'report_problem' })
     }
   }
 

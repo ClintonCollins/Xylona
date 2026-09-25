@@ -254,11 +254,11 @@ onUnmounted(() => {
       :view="mapView"
       @refresh="loadMap" />
 
-    <q-dialog v-model="settingsOpen">
+    <q-dialog v-model="settingsOpen" aria-labelledby="palworld-map-imagery-title">
       <q-card class="palworld-map-dialog">
         <q-card-section class="palworld-map-dialog__heading">
           <div>
-            <div class="text-h6">Map imagery</div>
+            <div id="palworld-map-imagery-title" class="text-h6">Map imagery</div>
             <div class="text-caption text-xy-secondary">
               Download optional imagery into Xylona's data directory or use your own permitted XYZ
               source. Map art is not bundled with Xylona.
@@ -419,7 +419,11 @@ onUnmounted(() => {
 
     <!-- Backdrop clicks and Esc ask the settings first so unsaved edits get the discard prompt.
          Route changes are left to the settings' own leave guard, so it never asks twice. -->
-    <q-dialog :model-value="shareOpen" no-route-dismiss @update:model-value="onShareDialogToggle">
+    <q-dialog
+      aria-labelledby="map-share-settings-title"
+      :model-value="shareOpen"
+      no-route-dismiss
+      @update:model-value="onShareDialogToggle">
       <game-server-map-share-settings
         ref="shareSettings"
         :game-server-id="gameServerID"

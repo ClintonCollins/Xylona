@@ -98,6 +98,7 @@ vi.mock('./useGameServerFormState', async () => {
         initialize: mocks.initialize,
         ipRules: [],
         isMinecraftGame: true,
+        loadError: ref(''),
         loading: false,
         maxMemoryModel: 1024,
         maxMemoryRules: [],

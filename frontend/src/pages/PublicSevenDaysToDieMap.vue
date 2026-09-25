@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { Code, ConnectError } from '@connectrpc/connect'
+import { defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 import SevenDaysToDieWorldOverview from '@/components/seven_days_to_die/SevenDaysToDieWorldOverview.vue'
 import {
@@ -16,7 +17,8 @@ const SevenDaysToDieLiveMap = defineAsyncComponent(
 
 const props = defineProps<{ identifier: string }>()
 const pollIntervalMilliseconds = 5_000
-const mapView = ref<SevenDaysToDieMapView | null>(null)
+// Each poll replaces the view wholesale, so deep reactivity would only re-proxy the snapshot.
+const mapView = shallowRef<SevenDaysToDieMapView | null>(null)
 watch(
   () => mapView.value?.gameServerName,
   (name) => {
@@ -43,8 +45,12 @@ async function loadMap(): Promise<void> {
     loadError.value = false
   } catch (unknownError: unknown) {
     console.error(unknownError)
-    if (mapView.value === null) {
+    // Only NotFound means the link is gone; anything else is a temporary outage.
+    if (ConnectError.from(unknownError).code === Code.NotFound) {
+      mapView.value = null
       invalidLink.value = true
+      loadError.value = false
+      stopPolling()
     } else {
       loadError.value = true
     }
@@ -53,15 +59,36 @@ async function loadMap(): Promise<void> {
   }
 }
 
-onMounted(() => {
+function stopPolling() {
+  if (pollTimer !== undefined) {
+    clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
+
+function startPolling() {
+  stopPolling()
   void loadMap()
   pollTimer = setInterval(() => void loadMap(), pollIntervalMilliseconds)
+}
+
+function handleVisibilityChange() {
+  // A revoked link (NotFound) stays gone, so it never resumes polling.
+  if (document.visibilityState === 'hidden' || invalidLink.value) {
+    stopPolling()
+    return
+  }
+  startPolling()
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  handleVisibilityChange()
 })
 
 onBeforeUnmount(() => {
-  if (pollTimer !== undefined) {
-    clearInterval(pollTimer)
-  }
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopPolling()
 })
 </script>
 
@@ -71,14 +98,26 @@ onBeforeUnmount(() => {
       <div class="public-seven-days-map__brand">Xylona</div>
       <div class="public-seven-days-map__title">
         <span>7 Days to Die live map</span>
-        <strong>{{ mapView?.gameServerName || 'Shared server' }}</strong>
+        <h1>{{ mapView?.gameServerName || 'Shared server' }}</h1>
       </div>
     </header>
 
     <div v-if="invalidLink" class="public-seven-days-map__invalid">
       <q-icon name="link_off" size="48px" />
-      <h1>This map link is not available</h1>
+      <h2>This map link is not available</h2>
       <p>It may be incomplete, replaced, or revoked by the server administrator.</p>
+    </div>
+    <div v-else-if="loadError && mapView === null" class="public-seven-days-map__invalid">
+      <q-icon name="cloud_off" size="48px" />
+      <h2>Map temporarily unavailable</h2>
+      <p>The map could not be reached. Try again in a moment.</p>
+      <q-btn
+        class="q-mt-md"
+        color="primary"
+        label="Retry"
+        :loading="loading"
+        no-caps
+        @click="loadMap" />
     </div>
     <seven-days-to-die-live-map
       v-else
@@ -89,7 +128,7 @@ onBeforeUnmount(() => {
       :view="mapView"
       @refresh="loadMap" />
     <seven-days-to-die-world-overview
-      v-if="!invalidLink"
+      v-if="!invalidLink && !(loadError && mapView === null)"
       class="public-seven-days-map__overview"
       :show-tactical="!loadError"
       :status-loading="loading && mapView === null"
@@ -120,7 +159,7 @@ onBeforeUnmount(() => {
   color: var(--xy-accent);
   font-family: var(--xy-font-brand);
   font-size: var(--xy-font-size-xl);
-  letter-spacing: 0.05em;
+  line-height: var(--xy-line-height-tight);
 }
 
 .public-seven-days-map__title {
@@ -137,9 +176,12 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.public-seven-days-map__title strong {
+.public-seven-days-map__title h1 {
+  margin: 0;
   font-family: var(--xy-font-heading);
+  font-size: var(--xy-font-size-base);
   font-weight: 500;
+  letter-spacing: normal;
 }
 
 .public-seven-days-map__invalid {
@@ -150,7 +192,7 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.public-seven-days-map__invalid h1 {
+.public-seven-days-map__invalid h2 {
   margin: var(--xy-space-md) 0 var(--xy-space-sm);
   font-family: var(--xy-font-heading);
   font-size: var(--xy-font-size-xl);
@@ -170,7 +212,7 @@ onBeforeUnmount(() => {
   margin-top: var(--xy-space-md);
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1024px) {
   .public-seven-days-map {
     display: grid;
     grid-template-areas:

@@ -1,7 +1,7 @@
 import { create } from '@bufbuild/protobuf'
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   AdvancedFieldSchema,
@@ -12,6 +12,23 @@ import type { AdvancedField, ConfigFieldData, ConfigValidationError } from '@/pr
 
 import ConfigAdvancedFields from './ConfigAdvancedFields.vue'
 import ConfigFileEditor from './ConfigFileEditor.vue'
+
+const mocks = vi.hoisted(() => {
+  const state = { confirm: true }
+  return {
+    state,
+    dialog: vi.fn(() => ({
+      onOk(handler: () => void) {
+        if (state.confirm) handler()
+      },
+    })),
+  }
+})
+
+vi.mock('quasar', async () => {
+  const actual = await vi.importActual<typeof import('quasar')>('quasar')
+  return { ...actual, useQuasar: () => ({ dialog: mocks.dialog }) }
+})
 
 const ButtonStub = defineComponent({
   props: { label: { type: String, default: '' }, disable: Boolean },
@@ -150,7 +167,9 @@ describe('ConfigFileEditor', () => {
     expect(row.classes()).toContain('setting-invalid')
     expect(row.find('.input-stub').attributes('data-error')).toBe('Not allowed')
     expect(wrapper.find('.validation-banner').text()).toContain('MOTD: Not allowed')
-    expect(wrapper.find('[data-test="config-row-motd"] input').element.value).toBe('bad value')
+    expect(
+      wrapper.find<HTMLInputElement>('[data-test="config-row-motd"] input').element.value,
+    ).toBe('bad value')
 
     await typeInto(wrapper, 'motd', 'better value')
 
@@ -179,15 +198,29 @@ describe('ConfigFileEditor', () => {
     expect(saveButton(wrapper).attributes('disabled')).toBeUndefined()
   })
 
-  it('discards edits and tells the parent', async () => {
+  it('discards edits once confirmed and tells the parent', async () => {
     const wrapper = mountEditor({ fields: [field({ key: 'motd', value: 'Hello' })] })
     expect(wrapper.find('.discard-btn').exists()).toBe(false)
 
     await typeInto(wrapper, 'motd', 'Welcome')
+    mocks.state.confirm = false
+    await wrapper.find('.discard-btn').trigger('click')
+
+    expect(mocks.dialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Discard changes to server.properties?', focus: 'cancel' }),
+    )
+    expect(wrapper.emitted('discard')).toBeUndefined()
+    expect(
+      wrapper.find<HTMLInputElement>('[data-test="config-row-motd"] input').element.value,
+    ).toBe('Welcome')
+
+    mocks.state.confirm = true
     await wrapper.find('.discard-btn').trigger('click')
 
     expect(wrapper.emitted('discard')).toHaveLength(1)
-    expect(wrapper.find('[data-test="config-row-motd"] input').element.value).toBe('Hello')
+    expect(
+      wrapper.find<HTMLInputElement>('[data-test="config-row-motd"] input').element.value,
+    ).toBe('Hello')
     expect(wrapper.find('.discard-btn').exists()).toBe(false)
   })
 
@@ -264,7 +297,9 @@ describe('ConfigFileEditor', () => {
       fields: [field({ key: 'ExpRate', fieldType: 'number', value: '1.000000' })],
     })
 
-    expect(wrapper.find('[data-test="config-row-ExpRate"] input').element.value).toBe('1')
+    expect(
+      wrapper.find<HTMLInputElement>('[data-test="config-row-ExpRate"] input').element.value,
+    ).toBe('1')
 
     await typeInto(wrapper, 'ExpRate', '1.0')
     expect(wrapper.find('[data-test="config-row-ExpRate"]').classes()).not.toContain(

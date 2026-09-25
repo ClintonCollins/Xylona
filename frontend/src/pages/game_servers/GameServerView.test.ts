@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -73,14 +74,19 @@ const mocks = vi.hoisted(() => {
     }),
     getGameServer: vi.fn(),
     getGameServerReadiness: vi.fn(),
+    notifyConnectError: vi.fn(),
+    notifyError: vi.fn(),
     readGameServerOutput: vi.fn(),
+    restartGameServer: vi.fn(),
     sendGameServerInput: vi.fn(),
+    startGameServer: vi.fn(),
     stopGameServer: vi.fn(),
     updateGameServer: vi.fn(),
     waitForOpen: vi.fn(),
     isOpen: vi.fn(),
     queryState: {
       currentPlayerCount: 0,
+      playerCountUnknown: false,
       maxPlayerCount: 0,
       onlinePlayers: [] as string[],
       playerListSupported: false,
@@ -88,6 +94,7 @@ const mocks = vi.hoisted(() => {
     queryGameServer: vi.fn(),
     startQueryStatusVersionLifecycle: vi.fn(),
     startMetricsPreviewLifecycle: vi.fn(),
+    screen: { lt: { md: false } },
   }
 })
 
@@ -98,7 +105,7 @@ vi.mock('quasar', async () => {
     useQuasar: () => ({
       notify: mocks.notify,
       dialog: mocks.dialog,
-      screen: { lt: { md: false } },
+      screen: mocks.screen,
     }),
   }
 })
@@ -122,11 +129,19 @@ vi.mock('@/utils/shared', () => ({
     getGameServer: mocks.getGameServer,
     getGameServerReadiness: mocks.getGameServerReadiness,
     readGameServerOutput: mocks.readGameServerOutput,
+    restartGameServer: mocks.restartGameServer,
     sendGameServerInput: mocks.sendGameServerInput,
+    startGameServer: mocks.startGameServer,
     stopGameServer: mocks.stopGameServer,
     updateGameServer: mocks.updateGameServer,
   }),
   XylonaEventBus: mocks.eventBus,
+}))
+
+vi.mock('@/api/notifications', async () => ({
+  ...(await vi.importActual<typeof import('@/api/notifications')>('@/api/notifications')),
+  notifyConnectError: mocks.notifyConnectError,
+  notifyError: mocks.notifyError,
 }))
 
 vi.mock('./useGameServerMetricsPreview', async () => {
@@ -165,7 +180,9 @@ vi.mock('./useGameServerQueryStatusVersion', async () => {
       maxPlayerCount: ref(mocks.queryState.maxPlayerCount),
       onlinePlayers: ref([...mocks.queryState.onlinePlayers]),
       playerListSupported: ref(mocks.queryState.playerListSupported),
-      playerCount: ref(mocks.queryState.currentPlayerCount),
+      playerCount: ref(
+        mocks.queryState.playerCountUnknown ? null : mocks.queryState.currentPlayerCount,
+      ),
       unknownPlayersMessage: ref('Player count and names unavailable.'),
       queryGameServer: mocks.queryGameServer,
       startQueryStatusVersionLifecycle: mocks.startQueryStatusVersionLifecycle,
@@ -205,8 +222,9 @@ function buildOnlineGameServer() {
   })
 }
 
-function mountView() {
+function mountView(attachTo?: Element) {
   return mount(GameServerView, {
+    attachTo,
     shallow: true,
     global: {
       renderStubDefaultSlot: true,
@@ -226,6 +244,12 @@ function mountView() {
       },
     },
   })
+}
+
+function controlButton(wrapper: ReturnType<typeof mountView>, label: string) {
+  const found = wrapper.findAll('q-btn-stub').find((btn) => btn.attributes('label') === label)
+  if (found === undefined) throw new Error(`no ${label} button`)
+  return found
 }
 
 describe('GameServerView', () => {
@@ -267,6 +291,7 @@ describe('GameServerView', () => {
     mocks.getGameServerReadiness.mockResolvedValue({ items: [] })
     mocks.readGameServerOutput.mockReset()
     mocks.queryState.currentPlayerCount = 0
+    mocks.queryState.playerCountUnknown = false
     mocks.queryState.maxPlayerCount = 0
     mocks.queryState.onlinePlayers = []
     mocks.queryState.playerListSupported = false
@@ -274,8 +299,13 @@ describe('GameServerView', () => {
     mocks.startQueryStatusVersionLifecycle.mockReset()
     mocks.startMetricsPreviewLifecycle.mockReset()
     mocks.sendGameServerInput.mockReset()
+    mocks.startGameServer.mockReset()
     mocks.stopGameServer.mockReset()
     mocks.updateGameServer.mockReset()
+    mocks.notifyConnectError.mockReset()
+    mocks.notifyError.mockReset()
+    mocks.restartGameServer.mockReset()
+    mocks.screen.lt.md = false
     mocks.dialog.mockClear()
     mocks.dialogChoice.value = 'ok'
     setWebsocketConnectionStatus('connected')
@@ -370,19 +400,192 @@ describe('GameServerView', () => {
     },
   )
 
-  it('re-reads readiness when the identity bar reports a rejected start', async () => {
+  it.each([
+    { status: Status.OFFLINE, start: true, stop: false },
+    { status: Status.ONLINE, start: false, stop: true },
+    { status: Status.PRE_START, start: false, stop: true },
+    { status: Status.UNKNOWN, start: false, stop: false },
+  ])('enables only the controls status $status allows', async ({ status, start, stop }) => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: create(GameServerSchema, { ...buildGameServer(), status }),
+      }),
+    )
     mocks.readGameServerOutput.mockResolvedValue(
       create(ReadGameServerOutputResponseSchema, { output: '' }),
     )
 
-    mountView()
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(controlButton(wrapper, 'Start').attributes('disable')).toBe(start ? 'false' : 'true')
+    // Restart follows Stop: both need a running process.
+    expect(controlButton(wrapper, 'Restart').attributes('disable')).toBe(stop ? 'false' : 'true')
+    expect(controlButton(wrapper, 'Stop').attributes('disable')).toBe(stop ? 'false' : 'true')
+  })
+
+  it('keeps a control disabled without its permission', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: create(GameServerSchema, {
+          ...buildOnlineGameServer(),
+          effectivePermissions: ['game_server.start'],
+        }),
+      }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const stopButton = controlButton(wrapper, 'Stop')
+    expect(stopButton.attributes('disable')).toBe('true')
+    expect(stopButton.attributes('aria-label')).toBe('Stop (requires stop permission)')
+  })
+
+  it.each([
+    {
+      label: 'confirms a stop that disconnects players',
+      playerCount: 3,
+      dialogChoice: 'ok' as const,
+      wantDialog: true,
+      wantStops: 1,
+    },
+    {
+      label: 'keeps the server running when the stop confirm is cancelled',
+      playerCount: 3,
+      dialogChoice: 'dismiss' as const,
+      wantDialog: true,
+      wantStops: 0,
+    },
+    {
+      label: 'confirms a stop when the player count is unknown',
+      playerCount: null,
+      dialogChoice: 'ok' as const,
+      wantDialog: true,
+      wantStops: 1,
+    },
+    {
+      label: 'stops at once when nobody is online',
+      playerCount: 0,
+      dialogChoice: 'ok' as const,
+      wantDialog: false,
+      wantStops: 1,
+    },
+  ])('$label', async ({ playerCount, dialogChoice, wantDialog, wantStops }) => {
+    mocks.queryState.currentPlayerCount = playerCount ?? 0
+    mocks.queryState.playerCountUnknown = playerCount === null
+    mocks.dialogChoice.value = dialogChoice
+    mocks.stopGameServer.mockResolvedValue({})
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildOnlineGameServer() }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+    await controlButton(wrapper, 'Stop').trigger('click')
+    await flushPromises()
+
+    if (wantDialog) {
+      expect(mocks.dialog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Stop Remote Minecraft?',
+          ok: expect.objectContaining({ label: 'Stop server' }),
+        }),
+      )
+    } else {
+      expect(mocks.dialog).not.toHaveBeenCalled()
+    }
+    expect(mocks.stopGameServer).toHaveBeenCalledTimes(wantStops)
+    if (wantStops > 0) {
+      expect(mocks.stopGameServer).toHaveBeenCalledWith(
+        expect.objectContaining({ serverId: 'server-remote-1' }),
+      )
+    }
+  })
+
+  it('confirms a restart that disconnects players, then restarts the server', async () => {
+    mocks.queryState.currentPlayerCount = 2
+    mocks.restartGameServer.mockResolvedValue({})
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildOnlineGameServer() }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+    await controlButton(wrapper, 'Restart').trigger('click')
+    await flushPromises()
+
+    expect(mocks.dialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Restart Remote Minecraft?' }),
+    )
+    expect(mocks.restartGameServer).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'server-remote-1' }),
+    )
+  })
+
+  it.each([
+    { label: 'on a narrow screen', narrow: true, want: true },
+    { label: 'beside an open sidebar', narrow: false, want: false },
+  ])('puts lifecycle controls in the console topbar $label', async ({ narrow, want }) => {
+    mocks.screen.lt.md = narrow
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, {
+        gameServer: create(GameServerSchema, { ...buildGameServer(), status: Status.UNKNOWN }),
+      }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const topbarControls = wrapper.find('.console-topbar .console-lifecycle')
+    expect(topbarControls.exists()).toBe(want)
+    // The paused-controls hint shows wherever the controls are.
+    expect(wrapper.find('.controls-hint--topbar').exists()).toBe(want)
+    if (!want) return
+    const buttons = topbarControls.findAll('q-btn-stub')
+    expect(buttons.map((button) => button.attributes('aria-label'))).toEqual([
+      'Start',
+      'Restart',
+      'Stop',
+    ])
+    expect(buttons.every((button) => button.attributes('disable') === 'true')).toBe(true)
+  })
+
+  it('shows a rejected start and re-reads readiness', async () => {
+    mocks.startGameServer.mockRejectedValue(
+      new ConnectError('accept the EULA first', Code.FailedPrecondition),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
     await flushPromises()
     expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(1)
 
-    mocks.eventBus.emit('gameServerStartRejected', 'another-server')
-    mocks.eventBus.emit('gameServerStartRejected', 'server-remote-1')
+    await controlButton(wrapper, 'Start').trigger('click')
     await flushPromises()
 
+    expect(mocks.startGameServer).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'server-remote-1' }),
+    )
+    expect(wrapper.get('.start-failure').text()).toContain('accept the EULA first')
+    expect(mocks.notifyConnectError).toHaveBeenCalledWith(
+      expect.any(ConnectError),
+      'Failed to start game server',
+    )
     expect(mocks.getGameServerReadiness).toHaveBeenCalledTimes(2)
   })
 
@@ -405,6 +608,15 @@ describe('GameServerView', () => {
     const wrapper = mountView()
     await flushPromises()
 
+    const start = controlButton(wrapper, 'Start')
+    expect(start.attributes('disable')).toBe('true')
+    expect(start.attributes('aria-label')).toBe(
+      'Start (blocked until Dragonwilds configuration is finished)',
+    )
+    // The hint sits beside the button, since a disabled button gets no hover.
+    expect(start.element.parentElement?.textContent).toContain(
+      'Dragonwilds configuration: Set the Owner ID.',
+    )
     expect(wrapper.get('.offline-hint').text()).toBe(
       'Start is blocked until Dragonwilds configuration is finished — see Details',
     )
@@ -671,9 +883,7 @@ describe('GameServerView', () => {
     })
     await flushPromises()
 
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ caption: expect.stringContaining('download failed') }),
-    )
+    expect(mocks.notifyError).toHaveBeenCalledWith(expect.stringContaining('download failed'))
   })
 
   it('preserves typed command text when sending fails', async () => {
@@ -701,8 +911,9 @@ describe('GameServerView', () => {
 
     expect(mocks.sendGameServerInput).toHaveBeenCalledTimes(1)
     expect(viewModel.serverInput).toBe('say Server restart in 5 minutes')
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ caption: expect.stringContaining('Failed to send command') }),
+    expect(mocks.notifyConnectError).toHaveBeenCalledWith(
+      expect.any(Error),
+      'Failed to send command',
     )
   })
 
@@ -800,5 +1011,92 @@ describe('GameServerView', () => {
     expect(reconnectResponse.gameServer?.status).toBe(Status.ONLINE)
     expect(viewModel.gameServer.status).toBe(Status.ONLINE)
     expect(viewModel.serverStateAuthoritative).toBe(true)
+  })
+
+  it('keeps the log silent and summarises new output at most every five seconds', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildOnlineGameServer() }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      expect(wrapper.get('#consoleCodeEl').attributes('aria-live')).toBe('off')
+      const summary = wrapper.get('.console-wrapper > [role="status"].xy-visually-hidden')
+
+      mocks.eventBus.emit('gameServerConsoleOutput', 'server-remote-1', 'one\ntwo\n', 1n)
+      await nextTick()
+      mocks.eventBus.emit('gameServerConsoleOutput', 'server-remote-1', 'three\n', 2n)
+      await nextTick()
+      vi.advanceTimersByTime(4999)
+      await nextTick()
+      expect(summary.text()).toBe('')
+
+      vi.advanceTimersByTime(1)
+      await nextTick()
+      await nextTick()
+      // Both chunks land in one summary.
+      const lines = (wrapper.vm as unknown as { consoleLines: unknown[] }).consoleLines.length
+      expect(lines).toBeGreaterThan(1)
+      expect(summary.text()).toBe(`${lines} new console lines`)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not announce replayed history as new console output', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildOnlineGameServer() }),
+    )
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+
+    const wrapper = mountView()
+    await flushPromises()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const summary = wrapper.get('.console-wrapper > [role="status"].xy-visually-hidden')
+      // A reset (reconnect or first load) re-sends the whole buffer.
+      mocks.eventBus.emit('gameServerConsoleOutput', 'server-remote-1', 'a\nb\nc\n', 1n, true)
+      await nextTick()
+      vi.advanceTimersByTime(5000)
+      await nextTick()
+      await nextTick()
+      expect((wrapper.vm as unknown as { consoleLines: unknown[] }).consoleLines.length).toBe(3)
+      expect(summary.text()).toBe('')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('takes the rest of the app out of the tab order while the console is fullscreen', async () => {
+    mocks.readGameServerOutput.mockResolvedValue(
+      create(ReadGameServerOutputResponseSchema, { output: '' }),
+    )
+    const app = document.createElement('div')
+    const header = document.createElement('header')
+    const host = document.createElement('div')
+    app.append(header, host)
+    document.body.append(app)
+
+    const wrapper = mountView(host)
+    await flushPromises()
+    try {
+      await wrapper.get('[aria-label="Fullscreen console"]').trigger('click')
+      expect(header.hasAttribute('inert')).toBe(true)
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      await nextTick()
+      expect(wrapper.find('.console-wrapper.expanded').exists()).toBe(false)
+      expect(header.hasAttribute('inert')).toBe(false)
+    } finally {
+      wrapper.unmount()
+      app.remove()
+    }
   })
 })

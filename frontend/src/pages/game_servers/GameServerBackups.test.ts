@@ -248,10 +248,6 @@ function mountBackups() {
         'q-td': { template: '<div class="q-td-stub"><slot /></div>' },
         'q-tooltip': { template: '<span class="q-tooltip-stub"><slot /></span>' },
         BackupRestoreDialog: BackupRestoreDialogStub,
-        'router-link': {
-          props: ['to'],
-          template: '<a class="router-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
-        },
       },
     },
   })
@@ -292,7 +288,10 @@ describe('GameServerBackups', () => {
 
     expect(wrapper.text()).toContain('Backups are disabled for this server')
     expect(wrapper.text()).toContain('Create Scheduled Backup')
-    expect(JSON.parse(wrapper.get('.router-link-stub').attributes('data-to') ?? '')).toEqual({
+    const scheduleButton = wrapper
+      .findAllComponents(QBtnStub)
+      .find((button) => button.props('label') === 'Create Scheduled Backup')
+    expect(scheduleButton?.vm.$attrs['to']).toEqual({
       path: '/game-servers/test-server-123/schedules',
       query: { create: 'backup' },
     })
@@ -390,10 +389,10 @@ describe('GameServerBackups', () => {
 
     expect(wrapper.text()).not.toContain('Backups can only be managed on local servers.')
 
-    const restoreButton = wrapper.get('button[aria-label="Restore backup"]')
+    const restoreButton = wrapper.get('button[aria-label="Restore server-20260406.zip"]')
     expect((restoreButton.element as HTMLButtonElement).disabled).toBe(false)
 
-    const deleteButton = wrapper.get('button[aria-label="Delete backup"]')
+    const deleteButton = wrapper.get('button[aria-label="Delete server-20260406.zip"]')
     expect((deleteButton.element as HTMLButtonElement).disabled).toBe(false)
   })
 
@@ -420,10 +419,12 @@ describe('GameServerBackups', () => {
         .disabled,
     ).toBe(true)
     expect(
-      (wrapper.get('button[aria-label="Restore backup"]').element as HTMLButtonElement).disabled,
+      (wrapper.get('button[aria-label="Restore server-20260406.zip"]').element as HTMLButtonElement)
+        .disabled,
     ).toBe(false)
     expect(
-      (wrapper.get('button[aria-label="Delete backup"]').element as HTMLButtonElement).disabled,
+      (wrapper.get('button[aria-label="Delete server-20260406.zip"]').element as HTMLButtonElement)
+        .disabled,
     ).toBe(false)
   })
 
@@ -576,7 +577,7 @@ describe('GameServerBackups', () => {
       },
     }))
 
-    await wrapper.get('button[aria-label="Delete backup"]').trigger('click')
+    await wrapper.get('button[aria-label="Delete server-20260406.zip"]').trigger('click')
     await onOkHandler?.()
     await flushPromises()
 
@@ -643,7 +644,7 @@ describe('GameServerBackups', () => {
     const wrapper = mountBackups()
     await flushPromises()
 
-    await wrapper.get('button[aria-label="Restore backup"]').trigger('click')
+    await wrapper.get('button[aria-label="Restore server-20260406.zip"]').trigger('click')
     await wrapper.get('[data-testid="confirm-restore-backup"]').trigger('click')
 
     resolveRestore?.()
@@ -671,7 +672,10 @@ describe('GameServerBackups', () => {
     await wrapper.get('[data-testid="confirm-upload-backup"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('invalid zip archive')
+    // The error rides on the file field, which ties it to the control for screen readers.
+    expect(
+      wrapper.get('[data-testid="upload-backup-file-input"]').attributes('error-message'),
+    ).toBe('invalid zip archive')
     expect(wrapper.find('[data-testid="upload-backup-dialog"]').exists()).toBe(true)
   })
 
@@ -686,7 +690,7 @@ describe('GameServerBackups', () => {
     await flushPromises()
 
     const restoreButton = wrapper.get(
-      'button[aria-label="Restore backup: Stop the server to restore"]',
+      'button[aria-label="Restore server-20260406.zip: Stop the server to restore"]',
     )
     expect((restoreButton.element as HTMLButtonElement).disabled).toBe(true)
 
@@ -700,7 +704,8 @@ describe('GameServerBackups', () => {
     await flushPromises()
 
     expect(
-      (wrapper.get('button[aria-label="Restore backup"]').element as HTMLButtonElement).disabled,
+      (wrapper.get('button[aria-label="Restore server-20260406.zip"]').element as HTMLButtonElement)
+        .disabled,
     ).toBe(false)
   })
 
@@ -712,7 +717,7 @@ describe('GameServerBackups', () => {
     const wrapper = mountBackups()
     await flushPromises()
 
-    await wrapper.get('button[aria-label="Restore backup"]').trigger('click')
+    await wrapper.get('button[aria-label="Restore server-20260406.zip"]').trigger('click')
     await wrapper.get('[data-testid="confirm-restore-backup"]').trigger('click')
     await flushPromises()
 

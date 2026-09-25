@@ -2,7 +2,7 @@
   <section class="start-args-editor" data-testid="start-args-editor">
     <div class="start-args-editor__header">
       <div>
-        <div class="start-args-editor__title font-display">Start arguments</div>
+        <h2 class="start-args-editor__title font-display">Start arguments</h2>
         <div class="start-args-editor__copy text-xy-secondary">
           Edit the argument blocks Xylona passes to the server. One line equals one argv token.
         </div>
@@ -71,8 +71,8 @@
           <q-btn
             v-if="canEdit(block)"
             :data-testid="`edit-${block.id}`"
-            :title="`Edit ${block.label || 'argument'}`"
-            aria-label="Edit argument"
+            :aria-label="`Edit ${blockName(block)}`"
+            :title="`Edit ${blockName(block)}`"
             dense
             flat
             icon="edit"
@@ -81,8 +81,8 @@
           <q-btn
             v-if="canRemove(block)"
             :data-testid="`remove-${block.id}`"
-            :title="`Remove ${block.label || 'argument'}`"
-            aria-label="Remove argument"
+            :aria-label="`Remove ${blockName(block)}`"
+            :title="`Remove ${blockName(block)}`"
             color="negative"
             dense
             flat
@@ -92,8 +92,8 @@
           <q-btn
             v-if="canReset(block)"
             :data-testid="`reset-${block.id}`"
-            :title="`Reset ${block.label || 'argument'}`"
-            aria-label="Reset argument"
+            :aria-label="`Reset ${blockName(block)}`"
+            :title="`Reset ${blockName(block)}`"
             dense
             flat
             icon="restart_alt"
@@ -101,7 +101,7 @@
             @click="resetBlock(block)" />
           <q-btn
             v-if="canRestore(block)"
-            :aria-label="`Restore ${block.label || 'argument'}`"
+            :aria-label="`Restore ${blockName(block)}`"
             :data-testid="`restore-${block.id}`"
             dense
             flat
@@ -113,8 +113,8 @@
           <q-btn
             v-if="canMove(block, -1)"
             :data-testid="`move-up-${block.id}`"
-            :title="`Move ${block.label || 'argument'} up`"
-            aria-label="Move argument up"
+            :aria-label="`Move ${blockName(block)} up`"
+            :title="`Move ${blockName(block)} up`"
             dense
             flat
             icon="arrow_upward"
@@ -123,8 +123,8 @@
           <q-btn
             v-if="canMove(block, 1)"
             :data-testid="`move-down-${block.id}`"
-            :title="`Move ${block.label || 'argument'} down`"
-            aria-label="Move argument down"
+            :aria-label="`Move ${blockName(block)} down`"
+            :title="`Move ${blockName(block)} down`"
             dense
             flat
             icon="arrow_downward"
@@ -166,6 +166,7 @@
             v-model="formState.tokensText"
             autogrow
             data-testid="tokens-input"
+            input-class="font-mono"
             label="Tokens"
             outlined
             type="textarea" />
@@ -263,6 +264,11 @@ const pendingSimilarTokens = computed(() => pendingSimilar.value?.tokens ?? [])
 const dialogTitle = computed(() =>
   dialogMode.value === 'add' ? 'Add argument block' : 'Edit argument block',
 )
+
+// Row controls name the argument: its label, else its tokens.
+function blockName(block: ResolvedStartArgBlock) {
+  return block.label || formatTokensInline(block.tokens) || 'argument'
+}
 
 function badgeClass(provenance: ResolvedStartArgBlock['provenance']) {
   return `start-args-editor__badge start-args-editor__badge--${provenance}`
@@ -585,7 +591,10 @@ function createPatchId() {
 }
 
 .start-args-editor__title {
+  margin: 0;
   font-size: var(--xy-font-size-base);
+  font-weight: 400;
+  letter-spacing: normal;
   line-height: 1.25;
   color: var(--xy-text-primary);
 }

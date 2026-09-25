@@ -1,9 +1,12 @@
 <template>
-  <q-dialog :model-value="modelValue" @update:model-value="emit('update:modelValue', $event)">
+  <q-dialog
+    :aria-labelledby="titleId"
+    :model-value="modelValue"
+    @update:model-value="emit('update:modelValue', $event)">
     <q-card class="pm-dialog">
       <q-card-section class="pm-dialog__head">
         <div>
-          <div class="pm-dialog__title">Player management</div>
+          <div :id="titleId" class="pm-dialog__title">Player management</div>
           <div class="pm-dialog__subtitle">
             Online player actions and identifier-based administration for this server.
           </div>
@@ -19,6 +22,8 @@
 </template>
 
 <script lang="ts" setup>
+import { useId } from 'vue'
+
 import PlayerManagementPanel from './PlayerManagementPanel.vue'
 
 defineProps<{
@@ -27,6 +32,8 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
+// The identity bar and the console each mount one, so the title id must be unique.
+const titleId = useId()
 </script>
 
 <style scoped>

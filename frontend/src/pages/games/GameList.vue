@@ -19,14 +19,22 @@
         <q-btn color="primary" label="Add game" to="/games/new" />
       </template>
     </page-header>
-    <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
-      <q-icon name="sync_problem" size="sm" />
-      <div>
-        <strong>Games could not be loaded.</strong>
-        <span>{{ loadError }}</span>
-      </div>
-      <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="getGames" />
-    </div>
+    <q-banner v-if="loadError" class="xy-banner-negative q-mb-md" dense inline-actions role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Games could not be loaded.</strong> {{ loadError }}
+      <template #action>
+        <q-btn
+          :loading="loading"
+          aria-label="Retry loading games"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="getGames" />
+      </template>
+    </q-banner>
     <div>
       <q-table
         v-model:pagination="initialPagination"
@@ -122,13 +130,17 @@
         </template>
         <template #body-cell-windows_support="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.windowsSupport" aria-label="Supported" name="check" size="sm" />
+            <span v-if="props.row.windowsSupport" aria-label="Supported" role="img">
+              <q-icon name="check" size="sm" />
+            </span>
             <span v-else aria-label="Not supported" class="text-xy-muted" role="img">—</span>
           </q-td>
         </template>
         <template #body-cell-linux_support="props">
           <q-td :props="props">
-            <q-icon v-if="props.row.linuxSupport" aria-label="Supported" name="check" size="sm" />
+            <span v-if="props.row.linuxSupport" aria-label="Supported" role="img">
+              <q-icon name="check" size="sm" />
+            </span>
             <span v-else aria-label="Not supported" class="text-xy-muted" role="img">—</span>
           </q-td>
         </template>
@@ -182,7 +194,7 @@
             :title="search ? 'No matching games' : 'No games yet'"
             icon="sports_esports">
             <template v-if="!search" #actions>
-              <q-btn color="primary" label="Add game" to="/games/new" />
+              <q-btn label="Add game" outline to="/games/new" />
             </template>
           </empty-state>
         </template>
@@ -201,6 +213,7 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import { usePersistedRef } from '@/utils/persisted-ref'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
@@ -248,12 +261,6 @@ async function getGames() {
     const err = unknownError as Error
     console.error(err.message)
     loadError.value = ConnectErrorToString(ConnectError.from(unknownError))
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to load games: ' + ConnectErrorToString(ConnectError.from(unknownError)),
-      icon: 'report_problem',
-    })
   } finally {
     loading.value = false
   }
@@ -267,19 +274,9 @@ async function deleteGameAction(game: Game) {
 async function exportGameAction(game: Game) {
   try {
     const fileName = await exportGameDefinitionJSON(game.id)
-    $q.notify({
-      type: 'xylona-success',
-      position: 'top',
-      caption: `Exported ${fileName}.`,
-      icon: 'check_circle',
-    })
+    notifySuccess(`Exported ${fileName}.`, { icon: 'check_circle' })
   } catch (unknownError: unknown) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to export game: ' + ConnectErrorToString(ConnectError.from(unknownError)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(unknownError, 'Failed to export game', { icon: 'report_problem' })
   }
 }
 
@@ -354,30 +351,6 @@ const columns = ref([
 </script>
 
 <style scoped>
-.list-error {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--xy-space-sm);
-  margin-bottom: var(--xy-space-md);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  color: var(--xy-text-primary);
-  background: var(--xy-danger-bg);
-  border: 1px solid var(--xy-danger-border);
-  border-radius: var(--xy-radius-md);
-}
-
-.list-error > div {
-  display: grid;
-  flex: 1;
-  gap: var(--xy-space-2xs);
-  min-width: 0;
-}
-
-.list-error span {
-  color: var(--xy-text-secondary);
-  overflow-wrap: anywhere;
-}
-
 .game-grid-item {
   padding: var(--xy-space-xs);
 }

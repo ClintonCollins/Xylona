@@ -5,16 +5,22 @@ import Editor from './Editor.vue'
 
 const mocks = vi.hoisted(() => ({
   uploadFormData: vi.fn(),
-  notify: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyError: vi.fn(),
 }))
 
 vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
-    useQuasar: () => ({ notify: mocks.notify }),
+    useQuasar: () => ({ platform: { is: { mac: false } } }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifySuccess: mocks.notifySuccess,
+  notifyError: mocks.notifyError,
+}))
 
 vi.mock('@/utils/upload', () => ({
   uploadFormData: mocks.uploadFormData,
@@ -23,7 +29,8 @@ vi.mock('@/utils/upload', () => ({
 describe('Editor', () => {
   afterEach(() => {
     mocks.uploadFormData.mockReset()
-    mocks.notify.mockReset()
+    mocks.notifySuccess.mockReset()
+    mocks.notifyError.mockReset()
   })
 
   it('keeps the editor content open after a failed save and emits submit only after success', async () => {
@@ -34,6 +41,7 @@ describe('Editor', () => {
         fullFilePath: 'config/server.properties',
         gameServerId: 'server-1',
       },
+      global: { renderStubDefaultSlot: true },
     })
     const viewModel = wrapper.vm as unknown as {
       codeInput: string
@@ -47,6 +55,12 @@ describe('Editor', () => {
     expect(wrapper.emitted('submit')).toBeUndefined()
     expect(viewModel.codeInput).toBe('server-port=25565')
     expect(viewModel.saveError).toContain('node unavailable')
+    // The inline alert is the only announcement; a toast would say it twice.
+    await wrapper.vm.$nextTick()
+    const alert = wrapper.get('[role="alert"]')
+    expect(alert.classes()).toContain('xy-banner-negative')
+    expect(alert.text()).toContain('node unavailable')
+    expect(mocks.notifyError).not.toHaveBeenCalled()
 
     mocks.uploadFormData.mockResolvedValueOnce(undefined)
     await viewModel.saveFile({ close: true })
@@ -54,10 +68,9 @@ describe('Editor', () => {
     expect(wrapper.emitted('submit')).toHaveLength(1)
     expect(viewModel.codeInput).toBe('server-port=25565')
     expect(viewModel.saveError).toBe('')
-    expect(mocks.notify).toHaveBeenLastCalledWith(
-      expect.objectContaining({ caption: 'File server.properties saved successfully.' }),
+    expect(mocks.notifySuccess).toHaveBeenLastCalledWith(
+      'File server.properties saved successfully.',
     )
-    expect(mocks.notify.mock.calls.at(-1)?.[0]).not.toHaveProperty('html')
     expect(mocks.uploadFormData).toHaveBeenLastCalledWith('/api/file/upload', expect.any(FormData))
     const savedForm = mocks.uploadFormData.mock.calls.at(-1)?.[1] as FormData
     expect(savedForm.get('gameServerId')).toBe('server-1')

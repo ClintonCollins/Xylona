@@ -9,7 +9,7 @@
       <div class="server-form-header-left">
         <div v-if="!compactHeader && breadcrumbLabel" class="server-form-breadcrumbs">
           <router-link class="breadcrumb-link" to="/game-servers">Game Servers</router-link>
-          <span class="breadcrumb-sep">/</span>
+          <span aria-hidden="true" class="breadcrumb-sep">/</span>
           <span class="breadcrumb-current">{{ breadcrumbLabel }}</span>
         </div>
         <h1 class="server-form-title font-display">{{ headerTitle }}</h1>
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
 }
 
 .server-form-header.is-compact .server-form-title {
-  font-size: clamp(1.08rem, 0.98rem + 0.46vw, 1.34rem);
+  font-size: var(--xy-font-size-lg);
   line-height: 1.1;
 }
 
@@ -191,7 +191,6 @@ onBeforeUnmount(() => {
 
 .breadcrumb-sep {
   color: var(--xy-text-muted);
-  opacity: 0.5;
 }
 
 .breadcrumb-current {
@@ -200,7 +199,7 @@ onBeforeUnmount(() => {
 
 .server-form-title {
   margin: 0;
-  font-size: clamp(1.28rem, 1.06rem + 0.8vw, 1.68rem);
+  font-size: var(--xy-font-size-xl);
   font-weight: 600;
   color: var(--xy-text-primary);
   letter-spacing: 0.015em;
@@ -359,7 +358,9 @@ onBeforeUnmount(() => {
   margin-bottom: var(--xy-space-sm);
 }
 
+/* Section titles are h2/h3 headings styled as uppercase labels. */
 .server-form-shell .section-title {
+  margin: 0;
   font-size: var(--xy-font-size-sm);
   font-weight: 600;
   color: var(--xy-text-emphasis-soft);

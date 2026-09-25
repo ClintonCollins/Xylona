@@ -44,9 +44,11 @@ vi.mock('@/api/notifications', () => ({
 }))
 
 class FakeEventSource {
+  static readonly CLOSED = 2
   static instances: FakeEventSource[] = []
   onerror: (() => void) | null = null
   closed = false
+  readyState = 0
   private listeners = new Map<string, (event: MessageEvent<string>) => void>()
 
   constructor(readonly url: string) {
@@ -63,6 +65,7 @@ class FakeEventSource {
 
   close() {
     this.closed = true
+    this.readyState = FakeEventSource.CLOSED
   }
 }
 
@@ -82,6 +85,18 @@ describe('PublicGameServerStatusPage', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+  })
+
+  it('does not open the live stream when the first snapshot lands after unmount', async () => {
+    let resolveSnapshot!: (value: unknown) => void
+    mocks.getStatusPage.mockReturnValueOnce(new Promise((resolve) => (resolveSnapshot = resolve)))
+    const wrapper = shallowMount(PublicGameServerStatusPage)
+
+    wrapper.unmount()
+    resolveSnapshot({ page: create(PublicGameServerStatusPageSchema, { title: 'Late' }) })
+    await flushPromises()
+
+    expect(FakeEventSource.instances).toHaveLength(0)
   })
 
   it('keeps the latest snapshot while reconnecting and clears it after NotFound', async () => {
@@ -145,8 +160,12 @@ describe('PublicGameServerStatusPage', () => {
     )
     await flushPromises()
     expect(wrapper.text()).toContain('2 / 20')
-    expect(wrapper.get('.public-status').attributes('aria-label')).toBe('Alpha status: Online')
-    expect(wrapper.get('[aria-label="Alpha players: 2 / 20"]')).toBeDefined()
+    // Rows are not live regions; only the online summary speaks.
+    expect(wrapper.get('.public-status').text()).toBe('Online')
+    expect(wrapper.findAll('[role="status"]').map((region) => region.text())).toEqual([
+      '',
+      '1 of 1 servers online',
+    ])
     expect(wrapper.text()).toContain('Map reset tomorrow.')
     expect(wrapper.text()).not.toContain('join-us')
     expect(wrapper.find('[aria-label="Open Alpha public map"]').exists()).toBe(false)
@@ -163,6 +182,59 @@ describe('PublicGameServerStatusPage', () => {
     wrapper.unmount()
     expect(FakeEventSource.instances[0]?.closed).toBe(true)
     expect(document.title).toBe(initialDocumentTitle)
+  })
+
+  it('reopens a closed live stream once polling reaches the controller again', async () => {
+    mocks.getStatusPage.mockResolvedValue({
+      page: create(PublicGameServerStatusPageSchema, { title: 'Owner fleet' }),
+    })
+    const wrapper = shallowMount(PublicGameServerStatusPage)
+    await flushPromises()
+
+    // A non-200 response (a proxy 502 during a controller restart) closes the stream for good.
+    const first = FakeEventSource.instances[0]
+    if (!first) throw new Error('Expected the live stream to open.')
+    first.readyState = FakeEventSource.CLOSED
+    first.onerror?.()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Live updates were interrupted')
+
+    await vi.advanceTimersByTimeAsync(15_000)
+    await flushPromises()
+    expect(FakeEventSource.instances).toHaveLength(2)
+    // Polling alone doesn't clear the notice; the reopened stream's first snapshot does.
+    expect(wrapper.text()).toContain('Live updates were interrupted')
+
+    FakeEventSource.instances[1]?.emit(
+      'snapshot',
+      toJsonString(
+        PublicGameServerStatusPageSchema,
+        create(PublicGameServerStatusPageSchema, { title: 'Owner fleet' }),
+      ),
+    )
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Live updates were interrupted')
+  })
+
+  it('does not reopen the live stream when a poll lands after unmount', async () => {
+    mocks.getStatusPage.mockResolvedValue({
+      page: create(PublicGameServerStatusPageSchema, { title: 'Owner fleet' }),
+    })
+    const wrapper = shallowMount(PublicGameServerStatusPage)
+    await flushPromises()
+    const first = FakeEventSource.instances[0]
+    if (!first) throw new Error('Expected the live stream to open.')
+    first.readyState = FakeEventSource.CLOSED
+    first.onerror?.()
+    await flushPromises()
+
+    let resolvePoll!: (value: unknown) => void
+    mocks.getStatusPage.mockReturnValueOnce(new Promise((resolve) => (resolvePoll = resolve)))
+    await vi.advanceTimersByTimeAsync(15_000)
+    wrapper.unmount()
+    resolvePoll({ page: create(PublicGameServerStatusPageSchema, { title: 'Late' }) })
+    await flushPromises()
+    expect(FakeEventSource.instances).toHaveLength(1)
   })
 
   it("offers the Who's online toggle only for online servers", async () => {

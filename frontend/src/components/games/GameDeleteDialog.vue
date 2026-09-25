@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(15%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="game-delete-dialog">
       <q-card-section>
         <div id="dialog-title" class="text-h6 font-display text-negative">Delete Game</div>

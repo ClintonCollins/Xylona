@@ -1,7 +1,14 @@
 <template>
   <q-header ref="headerRef">
     <q-toolbar class="bg-toolbar">
-      <q-btn aria-label="Menu" dense flat icon="menu" round @click="toggleLeftDrawer" />
+      <q-btn
+        :aria-expanded="leftDrawerOpen ? 'true' : 'false'"
+        aria-label="Menu"
+        dense
+        flat
+        icon="menu"
+        round
+        @click="toggleLeftDrawer" />
 
       <q-toolbar-title>
         <router-link aria-label="Xylona game servers" class="toolbar-brand" to="/game-servers">
@@ -79,6 +86,7 @@
           }}</q-item-label>
           <q-item
             v-if="link.groupItems.length === 0"
+            :aria-current="overrideActiveLink(link.link) ? 'page' : undefined"
             :class="
               overrideActiveLink(link.link)
                 ? 'q-router-link--exact-active q-router-link--active'
@@ -99,6 +107,7 @@
             <q-item
               v-for="l in link.groupItems"
               :key="l.title"
+              :aria-current="overrideActiveLink(l.link) ? 'page' : undefined"
               :exact="l.exact"
               :inset-level="0.3"
               :to="l.link"

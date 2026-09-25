@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, inject } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   getGame: vi.fn(),
   getGameEnvironment: vi.fn(),
   listGameServers: vi.fn(),
+  notify: vi.fn(),
   push: vi.fn(),
   updateGameStartArgBlocklist: vi.fn(),
   updateGameStartArgsTemplate: vi.fn(),
@@ -54,10 +56,18 @@ vi.mock('quasar', async () => {
   return {
     ...actual,
     useQuasar: () => ({
-      notify: vi.fn(),
+      dialog: vi.fn(),
     }),
   }
 })
+
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notify,
+  notifyError: mocks.notify,
+  notifyInfo: mocks.notify,
+  notifySuccess: mocks.notify,
+  notifyWarning: mocks.notify,
+}))
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -72,6 +82,7 @@ vi.mock('vue-router', async () => {
 
 const QFormStub = defineComponent({
   name: 'QFormStub',
+  emits: ['validation-error'],
   setup(_, { slots, expose }) {
     expose({
       validate: async () => true,
@@ -120,6 +131,9 @@ function mountGameForm(
         'q-tooltip': true,
         'q-toggle': true,
         'q-spinner-dots': true,
+        'q-banner': {
+          template: '<div v-bind="$attrs"><slot /><slot name="action" /></div>',
+        },
         'router-link': { template: '<a><slot /></a>' },
         ConfigSchemaList: { template: '<div />' },
         StartArgsTemplateEditor: {
@@ -194,6 +208,64 @@ describe('GameForm', () => {
     expect(wrapper.find('[data-testid="linux-update-type"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="linux-update-shell"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="linux-update-command"]').exists()).toBe(true)
+  })
+
+  it('shows a failed load with Retry instead of a blank saveable form', async () => {
+    mocks.getGame.mockRejectedValueOnce(new ConnectError('database is locked', Code.Internal))
+
+    const wrapper = mountGameForm()
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="game-form-load-error"]').text()).toContain(
+      'database is locked',
+    )
+    expect(wrapper.find('[data-testid="game-form-tab-panel-overview"]').exists()).toBe(false)
+    const saveButton = wrapper.findAll('button').find((button) => button.text().trim() === 'Save')
+    expect(saveButton?.attributes('disable')).toBe('true')
+
+    mocks.getGame.mockResolvedValue({
+      game: create(GameSchema, { id: 'minecraft', name: 'Minecraft' }),
+    })
+    const retryButton = wrapper.findAll('button').find((button) => button.text().trim() === 'Retry')
+    await retryButton?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="game-form-load-error"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Editing Minecraft')
+  })
+
+  it('opens and marks the tab that owns the first invalid field', async () => {
+    const wrapper = mountGameForm({}, { existingGameId: '' })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="game-form-tab-runtime"]').trigger('click')
+    const nameField = wrapper
+      .findAllComponents(QInputStub)
+      .find((field) => field.props('label') === 'Name *')
+    if (!nameField) {
+      throw new Error('expected the Name field to exist')
+    }
+
+    wrapper.getComponent(QFormStub).vm.$emit('validation-error', nameField.vm)
+    await flushPromises()
+
+    const overviewTab = wrapper.get('[data-testid="game-form-tab-overview"]')
+    expect(overviewTab.attributes('aria-selected')).toBe('true')
+    expect(overviewTab.text()).toContain('has errors')
+    expect(wrapper.get('[data-testid="game-form-tab-runtime"]').text()).not.toContain('has errors')
+  })
+
+  it('escapes quotes as well as markup before highlighting commands', async () => {
+    const wrapper = mountGameForm({}, { existingGameId: '' })
+    await flushPromises()
+
+    const context = wrapper.vm.$.provides[gameFormContextKey as symbol] as {
+      highlightCommand: (command: string) => string
+    }
+
+    expect(context.highlightCommand(`echo "<b>" 'x'`)).toBe(
+      'echo &quot;&lt;b&gt;&quot; &#39;x&#39;',
+    )
   })
 
   it('keeps basic mod fields editable for managed variant-backed games with simple mod support', async () => {

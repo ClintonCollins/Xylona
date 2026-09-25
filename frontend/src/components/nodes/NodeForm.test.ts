@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { NodeSchema } from '@/proto/shared_pb'
 import NodeForm from './NodeForm.vue'
 
@@ -56,10 +57,13 @@ const globalStubs = {
       props: ['modelValue'],
       template: '<textarea readonly :value="modelValue"></textarea>',
     },
+    'q-banner': { template: '<div><slot /><slot name="action" /></div>' },
+    'q-icon': true,
     'q-btn': {
-      props: ['label'],
+      props: ['label', 'disable'],
       emits: ['click'],
-      template: '<button type="button" @click="$emit(\'click\')">{{ label }}</button>',
+      template:
+        '<button type="button" :disabled="disable" @click="$emit(\'click\')">{{ label }}</button>',
     },
   },
 }
@@ -126,6 +130,30 @@ describe('NodeForm', () => {
 
     expect(wrapper.findAll('textarea')).toHaveLength(1)
     expect(wrapper.text()).toContain('Runs inside the controller, so it needs no listen URL.')
+  })
+
+  it('keeps Save disabled and offers Retry when the node fails to load', async () => {
+    mocks.getNode.mockRejectedValueOnce(new ConnectError('controller down', Code.Unavailable))
+
+    const wrapper = mount(NodeForm, {
+      global: globalStubs,
+      props: { existingNodeId: 'node-1' },
+    })
+    await flushPromises()
+
+    const button = (label: string) =>
+      wrapper.findAll('button').find((candidate) => candidate.text() === label)
+    expect(wrapper.text()).toContain('Node details could not be loaded.')
+    expect(button('Save')?.attributes('disabled')).toBeDefined()
+
+    mocks.getNode.mockResolvedValueOnce({
+      node: create(NodeSchema, { id: 'node-1', name: 'Rack A' }),
+    })
+    await button('Retry')?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Node details could not be loaded.')
+    expect(button('Save')?.attributes('disabled')).toBeUndefined()
   })
 
   it('leaves the add form for the node list instead of browser history', async () => {

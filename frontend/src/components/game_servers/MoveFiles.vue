@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(25%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="full-width">
       <q-form @submit.prevent="moveFiles">
         <q-card-section>
@@ -52,7 +48,7 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { QBtn, QCard, QCardSection, QDialog, useQuasar } from 'quasar'
+import { QBtn, QCard, QCardSection, QDialog } from 'quasar'
 import {
   File as xylonaFile,
   GameServerFilesMoveRequest,
@@ -60,6 +56,7 @@ import {
 } from '@/proto/gameserver_files_operations_pb'
 import { GetPathSeparator, GetRelativeFilePath, GetXylonaClient } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError, notifySuccess } from '@/api/notifications'
 import { computed, ref, Ref } from 'vue'
 
 const props = defineProps({
@@ -107,8 +104,6 @@ const moveOptions = computed(() => {
 const destinationDirectory: Ref<string> = ref('')
 const submitting = ref(false)
 
-const $q = useQuasar()
-
 const showDialog = defineModel('showDialog', {
   type: Boolean,
   default: false,
@@ -144,25 +139,18 @@ async function moveFiles() {
   try {
     await GetXylonaClient().gameServerFilesMove(request)
     emit('submit')
-    $q.notify({
-      caption: `Moved to ${destinationDirectory.value === '..' ? 'the parent folder' : destinationDirectory.value}.`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess(
+      `Moved to ${destinationDirectory.value === '..' ? 'the parent folder' : destinationDirectory.value}.`,
+    )
     showDialog.value = false
     destinationDirectory.value = ''
   } catch (err: unknown) {
     console.error(err)
-    $q.notify({
-      caption:
-        err instanceof Error
-          ? `Could not move the selected items. ${connectErrorMessage(err)}`
-          : 'Could not move the selected items. Try again.',
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
+    notifyError(
+      err instanceof Error
+        ? `Could not move the selected items. ${connectErrorMessage(err)}`
+        : 'Could not move the selected items. Try again.',
+    )
   } finally {
     submitting.value = false
   }

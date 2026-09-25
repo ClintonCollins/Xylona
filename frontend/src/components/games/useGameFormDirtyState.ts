@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from 'vue'
+import { computed, onScopeDispose, ref, watch, type Ref } from 'vue'
 
 import type { EnvironmentVariable, Game } from '@/proto/shared_pb'
 import type { ConfigSchemaEntry } from './config-schema-types'
@@ -62,13 +62,34 @@ export function useGameFormDirtyState(options: UseGameFormDirtyStateOptions) {
     )
   }
 
+  // Serializing the whole game on every keystroke is slow, so an edit marks the form changed
+  // straight away and the snapshot comparison waits until typing pauses, clearing the flag when
+  // the edit was undone.
+  const formChanged = ref(false)
+  let recheckTimer: ReturnType<typeof setTimeout> | undefined
+
+  watch(
+    takeFormSnapshotValue,
+    () => {
+      formChanged.value = true
+      clearTimeout(recheckTimer)
+      recheckTimer = setTimeout(() => {
+        formChanged.value = takeFormSnapshot() !== initialFormSnapshot.value
+      }, 300)
+    },
+    { deep: true, flush: 'sync' },
+  )
+  onScopeDispose(() => clearTimeout(recheckTimer), true)
+
   function commitSnapshot(): void {
-    initialFormSnapshot.value = takeFormSnapshot()
+    commitFormSnapshot()
     initialDefaultEnvSnapshot.value = takeDefaultEnvSnapshot()
   }
 
   function commitFormSnapshot(): void {
+    clearTimeout(recheckTimer)
     initialFormSnapshot.value = takeFormSnapshot()
+    formChanged.value = false
   }
 
   function commitDefaultEnvSnapshot(): void {
@@ -81,12 +102,9 @@ export function useGameFormDirtyState(options: UseGameFormDirtyStateOptions) {
       takeDefaultEnvSnapshot() !== initialDefaultEnvSnapshot.value,
   )
 
-  const isDirty = computed(() => {
-    const formDirty =
-      initialFormSnapshot.value !== '' && takeFormSnapshot() !== initialFormSnapshot.value
-
-    return formDirty || defaultEnvDirty.value
-  })
+  const isDirty = computed(
+    () => (initialFormSnapshot.value !== '' && formChanged.value) || defaultEnvDirty.value,
+  )
 
   return {
     defaultEnvDirty,

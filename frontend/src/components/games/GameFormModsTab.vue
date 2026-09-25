@@ -78,7 +78,7 @@
                 flat
                 label="Remove"
                 no-caps
-                @click="clearGameModProfile" />
+                @click="removeModSupport" />
             </div>
 
             <template v-if="game.modProfile">
@@ -92,6 +92,7 @@
 
               <div class="typed-config-fields">
                 <q-input
+                  ref="installPathRef"
                   v-model="game.modProfile.installPath"
                   hint="Where downloaded mods should be written"
                   label="Install Path"
@@ -125,6 +126,12 @@
                   " />
               </div>
             </template>
+            <removed-item-undo
+              v-else-if="removedProfile"
+              :clear-on-save="removedProfile.clearOnSave"
+              label="mod support"
+              @dismiss="removedProfile = null"
+              @undo="undoRemoveModSupport" />
           </div>
         </template>
       </div>
@@ -133,8 +140,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, inject } from 'vue'
+import { computed, inject, nextTick, ref, shallowRef, watch } from 'vue'
+
+import type { ModProfile } from '@/proto/shared_pb'
 import { gameFormContextKey } from './GameFormTypes'
+import RemovedItemUndo from './RemovedItemUndo.vue'
 
 const ctx = inject(gameFormContextKey)
 if (!ctx) throw new Error('GameFormModsTab must be used inside GameForm')
@@ -151,7 +161,40 @@ const {
   readModSourceDisplayValue,
   updateModSourceDisplayValue,
   getModSourceConfig,
+  isDirty,
 } = ctx
+
+const installPathRef = ref<{ focus: () => void } | null>(null)
+const removedProfile = shallowRef<{ profile: ModProfile; clearOnSave: boolean } | null>(null)
+
+// One click clears the whole profile and the next Save makes it permanent, so an undo row takes
+// the section's place.
+function removeModSupport(): void {
+  const profile = game.value.modProfile
+  const clearOnSave = !isDirty.value
+  clearGameModProfile()
+  removedProfile.value = profile ? { profile, clearOnSave } : null
+}
+
+// A newer profile (Enable Mod Support, or a reload) supersedes the removed one.
+watch(
+  () => game.value.modProfile,
+  (profile) => {
+    if (profile) {
+      removedProfile.value = null
+    }
+  },
+)
+
+function undoRemoveModSupport(): void {
+  const removal = removedProfile.value
+  removedProfile.value = null
+  if (!removal || game.value.modProfile) {
+    return
+  }
+  game.value.modProfile = removal.profile
+  void nextTick(() => installPathRef.value?.focus())
+}
 
 const gameModProfileCopy = computed(() => {
   if (game.value.modProfile) {

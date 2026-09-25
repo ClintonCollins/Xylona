@@ -52,6 +52,12 @@ const QSelectStub = defineComponent({
   template: '<div v-bind="$attrs">{{ label }}</div>',
 })
 
+// Renders every slot; the real QBanner reads $q.dark, which these tests don't install.
+const QBannerStub = defineComponent({
+  name: 'QBannerStub',
+  template: '<div v-bind="$attrs"><slot name="avatar" /><slot /><slot name="action" /></div>',
+})
+
 const QBtnStub = defineComponent({
   name: 'QBtnStub',
   inheritAttrs: false,
@@ -75,17 +81,21 @@ const QBtnStub = defineComponent({
 function mountTab(gameValue: Game) {
   const game = ref(gameValue)
   const activeFormTab = ref<GameFormTabID>('overview')
-  const context = { activeFormTab, game } as unknown as GameFormContext
+  const isDirty = ref(false)
+  const context = { activeFormTab, game, isDirty } as unknown as GameFormContext
 
   return {
     activeFormTab,
     game,
+    isDirty,
     wrapper: mount(GameFormConsoleCommandsTab, {
+      attachTo: document.body,
       global: {
         provide: {
           [gameFormContextKey as symbol]: context,
         },
         stubs: {
+          'q-banner': QBannerStub,
           'q-btn': QBtnStub,
           'q-icon': true,
           'q-input': QInputStub,
@@ -157,8 +167,52 @@ describe('GameFormConsoleCommandsTab', () => {
     expect(game.value.consoleCommands).toHaveLength(3)
     expect(game.value.consoleCommands[2]?.risk).toBe(GameConsoleCommandRisk.NONE)
 
+    const added = game.value.consoleCommands[2]
     await wrapper.get('[data-testid="remove-console-command"]').trigger('click')
     expect(game.value.consoleCommands).toHaveLength(2)
+
+    await wrapper.get('[aria-label="Undo removing untitled command"]').trigger('click')
+    expect(game.value.consoleCommands[2]).toBe(added)
+    wrapper.unmount()
+  })
+
+  it('swaps a removed command for a focused undo row in the catalog', async () => {
+    const commands = ['save', 'stop', 'kick', 'ban'].map((command) =>
+      create(GameConsoleCommandSchema, { command }),
+    )
+    const { game, isDirty, wrapper } = mountTab(create(GameSchema, { consoleCommands: commands }))
+
+    await wrapper.get('[data-testid="console-command-list-item-2"]').trigger('click')
+    await wrapper.get('[data-testid="remove-console-command"]').trigger('click')
+
+    const entries = wrapper.findAll('.console-command-list__entry')
+    expect(
+      entries.map((entry) => (entry.find('code').exists() ? entry.get('code').text() : 'undo')),
+    ).toEqual(['save', 'stop', 'undo', 'ban'])
+    expect(entries[2]?.find('[role="status"]').text()).toContain('Removed kick.')
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Undo removing kick')
+
+    // The first command goes some other way; Undo still lands after the neighbour it had.
+    game.value.consoleCommands.splice(0, 1)
+    await nextTick()
+    await wrapper.get('[aria-label="Undo removing kick"]').trigger('click')
+    expect(game.value.consoleCommands.map(({ command }) => command)).toEqual([
+      'stop',
+      'kick',
+      'ban',
+    ])
+    expect(document.activeElement?.getAttribute('aria-current')).toBe('true')
+    expect(document.activeElement?.textContent).toContain('kick')
+
+    // Save clears the undo row when the form was clean before the removal.
+    await wrapper.get('[data-testid="remove-console-command"]').trigger('click')
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    isDirty.value = true
+    await nextTick()
+    isDirty.value = false
+    await nextTick()
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it('filters the catalog by command metadata without changing the selected command', async () => {

@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,15 +31,12 @@ vi.mock('@/utils/shared', async () => {
   }
 })
 
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual<typeof import('quasar')>('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({
-      notify: mocks.notify,
-    }),
-  }
-})
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notify,
+  notifyError: mocks.notify,
+  notifySuccess: mocks.notify,
+  notifyWarning: mocks.notify,
+}))
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -155,6 +153,24 @@ describe('useGameFormPersistence', () => {
     expect(state.syncActivePlatformFromGame).toHaveBeenCalledTimes(1)
     expect(state.downstreamImpactServers.value).toEqual([{ name: 'Alpha', patchCount: 1 }])
     expect(state.commitFormSnapshot).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a failed load as an error instead of a blank editable game', async () => {
+    const state = createState()
+    const persistence = useGameFormPersistence(state)
+
+    mocks.getGame.mockRejectedValue(new ConnectError('database is locked', Code.Internal))
+    await persistence.loadGameDetails()
+
+    expect(persistence.loadError.value).toBe('database is locked')
+    expect(persistence.loading.value).toBe(false)
+    expect(state.ensureTypedGameConfig).not.toHaveBeenCalled()
+    expect(mocks.notify).not.toHaveBeenCalled()
+
+    mocks.getGame.mockResolvedValue({ game: create(GameSchema, { id: 'minecraft' }) })
+    await persistence.loadGameDetails()
+
+    expect(persistence.loadError.value).toBe('')
   })
 
   it('normalizes and submits new games through addGame, then redirects to edit', async () => {

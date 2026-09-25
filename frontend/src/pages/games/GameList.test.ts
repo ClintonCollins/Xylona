@@ -10,8 +10,14 @@ import GameList from './GameList.vue'
 const mocks = vi.hoisted(() => ({
   exportGame: vi.fn(),
   listGames: vi.fn(),
-  notify: vi.fn(),
+  notifyConnectError: vi.fn(),
+  notifySuccess: vi.fn(),
   push: vi.fn(),
+}))
+
+vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notifyConnectError,
+  notifySuccess: mocks.notifySuccess,
 }))
 
 vi.mock('@/utils/shared', async () => {
@@ -37,7 +43,6 @@ vi.mock('quasar', async () => {
   return {
     ...actual,
     useQuasar: () => ({
-      notify: mocks.notify,
       screen: {
         lt: {
           md: false,
@@ -102,6 +107,7 @@ function mountGameList() {
     global: {
       stubs: {
         'q-page': { template: '<main><slot /></main>' },
+        'q-banner': { template: '<div><slot /><slot name="action" /></div>' },
         'q-input': { template: '<label><slot name="append" /></label>' },
         'q-icon': true,
         'q-btn': QBtnStub,
@@ -121,7 +127,8 @@ describe('GameList', () => {
   beforeEach(() => {
     mocks.exportGame.mockReset()
     mocks.listGames.mockReset()
-    mocks.notify.mockReset()
+    mocks.notifyConnectError.mockReset()
+    mocks.notifySuccess.mockReset()
     mocks.push.mockReset()
     window.URL.createObjectURL = vi.fn(() => 'blob:game-definition')
     window.URL.revokeObjectURL = vi.fn()
@@ -146,9 +153,20 @@ describe('GameList', () => {
 
     expect((mocks.exportGame.mock.calls[0][0] as ExportGameRequest).gameId).toBe('minecraft')
     expect(window.URL.createObjectURL).toHaveBeenCalled()
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({ caption: 'Exported minecraft.game.json.' }),
+    expect(mocks.notifySuccess).toHaveBeenCalledWith(
+      'Exported minecraft.game.json.',
+      expect.anything(),
     )
+  })
+
+  it('reports a load failure in the banner only, without a toast', async () => {
+    mocks.listGames.mockRejectedValue(new Error('backend down'))
+
+    const wrapper = mountGameList()
+    await flushPromises()
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('Games could not be loaded.')
+    expect(mocks.notifyConnectError).not.toHaveBeenCalled()
   })
 
   it('refreshes games and routes to the imported definition after import', async () => {

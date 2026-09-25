@@ -18,14 +18,15 @@
         <q-btn color="primary" label="Add user" to="/admin/users/create" />
       </template>
     </page-header>
-    <div v-if="loadError" class="list-error" role="alert" aria-live="assertive">
-      <q-icon name="sync_problem" size="sm" />
-      <div>
-        <strong>Users could not be loaded.</strong>
-        <span>{{ loadError }}</span>
-      </div>
-      <q-btn :loading="loading" dense flat icon="refresh" label="Retry" @click="getUsers" />
-    </div>
+    <q-banner v-if="loadError" class="xy-banner-negative q-mb-md" dense inline-actions role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Users could not be loaded.</strong> {{ loadError }}
+      <template #action>
+        <q-btn :loading="loading" flat icon="refresh" label="Retry" no-caps @click="getUsers" />
+      </template>
+    </q-banner>
     <div>
       <q-table
         v-model:pagination="initialPagination"
@@ -77,7 +78,6 @@
                 <q-btn
                   :aria-label="`Delete ${props.row.userName}`"
                   class="text-error-brighter"
-                  :disable="isSignedInUser(props.row)"
                   flat
                   icon="delete"
                   @click="deleteUserAction(props.row)">
@@ -114,7 +114,6 @@
               <q-btn
                 :aria-label="`Delete ${props.row.userName}`"
                 class="text-error-brighter"
-                :disable="isSignedInUser(props.row)"
                 dense
                 flat
                 icon="delete"
@@ -150,8 +149,9 @@ import { create } from '@bufbuild/protobuf'
 import { Timestamp } from '@bufbuild/protobuf/wkt'
 import { usePersistedRef } from '@/utils/persisted-ref'
 import { ConnectError } from '@connectrpc/connect'
-import { Notify, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
 import { onMounted, Ref, ref } from 'vue'
+import { notifyInfo } from '@/api/notifications'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import UserDeleteDialog from '@/components/admin/UserDeleteDialog.vue'
@@ -192,15 +192,8 @@ async function getUsers() {
     rows.value = [...response.users]
   } catch (unknownError: unknown) {
     const err = ConnectError.from(unknownError)
+    // The inline banner already announces this, so no toast.
     loadError.value = ConnectErrorToString(err)
-    Notify.create({
-      type: 'xylona-error',
-      position: 'top',
-      caption: ConnectErrorToString(err),
-      timeout: 0,
-      closeBtn: 'Dismiss',
-      icon: 'report_problem',
-    })
     console.error(err.message)
   } finally {
     loading.value = false
@@ -223,7 +216,13 @@ function deleteTooltip(user: User): string {
   return isSignedInUser(user) ? "You can't delete your own account" : 'Delete user'
 }
 
+// Delete stays enabled on your own row and says why on click, instead of a disabled
+// button whose reason only a hover tooltip carries.
 async function deleteUserAction(user: User) {
+  if (isSignedInUser(user)) {
+    notifyInfo(deleteTooltip(user))
+    return
+  }
   selectedActionUser.value = user
   showUserDeleteDialog.value = true
 }
@@ -293,30 +292,6 @@ const columns = ref([
 </script>
 
 <style scoped>
-.list-error {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--xy-space-sm);
-  margin-bottom: var(--xy-space-md);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  color: var(--xy-text-primary);
-  background: var(--xy-danger-bg);
-  border: 1px solid var(--xy-danger-border);
-  border-radius: var(--xy-radius-md);
-}
-
-.list-error > div {
-  display: grid;
-  flex: 1;
-  gap: var(--xy-space-2xs);
-  min-width: 0;
-}
-
-.list-error span {
-  color: var(--xy-text-secondary);
-  overflow-wrap: anywhere;
-}
-
 .user-grid-item {
   padding: var(--xy-space-xs);
 }

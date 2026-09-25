@@ -25,6 +25,12 @@ vi.mock('quasar', async () => {
   }
 })
 
+vi.mock('@/api/notifications', () => ({
+  notifyError: vi.fn(),
+  notifySuccess: vi.fn(),
+  notifyWarning: vi.fn(),
+}))
+
 vi.mock('@/utils/shared', async () => {
   const actual = await vi.importActual<typeof import('@/utils/shared')>('@/utils/shared')
   return {

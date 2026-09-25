@@ -136,9 +136,11 @@ function tacticalCountLabel(
   <section
     class="world-overview"
     data-testid="world-overview"
-    aria-atomic="true"
-    aria-labelledby="world-overview-title"
-    aria-live="polite">
+    aria-labelledby="world-overview-title">
+    <!-- The facts refresh every few seconds, so only the Blood Moon starting is announced. -->
+    <span aria-live="polite" class="xy-visually-hidden">{{
+      showTactical && bloodMoonActive === true ? 'Blood Moon is active' : ''
+    }}</span>
     <header class="world-overview__header">
       <h2 id="world-overview-title">World overview</h2>
       <div class="world-overview__actions">
@@ -298,7 +300,7 @@ function tacticalCountLabel(
   color: var(--xy-danger-hover);
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1440px) {
   .world-overview__facts {
     grid-template-columns: 1fr;
     gap: var(--xy-space-base);

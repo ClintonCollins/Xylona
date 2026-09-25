@@ -33,10 +33,12 @@
         </div>
       </div>
       <div id="editor" ref="editorContainer" class="editor-container"></div>
-      <div v-if="saveError" class="editor-save-error" role="alert" aria-live="assertive">
-        <q-icon name="error" size="sm" />
-        <span>{{ saveError }}</span>
-      </div>
+      <q-banner v-if="saveError" class="xy-banner-negative q-mt-sm" dense role="alert">
+        <template #avatar>
+          <q-icon name="report_problem" />
+        </template>
+        {{ saveError }}
+      </q-banner>
     </q-card-section>
 
     <q-card-actions align="right">
@@ -63,6 +65,7 @@ import loadCustomEditorSettings, {
   LanguageOptions,
 } from '@/components/editor/editor'
 import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
+import { notifySuccess } from '@/api/notifications'
 import { uploadFormData } from '@/utils/upload'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
@@ -235,12 +238,7 @@ async function saveFile({ close }: { close: boolean }) {
     formData.append('file', new File([codeInput.value], props.fileName))
     await uploadFormData('/api/file/upload', formData)
     savedContent.value = codeInput.value
-    $q.notify({
-      caption: `File ${props.fileName} saved successfully.`,
-      type: 'xylona-success',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess(`File ${props.fileName} saved successfully.`)
     emit(close ? 'submit' : 'saved')
   } catch (err) {
     console.error(err)
@@ -248,12 +246,6 @@ async function saveFile({ close }: { close: boolean }) {
       err instanceof Error
         ? `The file was not saved. ${err.message}`
         : 'The file was not saved. Try again.'
-    $q.notify({
-      caption: `Error saving file ${props.fileName}.`,
-      type: 'xylona-error',
-      position: 'top',
-      timeout: 5000,
-    })
   } finally {
     saving.value = false
   }
@@ -263,7 +255,7 @@ async function saveFile({ close }: { close: boolean }) {
 <style scoped>
 .editor-container {
   height: clamp(200px, 55dvh, 70dvh);
-  border: 0.1rem solid var(--xy-surface-3);
+  border: 1px solid var(--xy-border);
   border-radius: var(--xy-radius-md);
 }
 
@@ -309,19 +301,6 @@ async function saveFile({ close }: { close: boolean }) {
 .editor-select {
   width: 15rem;
   max-width: 100%;
-}
-
-.editor-save-error {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--xy-space-sm);
-  margin-top: var(--xy-space-sm);
-  padding: var(--xy-space-sm) var(--xy-space-md);
-  color: var(--xy-text-primary);
-  background: var(--xy-danger-bg);
-  border: 1px solid var(--xy-danger-border);
-  border-radius: var(--xy-radius-md);
-  overflow-wrap: anywhere;
 }
 
 .xylona-editor {

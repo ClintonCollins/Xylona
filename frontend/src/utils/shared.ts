@@ -76,8 +76,6 @@ type XylonaEventBusEvents = {
   gameServerStatus: (gameServerId: string, gameServerName: string, status: Status) => void
   /** The controller asked this server to stop (true), or that request failed (false). */
   gameServerStopping: (gameServerId: string, stopping: boolean) => void
-  /** A Start request from the page was rejected before the server launched. */
-  gameServerStartRejected: (gameServerId: string) => void
   /** The page changed a server's name, software or settings; readers of it should reload. */
   gameServerEdited: (gameServerId: string) => void
   gameServerVersion: (

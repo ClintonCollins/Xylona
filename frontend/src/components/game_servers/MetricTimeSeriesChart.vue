@@ -56,7 +56,7 @@
     <template v-else>
       <div class="metric-lane__gutter">
         <div class="metric-lane__name">
-          <h3 :id="titleId">{{ title }}</h3>
+          <h2 :id="titleId">{{ title }}</h2>
           <span
             v-if="health && health.level !== 'ok' && health.level !== 'unknown'"
             :class="`metric-lane__badge--${health.level}`"
@@ -604,7 +604,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.metric-lane__name h3 {
+.metric-lane__name h2 {
   margin: 0;
   overflow: hidden;
   color: var(--xy-text-primary);

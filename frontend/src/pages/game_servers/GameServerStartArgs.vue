@@ -5,11 +5,11 @@
       title="Start Command">
       <template #actions>
         <q-btn
-          :disable="saving || restarting || !isDirty || !canEditStartArgs"
+          :disable="saving || restarting || !hasOverrides || !canEditStartArgs"
           flat
           icon="restart_alt"
           label="Reset All"
-          @click="resetAll" />
+          @click="confirmResetAll" />
         <q-btn
           :disable="
             saving || restarting || !isDirty || !canEditStartArgs || !restartStateAuthoritative
@@ -38,6 +38,28 @@
       <q-spinner-dots color="primary" size="40px" />
       <div class="text-xy-secondary q-mt-sm">Loading start command details...</div>
     </div>
+
+    <q-banner
+      v-else-if="loadError"
+      class="xy-banner-negative"
+      data-test="start-args-load-error"
+      dense
+      inline-actions
+      role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>The start command could not be loaded.</strong> {{ loadError }}
+      <template #action>
+        <q-btn
+          aria-label="Retry loading the start command"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="initialize" />
+      </template>
+    </q-banner>
 
     <div v-else class="start-args-page__body">
       <q-banner v-if="!effectiveAllowEditing" class="xy-banner-warning" inline-actions rounded>
@@ -142,7 +164,7 @@ import {
 } from './server-list-actions'
 import { resolveStartArgsPlatform } from './start-args-platform'
 import { queryInfoPlayerSnapshot } from './useGameServerQueryStatusVersion'
-import { notifySuccess } from '@/api/notifications'
+import { notifyConnectError, notifySuccess } from '@/api/notifications'
 import { websocketStateAuthoritative } from '@/utils/websocket-connection'
 import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 
@@ -153,6 +175,7 @@ const authStore = useUserAuthStore()
 
 const gameServerId = ref(String(route.params.id ?? ''))
 const loading = ref(true)
+const loadError = ref('')
 const saving = ref(false)
 const restarting = ref(false)
 const serverStatusFresh = ref(false)
@@ -304,6 +327,22 @@ const resolvedTokenCount = computed(() =>
 
 const isDirty = computed(() => draftChangeCount.value > 0)
 useUnsavedChangesGuard(isDirty)
+const protectedBlockIDs = computed(
+  () =>
+    new Set(
+      templateBlocks.value
+        .filter((block) => block.ownership !== 'editable')
+        .map((block) => block.id),
+    ),
+)
+// What Reset All would clear for this user. A clean draft mirrors the saved
+// overrides, so saved ones count too.
+const hasOverrides = computed(() =>
+  isSuperUser.value
+    ? draftPatches.value.length > 0 || draftBaseCommandOverride.value !== ''
+    : draftPatches.value.some((patch) => !protectedBlockIDs.value.has(patch.id)) ||
+      draftBaseCommandOverride.value !== savedBaseCommandOverride.value,
+)
 
 const platformWarning = computed(() => {
   if (selectedPlatform.value === null) {
@@ -332,6 +371,7 @@ onBeforeUnmount(() => {
 
 async function initialize() {
   loading.value = true
+  loadError.value = ''
 
   try {
     const authResponse = await authStore.checkUserAuthenticated()
@@ -343,6 +383,8 @@ async function initialize() {
       await router.replace(`/game-servers/${gameServerId.value}/console`)
       return
     }
+  } catch (unknownError: unknown) {
+    loadError.value = ConnectErrorToString(ConnectError.from(unknownError))
   } finally {
     loading.value = false
   }
@@ -413,25 +455,16 @@ async function onWebsocketReconnect() {
         status: Status.UNKNOWN,
       })
     }
-    const err = ConnectError.from(unknownError)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: `Failed to refresh server status: ${ConnectErrorToString(err)}`,
-      icon: 'report_problem',
-    })
+    notifyConnectError(unknownError, 'Failed to refresh server status', { icon: 'report_problem' })
   }
 }
 
+// Throws so initialize shows the Retry banner: without nodes the platform is unknown.
 async function loadNodes() {
-  try {
-    const response: ListNodesResponse = await GetXylonaClient().listNodes(
-      create(ListNodesRequestSchema),
-    )
-    nodeOsById.value = Object.fromEntries(response.nodes.map((node) => [node.id, node.os]))
-  } catch {
-    nodeOsById.value = {}
-  }
+  const response: ListNodesResponse = await GetXylonaClient().listNodes(
+    create(ListNodesRequestSchema),
+  )
+  nodeOsById.value = Object.fromEntries(response.nodes.map((node) => [node.id, node.os]))
 }
 
 async function saveOnly() {
@@ -520,19 +553,29 @@ async function savePatches(restartAfterSave: boolean) {
 
     notifySuccess('Start command saved successfully.')
   } catch (unknownError: unknown) {
-    const err = ConnectError.from(unknownError)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: startArgsSaved
-        ? `Start command was saved, but the server could not restart: ${ConnectErrorToString(err)}`
-        : `Failed to save start command: ${ConnectErrorToString(err)}`,
-      icon: 'report_problem',
-    })
+    notifyConnectError(
+      unknownError,
+      startArgsSaved
+        ? 'Start command was saved, but the server could not restart'
+        : 'Failed to save start command',
+      { icon: 'report_problem' },
+    )
   } finally {
     saving.value = false
     restarting.value = false
   }
+}
+
+function confirmResetAll() {
+  $q.dialog({
+    title: 'Reset all start arguments?',
+    message:
+      "Every argument you can edit returns to the game's template, and your unsaved edits are lost. The saved start command doesn't change until you save.",
+    cancel: { flat: true, label: 'Cancel' },
+    ok: { color: 'negative', label: 'Reset All' },
+    focus: 'cancel',
+    persistent: true,
+  }).onOk(resetAll)
 }
 
 function resetAll() {
@@ -542,10 +585,7 @@ function resetAll() {
     return
   }
 
-  const protectedIDs = new Set(
-    templateBlocks.value.filter((block) => block.ownership !== 'editable').map((block) => block.id),
-  )
-  draftPatches.value = savedPatches.value.filter((patch) => protectedIDs.has(patch.id))
+  draftPatches.value = savedPatches.value.filter((patch) => protectedBlockIDs.value.has(patch.id))
   draftBaseCommandOverride.value = savedBaseCommandOverride.value
 }
 </script>
@@ -592,7 +632,7 @@ function resetAll() {
 
 .start-args-page__status-label {
   display: block;
-  color: var(--xy-text-muted);
+  color: var(--xy-text-secondary);
   font-size: var(--xy-font-size-xs);
   line-height: 1.3;
 }

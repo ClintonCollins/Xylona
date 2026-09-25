@@ -1,9 +1,5 @@
 <template>
-  <q-dialog
-    v-model="showDialog"
-    aria-labelledby="dialog-title"
-    backdrop-filter="brightness(25%)"
-    persistent>
+  <q-dialog v-model="showDialog" aria-labelledby="dialog-title" persistent>
     <q-card class="full-width">
       <q-form @submit.prevent="archiveFiles">
         <q-card-section>
@@ -71,7 +67,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { QBtn, QCard, QCardSection, QDialog, QInput, useQuasar } from 'quasar'
+import { QBtn, QCard, QCardSection, QDialog, QInput } from 'quasar'
 import {
   File as xylonaFile,
   GameServerFilesCompressionRequest,
@@ -85,6 +81,7 @@ import {
   GetXylonaClientCallback,
 } from '@/utils/shared'
 import { connectErrorMessage } from '@/api/connect-errors'
+import { notifyError, notifySuccess, notifyWarning } from '@/api/notifications'
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -144,8 +141,6 @@ const archiveTypeOptions = ref([
     value: GameServerFilesCompressionType.XZ,
   },
 ])
-
-const $q = useQuasar()
 
 const showDialog = defineModel('showDialog', {
   type: Boolean,
@@ -208,34 +203,19 @@ async function archiveFiles() {
         resetArchiveStats()
         showDialog.value = false
         emit('submit')
-        $q.notify({
-          caption: `Files archiving aborted.`,
-          type: 'xylona-alert',
-          position: 'top',
-          timeout: 3000,
-        })
+        notifyWarning('Files archiving aborted.', { timeout: 3000 })
         return
       }
       if (err) {
         resetArchiveProgress()
         console.error(err)
-        $q.notify({
-          caption: `Error archiving files. ${connectErrorMessage(err)}`,
-          type: 'xylona-error',
-          position: 'top',
-          timeout: 3000,
-        })
+        notifyError(`Error archiving files. ${connectErrorMessage(err)}`)
         return
       }
       resetArchiveStats()
       showDialog.value = false
       emit('submit')
-      $q.notify({
-        caption: `Files archived successfully.`,
-        type: 'xylona-success',
-        position: 'top',
-        timeout: 3000,
-      })
+      notifySuccess('Files archived successfully.')
     },
     { signal: abortController.value.signal },
   )

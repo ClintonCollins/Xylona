@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createGameServer: vi.fn(),
   initialize: vi.fn(),
   notify: vi.fn(),
+  notifyConnectError: vi.fn(),
   notifySuccess: vi.fn(),
   notifyWarning: vi.fn(),
   push: vi.fn(),
@@ -53,6 +54,7 @@ vi.mock('quasar', async () => {
 })
 
 vi.mock('@/api/notifications', () => ({
+  notifyConnectError: mocks.notifyConnectError,
   notifySuccess: mocks.notifySuccess,
   notifyWarning: mocks.notifyWarning,
 }))
@@ -176,6 +178,7 @@ describe('GameServerCreateForm submit flow', () => {
     mocks.createGameServer.mockReset()
     mocks.initialize.mockReset()
     mocks.notify.mockReset()
+    mocks.notifyConnectError.mockReset()
     mocks.notifySuccess.mockReset()
     mocks.notifyWarning.mockReset()
     mocks.push.mockReset()
@@ -260,11 +263,10 @@ describe('GameServerCreateForm submit flow', () => {
     await flushPromises()
 
     expect(mocks.push).not.toHaveBeenCalled()
-    expect(mocks.notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'xylona-error',
-        caption: expect.stringContaining('Failed to create game server:'),
-      }),
+    expect(mocks.notifyConnectError).toHaveBeenCalledWith(
+      expect.any(Error),
+      'Failed to create game server',
+      expect.anything(),
     )
     expect(mocks.resetSubmissionState).toHaveBeenCalledTimes(1)
   })

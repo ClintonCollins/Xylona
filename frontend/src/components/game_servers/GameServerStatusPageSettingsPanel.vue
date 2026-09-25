@@ -2,7 +2,7 @@
 import { create } from '@bufbuild/protobuf'
 import { Code, ConnectError } from '@connectrpc/connect'
 import { computed, onMounted, ref } from 'vue'
-import { copyToClipboard, useQuasar } from 'quasar'
+import { copyToClipboard } from 'quasar'
 
 import { notifyError, notifySuccess } from '@/api/notifications'
 import {
@@ -18,7 +18,6 @@ import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
 import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 
 const emit = defineEmits<{ close: [] }>()
-const $q = useQuasar()
 const authStore = useUserAuthStore()
 const loading = ref(true)
 const saving = ref(false)
@@ -165,7 +164,7 @@ async function save() {
     } else if (connectError.code === Code.InvalidArgument) {
       addressError.value = ConnectErrorToString(connectError)
     } else {
-      $q.notify({ type: 'xylona-error', caption: ConnectErrorToString(connectError) })
+      notifyError(ConnectErrorToString(connectError))
     }
   } finally {
     saving.value = false
@@ -241,7 +240,7 @@ onMounted(async () => {
       <q-icon name="sync_problem" size="36px" />
       <strong>Settings could not be loaded.</strong>
       <span>{{ loadError }}</span>
-      <q-btn color="primary" label="Try again" @click="loadSettings()" />
+      <q-btn color="primary" label="Try again" outline @click="loadSettings()" />
     </div>
     <template v-else-if="settings">
       <div class="status-settings-panel__body">
@@ -268,7 +267,7 @@ onMounted(async () => {
         <q-input
           v-model="title"
           counter
-          label="Page title"
+          label="Page title *"
           maxlength="80"
           outlined
           :rules="[(value: string) => value.trim().length > 0 || 'Enter a page title']"
@@ -383,11 +382,13 @@ onMounted(async () => {
       <footer class="status-settings-panel__footer">
         <span v-if="dirty">Unsaved changes</span>
         <span v-else>All changes saved</span>
+        <!-- Outline: the page's Create Game Server button stays the one filled primary. -->
         <q-btn
           color="primary"
           :disable="!dirty || !formValid"
           label="Save settings"
           :loading="saving"
+          outline
           @click="save" />
       </footer>
     </template>

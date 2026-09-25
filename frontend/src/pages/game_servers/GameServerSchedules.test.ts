@@ -24,9 +24,9 @@ vi.mock('quasar', async () => {
   const actual = await vi.importActual<typeof import('quasar')>('quasar')
   return {
     ...actual,
+    Notify: { create: mocks.notify },
     useQuasar: () => ({
       dialog: vi.fn(),
-      notify: mocks.notify,
       screen: {
         lt: {
           get md() {
@@ -220,6 +220,31 @@ describe('GameServerSchedules', () => {
     await flushPromises()
 
     expect(wrapper.findComponent({ name: 'ScheduledTaskForm' }).props('showDialog')).toBe(false)
+  })
+
+  it('keeps backup schedules allowed when the backup overview fails, and retries it', async () => {
+    mocks.listScheduledTasks.mockResolvedValue(create(ListScheduledTasksResponseSchema, {}))
+    mocks.getBackupOverview.mockRejectedValueOnce(new Error('backups offline'))
+
+    const wrapper = shallowMount(GameServerSchedules)
+    await flushPromises()
+
+    const form = wrapper.findComponent({ name: 'ScheduledTaskForm' })
+    expect(wrapper.text()).not.toContain('Scheduled tasks could not be loaded.')
+    expect(form.props('backupsBlocked')).toBe(false)
+    expect(form.props('backupOverviewError')).toContain('backups offline')
+
+    mocks.getBackupOverview.mockResolvedValue(
+      create(GetGameServerBackupOverviewResponseSchema, {
+        overview: { operationsAllowed: false, disabledReason: 'No backup directory.' },
+      }),
+    )
+    form.vm.$emit('retryBackupOverview')
+    await flushPromises()
+
+    expect(form.props('backupOverviewError')).toBe('')
+    expect(form.props('backupsBlocked')).toBe(true)
+    expect(form.props('backupDisabledReason')).toBe('No backup directory.')
   })
 
   it('shows a load error instead of an empty schedule list when loading fails', async () => {

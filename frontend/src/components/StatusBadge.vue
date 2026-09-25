@@ -130,7 +130,7 @@ const dotClass = computed(() => `dot-${tone.value}`)
 .badge-danger {
   background-color: var(--xy-danger-bg);
   border-color: var(--xy-danger-border);
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
 }
 
 .dot-danger {

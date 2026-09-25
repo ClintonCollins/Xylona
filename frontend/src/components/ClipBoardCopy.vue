@@ -1,28 +1,30 @@
 <template>
-  <div
-    aria-label="Copy to clipboard"
-    class="copy-clipboard"
-    role="button"
-    tabindex="0"
-    @click="copyValue(props.clipBoardValue)"
-    @keydown.enter="copyValue(props.clipBoardValue)"
-    @keydown.space.prevent="copyValue(props.clipBoardValue)">
-    {{ props.displayText }}
-    <!-- eslint-disable vue/no-v-text-v-html-on-component, vue/no-v-html -- application-controlled tooltip HTML -->
-    <q-tooltip
-      :anchor="props.tooltipAnchor"
-      :offset="[10, 10]"
-      :self="props.tooltipSelf"
-      class="clipboard-tooltip"
-      @before-show="resetClipboardCopy"
-      v-html="clipboardInnerHTML"></q-tooltip>
-    <!-- eslint-enable vue/no-v-text-v-html-on-component, vue/no-v-html -->
-  </div>
+  <span class="copy-clipboard-wrap">
+    <!-- The name keeps the visible value, so screen readers hear what gets copied. -->
+    <button
+      :aria-label="`Copy ${props.displayText}`"
+      class="copy-clipboard"
+      type="button"
+      @click="copyValue(props.clipBoardValue)">
+      {{ props.displayText }}
+      <!-- eslint-disable vue/no-v-text-v-html-on-component, vue/no-v-html -- application-controlled tooltip HTML -->
+      <q-tooltip
+        :anchor="props.tooltipAnchor"
+        :offset="[10, 10]"
+        :self="props.tooltipSelf"
+        class="clipboard-tooltip"
+        @before-show="resetClipboardCopy"
+        v-html="clipboardInnerHTML"></q-tooltip>
+      <!-- eslint-enable vue/no-v-text-v-html-on-component, vue/no-v-html -->
+    </button>
+    <!-- Outside the button: a button's children are presentational, so a region inside it may go unannounced. -->
+    <span class="xy-visually-hidden" role="status">{{ announcement }}</span>
+  </span>
 </template>
 
 <script lang="ts" setup>
 import { copyToClipboard, QTooltip } from 'quasar'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 
 const props = defineProps({
   clipBoardValue: {
@@ -52,18 +54,25 @@ const props = defineProps({
 })
 
 const clipboardInnerHTML = ref(props.clipBoardInnerHTML)
+const announcement = ref('')
 
 async function resetClipboardCopy() {
   clipboardInnerHTML.value = props.clipBoardInnerHTML
 }
 
 async function copyValue(value: string) {
+  // Clear and flush first: a second copy of the same value must change the region to be announced.
+  announcement.value = ''
+  await nextTick()
   copyToClipboard(value)
     .then(() => {
       clipboardInnerHTML.value = props.clipBoardSuccessInnerHTML
+      announcement.value = `Copied ${props.displayText}`
     })
     .catch((e) => {
-      clipboardInnerHTML.value = "<span style='color: var(--xy-danger)'>Error trying to copy</span>"
+      clipboardInnerHTML.value =
+        "<span style='color: var(--xy-danger-text)'>Error trying to copy</span>"
+      announcement.value = 'Copy failed'
       console.error(e)
     })
 }

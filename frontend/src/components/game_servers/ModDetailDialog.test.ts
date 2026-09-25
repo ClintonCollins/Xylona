@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf'
 import type { MountingOptions } from '@vue/test-utils'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModDetails, ModVersion } from '@/proto/shared_pb'
 import { ModDetailsSchema, ModVersionSchema } from '@/proto/shared_pb'
@@ -204,5 +204,97 @@ describe('ModDetailDialog', () => {
       compatible,
       'Sample Mod',
     ])
+  })
+
+  it('keeps the dialog heading on a failed load and retries', async () => {
+    mockGetModDetails.mockRejectedValueOnce(new Error('provider down'))
+    mockGetModVersions.mockResolvedValue({ versions: [makeModVersion()] })
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('#mod-detail-dialog-title').text()).toBe(
+        'Mod details could not be loaded',
+      )
+    })
+
+    mockGetModDetails.mockResolvedValue({ details: makeModDetails() })
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Retry')
+      ?.trigger('click')
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('#mod-detail-dialog-title').text()).toBe('Sample Mod')
+    })
+    expect(mockGetModDetails).toHaveBeenCalledTimes(2)
+  })
+
+  it('offers Close while loading and ignores a late response for a closed mod', async () => {
+    let resolveOldDetails!: (value: { details: ModDetails }) => void
+    let resolveOldVersions!: (value: { versions: ModVersion[] }) => void
+    mockGetModDetails.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveOldDetails = resolve
+      }),
+    )
+    mockGetModVersions.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveOldVersions = resolve
+      }),
+    )
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Close')
+      ?.trigger('click')
+    expect(wrapper.emitted('update:show')?.[0]).toEqual([false])
+
+    await wrapper.setProps({ show: false })
+    mockGetModDetails.mockResolvedValueOnce({ details: makeModDetails({ name: 'New Mod' }) })
+    mockGetModVersions.mockResolvedValueOnce({
+      versions: [makeModVersion({ versionId: 'new-v1' })],
+    })
+    await wrapper.setProps({ sourceId: 'new456', show: true })
+    await vi.waitFor(() => {
+      expect(wrapper.find('#mod-detail-dialog-title').text()).toBe('New Mod')
+    })
+
+    resolveOldDetails({ details: makeModDetails({ name: 'Old Mod' }) })
+    resolveOldVersions({ versions: [makeModVersion({ versionId: 'old-v1' })] })
+    await flushPromises()
+
+    expect(wrapper.find('#mod-detail-dialog-title').text()).toBe('New Mod')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Install')
+      ?.trigger('click')
+    expect(wrapper.emitted('install')?.[0]?.[2]).toMatchObject({ versionId: 'new-v1' })
+  })
+
+  it('renders the newest 20 versions until Show all is pressed', async () => {
+    mockGetModDetails.mockResolvedValue({ details: makeModDetails() })
+    mockGetModVersions.mockResolvedValue({
+      versions: Array.from({ length: 25 }, (_, i) =>
+        makeModVersion({ versionId: `v${i}`, versionString: `1.0.${i}` }),
+      ),
+    })
+
+    const wrapper = mountDialog()
+    await wrapper.setProps({ show: true })
+
+    await vi.waitFor(() => {
+      expect(wrapper.findAll('.mod-version-row')).toHaveLength(20)
+    })
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Show all 25 versions')
+      ?.trigger('click')
+
+    expect(wrapper.findAll('.mod-version-row')).toHaveLength(25)
   })
 })

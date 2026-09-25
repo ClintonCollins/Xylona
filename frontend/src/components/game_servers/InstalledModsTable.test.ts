@@ -112,7 +112,7 @@ describe('InstalledModsTable', () => {
     expect(emitted[0]).toEqual(['mod-1', false])
   })
 
-  it('renders disabled mods with reduced opacity class', () => {
+  it('marks disabled mods with a row class and a Disabled label', () => {
     const mod = makeMod({ enabled: false })
     const wrapper = mountTable([mod])
 

@@ -2,7 +2,7 @@
   <game-server-form-shell
     :form-submitting="formSubmitting"
     :loading="loading"
-    :save-disabled="loading || !hasSaveableChanges"
+    :save-disabled="loading || loadError !== '' || !hasSaveableChanges"
     :subtitle="settingsSubtitle"
     class="settings-form-shell"
     header-title="Server Settings"
@@ -12,7 +12,29 @@
     test-id="settings-form-shell"
     @cancel="cancel"
     @save="saveAllChanges">
-    <q-form ref="formRef" class="server-form-layout settings-workspace" greedy>
+    <q-banner
+      v-if="loadError"
+      class="xy-banner-negative"
+      data-testid="settings-load-error"
+      dense
+      inline-actions
+      role="alert">
+      <template #avatar>
+        <q-icon name="sync_problem" />
+      </template>
+      <strong>Server settings could not be loaded.</strong> {{ loadError }}
+      <template #action>
+        <q-btn
+          aria-label="Retry loading server settings"
+          flat
+          icon="refresh"
+          label="Retry"
+          no-caps
+          @click="loadSettings" />
+      </template>
+    </q-banner>
+
+    <q-form v-else ref="formRef" class="server-form-layout settings-workspace" greedy>
       <nav aria-label="Settings categories" class="settings-category-rail">
         <template v-for="{ group, categories } in categoryGroups" :key="group">
           <div class="settings-category-group">{{ group }}</div>
@@ -62,7 +84,7 @@
             <span class="section-icon">
               <q-icon name="badge" size="14px" />
             </span>
-            <span class="section-title">Identity</span>
+            <h3 class="section-title">Identity</h3>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md">
@@ -119,7 +141,7 @@
             <span class="section-icon">
               <q-icon name="hub" size="14px" />
             </span>
-            <span class="section-title">Placement</span>
+            <h3 class="section-title">Placement</h3>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md">
@@ -200,7 +222,7 @@
             <span class="section-icon">
               <q-icon name="lan" size="14px" />
             </span>
-            <span class="section-title">Networking</span>
+            <h3 class="section-title">Networking</h3>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md">
@@ -240,7 +262,7 @@
             <span class="section-icon">
               <q-icon name="terminal" size="14px" />
             </span>
-            <span class="section-title">Launch</span>
+            <h3 class="section-title">Launch</h3>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md">
@@ -393,11 +415,17 @@
           <template v-else>
             <q-banner
               v-if="environmentIssues.length > 0"
-              class="q-mb-md"
+              class="q-mb-md xy-banner-negative"
               data-testid="environment-validation-issues"
               dense
               rounded>
-              <div v-for="issue in environmentIssues" :key="issue.name + issue.message">
+              <template #avatar>
+                <q-icon name="error_outline" />
+              </template>
+              <div
+                v-for="(issue, issueIndex) in environmentIssues"
+                :id="`environment-issue-${issueIndex}`"
+                :key="issue.name + issue.message">
                 {{ issue.message }}
               </div>
             </q-banner>
@@ -436,6 +464,7 @@
                   data-testid="environment-row">
                   <q-input
                     v-model="row.name"
+                    :aria-describedby="environmentIssueIds(row.name)"
                     class="environment-name-input"
                     data-testid="environment-name"
                     label="Name"
@@ -537,7 +566,7 @@
             <span class="section-icon">
               <q-icon name="memory" size="14px" />
             </span>
-            <span class="section-title">Capacity</span>
+            <h3 class="section-title">Capacity</h3>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md">
@@ -593,7 +622,7 @@
             <span class="section-icon">
               <q-icon name="restart_alt" size="14px" />
             </span>
-            <span class="section-title">Auto-Restart</span>
+            <h3 class="section-title">Auto-Restart</h3>
             <span class="section-line"></span>
           </div>
           <div class="row q-col-gutter-md">
@@ -612,7 +641,7 @@
               class="col-12 col-sm-6"
               data-testid="auto-restart-max-retries"
               hint="Maximum restart attempts before giving up (resets after 5 min of stable uptime)."
-              label="Max Retries"
+              label="Max Retries *"
               lazy-rules
               outlined
               reactive-rules
@@ -625,7 +654,7 @@
               class="col-12 col-sm-6"
               data-testid="auto-restart-cooldown"
               hint="Initial delay before first retry. Doubles with each subsequent attempt."
-              label="Base Cooldown (seconds)"
+              label="Base Cooldown (seconds) *"
               lazy-rules
               outlined
               reactive-rules
@@ -939,6 +968,7 @@ const {
   initialize,
   ipRules,
   isMinecraftGame,
+  loadError,
   loading,
   maxMemoryModel,
   maxMemoryRules,
@@ -1065,14 +1095,22 @@ useUnsavedChangesGuard(() => hasSaveableChanges.value || secretEnvironmentValue.
 
 onMounted(async () => {
   XylonaEventBus.on('gameServerStatus', onServerStatus)
+  await loadSettings()
+})
+
+async function loadSettings() {
   await initialize()
+  // A failed load leaves a blank server: never make it the saved baseline.
+  if (loadError.value) {
+    return
+  }
   savedCoreSnapshot.value = coreSnapshot(gameServer.value)
   await Promise.all([
     initializeAdminInterface(),
     initializeBackupSettings(),
     initializeEnvironmentSettings(),
   ])
-})
+}
 
 onBeforeUnmount(() => {
   XylonaEventBus.off('gameServerStatus', onServerStatus)
@@ -1151,10 +1189,7 @@ async function initializeAdminInterface() {
       ? create(GameServerAdminInterfaceSchema, response.adminInterface)
       : create(GameServerAdminInterfaceSchema)
   } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to load admin interface: ' + ConnectErrorToString(ConnectError.from(e)),
+    notifyError('Failed to load admin interface: ' + ConnectErrorToString(ConnectError.from(e)), {
       icon: 'report_problem',
     })
   } finally {
@@ -1265,6 +1300,14 @@ function removeEnvironmentRow(index: number): void {
   environmentRows.value.splice(index, 1)
 }
 
+// Ties each validation issue to the variable row it names.
+function environmentIssueIds(name: string): string | undefined {
+  const ids = environmentIssues.value.flatMap((issue, index) =>
+    issue.name !== '' && issue.name === name.trim() ? [`environment-issue-${index}`] : [],
+  )
+  return ids.length > 0 ? ids.join(' ') : undefined
+}
+
 async function saveEnvironmentSettings() {
   const envVars = environmentRows.value.map((row) =>
     create(EnvironmentVariableSchema, {
@@ -1301,10 +1344,7 @@ async function setSecretEnvironment() {
     secretEnvironmentValue.value = ''
     notifySuccess('Secret saved successfully.')
   } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to save secret: ' + ConnectErrorToString(ConnectError.from(e)),
+    notifyError('Failed to save secret: ' + ConnectErrorToString(ConnectError.from(e)), {
       icon: 'report_problem',
     })
   } finally {
@@ -1336,10 +1376,7 @@ async function clearSecretEnvironment(name: string) {
     environmentIssues.value = response.validationIssues
     notifySuccess('Secret cleared successfully.')
   } catch (e) {
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to clear secret: ' + ConnectErrorToString(ConnectError.from(e)),
+    notifyError('Failed to clear secret: ' + ConnectErrorToString(ConnectError.from(e)), {
       icon: 'report_problem',
     })
   } finally {
@@ -1650,7 +1687,7 @@ async function saveAllChanges() {
 
 .settings-inline-link {
   padding: 0;
-  color: var(--xy-primary);
+  color: var(--xy-primary-text);
   background: none;
   border: none;
   font: inherit;

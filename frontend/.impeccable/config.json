@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "src/pages/game_servers/GameServerView.vue"
+        ],
+        "createdAt": "2026-09-24T18:42:56.099Z",
+        "reason": "Claude: deliberate, commented width reflow for the player-rail and sidebar collapse (the console must re-lay out); accepted in the 2026-09-24 audits"
+      }
+    ]
+  }
+}

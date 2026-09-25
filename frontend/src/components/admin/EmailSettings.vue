@@ -63,8 +63,9 @@
             <q-input
               v-model="host"
               aria-label="SMTP host"
+              aria-required="true"
               dense
-              label="SMTP Host"
+              label="SMTP Host *"
               outlined
               placeholder="smtp.example.com" />
           </div>
@@ -73,8 +74,9 @@
               v-model.number="port"
               :rules="[portRule]"
               aria-label="SMTP port"
+              aria-required="true"
               dense
-              label="Port"
+              label="Port *"
               outlined
               placeholder="587"
               type="number" />
@@ -83,38 +85,40 @@
             <q-input
               v-model="user"
               aria-label="SMTP username"
+              aria-required="true"
               autocomplete="off"
               dense
-              label="Username"
+              label="Username *"
               outlined />
           </div>
           <div class="col-12 col-md-6">
             <q-input
               v-model="password"
+              :aria-required="!hasExistingPassword"
               :hint="
                 hasExistingPassword
                   ? 'A password is stored. Leave blank to keep it.'
                   : 'Stored encrypted by the controller.'
               "
+              :label="hasExistingPassword ? 'Password' : 'Password *'"
               aria-label="SMTP password"
               autocomplete="new-password"
               dense
-              label="Password"
               outlined
               type="password" />
           </div>
           <div class="col-12 col-md-8">
             <q-input
               v-model="fromAddress"
-              aria-label="From email address"
+              aria-required="true"
               dense
-              label="From Address"
+              label="From Address *"
               outlined
               placeholder="noreply@example.com"
               type="email" />
           </div>
           <div class="col-12 col-md-4 self-center">
-            <q-toggle v-model="tlsEnabled" aria-label="Enable TLS" label="TLS Enabled" />
+            <q-toggle v-model="tlsEnabled" label="TLS Enabled" />
           </div>
         </div>
 
@@ -134,6 +138,9 @@
             no-caps
             outline
             @click="testEmail" />
+          <span v-if="!manualConfigured" class="text-caption text-xy-secondary">
+            Fill in every field marked * to save.
+          </span>
         </div>
       </div>
 
@@ -198,7 +205,6 @@
 
             <q-input
               :model-value="googleRedirectURI"
-              aria-label="Google OAuth redirect URI"
               class="redirect-uri-field"
               dense
               label="Authorized Redirect URI"
@@ -224,10 +230,10 @@
             <div class="col-12">
               <q-input
                 v-model="googleClientID"
-                aria-label="Google OAuth client ID"
+                aria-required="true"
                 autocomplete="off"
                 dense
-                label="OAuth Client ID"
+                label="OAuth Client ID *"
                 outlined
                 placeholder="000000000000-example.apps.googleusercontent.com" />
             </div>
@@ -239,10 +245,12 @@
                     ? 'A client secret is stored. Leave blank to keep it.'
                     : 'Stored encrypted after Google authorization succeeds.'
                 "
-                aria-label="Google OAuth client secret"
+                :aria-required="!googleClientSecretConfigured"
+                :label="
+                  googleClientSecretConfigured ? 'OAuth Client Secret' : 'OAuth Client Secret *'
+                "
                 autocomplete="new-password"
                 dense
-                label="OAuth Client Secret"
                 outlined
                 type="password" />
             </div>
@@ -259,6 +267,7 @@
             unelevated
             @click="testEmail" />
           <q-btn
+            :aria-describedby="googleConnectBlockedReason ? 'google-connect-reason' : undefined"
             :color="googleActive ? undefined : 'primary'"
             :disable="!googleRedirectSecure || !googleCredentialsReady"
             :loading="connectingGoogle"
@@ -275,6 +284,12 @@
             label="Disconnect"
             no-caps
             @click="confirmGoogleDisconnect" />
+          <span
+            v-if="googleConnectBlockedReason"
+            id="google-connect-reason"
+            class="text-caption text-xy-secondary">
+            {{ googleConnectBlockedReason }}
+          </span>
         </div>
       </div>
     </template>
@@ -284,7 +299,7 @@
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
-import { Notify, copyToClipboard, useQuasar } from 'quasar'
+import { copyToClipboard, useQuasar } from 'quasar'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { SystemEmailProvider, SystemSMTPConfigSchema } from '@/proto/shared_pb'
@@ -296,10 +311,12 @@ import {
   TestSystemSMTPRequestSchema,
 } from '@/proto/xylona_pb'
 import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { notifyError, notifyWarning } from '@/api/notifications'
+import { notifyConnectError, notifyError, notifySuccess, notifyWarning } from '@/api/notifications'
 import { useUserAuthStore } from '@/stores/xylona'
 
 const googleCallbackPath = '/api/oauth/google/mail/callback'
+// Delivery failures stay up until dismissed, so the operator can read the provider's reason.
+const stickyError = { timeout: 0, closeBtn: 'Dismiss', icon: 'report_problem' }
 const $q = useQuasar()
 const authStore = useUserAuthStore()
 const route = useRoute()
@@ -381,6 +398,12 @@ const googleCredentialsReady = computed(
       (googleClientSecretConfigured.value &&
         googleClientID.value.trim() === storedGoogleClientID.value)),
 )
+// Spelled out beside the button: a disabled button's tooltip never shows.
+const googleConnectBlockedReason = computed(() => {
+  if (!googleRedirectSecure.value) return 'Google needs an HTTPS redirect URI to connect.'
+  if (!googleCredentialsReady.value) return 'Fill in every field marked * to connect.'
+  return ''
+})
 
 const activeStatusTitle = computed(() => {
   if (!configured.value) return 'Email delivery is not configured'
@@ -422,12 +445,7 @@ async function handleGoogleRedirectResult(): Promise<void> {
   await router.replace({ query: nextQuery })
 
   if (result === 'connected') {
-    Notify.create({
-      type: 'xylona-success',
-      position: 'top',
-      caption: 'Google account connected for email delivery',
-      timeout: 5000,
-    })
+    notifySuccess('Google account connected for email delivery', { timeout: 5000 })
     return
   }
 
@@ -500,14 +518,9 @@ async function saveManualSMTP(): Promise<void> {
     hasExistingPassword.value = true
     password.value = ''
     storedManualReady.value = true
-    Notify.create({
-      type: 'xylona-success',
-      position: 'top',
-      caption: 'Manual SMTP saved and activated',
-      timeout: 5000,
-    })
+    notifySuccess('Manual SMTP saved and activated', { timeout: 5000 })
   } catch (unknownError: unknown) {
-    notifyConnectError(unknownError)
+    notifyConnectError(unknownError, undefined, stickyError)
   } finally {
     saving.value = false
   }
@@ -526,7 +539,7 @@ async function beginGoogleConnection(): Promise<void> {
     window.location.assign(response.authorizationUrl)
   } catch (unknownError: unknown) {
     connectingGoogle.value = false
-    notifyConnectError(unknownError)
+    notifyConnectError(unknownError, undefined, stickyError)
   }
 }
 
@@ -550,14 +563,9 @@ async function disconnectGoogle(): Promise<void> {
     await GetXylonaClient().disconnectGoogleMail(create(DisconnectGoogleMailRequestSchema, {}))
     await loadConfig()
     selectedProvider.value = 'google'
-    Notify.create({
-      type: 'xylona-success',
-      position: 'top',
-      caption: 'Google account disconnected',
-      timeout: 5000,
-    })
+    notifySuccess('Google account disconnected', { timeout: 5000 })
   } catch (unknownError: unknown) {
-    notifyConnectError(unknownError)
+    notifyConnectError(unknownError, undefined, stickyError)
   } finally {
     disconnectingGoogle.value = false
   }
@@ -586,24 +594,12 @@ function testEmail(): void {
         }),
       )
       if (response.success) {
-        Notify.create({
-          type: 'xylona-success',
-          position: 'top',
-          caption: 'Test email sent successfully',
-          timeout: 5000,
-        })
+        notifySuccess('Test email sent successfully', { timeout: 5000 })
       } else {
-        Notify.create({
-          type: 'xylona-error',
-          position: 'top',
-          caption: response.error || 'Unknown error',
-          timeout: 0,
-          closeBtn: 'Dismiss',
-          icon: 'report_problem',
-        })
+        notifyError(response.error || 'Unknown error', stickyError)
       }
     } catch (unknownError: unknown) {
-      notifyConnectError(unknownError)
+      notifyConnectError(unknownError, undefined, stickyError)
     } finally {
       testing.value = false
     }
@@ -613,32 +609,10 @@ function testEmail(): void {
 async function copyRedirectURI(): Promise<void> {
   try {
     await copyToClipboard(googleRedirectURI.value)
-    Notify.create({
-      type: 'xylona-success',
-      position: 'top',
-      caption: 'Redirect URI copied',
-      timeout: 3000,
-    })
+    notifySuccess('Redirect URI copied')
   } catch {
-    Notify.create({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Could not copy the redirect URI',
-      timeout: 5000,
-    })
+    notifyError('Could not copy the redirect URI')
   }
-}
-
-function notifyConnectError(unknownError: unknown): void {
-  const error = ConnectError.from(unknownError)
-  Notify.create({
-    type: 'xylona-error',
-    position: 'top',
-    caption: ConnectErrorToString(error),
-    timeout: 0,
-    closeBtn: 'Dismiss',
-    icon: 'report_problem',
-  })
 }
 </script>
 

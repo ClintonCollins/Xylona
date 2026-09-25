@@ -16,9 +16,8 @@
           :class="`metrics-timeline__marker--${event.tone}`"
           class="metrics-timeline__marker"
           :name="toneIcons[event.tone]"
-          size="16px">
-          <span class="metrics-timeline__sr-only">{{ toneLabels[event.tone] }}</span>
-        </q-icon>
+          size="16px" />
+        <span class="xy-visually-hidden">{{ toneLabels[event.tone] }}</span>
         <div>
           <div class="metrics-timeline__event-header">
             <strong>{{ event.title }}</strong>
@@ -146,18 +145,6 @@ const kindLabels: Record<MetricsTimelineEvent['kind'], string> = {
 
 .metrics-timeline__marker--negative {
   color: var(--xy-danger);
-}
-
-.metrics-timeline__sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .metrics-timeline__event-header strong {

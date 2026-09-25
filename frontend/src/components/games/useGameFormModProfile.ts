@@ -90,6 +90,7 @@ export function useGameFormModProfile(game: Ref<Game>) {
     game.value.modProfile = createEmptyModProfile()
   }
 
+  // GameFormModsTab offers the undo inline.
   function clearGameModProfile(): void {
     game.value.modProfile = undefined
   }

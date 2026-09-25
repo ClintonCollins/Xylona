@@ -176,7 +176,29 @@
           </q-td>
         </template>
         <template #no-data>
-          <div class="node-section__empty">No game servers are assigned to this node.</div>
+          <q-banner
+            v-if="serversError"
+            class="xy-banner-negative full-width"
+            dense
+            inline-actions
+            role="alert">
+            <template #avatar>
+              <q-icon name="sync_problem" />
+            </template>
+            <strong>Game servers could not be loaded.</strong> {{ serversError }}
+            <template #action>
+              <q-btn
+                :loading="serversLoading"
+                flat
+                icon="refresh"
+                label="Retry"
+                no-caps
+                @click="fetchServers" />
+            </template>
+          </q-banner>
+          <div v-else-if="!serversLoading" class="node-section__empty">
+            No game servers are assigned to this node.
+          </div>
         </template>
       </q-table>
     </section>
@@ -214,6 +236,20 @@
           <dd class="font-mono">{{ currentSystemInfo.xylonaVersion || 'Unreported' }}</dd>
         </div>
       </dl>
+      <q-banner
+        v-else-if="systemInfoError"
+        class="xy-banner-negative"
+        dense
+        inline-actions
+        role="alert">
+        <template #avatar>
+          <q-icon name="sync_problem" />
+        </template>
+        <strong>System information could not be loaded.</strong> {{ systemInfoError }}
+        <template #action>
+          <q-btn flat icon="refresh" label="Retry" no-caps @click="fetchSystemInfo" />
+        </template>
+      </q-banner>
       <div v-else class="node-section__empty">
         System information arrives with the node's first snapshot.
       </div>
@@ -305,6 +341,8 @@ const sampleIntervalSeconds = ref(0)
 const historyGuard = new LatestRequestGuard()
 
 const localSystemInfo = ref<NodeSystemInfo | undefined>(props.systemInfo)
+// Failed reads show an error with Retry, not the "no servers" or "not reported yet" copy.
+const systemInfoError = ref('')
 const liveSnapshot = ref<NodeResourceSnapshot | undefined>(undefined)
 const liveSnapshotAtMs = ref<number | null>(null)
 const nowMs = ref(Date.now())
@@ -312,6 +350,7 @@ let clockTimer: ReturnType<typeof setInterval> | null = null
 
 const allServers = ref<GameServer[]>([])
 const serversLoading = ref(false)
+const serversError = ref('')
 const metricsSubscriptions = createServerMetricsSubscriptions()
 const serverMetrics = ref<Map<string, GameServerMetrics>>(new Map())
 const serverStatuses = ref<Map<string, Status>>(new Map())
@@ -677,8 +716,9 @@ async function fetchSystemInfo() {
       create(GetNodeSystemInfoRequestSchema, { nodeId: props.node.id }),
     )
     localSystemInfo.value = resp.systemInfo
+    systemInfoError.value = ''
   } catch (err) {
-    console.error('Failed to fetch node system info:', ConnectError.from(err).message)
+    systemInfoError.value = ConnectErrorToString(ConnectError.from(err))
   }
 }
 
@@ -687,8 +727,9 @@ async function fetchServers() {
   try {
     const resp = await GetXylonaClient().listGameServers(create(ListGameServersRequestSchema, {}))
     allServers.value = resp.gameServers
+    serversError.value = ''
   } catch (err) {
-    console.error('Failed to list game servers for node:', ConnectError.from(err).message)
+    serversError.value = ConnectErrorToString(ConnectError.from(err))
   } finally {
     serversLoading.value = false
   }
@@ -791,7 +832,7 @@ onBeforeUnmount(() => {
 }
 
 .node-strip__health--negative {
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
 }
 
 .node-strip__dot {
@@ -835,7 +876,7 @@ onBeforeUnmount(() => {
 }
 
 .node-toolbar__error {
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
 }
 
 .node-lanes {

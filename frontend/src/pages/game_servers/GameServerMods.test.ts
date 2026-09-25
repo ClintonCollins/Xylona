@@ -70,6 +70,15 @@ function mountPage() {
   return mount(GameServerMods, {
     global: {
       stubs: {
+        'q-banner': {
+          template: '<div role="alert"><slot /><slot name="action" /></div>',
+        },
+        'q-btn': {
+          props: ['label'],
+          emits: ['click'],
+          template: '<button @click="$emit(\'click\')">{{ label }}</button>',
+        },
+        'q-icon': true,
         'q-tabs': PanelStub,
         'q-tab': true,
         'q-separator': true,
@@ -264,6 +273,44 @@ describe('GameServerMods reported mods', () => {
     expect((wrapper.vm as unknown as { activeTab: string }).activeTab).toBe('browse')
     expect(mocks.getReportedMods).not.toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('Reported by game server')
+  })
+
+  it('shows a retryable error instead of an empty list when installed mods fail', async () => {
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { gameId: 'minecraft', resolvedModProfile: minecraftSources },
+    })
+    mocks.listInstalledMods.mockRejectedValueOnce(new Error('backend down'))
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Installed mods could not be loaded.')
+    expect(wrapper.text()).toContain('backend down')
+    expect(wrapper.find('[data-testid="managed-mods"]').exists()).toBe(false)
+    expect((wrapper.vm as unknown as { activeTab: string }).activeTab).toBe('installed')
+
+    await wrapper.get('[aria-label="Retry loading installed mods"]').trigger('click')
+    await flushPromises()
+
+    expect(mocks.listInstalledMods).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[data-testid="managed-mods"]').exists()).toBe(true)
+  })
+
+  it('does not claim there are no mod sources when the server config fails', async () => {
+    mocks.getGameServer.mockRejectedValueOnce(new Error('config down'))
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Mod sources could not be loaded.')
+    expect(wrapper.text()).not.toContain('Xylona has no mod sources')
+
+    mocks.getGameServer.mockResolvedValue({
+      gameServer: { gameId: 'minecraft', resolvedModProfile: minecraftSources },
+    })
+    await wrapper.get('[aria-label="Retry loading mod sources"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Mod sources could not be loaded.')
+    expect(wrapper.findComponent({ name: 'ModBrowse' }).exists()).toBe(true)
   })
 
   it('stays on Installed and points to Files when the game has no mod sources', async () => {

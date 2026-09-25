@@ -1,17 +1,9 @@
 import { create } from '@bufbuild/protobuf'
 import { shallowMount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { FileSchema } from '@/proto/gameserver_files_operations_pb'
 import MoveFiles from './MoveFiles.vue'
-
-vi.mock('quasar', async () => {
-  const actual = await vi.importActual<typeof import('quasar')>('quasar')
-  return {
-    ...actual,
-    useQuasar: () => ({ notify: vi.fn() }),
-  }
-})
 
 function mountMove(path: string) {
   return shallowMount(MoveFiles, {

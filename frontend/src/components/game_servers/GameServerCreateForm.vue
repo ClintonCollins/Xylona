@@ -18,7 +18,7 @@
           <span class="section-icon">
             <q-icon name="badge" size="14px" />
           </span>
-          <span class="section-title">Identity</span>
+          <h2 class="section-title">Identity</h2>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md">
@@ -68,7 +68,7 @@
           <span class="section-icon">
             <q-icon name="hub" size="14px" />
           </span>
-          <span class="section-title">Placement</span>
+          <h2 class="section-title">Placement</h2>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md">
@@ -118,7 +118,7 @@
           <span class="section-icon">
             <q-icon name="lan" size="14px" />
           </span>
-          <span class="section-title">Networking</span>
+          <h2 class="section-title">Networking</h2>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md">
@@ -166,7 +166,7 @@
           <span class="section-icon">
             <q-icon name="terminal" size="14px" />
           </span>
-          <span class="section-title">Launch</span>
+          <h2 class="section-title">Launch</h2>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md">
@@ -199,7 +199,7 @@
           <span class="section-icon">
             <q-icon name="memory" size="14px" />
           </span>
-          <span class="section-title">Capacity</span>
+          <h2 class="section-title">Capacity</h2>
           <span class="section-line"></span>
         </div>
         <div class="row q-col-gutter-md">
@@ -291,13 +291,12 @@
 
 <script lang="ts" setup>
 import { create } from '@bufbuild/protobuf'
-import { ConnectError } from '@connectrpc/connect'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { ConnectErrorToString, GetXylonaClient } from '@/utils/shared'
-import { notifySuccess, notifyWarning } from '@/api/notifications'
+import { GetXylonaClient } from '@/utils/shared'
+import { notifyConnectError, notifySuccess, notifyWarning } from '@/api/notifications'
 import GameServerFormShell from './GameServerFormShell.vue'
 import { useGameServerPortAvailability } from './useGameServerPortAvailability'
 import { useGameServerFormState } from './useGameServerFormState'
@@ -474,12 +473,7 @@ async function submitGameServer() {
     )
   } catch (e) {
     console.error(e)
-    $q.notify({
-      type: 'xylona-error',
-      position: 'top',
-      caption: 'Failed to create game server: ' + ConnectErrorToString(ConnectError.from(e)),
-      icon: 'report_problem',
-    })
+    notifyConnectError(e, 'Failed to create game server', { icon: 'report_problem' })
   } finally {
     resetSubmissionState()
   }

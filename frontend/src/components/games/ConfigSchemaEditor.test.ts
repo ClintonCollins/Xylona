@@ -3,6 +3,7 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 import ConfigSchemaEditor from './ConfigSchemaEditor.vue'
+import RemovedItemUndo from './RemovedItemUndo.vue'
 
 const mocks = vi.hoisted(() => {
   // A stand-in Monaco editor: the test edits `value` and fires the change listener.
@@ -200,6 +201,30 @@ describe('ConfigSchemaEditor managed sources', () => {
     await wrapper.setProps({
       schema: { type: 'object', properties: { motd: { type: 'string' } } },
     })
+    expect(wrapper.vm.isDirty).toBe(false)
+  })
+
+  it("keeps a removed field's slot as an undo row that restores it", async () => {
+    const RemovableFieldCardStub = defineComponent({
+      emits: ['remove'],
+      template: '<div data-testid="field-card" @click="$emit(\'remove\')"></div>',
+    })
+    const wrapper = shallowMount(ConfigSchemaEditor, {
+      props: { schema: { type: 'object', properties: { motd: { type: 'string' } } } },
+      global: { stubs: { 'q-btn': QBtnStub, ConfigSchemaFieldCard: RemovableFieldCardStub } },
+    })
+    await nextTick()
+
+    await wrapper.get('[data-testid="field-card"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-card"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('No fields defined yet')
+
+    const undo = wrapper.findComponent(RemovedItemUndo)
+    expect(undo.props('label')).toBe('motd')
+    undo.vm.$emit('undo')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="field-card"]').exists()).toBe(true)
     expect(wrapper.vm.isDirty).toBe(false)
   })
 

@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf'
 import { ref } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { EnvironmentVariableSchema, GameSchema } from '@/proto/shared_pb'
 import type { ConfigSchemaEntry } from './config-schema-types'
@@ -75,6 +75,24 @@ describe('useGameFormDirtyState', () => {
     dirtyState.commitSnapshot()
 
     expect(dirtyState.isDirty.value).toBe(false)
+  })
+
+  it('returns to clean once an undone edit settles', () => {
+    vi.useFakeTimers()
+    try {
+      const state = createState()
+      const dirtyState = useGameFormDirtyState(state)
+
+      dirtyState.commitSnapshot()
+      state.game.value.name = 'Changed'
+      expect(dirtyState.isDirty.value).toBe(true)
+
+      state.game.value.name = 'Minecraft'
+      vi.advanceTimersByTime(300)
+      expect(dirtyState.isDirty.value).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('marks the form dirty when default environment rows change', () => {

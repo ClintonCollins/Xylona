@@ -13,7 +13,7 @@
             <q-badge
               v-if="category"
               :label="category"
-              :style="{ borderColor: categoryColor, color: categoryColor }"
+              :style="{ borderColor: categoryColor }"
               class="editor-category-badge"
               outline />
             <span class="text-xy-muted editor-meta-text">{{ format }}</span>
@@ -57,7 +57,7 @@
               flat
               label="Discard changes"
               type="button"
-              @click="discardChanges" />
+              @click="confirmDiscardChanges" />
             <q-btn
               :class="{ 'save-success': saveSuccess }"
               :color="saveSuccess ? 'positive' : 'primary'"
@@ -74,27 +74,27 @@
         </div>
       </div>
 
-      <!-- Scrollspy group tabs -->
-      <div
+      <!-- Scrollspy jump links to the setting groups -->
+      <nav
         v-if="allGroups.length > 1"
         ref="groupTabsRef"
         :class="{ 'fade-start': tabsFadeStart, 'fade-end': tabsFadeEnd }"
+        aria-label="Setting groups"
         class="group-tabs"
-        role="tablist"
         @scroll.passive="updateTabsOverflow"
         @wheel="scrollTabsWithWheel">
         <button
           v-for="group in allGroups"
           :key="group.name"
           :ref="(el) => setTabRef(group.name, el as HTMLElement | null)"
-          :aria-selected="activeGroup === group.name"
+          :aria-current="activeGroup === group.name ? 'location' : undefined"
           :class="{
             active: activeGroup === group.name,
             dimmed: searchQuery && !filteredGroupCounts.has(group.name),
           }"
+          :disabled="Boolean(searchQuery) && !filteredGroupCounts.has(group.name)"
           :style="{ '--tab-accent': groupAccentColor(group.name) }"
           class="group-tab"
-          role="tab"
           type="button"
           @click="scrollToGroup(group.name)">
           {{ group.displayName }}
@@ -107,7 +107,7 @@
           :style="{ background: groupAccentColor(activeGroup) }"
           aria-hidden="true"
           class="tab-indicator" />
-      </div>
+      </nav>
 
       <!-- Validation errors -->
       <Transition name="validation-slide">
@@ -162,7 +162,7 @@
           :style="{ '--group-accent': groupAccentColor(group.name) }"
           class="settings-group">
           <div class="group-header">
-            <span class="group-header-title">{{ group.displayName }}</span>
+            <h2 class="group-header-title">{{ group.displayName }}</h2>
             <span class="group-header-count">{{ group.fields.length }}</span>
           </div>
           <div
@@ -224,6 +224,9 @@
               <div v-else-if="field.fieldType === 'boolean'" class="inline-toggle">
                 <q-toggle
                   :id="fieldId(field.key)"
+                  :aria-describedby="
+                    serverError(field.key) !== undefined ? `${fieldId(field.key)}-error` : undefined
+                  "
                   :aria-label="field.title || field.key"
                   :color="getFieldValue(field) === 'true' ? 'positive' : 'primary'"
                   :model-value="getFieldValue(field) === 'true'"
@@ -327,7 +330,9 @@
 
               <div
                 v-if="field.fieldType === 'boolean' && serverError(field.key) !== undefined"
-                class="setting-error">
+                :id="`${fieldId(field.key)}-error`"
+                class="setting-error"
+                role="alert">
                 {{ serverError(field.key) }}
               </div>
             </div>
@@ -346,6 +351,7 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import type { AdvancedField, ConfigFieldData, ConfigValidationError } from '@/proto/xylona_pb'
 import { getManagedSourceLabel } from '@/components/shared/placeholder-definitions'
 import ConfigAdvancedFields from './ConfigAdvancedFields.vue'
@@ -375,6 +381,8 @@ const emit = defineEmits<{
   generate: []
   updateAdvanced: [fields: AdvancedField[]]
 }>()
+
+const $q = useQuasar()
 
 // Track local edits as key → value overrides
 const editedValues = reactive(new Map<string, string>())
@@ -529,7 +537,7 @@ function scrollingElement(): Element | null {
   return scroller instanceof Window ? document.scrollingElement : scroller
 }
 
-// ---- Group tabs: spring indicator, overflow fades, reveal active tab ----
+// ---- Group tabs: indicator, overflow fades, reveal active tab ----
 const groupTabsRef = ref<HTMLElement | null>(null)
 const tabIndicatorRef = ref<HTMLElement | null>(null)
 const tabRefs = new Map<string, HTMLElement>()
@@ -576,94 +584,20 @@ function revealTab(groupName: string) {
   }
 }
 
-// Spring solver state
-let springLeftPos = 0
-let springLeftVel = 0
-let springWidthPos = 0
-let springWidthVel = 0
-let springAnimId = 0
 let indicatorInitialized = false
 
-function solveSpring(
-  pos: number,
-  vel: number,
-  target: number,
-  stiffness: number,
-  damping: number,
-): [number, number] {
-  const force = -stiffness * (pos - target)
-  const dampForce = -damping * vel
-  const accel = force + dampForce
-  const dt = 1 / 60
-  const newVel = vel + accel * dt
-  const newPos = pos + newVel * dt
-  return [newPos, newVel]
-}
-
-function moveTabIndicator(groupName: string) {
+// Moves by transform alone, so the indicator never triggers layout: a 1px bar
+// scaled to the tab's width. The first placement snaps; later moves use the CSS
+// transition, which the reduced-motion tokens turn off.
+function moveTabIndicator(groupName: string, snap = false) {
   const tab = tabRefs.get(groupName)
   const indicator = tabIndicatorRef.value
   if (!tab || !indicator) return
 
-  const targetLeft = tab.offsetLeft
-  const targetWidth = tab.offsetWidth
-
-  // First render or reduced motion: snap, no spring
-  if (!indicatorInitialized || prefersReducedMotion()) {
-    indicatorInitialized = true
-    springLeftPos = targetLeft
-    springWidthPos = targetWidth
-    indicator.style.opacity = '1'
-    indicator.style.transform = `translateX(${targetLeft}px)`
-    indicator.style.width = `${targetWidth}px`
-    return
-  }
-
-  cancelAnimationFrame(springAnimId)
-
-  const stiffness = 300
-  const damping = 26
-
-  function step() {
-    ;[springLeftPos, springLeftVel] = solveSpring(
-      springLeftPos,
-      springLeftVel,
-      targetLeft,
-      stiffness,
-      damping,
-    )
-    ;[springWidthPos, springWidthVel] = solveSpring(
-      springWidthPos,
-      springWidthVel,
-      targetWidth,
-      stiffness,
-      damping,
-    )
-
-    if (!indicator) return
-
-    indicator.style.transform = `translateX(${springLeftPos}px)`
-    indicator.style.width = `${springWidthPos}px`
-
-    const settled =
-      Math.abs(springLeftPos - targetLeft) < 0.3 &&
-      Math.abs(springLeftVel) < 0.3 &&
-      Math.abs(springWidthPos - targetWidth) < 0.3 &&
-      Math.abs(springWidthVel) < 0.3
-
-    if (settled) {
-      springLeftPos = targetLeft
-      springLeftVel = 0
-      springWidthPos = targetWidth
-      springWidthVel = 0
-      indicator.style.transform = `translateX(${targetLeft}px)`
-      indicator.style.width = `${targetWidth}px`
-    } else {
-      springAnimId = requestAnimationFrame(step)
-    }
-  }
-
-  springAnimId = requestAnimationFrame(step)
+  indicator.style.transition = indicatorInitialized && !snap ? '' : 'none'
+  indicator.style.transform = `translateX(${tab.offsetLeft}px) scaleX(${tab.offsetWidth})`
+  indicator.style.opacity = '1'
+  indicatorInitialized = true
 }
 
 // Animate the indicator and keep the active tab in view when the group changes
@@ -742,6 +676,8 @@ function updateActiveGroupFromScroll() {
 function measureHeader() {
   headerHeight.value = headerRef.value?.offsetHeight ?? 0
   updateTabsOverflow()
+  // Tabs move when the header resizes or late web fonts land; keep the underline on its tab.
+  if (activeGroup.value) moveTabIndicator(activeGroup.value, true)
 }
 
 // Reset edits when file changes
@@ -756,8 +692,6 @@ watch(
     if (el) el.scrollTop = 0
     // Reset tab indicator so it snaps to new position
     indicatorInitialized = false
-    springLeftVel = 0
-    springWidthVel = 0
   },
 )
 
@@ -781,7 +715,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown)
   scroller.removeEventListener('scroll', updateActiveGroupFromScroll)
   headerObserver?.disconnect()
-  cancelAnimationFrame(springAnimId)
   cancelAnimationFrame(scrollRafId)
   clearTimeout(saveSuccessTimer)
   clearTimeout(scrollSpyTimer)
@@ -932,6 +865,17 @@ function resetEdits() {
   advancedChanged.value = false
 }
 
+function confirmDiscardChanges() {
+  $q.dialog({
+    title: `Discard changes to ${props.filePath}?`,
+    message: 'Your unsaved edits are lost. The file keeps its saved values.',
+    cancel: { flat: true, label: 'Keep editing' },
+    ok: { color: 'negative', label: 'Discard changes' },
+    focus: 'cancel',
+    persistent: true,
+  }).onOk(discardChanges)
+}
+
 function discardChanges() {
   resetEdits()
   emit('discard')
@@ -1015,8 +959,10 @@ defineExpose({ hasChanges, confirmSaved })
   font-size: var(--xy-font-size-xs);
 }
 
+/* The border carries the category colour; small coloured text fails contrast. */
 .editor-category-badge {
   font-size: var(--xy-font-size-xs);
+  color: var(--xy-text-secondary);
 }
 
 .editor-modified-count {
@@ -1148,19 +1094,19 @@ defineExpose({ hasChanges, confirmSaved })
 }
 
 .group-tab:focus-visible {
-  outline: 2px solid var(--xy-primary);
+  outline: 2px solid var(--xy-focus-ring);
   outline-offset: -2px;
   border-radius: var(--xy-radius-sm);
 }
 
 .group-tab.active {
   color: var(--xy-text-primary);
-  border-bottom-color: var(--tab-accent, var(--xy-primary));
   background-color: color-mix(in srgb, var(--tab-accent, var(--xy-primary)) 6%, transparent);
 }
 
+/* No matches for the filter: the zero count says so, in readable muted text. */
 .group-tab.dimmed {
-  opacity: 0.4;
+  color: var(--xy-text-muted);
   cursor: default;
 }
 
@@ -1185,17 +1131,18 @@ defineExpose({ hasChanges, confirmSaved })
   color: var(--xy-base);
 }
 
-/* ---- Spring-physics tab indicator ---- */
+/* ---- Tab indicator: a 1px bar scaled to the active tab's width ---- */
 .tab-indicator {
   position: absolute;
   bottom: 0;
   left: 0;
   height: 2px;
-  width: 0;
+  width: 1px;
   background: var(--xy-primary);
   opacity: 0;
   pointer-events: none;
-  border-radius: var(--xy-radius-sm) var(--xy-radius-sm) 0 0;
+  transform-origin: left;
+  transition: transform var(--xy-transition-base);
 }
 
 /* ---- Validation banner ---- */
@@ -1273,6 +1220,8 @@ defineExpose({ hasChanges, confirmSaved })
 }
 
 .group-header-title {
+  margin: 0;
+  line-height: inherit;
   font-family: var(--xy-font-body);
   font-size: var(--xy-font-size-xs);
   font-weight: 600;
@@ -1285,8 +1234,7 @@ defineExpose({ hasChanges, confirmSaved })
   font-family: var(--xy-font-mono);
   font-size: var(--xy-font-size-2xs);
   font-weight: 600;
-  color: var(--group-accent, var(--xy-text-muted));
-  opacity: 0.7;
+  color: var(--xy-text-secondary);
   padding: 0.1rem 0.45rem;
   border-radius: var(--xy-radius-sm);
 }
@@ -1367,7 +1315,7 @@ defineExpose({ hasChanges, confirmSaved })
 }
 
 .field-required {
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
   margin-left: 0.15rem;
 }
 
@@ -1378,7 +1326,7 @@ defineExpose({ hasChanges, confirmSaved })
 .setting-error {
   margin-top: var(--xy-space-xs);
   font-size: var(--xy-font-size-xs);
-  color: var(--xy-danger);
+  color: var(--xy-danger-text);
 }
 
 .managed-field-display {
