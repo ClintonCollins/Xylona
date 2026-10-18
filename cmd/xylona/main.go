@@ -156,7 +156,7 @@ func setupLogger(logLevel string) (func(), error) {
 	logFile := os.Getenv("E2E_LOG_FILE")
 	if logFile != "" {
 		cleanLogFile := filepath.Clean(logFile)
-		f, errOpen := os.OpenFile(cleanLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		f, errOpen := os.OpenFile(cleanLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) //nolint:gosec // G703: the operator chooses this path through their own environment.
 		if errOpen == nil {
 			writer = zerolog.MultiLevelWriter(consoleWriter, f)
 			cleanup = func() {

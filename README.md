@@ -52,7 +52,7 @@ Passwords are read from stdin, never from argv. If `data.sqlite` already exists,
 
 ### Prerequisites
 
-- [Go 1.27.0](https://go.dev/doc/install)
+- [Go 1.27.2](https://go.dev/doc/install)
 - [Bun 1.3.12](https://bun.sh/docs/installation)
 - [golangci-lint](https://golangci-lint.run/welcome/install/)
 - [Mage](https://magefile.org/) for build, codegen, and E2E helpers

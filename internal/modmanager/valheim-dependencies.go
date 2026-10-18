@@ -103,11 +103,11 @@ func resolveValheimPackages(ctx context.Context, provider modproviders.ModProvid
 		}
 		visiting[id] = true
 		for _, dependency := range pkg.Dependencies {
-			index := strings.LastIndexByte(dependency, '-')
-			if index < 0 {
+			dependencyID, dependencyVersion, found := strings.CutLast(dependency, "-")
+			if !found {
 				return errors.New("invalid Thunderstore dependency reference")
 			}
-			errDependency := resolve(dependency[:index], dependency[index+1:])
+			errDependency := resolve(dependencyID, dependencyVersion)
 			if errDependency != nil {
 				return errDependency
 			}

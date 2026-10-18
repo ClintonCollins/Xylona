@@ -528,12 +528,10 @@ func titleCase(s string) string {
 // "1.21.4-100") into its version string and integer build number.
 // The version part may itself contain hyphens (e.g., "1.21.4-pre1-100").
 func parseVersionID(versionID string) (string, int, error) {
-	lastDash := strings.LastIndex(versionID, "-")
-	if lastDash < 0 {
+	version, buildStr, found := strings.CutLast(versionID, "-")
+	if !found {
 		return "", 0, fmt.Errorf("invalid versionID %q: expected format {version}-{build}", versionID)
 	}
-	version := versionID[:lastDash]
-	buildStr := versionID[lastDash+1:]
 	buildNum, errParse := strconv.Atoi(buildStr)
 	if errParse != nil {
 		return "", 0, fmt.Errorf("invalid versionID %q: build number %q is not an integer", versionID, buildStr)
