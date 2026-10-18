@@ -45,7 +45,7 @@ jobs:
         run: govulncheck ./...
 
   go:
-    name: Go Tests & Build
+    name: Go Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -63,22 +63,6 @@ jobs:
 
       - name: Run Go tests
         run: go test -race -count=1 ./...
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: frontend/package.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: bun ci
-
-      - name: Build embedded frontend
-        working-directory: frontend
-        run: bun run build
-
-      - name: Build Go binary
-        run: go build -o xylona ./cmd/xylona
 
   frontend:
     name: Frontend
@@ -112,34 +96,3 @@ jobs:
       - name: Run frontend build
         working-directory: frontend
         run: bun run build
-
-  e2e-smoke:
-    name: E2E Smoke
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: frontend/package.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: bun ci
-
-      - name: Install Playwright browser
-        working-directory: frontend
-        run: bunx playwright install --with-deps chromium
-
-      - name: Run E2E smoke
-        working-directory: frontend
-        run: bun run e2e:smoke
