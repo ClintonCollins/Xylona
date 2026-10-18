@@ -155,6 +155,31 @@ function mountEditor(
 }
 
 describe('StartArgsTemplateEditor', () => {
+  it('saves modifier text as separate arguments', async () => {
+    const wrapper = mountEditor({ windowsEnabled: false })
+    await wrapper.get('[data-testid="preview-chip-second"]').trigger('click')
+    await wrapper.get('[data-testid="tokens-input"] textarea').setValue('-modifier portals casual')
+    await wrapper.get('[data-testid="save-arg-button"]').trigger('click')
+
+    expect(wrapper.emitted('update:linuxTemplate')?.at(-1)?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'second', tokens: ['-modifier', 'portals', 'casual'] }),
+      ]),
+    )
+  })
+
+  it('does not save incomplete quoted arguments', async () => {
+    const wrapper = mountEditor({ windowsEnabled: false })
+    await wrapper.get('[data-testid="preview-chip-second"]').trigger('click')
+    await wrapper.get('[data-testid="tokens-input"] textarea').setValue('-name "My Server')
+    await wrapper.get('[data-testid="save-arg-button"]').trigger('click')
+
+    expect(wrapper.emitted('update:linuxTemplate')).toBeUndefined()
+    expect(wrapper.get('[data-testid="tokens-input"]').attributes('error-message')).toBe(
+      'Close the quoted argument before saving.',
+    )
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })

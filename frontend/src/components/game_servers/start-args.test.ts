@@ -3,13 +3,68 @@ import { describe, expect, it } from 'vitest'
 import {
   buildPlaceholderVars,
   formatCommandToken,
+  joinTokensInput,
   playerLimit,
   resolveStartCommandBase,
   resolveStartArgs,
   splitUnresolvedPlaceholders,
+  splitTokensInput,
   type StartArgBlock,
   type StartArgPatch,
 } from './start-args'
+
+describe('start argument input', () => {
+  it.each([
+    {
+      name: 'space-separated modifier commands',
+      input: '-modifier deathpenalty casual -modifier portals casual',
+      expected: ['-modifier', 'deathpenalty', 'casual', '-modifier', 'portals', 'casual'],
+    },
+    {
+      name: 'mixed spaces, tabs and lines',
+      input: '  -modifier\tdeathpenalty\tcasual\r\n-modifier\nportals\ncasual  ',
+      expected: ['-modifier', 'deathpenalty', 'casual', '-modifier', 'portals', 'casual'],
+    },
+    {
+      name: 'quoted values and empty arguments',
+      input: '-name "My Server" --world=\'My World\' -password ""',
+      expected: ['-name', 'My Server', '--world=My World', '-password', ''],
+    },
+    {
+      name: 'Windows path separators',
+      input: '-savedir C:\\servers\\valheim -logFile "C:\\My Server\\output.log"',
+      expected: ['-savedir', 'C:\\servers\\valheim', '-logFile', 'C:\\My Server\\output.log'],
+    },
+    {
+      name: 'literal quotes',
+      input: '--name "Say \\"hello\\""',
+      expected: ['--name', 'Say "hello"'],
+    },
+    { name: 'blank input', input: ' \n\t ', expected: [] },
+  ])('parses $name', ({ input, expected }) => {
+    expect(splitTokensInput(input)).toEqual(expected)
+  })
+
+  it.each(['-name "My Server', "-name 'My Server"])('rejects an unclosed quote in %s', (input) => {
+    expect(() => splitTokensInput(input)).toThrow('Close the quoted argument before saving.')
+  })
+
+  it('preserves existing argument boundaries when opened and saved', () => {
+    const tokens = [
+      '-modifier deathpenalty casual',
+      'My Server',
+      '',
+      'say "hello"',
+      "player's world",
+      'C:\\My Server\\',
+      '\\\\host\\share',
+      'line one\nline two',
+      '{{SERVER_NAME}}',
+      '$(literal)',
+    ]
+    expect(splitTokensInput(joinTokensInput(tokens))).toEqual(tokens)
+  })
+})
 
 describe('optional Valheim password', () => {
   const template: StartArgBlock[] = [

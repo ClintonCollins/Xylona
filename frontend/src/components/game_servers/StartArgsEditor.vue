@@ -4,7 +4,8 @@
       <div>
         <h2 class="start-args-editor__title font-display">Start arguments</h2>
         <div class="start-args-editor__copy text-xy-secondary">
-          Edit the argument blocks Xylona passes to the server. One line equals one argv token.
+          Edit the arguments Xylona passes to the server. Separate arguments with spaces or new
+          lines.
         </div>
       </div>
       <div v-if="allowProtectedEditing" class="start-args-editor__base-editor">
@@ -156,7 +157,8 @@
             {{ dialogTitle }}
           </div>
           <div class="text-xy-secondary start-args-editor__dialog-copy">
-            Use one line per token. Tokens are passed exactly as written without shell splitting.
+            Separate arguments with spaces or new lines. Quote values containing spaces, such as
+            -name "My Server".
           </div>
         </q-card-section>
 
@@ -167,7 +169,7 @@
             autogrow
             data-testid="tokens-input"
             input-class="font-mono"
-            label="Tokens"
+            label="Arguments"
             outlined
             type="textarea" />
           <q-banner v-if="formError" class="xy-banner-negative" dense role="alert">
@@ -423,7 +425,13 @@ function moveAddedBlock(block: ResolvedStartArgBlock, direction: -1 | 1) {
 }
 
 function saveDialog() {
-  const tokens = splitTokensInput(formState.tokensText)
+  let tokens: string[]
+  try {
+    tokens = splitTokensInput(formState.tokensText)
+  } catch (error) {
+    formError.value = error instanceof Error ? error.message : 'Invalid arguments.'
+    return
+  }
   if (tokens.length === 0) {
     formError.value = 'Add at least one token before saving.'
     return
@@ -499,7 +507,8 @@ function saveDialog() {
   }
 
   if (
-    formatTokensInline(existingTemplateBlock.tokens) === formatTokensInline(tokens) &&
+    existingTemplateBlock.tokens.length === tokens.length &&
+    existingTemplateBlock.tokens.every((token, index) => token === tokens[index]) &&
     (existingTemplateBlock.label ?? '') === formState.label.trim()
   ) {
     emit('update:patches', nextPatches)
