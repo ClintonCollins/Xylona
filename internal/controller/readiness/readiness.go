@@ -230,7 +230,7 @@ func dragonwildsConfigItem(ctx context.Context, gameServer *models.GameServer, c
 	case "windows":
 		configPath = "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini"
 	case "linux":
-		configPath = "RSDragonwilds/Saved/Config/Linux/DedicatedServer.ini"
+		configPath = "RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini"
 	default:
 		return item, fmt.Errorf("dragonwilds node operating system %q is unsupported", snapshot.OS)
 	}

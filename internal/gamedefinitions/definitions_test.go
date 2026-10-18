@@ -666,7 +666,7 @@ func TestDragonwildsConfigSchemaResolvesByPlatform(t *testing.T) {
 		t.Fatalf("config schema count = %d, want 1 so each node shows only the file it reads", len(entries))
 	}
 	for platform, wantPath := range map[string]string{
-		"linux":   "RSDragonwilds/Saved/Config/Linux/DedicatedServer.ini",
+		"linux":   "RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini",
 		"windows": "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini",
 	} {
 		if got := cfgschema.ResolvePlatformPath(entries[0], platform); got != wantPath {

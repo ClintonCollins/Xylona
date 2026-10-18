@@ -32,7 +32,7 @@ func TestDragonwildsConfigItem(t *testing.T) {
 			contents:     "OwnerId=\nServerName=Server\nDefaultWorldName=World\nAdminPassword=\n",
 			wantComplete: false,
 			wantMessage:  "Admin Password, Owner ID",
-			wantPath:     "RSDragonwilds/Saved/Config/Linux/DedicatedServer.ini",
+			wantPath:     "RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini",
 		},
 	}
 

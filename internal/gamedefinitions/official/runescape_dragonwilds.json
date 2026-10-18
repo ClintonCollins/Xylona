@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:c3c25d655957588c70a1fe9ab5833da05ca9ccb843a28b6107fd71e2fe47cf90",
+  "content_hash": "sha256:f8f478a87c334ec215940afb3e6e8e656daac8862d306b17d7baa04718395a65",
   "game": {
     "id": "runescape_dragonwilds",
     "name": "RuneScape: Dragonwilds",
@@ -56,7 +56,7 @@
   },
   "config_schemas": [
     {
-      "path": "RSDragonwilds/Saved/Config/Linux/DedicatedServer.ini",
+      "path": "RSDragonwilds/Saved/Config/LinuxServer/DedicatedServer.ini",
       "platform_paths": {
         "windows": "RSDragonwilds/Saved/Config/WindowsServer/DedicatedServer.ini"
       },
