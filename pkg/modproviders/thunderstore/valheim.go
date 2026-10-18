@@ -17,8 +17,8 @@ import (
 // ValheimLoaderID and ValheimLoaderVersion identify the supported BepInEx release.
 const (
 	ValheimLoaderID      = "denikson-BepInExPack_Valheim"
-	ValheimLoaderVersion = "5.4.2333"
-	valheimLoaderSHA256  = "5dd24ccbcaa9260f714b200f23c4c15547e2aa5f06906cafcc0dee56db1bf716"
+	ValheimLoaderVersion = "5.4.2351"
+	valheimLoaderSHA256  = "bce631497976a93977ceb08e166712e6c31d15244956f89f17df092a9b62e29f"
 )
 
 var (

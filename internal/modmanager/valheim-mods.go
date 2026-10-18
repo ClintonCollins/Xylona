@@ -2,6 +2,8 @@ package modmanager
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -57,6 +59,7 @@ func (m *ModManager) checkValheimStopped(ctx context.Context, client FileClient,
 type valheimFileClient interface {
 	FileClient
 	ListFiles(context.Context, string, string) ([]node.FileEntry, error)
+	StreamFile(context.Context, string, string) (io.ReadCloser, error)
 	StreamWriteFile(context.Context, string, string, io.Reader, node.ProtectionPolicy) (node.WriteFileResult, error)
 	GetNodeSnapshot(context.Context) (*node.NodeSnapshot, error)
 }
@@ -213,6 +216,24 @@ func (m *ModManager) changeValheimPackage(ctx context.Context, supplied FileClie
 			continue
 		}
 		if exists && owned[file.Path] == nil {
+			if sourceID == thunderstore.ValheimLoaderID {
+				stream, errStream := client.StreamFile(ctx, directory, target)
+				if errStream != nil {
+					return nil, fmt.Errorf("read existing Valheim loader: %w", errStream)
+				}
+				hash := sha256.New()
+				size, errHash := io.Copy(hash, io.LimitReader(stream, file.Size+1))
+				errRead := errors.Join(errHash, stream.Close())
+				if errRead != nil {
+					return nil, fmt.Errorf("verify existing Valheim loader: %w", errRead)
+				}
+				// Adopt only files identical to the verified loader archive.
+				if size == file.Size && hex.EncodeToString(hash.Sum(nil)) == file.Hash {
+					retained[file.Path] = true
+					files = append(files, file)
+					continue
+				}
+			}
 			return nil, fmt.Errorf("mod file already exists and is not owned by this package: %s", file.Path)
 		}
 		stream, errOpen := os.Open(filepath.Join(staging, file.Path))

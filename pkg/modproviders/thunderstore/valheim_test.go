@@ -170,7 +170,7 @@ func TestInspectValheimArchiveIntegrity(t *testing.T) {
 }
 
 func TestDownloadValheimLoader(t *testing.T) {
-	archivePath := "../../../docs/game-integrations/valheim/contracts-artifacts/BepInExPack_Valheim-5.4.2333.zip"
+	archivePath := "../../../docs/game-integrations/valheim/contracts-artifacts/BepInExPack_Valheim-" + ValheimLoaderVersion + ".zip"
 	data, errRead := os.ReadFile(archivePath)
 	if os.IsNotExist(errRead) {
 		t.Skip("recorded loader archive unavailable")

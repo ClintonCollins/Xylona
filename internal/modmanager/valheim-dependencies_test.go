@@ -92,6 +92,11 @@ func TestResolveValheimPackages(t *testing.T) {
 			errContains:  "cycle",
 		},
 		{
+			name:         "StoreAndCraft loader requirement",
+			dependencies: map[string][]string{"Author-Mod@2.0.0": {"denikson-BepInExPack_Valheim-5.4.2350"}},
+			want:         []string{loader, "Author-Mod@2.0.0"},
+		},
+		{
 			name:         "unsupported newer loader",
 			dependencies: map[string][]string{"Author-Mod@2.0.0": {"denikson-BepInExPack_Valheim-6.0.0"}},
 			errContains:  "requires version",

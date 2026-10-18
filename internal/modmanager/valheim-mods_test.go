@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ClintonCollins/Xylona/internal/db/dbtest"
@@ -185,6 +186,75 @@ func TestValheimModRollbackAndOwnership(t *testing.T) {
 	config, errReadConfig := os.ReadFile(filepath.Join(directory, "doorstop_config.ini"))
 	if errReadConfig != nil || string(config) != "user settings" {
 		t.Fatalf("loader config = %q, %v", config, errReadConfig)
+	}
+}
+
+func TestValheimExistingLoader(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		packageID   string
+		content     string
+		failPromote bool
+		wantError   string
+	}{
+		{name: "matching loader", packageID: thunderstore.ValheimLoaderID, content: "4.4.0"},
+		{name: "different loader", packageID: thunderstore.ValheimLoaderID, content: "4.3.0", wantError: "not owned"},
+		{name: "other package", packageID: "Author-Example", content: "4.4.0", wantError: "not owned"},
+		{name: "promotion failure preserves existing loader", packageID: thunderstore.ValheimLoaderID, content: "4.4.0", failPromote: true, wantError: "injected promotion failure"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := dbtest.NewMigratedConnection(t, "valheim-existing-loader.sqlite")
+			seedTestFixture(t, conn)
+			manager := New(conn)
+			directory := t.TempDir()
+			errWrite := os.WriteFile(filepath.Join(directory, ".doorstop_version"), []byte(tc.content), 0o600)
+			if errWrite != nil {
+				t.Fatal(errWrite)
+			}
+			capable, ok := newTestModFileClient(t, conn).(valheimFileClient)
+			if !ok {
+				t.Fatal("missing file capability")
+			}
+			client := extractedModClient{valheimFileClient: capable}
+			if tc.failPromote {
+				client.failTarget = "BepInEx/core/BepInEx.dll"
+			}
+			provider := &extractedModProvider{
+				details: &modproviders.ModDetails{Name: "BepInEx"},
+				content: map[string]string{".doorstop_version": "4.4.0", "BepInEx/core/BepInEx.dll": "loader"},
+			}
+			mod, errInstall := manager.changeValheimPackage(t.Context(), client, provider, "server-1", tc.packageID, thunderstore.ValheimLoaderVersion, directory, nil)
+			content, errRead := os.ReadFile(filepath.Join(directory, ".doorstop_version"))
+			if errRead != nil || string(content) != tc.content {
+				t.Fatalf("existing loader changed: %q, %v", content, errRead)
+			}
+			if tc.wantError != "" {
+				if errInstall == nil || !strings.Contains(errInstall.Error(), tc.wantError) {
+					t.Fatalf("error = %v, want %q", errInstall, tc.wantError)
+				}
+				mods, errMods := conn.GetInstalledModsByGameServerID("server-1")
+				if errMods != nil || len(mods) != 0 {
+					t.Fatalf("failed install recorded mods: %v, %v", mods, errMods)
+				}
+				return
+			}
+			if errInstall != nil {
+				t.Fatal(errInstall)
+			}
+			files, errFiles := conn.GetInstalledModFilesByModID(mod.ID)
+			if errFiles != nil || len(files) != 2 {
+				t.Fatalf("loader files = %v, %v", files, errFiles)
+			}
+			for _, file := range files {
+				if file.FilePath == ".doorstop_version" && file.FileHash != fmt.Sprintf("%x", sha256.Sum256([]byte(tc.content))) {
+					t.Fatalf("adopted file hash = %s", file.FileHash)
+				}
+			}
+			_, errReinstall := manager.changeValheimPackage(t.Context(), client, provider, "server-1", tc.packageID, thunderstore.ValheimLoaderVersion, directory, mod)
+			if errReinstall != nil {
+				t.Fatal(errReinstall)
+			}
+		})
 	}
 }
 
