@@ -2,7 +2,12 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import StartArgsEditor from './StartArgsEditor.vue'
-import type { StartArgBlock, StartArgPatch } from './start-args'
+import {
+  formatCommandToken,
+  resolveStartArgs,
+  type StartArgBlock,
+  type StartArgPatch,
+} from './start-args'
 
 const template: StartArgBlock[] = [
   {
@@ -93,6 +98,61 @@ function createWrapper(
 }
 
 describe('StartArgsEditor', () => {
+  it('can correct a template argument with the wrong boundaries', async () => {
+    const wrapper = createWrapper()
+    await wrapper.setProps({
+      template: [
+        { id: 'modifier', order: 0, ownership: 'editable', tokens: ['-modifier portals casual'] },
+      ],
+    })
+    await wrapper.get('[data-testid="edit-modifier"]').trigger('click')
+    await wrapper.get('textarea').setValue('-modifier portals casual')
+    await wrapper.get('[data-testid="save-arg-button"]').trigger('click')
+
+    expect(wrapper.emitted('update:patches')?.at(-1)?.[0]).toEqual([
+      expect.objectContaining({ op: 'edit', tokens: ['-modifier', 'portals', 'casual'] }),
+    ])
+  })
+
+  it('preserves quoted names when editing an existing patch', async () => {
+    const wrapper = createWrapper([
+      { id: 'name', op: 'add', afterId: 'editable-arg', tokens: ['-name', 'My Server'] },
+    ])
+    await wrapper.get('[data-testid="edit-name"]').trigger('click')
+    await wrapper.get('[data-testid="save-arg-button"]').trigger('click')
+
+    expect(wrapper.emitted('update:patches')?.at(-1)?.[0]).toEqual([
+      expect.objectContaining({ tokens: ['-name', 'My Server'] }),
+    ])
+  })
+
+  it('keeps invalid quoted input open without saving a patch', async () => {
+    const wrapper = createWrapper()
+    await wrapper.get('[data-testid="add-arg-button"]').trigger('click')
+    await wrapper.get('textarea').setValue('-name "My Server')
+    await wrapper.get('[data-testid="save-arg-button"]').trigger('click')
+
+    expect(wrapper.emitted('update:patches')).toBeUndefined()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Close the quoted argument before saving.')
+  })
+
+  it('saves modifier commands as separate arguments in the launch preview', async () => {
+    const wrapper = createWrapper()
+
+    await wrapper.get('[data-testid="add-arg-button"]').trigger('click')
+    await wrapper
+      .get('textarea')
+      .setValue('-modifier deathpenalty casual\n-modifier portals casual')
+    await wrapper.get('[data-testid="save-arg-button"]').trigger('click')
+
+    const patches = wrapper.emitted('update:patches')?.at(-1)?.[0] as StartArgPatch[]
+    const args = resolveStartArgs(template, patches, {}, 'valheim').args.slice(4)
+    expect(args).toEqual(['-modifier', 'deathpenalty', 'casual', '-modifier', 'portals', 'casual'])
+    expect(args.map(formatCommandToken).join(' ')).toBe(
+      '-modifier deathpenalty casual -modifier portals casual',
+    )
+  })
+
   it('renders provenance badges and base command header', () => {
     const wrapper = createWrapper()
 

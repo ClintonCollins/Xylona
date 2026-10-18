@@ -326,7 +326,9 @@
               :model-value="dialogDraft.tokensText"
               autogrow
               data-testid="tokens-input"
-              hint="One argument per line. These become argv tokens exactly as written."
+              hint="Separate arguments with spaces or new lines. Quote values containing spaces."
+              :error="dialogError !== ''"
+              :error-message="dialogError"
               label="Arguments"
               outlined
               type="textarea"
@@ -445,6 +447,7 @@ const selectedBlockIDs = ref<Record<Platform, string | null>>({ linux: null, win
 const draggedIndex = ref<number | null>(null)
 const dragInsertionIndex = ref<number | null>(null)
 const dialogOpen = ref(false)
+const dialogError = ref('')
 const dialogMode = ref<'add' | 'edit'>('add')
 const dialogEditingBlockID = ref<string | null>(null)
 const activeViewTransitionName = ref<string | null>(null)
@@ -575,14 +578,14 @@ const dialogTitle = computed(() => {
   return dialogDraft.label.trim() !== '' ? dialogDraft.label.trim() : 'Edit runtime argument'
 })
 const dialogSubtitle = computed(() => {
-  const preview = formatTokensInline(splitTokensInput(dialogDraft.tokensText)).trim()
+  const preview = dialogDraft.tokensText.trim()
   if (preview !== '') return preview
   return dialogMode.value === 'add'
     ? 'Create a new argument at the end of the preview, then drag it into place.'
     : 'Update the selected argument and keep the preview readable.'
 })
 const dialogHeroText = computed(() => {
-  const preview = formatTokensInline(splitTokensInput(dialogDraft.tokensText)).trim()
+  const preview = dialogDraft.tokensText.trim()
   if (preview !== '') return preview
 
   const label = dialogDraft.label.trim()
@@ -731,6 +734,7 @@ function openEditDialog(blockID: string, origin: 'preview' | 'advanced' = 'previ
   if (!block) return
 
   const applyOpen = () => {
+    dialogError.value = ''
     selectBlock(blockID)
     dialogMode.value = 'edit'
     dialogEditingBlockID.value = blockID
@@ -750,6 +754,7 @@ function openEditDialog(blockID: string, origin: 'preview' | 'advanced' = 'previ
 }
 
 function openAddDialog() {
+  dialogError.value = ''
   dialogMode.value = 'add'
   dialogEditingBlockID.value = null
   dialogDraft.label = ''
@@ -779,7 +784,13 @@ function handleDialogModelChange(value: boolean) {
 }
 
 function saveDialog() {
-  const patch = buildDialogBlockPatch()
+  let patch: Partial<StartArgBlock>
+  try {
+    patch = buildDialogBlockPatch()
+  } catch (error) {
+    dialogError.value = error instanceof Error ? error.message : 'Invalid arguments.'
+    return
+  }
 
   if (dialogMode.value === 'add') {
     const blockID = createBlockId()

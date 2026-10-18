@@ -370,14 +370,52 @@ export function findSimilarArg<
 }
 
 export function splitTokensInput(value: string): string[] {
-  return value
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+  const tokens: string[] = []
+  let token = ''
+  let quote = ''
+  let started = false
+
+  for (let index = 0; index < value.length; index++) {
+    const char = value.charAt(index)
+    const next = value.charAt(index + 1)
+
+    // Preserve path separators; only quotes and quoted backslashes are escaped.
+    if (
+      char === '\\' &&
+      quote !== "'" &&
+      (next === '"' || (quote === '"' && next === '\\') || (quote === '' && next === "'"))
+    ) {
+      token += next
+      started = true
+      index++
+    } else if (quote !== '') {
+      if (char === quote) quote = ''
+      else token += char
+    } else if (char === '"' || char === "'") {
+      quote = char
+      started = true
+    } else if (/\s/u.test(char)) {
+      if (started) tokens.push(token)
+      token = ''
+      started = false
+    } else {
+      token += char
+      started = true
+    }
+  }
+
+  if (quote !== '') throw new Error('Close the quoted argument before saving.')
+  if (started) tokens.push(token)
+  return tokens
 }
 
 export function joinTokensInput(tokens: string[]): string {
-  return tokens.join('\n')
+  return tokens
+    .map((token) => {
+      if (token !== '' && !/[\s"'\\]/u.test(token)) return token
+      return `"${token.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`
+    })
+    .join(' ')
 }
 
 export function formatTokensInline(tokens: string[]): string {
