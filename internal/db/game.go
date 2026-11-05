@@ -46,9 +46,11 @@ func (c *Connection) InsertGame(exec bob.Executor, gameSetter *models.GameSetter
 	return game, nil
 }
 
-// UpdateGame updates an existing game record.
+// UpdateGame updates an existing game record without changing its creation time.
 func (c *Connection) UpdateGame(exec bob.Executor, game *models.Game, gameSetter *models.GameSetter) (*models.Game, error) {
-	err := game.Update(c.ctx, exec, gameSetter)
+	updateSetter := *gameSetter
+	updateSetter.CreatedAt.Unset()
+	err := game.Update(c.ctx, exec, &updateSetter)
 	if err != nil {
 		log.Error().Err(err).Msg("Error updating game")
 		return nil, fmt.Errorf("update game: %w", err)

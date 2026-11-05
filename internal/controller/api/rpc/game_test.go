@@ -248,6 +248,9 @@ func TestEditGameValidData(t *testing.T) {
 	if resp.Msg == nil || resp.Msg.GetGame() == nil {
 		t.Fatalf("EditGame() returned empty response")
 	}
+	if !resp.Msg.GetGame().GetCreatedAt().AsTime().Equal(game.GetCreatedAt().AsTime()) {
+		t.Errorf("EditGame().Game.CreatedAt = %v, want %v", resp.Msg.GetGame().GetCreatedAt(), game.GetCreatedAt())
+	}
 	if resp.Msg.GetGame().GetName() != "Edit Game Updated" {
 		t.Errorf("EditGame().Game.Name = %q, want %q", resp.Msg.GetGame().GetName(), "Edit Game Updated")
 	}

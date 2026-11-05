@@ -10,6 +10,7 @@ import (
 	"github.com/aarondl/opt/omit"
 	"github.com/aarondl/opt/omitnull"
 
+	"github.com/ClintonCollins/Xylona/internal/startargs"
 	"github.com/ClintonCollins/Xylona/internal/updateconfig"
 	"github.com/ClintonCollins/Xylona/pkg/updateproviders"
 	"github.com/ClintonCollins/Xylona/proto/go/xylona"
@@ -692,6 +693,10 @@ func TestImportGamePreviewReportsStartArgGranularChanges(t *testing.T) {
 
 func TestImportGameApplyUpdatesExistingGame(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
+	original, errOriginal := fixture.conn.GetGameByID("valheim")
+	if errOriginal != nil {
+		t.Fatalf("GetGameByID() before import error = %v", errOriginal)
+	}
 	exportResp := exportGameForTest(t, fixture, "valheim")
 	definitionJSON := strings.Replace(exportResp.Msg.GetGameDefinitionJson(), `"name": "Valheim"`, `"name": "Valheim Imported"`, 1)
 	req := connect.NewRequest(&xylona.ImportGameRequest{
@@ -716,6 +721,9 @@ func TestImportGameApplyUpdatesExistingGame(t *testing.T) {
 	updated, errGame := fixture.conn.GetGameByID("valheim")
 	if errGame != nil {
 		t.Fatalf("GetGameByID() error = %v", errGame)
+	}
+	if !updated.CreatedAt.Equal(original.CreatedAt) {
+		t.Errorf("imported game CreatedAt = %v, want %v", updated.CreatedAt, original.CreatedAt)
 	}
 	if updated.Name != "Valheim Imported" {
 		t.Fatalf("updated game name = %q, want Valheim Imported", updated.Name)
@@ -1042,4 +1050,62 @@ func findImportChange(changes []*xylona.GameImportChange, path string) *xylona.G
 		}
 	}
 	return nil
+}
+
+func TestGameWithoutStartArgsSurvivesSaveAndReimport(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	assertResolved := func(t *testing.T) {
+		t.Helper()
+		game, errGame := fixture.conn.GetGameByID("enshrouded")
+		if errGame != nil {
+			t.Fatalf("GetGameByID() error = %v", errGame)
+		}
+		command, errResolve := startargs.ResolveServer(startargs.ServerConfig{
+			Definition:  definitionStartArgsConfig(game),
+			GOOS:        "windows",
+			PatchesJSON: "[]",
+		})
+		if errResolve != nil {
+			t.Fatalf("ResolveServer() error = %v", errResolve)
+		}
+		if command.BaseCommand != "enshrouded_server.exe" || len(command.Args) != 0 {
+			t.Errorf("ResolveServer() = %#v, want enshrouded_server.exe with no arguments", command)
+		}
+	}
+	t.Run("bundled definition", assertResolved)
+
+	updateReq := connect.NewRequest(&xylona.UpdateGameStartArgsTemplateRequest{
+		GameId:      "enshrouded",
+		Platform:    "windows",
+		BaseCommand: "enshrouded_server.exe",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateReq, "user-admin")
+	updateResp, errUpdate := fixture.service.UpdateGameStartArgsTemplate(t.Context(), updateReq)
+	if errUpdate != nil {
+		t.Fatalf("UpdateGameStartArgsTemplate() error = %v", errUpdate)
+	}
+	t.Run("saved start arguments", assertResolved)
+
+	editReq := connect.NewRequest(&xylona.EditGameRequest{Game: updateResp.Msg.GetGame()})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, editReq, "user-admin")
+	_, errEdit := fixture.service.EditGame(t.Context(), editReq)
+	if errEdit != nil {
+		t.Fatalf("EditGame() error = %v", errEdit)
+	}
+	t.Run("saved game definition", assertResolved)
+
+	exportResp := exportGameForTest(t, fixture, "enshrouded")
+	importReq := connect.NewRequest(&xylona.ImportGameRequest{
+		GameDefinitionJson: exportResp.Msg.GetGameDefinitionJson(),
+		Mode:               xylona.GameImportMode_GAME_IMPORT_MODE_APPLY,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, importReq, "user-admin")
+	importResp, errImport := fixture.service.ImportGame(t.Context(), importReq)
+	if errImport != nil {
+		t.Fatalf("ImportGame() error = %v", errImport)
+	}
+	if !importResp.Msg.GetSuccess() {
+		t.Fatalf("ImportGame().Success = false, errors = %v", importResp.Msg.GetValidationErrors())
+	}
+	t.Run("reimported game definition", assertResolved)
 }

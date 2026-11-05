@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/aarondl/opt/omit"
 	"github.com/stephenafamo/bob"
@@ -92,10 +93,14 @@ func TestGetGames(t *testing.T) {
 
 func TestUpdateGame(t *testing.T) {
 	conn := newRBACMigratedConnection(t, "game-update.sqlite")
+	createdAt := time.Date(2020, time.January, 2, 3, 4, 5, 0, time.UTC)
+	updatedAt := createdAt.Add(time.Hour)
 
 	setter := &models.GameSetter{
 		ID:                omit.From("update-game"),
 		Name:              omit.From("Original Name"),
+		CreatedAt:         omit.From(createdAt),
+		UpdatedAt:         omit.From(createdAt),
 		DefaultPort:       omit.From(int64(7777)),
 		DefaultQueryPort:  omit.From(int64(7777)),
 		DefaultMaxPlayers: omit.From(int64(16)),
@@ -109,6 +114,8 @@ func TestUpdateGame(t *testing.T) {
 	updateSetter := &models.GameSetter{
 		ID:                omit.From("update-game"),
 		Name:              omit.From("Updated Name"),
+		CreatedAt:         omit.From(updatedAt),
+		UpdatedAt:         omit.From(updatedAt),
 		DefaultPort:       omit.From(int64(8888)),
 		DefaultQueryPort:  omit.From(int64(8888)),
 		DefaultMaxPlayers: omit.From(int64(16)),
@@ -117,6 +124,12 @@ func TestUpdateGame(t *testing.T) {
 	updated, errUpdate := conn.UpdateGame(conn.DB, game, updateSetter)
 	if errUpdate != nil {
 		t.Fatalf("UpdateGame() error = %v", errUpdate)
+	}
+	if !updated.CreatedAt.Equal(createdAt) {
+		t.Errorf("UpdateGame().CreatedAt = %v, want %v", updated.CreatedAt, createdAt)
+	}
+	if !updated.UpdatedAt.Equal(updatedAt) {
+		t.Errorf("UpdateGame().UpdatedAt = %v, want %v", updated.UpdatedAt, updatedAt)
 	}
 	if updated.Name != "Updated Name" {
 		t.Errorf("UpdateGame().Name = %q, want %q", updated.Name, "Updated Name")

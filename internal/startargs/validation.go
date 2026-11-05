@@ -153,7 +153,7 @@ func ValidateServerUpdate(config ServerConfig) error {
 // ResolveServer tolerantly applies persisted patches and validates the final arguments.
 func ResolveServer(config ServerConfig) (ResolvedCommand, error) {
 	target := config.Definition.ForGOOS(config.GOOS, config.BaseCommandOverride)
-	if strings.TrimSpace(target.templateJSON) == "" {
+	if strings.TrimSpace(target.templateJSON) == "" && strings.TrimSpace(target.baseCommand) == "" {
 		return ResolvedCommand{}, ErrStartCommandTemplateMissing
 	}
 
@@ -162,7 +162,7 @@ func ResolveServer(config ServerConfig) (ResolvedCommand, error) {
 		return ResolvedCommand{}, ErrBaseCommandMissing
 	}
 
-	template, errTemplate := ParseTemplate(target.templateJSON)
+	template, errTemplate := ParseTemplate(strings.TrimSpace(target.templateJSON))
 	if errTemplate != nil {
 		return ResolvedCommand{}, fmt.Errorf("parse start args template: %w", errTemplate)
 	}

@@ -232,3 +232,47 @@ func TestResolveServer(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveServerWithoutArguments(t *testing.T) {
+	for _, template := range []struct {
+		name string
+		json string
+	}{
+		{name: "blank"},
+		{name: "whitespace", json: " \n\t "},
+		{name: "null", json: "null"},
+		{name: "empty array", json: "[]"},
+	} {
+		for _, target := range []struct {
+			name     string
+			goos     string
+			override string
+			want     string
+		}{
+			{name: "linux", goos: "linux", want: "linux-runner"},
+			{name: "windows", goos: "windows", want: "windows-runner.exe"},
+			{name: "override", goos: "windows", override: "{{RUNNER}}", want: "custom-runner.exe"},
+		} {
+			t.Run(template.name+"/"+target.name, func(t *testing.T) {
+				command, errResolve := ResolveServer(ServerConfig{
+					Definition: DefinitionConfig{
+						LinuxTemplateJSON:   template.json,
+						LinuxBaseCommand:    "linux-runner",
+						WindowsTemplateJSON: template.json,
+						WindowsBaseCommand:  "windows-runner.exe",
+					},
+					GOOS:                target.goos,
+					BaseCommandOverride: target.override,
+					PatchesJSON:         "[]",
+					Variables:           map[string]string{"RUNNER": "custom-runner.exe"},
+				})
+				if errResolve != nil {
+					t.Fatalf("ResolveServer() error = %v", errResolve)
+				}
+				if command.BaseCommand != target.want || len(command.Args) != 0 {
+					t.Errorf("ResolveServer() = %#v, want %q with no arguments", command, target.want)
+				}
+			})
+		}
+	}
+}
