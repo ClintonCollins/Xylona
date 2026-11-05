@@ -38,6 +38,9 @@ func structuredDefaultRoot(entry ConfigSchemaEntry) *cfgparse.ConfigNode {
 
 	for _, key := range SortedPropertyKeys(entry.Schema) {
 		prop := entry.Schema.Properties[key]
+		if prop.Default == nil {
+			continue
+		}
 		nodeType := nodeTypeForSchemaProperty(prop)
 		setStructuredPath(root, key, formatDefault(prop.Default), &nodeType)
 	}
@@ -101,6 +104,11 @@ func setStructuredPathParts(
 		return
 	}
 
+	// New arrays start at zero so numeric object IDs do not trigger sparse allocations.
+	if node.Type == cfgparse.NodeNull && parts[0] == "0" {
+		node.Type = cfgparse.NodeArray
+	}
+
 	if node.Type == cfgparse.NodeArray {
 		setStructuredArrayPath(node, parts, value, nodeType)
 		return
@@ -115,7 +123,7 @@ func setStructuredPathParts(
 	target := parts[0]
 	child := findStructuredChild(node, target)
 	if child == nil {
-		childType := cfgparse.NodeObject
+		childType := cfgparse.NodeNull
 		if len(parts) == 1 {
 			childType = cfgparse.NodeString
 			if nodeType != nil {
@@ -148,21 +156,17 @@ func setStructuredArrayPath(
 		return
 	}
 
+	wasMissing := index >= len(node.Children)
 	for len(node.Children) <= index {
-		childType := cfgparse.NodeObject
-		if len(parts) == 1 {
-			childType = cfgparse.NodeString
-			if nodeType != nil {
-				childType = *nodeType
-			}
-		}
-		node.Children = append(node.Children, &cfgparse.ConfigNode{Type: childType})
+		node.Children = append(node.Children, &cfgparse.ConfigNode{Type: cfgparse.NodeNull})
 	}
 
 	child := node.Children[index]
 	if len(parts) == 1 {
 		if nodeType != nil {
 			child.Type = *nodeType
+		} else if child.Type == cfgparse.NodeNull && (wasMissing || value != "") {
+			child.Type = cfgparse.NodeString
 		}
 		child.Value = value
 		return

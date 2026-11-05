@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:fda708c411485e6ff6d045543518751fa82584eefe3b030f155f01010e4bfa95",
+  "content_hash": "sha256:595b9d6e67f0736dfd1ab404a332321b5c915bb723cb70d669972dfe53642171",
   "game": {
     "id": "enshrouded",
     "name": "Enshrouded",
@@ -68,22 +68,33 @@
       },
       "schema": {
         "type": "object",
-        "x-groups": [
-          "Identity",
-          "Access",
-          "Networking",
-          "Storage"
-        ],
         "properties": {
           "name": {
             "type": "string",
             "title": "Server name",
             "default": "Enshrouded Server",
-            "x-group": "Identity",
+            "x-group": "identity",
             "x-order": 0,
             "x-managed": {
               "source": "game_server.server_name"
             }
+          },
+          "ip": {
+            "type": "string",
+            "title": "Bind IP",
+            "default": "0.0.0.0",
+            "x-group": "networking",
+            "x-order": 0,
+            "x-managed": {
+              "source": "game_server.ip"
+            }
+          },
+          "saveDirectory": {
+            "type": "string",
+            "title": "Save directory",
+            "default": "./savegame",
+            "x-group": "storage",
+            "x-order": 0
           },
           "slotCount": {
             "type": "integer",
@@ -91,20 +102,10 @@
             "default": 16,
             "minimum": 1,
             "maximum": 16,
-            "x-group": "Access",
+            "x-group": "access",
             "x-order": 1,
             "x-managed": {
               "source": "game_server.max_players"
-            }
-          },
-          "ip": {
-            "type": "string",
-            "title": "Bind IP",
-            "default": "0.0.0.0",
-            "x-group": "Networking",
-            "x-order": 0,
-            "x-managed": {
-              "source": "game_server.ip"
             }
           },
           "queryPort": {
@@ -113,27 +114,535 @@
             "default": 15637,
             "minimum": 1,
             "maximum": 65535,
-            "x-group": "Networking",
+            "x-group": "networking",
             "x-order": 1,
             "x-managed": {
               "source": "game_server.query_port"
             }
           },
-          "saveDirectory": {
-            "type": "string",
-            "title": "Save directory",
-            "default": "./savegame",
-            "x-group": "Storage",
-            "x-order": 0
-          },
           "logDirectory": {
             "type": "string",
             "title": "Log directory",
             "default": "./logs",
-            "x-group": "Storage",
+            "x-group": "storage",
             "x-order": 1
+          },
+          "voiceChatMode": {
+            "type": "string",
+            "title": "Voice chat mode",
+            "description": "Choose proximity or server-wide voice chat.",
+            "x-group": "chat",
+            "x-order": 0,
+            "default": "Proximity",
+            "enum": [
+              "Proximity",
+              "Global"
+            ]
+          },
+          "enableVoiceChat": {
+            "type": "boolean",
+            "title": "Enable voice chat",
+            "description": "Allow players to use voice chat.",
+            "x-group": "chat",
+            "x-order": 1,
+            "default": false
+          },
+          "enableTextChat": {
+            "type": "boolean",
+            "title": "Enable text chat",
+            "description": "Allow players to use text chat.",
+            "x-group": "chat",
+            "x-order": 2,
+            "default": false
+          },
+          "gameSettingsPreset": {
+            "type": "string",
+            "title": "Difficulty preset",
+            "description": "Select Custom to apply the individual gameplay settings below.",
+            "x-group": "difficulty",
+            "x-order": 0,
+            "default": "Default",
+            "enum": [
+              "Default",
+              "Relaxed",
+              "Hard",
+              "Survival",
+              "Custom"
+            ]
+          },
+          "gameSettings.playerHealthFactor": {
+            "type": "number",
+            "title": "Player health multiplier",
+            "description": "Maximum player health. Range: 0.25–4. Requires the Custom difficulty preset.",
+            "x-group": "player",
+            "x-order": 0,
+            "default": 1,
+            "maximum": 4
+          },
+          "gameSettings.playerManaFactor": {
+            "type": "number",
+            "title": "Player mana multiplier",
+            "description": "Maximum player mana. Range: 0.25–4. Requires the Custom difficulty preset.",
+            "x-group": "player",
+            "x-order": 1,
+            "default": 1,
+            "maximum": 4
+          },
+          "gameSettings.playerStaminaFactor": {
+            "type": "number",
+            "title": "Player stamina multiplier",
+            "description": "Maximum player stamina. Range: 0.25–4. Requires the Custom difficulty preset.",
+            "x-group": "player",
+            "x-order": 2,
+            "default": 1,
+            "maximum": 4
+          },
+          "gameSettings.playerBodyHeatFactor": {
+            "type": "number",
+            "title": "Body heat multiplier",
+            "description": "Time players can stay in cold areas before hypothermia. Range: 0.5–2. Requires the Custom difficulty preset.",
+            "x-group": "player",
+            "x-order": 3,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.playerDivingTimeFactor": {
+            "type": "number",
+            "title": "Diving time multiplier",
+            "description": "Available oxygen for diving. Range: 0.5–2. Requires the Custom difficulty preset.",
+            "x-group": "player",
+            "x-order": 4,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.foodBuffDurationFactor": {
+            "type": "number",
+            "title": "Food buff duration multiplier",
+            "description": "Duration of food buffs. Range: 0.5–2. Requires the Custom difficulty preset.",
+            "x-group": "survival",
+            "x-order": 0,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.shroudTimeFactor": {
+            "type": "number",
+            "title": "Shroud time multiplier",
+            "description": "Time players can remain in the Shroud. Range: 0.5–2. Requires the Custom difficulty preset.",
+            "x-group": "survival",
+            "x-order": 1,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.miningDamageFactor": {
+            "type": "number",
+            "title": "Mining effectiveness multiplier",
+            "description": "Mining damage and resources gathered per hit. Range: 0.5–2. Requires the Custom difficulty preset.",
+            "x-group": "resources",
+            "x-order": 0,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.plantGrowthSpeedFactor": {
+            "type": "number",
+            "title": "Plant growth speed multiplier",
+            "description": "Speed at which plants grow. Range: 0.25–2. Requires the Custom difficulty preset.",
+            "x-group": "resources",
+            "x-order": 1,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.resourceDropStackAmountFactor": {
+            "type": "number",
+            "title": "Resource yield multiplier",
+            "description": "Materials in loot stacks. Range: 0.25–2. Requires the Custom difficulty preset.",
+            "x-group": "resources",
+            "x-order": 2,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.factoryProductionSpeedFactor": {
+            "type": "number",
+            "title": "Workstation production multiplier",
+            "description": "Production speed at workstations. Range: 0.25–2. Requires the Custom difficulty preset.",
+            "x-group": "resources",
+            "x-order": 3,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.perkUpgradeRecyclingFactor": {
+            "type": "number",
+            "title": "Weapon recycling yield multiplier",
+            "description": "Runes recovered from salvaging upgraded weapons. Range: 0–1. Requires the Custom difficulty preset.",
+            "x-group": "progression",
+            "x-order": 0,
+            "default": 0.5,
+            "maximum": 1,
+            "minimum": 0
+          },
+          "gameSettings.perkCostFactor": {
+            "type": "number",
+            "title": "Weapon upgrade cost multiplier",
+            "description": "Runes required to upgrade weapons. Range: 0.25–2. Requires the Custom difficulty preset.",
+            "x-group": "progression",
+            "x-order": 1,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.experienceCombatFactor": {
+            "type": "number",
+            "title": "Combat experience multiplier",
+            "description": "Experience earned through combat. Range: 0.25–2. Requires the Custom difficulty preset.",
+            "x-group": "progression",
+            "x-order": 2,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.experienceMiningFactor": {
+            "type": "number",
+            "title": "Mining experience multiplier",
+            "description": "Experience earned by mining. Range: 0–2. Requires the Custom difficulty preset.",
+            "x-group": "progression",
+            "x-order": 3,
+            "default": 1,
+            "maximum": 2,
+            "minimum": 0
+          },
+          "gameSettings.experienceExplorationQuestsFactor": {
+            "type": "number",
+            "title": "Exploration and quest experience multiplier",
+            "description": "Experience earned from exploration and quests. Range: 0.25–2. Requires the Custom difficulty preset.",
+            "x-group": "progression",
+            "x-order": 4,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.enemyDamageFactor": {
+            "type": "number",
+            "title": "Enemy damage multiplier",
+            "description": "Enemy damage, excluding bosses. Range: 0.25–5. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 0,
+            "default": 1,
+            "maximum": 5
+          },
+          "gameSettings.enemyHealthFactor": {
+            "type": "number",
+            "title": "Enemy health multiplier",
+            "description": "Enemy health, excluding bosses. Range: 0.25–4. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 1,
+            "default": 1,
+            "maximum": 4
+          },
+          "gameSettings.enemyStaminaFactor": {
+            "type": "number",
+            "title": "Enemy stamina multiplier",
+            "description": "Higher values make enemies harder to stun; excludes bosses. Range: 0.5–2. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 2,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.enemyPerceptionRangeFactor": {
+            "type": "number",
+            "title": "Enemy perception multiplier",
+            "description": "Enemy sight and hearing range; excludes bosses. Range: 0.5–2. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 3,
+            "default": 1,
+            "maximum": 2
+          },
+          "gameSettings.bossDamageFactor": {
+            "type": "number",
+            "title": "Boss damage multiplier",
+            "description": "Damage from boss attacks. Range: 0.2–5. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 4,
+            "default": 1,
+            "maximum": 5
+          },
+          "gameSettings.bossHealthFactor": {
+            "type": "number",
+            "title": "Boss health multiplier",
+            "description": "Boss health. Range: 0.2–5. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 5,
+            "default": 1,
+            "maximum": 5
+          },
+          "gameSettings.threatBonus": {
+            "type": "number",
+            "title": "Enemy attack frequency multiplier",
+            "description": "Enemy attack frequency, excluding bosses. Range: 0.25–4. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 6,
+            "default": 1,
+            "maximum": 4
+          },
+          "gameSettings.enableDurability": {
+            "type": "boolean",
+            "title": "Weapon durability",
+            "description": "Weapons can break. Requires the Custom difficulty preset.",
+            "x-group": "survival",
+            "x-order": 2,
+            "default": true
+          },
+          "gameSettings.enableStarvingDebuff": {
+            "type": "boolean",
+            "title": "Hunger and starvation",
+            "description": "Starving players lose health until they eat or drink. Requires the Custom difficulty preset.",
+            "x-group": "survival",
+            "x-order": 3,
+            "default": false
+          },
+          "gameSettings.enableGliderTurbulences": {
+            "type": "boolean",
+            "title": "Glider turbulence",
+            "description": "Air turbulence affects gliders. Requires the Custom difficulty preset.",
+            "x-group": "world",
+            "x-order": 0,
+            "default": true
+          },
+          "gameSettings.pacifyAllEnemies": {
+            "type": "boolean",
+            "title": "Pacify enemies",
+            "description": "Enemies attack only after being attacked; excludes bosses. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 7,
+            "default": false
+          },
+          "gameSettings.tombstoneMode": {
+            "type": "string",
+            "title": "Death inventory loss",
+            "description": "Choose which backpack items are dropped on death. Requires the Custom difficulty preset.",
+            "x-group": "survival",
+            "x-order": 4,
+            "default": "AddBackpackMaterials",
+            "enum": [
+              "AddBackpackMaterials",
+              "Everything",
+              "NoTombstone"
+            ],
+            "x-enum-labels": [
+              "Materials only",
+              "Everything",
+              "Keep everything"
+            ]
+          },
+          "gameSettings.weatherFrequency": {
+            "type": "string",
+            "title": "Weather frequency",
+            "description": "Frequency of weather events. Requires the Custom difficulty preset.",
+            "x-group": "world",
+            "x-order": 1,
+            "default": "Normal",
+            "enum": [
+              "Disabled",
+              "Rare",
+              "Normal",
+              "Often"
+            ]
+          },
+          "gameSettings.fishingDifficulty": {
+            "type": "string",
+            "title": "Fishing difficulty",
+            "description": "Strength of fish during the fishing minigame. Requires the Custom difficulty preset.",
+            "x-group": "world",
+            "x-order": 2,
+            "default": "Normal",
+            "enum": [
+              "VeryEasy",
+              "Easy",
+              "Normal",
+              "Hard",
+              "VeryHard"
+            ],
+            "x-enum-labels": [
+              "Very easy",
+              "Easy",
+              "Normal",
+              "Hard",
+              "Very hard"
+            ]
+          },
+          "gameSettings.randomSpawnerAmount": {
+            "type": "string",
+            "title": "Enemy amount",
+            "description": "Number of enemies in the world. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 8,
+            "default": "Automatic",
+            "enum": [
+              "Few",
+              "Normal",
+              "Automatic",
+              "Many",
+              "Extreme"
+            ]
+          },
+          "gameSettings.aggroPoolAmount": {
+            "type": "string",
+            "title": "Simultaneous enemy attacks",
+            "description": "Number of enemies allowed to attack at once. Requires the Custom difficulty preset.",
+            "x-group": "combat",
+            "x-order": 9,
+            "default": "Normal",
+            "enum": [
+              "Few",
+              "Normal",
+              "Many",
+              "Extreme"
+            ]
+          },
+          "gameSettings.tamingStartleRepercussion": {
+            "type": "string",
+            "title": "Taming failure penalty",
+            "description": "Progress lost when an animal is startled during taming. Requires the Custom difficulty preset.",
+            "x-group": "world",
+            "x-order": 3,
+            "default": "LoseSomeProgress",
+            "enum": [
+              "KeepProgress",
+              "LoseSomeProgress",
+              "LoseAllProgress"
+            ],
+            "x-enum-labels": [
+              "Keep progress",
+              "Lose some progress",
+              "Lose all progress"
+            ]
+          },
+          "gameSettings.curseModifier": {
+            "type": "string",
+            "title": "Shroud curse difficulty",
+            "description": "Chance to receive the Shroud curse from relevant enemy attacks. Requires the Custom difficulty preset.",
+            "x-group": "survival",
+            "x-order": 5,
+            "default": "Normal",
+            "enum": [
+              "Easy",
+              "Normal",
+              "Hard"
+            ],
+            "x-enum-labels": [
+              "Disabled",
+              "Normal",
+              "Double chance"
+            ]
+          },
+          "gameSettings.fromHungerToStarving": {
+            "type": "integer",
+            "title": "Time until starvation (nanoseconds)",
+            "description": "Range: 5–20 minutes. One minute = 60,000,000,000 nanoseconds. Requires the Custom difficulty preset.",
+            "x-group": "survival",
+            "x-order": 6,
+            "default": 600000000000,
+            "minimum": 300000000000,
+            "maximum": 1200000000000
+          },
+          "gameSettings.dayTimeDuration": {
+            "type": "integer",
+            "title": "Day duration (nanoseconds)",
+            "description": "Range: 2–60 minutes. One minute = 60,000,000,000 nanoseconds. Requires the Custom difficulty preset.",
+            "x-group": "world",
+            "x-order": 4,
+            "default": 1800000000000,
+            "minimum": 120000000000,
+            "maximum": 3600000000000
+          },
+          "gameSettings.nightTimeDuration": {
+            "type": "integer",
+            "title": "Night duration (nanoseconds)",
+            "description": "Range: 2–60 minutes. One minute = 60,000,000,000 nanoseconds. Requires the Custom difficulty preset.",
+            "x-group": "world",
+            "x-order": 5,
+            "default": 720000000000,
+            "minimum": 120000000000,
+            "maximum": 3600000000000
+          },
+          "gameSettings.flameLevelFogRemoval": {
+            "type": "integer",
+            "title": "Flame level for building in the Shroud",
+            "description": "Required Flame level to place Flame Altars in the Shroud. Requires the Custom difficulty preset.",
+            "default": 11,
+            "minimum": 0,
+            "maximum": 20,
+            "x-group": "world",
+            "x-order": 6
+          },
+          "userGroups.0.name": {
+            "type": "string",
+            "title": "Group name",
+            "description": "Name of the first existing player group.",
+            "x-group": "player group",
+            "x-order": 0
+          },
+          "userGroups.0.password": {
+            "type": "string",
+            "title": "Group password",
+            "description": "Password granting access to this player group. A blank password allows unrestricted entry with these permissions.",
+            "x-group": "player group",
+            "x-order": 1
+          },
+          "userGroups.0.reservedSlots": {
+            "type": "integer",
+            "title": "Reserved player slots",
+            "description": "Slots reserved for this group.",
+            "x-group": "player group",
+            "x-order": 2,
+            "minimum": 0
+          },
+          "userGroups.0.canKickBan": {
+            "type": "boolean",
+            "title": "Allow kicking and banning",
+            "description": "Allow this group to kick or ban players.",
+            "x-group": "player group",
+            "x-order": 3
+          },
+          "userGroups.0.canAccessInventories": {
+            "type": "boolean",
+            "title": "Allow access to base inventories",
+            "description": "Allow access to containers in player bases.",
+            "x-group": "player group",
+            "x-order": 4
+          },
+          "userGroups.0.canEditWorld": {
+            "type": "boolean",
+            "title": "Allow world editing",
+            "description": "Allow terraforming and destruction outside player bases.",
+            "x-group": "player group",
+            "x-order": 5
+          },
+          "userGroups.0.canEditBase": {
+            "type": "boolean",
+            "title": "Allow base editing",
+            "description": "Allow building, terraforming, and adding or removing water in bases.",
+            "x-group": "player group",
+            "x-order": 6
+          },
+          "userGroups.0.canExtendBase": {
+            "type": "boolean",
+            "title": "Allow Flame Altar changes",
+            "description": "Allow adding, removing, and upgrading Flame Altars.",
+            "x-group": "player group",
+            "x-order": 7
           }
-        }
+        },
+        "x-groups": [
+          "identity",
+          "access",
+          "chat",
+          "difficulty",
+          "player",
+          "survival",
+          "resources",
+          "progression",
+          "combat",
+          "world",
+          "player group",
+          "networking",
+          "storage"
+        ]
       }
     }
   ],
