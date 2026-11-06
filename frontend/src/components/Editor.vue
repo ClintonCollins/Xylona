@@ -5,7 +5,7 @@
         <div class="editor-file">
           <q-icon aria-hidden="true" name="description" size="sm" />
           <span class="editor-path" :title="fullFilePath">{{ fullFilePath }}</span>
-          <span v-if="dirty" class="editor-dirty">Unsaved changes</span>
+          <span v-if="dirty" class="editor-dirty" role="status">Unsaved changes</span>
         </div>
         <div class="editor-options">
           <q-select
@@ -67,6 +67,7 @@ import loadCustomEditorSettings, {
 import { loadMonacoRuntime } from '@/components/editor/monaco-runtime'
 import { notifySuccess } from '@/api/notifications'
 import { uploadFormData } from '@/utils/upload'
+import { useUnsavedChangesGuard } from '@/utils/unsaved-changes-guard'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 type IStandaloneCodeEditor = MonacoEditor.IStandaloneCodeEditor
@@ -101,7 +102,8 @@ const editorOptions = ref([
   { label: 'High Contrast Black', value: 'hc-black' },
 ])
 
-// submit: saved from the Save button, close the editor. saved: saved in place with Ctrl/Cmd+S.
+// submit: saved from the Save button with no newer edits, close the editor.
+// saved: saved in place with Ctrl/Cmd+S or while newer edits still need saving.
 const emit = defineEmits(['submit', 'saved', 'close'])
 
 const codeInput = defineModel('codeInput', {
@@ -110,6 +112,7 @@ const codeInput = defineModel('codeInput', {
 })
 const savedContent = ref(codeInput.value)
 const dirty = computed(() => codeInput.value !== savedContent.value)
+const { confirmDiscard } = useUnsavedChangesGuard(() => dirty.value || saving.value)
 
 let editor: IStandaloneCodeEditor | null = null
 const editorContainer = ref(null)
@@ -209,18 +212,17 @@ async function initializeEditor() {
   }
 }
 
-function requestClose() {
-  if (!dirty.value) {
-    emit('close')
+async function requestClose() {
+  if (saving.value) {
     return
   }
-  $q.dialog({
-    title: 'Unsaved Changes',
-    message: `You have unsaved changes to ${props.fileName}. Discard them and close the editor?`,
-    cancel: { flat: true, label: 'Keep editing' },
-    ok: { color: 'negative', label: 'Discard Changes' },
-    persistent: true,
-  }).onOk(() => emit('close'))
+  if (
+    await confirmDiscard(
+      `You have unsaved changes to ${props.fileName}. Discard them and close the editor?`,
+    )
+  ) {
+    emit('close')
+  }
 }
 
 async function saveFile({ close }: { close: boolean }) {
@@ -230,16 +232,23 @@ async function saveFile({ close }: { close: boolean }) {
 
   saving.value = true
   saveError.value = ''
+  // The operator may keep editing while the upload is in flight. Only these
+  // submitted bytes become the saved baseline when the request succeeds.
+  const contentToSave = codeInput.value
   try {
     const directory = props.fullFilePath.replaceAll('\\', '/').split('/').slice(0, -1).join('/')
     const formData = new FormData()
     formData.append('gameServerId', props.gameServerId)
     formData.append('path', directory)
-    formData.append('file', new File([codeInput.value], props.fileName))
+    formData.append('file', new File([contentToSave], props.fileName))
     await uploadFormData('/api/file/upload', formData)
-    savedContent.value = codeInput.value
-    notifySuccess(`File ${props.fileName} saved successfully.`)
-    emit(close ? 'submit' : 'saved')
+    savedContent.value = contentToSave
+    notifySuccess(
+      dirty.value
+        ? `File ${props.fileName} saved. Newer edits are still unsaved.`
+        : `File ${props.fileName} saved successfully.`,
+    )
+    emit(close && !dirty.value ? 'submit' : 'saved')
   } catch (err) {
     console.error(err)
     saveError.value =
