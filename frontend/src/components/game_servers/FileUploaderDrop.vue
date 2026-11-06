@@ -8,11 +8,11 @@
     @drop="props.targetElement && dragDropEvent($event, props.targetElement)">
     <slot></slot>
   </section>
-  <!-- Persistent while uploading: closing would reset the queue without aborting it. -->
+  <!-- Keep discovery and uploads attached to the dialog until they finish. -->
   <q-dialog
     v-model="fileUploaderDialog"
     aria-labelledby="dialog-title"
-    :persistent="uploader.isUploading"
+    :persistent="addingFiles || uploader.isUploading"
     @hide="uploader.close()">
     <q-card
       id="fileUploaderCard"
@@ -35,6 +35,7 @@
             ref="filePicker"
             class="file-picker-input"
             data-testid="file-upload-picker"
+            :disabled="addingFiles || uploader.isUploading"
             multiple
             type="file"
             @change="handlePickerChange" />
@@ -42,11 +43,13 @@
             ref="folderPicker"
             class="file-picker-input"
             data-testid="folder-upload-picker"
+            :disabled="addingFiles || uploader.isUploading"
             multiple
             type="file"
             webkitdirectory
             @change="handlePickerChange" />
           <q-btn
+            :disable="addingFiles || uploader.isUploading"
             color="primary"
             icon="upload_file"
             label="Choose files"
@@ -54,6 +57,7 @@
             outline
             @click="filePicker?.click()" />
           <q-btn
+            :disable="addingFiles || uploader.isUploading"
             color="primary"
             icon="drive_folder_upload"
             label="Choose folder"
@@ -61,10 +65,14 @@
             outline
             @click="folderPicker?.click()" />
         </div>
+        <q-banner v-if="dropError" class="xy-banner-negative q-mb-md" role="alert">
+          {{ dropError }}
+        </q-banner>
         <q-toolbar v-if="uploader.files.size > 0 || addingFiles" class="bg-xy-surface-2 q-py-sm">
           <q-btn
             v-if="uploader.files.size > 0"
             :icon="tabClearAll"
+            :disable="addingFiles || uploader.isUploading"
             aria-label="Clear all files"
             class="text-xy-primary bg-alert-brighter"
             @click="uploader.removeQueuedFiles()">
@@ -85,6 +93,7 @@
           <q-btn
             v-if="uploader.queuedFilesCount > 0 && uploader.canUpload"
             :icon="tabOutlineUpload"
+            :disable="addingFiles"
             aria-label="Upload all files"
             class="text-xy-primary bg-success-darker"
             @click="uploader.upload()">
@@ -139,6 +148,7 @@
 
               <q-item-section side top>
                 <q-btn
+                  :disable="addingFiles || uploader.isUploading"
                   aria-label="Remove file"
                   :icon="file.status === FileStatus.Error ? tabX : tabTrash"
                   color="negative"
@@ -181,12 +191,12 @@
       <q-card-actions align="right" class="">
         <q-btn
           class="text-xy-secondary"
-          :disable="uploader.isUploading"
+          :disable="addingFiles || uploader.isUploading"
           flat
           label="Close"
           @click="uploader.close()" />
         <q-btn
-          :disable="!uploader.canUpload || uploader.queuedFilesCount <= 0"
+          :disable="addingFiles || !uploader.canUpload || uploader.queuedFilesCount <= 0"
           color="primary"
           label="Upload"
           @click="uploader.upload()" />
@@ -199,9 +209,10 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, Ref } from 'vue'
+import { computed, onBeforeUnmount, ref, Ref, watch } from 'vue'
 import { bytesToSize } from '@/utils/shared'
 import { uploadFormData } from '@/utils/upload'
+import { readDroppedFiles } from '@/utils/dropped-files'
 import {
   tabBarrierBlock,
   tabCheck,
@@ -243,9 +254,10 @@ const props = defineProps({
 
 const emits = defineEmits(['uploadedFiles'])
 const maxNumberOfFilesToDisplay = 1000
-const addingFilesToUploaderViaFileContainerDrop: Ref<boolean> = ref(false) // This is for overriding the default uploader adding files. When this is false, we intercept the file add event and add files manually.
 const dragEventInTargetMap: Map<HTMLElement, boolean> = new Map<HTMLElement, boolean>()
 const addingFiles: Ref<boolean> = ref(false)
+const dropError = ref('')
+let dropReadVersion = 0
 const filePicker: Ref<HTMLInputElement | null> = ref(null)
 const folderPicker: Ref<HTMLInputElement | null> = ref(null)
 // const worker = new Worker()
@@ -364,6 +376,7 @@ class FileUploader {
   close() {
     this.reset()
     fileUploaderDialog.value = false
+    dropError.value = ''
   }
 
   async upload() {
@@ -468,20 +481,6 @@ class FileUploader {
     file.lastLoaded = progressEvent.loaded
   }
 
-  async addFiles(files: FileSystemFileEntry[]) {
-    await Promise.all(
-      files.map(
-        (fileEntry: FileSystemFileEntry) =>
-          new Promise<void>((resolve, reject) => {
-            fileEntry.file((file: File) => {
-              this.addFile(file, fileEntry)
-              resolve()
-            }, reject)
-          }),
-      ),
-    )
-  }
-
   addNativeFiles(files: File[]) {
     files.forEach((file) => {
       const relativePath = file.webkitRelativePath || file.name
@@ -489,24 +488,6 @@ class FileUploader {
         new File([file], relativePath, { lastModified: file.lastModified, type: file.type }),
       )
     })
-  }
-
-  addFile(file: File, fileEntry: FileSystemFileEntry) {
-    if (!file) {
-      console.error('File is null')
-      return
-    }
-    if (this.finishedUpload) {
-      this.reset()
-    }
-    if (this.abortController === null) {
-      this.abortController = new AbortController()
-    }
-    const updatedFile = new File([file], getUploaderFileRelativePath(fileEntry), {
-      lastModified: file.lastModified,
-      type: file.type,
-    })
-    this.addPreparedFile(updatedFile)
   }
 
   addPreparedFile(updatedFile: File) {
@@ -545,6 +526,18 @@ class FileUploader {
 
 const uploader = ref(new FileUploader())
 
+function cancelDropRead() {
+  dropReadVersion++
+  addingFiles.value = false
+  dropError.value = ''
+}
+
+watch(fileUploaderDialog, (open) => {
+  if (!open) cancelDropRead()
+})
+watch(() => [props.gameServerId, props.path], cancelDropRead)
+onBeforeUnmount(cancelDropRead)
+
 // A dropped world folder can queue tens of thousands of files; mount only the first rows.
 const displayedFiles = computed(() => {
   const files: uploaderFile[] = []
@@ -557,75 +550,57 @@ const displayedFiles = computed(() => {
 
 function handlePickerChange(event: Event) {
   const input = event.target as HTMLInputElement
+  if (addingFiles.value || uploader.value.isUploading) {
+    input.value = ''
+    return
+  }
   const selectedFiles = Array.from(input.files ?? [])
   if (selectedFiles.length === 0) {
     return
   }
 
+  dropError.value = ''
   uploader.value.addNativeFiles(selectedFiles)
   input.value = ''
 }
 
-// TODO add directories as well. A user might upload an empty directory. We need to handle that.
-async function processDirectoryEntry(
-  webkitDirEntry: FileSystemDirectoryEntry,
-): Promise<FileSystemFileEntry[]> {
-  return new Promise((resolveDirectory) => {
-    webkitDirEntry.createReader().readEntries(async (entries: FileSystemEntry[]) => {
-      const allPromises: Promise<FileSystemFileEntry[]>[] = entries.map(
-        (entry: FileSystemEntry) => {
-          if (entry.isFile) {
-            return processFileEntry(entry as FileSystemFileEntry)
-          }
-          if (entry.isDirectory) {
-            return processDirectoryEntry(entry as FileSystemDirectoryEntry)
-          }
-          return Promise.resolve([] as FileSystemFileEntry[])
-        },
-      )
-
-      const results = await Promise.allSettled(allPromises)
-      const allFilesCombined = results
-        .filter(
-          (result): result is PromiseFulfilledResult<FileSystemFileEntry[]> =>
-            result.status === 'fulfilled',
-        )
-        .flatMap((result) => result.value)
-
-      resolveDirectory(allFilesCombined)
-    })
-  })
-}
-
-async function processFileEntry(fileEntry: FileSystemFileEntry): Promise<FileSystemFileEntry[]> {
-  return [fileEntry]
-}
-
+// Empty directories cannot be represented by the file-upload endpoint.
 async function handleDropEvent(event: DragEvent) {
-  if (!event.dataTransfer) {
+  if (!event.dataTransfer || addingFiles.value || uploader.value.isUploading) {
     return
   }
-  if (event.dataTransfer.items) {
-    const items = [...event.dataTransfer.items]
-    fileUploaderDialog.value = true
-    addingFiles.value = true
-    const directoryProcessors: Promise<FileSystemFileEntry[]>[] = items.map(
-      (item: DataTransferItem) => {
-        const webkitEntry = item.webkitGetAsEntry()
-        if (webkitEntry && webkitEntry.isDirectory) {
-          return processDirectoryEntry(webkitEntry as FileSystemDirectoryEntry)
-        }
-        if (webkitEntry && webkitEntry.isFile) {
-          return processFileEntry(webkitEntry as FileSystemFileEntry)
-        }
-        return Promise.resolve([] as FileSystemFileEntry[])
-      },
-    )
+  const items = Array.from(event.dataTransfer.items).filter((item) => item.kind === 'file')
+  if (items.length === 0) {
+    return
+  }
 
-    const allFiles = (await Promise.all(directoryProcessors)).flat()
-    addingFilesToUploaderViaFileContainerDrop.value = false
-    await uploader.value.addFiles(allFiles)
-    addingFiles.value = false
+  fileUploaderDialog.value = true
+  addingFiles.value = true
+  dropError.value = ''
+  const readVersion = ++dropReadVersion
+  try {
+    // Capture entries synchronously while the browser still grants access to the drop.
+    const entries = items.map((item) => {
+      const entry = item.webkitGetAsEntry()
+      if (!entry) {
+        throw new Error('Could not read dropped item')
+      }
+      return entry
+    })
+    const files = await readDroppedFiles(entries)
+    // Navigation can close the dialog even while it is persistent. Never add
+    // an old result to a new queue or a different server/destination.
+    if (readVersion !== dropReadVersion) return
+    if (uploader.value.finishedUpload && files.length > 0) {
+      uploader.value.reset()
+    }
+    uploader.value.addNativeFiles(files)
+  } catch {
+    if (readVersion !== dropReadVersion) return
+    dropError.value =
+      'Could not read all dropped files. Nothing from this drop was added. Try again or use Choose files or Choose folder.'
+  } finally {
+    if (readVersion === dropReadVersion) addingFiles.value = false
   }
 }
 
@@ -734,28 +709,13 @@ async function dragDropEvent(event: DragEvent, targetElement: HTMLElement | stri
   void handleDropEvent(event)
 }
 
-function getUploaderFileRelativePath(file: FileSystemFileEntry): string {
-  if (!file) {
-    console.error('File is null')
-    return ''
-  }
-  let fullPath = file.fullPath
-  if (fullPath === '') {
-    return file.name
-  }
-  if (fullPath.startsWith('/') || fullPath.startsWith('\\')) {
-    fullPath = fullPath.slice(1)
-  }
-  return fullPath
-}
-
 function getUploaderFilePath(file: File): string {
   let joinedRelativePath = props.path
   if (joinedRelativePath.length > 0) {
     joinedRelativePath += props.pathSeparator
   }
-  let relativePath = file.webkitRelativePath
-  if (file.webkitRelativePath === '') {
+  let relativePath = file.webkitRelativePath || ''
+  if (relativePath === '') {
     const lastIndexOfPath = file.name.lastIndexOf('/')
     if (lastIndexOfPath !== -1) {
       relativePath = file.name.slice(0, lastIndexOfPath) + props.pathSeparator
