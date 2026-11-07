@@ -33,6 +33,7 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
   const consoleHistory = ref<string[]>([])
   const consoleHistoryCurrentIndex = ref(0)
 
+  let consoleInputDraft = ''
   let consoleLineIdCounter = 0
   let pendingConsoleChunks: string[] = []
   let consoleRafId: number | null = null
@@ -164,14 +165,22 @@ export function useGameServerConsoleState(options: ConsoleStateOptions) {
     const newIndex = consoleHistoryCurrentIndex.value + historyDirection
     if (newIndex < 0 || newIndex > consoleHistory.value.length) return
 
+    // Keep unfinished input separate from sent commands while browsing history.
+    if (consoleHistoryCurrentIndex.value === consoleHistory.value.length) {
+      consoleInputDraft = serverInput.value
+    }
+
     consoleHistoryCurrentIndex.value = newIndex
     serverInput.value =
-      newIndex === consoleHistory.value.length ? '' : (consoleHistory.value[newIndex] ?? '')
+      newIndex === consoleHistory.value.length
+        ? consoleInputDraft
+        : (consoleHistory.value[newIndex] ?? '')
   }
 
   function recordConsoleInput() {
     consoleHistory.value.push(serverInput.value)
     consoleHistoryCurrentIndex.value = consoleHistory.value.length
+    consoleInputDraft = ''
     serverInput.value = ''
   }
 

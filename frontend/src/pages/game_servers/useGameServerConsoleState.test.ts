@@ -50,3 +50,84 @@ describe('useGameServerConsoleState following', () => {
     expect(state.consoleAutoScroll.value).toBe(true)
   })
 })
+
+describe('useGameServerConsoleState command history', () => {
+  function setupHistory() {
+    const { state } = setup(true)
+    for (const command of ['list', 'say Server restart in five minutes']) {
+      state.serverInput.value = command
+      state.recordConsoleInput()
+    }
+    return state
+  }
+
+  it('restores the exact unfinished command after browsing older commands', () => {
+    const state = setupHistory()
+    const draft = '  say Restart postponed until 18:30  '
+    state.serverInput.value = draft
+
+    state.navigateConsoleInputHistory('up')
+    expect(state.serverInput.value).toBe('say Server restart in five minutes')
+    state.navigateConsoleInputHistory('up')
+    expect(state.serverInput.value).toBe('list')
+    state.navigateConsoleInputHistory('up')
+    expect(state.serverInput.value).toBe('list')
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe('say Server restart in five minutes')
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe(draft)
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe(draft)
+  })
+
+  it('keeps the draft separate from edits to a recalled command', () => {
+    const state = setupHistory()
+    state.serverInput.value = 'say Still typing'
+    state.navigateConsoleInputHistory('up')
+    state.serverInput.value = 'say Edited history entry'
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe('say Still typing')
+
+    state.navigateConsoleInputHistory('up')
+    expect(state.serverInput.value).toBe('say Server restart in five minutes')
+  })
+
+  it('captures edits to the restored draft on the next history visit', () => {
+    const state = setupHistory()
+    state.serverInput.value = 'say First draft'
+    state.navigateConsoleInputHistory('up')
+    state.navigateConsoleInputHistory('down')
+    state.serverInput.value = 'say Revised draft'
+    state.navigateConsoleInputHistory('up')
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe('say Revised draft')
+  })
+
+  it('starts with a fresh draft after sending a recalled command', () => {
+    const state = setupHistory()
+    state.serverInput.value = 'say Unsent draft'
+    state.navigateConsoleInputHistory('up')
+    state.serverInput.value = 'say Updated announcement'
+    state.recordConsoleInput()
+    expect(state.serverInput.value).toBe('')
+
+    state.navigateConsoleInputHistory('up')
+    expect(state.serverInput.value).toBe('say Updated announcement')
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe('')
+  })
+
+  it('does not change a draft when there is no history or the direction is invalid', () => {
+    const { state } = setup(true)
+    state.serverInput.value = 'say First command'
+    state.navigateConsoleInputHistory('up')
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe('say First command')
+
+    state.recordConsoleInput()
+    state.serverInput.value = 'say Next command'
+    state.navigateConsoleInputHistory('left')
+    state.navigateConsoleInputHistory('down')
+    expect(state.serverInput.value).toBe('say Next command')
+  })
+})
