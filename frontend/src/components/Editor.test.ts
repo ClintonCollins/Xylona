@@ -94,6 +94,29 @@ describe('Editor', () => {
     mocks.notifyError.mockReset()
   })
 
+  it('updates a persistent status region when edits become dirty or clean', async () => {
+    const { wrapper, viewModel } = mountEditor()
+    const status = wrapper.get('[role="status"]')
+    const statusElement = status.element
+    expect(status.text()).toBe('')
+
+    await wrapper.setProps({ codeInput: 'server-port=25566' })
+    expect(wrapper.get('[role="status"]').element).toBe(statusElement)
+    expect(status.text()).toBe('Unsaved changes')
+
+    await wrapper.setProps({ codeInput: 'server-port=25565' })
+    expect(wrapper.get('[role="status"]').element).toBe(statusElement)
+    expect(status.text()).toBe('')
+
+    await wrapper.setProps({ codeInput: 'server-port=25567' })
+    expect(status.text()).toBe('Unsaved changes')
+    mocks.uploadFormData.mockResolvedValueOnce(undefined)
+    await viewModel.saveFile({ close: false })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[role="status"]').element).toBe(statusElement)
+    expect(status.text()).toBe('')
+  })
+
   it('keeps the editor content open after a failed save and emits submit only after success', async () => {
     const wrapper = shallowMount(Editor, {
       props: {

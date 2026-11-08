@@ -5,7 +5,7 @@
         <div class="editor-file">
           <q-icon aria-hidden="true" name="description" size="sm" />
           <span class="editor-path" :title="fullFilePath">{{ fullFilePath }}</span>
-          <span v-if="dirty" class="editor-dirty" role="status">Unsaved changes</span>
+          <span class="editor-dirty" role="status">{{ dirty ? 'Unsaved changes' : '' }}</span>
         </div>
         <div class="editor-options">
           <q-select
