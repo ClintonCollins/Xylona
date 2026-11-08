@@ -1,5 +1,5 @@
 import { flushPromises, shallowMount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
 import { readDroppedFiles } from '@/utils/dropped-files'
@@ -34,6 +34,10 @@ type UploaderState = {
   addingFiles: boolean
 }
 
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
 afterEach(() => {
   vi.resetAllMocks()
   document.body.innerHTML = ''
@@ -52,7 +56,11 @@ describe('folder upload discovery', () => {
     expect(readDroppedFiles).toHaveBeenCalledWith([entry])
     expect(state.addingFiles).toBe(true)
     expect(state.uploader.files.size).toBe(0)
-    expect(wrapper.findComponent({ name: 'QDialog' }).props('persistent')).toBe(true)
+    expect(wrapper.findComponent({ name: 'QDialog' }).props('persistent')).toBe(false)
+    expect(wrapper.get('.file-uploader').classes()).toContain('relative-position')
+    expect(wrapper.get('.file-uploader').findComponent({ name: 'QInnerLoading' }).exists()).toBe(
+      true,
+    )
     expect(wrapper.get('[data-testid="folder-upload-picker"]').attributes()).toHaveProperty(
       'disabled',
     )
@@ -80,7 +88,8 @@ describe('folder upload discovery', () => {
   })
 
   it('preserves existing queued files after a failed read and allows a fresh drop', async () => {
-    vi.mocked(readDroppedFiles).mockRejectedValueOnce(new Error('Unreadable folder'))
+    const error = new DOMException('Unreadable folder', 'NotReadableError')
+    vi.mocked(readDroppedFiles).mockRejectedValueOnce(error)
     const wrapper = mountUploader()
     const state = wrapper.vm as unknown as UploaderState
     state.uploader.addNativeFiles([new File(['config'], 'server.properties')])
@@ -88,6 +97,7 @@ describe('folder upload discovery', () => {
     await wrapper.get('#fileUploaderCard').trigger('drop', { dataTransfer: droppedItems() })
     await flushPromises()
 
+    expect(console.error).toHaveBeenCalledWith(error)
     expect(state.addingFiles).toBe(false)
     expect([...state.uploader.files.keys()]).toEqual(['server.properties'])
     expect(wrapper.get('[role="alert"]').text()).toContain('Nothing from this drop was added.')
@@ -110,37 +120,51 @@ describe('folder upload discovery', () => {
     await flushPromises()
 
     expect(readDroppedFiles).not.toHaveBeenCalled()
+    expect(console.error).toHaveBeenCalledWith(new Error('Could not read dropped item'))
     expect((wrapper.vm as unknown as UploaderState).addingFiles).toBe(false)
     expect(wrapper.get('[role="alert"]').text()).toContain('Choose folder')
     wrapper.unmount()
   })
 
-  it("ignores a closed dialog's pending read without disturbing a newer drop", async () => {
-    let finishOldRead!: (files: File[]) => void
-    let finishNewRead!: (files: File[]) => void
-    vi.mocked(readDroppedFiles)
-      .mockReturnValueOnce(new Promise((resolve) => (finishOldRead = resolve)))
-      .mockReturnValueOnce(new Promise((resolve) => (finishNewRead = resolve)))
-    const wrapper = mountUploader()
-    const state = wrapper.vm as unknown as UploaderState
+  it.each(['Close', 'dialog dismissal'])(
+    'ignores a pending read after %s without disturbing a newer drop',
+    async (method) => {
+      let finishOldRead!: (files: File[]) => void
+      let finishNewRead!: (files: File[]) => void
+      vi.mocked(readDroppedFiles)
+        .mockReturnValueOnce(new Promise((resolve) => (finishOldRead = resolve)))
+        .mockReturnValueOnce(new Promise((resolve) => (finishNewRead = resolve)))
+      const wrapper = mountUploader()
+      const state = wrapper.vm as unknown as UploaderState
 
-    await wrapper.get('#fileUploaderCard').trigger('drop', { dataTransfer: droppedItems() })
-    await wrapper.setProps({ fileUploaderDialog: false })
-    expect(state.addingFiles).toBe(false)
-    await wrapper.setProps({ fileUploaderDialog: true })
-    await wrapper.get('#fileUploaderCard').trigger('drop', { dataTransfer: droppedItems() })
+      await wrapper.get('#fileUploaderCard').trigger('drop', { dataTransfer: droppedItems() })
+      if (method === 'Close') {
+        const close = wrapper
+          .findAllComponents({ name: 'QBtn' })
+          .find((button) => button.props('label') === 'Close')
+        expect(close?.props('disable')).toBe(false)
+        close?.vm.$emit('click')
+      } else {
+        wrapper.findComponent({ name: 'QDialog' }).vm.$emit('update:modelValue', false)
+      }
+      expect(wrapper.emitted('update:fileUploaderDialog')?.at(-1)).toEqual([false])
+      await wrapper.setProps({ fileUploaderDialog: false })
+      expect(state.addingFiles).toBe(false)
+      await wrapper.setProps({ fileUploaderDialog: true })
+      await wrapper.get('#fileUploaderCard').trigger('drop', { dataTransfer: droppedItems() })
 
-    finishOldRead([new File(['old'], 'old-world/level.dat')])
-    await flushPromises()
-    expect(state.uploader.files.size).toBe(0)
-    expect(state.addingFiles).toBe(true)
+      finishOldRead([new File(['old'], 'old-world/level.dat')])
+      await flushPromises()
+      expect(state.uploader.files.size).toBe(0)
+      expect(state.addingFiles).toBe(true)
 
-    finishNewRead([new File(['new'], 'new-world/level.dat')])
-    await flushPromises()
-    expect([...state.uploader.files.keys()]).toEqual(['new-world/level.dat'])
-    expect(state.addingFiles).toBe(false)
-    wrapper.unmount()
-  })
+      finishNewRead([new File(['new'], 'new-world/level.dat')])
+      await flushPromises()
+      expect([...state.uploader.files.keys()]).toEqual(['new-world/level.dat'])
+      expect(state.addingFiles).toBe(false)
+      wrapper.unmount()
+    },
+  )
 
   it.each([{ path: 'another-folder' }, { gameServerId: 'another-server' }])(
     'does not show a stale read error after changing destination: %j',
@@ -154,9 +178,11 @@ describe('folder upload discovery', () => {
       await wrapper.get('#fileUploaderCard').trigger('drop', { dataTransfer: droppedItems() })
       await wrapper.setProps(props)
 
-      failReading(new Error('Old directory is no longer readable'))
+      const error = new Error('Old directory is no longer readable')
+      failReading(error)
       await flushPromises()
 
+      expect(console.error).toHaveBeenCalledWith(error)
       expect(state.uploader.files.size).toBe(0)
       expect(state.addingFiles).toBe(false)
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
@@ -187,6 +213,11 @@ describe('folder upload discovery', () => {
 
     await wrapper.get('#fileUploaderCard').trigger('drop', { dataTransfer: droppedItems() })
 
+    expect(wrapper.findComponent({ name: 'QDialog' }).props('persistent')).toBe(true)
+    const close = wrapper
+      .findAllComponents({ name: 'QBtn' })
+      .find((button) => button.props('label') === 'Close')
+    expect(close?.props('disable')).toBe(true)
     expect(readDroppedFiles).not.toHaveBeenCalled()
     expect(state.uploader.files.size).toBe(0)
     wrapper.unmount()

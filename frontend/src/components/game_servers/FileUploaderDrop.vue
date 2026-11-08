@@ -8,11 +8,11 @@
     @drop="props.targetElement && dragDropEvent($event, props.targetElement)">
     <slot></slot>
   </section>
-  <!-- Keep discovery and uploads attached to the dialog until they finish. -->
+  <!-- Uploads must finish or be aborted; folder discovery can be dismissed. -->
   <q-dialog
     v-model="fileUploaderDialog"
     aria-labelledby="dialog-title"
-    :persistent="addingFiles || uploader.isUploading"
+    :persistent="uploader.isUploading"
     @hide="uploader.close()">
     <q-card
       id="fileUploaderCard"
@@ -116,7 +116,7 @@
           <q-icon aria-hidden="true" name="upload_file" size="2rem" />
           <span>Drop files or folders here</span>
         </div>
-        <div v-else class="file-uploader">
+        <div v-else class="file-uploader relative-position">
           <q-list separator>
             <q-item v-for="file in displayedFiles" :key="file.key">
               <q-item-section v-if="file.status === FileStatus.Queued" avatar>
@@ -186,12 +186,15 @@
               You can still upload your files by clicking the upload button.
             </div>
           </div>
+          <q-inner-loading :showing="addingFiles">
+            <div class="text-info">Generating upload preview</div>
+          </q-inner-loading>
         </div>
       </q-card-section>
       <q-card-actions align="right" class="">
         <q-btn
           class="text-xy-secondary"
-          :disable="addingFiles || uploader.isUploading"
+          :disable="uploader.isUploading"
           flat
           label="Close"
           @click="uploader.close()" />
@@ -201,9 +204,6 @@
           label="Upload"
           @click="uploader.upload()" />
       </q-card-actions>
-      <q-inner-loading :showing="addingFiles">
-        <div class="text-info">Generating upload preview</div>
-      </q-inner-loading>
     </q-card>
   </q-dialog>
 </template>
@@ -588,14 +588,15 @@ async function handleDropEvent(event: DragEvent) {
       return entry
     })
     const files = await readDroppedFiles(entries)
-    // Navigation can close the dialog even while it is persistent. Never add
-    // an old result to a new queue or a different server/destination.
+    // Closing or navigation cancels discovery. Never add an old result to
+    // a new queue or a different server/destination.
     if (readVersion !== dropReadVersion) return
     if (uploader.value.finishedUpload && files.length > 0) {
       uploader.value.reset()
     }
     uploader.value.addNativeFiles(files)
-  } catch {
+  } catch (err) {
+    console.error(err)
     if (readVersion !== dropReadVersion) return
     dropError.value =
       'Could not read all dropped files. Nothing from this drop was added. Try again or use Choose files or Choose folder.'
